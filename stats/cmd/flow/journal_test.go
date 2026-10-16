@@ -3,88 +3,28 @@ package main
 import (
 	"bytes"
 	"context"
-	"fmt"
-	dsnutil "github.com/tweety53/agents/stats/internal/dsn"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/tweety53/agents/stats/internal/fallback"
 	"github.com/tweety53/agents/stats/internal/store"
+	"github.com/tweety53/agents/stats/internal/storetest"
 )
 
-// adminDSN is the DSN used to create and drop per-test databases -- the
-// same dedicated flow-postgres compose stack every other package's tests
-// use.
-func adminDSN() string {
-	if v := os.Getenv("FLOW_STATS_ADMIN_DSN"); v != "" {
-		return v
-	}
-	return "postgres://flow:flow@localhost:5433/flow?sslmode=disable"
-}
+// TestMain drops the package's template database once every test has run.
+func TestMain(m *testing.M) { os.Exit(storetest.Main(m)) }
 
-// newTestStoreDSN creates a uniquely-named, migrated database against the
-// compose stack and returns its DSN -- runJournalFlush opens its own store
-// from a DSN string (it is the one CLI command that talks to the store
-// directly; see journal.go's own doc comment), so this test needs the
-// connection string itself, not a *store.Store. It skips cleanly when the
-// stack is not reachable and registers a cleanup that drops the database.
+// newTestStoreDSN returns the DSN of a throwaway, migrated database -- a
+// copy of the package's one migrated template (internal/storetest) --
+// because runJournalFlush opens its own store from a DSN string (it is the
+// one CLI command that talks to the store directly; see journal.go's own doc
+// comment). It skips cleanly when the stack is not reachable and registers
+// the database's drop as test cleanup.
 func newTestStoreDSN(t *testing.T) string {
 	t.Helper()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	adminPool, err := pgxpool.New(ctx, adminDSN())
-	if err != nil {
-		t.Skipf("flow-postgres compose stack not reachable: %v", err)
-	}
-	if err := adminPool.Ping(ctx); err != nil {
-		adminPool.Close()
-		t.Skipf("flow-postgres compose stack not reachable: %v", err)
-	}
-
-	dbName := fmt.Sprintf("flow_test_%d_%d", os.Getpid(), time.Now().UnixNano())
-	ident := pgx.Identifier{dbName}.Sanitize()
-	if _, err := adminPool.Exec(ctx, "CREATE DATABASE "+ident); err != nil {
-		adminPool.Close()
-		t.Fatalf("create test database %s: %v", dbName, err)
-	}
-	adminPool.Close()
-
-	t.Cleanup(func() {
-		dropCtx, dropCancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer dropCancel()
-		dropPool, err := pgxpool.New(dropCtx, adminDSN())
-		if err != nil {
-			t.Logf("drop test database %s: reconnect failed: %v", dbName, err)
-			return
-		}
-		defer dropPool.Close()
-		if _, err := dropPool.Exec(dropCtx, "DROP DATABASE IF EXISTS "+ident+" WITH (FORCE)"); err != nil {
-			t.Logf("drop test database %s: %v", dbName, err)
-		}
-	})
-
-	dsn := dsnForDatabase(dbName)
-
-	openCtx, openCancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer openCancel()
-	st, err := store.Open(openCtx, dsn)
-	if err != nil {
-		t.Fatalf("open test store: %v", err)
-	}
-	if err := st.RunMigrations(openCtx); err != nil {
-		st.Close()
-		t.Fatalf("run migrations: %v", err)
-	}
-	st.Close()
-
-	return dsn
+	return storetest.NewMigratedDatabase(t)
 }
 
 // TestJournalFlushCommandReplaysOnDemand pins `flow journal flush`
@@ -122,8 +62,7 @@ func TestJournalFlushCommandReplaysOnDemand(t *testing.T) {
 		t.Fatalf("pending entries after flush = %d, want 0", len(entries))
 	}
 
-	openCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
+	openCtx := context.Background()
 	st, err := store.Open(openCtx, dsn)
 	if err != nil {
 		t.Fatalf("reopen store to verify: %v", err)
@@ -166,23 +105,4 @@ func TestJournalFlushCommandConnectFailure(t *testing.T) {
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1; stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
-}
-
-// dsnForDatabase rewrites adminDSN's database segment, so FLOW_STATS_ADMIN_DSN
-// moves the admin connection and every per-test connection together. Repeating
-// the credentials here instead made the override half-work: the admin step
-// followed the environment while the per-test connection stayed pinned to the
-// literal, so a Postgres with different credentials failed every test while the
-// admin step succeeded.
-func dsnForDatabase(dbName string) string {
-	out, err := dsnutil.ForDatabase(adminDSN(), dbName)
-	if err != nil {
-		// Panic rather than return a best-effort string. This helper's
-		// predecessor answered confidently when it could not do the job and
-		// silently handed back a corrupted DSN; a test that then connects
-		// reports whatever that connection says, which is the wrong question
-		// answered convincingly.
-		panic(fmt.Sprintf("deriving a per-test DSN: %v", err))
-	}
-	return out
 }

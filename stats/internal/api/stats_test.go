@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	dsnutil "github.com/tweety53/agents/stats/internal/dsn"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,13 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/tweety53/agents/stats/internal/api"
 	"github.com/tweety53/agents/stats/internal/config"
 	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
+	"github.com/tweety53/agents/stats/internal/storetest"
 )
 
 // --- fakeStore's StatsStore surface -----------------------------------
@@ -1515,67 +1512,16 @@ func TestStatsViewTimesOutCleanly(t *testing.T) {
 // numbers it is told are the right ones.
 // ==========================================================================
 
-func statsAdminDSN() string {
-	if v := os.Getenv("FLOW_STATS_ADMIN_DSN"); v != "" {
-		return v
-	}
-	return "postgres://flow:flow@localhost:5433/flow?sslmode=disable"
-}
+// TestMain drops the package's template database once every test has run.
+func TestMain(m *testing.M) { os.Exit(storetest.Main(m)) }
 
-// newIntegrationStore creates a uniquely-named, migrated database against
-// the compose stack's PostgreSQL and returns a *store.Store backed by it,
-// registering cleanup. It skips cleanly, with a clear message, when the
-// stack is not reachable -- exactly internal/store's own testsupport_test.go
-// pattern, reproduced here because that helper is unexported in package
-// store_test and this package cannot import it.
+// newIntegrationStore opens a store on a throwaway, migrated database -- a copy of
+// the package's one migrated template (internal/storetest) -- and registers
+// its Close and the database's drop as test cleanup. It skips cleanly when
+// the stack is not reachable.
 func newIntegrationStore(t *testing.T) *store.Store {
 	t.Helper()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	adminPool, err := pgxpool.New(ctx, statsAdminDSN())
-	if err != nil {
-		t.Skipf("flow-postgres compose stack not reachable: %v", err)
-	}
-	if err := adminPool.Ping(ctx); err != nil {
-		adminPool.Close()
-		t.Skipf("flow-postgres compose stack not reachable: %v", err)
-	}
-
-	dbName := fmt.Sprintf("flow_apitest_%d_%d", os.Getpid(), time.Now().UnixNano())
-	ident := pgx.Identifier{dbName}.Sanitize()
-	if _, err := adminPool.Exec(ctx, "CREATE DATABASE "+ident); err != nil {
-		adminPool.Close()
-		t.Fatalf("create test database %s: %v", dbName, err)
-	}
-	adminPool.Close()
-
-	t.Cleanup(func() {
-		dropCtx, dropCancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer dropCancel()
-		dropPool, err := pgxpool.New(dropCtx, statsAdminDSN())
-		if err != nil {
-			t.Logf("drop test database %s: reconnect failed: %v", dbName, err)
-			return
-		}
-		defer dropPool.Close()
-		if _, err := dropPool.Exec(dropCtx, "DROP DATABASE IF EXISTS "+ident+" WITH (FORCE)"); err != nil {
-			t.Logf("drop test database %s: %v", dbName, err)
-		}
-	})
-
-	dsn := dsnForDatabase(dbName)
-	st, err := store.Open(ctx, dsn)
-	if err != nil {
-		t.Fatalf("open test store: %v", err)
-	}
-	if err := st.RunMigrations(ctx); err != nil {
-		st.Close()
-		t.Fatalf("run migrations: %v", err)
-	}
-	t.Cleanup(st.Close)
-	return st
+	return storetest.NewStore(t)
 }
 
 // newIntegrationTestServer wires a server whose every store dependency is
@@ -1937,25 +1883,6 @@ func TestCostPerChangeAcceptsChangeAlone(t *testing.T) {
 // store package's own generic ptr[T] (internal/store/changes_test.go),
 // which this package cannot reach.
 func sptr(v string) *string { return &v }
-
-// dsnForDatabase rewrites statsAdminDSN's database segment, so FLOW_STATS_ADMIN_DSN
-// moves the admin connection and every per-test connection together. Repeating
-// the credentials here instead made the override half-work: the admin step
-// followed the environment while the per-test connection stayed pinned to the
-// literal, so a Postgres with different credentials failed every test while the
-// admin step succeeded.
-func dsnForDatabase(dbName string) string {
-	out, err := dsnutil.ForDatabase(statsAdminDSN(), dbName)
-	if err != nil {
-		// Panic rather than return a best-effort string. This helper's
-		// predecessor answered confidently when it could not do the job and
-		// silently handed back a corrupted DSN; a test that then connects
-		// reports whatever that connection says, which is the wrong question
-		// answered convincingly.
-		panic(fmt.Sprintf("deriving a per-test DSN: %v", err))
-	}
-	return out
-}
 
 // TestStatsSelfReviewView asserts the self-review view's wire shape: one row
 // per finding, and a fixed row's commitUrl built from the server's commit

@@ -28,111 +28,33 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	dsnutil "github.com/tweety53/agents/stats/internal/dsn"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/tweety53/agents/stats/internal/harvest"
 	"github.com/tweety53/agents/stats/internal/store"
+	"github.com/tweety53/agents/stats/internal/storetest"
 )
 
 // --- real-store test support, mirroring internal/store/testsupport_test.go ---
 
-func e2eAdminDSN() string {
-	if v := os.Getenv("FLOW_STATS_ADMIN_DSN"); v != "" {
-		return v
-	}
-	return "postgres://flow:flow@localhost:5433/flow?sslmode=disable"
-}
+// TestMain drops the package's template database once every test has run.
+func TestMain(m *testing.M) { os.Exit(storetest.Main(m)) }
 
-// Derives from e2eAdminDSN so FLOW_STATS_ADMIN_DSN moves both connections
-// together; see internal/store/testsupport_test.go's testDSN for why repeating
-// the credentials here makes the override only half-work.
-func e2eTestDSN(dbName string) string {
-	out, err := dsnutil.ForDatabase(e2eAdminDSN(), dbName)
-	if err != nil {
-		// Panic rather than return a best-effort string. This helper's
-		// predecessor answered confidently when it could not do the job and
-		// silently handed back a corrupted DSN; a test that then connects
-		// reports whatever that connection says, which is the wrong question
-		// answered convincingly.
-		panic(fmt.Sprintf("deriving a per-test DSN: %v", err))
-	}
-	return out
-}
-
-// newEndToEndStore creates a uniquely-named, migrated database against the
-// compose stack and returns a *store.Store whose Close and whose database
-// drop are both registered as test cleanup. It skips cleanly, with a clear
-// message, when the stack is not reachable -- the same guarantee
-// internal/store's and internal/reconcile's own newTestStore helpers give
-// their packages, duplicated here rather than exported, for the same
-// reason internal/reconcile's copy gives (its own doc comment): those
-// helpers live in package store_test, deliberately internal to that
-// package.
+// newEndToEndStore opens a store on a throwaway, migrated database -- a copy of
+// the package's one migrated template (internal/storetest) -- and registers
+// its Close and the database's drop as test cleanup, then seeds pricing the
+// way cmd/flowd does at startup. It skips cleanly when the stack is not
+// reachable.
 func newEndToEndStore(t *testing.T) *store.Store {
 	t.Helper()
+	st := storetest.NewStore(t)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	adminPool, err := pgxpool.New(ctx, e2eAdminDSN())
-	if err != nil {
-		t.Skipf("flow-postgres compose stack not reachable: %v", err)
-	}
-	if err := adminPool.Ping(ctx); err != nil {
-		adminPool.Close()
-		t.Skipf("flow-postgres compose stack not reachable: %v", err)
-	}
-
-	dbName := fmt.Sprintf("flow_test_e2e_%d_%d", os.Getpid(), time.Now().UnixNano())
-	ident := pgx.Identifier{dbName}.Sanitize()
-	if _, err := adminPool.Exec(ctx, "CREATE DATABASE "+ident); err != nil {
-		adminPool.Close()
-		t.Fatalf("create test database %s: %v", dbName, err)
-	}
-	adminPool.Close()
-
-	t.Cleanup(func() {
-		dropCtx, dropCancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer dropCancel()
-
-		dropPool, err := pgxpool.New(dropCtx, e2eAdminDSN())
-		if err != nil {
-			t.Logf("drop test database %s: reconnect failed: %v", dbName, err)
-			return
-		}
-		defer dropPool.Close()
-
-		if _, err := dropPool.Exec(dropCtx, "DROP DATABASE IF EXISTS "+ident+" WITH (FORCE)"); err != nil {
-			t.Logf("drop test database %s: %v", dbName, err)
-		}
-	})
-
-	dsn := e2eTestDSN(dbName)
-
-	openCtx, openCancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer openCancel()
-
-	st, err := store.Open(openCtx, dsn)
-	if err != nil {
-		t.Fatalf("open test store: %v", err)
-	}
-	if err := st.RunMigrations(openCtx); err != nil {
-		st.Close()
-		t.Fatalf("run migrations: %v", err)
-	}
-	t.Cleanup(st.Close)
-
-	if err := st.SeedPricing(openCtx); err != nil {
+	if err := st.SeedPricing(context.Background()); err != nil {
 		t.Fatalf("seed pricing: %v", err)
 	}
-
 	return st
 }
 
