@@ -6,7 +6,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { HealthViewSlug, StatsResponse, StatsViewSlug, ViewName } from "../api";
+import type { DecisionRow, HealthViewSlug, StatsResponse, StatsViewSlug, ViewName } from "../api";
 import { App } from "../App";
 import { Decisions } from "./Decisions";
 import { FlowHealth } from "./FlowHealth";
@@ -381,33 +381,44 @@ describe("views render their fixture response's actual values", () => {
   });
 
   // Also covers kan-472 task 23's grouping/dispatches/implementer-groups columns, asserted below.
-  it("decisions shows a run's class, execution and cost, and a class × execution summary", async () => {
+  it("decisions shows a class × execution summary and no per-decision table", async () => {
     render(<Decisions period={period} project={undefined} />);
-
-    const inlineRow = (await screen.findByRole("cell", { name: "kan-1" })).closest("tr")!;
-    expect(within(inlineRow).getByText("regular ↑")).toBeInTheDocument();
-    expect(within(inlineRow).getByText("inline")).toBeInTheDocument();
-    expect(within(inlineRow).getByText("$1.25")).toBeInTheDocument();
-    expect(within(inlineRow).getByText("free")).toBeInTheDocument();
-    expect(within(inlineRow).getByText("primary+exp-failure-modes")).toBeInTheDocument();
-
-    const sddRow = screen.getByRole("cell", { name: "kan-2" }).closest("tr")!;
-    expect(within(sddRow).getByText("sdd")).toBeInTheDocument();
-    expect(within(sddRow).getByText("$3.75")).toBeInTheDocument();
-    expect(within(sddRow).getByText("static")).toBeInTheDocument();
-    expect(within(sddRow).getByText("primary+principles · bugbot+mutation")).toBeInTheDocument();
-    expect(within(sddRow).getByText("1+2 · 3")).toBeInTheDocument();
-    expect(within(sddRow).getByText("sonnet/medium")).toBeInTheDocument();
-    expect(within(sddRow).getByText("haiku/low")).toBeInTheDocument();
 
     // The class × execution summary groups the two runs into their own
     // rows -- "regular / inline" and "regular / sdd" -- each with its own
-    // mean cost, distinct from the per-run table above.
-    const summaryRegion = screen.getByRole("region", { name: "By class and execution" });
+    // mean cost.
+    const summaryRegion = await screen.findByRole("region", { name: "By class and execution" });
     expect(within(summaryRegion).getByText("regular / inline")).toBeInTheDocument();
     expect(within(summaryRegion).getByText("regular / sdd")).toBeInTheDocument();
+    expect(within(summaryRegion).getByText("$1.25")).toBeInTheDocument();
+    expect(within(summaryRegion).getByText("$3.75")).toBeInTheDocument();
 
-    within(screen.getByRole("region", { name: "Runs" })).getByText("2");
+    // design.md's decisions-by-implementer-model: the per-decision table
+    // and the Runs tile are gone.
+    expect(screen.queryByRole("region", { name: "Every decision" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Runs" })).not.toBeInTheDocument();
+  });
+
+  it("decisions groups runs by implementer model", async () => {
+    const [inline, sdd] = fixtures.decisions.rows as DecisionRow[];
+    fetchStatsViewMock.mockResolvedValueOnce(
+      envelope("decisions", [inline, sdd, { ...sdd, change: "kan-3", costUsd: 1.25, wallClockSeconds: 600 }]),
+    );
+    render(<Decisions period={period} project={undefined} />);
+
+    const region = await screen.findByRole("region", { name: "By implementer model" });
+    const rows = within(region).getAllByRole("row").slice(1);
+    expect(rows).toHaveLength(2);
+    // opus first: two runs, mean cost (3.75 + 1.25) / 2, mean wall-clock
+    // (1200 s + 600 s) / 2, mean findings 3, mean fix rounds 1.
+    within(rows[0]).getByRole("cell", { name: "opus" });
+    within(rows[0]).getByRole("cell", { name: "2" });
+    within(rows[0]).getByRole("cell", { name: "$2.50" });
+    within(rows[0]).getByRole("cell", { name: "15.0 min" });
+    within(rows[0]).getByRole("cell", { name: "3.00" });
+    within(rows[0]).getByRole("cell", { name: "1.00" });
+    within(rows[1]).getByRole("cell", { name: "skipped — inline" });
+    within(rows[1]).getByRole("cell", { name: "1" });
   });
 
 });
