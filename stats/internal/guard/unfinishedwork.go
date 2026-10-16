@@ -357,6 +357,33 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 				reasons = append(reasons, strconv.Itoa(len(nums))+" panel round(s) dispatched with no pass row ("+strings.Join(named, "; ")+") — record each round's pass rows with `flow record pass -change "+name+" -round <round>` before landing")
 			}
 		}
+		// SIGNAL SIX — no change summary recorded (kan-957 self-review: 35 of
+		// 36 gymie changes landed with no summary row although pipeline.md
+		// prescribes one per run). The summary is read through the
+		// self-review bundle, the one read of it the CLI has: its header —
+		// the lines above its first `## ` source section — carries a `found:`
+		// line and names the summary `skipped: change summary (absent)` when the
+		// store holds none. A failed read, or a payload whose header carries
+		// no `found:` line, is refused like the dispatch read above.
+		bundleOut, bundleErr, bundleRC := pcFlow(env, false, "self-review", "bundle", "-change", name, "-C", anchor)
+		if bundleRC != 0 {
+			fmt.Fprintf(stderr, "%scannot read the self-review bundle for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(bundleErr), "\n"))
+			return 2
+		}
+		var headerLines []string
+		for _, l := range strings.Split(string(bundleOut), "\n") {
+			if strings.HasPrefix(l, "## ") {
+				break
+			}
+			headerLines = append(headerLines, l)
+		}
+		if !slices.ContainsFunc(headerLines, func(l string) bool { return strings.HasPrefix(l, "found: ") }) {
+			fmt.Fprintf(stderr, "%sthe self-review bundle for '%s' carries no found: line — cannot determine anything\n", uwPrefix, name)
+			return 2
+		}
+		if slices.Contains(headerLines, "skipped: change summary (absent)") {
+			reasons = append(reasons, "no change summary recorded — record the run's summary with `flow record summary -change "+name+" -C "+anchor+" -file -` before landing")
+		}
 		// SIGNAL FOUR — a ticked appended task no dispatch row names: a fix
 		// round that recorded nothing (kan-979's fix-round Task 7 reached
 		// integrate with no dispatch row at all). A row names a task by its

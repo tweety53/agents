@@ -71,6 +71,8 @@ func newUWBare(t *testing.T, wt string) *uwFix {
 	f.setFile(t, "dispatches.json", `[{"key":"task-1-implementer","outcome":"completed"}]`+"\n")
 	// A pass row for every round a fixture's panel rows run in (0..2).
 	f.setFile(t, "passes.json", `[{"id":1,"round":0,"note":"roster: full"},{"id":2,"round":1,"note":"n"},{"id":3,"round":2,"note":"n"}]`+"\n")
+	// A recorded change summary: the bundle header signal six reads.
+	f.setFile(t, "bundle.json", "# Self-review context bundle for demo\n\nfound: 1 of 1 sources; skipped: 0 of 1 sources\n\n## change summary\n\nwhat changed\n")
 	f.setFindings(t)
 	get := pathEnv(f.bin)
 	f.env = Env{Getenv: get, Dir: wt,
@@ -352,6 +354,20 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		withPasses(panelRows, "[]")(t, f)
 		f.setFile(t, "passes.fail", "")
 	}), uwRC("a failed pass-row read cannot answer", 2))
+
+	// 2f. Signal six — no change summary recorded (kan-957: 35 of 36 gymie
+	//     changes landed with none).
+	bundle := func(body string) func(t *testing.T, f *uwFix) {
+		return func(t *testing.T, f *uwFix) { f.setFile(t, "bundle.json", body) }
+	}
+	each(demo(bundle("# Self-review context bundle for demo\n\nfound: 0 of 1 sources; skipped: 1 of 1 sources\nskipped: change summary (absent)\n\n")),
+		uwVerdict("a change with no recorded summary is OUTSTANDING", "OUTSTANDING:"),
+		uwReason("the breakdown names the summary and its record command", "no change summary recorded — record the run's summary with `flow record summary -change demo -C "))
+	each(demo(bundle("# Self-review context bundle for demo\n\nfound: 1 of 1 sources; skipped: 0 of 1 sources\n\n## change summary\n\nskipped: change summary (absent)\n")),
+		uwVerdict("the skipped line inside a recorded summary's text is not the header's", "CLEAR:"))
+	each(demo(bundle("not a bundle\n")), uwRC("a bundle with no found: line cannot answer", 2))
+	each(demo(func(t *testing.T, f *uwFix) { f.setFile(t, "bundle.fail", "") }),
+		uwRC("a failed bundle read cannot answer", 2))
 
 	// 2d. Signal four's commit half — a dispatch row is not a commit (a
 	//     back-filled row named a task whose work never landed).

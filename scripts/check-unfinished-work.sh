@@ -80,6 +80,14 @@
 # like the dispatch read. Like signal three, only the worktree holding the
 # plan reads them.
 #
+# SIGNAL SIX: A CHANGE WITH NO RECORDED SUMMARY IS UNFINISHED (kan-957
+# self-review: 35 of 36 gymie changes landed with no summary row). The
+# summary is read through `flow self-review bundle -change <name> -C
+# <anchor>`, whose header — the lines above its first `## ` section — names
+# it `skipped: change summary (absent)` when the store holds none. A failed
+# read, or a header with no `found:` line, is exit 2, like the dispatch read.
+# Like signal three, only the worktree holding the plan reads it.
+#
 # All signals are counted independently and reported together on the one
 # line, so the operator sees the whole picture in one prompt rather than being
 # sent back around the loop one signal at a time.

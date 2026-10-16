@@ -394,6 +394,8 @@ read, `-outcome aborted` otherwise — an earlier run's row included:
 flow record dispatch end -change <name> -C <canonical-worktree> -key <key> -session-token <its token> -outcome <completed|aborted>
 ```
 
+**Record the `**Summary:**` bullets next**, per **Summary and live-stack line, before every handoff** (`skills/flow-contracts/pipeline.md`), since the guard below finds a change with no recorded summary unfinished.
+
 **Every run writing `IN_PROGRESS` then runs the unfinished-work guard on itself**, a creating run
 as well as a fix run, once per worktree of the resolved
 set, with the arguments **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) passes it —
@@ -456,10 +458,8 @@ Next:
 
 **This block is the whole handoff of a creating, resuming or fix run that ends at `IN_PROGRESS`**
 — no heading, no other field, and no summary or live-stack line before it (**Summary and
-live-stack line, before every handoff**, `skills/flow-contracts/pipeline.md`). A stop — a failure,
+live-stack line, before every handoff**, `skills/flow-contracts/pipeline.md`); bullets that changed after the guard — a visual-fix task, a re-verify — are recorded again as the block prints. A stop — a failure,
 a blocked step, a refused start, a `## Question` — prints as its own rule states, not this block.
-
-**The `**Summary:**` bullets are recorded before the block prints**, per **Summary and live-stack line, before every handoff** (`skills/flow-contracts/pipeline.md`).
 
 **The `Running:` section is never omitted.** Its URLs are the ones **Resolve the run
 instructions** above resolved for the stack it started or left running, never the project's

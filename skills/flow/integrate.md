@@ -54,6 +54,10 @@ the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
   breakdown, the three-course prompt and what each course does are there. **Continue** and
   **File or join…** re-run `prepare` with `--accept-outstanding`; **Stop** leaves the mark the
   script closed `stopped`.
+  A breakdown naming `no change summary recorded` is closed by recording the summary first — the
+  `**Summary:**` bullets the last run printed, or, where this session never saw them, bullets
+  written from the change's `tasks.md` and `narrative.md` — with the command the breakdown names,
+  then re-running `prepare`.
 - **`STOP: no-verdict`** → a guard of the gate printed no verdict line, or exited non-zero without
   one: stop and ask, reporting its output. `--accept-outstanding` never passes it.
 - **`STOP: visual-verify`** → a worktree printed `VISUAL-VERIFY-MISSING`: the UI about to land was

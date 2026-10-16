@@ -166,6 +166,7 @@ case "\$1 \$2" in
   "stage begin"|"stage end") echo "\$*" >>"$WORK/stages.log" ;;
   "record findings") [ -f "$WORK/fail-findings" ] && exit 1; echo '[]' ;;
   "self-review findings") echo '[]' ;;
+  "self-review bundle") printf 'found: 1 of 1 sources; skipped: 0 of 1 sources\n' ;;
   "self-review finding") echo "\$*" >>"$WORK/fixed.log" ;;
   "record dispatches") [ -f "$WORK/loop-rows" ] && exec cat "$WORK/loop-rows"; cat "$WORK/dispatches.json" 2>/dev/null || echo '[{"key":"task-1-implementer","outcome":"completed"}]' ;;
   "record decisions") echo '[]' ;;
