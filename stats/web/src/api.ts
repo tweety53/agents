@@ -41,7 +41,6 @@ export type ViewName =
   | "state-board"
   | "stage-leaderboard"
   | "trend"
-  | "cache-efficiency"
   | "reviewers"
   | "decisions"
   | "runs"
@@ -52,7 +51,6 @@ export const VIEW_NAMES: readonly ViewName[] = [
   "state-board",
   "stage-leaderboard",
   "trend",
-  "cache-efficiency",
   "reviewers",
   "decisions",
   "runs",
@@ -347,15 +345,6 @@ export interface TrendPoint {
   day: string;
   runCount: number;
   totalCostUsd: number | null;
-}
-
-/** Mirrors cacheEfficiencyRowDTO. */
-export interface CacheEfficiencyRow {
-  command: string;
-  stage: string;
-  cacheReadTotal: number | null;
-  cacheCreationTotal: number | null;
-  ratio: number | null;
 }
 
 /** Mirrors reviewerRowDTO. */

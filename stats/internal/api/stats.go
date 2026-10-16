@@ -47,7 +47,6 @@ type StatsStore interface {
 	CostPerChange(ctx context.Context, period store.Period, project, model *string) ([]store.CostPerChangeRow, error)
 	StageLeaderboard(ctx context.Context, period store.Period, project, model *string) ([]store.StageLeaderboardRow, error)
 	TrendOverTime(ctx context.Context, period store.Period, project, model *string) ([]store.TrendPoint, error)
-	CacheEfficiency(ctx context.Context, period store.Period, project, model *string) ([]store.CacheEfficiencyRow, error)
 	// Reviewers backs the "reviewers" view (design.md's "Stats views ›
 	// reviewers", task 16): one row per review-panel slot's dispatch and
 	// finding record within period.
@@ -116,7 +115,6 @@ const (
 	viewCostPerChange    viewName = "cost-per-change"
 	viewStageLeaderboard viewName = "stage-leaderboard"
 	viewTrend            viewName = "trend"
-	viewCacheEfficiency  viewName = "cache-efficiency"
 	viewReviewers        viewName = "reviewers"
 	viewDecisions        viewName = "decisions"
 	viewRuns             viewName = "runs"
@@ -132,7 +130,7 @@ const (
 // allowlist already takes for filter and sort fields.
 var knownViews = []viewName{
 	viewStateBoard, viewCostPerChange, viewStageLeaderboard, viewTrend,
-	viewCacheEfficiency, viewReviewers, viewDecisions, viewRuns,
+	viewReviewers, viewDecisions, viewRuns,
 	viewGuards, viewStageRedo, viewPanelRounds, viewSelfReview,
 }
 
@@ -524,14 +522,6 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 		}
 		return toTrendDTOs(trend), 0, ""
 
-	case viewCacheEfficiency:
-		eff, err := h.store.CacheEfficiency(ctx, period, project, model)
-		if err != nil {
-			s, m := mapStoreError(h.logger, "cache efficiency", err)
-			return nil, s, m
-		}
-		return toCacheEfficiencyDTOs(eff), 0, ""
-
 	case viewReviewers:
 		reviewers, err := h.store.Reviewers(ctx, period, project, model)
 		if err != nil {
@@ -751,26 +741,6 @@ func toTrendDTOs(points []store.TrendPoint) []trendPointDTO {
 			Day:          p.Day.UTC().Format("2006-01-02"),
 			RunCount:     p.RunCount,
 			TotalCostUSD: p.TotalCostUSD,
-		}
-	}
-	return out
-}
-
-type cacheEfficiencyRowDTO struct {
-	Command string `json:"command"`
-	Stage   string `json:"stage"`
-
-	CacheReadTotal     *int64   `json:"cacheReadTotal"`
-	CacheCreationTotal *int64   `json:"cacheCreationTotal"`
-	Ratio              *float64 `json:"ratio"`
-}
-
-func toCacheEfficiencyDTOs(rows []store.CacheEfficiencyRow) []cacheEfficiencyRowDTO {
-	out := make([]cacheEfficiencyRowDTO, len(rows))
-	for i, r := range rows {
-		out[i] = cacheEfficiencyRowDTO{
-			Command: r.Command, Stage: r.Stage,
-			CacheReadTotal: r.CacheReadTotal, CacheCreationTotal: r.CacheCreationTotal, Ratio: r.Ratio,
 		}
 	}
 	return out

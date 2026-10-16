@@ -854,10 +854,6 @@ func (stubStageStore) TrendOverTime(context.Context, store.Period, *string, *str
 	return nil, errStageStoreNotImplemented
 }
 
-func (stubStageStore) CacheEfficiency(context.Context, store.Period, *string, *string) ([]store.CacheEfficiencyRow, error) {
-	return nil, errStageStoreNotImplemented
-}
-
 func (stubStageStore) Reviewers(context.Context, store.Period, *string, *string) ([]store.ReviewerRow, error) {
 	return nil, errStageStoreNotImplemented
 }

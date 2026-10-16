@@ -15,7 +15,6 @@ import { VIEW_NAMES, type ViewName } from "./api";
 import { DashboardBar } from "./components/DashboardBar";
 import { defaultPeriod, type Period } from "./components/PeriodPicker";
 import type { ViewProps } from "./viewTypes";
-import { CacheEfficiency } from "./views/CacheEfficiency";
 import { Decisions } from "./views/Decisions";
 import { FlowHealth } from "./views/FlowHealth";
 import { RunDetail } from "./views/RunDetail";
@@ -32,7 +31,6 @@ const VIEW_LABELS: Record<ViewName, string> = {
   "state-board": "Live state board",
   "stage-leaderboard": "Stage leaderboard",
   trend: "Trend over time",
-  "cache-efficiency": "Cache efficiency",
   reviewers: "Reviewers",
   decisions: "Decisions",
   runs: "Runs",
@@ -44,7 +42,6 @@ const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
   "state-board": StateBoard,
   "stage-leaderboard": StageLeaderboard,
   trend: Trend,
-  "cache-efficiency": CacheEfficiency,
   reviewers: Reviewers,
   decisions: Decisions,
   runs: Runs,

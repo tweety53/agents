@@ -8,7 +8,6 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { HealthViewSlug, StatsResponse, StatsViewSlug, ViewName } from "../api";
 import { App } from "../App";
-import { CacheEfficiency } from "./CacheEfficiency";
 import { Decisions } from "./Decisions";
 import { FlowHealth } from "./FlowHealth";
 import { Reviewers } from "./Reviewers";
@@ -82,10 +81,6 @@ const fixtures: Record<Exclude<ViewName, "flow-health"> | HealthViewSlug, StatsR
     },
   ]),
   trend: envelope("trend", [{ day: "2026-01-05", runCount: 2, totalCostUsd: 5.25 }]),
-  "cache-efficiency": envelope("cache-efficiency", [
-    { command: "/flow", stage: "measured-zero", cacheReadTotal: 0, cacheCreationTotal: 1000, ratio: 0 },
-    { command: "/flow", stage: "never-measured", cacheReadTotal: null, cacheCreationTotal: null, ratio: null },
-  ]),
   reviewers: envelope("reviewers", [
     {
       slot: "primary",
@@ -379,39 +374,6 @@ describe("views render their fixture response's actual values", () => {
 });
 
 describe("absence is rendered distinctly from a recorded zero", () => {
-  it("cache efficiency: a real zero ratio reads as a value, an unmeasured ratio reads as unavailable", async () => {
-    render(<CacheEfficiency period={period} project={undefined} />);
-
-    const zeroRow = (await screen.findByText("measured-zero")).closest("tr") as HTMLElement;
-    const missingRow = screen.getByText("never-measured").closest("tr") as HTMLElement;
-
-    // Columns: command, stage, cache read, cache creation, ratio -- the
-    // ratio cell is the last one in each row.
-    const zeroCells = within(zeroRow).getAllByRole("cell");
-    const missingCells = within(missingRow).getAllByRole("cell");
-    const zeroRatioCell = zeroCells[zeroCells.length - 1];
-    const missingRatioCell = missingCells[missingCells.length - 1];
-
-    expect(within(zeroRatioCell).getByTestId("measured")).toHaveTextContent("0.00");
-    expect(within(zeroRatioCell).queryByTestId("unavailable")).not.toBeInTheDocument();
-
-    expect(within(missingRatioCell).getByTestId("unavailable")).toBeInTheDocument();
-    expect(within(missingRatioCell).queryByTestId("measured")).not.toBeInTheDocument();
-    // Every cell in the never-measured row reads as unavailable, not as a
-    // fabricated zero -- cacheReadTotal and cacheCreationTotal are also
-    // null in this fixture.
-    expect(within(missingRow).getAllByTestId("unavailable")).toHaveLength(3);
-
-    // Cache efficiency's own stat panels: totals pooled across both rows
-    // (1000 read via the zero-ratio row's own cacheReadTotal of 0, plus
-    // null from the never-measured row -- sumNullable treats the null row
-    // as contributing nothing, not as a zero), and the overall ratio
-    // 0 / 1000 = 0, a real measured zero, not "unavailable".
-    within(screen.getByRole("region", { name: "Total cache read" })).getByText("0");
-    within(screen.getByRole("region", { name: "Total cache creation" })).getByText("1,000");
-    within(screen.getByRole("region", { name: "Overall ratio" })).getByText("0.00");
-  });
-
   it("a period before the store held anything is stated, not rendered as an empty measured table", async () => {
     fetchStatsViewMock.mockImplementation((view: ViewName) =>
       Promise.resolve(envelope(view, [], false)),

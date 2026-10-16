@@ -219,8 +219,6 @@ type fakeStore struct {
 	stageLeaderboardErr error
 	trendOverTime       []store.TrendPoint
 	trendOverTimeErr    error
-	cacheEfficiency     []store.CacheEfficiencyRow
-	cacheEfficiencyErr  error
 	reviewers           []store.ReviewerRow
 	reviewersErr        error
 	decisionRows        []store.DecisionRow

@@ -269,7 +269,6 @@ return a verdict. Each one has a `test-*.sh` harness in `scripts/`, and
 - runs, with a per-run stage breakdown
 - stage leaderboard
 - cost and token trend
-- cache efficiency
 - planner decisions
 - reviewer yield (how often each review slot ran and what it found)
 

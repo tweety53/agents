@@ -368,10 +368,6 @@ func (fakeStore) TrendOverTime(context.Context, store.Period, *string, *string) 
 	return nil, nil
 }
 
-func (fakeStore) CacheEfficiency(context.Context, store.Period, *string, *string) ([]store.CacheEfficiencyRow, error) {
-	return nil, nil
-}
-
 func (fakeStore) Reviewers(context.Context, store.Period, *string, *string) ([]store.ReviewerRow, error) {
 	return nil, nil
 }

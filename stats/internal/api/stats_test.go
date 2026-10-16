@@ -46,10 +46,6 @@ func (f *fakeStore) TrendOverTime(_ context.Context, _ store.Period, project, _ 
 	f.lastStatsProject = project
 	return f.trendOverTime, f.trendOverTimeErr
 }
-func (f *fakeStore) CacheEfficiency(_ context.Context, _ store.Period, project, _ *string) ([]store.CacheEfficiencyRow, error) {
-	f.lastStatsProject = project
-	return f.cacheEfficiency, f.cacheEfficiencyErr
-}
 func (f *fakeStore) Reviewers(_ context.Context, _ store.Period, project, _ *string) ([]store.ReviewerRow, error) {
 	f.lastStatsProject = project
 	return f.reviewers, f.reviewersErr
@@ -113,7 +109,6 @@ type statsFake struct {
 	costPerChange    []store.CostPerChangeRow
 	stageLeaderboard []store.StageLeaderboardRow
 	trendOverTime    []store.TrendPoint
-	cacheEfficiency  []store.CacheEfficiencyRow
 	reviewers        []store.ReviewerRow
 	decisions        []store.DecisionRow
 	runs             []store.ChangeRuns
@@ -178,10 +173,6 @@ func (f *statsFake) StageLeaderboard(_ context.Context, _ store.Period, p, m *st
 func (f *statsFake) TrendOverTime(_ context.Context, _ store.Period, p, m *string) ([]store.TrendPoint, error) {
 	f.lastProject, f.lastModel = p, m
 	return f.trendOverTime, f.aggErr
-}
-func (f *statsFake) CacheEfficiency(_ context.Context, _ store.Period, p, m *string) ([]store.CacheEfficiencyRow, error) {
-	f.lastProject, f.lastModel = p, m
-	return f.cacheEfficiency, f.aggErr
 }
 func (f *statsFake) Reviewers(_ context.Context, _ store.Period, p, m *string) ([]store.ReviewerRow, error) {
 	f.lastProject, f.lastModel = p, m
@@ -397,7 +388,6 @@ func periodPath(view string) string {
 func TestEveryViewAcceptsAPeriod(t *testing.T) {
 	views := []string{
 		"state-board", "cost-per-change", "stage-leaderboard", "trend",
-		"cache-efficiency",
 	}
 	for _, view := range views {
 		t.Run(view, func(t *testing.T) {
@@ -503,33 +493,6 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 		got := rows[0]
 		if got.Day != "2026-08-12" || got.RunCount != 8 || got.TotalCostUSD == nil || *got.TotalCostUSD != 42.5 {
 			t.Errorf("got %+v, want Day=2026-08-12 RunCount=8 TotalCostUSD=42.5", got)
-		}
-	})
-
-	t.Run("cache-efficiency", func(t *testing.T) {
-		read, creation, ratio := int64(9000), int64(3000), 3.0
-		sts := &statsFake{cacheEfficiency: []store.CacheEfficiencyRow{
-			{Command: "/flow", Stage: "review panel", CacheReadTotal: &read, CacheCreationTotal: &creation, Ratio: &ratio},
-		}}
-		ts := newStatsTestServer(t, sts)
-		status, env, body := getStats(t, ts, periodPath("cache-efficiency"))
-		if status != http.StatusOK {
-			t.Fatalf("status %d, body %s", status, body)
-		}
-		var rows []struct {
-			CacheReadTotal     *int64   `json:"cacheReadTotal"`
-			CacheCreationTotal *int64   `json:"cacheCreationTotal"`
-			Ratio              *float64 `json:"ratio"`
-		}
-		mustDecodeRows(t, env, body, &rows)
-		if len(rows) != 1 {
-			t.Fatalf("rows = %d, want 1", len(rows))
-		}
-		got := rows[0]
-		if got.CacheReadTotal == nil || *got.CacheReadTotal != 9000 ||
-			got.CacheCreationTotal == nil || *got.CacheCreationTotal != 3000 ||
-			got.Ratio == nil || *got.Ratio != 3.0 {
-			t.Errorf("got %+v, want CacheReadTotal=9000 CacheCreationTotal=3000 Ratio=3.0", got)
 		}
 	})
 
@@ -790,12 +753,12 @@ func TestEmptyPeriodReturnsEmptyNotError(t *testing.T) {
 // --- TestBoundaryConventionIsConsistentAcrossViews ---------------------
 
 // TestBoundaryConventionIsConsistentAcrossViews exercises every one of the
-// four stage-run-keyed views. A post-commit review mutation proved the
+// three stage-run-keyed views. A post-commit review mutation proved the
 // gap this closes: changing StageLeaderboard's boundary from
 // "sr.started_at < $2" to "<= $2" (internal/store/aggregate.go) left the
 // *previous* version of this test green -- it only looped over
-// cost-per-change, so a boundary divergence in stage-leaderboard, trend or
-// cache-efficiency went completely undetected, even though this test's own
+// cost-per-change, so a boundary divergence in stage-leaderboard or trend
+// went completely undetected, even though this test's own
 // name claims to cover "every view".
 //
 // The live state board is deliberately excluded, not merely forgotten: it
@@ -807,9 +770,8 @@ func TestEmptyPeriodReturnsEmptyNotError(t *testing.T) {
 // One stage run is seeded exactly on the boundary T, with a metrics bag and
 // an owning change shaped to satisfy every remaining view's own WHERE
 // clause (internal/store/aggregate.go): StageLeaderboard requires
-// "cost_usd" present. CostPerChange, TrendOverTime and CacheEfficiency
-// impose no such extra condition, so the same run and change satisfy all
-// four at once.
+// "cost_usd" present. CostPerChange and TrendOverTime impose no such extra
+// condition, so the same run and change satisfy all three at once.
 func TestBoundaryConventionIsConsistentAcrossViews(t *testing.T) {
 	st := newIntegrationStore(t)
 	projectKey := fmt.Sprintf("proj-boundary-%d", time.Now().UnixNano())
@@ -837,7 +799,7 @@ func TestBoundaryConventionIsConsistentAcrossViews(t *testing.T) {
 	// The live state board is not in this loop -- see the doc comment above
 	// for why it is a genuinely different case, not an omission.
 	views := []string{
-		"cost-per-change", "stage-leaderboard", "trend", "cache-efficiency",
+		"cost-per-change", "stage-leaderboard", "trend",
 	}
 	for _, view := range views {
 		t.Run(view, func(t *testing.T) {
@@ -1679,14 +1641,14 @@ func TestModelRestrictionRejectedOnStateBoard(t *testing.T) {
 }
 
 // TestModelParamAcceptedAndPassedThroughOnEveryStageRunView iterates the
-// four views whose rows are stage runs (every view except state-board,
+// three views whose rows are stage runs (every view except state-board,
 // covered separately above) and asserts a "model" query parameter reaches
 // the store call unchanged, for each one -- not spot-checked, per this
 // task's own non-negotiable requirement that the filter be honoured on
-// every one of the four, iterated.
+// every one of the three, iterated.
 func TestModelParamAcceptedAndPassedThroughOnEveryStageRunView(t *testing.T) {
 	views := []string{
-		"cost-per-change", "stage-leaderboard", "trend", "cache-efficiency",
+		"cost-per-change", "stage-leaderboard", "trend",
 	}
 	for _, view := range views {
 		t.Run(view, func(t *testing.T) {

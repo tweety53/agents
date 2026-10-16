@@ -347,11 +347,9 @@ func TestTrendOverTimeBucketsByDay(t *testing.T) {
 // with a known token total and a known findings-by-severity bag, and
 // checks TokensTotal and FindingsPerMTok against values hand-computed from
 // them, not just FindingsTotal's row count as before.
-// TestAggregateOtherViewsRunWithoutError covers the two views not exercised
+// TestAggregateOtherViewsRunWithoutError covers the view not exercised
 // with hand-computed arithmetic elsewhere: LiveStateBoard (a projection of
-// changes, already covered thoroughly by changes_test.go) and
-// CacheEfficiency's ratio, computed here from a known cache-read and
-// cache-creation total.
+// changes, already covered thoroughly by changes_test.go).
 func TestAggregateOtherViewsRunWithoutError(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()
@@ -380,80 +378,6 @@ func TestAggregateOtherViewsRunWithoutError(t *testing.T) {
 
 	if _, err := st.LiveStateBoard(ctx, period, nil); err != nil {
 		t.Errorf("LiveStateBoard: %v", err)
-	}
-
-	rows, err := st.CacheEfficiency(ctx, period, &projectKey, nil)
-	if err != nil {
-		t.Fatalf("CacheEfficiency: %v", err)
-	}
-	if len(rows) != 1 {
-		t.Fatalf("CacheEfficiency returned %d rows, want 1", len(rows))
-	}
-	if rows[0].CacheReadTotal == nil || *rows[0].CacheReadTotal != 900000 {
-		t.Errorf("CacheReadTotal = %v, want 900000", rows[0].CacheReadTotal)
-	}
-	if rows[0].CacheCreationTotal == nil || *rows[0].CacheCreationTotal != 100000 {
-		t.Errorf("CacheCreationTotal = %v, want 100000", rows[0].CacheCreationTotal)
-	}
-	const eps = 1e-9
-	if rows[0].Ratio == nil {
-		t.Fatalf("Ratio is nil, want 9")
-	}
-	if diff := *rows[0].Ratio - 9; diff > eps || diff < -eps {
-		t.Errorf("Ratio = %v, want 9 (900000/100000)", *rows[0].Ratio)
-	}
-}
-
-// TestCacheEfficiencyRatioStaysNilWhenCacheCreationIsExactlyZero is F6's
-// own test: a stage run that recorded real cache-read usage but exactly
-// zero cache-creation -- a plausible, real shape, not a malformed one:
-// every message hit an already-warm cache and created nothing new -- must
-// leave Ratio nil rather than computing cache_read / 0, which in float64
-// division is +Inf, not a panic, so nothing before this test would have
-// caught a regression that dropped the `!= 0` guard: the query would keep
-// succeeding and returning a row, just with an unusable ratio silently
-// smuggled through as a number.
-func TestCacheEfficiencyRatioStaysNilWhenCacheCreationIsExactlyZero(t *testing.T) {
-	st := newTestStore(t)
-	ctx := context.Background()
-	projectKey := fmt.Sprintf("proj-cache-ratio-zero-%d", time.Now().UnixNano())
-	seedChange(t, st, projectKey, "kan-1")
-
-	in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
-	in.StartedAt = time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
-	run, err := st.BeginStage(ctx, in)
-	if err != nil {
-		t.Fatalf("BeginStage: %v", err)
-	}
-	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{
-		"tokens":{"main":{"cache_read":500000,"cache_creation":0}}
-	}`)); err != nil {
-		t.Fatalf("MergeMetrics: %v", err)
-	}
-	if err := st.EndStage(ctx, run.ID, in.StartedAt.Add(time.Minute), "completed"); err != nil {
-		t.Fatalf("EndStage: %v", err)
-	}
-
-	period := store.Period{
-		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
-		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
-	}
-
-	rows, err := st.CacheEfficiency(ctx, period, &projectKey, nil)
-	if err != nil {
-		t.Fatalf("CacheEfficiency: %v", err)
-	}
-	if len(rows) != 1 {
-		t.Fatalf("CacheEfficiency returned %d rows, want 1", len(rows))
-	}
-	if rows[0].CacheReadTotal == nil || *rows[0].CacheReadTotal != 500000 {
-		t.Errorf("CacheReadTotal = %v, want 500000", rows[0].CacheReadTotal)
-	}
-	if rows[0].CacheCreationTotal == nil || *rows[0].CacheCreationTotal != 0 {
-		t.Errorf("CacheCreationTotal = %v, want 0", rows[0].CacheCreationTotal)
-	}
-	if rows[0].Ratio != nil {
-		t.Errorf("Ratio = %v, want nil: cache-read over zero cache-creation must never become a (non-nil) NaN or Inf ratio", *rows[0].Ratio)
 	}
 }
 
@@ -579,10 +503,6 @@ func TestModelFilterHonouredByEveryAggregation(t *testing.T) {
 		}},
 		{"TrendOverTime", func(m *string) (int, error) {
 			r, err := st.TrendOverTime(ctx, period, &projectKey, m)
-			return len(r), err
-		}},
-		{"CacheEfficiency", func(m *string) (int, error) {
-			r, err := st.CacheEfficiency(ctx, period, &projectKey, m)
 			return len(r), err
 		}},
 	}
