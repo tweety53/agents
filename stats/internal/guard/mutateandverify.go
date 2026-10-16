@@ -14,6 +14,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"syscall"
+	"time"
 )
 
 // mutateAndVerify is scripts/mutate-and-verify.sh: that script's header
@@ -140,7 +141,7 @@ func mutateAndVerify(args []string, env Env, stdout, stderr io.Writer) int {
 	// ponytail: SIGINT restores at once, as SIGTERM does; bash waited for a
 	// running harness and carried on if that harness survived the SIGINT. A
 	// Ctrl-C reaches the harness too, so both end in the same restore.
-	r := &mvRun{root: root, touched: touched, snapshot: snapshot, stdout: stdout, stderr: stderr}
+	r := &mvRun{root: root, touched: touched, snapshot: snapshot, stdout: stdout, stderr: stderr, timeout: mvTimeout(env)}
 	defer trapExitSignals(func() {
 		r.dying.Store(true)
 		r.exit(0)
@@ -158,6 +159,7 @@ type mvRun struct {
 	root, snapshot string
 	touched        []string
 	stdout, stderr io.Writer
+	timeout        time.Duration
 
 	mu      sync.Mutex // held across `git apply` and the restore, so neither interleaves
 	applied bool
@@ -179,7 +181,10 @@ func (r *mvRun) main(patchArg, patch string, harnesses []string, env Env, stdout
 	base := make([][]string, len(harnesses))
 	for i, h := range harnesses {
 		name := filepath.Base(h)
-		ok, fails, answered := mvRunHarness(h, r.root)
+		ok, fails, answered, timedOut := mvRunHarness(h, r.root, r.timeout)
+		if timedOut {
+			return cannotAnswer(fmt.Sprintf("harness %s timed out after %s on the baseline pass", name, r.timeout))
+		}
 		if !answered {
 			return cannotAnswer("harness " + name + " produced no ok:/FAIL: line on the baseline pass")
 		}
@@ -208,7 +213,19 @@ func (r *mvRun) main(patchArg, patch string, harnesses []string, env Env, stdout
 	mut := make([][]string, len(harnesses))
 	for i, h := range harnesses {
 		name := filepath.Base(h)
-		ok, fails, answered := mvRunHarness(h, r.root)
+		ok, fails, answered, timedOut := mvRunHarness(h, r.root, r.timeout)
+		if timedOut {
+			// A mutant that never finishes is killed by the bound, not
+			// left hanging: synthesise the new failure the verdict counts.
+			tn := fmt.Sprintf("timeout after %s", r.timeout)
+			if !slices.Contains(fails, tn) {
+				fails = append(fails, tn)
+			}
+			mut[i] = fails
+			fmt.Fprintf(stdout, "  %s: mutated timed out after %s — counted as killed\n", name, r.timeout)
+			fmt.Fprintf(stdout, "  %s: mutated ok=%d fail=%d\n", name, ok, len(fails))
+			continue
+		}
 		if !answered {
 			return cannotAnswer("harness " + name + " produced no ok:/FAIL: line on the mutated pass")
 		}
@@ -350,12 +367,63 @@ func (r *mvRun) exit(rc int) int {
 // ponytail: a harness without a #! line fails to exec here (ENOEXEC) and
 // reads as unanswered, where bash ran it as a bash script; every harness this
 // runs is a scripts/test-*.sh with one.
-func mvRunHarness(h, dir string) (ok int, fails []string, answered bool) {
+// mvTimeout is MUTATE_AND_VERIFY_TIMEOUT_SECONDS when all digits and
+// positive, else 300s — the bound that keeps a busy-spin mutant from
+// hanging a proof for as long as it wants.
+func mvTimeout(env Env) time.Duration {
+	s := env.Getenv("MUTATE_AND_VERIFY_TIMEOUT_SECONDS")
+	if s == "" || strings.Trim(s, "0123456789") != "" {
+		return 300 * time.Second
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil || n <= 0 {
+		return 300 * time.Second
+	}
+	return time.Duration(n) * time.Second
+}
+
+// mvRunBounded runs cmd, killing its whole process group (SIGTERM, then
+// SIGKILL after 2s) once timeout elapses. The group kill is what reaches
+// a test executor the harness forked; WaitDelay keeps an escaped
+// descendant holding the capture pipe from hanging the wait.
+func mvRunBounded(cmd *exec.Cmd, timeout time.Duration) (timedOut bool) {
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.WaitDelay = 2 * time.Second
+	if err := cmd.Start(); err != nil {
+		return false
+	}
+	done := make(chan struct{})
+	go func() { _ = cmd.Wait(); close(done) }()
+	select {
+	case <-done:
+		return false
+	case <-time.After(timeout):
+	}
+	pid := cmd.Process.Pid
+	if syscall.Kill(-pid, syscall.SIGTERM) != nil {
+		_ = cmd.Process.Signal(syscall.SIGTERM)
+	}
+	select {
+	case <-done:
+		return true
+	case <-time.After(2 * time.Second):
+	}
+	if syscall.Kill(-pid, syscall.SIGKILL) != nil {
+		_ = cmd.Process.Kill()
+	}
+	<-done
+	return true
+}
+
+func mvRunHarness(h, dir string, timeout time.Duration) (ok int, fails []string, answered bool, timedOut bool) {
+	if timeout <= 0 {
+		timeout = 300 * time.Second
+	}
 	cmd := exec.Command(h)
 	cmd.Dir, cmd.Stdin = dir, os.Stdin
 	var out bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &out
-	_ = cmd.Run()
+	timedOut = mvRunBounded(cmd, timeout)
 	// $(...) dropped every NUL byte (bash 5 also warned "ignored null byte
 	// in input" on stderr, the one byte of its output not reproduced here).
 	for _, line := range strings.Split(strings.ReplaceAll(out.String(), "\x00", ""), "\n") {
@@ -366,5 +434,5 @@ func mvRunHarness(h, dir string) (ok int, fails []string, answered bool) {
 			fails = append(fails, strings.TrimPrefix(line, "FAIL: "))
 		}
 	}
-	return ok, fails, ok > 0 || len(fails) > 0
+	return ok, fails, ok > 0 || len(fails) > 0, timedOut
 }
