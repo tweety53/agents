@@ -34,15 +34,15 @@ the baseline can never be the run that times out.
   unaffected.
 - `baseline pass timeout cannot answer` still runs on the real 3s timer.
 
-- [ ] 1. Fire the mutate-and-verify bound on readiness in its timeout tests
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** On the untouched tree,
+- [x] 1. Fire the mutate-and-verify bound on readiness in its timeout tests
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** On the untouched tree,
     induce a slow baseline: in `stats/internal/guard/mutate_and_verify_test.go`, case
     `project command timeout counts as killed`, change the script's tail
     `sleep 30; fi\nexit 0\n` to `sleep 30; fi\nsleep 4\nexit 0\n`, then run
     `cd stats && go test ./internal/guard/ -run 'TestMutateAndVerify/project_command_timeout_counts_as_killed' -count=1`:
     it FAILS with `cannot answer — harness ./project-cmd.sh timed out after 3s on the baseline
     pass`. Revert the induction (`git checkout -- stats/internal/guard/mutate_and_verify_test.go`).
-  - [ ] **Step 2: Implement.** Save the diff below to `/tmp/pf13-task1.diff` and apply it
+  - [x] **Step 2: Implement.** Save the diff below to `/tmp/pf13-task1.diff` and apply it
     (`git apply /tmp/pf13-task1.diff`):
 
 ````diff verified:applied with git apply to this worktree at 4963d4a6; go test ./internal/guard/ -run TestMutateAndVerify -count=1 green; 8 of 8 -race runs green under 40 yes processes (1 of 4 failed before); the induced 4s baseline passes; with expire: env.MutateExpire replaced by expire: nil both cases fail; gofmt -l and go vet clean
@@ -241,15 +241,15 @@ index dbab78b6..807cd7dd 100644
  	// synthesised below, is the only evidence the verdict reads.
 ````
 
-  - [ ] **Step 3: Prove the seam.** Repeat Step 1's induction on the fixed tree (the tail now
+  - [x] **Step 3: Prove the seam.** Repeat Step 1's induction on the fixed tree (the tail now
     reads `sleep 30; fi\nexit 0\n` after `touch '"+dir+"/mutated';`): the case PASSES. Revert
     it. Then replace `expire: env.MutateExpire}` with `expire: nil}` in
     `stats/internal/guard/mutateandverify.go` and run
     `cd stats && go test ./internal/guard/ -run 'TestMutateAndVerify/(mutated_pass|project_command)_timeout_counts_as_killed' -count=1`:
     both cases FAIL after ~30s. Restore `expire: env.MutateExpire}`.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestMutateAndVerify' -count=1`
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestMutateAndVerify' -count=1`
     — green, `gofmt -l` prints nothing.
-  - [ ] **Step 5: Commit** the three files with the subject below.
+  - [x] **Step 5: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/guard.go`, `stats/internal/guard/mutateandverify.go`, `stats/internal/guard/mutate_and_verify_test.go`
