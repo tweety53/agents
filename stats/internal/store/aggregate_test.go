@@ -281,6 +281,50 @@ func TestStageLeaderboardComputesMeanMedianP90(t *testing.T) {
 	if diff := row.P90CostUSD - 46; diff > eps || diff < -eps {
 		t.Errorf("P90CostUSD = %v, want 46", row.P90CostUSD)
 	}
+	if diff := row.TotalCostUSD - 150; diff > eps || diff < -eps {
+		t.Errorf("TotalCostUSD = %v, want 150", row.TotalCostUSD)
+	}
+}
+
+// TestStageLeaderboardKeepsTopTenByTotalCost: the leaderboard ranks stages
+// by total cost and keeps only the ten costliest (design.md's
+// leaderboard-top10-total) -- eleven stages in, the cheapest is gone and
+// the rest arrive total-descending.
+func TestStageLeaderboardKeepsTopTenByTotalCost(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-leaderboard-top-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	// Stage i costs i+1 in total, as two runs, so the rank is by the sum
+	// and not by any one run.
+	for i := range 11 {
+		for j := range 2 {
+			in := baseBeginInput(projectKey, "kan-1", "/flow", fmt.Sprintf("stage-%02d", i))
+			in.SessionID = ptr(fmt.Sprintf("session-%d-%d", i, j))
+			in.StartedAt = time.Date(2026, 6, 10, i, j, 0, 0, time.UTC)
+			costRun(t, st, in, float64(i+1)/2)
+		}
+	}
+
+	rows, err := st.StageLeaderboard(ctx, store.Period{
+		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+	}, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("StageLeaderboard: %v", err)
+	}
+	if len(rows) != 10 {
+		t.Fatalf("StageLeaderboard returned %d rows, want 10", len(rows))
+	}
+	for k, row := range rows {
+		if want := fmt.Sprintf("stage-%02d", 10-k); row.Stage != want {
+			t.Errorf("rows[%d].Stage = %q, want %q (total-cost descending)", k, row.Stage, want)
+		}
+		if want := float64(11 - k); row.TotalCostUSD != want {
+			t.Errorf("rows[%d].TotalCostUSD = %v, want %v", k, row.TotalCostUSD, want)
+		}
+	}
 }
 
 // TestTrendOverTimeBucketsByDay seeds three runs on one day and two on the

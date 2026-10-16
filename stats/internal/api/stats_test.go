@@ -440,7 +440,7 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 	t.Run("stage-leaderboard", func(t *testing.T) {
 		sts := &statsFake{stageLeaderboard: []store.StageLeaderboardRow{
 			{Command: "/flow", Stage: "SDD + TDD per task", RunCount: 5,
-				MeanCostUSD: 11.25, MedianCostUSD: 9.5, P90CostUSD: 22.75},
+				MeanCostUSD: 11.25, MedianCostUSD: 9.5, P90CostUSD: 22.75, TotalCostUSD: 56.25},
 		}}
 		ts := newStatsTestServer(t, sts)
 		status, env, body := getStats(t, ts, periodPath("stage-leaderboard"))
@@ -454,14 +454,16 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 			MeanCostUSD   float64 `json:"meanCostUsd"`
 			MedianCostUSD float64 `json:"medianCostUsd"`
 			P90CostUSD    float64 `json:"p90CostUsd"`
+			TotalCostUSD  float64 `json:"totalCostUsd"`
 		}
 		mustDecodeRows(t, env, body, &rows)
 		if len(rows) != 1 {
 			t.Fatalf("rows = %d, want 1", len(rows))
 		}
 		got := rows[0]
-		if got.RunCount != 5 || got.MeanCostUSD != 11.25 || got.MedianCostUSD != 9.5 || got.P90CostUSD != 22.75 {
-			t.Errorf("got %+v, want RunCount=5 MeanCostUSD=11.25 MedianCostUSD=9.5 P90CostUSD=22.75", got)
+		if got.RunCount != 5 || got.MeanCostUSD != 11.25 || got.MedianCostUSD != 9.5 || got.P90CostUSD != 22.75 ||
+			got.TotalCostUSD != 56.25 {
+			t.Errorf("got %+v, want RunCount=5 MeanCostUSD=11.25 MedianCostUSD=9.5 P90CostUSD=22.75 TotalCostUSD=56.25", got)
 		}
 	})
 

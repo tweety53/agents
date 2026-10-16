@@ -287,6 +287,7 @@ export interface StageLeaderboardRow {
   meanCostUsd: number;
   medianCostUsd: number;
   p90CostUsd: number;
+  totalCostUsd: number;
 }
 
 /** Mirrors guardActivityRowDTO (internal/api/health.go). The run-derived

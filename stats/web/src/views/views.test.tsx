@@ -102,6 +102,7 @@ const fixtures: Record<Exclude<ViewName, "flow-health"> | HealthViewSlug, StatsR
       meanCostUsd: 1.5,
       medianCostUsd: 1.2,
       p90CostUsd: 2.9,
+      totalCostUsd: 4.5,
     },
   ]),
   trend: envelope("trend", [{ day: "2026-01-05", runCount: 2, totalCostUsd: 5.25 }]),
@@ -291,11 +292,13 @@ describe("views render their fixture response's actual values", () => {
     expect(screen.queryByRole("link", { name: "pipeline-fix-x-14" })).not.toBeInTheDocument();
   });
 
-  it("stage leaderboard shows mean, median and p90 cost, and its own stat panels", async () => {
+  it("stage leaderboard shows total, mean, median and p90 cost, and its own stat panels", async () => {
     render(<StageLeaderboard period={period} project={undefined} />);
     expect(await screen.findByText("$1.50")).toBeInTheDocument();
     expect(screen.getByText("$1.20")).toBeInTheDocument();
     expect(screen.getByText("$2.90")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /Total cost/ })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "$4.50" })).toBeInTheDocument();
     within(screen.getByRole("region", { name: "Stages" })).getByText("1");
     within(screen.getByRole("region", { name: "Total runs" })).getByText("3");
   });

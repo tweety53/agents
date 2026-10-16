@@ -1,5 +1,7 @@
-// Stage leaderboard -- which stages cost the most, mean/median/p90 across
-// a period.
+// Stage leaderboard -- the ten stages costing the most in total across a
+// period, each with its mean/median/p90 (design.md's
+// leaderboard-top10-total). The server returns them ranked by total cost,
+// which is the table's order until a reader sorts another column.
 //
 // Recomposed onto the panel primitives (task 20): "Stages" (a count) and
 // "Total runs" (a sum) are meaningful single numbers for this view's own
@@ -22,6 +24,13 @@ const columns: Column<StageLeaderboardRow>[] = [
   { key: "command", header: "Command", sortable: true, accessor: (r) => r.command, filterable: true },
   { key: "stage", header: "Stage", sortable: true, accessor: (r) => r.stage },
   { key: "runCount", header: "Runs", sortable: true, accessor: (r) => r.runCount },
+  {
+    key: "totalCostUsd",
+    header: "Total cost",
+    sortable: true,
+    accessor: (r) => r.totalCostUsd,
+    render: (r) => formatUsd(r.totalCostUsd),
+  },
   {
     key: "meanCostUsd",
     header: "Mean cost",
@@ -54,7 +63,7 @@ export function StageLeaderboard({ period, onPeriodChange, project, model }: Vie
   });
 
   return (
-    <ViewFrame title="Stage leaderboard" description="Which stages cost the most -- mean, median and p90 -- across a period.">
+    <ViewFrame title="Stage leaderboard" description="The ten stages costing the most in total -- with mean, median and p90 -- across a period.">
       <div className="dashboard-stat-row">
         <Panel title="Stages" state={state}>
           {(data) => <StatPanel label="Stages" value={data.rows.length} format={formatInt} />}

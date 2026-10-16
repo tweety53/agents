@@ -268,10 +268,12 @@ type StageLeaderboardRow struct {
 	MeanCostUSD   float64
 	MedianCostUSD float64
 	P90CostUSD    float64
+	TotalCostUSD  float64
 }
 
-// StageLeaderboard ranks stages by cost -- mean, median and p90 -- across
-// period, optionally restricted to one project.
+// StageLeaderboard ranks stages by total cost across period, optionally
+// restricted to one project, and keeps only the ten costliest (design.md's
+// leaderboard-top10-total); each row also carries mean, median and p90.
 //
 // model, when non-nil, restricts to stage runs whose metrics recorded that
 // model (per CostPerChange's own doc comment) and ranks by that model's own
@@ -294,10 +296,12 @@ func (s *Store) StageLeaderboard(ctx context.Context, period Period, project, mo
 			command, stage, COUNT(*),
 			AVG(cost),
 			percentile_cont(0.5) WITHIN GROUP (ORDER BY cost),
-			percentile_cont(0.9) WITHIN GROUP (ORDER BY cost)
+			percentile_cont(0.9) WITHIN GROUP (ORDER BY cost),
+			SUM(cost)
 		FROM costed
 		GROUP BY command, stage
-		ORDER BY command, stage
+		ORDER BY SUM(cost) DESC, command, stage
+		LIMIT 10
 	`, period.From, period.To, project, model)
 	if err != nil {
 		return nil, fmt.Errorf("store: stage leaderboard: %w", err)
@@ -307,7 +311,7 @@ func (s *Store) StageLeaderboard(ctx context.Context, period Period, project, mo
 	var out []StageLeaderboardRow
 	for rows.Next() {
 		var row StageLeaderboardRow
-		if err := rows.Scan(&row.Command, &row.Stage, &row.RunCount, &row.MeanCostUSD, &row.MedianCostUSD, &row.P90CostUSD); err != nil {
+		if err := rows.Scan(&row.Command, &row.Stage, &row.RunCount, &row.MeanCostUSD, &row.MedianCostUSD, &row.P90CostUSD, &row.TotalCostUSD); err != nil {
 			return nil, fmt.Errorf("store: stage leaderboard: scan: %w", err)
 		}
 		out = append(out, row)

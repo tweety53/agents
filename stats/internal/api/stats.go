@@ -705,6 +705,7 @@ type stageLeaderboardRowDTO struct {
 	MeanCostUSD   float64 `json:"meanCostUsd"`
 	MedianCostUSD float64 `json:"medianCostUsd"`
 	P90CostUSD    float64 `json:"p90CostUsd"`
+	TotalCostUSD  float64 `json:"totalCostUsd"`
 }
 
 func toStageLeaderboardDTOs(rows []store.StageLeaderboardRow) []stageLeaderboardRowDTO {
@@ -713,6 +714,7 @@ func toStageLeaderboardDTOs(rows []store.StageLeaderboardRow) []stageLeaderboard
 		out[i] = stageLeaderboardRowDTO{
 			Command: r.Command, Stage: r.Stage, RunCount: r.RunCount,
 			MeanCostUSD: r.MeanCostUSD, MedianCostUSD: r.MedianCostUSD, P90CostUSD: r.P90CostUSD,
+			TotalCostUSD: r.TotalCostUSD,
 		}
 	}
 	return out
