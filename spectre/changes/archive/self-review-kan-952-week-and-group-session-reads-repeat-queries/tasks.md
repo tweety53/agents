@@ -28,9 +28,9 @@
 - `count-request-queries.sh` pointed at the main checkout's `gymie` database must refuse before any `ALTER DATABASE` (Task 3's step 3).
 - The pool's empty validation statement and connect-time `SET application_name` must not count as the request's statements (Task 3's harness).
 
-- [ ] 1. Every run writing IN_PROGRESS runs the unfinished-work guard on itself
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'A fix run then runs the unfinished-work guard' skills/flow/verify-and-handoff.md` and confirm one hit — the defect: only a fix run checks itself, so kan-952's creating run handed off over a panel round with no pass row.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 1. Every run writing IN_PROGRESS runs the unfinished-work guard on itself
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'A fix run then runs the unfinished-work guard' skills/flow/verify-and-handoff.md` and confirm one hit — the defect: only a fix run checks itself, so kan-952's creating run handed off over a panel round with no pass row.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply --check at 6d14366a; check-verbatim-moves.sh with this change's verbatim-moves.txt, check-references.sh, check-markdown-integrity.py and check-dispatch-paragraphs.sh exit 0 with Tasks 1 and 2 applied
 diff --git a/skills/flow/verify-and-handoff.md b/skills/flow/verify-and-handoff.md
@@ -49,7 +49,7 @@ index 492fc6fd..b435e839 100644
  this run's own unfinished work: finish what its breakdown names — a missing dispatch or review is
 ````
 
-  - [ ] **Step 3: Verify.** From the repository root `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` — all exit 0. Commit.
+  - [x] **Step 3: Verify.** From the repository root `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` — all exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/verify-and-handoff.md`
@@ -61,10 +61,10 @@ index 492fc6fd..b435e839 100644
 
 **Decision:** unfinished-work-every-in-progress
 
-- [ ] 2. A panel-fix row's recorded commit is a task commit or the round's fix commit
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'commitSha' stats/internal/guard/panelfixsingledispatch.go` and confirm no hit — the guard never reads a row's commit, so kan-952's `panel-fix-0` row recording the plan commit `2f0fe509` passed.
-  - [ ] **Step 2: Write the failing test.** Apply the `stats/internal/guard/check_panel_fix_single_dispatch_test.go` hunk of the diff in step 3 alone (`git apply --include='stats/internal/guard/check_panel_fix_single_dispatch_test.go' <the diff>`) and run `cd stats && go test ./internal/guard/ -run TestCheckPanelFixSingleDispatchCommitIsATaskCommit -count=1`: it FAILS with `expected exit 1, got 0`.
-  - [ ] **Step 3: Implement the check.** Apply the rest of this diff:
+- [x] 2. A panel-fix row's recorded commit is a task commit or the round's fix commit
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'commitSha' stats/internal/guard/panelfixsingledispatch.go` and confirm no hit — the guard never reads a row's commit, so kan-952's `panel-fix-0` row recording the plan commit `2f0fe509` passed.
+  - [x] **Step 2: Write the failing test.** Apply the `stats/internal/guard/check_panel_fix_single_dispatch_test.go` hunk of the diff in step 3 alone (`git apply --include='stats/internal/guard/check_panel_fix_single_dispatch_test.go' <the diff>`) and run `cd stats && go test ./internal/guard/ -run TestCheckPanelFixSingleDispatchCommitIsATaskCommit -count=1`: it FAILS with `expected exit 1, got 0`.
+  - [x] **Step 3: Implement the check.** Apply the rest of this diff:
 
 ````diff verified:git apply --check at 6d14366a; gofmt -l, go vet ./internal/guard/ and go test ./internal/guard/ -count=1 pass with it applied; TestCheckPanelFixSingleDispatchCommitIsATaskCommit fails with panelfixsingledispatch.go reverted (expected exit 1, got 0)
 diff --git a/scripts/check-panel-fix-single-dispatch.sh b/scripts/check-panel-fix-single-dispatch.sh
@@ -347,7 +347,7 @@ index 9edf1c38..f1d5d1e2 100644
  Exit 2 stops the run — a close the guard cannot answer for is not a clean close.
 ````
 
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckPanelFixSingleDispatch' -count=1`, then from the repository root `bash -n scripts/check-panel-fix-single-dispatch.sh`, `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` — all exit 0 with `gofmt -l` printing nothing. Commit.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckPanelFixSingleDispatch' -count=1`, then from the repository root `bash -n scripts/check-panel-fix-single-dispatch.sh`, `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` — all exit 0 with `gofmt -l` printing nothing. Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/panelfixsingledispatch.go`, `stats/internal/guard/check_panel_fix_single_dispatch_test.go`, `scripts/check-panel-fix-single-dispatch.sh`, `skills/flow/review-panel.md`
@@ -360,9 +360,9 @@ index 9edf1c38..f1d5d1e2 100644
 
 **Decision:** panel-fix-commit-is-landing
 
-- [ ] 3. gymie counts SQL statements and BEGINs per HTTP request against a worktree database
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-worktrees/kan-952-week-and-group-session-reads-repeat-queries`, run `ls scripts/count-request-queries.sh` and confirm `No such file or directory`, and `grep -n 'count-request-queries' .flow/project.md` and confirm no hit — the defect: no tool counts a request's SQL, so kan-924 and kan-952 did it by hand.
-  - [ ] **Step 2: Apply the fix.** From `/Users/tweety53/Projects/gymie-worktrees/kan-952-week-and-group-session-reads-repeat-queries`, apply this diff:
+- [x] 3. gymie counts SQL statements and BEGINs per HTTP request against a worktree database
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-worktrees/kan-952-week-and-group-session-reads-repeat-queries`, run `ls scripts/count-request-queries.sh` and confirm `No such file or directory`, and `grep -n 'count-request-queries' .flow/project.md` and confirm no hit — the defect: no tool counts a request's SQL, so kan-924 and kan-952 did it by hand.
+  - [x] **Step 2: Apply the fix.** From `/Users/tweety53/Projects/gymie-worktrees/kan-952-week-and-group-session-reads-repeat-queries`, apply this diff:
 
 ````diff verified:git apply --check in the gymie worktree at e289b126; bash scripts/test-count-request-queries.sh passes and fails with the statement filter removed; run live against gymie_kan_952_week_fd3b on backend 8361 it printed http=200 statements=0 begin=0 for /actuator/health and left the database setting reset
 diff --git a/.flow/project.md b/.flow/project.md
@@ -562,7 +562,7 @@ index 00000000..714c9ad3
 +exit "$fail"
 ````
 
-  - [ ] **Step 3: Verify.** From `/Users/tweety53/Projects/gymie-worktrees/kan-952-week-and-group-session-reads-repeat-queries`: `bash -n scripts/count-request-queries.sh`, `bash scripts/test-count-request-queries.sh` (three `OK` lines, exit 0), and `scripts/count-request-queries.sh gymie -- http://localhost:8080/` exits 2 with `'gymie' is not a workspace database` before touching the database. Commit in that worktree: `git -C /Users/tweety53/Projects/gymie-worktrees/kan-952-week-and-group-session-reads-repeat-queries add scripts/count-request-queries.sh scripts/test-count-request-queries.sh .flow/project.md && git -C /Users/tweety53/Projects/gymie-worktrees/kan-952-week-and-group-session-reads-repeat-queries commit -m "chore(scripts): count SQL statements and BEGINs per HTTP request against a worktree database" -- scripts/count-request-queries.sh scripts/test-count-request-queries.sh .flow/project.md`.
+  - [x] **Step 3: Verify.** From `/Users/tweety53/Projects/gymie-worktrees/kan-952-week-and-group-session-reads-repeat-queries`: `bash -n scripts/count-request-queries.sh`, `bash scripts/test-count-request-queries.sh` (three `OK` lines, exit 0), and `scripts/count-request-queries.sh gymie -- http://localhost:8080/` exits 2 with `'gymie' is not a workspace database` before touching the database. Commit in that worktree: `git -C /Users/tweety53/Projects/gymie-worktrees/kan-952-week-and-group-session-reads-repeat-queries add scripts/count-request-queries.sh scripts/test-count-request-queries.sh .flow/project.md && git -C /Users/tweety53/Projects/gymie-worktrees/kan-952-week-and-group-session-reads-repeat-queries commit -m "chore(scripts): count SQL statements and BEGINs per HTTP request against a worktree database" -- scripts/count-request-queries.sh scripts/test-count-request-queries.sh .flow/project.md`.
 
 **Build:** green
 **Files:** `scripts/count-request-queries.sh`, `scripts/test-count-request-queries.sh`, `.flow/project.md` (gymie repository, worktree `/Users/tweety53/Projects/gymie-worktrees/kan-952-week-and-group-session-reads-repeat-queries`)
