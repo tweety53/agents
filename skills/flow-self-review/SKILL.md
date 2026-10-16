@@ -37,8 +37,8 @@ checkout on any other branch: print the branch and stop.
 
 ### 2. Read the bundle and run the seven angles
 
-Dispatch the pass, in-run and standalone alike: key `self-review-<name>-pass`,
-`subagent_type: flow-medium` on `opus`, its prompt carrying the bundle in full (`<bundle>`
+Dispatch the pass, in-run and standalone alike: key `self-review-<name>-pass`, on the `pass` row
+of the pairs table (step 3), its prompt carrying the bundle in full (`<bundle>`
 standalone, the bundle held in memory in-run), this step's rules and step 3's classification, the
 dispatch paragraphs step 3 names and READ-ONLY REVIEW. It returns every finding with its angle, its
 evidence and its classification — `noted` or fixable, in or out of scope, and for a fixable one its
@@ -119,8 +119,9 @@ shows, with evidence, that the defect it names does not exist. A planner report 
 finding on any other ground is sent back to a fresh planner dispatch carrying the objection as a
 constraint, never offered for filing in step 4 (kan-982: the `Task-Id:` guard and the scope check
 were dropped as imprecise and offered for filing; the operator answered "fix them now"). A finding hard
-to solve escalates the planner rather than leaving the loop: the re-plan may run on `flow-high`
-(effort `high`) in place of the planner pair's `flow-medium`. Where `high` still cannot produce a
+to solve escalates the planner rather than leaving the loop: the re-plan, key
+`self-review-<name>-plan-<n>`, may run on `flow-high` (effort `high`) in place of the planner
+pair's `flow-medium`. Where `high` still cannot produce a
 design that holds, the next step is effort `xhigh` — and an `xhigh` dispatch is never made
 without the operator's approval, asked first with the finding, the objection and what `high`
 returned; a refusal leaves the finding offered for filing in step 4. **This session plans,
@@ -147,6 +148,21 @@ key suffix, the table `check-loop-dispatch.sh` reads and refuses a loop dispatch
 the two `review` rows: the first review on `flow-medium` or `flow-low` as the planner recorded —
 `flow-medium` when it recorded none — and every re-review after a fix on `flow-low` and `sonnet`.
 
+**Every loop dispatch is admitted and recorded mechanically.**
+`<agents repo>/hooks/enforce-loop-dispatch.py` hands each Agent call whose prompt carries a
+`Key: pipeline-fix-<k>-…` or `Key: self-review-<name>-…` line to
+`<agents repo>/scripts/check-loop-dispatch.sh`, which refuses it off its row of the table above,
+while an earlier dispatch of the loop is still open, or — any dispatch but the plan and the pass —
+before a completed plan, and records the admitted one in flowd. The parent closes each dispatch
+once it returns with `<agents repo>/scripts/pipeline-fix.sh end <key> <outcome>`: `completed`, or
+`aborted` for one that did not finish or never ran — a dispatch denied after it was recorded is
+closed `aborted` and may be dispatched again under the same key. A review is closed with
+`<agents repo>/scripts/pipeline-fix.sh end <key> <report-file>`, its reviewer's report, whose `Critical: <n>` and
+`Important: <n>` lines decide the outcome: `clean` when both are 0, `fix` otherwise. A dispatch on its row's escalation column is admitted only after
+`<agents repo>/scripts/pipeline-fix.sh escalate <key>`, and every loop branch's landing push only
+once `<agents repo>/scripts/check-loop-landing.sh` finds its plan, its fix and a last review
+closed `clean`.
+
 `<agents-base>` is the one **Pipeline defects found mid-run** binds. `<fix-branch>` and
 `<fix-base>` are where the fixes go (`design.md`, `fixes-ride-the-change`): inside a run whose
 change's canonical repository is `<agents repo>`, the change's own branch in its own
@@ -154,11 +170,9 @@ worktree — `spectre/<name>` on `/flow`, `<name>` on `/flow-fast` — based at 
 holds when the pass starts; standalone, or inside
 any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
 
-1. **Plan, then fix** — on `self-review-<name>`, this session creates the worktree,
-   `git -C <agents repo> worktree add -b self-review-<name> <agents repo>-worktrees/self-review-<name> origin/<agents-base>`
-   — never the main checkout — runs `<agents repo>`'s `## worktree setup` in it
-   (`project-get.sh <agents repo> 'worktree setup'`); on the change's own branch its worktree is
-   already set up. It then dispatches key `self-review-<name>-plan` on the planner pair, its
+1. **Plan, then fix** — on `self-review-<name>`, this session creates the worktree with
+   `<agents repo>/scripts/pipeline-fix.sh start <name>` — never the main checkout; on the change's
+   own branch its worktree is already set up. It then dispatches key `self-review-<name>-plan` on the planner pair, its
    prompt carrying every non-`big` finding with its evidence and counted blast radius. The planner
    plans them all in full as one spectre change, `self-review-<name>`, in that worktree, per
    `skills/flow/brainstorm-planner.md`: brainstorming (section B), the artifacts (section C —
@@ -193,7 +207,8 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
 2. **Review** — key `self-review-<name>-review-<r>` on the review pair, over
    `git diff <fix-base>...<fix-branch>`, its prompt naming each finding beside its task's
    commit, judging the code against `tasks.md` and `design.md`'s decisions, and asking each review
-   finding graded Critical, Important or Minor.
+   finding graded Critical, Important or Minor, and its report to open with one `Critical: <n>`
+   and one `Important: <n>` line counting them.
 3. **Fix the review's findings** — key `self-review-<name>-fix-<r>` on the fixer pair, its prompt carrying the
    review's report verbatim. Each fix is folded into the commit of the task it fixes
    (`git commit --fixup <that commit>`, then `git rebase --autosquash <fix-base>`), so
@@ -212,11 +227,9 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    unticked, its finding found `big` or its commit dropped — and commits both as
    `chore(spectre): archive self-review-<name>`, on either branch, before any landing push —
    `<agents repo>`'s push hook refuses an unarchived change on its default branch. That commit
-   alone carries the ticks, and is made once. This session then runs, in the fix worktree, only the
-   `<agents repo>/.flow/project.md` `## lint` lines the touched files need, plus the tests
-   covering them: `go test` of the touched packages, the `scripts/test-*.sh` harness of a touched
-   script, `npx vitest run <file>` of a touched SPA file — each output through `tail`, never the
-   full `## lint` or `## test` list. A red line is fixed by a fresh dispatch of step 3, key
+   alone carries the ticks, and is made once. This session then runs
+   `<agents repo>/scripts/pipeline-fix.sh verify <fix worktree>`. A red line is fixed by a fresh
+   dispatch of step 3, key
    `self-review-<name>-fix-v<v>`, its prompt carrying the failing command and its output
    verbatim; then step 2, then this step's lint lines and tests again, `<v>` plus one. The
    autosquash keeps the archive commit last; a task commit dropped after it has its task unticked
@@ -243,8 +256,7 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    land by `<agents repo>`'s `## default landing route`
    (`project-get.sh <agents repo> 'default landing route'`), without asking — merge and push as
    step 4 of **Pipeline defects found mid-run** states it, with `self-review-<name>` as the
-   branch. A rebase onto a moved `origin/<agents-base>` runs item 4's lint lines and tests again
-   before the push — never its ticks or archive, which the rebase carries. The pass is not done until every fixed finding's commit is on `origin/<agents-base>`. Each fixed
+   branch. The pass is not done until every fixed finding's commit is on `origin/<agents-base>`. Each fixed
    finding's sha is read off `<agents-base>` after the landing, never from
    the branch before its rebase; on a route that opens a pull request, once that pull request
    merges.

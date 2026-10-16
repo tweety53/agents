@@ -156,6 +156,12 @@ of `/flow-self-review` (`skills/flow-self-review/SKILL.md`) — and writes `IN_P
 `STOP: landing-route` — no route given or configured — asks the landing question of step 2, then
 re-runs `land` with `--route`.
 
+`STOP: loop-landing` — on the merge-and-push route, before each landing push,
+`<agents repo>/scripts/check-loop-landing.sh <canonical worktree> spectre/<name>` refused (or could not answer)
+the self-review loop run on the change's own branch: nothing more is pushed to the base, the change
+stays `IN_PROGRESS`, and the `LOOP-LANDING-REFUSED` lines are relayed — finish the loop they name,
+then re-run `land`. A branch with no loop rows answers `LOOP-LANDING-NA` and passes.
+
 **Every git step here can fail, and none of them may fail silently.** `STOP: push`, `STOP: sync`,
 `STOP: sync-conflict`, `STOP: guard-test`, `STOP: self-review-report` and `STOP: state` are
 reported with the command's own output, leaving the change at `IN_PROGRESS`; `STOP: base` and

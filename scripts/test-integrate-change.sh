@@ -26,6 +26,9 @@
 #   no_report       land with no committed self-review report stops at
 #                   STOP: self-review-report, lands nothing and pushes no
 #                   commit made after `commit`.
+#   loop_landing    land with an own-branch self-review loop's rows refusing
+#                   the landing stops at STOP: loop-landing, exit 1, before
+#                   the first landing push; nothing lands on either main.
 #   untasked        a trailerless code commit in b stops prepare at
 #                   STOP: unfinished-work, its subject listed; the
 #                   --accept-outstanding re-run passes the gate.
@@ -145,7 +148,7 @@ case "\$1 \$2" in
   "record findings") [ -f "$WORK/fail-findings" ] && exit 1; echo '[]' ;;
   "self-review findings") echo '[]' ;;
   "self-review finding") echo "\$*" >>"$WORK/fixed.log" ;;
-  "record dispatches") echo '[{"key":"task-1-implementer","outcome":"completed"}]' ;;
+  "record dispatches") [ -f "$WORK/loop-rows" ] && exec cat "$WORK/loop-rows"; echo '[{"key":"task-1-implementer","outcome":"completed"}]' ;;
   "workspace-id "*) echo demo-id ;;
   *) : ;;
 esac
@@ -283,6 +286,16 @@ check "no_report: nothing was landed" \
   '[ "$(git --git-dir="$WORK/b-origin.git" log --format=%s main -1)" = base ] && [ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -1)" = base ]'
 check "no_report: a's remote branch still sits at commit's HEAD" \
   '[ "$(git --git-dir="$WORK/a-origin.git" rev-parse spectre/demo)" = "$pushed" ]'
+
+# --- loop_landing ---
+fixture
+to_land "loop_landing: "
+printf '[{"seq":1,"key":"self-review-demo-plan","outcome":"","sessionToken":"self-review-demo"}]\n' >"$WORK/loop-rows"
+sut land "$WORK/a" demo
+check "loop_landing: an open own-branch self-review loop stops land at STOP: loop-landing" \
+  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: loop-landing"'
+check "loop_landing: nothing landed on either main" \
+  '[ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -1)" = base ] && [ "$(git --git-dir="$WORK/b-origin.git" log --format=%s main -1)" = base ]'
 
 # --- untasked ---
 fixture

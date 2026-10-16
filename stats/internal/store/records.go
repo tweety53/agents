@@ -396,6 +396,11 @@ func scanDispatchRow(row dispatchRowScanner) (records.Dispatch, error) {
 // purely so that RETURNING yields the existing row; DO NOTHING would return
 // no row at all and leave the caller unable to tell a replayed write from a
 // change that does not exist.
+// reBegin is a begin (no ended_at) replayed onto a row that ended aborted: the
+// re-dispatch of an aborted loop key reopens that row, so the OPEN check and
+// its attribution window see the re-run rather than the aborted attempt.
+const reBegin = `(dispatches.outcome = 'aborted' AND EXCLUDED.ended_at IS NULL)`
+
 func (s *Store) insertDispatch(ctx context.Context, projectKey, change string, in records.Dispatch) (records.Dispatch, error) {
 	metrics := in.Metrics
 	if len(metrics) == 0 {
@@ -425,7 +430,11 @@ func (s *Store) insertDispatch(ctx context.Context, projectKey, change string, i
 		FROM changes c
 		WHERE c.project_key = $1 AND c.name = $2
 		ON CONFLICT ON CONSTRAINT `+dispatchesKeyConstraint+` DO UPDATE SET
-			dispatch_key = EXCLUDED.dispatch_key
+			dispatch_key = EXCLUDED.dispatch_key,
+			started_at = CASE WHEN `+reBegin+` THEN EXCLUDED.started_at ELSE dispatches.started_at END,
+			ended_at = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.ended_at END,
+			cause = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.cause END,
+			outcome = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.outcome END
 		RETURNING `+dispatchColumns+`
 	`,
 		projectKey, change, in.StageRunID, nullIfEmpty(in.TaskID), in.Role, nullIfEmpty(in.Slot),

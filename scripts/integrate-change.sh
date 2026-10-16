@@ -665,6 +665,9 @@ cmd_land() {
     [ "$w" = "$CANON" ] && CANON_BASE="$BASE"
     case "$ROUTE" in
       "merge and push")
+        # An own-branch self-review loop lands only once its rows admit it (NA passes).
+        run "$SCRIPT_DIR/check-loop-landing.sh" "$CANON" "spectre/$NAME"
+        [ "$RC" -eq 0 ] || stop loop-landing "check-loop-landing.sh exit $RC — finish the self-review loop its LOOP-LANDING-REFUSED lines name, then re-run land; nothing landed from $w"
         if ! git -C "$w" push origin "HEAD:$BASE"; then
           say "PUSH-REJECTED: $w — re-syncing onto origin/$BASE once"
           base_of "$o"

@@ -4108,3 +4108,33 @@ func TestChangeSummaryNotFoundWithoutRow(t *testing.T) {
 		t.Errorf("ChangeSummary for an unknown change = %v, want ErrChangeNotFound", err)
 	}
 }
+
+// TestRecordDispatchReopensAnAbortedKey pins that a begin replayed onto a key
+// whose row ended aborted reopens it: ended_at and outcome cleared, started_at
+// the re-run's, so the OPEN check and the window see the re-dispatch.
+func TestRecordDispatchReopensAnAbortedKey(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-reopen-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	d := baseDispatch("implementer", "opus")
+	d.SessionToken = "tok"
+	d.Key = "pipeline-fix-1-fix"
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", d); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{
+		SessionToken: "tok", Key: d.Key, Outcome: "aborted", EndedAt: d.StartedAt.Add(time.Minute),
+	}); err != nil {
+		t.Fatalf("EndDispatch: %v", err)
+	}
+	d.StartedAt = d.StartedAt.Add(time.Hour)
+	got, err := st.RecordDispatch(ctx, projectKey, "kan-1", d)
+	if err != nil {
+		t.Fatalf("re-begin: %v", err)
+	}
+	if got.EndedAt != nil || got.Outcome != "" || !got.StartedAt.Equal(d.StartedAt) {
+		t.Errorf("re-begin after aborted = ended %v outcome %q started %v, want open at %v",
+			got.EndedAt, got.Outcome, got.StartedAt, d.StartedAt)
+	}
+}

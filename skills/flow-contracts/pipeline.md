@@ -183,18 +183,17 @@ parks a question for a resume. **Each in-run fix runs the loop of 3. Fix every f
 `big`** (`skills/flow-self-review/SKILL.md`), canonical for its planner, fixer and review pairs,
 the paragraphs every prompt carries, the no-progress escalation, and each item the steps below
 cite. One loop carries one defect, `<k>` one more than the highest `<n>` of any
-`pipeline-fix-<name>-<n>` already under `<agents repo>/spectre/changes/` or
-`<agents repo>/spectre/changes/archive/`, so no
-later run of the change reuses a name; its name
+`pipeline-fix-*-<n>` branch, local or remote, or folder under `<agents repo>/spectre/changes/` or
+`<agents repo>/spectre/changes/archive/` — whatever change it was for — so `<k>` is unique across
+`<agents repo>` and no two loops, concurrent or later, share a key (`pipeline-fix.sh start`
+refuses any other `<k>`); its name
 `pipeline-fix-<name>-<k>`, `<name>` the running change, stands for `self-review-<name>` there —
 the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-base>` for
 `<fix-base>`; the parent is that file's "this session".
 
-1. **Plan, then fix** — the parent creates the fix's own worktree,
-   `git -C <agents repo> worktree add -b pipeline-fix-<name>-<k> <agents repo>-worktrees/pipeline-fix-<name>-<k> origin/<agents-base>`
-   — never the main checkout, never the change's own worktree — and runs `<agents repo>`'s
-   `## worktree setup` in it (`project-get.sh <agents repo> 'worktree setup'`). It dispatches
-   `pipeline-fix-<k>-plan`, its prompt carrying the defect, its evidence and the counted blast
+1. **Plan, then fix** — the parent creates the fix's own worktree with
+   `<agents repo>/scripts/pipeline-fix.sh start <name> <k>` — never the main checkout, never the
+   change's own worktree. It dispatches `pipeline-fix-<k>-plan`, its prompt carrying the defect, its evidence and the counted blast
    radius, then `pipeline-fix-<k>-fix`, `-fix-g<g>` when the planner recorded more than one group,
    each as item 1 there states. The fixer also adds one test or guard that fails without the fix,
    and updates a saved memory that encoded the defect.
@@ -202,17 +201,14 @@ the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-
    `git diff origin/<agents-base>...pipeline-fix-<name>-<k>`, as item 2 there states.
 3. **Fix the findings** — a fresh `pipeline-fix-<k>-fix-<r>`, as item 3 there states, under
    **Fewest operator actions** above. A defect whose commit the review drops is deferred, as a
-   `big` one is: the parent removes the worktree and the branch, landing nothing.
+   `big` one is: the parent runs `<agents repo>/scripts/pipeline-fix.sh drop <worktree>`, landing
+   nothing.
 4. **Land** — once the parent has ticked and archived the plan in one
    `chore(spectre): archive pipeline-fix-<name>-<k>` commit and run the lint lines and tests, as
    item 4 there states, a red line fixed by `pipeline-fix-<k>-fix-v<v>`, it lands by
    `<agents repo>`'s `## default landing route`
-   (`project-get.sh <agents repo> 'default landing route'`), without asking. Merge and push is:
-   `git -C <agents repo> fetch origin`, rebase `pipeline-fix-<name>-<k>` onto
-   `origin/<agents-base>`, `git push origin pipeline-fix-<name>-<k>:<agents-base>`,
-   `git -C <agents repo> pull --ff-only`, then remove the worktree and the branch. A rebase onto
-   a moved `origin/<agents-base>` runs the lint lines and tests again before the push, as item 5
-   there states.
+   (`project-get.sh <agents repo> 'default landing route'`), without asking. Merge and push is
+   `<agents repo>/scripts/pipeline-fix.sh land <worktree>`.
 
 The loop runs in the background while the run's own work continues; the run still never ends a
 turn with one of its children in flight.

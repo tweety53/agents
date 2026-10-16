@@ -154,8 +154,23 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 
 	// 3. The project's worktree setup, fenced lines only, in order.
-	// stdout alone is the section body; a warning project-get prints on
-	// stderr is relayed, never parsed as a command.
+	if rc := kwSetup(env, projectGet, wt, self, stderr); rc != 0 {
+		return rc
+	}
+
+	// 4. The branch exists on the remote from its first minute.
+	if rc, out := kwRun(env, "", git, "-C", wt, "push", "-u", "origin", branch); rc != 0 {
+		return relay(1, out)
+	}
+	fmt.Fprintf(stdout, "worktree: %s\nmerge-base: %s\n", wt, mergeBase)
+	return 0
+}
+
+// kwSetup runs wt's `## worktree setup` fenced lines, in order, from wt:
+// 0 done or none declared, 1 a command failed (named, its output relayed),
+// 2 project-get cannot answer. stdout alone is the section body; a warning
+// project-get prints on stderr is relayed, never parsed as a command.
+func kwSetup(env Env, projectGet, wt, self string, stderr io.Writer) int {
 	get := exec.Command(projectGet, wt, "worktree setup")
 	get.Dir = env.Dir
 	var body, getErr bytes.Buffer
@@ -166,19 +181,15 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 		for _, c := range kwFenced(body.String()) {
 			if rc, cout := kwRun(env, wt, "bash", "-c", c); rc != 0 {
 				fmt.Fprintf(stderr, "%s: worktree setup command failed (exit %d): %s\n", self, rc, c)
-				return relay(1, cout)
+				fmt.Fprint(stderr, cout)
+				return 1
 			}
 		}
 	case 1:
 		fmt.Fprintf(stderr, "%s: no ## worktree setup declared — skipped\n", self)
 	default:
-		return relay(2, getErr.String())
+		fmt.Fprint(stderr, getErr.String())
+		return 2
 	}
-
-	// 4. The branch exists on the remote from its first minute.
-	if rc, out := kwRun(env, "", git, "-C", wt, "push", "-u", "origin", branch); rc != 0 {
-		return relay(1, out)
-	}
-	fmt.Fprintf(stdout, "worktree: %s\nmerge-base: %s\n", wt, mergeBase)
 	return 0
 }
