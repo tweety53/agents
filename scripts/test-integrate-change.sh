@@ -667,6 +667,77 @@ sut land "$WORK/a" demo
 check "visual_resync: re-running land after the stop still stops at visual-verify" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
 check "visual_resync: the re-run did not push a's unverified HEAD" '[ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -1)" = "base: moved" ]'
 
+# --- visual_resync_reread: land's re-sync rewrites the canonical report first ---
+# a is canonical and its own fix sha is rebased by the re-sync, so
+# reread_fix_shas commits the rewrite into a; a flag on the pre-rewrite
+# HEAD must not pass the gate for the rewrite commit pushed after it. A
+# fixed committer date makes the re-sync's HEAD predictable to flag.
+fixture
+ui_a
+A="$WORK/a-worktrees/demo"
+flag "$A" "$(git -C "$A" rev-parse HEAD)"
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+printf '\n## integrate run\n\nnarrative\n' >>"$A/spectre/changes/demo/narrative.md"
+sut commit "$WORK/a" demo "$A=feat(a): do the work" "$WORK/b=feat(b): do the work"
+flag "$A" "$(git -C "$A" rev-parse HEAD)"
+sut commit "$WORK/a" demo "$A=feat(a): do the work" "$WORK/b=feat(b): do the work"
+[ "$RC" -eq 0 ] || halt commit
+old="$(git -C "$A" log --format=%h --grep="^feat(a): do the work$" -1 HEAD)"
+mkdir -p "$A/docs/self-review"
+printf '# demo self-review\n\n- **[flow-fix]** the fix — fixed: %s\n' "$old" >"$A/docs/self-review/demo-self-review.md"
+g -C "$A" add docs/self-review/demo-self-review.md
+g -C "$A" commit -qm "docs(self-review): demo self-review report"
+printf 'moved\n' >"$WORK/a/moved.txt"
+g -C "$WORK/a" add moved.txt && g -C "$WORK/a" commit -qm "base: moved" && g -C "$WORK/a" push -q origin main
+export GIT_COMMITTER_DATE="2026-01-01T00:00:00Z"
+g clone -q "$A" "$WORK/pred" && g -C "$WORK/pred" fetch -q "$WORK/a-origin.git" main &&
+  g -C "$WORK/pred" rebase -q --onto FETCH_HEAD "$(git -C "$A" merge-base HEAD "$(git --git-dir="$WORK/a-origin.git" rev-parse main~1)")" >/dev/null 2>&1
+flag "$A" "$(git -C "$A" rev-parse HEAD)"
+cur="$(sed 's/^\[//; s/\]$//' "$WORK/verdicts.json")"
+flag "$A" "$(git -C "$WORK/pred" rev-parse HEAD)"
+printf '[%s,%s]' "$cur" "$(sed 's/^\[//; s/\]$//' "$WORK/verdicts.json")" >"$WORK/verdicts.json"
+sut land "$WORK/a" demo
+unset GIT_COMMITTER_DATE
+check "visual_resync_reread: the re-sync rewrote a's own fix sha" 'printf "%s\n" "$OUT" | grep -q "^FIXED-SHA: $old -> "'
+check "visual_resync_reread: a flag on the pre-rewrite HEAD does not pass the rewrite commit" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
+check "visual_resync_reread: a was not pushed to its base" '[ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -1)" = "base: moved" ]'
+
+# --- visual_reread: reread_fix_shas's canonical re-push runs the gate ---
+# The report is a's declared UI path, so the rewrite commit alone — all a's
+# HEAD adds past its landed push — is a UI change no verifier saw.
+fixture
+printf '# demo\n\n## Parts\n\n`b:demo`\n\n## Branch\n\nmain\n\n## Merge order\n\n1. `.`\n2. `b`\n' \
+  >"$WORK/a-worktrees/demo/spectre/changes/demo/link.md"
+g -C "$WORK/a-worktrees/demo" commit -qam "chore(spectre): plan-gate demo" --amend
+printf '\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `docs/self-review/demo-self-review.md` |\n' >>"$WORK/a-worktrees/demo/.flow/project.md"
+g -C "$WORK/a-worktrees/demo" commit -qam "chore(spectre): plan-gate demo" --amend
+A="$WORK/a-worktrees/demo"
+flag "$A" "$(git -C "$A" rev-parse HEAD)"
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+printf '\n## integrate run\n\nnarrative\n' >>"$A/spectre/changes/demo/narrative.md"
+sut commit "$WORK/a" demo "$A=feat(a): do the work" "$WORK/b=feat(b): do the work"
+flag "$A" "$(git -C "$A" rev-parse HEAD)"
+sut commit "$WORK/a" demo "$A=feat(a): do the work" "$WORK/b=feat(b): do the work"
+[ "$RC" -eq 0 ] || halt commit
+printf 'fix\n' >"$WORK/b-worktrees/demo/fix-b.txt"
+g -C "$WORK/b-worktrees/demo" add fix-b.txt && g -C "$WORK/b-worktrees/demo" commit -qm "fix(b): the peer fix"
+old="$(git -C "$WORK/b-worktrees/demo" rev-parse --short HEAD)"
+mkdir -p "$A/docs/self-review"
+printf '# demo self-review\n\n- **[flow-fix]** the peer fix — fixed: %s\n' "$old" >"$A/docs/self-review/demo-self-review.md"
+g -C "$A" add docs/self-review/demo-self-review.md
+g -C "$A" commit -qm "docs(self-review): demo self-review report"
+flag "$A" "$(git -C "$A" rev-parse HEAD)"
+printf 'moved\n' >"$WORK/b/moved.txt"
+g -C "$WORK/b" add moved.txt && g -C "$WORK/b" commit -qm "base: moved" && g -C "$WORK/b" push -q origin main
+sut land "$WORK/a" demo
+check "visual_reread: the canonical push landed first" 'git --git-dir="$WORK/a-origin.git" show main:docs/self-review/demo-self-review.md | grep -q "fixed: $old$"'
+check "visual_reread: the rewrite of b's fix sha stops the canonical re-push" \
+  'printf "%s\n" "$OUT" | grep -q "^FIXED-SHA: $old -> " && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — the rewritten report was not pushed"'
+check "visual_reread: neither a's branch nor its base carries the rewritten report" \
+  'git --git-dir="$WORK/a-origin.git" show spectre/demo:docs/self-review/demo-self-review.md | grep -q "fixed: $old$" && git --git-dir="$WORK/a-origin.git" show main:docs/self-review/demo-self-review.md | grep -q "fixed: $old$"'
+
 # --- visual_uncommitted: an uncommitted UI edit folded in by commit stops every push ---
 for route in "merge and push" "pull request" manual; do
   fixture
