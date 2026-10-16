@@ -203,7 +203,9 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    `check-plan-provenance.sh` and `check-task-build-green.sh` — pass before it commits. It runs none of what records or gates a pipeline run: no `flow stage` call, no
    `flow tasks count`, no **Decide** — no `decision.json`, no `## Decision` block — and no **Plan
    review gate**. `design.md`'s decisions record instead this pass's dynamic choices: the first
-   review's effort, `medium` or `low`, and the grouping of tasks into fixer dispatches. It commits
+   review's effort, `medium` or `low`, and the grouping of tasks into fixer dispatches. The effort is the entry `**ID:** first-review-effort`,
+   its `**Chosen:**` line naming `flow-low` or `flow-medium` — the ID `check-loop-dispatch.sh` parses;
+   under any other ID the guard sees no decision and wants `flow-medium`. It commits
    the artifacts as `chore(spectre): plan self-review-<name>`, and never merges or pushes.
 
    Then one fixer per recorded group, in series — key `self-review-<name>-fix`, `-fix-g<g>` when
