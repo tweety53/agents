@@ -71,7 +71,7 @@ change's gymie worktree the pass named.
 
 ### First review effort and fixer grouping
 
-**ID:** review-effort-and-grouping
+**ID:** first-review-effort
 **Status:** active
 **Chosen:** first review on `flow-low` (effort `low`); one fixer dispatch (key
 `self-review-kan-960-group-session-floor-hidden-tab-polling-fix`) carrying Tasks 1–3 — each task

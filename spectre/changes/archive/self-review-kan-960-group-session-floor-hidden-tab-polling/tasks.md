@@ -25,10 +25,10 @@
 - The SCRATCH HARNESS paragraph must sit among the implementer dispatch paragraphs the parent copies into every implementer prompt, not in the parent's own prose (Task 2).
 - Gymie's `CLAUDE.md` and `AGENTS.md` Frontend sections must stay identical (Task 3).
 
-- [ ] 1. Lower the inline-window floor to three seconds
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'const minInlineWindow' stats/internal/store/records.go` and confirm `const minInlineWindow = 10 * time.Second` — the defect: a `completed` inline row closed 7.6 s after its begin is refused.
-  - [ ] **Step 2: Write the failing test.** Apply the test hunks alone (`git apply --include='stats/internal/store/records_test.go' <the diff in step 3>`) and run `cd stats && go test ./internal/store/ -run TestEndDispatchRefusesAZeroWidthInlineRow -count=1`: it FAILS with `EndDispatch seven seconds after an inline begin: store: inline dispatch window too short … closed 7s after its begin`.
-  - [ ] **Step 3: Implement the fix.** Apply the rest of this diff (`git apply --exclude='stats/internal/store/records_test.go' <the diff>`):
+- [x] 1. Lower the inline-window floor to three seconds
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'const minInlineWindow' stats/internal/store/records.go` and confirm `const minInlineWindow = 10 * time.Second` — the defect: a `completed` inline row closed 7.6 s after its begin is refused.
+  - [x] **Step 2: Write the failing test.** Apply the test hunks alone (`git apply --include='stats/internal/store/records_test.go' <the diff in step 3>`) and run `cd stats && go test ./internal/store/ -run TestEndDispatchRefusesAZeroWidthInlineRow -count=1`: it FAILS with `EndDispatch seven seconds after an inline begin: store: inline dispatch window too short … closed 7s after its begin`.
+  - [x] **Step 3: Implement the fix.** Apply the rest of this diff (`git apply --exclude='stats/internal/store/records_test.go' <the diff>`):
 
 ````diff verified:git apply --check at 7890df95; gofmt -l ./internal/store prints nothing, go vet ./internal/store/ and go test ./internal/store/ -run TestEndDispatchRefusesAZeroWidthInlineRow -count=1 pass with it applied; with records.go reverted the test fails at records_test.go:3990 (closed 7s after its begin)
 diff --git a/skills/flow/implement.md b/skills/flow/implement.md
@@ -93,7 +93,7 @@ index d78034d0..73db9250 100644
  
 ````
 
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l ./internal/store` prints nothing; `go vet ./internal/store/` and `go test ./internal/store/ -run TestEndDispatchRefusesAZeroWidthInlineRow -count=1` pass; from the repository root `scripts/check-verbatim-moves.sh` and `scripts/check-references.sh` exit 0. Commit.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l ./internal/store` prints nothing; `go vet ./internal/store/` and `go test ./internal/store/ -run TestEndDispatchRefusesAZeroWidthInlineRow -count=1` pass; from the repository root `scripts/check-verbatim-moves.sh` and `scripts/check-references.sh` exit 0. Commit.
 
 **Build:** green
 **Files:** `stats/internal/store/records.go`, `stats/internal/store/records_test.go`, `skills/flow/implement.md`
@@ -106,9 +106,9 @@ index d78034d0..73db9250 100644
 
 **Decision:** inline-floor-three-seconds
 
-- [ ] 2. The implementer dispatch keeps a throwaway harness out of new worktrees
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'SCRATCH HARNESS\|scratchpad' skills/flow/implement.md` and confirm no hit — the defect: nothing tells an implementer where a throwaway harness lives.
-  - [ ] **Step 2: Apply the paragraph.** Apply this diff from the repository root:
+- [x] 2. The implementer dispatch keeps a throwaway harness out of new worktrees
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'SCRATCH HARNESS\|scratchpad' skills/flow/implement.md` and confirm no hit — the defect: nothing tells an implementer where a throwaway harness lives.
+  - [x] **Step 2: Apply the paragraph.** Apply this diff from the repository root:
 
 ````diff verified:git apply --check at 7890df95; with Tasks 1 and 2 applied check-references.sh, check-markdown-integrity.py, check-dispatch-paragraphs.sh, check-installed-citations.sh and check-ask-silence.sh exit 0, and check-verbatim-moves.sh prints only the four sentences verbatim-moves.txt lists
 diff --git a/skills/flow/implement.md b/skills/flow/implement.md
@@ -130,7 +130,7 @@ index d7d88161..19898e77 100644
  > commit and your final test run — carrying each commit's sha, the failing RED output you saw,
 ````
 
-  - [ ] **Step 3: Verify.** From the repository root `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` and `scripts/check-dispatch-paragraphs.sh` exit 0. Commit.
+  - [x] **Step 3: Verify.** From the repository root `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` and `scripts/check-dispatch-paragraphs.sh` exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/implement.md`
@@ -141,9 +141,9 @@ index d7d88161..19898e77 100644
 
 **Decision:** scratch-harness-paragraph
 
-- [ ] 3. gymie names Playwright's hidden-tab limits
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** From `/Users/tweety53/Projects/gymie-worktrees/kan-960-group-session-floor-hidden-tab-polling`, run `grep -n 'focus emulation' CLAUDE.md AGENTS.md` and confirm no hit, and `grep -n 'focus emulation' docs/audits/kan-924-call-efficiency.md` and confirm the F16 row — the defect: the measurement lives only in an audit no planner reads.
-  - [ ] **Step 2: Apply the note.** From `/Users/tweety53/Projects/gymie-worktrees/kan-960-group-session-floor-hidden-tab-polling`, apply this diff:
+- [x] 3. gymie names Playwright's hidden-tab limits
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** From `/Users/tweety53/Projects/gymie-worktrees/kan-960-group-session-floor-hidden-tab-polling`, run `grep -n 'focus emulation' CLAUDE.md AGENTS.md` and confirm no hit, and `grep -n 'focus emulation' docs/audits/kan-924-call-efficiency.md` and confirm the F16 row — the defect: the measurement lives only in an audit no planner reads.
+  - [x] **Step 2: Apply the note.** From `/Users/tweety53/Projects/gymie-worktrees/kan-960-group-session-floor-hidden-tab-polling`, apply this diff:
 
 ````diff verified:git apply --check in the gymie worktree at b4efac39; applied and reverted there, the two files' Frontend sections identical with it applied
 diff --git a/AGENTS.md b/AGENTS.md
@@ -180,7 +180,7 @@ index 459abd68..fc02cd42 100644
    then stops on it. Run `(cd ~ && adb start-server)` before any other `adb` command.
 ````
 
-  - [ ] **Step 3: Verify.** From `/Users/tweety53/Projects/gymie-worktrees/kan-960-group-session-floor-hidden-tab-polling`: `diff <(sed -n '/^### Frontend/,/^---/p' CLAUDE.md) <(sed -n '/^### Frontend/,/^---/p' AGENTS.md)` prints nothing, and `git diff --cached --stat` shows `AGENTS.md` and `CLAUDE.md` alone. Commit there.
+  - [x] **Step 3: Verify.** From `/Users/tweety53/Projects/gymie-worktrees/kan-960-group-session-floor-hidden-tab-polling`: `diff <(sed -n '/^### Frontend/,/^---/p' CLAUDE.md) <(sed -n '/^### Frontend/,/^---/p' AGENTS.md)` prints nothing, and `git diff --cached --stat` shows `AGENTS.md` and `CLAUDE.md` alone. Commit there.
 
 **Build:** green
 **Files:** `CLAUDE.md`, `AGENTS.md` (gymie repository, worktree `/Users/tweety53/Projects/gymie-worktrees/kan-960-group-session-floor-hidden-tab-polling`)
