@@ -134,6 +134,7 @@ records no such row, the stage key (`flow.review-panel`, `flow.visual-verify`, `
 carries `Task-Id:` instead, and a planning commit neither. Run 1's unfinished-work gate lists
 every other non-`chore` commit with `check-untasked-commits.sh`
 (`skills/flow-contracts/finish-contract-run1.md`).
+**Before such a commit is pushed, `check-untasked-commits.sh <worktree> <merge-base>` runs**; when the only sha it lists is that commit's, `git commit --amend` adds the missing trailer and the guard runs again; any other listed commit goes to run 1's unfinished-work gate, which handles `UNTASKED`.
 
 ## Revert and back-out commits
 
