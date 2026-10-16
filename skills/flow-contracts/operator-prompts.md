@@ -27,6 +27,8 @@ call. Option text records the decision only.
 Why: a harness focus mode shows only a turn's final message, so text written before a call in the
 same turn is never seen. Carrying the explanation inside the prompt instead was rejected by the
 operator on 2026-10-16: the explanation belongs in chat, in the agreed format, not in the prompt.
+An unanswered call of this shape follows **Unanswered mid-run asks**
+(`skills/flow-contracts/pipeline.md`).
 
 ## Every item offered
 
