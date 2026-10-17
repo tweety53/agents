@@ -9,3 +9,6 @@ A later stage that finds it needs a worktree in a repository the set does not ho
 An `## apps` entry's worktree below gets its setup from `kickoff-worktree.sh`.
 Its exit 1 naming a missing `origin/<base>` stops the run and asks the operator the two remedies the message names: push `<base>` to that origin, or re-run naming that repository's default branch as `<base>`.
 Kickoff records it on the change's branch in every repository (`kickoff-worktree.sh <project> <name> <base>`, and `kickoff-worktree.sh --from <this change's worktree>` for every worktree added after kickoff), and `resolve-base-branch.sh` reads it back for every later phase, so it is never passed again.
+# Task 3: STOP: base-mismatch (Decision base-mismatch-guard).
+**`STOP: base-mismatch`** → report the line and ask the operator.
+The answer that moves the worktree is `git -C <wt> config branch.spectre/<name>.flowBase <b>`, `git -C <wt> rebase --onto origin/<b> <its recorded merge base>`, `flow state add-worktree -C <the change's canonical worktree> <name> <wt> $(git -C <wt> merge-base HEAD origin/<b>)`, then re-run `prepare`.
