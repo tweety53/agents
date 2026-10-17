@@ -58,7 +58,7 @@ One round runs these steps in order:
 4. **Re-capture and re-run.** Run **Verify** (`skills/flow/verify-and-handoff.md`) again from its
    `begin` mark, then **Visual verification** from its `begin` mark, so the fix's own lint, tests and
    captures are what the handoff reports. This round's `verify` and `visual-verify` dispatch keys
-   carry the suffix `-fix-<k>`, before any `-<worktree basename>` suffix. **The `verify` re-run
+   carry the suffix `-fix-<k>`, before any `-<repository name>` suffix. **The `verify` re-run
    runs only in a worktree whose HEAD moved since its previous verify of this run, or whose test
    commands drive the stack of one that did** — an unmoved worktree's lint and tests already
    passed on that same HEAD. **The `visual-verify`
@@ -84,8 +84,8 @@ One round runs these steps in order:
 
 **One full run closes the loop.** A scoped re-run whose final report carries no fixable defect is
 followed by **Visual verification** once more from its `begin` mark, unscoped — no round base,
-every motion of the change — its dispatch keys suffixed `-fix-<k>-full` before any `-<worktree
-basename>` suffix. A fixable defect it reports opens the next round; its clean report is the one the
+every motion of the change — its dispatch keys suffixed `-fix-<k>-full` before any `-<repository
+name>` suffix. A fixable defect it reports opens the next round; its clean report is the one the
 handoff reports.
 
 ## No cap

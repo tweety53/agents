@@ -68,8 +68,9 @@ own system prompt>`.
 > one pass.
 
 **Recording.** The parent records each dispatch, `-role verifier`, `-task` omitted, `-model
-opus -effort low`, `-key visual-verify`, suffixed `-<worktree basename>` when this run's resolved set holds
-more than one worktree — the pair's semantics are section 4 of `skills/flow/implement.md`, cited
+opus -effort low`, `-key visual-verify`, suffixed `-<repository name>` when this run's resolved set holds
+more than one worktree — the worktree's main checkout's basename, the name
+`check-visual-trigger.sh --repo` takes, since every worktree's own basename is the change name — the pair's semantics are section 4 of `skills/flow/implement.md`, cited
 here, not restated.
 Its `begin` carries `-diff-base` with the sha `git -C <worktree> rev-parse HEAD` prints before the dispatch, the HEAD it verifies: `check-visual-verify-dispatched.sh` counts a verifier row only for that HEAD, and only while no UI path the change touches has changed since.
 
@@ -83,8 +84,8 @@ check-verify-report.sh <abs-worktree>/.superpowers/sdd/verify-report-<key>.md <m
 the guard's header is canonical for the report's `steps:` line and its admissible statuses. Exit 0
 → the report is complete; read it. Exit 1 → **the report is incomplete and is never accepted,
 whatever its prose says**: close the dispatch `-outcome aborted` and dispatch its remainder at
-once, recorded under the incomplete dispatch's own key suffixed `-rest` before any `-<worktree
-basename>` suffix, its prompt identical to the incomplete dispatch's plus that report verbatim
+once, recorded under the incomplete dispatch's own key suffixed `-rest` before any `-<repository
+name>` suffix, its prompt identical to the incomplete dispatch's plus that report verbatim
 under a `## Incomplete attempt` heading and the guard's verdict line, which names the steps it
 runs; it carries the incomplete report's lines for the steps already done into its own. A
 remainder completes its dispatch rather than adding one, so it counts toward no re-dispatch and
@@ -98,7 +99,7 @@ does, below.
 
 **A complete `## Report` carrying any non-zero exit is re-dispatched, and no count ends the
 re-dispatches.** Each is recorded under `-key visual-verify-<n>`, `<n>` counting from 2 — the same
-`-<worktree basename>` suffix rule — with a prompt identical to the first plus every earlier
+`-<repository name>` suffix rule — with a prompt identical to the first plus every earlier
 `## Report` verbatim under a `## Previous attempt` heading, so the verifier can tell an
 environmental failure (a build the worktree lacked, a flaky harness) from a defect in the branch.
 From the second report on, a non-zero exit whose block cause is `test-failure` or

@@ -52,7 +52,7 @@ this task, as written:
 `<n>` is this fix run's ordinal, the one `flow.document-fix` recorded.
 
 **Recording.** The parent records the dispatch `-role planner`, `-task` omitted, `-model
-opus -effort high`, `-key tooling-analysis-<n>`, suffixed `-<worktree basename>` under
+opus -effort high`, `-key tooling-analysis-<n>`, suffixed `-<repository name>` under
 the verifier's rule — the pair's semantics are section 4 of `skills/flow/implement.md`, cited here,
 not restated. **Handshake** as **The verifier dispatch** (`skills/flow/visual-verify.md`) states it, compared against `opus`.
 

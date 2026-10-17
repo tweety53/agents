@@ -70,7 +70,7 @@
 # <name> -C <canonical worktree when given>` answers with the decoded JSON array of every
 # dispatch row this change has ever recorded, across every run. A row
 # counts when its `role` is `verifier`, its `key` starts with
-# `visual-verify` (`visual-verify`, `visual-verify-<worktree-basename>`,
+# `visual-verify` (`visual-verify`, `visual-verify-<repository-name>`,
 # `visual-verify-2`, `visual-verify-retry`, and combinations — this guard
 # does not validate the key's exact shape, only that the stage's own
 # canonical prefix was used; a malformed key is a different guard's job,

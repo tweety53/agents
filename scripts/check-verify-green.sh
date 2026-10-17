@@ -9,7 +9,7 @@
 #
 # Reads `flow record dispatches -change <change-name> -C <worktree>` and
 # judges this session token's inline verify rows — role `verifier`, key
-# `verify` or `verify-<worktree basename>`; the visual verifier's
+# `verify` or `verify-<repository name>`; the visual verifier's
 # `visual-verify…` rows never count. Only the latest such row per worktree is
 # judged: rows group by key with a `-fix-<k>` suffix removed
 # (skills/flow/verify-fix-loop.md step 4), and the last row of each group in

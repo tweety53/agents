@@ -112,7 +112,7 @@ passing re-run as license to skip the rest of the list — every remaining comma
 above still runs.
 
 **Recording.** One `dispatches` row per worktree the list runs for, `-role verifier -key verify -model <parent
-model> -effort <parent effort> -agent-id inline`, suffixed `-<worktree basename>` when this
+model> -effort <parent effort> -agent-id inline`, suffixed `-<repository name>` when this
 run's resolved set holds more than one worktree — the same convention
 **The verifier dispatch** (`skills/flow/visual-verify.md`) uses for the verifier's rows. `begin` is
 recorded before the first command in the list; `end` after the `## Report` is written, carrying
