@@ -190,7 +190,7 @@ trigger runs; a new verdict prefix — integrate and `integrate-change.sh` key o
 
 **ID:** first-review-effort
 **Status:** active
-**Chosen:** flow-medium — eleven behaviour changes to CLI and guard contracts other runs call,
+**Chosen:** `flow-medium` — eleven behaviour changes to CLI and guard contracts other runs call,
 two of them exit codes.
 **Considered:** flow-low — fits applied diffs, not eleven tasks whose Go the fixer writes.
 
