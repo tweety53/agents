@@ -42,13 +42,23 @@ is what the operator's rule names, and a snapshot is binary by construction.
 ### The both-sides build merges the app's own base
 
 **ID:** recapture-build-own-base
-**Status:** active
+**Status:** superseded by `recapture-serve-own-worktrees`
 **Chosen:** a throwaway branch in the change's app worktree merging that repository's own base tip,
 served per steps 5–6 of `skills/flow/visual-verify.md`, never committed to the change's branch or
 pushed, deleted after.
 **Considered:** `origin/$BASE` — `$BASE` is the conflicting checkout's base (gymie playwright
 `main`), not the frontend's (`develop`); locating the exact upstream frontend commit behind each
 baseline — the base tip carries it, and no mechanism maps a PNG to a commit.
+
+### The recapture serves the change's own app worktrees
+
+**ID:** recapture-serve-own-worktrees
+**Status:** active
+**Chosen:** by operator override, the recapture serves the change's own app worktrees, already
+synced onto the change's base, per steps 5–6 of `skills/flow/visual-verify.md`; no throwaway branch.
+**Considered:** the throwaway branch merging the app repository's own base tip
+(`recapture-build-own-base`) — rejected by the operator on 2026-10-17: it captured code that does
+not land with the snapshots.
 
 ### First review effort and fixer grouping
 

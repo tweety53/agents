@@ -16,7 +16,7 @@
 
 - A PNG outside every `*-snapshots/` directory (`logo.png` in the test) must get no `RECAPTURE:` line — it keeps stop and ask.
 - The exit stays 1 for a conflict naming recapture paths: `integrate-change.sh` routes only on that exit.
-- The both-sides build merges the app repository's own base, never the conflicting checkout's `$BASE`.
+- The recapture serves the change's own app worktrees, already synced onto its base — no throwaway merge, never the conflicting checkout's `$BASE`.
 
 - [ ] 1. A conflicted screenshot baseline is recaptured, not asked
   - [ ] **Step 1: Reproduce before touching anything; do not guess.** Apply the test hunk alone (`git apply --include='stats/internal/guard/sync_onto_base_test.go' <the diff in step 2>`) and run `cd stats && go test ./internal/guard -run TestSyncOntoBase`: it FAILs `TestSyncOntoBase/a_conflicted_snapshot_PNG_or_full_app_suite_zip_is_named_for_recapture`, the got stdout ending at the `CONFLICT:` line where the want carries `RECAPTURE: e2e/a.spec.ts-snapshots/x.png` and `RECAPTURE: full-app-suite.zip`.
@@ -41,10 +41,10 @@ index 73ca3d01..f8c36114 100755
  # --resume runs once an in-place resolution has finished the rebase: it
  # refuses while a rebase is still in progress and unless <onto> — the sha the
 diff --git a/skills/flow/sync-onto-base.md b/skills/flow/sync-onto-base.md
-index cb075aa8..6e19c0d8 100644
+index cb075aa8..dd71eb7e 100644
 --- a/skills/flow/sync-onto-base.md
 +++ b/skills/flow/sync-onto-base.md
-@@ -37,8 +37,28 @@ and `check-base-moved.sh` performs no fetch of its own.
+@@ -37,8 +37,23 @@ and `check-base-moved.sh` performs no fetch of its own.
    it restores the aside and re-checks, and its exits read as the first call's.
    Never `rebase --abort`, never `rebase --skip`, never `-X ours`/`-X theirs`, and never a
    resolution that drops one side wholesale — a conflict is two changes to the same lines, and both
@@ -54,19 +54,14 @@ index cb075aa8..6e19c0d8 100644
 +  never by merging its bytes and never by a stop** — a PNG under a `*-snapshots/` directory, or
 +  `full-app-suite.zip`, is a capture of a build, and only a build carrying both sides captures it
 +  honestly:
-+  1. In the change's worktree of the app the snapshots capture, switch to a throwaway branch and
-+     merge the tip of that repository's own base into it — the base its own sync resolved, whose
-+     tip carries the commit that produced the upstream baseline, already present where that sync
-+     rebased the worktree. The branch is never committed to the change's branch and never
-+     pushed; a conflict in that merge is a stop and ask, as below.
-+  2. Serve that build per steps 5 and 6 of **Steps 3–13** (`skills/flow/visual-verify.md`).
-+  3. Run only the specs owning the named PNGs — the spec each `*-snapshots/` directory is
++  1. Serve the change's own app worktrees (already synced onto the change's base) per visual-verify
++     steps 5–6 (`skills/flow/visual-verify.md`, **Steps 3–13**).
++  2. Run only the specs owning the named PNGs — the spec each `*-snapshots/` directory is
 +     named for, and `full-app-suite.spec.ts` for the zip — through `capture` with `<spec>`
 +     substituted and `--update-snapshots` appended, in the checkout the conflict is in.
-+  4. Rebuild `full-app-suite.zip` when it was named, exactly as step 8 of
++  3. Rebuild `full-app-suite.zip` when it was named, exactly as step 8 of
 +     `skills/flow/visual-verify-verifier.md` does.
-+  5. `git add` every recaptured PNG and the zip, stop the stack step 2 started, switch the app
-+     worktree back to the change's branch and delete the throwaway branch, then continue the
++  4. `git add` every recaptured PNG and the zip, stop the stack if step 1 started it, then continue the
 +     rebase as above.
 +
 +  **Stop and ask** only where no honest resolution exists: a modify/delete conflict, a binary

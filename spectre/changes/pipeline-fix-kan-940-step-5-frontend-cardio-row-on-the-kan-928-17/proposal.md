@@ -13,7 +13,7 @@ conflicted on three exercise-sheet PNGs and `full-app-suite.zip` against upstrea
 
 - `sync-onto-base.sh`'s guard prints `RECAPTURE: <path>` after its `CONFLICT:` line for every
   unmerged PNG under a `*-snapshots/` directory and for `full-app-suite.zip`; the exit stays 1.
-- The **Conflict** bullet resolves each such path by a targeted recapture — a throwaway local app
-  build merging its own base's tip, the owning specs alone run through `capture` with
-  `--update-snapshots`, the zip rebuilt, `git add`, `rebase --continue` — never a stop.
+- The **Conflict** bullet resolves each such path by a targeted recapture — the change's own app
+  worktrees, already synced onto its base, served; the owning specs alone run through `capture`
+  with `--update-snapshots`, the zip rebuilt, `git add`, `rebase --continue` — never a stop.
 - Every other binary conflict keeps stop and ask.
