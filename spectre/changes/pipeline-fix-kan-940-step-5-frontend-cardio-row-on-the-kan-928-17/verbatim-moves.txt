@@ -12,3 +12,7 @@ The branch is never committed to the change's branch and never pushed; a conflic
 merge the tip of that repository's own base into it — the base its own sync resolved, whose tip carries the commit that produced the upstream baseline, already present where that sync rebased the worktree.
 named for, and `full-app-suite.spec.ts` for the zip — through `capture` with `<spec>` substituted and `--update-snapshots` appended, in the checkout the conflict is in.
 worktree back to the change's branch and delete the throwaway branch, then continue the rebase as above.
+Serve the change's own app worktrees (already synced onto the change's base) per visual-verify
+`git add` every recaptured PNG and the zip, stop the stack step 1 started, then continue the
+rebase as above.
+steps 5–6 (`skills/flow/visual-verify.md`, **Steps 3–13**).
