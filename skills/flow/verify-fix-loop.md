@@ -26,7 +26,9 @@ One round runs these steps in order:
    states for a found defect, and its title reads `In-run fix <k> — <stage>: <the defects>`, `<k>`
    this stage's round in this run. Its planning commit and the re-decide run as that file states.
    **One round appends one task**, carrying every defect the report names — never a task or a
-   round per defect.
+   round per defect. Before the append, the stage's failing row is closed with `flow record dispatch
+   end` at `-outcome blocked -cause test-failure`, so no row of the stage stays open while this
+   round's rows open.
 2. **Implement it.** **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) executes the appended
    task exactly as a plan-time task: the decision's implementer pair, `close-task.sh` with its
    guard and its review gate. The implementer's dispatch also carries the MUTATION PROOF
