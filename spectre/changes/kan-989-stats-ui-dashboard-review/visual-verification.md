@@ -1,32 +1,24 @@
 # Visual verification — kan-989-stats-ui-dashboard-review
 
-No `mockups` root is declared: no frame composed; band, seam, ink, rows and matrix readings are n/a — no frame. Captures are the committed full-app-suite baselines (capture exit 0, regenerated identical), period pinned by `PINNED_QUERY`, against the UI-test stack on 127.0.0.1:4174.
+Capture: `npx playwright test tests/visual/full-app-suite.spec.ts --update-snapshots -g '<six touched screens>'`, exit 0, at HEAD f43cb050 against the UI-test stack on 127.0.0.1:4174. Every test asserts its nav link carries `aria-current="page"` before the full-page screenshot. No mockups declared, so no composite, band, seam or matrix reading applies (n/a — no frame). No motions named.
 
-## Live state board
-- Screenshot: `../../../stats/web/tests/visual/full-app-suite.spec.ts-snapshots/full-state-board-darwin.png`
-- Seen: Changes tile 3; table Project, Change, State, Plan growth, Updated, Runs, Cost, Wall clock, Errors — no By / Next command columns. Rows: kan-101 STARTED 0 runs $0.00 "0 ms"; kan-102 IN_PROGRESS 1 $0.179 5.0 min; kan-201 FINISHED 2 $2.778 10.0 min. No pipeline-fix row. Model picker disabled with its reason. Nav has no Runs or Cache efficiency entry.
-- Notes: a change with no runs shows Wall clock "0 ms" and Cost "$0.00" where Plan growth shows "—"; cost shown at 3 decimals except "$0.00".
+## state-board
+Evidence: `visual-verification/evidence/full-state-board-darwin.png`. Columns Runs / Cost / Wall clock / Errors present. kan-101-add-widget (0 runs) shows `—` for Cost and Wall clock; kan-102 $0.59 / 35.0 min / 2 errors; kan-201 $2.78 / 10.0 min / 0. Costs at two decimals. No defect.
 
-## Stage leaderboard
-- Screenshot: `../../../stats/web/tests/visual/full-app-suite.spec.ts-snapshots/full-stage-leaderboard-darwin.png`
-- Seen: subtitle "The ten stages costing the most in total"; tiles Stages 2, Total runs 3; columns Command, Stage, Runs, Total cost, Mean cost, Median cost, P90 cost; /flow SDD + TDD per task 2 $2.929 $1.4645 $1.4645 $2.4929; /flow-fast integrate 1 $0.028 ×4.
-- Notes: Total cost at 3 decimals, Mean/Median/P90 at 4 decimals in the same table. Only 2 stages seeded — the top-ten cut is not exercised by any capture.
+## stage-leaderboard
+Evidence: `visual-verification/evidence/full-stage-leaderboard-darwin.png`. Total cost column present, rows ordered by total ($2.93, $0.41, $0.03); mean/median/p90 at two decimals. Top-ten cap not exercised: the seed holds three stages.
 
-## Reviewers
-- Screenshot: `../../../stats/web/tests/visual/full-app-suite.spec.ts-snapshots/full-reviewers-darwin.png`
-- Seen: empty state only — Slots 0, Total dispatches 0, "No reviewer dispatches in this period." with Reset period to default. The new Efficiency column and the dropped Findings/dispatch and Withdrawn columns are not visible in any capture.
+## reviewers
+Evidence: `visual-verification/evidence/full-reviewers-darwin.png`. Efficiency column present: primary 11.00, principles 4.00. No defect.
 
-## Decisions
-- Screenshot: `../../../stats/web/tests/visual/full-app-suite.spec.ts-snapshots/full-decisions-darwin.png`
-- Seen: no Runs tile, no Every decision table; two cards "By class and execution" and "By implementer model", both "No decisions in this period." The populated By implementer model table is not visible in any capture.
+## decisions
+Evidence: `visual-verification/evidence/full-decisions-darwin.png`. "By implementer model" block present: opus 1 run $2.75 5.0 min, sonnet 1 run $0.59 35.0 min; costs at two decimals. No defect.
 
-## Flow health
-- Screenshot: `../../../stats/web/tests/visual/full-app-suite.spec.ts-snapshots/full-flow-health-darwin.png`
-- Seen: eight tiles only — Changes started 2, Changes finished 1, Total cost $2.957, Mean cost per finished change $2.778, Median lead time 1.1 d, Mean panel rounds "unavailable" (italic), Findings (C/I/Mi) 0/0/0, Guard fires 0. No tables. Model picker disabled with its reason.
+## flow-health
+Evidence: `visual-verification/evidence/full-flow-health-darwin.png`. Eight tiles: Changes started 2, Changes finished 1, Total cost $3.37, Mean cost per finished change $2.78, Median lead time 1.1 d, Mean panel rounds 1.00, Findings (C/I/Mi) 1/1/1, Guard fires 1. Total cost re-derived: state-board 0.59 + 2.78 = 3.37 and leaderboard 2.93 + 0.41 + 0.03 = 3.37. No defect.
 
-## Self-review fixes
-- Screenshot: `../../../stats/web/tests/visual/full-app-suite.spec.ts-snapshots/full-self-review-darwin.png`
-- Seen: Fixed 0, Filed 0, Every finding empty state with filters Change/Angle/Outcome; no Per change block.
+## self-review
+Evidence: `visual-verification/evidence/full-self-review-darwin.png`. Empty state ("No self-review findings in this period." with Reset period to default); no Per change block. Populated path not captured: the seed has no findings.
 
-## Motions
-None named.
+## nav
+Cache efficiency and Runs are absent from the nav on every screen.
