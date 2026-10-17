@@ -18,9 +18,9 @@
 - The exit stays 1 for a conflict naming recapture paths: `integrate-change.sh` routes only on that exit.
 - The recapture serves the change's own app worktrees, already synced onto its base — no throwaway merge, never the conflicting checkout's `$BASE`.
 
-- [ ] 1. A conflicted screenshot baseline is recaptured, not asked
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Apply the test hunk alone (`git apply --include='stats/internal/guard/sync_onto_base_test.go' <the diff in step 2>`) and run `cd stats && go test ./internal/guard -run TestSyncOntoBase`: it FAILs `TestSyncOntoBase/a_conflicted_snapshot_PNG_or_full_app_suite_zip_is_named_for_recapture`, the got stdout ending at the `CONFLICT:` line where the want carries `RECAPTURE: e2e/a.spec.ts-snapshots/x.png` and `RECAPTURE: full-app-suite.zip`.
-  - [ ] **Step 2: Implement the fix.** Apply the rest of this diff (`git apply --exclude='stats/internal/guard/sync_onto_base_test.go' <the diff>`):
+- [x] 1. A conflicted screenshot baseline is recaptured, not asked
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Apply the test hunk alone (`git apply --include='stats/internal/guard/sync_onto_base_test.go' <the diff in step 2>`) and run `cd stats && go test ./internal/guard -run TestSyncOntoBase`: it FAILs `TestSyncOntoBase/a_conflicted_snapshot_PNG_or_full_app_suite_zip_is_named_for_recapture`, the got stdout ending at the `CONFLICT:` line where the want carries `RECAPTURE: e2e/a.spec.ts-snapshots/x.png` and `RECAPTURE: full-app-suite.zip`.
+  - [x] **Step 2: Implement the fix.** Apply the rest of this diff (`git apply --exclude='stats/internal/guard/sync_onto_base_test.go' <the diff>`):
 
 ````diff verified:git apply --check in this worktree at 2d9dc724
 diff --git a/scripts/sync-onto-base.sh b/scripts/sync-onto-base.sh
@@ -144,7 +144,7 @@ index d99b308d..7f3a74a9 100644
 +}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && go test ./internal/guard -run TestSyncOntoBase` prints `ok`; `gofmt -l .` prints nothing; `go vet ./internal/guard` exits 0; `scripts/check-verbatim-moves.sh` reports `0 violation(s)`; `scripts/check-references.sh` and `scripts/check-installed-citations.sh` exit 0. Commit.
+  - [x] **Step 3: Verify.** `cd stats && go test ./internal/guard -run TestSyncOntoBase` prints `ok`; `gofmt -l .` prints nothing; `go vet ./internal/guard` exits 0; `scripts/check-verbatim-moves.sh` reports `0 violation(s)`; `scripts/check-references.sh` and `scripts/check-installed-citations.sh` exit 0. Commit.
 
 **Build:** green
 **After:** none
