@@ -1,0 +1,13 @@
+# Sentences this change adds or rewords on purpose, one per line, as check-verbatim-moves.sh prints them.
+-key <key>-retry -session-token mf-<literal-token>
+flow record dispatch begin -change <name> -task <n> -role implementer -model <m> \
+**Exit 3 with `close-task: UNRECORDED —`** closed every task — ticked and pushed — but the implementer dispatch's end never reached the store: run the `flow record dispatch end` command that line prints before the next dispatch goes out.
+-agent-id inline -key verify[-<worktree basename>] -session-token mf-<literal-token>
+-effort <the effort originally requested> -key <key>-retry -session-token mf-<literal-token>
+-ended-at <when its work ended> [-commit <its task commit>]
+Its `visual-verification.md` keeps every heading and drops the table rows under each `####` element × property matrix heading, and its `git log --stat` lines leave out every `*.png` path.
+`-ended-at` is the instant the row's work ended — its task commit's committer date (`git log -1 --format=%cI <sha>`), else its report file's mtime — never the moment it is closed, and an implementer row carries `-commit` with its task commit's full sha.
+flow record dispatch begin -change <name> -role verifier -model <parent model> -effort <parent effort> \
+flow record dispatch begin -change <name> -task <n> -role implementer -model <m> -effort <e> \
+flow record dispatch end -change <name> -C <canonical-worktree> -key <key> -session-token <its token> -outcome <completed|aborted> \
+flow record dispatch end -change <name> -key verify[-<worktree basename>] \
