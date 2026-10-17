@@ -228,10 +228,10 @@ Correction (2026-10-17): `RecordDecision` always stamped `now()`, so seeded deci
 
 `flow.verify` of the integrate run reported three failing commands: `scripts/check-plan-provenance.sh` (`design.md`, `tasks.md` quoted rendered zero strings with no provenance), `scripts/check-plan-shape.sh` (tasks 11 and 12 named shared files with no **After:** ordering and ran suites in their verify steps), and `go test ./... -race -count=1` (`TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard` fails whenever the caller exports `FLOW_RECORDS_ADDR`). The two plan-text defects are corrected in this round's planning commit; task 13 fixes the test.
 
-- [ ] 13. In-run fix 1 — flow.verify: plan provenance, plan shape, and a records-address leak in the render-to-guard test
-  - [ ] **Step 1: Reproduce.** `cd stats && FLOW_RECORDS_ADDR=http://127.0.0.1:4173 go test ./cmd/flow -run TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard -count=1` fails with `OUTSTANDING: … no change summary recorded`: the test pins `FLOW_ADDR` to its fake daemon, but the guard's `flow record` reads resolve `FLOW_RECORDS_ADDR` first, so an exported value sends them to the dev daemon. <!-- measured: same command, 2026-10-17, exit 1; without FLOW_RECORDS_ADDR exit 0 -->
-  - [ ] **Step 2: Fix.** In `stats/cmd/flow/record_test.go` pin `FLOW_RECORDS_ADDR` to `srv.URL` beside the existing `t.Setenv("FLOW_ADDR", srv.URL)`, and extend the comment above it to name both variables.
-  - [ ] **Step 3: Verify.** Re-run the Step 1 command: exit 0. Commit.
+- [x] 13. In-run fix 1 — flow.verify: plan provenance, plan shape, and a records-address leak in the render-to-guard test
+  - [x] **Step 1: Reproduce.** `cd stats && FLOW_RECORDS_ADDR=http://127.0.0.1:4173 go test ./cmd/flow -run TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard -count=1` fails with `OUTSTANDING: … no change summary recorded`: the test pins `FLOW_ADDR` to its fake daemon, but the guard's `flow record` reads resolve `FLOW_RECORDS_ADDR` first, so an exported value sends them to the dev daemon. <!-- measured: same command, 2026-10-17, exit 1; without FLOW_RECORDS_ADDR exit 0 -->
+  - [x] **Step 2: Fix.** In `stats/cmd/flow/record_test.go` pin `FLOW_RECORDS_ADDR` to `srv.URL` beside the existing `t.Setenv("FLOW_ADDR", srv.URL)`, and extend the comment above it to name both variables.
+  - [x] **Step 3: Verify.** Re-run the Step 1 command: exit 0. Commit.
 
 **Build:** green
 **Files:** `stats/cmd/flow/record_test.go`
