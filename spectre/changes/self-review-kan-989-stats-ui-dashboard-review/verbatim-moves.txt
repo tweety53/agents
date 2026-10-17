@@ -1,0 +1,8 @@
+# New run-loaded sentences this change adds on purpose, one per line, exactly as check-verbatim-moves.sh prints them after "::".
+**A command the harness denies has no exit code.
+**The appended plan passes the plan guards before it is committed.
+A call passing none gets its own worktree's range derived the same way, from the base `resolve-base-branch.sh` names; the guard's header (`<agents repo>/scripts/check-unfinished-work.sh`) is canonical for the visual-verify and inline-verify signals it folds in.
+Before the append, the stage's failing row is closed with `flow record dispatch end` at `-outcome blocked -cause test-failure`, so no row of the stage stays open while this round's rows open.
+Its report line reads `blocked — environment: <the denial text, verbatim>` where `exit <n>` would stand, and the step's status is `blocked` — never an exit code the command did not return.
+Run `check-plan-shape.sh` and `check-plan-provenance.sh` over the appended `tasks.md` and handle each exit as **D.
+The guard folds in `check-visual-verify-dispatched.sh`'s verdict for its own worktree and finds a code commit no later completed `verify` row covers unfinished, so a skipped visual verification or an unrecorded inline verify stops this run too.
