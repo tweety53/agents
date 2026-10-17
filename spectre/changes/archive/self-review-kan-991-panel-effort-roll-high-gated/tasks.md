@@ -26,9 +26,9 @@
 - No sentence in `skills/flow/` may still grant the gated reviewer bundle `high` (Task 3).
 - A real pass note of two words must still record (Task 4).
 
-- [ ] 1. Refuse a plan step citing a scripts path the tree lacks
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Copy `spectre/changes/archive/kan-991-panel-effort-roll-high-gated/tasks.md` into a scratch `spectre/changes/zz-probe/` directory, run `scripts/check-plan-shape.sh spectre/changes/zz-probe/tasks.md` and confirm it exits 0 though step 6 cites a script `52f9660b` deleted — the defect. Remove the scratch directory.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 1. Refuse a plan step citing a scripts path the tree lacks
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Copy `spectre/changes/archive/kan-991-panel-effort-roll-high-gated/tasks.md` into a scratch `spectre/changes/zz-probe/` directory, run `scripts/check-plan-shape.sh spectre/changes/zz-probe/tasks.md` and confirm it exits 0 though step 6 cites a script `52f9660b` deleted — the defect. Remove the scratch directory.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at 56e6aaa9 in task order; with all five applied go test ./internal/guard/ ./cmd/flow/ passes; scripts/test-check-plan-shape.sh prints all cases passed
 diff --git a/scripts/check-plan-shape.sh b/scripts/check-plan-shape.sh
@@ -245,7 +245,7 @@ index 00000000..8ff9b8bf
 +}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && go test -run 'TestPlanScriptPaths' ./internal/guard/` passes; re-run Step 1's probe — it now exits 1 naming task 1 and the retired script — and remove the scratch directory; `scripts/check-plan-shape.sh` (no argument) exits 0; `bash scripts/test-check-plan-shape.sh` prints `all cases passed`; `scripts/check-guard-symlinks.sh` exits 0. Commit.
+  - [x] **Step 3: Verify.** `cd stats && go test -run 'TestPlanScriptPaths' ./internal/guard/` passes; re-run Step 1's probe — it now exits 1 naming task 1 and the retired script — and remove the scratch directory; `scripts/check-plan-shape.sh` (no argument) exits 0; `bash scripts/test-check-plan-shape.sh` prints `all cases passed`; `scripts/check-guard-symlinks.sh` exits 0. Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/planscriptpaths.go`, `stats/internal/guard/plan_script_paths_test.go`, `scripts/check-plan-shape.sh`
@@ -258,9 +258,9 @@ index 00000000..8ff9b8bf
 
 **Decision:** plan-script-paths-go-sibling
 
-- [ ] 2. Count a change's verbatim-moves.txt as documentation for the docs-only reduction
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Apply the test hunks alone (`git apply --include='stats/internal/guard/check_panel_docs_only_test.go' <the diff in step 2>`) and run `cd stats && go test -run 'TestCheckPanelDocsOnly' ./internal/guard/`: the `committed .md plus a change's verbatim-moves.txt -> exit 0 (kan-991)` case fails — the defect.
-  - [ ] **Step 2: Implement the fix.** Apply the rest of this diff (`git apply --exclude='stats/internal/guard/check_panel_docs_only_test.go' <the diff>`):
+- [x] 2. Count a change's verbatim-moves.txt as documentation for the docs-only reduction
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Apply the test hunks alone (`git apply --include='stats/internal/guard/check_panel_docs_only_test.go' <the diff in step 2>`) and run `cd stats && go test -run 'TestCheckPanelDocsOnly' ./internal/guard/`: the `committed .md plus a change's verbatim-moves.txt -> exit 0 (kan-991)` case fails — the defect.
+  - [x] **Step 2: Implement the fix.** Apply the rest of this diff (`git apply --exclude='stats/internal/guard/check_panel_docs_only_test.go' <the diff>`):
 
 ````diff verified:git apply at 56e6aaa9 in task order; with all five applied go test ./internal/guard/ ./cmd/flow/ passes; with paneldocsonly.go reverted the kan-991 case fails
 diff --git a/scripts/check-panel-docs-only.sh b/scripts/check-panel-docs-only.sh
@@ -353,7 +353,7 @@ index 02a416b6..1c4c631b 100644
  		}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && go test -run 'TestCheckPanelDocsOnly' ./internal/guard/` passes; `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` and `scripts/check-installed-citations.sh` exit 0. Commit.
+  - [x] **Step 3: Verify.** `cd stats && go test -run 'TestCheckPanelDocsOnly' ./internal/guard/` passes; `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` and `scripts/check-installed-citations.sh` exit 0. Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/paneldocsonly.go`, `stats/internal/guard/check_panel_docs_only_test.go`, `scripts/check-panel-docs-only.sh`, `skills/flow/review-panel.md`
@@ -366,9 +366,9 @@ index 02a416b6..1c4c631b 100644
 
 **Decision:** docs-only-verbatim-moves
 
-- [ ] 3. Keep the gated reviewer bundle off high
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'high. only as' skills/flow/brainstorm-planner.md skills/flow/implement.md` and confirm the bundle bullet and the bundle sentence both grant `high` — the defect: no decision pair records the bundle.
-  - [ ] **Step 2: Apply the edit.** Apply this diff:
+- [x] 3. Keep the gated reviewer bundle off high
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'high. only as' skills/flow/brainstorm-planner.md skills/flow/implement.md` and confirm the bundle bullet and the bundle sentence both grant `high` — the defect: no decision pair records the bundle.
+  - [x] **Step 2: Apply the edit.** Apply this diff:
 
 ````diff verified:git apply at 56e6aaa9; with it applied check-references, check-markdown-integrity, check-dispatch-paragraphs, check-installed-citations and check-ask-silence exit 0 and check-verbatim-moves reports 0 violations
 diff --git a/skills/flow/SKILL-rationale.md b/skills/flow/SKILL-rationale.md
@@ -432,7 +432,7 @@ index d6103d0d..f838747e 100644
  commit-range diff `git diff <task-sha>^..<task-sha>` — a real commit diff, never a snapshot of
 ````
 
-  - [ ] **Step 3: Verify.** `grep -n 'high. only as' skills/flow/brainstorm-planner.md skills/flow/implement.md` prints nothing; `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` and `scripts/check-installed-citations.sh` exit 0. Commit.
+  - [x] **Step 3: Verify.** `grep -n 'high. only as' skills/flow/brainstorm-planner.md skills/flow/implement.md` prints nothing; `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` and `scripts/check-installed-citations.sh` exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/brainstorm-planner.md`, `skills/flow/implement.md`, `skills/flow/SKILL-rationale.md`
@@ -443,9 +443,9 @@ index d6103d0d..f838747e 100644
 
 **Decision:** gated-bundle-never-high
 
-- [ ] 4. Refuse a one-word pass note
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Apply the test hunks alone (`git apply --include='stats/cmd/flow/record_test.go' <the diff in step 2>`) and run `cd stats && go test -run 'TestRecordPassRefusesOneWordNote' ./cmd/flow/`: both subtests fail, the note recorded — the defect kan-991's parent hit with a `-note "x"` loop (`design.md`, **Context**).
-  - [ ] **Step 2: Implement the fix.** Apply the rest of this diff (`git apply --exclude='stats/cmd/flow/record_test.go' <the diff>`):
+- [x] 4. Refuse a one-word pass note
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Apply the test hunks alone (`git apply --include='stats/cmd/flow/record_test.go' <the diff in step 2>`) and run `cd stats && go test -run 'TestRecordPassRefusesOneWordNote' ./cmd/flow/`: both subtests fail, the note recorded — the defect kan-991's parent hit with a `-note "x"` loop (`design.md`, **Context**).
+  - [x] **Step 2: Implement the fix.** Apply the rest of this diff (`git apply --exclude='stats/cmd/flow/record_test.go' <the diff>`):
 
 ````diff verified:git apply at 56e6aaa9 in task order; with all five applied go test ./internal/guard/ ./cmd/flow/ passes; with record.go reverted TestRecordPassRefusesOneWordNote fails
 diff --git a/stats/cmd/flow/record.go b/stats/cmd/flow/record.go
@@ -508,7 +508,7 @@ index 32da1db3..ffbba3fe 100644
  // repository carries is refused before the store is contacted, so it never
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && go test -run 'TestRecordPass' ./cmd/flow/` passes; `cd stats && go vet ./cmd/flow && gofmt -l .` is clean. Commit.
+  - [x] **Step 3: Verify.** `cd stats && go test -run 'TestRecordPass' ./cmd/flow/` passes; `cd stats && go vet ./cmd/flow && gofmt -l .` is clean. Commit.
 
 **Build:** green
 **Files:** `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`
@@ -521,9 +521,9 @@ index 32da1db3..ffbba3fe 100644
 
 **Decision:** pass-note-two-words
 
-- [ ] 5. List the rationale appendix a changed rule's reasoning lives in
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'rationale' skills/flow/brainstorm-planner.md` and confirm section D carries no directive to list a `*-rationale.md` appendix in `**Files:**` — the defect kan-991's plan hit with `skills/flow/SKILL-rationale.md`.
-  - [ ] **Step 2: Apply the edit.** On top of Task 3's commit, apply this diff:
+- [x] 5. List the rationale appendix a changed rule's reasoning lives in
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'rationale' skills/flow/brainstorm-planner.md` and confirm section D carries no directive to list a `*-rationale.md` appendix in `**Files:**` — the defect kan-991's plan hit with `skills/flow/SKILL-rationale.md`.
+  - [x] **Step 2: Apply the edit.** On top of Task 3's commit, apply this diff:
 
 ````diff verified:git apply at 56e6aaa9 after Task 3's diff; check-references, check-markdown-integrity, check-dispatch-paragraphs, check-installed-citations and check-ask-silence exit 0 and check-verbatim-moves reports 0 violations
 diff --git a/skills/flow/brainstorm-planner.md b/skills/flow/brainstorm-planner.md
@@ -543,7 +543,7 @@ index 08ac25f5..2d33672b 100644
  provenance** (`skills/flow-contracts/plan-provenance.md`).
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` and `scripts/check-ask-silence.sh` exit 0. Commit.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` and `scripts/check-ask-silence.sh` exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/brainstorm-planner.md`
