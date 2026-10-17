@@ -1,0 +1,13 @@
+**The bundle is the implementer group**: at a boundary, every task of group N+1 whose gate fired goes out in one reviewer Agent call beside group N+2's implementer, on `opus` at that group's effort from the decision's `groups` entry, or `high` where that group carries a hard seam — a first-pass review, per **Model and effort** (`skills/flow/brainstorm-planner.md`).
+**every gated per-task reviewer bundle** — `opus`, always, at its group's effort, or `high` where its group carries a hard seam, the group's `reason` naming the seam; it is a first-pass review too (`skills/flow/implement.md`);
+**A dispatch the planner judges worth `high`** — a hard seam the roll's effort may not carry — adds one question per such dispatch to the same AskUserQuestion call: **Raise `<dispatch>` to `high` — `<seam>`?**, **No** *(default, recommended)* / **Yes**.
+**Display-only formatting is decided, never asked.
+**Every pass-1 panel dispatch and every gated per-task reviewer bundle takes `low` when `effort_roll < 60` and `medium` otherwise, whatever the band** — 60/40 per change.
+**When `effort_roll < 90`, the implementer, the fixer and every implementer group take `low` — `medium` where the pair carries a hard seam.
+**`high` reaches one of them only two ways:** the operator's explicit **Yes** at the plan gate (**Plan review gate** below), or a fix run's re-Decide when the fix instructions report that an earlier, lower-effort attempt failed to solve the same issue, the pair's `reason` naming that attempt.
+A choice that changes only how a value is
+A mockup or ticket that states it still governs.
+Only an explicit **Yes** re-records that pair at `high` through the `flow.decide` record sequence before implementation; anything else leaves the roll's effort.
+Under the `## decisions: recommended` mode the question is not asked and **No** is taken.
+When `effort_roll ≥ 90`, the implementer, fixer and group efforts are the planner's own choice, one of `low`/`medium` — decided from what that dispatch will actually do: the complexity of its tasks, the time and space complexity of the code it writes or reviews, and the scalability the change has to hold up under.
+shown — numeric precision, an empty-cell placeholder, and the like — and that the request, ticket or mockup leaves open is chosen by you and recorded under `## Decisions`; no question is asked for it.
