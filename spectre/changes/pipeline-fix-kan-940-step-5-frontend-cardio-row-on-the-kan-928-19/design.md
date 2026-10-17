@@ -107,4 +107,17 @@ guard and `integrate-change.sh`'s relay that closes no stop.
 that fail without it, Task 2 is prose already passing every lint line.
 **Considered:** `flow-medium` — the Go change is two path predicates, spiked and tested.
 
+### Re-baseline only a sync's mismatch the base reproduces
+
+**ID:** rebaseline-sync-base-reproduced
+**Status:** active — supersedes `stale-baseline-rebaselined`'s "never touched" test
+**Chosen:** re-baseline only a mismatch met during a sync onto a moved base, and only when the same
+tests fail on the base's committed baselines against the base's own captures; every other mismatch
+is the branch's defect and takes The loop. A mismatch is a failure with an `-actual.png` or
+`-diff.png` attachment; a stable-screenshot timeout is not one.
+**Considered:** the spec-and-snapshots-untouched test — rejected in review: the change's own app
+code can move pixels in a spec it never edited, and re-baselining would hide that regression.
+Requiring a merge-base re-run on every `verify` mismatch — rejected as the costlier of the two
+options the review offered.
+
 ## Open questions
