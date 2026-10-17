@@ -7,14 +7,14 @@ The pass covers what the bundle holds plus the stage_runs, guard_runs and pass r
 
 ## Problems encountered, and what pipeline change would avoid them — `flow-fix`
 
-- **[flow-fix]** The human-gate fix run closed flow.visual-verify and flow.verify without running them, and check-unfinished-work exited 2 (no merge-base range) while IN_PROGRESS was still written; the guard now derives the range, folds in the visual verdict (honouring a false-positive flag) and flags a code commit no completed verify row covers — fixed: 0397c8f7
-- **[flow-fix]** A fix run's appended tasks bypassed check-plan-shape and check-plan-provenance; document-fix now runs both before its planning commit — fixed: 89100553
-- **[flow-fix]** A panel key with a non-numeric round (`panel-fix1-primary`) was silently not counted as a round; `flow record dispatch begin` now refuses it — fixed: 800020d4
-- **[flow-fix]** Guard and cmd/flow package tests and the shell guard harnesses posted guard telemetry into the dev store (6,065 rows); telemetry is now off in both TestMains, three hand-built envs and run-guard-tests.sh — fixed: 87c3b79b
-- **[flow-fix]** The 2% visual tolerance let a stale empty Reviewers baseline pass; tolerance is now zero, 15 runs showed no flake, so no pin — fixed: 1f74527c
-- **[flow-fix]** Off-convention implementer keys (`task-11-12`) recorded the wrong commit for task 11; such keys are now refused, `-retry` accepted — fixed: ac96854b
-- **[flow-fix]** The failed verify row stayed open while the in-run fix loop opened `verify-fix-1`, stopping prepare; the loop now closes it first — fixed: 6fb15fde
-- **[flow-fix]** The visual verifier invented exit 126 for a permission-denied capture; a denied command is now reported blocked with the denial text verbatim — fixed: b10774ea
+- **[flow-fix]** The human-gate fix run closed flow.visual-verify and flow.verify without running them, and check-unfinished-work exited 2 (no merge-base range) while IN_PROGRESS was still written; the guard now derives the range, folds in the visual verdict (honouring a false-positive flag) and flags a code commit no completed verify row covers — fixed: 387ab84f
+- **[flow-fix]** A fix run's appended tasks bypassed check-plan-shape and check-plan-provenance; document-fix now runs both before its planning commit — fixed: dbf304fb
+- **[flow-fix]** A panel key with a non-numeric round (`panel-fix1-primary`) was silently not counted as a round; `flow record dispatch begin` now refuses it — fixed: 8beb67cf
+- **[flow-fix]** Guard and cmd/flow package tests and the shell guard harnesses posted guard telemetry into the dev store (6,065 rows); telemetry is now off in both TestMains, three hand-built envs and run-guard-tests.sh — fixed: 45297e06
+- **[flow-fix]** The 2% visual tolerance let a stale empty Reviewers baseline pass; tolerance is now zero, 15 runs showed no flake, so no pin — fixed: 3a859b85
+- **[flow-fix]** Off-convention implementer keys (`task-11-12`) recorded the wrong commit for task 11; such keys are now refused, `-retry` accepted — fixed: b000d4b5
+- **[flow-fix]** The failed verify row stayed open while the in-run fix loop opened `verify-fix-1`, stopping prepare; the loop now closes it first — fixed: 6ab7ef9b
+- **[flow-fix]** The visual verifier invented exit 126 for a permission-denied capture; a denied command is now reported blocked with the denial text verbatim — fixed: 33daf8dd
 - **[flow-fix]** main's 6bd7b020 left `integrate-change.sh:362` piping into an early-exit grep, failing TestNoPipeIntoEarlyExitGrep; now a here-string — fixed: fe3bae00
 - **[flow-fix]** Task 13's FLOW_RECORDS_ADDR pin is on the branch and no other cmd/flow test pins FLOW_ADDR alone (state_test.go, suite_test.go checked) — noted
 
@@ -39,7 +39,7 @@ The pass covers what the bundle holds plus the stage_runs, guard_runs and pass r
 
 ## What can be sped up — `flow-speed`
 
-- **[flow-speed]** The 33-command inline verify ran serially past the 600 s tool timeout, twice; lint and test lists now run as two concurrent groups — fixed: 7b49ab4d
+- **[flow-speed]** The 33-command inline verify ran serially past the 600 s tool timeout, twice; lint and test lists now run as two concurrent groups — fixed: 0019f562
 
 ## What would make a good flow-eval case — `flow-eval`
 
