@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -35,13 +36,57 @@ type stageFixture struct {
 
 	StartedAt time.Time
 	Outcome   string
+
+	// ToolErrors is the run's main-session tool-error signal -- what the
+	// live state board's Errors column sums. Zero writes no signal.
+	ToolErrors int
+
+	// SessionToken is the run correlator this stage was recorded under;
+	// empty records none, so the stage counts as a run of its own.
+	SessionToken string
 }
 
 // changeFixture is one change and the stage runs recorded against it.
+//
+// SessionToken is the run correlator the decision and every dispatch are
+// recorded under -- the (change, session_token) pair the Decisions view
+// joins a run's totals on, so the stages of that run carry the same token.
+// Decision is the planner's recorded JSON, written at DecisionAt;
+// Dispatches are review-panel dispatches, each with the findings it raised.
 type changeFixture struct {
 	Name  string
 	State store.State
 	Stage []stageFixture
+
+	SessionToken string
+	Decision     string
+	DecisionAt   time.Time
+	Dispatches   []dispatchFixture
+}
+
+// dispatchFixture is one review-panel slot's dispatch and the findings it
+// raised -- what the Reviewers view and Flow health's C/I/Mi tile count.
+type dispatchFixture struct {
+	Slot      string
+	Model     string
+	StartedAt time.Time
+	Findings  []findingFixture
+}
+
+// findingFixture is one finding a dispatch raised.
+type findingFixture struct {
+	Ref      string
+	Severity string
+	Note     string
+}
+
+// guardFireFixture is one guard run that fired -- Flow health's
+// "Guard fires" tile.
+type guardFireFixture struct {
+	ProjectKey string
+	Guard      string
+	Worktree   string
+	RecordedAt time.Time
 }
 
 // projectFixture is one project and the changes recorded under it.
@@ -77,7 +122,52 @@ func fixtureData() []projectFixture {
 							OutputTokens: 9500,
 							CostUSD:      0.179,
 							StartedAt:    fixtureNow.Add(-2 * time.Hour),
+							Outcome:      "failed",
+							ToolErrors:   2,
+							SessionToken: "uitest-kan-102",
+						},
+						{
+							Command:      "/flow",
+							Stage:        "flow.review-panel",
+							Model:        "claude-sonnet-5",
+							InputTokens:  90000,
+							OutputTokens: 11000,
+							CostUSD:      0.41,
+							StartedAt:    fixtureNow.Add(-90 * time.Minute),
 							Outcome:      "completed",
+							SessionToken: "uitest-kan-102",
+						},
+					},
+					SessionToken: "uitest-kan-102",
+					DecisionAt:   fixtureNow.Add(-2*time.Hour - 5*time.Minute),
+					Decision: `{
+						"class": "regular", "execution": "sdd",
+						"implementer": {"model": "sonnet", "effort": "medium"},
+						"panel": {
+							"compact": false, "rerun": "delta",
+							"roster": [
+								{"slot": "primary", "experimental": false},
+								{"slot": "principles", "experimental": false}
+							]
+						}
+					}`,
+					Dispatches: []dispatchFixture{
+						{
+							Slot:      "primary",
+							Model:     "opus",
+							StartedAt: fixtureNow.Add(-90 * time.Minute),
+							Findings: []findingFixture{
+								{Ref: "F1", Severity: "Critical", Note: "the fix drops the retry on a closed connection"},
+								{Ref: "F2", Severity: "Minor", Note: "a stale comment names the old helper"},
+							},
+						},
+						{
+							Slot:      "principles",
+							Model:     "opus",
+							StartedAt: fixtureNow.Add(-90 * time.Minute),
+							Findings: []findingFixture{
+								{Ref: "F3", Severity: "Important", Note: "two callers now duplicate the same parse"},
+							},
 						},
 					},
 				},
@@ -100,6 +190,7 @@ func fixtureData() []projectFixture {
 							CostUSD:      2.75,
 							StartedAt:    fixtureNow.Add(-26 * time.Hour),
 							Outcome:      "completed",
+							SessionToken: "uitest-kan-201",
 						},
 						{
 							Command:      "/flow-fast",
@@ -112,8 +203,27 @@ func fixtureData() []projectFixture {
 							Outcome:      "completed",
 						},
 					},
+					SessionToken: "uitest-kan-201",
+					DecisionAt:   fixtureNow.Add(-26*time.Hour - 5*time.Minute),
+					Decision: `{
+						"class": "big", "execution": "sdd",
+						"implementer": {"model": "opus", "effort": "high"},
+						"panel": "default"
+					}`,
 				},
 			},
+		},
+	}
+}
+
+// guardFires is the fixture's fired guard runs.
+func guardFires() []guardFireFixture {
+	return []guardFireFixture{
+		{
+			ProjectKey: "uitest-beta",
+			Guard:      "check-references",
+			Worktree:   "/tmp/uitest-beta",
+			RecordedAt: fixtureNow.Add(-3 * time.Hour),
 		},
 	}
 }
@@ -152,19 +262,24 @@ func seedFixture(ctx context.Context, st *store.Store) error {
 			}
 
 			for _, stage := range change.Stage {
+				var sessionToken *string
+				if stage.SessionToken != "" {
+					sessionToken = strPtr(stage.SessionToken)
+				}
 				run, err := st.BeginStage(ctx, store.BeginStageInput{
-					ProjectKey: project.Key,
-					ChangeName: change.Name,
-					Harness:    "claude-code",
-					Command:    stage.Command,
-					Stage:      stage.Stage,
-					StartedAt:  stage.StartedAt,
+					ProjectKey:   project.Key,
+					ChangeName:   change.Name,
+					Harness:      "claude-code",
+					Command:      stage.Command,
+					Stage:        stage.Stage,
+					StartedAt:    stage.StartedAt,
+					SessionToken: sessionToken,
 				})
 				if err != nil {
 					return fmt.Errorf("uitest-seed: begin stage %s/%s %s: %w", project.Key, change.Name, stage.Stage, err)
 				}
 
-				patch, err := json.Marshal(map[string]any{
+				metrics := map[string]any{
 					"cost_usd": stage.CostUSD,
 					"tokens":   mainTokens(stage.InputTokens, stage.OutputTokens),
 					"models": map[string]any{
@@ -173,7 +288,11 @@ func seedFixture(ctx context.Context, st *store.Store) error {
 							"tokens":   mainTokens(stage.InputTokens, stage.OutputTokens),
 						},
 					},
-				})
+				}
+				if stage.ToolErrors > 0 {
+					metrics["signals"] = map[string]any{"main": map[string]any{"tool_errors": stage.ToolErrors}}
+				}
+				patch, err := json.Marshal(metrics)
 				if err != nil {
 					return fmt.Errorf("uitest-seed: marshal metrics for %s/%s %s: %w", project.Key, change.Name, stage.Stage, err)
 				}
@@ -185,6 +304,66 @@ func seedFixture(ctx context.Context, st *store.Store) error {
 				if err := st.EndStage(ctx, run.ID, endedAt, stage.Outcome); err != nil {
 					return fmt.Errorf("uitest-seed: end stage for %s/%s %s: %w", project.Key, change.Name, stage.Stage, err)
 				}
+			}
+
+			if err := seedRunRecords(ctx, st, project.Key, change); err != nil {
+				return err
+			}
+		}
+	}
+
+	for _, g := range guardFires() {
+		if _, err := st.RecordGuardRun(ctx, g.ProjectKey, records.GuardRun{
+			Guard:      g.Guard,
+			Worktree:   g.Worktree,
+			ExitCode:   1,
+			Outcome:    "fired",
+			DurationMS: 120,
+			RecordedAt: g.RecordedAt,
+		}); err != nil {
+			return fmt.Errorf("uitest-seed: record guard run %s for %s: %w", g.Guard, g.ProjectKey, err)
+		}
+	}
+	return nil
+}
+
+// seedRunRecords writes a change's decision and its review-panel
+// dispatches with their findings, all under the change's session token.
+func seedRunRecords(ctx context.Context, st *store.Store, projectKey string, change changeFixture) error {
+	if change.Decision != "" {
+		if _, _, err := st.RecordDecision(ctx, projectKey, change.Name, records.Decision{
+			SessionToken: change.SessionToken,
+			RecordedAt:   change.DecisionAt,
+			Decision:     json.RawMessage(change.Decision),
+		}); err != nil {
+			return fmt.Errorf("uitest-seed: record decision for %s/%s: %w", projectKey, change.Name, err)
+		}
+	}
+	for _, d := range change.Dispatches {
+		out, err := st.RecordDispatch(ctx, projectKey, change.Name, records.Dispatch{
+			Key:          "panel-" + d.Slot,
+			Role:         "panel",
+			Slot:         d.Slot,
+			Model:        d.Model,
+			Outcome:      "completed",
+			SessionToken: change.SessionToken,
+			StartedAt:    d.StartedAt,
+			EndedAt:      timePtr(d.StartedAt.Add(4 * time.Minute)),
+		})
+		if err != nil {
+			return fmt.Errorf("uitest-seed: record dispatch %s for %s/%s: %w", d.Slot, projectKey, change.Name, err)
+		}
+		for _, f := range d.Findings {
+			if _, _, err := st.UpsertFinding(ctx, projectKey, change.Name, records.Finding{
+				Ref:         f.Ref,
+				DispatchSeq: &out.Seq,
+				Round:       0,
+				Slot:        d.Slot,
+				Severity:    f.Severity,
+				Note:        f.Note,
+				Status:      "fixed",
+			}); err != nil {
+				return fmt.Errorf("uitest-seed: upsert finding %s for %s/%s: %w", f.Ref, projectKey, change.Name, err)
 			}
 		}
 	}

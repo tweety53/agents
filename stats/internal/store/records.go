@@ -971,17 +971,24 @@ func (s *Store) RecordDecision(ctx context.Context, projectKey, change string, i
 	var (
 		out     records.Decision
 		created bool
+		// A zero RecordedAt reads as now(), the instant every `flow record
+		// decision` call means; a supplied one is kept (cmd/uitest-seed
+		// anchors its fixture on a fixed instant).
+		recordedAt *time.Time
 	)
+	if !in.RecordedAt.IsZero() {
+		recordedAt = &in.RecordedAt
+	}
 	err := s.pool.QueryRow(ctx, `
-		INSERT INTO decisions (change_id, session_token, decision)
-		SELECT c.id, $3, $4
+		INSERT INTO decisions (change_id, session_token, decision, recorded_at)
+		SELECT c.id, $3, $4, COALESCE($5::timestamptz, now())
 		FROM changes c
 		WHERE c.project_key = $1 AND c.name = $2
 		ON CONFLICT ON CONSTRAINT `+decisionsSessionConstraint+` DO UPDATE SET
 			decision    = EXCLUDED.decision,
-			recorded_at = now()
+			recorded_at = EXCLUDED.recorded_at
 		RETURNING id, session_token, recorded_at, decision, xmax = 0
-	`, projectKey, change, in.SessionToken, []byte(in.Decision)).
+	`, projectKey, change, in.SessionToken, []byte(in.Decision), recordedAt).
 		Scan(&out.ID, &out.SessionToken, &out.RecordedAt, &out.Decision, &created)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

@@ -2565,6 +2565,41 @@ func TestRecordDecisionUpsertsPerSession(t *testing.T) {
 	}
 }
 
+// TestRecordDecisionKeepsSuppliedRecordedAt asserts a decision carrying its
+// own RecordedAt is stored at that instant rather than at now() -- what
+// lets cmd/uitest-seed anchor its fixture decisions on fixtureNow, so the
+// Decisions view's period filter still finds them weeks later -- while a
+// zero RecordedAt keeps the now() default every `flow record decision`
+// call relies on.
+func TestRecordDecisionKeepsSuppliedRecordedAt(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-decision-at-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	at := time.Date(2026, 8, 15, 8, 0, 0, 0, time.UTC)
+	got, _, err := st.RecordDecision(ctx, projectKey, "kan-1", records.Decision{
+		SessionToken: "sess-at", RecordedAt: at, Decision: json.RawMessage(`{"n":1}`),
+	})
+	if err != nil {
+		t.Fatalf("RecordDecision with RecordedAt: %v", err)
+	}
+	if !got.RecordedAt.Equal(at) {
+		t.Errorf("RecordedAt = %v, want %v", got.RecordedAt, at)
+	}
+
+	before := time.Now().Add(-time.Minute)
+	got, _, err = st.RecordDecision(ctx, projectKey, "kan-1", records.Decision{
+		SessionToken: "sess-now", Decision: json.RawMessage(`{"n":2}`),
+	})
+	if err != nil {
+		t.Fatalf("RecordDecision without RecordedAt: %v", err)
+	}
+	if got.RecordedAt.Before(before) {
+		t.Errorf("RecordedAt = %v, want now() for a zero RecordedAt", got.RecordedAt)
+	}
+}
+
 // TestListDecisionsNewestFirst asserts ListDecisions orders newest first
 // and that the project filter excludes another project's rows -- the same
 // shape TestListIncidentsNewestFirst asserts for incidents.
