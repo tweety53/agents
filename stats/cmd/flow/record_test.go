@@ -4862,6 +4862,35 @@ func TestRecordPassRefusesMarkerNote(t *testing.T) {
 	}
 }
 
+// TestRecordPassRefusesOneWordNote pins the kan-991 self-review fix: a
+// one-word pass note is a placeholder -- kan-991's parent looped `-note "x"`
+// and landed two stray rows -- and `flow record pass` refuses it before the
+// store is contacted. The -addr is a closed port, so a regressed refusal
+// falls through to the journal instead of reaching a live daemon.
+func TestRecordPassRefusesOneWordNote(t *testing.T) {
+	for _, note := range []string{"x", "  probe  "} {
+		t.Run(note, func(t *testing.T) {
+			repo := recordRepo(t, "kan-258")
+			isolatedStateRoot(t)
+
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"record", "pass", "-addr", "http://127.0.0.1:1", "-timeout", "500ms", "-C", repo,
+					"-change", "kan-258", "-round", "0", "-note", note},
+				strings.NewReader(""), &stdout, &stderr)
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+			}
+			if !strings.Contains(stderr.String(), "is one word") {
+				t.Errorf("stderr = %q, want it to say the note is one word", stderr.String())
+			}
+			if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+				t.Errorf("a refused one-word note left a record journal behind")
+			}
+		})
+	}
+}
+
 // TestRecordWriteRefusesAChangeNoCheckoutCarries pins the project-key
 // sanity check: a run-record write for a change no checkout of the -C
 // repository carries is refused before the store is contacted, so it never

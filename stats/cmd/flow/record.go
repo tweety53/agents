@@ -2846,6 +2846,13 @@ func runRecordPass(ctx context.Context, args []string, stdout, stderr io.Writer)
 	if !requireRecordFlags(stderr, [2]string{"-note", *note}) {
 		return 2
 	}
+	// A one-word note is a placeholder, never a pass-log line: kan-991's
+	// parent looped `-note "x"` with its output silenced and landed two
+	// stray rows; no pass note in the store's history was one word and real.
+	if len(strings.Fields(*note)) < 2 {
+		fmt.Fprintf(stderr, "flow: record pass: -note %q is one word — a pass-log line says what happened, in two words at least\n", *note)
+		return 2
+	}
 	// A note opening with a marker label is a marker line in the wrong
 	// place: the renderer neutralises its colon, so the round would lose
 	// the structural row the line meant to be.
