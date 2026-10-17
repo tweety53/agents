@@ -1330,6 +1330,11 @@ func TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(records.Rendered{Body: records.RenderPanel(records.Run{Change: "demo"})})
 			return
 		}
+		// The guard reads the bundle header for its recorded-summary signal.
+		if strings.HasSuffix(r.URL.Path, "/bundle") {
+			_, _ = w.Write([]byte("# Self-review context bundle for demo\n\nfound: 1 of 1 sources; skipped: 0 of 1 sources\n\n## change summary\n\nwhat changed\n"))
+			return
+		}
 		_, _ = w.Write([]byte(`{"change":"demo","dispatches":[],"findings":[]}`))
 	}))
 	defer srv.Close()
