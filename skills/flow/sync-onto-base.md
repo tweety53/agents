@@ -51,6 +51,10 @@ and `check-base-moved.sh` performs no fetch of its own.
   4. `git add` every recaptured PNG and the zip, stop the stack if step 1 started it, then continue the
      rebase as above.
 
+  A spec outside the named ones failing on a screenshot mismatch in any later run of this sync is a
+  stale baseline on the base: re-baselined per **the sweep**
+  (`skills/flow-contracts/known-bugs.md`), never asked.
+
   **Stop and ask** only where no honest resolution exists: a modify/delete conflict, a binary
   file no `RECAPTURE:` line names, or an upstream commit that removed something this change
   depends on. In that case leave

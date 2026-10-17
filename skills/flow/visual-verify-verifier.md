@@ -22,7 +22,8 @@ never an exit code the command did not return.
    A `specs` with no `<merge-base>` cannot take a round base: it runs as declared, its full list,
    and the report names `specs: not scoped — specs has no <merge-base>`.
    A non-zero `verify` exit blocks, a failing test this change did not introduce included
-   (**the sweep**, `skills/flow-contracts/known-bugs.md`).
+   (**the sweep**, `skills/flow-contracts/known-bugs.md`), save a stale snapshot baseline in a spec
+   this change never touched, which the sweep re-baselines and re-runs before the exit is read.
    **A `verify` that can outrun the shell tool's time limit runs whole, in the background, polled
    to completion** — one Bash call starts it detached,
    `rm -f <exit-file>; nohup sh -c '<verify> > <log> 2>&1; echo $? > <exit-file>' > /dev/null 2>&1 < /dev/null &`

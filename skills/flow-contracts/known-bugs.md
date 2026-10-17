@@ -17,6 +17,20 @@ file, never filed for later, and never skipped, worked around or
 tolerance-widened (**Fix determinism at the source, never by widening tolerance**,
 `rules/fix-determinism-at-the-source.mdc`).
 
+**A stale snapshot baseline on the base is re-baselined, never asked.** A screenshot mismatch is a
+failure whose run produced an `-actual.png` or `-diff.png` attachment; a "waiting for stable
+screenshot" timeout is a timeout, never a mismatch. A mismatch met during a sync's targeted
+recapture onto a moved base (`skills/flow/sync-onto-base.md`) is the base's baselines lagging the
+base's own code only when the same tests also fail against the base's committed baselines on
+captures of the base's own code — a spec's being untouched by this change is not enough, because the
+change's own app code can move its pixels. Any other mismatch, a `verify` run's among them, is the
+branch's own defect and takes The loop. Whoever ran it recaptures exactly the failing tests — `capture`
+with `<spec>` substituted by each failing test's `<file>:<line>` — stages only the PNGs the failing
+run named, restores every other file the capture rewrote, commits them on the change branch as their
+own `test(fidelity): re-baseline <spec basenames>` commit, and re-runs the failing tests. A failure
+that is no screenshot mismatch — a timeout, a screen only production serves, a missing service — is
+never re-baselined: it is reported, and blocks as above.
+
 **A product defect the self-review pass meets is never dropped.** It stays out of the pass's
 report and filing prompt, and stops the landing. Met inside a run, the pass stops at the end of its
 step 2 — no fix, no prompt, no store row, no report: nothing is committed for the pass, so the
