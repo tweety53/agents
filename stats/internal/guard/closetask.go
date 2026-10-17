@@ -74,7 +74,13 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
 	if *endKey != "" {
 		rec := []string{"record", "dispatch", "end", "-change", name, "-C", canonical, "-key", *endKey, "-session-token", *token}
 		if *endCommit != "" {
-			rec = append(rec, "-commit", *endCommit)
+			// The store takes a full sha only; expand an abbreviated one,
+			// passing it unchanged where it does not resolve.
+			sha := *endCommit
+			if full, ok := capture(envGit(env)("-C", canonical, "rev-parse", "--verify", "--quiet", sha+"^{commit}")); ok && full != "" {
+				sha = full
+			}
+			rec = append(rec, "-commit", sha)
 		}
 		if ctFlow(env, stdout, stderr, append(rec, "-outcome", "completed")...) != 0 {
 			fmt.Fprintln(stderr, "close-task: the dispatch end did not reach the store — continuing; a record never blocks")

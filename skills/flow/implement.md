@@ -361,6 +361,8 @@ flow record dispatch end -change <name> -key task-<n>-implementer \
   -session-token mf-<literal-token> -commit <sha> -outcome completed
 ```
 
+`-commit` takes the task commit's full sha; an abbreviated one is refused.
+
 Both calls are required. `begin` is recorded immediately before the dispatch — or, when several
 launches go out together in one message, in the next Bash call, one call for all (step 3 of **The
 next implementer overlaps the guard**, below) — carrying no

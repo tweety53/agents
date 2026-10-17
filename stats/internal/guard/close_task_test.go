@@ -400,3 +400,21 @@ func TestCloseTaskRefusesAnUndispatchedAppendedTask(t *testing.T) {
 		})
 	}
 }
+
+// TestCloseTaskExpandsAnAbbreviatedEndCommit pins that an abbreviated
+// -end-commit reaches `flow record dispatch end` as the full sha, which is
+// all the store accepts.
+func TestCloseTaskExpandsAnAbbreviatedEndCommit(t *testing.T) {
+	t.Parallel()
+	fx := ctFixture(t, true, "0", "0")
+	s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
+	r := fx.run("-end-key", "task-1-implementer", "-session-token", "mf-t", "-end-commit", s1[:8],
+		fx.wt, "demo", fx.base, "1:"+s1)
+	if r.rc != 0 {
+		t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
+	}
+	want := "flow record dispatch end -change demo -C " + fx.wt + " -key task-1-implementer -session-token mf-t -commit " + s1 + " -outcome completed"
+	if calls := fx.calls(t); len(calls) == 0 || calls[0] != want {
+		t.Errorf("first call = %q, want %q", calls, want)
+	}
+}

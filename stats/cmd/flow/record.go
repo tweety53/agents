@@ -59,6 +59,19 @@ var recordRoles = []string{"implementer", "reviewer", "panel-fix", "red-partner"
 // number after a colon (path:12, path:12-20).
 var locationLineRe = regexp.MustCompile(`:[0-9]+`)
 
+// commitSHARe is the only -commit a dispatch row stores: a full sha, since
+// the store joins rows to commits by it and an abbreviation would join by
+// prefix.
+var commitSHARe = regexp.MustCompile(`^[0-9a-f]{40}$`)
+
+// validateCommitSHA refuses a non-empty sha that is not 40 lowercase hex.
+func validateCommitSHA(flagName, sha string) error {
+	if sha != "" && !commitSHARe.MatchString(sha) {
+		return fmt.Errorf("%s %q must be a full 40-character sha", flagName, sha)
+	}
+	return nil
+}
+
 // recordEfforts is the closed set `-effort` accepts: the three efforts a flow
 // dispatch can carry, plus `default` -- the literal that means no effort was
 // set for this dispatch. Checked before the store is ever contacted, for
@@ -1111,6 +1124,10 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 	if !ok {
 		return 2
 	}
+	if err := validateCommitSHA("-commit", *commit); err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		return 2
+	}
 	if !requireRecordFlags(stderr,
 		[2]string{"-key", *key},
 		[2]string{"-session-token", *sessionToken},
@@ -1223,6 +1240,10 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stder
 		return 2
 	}
 	if _, ok := checkDispatchEndFields(*v["outcome"], *v["cause"], *v["tokens"], stderr); !ok {
+		return 2
+	}
+	if err := validateCommitSHA("-commit", *v["commit"]); err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
 	}
 	var begin, end []string

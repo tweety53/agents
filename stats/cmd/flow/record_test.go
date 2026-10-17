@@ -268,7 +268,7 @@ func TestRecordWriteFallsBackToJournalAndExitsZero(t *testing.T) {
 		{
 			name: "dispatch end",
 			args: []string{"record", "dispatch", "end", "-change", "kan-258", "-key", "task-6-implementer",
-				"-session-token", "mf-record-dispatch-journal", "-commit", "abc1234",
+				"-session-token", "mf-record-dispatch-journal", "-commit", "abc1234000000000000000000000000000000000",
 				"-outcome", "completed"},
 			kind: "dispatch-end",
 		},
@@ -381,7 +381,7 @@ func TestRecordDispatchJournalCarriesTheAttemptInstant(t *testing.T) {
 			"-role", "implementer", "-model", "opus", "-key", "task-6-implementer",
 			"-session-token", "mf-record-journal-instant"}, "startedAt"},
 		{"end", []string{"record", "dispatch", "end", "-change", "kan-258", "-key", "task-6-implementer",
-			"-session-token", "mf-record-journal-instant", "-commit", "abc1234",
+			"-session-token", "mf-record-journal-instant", "-commit", "abc1234000000000000000000000000000000000",
 			"-outcome", "completed"}, "endedAt"},
 	}
 
@@ -1059,7 +1059,7 @@ var renderRun = records.Run{
 	Change: "demo",
 	Dispatches: []records.Dispatch{{
 		ID: 1, Seq: 1, TaskID: "11", Role: "implementer",
-		Model: "unknown (agent-defined)", CommitSHA: "abc1234", Outcome: "completed",
+		Model: "unknown (agent-defined)", CommitSHA: "abc1234000000000000000000000000000000000", Outcome: "completed",
 		StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
 	}},
 	Findings: []records.Finding{{
@@ -1848,7 +1848,7 @@ func TestRecordDispatchBeginPrintsTheAllocatedSeqAndEndClosesIt(t *testing.T) {
 	code = run(context.Background(),
 		[]string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-key", "task-6-implementer", "-session-token", "mf-record-pair",
-			"-commit", "abc1234", "-outcome", "completed"},
+			"-commit", "abc1234000000000000000000000000000000000", "-outcome", "completed"},
 		strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("end exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1864,7 +1864,7 @@ func TestRecordDispatchBeginPrintsTheAllocatedSeqAndEndClosesIt(t *testing.T) {
 	for field, want := range map[string]string{
 		"key":          "task-6-implementer",
 		"sessionToken": "mf-record-pair",
-		"commitSha":    "abc1234",
+		"commitSha":    "abc1234000000000000000000000000000000000",
 		"outcome":      "completed",
 		"endedAt":      "0001-01-01T00:00:00Z",
 	} {
@@ -4975,7 +4975,7 @@ func TestRecordDispatchBackfill(t *testing.T) {
 	defer srv.Close()
 	base := []string{"record", "dispatch", "backfill", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 		"-change", "kan-258", "-task", "7", "-role", "implementer", "-model", "opus", "-agent-id", "none",
-		"-key", "task-7-implementer", "-session-token", "mf-record-backfill", "-commit", "abc1234"}
+		"-key", "task-7-implementer", "-session-token", "mf-record-backfill", "-commit", "abc1234000000000000000000000000000000000"}
 	var stdout, stderr bytes.Buffer
 	args := append(append([]string{}, base...), "-started-at", start, "-ended-at", end, "-outcome", "completed")
 	if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
@@ -4987,8 +4987,8 @@ func TestRecordDispatchBackfill(t *testing.T) {
 	if bodies[0]["startedAt"] != start || bodies[0]["taskId"] != "7" || bodies[0]["endedAt"] != nil {
 		t.Errorf("begin body = %v, want startedAt %s, taskId 7, no endedAt", bodies[0], start)
 	}
-	if bodies[1]["endedAt"] != end || bodies[1]["outcome"] != "completed" || bodies[1]["commitSha"] != "abc1234" {
-		t.Errorf("end body = %v, want endedAt %s, outcome completed, commitSha abc1234", bodies[1], end)
+	if bodies[1]["endedAt"] != end || bodies[1]["outcome"] != "completed" || bodies[1]["commitSha"] != "abc1234000000000000000000000000000000000" {
+		t.Errorf("end body = %v, want endedAt %s, outcome completed, commitSha abc1234000000000000000000000000000000000", bodies[1], end)
 	}
 
 	for name, extra := range map[string][]string{
@@ -5187,5 +5187,45 @@ func TestRecordDispatchEndRefusesTokensUnderClaudeCode(t *testing.T) {
 	code, _, stderr, _, _ = causeEndRun(t, "-tokens", "input=1,output=2")
 	if code != 0 {
 		t.Errorf("end with CLAUDE_CODE_SESSION_ID empty exit = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+}
+
+// TestRecordDispatchRefusesAnAbbreviatedCommit pins that `dispatch end` and
+// `dispatch backfill` refuse an abbreviated -commit before the store is
+// contacted, and that a full 40-hex sha is accepted.
+func TestRecordDispatchRefusesAnAbbreviatedCommit(t *testing.T) {
+	code, _, stderr, contacted, _ := causeEndRun(t, "-commit", "99153ab4")
+	if code != 2 || contacted {
+		t.Errorf("end exit = %d, contacted = %v; want 2 and not contacted", code, contacted)
+	}
+	if !strings.Contains(stderr.String(), "40") {
+		t.Errorf("end stderr does not name 40:\n%s", stderr.String())
+	}
+
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	contacted = false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+		contacted = true
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"implementer","model":"opus"}`))
+	}))
+	defer srv.Close()
+	var stdout, berr bytes.Buffer
+	bcode := run(context.Background(), []string{"record", "dispatch", "backfill", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "kan-258", "-role", "implementer", "-model", "opus", "-agent-id", "none",
+		"-key", "k", "-session-token", "mf-record-backfill-commit",
+		"-started-at", "2026-10-15T12:08:50Z", "-ended-at", "2026-10-15T12:31:07Z", "-outcome", "completed",
+		"-commit", "99153ab4"}, strings.NewReader(""), &stdout, &berr)
+	if bcode != 2 || contacted {
+		t.Errorf("backfill exit = %d, contacted = %v; want 2 and not contacted (stderr %q)", bcode, contacted, berr.String())
+	}
+	if !strings.Contains(berr.String(), "40") {
+		t.Errorf("backfill stderr does not name 40:\n%s", berr.String())
+	}
+
+	code, _, stderr, _, _ = causeEndRun(t, "-commit", "99153ab4"+strings.Repeat("0", 32))
+	if code != 0 {
+		t.Errorf("full sha exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
 }

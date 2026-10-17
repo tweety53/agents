@@ -976,6 +976,8 @@ flow record dispatch end -change <name> -key panel-fix-<round>[-<chunk>] \
   -session-token mf-<literal-token> -commit <partner-task-sha> -outcome completed
 ```
 
+`-commit` takes the partner task commit's full sha; an abbreviated one is refused.
+
 `-commit` is the task commit the fixup was folded into, or, where the branch is already on the
 remote (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`), the fix commit itself, carrying
 the round's `Flow-Key:` trailer.
