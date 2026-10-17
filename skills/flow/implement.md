@@ -695,7 +695,11 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    `close-task.sh` without the `-end-*` flags; **exit 2 — a guard's not-a-verdict close (an unreadable plan, a task it
    cannot resolve, a commit range git cannot resolve, a usage error), or a failed tick or push —
    stops the run**: re-committing cannot repair an inability, so it is never folded into
-   the re-commit loop. Exit 0 prints every task's `FIRE:` or `QUIET:` gate line.
+   the re-commit loop. Exit 0 prints every task's `FIRE:` or `QUIET:` gate line. **Exit 3 with `close-task: UNRECORDED —`** closed every task — ticked and
+   pushed — but the implementer dispatch's end never reached the store: run the `flow record
+   dispatch end` command that line prints before the next dispatch goes out. The same line closes
+   an exit 1 or 2 as well, and is run the same way: the re-run without the `-end-*` flags never
+   records that end.
 
    **A guard call that times out is inspected before it is retried.** Run
    `git status --porcelain=v2 --branch` and `git stash list` in that worktree first. A

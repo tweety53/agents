@@ -246,7 +246,7 @@ func TestCloseTaskExitContract(t *testing.T) {
 			func(fx *ctFx, s1 string) []string {
 				return []string{"-end-key", "k", "-session-token", "mf-t", fx.wt, "demo", fx.base, "1:" + s1}
 			},
-			0, func(fx *ctFx) []string {
+			3, func(fx *ctFx) []string {
 				return []string{"flow record dispatch end -change demo -C " + fx.wt + " -key k -session-token mf-t -outcome completed",
 					"flow tasks tick -C " + fx.wt + " demo 1", "git -C " + fx.wt + " push origin spectre/demo"}
 			}},
@@ -416,5 +416,24 @@ func TestCloseTaskExpandsAnAbbreviatedEndCommit(t *testing.T) {
 	want := "flow record dispatch end -change demo -C " + fx.wt + " -key task-1-implementer -session-token mf-t -commit " + s1 + " -outcome completed"
 	if calls := fx.calls(t); len(calls) == 0 || calls[0] != want {
 		t.Errorf("first call = %q, want %q", calls, want)
+	}
+}
+
+func TestCloseTaskSurfacesAFailedDispatchEnd(t *testing.T) {
+	t.Parallel()
+	fx := ctFixture(t, true, "0", "1")
+	s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
+	r := runGuard("close-task", []string{"-end-key", "k", "-session-token", "mf-t", fx.wt, "demo", fx.base, "1:" + s1}, fx.env)
+	if r.rc != 3 {
+		t.Fatalf("exit %d, want 3\n%s", r.rc, r.out)
+	}
+	calls := strings.Join(fx.calls(t), "\n")
+	if !strings.Contains(calls, "flow tasks tick -C "+fx.wt+" demo 1") || !strings.Contains(calls, "git -C "+fx.wt+" push origin spectre/demo") {
+		t.Fatalf("tick or push missing:\n%s", calls)
+	}
+	lines := strings.Split(strings.TrimRight(r.err, "\n"), "\n")
+	last := lines[len(lines)-1]
+	if !strings.HasPrefix(last, "close-task: UNRECORDED — the dispatch end for k did not reach the store; run: flow record dispatch end -change demo -C ") || !strings.HasSuffix(last, "-outcome completed") {
+		t.Fatalf("last stderr line %q", last)
 	}
 }

@@ -19,7 +19,7 @@ import (
 // in-process through Registry.
 func init() { Registry["close-task"] = closeTask }
 
-func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
+func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	usage := func(msg string) int {
 		fmt.Fprintf(stderr, "close-task: %s\nusage: close-task.sh [-end-key <key> -session-token <token> [-end-commit <sha>]] [-undeclared <task-id>=<path>[,<path>…]]… <canonical-worktree> <name> <merge-base> <task-id>:<sha|worktree=sha[,worktree=sha…]>…\n", msg)
 		return 2
@@ -82,8 +82,17 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 			rec = append(rec, "-commit", sha)
 		}
-		if ctFlow(env, stdout, stderr, append(rec, "-outcome", "completed")...) != 0 {
+		rec = append(rec, "-outcome", "completed")
+		if ctFlow(env, stdout, stderr, rec...) != 0 {
 			fmt.Fprintln(stderr, "close-task: the dispatch end did not reach the store — continuing; a record never blocks")
+			// Printed last on every exit from here, and exit 3 where it
+			// would be 0 (design.md: close-task-unrecorded-exit-3).
+			defer func() {
+				fmt.Fprintf(stderr, "close-task: UNRECORDED — the dispatch end for %s did not reach the store; run: flow %s\n", *endKey, strings.Join(rec, " "))
+				if exit == 0 {
+					exit = 3
+				}
+			}()
 		}
 	}
 

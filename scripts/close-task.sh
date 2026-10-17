@@ -10,7 +10,10 @@
 # In this order:
 #   1. With -end-key: `flow record dispatch end -change <name> -key <key>
 #      -session-token <token> [-commit <sha>] -outcome completed`. A record
-#      never blocks: a failed call prints a warning and the sequence goes on.
+#      never blocks: a failed call prints a warning and the sequence goes on,
+#      and every exit after it prints `close-task: UNRECORDED — the dispatch
+#      end for <key> did not reach the store; run: flow record dispatch end
+#      …` (the full command) as the last stderr line, turning exit 0 into 3.
 #      Then, for every task it closes that the plan's `**Tasks appended:**`
 #      line counts, `flow record dispatches -change <name> -C <canonical>`:
 #      an appended task no row names is refused at step 4 (exit 1); a
@@ -44,7 +47,9 @@
 # reviewer; elsewhere it is the panel's review focus); 1 a commit guard refused — re-commit, then re-run without the
 # -end-* flags — or an appended task has no dispatch row — record it, then
 # re-run without the -end-* flags; 2 stop: a guard could not judge, a tick or push failed, or
-# a usage error.
+# a usage error; 3 closed as exit 0 — every tick and push done — but step 1's
+# dispatch end never reached the store: run the command the UNRECORDED line
+# prints.
 #
 # flow-guard is built from this checkout, never taken from PATH:
 # scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
