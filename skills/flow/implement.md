@@ -788,8 +788,8 @@ the discipline **Bundled dispatch** (`skills/flow/review-panel.md`) applies to p
 dispatches: every gate-fired task goes to the whole-branch panel as review focus instead
 (the GATE FOCUS paragraph of **Bundled dispatch**, `skills/flow/review-panel.md`).
 **The bundle is the implementer group**: at a boundary, every task of group N+1 whose gate fired
-goes out in one reviewer Agent call beside group N+2's implementer, on `opus` at that group's
-effort from the decision's `groups` entry, or `high` where that group carries a hard seam — a first-pass review, per **Model and effort**
+goes out in one reviewer Agent call beside group N+2's implementer, on `opus` at the panel roll's
+effort, `high` only as **Model and effort** allows — a first-pass review, per **Model and effort**
 (`skills/flow/brainstorm-planner.md`). On harnesses `zcode` and `muse`, **Harness mapping**
 (`skills/flow-contracts/model-policy.md`) replaces it, as it does every pair. Each task inside the bundle keeps its own pass: its own
 commit-range diff `git diff <task-sha>^..<task-sha>` — a real commit diff, never a snapshot of
