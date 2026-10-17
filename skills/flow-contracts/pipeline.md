@@ -208,7 +208,8 @@ the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-
    item 4 there states, a red line fixed by `pipeline-fix-<k>-fix-v<v>`, it lands by
    `<agents repo>`'s `## default landing route`
    (`project-get.sh <agents repo> 'default landing route'`), without asking. Merge and push is
-   `<agents repo>/scripts/pipeline-fix.sh land <worktree>`.
+   `<agents repo>/scripts/pipeline-fix.sh land <worktree>`, run with a Bash `timeout: 600000` —
+   a landing that moved `<agents repo>/stats/` restarts flowd inside the call, and a kill partway leaves it down.
 
 The loop runs in the background while the run's own work continues; the run still never ends a
 turn with one of its children in flight.

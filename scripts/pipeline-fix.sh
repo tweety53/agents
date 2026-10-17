@@ -47,7 +47,11 @@
 #       branch's tree (unarchived); check-loop-landing's refusals; `git push
 #       origin <branch>:<default>`; the loop's FINISHED state record; `git
 #       pull --ff-only` in the main checkout; removes the worktree and the
-#       branch. stdout: `landed: <sha>`.
+#       branch. stdout: `landed: <sha>`. When that pull succeeded and moved
+#       a stats/ path (with stats/Makefile and stats/cmd/flowd present), `make -C <main>/stats
+#       restart` runs after it: `FLOWD-RESTARTED: <main>/stats`, or
+#       `FLOWD-RESTART-FAILED: make -C <main>/stats restart exited <n> — run
+#       it by hand` with make's output on stderr, exit 1.
 #   pipeline-fix.sh drop <worktree>
 #       a deferred loop: the FINISHED state record with withdrawn: true, then
 #       removes the worktree (--force) and the branch, landing nothing.

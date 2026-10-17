@@ -502,13 +502,54 @@ func pfLand(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 	if rc, out := pfState(env, pe.main, lp.change, pfRecord("FINISHED", branch, map[string]string{})); rc != 0 {
 		fmt.Fprintf(stderr, "%s: pushed, but the loop's state was not written:\n%s", self, out)
 	}
+	_, old := kwRun(env, "", pe.git, "-C", pe.main, "rev-parse", "HEAD")
+	pulled := true
 	if rc, out := kwRun(env, "", pe.git, "-C", pe.main, "pull", "--ff-only"); rc != 0 {
+		pulled = false
 		fmt.Fprintf(stderr, "%s: pushed, but the main checkout did not fast-forward:\n%s", self, out)
 	}
 	if rc := pfRemove(env, pe, wt, branch, false, stderr); rc != 0 {
 		return rc
 	}
 	fmt.Fprintf(stdout, "landed: %s\n", strings.TrimSpace(sha))
+	if pulled {
+		_, now := kwRun(env, "", pe.git, "-C", pe.main, "rev-parse", "HEAD")
+		if restartFlowdIfStatsMoved(env, pe.main, strings.TrimSpace(old), strings.TrimSpace(now), stdout, stderr) != 0 {
+			return 1
+		}
+	}
+	return 0
+}
+
+// restartFlowdIfStatsMoved restarts the live flowd -- `make -C <main>/stats
+// restart`, which rebuilds and reinstalls the CLI too -- when old..new in the
+// main checkout moved a stats/ path and both <main>/stats/Makefile and
+// <main>/stats/cmd/flowd exist -- the latter so another project's stats/
+// Makefile is never run (design.md: flowd-restart-on-landing). 0 nothing to do or restarted, 1 the
+// restart failed, its output relayed.
+func restartFlowdIfStatsMoved(env Env, main, old, new string, stdout, stderr io.Writer) int {
+	diff, _ := capture(envGit(env)("-C", main, "diff", "--name-only", old, new))
+	moved := false
+	for _, p := range strings.Split(diff, "\n") {
+		moved = moved || strings.HasPrefix(p, "stats/")
+	}
+	dir := main + "/stats"
+	if _, err := os.Stat(dir + "/Makefile"); !moved || err != nil {
+		return 0
+	}
+	if _, err := os.Stat(dir + "/cmd/flowd"); err != nil {
+		return 0
+	}
+	mk, ok := lookPath(env, "make")
+	if !ok {
+		mk = "make"
+	}
+	if rc, out := kwRun(env, "", mk, "-C", dir, "restart"); rc != 0 {
+		fmt.Fprint(stderr, out)
+		fmt.Fprintf(stdout, "FLOWD-RESTART-FAILED: make -C %s restart exited %d — run it by hand\n", dir, rc)
+		return 1
+	}
+	fmt.Fprintf(stdout, "FLOWD-RESTARTED: %s\n", dir)
 	return 0
 }
 

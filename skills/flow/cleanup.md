@@ -18,6 +18,9 @@ cleanup** (`skills/flow-contracts/finish-contract-run2.md`).
 integrate-change.sh cleanup <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
 ```
 
+Run it with a Bash `timeout: 600000`: a refresh that moved `<agents repo>/stats/` restarts flowd inside the call,
+and a kill partway leaves it down.
+
 - **`STOP: not-merged`** → this is not run 2; fall back to `skills/flow/integrate.md` and **remove
   nothing**.
 - **`STOP: disclose`** → relay its `UNCLASSIFIED:` and `DISCLOSE:` lines per check 4 and the

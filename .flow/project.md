@@ -219,6 +219,11 @@ the on-disk journal and takes the store away from every other session on this ma
 afterwards does not repair it, because whatever fell through to the journal while it was down stays
 there.
 
+**The one sanctioned restart is the one a landing runs.** After a landing that moved `stats/`,
+`scripts/pipeline-fix.sh land` and `scripts/refresh-main-checkout.sh` run `make -C <main>/stats
+restart` — after the push, from the landed code, at the end of the run that landed it — so the live
+flowd and the installed `flow` CLI never keep the build the landing replaced.
+
 **A workspace's own derived resources are not protected, and removing them is correct.** The
 `flow_<id_underscored>` database and the bucket an apply worktree derives are per-change artifacts:
 `scripts/workspace.sh remove <id>` drops them during the cleanup run exactly as the registry

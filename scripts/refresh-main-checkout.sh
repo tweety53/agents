@@ -20,13 +20,18 @@
 # Exit codes:
 #   0  REFRESH-DONE: <path> fast-forwarded <old> -> <new>
 #      REFRESH-CURRENT: <path> already at <tip> (nothing to do)
+#      FLOWD-RESTARTED: <path>/stats — after REFRESH-DONE, when <old>..<new>
+#      moved a stats/ path and <path>/stats/Makefile and stats/cmd/flowd exist: `make -C
+#      <path>/stats restart` ran
 #   1  REFRESH-REFUSED: <path> <reason> — nothing touched. Reasons: is
 #      detached; is on <branch>, not <base>; has tracked changes (any
 #      modified, staged or unmerged entry); has no origin/<base>; has <base>
 #      commits origin/<base> lacks (local <base> is not an ancestor of
 #      origin/<base>)
 #   2  usage; or cannot answer — a git read or the merge fails outright
-#      (an unborn HEAD), git's own message on stderr
+#      (an unborn HEAD), git's own message on stderr; or, after
+#      REFRESH-DONE, FLOWD-RESTART-FAILED: make -C <path>/stats restart
+#      exited <n> — run it by hand (make's output on stderr)
 #
 # Untracked files are never touched; a fast-forward that would overwrite
 # one fails in git itself, exit 2.

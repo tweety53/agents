@@ -72,5 +72,8 @@ func refreshMainCheckout(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	fmt.Fprintf(stdout, "REFRESH-DONE: %s fast-forwarded %s -> %s\n", repo, tip, remote)
+	if restartFlowdIfStatsMoved(env, repo, tip, remote, stdout, stderr) != 0 {
+		return 2
+	}
 	return 0
 }

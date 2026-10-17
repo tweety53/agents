@@ -190,3 +190,34 @@ func TestRefreshMainCheckout(t *testing.T) {
 		}
 	})
 }
+
+func TestRefreshMainCheckoutRestartsFlowdWhenStatsMoved(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		exit string
+		rc   int
+		line string
+	}{
+		{"a stats/ refresh restarts flowd", "0", 0, "FLOWD-RESTARTED: "},
+		{"a failed restart is exit 2", "1", 2, "FLOWD-RESTART-FAILED: "},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo, origin := behindRepo(t)
+			dir := filepath.Dir(repo)
+			other := dir + "/other"
+			writeFile(t, other+"/stats/Makefile", "restart:\n\ttrue\n")
+			writeFile(t, other+"/stats/cmd/flowd/main.go", "package main\n")
+			gitRun(t, other, "add", "-A")
+			gitRun(t, other, "commit", "-q", "-m", "C")
+			gitRun(t, other, "push", "-q", origin, "main")
+			log := dir + "/make.log"
+			writeExec(t, dir+"/bin/make", "#!/usr/bin/env bash\nprintf 'make %s\\n' \"$*\" >>"+log+"\nexit "+tc.exit+"\n")
+			r := runGuard("refresh-main-checkout", []string{repo, "main"}, Env{Getenv: pathEnv(dir + "/bin")})
+			calls, _ := os.ReadFile(log)
+			if r.rc != tc.rc || !strings.Contains(r.stdout, "REFRESH-DONE: ") || !strings.Contains(r.stdout, tc.line) ||
+				!strings.Contains(string(calls), "make -C "+repo+"/stats restart") {
+				t.Fatalf("%+v\n%s", r, calls)
+			}
+		})
+	}
+}

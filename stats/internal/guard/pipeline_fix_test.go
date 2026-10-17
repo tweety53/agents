@@ -362,3 +362,41 @@ func TestPipelineFixOwnBranchInAnotherProject(t *testing.T) {
 		t.Fatalf("the escalation outlived its final clean review in the caller's project: %q", out)
 	}
 }
+
+func TestPipelineFixLandRestartsFlowdWhenStatsMoved(t *testing.T) {
+	pfIdentity(t)
+	reviewed := lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed", "review-1 clean")
+	for _, tc := range []struct {
+		name    string
+		paths   []string
+		restart bool
+	}{
+		{"a stats/ landing restarts flowd", []string{"stats/Makefile", "stats/cmd/flowd/README"}, true},
+		{"a docs-only landing does not", []string{"docs/fix.md"}, false},
+		{"a stats/Makefile without cmd/flowd is another project's", []string{"stats/Makefile"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fx := pfNew(t, reviewed)
+			writeExec(t, filepath.Dir(fx.repo)+"/bin/make", "#!/usr/bin/env bash\nprintf 'make %s\\n' \"$*\" >>"+fx.log+"\n")
+			if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
+				t.Fatal(out)
+			}
+			wt := fx.wt(lpBranch)
+			for _, p := range tc.paths {
+				writeFile(t, wt+"/"+p, "restart:\n\ttrue\n")
+			}
+			gitRun(t, wt, "add", "-A")
+			gitRun(t, wt, "commit", "-q", "-m", "fix: "+tc.paths[0])
+			gitRun(t, fx.repo, "config", "--add", "flow.escalation", lpBranch+":pipeline-fix-6-fix-1")
+			rc, out := fx.pf(t, "land", wt)
+			if rc != 0 {
+				t.Fatalf("rc %d: %s", rc, out)
+			}
+			restarted := strings.Contains(out, "FLOWD-RESTARTED: "+fx.repo+"/stats")
+			called := strings.Contains(fx.calls(t), "make -C "+fx.repo+"/stats restart")
+			if tc.restart != restarted || tc.restart != called || (!tc.restart && (strings.Contains(fx.calls(t), "make ") || strings.Contains(out, "FLOWD-"))) {
+				t.Fatalf("restart %v: %s\n%s", tc.restart, out, fx.calls(t))
+			}
+		})
+	}
+}

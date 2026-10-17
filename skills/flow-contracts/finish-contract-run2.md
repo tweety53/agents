@@ -121,7 +121,8 @@ procedure for them is there.
 
    The script fast-forwards the main checkout onto `origin/<base>` only when that loses nothing,
    and refuses by name otherwise; its header is canonical for the conditions. `REFRESH-REFUSED`
-   is reported in the handoff and does not move the change off `FINISHED`.
+   and `FLOWD-RESTART-FAILED` are reported in the handoff, the latter with its `make` command for
+   the operator to run, and neither moves the change off `FINISHED`.
 
 ### Worktree cleanup
 
