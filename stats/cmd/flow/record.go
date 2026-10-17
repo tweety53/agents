@@ -252,8 +252,8 @@ func validateFindingRef(flagName, ref string) error {
 
 const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur] [-C dir]
                              -change name [-task id] -role role [-slot name]
-                             -model model [-agent-id id|none] [-diff-base sha]
-                             [-started-at instant] -key key -session-token token
+                             -model model -effort level [-agent-id id|none]
+                             [-diff-base sha] [-started-at instant] -key key -session-token token
        flow record dispatch end   [-addr url] [-timeout dur] [-C dir]
                              -change name -key key -session-token token
                              [-commit sha] [-outcome outcome] [-cause cause]
@@ -978,7 +978,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	role := fset.String("role", "", "one of: "+strings.Join(recordRoles, ", ")+" (required)")
 	slot := fset.String("slot", "", "the review-panel slot, where the role is a panel slot")
 	model := fset.String("model", "", "the model this dispatch ran on, as recorded intent -- the literal \"unknown (agent-defined)\" where it cannot be read, never a guess (required)")
-	effort := fset.String("effort", "default", "the effort this dispatch ran at -- one of: "+strings.Join(recordEfforts, ", ")+" -- recorded, never handshaken, since a model cannot report its own effort")
+	effort := fset.String("effort", "", "the effort this dispatch ran at -- one of: "+strings.Join(recordEfforts, ", ")+" -- recorded, never handshaken, since a model cannot report its own effort")
 	agentID := fset.String("agent-id", "", "the harness's own identifier for the dispatched subagent, recorded intent the daemon never overwrites -- optional: omitted, the daemon stamps it from the transcript's launch result; the literal \"none\" records that the harness exposes none")
 	diffBase := fset.String("diff-base", "", "the sha the diff this dispatch was given was computed from, where it was given a delta -- optional, since an implementer and a slot reading the whole diff record none")
 	key := fset.String("key", "", "this dispatch's own literal label, unique within the run -- what the end call closes, and what makes a replayed write land on one row (required)")
@@ -998,6 +998,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	if !requireRecordFlags(stderr,
 		[2]string{"-role", *role},
 		[2]string{"-model", *model},
+		[2]string{"-effort", *effort},
 		[2]string{"-key", *key},
 		[2]string{"-session-token", *sessionToken},
 	) {
@@ -1230,6 +1231,11 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stder
 			begin, end = append(begin, arg...), append(end, arg...)
 		}
 	})
+	// backfill keeps -effort optional; begin requires it, so an omitted one
+	// is sent as the explicit "default" it always recorded.
+	if *v["effort"] == "" {
+		begin = append(begin, "-effort", "default")
+	}
 	if code := runRecordDispatchBegin(ctx, begin, stdout, stderr); code != 0 {
 		return code
 	}

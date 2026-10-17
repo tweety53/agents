@@ -77,7 +77,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
-			[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-258", "-task", "6", "-role", "implementer",
 				"-model", "unknown (agent-defined)", "-key", "task-6-implementer",
 				"-session-token", "mf-record-dispatch-ok"},
@@ -260,7 +260,7 @@ func TestRecordWriteFallsBackToJournalAndExitsZero(t *testing.T) {
 	}{
 		{
 			name: "dispatch",
-			args: []string{"record", "dispatch", "begin", "-agent-id", "none", "-change", "kan-258", "-task", "6",
+			args: []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-change", "kan-258", "-task", "6",
 				"-role", "implementer", "-model", "opus", "-key", "task-6-implementer",
 				"-session-token", "mf-record-dispatch-journal"},
 			kind: "dispatch",
@@ -377,7 +377,7 @@ func TestRecordDispatchJournalCarriesTheAttemptInstant(t *testing.T) {
 		args  []string
 		field string
 	}{
-		{"begin", []string{"record", "dispatch", "begin", "-agent-id", "none", "-change", "kan-258", "-task", "6",
+		{"begin", []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-change", "kan-258", "-task", "6",
 			"-role", "implementer", "-model", "opus", "-key", "task-6-implementer",
 			"-session-token", "mf-record-journal-instant"}, "startedAt"},
 		{"end", []string{"record", "dispatch", "end", "-change", "kan-258", "-key", "task-6-implementer",
@@ -440,14 +440,14 @@ func TestRecordMissingRequiredFlagExitsTwoWithoutJournalling(t *testing.T) {
 		name string
 		args []string
 	}{
-		{"dispatch begin without -model", []string{"record", "dispatch", "begin", "-agent-id", "none", "-change", "kan-258",
+		{"dispatch begin without -model", []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-change", "kan-258",
 			"-role", "implementer", "-key", "k1", "-session-token", "mf-record-missing-model"}},
-		{"dispatch begin without -change", []string{"record", "dispatch", "begin", "-agent-id", "none",
+		{"dispatch begin without -change", []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none",
 			"-role", "implementer", "-model", "opus", "-key", "k1", "-session-token", "mf-record-missing-change"}},
-		{"dispatch begin with retired -started-at", []string{"record", "dispatch", "begin", "-agent-id", "none", "-change", "kan-258",
+		{"dispatch begin with retired -started-at", []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-change", "kan-258",
 			"-role", "implementer", "-model", "opus", "-key", "k1", "-session-token", "mf-record-retired-started",
 			"-started-at", "2026-01-02T03:04:05Z"}},
-		{"dispatch begin without -key", []string{"record", "dispatch", "begin", "-agent-id", "none", "-change", "kan-258",
+		{"dispatch begin without -key", []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-change", "kan-258",
 			"-role", "implementer", "-model", "opus", "-session-token", "mf-record-missing-key"}},
 		{"dispatch end without -key", []string{"record", "dispatch", "end", "-change", "kan-258",
 			"-session-token", "mf-record-missing-end-key"}},
@@ -499,7 +499,7 @@ func TestRecordRejectsUnknownRoleWithoutContactingStore(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
-		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "architect", "-model", "opus", "-key", "k1",
 			"-session-token", "mf-record-unknown-role"},
 		strings.NewReader(""), &stdout, &stderr)
@@ -538,7 +538,7 @@ func TestRecordAcceptsPlannerRole(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
-		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "planner", "-model", "opus", "-key", "k1",
 			"-session-token", "mf-record-planner-role"},
 		strings.NewReader(""), &stdout, &stderr)
@@ -569,7 +569,7 @@ func TestRecordAcceptsConductorRole(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
-		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "conductor", "-model", "sonnet", "-key", "conductor",
 			"-session-token", "mf-record-conductor-role"},
 		strings.NewReader(""), &stdout, &stderr)
@@ -600,7 +600,7 @@ func TestRecordAcceptsVerifierRole(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
-		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "verifier", "-model", "sonnet", "-key", "k1",
 			"-session-token", "mf-record-verifier-role"},
 		strings.NewReader(""), &stdout, &stderr)
@@ -632,7 +632,7 @@ func TestRecordRejectsSessionTokenSubstitution(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
-		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-key", "k1",
 			"-session-token", "mf-$(date +%s)"},
 		strings.NewReader(""), &stdout, &stderr)
@@ -686,7 +686,7 @@ func TestRecordWithNoSubcommandPrintsUsage(t *testing.T) {
 // store and the attributor could compare.
 func TestRecordDispatchSendsAgentIDOnlyWhenGiven(t *testing.T) {
 	dispatchArgs := func(repo, addr string, extra ...string) []string {
-		args := []string{"record", "dispatch", "begin", "-addr", addr, "-timeout", "500ms", "-C", repo,
+		args := []string{"record", "dispatch", "begin", "-effort", "default", "-addr", addr, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "reviewer", "-model", "sonnet", "-key", "panel-primary",
 			"-session-token", "mf-record-agent-id"}
 		return append(args, extra...)
@@ -767,7 +767,7 @@ func dispatchBeginBody(t *testing.T, extra ...string) map[string]any {
 	}))
 	defer srv.Close()
 
-	args := []string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+	args := []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 		"-change", "kan-327", "-role", "reviewer", "-model", "sonnet", "-key", "panel-principles",
 		"-session-token", "mf-record-diff-base"}
 
@@ -1832,7 +1832,7 @@ func TestRecordDispatchBeginPrintsTheAllocatedSeqAndEndClosesIt(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
-		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-task", "6", "-role", "implementer", "-model", "opus",
 			"-key", "task-6-implementer", "-session-token", "mf-record-pair"},
 		strings.NewReader(""), &stdout, &stderr)
@@ -1893,7 +1893,7 @@ func TestRecordDispatchEndJournalsAKeyTheStoreDoesNotKnowYet(t *testing.T) {
 
 	var beginOut, beginErr bytes.Buffer
 	if code := run(context.Background(),
-		[]string{"record", "dispatch", "begin", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+		[]string{"record", "dispatch", "begin", "-effort", "default", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 			"-agent-id", "none", "-change", "kan-258", "-task", "6", "-role", "implementer", "-model", "opus",
 			"-key", "task-6-implementer", "-session-token", "mf-record-end-404"},
 		strings.NewReader(""), &beginOut, &beginErr); code != 0 {
@@ -3318,16 +3318,15 @@ func TestRunRecordDispatchBeginUnknownEffortNamesDefault(t *testing.T) {
 	}
 }
 
-// TestRecordDispatchBeginDefaultsEffortToDefault pins that an omitted
-// -effort is sent as the literal "default" rather than left absent from
-// the wire body -- the store column is NOT NULL DEFAULT 'default' because
-// an absent effort is a known fact (the dispatcher set none), never an
-// unknown one, and the CLI is where that fact is established.
-func TestRecordDispatchBeginDefaultsEffortToDefault(t *testing.T) {
-	sent := dispatchBeginBody(t)
+// TestRecordDispatchBeginSendsAnExplicitDefaultEffort pins that an explicit
+// -effort default is sent as the literal "default" -- the dispatcher set no
+// effort, a known fact; an omitted -effort is refused instead
+// (TestRecordDispatchBeginRequiresEffort).
+func TestRecordDispatchBeginSendsAnExplicitDefaultEffort(t *testing.T) {
+	sent := dispatchBeginBody(t, "-effort", "default")
 
 	if sent["effort"] != "default" {
-		t.Errorf("effort = %v, want %q when -effort is omitted", sent["effort"], "default")
+		t.Errorf("effort = %v, want %q", sent["effort"], "default")
 	}
 }
 
@@ -5038,7 +5037,7 @@ func TestRecordDispatchBackfillInstants(t *testing.T) {
 	}
 
 	for _, args := range [][]string{
-		{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "reviewer", "-model", "sonnet", "-key", "k", "-session-token", "mf-record-backfill",
 			"-started-at", "15 Oct 12:08"},
 		append(append([]string{}, endArgs...), "-ended-at", "yesterday"),
@@ -5049,5 +5048,46 @@ func TestRecordDispatchBackfillInstants(t *testing.T) {
 		if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 2 || !strings.Contains(stderr.String(), "is not an RFC 3339 instant") || gotBody != nil {
 			t.Errorf("%s: exit %d, store called %v, stderr %q; want 2, no call, an RFC 3339 refusal", args[2], code, gotBody != nil, stderr.String())
 		}
+	}
+}
+
+// TestRecordDispatchBeginRequiresEffort pins that an omitted -effort is
+// refused before the store is contacted, never recorded as "default" --
+// an explicit -effort default is still accepted.
+func TestRecordDispatchBeginRequiresEffort(t *testing.T) {
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+
+	contacted := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+		contacted = true
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
+	}))
+	defer srv.Close()
+
+	args := []string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "kan-258", "-role", "implementer", "-model", "opus",
+		"-key", "k1", "-session-token", "mf-record-requires-effort"}
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "-effort") {
+		t.Errorf("stderr does not name -effort:\n%s", stderr.String())
+	}
+	if contacted {
+		t.Error("the store was contacted for a begin with no -effort -- it must be refused first")
+	}
+	if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+		t.Error("a begin with no -effort wrote a record journal")
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = run(context.Background(), append(args, "-effort", "default"), strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("explicit -effort default exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
 }

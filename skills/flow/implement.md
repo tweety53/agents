@@ -122,7 +122,7 @@ model and `subagent_type`, under `<key>-retry`:
 flow record dispatch end -change <name> -key <key> -session-token mf-<literal-token> \
   -outcome fallback
 flow record dispatch begin -change <name> -role <role> -model <the model originally requested> \
-  -key <key>-retry -session-token mf-<literal-token>
+  -effort <the effort originally requested> -key <key>-retry -session-token mf-<literal-token>
 ```
 
 A **second** mismatch closes the retry row `-outcome fallback` too and the parent asks the
@@ -349,7 +349,7 @@ finds unrelated uncommitted changes mid-task says so and stops rather than fixin
 Immediately before dispatching:
 
 ```bash
-flow record dispatch begin -change <name> -task <n> -role implementer -model <m> \
+flow record dispatch begin -change <name> -task <n> -role implementer -model <m> -effort <e> \
   -key task-<n>-implementer -session-token mf-<literal-token>
 ```
 
