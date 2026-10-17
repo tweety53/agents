@@ -73,6 +73,20 @@
 **Chosen:** delete the `Per change` panel and its client-side `perChange()`; endpoint unchanged.
 **Considered:** none — UI-only removal.
 
+### Costs render at two decimals
+
+**ID:** cost-two-decimals
+**Status:** active
+**Chosen:** `formatUsd` always renders exactly two fraction digits, on every view (operator, fix round 1: "make them consistent").
+**Considered:** four fixed decimals — noisy for whole-dollar totals; variable up-to-4 digits — the inconsistency the operator flagged.
+
+### A change with no runs reads a dash
+
+**ID:** no-runs-dash
+**Status:** active
+**Chosen:** on the live board, `Cost` and `Wall clock` render `—` when the change has 0 stage runs; `Runs` and `Errors` stay `0`, since a count of zero is a measurement.
+**Considered:** `0 ms`/`$0.00` — reads as a measured zero for something never measured.
+
 ## Open questions
 
 ## Live check

@@ -16,3 +16,8 @@ The operator reviewed every stats UI dashboard one by one (KAN-989) and found no
 - **Flow health** — every table replaced by eight period totals tiles.
 - **Self-review fixes** — drops the `Per change` block.
 - No stored data, table, column or migration is deleted.
+
+## Fix round 1
+
+- Dollar amounts render at two decimals everywhere; a live-board change with no stage runs shows `—` for cost and wall clock.
+- The UI-test seed covers decisions, findings, errored runs and guard fires so every reworked view is verified populated.
