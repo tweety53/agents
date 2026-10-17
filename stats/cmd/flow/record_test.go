@@ -441,18 +441,18 @@ func TestRecordMissingRequiredFlagExitsTwoWithoutJournalling(t *testing.T) {
 		args []string
 	}{
 		{"dispatch begin without -model", []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-change", "kan-258",
-			"-role", "implementer", "-key", "k1", "-session-token", "mf-record-missing-model"}},
+			"-role", "implementer", "-key", "task-1-implementer", "-session-token", "mf-record-missing-model"}},
 		{"dispatch begin without -change", []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none",
-			"-role", "implementer", "-model", "opus", "-key", "k1", "-session-token", "mf-record-missing-change"}},
+			"-role", "implementer", "-model", "opus", "-key", "task-1-implementer", "-session-token", "mf-record-missing-change"}},
 		{"dispatch begin with retired -started-at", []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-change", "kan-258",
-			"-role", "implementer", "-model", "opus", "-key", "k1", "-session-token", "mf-record-retired-started",
+			"-role", "implementer", "-model", "opus", "-key", "task-1-implementer", "-session-token", "mf-record-retired-started",
 			"-started-at", "2026-01-02T03:04:05Z"}},
 		{"dispatch begin without -key", []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-change", "kan-258",
 			"-role", "implementer", "-model", "opus", "-session-token", "mf-record-missing-key"}},
 		{"dispatch end without -key", []string{"record", "dispatch", "end", "-change", "kan-258",
 			"-session-token", "mf-record-missing-end-key"}},
 		{"dispatch end with retired -ended-at", []string{"record", "dispatch", "end", "-change", "kan-258",
-			"-key", "k1", "-session-token", "mf-record-retired-ended",
+			"-key", "task-1-implementer", "-session-token", "mf-record-retired-ended",
 			"-ended-at", "2026-01-02T03:44:05Z"}},
 		{"finding without -note", []string{"record", "finding", "-change", "kan-258",
 			"-ref", "F1", "-slot", "principles", "-severity", "major", "-status", "open"}},
@@ -500,7 +500,7 @@ func TestRecordRejectsUnknownRoleWithoutContactingStore(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-change", "kan-258", "-role", "architect", "-model", "opus", "-key", "k1",
+			"-change", "kan-258", "-role", "architect", "-model", "opus", "-key", "task-1-implementer",
 			"-session-token", "mf-record-unknown-role"},
 		strings.NewReader(""), &stdout, &stderr)
 
@@ -539,7 +539,7 @@ func TestRecordAcceptsPlannerRole(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-change", "kan-258", "-role", "planner", "-model", "opus", "-key", "k1",
+			"-change", "kan-258", "-role", "planner", "-model", "opus", "-key", "task-1-implementer",
 			"-session-token", "mf-record-planner-role"},
 		strings.NewReader(""), &stdout, &stderr)
 
@@ -601,7 +601,7 @@ func TestRecordAcceptsVerifierRole(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-change", "kan-258", "-role", "verifier", "-model", "sonnet", "-key", "k1",
+			"-change", "kan-258", "-role", "verifier", "-model", "sonnet", "-key", "task-1-implementer",
 			"-session-token", "mf-record-verifier-role"},
 		strings.NewReader(""), &stdout, &stderr)
 
@@ -633,7 +633,7 @@ func TestRecordRejectsSessionTokenSubstitution(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-key", "k1",
+			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-key", "task-1-implementer",
 			"-session-token", "mf-$(date +%s)"},
 		strings.NewReader(""), &stdout, &stderr)
 
@@ -3284,7 +3284,7 @@ func TestRunRecordDispatchBeginRejectsUnknownEffort(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-effort", "extreme",
-			"-key", "k1", "-session-token", "mf-record-unknown-effort"},
+			"-key", "task-1-implementer", "-session-token", "mf-record-unknown-effort"},
 		strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
@@ -3315,7 +3315,7 @@ func TestRunRecordDispatchBeginUnknownEffortNamesDefault(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", "http://127.0.0.1:1", "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-effort", "unknown",
-			"-key", "k1", "-session-token", "mf-record-unknown-effort"},
+			"-key", "task-1-implementer", "-session-token", "mf-record-unknown-effort"},
 		strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
@@ -5278,6 +5278,31 @@ func TestRecordDispatchBeginRefusesANonNumericPanelRound(t *testing.T) {
 	for _, ok := range [][2]string{{"reviewer", "panel-2-primary"}, {"panel-fix", "panel-fix-2"}} {
 		if code, stderr, _ := dispatchBeginKey(t, ok[0], ok[1]); code != 0 {
 			t.Errorf("-role %s -key %s: exit %d, want 0; stderr:\n%s", ok[0], ok[1], code, stderr)
+		}
+	}
+}
+
+// TestRecordDispatchBeginRefusesAnOffConventionImplementerKey pins the
+// implementer key shape task-<ids>-implementer[-fix-<k>], ids +-joined: a
+// hyphen-joined task-11-12 reads as task 11 alone to every task-key reader.
+func TestRecordDispatchBeginRefusesAnOffConventionImplementerKey(t *testing.T) {
+	for _, bad := range []string{"task-11-12", "task-12"} {
+		code, stderr, contacted := dispatchBeginKey(t, "implementer", bad)
+		if code != 2 {
+			t.Errorf("-key %s: exit code = %d, want 2; stderr:\n%s", bad, code, stderr)
+		}
+		if !strings.Contains(stderr, "task-<ids>-implementer") {
+			t.Errorf("-key %s: stderr does not name task-<ids>-implementer:\n%s", bad, stderr)
+		}
+		if contacted {
+			t.Errorf("-key %s: a refused key was sent to the daemon", bad)
+		}
+	}
+	for _, ok := range []string{"task-12-implementer", "task-11+12-implementer", "task-3+4-implementer-fix-1",
+		"task-3-implementer-retry", "task-3+4-implementer-fix-1-retry",
+		"self-review-demo-fix-g1", "pipeline-fix-7-demo-fix"} {
+		if code, stderr, _ := dispatchBeginKey(t, "implementer", ok); code != 0 {
+			t.Errorf("-key %s: exit %d, want 0; stderr:\n%s", ok, code, stderr)
 		}
 	}
 }

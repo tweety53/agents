@@ -1035,6 +1035,10 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		fmt.Fprintf(stderr, "flow: -key %q is not panel-<round>-<slot>: a reviewer's panel key carries its numeric round\n", *key)
 		return 2
 	}
+	if *role == "implementer" && !implementerKey.MatchString(*key) && !strings.HasPrefix(*key, "self-review-") && !strings.HasPrefix(*key, "pipeline-fix-") {
+		fmt.Fprintf(stderr, "flow: -key %q is not task-<ids>-implementer[-fix-<k>][-retry]: ids are +-joined\n", *key)
+		return 2
+	}
 	if !slices.Contains(recordEfforts, *effort) {
 		fmt.Fprintf(stderr, "flow: -effort %q is not one of: %s -- an effort the session does not state is recorded as default, never guessed\n", *effort, strings.Join(recordEfforts, ", "))
 		return 2
@@ -1085,6 +1089,10 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	}
 	return classifyRecordWrite(callErr, projectKey, f.change, "dispatch", in, stderr)
 }
+
+// implementerKey is an implementer dispatch key: task-<ids>-implementer[-fix-<k>][-retry],
+// ids +-joined (skills/flow/implement.md's dispatch table).
+var implementerKey = regexp.MustCompile(`^task-[0-9]+(\+[0-9]+)*-implementer(-fix-[0-9]+)?(-retry)?$`)
 
 // runRecordDispatchEnd implements `flow record dispatch end`: the closing
 // call, sent as the dispatch finishes, carrying the two facts knowable
