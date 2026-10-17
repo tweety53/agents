@@ -191,10 +191,10 @@ Correction (2026-10-17): `MeanCostPerFinished` shipped as `*float64`, not `float
 
 Operator answers to the visual verifier's questions: extend the UI-test seed so every reworked view renders populated; make dollar amounts consistent; a change with no stage runs reads `—`, not `0 ms`/`$0.00`.
 
-- [ ] 11. Consistent cost precision and `—` for a change with no runs
-  - [ ] **Step 1: Cost precision.** In `stats/web/src/format.ts` `formatUsd` renders exactly 2 fraction digits (`minimumFractionDigits: 2, maximumFractionDigits: 2`) everywhere it is used — decision `cost-two-decimals`. Add vitest `formatUsd always renders two decimals` in a new `stats/web/src/format.test.ts`: `2.957` → `$2.96`, `2.75` → `$2.75`, `0.028` → `$0.03`, `3` → `$3.00`.
-  - [ ] **Step 2: No-runs row.** In `stats/web/src/views/StateBoard.tsx` the `Cost` and `Wall clock` cells render `—` when `runCount` is 0 (Runs and Errors keep `0`) — decision `no-runs-dash`. Add vitest `state board shows a dash for cost and wall clock of a change with no runs` in `stats/web/src/views/views.test.tsx`.
-  - [ ] **Step 3: Verify.** `cd stats/web && npx tsc -b && npx vitest run`; fix every existing test whose expected dollar string changes. Commit.
+- [x] 11. Consistent cost precision and `—` for a change with no runs
+  - [x] **Step 1: Cost precision.** In `stats/web/src/format.ts` `formatUsd` renders exactly 2 fraction digits (`minimumFractionDigits: 2, maximumFractionDigits: 2`) everywhere it is used — decision `cost-two-decimals`. Add vitest `formatUsd always renders two decimals` in a new `stats/web/src/format.test.ts`: `2.957` → `$2.96`, `2.75` → `$2.75`, `0.028` → `$0.03`, `3` → `$3.00`.
+  - [x] **Step 2: No-runs row.** In `stats/web/src/views/StateBoard.tsx` the `Cost` and `Wall clock` cells render `—` when `runCount` is 0 (Runs and Errors keep `0`) — decision `no-runs-dash`. Add vitest `state board shows a dash for cost and wall clock of a change with no runs` in `stats/web/src/views/views.test.tsx`.
+  - [x] **Step 3: Verify.** `cd stats/web && npx tsc -b && npx vitest run`; fix every existing test whose expected dollar string changes. Commit.
 
 **Build:** green
 **Files:** `stats/web/src/format.ts`, `stats/web/src/format.test.ts`, `stats/web/src/views/StateBoard.tsx`, `stats/web/src/views/views.test.tsx`
@@ -208,10 +208,10 @@ Operator answers to the visual verifier's questions: extend the UI-test seed so 
 **Decision:** cost-two-decimals
 **Decision:** no-runs-dash
 
-- [ ] 12. UI-test seed covers every reworked view; baselines re-captured
-  - [ ] **Step 1: Seed.** Extend `stats/cmd/uitest-seed/seed.go` through the store's exported types only (never raw SQL) so the disposable stack renders populated: at least two recorded decisions with different implementer models (Decisions' `By class and execution` and `By implementer model` tables), review-panel dispatches with critical/important/minor findings (Reviewers' Efficiency and Flow health's `C/I/Mi`), one errored stage run (State board `Errors`), and a guard fire (Flow health `Guard fires`). Keep `fixtureNow`-anchored timestamps so the fixture stays deterministic.
-  - [ ] **Step 2: Baselines.** Bring up the UI-test stack on `127.0.0.1:4174` (never `flowd` on 4173), re-capture every changed baseline with the project's `capture` command, then run `verify` for all visual specs: exit 0.
-  - [ ] **Step 3: Verify.** `make -C stats web-build && cd stats && gofmt -l . && go vet ./... && go test ./cmd/uitest-seed -count=1`; `cd stats/web && npx tsc -b`; `scripts/check-visual-verification.sh .`. Commit.
+- [x] 12. UI-test seed covers every reworked view; baselines re-captured
+  - [x] **Step 1: Seed.** Extend `stats/cmd/uitest-seed/seed.go` through the store's exported types only (never raw SQL) so the disposable stack renders populated: at least two recorded decisions with different implementer models (Decisions' `By class and execution` and `By implementer model` tables), review-panel dispatches with critical/important/minor findings (Reviewers' Efficiency and Flow health's `C/I/Mi`), one errored stage run (State board `Errors`), and a guard fire (Flow health `Guard fires`). Keep `fixtureNow`-anchored timestamps so the fixture stays deterministic.
+  - [x] **Step 2: Baselines.** Bring up the UI-test stack on `127.0.0.1:4174` (never `flowd` on 4173), re-capture every changed baseline with the project's `capture` command, then run `verify` for all visual specs: exit 0.
+  - [x] **Step 3: Verify.** `make -C stats web-build && cd stats && gofmt -l . && go vet ./... && go test ./cmd/uitest-seed -count=1`; `cd stats/web && npx tsc -b`; `scripts/check-visual-verification.sh .`. Commit.
 
 **Build:** green
 **Files:** `stats/cmd/uitest-seed/seed.go`, `stats/internal/store/records.go`, `stats/internal/store/records_test.go`
