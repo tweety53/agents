@@ -69,9 +69,14 @@ forbids any agent action touching it at all.
 
 ```bash
 scripts/run-guard-tests.sh
-cd stats && go test ./... -race -count=1
-cd stats/web && npm test
+cd stats && make -s web-dist && go test ./... -race -count=1
+cd stats && make -s web-dist && cd web && npm test
 ```
+
+`stats/internal/web/dist/` is gitignored and `stats/internal/web/embed.go`'s `//go:embed all:dist`
+refuses to compile without it, so `make -s web-dist` (`stats/Makefile`) opens every line here and in
+`## lint` that compiles `internal/web` or needs `stats/web/node_modules`: it runs `make web-build`,
+`npm ci && npm run build` in `stats/web`, only when the build is absent.
 
 `scripts/run-guard-tests.sh` discovers every `scripts/test-*.sh` by glob and runs them concurrently
 through `scripts/lib/parallel.sh`; a new harness added to `scripts/` is picked up automatically, with
@@ -99,17 +104,6 @@ about 0.84s when it made two of those runs (`global` and the since-removed `all`
 here since it is the one guard in this repository paying for a subprocess rather than a plain file
 scan.
 <!-- measured: time scripts/check-installed-citations.sh >/dev/null @ branch kan-102-citations-resolve-to-installed-paths -->
-
-## worktree setup
-
-```bash
-cd stats && make web-build
-```
-
-`stats/internal/web/dist/` is gitignored and `stats/internal/web/embed.go`'s `//go:embed all:dist`
-refuses to compile without it, so a fresh worktree's first `go test ./...` or `go build ./...`
-fails until the SPA is built once. `make web-build` is `npm ci && npm run build` in `stats/web`
-(`stats/Makefile`), the same prerequisite `make test` and `make build` already carry.
 
 ## lint
 
@@ -140,8 +134,8 @@ scripts/check-verbatim-moves.sh
 scripts/check-ask-silence.sh
 scripts/check-worktree-location.sh "$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')"
 cd stats && gofmt -l .
-cd stats && go vet ./...
-cd stats/web && npx tsc -b
+cd stats && make -s web-dist && go vet ./...
+cd stats && make -s web-dist && cd web && npx tsc -b
 ```
 
 **There is no auto-fix command for the guard scripts** (`scripts/check-*`) — every one of them

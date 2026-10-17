@@ -282,6 +282,27 @@ else
   pass "restart depends on build to produce \$(LIVE_BIN), and does not rebuild it"
 fi
 
+# web-dist builds the SPA only when internal/web/dist/index.html is absent
+# (KAN-987). Run under `make -n` over a copy of the Makefile, so the case
+# reads which recipe would run without running npm.
+WEB_DIST_DIR="$(mktemp -d "${TMPDIR:-/tmp}/test-make-build-web-dist.XXXXXX")"
+cp "$STATS_DIR/Makefile" "$WEB_DIST_DIR/Makefile"
+mkdir -p "$WEB_DIST_DIR/internal/web/dist"
+touch "$WEB_DIST_DIR/internal/web/dist/index.html"
+WEB_DIST_BUILT="$(make -s -n -C "$WEB_DIST_DIR" web-dist 2>&1 || true)"
+rm "$WEB_DIST_DIR/internal/web/dist/index.html"
+WEB_DIST_MISSING="$(make -s -n -C "$WEB_DIST_DIR" web-dist 2>&1 || true)"
+rm -rf "$WEB_DIST_DIR"
+if grep -q 'npm ci' <<<"$WEB_DIST_BUILT"; then
+  fail "web-dist builds the SPA only when it is absent: with index.html present it runs:
+$WEB_DIST_BUILT"
+elif ! grep -q 'npm ci' <<<"$WEB_DIST_MISSING"; then
+  fail "web-dist builds the SPA only when it is absent: with no index.html it runs no npm ci:
+$WEB_DIST_MISSING"
+else
+  pass "web-dist builds the SPA only when it is absent"
+fi
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1

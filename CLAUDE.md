@@ -20,8 +20,8 @@ cd stats && gofmt -w .                                  # auto-fix, Go source on
                                                           # this repository has an auto-fix command
 scripts/check-references.sh                               # plus every other scripts/check-*.sh guard
                                                           # named in <project>/.flow/project.md's `## lint`
-cd stats && go vet ./... && gofmt -l .                   # must exit clean before claiming Go work done
-cd stats/web && npx tsc -b                                # must exit clean before claiming SPA work done
+cd stats && make -s web-dist && go vet ./... && gofmt -l .  # must exit clean before claiming Go work done
+cd stats && make -s web-dist && cd web && npx tsc -b      # must exit clean before claiming SPA work done
 ```
 
 ---

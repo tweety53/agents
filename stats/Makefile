@@ -1,4 +1,4 @@
-.PHONY: test web-test web-build build up down restart ui-test-up ui-test-down check-uitest-overrides
+.PHONY: test web-test web-build web-dist build up down restart ui-test-up ui-test-down check-uitest-overrides
 
 # Runs the Go test suite. Tests that need the compose stack's PostgreSQL
 # skip themselves with a clear message when it is not running.
@@ -36,6 +36,16 @@ web-test:
 # is the build's outDir.
 web-build:
 	cd web && npm ci && npm run build
+
+# Builds the SPA only when internal/web/dist holds no index.html. The
+# .flow/project.md `## test` and `## lint` lines that compile internal/web
+# or need web/node_modules run it first, so a worktree builds the SPA the
+# first time one of them runs and a change that runs none never does
+# (KAN-987).
+web-dist: internal/web/dist/index.html
+
+internal/web/dist/index.html:
+	$(MAKE) web-build
 
 # Both binaries: the Vite build, then `go build`, in that order -- never
 # the other way around -- so the embedded assets `go build` bakes in are

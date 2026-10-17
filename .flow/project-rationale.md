@@ -24,11 +24,14 @@ database before anyone noticed.
 `not by a number pasted here` — which is the point:
 a written duration went stale twice before this paragraph stopped carrying one.
 
-## .flow/project.md — worktree setup
+## .flow/project.md — test: `make -s web-dist`
 
 kan-389's verifier hit exactly that, and its conductor then ran
 the whole `## test` list itself to get past it — a fresh-worktree fact, not a branch defect, and
-the reason this key exists.
+the reason a `## worktree setup` running `make web-build` once existed. That setup ran `npm ci` and
+the SPA build on every creating run, a docs-only change's included, though `go list -deps
+./cmd/flow ./cmd/flow-guard` names no `internal/web` (KAN-987); the lines that need the build now
+make it lazily instead.
 
 ## .flow/project.md — lint
 
