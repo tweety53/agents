@@ -402,8 +402,13 @@ and close each printed row under its own key and token, `-outcome completed` whe
 read, `-outcome aborted` otherwise — an earlier run's row included:
 
 ```bash
-flow record dispatch end -change <name> -C <canonical-worktree> -key <key> -session-token <its token> -outcome <completed|aborted>
+flow record dispatch end -change <name> -C <canonical-worktree> -key <key> -session-token <its token> -outcome <completed|aborted> \
+  -ended-at <when its work ended> [-commit <its task commit>]
 ```
+
+`-ended-at` is the instant the row's work ended — its task commit's committer date
+(`git log -1 --format=%cI <sha>`), else its report file's mtime — never the moment it is closed,
+and an implementer row carries `-commit` with its task commit's full sha.
 
 **Record the `**Summary:**` bullets next**, per **Summary and live-stack line, before every handoff** (`skills/flow-contracts/pipeline.md`), since the guard below finds a change with no recorded summary unfinished.
 

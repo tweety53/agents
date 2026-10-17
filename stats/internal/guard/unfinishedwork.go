@@ -309,7 +309,11 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 					closeCmds = append(closeCmds, "row seq "+strconv.Itoa(d.Seq)+" has no key or session token and cannot be closed by `flow record dispatch end`")
 					continue
 				}
-				closeCmds = append(closeCmds, "`flow record dispatch end -change "+name+" -key "+d.Key+" -session-token "+d.SessionToken+" -outcome <outcome> -C "+anchor+"`")
+				cmd := "flow record dispatch end -change " + name + " -key " + d.Key + " -session-token " + d.SessionToken + " -outcome <outcome> -C " + anchor + " -ended-at <when its work ended>"
+				if d.Role == "implementer" {
+					cmd += " -commit <its task commit>"
+				}
+				closeCmds = append(closeCmds, "`"+cmd+"`")
 			}
 		}
 		if len(unclosed) > 0 {

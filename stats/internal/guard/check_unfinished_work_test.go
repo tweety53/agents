@@ -828,3 +828,18 @@ func TestCheckUnfinishedWork(t *testing.T) {
 				strings.Index(r.err[i:], "proj-a") < strings.LastIndex(r.err[i:], "proj-b")
 		}))
 }
+
+func TestCheckUnfinishedWorkCloseCommandCarriesEndedAt(t *testing.T) {
+	f := newUW(t)
+	f.setFile(t, "dispatches.json", `[{"key":"task-2-reviewer","role":"reviewer","sessionToken":"mf-r"},`+
+		`{"key":"task-3-implementer","role":"implementer","sessionToken":"mf-i"}]`+"\n")
+	r := f.run(t, f.wt, "demo")
+	for _, want := range []string{
+		"-key task-2-reviewer -session-token mf-r -outcome <outcome> -C " + f.wt + " -ended-at <when its work ended>`",
+		"-key task-3-implementer -session-token mf-i -outcome <outcome> -C " + f.wt + " -ended-at <when its work ended> -commit <its task commit>`",
+	} {
+		if !strings.Contains(r.out, want) {
+			t.Errorf("close command missing %q:\n%s", want, r.out)
+		}
+	}
+}
