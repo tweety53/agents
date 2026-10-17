@@ -146,6 +146,9 @@ above does not read it raw. Pass `[canonical-worktree]` on every call in the run
 the resolved set whose own change directory (**A change's directory**,
 `skills/flow-contracts/pipeline.md`) holds `tasks.md`.
 Pass every worktree of the resolved set as `<worktree>=<merge-base>`, its merge base `git -C <worktree> merge-base HEAD origin/<base>`, on every call.
+A call passing none gets its own worktree's range derived the same way, from the base
+`resolve-base-branch.sh` names; the guard's header (`<agents repo>/scripts/check-unfinished-work.sh`)
+is canonical for the visual-verify and inline-verify signals it folds in.
 
 | Verdict | Meaning |
 |---------|---------|

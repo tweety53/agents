@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/tweety53/agents/stats/internal/records"
@@ -53,6 +54,14 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 			return 2
 		}
 		ranges = append(ranges, [2]string{wt, base})
+	}
+	// A call passing no range gets this worktree's own, derived as the finish
+	// contract derives every range it passes (decision uw-derive-missing-range):
+	// a range that cannot be derived leaves ranges empty, exactly as before.
+	if len(ranges) == 0 {
+		if r, ok := uwDerivedRange(env, worktree); ok {
+			ranges = append(ranges, r)
+		}
 	}
 
 	// CONTAINMENT: the change name arrives from a pull-request-editable state
@@ -284,12 +293,13 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 			return 2
 		}
 		var dispatches []struct {
-			Seq          int    `json:"seq"`
-			Key          string `json:"key"`
-			TaskID       string `json:"taskId"`
-			Role         string `json:"role"`
-			Outcome      string `json:"outcome"`
-			SessionToken string `json:"sessionToken"`
+			Seq          int       `json:"seq"`
+			Key          string    `json:"key"`
+			TaskID       string    `json:"taskId"`
+			Role         string    `json:"role"`
+			Outcome      string    `json:"outcome"`
+			SessionToken string    `json:"sessionToken"`
+			StartedAt    time.Time `json:"startedAt"`
 		}
 		if json.Unmarshal(dispOut, &dispatches) != nil || dispatches == nil {
 			fmt.Fprintf(stderr, "%sdispatches for '%s' are not one JSON array — cannot determine anything\n", uwPrefix, name)
@@ -387,6 +397,63 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		if slices.Contains(headerLines, "skipped: change summary (absent)") {
 			reasons = append(reasons, "no change summary recorded — record the run's summary with `flow record summary -change "+name+" -C "+anchor+" -file -` before landing")
+		}
+		// SIGNAL SEVEN — a code commit no completed inline verify row covers
+		// (decision uw-verify-row-after-code): the newest commit outside
+		// `<spec root>/changes/` in any range, authored after the newest
+		// completed `verify`/`verify-…` verifier row, or with none at all —
+		// run 1's reshaped `Flow-Key: flow.commit-two` commit excepted. An
+		// archived change's re-run is not asked: its verification ran before
+		// the archive.
+		if len(ranges) > 0 && !strings.Contains(planDir+"/", "/changes/archive/") {
+			var lastVerify int64 = -1
+			for _, d := range dispatches {
+				if d.Role == "verifier" && d.Outcome == "completed" && (d.Key == "verify" || strings.HasPrefix(d.Key, "verify-")) {
+					lastVerify = max(lastVerify, d.StartedAt.Unix())
+				}
+			}
+			newest, newestAt := "", int64(-1)
+			for _, r := range ranges {
+				leaf := specRootLeaf(r[0], io.Discard)
+				out, ok := capture(envGit(env)("-C", r[0], "log", "--no-merges", "--format=%h %at %(trailers:key=Flow-Key,valueonly,separator=%x20)", r[1]+"..HEAD", "--", ".", ":(exclude)"+leaf+"/changes/"))
+				if !ok {
+					fmt.Fprintf(stderr, "%scannot read the commits of %s..HEAD in %s — cannot determine anything\n", uwPrefix, r[1], r[0])
+					return 2
+				}
+				for _, l := range strings.Split(strings.TrimSpace(out), "\n") {
+					sha, rest, _ := strings.Cut(l, " ")
+					at, flowKey, _ := strings.Cut(rest, " ")
+					// Run 1's reshaped implementation commit carries a fresh author
+					// date; it reshapes verified code and is not new code.
+					if strings.Contains(flowKey, "flow.commit-two") {
+						continue
+					}
+					if n, err := strconv.ParseInt(at, 10, 64); err == nil && n > newestAt {
+						newest, newestAt = sha, n
+					}
+				}
+			}
+			if newest != "" && newestAt > lastVerify {
+				reasons = append(reasons, "no completed inline verify row since "+newest+" — run Inline verify (skills/flow/verify-and-handoff.md) and record its row before landing")
+			}
+		}
+		// THE VISUAL VERDICT IS FOLDED IN (decision uw-fold-visual-verdict):
+		// check-visual-verify-dispatched over this guard's own worktree's
+		// range, its MISSING line a reason here and its refusal this guard's.
+		for _, r := range ranges {
+			if r[0] != worktree {
+				continue
+			}
+			var vOut, vErr bytes.Buffer
+			switch checkVisualVerifyDispatched([]string{worktree, name, r[1], canonical}, env, &vOut, &vErr) {
+			case 1:
+				if line := strings.TrimSpace(vOut.String()); !uwVisualFlagged(env, name, worktree, anchor, line) {
+					reasons = append(reasons, line)
+				}
+			case 2:
+				fmt.Fprintf(stderr, "%s%s\n", uwPrefix, strings.TrimRight(vErr.String(), "\n"))
+				return 2
+			}
 		}
 		// SIGNAL FOUR — a ticked appended task no dispatch row names: a fix
 		// round that recorded nothing (kan-979's fix-round Task 7 reached
@@ -503,6 +570,21 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintln(stdout, verdict)
 	return 0
+}
+
+// uwDerivedRange is `<worktree>=<merge-base>` for a call that passed no
+// range: the base resolve-base-branch names, then `git merge-base HEAD
+// origin/<base>`. False on any failure.
+func uwDerivedRange(env Env, worktree string) ([2]string, bool) {
+	var out bytes.Buffer
+	if resolveBaseBranch([]string{worktree}, env, &out, io.Discard) != 0 {
+		return [2]string{}, false
+	}
+	base, ok := capture(envGit(env)("-C", worktree, "merge-base", "HEAD", "origin/"+strings.TrimSpace(out.String())))
+	if !ok || strings.TrimSpace(base) == "" {
+		return [2]string{}, false
+	}
+	return [2]string{worktree, strings.TrimSpace(base)}, true
 }
 
 var (
@@ -681,4 +763,39 @@ func uwPriorFalsePositives(b []byte) (int, string, bool) {
 	}
 	last := pcRaw(first["falsePositiveReason"]) + " (" + pcRaw(first["change"]) + ", " + flagged + ")"
 	return len(all), strings.TrimRight(last, "\n"), true
+}
+
+// uwVisualFlagged reports whether an operator flagged the folded
+// VISUAL-VERIFY-MISSING line a false positive: a check-visual-verify-dispatched
+// verdict row of this change on this worktree whose verdict ends with the
+// line's own " — HEAD <sha>" — integrate-change.sh's visual_false_positive, so a
+// flag that passes integrate's visual gate does not stop this one. Any read
+// failure is not flagged.
+func uwVisualFlagged(env Env, name, worktree, anchor, line string) bool {
+	i := strings.LastIndex(line, " — HEAD ")
+	if i < 0 {
+		return false
+	}
+	head := line[i:]
+	out, _, rc := pcFlow(env, false, "record", "verdicts", "-guard", "check-visual-verify-dispatched", "-false-positive", "-C", anchor)
+	if rc != 0 {
+		return false
+	}
+	var rows []struct {
+		Change, Worktree, Verdict string
+		FalsePositive             bool
+	}
+	if json.Unmarshal(out, &rows) != nil {
+		return false
+	}
+	wt := worktree
+	if p, err := filepath.EvalSymlinks(worktree); err == nil {
+		wt = p
+	}
+	for _, r := range rows {
+		if r.Change == name && r.FalsePositive && r.Worktree == wt && strings.HasSuffix(r.Verdict, head) {
+			return true
+		}
+	}
+	return false
 }

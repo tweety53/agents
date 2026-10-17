@@ -88,6 +88,26 @@
 # read, or a header with no `found:` line, is exit 2, like the dispatch read.
 # Like signal three, only the worktree holding the plan reads it.
 #
+# A CALL PASSING NO RANGE GETS ITS OWN WORKTREE'S RANGE DERIVED (kan-989
+# self-review): the base resolve-base-branch.sh names, then `git -C <worktree>
+# merge-base HEAD origin/<base>`. A range that cannot be derived — no `origin`,
+# no git — leaves the call exactly as one passing none.
+#
+# SIGNAL SEVEN: A CODE COMMIT NO COMPLETED INLINE VERIFY ROW COVERS IS
+# UNFINISHED (kan-989 self-review). The newest commit in any range touching a
+# path outside `<spec root>/changes/`, authored after the newest `startedAt`
+# of the `verifier` rows with outcome `completed` and key `verify` or
+# `verify-…` — or with no such row at all — names its short sha in the
+# breakdown. An archived change's plan is not asked. Like signal three, only
+# the worktree holding the plan reads it.
+#
+# THE VISUAL VERDICT IS FOLDED IN (kan-989 self-review): over this worktree's
+# own range, check-visual-verify-dispatched.sh's VISUAL-VERIFY-MISSING line
+# is one more reason, and its exit 2 is this guard's exit 2 — unless an
+# operator flagged that line a false positive (a check-visual-verify-dispatched
+# verdict row of this change on this worktree ending with its "HEAD <sha>"),
+# the flag integrate-change.sh's visual gate already honours.
+#
 # All signals are counted independently and reported together on the one
 # line, so the operator sees the whole picture in one prompt rather than being
 # sent back around the loop one signal at a time.

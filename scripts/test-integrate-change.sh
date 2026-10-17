@@ -128,7 +128,7 @@ WORK=""
 cleanup_work() { [ -n "$WORK" ] && rm -rf "$WORK"; return 0; }
 trap cleanup_work EXIT
 
-g() { git -c user.name=Test -c user.email=test@example.invalid -c commit.gpgsign=false "$@"; }
+g() { GIT_AUTHOR_DATE=2026-01-01T00:00:00Z GIT_COMMITTER_DATE=2026-01-01T00:00:00Z git -c user.name=Test -c user.email=test@example.invalid -c commit.gpgsign=false "$@"; }
 
 # fixture: builds $WORK with repos a and b, the stubs, and the state record.
 fixture() {
@@ -173,7 +173,7 @@ case "\$1 \$2" in
   "self-review findings") echo '[]' ;;
   "self-review bundle") printf 'found: 1 of 1 sources; skipped: 0 of 1 sources\n' ;;
   "self-review finding") echo "\$*" >>"$WORK/fixed.log" ;;
-  "record dispatches") [ -f "$WORK/loop-rows" ] && exec cat "$WORK/loop-rows"; cat "$WORK/dispatches.json" 2>/dev/null || echo '[{"key":"task-1-implementer","outcome":"completed"}]' ;;
+  "record dispatches") [ -f "$WORK/loop-rows" ] && exec cat "$WORK/loop-rows"; cat "$WORK/dispatches.json" 2>/dev/null || echo '[{"key":"task-1-implementer","outcome":"completed"},{"key":"verify","role":"verifier","outcome":"completed","startedAt":"2026-01-02T00:00:00Z"}]' ;;
   "record decisions") echo '[]' ;;
   "record verdicts") cat "$WORK/verdicts.json" 2>/dev/null || echo '[]' ;;
   "workspace-id "*) echo demo-id ;;
@@ -634,7 +634,7 @@ flag "$A" "$(git -C "$A" rev-parse HEAD)"
 sut prepare "$WORK/a" demo
 check "visual_stop: a flag on this worktree's row for this HEAD passes the gate" '[ "$RC" -eq 0 ]'
 rm "$WORK/verdicts.json"
-printf '[{"key":"task-1-implementer","outcome":"completed"},{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"%s"}]' \
+printf '[{"key":"task-1-implementer","outcome":"completed"},{"key":"verify","role":"verifier","outcome":"completed","startedAt":"2026-01-02T00:00:00Z"},{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"%s"}]' \
   "$(git -C "$A" rev-parse HEAD)" >"$WORK/dispatches.json"
 sut prepare "$WORK/a" demo
 check "visual_stop: a verifier of the HEAD passes the gate" '[ "$RC" -eq 0 ]'
@@ -768,7 +768,7 @@ for route in "merge and push" "pull request" manual; do
   ui_a
   A="$WORK/a-worktrees/demo"
   printf '#!/bin/sh\necho https://forge.invalid/pr/1\n' >"$WORK/bin/gh"; chmod +x "$WORK/bin/gh"
-  printf '[{"key":"task-1-implementer","outcome":"completed"},{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"%s"}]' \
+  printf '[{"key":"task-1-implementer","outcome":"completed"},{"key":"verify","role":"verifier","outcome":"completed","startedAt":"2026-01-02T00:00:00Z"},{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"%s"}]' \
     "$(git -C "$A" rev-parse HEAD)" >"$WORK/dispatches.json"
   printf 'edited\n' >>"$A/work-a.txt"
   sut prepare "$WORK/a" demo

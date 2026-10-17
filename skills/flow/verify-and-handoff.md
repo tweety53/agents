@@ -421,6 +421,9 @@ this run's own unfinished work: finish what its breakdown names — a missing di
 run and recorded, never recorded after the fact for work that did not run — and run the guard
 again; the state is written only once every worktree prints `CLEAR:`. A missing verdict line or an
 exit 2 is reported and stops the run at the state it read.
+The guard folds in `check-visual-verify-dispatched.sh`'s verdict for its own worktree and finds a
+code commit no later completed `verify` row covers unfinished, so a skipped visual verification or
+an unrecorded inline verify stops this run too.
 
 **Every run then runs the visual guard on itself** — creating, resuming and fix runs alike — once
 per worktree of the resolved set, with the arguments integrate's gate passes it (**Run 1 — the

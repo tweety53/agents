@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -400,6 +402,98 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		f := newUW(t)
 		return f.run(t, f.wt, "demo", "", "no-equals-sign")
 	}, uwRC("a range argument not shaped <worktree>=<merge-base> is refused", 2))
+
+	// 2d. Signal seven and the folded visual verdict (kan-989 self-review):
+	//     a missing range is derived, a code commit after the last completed
+	//     verify row is unfinished, and a ui-path commit no visual verifier
+	//     saw is too.
+	const (
+		before = "2026-01-01T10:00:00Z"
+		after  = "2026-01-01T12:00:00Z"
+	)
+	verifyRow := func(at string) string {
+		return `{"seq":9,"key":"verify","role":"verifier","outcome":"completed","startedAt":"` + at + `"}`
+	}
+	// coded makes f.wt a repository whose base commit is empty and whose one
+	// later commit, dated 11:00, touches path; f.ranges is its range.
+	coded := func(path string) func(t *testing.T, f *uwFix) {
+		return func(t *testing.T, f *uwFix) {
+			gitRun(t, "", "init", "-q", f.wt)
+			gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "base")
+			base := tcfGit(t, f.wt, "rev-parse", "HEAD")
+			writeFile(t, f.wt+"/"+path, "x\n")
+			gitRun(t, f.wt, "add", path)
+			gitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T11:00:00Z", "-m", "fix: code")
+			f.ranges = []string{f.wt + "=" + base}
+		}
+	}
+	verified := func(path, at string) func(t *testing.T, f *uwFix) {
+		return func(t *testing.T, f *uwFix) {
+			coded(path)(t, f)
+			f.setFile(t, "dispatches.json", "["+verifyRow(at)+"]\n")
+		}
+	}
+	each(func(t *testing.T) uwResult {
+		f := newUW(t)
+		f.plan(t, "> **Tasks appended:** 1\n\n- [x] 1. done\n- [x] 7. appended by a fix run\n")
+		f.setFile(t, "dispatches.json", `[{"seq":1,"key":"task-7-implementer","role":"implementer","outcome":"completed"},{"seq":2,"key":"panel-1-primary","role":"reviewer","outcome":"clean"},`+verifyRow(after)+"]\n")
+		origin := t.TempDir() + "/origin.git"
+		gitRun(t, "", "init", "-q", "--bare", "-b", "main", origin)
+		gitRun(t, "", "init", "-q", "-b", "main", f.wt)
+		gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "base")
+		gitRun(t, f.wt, "remote", "add", "origin", origin)
+		gitRun(t, f.wt, "push", "-q", "origin", "main")
+		gitRun(t, f.wt, "checkout", "-q", "-b", "feature")
+		writeFile(t, f.wt+"/src/a.go", "package a\n")
+		gitRun(t, f.wt, "add", "src/a.go")
+		gitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T11:00:00Z", "-m", "fix: the appended task\n\nTask-Id: 7")
+		return f.run(t, f.wt, "demo")
+	}, uwVerdict("a call with no range derives the worktree's own merge base", "CLEAR:"))
+	each(demo(verified("src/a.go", before)),
+		uwVerdict("a code commit after the last completed verify row is OUTSTANDING", "OUTSTANDING:"),
+		uwReason("the breakdown names the code commit no verify row covers", "no completed inline verify row since"))
+	each(demo(verified("src/a.go", after)),
+		uwVerdict("a completed verify row after the last code commit is CLEAR", "CLEAR:"))
+	each(demo(func(t *testing.T, f *uwFix) {
+		verified("src/a.go", after)(t, f)
+		writeFile(t, f.wt+"/src/b.go", "y\n")
+		gitRun(t, f.wt, "add", "src/b.go")
+		gitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T13:00:00Z", "-m", "feat: reshaped\n\nFlow-Key: flow.commit-two")
+	}),
+		uwVerdict("run 1's reshaped flow.commit-two commit after the verify row is CLEAR", "CLEAR:"))
+	each(demo(verified("spectre/changes/demo/tasks.md", before)),
+		uwVerdict("planning-only commits after the verify row are CLEAR", "CLEAR:"))
+	each(func(t *testing.T) uwResult {
+		f := newUWBare(t, t.TempDir())
+		f.setFindings(t, "fixed")
+		writeFile(t, f.wt+"/spectre/changes/archive/demo/tasks.md", "- [x] 1. done\n")
+		verified("src/a.go", before)(t, f)
+		return f.run(t, append([]string{f.wt, "demo", ""}, f.ranges...)...)
+	}, uwVerdict("an archived change is not asked for a verify row", "CLEAR:"))
+	uiCommit := func(t *testing.T, f *uwFix) {
+		writeFile(t, f.wt+"/.flow/project.md", "# project\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `src/web/**` |\n")
+		f.setFile(t, "decisions.json", "[]\n")
+		verified("src/web/App.tsx", after)(t, f)
+	}
+	each(demo(uiCommit),
+		uwVerdict("a ui-path commit no visual verifier saw is OUTSTANDING", "OUTSTANDING:"),
+		uwReason("the breakdown carries the visual guard's VISUAL-VERIFY-MISSING line", "VISUAL-VERIFY-MISSING"))
+	each(demo(func(t *testing.T, f *uwFix) {
+		uiCommit(t, f)
+		wt, _ := filepath.EvalSymlinks(f.wt)
+		out, _ := exec.Command(fixtureGit, "-C", f.wt, "rev-parse", "HEAD").Output()
+		head := strings.TrimSpace(string(out))
+		f.setFile(t, "verdicts.json", `[{"change":"demo","guard":"check-visual-verify-dispatched","worktree":"`+wt+`","verdict":"VISUAL-VERIFY-MISSING: x — HEAD `+head+`","falsePositive":true}]`+"\n")
+	}),
+		uwVerdict("a ui-path commit whose MISSING verdict an operator flagged a false positive for this HEAD is CLEAR", "CLEAR:"))
+	each(demo(func(t *testing.T, f *uwFix) {
+		uiCommit(t, f)
+		wt, _ := filepath.EvalSymlinks(f.wt)
+		out, _ := exec.Command(fixtureGit, "-C", f.wt, "rev-parse", "HEAD").Output()
+		head := strings.TrimSpace(string(out))
+		f.setFile(t, "verdicts.json", `[{"change":"demo","guard":"check-visual-verify-dispatched","worktree":"`+wt+`","verdict":"VISUAL-VERIFY-MISSING: x HEAD `+head+`","falsePositive":true}]`+"\n")
+	}),
+		uwVerdict("a flagged verdict ending HEAD <sha> without the \" — \" separator integrate requires is still OUTSTANDING", "OUTSTANDING:"))
 
 	// 3. Signal one — the plan.
 	each(demo(unticked),
