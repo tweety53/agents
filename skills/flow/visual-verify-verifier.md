@@ -4,6 +4,10 @@ Read by the verifier **Steps 3–13** (`skills/flow/visual-verify.md`) dispatche
 path its prompt carries — the parent never loads it whole. It carries step 4, steps 7–11, the
 motion step and the `## Report` template, run as written.
 
+**A command the harness denies has no exit code.** Its report line reads `blocked — environment:
+<the denial text, verbatim>` where `exit <n>` would stand, and the step's status is `blocked` —
+never an exit code the command did not return.
+
 4. **Run `setup`, if declared.** A non-zero exit blocks, printing the command verbatim.
 7. **Run `verify`.** When `specs` is declared, run it first from the `regression checkout`, with
    `<frontend-root>` substituted for the worktree and `<merge-base>` for its merge base — or for
