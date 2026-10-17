@@ -11,3 +11,13 @@ flow record dispatch begin -change <name> -role verifier -model <parent model> -
 flow record dispatch begin -change <name> -task <n> -role implementer -model <m> -effort <e> \
 flow record dispatch end -change <name> -C <canonical-worktree> -key <key> -session-token <its token> -outcome <completed|aborted> \
 flow record dispatch end -change <name> -key verify[-<worktree basename>] \
+Every inline row's `dispatch begin` is recorded when the parent starts that work, before its first edit, and its `dispatch end` once the work's commit lands — never the two together, which records the work as taking no time; `flow record dispatch end` refuses a `completed` inline row closed under three seconds after its begin when it carries no `-tokens` report.
+Merge and push is `<agents repo>/scripts/pipeline-fix.sh land <worktree>`.
+`REFRESH-REFUSED` is reported in the handoff and does not move the change off `FINISHED`.
+Every inline row's `dispatch begin` is recorded when the parent starts that work, before its first edit, and its `dispatch end` once the work's commit lands — never the two together, which records the work as taking no time; `flow record dispatch end` refuses a `completed` inline row closed under three seconds after its begin when it carries no `-tokens` report — which only a harness without a harvested transcript may pass; `-tokens` is refused where `CLAUDE_CODE_SESSION_ID` is set.
+Merge and push is `<agents repo>/scripts/pipeline-fix.sh land <worktree>`, run with a Bash `timeout: 600000` — a landing that moved `stats/` restarts flowd inside the call, and a kill partway leaves it down.
+Run it with a Bash `timeout: 600000`: a refresh that moved `stats/` restarts flowd inside the call, and a kill partway leaves it down.
+The same line closes an exit 1 or 2 as well, and is run the same way: the re-run without the `-end-*` flags never records that end.
+`-commit` takes the partner task commit's full sha; an abbreviated one is refused.
+`-commit` takes the task commit's full sha; an abbreviated one is refused.
+`REFRESH-REFUSED` and `FLOWD-RESTART-FAILED` are reported in the handoff, the latter with its `make` command for the operator to run, and neither moves the change off `FINISHED`.
