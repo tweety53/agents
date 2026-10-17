@@ -161,3 +161,9 @@ Next:
 
 **Only what the operator acts on** — on a clean run the block is the summary, the decision and
 the next commands; a conditional line prints only when its condition holds.
+
+**The block is the run's final message, whole — never the `Next:` lines alone.** The summary and
+the decision sit directly above `Next:` even though the gate already showed them: text printed
+beside a question is hidden where the operator sees only a turn's last message (focus mode), so
+the handoff is the one place the settled plan is guaranteed to be read (kan-941 printed only
+`Next:`).
