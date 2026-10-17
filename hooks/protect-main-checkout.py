@@ -148,8 +148,19 @@ def worktree_root(d):
     return name.endswith("-worktrees") and bool(main) and is_main_checkout(os.path.join(os.path.dirname(d), main))
 
 
+class LinkItself(str):
+    """A path an `rm` or `mv` source names: those act on a symlink itself, not on its target,
+    so a source that is a symlink is judged by the directory holding it."""
+
+
 def protected(path):
-    """(toplevel, branch) when path lies in a main checkout on its default branch, else None."""
+    """(toplevel, branch) when path lies in a main checkout on its default branch, else None.
+    path is judged after its symlinks resolve, as the write lands: `abspath` would collapse
+    `<link>/..` lexically, and a link into a checkout's subdirectory would hide the checkout."""
+    if isinstance(path, LinkItself) and os.path.islink(path):
+        path = os.path.realpath(os.path.dirname(path))  # the link's own directory is what changes
+    else:
+        path = os.path.realpath(path)
     d = existing_dir(path)
     if d is None:
         return None
@@ -609,7 +620,8 @@ def bash_hits(command, cwd, landings=None):
                     if not t.startswith("-"):
                         args.append(t)
                 if tok in ("rm", "mv"):
-                    hits.extend(resolve(a, cur) for a in args)  # mv removes its sources too
+                    # mv removes its sources too; neither follows a symlink it is given
+                    hits.extend(LinkItself(r) for r in (resolve(a, cur) for a in args) if r)
                 elif args:
                     hits.append(resolve(args[-1], cur))
                 i += 1

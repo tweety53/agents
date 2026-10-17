@@ -103,6 +103,8 @@
 #   99. `git -C <wt> push --all $R` (--all pushes the default branch) -> deny
 #  100. `git ${OPTS} push origin HEAD` (expanded git option)         -> deny
 #  101. `$GIT push origin HEAD` (expanded git command word)          -> deny
+#  102. Bash `cat > <link into main/sub>/../f.txt` from elsewhere    -> deny (kan-963: judged after symlinks resolve)
+#  103. Bash `rm <link into main>` / `mv <link into main> ..`       -> allow (they act on the link itself)
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$SCRIPT_DIR/../hooks/protect-main-checkout.py"
@@ -483,6 +485,13 @@ expect "100 an expanded git option hides the repository" deny \
 expect "101 an expanded git command word" deny \
   "$(run "$ROOT" Bash "{\"command\":$(q "\$GIT push origin HEAD")}")"
 unset LOOP_LANDING_CHECK
+mkdir -p "$MAIN/sub"
+ln -s "$MAIN/sub" "$ROOT/elsewhere/lsub"
+expect "102 a symlink into the checkout, then .., resolves before judging" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $ROOT/elsewhere/lsub/../f.txt")}")"
+ln -s "$MAIN/sub" "$ROOT/elsewhere/lsub2"
+expect "103 rm and mv of a symlink into the checkout act on the link, outside it" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "rm $ROOT/elsewhere/lsub2 && mv $ROOT/elsewhere/lsub $ROOT/elsewhere/l3")}")"
 
 # 3 last: moving the main checkout off main lifts the protection
 git_q -C "$MAIN" checkout -q -b feature
