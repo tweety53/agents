@@ -19,9 +19,9 @@
 - A failure that is no screenshot mismatch — a timeout, a production-only screen — must never be re-baselined.
 - The re-baseline rule is stated once, in `skills/flow-contracts/known-bugs.md`; the other two files cite it.
 
-- [ ] 1. Trivial residue never stops run 2's cleanup
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Apply the test hunk alone (`git apply --include='stats/internal/guard/remove_change_worktrees_test.go' <the diff in step 2>`) and run `cd stats && go test ./internal/guard -run 'TestRemoveChangeWorktreesDisclose|TestRcwRegeneratable'`: it FAILs `TestRcwRegeneratable` (`.DS_Store` and `sub/.DS_Store` want `true`) and `TestRemoveChangeWorktreesDisclose/a_.DS_Store_and_a_Playwright_checkout's_root_capture_proceed` (exit 3, the cleanup stopped).
-  - [ ] **Step 2: Implement the fix.** Apply the rest of this diff (`git apply --exclude='stats/internal/guard/remove_change_worktrees_test.go' <the diff>`):
+- [x] 1. Trivial residue never stops run 2's cleanup
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Apply the test hunk alone (`git apply --include='stats/internal/guard/remove_change_worktrees_test.go' <the diff in step 2>`) and run `cd stats && go test ./internal/guard -run 'TestRemoveChangeWorktreesDisclose|TestRcwRegeneratable'`: it FAILs `TestRcwRegeneratable` (`.DS_Store` and `sub/.DS_Store` want `true`) and `TestRemoveChangeWorktreesDisclose/a_.DS_Store_and_a_Playwright_checkout's_root_capture_proceed` (exit 3, the cleanup stopped).
+  - [x] **Step 2: Implement the fix.** Apply the rest of this diff (`git apply --exclude='stats/internal/guard/remove_change_worktrees_test.go' <the diff>`):
 
 ````diff verified:git apply --check in this worktree at bc79a4d6
 diff --git a/scripts/remove-change-worktrees.sh b/scripts/remove-change-worktrees.sh
@@ -207,7 +207,7 @@ index a1a50f84..77d042cf 100644
  // checkout. One file reached by both paths (a symlinked directory in the main
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && go test ./internal/guard -run 'TestRemoveChangeWorktrees|TestRcwRegeneratable'` prints `ok`; `gofmt -l .` prints nothing; `go vet ./internal/guard` exits 0; `scripts/check-references.sh` and `scripts/check-markdown-integrity.py` exit 0. Commit.
+  - [x] **Step 3: Verify.** `cd stats && go test ./internal/guard -run 'TestRemoveChangeWorktrees|TestRcwRegeneratable'` prints `ok`; `gofmt -l .` prints nothing; `go vet ./internal/guard` exits 0; `scripts/check-references.sh` and `scripts/check-markdown-integrity.py` exit 0. Commit.
 
 **Build:** green
 **After:** none
@@ -220,9 +220,9 @@ index a1a50f84..77d042cf 100644
 **Decision:** playwright-root-png-regeneratable
 **Decision:** ds-store-regeneratable
 
-- [ ] 2. A stale snapshot baseline on the base is re-baselined, never asked
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 're-baseline' skills/flow-contracts/known-bugs.md skills/flow/sync-onto-base.md skills/flow/visual-verify-verifier.md` prints nothing: no contract answers a stale baseline on the base, so the run asks.
-  - [ ] **Step 2: Implement the fix.** Apply this diff (`git apply <the diff>`):
+- [x] 2. A stale snapshot baseline on the base is re-baselined, never asked
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 're-baseline' skills/flow-contracts/known-bugs.md skills/flow/sync-onto-base.md skills/flow/visual-verify-verifier.md` prints nothing: no contract answers a stale baseline on the base, so the run asks.
+  - [x] **Step 2: Implement the fix.** Apply this diff (`git apply <the diff>`):
 
 ````diff verified:git apply --check in this worktree at bc79a4d6
 diff --git a/skills/flow-contracts/known-bugs.md b/skills/flow-contracts/known-bugs.md
@@ -278,7 +278,7 @@ index 4291b768..f5779fe4 100644
     `rm -f <exit-file>; nohup sh -c '<verify> > <log> 2>&1; echo $? > <exit-file>' > /dev/null 2>&1 < /dev/null &`
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh` and `scripts/check-ask-silence.sh` exit 0; `scripts/check-verbatim-moves.sh` reports `0 violation(s)`. Commit.
+  - [x] **Step 3: Verify.** `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh` and `scripts/check-ask-silence.sh` exit 0; `scripts/check-verbatim-moves.sh` reports `0 violation(s)`. Commit.
 
 **Build:** green
 **After:** none
