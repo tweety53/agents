@@ -239,11 +239,28 @@ describe("views render their fixture response's actual values", () => {
     // A shrinking series carries its own sign, never a malformed "+-24"
     // (panel round 0, F1).
     expect(screen.getByRole("cell", { name: "46 → 22 (-24)" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "—" })).toBeInTheDocument();
+    // (Scoped to that row's Plan growth cell: its Cost and Wall clock also
+    // read "—" now, design.md's no-runs-dash.)
+    const unobserved = screen.getByRole("link", { name: "kan-29-never-observed" }).closest("tr")!;
+    expect(within(unobserved).getAllByRole("cell", { name: "—" })).toHaveLength(3);
     // Its own stat panel: a count of the rows shown, never a fabricated
     // total or mean for a categorical "state" column.
     expect(screen.getByRole("heading", { name: "Changes" })).toBeInTheDocument();
     within(screen.getByRole("region", { name: "Changes" })).getByText("3");
+  });
+
+  it("state board shows a dash for cost and wall clock of a change with no runs", async () => {
+    render(<StateBoard period={period} project={undefined} />);
+    // design.md's no-runs-dash: a change never measured reads as absent for
+    // its cost and wall clock, while its run and error counts stay a measured 0.
+    const row = (await screen.findByRole("link", { name: "kan-29-never-observed" })).closest("tr")!;
+    const headers = screen.getAllByRole("columnheader").map((h) => h.textContent ?? "");
+    const cells = within(row).getAllByRole("cell");
+    const cellUnder = (header: RegExp) => cells[headers.findIndex((h) => header.test(h))];
+    expect(cellUnder(/^Cost/)).toHaveTextContent(/^—$/);
+    expect(cellUnder(/^Wall clock/)).toHaveTextContent(/^—$/);
+    expect(cellUnder(/^Runs/)).toHaveTextContent(/^0$/);
+    expect(cellUnder(/^Errors/)).toHaveTextContent(/^0$/);
   });
 
   it("state board hides pipeline-fix changes", async () => {

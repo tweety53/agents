@@ -108,13 +108,13 @@ const columns: Column<StateBoardRow>[] = [
     render: (r) => formatDateTime(r.updatedAt),
   },
   { key: "runCount", header: "Runs", sortable: true, accessor: (r) => r.runCount, render: (r) => formatInt(r.runCount) },
-  { key: "costUsd", header: "Cost", sortable: true, accessor: (r) => r.costUsd, render: (r) => formatUsd(r.costUsd) },
+  { key: "costUsd", header: "Cost", sortable: true, accessor: (r) => r.costUsd, render: (r) => (r.runCount === 0 ? "—" : formatUsd(r.costUsd)) },
   {
     key: "wallClockMs",
     header: "Wall clock",
     sortable: true,
     accessor: (r) => r.wallClockMs,
-    render: (r) => formatMs(r.wallClockMs),
+    render: (r) => (r.runCount === 0 ? "—" : formatMs(r.wallClockMs)),
   },
   { key: "errors", header: "Errors", sortable: true, accessor: (r) => r.errors, render: (r) => formatInt(r.errors) },
 ];
