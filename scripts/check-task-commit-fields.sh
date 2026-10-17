@@ -30,8 +30,10 @@
 # is refused. The verdict merges across the listed repositories: the union
 # of changed paths against `Files:`/`Allowed-collateral:`, the concatenated
 # diffs against `Tests:`, the summed `@Test` counts against `Baseline:`,
-# the declared `Commit:` subject required on every listed commit, and the
-# tree check satisfied by any listed tree. `**Baseline:**`'s one recorded
+# the declared `Commit:` subject on one listed commit exactly and on one
+# commit of every listed repository with its scope free — each repository's
+# commit may name its own module (KAN-972) — and the tree check satisfied by
+# any listed tree. `**Baseline:**`'s one recorded
 # measurement command addresses a single repository, so with more than one
 # pair that check skips — never a verdict (the kan-100 rule). One pair
 # behaves exactly as the single-sha form; a real revision never contains

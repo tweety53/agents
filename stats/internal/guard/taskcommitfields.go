@@ -1340,9 +1340,9 @@ func tcfRunGit(env Env, worktree string, args ...string) (string, error) {
 // the task's commits — and merges the verdict across them: the union of
 // changed paths against Files:/Allowed-collateral:, the concatenated diffs
 // against Tests:, the summed @Test counts against Baseline:, the declared
-// Commit: subject required on every listed commit, and the tree check
-// satisfied by any listed tree. One pair behaves exactly as the
-// single-repository form always did.
+// Commit: subject per tcfCheckSubjects, and the tree check satisfied by any
+// listed tree. One pair behaves exactly as the single-repository form always
+// did.
 //
 // tcfRepoDiff is one repository's slice of that verdict: the pair the
 // commit map (or the single-commit form) named, its derived parent, and
@@ -1474,10 +1474,13 @@ func tcfCheckTaskCommit(env Env, tasksMD, taskID string, repos []tcfRepoCommit, 
 	for _, name := range missingAll {
 		v = append(v, fmt.Sprintf("task %s: declared test %s not found in the tree at %s — %s", task.id, name, strings.Join(shas, ", "), tcfTestsParseRule))
 	}
-	for _, d := range diffs {
-		v = append(v, tcfCheckCommitSubject(folded, tcfStrip(d.subject))...)
-	}
+	v = append(v, tcfCheckSubjects(folded, diffs)...)
 	v = append(v, tcfCheckCommitScope(task, changeName)...)
+	for _, d := range diffs {
+		if task.commit != nil && tcfStrip(d.subject) != *task.commit {
+			v = append(v, tcfScopeViolation(task.id, "commit subject "+tcfRepr(tcfStrip(d.subject))+"'s", tcfStrip(d.subject), changeName)...)
+		}
+	}
 	sibling, err := tcfCheckScopeSibling(env, task, diffs, projectDir)
 	if err != nil {
 		return nil, err
@@ -2091,6 +2094,51 @@ func tcfCheckCommitSubject(task tcfTask, actual string) []string {
 	return []string{fmt.Sprintf("task %s: commit subject %s does not match declared Commit: %s", task.id, tcfRepr(actual), tcfRepr(*task.commit))}
 }
 
+// tcfCheckSubjects holds the listed commits to the declared Commit: subject:
+// one of them carries it exactly, and every repository listed carries it on
+// one of its commits with the scope free, since one task's commits in two
+// repositories each name their own repository's module (KAN-972: KAN-924
+// Task 29's frontend and playwright commits had to share one subject, so it
+// dropped its scope). A repository with none is reported on its first
+// commit, in tcfCheckCommitSubject's words.
+func tcfCheckSubjects(task tcfTask, diffs []tcfRepoDiff) []string {
+	if task.commit == nil {
+		return nil
+	}
+	var v []string
+	exact := false
+	var seen []string
+	for _, d := range diffs {
+		exact = exact || tcfStrip(d.subject) == *task.commit
+		if slices.Contains(seen, d.worktree) {
+			continue
+		}
+		seen = append(seen, d.worktree)
+		if !slices.ContainsFunc(diffs, func(o tcfRepoDiff) bool {
+			return o.worktree == d.worktree && tcfUnscoped(tcfStrip(o.subject)) == tcfUnscoped(*task.commit)
+		}) {
+			v = append(v, tcfCheckCommitSubject(task, tcfStrip(d.subject))...)
+		}
+	}
+	if exact || v != nil {
+		return v
+	}
+	if len(seen) == 1 {
+		return tcfCheckCommitSubject(task, tcfStrip(diffs[0].subject))
+	}
+	return []string{fmt.Sprintf("task %s: no listed commit carries the declared Commit: %s exactly — one repository's commit names the declared scope, another's may name its own", task.id, tcfRepr(*task.commit))}
+}
+
+// tcfUnscoped is subject without its `(<scope>)`, `feat(a)!: x` read as
+// `feat!: x`; a subject with no scope is returned as it is.
+func tcfUnscoped(subject string) string {
+	m := tcfSubjectScopeRE.FindStringSubmatchIndex(subject)
+	if m == nil {
+		return subject
+	}
+	return subject[:m[2]-1] + subject[m[3]+1:]
+}
+
 // Moved from check-task-commit-fields.py's SUBJECT_SCOPE_RE (KAN-760 deleted the
 // Python copy once this port replaced it; panel round 0, F9):
 //
@@ -2175,18 +2223,27 @@ func tcfCheckCommitScope(task tcfTask, change string) []string {
 	if task.commit == nil {
 		return nil
 	}
-	m := tcfSubjectScopeRE.FindStringSubmatch(*task.commit)
+	return tcfScopeViolation(task.id, "declared Commit:", *task.commit, change)
+}
+
+// tcfScopeViolation is check_commit_scope's refusal of one subject's scope,
+// what names it in the message. tcfCheckCommitScope runs it on the declared
+// Commit:, and on each listed commit whose scope differs from the declared
+// one, since tcfCheckSubjects lets a cross-repo task's commits name their own
+// module (KAN-972), and an unchecked one could name the change or a task id.
+func tcfScopeViolation(id, what, subject, change string) []string {
+	m := tcfSubjectScopeRE.FindStringSubmatch(subject)
 	if m == nil || m[1] == "" {
 		return nil
 	}
 	scope, lower := m[1], strings.ToLower(m[1])
 	switch key := tcfLeadingJiraKey(change); {
 	case lower == strings.ToLower(change):
-		return []string{fmt.Sprintf("task %s: declared Commit: scope %s names the change, not a module", task.id, tcfRepr(scope))}
+		return []string{fmt.Sprintf("task %s: %s scope %s names the change, not a module", id, what, tcfRepr(scope))}
 	case key != "" && lower == strings.ToLower(key):
-		return []string{fmt.Sprintf("task %s: declared Commit: scope %s names the change's Jira key, not a module", task.id, tcfRepr(scope))}
+		return []string{fmt.Sprintf("task %s: %s scope %s names the change's Jira key, not a module", id, what, tcfRepr(scope))}
 	case tcfTaskIDScopeRE.MatchString(scope):
-		return []string{fmt.Sprintf("task %s: declared Commit: scope %s is a task id, not a module", task.id, tcfRepr(scope))}
+		return []string{fmt.Sprintf("task %s: %s scope %s is a task id, not a module", id, what, tcfRepr(scope))}
 	}
 	return nil
 }

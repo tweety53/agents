@@ -1326,6 +1326,13 @@ After the change: 186 tests
 **Commit:** add alpha for real
 **Build:** green
 `),
+	"158": bt(`- [ ] 1. A task whose commits name each repository's module
+
+**Files:** ¤alpha.txt¤, ¤beta.txt¤
+**Tests:** ¤test_alpha¤
+**Commit:** feat(alpha): add alpha for real
+**Build:** green
+`),
 	"153": bt(`- [ ] 1. A declared test only a removal hunk carries
 
 **Files:** ¤alpha.txt¤, ¤beta.txt¤
@@ -2984,6 +2991,32 @@ func TestCheckTaskCommitFields(t *testing.T) {
 			sha := r.commit("repair alpha", "alpha.txt", "repaired internals\n")
 			res := r.run("157", sha)
 			ok(t, "case 157: the repair form declares no diff-demanded names, so a name absent from the diff passes", res.rc == 0, res)
+		}},
+		{"case 158", func(t *testing.T) {
+			// KAN-972: each repository's commit names its own module.
+			commit := func(b1Subject, b2Subject string) tcfRes {
+				b1, b2, a := tcfMapRepos(t, "158")
+				writeFile(t, b1+"/alpha.txt", "def test_alpha(): pass\n")
+				tcfGit(t, b1, "add", "alpha.txt")
+				tcfGit(t, b1, "commit", "-q", "-m", b1Subject)
+				writeFile(t, b2+"/beta.txt", "b\n")
+				tcfGit(t, b2, "add", "beta.txt")
+				tcfGit(t, b2, "commit", "-q", "-m", b2Subject)
+				sha1, sha2 := tcfGit(t, b1, "rev-parse", "HEAD"), tcfGit(t, b2, "rev-parse", "HEAD")
+				return fx.run(b1, "1", b1+"="+sha1+","+b2+"="+sha2, "", a, "x-repo-change")
+			}
+			res := commit("feat(alpha): add alpha for real", "feat(beta): add alpha for real")
+			ok(t, "case 158: a cross-repo task's second commit may name its own scope", res.rc == 0, res)
+			res = commit("feat(gamma): add alpha for real", "feat(beta): add alpha for real")
+			ok(t, "case 158: a cross-repo task with no commit carrying the declared scope fails", res.rc == 1, res)
+			ok(t, "case 158: names the exact-subject rule", has(res.out, "no listed commit carries the declared Commit: 'feat(alpha): add alpha for real' exactly"), res)
+			res = commit("feat(alpha): add alpha for real", "fix(beta): add alpha for real")
+			ok(t, "case 158: a second commit of another type still fails", res.rc == 1, res)
+			ok(t, "case 158: names that commit's subject", has(res.out, "commit subject 'fix(beta): add alpha for real' does not match"), res)
+			res = commit("feat(alpha): add alpha for real", "feat(29): add alpha for real")
+			ok(t, "case 158: a second commit's task-id scope fails", res.rc == 1 && has(res.out, "scope '29' is a task id"), res)
+			res = commit("feat(alpha): add alpha for real", "feat(x-repo-change): add alpha for real")
+			ok(t, "case 158: a second commit's change-name scope fails", res.rc == 1 && has(res.out, "scope 'x-repo-change' names the change"), res)
 		}},
 	}
 	for _, c := range cases {
