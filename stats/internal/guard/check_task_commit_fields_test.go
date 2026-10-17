@@ -1333,6 +1333,13 @@ After the change: 186 tests
 **Commit:** feat(alpha): add alpha for real
 **Build:** green
 `),
+	"159": bt(`- [ ] 1. A task finished by an on-top fix commit
+
+**Files:** ¤alpha.txt¤, ¤beta.txt¤
+**Tests:** ¤test_alpha¤
+**Commit:** add alpha
+**Build:** green
+`),
 	"153": bt(`- [ ] 1. A declared test only a removal hunk carries
 
 **Files:** ¤alpha.txt¤, ¤beta.txt¤
@@ -2991,6 +2998,21 @@ func TestCheckTaskCommitFields(t *testing.T) {
 			sha := r.commit("repair alpha", "alpha.txt", "repaired internals\n")
 			res := r.run("157", sha)
 			ok(t, "case 157: the repair form declares no diff-demanded names, so a name absent from the diff passes", res.rc == 0, res)
+		}},
+		{"case 159", func(t *testing.T) {
+			// KAN-976: the task's commit, another task's, then a gated
+			// review's on-top fix carrying the same Task-Id: trailer; a
+			// trailer below the merge base is never read.
+			r := fx.repo(t, "change-a")
+			r.plan(tcfPlans["159"])
+			r.git("branch", "-M", "main")
+			r.commit("old change\n\nTask-Id: 1", "gamma.txt", "g\n")
+			r.git("checkout", "-q", "-b", "spectre/change-a")
+			r.commit("add alpha\n\nTask-Id: 1+3", "alpha.txt", "def test_alpha(): pass\n") // a joint trailer is task 1's too
+			r.commit("other task\n\nTask-Id: 2", "delta.txt", "d\n")
+			fix := r.commit("fix review finding\n\nTask-Id: 1", "beta.txt", "b\n")
+			res := r.run("1", fix)
+			ok(t, "case 159: an on-top fix commit is judged with its task's commit", res.rc == 0, res)
 		}},
 		{"case 158", func(t *testing.T) {
 			// KAN-972: each repository's commit names its own module.

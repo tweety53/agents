@@ -34,8 +34,17 @@
 # commit of every listed repository with its scope free — each repository's
 # commit may name its own module (KAN-972) — and the tree check satisfied by
 # any listed tree. `**Baseline:**`'s one recorded
-# measurement command addresses a single repository, so with more than one
-# pair that check skips — never a verdict (the kan-100 rule). One pair
+# measurement command addresses a single commit's range, so with more than
+# one commit that check skips — never a verdict (the kan-100 rule).
+#
+# EVERY COMMIT CARRYING THE TASK'S TRAILER (KAN-976). Without a fourth
+# argument, every other commit from a listed repository's merge base to its
+# listed commit whose `Task-Id:` trailer names the task joins the verdict as
+# one more commit of that repository — a gated review's on-top fix commit
+# carries its task's trailer, and judged alone it touched none of the task's
+# declared files. The merge base is HEAD's with the branch's recorded
+# `flowBase`, else origin/HEAD, else origin/main, else main; with none of
+# them resolvable the listed commit stands alone. One pair
 # behaves exactly as the single-sha form; a real revision never contains
 # "=", which is what tells the two forms apart.
 #

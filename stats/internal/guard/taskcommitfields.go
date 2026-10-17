@@ -1378,6 +1378,26 @@ func tcfCheckTaskCommit(env Env, tasksMD, taskID string, repos []tcfRepoCommit, 
 		return squashViolations, nil
 	}
 
+	// Every other commit of a listed repository's branch carrying the task's
+	// Task-Id: trailer joins the verdict as one more pair (KAN-976): a gated
+	// review's on-top fix commit carries its task's trailer, and judged
+	// alone it touched none of the task's declared files. An explicit parent
+	// pins the one range the caller means and adds nothing.
+	if parent == "" {
+		var all []tcfRepoCommit
+		for _, repo := range repos {
+			more, err := tcfTaskIDCommits(env, repo.worktree, repo.commit, taskID)
+			if err != nil {
+				return nil, err
+			}
+			all = append(all, repo)
+			for _, sha := range more {
+				all = append(all, tcfRepoCommit{repo.worktree, sha})
+			}
+		}
+		repos = all
+	}
+
 	diffs := make([]tcfRepoDiff, 0, len(repos))
 	for _, repo := range repos {
 		d := tcfRepoDiff{worktree: repo.worktree, commit: repo.commit}
@@ -1439,8 +1459,8 @@ func tcfCheckTaskCommit(env Env, tasksMD, taskID string, repos []tcfRepoCommit, 
 	}
 	v = append(v, counts...)
 	if len(diffs) == 1 {
-		// The recorded measurement command addresses one repository; with
-		// more than one pair there is no single tree it measures, so the
+		// The recorded measurement command addresses one commit's range; with
+		// more than one commit there is no single range it measures, so the
 		// check skips — never a verdict (the kan-100 rule).
 		measured, err := tcfCheckBaselineMeasured(env, task, diffs[0].worktree, diffs[0].parent, diffs[0].commit, tcfMeasuredTimeout)
 		if err != nil {
@@ -1487,6 +1507,37 @@ func tcfCheckTaskCommit(env Env, tasksMD, taskID string, repos []tcfRepoCommit, 
 	}
 	v = append(v, sibling...)
 	return v, nil
+}
+
+// tcfTaskIDCommits is every commit from worktree's base to commit, commit
+// itself aside, whose Task-Id: trailer names taskID, newest first. The base
+// is vmDefaultBase's merge base, so a trailer an earlier change left on the
+// base branch is never read; a worktree with no resolvable base adds none.
+func tcfTaskIDCommits(env Env, worktree, commit, taskID string) ([]string, error) {
+	base, _, ok := vmDefaultBase(envGit(env), worktree)
+	if !ok {
+		return nil, nil
+	}
+	self, err := tcfRunGit(env, worktree, "rev-parse", commit+"^{commit}")
+	if err != nil {
+		return nil, err
+	}
+	out, err := tcfRunGit(env, worktree, "log", "--no-merges", "--format=%H %(trailers:key=Task-Id,valueonly,separator=%x2C)", base+".."+commit)
+	if err != nil {
+		return nil, err
+	}
+	var shas []string
+	for _, line := range tcfSplitLines(out) {
+		sha, ids, _ := strings.Cut(line, " ")
+		if sha == "" || sha == tcfStrip(self) {
+			continue
+		}
+		// the task numbers in the value, as ctTaskNumberRE reads them at close: `Task-Id: 2+3` is task 2's too
+		if slices.Contains(ctTaskNumberRE.FindAllString(ids, -1), taskID) {
+			shas = append(shas, sha)
+		}
+	}
+	return shas, nil
 }
 
 // tcfCheckScopeSibling refuses a declared scope that names a module of
