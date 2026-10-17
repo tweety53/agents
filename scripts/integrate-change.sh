@@ -359,7 +359,7 @@ link_only() {
   local p
   [ "${WT[$1]}" = "$CANON" ] || return 1
   p="$(impl_paths "${WT[$1]}" "$2")"
-  [ -n "$p" ] && ! printf '%s\n' "$p" | grep -qv '/link\.md$'
+  [ -n "$p" ] && ! grep -qv '/link\.md$' <<<"$p"
 }
 
 write_state() { # <state> [<keep-json-array>] [<pr-url>]
