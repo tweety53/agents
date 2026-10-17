@@ -528,7 +528,7 @@ func pfLand(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 // Makefile is never run (design.md: flowd-restart-on-landing). 0 nothing to do or restarted, 1 the
 // restart failed, its output relayed.
 func restartFlowdIfStatsMoved(env Env, main, old, new string, stdout, stderr io.Writer) int {
-	diff, _ := capture(envGit(env)("-C", main, "diff", "--name-only", old, new))
+	diff, _ := capture(envGit(env)("-C", main, "diff", "--no-renames", "--name-only", old, new))
 	moved := false
 	for _, p := range strings.Split(diff, "\n") {
 		moved = moved || strings.HasPrefix(p, "stats/")
