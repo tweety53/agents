@@ -297,8 +297,11 @@ worktree resumed above, plus any additional worktree this change affects.** Per
 **Resolving a change's worktrees** (`skills/flow-contracts/worktree-resolution.md`), non-empty by
 construction on every ordinary run.
 
-**Every `## apps` entry is resolved in this stage too, before any implementation runs — never
-improvised mid-run by a later stage in need of a commit destination.** Read
+**Every `## apps` entry is resolved in this stage too, before any implementation runs.** A later
+stage that finds it needs a worktree in a repository the set does not hold — a fix round's task,
+`flow.visual-verify`'s commit destination — runs that entry's recipe of
+`skills/flow/cross-repo-worktrees.md` (the `kickoff-worktree.sh --from` call, the regression
+checkout's toolchain, the merge-order extension), never a bare `git worktree add`. Read
 `<project>/.flow/project.md`'s `## apps` table and resolve each entry per the roots-are-main-checkouts rule of **Where the agents repository is**
 (`skills/flow-contracts/project-configuration.md`): an entry whose
 repository already holds a worktree for this change — the kickoff worktree's repository, a
