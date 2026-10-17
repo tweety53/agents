@@ -161,13 +161,17 @@ Split what it found into two buckets by path, never by guessing intent:
   or `devStart` recreates with identical content the next time it runs: any path component named
   `build`, `.gradle`, `.kotlin`, `node_modules`, `dist`, `.next`, `target`, `out`, `coverage`,
   `test-results` or `__pycache__`; any `*.log`, `*.pyc` or `*.tsbuildinfo` — Python and TypeScript
-  compiler output a fresh compile or test run recreates; and this pipeline's own `<abs-worktree>/.superpowers/sdd/` and
+  compiler output a fresh compile or test run recreates; any `.DS_Store`, which Finder writes
+  again; and this pipeline's own `<abs-worktree>/.superpowers/sdd/` and
   `<abs-worktree>/.dev-stack/` trees, which a session's own next run writes fresh. A `.png`/`.jpg`
   capture is regeneratable only when it sits under a `test-results` directory (or an equivalent
-  declared screenshot-output directory) a test run owns end to end — never a capture sitting loose at a
-  project root, which could be a hand-saved reference nothing re-creates.
-- **Everything else** — unclassified, and it stays unclassified: no allowlist of *names* is
-  trusted here, because the operator decides what they ignore, and a path this list does not
+  declared screenshot-output directory) a test run owns end to end, or is a `.png` at the root of a
+  Playwright checkout — a worktree whose root holds a `playwright.config.*` — where a screenshot
+  spec writes its output and re-running the spec writes it again — never a capture sitting loose at
+  any other project root, or in a subdirectory of the checkout, which could be a hand-saved
+  reference nothing re-creates.
+- **Everything else** — unclassified, and it stays unclassified: no allowlist of *names* beyond
+  `.DS_Store` is trusted here, because the operator decides what they ignore, and a path this list does not
   recognize (a `.env`, a local override config, a stray file at the worktree root) is exactly what
   the doubt is for.
 

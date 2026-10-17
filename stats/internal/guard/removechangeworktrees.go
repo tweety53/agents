@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -105,10 +106,11 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 			continue
 		}
 		regen := 0
+		playwright := rcwPlaywrightCheckout(wt)
 		for _, p := range strings.Split(string(out), "\x00") {
 			switch {
 			case p == "":
-			case rcwRegeneratable(p):
+			case rcwRegeneratable(p), rcwCaptureOutput(playwright, p):
 				regen++
 			case wt != mainCheckout && rcwIdentical(wt+"/"+p, mainCheckout+"/"+p):
 				fmt.Fprintf(stdout, "UNCLASSIFIED: %s — %s — preserved: identical in %s\n", wt, rcwFlat(p), rcwFlat(mainCheckout))
@@ -294,10 +296,11 @@ func rcwRestoreUpstream(git func(...string) *exec.Cmd, repo, branch, remote, mer
 // only under a regeneratable location, test-results among them — a capture
 // loose anywhere else matches no rule below. Python (__pycache__, *.pyc) and
 // TypeScript (*.tsbuildinfo) compiler output is regeneratable wherever it
-// sits; everything the list does not name stays unclassified.
+// sits, and so is a Finder .DS_Store; everything the list does not name stays
+// unclassified.
 func rcwRegeneratable(p string) bool {
 	parts := strings.Split(p, "/")
-	if strings.HasPrefix(p, ".superpowers/sdd/") || strings.HasPrefix(p, ".dev-stack/") || strings.HasSuffix(p, ".log") || strings.HasSuffix(p, ".pyc") || strings.HasSuffix(p, ".tsbuildinfo") {
+	if parts[len(parts)-1] == ".DS_Store" || strings.HasPrefix(p, ".superpowers/sdd/") || strings.HasPrefix(p, ".dev-stack/") || strings.HasSuffix(p, ".log") || strings.HasSuffix(p, ".pyc") || strings.HasSuffix(p, ".tsbuildinfo") {
 		return true
 	}
 	for _, c := range parts {
@@ -306,6 +309,22 @@ func rcwRegeneratable(p string) bool {
 		}
 	}
 	return false
+}
+
+// rcwCaptureOutput is check 4's one worktree-aware regeneratable rule: an
+// ignored .png at the root of a Playwright checkout (a playwright.config.* at
+// the worktree root) is a screenshot spec's output, which a re-run of the
+// spec writes again; a tracked baseline never reaches check 4, and a .png in
+// any subdirectory (a kept screenshots/run-* folder) stays unclassified.
+func rcwCaptureOutput(playwright bool, p string) bool {
+	return playwright && !strings.Contains(p, "/") && strings.EqualFold(filepath.Ext(p), ".png")
+}
+
+// rcwPlaywrightCheckout reports whether wt has a playwright.config.* at its
+// root — looked up once per worktree, not once per entry.
+func rcwPlaywrightCheckout(wt string) bool {
+	configs, _ := filepath.Glob(wt + "/playwright.config.*")
+	return len(configs) > 0
 }
 
 // rcwIdentical reports whether a and b are two distinct regular files with

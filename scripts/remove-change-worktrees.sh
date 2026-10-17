@@ -17,7 +17,10 @@
 #     untracked, unignored file; no commit that exists only here (the base
 #     resolved fresh for THIS worktree, in-process as resolve-base-branch.sh
 #     does); and the ignored files `--force` will destroy, split by path into
-#     regeneratable (counted) and unclassified (listed).
+#     regeneratable (counted) and unclassified (listed). Regeneratable takes
+#     in a `.DS_Store` anywhere and, in a worktree whose root holds a
+#     `playwright.config.*`, a `.png` at that root — a screenshot spec's
+#     output; a `.png` in any subdirectory stays unclassified.
 #     An unclassified entry that is a regular file byte-identical to the same
 #     path in the repository's main checkout (the first entry of its worktree
 #     list) is preserved — it exists there.

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -376,6 +378,60 @@ func TestRemoveChangeWorktreesDisclose(t *testing.T) {
 		}
 	})
 
+	// pipeline-fix-19: a Finder .DS_Store anywhere and a Playwright
+	// checkout's root screenshot-spec output are regeneratable — counted, never
+	// a disclosure stop; the same root .png outside a Playwright checkout, or
+	// in a kept subdirectory, still stops.
+	t.Run("a .DS_Store and a Playwright checkout's root capture proceed", func(t *testing.T) {
+		t.Parallel()
+		fx := rcwNewFx(t)
+		fx.g.write(fx.repo+"/.git/info/exclude", ".DS_Store\n*.png\nplaywright.config.ts\n")
+		for _, d := range []string{fx.wt, fx.repo} {
+			fx.g.write(d+"/playwright.config.ts", "export default {}")
+		}
+		fx.g.write(fx.wt+"/.DS_Store", "finder")
+		mkdir(t, fx.wt+"/sub")
+		fx.g.write(fx.wt+"/sub/.DS_Store", "finder")
+		fx.g.write(fx.wt+"/01-signin.png", "capture")
+		code, out, errb := fx.run(t, nil)
+		if code != 0 || rcwExists(fx.wt) || len(rcwLines(out, "DISCLOSE: ")) != 0 {
+			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
+		}
+		if l := rcwLines(out, "REGENERATABLE: "); len(l) != 1 || !strings.HasSuffix(l[0], " — 3") {
+			t.Errorf("REGENERATABLE lines %q, want 3", l)
+		}
+	})
+
+	for _, tc := range []struct {
+		label, png string
+		config     bool
+	}{
+		{"a root capture outside a Playwright checkout stops", "01-signin.png", false},
+		{"a Playwright checkout's kept capture in a subdirectory stops", "screenshots/run-1/01-signin.png", true},
+	} {
+		t.Run(tc.label, func(t *testing.T) {
+			t.Parallel()
+			fx := rcwNewFx(t)
+			fx.g.write(fx.repo+"/.git/info/exclude", "*.png\nplaywright.config.ts\n")
+			if tc.config {
+				for _, d := range []string{fx.wt, fx.repo} {
+					fx.g.write(d+"/playwright.config.ts", "export default {}")
+				}
+			}
+			mkdir(t, filepath.Dir(fx.wt+"/"+tc.png))
+			fx.g.write(fx.wt+"/"+tc.png, "capture")
+			code, out, _ := fx.run(t, nil)
+			if code != 3 {
+				t.Fatalf("exit %d, stdout %q; want 3", code, out)
+			}
+			l := slices.DeleteFunc(rcwLines(out, "UNCLASSIFIED: "), func(s string) bool { return strings.Contains(s, " — preserved: ") })
+			if len(l) != 1 || !strings.HasSuffix(l[0], " — "+tc.png) {
+				t.Errorf("UNCLASSIFIED lines %q, want %s unpreserved", l, tc.png)
+			}
+			fx.assertUntouched(t)
+		})
+	}
+
 	t.Run("an entry that differs from the main checkout's stops", func(t *testing.T) {
 		t.Parallel()
 		fx := rcwNewFx(t)
@@ -557,6 +613,8 @@ func TestRcwRegeneratable(t *testing.T) {
 		{"stats/web/tsconfig.tsbuildinfo", true},
 		{"build/out.o", true},
 		{"run.log", true},
+		{".DS_Store", true},
+		{"sub/.DS_Store", true},
 		{".env", false},
 		{".env/secret", false},
 		{"icon.png", false},
