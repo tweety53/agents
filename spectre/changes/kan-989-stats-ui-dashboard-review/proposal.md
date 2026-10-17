@@ -21,3 +21,7 @@ The operator reviewed every stats UI dashboard one by one (KAN-989) and found no
 
 - Dollar amounts render at two decimals everywhere; a live-board change with no stage runs shows `—` for cost and wall clock.
 - The UI-test seed covers decisions, findings, errored runs and guard fires so every reworked view is verified populated.
+
+## In-run fix 1
+
+- The render-to-guard test pins its records address, so it passes whatever `FLOW_RECORDS_ADDR` the caller exports; the plan's provenance and task-ordering lines are corrected.

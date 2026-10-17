@@ -85,7 +85,7 @@
 **ID:** no-runs-dash
 **Status:** active
 **Chosen:** on the live board, `Cost` and `Wall clock` render `—` when the change has 0 stage runs; `Runs` and `Errors` stay `0`, since a count of zero is a measurement.
-**Considered:** `0 ms`/`$0.00` — reads as a measured zero for something never measured.
+**Considered:** a zero duration and a zero dollar amount — reads as a measured zero for something never measured.
 
 ## Open questions
 

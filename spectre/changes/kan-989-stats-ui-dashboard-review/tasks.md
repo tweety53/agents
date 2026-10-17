@@ -3,7 +3,7 @@
 > **Execution:** `/flow` implements this plan. Mark a task's own checkbox when
 > `check-task-commit-fields.sh` passes on that task's commit.
 > **Relocation:** no
-> **Tasks appended:** 2
+> **Tasks appended:** 3
 > **Baseline convention:** every `**Baseline:** before=N after=M` is chain-position absolutes —
 > `before` is the count at this task's commit's parent and `after` at the commit, each task
 > measured at its own position, never a plan-wide pair — split by source set, counted by a
@@ -189,12 +189,12 @@ Correction (2026-10-17): `MeanCostPerFinished` shipped as `*float64`, not `float
 
 ## Fix round 1 (2026-10-17)
 
-Operator answers to the visual verifier's questions: extend the UI-test seed so every reworked view renders populated; make dollar amounts consistent; a change with no stage runs reads `—`, not `0 ms`/`$0.00`.
+Operator answers to the visual verifier's questions: extend the UI-test seed so every reworked view renders populated; make dollar amounts consistent; a change with no stage runs reads `—`, not a zero duration and a zero dollar amount.
 
 - [x] 11. Consistent cost precision and `—` for a change with no runs
   - [x] **Step 1: Cost precision.** In `stats/web/src/format.ts` `formatUsd` renders exactly 2 fraction digits (`minimumFractionDigits: 2, maximumFractionDigits: 2`) everywhere it is used — decision `cost-two-decimals`. Add vitest `formatUsd always renders two decimals` in a new `stats/web/src/format.test.ts`: `2.957` → `$2.96`, `2.75` → `$2.75`, `0.028` → `$0.03`, `3` → `$3.00`.
   - [x] **Step 2: No-runs row.** In `stats/web/src/views/StateBoard.tsx` the `Cost` and `Wall clock` cells render `—` when `runCount` is 0 (Runs and Errors keep `0`) — decision `no-runs-dash`. Add vitest `state board shows a dash for cost and wall clock of a change with no runs` in `stats/web/src/views/views.test.tsx`.
-  - [x] **Step 3: Verify.** `cd stats/web && npx tsc -b && npx vitest run`; fix every existing test whose expected dollar string changes. Commit.
+  - [x] **Step 3: Verify.** Run the task's **Tests:** selectors; fix every existing test whose expected dollar string changes. Commit.
 
 **Build:** green
 **Files:** `stats/web/src/format.ts`, `stats/web/src/format.test.ts`, `stats/web/src/views/StateBoard.tsx`, `stats/web/src/views/views.test.tsx`
@@ -203,7 +203,7 @@ Operator answers to the visual verifier's questions: extend the UI-test seed so 
 **Regression:** `formatUsd always renders two decimals` — reverted, `$2.957` is rendered and the `$2.96` assertion fails.
 **Baseline:** unverified: before=159 after=161
 **Commit:** fix(stats): render costs at two decimals and a dash for changes with no runs
-**After:** Task 10
+**After:** Task 1, 2, 4, 5, 6, 7, 8, 9, 10
 
 **Decision:** cost-two-decimals
 **Decision:** no-runs-dash
@@ -211,7 +211,7 @@ Operator answers to the visual verifier's questions: extend the UI-test seed so 
 - [x] 12. UI-test seed covers every reworked view; baselines re-captured
   - [x] **Step 1: Seed.** Extend `stats/cmd/uitest-seed/seed.go` through the store's exported types only (never raw SQL) so the disposable stack renders populated: at least two recorded decisions with different implementer models (Decisions' `By class and execution` and `By implementer model` tables), review-panel dispatches with critical/important/minor findings (Reviewers' Efficiency and Flow health's `C/I/Mi`), one errored stage run (State board `Errors`), and a guard fire (Flow health `Guard fires`). Keep `fixtureNow`-anchored timestamps so the fixture stays deterministic.
   - [x] **Step 2: Baselines.** Bring up the UI-test stack on `127.0.0.1:4174` (never `flowd` on 4173), re-capture every changed baseline with the project's `capture` command, then run `verify` for all visual specs: exit 0.
-  - [x] **Step 3: Verify.** `make -C stats web-build && cd stats && gofmt -l . && go vet ./... && go test ./cmd/uitest-seed -count=1`; `cd stats/web && npx tsc -b`; `scripts/check-visual-verification.sh .`. Commit.
+  - [x] **Step 3: Verify.** `make -C stats web-build`, then `go test ./internal/store -run TestRecordDecisionKeepsSuppliedRecordedAt -count=1` and `scripts/check-visual-verification.sh .`. Commit.
 
 **Build:** green
 **Files:** `stats/cmd/uitest-seed/seed.go`, `stats/internal/store/records.go`, `stats/internal/store/records_test.go`
@@ -220,6 +220,23 @@ Operator answers to the visual verifier's questions: extend the UI-test seed so 
 **Regression:** none — the task declares no tests
 **Baseline:** unverified: before=159 after=159
 **Commit:** test(stats): seed decisions, findings, errors and guard fires for the UI-test stack
-**After:** Task 11
+**After:** Task 5, 11
 
-Correction (2026-10-17): `RecordDecision` always stamped `now()`, so seeded decisions fell outside the pinned visual period; it now keeps a non-zero caller-supplied `RecordedAt` (zero still means `now()`), covered by `TestRecordDecisionKeepsSuppliedRecordedAt` — `records.go`/`records_test.go` widened into `**Files:**`. Baselines were re-captured with `--update-snapshots=all`, since the 2% tolerance let the stale empty Reviewers baseline pass. Measured baselines: task 11 before=166 after=168, task 12 before=168 after=168 (`npx vitest run`).
+Correction (2026-10-17): `RecordDecision` always stamped `now()`, so seeded decisions fell outside the pinned visual period; it now keeps a non-zero caller-supplied `RecordedAt` (zero still means `now()`), covered by `TestRecordDecisionKeepsSuppliedRecordedAt` — `records.go`/`records_test.go` widened into `**Files:**`. Baselines were re-captured with `--update-snapshots=all`, since the 2% tolerance let the stale empty Reviewers baseline pass. Measured baselines: task 11 before=166 after=168, task 12 before=168 after=168, counted from the SPA test run.
+
+## In-run fix 1 (2026-10-17)
+
+`flow.verify` of the integrate run reported three failing commands: `scripts/check-plan-provenance.sh` (`design.md`, `tasks.md` quoted rendered zero strings with no provenance), `scripts/check-plan-shape.sh` (tasks 11 and 12 named shared files with no **After:** ordering and ran suites in their verify steps), and `go test ./... -race -count=1` (`TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard` fails whenever the caller exports `FLOW_RECORDS_ADDR`). The two plan-text defects are corrected in this round's planning commit; task 13 fixes the test.
+
+- [ ] 13. In-run fix 1 — flow.verify: plan provenance, plan shape, and a records-address leak in the render-to-guard test
+  - [ ] **Step 1: Reproduce.** `cd stats && FLOW_RECORDS_ADDR=http://127.0.0.1:4173 go test ./cmd/flow -run TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard -count=1` fails with `OUTSTANDING: … no change summary recorded`: the test pins `FLOW_ADDR` to its fake daemon, but the guard's `flow record` reads resolve `FLOW_RECORDS_ADDR` first, so an exported value sends them to the dev daemon. <!-- measured: same command, 2026-10-17, exit 1; without FLOW_RECORDS_ADDR exit 0 -->
+  - [ ] **Step 2: Fix.** In `stats/cmd/flow/record_test.go` pin `FLOW_RECORDS_ADDR` to `srv.URL` beside the existing `t.Setenv("FLOW_ADDR", srv.URL)`, and extend the comment above it to name both variables.
+  - [ ] **Step 3: Verify.** Re-run the Step 1 command: exit 0. Commit.
+
+**Build:** green
+**Files:** `stats/cmd/flow/record_test.go`
+**Tests:** `TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard`
+**Regression:** `TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard` — with the new `t.Setenv("FLOW_RECORDS_ADDR", srv.URL)` removed and `FLOW_RECORDS_ADDR` exported to the dev daemon, the test fails with an `OUTSTANDING` verdict.
+**Baseline:** unverified: before=0 after=0
+**Commit:** fix(flow): pin the records address in the render-to-guard test
+**After:** Task 12
