@@ -109,6 +109,10 @@
 #   visual_uncommitted an uncommitted UI edit on a verified HEAD is folded in
 #                   by commit: on each route, commit stops before a's branch
 #                   push and land before any push from a.
+#   base_mismatch   a recording flowBase feature/x while b resolves main and
+#                   b's origin has feature/x stops prepare at
+#                   STOP: base-mismatch, exit 1, before the preflight; b
+#                   recording it too, or feature/x on a's origin only, passes.
 #   outstanding     commit --outstanding keeps the planning commit's own
 #                   subject and puts the text in its body; --plan-message,
 #                   which replaced the subject whole, is refused.
@@ -785,6 +789,24 @@ for route in "merge and push" "pull request" manual; do
   check "visual_uncommitted ($route): land stops at visual-verify" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
   check "visual_uncommitted ($route): land pushed neither a's branch nor its base" '! git --git-dir="$WORK/a-origin.git" rev-parse -q --verify spectre/demo >/dev/null && [ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -1)" = base ]'
 done
+
+# --- base_mismatch ---
+fixture
+for r in a b; do g -C "$WORK/$r" push -q origin main:refs/heads/feature/x; done
+g -C "$WORK/a-worktrees/demo" config branch.spectre/demo.flowBase feature/x
+sut prepare "$WORK/a" demo
+check "base_mismatch: prepare stops with exit 1" '[ "$RC" -eq 1 ]'
+check "base_mismatch: the stop is STOP: base-mismatch naming b's worktree and feature/x" \
+  'printf "%s" "$OUT" | tail -1 | grep "^STOP: base-mismatch — " | grep -F "$WORK/b-worktrees/demo" | grep -q feature/x'
+check "base_mismatch: no preflight ran" '! grep -q flow.preflight "$WORK/stages.log" 2>/dev/null'
+g -C "$WORK/b-worktrees/demo" config branch.spectre/demo.flowBase feature/x
+sut prepare "$WORK/a" demo
+check "base_mismatch: b recording feature/x too passes the gate" '! printf "%s" "$OUT" | grep -q "STOP: base-mismatch" && grep -q flow.preflight "$WORK/stages.log"'
+fixture
+g -C "$WORK/a" push -q origin main:refs/heads/feature/x
+g -C "$WORK/a-worktrees/demo" config branch.spectre/demo.flowBase feature/x
+sut prepare "$WORK/a" demo
+check "base_mismatch: feature/x on a's origin only passes the gate" '! printf "%s" "$OUT" | grep -q "STOP: base-mismatch" && grep -q flow.preflight "$WORK/stages.log"'
 
 # --- outstanding ---
 fixture

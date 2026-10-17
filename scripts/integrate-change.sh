@@ -25,7 +25,9 @@
 #          the porcelain scan of <main-checkout>), runs check-foreign-staged
 #          and check-main-checkout-drift per distinct main checkout,
 #          migrate-worktrees, then check-finish-preflight per worktree. Every
-#          worktree RUN2 -> NEXT is `cleanup`. Otherwise run 1: the
+#          worktree RUN2 -> NEXT is `cleanup`. Otherwise run 1, which first
+#          stops at STOP: base-mismatch when one worktree records a flowBase
+#          another resolves away from while that one's origin carries it: the
 #          uncommitted-archive undo, the archived decision, the unfinished-work
 #          gate (check-unfinished-work, check-visual-verify-dispatched against
 #          `git merge-base HEAD origin/$BASE`, check-untasked-commits from that
@@ -417,6 +419,18 @@ cmd_prepare() {
     say "NEXT: run 2 — integrate-change.sh cleanup $MAIN $NAME $FLAGS"
     exit 0
   fi
+
+  # A worktree off the base another worktree records, while its own origin
+  # carries that base, would land the change on two different branches.
+  local fi fj fb
+  for fi in "${!WT[@]}"; do
+    fb="$(git -C "${WT[fi]}" config --get "branch.spectre/$NAME.flowBase")" || continue
+    for fj in "${!WT[@]}"; do
+      [ "${BASES[fj]}" != "$fb" ] || continue
+      git -C "${WT[fj]}" rev-parse -q --verify "refs/remotes/origin/$fb" >/dev/null || continue
+      stop base-mismatch "${WT[fj]} resolves base ${BASES[fj]}, but ${WT[fi]} records $fb and origin/$fb exists in ${WT[fj]}'s repository — ask the operator; never land it on ${BASES[fj]}"
+    done
+  done
 
   mark_begin flow.preflight; mark_end flow.preflight completed
   mark_begin flow.unfinished-work-gate

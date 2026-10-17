@@ -40,6 +40,11 @@ that stopped once the stop is handled.
 - **`STOP: preflight` or `STOP: base`** → stop, report what the script reported, relay the guard's
   hand-verification procedure per **Hand-verifying a guard verdict** (`skills/flow-contracts/pipeline.md`), and ask
   the operator.
+- **`STOP: base-mismatch`** → report the line and ask the operator.
+  The answer that moves the worktree is `git -C <wt> config branch.spectre/<name>.flowBase <b>`, <!-- citations-guard:allow -->
+  `git -C <wt> rebase --onto origin/<b> <its recorded merge base>`,
+  `flow state add-worktree -C <the change's canonical worktree> <name> <wt> $(git -C <wt> merge-base HEAD origin/<b>)`, then re-run
+  `prepare`.
 - **`STOP: no-remote`** → per **The routes** (`skills/flow-contracts/finish-contract-run1.md`).
 
 ## 1. Check for unfinished work
