@@ -244,6 +244,7 @@ func TestCheckLoopDispatchFirstReviewEffort(t *testing.T) {
 		status            string
 	}{
 		{name: "bare low", chosen: "**Chosen:** low — dev-only tooling, no hard seam.\n**Considered:** medium — no seam here.\n", typ: "flow-low", out: "LOOP-DISPATCH-OK"},
+		{name: "bare flow-medium", chosen: "**Chosen:** flow-medium — eleven behaviour changes.\n", typ: "flow-medium", out: "LOOP-DISPATCH-OK"},
 		{name: "bare low refuses flow-medium", chosen: "**Chosen:** low — dev-only tooling.\n", typ: "flow-medium", rc: 1, out: "runs on flow-low"},
 		{name: "backticked low in prose", chosen: "**Chosen:** the first review runs at effort `low` on `opus`: a test-only seam.\n", typ: "flow-low", out: "LOOP-DISPATCH-OK"},
 		{name: "backticked medium", chosen: "**Chosen:** `medium` — a gate every run passes.\n**Considered:** `low` — too thin.\n", typ: "flow-medium", out: "LOOP-DISPATCH-OK"},

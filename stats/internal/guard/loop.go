@@ -265,9 +265,9 @@ var (
 	lpEntryID       = regexp.MustCompile(`\*\*ID:\*\*`)
 	lpChosen        = regexp.MustCompile(`\*\*Chosen:\*\*[^\n]*`)
 	lpStatus        = regexp.MustCompile(`\*\*Status:\*\*\s*([a-z]+)`)
-	// The effort a **Chosen:** line names: a bare low or medium opening the
+	// The effort a **Chosen:** line names: a bare low, medium, flow-low or flow-medium opening the
 	// value, else its first backticked low, medium, flow-low or flow-medium.
-	lpChosenBare = regexp.MustCompile(`^\*\*Chosen:\*\*\s*(low|medium)\b`)
+	lpChosenBare = regexp.MustCompile(`^\*\*Chosen:\*\*\s*(?:flow-)?(low|medium)\b`)
 	lpChosenTick = regexp.MustCompile("`(?:flow-)?(low|medium)`")
 )
 
