@@ -324,6 +324,10 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > code change, while an edit made before reproducing destroys the evidence the task set out to
 > gather.
 
+> **List the rationale appendix a changed rule's reasoning lives in.** A step that changes a rule
+> whose reasoning a `*-rationale.md` appendix records lists that appendix in its task's
+> `**Files:**` and updates it.
+
 **Load `skills/flow-contracts/plan-provenance.md`.** While enriching `tasks.md`, tag every fenced
 block, every numeric claim and every assumption the plan cannot verify at plan time per **Plan
 provenance** (`skills/flow-contracts/plan-provenance.md`).
