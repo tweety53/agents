@@ -37,8 +37,23 @@ and `check-base-moved.sh` performs no fetch of its own.
   it restores the aside and re-checks, and its exits read as the first call's.
   Never `rebase --abort`, never `rebase --skip`, never `-X ours`/`-X theirs`, and never a
   resolution that drops one side wholesale — a conflict is two changes to the same lines, and both
-  ship. **Stop and ask** only where no honest resolution exists: a modify/delete conflict, a binary
-  file, or an upstream commit that removed something this change depends on. In that case leave
+  ship. **A path the guard names on a `RECAPTURE: <path>` line is resolved by a targeted recapture,
+  never by merging its bytes and never by a stop** — a PNG under a `*-snapshots/` directory, or
+  `full-app-suite.zip`, is a capture of a build, and only a build carrying both sides captures it
+  honestly:
+  1. Serve the change's own app worktrees (already synced onto the change's base) per visual-verify
+     steps 5–6 (`skills/flow/visual-verify.md`, **Steps 3–13**).
+  2. Run only the specs owning the named PNGs — the spec each `*-snapshots/` directory is
+     named for, and `full-app-suite.spec.ts` for the zip — through `capture` with `<spec>`
+     substituted and `--update-snapshots` appended, in the checkout the conflict is in.
+  3. Rebuild `full-app-suite.zip` when it was named, exactly as step 8 of
+     `skills/flow/visual-verify-verifier.md` does.
+  4. `git add` every recaptured PNG and the zip, stop the stack if step 1 started it, then continue the
+     rebase as above.
+
+  **Stop and ask** only where no honest resolution exists: a modify/delete conflict, a binary
+  file no `RECAPTURE:` line names, or an upstream commit that removed something this change
+  depends on. In that case leave
   the worktree mid-rebase exactly as `git rebase` left it, report the file(s) and why, and hand off
   `git -C <worktree> rebase --continue` (after the operator resolves it) or
   `git -C <worktree> rebase --abort` as the next manual step; the run stops before the landing

@@ -124,6 +124,11 @@ func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
 				return refuse("cannot record the aside in %s: %v — the rebase is left in progress", rec, err)
 			}
 			fmt.Fprintf(stdout, "CONFLICT: %s — onto %s; unmerged: %s\n", wt, o.sha, strings.Join(o.unmerged, ", "))
+			for _, u := range o.unmerged {
+				if sobRecapture(u) {
+					fmt.Fprintf(stdout, "RECAPTURE: %s\n", u)
+				}
+			}
 			return 1
 		case "refused":
 			return refuse("git refused to rebase %s onto %s — nothing changed", wt, o.sha)
@@ -154,4 +159,23 @@ func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "REBASED: %s — onto %s\n", wt, onto)
 	return 0
+}
+
+// sobRecapture reports whether an unmerged path is a captured screenshot
+// baseline -- a PNG under a Playwright `*-snapshots/` directory -- or the full
+// app suite's archive: a conflict the caller resolves by a targeted recapture,
+// never by merging bytes or stopping to ask.
+func sobRecapture(p string) bool {
+	if filepath.Base(p) == "full-app-suite.zip" {
+		return true
+	}
+	if !strings.EqualFold(filepath.Ext(p), ".png") {
+		return false
+	}
+	for _, dir := range strings.Split(filepath.Dir(p), "/") {
+		if strings.HasSuffix(dir, "-snapshots") {
+			return true
+		}
+	}
+	return false
 }

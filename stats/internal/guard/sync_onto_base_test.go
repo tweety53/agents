@@ -128,6 +128,28 @@ func TestSyncOntoBase(t *testing.T) {
 					t.Errorf("stash list %q, want the aside kept", top)
 				}
 			}},
+		{label: "a conflicted snapshot PNG or full app suite zip is named for recapture", fx: func(t *testing.T) *bmFx {
+			fx := rbNewFx(t)
+			paths := []string{"e2e/a.spec.ts-snapshots/x.png", "full-app-suite.zip", "logo.png", "shared.txt"}
+			fx.g.git(fx.repo, "checkout", "-q", "main")
+			mkdir(t, fx.repo+"/e2e/a.spec.ts-snapshots")
+			for _, f := range paths {
+				fx.g.write(fx.repo+"/"+f, "base side")
+			}
+			fx.g.git(fx.repo, "add", "-A")
+			fx.g.git(fx.repo, "commit", "-qm", "base re-baselines")
+			fx.g.git(fx.repo, "checkout", "-q", "demo")
+			mkdir(t, fx.repo+"/e2e/a.spec.ts-snapshots")
+			for _, f := range paths {
+				fx.g.write(fx.repo+"/"+f, "change side")
+			}
+			fx.g.git(fx.repo, "add", "-A")
+			fx.g.git(fx.repo, "commit", "-qm", "demo re-baselines")
+			return fx
+		}, code: 1,
+			out: "MOVED: $WT — 1 commits on main since the recorded merge base; overlaps: e2e/a.spec.ts-snapshots/x.png, full-app-suite.zip, logo.png, shared.txt\n" +
+				"CONFLICT: $WT — onto $TIP; unmerged: e2e/a.spec.ts-snapshots/x.png, full-app-suite.zip, logo.png, shared.txt\n" +
+				"RECAPTURE: e2e/a.spec.ts-snapshots/x.png\nRECAPTURE: full-app-suite.zip\n"},
 		{label: "REFUSE exits 2", fx: rbNewFx, args: func(fx *bmFx) []string { return []string{fx.repo, "main", "-"} }, code: 2,
 			out: "REFUSE: no merge base recorded for $WT — cannot tell whether the base has moved\n"},
 		{label: "a worktree that is not a directory exits 2", fx: rbNewFx, args: func(fx *bmFx) []string { return []string{fx.repo + "/missing", "main", fx.recorded} }, code: 2},

@@ -34,7 +34,11 @@
 #             1, the worktree left mid-rebase exactly as git left it and the
 #             aside still set aside — resolve in place, then --resume. The
 #             aside's stash sha (or none) is recorded in the worktree's own
-#             git dir (`git rev-parse --git-path flow-sync-aside`).
+#             git dir (`git rev-parse --git-path flow-sync-aside`). Each
+#             unmerged path that is a PNG under a `*-snapshots/` directory, or
+#             `full-app-suite.zip`, follows as `RECAPTURE: <path>`, in the
+#             CONFLICT line's order — resolved by a targeted recapture
+#             (skills/flow/sync-onto-base.md), never a stop.
 #
 # --resume runs once an in-place resolution has finished the rebase: it
 # refuses while a rebase is still in progress and unless <onto> — the sha the
