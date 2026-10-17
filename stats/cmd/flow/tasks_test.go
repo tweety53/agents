@@ -317,3 +317,28 @@ func TestTasksCountBadChangeNameExitsTwo(t *testing.T) {
 		t.Fatalf("tasks count exit = %d, want 2; stderr:\n%s", code, stderr.String())
 	}
 }
+
+// TestTasksCountTakesFlagsAfterTheChangeName: `tasks count <name> -C <dir>`
+// parses the trailing flag rather than refusing it as a second argument.
+func TestTasksCountTakesFlagsAfterTheChangeName(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	writePlan(t, repo, "spectre", "c", "- [ ] 1. First\n\n- [ ] 2. Second\n")
+
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":7,"totalTasks":2,"observedAt":"2026-09-15T12:00:00Z"}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"tasks", "count", "-addr", srv.URL, "-timeout", "500ms", "c", "-C", repo},
+		nil, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("tasks count exit = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "recorded: task-count 7 (total 2)") {
+		t.Errorf("stdout = %q", stdout.String())
+	}
+}

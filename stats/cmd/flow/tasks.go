@@ -111,19 +111,20 @@ func runTasksTick(_ context.Context, args []string, stdout, stderr io.Writer) in
 	fset := flag.NewFlagSet("flow tasks tick", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	dir := fset.String("C", "", "resolve the plan as if run from this directory (default: cwd)")
-	if err := fset.Parse(args); err != nil {
+	pos, err := parseInterspersed(fset, args)
+	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
 		fmt.Fprint(stderr, tasksUsage)
 		return 2
 	}
-	if fset.NArg() != 2 {
+	if len(pos) != 2 {
 		fmt.Fprintln(stderr, "flow: expected exactly two arguments, the change name and the task id")
 		fmt.Fprint(stderr, tasksUsage)
 		return 2
 	}
-	change, taskID := fset.Arg(0), fset.Arg(1)
+	change, taskID := pos[0], pos[1]
 
 	resolvedDir := *dir
 	if resolvedDir == "" {
@@ -179,19 +180,20 @@ func runTasksCount(ctx context.Context, args []string, stdout, stderr io.Writer)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
 	registerConnFlags(fset, &f)
-	if err := fset.Parse(args); err != nil {
+	pos, err := parseInterspersed(fset, args)
+	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
 		fmt.Fprint(stderr, tasksUsage)
 		return 2
 	}
-	if fset.NArg() != 1 {
+	if len(pos) != 1 {
 		fmt.Fprintln(stderr, "flow: expected exactly one argument, the change name")
 		fmt.Fprint(stderr, tasksUsage)
 		return 2
 	}
-	change := fset.Arg(0)
+	change := pos[0]
 
 	resolvedDir := f.dir
 	if resolvedDir == "" {

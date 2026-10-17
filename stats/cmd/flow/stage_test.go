@@ -1525,3 +1525,45 @@ func TestStageMarkJournalFallback(t *testing.T) {
 		t.Errorf("journalled marks = %v, want %s", got, want)
 	}
 }
+
+// TestStageBeginTakesFlagsAfterTheChangeName: `<name> -C <dir>` parses as
+// `flow state` already does, while a second positional is still refused.
+func TestStageBeginTakesFlagsAfterTheChangeName(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		gotBody, _ = readAll(r)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":42,"attempt":1}`))
+	}))
+	defer srv.Close()
+
+	base := []string{
+		"stage", "begin", "-addr", srv.URL, "-timeout", "500ms",
+		"-command", "/flow", "-stage", "flow.verify", "-harness", "h",
+		"-session-token", "mf-x",
+	}
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(), append(append([]string{}, base...), "demo", "-C", repo),
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	var got map[string]any
+	if err := json.Unmarshal(gotBody, &got); err != nil {
+		t.Fatalf("decode request body: %v\nbody: %s", err, gotBody)
+	}
+	if got["changeName"] != "demo" {
+		t.Errorf("changeName = %v, want demo", got["changeName"])
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = run(context.Background(), append(append([]string{}, base...), "demo", "extra", "-C", repo),
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 2 {
+		t.Errorf("two positionals exit = %d, want 2; stderr:\n%s", code, stderr.String())
+	}
+}

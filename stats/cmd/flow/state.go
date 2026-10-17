@@ -251,6 +251,24 @@ func parseStateFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (state
 	return parseStateFlagsN(fset, args, stderr, 1, "expected exactly one argument, the change name")
 }
 
+// parseInterspersed parses fset over args and returns the positionals in
+// order. Flags may follow the positionals too: the flag package stops at the
+// first one, so parse again after each. A positional is never a flag — a
+// change name, a path or a sha cannot begin with "-".
+func parseInterspersed(fset *flag.FlagSet, args []string) ([]string, error) {
+	var pos []string
+	for {
+		if err := fset.Parse(args); err != nil {
+			return nil, err
+		}
+		if fset.NArg() == 0 {
+			return pos, nil
+		}
+		pos = append(pos, fset.Arg(0))
+		args = fset.Args()[1:]
+	}
+}
+
 // parseStateFlagsN is parseStateFlags for a verb taking n positional
 // arguments, the first the change name; wrong names the refusal.
 func parseStateFlagsN(fset *flag.FlagSet, args []string, stderr io.Writer, n int, wrong string) (stateFlags, error) {
@@ -259,19 +277,9 @@ func parseStateFlagsN(fset *flag.FlagSet, args []string, stderr io.Writer, n int
 	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	registerDirFlag(fset, &f.dir)
-	// Flags may follow the positionals too: the flag package stops at the
-	// first one, so parse again after each. A positional is never a flag —
-	// a change name, a path or a sha cannot begin with "-".
-	var pos []string
-	for {
-		if err := fset.Parse(args); err != nil {
-			return stateFlags{}, err
-		}
-		if fset.NArg() == 0 {
-			break
-		}
-		pos = append(pos, fset.Arg(0))
-		args = fset.Args()[1:]
+	pos, err := parseInterspersed(fset, args)
+	if err != nil {
+		return stateFlags{}, err
 	}
 	noteAddrUsage(fset, stderr, f.addr)
 	if len(pos) != n {

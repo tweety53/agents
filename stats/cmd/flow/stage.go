@@ -119,12 +119,12 @@ func registerStageIdentityFlags(fset *flag.FlagSet, f *stageIdentityFlags) {
 	fset.StringVar(&f.jiraKey, "jira-key", "", "record against this Jira key instead of a change name -- /flow-plan's plan.session only")
 }
 
-func finishStageIdentityFlags(fset *flag.FlagSet, f *stageIdentityFlags) error {
+func finishStageIdentityFlags(fset *flag.FlagSet, pos []string, f *stageIdentityFlags) error {
 	switch {
-	case f.jiraKey != "" && fset.NArg() == 0:
+	case f.jiraKey != "" && len(pos) == 0:
 		f.name = ""
-	case f.jiraKey == "" && fset.NArg() == 1:
-		f.name = fset.Arg(0)
+	case f.jiraKey == "" && len(pos) == 1:
+		f.name = pos[0]
 	default:
 		return fmt.Errorf("expected exactly one argument, the change name, or -jira-key with no argument")
 	}
@@ -320,7 +320,8 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 	harnessFlag := fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, or \"unknown\")")
 	sessionFlag := fset.String("session", "", "the harness session id, if known; defaults to CLAUDE_CODE_SESSION_ID or MUSE_SESSION_ID when set")
 	sessionTokenFlag := fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes -- never a shell substitution -- so the daemon can later bind every stage run carrying it to the session that made it (required)")
-	if err := fset.Parse(args); err != nil {
+	pos, err := parseInterspersed(fset, args)
+	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
@@ -329,7 +330,7 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 		return 2
 	}
 	noteAddrUsage(fset, stderr, f.addr)
-	if err := finishStageIdentityFlags(fset, &f); err != nil {
+	if err := finishStageIdentityFlags(fset, pos, &f); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, stageUsage)
 		return 2
@@ -473,7 +474,8 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 	fixRounds := fset.Int("fix-rounds", -1, "metrics.fix_rounds, if this stage tracked fix rounds")
 	panelRounds := fset.Int("panel-rounds", -1, "metrics.panel_rounds, if this stage ran a review panel")
 	findings := fset.String("findings", "", "metrics.findings_by_severity, as a JSON object")
-	if err := fset.Parse(args); err != nil {
+	pos, err := parseInterspersed(fset, args)
+	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
@@ -482,7 +484,7 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 		return 2
 	}
 	noteAddrUsage(fset, stderr, f.addr)
-	if err := finishStageIdentityFlags(fset, &f); err != nil {
+	if err := finishStageIdentityFlags(fset, pos, &f); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, stageUsage)
 		return 2
@@ -681,7 +683,8 @@ func runStageWrap(ctx context.Context, args []string, stdin io.Reader, stdout, s
 	harnessFlag := fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, or \"unknown\")")
 	sessionFlag := fset.String("session", "", "the harness session id, if known; defaults to CLAUDE_CODE_SESSION_ID or MUSE_SESSION_ID when set")
 	sessionTokenFlag := fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes (required)")
-	if err := fset.Parse(args[:sep]); err != nil {
+	pos, err := parseInterspersed(fset, args[:sep])
+	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
@@ -690,7 +693,7 @@ func runStageWrap(ctx context.Context, args []string, stdin io.Reader, stdout, s
 		return 2
 	}
 	noteAddrUsage(fset, stderr, f.addr)
-	if err := finishStageIdentityFlags(fset, &f); err != nil {
+	if err := finishStageIdentityFlags(fset, pos, &f); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, stageUsage)
 		return 2
