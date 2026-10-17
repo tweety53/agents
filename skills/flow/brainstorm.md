@@ -108,6 +108,11 @@ Read `skills/flow/brainstorm-planner.md`'s sections **B**, **C** and **D** and f
 directly — `REVIEWERS` (**Model resolution**, `skills/flow/SKILL.md`) is
 already in scope from this run's own earlier resolution.
 
+**No dispatch of any kind from kickoff to the plan gate — a `fork` included.** Artifact creation,
+writing-plans, the guards and Decide all run in this session's own turns. A fork copies the whole
+conversation, so it saves no context and doubles the token spend, and the `/clear` after the gate
+discards this session's context anyway; on kan-941 one also closed `flow.writing-plans` out of order.
+
 **Prose preceding a question is shown too, not dropped.** When the checklist carries a summary
 before a question — most concretely the convergence confirm's "state what you believe settled"
 paragraph — show that prose to the operator as ordinary text before the **AskUserQuestion** call,
