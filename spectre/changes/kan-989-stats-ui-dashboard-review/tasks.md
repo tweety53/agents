@@ -214,10 +214,12 @@ Operator answers to the visual verifier's questions: extend the UI-test seed so 
   - [ ] **Step 3: Verify.** `make -C stats web-build && cd stats && gofmt -l . && go vet ./... && go test ./cmd/uitest-seed -count=1`; `cd stats/web && npx tsc -b`; `scripts/check-visual-verification.sh .`. Commit.
 
 **Build:** green
-**Files:** `stats/cmd/uitest-seed/seed.go`
+**Files:** `stats/cmd/uitest-seed/seed.go`, `stats/internal/store/records.go`, `stats/internal/store/records_test.go`
 **Allowed-collateral:** `stats/web/tests/visual/**`, `stats/cmd/uitest-seed/**`
 **Tests:** none — repairs existing tests: the visual specs under `stats/web/tests/visual/`.
 **Regression:** none — the task declares no tests
 **Baseline:** unverified: before=159 after=159
 **Commit:** test(stats): seed decisions, findings, errors and guard fires for the UI-test stack
 **After:** Task 11
+
+Correction (2026-10-17): `RecordDecision` always stamped `now()`, so seeded decisions fell outside the pinned visual period; it now keeps a non-zero caller-supplied `RecordedAt` (zero still means `now()`), covered by `TestRecordDecisionKeepsSuppliedRecordedAt` — `records.go`/`records_test.go` widened into `**Files:**`. Baselines were re-captured with `--update-snapshots=all`, since the 2% tolerance let the stale empty Reviewers baseline pass. Measured baselines: task 11 before=166 after=168, task 12 before=168 after=168 (`npx vitest run`).
