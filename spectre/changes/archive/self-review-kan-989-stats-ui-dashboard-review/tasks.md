@@ -27,9 +27,9 @@
 - A `panel-fix-<n>` row of role `panel-fix` must still be accepted (Task 3).
 - No re-captured baseline may show an empty table where its seeded view has rows (Task 5).
 
-- [ ] 1. The unfinished-work gate derives a missing range and sees skipped verification
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Add the cases of step 2 to `TestCheckUnfinishedWork` in `stats/internal/guard/check_unfinished_work_test.go` and run `cd stats && FLOW_GUARD_TELEMETRY=off go test ./internal/guard -run 'TestCheckUnfinishedWork' -count=1`: the derived-range case fails with exit 2 (`no <worktree>=<merge-base> range was passed`), the two `OUTSTANDING` verify and visual cases fail reading `CLEAR:`; the `CLEAR` cases pass.
-  - [ ] **Step 2: Write the cases.** Each fixture is `newUW` plus a real git repository at `f.wt` (as `uwCommits` builds one) whose commits touch the files named. `each(demo(…), …)` labels and assertions:
+- [x] 1. The unfinished-work gate derives a missing range and sees skipped verification
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Add the cases of step 2 to `TestCheckUnfinishedWork` in `stats/internal/guard/check_unfinished_work_test.go` and run `cd stats && FLOW_GUARD_TELEMETRY=off go test ./internal/guard -run 'TestCheckUnfinishedWork' -count=1`: the derived-range case fails with exit 2 (`no <worktree>=<merge-base> range was passed`), the two `OUTSTANDING` verify and visual cases fail reading `CLEAR:`; the `CLEAR` cases pass.
+  - [x] **Step 2: Write the cases.** Each fixture is `newUW` plus a real git repository at `f.wt` (as `uwCommits` builds one) whose commits touch the files named. `each(demo(…), …)` labels and assertions:
     - `a call with no range derives the worktree's own merge base` — `f.wt` has a bare `origin` whose `HEAD` is `main`, `origin/main` at the base commit, and one later commit `fix: the appended task` with trailer `Task-Id: 7` touching `src/a.go`; the plan's last task 7 is ticked and appended; dispatch rows name task 7 with a later `panel-1-primary` reviewer row and a pass row for round 1, and a `completed` `verify` row whose `startedAt` is after that commit; the guard runs with no range → `uwVerdict(…, "CLEAR:")`.
     - `a code commit after the last completed verify row is OUTSTANDING` — range passed; the newest commit touching `src/a.go` is authored after the only `completed` `verify` row's `startedAt` → `uwVerdict(…, "OUTSTANDING:")`.
     - `the breakdown names the code commit no verify row covers` — same scenario → `uwReason(…, "no completed inline verify row since")`.
@@ -38,8 +38,8 @@
     - `an archived change is not asked for a verify row` — the plan under `spectre/changes/archive/demo/`, a code commit after the last verify row → `uwVerdict(…, "CLEAR:")`.
     - `a ui-path commit no visual verifier saw is OUTSTANDING` — `f.wt/.flow/project.md` declares `## visual verification` with `ui paths` `src/web/`, a commit touching `src/web/App.tsx`, a later `completed` `verify` row, no `visual-verify` row → `uwVerdict(…, "OUTSTANDING:")`.
     - `the breakdown carries the visual guard's VISUAL-VERIFY-MISSING line` — same scenario → `uwReason(…, "VISUAL-VERIFY-MISSING")`.
-  - [ ] **Step 3: Implement in `stats/internal/guard/unfinishedwork.go`.** `func uwDerivedRange(env Env, worktree string) ([2]string, bool)` — `resolveBaseBranch([]string{worktree}, env, &out, io.Discard)` then `git -C <worktree> merge-base HEAD origin/<base>`; false on any failure. Called once, right after argument parsing, only when no range argument was passed; false leaves `ranges` empty (decision `uw-derive-missing-range`). The `dispatches` struct gains `StartedAt time.Time` (`json:"startedAt"`). Inside `if anchor == worktree`, after signal six: when `ranges` is non-empty and the plan dir is not under `<spec-root>/changes/archive/`, `git -C <r[0]> log --no-merges --format=%H %at <r[1]>..HEAD -- . ':(exclude)<spec-root>/changes/'` over every range gives the newest code commit; when its author time is after the newest `startedAt` among rows with role `verifier`, outcome `completed`, key `verify` or prefix `verify-` (none counts as never), append `no completed inline verify row since <short sha> — run Inline verify (skills/flow/verify-and-handoff.md) and record its row before landing` (decision `uw-verify-row-after-code`). Then, for the range whose worktree is this guard's own, run `checkVisualVerifyDispatched([]string{worktree, name, <its merge-base>, canonical}, env, &vOut, &vErr)`: rc 1 appends its stdout line, trimmed, to `reasons`; rc 2 writes its stderr behind `uwPrefix` and returns 2 (decision `uw-fold-visual-verdict`). Update the header comment of `scripts/check-unfinished-work.sh` to name the derived range, the inline-verify signal and the folded visual verdict.
-  - [ ] **Step 4: Apply the prose.**
+  - [x] **Step 3: Implement in `stats/internal/guard/unfinishedwork.go`.** `func uwDerivedRange(env Env, worktree string) ([2]string, bool)` — `resolveBaseBranch([]string{worktree}, env, &out, io.Discard)` then `git -C <worktree> merge-base HEAD origin/<base>`; false on any failure. Called once, right after argument parsing, only when no range argument was passed; false leaves `ranges` empty (decision `uw-derive-missing-range`). The `dispatches` struct gains `StartedAt time.Time` (`json:"startedAt"`). Inside `if anchor == worktree`, after signal six: when `ranges` is non-empty and the plan dir is not under `<spec-root>/changes/archive/`, `git -C <r[0]> log --no-merges --format=%H %at <r[1]>..HEAD -- . ':(exclude)<spec-root>/changes/'` over every range gives the newest code commit; when its author time is after the newest `startedAt` among rows with role `verifier`, outcome `completed`, key `verify` or prefix `verify-` (none counts as never), append `no completed inline verify row since <short sha> — run Inline verify (skills/flow/verify-and-handoff.md) and record its row before landing` (decision `uw-verify-row-after-code`). Then, for the range whose worktree is this guard's own, run `checkVisualVerifyDispatched([]string{worktree, name, <its merge-base>, canonical}, env, &vOut, &vErr)`: rc 1 appends its stdout line, trimmed, to `reasons`; rc 2 writes its stderr behind `uwPrefix` and returns 2 (decision `uw-fold-visual-verdict`). Update the header comment of `scripts/check-unfinished-work.sh` to name the derived range, the inline-verify signal and the folded visual verdict.
+  - [x] **Step 4: Apply the prose.**
 
 ````diff verified:git apply --check at 2c0befa3; with all five prose diffs applied in a scratch clone check-verbatim-moves.sh exits 0 against this change's verbatim-moves.txt
 diff --git a/skills/flow-contracts/finish-contract-run1.md b/skills/flow-contracts/finish-contract-run1.md
@@ -71,10 +71,10 @@ index b3f03676..64c97b12 100644
  **Every run then runs the visual guard on itself** — creating, resuming and fix runs alike — once
  per worktree of the resolved set, with the arguments integrate's gate passes it (**Run 1 — the
 ````
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l internal/guard && FLOW_GUARD_TELEMETRY=off go vet ./internal/guard && FLOW_GUARD_TELEMETRY=off go test ./internal/guard -run 'TestCheckUnfinishedWork|TestCheckVisualVerifyDispatched' -count=1` passes with every new case; `FLOW_GUARD_TELEMETRY=off scripts/check-verbatim-moves.sh`, `FLOW_GUARD_TELEMETRY=off scripts/check-references.sh` and `scripts/check-markdown-integrity.py` exit 0. Commit.
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l internal/guard && FLOW_GUARD_TELEMETRY=off go vet ./internal/guard && FLOW_GUARD_TELEMETRY=off go test ./internal/guard -run 'TestCheckUnfinishedWork|TestCheckVisualVerifyDispatched' -count=1` passes with every new case; `FLOW_GUARD_TELEMETRY=off scripts/check-verbatim-moves.sh`, `FLOW_GUARD_TELEMETRY=off scripts/check-references.sh` and `scripts/check-markdown-integrity.py` exit 0. Commit.
 
 **Build:** green
-**Files:** `stats/internal/guard/unfinishedwork.go`, `stats/internal/guard/check_unfinished_work_test.go`, `scripts/check-unfinished-work.sh`, `skills/flow/verify-and-handoff.md`, `skills/flow-contracts/finish-contract-run1.md`
+**Files:** `stats/internal/guard/unfinishedwork.go`, `stats/internal/guard/check_unfinished_work_test.go`, `scripts/check-unfinished-work.sh`, `skills/flow/verify-and-handoff.md`, `skills/flow-contracts/finish-contract-run1.md`, `scripts/test-integrate-change.sh`
 **Tests:** `a call with no range derives the worktree's own merge base`, `a code commit after the last completed verify row is OUTSTANDING`, `the breakdown names the code commit no verify row covers`, `a completed verify row after the last code commit is CLEAR`, `planning-only commits after the verify row are CLEAR`, `an archived change is not asked for a verify row`, `a ui-path commit no visual verifier saw is OUTSTANDING`, `the breakdown carries the visual guard's VISUAL-VERIFY-MISSING line`
 **Regression:** reverting the commit makes the first case exit 2 again, and the second, third, seventh and eighth read `CLEAR:` for a change that skipped inline or visual verification; the fourth, fifth and sixth pin that the new signals stay quiet where nothing is missing.
 **Baseline:** before=101 after=109
@@ -86,9 +86,9 @@ index b3f03676..64c97b12 100644
 **Decision:** uw-fold-visual-verdict
 **Decision:** uw-verify-row-after-code
 
-- [ ] 2. Fix-run appends pass the plan guards before their planning commit
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `git show d25bd8fb:spectre/changes/kan-989-stats-ui-dashboard-review/tasks.md > "$TMPDIR/t.md" && FLOW_GUARD_TELEMETRY=off scripts/check-plan-shape.sh "$TMPDIR/t.md"; echo $?` prints the task 11 and 12 suite hits and `1`; `grep -c 'check-plan-shape' skills/flow/document-fix.md` prints `0`.
-  - [ ] **Step 2: Apply the edit.**
+- [x] 2. Fix-run appends pass the plan guards before their planning commit
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `git show d25bd8fb:spectre/changes/kan-989-stats-ui-dashboard-review/tasks.md > "$TMPDIR/t.md" && FLOW_GUARD_TELEMETRY=off scripts/check-plan-shape.sh "$TMPDIR/t.md"; echo $?` prints the task 11 and 12 suite hits and `1`; `grep -c 'check-plan-shape' skills/flow/document-fix.md` prints `0`.
+  - [x] **Step 2: Apply the edit.**
 
 ````diff verified:git apply --check at 2c0befa3; with all five prose diffs applied in a scratch clone check-verbatim-moves.sh exits 0 against this change's verbatim-moves.txt
 diff --git a/skills/flow/document-fix.md b/skills/flow/document-fix.md
@@ -104,7 +104,7 @@ index 486fa880..6301b424 100644
 +
  Then make the fix-run planning commit over the appended plan (**Planning commits**,
 ````
-  - [ ] **Step 3: Verify.** `FLOW_GUARD_TELEMETRY=off scripts/check-verbatim-moves.sh`, `FLOW_GUARD_TELEMETRY=off scripts/check-references.sh` and `scripts/check-markdown-integrity.py` exit 0. Commit.
+  - [x] **Step 3: Verify.** `FLOW_GUARD_TELEMETRY=off scripts/check-verbatim-moves.sh`, `FLOW_GUARD_TELEMETRY=off scripts/check-references.sh` and `scripts/check-markdown-integrity.py` exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/document-fix.md`
@@ -116,11 +116,11 @@ index 486fa880..6301b424 100644
 
 **Decision:** fix-append-runs-plan-guards
 
-- [ ] 3. Dispatch begin refuses a panel key with no numeric round
-  - [ ] **Step 1: Write the failing test.** `TestRecordDispatchBeginRefusesANonNumericPanelRound` in `stats/cmd/flow/record_test.go`: `flow record dispatch begin -role reviewer -key panel-fix1-primary …` exits 2 with stderr naming `panel-<round>-<slot>` and sends nothing to the fake daemon; `-role reviewer -key panel-2-primary` and `-role panel-fix -key panel-fix-2` are accepted.
-  - [ ] **Step 2: Run it to see it fail.** `cd stats && FLOW_GUARD_TELEMETRY=off go test ./cmd/flow -run 'TestRecordDispatchBeginRefusesANonNumericPanelRound' -count=1` fails: the bad key is recorded.
-  - [ ] **Step 3: Implement.** In `runRecordDispatchBegin` (`stats/cmd/flow/record.go`), after the role check: a `reviewer` row whose key starts `panel-` and for which `records.PanelDispatchRound(records.Dispatch{Key: *key, Role: *role})` is false exits 2 with `flow: -key %q is not panel-<round>-<slot>: a reviewer's panel key carries its numeric round`.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l cmd/flow && go vet ./cmd/flow && FLOW_GUARD_TELEMETRY=off go test ./cmd/flow -run 'TestRecordDispatch' -count=1` passes. Commit.
+- [x] 3. Dispatch begin refuses a panel key with no numeric round
+  - [x] **Step 1: Write the failing test.** `TestRecordDispatchBeginRefusesANonNumericPanelRound` in `stats/cmd/flow/record_test.go`: `flow record dispatch begin -role reviewer -key panel-fix1-primary …` exits 2 with stderr naming `panel-<round>-<slot>` and sends nothing to the fake daemon; `-role reviewer -key panel-2-primary` and `-role panel-fix -key panel-fix-2` are accepted.
+  - [x] **Step 2: Run it to see it fail.** `cd stats && FLOW_GUARD_TELEMETRY=off go test ./cmd/flow -run 'TestRecordDispatchBeginRefusesANonNumericPanelRound' -count=1` fails: the bad key is recorded.
+  - [x] **Step 3: Implement.** In `runRecordDispatchBegin` (`stats/cmd/flow/record.go`), after the role check: a `reviewer` row whose key starts `panel-` and for which `records.PanelDispatchRound(records.Dispatch{Key: *key, Role: *role})` is false exits 2 with `flow: -key %q is not panel-<round>-<slot>: a reviewer's panel key carries its numeric round`.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l cmd/flow && go vet ./cmd/flow && FLOW_GUARD_TELEMETRY=off go test ./cmd/flow -run 'TestRecordDispatch' -count=1` passes. Commit.
 
 **Build:** green
 **Files:** `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`
@@ -133,14 +133,14 @@ index 486fa880..6301b424 100644
 
 **Decision:** dispatch-key-shapes
 
-- [ ] 4. Test packages turn guard telemetry off
-  - [ ] **Step 1: Write the failing test.** `TestChildEnvTurnsGuardTelemetryOff` in `stats/internal/guard/helpers_test.go`: `os.Getenv("FLOW_GUARD_TELEMETRY")` is `off`, and `exec.Command("sh", "-c", "printf %s \"$FLOW_GUARD_TELEMETRY\"")` with `Env = os.Environ()` prints `off`.
-  - [ ] **Step 2: Run it to see it fail.** `cd stats && go test ./internal/guard -run 'TestChildEnvTurnsGuardTelemetryOff' -count=1` fails reading an empty value.
-  - [ ] **Step 3: Implement.** `os.Setenv("FLOW_GUARD_TELEMETRY", "off")` as the first statement of `TestMain` in `stats/internal/guard/helpers_test.go` and in `stats/cmd/flow/journal_test.go`; add `"FLOW_GUARD_TELEMETRY=off"` to the hand-built `cmd.Env` lists in `stats/internal/guard/check_task_commit_fields_test.go`, `stats/internal/guard/mutate_and_verify_test.go` and `stats/internal/guard/runreproducer_test.go`. No stored row is deleted (decision `test-telemetry-off`).
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l internal/guard cmd/flow && go vet ./internal/guard ./cmd/flow && go test ./internal/guard -run 'TestChildEnvTurnsGuardTelemetryOff' -count=1` passes. Commit.
+- [x] 4. Test packages turn guard telemetry off
+  - [x] **Step 1: Write the failing test.** `TestChildEnvTurnsGuardTelemetryOff` in `stats/internal/guard/helpers_test.go`: `os.Getenv("FLOW_GUARD_TELEMETRY")` is `off`, and `exec.Command("sh", "-c", "printf %s \"$FLOW_GUARD_TELEMETRY\"")` with `Env = os.Environ()` prints `off`.
+  - [x] **Step 2: Run it to see it fail.** `cd stats && go test ./internal/guard -run 'TestChildEnvTurnsGuardTelemetryOff' -count=1` fails reading an empty value.
+  - [x] **Step 3: Implement.** `os.Setenv("FLOW_GUARD_TELEMETRY", "off")` as the first statement of `TestMain` in `stats/internal/guard/helpers_test.go` and in `stats/cmd/flow/journal_test.go`; add `"FLOW_GUARD_TELEMETRY=off"` to the hand-built `cmd.Env` lists in `stats/internal/guard/check_task_commit_fields_test.go`, `stats/internal/guard/mutate_and_verify_test.go` and `stats/internal/guard/runreproducer_test.go`. No stored row is deleted (decision `test-telemetry-off`).
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l internal/guard cmd/flow && go vet ./internal/guard ./cmd/flow && go test ./internal/guard -run 'TestChildEnvTurnsGuardTelemetryOff' -count=1` passes. Commit.
 
 **Build:** green
-**Files:** `stats/internal/guard/helpers_test.go`, `stats/cmd/flow/journal_test.go`, `stats/internal/guard/check_task_commit_fields_test.go`, `stats/internal/guard/mutate_and_verify_test.go`, `stats/internal/guard/runreproducer_test.go`
+**Files:** `stats/internal/guard/helpers_test.go`, `stats/cmd/flow/journal_test.go`, `stats/internal/guard/check_task_commit_fields_test.go`, `stats/internal/guard/mutate_and_verify_test.go`, `stats/internal/guard/runreproducer_test.go`, `scripts/run-guard-tests.sh`, `scripts/test-run-guard-tests.sh`
 **Tests:** `TestChildEnvTurnsGuardTelemetryOff`
 **Regression:** reverting `helpers_test.go`'s `Setenv` makes the test read an empty value, and every guard the package execs posts a `guard_runs` row to 127.0.0.1:4173 again.
 **Baseline:** before=5 after=6
@@ -150,12 +150,12 @@ index 486fa880..6301b424 100644
 
 **Decision:** test-telemetry-off
 
-- [ ] 5. The visual suite renders deterministically and compares at zero tolerance
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `cd stats && make ui-test-up` (the stack on 127.0.0.1:4174 — never 4173). Delete the `expect` block of `stats/web/playwright.config.ts` and run `cd stats/web && npm run test:visual` three times on the unchanged tree; record each run's failing screenshots and their differing-pixel counts. That is the flake's measured rate at zero tolerance.
-  - [ ] **Step 2: Pin the rendering.** Add `launchOptions: { args: ["--font-render-hinting=none", "--disable-font-subpixel-positioning", "--disable-lcd-text", "--disable-gpu", "--force-color-profile=srgb"] }` to `use` and replace the deleted block's comment with one naming the flags as the determinism pin. <!-- unverified:that Playwright 1.62.1 passes use.launchOptions.args to Chromium — confirm through Context7's @playwright/test docs before relying on it -->
-  - [ ] **Step 3: Re-capture.** `cd stats/web && npx playwright test --update-snapshots`, then Read every changed PNG under `stats/web/tests/visual/*-snapshots/`; each seeded view shows its seeded rows — `reviewers-darwin.png` and `full-reviewers-darwin.png` show slot rows, not an empty table.
-  - [ ] **Step 4: Prove the pin.** Run `npm run test:visual` three times: all pass. Remove the `args` and run it three times more: a step 1 failure reappears. Restore the `args`. If step 1 saw no failure in its three runs, drop the `args` instead — the commit carries the tolerance removal and the re-captured baselines, its body stating the measured runs and failures (decision `playwright-deterministic-zero-tolerance`).
-  - [ ] **Step 5: Verify.** `cd stats/web && npx tsc -b` exits 0 and `npm run test:visual` passes; `cd stats && make ui-test-down`. Commit, the body carrying steps 1 and 4's measured figures.
+- [x] 5. The visual suite renders deterministically and compares at zero tolerance
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `cd stats && make ui-test-up` (the stack on 127.0.0.1:4174 — never 4173). Delete the `expect` block of `stats/web/playwright.config.ts` and run `cd stats/web && npm run test:visual` three times on the unchanged tree; record each run's failing screenshots and their differing-pixel counts. That is the flake's measured rate at zero tolerance.
+  - [x] **Step 2: Pin the rendering.** Add `launchOptions: { args: ["--font-render-hinting=none", "--disable-font-subpixel-positioning", "--disable-lcd-text", "--disable-gpu", "--force-color-profile=srgb"] }` to `use` and replace the deleted block's comment with one naming the flags as the determinism pin. <!-- unverified:that Playwright 1.62.1 passes use.launchOptions.args to Chromium — confirm through Context7's @playwright/test docs before relying on it -->
+  - [x] **Step 3: Re-capture.** `cd stats/web && npx playwright test --update-snapshots`, then Read every changed PNG under `stats/web/tests/visual/*-snapshots/`; each seeded view shows its seeded rows — `reviewers-darwin.png` and `full-reviewers-darwin.png` show slot rows, not an empty table.
+  - [x] **Step 4: Prove the pin.** Run `npm run test:visual` three times: all pass. Remove the `args` and run it three times more: a step 1 failure reappears. Restore the `args`. If step 1 saw no failure in its three runs, drop the `args` instead — the commit carries the tolerance removal and the re-captured baselines, its body stating the measured runs and failures (decision `playwright-deterministic-zero-tolerance`).
+  - [x] **Step 5: Verify.** `cd stats/web && npx tsc -b` exits 0 and `npm run test:visual` passes; `cd stats && make ui-test-down`. Commit, the body carrying steps 1 and 4's measured figures.
 
 **Build:** green
 **Files:** `stats/web/playwright.config.ts`
@@ -168,11 +168,11 @@ index 486fa880..6301b424 100644
 
 **Decision:** playwright-deterministic-zero-tolerance
 
-- [ ] 6. Dispatch begin refuses an off-convention implementer key
-  - [ ] **Step 1: Write the failing test.** `TestRecordDispatchBeginRefusesAnOffConventionImplementerKey` in `stats/cmd/flow/record_test.go`: `-role implementer` with key `task-11-12` or `task-12` exits 2 with stderr naming `task-<ids>-implementer` and sends nothing; `task-12-implementer`, `task-11+12-implementer`, `task-3+4-implementer-fix-1`, `self-review-demo-fix-g1` and `pipeline-fix-7-demo-fix` are accepted.
-  - [ ] **Step 2: Run it to see it fail.** `cd stats && FLOW_GUARD_TELEMETRY=off go test ./cmd/flow -run 'TestRecordDispatchBeginRefusesAnOffConventionImplementerKey' -count=1` fails: `task-11-12` is recorded.
-  - [ ] **Step 3: Implement.** In `runRecordDispatchBegin`, beside Task 3's check: an `implementer` key matching neither `^task-[0-9]+(\+[0-9]+)*-implementer(-fix-[0-9]+)?$` nor starting `self-review-` or `pipeline-fix-` exits 2 with `flow: -key %q is not task-<ids>-implementer[-fix-<k>]: ids are +-joined`.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l cmd/flow && go vet ./cmd/flow && FLOW_GUARD_TELEMETRY=off go test ./cmd/flow -run 'TestRecordDispatch' -count=1` passes. Commit.
+- [x] 6. Dispatch begin refuses an off-convention implementer key
+  - [x] **Step 1: Write the failing test.** `TestRecordDispatchBeginRefusesAnOffConventionImplementerKey` in `stats/cmd/flow/record_test.go`: `-role implementer` with key `task-11-12` or `task-12` exits 2 with stderr naming `task-<ids>-implementer` and sends nothing; `task-12-implementer`, `task-11+12-implementer`, `task-3+4-implementer-fix-1`, `self-review-demo-fix-g1` and `pipeline-fix-7-demo-fix` are accepted.
+  - [x] **Step 2: Run it to see it fail.** `cd stats && FLOW_GUARD_TELEMETRY=off go test ./cmd/flow -run 'TestRecordDispatchBeginRefusesAnOffConventionImplementerKey' -count=1` fails: `task-11-12` is recorded.
+  - [x] **Step 3: Implement.** In `runRecordDispatchBegin`, beside Task 3's check: an `implementer` key matching neither `^task-[0-9]+(\+[0-9]+)*-implementer(-fix-[0-9]+)?$` nor starting `self-review-` or `pipeline-fix-` exits 2 with `flow: -key %q is not task-<ids>-implementer[-fix-<k>]: ids are +-joined`.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l cmd/flow && go vet ./cmd/flow && FLOW_GUARD_TELEMETRY=off go test ./cmd/flow -run 'TestRecordDispatch' -count=1` passes. Commit.
 
 **Build:** green
 **Files:** `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`
@@ -185,9 +185,9 @@ index 486fa880..6301b424 100644
 
 **Decision:** dispatch-key-shapes
 
-- [ ] 7. The in-run fix loop closes the failing verify row first
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `flow record dispatches -change kan-989-stats-ui-dashboard-review -C .` shows row 21 `verify` begun 11:56 and closed `blocked`, row 25 `verify-fix-1` begun 12:14; `grep -n 'outcome blocked' skills/flow/verify-fix-loop.md` prints nothing.
-  - [ ] **Step 2: Apply the edit.**
+- [x] 7. The in-run fix loop closes the failing verify row first
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `flow record dispatches -change kan-989-stats-ui-dashboard-review -C .` shows row 21 `verify` begun 11:56 and closed `blocked`, row 25 `verify-fix-1` begun 12:14; `grep -n 'outcome blocked' skills/flow/verify-fix-loop.md` prints nothing.
+  - [x] **Step 2: Apply the edit.**
 
 ````diff verified:git apply --check at 2c0befa3; with all five prose diffs applied in a scratch clone check-verbatim-moves.sh exits 0 against this change's verbatim-moves.txt
 diff --git a/skills/flow/verify-fix-loop.md b/skills/flow/verify-fix-loop.md
@@ -206,7 +206,7 @@ index 0ed54c72..d3433521 100644
     task exactly as a plan-time task: the decision's implementer pair, `close-task.sh` with its
     guard and its review gate. The implementer's dispatch also carries the MUTATION PROOF
 ````
-  - [ ] **Step 3: Verify.** `FLOW_GUARD_TELEMETRY=off scripts/check-verbatim-moves.sh`, `FLOW_GUARD_TELEMETRY=off scripts/check-references.sh` and `scripts/check-markdown-integrity.py` exit 0. Commit.
+  - [x] **Step 3: Verify.** `FLOW_GUARD_TELEMETRY=off scripts/check-verbatim-moves.sh`, `FLOW_GUARD_TELEMETRY=off scripts/check-references.sh` and `scripts/check-markdown-integrity.py` exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/verify-fix-loop.md`
@@ -218,9 +218,9 @@ index 0ed54c72..d3433521 100644
 
 **Decision:** loop-closes-failing-row
 
-- [ ] 8. The visual verifier reports a denied command as blocked
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'denie' skills/flow/visual-verify-verifier.md` prints nothing: the template offers `exit <n>` alone.
-  - [ ] **Step 2: Apply the edit.**
+- [x] 8. The visual verifier reports a denied command as blocked
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'denie' skills/flow/visual-verify-verifier.md` prints nothing: the template offers `exit <n>` alone.
+  - [x] **Step 2: Apply the edit.**
 
 ````diff verified:git apply --check at 2c0befa3; with all five prose diffs applied in a scratch clone check-verbatim-moves.sh exits 0 against this change's verbatim-moves.txt
 diff --git a/skills/flow/visual-verify-verifier.md b/skills/flow/visual-verify-verifier.md
@@ -239,7 +239,7 @@ index a9e27b99..4291b768 100644
  7. **Run `verify`.** When `specs` is declared, run it first from the `regression checkout`, with
     `<frontend-root>` substituted for the worktree and `<merge-base>` for its merge base — or for
 ````
-  - [ ] **Step 3: Verify.** `FLOW_GUARD_TELEMETRY=off scripts/check-verbatim-moves.sh`, `FLOW_GUARD_TELEMETRY=off scripts/check-references.sh` and `scripts/check-markdown-integrity.py` exit 0. Commit.
+  - [x] **Step 3: Verify.** `FLOW_GUARD_TELEMETRY=off scripts/check-verbatim-moves.sh`, `FLOW_GUARD_TELEMETRY=off scripts/check-references.sh` and `scripts/check-markdown-integrity.py` exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/visual-verify-verifier.md`
@@ -251,9 +251,9 @@ index a9e27b99..4291b768 100644
 
 **Decision:** denied-command-blocked
 
-- [ ] 9. Inline verify runs the lint and test lists as two concurrent groups
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `flow suite list | head -3` shows stats-go near two minutes; `scripts/project-get.sh . lint | wc -l` counts the lint list; `grep -n 'Run$' skills/flow/verify-and-handoff.md` finds the serial-list sentence.
-  - [ ] **Step 2: Apply the edit**, on top of Task 1's.
+- [x] 9. Inline verify runs the lint and test lists as two concurrent groups
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `flow suite list | head -3` shows stats-go near two minutes; `scripts/project-get.sh . lint | wc -l` counts the lint list; `grep -n 'Run$' skills/flow/verify-and-handoff.md` finds the serial-list sentence.
+  - [x] **Step 2: Apply the edit**, on top of Task 1's.
 
 ````diff verified:git apply --check at 2c0befa3 with Task 1's diff applied; with all five prose diffs applied in a scratch clone check-verbatim-moves.sh exits 0 against this change's verbatim-moves.txt
 diff --git a/skills/flow/verify-and-handoff.md b/skills/flow/verify-and-handoff.md
@@ -274,7 +274,7 @@ index 64c97b12..5048f1de 100644
  While a stack is up for this run, the test commands start only after `check-dev-stack-fresh.sh
  <worktree>` exits 0 or 2; exit 1 restarts the stack first, by the start rule of **Resolve
 ````
-  - [ ] **Step 3: Verify.** `FLOW_GUARD_TELEMETRY=off scripts/check-verbatim-moves.sh`, `FLOW_GUARD_TELEMETRY=off scripts/check-references.sh` and `scripts/check-markdown-integrity.py` exit 0. Commit.
+  - [x] **Step 3: Verify.** `FLOW_GUARD_TELEMETRY=off scripts/check-verbatim-moves.sh`, `FLOW_GUARD_TELEMETRY=off scripts/check-references.sh` and `scripts/check-markdown-integrity.py` exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/verify-and-handoff.md`
@@ -285,3 +285,5 @@ index 64c97b12..5048f1de 100644
 **After:** Task 1
 
 **Decision:** verify-two-groups
+
+Correction (2026-10-17, review 1): Task 6's implementer key also accepts a trailing `-retry` (`task-<ids>-implementer[-fix-<k>][-retry]`), the handshake-mismatch retry key `skills/flow/implement.md` prescribes. Task 1's signal seven skips commits carrying a `Flow-Key: flow.commit-two` trailer, whose author date the reshape refreshes. Task 5 found no flake in 15 zero-tolerance runs, so no launch-arg pin was added and its subject reads `test(stats): compare visual baselines at zero tolerance`.
