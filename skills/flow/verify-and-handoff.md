@@ -84,7 +84,11 @@ Export the `KEY=value` lines `prepare-workspace.sh` printed for that worktree, t
 commands, then the test commands, in the order printed, then `check-spec-reach.sh <worktree>` —
 one more command in the same list, whose exit 0 line `Spec reach: not configured` is the ordinary
 case for a project with no `regression checkout` (its header is canonical for its exit codes). Run
-every command in order and do not stop at the first failure. **Nothing runs them later** —
+every command in order and do not stop at the first failure.
+The lint commands with `check-spec-reach.sh` and the test commands run as two groups at once, each
+in the order printed, each started detached and polled to completion as step 7 of the verifier's
+steps (`skills/flow/visual-verify-verifier.md`) runs a `verify` that can outrun the shell tool's
+time limit; the `## Report` lists every command in the order printed. **Nothing runs them later** —
 `/flow`'s integrate phase has no verification gate — so a non-zero exit blocks this handoff.
 While a stack is up for this run, the test commands start only after `check-dev-stack-fresh.sh
 <worktree>` exits 0 or 2; exit 1 restarts the stack first, by the start rule of **Resolve
