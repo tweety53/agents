@@ -20,6 +20,10 @@ the design.
 - **A ticket that names a practice or a brief resolves it through the lessons home** (**Process
   lessons**, `skills/flow-contracts/lessons.md`) — never by searching repositories or archived
   narratives for it.
+- **Display-only formatting is decided, never asked.** A choice that changes only how a value is
+  shown — numeric precision, an empty-cell placeholder, and the like — and that the request, ticket
+  or mockup leaves open is chosen by you and recorded under `## Decisions`; no question is asked
+  for it. A mockup or ticket that states it still governs.
 
 - Save the design to `<project>-worktrees/<name>/.superpowers/sdd/YYYY-MM-DD-<name>-design.md` — the
   worktree `flow.kickoff` created (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The
@@ -562,7 +566,7 @@ assigns — the implementer, the fixer, each panel dispatch, the rerun pair, eac
   performance-sensitive code — `opus`, always;
 - **every other pass-1 panel dispatch** — `opus`, always;
 - **the extra dispatch** — its rolled pair, `sonnet` or `opus` at `low`: the one pass-1 panel dispatch that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`, kan-959);
-- **every gated per-task reviewer bundle** — `opus`, always, at its group's effort, or `high` where its group carries a hard seam, the group's `reason` naming the seam; it is a first-pass review too (`skills/flow/implement.md`);
+- **every gated per-task reviewer bundle** — `opus`, always, at the panel roll's effort, `high` only as the paragraph below allows; it is a first-pass review too (`skills/flow/implement.md`);
 - **the rerun pair** — `opus` or `sonnet`; nothing requires it to differ from a pass-1 dispatch.
 
 A micro decision records no pair, and a dispatch with no recorded pair — a micro panel,
@@ -577,11 +581,14 @@ the roll: a hard seam takes `medium`. The one `high` fix is the no-progress esca
 operator actions** (`skills/flow-contracts/pipeline.md`), a dispatch no decision records. `flow
 record decision` refuses a decision whose implementer, fixer or group pair names `high`. **When
 `effort_roll < 90`, the implementer, the fixer and every implementer group take `low` — `medium` where
-the pair carries a hard seam — and every other `effort` is
-`medium`**, save a panel dispatch carrying a hard seam, which may take `high`, its `reason` naming the seam.
-When `effort_roll ≥ 90`, every other `effort` is the
-planner's own choice, one of `low`/`medium`/`high` — `low`/`medium` for an implementer, fixer or
-group — decided from what that dispatch will actually
+the pair carries a hard seam.** **Every pass-1 panel dispatch and every gated per-task reviewer
+bundle takes `low` when `effort_roll < 60` and `medium` otherwise, whatever the band** — 60/40 per
+change. **`high` reaches one of them only two ways:** the operator's explicit **Yes** at the plan
+gate (**Plan review gate** below), or a fix run's re-Decide when the fix instructions report that
+an earlier, lower-effort attempt failed to solve the same issue, the pair's `reason` naming that
+attempt.
+When `effort_roll ≥ 90`, the implementer, fixer and group efforts are the planner's own choice,
+one of `low`/`medium` — decided from what that dispatch will actually
 do: the complexity of its tasks, the time and space
 complexity of the code it writes or reviews, and the scalability the change has to hold up under.
 A mechanical, well-specified dispatch sits at the cheap end; a dispatch carrying a concurrency
@@ -648,7 +655,16 @@ commit fields. Then the `## Decision` block, verbatim, under it.
 
 Then the question — `/flow-plan`'s wording is **Push artifacts?**, `/flow`'s is **Proceed to
 implementation?** — with exactly two options: **Yes** *(recommended)* and **No (plan needs
-updates)**. On **No**,
+updates)**.
+
+**A dispatch the planner judges worth `high`** — a hard seam the roll's effort may not carry —
+adds one question per such dispatch to the same AskUserQuestion call: **Raise `<dispatch>` to
+`high` — `<seam>`?**, **No** *(default, recommended)* / **Yes**. Only an explicit **Yes**
+re-records that pair at `high` through the `flow.decide` record sequence before implementation;
+anything else leaves the roll's effort. Under the `## decisions: recommended` mode the question is
+not asked and **No** is taken.
+
+On **No**,
 take the operator's changes (a follow-up **AskUserQuestion** round when the option carried none),
 revise `tasks.md`, re-run `spectre validate "<name>"`, `check-plan-shape.sh` and the project's configured guards, re-run the
 Decide step from `plan-class.sh` on — in `/flow`, the `flow.decide` record sequence again, a second
