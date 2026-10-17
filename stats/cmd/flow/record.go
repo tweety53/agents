@@ -1031,6 +1031,10 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		fmt.Fprintf(stderr, "flow: -role %q is not one of: %s\n", *role, strings.Join(recordRoles, ", "))
 		return 2
 	}
+	if _, ok := records.PanelDispatchRound(records.Dispatch{Key: *key, Role: *role}); *role == "reviewer" && strings.HasPrefix(*key, "panel-") && !ok {
+		fmt.Fprintf(stderr, "flow: -key %q is not panel-<round>-<slot>: a reviewer's panel key carries its numeric round\n", *key)
+		return 2
+	}
 	if !slices.Contains(recordEfforts, *effort) {
 		fmt.Fprintf(stderr, "flow: -effort %q is not one of: %s -- an effort the session does not state is recorded as default, never guessed\n", *effort, strings.Join(recordEfforts, ", "))
 		return 2

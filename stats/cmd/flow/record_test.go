@@ -687,7 +687,7 @@ func TestRecordWithNoSubcommandPrintsUsage(t *testing.T) {
 func TestRecordDispatchSendsAgentIDOnlyWhenGiven(t *testing.T) {
 	dispatchArgs := func(repo, addr string, extra ...string) []string {
 		args := []string{"record", "dispatch", "begin", "-effort", "default", "-addr", addr, "-timeout", "500ms", "-C", repo,
-			"-change", "kan-258", "-role", "reviewer", "-model", "sonnet", "-key", "panel-primary",
+			"-change", "kan-258", "-role", "reviewer", "-model", "sonnet", "-key", "panel-1-primary",
 			"-session-token", "mf-record-agent-id"}
 		return append(args, extra...)
 	}
@@ -768,7 +768,7 @@ func dispatchBeginBody(t *testing.T, extra ...string) map[string]any {
 	defer srv.Close()
 
 	args := []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-		"-change", "kan-327", "-role", "reviewer", "-model", "sonnet", "-key", "panel-principles",
+		"-change", "kan-327", "-role", "reviewer", "-model", "sonnet", "-key", "panel-1-principles",
 		"-session-token", "mf-record-diff-base"}
 
 	var stdout, stderr bytes.Buffer
@@ -834,7 +834,7 @@ func TestRecordDispatchBeginDiffBaseIsOptional(t *testing.T) {
 func TestDispatchEndAcceptsAgentID(t *testing.T) {
 	endArgs := func(repo, addr string, extra ...string) []string {
 		args := []string{"record", "dispatch", "end", "-addr", addr, "-timeout", "500ms", "-C", repo,
-			"-change", "kan-258", "-key", "panel-primary", "-session-token", "mf-record-end-agent-id"}
+			"-change", "kan-258", "-key", "panel-1-primary", "-session-token", "mf-record-end-agent-id"}
 		return append(args, extra...)
 	}
 
@@ -5037,7 +5037,7 @@ func TestRecordDispatchBackfillInstants(t *testing.T) {
 	}))
 	defer srv.Close()
 	endArgs := []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-		"-change", "kan-258", "-key", "panel-primary", "-session-token", "mf-record-backfill"}
+		"-change", "kan-258", "-key", "panel-1-primary", "-session-token", "mf-record-backfill"}
 	var stdout, stderr bytes.Buffer
 	if code := run(context.Background(), append(endArgs, "-ended-at", end), strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("end exit = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -5079,7 +5079,7 @@ func TestRecordDispatchBeginRequiresEffort(t *testing.T) {
 
 	args := []string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 		"-change", "kan-258", "-role", "implementer", "-model", "opus",
-		"-key", "k1", "-session-token", "mf-record-requires-effort"}
+		"-key", "task-1-implementer", "-session-token", "mf-record-requires-effort"}
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 {
@@ -5235,5 +5235,49 @@ func TestRecordDispatchRefusesAnAbbreviatedCommit(t *testing.T) {
 	code, _, stderr, _, _ = causeEndRun(t, "-commit", "99153ab4"+strings.Repeat("0", 32))
 	if code != 0 {
 		t.Errorf("full sha exit = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+}
+
+// dispatchBeginKey runs `flow record dispatch begin` with the given role and
+// key against a fake daemon and reports the exit code, stderr, and whether
+// the daemon was contacted.
+func dispatchBeginKey(t *testing.T, role, key string) (int, string, bool) {
+	t.Helper()
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	contacted := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		contacted = true
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
+	}))
+	defer srv.Close()
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", role, "-model", "opus", "-key", key,
+			"-session-token", "mf-record-key-shape"},
+		strings.NewReader(""), &stdout, &stderr)
+	return code, stderr.String(), contacted
+}
+
+// TestRecordDispatchBeginRefusesANonNumericPanelRound pins that a reviewer's
+// panel key carries its numeric round: a key PanelDispatchRound cannot read
+// would drop the row out of every panel-round signal.
+func TestRecordDispatchBeginRefusesANonNumericPanelRound(t *testing.T) {
+	code, stderr, contacted := dispatchBeginKey(t, "reviewer", "panel-fix1-primary")
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr)
+	}
+	if !strings.Contains(stderr, "panel-<round>-<slot>") {
+		t.Errorf("stderr does not name panel-<round>-<slot>:\n%s", stderr)
+	}
+	if contacted {
+		t.Error("a refused key was sent to the daemon")
+	}
+	for _, ok := range [][2]string{{"reviewer", "panel-2-primary"}, {"panel-fix", "panel-fix-2"}} {
+		if code, stderr, _ := dispatchBeginKey(t, ok[0], ok[1]); code != 0 {
+			t.Errorf("-role %s -key %s: exit %d, want 0; stderr:\n%s", ok[0], ok[1], code, stderr)
+		}
 	}
 }
