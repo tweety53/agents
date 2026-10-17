@@ -37,13 +37,8 @@ export default defineConfig({
   },
   reporter: [["list"]],
   timeout: 60_000,
-  // A handful of pixels differ run-to-run from font antialiasing/subpixel
-  // rendering even on an unchanged screen -- tolerate a small ratio of the
-  // frame so the baseline doesn't flake, while still catching real drift.
-  // A fixed maxDiffPixels: 40 proved too tight for this machine's font
-  // rendering (~1% of the 1280x1024 frame, i.e. low thousands of pixels);
-  // maxDiffPixelRatio scales with the frame instead of being a bare count.
-  expect: {
-    toHaveScreenshot: { maxDiffPixelRatio: 0.02 },
-  },
+  // No `expect` tolerance: screenshots compare at Playwright's default of
+  // zero differing pixels. Three runs on an unchanged tree all passed at
+  // zero, so no rendering pin is needed; a future flake is fixed at its
+  // source, never by widening a tolerance.
 });
