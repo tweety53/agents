@@ -532,6 +532,7 @@ mkdir -p "$PARENT/tmp"
 cat > "$FIXTURE/test-which.sh" <<'EOF'
 #!/usr/bin/env bash
 printf '%s' "${FLOW_GUARD_CACHE_DIR:-}" > "$(dirname "$0")/../which.out"
+printf '%s' "${FLOW_GUARD_TELEMETRY:-}" > "$(dirname "$0")/../telemetry.out"
 EOF
 chmod +x "$FIXTURE/test-which.sh"
 set +e
@@ -539,10 +540,16 @@ OUT="$(TMPDIR="$PARENT/tmp" RUN_GUARD_TESTS_ROOT="$FIXTURE" bash "$RUNNER" 2>&1)
 RC=$?
 set -e
 WHICH="$(cat "$PARENT/which.out" 2>/dev/null || printf '')"
+TELEMETRY="$(cat "$PARENT/telemetry.out" 2>/dev/null || printf '')"
 if [ "$RC" -eq 0 ] && [[ "$WHICH" == "$PARENT/tmp/"* ]]; then
   pass "case 10: harnesses build flow-guard into the runner's temp directory, never the real cache"
 else
   fail "case 10: expected exit 0 and FLOW_GUARD_CACHE_DIR under $PARENT/tmp, got $RC, FLOW_GUARD_CACHE_DIR=$WHICH — out=$OUT"
+fi
+if [ "$TELEMETRY" = "off" ]; then
+  pass "case 10: harnesses run with FLOW_GUARD_TELEMETRY=off, never posting guard rows to the dev store"
+else
+  fail "case 10: expected FLOW_GUARD_TELEMETRY=off in a harness, got '$TELEMETRY'"
 fi
 rm -rf "$PARENT"
 

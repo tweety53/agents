@@ -40,6 +40,7 @@ var execFixtures struct {
 }
 
 func TestMain(m *testing.M) {
+	os.Setenv("FLOW_GUARD_TELEMETRY", "off")
 	// A test binary started with SIGINT or SIGHUP ignored -- a `&` job of a
 	// non-interactive shell, or nohup -- hands that ignore to every child it
 	// execs, so the signal tests watch a child that cannot die of the signal.
@@ -606,4 +607,21 @@ func hermeticGitLookup(k string) (string, bool) {
 		return "/dev/null", true
 	}
 	return os.LookupEnv(k)
+}
+
+// TestChildEnvTurnsGuardTelemetryOff pins TestMain's telemetry switch: no
+// guard this package execs posts a guard_runs row to the dev store.
+func TestChildEnvTurnsGuardTelemetryOff(t *testing.T) {
+	if got := os.Getenv("FLOW_GUARD_TELEMETRY"); got != "off" {
+		t.Fatalf("FLOW_GUARD_TELEMETRY = %q, want off", got)
+	}
+	cmd := exec.Command("sh", "-c", "printf %s \"$FLOW_GUARD_TELEMETRY\"")
+	cmd.Env = os.Environ()
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(out) != "off" {
+		t.Fatalf("child FLOW_GUARD_TELEMETRY = %q, want off", out)
+	}
 }

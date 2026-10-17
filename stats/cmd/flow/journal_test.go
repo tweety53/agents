@@ -14,7 +14,10 @@ import (
 )
 
 // TestMain drops the package's template database once every test has run.
-func TestMain(m *testing.M) { os.Exit(storetest.Main(m)) }
+func TestMain(m *testing.M) {
+	os.Setenv("FLOW_GUARD_TELEMETRY", "off")
+	os.Exit(storetest.Main(m))
+}
 
 // newTestStoreDSN returns the DSN of a throwaway, migrated database -- a
 // copy of the package's one migrated template (internal/storetest) --

@@ -2079,7 +2079,7 @@ func TestCheckTaskCommitFields(t *testing.T) {
 		// empty build cache so nothing is already built.
 		{"case 56", func(t *testing.T) {
 			cmd := exec.Command("/bin/bash", tcfScriptsDir(t)+"/check-task-commit-fields.sh", "wt", "1", "sha")
-			cmd.Env = []string{"PATH=/usr/bin:/bin", "FLOW_GUARD_CACHE_DIR=" + t.TempDir()}
+			cmd.Env = []string{"PATH=/usr/bin:/bin", "FLOW_GUARD_TELEMETRY=off", "FLOW_GUARD_CACHE_DIR=" + t.TempDir()}
 			out, err := cmd.CombinedOutput()
 			if cmd.ProcessState == nil {
 				t.Fatal(err)

@@ -360,7 +360,7 @@ else:
 			t.Fatal(err)
 		}
 		cmd := exec.Command(shim, wt, "scripts/ok.sh")
-		cmd.Env = []string{"PATH=/usr/bin:/bin", "TMPDIR=" + t.TempDir(), "FLOW_GUARD_CACHE_DIR=" + t.TempDir()}
+		cmd.Env = []string{"PATH=/usr/bin:/bin", "FLOW_GUARD_TELEMETRY=off", "TMPDIR=" + t.TempDir(), "FLOW_GUARD_CACHE_DIR=" + t.TempDir()}
 		out, err := cmd.CombinedOutput()
 		var ee *exec.ExitError
 		if !errors.As(err, &ee) {

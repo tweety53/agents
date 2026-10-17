@@ -176,6 +176,9 @@ fi
 TIME_DIR="$(mktemp -d "${TMPDIR:-/tmp}/run-guard-tests-time.XXXXXX")"
 
 export FLOW_GUARD_CACHE_DIR="$TIME_DIR/flow-guard-cache"
+# Harnesses exec flow-guard from inside this repository; off keeps them from
+# posting guard telemetry rows to the dev store.
+export FLOW_GUARD_TELEMETRY=off
 
 if [ -n "$WATCHED" ]; then
   if git -C "$WATCHED" status --porcelain --untracked-files=normal > "$TIME_DIR/before.status" 2>/dev/null; then

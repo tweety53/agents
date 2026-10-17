@@ -504,7 +504,7 @@ func TestMutateAndVerify(t *testing.T) {
 		// fields' case 56.
 		{"shim without go", func(t *testing.T) {
 			cmd := exec.Command("/bin/bash", tcfScriptsDir(t)+"/mutate-and-verify.sh", "p", "h")
-			cmd.Env = []string{"PATH=/usr/bin:/bin", "FLOW_GUARD_CACHE_DIR=" + t.TempDir()}
+			cmd.Env = []string{"PATH=/usr/bin:/bin", "FLOW_GUARD_TELEMETRY=off", "FLOW_GUARD_CACHE_DIR=" + t.TempDir()}
 			out, err := cmd.CombinedOutput()
 			if cmd.ProcessState == nil {
 				t.Fatal(err)
