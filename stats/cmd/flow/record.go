@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -53,6 +54,10 @@ import (
 // comment, the usage text's -role line and the served printing are one
 // place, and the store's rows are the only other copy.
 var recordRoles = []string{"implementer", "reviewer", "panel-fix", "red-partner", "planner", "conductor", "verifier"}
+
+// locationLineRe is what a non-empty finding -location must carry: a line
+// number after a colon (path:12, path:12-20).
+var locationLineRe = regexp.MustCompile(`:[0-9]+`)
 
 // recordEfforts is the closed set `-effort` accepts: the three efforts a flow
 // dispatch can carry, plus `default` -- the literal that means no effort was
@@ -1403,6 +1408,10 @@ func runRecordFinding(ctx context.Context, args []string, stdout, stderr io.Writ
 		[2]string{"-status", *status},
 		[2]string{"-note", *note},
 	) {
+		return 2
+	}
+	if *location != "" && !locationLineRe.MatchString(*location) {
+		fmt.Fprintf(stderr, "flow: -location %q must name a file:line (e.g. stats/cmd/flow/record.go:1360)\n", *location)
 		return 2
 	}
 	for _, r := range [][2]string{{"-ref", *ref}, {"-supersedes", *supersedes}, {"-regression-of", *regressionOf}} {

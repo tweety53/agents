@@ -5091,3 +5091,50 @@ func TestRecordDispatchBeginRequiresEffort(t *testing.T) {
 		t.Fatalf("explicit -effort default exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
 }
+
+// TestRecordFindingRefusesALocationWithNoLine pins that a non-empty
+// -location naming no line is refused before the store is contacted, while
+// a path:line range and an omitted -location are both accepted.
+func TestRecordFindingRefusesALocationWithNoLine(t *testing.T) {
+	cases := []struct {
+		name     string
+		location []string
+		want     int
+	}{
+		{"prose", []string{"-location", "EditorScreen delete confirm"}, 2},
+		{"range", []string{"-location", "stats/cmd/flow/record.go:12-20"}, 0},
+		{"omitted", nil, 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := recordRepo(t, "kan-258")
+			isolatedStateRoot(t)
+
+			contacted := false
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+				contacted = true
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(`{"ref":"F1","round":0,"slot":"principles","severity":"major","note":"n","status":"open"}`))
+			}))
+			defer srv.Close()
+
+			args := append([]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
+				"-severity", "major", "-status", "open", "-reproducer", "scripts/x.sh",
+				"-note", "the note"}, tc.location...)
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+			if code != tc.want {
+				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.want, stderr.String())
+			}
+			if tc.want == 2 {
+				if !strings.Contains(stderr.String(), "file:line") {
+					t.Errorf("stderr does not name file:line:\n%s", stderr.String())
+				}
+				if contacted {
+					t.Error("the store was contacted for a -location naming no line")
+				}
+			}
+		})
+	}
+}
