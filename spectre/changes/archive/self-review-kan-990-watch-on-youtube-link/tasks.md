@@ -24,9 +24,9 @@
 - `commit` must default the subject only when none was passed — a subject the parent passes for the canonical worktree still wins (Task 2).
 - No `-<worktree basename>` key suffix may survive in `skills/` or `scripts/` (Task 3).
 
-- [ ] 1. gymie includes the regression suite for any ui paths change
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** From `/Users/tweety53/Projects/gymie-worktrees/kan-990-watch-on-youtube-link`, run `grep -n 'Regression suite' .flow/project.md` and confirm the row's Notes name no `ui paths` — the defect: a UI change that re-baselines captures gets no playwright worktree.
-  - [ ] **Step 2: Apply the edit.** From `/Users/tweety53/Projects/gymie-worktrees/kan-990-watch-on-youtube-link`, apply this diff:
+- [x] 1. gymie includes the regression suite for any ui paths change
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** From `/Users/tweety53/Projects/gymie-worktrees/kan-990-watch-on-youtube-link`, run `grep -n 'Regression suite' .flow/project.md` and confirm the row's Notes name no `ui paths` — the defect: a UI change that re-baselines captures gets no playwright worktree.
+  - [x] **Step 2: Apply the edit.** From `/Users/tweety53/Projects/gymie-worktrees/kan-990-watch-on-youtube-link`, apply this diff:
 
 ````diff verified:git apply --check in the gymie worktree at 909ade0d
 diff --git a/.flow/project.md b/.flow/project.md
@@ -44,7 +44,7 @@ index f2f787cf..bd46089e 100644
  gets its own database, cache index, bucket and block of application ports automatically — see
 ````
 
-  - [ ] **Step 3: Verify.** From the same worktree, `git diff --cached --stat` shows `.flow/project.md` alone and `grep -c 'ui paths. path — .capture. re-baselines' .flow/project.md` prints `1`. Commit there.
+  - [x] **Step 3: Verify.** From the same worktree, `git diff --cached --stat` shows `.flow/project.md` alone and `grep -c 'ui paths. path — .capture. re-baselines' .flow/project.md` prints `1`. Commit there.
 
 **Build:** green
 **Files:** `.flow/project.md` (gymie repository, worktree `/Users/tweety53/Projects/gymie-worktrees/kan-990-watch-on-youtube-link`)
@@ -55,9 +55,9 @@ index f2f787cf..bd46089e 100644
 
 **Decision:** regression-row-names-ui-paths
 
-- [ ] 2. A link.md-only canonical worktree lands as the merge-order commit
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Apply the test hunks alone (`git apply --include='scripts/test-integrate-change.sh' <the diff in step 2>`) and run `bash scripts/test-integrate-change.sh`: it prints `162 passed, 3 failed`, the FAILs `link_only_canon: prepare's NEXT asks a subject for b and none for a`, `link_only_canon: commit with no subject for a exits 0` and `link_only_canon: a's link.md lands in a commit subjected chore(spectre): merge order`.
-  - [ ] **Step 2: Implement the fix.** Apply the rest of this diff (`git apply --exclude='scripts/test-integrate-change.sh' <the diff>`):
+- [x] 2. A link.md-only canonical worktree lands as the merge-order commit
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Apply the test hunks alone (`git apply --include='scripts/test-integrate-change.sh' <the diff in step 2>`) and run `bash scripts/test-integrate-change.sh`: it prints `162 passed, 3 failed`, the FAILs `link_only_canon: prepare's NEXT asks a subject for b and none for a`, `link_only_canon: commit with no subject for a exits 0` and `link_only_canon: a's link.md lands in a commit subjected chore(spectre): merge order`.
+  - [x] **Step 2: Implement the fix.** Apply the rest of this diff (`git apply --exclude='scripts/test-integrate-change.sh' <the diff>`):
 
 ````diff verified:git apply --check at 04a3a161; with it applied scripts/test-integrate-change.sh prints 165 passed, 0 failed; with integrate-change.sh reverted 162 passed, 3 failed
 diff --git a/scripts/integrate-change.sh b/scripts/integrate-change.sh
@@ -194,7 +194,7 @@ index 82f92fef..9958547d 100644
  its own `chore(spectre): plan <name>` subject. An archived change without new work takes no subject: its `NEXT:` names
 ````
 
-  - [ ] **Step 3: Verify.** `bash scripts/test-integrate-change.sh` prints `0 failed`; from the repository root `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` and `scripts/check-installed-citations.sh` exit 0. Commit.
+  - [x] **Step 3: Verify.** `bash scripts/test-integrate-change.sh` prints `0 failed`; from the repository root `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` and `scripts/check-installed-citations.sh` exit 0. Commit.
 
 **Build:** green
 **Files:** `scripts/integrate-change.sh`, `scripts/test-integrate-change.sh`, `skills/flow-contracts/finish-contract-run1.md`, `skills/flow/integrate.md`
@@ -207,9 +207,9 @@ index 82f92fef..9958547d 100644
 
 **Decision:** link-only-canon-merge-order-subject
 
-- [ ] 3. Suffix verifier keys with the repository name
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -rn 'worktree basename\|worktree-basename' skills/flow scripts` and confirm the hits in `visual-verify.md`, `verify-and-handoff.md`, `verify-fix-loop.md`, `visual-verify-tooling-analysis.md`, `check-verify-green.sh` and `check-visual-verify-dispatched.sh` — the defect: every worktree's basename is the change name, so the suffix tells none apart.
-  - [ ] **Step 2: Apply the edit.** Apply this diff:
+- [x] 3. Suffix verifier keys with the repository name
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -rn 'worktree basename\|worktree-basename' skills/flow scripts` and confirm the hits in `visual-verify.md`, `verify-and-handoff.md`, `verify-fix-loop.md`, `visual-verify-tooling-analysis.md`, `check-verify-green.sh` and `check-visual-verify-dispatched.sh` — the defect: every worktree's basename is the change name, so the suffix tells none apart.
+  - [x] **Step 2: Apply the edit.** Apply this diff:
 
 ````diff verified:git apply --check at 04a3a161; with it and Task 2's diff applied check-references, check-markdown-integrity, check-dispatch-paragraphs, check-installed-citations, check-ask-silence and check-normative-inventory exit 0 and check-verbatim-moves reports 0 violations
 diff --git a/scripts/check-verify-green.sh b/scripts/check-verify-green.sh
@@ -326,7 +326,7 @@ index 05e4bb15..b22db43a 100644
  From the second report on, a non-zero exit whose block cause is `test-failure` or
 ````
 
-  - [ ] **Step 3: Verify.** `grep -rn 'worktree basename\|worktree-basename' skills/flow scripts` prints nothing; from the repository root `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` and `scripts/check-installed-citations.sh` exit 0. Commit.
+  - [x] **Step 3: Verify.** `grep -rn 'worktree basename\|worktree-basename' skills/flow scripts` prints nothing; from the repository root `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` and `scripts/check-installed-citations.sh` exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/visual-verify.md`, `skills/flow/verify-and-handoff.md`, `skills/flow/verify-fix-loop.md`, `skills/flow/visual-verify-tooling-analysis.md`, `scripts/check-verify-green.sh`, `scripts/check-visual-verify-dispatched.sh`
