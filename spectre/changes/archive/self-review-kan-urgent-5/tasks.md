@@ -26,9 +26,9 @@
 - A fresh worktree's first `## test` or `## lint` line that compiles `stats/internal/web` must build the SPA, and a worktree that already has it must not rebuild (Task 4).
 
 
-- [ ] 1. Judge a protected write path after its symlinks resolve
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to `scripts/test-protect-main-checkout.sh` alone (`git apply --include='scripts/test-protect-main-checkout.sh' <the saved diff>`) and run `bash scripts/test-protect-main-checkout.sh`: case 102 fails `wanted deny, got allow` — the defect. Keep the applied hunk; Step 2 applies the rest with `git apply --exclude='scripts/test-protect-main-checkout.sh' <the saved diff>`.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 1. Judge a protected write path after its symlinks resolve
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to `scripts/test-protect-main-checkout.sh` alone (`git apply --include='scripts/test-protect-main-checkout.sh' <the saved diff>`) and run `bash scripts/test-protect-main-checkout.sh`: case 102 fails `wanted deny, got allow` — the defect. Keep the applied hunk; Step 2 applies the rest with `git apply --exclude='scripts/test-protect-main-checkout.sh' <the saved diff>`.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at ebc10e49; with it applied scripts/test-protect-main-checkout.sh prints all protect-main-checkout cases pass, and with the hook hunk reverted case 102 fails
 diff --git a/hooks/protect-main-checkout.py b/hooks/protect-main-checkout.py
@@ -72,7 +72,7 @@ index 114b7510..0a77aa55 100755
  git_q -C "$MAIN" checkout -q -b feature
 ````
 
-  - [ ] **Step 3: Verify.** `bash scripts/test-protect-main-checkout.sh` prints `all protect-main-checkout cases pass`; `scripts/check-python-suppressions.sh` exits 0. Commit.
+  - [x] **Step 3: Verify.** `bash scripts/test-protect-main-checkout.sh` prints `all protect-main-checkout cases pass`; `scripts/check-python-suppressions.sh` exits 0. Commit.
 
 **Build:** green
 **Files:** `hooks/protect-main-checkout.py`, `scripts/test-protect-main-checkout.sh`
@@ -85,9 +85,9 @@ index 114b7510..0a77aa55 100755
 
 **Decision:** protect-realpath
 
-- [ ] 2. Let a cross-repo task's commits each name their repository's scope
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to the test file alone (`git apply --include='stats/internal/guard/check_task_commit_fields_test.go' <the saved diff>`) and run `cd stats && go test ./internal/guard/ -run 'TestCheckTaskCommitFields/case_158' -count=1`: `case 158: a cross-repo task's second commit may name its own scope` fails — the defect. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='stats/internal/guard/check_task_commit_fields_test.go' <the saved diff>`.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 2. Let a cross-repo task's commits each name their repository's scope
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to the test file alone (`git apply --include='stats/internal/guard/check_task_commit_fields_test.go' <the saved diff>`) and run `cd stats && go test ./internal/guard/ -run 'TestCheckTaskCommitFields/case_158' -count=1`: `case 158: a cross-repo task's second commit may name its own scope` fails — the defect. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='stats/internal/guard/check_task_commit_fields_test.go' <the saved diff>`.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at ebc10e49 after Task 1; with it applied go test ./internal/guard/ passes, and with taskcommitfields.go reverted case 158 fails
 diff --git a/scripts/check-task-commit-fields.sh b/scripts/check-task-commit-fields.sh
@@ -236,7 +236,7 @@ index ad72e2a7..6872ab44 100644
  //
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckTaskCommitFields|TestCloseTask' -count=1` passes with `gofmt -l .` printing nothing. Commit.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckTaskCommitFields|TestCloseTask' -count=1` passes with `gofmt -l .` printing nothing. Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/taskcommitfields.go`, `stats/internal/guard/check_task_commit_fields_test.go`, `scripts/check-task-commit-fields.sh`
@@ -249,9 +249,9 @@ index ad72e2a7..6872ab44 100644
 
 **Decision:** subject-scope-per-repository
 
-- [ ] 3. Judge a task over every commit carrying its Task-Id trailer
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to the test file alone (`git apply --include='stats/internal/guard/check_task_commit_fields_test.go' <the saved diff>`) and run `cd stats && go test ./internal/guard/ -run 'TestCheckTaskCommitFields/case_159' -count=1`: case 159 fails naming `alpha.txt is declared in Files: but the commit does not touch it` — the defect. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='stats/internal/guard/check_task_commit_fields_test.go' <the saved diff>`.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 3. Judge a task over every commit carrying its Task-Id trailer
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to the test file alone (`git apply --include='stats/internal/guard/check_task_commit_fields_test.go' <the saved diff>`) and run `cd stats && go test ./internal/guard/ -run 'TestCheckTaskCommitFields/case_159' -count=1`: case 159 fails naming `alpha.txt is declared in Files: but the commit does not touch it` — the defect. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='stats/internal/guard/check_task_commit_fields_test.go' <the saved diff>`.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at ebc10e49 after Tasks 1-2; with it applied go test ./internal/guard/ passes, with taskcommitfields.go at Task 2's state case 159 fails, and with the merge-base bound removed case 159 fails naming gamma.txt
 diff --git a/scripts/check-task-commit-fields.sh b/scripts/check-task-commit-fields.sh
@@ -399,7 +399,7 @@ index 6872ab44..f377039d 100644
  // `fix(group)` on a commit touching only gymie-playwright's
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckTaskCommitFields|TestCloseTask' -count=1` passes with `gofmt -l .` printing nothing. Commit.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckTaskCommitFields|TestCloseTask' -count=1` passes with `gofmt -l .` printing nothing. Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/taskcommitfields.go`, `stats/internal/guard/check_task_commit_fields_test.go`, `scripts/check-task-commit-fields.sh`
@@ -412,9 +412,9 @@ index 6872ab44..f377039d 100644
 
 **Decision:** task-id-commit-union
 
-- [ ] 4. Build the SPA only when a test or lint line needs it
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to `scripts/test-make-build.sh` alone (`git apply --include='scripts/test-make-build.sh' <the saved diff>`) and run `bash scripts/test-make-build.sh`: `web-dist builds the SPA only when it is absent` fails — the defect. Keep the applied hunk; Step 2 applies the rest with `git apply --exclude='scripts/test-make-build.sh' <the saved diff>`.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 4. Build the SPA only when a test or lint line needs it
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to `scripts/test-make-build.sh` alone (`git apply --include='scripts/test-make-build.sh' <the saved diff>`) and run `bash scripts/test-make-build.sh`: `web-dist builds the SPA only when it is absent` fails — the defect. Keep the applied hunk; Step 2 applies the rest with `git apply --exclude='scripts/test-make-build.sh' <the saved diff>`.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at ebc10e49 after Tasks 1-3; with it applied the whole lint list of .flow/project.md exits 0 and scripts/run-guard-tests.sh passes, and with stats/Makefile reverted the web-dist case fails
 diff --git a/.flow/project-rationale.md b/.flow/project-rationale.md
@@ -580,7 +580,7 @@ index e682393a..2c62ff43 100644
  # always the ones just produced, never a stale dist/ left over from an
 ````
 
-  - [ ] **Step 3: Verify.** `bash scripts/test-make-build.sh` prints `make-build: all cases pass`; `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` and `scripts/check-installed-citations.sh` exit 0; `cd stats && make -s web-dist && go vet ./...` exits 0. Commit.
+  - [x] **Step 3: Verify.** `bash scripts/test-make-build.sh` prints `make-build: all cases pass`; `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` and `scripts/check-installed-citations.sh` exit 0; `cd stats && make -s web-dist && go vet ./...` exits 0. Commit.
 
 **Build:** green
 **Files:** `stats/Makefile`, `scripts/test-make-build.sh`, `.flow/project.md`, `.flow/project-rationale.md`, `CLAUDE.md`, `AGENTS.md`
