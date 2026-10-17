@@ -120,6 +120,13 @@ recorded before the first command in the list; `end` after the `## Report` is wr
 `test-failure` for a command of the branch that failed twice, `environment` where the
 environment itself failed twice (a missing build prerequisite).
 
+```bash
+flow record dispatch begin -change <name> -role verifier -model <parent model> -effort <parent effort> \
+  -agent-id inline -key verify[-<worktree basename>] -session-token mf-<literal-token>
+flow record dispatch end -change <name> -key verify[-<worktree basename>] \
+  -session-token mf-<literal-token> -outcome completed
+```
+
 ### Live check
 
 **Runs only when `design.md` carries a `## Live check` section naming something to exercise**
