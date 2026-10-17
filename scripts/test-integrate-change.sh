@@ -63,6 +63,11 @@
 #   planning_only   b's branch changes nothing outside spectre/changes/:
 #                   prepare's NEXT asks no subject for b, and commit with no
 #                   subject for b commits b's planning delta alone.
+#   link_only_canon a's branch changes nothing outside spectre/changes/ but
+#                   its change directory's link.md, the merge-order record:
+#                   prepare's NEXT asks no subject for a, and commit with no
+#                   subject for a lands that link.md in an implementation
+#                   commit subjected `chore(spectre): merge order`.
 #   commit_pushes   both branches were pushed before the reshape: commit
 #                   leaves each remote spectre/demo at its reshaped HEAD, so
 #                   a later plain branch-backup push is a fast-forward.
@@ -486,6 +491,24 @@ sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work"
 check "planning_only: commit with no subject for b exits 0" '[ "$RC" -eq 0 ]'
 check "planning_only: b's branch is the base plus its one planning commit" \
   '[ "$(git -C "$WORK/b-worktrees/demo" log --format=%s main..HEAD | tr "\n" "|")" = "chore(spectre): plan demo|" ]'
+
+# --- link_only_canon ---
+fixture
+g -C "$WORK/a-worktrees/demo" reset -q --hard main
+c="$WORK/a-worktrees/demo/spectre/changes/demo"
+mkdir -p "$c"
+printf '# Tasks\n\n- [x] 1. Do the work\n' >"$c/tasks.md"
+printf '# demo\n\n## Merge order\n\n1. `b`\n2. `.`\n' >"$c/link.md"
+g -C "$WORK/a-worktrees/demo" add -A && g -C "$WORK/a-worktrees/demo" commit -qm "chore(spectre): merge order"
+sut prepare "$WORK/a" demo
+check "link_only_canon: prepare exits 0" '[ "$RC" -eq 0 ]'
+check "link_only_canon: prepare's NEXT asks a subject for b and none for a" \
+  'printf "%s" "$OUT" | tail -1 | grep -qF "$WORK/b-worktrees/demo=<impl subject>" && ! printf "%s" "$OUT" | tail -1 | grep -qF "$WORK/a-worktrees/demo="'
+printf '\n## integrate run\n\nnarrative\n' >>"$c/narrative.md"
+sut commit "$WORK/a" demo "$WORK/b-worktrees/demo=feat(b): do the work"
+check "link_only_canon: commit with no subject for a exits 0" '[ "$RC" -eq 0 ]'
+check "link_only_canon: a's link.md lands in a commit subjected chore(spectre): merge order" \
+  '[ "$(git -C "$WORK/a-worktrees/demo" log --format=%s --diff-filter=A -1 -- spectre/changes/archive/demo/link.md spectre/changes/demo/link.md)" = "chore(spectre): merge order" ]'
 
 # --- commit_pushes ---
 fixture

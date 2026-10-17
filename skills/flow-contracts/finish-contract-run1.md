@@ -226,7 +226,10 @@ All three routes then commit the work, in **two** commits and never one: the imp
 subject `<type>(<module>): <what the implementation does>` with `<module>` naming the area the
 reshaped diff carries, then the whole `<project>/spectre/changes/` planning delta — every planning
 commit's content, this run's narrative and anything the operator edited. The landed branch is therefore: the implementation commit, then that one
-planning commit.
+planning commit. The canonical worktree whose implementation side is its change directory's
+`link.md` alone — the merge-order record — takes no subject: its implementation commit is
+`chore(spectre): merge order`, the subject **Planning commits** gives that record's write
+(`git-boundaries.md`), never the planning commit's own.
 
 **Nothing under `<abs-worktree>/.superpowers/sdd/` is committed** — not the rendered ledger and
 panel record, not the brainstorm design document. They are worktree-lifetime files, removed with

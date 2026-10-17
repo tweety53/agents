@@ -36,7 +36,8 @@
 #          and records the reshape base in the worktree's own git dir
 #          (`git rev-parse --git-path flow-reshape-base`) for `commit`. Its
 #          NEXT names `<worktree>=<impl subject>` only for a worktree whose
-#          implementation commit would not be empty (impl_paths below).
+#          implementation commit would not be empty (impl_paths below) and
+#          is not the canonical worktree's link.md alone (link_only below).
 #          --accept-foreign / --accept-outstanding: the operator chose
 #          Continue at that stop; its lines still print. A
 #          VISUAL-VERIFY-MISSING is STOP: visual-verify, which
@@ -55,7 +56,9 @@
 #          worktree in `## Merge order`, `spectre archive` (each
 #          <name>-fix-N too) unless already archived, commit-archive. A
 #          worktree with nothing on the implementation side takes no
-#          subject; any other without one stops `commit-split`. An
+#          subject; the canonical one whose only implementation path is a
+#          link.md takes `chore(spectre): merge order`; any other without
+#          one stops `commit-split`. An
 #          archived change without new work skips straight to commit-archive.
 #          Then, each behind the visual-verify gate, the --force-with-lease
 #          branch push per worktree, in merge
@@ -348,6 +351,17 @@ impl_paths() {
     awk -v p="$p" 'index($0, p) != 1 || substr($0, length(p) + 1) ~ /\/link\.md$/'
 }
 
+# link_only <i> <rev>: worktree <i> is the canonical one and every path
+# impl_paths gives it is a link.md — the merge-order record alone, whose
+# implementation commit takes the literal subject `chore(spectre): merge
+# order` (git-boundaries.md, Planning commits) rather than one asked for.
+link_only() {
+  local p
+  [ "${WT[$1]}" = "$CANON" ] || return 1
+  p="$(impl_paths "${WT[$1]}" "$2")"
+  [ -n "$p" ] && ! printf '%s\n' "$p" | grep -qv '/link\.md$'
+}
+
 write_state() { # <state> [<keep-json-array>] [<pr-url>]
   local j
   j="$(flow state get -C "$MAIN" "$NAME")" || return 1
@@ -517,7 +531,7 @@ cmd_prepare() {
     sp="$(spec_root_leaf "${WT[i]}")"
     git -C "${WT[i]}" diff --no-renames --stat "$rb" -- . ":(exclude)$sp/changes/"
     git -C "${WT[i]}" ls-files --others --exclude-standard -- . ":(exclude)$sp/changes/" | sed 's/^/ new: /'
-    [ -n "$(impl_paths "${WT[i]}" "$rb")" ] && subjects="$subjects ${WT[i]}=<impl subject>"
+    [ -n "$(impl_paths "${WT[i]}" "$rb")" ] && ! link_only "$i" "$rb" && subjects="$subjects ${WT[i]}=<impl subject>"
   done
   local narrative="$live/narrative.md"
   [ "$ARCHIVED" -eq 1 ] && narrative="$arch/narrative.md"
@@ -561,6 +575,7 @@ cmd_commit() {
       for s in ${SUBJECTS[@]+"${SUBJECTS[@]}"}; do
         case "${s%%=*}" in "${WT[o]}"|"${REPO[o]}") subj="${s#*=}" ;; esac
       done
+      [ -n "$subj" ] || ! link_only "$o" "$rb" || subj="chore(spectre): merge order"
       [ -n "$subj" ] || [ -z "$(impl_paths "${WT[o]}" "$rb")" ] ||
         stop commit-split "no implementation subject given for ${WT[o]} — pass ${WT[o]}=<subject>"
       run "$SCRIPT_DIR/commit-split.sh" "${WT[o]}" "$NAME" "$subj" "$PLAN_MSG"

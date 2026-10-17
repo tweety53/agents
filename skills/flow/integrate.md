@@ -119,7 +119,9 @@ integrate-change.sh commit <main-checkout> <name> <worktree>="<type>(<module>): 
 `<type>`, `<module>` and `<what the implementation does>` are derived from the reshaped diff — the
 diffstat `prepare` printed under each `WORKTREE:` line, one subject per worktree the `NEXT:` line
 names. A worktree whose reshaped diff holds nothing outside `<project>/spectre/changes/` and no change directory's
-`link.md` has an empty implementation commit, so `NEXT:` names no subject for it and `commit` asks none. On
+`link.md` has an empty implementation commit, so `NEXT:` names no subject for it and `commit` asks none — nor
+for the canonical worktree whose only such path is its `link.md`, whose subject **Finish
+contract** fixes (`skills/flow-contracts/finish-contract-run1.md`). On
 **Continue** at **1** the planning commit also lists the outstanding work: pass it as
 `--outstanding <text>`, which `commit` writes into that commit's body as `Outstanding: <text>` under
 its own `chore(spectre): plan <name>` subject. An archived change without new work takes no subject: its `NEXT:` names
