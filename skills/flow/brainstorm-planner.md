@@ -566,7 +566,7 @@ assigns — the implementer, the fixer, each panel dispatch, the rerun pair, eac
   performance-sensitive code — `opus`, always;
 - **every other pass-1 panel dispatch** — `opus`, always;
 - **the extra dispatch** — its rolled pair, `sonnet` or `opus` at `low`: the one pass-1 panel dispatch that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`, kan-959);
-- **every gated per-task reviewer bundle** — `opus`, always, at the panel roll's effort, `high` only as the paragraph below allows; it is a first-pass review too (`skills/flow/implement.md`);
+- **every gated per-task reviewer bundle** — `opus`, always, at the panel roll's effort, never `high`, since no decision pair records it; it is a first-pass review too (`skills/flow/implement.md`);
 - **the rerun pair** — `opus` or `sonnet`; nothing requires it to differ from a pass-1 dispatch.
 
 A micro decision records no pair, and a dispatch with no recorded pair — a micro panel,
@@ -583,7 +583,7 @@ record decision` refuses a decision whose implementer, fixer or group pair names
 `effort_roll < 90`, the implementer, the fixer and every implementer group take `low` — `medium` where
 the pair carries a hard seam.** **Every pass-1 panel dispatch and every gated per-task reviewer
 bundle takes `low` when `effort_roll < 60` and `medium` otherwise, whatever the band** — 60/40 per
-change. **`high` reaches one of them only two ways:** the operator's explicit **Yes** at the plan
+change. **`high` reaches a pass-1 panel dispatch — a `panel.dispatches` entry, never a gated bundle — only two ways:** the operator's explicit **Yes** at the plan
 gate (**Plan review gate** below), or a fix run's re-Decide when the fix instructions report that
 an earlier, lower-effort attempt failed to solve the same issue, the pair's `reason` naming that
 attempt.
@@ -657,7 +657,7 @@ Then the question — `/flow-plan`'s wording is **Push artifacts?**, `/flow`'s i
 implementation?** — with exactly two options: **Yes** *(recommended)* and **No (plan needs
 updates)**.
 
-**A dispatch the planner judges worth `high`** — a hard seam the roll's effort may not carry —
+**A `panel.dispatches` entry the planner judges worth `high`** — a hard seam the roll's effort may not carry —
 adds one question per such dispatch to the same AskUserQuestion call: **Raise `<dispatch>` to
 `high` — `<seam>`?**, **No** *(default, recommended)* / **Yes**. Only an explicit **Yes**
 re-records that pair at `high` through the `flow.decide` record sequence before implementation;

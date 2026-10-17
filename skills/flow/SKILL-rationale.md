@@ -996,7 +996,9 @@ explicit **Yes** to a per-dispatch question added to the plan gate's AskUserQues
 fix run whose instructions report a lower-effort attempt already failed. **Rejected — a third
 option on the gate question:** the gate has exactly two options by contract. **Rejected —
 enforcing in `flow record decision`:** a Go change the ticket did not ask for; prose suffices for
-a planner-written record.
+a planner-written record. **gated-bundle-never-high** (kan-991's self-review): the gated per-task
+reviewer bundle runs at the panel roll's effort and never `high` — the decision JSON records no
+pair for it, so a raised effort had nowhere to be recorded and nothing that dispatches it reads one.
 
 ## brainstorm-planner.md — Decide, step 6 visual verification (visual-verify-decided-at-decide)
 
