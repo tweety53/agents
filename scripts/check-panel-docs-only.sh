@@ -5,8 +5,10 @@
 # Usage: check-panel-docs-only.sh <worktree> <merge-base>
 #
 # Exit codes:
-#   0  every touched path ends .md or .mdc
-#   1  at least one touched path does not — that first path is printed to
+#   0  every touched path ends .md or .mdc, or is a change's
+#      verbatim-moves.txt under <spec-root>/changes/ — the acknowledgement
+#      list check-verbatim-moves.sh reads, documentation though not Markdown
+#   1  at least one touched path is neither — that first path is printed to
 #      stdout — including an empty touched-path set
 #   2  cannot answer: a missing argument, <worktree> not a directory or not
 #      a git worktree, <merge-base> not resolving, or a git invocation

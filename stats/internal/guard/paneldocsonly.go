@@ -3,11 +3,14 @@ package guard
 import (
 	"fmt"
 	"io"
+	"path"
+	"strings"
 )
 
 // checkPanelDocsOnly is scripts/check-panel-docs-only.sh: that script's
 // header comment is the contract -- exit 0 when every path this change
-// touched ends .md or .mdc, 1 with the first path that does not printed to
+// touched ends .md or .mdc or is a change's verbatim-moves.txt under
+// <spec-root>/changes/, 1 with the first path that is neither printed to
 // stdout (an empty touched-path set is 1 with nothing printed), 2 on a usage
 // error or a git invocation that failed. Resolving git, validating the
 // arguments and collecting the paths -- the union of committed-since-merge-
@@ -36,8 +39,12 @@ func checkPanelDocsOnly(args []string, env Env, stdout, stderr io.Writer) int {
 	if !ok {
 		return 2
 	}
+	changes := specRootLeaf(smcAbs(env, worktree), stderr) + "/changes/"
 	for _, p := range paths {
-		if !isDocPath(p) {
+		// A verbatim-moves.txt is check-verbatim-moves.sh's acknowledgement
+		// list of reworded prose: documentation, though not Markdown.
+		// isDocPath stays `.mdc?$`, shared with plan-class.
+		if !isDocPath(p) && !(strings.HasPrefix(p, changes) && path.Base(p) == "verbatim-moves.txt") {
 			fmt.Fprintln(stdout, p)
 			return 1
 		}
