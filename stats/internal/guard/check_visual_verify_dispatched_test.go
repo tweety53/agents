@@ -365,7 +365,7 @@ func TestCheckVisualVerifyDispatched(t *testing.T) {
 		{"case 6b: the verdict is VISUAL-VERIFY-MISSING", vvdCase{dispatches: []byte(open)}, 1, vvdMissing, nil, missingCalls},
 		{"case 7: a foreign key prefix is not evidence, exit 1", vvdCase{dispatches: vvdRows("some-other-key", v, done)}, 1, vvdMissing, nil, nil},
 		// ---- a verifier counts only for the HEAD it verified (kan-939) ----
-		{"case 9a: a verifier of a HEAD before the change's UI commit is stale, exit 1", vvdCase{dispatches: []byte(`[{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"@BASE@"}]`)}, 1, vvdStale, nil, nil},
+		{"case 9a: a verifier of a HEAD before the change's UI commit is stale, exit 1", vvdCase{dispatches: []byte(`[{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"@BASE@"}]`)}, 1, strings.Replace(vvdStale, " — HEAD @HEAD@", " — paths changed since verified HEAD @BASE@: app/src/Widget.tsx — HEAD @HEAD@", 1), nil, nil},
 		{"case 9b: a verifier row with no diffBase verified nothing, exit 1", vvdCase{dispatches: []byte(`[{"key":"visual-verify","role":"verifier","outcome":"completed"}]`)}, 1, vvdStale, nil, nil},
 		{"case 9c: a diffBase naming a ref, not a sha, verified nothing, exit 1", vvdCase{dispatches: []byte(`[{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"HEAD"}]`)}, 1, vvdStale, nil, nil},
 		{"case 9d: a diffBase this worktree cannot resolve verified nothing here, exit 1", vvdCase{dispatches: []byte(`[{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"0123456789abcdef0123456789abcdef01234567"}]`)}, 1, vvdStale, nil, nil},
@@ -519,7 +519,7 @@ func TestCheckVisualVerifyDispatched(t *testing.T) {
 			if strings.Contains(tc.wantOut, "@HEAD@") {
 				head = tcfGit(t, r.wt, "rev-parse", "HEAD")
 			}
-			wantOut := strings.ReplaceAll(tc.wantOut, "@HEAD@", head)
+			wantOut := strings.NewReplacer("@HEAD@", head, "@BASE@", r.base).Replace(tc.wantOut)
 			if r.code != tc.want || r.out != wantOut || r.err != wantErr {
 				t.Fatalf("got exit %d\nstdout %q\nstderr %q\nwant exit %d\nstdout %q\nstderr %q", r.code, r.out, r.err, tc.want, wantOut, wantErr)
 			}
@@ -626,5 +626,19 @@ func TestCheckVisualVerifyDispatchedCanonicalUIPaths(t *testing.T) {
 				t.Errorf("store calls %q, want the dispatches read under the canonical worktree %s", calls, canon)
 			}
 		})
+	}
+}
+
+// TestCheckVisualVerifyDispatchedMissingNamesPathsSinceVerifiedHead pins
+// decision missing-names-changed-paths: a stale verifier row's MISSING line
+// names the HEAD it verified and the change's own paths changed since, and
+// the ` — HEAD <sha>` suffix stays last.
+func TestCheckVisualVerifyDispatchedMissingNamesPathsSinceVerifiedHead(t *testing.T) {
+	t.Parallel()
+	r := vvdRun(t, vvdCase{dispatches: []byte(`[{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"@BASE@"}]`)})
+	head := tcfGit(t, r.wt, "rev-parse", "HEAD")
+	want := " — paths changed since verified HEAD " + r.base + ": app/src/Widget.tsx — HEAD " + head
+	if r.code != 1 || !strings.HasSuffix(r.out, want+"\n") {
+		t.Fatalf("got exit %d stdout %q, want exit 1 ending %q", r.code, r.out, want)
 	}
 }

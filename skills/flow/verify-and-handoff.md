@@ -434,7 +434,11 @@ A `VISUAL-VERIFY-MISSING:` line means a UI-path commit landed after the last HEA
 a visual-fix task's, a panel fix's, a full-suite fix's or a fix run's own. Run **Visual
 verification** above again from its `begin` mark on the current HEAD, take every departure through
 **The loop** (`skills/flow/verify-fix-loop.md`), and run the guard again; the state is written,
-and the handoff printed, only once every worktree prints `VISUAL-VERIFY-OK:`. Integrate stops on
+and the handoff printed, only once every worktree prints `VISUAL-VERIFY-OK:`. When the line names a
+verified HEAD and the paths changed since it, that re-run is scoped as a round of **The loop** is
+(`skills/flow/verify-fix-loop.md`): the named HEAD is its round base, its `motions:` names only the
+motions `git diff <that HEAD>..HEAD` adds, changes or removes, and a clean scoped report closes it,
+since that HEAD's full run stands. Integrate stops on
 the same verdict and no operator course there passes it. An exit 2 is reported and stops the run
 at the state it read.
 

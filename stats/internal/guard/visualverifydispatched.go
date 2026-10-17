@@ -183,6 +183,11 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		own[p] = true
 	}
 	found := false
+	// The newest resolvable verified HEAD (heads arrive in row seq order,
+	// oldest first) and its own paths changed since: what a MISSING re-run
+	// is scoped to.
+	var lastHead string
+	var lastChanged []string
 	for _, head := range heads {
 		if !vvdSHA.MatchString(head) {
 			continue
@@ -201,6 +206,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 				changedSince = append(changedSince, p)
 			}
 		}
+		lastHead, lastChanged = head, changedSince
 		if len(changedSince) == 0 {
 			changedSince = []string{""}
 		}
@@ -268,6 +274,9 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	if !ok {
 		fmt.Fprintf(stderr, "%sgit cannot name HEAD in %s — cannot answer\n", vvdPrefix, worktree)
 		return 2
+	}
+	if lastHead != "" {
+		verdict += " — paths changed since verified HEAD " + lastHead + ": " + strings.Join(lastChanged, ", ")
 	}
 	verdict += " — HEAD " + headSHA
 	record(verdict)

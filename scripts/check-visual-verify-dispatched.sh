@@ -103,7 +103,9 @@
 # worktree cannot resolve verified nothing here. With qualifying rows and
 # none fresh, the verdict is
 #   VISUAL-VERIFY-MISSING: a verifier dispatch is recorded for '<name>' but
-#   none verified a HEAD after this change's last UI-path commit — … — HEAD <sha>
+#   none verified a HEAD after this change's last UI-path commit — … — paths
+#   changed since verified HEAD <verified sha>: <p1>, <p2> — HEAD <sha>
+# naming the newest row's sha that resolves and its own paths changed since.
 # and a git diff that fails against a row's sha is exit 2.
 #
 # A SKIP DECIDED AT PLANNING IS NOT A SILENT SKIP. With no qualifying
