@@ -1,7 +1,8 @@
 // The live state board -- the default route (skills/flow/SKILL.md's
 // three-state pipeline, surfaced here instead of a `jq` read of the state
 // file). Spec: "it lists every non-archived change with its state, its
-// last update, and the command that should run next".
+// last update, and its whole-life run totals" -- pipeline-fix-* changes
+// are hidden here, never on the wire (design.md's board-filter-in-spa).
 //
 // Recomposed onto the panel primitives (task 20): a single "Changes" stat
 // panel above the table. A count is the only single number this view's own
@@ -16,7 +17,7 @@ import { StatPanel } from "../components/StatPanel";
 import { ViewFrame } from "../components/ViewFrame";
 import type { StateBoardRow } from "../api";
 import { useStatsView } from "../hooks/useStatsView";
-import { formatDateTime, formatInt } from "../format";
+import { formatDateTime, formatInt, formatMs, formatUsd } from "../format";
 import { projectLabel } from "../lib/projectLabel";
 import type { ViewProps } from "../viewTypes";
 
@@ -106,9 +107,21 @@ const columns: Column<StateBoardRow>[] = [
     accessor: (r) => r.updatedAt,
     render: (r) => formatDateTime(r.updatedAt),
   },
-  { key: "updatedBy", header: "By", sortable: true, accessor: (r) => r.updatedBy },
-  { key: "nextCommand", header: "Next command", accessor: (r) => r.nextCommand || "—" },
+  { key: "runCount", header: "Runs", sortable: true, accessor: (r) => r.runCount, render: (r) => formatInt(r.runCount) },
+  { key: "costUsd", header: "Cost", sortable: true, accessor: (r) => r.costUsd, render: (r) => (r.runCount === 0 ? "—" : formatUsd(r.costUsd)) },
+  {
+    key: "wallClockMs",
+    header: "Wall clock",
+    sortable: true,
+    accessor: (r) => r.wallClockMs,
+    render: (r) => (r.runCount === 0 ? "—" : formatMs(r.wallClockMs)),
+  },
+  { key: "errors", header: "Errors", sortable: true, accessor: (r) => r.errors, render: (r) => formatInt(r.errors) },
 ];
+
+function isPipelineFix(row: StateBoardRow): boolean {
+  return row.name.startsWith("pipeline-fix-");
+}
 
 // The live state board's rows are changes, not stage runs -- the server
 // rejects a "model" restriction here with 400 (spec: "A model restriction
@@ -118,10 +131,14 @@ const columns: Column<StateBoardRow>[] = [
 // stopped disabling it -- the same defence-in-depth useRunDetail.ts's own
 // client-side change filter documents for a different restriction.
 export function StateBoard({ period, onPeriodChange, project }: ViewProps) {
-  const state = useStatsView<StateBoardRow[]>("state-board", { from: period.from, to: period.to, project });
+  const fetched = useStatsView<StateBoardRow[]>("state-board", { from: period.from, to: period.to, project });
+  const state =
+    fetched.status === "ready"
+      ? { ...fetched, data: { ...fetched.data, rows: fetched.data.rows.filter((r) => !isPipelineFix(r)) } }
+      : fetched;
 
   return (
-    <ViewFrame title="Live state board" description="Every open change across every project, with its state and its next command.">
+    <ViewFrame title="Live state board" description="Every open change across every project, with its state and its run totals.">
       <div className="dashboard-stat-row">
         <Panel title="Changes" state={state}>
           {(data) => <StatPanel label="Changes" value={data.rows.length} format={formatInt} />}

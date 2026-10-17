@@ -46,10 +46,6 @@ func (f *fakeStore) TrendOverTime(_ context.Context, _ store.Period, project, _ 
 	f.lastStatsProject = project
 	return f.trendOverTime, f.trendOverTimeErr
 }
-func (f *fakeStore) CacheEfficiency(_ context.Context, _ store.Period, project, _ *string) ([]store.CacheEfficiencyRow, error) {
-	f.lastStatsProject = project
-	return f.cacheEfficiency, f.cacheEfficiencyErr
-}
 func (f *fakeStore) Reviewers(_ context.Context, _ store.Period, project, _ *string) ([]store.ReviewerRow, error) {
 	f.lastStatsProject = project
 	return f.reviewers, f.reviewersErr
@@ -59,22 +55,13 @@ func (f *fakeStore) Decisions(_ context.Context, _ store.Period, project *string
 	return f.decisionRows, f.decisionRowsErr
 }
 
-// ListRuns, CountRunsWithoutModel, ListModels and AllRecordedRunsUnmeasured
+// CountRunsWithoutModel, ListModels and AllRecordedRunsUnmeasured
 // have no fakeStore field of their own: this type exists purely to keep
 // satisfying api.StatsStore at call sites that never exercise a stats route
 // at all (this section's own header comment) -- no test here needs any of
 // them to return anything but a harmless zero value.
-func (f *fakeStore) ListRuns(_ context.Context, _ store.Period, _, _ *string) ([]store.ChangeRuns, error) {
-	return nil, nil
-}
-func (f *fakeStore) GuardActivity(_ context.Context, _ store.Period, _ *string) ([]store.GuardActivityRow, error) {
-	return nil, nil
-}
-func (f *fakeStore) StageRedo(_ context.Context, _ store.Period, _ *string) ([]store.StageRedoRow, error) {
-	return nil, nil
-}
-func (f *fakeStore) PanelRounds(_ context.Context, _ store.Period, _ *string) ([]store.PanelRoundsRow, error) {
-	return nil, nil
+func (f *fakeStore) FlowSummary(_ context.Context, _ store.Period, _ *string) (store.FlowSummaryRow, error) {
+	return store.FlowSummaryRow{}, nil
 }
 func (f *fakeStore) SelfReviewFindingsInPeriod(_ context.Context, _ store.Period, _ *string) ([]store.SelfReviewFindingRow, error) {
 	return nil, nil
@@ -113,13 +100,9 @@ type statsFake struct {
 	costPerChange    []store.CostPerChangeRow
 	stageLeaderboard []store.StageLeaderboardRow
 	trendOverTime    []store.TrendPoint
-	cacheEfficiency  []store.CacheEfficiencyRow
 	reviewers        []store.ReviewerRow
 	decisions        []store.DecisionRow
-	runs             []store.ChangeRuns
-	guardActivity    []store.GuardActivityRow
-	stageRedo        []store.StageRedoRow
-	panelRounds      []store.PanelRoundsRow
+	flowSummary      store.FlowSummaryRow
 	selfReview       []store.SelfReviewFindingRow
 	aggErr           error
 
@@ -179,10 +162,6 @@ func (f *statsFake) TrendOverTime(_ context.Context, _ store.Period, p, m *strin
 	f.lastProject, f.lastModel = p, m
 	return f.trendOverTime, f.aggErr
 }
-func (f *statsFake) CacheEfficiency(_ context.Context, _ store.Period, p, m *string) ([]store.CacheEfficiencyRow, error) {
-	f.lastProject, f.lastModel = p, m
-	return f.cacheEfficiency, f.aggErr
-}
 func (f *statsFake) Reviewers(_ context.Context, _ store.Period, p, m *string) ([]store.ReviewerRow, error) {
 	f.lastProject, f.lastModel = p, m
 	return f.reviewers, f.aggErr
@@ -191,24 +170,13 @@ func (f *statsFake) Decisions(_ context.Context, _ store.Period, p *string) ([]s
 	f.lastProject = p
 	return f.decisions, f.aggErr
 }
-func (f *statsFake) ListRuns(_ context.Context, _ store.Period, _ *string, _ *string) ([]store.ChangeRuns, error) {
-	return f.runs, f.aggErr
-}
 func (f *statsFake) SelfReviewFindingsInPeriod(_ context.Context, _ store.Period, p *string) ([]store.SelfReviewFindingRow, error) {
 	f.lastProject = p
 	return f.selfReview, f.aggErr
 }
-func (f *statsFake) GuardActivity(_ context.Context, _ store.Period, p *string) ([]store.GuardActivityRow, error) {
+func (f *statsFake) FlowSummary(_ context.Context, _ store.Period, p *string) (store.FlowSummaryRow, error) {
 	f.lastProject = p
-	return f.guardActivity, f.aggErr
-}
-func (f *statsFake) StageRedo(_ context.Context, _ store.Period, p *string) ([]store.StageRedoRow, error) {
-	f.lastProject = p
-	return f.stageRedo, f.aggErr
-}
-func (f *statsFake) PanelRounds(_ context.Context, _ store.Period, p *string) ([]store.PanelRoundsRow, error) {
-	f.lastProject = p
-	return f.panelRounds, f.aggErr
+	return f.flowSummary, f.aggErr
 }
 func (f *statsFake) CountRunsWithoutModel(_ context.Context, _ store.Period, p *string) (int, error) {
 	f.lastProject = p
@@ -397,7 +365,6 @@ func periodPath(view string) string {
 func TestEveryViewAcceptsAPeriod(t *testing.T) {
 	views := []string{
 		"state-board", "cost-per-change", "stage-leaderboard", "trend",
-		"cache-efficiency",
 	}
 	for _, view := range views {
 		t.Run(view, func(t *testing.T) {
@@ -415,12 +382,12 @@ func TestEveryViewAcceptsAPeriod(t *testing.T) {
 }
 
 // TestReviewersWireCarriesNoDeferredShare pins that the reviewers view no
-// longer carries a deferred share: nothing is deferred (KAN-862).
+// longer carries a deferred share: nothing is deferred (KAN-862) -- nor,
+// since KAN-989, the findings-per-dispatch or withdrawn share.
 func TestReviewersWireCarriesNoDeferredShare(t *testing.T) {
 	sts := &statsFake{reviewers: []store.ReviewerRow{
 		{Slot: "exp-failure-modes", Experimental: true, Description: "What the diff does under error, timeout and partial write",
-			Dispatches: 4, Changes: 3, Critical: 1, Important: 2, Minor: 5,
-			FindingsPerDispatch: 2.0, WithdrawnShare: 0.125},
+			Dispatches: 4, Changes: 3, Critical: 1, Important: 2, Minor: 5},
 	}}
 	ts := newStatsTestServer(t, sts)
 	status, _, body := getStats(t, ts, periodPath("reviewers"))
@@ -430,8 +397,13 @@ func TestReviewersWireCarriesNoDeferredShare(t *testing.T) {
 	if strings.Contains(string(body), "deferredShare") {
 		t.Errorf("reviewers body carries deferredShare: %s", body)
 	}
-	if !strings.Contains(string(body), "withdrawnShare") {
-		t.Errorf("reviewers body lost withdrawnShare: %s", body)
+	for _, gone := range []string{"withdrawnShare", "findingsPerDispatch"} {
+		if strings.Contains(string(body), gone) {
+			t.Errorf("reviewers body carries %s: %s", gone, body)
+		}
+	}
+	if !strings.Contains(string(body), `"critical":1`) {
+		t.Errorf("reviewers body lost critical: %s", body)
 	}
 }
 
@@ -452,7 +424,7 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 	t.Run("stage-leaderboard", func(t *testing.T) {
 		sts := &statsFake{stageLeaderboard: []store.StageLeaderboardRow{
 			{Command: "/flow", Stage: "SDD + TDD per task", RunCount: 5,
-				MeanCostUSD: 11.25, MedianCostUSD: 9.5, P90CostUSD: 22.75},
+				MeanCostUSD: 11.25, MedianCostUSD: 9.5, P90CostUSD: 22.75, TotalCostUSD: 56.25},
 		}}
 		ts := newStatsTestServer(t, sts)
 		status, env, body := getStats(t, ts, periodPath("stage-leaderboard"))
@@ -466,14 +438,16 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 			MeanCostUSD   float64 `json:"meanCostUsd"`
 			MedianCostUSD float64 `json:"medianCostUsd"`
 			P90CostUSD    float64 `json:"p90CostUsd"`
+			TotalCostUSD  float64 `json:"totalCostUsd"`
 		}
 		mustDecodeRows(t, env, body, &rows)
 		if len(rows) != 1 {
 			t.Fatalf("rows = %d, want 1", len(rows))
 		}
 		got := rows[0]
-		if got.RunCount != 5 || got.MeanCostUSD != 11.25 || got.MedianCostUSD != 9.5 || got.P90CostUSD != 22.75 {
-			t.Errorf("got %+v, want RunCount=5 MeanCostUSD=11.25 MedianCostUSD=9.5 P90CostUSD=22.75", got)
+		if got.RunCount != 5 || got.MeanCostUSD != 11.25 || got.MedianCostUSD != 9.5 || got.P90CostUSD != 22.75 ||
+			got.TotalCostUSD != 56.25 {
+			t.Errorf("got %+v, want RunCount=5 MeanCostUSD=11.25 MedianCostUSD=9.5 P90CostUSD=22.75 TotalCostUSD=56.25", got)
 		}
 	})
 
@@ -501,38 +475,10 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 		}
 	})
 
-	t.Run("cache-efficiency", func(t *testing.T) {
-		read, creation, ratio := int64(9000), int64(3000), 3.0
-		sts := &statsFake{cacheEfficiency: []store.CacheEfficiencyRow{
-			{Command: "/flow", Stage: "review panel", CacheReadTotal: &read, CacheCreationTotal: &creation, Ratio: &ratio},
-		}}
-		ts := newStatsTestServer(t, sts)
-		status, env, body := getStats(t, ts, periodPath("cache-efficiency"))
-		if status != http.StatusOK {
-			t.Fatalf("status %d, body %s", status, body)
-		}
-		var rows []struct {
-			CacheReadTotal     *int64   `json:"cacheReadTotal"`
-			CacheCreationTotal *int64   `json:"cacheCreationTotal"`
-			Ratio              *float64 `json:"ratio"`
-		}
-		mustDecodeRows(t, env, body, &rows)
-		if len(rows) != 1 {
-			t.Fatalf("rows = %d, want 1", len(rows))
-		}
-		got := rows[0]
-		if got.CacheReadTotal == nil || *got.CacheReadTotal != 9000 ||
-			got.CacheCreationTotal == nil || *got.CacheCreationTotal != 3000 ||
-			got.Ratio == nil || *got.Ratio != 3.0 {
-			t.Errorf("got %+v, want CacheReadTotal=9000 CacheCreationTotal=3000 Ratio=3.0", got)
-		}
-	})
-
 	t.Run("reviewers", func(t *testing.T) {
 		sts := &statsFake{reviewers: []store.ReviewerRow{
 			{Slot: "exp-failure-modes", Experimental: true, Description: "What the diff does under error, timeout and partial write",
-				Dispatches: 4, Changes: 3, Critical: 1, Important: 2, Minor: 5,
-				FindingsPerDispatch: 2.0, WithdrawnShare: 0.125},
+				Dispatches: 4, Changes: 3, Critical: 1, Important: 2, Minor: 5},
 		}}
 		ts := newStatsTestServer(t, sts)
 		status, env, body := getStats(t, ts, periodPath("reviewers"))
@@ -540,16 +486,14 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 			t.Fatalf("status %d, body %s", status, body)
 		}
 		var rows []struct {
-			Slot                string  `json:"slot"`
-			Experimental        bool    `json:"experimental"`
-			Description         string  `json:"description"`
-			Dispatches          int     `json:"dispatches"`
-			Changes             int     `json:"changes"`
-			Critical            int     `json:"critical"`
-			Important           int     `json:"important"`
-			Minor               int     `json:"minor"`
-			FindingsPerDispatch float64 `json:"findingsPerDispatch"`
-			WithdrawnShare      float64 `json:"withdrawnShare"`
+			Slot         string `json:"slot"`
+			Experimental bool   `json:"experimental"`
+			Description  string `json:"description"`
+			Dispatches   int    `json:"dispatches"`
+			Changes      int    `json:"changes"`
+			Critical     int    `json:"critical"`
+			Important    int    `json:"important"`
+			Minor        int    `json:"minor"`
 		}
 		mustDecodeRows(t, env, body, &rows)
 		if len(rows) != 1 {
@@ -558,8 +502,7 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 		got := rows[0]
 		if got.Slot != "exp-failure-modes" || !got.Experimental ||
 			got.Description != "What the diff does under error, timeout and partial write" ||
-			got.Dispatches != 4 || got.Changes != 3 || got.Critical != 1 || got.Important != 2 || got.Minor != 5 ||
-			got.FindingsPerDispatch != 2.0 || got.WithdrawnShare != 0.125 {
+			got.Dispatches != 4 || got.Changes != 3 || got.Critical != 1 || got.Important != 2 || got.Minor != 5 {
 			t.Errorf("got %+v, want the seeded exp-failure-modes row unchanged", got)
 		}
 	})
@@ -624,134 +567,12 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 		}
 	})
 
-	t.Run("runs", func(t *testing.T) {
-		change := "kan-1"
-		startedAt := time.Date(2026, 6, 10, 9, 0, 0, 0, time.UTC)
-		sts := &statsFake{runs: []store.ChangeRuns{
-			{Project: "kan", Change: &change, JiraKey: &change,
-				Totals: store.RunTotals{InputTokens: 500}, IdleBetweenRunsMs: 1000, FixIterations: 1,
-				Runs: []store.RunRow{
-					{SessionToken: "sess-1", Kind: "flow", Command: "/flow", StartedAt: startedAt,
-						Totals:    store.RunTotals{InputTokens: 300, Priced: false},
-						Main:      store.RunTotals{InputTokens: 200, Priced: true},
-						FanOutMax: 2, SuiteRuns: 1,
-						Dispatches: []store.RunDispatchRow{
-							{Seq: 1, Role: "reviewer", Slot: "exp-failure-modes", AgentID: "a1", AgentType: "general-purpose",
-								Description: "review", DeclaredModel: "claude-sonnet-4-5", DeclaredEffort: "high", Priced: true,
-								StartedAt: startedAt, Totals: store.RunTotals{InputTokens: 100, Priced: true}},
-						},
-					},
-				},
-			},
-		}}
-		ts := newStatsTestServer(t, sts)
-		status, env, body := getStats(t, ts, periodPath("runs"))
-		if status != http.StatusOK {
-			t.Fatalf("status %d, body %s", status, body)
-		}
-		var rows []struct {
-			Project string `json:"project"`
-			Change  string `json:"change"`
-			Runs    []struct {
-				Totals struct {
-					Priced bool `json:"priced"`
-				} `json:"totals"`
-				Main struct {
-					InputTokens int64 `json:"inputTokens"`
-					Priced      bool  `json:"priced"`
-				} `json:"main"`
-				Dispatches []struct {
-					DeclaredModel string `json:"declaredModel"`
-					Priced        bool   `json:"priced"`
-				} `json:"dispatches"`
-			} `json:"runs"`
-		}
-		mustDecodeRows(t, env, body, &rows)
-		if len(rows) != 1 || len(rows[0].Runs) != 1 || len(rows[0].Runs[0].Dispatches) != 1 {
-			t.Fatalf("rows = %+v, want 1 change with 1 run with 1 dispatch", rows)
-		}
-		if got := rows[0].Runs[0].Dispatches[0].DeclaredModel; got != "claude-sonnet-4-5" {
-			t.Errorf("dispatches[0].declaredModel = %q, want claude-sonnet-4-5", got)
-		}
-		if got := rows[0].Runs[0].Main.InputTokens; got != 200 {
-			t.Errorf("runs[0].main.inputTokens = %d, want 200", got)
-		}
-		if rows[0].Runs[0].Totals.Priced {
-			t.Errorf("runs[0].totals.priced = true, want false")
-		}
-		if !rows[0].Runs[0].Main.Priced {
-			t.Errorf("runs[0].main.priced = false, want true")
-		}
-		if !rows[0].Runs[0].Dispatches[0].Priced {
-			t.Errorf("dispatches[0].priced = false, want true")
-		}
-	})
-
 }
 
 func mustDecodeRows(t *testing.T, env statsEnvelope, body []byte, v any) {
 	t.Helper()
 	if err := json.Unmarshal(env.Rows, v); err != nil {
 		t.Fatalf("decode rows: %v (body %s)", err, body)
-	}
-}
-
-// TestRunsViewIncludesStageRows pins the per-run stage breakdown on the
-// wire: each run row carries its own stage runs -- stage, attempt, both
-// instants, outcome -- so the runs view can show where a run's wall clock
-// went. A still-open stage keeps endedAt and outcome JSON nulls, the same
-// absence-not-zero discipline every other timestamp on this wire follows.
-func TestRunsViewIncludesStageRows(t *testing.T) {
-	change := "kan-1"
-	startedAt := time.Date(2026, 6, 10, 9, 0, 0, 0, time.UTC)
-	endedAt := startedAt.Add(5 * time.Hour)
-	outcome := "completed"
-	sts := &statsFake{runs: []store.ChangeRuns{
-		{Project: "kan", Change: &change,
-			Runs: []store.RunRow{{
-				SessionToken: "sess-1", Kind: "flow", Command: "/flow", StartedAt: startedAt, EndedAt: &endedAt,
-				Stages: []store.RunStageSpan{
-					{Stage: "flow.sdd-tdd", Attempt: 2, StartedAt: startedAt, EndedAt: &endedAt, Outcome: &outcome},
-					{Stage: "flow.verify", Attempt: 1, StartedAt: endedAt},
-				},
-			}},
-		},
-	}}
-	ts := newStatsTestServer(t, sts)
-	status, env, body := getStats(t, ts, periodPath("runs"))
-	if status != http.StatusOK {
-		t.Fatalf("status %d, body %s", status, body)
-	}
-	var rows []struct {
-		Runs []struct {
-			Stages []struct {
-				Stage     string  `json:"stage"`
-				Attempt   int     `json:"attempt"`
-				StartedAt string  `json:"startedAt"`
-				EndedAt   *string `json:"endedAt"`
-				Outcome   *string `json:"outcome"`
-			} `json:"stages"`
-		} `json:"runs"`
-	}
-	mustDecodeRows(t, env, body, &rows)
-	if len(rows) != 1 || len(rows[0].Runs) != 1 {
-		t.Fatalf("rows = %+v, want 1 change with 1 run", rows)
-	}
-	stages := rows[0].Runs[0].Stages
-	if len(stages) != 2 {
-		t.Fatalf("stages = %+v, want 2", stages)
-	}
-	if stages[0].Stage != "flow.sdd-tdd" || stages[0].Attempt != 2 {
-		t.Errorf("stages[0] = %+v, want flow.sdd-tdd attempt 2", stages[0])
-	}
-	if stages[0].EndedAt == nil || stages[0].Outcome == nil || *stages[0].Outcome != "completed" {
-		t.Errorf("stages[0] close = %+v, want endedAt set and outcome completed", stages[0])
-	}
-	if want := endedAt.UTC().Format(time.RFC3339Nano); stages[0].EndedAt == nil || *stages[0].EndedAt != want {
-		t.Errorf("stages[0].endedAt = %v, want %s", stages[0].EndedAt, want)
-	}
-	if stages[1].Stage != "flow.verify" || stages[1].EndedAt != nil || stages[1].Outcome != nil {
-		t.Errorf("stages[1] = %+v, want open flow.verify with null endedAt/outcome", stages[1])
 	}
 }
 
@@ -789,12 +610,12 @@ func TestEmptyPeriodReturnsEmptyNotError(t *testing.T) {
 // --- TestBoundaryConventionIsConsistentAcrossViews ---------------------
 
 // TestBoundaryConventionIsConsistentAcrossViews exercises every one of the
-// four stage-run-keyed views. A post-commit review mutation proved the
+// three stage-run-keyed views. A post-commit review mutation proved the
 // gap this closes: changing StageLeaderboard's boundary from
 // "sr.started_at < $2" to "<= $2" (internal/store/aggregate.go) left the
 // *previous* version of this test green -- it only looped over
-// cost-per-change, so a boundary divergence in stage-leaderboard, trend or
-// cache-efficiency went completely undetected, even though this test's own
+// cost-per-change, so a boundary divergence in stage-leaderboard or trend
+// went completely undetected, even though this test's own
 // name claims to cover "every view".
 //
 // The live state board is deliberately excluded, not merely forgotten: it
@@ -806,9 +627,8 @@ func TestEmptyPeriodReturnsEmptyNotError(t *testing.T) {
 // One stage run is seeded exactly on the boundary T, with a metrics bag and
 // an owning change shaped to satisfy every remaining view's own WHERE
 // clause (internal/store/aggregate.go): StageLeaderboard requires
-// "cost_usd" present. CostPerChange, TrendOverTime and CacheEfficiency
-// impose no such extra condition, so the same run and change satisfy all
-// four at once.
+// "cost_usd" present. CostPerChange and TrendOverTime impose no such extra
+// condition, so the same run and change satisfy all three at once.
 func TestBoundaryConventionIsConsistentAcrossViews(t *testing.T) {
 	st := newIntegrationStore(t)
 	projectKey := fmt.Sprintf("proj-boundary-%d", time.Now().UnixNano())
@@ -836,7 +656,7 @@ func TestBoundaryConventionIsConsistentAcrossViews(t *testing.T) {
 	// The live state board is not in this loop -- see the doc comment above
 	// for why it is a genuinely different case, not an omission.
 	views := []string{
-		"cost-per-change", "stage-leaderboard", "trend", "cache-efficiency",
+		"cost-per-change", "stage-leaderboard", "trend",
 	}
 	for _, view := range views {
 		t.Run(view, func(t *testing.T) {
@@ -1156,7 +976,8 @@ func TestLiveStateBoardMatchesStatusOutput(t *testing.T) {
 	updatedAt := time.Date(2026, 8, 10, 9, 0, 0, 0, time.UTC)
 	sts := &statsFake{
 		liveStateBoard: []store.LiveStateRow{
-			{ProjectKey: "agents", Name: "kan-1", State: store.StateStarted, UpdatedAt: updatedAt, UpdatedBy: "alice"},
+			{ProjectKey: "agents", Name: "kan-1", State: store.StateStarted, UpdatedAt: updatedAt, UpdatedBy: "alice",
+				RunCount: 3, CostUsd: 4.25, WallClockMs: 90000, Errors: 2},
 			{ProjectKey: "agents", Name: "kan-2", State: store.StateInProgress, UpdatedAt: updatedAt, UpdatedBy: "bob"},
 			{ProjectKey: "agents", Name: "kan-3", State: store.StateFinished, UpdatedAt: updatedAt, UpdatedBy: "carol"},
 		},
@@ -1168,15 +989,26 @@ func TestLiveStateBoardMatchesStatusOutput(t *testing.T) {
 	}
 
 	var rows []struct {
-		Name        string `json:"name"`
-		State       string `json:"state"`
-		NextCommand string `json:"nextCommand"`
+		Name        string  `json:"name"`
+		State       string  `json:"state"`
+		UpdatedBy   string  `json:"updatedBy"`
+		NextCommand string  `json:"nextCommand"`
+		RunCount    int     `json:"runCount"`
+		CostUsd     float64 `json:"costUsd"`
+		WallClockMs int64   `json:"wallClockMs"`
+		Errors      int     `json:"errors"`
 	}
 	if err := json.Unmarshal(env.Rows, &rows); err != nil {
 		t.Fatalf("decode rows: %v (body %s)", err, body)
 	}
 	if len(rows) != 3 {
 		t.Fatalf("rows = %d, want 3", len(rows))
+	}
+	// The run totals ride the wire beside updatedBy, which the CLI's
+	// state list/resolve still reads (design.md's board-filter-in-spa).
+	if got := rows[0]; got.UpdatedBy != "alice" || got.RunCount != 3 || got.CostUsd != 4.25 ||
+		got.WallClockMs != 90000 || got.Errors != 2 {
+		t.Errorf("kan-1 = %+v, want updatedBy alice and run totals 3 / 4.25 / 90000 / 2", got)
 	}
 
 	// This mapping is CLAUDE.md's own fixed three-state pipeline table,
@@ -1678,14 +1510,14 @@ func TestModelRestrictionRejectedOnStateBoard(t *testing.T) {
 }
 
 // TestModelParamAcceptedAndPassedThroughOnEveryStageRunView iterates the
-// four views whose rows are stage runs (every view except state-board,
+// three views whose rows are stage runs (every view except state-board,
 // covered separately above) and asserts a "model" query parameter reaches
 // the store call unchanged, for each one -- not spot-checked, per this
 // task's own non-negotiable requirement that the filter be honoured on
-// every one of the four, iterated.
+// every one of the three, iterated.
 func TestModelParamAcceptedAndPassedThroughOnEveryStageRunView(t *testing.T) {
 	views := []string{
-		"cost-per-change", "stage-leaderboard", "trend", "cache-efficiency",
+		"cost-per-change", "stage-leaderboard", "trend",
 	}
 	for _, view := range views {
 		t.Run(view, func(t *testing.T) {

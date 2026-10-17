@@ -4,6 +4,8 @@
 // parsePeriodAndProject), so this component always has a concrete `from`
 // and `to` rather than an optional one a view could silently treat as
 // "everything".
+import { DAY_MS } from "../format";
+
 export interface Period {
   from: Date;
   to: Date;
@@ -14,7 +16,6 @@ export interface PeriodPickerProps {
   onChange: (period: Period) => void;
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 // The dashboard's own default period -- the preceding 30 days ending now
 // (App.tsx's own `defaultPeriod`, moved here so the "30 days" preset below

@@ -59,7 +59,7 @@ the shim exits that guard's own cannot-answer code — 4 for `run-reproducer`,
 Every guard `flow-guard` dispatches is also recorded in flowd's `guard_runs`
 table (`POST /api/v1/guard-runs/{project}`): the guard, its exit code
 classified as `clear`, `fired` or `cannot-answer`, and its runtime. That is
-what the SPA's **Flow health** view reads to show which guards ever fire. The
+what the SPA's **Flow health** view reads to count guard fires. The
 write is best-effort: it goes to `FLOW_RECORDS_ADDR`, then `FLOW_ADDR`, then
 the dev daemon, is bounded at 500 ms, never changes a guard's exit code, and
 is dropped when the daemon is down or does not know the project (a guard run

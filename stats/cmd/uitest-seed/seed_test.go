@@ -137,9 +137,6 @@ func TestSeedPopulatesFixture(t *testing.T) {
 			t.Fatalf("list changes for %s: %v", project.Key, err)
 		}
 		wantChanges := len(project.Changes)
-		if project.Key == runsFixtureProject {
-			wantChanges++ // seedRunsFixture's own change, absent from fixtureData
-		}
 		if len(changes) != wantChanges {
 			t.Fatalf("project %s: got %d changes, want %d", project.Key, len(changes), wantChanges)
 		}

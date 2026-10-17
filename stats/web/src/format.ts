@@ -3,9 +3,12 @@
 // Unavailable.tsx exists to prevent -- they format only the value they are
 // actually given.
 export function formatUsd(value: number): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 4 }).format(
-    value,
-  );
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 export function formatInt(value: number): string {
@@ -14,6 +17,13 @@ export function formatInt(value: number): string {
 
 export function formatRatio(value: number): string {
   return value.toFixed(2);
+}
+
+export const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** A span that can run to days (a lead time); shorter reads in formatMs's units. */
+export function formatDays(value: number): string {
+  return value >= DAY_MS ? `${(value / DAY_MS).toFixed(1)} d` : formatMs(value);
 }
 
 export function formatMs(value: number): string {

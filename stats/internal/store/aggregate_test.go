@@ -281,6 +281,50 @@ func TestStageLeaderboardComputesMeanMedianP90(t *testing.T) {
 	if diff := row.P90CostUSD - 46; diff > eps || diff < -eps {
 		t.Errorf("P90CostUSD = %v, want 46", row.P90CostUSD)
 	}
+	if diff := row.TotalCostUSD - 150; diff > eps || diff < -eps {
+		t.Errorf("TotalCostUSD = %v, want 150", row.TotalCostUSD)
+	}
+}
+
+// TestStageLeaderboardKeepsTopTenByTotalCost: the leaderboard ranks stages
+// by total cost and keeps only the ten costliest (design.md's
+// leaderboard-top10-total) -- eleven stages in, the cheapest is gone and
+// the rest arrive total-descending.
+func TestStageLeaderboardKeepsTopTenByTotalCost(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-leaderboard-top-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	// Stage i costs i+1 in total, as two runs, so the rank is by the sum
+	// and not by any one run.
+	for i := range 11 {
+		for j := range 2 {
+			in := baseBeginInput(projectKey, "kan-1", "/flow", fmt.Sprintf("stage-%02d", i))
+			in.SessionID = ptr(fmt.Sprintf("session-%d-%d", i, j))
+			in.StartedAt = time.Date(2026, 6, 10, i, j, 0, 0, time.UTC)
+			costRun(t, st, in, float64(i+1)/2)
+		}
+	}
+
+	rows, err := st.StageLeaderboard(ctx, store.Period{
+		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+	}, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("StageLeaderboard: %v", err)
+	}
+	if len(rows) != 10 {
+		t.Fatalf("StageLeaderboard returned %d rows, want 10", len(rows))
+	}
+	for k, row := range rows {
+		if want := fmt.Sprintf("stage-%02d", 10-k); row.Stage != want {
+			t.Errorf("rows[%d].Stage = %q, want %q (total-cost descending)", k, row.Stage, want)
+		}
+		if want := float64(11 - k); row.TotalCostUSD != want {
+			t.Errorf("rows[%d].TotalCostUSD = %v, want %v", k, row.TotalCostUSD, want)
+		}
+	}
 }
 
 // TestTrendOverTimeBucketsByDay seeds three runs on one day and two on the
@@ -347,11 +391,9 @@ func TestTrendOverTimeBucketsByDay(t *testing.T) {
 // with a known token total and a known findings-by-severity bag, and
 // checks TokensTotal and FindingsPerMTok against values hand-computed from
 // them, not just FindingsTotal's row count as before.
-// TestAggregateOtherViewsRunWithoutError covers the two views not exercised
+// TestAggregateOtherViewsRunWithoutError covers the view not exercised
 // with hand-computed arithmetic elsewhere: LiveStateBoard (a projection of
-// changes, already covered thoroughly by changes_test.go) and
-// CacheEfficiency's ratio, computed here from a known cache-read and
-// cache-creation total.
+// changes, already covered thoroughly by changes_test.go).
 func TestAggregateOtherViewsRunWithoutError(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()
@@ -380,80 +422,6 @@ func TestAggregateOtherViewsRunWithoutError(t *testing.T) {
 
 	if _, err := st.LiveStateBoard(ctx, period, nil); err != nil {
 		t.Errorf("LiveStateBoard: %v", err)
-	}
-
-	rows, err := st.CacheEfficiency(ctx, period, &projectKey, nil)
-	if err != nil {
-		t.Fatalf("CacheEfficiency: %v", err)
-	}
-	if len(rows) != 1 {
-		t.Fatalf("CacheEfficiency returned %d rows, want 1", len(rows))
-	}
-	if rows[0].CacheReadTotal == nil || *rows[0].CacheReadTotal != 900000 {
-		t.Errorf("CacheReadTotal = %v, want 900000", rows[0].CacheReadTotal)
-	}
-	if rows[0].CacheCreationTotal == nil || *rows[0].CacheCreationTotal != 100000 {
-		t.Errorf("CacheCreationTotal = %v, want 100000", rows[0].CacheCreationTotal)
-	}
-	const eps = 1e-9
-	if rows[0].Ratio == nil {
-		t.Fatalf("Ratio is nil, want 9")
-	}
-	if diff := *rows[0].Ratio - 9; diff > eps || diff < -eps {
-		t.Errorf("Ratio = %v, want 9 (900000/100000)", *rows[0].Ratio)
-	}
-}
-
-// TestCacheEfficiencyRatioStaysNilWhenCacheCreationIsExactlyZero is F6's
-// own test: a stage run that recorded real cache-read usage but exactly
-// zero cache-creation -- a plausible, real shape, not a malformed one:
-// every message hit an already-warm cache and created nothing new -- must
-// leave Ratio nil rather than computing cache_read / 0, which in float64
-// division is +Inf, not a panic, so nothing before this test would have
-// caught a regression that dropped the `!= 0` guard: the query would keep
-// succeeding and returning a row, just with an unusable ratio silently
-// smuggled through as a number.
-func TestCacheEfficiencyRatioStaysNilWhenCacheCreationIsExactlyZero(t *testing.T) {
-	st := newTestStore(t)
-	ctx := context.Background()
-	projectKey := fmt.Sprintf("proj-cache-ratio-zero-%d", time.Now().UnixNano())
-	seedChange(t, st, projectKey, "kan-1")
-
-	in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
-	in.StartedAt = time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
-	run, err := st.BeginStage(ctx, in)
-	if err != nil {
-		t.Fatalf("BeginStage: %v", err)
-	}
-	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{
-		"tokens":{"main":{"cache_read":500000,"cache_creation":0}}
-	}`)); err != nil {
-		t.Fatalf("MergeMetrics: %v", err)
-	}
-	if err := st.EndStage(ctx, run.ID, in.StartedAt.Add(time.Minute), "completed"); err != nil {
-		t.Fatalf("EndStage: %v", err)
-	}
-
-	period := store.Period{
-		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
-		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
-	}
-
-	rows, err := st.CacheEfficiency(ctx, period, &projectKey, nil)
-	if err != nil {
-		t.Fatalf("CacheEfficiency: %v", err)
-	}
-	if len(rows) != 1 {
-		t.Fatalf("CacheEfficiency returned %d rows, want 1", len(rows))
-	}
-	if rows[0].CacheReadTotal == nil || *rows[0].CacheReadTotal != 500000 {
-		t.Errorf("CacheReadTotal = %v, want 500000", rows[0].CacheReadTotal)
-	}
-	if rows[0].CacheCreationTotal == nil || *rows[0].CacheCreationTotal != 0 {
-		t.Errorf("CacheCreationTotal = %v, want 0", rows[0].CacheCreationTotal)
-	}
-	if rows[0].Ratio != nil {
-		t.Errorf("Ratio = %v, want nil: cache-read over zero cache-creation must never become a (non-nil) NaN or Inf ratio", *rows[0].Ratio)
 	}
 }
 
@@ -579,10 +547,6 @@ func TestModelFilterHonouredByEveryAggregation(t *testing.T) {
 		}},
 		{"TrendOverTime", func(m *string) (int, error) {
 			r, err := st.TrendOverTime(ctx, period, &projectKey, m)
-			return len(r), err
-		}},
-		{"CacheEfficiency", func(m *string) (int, error) {
-			r, err := st.CacheEfficiency(ctx, period, &projectKey, m)
 			return len(r), err
 		}},
 	}
@@ -974,12 +938,6 @@ func TestReviewersCountsBySeverityAndMarksExperimental(t *testing.T) {
 	if primary.Critical != 1 || primary.Important != 1 || primary.Minor != 1 {
 		t.Errorf("primary severity counts = %+v, want Critical=1 Important=1 Minor=1", primary)
 	}
-	if diff := primary.FindingsPerDispatch - 1.5; diff > eps || diff < -eps {
-		t.Errorf("primary FindingsPerDispatch = %v, want 1.5 (3 findings / 2 dispatches)", primary.FindingsPerDispatch)
-	}
-	if primary.WithdrawnShare != 0 {
-		t.Errorf("primary WithdrawnShare = %v, want 0", primary.WithdrawnShare)
-	}
 
 	exp, ok := bySlot["exp-failure-modes"]
 	if !ok {
@@ -1000,12 +958,6 @@ func TestReviewersCountsBySeverityAndMarksExperimental(t *testing.T) {
 	}
 	if exp.Critical != 1 || exp.Important != 0 || exp.Minor != 1 {
 		t.Errorf("exp-failure-modes severity counts = %+v, want Critical=1 Important=0 Minor=1", exp)
-	}
-	if diff := exp.FindingsPerDispatch - 2.0; diff > eps || diff < -eps {
-		t.Errorf("exp-failure-modes FindingsPerDispatch = %v, want 2.0", exp.FindingsPerDispatch)
-	}
-	if diff := exp.WithdrawnShare - 0.5; diff > eps || diff < -eps {
-		t.Errorf("exp-failure-modes WithdrawnShare = %v, want 0.5", exp.WithdrawnShare)
 	}
 }
 
@@ -1526,5 +1478,62 @@ func seedRoster(t *testing.T, st *store.Store, projectKey, change string, slots 
 		Decision:     json.RawMessage(`{"panel": {"roster": [` + strings.Join(entries, ",") + `]}}`),
 	}); err != nil {
 		t.Fatalf("RecordDecision: %v", err)
+	}
+}
+
+// TestLiveStateBoardCarriesWholeLifeRunTotals: each board row carries its
+// change's run totals over the change's whole life (design.md's
+// board-run-totals) -- a run is the stage rows sharing a session token, a
+// token-less row is a run of its own, and a run started long before the
+// board's period still counts.
+func TestLiveStateBoardCarriesWholeLifeRunTotals(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-board-runs-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	stage := func(token *string, started time.Time, minutes int, metrics string) {
+		t.Helper()
+		in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
+		in.SessionToken = token
+		in.StartedAt = started
+		run, err := st.BeginStage(ctx, in)
+		if err != nil {
+			t.Fatalf("BeginStage: %v", err)
+		}
+		if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(metrics)); err != nil {
+			t.Fatalf("MergeMetrics: %v", err)
+		}
+		if err := st.EndStage(ctx, run.ID, started.Add(time.Duration(minutes)*time.Minute), "completed"); err != nil {
+			t.Fatalf("EndStage: %v", err)
+		}
+	}
+	day := time.Date(2026, 8, 13, 10, 0, 0, 0, time.UTC)
+	stage(ptr("mf-a"), day, 1, `{"cost_usd":1.0,"signals":{"main":{"tool_errors":2}}}`)
+	stage(ptr("mf-a"), day.Add(5*time.Minute), 5, `{"cost_usd":0.5,"signals":{"sidechain":{"api_errors":1}}}`)
+	stage(nil, day.Add(-72*time.Hour), 30, `{"cost_usd":2.0,"signals":{"main":{"api_errors":1}}}`)
+
+	rows, err := st.LiveStateBoard(ctx, store.Period{
+		From: time.Date(2026, 8, 13, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC),
+	}, &projectKey)
+	if err != nil {
+		t.Fatalf("LiveStateBoard: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("LiveStateBoard returned %d rows, want 1", len(rows))
+	}
+	got := rows[0]
+	if got.RunCount != 2 {
+		t.Errorf("RunCount = %d, want 2 (one token run, one token-less run)", got.RunCount)
+	}
+	if diff := got.CostUsd - 3.5; diff > 1e-9 || diff < -1e-9 {
+		t.Errorf("CostUsd = %v, want 3.5", got.CostUsd)
+	}
+	if want := int64(40 * time.Minute / time.Millisecond); got.WallClockMs != want {
+		t.Errorf("WallClockMs = %d, want %d (10 min token run + 30 min token-less run)", got.WallClockMs, want)
+	}
+	if got.Errors != 4 {
+		t.Errorf("Errors = %d, want 4 (tool and API errors, main and sidechain)", got.Errors)
 	}
 }

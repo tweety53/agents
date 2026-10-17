@@ -41,10 +41,8 @@ export type ViewName =
   | "state-board"
   | "stage-leaderboard"
   | "trend"
-  | "cache-efficiency"
   | "reviewers"
   | "decisions"
-  | "runs"
   | "flow-health"
   | "self-review";
 
@@ -52,10 +50,8 @@ export const VIEW_NAMES: readonly ViewName[] = [
   "state-board",
   "stage-leaderboard",
   "trend",
-  "cache-efficiency",
   "reviewers",
   "decisions",
-  "runs",
   "flow-health",
   "self-review",
 ];
@@ -66,10 +62,9 @@ export const VIEW_NAMES: readonly ViewName[] = [
  * aggregate, so `fetchStatsView` keeps accepting it alongside `ViewName`. */
 type CostPerChangeViewSlug = "cost-per-change";
 
-/** The three statistics endpoints the "flow-health" dashboard composes
- * (internal/api/health.go) -- not navigable views of their own: the one
- * dashboard reads all three. */
-export type HealthViewSlug = "guards" | "stage-redo" | "panel-rounds";
+/** The statistics endpoint the "flow-health" dashboard reads
+ * (internal/api/health.go) -- not a navigable view of its own. */
+export type HealthViewSlug = "flow-summary";
 
 /** Every slug GET /api/v1/stats/{view} is called with from this client. */
 export type StatsViewSlug = ViewName | CostPerChangeViewSlug | HealthViewSlug;
@@ -260,6 +255,11 @@ export interface StateBoardRow {
    * when the change was never observed -- absence, never a zero. */
   plannedTasks?: number;
   currentTasks?: number;
+  /** Whole-life run totals (store.LiveStateRow). */
+  runCount: number;
+  costUsd: number;
+  wallClockMs: number;
+  errors: number;
 }
 
 /** Mirrors costPerChangeRowDTO. */
@@ -286,46 +286,23 @@ export interface StageLeaderboardRow {
   meanCostUsd: number;
   medianCostUsd: number;
   p90CostUsd: number;
+  totalCostUsd: number;
 }
 
-/** Mirrors guardActivityRowDTO (internal/api/health.go). The run-derived
- * fields are null for a guard known only from a recorded verdict. */
-export interface GuardActivityRow {
-  guard: string;
-  runs: number;
-  fired: number;
-  cannotAnswer: number;
-  lastRunAt: string | null;
-  lastFiredAt: string | null;
-  medianDurationMs: number | null;
-  verdicts: number;
-  falsePositives: number;
-}
-
-/** Mirrors stageRedoRowDTO. The durations are null when no run in the
- * group has ended. */
-export interface StageRedoRow {
-  command: string;
-  stage: string;
-  runs: number;
-  changes: number;
-  reentries: number;
-  reenteredChanges: number;
-  medianSeconds: number | null;
-  p90Seconds: number | null;
-}
-
-/** Mirrors panelRoundsRowDTO. `rounds` is null when the change recorded
- * no finding and no pass-log line -- not recorded, never zero rounds. */
-export interface PanelRoundsRow {
-  project: string;
-  change: string;
-  startedAt: string;
-  rounds: number | null;
-  findings: number;
+/** Mirrors flowSummaryDTO (internal/api/health.go): the flow-summary
+ * view's one object of period totals. The cost and mean figures are null
+ * when nothing in the period was measured -- absence, never a zero. */
+export interface FlowSummary {
+  changesStarted: number;
+  changesFinished: number;
+  totalCostUsd: number | null;
+  meanCostPerFinished: number | null;
+  medianLeadTimeMs: number | null;
+  meanPanelRounds: number | null;
   critical: number;
   important: number;
   minor: number;
+  guardFires: number;
 }
 
 /** Mirrors selfReviewRowDTO. `commitUrl` is "" unless the finding is
@@ -349,15 +326,6 @@ export interface TrendPoint {
   totalCostUsd: number | null;
 }
 
-/** Mirrors cacheEfficiencyRowDTO. */
-export interface CacheEfficiencyRow {
-  command: string;
-  stage: string;
-  cacheReadTotal: number | null;
-  cacheCreationTotal: number | null;
-  ratio: number | null;
-}
-
 /** Mirrors reviewerRowDTO. */
 export interface ReviewerRow {
   slot: string;
@@ -368,8 +336,6 @@ export interface ReviewerRow {
   critical: number;
   important: number;
   minor: number;
-  findingsPerDispatch: number;
-  withdrawnShare: number;
 }
 
 /** Mirrors decisionRowDTO. */
@@ -402,91 +368,6 @@ export interface DecisionRow {
   fixRounds: number;
   fallbacks: number;
   timedOut: number;
-}
-
-/** Mirrors the runs view's per-run totals bag. */
-export interface RunTotals {
-  inputTokens: number;
-  outputTokens: number;
-  thinkingTokens: number;
-  cacheRead: number;
-  cacheWrite5m: number;
-  cacheWrite1h: number;
-  cacheHitRatio: number | null;
-  costUsd: number | null;
-  priced: boolean;
-  wallClockMs: number;
-  humanGateMs: number;
-  compactions: number;
-  turns: number;
-  toolCalls: number;
-  toolErrors: number;
-  denials: number;
-  apiErrors: number;
-  contextEnd: number | null;
-}
-
-/** One dispatch inside a run (mirrors the runs view's dispatch row). */
-export interface RunDispatchRow {
-  seq: number;
-  role: string;
-  slot: string;
-  agentId: string;
-  agentType: string;
-  description: string;
-  depth: number | null;
-  declaredModel: string;
-  declaredEffort: string;
-  servedModels: Record<string, number> | null;
-  servedEfforts: Record<string, number> | null;
-  mismatch: boolean;
-  priced: boolean;
-  findingsRaised: number;
-  findingsByStatus: Record<string, number> | null;
-  startedAt: string;
-  endedAt: string | null;
-  totals: RunTotals;
-}
-
-/**
- * One stage run inside a run (mirrors the runs view's per-run stage span):
- * where that run's wall clock went. `endedAt`/`outcome` are null while the
- * stage is still open.
- */
-export interface RunStageSpan {
-  stage: string;
-  attempt: number;
-  startedAt: string;
-  endedAt: string | null;
-  outcome: string | null;
-}
-
-/** One run (a change's /flow-plan, /flow or /flow-fast invocation), keyed by session token. */
-export interface RunRow {
-  sessionToken: string;
-  kind: "plan" | "flow" | "flow-fast";
-  command: string;
-  startedAt: string;
-  endedAt: string | null;
-  totals: RunTotals;
-  main: RunTotals;
-  decision: { execution: string; implementer: string; panel: string } | null;
-  fanOutMax: number;
-  suiteRuns: number;
-  suiteFirstPass: boolean | null;
-  dispatches: RunDispatchRow[];
-  stages: RunStageSpan[];
-}
-
-/** A change's runs, grouped -- mirrors the runs view's top-level row. */
-export interface ChangeRuns {
-  project: string;
-  change: string | null;
-  jiraKey: string | null;
-  totals: RunTotals;
-  idleBetweenRunsMs: number;
-  fixIterations: number;
-  runs: RunRow[];
 }
 
 /**

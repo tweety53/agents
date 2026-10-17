@@ -1,6 +1,6 @@
 // Reviewers -- per review-panel slot's dispatch and finding record across
-// a period: how often each slot ran, what it found by severity, and how
-// much of it was withdrawn rather than fixed. An experimental slot (an
+// a period: how often each slot ran, what it found by severity, and its
+// severity-weighted efficiency. An experimental slot (an
 // "exp-" id) is badged and its roster description shown behind an info icon (design.md's "Stats views › reviewers").
 import { DataTable, type Column } from "../components/DataTable";
 import { Panel } from "../components/Panel";
@@ -11,8 +11,10 @@ import { useStatsView } from "../hooks/useStatsView";
 import { formatInt } from "../format";
 import type { ViewProps } from "../viewTypes";
 
-function formatShare(value: number): string {
-  return `${Math.round(value * 100)}%`;
+// Severity-weighted findings per dispatch (design.md's reviewers-efficiency):
+// Critical 10, Important 4, Minor 1; null when the slot never ran.
+function efficiency(r: ReviewerRow): number | null {
+  return r.dispatches === 0 ? null : (10 * r.critical + 4 * r.important + r.minor) / r.dispatches;
 }
 
 const columns: Column<ReviewerRow>[] = [
@@ -44,18 +46,14 @@ const columns: Column<ReviewerRow>[] = [
   { key: "important", header: "Important", sortable: true, accessor: (r) => r.important, render: (r) => formatInt(r.important) },
   { key: "minor", header: "Minor", sortable: true, accessor: (r) => r.minor, render: (r) => formatInt(r.minor) },
   {
-    key: "findingsPerDispatch",
-    header: "Findings/dispatch",
+    key: "efficiency",
+    header: "Efficiency",
     sortable: true,
-    accessor: (r) => r.findingsPerDispatch,
-    render: (r) => r.findingsPerDispatch.toFixed(2),
-  },
-  {
-    key: "withdrawnShare",
-    header: "Withdrawn",
-    sortable: true,
-    accessor: (r) => r.withdrawnShare,
-    render: (r) => formatShare(r.withdrawnShare),
+    accessor: (r) => efficiency(r) ?? -1,
+    render: (r) => {
+      const value = efficiency(r);
+      return value === null ? "—" : value.toFixed(2);
+    },
   },
 ];
 
@@ -68,7 +66,7 @@ export function Reviewers({ period, onPeriodChange, project, model }: ViewProps)
   });
 
   return (
-    <ViewFrame title="Reviewers" description="Per review-panel slot: how often it ran, what it found, and how much of that was withdrawn.">
+    <ViewFrame title="Reviewers" description="Per review-panel slot: how often it ran, what it found, and how efficiently.">
       <div className="dashboard-stat-row">
         <Panel title="Slots" state={state}>
           {(data) => <StatPanel label="Slots" value={data.rows.length} format={formatInt} />}

@@ -6,9 +6,8 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { HealthViewSlug, StatsResponse, StatsViewSlug, ViewName } from "../api";
+import type { DecisionRow, HealthViewSlug, StatsResponse, StatsViewSlug, ViewName } from "../api";
 import { App } from "../App";
-import { CacheEfficiency } from "./CacheEfficiency";
 import { Decisions } from "./Decisions";
 import { FlowHealth } from "./FlowHealth";
 import { Reviewers } from "./Reviewers";
@@ -51,6 +50,10 @@ const fixtures: Record<Exclude<ViewName, "flow-health"> | HealthViewSlug, StatsR
       nextCommand: "/flow-fast",
       plannedTasks: 22,
       currentTasks: 46,
+      runCount: 7,
+      costUsd: 12.5,
+      wallClockMs: 5400000,
+      errors: 3,
     },
     {
       projectKey: "kan-16-stats-app",
@@ -59,6 +62,10 @@ const fixtures: Record<Exclude<ViewName, "flow-health"> | HealthViewSlug, StatsR
       updatedAt: "2026-01-15T09:00:00Z",
       updatedBy: "bob",
       nextCommand: "/flow",
+      runCount: 0,
+      costUsd: 0,
+      wallClockMs: 0,
+      errors: 0,
     },
     {
       projectKey: "kan-16-stats-app",
@@ -69,6 +76,22 @@ const fixtures: Record<Exclude<ViewName, "flow-health"> | HealthViewSlug, StatsR
       nextCommand: "/flow",
       plannedTasks: 46,
       currentTasks: 22,
+      runCount: 2,
+      costUsd: 1.25,
+      wallClockMs: 45000,
+      errors: 11,
+    },
+    {
+      projectKey: "kan-16-stats-app",
+      name: "pipeline-fix-x-14",
+      state: "FINISHED",
+      updatedAt: "2026-01-15T07:00:00Z",
+      updatedBy: "dave",
+      nextCommand: "",
+      runCount: 1,
+      costUsd: 0.5,
+      wallClockMs: 1000,
+      errors: 0,
     },
   ]),
   "stage-leaderboard": envelope("stage-leaderboard", [
@@ -79,13 +102,10 @@ const fixtures: Record<Exclude<ViewName, "flow-health"> | HealthViewSlug, StatsR
       meanCostUsd: 1.5,
       medianCostUsd: 1.2,
       p90CostUsd: 2.9,
+      totalCostUsd: 4.5,
     },
   ]),
   trend: envelope("trend", [{ day: "2026-01-05", runCount: 2, totalCostUsd: 5.25 }]),
-  "cache-efficiency": envelope("cache-efficiency", [
-    { command: "/flow", stage: "measured-zero", cacheReadTotal: 0, cacheCreationTotal: 1000, ratio: 0 },
-    { command: "/flow", stage: "never-measured", cacheReadTotal: null, cacheCreationTotal: null, ratio: null },
-  ]),
   reviewers: envelope("reviewers", [
     {
       slot: "primary",
@@ -96,8 +116,6 @@ const fixtures: Record<Exclude<ViewName, "flow-health"> | HealthViewSlug, StatsR
       critical: 1,
       important: 1,
       minor: 1,
-      findingsPerDispatch: 1.5,
-      withdrawnShare: 0,
     },
     {
       slot: "exp-failure-modes",
@@ -108,8 +126,6 @@ const fixtures: Record<Exclude<ViewName, "flow-health"> | HealthViewSlug, StatsR
       critical: 1,
       important: 0,
       minor: 1,
-      findingsPerDispatch: 2.0,
-      withdrawnShare: 0.5,
     },
   ]),
   decisions: envelope("decisions", [
@@ -174,65 +190,24 @@ const fixtures: Record<Exclude<ViewName, "flow-health"> | HealthViewSlug, StatsR
       timedOut: 0,
     },
   ]),
-  runs: envelope("runs", []),
-  guards: envelope("guards", [
-    {
-      guard: "check-plan-shape",
-      runs: 40,
-      fired: 10,
-      cannotAnswer: 3,
-      lastRunAt: "2026-01-20T10:00:00Z",
-      lastFiredAt: "2026-01-19T10:00:00Z",
-      medianDurationMs: 850,
-      verdicts: 0,
-      falsePositives: 0,
-    },
-    {
-      guard: "check-quiet",
-      runs: 12,
-      fired: 0,
-      cannotAnswer: 0,
-      lastRunAt: "2026-01-20T10:00:00Z",
-      lastFiredAt: null,
-      medianDurationMs: 40,
-      verdicts: 0,
-      falsePositives: 0,
-    },
-    {
-      guard: "check-unfinished-work",
-      runs: 0,
-      fired: 0,
-      cannotAnswer: 0,
-      lastRunAt: null,
-      lastFiredAt: null,
-      medianDurationMs: null,
-      verdicts: 6,
-      falsePositives: 2,
-    },
-  ]),
-  "stage-redo": envelope("stage-redo", [
-    {
-      command: "/flow",
-      stage: "flow.review-panel",
-      runs: 9,
-      changes: 5,
-      reentries: 4,
-      reenteredChanges: 3,
-      medianSeconds: 90,
-      p90Seconds: null,
-    },
-  ]),
+  "flow-summary": envelope("flow-summary", {
+    changesStarted: 4,
+    changesFinished: 3,
+    totalCostUsd: 42.5,
+    meanCostPerFinished: 9.25,
+    medianLeadTimeMs: 2 * 86400000 + 43200000,
+    meanPanelRounds: 2.5,
+    critical: 1,
+    important: 2,
+    minor: 4,
+    guardFires: 10,
+  }),
   "self-review": envelope("self-review", [
     { recordedAt: "2026-01-12T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-fix", note: "guard misses a case", disposition: "fixed", ref: "abc1234", blastRadius: 3, commitUrl: "https://github.com/o/r/commit/abc1234" },
     { recordedAt: "2026-01-11T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-cost", note: "cheaper reviewer", disposition: "fixed", ref: "def5678", blastRadius: null, commitUrl: "https://github.com/o/r/commit/def5678" },
     { recordedAt: "2026-01-10T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-speed", note: "needs a redesign", disposition: "filed", ref: "KAN-9", blastRadius: null, commitUrl: "" },
     { recordedAt: "2026-01-09T10:00:00Z", project: "agents", change: "kan-2", angle: "flow-improvement", note: "not worth it", disposition: "declined", ref: "", blastRadius: null, commitUrl: "" },
     { recordedAt: "2026-01-08T10:00:00Z", project: "agents", change: "kan-2", angle: "flow-improvement", note: "panel caught it early", disposition: "noted", ref: "", blastRadius: null, commitUrl: "" },
-  ]),
-  "panel-rounds": envelope("panel-rounds", [
-    { project: "agents", change: "kan-1", startedAt: "2026-01-10T10:00:00Z", rounds: 3, findings: 7, critical: 1, important: 2, minor: 4 },
-    { project: "agents", change: "kan-2", startedAt: "2026-01-09T10:00:00Z", rounds: 2, findings: 0, critical: 0, important: 0, minor: 0 },
-    { project: "agents", change: "kan-3", startedAt: "2026-01-08T10:00:00Z", rounds: null, findings: 0, critical: 0, important: 0, minor: 0 },
   ]),
 };
 
@@ -242,14 +217,21 @@ beforeEach(() => {
 });
 
 describe("views render their fixture response's actual values", () => {
-  it("state board shows the change's state, updater and next command", async () => {
+  it("state board shows the change's state and run totals", async () => {
     render(<StateBoard period={period} project={undefined} />);
     // The state also appears as a filter-dropdown <option>, which is not a
     // table cell -- scoping to role "cell" is what makes this assertion
     // about the rendered row rather than about either element.
     expect(await screen.findByRole("cell", { name: "IN_PROGRESS" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "alice" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "/flow-fast" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: /^By/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: /Next command/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("cell", { name: "alice" })).not.toBeInTheDocument();
+    // Whole-life run totals (design.md's board-run-totals).
+    const row = screen.getByRole("link", { name: "kan-16-stats-app" }).closest("tr")!;
+    within(row).getByRole("cell", { name: "7" });
+    within(row).getByRole("cell", { name: "$12.50" });
+    within(row).getByRole("cell", { name: "90.0 min" });
+    within(row).getByRole("cell", { name: "3" });
     // Plan growth (KAN-415): the observed change shows planned -> current
     // with the appended figure; the never-observed one reads as the
     // absence dash, never as a count of zero.
@@ -257,18 +239,43 @@ describe("views render their fixture response's actual values", () => {
     // A shrinking series carries its own sign, never a malformed "+-24"
     // (panel round 0, F1).
     expect(screen.getByRole("cell", { name: "46 → 22 (-24)" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "—" })).toBeInTheDocument();
-    // Its own stat panel: a count of the rows the server returned, never a
-    // fabricated total or mean for a categorical "state" column.
+    // (Scoped to that row's Plan growth cell: its Cost and Wall clock also
+    // read "—" now, design.md's no-runs-dash.)
+    const unobserved = screen.getByRole("link", { name: "kan-29-never-observed" }).closest("tr")!;
+    expect(within(unobserved).getAllByRole("cell", { name: "—" })).toHaveLength(3);
+    // Its own stat panel: a count of the rows shown, never a fabricated
+    // total or mean for a categorical "state" column.
     expect(screen.getByRole("heading", { name: "Changes" })).toBeInTheDocument();
     within(screen.getByRole("region", { name: "Changes" })).getByText("3");
   });
 
-  it("stage leaderboard shows mean, median and p90 cost, and its own stat panels", async () => {
+  it("state board shows a dash for cost and wall clock of a change with no runs", async () => {
+    render(<StateBoard period={period} project={undefined} />);
+    // design.md's no-runs-dash: a change never measured reads as absent for
+    // its cost and wall clock, while its run and error counts stay a measured 0.
+    const row = (await screen.findByRole("link", { name: "kan-29-never-observed" })).closest("tr")!;
+    const headers = screen.getAllByRole("columnheader").map((h) => h.textContent ?? "");
+    const cells = within(row).getAllByRole("cell");
+    const cellUnder = (header: RegExp) => cells[headers.findIndex((h) => header.test(h))];
+    expect(cellUnder(/^Cost/)).toHaveTextContent(/^—$/);
+    expect(cellUnder(/^Wall clock/)).toHaveTextContent(/^—$/);
+    expect(cellUnder(/^Runs/)).toHaveTextContent(/^0$/);
+    expect(cellUnder(/^Errors/)).toHaveTextContent(/^0$/);
+  });
+
+  it("state board hides pipeline-fix changes", async () => {
+    render(<StateBoard period={period} project={undefined} />);
+    expect(await screen.findByRole("link", { name: "kan-16-stats-app" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "pipeline-fix-x-14" })).not.toBeInTheDocument();
+  });
+
+  it("stage leaderboard shows total, mean, median and p90 cost, and its own stat panels", async () => {
     render(<StageLeaderboard period={period} project={undefined} />);
     expect(await screen.findByText("$1.50")).toBeInTheDocument();
     expect(screen.getByText("$1.20")).toBeInTheDocument();
     expect(screen.getByText("$2.90")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /Total cost/ })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "$4.50" })).toBeInTheDocument();
     within(screen.getByRole("region", { name: "Stages" })).getByText("1");
     within(screen.getByRole("region", { name: "Total runs" })).getByText("3");
   });
@@ -291,15 +298,31 @@ describe("views render their fixture response's actual values", () => {
     // column -- distinct values so a swap or a dropped field cannot hide.
     const primaryRow = screen.getByRole("cell", { name: /primary/ }).closest("tr")!;
     expect(within(primaryRow).getByText("2")).toBeInTheDocument(); // dispatches
-    expect(within(primaryRow).getByText("1.50")).toBeInTheDocument(); // findings/dispatch
 
     const expRow = screen.getByRole("cell", { name: /exp-failure-modes/ }).closest("tr")!;
     const badge = within(expRow).getByRole("img", { name: "experimental reviewer" });
     expect(badge).toHaveAttribute("title", "What the diff does under error, timeout and partial write");
-    expect(within(expRow).getByText("50%")).toBeInTheDocument(); // withdrawn share
+    expect(screen.queryByRole("columnheader", { name: /Findings\/dispatch/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: /Withdrawn/ })).not.toBeInTheDocument();
 
     within(screen.getByRole("region", { name: "Slots" })).getByText("2");
     within(screen.getByRole("region", { name: "Total dispatches" })).getByText("3");
+  });
+
+  it("reviewers efficiency weighs critical 10, important 4, minor 1 per dispatch", async () => {
+    const row = { experimental: false, description: "", changes: 1 };
+    fetchStatsViewMock.mockResolvedValueOnce(
+      envelope("reviewers", [
+        { ...row, slot: "primary", dispatches: 166, critical: 4, important: 36, minor: 70 },
+        { ...row, slot: "idle", dispatches: 0, critical: 0, important: 0, minor: 0 },
+      ]),
+    );
+    render(<Reviewers period={period} project={undefined} />);
+    expect(await screen.findByRole("columnheader", { name: /Efficiency/ })).toBeInTheDocument();
+    const primaryRow = screen.getByRole("cell", { name: "primary" }).closest("tr")!;
+    expect(within(primaryRow).getByRole("cell", { name: "1.53" })).toBeInTheDocument();
+    const idleRow = screen.getByRole("cell", { name: "idle" }).closest("tr")!;
+    expect(within(idleRow).getByRole("cell", { name: "—" })).toBeInTheDocument();
   });
 
   it("renders self-review fixes", async () => {
@@ -315,12 +338,8 @@ describe("views render their fixture response's actual values", () => {
     within(screen.getByRole("region", { name: "Fixed" })).getByText("2");
     within(screen.getByRole("region", { name: "Filed" })).getByText("1");
 
-    // Per change: fixed / filed / declined / noted, derived from the rows.
-    const perChange = screen.getByRole("region", { name: "Per change" });
-    const kan1 = within(perChange).getByRole("cell", { name: "kan-1" }).closest("tr")!;
-    expect(within(kan1).getAllByRole("cell").map((c) => c.textContent)).toEqual(["kan-1", "2", "1", "0", "0"]);
-    const kan2 = within(perChange).getByRole("cell", { name: "kan-2" }).closest("tr")!;
-    expect(within(kan2).getAllByRole("cell").map((c) => c.textContent)).toEqual(["kan-2", "0", "0", "1", "1"]);
+    // design.md's self-review-drop-per-change: no per-change block.
+    expect(screen.queryByRole("region", { name: "Per change" })).not.toBeInTheDocument();
 
     // The outcome column filters the findings table.
     await user.selectOptions(screen.getByRole("combobox", { name: "Filter by Outcome" }), "declined");
@@ -335,71 +354,49 @@ describe("views render their fixture response's actual values", () => {
   });
 
   // Also covers kan-472 task 23's grouping/dispatches/implementer-groups columns, asserted below.
-  it("decisions shows a run's class, execution and cost, and a class × execution summary", async () => {
+  it("decisions shows a class × execution summary and no per-decision table", async () => {
     render(<Decisions period={period} project={undefined} />);
-
-    const inlineRow = (await screen.findByRole("cell", { name: "kan-1" })).closest("tr")!;
-    expect(within(inlineRow).getByText("regular ↑")).toBeInTheDocument();
-    expect(within(inlineRow).getByText("inline")).toBeInTheDocument();
-    expect(within(inlineRow).getByText("$1.25")).toBeInTheDocument();
-    expect(within(inlineRow).getByText("free")).toBeInTheDocument();
-    expect(within(inlineRow).getByText("primary+exp-failure-modes")).toBeInTheDocument();
-
-    const sddRow = screen.getByRole("cell", { name: "kan-2" }).closest("tr")!;
-    expect(within(sddRow).getByText("sdd")).toBeInTheDocument();
-    expect(within(sddRow).getByText("$3.75")).toBeInTheDocument();
-    expect(within(sddRow).getByText("static")).toBeInTheDocument();
-    expect(within(sddRow).getByText("primary+principles · bugbot+mutation")).toBeInTheDocument();
-    expect(within(sddRow).getByText("1+2 · 3")).toBeInTheDocument();
-    expect(within(sddRow).getByText("sonnet/medium")).toBeInTheDocument();
-    expect(within(sddRow).getByText("haiku/low")).toBeInTheDocument();
 
     // The class × execution summary groups the two runs into their own
     // rows -- "regular / inline" and "regular / sdd" -- each with its own
-    // mean cost, distinct from the per-run table above.
-    const summaryRegion = screen.getByRole("region", { name: "By class and execution" });
+    // mean cost.
+    const summaryRegion = await screen.findByRole("region", { name: "By class and execution" });
     expect(within(summaryRegion).getByText("regular / inline")).toBeInTheDocument();
     expect(within(summaryRegion).getByText("regular / sdd")).toBeInTheDocument();
+    expect(within(summaryRegion).getByText("$1.25")).toBeInTheDocument();
+    expect(within(summaryRegion).getByText("$3.75")).toBeInTheDocument();
 
-    within(screen.getByRole("region", { name: "Runs" })).getByText("2");
+    // design.md's decisions-by-implementer-model: the per-decision table
+    // and the Runs tile are gone.
+    expect(screen.queryByRole("region", { name: "Every decision" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Runs" })).not.toBeInTheDocument();
+  });
+
+  it("decisions groups runs by implementer model", async () => {
+    const [inline, sdd] = fixtures.decisions.rows as DecisionRow[];
+    fetchStatsViewMock.mockResolvedValueOnce(
+      envelope("decisions", [inline, sdd, { ...sdd, change: "kan-3", costUsd: 1.25, wallClockSeconds: 600 }]),
+    );
+    render(<Decisions period={period} project={undefined} />);
+
+    const region = await screen.findByRole("region", { name: "By implementer model" });
+    const rows = within(region).getAllByRole("row").slice(1);
+    expect(rows).toHaveLength(2);
+    // opus first: two runs, mean cost (3.75 + 1.25) / 2, mean wall-clock
+    // (1200 s + 600 s) / 2, mean findings 3, mean fix rounds 1.
+    within(rows[0]).getByRole("cell", { name: "opus" });
+    within(rows[0]).getByRole("cell", { name: "2" });
+    within(rows[0]).getByRole("cell", { name: "$2.50" });
+    within(rows[0]).getByRole("cell", { name: "15.0 min" });
+    within(rows[0]).getByRole("cell", { name: "3.00" });
+    within(rows[0]).getByRole("cell", { name: "1.00" });
+    within(rows[1]).getByRole("cell", { name: "skipped — inline" });
+    within(rows[1]).getByRole("cell", { name: "1" });
   });
 
 });
 
 describe("absence is rendered distinctly from a recorded zero", () => {
-  it("cache efficiency: a real zero ratio reads as a value, an unmeasured ratio reads as unavailable", async () => {
-    render(<CacheEfficiency period={period} project={undefined} />);
-
-    const zeroRow = (await screen.findByText("measured-zero")).closest("tr") as HTMLElement;
-    const missingRow = screen.getByText("never-measured").closest("tr") as HTMLElement;
-
-    // Columns: command, stage, cache read, cache creation, ratio -- the
-    // ratio cell is the last one in each row.
-    const zeroCells = within(zeroRow).getAllByRole("cell");
-    const missingCells = within(missingRow).getAllByRole("cell");
-    const zeroRatioCell = zeroCells[zeroCells.length - 1];
-    const missingRatioCell = missingCells[missingCells.length - 1];
-
-    expect(within(zeroRatioCell).getByTestId("measured")).toHaveTextContent("0.00");
-    expect(within(zeroRatioCell).queryByTestId("unavailable")).not.toBeInTheDocument();
-
-    expect(within(missingRatioCell).getByTestId("unavailable")).toBeInTheDocument();
-    expect(within(missingRatioCell).queryByTestId("measured")).not.toBeInTheDocument();
-    // Every cell in the never-measured row reads as unavailable, not as a
-    // fabricated zero -- cacheReadTotal and cacheCreationTotal are also
-    // null in this fixture.
-    expect(within(missingRow).getAllByTestId("unavailable")).toHaveLength(3);
-
-    // Cache efficiency's own stat panels: totals pooled across both rows
-    // (1000 read via the zero-ratio row's own cacheReadTotal of 0, plus
-    // null from the never-measured row -- sumNullable treats the null row
-    // as contributing nothing, not as a zero), and the overall ratio
-    // 0 / 1000 = 0, a real measured zero, not "unavailable".
-    within(screen.getByRole("region", { name: "Total cache read" })).getByText("0");
-    within(screen.getByRole("region", { name: "Total cache creation" })).getByText("1,000");
-    within(screen.getByRole("region", { name: "Overall ratio" })).getByText("0.00");
-  });
-
   it("a period before the store held anything is stated, not rendered as an empty measured table", async () => {
     fetchStatsViewMock.mockImplementation((view: ViewName) =>
       Promise.resolve(envelope(view, [], false)),
@@ -624,37 +621,32 @@ describe("routing", () => {
 });
 
 describe("flow health", () => {
-  it("shows each guard's fire rate, marks a never-fired guard, and keeps a verdict-only guard's run fields unavailable", async () => {
+  it("flow health shows eight totals tiles", async () => {
     render(<FlowHealth period={period} project={undefined} />);
-    const shape = (await screen.findByRole("cell", { name: "check-plan-shape" })).closest("tr")!;
-    expect(within(shape).getByText("25%")).toBeInTheDocument(); // 10 of 40 fired
-    expect(within(shape).getByText("850 ms")).toBeInTheDocument();
-
-    const quiet = screen.getByRole("cell", { name: "check-quiet" }).closest("tr")!;
-    expect(within(quiet).getByText("0%")).toBeInTheDocument();
-    expect(within(quiet).getByText("never")).toBeInTheDocument();
-
-    // Known only from its verdicts: no fire rate and no runtime, shown as
-    // unavailable rather than as a zero.
-    const verdictOnly = screen.getByRole("cell", { name: "check-unfinished-work" }).closest("tr")!;
-    expect(within(verdictOnly).getAllByTestId("unavailable")).toHaveLength(2);
-    expect(within(verdictOnly).getByText("6")).toBeInTheDocument();
-
-    within(screen.getByRole("region", { name: "Guards that fired" })).getByText("1");
-    within(screen.getByRole("region", { name: "Guards that ran and never fired" })).getByText("1");
+    const tile = (name: string) => within(screen.getByRole("region", { name }));
+    expect(await screen.findByRole("region", { name: "Changes started" })).toBeInTheDocument();
+    tile("Changes started").getByText("4");
+    tile("Changes finished").getByText("3");
+    tile("Total cost").getByText("$42.50");
+    tile("Mean cost per finished change").getByText("$9.25");
+    tile("Median lead time").getByText("2.5 d");
+    tile("Mean panel rounds").getByText("2.50");
+    tile("Findings (C/I/Mi)").getByText("1/2/4");
+    tile("Guard fires").getByText("10");
+    expect(document.querySelectorAll(".stat-panel")).toHaveLength(8);
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
-  it("shows stage re-entries and the mean over changes that recorded panel rounds", async () => {
+  it("flow health reads an unfinished period's means as unavailable", async () => {
+    fetchStatsViewMock.mockResolvedValueOnce(
+      envelope("flow-summary", {
+        changesStarted: 1, changesFinished: 0, totalCostUsd: 0, meanCostPerFinished: null,
+        medianLeadTimeMs: null, meanPanelRounds: null, critical: 0, important: 0, minor: 0, guardFires: 0,
+      }),
+    );
     render(<FlowHealth period={period} project={undefined} />);
-    const panelRow = (await screen.findByRole("cell", { name: "flow.review-panel" })).closest("tr")!;
-    expect(within(panelRow).getByText("60%")).toBeInTheDocument(); // 3 of 5 changes re-entered
-    expect(within(panelRow).getByText("1.5 min")).toBeInTheDocument();
-    expect(within(panelRow).getByTestId("unavailable")).toBeInTheDocument(); // p90 not measured
-
-    // (3 + 2) / 2 -- kan-3 recorded no rounds and is not counted as zero.
-    within(screen.getByRole("region", { name: "Mean panel rounds" })).getByText("2.50");
-    within(screen.getByRole("region", { name: "Total re-entries" })).getByText("4");
-    const kan3 = screen.getByRole("cell", { name: "kan-3" }).closest("tr")!;
-    expect(within(kan3).getByTestId("unavailable")).toBeInTheDocument();
+    const lead = await screen.findByRole("region", { name: "Median lead time" });
+    expect(within(lead).getByTestId("unavailable")).toBeInTheDocument();
   });
 });
+

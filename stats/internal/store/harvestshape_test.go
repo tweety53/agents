@@ -87,24 +87,4 @@ func TestAggregationsReadTheHarvesterSMetricsShape(t *testing.T) {
 	if cost.SidechainTokens == nil || *cost.SidechainTokens != wantSidechain {
 		t.Errorf("SidechainTokens = %v, want %v (sidechain bucket's own fields summed)", cost.SidechainTokens, wantSidechain)
 	}
-
-	cacheRows, err := st.CacheEfficiency(ctx, period, &projectKey, nil)
-	if err != nil {
-		t.Fatalf("CacheEfficiency: %v", err)
-	}
-	if len(cacheRows) != 1 {
-		t.Fatalf("CacheEfficiency returned %d rows, want 1", len(cacheRows))
-	}
-	wantCacheRead := patch.Tokens.Main.CacheRead + patch.Tokens.Sidechain.CacheRead
-	wantCacheCreation := patch.Tokens.Main.CacheCreation + patch.Tokens.Sidechain.CacheCreation
-	cache := cacheRows[0]
-	if cache.CacheReadTotal == nil || *cache.CacheReadTotal != wantCacheRead {
-		t.Errorf("CacheReadTotal = %v, want %v", cache.CacheReadTotal, wantCacheRead)
-	}
-	if cache.CacheCreationTotal == nil || *cache.CacheCreationTotal != wantCacheCreation {
-		t.Errorf("CacheCreationTotal = %v, want %v", cache.CacheCreationTotal, wantCacheCreation)
-	}
-	if cache.Ratio == nil {
-		t.Errorf("CacheEfficiency Ratio is nil, want a computed ratio over real cache totals")
-	}
 }

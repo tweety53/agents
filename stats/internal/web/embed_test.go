@@ -368,10 +368,6 @@ func (fakeStore) TrendOverTime(context.Context, store.Period, *string, *string) 
 	return nil, nil
 }
 
-func (fakeStore) CacheEfficiency(context.Context, store.Period, *string, *string) ([]store.CacheEfficiencyRow, error) {
-	return nil, nil
-}
-
 func (fakeStore) Reviewers(context.Context, store.Period, *string, *string) ([]store.ReviewerRow, error) {
 	return nil, nil
 }
@@ -380,28 +376,12 @@ func (fakeStore) Decisions(context.Context, store.Period, *string) ([]store.Deci
 	return nil, nil
 }
 
-func (fakeStore) GuardActivity(context.Context, store.Period, *string) ([]store.GuardActivityRow, error) {
-	return nil, nil
-}
-
-func (fakeStore) StageRedo(context.Context, store.Period, *string) ([]store.StageRedoRow, error) {
-	return nil, nil
-}
-
 func (fakeStore) SelfReviewFindingsInPeriod(context.Context, store.Period, *string) ([]store.SelfReviewFindingRow, error) {
 	return nil, nil
 }
 
-func (fakeStore) PanelRounds(context.Context, store.Period, *string) ([]store.PanelRoundsRow, error) {
-	return nil, nil
-}
-
-// ListRuns is here for the same reason AllRecordedRunsUnmeasured's own doc
-// comment gives: api.StatsStore gained this method (task 22's "runs"
-// view), and every implementer must keep compiling -- this file's
-// fakeStore never exercises a stats route at all.
-func (fakeStore) ListRuns(context.Context, store.Period, *string, *string) ([]store.ChangeRuns, error) {
-	return nil, nil
+func (fakeStore) FlowSummary(context.Context, store.Period, *string) (store.FlowSummaryRow, error) {
+	return store.FlowSummaryRow{}, nil
 }
 
 func (fakeStore) CountRunsWithoutModel(context.Context, store.Period, *string) (int, error) {

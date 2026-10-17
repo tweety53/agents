@@ -1318,8 +1318,9 @@ func TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard(t *testing.T) {
 	// findings through `flow record findings` against it. That write's
 	// outcome is irrelevant here -- the guard's own combined output already
 	// silences it -- so this handler answers the render route with the
-	// zero-form envelope, every other GET with the empty change's rows,
-	// and accepts any other method rather than failing the test over it.
+	// zero-form envelope, the self-review bundle with a recorded summary,
+	// every other GET with the empty change's rows, and accepts any other
+	// method rather than failing the test over it.
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusCreated)
@@ -1339,10 +1340,12 @@ func TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard(t *testing.T) {
 	}))
 	defer srv.Close()
 	// The guard shells out to `flow record findings` with no -addr, and that
-	// subprocess inherits this process's environment. Pinning FLOW_ADDR to
-	// srv.URL keeps the guard reading from this test's daemon rather than
-	// from the caller's FLOW_ADDR or the dev daemon on 4173.
+	// subprocess inherits this process's environment. Its reads resolve
+	// FLOW_RECORDS_ADDR before FLOW_ADDR, so pinning both to srv.URL keeps
+	// the guard reading from this test's daemon rather than from the
+	// caller's FLOW_RECORDS_ADDR, FLOW_ADDR or the dev daemon on 4173.
 	t.Setenv("FLOW_ADDR", srv.URL)
+	t.Setenv("FLOW_RECORDS_ADDR", srv.URL)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),

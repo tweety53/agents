@@ -47,7 +47,6 @@ type StatsStore interface {
 	CostPerChange(ctx context.Context, period store.Period, project, model *string) ([]store.CostPerChangeRow, error)
 	StageLeaderboard(ctx context.Context, period store.Period, project, model *string) ([]store.StageLeaderboardRow, error)
 	TrendOverTime(ctx context.Context, period store.Period, project, model *string) ([]store.TrendPoint, error)
-	CacheEfficiency(ctx context.Context, period store.Period, project, model *string) ([]store.CacheEfficiencyRow, error)
 	// Reviewers backs the "reviewers" view (design.md's "Stats views ›
 	// reviewers", task 16): one row per review-panel slot's dispatch and
 	// finding record within period.
@@ -57,18 +56,10 @@ type StatsStore interface {
 	// its own run's totals. It takes no model filter -- a decision spans
 	// models (store.DecisionRow's own doc comment).
 	Decisions(ctx context.Context, period store.Period, project *string) ([]store.DecisionRow, error)
-	// ListRuns backs the "runs" view (design.md's "Stats views › runs",
-	// task 22): one row per change's runs, each run's dispatches nested
-	// inside it. Like Decisions, it takes no model filter -- a run spans
-	// models across its dispatches.
-	ListRuns(ctx context.Context, period store.Period, project, change *string) ([]store.ChangeRuns, error)
 	QueryStageRuns(ctx context.Context, q store.Query) ([]store.StageRun, int, error)
-	// GuardActivity, StageRedo and PanelRounds back the flow-health
-	// dashboard's views (store/health.go): which guards fire, which stages
-	// get re-entered, and how many review-panel rounds a change needs.
-	GuardActivity(ctx context.Context, period store.Period, project *string) ([]store.GuardActivityRow, error)
-	StageRedo(ctx context.Context, period store.Period, project *string) ([]store.StageRedoRow, error)
-	PanelRounds(ctx context.Context, period store.Period, project *string) ([]store.PanelRoundsRow, error)
+	// FlowSummary backs the flow-health dashboard's period totals
+	// (store/health.go).
+	FlowSummary(ctx context.Context, period store.Period, project *string) (store.FlowSummaryRow, error)
 	// SelfReviewFindingsInPeriod backs the "self-review" view: every
 	// self-review finding recorded in the period, newest first.
 	SelfReviewFindingsInPeriod(ctx context.Context, period store.Period, project *string) ([]store.SelfReviewFindingRow, error)
@@ -116,13 +107,9 @@ const (
 	viewCostPerChange    viewName = "cost-per-change"
 	viewStageLeaderboard viewName = "stage-leaderboard"
 	viewTrend            viewName = "trend"
-	viewCacheEfficiency  viewName = "cache-efficiency"
 	viewReviewers        viewName = "reviewers"
 	viewDecisions        viewName = "decisions"
-	viewRuns             viewName = "runs"
-	viewGuards           viewName = "guards"
-	viewStageRedo        viewName = "stage-redo"
-	viewPanelRounds      viewName = "panel-rounds"
+	viewFlowSummary      viewName = "flow-summary"
 	viewSelfReview       viewName = "self-review"
 )
 
@@ -132,8 +119,8 @@ const (
 // allowlist already takes for filter and sort fields.
 var knownViews = []viewName{
 	viewStateBoard, viewCostPerChange, viewStageLeaderboard, viewTrend,
-	viewCacheEfficiency, viewReviewers, viewDecisions, viewRuns,
-	viewGuards, viewStageRedo, viewPanelRounds, viewSelfReview,
+	viewReviewers, viewDecisions,
+	viewFlowSummary, viewSelfReview,
 }
 
 func acceptedViewNames() string {
@@ -423,9 +410,10 @@ func (h *statsHandler) view(w http.ResponseWriter, r *http.Request) {
 	// already fully reported by Recorded=false, so asking "did none of its
 	// runs carry a measurement" would be a wasted query answering a
 	// question that period does not raise.
-	// The flow-health views count guard runs, stage attempts and panel
-	// rounds, none of which is a token measurement, so "no run carried a
-	// measurement" says nothing about them and would hide real rows.
+	// The flow-health view counts changes, guard runs and panel rounds,
+	// and its two cost totals state their own absence (nil) -- so "no run
+	// carried a measurement" says nothing it does not already say, and
+	// would hide real rows.
 	var unmeasured bool
 	if recorded && !isHealthView(name) {
 		unmeasured, err = h.store.AllRecordedRunsUnmeasured(r.Context(), period, project)
@@ -524,14 +512,6 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 		}
 		return toTrendDTOs(trend), 0, ""
 
-	case viewCacheEfficiency:
-		eff, err := h.store.CacheEfficiency(ctx, period, project, model)
-		if err != nil {
-			s, m := mapStoreError(h.logger, "cache efficiency", err)
-			return nil, s, m
-		}
-		return toCacheEfficiencyDTOs(eff), 0, ""
-
 	case viewReviewers:
 		reviewers, err := h.store.Reviewers(ctx, period, project, model)
 		if err != nil {
@@ -548,22 +528,7 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 		}
 		return toDecisionDTOs(decisions), 0, ""
 
-	case viewRuns:
-		if model != nil {
-			return nil, http.StatusBadRequest, "the runs view lists whole runs, so a model restriction cannot apply here"
-		}
-		var change *string
-		if c := firstValue(values, "change"); c != "" {
-			change = &c
-		}
-		rows, err := h.store.ListRuns(ctx, period, project, change)
-		if err != nil {
-			s, m := mapStoreError(h.logger, "runs", err)
-			return nil, s, m
-		}
-		return toChangeRunsDTOs(rows), 0, ""
-
-	case viewGuards, viewStageRedo, viewPanelRounds, viewSelfReview:
+	case viewFlowSummary, viewSelfReview:
 		return h.healthRows(ctx, name, period, project, model)
 
 	default:
@@ -631,6 +596,13 @@ type stateBoardRowDTO struct {
 	// was never observed, absence-is-never-zero as the store states it.
 	PlannedTasks *int `json:"plannedTasks,omitempty"`
 	CurrentTasks *int `json:"currentTasks,omitempty"`
+
+	// RunCount, CostUsd, WallClockMs and Errors are the change's whole-life
+	// run totals (store.LiveStateRow).
+	RunCount    int     `json:"runCount"`
+	CostUsd     float64 `json:"costUsd"`
+	WallClockMs int64   `json:"wallClockMs"`
+	Errors      int     `json:"errors"`
 }
 
 // nextCommandFor maps a change's current pipeline state to the command that
@@ -673,6 +645,10 @@ func toStateBoardDTOs(rows []store.LiveStateRow) []stateBoardRowDTO {
 			NextCommand:  nextCommandFor(r.State),
 			PlannedTasks: r.PlannedTasks,
 			CurrentTasks: r.CurrentTasks,
+			RunCount:     r.RunCount,
+			CostUsd:      r.CostUsd,
+			WallClockMs:  r.WallClockMs,
+			Errors:       r.Errors,
 		}
 	}
 	return out
@@ -725,6 +701,7 @@ type stageLeaderboardRowDTO struct {
 	MeanCostUSD   float64 `json:"meanCostUsd"`
 	MedianCostUSD float64 `json:"medianCostUsd"`
 	P90CostUSD    float64 `json:"p90CostUsd"`
+	TotalCostUSD  float64 `json:"totalCostUsd"`
 }
 
 func toStageLeaderboardDTOs(rows []store.StageLeaderboardRow) []stageLeaderboardRowDTO {
@@ -733,6 +710,7 @@ func toStageLeaderboardDTOs(rows []store.StageLeaderboardRow) []stageLeaderboard
 		out[i] = stageLeaderboardRowDTO{
 			Command: r.Command, Stage: r.Stage, RunCount: r.RunCount,
 			MeanCostUSD: r.MeanCostUSD, MedianCostUSD: r.MedianCostUSD, P90CostUSD: r.P90CostUSD,
+			TotalCostUSD: r.TotalCostUSD,
 		}
 	}
 	return out
@@ -756,26 +734,6 @@ func toTrendDTOs(points []store.TrendPoint) []trendPointDTO {
 	return out
 }
 
-type cacheEfficiencyRowDTO struct {
-	Command string `json:"command"`
-	Stage   string `json:"stage"`
-
-	CacheReadTotal     *int64   `json:"cacheReadTotal"`
-	CacheCreationTotal *int64   `json:"cacheCreationTotal"`
-	Ratio              *float64 `json:"ratio"`
-}
-
-func toCacheEfficiencyDTOs(rows []store.CacheEfficiencyRow) []cacheEfficiencyRowDTO {
-	out := make([]cacheEfficiencyRowDTO, len(rows))
-	for i, r := range rows {
-		out[i] = cacheEfficiencyRowDTO{
-			Command: r.Command, Stage: r.Stage,
-			CacheReadTotal: r.CacheReadTotal, CacheCreationTotal: r.CacheCreationTotal, Ratio: r.Ratio,
-		}
-	}
-	return out
-}
-
 type reviewerRowDTO struct {
 	Slot         string `json:"slot"`
 	Experimental bool   `json:"experimental"`
@@ -786,9 +744,6 @@ type reviewerRowDTO struct {
 	Critical   int `json:"critical"`
 	Important  int `json:"important"`
 	Minor      int `json:"minor"`
-
-	FindingsPerDispatch float64 `json:"findingsPerDispatch"`
-	WithdrawnShare      float64 `json:"withdrawnShare"`
 }
 
 func toReviewerDTOs(rows []store.ReviewerRow) []reviewerRowDTO {
@@ -798,8 +753,6 @@ func toReviewerDTOs(rows []store.ReviewerRow) []reviewerRowDTO {
 			Slot: r.Slot, Experimental: r.Experimental, Description: r.Description,
 			Dispatches: r.Dispatches, Changes: r.Changes,
 			Critical: r.Critical, Important: r.Important, Minor: r.Minor,
-			FindingsPerDispatch: r.FindingsPerDispatch,
-			WithdrawnShare:      r.WithdrawnShare,
 		}
 	}
 	return out
@@ -860,155 +813,6 @@ func toDecisionDTOs(rows []store.DecisionRow) []decisionRowDTO {
 			Critical: r.Critical, Important: r.Important, Minor: r.Minor, FixRounds: r.FixRounds,
 			Fallbacks: r.Fallbacks, TimedOut: r.TimedOut,
 		}
-	}
-	return out
-}
-
-type runTotalsDTO struct {
-	InputTokens    int64    `json:"inputTokens"`
-	OutputTokens   int64    `json:"outputTokens"`
-	ThinkingTokens int64    `json:"thinkingTokens"`
-	CacheRead      int64    `json:"cacheRead"`
-	CacheWrite5m   int64    `json:"cacheWrite5m"`
-	CacheWrite1h   int64    `json:"cacheWrite1h"`
-	CacheHitRatio  *float64 `json:"cacheHitRatio"`
-	CostUsd        *float64 `json:"costUsd"`
-	Priced         bool     `json:"priced"`
-	WallClockMs    int64    `json:"wallClockMs"`
-	HumanGateMs    int64    `json:"humanGateMs"`
-	Compactions    int64    `json:"compactions"`
-	Turns          int64    `json:"turns"`
-	ToolCalls      int64    `json:"toolCalls"`
-	ToolErrors     int64    `json:"toolErrors"`
-	Denials        int64    `json:"denials"`
-	ApiErrors      int64    `json:"apiErrors"`
-	ContextEnd     *int64   `json:"contextEnd"`
-}
-
-type runDispatchDTO struct {
-	Seq              int              `json:"seq"`
-	Role             string           `json:"role"`
-	Slot             string           `json:"slot"`
-	AgentID          string           `json:"agentId"`
-	AgentType        string           `json:"agentType"`
-	Description      string           `json:"description"`
-	Depth            *int             `json:"depth"`
-	DeclaredModel    string           `json:"declaredModel"`
-	DeclaredEffort   string           `json:"declaredEffort"`
-	ServedModels     map[string]int64 `json:"servedModels"`
-	ServedEfforts    map[string]int64 `json:"servedEfforts"`
-	Mismatch         bool             `json:"mismatch"`
-	Priced           bool             `json:"priced"`
-	FindingsRaised   int              `json:"findingsRaised"`
-	FindingsByStatus map[string]int   `json:"findingsByStatus"`
-	StartedAt        string           `json:"startedAt"`
-	EndedAt          *string          `json:"endedAt"`
-	Totals           runTotalsDTO     `json:"totals"`
-}
-
-type runDecisionDTO struct {
-	Execution   string `json:"execution"`
-	Implementer string `json:"implementer"`
-	Panel       string `json:"panel"`
-}
-
-// runStageSpanDTO is one stage run of a run row: where that run's wall
-// clock went, carried through from store.RunStageSpan so the runs view can
-// surface a phase blowout per run without leaving the runs list.
-type runStageSpanDTO struct {
-	Stage     string  `json:"stage"`
-	Attempt   int     `json:"attempt"`
-	StartedAt string  `json:"startedAt"`
-	EndedAt   *string `json:"endedAt"`
-	Outcome   *string `json:"outcome"`
-}
-
-type runDTO struct {
-	SessionToken   string            `json:"sessionToken"`
-	Kind           string            `json:"kind"`
-	Command        string            `json:"command"`
-	StartedAt      string            `json:"startedAt"`
-	EndedAt        *string           `json:"endedAt"`
-	Totals         runTotalsDTO      `json:"totals"`
-	Main           runTotalsDTO      `json:"main"`
-	Decision       *runDecisionDTO   `json:"decision"`
-	FanOutMax      int               `json:"fanOutMax"`
-	SuiteRuns      int               `json:"suiteRuns"`
-	SuiteFirstPass *bool             `json:"suiteFirstPass"`
-	Dispatches     []runDispatchDTO  `json:"dispatches"`
-	Stages         []runStageSpanDTO `json:"stages"`
-}
-
-type changeRunsDTO struct {
-	Project           string       `json:"project"`
-	Change            *string      `json:"change"`
-	JiraKey           *string      `json:"jiraKey"`
-	Totals            runTotalsDTO `json:"totals"`
-	IdleBetweenRunsMs int64        `json:"idleBetweenRunsMs"`
-	FixIterations     int          `json:"fixIterations"`
-	Runs              []runDTO     `json:"runs"`
-}
-
-// toRunTotalsDTO derives CacheHitRatio from the same tokens store.RunTotals
-// already carries rather than the store folding and returning a fraction of
-// its own: the ratio is cache reads over every token that could have been a
-// cache read (input plus all three cache buckets), and is left nil -- never
-// zero -- when that denominator is itself zero, so a run with no measured
-// tokens reads as "no ratio" rather than a misleading 0%.
-func toRunTotalsDTO(t store.RunTotals) runTotalsDTO {
-	out := runTotalsDTO{
-		InputTokens: t.InputTokens, OutputTokens: t.OutputTokens, ThinkingTokens: t.ThinkingTokens,
-		CacheRead: t.CacheRead, CacheWrite5m: t.CacheWrite5m, CacheWrite1h: t.CacheWrite1h,
-		CostUsd: t.CostUSD, Priced: t.Priced, WallClockMs: t.WallClockMs, HumanGateMs: t.HumanGateMs,
-		Compactions: t.Compactions, Turns: t.Turns, ToolCalls: t.ToolCalls, ToolErrors: t.ToolErrors,
-		Denials: t.Denials, ApiErrors: t.APIErrors, ContextEnd: t.ContextEnd,
-	}
-	if denom := t.InputTokens + t.CacheRead + t.CacheWrite5m + t.CacheWrite1h; denom > 0 {
-		ratio := float64(t.CacheRead) / float64(denom)
-		out.CacheHitRatio = &ratio
-	}
-	return out
-}
-
-// rfc3339Ptr formats t the same way every other timestamp on the wire is
-// formatted (UTC, RFC3339Nano), preserving nil for the still-open runs and
-// dispatches EndedAt represents.
-func rfc3339Ptr(t *time.Time) *string {
-	if t == nil {
-		return nil
-	}
-	s := t.UTC().Format(time.RFC3339Nano)
-	return &s
-}
-
-func toChangeRunsDTOs(rows []store.ChangeRuns) []changeRunsDTO {
-	out := make([]changeRunsDTO, len(rows))
-	for i, g := range rows {
-		dto := changeRunsDTO{Project: g.Project, Change: g.Change, JiraKey: g.JiraKey, Totals: toRunTotalsDTO(g.Totals),
-			IdleBetweenRunsMs: g.IdleBetweenRunsMs, FixIterations: g.FixIterations, Runs: make([]runDTO, len(g.Runs))}
-		for j, r := range g.Runs {
-			run := runDTO{SessionToken: r.SessionToken, Kind: r.Kind, Command: r.Command,
-				StartedAt: r.StartedAt.UTC().Format(time.RFC3339Nano), EndedAt: rfc3339Ptr(r.EndedAt),
-				Totals: toRunTotalsDTO(r.Totals), Main: toRunTotalsDTO(r.Main), FanOutMax: r.FanOutMax, SuiteRuns: r.SuiteRuns,
-				SuiteFirstPass: r.SuiteFirstPass, Dispatches: make([]runDispatchDTO, len(r.Dispatches)),
-				Stages: make([]runStageSpanDTO, len(r.Stages))}
-			if r.Decision != nil {
-				run.Decision = &runDecisionDTO{Execution: r.Decision.Execution, Implementer: r.Decision.Implementer, Panel: r.Decision.Panel}
-			}
-			for k, s := range r.Stages {
-				run.Stages[k] = runStageSpanDTO{Stage: s.Stage, Attempt: s.Attempt,
-					StartedAt: s.StartedAt.UTC().Format(time.RFC3339Nano), EndedAt: rfc3339Ptr(s.EndedAt), Outcome: s.Outcome}
-			}
-			for k, d := range r.Dispatches {
-				run.Dispatches[k] = runDispatchDTO{Seq: d.Seq, Role: d.Role, Slot: d.Slot, AgentID: d.AgentID, AgentType: d.AgentType,
-					Description: d.Description, Depth: d.Depth, DeclaredModel: d.DeclaredModel, DeclaredEffort: d.DeclaredEffort,
-					ServedModels: d.ServedModels, ServedEfforts: d.ServedEfforts, Mismatch: d.Mismatch, Priced: d.Priced,
-					FindingsRaised: d.FindingsRaised, FindingsByStatus: d.FindingsByStatus,
-					StartedAt: d.StartedAt.UTC().Format(time.RFC3339Nano), EndedAt: rfc3339Ptr(d.EndedAt), Totals: toRunTotalsDTO(d.Totals)}
-			}
-			dto.Runs[j] = run
-		}
-		out[i] = dto
 	}
 	return out
 }

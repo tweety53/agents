@@ -17,112 +17,48 @@ import (
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
-func TestHealthViewsCarryTheirNumbersThrough(t *testing.T) {
-	lastRun := time.Date(2026, 8, 10, 9, 0, 0, 0, time.UTC)
-	lastFired := time.Date(2026, 8, 9, 9, 0, 0, 0, time.UTC)
-	median := 812.5
-	medSec, p90Sec := 61.0, 340.0
-	rounds := 3
-	sts := &statsFake{
-		guardActivity: []store.GuardActivityRow{
-			{Guard: "check-plan-shape", Runs: 40, Fired: 7, CannotAnswer: 2,
-				LastRunAt: &lastRun, LastFiredAt: &lastFired, MedianDurationMS: &median,
-				Verdicts: 5, FalsePositives: 1},
-			{Guard: "check-unfinished-work", Verdicts: 3},
-		},
-		stageRedo: []store.StageRedoRow{
-			{Command: "/flow", Stage: "flow.review-panel", Runs: 9, Changes: 5,
-				Reentries: 4, ReenteredChanges: 3, MedianSeconds: &medSec, P90Seconds: &p90Sec},
-		},
-		panelRounds: []store.PanelRoundsRow{
-			{Project: "agents", Change: "kan-1", StartedAt: lastRun, Rounds: &rounds,
-				Findings: 6, Critical: 1, Important: 2, Minor: 3},
-			{Project: "agents", Change: "kan-2", StartedAt: lastFired},
-		},
-	}
+func TestFlowSummaryCarriesItsNumbersThrough(t *testing.T) {
+	total, meanCost, rounds := 6.5, 3.5, 2.0
+	lead := int64(1_126_800_000)
+	sts := &statsFake{flowSummary: store.FlowSummaryRow{
+		ChangesStarted: 2, ChangesFinished: 3, TotalCostUsd: &total, MeanCostPerFinished: &meanCost,
+		MedianLeadTimeMs: &lead, MeanPanelRounds: &rounds, Critical: 1, Important: 2, Minor: 4, GuardFires: 7,
+	}}
 	ts := newStatsTestServer(t, sts)
+	status, env, body := getStats(t, ts, periodPath("flow-summary"))
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	var row map[string]any
+	mustDecodeRows(t, env, body, &row)
+	want := map[string]any{
+		"changesStarted": 2.0, "changesFinished": 3.0, "totalCostUsd": 6.5, "meanCostPerFinished": 3.5,
+		"medianLeadTimeMs": 1126800000.0, "meanPanelRounds": 2.0,
+		"critical": 1.0, "important": 2.0, "minor": 4.0, "guardFires": 7.0,
+	}
+	for k, v := range want {
+		if row[k] != v {
+			t.Errorf("row[%q] = %v, want %v", k, row[k], v)
+		}
+	}
 
-	t.Run("guards", func(t *testing.T) {
-		status, env, body := getStats(t, ts, periodPath("guards"))
-		if status != http.StatusOK {
-			t.Fatalf("status %d, body %s", status, body)
+	// Nothing finished: the means are explicit nulls, never a zero.
+	ts = newStatsTestServer(t, &statsFake{})
+	_, env, body = getStats(t, ts, periodPath("flow-summary"))
+	row = nil
+	mustDecodeRows(t, env, body, &row)
+	for _, k := range []string{"totalCostUsd", "meanCostPerFinished", "medianLeadTimeMs", "meanPanelRounds"} {
+		if v, ok := row[k]; !ok || v != nil {
+			t.Errorf("empty row[%q] = %v (present %v), want an explicit null", k, v, ok)
 		}
-		var rows []map[string]any
-		mustDecodeRows(t, env, body, &rows)
-		if len(rows) != 2 {
-			t.Fatalf("rows = %v, want 2", rows)
-		}
-		want := map[string]any{
-			"guard": "check-plan-shape", "runs": 40.0, "fired": 7.0, "cannotAnswer": 2.0,
-			"lastRunAt": "2026-08-10T09:00:00Z", "lastFiredAt": "2026-08-09T09:00:00Z",
-			"medianDurationMs": 812.5, "verdicts": 5.0, "falsePositives": 1.0,
-		}
-		for k, v := range want {
-			if rows[0][k] != v {
-				t.Errorf("rows[0][%q] = %v, want %v", k, rows[0][k], v)
-			}
-		}
-		// A guard known only from a verdict has no runs: its run-derived
-		// fields are explicit nulls, never a zero time or a zero duration.
-		for _, k := range []string{"lastRunAt", "lastFiredAt", "medianDurationMs"} {
-			v, ok := rows[1][k]
-			if !ok || v != nil {
-				t.Errorf("rows[1][%q] = %v (present %v), want an explicit null", k, v, ok)
-			}
-		}
-	})
-
-	t.Run("stage-redo", func(t *testing.T) {
-		status, env, body := getStats(t, ts, periodPath("stage-redo"))
-		if status != http.StatusOK {
-			t.Fatalf("status %d, body %s", status, body)
-		}
-		var rows []map[string]any
-		mustDecodeRows(t, env, body, &rows)
-		want := map[string]any{
-			"command": "/flow", "stage": "flow.review-panel", "runs": 9.0, "changes": 5.0,
-			"reentries": 4.0, "reenteredChanges": 3.0, "medianSeconds": 61.0, "p90Seconds": 340.0,
-		}
-		if len(rows) != 1 {
-			t.Fatalf("rows = %v, want 1", rows)
-		}
-		for k, v := range want {
-			if rows[0][k] != v {
-				t.Errorf("rows[0][%q] = %v, want %v", k, rows[0][k], v)
-			}
-		}
-	})
-
-	t.Run("panel-rounds", func(t *testing.T) {
-		status, env, body := getStats(t, ts, periodPath("panel-rounds"))
-		if status != http.StatusOK {
-			t.Fatalf("status %d, body %s", status, body)
-		}
-		var rows []map[string]any
-		mustDecodeRows(t, env, body, &rows)
-		if len(rows) != 2 {
-			t.Fatalf("rows = %v, want 2", rows)
-		}
-		want := map[string]any{
-			"project": "agents", "change": "kan-1", "startedAt": "2026-08-10T09:00:00Z",
-			"rounds": 3.0, "findings": 6.0, "critical": 1.0, "important": 2.0, "minor": 3.0,
-		}
-		for k, v := range want {
-			if rows[0][k] != v {
-				t.Errorf("rows[0][%q] = %v, want %v", k, rows[0][k], v)
-			}
-		}
-		if v, ok := rows[1]["rounds"]; !ok || v != nil {
-			t.Errorf("rows[1].rounds = %v (present %v), want an explicit null for an unrecorded panel", v, ok)
-		}
-	})
+	}
 }
 
 // TestHealthViewsAreNeverUnmeasured: "no stage run carried a token
-// measurement" says nothing about guard runs, attempts or panel rounds, and
+// measurement" says nothing about changes, guard runs or panel rounds, and
 // the SPA hides a panel's rows when it is set.
 func TestHealthViewsAreNeverUnmeasured(t *testing.T) {
-	for _, view := range []string{"guards", "stage-redo", "panel-rounds", "self-review"} {
+	for _, view := range []string{"flow-summary", "self-review"} {
 		t.Run(view, func(t *testing.T) {
 			ts := newStatsTestServer(t, &statsFake{
 				allRecordedRunsUnmeasured: true,
@@ -140,7 +76,7 @@ func TestHealthViewsAreNeverUnmeasured(t *testing.T) {
 }
 
 func TestHealthViewsRefuseAModelRestriction(t *testing.T) {
-	for _, view := range []string{"guards", "stage-redo", "panel-rounds", "self-review"} {
+	for _, view := range []string{"flow-summary", "self-review"} {
 		t.Run(view, func(t *testing.T) {
 			ts := newStatsTestServer(t, &statsFake{})
 			status, _, body := getStats(t, ts, periodPath(view)+"&model=opus")

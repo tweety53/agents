@@ -23,6 +23,14 @@ type Period struct {
 // -- nil together when the change was never observed, which is the board's
 // absence-is-never-zero case: no observation reads as no figure, never as
 // a count of zero.
+//
+// RunCount, CostUsd, WallClockMs and Errors total the change's runs over
+// its whole life, never bounded by the board's period (design.md's
+// board-run-totals): a run is the stage rows sharing a session token, a
+// token-less stage row is a run of its own; a run's wall clock spans its
+// first start to its last end, and is 0 while any of its stages is open;
+// cost sums each row's numeric cost_usd; errors sum tool and API errors
+// from both the main and sidechain signals.
 type LiveStateRow struct {
 	ProjectKey string
 	Name       string
@@ -32,7 +40,21 @@ type LiveStateRow struct {
 
 	PlannedTasks *int
 	CurrentTasks *int
+
+	RunCount    int
+	CostUsd     float64
+	WallClockMs int64
+	Errors      int
 }
+
+// signalErrorsExpr is one stage run's tool and API errors, main and
+// sidechain, each counted only where the signal is a JSON number. Four
+// plain terms rather than an unnest per row: the board pays this per stage
+// run of every change it lists.
+const signalErrorsExpr = `(CASE WHEN jsonb_typeof(sr.metrics #> '{signals,main,tool_errors}') = 'number' THEN (sr.metrics #>> '{signals,main,tool_errors}')::int ELSE 0 END
+	+ CASE WHEN jsonb_typeof(sr.metrics #> '{signals,main,api_errors}') = 'number' THEN (sr.metrics #>> '{signals,main,api_errors}')::int ELSE 0 END
+	+ CASE WHEN jsonb_typeof(sr.metrics #> '{signals,sidechain,tool_errors}') = 'number' THEN (sr.metrics #>> '{signals,sidechain,tool_errors}')::int ELSE 0 END
+	+ CASE WHEN jsonb_typeof(sr.metrics #> '{signals,sidechain,api_errors}') = 'number' THEN (sr.metrics #>> '{signals,sidechain,api_errors}')::int ELSE 0 END)`
 
 // LiveStateBoard lists every change updated within period, optionally
 // restricted to one project. A period containing no changes returns an
@@ -40,7 +62,8 @@ type LiveStateRow struct {
 func (s *Store) LiveStateBoard(ctx context.Context, period Period, project *string) ([]LiveStateRow, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT c.project_key, c.name, c.state, c.updated_at, c.updated_by,
-		       first_obs.total_tasks, latest_obs.total_tasks
+		       first_obs.total_tasks, latest_obs.total_tasks,
+		       totals.runs, totals.cost, totals.wall_ms, totals.errors
 		FROM changes c
 		LEFT JOIN LATERAL (
 			SELECT t.total_tasks
@@ -56,6 +79,22 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project *stri
 			ORDER BY t.observed_at DESC, t.id DESC
 			LIMIT 1
 		) latest_obs ON true
+		LEFT JOIN LATERAL (
+			SELECT COUNT(*)::int AS runs,
+			       COALESCE(SUM(r.cost), 0)::float8 AS cost,
+			       COALESCE(SUM(r.wall_ms), 0)::bigint AS wall_ms,
+			       COALESCE(SUM(r.errors), 0)::int AS errors
+			FROM (
+				SELECT SUM(`+stageRunCostExpr+`) AS cost,
+				       CASE WHEN bool_and(sr.ended_at IS NOT NULL)
+				            THEN floor(EXTRACT(EPOCH FROM MAX(sr.ended_at) - MIN(sr.started_at)) * 1000)
+				            ELSE 0 END AS wall_ms,
+				       SUM(`+signalErrorsExpr+`) AS errors
+				FROM stage_runs sr
+				WHERE sr.change_id = c.id
+				GROUP BY COALESCE(sr.session_token, 'stage-' || sr.id)
+			) r
+		) totals ON true
 		WHERE c.updated_at >= $1 AND c.updated_at < $2
 		  AND ($3::text IS NULL OR c.project_key = $3)
 		ORDER BY c.updated_at DESC, c.project_key, c.name
@@ -72,7 +111,8 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project *stri
 			state string
 		)
 		if err := rows.Scan(&row.ProjectKey, &row.Name, &state, &row.UpdatedAt, &row.UpdatedBy,
-			&row.PlannedTasks, &row.CurrentTasks); err != nil {
+			&row.PlannedTasks, &row.CurrentTasks,
+			&row.RunCount, &row.CostUsd, &row.WallClockMs, &row.Errors); err != nil {
 			return nil, fmt.Errorf("store: live state board: scan: %w", err)
 		}
 		row.State = State(state)
@@ -227,10 +267,12 @@ type StageLeaderboardRow struct {
 	MeanCostUSD   float64
 	MedianCostUSD float64
 	P90CostUSD    float64
+	TotalCostUSD  float64
 }
 
-// StageLeaderboard ranks stages by cost -- mean, median and p90 -- across
-// period, optionally restricted to one project.
+// StageLeaderboard ranks stages by total cost across period, optionally
+// restricted to one project, and keeps only the ten costliest (design.md's
+// leaderboard-top10-total); each row also carries mean, median and p90.
 //
 // model, when non-nil, restricts to stage runs whose metrics recorded that
 // model (per CostPerChange's own doc comment) and ranks by that model's own
@@ -253,10 +295,12 @@ func (s *Store) StageLeaderboard(ctx context.Context, period Period, project, mo
 			command, stage, COUNT(*),
 			AVG(cost),
 			percentile_cont(0.5) WITHIN GROUP (ORDER BY cost),
-			percentile_cont(0.9) WITHIN GROUP (ORDER BY cost)
+			percentile_cont(0.9) WITHIN GROUP (ORDER BY cost),
+			SUM(cost)
 		FROM costed
 		GROUP BY command, stage
-		ORDER BY command, stage
+		ORDER BY SUM(cost) DESC, command, stage
+		LIMIT 10
 	`, period.From, period.To, project, model)
 	if err != nil {
 		return nil, fmt.Errorf("store: stage leaderboard: %w", err)
@@ -266,7 +310,7 @@ func (s *Store) StageLeaderboard(ctx context.Context, period Period, project, mo
 	var out []StageLeaderboardRow
 	for rows.Next() {
 		var row StageLeaderboardRow
-		if err := rows.Scan(&row.Command, &row.Stage, &row.RunCount, &row.MeanCostUSD, &row.MedianCostUSD, &row.P90CostUSD); err != nil {
+		if err := rows.Scan(&row.Command, &row.Stage, &row.RunCount, &row.MeanCostUSD, &row.MedianCostUSD, &row.P90CostUSD, &row.TotalCostUSD); err != nil {
 			return nil, fmt.Errorf("store: stage leaderboard: scan: %w", err)
 		}
 		out = append(out, row)
@@ -323,80 +367,6 @@ func (s *Store) TrendOverTime(ctx context.Context, period Period, project, model
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("store: trend over time: %w", err)
-	}
-	return out, nil
-}
-
-// CacheEfficiencyRow is one command/stage pair's cache-read to
-// cache-creation ratio across a period -- the largest single lever on
-// cost. Ratio is nil when either total is unavailable (no run in the group
-// recorded that token type) or cache creation totalled zero, rather than
-// reporting a division by zero or an inferred ratio of zero.
-type CacheEfficiencyRow struct {
-	Command string
-	Stage   string
-
-	CacheReadTotal     *int64
-	CacheCreationTotal *int64
-	Ratio              *float64
-}
-
-// CacheEfficiency reports cache-read against cache-creation totals per
-// command and stage across period, optionally restricted to one project.
-//
-// model, when non-nil, restricts to stage runs whose metrics recorded that
-// model (per CostPerChange's own doc comment) and sums that model's own
-// token bucket, never the run's total.
-func (s *Store) CacheEfficiency(ctx context.Context, period Period, project, model *string) ([]CacheEfficiencyRow, error) {
-	rows, err := s.pool.Query(ctx, `
-		WITH scoped AS (
-			SELECT
-				sr.command, sr.stage,
-				CASE WHEN $4::text IS NULL THEN sr.metrics->'tokens'
-				     ELSE sr.metrics->'models'->$4::text->'tokens' END AS tok
-			FROM stage_runs sr
-			JOIN changes c ON c.id = sr.change_id
-			WHERE sr.started_at >= $1 AND sr.started_at < $2
-			  AND ($3::text IS NULL OR c.project_key = $3)
-			  AND ($4::text IS NULL OR sr.metrics->'models' ? $4)
-		)
-		SELECT
-			command, stage,
-			SUM(
-				CASE WHEN tok IS NOT NULL THEN
-					COALESCE((tok->'main'->>'cache_read')::numeric, 0)
-					+ COALESCE((tok->'sidechain'->>'cache_read')::numeric, 0)
-				END
-			),
-			SUM(
-				CASE WHEN tok IS NOT NULL THEN
-					COALESCE((tok->'main'->>'cache_creation')::numeric, 0)
-					+ COALESCE((tok->'sidechain'->>'cache_creation')::numeric, 0)
-				END
-			)
-		FROM scoped
-		GROUP BY command, stage
-		ORDER BY command, stage
-	`, period.From, period.To, project, model)
-	if err != nil {
-		return nil, fmt.Errorf("store: cache efficiency: %w", err)
-	}
-	defer rows.Close()
-
-	var out []CacheEfficiencyRow
-	for rows.Next() {
-		var row CacheEfficiencyRow
-		if err := rows.Scan(&row.Command, &row.Stage, &row.CacheReadTotal, &row.CacheCreationTotal); err != nil {
-			return nil, fmt.Errorf("store: cache efficiency: scan: %w", err)
-		}
-		if row.CacheReadTotal != nil && row.CacheCreationTotal != nil && *row.CacheCreationTotal != 0 {
-			ratio := float64(*row.CacheReadTotal) / float64(*row.CacheCreationTotal)
-			row.Ratio = &ratio
-		}
-		out = append(out, row)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("store: cache efficiency: %w", err)
 	}
 	return out, nil
 }
@@ -467,9 +437,8 @@ func (s *Store) ListModels(ctx context.Context, period Period, project *string) 
 }
 
 // ReviewerRow is one review-panel slot's record across a period: how often
-// it was dispatched, across how many changes, what it found by severity,
-// and how much of it was withdrawn rather than fixed. Experimental is true
-// for a slot whose id carries the "exp-" prefix (design.md's
+// it was dispatched, across how many changes, and what it found by
+// severity. Experimental is true for a slot whose id carries the "exp-" prefix (design.md's
 // exp-slot-prefix decision -- no schema flag, the id itself is the fact);
 // Description is that slot's newest recorded decision roster entry naming
 // it, empty when no decision ever named it (a default-panel run, or a slot
@@ -484,9 +453,6 @@ type ReviewerRow struct {
 	Critical   int
 	Important  int
 	Minor      int
-
-	FindingsPerDispatch float64
-	WithdrawnShare      float64
 }
 
 // Reviewers reports one row per role -- design.md's "Stats views ›
@@ -518,8 +484,9 @@ type ReviewerRow struct {
 // dispatch happened to write.
 //
 // Description is read from the newest decisions row whose
-// decision->'panel'->'roster' carries an entry naming this slot
-// (jsonb_path_query_first, per design.md), independent of period and
+// decision->'panel'->'roster' carries an entry naming this slot -- one
+// DISTINCT ON pass over every roster entry (slot_desc), never a scan of
+// decisions per slot -- independent of period and
 // project -- a roster entry describes what a slot IS, not when it ran, so
 // scoping it to the query's own period would make the same slot's
 // description flicker between periods for no reason tied to the roster
@@ -557,15 +524,18 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 			SELECT slot,
 				COUNT(*) FILTER (WHERE severity ILIKE 'critical') AS critical,
 				COUNT(*) FILTER (WHERE severity ILIKE 'important') AS important,
-				COUNT(*) FILTER (WHERE severity ILIKE 'minor') AS minor,
-				COUNT(*) AS total,
-				COUNT(*) FILTER (WHERE status ILIKE 'withdrawn%') AS withdrawn
+				COUNT(*) FILTER (WHERE severity ILIKE 'minor') AS minor
 			FROM scoped_findings
 			GROUP BY slot
 		),
+		slot_desc AS (
+			SELECT DISTINCT ON (r->>'slot') r->>'slot' AS slot, r->>'description' AS description
+			FROM decisions d, jsonb_path_query(d.decision, '$.panel.roster[*]') r
+			WHERE r->>'slot' IS NOT NULL
+			ORDER BY r->>'slot', d.recorded_at DESC
+		),
 		roster_slots AS (
-			SELECT jsonb_path_query(decision, '$.panel.roster[*].slot') #>> '{}' AS slot
-			FROM decisions
+			SELECT slot FROM slot_desc
 			UNION
 			SELECT jsonb_path_query(decision, '$.extra_dispatch.slots[*]') #>> '{}'
 			FROM decisions
@@ -573,28 +543,15 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 		SELECT
 			da.slot,
 			da.slot LIKE 'exp-%' AS experimental,
-			COALESCE((
-				SELECT jsonb_path_query_first(
-					d2.decision, '$.panel.roster[*] ? (@.slot == $slot)',
-					jsonb_build_object('slot', da.slot), true
-				) ->> 'description'
-				FROM decisions d2
-				WHERE jsonb_path_exists(
-					d2.decision, '$.panel.roster[*] ? (@.slot == $slot)',
-					jsonb_build_object('slot', da.slot), true
-				)
-				ORDER BY d2.recorded_at DESC
-				LIMIT 1
-			), '') AS description,
+			COALESCE(sd.description, '') AS description,
 			da.dispatches,
 			da.changes,
 			COALESCE(fa.critical, 0),
 			COALESCE(fa.important, 0),
-			COALESCE(fa.minor, 0),
-			CASE WHEN da.dispatches > 0 THEN COALESCE(fa.total, 0)::float8 / da.dispatches ELSE 0 END,
-			CASE WHEN COALESCE(fa.total, 0) > 0 THEN fa.withdrawn::float8 / fa.total ELSE 0 END
+			COALESCE(fa.minor, 0)
 		FROM dispatch_agg da
 		JOIN roster_slots rs ON rs.slot = da.slot
+		LEFT JOIN slot_desc sd ON sd.slot = da.slot
 		LEFT JOIN finding_agg fa ON fa.slot = da.slot
 		ORDER BY da.slot
 	`, period.From, period.To, project, model)
@@ -609,7 +566,6 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 		if err := rows.Scan(
 			&row.Slot, &row.Experimental, &row.Description,
 			&row.Dispatches, &row.Changes, &row.Critical, &row.Important, &row.Minor,
-			&row.FindingsPerDispatch, &row.WithdrawnShare,
 		); err != nil {
 			return nil, fmt.Errorf("store: reviewers: scan: %w", err)
 		}

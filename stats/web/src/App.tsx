@@ -15,12 +15,10 @@ import { VIEW_NAMES, type ViewName } from "./api";
 import { DashboardBar } from "./components/DashboardBar";
 import { defaultPeriod, type Period } from "./components/PeriodPicker";
 import type { ViewProps } from "./viewTypes";
-import { CacheEfficiency } from "./views/CacheEfficiency";
 import { Decisions } from "./views/Decisions";
 import { FlowHealth } from "./views/FlowHealth";
 import { RunDetail } from "./views/RunDetail";
 import { Reviewers } from "./views/Reviewers";
-import { Runs } from "./views/Runs";
 import { SelfReview } from "./views/SelfReview";
 import { StageLeaderboard } from "./views/StageLeaderboard";
 import { StateBoard } from "./views/StateBoard";
@@ -32,10 +30,8 @@ const VIEW_LABELS: Record<ViewName, string> = {
   "state-board": "Live state board",
   "stage-leaderboard": "Stage leaderboard",
   trend: "Trend over time",
-  "cache-efficiency": "Cache efficiency",
   reviewers: "Reviewers",
   decisions: "Decisions",
-  runs: "Runs",
   "flow-health": "Flow health",
   "self-review": "Self-review fixes",
 };
@@ -44,10 +40,8 @@ const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
   "state-board": StateBoard,
   "stage-leaderboard": StageLeaderboard,
   trend: Trend,
-  "cache-efficiency": CacheEfficiency,
   reviewers: Reviewers,
   decisions: Decisions,
-  runs: Runs,
   "flow-health": FlowHealth,
   "self-review": SelfReview,
 };
@@ -185,7 +179,7 @@ const MODEL_DISABLED_REASONS: Partial<Record<ViewName, string>> = {
   "state-board":
     "The live state board's rows are changes, not stage runs, so a model restriction cannot apply here.",
   "flow-health":
-    "Flow health counts guard runs, stage re-entries and panel rounds across every model, so a model restriction cannot apply here.",
+    "Flow health totals changes, panel rounds and guard fires across every model, so a model restriction cannot apply here.",
 };
 
 export function App() {
