@@ -4256,6 +4256,7 @@ func TestRecordFindingPatternEmptyDetailPrintsEmptyArray(t *testing.T) {
 // journalled, since a replay of it could only ever be refused a second
 // time.
 func TestDispatchEndTokensParserRefusals(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
 	cases := []struct{ name, value string }{
 		{"no equals sign", "input"},
 		{"unknown key", "bandwidth=5"},
@@ -4291,6 +4292,7 @@ func TestDispatchEndTokensParserRefusals(t *testing.T) {
 // rather than an empty value, the same contract agentId's omitted case
 // pins.
 func TestDispatchEndTokensCarriedOnWire(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
 	send := func(t *testing.T, extra ...string) map[string]any {
 		t.Helper()
 		repo := recordRepo(t, "kan-525")
@@ -4957,6 +4959,7 @@ func TestRecordDispatchBeginModelAlias(t *testing.T) {
 // outcome; a call missing either instant, or carrying one that is not RFC
 // 3339, is exit 2 before the store is called -- never half a row.
 func TestRecordDispatchBackfill(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
 	const start, end = "2026-10-15T12:08:50Z", "2026-10-15T12:31:07Z"
 	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
@@ -5136,5 +5139,53 @@ func TestRecordFindingRefusesALocationWithNoLine(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestRecordDispatchEndRefusesTokensUnderClaudeCode pins that -tokens is
+// refused before the store is contacted where CLAUDE_CODE_SESSION_ID is set
+// -- the harvester credits that row from the transcript, and a report would
+// overwrite it -- on both `dispatch end` and `dispatch backfill`.
+func TestRecordDispatchEndRefusesTokensUnderClaudeCode(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "s")
+	code, _, stderr, contacted, _ := causeEndRun(t, "-tokens", "input=1,output=2")
+	if code != 2 {
+		t.Fatalf("end exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+	}
+	for _, want := range []string{"-tokens", "CLAUDE_CODE_SESSION_ID"} {
+		if !strings.Contains(stderr.String(), want) {
+			t.Errorf("end stderr does not name %s:\n%s", want, stderr.String())
+		}
+	}
+	if contacted {
+		t.Error("the store was contacted for -tokens under Claude Code")
+	}
+
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	contacted = false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+		contacted = true
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"implementer","model":"opus"}`))
+	}))
+	defer srv.Close()
+	var stdout, berr bytes.Buffer
+	bcode := run(context.Background(), []string{"record", "dispatch", "backfill", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "kan-258", "-role", "implementer", "-model", "opus", "-agent-id", "none",
+		"-key", "k", "-session-token", "mf-record-backfill-tokens",
+		"-started-at", "2026-10-15T12:08:50Z", "-ended-at", "2026-10-15T12:31:07Z", "-outcome", "completed",
+		"-tokens", "input=1,output=2"}, strings.NewReader(""), &stdout, &berr)
+	if bcode != 2 || contacted {
+		t.Errorf("backfill exit = %d, contacted = %v; want 2 and not contacted (stderr %q)", bcode, contacted, berr.String())
+	}
+	if !strings.Contains(berr.String(), "CLAUDE_CODE_SESSION_ID") {
+		t.Errorf("backfill stderr does not name CLAUDE_CODE_SESSION_ID:\n%s", berr.String())
+	}
+
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	code, _, stderr, _, _ = causeEndRun(t, "-tokens", "input=1,output=2")
+	if code != 0 {
+		t.Errorf("end with CLAUDE_CODE_SESSION_ID empty exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
 }

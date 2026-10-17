@@ -540,7 +540,7 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 			projectKey, change, in.SessionToken, in.Key).Scan(&agentID, &startedAt)
 		inline := in.AgentID == "inline" || (in.AgentID == "" && agentID != nil && *agentID == "inline")
 		if err == nil && inline && in.Outcome == "completed" && in.EndedAt.Sub(startedAt) < minInlineWindow {
-			return records.Dispatch{}, fmt.Errorf("%w: %s/%s key %q closed %s after its begin -- record begin when the work starts and end once its commit lands, or pass -tokens", ErrInlineWindowTooShort, projectKey, change, in.Key, in.EndedAt.Sub(startedAt))
+			return records.Dispatch{}, fmt.Errorf("%w: %s/%s key %q closed %s after its begin -- record begin when the work starts and end once its commit lands, or pass -tokens where no transcript is harvested", ErrInlineWindowTooShort, projectKey, change, in.Key, in.EndedAt.Sub(startedAt))
 		}
 	}
 	out, err := scanDispatchRow(s.pool.QueryRow(ctx, `

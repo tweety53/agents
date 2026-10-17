@@ -190,7 +190,8 @@ these substitutions:
   begin` is recorded when the parent starts that work, before its first edit, and its `dispatch
   end` once the work's commit lands — never the two together, which records the work as taking
   no time; `flow record dispatch end` refuses a `completed` inline row closed under three seconds
-  after its begin when it carries no `-tokens` report.
+  after its begin when it carries no `-tokens` report — which only a harness without a
+  harvested transcript may pass; `-tokens` is refused where `CLAUDE_CODE_SESSION_ID` is set.
 
 ## 1. Load context and validate the plan
 

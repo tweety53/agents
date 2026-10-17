@@ -544,7 +544,8 @@ parent session itself -- an inline implementer, an inline verifier -- would
 otherwise read "not measured" in the ledger and in every cost summary
 forever. A report replaces whatever the harvester had credited by the
 time the end lands; main-thread records inside the window that are
-harvested after it still add on top. The value
+harvested after it still add on top. Where CLAUDE_CODE_SESSION_ID is set
+the harvester reads that transcript, so -tokens is refused there. The value
 is comma-separated key=value pairs; the keys are input, output, cache-read
 and cache-creation, and every value is a non-negative integer. Any
 malformed value is a caller mistake refused before the store is ever
@@ -1272,6 +1273,10 @@ func checkDispatchEndFields(outcome, cause, tokens string, stderr io.Writer) (*r
 	report, err := parseTokenReport(tokens)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
+		return nil, false
+	}
+	if tokens != "" && os.Getenv("CLAUDE_CODE_SESSION_ID") != "" {
+		fmt.Fprintln(stderr, "flow: -tokens is refused where CLAUDE_CODE_SESSION_ID is set -- the harvester credits this row from the Claude Code transcript")
 		return nil, false
 	}
 	return report, true
