@@ -964,9 +964,7 @@ per-dispatch choice gave no share at all to hold to, so the split rides on a fou
 roll, `effort_roll = sha256("<name>effort") mod 100`, the `compact`/`experimental`/`bundle` rolls'
 own mechanism: below 80, every planner-chosen effort is `medium`; at or above it, the free choice
 that existed before. It is per change, not per dispatch, so the 80% holds across changes rather
-than inside one. A hard seam keeps `high` in the rolled 80% too — on a panel dispatch alone since
-no-high-implementer — and those dispatches count toward
-the non-`medium` share, which is why the target is "about" 80% rather than exactly. **Rejected — a
+than inside one. Panel dispatches left this split at kan-991 (panel-effort-roll-60-40, below). **Rejected — a
 new per-dispatch roll:** the planner would have to hash each dispatch's own key, a ceremony the
 per-change roll avoids. **Rejected — reusing an existing roll with a different threshold:** it
 would tie effort to roster size or grouping. The rerun pair stays at its fixed `low`, since a
@@ -977,12 +975,28 @@ re-run reads a delta and is outside what the operator asked to change.
 The operator asked, on 2026-10-14, that no Decide step choose `high` for an implementer, an
 implementer group or a fixer: flow-eval's implementation runs showed `opus` at `medium`, and even
 at `low`, good enough for that work. A hard seam that used to take `high` there now takes
-`medium`; reviewers keep `high` where **Model and effort** already allowed it. The one `high` fix
+`medium`; reviewers keep `high` only as panel-high-operator-gated (below) allows. The one `high` fix
 left is **Fewest operator actions**' no-progress escalation, as in the in-run and self-review fix
 loops, since a round that made no progress is the case a cheaper pair already lost. `flow record
 decision` refuses `high` on those three pairs, so a planner cannot drift back to it unnoticed; the
 escalation is a dispatch record, never a decision pair, and stays valid. The operator will watch
 fix and implementation quality after landing and revisit if it falls.
+
+## brainstorm-planner.md — Model and effort, panel effort roll and gated `high` (kan-991)
+
+Panels ran costlier than most changes need — `medium` below the 90 band, and a free choice above
+it, `high` included — and a hard-seam panel dispatch could reach `high` on the planner's say
+alone, without the operator ever seeing it. **panel-effort-roll-60-40:** every pass-1 panel
+dispatch and gated per-task reviewer bundle takes `low` below `effort_roll` 60 and `medium` at or
+above it, reusing the roll `plan-class.sh` already prints. **Rejected — a new independent
+`<name>paneleffort` roll:** a Go change and a ninth output line for no behaviour the shared roll
+lacks. **Rejected — keeping the planner's free choice above 90:** it leaves the ungated `high`
+path the ticket removes. **panel-high-operator-gated:** `high` reaches a panel dispatch only by an
+explicit **Yes** to a per-dispatch question added to the plan gate's AskUserQuestion call, or on a
+fix run whose instructions report a lower-effort attempt already failed. **Rejected — a third
+option on the gate question:** the gate has exactly two options by contract. **Rejected —
+enforcing in `flow record decision`:** a Go change the ticket did not ask for; prose suffices for
+a planner-written record.
 
 ## brainstorm-planner.md — Decide, step 6 visual verification (visual-verify-decided-at-decide)
 
