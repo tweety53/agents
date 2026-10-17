@@ -373,7 +373,7 @@ func changeBranchLog(g Runner, repo, change string) string {
 	if base == "" {
 		return ""
 	}
-	return trimmedOutput(g.Output(repo, "log", "--stat", base+".."+change))
+	return dropPNGStatLines(trimmedOutput(g.Output(repo, "log", "--stat", base+".."+change)))
 }
 
 // mergeOrderEntry is one `## Merge order` line of a link.md: a numbered
@@ -432,10 +432,58 @@ func gitLogSection(g Runner, repo string, shas []string) string {
 	var b strings.Builder
 	for _, sha := range shas {
 		if logStat, err := g.Output(repo, "log", "--stat", "-1", sha); err == nil {
-			b.Write(logStat)
+			b.WriteString(dropPNGStatLines(string(logStat)))
 			b.WriteString("\n")
 		}
 	}
+	return b.String()
+}
+
+// pngStatLine matches a `git log --stat` file line whose path ends `.png`.
+var pngStatLine = regexp.MustCompile(`^ \S.*\.png\s+\|`)
+
+// dropPNGStatLines drops every `git log --stat` line naming a `*.png` path:
+// screenshot churn the reasoning pass cannot read.
+func dropPNGStatLines(s string) string {
+	var b strings.Builder
+	for l := range strings.Lines(s) {
+		if !pngStatLine.MatchString(l) {
+			b.WriteString(l)
+		}
+	}
+	return b.String()
+}
+
+// elideMatrixRows drops every table row between a `####` heading and the
+// next heading, leaving one `_(<n> matrix rows elided)_` line per run. A
+// line inside a ``` fence is never a heading or a row.
+func elideMatrixRows(md string) string {
+	var b strings.Builder
+	inMatrix, inFence, run := false, false, 0
+	flush := func() {
+		if run > 0 {
+			fmt.Fprintf(&b, "_(%d matrix rows elided)_\n", run)
+			run = 0
+		}
+	}
+	for l := range strings.Lines(md) {
+		if strings.HasPrefix(strings.TrimSpace(l), "```") {
+			inFence = !inFence
+			flush()
+		} else if inFence {
+			flush()
+		} else if strings.HasPrefix(l, "#") {
+			flush()
+			inMatrix = strings.HasPrefix(l, "#### ")
+		} else if inMatrix && strings.HasPrefix(strings.TrimSpace(l), "|") {
+			run++
+			continue
+		} else {
+			flush()
+		}
+		b.WriteString(l)
+	}
+	flush()
 	return b.String()
 }
 
@@ -561,7 +609,11 @@ func Bundle(change string, run records.Run, summary string, summaryFound bool, p
 		for _, file := range archivedFiles {
 			label := archiveDir + "/" + change + "/" + file
 			content, err := show(g, repo, rev, label)
-			add(label, string(content), err == nil)
+			text := string(content)
+			if file == "visual-verification.md" {
+				text = elideMatrixRows(text)
+			}
+			add(label, text, err == nil)
 		}
 	} else {
 		for _, file := range archivedFiles {

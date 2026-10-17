@@ -217,6 +217,42 @@ func TestBundleServesArchivedVisualVerification(t *testing.T) {
 	}
 }
 
+func TestBundleElidesMatrixRowsAndPNGStatLines(t *testing.T) {
+	repo := gitRepo(t)
+	if err := os.WriteFile(filepath.Join(repo, "shot.png"), []byte("\x89PNG"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	commitAll(t, repo, "a.go", "package a\n", "feat(demo): a with a screenshot")
+	commitAll(t, repo, "spectre/changes/demo/tasks.md", "- [ ] 1. do it\n", "chore(spectre): plan and session records")
+	writeArchiveBranch(t, repo, "demo", map[string]string{
+		"tasks.md": "# demo tasks\n",
+		"visual-verification.md": "# Visual verification — demo\n\n### Departures\n\n" +
+			"| element | departure |\n|---|---|\n| bar | colour |\n\n" +
+			"#### cardio-R1 matrix\n\n| prop | ok |\n|---|---|\n| ROW-ONE | yes |\n```sh\n# FENCED-COMMENT\n```\n| ROW-TWO | yes |\n\n" +
+			"### Notes\n\n```md\n#### FENCED-HEADING\n| FENCED-ROW | kept |\n```\n\n## Motions\n",
+	})
+
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, []string{repo}, ExecRunner{})
+	if err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+
+	for _, want := range []string{"| bar | colour |", "#### cardio-R1 matrix", "_(3 matrix rows elided)_", "_(1 matrix rows elided)_", "# FENCED-COMMENT", "| FENCED-ROW | kept |", "## Motions"} {
+		if !strings.Contains(bundle, want) {
+			t.Errorf("bundle missing %q:\n%s", want, bundle)
+		}
+	}
+	for _, gone := range []string{"ROW-ONE", "ROW-TWO", "| prop | ok |"} {
+		if strings.Contains(bundle, gone) {
+			t.Errorf("bundle still carries matrix row %q:\n%s", gone, bundle)
+		}
+	}
+	gitLog := bundle[strings.Index(bundle, "## git log --stat"):]
+	if !strings.Contains(gitLog, "a.go") || strings.Contains(gitLog, "shot.png") {
+		t.Errorf("git log --stat must name a.go and not shot.png:\n%s", gitLog)
+	}
+}
+
 func TestBundleAssemblyDerivesFinishCommits(t *testing.T) {
 	repo := gitRepo(t)
 	// The archive commit sits on the change branch above the implementation
