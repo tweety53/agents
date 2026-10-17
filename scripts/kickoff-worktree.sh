@@ -2,7 +2,7 @@
 # kickoff-worktree.sh — /flow's kickoff steps 1–4 (skills/flow/brainstorm.md
 # **A**), run in order in one call so no session re-types them.
 #
-# Usage: kickoff-worktree.sh <project> <name> [<base>]
+# Usage: kickoff-worktree.sh [--from <worktree>] <project> <name> [<base>]
 #
 # <base>, when given, names the branch the change is cut from and lands on
 # instead of origin/HEAD's: origin/<base> must exist (exit 1 otherwise,
@@ -10,6 +10,15 @@
 # it as `git config branch.spectre/<name>.flowBase <base>`, which
 # resolve-base-branch.sh reads ahead of origin/HEAD. A name failing
 # resolve-base-branch's validation is exit 2.
+#
+# --from <worktree> names one of this change's existing worktrees, for every
+# worktree a change adds after kickoff. With no <base>, the base is that
+# worktree's `branch.spectre/<name>.flowBase` — none recorded, the default
+# branch, exactly as without --from, and no flowBase is written. An explicit
+# <base> wins over the recorded one. The new worktree is persisted into the
+# change's state record through `flow state add-worktree -C <worktree>`, so
+# the record is found under the change's own project. An empty or missing
+# <worktree> is exit 2.
 #
 #   0. `flow` must be on PATH, checked first: a worktree step 2 could not
 #      persist is never created.
@@ -22,7 +31,8 @@
 #      or origin/<base> when <base> is given.
 #      The merge base is `git -C <worktree> rev-parse HEAD` right after the
 #      add, persisted before anything else runs by `flow state add-worktree
-#      -C <project> <name> <worktree> <merge-base>`. <project>-worktrees/ is
+#      -C <project> <name> <worktree> <merge-base>` (`-C <worktree>` of
+#      --from when given). <project>-worktrees/ is
 #      the sibling of <project>'s physical path, outside the repository, so
 #      nothing needs ignoring (design.md: sibling-worktrees-layout).
 #   3. project-get.sh <worktree> "worktree setup": exit 0 runs every line
@@ -37,7 +47,9 @@
 #   merge-base: <sha>
 #
 # Exit codes: 0 all four steps done; 1 a step stopped the run — the location
-# guard's refusal, a failed git call, `flow state add-worktree` refusing (no
+# guard's refusal, origin/<base> missing in <project> (both remedies named:
+# push <base> to that origin, or re-run naming its default branch; nothing
+# added), a failed git call, `flow state add-worktree` refusing (no
 # STARTED record), a setup command's non-zero exit (named, with its output)
 # or a failed push — its lines relayed on stderr, and the worktree already
 # persisted when step 2 got that far; 2 usage, `flow` absent from PATH, no

@@ -303,11 +303,90 @@ func TestKickoffWorktree(t *testing.T) {
 		}
 	})
 
+	// kwPushFeature pushes an empty commit to feature/x on fx's origin and
+	// returns its tip.
+	kwPushFeature := func(t *testing.T, fx kwFx) string {
+		t.Helper()
+		other := t.TempDir() + "/other"
+		fx.git(t, "", "clone", "-q", fx.origin, other)
+		fx.git(t, other, "commit", "-q", "--allow-empty", "-m", "feature work")
+		fx.git(t, other, "push", "-q", "origin", "HEAD:refs/heads/feature/x")
+		return fx.git(t, other, "rev-parse", "HEAD")
+	}
+
+	t.Run("--from: cut from the recorded base, recorded under the change's project", func(t *testing.T) {
+		t.Parallel()
+		canon, peer := kwNew(t, "", true), kwNew(t, "", true)
+		kwPushFeature(t, canon)
+		tip := kwPushFeature(t, peer)
+		canon.started(t)
+		if r := canon.run(t, canon.project, kwName, "feature/x"); r.rc != 0 {
+			t.Fatalf("kickoff rc=%d out=%s", r.rc, r.out)
+		}
+		r := canon.run(t, "--from", canon.project+"-worktrees/"+kwName, peer.project, kwName)
+		wt := peer.project + "-worktrees/" + kwName
+		if r.rc != 0 || r.stdout != "worktree: "+wt+"\nmerge-base: "+tip+"\n" {
+			t.Fatalf("rc=%d out=%s", r.rc, r.out)
+		}
+		if got := canon.git(t, wt, "config", "--get", "branch.spectre/"+kwName+".flowBase"); got != "feature/x" {
+			t.Errorf("flowBase = %q", got)
+		}
+		if got := canon.flow(t, "", "state", "get", "-C", canon.project, kwName); !strings.Contains(got, wt) {
+			t.Errorf("state record lacks %s: %s", wt, got)
+		}
+	})
+
+	t.Run("--from: base missing on that origin: exit 1, both remedies named, nothing added", func(t *testing.T) {
+		t.Parallel()
+		canon, peer := kwNew(t, "", true), kwNew(t, "", true)
+		kwPushFeature(t, canon)
+		canon.started(t)
+		if r := canon.run(t, canon.project, kwName, "feature/x"); r.rc != 0 {
+			t.Fatalf("kickoff rc=%d out=%s", r.rc, r.out)
+		}
+		r := canon.run(t, "--from", canon.project+"-worktrees/"+kwName, peer.project, kwName)
+		if r.rc != 1 || !strings.Contains(r.err, "origin/feature/x does not exist") ||
+			!strings.Contains(r.err, "push feature/x") || !strings.Contains(r.err, "default branch") {
+			t.Fatalf("rc=%d out=%s", r.rc, r.out)
+		}
+		if _, err := os.Stat(peer.project + "-worktrees/" + kwName); err == nil {
+			t.Errorf("a worktree was added for a missing base")
+		}
+	})
+
+	t.Run("--from a non-worktree path: exit 2, nothing added", func(t *testing.T) {
+		t.Parallel()
+		fx := kwNew(t, "", true)
+		fx.started(t)
+		r := fx.run(t, "--from", t.TempDir(), fx.project, kwName)
+		if r.rc != 2 || !strings.Contains(r.err, "is not a git worktree") {
+			t.Fatalf("rc=%d out=%s", r.rc, r.out)
+		}
+		if _, err := os.Stat(fx.project + "-worktrees/" + kwName); err == nil {
+			t.Errorf("a worktree was added off an unreadable base")
+		}
+	})
+
+	t.Run("pushed branch not on the named base: exit 1, rebase named, nothing added", func(t *testing.T) {
+		t.Parallel()
+		fx := kwNew(t, "", true)
+		kwPushFeature(t, fx)
+		fx.git(t, fx.project, "push", "-q", "origin", "main:refs/heads/spectre/"+kwName)
+		fx.started(t)
+		r := fx.run(t, fx.project, kwName, "feature/x")
+		if r.rc != 1 || !strings.Contains(r.err, "does not descend from origin/feature/x") || !strings.Contains(r.err, "git rebase --onto origin/feature/x") {
+			t.Fatalf("rc=%d out=%s", r.rc, r.out)
+		}
+		if _, err := os.Stat(fx.project + "-worktrees/" + kwName); err == nil {
+			t.Errorf("a worktree was added off the wrong base")
+		}
+	})
+
 	t.Run("usage: exit 2", func(t *testing.T) {
 		t.Parallel()
 		fx := kwNew(t, "", true)
 		r := fx.run(t, fx.project)
-		if r.rc != 2 || r.err != "usage: kickoff-worktree.sh <project> <name> [<base>]\n" {
+		if r.rc != 2 || r.err != "usage: kickoff-worktree.sh [--from <worktree>] <project> <name> [<base>]\n" {
 			t.Fatalf("rc=%d out=%s", r.rc, r.out)
 		}
 	})
