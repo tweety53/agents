@@ -1,0 +1,14 @@
+# Sentences pipeline-fix-kan-940-step-5-frontend-cardio-row-on-the-kan-928-17 rewords or adds on purpose: the targeted recapture of a conflicted
+# screenshot baseline or full-app-suite.zip in the Conflict bullet.
+**Stop and ask** only where no honest resolution exists: a modify/delete conflict, a binary file, or an upstream commit that removed something this change depends on.
+**A path the guard names on a `RECAPTURE: <path>` line is resolved by a targeted recapture, never by merging its bytes and never by a stop** — a PNG under a `*-snapshots/` directory, or `full-app-suite.zip`, is a capture of a build, and only a build carrying both sides captures it honestly:
+**Stop and ask** only where no honest resolution exists: a modify/delete conflict, a binary file no `RECAPTURE:` line names, or an upstream commit that removed something this change depends on.
+In the change's worktree of the app the snapshots capture, switch to a throwaway branch and
+Rebuild `full-app-suite.zip` when it was named, exactly as step 8 of
+Run only the specs owning the named PNGs — the spec each `*-snapshots/` directory is
+The branch is never committed to the change's branch and never pushed; a conflict in that merge is a stop and ask, as below.
+`git add` every recaptured PNG and the zip, stop the stack step 2 started, switch the app
+`skills/flow/visual-verify-verifier.md` does.
+merge the tip of that repository's own base into it — the base its own sync resolved, whose tip carries the commit that produced the upstream baseline, already present where that sync rebased the worktree.
+named for, and `full-app-suite.spec.ts` for the zip — through `capture` with `<spec>` substituted and `--update-snapshots` appended, in the checkout the conflict is in.
+worktree back to the change's branch and delete the throwaway branch, then continue the rebase as above.
