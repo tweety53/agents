@@ -26,8 +26,8 @@ trailer; a loop plan stating it still passes.
 - `scripts/test-check-plan-shape.sh`'s fixture trees, which are not git repositories, stay clean (case "not a git repository").
 - A plan that requires the trailer, or quotes the rule inside a fence, is not refused.
 
-- [ ] 1. Refuse a `/flow` plan stating task commits carry no `Task-Id:` trailer
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In this worktree run
+- [x] 1. Refuse a `/flow` plan stating task commits carry no `Task-Id:` trailer
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In this worktree run
     `mkdir -p spectre/changes/self-review-backlog-flow-5-oct18 && cp spectre/changes/archive/self-review-backlog-flow-5-oct18/tasks.md spectre/changes/self-review-backlog-flow-5-oct18/ && scripts/check-plan-shape.sh spectre/changes/self-review-backlog-flow-5-oct18/tasks.md; echo $?`:
     it prints `0` — the offending plan passes. Keep the copy for Step 3. Save Step 2's diff, apply
     its test hunk alone (`git apply --include='stats/internal/guard/plan_task_id_rule_test.go' <the saved diff>`)
@@ -35,7 +35,7 @@ trailer; a loop plan stating it still passes.
     it fails with `panic: runtime error: invalid memory address or nil pointer dereference` — no
     `plan-task-id-rule` is registered.
     <!-- measured: both commands at 045471f7 → exit 0; then --- FAIL: TestPlanTaskIDRule with the nil-pointer panic -->
-  - [ ] **Step 2: Apply the fix.** Apply the rest
+  - [x] **Step 2: Apply the fix.** Apply the rest
     (`git apply --exclude='stats/internal/guard/plan_task_id_rule_test.go' <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at 045471f7; TestPlanTaskIDRule passes all seven cases, and fails "loop plan, no spectre branch" alone with the branch test weakened to !ok && out != "x"; go vet and gofmt -l clean; scripts/test-check-plan-shape.sh and the no-argument scripts/check-plan-shape.sh exit 0
@@ -225,13 +225,13 @@ index 00000000..cbffead7
 +}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./internal/guard -run 'TestPlanTaskIDRule' -count=1`
+  - [x] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./internal/guard -run 'TestPlanTaskIDRule' -count=1`
     passes; `cd stats && go vet ./internal/guard && gofmt -l internal/guard` prints nothing;
     `scripts/check-plan-shape.sh spectre/changes/self-review-backlog-flow-5-oct18/tasks.md` exits 1
     naming line 16; then `rm -rf spectre/changes/self-review-backlog-flow-5-oct18` and the
     no-argument `scripts/check-plan-shape.sh` exits 0. `bash scripts/test-check-plan-shape.sh`,
     `scripts/check-references.sh` and `scripts/check-guard-symlinks.sh` exit 0.
-  - [ ] **Step 4: Commit** the three files with the subject below.
+  - [x] **Step 4: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/plantaskidrule.go`, `stats/internal/guard/plan_task_id_rule_test.go`, `scripts/check-plan-shape.sh`
