@@ -1,0 +1,3 @@
+# Sentences this change adds on purpose — the self-review-backlog-flow-6 self-review pass: a task that created a worktree (brainstorm-planner.md), the hand-built verify runner (verify-and-handoff.md).
+**Never write a task that creates a worktree.
+`run-verify-list.sh <worktree> lint` and `run-verify-list.sh <worktree> test` are the two groups: each runs its list as above, stdin detached, and prints that list's `## Report` lines, its exit codes canonical in its header — never a runner built by hand.
