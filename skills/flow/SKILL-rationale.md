@@ -164,6 +164,7 @@ text after it is the passage, verbatim.
 
 - *The refusal exits are never repaired by editing the plan* — (KAN-601)
 - *…record its size as the change's first task-count observation — the planned figure every later fix round's growth is measured against* — (KAN-415)
+- *When the project declares `mockups`, also run `check-mockup-citations.sh`* — (KAN-558, KAN-565) kan-469's `design.md` and `tasks.md` cited `P6.png`, which no file in the mockups root held, and the gap surfaced only when visual verification skipped the comparison; kan-30 had planned fidelity specs believing no mockups existed. The guard reads only the path form because a bare `<frame id>.png` cannot be told from a capture screenshot's name: gymie's archived plans carried 178 bare `.png` tokens naming no mockup file, nearly all screenshots, against 100 path-form citations that all resolved.
 
 ### brainstorm-planner.md — D. Writing plans (live check)
 

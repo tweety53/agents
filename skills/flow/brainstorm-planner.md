@@ -294,7 +294,10 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > plus its `<spec>.mockups` sidecar line (**Visual verification**,
 > `skills/flow-contracts/project-configuration-visual.md`). Before finishing, list the frame ids
 > and name the task covering each; a frame no task covers is a plan gap, closed by adding the
-> capture to the task that builds that view or by a capture task of its own.
+> capture to the task that builds that view or by a capture task of its own. **Cite each frame by
+> its project-relative path, the `mockups` root joined to `<frame id>.png`, never as a bare
+> `<frame id>.png`** — a capture screenshot's name takes that shape too, so only the path form is
+> a citation `check-mockup-citations.sh` can resolve.
 
 > **Write a live check when the change touches a running service or persistent state — never a
 > live-verification task.** When the change under plan touches a long-running service, a daemon,
@@ -465,6 +468,13 @@ not-a-verdict exit 2 the shape and build-green guards share (a missing or unread
 are reported and stop the plan. Provenance's exit 4 (content-classification) is the one refusal
 whose remedy is editing the plan — fix the line it names and run the guard again, its own
 prescribed course, never accepting the plan while it stands.
+
+When the project declares `mockups`, also run
+`check-mockup-citations.sh <worktree> <mockups root> <changeRoot>/design.md <changeRoot>/tasks.md`
+before continuing. Its exit 1 names a cited frame no file in the mockups root holds: a handoff asset
+**The checklist** above still owes, never a frame to plan against — commit the asset or record its
+location, or drop the citation and every task that rests on it. Its exit 2 is reported and stops
+the plan.
 
 With the plan validated, record its size as the change's first task-count observation — the
 planned figure every later fix round's growth is measured against:
