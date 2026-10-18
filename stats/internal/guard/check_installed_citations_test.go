@@ -233,6 +233,14 @@ func TestCheckInstalledCitations(t *testing.T) {
 		t.Parallel()
 		refused(t, cicRun(t, "", nil), "CHECK_INSTALLED_CITATIONS_ROOT")
 	})
+	// KAN-886: with no override and no shim-exported root, the guard names
+	// the missing variable rather than scanning its working directory.
+	t.Run("no override and FLOW_GUARD_REPO_ROOT unset: exit 2, stderr names it, stdout empty", func(t *testing.T) {
+		t.Parallel()
+		var out, errOut bytes.Buffer
+		rc := checkInstalledCitations(nil, crEnv(t.TempDir(), nil), &out, &errOut)
+		refused(t, cicResult{rc, out.String(), errOut.String()}, cicName+": FLOW_GUARD_REPO_ROOT is unset — run scripts/check-installed-citations.sh, which sets it")
+	})
 	t.Run("root is not a directory: exit 2, stdout empty", func(t *testing.T) {
 		t.Parallel()
 		refused(t, cicRun(t, filepath.Join(t.TempDir(), "does-not-exist"), nil), "")

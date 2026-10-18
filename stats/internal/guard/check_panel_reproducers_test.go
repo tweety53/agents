@@ -229,4 +229,12 @@ func TestCheckPanelReproducers(t *testing.T) {
 		got, out := cprRun(t, cprBin(t, "exit 0", "exit 1"), wt, "demo", findings)
 		cprExpect(t, got, out, 2, "cannot determine anything")
 	})
+	// KAN-886: `flow state get` printing a JSON null at exit 0 decodes into
+	// a nil map with no error; without the nil check the guard read the
+	// findings and answered REPRODUCERS-OK on a change it never saw.
+	t.Run("case 32: a null state record is cannot-answer, never clean", func(t *testing.T) {
+		t.Parallel()
+		got, out := cprRun(t, cprBin(t, "echo null; exit 0", "exit 1"), wt, "demo", findings)
+		cprExpect(t, got, out, 2, "cannot read the state record for 'demo' — cannot determine anything")
+	})
 }

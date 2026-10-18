@@ -594,6 +594,9 @@ func TestCheckUnfinishedWork(t *testing.T) {
 	for _, bad := range []struct{ label, json string }{
 		{"empty output", ""}, {"an object", `{}`}, {"an object of findings", `{"a":{"status":"open"}}`},
 		{"a null element", `[null]`}, {"two arrays", `[{"status":"open"}] []`},
+		// KAN-886: a null status decodes into "" with no error, which
+		// would be counted as one open finding instead of refused.
+		{"a finding with a null status", `[{"ref":"F1","status":null}]`},
 	} {
 		each(demo(func(t *testing.T, f *uwFix) { f.findings = []byte(bad.json) }),
 			uwRC("malformed findings refuse: "+bad.label+" exits 2", 2),

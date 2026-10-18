@@ -105,6 +105,11 @@ func TestCheckReferences(t *testing.T) {
 				clean := crFixture(t, map[string]string{ntp: "## State file\n\nbody\n", demo: refState})
 				return crEnv(root, map[string]string{"FLOW_GUARD_REPO_ROOT": clean})
 			}},
+		// KAN-886: with no override and no shim-exported root, the guard
+		// names the missing variable rather than scanning an empty root.
+		{label: "no override and FLOW_GUARD_REPO_ROOT unset exits 2 naming it",
+			env: func(t *testing.T, root string) Env { return crEnv(root, nil) }, rc: 2,
+			has: []string{"check-references: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-references.sh, which sets it"}},
 		{label: "in-code ** does not desync a live reference", files: map[string]string{ntp: "## State file\n\nbody\n",
 			demo: "See **State file** and code `x**y` in `rules/never-touch-production.mdc`.\n"}},
 		{label: "in-code ** does not mask a genuinely stale reference", files: map[string]string{ntp: "## Something else\n\nbody\n",
