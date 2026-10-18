@@ -257,6 +257,18 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 		if !ok || !panelValidateWorktree(env, "plan-class", worktree, mergebase, gitBin, stderr) {
 			return 2
 		}
+		// The diff side is measured from HEAD's fork point with the given
+		// base, never from the base itself (KAN-885): a ref the caller
+		// resolved after the base moved — origin/main fetched mid-run — is
+		// not an ancestor of HEAD, and diffing against its tip counted the
+		// base's own new commits as this change's surface. A recorded
+		// worktree sha, already an ancestor, is its own fork point.
+		fork, ok := capture(panelGit(env, gitBin, worktree, "merge-base", "HEAD", mergebase))
+		if !ok {
+			fmt.Fprintf(stderr, "plan-class: HEAD and '%s' share no merge base in %s\n", mergebase, worktree)
+			return 2
+		}
+		mergebase = fork
 		surface, ok := panelTouchedPaths(env, "plan-class", worktree, mergebase, gitBin, stderr)
 		if !ok {
 			return 2

@@ -68,7 +68,11 @@
 #            committed-since-merge-base, staged and unstaged) entirely
 #            documentation and at most planclass.go's pcMicroLineCap (20)
 #            changed lines; an empty
-#            touched surface passes vacuously. Without the optional arguments
+#            touched surface passes vacuously. Both are measured from
+#            `git merge-base HEAD <merge-base>`, never from <merge-base>
+#            itself, so a base ref that moved after the worktree was cut
+#            counts none of its own new commits (KAN-885); a <merge-base>
+#            sharing no history with HEAD is exit 2. Without the optional arguments
 #            micro never fires, so the two-argument form classifies exactly as
 #            before it existed. Added by
 #            kan-617-flow-cost-the-decide-record-ceremony-runs-full so a

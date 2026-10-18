@@ -246,6 +246,32 @@ func TestPlanClass(t *testing.T) {
 			writeFile(t, r.dir+"/note.md", pcSeq(11, 20))
 			classIs(t, run(pcTasks(t, "micro-churn-single-count", pcDocs), "1", r.dir, mb), "micro")
 		}},
+		// KAN-885: a base ref that moved after the worktree was cut is
+		// measured from HEAD's fork point with it, so the base's own new
+		// code commit is not this change's surface.
+		{"moved base ref measured from the fork point -> micro", func(t *testing.T) {
+			r := newRepo(t)
+			var g fxGit
+			g.git(r.dir, "checkout", "-q", "-b", "moved")
+			writeFile(t, r.dir+"/src.go", pcSeq(1, 40))
+			g.git(r.dir, "add", "-A")
+			g.git(r.dir, "commit", "-q", "-m", "base moved")
+			g.git(r.dir, "checkout", "-q", "-")
+			if g.err != nil {
+				t.Fatal(g.err)
+			}
+			classIs(t, run(pcTasks(t, "micro-moved-base", pcDocs), "1", r.dir, "moved"), "micro")
+		}},
+		{"merge base with no shared history -> exit 2", func(t *testing.T) {
+			r := newRepo(t)
+			var g fxGit
+			// A parentless commit of the empty tree: a root of its own.
+			root := g.git(r.dir, "commit-tree", "-m", "unrelated root", "4b825dc642cb6eb9a060e54bf8d69288fbee4904")
+			if g.err != nil {
+				t.Fatal(g.err)
+			}
+			exit2(t, run(pcTasks(t, "micro-unrelated-base", pcDocs), "1", r.dir, root))
+		}},
 		{"missing file -> exit 2", func(t *testing.T) {
 			exit2(t, run("/nonexistent/tasks.md", "1"))
 		}},
