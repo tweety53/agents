@@ -26,11 +26,11 @@ and the plan-provenance contract — and one test-only change in gymie-frontend.
 - The KAN-698 check runs in the change's own worktree, never against `origin/<base>`; a stale base is reported, never rebased by the implementer.
 - Task 3's colour read must fail on a swapped and on an inverted mark and pass on the unchanged code; the tag-literal check is gone.
 
-- [ ] 1. Require an error-path fix's test to drive its real trigger (KAN-691)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 1. Require an error-path fix's test to drive its real trigger (KAN-691)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n -i "interceptor" skills/flow/engineering-principles.md; echo $?`: it prints only `1`.
     <!-- measured: the grep above in a scratch clone @ 54033573 → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 54033573; check-references.sh, check-installed-citations.sh and check-markdown-integrity.py exit 0, and check-verbatim-moves.sh 54033573 fails only on sentences verbatim-moves.txt lists
 diff --git a/skills/flow/engineering-principles.md b/skills/flow/engineering-principles.md
@@ -53,11 +53,11 @@ index 78ebb86e..7773e03c 100644
  Config comes from the environment, backing services are attached resources, processes are
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c "interceptor" skills/flow/engineering-principles.md` prints `2`;
+  - [x] **Step 3: Verify.** `grep -c "interceptor" skills/flow/engineering-principles.md` prints `2`;
     `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
     <!-- measured: grep -c after git apply in a scratch clone @ 54033573 → 2 -->
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/engineering-principles.md`
@@ -68,11 +68,11 @@ index 78ebb86e..7773e03c 100644
 
 **Decision:** error-path-real-trigger
 
-- [ ] 2. Measure a plan's prerequisite as an ancestor of the worktree's HEAD (KAN-698)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 2. Measure a plan's prerequisite as an ancestor of the worktree's HEAD (KAN-698)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n "is-ancestor" skills/flow-contracts/plan-provenance.md; echo $?`: it prints only `1`.
     <!-- measured: the grep above in a scratch clone @ 54033573 → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 54033573 after Task 1's diff; check-references.sh, check-installed-citations.sh and check-markdown-integrity.py exit 0, and check-verbatim-moves.sh 54033573 fails only on sentences verbatim-moves.txt lists
 diff --git a/skills/flow-contracts/plan-provenance.md b/skills/flow-contracts/plan-provenance.md
@@ -97,11 +97,11 @@ index 20f8d2e9..e3f668ed 100644
 +operator's call.
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c "is-ancestor" skills/flow-contracts/plan-provenance.md` prints `1`;
+  - [x] **Step 3: Verify.** `grep -c "is-ancestor" skills/flow-contracts/plan-provenance.md` prints `1`;
     `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
     <!-- measured: grep -c after git apply in a scratch clone @ 54033573 → 1 -->
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow-contracts/plan-provenance.md`
@@ -112,8 +112,8 @@ index 20f8d2e9..e3f668ed 100644
 
 **Decision:** prerequisite-worktree-ancestor
 
-- [ ] 3. Assert each calendar mark's colour beneath the disc in gymie-frontend (KAN-652)
-  - [ ] **Step 1: Create the worktree, then reproduce before touching anything; do not guess.**
+- [x] 3. Assert each calendar mark's colour beneath the disc in gymie-frontend (KAN-652)
+  - [x] **Step 1: Create the worktree, then reproduce before touching anything; do not guess.**
     In `/Users/tweety53/Projects/gymie-frontend` run `git fetch origin`, then
     `git worktree add -b self-review-backlog-flow-4 /Users/tweety53/Projects/gymie-frontend-worktrees/self-review-backlog-flow-4 origin/develop`;
     in the new worktree run the `## worktree setup` line of its `.flow/project.md` (it copies the
@@ -122,7 +122,7 @@ index 20f8d2e9..e3f668ed 100644
     prints line `320`, the check on the test's own tag literal, and
     `grep -c 'colors.accent2' shared/src/desktopTest/kotlin/com/gymie/shared/ui/HomeCalendarMarksUiTest.kt` prints `0`.
     <!-- measured: both greps @ gymie-frontend 5ce0d237 → 320, 0 -->
-  - [ ] **Step 2: Apply the fix** in that worktree (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** in that worktree (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch gymie-frontend worktree at 5ce0d237; ./gradlew ktlintFormat, then ./gradlew verifyChange :shared:desktopTest --tests 'com.gymie.shared.ui.HomeCalendarMarksUiTest' exit 0; the test fails with HomeCalendarGrid.kt's borrowed mark drawn in colors.accent and with its own mark drawn in colors.neutral100
 diff --git a/shared/src/desktopTest/kotlin/com/gymie/shared/ui/HomeCalendarMarksUiTest.kt b/shared/src/desktopTest/kotlin/com/gymie/shared/ui/HomeCalendarMarksUiTest.kt
@@ -225,7 +225,7 @@ index c3cbba6b..81670cae 100644
 +}
 ````
 
-  - [ ] **Step 3: Verify.** In that worktree: `./gradlew ktlintFormat`, then
+  - [x] **Step 3: Verify.** In that worktree: `./gradlew ktlintFormat`, then
     `./gradlew verifyChange :shared:desktopTest --tests 'com.gymie.shared.ui.HomeCalendarMarksUiTest'` is
     `BUILD SUCCESSFUL`. Prove the read: in `shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/HomeCalendarGrid.kt`
     replace `color = calendarMarkColor(colors.accent, inMonth, colors),` with
@@ -235,7 +235,7 @@ index c3cbba6b..81670cae 100644
     `git checkout -- shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/HomeCalendarGrid.kt`.
     `git status --short` then shows only the test file.
     <!-- measured: that mutation and run in a scratch gymie-frontend worktree @ 5ce0d237 → exit 1, the own mark's assertion -->
-  - [ ] **Step 4: Commit** the file in gymie-frontend with the subject below. The session lands it
+  - [x] **Step 4: Commit** the file in gymie-frontend with the subject below. The session lands it
     by gymie-frontend's `## default landing route` (`design.md`, `kan-652-gymie-frontend-worktree`).
 
 **Build:** green
