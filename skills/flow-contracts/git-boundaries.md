@@ -152,3 +152,11 @@ the artifact instead of re-deriving the rejected position from indirect evidence
 case that paid for it: a run whose design space held a reverted prototype re-derived the
 prototype's intended polarity from contract wording because the revert's body recorded only
 `This reverts commit <sha>` — that the code left, never why.
+
+**A commit's message describes the tree it lands, never an attempt that left it.** When work
+written inside a task or a fix round is undone before it lands — reverted in the working tree, or
+removed by a fixup folded into the commit — the commit's subject and body describe the net tree,
+and the body names the abandoned attempt only as abandoned, with why. To keep the attempt in the
+history instead, land it and back it out as two commits, the back-out under the paragraph above.
+KAN-539 is the case that paid for it: a guessed icon and its revert were folded into one commit
+whose message still described the icon its tree did not contain.

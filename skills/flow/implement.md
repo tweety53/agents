@@ -490,7 +490,9 @@ Every implementer dispatch **must** carry:
 > task is backed out, not erased**: when work an earlier commit landed is withdrawn, the
 > backing-out commit's body carries the rejection reason — what was wrong, and what would have to
 > change for it to come back (**Revert and back-out commits**,
-> `skills/flow-contracts/git-boundaries.md`).
+> `skills/flow-contracts/git-boundaries.md`). **Your commit's message describes the tree it lands**: an attempt you
+> wrote and undid before committing is never what its subject or body describes (**Revert and
+> back-out commits**, `skills/flow-contracts/git-boundaries.md`).
 
 **A `Build: red` task is dispatched with its `Squash-with:` partner, in one bundle.** The
 implementer runs the red task first — writes its tests, runs them, and reports the failing
