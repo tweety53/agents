@@ -36,8 +36,8 @@ change's own and is skipped.
   (`every-token-checked`).
 - A failing or timed-out git call denies (`no-cwd-keeps-deny`).
 
-- [ ] 1. Tell a `/flow` change named `self-review-…` from a loop by its `spectre/<name>` branch
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** From this worktree pipe the
+- [x] 1. Tell a `/flow` change named `self-review-…` from a loop by its `spectre/<name>` branch
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** From this worktree pipe the
     real slot prompt as an Agent payload into the untouched hook:
     `python3 -c 'import json,sys; print(json.dumps({"tool_name":"Agent","cwd":"/Users/tweety53/Projects/agents","tool_input":{"prompt":open(sys.argv[1]).read()}}))' '/Users/tweety53/Projects/agents-worktrees/self-review-backlog-flow-5-oct18/.superpowers/sdd/slot-prompt-0-primary+principles.md' | python3 hooks/enforce-loop-dispatch.py`
     prints a deny naming `self-review-backlog-flow-5-oct18`. Save the diff below to
@@ -45,7 +45,7 @@ change's own and is skipped.
     (`git apply --include='scripts/*' /tmp/pf21-task1.diff`) and run
     `bash scripts/test-enforce-loop-dispatch-hook.sh`: `FAIL: 13 self-review-named /flow change`,
     exit 1; every other case passes.
-  - [ ] **Step 2: Implement.** Apply the rest
+  - [x] **Step 2: Implement.** Apply the rest
     (`git apply --exclude='scripts/*' /tmp/pf21-task1.diff`):
 
 ````diff verified:applied with git apply to this worktree at 52438f0d; scripts/test-enforce-loop-dispatch-hook.sh passes every case with it and fails case 13's allow alone with the hook untouched; check-python-suppressions, check-references and check-guard-symlinks exit 0; the real slot prompt is allowed and the same prompt naming self-review-no-such-loop is still denied
@@ -152,12 +152,12 @@ index 17d422d4..cdbb959a 100755
    exit 1
 ````
 
-  - [ ] **Step 3: Verify.** `bash scripts/test-enforce-loop-dispatch-hook.sh` exits 0 with every
+  - [x] **Step 3: Verify.** `bash scripts/test-enforce-loop-dispatch-hook.sh` exits 0 with every
     case `ok`; `scripts/check-python-suppressions.sh`, `scripts/check-references.sh` and
     `scripts/check-guard-symlinks.sh` exit 0; the Step 1 call now prints nothing (allow), and the
     same call with `.replace("self-review-backlog-flow-5-oct18","self-review-no-such-loop")`
     applied to the prompt still prints a deny naming `self-review-no-such-loop`.
-  - [ ] **Step 4: Commit** the two files with the subject below.
+  - [x] **Step 4: Commit** the two files with the subject below.
 
 **Build:** green
 **Files:** `hooks/enforce-loop-dispatch.py`, `scripts/test-enforce-loop-dispatch-hook.sh`
