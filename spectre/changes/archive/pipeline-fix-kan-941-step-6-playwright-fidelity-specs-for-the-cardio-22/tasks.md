@@ -35,14 +35,14 @@ contract sentence.
   non-matrix table (`### Departures`) are kept as before (`matrix-heading-by-name`).
 - The contract sentence matches the code's rule.
 
-- [ ] 1. Elide matrix rows under a matrix heading at any level
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
+- [x] 1. Elide matrix rows under a matrix heading at any level
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
     `/tmp/pf22-task1.diff`, apply its test hunk alone
     (`git apply --include='stats/internal/selfreview/bundle_test.go' /tmp/pf22-task1.diff`) and run
     `cd stats && go test ./internal/selfreview/ -run 'TestBundleElidesMatrixRows' -count=1`:
     `--- FAIL: TestBundleElidesMatrixRowsUnderAnyMatrixHeading`, the rows `ROW-H3` and `ROW-H2`
     still in the bundle; `TestBundleElidesMatrixRowsAndPNGStatLines` passes.
-  - [ ] **Step 2: Implement.** Apply the rest
+  - [x] **Step 2: Implement.** Apply the rest
     (`git apply --exclude='stats/internal/selfreview/bundle_test.go' /tmp/pf22-task1.diff`):
 
 ````diff verified:applied with git apply to this worktree at 02d83a03; go test ./internal/selfreview/ passes with it and the new test fails with git.go untouched; gofmt -l, go vet ./internal/selfreview/, check-references, check-markdown-integrity, check-normative-inventory and check-verbatim-moves (with this change's verbatim-moves.txt) exit 0
@@ -129,12 +129,12 @@ index b88348d0..dea031ce 100644
  			continue
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l .` prints nothing;
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l .` prints nothing;
     `cd stats && make -s web-dist && go vet ./internal/selfreview/` exits 0;
     `cd stats && go test ./internal/selfreview/ -run 'TestBundleElidesMatrixRows' -count=1` passes
     both tests; `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` and
     `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 4: Commit** the three files with the subject below.
+  - [x] **Step 4: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/selfreview/git.go`, `stats/internal/selfreview/bundle_test.go`, `skills/flow-contracts/finish-contract-run1.md`
