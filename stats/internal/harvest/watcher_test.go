@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -3248,7 +3249,13 @@ func TestGrownTranscriptIsReadAfterSkip(t *testing.T) {
 type stampRecordingDeps struct {
 	harvest.NoDeps
 
-	stamps []stampCall
+	stamps     []stampCall
+	loopStamps []stampCall
+}
+
+func (d *stampRecordingDeps) StampLoopDispatchAgent(ctx context.Context, key, agentID string) (bool, error) {
+	d.loopStamps = append(d.loopStamps, stampCall{"", key, agentID})
+	return true, nil
 }
 
 type stampCall struct {
@@ -3302,6 +3309,34 @@ func TestWatcherStampsLaunchAgainstPrecedingBegin(t *testing.T) {
 	want := stampCall{"mf-kan322", "task-1-implementer", "a68cee7239419a7e7"}
 	if deps.stamps[0] != want {
 		t.Errorf("stamp = %+v, want %+v", deps.stamps[0], want)
+	}
+}
+
+// TestWatcherStampsLoopLaunchByItsKey pins KAN-967: a fix-loop launch,
+// whose begin the PreToolUse hook recorded and no transcript command
+// carries, stamps the row its prompt's Key line names -- and never pairs
+// with a begin that happens to sit in reach, which belongs to another
+// dispatch.
+func TestWatcherStampsLoopLaunchByItsKey(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	loopLaunch := `{"type":"user","timestamp":"2026-01-01T00:00:01Z","sessionId":"s","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"aloop1","prompt":"Before anything else, read the baseline.\n\nKey: self-review-kan-1-plan\n\nPlan it."}}`
+	if err := os.WriteFile(path, stampFixtureLines(stampBeginLine, loopLaunch), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	deps := &stampRecordingDeps{}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+
+	want := []stampCall{{"", "self-review-kan-1-plan", "aloop1"}}
+	if !reflect.DeepEqual(deps.loopStamps, want) {
+		t.Errorf("loop stamps = %+v, want %+v", deps.loopStamps, want)
+	}
+	if len(deps.stamps) != 0 {
+		t.Errorf("the loop launch paired with a begin: %+v", deps.stamps)
 	}
 }
 

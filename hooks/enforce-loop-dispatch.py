@@ -19,9 +19,12 @@ Fails open for anything that is not a loop dispatch -- unparseable input, anothe
 prompt with no loop key and no loop worktree or branch named. Fails CLOSED for a loop dispatch: a checker that cannot answer, or
 cannot run, denies it, because an unchecked loop dispatch is the skip this hook exists to stop.
 A prompt that names a loop's worktree or branch (`pipeline-fix-<name>-<k>`, `self-review-<name>`)
-with no Key line is denied too: dropping the line must not drop the check. A loop dispatch whose
-prompt lacks the agent-baseline pointer is denied before the checker records it, since
-enforce-agent-baseline.py would deny it after, leaving its row open.
+with no Key line is denied too: dropping the line must not drop the check -- unless that name is a
+`/flow` change's own, a `spectre/<name>` branch, local or on origin, in the payload `cwd`'s
+repository: a `/flow` change may itself be named `self-review-...`, and a loop's branch is its bare
+name, never `spectre/<name>`. A loop dispatch whose prompt lacks the agent-baseline pointer is
+denied before the checker records it, since enforce-agent-baseline.py would deny it after, leaving
+its row open.
 
 The checker's wait stays well under the 300s timeout setup.sh registers, so a slow checker is
 denied here rather than the harness timing the hook out, which fails open.
@@ -67,6 +70,19 @@ def deny(reason):
     return 0
 
 
+def flow_change(name, cwd):
+    """Is name a /flow change's own -- a spectre/<name> branch, local or on origin, in cwd's repository?"""
+    try:
+        r = subprocess.run(
+            ["git", "-C", cwd, "for-each-ref", "--count=1", "--format=x",
+             f"refs/heads/spectre/{name}", f"refs/remotes/origin/spectre/{name}"],
+            capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return r.returncode == 0 and r.stdout.strip() == "x"
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
@@ -78,10 +94,13 @@ def main():
     if not isinstance(tool_input, dict) or not isinstance(tool_input.get("prompt"), str):
         return 0
     prompt = tool_input["prompt"]
+    cwd = payload.get("cwd")
+    cwd = cwd if isinstance(cwd, str) and os.path.isdir(cwd) else None
     m = KEY_RE.search(prompt)
     if not m:
-        named = LOOP_NAME_RE.search(prompt)
-        if named:
+        for named in LOOP_NAME_RE.finditer(prompt):
+            if cwd and flow_change(named.group(0), cwd):
+                continue
             return deny(
                 f"Loop dispatch blocked: the prompt names {named.group(0)} but carries no "
                 "`Key: pipeline-fix-<k>-<suffix>` or `Key: self-review-<name>-<suffix>` line."
@@ -96,8 +115,6 @@ def main():
     if BASELINE not in prompt:
         return deny(f"Loop dispatch {key} blocked: the prompt carries no {BASELINE} pointer.")
     args = [CHECK, REPO, key, str(tool_input.get("subagent_type") or ""), str(tool_input.get("model") or "")]
-    cwd = payload.get("cwd")
-    cwd = cwd if isinstance(cwd, str) and os.path.isdir(cwd) else None
     try:
         r = subprocess.run(args, capture_output=True, text=True, timeout=CHECK_TIMEOUT, cwd=cwd)
     except (OSError, subprocess.SubprocessError) as e:

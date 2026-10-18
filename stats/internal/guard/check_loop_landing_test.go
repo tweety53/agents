@@ -3,6 +3,7 @@ package guard
 import (
 	"bytes"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -82,6 +83,54 @@ func TestCheckLoopLanding(t *testing.T) {
 			}
 			if calls := fx.calls(t); tc.rows != `[]` && tc.rows != "" && !strings.HasPrefix(tc.branch, "spectre/") && tc.branch != "feature/x" && !strings.Contains(calls, "-change "+tc.branch) {
 				t.Fatalf("flow calls %q never read the loop's change", calls)
+			}
+		})
+	}
+}
+
+// A satellite -- the loop's branch in another repository it carried a task
+// into -- lands on the rows the loop filed under the agents checkout's
+// project (FLOW_GUARD_REPO_ROOT) when its own repository's project has none;
+// a loop with rows nowhere is still refused, and a change's own branch never
+// reads another project's rows.
+func TestCheckLoopLandingSatellite(t *testing.T) {
+	t.Parallel()
+	const sr = "self-review-kan-1-demo"
+	clean := lpRowsJSON(sr+"-", sr, "plan completed", "fix completed", "review-1 clean")
+	for _, tc := range []struct {
+		name, branch, agentsRows string
+		rc                       int
+		out                      string
+	}{
+		{name: "rows under the agents project", branch: sr, agentsRows: clean, out: "LOOP-LANDING-OK"},
+		{name: "rows nowhere", branch: sr, agentsRows: `[]`, rc: 1, out: "PLAN — no completed " + sr + "-plan"},
+		{name: "a change branch reads only its own project", branch: "spectre/kan-1-demo", agentsRows: clean, out: "LOOP-LANDING-NA"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fx := lpNew(t, `[]`)
+			sat := filepath.Dir(fx.repo) + "/gymie"
+			gitRun(t, "", "init", "-q", "-b", "main", sat)
+			gitRun(t, sat, "commit", "-q", "--allow-empty", "-m", "init")
+			writeFile(t, fx.rows+".agents", tc.agentsRows)
+			bin := filepath.Dir(fx.repo) + "/bin"
+			writeExec(t, bin+"/flow", `#!/usr/bin/env bash
+case "$*" in
+  *"-C `+fx.repo+`"*) exec cat `+fx.rows+`.agents ;;
+  *) exec cat `+fx.rows+` ;;
+esac
+`)
+			env := fx.env
+			env.Getenv = func(k string) string {
+				if k == "FLOW_GUARD_REPO_ROOT" {
+					return fx.repo
+				}
+				return fx.env.Getenv(k)
+			}
+			var o, e bytes.Buffer
+			rc := checkLoopLanding([]string{sat, tc.branch}, env, &o, &e)
+			if out := o.String() + e.String(); rc != tc.rc || !strings.Contains(out, tc.out) {
+				t.Fatalf("rc %d, want %d; output %q, want it to carry %q", rc, tc.rc, out, tc.out)
 			}
 		})
 	}

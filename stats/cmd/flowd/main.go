@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -51,14 +52,13 @@ const shutdownGrace = 15 * time.Second
 // to matter.
 const harvestInterval = 5 * time.Second
 
-// reconnectPingInterval is how often Reconciler.Watch pings the store to
-// detect design.md's "regains a database connection" transition -- the
-// trigger for a replay beyond the one this daemon already runs once at
-// startup. It is not on the pipeline's own hot path (nothing here blocks a
-// CLI request), so it favors an interval short enough that an outage's
-// journal entries land in the store again soon after the database comes
-// back, without polling aggressively enough to matter against a local
-// Postgres instance.
+// reconnectPingInterval is how often Reconciler.Watch pings the store and,
+// on every ping that succeeds, replays the journal -- the replay beyond the
+// one this daemon already runs once at startup. It is not on the pipeline's
+// own hot path (nothing here blocks a CLI request), so it favors an interval
+// short enough that an outage's journal entries land in the store soon
+// after the database or the daemon's HTTP surface comes back, without
+// polling aggressively enough to matter against a local Postgres instance.
 const reconnectPingInterval = 10 * time.Second
 
 // sweepInterval is how often the abandoned-stage sweeper scans for stage
@@ -176,16 +176,23 @@ func run(logger *slog.Logger) error {
 	// Task 6: replay the write-ahead journal now, at startup -- store.Open
 	// above has already confirmed connectivity via its own ping, so this
 	// is exactly the "at startup" half of design.md's "Availability and
-	// reconciliation". The "on reconnect" half is Watch, started below.
-	reconciler := reconcile.New(st, st, st, fallback.StateRoot(), logger)
-	startupResult, startupErr := reconciler.Run(ctx)
-	logReconcileResult(logger, "startup", startupResult, startupErr)
-
+	// reconciliation". The "on reconnect" half is Watch, started below, which
+	// replays on every healthy ping.
+	// A workspace daemon skips both halves: the journal is shared, and an
+	// entry replayed into its throwaway database leaves the journal and is
+	// dropped with that database at cleanup (KAN-913).
 	watchCtx, stopWatch := context.WithCancel(ctx)
 	defer stopWatch()
-	go reconciler.Watch(watchCtx, st.Ping, reconnectPingInterval, func(result reconcile.Result, err error) {
-		logReconcileResult(logger, "reconnect", result, err)
-	})
+	if replaysSharedJournal(cfg.DSN) {
+		reconciler := reconcile.New(st, st, st, fallback.StateRoot(), logger)
+		startupResult, startupErr := reconciler.Run(ctx)
+		logReconcileResult(logger, "startup", startupResult, startupErr)
+		go reconciler.Watch(watchCtx, st.Ping, reconnectPingInterval, func(result reconcile.Result, err error) {
+			logReconcileResult(logger, "watch", result, err)
+		})
+	} else {
+		logger.Info("flowd journal replay skipped: not the dev workspace's flow database")
+	}
 
 	// Task 9: harvest session transcripts and attribute their usage to
 	// open stage windows. st (a *store.Store) satisfies both
@@ -407,10 +414,19 @@ var (
 	_ harvest.Deps = (*store.Store)(nil)
 )
 
+// replaysSharedJournal reports whether dsn names the dev workspace's own
+// `flow` database, the one store the shared journal under
+// fallback.StateRoot() is replayed into. A workspace database
+// (flow_<id>, .flow/project.md's ## workspace isolation) never is.
+func replaysSharedJournal(dsn string) bool {
+	u, err := url.Parse(dsn)
+	return err == nil && u.Path == "/flow"
+}
+
 // logReconcileResult reports one Reconciler.Run outcome. A replay failure
 // is deliberately not fatal to the daemon -- reconcile.Reconciler.Run
 // already leaves anything it could not resolve safely in the journal for
-// the next trigger (startup, reconnect, or `flow journal flush`) to pick
+// the next trigger (startup, a Watch tick, or `flow journal flush`) to pick
 // up, so logging and continuing is correct here, not a swallowed error.
 func logReconcileResult(logger *slog.Logger, trigger string, result reconcile.Result, err error) {
 	if err != nil {

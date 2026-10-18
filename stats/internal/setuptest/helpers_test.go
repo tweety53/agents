@@ -20,8 +20,9 @@ type group struct {
 	t   *testing.T
 	dir string // $SANDBOX/<TestName>; every path this group writes lies under it
 	seq int
-	rc  int    // the last runSetup's exit status
-	log string // the last runSetup's combined-output log
+	rc  int      // the last runSetup's exit status
+	log string   // the last runSetup's combined-output log
+	env []string // extra environment every later runSetup passes the installer
 }
 
 // newGroup marks the test parallel and gives it its own sub-sandbox.
@@ -76,7 +77,7 @@ func (g *group) runSetup(repo, home, mode, proj string) {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, filepath.Join(repo, "setup.sh"), mode, proj)
 	cmd.Dir = proj
-	cmd.Env = withHome(os.Environ(), home)
+	cmd.Env = append(withHome(os.Environ(), home), g.env...)
 	cmd.Stdout, cmd.Stderr = f, f
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }

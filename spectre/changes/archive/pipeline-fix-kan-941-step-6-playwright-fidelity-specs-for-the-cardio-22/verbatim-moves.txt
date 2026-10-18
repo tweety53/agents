@@ -1,0 +1,4 @@
+# Sentences this change rewords on purpose: the self-review bundle's matrix elision now keys on a
+# heading naming a matrix at any level, not on the `####` heading level alone.
+Its `visual-verification.md` keeps every heading and drops the table rows under each `####` element × property matrix heading, and its `git log --stat` lines leave out every `*.png` path.
+Its `visual-verification.md` keeps every heading and drops the table rows under each heading naming a matrix — any level, `matrix` in its text, any case — and its `git log --stat` lines leave out every `*.png` path.

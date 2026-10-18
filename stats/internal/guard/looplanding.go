@@ -10,8 +10,10 @@ import (
 
 // check-loop-landing.sh <repo> <branch>: may a pipeline-fix-* or
 // self-review-* branch land on the default branch? Only once flowd holds,
-// for its loop, a completed plan, a completed first fix and a review, every
-// row closed, the highest review `clean` -- no Critical or Important -- and
+// for its loop -- under the pushing repository's project, or, for a loop
+// branch with none there, under the project of the agents checkout this
+// guard is installed from -- a completed plan, a completed first fix and a
+// review, every row closed, the highest review `clean` -- no Critical or Important -- and
 // no red-line fix (`fix-v<v>`) after it. protect-main-checkout.py runs it on
 // a landing push typed by hand; pipeline-fix.sh land runs it before its own.
 func init() {
@@ -128,6 +130,16 @@ func checkLoopLanding(args []string, env Env, stdout, stderr io.Writer) int {
 	if !ok {
 		fmt.Fprintf(stderr, "%s: flow record dispatches -change %s failed -- cannot answer (is flowd up?)\n", self, lp.change)
 		return 2
+	}
+	// A loop run from the agents checkout files every row under that checkout's
+	// project, so its satellite branches -- the same loop branch in another
+	// repository it carried a task into -- find their rows there.
+	if root := env.Getenv("FLOW_GUARD_REPO_ROOT"); len(rows) == 0 && !lpOwnBranch(args[1]) && root != "" {
+		if agents, ok := lpMain(env, git, root); ok && agents != main {
+			if r, ok := lpRows(env, agents, lp); ok {
+				rows = r
+			}
+		}
 	}
 	if lpOwnBranch(args[1]) && len(rows) == 0 {
 		fmt.Fprintf(stdout, "LOOP-LANDING-NA %s\n", args[1])

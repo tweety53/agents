@@ -86,6 +86,12 @@ import (
 // handshaken back from the dispatched role -- a model cannot report its
 // own effort -- so it carries only what the dispatcher itself set:
 // `low`, `medium`, `high`, or `default` where none was set.
+//
+// SessionID is the harness session the begin ran in, from
+// CLAUDE_CODE_SESSION_ID or MUSE_SESSION_ID. It binds the row to its
+// session where no stage run carries SessionToken -- a fix run that marks
+// no stage -- so an inline row still takes the parent's main-thread usage
+// (KAN-967). It is written at begin and never read back.
 type Dispatch struct {
 	ID           int64           `json:"id"`
 	AgentID      string          `json:"agentId,omitempty"`
@@ -102,6 +108,7 @@ type Dispatch struct {
 	Outcome      string          `json:"outcome,omitempty"`
 	Cause        string          `json:"cause,omitempty"`
 	SessionToken string          `json:"sessionToken,omitempty"`
+	SessionID    string          `json:"sessionId,omitempty"`
 	StartedAt    time.Time       `json:"startedAt"`
 	EndedAt      *time.Time      `json:"endedAt,omitempty"`
 	Metrics      json.RawMessage `json:"metrics,omitempty"`

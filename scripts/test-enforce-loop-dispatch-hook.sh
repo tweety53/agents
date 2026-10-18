@@ -17,6 +17,9 @@
 #  10. a Key line with trailing text                   -> deny, checker never run
 #  11. a pipeline-fix key with a non-numeric <k>       -> deny, checker never run
 #  12. a payload carrying a cwd                       -> the checker runs in it
+#  13. a prompt naming a /flow change called self-review-<x>, no Key line, its
+#      spectre/<name> branch in the payload's cwd    -> allow, checker never run;
+#      the same prompt in a cwd without that branch  -> deny
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -111,6 +114,21 @@ hook "$SANDBOX/check" "$(python3 -c 'import json,sys; print(json.dumps({"tool_na
 expect "12 admitted with a cwd" allow
 [ "$(cat "$SANDBOX/cwd")" = "$(cd "$SANDBOX/project" && pwd -P)" ] \
   && pass "12 checker ran in the payload's cwd" || fail "12 checker ran in $(cat "$SANDBOX/cwd")"
+
+# Case 13: a /flow change named self-review-<x> is told from a loop by its spectre/<name> branch.
+cwd_payload() { # <cwd> <prompt>
+  python3 -c 'import json,sys; print(json.dumps({"tool_name": "Agent", "cwd": sys.argv[1], "tool_input": {"prompt": sys.argv[2], "subagent_type": "flow-low", "model": "opus"}}))' "$1" "$2"
+}
+FLOW_PROMPT=$'Review /x/agents-worktrees/self-review-backlog-demo-5 now.'
+git init -q -b main "$SANDBOX/flowrepo"
+git -C "$SANDBOX/flowrepo" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
+rm -f "$LOG"
+hook "$SANDBOX/check" "$(cwd_payload "$SANDBOX/flowrepo" "$FLOW_PROMPT")"
+expect "13 self-review-named change, no spectre branch" deny "carries no"
+git -C "$SANDBOX/flowrepo" branch spectre/self-review-backlog-demo-5
+hook "$SANDBOX/check" "$(cwd_payload "$SANDBOX/flowrepo" "$FLOW_PROMPT")"
+expect "13 self-review-named /flow change" allow
+[ ! -e "$LOG" ] && pass "13 checker not run" || fail "13 checker ran"
 
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d case(s) failed\n' "$FAILURES" >&2

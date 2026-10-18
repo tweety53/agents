@@ -5,7 +5,12 @@
 # Only once flowd holds, under the loop's change (its branch name), a
 # completed plan dispatch, a completed first fix (`fix` or `fix-g<g>`), at
 # least one review, every row closed, the highest-numbered review closed
-# `clean` — no Critical, no Important — and no `fix-v<v>` after it.
+# `clean` — no Critical, no Important — and no `fix-v<v>` after it. A
+# loop branch whose repository's project holds no rows for it — a
+# satellite, the loop's branch in another repository it carried a task into —
+# is read under the project of the agents checkout this script sits in, where
+# a loop run from that checkout files them; a FINISHED loop's rows still
+# admit its satellites, which land after its own branch.
 # hooks/protect-main-checkout.py runs it on a landing push typed by hand;
 # pipeline-fix.sh land runs the same check before its own push.
 #
@@ -23,4 +28,6 @@ SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
   echo "check-loop-landing: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }
+FLOW_GUARD_REPO_ROOT="$(flow_guard_root)"
+export FLOW_GUARD_REPO_ROOT
 flow_guard_exec check-loop-landing 2 "check-loop-landing:" "$@"

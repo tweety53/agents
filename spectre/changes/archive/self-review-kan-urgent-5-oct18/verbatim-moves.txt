@@ -1,0 +1,11 @@
+# KAN-973: new rule text added on purpose (throttle-measured flake proof)
+(`~/.claude/rules/fix-determinism-at-the-source.md`).
+**A flake fix carries its measured proof.
+Report a fix that lacks any of the
+That rate, not one observed failure, sizes the proof runs, and the same condition is the one the fix and the mechanism-removed run below are proven under.
+Then measure the rate under that condition, failures over runs.
+When it will not fail at its natural rate, make it fail: throttle what the nondeterminism runs on — the CPU (a parallel load, a CPU cap), the network (a throttled connection), or a delay injected at the suspected seam — until it does.
+When the diff fixes a failure that does not
+before the fix, the run count, and a run failing with the fix's mechanism removed
+recur on every run, its commits or the change's records state the failure rate measured
+three, and one that widens a tolerance, timeout, retry count or sleep in their place.

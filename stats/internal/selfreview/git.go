@@ -454,9 +454,10 @@ func dropPNGStatLines(s string) string {
 	return b.String()
 }
 
-// elideMatrixRows drops every table row between a `####` heading and the
-// next heading, leaving one `_(<n> matrix rows elided)_` line per run. A
-// line inside a ``` fence is never a heading or a row.
+// elideMatrixRows drops every table row between a heading naming a matrix
+// (its text holds `matrix`, any case, at any level) and the next heading,
+// leaving one `_(<n> matrix rows elided)_` line per run. A line inside a ```
+// fence is never a heading or a row.
 func elideMatrixRows(md string) string {
 	var b strings.Builder
 	inMatrix, inFence, run := false, false, 0
@@ -474,7 +475,7 @@ func elideMatrixRows(md string) string {
 			flush()
 		} else if strings.HasPrefix(l, "#") {
 			flush()
-			inMatrix = strings.HasPrefix(l, "#### ")
+			inMatrix = strings.Contains(strings.ToLower(l), "matrix")
 		} else if inMatrix && strings.HasPrefix(strings.TrimSpace(l), "|") {
 			run++
 			continue

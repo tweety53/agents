@@ -64,8 +64,8 @@ if ! python3 -c 'import sys; sys.exit(0)'; then
   exit 2
 fi
 
-# flow_guard_exec runs `flow-guard plan-suite-steps` and `flow-guard
-# plan-script-paths` on every file below and `flow-guard unlanded-archives`
+# flow_guard_exec runs `flow-guard plan-suite-steps`, `flow-guard
+# plan-script-paths` and `flow-guard plan-task-id-rule` on every file below and `flow-guard unlanded-archives`
 # on the no-argument scan; named as
 # $SCRIPT_DIR/<name> and checked before sourcing, like every sibling here.
 FLOW_GUARD_LIB="$SCRIPT_DIR/lib/flow-guard.sh"
@@ -77,18 +77,21 @@ source "$FLOW_GUARD_LIB"
 
 # check_one <tasks.md>: check-plan-shape.py's F1-F11, then `flow-guard
 # plan-suite-steps` (stats/internal/guard/plansuitesteps.go) — a task step
-# running a module or repository test suite — and `flow-guard
+# running a module or repository test suite — `flow-guard
 # plan-script-paths` (stats/internal/guard/planscriptpaths.go) — a task step
-# citing a scripts/ path the repository does not carry. Returns 2 if any
+# citing a scripts/ path the repository does not carry — and `flow-guard
+# plan-task-id-rule` (stats/internal/guard/plantaskidrule.go) — a /flow plan
+# stating task commits carry no Task-Id: trailer. Returns 2 if any
 # cannot answer, else 1 if any found a violation, else 0.
 check_one() {
-  local py=0 go=0 sp=0
+  local py=0 go=0 sp=0 ti=0
   python3 "$PYTHON_GUARD" "$1" || py=$?
   (flow_guard_exec plan-suite-steps 2 "check-plan-shape.sh:" "$1") || go=$?
   (flow_guard_exec plan-script-paths 2 "check-plan-shape.sh:" "$1") || sp=$?
-  if [ "$py" -eq 2 ] || [ "$go" -eq 2 ] || [ "$sp" -eq 2 ]; then
+  (flow_guard_exec plan-task-id-rule 2 "check-plan-shape.sh:" "$1") || ti=$?
+  if [ "$py" -eq 2 ] || [ "$go" -eq 2 ] || [ "$sp" -eq 2 ] || [ "$ti" -eq 2 ]; then
     return 2
-  elif [ "$py" -ne 0 ] || [ "$go" -ne 0 ] || [ "$sp" -ne 0 ]; then
+  elif [ "$py" -ne 0 ] || [ "$go" -ne 0 ] || [ "$sp" -ne 0 ] || [ "$ti" -ne 0 ]; then
     return 1
   fi
   return 0

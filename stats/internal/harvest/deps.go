@@ -19,6 +19,11 @@ import (
 // store.Store.StampDispatchAgent exists.
 type DispatchAgentStamper interface {
 	StampDispatchAgent(ctx context.Context, sessionToken, key, agentID string) (stamped bool, err error)
+	// StampLoopDispatchAgent fills an empty agent_id on the latest row
+	// recorded under a fix-loop key alone (AgentLaunch.LoopKey): a loop
+	// row's begin is never a transcript command, so no session token
+	// reaches the watcher with it.
+	StampLoopDispatchAgent(ctx context.Context, key, agentID string) (stamped bool, err error)
 }
 
 // Deps is everything a Watcher needs beyond its root, its sink and its
@@ -112,5 +117,10 @@ func (NoDeps) DispatchWindowsForAgent(ctx context.Context, agentID string) ([]Di
 
 // StampDispatchAgent stamps nothing and reports false.
 func (NoDeps) StampDispatchAgent(ctx context.Context, sessionToken, key, agentID string) (stamped bool, err error) {
+	return false, nil
+}
+
+// StampLoopDispatchAgent stamps nothing and reports false.
+func (NoDeps) StampLoopDispatchAgent(ctx context.Context, key, agentID string) (stamped bool, err error) {
 	return false, nil
 }

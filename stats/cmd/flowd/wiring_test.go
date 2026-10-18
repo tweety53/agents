@@ -231,3 +231,21 @@ func TestCommitBaseFromRemote(t *testing.T) {
 		}
 	}
 }
+
+// TestReplaysSharedJournalOnlyIntoTheFlowDatabase pins KAN-913: a
+// workspace daemon's own flow_<id> database never replays the shared
+// journal, while the dev workspace's flow database still does.
+func TestReplaysSharedJournalOnlyIntoTheFlowDatabase(t *testing.T) {
+	cases := map[string]bool{
+		config.DefaultDSN: true,
+		"postgres://flow:flow@localhost:5433/flow_kan_9_x?sslmode=disable":   false,
+		"postgres://flow:flow@localhost:5433/flow_ui_uitest?sslmode=disable": false,
+		"postgres://flow:flow@localhost:5433/flowd?sslmode=disable":          false,
+		"host=localhost port=5433 dbname=flow user=flow":                     false,
+	}
+	for dsn, want := range cases {
+		if got := replaysSharedJournal(dsn); got != want {
+			t.Errorf("replaysSharedJournal(%q) = %v, want %v", dsn, got, want)
+		}
+	}
+}

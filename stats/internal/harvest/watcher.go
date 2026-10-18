@@ -1657,6 +1657,7 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 			}
 		}
 	}
+	launches = w.stampLoopLaunches(ctx, path, launches)
 	begins = append(w.pendingBegins[path], begins...)
 	launches = append(w.pendingLaunches[path], launches...)
 	denials = append(w.pendingDenials[path], denials...)
@@ -1773,6 +1774,31 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 	w.pendingBegins[path] = appendPending(nil, survivors(begins, takenBegin))
 	w.pendingLaunches[path] = appendPending(nil, unclaimed(launches, claimed))
 	w.pendingDenials[path] = appendPending(w.pendingDenials[path], denials)
+}
+
+// stampLoopLaunches stamps each fix-loop launch (AgentLaunch.LoopKey) onto
+// the row its key names and returns the other launches for the begin
+// pairing. A loop launch never pairs with a begin: its begin was recorded
+// by the PreToolUse hook, so any begin in reach belongs to another
+// dispatch (KAN-967). The failure posture is stampDispatchAgents' own.
+func (w *Watcher) stampLoopLaunches(ctx context.Context, path string, launches []AgentLaunch) []AgentLaunch {
+	rest := launches[:0:0]
+	for _, launch := range launches {
+		if launch.LoopKey == "" {
+			rest = append(rest, launch)
+			continue
+		}
+		stamped, err := w.deps.StampLoopDispatchAgent(ctx, launch.LoopKey, launch.AgentID)
+		if err != nil {
+			w.warn("harvest: stamp loop dispatch agent failed, the row keeps no id from this launch",
+				"path", path, "key", launch.LoopKey, "agent_id", launch.AgentID, "error", err)
+			continue
+		}
+		if stamped {
+			w.creditStampedAgentFile(ctx, path, launch.AgentID)
+		}
+	}
+	return rest
 }
 
 // creditStampedAgentFile credits a just-stamped dispatch row with the part

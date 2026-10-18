@@ -800,6 +800,19 @@ func TestRecordDispatchBeginAcceptsDiffBase(t *testing.T) {
 	}
 }
 
+// TestRecordDispatchBeginSendsTheSessionID pins KAN-967's CLI half: a
+// begin carries the harness session it ran in, so the store can bind a row
+// no stage run's token reaches.
+func TestRecordDispatchBeginSendsTheSessionID(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "session-kan967")
+
+	sent := dispatchBeginBody(t)
+
+	if sent["sessionId"] != "session-kan967" {
+		t.Errorf("sessionId = %v, want session-kan967", sent["sessionId"])
+	}
+}
+
 // TestRecordDispatchBeginDiffBaseIsOptional pins the flag's absence, which
 // is an ordinary state rather than a degraded one: every implementer
 // dispatch, and every panel slot reading the whole diff, legitimately

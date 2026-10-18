@@ -183,8 +183,11 @@ and deterministically, and fail for exactly one reason.
 
 **Violation looks like:** a test asserting that a mock was called rather than what
 changed, a sleep used for synchronisation, a test whose result depends on execution order
-or the wall clock, an assertion weakened rather than a bug fixed, or a test deleted or
-`@Ignore`d in the same diff that changed the behavior it covered.
+or the wall clock, an assertion weakened rather than a bug fixed, a test deleted or
+`@Ignore`d in the same diff that changed the behavior it covered, or a geometry assertion
+on a measured or reported bound (Compose's semantics bounds, coerced to the parent's) where
+the property under test is what is drawn — an overflow is visible only in the rendered
+pixels, so the assertion passes on the unfixed code.
 
 ### Twelve-Factor App
 
