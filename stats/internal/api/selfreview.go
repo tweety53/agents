@@ -54,6 +54,7 @@ type selfreviewStore interface {
 type selfreviewHandler struct {
 	store  selfreviewStore
 	git    selfreview.Runner
+	build  string
 	logger *slog.Logger
 }
 
@@ -114,7 +115,7 @@ func (h *selfreviewHandler) bundle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bundle, err := selfreview.Bundle(change, rec, summary, summaryFound, panelRan, []string{repo}, h.git)
+	bundle, err := selfreview.Bundle(change, rec, summary, summaryFound, panelRan, h.build, []string{repo}, h.git)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return

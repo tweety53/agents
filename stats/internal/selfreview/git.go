@@ -538,8 +538,11 @@ var archivedFiles = []string{"tasks.md", "design.md", "narrative.md", "visual-ve
 // line — environmental failure keeps a different wording from legitimate
 // absence. An invalid change name is the one error: the same allowlist
 // records.Destination enforces, checked before the name builds a label or
-// a ref.
-func Bundle(change string, run records.Run, summary string, summaryFound bool, panelRan bool, repos []string, g Runner) (string, error) {
+// a ref. build names the serving daemon's own build, the note leading the
+// bundle's notes when non-empty: a source reported skipped that the tree
+// holds then reads as a daemon older than the source, never as an absence
+// (KAN-771).
+func Bundle(change string, run records.Run, summary string, summaryFound bool, panelRan bool, build string, repos []string, g Runner) (string, error) {
 	if !records.ValidChangeName(change) {
 		return "", fmt.Errorf("change name %q is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'", change)
 	}
@@ -570,7 +573,10 @@ func Bundle(change string, run records.Run, summary string, summaryFound bool, p
 	// still stand. A repository git cannot read at all is named in a note
 	// rather than folded into "absent".
 	var notes []string
-	// The records-source loss note leads the notes: a panel whose stage
+	if build != "" {
+		notes = append(notes, "note: served by flowd "+build+" — a source reported skipped that the tree holds means this daemon predates it, not that it is absent")
+	}
+	// The records-source loss note leads the notes after the build: a panel whose stage
 	// demonstrably completed while the store holds no dispatch rows means
 	// the rows were lost, not skipped, and every "skipped (absent)" line
 	// below would otherwise read as the panel never having run (KAN-621).

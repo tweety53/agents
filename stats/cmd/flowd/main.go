@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
@@ -163,7 +164,7 @@ func run(logger *slog.Logger) error {
 	}
 
 	srv, err := api.New(cfg, st, st, st, st, st, logger, api.WithSPA(spaHandler), api.WithGuardRuns(st),
-		api.WithCommitBase(commitBaseFromRemote(originRemote())))
+		api.WithCommitBase(commitBaseFromRemote(originRemote())), api.WithBuild(buildIdentity()))
 	if err != nil {
 		// api.New calls config.Config.Validate itself, which keeps
 		// internal/api correct for any other caller, but the loopback
@@ -465,4 +466,43 @@ func commitBaseFromRemote(remote string) string {
 		return ""
 	}
 	return "https://github.com/" + strings.TrimSuffix(strings.TrimSuffix(repo, "/"), ".git") + "/commit"
+}
+
+// buildIdentity names this binary's build from the VCS stamp `go build`
+// writes into it, for the self-review bundle's build note (KAN-771); ""
+// when the binary carries none.
+func buildIdentity() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return ""
+	}
+	return formatBuild(info.Settings)
+}
+
+// formatBuild renders vcs.revision, vcs.time and vcs.modified as
+// "build <rev12> (<time>)", ", modified" inside the parentheses for a dirty
+// tree; "" with no vcs.revision.
+func formatBuild(settings []debug.BuildSetting) string {
+	var rev, at, modified string
+	for _, s := range settings {
+		switch s.Key {
+		case "vcs.revision":
+			rev = s.Value
+		case "vcs.time":
+			at = s.Value
+		case "vcs.modified":
+			modified = s.Value
+		}
+	}
+	if rev == "" {
+		return ""
+	}
+	if len(rev) > 12 {
+		rev = rev[:12]
+	}
+	out := "build " + rev + " (" + at
+	if modified == "true" {
+		out += ", modified"
+	}
+	return out + ")"
 }

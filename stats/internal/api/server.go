@@ -176,6 +176,7 @@ type serverOptions struct {
 	spa        http.Handler
 	guardRuns  GuardRunStore
 	commitBase string
+	build      string
 }
 
 // WithSPA mounts h at "/" as the daemon's user interface, task 12's
@@ -199,6 +200,15 @@ func WithSPA(h http.Handler) Option {
 func WithCommitBase(base string) Option {
 	return func(o *serverOptions) {
 		o.commitBase = base
+	}
+}
+
+// WithBuild names the daemon's own build in every self-review bundle it
+// serves -- buildIdentity's answer in production (KAN-771). Passing none,
+// or "", renders no build note.
+func WithBuild(build string) Option {
+	return func(o *serverOptions) {
+		o.build = build
 	}
 }
 
@@ -308,7 +318,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	sh := &stageHandler{store: ss, logger: logger}
 	sth := &statsHandler{store: sts, logger: logger, commitBase: so.commitBase}
 	rh := &recordHandler{store: rs, logger: logger}
-	srb := &selfreviewHandler{store: rs, git: selfreview.ExecRunner{}, logger: logger}
+	srb := &selfreviewHandler{store: rs, git: selfreview.ExecRunner{}, build: so.build, logger: logger}
 	lh := &lessonsHandler{store: rs, logger: logger}
 	hz := &hazardHandler{store: rs, logger: logger}
 	suh := &suiteHandler{store: rs, logger: logger}

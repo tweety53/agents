@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"testing"
@@ -246,6 +247,22 @@ func TestReplaysSharedJournalOnlyIntoTheFlowDatabase(t *testing.T) {
 	for dsn, want := range cases {
 		if got := replaysSharedJournal(dsn); got != want {
 			t.Errorf("replaysSharedJournal(%q) = %v, want %v", dsn, got, want)
+		}
+	}
+}
+
+func TestFormatBuild(t *testing.T) {
+	for _, c := range []struct {
+		name     string
+		settings []debug.BuildSetting
+		want     string
+	}{
+		{"clean", []debug.BuildSetting{{Key: "vcs.revision", Value: "02a3d012e12a9b66dc9296d1fbafb249d98ac98e"}, {Key: "vcs.time", Value: "2026-10-18T20:46:11Z"}, {Key: "vcs.modified", Value: "false"}}, "build 02a3d012e12a (2026-10-18T20:46:11Z)"},
+		{"modified", []debug.BuildSetting{{Key: "vcs.revision", Value: "02a3d012e12a9b66dc9296d1fbafb249d98ac98e"}, {Key: "vcs.time", Value: "2026-10-18T20:46:11Z"}, {Key: "vcs.modified", Value: "true"}}, "build 02a3d012e12a (2026-10-18T20:46:11Z, modified)"},
+		{"no stamp", []debug.BuildSetting{{Key: "-compiler", Value: "gc"}}, ""},
+	} {
+		if got := formatBuild(c.settings); got != c.want {
+			t.Errorf("%s: formatBuild = %q, want %q", c.name, got, c.want)
 		}
 	}
 }
