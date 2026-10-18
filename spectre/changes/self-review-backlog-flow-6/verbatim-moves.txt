@@ -1,0 +1,2 @@
+# Sentences this change adds on purpose — KAN-702 (verify-and-handoff.md).
+`<merge-base>` in both calls is that worktree's own merge base from this run's working notes — never `origin/<base>` or another ref picked by hand, which matches every path the base gained since the worktree was cut as this change's own (KAN-702).
