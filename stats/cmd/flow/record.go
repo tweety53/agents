@@ -1060,6 +1060,10 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	// original attempt was made rather than dating the dispatch to the
 	// replay.
 	attemptAt := time.Now()
+	sessionID := ""
+	if v := sessionIDFromEnv(); v != nil {
+		sessionID = *v
+	}
 	in := records.Dispatch{
 		AgentID:      *agentID,
 		Key:          *key,
@@ -1070,6 +1074,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		Effort:       *effort,
 		DiffBase:     *diffBase,
 		SessionToken: *sessionToken,
+		SessionID:    sessionID,
 		StartedAt:    started,
 	}
 	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Dispatch, error) {

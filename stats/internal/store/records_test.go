@@ -1071,6 +1071,38 @@ func TestDispatchWindowsForSessionResolvesTheBoundToken(t *testing.T) {
 	}
 }
 
+// TestDispatchWindowsForSessionMatchesTheRowsOwnSession pins KAN-967: a
+// dispatch whose begin recorded its session id has a window in that
+// session though no stage run carries its token -- a fix run that marks no
+// stage still has its inline rows' windows.
+func TestDispatchWindowsForSessionMatchesTheRowsOwnSession(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-dispatch-own-session-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	const sessionID = "session-dispatch-own"
+	mine := baseDispatch("implementer", "opus")
+	mine.SessionToken = "mf-kan967-no-stage"
+	mine.SessionID = sessionID
+	mine.AgentID = "inline"
+	recorded, err := st.RecordDispatch(ctx, projectKey, "kan-1", mine)
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+
+	windows, err := st.DispatchWindowsForSession(ctx, sessionID)
+	if err != nil {
+		t.Fatalf("DispatchWindowsForSession: %v", err)
+	}
+	if len(windows) != 1 || windows[0].DispatchID != recorded.ID || windows[0].AgentID != "inline" {
+		t.Fatalf("windows = %+v, want the one row begun in this session", windows)
+	}
+	if other, err := st.DispatchWindowsForSession(ctx, "session-someone-else"); err != nil || len(other) != 0 {
+		t.Errorf("another session's windows = %+v (%v), want none", other, err)
+	}
+}
+
 // TestDispatchWindowsForSessionCapsAnOpenDispatchAtItsStageRunEnd pins the
 // cap: a dispatch row whose end never came is closed, for attribution, at
 // its owning stage run's end, so it cannot take every later record of the
@@ -3201,6 +3233,50 @@ func TestStampDispatchAgentFillsEmptyID(t *testing.T) {
 	}
 }
 
+// TestStampLoopDispatchAgentFillsLatestRowByKey pins KAN-967's store
+// half: a fix-loop row is named by its key alone, and only the latest
+// row recorded under it is filled -- an older row sharing the key is
+// another loop's and keeps its empty id.
+func TestStampLoopDispatchAgentFillsLatestRowByKey(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+
+	projectKey := fmt.Sprintf("proj-stamp-loop-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	const key = "self-review-kan-1-plan"
+	seedStampedDispatch(t, st, ctx, projectKey, "self-review-kan-1-old", key)
+	seedStampedDispatch(t, st, ctx, projectKey, "self-review-kan-1", key)
+
+	stamped, err := st.StampLoopDispatchAgent(ctx, key, "aloop1")
+	if err != nil {
+		t.Fatalf("StampLoopDispatchAgent: %v", err)
+	}
+	if !stamped {
+		t.Fatalf("StampLoopDispatchAgent reported false, want the latest row filled")
+	}
+	for token, want := range map[string]string{"self-review-kan-1": "aloop1", "self-review-kan-1-old": ""} {
+		var agentID *string
+		if err := pool.QueryRow(ctx,
+			"SELECT agent_id FROM dispatches d WHERE d.session_token = $1 AND d.dispatch_key = $2",
+			token, key,
+		).Scan(&agentID); err != nil {
+			t.Fatalf("read agent_id back: %v", err)
+		}
+		got := ""
+		if agentID != nil {
+			got = *agentID
+		}
+		if got != want {
+			t.Errorf("%s: agent_id = %q, want %q", token, got, want)
+		}
+	}
+
+	stamped, err = st.StampLoopDispatchAgent(ctx, key, "aloop2")
+	if err != nil || stamped {
+		t.Errorf("a second stamp = (%v, %v), want (false, nil): the filled row keeps its id", stamped, err)
+	}
+}
+
 // TestStampDispatchAgentNeverOverwrites pins the recorded-intent rule: a
 // begin that carried an explicit -agent-id (or an end that supplied one)
 // stated what the harness reported, by hand, and the automatic stamp must
@@ -4172,5 +4248,74 @@ func TestRecordDispatchReopensAnAbortedKey(t *testing.T) {
 	if got.EndedAt != nil || got.Outcome != "" || !got.StartedAt.Equal(d.StartedAt) {
 		t.Errorf("re-begin after aborted = ended %v outcome %q started %v, want open at %v",
 			got.EndedAt, got.Outcome, got.StartedAt, d.StartedAt)
+	}
+}
+
+// TestStampLoopDispatchAgentRestampsAReBegunAbortedKey pins that the
+// re-dispatch of an aborted loop key clears the dead attempt's agent id, so
+// the stamp names the re-run's agent rather than leaving the row on the first.
+func TestStampLoopDispatchAgentRestampsAReBegunAbortedKey(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-restamp-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	d := baseDispatch("fixer", "opus")
+	d.SessionToken = "tok"
+	d.Key = "self-review-kan-1-fix-1"
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", d); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	if ok, err := st.StampLoopDispatchAgent(ctx, d.Key, "afirst"); err != nil || !ok {
+		t.Fatalf("first stamp = (%v, %v), want (true, nil)", ok, err)
+	}
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{
+		SessionToken: "tok", Key: d.Key, Outcome: "aborted", EndedAt: d.StartedAt.Add(time.Minute),
+	}); err != nil {
+		t.Fatalf("EndDispatch: %v", err)
+	}
+	d.StartedAt = d.StartedAt.Add(time.Hour)
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", d); err != nil {
+		t.Fatalf("re-begin: %v", err)
+	}
+	ok, err := st.StampLoopDispatchAgent(ctx, d.Key, "asecond")
+	if err != nil || !ok {
+		t.Fatalf("stamp after re-begin = (%v, %v), want (true, nil)", ok, err)
+	}
+	windows, err := st.DispatchWindowsForAgent(ctx, "asecond")
+	if err != nil || len(windows) != 1 {
+		t.Fatalf("windows for the re-run's agent = %+v (%v), want one", windows, err)
+	}
+}
+
+// TestDispatchWindowsForSessionCapsAStagelessOpenRowAtTheNextInlineBegin pins
+// the cap for a row with no stage run: a never-ended inline row closes at the
+// next inline begin in the same session rather than taking every later record.
+func TestDispatchWindowsForSessionCapsAStagelessOpenRowAtTheNextInlineBegin(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-stageless-cap-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	const sessionID = "session-stageless-cap"
+	first := baseDispatch("implementer", "opus")
+	first.SessionToken = "tok-a"
+	first.SessionID = sessionID
+	first.AgentID = "inline"
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", first); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	next := first
+	next.SessionToken = "tok-b"
+	next.StartedAt = first.StartedAt.Add(time.Hour)
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", next); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+
+	windows, err := st.DispatchWindowsForSession(ctx, sessionID)
+	if err != nil {
+		t.Fatalf("DispatchWindowsForSession: %v", err)
+	}
+	if len(windows) != 2 || windows[0].EndedAt == nil || !windows[0].EndedAt.Equal(next.StartedAt) || windows[1].EndedAt != nil {
+		t.Fatalf("windows = %+v, want the first capped at %v and the latest open", windows, next.StartedAt)
 	}
 }

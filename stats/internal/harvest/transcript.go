@@ -27,6 +27,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -158,6 +159,7 @@ type rawLine struct {
 type rawToolUseResult struct {
 	AgentID string `json:"agentId"`
 	Status  string `json:"status"`
+	Prompt  string `json:"prompt"`
 }
 
 // rawCompactMeta is a compact_boundary system line's "compactMetadata"
@@ -429,6 +431,26 @@ type AgentLaunch struct {
 	AgentID   string
 	Timestamp time.Time
 	Line      int
+	// LoopKey is the fix-loop dispatch key the launched prompt's own
+	// `Key:` line names (loopKeyPattern), empty for any other launch. A
+	// loop dispatch's begin is recorded by the PreToolUse hook
+	// (hooks/enforce-loop-dispatch.py), never by a Bash command this
+	// transcript carries, so no begin event exists to pair with: the key
+	// names the row instead (KAN-967).
+	LoopKey string
+}
+
+// loopKeyPattern reads a fix-loop dispatch key off a launched prompt --
+// the `Key: pipeline-fix-<k>-...` or `Key: self-review-...` line
+// hooks/enforce-loop-dispatch.py admits and records the row under.
+var loopKeyPattern = regexp.MustCompile(`(?m)^[ \t]*Key:[ \t]*((?:pipeline-fix|self-review)-\S+)[ \t]*$`)
+
+// loopKey returns the fix-loop key prompt names, or "".
+func loopKey(prompt string) string {
+	if m := loopKeyPattern.FindStringSubmatch(prompt); m != nil {
+		return m[1]
+	}
+	return ""
 }
 
 // launchStatus is the toolUseResult status that says a dispatch LAUNCHED
@@ -531,6 +553,7 @@ func ParseAgentLaunches(complete []byte) []AgentLaunch {
 					AgentID:   raw.ToolUseResult.AgentID,
 					Timestamp: ts,
 					Line:      lineIndex,
+					LoopKey:   loopKey(raw.ToolUseResult.Prompt),
 				})
 			}
 		}

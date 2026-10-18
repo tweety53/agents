@@ -423,12 +423,12 @@ func (s *Store) insertDispatch(ctx context.Context, projectKey, change string, i
 		INSERT INTO dispatches (
 			change_id, stage_run_id, seq, task_id, role, slot, model, commit_sha, outcome,
 			session_token, started_at, ended_at, metrics, notes, agent_id, dispatch_key,
-			diff_base, effort
+			diff_base, effort, session_id
 		)
 		SELECT
 			c.id, $3,
 			COALESCE((SELECT MAX(d.seq) FROM dispatches d WHERE d.change_id = c.id), 0) + 1,
-			$4, $5, canonical_slot($6), $7, $8, $9, $10, $11, $12, $13::jsonb, $14, $15, $16, $17, $18
+			$4, $5, canonical_slot($6), $7, $8, $9, $10, $11, $12, $13::jsonb, $14, $15, $16, $17, $18, $19
 		FROM changes c
 		WHERE c.project_key = $1 AND c.name = $2
 		ON CONFLICT ON CONSTRAINT `+dispatchesKeyConstraint+` DO UPDATE SET
@@ -436,13 +436,14 @@ func (s *Store) insertDispatch(ctx context.Context, projectKey, change string, i
 			started_at = CASE WHEN `+reBegin+` THEN EXCLUDED.started_at ELSE dispatches.started_at END,
 			ended_at = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.ended_at END,
 			cause = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.cause END,
-			outcome = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.outcome END
+			outcome = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.outcome END,
+			agent_id = CASE WHEN `+reBegin+` THEN EXCLUDED.agent_id ELSE dispatches.agent_id END
 		RETURNING `+dispatchColumns+`
 	`,
 		projectKey, change, in.StageRunID, nullIfEmpty(in.TaskID), in.Role, nullIfEmpty(in.Slot),
 		in.Model, nullIfEmpty(in.CommitSHA), nullIfEmpty(in.Outcome), nullIfEmpty(in.SessionToken),
 		in.StartedAt, in.EndedAt, metrics, nullIfEmpty(in.Notes), nullIfEmpty(in.AgentID),
-		nullIfEmpty(in.Key), nullIfEmpty(in.DiffBase), effort,
+		nullIfEmpty(in.Key), nullIfEmpty(in.DiffBase), effort, nullIfEmpty(in.SessionID),
 	))
 }
 
@@ -1238,13 +1239,20 @@ func (s *Store) MarkDispatchesUnattributed(ctx context.Context, token, reason st
 // would be in -- and inventing one would be exactly the guess this
 // requirement exists to remove.
 //
-// A dispatch never closed is capped at its own stage run's end. Nothing
-// sweeps a dispatch row, and the query crosses every stage run bound to
-// the session, so an open window -- a begin whose end never came -- would
-// otherwise contain every later record of the session, and an open inline
-// window would take all of the parent's main-thread spend from then on. A
-// dispatch cannot outlive the stage run it ran under; while that run is
-// itself open, the window stays open with it.
+// A dispatch never closed is capped at its own stage run's end, where it
+// carries one. Nothing sweeps a dispatch row, and the query crosses every
+// stage run bound to the session, so an open window -- a begin whose end
+// never came -- would otherwise contain every later record of the session,
+// and an open inline window would take all of the parent's main-thread
+// spend from then on. A dispatch cannot outlive the stage run it ran under;
+// while that run is itself open, the window stays open with it.
+//
+// Production begins set no stage_run_id (aggregate.go says so), so a
+// stage-less row -- one matched by its own session_id, a loop row or the
+// inline row of a run that marks no stage -- is capped instead at the next
+// inline begin in the same session: a later run taking the main thread is
+// the point the never-ended one stopped holding it. With no such begin the
+// window stays open.
 //
 // Returning harvest.DispatchWindow directly, rather than a store-local
 // type an adapter converts, is what lets *store.Store satisfy
@@ -1254,10 +1262,14 @@ func (s *Store) MarkDispatchesUnattributed(ctx context.Context, token, reason st
 // internal/store -- the property TestHarvestNeedsNoDatabase rests on.
 func (s *Store) DispatchWindowsForSession(ctx context.Context, sessionID string) ([]harvest.DispatchWindow, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT d.id, d.started_at, COALESCE(d.ended_at, sr.ended_at), d.agent_id
+		SELECT d.id, d.started_at, COALESCE(d.ended_at, sr.ended_at, (
+			SELECT MIN(n.started_at) FROM dispatches n
+			WHERE d.stage_run_id IS NULL AND n.session_id = d.session_id
+			  AND n.agent_id = 'inline' AND n.id <> d.id AND n.started_at > d.started_at
+		)), d.agent_id
 		FROM dispatches d
 		LEFT JOIN stage_runs sr ON sr.id = d.stage_run_id
-		WHERE d.session_token IN (
+		WHERE d.session_id = $1 OR d.session_token IN (
 			SELECT sr.session_token FROM stage_runs sr
 			WHERE sr.session_id = $1 AND sr.session_token IS NOT NULL
 		)
@@ -1369,6 +1381,29 @@ func (s *Store) StampDispatchAgent(ctx context.Context, sessionToken, key, agent
 	`, sessionToken, key, agentID)
 	if err != nil {
 		return false, fmt.Errorf("store: stamp dispatch agent for key %q: %w", key, err)
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
+// StampLoopDispatchAgent is StampDispatchAgent for a fix-loop row, named
+// by its key alone (harvest.AgentLaunch.LoopKey): the loop's begin is
+// recorded by the PreToolUse hook, so the transcript carries no session
+// token for it. It fills only an empty agent_id, on the latest row
+// recorded under key -- check-loop-dispatch refuses a key that already
+// ran, so an older row sharing it is a different loop's.
+func (s *Store) StampLoopDispatchAgent(ctx context.Context, key, agentID string) (bool, error) {
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE dispatches
+		SET agent_id = $2
+		WHERE id = (
+			SELECT d.id FROM dispatches d
+			WHERE d.dispatch_key = $1
+			ORDER BY d.started_at DESC, d.id DESC
+			LIMIT 1
+		) AND COALESCE(agent_id, '') = ''
+	`, key, agentID)
+	if err != nil {
+		return false, fmt.Errorf("store: stamp loop dispatch agent for key %q: %w", key, err)
 	}
 	return tag.RowsAffected() > 0, nil
 }
