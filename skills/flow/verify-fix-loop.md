@@ -21,6 +21,7 @@ changed screen alone to spare the others, and its steps carry two more. Every ba
 moves is recaptured: every spec `specs` prints for the fix's own diff — the whole suite when
 `specs` is not declared or prints nothing — runs through `capture` with `--update-snapshots=all`
 appended (step 8, `skills/flow/visual-verify-verifier.md`), and every PNG whose bytes changed is
+read first, per **The sweep** (`skills/flow-contracts/known-bugs.md`), and
 committed with the task, in the checkout step 12 of **Steps 3–13** (`skills/flow/visual-verify.md`)
 commits the stage's PNGs to. And every step-4 `visual-verify` re-run of the round, the closing full
 run included, names under `moved:` in its prompt every frame a `<spec>.mockups` sidecar maps to a

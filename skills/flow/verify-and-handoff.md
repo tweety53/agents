@@ -148,7 +148,10 @@ removed with `git worktree remove` once the figure is written — never by check
 over the change worktree. The `## Report` gains one line, `live check — <matched | failure look>`. A figure that
 shows the failure look is the branch's own defect and takes **The loop**
 (`skills/flow/verify-fix-loop.md`); a stack that will not start ends the turn as a failed
-command's environment cause does. The verifier row's `end` (**Recording.**, above) is recorded
+command's environment cause does. **A step of the check the operator waives runs on its cheapest safe proxy instead** — a scratch
+database, a throwaway container — never simply dropped, and the `## Report` line names the proxy:
+kan-576's waived V34 DOWN-block step, run by a reviewer on a scratch database, caught a rollback
+that would have kept every `WORKOUTS: READ` grant as a full one (KAN-740). The verifier row's `end` (**Recording.**, above) is recorded
 after this check, not before it: `-outcome blocked -cause test-failure` on a failure look,
 `-cause environment` on a stack that will not start. The stack stays up for **Visual
 verification** and **Resolve the run instructions**.
@@ -217,6 +220,10 @@ this pipeline restates it. Resolve once per worktree in this run's resolved set,
 
    Its exit 0 makes the canonical worktree survive this step as the canonical worktree's own exit 0
    does.
+
+   `<merge-base>` in both calls is that worktree's own merge base from this run's working notes —
+   never `origin/<base>` or another ref picked by hand, which matches every path the base gained
+   since the worktree was cut as this change's own (KAN-702).
 
    **On a fix run, both calls read the fix run's own diff.** A worktree that has a since-close sha this run — the one **The late-fix reduction** (`skills/flow/review-panel-late-fix.md`) read for it — feeds them `git -C <worktree> diff --name-only <since-close-sha>..HEAD` in place of `<merge-base>..HEAD`, so a fix run whose delta touches no `ui paths` skips this stage at step 2 as exit 1 does.
    A worktree whose since-close sha is `-` keeps `<merge-base>..HEAD`, and so does every worktree when the change's newest verifier dispatch row (the newest row `flow record dispatches -change <name>` returns with `role` `verifier` and a `key` starting with `visual-verify` — the rows `<agents repo>/scripts/check-visual-verify-dispatched.sh` counts) does not have `outcome` `completed` — an earlier run's UI change that was never verified may lie before the since-close sha.

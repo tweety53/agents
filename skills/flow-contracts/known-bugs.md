@@ -35,7 +35,11 @@ change's own app code can move its pixels. Any other mismatch, a `verify` run's 
 branch's own defect and takes The loop. Whoever ran it recaptures exactly the failing tests — `capture`
 with `<spec>` substituted by each failing test's `<file>:<line>` — stages only the PNGs the failing
 run named, restores every other file the capture rewrote, commits them on the change branch as their
-own `test(fidelity): re-baseline <spec basenames>` commit, and re-runs the failing tests. A failure
+own `test(fidelity): re-baseline <spec basenames>` commit, and re-runs the failing tests.
+**No rewritten baseline is staged unread.** Each PNG a capture rewrote is read against its old
+baseline, and against its frame where a sidecar names one, before it is staged; one showing
+another screen than the test meant is restored, never committed — `--update-snapshots` writes
+whatever the run captured, a missed click included (KAN-803). A failure
 that is no screenshot mismatch — a timeout, a screen only production serves, a missing service — is
 never re-baselined: it is reported, and blocks as above.
 

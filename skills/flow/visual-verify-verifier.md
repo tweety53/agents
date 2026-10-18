@@ -74,6 +74,9 @@ never an exit code the command did not return.
    derives from its own clock** — a window, an age, a "today" computed server-side — which no
    browser clock can pin: such a spec leaves the clock real, its dates relative to the real day,
    and its header says so and why (gymie-playwright's body-calories spec).
+   **A server-side pin narrows that exception.** Where the checkout can send the server its own
+   today (gymie-playwright's `pinClock` sends `X-Gymie-Today`), the spec pins both ends to the one
+   instant, and leaves real or masks only what neither pin reaches (KAN-802).
 
    **Every mockup frame this change adds or updates gets a capture and a sidecar line — never
    optional, with `mockups` declared.** The frames are the change's declared list (step 10) plus
