@@ -40,11 +40,11 @@ its two panel files; and one two-line harness fix.
 - Task 4: a `FOREIGN:` line is never counted and never reaches `check-finish-preflight`'s `STRAY: ` relay.
 - Task 5: a recorded ancestor sha classifies exactly as before; no shared history is exit 2.
 
-- [ ] 1. Declare a sibling ticket's unbuilt frame parts expected (KAN-821)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 1. Declare a sibling ticket's unbuilt frame parts expected (KAN-821)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n -F 'sibling ticket' skills/flow/brainstorm-planner.md skills/flow/visual-verify-verifier.md; echo $?`: it prints only `1`.
     <!-- measured: the grep above in a scratch clone @ 9df14302 → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 9df14302 after the earlier tasks' diffs; check-references.sh, check-installed-citations.sh, check-markdown-integrity.py and check-dispatch-paragraphs.sh exit 0, and check-verbatim-moves.sh 9df14302 fails only on sentences verbatim-moves.txt lists
 diff --git a/skills/flow/brainstorm-planner.md b/skills/flow/brainstorm-planner.md
@@ -84,11 +84,11 @@ index 5bac5327..c9e4ea0c 100644
     sufficient: verify at the control level, measure rather than eyeball, and exercise the states
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c -F 'KAN-821' skills/flow/brainstorm-planner.md skills/flow/visual-verify-verifier.md` prints `1` for each file;
+  - [x] **Step 3: Verify.** `grep -c -F 'KAN-821' skills/flow/brainstorm-planner.md skills/flow/visual-verify-verifier.md` prints `1` for each file;
     `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
     <!-- measured: grep -c after git apply in a scratch clone @ 9df14302 → 1 and 1 -->
-  - [ ] **Step 4: Commit** the two files with the subject below.
+  - [x] **Step 4: Commit** the two files with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/brainstorm-planner.md`, `skills/flow/visual-verify-verifier.md`
@@ -99,11 +99,11 @@ index 5bac5327..c9e4ea0c 100644
 
 **Decision:** sibling-parts-sidecar-comment
 
-- [ ] 2. Bound a reproducer by its own declared seconds (KAN-831)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 2. Bound a reproducer by its own declared seconds (KAN-831)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n 'reproducer-bound' stats/internal/guard/runreproducer.go scripts/run-reproducer.sh skills/flow/review-panel.md skills/flow/review-panel-fix-round.md; echo $?`: it prints only `1`.
     <!-- measured: the grep above in a scratch clone @ 9df14302 → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 9df14302 after Task 1's diff; gofmt -l, go vet ./internal/guard and check-mutation-reproducer-pin.sh clean; go test ./internal/guard -run 'TestRRDeclaredBound|TestRunReproducerEnforcesDeclaredBound|TestRRDeadline|TestRunReproducer$' passes; TestRunReproducerEnforcesDeclaredBound fails, killed at the 20s bound, with rrDeclaredBound(resolved) put back to rrDefaultBnd
 diff --git a/scripts/run-reproducer.sh b/scripts/run-reproducer.sh
@@ -262,12 +262,12 @@ index a5c2d94b..d01c765c 100644
  // bash resets PWD on its own.
 ````
 
-  - [ ] **Step 3: RED, then GREEN.** In `stats/internal/guard/runreproducer.go` put the bound call's third argument back to `rrDefaultBnd`:
+  - [x] **Step 3: RED, then GREEN.** In `stats/internal/guard/runreproducer.go` put the bound call's third argument back to `rrDefaultBnd`:
     `cd stats && go test ./internal/guard -run TestRunReproducerEnforcesDeclaredBound` fails, the reproducer killed at the 20s bound. Restore `rrDeclaredBound(resolved)`: it passes.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` prints nothing and exits 0;
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` prints nothing and exits 0;
     `cd stats && go test ./internal/guard -run 'TestRRDeclaredBound|TestRunReproducerEnforcesDeclaredBound|TestRRDeadline|TestRunReproducer$'` passes;
     `scripts/check-mutation-reproducer-pin.sh`, `scripts/check-references.sh`, `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 5: Commit** the five files with the subject below.
+  - [x] **Step 5: Commit** the five files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/runreproducer.go`, `stats/internal/guard/runreproducer_test.go`, `scripts/run-reproducer.sh`, `skills/flow/review-panel.md`, `skills/flow/review-panel-fix-round.md`
@@ -279,11 +279,11 @@ index a5c2d94b..d01c765c 100644
 
 **Decision:** reproducer-declared-bound
 
-- [ ] 3. Re-baseline per capture when the suite fails for other reasons (KAN-837)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 3. Re-baseline per capture when the suite fails for other reasons (KAN-837)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n -F 'per capture' skills/flow/verify-fix-loop.md; echo $?`: it prints only `1`.
     <!-- measured: the grep above in a scratch clone @ 9df14302 → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 9df14302 after the earlier tasks' diffs; check-references.sh, check-installed-citations.sh, check-markdown-integrity.py and check-dispatch-paragraphs.sh exit 0, and check-verbatim-moves.sh 9df14302 fails only on sentences verbatim-moves.txt lists
 diff --git a/skills/flow/verify-fix-loop.md b/skills/flow/verify-fix-loop.md
@@ -309,10 +309,10 @@ index fbf2c9a0..03a87761 100644
  disagree on a shared component, the component's own design source wins — the frame that draws it
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c -F 'KAN-837' skills/flow/verify-fix-loop.md` prints `1`;
+  - [x] **Step 3: Verify.** `grep -c -F 'KAN-837' skills/flow/verify-fix-loop.md` prints `1`;
     `scripts/check-references.sh`, `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
     <!-- measured: grep -c after git apply in a scratch clone @ 9df14302 → 1 -->
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/verify-fix-loop.md`
@@ -323,12 +323,12 @@ index fbf2c9a0..03a87761 100644
 
 **Decision:** per-capture-blob-rebaseline
 
-- [ ] 4. Name a harness agent worktree FOREIGN, never STRAY (KAN-883)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 4. Name a harness agent worktree FOREIGN, never STRAY (KAN-883)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `d=$(mktemp -d) && git -C "$d" init -q r && git -C "$d/r" commit -q --allow-empty -m i && git -C "$d/r" worktree add -q "$d/r/.claude/worktrees/agent-a1" -b a1 && scripts/check-worktree-location.sh "$d/r"; echo $?; rm -rf "$d"`:
     it prints a `STRAY:` line for `.claude/worktrees/agent-a1`, a `LOCATION-STRAY:` line counting `1`, and `1`.
     <!-- measured: the command above, under the scratchpad instead of mktemp's default, in a scratch clone @ 9df14302 → STRAY …/r/.claude/worktrees/agent-a1 (refs/heads/a1), LOCATION-STRAY … — 1, exit 1 -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 9df14302 after Tasks 1-3's diffs; gofmt -l and go vet ./internal/guard clean; go test ./internal/guard -run 'TestCheckWorktreeLocation|TestCheckFinishPreflight' passes; three TestCheckWorktreeLocation subtests fail with the harness case's prefix made unmatchable
 diff --git a/scripts/check-worktree-location.sh b/scripts/check-worktree-location.sh
@@ -432,11 +432,11 @@ index a5fcd2d0..20538bd5 100644
  			}
 ````
 
-  - [ ] **Step 3: RED, then GREEN.** In `stats/internal/guard/worktreelocation.go` change `case strings.HasPrefix(w, harness):` to `case strings.HasPrefix(w, harness+"never"):`:
+  - [x] **Step 3: RED, then GREEN.** In `stats/internal/guard/worktreelocation.go` change `case strings.HasPrefix(w, harness):` to `case strings.HasPrefix(w, harness+"never"):`:
     `cd stats && go test ./internal/guard -run TestCheckWorktreeLocation` fails on both new subtests. Restore the line: it passes.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` prints nothing and exits 0;
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` prints nothing and exits 0;
     `cd stats && go test ./internal/guard -run 'TestCheckWorktreeLocation|TestCheckFinishPreflight'` passes; Step 1's command prints a `FOREIGN:` line, a `LOCATION-OK:` line and `0`.
-  - [ ] **Step 5: Commit** the three files with the subject below.
+  - [x] **Step 5: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/worktreelocation.go`, `stats/internal/guard/check_worktree_location_test.go`, `scripts/check-worktree-location.sh`
@@ -448,12 +448,12 @@ index a5fcd2d0..20538bd5 100644
 
 **Decision:** harness-worktree-foreign
 
-- [ ] 5. Measure plan-class's diff side from the fork point (KAN-885)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 5. Measure plan-class's diff side from the fork point (KAN-885)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `d=$(mktemp -d) && git -C "$d" init -q r && git -C "$d/r" commit -q --allow-empty -m i && git -C "$d/r" checkout -q -b moved && seq 1 40 > "$d/r/src.go" && git -C "$d/r" add -A && git -C "$d/r" commit -q -m moved && git -C "$d/r" checkout -q - && printf -- '- [ ] 1. Docs\n**Files:** `docs/note.md`\n' > "$d/tasks.md" && scripts/plan-class.sh "$d/tasks.md" 1 "$d/r" moved | grep '^class:'; rm -rf "$d"`:
     it prints `class: small` — the moved base's `src.go` counted as this change's surface.
     <!-- measured: the command above, under the scratchpad instead of mktemp's default, in a scratch clone @ 9df14302 → class: small; after the diff → class: micro -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 9df14302 after Tasks 1-4's diffs; gofmt -l and go vet ./internal/guard clean; go test ./internal/guard -run TestPlanClass passes; the moved-base subtest fails with the mergebase = fork assignment replaced by _ = fork
 diff --git a/scripts/plan-class.sh b/scripts/plan-class.sh
@@ -535,11 +535,11 @@ index 93f75cf6..502a7d66 100644
  			return 2
 ````
 
-  - [ ] **Step 3: RED, then GREEN.** In `stats/internal/guard/planclass.go` replace `mergebase = fork` with `_ = fork`:
+  - [x] **Step 3: RED, then GREEN.** In `stats/internal/guard/planclass.go` replace `mergebase = fork` with `_ = fork`:
     `cd stats && go test ./internal/guard -run TestPlanClass` fails on `moved base ref measured from the fork point -> micro`. Restore the line: it passes.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` prints nothing and exits 0;
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` prints nothing and exits 0;
     `cd stats && go test ./internal/guard -run TestPlanClass` passes; Step 1's command prints `class: micro`.
-  - [ ] **Step 5: Commit** the three files with the subject below.
+  - [x] **Step 5: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/planclass.go`, `stats/internal/guard/plan_class_test.go`, `scripts/plan-class.sh`
@@ -551,11 +551,11 @@ index 93f75cf6..502a7d66 100644
 
 **Decision:** plan-class-fork-point
 
-- [ ] 6. Grep check-task-records harness output through here-strings
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 6. Grep check-task-records harness output through here-strings
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `cd stats && go test ./internal/guard -run TestNoPipeIntoEarlyExitGrep`: it fails naming `test-check-task-records.sh:392` and `:411`.
     <!-- measured: the test above in a scratch clone @ 9df14302 → FAIL, test-check-task-records.sh:392 and :411 -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 9df14302 after Tasks 1-5's diffs; go test ./internal/guard -run TestNoPipeIntoEarlyExitGrep passes and bash scripts/test-check-task-records.sh prints all cases passed
 diff --git a/scripts/test-check-task-records.sh b/scripts/test-check-task-records.sh
@@ -582,9 +582,9 @@ index 6e0c8324..631af73d 100755
    fail "case 19 non-repo path: rc=$RC out=$OUT"
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && go test ./internal/guard -run TestNoPipeIntoEarlyExitGrep` passes;
+  - [x] **Step 3: Verify.** `cd stats && go test ./internal/guard -run TestNoPipeIntoEarlyExitGrep` passes;
     `bash scripts/test-check-task-records.sh` ends `all cases passed`.
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `scripts/test-check-task-records.sh`
