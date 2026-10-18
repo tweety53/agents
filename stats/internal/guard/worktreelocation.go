@@ -61,7 +61,13 @@ func checkWorktreeLocation(args []string, env Env, stdout, stderr io.Writer) int
 	// The appended newline restores the blank line that terminates the LAST
 	// record, which capture's trailing-newline strip removed (the bash's
 	// `printf '%s\n\n'`), so the final worktree's record reaches the check.
-	inTree := siblingRoot(root)
+	// A HARNESS AGENT'S WORKTREE IS NOT FLOW'S (KAN-883). Claude Code
+	// creates a subagent's isolated worktree under <project>/.claude/worktrees/
+	// and locks it while that session lives; no flow command creates one
+	// there, and a run cannot remove another session's. Such a worktree is
+	// named on a FOREIGN line and never counted, so it neither stops a
+	// kickoff nor reaches check-finish-preflight's STRAY relay.
+	inTree, harness := siblingRoot(root), filepath.Join(root, ".claude", "worktrees")+"/"
 	n, count := 0, 0
 	w, b := "", "detached"
 	for _, line := range strings.Split(porcelain+"\n", "\n") {
@@ -74,7 +80,11 @@ func checkWorktreeLocation(args []string, env Env, stdout, stderr io.Writer) int
 				b = f[1]
 			}
 		case line == "":
-			if n > 1 && w != inTree && !strings.HasPrefix(w, inTree+"/") {
+			switch {
+			case n <= 1 || w == inTree || strings.HasPrefix(w, inTree+"/"):
+			case strings.HasPrefix(w, harness):
+				fmt.Fprintf(stdout, "FOREIGN: %s (%s)\n", w, b)
+			default:
 				fmt.Fprintf(stdout, "STRAY: %s (%s)\n", w, b)
 				count++
 			}

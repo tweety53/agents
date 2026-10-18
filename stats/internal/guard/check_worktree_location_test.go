@@ -50,7 +50,7 @@ func TestCheckWorktreeLocation(t *testing.T) {
 
 	verdicts := []struct {
 		name   string
-		setup  func(t *testing.T, repo string) string // returns the expected STRAY lines
+		setup  func(t *testing.T, repo string) string // returns the expected STRAY and FOREIGN lines
 		wantRC int
 	}{
 		{"case 1: ok with no worktree", func(*testing.T, string) string { return "" }, 0},
@@ -82,6 +82,18 @@ func TestCheckWorktreeLocation(t *testing.T) {
 			gitRun(t, r, "worktree", "add", "-q", "--detach", r+"-worktrees-old/x")
 			return "STRAY: " + r + "-worktrees-old/x (detached)\n"
 		}, 1},
+		// KAN-883: a harness agent's worktree under <repo>/.claude/worktrees/
+		// is named FOREIGN and never counted, beside a real stray that is.
+		{"harness agent worktree is FOREIGN, not counted", func(t *testing.T, r string) string {
+			d := physicalTempDir(t)
+			gitRun(t, r, "worktree", "add", "-q", r+"/.claude/worktrees/agent-a1", "-b", "worktree-agent-a1")
+			gitRun(t, r, "worktree", "add", "-q", "--detach", d+"/x")
+			return "FOREIGN: " + r + "/.claude/worktrees/agent-a1 (refs/heads/worktree-agent-a1)\nSTRAY: " + d + "/x (detached)\n"
+		}, 1},
+		{"only a harness agent worktree -> ok", func(t *testing.T, r string) string {
+			gitRun(t, r, "worktree", "add", "-q", r+"/.claude/worktrees/agent-a1", "-b", "worktree-agent-a1")
+			return "FOREIGN: " + r + "/.claude/worktrees/agent-a1 (refs/heads/worktree-agent-a1)\n"
+		}, 0},
 		// Beyond the harness: two strays are counted, in porcelain order.
 		{"two strays counted", func(t *testing.T, r string) string {
 			d := physicalTempDir(t)
@@ -98,7 +110,7 @@ func TestCheckWorktreeLocation(t *testing.T) {
 			strays := tc.setup(t, repo)
 			want := strays + "LOCATION-OK: " + repo + "\n"
 			if tc.wantRC == 1 {
-				want = strays + "LOCATION-STRAY: " + repo + " — " + strconv.Itoa(strings.Count(strays, "\n")) + "\n"
+				want = strays + "LOCATION-STRAY: " + repo + " — " + strconv.Itoa(strings.Count(strays, "STRAY: ")) + "\n"
 			}
 			r := runGuard("check-worktree-location", []string{repo}, env)
 			if r.rc != tc.wantRC || r.stdout != want || r.err != "" {

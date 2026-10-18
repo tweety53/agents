@@ -9,6 +9,7 @@
 #
 # Prints one STRAY line per offender, then ONE verdict line:
 #   STRAY: <path> (<branch>|detached)      per worktree outside <project>-worktrees/
+#   FOREIGN: <path> (<branch>|detached)    per harness agent worktree, never counted
 #   LOCATION-OK: <project>                 every worktree is at or under it
 #   LOCATION-STRAY: <project> — <n>        <n> worktree(s) are not
 #
@@ -32,6 +33,13 @@
 # <project>-worktrees or begins with it plus a slash — a bare string-prefix
 # test would report <project>-worktrees-old/x as in-tree. <project>/.worktrees/,
 # the retired in-repo layout, is STRAY like any other path.
+#
+# A HARNESS AGENT'S WORKTREE IS NOT FLOW'S (KAN-883). Claude Code creates a
+# subagent's isolated worktree under <project>/.claude/worktrees/ and locks
+# it while that session lives; no flow command creates one there, and a run
+# cannot remove another session's. Each is named on a FOREIGN line, never
+# counted, so it neither stops a kickoff nor reaches check-finish-preflight's
+# STRAY relay. Every other path outside <project>-worktrees/ is STRAY.
 #
 # flow-guard is built from this checkout, never taken from PATH:
 # scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
