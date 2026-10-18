@@ -27,9 +27,9 @@
 - `close-task.sh` on a branch origin does not hold yet must push as before (Task 6: every existing close-task case, whose fixture origin holds no branch).
 - A plan task carrying one implementation path beside a record under `spectre/changes/` must pass (Task 5, case 38's last assertion).
 
-- [ ] 1. Stop the reshape on a merge of another branch
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to the test file(s) alone (`git apply --include='stats/internal/guard/reshape_branch_test.go' <the saved diff>`) and run `cd stats && go test ./internal/guard/ -run 'TestReshapeBranch' -count=1`: `3b a merged-in branch's commits stop the reshape and HEAD does not move` fails (`a foreign merge exits 1: rc=0`) — the defect. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='stats/internal/guard/reshape_branch_test.go' <the saved diff>`.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 1. Stop the reshape on a merge of another branch
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to the test file(s) alone (`git apply --include='stats/internal/guard/reshape_branch_test.go' <the saved diff>`) and run `cd stats && go test ./internal/guard/ -run 'TestReshapeBranch' -count=1`: `3b a merged-in branch's commits stop the reshape and HEAD does not move` fails (`a foreign merge exits 1: rc=0`) — the defect. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='stats/internal/guard/reshape_branch_test.go' <the saved diff>`.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at f4844c40; with it applied go test ./internal/guard/ -run TestReshapeBranch passes, and with reshapebranch.go reverted case 3b fails
 diff --git a/scripts/reshape-branch.sh b/scripts/reshape-branch.sh
@@ -160,7 +160,7 @@ index f72c53ee..f177e754 100644
  	if rc := exitCode(reset.Run()); rc != 0 {
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && go test ./internal/guard/ -run 'TestReshapeBranch' -count=1` passes; `cd stats && gofmt -l internal/guard` prints nothing; `cd stats && go vet ./internal/guard/` exits 0; `scripts/check-installed-citations.sh`, `scripts/check-verbatim-moves.sh` and `scripts/check-markdown-integrity.py` exit 0. Commit.
+  - [x] **Step 3: Verify.** `cd stats && go test ./internal/guard/ -run 'TestReshapeBranch' -count=1` passes; `cd stats && gofmt -l internal/guard` prints nothing; `cd stats && go vet ./internal/guard/` exits 0; `scripts/check-installed-citations.sh`, `scripts/check-verbatim-moves.sh` and `scripts/check-markdown-integrity.py` exit 0. Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/reshapebranch.go`, `stats/internal/guard/reshape_branch_test.go`, `scripts/reshape-branch.sh`, `skills/flow-contracts/finish-contract-run1.md`
@@ -173,9 +173,9 @@ index f72c53ee..f177e754 100644
 
 **Decision:** reshape-foreign-merge-stop
 
-- [ ] 2. Judge in-run fix tasks in the unfinished-work gate
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to the test file(s) alone (`git apply --include='stats/internal/guard/check_unfinished_work_test.go' <the saved diff>`) and run `cd stats && go test ./internal/guard/ -run 'TestCheckUnfinishedWork' -count=1`: `an in-run fix task with no dispatch row is OUTSTANDING` and `the breakdown names the undispatched in-run fix task` fail — the defect. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='stats/internal/guard/check_unfinished_work_test.go' <the saved diff>`.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 2. Judge in-run fix tasks in the unfinished-work gate
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to the test file(s) alone (`git apply --include='stats/internal/guard/check_unfinished_work_test.go' <the saved diff>`) and run `cd stats && go test ./internal/guard/ -run 'TestCheckUnfinishedWork' -count=1`: `an in-run fix task with no dispatch row is OUTSTANDING` and `the breakdown names the undispatched in-run fix task` fail — the defect. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='stats/internal/guard/check_unfinished_work_test.go' <the saved diff>`.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at f4844c40 after Task 1; with it applied go test ./internal/guard/ -run 'TestCheckUnfinishedWork|TestCloseTask' passes, and with unfinishedwork.go reverted the two in-run OUTSTANDING cases fail
 diff --git a/scripts/check-unfinished-work.sh b/scripts/check-unfinished-work.sh
@@ -283,7 +283,7 @@ index 1f6371f8..1f8966ba 100644
  	}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && go test ./internal/guard/ -run 'TestCheckUnfinishedWork|TestCloseTask' -count=1` passes; `cd stats && gofmt -l internal/guard` prints nothing; `cd stats && go vet ./internal/guard/` exits 0. Commit.
+  - [x] **Step 3: Verify.** `cd stats && go test ./internal/guard/ -run 'TestCheckUnfinishedWork|TestCloseTask' -count=1` passes; `cd stats && gofmt -l internal/guard` prints nothing; `cd stats && go vet ./internal/guard/` exits 0. Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/unfinishedwork.go`, `stats/internal/guard/check_unfinished_work_test.go`, `scripts/check-unfinished-work.sh`, `scripts/close-task.sh`
@@ -296,9 +296,9 @@ index 1f6371f8..1f8966ba 100644
 
 **Decision:** in-run-fix-tasks-appended
 
-- [ ] 3. Flag a structural unfinished-work verdict once, at the canonical worktree
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -n -- '-C <worktree>' skills/flow/unfinished-work-gate.md` prints the per-worktree call (line 86), and `sed -n '/func (s \*Store) FlagVerdictFalsePositive/,/^}/p' stats/internal/store/records.go` shows the query keyed on project, change and guard alone — the defect.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 3. Flag a structural unfinished-work verdict once, at the canonical worktree
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -n -- '-C <worktree>' skills/flow/unfinished-work-gate.md` prints the per-worktree call (line 86), and `sed -n '/func (s \*Store) FlagVerdictFalsePositive/,/^}/p' stats/internal/store/records.go` shows the query keyed on project, change and guard alone — the defect.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at f4844c40 after Tasks 1-2; with it applied scripts/check-installed-citations.sh, scripts/check-verbatim-moves.sh and scripts/check-markdown-integrity.py exit 0
 diff --git a/skills/flow/unfinished-work-gate.md b/skills/flow/unfinished-work-gate.md
@@ -328,7 +328,7 @@ index 2949a179..eb08fa1c 100644
  A write that falls back to the journal is one warning line and the run continues.
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-installed-citations.sh`, `scripts/check-verbatim-moves.sh` and `scripts/check-markdown-integrity.py` exit 0. Commit.
+  - [x] **Step 3: Verify.** `scripts/check-installed-citations.sh`, `scripts/check-verbatim-moves.sh` and `scripts/check-markdown-integrity.py` exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/unfinished-work-gate.md`
@@ -339,9 +339,9 @@ index 2949a179..eb08fa1c 100644
 
 **Decision:** structural-verdict-canonical
 
-- [ ] 4. Read only the first-parent chain in check-untasked-commits
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to the test file(s) alone (`git apply --include='stats/internal/guard/check_untasked_commits_test.go' <the saved diff>`) and run `cd stats && go test ./internal/guard/ -run 'TestCheckUntaskedCommits' -count=1`: `TestCheckUntaskedCommitsSkipsAMergedBranch` fails with `feat(y): develop work` listed (exit 1) — the defect. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='stats/internal/guard/check_untasked_commits_test.go' <the saved diff>`.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 4. Read only the first-parent chain in check-untasked-commits
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to the test file(s) alone (`git apply --include='stats/internal/guard/check_untasked_commits_test.go' <the saved diff>`) and run `cd stats && go test ./internal/guard/ -run 'TestCheckUntaskedCommits' -count=1`: `TestCheckUntaskedCommitsSkipsAMergedBranch` fails with `feat(y): develop work` listed (exit 1) — the defect. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='stats/internal/guard/check_untasked_commits_test.go' <the saved diff>`.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at f4844c40 after Tasks 1-3; with it applied go test ./internal/guard/ -run TestCheckUntaskedCommits passes, and with untaskedcommits.go reverted TestCheckUntaskedCommitsSkipsAMergedBranch fails
 diff --git a/scripts/check-untasked-commits.sh b/scripts/check-untasked-commits.sh
@@ -415,7 +415,7 @@ index 365654c6..e62d929d 100644
  	if !ok {
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && go test ./internal/guard/ -run 'TestCheckUntaskedCommits' -count=1` passes; `cd stats && gofmt -l internal/guard` prints nothing; `cd stats && go vet ./internal/guard/` exits 0. Commit.
+  - [x] **Step 3: Verify.** `cd stats && go test ./internal/guard/ -run 'TestCheckUntaskedCommits' -count=1` passes; `cd stats && gofmt -l internal/guard` prints nothing; `cd stats && go vet ./internal/guard/` exits 0. Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/untaskedcommits.go`, `stats/internal/guard/check_untasked_commits_test.go`, `scripts/check-untasked-commits.sh`
@@ -428,9 +428,9 @@ index 365654c6..e62d929d 100644
 
 **Decision:** untasked-first-parent
 
-- [ ] 5. Refuse a plan task whose files are all planning paths
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to the test file(s) alone (`git apply --include='scripts/test-check-plan-shape.sh' <the saved diff>`) and run `bash scripts/test-check-plan-shape.sh`: `case 38 (F14): rc=0 out=` and the case 38 mutation fail — the defect. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='scripts/test-check-plan-shape.sh' <the saved diff>`.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 5. Refuse a plan task whose files are all planning paths
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to the test file(s) alone (`git apply --include='scripts/test-check-plan-shape.sh' <the saved diff>`) and run `bash scripts/test-check-plan-shape.sh`: `case 38 (F14): rc=0 out=` and the case 38 mutation fail — the defect. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='scripts/test-check-plan-shape.sh' <the saved diff>`.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at f4844c40 after Tasks 1-4; with it applied bash scripts/test-check-plan-shape.sh prints all cases passed and scripts/check-plan-shape.sh exits 0, and with check-plan-shape.py reverted case 38 fails
 diff --git a/scripts/check-plan-shape.py b/scripts/check-plan-shape.py
@@ -543,7 +543,7 @@ index adc40342..d280fd1c 100755
  # not carry -> exit 2, never a scan that silently skips them. A copy of the
 ````
 
-  - [ ] **Step 3: Verify.** `bash scripts/test-check-plan-shape.sh` prints `all cases passed`; `scripts/check-plan-shape.sh` and `scripts/check-python-suppressions.sh` exit 0. Commit.
+  - [x] **Step 3: Verify.** `bash scripts/test-check-plan-shape.sh` prints `all cases passed`; `scripts/check-plan-shape.sh` and `scripts/check-python-suppressions.sh` exit 0. Commit.
 
 **Build:** green
 **Files:** `scripts/check-plan-shape.py`, `scripts/test-check-plan-shape.sh`
@@ -556,9 +556,9 @@ index adc40342..d280fd1c 100755
 
 **Decision:** plan-shape-planning-only-task
 
-- [ ] 6. Refuse a change-branch push carrying a commit outside every task with no Flow-Key
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to the test file(s) alone (`git apply --include='scripts/test-protect-main-checkout.sh' --include='stats/internal/guard/close_task_test.go' <the saved diff>`) and run `bash scripts/test-protect-main-checkout.sh`: it fails `104 a change-branch push carrying an untasked commit: wanted deny, got allow`, and `cd stats && go test ./internal/guard/ -run 'TestCloseTask' -count=1` fails `untasked unpushed commit: exit 1, no tick, no push` — the defect. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='scripts/test-protect-main-checkout.sh' --exclude='stats/internal/guard/close_task_test.go' <the saved diff>`.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 6. Refuse a change-branch push carrying a commit outside every task with no Flow-Key
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to the test file(s) alone (`git apply --include='scripts/test-protect-main-checkout.sh' --include='stats/internal/guard/close_task_test.go' <the saved diff>`) and run `bash scripts/test-protect-main-checkout.sh`: it fails `104 a change-branch push carrying an untasked commit: wanted deny, got allow`, and `cd stats && go test ./internal/guard/ -run 'TestCloseTask' -count=1` fails `untasked unpushed commit: exit 1, no tick, no push` — the defect. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='scripts/test-protect-main-checkout.sh' --exclude='stats/internal/guard/close_task_test.go' <the saved diff>`.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at f4844c40 after Tasks 1-5; with it applied bash scripts/test-protect-main-checkout.sh prints all protect-main-checkout cases pass and go test ./internal/guard/ -run TestCloseTask passes, and with the hook and closetask.go reverted cases 104 and the close-task refusal fail
 diff --git a/hooks/protect-main-checkout.py b/hooks/protect-main-checkout.py
@@ -782,15 +782,15 @@ index c4931a55..dc3e79a7 100644
  	case 1:
 ````
 
-  - [ ] **Step 3: Verify.** `bash scripts/test-protect-main-checkout.sh` prints `all protect-main-checkout cases pass`; `cd stats && go test ./internal/guard/ -run 'TestCloseTask' -count=1` passes; `cd stats && gofmt -l internal/guard` prints nothing; `cd stats && go vet ./internal/guard/` exits 0; `scripts/check-python-suppressions.sh`, `scripts/check-installed-citations.sh`, `scripts/check-verbatim-moves.sh` and `scripts/check-markdown-integrity.py` exit 0. Commit.
+  - [x] **Step 3: Verify.** `bash scripts/test-protect-main-checkout.sh` prints `all protect-main-checkout cases pass`; `cd stats && go test ./internal/guard/ -run 'TestCloseTask' -count=1` passes; `cd stats && gofmt -l internal/guard` prints nothing; `cd stats && go vet ./internal/guard/` exits 0; `scripts/check-python-suppressions.sh`, `scripts/check-installed-citations.sh`, `scripts/check-verbatim-moves.sh` and `scripts/check-markdown-integrity.py` exit 0. Commit.
 
 **Build:** green
-**Files:** `hooks/protect-main-checkout.py`, `scripts/test-protect-main-checkout.sh`, `stats/internal/guard/closetask.go`, `stats/internal/guard/close_task_test.go`, `scripts/close-task.sh`, `skills/flow-contracts/git-boundaries.md`
+**Files:** `hooks/protect-main-checkout.py`, `scripts/test-protect-main-checkout.sh`, `stats/internal/guard/closetask.go`, `stats/internal/guard/close_task_test.go`, `scripts/close-task.sh`, `skills/flow-contracts/git-boundaries.md`, `scripts/check-untasked-commits.sh`, `stats/internal/guard/untaskedcommits.go`
 **Tests:** `104 a change-branch push carrying an untasked commit`, `105 a change-branch push the checker clears`, `106 a change branch origin does not hold yet`, `107 a checker that cannot run fails open`, `untasked unpushed commit: exit 1, no tick, no push`, `a Flow-Key unpushed commit pushes`
 **Regression:** reverting `untasked_push` lets case 104's push through (`wanted deny, got allow`); reverting close-task's `check-untasked-commits` loop pushes the trailerless commit, so `untasked unpushed commit: exit 1, no tick, no push` fails; cases 105–107 and `a Flow-Key unpushed commit pushes` fail if either check refuses a push it must let through.
 **Baseline:** before=99 after=105
 <!-- measured: cat scripts/test-protect-main-checkout.sh stats/internal/guard/close_task_test.go | grep -cE '^expect |t\.Run\("' @ f4844c40 (before; after with this task's diff applied) -->
 **Commit:** fix(hooks): refuse a change-branch push carrying a commit with no task or Flow-Key trailer
-**After:** Task 2
+**After:** Task 2, 4
 
 **Decision:** flow-key-at-push
