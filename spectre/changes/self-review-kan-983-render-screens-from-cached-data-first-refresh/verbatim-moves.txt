@@ -1,0 +1,8 @@
+# Sentences this change adds or rewords on purpose — kan-983 self-review: finding 1 (project-configuration.md), 2, 3 and 5 (visual-verify.md, visual-verify-verifier.md).
+- verify: exit <n> | not run — no spec since the round base
+**A `regression checkout` this run's resolved worktree set holds no worktree for gets one first.
+**A prompt naming `rerun specs:` runs those specs alone** — substituted for `<specs>` in place of `specs`' output, which is not run — and the report's `verify:` line reads `exit <n> — rerun of <k> failed specs at unchanged HEAD` (**Steps 3–13**, `skills/flow/visual-verify.md`).
+**A re-dispatch at an unchanged HEAD re-runs only the specs that failed.
+- verify: exit <n> | exit <n> — rerun of <k> failed specs at unchanged HEAD | not run — no spec since the round base
+A verifier whose worktree's `ui paths` also match a sibling worktree's diff — a `<repo>/**` glob naming the sibling's repository — verifies that sibling's HEAD as well, so its `-diff-base` names each such HEAD too, comma-joined after its own: the guard checks each worktree against the one sha it resolves, and no row is recorded for a sibling no verifier was dispatched to (kan-983's `visual-verify-2-gymie-frontend`).
+Every non-`#` line inside its bash fence runs literally, as `## lint`'s do: a template with a `<word>` placeholder, such as a verify bundle's `:<module>:test` selector, belongs in prose outside the fence, and `<agents repo>/scripts/run-verify-list.sh` refuses the list while one stands inside it.
