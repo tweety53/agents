@@ -31,6 +31,37 @@ func reshapeBranch(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	baseSHA := strings.TrimRight(b.String(), "\n")
+	// A FOREIGN MERGE STOPS THE RESHAPE (kan-941): a commit a merge's side
+	// parent brought that <merge-base> does not reach would fold into the
+	// change's implementation commit under the change's subject. The
+	// pipeline never merges into a change branch -- its sync rebases -- so
+	// any such commit is foreign: every commit of <merge-base>..HEAD off
+	// the first-parent chain.
+	all, ok1 := capture(git("-C", wt, "rev-list", baseSHA+"..HEAD"))
+	own, ok2 := capture(git("-C", wt, "rev-list", "--first-parent", baseSHA+"..HEAD"))
+	if !ok1 || !ok2 {
+		fmt.Fprintf(stderr, "reshape-branch.sh: git cannot list %s..HEAD in %s\n", baseSHA[:12], wt)
+		return 2
+	}
+	mine := map[string]bool{}
+	for _, c := range strings.Fields(own) {
+		mine[c] = true
+	}
+	var foreign []string
+	for _, c := range strings.Fields(all) {
+		if !mine[c] {
+			foreign = append(foreign, c)
+		}
+	}
+	if len(foreign) > 0 {
+		fmt.Fprintf(stdout, "RESHAPE-FOREIGN-MERGE: %s — %d commit(s) a merge brought in that %s does not reach would fold into the change commit:\n", wt, len(foreign), baseSHA[:12])
+		for _, c := range foreign {
+			subj, _ := capture(git("-C", wt, "log", "-1", "--format=%s", c))
+			fmt.Fprintf(stdout, "  %s %s\n", c[:12], sanitizeDisplay(strings.TrimSpace(subj)))
+		}
+		fmt.Fprintln(stdout, "  merge that branch into the change's base first, or rebase the change branch onto a base that holds them, then re-run")
+		return 1
+	}
 	reset := git("-C", wt, "reset", "-q", "--soft", baseSHA)
 	reset.Stdout, reset.Stderr = stderr, stderr
 	if rc := exitCode(reset.Run()); rc != 0 {

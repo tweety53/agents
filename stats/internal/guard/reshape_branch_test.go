@@ -151,6 +151,41 @@ func TestReshapeBranch(t *testing.T) {
 		check(t, splitGit(t, fx.main, nil, "rev-parse", "HEAD") == before, "HEAD untouched", "HEAD moved")
 	})
 
+	t.Run("3b a merged-in branch's commits stop the reshape and HEAD does not move", func(t *testing.T) {
+		t.Parallel()
+		fx := rbNew(t)
+		w := fx.wt
+		splitGit(t, fx.main, nil, "checkout", "-q", "-b", "develop")
+		writeFile(t, fx.main+"/src/d.txt", "develop\n")
+		splitGit(t, fx.main, nil, "add", "-A", "--", "src")
+		splitGit(t, fx.main, nil, "-c", "user.name=dev", "-c", "user.email=dev@example.com", "commit", "-q", "-m", "feat(src): develop work")
+		writeFile(t, w+"/src/a.txt", "task\n")
+		fx.commitAs(t, "impl", "feat(src): task\n\nTask-Id: 1", "src")
+		splitGit(t, w, nil, "-c", "user.name=impl", "-c", "user.email=impl@example.com", "merge", "-q", "--no-ff", "-m", "chore: merge develop", "develop")
+		before := splitGit(t, w, nil, "rev-parse", "HEAD")
+		rc, out := fx.reshape(t, w, w, "demo", fx.base)
+		check(t, rc == 1, "a foreign merge exits 1", "rc=%d out=%s", rc, out)
+		check(t, strings.Contains(out, "RESHAPE-FOREIGN-MERGE: "+w+" — 1 commit(s)") && strings.Contains(out, "feat(src): develop work"),
+			"the verdict names the merged-in commit", "out=%s", out)
+		check(t, !strings.Contains(out, "feat(src): task"), "the change's own commit is not named", "out=%s", out)
+		check(t, splitGit(t, w, nil, "rev-parse", "HEAD") == before, "HEAD untouched", "HEAD moved")
+	})
+
+	t.Run("3c a sync merge of the base the merge base moved to reshapes", func(t *testing.T) {
+		t.Parallel()
+		fx := rbNew(t)
+		w := fx.wt
+		writeFile(t, fx.main+"/src/m.txt", "base moved\n")
+		splitGit(t, fx.main, nil, "add", "-A", "--", "src")
+		splitGit(t, fx.main, nil, "-c", "user.name=dev", "-c", "user.email=dev@example.com", "commit", "-q", "-m", "feat(src): base work")
+		moved := splitGit(t, fx.main, nil, "rev-parse", "HEAD")
+		writeFile(t, w+"/src/a.txt", "task\n")
+		fx.commitAs(t, "impl", "feat(src): task\n\nTask-Id: 1", "src")
+		splitGit(t, w, nil, "-c", "user.name=impl", "-c", "user.email=impl@example.com", "merge", "-q", "--no-ff", "-m", "chore: merge main", "main")
+		rc, out := fx.reshape(t, w, w, "demo", moved)
+		check(t, rc == 0 && strings.HasSuffix(out, "\nRESHAPED: "+w+" — reset to "+moved[:12]), "reshape verdict", "rc=%d out=%s", rc, out)
+	})
+
 	t.Run("4 a base that does not resolve cannot answer", func(t *testing.T) {
 		t.Parallel()
 		fx := rbNew(t)

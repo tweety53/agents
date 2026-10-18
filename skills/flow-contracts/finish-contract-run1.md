@@ -218,7 +218,13 @@ to that merge base: every commit the run made on the branch — task, fixup and 
 alike, the planning ones being the plan-gate, link, reviewer-dispatch, fix-run and
 write-in-progress commits of **Planning commits** (`git-boundaries.md`) and `/flow-plan`'s capture
 commit — folds back into the index, uncommitted. **Planning commits are squashed into one on
-landing**: they exist on the branch during the run, never on the base. Before that reset,
+landing**: they exist on the branch during the run, never on the base. **A merge of another
+branch stops the reshape**: the pipeline never merges into a change branch — its sync rebases — so
+a commit that merge base does not reach and the branch's first-parent chain does not carry is
+another branch's, and the reset would fold it under the change's subject (kan-941 folded `develop`'s
+and `main`'s commits that way). The script then prints `RESHAPE-FOREIGN-MERGE`, names each such
+commit, and exits 1 before HEAD moves; the run stops and relays its remedy — merge that branch
+into the change's base first, or rebase the change branch onto a base that holds them. Before that reset,
 `integrate-change.sh commit` pins the worktree's HEAD as `refs/flow/pre-reshape/<name>` — kept when it
 already reaches HEAD, otherwise advanced to a merge of the old pin and HEAD, pushed plain beside the branch push and never deleted by run 2 — so a
 task's own commit stays findable afterwards as the one carrying its `Task-Id: <n>` trailer

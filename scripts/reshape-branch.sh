@@ -14,6 +14,14 @@
 # calls check-planning-commit-location.sh first and stops on its verdict,
 # printing the guard's own lines.
 #
+# A merge that brought in commits <merge-base> does not reach stops the
+# reshape before HEAD moves (kan-941: a develop merge folded develop's
+# commits into the change commit): the pipeline never merges into a change
+# branch, so every commit of <merge-base>..HEAD off the first-parent chain
+# is another branch's. Prints `RESHAPE-FOREIGN-MERGE: <worktree> — <n>
+# commit(s) …`, one `  <sha12> <subject>` line per such commit and the
+# remedy line, and exits 1.
+#
 # Prints `RESHAPED: <worktree> — reset to <short sha>` and exits 0. Exits 2
 # with a reason on stderr on bad arguments or a base that does not resolve,
 # the guard's own code on a guard refusal, and git's own code on a git
