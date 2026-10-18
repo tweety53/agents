@@ -29,15 +29,15 @@ and three prose additions where their readers already look.
 - The planner paragraph must not make the guard run when the project declares no `mockups`.
 - The Blocking item must bind only views no frame was composed for; a composed frame's sweeps stay step 10's.
 
-- [ ] 1. Refuse a plan citing a mockup frame no file in the mockups root holds (KAN-558, KAN-565)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `ls scripts/check-mockup-citations.sh`
+- [x] 1. Refuse a plan citing a mockup frame no file in the mockups root holds (KAN-558, KAN-565)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `ls scripts/check-mockup-citations.sh`
     fails — nothing checks a plan's cited frames against the mockups root. Save Step 2's diff,
     apply its test hunk alone
     (`git apply --include='stats/internal/guard/check_mockup_citations_test.go' <the saved diff>`)
     and run `cd stats && make -s web-dist && go test ./internal/guard -run 'TestCheckMockupCitations' -count=1`:
     it fails with `rc=-1 out="check-mockup-citations is not registered"`.
     <!-- measured: both commands in a scratch clone @ 7d7a1b40 → ls exit 1; --- FAIL: TestCheckMockupCitations, "check-mockup-citations is not registered" -->
-  - [ ] **Step 2: Apply the fix.** Apply the rest
+  - [x] **Step 2: Apply the fix.** Apply the rest
     (`git apply --exclude='stats/internal/guard/check_mockup_citations_test.go' <the saved diff>`);
     it creates `scripts/check-mockup-citations.sh` executable and
     `skills/flow/scripts/check-mockup-citations.sh` as a symlink to
@@ -283,11 +283,11 @@ index 00000000..740c5f07
 +}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./internal/guard -run 'TestCheckMockupCitations' -count=1`
+  - [x] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./internal/guard -run 'TestCheckMockupCitations' -count=1`
     passes; `cd stats && go vet ./internal/guard && gofmt -l internal/guard` prints nothing;
     `scripts/check-guard-symlinks.sh`, `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 4: Commit** the seven files with the subject below.
+  - [x] **Step 4: Commit** the seven files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/mockupcitations.go`, `stats/internal/guard/check_mockup_citations_test.go`, `scripts/check-mockup-citations.sh`, `skills/flow/scripts/check-mockup-citations.sh`, `skills/flow/brainstorm-planner.md`, `skills/flow/SKILL-rationale.md`, `.flow/project.md`
@@ -298,11 +298,11 @@ index 00000000..740c5f07
 
 **Decision:** mockup-citations-guard
 
-- [ ] 2. End a removal task on an absence sweep (KAN-569)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 2. End a removal task on an absence sweep (KAN-569)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -rn "absence sweep" skills; echo $?`: it prints only `1` — no planning rule names the sweep.
     <!-- measured: the grep above in this worktree @ 7d7a1b40 → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 7d7a1b40 after Task 1's diff; check-references.sh, check-installed-citations.sh, check-markdown-integrity.py and check-verbatim-moves.sh 7d7a1b40 exit 0
 diff --git a/skills/flow/SKILL-rationale.md b/skills/flow/SKILL-rationale.md
@@ -335,11 +335,11 @@ index 8c2acfef..a4a98ce7 100644
  > `**Files:**` and updates it.
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c "absence sweep" skills/flow/brainstorm-planner.md skills/flow/SKILL-rationale.md`
+  - [x] **Step 3: Verify.** `grep -c "absence sweep" skills/flow/brainstorm-planner.md skills/flow/SKILL-rationale.md`
     prints `1` for each file; `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
     <!-- measured: grep -c after git apply in a scratch clone @ 7d7a1b40 with Task 1 applied → 1 and 1 -->
-  - [ ] **Step 4: Commit** the two files with the subject below.
+  - [x] **Step 4: Commit** the two files with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/brainstorm-planner.md`, `skills/flow/SKILL-rationale.md`
@@ -350,12 +350,12 @@ index 8c2acfef..a4a98ce7 100644
 
 **Decision:** absence-sweep-rule
 
-- [ ] 3. Isolate a suspected pre-existing failure before classifying it (KAN-570)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 3. Isolate a suspected pre-existing failure before classifying it (KAN-570)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n "pre-date the change" skills/flow-contracts/known-bugs.md; echo $?`: it prints only
     `1` — the sweep says how a pre-existing failure blocks, never how one is told from the change's own.
     <!-- measured: the grep above in this worktree @ 7d7a1b40 → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 7d7a1b40 after Tasks 1 and 2; check-references.sh, check-installed-citations.sh, check-markdown-integrity.py and check-verbatim-moves.sh 7d7a1b40 exit 0
 diff --git a/skills/flow-contracts/known-bugs.md b/skills/flow-contracts/known-bugs.md
@@ -379,10 +379,10 @@ index ad157473..88a197c4 100644
  screenshot" timeout is a timeout, never a mismatch. A mismatch met during a sync's targeted
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c "pre-date the change" skills/flow-contracts/known-bugs.md` prints `1`;
+  - [x] **Step 3: Verify.** `grep -c "pre-date the change" skills/flow-contracts/known-bugs.md` prints `1`;
     `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow-contracts/known-bugs.md`
@@ -393,13 +393,13 @@ index ad157473..88a197c4 100644
 
 **Decision:** isolate-before-classifying
 
-- [ ] 4. Give the capture-scope report its frame-bound slots and a Blocking tripwire (KAN-603)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 4. Give the capture-scope report its frame-bound slots and a Blocking tripwire (KAN-603)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n "bands | seams | matrix" skills/flow/visual-verify-verifier.md; grep -n "capture-scope" skills/flow/visual-verify.md; echo $?`:
     it prints only `1` — the template has no capture-scope slot but sweeps, and Blocking names no
     capture-scope duty.
     <!-- measured: both greps in this worktree @ 7d7a1b40 → no line, exit 1 -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 7d7a1b40 after Tasks 1 to 3; check-references.sh, check-installed-citations.sh, check-markdown-integrity.py and check-verbatim-moves.sh 7d7a1b40 exit 0
 diff --git a/skills/flow/visual-verify-verifier.md b/skills/flow/visual-verify-verifier.md
@@ -431,11 +431,11 @@ index b06d702e..2d48863b 100644
  `visual-verification.md`, and a frame its strip shows breaking the motion step's rule, block as a
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c "bands | seams | matrix" skills/flow/visual-verify-verifier.md` and
+  - [x] **Step 3: Verify.** `grep -c "bands | seams | matrix" skills/flow/visual-verify-verifier.md` and
     `grep -c "capture-scope" skills/flow/visual-verify.md` each print `1`;
     `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 4: Commit** the two files with the subject below.
+  - [x] **Step 4: Commit** the two files with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/visual-verify-verifier.md`, `skills/flow/visual-verify.md`
