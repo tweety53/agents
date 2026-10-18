@@ -35,11 +35,11 @@ accepted friendship inside `setLevel`'s transaction, and `unfriend` taking the s
 - KAN-802's sentence narrows the server-clock exception without restating the browser-pin rule above it.
 - Task 5: the friend check and the grant write share one transaction holding the friendship row's lock, and `unfriend` locks that row before it deletes the grants — either order serialises, so no grant outlives its friendship.
 
-- [ ] 1. Bind the cross-repo visual trigger's merge base to the working notes (KAN-702)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 1. Bind the cross-repo visual trigger's merge base to the working notes (KAN-702)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n "own merge base from this run's working notes" skills/flow/verify-and-handoff.md; echo $?`: it prints only `1`.
     <!-- measured: the grep above in a scratch clone @ cfb9b564 → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at cfb9b564; check-references.sh, check-installed-citations.sh and check-markdown-integrity.py exit 0, and check-verbatim-moves.sh cfb9b564 fails only on the sentence verbatim-moves.txt lists
 diff --git a/skills/flow/verify-and-handoff.md b/skills/flow/verify-and-handoff.md
@@ -59,11 +59,11 @@ index b6721b17..532f4b43 100644
  
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c "own merge base from this run's working notes" skills/flow/verify-and-handoff.md` prints `1`;
+  - [x] **Step 3: Verify.** `grep -c "own merge base from this run's working notes" skills/flow/verify-and-handoff.md` prints `1`;
     `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
     <!-- measured: grep -c after git apply in a scratch clone @ cfb9b564 → 1 -->
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/verify-and-handoff.md`
@@ -74,11 +74,11 @@ index b6721b17..532f4b43 100644
 
 **Decision:** visual-trigger-working-notes-base
 
-- [ ] 2. Run a waived live-check step on its cheapest safe proxy (KAN-740)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 2. Run a waived live-check step on its cheapest safe proxy (KAN-740)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n -F "cheapest safe proxy" skills/flow/verify-and-handoff.md; echo $?`: it prints only `1`.
     <!-- measured: the grep above in a scratch clone @ cfb9b564 after the earlier tasks' diffs → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at cfb9b564 after the earlier tasks' diffs; check-references.sh, check-installed-citations.sh and check-markdown-integrity.py exit 0, and check-verbatim-moves.sh cfb9b564 fails only on sentences verbatim-moves.txt lists
 diff --git a/skills/flow/verify-and-handoff.md b/skills/flow/verify-and-handoff.md
@@ -99,11 +99,11 @@ index 532f4b43..55059c8a 100644
  verification** and **Resolve the run instructions**.
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c -F "cheapest safe proxy" skills/flow/verify-and-handoff.md` prints `1`;
+  - [x] **Step 3: Verify.** `grep -c -F "cheapest safe proxy" skills/flow/verify-and-handoff.md` prints `1`;
     `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
     <!-- measured: grep -c after git apply in a scratch clone @ cfb9b564 → 1 -->
-  - [ ] **Step 4: Commit** the files with the subject below.
+  - [x] **Step 4: Commit** the files with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/verify-and-handoff.md`
@@ -114,11 +114,11 @@ index 532f4b43..55059c8a 100644
 
 **Decision:** waived-live-step-proxy
 
-- [ ] 3. Pin the server's clock where the checkout can (KAN-802)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 3. Pin the server's clock where the checkout can (KAN-802)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n -F "A server-side pin narrows that exception" skills/flow/visual-verify-verifier.md; echo $?`: it prints only `1`.
     <!-- measured: the grep above in a scratch clone @ cfb9b564 after the earlier tasks' diffs → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at cfb9b564 after the earlier tasks' diffs; check-references.sh, check-installed-citations.sh and check-markdown-integrity.py exit 0, and check-verbatim-moves.sh cfb9b564 fails only on sentences verbatim-moves.txt lists
 diff --git a/skills/flow/visual-verify-verifier.md b/skills/flow/visual-verify-verifier.md
@@ -137,11 +137,11 @@ index b1e6f292..5bac5327 100644
     optional, with `mockups` declared.** The frames are the change's declared list (step 10) plus
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c -F "A server-side pin narrows that exception" skills/flow/visual-verify-verifier.md` prints `1`;
+  - [x] **Step 3: Verify.** `grep -c -F "A server-side pin narrows that exception" skills/flow/visual-verify-verifier.md` prints `1`;
     `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
     <!-- measured: grep -c after git apply in a scratch clone @ cfb9b564 → 1 -->
-  - [ ] **Step 4: Commit** the files with the subject below.
+  - [x] **Step 4: Commit** the files with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/visual-verify-verifier.md`
@@ -152,11 +152,11 @@ index b1e6f292..5bac5327 100644
 
 **Decision:** server-clock-pin
 
-- [ ] 4. Read every rewritten baseline before staging it (KAN-803)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 4. Read every rewritten baseline before staging it (KAN-803)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n -F "No rewritten baseline is staged unread" skills/flow-contracts/known-bugs.md; echo $?`: it prints only `1`.
     <!-- measured: the grep above in a scratch clone @ cfb9b564 after the earlier tasks' diffs → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at cfb9b564 after the earlier tasks' diffs; check-references.sh, check-installed-citations.sh and check-markdown-integrity.py exit 0, and check-verbatim-moves.sh cfb9b564 fails only on sentences verbatim-moves.txt lists
 diff --git a/skills/flow-contracts/known-bugs.md b/skills/flow-contracts/known-bugs.md
@@ -190,11 +190,11 @@ index 02ae0678..ad054459 100644
  run included, names under `moved:` in its prompt every frame a `<spec>.mockups` sidecar maps to a
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c -F "No rewritten baseline is staged unread" skills/flow-contracts/known-bugs.md` prints `1`;
+  - [x] **Step 3: Verify.** `grep -c -F "No rewritten baseline is staged unread" skills/flow-contracts/known-bugs.md` prints `1`;
     `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
     <!-- measured: grep -c after git apply in a scratch clone @ cfb9b564 → 1 -->
-  - [ ] **Step 4: Commit** the files with the subject below.
+  - [x] **Step 4: Commit** the files with the subject below.
 
 **Build:** green
 **Files:** `skills/flow-contracts/known-bugs.md`, `skills/flow/verify-fix-loop.md`
@@ -242,7 +242,7 @@ index 02ae0678..ad054459 100644
   - [ ] **Step 6: Commit** the five files with the subject below.
 
 **Build:** green
-**Files:** `src/app/profile/src/main/kotlin/com/gymie/profile/core/ports/persistence/profile/FriendshipReadRepository.kt`, `src/app/profile/src/main/kotlin/com/gymie/profile/infrastructure/persistence/FriendshipRepositoryAdapter.kt`, `src/app/profile/src/main/kotlin/com/gymie/profile/core/services/access/impl/AccessServiceImpl.kt`, `src/app/profile/src/test/kotlin/com/gymie/profile/core/services/access/AccessServiceImplTest.kt`, `src/app/profile/src/test/kotlin/com/gymie/profile/infrastructure/persistence/SocialGraphAdapterTest.kt`
+**Files:** `src/app/profile/src/main/kotlin/com/gymie/profile/core/ports/persistence/profile/FriendshipReadRepository.kt`, `src/app/profile/src/main/kotlin/com/gymie/profile/infrastructure/persistence/FriendshipRepositoryAdapter.kt`, `src/app/profile/src/main/kotlin/com/gymie/profile/core/services/access/impl/AccessServiceImpl.kt`, `src/app/profile/src/test/kotlin/com/gymie/profile/core/services/access/AccessServiceImplTest.kt`, `src/app/profile/src/test/kotlin/com/gymie/profile/infrastructure/persistence/SocialGraphAdapterTest.kt`, `src/app/profile/src/test/kotlin/com/gymie/profile/core/services/profile/ProfileServiceImplTest.kt`, `src/app/profile/src/test/kotlin/com/gymie/profile/core/services/profile/VisibilityTest.kt`
 **Tests:** `lockAcceptedPair waits for a concurrent unfriend and then answers false`, `unfriend waits for a held pair lock and then removes the grant written under it`
 **Regression:** reverting the commit drops `lockAcceptedPair` (the first test stops compiling) and `unfriend`'s `FOR UPDATE` (the second leaves a grant row between non-friends).
 **Baseline:** before=30 after=32 <!-- measured: grep -c -w '@Test' src/app/profile/src/test/kotlin/com/gymie/profile/infrastructure/persistence/SocialGraphAdapterTest.kt @ gymie 8d2bb89d → 30 -->
@@ -250,3 +250,5 @@ index 02ae0678..ad054459 100644
 **After:** none
 
 **Decision:** setlevel-friendship-row-lock
+
+Correction (2026-10-18): Step 1 declared a plain `git worktree add … -b self-review-backlog-flow-6 origin/develop`; the worktree was created by `kickoff-worktree.sh --from` (the recipe **2. Isolate the workspace** requires for a repository holding no worktree), on branch `spectre/self-review-backlog-flow-6` off `origin/develop` @ `8d2bb89d`. `**Files:**` widened by `ProfileServiceImplTest.kt` and `VisibilityTest.kt`: each holds a test fake implementing `FriendshipReadRepository`, which must override the new `lockAcceptedPair` to compile — the design's "only implementation is the adapter" held for main code only. RED was taken on an unlocked first cut of `lockAcceptedPair` (no `FOR UPDATE` on either read) rather than by commenting a test out: both tests failed, neither call queued on the held lock.
