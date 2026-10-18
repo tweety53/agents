@@ -15,6 +15,18 @@ off with it open?" is never asked: the run takes **fix it in-run** under **Auto-
 `**Decisions:**` lines as that section states, one entry per defect, the defect named as the
 report names it.
 
+**A defect whose root cause is a shared source — a style, a token, a component other screens draw
+too — is fixed at that source, whatever else the fix moves.** The round's task never patches the
+changed screen alone to spare the others, and its steps carry two more. Every baseline the fix
+moves is recaptured: every spec `specs` prints for the fix's own diff — the whole suite when
+`specs` is not declared or prints nothing — runs through `capture` with `--update-snapshots=all`
+appended (step 8, `skills/flow/visual-verify-verifier.md`), and every PNG whose bytes changed is
+committed with the task, in the checkout step 12 of **Steps 3–13** (`skills/flow/visual-verify.md`)
+commits the stage's PNGs to. And every step-4 `visual-verify` re-run of the round, the closing full
+run included, names under `moved:` in its prompt every frame a `<spec>.mockups` sidecar maps to a
+spec whose baseline moved — the verifier compares each against its mockup exactly as it does the
+change's own frames, so a screen the shared fix regressed is a departure the next round fixes.
+
 One round runs these steps in order:
 
 1. **Transcribe the fix.** Run **Documenting a fix, before implementing it**

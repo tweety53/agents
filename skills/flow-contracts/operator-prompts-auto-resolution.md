@@ -11,7 +11,9 @@ asked for this once, for every flow run: a mid-run question they would answer wi
 option costs them a stop for nothing.
 
 It holds for a call site's own prompt and for any question the run frames itself in those phases —
-a finding that seems to need a product decision, a departure from a mockup, a
+a finding that seems to need a product decision, a departure from a mockup — one whose root
+cause is a shared style, token or component, whose fix moves other screens' baselines, included
+(**The loop**, `skills/flow/verify-fix-loop.md`, fixes it at that source) — a
 question an implementer's report carries, a pivot (`skills/flow/implement.md`).
 A pivot is auto-resolved although it alters approved scope: the operator asked that a recommended
 option be taken even when it reopens an earlier choice of theirs. Frame it with the option the

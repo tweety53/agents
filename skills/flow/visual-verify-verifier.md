@@ -45,7 +45,13 @@ never an exit code the command did not return.
    frame and call the result a fidelity check. **`capture` creates this change's baseline**: writing
    a PNG that does not yet exist is its success path, not a failure — `verify` is the regression gate
    over an already-committed baseline, `capture` is not, and only a `capture` failure for some other
-   reason blocks (see Blocking in `skills/flow/visual-verify.md`). A `toHaveScreenshot` passing over a baseline this
+   reason blocks (see Blocking in `skills/flow/visual-verify.md`). **A Playwright `capture` runs
+   with `--update-snapshots=all` appended, last on its command line**: the bare
+   `--update-snapshots` is Playwright's `changed` preset, which keeps every PNG whose diff is under
+   the comparison threshold, so a re-capture after a subtle colour fix comes back byte-identical
+   and the baseline goes on showing the defect; `=all` rewrites every PNG the spec takes, writes a
+   missing one with exit 0, and as the last flag wins over a bare one in the declared command.
+   A `toHaveScreenshot` passing over a baseline this
    change wrote is the app agreeing with itself, never with the mockup — step 10 is the only
    comparison, and `capture: exit 0` is never evidence of a frame's fidelity. **Seed the spec with data the frame does not
    draw.** A mockup is drawn on a happy case, and a spec whose fixture reproduces it verifies only that case:
@@ -227,16 +233,15 @@ never an exit code the command did not return.
    screen-by-screen sweep" is unfalsifiable without a fixed list: a partial pass reads exactly like
    a complete one if nothing forces naming what was skipped. Build the list from
    every frame id `design.md`/`tasks.md` cites for this change, or from the mockups directory
-   itself when no such citation exists; a frame reached only by inference from another (already
+   itself when no such citation exists, plus every frame the prompt names under `moved:` — one a
+   shared fix's recapture moved (**The loop**, `skills/flow/verify-fix-loop.md`); a frame reached only by inference from another (already
    covered by the composite diff, "shipped" and pre-existing, blocked by a real environment limit)
    still gets named, with the reason. **The list is the change's, never the round's**: a fix run
    re-verifies the same list, not the views its fix touched, and the specs `capture` runs are
    chosen to reach every frame on it, never the other way round — a denominator the verifier
    derives from the specs it happened to run is the partial pass wearing a fraction. The report's
    `frames:` line counts against that list and names every declared frame absent from the
-   per-frame lines, with its reason; the parent reconciles it against `design.md`'s own frame
-   list before applying **Blocking**, and a declared frame with no line blocks as a departure
-   would.
+   per-frame lines, with its reason.
 
    **Exercise the states below and capture each one; a state nobody drove into is a state nobody
    verified.** Each is a state a resting capture and a full-page composite cannot show, so each is
@@ -362,13 +367,19 @@ never an exit code the command did not return.
       | radius | — | `radius` per corner | — |
       | shadow | — | `shadow` per side | — |
 
-      Every cell holds the frame's number, the capture's and the `delta` — or n/a — `<why>`: the
-      column does not apply to the row's class (the dashes above), or the script exited 1 on a
-      region no widening resolved, with the region tried. A cell left empty, or a cell filled by
+      Every cell holds the frame's number, the capture's and the `delta` — or n/a — `<why>`
+      where the column does not apply to the row's class (the dashes above). **A cell the pixels
+      cannot answer is measured from the mockup's source, never left n/a**: where the script
+      exits 1 on a region no widening resolved, or reads a side `clipped` (the element runs off
+      the image there), the frame's number is the value the mockup's source declares for that
+      element — the CSS of the HTML the frame was drawn from (`box-shadow`, `border-radius`,
+      `border`, a colour), found beside the mockups or cited by `design.md` — and the capture's
+      is the script's where its own image measures, else the value the app's source draws the
+      element with; the cell names its source. Only a frame with no source in the tree reads
+      n/a — `no mockup source`, with the region tried. A cell left empty, or a cell filled by
       eye, is the sweep-name report again. The matrix rides `visual-verification.md` (step 11)
       under the frame's entry, and the report's `matrix:` line counts its rows and its n/a
-      cells; the parent opens the frame beside the matrix and a visible element with no row, or
-      an empty cell, blocks as a departure would.
+      cells.
 
    **Never judge a size, alignment, spacing, corner radius, border, fill, shadow, icon size or
    font size by eye from a resized or cropped image; measure it with
@@ -523,6 +534,10 @@ each of steps 4, 7–11 and the motion step a status `check-verify-report.sh` ad
 is canonical for them — and the parent runs that guard on the report before reading it.
 Run it on your own report before handing back: an exit 1 names the steps still owed, so do them
 and run it again, and hand back an incomplete report only for a blocker you cannot cure, named.
+**Step 10 is `done` only when every frame's matrix and sweeps are**: a row for every element the
+frame draws, every cell filled as step 10 states, and every sweep on each `sweeps:` and `added
+sweep` line `done` or `n/a — <why it does not apply>` — a sweep or a cell left for time, context
+or a measurement the pixels could not give is step 10 undone.
 
 ```text
 ## Report
@@ -542,11 +557,11 @@ and run it again, and hand back an incomplete report only for a blocker you cann
 - <frame id>: <absolute composite path> diff=<ratio> — <match, or the departure seen>
 - <frame id> bands: <paired>/<frame's band count> paired, <missing> missing, <extra> extra — <every missing and extra band by `top` and `height`, and every pair over the tolerance by its delta, each with its named cause, or `departure` attributed per **Every departure is attributed at the merge base** above>
 - <frame id> seams: <paired>/<frame's seam count> paired, <missing> missing, <extra> extra, <lines paired> lines — <every missing and extra seam by its band's `top` and its `left`, every seam pair over the tolerance by its delta, every cell whose line count differs, and every line whose `offset` delta is over 2px with its `left` and `right` deltas, each with its named cause, or `departure` attributed per **Every departure is attributed at the merge base** above>
-- <frame id> sweeps: text | order | reach | derived | rows | ink — <each done, or why not; `rows` names each bounded row and its four gaps per image; `ink` names every non-text run the frame draws and its counterpart in the capture, or the one absent>
+- <frame id> sweeps: text | order | reach | derived | rows | ink — <each `done`, or `n/a — <why it does not apply>`; `rows` names each bounded row and its four gaps per image; `ink` names every non-text run the frame draws and its counterpart in the capture, or the one absent>
 - per view, no frame composed: <view id> sweeps: text | order | reach | derived | rows |
   ink — the same sweep line at capture scope; `order` carries its containment half's
   outcome beside n/a — no frame; `rows` and `ink` read n/a — no frame
-- added sweep <name> (sweeps-<n>.md): <done, or why not — every view and frame it read, and each departure it found>
+- added sweep <name> (sweeps-<n>.md): <`done`, or `n/a — <why it does not apply>` — every view and frame it read, and each departure it found>
 - <frame id> matrix: <n> elements × 11 columns, <k> n/a — <each n/a cell as `<element>.<column>: <why>`; the matrix itself is in visual-verification.md>
 - frames: <n>/<m> — <m> the change's own declared list, then every declared frame id with no line above and why
 - motion: <named motions recorded>/<named> — <each motion id: its strip directory, frame count, and `clean` or each departing frame's index and what it shows> | n/a — no motions named

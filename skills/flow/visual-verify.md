@@ -157,7 +157,8 @@ matched; the project's `## run` commands; the views touched; `<changeRoot>`; the
 above, with its report path resolved for this dispatch's `<key>`; `sweeps-<n>.md`'s path
 when **A missed defect — the tooling analysis** above completed this round, with the re-run rule
 its loaded file states, as written; the change's motions, named as the paragraph below states; the
-round base when **The loop** (`skills/flow/verify-fix-loop.md`) scopes this re-run; and
+round base when **The loop** (`skills/flow/verify-fix-loop.md`) scopes this re-run; the
+`moved:` frames when that file names them; and
 to read the absolute path of
 `visual-verify-verifier.md` beside this file and run its steps 4 and 7–11 and its motion step as written against the stack steps 5 and 6 left serving the
 worktree's build, starting, stopping and restarting nothing, committing and pushing nothing.
@@ -251,10 +252,16 @@ states.
 
 The report's `frames:` line counts against the change's frame list (step 10) and names every declared frame absent from the
 per-frame lines, with its reason; the parent reconciles it against `design.md`'s own frame
-list before applying **Blocking**, and a declared frame with no line blocks as a departure
-would. The matrix rides `visual-verification.md` (step 11) under the frame's entry, and the
-report's `matrix:` line counts its rows and its n/a cells; the parent opens the frame beside the
-matrix and a visible element with no row, or an empty cell, blocks as a departure would.
+list before applying **Blocking**. The matrix rides `visual-verification.md` (step 11) under the
+frame's entry, and the report's `matrix:` line counts its rows and its n/a cells; the parent
+opens the frame beside the matrix. **What that reconciliation finds missing makes the report
+incomplete — never a departure, and never a gap the handoff leaves for the operator**: a declared
+frame with no line; a composed frame with no `bands:`, `seams:` or `matrix:` line; a visible
+element with no matrix row; an empty cell, or an n/a cell whose reason is neither its column not
+applying nor `no mockup source`; and a sweep its line reads neither `done` nor `n/a — <why it does
+not apply>`. Its remainder is dispatched exactly as a `check-verify-report.sh` exit 1's, under
+**Every report is checked for completeness** above, the reconciliation's list standing in for the
+guard's verdict line.
 
 **Blocking.** This stage blocks the `IN_PROGRESS` handoff on: **a workspace pre-flight that failed
 (step 3), which ends the stage before any dispatch**, a failed `setup`, a failed `verify`,
@@ -263,13 +270,10 @@ updated with no capture or no sidecar line, a full app suite or a `full-app-suit
 not write**, a stack that could not be started, **a `fingerprint` that still exits
 non-zero after step 6's restart**, a `check-spec-reach.sh` exit 1 or 2,
 an unreadable PNG, **a `compose-mockup-frames.sh` exit 1 or 2 and a departure from the mockup the
-verifier reports in a composite**, **a frame on the change's declared list with no line in the
-report, a composed frame with no `bands:` line or with a `missing`, `extra` or over-tolerance
+verifier reports in a composite**, **a composed frame with a `missing`, `extra` or over-tolerance
 band whose line names no cause — a pre-existing attribution is not one (**the sweep**,
-`skills/flow-contracts/known-bugs.md`) — a composed frame with no `seams:` line or with a `missing`,
-`extra` or over-tolerance seam or an off-centre line whose line names no cause, and a composed frame with no `matrix:` line, a matrix row missing for an element the
-frame visibly draws, or a cell that is neither the script's numbers nor an n/a with its reason
-— the parent's own reconciliation, step 10**, and **a defect the
+`skills/flow-contracts/known-bugs.md`) — and a composed frame with a `missing`,
+`extra` or over-tolerance seam or an off-centre line whose line names no cause**, and **a defect the
 verifier reports in a captured screenshot — even when every assertion passed.** **A named motion
 with no strip under `<changeRoot>/visual-verification/motion/` or no entry in
 `visual-verification.md`, and a frame its strip shows breaking the motion step's rule, block as a
