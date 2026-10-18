@@ -36,7 +36,7 @@ never an exit code the command did not return.
    extended, when one covers the view; a new spec is authored only for a view none covers. Run
    `capture` with `<spec>` substituted for the spec's path. **Every capture asserts the view is on
    screen before it is taken** — gymie-playwright's `expectRoom` — so a missed navigation fails the
-   capture instead of becoming its baseline. `screenshots`'s root-not-leaf shape is canonical in
+   capture instead of becoming its baseline. **A capture reached through a click also asserts the state it clicked into, and parks the pointer before it is taken** — a positive control on a drawn, state-dependent property the wrong state cannot satisfy (the selected tab's fill, the opened sheet's tag), and the pointer moved clear of every control (`page.mouse.move(0, 0)`) after the last click — so a missed click fails the capture instead of becoming its baseline, and no hover ink reaches one. `screenshots`'s root-not-leaf shape is canonical in
    `skills/flow-contracts/project-configuration-visual.md`; nothing here restates it. **Every screenshot
    this spec takes is the full page or viewport, never a clipped region.** A clip is the right tool
    for an implementer's own targeted assertion (a fixed piece of text, an icon), but this stage's
