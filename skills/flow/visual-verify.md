@@ -180,7 +180,13 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
 (**Blocking** below).
 
 3. **Pre-flight the workspace, before anything is dispatched.** The verifier's one re-dispatch
-   cannot repair an environment that cannot pass. With the parent's own Bash call, before the
+   cannot repair an environment that cannot pass. **A `regression checkout` this run's resolved
+   worktree set holds no worktree for gets one first.** When `## apps` declares the repository
+   `## visual verification`'s `regression checkout` names and the set holds no worktree in it, the
+   parent runs that entry's recipe — the `kickoff-worktree.sh --from` call, then the regression
+   checkout's `setup` (`skills/flow/cross-repo-worktrees.md`) — before the checks below, and adds
+   the worktree to the set: kan-983's first verifier was dispatched without it and blocked on the
+   missing checkout, ~4.45M tokens spent for nothing. With the parent's own Bash call, before the
    dispatch below, run the four checks — ports held only by their own app, the base-URL
    configuration resolving to the workspace's values, origin allowed, one Playwright checkout per
    workspace — against this worktree:
