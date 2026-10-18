@@ -53,7 +53,7 @@ DENY_REASON = (
 # wins: the tooling analyst's prompt also names visual-verify-verifier.md, so its own
 # marker, its report file, is checked first.
 PINNED_ROLES = (
-    ("tooling-analysis-", "flow-high", "opus", "skills/flow/visual-verify-tooling-analysis.md"),
+    ("tooling-analysis-", "flow-medium", "opus", "skills/flow/visual-verify-tooling-analysis.md"),
     ("visual-verify-verifier.md", "flow-low", "opus", "skills/flow/visual-verify.md"),
 )
 
@@ -62,11 +62,11 @@ PINNED_ROLES = (
 # ~/.zcode/hooks, which is how the hook tells the harness.
 ZCODE_PAIR = ("flow-high", "glm-5.3-flash")
 
-# flow-high is dispatched in exactly two cases (skills/flow/implement.md): the tooling
-# analyst, and the no-progress escalation -- marked by its opening line, or a self-review
-# loop key whose rows scripts/check-loop-dispatch.sh pins. Anything else on flow-high was
+# flow-high is dispatched in exactly two cases (skills/flow/implement.md): the no-progress
+# escalation -- marked by its opening line, or a self-review loop key whose rows
+# scripts/check-loop-dispatch.sh pins -- and a panel dispatch the operator approved at high. Anything else on flow-high was
 # hand-picked: a parent ran scoped in-run fixes on flow-high where the decision said inline.
-FLOW_HIGH_MARKERS = ("tooling-analysis-", "No-progress escalation", "Key: self-review-")
+FLOW_HIGH_MARKERS = ("No-progress escalation", "Key: self-review-", "Operator-approved high")
 
 
 def flow_high_reason(prompt: str, tool_input: dict) -> "str | None":
@@ -75,12 +75,12 @@ def flow_high_reason(prompt: str, tool_input: dict) -> "str | None":
     if any(marker in prompt for marker in FLOW_HIGH_MARKERS):
         return None
     return (
-        "Dispatch blocked: flow-high is reserved for the visual-verify tooling analyst and the "
-        "no-progress escalation (skills/flow/implement.md).\n\n"
+        "Dispatch blocked: flow-high is reserved for the no-progress escalation and a panel "
+        "dispatch the operator approved at high (skills/flow/implement.md).\n\n"
         "Read the recorded decision (`flow record decisions -change <name>`) and dispatch on "
         "the pair it names -- or, when its execution is `inline`, make the change yourself "
         "with no dispatch. A no-progress escalation opens its prompt with the line "
-        "`No-progress escalation`."
+        "`No-progress escalation`; an approved panel dispatch with `Operator-approved high`."
     )
 
 

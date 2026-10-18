@@ -3,7 +3,7 @@
 Loaded by **A missed defect — the tooling analysis** (`skills/flow/visual-verify.md`) only on a fix
 run with at least one miss.
 
-`subagent_type: flow-high` (`agents/flow-high.md`, effort `high`), the Agent tool's `model`
+`subagent_type: flow-medium` (`agents/flow-medium.md`, effort `medium`), the Agent tool's `model`
 parameter set to the literal `opus` (**Model and effort**, `skills/flow/brainstorm-planner.md`), mapped on harnesses
 `zcode` and `muse` per **Harness mapping** (`skills/flow-contracts/model-policy.md`). Its prompt carries,
 verbatim:
@@ -52,7 +52,7 @@ this task, as written:
 `<n>` is this fix run's ordinal, the one `flow.document-fix` recorded.
 
 **Recording.** The parent records the dispatch `-role planner`, `-task` omitted, `-model
-opus -effort high`, `-key tooling-analysis-<n>`, suffixed `-<repository name>` under
+opus -effort medium`, `-key tooling-analysis-<n>`, suffixed `-<repository name>` under
 the verifier's rule — the pair's semantics are section 4 of `skills/flow/implement.md`, cited here,
 not restated. **Handshake** as **The verifier dispatch** (`skills/flow/visual-verify.md`) states it, compared against `opus`.
 

@@ -125,9 +125,9 @@ plans the fix. A finding leaves step 3 unfixed only when it is `big`, or disprov
 shows, with evidence, that the defect it names does not exist. A planner report that drops a
 finding on any other ground is sent back to a fresh planner dispatch carrying the objection as a
 constraint, never offered for filing in step 4 (kan-982: the `Task-Id:` guard and the scope check
-were dropped as imprecise and offered for filing; the operator answered "fix them now"). A finding hard
-to solve escalates the planner rather than leaving the loop: the re-plan, key
-`self-review-<name>-plan-<n>`, may run on `flow-high` (effort `high`) in place of the planner
+were dropped as imprecise and offered for filing; the operator answered "fix them now"). A finding a re-plan
+did not solve — the same finding back on the same evidence — escalates the planner rather than leaving the loop: that re-plan, key
+`self-review-<name>-plan-<n>`, is the no-progress escalation and may run on `flow-high` (effort `high`) in place of the planner
 pair's `flow-medium`. Where `high` still cannot produce a
 design that holds, the next step is effort `xhigh` — and an `xhigh` dispatch is never made
 without the operator's approval, asked first with the finding, the objection and what `high`

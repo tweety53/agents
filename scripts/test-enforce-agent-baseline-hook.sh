@@ -75,11 +75,15 @@ run_hook "$HOOK" "$(payload "$BASELINE implement task 3" flow-medium sonnet)"
 expect_allow "2 unpinned role"
 
 run_hook "$HOOK" "$(payload "$BASELINE implement task 3" flow-high opus)"
-expect_deny "2b hand-picked flow-high" "reserved for the visual-verify tooling analyst"
+expect_deny "2b hand-picked flow-high" "reserved for the no-progress escalation"
 
 run_hook "$HOOK" "$(payload "No-progress escalation
 $BASELINE fix round 3" flow-high opus)"
 expect_allow "2c no-progress escalation on flow-high"
+
+run_hook "$HOOK" "$(payload "Operator-approved high
+$BASELINE panel pass 1" flow-high opus)"
+expect_allow "2d operator-approved panel on flow-high"
 
 run_hook "$HOOK" "$(payload "$VERIFIER" flow-low opus)"
 expect_allow "3 verifier on flow-low/opus"
@@ -90,11 +94,11 @@ expect_deny "4 verifier on flow-high" 'subagent_type: \"flow-low\"' 'model: \"op
 run_hook "$HOOK" "$(payload "$VERIFIER" flow-low)"
 expect_deny "5 verifier with no model" 'model: \"opus\"'
 
-run_hook "$HOOK" "$(payload "$ANALYST" flow-high opus)"
-expect_allow "6 analyst on flow-high/opus"
+run_hook "$HOOK" "$(payload "$ANALYST" flow-medium opus)"
+expect_allow "6 analyst on flow-medium/opus"
 
-run_hook "$HOOK" "$(payload "$ANALYST" flow-low opus)"
-expect_deny "7 analyst on flow-low" 'subagent_type: \"flow-high\"'
+run_hook "$HOOK" "$(payload "$ANALYST" flow-high opus)"
+expect_deny "7 analyst on flow-high" 'subagent_type: \"flow-medium\"'
 
 run_hook "$SANDBOX/.zcode/hooks/enforce-agent-baseline.py" "$(payload "$VERIFIER" flow-high glm-5.3-flash)"
 expect_allow "8 zcode verifier on its mapped pair"

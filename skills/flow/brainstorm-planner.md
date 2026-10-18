@@ -587,10 +587,8 @@ record decision` refuses a decision whose implementer, fixer or group pair names
 `effort_roll < 90`, the implementer, the fixer and every implementer group take `low` — `medium` where
 the pair carries a hard seam.** **Every pass-1 panel dispatch and every gated per-task reviewer
 bundle takes `low` when `effort_roll < 60` and `medium` otherwise, whatever the band** — 60/40 per
-change. **`high` reaches a pass-1 panel dispatch — a `panel.dispatches` entry, never a gated bundle — only two ways:** the operator's explicit **Yes** at the plan
-gate (**Plan review gate** below), or a fix run's re-Decide when the fix instructions report that
-an earlier, lower-effort attempt failed to solve the same issue, the pair's `reason` naming that
-attempt.
+change. **`high` reaches a pass-1 panel dispatch — a `panel.dispatches` entry, never a gated bundle — one way only:** the operator's explicit **Yes** at the plan
+gate (**Plan review gate** below), and that dispatch's prompt opens with the line `Operator-approved high`.
 When `effort_roll ≥ 90`, the implementer, fixer and group efforts are the planner's own choice,
 one of `low`/`medium` — decided from what that dispatch will actually
 do: the complexity of its tasks, the time and space
