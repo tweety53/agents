@@ -3040,6 +3040,41 @@ func TestCheckTaskCommitFields(t *testing.T) {
 			res = commit("feat(alpha): add alpha for real", "feat(x-repo-change): add alpha for real")
 			ok(t, "case 158: a second commit's change-name scope fails", res.rc == 1 && has(res.out, "scope 'x-repo-change' names the change"), res)
 		}},
+		{"case 160", func(t *testing.T) {
+			// KAN-889: a map entry missing its sha is refused at the
+			// argument boundary, never read as a commit to judge.
+			b1, _, a := tcfMapRepos(t, "147")
+			res := fx.run(b1, "1", b1+"=", "", a, "x-repo-change")
+			ok(t, "case 160: a map entry with no sha refuses", res.rc == 2, res)
+			ok(t, "case 160: it names the malformed entry", has(res.out, "map entry is not <worktree>=<sha>: \""+b1+"=\""), res)
+		}},
+		{"case 161", func(t *testing.T) {
+			// KAN-889: one worktree named twice would judge its commit
+			// twice; the map refuses it.
+			b1, _, a := tcfMapRepos(t, "147")
+			sha1 := tcfGit(t, b1, "rev-parse", "HEAD")
+			res := fx.run(b1, "1", b1+"="+sha1+","+b1+"="+sha1, "", a, "x-repo-change")
+			ok(t, "case 161: a worktree named twice in the map refuses", res.rc == 2, res)
+			ok(t, "case 161: it names the repeated worktree", has(res.out, "worktree named twice in the commit map: "+b1), res)
+		}},
+		{"case 162", func(t *testing.T) {
+			// KAN-889: the first repository is a satellite whose change
+			// directory carries link.md, so the plan resolves through the
+			// link route to the canonical worktree, not the absent-dir one.
+			b1, b2, a := tcfMapRepos(t, "147")
+			writeFile(t, b1+"/spectre/changes/x-repo-change/link.md", "## Part of\n\n`peerx:x-repo-change`\n")
+			tcfGit(t, b1, "add", "spectre")
+			tcfGit(t, b1, "commit", "-q", "-m", "link")
+			writeFile(t, b1+"/alpha.txt", "def test_alpha(): pass\n")
+			tcfGit(t, b1, "add", "alpha.txt")
+			tcfGit(t, b1, "commit", "-q", "-m", "add alpha for real")
+			writeFile(t, b2+"/beta.txt", "b\n")
+			tcfGit(t, b2, "add", "beta.txt")
+			tcfGit(t, b2, "commit", "-q", "-m", "add alpha for real")
+			sha1, sha2 := tcfGit(t, b1, "rev-parse", "HEAD"), tcfGit(t, b2, "rev-parse", "HEAD")
+			res := fx.run(b1, "1", b1+"="+sha1+","+b2+"="+sha2, "", a, "x-repo-change")
+			ok(t, "case 162: a link-route satellite resolves the canonical plan under the commit map", res.rc == 0, res)
+		}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
