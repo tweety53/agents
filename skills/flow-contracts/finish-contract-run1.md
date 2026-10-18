@@ -117,15 +117,15 @@ directory**, `skills/flow-contracts/pipeline.md`).
 **An archived re-run's base** is the newest commit in `<merge-base>..HEAD` whose subject is
 `docs(self-review): <name> self-review report` — or, from a run before KAN-927,
 `docs(self-review): <name> self-review context bundle` — else the newest whose subject is
-`chore(spectre): archive <name>`, else `<merge-base>` itself — a satellite worktree's range holds
-neither — `<merge-base>` being the merge base the reshape below would otherwise take. Everything at
+`chore(spectre): archive <name>`, else `<merge-base>` itself — a satellite worktree whose run 1
+predates KAN-815 holds neither — `<merge-base>` being the merge base the reshape below would otherwise take. Everything at
 or below it is kept untouched — a reshape from that merge base itself would fold the archive and
 report commits into the implementation commit. The re-run **carries new work** when a commit sits
 above the canonical worktree's base — every fix run commits its plan there, whichever repositories
 its tasks touched — or any worktree in the set holds an uncommitted tracked change, judged at the
 unfinished-work gate, before this run's own narrative append.
 
-A re-run of an archived change skips `spectre archive`. **Without new work** it also skips, before
+A re-run of an archived change skips the canonical worktree's `spectre archive`. **Without new work** it also skips, before
 it, the unfinished-work gate, the reshape and the two-commit chain — `spectre archive` already
 refused any unchecked task, and nothing above the base needs committing. **With new work** it
 skips none of them: the unfinished-work gate reads the archived `tasks.md`, and the reshape takes
@@ -298,6 +298,14 @@ the same pull request, as the code:
    files, whose authoring side is the design rule of **The checklist**
    (`skills/flow/brainstorm-planner.md`), and an exit 2 refuses the commit too, never read as a
    pass.
+
+   **Every other worktree of the set archives its own change directory the same way**, after the
+   canonical one and in `## Merge order`: where `<project>/spectre/changes/<name>/` — a satellite's
+   `link.md` — still exists there, `spectre archive <name>` runs in that worktree, on an archived
+   re-run too, since the canonical decision says nothing of a satellite a stopped run left behind;
+   then `commit-archive.sh <that worktree> <name>` commits it as that repository's own
+   `chore(spectre): archive <name>` on `spectre/<name>`. Left unarchived, run 2's
+   `check-cleanup-complete.sh` finds it and reports `LEFTOVER` (KAN-815).
 3. **Push every worktree's `spectre/<name>` `--force-with-lease`**, in `## Merge order`, once the
    archive commit lands — the reshape's push (**Branch backup**, `git-boundaries.md`).
 

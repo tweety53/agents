@@ -63,6 +63,10 @@
 #   planning_only   b's branch changes nothing outside spectre/changes/:
 #                   prepare's NEXT asks no subject for b, and commit with no
 #                   subject for b commits b's planning delta alone.
+#   satellite_archive b's branch carries a satellite's
+#                   spectre/changes/demo/link.md: commit archives it in b
+#                   and commits that as b's own `chore(spectre): archive
+#                   demo` (KAN-815).
 #   link_only_canon a's branch changes nothing outside spectre/changes/ but
 #                   its change directory's link.md, the merge-order record:
 #                   prepare's NEXT asks no subject for a, and commit with no
@@ -493,8 +497,19 @@ check "planning_only: prepare's NEXT asks a subject for a and none for b" \
 printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
 sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work"
 check "planning_only: commit with no subject for b exits 0" '[ "$RC" -eq 0 ]'
-check "planning_only: b's branch is the base plus its one planning commit" \
-  '[ "$(git -C "$WORK/b-worktrees/demo" log --format=%s main..HEAD | tr "\n" "|")" = "chore(spectre): plan demo|" ]'
+check "planning_only: b's branch is the base plus its planning and archive commits" \
+  '[ "$(git -C "$WORK/b-worktrees/demo" log --format=%s main..HEAD | tr "\n" "|")" = "chore(spectre): archive demo|chore(spectre): plan demo|" ]'
+
+# --- satellite_archive ---
+fixture
+mkdir -p "$WORK/b-worktrees/demo/spectre/changes/demo"
+printf '## Part of\n\n`a:demo`\n' >"$WORK/b-worktrees/demo/spectre/changes/demo/link.md"
+g -C "$WORK/b-worktrees/demo" add -A && g -C "$WORK/b-worktrees/demo" commit -qm "chore(spectre): link demo"
+to_land "satellite_archive: " no-report
+check "satellite_archive: b's change directory is archived" \
+  '[ ! -d "$WORK/b-worktrees/demo/spectre/changes/demo" ] && [ -f "$WORK/b-worktrees/demo/spectre/changes/archive/demo/link.md" ]'
+check "satellite_archive: b's branch ends on its own archive commit" \
+  '[ "$(git -C "$WORK/b-worktrees/demo" log -1 --format=%s)" = "chore(spectre): archive demo" ]'
 
 # --- link_only_canon ---
 fixture

@@ -56,7 +56,9 @@
 #          never deletes it), reshape-branch per
 #          worktree, the ledger render, commit-split per
 #          worktree in `## Merge order`, `spectre archive` (each
-#          <name>-fix-N too) unless already archived, commit-archive. A
+#          <name>-fix-N too) unless already archived, commit-archive,
+#          then in every other worktree whose <spec>/changes/<name>/ still
+#          exists `spectre archive <name>` and commit-archive. A
 #          worktree with nothing on the implementation side takes no
 #          subject; the canonical one whose only implementation path is a
 #          link.md takes `chore(spectre): merge order`; any other without
@@ -611,6 +613,18 @@ cmd_commit() {
   mark_begin flow.commit-archive
   run "$SCRIPT_DIR/commit-archive.sh" "$CANON" "$NAME"
   [ "$RC" -eq 0 ] || stop commit-archive "commit-archive exit $RC — report its lines"
+  # Every other worktree archives its own change directory -- a
+  # satellite's link.md -- while it is still there, on an archived re-run
+  # too, and commits it on its own branch (KAN-815).
+  local ws
+  for o in "${ORDER[@]}"; do
+    [ "${WT[o]}" = "$CANON" ] && continue
+    ws="$(spec_root_leaf "${WT[o]}" 2>/dev/null)" || continue
+    [ -d "${WT[o]}/$ws/changes/$NAME" ] || continue
+    (cd "${WT[o]}" && spectre archive "$NAME") || stop archive "spectre archive $NAME refused in ${WT[o]} — report it; never --force"
+    run "$SCRIPT_DIR/commit-archive.sh" "${WT[o]}" "$NAME"
+    [ "$RC" -eq 0 ] || stop commit-archive "commit-archive exit $RC in ${WT[o]} — report its lines"
+  done
   # The rewritten branch reaches the remote now, not at land: a run that
   # stops before land leaves the next plain branch-backup push a fast-forward.
   for o in "${ORDER[@]}"; do
