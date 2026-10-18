@@ -98,7 +98,10 @@
 # (skills/flow/visual-verify.md, **Recording**) — is a commit sha this
 # worktree resolves, and no path of this change's own `<merge-base>..HEAD`
 # diff that changed between that sha and HEAD matches the `ui paths`, asked
-# as the trigger above is, the canonical worktree's included. A row with no
+# as the trigger above is, the canonical worktree's included. A `diffBase`
+# naming several shas, comma-joined — a canonical verifier that also covered
+# a sibling worktree's HEAD (kan-983 self-review) — is read one sha at a time,
+# each judged as a row of its own. A row with no
 # `diffBase`, a ref name such as HEAD in place of a sha, or a sha this
 # worktree cannot resolve verified nothing here. With qualifying rows and
 # none fresh, the verdict is

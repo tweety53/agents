@@ -271,7 +271,7 @@ func validateFindingRef(flagName, ref string) error {
 const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur] [-C dir]
                              -change name [-task id] -role role [-slot name]
                              -model model -effort level [-agent-id id|none]
-                             [-diff-base sha] [-started-at instant] -key key -session-token token
+                             [-diff-base sha[,sha...]] [-started-at instant] -key key -session-token token
        flow record dispatch end   [-addr url] [-timeout dur] [-C dir]
                              -change name -key key -session-token token
                              [-commit sha] [-outcome outcome] [-cause cause]
@@ -279,7 +279,7 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
        flow record dispatch backfill [-addr url] [-timeout dur] [-C dir]
                              -change name [-task id] -role role [-slot name]
                              -model model [-effort level] [-agent-id id|none]
-                             [-diff-base sha] -started-at instant -ended-at instant
+                             [-diff-base sha[,sha...]] -started-at instant -ended-at instant
                              -key key -session-token token [-commit sha]
                              -outcome outcome [-cause cause] [-tokens k=v,...]
        flow record finding  [-addr url] [-timeout dur] [-C dir]
@@ -999,7 +999,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	model := fset.String("model", "", "the model this dispatch ran on, as recorded intent -- the literal \"unknown (agent-defined)\" where it cannot be read, never a guess (required)")
 	effort := fset.String("effort", "", "the effort this dispatch ran at -- one of: "+strings.Join(recordEfforts, ", ")+" -- recorded, never handshaken, since a model cannot report its own effort")
 	agentID := fset.String("agent-id", "", "the harness's own identifier for the dispatched subagent, recorded intent the daemon never overwrites -- optional: omitted, the daemon stamps it from the transcript's launch result; the literal \"none\" records that the harness exposes none")
-	diffBase := fset.String("diff-base", "", "the sha the diff this dispatch was given was computed from, where it was given a delta -- optional, since an implementer and a slot reading the whole diff record none")
+	diffBase := fset.String("diff-base", "", "the sha the diff this dispatch was given was computed from, where it was given a delta, or a comma-joined list of shas where it was given one delta per worktree -- optional, since an implementer and a slot reading the whole diff record none")
 	key := fset.String("key", "", "this dispatch's own literal label, unique within the run -- what the end call closes, and what makes a replayed write land on one row (required)")
 	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (required)")
 	startedAt := fset.String("started-at", "", "a back-filled row's real start instant, RFC 3339 -- optional: omitted, the daemon stamps the moment it writes the row")

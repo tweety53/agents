@@ -642,3 +642,14 @@ func TestCheckVisualVerifyDispatchedMissingNamesPathsSinceVerifiedHead(t *testin
 		t.Fatalf("got exit %d stdout %q, want exit 1 ending %q", r.code, r.out, want)
 	}
 }
+
+// TestCheckVisualVerifyDispatchedCommaJoinedDiffBase pins the kan-983
+// self-review fix: a canonical verifier that also covered this worktree
+// records both HEADs comma-joined, and the sha this worktree resolves counts.
+func TestCheckVisualVerifyDispatchedCommaJoinedDiffBase(t *testing.T) {
+	t.Parallel()
+	r := vvdRun(t, vvdCase{dispatches: []byte(`[{"key":"visual-verify-gymie","role":"verifier","outcome":"completed","diffBase":"0123456789abcdef0123456789abcdef01234567,@HEAD@"}]`)})
+	if r.code != 0 || !strings.HasPrefix(r.out, "VISUAL-VERIFY-OK: UI paths touched") {
+		t.Fatalf("got exit %d stdout %q stderr %q, want exit 0 and the OK verdict", r.code, r.out, r.err)
+	}
+}

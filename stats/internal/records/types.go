@@ -62,7 +62,8 @@ import (
 // reported"; it never matches another absent value.
 //
 // DiffBase is the sha the diff this dispatch was given was computed
-// from -- the answer to "what has this slot already read". A Full panel
+// from -- or a comma-joined list of shas, one per worktree, where the
+// dispatch was given one delta per worktree -- the answer to "what has this slot already read". A Full panel
 // re-run hands each slot only its own delta, and that delta is anchored
 // at the slot's own last read rather than at the current round, because
 // a Targeted round re-runs slot 0 and the slots that raised findings, so

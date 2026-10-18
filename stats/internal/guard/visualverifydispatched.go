@@ -188,7 +188,14 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	// is scoped to.
 	var lastHead string
 	var lastChanged []string
+	// A canonical verifier that also covered a sibling worktree names each
+	// HEAD it verified, comma-joined (kan-983 self-review): each sha is judged
+	// on its own, and only the one this worktree resolves can count here.
+	var shas []string
 	for _, head := range heads {
+		shas = append(shas, strings.Split(head, ",")...)
+	}
+	for _, head := range shas {
 		if !vvdSHA.MatchString(head) {
 			continue
 		}
