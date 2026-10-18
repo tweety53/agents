@@ -75,6 +75,12 @@ printf '## lint\n\n```bash\ntrue\n```\n' > "$ROOT/.flow/project.md"
 run_bin "$ROOT" test
 expect_rc "an undeclared list" 3
 
+printf '## test\n\n```bash\nprintf ran-first\n./gradlew verifyChange :<module>:test --tests %s\n```\n' "'<selectors>'" > "$ROOT/.flow/project.md"
+run_bin "$ROOT" test
+expect_rc "a placeholder line refuses the list" 2
+expect_has "the refusal names the line" "test line is a template, not a command — move it out of the fence: ./gradlew verifyChange :<module>:test --tests '<selectors>'"
+expect_lacks "nothing runs before the refusal" 'ran-first'
+
 run_bin "$ROOT" build
 expect_rc "an unknown list" 2
 run_bin "$ROOT/missing" lint

@@ -9,7 +9,10 @@
 #
 # THE LIST is every non-blank, non-`#` line inside a ```bash fence of
 # `project-get.sh <worktree> <list>`'s output, in the order printed; `lint`
-# appends `check-spec-reach.sh <worktree>`. Each command runs from
+# appends `check-spec-reach.sh <worktree>`. A line holding a `<word>`
+# placeholder — `./gradlew verifyChange :<module>:test --tests '<selectors>'`
+# — is a template, not a command: the shell reads `<module>` as a redirect,
+# so the list is refused before anything runs (kan-983 self-review). Each command runs from
 # <worktree> in a fresh `bash -c`, stdin detached (</dev/null) so none waits
 # on a terminal, and the whole list always runs: a failure never stops it.
 # The caller exports the KEY=value lines prepare-workspace.sh printed for
@@ -25,7 +28,8 @@
 #   0  every command exited 0
 #   1  at least one command exited non-zero
 #   2  usage (not exactly `<worktree> lint|test`, or <worktree> is not a
-#      directory), or project-get.sh exit 2 — its stderr line says why
+#      directory), a list line holding a `<word>` placeholder — its stderr
+#      line names it — or project-get.sh exit 2 — its stderr line says why
 #   3  the list is not declared (project-get.sh exit 1): the caller
 #      auto-detects, as **Inline verify** says
 set -uo pipefail
@@ -54,6 +58,13 @@ done < <(printf '%s\n' "$BODY" | awk '
   /^```/                  { f = 0; next }
   f && NF && $1 !~ /^#/
 ')
+
+for i in "${!CMDS[@]}"; do
+  if grep -Eq '<[A-Za-z][A-Za-z0-9_-]*>' <<<"${CMDS[$i]}"; then
+    echo "run-verify-list.sh: $LIST line is a template, not a command — move it out of the fence: ${CMDS[$i]}" >&2
+    exit 2
+  fi
+done
 
 OUT="$(mktemp "${TMPDIR:-/tmp}/run-verify-list.XXXXXX")"
 trap 'rm -f "$OUT"' EXIT
