@@ -4,6 +4,10 @@
 #
 #   1. no baseline pointer                                 -> deny (baseline reason)
 #   2. pointer, no pinned-role marker line, any type/model -> allow
+#  2b. hand-picked flow-high                             -> deny
+#  2c. "No-progress escalation" line on flow-high          -> allow
+#  2d. "Operator-approved high" line on flow-high          -> allow
+#  2e. a pipeline-fix loop key on flow-high                -> allow
 #   3. verifier prompt on flow-low / opus                  -> allow
 #   4. verifier prompt on flow-high / opus                 -> deny, names flow-low and opus
 #   5. verifier prompt on flow-low with no model           -> deny
@@ -89,6 +93,10 @@ expect_allow "2c no-progress escalation on flow-high"
 run_hook "$HOOK" "$(payload "Operator-approved high
 $BASELINE panel pass 1" flow-high opus)"
 expect_allow "2d operator-approved panel on flow-high"
+
+run_hook "$HOOK" "$(payload "Key: pipeline-fix-x-plan-2
+$BASELINE re-plan" flow-high opus)"
+expect_allow "2e pipeline-fix loop escalation on flow-high"
 
 run_hook "$HOOK" "$(payload "$VERIFIER" flow-low opus)"
 expect_allow "3 verifier on flow-low/opus"

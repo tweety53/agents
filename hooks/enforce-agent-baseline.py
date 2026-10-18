@@ -64,10 +64,15 @@ PINNED_ROLES = (
 ZCODE_PAIR = ("flow-high", "glm-5.3-flash")
 
 # flow-high is dispatched in exactly two cases (skills/flow/implement.md): the no-progress
-# escalation -- marked by its opening line, or a self-review loop key whose rows
-# scripts/check-loop-dispatch.sh pins -- and a panel dispatch the operator approved at high. Anything else on flow-high was
+# escalation -- marked by its opening line, or a self-review or pipeline-fix loop key whose
+# rows scripts/check-loop-dispatch.sh pins -- and a panel dispatch the operator approved at high. Anything else on flow-high was
 # hand-picked: a parent ran scoped in-run fixes on flow-high where the decision said inline.
-FLOW_HIGH_MARKERS = ("No-progress escalation", "Key: self-review-", "Operator-approved high")
+FLOW_HIGH_MARKERS = (
+    "No-progress escalation",
+    "Key: self-review-",
+    "Key: pipeline-fix-",
+    "Operator-approved high",
+)
 
 
 def flow_high_reason(prompt: str, tool_input: dict) -> "str | None":
