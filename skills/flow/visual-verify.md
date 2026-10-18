@@ -263,6 +263,18 @@ not apply>`. Its remainder is dispatched exactly as a `check-verify-report.sh` e
 **Every report is checked for completeness** above, the reconciliation's list standing in for the
 guard's verdict line.
 
+**The frame-list half of that reconciliation is a guard**, run whenever `mockups` is declared,
+before the rest is reconciled by hand:
+
+```bash
+check-frame-list.sh <changeRoot>/design.md <mockups root> <abs-worktree>/.superpowers/sdd/verify-report-<key>.md
+```
+
+Its header is canonical for the declared list it derives and the gaps it names. Exit 1: a `no
+sidecar line` gap is a frame with no sidecar line, which blocks under **Blocking** below, and
+every other gap joins the reconciliation's list above. Exit 2 is a usage error or an unreadable
+input, corrected and the guard run again.
+
 **Blocking.** This stage blocks the `IN_PROGRESS` handoff on: **a workspace pre-flight that failed
 (step 3), which ends the stage before any dispatch**, a failed `setup`, a failed `verify`,
 a genuine `capture` failure — the full app suite's included — **a frame this change added or
