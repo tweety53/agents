@@ -60,6 +60,7 @@ const (
 	// A new run-loaded sentence a flow-fast change acknowledges in its own
 	// change root instead of spectre's.
 	vmAdded = "The confirming re-run verifies a fresh build, never a stale stack."
+	vmLoop  = "skills/flow/verify-fix-loop.md"
 )
 
 var vmBase = map[string]string{
@@ -154,6 +155,15 @@ func TestCheckVerbatimMoves(t *testing.T) {
 				vmPipe: vmBase[vmPipe] + "\n" + vmAdded + "\n",
 			},
 			rc: 1, want: []string{"FAIL new run-loaded text (paraphrase?) :: " + vmAdded}},
+		// KAN-896: kan-813's shape — a sentence inserted ahead of one that
+		// wraps across a list item's first line, the item rewrapped.
+		{name: "a pure insertion into a wrapped list item flags only the inserted sentence",
+			base: map[string]string{vmLoop: "# Loop\n\n4. **Re-capture and re-run.** Run **Verify** again from its\n   `begin` mark, then more follows here.\n"},
+			edit: map[string]string{
+				vmLoop: "# Loop\n\n4. **Re-capture and re-run.** The inserted sentence leads the step now. Run\n   **Verify** again from its `begin` mark, then more follows here.\n",
+				"spectre/changes/demo/verbatim-moves.txt": "The inserted sentence leads the step now.\n",
+			},
+			rc: 0, want: []string{"ok   acknowledged new text :: The inserted sentence leads the step now.", "0 violation(s)"}, reject: []string{"FAIL"}},
 		{name: "a deleted file fails every sentence it held",
 			remove: []string{vmPipe},
 			rc:     1, want: []string{"FAIL deleted or reworded :: " + vmWhy}},
@@ -341,6 +351,29 @@ func TestVMSentences(t *testing.T) {
 		"Follow the rule of **4. Execute (SDD + TDD)** in the file.",
 		"It ends at step 2.",
 		"Then more follows here.",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("got:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+// TestVMSentencesJoinListItemContinuation pins KAN-896's block rule: a list
+// item's indented continuation lines join it, quoted or not, so a sentence
+// wrapped across the item's first line is one sentence; an unindented line
+// after an item still opens a block of its own.
+func TestVMSentencesJoinListItemContinuation(t *testing.T) {
+	t.Parallel()
+	in := "4. **A longer lead-in.** A sentence that wraps across\n   the item's first line. A second one follows.\n" +
+		"> - a quoted item whose sentence\n>   wraps onto the next line.\n" +
+		"- an item that stands alone\nAn unindented line opens its own block.\n"
+	got := vmSentences(in)
+	want := []string{
+		"**A longer lead-in.",
+		"A sentence that wraps across the item's first line.",
+		"A second one follows.",
+		"a quoted item whose sentence wraps onto the next line.",
+		"an item that stands alone",
+		"An unindented line opens its own block.",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("got:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

@@ -371,8 +371,13 @@ func vmAcks(root string, archived []string) (map[string]bool, error) {
 }
 
 // vmBlocks is the prototype's blocks(): paragraphs joined across soft wraps;
-// a heading, table row, rule or list item stands alone; a fenced line stands
-// alone; blockquote markers are dropped.
+// a heading, table row or rule stands alone; a fenced line stands alone;
+// blockquote markers are dropped. A list item is the one departure from the
+// prototype (KAN-896): it opens a block its indented continuation lines join,
+// where the prototype stood its first line alone — that cut a sentence
+// wrapped across the item's first line in two, so text inserted ahead of it
+// on that line moved the cut and the untouched sentence read as reworded
+// (kan-813). An unindented line after an item opens a block of its own.
 func vmBlocks(text string) []string {
 	var out, cur []string
 	flush := func() {
@@ -381,8 +386,15 @@ func vmBlocks(text string) []string {
 			cur = nil
 		}
 	}
-	fence := false
+	fence, item := false, false
 	for _, l := range strings.Split(text, "\n") {
+		// Indentation is read past any blockquote markers, so a quoted
+		// item's continuation (`>   more`) joins it as a plain one does.
+		t := strings.TrimLeft(l, " \t")
+		indented := t != l
+		if q := vmQuote.FindString(t); q != "" {
+			indented = strings.TrimLeft(t[len(q):], " \t") != t[len(q):]
+		}
 		s := strings.TrimSpace(l)
 		if strings.HasPrefix(s, "```") || strings.HasPrefix(s, "~~~") {
 			flush()
@@ -396,11 +408,19 @@ func vmBlocks(text string) []string {
 		s = vmQuote.ReplaceAllString(s, "")
 		if s == "" || vmBreak.MatchString(s) {
 			flush()
-			if s != "" {
-				out = append(out, vmListMarker.ReplaceAllString(s, ""))
+			item = vmListMarker.MatchString(s)
+			switch {
+			case item:
+				cur = append(cur, vmListMarker.ReplaceAllString(s, ""))
+			case s != "":
+				out = append(out, s)
 			}
 			continue
 		}
+		if item && !indented {
+			flush()
+		}
+		item = item && indented
 		cur = append(cur, s)
 	}
 	flush()
