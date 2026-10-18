@@ -40,7 +40,15 @@ Three checks, per task:
    the branch started that the record does not claim); a commit reachable
    from HEAD but older than the base is not this branch's business and is
    not a violation. A task declaring no subject carries no expectation and
-   is skipped here.
+   is skipped here. A cross-repo change's plan lives in its canonical
+   repository while some tasks land in a peer's worktree: when a ticked
+   task's subject is reachable from no commit here and its change directory
+   carries a `link.md`, the change's other worktrees — the `worktrees` map
+   of its state record, `flow state get -C <repo-root> <change>` — are
+   searched too, and a commit found reachable from one's HEAD is judged in
+   that repository by check 2; a listed path that is not a git worktree is
+   skipped. No record, or no `flow` on PATH, searches
+   nothing and the violation stands.
 2. Declared `**Files:**` vs the commit's real files. For each ticked
    task's subject, the files `git diff-tree` reports for the newest
    reachable commit carrying it are checked against the
@@ -85,11 +93,13 @@ root>: task <id> ...`, in first-come order. Exit codes:
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, NoReturn, Optional
+from typing import Dict, List, NoReturn, Optional, Tuple
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 GRAMMAR_PATH = SCRIPT_DIR / "lib" / "plan_grammar.py"
@@ -203,6 +213,31 @@ def subject_map(root: Path, rev: str) -> Dict[str, List[str]]:
     return subjects
 
 
+def peer_heads(root: Path, change_dir: Path) -> List[Tuple[Path, Dict[str, List[str]]]]:
+    """The change's other worktrees, from its state record's `worktrees`
+    map, each with its HEAD's subject map — only for a cross-repo change,
+    one whose directory carries a `link.md`."""
+    if not (change_dir / "link.md").is_file() or shutil.which("flow") is None:
+        return []
+    proc = subprocess.run(
+        ["flow", "state", "get", "-C", str(root), change_dir.name],
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return []
+    try:
+        trees = json.loads(proc.stdout).get("worktrees") or {}
+    except (ValueError, AttributeError):
+        return []
+    peers = []
+    for tree in sorted(trees):
+        path = Path(tree)
+        if (path / ".git").exists() and path.resolve() != root:
+            peers.append((path, subject_map(path, "HEAD")))
+    return peers
+
+
 def commit_files(root: Path, sha: str) -> List[str]:
     out = git(
         root, ["diff-tree", "--no-renames", "--root", "-r", "--name-only",
@@ -250,6 +285,7 @@ def main(argv: List[str]) -> int:
 
     for tasks_md in tasks_files:
         rel = tasks_md.relative_to(root).as_posix()
+        peers: Optional[List[Tuple[Path, Dict[str, List[str]]]]] = None
         try:
             lines = tasks_md.read_text().splitlines()
         except OSError as err:
@@ -284,6 +320,14 @@ def main(argv: List[str]) -> int:
                         f"({shas[0][:12]})"
                     )
                 continue
+            repo = root
+            if not shas and tasks_md.parent.parent != archive_dir:
+                if peers is None:
+                    peers = peer_heads(root, tasks_md.parent)
+                for peer, subjects in peers:
+                    if subjects.get(subject):
+                        repo, shas = peer, subjects[subject]
+                        break
             if not shas:
                 if tasks_md.parent.parent == archive_dir:
                     continue
@@ -297,6 +341,7 @@ def main(argv: List[str]) -> int:
                 subject,
                 {
                     "sha": sha,
+                    "repo": repo,
                     "rel": rel,
                     "ids": [],
                     "files": [],
@@ -322,7 +367,7 @@ def main(argv: List[str]) -> int:
                 f"subject '{subject}' is carried by {group['commit_count']} "
                 f"commits in {base}..HEAD; expected one"
             )
-        changed = commit_files(root, sha)
+        changed = commit_files(Path(str(group["repo"])), sha)
         if not changed:
             # A merge commit: diff-tree lists no files for it, so there is
             # no file comparison to make — it is accepted silently, as the

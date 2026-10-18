@@ -353,6 +353,67 @@ else
   fail "case 16 recorded base: rc=$RC out=$OUT"
 fi
 
+# --- case 17: a cross-repo change (link.md) whose ticked task landed in a
+# --- peer worktree its state record lists -> exit 0, the peer's commit
+# --- judged in the peer; a stub `flow` stands in for the store ---
+new_repo
+printf '## Merge order\n\n1. `.`\n2. `peer`\n' >"$FIX/spectre/changes/fixture-change/link.md"
+task_block 1 x "fix(peer): one" green
+commit_plan
+PEER="$(mktemp -d "${TMPDIR:-/tmp}/task-records-peer.XXXXXX")"
+DIRS+=("$PEER")
+git -C "$PEER" init -q -b main
+mkdir -p "$PEER/src"
+printf 'src/f1.go\n' >"$PEER/src/f1.go"
+git -C "$PEER" add -A
+git -C "$PEER" -c user.email=fixture@example.com -c user.name=Fixture commit -qm "fix(peer): one"
+STUB="$(mktemp -d "${TMPDIR:-/tmp}/task-records-stub.XXXXXX")"
+DIRS+=("$STUB")
+printf '#!/bin/sh\nprintf %s\n' "'{\"worktrees\":{\"$PEER\":\"x\",\"$FIX\":\"y\"}}\\n'" >"$STUB/flow"
+chmod +x "$STUB/flow"
+PATH="$STUB:$PATH" run_guard "$FIX"
+if [ "$RC" -eq 0 ] && [ -z "$OUT" ]; then
+  pass "case 17 ticked task landed in a peer worktree exits 0 silent"
+else
+  fail "case 17 peer worktree commit: rc=$RC out=$OUT"
+fi
+
+# --- case 18: a cross-repo change (link.md) whose state record cannot be
+# --- read -- a failing `flow` -> the ticked task's violation stands ---
+new_repo
+printf '## Merge order\n\n1. `.`\n2. `peer`\n' >"$FIX/spectre/changes/fixture-change/link.md"
+task_block 1 x "fix(peer): one" green
+commit_plan
+STUB="$(mktemp -d "${TMPDIR:-/tmp}/task-records-stub.XXXXXX")"
+DIRS+=("$STUB")
+printf '#!/bin/sh\nexit 1\n' >"$STUB/flow"
+chmod +x "$STUB/flow"
+PATH="$STUB:$PATH" run_guard "$FIX"
+if [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q "no commit with subject 'fix(peer): one'"; then
+  pass "case 18 unreadable state record keeps the violation"
+else
+  fail "case 18 failing flow: rc=$RC out=$OUT"
+fi
+
+# --- case 19: a record path that exists but is not a git repository is
+# --- skipped -> the violation stands, not exit 2 ---
+new_repo
+printf '## Merge order\n\n1. `.`\n2. `peer`\n' >"$FIX/spectre/changes/fixture-change/link.md"
+task_block 1 x "fix(peer): one" green
+commit_plan
+PLAIN="$(mktemp -d "${TMPDIR:-/tmp}/task-records-plain.XXXXXX")"
+DIRS+=("$PLAIN")
+STUB="$(mktemp -d "${TMPDIR:-/tmp}/task-records-stub.XXXXXX")"
+DIRS+=("$STUB")
+printf '#!/bin/sh\nprintf %s\n' "'{\"worktrees\":{\"$PLAIN\":\"x\"}}\\n'" >"$STUB/flow"
+chmod +x "$STUB/flow"
+PATH="$STUB:$PATH" run_guard "$FIX"
+if [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q "no commit with subject 'fix(peer): one'"; then
+  pass "case 19 non-repository record path is skipped"
+else
+  fail "case 19 non-repo path: rc=$RC out=$OUT"
+fi
+
 printf '\n'
 # ===========================================================================
 # Unlanded archives: the scan cannot list the archived changes the base does
