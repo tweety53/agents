@@ -106,6 +106,8 @@ The parent writes this `## Report` itself and shows it as this stage's output.
 call; the lint and test run, this run's `flow record dispatch begin`, and the ledger render below
 are one more.
 
+`run-verify-list.sh <worktree> lint` and `run-verify-list.sh <worktree> test` are the two groups: each runs its list as above, stdin detached, and prints that list's `## Report` lines, its exit codes canonical in its header — never a runner built by hand.
+
 **Inline verify — a failing command.** A non-zero exit from any command in the list earns **one**
 inline re-run of that command — the environmental-flake case. A second non-zero exit from the same
 command is the branch's own defect and takes **The loop** (`skills/flow/verify-fix-loop.md`) once
