@@ -110,7 +110,13 @@ before the next re-dispatch, and ends your turn with `## Question` naming the fa
 its output, verbatim, only when the cure needs a decision only the operator can make. Never run
 the failing command yourself to check it. A re-dispatch whose report repeats the previous one's
 failure on the same evidence takes **Fewest operator actions**
-(`skills/flow-contracts/pipeline.md`). The ledger render and this stage's `end` mark follow
+(`skills/flow-contracts/pipeline.md`). **A re-dispatch at an unchanged HEAD re-runs only the
+specs that failed.** When every worktree of the resolved set is at the HEAD the previous dispatch
+verified and that report's `verify:` exit was non-zero, the prompt adds `rerun specs:` and the
+spec paths that report's `verify` output names as failing; the verifier's step 7 runs those alone
+(`skills/flow/visual-verify-verifier.md`), and their exit is the `verify` exit — a non-zero one
+still blocks, exactly as above: kan-983's `visual-verify-2` re-ran all 87 specs, ~14 minutes, to
+clear one the previous run had already passed 30 times out of 30. The ledger render and this stage's `end` mark follow
 whichever report was last.
 
 **A final report that is a block closes its dispatch `-outcome blocked -cause <cause>`, never

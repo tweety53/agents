@@ -21,6 +21,10 @@ never an exit code the command did not return.
    spec from `specs` run against the merge base.
    A `specs` with no `<merge-base>` cannot take a round base: it runs as declared, its full list,
    and the report names `specs: not scoped — specs has no <merge-base>`.
+   **A prompt naming `rerun specs:` runs those specs alone** — substituted for `<specs>` in place
+   of `specs`' output, which is not run — and the report's `verify:` line reads `exit <n> — rerun
+   of <k> failed specs at unchanged HEAD` (**Steps 3–13**, `skills/flow/visual-verify.md`). A `verify`
+   with no `<specs>` runs as declared, and the report names `rerun specs: not passed — verify has no <specs>`.
    A non-zero `verify` exit blocks, a failing test this change did not introduce included
    (**the sweep**, `skills/flow-contracts/known-bugs.md`), save a stale snapshot baseline in a spec
    this change never touched, which the sweep re-baselines and re-runs before the exit is read.
@@ -559,7 +563,7 @@ or a measurement the pixels could not give is step 10 undone.
 - setup: <not declared | exit <n>>
 - stack: <already running | started and stopped | could not be started — <output>>
 - fingerprint: <not declared | exit 0 | mismatch → restarted → exit <n>>
-- verify: exit <n> | not run — no spec since the round base
+- verify: exit <n> | exit <n> — rerun of <k> failed specs at unchanged HEAD | not run — no spec since the round base
   <output, verbatim or last 40 lines>
 - capture: exit <n>
   <output, verbatim or last 40 lines>
