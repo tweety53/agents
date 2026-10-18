@@ -380,7 +380,7 @@ func (r *mvpRegion) checkCorners() error {
 // region checked against it, and the background taken — the region's modal
 // colour in page mode, else its top-left pixel, every other corner required
 // to match it within the noise — save a corner on a clipped side, and with
-// the corners' modal colour tried when the top-left pixel fails.
+// each other corner colour tried when the top-left pixel fails.
 func mvpOpen(env Env, path string, box *[4]int, a mvpArgs, page bool) (*mvpRegion, error) {
 	file := path
 	if file != "" && !filepath.IsAbs(file) {
@@ -415,18 +415,22 @@ func mvpOpen(env Env, path string, box *[4]int, a mvpArgs, page bool) (*mvpRegio
 		return r, nil
 	}
 	// A control running off the image's edge leaves a corner on that side
-	// non-background: retry with the corners' modal colour as background,
-	// and keep the top-left reading's reason when that fails too.
-	var c mvpCounter
+	// non-background — two of the four when it spans the region, a 2:2 tie
+	// no modal count breaks: retry with each other corner colour as the
+	// background, keep the first that passes, and the top-left reading's
+	// reason when none does.
+	first := r.bg
 	for _, k := range r.corners() {
-		c.add(r.at(k[0], k[1]))
+		r.bg = r.at(k[0], k[1])
+		if r.bg == first {
+			continue
+		}
+		r.clip()
+		if r.checkCorners() == nil {
+			return r, nil
+		}
 	}
-	r.bg, _ = c.top()
-	r.clip()
-	if r.checkCorners() != nil {
-		return nil, err
-	}
-	return r, nil
+	return nil, err
 }
 
 // clippedText is the clipped sides, comma-joined.

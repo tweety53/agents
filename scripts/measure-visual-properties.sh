@@ -39,8 +39,8 @@
 # side lies on the image's own edge, with that side's end of the centre scan
 # line not background, is `clipped` there: the box edge on that side is the
 # image's edge, the corners touching it need not be background (the
-# background is then the corners' modal colour when the top-left pixel is
-# not it), and `border`, `shadow` and `gap` on that side and `radius` on its
+# background is then the first other corner colour that leaves every
+# unclipped corner background, when the top-left pixel is not it), and `border`, `shadow` and `gap` on that side and `radius` on its
 # two corners read the string "clipped" in place of a number — the other
 # sides still measure. The output's `clipped` key lists the clipped sides,
 # comma-joined, and is absent when none is; a clipped leaf's `delta` carries

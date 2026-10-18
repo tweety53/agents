@@ -329,6 +329,27 @@ func TestMeasureVisualProperties(t *testing.T) {
 			}
 			return strings.Join(got, "\n"), "left,right 200 20 clipped clipped 0 3 clipped\nleft,top 120 40 clipped 3 clipped 3 clipped"
 		}},
+		{"case 12: a control covering two of the crop's corners — a bar on the image's top edge, a full-height side panel — is measured with the other corners' colour as background", func(t *testing.T) (string, string) {
+			blue, white := color.RGBA{0x33, 0x66, 0xcc, 0xff}, color.RGBA{0xff, 0xff, 0xff, 0xff}
+			bar := mvpPNG(t, 200, 100, func(x, y int) color.RGBA {
+				if y < 20 {
+					return blue
+				}
+				return white
+			})
+			panel := mvpPNG(t, 200, 100, func(x, y int) color.RGBA {
+				if x < 30 {
+					return blue
+				}
+				return white
+			})
+			var got []string
+			for _, c := range []struct{ image, region string }{{bar, "0,0,200,30"}, {panel, "0,0,45,100"}} {
+				d := mvpJSON(t, dir, c.image, "--region-a", c.region, "--props", "box")
+				got = append(got, mvpSp(mvpDig(d, "a", "clipped"), mvpDig(d, "a", "box", "width"), mvpDig(d, "a", "box", "height")))
+			}
+			return strings.Join(got, "\n"), "left,right,top 200 20\nleft,top,bottom 30 100"
+		}},
 		{"case 10: a small-caps caption whose flat tops ink most of its span is not a boxed band, while the bordered control under it still is", func(t *testing.T) (string, string) {
 			d := mvpJSON(t, dir, pair("captioned-frame.png", "captioned-capture.png", "seams")...)
 			var a, b []string
