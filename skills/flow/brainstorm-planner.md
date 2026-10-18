@@ -332,6 +332,11 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > code change, while an edit made before reproducing destroys the evidence the task set out to
 > gather.
 
+> **Never write a task that creates a worktree.** Every worktree a plan runs in exists before its
+> first task: each `## apps` repository's, on branch `spectre/<name>`, is created at `flow.kickoff`
+> (`skills/flow/brainstorm.md`) or in **2. Isolate the workspace** (`skills/flow/implement.md`), so a task names that worktree's path and no step
+> carries a `git worktree add` (self-review-backlog-flow-6).
+
 > **End a removal task on an absence sweep.** When a task's job is removing text — copy, a setting,
 > an identifier — its last verify step is one `git grep -n -F` over every string it removes, each
 > passed as its own `-e '<string>'`, scoped to the paths the task touches: the sweep prints
