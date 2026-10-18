@@ -30,12 +30,12 @@ one new `flow-guard check-frame-list` subcommand behind a `flow_guard_exec` shim
 - A `frames:` total above the declared count is not a gap: the verifier's list legitimately adds diff-changed and `moved:` frames.
 - The structural-locator rule must not forbid the verifier's own `page.mouse.move(0, 0)` pointer park, which clicks and captures nothing.
 
-- [ ] 1. A commit's message describes the tree it lands, never an abandoned attempt (KAN-539)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 1. A commit's message describes the tree it lands, never an abandoned attempt (KAN-539)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n "describes the tree it lands" skills/flow-contracts/git-boundaries.md skills/flow/implement.md; echo $?`:
     it prints only `1` — no rule says a commit's message describes its net tree.
     <!-- measured: the grep above in this worktree @ 7aea62c2 → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 7aea62c2; check-references.sh, check-markdown-integrity.py and check-verbatim-moves.sh 7aea62c2 (with this change's verbatim-moves.txt) exit 0
 diff --git a/skills/flow-contracts/git-boundaries.md b/skills/flow-contracts/git-boundaries.md
@@ -71,11 +71,11 @@ index d38201dc..6e3c62fa 100644
  implementer runs the red task first — writes its tests, runs them, and reports the failing
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c "describes the tree it lands" skills/flow-contracts/git-boundaries.md skills/flow/implement.md`
+  - [x] **Step 3: Verify.** `grep -c "describes the tree it lands" skills/flow-contracts/git-boundaries.md skills/flow/implement.md`
     prints `1` for each file; `scripts/check-references.sh`, `python3 scripts/check-markdown-integrity.py`
     and `scripts/check-verbatim-moves.sh` exit 0.
     <!-- measured: grep -c after git apply in a scratch clone @ 7aea62c2 → 1 and 1 -->
-  - [ ] **Step 4: Commit** the two files with the subject below.
+  - [x] **Step 4: Commit** the two files with the subject below.
 
 **Build:** green
 **Files:** `skills/flow-contracts/git-boundaries.md`, `skills/flow/implement.md`
@@ -86,12 +86,12 @@ index d38201dc..6e3c62fa 100644
 
 **Decision:** net-tree-message
 
-- [ ] 2. Reach every control in end-to-end and fidelity specs by a structural locator (KAN-545)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 2. Reach every control in end-to-end and fidelity specs by a structural locator (KAN-545)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n -i "structural locator" skills/flow/brainstorm-planner.md skills/flow/visual-verify-verifier.md; echo $?`:
     it prints only `1` — no rule tells a plan or a verifier how a spec reaches a control.
     <!-- measured: the grep above in this worktree @ 7aea62c2 → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 7aea62c2 after Task 1's diff; check-references.sh exits 0 (the verifier's citation resolves to section D's heading), check-markdown-integrity.py and check-verbatim-moves.sh 7aea62c2 exit 0
 diff --git a/skills/flow/SKILL-rationale.md b/skills/flow/SKILL-rationale.md
@@ -137,11 +137,11 @@ index 873213d8..a269e7e7 100644
     for an implementer's own targeted assertion (a fixed piece of text, an icon), but this stage's
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c -i "structural locator" skills/flow/brainstorm-planner.md skills/flow/visual-verify-verifier.md skills/flow/SKILL-rationale.md`
+  - [x] **Step 3: Verify.** `grep -c -i "structural locator" skills/flow/brainstorm-planner.md skills/flow/visual-verify-verifier.md skills/flow/SKILL-rationale.md`
     prints `1` for each file; `scripts/check-references.sh`, `python3 scripts/check-markdown-integrity.py`
     and `scripts/check-verbatim-moves.sh` exit 0.
     <!-- measured: grep -c after git apply in a scratch clone @ 7aea62c2 → 1, 1 and 1 -->
-  - [ ] **Step 4: Commit** the three files with the subject below.
+  - [x] **Step 4: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/brainstorm-planner.md`, `skills/flow/visual-verify-verifier.md`, `skills/flow/SKILL-rationale.md`
@@ -152,15 +152,15 @@ index 873213d8..a269e7e7 100644
 
 **Decision:** structural-locators
 
-- [ ] 3. Reconcile design.md's declared frames against the sidecars and the verifier report (KAN-549)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `ls scripts/check-frame-list.sh`
+- [x] 3. Reconcile design.md's declared frames against the sidecars and the verifier report (KAN-549)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `ls scripts/check-frame-list.sh`
     fails — nothing compares the frames `design.md` declares with what the verifier counted. Save
     Step 2's diff, apply its test hunk alone
     (`git apply --include='stats/internal/guard/check_frame_list_test.go' <the saved diff>`) and run
     `cd stats && make -s web-dist && go test ./internal/guard -run 'TestCheckFrameList' -count=1`:
     it fails with `rc=-1 out="check-frame-list is not registered"`.
     <!-- measured: both commands in a scratch clone @ 7aea62c2 with Tasks 1 and 2 applied → ls exit 1; --- FAIL: TestCheckFrameList, "check-frame-list is not registered" -->
-  - [ ] **Step 2: Apply the fix.** Apply the rest
+  - [x] **Step 2: Apply the fix.** Apply the rest
     (`git apply --exclude='stats/internal/guard/check_frame_list_test.go' <the saved diff>`); it
     creates `scripts/check-frame-list.sh` executable and `skills/flow/scripts/check-frame-list.sh`
     as a symlink to `../../../scripts/check-frame-list.sh`:
@@ -496,11 +496,11 @@ index 00000000..f9a26a22
 +}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./internal/guard -run 'TestCheckFrameList' -count=1`
+  - [x] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./internal/guard -run 'TestCheckFrameList' -count=1`
     passes; `cd stats && go vet ./internal/guard && gofmt -l internal/guard` prints nothing;
     `scripts/check-guard-symlinks.sh`, `scripts/check-references.sh`, `python3 scripts/check-markdown-integrity.py`
     and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 4: Commit** the seven files with the subject below.
+  - [x] **Step 4: Commit** the seven files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/framelist.go`, `stats/internal/guard/check_frame_list_test.go`, `scripts/check-frame-list.sh`, `skills/flow/scripts/check-frame-list.sh`, `skills/flow/visual-verify.md`, `skills/flow/SKILL-rationale.md`, `.flow/project.md`
