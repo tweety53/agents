@@ -3,7 +3,7 @@
 # the hook and asserts its decision. Cases:
 #
 #   1. no baseline pointer                                 -> deny (baseline reason)
-#   2. pointer, no pinned-role marker, any type/model      -> allow
+#   2. pointer, no pinned-role marker line, any type/model -> allow
 #   3. verifier prompt on flow-low / opus                  -> allow
 #   4. verifier prompt on flow-high / opus                 -> deny, names flow-low and opus
 #   5. verifier prompt on flow-low with no model           -> deny
@@ -15,6 +15,9 @@
 #   9. the same from ~/.zcode/hooks on flow-low / opus     -> deny, names glm-5.3-flash
 #  10. a fork dispatch carrying the verifier marker        -> allow
 #  11. malformed JSON                                      -> allow, exit 0
+#  12. a planner or implementer prompt citing the verifier
+#      or analyst file, with no marker line, off the
+#      pinned pair                                         -> allow
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,8 +34,10 @@ mkdir -p "$SANDBOX/.zcode/hooks"
 ln -s "$HOOK" "$SANDBOX/.zcode/hooks/enforce-agent-baseline.py"
 
 BASELINE='Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task. Include this instruction verbatim in any prompt you write for another agent.'
-VERIFIER="$BASELINE Read /x/skills/flow/visual-verify-verifier.md and run its steps."
-ANALYST="$BASELINE Name the sweep in /x/skills/flow/visual-verify-verifier.md; write .superpowers/sdd/tooling-analysis-1.md."
+VERIFIER="Role: visual-verify verifier
+$BASELINE Read /x/skills/flow/visual-verify-verifier.md and run its steps."
+ANALYST="Role: visual-verify tooling analyst
+$BASELINE Name the sweep in /x/skills/flow/visual-verify-verifier.md; write .superpowers/sdd/tooling-analysis-1.md."
 
 # payload <prompt> <subagent_type> [model]
 payload() {
@@ -111,6 +116,13 @@ expect_allow "10 fork exempt"
 
 run_hook "$HOOK" '{not json'
 expect_allow "11 malformed JSON"
+
+run_hook "$HOOK" "$(payload "Key: self-review-x-plan
+$BASELINE Finding 2 cites /x/skills/flow/visual-verify-verifier.md:120." flow-medium opus)"
+expect_allow "12 a planner citing the verifier file, no marker line"
+
+run_hook "$HOOK" "$(payload "$BASELINE Task 4 re-reads .superpowers/sdd/tooling-analysis-1.md and step 8 of skills/flow/visual-verify-verifier.md." flow-low sonnet)"
+expect_allow "12b an implementer citing both files, no marker line"
 
 if [ "$FAILURES" -ne 0 ]; then
   printf 'FAIL: test-enforce-agent-baseline-hook.sh (%d)\n' "$FAILURES" >&2

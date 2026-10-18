@@ -40,3 +40,7 @@ The parent records the dispatch `-role planner`, `-task` omitted, `-model opus -
 A finding hard to solve escalates the planner rather than leaving the loop: the re-plan, key `self-review-<name>-plan-<n>`, may run on `flow-high` (effort `high`) in place of the planner pair's `flow-medium`.
 The parent records the dispatch `-role planner`, `-task` omitted, `-model opus -effort high`, `-key tooling-analysis-<n>`, suffixed `-<repository name>` under the verifier's rule — the pair's semantics are section 4 of `skills/flow/implement.md`, cited here, not restated.
 `subagent_type: flow-high` (`agents/flow-high.md`, effort `high`), the Agent tool's `model` parameter set to the literal `opus` (**Model and effort**, `skills/flow/brainstorm-planner.md`), mapped on harnesses `zcode` and `muse` per **Harness mapping** (`skills/flow-contracts/model-policy.md`).
+# Review F7-1: the hook pins the verifier and the tooling analyst on a marker line their prompts open with, not on any mention of their files.
+Its prompt carries, verbatim:
+Its prompt opens with the line `Role: visual-verify tooling analyst` — the marker `hooks/enforce-agent-baseline.py` pins this pair on — and carries, verbatim:
+Its prompt opens with the line `Role: visual-verify verifier` — the marker `hooks/enforce-agent-baseline.py` pins this pair on — and carries, verbatim:

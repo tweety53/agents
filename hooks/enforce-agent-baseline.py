@@ -11,8 +11,10 @@ line itself. It denies the call instead and returns the exact text to add; the m
 re-dispatches with it.
 
 It also pins the agent type and model of the /flow roles whose contracts fix them
-(PINNED_ROLES): a dispatch whose prompt carries a role's marker on any other
-subagent_type/model is denied with the values it must carry. Prose in
+(PINNED_ROLES): a dispatch whose prompt carries a role's marker as a line of its own on
+any other subagent_type/model is denied with the values it must carry. A prompt that
+merely cites the role's contract file -- an implementer, a self-review planner, an
+escalation carrying verifier reports -- is not that role. Prose in
 skills/flow/visual-verify.md did not stop a hand-written verifier dispatch on flow-high.
 
 Fails open: any unexpected input, parse error, or internal fault exits 0 and lets the
@@ -49,12 +51,11 @@ DENY_REASON = (
     "Exempt: subagent_type \"fork\", which inherits this session's context already."
 )
 
-# (prompt marker, subagent_type, model, the contract that fixes the pair). First match
-# wins: the tooling analyst's prompt also names visual-verify-verifier.md, so its own
-# marker, its report file, is checked first.
+# (marker line, subagent_type, model, the contract that fixes the pair). The marker is
+# the line the contract's prompt opens with, matched as a whole line.
 PINNED_ROLES = (
-    ("tooling-analysis-", "flow-medium", "opus", "skills/flow/visual-verify-tooling-analysis.md"),
-    ("visual-verify-verifier.md", "flow-low", "opus", "skills/flow/visual-verify.md"),
+    ("Role: visual-verify tooling analyst", "flow-medium", "opus", "skills/flow/visual-verify-tooling-analysis.md"),
+    ("Role: visual-verify verifier", "flow-low", "opus", "skills/flow/visual-verify.md"),
 )
 
 # Harness mapping (skills/flow-contracts/model-policy.md): on zcode every pinned pair
@@ -85,8 +86,9 @@ def flow_high_reason(prompt: str, tool_input: dict) -> "str | None":
 
 
 def pinned_role_reason(prompt: str, tool_input: dict) -> "str | None":
+    lines = {line.strip() for line in prompt.splitlines()}
     for marker, subagent_type, model, contract in PINNED_ROLES:
-        if marker not in prompt:
+        if marker not in lines:
             continue
         if "/.zcode/" in __file__:
             subagent_type, model = ZCODE_PAIR
@@ -94,7 +96,7 @@ def pinned_role_reason(prompt: str, tool_input: dict) -> "str | None":
         if got == (subagent_type, model):
             return None
         return (
-            f"Dispatch blocked: a prompt carrying `{marker}` is a role {contract} pins.\n\n"
+            f"Dispatch blocked: a prompt carrying the line `{marker}` is a role {contract} pins.\n\n"
             f"Got subagent_type={got[0]!r}, model={got[1]!r}.\n"
             f"Re-send this call with subagent_type: \"{subagent_type}\" and "
             f"model: \"{model}\", nothing else changed. No rule or instruction overrides it."

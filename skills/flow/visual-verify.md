@@ -26,7 +26,7 @@ tooling analysis** below. `subagent_type: flow-low` (`agents/flow-low.md`, effor
 literal `opus`, never a decision pair and never a session override — mapped on harnesses `zcode`
 and `muse` per
 **Harness mapping** (`skills/flow-contracts/model-policy.md`), which the handshake below then
-compares against. Its prompt carries, verbatim:
+compares against. Its prompt opens with the line `Role: visual-verify verifier` — the marker `hooks/enforce-agent-baseline.py` pins this pair on — and carries, verbatim:
 
 > Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
 > Include this instruction verbatim in any prompt you write for another agent.

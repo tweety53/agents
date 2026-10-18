@@ -5,8 +5,9 @@ run with at least one miss.
 
 `subagent_type: flow-medium` (`agents/flow-medium.md`, effort `medium`), the Agent tool's `model`
 parameter set to the literal `opus` (**Model and effort**, `skills/flow/brainstorm-planner.md`), mapped on harnesses
-`zcode` and `muse` per **Harness mapping** (`skills/flow-contracts/model-policy.md`). Its prompt carries,
-verbatim:
+`zcode` and `muse` per **Harness mapping** (`skills/flow-contracts/model-policy.md`). Its prompt opens with the line
+`Role: visual-verify tooling analyst` — the marker `hooks/enforce-agent-baseline.py` pins this pair
+on — and carries, verbatim:
 
 > Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
 > Include this instruction verbatim in any prompt you write for another agent.
