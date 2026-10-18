@@ -28,6 +28,13 @@ run included, names under `moved:` in its prompt every frame a `<spec>.mockups` 
 spec whose baseline moved — the verifier compares each against its mockup exactly as it does the
 change's own frames, so a screen the shared fix regressed is a departure the next round fixes.
 
+**Mockup departures are classified before the round's task is written.** Where every frame that
+draws the departing component agrees, the departure is a defect this round fixes. Where frames
+disagree on a shared component, the component's own design source wins — the frame that draws it
+as its subject, or the design-system frame it is taken from: the departures that source backs are
+fixed, and the other frame's departure closes as a mockup conflict, named on the handoff's
+`**Decisions:**` lines beside the frame it lost to — never fixed, and never asked (KAN-801).
+
 One round runs these steps in order:
 
 1. **Transcribe the fix.** Run **Documenting a fix, before implementing it**
