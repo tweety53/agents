@@ -64,6 +64,14 @@
 # ambiguity refusal (KAN-524) compares verdicts rather than raw exit codes,
 # it works unchanged under either.
 #
+# THE BOUND IS 20 SECONDS UNLESS THE REPRODUCER DECLARES ITS OWN (KAN-831).
+# A reproducer that builds or runs tests — a Gradle suite outlives 20
+# seconds — carries the exact line `# reproducer-bound: <seconds>`, a
+# positive whole number, within its first 10 lines, and this script then
+# bounds every run of it by that many seconds. A malformed declaration
+# leaves the default. RUN_REPRODUCER_BOUND_SECONDS, when set, still wins
+# over the declaration.
+#
 # THE COMPARISON IS VALID ONLY BETWEEN TWO RUNS OF THE SAME FILE. The
 # verdict a `--pre-fix-verdict` re-run compares against is meaningful only when
 # the file is byte-for-byte what the dispatch-time run read — a re-authored

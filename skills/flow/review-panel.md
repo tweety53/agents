@@ -489,7 +489,11 @@ it on stderr, exiting non-zero — never exit 0, the vacuous pass a rename must 
 (KAN-839). The marker the dispatch audit reads (KAN-904): the script must reference each declared
 premise path — `check-panel-reproducer-exit-contract.sh` refuses a declared premise the
 script never names outside the `# premise:` declaration itself, the declared-but-unasserted
-premise that reads a vacuous green. Carry the premise rule on every slot's dispatch prompt. **The exemption form is available to Minor
+premise that reads a vacuous green. Carry the premise rule on every slot's dispatch prompt.
+**A reproducer that builds or runs tests also declares its own bound**: the exact line
+`# reproducer-bound: <seconds>`, a positive whole number covering that build or test run, in the
+same first-10-lines window — `run-reproducer.sh` enforces it on every run in place of its
+20-second default (KAN-831). **The exemption form is available to Minor
 findings only: an Important-severity finding must carry a runnable command** — one that
 `check-panel-reproducers.sh` accepts and the parent can run — and the guard rejects the exemption
 at Important. A demonstrating command needing a pipe, a

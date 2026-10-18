@@ -252,10 +252,11 @@ run-reproducer.sh <worktree> "<the finding's finding-reproducer: text>"
 recorded relative path resolves, canonical first, else the one recorded worktree carrying it
 (KAN-658) — the same tree the exit-contract guard above already ran this reproducer in.
 
-**A reproducer that builds or runs tests outlives the runner's 20-second bound.** Every run of
-one — the exit-contract guard above, the per-finding run here and its re-run below — carries
-`RUN_REPRODUCER_BOUND_SECONDS=<the seconds that build or test run needs>` in front of the
-command, in a foreground Bash call whose timeout covers the bound (600000 max), so it reaches a verdict rather than a timeout.
+**A reproducer that builds or runs tests outlives the runner's 20-second bound, so it declares its
+own.** Its header carries the `# reproducer-bound: <seconds>` line that
+`skills/flow/review-panel.md` asks of it, and every run of one — the exit-contract guard above, the
+per-finding run here and its re-run below — enforces that bound, in a foreground Bash call whose
+timeout covers it (600000 max), so it reaches a verdict rather than a timeout (KAN-831).
 
 Read its exit code: **0** dispatches the finding; **1** bounces it once, back to the raising slot,
 carrying the reproducer's passing output; **2** is a refusal — recorded **unverifiable**, put to the

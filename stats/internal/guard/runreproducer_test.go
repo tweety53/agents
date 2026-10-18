@@ -452,6 +452,46 @@ func TestRRDeadlineParsesEnvKnob(t *testing.T) {
 	}
 }
 
+// TestRRDeclaredBound pins the `# reproducer-bound: <seconds>` header
+// (KAN-831): a positive whole number on an exact line within the first 10
+// lines is the bound; anything else leaves the 20-second default.
+func TestRRDeclaredBound(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	for i, c := range []struct {
+		body, want string
+	}{
+		{"#!/usr/bin/env bash\n# reproducer-bound: 600\nexit 1\n", "600"},
+		{"#!/usr/bin/env bash\nexit 1\n", "20"},
+		{strings.Repeat("# filler\n", 9) + "# reproducer-bound: 300\n", "300"},
+		{strings.Repeat("# filler\n", 10) + "# reproducer-bound: 300\n", "20"},
+		{"# reproducer-bound: 5s\n", "20"},
+		{"# reproducer-bound: 0\n", "20"},
+		{"# reproducer-bound: 90 seconds\n", "20"},
+		{"# reproducer-bound:\n", "20"},
+		{"# reproducer-bound: 9300000000\n", "20"},
+	} {
+		p := filepath.Join(dir, fmt.Sprintf("r%d.sh", i))
+		writeFile(t, p, c.body)
+		if got := rrDeclaredBound(p); got != c.want {
+			t.Errorf("case %d %q: rrDeclaredBound = %q, want %q", i, c.body, got, c.want)
+		}
+	}
+}
+
+// TestRunReproducerEnforcesDeclaredBound: with no knob and no injected
+// bound, a reproducer declaring `# reproducer-bound: 1` is killed at 1s, not
+// at the 20-second default (KAN-831).
+func TestRunReproducerEnforcesDeclaredBound(t *testing.T) {
+	t.Parallel()
+	wt := rrWorktree(t)
+	rrFixture(t, wt, "scripts/declares-bound.sh", "# reproducer-bound: 1\nsleep 30")
+	env := rrEnv(t)
+	env.ReproducerBound = 0
+	got, out := rrRun(t, env, wt, "scripts/declares-bound.sh")
+	rrExpect(t, got, out, 3, "at the 1s bound")
+}
+
 // TestRunReproducerChildPWDIsWorktree: the bash guard's `cd -- "$WORKTREE"`
 // gave the reproducer PWD=<worktree>. A non-bash reproducer is used because
 // bash resets PWD on its own.

@@ -259,7 +259,13 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	// (skills/flow/review-panel-fix-round.md). A larger bound only lets a run
 	// finish; it never changes what the run's exit code means. The Go tests
 	// inject Env.ReproducerBound and Env.ReproducerGrace instead.
-	bound, boundLabel := rrDeadline(env.ReproducerBound, env.Getenv("RUN_REPRODUCER_BOUND_SECONDS"), rrDefaultBnd)
+	//
+	// A reproducer that declares its own bound (rrDeclaredBound, KAN-831)
+	// replaces the 20-second default with it, so every run of that file --
+	// the exit-contract guard's, the per-finding run and its re-run -- is
+	// bounded alike without each caller remembering the knob; the knob
+	// still wins over the declaration.
+	bound, boundLabel := rrDeadline(env.ReproducerBound, env.Getenv("RUN_REPRODUCER_BOUND_SECONDS"), rrDeclaredBound(resolved))
 	grace, _ := rrDeadline(env.ReproducerGrace, env.Getenv("RUN_REPRODUCER_GRACE_SECONDS"), rrDefaultGrc)
 	// RUN_REPRODUCER_BOUND_FILE, when set, also expires the bound the moment that
 	// path exists. Test-only, and monotone the same way: it can end the wait
@@ -506,6 +512,29 @@ func declaresMutation(path string) bool {
 		}
 	}
 	return false
+}
+
+// rrBoundPrefix opens the line a reproducer declares its own bound with
+// (KAN-831): `# reproducer-bound: <seconds>`, within the same first 10
+// lines the mutation declaration reads.
+const rrBoundPrefix = "# reproducer-bound: "
+
+// rrDeclaredBound is the seconds a reproducer's own header declares, a
+// positive whole number up to 86400 (a day; larger would overflow the
+// time.Duration it becomes) on a line that is exactly rrBoundPrefix and that
+// number, within its first 10 lines; rrDefaultBnd when none does -- a
+// malformed declaration included, so the run is never left unbounded.
+func rrDeclaredBound(file string) string {
+	for _, l := range headLines(file, 10) {
+		v, ok := strings.CutPrefix(l, rrBoundPrefix)
+		if !ok || v == "" || strings.Trim(v, "0123456789") != "" {
+			continue
+		}
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 86400 {
+			return v
+		}
+	}
+	return rrDefaultBnd
 }
 
 // rrDeadline is a RUN_REPRODUCER_* knob: an injected duration wins;
