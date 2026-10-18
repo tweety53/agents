@@ -32,7 +32,20 @@
 # measured on the centre row and centre column of the region, from the outside
 # inward, so the region's centre must fall inside the control. Only `shadow`
 # and `gap` look past the region, out to the image's own edge, so a neighbour
-# belongs outside the region, not in it. `ink` and `runs` need no control edge
+# belongs outside the region, not in it.
+#
+# A control that runs off the image — a full-width bar, a card in the frame's
+# corner — has no background margin on that side. A given `--region-*` whose
+# side lies on the image's own edge, with that side's end of the centre scan
+# line not background, is `clipped` there: the box edge on that side is the
+# image's edge, the corners touching it need not be background (the
+# background is then the corners' modal colour when the top-left pixel is
+# not it), and `border`, `shadow` and `gap` on that side and `radius` on its
+# two corners read the string "clipped" in place of a number — the other
+# sides still measure. The output's `clipped` key lists the clipped sides,
+# comma-joined, and is absent when none is; a clipped leaf's `delta` carries
+# both readings and no `abs`. The whole image, the default region, clips
+# nothing. `ink` and `runs` need no control edge
 # at all and are the two properties to run before the crop is trusted.
 #
 # Properties (pixels of the region's own image; `null` where not found):

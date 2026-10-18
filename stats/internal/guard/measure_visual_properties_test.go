@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"math"
 	"os"
 	"path/filepath"
@@ -94,6 +97,35 @@ func TestPyJSON(t *testing.T) {
 }
 
 const mvpTestdata = "testdata/measure-visual-properties"
+
+// mvpPNG writes a w×h PNG, each pixel from px, to a temporary file and
+// returns its path.
+func mvpPNG(t *testing.T, w, h int, px func(x, y int) color.RGBA) string {
+	t.Helper()
+	im := image.NewRGBA(image.Rect(0, 0, w, h))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			im.Set(x, y, px(x, y))
+		}
+	}
+	path := filepath.Join(t.TempDir(), "im.png")
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if err := png.Encode(f, im); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// mvpSoft is step n (1–3, outward) of a soft shadow: each step under the
+// default --edge from its neighbour, so no step reads as the control's edge.
+func mvpSoft(n int) color.RGBA {
+	v := uint8(0xff - 13*(4-n))
+	return color.RGBA{v, v, v, 0xff}
+}
 
 // mvpRun runs the guard in-process with dir as its working directory.
 func mvpRun(t *testing.T, dir string, args ...string) (rc int, stdout, stderr string) {
@@ -261,6 +293,41 @@ func TestMeasureVisualProperties(t *testing.T) {
 				got = append(got, mvpSp(statuses, mvpDig(d, "delta", "seams_summary", "missing"), mvpDig(d, "delta", "seams_summary", "bands_unpaired"), cells))
 			}
 			return strings.Join(got, "\n"), "[paired] 1 0 [[(3,2): [-11 -11] [-21 -21]]]\n[missing] 0 1 []"
+		}},
+		{"case 11: a control running off the image's edge is measured on its other sides and reports the edge it runs past as clipped", func(t *testing.T) (string, string) {
+			// A full-width bar with a 3px soft shadow below, and a card in the
+			// image's top-left corner with one right and below.
+			bar := mvpPNG(t, 200, 100, func(x, y int) color.RGBA {
+				switch {
+				case y >= 40 && y <= 59:
+					return color.RGBA{0x33, 0x66, 0xcc, 0xff}
+				case y >= 60 && y <= 62:
+					return mvpSoft(y - 59)
+				}
+				return color.RGBA{0xff, 0xff, 0xff, 0xff}
+			})
+			card := mvpPNG(t, 200, 100, func(x, y int) color.RGBA {
+				switch {
+				case x <= 119 && y <= 39:
+					return color.RGBA{0x33, 0x66, 0xcc, 0xff}
+				case x <= 122 && y <= 42:
+					return mvpSoft(max(x-119, y-39))
+				}
+				return color.RGBA{0xff, 0xff, 0xff, 0xff}
+			})
+			var got []string
+			for _, c := range []struct{ image, region string }{{bar, "0,20,200,70"}, {card, "0,0,160,60"}} {
+				d := mvpJSON(t, dir, c.image, "--region-a", c.region, "--props", "box,shadow,gap")
+				sh := func(side string) any {
+					if v, ok := mvpDig(d, "a", "shadow", side).(string); ok {
+						return v
+					}
+					return mvpDig(d, "a", "shadow", side, "width")
+				}
+				got = append(got, mvpSp(mvpDig(d, "a", "clipped"), mvpDig(d, "a", "box", "width"), mvpDig(d, "a", "box", "height"),
+					sh("left"), sh("right"), sh("top"), sh("bottom"), mvpDig(d, "a", "gap", "left")))
+			}
+			return strings.Join(got, "\n"), "left,right 200 20 clipped clipped 0 3 clipped\nleft,top 120 40 clipped 3 clipped 3 clipped"
 		}},
 		{"case 10: a small-caps caption whose flat tops ink most of its span is not a boxed band, while the bordered control under it still is", func(t *testing.T) (string, string) {
 			d := mvpJSON(t, dir, pair("captioned-frame.png", "captioned-capture.png", "seams")...)

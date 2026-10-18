@@ -341,12 +341,46 @@ type mvpRegion struct {
 	border           [4]int // left, right, top, bottom
 	borderColour     [3]byte
 	haveBorderColour bool
+	clipped          [4]bool // left, right, top, bottom: the control runs off the image there
+	cropped          bool    // the region was given, not the whole image
+}
+
+// mvpCorners are the region's corners, each with the two sides it touches.
+func (r *mvpRegion) corners() [4][4]int {
+	return [4][4]int{{0, 0, 0, 2}, {r.w - 1, 0, 1, 2}, {0, r.h - 1, 0, 3}, {r.w - 1, r.h - 1, 1, 3}}
+}
+
+// clip marks each side of a given region lying on the image's own edge whose
+// centre scan line starts on non-background: the control runs off the image
+// there, so that side has no edge, shadow or gap to measure. The whole image
+// is never a crop around one control, so it clips nothing.
+func (r *mvpRegion) clip() {
+	if !r.cropped {
+		return
+	}
+	cx, cy := r.w/2, r.h/2
+	onEdge := [4]bool{r.x0 == 0, r.x0+r.w == r.im.W, r.y0 == 0, r.y0+r.h == r.im.H}
+	ends := [4][2]int{{0, cy}, {r.w - 1, cy}, {cx, 0}, {cx, r.h - 1}}
+	for k := range r.clipped {
+		r.clipped[k] = onEdge[k] && !r.isBg(r.at(ends[k][0], ends[k][1]))
+	}
+}
+
+// checkCorners requires every corner touching no clipped side to be background.
+func (r *mvpRegion) checkCorners() error {
+	for _, c := range r.corners() {
+		if !r.clipped[c[2]] && !r.clipped[c[3]] && mvpDist(r.at(c[0], c[1]), r.bg) > r.noise {
+			return mvpUnresolved(fmt.Sprintf("region corner (%d,%d) is not background %s — widen the crop", c[0], c[1], mvpHex(r.bg)))
+		}
+	}
+	return nil
 }
 
 // mvpOpen is Region.__init__: the image read as convert("RGB") yields it, the
 // region checked against it, and the background taken — the region's modal
 // colour in page mode, else its top-left pixel, every other corner required
-// to match it within the noise.
+// to match it within the noise — save a corner on a clipped side, and with
+// the corners' modal colour tried when the top-left pixel fails.
 func mvpOpen(env Env, path string, box *[4]int, a mvpArgs, page bool) (*mvpRegion, error) {
 	file := path
 	if file != "" && !filepath.IsAbs(file) {
@@ -360,7 +394,7 @@ func mvpOpen(env Env, path string, box *[4]int, a mvpArgs, page bool) (*mvpRegio
 	if box != nil {
 		b = *box
 	}
-	r := &mvpRegion{im: im, x0: b[0], y0: b[1], w: b[2], h: b[3], edge: a.edge, noise: a.noise, edgeText: a.edgeText}
+	r := &mvpRegion{im: im, x0: b[0], y0: b[1], w: b[2], h: b[3], edge: a.edge, noise: a.noise, edgeText: a.edgeText, cropped: box != nil}
 	if r.w > im.W || r.x0 > im.W-r.w || r.h > im.H || r.y0 > im.H-r.h {
 		return nil, fmt.Errorf("region (%d, %d, %d, %d) exceeds %s (%dx%d)", b[0], b[1], b[2], b[3], path, im.W, im.H)
 	}
@@ -375,12 +409,35 @@ func mvpOpen(env Env, path string, box *[4]int, a mvpArgs, page bool) (*mvpRegio
 		return r, nil
 	}
 	r.bg = r.at(0, 0)
-	for _, p := range [][2]int{{r.w - 1, 0}, {0, r.h - 1}, {r.w - 1, r.h - 1}} {
-		if mvpDist(r.at(p[0], p[1]), r.bg) > r.noise {
-			return nil, mvpUnresolved(fmt.Sprintf("region corner (%d,%d) is not background %s — widen the crop", p[0], p[1], mvpHex(r.bg)))
-		}
+	r.clip()
+	err = r.checkCorners()
+	if err == nil {
+		return r, nil
+	}
+	// A control running off the image's edge leaves a corner on that side
+	// non-background: retry with the corners' modal colour as background,
+	// and keep the top-left reading's reason when that fails too.
+	var c mvpCounter
+	for _, k := range r.corners() {
+		c.add(r.at(k[0], k[1]))
+	}
+	r.bg, _ = c.top()
+	r.clip()
+	if r.checkCorners() != nil {
+		return nil, err
 	}
 	return r, nil
+}
+
+// clippedText is the clipped sides, comma-joined.
+func (r *mvpRegion) clippedText() string {
+	var sides []string
+	for k, c := range r.clipped {
+		if c {
+			sides = append(sides, mvpSides[k])
+		}
+	}
+	return strings.Join(sides, ",")
 }
 
 func (r *mvpRegion) at(x, y int) [3]byte { return r.im.at(r.x0+x, r.y0+y) }
@@ -493,6 +550,10 @@ func (r *mvpRegion) measureBox() (pyObj, error) {
 	lines := [][][2]int{r.row(cy, 0, cx), r.row(cy, r.w-1, cx), r.col(cx, 0, cy), r.col(cx, r.h-1, cy)}
 	var found [4]int
 	for k, pts := range lines {
+		if r.clipped[k] {
+			found[k] = pts[0][k/2] // the image's edge: the control runs past it
+			continue
+		}
 		i := r.firstEdge(pts)
 		if i < 0 {
 			return nil, mvpUnresolved(fmt.Sprintf("no edge on the centre scan line from the %s (jump >= %s); the region's centre may lie outside the control, or lower --edge", mvpSides[k], r.edgeText))
@@ -518,7 +579,12 @@ func (r *mvpRegion) measureRadius() (pyObj, error) {
 		{"bottom_right", b.bottom, -1, r.w - 1, b.right},
 	}
 	out := pyObj{}
+	sides := r.corners()
 	for k, c := range corners {
+		if r.clipped[sides[k][2]] || r.clipped[sides[k][3]] {
+			out = append(out, pyKV{c.name, "clipped"})
+			continue
+		}
 		// The area between the straight side and the curve is r²(1 − π/4);
 		// summing each row's inset from the side and inverting that is
 		// robust to antialiasing where counting rows until the inset hits
@@ -574,6 +640,10 @@ func (r *mvpRegion) measureBorder() pyObj {
 	lines := [][][2]int{r.row(cy, b.left, cx), r.row(cy, b.right, cx), r.col(cx, b.top, cy), r.col(cx, b.bottom, cy)}
 	out := pyObj{}
 	for k, pts := range lines {
+		if r.clipped[k] {
+			out = append(out, pyKV{mvpSides[k], "clipped"})
+			continue
+		}
 		var solid [][3]byte
 		for _, p := range pts {
 			c := r.at(p[0], p[1])
@@ -602,7 +672,11 @@ func (r *mvpRegion) measureShadow() pyObj {
 		black = 1
 	}
 	out := pyObj{}
-	for _, side := range mvpSides {
+	for k, side := range mvpSides {
+		if r.clipped[k] {
+			out = append(out, pyKV{side, "clipped"})
+			continue
+		}
 		width, peak := 0, 0.0
 		for _, p := range r.outward(side) {
 			d := mvpDist(r.at(p[0], p[1]), r.bg)
@@ -669,7 +743,11 @@ func (r *mvpRegion) measureContent() pyObj {
 
 func (r *mvpRegion) measureGap() pyObj {
 	out := pyObj{}
-	for _, side := range mvpSides {
+	for k, side := range mvpSides {
+		if r.clipped[k] {
+			out = append(out, pyKV{side, "clipped"})
+			continue
+		}
 		pts := r.outward(side)
 		i := 0
 		for i < len(pts) && !r.isBg(r.at(pts[i][0], pts[i][1])) {
@@ -940,6 +1018,9 @@ func (r *mvpRegion) measure(props []string) (mvpMeasured, error) {
 	m := mvpMeasured{out: pyObj{{"background", mvpHex(r.bg)}}}
 	needsBox := slices.ContainsFunc(props, func(p string) bool { return !slices.Contains([]string{"ink", "runs", "bands", "seams"}, p) })
 	if needsBox {
+		if c := r.clippedText(); c != "" {
+			m.out = append(m.out, pyKV{"clipped", c})
+		}
 		box, err := r.measureBox()
 		if err != nil {
 			return m, err
@@ -1286,7 +1367,7 @@ func mvpDelta(a, b mvpMeasured, props []string, scale float64) pyObj {
 				s = 1
 			}
 			out = append(out, pyKV{key, mvpNumberDelta(av, bv, s)})
-		case av == nil || bv == nil:
+		case av == nil || bv == nil || av == "clipped" || bv == "clipped":
 			out = append(out, pyKV{key, pyObj{{"a", av}, {"b", bv}, {"abs", nil}, {"pct", nil}}})
 		}
 	}
