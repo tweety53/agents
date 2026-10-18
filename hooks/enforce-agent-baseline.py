@@ -10,6 +10,11 @@ The PreToolUse contract has no way to rewrite tool input, so this hook cannot in
 line itself. It denies the call instead and returns the exact text to add; the model then
 re-dispatches with it.
 
+It also pins the agent type and model of the /flow roles whose contracts fix them
+(PINNED_ROLES): a dispatch whose prompt carries a role's marker on any other
+subagent_type/model is denied with the values it must carry. Prose in
+skills/flow/visual-verify.md did not stop a hand-written verifier dispatch on flow-high.
+
 Fails open: any unexpected input, parse error, or internal fault exits 0 and lets the
 dispatch through. A guardrail on a convention must never be the reason work stops.
 """
@@ -44,6 +49,50 @@ DENY_REASON = (
     "Exempt: subagent_type \"fork\", which inherits this session's context already."
 )
 
+# (prompt marker, subagent_type, model, the contract that fixes the pair). First match
+# wins: the tooling analyst's prompt also names visual-verify-verifier.md, so its own
+# marker, its report file, is checked first.
+PINNED_ROLES = (
+    ("tooling-analysis-", "flow-high", "opus", "skills/flow/visual-verify-tooling-analysis.md"),
+    ("visual-verify-verifier.md", "flow-low", "opus", "skills/flow/visual-verify.md"),
+)
+
+# Harness mapping (skills/flow-contracts/model-policy.md): on zcode every pinned pair
+# is dispatched as flow-high / glm-5.3-flash. The zcode registration runs the hook from
+# ~/.zcode/hooks, which is how the hook tells the harness.
+ZCODE_PAIR = ("flow-high", "glm-5.3-flash")
+
+
+def pinned_role_reason(prompt: str, tool_input: dict) -> "str | None":
+    for marker, subagent_type, model, contract in PINNED_ROLES:
+        if marker not in prompt:
+            continue
+        if "/.zcode/" in __file__:
+            subagent_type, model = ZCODE_PAIR
+        got = (tool_input.get("subagent_type"), tool_input.get("model"))
+        if got == (subagent_type, model):
+            return None
+        return (
+            f"Dispatch blocked: a prompt carrying `{marker}` is a role {contract} pins.\n\n"
+            f"Got subagent_type={got[0]!r}, model={got[1]!r}.\n"
+            f"Re-send this call with subagent_type: \"{subagent_type}\" and "
+            f"model: \"{model}\", nothing else changed. No rule or instruction overrides it."
+        )
+    return None
+
+
+def deny(reason: str) -> None:
+    json.dump(
+        {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": reason,
+            }
+        },
+        sys.stdout,
+    )
+
 
 def main() -> int:
     try:
@@ -69,19 +118,13 @@ def main() -> int:
         return 0
 
     lowered = prompt.lower()
-    if all(marker in lowered for marker in REQUIRED_MARKERS):
+    if not all(marker in lowered for marker in REQUIRED_MARKERS):
+        deny(DENY_REASON)
         return 0
 
-    json.dump(
-        {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": DENY_REASON,
-            }
-        },
-        sys.stdout,
-    )
+    reason = pinned_role_reason(prompt, tool_input)
+    if reason:
+        deny(reason)
     return 0
 
 
