@@ -205,16 +205,16 @@ index 02ae0678..ad054459 100644
 
 **Decision:** rewritten-baseline-read
 
-- [ ] 5. Make setLevel's friend check and write atomic against a concurrent unfriend (KAN-733)
-  - [ ] **Step 1: Create the gymie worktree.** `git -C /Users/tweety53/Projects/gymie fetch origin`, then
+- [x] 5. Make setLevel's friend check and write atomic against a concurrent unfriend (KAN-733)
+  - [x] **Step 1: Create the gymie worktree.** `git -C /Users/tweety53/Projects/gymie fetch origin`, then
     `git -C /Users/tweety53/Projects/gymie worktree add /Users/tweety53/Projects/gymie-worktrees/self-review-backlog-flow-6 -b self-review-backlog-flow-6 origin/develop`.
     Every later step runs in that worktree.
-  - [ ] **Step 2: Reproduce before touching anything; do not guess.** Read
+  - [x] **Step 2: Reproduce before touching anything; do not guess.** Read
     `src/app/profile/src/main/kotlin/com/gymie/profile/core/services/access/impl/AccessServiceImpl.kt`:
     `setLevel` is not `@Transactional` and checks `friendships.findPair(...)`, a plain `SELECT` that
     takes no lock; `FriendshipRepositoryAdapter.unfriend` reads the pair with a plain `SELECT` too.
     <!-- measured: git show origin/develop:<those two files> @ gymie 8d2bb89d → setLevel has no @Transactional and calls findPair; unfriend's SELECT has no FOR UPDATE -->
-  - [ ] **Step 3: Write the two failing tests** in `src/app/profile/src/test/kotlin/com/gymie/profile/infrastructure/persistence/SocialGraphAdapterTest.kt`,
+  - [x] **Step 3: Write the two failing tests** in `src/app/profile/src/test/kotlin/com/gymie/profile/infrastructure/persistence/SocialGraphAdapterTest.kt`,
     on the lock-wait pattern `AccessGrantRepositoryAdapterTest`'s `two concurrent drops of the two scopes leave the pair deleted` uses
     (a raw JDBC connection with `autoCommit = false` holding a row lock, the other side on a `CompletableFuture`, `pg_locks WHERE NOT granted` polled until it queues, then commit):
     - `lockAcceptedPair waits for a concurrent unfriend and then answers false` — the held connection runs `unfriend`'s statements
@@ -226,7 +226,7 @@ index 02ae0678..ad054459 100644
     Run `./gradlew :profile:test --tests 'com.gymie.profile.infrastructure.persistence.SocialGraphAdapterTest'`: the first test does not compile
     (no `lockAcceptedPair`) — comment it out to watch the second fail on the unchanged `unfriend` (a grant row survives), then restore it.
     <!-- unverified: the Gradle project path `:profile` and the test-application wiring SocialGraphAdapterTest needs for a transactional call — confirm with ./gradlew projects and the file's own TestApplication -->
-  - [ ] **Step 4: Fix.** Add to `FriendshipReadRepository`
+  - [x] **Step 4: Fix.** Add to `FriendshipReadRepository`
     `fun lockAcceptedPair(a: UUID, b: UUID): Boolean` — KDoc: "Whether [a] and [b] are accepted friends, holding the
     pair's row lock to the end of the caller's transaction; a concurrent [FriendshipWriteRepository.unfriend] waits for it, or it for that." —
     implemented in `FriendshipRepositoryAdapter` as
@@ -236,10 +236,10 @@ index 02ae0678..ad054459 100644
     `!friendships.lockAcceptedPair(callerId, targetUserId)`; update the class KDoc's first line to say the check holds the
     friendship row's lock through the write (KAN-733). In `AccessServiceImplTest`, mock `lockAcceptedPair` where the tests mock `findPair`
     (`false` for the null and `PENDING` cases, `true` for `ACCEPTED`).
-  - [ ] **Step 5: Verify.** `./gradlew ktlintFormat`, then
+  - [x] **Step 5: Verify.** `./gradlew ktlintFormat`, then
     `./gradlew verifyChange :profile:test --tests 'com.gymie.profile.infrastructure.persistence.SocialGraphAdapterTest' --tests 'com.gymie.profile.core.services.access.AccessServiceImplTest'`
     is `BUILD SUCCESSFUL`.
-  - [ ] **Step 6: Commit** the five files with the subject below.
+  - [x] **Step 6: Commit** the five files with the subject below.
 
 **Build:** green
 **Files:** `src/app/profile/src/main/kotlin/com/gymie/profile/core/ports/persistence/profile/FriendshipReadRepository.kt`, `src/app/profile/src/main/kotlin/com/gymie/profile/infrastructure/persistence/FriendshipRepositoryAdapter.kt`, `src/app/profile/src/main/kotlin/com/gymie/profile/core/services/access/impl/AccessServiceImpl.kt`, `src/app/profile/src/test/kotlin/com/gymie/profile/core/services/access/AccessServiceImplTest.kt`, `src/app/profile/src/test/kotlin/com/gymie/profile/infrastructure/persistence/SocialGraphAdapterTest.kt`, `src/app/profile/src/test/kotlin/com/gymie/profile/core/services/profile/ProfileServiceImplTest.kt`, `src/app/profile/src/test/kotlin/com/gymie/profile/core/services/profile/VisibilityTest.kt`
