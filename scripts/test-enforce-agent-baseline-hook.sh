@@ -15,7 +15,9 @@
 #      file) on flow-medium / opus                         -> allow
 #   7. tooling-analyst prompt on flow-high / opus          -> deny, names flow-medium
 #   8. verifier prompt run from a ~/.zcode/hooks path on
-#      flow-high / glm-5.3-flash                           -> allow
+#      general-purpose / glm-5.3-flash                     -> allow
+#  8b. the same from ~/.zcode/hooks on flow-high /
+#      glm-5.3-flash, a type ZCode does not offer (KAN-609) -> deny, names general-purpose
 #   9. the same from ~/.zcode/hooks on flow-low / opus     -> deny, names glm-5.3-flash
 #  10. a fork dispatch carrying the verifier marker        -> allow
 #  11. malformed JSON                                      -> allow, exit 0
@@ -113,8 +115,11 @@ expect_allow "6 analyst on flow-medium/opus"
 run_hook "$HOOK" "$(payload "$ANALYST" flow-high opus)"
 expect_deny "7 analyst on flow-high" 'subagent_type: \"flow-medium\"'
 
-run_hook "$SANDBOX/.zcode/hooks/enforce-agent-baseline.py" "$(payload "$VERIFIER" flow-high glm-5.3-flash)"
+run_hook "$SANDBOX/.zcode/hooks/enforce-agent-baseline.py" "$(payload "$VERIFIER" general-purpose glm-5.3-flash)"
 expect_allow "8 zcode verifier on its mapped pair"
+
+run_hook "$SANDBOX/.zcode/hooks/enforce-agent-baseline.py" "$(payload "$VERIFIER" flow-high glm-5.3-flash)"
+expect_deny "8b zcode verifier on a type ZCode does not offer" 'subagent_type: \"general-purpose\"'
 
 run_hook "$SANDBOX/.zcode/hooks/enforce-agent-baseline.py" "$(payload "$VERIFIER" flow-low opus)"
 expect_deny "9 zcode verifier on the claude pair" 'model: \"glm-5.3-flash\"'

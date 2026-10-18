@@ -59,9 +59,10 @@ PINNED_ROLES = (
 )
 
 # Harness mapping (skills/flow-contracts/model-policy.md): on zcode every pinned pair
-# is dispatched as flow-high / glm-5.3-flash. The zcode registration runs the hook from
+# is dispatched as general-purpose / glm-5.3-flash -- ZCode's Agent tool offers no
+# flow-<effort> type (KAN-609). The zcode registration runs the hook from
 # ~/.zcode/hooks, which is how the hook tells the harness.
-ZCODE_PAIR = ("flow-high", "glm-5.3-flash")
+ZCODE_PAIR = ("general-purpose", "glm-5.3-flash")
 
 # flow-high is dispatched in exactly two cases (skills/flow/implement.md): the no-progress
 # escalation -- marked by its opening line, or a self-review or pipeline-fix loop key whose

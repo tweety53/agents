@@ -91,7 +91,9 @@ inline row.** Where the session does not state one, `<parent model>` is `unknown
 `VERIFY_MODEL`, the literal `opus` of a dispatch with no recorded pair, a decision's implementer,
 fixer, group and panel pairs, and an operator override alike resolve and are recorded as they would be on Claude Code,
 and are replaced at the dispatch: the Agent tool's `model` parameter is `glm-5.3-flash`, the
-`subagent_type` is `flow-high` (or the site's own non-flow type, unchanged), and the dispatch's
+`subagent_type` is `general-purpose` (or the site's own non-flow type, unchanged) — ZCode's Agent tool offers no
+`flow-<effort>` type, `<agents repo>/setup.sh` installing those definitions into `~/.claude/agents/` alone, so the NO
+DELEGATION paragraph every such prompt carries is what keeps the dispatch from forking — and the dispatch's
 ledger line records `-model glm-5.3-flash -effort high` — the model the dispatch actually ran
 on, never the pre-mapping value. A reply's `Model:` line is not compared on this harness — the recorded mapping satisfies the handshake, per the paragraph below. The harness is
 the same value the run's `-harness` marks carry (**Stage marks**,

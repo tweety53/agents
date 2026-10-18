@@ -180,6 +180,9 @@ A `default` panel, which records no pair, runs every slot on the literal `opus`
 (**Model and effort**, `skills/flow/brainstorm-planner.md`). Every slot in this table
 is dispatched on `flow-low` (`agents/flow-low.md`, on
 a `default` panel) and carries the same model rule.
+**A spawn type this harness's Agent tool does not offer is substituted on the record, never
+silently**: the slot runs on `general-purpose`, and the round records `flow record pass -round <round> -note 'roster: <slot ids> on general-purpose — <type> not offered'`.
+A harness whose **Harness mapping** (`skills/flow-contracts/model-policy.md`) maps to `general-purpose` makes no such substitution.
 
 **Check for an operator-named id at two points**: at the start of this stage (has the operator, in
 this run's own argument or in the session before this stage, named an id the resolved list does not
