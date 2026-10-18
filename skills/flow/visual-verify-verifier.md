@@ -210,6 +210,11 @@ never an exit code the command did not return.
    carries no baseline PNG for: every departure on either is this change's, and the report names
    the missing baseline. Every line that reports the departure names its cause or its attribution
    beside it — never a bare `departure`.
+   **A part the frame's sidecar comment declares expected until a named sibling ticket lands is
+   no departure.** The line reporting the frame names that part
+   `expected — <sibling ticket>, <decision ID>` and nothing blocks on it, while every part the
+   comment does not name is measured and attributed as above — the comment being the one
+   `skills/flow/brainstorm-planner.md` plans for a frame a sibling ticket finishes (KAN-821).
 
    **A full-page match — a clean composite read, a structural match — is necessary, never
    sufficient: verify at the control level, measure rather than eyeball, and exercise the states

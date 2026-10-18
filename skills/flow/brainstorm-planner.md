@@ -299,6 +299,14 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > `<frame id>.png`** — a capture screenshot's name takes that shape too, so only the path form is
 > a citation `check-mockup-citations.sh` can resolve.
 
+> **Write a frame a sibling ticket finishes as this change's parts only.** When sibling tickets
+> share a mockup frame family and a frame on this change's list also draws parts a sibling ticket
+> builds, `design.md` records a decision naming the parts of that frame this change builds, and
+> the frame's `<spec>.mockups` sidecar line sits under a `#` comment naming the parts expected to
+> differ, the sibling ticket that builds them and that decision's ID — the verifier then reads
+> those parts as expected until the sibling lands, and judges every other part of the frame as
+> usual (KAN-821).
+
 > **Write a live check when the change touches a running service or persistent state — never a
 > live-verification task.** When the change under plan touches a long-running service, a daemon,
 > a store, a scheduler or anything else holding runtime state, `design.md` carries a
