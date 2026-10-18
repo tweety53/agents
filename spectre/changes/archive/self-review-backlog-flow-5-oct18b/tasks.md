@@ -33,16 +33,16 @@ test and the comments and contract sentence that describe it.
 - `verifyChange` holds no source-mutating task; `ktlintFormat` stays its own pre-step.
 - The two step 8 sentences read as additions beside `expectRoom`, never replacing it.
 
-- [ ] 1. Step 8 requires a click-reached capture to assert its state and park the pointer
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -c 'parks the pointer' skills/flow/visual-verify-verifier.md` prints `0`.
-  - [ ] **Step 2: Edit.** In `skills/flow/visual-verify-verifier.md` step 8, right after the sentence ending `so a missed navigation fails the capture instead of becoming its baseline.` (it ends mid-line, before `` `screenshots`'s root-not-leaf shape ``), insert one space and then this sentence, on the same line:
+- [x] 1. Step 8 requires a click-reached capture to assert its state and park the pointer
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -c 'parks the pointer' skills/flow/visual-verify-verifier.md` prints `0`.
+  - [x] **Step 2: Edit.** In `skills/flow/visual-verify-verifier.md` step 8, right after the sentence ending `so a missed navigation fails the capture instead of becoming its baseline.` (it ends mid-line, before `` `screenshots`'s root-not-leaf shape ``), insert one space and then this sentence, on the same line:
 
 ```text verified:applied to visual-verify-verifier.md at 02d83a03; scripts/check-verbatim-moves.sh then prints it as a FAIL line identical to verbatim-moves.txt's Task 1 entry
 **A capture reached through a click also asserts the state it clicked into, and parks the pointer before it is taken** — a positive control on a drawn, state-dependent property the wrong state cannot satisfy (the selected tab's fill, the opened sheet's tag), and the pointer moved clear of every control (`page.mouse.move(0, 0)`) after the last click — so a missed click fails the capture instead of becoming its baseline, and no hover ink reaches one.
 ```
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh` and `scripts/check-markdown-integrity.py` exit 0.
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh` and `scripts/check-markdown-integrity.py` exit 0.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/visual-verify-verifier.md`
@@ -53,16 +53,16 @@ test and the comments and contract sentence that describe it.
 
 **Decision:** click-capture-positive-control
 
-- [ ] 2. Step 8 requires a capture under a dimming layer to pin its subject structurally
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -ci 'scrim' skills/flow/visual-verify-verifier.md` prints `0`.
-  - [ ] **Step 2: Edit.** In `skills/flow/visual-verify-verifier.md` step 8, right after Task 1's sentence (ending `and no hover ink reaches one.`), insert one space and then this sentence, on the same line:
+- [x] 2. Step 8 requires a capture under a dimming layer to pin its subject structurally
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -ci 'scrim' skills/flow/visual-verify-verifier.md` prints `0`.
+  - [x] **Step 2: Edit.** In `skills/flow/visual-verify-verifier.md` step 8, right after Task 1's sentence (ending `and no hover ink reaches one.`), insert one space and then this sentence, on the same line:
 
 ```text verified:applied after Task 1's sentence at 02d83a03; scripts/check-verbatim-moves.sh then prints it as a FAIL line identical to verbatim-moves.txt's Task 2 entry
 **A capture whose subject sits under a scrim, or any dimming or alpha layer, also pins that subject structurally** — the presence of each tag the change draws beneath the layer and the absence of each it removes, covered tags included — because the dimming can shrink a real difference below the screenshot comparison's per-pixel threshold; a dimmed capture whose baseline predates the change is recaptured, never trusted because its diff passes.
 ```
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh` and `scripts/check-markdown-integrity.py` exit 0.
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh` and `scripts/check-markdown-integrity.py` exit 0.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/visual-verify-verifier.md`
@@ -73,16 +73,16 @@ test and the comments and contract sentence that describe it.
 
 **Decision:** scrim-structural-assertion
 
-- [ ] 3. Testing principles name a measured-bound assertion on a drawn property as a violation
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -c 'coerced to the parent' skills/flow/engineering-principles.md` prints `0`.
-  - [ ] **Step 2: Edit.** In `skills/flow/engineering-principles.md` `### Testing principles`, replace the **Violation looks like:** paragraph with exactly this, rewrapped at the file's width (the guard compares whitespace-normalised sentences):
+- [x] 3. Testing principles name a measured-bound assertion on a drawn property as a violation
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -c 'coerced to the parent' skills/flow/engineering-principles.md` prints `0`.
+  - [x] **Step 2: Edit.** In `skills/flow/engineering-principles.md` `### Testing principles`, replace the **Violation looks like:** paragraph with exactly this, rewrapped at the file's width (the guard compares whitespace-normalised sentences):
 
 ```text verified:applied to engineering-principles.md at 02d83a03; scripts/check-verbatim-moves.sh then prints the old and new forms as FAIL lines identical to verbatim-moves.txt's Task 3 entries
 **Violation looks like:** a test asserting that a mock was called rather than what changed, a sleep used for synchronisation, a test whose result depends on execution order or the wall clock, an assertion weakened rather than a bug fixed, a test deleted or `@Ignore`d in the same diff that changed the behavior it covered, or a geometry assertion on a measured or reported bound (Compose's semantics bounds, coerced to the parent's) where the property under test is what is drawn — an overflow is visible only in the rendered pixels, so the assertion passes on the unfixed code.
 ```
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh` and `scripts/check-markdown-integrity.py` exit 0.
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh` and `scripts/check-markdown-integrity.py` exit 0.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/engineering-principles.md`
@@ -93,9 +93,9 @@ test and the comments and contract sentence that describe it.
 
 **Decision:** bounds-violation-in-principles
 
-- [ ] 4. gymie-frontend registers verifyChange and declares its test and lint commands
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-frontend-worktrees/self-review-backlog-flow-5-oct18b`, run the `## worktree setup` line of its `.flow/project.md` if `local.properties` is missing, then `./gradlew -q verifyChange --dry-run; echo $?`: Gradle reports task `verifyChange` not found and the exit is non-zero; `/Users/tweety53/Projects/agents/scripts/project-get.sh "$PWD" lint; echo $?` reports the section absent.
-  - [ ] **Step 2: Apply the fix** in that worktree:
+- [x] 4. gymie-frontend registers verifyChange and declares its test and lint commands
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-frontend-worktrees/self-review-backlog-flow-5-oct18b`, run the `## worktree setup` line of its `.flow/project.md` if `local.properties` is missing, then `./gradlew -q verifyChange --dry-run; echo $?`: Gradle reports task `verifyChange` not found and the exit is non-zero; `/Users/tweety53/Projects/agents/scripts/project-get.sh "$PWD" lint; echo $?` reports the section absent.
+  - [x] **Step 2: Apply the fix** in that worktree:
 
 ````diff verified:git apply at gymie-frontend 755c74ea; with it applied ./gradlew -q verifyChange --dry-run lists ktlintCheck and detekt for :shared, :androidApp, :desktopApp and :webApp, and ./gradlew verifyChange :shared:desktopTest --tests 'com.gymie.shared.ui.HomeScrollReachUiTest' is BUILD SUCCESSFUL in one invocation
 diff --git a/.flow/project.md b/.flow/project.md
@@ -109,7 +109,7 @@ index 3613a66d..4b140ed6 100644
 +## test
 +
 +```bash
-+./gradlew test                                                       # full suite
++./gradlew test allTests                                              # full suite
 +./gradlew verifyChange :shared:desktopTest --tests '<selectors>'     # one-invocation verify bundle
 +```
 +
@@ -161,8 +161,8 @@ index be0448a0..69c79191 100644
  apply(from = "gradle/git-hooks.gradle.kts")
 ````
 
-  - [ ] **Step 3: Verify.** In that worktree: `./gradlew ktlintFormat`, then `./gradlew verifyChange :shared:desktopTest --tests 'com.gymie.shared.ui.HomeScrollReachUiTest'` is `BUILD SUCCESSFUL`; `/Users/tweety53/Projects/agents/scripts/project-get.sh "$PWD" lint` and `/Users/tweety53/Projects/agents/scripts/project-get.sh "$PWD" test` each exit 0 printing their fence. `git status --short` shows only the two files (`local.properties` is gitignored).
-  - [ ] **Step 4: Commit** the two files in gymie-frontend with the subject below.
+  - [x] **Step 3: Verify.** In that worktree: `./gradlew ktlintFormat`, then `./gradlew verifyChange :shared:desktopTest --tests 'com.gymie.shared.ui.HomeScrollReachUiTest'` is `BUILD SUCCESSFUL`; `/Users/tweety53/Projects/agents/scripts/project-get.sh "$PWD" lint` and `/Users/tweety53/Projects/agents/scripts/project-get.sh "$PWD" test` each exit 0 printing their fence. `git status --short` shows only the two files (`local.properties` is gitignored).
+  - [x] **Step 4: Commit** the two files in gymie-frontend with the subject below.
 
 **Build:** green
 **Files:** `build.gradle.kts`, `.flow/project.md`
@@ -174,9 +174,9 @@ index be0448a0..69c79191 100644
 **Decision:** verifychange-subprojects
 **Decision:** frontend-test-lint-sections
 
-- [ ] 5. flowd replays the journal on every healthy ping
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its test file alone (`git apply --include='stats/internal/reconcile/watch_test.go' <the saved diff>`) and run `cd stats && make -s web-dist && go test ./internal/reconcile -run 'TestWatchReplaysOnHealthyTick' -count=1`: it fails with `Watch never replayed a journal entry written while the store stayed healthy`.
-  - [ ] **Step 2: Apply the fix.** Apply the rest (`git apply --exclude='stats/internal/reconcile/watch_test.go' <the saved diff>`):
+- [x] 5. flowd replays the journal on every healthy ping
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its test file alone (`git apply --include='stats/internal/reconcile/watch_test.go' <the saved diff>`) and run `cd stats && make -s web-dist && go test ./internal/reconcile -run 'TestWatchReplaysOnHealthyTick' -count=1`: it fails with `Watch never replayed a journal entry written while the store stayed healthy`.
+  - [x] **Step 2: Apply the fix.** Apply the rest (`git apply --exclude='stats/internal/reconcile/watch_test.go' <the saved diff>`):
 
 ````diff verified:git apply at 02d83a03; TestWatchReplaysOnHealthyTick fails with reconcile.go unchanged and passes with it; go test ./internal/reconcile -count=1 ok; go vet ./internal/reconcile ./cmd/flowd and gofmt -l clean
 diff --git a/skills/flow-contracts/state-file-internals.md b/skills/flow-contracts/state-file-internals.md
@@ -351,8 +351,8 @@ index 00000000..91934fb2
 +}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./internal/reconcile -run 'TestWatchReplaysOnHealthyTick' -count=1` passes; `cd stats && go vet ./internal/reconcile ./cmd/flowd && gofmt -l internal/reconcile cmd/flowd` prints nothing; `scripts/check-verbatim-moves.sh` and `scripts/check-references.sh` exit 0.
-  - [ ] **Step 4: Commit** the four files with the subject below.
+  - [x] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./internal/reconcile -run 'TestWatchReplaysOnHealthyTick' -count=1` passes; `cd stats && go vet ./internal/reconcile ./cmd/flowd && gofmt -l internal/reconcile cmd/flowd` prints nothing; `scripts/check-verbatim-moves.sh` and `scripts/check-references.sh` exit 0.
+  - [x] **Step 4: Commit** the four files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/reconcile/reconcile.go`, `stats/internal/reconcile/watch_test.go`, `stats/cmd/flowd/main.go`, `skills/flow-contracts/state-file-internals.md`

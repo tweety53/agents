@@ -71,7 +71,7 @@ line prints it, so the fixer writes nothing under `spectre/changes/`.
 
 **ID:** frontend-test-lint-sections
 **Status:** active
-**Chosen:** `## test` with the full `./gradlew test` line and the `./gradlew verifyChange :shared:desktopTest --tests '<selectors>'` bundle line; `## lint` with `./gradlew ktlintFormat` as its own pre-step, then `./gradlew verifyChange`, and gymie's read-only-bundle paragraph. Plans written after this read the commands from there; archived plans and `CONTRIBUTING.md` are untouched.
+**Chosen:** `## test` with the full `./gradlew test allTests` line (review 1: plain `test` skips the KMP desktop and wasm suites) and the `./gradlew verifyChange :shared:desktopTest --tests '<selectors>'` bundle line; `## lint` with `./gradlew ktlintFormat` as its own pre-step, then `./gradlew verifyChange`, and gymie's read-only-bundle paragraph. Plans written after this read the commands from there; archived plans and `CONTRIBUTING.md` are untouched.
 **Considered:** also rewriting `CONTRIBUTING.md`'s `./gradlew ktlintCheck detekt` line — still correct, and outside what the ticket asks.
 
 ### Watch replays on every healthy ping
