@@ -36,11 +36,11 @@ commit`, with its harness case and run 1's prose.
 - Task 3's classification runs before the round's task is written and closes a conflict on the handoff's `**Decisions:**` lines without asking.
 - Task 5: the satellite loop skips the canonical worktree, runs on an archived re-run, and acts only where `<spec>/changes/<name>/` still exists; the changed `planning_only` expectation is the new archive commit, nothing else.
 
-- [ ] 1. Name the serving flowd build in the self-review bundle (KAN-771)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 1. Name the serving flowd build in the self-review bundle (KAN-771)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -rn -e ReadBuildInfo -e 'served by flowd' stats/cmd stats/internal; echo $?`: it prints only `1`.
     <!-- measured: the grep above in a scratch clone @ 02a3d012 → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 02a3d012; make -s web-dist, go vet ./cmd/flowd ./internal/api ./internal/selfreview and gofmt -l . clean; go test ./internal/selfreview ./internal/api -run 'Bundle|SelfReview' and go test ./cmd/flowd -run TestFormatBuild pass; TestBundleNamesTheServingBuild fails with the note's append commented out
 diff --git a/stats/cmd/flowd/main.go b/stats/cmd/flowd/main.go
@@ -473,11 +473,11 @@ index dea031ce..ea417a41 100644
  	// below would otherwise read as the panel never having run (KAN-621).
 ````
 
-  - [ ] **Step 3: RED, then GREEN.** Comment out the one `notes = append(notes, "note: served by flowd "+build+…)` line in `stats/internal/selfreview/git.go`:
+  - [x] **Step 3: RED, then GREEN.** Comment out the one `notes = append(notes, "note: served by flowd "+build+…)` line in `stats/internal/selfreview/git.go`:
     `cd stats && go test ./internal/selfreview -run TestBundleNamesTheServingBuild` fails. Restore the line: it passes.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` prints nothing and exits 0;
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` prints nothing and exits 0;
     `cd stats && go test ./internal/selfreview -run 'TestBundle' && go test ./internal/api -run 'TestSelfReviewBundle' && go test ./cmd/flowd -run 'TestFormatBuild'` passes.
-  - [ ] **Step 5: Commit** the six files with the subject below.
+  - [x] **Step 5: Commit** the six files with the subject below.
 
 **Build:** green
 **Files:** `stats/cmd/flowd/main.go`, `stats/cmd/flowd/wiring_test.go`, `stats/internal/api/selfreview.go`, `stats/internal/api/server.go`, `stats/internal/selfreview/bundle_test.go`, `stats/internal/selfreview/git.go`
@@ -489,11 +489,11 @@ index dea031ce..ea417a41 100644
 
 **Decision:** bundle-build-note
 
-- [ ] 2. Land a pixel probe for every departure the in-run fix loop fixes (KAN-790)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 2. Land a pixel probe for every departure the in-run fix loop fixes (KAN-790)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n -e "PIXEL PROBE" -e "permanent probe" skills/flow/verify-fix-loop.md; echo $?`: it prints only `1`.
     <!-- measured: the grep above in a scratch clone @ 02a3d012 → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 02a3d012 after the earlier tasks' diffs; check-references.sh, check-installed-citations.sh, check-markdown-integrity.py and check-dispatch-paragraphs.sh exit 0, and check-verbatim-moves.sh 02a3d012 fails only on sentences verbatim-moves.txt lists
 diff --git a/skills/flow/verify-fix-loop.md b/skills/flow/verify-fix-loop.md
@@ -518,11 +518,11 @@ index ad054459..430ffc77 100644
     and before `close-task.sh` the parent runs the worktree's whole `## test` list twice more, and
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c -F "permanent probe" skills/flow/verify-fix-loop.md` prints `1`;
+  - [x] **Step 3: Verify.** `grep -c -F "permanent probe" skills/flow/verify-fix-loop.md` prints `1`;
     `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
     <!-- measured: grep -c after git apply in a scratch clone @ 02a3d012 → 1 -->
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/verify-fix-loop.md`
@@ -533,11 +533,11 @@ index ad054459..430ffc77 100644
 
 **Decision:** departure-probe
 
-- [ ] 3. Classify mockup departures before the fix loop writes its round (KAN-801)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 3. Classify mockup departures before the fix loop writes its round (KAN-801)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -rn -i "mockup conflict" skills; echo $?`: it prints only `1`.
     <!-- measured: the grep above in a scratch clone @ 02a3d012 after the earlier tasks' diffs → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 02a3d012 after the earlier tasks' diffs; check-references.sh, check-installed-citations.sh, check-markdown-integrity.py and check-dispatch-paragraphs.sh exit 0, and check-verbatim-moves.sh 02a3d012 fails only on sentences verbatim-moves.txt lists
 diff --git a/skills/flow/verify-fix-loop.md b/skills/flow/verify-fix-loop.md
@@ -560,11 +560,11 @@ index 430ffc77..fbf2c9a0 100644
  1. **Transcribe the fix.** Run **Documenting a fix, before implementing it**
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c -F "Mockup departures are classified before the round's task is written" skills/flow/verify-fix-loop.md` prints `1`;
+  - [x] **Step 3: Verify.** `grep -c -F "Mockup departures are classified before the round's task is written" skills/flow/verify-fix-loop.md` prints `1`;
     `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
     <!-- measured: grep -c after git apply in a scratch clone @ 02a3d012 → 1 -->
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/verify-fix-loop.md`
@@ -575,11 +575,11 @@ index 430ffc77..fbf2c9a0 100644
 
 **Decision:** mockup-conflicts-own-source-wins
 
-- [ ] 4. Record a commit-less serving worktree like any other (KAN-804)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 4. Record a commit-less serving worktree like any other (KAN-804)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n -e "serve from a checkout of its own" -e "will carry no commit" skills/flow/implement.md; echo $?`: it prints only `1`.
     <!-- measured: the grep above in a scratch clone @ 02a3d012 → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 02a3d012 after the earlier tasks' diffs; check-references.sh, check-installed-citations.sh, check-markdown-integrity.py and check-dispatch-paragraphs.sh exit 0, and check-verbatim-moves.sh 02a3d012 fails only on sentences verbatim-moves.txt lists
 diff --git a/skills/flow/implement.md b/skills/flow/implement.md
@@ -604,11 +604,11 @@ index 6e3c62fa..08f8c759 100644
  repository already holds a worktree for this change — the kickoff worktree's repository, a
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c -F "will carry no commit" skills/flow/implement.md` prints `1`;
+  - [x] **Step 3: Verify.** `grep -c -F "will carry no commit" skills/flow/implement.md` prints `1`;
     `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
     <!-- measured: grep -c after git apply in a scratch clone @ 02a3d012 → 1 -->
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/implement.md`
@@ -619,12 +619,12 @@ index 6e3c62fa..08f8c759 100644
 
 **Decision:** commit-less-worktree-in-map
 
-- [ ] 5. Archive every satellite's change directory in run 1 (KAN-815)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Read `scripts/integrate-change.sh`'s `commit`
+- [x] 5. Archive every satellite's change directory in run 1 (KAN-815)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Read `scripts/integrate-change.sh`'s `commit`
     step: its only `spectre archive` and `commit-archive.sh` calls name `$CANON`
     (`grep -n -e 'spectre archive' -e 'commit-archive.sh"' scripts/integrate-change.sh` prints two lines, both on `$CANON`).
     <!-- measured: the grep above in a scratch clone @ 02a3d012 → 2 lines, `(cd "$CANON" && spectre archive …)` and `run "$SCRIPT_DIR/commit-archive.sh" "$CANON" "$NAME"` -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 02a3d012 after the earlier tasks' diffs; bash scripts/test-integrate-change.sh → 174 passed, 0 failed, and with only the test hunks applied → 171 passed, 3 failed (satellite_archive's two checks and planning_only's archive-commit check); check-references.sh, check-installed-citations.sh and check-markdown-integrity.py exit 0, and check-verbatim-moves.sh 02a3d012 fails only on sentences verbatim-moves.txt lists
 diff --git a/scripts/integrate-change.sh b/scripts/integrate-change.sh
@@ -738,15 +738,15 @@ index 6817ecba..599272f7 100644
  
 ````
 
-  - [ ] **Step 3: RED, then GREEN.** Revert the script's hunks (`git apply -R --include=scripts/integrate-change.sh <the saved diff>`):
+  - [x] **Step 3: RED, then GREEN.** Revert the script's hunks (`git apply -R --include=scripts/integrate-change.sh <the saved diff>`):
     `bash scripts/test-integrate-change.sh` fails `satellite_archive: b's change directory is archived`,
     `satellite_archive: b's branch ends on its own archive commit` and
     `planning_only: b's branch is the base plus its planning and archive commits`. Re-apply them: it passes.
     <!-- measured: the harness in a scratch clone @ 02a3d012 with the test hunks alone → 171 passed, 3 failed; with the whole diff → 174 passed, 0 failed (about five minutes each) -->
-  - [ ] **Step 4: Verify.** `bash scripts/test-integrate-change.sh` ends `0 failed`;
+  - [x] **Step 4: Verify.** `bash scripts/test-integrate-change.sh` ends `0 failed`;
     `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 5: Commit** the three files with the subject below.
+  - [x] **Step 5: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `scripts/integrate-change.sh`, `scripts/test-integrate-change.sh`, `skills/flow-contracts/finish-contract-run1.md`
