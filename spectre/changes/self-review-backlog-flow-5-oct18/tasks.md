@@ -25,9 +25,9 @@
 - `LocalDevSeederIntegrationTest`'s count assertions stay exact, never widened (Task 5).
 
 
-- [ ] 1. A workspace flowd never replays the shared journal
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/agents-worktrees/self-review-backlog-flow-5-oct18`, apply Step 2's diff to the test file alone (`git apply --include='stats/cmd/flowd/wiring_test.go' <the saved diff>`) and run `cd stats && make -s web-dist && go test ./cmd/flowd -run 'TestReplaysSharedJournalOnlyIntoTheFlowDatabase' -count=1`: it fails to build, `undefined: replaysSharedJournal` — `main.go` replays unconditionally. Keep the applied hunk; Step 2 applies the rest with `git apply --exclude='stats/cmd/flowd/wiring_test.go' <the saved diff>`.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 1. A workspace flowd never replays the shared journal
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/agents-worktrees/self-review-backlog-flow-5-oct18`, apply Step 2's diff to the test file alone (`git apply --include='stats/cmd/flowd/wiring_test.go' <the saved diff>`) and run `cd stats && make -s web-dist && go test ./cmd/flowd -run 'TestReplaysSharedJournalOnlyIntoTheFlowDatabase' -count=1`: it fails to build, `undefined: replaysSharedJournal` — `main.go` replays unconditionally. Keep the applied hunk; Step 2 applies the rest with `git apply --exclude='stats/cmd/flowd/wiring_test.go' <the saved diff>`.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at agents 52438f0d; with it applied the test passes and go vet ./cmd/flowd is clean
 diff --git a/stats/cmd/flowd/main.go b/stats/cmd/flowd/main.go
@@ -115,7 +115,7 @@ index a70e1857..43cb1b53 100644
 +}
 ````
 
-  - [ ] **Step 3: Verify.** In `/Users/tweety53/Projects/agents-worktrees/self-review-backlog-flow-5-oct18/stats`: `gofmt -l ./cmd/flowd` prints nothing, `go vet ./cmd/flowd` exits 0, and `go test ./cmd/flowd -run 'TestReplaysSharedJournalOnlyIntoTheFlowDatabase' -count=1` passes. Commit.
+  - [x] **Step 3: Verify.** In `/Users/tweety53/Projects/agents-worktrees/self-review-backlog-flow-5-oct18/stats`: `gofmt -l ./cmd/flowd` prints nothing, `go vet ./cmd/flowd` exits 0, and `go test ./cmd/flowd -run 'TestReplaysSharedJournalOnlyIntoTheFlowDatabase' -count=1` passes. Commit.
 
 **Build:** green
 **Files:** `stats/cmd/flowd/main.go`, `stats/cmd/flowd/wiring_test.go`
@@ -127,9 +127,9 @@ index a70e1857..43cb1b53 100644
 
 **Decision:** journal-replay-flow-db-only
 
-- [ ] 2. Refuse a global install into the operator's home from a linked worktree
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/agents-worktrees/self-review-backlog-flow-5-oct18`, apply Step 2's diff to the two test files alone (`git apply --include='stats/internal/setuptest/*' <the saved diff>`) and run `cd stats && go test ./internal/setuptest -run 'TestGlobalInstallRefusedFromLinkedWorktree' -count=1`: it fails `✗ global from a linked worktree exits non-zero`, `✗ the refusal names the main checkout's command` and `✗ nothing is linked into $HOME` — `setup.sh` installs from the worktree. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='stats/internal/setuptest/*' <the saved diff>`.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 2. Refuse a global install into the operator's home from a linked worktree
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/agents-worktrees/self-review-backlog-flow-5-oct18`, apply Step 2's diff to the two test files alone (`git apply --include='stats/internal/setuptest/*' <the saved diff>`) and run `cd stats && go test ./internal/setuptest -run 'TestGlobalInstallRefusedFromLinkedWorktree' -count=1`: it fails `✗ global from a linked worktree exits non-zero`, `✗ the refusal names the main checkout's command` and `✗ nothing is linked into $HOME` — `setup.sh` installs from the worktree. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='stats/internal/setuptest/*' <the saved diff>`.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at agents 52438f0d; with it applied go test ./internal/setuptest passes, and with setup.sh reverted the new test fails its three refusal checks
 diff --git a/setup.sh b/setup.sh
@@ -233,7 +233,7 @@ index aaf09887..343173c2 100644
  	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
 ````
 
-  - [ ] **Step 3: Verify.** In `/Users/tweety53/Projects/agents-worktrees/self-review-backlog-flow-5-oct18/stats`: `gofmt -l ./internal/setuptest` prints nothing, `go vet ./internal/setuptest` exits 0, and `go test ./internal/setuptest -run 'TestGlobalInstallRefusedFromLinkedWorktree|TestReinstallPrunesDeletedSourceLinks' -count=1` passes — the second a sandboxed-home install from this worktree, which must still succeed. Commit.
+  - [x] **Step 3: Verify.** In `/Users/tweety53/Projects/agents-worktrees/self-review-backlog-flow-5-oct18/stats`: `gofmt -l ./internal/setuptest` prints nothing, `go vet ./internal/setuptest` exits 0, and `go test ./internal/setuptest -run 'TestGlobalInstallRefusedFromLinkedWorktree|TestReinstallPrunesDeletedSourceLinks' -count=1` passes — the second a sandboxed-home install from this worktree, which must still succeed. Commit.
 
 **Build:** green
 **Files:** `setup.sh`, `stats/internal/setuptest/harnesses_test.go`, `stats/internal/setuptest/helpers_test.go`
@@ -245,9 +245,9 @@ index aaf09887..343173c2 100644
 
 **Decision:** setup-global-worktree-refusal
 
-- [ ] 3. A gymie-playwright worktree installs its own dependencies
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-playwright-worktrees/self-review-backlog-flow-5-oct18`, run `/Users/tweety53/Projects/agents/scripts/project-get.sh "$PWD" 'worktree setup'`: exit 1, no section — kickoff runs no install here.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 3. A gymie-playwright worktree installs its own dependencies
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-playwright-worktrees/self-review-backlog-flow-5-oct18`, run `/Users/tweety53/Projects/agents/scripts/project-get.sh "$PWD" 'worktree setup'`: exit 1, no section — kickoff runs no install here.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at gymie-playwright eb0dbb6; with it applied project-get.sh exits 0 printing the npm ci fence, and npm ci resolves @playwright/test inside the worktree
 diff --git a/.flow/project.md b/.flow/project.md
@@ -272,7 +272,7 @@ index 0000000..8b0253e
 +```
 ````
 
-  - [ ] **Step 3: Verify.** In `/Users/tweety53/Projects/gymie-playwright-worktrees/self-review-backlog-flow-5-oct18`: `/Users/tweety53/Projects/agents/scripts/project-get.sh "$PWD" 'worktree setup'` exits 0 and prints the `npm ci` fence; `npm ci` exits 0; `node -e "console.log(require.resolve('@playwright/test'))"` prints a path under `/Users/tweety53/Projects/gymie-playwright-worktrees/self-review-backlog-flow-5-oct18/node_modules`. Commit.
+  - [x] **Step 3: Verify.** In `/Users/tweety53/Projects/gymie-playwright-worktrees/self-review-backlog-flow-5-oct18`: `/Users/tweety53/Projects/agents/scripts/project-get.sh "$PWD" 'worktree setup'` exits 0 and prints the `npm ci` fence; `npm ci` exits 0; `node -e "console.log(require.resolve('@playwright/test'))"` prints a path under `/Users/tweety53/Projects/gymie-playwright-worktrees/self-review-backlog-flow-5-oct18/node_modules`. Commit.
 
 **Build:** green
 **Files:** `.flow/project.md`
@@ -283,9 +283,9 @@ index 0000000..8b0253e
 
 **Decision:** playwright-worktree-npm-ci
 
-- [ ] 4. gymie's lint section states the read-only bundle rule
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-worktrees/self-review-backlog-flow-5-oct18`, run `grep -c 'read-only tasks only' .flow/project.md`: `0`.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 4. gymie's lint section states the read-only bundle rule
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-worktrees/self-review-backlog-flow-5-oct18`, run `grep -c 'read-only tasks only' .flow/project.md`: `0`.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at gymie eb06468c
 diff --git a/.flow/project.md b/.flow/project.md
@@ -304,7 +304,7 @@ index bd46089e..e304cf52 100644
  Pre-approved suppressions and documented deviations live in `CONTRIBUTING.md`.
 ````
 
-  - [ ] **Step 3: Verify.** In `/Users/tweety53/Projects/gymie-worktrees/self-review-backlog-flow-5-oct18`: `grep -c 'read-only tasks only' .flow/project.md` prints `1`, and `/Users/tweety53/Projects/agents/scripts/project-get.sh "$PWD" lint` exits 0 printing both fenced commands. Commit.
+  - [x] **Step 3: Verify.** In `/Users/tweety53/Projects/gymie-worktrees/self-review-backlog-flow-5-oct18`: `grep -c 'read-only tasks only' .flow/project.md` prints `1`, and `/Users/tweety53/Projects/agents/scripts/project-get.sh "$PWD" lint` exits 0 printing both fenced commands. Commit.
 
 **Build:** green
 **Files:** `.flow/project.md`
@@ -315,9 +315,9 @@ index bd46089e..e304cf52 100644
 
 **Decision:** gymie-lint-read-only-bundle
 
-- [ ] 5. The seeder test pins the invite email unset
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-worktrees/self-review-backlog-flow-5-oct18`, run `DEV_INVITE_EMAIL=dev@example.com ./gradlew :app:test --tests 'com.gymie.dev.LocalDevSeederIntegrationTest'`: `seedIsIdempotent()` fails `expected: 3L but was: 21L`.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 5. The seeder test pins the invite email unset
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-worktrees/self-review-backlog-flow-5-oct18`, run `DEV_INVITE_EMAIL=dev@example.com ./gradlew :app:test --tests 'com.gymie.dev.LocalDevSeederIntegrationTest'`: `seedIsIdempotent()` fails `expected: 3L but was: 21L`.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at gymie eb06468c; with it applied the Step 1 command is BUILD SUCCESSFUL and ktlintCheck is clean
 diff --git a/src/app/src/test/kotlin/com/gymie/dev/LocalDevSeederIntegrationTest.kt b/src/app/src/test/kotlin/com/gymie/dev/LocalDevSeederIntegrationTest.kt
@@ -336,7 +336,7 @@ index db90a8b4..633dac1e 100644
  
 ````
 
-  - [ ] **Step 3: Verify.** In `/Users/tweety53/Projects/gymie-worktrees/self-review-backlog-flow-5-oct18`: the Step 1 command, `DEV_INVITE_EMAIL` still exported, is `BUILD SUCCESSFUL`; `./gradlew ktlintFormat` then `./gradlew verifyChange :app:test --tests 'com.gymie.dev.LocalDevSeederIntegrationTest'` passes. Commit.
+  - [x] **Step 3: Verify.** In `/Users/tweety53/Projects/gymie-worktrees/self-review-backlog-flow-5-oct18`: the Step 1 command, `DEV_INVITE_EMAIL` still exported, is `BUILD SUCCESSFUL`; `./gradlew ktlintFormat` then `./gradlew verifyChange :app:test --tests 'com.gymie.dev.LocalDevSeederIntegrationTest'` passes. Commit.
 
 **Build:** green
 **Files:** `src/app/src/test/kotlin/com/gymie/dev/LocalDevSeederIntegrationTest.kt`
