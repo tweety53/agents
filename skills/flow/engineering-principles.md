@@ -156,7 +156,10 @@ observable.
 
 **Violation looks like:** an empty `catch` block, a swallowed exception logged at debug,
 an external call with no timeout or bounded retry, a fallback that silently returns empty
-data, or an error message that omits the identifier needed to investigate it.
+data, an error message that omits the identifier needed to investigate it, or an invariant
+the schema could enforce — an ordered pair, a non-negative amount — held in application code
+alone, with no check constraint to refuse a bad insert where it happens — a test's own setup
+included — rather than let it surface later as a wrong read or an intermittent failure.
 
 ### Principle of Least Astonishment / Surprise
 
