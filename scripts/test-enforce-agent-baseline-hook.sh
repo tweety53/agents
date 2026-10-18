@@ -12,8 +12,8 @@
 #   4. verifier prompt on flow-high / opus                 -> deny, names flow-low and opus
 #   5. verifier prompt on flow-low with no model           -> deny
 #   6. tooling-analyst prompt (also names the verifier
-#      file) on flow-high / opus                           -> allow
-#   7. tooling-analyst prompt on flow-low / opus           -> deny, names flow-high
+#      file) on flow-medium / opus                         -> allow
+#   7. tooling-analyst prompt on flow-high / opus          -> deny, names flow-medium
 #   8. verifier prompt run from a ~/.zcode/hooks path on
 #      flow-high / glm-5.3-flash                           -> allow
 #   9. the same from ~/.zcode/hooks on flow-low / opus     -> deny, names glm-5.3-flash
