@@ -29,7 +29,9 @@ func checkUntaskedCommits(args []string, env Env, stdout, stderr io.Writer) int 
 		return 2
 	}
 	git := envGit(env)
-	out, ok := capture(git("-C", worktree, "log", "--no-merges",
+	// --first-parent: a merged-in branch's commits are that branch's own,
+	// never this change's -- reshape-branch refuses such a merge outright.
+	out, ok := capture(git("-C", worktree, "log", "--no-merges", "--first-parent",
 		"--format=%H%x00%s%x00%(trailers:key=Task-Id,valueonly,separator=%x2C)%x00%(trailers:key=Flow-Key,valueonly,separator=%x2C)%x1e",
 		base+"..HEAD"))
 	if !ok {

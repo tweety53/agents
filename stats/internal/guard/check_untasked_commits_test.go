@@ -73,6 +73,34 @@ func TestCheckUntaskedCommits(t *testing.T) {
 	}
 }
 
+// TestCheckUntaskedCommitsSkipsAMergedBranch pins --first-parent: a
+// trailerless commit a merged-in branch brought is not the change's own
+// (kan-941's develop merge listed develop's commits as UNTASKED).
+func TestCheckUntaskedCommitsSkipsAMergedBranch(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	g := &fxGit{}
+	g.git(dir, "init", "-q", "-b", "main")
+	g.git(dir, "commit", "-q", "--allow-empty", "-m", "base")
+	base := g.git(dir, "rev-parse", "HEAD")
+	g.git(dir, "checkout", "-q", "-b", "develop")
+	writeFile(t, filepath.Join(dir, "y.kt"), "y\n")
+	g.git(dir, "add", "-A")
+	g.git(dir, "commit", "-qm", "feat(y): develop work")
+	g.git(dir, "checkout", "-q", "main")
+	writeFile(t, filepath.Join(dir, "a.kt"), "a\n")
+	g.git(dir, "add", "-A")
+	g.git(dir, "commit", "-qm", "feat(app): a", "-m", "Task-Id: 1")
+	g.git(dir, "merge", "-q", "--no-ff", "-m", "chore: merge develop", "develop")
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	var out, errb bytes.Buffer
+	if code := checkUntaskedCommits([]string{dir, base}, Env{Getenv: os.Getenv, Dir: dir}, &out, &errb); code != 0 || strings.Contains(out.String(), "develop work") {
+		t.Fatalf("exit %d, want 0 with the merged branch's commit unlisted\nstdout:\n%s\nstderr:\n%s", code, out.String(), errb.String())
+	}
+}
+
 // TestCheckUntaskedCommitsCannotAnswer pins exit 2 on a usage error, a
 // missing worktree and a base git cannot resolve.
 func TestCheckUntaskedCommitsCannotAnswer(t *testing.T) {

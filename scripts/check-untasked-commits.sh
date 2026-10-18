@@ -10,7 +10,9 @@
 # every task"). Run 1's reshape then squashes it into the implementation
 # commit, and the evidence is gone.
 #
-# Every non-merge commit of <base>..HEAD is listed unless it carries a
+# Every non-merge commit on the first-parent chain of <base>..HEAD is listed
+# — a merged-in branch's commits are that branch's own, never the change's
+# (kan-941: a develop merge listed develop's commits) — unless it carries a
 # non-empty `Task-Id:` trailer (a task's own commit), a non-empty `Flow-Key:`
 # trailer (a commit a run makes outside every task on a sanctioned route —
 # **Commits outside every task**, skills/flow-contracts/git-boundaries.md),
