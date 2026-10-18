@@ -47,13 +47,13 @@ gymie-playwright's `fixtures.ts`, opened on the failing trace; and two here-stri
 - Task 7: a non-zero exit of the re-run still blocks; the re-run is offered only when every worktree of the resolved set is at the HEAD the previous dispatch verified.
 - Task 8: the fix acts on the race the trace shows, never on a timeout, sleep or retry.
 
-- [ ] 1. Move gymie's verify-bundle template out of the `## test` fence
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-worktrees/self-review-kan-983-render-screens-from-cached-data-first-refresh`, run
+- [x] 1. Move gymie's verify-bundle template out of the `## test` fence
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-worktrees/self-review-kan-983-render-screens-from-cached-data-first-refresh`, run
     `/Users/tweety53/Projects/agents-worktrees/self-review-kan-983-render-screens-from-cached-data-first-refresh/scripts/project-get.sh . test | awk '/^```bash[[:space:]]*$/{f=1;next}/^```/{f=0;next} f && NF && $1 !~ /^#/'`:
     it prints two lines, the second `./gradlew verifyChange :<module>:test --tests '<selectors>'   # one-invocation verify bundle`;
     `bash -c "echo verifyChange :<module>:test"` prints `bash: line 1: module: No such file or directory` and exits 1.
     <!-- measured: the bash -c line above in a scratch directory @ gymie origin/develop 3d51d3aa → exit 1 -->
-  - [ ] **Step 2: Apply the fix** (`git apply --unidiff-zero <the saved diff>`; the diff carries no context lines, so no fence marker of the file sits inside this block):
+  - [x] **Step 2: Apply the fix** (`git apply --unidiff-zero <the saved diff>`; the diff carries no context lines, so no fence marker of the file sits inside this block):
 
 ````diff verified:git apply --check --unidiff-zero in /Users/tweety53/Projects/gymie-worktrees/self-review-kan-983-render-screens-from-cached-data-first-refresh @ 3d51d3aa exits 0; after it, the Step 1 awk prints only the full-suite line
 diff --git a/.flow/project.md b/.flow/project.md
@@ -70,8 +70,8 @@ index e304cf52..392cdb3c 100644
 +
 ````
 
-  - [ ] **Step 3: Verify.** The Step 1 awk prints one line, the full-suite one.
-  - [ ] **Step 4: Commit** `.flow/project.md` with the subject below.
+  - [x] **Step 3: Verify.** The Step 1 awk prints one line, the full-suite one.
+  - [x] **Step 4: Commit** `.flow/project.md` with the subject below.
 
 **Build:** green
 **Files:** `.flow/project.md`
@@ -83,10 +83,10 @@ index e304cf52..392cdb3c 100644
 **Decision:** verify-template-in-prose
 **Decision:** finding-1-one-task-per-repo
 
-- [ ] 2. Move gymie-frontend's verify-bundle template out of the `## test` fence
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-frontend-worktrees/self-review-kan-983-render-screens-from-cached-data-first-refresh`, run the awk of Task 1's Step 1:
+- [x] 2. Move gymie-frontend's verify-bundle template out of the `## test` fence
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-frontend-worktrees/self-review-kan-983-render-screens-from-cached-data-first-refresh`, run the awk of Task 1's Step 1:
     it prints two lines, the second `./gradlew verifyChange :shared:desktopTest --tests '<selectors>'     # one-invocation verify bundle`.
-  - [ ] **Step 2: Apply the fix** (`git apply --unidiff-zero <the saved diff>`; the diff carries no context lines, so no fence marker of the file sits inside this block):
+  - [x] **Step 2: Apply the fix** (`git apply --unidiff-zero <the saved diff>`; the diff carries no context lines, so no fence marker of the file sits inside this block):
 
 ````diff verified:git apply --check --unidiff-zero in /Users/tweety53/Projects/gymie-frontend-worktrees/self-review-kan-983-render-screens-from-cached-data-first-refresh @ 9806267d exits 0; after it, the Task 1 Step 1 awk prints only the full-suite line
 diff --git a/.flow/project.md b/.flow/project.md
@@ -103,8 +103,8 @@ index 31a8fea2..238824dd 100644
 +
 ````
 
-  - [ ] **Step 3: Verify.** The awk prints one line, the full-suite one.
-  - [ ] **Step 4: Commit** `.flow/project.md` with the subject below.
+  - [x] **Step 3: Verify.** The awk prints one line, the full-suite one.
+  - [x] **Step 4: Commit** `.flow/project.md` with the subject below.
 
 **Build:** green
 **Files:** `.flow/project.md`
@@ -116,12 +116,12 @@ index 31a8fea2..238824dd 100644
 **Decision:** verify-template-in-prose
 **Decision:** finding-1-one-task-per-repo
 
-- [ ] 3. Read check-task-records' output through a here-string
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/agents-worktrees/self-review-kan-983-render-screens-from-cached-data-first-refresh`, run
+- [x] 3. Read check-task-records' output through a here-string
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/agents-worktrees/self-review-kan-983-render-screens-from-cached-data-first-refresh`, run
     `cd stats && make -s web-dist && go test ./internal/guard -run TestNoPipeIntoEarlyExitGrep -count=1`:
     it fails naming `test-check-task-records.sh:392` and `test-check-task-records.sh:411`, `pipe into an early-exit grep; use a here-string`.
     <!-- measured: that go test in /Users/tweety53/Projects/agents-worktrees/self-review-kan-983-render-screens-from-cached-data-first-refresh @ 9df14302 → FAIL, the two lines above -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply, in task order, to a scratch clone at 9df14302; scripts/run-guard-tests.sh (44 of 44 harnesses), go test ./... -race and check-references, check-installed-citations and check-markdown-integrity exit 0 on the result
 diff --git a/scripts/test-check-task-records.sh b/scripts/test-check-task-records.sh
@@ -148,8 +148,8 @@ index 6e0c8324..631af73d 100755
    fail "case 19 non-repo path: rc=$RC out=$OUT"
 ````
 
-  - [ ] **Step 3: Verify.** The Step 1 test passes, and `bash scripts/test-check-task-records.sh` exits 0.
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 3: Verify.** The Step 1 test passes, and `bash scripts/test-check-task-records.sh` exits 0.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `scripts/test-check-task-records.sh`
@@ -160,9 +160,9 @@ index 6e0c8324..631af73d 100755
 
 **Decision:** grep-pipe-here-string
 
-- [ ] 4. Refuse a verify-list line holding a placeholder
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run Task 1's Step 1 `bash -c` line: exit 1, the redirect error.
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+- [x] 4. Refuse a verify-list line holding a placeholder
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run Task 1's Step 1 `bash -c` line: exit 1, the redirect error.
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply, in task order, to a scratch clone at 9df14302; scripts/run-guard-tests.sh (44 of 44 harnesses), go test ./... -race and check-references, check-installed-citations and check-markdown-integrity exit 0 on the result; run-verify-list.sh /Users/tweety53/Projects/gymie-worktrees/self-review-kan-983-render-screens-from-cached-data-first-refresh test, unfixed gymie, exits 2 naming the template line
 diff --git a/scripts/run-verify-list.sh b/scripts/run-verify-list.sh
@@ -237,12 +237,12 @@ index 06e150e0..1dd3ab54 100644
  | `## standards` | The project's own written standards: the files the principles reviewer receives, plus any opt-in shared rule the project has adopted. This same list is both the opt-in list and the reviewer's standards list. Absent, no standards resolve: the reviewer gets an empty list, never auto-detected files. |
 ````
 
-  - [ ] **Step 3: Prove the cases bite.** `git stash push scripts/run-verify-list.sh`, run `bash scripts/test-run-verify-list.sh`:
+  - [x] **Step 3: Prove the cases bite.** `git stash push scripts/run-verify-list.sh`, run `bash scripts/test-run-verify-list.sh`:
     `a placeholder line refuses the list`, `the refusal names the line` and `nothing runs before the refusal` FAIL; `git stash pop`, run it again: `all cases passed`.
-  - [ ] **Step 4: Verify.** `bash scripts/test-run-verify-list.sh`, `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
+  - [x] **Step 4: Verify.** `bash scripts/test-run-verify-list.sh`, `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py`, `scripts/check-verbatim-moves.sh` and
     `cd stats && make -s web-dist && go test ./internal/guard -run TestNoPipeIntoEarlyExitGrep -count=1` exit 0.
-  - [ ] **Step 5: Commit** the three files with the subject below.
+  - [x] **Step 5: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `scripts/run-verify-list.sh`, `scripts/test-run-verify-list.sh`, `skills/flow-contracts/project-configuration.md`
@@ -254,10 +254,10 @@ index 06e150e0..1dd3ab54 100644
 
 **Decision:** verify-list-placeholder-refusal
 
-- [ ] 5. Create a missing regression-checkout worktree before the visual pre-flight
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 5. Create a missing regression-checkout worktree before the visual pre-flight
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n -F "gets one first" skills/flow/visual-verify.md; echo $?`: it prints only `1`.
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply, in task order, to a scratch clone at 9df14302; scripts/run-guard-tests.sh (44 of 44 harnesses), go test ./... -race and check-references, check-installed-citations and check-markdown-integrity exit 0 on the result
 diff --git a/skills/flow/visual-verify.md b/skills/flow/visual-verify.md
@@ -281,9 +281,9 @@ index f6549ba0..dd425515 100644
     workspace — against this worktree:
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c -F "gets one first" skills/flow/visual-verify.md` prints `1`;
+  - [x] **Step 3: Verify.** `grep -c -F "gets one first" skills/flow/visual-verify.md` prints `1`;
     `scripts/check-references.sh`, `scripts/check-installed-citations.sh`, `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/visual-verify.md`
@@ -294,10 +294,10 @@ index f6549ba0..dd425515 100644
 
 **Decision:** regression-worktree-before-preflight
 
-- [ ] 6. Judge each sha of a comma-joined verifier diff base
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 6. Judge each sha of a comma-joined verifier diff base
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n -F 'strings.Split(head, ",")' stats/internal/guard/visualverifydispatched.go; echo $?`: it prints only `1` — a `diffBase` holding a comma fails `vvdSHA` and verifies nothing.
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply, in task order, to a scratch clone at 9df14302; scripts/run-guard-tests.sh (44 of 44 harnesses), go test ./... -race and check-references, check-installed-citations and check-markdown-integrity exit 0 on the result
 diff --git a/scripts/check-visual-verify-dispatched.sh b/scripts/check-visual-verify-dispatched.sh
@@ -368,14 +368,14 @@ index e3cd41d6..60021513 100644
  		}
 ````
 
-  - [ ] **Step 3: Prove the test bites.** `git stash push stats/internal/guard/visualverifydispatched.go`, run
+  - [x] **Step 3: Prove the test bites.** `git stash push stats/internal/guard/visualverifydispatched.go`, run
     `cd stats && go test ./internal/guard -run TestCheckVisualVerifyDispatchedCommaJoinedDiffBase -count=1`: it FAILs; `git stash pop`, run it again: `ok`.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./... && go test ./internal/guard -run TestCheckVisualVerifyDispatched -count=1` prints no file and passes;
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./... && go test ./internal/guard -run TestCheckVisualVerifyDispatched -count=1` prints no file and passes;
     `scripts/check-references.sh`, `scripts/check-installed-citations.sh`, `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 5: Commit** the four files with the subject below.
+  - [x] **Step 5: Commit** the four files with the subject below.
 
 **Build:** green
-**Files:** `skills/flow/visual-verify.md`, `scripts/check-visual-verify-dispatched.sh`, `stats/internal/guard/visualverifydispatched.go`, `stats/internal/guard/check_visual_verify_dispatched_test.go`
+**Files:** `skills/flow/visual-verify.md`, `scripts/check-visual-verify-dispatched.sh`, `stats/internal/guard/visualverifydispatched.go`, `stats/internal/guard/check_visual_verify_dispatched_test.go`, `stats/cmd/flow/record.go`, `stats/internal/records/types.go`
 **Tests:** `TestCheckVisualVerifyDispatchedCommaJoinedDiffBase`
 **Regression:** reverting the commit reads `<sha>,<sha>` as one non-sha: the test's row verifies nothing and the guard answers MISSING, exit 1.
 **Baseline:** before=4 after=5 <!-- measured: grep -c '^func Test' stats/internal/guard/check_visual_verify_dispatched_test.go @ scratch clone of 9df14302, before and after the diff → 4, 5 -->
@@ -384,10 +384,10 @@ index e3cd41d6..60021513 100644
 
 **Decision:** comma-joined-diff-base
 
-- [ ] 7. Re-run only the failed specs at an unchanged HEAD
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 7. Re-run only the failed specs at an unchanged HEAD
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n -F "rerun specs:" skills/flow/visual-verify.md skills/flow/visual-verify-verifier.md; echo $?`: it prints only `1`.
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply, in task order, to a scratch clone at 9df14302; scripts/run-guard-tests.sh (44 of 44 harnesses), go test ./... -race and check-references, check-installed-citations and check-markdown-integrity exit 0 on the result
 diff --git a/skills/flow/visual-verify-verifier.md b/skills/flow/visual-verify-verifier.md
@@ -434,9 +434,9 @@ index 479da503..7b0ba5f6 100644
  **A final report that is a block closes its dispatch `-outcome blocked -cause <cause>`, never
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c -F "rerun specs:" skills/flow/visual-verify.md` and the same over `skills/flow/visual-verify-verifier.md` each print `1`;
+  - [x] **Step 3: Verify.** `grep -c -F "rerun specs:" skills/flow/visual-verify.md` and the same over `skills/flow/visual-verify-verifier.md` each print `1`;
     `scripts/check-references.sh`, `scripts/check-installed-citations.sh`, `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 4: Commit** the two files with the subject below.
+  - [x] **Step 4: Commit** the two files with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/visual-verify.md`, `skills/flow/visual-verify-verifier.md`

@@ -6,3 +6,4 @@
 - verify: exit <n> | exit <n> — rerun of <k> failed specs at unchanged HEAD | not run — no spec since the round base
 A verifier whose worktree's `ui paths` also match a sibling worktree's diff — a `<repo>/**` glob naming the sibling's repository — verifies that sibling's HEAD as well, so its `-diff-base` names each such HEAD too, comma-joined after its own: the guard checks each worktree against the one sha it resolves, and no row is recorded for a sibling no verifier was dispatched to (kan-983's `visual-verify-2-gymie-frontend`).
 Every non-`#` line inside its bash fence runs literally, as `## lint`'s do: a template with a `<word>` placeholder, such as a verify bundle's `:<module>:test` selector, belongs in prose outside the fence, and `<agents repo>/scripts/run-verify-list.sh` refuses the list while one stands inside it.
+A `verify` with no `<specs>` runs as declared, and the report names `rerun specs: not passed — verify has no <specs>`.
