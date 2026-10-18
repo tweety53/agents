@@ -33,13 +33,13 @@ symlink and one citing sentence in `skills/flow/verify-and-handoff.md`.
 - Task 1: a later inline begin at or past `minInlineWindow` still caps an open row (`TestDispatchWindowsForSessionCapsAStagelessOpenRowAtTheNextInlineBegin` stays green); only a closer one is treated as a sibling.
 - Task 3: every command runs with stdin `</dev/null` from the worktree, the list never stops at a failure, and the exit codes match the header, the undeclared list's exit 3 included.
 
-- [ ] 1. Leave a concurrent inline sibling's dispatch window open
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
+- [x] 1. Leave a concurrent inline sibling's dispatch window open
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
     test hunk alone (`git apply --include='stats/internal/store/records_test.go' <the saved diff>`)
     and run `cd stats && make -s web-dist && go test ./internal/store/ -run 'TestDispatchWindowsForSessionLeavesAConcurrentInlineSiblingOpen' -count=1`:
     it fails, the first window's `EndedAt` set to the sibling's begin 30 ms after its own.
     <!-- measured: the test hunk alone, go test -run TestDispatchWindowsForSession @ 95deb422 → FAIL, first window capped 30 ms in -->
-  - [ ] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/internal/store/records_test.go' <the saved diff>`):
+  - [x] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/internal/store/records_test.go' <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at 95deb422; go test ./internal/store/ ./internal/harvest/ -count=1 passes, the new test fails with records.go reverted, go vet and gofmt -l clean
 diff --git a/stats/internal/store/records.go b/stats/internal/store/records.go
@@ -123,9 +123,9 @@ index 62c37a46..15920e0d 100644
 +}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./internal/store/ -run 'TestDispatchWindowsForSession' -count=1`
+  - [x] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./internal/store/ -run 'TestDispatchWindowsForSession' -count=1`
     passes; `cd stats && go vet ./internal/store && gofmt -l internal/store` prints nothing.
-  - [ ] **Step 4: Commit** the two files with the subject below.
+  - [x] **Step 4: Commit** the two files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/store/records.go`, `stats/internal/store/records_test.go`
@@ -138,11 +138,11 @@ index 62c37a46..15920e0d 100644
 
 **Decision:** inline-sibling-min-window
 
-- [ ] 2. Tell the planner a task never creates a worktree
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 2. Tell the planner a task never creates a worktree
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n "git worktree add" skills/flow/brainstorm-planner.md; echo $?`: it prints only `1`.
     <!-- measured: the grep above in this worktree @ 95deb422 → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at 95deb422; check-verbatim-moves.sh exits 0 with this change's verbatim-moves.txt, and the runner's lint list over the tree fails only check-plan-shape.sh on the then-stub tasks.md
 diff --git a/skills/flow/brainstorm-planner.md b/skills/flow/brainstorm-planner.md
@@ -163,10 +163,10 @@ index a4a98ce7..a71404ea 100644
  > passed as its own `-e '<string>'`, scoped to the paths the task touches: the sweep prints
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c "git worktree add" skills/flow/brainstorm-planner.md` prints `1`;
+  - [x] **Step 3: Verify.** `grep -c "git worktree add" skills/flow/brainstorm-planner.md` prints `1`;
     `scripts/check-references.sh`, `scripts/check-guard-symlinks.sh`,
     `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/brainstorm-planner.md`
@@ -177,12 +177,12 @@ index a4a98ce7..a71404ea 100644
 
 **Decision:** worktree-rule-prose
 
-- [ ] 3. Run the verify lists through `run-verify-list.sh`
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 3. Run the verify lists through `run-verify-list.sh`
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `ls scripts/run-verify-list.sh; grep -c "run-verify-list.sh" skills/flow/verify-and-handoff.md`:
     `ls` reports no such file and `grep` prints `0` — no runner exists.
     <!-- measured: both commands in this worktree @ 95deb422 → ls exit 1, grep 0 -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`) — the runner, its harness, the
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`) — the runner, its harness, the
     relative symlink `skills/flow/scripts/run-verify-list.sh` → `../../../scripts/run-verify-list.sh`
     and the citing sentence:
 
@@ -391,11 +391,11 @@ index 55059c8a..24c00751 100644
  command is the branch's own defect and takes **The loop** (`skills/flow/verify-fix-loop.md`) once
 ````
 
-  - [ ] **Step 3: Verify.** `bash scripts/test-run-verify-list.sh` prints `all cases passed`;
+  - [x] **Step 3: Verify.** `bash scripts/test-run-verify-list.sh` prints `all cases passed`;
     `scripts/check-guard-symlinks.sh`, `scripts/check-references.sh`,
     `scripts/check-installed-citations.sh`, `python3 scripts/check-markdown-integrity.py`
     and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 4: Commit** the four paths with the subject below.
+  - [x] **Step 4: Commit** the four paths with the subject below.
 
 **Build:** green
 **Files:** `scripts/run-verify-list.sh`, `scripts/test-run-verify-list.sh`, `skills/flow/scripts/run-verify-list.sh`, `skills/flow/verify-and-handoff.md`
