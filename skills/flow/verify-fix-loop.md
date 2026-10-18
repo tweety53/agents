@@ -45,10 +45,14 @@ One round runs these steps in order:
 2. **Implement it.** **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) executes the appended
    task exactly as a plan-time task: the decision's implementer pair, `close-task.sh` with its
    guard and its review gate. The implementer's dispatch also carries the MUTATION PROOF
-   paragraph (`skills/flow/review-panel.md`), and the round closes only when every reported
+   and PIXEL PROBE paragraphs (`skills/flow/review-panel.md`), and the round closes only when every reported
    `fix-mutation:` line is checked against the fix diff the way **The fix round mutation-proves
    what it changed** (`skills/flow/review-panel-fix-round.md`) walks them — a mutant nothing
    kills is a new fixable defect this loop takes another round on.
+   **Every mockup departure the round fixes lands a permanent probe in the task's one commit** —
+   a test that drives the real composable or component, never a hand-copied constant, and asserts
+   the value the verifier measured against the frame — so a later change that moves it again fails
+   a test instead of waiting for the next visual verification (KAN-790).
    **A task fixing a test that passes alone and fails only in the full suite closes after two
    more full runs.** Such load flakes surface one per full-suite round, so after the task's commit
    and before `close-task.sh` the parent runs the worktree's whole `## test` list twice more, and
