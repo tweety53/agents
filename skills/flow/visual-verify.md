@@ -285,7 +285,9 @@ an unreadable PNG, **a `compose-mockup-frames.sh` exit 1 or 2 and a departure fr
 verifier reports in a composite**, **a composed frame with a `missing`, `extra` or over-tolerance
 band whose line names no cause — a pre-existing attribution is not one (**the sweep**,
 `skills/flow-contracts/known-bugs.md`) — and a composed frame with a `missing`,
-`extra` or over-tolerance seam or an off-centre line whose line names no cause**, and **a defect the
+`extra` or over-tolerance seam or an off-centre line whose line names no cause**, **a captured view
+no frame was composed for whose report carries no capture-scope `sweeps:` line, or one whose line
+leaves a sweep neither `done` nor n/a — `<why it does not apply>`**, and **a defect the
 verifier reports in a captured screenshot — even when every assertion passed.** **A named motion
 with no strip under `<changeRoot>/visual-verification/motion/` or no entry in
 `visual-verification.md`, and a frame its strip shows breaking the motion step's rule, block as a

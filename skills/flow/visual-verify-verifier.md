@@ -561,6 +561,7 @@ or a measurement the pixels could not give is step 10 undone.
 - per view, no frame composed: <view id> sweeps: text | order | reach | derived | rows |
   ink — the same sweep line at capture scope; `order` carries its containment half's
   outcome beside n/a — no frame; `rows` and `ink` read n/a — no frame
+- per view, no frame composed: <view id> bands | seams | matrix — n/a — no frame
 - added sweep <name> (sweeps-<n>.md): <`done`, or `n/a — <why it does not apply>` — every view and frame it read, and each departure it found>
 - <frame id> matrix: <n> elements × 11 columns, <k> n/a — <each n/a cell as `<element>.<column>: <why>`; the matrix itself is in visual-verification.md>
 - frames: <n>/<m> — <m> the change's own declared list, then every declared frame id with no line above and why
