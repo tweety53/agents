@@ -529,6 +529,13 @@ sampling skipped that instant is no departure.
     id, its strip's directory relative to the record, its frame count, and each departing frame's
     index and what it shows — or `clean`.
 
+**The wire-contract check — when the prompt names one.** With no `wire contract:` line, the
+report's `wire contract:` line reads n/a. Otherwise, signed in as an account
+`<project>/.flow/project.md`'s `## credentials` declares, call each named endpoint on the running
+API at its worktree-resolved URL, read the response's shape and wire names against the line, then
+drive the stated acceptance behaviour through the API and read the next response — a screenshot
+comparison is no substitute for it.
+
 **No required step is left undone for want of time or context.** The report's `steps:` line gives
 each of steps 4, 7–11 and the motion step a status `check-verify-report.sh` admits — its header
 is canonical for them — and the parent runs that guard on the report before reading it.
@@ -567,6 +574,7 @@ or a measurement the pixels could not give is step 10 undone.
 - frames: <n>/<m> — <m> the change's own declared list, then every declared frame id with no line above and why
 - motion: <named motions recorded>/<named> — <each motion id: its strip directory, frame count, and `clean` or each departing frame's index and what it shows> | n/a — no motions named
   - <a strip recorded beyond the named motions>
+- wire contract: <method> <path> — <the shape and wire names read, and the acceptance behaviour seen, or each departure> | n/a — no wire contract named
 - visual-verification.md: written | not written — <reason>
 - steps: 4 <status> | 7 <status> | 8 <status> | 9 <status> | 10 <status> | 11 <status> | motion <status>
 ```

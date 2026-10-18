@@ -170,6 +170,15 @@ the diff adds, changes or removes — a removed entrance included, since its fra
 it is gone. A scoped re-run names the subset **The loop** (`skills/flow/verify-fix-loop.md`)
 states.
 
+**A flagged diff that draws nothing is named in the prompt, with the wire contract to check.** When
+every path step 2 matched is a web-layer file that draws nothing on screen — a DTO, a converter, a
+filter, no component, style or layout — the parent adds `wire contract:` and one `<method> <path>:
+<the payload fields and wire names the diff adds or changes>; <the change's stated acceptance
+behaviour>` line per endpoint the diff serves, read from `proposal.md`, `design.md` and the diff.
+The `ui paths` flag stands; the verification follows the diff's substance. A departure the
+verifier reports on a `wire contract` line blocks as a defect in a captured screenshot does
+(**Blocking** below).
+
 3. **Pre-flight the workspace, before anything is dispatched.** The verifier's one re-dispatch
    cannot repair an environment that cannot pass. With the parent's own Bash call, before the
    dispatch below, run the four checks — ports held only by their own app, the base-URL
