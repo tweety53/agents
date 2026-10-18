@@ -493,6 +493,62 @@ ln -s "$MAIN/sub" "$ROOT/elsewhere/lsub2"
 expect "103 rm and mv of a symlink into the checkout act on the link, outside it" allow \
   "$(run "$ROOT" Bash "{\"command\":$(q "rm $ROOT/elsewhere/lsub2 && mv $ROOT/elsewhere/lsub $ROOT/elsewhere/l3")}")"
 
+# 104-107: a push of a change branch runs check-untasked-commits over its
+# unpushed commits (kan-941); a stub stands in for the guard.
+UNTASKED_RC="$ROOT/untasked-rc"
+UNTASKED_LOG="$ROOT/untasked-log"
+cat >"$ROOT/untaskedcheck" <<STUB
+#!/usr/bin/env bash
+printf '%s\n' "\$@" >"$UNTASKED_LOG"
+echo "UNTASKED: 1 commit(s) carry no Task-Id: or Flow-Key: trailer"
+exit "\$(cat "$UNTASKED_RC")"
+STUB
+chmod +x "$ROOT/untaskedcheck"
+export UNTASKED_COMMITS_CHECK="$ROOT/untaskedcheck"
+CWT="$ROOT/main-worktrees/chg2"
+git_q -C "$MAIN" worktree add "$CWT" -b spectre/chg2 origin/main
+git_q -C "$CWT" push -q -u origin spectre/chg2
+echo m >"$CWT/m.txt"
+git_q -C "$CWT" add m.txt
+git_q -C "$CWT" commit -q -m "fix(app): review Minors"
+echo 1 >"$UNTASKED_RC"
+expect "104 a change-branch push carrying an untasked commit" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $CWT push origin spectre/chg2")}")"
+[ "$(tr '\n' ' ' <"$UNTASKED_LOG")" = "$CWT refs/remotes/origin/spectre/chg2 --not-remotes " ] \
+  && pass "104 checker args" || fail "104 checker args: $(tr '\n' ' ' <"$UNTASKED_LOG")"
+echo 0 >"$UNTASKED_RC"
+expect "105 a change-branch push the checker clears" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cd $CWT && git push")}")"
+echo 1 >"$UNTASKED_RC"
+rm -f "$UNTASKED_LOG"
+git_q -C "$CWT" checkout -q -b spectre/chg3
+expect "106 a change branch origin does not hold yet" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $CWT push -u origin spectre/chg3")}")"
+[ ! -e "$UNTASKED_LOG" ] && pass "106 checker not run" || fail "106 checker ran"
+expect "107 a checker that cannot run fails open" allow \
+  "$(UNTASKED_COMMITS_CHECK="$ROOT/missing" run "$ROOT" Bash "{\"command\":$(q "git -C $CWT push origin HEAD:spectre/chg2")}")"
+unset UNTASKED_COMMITS_CHECK
+
+# 108-109: the real checker after a rebase onto a moved base — the base's own
+# trailer-less commits are on origin already, never the change's to judge.
+RWT="$ROOT/main-worktrees/chg4"
+git_q -C "$MAIN" worktree add "$RWT" -b spectre/chg4 origin/main
+git_q -C "$RWT" push -q -u origin spectre/chg4
+echo b >"$RWT/b.txt"
+git_q -C "$RWT" add b.txt
+git_q -C "$RWT" commit -q -m "fix(build): someone else's work"
+git_q -C "$RWT" push -q origin HEAD:refs/heads/main
+echo t >"$RWT/t.txt"
+git_q -C "$RWT" add t.txt
+git_q -C "$RWT" commit -q -m "feat(app): task one" -m "Task-Id: 1"
+expect "108 a push after a rebase onto a moved base" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $RWT push --force-with-lease origin spectre/chg4")}")"
+echo u >"$RWT/u.txt"
+git_q -C "$RWT" add u.txt
+git_q -C "$RWT" commit -q -m "fix(app): review Minors"
+expect "109 the real checker still lists the change's own untasked commit" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $RWT push --force-with-lease origin spectre/chg4")}")"
+
 # 3 last: moving the main checkout off main lifts the protection
 git_q -C "$MAIN" checkout -q -b feature
 expect "3 Write in main checkout on a feature branch" allow \

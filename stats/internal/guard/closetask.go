@@ -119,6 +119,16 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 		worst = max(worst, ctCheckTrailer(env, stdout, stderr, canonical, name, t.id, t.commit))
 	}
 	worst = max(worst, Registry["check-task-commit-planning-paths"]([]string{canonical, mergeBase}, env, stdout, stderr))
+	// The push below sends every commit origin lacks: one outside every task
+	// needs its Flow-Key: trailer before it leaves (git-boundaries.md,
+	// Commits outside every task; kan-941 pushed four with none). A worktree
+	// whose branch origin does not hold yet has nothing to judge.
+	for _, wt := range worktrees {
+		remote := "refs/remotes/origin/spectre/" + name
+		if _, ok := capture(envGit(env)("-C", wt, "rev-parse", "--verify", "-q", remote)); ok {
+			worst = max(worst, Registry["check-untasked-commits"]([]string{wt, remote, "--not-remotes"}, env, stdout, stderr))
+		}
+	}
 	switch worst {
 	case 0:
 	case 1:

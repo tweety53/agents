@@ -159,6 +159,45 @@ func TestCloseTaskOrder(t *testing.T) {
 		}
 		ctEqual(t, fx.calls(t), nil)
 	})
+	t.Run("untasked unpushed commit: exit 1, no tick, no push", func(t *testing.T) {
+		t.Parallel()
+		fx := ctFixture(t, true, "0", "0")
+		gitRun(t, fx.wt, "push", "-q", "-u", "origin", "spectre/demo")
+		writeFile(t, fx.wt+"/m.txt", "m\n")
+		gitRun(t, fx.wt, "add", "--", "m.txt")
+		gitRun(t, fx.wt, "commit", "-q", "-m", "fix(app): review Minors")
+		s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
+		r := fx.run(fx.wt, "demo", fx.base, "1:"+s1)
+		if r.rc != 1 || !strings.Contains(r.stdout, "UNTASKED: 1 commit(s) carry no Task-Id: or Flow-Key: trailer") {
+			t.Fatalf("exit %d, want 1 and the UNTASKED verdict\n%s", r.rc, r.out)
+		}
+		ctEqual(t, fx.calls(t), nil)
+	})
+	t.Run("a rebase onto a moved base: the base's commits are not judged", func(t *testing.T) {
+		t.Parallel()
+		fx := ctFixture(t, true, "0", "0")
+		gitRun(t, fx.wt, "push", "-q", "-u", "origin", "spectre/demo")
+		writeFile(t, fx.wt+"/m.txt", "m\n")
+		gitRun(t, fx.wt, "add", "--", "m.txt")
+		gitRun(t, fx.wt, "commit", "-q", "-m", "fix(build): someone else's work")
+		gitRun(t, fx.wt, "push", "-q", "origin", "HEAD:refs/heads/main")
+		s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
+		if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1); r.rc != 0 {
+			t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
+		}
+	})
+	t.Run("a Flow-Key unpushed commit pushes", func(t *testing.T) {
+		t.Parallel()
+		fx := ctFixture(t, true, "0", "0")
+		gitRun(t, fx.wt, "push", "-q", "-u", "origin", "spectre/demo")
+		writeFile(t, fx.wt+"/m.txt", "m\n")
+		gitRun(t, fx.wt, "add", "--", "m.txt")
+		gitRun(t, fx.wt, "commit", "-q", "-m", "fix(app): review Minors", "-m", "Flow-Key: panel-fix-1")
+		s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
+		if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1); r.rc != 0 {
+			t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
+		}
+	})
 	t.Run("undeclared path from a refusal fires the gate", func(t *testing.T) {
 		t.Parallel()
 		fx := ctFixture(t, true, "0", "0")

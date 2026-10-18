@@ -35,6 +35,13 @@ denied too unless scripts/check-loop-landing.sh, in the agents checkout this hoo
 from, admits it — flowd holding the loop's completed plan, fix and clean last review. That one
 check fails closed: a checker that cannot answer or cannot run denies the push.
 
+It also denies a push of a `/flow` change branch (`spectre/<name>`) whose unpushed commits —
+`origin/spectre/<name>..HEAD` — hold one outside every task with neither a `Task-Id:` nor a
+`Flow-Key:` trailer, as scripts/check-untasked-commits.sh judges them (**Commits outside every
+task**, skills/flow-contracts/git-boundaries.md; kan-941 pushed four such commits). It checks only a
+push of HEAD's commit to a branch origin already holds, and fails open: a checker that cannot
+answer, cannot run or times out lets the push through, and run 1's gate still lists the commit.
+
 Both landing checks read the push from the command text, so a push the hook cannot read is denied
 rather than let through: one whose repository (`-C <path>`, a `cd`), remote or refspec goes through
 a shell expansion the hook cannot resolve — `$W`, `"${B}:main"`, `$(git branch --show-current)`, a
@@ -92,6 +99,12 @@ LOOP_BRANCH_RE = re.compile(r"^(pipeline-fix-.+-[0-9]+|self-review-.+|spectre/.+
 # 300s setup.sh registers: a hook the harness times out fails open.
 LOOP_CHECK_TIMEOUT = 240
 LOOP_DEADLINE = None
+
+# The untasked-commits checker and its budget; overridable for the hook's own harness only.
+UNTASKED_CHECK = os.environ.get("UNTASKED_COMMITS_CHECK") or os.path.join(
+    os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "scripts", "check-untasked-commits.sh"
+)
+UNTASKED_CHECK_TIMEOUT = 60
 
 # The loop-landing checker; overridable for the hook's own harness only.
 LOOP_CHECK = os.environ.get("LOOP_LANDING_CHECK") or os.path.join(
@@ -513,6 +526,35 @@ def loop_landing(args, target):
     return None
 
 
+def untasked_push(args, target):
+    """The deny reason when the push sends HEAD's commit to a `spectre/` branch origin holds and
+    check-untasked-commits.sh lists an unpushed commit carrying neither trailer, else None."""
+    if target is None:
+        return None
+    head = git(target, "rev-parse", "--verify", "-q", "HEAD")
+    for src, dst in push_refspecs(args, target):
+        remote = f"refs/remotes/origin/{dst}"
+        if not dst.startswith("spectre/") or not git(target, "rev-parse", "--verify", "-q", remote):
+            continue
+        if not head or git(target, "rev-parse", "--verify", "-q", f"{src}^{{commit}}") != head:
+            continue
+        try:
+            r = subprocess.run(
+                [UNTASKED_CHECK, target, remote, "--not-remotes"], capture_output=True, text=True, timeout=UNTASKED_CHECK_TIMEOUT
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if r.returncode == 1:
+            return (
+                f"Blocked: a commit this push sends to {dst} sits outside every task with neither a "
+                f"`Task-Id:` nor a `Flow-Key:` trailer:\n{r.stdout}\n"
+                "Each listed commit is on no origin ref. Add `-m \"Flow-Key: <key>\"` to it — `git commit "
+                "--amend` for HEAD, a reword for an earlier listed one, never a commit outside this list — `<key>` its round's dispatch key or stage key (**Commits outside every "
+                "task**, skills/flow-contracts/git-boundaries.md), then push again."
+            )
+    return None
+
+
 def bash_hits(command, cwd, landings=None):
     """Paths a Bash command writes into or git-mutates, resolved against cwd and `cd`.
 
@@ -584,6 +626,9 @@ def bash_hits(command, cwd, landings=None):
                     loop = None if unreadable else loop_landing(args, target)
                     if loop:
                         landings.append(loop)
+                    untasked = None if unreadable else untasked_push(args, target)
+                    if untasked:
+                        landings.append(untasked)
                 i = j + 1
                 continue
             if tok == "sed" and any(t.startswith("-i") for t in tokens[i + 1 : i + 4]):

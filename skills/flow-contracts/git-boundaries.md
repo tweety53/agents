@@ -134,7 +134,14 @@ records no such row, the stage key (`flow.review-panel`, `flow.visual-verify`, `
 carries `Task-Id:` instead, and a planning commit neither. Run 1's unfinished-work gate lists
 every other non-`chore` commit with `check-untasked-commits.sh`
 (`skills/flow-contracts/finish-contract-run1.md`).
-**Before such a commit is pushed, `check-untasked-commits.sh <worktree> <merge-base>` runs**; when the only sha it lists is that commit's, `git commit --amend` adds the missing trailer and the guard runs again; any other listed commit goes to run 1's unfinished-work gate, which handles `UNTASKED`.
+**Before such a commit is pushed, `check-untasked-commits.sh` judges every commit the push sends**,
+mechanically at both points that push a change branch mid-run: `hooks/protect-main-checkout.py`
+denies a typed push of HEAD to `spectre/<name>` while it lists a commit origin's copy of that branch lacks,
+and `close-task.sh` refuses (exit 1, nothing ticked or pushed) on the same range per worktree
+before its push. A listed HEAD takes the trailer through `git commit --amend`, an earlier commit
+through a reword; the push or the close is then made again. A commit already on origin is not
+judged there — run 1's unfinished-work gate lists it and handles `UNTASKED` (kan-941 pushed four
+such commits before either check existed).
 
 ## Revert and back-out commits
 

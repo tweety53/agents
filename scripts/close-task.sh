@@ -23,7 +23,11 @@
 #      <name> for every task, and its commit's — every map pair's — Task-Id:
 #      trailer must name the task or a task its Build: red fold joins (exit 1
 #      otherwise): the trailer is how a task's commit is found again.
-#   3. check-task-commit-planning-paths.sh <canonical> <merge-base>.
+#   3. check-task-commit-planning-paths.sh <canonical> <merge-base>, then
+#      check-untasked-commits.sh <worktree> refs/remotes/origin/spectre/<name>
+#      once per distinct worktree whose branch origin already holds: the push
+#      at step 7 sends those commits, and one outside every task carries its
+#      `Flow-Key:` trailer before it leaves (kan-941).
 #   4. Any guard exit 2 → exit 2; else any exit 1 → exit 1; else an
 #      appended task step 1 found no row naming → exit 1. Nothing is ticked
 #      or pushed either way, so a refused commit is never pushed.

@@ -19,11 +19,18 @@ const ucPrefix = "check-untasked-commits:"
 var ucChoreRE = regexp.MustCompile(`^chore(\([^)]*\))?!?:`)
 
 func checkUntaskedCommits(args []string, env Env, stdout, stderr io.Writer) int {
-	if len(args) != 2 || args[0] == "" || args[1] == "" {
-		fmt.Fprintf(stderr, "%s usage: check-untasked-commits.sh <worktree> <base>\n", ucPrefix)
+	if len(args) < 2 || len(args) > 3 || args[0] == "" || args[1] == "" || (len(args) == 3 && args[2] != "--not-remotes") {
+		fmt.Fprintf(stderr, "%s usage: check-untasked-commits.sh <worktree> <base> [--not-remotes]\n", ucPrefix)
 		return 2
 	}
 	worktree, base := args[0], args[1]
+	rng := []string{"HEAD", "^" + base}
+	if len(args) == 3 {
+		// A push sends only what origin lacks: after a rebase onto a moved
+		// base, the base's own commits sit in <base>..HEAD but are already on
+		// origin, never this change's to judge.
+		rng = append(rng, "--not", "--remotes=origin")
+	}
 	if !isDir(worktree) {
 		fmt.Fprintf(stderr, "%s worktree not found: %s\n", ucPrefix, worktree)
 		return 2
@@ -31,9 +38,9 @@ func checkUntaskedCommits(args []string, env Env, stdout, stderr io.Writer) int 
 	git := envGit(env)
 	// --first-parent: a merged-in branch's commits are that branch's own,
 	// never this change's -- reshape-branch refuses such a merge outright.
-	out, ok := capture(git("-C", worktree, "log", "--no-merges", "--first-parent",
-		"--format=%H%x00%s%x00%(trailers:key=Task-Id,valueonly,separator=%x2C)%x00%(trailers:key=Flow-Key,valueonly,separator=%x2C)%x1e",
-		base+"..HEAD"))
+	out, ok := capture(git(append([]string{"-C", worktree, "log", "--no-merges", "--first-parent",
+		"--format=%H%x00%s%x00%(trailers:key=Task-Id,valueonly,separator=%x2C)%x00%(trailers:key=Flow-Key,valueonly,separator=%x2C)%x1e"},
+		rng...)...))
 	if !ok {
 		fmt.Fprintf(stderr, "%s git cannot read %s..HEAD in %s\n", ucPrefix, base, worktree)
 		return 2
