@@ -192,6 +192,13 @@ on a measured or reported bound (Compose's semantics bounds, coerced to the pare
 the property under test is what is drawn — an overflow is visible only in the rendered
 pixels, so the assertion passes on the unfixed code.
 
+**An error-path fix is tested against its real trigger.** A test that hands the fixed handler a
+payload the real backend never sends on that path — a bare `403` where every real one carries an
+error code — proves nothing about reachability: a global interceptor, a client-wide handler for
+that status or code, can take the real response first and leave the local handler dead while its
+test stays green (KAN-691). Before the test is written, trace the real response through every
+interceptor to the handler, and drive the test or reproducer with that real response, end to end.
+
 ### Twelve-Factor App
 
 Config comes from the environment, backing services are attached resources, processes are
