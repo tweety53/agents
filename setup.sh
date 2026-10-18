@@ -1216,6 +1216,17 @@ install_global() {
   echo "   from a git worktree or feature branch the links break when it is removed."
 }
 
+# A global install into the operator's own home links it into this checkout, so from a linked
+# worktree every session's rules break the moment cleanup removes it (KAN-773). A sandboxed
+# $HOME — every test and sandbox-diff run — is not the operator's and installs as before. The
+# home is the password database's (bash's ~user), SETUP_REAL_HOME standing in for it in a test.
+real_home="${SETUP_REAL_HOME:-$(eval echo "~$(id -un)")}"
+if [ "$HARNESS" = global ] && [ "$HOME" = "$real_home" ] \
+  && common_dir="$(git -C "$SCRIPT_DIR" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" \
+  && [ "$(git -C "$SCRIPT_DIR" rev-parse --absolute-git-dir)" != "$common_dir" ]; then
+  die "$SCRIPT_DIR is a linked worktree — a global install from it breaks when it is removed. Run from the main checkout: $(dirname "$common_dir")/setup.sh global"
+fi
+
 case "$HARNESS" in
   global)      install_global ;;
   claude-code) install_claude_code ;;
