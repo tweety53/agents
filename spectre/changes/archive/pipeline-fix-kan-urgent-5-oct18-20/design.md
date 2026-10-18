@@ -26,6 +26,7 @@ fix touches three of them plus the guard's test.
 **Status:** active
 **Chosen:** when the pushing repository's project holds no rows for the loop, read them under the main checkout of `FLOW_GUARD_REPO_ROOT` — the agents checkout the shim sits in, the one the hook and `pipeline-fix.sh` are installed from — skipped when that is the pushing repository itself.
 **Considered:** filing the rows under every repository the plan touches — `check-loop-dispatch` cannot know the plan's repositories when it admits the plan dispatch; a `-project` argument on the check — the hook would have to know the loop's home, which it cannot; always reading both projects — a pushing repository with its own rows for the loop never needs the second read.
+**Residual risk:** a loop is identified by its branch name alone, so a branch in another repository carrying an agents loop's exact name and no rows of its own lands on that loop's rows; loop names derive from agents change names, so only a real satellite carries one, and the agents rows record no repository list to tighten it against.
 
 ### A change's own branch keeps its own project
 

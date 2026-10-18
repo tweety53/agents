@@ -37,8 +37,8 @@ fed by `FLOW_GUARD_REPO_ROOT`, which `scripts/check-loop-landing.sh` now exports
 - A `spectre/<name>` branch never falls back (`own-branch-no-fallback`).
 - `FLOW_GUARD_REPO_ROOT` unset, or naming the pushing repository itself, changes nothing.
 
-- [ ] 1. Read a satellite loop branch's rows under the agents checkout's project
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** From this worktree run
+- [x] 1. Read a satellite loop branch's rows under the agents checkout's project
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** From this worktree run
     `scripts/check-loop-landing.sh /Users/tweety53/Projects/gymie self-review-kan-urgent-5-oct18`:
     exit 1, `LOOP-LANDING-REFUSED: PLAN —`, `FIX —`, `REVIEW —` (read-only; the dev store holds
     the finished loop's rows under the agents project). Save the diff below to
@@ -46,7 +46,7 @@ fed by `FLOW_GUARD_REPO_ROOT`, which `scripts/check-loop-landing.sh` now exports
     (`git apply --include='stats/internal/guard/*_test.go' /tmp/pf20-task1.diff`) and run
     `cd stats && go test ./internal/guard/ -run 'TestCheckLoopLandingSatellite' -count=1`:
     `rows_under_the_agents_project` FAILs; the other two subtests pass.
-  - [ ] **Step 2: Implement.** Apply the rest
+  - [x] **Step 2: Implement.** Apply the rest
     (`git apply --exclude='stats/internal/guard/*_test.go' /tmp/pf20-task1.diff`):
 
 ````diff verified:applied with git apply to this worktree at fe238ed0; TestCheckLoopLandingSatellite/rows_under_the_agents_project fails with looplanding.go untouched and all subtests pass with it; go test ./internal/guard/ -count=1 green; gofmt -l and go vet clean; check-guard-symlinks and check-references exit 0; the live call against gymie exits 0 LOOP-LANDING-OK
@@ -175,13 +175,13 @@ index fb296d08..55fc9a50 100644
  		return 0
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard/ && go test ./internal/guard/ -run 'CheckLoopLanding|PipelineFix' -count=1`
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard/ && go test ./internal/guard/ -run 'CheckLoopLanding|PipelineFix' -count=1`
     — gofmt prints nothing, the rest exit 0; `scripts/check-guard-symlinks.sh` and
     `scripts/check-references.sh` exit 0; the Step 1 live call now exits 0 with
     `LOOP-LANDING-OK self-review-kan-urgent-5-oct18`, and
     `scripts/check-loop-landing.sh /Users/tweety53/Projects/gymie self-review-no-such-loop` still
     exits 1.
-  - [ ] **Step 4: Commit** the three files with the subject below.
+  - [x] **Step 4: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/looplanding.go`, `stats/internal/guard/check_loop_landing_test.go`, `scripts/check-loop-landing.sh`
