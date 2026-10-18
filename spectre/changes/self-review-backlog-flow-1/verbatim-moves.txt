@@ -1,0 +1,14 @@
+# Sentences this change adds on purpose — KAN-539 (git-boundaries.md, implement.md), KAN-545 (brainstorm-planner.md, visual-verify-verifier.md), KAN-549 (visual-verify.md).
+**A capture reaches every control it clicks or types into by a structural locator, never a page coordinate** (**D.
+**A commit's message describes the tree it lands, never an attempt that left it.
+**The frame-list half of that reconciliation is a guard**, run whenever `mockups` is declared, before the rest is reconciled by hand:
+**Write every click and capture in an end-to-end or fidelity spec on a structural locator.
+**Your commit's message describes the tree it lands**: an attempt you wrote and undid before committing is never what its subject or body describes (**Revert and back-out commits**, `skills/flow-contracts/git-boundaries.md`).
+Each such task's steps reach every control the spec clicks, types into or captures by its role and accessible name, its label, its text or its test id — never by a page coordinate, which names a position in one layout and lands on another control once any task shifts that layout.
+Exit 1: a `no sidecar line` gap is a frame with no sidecar line, which blocks under **Blocking** below, and every other gap joins the reconciliation's list above.
+Exit 2 is a usage error or an unreadable input, corrected and the guard run again.
+Its header is canonical for the declared list it derives and the gaps it names.
+KAN-539 is the case that paid for it: a guessed icon and its revert were folded into one commit whose message still described the icon its tree did not contain.
+To keep the attempt in the history instead, land it and back it out as two commits, the back-out under the paragraph above.
+When work written inside a task or a fix round is undone before it lands — reverted in the working tree, or removed by a fixup folded into the commit — the commit's subject and body describe the net tree, and the body names the abandoned attempt only as abandoned, with why.
+check-frame-list.sh <changeRoot>/design.md <mockups root> <abs-worktree>/.superpowers/sdd/verify-report-<key>.md
