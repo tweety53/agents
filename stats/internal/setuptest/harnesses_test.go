@@ -3,6 +3,7 @@ package setuptest
 import (
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -215,4 +216,40 @@ func TestZcodeCompactWindowEnvBlock(t *testing.T) {
 	g.runSetup(fixture, home, "global", "")
 	g.assertIdentical("an unmanaged Z_COMPACT_WINDOW line is left byte-identical", zshrc, expected)
 	g.assertContains("the skip is explained in the log", g.log, "outside the managed block")
+}
+
+// TestGlobalInstallRefusedFromLinkedWorktree pins KAN-773: `global` into the operator's own
+// home (SETUP_REAL_HOME here) from a linked worktree exits non-zero naming the main checkout's
+// command and links nothing; the main checkout still installs there, and the worktree still
+// installs into any other home — the sandboxed one every other test here uses.
+func TestGlobalInstallRefusedFromLinkedWorktree(t *testing.T) {
+	g := newGroup(t)
+	main := filepath.Join(g.dir, "fixture-repo-main")
+	if err := makeFixtureRepo(main, false); err != nil {
+		t.Fatal(err)
+	}
+	wt := filepath.Join(g.dir, "fixture-repo-wt")
+	for _, args := range [][]string{
+		{"init", "-q", "-b", "main"},
+		{"add", "-A"},
+		{"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "fixture"},
+		{"worktree", "add", "-q", wt},
+	} {
+		if out, err := exec.Command("git", append([]string{"-C", main}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+
+	home := g.newHome()
+	g.env = []string{"SETUP_REAL_HOME=" + home}
+	g.runSetup(wt, home, "global", "")
+	g.assertRCNonzero("global from a linked worktree exits non-zero", g.rc)
+	g.assertContains("the refusal names the main checkout's command", g.log, filepath.Join(main, "setup.sh")+" global")
+	g.assertAbsent("nothing is linked into $HOME", filepath.Join(home, ".claude/rules"))
+
+	g.runSetup(main, home, "global", "")
+	g.assertRCZero("global from the main checkout succeeds", g.rc, g.log)
+
+	g.runSetup(wt, g.newHome(), "global", "")
+	g.assertRCZero("global from the worktree into a sandboxed home succeeds", g.rc, g.log)
 }

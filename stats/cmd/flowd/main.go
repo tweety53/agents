@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -177,15 +178,21 @@ func run(logger *slog.Logger) error {
 	// above has already confirmed connectivity via its own ping, so this
 	// is exactly the "at startup" half of design.md's "Availability and
 	// reconciliation". The "on reconnect" half is Watch, started below.
-	reconciler := reconcile.New(st, st, st, fallback.StateRoot(), logger)
-	startupResult, startupErr := reconciler.Run(ctx)
-	logReconcileResult(logger, "startup", startupResult, startupErr)
-
+	// A workspace daemon skips both halves: the journal is shared, and an
+	// entry replayed into its throwaway database leaves the journal and is
+	// dropped with that database at cleanup (KAN-913).
 	watchCtx, stopWatch := context.WithCancel(ctx)
 	defer stopWatch()
-	go reconciler.Watch(watchCtx, st.Ping, reconnectPingInterval, func(result reconcile.Result, err error) {
-		logReconcileResult(logger, "reconnect", result, err)
-	})
+	if replaysSharedJournal(cfg.DSN) {
+		reconciler := reconcile.New(st, st, st, fallback.StateRoot(), logger)
+		startupResult, startupErr := reconciler.Run(ctx)
+		logReconcileResult(logger, "startup", startupResult, startupErr)
+		go reconciler.Watch(watchCtx, st.Ping, reconnectPingInterval, func(result reconcile.Result, err error) {
+			logReconcileResult(logger, "reconnect", result, err)
+		})
+	} else {
+		logger.Info("flowd journal replay skipped: not the dev workspace's flow database")
+	}
 
 	// Task 9: harvest session transcripts and attribute their usage to
 	// open stage windows. st (a *store.Store) satisfies both
@@ -406,6 +413,15 @@ var (
 	// no adapter, before task 2 makes that the daemon's only option.
 	_ harvest.Deps = (*store.Store)(nil)
 )
+
+// replaysSharedJournal reports whether dsn names the dev workspace's own
+// `flow` database, the one store the shared journal under
+// fallback.StateRoot() is replayed into. A workspace database
+// (flow_<id>, .flow/project.md's ## workspace isolation) never is.
+func replaysSharedJournal(dsn string) bool {
+	u, err := url.Parse(dsn)
+	return err == nil && u.Path == "/flow"
+}
 
 // logReconcileResult reports one Reconciler.Run outcome. A replay failure
 // is deliberately not fatal to the daemon -- reconcile.Reconciler.Run
