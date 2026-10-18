@@ -358,7 +358,8 @@ Resolve the run instructions the start below uses, the handoff's `**Running:**` 
   Exit 2 adds `Freshness: unverified — <the guard's stderr reason>` instead, the same
   visible-gap rule the visual-verification procedure's own step 6 (`skills/flow/visual-verify.md`) runs on a missing row. A refused start
   (below) already ends the run, so this check only ever runs on a start that succeeded or was
-  skipped by the protected-service rule.
+  skipped by the protected-service rule, or on the rest of a stack the out-of-worktree exception
+  below hands off.
 
 - **A refused start is relayed, never resolved.** When the start command above exits non-zero
   because a port it needs is already held, this stage does not retry, does not pick another port,
@@ -368,6 +369,15 @@ Resolve the run instructions the start below uses, the handoff's `**Running:**` 
   This run then ends at `IN_PROGRESS` with the diff still staged, and the handoff names `/flow
   <name>` as the next command — the same change, re-run once the holder is stopped. It never stops
   a stack this run did not start.
+
+  **An application outside the change's worktrees is the one exception.** When the refused start
+  is that of an application whose repository the change holds no worktree in — its code is not
+  under review — the rest of the stack is handed off, and the `Running:` section names it in place
+  of a URL bullet:
+
+  ```
+  Not started: <app> (<url>) — port <port> held by <the holder the start's output names>; outside this change's worktrees.
+  ```
 
 ```bash
 flow stage end -command '/flow' -stage flow.run-instructions -outcome completed <name>
@@ -473,6 +483,7 @@ flow stage end -command '/flow' -stage flow.write-in-progress -outcome completed
 - <app>: <the URL this worktree resolved> — one bullet per started application
 - Login: <app> — <user> / <password> — one bullet per `## credentials` row, when the section declares any
 - Not started: <app> (<url>) — protected, see <project>/CLAUDE.md. | Nothing to start — no runnable application; <the `## lint` and `## test` commands>
+- Not started: <app> (<url>) — port <port> held by <holder>; outside this change's worktrees. — one bullet per application **A refused start is relayed, never resolved** above hands off unstarted
 
 **Decisions:** none | <one line each:>
 - ? <an open question the operator must answer>
