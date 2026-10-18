@@ -148,7 +148,10 @@ removed with `git worktree remove` once the figure is written — never by check
 over the change worktree. The `## Report` gains one line, `live check — <matched | failure look>`. A figure that
 shows the failure look is the branch's own defect and takes **The loop**
 (`skills/flow/verify-fix-loop.md`); a stack that will not start ends the turn as a failed
-command's environment cause does. The verifier row's `end` (**Recording.**, above) is recorded
+command's environment cause does. **A step of the check the operator waives runs on its cheapest safe proxy instead** — a scratch
+database, a throwaway container — never simply dropped, and the `## Report` line names the proxy:
+kan-576's waived V34 DOWN-block step, run by a reviewer on a scratch database, caught a rollback
+that would have kept every `WORKOUTS: READ` grant as a full one (KAN-740). The verifier row's `end` (**Recording.**, above) is recorded
 after this check, not before it: `-outcome blocked -cause test-failure` on a failure look,
 `-cause environment` on a stack that will not start. The stack stays up for **Visual
 verification** and **Resolve the run instructions**.
