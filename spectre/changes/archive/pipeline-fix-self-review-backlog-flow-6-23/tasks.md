@@ -40,8 +40,8 @@ there is file-checked in that repository.
 - The linted root listed in its own record is excluded, macOS `/var` → `/private/var` included:
   case 17's stub lists it.
 
-- [ ] 1. Find a cross-repo change's ticked task's commit in its peer worktrees
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** From this worktree run
+- [x] 1. Find a cross-repo change's ticked task's commit in its peer worktrees
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** From this worktree run
     `scripts/check-task-records.sh /Users/tweety53/Projects/agents-worktrees/self-review-backlog-flow-6`:
     exit 1 with `spectre/changes/self-review-backlog-flow-6/tasks.md: task 5 ticked but no commit
     with subject 'fix(profile): hold the friendship row lock through setLevel's check and write'
@@ -49,7 +49,7 @@ there is file-checked in that repository.
     (`git apply --include='scripts/test-*' /tmp/pf23-task1.diff`) and run
     `bash scripts/test-check-task-records.sh`: `FAIL: case 17 peer worktree commit: rc=1 …ticked but
     no commit with subject 'fix(peer): one' reachable from HEAD`, exit 1; every other case passes.
-  - [ ] **Step 2: Implement.** Apply the rest
+  - [x] **Step 2: Implement.** Apply the rest
     (`git apply --exclude='scripts/test-*' /tmp/pf23-task1.diff`):
 
 ````diff verified:applied with git apply to this worktree at cfb9b564; scripts/test-check-task-records.sh passes every case with it and fails case 17 alone with check-task-records.py untouched; check-python-suppressions, check-references and check-guard-symlinks exit 0; the Step 1 call exits 0 with no output
@@ -198,16 +198,16 @@ index 5d5b3991..75e02fb7 100755
  # Unlanded archives: the scan cannot list the archived changes the base does
 ````
 
-  - [ ] **Step 3: Verify.** `bash scripts/test-check-task-records.sh` exits 0 printing
+  - [x] **Step 3: Verify.** `bash scripts/test-check-task-records.sh` exits 0 printing
     `all cases passed`; `scripts/check-python-suppressions.sh`, `scripts/check-references.sh` and
     `scripts/check-guard-symlinks.sh` exit 0; the Step 1 call now exits 0 with no output.
-  - [ ] **Step 4: Commit** the two files with the subject below.
+  - [x] **Step 4: Commit** the two files with the subject below.
 
 **Build:** green
 **Files:** `scripts/check-task-records.py`, `scripts/test-check-task-records.sh`
-**Tests:** Case 17
+**Tests:** Case 17, case 18, case 19
 **Regression:** Case 17 — reverting the commit reports a ticked task whose commit lives only in a peer worktree the change's state record lists: `FAIL: case 17 peer worktree commit: rc=1`.
-**Baseline:** before=18 after=19
+**Baseline:** before=18 after=21
 <!-- measured: grep -cE '^# --- case [0-9]+[a-z]*:' scripts/test-check-task-records.sh (before at cfb9b564 → 18; after with this task's diff applied) -->
 **Commit:** fix(scripts): find a cross-repo change's task commit in its peer worktrees
 **After:** none
