@@ -217,6 +217,34 @@ func TestBundleServesArchivedVisualVerification(t *testing.T) {
 	}
 }
 
+func TestBundleElidesMatrixRowsUnderAnyMatrixHeading(t *testing.T) {
+	repo := gitRepo(t)
+	commitAll(t, repo, "a.go", "package a\n", "feat(demo): a")
+	writeArchiveBranch(t, repo, "demo", map[string]string{
+		"tasks.md": "# demo tasks\n",
+		"visual-verification.md": "# Visual verification — demo\n\n## Element × property matrices\n\n" +
+			"### cardio-add-workout:cardio-add-workout-A1 matrix (A1)\n\n| element | x |\n|---|---|\n| ROW-H3 | 1 |\n\n" +
+			"## Matrix\n\n| element | x |\n|---|---|\n| ROW-H2 | 1 |\n\n" +
+			"### Departures\n\n| element | departure |\n|---|---|\n| bar | colour |\n",
+	})
+
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, []string{repo}, ExecRunner{})
+	if err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+
+	for _, want := range []string{"### cardio-add-workout:cardio-add-workout-A1 matrix (A1)", "## Matrix", "_(3 matrix rows elided)_", "| bar | colour |"} {
+		if !strings.Contains(bundle, want) {
+			t.Errorf("bundle missing %q:\n%s", want, bundle)
+		}
+	}
+	for _, gone := range []string{"ROW-H3", "ROW-H2"} {
+		if strings.Contains(bundle, gone) {
+			t.Errorf("bundle still carries matrix row %q:\n%s", gone, bundle)
+		}
+	}
+}
+
 func TestBundleElidesMatrixRowsAndPNGStatLines(t *testing.T) {
 	repo := gitRepo(t)
 	if err := os.WriteFile(filepath.Join(repo, "shot.png"), []byte("\x89PNG"), 0o644); err != nil {

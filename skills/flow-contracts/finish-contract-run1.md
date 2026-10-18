@@ -310,8 +310,8 @@ roots for the pipeline's changes), and the `git log --stat` of every implementat
 archive commit of the change, oldest first, followed by each peer the archived `link.md`'s
 `## Merge order` names, its `spectre/<name>` commits against its base under a `### <peer>`
 heading — and prints it as one Markdown document. Its `visual-verification.md` keeps every heading and
-drops the table rows under each `####` element × property matrix heading, and its `git log --stat`
-lines leave out every `*.png` path. A source that is absent is reported
+drops the table rows under each heading naming a matrix — any level, `matrix` in its text, any
+case — and its `git log --stat` lines leave out every `*.png` path. A source that is absent is reported
 `skipped: <source> (absent)` inside the bundle, never fatal.
 The session appends `## Session narrative` (one paragraph it writes for run 1 itself; the
 archived `narrative.md` is already a bundle section, and a change predating the narrative rule
