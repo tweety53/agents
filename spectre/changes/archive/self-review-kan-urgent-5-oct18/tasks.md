@@ -28,9 +28,9 @@
 - A backend `@Feature` code must still be checked in full, and a frontend code in a catalogued domain must still be an orphan when the catalog lacks it (Task 4).
 
 
-- [ ] 1. Find a peer's counterpart in the sibling worktree layout
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/spectre-worktrees/self-review-kan-urgent-5-oct18`, apply Step 2's diff to the two test files alone (`git apply --include='internal/check/link_test.go' --include='internal/cmd/link_test.go' <the saved diff>`) and run `go test ./internal/check/ ./internal/cmd/ -run 'SiblingWorktree' -count=1`: `TestLinkFindingsCounterpartOnlyInPeerSiblingWorktree` fails `one-sided link`, and `TestLinkCounterpartOnlyInPeerSiblingWorktree` fails `canonical change "kan-9-cross" does not exist in peer "can"` — the defect. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='internal/check/link_test.go' --exclude='internal/cmd/link_test.go' <the saved diff>`.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 1. Find a peer's counterpart in the sibling worktree layout
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/spectre-worktrees/self-review-kan-urgent-5-oct18`, apply Step 2's diff to the two test files alone (`git apply --include='internal/check/link_test.go' --include='internal/cmd/link_test.go' <the saved diff>`) and run `go test ./internal/check/ ./internal/cmd/ -run 'SiblingWorktree' -count=1`: `TestLinkFindingsCounterpartOnlyInPeerSiblingWorktree` fails `one-sided link`, and `TestLinkCounterpartOnlyInPeerSiblingWorktree` fails `canonical change "kan-9-cross" does not exist in peer "can"` — the defect. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='internal/check/link_test.go' --exclude='internal/cmd/link_test.go' <the saved diff>`.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at spectre c3b62de; with it applied go test ./... passes, and with internal/tree/peer.go reverted both SiblingWorktree tests fail
 diff --git a/internal/check/link_test.go b/internal/check/link_test.go
@@ -163,7 +163,7 @@ index 7a47065..827b0b7 100644
  func sameDir(a, b string) bool {
 ````
 
-  - [ ] **Step 3: Verify.** In `/Users/tweety53/Projects/spectre-worktrees/self-review-kan-urgent-5-oct18`: `gofmt -l .` prints nothing, `go vet ./...` exits 0, and `go test ./internal/check/ ./internal/cmd/ -run 'CounterpartOnlyInPeer' -count=1` passes. Commit.
+  - [x] **Step 3: Verify.** In `/Users/tweety53/Projects/spectre-worktrees/self-review-kan-urgent-5-oct18`: `gofmt -l .` prints nothing, `go vet ./...` exits 0, and `go test ./internal/check/ ./internal/cmd/ -run 'CounterpartOnlyInPeer' -count=1` passes. Commit.
 
 **Build:** green
 **Files:** `internal/tree/peer.go`, `internal/cmd/link.go`, `internal/check/link_test.go`, `internal/cmd/link_test.go`
@@ -176,9 +176,9 @@ index 7a47065..827b0b7 100644
 
 **Decision:** counterpart-sibling-layout
 
-- [ ] 2. Measure fix-loop dispatches and inline rows of a run that marks no stage
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/agents-worktrees/self-review-kan-urgent-5-oct18`, apply Step 2's diff to the three test files alone (`git apply --include='stats/internal/harvest/watcher_test.go' --include='stats/internal/store/records_test.go' --include='stats/cmd/flow/record_test.go' <the saved diff>`) and run `cd stats && go test ./internal/harvest/ ./cmd/flow/ -run 'TestWatcherStampsLoopLaunchByItsKey|TestRecordDispatchBeginSendsTheSessionID' -count=1`: both fail — no loop stamp, no `sessionId` sent — and `go vet ./internal/store/` fails `mine.SessionID undefined`, the store half the tree lacks. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='stats/internal/harvest/watcher_test.go' --exclude='stats/internal/store/records_test.go' --exclude='stats/cmd/flow/record_test.go' <the saved diff>`. The defect itself is the dev store's (`design.md`, **Context**): rows under fix-loop keys carry no `agentId` and empty `metrics`.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 2. Measure fix-loop dispatches and inline rows of a run that marks no stage
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/agents-worktrees/self-review-kan-urgent-5-oct18`, apply Step 2's diff to the three test files alone (`git apply --include='stats/internal/harvest/watcher_test.go' --include='stats/internal/store/records_test.go' --include='stats/cmd/flow/record_test.go' <the saved diff>`) and run `cd stats && go test ./internal/harvest/ ./cmd/flow/ -run 'TestWatcherStampsLoopLaunchByItsKey|TestRecordDispatchBeginSendsTheSessionID' -count=1`: both fail — no loop stamp, no `sessionId` sent — and `go vet ./internal/store/` fails `mine.SessionID undefined`, the store half the tree lacks. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='stats/internal/harvest/watcher_test.go' --exclude='stats/internal/store/records_test.go' --exclude='stats/cmd/flow/record_test.go' <the saved diff>`. The defect itself is the dev store's (`design.md`, **Context**): rows under fix-loop keys carry no `agentId` and empty `metrics`.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at agents b61a1e6a; with it applied go test ./internal/harvest/ ./internal/store/ ./internal/records/ ./internal/api/ ./cmd/flow/ passes, and each new test fails with its own fix line reverted (the stampLoopLaunches call, the session_id match, the begin's SessionID)
 diff --git a/stats/cmd/flow/record.go b/stats/cmd/flow/record.go
@@ -612,7 +612,7 @@ index cdf5c475..4b601b4c 100644
  // stated what the harness reported, by hand, and the automatic stamp must
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` exits clean, and `go test ./internal/harvest/ ./internal/store/ ./cmd/flow/ -run 'TestWatcherStampsLoopLaunchByItsKey|TestStampLoopDispatchAgentFillsLatestRowByKey|TestDispatchWindowsForSessionMatchesTheRowsOwnSession|TestRecordDispatchBeginSendsTheSessionID' -count=1` passes. Commit.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` exits clean, and `go test ./internal/harvest/ ./internal/store/ ./cmd/flow/ -run 'TestWatcherStampsLoopLaunchByItsKey|TestStampLoopDispatchAgentFillsLatestRowByKey|TestDispatchWindowsForSessionMatchesTheRowsOwnSession|TestRecordDispatchBeginSendsTheSessionID' -count=1` passes. Commit.
 
 **Build:** green
 **Files:** `stats/internal/harvest/transcript.go`, `stats/internal/harvest/deps.go`, `stats/internal/harvest/watcher.go`, `stats/internal/harvest/watcher_test.go`, `stats/internal/store/records.go`, `stats/internal/store/records_test.go`, `stats/internal/store/migrations/0040_dispatch_session_id.sql`, `stats/internal/records/types.go`, `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`
@@ -626,9 +626,9 @@ index cdf5c475..4b601b4c 100644
 **Decision:** loop-launch-stamp-by-key
 **Decision:** dispatch-session-id
 
-- [ ] 3. Throttle a rare flake until it fails, and review a flake fix for its measured proof
-  - [ ] **Step 1: Confirm the gap before touching anything; do not guess.** In `/Users/tweety53/Projects/agents-worktrees/self-review-kan-urgent-5-oct18`, `grep -n -i 'throttl' rules/fix-determinism-at-the-source.mdc skills/flow/primary-reviewer-prompt.md` prints nothing, and `grep -n -i 'flak' skills/flow/primary-reviewer-prompt.md` prints nothing.
-  - [ ] **Step 2: Apply the edit.** Apply this diff:
+- [x] 3. Throttle a rare flake until it fails, and review a flake fix for its measured proof
+  - [x] **Step 1: Confirm the gap before touching anything; do not guess.** In `/Users/tweety53/Projects/agents-worktrees/self-review-kan-urgent-5-oct18`, `grep -n -i 'throttl' rules/fix-determinism-at-the-source.mdc skills/flow/primary-reviewer-prompt.md` prints nothing, and `grep -n -i 'flak' skills/flow/primary-reviewer-prompt.md` prints nothing.
+  - [x] **Step 2: Apply the edit.** Apply this diff:
 
 ````diff verified:git apply at agents b61a1e6a; with it applied scripts/check-references.sh, scripts/check-markdown-integrity.py and scripts/check-dispatch-paragraphs.sh exit 0
 diff --git a/rules/fix-determinism-at-the-source.mdc b/rules/fix-determinism-at-the-source.mdc
@@ -667,7 +667,7 @@ index 8087aec0..32a33a4f 100644
         writes.
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` and `scripts/check-dispatch-paragraphs.sh` exit 0, and `git diff HEAD -- rules/fix-determinism-at-the-source.mdc` touches no line between `<!-- core -->` and `<!-- /core -->`. Commit.
+  - [x] **Step 3: Verify.** `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` and `scripts/check-dispatch-paragraphs.sh` exit 0, and `git diff HEAD -- rules/fix-determinism-at-the-source.mdc` touches no line between `<!-- core -->` and `<!-- /core -->`. Commit.
 
 **Build:** green
 **Files:** `rules/fix-determinism-at-the-source.mdc`, `skills/flow/primary-reviewer-prompt.md`
@@ -678,9 +678,9 @@ index 8087aec0..32a33a4f 100644
 
 **Decision:** flake-proof-throttle-and-review
 
-- [ ] 4. Check only the catalog's domains among frontend @Feature codes, and back-fill auth-ui
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-worktrees/self-review-kan-urgent-5-oct18`, `./gradlew verifyFeatureCatalog` fails `Orphan @Feature annotations not in catalog:` listing codes of uncatalogued domains (`workout-ui.*`, `ui-design-system.*`, …) — the defect.
-  - [ ] **Step 2: Apply the scan fix.** Apply this diff:
+- [x] 4. Check only the catalog's domains among frontend @Feature codes, and back-fill auth-ui
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-worktrees/self-review-kan-urgent-5-oct18`, `./gradlew verifyFeatureCatalog` fails `Orphan @Feature annotations not in catalog:` listing codes of uncatalogued domains (`workout-ui.*`, `ui-design-system.*`, …) — the defect.
+  - [x] **Step 2: Apply the scan fix.** Apply this diff:
 
 ````diff verified:git apply at gymie 6a8eddc7; with it applied ./gradlew verifyFeatureCatalog lists only auth-ui orphans, and with the back-fill of Step 3 stubbed in it prints Feature catalog OK
 diff --git a/gradle/feature-catalog.gradle.kts b/gradle/feature-catalog.gradle.kts
@@ -755,8 +755,8 @@ index e4e320ae..f3aa9d0c 100644
 ````
 
     Run `./gradlew verifyFeatureCatalog` again: the orphans are now exactly these `auth-ui` codes — `auth-ui.banner.resend-action`, `auth-ui.error.field-level-error-stays-on-its-field`, `auth-ui.error.page-level-error-renders-on-a-flag-above-the-form`, `auth-ui.gate.failed-read-falls-through`, `auth-ui.home.logout-with-deep-link-slug`, `auth-ui.keyboard-avoidance.auth-content-stays-reachable`, `auth-ui.keyboard-avoidance.auth-screen-applies-inset`, `auth-ui.links.one-treatment`, `auth-ui.login.invite-required-copy`, `auth-ui.login.no-signup-control`, `auth-ui.oauth.account-conflict-message`, `auth-ui.oauth.email-not-verified-message`, `auth-ui.oauth.invite-required-message`, `auth-ui.oauth.missing-email-message`, `auth-ui.register.dead-invite`, `auth-ui.register.email-conflict-visible`, `auth-ui.register.gender`, `auth-ui.register.invite-preview`, `auth-ui.register.invite-preview-not-found`, `auth-ui.register.invite-token`, `auth-ui.register.invited-email-locked`, `auth-ui.register.opens-from-invite`, `auth-ui.register.preview-transport-failure`, `auth-ui.register.submit-gated-on-preview`, `auth-ui.session.boot-refresh-stores-the-rotated-tokens`.
-  - [ ] **Step 3: Back-fill and prune the catalog.** In `docs/features/catalog.yaml`, under `# --- auth-ui ---`, add one entry per code listed in Step 2, in the shape of the existing `auth-ui` entries: `code`, `title`, `spec: auth-ui`, `scenario`, `status: implemented`. Take `scenario` from the matching `#### Scenario:` heading in `openspec/specs/auth-ui/spec.md`; where no scenario matches, read the annotated test in the frontend (`git -C /Users/tweety53/Projects/gymie-frontend grep -n '<code>' -- shared/src`) and write one sentence naming the behaviour it asserts, used as both `title` and `scenario`. Delete the entries `auth-ui.navigation.open-register` and `baseline.schema.auth-tables-only`, whose annotations are gone (`design.md`, **Context**). Mirror both in the tables listing codes: `docs/features/README.md` and `docs/features/auth-ui/README.md` gain a row per added code (the latter's Primary tests column naming the test class that carries the annotation) and lose the removed codes' rows, and `docs/features/baseline/README.md` loses `baseline.schema.auth-tables-only`'s row. In `docs/features/README.md`'s **Rules**, replace `Every `@Feature` annotation must appear in `catalog.yaml` (no orphans).` with `Every backend `@Feature` annotation, and every frontend one in a domain the catalog holds, must appear in `catalog.yaml` (no orphans); the frontend's codes in other domains trace to their OpenSpec capability instead.`
-  - [ ] **Step 4: Verify.** `./gradlew verifyFeatureCatalog` prints `Feature catalog OK`, then `./gradlew ktlintFormat` and `./gradlew verifyChange` exit 0. Commit.
+  - [x] **Step 3: Back-fill and prune the catalog.** In `docs/features/catalog.yaml`, under `# --- auth-ui ---`, add one entry per code listed in Step 2, in the shape of the existing `auth-ui` entries: `code`, `title`, `spec: auth-ui`, `scenario`, `status: implemented`. Take `scenario` from the matching `#### Scenario:` heading in `openspec/specs/auth-ui/spec.md`; where no scenario matches, read the annotated test in the frontend (`git -C /Users/tweety53/Projects/gymie-frontend grep -n '<code>' -- shared/src`) and write one sentence naming the behaviour it asserts, used as both `title` and `scenario`. Delete the entries `auth-ui.navigation.open-register` and `baseline.schema.auth-tables-only`, whose annotations are gone (`design.md`, **Context**). Mirror both in the tables listing codes: `docs/features/README.md` and `docs/features/auth-ui/README.md` gain a row per added code (the latter's Primary tests column naming the test class that carries the annotation) and lose the removed codes' rows, and `docs/features/baseline/README.md` loses `baseline.schema.auth-tables-only`'s row. In `docs/features/README.md`'s **Rules**, replace `Every `@Feature` annotation must appear in `catalog.yaml` (no orphans).` with `Every backend `@Feature` annotation, and every frontend one in a domain the catalog holds, must appear in `catalog.yaml` (no orphans); the frontend's codes in other domains trace to their OpenSpec capability instead.`
+  - [x] **Step 4: Verify.** `./gradlew verifyFeatureCatalog` prints `Feature catalog OK`, then `./gradlew ktlintFormat` and `./gradlew verifyChange` exit 0. Commit.
 
 **Build:** green
 **Files:** `gradle/feature-catalog.gradle.kts`, `docs/features/catalog.yaml`, `docs/features/README.md`, `docs/features/auth-ui/README.md`, `docs/features/baseline/README.md`
