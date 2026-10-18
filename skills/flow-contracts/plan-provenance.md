@@ -73,3 +73,15 @@ URL, or the output that shows its check ran — or it is not written at all, the
 being the `unverified:`/`predicted:` tag. An evidence-free verification tag — a bare `verified:`
 or `measured:` naming nothing after the colon — is a violation, the same way an `unverified:` with
 no `<what-to-check>` is, and both are reported as such.
+
+## A prerequisite is measured on the worktree's own HEAD
+
+A plan that rests on another change being present — "KAN-361 is merged before task 7" — measures
+it in the worktree the change is implemented in, never against a remote branch:
+`git -C <worktree> merge-base --is-ancestor <prerequisite sha> HEAD`, its `measured:` comment
+naming that worktree's HEAD as the ref. A remote branch carrying the prerequisite says nothing
+about a worktree based before it (KAN-698: confirmed against `origin/develop` while the backend
+worktree's HEAD lacked KAN-361, so the feature was silently absent on the stack). The first step of
+every task that depends on the prerequisite runs the same check in its own worktree; an exit 1 is a
+stale base the implementer reports and never builds past — rebasing the worktree is the
+operator's call.
