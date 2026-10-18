@@ -15,7 +15,8 @@
 #      end for <key> did not reach the store; run: flow record dispatch end
 #      …` (the full command) as the last stderr line, turning exit 0 into 3.
 #      Then, for every task it closes that the plan's `**Tasks appended:**`
-#      line counts, `flow record dispatches -change <name> -C <canonical>`:
+#      line counts or whose title opens `In-run fix <k> — `,
+#      `flow record dispatches -change <name> -C <canonical>`:
 #      an appended task no row names is refused at step 4 (exit 1); a
 #      store that cannot be read refuses nothing.
 #   2. check-task-commit-fields.sh <canonical> <id> <sha|map> "" <canonical>

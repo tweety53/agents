@@ -55,7 +55,9 @@
 #
 # SIGNAL FOUR: A TICKED APPENDED TASK NO DISPATCH ROW NAMES IS UNFINISHED
 # (kan-979). Only the last <n> tasks of the plan are judged, <n> from its
-# `**Tasks appended:** <n>` header line (absent: 0, the signal never fires);
+# `**Tasks appended:** <n>` header line (absent: 0), and every task titled
+# `In-run fix <k> — …` wherever it sits — verify-fix-loop.md's loop appends
+# those without raising the count (kan-941: tasks 12-16 went unjudged);
 # a row names a task by its `taskId` or by the `+`-joined ids of a
 # `task-<ids>[-…]` key. Plan-time tasks run grouped or inline and carry no row
 # of their own, so they are never judged.

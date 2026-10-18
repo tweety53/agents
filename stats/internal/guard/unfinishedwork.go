@@ -459,8 +459,8 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		// round that recorded nothing (kan-979's fix-round Task 7 reached
 		// integrate with no dispatch row at all). A row names a task by its
 		// taskId or by the `+`-joined ids of a task-<ids>[-…] key. Only the tasks a
-		// fix run appended — the last `**Tasks appended:** <n>` of the plan —
-		// are judged: each is implemented alone, so it carries a row of its
+		// fix run appended — the last `**Tasks appended:** <n>` of the plan,
+		// and every `In-run fix <k> — …` task (uwAppendedIn) — are judged: each is implemented alone, so it carries a row of its
 		// own, while plan-time tasks run grouped under one task-<n> key or
 		// inline with one row per bundle and most have none. It needs the
 		// plan read above. An appended task also needs a `reviewer` row whose
@@ -590,7 +590,10 @@ func uwDerivedRange(env Env, worktree string) ([2]string, bool) {
 var (
 	uwTask          = regexp.MustCompile(`^- \[([ xX])\] ([0-9]+)\. `)
 	uwTasksAppended = regexp.MustCompile(`^(?:> )?\*\*Tasks appended:\*\* ([0-9]+)`)
-	uwTaskKey       = regexp.MustCompile(`^task-([0-9]+(?:\+[0-9]+)*)(?:-|$)`)
+	// uwInRunFix is verify-fix-loop.md's in-run fix task title, appended
+	// without raising **Tasks appended:** (kan-941: tasks 12-16 unjudged).
+	uwInRunFix = regexp.MustCompile(`^- \[[ xX]\] [0-9]+\. In-run fix [0-9]+ — `)
+	uwTaskKey  = regexp.MustCompile(`^task-([0-9]+(?:\+[0-9]+)*)(?:-|$)`)
 )
 
 // uwRowTasks is the task ids a dispatch row names: its taskId, and the
@@ -617,20 +620,24 @@ func uwAppended(plan string, tickedOnly bool) ([]string, bool) {
 	return uwAppendedIn(string(b), tickedOnly), true
 }
 
-// uwAppendedIn is uwAppended over a plan's text.
+// uwAppendedIn is uwAppended over a plan's text. A task titled
+// `In-run fix <k> — …` (verify-fix-loop.md step 1) counts as appended
+// wherever it sits, since that loop never raises **Tasks appended:**.
 func uwAppendedIn(plan string, tickedOnly bool) []string {
 	appended := 0
 	var tasks [][]string
+	var inRun []bool
 	for l := range strings.Lines(plan) {
 		if m := uwTasksAppended.FindStringSubmatch(l); m != nil {
 			appended, _ = strconv.Atoi(m[1])
 		} else if m := uwTask.FindStringSubmatch(l); m != nil {
 			tasks = append(tasks, m)
+			inRun = append(inRun, uwInRunFix.MatchString(l))
 		}
 	}
 	var ids []string
-	for _, m := range tasks[max(0, len(tasks)-appended):] {
-		if !tickedOnly || m[1] != " " {
+	for i, m := range tasks {
+		if (i >= len(tasks)-appended || inRun[i]) && (!tickedOnly || m[1] != " ") {
 			ids = append(ids, m[2])
 		}
 	}

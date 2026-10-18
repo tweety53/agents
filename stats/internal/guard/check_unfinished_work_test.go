@@ -333,6 +333,14 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		uwVerdict("a reviewer row begun before the implementer row does not review the appended task", "OUTSTANDING:"))
 	each(demo(planned(appended, `[{"seq":1,"key":"task-7-implementer","role":"implementer","outcome":"completed"},{"seq":2,"key":"pipeline-fix-1-review-1","role":"reviewer","outcome":"clean"}]`)),
 		uwVerdict("a non-panel reviewer row does not review the appended task", "OUTSTANDING:"))
+	// An in-run fix task (verify-fix-loop.md step 1) never raises
+	// **Tasks appended:**, and is judged all the same (kan-941's tasks 12-16).
+	inRun := "- [x] 1. done\n- [x] 7. In-run fix 1 — flow.visual-verify: the menu shadow\n"
+	each(demo(planned(inRun, `[{"seq":1,"key":"task-1-implementer","role":"implementer","outcome":"completed"}]`)),
+		uwVerdict("an in-run fix task with no dispatch row is OUTSTANDING", "OUTSTANDING:"),
+		uwReason("the breakdown names the undispatched in-run fix task", "1 ticked appended task(s) with no dispatch row (Task 7)"))
+	each(demo(planned(inRun, `[{"seq":1,"key":"task-7-implementer","role":"implementer","outcome":"completed"},{"seq":2,"key":"panel-2-primary","role":"reviewer","outcome":"clean"}]`)),
+		uwVerdict("an in-run fix task with its implementer row and a later reviewer row is CLEAR", "CLEAR:"))
 	each(demo(planned("- [x] 1. done\n- [x] 2. grouped\n- [x] 3. grouped\n", `[{"key":"task-2-implementer","outcome":"completed"}]`)),
 		uwVerdict("plan-time tasks grouped under one key, with no Tasks appended line, are CLEAR", "CLEAR:"))
 	// 2e. Signal five — a panel round dispatched with no pass row (kan-939:
