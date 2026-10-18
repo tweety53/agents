@@ -28,14 +28,14 @@ file and the visual-verification pair.
 - The out-of-worktree exception must not cover an application of a repository the change does hold a worktree in — that refusal still ends the run.
 - The wire-contract line is added only when every matched path draws nothing; a diff touching one component keeps the screenshot comparison.
 
-- [ ] 1. Dispatch ZCode on general-purpose and record a substituted spawn type (KAN-609)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'ZCODE_PAIR = ' hooks/enforce-agent-baseline.py`
+- [x] 1. Dispatch ZCode on general-purpose and record a substituted spawn type (KAN-609)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'ZCODE_PAIR = ' hooks/enforce-agent-baseline.py`
     prints `64:ZCODE_PAIR = ("flow-high", "glm-5.3-flash")`. Save Step 2's diff, apply its test hunk alone
     (`git apply --include='scripts/test-enforce-agent-baseline-hook.sh' <the saved diff>`) and run
     `scripts/test-enforce-agent-baseline-hook.sh`: cases 8 and 8b fail, and the run ends `FAIL: test-enforce-agent-baseline-hook.sh (2)`.
     Restore with `git checkout -- scripts/test-enforce-agent-baseline-hook.sh`.
     <!-- measured: both commands in a scratch clone @ 9637bf73 → line 64 flow-high; FAIL 8, FAIL 8b, (2) -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 9637bf73; test-enforce-agent-baseline-hook.sh passes, and fails cases 8 and 8b with the hook hunk reverted; check-references.sh, check-installed-citations.sh, check-python-suppressions.sh, check-markdown-integrity.py and check-verbatim-moves.sh 9637bf73 exit 0
 diff --git a/hooks/enforce-agent-baseline.py b/hooks/enforce-agent-baseline.py
@@ -115,10 +115,10 @@ index 46e1898b..a8d2feca 100644
  this run's own argument or in the session before this stage, named an id the resolved list does not
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/test-enforce-agent-baseline-hook.sh` prints `PASS: test-enforce-agent-baseline-hook.sh`;
+  - [x] **Step 3: Verify.** `scripts/test-enforce-agent-baseline-hook.sh` prints `PASS: test-enforce-agent-baseline-hook.sh`;
     `scripts/check-python-suppressions.sh`, `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 4: Commit** the four files with the subject below.
+  - [x] **Step 4: Commit** the four files with the subject below.
 
 **Build:** green
 **Files:** `hooks/enforce-agent-baseline.py`, `scripts/test-enforce-agent-baseline-hook.sh`, `skills/flow-contracts/model-policy.md`, `skills/flow/review-panel.md`
@@ -130,12 +130,12 @@ index 46e1898b..a8d2feca 100644
 **Decision:** zcode-general-purpose
 **Decision:** roster-substitution-recorded
 
-- [ ] 2. Hand off the in-scope stack when an out-of-worktree app's port is held (KAN-629)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 2. Hand off the in-scope stack when an out-of-worktree app's port is held (KAN-629)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n "outside this change's worktrees" skills/flow/verify-and-handoff.md; echo $?`: it prints only `1` —
     no rule or handoff line covers an out-of-worktree application whose start was refused.
     <!-- measured: the grep above in a scratch clone @ 9637bf73 → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 9637bf73 after Task 1's diff; check-references.sh, check-installed-citations.sh, check-markdown-integrity.py and check-verbatim-moves.sh 9637bf73 exit 0
 diff --git a/skills/flow/verify-and-handoff.md b/skills/flow/verify-and-handoff.md
@@ -178,11 +178,11 @@ index 09f9c0e9..b6721b17 100644
  - ? <an open question the operator must answer>
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c "outside this change's worktrees" skills/flow/verify-and-handoff.md` prints `2`;
+  - [x] **Step 3: Verify.** `grep -c "outside this change's worktrees" skills/flow/verify-and-handoff.md` prints `2`;
     `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
     <!-- measured: grep -c after git apply in a scratch clone @ 9637bf73 → 2 -->
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/verify-and-handoff.md`
@@ -193,11 +193,11 @@ index 09f9c0e9..b6721b17 100644
 
 **Decision:** out-of-worktree-refused-start
 
-- [ ] 3. Name a schema-enforceable invariant held in code alone as a robustness violation (KAN-631)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 3. Name a schema-enforceable invariant held in code alone as a robustness violation (KAN-631)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n "check constraint" skills/flow/engineering-principles.md; echo $?`: it prints only `1`.
     <!-- measured: the grep above in a scratch clone @ 9637bf73 → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 9637bf73 after Tasks 1 and 2; check-references.sh, check-installed-citations.sh, check-markdown-integrity.py and check-verbatim-moves.sh 9637bf73 exit 0
 diff --git a/skills/flow/engineering-principles.md b/skills/flow/engineering-principles.md
@@ -218,10 +218,10 @@ index 5dc37f2f..78ebb86e 100644
  
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c "check constraint" skills/flow/engineering-principles.md` prints `1`;
+  - [x] **Step 3: Verify.** `grep -c "check constraint" skills/flow/engineering-principles.md` prints `1`;
     `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/engineering-principles.md`
@@ -232,12 +232,12 @@ index 5dc37f2f..78ebb86e 100644
 
 **Decision:** schema-check-constraints
 
-- [ ] 4. Verify a flagged diff that draws nothing on its wire contract (KAN-633)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 4. Verify a flagged diff that draws nothing on its wire contract (KAN-633)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -rn "wire contract" skills/flow; echo $?`: it prints only `1` — neither the parent nor the
     verifier has a mode for a flagged diff that draws nothing.
     <!-- measured: the grep above in a scratch clone @ 9637bf73 → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 9637bf73 after Tasks 1 to 3; check-references.sh, check-installed-citations.sh, check-markdown-integrity.py and check-verbatim-moves.sh 9637bf73 exit 0
 diff --git a/skills/flow/visual-verify-verifier.md b/skills/flow/visual-verify-verifier.md
@@ -282,10 +282,10 @@ index 204fb1c3..f6549ba0 100644
     cannot repair an environment that cannot pass. With the parent's own Bash call, before the
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c "wire contract" skills/flow/visual-verify.md skills/flow/visual-verify-verifier.md`
+  - [x] **Step 3: Verify.** `grep -c "wire contract" skills/flow/visual-verify.md skills/flow/visual-verify-verifier.md`
     prints `3` and `3`; `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 4: Commit** the two files with the subject below.
+  - [x] **Step 4: Commit** the two files with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/visual-verify.md`, `skills/flow/visual-verify-verifier.md`
