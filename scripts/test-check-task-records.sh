@@ -389,7 +389,7 @@ DIRS+=("$STUB")
 printf '#!/bin/sh\nexit 1\n' >"$STUB/flow"
 chmod +x "$STUB/flow"
 PATH="$STUB:$PATH" run_guard "$FIX"
-if [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q "no commit with subject 'fix(peer): one'"; then
+if [ "$RC" -eq 1 ] && grep -q "no commit with subject 'fix(peer): one'" <<<"$OUT"; then
   pass "case 18 unreadable state record keeps the violation"
 else
   fail "case 18 failing flow: rc=$RC out=$OUT"
@@ -408,7 +408,7 @@ DIRS+=("$STUB")
 printf '#!/bin/sh\nprintf %s\n' "'{\"worktrees\":{\"$PLAIN\":\"x\"}}\\n'" >"$STUB/flow"
 chmod +x "$STUB/flow"
 PATH="$STUB:$PATH" run_guard "$FIX"
-if [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q "no commit with subject 'fix(peer): one'"; then
+if [ "$RC" -eq 1 ] && grep -q "no commit with subject 'fix(peer): one'" <<<"$OUT"; then
   pass "case 19 non-repository record path is skipped"
 else
   fail "case 19 non-repo path: rc=$RC out=$OUT"
