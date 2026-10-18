@@ -78,12 +78,17 @@ The signals that produce that list are the script's own.
 ## A verdict the operator calls structural
 
 When the operator's answer says the verdict was verified structural — the plan held in another
-worktree with every task ticked and no open finding — run, once per worktree that reported
-`OUTSTANDING` and before the landing question:
+worktree with every task ticked and no open finding — run once, before the landing question:
 
 ```bash verified:the flag set is design.md §5's; the call shape mirrors the `flow record verdict` invocation in scripts/check-unfinished-work.sh
 flow record verdict false-positive -change <name> -guard check-unfinished-work \
-  -reason "<the operator's reason, verbatim>" -C <worktree>
+  -reason "<the operator's reason, verbatim>" -C <canonical-worktree>
 ```
+
+Once, and at the canonical worktree, whichever worktrees reported `OUTSTANDING`: the guard records
+every worktree's verdict under the canonical project (THE STORE CALLS ANCHOR AT THE PLAN'S PROJECT,
+`<agents repo>/scripts/check-unfinished-work.sh`), and the command flags that project's newest verdict for the
+change — a satellite's `-C` names a project holding none, and the store refuses it (kan-941:
+"dispatch not found" for both satellites).
 
 A write that falls back to the journal is one warning line and the run continues.
