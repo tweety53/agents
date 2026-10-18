@@ -146,6 +146,13 @@ func TestCheckPanelFixSingleDispatch(t *testing.T) {
 			pfdCase{dispatches: d("panel-fix-1", pf, "mf-tok", "panel-fix-1-f2", pf, "mf-tok"), findings: pfdFindings(24, 0)}, 1, "panel-fix-1-f2"},
 		{"case 17: findings-store-unreachable-exits-2",
 			pfdCase{dispatches: []byte("[]"), fErr: errors.New("exit status 1")}, 2, "flow record findings failed for 'demo' -- cannot answer"},
+		// KAN-890: a fix round resumed under a fresh session token.
+		{"case 18: a retry whose original another token of the change recorded exits 0",
+			pfdCase{dispatches: d("panel-fix-1", pf, "mf-old", "panel-fix-1-retry", pf, "mf-tok")}, 0, ""},
+		{"case 19: a resumed chunked round whose bare key and first chunk another token recorded exits 0",
+			pfdCase{dispatches: d("panel-fix-1", pf, "mf-old", "panel-fix-1-2", pf, "mf-old", "panel-fix-1-3", pf, "mf-tok"), findings: pfdFindings(24, 0)}, 0, ""},
+		{"case 20: another token's retry is no original for this token's retry",
+			pfdCase{dispatches: d("panel-fix-1-retry", pf, "mf-old", "panel-fix-1-retry", pf, "mf-tok")}, 1, "round panel-fix-1 carries 1 -retry dispatch(es) and no original"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.label, func(t *testing.T) {

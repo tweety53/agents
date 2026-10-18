@@ -68,7 +68,15 @@
 # tasks.md that cannot be read while such a row exists is exit 2. A row
 # that recorded no commit is not judged.
 #
-# Rows of other roles and rows of other session tokens never count, nor do
+# A FIX ROUND RESUMED UNDER A FRESH SESSION TOKEN keeps its original
+# (KAN-890): an original another session token of the change recorded under
+# a key answers whether that key's original exists -- for a `-retry`, for a
+# chunked round's bare key and for its chunk contiguity, and so toward the
+# chunk count the bound judges, which counts the round's chunks under every
+# token of the change. The per-key dispatch counts stay this token's.
+#
+# Rows of other roles never count, rows of other session tokens never count
+# toward a per-key dispatch count, nor do
 # `full-suite-fix-<n>` rows recorded with agent id `inline`: implement.md
 # records the parent's own full-suite fix rounds under role `panel-fix`, and
 # they are no panel fix round. A subagent's row under that key still counts.

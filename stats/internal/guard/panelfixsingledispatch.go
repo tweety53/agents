@@ -46,11 +46,13 @@ var pfdFullSuiteRE = regexp.MustCompile(`^full-suite-fix-[0-9]+$`)
 
 // pfdBase is one panel-fix base key (the key with a trailing -retry
 // stripped) and its counts, kept in first-seen order as the bash's parallel
-// arrays were.
+// arrays were. orig and retries count this session token's rows; foreign
+// counts the originals other session tokens of the change recorded under the
+// same key, which answer only whether the key's original exists (KAN-890).
 type pfdBase struct {
-	key           string
-	round, chunk  int64
-	orig, retries int
+	key                    string
+	round, chunk           int64
+	orig, retries, foreign int
 }
 
 func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Writer) int {
@@ -124,9 +126,10 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 		return 2
 	}
 
-	// Each panel-fix row of THIS token. A payload that is not the shape the
-	// verb documents is the same cannot-answer posture as a failed call.
-	fixRows, ok := pfdPanelFixRows(rows, token)
+	// Each panel-fix row of THIS token, and apart from them every other
+	// token's. A payload that is not the shape the verb documents is the same
+	// cannot-answer posture as a failed call.
+	fixRows, foreignRows, ok := pfdPanelFixRows(rows, token)
 	if !ok {
 		fmt.Fprintf(stderr, "%sdispatch rows were not readable JSON -- cannot answer\n", pfdPrefix)
 		return 2
@@ -140,13 +143,7 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 	var violations []string
 	var bases []*pfdBase
 	index := map[string]*pfdBase{}
-	for _, row := range fixRows {
-		key := row.key
-		if !pfdKeyRE.MatchString(key) {
-			violations = append(violations, fmt.Sprintf("out-of-shape panel-fix key '%s' -- the canonical shape is panel-fix-<round>[-<chunk>][-retry]", key))
-			continue
-		}
-		base, retry := strings.CutSuffix(key, "-retry")
+	baseOf := func(base string) *pfdBase {
 		b := index[base]
 		if b == nil {
 			// rest is "<round>" or "<round>-<chunk>"; parsed base 10 (the
@@ -157,17 +154,43 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 			index[base] = b
 			bases = append(bases, b)
 		}
+		return b
+	}
+	for _, row := range fixRows {
+		key := row.key
+		if !pfdKeyRE.MatchString(key) {
+			violations = append(violations, fmt.Sprintf("out-of-shape panel-fix key '%s' -- the canonical shape is panel-fix-<round>[-<chunk>][-retry]", key))
+			continue
+		}
+		base, retry := strings.CutSuffix(key, "-retry")
+		b := baseOf(base)
 		if retry {
 			b.retries++
 		} else {
 			b.orig++
 		}
 	}
+	// A FIX ROUND RESUMED UNDER A FRESH SESSION TOKEN (KAN-890): kan-789's
+	// resumed round recorded panel-fix-1-retry under its new token while
+	// panel-fix-1 sat under the token that started the round, and the
+	// retry-alone rule read a retry with no original. Another token's
+	// original of a key therefore answers whether that key's original
+	// exists -- for a retry, a chunked round's bare key and its chunk
+	// contiguity, and so toward the chunk count the bound judges, which
+	// counts the round's chunks under every token of the change. The per-key
+	// dispatch counts stay this token's, so two runs that each dispatched a round once are never one round
+	// dispatched twice, and a round no row of this token touched is never
+	// judged.
+	for _, row := range foreignRows {
+		if pfdKeyRE.MatchString(row.key) && !strings.HasSuffix(row.key, "-retry") {
+			baseOf(row.key).foreign++
+		}
+	}
 
 	for _, b := range bases {
 		total := b.orig + b.retries
 		switch {
-		case b.retries > 0 && b.orig == 0:
+		case b.retries > 0 && b.orig == 0 && b.foreign == 0:
 			violations = append(violations, fmt.Sprintf("round %s carries %d -retry dispatch(es) and no original -- a retry is never a round's only dispatch", b.key, b.retries))
 		case b.orig > 1:
 			violations = append(violations, fmt.Sprintf("round %s carries %d panel-fix dispatches -- the fix goes to ONE subagent as the combined list, never one per reviewer, slot or finding", b.key, b.orig))
@@ -184,7 +207,7 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 	var rounds []int64
 	seen := map[int64]bool{}
 	for _, b := range bases {
-		if !seen[b.round] {
+		if b.orig+b.retries > 0 && !seen[b.round] {
 			seen[b.round] = true
 			rounds = append(rounds, b.round)
 		}
@@ -204,7 +227,7 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 		if len(chunks) == 0 {
 			continue
 		}
-		if bare == nil || bare.orig == 0 {
+		if bare == nil || bare.orig+bare.foreign == 0 {
 			violations = append(violations, fmt.Sprintf("round panel-fix-%d carries chunked dispatches but no panel-fix-%d original -- chunk numbering starts at the round's own key", r, r))
 		}
 
@@ -213,7 +236,7 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 		// proves nothing about numbering.
 		var present []int64
 		for _, b := range chunks {
-			if b.orig >= 1 {
+			if b.orig+b.foreign >= 1 {
 				present = append(present, b.chunk)
 			}
 		}
@@ -300,20 +323,20 @@ type pfdRow struct{ key, commit string }
 
 // pfdPanelFixRows is `.[] | select((.sessionToken // "") == $tok and
 // (.role // "") == "panel-fix")` then each row's `.key // ""` as jq -r
-// printed it, beside the row's commitSha. A null row selects nothing; any other non-object row, or a
+// printed it, beside the row's commitSha; the panel-fix rows of every other
+// session token come back apart, as foreign. A null row selects nothing; any other non-object row, or a
 // top-level value that is not an array, is jq failing. (jq iterated a
 // top-level object's values in insertion order; that shape is refused here
 // rather than guessed at -- the verb prints an array.)
-func pfdPanelFixRows(raw []byte, token string) ([]pfdRow, bool) {
+func pfdPanelFixRows(raw []byte, token string) (keys, foreign []pfdRow, ok bool) {
 	vals, ok := pfdStream(raw)
 	if !ok {
-		return nil, false
+		return nil, nil, false
 	}
-	var keys []pfdRow
 	for _, v := range vals {
 		arr, ok := v.([]any)
 		if !ok {
-			return nil, false
+			return nil, nil, false
 		}
 		for _, e := range arr {
 			if e == nil {
@@ -321,9 +344,9 @@ func pfdPanelFixRows(raw []byte, token string) ([]pfdRow, bool) {
 			}
 			row, ok := e.(map[string]any)
 			if !ok {
-				return nil, false
+				return nil, nil, false
 			}
-			if row["sessionToken"] != token || row["role"] != "panel-fix" {
+			if row["role"] != "panel-fix" {
 				continue
 			}
 			key := pfdRawText(row["key"])
@@ -334,11 +357,15 @@ func pfdPanelFixRows(raw []byte, token string) ([]pfdRow, bool) {
 			if row["agentId"] == "inline" && pfdFullSuiteRE.MatchString(key) {
 				continue
 			}
+			if row["sessionToken"] != token {
+				foreign = append(foreign, pfdRow{key: key})
+				continue
+			}
 			commit, _ := row["commitSha"].(string)
 			keys = append(keys, pfdRow{key: key, commit: commit})
 		}
 	}
-	return keys, true
+	return keys, foreign, true
 }
 
 // pfdCheckCommits names each row whose recorded commit carries neither a
