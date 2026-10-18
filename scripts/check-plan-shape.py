@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """check-plan-shape.py — check that a `tasks.md` is SHAPED so the guard
 that will later judge its commits (`check-task-commit-fields.py`) can
-actually read it. Thirteen findings, F1-F13 (F1-F6's canonical definitions,
+actually read it. Fourteen findings, F1-F14 (F1-F6's canonical definitions,
 decisions and rationale: `spectre/changes/kan-121-run-the-guards-own-
 parsers-over-tasks-md-at-plan/design.md` — do not restate them here, a
 second copy is a Single Source of Truth violation, the same class of drift
-stats/internal/guard/planprovenance.go's ported docstring warns against; F7-F13's canonical
+stats/internal/guard/planprovenance.go's ported docstring warns against; F7-F14's canonical
 definitions are the rows in the Findings list below).
 
 This guard IMPORTS the real parsers rather than reimplementing their
@@ -34,7 +34,7 @@ Exit codes:
   0  clean — every task in the file is shaped so the real parsers read it
      without ambiguity (including a file with zero findings; a file with
      zero TASKS is F5, not clean — see below).
-  1  one or more of F1-F13 found. Printed one per line as
+  1  one or more of F1-F14 found. Printed one per line as
      `file:line: message`, naming the task id (F5 excepted: a file with no
      tasks has no task id to name).
   2  invocation error — wrong argument count, or the file cannot be read.
@@ -159,6 +159,13 @@ field-shaped line inside a worked example is not a declaration.
       escape) after it.
       Reported at that line, naming the task.
 
+  F14 A task whose `**Files:**` paths all lie under the planning paths —
+      `spectre/changes/`, `openspec/changes/` or `docs/superpowers/`
+      (`PLANNING_PREFIXES`). Its commit cannot carry a `Task-Id:`:
+      check-task-commit-planning-paths.sh refuses a task commit on those
+      paths, so the task lands as a planning commit and is ticked by hand
+      (kan-941's Task 4, `visual-sweep.md`). Reported at the task line.
+
 A duplicate task id (two task lines sharing one id) is check-task-build-
 green.py's own violation, not this guard's: `collect_task_ids` de-
 duplicates by first occurrence, and `select_task`/`parse_task_fields`
@@ -264,6 +271,10 @@ INDENTED_FIELD_RE = re.compile(r"^[ \t]+" + FIELD_RE.pattern.lstrip("^"))
 # TEST_SHAPED_PATTERNS — the four glob shapes design.md's F4 row names for
 # a "test-shaped path".
 TEST_SHAPED_PATTERNS = ("test-*", "*_test.go", "*.test.*", "*.spec.ts")
+
+# PLANNING_PREFIXES — F14's planning paths: check-task-commit-planning-paths'
+# `<leaf>/changes/` for both spec leaves, and `docs/superpowers/`.
+PLANNING_PREFIXES = ("spectre/changes/", "openspec/changes/", "docs/superpowers/")
 
 # MEASURED_GREP_TEST_RE — F13's `grep [opts] '@Test'` shape inside a
 # `measured:` comment: group 1 the option tokens, the lookahead rejecting a
@@ -496,6 +507,14 @@ def _check_task(
         violations.append(
             f"{path}:{task_line}: task {task_id} has no **Files:** line, "
             "or one naming no file at all"
+        )
+    if fields.files and all(f.startswith(PLANNING_PREFIXES) for f in fields.files):  # F14
+        violations.append(
+            f"{path}:{task_line}: task {task_id}'s **Files:** all lie under "
+            "the planning paths (spectre/changes/, openspec/changes/, "
+            "docs/superpowers/), so its commit cannot carry a `Task-Id:` "
+            "— name the file the task's work lands in, or make the record "
+            "a planning commit with no task"
         )
 
     # NONE_OPEN_RE and REPAIRS_OPEN_RE are applied to fields.tests_value —

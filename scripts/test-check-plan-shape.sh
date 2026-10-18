@@ -8,7 +8,7 @@
 # REAL fixture files on disk — never a copy of its logic, never its Python
 # internals imported and asserted on directly.
 #
-# One case per finding (F1-F11), a clean-plan case, a no-arg aggregation
+# One case per finding (F1-F14), a clean-plan case, a no-arg aggregation
 # case, and three exit-2 cases (missing sibling module, unreadable file,
 # usage error). Additionally, for each of F1-F6 and F11, a MUTATION case: a
 # throwaway copy of check-plan-shape.py with that finding's own check
@@ -1041,6 +1041,27 @@ esac
 sed -i.bak "s/grep -c -m1 --include=\*w\* '@Test'/grep -cw --include=*.kt '@Test'/" "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 37 (F13): grep -cw --include=*.kt '@Test' passes" || fail "case 37 (F13) -cw --include: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 38 (F14): a task whose Files all lie under the planning paths cannot
+# carry a Task-Id: (kan-941's Task 4); one implementation path clears it.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Sweep the frames\n\n'
+  printf '**Files:** `spectre/changes/x/visual-sweep.md`, `docs/superpowers/notes.md`\n'
+  printf '**Tests:** none\n'
+  printf '**Commit:** `docs(spectre): sweep`\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+case "$RC:$OUT" in
+  1:*"task 1's **Files:** all lie under the planning paths"*) pass "case 38 (F14): a planning-paths-only task fails" ;;
+  *) fail "case 38 (F14): rc=$RC out=$OUT" ;;
+esac
+assert_mutation_removes_finding "F14" "$TASKS_MD" "all lie under the planning paths" "case 38 (F14) mutation"
+sed -i.bak 's#`docs/superpowers/notes.md`#`docs/visual-sweep.md`#' "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 38 (F14): one implementation path passes" || fail "case 38 (F14) with an implementation path: rc=$RC out=$OUT"
 
 # ===========================================================================
 # Unlanded archives: the scan cannot list the archived changes the base does
