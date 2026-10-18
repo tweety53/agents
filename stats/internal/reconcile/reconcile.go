@@ -1,6 +1,6 @@
 // Package reconcile replays the CLI's write-ahead journal
 // (internal/fallback) into the store (internal/store): at daemon startup,
-// whenever the daemon regains a database connection, and on demand via
+// on every healthy ping of Watch's ticker, and on demand via
 // `flow journal flush`. It consumes task 5's journal format and task 2's
 // change repository directly -- it does not go through internal/api's HTTP
 // surface -- but decodes a journal entry's Body with the exact same
@@ -126,7 +126,7 @@ type Reconciler struct {
 	root        string
 	logger      *slog.Logger
 
-	// mu serializes Run: a startup replay and a reconnect-triggered replay
+	// mu serializes Run: a startup replay and a Watch-triggered replay
 	// can fire at (or near) the same instant, and retirePrefix's
 	// read-current/write-temp/rename sequence is not itself safe against a
 	// second, concurrent instance of that same sequence racing it on the
@@ -152,9 +152,9 @@ func New(cs ChangeStore, ss api.StageStore, rs api.RecordStore, root string, log
 // Run walks r.root for every "*.journal" file, replaying each one's
 // pending entries into the store in file order and retiring the ones it
 // resolves. It returns once every journal file has been visited -- Run
-// does not loop or retry on its own; a caller that wants "whenever the
-// daemon regains a database connection" wires that trigger itself (see
-// Watch) and calls Run again.
+// does not loop or retry on its own; a caller that wants a replay on every
+// healthy store ping wires that trigger itself (see Watch) and calls Run
+// again.
 //
 // Concurrent Run calls are serialized by r.mu: only one physically walks
 // and rewrites journal files at a time. The second caller's Run blocks
@@ -226,19 +226,14 @@ func (r *Reconciler) Run(ctx context.Context) (Result, error) {
 
 // Watch runs until ctx is done, pinging the store every interval via ping
 // and calling Run -- reporting its outcome through onResult, which may be
-// nil -- whenever ping transitions from failing to succeeding. That
-// transition is design.md's "regains a database connection"
-// (`Reconciler.Run` alone only covers the "at startup" half of that
-// requirement; a caller wires Watch for the "on reconnect" half).
-//
-// Watch assumes a connection is already up when it starts: the daemon's
-// own startup sequence already replays once via a direct Run call, after
-// store.Open's own ping has already succeeded, so Watch's first job is
-// detecting the *next* failure-to-success transition, not replaying
-// redundantly for the connection it started with.
+// nil -- on every tick whose ping succeeds. That covers design.md's
+// "regains a database connection" (`Reconciler.Run` alone only covers the
+// "at startup" half; a caller wires Watch for the "on reconnect" half) and
+// also a mark the CLI journalled while the database stayed up -- a brief
+// HTTP-level outage, a request timeout -- which no failing ping ever
+// precedes (KAN-827). Run retires entries idempotently and an empty journal
+// costs one directory walk, so a replay per healthy tick is cheap.
 func (r *Reconciler) Watch(ctx context.Context, ping func(context.Context) error, interval time.Duration, onResult func(Result, error)) {
-	healthy := true
-
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -250,17 +245,12 @@ func (r *Reconciler) Watch(ctx context.Context, ping func(context.Context) error
 			pingCtx, cancel := context.WithTimeout(ctx, interval)
 			err := ping(pingCtx)
 			cancel()
-
 			if err != nil {
-				healthy = false
 				continue
 			}
-			if !healthy {
-				healthy = true
-				result, runErr := r.Run(ctx)
-				if onResult != nil {
-					onResult(result, runErr)
-				}
+			result, runErr := r.Run(ctx)
+			if onResult != nil {
+				onResult(result, runErr)
 			}
 		}
 	}

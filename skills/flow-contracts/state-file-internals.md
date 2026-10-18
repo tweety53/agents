@@ -58,7 +58,7 @@ already stored. Both are safe to retire without further action, which is exactly
 
 The on-disk journal beside the fallback file (`<name>.journal`) holds every write `state set` could
 not deliver, in the order it appended them. The daemon replays it — in file order — at startup and
-whenever it regains a database connection.
+on every successful database ping, every 10 seconds, so a write the CLI journalled while the database stayed up — a request timeout, a non-success answer — lands as surely as one an outage held back.
 
 Each entry is a whole-record write, applied through the same monotonic rule above: conflicts resolve
 by `updatedAt`, with the pipeline state as the tiebreaker, so a `FINISHED` record already in the
