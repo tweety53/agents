@@ -1,2 +1,8 @@
-# Sentences this change adds on purpose — KAN-702 (verify-and-handoff.md).
+# Sentences this change adds or rewords on purpose — KAN-702, KAN-740 (verify-and-handoff.md), KAN-802 (visual-verify-verifier.md), KAN-803 (known-bugs.md, verify-fix-loop.md).
+Every baseline the fix moves is recaptured: every spec `specs` prints for the fix's own diff — the whole suite when `specs` is not declared or prints nothing — runs through `capture` with `--update-snapshots=all` appended (step 8, `skills/flow/visual-verify-verifier.md`), and every PNG whose bytes changed is committed with the task, in the checkout step 12 of **Steps 3–13** (`skills/flow/visual-verify.md`) commits the stage's PNGs to.
+**A server-side pin narrows that exception.
+**A step of the check the operator waives runs on its cheapest safe proxy instead** — a scratch database, a throwaway container — never simply dropped, and the `## Report` line names the proxy: kan-576's waived V34 DOWN-block step, run by a reviewer on a scratch database, caught a rollback that would have kept every `WORKOUTS: READ` grant as a full one (KAN-740).
+**No rewritten baseline is staged unread.
+Each PNG a capture rewrote is read against its old baseline, and against its frame where a sidecar names one, before it is staged; one showing another screen than the test meant is restored, never committed — `--update-snapshots` writes whatever the run captured, a missed click included (KAN-803).
+Where the checkout can send the server its own today (gymie-playwright's `pinClock` sends `X-Gymie-Today`), the spec pins both ends to the one instant, and leaves real or masks only what neither pin reaches (KAN-802).
 `<merge-base>` in both calls is that worktree's own merge base from this run's working notes — never `origin/<base>` or another ref picked by hand, which matches every path the base gained since the worktree was cut as this change's own (KAN-702).

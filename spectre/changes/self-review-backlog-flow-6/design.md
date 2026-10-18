@@ -32,6 +32,32 @@
   `kickoff-worktree.sh` runs it at step 3.
   <!-- measured: git -C gymie-frontend show origin/develop:.flow/project.md | grep -A4 '## worktree setup' @ gymie-frontend 55634cf3 → the cp line -->
 
+- **More tickets on the operator's ask.** The next eleven Backlog Flow tickets after KAN-719,
+  oldest first, checked against the tree; the first four still live joined this change:
+- **KAN-733 — Task 5.** gymie `origin/develop` @ `8d2bb89d`: `AccessServiceImpl.setLevel` is not
+  `@Transactional` and gates on `FriendshipReadRepository.findPair`, a plain `SELECT`;
+  `FriendshipRepositoryAdapter.unfriend` is `@Transactional` but reads the pair with a plain
+  `SELECT` before deleting the grants, then the row. Under read committed an unfriend that deletes
+  the grants before a concurrent `setLevel` commits its write leaves that write standing. The only
+  `FriendshipReadRepository` implementation is the adapter. Blast radius: three main files and two
+  tests in gymie's `profile` module.
+- **KAN-740 — Task 2.** `git grep -n -i waive -- skills` finds nothing about a live step;
+  **Live check** (`skills/flow/verify-and-handoff.md`) says what to run, not what a waived step
+  becomes. Blast radius: one file.
+- **KAN-802 — Task 3.** `skills/flow/visual-verify-verifier.md`'s clock rule leaves the clock real
+  for every view the server dates from its own clock, while gymie-playwright's `api.ts` already
+  sends `X-Gymie-Today` (kan-741). Blast radius: one file.
+- **KAN-803 — Task 4.** **The sweep** (`skills/flow-contracts/known-bugs.md`) stages "only the PNGs
+  the failing run named" and the fix loop commits "every PNG whose bytes changed"
+  (`skills/flow/verify-fix-loop.md`); neither reads them first. Blast radius: two files.
+- **Outdated, no task.** KAN-720: gymie `origin/develop`'s `AGENTS.md` and `CLAUDE.md` carry the
+  same no-blink section. KAN-722: gymie-frontend's Save is `enabled = … && state.loadError == null`.
+  KAN-732: gymie-frontend's `devManifest.js` rewrites the history-fallback shell, injecting the
+  gateway port on deep links. KAN-736: `full_access_required` appears in no gymie source, only in
+  archived records. KAN-764: a design ask — a frame only the operator can draw. KAN-771 and later
+  were not reached.
+  <!-- measured: git -C gymie diff of the two files' no-blink sections @ origin/develop → identical; git -C gymie-frontend grep -n loadError EditProfileScreen.kt @ origin/develop → line 777; git -C gymie grep full_access_required origin/develop -- src → nothing -->
+
 ## Decisions
 
 ### The satellite's merge base comes from the working notes
@@ -47,5 +73,40 @@
 **Status:** active
 **Chosen:** no task for KAN-714, KAN-715, KAN-718 or KAN-719 — each fix is in the tree, cited under **Context** with its commit.
 **Considered:** re-stating each fix in a new sentence — restates what the tree already says canonically.
+
+### setLevel holds the friendship row lock
+
+**ID:** setlevel-friendship-row-lock
+**Status:** active
+**Chosen:** a `lockAcceptedPair` read (`SELECT … FOR UPDATE`) on `FriendshipReadRepository`, called from a `@Transactional` `setLevel`, and `FOR UPDATE` on `unfriend`'s first read — both sides lock the friendship row first, so either order serialises.
+**Considered:** `@Transactional` alone — a plain `SELECT` takes no lock under read committed, the race stands; `SERIALIZABLE` isolation — retries on serialization failure the callers do not handle; locking the `access_grant` row — no row exists to lock before a first grant.
+
+### KAN-733 lands in gymie off develop
+
+**ID:** kan-733-gymie-worktree
+**Status:** active
+**Chosen:** a worktree `/Users/tweety53/Projects/gymie-worktrees/self-review-backlog-flow-6`, branch `self-review-backlog-flow-6` off `origin/develop`, created by Task 5's first step; landed by gymie's `## default landing route`, `merge and push` onto `develop`.
+**Considered:** leaving it for a gymie change — the pass fixes every non-`big` finding.
+
+### A waived live step runs on a proxy
+
+**ID:** waived-live-step-proxy
+**Status:** active
+**Chosen:** one sentence in **Live check**: a waived step runs on its cheapest safe proxy — a scratch database, a throwaway container — and the report names it.
+**Considered:** forbidding waivers — the operator owns the call; a reviewer prompt rule — the live check runs in `flow.verify`, not the panel.
+
+### The server clock is pinned where it can be
+
+**ID:** server-clock-pin
+**Status:** active
+**Chosen:** a sentence after the verifier's server-clock exception: where the checkout can send the server its today, both ends pin to the one instant.
+**Considered:** naming `X-Gymie-Today` as a contract — a gymie mechanism; the sentence cites it as the example only.
+
+### Rewritten baselines are read before staging
+
+**ID:** rewritten-baseline-read
+**Status:** active
+**Chosen:** stated once under **The sweep**, cited from the fix loop's recapture.
+**Considered:** a pixel-diff guard — whether a rewrite shows the intended screen is a judgement the reader makes, not a threshold.
 
 ## Open questions
