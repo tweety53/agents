@@ -170,6 +170,7 @@ text after it is the passage, verbatim.
 - ***Write a live-verification task when the change touches a running service or persistent state.** … the justification is required, the task is not.* — This is deliberately not an integration-test stage on every change: a step that usually resolves to "nothing to do" trains everyone to skip it.
 - *…never a live-verification task …* — (KAN-876) KAN-754's live task ran after the spec and capture tasks in one serial group and repeated, against a stack of its own, what `flow.verify` and visual verify already do against the running app.
 - *Write end-to-end spec and fidelity-capture tasks to run side by side* — (KAN-876) KAN-754 chained its fidelity task after its spec task with no file dependency, and the chain merge then ran them in series.
+- *Write every click and capture in an end-to-end or fidelity spec on a structural locator* — (KAN-545) one change's fidelity specs carried about fifteen hardcoded click coordinates, and a layout shift broke them twice in one change. A re-anchor probe after every layout-shifting task was rejected: it only detects the drift a locator removes.
 
 ### verify-and-handoff.md — Inline verify
 

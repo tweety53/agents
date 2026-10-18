@@ -278,6 +278,11 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > names the stack's start row and any build the tasks run against; no task's steps start, stop
 > or rebuild the stack.
 
+> **Write every click and capture in an end-to-end or fidelity spec on a structural locator.**
+> Each such task's steps reach every control the spec clicks, types into or captures by its role
+> and accessible name, its label, its text or its test id — never by a page coordinate, which
+> names a position in one layout and lands on another control once any task shifts that layout.
+
 > **Write a spec so it never waits out a production timing.** A scenario that depends on a
 > production timeout, retry backoff or polling interval plans a test-only override that
 > shortens it — the production value unchanged — in the task that adds the spec, and a suite
