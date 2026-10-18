@@ -332,6 +332,11 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > code change, while an edit made before reproducing destroys the evidence the task set out to
 > gather.
 
+> **End a removal task on an absence sweep.** When a task's job is removing text — copy, a setting,
+> an identifier — its last verify step is one `git grep -n -F` over every string it removes, each
+> passed as its own `-e '<string>'`, scoped to the paths the task touches: the sweep prints
+> nothing when the task is done, and any hit means it is not.
+
 > **List the rationale appendix a changed rule's reasoning lives in.** A step that changes a rule
 > whose reasoning a `*-rationale.md` appendix records lists that appendix in its task's
 > `**Files:**` and updates it.
