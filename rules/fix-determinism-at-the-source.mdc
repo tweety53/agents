@@ -28,6 +28,12 @@ Run the test until you have seen it fail, and name what actually varied — time
 leftover state, a live network, machine load. A flake you have not reproduced is a guess, and a
 guess routes straight to the tolerance.
 
+When it will not fail at its natural rate, make it fail: throttle what the nondeterminism runs on —
+the CPU (a parallel load, a CPU cap), the network (a throttled connection), or a delay injected at
+the suspected seam — until it does. Then measure the rate under that condition, failures over runs.
+That rate, not one observed failure, sizes the proof runs, and the same condition is the one the
+fix and the mechanism-removed run below are proven under.
+
 ## Fix at the source
 
 - **Pin identity.** When the assertion matches on something that varies run to run — a generated
