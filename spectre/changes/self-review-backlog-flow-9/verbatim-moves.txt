@@ -1,0 +1,2 @@
+# Sentences this change adds on purpose — KAN-898 (review-panel.md).
+On harness `zcode` every pair this paragraph names is recorded as `glm-5.3-flash` / `high` instead — the one pair the store accepts on a `zcode` session token — and on harness `muse` as the session's own (**Harness mapping**, `skills/flow-contracts/model-policy.md`; KAN-898).
