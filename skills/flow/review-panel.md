@@ -449,6 +449,9 @@ a `default` panel and the dispatch's own model from the decision's
 fix-round re-run on a decided panel, `panel.rerun_dispatch`'s model. `-effort` likewise:
 `low` on a `default` panel, and the dispatch's own effort on a decided panel,
 `panel.rerun_dispatch`'s `low` on a re-run. The always-on extra dispatch is the one exception to both: its pass-1 `-model` and `-effort` are its `extra_dispatch` pair, `opus`/`low` when the decision has none.
+On harness `zcode` every pair this paragraph names is recorded as `glm-5.3-flash` / `high`
+instead — the one pair the store accepts on a `zcode` session token — and on harness `muse` as
+the session's own (**Harness mapping**, `skills/flow-contracts/model-policy.md`; KAN-898).
 
 **`-agent-id` is never typed on a slot's row, never invented** — the daemon captures the launch identifier,
 pairing each launch with the begin nearest it in time;
