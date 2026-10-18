@@ -1251,7 +1251,12 @@ func (s *Store) MarkDispatchesUnattributed(ctx context.Context, token, reason st
 // stage-less row -- one matched by its own session_id, a loop row or the
 // inline row of a run that marks no stage -- is capped instead at the next
 // inline begin in the same session: a later run taking the main thread is
-// the point the never-ended one stopped holding it. With no such begin the
+// the point the never-ended one stopped holding it. A begin under
+// minInlineWindow after the row's own is no such successor but a sibling
+// begun beside it -- the per-worktree inline verifier rows one Bash call
+// begins together (skills/flow/verify-and-handoff.md, **Recording.**) --
+// so it caps nothing; capping there left the earlier row a 30 ms window
+// and gave the sibling every record of the run. With no such begin the
 // window stays open.
 //
 // Returning harvest.DispatchWindow directly, rather than a store-local
@@ -1265,7 +1270,8 @@ func (s *Store) DispatchWindowsForSession(ctx context.Context, sessionID string)
 		SELECT d.id, d.started_at, COALESCE(d.ended_at, sr.ended_at, (
 			SELECT MIN(n.started_at) FROM dispatches n
 			WHERE d.stage_run_id IS NULL AND n.session_id = d.session_id
-			  AND n.agent_id = 'inline' AND n.id <> d.id AND n.started_at > d.started_at
+			  AND n.agent_id = 'inline' AND n.id <> d.id
+			  AND n.started_at >= d.started_at + $2::float8 * interval '1 second'
 		)), d.agent_id
 		FROM dispatches d
 		LEFT JOIN stage_runs sr ON sr.id = d.stage_run_id
@@ -1274,7 +1280,7 @@ func (s *Store) DispatchWindowsForSession(ctx context.Context, sessionID string)
 			WHERE sr.session_id = $1 AND sr.session_token IS NOT NULL
 		)
 		ORDER BY d.started_at, d.id
-	`, sessionID)
+	`, sessionID, minInlineWindow.Seconds())
 	if err != nil {
 		return nil, fmt.Errorf("store: dispatch windows for session %s: %w", sessionID, err)
 	}

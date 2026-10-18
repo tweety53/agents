@@ -4319,3 +4319,37 @@ func TestDispatchWindowsForSessionCapsAStagelessOpenRowAtTheNextInlineBegin(t *t
 		t.Fatalf("windows = %+v, want the first capped at %v and the latest open", windows, next.StartedAt)
 	}
 }
+
+// TestDispatchWindowsForSessionLeavesAConcurrentInlineSiblingOpen pins the
+// parallel per-worktree verifier rows: an inline begin under minInlineWindow
+// after another is a sibling running beside it, never its successor, so it
+// does not cap the earlier row's open window.
+func TestDispatchWindowsForSessionLeavesAConcurrentInlineSiblingOpen(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-inline-sibling-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	const sessionID = "session-inline-sibling"
+	first := baseDispatch("verifier", "opus")
+	first.SessionToken = "tok-a"
+	first.SessionID = sessionID
+	first.AgentID = "inline"
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", first); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	sibling := first
+	sibling.SessionToken = "tok-b"
+	sibling.StartedAt = first.StartedAt.Add(30 * time.Millisecond)
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", sibling); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+
+	windows, err := st.DispatchWindowsForSession(ctx, sessionID)
+	if err != nil {
+		t.Fatalf("DispatchWindowsForSession: %v", err)
+	}
+	if len(windows) != 2 || windows[0].EndedAt != nil || windows[1].EndedAt != nil {
+		t.Fatalf("windows = %+v, want both siblings open", windows)
+	}
+}
