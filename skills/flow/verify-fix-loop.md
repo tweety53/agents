@@ -28,6 +28,16 @@ run included, names under `moved:` in its prompt every frame a `<spec>.mockups` 
 spec whose baseline moved — the verifier compares each against its mockup exactly as it does the
 change's own frames, so a screen the shared fix regressed is a departure the next round fixes.
 
+**A suite that also fails for a reason the fix did not cause is re-baselined per capture, never per
+flag run** — `--update-snapshots=all` would write the unrelated failures' captures over their
+baselines too. The suite runs without the flag; for each failing capture, every changed-pixel
+blob of its diff image is classified against the fix's expected footprint — where the shared
+source draws and how large its change is — and only a capture whose every blob fits has its
+`-actual.png` copied over its baseline, each copied baseline read before it is staged. A test
+stops at its first failing capture, so the run repeats until no failure inside the footprint
+remains, and a capture with a blob outside it is a defect per **The sweep**
+(`skills/flow-contracts/known-bugs.md`), never copied (KAN-837).
+
 **Mockup departures are classified before the round's task is written.** Where every frame that
 draws the departing component agrees, the departure is a defect this round fixes. Where frames
 disagree on a shared component, the component's own design source wins — the frame that draws it
