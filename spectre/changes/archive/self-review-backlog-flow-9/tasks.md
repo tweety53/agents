@@ -36,11 +36,11 @@ table tests; and one sentence in `skills/flow/review-panel.md`.
 - Task 3: case 6's two foreign originals still pass; a round only another token touched is never judged; a foreign `-retry` is no original.
 - Task 4: an unindented line after a list item still opens its own block; `TestVMSentences` is unchanged.
 
-- [ ] 1. Pin the four untested ported-guard refusals (KAN-886)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 1. Pin the four untested ported-guard refusals (KAN-886)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n -F -e 'FLOW_GUARD_REPO_ROOT is unset' -e 'cannot read the state record' -e 'a null status' stats/internal/guard/check_references_test.go stats/internal/guard/check_installed_citations_test.go stats/internal/guard/check_panel_reproducers_test.go stats/internal/guard/check_unfinished_work_test.go; echo $?`: it prints only `1`.
     <!-- measured: the grep above in this worktree @ 373988df → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 373988df; gofmt -l internal/guard clean; go test ./internal/guard -run 'TestCheckPanelReproducers|TestCheckUnfinishedWork|TestCheckReferences|TestCheckInstalledCitations' passes; each new subtest fails with its refusal removed as Step 3 names
 diff --git a/stats/internal/guard/check_installed_citations_test.go b/stats/internal/guard/check_installed_citations_test.go
@@ -111,14 +111,14 @@ index 100187be..55950329 100644
  			uwRC("malformed findings refuse: "+bad.label+" exits 2", 2),
 ````
 
-  - [ ] **Step 3: RED, then GREEN.** Remove each refusal in turn and run its guard's test, restoring it after:
+  - [x] **Step 3: RED, then GREEN.** Remove each refusal in turn and run its guard's test, restoring it after:
     `|| state == nil` in `stats/internal/guard/panelreproducers.go`'s state decode → `TestCheckPanelReproducers` fails on `case 32`;
     `!pcIsString(f["status"]) || ` in `uwOpenFindings` (`stats/internal/guard/unfinishedwork.go`) → `TestCheckUnfinishedWork` fails on the three `a finding with a null status` subtests;
     `root == ""` replaced by `false` in the `FLOW_GUARD_REPO_ROOT` lookup of `stats/internal/guard/references.go`, then of `stats/internal/guard/installedcitations.go` → `TestCheckReferences` and `TestCheckInstalledCitations` each fail on their new subtest. With every refusal restored, all four pass.
     <!-- measured: the four mutations above, one at a time, in a scratch clone @ 373988df after the diff → each named subtest FAIL; restored → ok -->
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` prints nothing and exits 0;
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` prints nothing and exits 0;
     `cd stats && go test ./internal/guard -run 'TestCheckPanelReproducers|TestCheckUnfinishedWork|TestCheckReferences|TestCheckInstalledCitations'` passes.
-  - [ ] **Step 5: Commit** the four files with the subject below.
+  - [x] **Step 5: Commit** the four files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/check_panel_reproducers_test.go`, `stats/internal/guard/check_unfinished_work_test.go`, `stats/internal/guard/check_references_test.go`, `stats/internal/guard/check_installed_citations_test.go`
@@ -129,11 +129,11 @@ index 100187be..55950329 100644
 
 **Decision:** pin-ported-refusals
 
-- [ ] 2. Cover the commit map's refusals and its link-route satellite (KAN-889)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 2. Cover the commit map's refusals and its link-route satellite (KAN-889)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -c -F -e 'map entry is not' -e 'named twice in the commit map' stats/internal/guard/check_task_commit_fields_test.go`: it prints `0`.
     <!-- measured: the grep above in this worktree @ 373988df → 0 -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 373988df after Task 1's diff; gofmt -l internal/guard clean; go test ./internal/guard -run TestCheckTaskCommitFields passes; cases 160, 161 and 162 each fail with the mutation Step 3 names
 diff --git a/stats/internal/guard/check_task_commit_fields_test.go b/stats/internal/guard/check_task_commit_fields_test.go
@@ -184,15 +184,15 @@ index 113adf4d..ebe3441f 100644
  		t.Run(c.name, func(t *testing.T) {
 ````
 
-  - [ ] **Step 3: RED, then GREEN.** Apply each mutation in turn, restoring it after, and run
+  - [x] **Step 3: RED, then GREEN.** Apply each mutation in turn, restoring it after, and run
     `cd stats && go test ./internal/guard -run 'TestCheckTaskCommitFields/case_16'`:
     `wt == "" || sha == "" || ` removed from the map parse in `stats/internal/guard/taskcommitfields.go` → `case 160` fails;
     the `slices.ContainsFunc(repos, …)` condition replaced by `false` → `case 161` fails;
-    in `changePlanDir`'s link branch (`stats/internal/guard/changeplan.go`) the `if isFile(canonDir + "/tasks.md") { return canonDir, 0 }` block removed → `case 162` fails. Restored, all pass.
+    in `changePlanDir`'s link branch (`stats/internal/guard/changeplan.go`) the `isFile(canonDir + "/tasks.md")` condition replaced by `false` (removing the block leaves `canonDir` unused and fails the build, not the case) → `case 162` fails. Restored, all pass.
     <!-- measured: the three mutations above, one at a time, in a scratch clone @ 373988df after the diff → case 160, case 161, case 162 FAIL respectively; restored → ok -->
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` prints nothing and exits 0;
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` prints nothing and exits 0;
     `cd stats && go test ./internal/guard -run 'TestCheckTaskCommitFields|TestTaskFieldParseMatchesPython'` passes.
-  - [ ] **Step 5: Commit** the file with the subject below.
+  - [x] **Step 5: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/check_task_commit_fields_test.go`
@@ -204,11 +204,11 @@ index 113adf4d..ebe3441f 100644
 
 **Decision:** commit-map-cases
 
-- [ ] 3. Read another token's original as a resumed fix round's own (KAN-890)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 3. Read another token's original as a resumed fix round's own (KAN-890)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n 'foreign' stats/internal/guard/panelfixsingledispatch.go; echo $?`: it prints only `1` — the guard keeps no other token's row.
     <!-- measured: the grep above in this worktree @ 373988df → exit 1, no line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 373988df after Tasks 1-2's diffs; gofmt -l and go vet ./internal/guard clean; go test ./internal/guard -run TestCheckPanelFixSingleDispatch passes; cases 18 and 19 fail with the guard file at 373988df and with the mutation Step 3 names
 diff --git a/scripts/check-panel-fix-single-dispatch.sh b/scripts/check-panel-fix-single-dispatch.sh
@@ -425,11 +425,11 @@ index b2101b71..e7866a3f 100644
  // pfdCheckCommits names each row whose recorded commit carries neither a
 ````
 
-  - [ ] **Step 3: RED, then GREEN.** In `stats/internal/guard/panelfixsingledispatch.go` replace `foreign = append(foreign, pfdRow{key: key})` with `_ = foreign`:
+  - [x] **Step 3: RED, then GREEN.** In `stats/internal/guard/panelfixsingledispatch.go` replace `foreign = append(foreign, pfdRow{key: key})` with `_ = foreign`:
     `cd stats && go test ./internal/guard -run TestCheckPanelFixSingleDispatch` fails on `case 18` and `case 19`. Restore the line: it passes.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` prints nothing and exits 0;
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` prints nothing and exits 0;
     `cd stats && go test ./internal/guard -run TestCheckPanelFixSingleDispatch` passes; `scripts/check-guard-symlinks.sh` and `scripts/check-references.sh` exit 0.
-  - [ ] **Step 5: Commit** the three files with the subject below.
+  - [x] **Step 5: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/panelfixsingledispatch.go`, `stats/internal/guard/check_panel_fix_single_dispatch_test.go`, `scripts/check-panel-fix-single-dispatch.sh`
@@ -441,12 +441,12 @@ index b2101b71..e7866a3f 100644
 
 **Decision:** foreign-token-original
 
-- [ ] 4. Join a list item's wrapped lines into its verbatim-moves block (KAN-896)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** With `<scratch>` a scratch directory outside the worktree, run
+- [x] 4. Join a list item's wrapped lines into its verbatim-moves block (KAN-896)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** With `<scratch>` a scratch directory outside the worktree, run
     `git worktree add -q --detach <scratch>/k813 f603fe9b && (cd stats && go build -o <scratch>/flow-guard ./cmd/flow-guard) && FLOW_GUARD_REPO_ROOT=<scratch>/k813 <scratch>/flow-guard check-verbatim-moves d4b55fa8^ | grep -c '^FAIL deleted or reworded'; git worktree remove --force <scratch>/k813`:
     it prints `2` — the two halves of kan-813's untouched `Run **Verify**` sentence, `f603fe9b` being kan-813's tree once its one genuine reword was restored.
     <!-- measured: the commands above, under the session scratchpad, in a scratch clone @ 373988df → 2; after the diff → 0 -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 373988df after Tasks 1-3's diffs; gofmt -l internal/guard clean; go test ./internal/guard -run 'TestVMSentences|TestCheckVerbatimMoves' passes; both new tests fail with the guard file at 373988df and with the mutation Step 3 names; scripts/check-verbatim-moves.sh 373988df reports 0 violations over the tree
 diff --git a/stats/internal/guard/check_verbatim_moves_test.go b/stats/internal/guard/check_verbatim_moves_test.go
@@ -565,11 +565,11 @@ index f4bdec27..12afb755 100644
  	flush()
 ````
 
-  - [ ] **Step 3: RED, then GREEN.** In `vmBlocks` (`stats/internal/guard/verbatimmoves.go`) replace `cur = append(cur, vmListMarker.ReplaceAllString(s, ""))` with `out = append(out, vmListMarker.ReplaceAllString(s, ""))`:
+  - [x] **Step 3: RED, then GREEN.** In `vmBlocks` (`stats/internal/guard/verbatimmoves.go`) replace `cur = append(cur, vmListMarker.ReplaceAllString(s, ""))` with `out = append(out, vmListMarker.ReplaceAllString(s, ""))`:
     `cd stats && go test ./internal/guard -run 'TestVMSentences|TestCheckVerbatimMoves'` fails on `TestVMSentencesJoinListItemContinuation` and `a pure insertion into a wrapped list item flags only the inserted sentence`. Restore the line: it passes.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` prints nothing and exits 0;
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` prints nothing and exits 0;
     `cd stats && go test ./internal/guard -run 'TestVMSentences|TestCheckVerbatimMoves'` passes; Step 1's count prints `0`.
-  - [ ] **Step 5: Commit** the two files with the subject below.
+  - [x] **Step 5: Commit** the two files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/verbatimmoves.go`, `stats/internal/guard/check_verbatim_moves_test.go`
@@ -581,11 +581,11 @@ index f4bdec27..12afb755 100644
 
 **Decision:** list-item-continuation-block
 
-- [ ] 5. State the mapped pair on the reviewer row's record paragraph (KAN-898)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 5. State the mapped pair on the reviewer row's record paragraph (KAN-898)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -c -F 'KAN-898' skills/flow/review-panel.md`: it prints `0`.
     <!-- measured: the grep above in this worktree @ 373988df → 0 -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 373988df after Tasks 1-4's diffs; check-references.sh, check-installed-citations.sh, check-markdown-integrity.py, check-dispatch-paragraphs.sh, check-normative-inventory.sh and check-ask-silence.sh exit 0, and check-verbatim-moves.sh 373988df fails only on the sentence verbatim-moves.txt lists
 diff --git a/skills/flow/review-panel.md b/skills/flow/review-panel.md
@@ -604,11 +604,11 @@ index 3e564864..daa66737 100644
  pairing each launch with the begin nearest it in time;
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c -F 'KAN-898' skills/flow/review-panel.md` prints `1`;
+  - [x] **Step 3: Verify.** `grep -c -F 'KAN-898' skills/flow/review-panel.md` prints `1`;
     `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` and `scripts/check-verbatim-moves.sh` exit 0.
     <!-- measured: grep -c after git apply in a scratch clone @ 373988df → 1 -->
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/review-panel.md`
