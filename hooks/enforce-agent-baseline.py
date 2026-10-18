@@ -62,6 +62,27 @@ PINNED_ROLES = (
 # ~/.zcode/hooks, which is how the hook tells the harness.
 ZCODE_PAIR = ("flow-high", "glm-5.3-flash")
 
+# flow-high is dispatched in exactly two cases (skills/flow/implement.md): the tooling
+# analyst, and the no-progress escalation -- marked by its opening line, or a self-review
+# loop key whose rows scripts/check-loop-dispatch.sh pins. Anything else on flow-high was
+# hand-picked: a parent ran scoped in-run fixes on flow-high where the decision said inline.
+FLOW_HIGH_MARKERS = ("tooling-analysis-", "No-progress escalation", "Key: self-review-")
+
+
+def flow_high_reason(prompt: str, tool_input: dict) -> "str | None":
+    if tool_input.get("subagent_type") != "flow-high" or "/.zcode/" in __file__:
+        return None
+    if any(marker in prompt for marker in FLOW_HIGH_MARKERS):
+        return None
+    return (
+        "Dispatch blocked: flow-high is reserved for the visual-verify tooling analyst and the "
+        "no-progress escalation (skills/flow/implement.md).\n\n"
+        "Read the recorded decision (`flow record decisions -change <name>`) and dispatch on "
+        "the pair it names -- or, when its execution is `inline`, make the change yourself "
+        "with no dispatch. A no-progress escalation opens its prompt with the line "
+        "`No-progress escalation`."
+    )
+
 
 def pinned_role_reason(prompt: str, tool_input: dict) -> "str | None":
     for marker, subagent_type, model, contract in PINNED_ROLES:
@@ -122,7 +143,7 @@ def main() -> int:
         deny(DENY_REASON)
         return 0
 
-    reason = pinned_role_reason(prompt, tool_input)
+    reason = pinned_role_reason(prompt, tool_input) or flow_high_reason(prompt, tool_input)
     if reason:
         deny(reason)
     return 0

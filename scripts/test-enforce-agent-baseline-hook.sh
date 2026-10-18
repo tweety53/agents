@@ -71,8 +71,15 @@ expect_deny() {
 run_hook "$HOOK" "$(payload 'do the thing' flow-high opus)"
 expect_deny "1 no pointer" "agent-baseline pointer"
 
-run_hook "$HOOK" "$(payload "$BASELINE implement task 3" flow-high sonnet)"
+run_hook "$HOOK" "$(payload "$BASELINE implement task 3" flow-medium sonnet)"
 expect_allow "2 unpinned role"
+
+run_hook "$HOOK" "$(payload "$BASELINE implement task 3" flow-high opus)"
+expect_deny "2b hand-picked flow-high" "reserved for the visual-verify tooling analyst"
+
+run_hook "$HOOK" "$(payload "No-progress escalation
+$BASELINE fix round 3" flow-high opus)"
+expect_allow "2c no-progress escalation on flow-high"
 
 run_hook "$HOOK" "$(payload "$VERIFIER" flow-low opus)"
 expect_allow "3 verifier on flow-low/opus"

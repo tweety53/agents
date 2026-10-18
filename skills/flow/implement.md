@@ -101,7 +101,7 @@ panel-fix rows whenever the decision's `panel` is an object (`skills/flow/review
 **The roster**), and the gated per-task reviewer row, which dispatches on `big` alone, on its group's
 `model` at the effort **Model and effort** gives it (`skills/flow/brainstorm-planner.md`). On a `default` panel a panel-bundle row dispatches `flow-low`, so the reviewer rows are structurally fork-free on every class and both panel shapes. The verifier
 row dispatches `flow-low` unconditionally, regardless of the decision (`skills/flow/visual-verify.md`),
-so it is structurally fork-free too. On harness `muse` no `subagent_type` is named — the harness
+so it is structurally fork-free too. **`flow-high` is dispatched in exactly two cases and never chosen by hand**: the visual-verify tooling analyst (`skills/flow/visual-verify-tooling-analysis.md`) and the no-progress escalation of **Fewest operator actions** (`skills/flow-contracts/pipeline.md`), the self-review loop's own escalation rows included; every other row takes the effort its recorded pair or its contract names, and `hooks/enforce-agent-baseline.py` denies a `flow-high` dispatch outside the two. On harness `muse` no `subagent_type` is named — the harness
 offers no per-dispatch type — so the NO DELEGATION paragraph alone governs there.
 
 **Inline — the parent implements** below takes this same table minus the implementer, gated reviewer bundle and panel-fix
