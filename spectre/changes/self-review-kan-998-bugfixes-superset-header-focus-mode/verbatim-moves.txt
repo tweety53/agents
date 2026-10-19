@@ -1,0 +1,12 @@
+# Sentences this change adds on purpose — kan-998 self-review F-1.1, F-1.2, F-1.4, F-4.1, F-4.2.
+- identical: <the PNG names of one byte-identical group> — <why the views draw the same pixels, or the defect> | none
+A removed UI tag, test id or label that a declared `regression checkout` drives (**Project configuration — visual verification**, `skills/flow-contracts/project-configuration-visual.md`) is swept in that checkout too, with the same `-e` list, and the plan carries the task that updates every hit there: kan-998's sweep, scoped to its own paths, missed the labels gymie-playwright drove, and the regression suite failed 83 tests on them.
+Exit 1 → each `identical:` line names PNGs of one directory that are byte-identical, and the report carries one `- identical:` line per group stating why those views draw the same pixels, or the defect that made them, which blocks: kan-998's pad-up and pad-down baselines were one image, and only a reviewer saw it.
+Exit 1 → each line names a sidecar line whose screenshot no spec beside it takes, a failing check: kan-998's stale lines surfaced only at compose, after a 13-minute capture.
+Exit 1 → the record carries no before figure, or states one was not measured: measure it from the merge base as above and rewrite the record, never proceed past it (kan-998).
+Exit 2 → it cannot answer, and blocks.
+Exit 2 → it cannot answer; correct the input and run it again.
+The recipe's merge-order record runs with it, its planning commit included (**Isolate the workspace — additional worktrees**, `skills/flow/cross-repo-worktrees.md`): a repository the canonical `link.md`'s `## Merge order` omits is one run 1 never sequences and the self-review bundle never reads (kan-998).
+Then pipe the same resolver output into `check-identical-baselines.sh`; its header is canonical for what it compares.
+Then run `check-live-verification.sh <changeRoot>/live-verification.md`; its header is canonical for the record it accepts.
+When `mockups` is declared, the same Bash call also runs `check-sidecar-reach.sh <capture root>`, `<capture root>` the `regression checkout`'s worktree when one is declared, else this worktree; its header is canonical for the rule.
