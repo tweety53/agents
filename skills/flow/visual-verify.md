@@ -220,6 +220,13 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
    starts again only once it has. Exit 2 → it cannot answer; treat it as a failing check, carrying
    its stderr.
 
+   When `mockups` is declared, the same Bash call also runs `check-sidecar-reach.sh <capture
+   root>`, `<capture root>` the `regression checkout`'s worktree when one is declared, else this
+   worktree; its header is canonical for the rule. Exit 1 → each line names a sidecar line whose
+   screenshot no spec beside it takes, a failing check: kan-998's stale lines surfaced only at
+   compose, after a 13-minute capture. Exit 2 → it cannot answer; treat it as a failing check,
+   carrying its stderr.
+
    **Any failing check ends the stage here**: no verifier is dispatched, the stage's `end` mark
    carries `-outcome stopped`, and the report names every failing check with the evidence above.
    The run proceeds to the `IN_PROGRESS` handoff, which names the environment cause — the operator
