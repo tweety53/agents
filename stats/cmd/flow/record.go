@@ -1060,6 +1060,23 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		return 1
 	}
 
+	// A panel round below one the change's records already carry splits
+	// the run's rounds (decision panel-round-floor). A read that fails in
+	// any way skips the check: an outage never becomes a refusal. A
+	// back-filled row (-started-at set, only backfill sets it) records a
+	// dispatch already run, so an earlier round's row is admitted.
+	if n, ok := records.PanelDispatchRound(records.Dispatch{Key: *key, Role: *role}); ok && *startedAt == "" {
+		run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+			return cl.GetRunRecord(ctx, projectKey, f.change)
+		})
+		if err == nil {
+			if top := highestRecordedRound(run); n < top {
+				fmt.Fprintf(stderr, "flow: -key %q opens panel round %d, below round %d the change's records already carry — a run's first round is what `flow record next-round` prints (skills/flow/review-panel.md)\n", *key, n, top)
+				return 2
+			}
+		}
+	}
+
 	// StartedAt is sent as nothing at all: the daemon stamps it at the
 	// moment it writes the row. A write that journals stamps the attempt
 	// instant taken BEFORE the call, so the replay restores the instant the
@@ -1099,6 +1116,27 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		fmt.Fprintf(stdout, "recorded: dispatch %d\n", out.Seq)
 	}
 	return classifyRecordWrite(callErr, projectKey, f.change, "dispatch", in, stderr)
+}
+
+// highestRecordedRound is the highest round over run's passes, findings,
+// mutations and panel reviewer dispatches.
+func highestRecordedRound(run records.Run) int {
+	top := 0
+	for _, p := range run.Passes {
+		top = max(top, p.Round)
+	}
+	for _, f := range run.Findings {
+		top = max(top, f.Round)
+	}
+	for _, m := range run.Mutations {
+		top = max(top, m.Round)
+	}
+	for _, d := range run.Dispatches {
+		if n, ok := records.PanelDispatchRound(d); ok {
+			top = max(top, n)
+		}
+	}
+	return top
 }
 
 // implementerKey is an implementer dispatch key: task-<ids>-implementer[-fix-<k>][-retry],

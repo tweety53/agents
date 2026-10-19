@@ -5390,3 +5390,70 @@ func TestRecordDispatchBeginRefusesAPanelReviewerWithoutSlot(t *testing.T) {
 		}
 	}
 }
+
+// TestRecordDispatchBeginRefusesAPanelRoundBelowTheRecorded pins decision
+// panel-round-floor: a panel reviewer key opening a round below the highest
+// the change's records carry is refused, while a round at or above it, and
+// any begin whose record read fails, still records.
+func TestRecordDispatchBeginRefusesAPanelRoundBelowTheRecorded(t *testing.T) {
+	recorded := `{"change":"kan-258","passes":[{"id":1,"round":3,"note":"n"}],"dispatches":[{"key":"panel-2-primary","role":"reviewer","slot":"primary"}]}`
+	begin := func(t *testing.T, record string, readStatus int, key string, extra ...string) (int, string, int) {
+		t.Helper()
+		repo := recordRepo(t, "kan-258")
+		isolatedStateRoot(t)
+		posts := 0
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet {
+				if !strings.Contains(r.URL.Path, "/records/") || !strings.HasSuffix(r.URL.Path, "/kan-258") {
+					t.Errorf("unexpected read %s", r.URL.Path)
+				}
+				w.WriteHeader(readStatus)
+				_, _ = w.Write([]byte(record))
+				return
+			}
+			posts++
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
+		}))
+		defer srv.Close()
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			append([]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", key, "-slot", "primary",
+				"-session-token", "mf-record-round-floor"}, extra...),
+			strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String(), posts
+	}
+	t.Run("below the recorded round is refused", func(t *testing.T) {
+		code, stderr, posts := begin(t, recorded, http.StatusOK, "panel-1-primary")
+		if code != 2 || posts != 0 {
+			t.Fatalf("exit %d, posts %d; want 2, 0; stderr:\n%s", code, posts, stderr)
+		}
+		if !strings.Contains(stderr, "3") || !strings.Contains(stderr, "flow record next-round") {
+			t.Errorf("stderr names neither round 3 nor flow record next-round:\n%s", stderr)
+		}
+	})
+	for _, key := range []string{"panel-3-primary", "panel-4-primary"} {
+		t.Run(key+" at or above is admitted", func(t *testing.T) {
+			if code, stderr, posts := begin(t, recorded, http.StatusOK, key); code != 0 || posts != 1 {
+				t.Fatalf("exit %d, posts %d; want 0, 1; stderr:\n%s", code, posts, stderr)
+			}
+		})
+	}
+	t.Run("a back-filled earlier round is admitted", func(t *testing.T) {
+		if code, stderr, posts := begin(t, recorded, http.StatusOK, "panel-1-primary", "-started-at", "2026-10-19T10:00:00Z"); code != 0 || posts != 1 {
+			t.Fatalf("exit %d, posts %d; want 0, 1; stderr:\n%s", code, posts, stderr)
+		}
+	})
+	t.Run("a not-found read skips the check", func(t *testing.T) {
+		if code, stderr, posts := begin(t, `{"error":"not found"}`, http.StatusNotFound, "panel-0-primary"); code != 0 || posts != 1 {
+			t.Fatalf("exit %d, posts %d; want 0, 1; stderr:\n%s", code, posts, stderr)
+		}
+	})
+	t.Run("a mutation row's round counts", func(t *testing.T) {
+		rec := `{"change":"kan-258","mutations":[{"id":1,"round":2,"path":"a.go"}]}`
+		if code, stderr, posts := begin(t, rec, http.StatusOK, "panel-1-primary"); code != 2 || posts != 0 {
+			t.Fatalf("exit %d, posts %d; want 2, 0; stderr:\n%s", code, posts, stderr)
+		}
+	})
+}
