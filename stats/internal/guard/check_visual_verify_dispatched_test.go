@@ -185,6 +185,9 @@ type vvdCase struct {
 	args       func(wt, base string) []string
 	dir        func(t *testing.T) string // non-nil: the working directory
 	relative   bool                      // the worktree passed relative to its parent, the working directory
+	noRecord   bool                      // no spectre/changes/demo/visual-verification.md in the worktree
+	// archivedRecord: the record at spectre/changes/archive/demo/ instead
+	archivedRecord bool
 }
 
 type vvdResult struct {
@@ -216,6 +219,12 @@ func vvdRun(t *testing.T, c vvdCase) vvdResult {
 		t.Fatal(err)
 	}
 	gdcCopyTree(t, m.dir, wt)
+	switch {
+	case c.archivedRecord:
+		writeFile(t, wt+"/spectre/changes/archive/demo/visual-verification.md", "# record\n")
+	case !c.noRecord:
+		writeFile(t, wt+"/spectre/changes/demo/visual-verification.md", "# record\n")
+	}
 	// A row names the HEAD it verified as @HEAD@ or the merge base as
 	// @BASE@: the shas exist only once the master is built.
 	head := tcfGit(t, wt, "rev-parse", "HEAD")
@@ -603,6 +612,7 @@ func TestCheckVisualVerifyDispatchedCanonicalUIPaths(t *testing.T) {
 				wt = linked
 			}
 			writeFile(t, canon+"/.flow/project.md", strings.Replace(vvdSection, "`app/src/**`", c.uiPaths, 1))
+			writeFile(t, canon+"/spectre/changes/demo/visual-verification.md", "# record\n")
 			writeExec(t, bin+"/flow", vvdFlowRows(strings.ReplaceAll(c.rows, "@HEAD@", tcfGit(t, wt, "rev-parse", "HEAD")), "[]"))
 			env := Env{Dir: top, Getenv: func(k string) string {
 				if k == "PATH" {
@@ -681,6 +691,7 @@ func TestCheckVisualVerifyDispatchedIgnoresAChangeRecordMove(t *testing.T) {
 	gitRun(t, wt, "mv", "spectre/changes/demo", "spectre/changes/archive/demo")
 	gitRun(t, wt, "commit", "-q", "-m", "chore(spectre): archive demo")
 	writeFile(t, canon+"/.flow/project.md", strings.Replace(vvdSection, "`app/src/**`", "`gymie-frontend/**`", 1))
+	writeFile(t, canon+"/spectre/changes/archive/demo/visual-verification.md", "# record\n")
 	writeExec(t, bin+"/flow", vvdFlowRows(`[{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"`+verified+`"}]`, "[]"))
 	env := Env{Dir: top, Getenv: func(k string) string {
 		if k == "PATH" {
@@ -692,5 +703,24 @@ func TestCheckVisualVerifyDispatchedIgnoresAChangeRecordMove(t *testing.T) {
 	code := Registry["check-visual-verify-dispatched"]([]string{wt, "demo", masters["plain-docs"].base, canon}, env, &out, &errb)
 	if code != 0 || out.String() != vvdOK {
 		t.Fatalf("exit %d stdout %q stderr %q, want 0 %q", code, out.String(), errb.String(), vvdOK)
+	}
+}
+
+// TestCheckVisualVerifyDispatchedRequiresTheVerifierRecord pins the kan-970
+// self-review fix: a verifier row that verified HEAD counts only with its
+// record in the change root -- live or archived -- and its absence is a
+// MISSING line naming the record's path.
+func TestCheckVisualVerifyDispatchedRequiresTheVerifierRecord(t *testing.T) {
+	t.Parallel()
+	rows := vvdRows("visual-verify", "verifier", "completed")
+	r := vvdRun(t, vvdCase{dispatches: rows, noRecord: true})
+	head := tcfGit(t, r.wt, "rev-parse", "HEAD")
+	want := "VISUAL-VERIFY-MISSING: a verifier verified this change's HEAD but its record " + r.wt + "/spectre/changes/demo/visual-verification.md (or its archive/ twin) is absent — the verifier writes it into the change root, every file it cites copied under visual-verification/evidence/ (skills/flow/visual-verify-verifier.md step 11) — HEAD " + head + "\n"
+	if r.code != 1 || r.out != want {
+		t.Fatalf("got exit %d stdout %q stderr %q, want exit 1 %q", r.code, r.out, r.err, want)
+	}
+	r = vvdRun(t, vvdCase{dispatches: rows, archivedRecord: true})
+	if r.code != 0 || r.out != vvdOK {
+		t.Fatalf("archived record: got exit %d stdout %q stderr %q, want exit 0 %q", r.code, r.out, r.err, vvdOK)
 	}
 }

@@ -28,6 +28,12 @@
 #                                       <sha> is the HEAD it judged, the one an
 #                                       operator's false-positive flag must name
 #
+# A found verifier row counts only with the verifier's record —
+# `<spec root>/changes/<name>/visual-verification.md`, or its `archive/`
+# twin, in the worktree the store is read under, the change root
+# skills/flow/visual-verify-verifier.md step 11 writes; absent, the verdict is
+# VISUAL-VERIFY-MISSING naming that path (kan-970 self-review).
+#
 # Exit 0 on a VISUAL-VERIFY-OK verdict, exit 1 on VISUAL-VERIFY-MISSING —
 # UI paths were touched and no qualifying verifier dispatch is recorded;
 # the verdict line carries the answer — and exit 2 when it cannot answer at

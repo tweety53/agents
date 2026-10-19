@@ -672,9 +672,12 @@ rerun_pin_case "rerun_pin: "
 rerun_pin_case "rerun_pin reclone: " reclone
 
 # --- visual_stop ---
-# ui_a: a declares `ui paths` its task commit touches.
+# ui_a: a declares `ui paths` its task commit touches, and carries the
+# verifier's record a verifier row counts only with.
 ui_a() {
   printf '\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `work-a.txt` |\n' >>"$WORK/a-worktrees/demo/.flow/project.md"
+  printf '# Visual verification — demo\n' >"$WORK/a-worktrees/demo/spectre/changes/demo/visual-verification.md"
+  g -C "$WORK/a-worktrees/demo" add spectre/changes/demo/visual-verification.md
   g -C "$WORK/a-worktrees/demo" commit -qam "chore(spectre): plan-gate demo" --amend
 }
 # flag <worktree> <sha> [<change>]: an operator's false-positive flag on

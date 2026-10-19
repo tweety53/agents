@@ -258,6 +258,20 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		}
 		pcFlow(env, false, "record", "verdict", "-change", name, "-guard", guardName, "-worktree", worktree, "-verdict", verdict, "-C", anchor)
 	}
+	// THE VERIFIER'S RECORD IS PART OF ITS EVIDENCE (kan-970 self-review): a
+	// verifier that wrote visual-verification.md outside the change root,
+	// citing session-scratch captures, passed on its dispatch row alone and
+	// left the self-review bundle nothing to read. A found row counts only
+	// with `<spec root>/changes/<name>/visual-verification.md`, or its
+	// archived twin, in the worktree the store is read under -- the change
+	// root the verifier writes (skills/flow/visual-verify-verifier.md step 11).
+	missingRecord := ""
+	if found {
+		changes := anchor + "/" + specRootLeaf(anchor, io.Discard) + "/changes/"
+		if !isFile(changes+name+"/visual-verification.md") && !isFile(changes+"archive/"+name+"/visual-verification.md") {
+			found, missingRecord = false, changes+name+"/visual-verification.md"
+		}
+	}
 	if found {
 		verdict := "VISUAL-VERIFY-OK: UI paths touched and a completed (or ended-but-unclosed) verifier dispatch is recorded for '" + name + "'"
 		record(verdict)
@@ -279,14 +293,17 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		fmt.Fprintf(stderr, "%sdecision rows were not readable JSON — cannot answer\n", vvdPrefix)
 		return 2
 	}
-	if skipped {
+	if skipped && missingRecord == "" {
 		verdict := "VISUAL-VERIFY-OK: skipped at Decide — " + reason
 		record(verdict)
 		fmt.Fprintln(stdout, verdict)
 		return 0
 	}
 	verdict := "VISUAL-VERIFY-MISSING: this change's diff touched a declared UI path but no completed or ended 'verifier' dispatch (key starting 'visual-verify') is recorded for '" + name + "' — flow.visual-verify's stage marks were written with no verifier ever dispatched, its report was never read to completion, or the dispatch's closing outcome was lost to a session restart"
-	if len(heads) > 0 {
+	if missingRecord != "" {
+		verdict = "VISUAL-VERIFY-MISSING: a verifier verified this change's HEAD but its record " + missingRecord + " (or its archive/ twin) is absent — the verifier writes it into the change root, every file it cites copied under visual-verification/evidence/ (skills/flow/visual-verify-verifier.md step 11)"
+		lastHead = ""
+	} else if len(heads) > 0 {
 		verdict = "VISUAL-VERIFY-MISSING: a verifier dispatch is recorded for '" + name + "' but none verified a HEAD after this change's last UI-path commit — a row counts only with the -diff-base it verified, and only when no UI path this change touches changed since"
 	}
 	// THE MISSING VERDICT NAMES THE HEAD IT JUDGED (kan-939 self-review):
