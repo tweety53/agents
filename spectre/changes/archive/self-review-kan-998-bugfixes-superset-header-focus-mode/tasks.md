@@ -35,11 +35,11 @@ in this worktree.
 - Task 5: a template literal `` `cardio-guide-${frame}.png` `` reaches `cardio-guide-G1.png`; a sidecar whose spec is absent names every line; `node_modules` and `.worktrees` are never walked.
 - Task 6: a fresh capture and its own baseline in different directories are never grouped; an empty stdin exits 2.
 
-- [ ] 1. Route visual-verify step 3 to the recipe's merge-order record (F-1.1)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 1. Route visual-verify step 3 to the recipe's merge-order record (F-1.1)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -c -F 'merge-order record' skills/flow/visual-verify.md`: it prints `0`.
     <!-- measured: the grep above in this worktree @ 46db35e0 → 0 -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:produced in a scratch clone at 46db35e0; check-references.sh, check-dispatch-paragraphs.sh, check-ask-silence.sh, check-installed-citations.sh and check-markdown-integrity.py exit 0 with it applied
 --- a/skills/flow/visual-verify.md
@@ -59,10 +59,10 @@ in this worktree.
     workspace — against this worktree:
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c -F 'merge-order record' skills/flow/visual-verify.md` prints `1`;
+  - [x] **Step 3: Verify.** `grep -c -F 'merge-order record' skills/flow/visual-verify.md` prints `1`;
     `scripts/check-references.sh`, `python3 scripts/check-markdown-integrity.py` and
     `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/visual-verify.md`
@@ -73,11 +73,11 @@ in this worktree.
 
 **Decision:** merge-order-in-visual-verify
 
-- [ ] 2. Sweep a removed label in the regression checkout too (F-1.2)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 2. Sweep a removed label in the regression checkout too (F-1.2)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -c -F 'swept in that checkout too' skills/flow/brainstorm-planner.md`: it prints `0`.
     <!-- measured: the grep above in this worktree @ 46db35e0 → 0 -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:produced in a scratch clone at 46db35e0; check-references.sh and check-markdown-integrity.py exit 0 with it applied
 diff --git a/skills/flow/brainstorm-planner.md b/skills/flow/brainstorm-planner.md
@@ -100,10 +100,10 @@ index f9518e11..199ea4ff 100644
  > whose reasoning a `*-rationale.md` appendix records lists that appendix in its task's
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c -F 'swept in that checkout too' skills/flow/brainstorm-planner.md`
+  - [x] **Step 3: Verify.** `grep -c -F 'swept in that checkout too' skills/flow/brainstorm-planner.md`
     prints `1`; `scripts/check-references.sh`, `python3 scripts/check-markdown-integrity.py` and
     `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/brainstorm-planner.md`
@@ -114,11 +114,11 @@ index f9518e11..199ea4ff 100644
 
 **Decision:** sweep-regression-checkout
 
-- [ ] 3. Install exec shims for the bare-name scripts into ~/.local/bin (F-1.3)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 3. Install exec shims for the bare-name scripts into ~/.local/bin (F-1.3)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -c -F '.local/bin' setup.sh`: it prints `0` — `setup.sh global` puts no script on `PATH`.
     <!-- measured: the grep above in this worktree @ 46db35e0 → 0 -->
-  - [ ] **Step 2: Write the failing test** `TestGlobalInstallsScriptShims` in
+  - [x] **Step 2: Write the failing test** `TestGlobalInstallsScriptShims` in
     `stats/internal/setuptest/harnesses_test.go`. It builds its own fixture
     (`makeFixtureRepo(filepath.Join(g.dir, "fixture-repo-shims"), false)`, as
     `TestReinstallPrunesDeletedSourceLinks` does) and seeds two scripts into the fixture's scripts directory, `doomed.sh` (0755,
@@ -134,8 +134,8 @@ index f9518e11..199ea4ff 100644
       marker); re-run → rc 0, `doomed.sh` absent from the bin dir, `mine.sh` unchanged.
     - In a fresh home, pre-write `<home>/.local/bin/doomed.sh` without the marker, re-seed
       the fixture's `doomed.sh` script, run → rc 1 (SKIPPED), the pre-written file byte-identical.
-  - [ ] **Step 3: Run it to verify it fails.** `cd stats && go test ./internal/setuptest/ -run 'TestGlobalInstallsScriptShims' -count=1` → FAIL: `.local/bin/project-get.sh` absent.
-  - [ ] **Step 4: Implement `install_script_shims <bin dir>` in `setup.sh`** and call it from
+  - [x] **Step 3: Run it to verify it fails.** `cd stats && go test ./internal/setuptest/ -run 'TestGlobalInstallsScriptShims' -count=1` → FAIL: `.local/bin/project-get.sh` absent.
+  - [x] **Step 4: Implement `install_script_shims <bin dir>` in `setup.sh`** and call it from
     `install_global` as `install_script_shims "$home_dir/.local/bin"`, after `install_hooks_zcode`;
     add a `Scripts  → $home_dir/.local/bin/` line to the banner. The function: `mkdir -p` the dir;
     remove every regular file in it whose content carries the marker line; then for each
@@ -146,12 +146,12 @@ index f9518e11..199ea4ff 100644
     comment states why a shim and not a symlink (the `BASH_SOURCE` sibling load) and why
     `~/.local/bin` (on `PATH`, holds `flow`). A `SCRIPT_DIR` containing `'` is refused with `die`
     before anything is written (`# ponytail:` comment — single-quoted exec target).
-  - [ ] **Step 5: Extend `realHomeFingerprint`** (`stats/internal/setuptest/fingerprint_test.go`)
+  - [x] **Step 5: Extend `realHomeFingerprint`** (`stats/internal/setuptest/fingerprint_test.go`)
     to list `<home>/.local/bin` the way it lists `skills`, so a shim leaking into the real home
     fails the harness's closing fingerprint check.
-  - [ ] **Step 6: RED, then GREEN.** With the call in `install_global` commented out, the test fails on the absent shim; restored, `cd stats && go test ./internal/setuptest/ -run 'TestGlobalInstallsScriptShims' -count=1` passes.
-  - [ ] **Step 7: Verify.** `bash -n setup.sh`; `cd stats && gofmt -l ./internal/setuptest` prints nothing; `cd stats && go vet ./internal/setuptest`; `scripts/check-installed-rules.sh` exits 0.
-  - [ ] **Step 8: Commit** the three files with the subject below.
+  - [x] **Step 6: RED, then GREEN.** With the call in `install_global` commented out, the test fails on the absent shim; restored, `cd stats && go test ./internal/setuptest/ -run 'TestGlobalInstallsScriptShims' -count=1` passes.
+  - [x] **Step 7: Verify.** `bash -n setup.sh`; `cd stats && gofmt -l ./internal/setuptest` prints nothing; `cd stats && go vet ./internal/setuptest`; `scripts/check-installed-rules.sh` exits 0.
+  - [x] **Step 8: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `setup.sh`, `stats/internal/setuptest/harnesses_test.go`, `stats/internal/setuptest/fingerprint_test.go`
@@ -162,11 +162,11 @@ index f9518e11..199ea4ff 100644
 
 **Decision:** script-shims-local-bin
 
-- [ ] 4. Refuse a live-verification record with no measured before figure (F-1.4)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 4. Refuse a live-verification record with no measured before figure (F-1.4)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `ls scripts/check-live-verification.sh`: it fails, no such file — nothing reads the record.
     <!-- measured: the ls above in this worktree @ 46db35e0 → No such file or directory -->
-  - [ ] **Step 2: Write the failing test** `TestCheckLiveVerification` in
+  - [x] **Step 2: Write the failing test** `TestCheckLiveVerification` in
     `stats/internal/guard/check_live_verification_test.go`, a table over a record written to
     `t.TempDir()`:
     - `before table header passes`: `| Check | Before | After |\n|---|---|---|\n| a | 1 | 2 |\n` → 0, stdout `LIVE-VERIFICATION-OK: <record>`.
@@ -176,9 +176,9 @@ index f9518e11..199ea4ff 100644
     - `unmeasured and not taken fail`: `before: unmeasured\nBEFORE not taken\n` → 1, two lines, `:1:` and `:2:`.
     - `word inside another word is no before`: `beforehand 3\n` → 1, `no before figure`.
     - exit 2 with nothing on stdout for: no argument, two arguments, an absent path, a directory.
-  - [ ] **Step 3: Run it to verify it fails.** `cd stats && make -s web-dist && go test ./internal/guard -run 'TestCheckLiveVerification'` → FAIL: unknown guard `check-live-verification`.
-  - [ ] **Step 4: Implement `checkLiveVerification(args []string, env Env, stdout, stderr io.Writer) int`** in `stats/internal/guard/liveverification.go`, registered as `check-live-verification`: one argument, the record; a line names a before figure when it matches `(?i)\bbefore\b`; it is unmeasured when it also matches `(?i)\b(not measured|unmeasured|not taken)\b`. Output exactly as the test pins; usage and read errors go to stderr prefixed `check-live-verification: `. Write `scripts/check-live-verification.sh` per Global constraints.
-  - [ ] **Step 5: Apply the skill sentence** (`git apply <the saved diff>`):
+  - [x] **Step 3: Run it to verify it fails.** `cd stats && make -s web-dist && go test ./internal/guard -run 'TestCheckLiveVerification'` → FAIL: unknown guard `check-live-verification`.
+  - [x] **Step 4: Implement `checkLiveVerification(args []string, env Env, stdout, stderr io.Writer) int`** in `stats/internal/guard/liveverification.go`, registered as `check-live-verification`: one argument, the record; a line names a before figure when it matches `(?i)\bbefore\b`; it is unmeasured when it also matches `(?i)\b(not measured|unmeasured|not taken)\b`. Output exactly as the test pins; usage and read errors go to stderr prefixed `check-live-verification: `. Write `scripts/check-live-verification.sh` per Global constraints.
+  - [x] **Step 5: Apply the skill sentence** (`git apply <the saved diff>`):
 
 ````diff verified:produced in a scratch clone at 46db35e0; check-references.sh and check-markdown-integrity.py exit 0 with it applied
 diff --git a/skills/flow/verify-and-handoff.md b/skills/flow/verify-and-handoff.md
@@ -200,12 +200,12 @@ index 24c00751..238a05e1 100644
  command's environment cause does. **A step of the check the operator waives runs on its cheapest safe proxy instead** — a scratch
 ````
 
-  - [ ] **Step 6: RED, then GREEN.** Drop `|unmeasured|not taken` and `not measured` from the marker pattern → the three marker cases fail; restore → `go test ./internal/guard -run 'TestCheckLiveVerification'` passes. Then `scripts/check-live-verification.sh` over kan-998's record text (the `not measured` case's body in a scratch file) exits 1.
-  - [ ] **Step 7: Verify.** `cd stats && gofmt -l ./internal/guard` prints nothing; `cd stats && make -s web-dist && go vet ./internal/guard`; `scripts/check-guard-symlinks.sh`, `scripts/check-references.sh`, `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 8: Commit** the four files with the subject below.
+  - [x] **Step 6: RED, then GREEN.** Drop `|unmeasured|not taken` and `not measured` from the marker pattern → the three marker cases fail; restore → `go test ./internal/guard -run 'TestCheckLiveVerification'` passes. Then `scripts/check-live-verification.sh` over kan-998's record text (the `not measured` case's body in a scratch file) exits 1.
+  - [x] **Step 7: Verify.** `cd stats && gofmt -l ./internal/guard` prints nothing; `cd stats && make -s web-dist && go vet ./internal/guard`; `scripts/check-guard-symlinks.sh`, `scripts/check-references.sh`, `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
+  - [x] **Step 8: Commit** the four files with the subject below.
 
 **Build:** green
-**Files:** `stats/internal/guard/liveverification.go`, `stats/internal/guard/check_live_verification_test.go`, `scripts/check-live-verification.sh`, `skills/flow/verify-and-handoff.md`
+**Files:** `stats/internal/guard/liveverification.go`, `stats/internal/guard/check_live_verification_test.go`, `scripts/check-live-verification.sh`, `skills/flow/scripts/check-live-verification.sh`, `skills/flow/verify-and-handoff.md`
 **Tests:** `TestCheckLiveVerification`
 **Regression:** reverting the commit removes the guard — `TestCheckLiveVerification` is gone with it, and a record stating its before figure was not measured passes **Live check** again.
 **Commit:** feat(guard): refuse a live-verification record with no measured before figure
@@ -213,11 +213,11 @@ index 24c00751..238a05e1 100644
 
 **Decision:** live-record-before-rule
 
-- [ ] 5. Pre-flight every sidecar line against its spec (F-4.1)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 5. Pre-flight every sidecar line against its spec (F-4.1)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `ls scripts/check-sidecar-reach.sh`: it fails, no such file — a stale sidecar line is found only by `compose-mockup-frames.sh` after the capture.
     <!-- measured: the ls above in this worktree @ 46db35e0 → No such file or directory -->
-  - [ ] **Step 2: Write the failing test** `TestCheckSidecarReach` in
+  - [x] **Step 2: Write the failing test** `TestCheckSidecarReach` in
     `stats/internal/guard/check_sidecar_reach_test.go`, a table over a capture root under
     `t.TempDir()` holding `fidelity/a.spec.ts` and `fidelity/a.spec.ts.mockups`:
     - `literal reaches`: spec `await capture(page, 'a-1.png');`, sidecar `# c\n\na-1.png A-1\n` → 0, stdout `SIDECAR-REACH-OK: 1 lines in 1 sidecars`.
@@ -229,9 +229,9 @@ index 24c00751..238a05e1 100644
     - `pruned dirs are never walked`: a stale sidecar under `node_modules/x/`, `.git/` and `.worktrees/c/` → 0.
     - `a substring is no literal`: spec `'a-10.png'`, sidecar `a-1.png A-1` → 1.
     - exit 2 with nothing on stdout for: no argument, two arguments, a root that is not a directory.
-  - [ ] **Step 3: Run it to verify it fails.** `cd stats && make -s web-dist && go test ./internal/guard -run 'TestCheckSidecarReach'` → FAIL: unknown guard `check-sidecar-reach`.
-  - [ ] **Step 4: Implement `checkSidecarReach(args []string, env Env, stdout, stderr io.Writer) int`** in `stats/internal/guard/sidecarreach.go`, registered as `check-sidecar-reach`: `filepath.WalkDir` the root, skipping directories named `node_modules`, `.git`, `.worktrees`; a sidecar is a file ending `.mockups`, its spec that path without the suffix; a line's name is its first whitespace field, blank and `#` lines skipped. The spec's literals are the matches of `'([^'\n]*)'|"([^"\n]*)"|` + "`([^`]*)`"; a name is reached when it equals a literal, or fully matches a backtick literal containing `${`, built as `^` + the `regexp.QuoteMeta` of each piece between `${…}` holes joined by `.+` + `$`. Paths in output are relative to the root, sorted by sidecar path then line. Write `scripts/check-sidecar-reach.sh` per Global constraints, its header stating the stated limit: a name built outside any literal (concatenation, a computed variable) reads as unreached.
-  - [ ] **Step 5: Apply the skill paragraph** (`git apply <the saved diff>`):
+  - [x] **Step 3: Run it to verify it fails.** `cd stats && make -s web-dist && go test ./internal/guard -run 'TestCheckSidecarReach'` → FAIL: unknown guard `check-sidecar-reach`.
+  - [x] **Step 4: Implement `checkSidecarReach(args []string, env Env, stdout, stderr io.Writer) int`** in `stats/internal/guard/sidecarreach.go`, registered as `check-sidecar-reach`: `filepath.WalkDir` the root, skipping directories named `node_modules`, `.git`, `.worktrees`; a sidecar is a file ending `.mockups`, its spec that path without the suffix; a line's name is its first whitespace field, blank and `#` lines skipped. The spec's literals are the matches of `'([^'\n]*)'|"([^"\n]*)"|` + "`([^`]*)`"; a name is reached when it equals a literal, or fully matches a backtick literal containing `${`, built as `^` + the `regexp.QuoteMeta` of each piece between `${…}` holes joined by `.+` + `$`. Paths in output are relative to the root, sorted by sidecar path then line. Write `scripts/check-sidecar-reach.sh` per Global constraints, its header stating the stated limit: a name built outside any literal (concatenation, a computed variable) reads as unreached.
+  - [x] **Step 5: Apply the skill paragraph** (`git apply <the saved diff>`):
 
 ````diff verified:produced in a scratch clone at 46db35e0 after Task 1's diff; check-references.sh, check-dispatch-paragraphs.sh and check-markdown-integrity.py exit 0 with it applied
 --- a/skills/flow/visual-verify.md
@@ -252,13 +252,13 @@ index 24c00751..238a05e1 100644
     The run proceeds to the `IN_PROGRESS` handoff, which names the environment cause — the operator
 ````
 
-  - [ ] **Step 6: RED, then GREEN.** Replace the template branch with `false` → `template literal reaches` fails; restore → `go test ./internal/guard -run 'TestCheckSidecarReach'` passes. Then `scripts/check-sidecar-reach.sh ~/Projects/gymie-playwright` exits 0 (read-only; the spike measured 231 lines, 0 misses).
+  - [x] **Step 6: RED, then GREEN.** Replace the template branch with `false` → `template literal reaches` fails; restore → `go test ./internal/guard -run 'TestCheckSidecarReach'` passes. Then `scripts/check-sidecar-reach.sh ~/Projects/gymie-playwright` exits 0 (read-only; the spike measured 231 lines, 0 misses).
     <!-- measured: the python3 spike of this rule over ~/Projects/gymie-playwright @ e864161 → 231 lines, 0 misses -->
-  - [ ] **Step 7: Verify.** `cd stats && gofmt -l ./internal/guard` prints nothing; `cd stats && make -s web-dist && go vet ./internal/guard`; `scripts/check-guard-symlinks.sh`, `scripts/check-references.sh`, `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 8: Commit** the four files with the subject below.
+  - [x] **Step 7: Verify.** `cd stats && gofmt -l ./internal/guard` prints nothing; `cd stats && make -s web-dist && go vet ./internal/guard`; `scripts/check-guard-symlinks.sh`, `scripts/check-references.sh`, `python3 scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
+  - [x] **Step 8: Commit** the four files with the subject below.
 
 **Build:** green
-**Files:** `stats/internal/guard/sidecarreach.go`, `stats/internal/guard/check_sidecar_reach_test.go`, `scripts/check-sidecar-reach.sh`, `skills/flow/visual-verify.md`
+**Files:** `stats/internal/guard/sidecarreach.go`, `stats/internal/guard/check_sidecar_reach_test.go`, `scripts/check-sidecar-reach.sh`, `skills/flow/scripts/check-sidecar-reach.sh`, `skills/flow/visual-verify.md`
 **Tests:** `TestCheckSidecarReach`
 **Regression:** reverting the commit removes the guard and its pre-flight call — a sidecar line whose test is gone is found again only when compose fails after the capture.
 **Commit:** feat(guard): pre-flight every mockups sidecar line against its spec
@@ -266,11 +266,11 @@ index 24c00751..238a05e1 100644
 
 **Decision:** sidecar-reach-literals
 
-- [ ] 6. Name byte-identical baselines for the verifier to explain (F-4.2)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 6. Name byte-identical baselines for the verifier to explain (F-4.2)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `ls scripts/check-identical-baselines.sh`: it fails, no such file — no stage compares baselines.
     <!-- measured: the ls above in this worktree @ 46db35e0 → No such file or directory -->
-  - [ ] **Step 2: Write the failing test** `TestCheckIdenticalBaselines` in
+  - [x] **Step 2: Write the failing test** `TestCheckIdenticalBaselines` in
     `stats/internal/guard/check_identical_baselines_test.go`, a table whose stdin is absolute PNG
     paths, one per line, of files written under `t.TempDir()`:
     - `distinct files pass`: `s-snapshots/up.png` ≠ `s-snapshots/down.png` → 0, stdout `IDENTICAL-NONE: 2 PNGs`.
@@ -279,9 +279,9 @@ index 24c00751..238a05e1 100644
     - `different directories never group`: equal `results/up.png` and `s-snapshots/up.png` → 0.
     - `blank stdin lines are skipped`: a blank line between two distinct paths → 0.
     - exit 2 with nothing on stdout for: an argument given, empty stdin, a path that does not exist.
-  - [ ] **Step 3: Run it to verify it fails.** `cd stats && make -s web-dist && go test ./internal/guard -run 'TestCheckIdenticalBaselines'` → FAIL: unknown guard `check-identical-baselines`.
-  - [ ] **Step 4: Implement `checkIdenticalBaselines(args []string, env Env, stdout, stderr io.Writer) int`** in `stats/internal/guard/identicalbaselines.go`, registered as `check-identical-baselines`: no arguments; read `env.Stdin` (nil reads as empty); group the paths by `filepath.Dir`, then by SHA-256 of the file's bytes (`crypto/sha256`); print groups of two or more sorted by directory then first name. Write `scripts/check-identical-baselines.sh` per Global constraints, its header naming its input as `resolve-visual-screenshots.sh`'s output.
-  - [ ] **Step 5: Apply the verifier sentences** (`git apply <the saved diff>`):
+  - [x] **Step 3: Run it to verify it fails.** `cd stats && make -s web-dist && go test ./internal/guard -run 'TestCheckIdenticalBaselines'` → FAIL: unknown guard `check-identical-baselines`.
+  - [x] **Step 4: Implement `checkIdenticalBaselines(args []string, env Env, stdout, stderr io.Writer) int`** in `stats/internal/guard/identicalbaselines.go`, registered as `check-identical-baselines`: no arguments; read `env.Stdin` (nil reads as empty); group the paths by `filepath.Dir`, then by SHA-256 of the file's bytes (`crypto/sha256`); print groups of two or more sorted by directory then first name. Write `scripts/check-identical-baselines.sh` per Global constraints, its header naming its input as `resolve-visual-screenshots.sh`'s output.
+  - [x] **Step 5: Apply the verifier sentences** (`git apply <the saved diff>`):
 
 ````diff verified:produced in a scratch clone at 46db35e0; check-references.sh, check-dispatch-paragraphs.sh and check-markdown-integrity.py exit 0 with it applied
 diff --git a/skills/flow/visual-verify-verifier.md b/skills/flow/visual-verify-verifier.md
@@ -311,12 +311,12 @@ index 3354558d..77bdd546 100644
  - mockups: <not declared | no map for <spec> | exit <n>>
 ````
 
-  - [ ] **Step 6: RED, then GREEN.** Group by hash alone, dropping the directory key → `different directories never group` fails; restore → `go test ./internal/guard -run 'TestCheckIdenticalBaselines'` passes.
-  - [ ] **Step 7: Verify.** `cd stats && gofmt -l ./internal/guard` prints nothing; `cd stats && make -s web-dist && go vet ./internal/guard`; `scripts/check-guard-symlinks.sh`, `scripts/check-references.sh`, `python3 scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 8: Commit** the four files with the subject below.
+  - [x] **Step 6: RED, then GREEN.** Group by hash alone, dropping the directory key → `different directories never group` fails; restore → `go test ./internal/guard -run 'TestCheckIdenticalBaselines'` passes.
+  - [x] **Step 7: Verify.** `cd stats && gofmt -l ./internal/guard` prints nothing; `cd stats && make -s web-dist && go vet ./internal/guard`; `scripts/check-guard-symlinks.sh`, `scripts/check-references.sh`, `python3 scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` and `scripts/check-verbatim-moves.sh` exit 0.
+  - [x] **Step 8: Commit** the four files with the subject below.
 
 **Build:** green
-**Files:** `stats/internal/guard/identicalbaselines.go`, `stats/internal/guard/check_identical_baselines_test.go`, `scripts/check-identical-baselines.sh`, `skills/flow/visual-verify-verifier.md`
+**Files:** `stats/internal/guard/identicalbaselines.go`, `stats/internal/guard/check_identical_baselines_test.go`, `scripts/check-identical-baselines.sh`, `skills/flow/scripts/check-identical-baselines.sh`, `spectre/changes/self-review-kan-998-bugfixes-superset-header-focus-mode/verbatim-moves.txt`, `skills/flow/visual-verify-verifier.md`
 **Tests:** `TestCheckIdenticalBaselines`
 **Regression:** reverting the commit removes the guard and the verifier's `- identical:` line — two byte-identical baselines in one snapshot directory pass visual verification unnamed again.
 **Commit:** feat(guard): name byte-identical baselines for the verifier to explain
