@@ -55,9 +55,13 @@
   (`stats/internal/guard/provereproducer.go`) handles every signal it registered by cleaning up and
   dying of it, and its stop function drains any signal delivered before the run's own exit; the
   signal is pending before the test releases the blocked leg, so a handled SIGHUP always ends the
-  run by death, which each test's finished-run assertion already fails on. Blast radius: two test
-  files.
-  <!-- measured: `if !signal.Ignored(s) {` replaced by `if true || !signal.Ignored(s) {` in trapExitSignals with Task 5's diff applied, go test ./internal/guard -run 'TestProveReproducerSignals|TestMutateAndVerify' in a scratch clone @ 46db35e0 → both ignored-SIGHUP subtests FAIL, 5 of 5 runs each at -count=5; restored → ok, 5 of 5 -->
+  run abnormally. An inherited ignore makes that exit 129, not death: `die` re-raises after
+  `signal.Reset` has restored the ignore, so the re-raise does nothing, and the caller's exit waits
+  on the handler, which sleeps and exits 129 after the run has printed both legs.
+  `mutate-and-verify`'s finished-run assertion already fails on that; `prove-reproducer`'s checks
+  only "not signaled" and the post-fix leg line, so it passes, and its 500 ms look was the only
+  thing catching a handled ignored signal. Blast radius: two test files.
+  <!-- measured: `if !signal.Ignored(s) {` replaced by `if true || !signal.Ignored(s) {` in trapExitSignals with the sleeps removed and no exit pin, go test ./internal/guard -run 'TestProveReproducerSignals|TestMutateAndVerify' in this worktree → TestMutateAndVerify/ignored_SIGHUP_mid-run FAIL 5 of 5, TestProveReproducerSignals/ignored_SIGHUP PASS 3 of 3; with Task 5's diff (exit pinned to 1) @ 384f6a7c at -count=10 → both FAIL 10 of 10, exit status 129; restored → ok, 10 of 10 -->
 - **No red check on `origin/main`.** `go test ./internal/guard`, `bash scripts/test-integrate-change.sh`
   and `bash scripts/test-lib-flow-guard.sh` pass at `46db35e0`, so no task repairs one.
 
@@ -95,8 +99,8 @@
 
 **ID:** ignored-signal-no-timed-look
 **Status:** active
-**Chosen:** delete the 500 ms sleep and look from both tests, with a comment naming the mechanism: the signal is pending before the leg is released, `trapExitSignals` drains any delivered signal before the run's own exit, and a handled one always ends the run by death.
-**Considered:** a longer sleep — a wider tolerance on the same race; a barrier written by the released leg — a handler acts asynchronously, so the leg's look is timed too; reading the process's signal disposition — darwin's `ps` offers no ignored or caught column.
+**Chosen:** delete the 500 ms sleep and look from both tests, and pin `prove-reproducer`'s finished run to its own exit status, 1, with a comment naming the mechanism: the signal is pending before the leg is released, `trapExitSignals` drains any delivered signal before the run's own exit, and a handled one ends the run in exit 129, never in the run's own status.
+**Considered:** deleting the look alone, trusting "not signaled" — a handled ignored SIGHUP exits 129 without dying of it, so `prove-reproducer`'s check passes under the mutation; a longer sleep — a wider tolerance on the same race; a barrier written by the released leg — a handler acts asynchronously, so the leg's look is timed too; reading the process's signal disposition — darwin's `ps` offers no ignored or caught column.
 <!-- measured: ps -o sigignore=,sigcatch= -p <pid> on darwin @ 46db35e0 → "ps: sigignore: keyword not found" -->
 
 ### First review effort

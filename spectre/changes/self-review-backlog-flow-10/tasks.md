@@ -733,7 +733,7 @@ index d292b79b..0346e122 100644
     <!-- measured: the grep above in this worktree @ 46db35e0 → 1, 1 -->
   - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
-````diff verified:applied with git apply to a scratch clone at 46db35e0 after Tasks 1-4's diffs; gofmt -l and go vet ./internal/guard clean; go test ./internal/guard -run 'TestProveReproducerSignals|TestMutateAndVerify' passes; both ignored-SIGHUP subtests fail with the mutation Step 3 names
+````diff verified:applied with git apply to this worktree @ 384f6a7c (Tasks 1-4 committed); gofmt -l and go vet ./internal/guard clean; go test ./internal/guard -run 'TestProveReproducerSignals|TestMutateAndVerify' -count=10 passes; both ignored-SIGHUP subtests fail 10 of 10 with the mutation Step 3 names
 diff --git a/stats/internal/guard/mutate_and_verify_test.go b/stats/internal/guard/mutate_and_verify_test.go
 index bd6ea295..e06f576a 100644
 --- a/stats/internal/guard/mutate_and_verify_test.go
@@ -757,7 +757,7 @@ index bd6ea295..e06f576a 100644
  		_ = cmd.Wait()
  		o, _ := os.ReadFile(dir + "/stdout")
 diff --git a/stats/internal/guard/prove_reproducer_test.go b/stats/internal/guard/prove_reproducer_test.go
-index 7f3babf6..c47ce558 100644
+index 7f3babf6..2457dd5a 100644
 --- a/stats/internal/guard/prove_reproducer_test.go
 +++ b/stats/internal/guard/prove_reproducer_test.go
 @@ -10,7 +10,6 @@ import (
@@ -768,7 +768,7 @@ index 7f3babf6..c47ce558 100644
  )
  
  // Every case_N of scripts/test-prove-reproducer.sh at d71a2327, one subtest
-@@ -576,15 +575,11 @@ func TestProveReproducerSignals(t *testing.T) {
+@@ -576,15 +575,12 @@ func TestProveReproducerSignals(t *testing.T) {
  			if err := syscall.Kill(target, c.sig); err != nil {
  				t.Fatal(err)
  			}
@@ -783,17 +783,27 @@ index 7f3babf6..c47ce558 100644
 -			}
 +			// An ignored signal leaves no trace to wait on, so no look is
 +			// timed (KAN-907): the signal is pending before the leg is
-+			// released, and trapExitSignals handles every signal delivered
-+			// before the run's own exit by cleaning up and dying of it, so
-+			// the finished-run check below fails the moment one is handled.
++			// released, and a handled one ends the run in exit 129 -- its
++			// re-raise lands on the restored ignore, and the caller's exit
++			// waits on the handler -- so the finished run's exit 1 below
++			// fails the moment one is handled.
  			done := make(chan struct{})
  			go func() { _ = cmd.Wait(); close(done) }()
  			if c.ignore {
+@@ -602,7 +598,7 @@ func TestProveReproducerSignals(t *testing.T) {
+ 			o, _ := os.ReadFile(dir + "/stdout")
+ 			e, _ := os.ReadFile(dir + "/stderr")
+ 			if c.ignore {
+-				if ws.Signaled() || !strings.Contains(string(o), "== post-fix leg exit: 1\n") {
++				if ws.Signaled() || ws.ExitStatus() != 1 || !strings.Contains(string(o), "== post-fix leg exit: 1\n") {
+ 					t.Fatalf("status %v, want a finished run\nstdout:\n%s\nstderr:\n%s", cmd.ProcessState, o, e)
+ 				}
+ 			} else if !ws.Signaled() || ws.Signal() != c.sig {
 ````
 
   - [ ] **Step 3: RED, then GREEN.** In `trapExitSignals` (`stats/internal/guard/provereproducer.go`) replace `if !signal.Ignored(s) {` with `if true || !signal.Ignored(s) {`:
-    `cd stats && go test ./internal/guard -run 'TestProveReproducerSignals|TestMutateAndVerify' -count=5` fails on `TestProveReproducerSignals/ignored_SIGHUP` and `TestMutateAndVerify/ignored_SIGHUP_mid-run` on every run. Restore the line: it passes.
-    <!-- measured: the replacement above in a scratch clone @ 46db35e0 after the diff → each subtest FAIL 5 of 5 at -count=5; restored → ok -->
+    `cd stats && go test ./internal/guard -run 'TestProveReproducerSignals|TestMutateAndVerify' -count=5` fails on `TestProveReproducerSignals/ignored_SIGHUP` (`status exit status 129, want a finished run`) and `TestMutateAndVerify/ignored_SIGHUP_mid-run` (`status exit status 129`) on every run. Restore the line: it passes.
+    <!-- measured: the replacement above in this worktree @ 384f6a7c after the diff, -count=10 → each subtest FAIL 10 of 10, both reporting exit status 129; restored → ok, 10 of 10. Without the diff's `ws.ExitStatus() != 1` term the prove-reproducer subtest passes under the mutation, 3 of 3 (the handled SIGHUP's re-raise lands on the restored ignore, and the run exits 129 after printing the post-fix leg line) -->
   - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` prints nothing and exits 0;
     `cd stats && go test ./internal/guard -run 'TestProveReproducerSignals|TestMutateAndVerify'` passes; Step 1's grep prints `0` for each file.
   - [ ] **Step 5: Commit** the two files with the subject below.
@@ -801,7 +811,7 @@ index 7f3babf6..c47ce558 100644
 **Build:** green
 **Files:** `stats/internal/guard/prove_reproducer_test.go`, `stats/internal/guard/mutate_and_verify_test.go`
 **Tests:** none — repairs existing tests: `TestProveReproducerSignals`, `TestMutateAndVerify`
-**Regression:** reverting the commit restores the two half-second timed looks; no verdict changes, since the finished-run assertions Step 3 exercises stay.
+**Regression:** reverting the commit restores the two half-second timed looks and drops prove-reproducer's exit-1 pin; no verdict changes on an unmutated tree, since the finished-run assertions stay.
 **Commit:** test(guard): prove an ignored signal stays ignored without a timed look
 **After:** Task 4
 

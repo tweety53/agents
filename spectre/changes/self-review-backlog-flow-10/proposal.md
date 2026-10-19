@@ -32,4 +32,4 @@ change (`design.md`, **Context**):
   worktree's own copy runs.
 - A `historicalFile` test helper skips a parity test whose pinned commit the clone lacks, naming
   the commit.
-- The two timed looks are removed; the tests' finished-run assertions are the deterministic proof.
+- The two timed looks are removed; the tests' finished-run assertions, with `prove-reproducer`'s pinned to its exit status 1, are the deterministic proof.
