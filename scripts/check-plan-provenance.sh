@@ -44,13 +44,14 @@
 # CHECK_PLAN_PROVENANCE_ROOT, only when that is unset — an explicit value,
 # empty included, reaches the guard untouched.
 set -euo pipefail
+[ -r "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" || {
+  echo "check-plan-provenance: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
+  exit 2
+}
+flow_guard_cwd_checkout "${BASH_SOURCE[0]}" "$@"
 root="$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)" || {
   echo "check-plan-provenance: cannot resolve the checkout beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }
 export CHECK_PLAN_PROVENANCE_ROOT="${CHECK_PLAN_PROVENANCE_ROOT-$root}"
-[ -r "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" || {
-  echo "check-plan-provenance: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
-  exit 2
-}
 flow_guard_exec check-plan-provenance 2 "check-plan-provenance:" "$@"

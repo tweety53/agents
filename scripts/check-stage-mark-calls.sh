@@ -149,6 +149,7 @@ SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
   echo "check-stage-mark-calls: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }
+flow_guard_cwd_checkout "${BASH_SOURCE[0]}" "$@"
 FLOW_GUARD_REPO_ROOT="$(cd "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 export FLOW_GUARD_REPO_ROOT
 flow_guard_exec check-stage-mark-calls 2 "check-stage-mark-calls:" "$@"

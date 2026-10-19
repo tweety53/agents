@@ -224,6 +224,53 @@ for shim in check-cleanup-complete check-panel-reproducer-exit-contract check-ta
   check "case 14: scripts/$shim.sh run by bare filename loads its lib" $?
 done
 
+# 15. An absolute-path call from another worktree of the same repository
+#     runs that worktree's own copy of the shim, never a false answer about
+#     the shim's checkout (KAN-902): the fixture's shim calls
+#     flow_guard_cwd_checkout, and the worktree's flow-guard prints its own
+#     word. From the shim's own checkout, from a directory in no
+#     repository, and from a different repository that carries
+#     scripts/check-x.sh, the shim's own guard answers.
+new_fixture v15
+cat > "$FIX/scripts/check-x.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+. "${BASH_SOURCE[0]%/*}/lib/flow-guard.sh"
+flow_guard_cwd_checkout "${BASH_SOURCE[0]}" "$@"
+flow_guard_exec check-x 4 "check-x:" "$@"
+EOF
+git -C "$FIX" init -q && git -C "$FIX" add -A \
+  && git -C "$FIX" -c user.name=Test -c user.email=test@example.invalid -c commit.gpgsign=false commit -qm fixture \
+  && git -C "$FIX" worktree add -q --detach "$FIX-wt"
+(FIX="$FIX-wt" && write_main w15)
+run bash -c 'cd "$1-wt" && bash "$1/scripts/check-x.sh" arg' _ "$FIX"
+[ "$RC" -eq 0 ] && [ "$OUT" = "w15 check-x" ]
+check "case 15a: called by absolute path from another worktree, the worktree's own shim answers" $?
+run bash -c 'cd "$1" && bash "$1/scripts/check-x.sh" arg' _ "$FIX"
+[ "$RC" -eq 0 ] && [ "$OUT" = "v15 check-x" ]
+check "case 15b: called from its own checkout, the shim's own guard answers" $?
+mkdir -p "$WORK/norepo"
+run bash -c 'cd "$1" && bash "$2/scripts/check-x.sh" arg' _ "$WORK/norepo" "$FIX"
+[ "$RC" -eq 0 ] && [ "$OUT" = "v15 check-x" ]
+check "case 15c: called from no repository, the shim's own guard answers" $?
+mkdir -p "$WORK/other15/scripts"
+printf '#!/usr/bin/env bash\necho other15\n' > "$WORK/other15/scripts/check-x.sh"
+git -C "$WORK/other15" init -q
+run bash -c 'cd "$1" && bash "$2/scripts/check-x.sh" arg' _ "$WORK/other15" "$FIX"
+[ "$RC" -eq 0 ] && [ "$OUT" = "v15 check-x" ]
+check "case 15d: called from a different repository carrying scripts/check-x.sh, the shim's own guard answers" $?
+
+# 16. Every guard that judges its own checkout makes the KAN-902 call before
+#     deriving its root.
+for shim in check-ask-silence check-dispatch-paragraphs check-guard-symlinks \
+  check-installed-citations check-plan-provenance check-references \
+  check-self-review-report check-stage-mark-calls check-verbatim-moves; do
+  call="$(grep -n -x 'flow_guard_cwd_checkout "${BASH_SOURCE\[0\]}" "\$@"' "$REPO/scripts/$shim.sh" | cut -d: -f1)"
+  root="$(grep -n -E '^(FLOW_GUARD_REPO_ROOT|root)=' "$REPO/scripts/$shim.sh" | head -1 | cut -d: -f1)"
+  [ -n "$call" ] && [ -n "$root" ] && [ "$call" -lt "$root" ]
+  check "case 16: scripts/$shim.sh calls flow_guard_cwd_checkout before deriving its root" $?
+done
+
 # 10. A shim with no stats/ beside its checkout exits the cannot-answer code.
 rm -rf "$FIX/stats"
 run "$FIX/scripts/check-x.sh"

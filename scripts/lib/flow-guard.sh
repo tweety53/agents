@@ -81,6 +81,24 @@ flow_guard_root() {
   (cd -P "$(dirname -- "${BASH_SOURCE[0]}")" && cd ../.. && pwd)
 }
 
+# flow_guard_cwd_checkout <script> [arguments...] — a guard that judges its
+# own checkout calls this before deriving its root. When the working
+# directory sits in another worktree of the same repository and that
+# worktree carries scripts/<script's name>, exec that copy with the same
+# arguments, so an absolute-path call from a worktree judges the worktree
+# rather than reporting a false clean on this checkout (KAN-902). Otherwise
+# return and let the caller carry on.
+flow_guard_cwd_checkout() {
+  local script="$1" here top common
+  shift
+  here="$(flow_guard_root)" || return 0
+  top="$(git rev-parse --show-toplevel 2>/dev/null)" && top="$(cd -P "$top" && pwd)" || return 0
+  [ "$top" != "$here" ] && [ -f "$top/scripts/${script##*/}" ] || return 0
+  common="$(git -C "$here" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 0
+  [ -n "$common" ] && [ "$common" = "$(git -C "$top" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" ] || return 0
+  exec bash "$top/scripts/${script##*/}" "$@"
+}
+
 # flow_guard_exec <name> <cannot-answer-code> <opening> [guard arguments...]
 # — exec the checkout-built flow-guard as guard <name>, or print
 # "<opening> <cause>" to stderr and exit <cannot-answer-code>.

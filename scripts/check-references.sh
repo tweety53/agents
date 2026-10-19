@@ -45,6 +45,7 @@ set -euo pipefail
   echo "check-references: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }
+flow_guard_cwd_checkout "${BASH_SOURCE[0]}" "$@"
 FLOW_GUARD_REPO_ROOT="$(cd "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 export FLOW_GUARD_REPO_ROOT
 flow_guard_exec check-references 2 "check-references:" "$@"
