@@ -670,12 +670,11 @@ func mvSignalCase(t *testing.T, fx mvFixtures, sig syscall.Signal, ignore bool) 
 		t.Fatal(err)
 	}
 	if ignore {
-		// An ignored signal leaves no trace to wait on; half a second is
-		// long past a handler's restore, which would undo the mutation
-		// under the running harness.
-		time.Sleep(500 * time.Millisecond)
-		g, _ := os.ReadFile(c.guard)
-		mvCheck(t, "ignored signal: the mutation is still applied", strings.Contains(string(g), mvMutationMark), "restored early")
+		// An ignored signal leaves no trace to wait on, so no look is timed
+		// (KAN-907): the signal is pending before the harness is released,
+		// and trapExitSignals handles every signal delivered before the
+		// run's own exit: a handled one ends the run in exit 129, so the
+		// normal-end check below fails the moment one is handled.
 		mvRelease(t, releaseF)
 		_ = cmd.Wait()
 		o, _ := os.ReadFile(dir + "/stdout")

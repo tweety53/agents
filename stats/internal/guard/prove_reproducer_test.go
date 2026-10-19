@@ -10,7 +10,6 @@ import (
 	"sync"
 	"syscall"
 	"testing"
-	"time"
 )
 
 // Every case_N of scripts/test-prove-reproducer.sh at d71a2327, one subtest
@@ -576,15 +575,12 @@ func TestProveReproducerSignals(t *testing.T) {
 			if err := syscall.Kill(target, c.sig); err != nil {
 				t.Fatal(err)
 			}
-			if c.ignore {
-				// An ignored signal leaves no trace to wait on; half a second
-				// is long past a handler's cleanup, which would remove the
-				// scratch under the running leg.
-				time.Sleep(500 * time.Millisecond)
-				if left, _ := filepath.Glob(tmp + "/prove-reproducer.*/scratch"); len(left) != 1 {
-					t.Fatalf("the ignored %v removed the scratch under the running leg", c.sig)
-				}
-			}
+			// An ignored signal leaves no trace to wait on, so no look is
+			// timed (KAN-907): the signal is pending before the leg is
+			// released, and a handled one ends the run in exit 129 -- its
+			// re-raise lands on the restored ignore, and the caller's exit
+			// waits on the handler -- so the finished run's exit 1 below
+			// fails the moment one is handled.
 			done := make(chan struct{})
 			go func() { _ = cmd.Wait(); close(done) }()
 			if c.ignore {
@@ -602,7 +598,7 @@ func TestProveReproducerSignals(t *testing.T) {
 			o, _ := os.ReadFile(dir + "/stdout")
 			e, _ := os.ReadFile(dir + "/stderr")
 			if c.ignore {
-				if ws.Signaled() || !strings.Contains(string(o), "== post-fix leg exit: 1\n") {
+				if ws.Signaled() || ws.ExitStatus() != 1 || !strings.Contains(string(o), "== post-fix leg exit: 1\n") {
 					t.Fatalf("status %v, want a finished run\nstdout:\n%s\nstderr:\n%s", cmd.ProcessState, o, e)
 				}
 			} else if !ws.Signaled() || ws.Signal() != c.sig {
