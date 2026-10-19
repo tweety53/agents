@@ -1,0 +1,5 @@
+# Sentences this change adds on purpose — the kan-994-fe-empty-day-in-row-grammar-repeat-offer-row self-review pass, F-C: the narrative check after flow.write-in-progress's append (verify-and-handoff.md) and the STOP: narrative cause it adds (integrate.md). Measured with Task 3's two paragraphs applied: check-verbatim-moves.sh printed exactly these four FAIL sentences.
+**Then check the narrative against the runs the store marked:** `check-narrative-runs.sh <abs-worktree> <name> <narrative.md>`.
+Exit 1 names a fix or integrate run whose `## <YYYY-MM-DD> — fix run` or `— integrate run` section the file lacks: append that run's section from the change's ledger and history, and run the check again.
+Exit 2 is reported and stops the write.
+**`STOP: narrative`** also stops on a fix or integrate run whose section `narrative.md` lacks (`check-narrative-runs.sh`, the check `flow.write-in-progress` runs): append the missing section and re-run `commit`.
