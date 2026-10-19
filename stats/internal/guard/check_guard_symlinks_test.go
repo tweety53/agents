@@ -184,10 +184,7 @@ func gsBashParity(t *testing.T, repo string) {
 	t.Helper()
 	scripts := filepath.Join(t.TempDir(), "scripts")
 	for _, rel := range []string{"check-guard-symlinks.sh", "lib/resolve-file.sh", "lib/coverage.sh"} {
-		src, err := exec.Command(fixtureGit, "-C", "../../..", "show", "d71a2327:scripts/"+rel).Output()
-		if err != nil {
-			t.Fatal(err)
-		}
+		src := historicalFile(t, "../../..", "d71a2327", "scripts/"+rel)
 		writeFile(t, filepath.Join(scripts, rel), string(src))
 	}
 	cmd := exec.Command("bash", filepath.Join(scripts, "check-guard-symlinks.sh"))

@@ -328,10 +328,7 @@ func TestCheckStageMarkCalls(t *testing.T) {
 		t.Parallel()
 		tree := t.TempDir()
 		for _, rel := range []string{"scripts/check-stage-mark-calls.sh", "scripts/lib/coverage.sh"} {
-			src, err := exec.Command(fixtureGit, "-C", smcRepoRoot, "show", "d71a2327:"+rel).Output()
-			if err != nil {
-				t.Fatal(err)
-			}
+			src := historicalFile(t, smcRepoRoot, "d71a2327", rel)
 			// The pinned bash pipes the key list into `grep -q` under
 			// pipefail: bash's printf writes "%s" and "\n" separately, so a
 			// grep that matched and exited between them SIGPIPEs printf and

@@ -876,10 +876,7 @@ func wiParity(t *testing.T) {
 	t.Parallel()
 	tree := t.TempDir()
 	for _, rel := range []string{"scripts/check-workspace-isolation.sh", "scripts/lib/resolve-file.sh"} {
-		src, err := exec.Command(fixtureGit, "-C", wiRepoRoot, "show", "c5379c0a:"+rel).Output()
-		if err != nil {
-			t.Fatal(err)
-		}
+		src := historicalFile(t, wiRepoRoot, "c5379c0a", rel)
 		writeFile(t, tree+"/"+rel, string(src))
 	}
 	base := t.TempDir()

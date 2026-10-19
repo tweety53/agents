@@ -312,10 +312,7 @@ func prBash(t *testing.T, env Env, args ...string) (int, string, string) {
 	t.Helper()
 	dir := t.TempDir()
 	for _, rel := range []string{"prove-reproducer.sh", "lib/reproducer-path.sh"} {
-		src, err := exec.Command(fixtureGit, "-C", "../../..", "show", "d71a2327:scripts/"+rel).Output()
-		if err != nil {
-			t.Fatalf("git show d71a2327:scripts/%s: %v", rel, err)
-		}
+		src := historicalFile(t, "../../..", "d71a2327", "scripts/"+rel)
 		writeFile(t, filepath.Join(dir, rel), string(src))
 	}
 	writeFile(t, filepath.Join(dir, "run-reproducer.sh"), "")

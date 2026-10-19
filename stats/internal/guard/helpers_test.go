@@ -625,3 +625,20 @@ func TestChildEnvTurnsGuardTelemetryOff(t *testing.T) {
 		t.Fatalf("child FLOW_GUARD_TELEMETRY = %q, want off", out)
 	}
 }
+
+// historicalFile is <rev>:<path> read from the repository at root — the bash
+// a parity test pins its port against, as it stood at <rev>. A clone that
+// does not carry <rev>, a shallow one, skips the calling test naming the
+// commit, rather than failing the whole package on history it never had
+// (KAN-905).
+func historicalFile(t *testing.T, root, rev, path string) []byte {
+	t.Helper()
+	if exec.Command(fixtureGit, "-C", root, "cat-file", "-e", rev+"^{commit}").Run() != nil {
+		t.Skipf("%s is not in this clone's history (a shallow clone?) — the parity check against the bash at it cannot run", rev)
+	}
+	src, err := exec.Command(fixtureGit, "-C", root, "show", rev+":"+path).Output()
+	if err != nil {
+		t.Fatalf("git show %s:%s: %v", rev, path, err)
+	}
+	return src
+}

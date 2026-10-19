@@ -389,10 +389,7 @@ func TestCheckFinishPreflight(t *testing.T) {
 	// so each is run against the bash at d71a2327 live on the same fixture.
 	bashDir := filepath.Join(t.TempDir(), "scripts")
 	for _, rel := range []string{"check-finish-preflight.sh", "check-worktree-location.sh", "lib/resolve-remote-base.sh"} {
-		src, err := exec.Command(fixtureGit, "-C", fpRepoRoot, "show", "d71a2327:scripts/"+rel).Output()
-		if err != nil {
-			t.Fatal(err)
-		}
+		src := historicalFile(t, fpRepoRoot, "d71a2327", "scripts/"+rel)
 		writeFile(t, filepath.Join(bashDir, rel), string(src))
 		if err := os.Chmod(filepath.Join(bashDir, rel), 0o755); err != nil {
 			t.Fatal(err)

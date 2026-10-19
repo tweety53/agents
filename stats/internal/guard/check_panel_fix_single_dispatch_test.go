@@ -259,10 +259,7 @@ func TestCheckPanelFixSingleDispatch(t *testing.T) {
 			t.Skip("jq is not on PATH; the bash at d71a2327 requires it")
 		}
 		script := filepath.Join(t.TempDir(), "check-panel-fix-single-dispatch.sh")
-		src, err := exec.Command(fixtureGit, "-C", "../../..", "show", "d71a2327:scripts/check-panel-fix-single-dispatch.sh").Output()
-		if err != nil {
-			t.Fatal(err)
-		}
+		src := historicalFile(t, "../../..", "d71a2327", "scripts/check-panel-fix-single-dispatch.sh")
 		writeFile(t, script, string(src))
 		row := func(key string) string {
 			return `{"key":` + key + `,"role":"panel-fix","sessionToken":"mf-tok"}`

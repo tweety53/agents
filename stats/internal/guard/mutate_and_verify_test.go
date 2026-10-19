@@ -845,10 +845,7 @@ func bashAtBase(t *testing.T, rels ...string) string {
 	t.Helper()
 	dir := t.TempDir()
 	for _, rel := range rels {
-		src, err := exec.Command(fixtureGit, "-C", "../../..", "show", "d71a2327:scripts/"+rel).Output()
-		if err != nil {
-			t.Fatalf("git show d71a2327:scripts/%s: %v", rel, err)
-		}
+		src := historicalFile(t, "../../..", "d71a2327", "scripts/"+rel)
 		writeFile(t, filepath.Join(dir, rel), string(src))
 	}
 	return dir

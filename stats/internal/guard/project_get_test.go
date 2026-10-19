@@ -15,10 +15,7 @@ func pgBashDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	for _, rel := range []string{"project-get.sh", "lib/project-section.sh", "lib/strip-bom.sh"} {
-		src, err := exec.Command(fixtureGit, "-C", "../../..", "show", "ae805186:scripts/"+rel).Output()
-		if err != nil {
-			t.Fatalf("git show ae805186:scripts/%s: %v", rel, err)
-		}
+		src := historicalFile(t, "../../..", "ae805186", "scripts/"+rel)
 		writeFile(t, filepath.Join(dir, rel), string(src))
 	}
 	return dir

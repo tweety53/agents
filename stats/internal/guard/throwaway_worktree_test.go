@@ -24,10 +24,7 @@ import (
 // with each placeholder replaced by its value.
 func twFence(t *testing.T, doc, marker string, n int, repl ...string) string {
 	t.Helper()
-	src, err := exec.Command(fixtureGit, "-C", "../../..", "show", "ae805186:"+doc).Output()
-	if err != nil {
-		t.Fatalf("git show ae805186:%s: %v", doc, err)
-	}
+	src := historicalFile(t, "../../..", "ae805186", doc)
 	s := string(src)
 	i := strings.Index(s, marker)
 	if i < 0 {
