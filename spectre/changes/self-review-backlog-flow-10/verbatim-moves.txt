@@ -1,0 +1,11 @@
+# Sentences this change adds or rewords on purpose — KAN-899 (skills/flow/SKILL.md) and KAN-900
+# (skills/flow/sync-onto-base.md, skills/flow/integrate.md, skills/flow-contracts/finish-contract-run1.md).
+**Never** re-run the project's whole `## lint`/`## test` list here.
+SETTINGS_JSON="$(flow settings get 2>/dev/null || true)"
+Two exceptions exist, both under **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`): a rebase that needed conflict resolution runs the whole `## lint` and `## test` lists, and a clean rebase that changed a file this change also touches runs the scoped re-verification that file is canonical for.
+`STOP: push`, `STOP: sync`, `STOP: sync-conflict`, `STOP: guard-test`, `STOP: self-review-report` and `STOP: state` are reported with the command's own output, leaving the change at `IN_PROGRESS`; `STOP: base` and `STOP: no-remote` are handled as in **Deciding which run this is** above; a conflict on the merge-and-push route's one re-sync is resolved per **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) and `land` re-run as the one retry.
+**Never** re-run the project's whole `## test` list here.
+Between the two, the rebased tree runs the project's whole `## lint` list (`run-verify-list.sh <worktree> lint`): a textually clean rebase can still break the build, as one that dropped a Go import did (KAN-900), so a failure is `STOP: rebase-lint`, leaving the worktree rebased.
+SETTINGS_JSON="$(flow settings get || true)"
+The read leaves the CLI's stderr visible: report it verbatim as the cause, and resolve `REVIEWERS` by the table's Unreachable row below, never as the empty list the failed read leaves (KAN-899).
+`STOP: rebase-lint` is the project's `## lint` list failing on the rebased tree, handled the same way.
