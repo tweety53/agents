@@ -376,6 +376,39 @@ func (c *Client) FindState(ctx context.Context, name string) ([]StateChange, err
 	return wire.Records, nil
 }
 
+// StageRunRow is the one field of a GET /api/v1/stage-runs row `flow stage
+// sessions` reads.
+type StageRunRow struct {
+	SessionID *string `json:"sessionId,omitempty"`
+}
+
+// ListStageRuns reads a change's stage runs of one command and stage
+// (GET /api/v1/stage-runs, limit 1000).
+func (c *Client) ListStageRuns(ctx context.Context, project, change, command, stage string) ([]StageRunRow, error) {
+	q := url.Values{"project_key": {project}, "name": {change}, "command": {command}, "stage": {stage}, "limit": {"1000"}}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/v1/stage-runs?"+q.Encode(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+	body, status, fromDaemon, err := c.do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !fromDaemon {
+		return nil, fmt.Errorf("%w: response missing %s header -- not trusted as a store answer", ErrUnavailable, daemonHeaderName)
+	}
+	if status != http.StatusOK {
+		return nil, fmt.Errorf("%w: unexpected status %d", ErrUnavailable, status)
+	}
+	var wire struct {
+		StageRuns []StageRunRow `json:"stageRuns"`
+	}
+	if err := json.Unmarshal(body, &wire); err != nil {
+		return nil, fmt.Errorf("%w: response body is not valid JSON", ErrUnavailable)
+	}
+	return wire.StageRuns, nil
+}
+
 // stagesBeginURL and stagesEndURL are flowd's stage-mark endpoints --
 // POST /api/v1/stages/begin and POST /api/v1/stages/end, per design.md's
 // "API" section. Unlike the change endpoints, a mark's identity (project,

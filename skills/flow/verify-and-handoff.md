@@ -417,6 +417,8 @@ durable process lesson this run paid for is promoted to the lessons home (**Proc
 work. The write-in-progress planning commit carries it (**Planning commits**,
 `skills/flow-contracts/git-boundaries.md`), made once the append lands; nothing else stages it.
 
+**Then check the narrative against the runs the store marked:** `check-narrative-runs.sh <abs-worktree> <name> <narrative.md>`. Exit 1 names a fix or integrate run whose `## <YYYY-MM-DD> — fix run` or `— integrate run` section the file lacks: append that run's section from the change's ledger and history, and run the check again. Exit 2 is reported and stops the write.
+
 **Close every open dispatch row of the change** before the state is written — integrate's
 **1. Check for unfinished work** (`skills/flow/integrate.md`) stops a landing on one, and only this
 run knows how its own dispatches ended. List them from the canonical worktree:

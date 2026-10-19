@@ -145,6 +145,8 @@ archives the change on its branch, commits the archive and pushes each reshaped 
 
 **`STOP: narrative`** → an `In-run pipeline fix:` line in the narrative is off the format **Pipeline defects found mid-run** fixes for it (`skills/flow-contracts/pipeline.md`): rewrite that line to that format and re-run `commit`.
 
+**`STOP: narrative`** also stops on a fix or integrate run whose section `narrative.md` lacks (`check-narrative-runs.sh`, the check `flow.write-in-progress` runs): append the missing section and re-run `commit`.
+
 ## 4. Archive and run the self-review pass
 
 Per **Run the self-review pass** (`skills/flow-contracts/finish-contract-run1.md`), canonical for it.

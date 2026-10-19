@@ -65,6 +65,9 @@
 #          link.md takes `chore(spectre): merge order`; any other without
 #          one stops `commit-split`. An
 #          archived change without new work skips straight to commit-archive.
+#          Before any of it, a narrative lacking the section of a fix or
+#          integrate run the store marked stops `narrative`
+#          (check-narrative-runs.sh).
 #          Then, each behind the visual-verify gate, the --force-with-lease
 #          branch push per worktree, in merge
 #          order — the reshape's push (Branch backup, git-boundaries.md) —
@@ -597,6 +600,10 @@ cmd_commit() {
       grep -vE 'In-run pipeline fix: `?([0-9a-f]{7,40}|deferred)`? — .+ \(blast radius [0-9]+ files?\)\.?[[:space:]]*$' || true)"
     [ -z "$bad" ] || stop narrative "$nf holds in-run fix line(s) off the format 'In-run pipeline fix: <agents sha | deferred> — <the defect> (blast radius <N> files)': ${bad//$'\n'/; } — rewrite each to it, then re-run commit"
   done
+  nf="$CANON/$SPEC/changes/$NAME/narrative.md"
+  [ ! -f "$nf" ] && [ -f "$CANON/$SPEC/changes/archive/$NAME/narrative.md" ] && nf="$CANON/$SPEC/changes/archive/$NAME/narrative.md"
+  OUT="$("$SCRIPT_DIR/check-narrative-runs.sh" "$CANON" "$NAME" "$nf" 2>&1)"; RC=$?  # stderr too: its exit-2 message is the stop's cause
+  [ "$RC" -eq 0 ] || stop narrative "$(tail -n1 <<<"$OUT") — append each missing run's section (skills/flow/verify-and-handoff.md, Write IN_PROGRESS), then re-run commit"
   merge_order
   for i in "${!WT[@]}"; do [ -f "$(reshape_file "${WT[i]}")" ] && reshape=1; done
   if [ "$reshape" -eq 1 ]; then

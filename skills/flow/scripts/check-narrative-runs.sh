@@ -1,0 +1,1 @@
+../../../scripts/check-narrative-runs.sh

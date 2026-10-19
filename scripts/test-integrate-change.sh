@@ -182,6 +182,7 @@ case "\$1 \$2" in
   "state dir") echo "$WORK/statedir" ;;
   "state list") echo '{"source":"store","complete":true,"records":[{"name":"demo"}]}' ;;
   "stage begin"|"stage end") echo "\$*" >>"$WORK/stages.log" ;;
+  "stage sessions") [ -f "$WORK/fail-sessions" ] && exit 1; if [ "\$6" = flow.document-fix ]; then cat "$WORK/fix-sessions" 2>/dev/null || echo 0; else echo 0; fi ;;
   "record findings") [ -f "$WORK/fail-findings" ] && exit 1; echo '[]' ;;
   "self-review findings") echo '[]' ;;
   "self-review bundle") printf 'found: 1 of 1 sources; skipped: 0 of 1 sources\n' ;;
@@ -264,6 +265,28 @@ narrative_passes "a prose mention of the token" 'The `In-run pipeline fix:` line
 narrative_passes "a well-formed line with trailing whitespace" '- In-run pipeline fix: 1a2b3c4 — the defect (blast radius 2 files)   '
 narrative_passes "a deferred line" '- In-run pipeline fix: deferred — the defect (blast radius 1 file)'
 narrative_passes "a backticked sha" '- In-run pipeline fix: `1a2b3c4` — the defect (blast radius 3 files).' 
+
+# --- narrative_runs ---
+fixture
+echo 1 >"$WORK/fix-sessions"
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
+check "narrative_runs: a fix run with no section stops commit at STOP: narrative" \
+  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: narrative — NARRATIVE-RUNS-MISSING"'
+printf '\n## 2026-10-19 — fix run\n\nfixed\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
+check "narrative_runs: with the fix run's section commit no longer stops at narrative" \
+  '! printf "%s" "$OUT" | grep -q "^STOP: narrative"'
+rm -f "$WORK/fix-sessions"
+fixture
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+touch "$WORK/fail-sessions"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
+check "narrative_runs: a failed stage-sessions read names the failure in the stop" \
+  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: narrative — check-narrative-runs: flow stage sessions"'
+rm -f "$WORK/fail-sessions"
 
 # --- happy_path ---
 fixture

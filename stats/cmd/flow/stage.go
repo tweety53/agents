@@ -45,10 +45,15 @@ const stageUsage = `usage: flow stage begin [-addr url] [-timeout dur] [-C dir] 
        flow stage mark [-addr url] [-timeout dur] [-C dir] [-harness name] [-session id]
                         -command cmd -stages key,key,... -session-token token (<change> | -jira-key KEY)
        flow stage keys
+       flow stage sessions [-addr url] [-timeout dur] [-C dir] -stage key <change>
 
 -stage takes a stage KEY, not its prose name -- one of README.md's Level 1
 -- the stages of each command table's Key column; an undocumented key is
 rejected before it ever reaches the store.
+
+stage sessions prints how many /flow runs of -stage the store marked for
+<change>: distinct session ids, plus one per row with none. Exit 1 when the
+read fails (decision narrative-runs-from-stage-marks).
 
 stage keys prints every documented stage key, one per line, from this
 checkout's own internal/stages table -- the vocabulary's one served source;
@@ -90,6 +95,8 @@ func runStage(ctx context.Context, args []string, stdin io.Reader, stdout, stder
 		return runStageMark(ctx, args[1:], stderr)
 	case "keys":
 		return runStageKeys(args[1:], stdout, stderr)
+	case "sessions":
+		return runStageSessions(ctx, args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown stage command %q\n", args[0])
 		fmt.Fprint(stderr, stageUsage)
@@ -910,5 +917,61 @@ func runStageMark(ctx context.Context, args []string, stderr io.Writer) int {
 			return rc
 		}
 	}
+	return 0
+}
+
+// runStageSessions implements `flow stage sessions`: the number of /flow
+// runs of one stage the store marked for a change -- distinct non-empty
+// session ids, plus one per row carrying none. check-narrative-runs.sh
+// compares it with the narrative's run sections (decision
+// narrative-runs-from-stage-marks).
+func runStageSessions(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow stage sessions", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	addr := fset.String("addr", resolveDefaultAddr(), "flowd base URL")
+	timeout := fset.Duration("timeout", defaultTimeout, "store request timeout")
+	dir := fset.String("C", ".", "the change's repository")
+	stage := fset.String("stage", "", "a /flow stage key")
+	pos, err := parseInterspersed(fset, args)
+	if err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		fmt.Fprint(stderr, stageUsage)
+		return 2
+	}
+	if len(pos) != 1 || *stage == "" {
+		fmt.Fprintln(stderr, "flow: stage sessions takes -stage and one <change>")
+		fmt.Fprint(stderr, stageUsage)
+		return 2
+	}
+	if err := stages.Validate(stages.Command("/flow"), *stage); err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		return 2
+	}
+	projectKey, _, err := fallback.ProjectKey(*dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+	reqCtx, cancel := context.WithTimeout(ctx, *timeout)
+	defer cancel()
+	rows, err := client.New(*addr, &http.Client{Timeout: *timeout}).ListStageRuns(reqCtx, projectKey, pos[0], "/flow", *stage)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: stage sessions: %v\n", err)
+		return 1
+	}
+	seen := map[string]bool{}
+	n := 0
+	for _, r := range rows {
+		if r.SessionID == nil || *r.SessionID == "" {
+			n++
+		} else if !seen[*r.SessionID] {
+			seen[*r.SessionID] = true
+			n++
+		}
+	}
+	fmt.Fprintln(stdout, n)
 	return 0
 }
