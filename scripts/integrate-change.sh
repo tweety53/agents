@@ -32,7 +32,8 @@
 #          gate (check-unfinished-work, check-visual-verify-dispatched against
 #          `git merge-base HEAD origin/$BASE`, check-untasked-commits from that
 #          base or an archived re-run's), check-base-moved and
-#          sync-onto-base on MOVED (running each GUARD-TEST it names), and the
+#          sync-onto-base on MOVED (running each GUARD-TEST it names, then
+#          the rebased worktree's ## lint list — rebase_lint below), and the
 #          default landing route (project-get.sh). Prints per worktree its
 #          reshape base and the diffstat the commit subjects are written from,
 #          and records the reshape base in the worktree's own git dir
@@ -120,7 +121,7 @@ missing=""
 for g in check-base-moved check-cleanup-complete check-finish-preflight check-foreign-staged \
   check-main-checkout-drift check-unfinished-work check-untasked-commits check-visual-verify-dispatched commit-archive \
   commit-split land-self-review-report migrate-worktrees project-get refresh-main-checkout \
-  remove-change-worktrees reshape-branch resolve-base-branch sync-onto-base; do
+  remove-change-worktrees reshape-branch resolve-base-branch run-verify-list sync-onto-base; do
   [ -x "$SCRIPT_DIR/$g.sh" ] || missing="$missing $g.sh"
 done
 [ -z "$missing" ] || die "missing beside this script:$missing — run the procedure by hand"
@@ -388,6 +389,31 @@ guard_tests() {
   done < <(printf '%s\n' "$OUT" | grep '^GUARD-TEST: ')
 }
 
+# rebase_lint <worktree> [stop prefix]: a textually clean rebase can still
+# break the build — one dropped a Go import no exit code caught (KAN-900) — so
+# the rebased tree runs its project's ## lint list (run-verify-list.sh) under
+# the KEY=value lines prepare-workspace.sh prints for it, as that script's
+# caller contract asks. A failure stops with the list's report above the stop
+# line; a project declaring no list (exit 3) has nothing to run. A passing list
+# that rewrote tracked files (a formatter pre-step) stops too: the rewrite
+# would otherwise ride into the reshape unreviewed or be left behind a push.
+# The prefix leads the stop text — land passes what it already pushed.
+rebase_lint() {
+  local out rc
+  out="$("$SCRIPT_DIR/prepare-workspace.sh" "$1")" ||
+    { printf '%s\n' "$out"; stop rebase-lint "${2-}prepare-workspace.sh failed on $1 after its rebase, so its ## lint list did not run — report its output above; the change stays IN_PROGRESS"; }
+  out="$(while IFS= read -r kv; do case "$kv" in [A-Za-z_]*=*) export "$kv" ;; esac; done <<<"$out"
+    "$SCRIPT_DIR/run-verify-list.sh" "$1" lint 2>&1)"
+  rc=$?
+  case "$rc" in
+    0) [ -z "$(git -C "$1" status --porcelain --untracked-files=no)" ] ||
+         stop rebase-lint "${2-}the ## lint list rewrote tracked files on $1 after its rebase — commit or revert them; the change stays IN_PROGRESS"
+       say "REBASE-LINT-PASSED: $1" ;;
+    3) say "REBASE-LINT-NONE: $1 — its project declares no ## lint list" ;;
+    *) printf '%s\n' "$out"; stop rebase-lint "${2-}the ## lint list failed on $1 after its rebase (run-verify-list exit $rc) — report its output above; the change stays IN_PROGRESS" ;;
+  esac
+}
+
 cmd_prepare() {
   local i m v ask=0 run1=0 rb vline sha t
   load_set
@@ -522,6 +548,7 @@ cmd_prepare() {
     vline="$(verdict REBASED)"; sha="${vline##*onto }"
     RB[i]="$sha"
     guard_tests
+    rebase_lint "${WT[i]}"
     # The rebase made a HEAD no verifier saw: the gate again.
     visual_ok "${WT[i]}" "${BASES[i]}" || stop visual-verify "rebased onto origin/${BASES[i]} after the gate: $(visual_stop_text "${WT[i]}" prepare)"
   done
@@ -776,6 +803,7 @@ cmd_land() {
             *) stop sync "sync-onto-base exit $RC — report its output" ;;
           esac
           guard_tests
+          rebase_lint "$w" "already pushed: ${pushed:-none}; "
           reread_fix_shas "$o"
           visual_ok "$w" "$BASE" || stop visual-verify "re-synced onto origin/$BASE after its push was rejected, so it was not pushed there; already pushed: ${pushed:-none}. $(visual_stop_text "$w" land)"
           push_branch "$w"

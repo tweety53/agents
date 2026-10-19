@@ -42,6 +42,11 @@
 #                   its line naming the --resume call whole.
 #   guard_test      a failing scoped re-verification stops prepare at
 #                   STOP: guard-test with the test's own output relayed.
+#   rebase_lint     a clean rebase onto a base whose ## lint list fails
+#                   stops prepare at STOP: rebase-lint with the list's own
+#                   output relayed (KAN-900); rebase_lint_env, _rewrite and
+#                   _land pin its workspace exports, its stop on a list that
+#                   rewrote tracked files, and land's re-sync running it.
 #   gh_open_merged  gh reports the recorded PR OPEN but the branch is on
 #                   origin/main: run 2 still runs to FINISHED.
 #   disclose        both apply worktrees hold an unpreserved ignored file:
@@ -387,6 +392,54 @@ SUT="$SUT_SAVED"
 check "guard_test: prepare stops with exit 1" '[ "$RC" -eq 1 ]'
 check "guard_test: the stop is STOP: guard-test" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: guard-test"'
 check "guard_test: the failing test's own output is relayed" 'printf "%s" "$OUT" | grep -qx "gt-test-own-output"'
+
+# --- rebase_lint ---
+# b's base gains a .flow/project.md whose ## lint list fails and nothing this
+# change touches: the rebase is clean, and the rebased tree's lint list runs.
+fixture
+mkdir -p "$WORK/b/.flow"
+printf '# project\n\n## lint\n\n```bash\necho lint-own-output; exit 1\n```\n' >"$WORK/b/.flow/project.md"
+g -C "$WORK/b" add .flow/project.md && g -C "$WORK/b" commit -qm "base: lint list" && g -C "$WORK/b" push -q origin main
+sut prepare "$WORK/a" demo
+check "rebase_lint: prepare stops with exit 1" '[ "$RC" -eq 1 ]'
+check "rebase_lint: the rebase was clean" 'printf "%s" "$OUT" | grep -q "^REBASED: $WORK/b-worktrees/demo"'
+check "rebase_lint: the stop is STOP: rebase-lint" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: rebase-lint — the ## lint list failed on $WORK/b-worktrees/demo"'
+check "rebase_lint: the list's own output is relayed" 'printf "%s" "$OUT" | grep -q "lint-own-output"'
+
+# --- rebase_lint_env: the list runs under prepare-workspace.sh's exports ---
+fixture
+mkdir -p "$WORK/b/.flow"
+printf '# project\n\n## lint\n\n```bash\necho "lint-env:${DEMO_ADDR:-unset}"; exit 1\n```\n\n## workspace isolation\n\n| Resource | Variable | Default | In a workspace |\n|----------|----------|---------|----------------|\n| `url` | `DEMO_ADDR` | `http://127.0.0.1:1` | `http://127.0.0.1:2` |\n' >"$WORK/b/.flow/project.md"
+g -C "$WORK/b" add .flow/project.md && g -C "$WORK/b" commit -qm "base: lint list" && g -C "$WORK/b" push -q origin main
+sut prepare "$WORK/a" demo
+check "rebase_lint_env: the list saw the workspace's exported variable" 'printf "%s" "$OUT" | grep -q "lint-env:http://127.0.0.1:2"'
+
+# --- rebase_lint_rewrite: a passing list that rewrote tracked files stops ---
+fixture
+mkdir -p "$WORK/b/.flow"
+printf '# project\n\n## lint\n\n```bash\necho reformatted >>.flow/project.md\n```\n' >"$WORK/b/.flow/project.md"
+g -C "$WORK/b" add .flow/project.md && g -C "$WORK/b" commit -qm "base: lint list" && g -C "$WORK/b" push -q origin main
+sut prepare "$WORK/a" demo
+check "rebase_lint_rewrite: prepare stops with exit 1" '[ "$RC" -eq 1 ]'
+check "rebase_lint_rewrite: the stop names the rewrite" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: rebase-lint — the ## lint list rewrote tracked files on $WORK/b-worktrees/demo"'
+
+# --- rebase_lint_land: land's re-sync after a rejected push runs the list ---
+fixture
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
+[ "$RC" -eq 0 ] || halt commit
+mkdir -p "$WORK/a-worktrees/demo/docs/self-review"
+printf '# demo self-review\n' >"$WORK/a-worktrees/demo/docs/self-review/demo-self-review.md"
+g -C "$WORK/a-worktrees/demo" add docs/self-review/demo-self-review.md
+g -C "$WORK/a-worktrees/demo" commit -qm "docs(self-review): demo self-review report"
+printf '\n## lint\n\n```bash\necho land-lint-output; exit 1\n```\n' >>"$WORK/a/.flow/project.md"
+g -C "$WORK/a" add .flow/project.md && g -C "$WORK/a" commit -qm "base: lint list" && g -C "$WORK/a" push -q origin main
+sut land "$WORK/a" demo
+check "rebase_lint_land: land stops at rebase-lint naming what was already pushed" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: rebase-lint — already pushed: $WORK/b-worktrees/demo; the ## lint list failed on $WORK/a-worktrees/demo"'
+check "rebase_lint_land: the list's own output is relayed" 'printf "%s" "$OUT" | grep -q "land-lint-output"'
+check "rebase_lint_land: a was not pushed to its base" '[ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -1)" = "base: lint list" ]'
 
 # --- gh_open_merged ---
 fixture

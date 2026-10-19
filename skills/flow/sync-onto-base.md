@@ -27,7 +27,12 @@ and `check-base-moved.sh` performs no fetch of its own.
   never written to the state file, which every later reader of this worktree's recorded merge
   base in this run means instead — most concretely the reshape in **Run 1 — the branch is not merged**
   (`skills/flow-contracts/finish-contract-run1.md`). Run **Scoped re-verification** below, then
-  proceed to the landing question.
+  proceed to the landing question. Between the two, the rebased tree runs the project's whole
+  `## lint` list (`run-verify-list.sh <worktree> lint`, under the `KEY=value` lines
+  `prepare-workspace.sh` prints for it): a textually clean rebase can still break the build, as one
+  that dropped a Go import did (KAN-900), so a failure is `STOP: rebase-lint`, and so is a passing
+  list that rewrote tracked files,
+  leaving the worktree rebased.
 - **Conflict** (exit 1, `CONFLICT: <worktree> — onto <sha>; unmerged: <paths>`): **resolve it in place, automatically.** For every path
   `git status` lists as unmerged, read both sides and write the file that keeps the upstream
   change *and* this change's intent, with no conflict marker left; `git add` it; then
@@ -78,5 +83,5 @@ A `NO-GUARD-TEST: <path>` is
 stated in the handoff as having no verification to run, not silently skipped. A non-zero exit from
 any discovered test blocks this stage exactly like any other verify-stage failure: report it, leave
 the change `IN_PROGRESS`, stop before the landing question, and close the mark `stopped`. **Never**
-re-run the project's whole `## lint`/`## test` list here. A clean rebase whose overlap set clears
+re-run the project's whole `## test` list here. A clean rebase whose overlap set clears
 this stage proceeds to the landing question and closes the mark `completed`.

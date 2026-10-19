@@ -389,10 +389,10 @@ remote, so there is nothing to push to or merge into"* — rather than reporting
 failure, which sends the operator debugging the wrong thing. Offer to leave the change at
 `IN_PROGRESS` with the work staged; there is nothing to lose, because nothing was pushed.
 
-**No verification gate runs before integration.** No tests, no linters, no spec-coverage check. Two exceptions exist, both under **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`): a rebase
-that needed conflict resolution runs the whole `## lint` and `## test` lists, and a clean rebase
+**No verification gate runs before integration.** No tests, no linters, no spec-coverage check. Three exceptions exist, all under **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`): a rebase
+that needed conflict resolution runs the whole `## lint` and `## test` lists, a clean rebase
 that changed a file this change also touches runs the scoped re-verification that file is
-canonical for.
+canonical for, and every clean rebase runs the whole `## lint` list.
 
 ### Resolving a change's worktrees
 
