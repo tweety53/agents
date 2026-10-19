@@ -129,6 +129,7 @@ environment itself failed twice (a missing build prerequisite).
 ```bash
 flow record dispatch begin -change <name> -role verifier -model <parent model> -effort <parent effort> \
   -agent-id inline -key verify[-<worktree basename>] -session-token mf-<literal-token>
+# … run the list above and write the ## Report — never begin and end in one call …
 flow record dispatch end -change <name> -key verify[-<worktree basename>] \
   -session-token mf-<literal-token> -outcome completed
 ```
