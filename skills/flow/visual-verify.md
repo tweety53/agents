@@ -193,7 +193,11 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
    parent runs that entry's recipe — the `kickoff-worktree.sh --from` call, then the regression
    checkout's `setup` (`skills/flow/cross-repo-worktrees.md`) — before the checks below, and adds
    the worktree to the set: kan-983's first verifier was dispatched without it and blocked on the
-   missing checkout, ~4.45M tokens spent for nothing. With the parent's own Bash call, before the
+   missing checkout, ~4.45M tokens spent for nothing. The recipe's merge-order record runs with
+   it, its planning commit included (**Isolate the workspace — additional worktrees**,
+   `skills/flow/cross-repo-worktrees.md`): a repository the canonical `link.md`'s `## Merge order`
+   omits is one run 1 never sequences and the self-review bundle never reads (kan-998). With the
+   parent's own Bash call, before the
    dispatch below, run the four checks — ports held only by their own app, the base-URL
    configuration resolving to the workspace's values, origin allowed, one Playwright checkout per
    workspace — against this worktree:
