@@ -430,7 +430,7 @@ with `**Build:**` per **The build-green tag**
   the task's own `**Files:**` field carries, per **Commit scopes name the module**
   (`<agents repo>/rules/commit-scope-is-the-module.mdc`).
 
-An `**After:**` field — `Task <ids>` or `none` — declares the task's predecessors, and **every
+An `**After:**` field — `Task <id>[, <id>…]`, one `Task` prefix for the whole list (`Task 5, 6`, never `Task 5, Task 6`), or `none` — declares the task's predecessors, and **every
 task writes it**: a plan states its ordering in declarations, so `plan-dispatch-bundles.sh`
 resolves every bundle's after-set from what the tasks say and never needs a human judgment call
 about ordering. The dispatcher still reads an absent field as after every earlier task, so an
