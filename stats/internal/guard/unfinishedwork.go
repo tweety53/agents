@@ -31,6 +31,11 @@ func init() {
 
 const uwPrefix = "check-unfinished-work: "
 
+// unsplitListHint names the cause of an argument that cannot hold
+// whitespace and does (kan-970 self-review): a list built in a variable and
+// passed unquoted reaches a guard as one argument under zsh.
+const unsplitListHint = "looks like a list passed as one argument — zsh does not word-split an unquoted $VAR; pass each value as its own argument"
+
 func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	arg := func(i int) string {
 		if i < len(args) {
@@ -51,6 +56,10 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		wt, base, ok := strings.Cut(a, "=")
 		if !ok || wt == "" || base == "" {
 			fmt.Fprintf(stderr, "%s'%s' is not <worktree>=<merge-base>\n", uwPrefix, a)
+			return 2
+		}
+		if strings.ContainsAny(base, " \t\n") {
+			fmt.Fprintf(stderr, "%s'%s' is not <worktree>=<merge-base> — %s\n", uwPrefix, a, unsplitListHint)
 			return 2
 		}
 		ranges = append(ranges, [2]string{wt, base})

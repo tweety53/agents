@@ -28,11 +28,17 @@ import (
 // farm — the criterion each library's own header states for when a guard may
 // source a sibling rather than carry its own copy; the port carries Go
 // copies of those helpers instead, and no longer sources any of them.
+
 func init() { Registry["gather-dispatch-context"] = gatherDispatchContext }
 
 const gdcUsage = "usage: gather-dispatch-context.sh <worktree> <change-root> <name> <principles-path> <output-path> [<task-ids> [<canonical-worktree>]]\n"
 
 var gdcTaskIDs = regexp.MustCompile(`^[0-9]+(,[0-9]+)*$`)
+
+// gdcUnsplitTaskIDsHint is gather-dispatch-context's own remedy: its task ids
+// are one comma-separated argument, so splitting them into several would shift
+// the later positionals.
+const gdcUnsplitTaskIDsHint = "looks like a list passed as one argument — zsh does not word-split an unquoted $VAR; join the task ids with commas, no spaces"
 
 func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 	arg := func(i int) string {
@@ -49,7 +55,11 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 		return 2
 	}
 	if taskIDs != "" && !gdcTaskIDs.MatchString(taskIDs) {
-		fmt.Fprintf(stderr, "gather-dispatch-context: task ids '%s' must be a comma-separated list of integers\n", taskIDs)
+		hint := ""
+		if strings.ContainsAny(taskIDs, " \t\n") {
+			hint = " — " + gdcUnsplitTaskIDsHint
+		}
+		fmt.Fprintf(stderr, "gather-dispatch-context: task ids '%s' must be a comma-separated list of integers%s\n", taskIDs, hint)
 		return 2
 	}
 	switch shape {

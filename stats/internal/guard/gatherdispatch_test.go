@@ -800,3 +800,20 @@ func TestGatherDispatchWorktreeRoot(t *testing.T) {
 		t.Fatalf("rc=%d err=%q, want 2 and %q", r.rc, r.err, want)
 	}
 }
+
+// TestGatherDispatchContextRefusesAnUnsplitTaskIDList pins the kan-970
+// self-review fix: a task-id list holding whitespace is refused naming the
+// zsh word-splitting cause, while a malformed list without whitespace keeps
+// the plain refusal.
+func TestGatherDispatchContextRefusesAnUnsplitTaskIDList(t *testing.T) {
+	t.Parallel()
+	f := gdcNewRepo(t, gdcTemplate(t))
+	r := f.run("5 6")
+	if r.rc != 2 || !strings.Contains(r.err, "zsh does not word-split an unquoted $VAR; join the task ids with commas, no spaces") {
+		t.Fatalf("exit %d stderr %q, want exit 2 naming the unsplit list", r.rc, r.err)
+	}
+	r = f.run("5;6")
+	if r.rc != 2 || strings.Contains(r.err, "zsh") {
+		t.Fatalf("exit %d stderr %q, want exit 2 without the zsh hint", r.rc, r.err)
+	}
+}

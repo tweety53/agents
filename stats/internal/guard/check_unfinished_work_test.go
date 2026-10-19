@@ -980,3 +980,17 @@ func TestCheckUnfinishedWorkNoPanelPassRecorded(t *testing.T) {
 		})
 	}
 }
+
+// TestCheckUnfinishedWorkRefusesAnUnsplitRangeList pins the kan-970
+// self-review fix: two ranges passed as one zsh-unsplit argument are refused
+// at the argument, naming the cause, not later as an unreadable git range.
+func TestCheckUnfinishedWorkRefusesAnUnsplitRangeList(t *testing.T) {
+	t.Parallel()
+	f := newUW(t)
+	a := uwCommits(t, t.TempDir()+"/a", "base", "fix: a")
+	b := uwCommits(t, t.TempDir()+"/b", "base", "fix: b")
+	r := f.run(t, f.wt, "demo", "", a+" "+b)
+	if r.rc != 2 || !strings.Contains(r.err, "zsh does not word-split an unquoted $VAR") {
+		t.Fatalf("exit %d stderr %q, want exit 2 naming the unsplit list", r.rc, r.err)
+	}
+}
