@@ -24,6 +24,13 @@ the design.
   shown — numeric precision, an empty-cell placeholder, and the like — and that the request, ticket
   or mockup leaves open is chosen by you and recorded under `## Decisions`; no question is asked
   for it. A mockup or ticket that states it still governs.
+- **A reported defect is checked against history before its fix is designed.** For each entry of a
+  bug list, a findings file or a ticket naming symptoms, run `git log --since=<the report's date>`
+  over the paths it names on the base, search `<project>/spectre/changes/archive/` for a recorded
+  rejection of the remedy it proposes, and run its cheap reproducer. An entry already fixed is
+  recorded in the design as fixed, with the commit that fixed it, and planned no task; a remedy an
+  archived decision rejected is not designed again unless the design records what that rejection
+  missed (kan-970: six entries were already fixed upstream and one remedy had been rejected twice).
 
 - Save the design to `<project>-worktrees/<name>/.superpowers/sdd/YYYY-MM-DD-<name>-design.md` — the
   worktree `flow.kickoff` created (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The
