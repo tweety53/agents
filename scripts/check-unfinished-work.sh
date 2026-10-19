@@ -111,6 +111,20 @@
 # <anchor>` must hold at least one pass row; a failed or unreadable read is
 # exit 2, like signal five's. Asked exactly where signal seven is.
 #
+# SIGNAL NINE: A VERIFY-REPORT FAILURE NO LATER COMMIT ADDRESSED IS UNFINISHED
+# (kan-994 self-review, decision verify-failure-signal). Read in the worktree
+# holding the plan whenever a range exists, archived plan or not: in each
+# `.superpowers/sdd/verify-report-*.md`, a `- verify: exit <n>` item with <n>
+# not 0 and its whitespace-indented continuation lines, up to the next `- `
+# item, name failures — every `<spec>.spec.ts:<line>`, its capture the first
+# `<name>.png` after it before the next spec. A failure is addressed when a
+# range commit committed at or after the report's mtime touches
+# `<name>.png` or `<name>-<anything>.png` (the spec's base name for a failure
+# naming no capture), or when the change's narrative.md holds
+# `Verify failure addressed: <spec>:<line> — <sha>` with <sha> a range
+# commit. Each other failure is one reason, `verify failure not addressed:
+# <spec>:<line>[ <name>.png] (<report>)`; an unreadable report is exit 2.
+#
 # THE VISUAL VERDICT IS FOLDED IN (kan-989 self-review): over this worktree's
 # own range, check-visual-verify-dispatched.sh's VISUAL-VERIFY-MISSING line
 # is one more reason, and its exit 2 is this guard's exit 2 — unless an

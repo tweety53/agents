@@ -469,6 +469,89 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 				}
 			}
 		}
+		// SIGNAL NINE — a verify-report failure no later commit addressed
+		// (decision verify-failure-signal, kan-994 self-review: a failed
+		// capture a later green run hid reached landing untouched). Every
+		// `<spec>.spec.ts:<line>` in a `.superpowers/sdd/verify-report-*.md`
+		// `- verify: exit <n≠0>` item is a failure, its capture the first
+		// `<name>.png` after it; it is addressed by a range commit at or after
+		// the report's mtime touching that capture (or, naming none, the
+		// spec), or by a narrative line citing a range commit. Archived plans
+		// are read too.
+		if len(ranges) > 0 {
+			reports, _ := filepath.Glob(worktree + "/.superpowers/sdd/verify-report-*.md")
+			type uwCommit struct {
+				sha   string
+				at    int64
+				bases []string
+			}
+			var commits []uwCommit
+			if len(reports) > 0 {
+				for _, r := range ranges {
+					out, ok := capture(envGit(env)("-C", r[0], "log", "--no-merges", "--format=%x00%H %ct", "--name-only", r[1]+"..HEAD"))
+					if !ok {
+						fmt.Fprintf(stderr, "%scannot read the commits of %s..HEAD in %s — cannot determine anything\n", uwPrefix, r[1], r[0])
+						return 2
+					}
+					for _, chunk := range strings.Split(out, "\x00")[1:] {
+						lines := strings.Split(strings.TrimSpace(chunk), "\n")
+						sha, at, _ := strings.Cut(lines[0], " ")
+						n, _ := strconv.ParseInt(at, 10, 64)
+						c := uwCommit{sha: sha, at: n}
+						for _, l := range lines[1:] {
+							if l = strings.TrimSpace(l); l != "" {
+								c.bases = append(c.bases, uwBasename(l))
+							}
+						}
+						commits = append(commits, c)
+					}
+				}
+			}
+			narrative, _ := os.ReadFile(filepath.Dir(primary) + "/narrative.md")
+			for _, rp := range reports {
+				b, err := os.ReadFile(rp)
+				if err != nil {
+					return unreadable(rp)
+				}
+				st, err := os.Stat(rp)
+				if err != nil {
+					return unreadable(rp)
+				}
+				for _, fl := range uwVerifyFailures(string(b)) {
+					addressed := false
+					for _, c := range commits {
+						if c.at < st.ModTime().Unix() {
+							continue
+						}
+						for _, base := range c.bases {
+							if (fl.png != "" && (base == fl.png+".png" || strings.HasPrefix(base, fl.png+"-") && strings.HasSuffix(base, ".png"))) ||
+								(fl.png == "" && base == uwBasename(fl.spec)) {
+								addressed = true
+							}
+						}
+					}
+					for _, l := range strings.Split(string(narrative), "\n") {
+						_, cited, ok := strings.Cut(l, "Verify failure addressed: "+fl.spec+":"+fl.line+" — ")
+						cited = strings.TrimSpace(strings.Trim(strings.TrimSpace(cited), "`"))
+						if !ok || len(cited) < 7 {
+							continue
+						}
+						for _, c := range commits {
+							if strings.HasPrefix(c.sha, cited) {
+								addressed = true
+							}
+						}
+					}
+					if !addressed {
+						what := fl.spec + ":" + fl.line
+						if fl.png != "" {
+							what += " " + fl.png + ".png"
+						}
+						reasons = append(reasons, "verify failure not addressed: "+what+" ("+uwBasename(rp)+") — fix it in this run, or cite its fixing commit as a narrative line \"Verify failure addressed: "+fl.spec+":"+fl.line+" — <sha>\"")
+					}
+				}
+			}
+		}
 		// THE VISUAL VERDICT IS FOLDED IN (decision uw-fold-visual-verdict):
 		// check-visual-verify-dispatched over this guard's own worktree's
 		// range, its MISSING line a reason here and its refusal this guard's.
@@ -837,4 +920,49 @@ func uwVisualFlagged(env Env, name, worktree, anchor, line string) bool {
 		}
 	}
 	return false
+}
+
+// uwVerifyFailure is one failure signal nine reads: a spec, its line, and
+// the capture base name (no `.png`) it names, if any.
+type uwVerifyFailure struct{ spec, line, png string }
+
+var (
+	uwSpecRE = regexp.MustCompile(`([^\s:]+\.spec\.ts):(\d+)`)
+	uwPngRE  = regexp.MustCompile(`([A-Za-z0-9_.-]+)\.png`)
+)
+
+// uwVerifyFailures reads a verify report's failed `- verify: exit <n>` item
+// (n not 0) and its whitespace-indented continuation lines, up to the next
+// `- ` item: every `<spec>.spec.ts:<line>` there, with the first `<name>.png`
+// after it and before the next spec.
+func uwVerifyFailures(report string) []uwVerifyFailure {
+	var out []uwVerifyFailure
+	lines := strings.Split(report, "\n")
+	for i, l := range lines {
+		code, ok := strings.CutPrefix(strings.TrimSpace(l), "- verify: exit ")
+		if !ok || !strings.HasPrefix(l, "- ") || strings.TrimSpace(code) == "0" {
+			continue
+		}
+		var body []string
+		for _, c := range lines[i+1:] {
+			if c == "" || (c[0] != ' ' && c[0] != '\t') {
+				break
+			}
+			body = append(body, c)
+		}
+		text := strings.Join(body, "\n")
+		ms := uwSpecRE.FindAllStringSubmatchIndex(text, -1)
+		for k, m := range ms {
+			end := len(text)
+			if k+1 < len(ms) {
+				end = ms[k+1][0]
+			}
+			fl := uwVerifyFailure{spec: text[m[2]:m[3]], line: text[m[4]:m[5]]}
+			if p := uwPngRE.FindStringSubmatch(text[m[1]:end]); p != nil {
+				fl.png = p[1]
+			}
+			out = append(out, fl)
+		}
+	}
+	return out
 }

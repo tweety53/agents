@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 // Every case of scripts/test-check-unfinished-work.sh at 3e48ecac, one
@@ -992,5 +993,89 @@ func TestCheckUnfinishedWorkRefusesAnUnsplitRangeList(t *testing.T) {
 	r := f.run(t, f.wt, "demo", "", a+" "+b)
 	if r.rc != 2 || !strings.Contains(r.err, "zsh does not word-split an unquoted $VAR") {
 		t.Fatalf("exit %d stderr %q, want exit 2 naming the unsplit list", r.rc, r.err)
+	}
+}
+
+// TestCheckUnfinishedWorkVerifyFailureNotAddressed pins signal nine
+// (decision verify-failure-signal, kan-994 self-review): a verify report's
+// failed capture that no commit after the report touched, and no narrative
+// line cites a range commit for, is OUTSTANDING.
+func TestCheckUnfinishedWorkVerifyFailureNotAddressed(t *testing.T) {
+	t.Parallel()
+	const capture = "  1 failed — fidelity/full-app-suite.spec.ts:110 register-from-invite.png, 24px differ\n"
+	const reason = "verify failure not addressed: fidelity/full-app-suite.spec.ts:110 register-from-invite.png (verify-report-visual-verify.md)"
+	before, after := "2026-01-01T11:00:00Z", "2026-01-01T13:00:00Z"
+	reportAt := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	commitAt := func(t *testing.T, dir, date, path string) string {
+		t.Helper()
+		if path != "" {
+			writeFile(t, dir+"/"+path, date+"\n")
+			gitRun(t, dir, "add", path)
+		}
+		cmd := exec.Command(fixtureGit, "-C", dir, "commit", "-q", "--allow-empty", "-m", "fix: "+path)
+		cmd.Env = append(append(os.Environ(), fixtureGitEnv...),
+			"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
+			"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com",
+			"GIT_AUTHOR_DATE="+date, "GIT_COMMITTER_DATE="+date)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("commit: %v\n%s", err, out)
+		}
+		return tcfGit(t, dir, "rev-parse", "HEAD")
+	}
+	for _, c := range []struct {
+		name   string
+		report string
+		// setup makes the range's commits and returns the narrative body.
+		setup  func(t *testing.T, wt, base string) string
+		want   string
+		wantIn bool
+	}{
+		{"no commit touches the capture", "- verify: exit 1\n" + capture,
+			func(t *testing.T, wt, base string) string { return "" }, reason, true},
+		{"a later commit touching the capture addresses it", "- verify: exit 1\n" + capture,
+			func(t *testing.T, wt, base string) string {
+				commitAt(t, wt, after, "fidelity/full-app-suite.spec.ts-snapshots/register-from-invite-darwin.png")
+				return ""
+			}, "verify failure not addressed", false},
+		{"a commit before the report does not", "- verify: exit 1\n" + capture,
+			func(t *testing.T, wt, base string) string {
+				commitAt(t, wt, before, "fidelity/full-app-suite.spec.ts-snapshots/register-from-invite-darwin.png")
+				return ""
+			}, reason, true},
+		{"a narrative line citing a range commit addresses it", "- verify: exit 1\n" + capture,
+			func(t *testing.T, wt, base string) string {
+				sha := commitAt(t, wt, after, "src/other.go")
+				return "Verify failure addressed: fidelity/full-app-suite.spec.ts:110 — " + sha + "\n"
+			}, "verify failure not addressed", false},
+		{"a narrative line citing a sha outside the range does not", "- verify: exit 1\n" + capture,
+			func(t *testing.T, wt, base string) string {
+				return "Verify failure addressed: fidelity/full-app-suite.spec.ts:110 — " + base + "\n"
+			}, reason, true},
+		{"a failure naming no capture is addressed by a later touch of its spec", "- verify: exit 1\n  1 failed — tests/auth.spec.ts:42 times out\n",
+			func(t *testing.T, wt, base string) string {
+				commitAt(t, wt, after, "tests/auth.spec.ts")
+				return ""
+			}, "verify failure not addressed", false},
+		{"a passing report contributes nothing", "- verify: exit 0\n" + capture,
+			func(t *testing.T, wt, base string) string { return "" }, "verify failure not addressed", false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			f := newUW(t)
+			gitRun(t, "", "init", "-q", f.wt)
+			base := commitAt(t, f.wt, before, "")
+			if body := c.setup(t, f.wt, base); body != "" {
+				writeFile(t, f.wt+"/spectre/changes/demo/narrative.md", body)
+			}
+			rp := f.wt + "/.superpowers/sdd/verify-report-visual-verify.md"
+			writeFile(t, rp, "# Verify\n\n- build: exit 0\n"+c.report+"- lint: exit 0\n")
+			if err := os.Chtimes(rp, reportAt, reportAt); err != nil {
+				t.Fatal(err)
+			}
+			r := f.run(t, f.wt, "demo", "", f.wt+"="+base)
+			if r.rc != 0 || strings.Contains(r.out, c.want) != c.wantIn {
+				t.Fatalf("exit %d stdout %q stderr %q; want exit 0 and %q present=%v", r.rc, r.out, r.err, c.want, c.wantIn)
+			}
+		})
 	}
 }
