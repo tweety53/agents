@@ -1,0 +1,146 @@
+diff --git a/scripts/check-visual-verify-dispatched.sh b/scripts/check-visual-verify-dispatched.sh
+index 74be5add..033bcdfe 100755
+--- a/scripts/check-visual-verify-dispatched.sh
++++ b/scripts/check-visual-verify-dispatched.sh
+@@ -28,6 +28,12 @@
+ #                                       <sha> is the HEAD it judged, the one an
+ #                                       operator's false-positive flag must name
+ #
++# A found verifier row counts only with the verifier's record —
++# `<spec root>/changes/<name>/visual-verification.md`, or its `archive/`
++# twin, in the worktree the store is read under, the change root
++# skills/flow/visual-verify-verifier.md step 11 writes; absent, the verdict is
++# VISUAL-VERIFY-MISSING naming that path (kan-970 self-review).
++#
+ # Exit 0 on a VISUAL-VERIFY-OK verdict, exit 1 on VISUAL-VERIFY-MISSING —
+ # UI paths were touched and no qualifying verifier dispatch is recorded;
+ # the verdict line carries the answer — and exit 2 when it cannot answer at
+diff --git a/scripts/test-integrate-change.sh b/scripts/test-integrate-change.sh
+index 62669eb2..2e5f03a2 100755
+--- a/scripts/test-integrate-change.sh
++++ b/scripts/test-integrate-change.sh
+@@ -671,9 +671,12 @@ rerun_pin_case "rerun_pin: "
+ rerun_pin_case "rerun_pin reclone: " reclone
+ 
+ # --- visual_stop ---
+-# ui_a: a declares `ui paths` its task commit touches.
++# ui_a: a declares `ui paths` its task commit touches, and carries the
++# verifier's record a verifier row counts only with.
+ ui_a() {
+   printf '\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `work-a.txt` |\n' >>"$WORK/a-worktrees/demo/.flow/project.md"
++  printf '# Visual verification — demo\n' >"$WORK/a-worktrees/demo/spectre/changes/demo/visual-verification.md"
++  g -C "$WORK/a-worktrees/demo" add spectre/changes/demo/visual-verification.md
+   g -C "$WORK/a-worktrees/demo" commit -qam "chore(spectre): plan-gate demo" --amend
+ }
+ # flag <worktree> <sha> [<change>]: an operator's false-positive flag on
+diff --git a/stats/internal/guard/check_visual_verify_dispatched_test.go b/stats/internal/guard/check_visual_verify_dispatched_test.go
+index a95011e7..8947cb12 100644
+--- a/stats/internal/guard/check_visual_verify_dispatched_test.go
++++ b/stats/internal/guard/check_visual_verify_dispatched_test.go
+@@ -185,6 +185,9 @@ type vvdCase struct {
+ 	args       func(wt, base string) []string
+ 	dir        func(t *testing.T) string // non-nil: the working directory
+ 	relative   bool                      // the worktree passed relative to its parent, the working directory
++	noRecord   bool                      // no spectre/changes/demo/visual-verification.md in the worktree
++	// archivedRecord: the record at spectre/changes/archive/demo/ instead
++	archivedRecord bool
+ }
+ 
+ type vvdResult struct {
+@@ -216,6 +219,12 @@ func vvdRun(t *testing.T, c vvdCase) vvdResult {
+ 		t.Fatal(err)
+ 	}
+ 	gdcCopyTree(t, m.dir, wt)
++	switch {
++	case c.archivedRecord:
++		writeFile(t, wt+"/spectre/changes/archive/demo/visual-verification.md", "# record\n")
++	case !c.noRecord:
++		writeFile(t, wt+"/spectre/changes/demo/visual-verification.md", "# record\n")
++	}
+ 	// A row names the HEAD it verified as @HEAD@ or the merge base as
+ 	// @BASE@: the shas exist only once the master is built.
+ 	head := tcfGit(t, wt, "rev-parse", "HEAD")
+@@ -603,6 +612,7 @@ func TestCheckVisualVerifyDispatchedCanonicalUIPaths(t *testing.T) {
+ 				wt = linked
+ 			}
+ 			writeFile(t, canon+"/.flow/project.md", strings.Replace(vvdSection, "`app/src/**`", c.uiPaths, 1))
++			writeFile(t, canon+"/spectre/changes/demo/visual-verification.md", "# record\n")
+ 			writeExec(t, bin+"/flow", vvdFlowRows(strings.ReplaceAll(c.rows, "@HEAD@", tcfGit(t, wt, "rev-parse", "HEAD")), "[]"))
+ 			env := Env{Dir: top, Getenv: func(k string) string {
+ 				if k == "PATH" {
+@@ -681,6 +691,7 @@ func TestCheckVisualVerifyDispatchedIgnoresAChangeRecordMove(t *testing.T) {
+ 	gitRun(t, wt, "mv", "spectre/changes/demo", "spectre/changes/archive/demo")
+ 	gitRun(t, wt, "commit", "-q", "-m", "chore(spectre): archive demo")
+ 	writeFile(t, canon+"/.flow/project.md", strings.Replace(vvdSection, "`app/src/**`", "`gymie-frontend/**`", 1))
++	writeFile(t, canon+"/spectre/changes/archive/demo/visual-verification.md", "# record\n")
+ 	writeExec(t, bin+"/flow", vvdFlowRows(`[{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"`+verified+`"}]`, "[]"))
+ 	env := Env{Dir: top, Getenv: func(k string) string {
+ 		if k == "PATH" {
+@@ -694,3 +705,22 @@ func TestCheckVisualVerifyDispatchedIgnoresAChangeRecordMove(t *testing.T) {
+ 		t.Fatalf("exit %d stdout %q stderr %q, want 0 %q", code, out.String(), errb.String(), vvdOK)
+ 	}
+ }
++
++// TestCheckVisualVerifyDispatchedRequiresTheVerifierRecord pins the kan-970
++// self-review fix: a verifier row that verified HEAD counts only with its
++// record in the change root -- live or archived -- and its absence is a
++// MISSING line naming the record's path.
++func TestCheckVisualVerifyDispatchedRequiresTheVerifierRecord(t *testing.T) {
++	t.Parallel()
++	rows := vvdRows("visual-verify", "verifier", "completed")
++	r := vvdRun(t, vvdCase{dispatches: rows, noRecord: true})
++	head := tcfGit(t, r.wt, "rev-parse", "HEAD")
++	want := "VISUAL-VERIFY-MISSING: a verifier verified this change's HEAD but its record " + r.wt + "/spectre/changes/demo/visual-verification.md (or its archive/ twin) is absent — the verifier writes it into the change root, every file it cites copied under visual-verification/evidence/ (skills/flow/visual-verify-verifier.md step 11) — HEAD " + head + "\n"
++	if r.code != 1 || r.out != want {
++		t.Fatalf("got exit %d stdout %q stderr %q, want exit 1 %q", r.code, r.out, r.err, want)
++	}
++	r = vvdRun(t, vvdCase{dispatches: rows, archivedRecord: true})
++	if r.code != 0 || r.out != vvdOK {
++		t.Fatalf("archived record: got exit %d stdout %q stderr %q, want exit 0 %q", r.code, r.out, r.err, vvdOK)
++	}
++}
+diff --git a/stats/internal/guard/visualverifydispatched.go b/stats/internal/guard/visualverifydispatched.go
+index 8535eada..c614a16d 100644
+--- a/stats/internal/guard/visualverifydispatched.go
++++ b/stats/internal/guard/visualverifydispatched.go
+@@ -258,6 +258,20 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
+ 		}
+ 		pcFlow(env, false, "record", "verdict", "-change", name, "-guard", guardName, "-worktree", worktree, "-verdict", verdict, "-C", anchor)
+ 	}
++	// THE VERIFIER'S RECORD IS PART OF ITS EVIDENCE (kan-970 self-review): a
++	// verifier that wrote visual-verification.md outside the change root,
++	// citing session-scratch captures, passed on its dispatch row alone and
++	// left the self-review bundle nothing to read. A found row counts only
++	// with `<spec root>/changes/<name>/visual-verification.md`, or its
++	// archived twin, in the worktree the store is read under -- the change
++	// root the verifier writes (skills/flow/visual-verify-verifier.md step 11).
++	missingRecord := ""
++	if found {
++		changes := anchor + "/" + specRootLeaf(anchor, io.Discard) + "/changes/"
++		if !isFile(changes+name+"/visual-verification.md") && !isFile(changes+"archive/"+name+"/visual-verification.md") {
++			found, missingRecord = false, changes+name+"/visual-verification.md"
++		}
++	}
+ 	if found {
+ 		verdict := "VISUAL-VERIFY-OK: UI paths touched and a completed (or ended-but-unclosed) verifier dispatch is recorded for '" + name + "'"
+ 		record(verdict)
+@@ -279,14 +293,17 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
+ 		fmt.Fprintf(stderr, "%sdecision rows were not readable JSON — cannot answer\n", vvdPrefix)
+ 		return 2
+ 	}
+-	if skipped {
++	if skipped && missingRecord == "" {
+ 		verdict := "VISUAL-VERIFY-OK: skipped at Decide — " + reason
+ 		record(verdict)
+ 		fmt.Fprintln(stdout, verdict)
+ 		return 0
+ 	}
+ 	verdict := "VISUAL-VERIFY-MISSING: this change's diff touched a declared UI path but no completed or ended 'verifier' dispatch (key starting 'visual-verify') is recorded for '" + name + "' — flow.visual-verify's stage marks were written with no verifier ever dispatched, its report was never read to completion, or the dispatch's closing outcome was lost to a session restart"
+-	if len(heads) > 0 {
++	if missingRecord != "" {
++		verdict = "VISUAL-VERIFY-MISSING: a verifier verified this change's HEAD but its record " + missingRecord + " (or its archive/ twin) is absent — the verifier writes it into the change root, every file it cites copied under visual-verification/evidence/ (skills/flow/visual-verify-verifier.md step 11)"
++		lastHead = ""
++	} else if len(heads) > 0 {
+ 		verdict = "VISUAL-VERIFY-MISSING: a verifier dispatch is recorded for '" + name + "' but none verified a HEAD after this change's last UI-path commit — a row counts only with the -diff-base it verified, and only when no UI path this change touches changed since"
+ 	}
+ 	// THE MISSING VERDICT NAMES THE HEAD IT JUDGED (kan-939 self-review):

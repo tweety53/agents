@@ -1,0 +1,93 @@
+diff --git a/scripts/check-visual-verify-dispatched.sh b/scripts/check-visual-verify-dispatched.sh
+index 0bb43e42..74be5add 100755
+--- a/scripts/check-visual-verify-dispatched.sh
++++ b/scripts/check-visual-verify-dispatched.sh
+@@ -63,6 +63,10 @@
+ #      then made under the canonical worktree, whose project the run's rows
+ #      were recorded in. A canonical worktree that is not a directory, or a
+ #      repository git cannot name, is exit 2.
++#   Paths under the worktree's `<spec root>/changes/` — the change's own
++#   records, an archive move of its `link.md` included — are dropped from
++#   the diff first, for this question and the freshness check below alike
++#   (kan-970 self-review).
+ #
+ # THE DISPATCH CHECK READS THE STORE, NOT A RENDERED FILE — the same
+ # posture check-panel-fix-single-dispatch.sh and check-panel-reproducers.sh
+diff --git a/stats/internal/guard/check_visual_verify_dispatched_test.go b/stats/internal/guard/check_visual_verify_dispatched_test.go
+index 5e62fddb..a95011e7 100644
+--- a/stats/internal/guard/check_visual_verify_dispatched_test.go
++++ b/stats/internal/guard/check_visual_verify_dispatched_test.go
+@@ -653,3 +653,44 @@ func TestCheckVisualVerifyDispatchedCommaJoinedDiffBase(t *testing.T) {
+ 		t.Fatalf("got exit %d stdout %q stderr %q, want exit 0 and the OK verdict", r.code, r.out, r.err)
+ 	}
+ }
++
++// TestCheckVisualVerifyDispatchedIgnoresAChangeRecordMove pins the kan-970
++// self-review fix: a satellite whose only commit after the verified HEAD
++// archives its own change record (spectre/changes/<name>/link.md) is OK,
++// although the canonical `gymie-frontend/**` names every path of the
++// satellite.
++func TestCheckVisualVerifyDispatchedIgnoresAChangeRecordMove(t *testing.T) {
++	t.Parallel()
++	masters, err := vvdMasters()
++	if err != nil {
++		t.Fatal(err)
++	}
++	top, err := filepath.EvalSymlinks(t.TempDir())
++	if err != nil {
++		t.Fatal(err)
++	}
++	wt, canon, bin := top+"/gymie-frontend", top+"/gymie", top+"/bin"
++	gdcCopyTree(t, masters["plain-docs"].dir, wt)
++	writeFile(t, wt+"/spectre/changes/demo/link.md", "## Part of\n")
++	gitRun(t, wt, "add", "spectre/changes/demo/link.md")
++	gitRun(t, wt, "commit", "-q", "-m", "link")
++	verified := tcfGit(t, wt, "rev-parse", "HEAD")
++	if err := os.MkdirAll(wt+"/spectre/changes/archive", 0o755); err != nil {
++		t.Fatal(err)
++	}
++	gitRun(t, wt, "mv", "spectre/changes/demo", "spectre/changes/archive/demo")
++	gitRun(t, wt, "commit", "-q", "-m", "chore(spectre): archive demo")
++	writeFile(t, canon+"/.flow/project.md", strings.Replace(vvdSection, "`app/src/**`", "`gymie-frontend/**`", 1))
++	writeExec(t, bin+"/flow", vvdFlowRows(`[{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"`+verified+`"}]`, "[]"))
++	env := Env{Dir: top, Getenv: func(k string) string {
++		if k == "PATH" {
++			return bin + ":" + os.Getenv("PATH")
++		}
++		return os.Getenv(k)
++	}}
++	var out, errb bytes.Buffer
++	code := Registry["check-visual-verify-dispatched"]([]string{wt, "demo", masters["plain-docs"].base, canon}, env, &out, &errb)
++	if code != 0 || out.String() != vvdOK {
++		t.Fatalf("exit %d stdout %q stderr %q, want 0 %q", code, out.String(), errb.String(), vvdOK)
++	}
++}
+diff --git a/stats/internal/guard/visualverifydispatched.go b/stats/internal/guard/visualverifydispatched.go
+index 60021513..8535eada 100644
+--- a/stats/internal/guard/visualverifydispatched.go
++++ b/stats/internal/guard/visualverifydispatched.go
+@@ -140,7 +140,23 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
+ 		}
+ 		return exit
+ 	}
+-	paths := strings.Split(changed, "\n")
++	// A CHANGE'S OWN RECORDS ARE NOT UI WORK (kan-970 self-review): a
++	// satellite's every path matches a canonical `<repo>/**`, so the archive
++	// commit moving its `<spec root>/changes/<name>/link.md` read as a UI
++	// change after the verified HEAD and forced a re-verify of nothing.
++	// Paths under `<spec root>/changes/` are dropped before both the trigger
++	// question and the freshness intersection, as unfinishedwork.go's range
++	// walk drops them.
++	records := specRootLeaf(worktree, io.Discard) + "/changes/"
++	var paths []string
++	for _, p := range strings.Split(changed, "\n") {
++		if !strings.HasPrefix(p, records) {
++			paths = append(paths, p)
++		}
++	}
++	if len(paths) == 0 {
++		paths = []string{""}
++	}
+ 	triggerExit := ask(paths)
+ 	if triggerExit < 0 {
+ 		return 2

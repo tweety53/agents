@@ -1,0 +1,97 @@
+diff --git a/hooks/protect-main-checkout.py b/hooks/protect-main-checkout.py
+index 8047841c..87bcf62f 100755
+--- a/hooks/protect-main-checkout.py
++++ b/hooks/protect-main-checkout.py
+@@ -226,9 +226,16 @@ def tokenize(command):
+     try:
+         lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+         lexer.whitespace_split = True
+-        return list(lexer)
++        words = list(lexer)
+     except ValueError:
+         return command.split()
++    # A backtick span, and a `$(...)` inside a quoted word, still run: each one's command is
++    # scanned again as a command of its own, after the line's words.
++    spans = [sp for w in words for sp in SUBST_SPAN_RE.findall(w) if sp.startswith("$(")]
++    spans += [sp for sp in SUBST_SPAN_RE.findall(command) if sp.startswith("`")]
++    for span in spans:
++        words += [";", *tokenize(span[1:-1] if span.startswith("`") else span[2:-1]), ";"]
++    return words
+ 
+ 
+ LITERAL_ABS = r"(/[^\s'\"$`\\;&|<>(){}*?\[\]~!#]+)"
+@@ -289,6 +296,11 @@ def may_run_code(text):
+     return False
+ 
+ 
++# A `$(...)` without a nested paren, or a backtick pair: the spans of an unquoted heredoc body
++# that bash runs.
++SUBST_SPAN_RE = re.compile(r"\$\([^()]*\)|`[^`]*`")
++
++
+ def strip_data_heredocs(command):
+     """command with the body of a `cat`/`tee` heredoc to a named file removed — that body is
+     data for a writer whose target the opening line already names, so a report line such as
+@@ -298,8 +310,9 @@ def strip_data_heredocs(command):
+     body (written, then run), the target is a device or a process substitution (`/dev/stdout`,
+     `>(sh)`), the rest of the command may run code (`may_run_code` — an enclosing `bash <(` or
+     `eval "$(`, a later `sh "$D"/x.sh`), the opener is not a plain `cat`/`tee`
+-    (`python3 - <<EOF`, `x=$(cat <<EOF`), or an unquoted-delimiter body runs `$(...)` or
+-    backticks."""
++    (`python3 - <<EOF`, `x=$(cat <<EOF`). An unquoted-delimiter body that runs `$(...)` or
++    backticks keeps only those spans scanned, a backtick span as `$(...)` — bash runs them and
++    nothing else of the body — or the whole body when a span cannot be closed."""
+     lines = command.split("\n")
+     out = []
+     k = 0
+@@ -333,8 +346,14 @@ def strip_data_heredocs(command):
+             continue
+         if may_run_code("\n".join(lines[:k] + lines[end + 1 :])):
+             continue
+-        if m.group(3) and any(c in "\n".join(lines[k:end]) for c in ("$(", "`")):
+-            continue
++        body = "\n".join(lines[k:end])
++        if m.group(3) and any(c in body for c in ("$(", "`")):
++            # Only the substitutions of an unquoted body run; its other text is data, so the
++            # spans alone are kept scanned. A span this cannot close keeps the whole body.
++            spans = SUBST_SPAN_RE.findall(body)
++            if body.count("$(") != sum(sp.startswith("$(") for sp in spans) or body.count("`") % 2:
++                continue
++            out.extend("$(" + sp[1:-1] + ")" if sp.startswith("`") else sp for sp in spans)
+         k = end + 1
+     return "\n".join(out)
+ 
+diff --git a/scripts/test-protect-main-checkout.sh b/scripts/test-protect-main-checkout.sh
+index 88c492c4..b63ae45a 100755
+--- a/scripts/test-protect-main-checkout.sh
++++ b/scripts/test-protect-main-checkout.sh
+@@ -105,6 +105,10 @@
+ #  101. `$GIT push origin HEAD` (expanded git command word)          -> deny
+ #  102. Bash `cat > <link into main/sub>/../f.txt` from elsewhere    -> deny (kan-963: judged after symlinks resolve)
+ #  103. Bash `rm <link into main>` / `mv <link into main> ..`       -> allow (they act on the link itself)
++#  110. `cat > <sibling>/r.md <<EOF`, body ``see `a` > b``, cwd = main -> allow (only a substitution runs)
++#  111. `cat > <sibling>/r.md <<EOF`, body ``see `rm <main>/x` ``      -> deny (the backtick span still runs)
++#  112. `echo `rm <main>/x`` from elsewhere                          -> deny (a backtick span is a command)
++#  113. `echo "$(rm <main>/x)"` from elsewhere                        -> deny (a quoted substitution still runs)
+ set -euo pipefail
+ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ HOOK="$SCRIPT_DIR/../hooks/protect-main-checkout.py"
+@@ -492,6 +496,18 @@ expect "102 a symlink into the checkout, then .., resolves before judging" deny
+ ln -s "$MAIN/sub" "$ROOT/elsewhere/lsub2"
+ expect "103 rm and mv of a symlink into the checkout act on the link, outside it" allow \
+   "$(run "$ROOT" Bash "{\"command\":$(q "rm $ROOT/elsewhere/lsub2 && mv $ROOT/elsewhere/lsub $ROOT/elsewhere/l3")}")"
++expect "110 an unquoted data heredoc's literal redirect beside a backtick span is data" allow \
++  "$(run "$MAIN" Bash "{\"command\":$(q "cat > $SIB/r.md <<EOF
++see \`a\` > b
++EOF")}")"
++expect "111 a backtick span in an unquoted data heredoc body is still scanned" deny \
++  "$(run "$MAIN" Bash "{\"command\":$(q "cat > $SIB/r.md <<EOF
++see \`rm $MAIN/x\` here
++EOF")}")"
++expect "112 a backtick span is scanned as a command" deny \
++  "$(run "$ROOT" Bash "{\"command\":$(q "echo \`rm $MAIN/x\`")}")"
++expect "113 a command substitution inside a double-quoted word is scanned" deny \
++  "$(run "$ROOT" Bash "{\"command\":$(q "echo \"\$(rm $MAIN/x)\"")}")"
+ 
+ # 104-107: a push of a change branch runs check-untasked-commits over its
+ # unpushed commits (kan-941); a stub stands in for the guard.

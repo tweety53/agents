@@ -1,0 +1,126 @@
+diff --git a/.flow/project.md b/.flow/project.md
+index 6352604b..940b40ab 100644
+--- a/.flow/project.md
++++ b/.flow/project.md
+@@ -36,7 +36,7 @@ docker compose up -d
+ ./gradlew dbSeed                     # when seed data is needed
+ ./gradlew devStart
+ ./gradlew devStatus
+-./gradlew -q devStackFresh || { ./gradlew devStop && ./gradlew devStart -PisolateOAuthPorts; }   # before any Playwright run; devRestart drops -PisolateOAuthPorts
++./gradlew -q devStackFresh || { ./gradlew devStop && ./gradlew devStart -PisolateOAuthPorts; }   # before any Playwright run
+ ./gradlew devLogs
+ ./gradlew devStop
+ ```
+diff --git a/buildSrc/src/main/kotlin/com/gymie/gradle/FrontendPortContract.kt b/buildSrc/src/main/kotlin/com/gymie/gradle/FrontendPortContract.kt
+index d2ffb73a..b80533ea 100644
+--- a/buildSrc/src/main/kotlin/com/gymie/gradle/FrontendPortContract.kt
++++ b/buildSrc/src/main/kotlin/com/gymie/gradle/FrontendPortContract.kt
+@@ -64,6 +64,26 @@ fun deterministicBlock(
+         if (name in OAUTH_PINNED_SERVICE_NAMES && !isolateOAuthPorts) port else port + portOffset
+     }
+ 
++/**
++ * Whether a run without [ISOLATE_OAUTH_PORTS_PROPERTY] keeps the isolation the running stack was started
++ * with: true when a running [OAUTH_PINNED_SERVICE_NAMES] member's [recorded] port is not its [declared] one.
++ *
++ * **A restart is not a choice to give the OAuth ports back** (kan-970 self-review). `devRestart` and a bare
++ * `devStart` read only their own invocation's properties, so restarting an isolated stack without the flag
++ * moved its frontend and gateway onto the declared ports — the main checkout's — while every caller that
++ * read the record before the restart believed the stack still isolated. Inheriting from what is running
++ * keeps a restart where the stack was; giving the ports back is `devStop` first, after which nothing is
++ * running to inherit from.
++ */
++fun inheritsOAuthIsolation(
++    recorded: Recorded<Map<String, Int>>,
++    declared: Map<String, Int>,
++    running: Set<String>,
++): Boolean {
++    val placed = (recorded as? Recorded.Value)?.value ?: return false
++    return OAUTH_PINNED_SERVICE_NAMES.any { name -> name in running && placed[name]?.let { it != declared[name] } == true }
++}
++
+ /**
+  * [this], with a placed [OAUTH_PINNED_SERVICE_NAMES] entry this run has no standing to trust removed
+  * first.
+diff --git a/buildSrc/src/test/kotlin/com/gymie/gradle/FrontendPortContractTest.kt b/buildSrc/src/test/kotlin/com/gymie/gradle/FrontendPortContractTest.kt
+index b2dca5a6..b5eb947a 100644
+--- a/buildSrc/src/test/kotlin/com/gymie/gradle/FrontendPortContractTest.kt
++++ b/buildSrc/src/test/kotlin/com/gymie/gradle/FrontendPortContractTest.kt
+@@ -1,6 +1,7 @@
+ package com.gymie.gradle
+ 
+ import org.junit.jupiter.api.Assertions.assertEquals
++import org.junit.jupiter.api.Assertions.assertFalse
+ import org.junit.jupiter.api.Assertions.assertNull
+ import org.junit.jupiter.api.Assertions.assertTrue
+ import org.junit.jupiter.api.Test
+@@ -189,6 +190,28 @@ class FrontendPortContractTest {
+         assertEquals(declared, deterministicBlock(declared, portOffset = 0, isolateOAuthPorts = true))
+     }
+ 
++    // ---------------------------------------------------------------------------------------------
++    // inheritsOAuthIsolation — a restart without the flag keeps a running isolated stack isolated
++    // ---------------------------------------------------------------------------------------------
++
++    @Test
++    fun `a running frontend on a moved port keeps a restart without the flag isolated`() {
++        val declared = mapOf("frontend" to 3000, "gateway" to 8080, "backend" to 8081)
++        val recorded = Recorded.Value(mapOf("frontend" to 4130, "gateway" to 9210, "backend" to 9211))
++
++        assertTrue(inheritsOAuthIsolation(recorded, declared, running = setOf("frontend", "gateway")))
++    }
++
++    @Test
++    fun `a stopped or unmoved frontend and gateway leave a run without the flag unisolated`() {
++        val declared = mapOf("frontend" to 3000, "gateway" to 8080, "backend" to 8081)
++        val moved = Recorded.Value(mapOf("frontend" to 4130, "gateway" to 9210, "backend" to 9211))
++        val unmoved = Recorded.Value(mapOf("frontend" to 3000, "gateway" to 8080, "backend" to 9211))
++
++        assertFalse(inheritsOAuthIsolation(moved, declared, running = setOf("backend")))
++        assertFalse(inheritsOAuthIsolation(unmoved, declared, running = setOf("frontend", "gateway", "backend")))
++    }
++
+     // ---------------------------------------------------------------------------------------------
+     // withoutStaleOAuthPinnedEntries — a pinned entry survives only where it can be the truth
+     // ---------------------------------------------------------------------------------------------
+diff --git a/gradle/dev-lifecycle.gradle.kts b/gradle/dev-lifecycle.gradle.kts
+index 3c1d444c..db9b29bd 100644
+--- a/gradle/dev-lifecycle.gradle.kts
++++ b/gradle/dev-lifecycle.gradle.kts
+@@ -34,6 +34,7 @@ import com.gymie.gradle.Workspace
+ import com.gymie.gradle.adminFrontendEnvFile
+ import com.gymie.gradle.liveAdminDevServerPid
+ import com.gymie.gradle.applyRepoDotEnv
++import com.gymie.gradle.inheritsOAuthIsolation
+ import com.gymie.gradle.isBuildInput
+ import com.gymie.gradle.keepWorkspaceOriginAllowed
+ import com.gymie.gradle.siblingMainCheckout
+@@ -890,7 +891,27 @@ fun Project.recordedPortBlock(): Recorded<Map<String, Int>> =
+  * property here is read (`-Pforce` on `devCacheIndexReclaim` is the same shape), so a bare flag is
+  * enough and no particular value is required of it.
+  */
+-fun Project.isolateOAuthPorts(): Boolean = findProperty(ISOLATE_OAUTH_PORTS_PROPERTY) != null
++fun Project.isolateOAuthPorts(): Boolean {
++    if (findProperty(ISOLATE_OAUTH_PORTS_PROPERTY) != null) return true
++    // Decided once per invocation, before anything is stopped: a restart's stop loop takes down the very
++    // services this answer is read from, and the environment its starts export must agree with the
++    // block resolved ahead of it. buildSrc's [inheritsOAuthIsolation] carries the rule.
++    val extra = extensions.extraProperties
++    if (!extra.has(INHERITED_OAUTH_ISOLATION_KEY)) {
++        val declared = services.mapNotNull { service -> service.port?.let { service.name to it } }.toMap()
++        val inherited = inheritsOAuthIsolation(recordedPortBlock(), declared, runningServiceNames(services))
++        if (inherited) {
++            logger.lifecycle(
++                "Keeping -P$ISOLATE_OAUTH_PORTS_PROPERTY: this workspace's frontend or gateway is running on a moved port. " +
++                    "Run devStop first to give the declared OAuth ports back.",
++            )
++        }
++        extra.set(INHERITED_OAUTH_ISOLATION_KEY, inherited)
++    }
++    return extra.get(INHERITED_OAUTH_ISOLATION_KEY) as Boolean
++}
++
++val INHERITED_OAUTH_ISOLATION_KEY = "gymie.inheritedOAuthIsolation"
+ 
+ fun Project.resolveWorkspaceBlock(workspace: Workspace, binding: Set<String>): BlockResolution.Resolved {
+     val declared = services.mapNotNull { service -> service.port?.let { service.name to it } }.toMap()

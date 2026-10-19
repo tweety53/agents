@@ -1,0 +1,91 @@
+diff --git a/stats/internal/guard/check_unfinished_work_test.go b/stats/internal/guard/check_unfinished_work_test.go
+index 214a1ad3..f3721bfa 100644
+--- a/stats/internal/guard/check_unfinished_work_test.go
++++ b/stats/internal/guard/check_unfinished_work_test.go
+@@ -980,3 +980,17 @@ func TestCheckUnfinishedWorkNoPanelPassRecorded(t *testing.T) {
+ 		})
+ 	}
+ }
++
++// TestCheckUnfinishedWorkRefusesAnUnsplitRangeList pins the kan-970
++// self-review fix: two ranges passed as one zsh-unsplit argument are refused
++// at the argument, naming the cause, not later as an unreadable git range.
++func TestCheckUnfinishedWorkRefusesAnUnsplitRangeList(t *testing.T) {
++	t.Parallel()
++	f := newUW(t)
++	a := uwCommits(t, t.TempDir()+"/a", "base", "fix: a")
++	b := uwCommits(t, t.TempDir()+"/b", "base", "fix: b")
++	r := f.run(t, f.wt, "demo", "", a+" "+b)
++	if r.rc != 2 || !strings.Contains(r.err, "zsh does not word-split an unquoted $VAR") {
++		t.Fatalf("exit %d stderr %q, want exit 2 naming the unsplit list", r.rc, r.err)
++	}
++}
+diff --git a/stats/internal/guard/gatherdispatch.go b/stats/internal/guard/gatherdispatch.go
+index bdb1e595..b8ba76ad 100644
+--- a/stats/internal/guard/gatherdispatch.go
++++ b/stats/internal/guard/gatherdispatch.go
+@@ -49,7 +49,11 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
+ 		return 2
+ 	}
+ 	if taskIDs != "" && !gdcTaskIDs.MatchString(taskIDs) {
+-		fmt.Fprintf(stderr, "gather-dispatch-context: task ids '%s' must be a comma-separated list of integers\n", taskIDs)
++		hint := ""
++		if strings.ContainsAny(taskIDs, " \t\n") {
++			hint = " — " + unsplitListHint
++		}
++		fmt.Fprintf(stderr, "gather-dispatch-context: task ids '%s' must be a comma-separated list of integers%s\n", taskIDs, hint)
+ 		return 2
+ 	}
+ 	switch shape {
+diff --git a/stats/internal/guard/gatherdispatch_test.go b/stats/internal/guard/gatherdispatch_test.go
+index 0413c14a..dc4a052f 100644
+--- a/stats/internal/guard/gatherdispatch_test.go
++++ b/stats/internal/guard/gatherdispatch_test.go
+@@ -800,3 +800,20 @@ func TestGatherDispatchWorktreeRoot(t *testing.T) {
+ 		t.Fatalf("rc=%d err=%q, want 2 and %q", r.rc, r.err, want)
+ 	}
+ }
++
++// TestGatherDispatchContextRefusesAnUnsplitTaskIDList pins the kan-970
++// self-review fix: a task-id list holding whitespace is refused naming the
++// zsh word-splitting cause, while a malformed list without whitespace keeps
++// the plain refusal.
++func TestGatherDispatchContextRefusesAnUnsplitTaskIDList(t *testing.T) {
++	t.Parallel()
++	f := gdcNewRepo(t, gdcTemplate(t))
++	r := f.run("5 6")
++	if r.rc != 2 || !strings.Contains(r.err, "zsh does not word-split an unquoted $VAR") {
++		t.Fatalf("exit %d stderr %q, want exit 2 naming the unsplit list", r.rc, r.err)
++	}
++	r = f.run("5;6")
++	if r.rc != 2 || strings.Contains(r.err, "zsh") {
++		t.Fatalf("exit %d stderr %q, want exit 2 without the zsh hint", r.rc, r.err)
++	}
++}
+diff --git a/stats/internal/guard/unfinishedwork.go b/stats/internal/guard/unfinishedwork.go
+index 1f78b023..52dbc2af 100644
+--- a/stats/internal/guard/unfinishedwork.go
++++ b/stats/internal/guard/unfinishedwork.go
+@@ -31,6 +31,11 @@ func init() {
+ 
+ const uwPrefix = "check-unfinished-work: "
+ 
++// unsplitListHint names the cause of an argument that cannot hold
++// whitespace and does (kan-970 self-review): a list built in a variable and
++// passed unquoted reaches a guard as one argument under zsh.
++const unsplitListHint = "looks like a list passed as one argument — zsh does not word-split an unquoted $VAR; pass each value as its own argument"
++
+ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
+ 	arg := func(i int) string {
+ 		if i < len(args) {
+@@ -53,6 +58,10 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
+ 			fmt.Fprintf(stderr, "%s'%s' is not <worktree>=<merge-base>\n", uwPrefix, a)
+ 			return 2
+ 		}
++		if strings.ContainsAny(base, " \t\n") {
++			fmt.Fprintf(stderr, "%s'%s' is not <worktree>=<merge-base> — %s\n", uwPrefix, a, unsplitListHint)
++			return 2
++		}
+ 		ranges = append(ranges, [2]string{wt, base})
+ 	}
+ 	// A call passing no range gets this worktree's own, derived as the finish
