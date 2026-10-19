@@ -948,3 +948,35 @@ func TestCheckUnfinishedWorkCloseCommandCarriesEndedAt(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckUnfinishedWorkNoPanelPassRecorded pins signal eight (kan-970
+// self-review): a change whose range carries a code commit and whose store
+// holds no pass row at all is OUTSTANDING; a recorded pass, or only
+// planning commits, clears it.
+func TestCheckUnfinishedWorkNoPanelPassRecorded(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		name, path, passes, want string
+	}{
+		{"a code commit with no pass row is OUTSTANDING", "src/a.go", "[]", "no review-panel pass recorded for code commit "},
+		{"a code commit with a pass row is CLEAR", "src/a.go", `[{"id":1,"round":0,"note":"roster: full"}]`, "CLEAR:"},
+		{"a planning-only commit with no pass row is CLEAR", "spectre/changes/demo/notes.md", "[]", "CLEAR:"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			f := newUW(t)
+			gitRun(t, "", "init", "-q", f.wt)
+			gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "base")
+			base := tcfGit(t, f.wt, "rev-parse", "HEAD")
+			writeFile(t, f.wt+"/"+c.path, "x\n")
+			gitRun(t, f.wt, "add", c.path)
+			gitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T11:00:00Z", "-m", "fix: code")
+			f.setFile(t, "dispatches.json", `[{"seq":9,"key":"verify","role":"verifier","outcome":"completed","startedAt":"2026-01-01T12:00:00Z"}]`+"\n")
+			f.setFile(t, "passes.json", c.passes+"\n")
+			r := f.run(t, f.wt, "demo", "", f.wt+"="+base)
+			if r.rc != 0 || !strings.Contains(r.out, c.want) {
+				t.Fatalf("exit %d stdout %q stderr %q, want exit 0 and %q", r.rc, r.out, r.err, c.want)
+			}
+		})
+	}
+}

@@ -436,6 +436,29 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 			if newest != "" && newestAt > lastVerify {
 				reasons = append(reasons, "no completed inline verify row since "+newest+" — run Inline verify (skills/flow/verify-and-handoff.md) and record its row before landing")
 			}
+			// SIGNAL EIGHT — a code commit and no review-panel pass at all
+			// (kan-970 self-review: four implementer groups and the panel ran
+			// unrecorded, and the gate cleared the change). Every panel run
+			// records pass rows (review-panel.md), so a change with a commit
+			// outside `<spec root>/changes/` and none was never reviewed as far
+			// as the store can tell. A change with a panel reviewer row is
+			// signal five's to judge; the pass rows are read only otherwise,
+			// and a failed read is refused like signal five's.
+			if newest != "" && len(rounds) == 0 {
+				passOut, passErr, passRC := pcFlow(env, false, "record", "passes", "-change", name, "-C", anchor)
+				if passRC != 0 {
+					fmt.Fprintf(stderr, "%scannot read pass rows for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(passErr), "\n"))
+					return 2
+				}
+				var passes []json.RawMessage
+				if json.Unmarshal(passOut, &passes) != nil || passes == nil {
+					fmt.Fprintf(stderr, "%spass rows for '%s' are not one JSON array — cannot determine anything\n", uwPrefix, name)
+					return 2
+				}
+				if len(passes) == 0 {
+					reasons = append(reasons, "no review-panel pass recorded for code commit "+newest+" — run the review panel (skills/flow/review-panel.md) and record its pass rows with `flow record pass -change "+name+" -round <round>` before landing")
+				}
+			}
 		}
 		// THE VISUAL VERDICT IS FOLDED IN (decision uw-fold-visual-verdict):
 		// check-visual-verify-dispatched over this guard's own worktree's

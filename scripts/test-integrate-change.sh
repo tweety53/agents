@@ -188,6 +188,7 @@ case "\$1 \$2" in
   "self-review finding") echo "\$*" >>"$WORK/fixed.log" ;;
   "record dispatches") [ -f "$WORK/loop-rows" ] && exec cat "$WORK/loop-rows"; cat "$WORK/dispatches.json" 2>/dev/null || echo '[{"key":"task-1-implementer","outcome":"completed"},{"key":"verify","role":"verifier","outcome":"completed","startedAt":"2026-01-02T00:00:00Z"}]' ;;
   "record decisions") echo '[]' ;;
+  "record passes") echo '[{"id":1,"round":0,"note":"roster: full"}]' ;;
   "record verdicts") cat "$WORK/verdicts.json" 2>/dev/null || echo '[]' ;;
   "workspace-id "*) echo demo-id ;;
   *) : ;;

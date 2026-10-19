@@ -103,6 +103,14 @@
 # breakdown. An archived change's plan is not asked. Like signal three, only
 # the worktree holding the plan reads it.
 #
+# SIGNAL EIGHT: A CODE COMMIT WITH NO REVIEW-PANEL PASS IS UNFINISHED (kan-970
+# self-review: four implementer groups and the panel ran unrecorded, and the
+# gate cleared the change). When signal seven's walk finds a commit outside
+# `<spec root>/changes/` and no `panel-<round>-…` reviewer row exists — signal
+# five judges a change that has one — `flow record passes -change <name> -C
+# <anchor>` must hold at least one pass row; a failed or unreadable read is
+# exit 2, like signal five's. Asked exactly where signal seven is.
+#
 # THE VISUAL VERDICT IS FOLDED IN (kan-989 self-review): over this worktree's
 # own range, check-visual-verify-dispatched.sh's VISUAL-VERIFY-MISSING line
 # is one more reason, and its exit 2 is this guard's exit 2 — unless an
