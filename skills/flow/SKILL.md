@@ -31,13 +31,15 @@ it back for every later phase, so it is never passed again.
 **Resolve this once, near the top of every run, before any dispatch below reads it:**
 
 ```bash
-SETTINGS_JSON="$(flow settings get 2>/dev/null || true)"
+SETTINGS_JSON="$(flow settings get || true)"
 REVIEWERS="$(printf '%s' "$SETTINGS_JSON" | jq -r '.reviewers[]')"
 VERIFY_MODEL=opus
 ```
 
 A non-zero exit from `flow settings get` means the settings store could not be reached — there is
-no per-change fallback file for this record. Settings unreachable is never a reason to block
+no per-change fallback file for this record. The read leaves the CLI's stderr visible: report it
+verbatim as the cause, and resolve `REVIEWERS` by the table's Unreachable row below, never as the
+empty list the failed read leaves (KAN-899). Settings unreachable is never a reason to block
 implementation.
 
 **Execution mode, every dispatch's model and effort, and the review panel are decided per change,
