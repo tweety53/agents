@@ -127,6 +127,18 @@ never an exit code the command did not return.
    that never rendered; exit 2 (cannot answer) blocks the same way. **Read every printed path** — no
    script can do that — and state, per view, what was seen. An unreadable PNG is reported and blocks
    too.
+
+   Then pipe the same resolver output into `check-identical-baselines.sh`; its header is canonical
+   for what it compares.
+
+   ```bash
+   resolve-visual-screenshots.sh <worktree> <spec's basename> | check-identical-baselines.sh
+   ```
+
+   Exit 1 → each `identical:` line names PNGs of one directory that are
+   byte-identical, and the report carries one `- identical:` line per group stating why those views
+   draw the same pixels, or the defect that made them, which blocks: kan-998's pad-up and pad-down
+   baselines were one image, and only a reviewer saw it. Exit 2 → it cannot answer, and blocks.
 10. **Compose captured frames against their mockups, if `mockups` is declared.** With a
    `<spec>.mockups` sidecar beside the capture spec, run
 
@@ -570,6 +582,7 @@ or a measurement the pixels could not give is step 10 undone.
 - full app suite: <created | updated> — <absolute spec path>, <n> screens, capture exit <n>
 - full app suite zip: <absolute zip path>, <n> PNGs | not written — <reason>
 - spec reach: exit <n>
+- identical: <the PNG names of one byte-identical group> — <why the views draw the same pixels, or the defect> | none
 - spec: <absolute spec path>
 - <view>: <absolute PNG path> — <what was seen, including any defect>
 - mockups: <not declared | no map for <spec> | exit <n>>

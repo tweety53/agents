@@ -8,5 +8,6 @@ Exit 2 → it cannot answer, and blocks.
 Exit 2 → it cannot answer; correct the input and run it again.
 The recipe's merge-order record runs with it, its planning commit included (**Isolate the workspace — additional worktrees**, `skills/flow/cross-repo-worktrees.md`): a repository the canonical `link.md`'s `## Merge order` omits is one run 1 never sequences and the self-review bundle never reads (kan-998).
 Then pipe the same resolver output into `check-identical-baselines.sh`; its header is canonical for what it compares.
+resolve-visual-screenshots.sh <worktree> <spec's basename> | check-identical-baselines.sh
 Then run `check-live-verification.sh <changeRoot>/live-verification.md`; its header is canonical for the record it accepts.
 When `mockups` is declared, the same Bash call also runs `check-sidecar-reach.sh <capture root>`, `<capture root>` the `regression checkout`'s worktree when one is declared, else this worktree; its header is canonical for the rule.

@@ -1,0 +1,1 @@
+../../../scripts/check-identical-baselines.sh
