@@ -349,6 +349,13 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > an identifier — its last verify step is one `git grep -n -F` over every string it removes, each
 > passed as its own `-e '<string>'`, scoped to the paths the task touches: the sweep prints
 > nothing when the task is done, and any hit means it is not.
+>
+> A removed UI tag, test id or label that a declared `regression checkout` drives
+> (**Project configuration — visual verification**,
+> `skills/flow-contracts/project-configuration-visual.md`) is swept in that checkout too, with
+> the same `-e` list, and the plan carries the task that updates every hit there: kan-998's
+> sweep, scoped to its own paths, missed the labels gymie-playwright drove, and the regression
+> suite failed 83 tests on them.
 
 > **List the rationale appendix a changed rule's reasoning lives in.** A step that changes a rule
 > whose reasoning a `*-rationale.md` appendix records lists that appendix in its task's
