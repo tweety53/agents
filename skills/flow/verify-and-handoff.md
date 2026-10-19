@@ -147,7 +147,11 @@ planning path the write-in-progress planning commit carries. **A before figure i
 detached worktree at the merge base** — `git -C <worktree> worktree add --detach
 <project>-worktrees/<name>-before <merge-base>`, the base's stack run from there, then stopped, and the worktree
 removed with `git worktree remove` once the figure is written — never by checking base sources out
-over the change worktree. The `## Report` gains one line, `live check — <matched | failure look>`. A figure that
+over the change worktree. Then run `check-live-verification.sh
+<changeRoot>/live-verification.md`; its header is canonical for the record it accepts. Exit 1 → the
+record carries no before figure, or states one was not measured: measure it from the merge base as
+above and rewrite the record, never proceed past it (kan-998). Exit 2 → it cannot answer; correct
+the input and run it again. The `## Report` gains one line, `live check — <matched | failure look>`. A figure that
 shows the failure look is the branch's own defect and takes **The loop**
 (`skills/flow/verify-fix-loop.md`); a stack that will not start ends the turn as a failed
 command's environment cause does. **A step of the check the operator waives runs on its cheapest safe proxy instead** — a scratch
