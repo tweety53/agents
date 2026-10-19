@@ -39,12 +39,12 @@ in this worktree.
 - Task 4: every existing deny case of `scripts/test-protect-main-checkout.sh` still denies; a quoted heredoc body is still dropped whole.
 - Task 7: a main-checkout run never inherits isolation, and a run after `devStop` binds the declared OAuth ports.
 
-- [ ] 1. Drop a change's own records from the visual-verify diff
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In this agents worktree, apply the test hunk alone — `git apply --include='stats/internal/guard/check_visual_verify_dispatched_test.go' $P/patches/task-1.diff` — and run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckVisualVerifyDispatchedIgnoresAChangeRecordMove' -count=1`: it fails, the guard answering VISUAL-VERIFY-MISSING with `spectre/changes/archive/demo/link.md` as the path changed since the verified HEAD.
+- [x] 1. Drop a change's own records from the visual-verify diff
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In this agents worktree, apply the test hunk alone — `git apply --include='stats/internal/guard/check_visual_verify_dispatched_test.go' $P/patches/task-1.diff` — and run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckVisualVerifyDispatchedIgnoresAChangeRecordMove' -count=1`: it fails, the guard answering VISUAL-VERIFY-MISSING with `spectre/changes/archive/demo/link.md` as the path changed since the verified HEAD.
     <!-- measured: the test hunk alone, go test -run TestCheckVisualVerifyDispatchedIgnoresAChangeRecordMove @ branch spectre/kan-970-fix-the-remaining-known-bugs-md-entries-and → FAIL, exit 1 MISSING naming spectre/changes/archive/demo/link.md -->
-  - [ ] **Step 2: Apply the fix** — the rest: `git apply --exclude='stats/internal/guard/check_visual_verify_dispatched_test.go' $P/patches/task-1.diff` (the guard drops `<spec root>/changes/` paths before the trigger question and the freshness loop; the script header states it).
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckVisualVerifyDispatched' -count=1` passes; `scripts/check-references.sh` exits 0.
-  - [ ] **Step 4: Commit** `stats/internal/guard/visualverifydispatched.go`, `stats/internal/guard/check_visual_verify_dispatched_test.go` and `scripts/check-visual-verify-dispatched.sh` with the subject below.
+  - [x] **Step 2: Apply the fix** — the rest: `git apply --exclude='stats/internal/guard/check_visual_verify_dispatched_test.go' $P/patches/task-1.diff` (the guard drops `<spec root>/changes/` paths before the trigger question and the freshness loop; the script header states it).
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckVisualVerifyDispatched' -count=1` passes; `scripts/check-references.sh` exits 0.
+  - [x] **Step 4: Commit** `stats/internal/guard/visualverifydispatched.go`, `stats/internal/guard/check_visual_verify_dispatched_test.go` and `scripts/check-visual-verify-dispatched.sh` with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/visualverifydispatched.go`, `stats/internal/guard/check_visual_verify_dispatched_test.go`, `scripts/check-visual-verify-dispatched.sh`
@@ -57,12 +57,12 @@ in this worktree.
 
 **Decision:** vvd-drop-change-records
 
-- [ ] 2. Report a change with code commits and no review-panel pass
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In this agents worktree, apply the test hunk alone — `git apply --include='stats/internal/guard/check_unfinished_work_test.go' $P/patches/task-2.diff` — and run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckUnfinishedWorkNoPanelPassRecorded' -count=1`: the code-commit-with-no-pass-row subtest fails CLEAR.
+- [x] 2. Report a change with code commits and no review-panel pass
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In this agents worktree, apply the test hunk alone — `git apply --include='stats/internal/guard/check_unfinished_work_test.go' $P/patches/task-2.diff` — and run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckUnfinishedWorkNoPanelPassRecorded' -count=1`: the code-commit-with-no-pass-row subtest fails CLEAR.
     <!-- measured: the test hunk alone, go test -run TestCheckUnfinishedWorkNoPanelPassRecorded @ branch spectre/kan-970-fix-the-remaining-known-bugs-md-entries-and → FAIL on a_code_commit_with_no_pass_row_is_OUTSTANDING -->
-  - [ ] **Step 2: Apply the fix** — the rest: `git apply --exclude='stats/internal/guard/check_unfinished_work_test.go' $P/patches/task-2.diff` (signal eight in `unfinishedwork.go`, its header paragraph in the script, and a `record passes` answer in `scripts/test-integrate-change.sh`'s stub `flow`).
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckUnfinishedWork' -count=1` passes; `bash scripts/test-integrate-change.sh` ends `0 failed`; `bash scripts/test-lib-change-plan.sh` passes.
-  - [ ] **Step 4: Commit** the four files below with the subject below.
+  - [x] **Step 2: Apply the fix** — the rest: `git apply --exclude='stats/internal/guard/check_unfinished_work_test.go' $P/patches/task-2.diff` (signal eight in `unfinishedwork.go`, its header paragraph in the script, and a `record passes` answer in `scripts/test-integrate-change.sh`'s stub `flow`).
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckUnfinishedWork' -count=1` passes; `bash scripts/test-integrate-change.sh` ends `0 failed`; `bash scripts/test-lib-change-plan.sh` passes.
+  - [x] **Step 4: Commit** the four files below with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/unfinishedwork.go`, `stats/internal/guard/check_unfinished_work_test.go`, `scripts/check-unfinished-work.sh`, `scripts/test-integrate-change.sh`
@@ -75,16 +75,16 @@ in this worktree.
 
 **Decision:** uw-no-pass-signal
 
-- [ ] 3. Require the visual verifier's record in the change root
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In this agents worktree, with Task 1 committed, apply the test hunks alone — `git apply --include='stats/internal/guard/check_visual_verify_dispatched_test.go' $P/patches/task-3.diff` — and run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckVisualVerifyDispatchedRequiresTheVerifierRecord' -count=1`: it fails, a verifier row of HEAD answering OK with no record in the change root.
+- [x] 3. Require the visual verifier's record in the change root
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In this agents worktree, with Task 1 committed, apply the test hunks alone — `git apply --include='stats/internal/guard/check_visual_verify_dispatched_test.go' $P/patches/task-3.diff` — and run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckVisualVerifyDispatchedRequiresTheVerifierRecord' -count=1`: it fails, a verifier row of HEAD answering OK with no record in the change root.
     <!-- measured: the test hunks alone on Task 1's patch, go test -run TestCheckVisualVerifyDispatchedRequiresTheVerifierRecord @ branch spectre/kan-970-fix-the-remaining-known-bugs-md-entries-and → FAIL -->
-  - [ ] **Step 2: Apply the fix** — the rest: `git apply --exclude='stats/internal/guard/check_visual_verify_dispatched_test.go' $P/patches/task-3.diff` (the record check in `visualverifydispatched.go`, its header paragraph, and a committed record in `scripts/test-integrate-change.sh`'s visual fixture).
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckVisualVerifyDispatched|TestCheckUnfinishedWork' -count=1` passes; `bash scripts/test-integrate-change.sh` ends `0 failed`.
-  - [ ] **Step 4: Commit** the four agents files below with the subject below.
-  - [ ] **Step 5: Move kan-970's record, in the gymie worktree.** From `/Users/tweety53/Projects/gymie-worktrees/kan-970-fix-the-remaining-known-bugs-md-entries-and`, run `bash $P/patches/task-3-record.sh`: it copies every scratchpad file the record cites into `spectre/changes/archive/kan-970-fix-the-remaining-known-bugs-md-entries-and/visual-verification/evidence/`, writes the record there with its citations rewritten to the copies and a provenance note under its title, and removes `.superpowers/sdd/visual-verification.md`. It exits non-zero, writing nothing past the failing copy, when a cited scratchpad file is gone — report that, never re-create the evidence.
+  - [x] **Step 2: Apply the fix** — the rest: `git apply --exclude='stats/internal/guard/check_visual_verify_dispatched_test.go' $P/patches/task-3.diff` (the record check in `visualverifydispatched.go`, its header paragraph, and a committed record in `scripts/test-integrate-change.sh`'s visual fixture).
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckVisualVerifyDispatched|TestCheckUnfinishedWork' -count=1` passes; `bash scripts/test-integrate-change.sh` ends `0 failed`.
+  - [x] **Step 4: Commit** the four agents files below with the subject below.
+  - [x] **Step 5: Move kan-970's record, in the gymie worktree.** From `/Users/tweety53/Projects/gymie-worktrees/kan-970-fix-the-remaining-known-bugs-md-entries-and`, run `bash $P/patches/task-3-record.sh`: it copies every scratchpad file the record cites into `spectre/changes/archive/kan-970-fix-the-remaining-known-bugs-md-entries-and/visual-verification/evidence/`, writes the record there with its citations rewritten to the copies and a provenance note under its title, and removes `.superpowers/sdd/visual-verification.md`. It exits non-zero, writing nothing past the failing copy, when a cited scratchpad file is gone — report that, never re-create the evidence.
     <!-- measured: bash patches/task-3-record.sh on a scratch copy of the gymie record @ branch spectre/kan-970-fix-the-remaining-known-bugs-md-entries-and → 26 evidence files copied, no scratchpad path left in the record -->
-  - [ ] **Step 6: Verify the record half.** `grep -c '/private/tmp' spectre/changes/archive/kan-970-fix-the-remaining-known-bugs-md-entries-and/visual-verification.md` prints `0`; then, from this agents worktree, `scripts/check-visual-verify-dispatched.sh /Users/tweety53/Projects/gymie-frontend-worktrees/kan-970-fix-the-remaining-known-bugs-md-entries-and kan-970-fix-the-remaining-known-bugs-md-entries-and 0a539237 /Users/tweety53/Projects/gymie-worktrees/kan-970-fix-the-remaining-known-bugs-md-entries-and` answers VISUAL-VERIFY-OK.
-  - [ ] **Step 7: Commit in gymie** `git add spectre/changes/archive/kan-970-fix-the-remaining-known-bugs-md-entries-and/visual-verification.md spectre/changes/archive/kan-970-fix-the-remaining-known-bugs-md-entries-and/visual-verification/evidence` and commit with the subject `chore(spectre): move kan-970's visual record into its change root` (decision `f3-record-half-own-commit`) — that commit touches nothing outside those two paths.
+  - [x] **Step 6: Verify the record half.** `grep -c '/private/tmp' spectre/changes/archive/kan-970-fix-the-remaining-known-bugs-md-entries-and/visual-verification.md` prints `0`; then, from this agents worktree, `scripts/check-visual-verify-dispatched.sh /Users/tweety53/Projects/gymie-frontend-worktrees/kan-970-fix-the-remaining-known-bugs-md-entries-and kan-970-fix-the-remaining-known-bugs-md-entries-and 0a539237 /Users/tweety53/Projects/gymie-worktrees/kan-970-fix-the-remaining-known-bugs-md-entries-and` answers VISUAL-VERIFY-OK.
+  - [x] **Step 7: Commit in gymie** `git add spectre/changes/archive/kan-970-fix-the-remaining-known-bugs-md-entries-and/visual-verification.md spectre/changes/archive/kan-970-fix-the-remaining-known-bugs-md-entries-and/visual-verification/evidence` and commit with the subject `chore(spectre): move kan-970's visual record into its change root` (decision `f3-record-half-own-commit`) — that commit touches nothing outside those two paths.
 
 **Build:** green
 **Files:** `stats/internal/guard/visualverifydispatched.go`, `stats/internal/guard/check_visual_verify_dispatched_test.go`, `scripts/check-visual-verify-dispatched.sh`, `scripts/test-integrate-change.sh`
@@ -99,12 +99,12 @@ in this worktree.
 **Decision:** f3-evidence-in-change-root
 **Decision:** f3-record-half-own-commit
 
-- [ ] 4. Scan what bash runs, and only that, in the main-checkout hook
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In this agents worktree, apply the harness hunks alone — `git apply --include='scripts/test-protect-main-checkout.sh' $P/patches/task-4.diff` — and run `bash scripts/test-protect-main-checkout.sh`: cases 110–113 fail, 110 denied and 111–113 allowed.
+- [x] 4. Scan what bash runs, and only that, in the main-checkout hook
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In this agents worktree, apply the harness hunks alone — `git apply --include='scripts/test-protect-main-checkout.sh' $P/patches/task-4.diff` — and run `bash scripts/test-protect-main-checkout.sh`: cases 110–113 fail, 110 denied and 111–113 allowed.
     <!-- measured: the harness hunks alone, bash scripts/test-protect-main-checkout.sh @ branch spectre/kan-970-fix-the-remaining-known-bugs-md-entries-and → 4 failure(s), cases 110-113 -->
-  - [ ] **Step 2: Apply the fix** — the rest: `git apply --include='hooks/protect-main-checkout.py' $P/patches/task-4.diff` (`SUBST_SPAN_RE`, the span-only body in `strip_data_heredocs`, and `tokenize`'s appended span tokens).
-  - [ ] **Step 3: Verify.** `bash scripts/test-protect-main-checkout.sh` prints `all protect-main-checkout cases pass`; `scripts/check-python-suppressions.sh` exits 0.
-  - [ ] **Step 4: Commit** the two files below with the subject below.
+  - [x] **Step 2: Apply the fix** — the rest: `git apply --include='hooks/protect-main-checkout.py' $P/patches/task-4.diff` (`SUBST_SPAN_RE`, the span-only body in `strip_data_heredocs`, and `tokenize`'s appended span tokens).
+  - [x] **Step 3: Verify.** `bash scripts/test-protect-main-checkout.sh` prints `all protect-main-checkout cases pass`; `scripts/check-python-suppressions.sh` exits 0.
+  - [x] **Step 4: Commit** the two files below with the subject below.
 
 **Build:** green
 **Files:** `hooks/protect-main-checkout.py`, `scripts/test-protect-main-checkout.sh`
@@ -117,12 +117,12 @@ in this worktree.
 
 **Decision:** hook-subst-spans
 
-- [ ] 5. Name an unsplit zsh list when a guard argument holds whitespace
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In this agents worktree, with Task 2 committed, apply the test hunks alone — `git apply --include='stats/internal/guard/*_test.go' $P/patches/task-5.diff` — and run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckUnfinishedWorkRefusesAnUnsplitRangeList|TestGatherDispatchContextRefusesAnUnsplitTaskIDList' -count=1`: both fail, neither refusal naming zsh.
+- [x] 5. Name an unsplit zsh list when a guard argument holds whitespace
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In this agents worktree, with Task 2 committed, apply the test hunks alone — `git apply --include='stats/internal/guard/*_test.go' $P/patches/task-5.diff` — and run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckUnfinishedWorkRefusesAnUnsplitRangeList|TestGatherDispatchContextRefusesAnUnsplitTaskIDList' -count=1`: both fail, neither refusal naming zsh.
     <!-- measured: the test hunks alone on Task 2's patch, go test -run of both tests @ branch spectre/kan-970-fix-the-remaining-known-bugs-md-entries-and → both FAIL -->
-  - [ ] **Step 2: Apply the fix** — the rest: `git apply --exclude='stats/internal/guard/*_test.go' $P/patches/task-5.diff` (`unsplitListHint`, the merge-base whitespace refusal, the task-id hint).
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckUnfinishedWork|TestGatherDispatchContext' -count=1` passes.
-  - [ ] **Step 4: Commit** the four files below with the subject below.
+  - [x] **Step 2: Apply the fix** — the rest: `git apply --exclude='stats/internal/guard/*_test.go' $P/patches/task-5.diff` (`unsplitListHint`, the merge-base whitespace refusal, the task-id hint).
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckUnfinishedWork|TestGatherDispatchContext' -count=1` passes.
+  - [x] **Step 4: Commit** the four files below with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/unfinishedwork.go`, `stats/internal/guard/gatherdispatch.go`, `stats/internal/guard/check_unfinished_work_test.go`, `stats/internal/guard/gatherdispatch_test.go`
@@ -135,11 +135,11 @@ in this worktree.
 
 **Decision:** unsplit-list-hint
 
-- [ ] 6. State the After list separator
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'Task <ids>' skills/flow/brainstorm-planner.md` shows the value written `Task <ids>` with no separator or example.
-  - [ ] **Step 2: Apply the edit.** `git apply $P/patches/task-6.diff`.
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh` and `python3 scripts/check-markdown-integrity.py` exit 0.
-  - [ ] **Step 4: Commit** the file below with the subject below.
+- [x] 6. State the After list separator
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'Task <ids>' skills/flow/brainstorm-planner.md` shows the value written `Task <ids>` with no separator or example.
+  - [x] **Step 2: Apply the edit.** `git apply $P/patches/task-6.diff`.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh` and `python3 scripts/check-markdown-integrity.py` exit 0.
+  - [x] **Step 4: Commit** the file below with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/brainstorm-planner.md`
@@ -150,11 +150,11 @@ in this worktree.
 
 **Decision:** after-separator-doc
 
-- [ ] 7. Keep a running isolated gymie stack isolated across a restart
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In the gymie worktree `/Users/tweety53/Projects/gymie-worktrees/kan-970-fix-the-remaining-known-bugs-md-entries-and`, run `./gradlew devStatus`: with the isolated stack running it reports "this workspace's recorded block, not its deterministic one" — a run without `-PisolateOAuthPorts` resolves the declared frontend and gateway ports. If no frontend or gateway is running, record that and go on: the buildSrc tests below carry the regression.
-  - [ ] **Step 2: Apply the fix.** From the gymie worktree root, `git apply $P/patches/task-7.diff` (`inheritsOAuthIsolation` in `FrontendPortContract.kt` with two tests, `isolateOAuthPorts()` consulting it once per invocation, and the false `## run` comment in `.flow/project.md` cut).
-  - [ ] **Step 3: Verify.** `./gradlew ktlintFormat`, then `./gradlew -p buildSrc test --tests 'com.gymie.gradle.FrontendPortContractTest'` passes; `./gradlew devStatus` prints the "Keeping -PisolateOAuthPorts" line while the isolated stack runs; `./gradlew verifyChange` passes.
-  - [ ] **Step 4: Commit in gymie** the four files below with the subject below.
+- [x] 7. Keep a running isolated gymie stack isolated across a restart
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In the gymie worktree `/Users/tweety53/Projects/gymie-worktrees/kan-970-fix-the-remaining-known-bugs-md-entries-and`, run `./gradlew devStatus`: with the isolated stack running it reports "this workspace's recorded block, not its deterministic one" — a run without `-PisolateOAuthPorts` resolves the declared frontend and gateway ports. If no frontend or gateway is running, record that and go on: the buildSrc tests below carry the regression.
+  - [x] **Step 2: Apply the fix.** From the gymie worktree root, `git apply $P/patches/task-7.diff` (`inheritsOAuthIsolation` in `FrontendPortContract.kt` with two tests, `isolateOAuthPorts()` consulting it once per invocation, and the false `## run` comment in `.flow/project.md` cut).
+  - [x] **Step 3: Verify.** `./gradlew ktlintFormat`, then `./gradlew -p buildSrc test --tests 'com.gymie.gradle.FrontendPortContractTest'` passes; `./gradlew devStatus` prints the "Keeping -PisolateOAuthPorts" line while the isolated stack runs; `./gradlew verifyChange` passes.
+  - [x] **Step 4: Commit in gymie** the four files below with the subject below.
 
 **Build:** green
 **Files:** `gradle/dev-lifecycle.gradle.kts`, `buildSrc/src/main/kotlin/com/gymie/gradle/FrontendPortContract.kt`, `buildSrc/src/test/kotlin/com/gymie/gradle/FrontendPortContractTest.kt`, `.flow/project.md` (gymie repository, worktree `/Users/tweety53/Projects/gymie-worktrees/kan-970-fix-the-remaining-known-bugs-md-entries-and`)
@@ -167,11 +167,11 @@ in this worktree.
 
 **Decision:** oauth-isolation-inherits
 
-- [ ] 8. Check a reported defect against history before designing its fix
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'git log --since' skills/flow/brainstorm-planner.md skills/flow/brainstorm.md` finds nothing: no planner step checks a reported defect against history.
-  - [ ] **Step 2: Apply the edit.** With Task 6 committed, `git apply $P/patches/task-8.diff`.
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh` and `python3 scripts/check-markdown-integrity.py` exit 0.
-  - [ ] **Step 4: Commit** the file below with the subject below.
+- [x] 8. Check a reported defect against history before designing its fix
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'git log --since' skills/flow/brainstorm-planner.md skills/flow/brainstorm.md` finds nothing: no planner step checks a reported defect against history.
+  - [x] **Step 2: Apply the edit.** With Task 6 committed, `git apply $P/patches/task-8.diff`.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh` and `python3 scripts/check-markdown-integrity.py` exit 0.
+  - [x] **Step 4: Commit** the file below with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/brainstorm-planner.md`
@@ -182,11 +182,11 @@ in this worktree.
 
 **Decision:** history-check-in-section-b
 
-- [ ] 9. Keep inline verify's begin and end apart in the recording example
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `skills/flow/verify-and-handoff.md`, the **Recording.** example block's `flow record dispatch begin` and `flow record dispatch end` lines sit adjacent with nothing between them.
-  - [ ] **Step 2: Apply the edit.** `git apply $P/patches/task-9.diff`.
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh` and `python3 scripts/check-markdown-integrity.py` exit 0.
-  - [ ] **Step 4: Commit** the file below with the subject below.
+- [x] 9. Keep inline verify's begin and end apart in the recording example
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `skills/flow/verify-and-handoff.md`, the **Recording.** example block's `flow record dispatch begin` and `flow record dispatch end` lines sit adjacent with nothing between them.
+  - [x] **Step 2: Apply the edit.** `git apply $P/patches/task-9.diff`.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh` and `python3 scripts/check-markdown-integrity.py` exit 0.
+  - [x] **Step 4: Commit** the file below with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/verify-and-handoff.md`
