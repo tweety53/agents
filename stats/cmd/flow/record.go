@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"net/http"
 	"os"
 	"os/exec"
@@ -2962,6 +2963,16 @@ func runRecordMutation(ctx context.Context, args []string, stdout, stderr io.Wri
 		return 1
 	}
 
+	// The mutated path names a file some worktree of the change holds
+	// (decision mutation-path-exists): the -C repository's top level, and
+	// every worktree the change's state record names. A failed read of
+	// that record adds no root.
+	roots := mutationRoots(ctx, f, projectKey)
+	if !mutationPathExists(*path, roots) {
+		fmt.Fprintf(stderr, "flow: record mutation: -path %q is no file in %s, nor one their git history knows — name the mutated file (a deleted one too) relative to its worktree\n", *path, strings.Join(roots, ", "))
+		return 2
+	}
+
 	in := records.Mutation{Round: *round, Path: *path, Mutated: *mutated, Test: *test}
 	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Mutation, error) {
 		return cl.RecordMutation(ctx, projectKey, f.change, in)
@@ -3024,5 +3035,53 @@ func requireChangeCheckout(dir, change string, stderr io.Writer) bool {
 		}
 	}
 	fmt.Fprintf(stderr, "flow: no checkout of the repository holding %s carries change %q (spectre/changes/, spectre/changes/archive/ or .superpowers/sdd/) -- refused, so the row is not filed under the wrong project; pass -C <the change's canonical worktree>\n", dir, change)
+	return false
+}
+
+// mutationRoots is the -C repository's top level plus every key of the
+// worktrees map in the change's state record.
+func mutationRoots(ctx context.Context, f recordIdentityFlags, projectKey string) []string {
+	var roots []string
+	if top, err := exec.Command("git", "-C", f.dir, "rev-parse", "--show-toplevel").Output(); err == nil {
+		roots = append(roots, strings.TrimSpace(string(top)))
+	}
+	body, err := getChange(ctx, f.addr, f.timeout, projectKey, f.change)
+	if err != nil {
+		return roots
+	}
+	var state struct {
+		Worktrees map[string]any `json:"worktrees"`
+	}
+	if json.Unmarshal(body, &state) != nil {
+		return roots
+	}
+	peers := slices.Sorted(maps.Keys(state.Worktrees))
+	return append(roots, peers...)
+}
+
+// mutationPathExists reports whether path, absolute as given or relative
+// joined to one of roots, is a regular file — or, relative, a path some
+// root's git history knows (`git log -1 -- path`), so a fix that deleted
+// the file still records its row.
+func mutationPathExists(path string, roots []string) bool {
+	candidates := []string{path}
+	if !filepath.IsAbs(path) {
+		candidates = nil
+		for _, r := range roots {
+			candidates = append(candidates, filepath.Join(r, path))
+		}
+	}
+	for _, c := range candidates {
+		if fi, err := os.Stat(c); err == nil && fi.Mode().IsRegular() {
+			return true
+		}
+	}
+	if !filepath.IsAbs(path) {
+		for _, r := range roots {
+			if out, err := exec.Command("git", "-C", r, "log", "-1", "--format=%H", "--", path).Output(); err == nil && len(bytes.TrimSpace(out)) > 0 {
+				return true
+			}
+		}
+	}
 	return false
 }

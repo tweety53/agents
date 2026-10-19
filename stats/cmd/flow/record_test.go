@@ -3428,6 +3428,9 @@ func TestRecordPassCommand(t *testing.T) {
 func TestRecordMutationCommand(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
+	if err := os.WriteFile(filepath.Join(repo, "render.go"), []byte("package x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	var gotPath string
 	var gotBody []byte
@@ -5454,6 +5457,99 @@ func TestRecordDispatchBeginRefusesAPanelRoundBelowTheRecorded(t *testing.T) {
 		rec := `{"change":"kan-258","mutations":[{"id":1,"round":2,"path":"a.go"}]}`
 		if code, stderr, posts := begin(t, rec, http.StatusOK, "panel-1-primary"); code != 2 || posts != 0 {
 			t.Fatalf("exit %d, posts %d; want 2, 0; stderr:\n%s", code, posts, stderr)
+		}
+	})
+}
+
+// TestRecordMutationRefusesAPathNoWorktreeHolds pins decision
+// mutation-path-exists: a mutation row names a regular file in the -C
+// repository or in a worktree the change's state record names.
+func TestRecordMutationRefusesAPathNoWorktreeHolds(t *testing.T) {
+	write := func(root, rel string) {
+		t.Helper()
+		p := filepath.Join(root, rel)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte("x\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	peer := t.TempDir()
+	write(repo, "local/Fixed.kt")
+	write(peer, "peer/Fixed.kt")
+	top, err := exec.Command("git", "-C", repo, "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := strings.TrimSpace(string(top))
+
+	mutate := func(t *testing.T, changeFound bool, path string) (int, string, int) {
+		t.Helper()
+		posts := 0
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet {
+				if !changeFound {
+					w.WriteHeader(http.StatusNotFound)
+					_, _ = w.Write([]byte(`{"error":"not found"}`))
+					return
+				}
+				body, _ := json.Marshal(map[string]any{"worktrees": map[string]string{peer: "abc123"}})
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(body)
+				return
+			}
+			posts++
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":1,"round":1,"path":"x","mutated":"m","test":"t"}`))
+		}))
+		defer srv.Close()
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "mutation", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-change", "kan-258", "-round", "1", "-path", path, "-mutated", "m", "-test", "t"},
+			strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String(), posts
+	}
+
+	t.Run("a path no worktree holds is refused", func(t *testing.T) {
+		code, stderr, posts := mutate(t, true, "src/Missing.kt")
+		if code != 2 || posts != 0 {
+			t.Fatalf("exit %d, posts %d; want 2, 0; stderr:\n%s", code, posts, stderr)
+		}
+		for _, want := range []string{"-path", root, peer} {
+			if !strings.Contains(stderr, want) {
+				t.Errorf("stderr does not name %q:\n%s", want, stderr)
+			}
+		}
+	})
+	for _, p := range []string{"local/Fixed.kt", "peer/Fixed.kt", filepath.Join(root, "local/Fixed.kt")} {
+		t.Run("admits "+p, func(t *testing.T) {
+			if code, stderr, posts := mutate(t, true, p); code != 0 || posts != 1 {
+				t.Fatalf("exit %d, posts %d; want 0, 1; stderr:\n%s", code, posts, stderr)
+			}
+		})
+	}
+	t.Run("admits a file a commit deleted", func(t *testing.T) {
+		write(repo, "gone/Deleted.kt")
+		for _, args := range [][]string{{"add", "gone/Deleted.kt"}, {"commit", "-q", "-m", "add"}, {"rm", "-q", "gone/Deleted.kt"}, {"commit", "-q", "-m", "delete"}} {
+			cmd := exec.Command("git", append([]string{"-C", repo, "-c", "user.name=t", "-c", "user.email=t@e"}, args...)...)
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("git %v: %v\n%s", args, err, out)
+			}
+		}
+		if code, stderr, posts := mutate(t, true, "gone/Deleted.kt"); code != 0 || posts != 1 {
+			t.Fatalf("exit %d, posts %d; want 0, 1; stderr:\n%s", code, posts, stderr)
+		}
+	})
+	t.Run("a change read answering 404 names no peer", func(t *testing.T) {
+		if code, stderr, _ := mutate(t, false, "peer/Fixed.kt"); code != 2 {
+			t.Fatalf("peer path: exit %d, want 2; stderr:\n%s", code, stderr)
+		}
+		if code, stderr, _ := mutate(t, false, "local/Fixed.kt"); code != 0 {
+			t.Fatalf("local path: exit %d, want 0; stderr:\n%s", code, stderr)
 		}
 	})
 }
