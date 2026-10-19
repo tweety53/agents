@@ -40,11 +40,11 @@ called by nine guard shims, with its harness cases; and two test-only changes in
 - Task 4: in a full clone no parity test skips; in a `--depth 1` clone the package passes with each history-bound test skipped by name.
 - Task 5: with the ignored-signal filter of `trapExitSignals` removed, both ignored-SIGHUP subtests fail on every run.
 
-- [ ] 1. Leave the settings read's stderr visible (KAN-899)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 1. Leave the settings read's stderr visible (KAN-899)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -c -F 'flow settings get 2>/dev/null' skills/flow/SKILL.md`: it prints `1`.
     <!-- measured: the grep above in this worktree @ 46db35e0 → 1 -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 46db35e0; check-verbatim-moves.sh 46db35e0 fails only on sentences verbatim-moves.txt lists
 diff --git a/skills/flow/SKILL.md b/skills/flow/SKILL.md
@@ -71,11 +71,11 @@ index fc79ec03..7c5c8071 100644
  **Execution mode, every dispatch's model and effort, and the review panel are decided per change,
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c -F 'flow settings get 2>/dev/null' skills/flow/SKILL.md` prints `0` and `grep -c -F 'KAN-899' skills/flow/SKILL.md` prints `1`;
+  - [x] **Step 3: Verify.** `grep -c -F 'flow settings get 2>/dev/null' skills/flow/SKILL.md` prints `0` and `grep -c -F 'KAN-899' skills/flow/SKILL.md` prints `1`;
     `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` and `scripts/check-verbatim-moves.sh` exit 0.
     <!-- measured: both greps after git apply in a scratch clone @ 46db35e0 → 0 and 1 -->
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/SKILL.md`
@@ -86,11 +86,11 @@ index fc79ec03..7c5c8071 100644
 
 **Decision:** settings-read-stderr-visible
 
-- [ ] 2. Run the lint list after every clean integrate rebase (KAN-900)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 2. Run the lint list after every clean integrate rebase (KAN-900)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -c -F -e 'rebase_lint' -e 'rebase-lint' scripts/integrate-change.sh skills/flow/sync-onto-base.md skills/flow/integrate.md`: each file prints `0` — no step runs any check after a clean sync rebase but the `GUARD-TEST:` harnesses.
     <!-- measured: the grep above in this worktree @ 46db35e0 → 0, 0, 0 -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 46db35e0 after Task 1's diff; bash scripts/test-integrate-change.sh → 178 passed, 0 failed; the rebase_lint case fails with the mutation Step 3 names; check-verbatim-moves.sh 46db35e0 fails only on sentences verbatim-moves.txt lists
 diff --git a/scripts/integrate-change.sh b/scripts/integrate-change.sh
@@ -255,13 +255,13 @@ index 90272447..ec2bf14b 100644
  this stage proceeds to the landing question and closes the mark `completed`.
 ````
 
-  - [ ] **Step 3: RED, then GREEN.** In `scripts/integrate-change.sh` delete the line `    rebase_lint "${WT[i]}"`:
+  - [x] **Step 3: RED, then GREEN.** In `scripts/integrate-change.sh` delete the line `    rebase_lint "${WT[i]}"`:
     `bash scripts/test-integrate-change.sh` fails on `rebase_lint: prepare stops with exit 1`, `rebase_lint: the stop is STOP: rebase-lint` and `rebase_lint: the list's own output is relayed`. Restore the line: it passes.
     <!-- measured: the deletion above in a scratch clone @ 46db35e0 after the diff → 175 passed, 3 failed, those three; restored → 178 passed, 0 failed -->
-  - [ ] **Step 4: Verify.** `bash scripts/test-integrate-change.sh` ends `178 passed, 0 failed`;
+  - [x] **Step 4: Verify.** `bash scripts/test-integrate-change.sh` ends `178 passed, 0 failed`;
     `scripts/check-guard-symlinks.sh`, `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 5: Commit** the five files with the subject below.
+  - [x] **Step 5: Commit** the five files with the subject below.
 
 **Build:** green
 **Files:** `scripts/integrate-change.sh`, `scripts/test-integrate-change.sh`, `skills/flow/sync-onto-base.md`, `skills/flow/integrate.md`, `skills/flow-contracts/finish-contract-run1.md`
@@ -273,12 +273,12 @@ index 90272447..ec2bf14b 100644
 
 **Decision:** rebase-lint-after-clean-sync
 
-- [ ] 3. Run a worktree's own guard on an absolute-path call from it (KAN-902)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 3. Run a worktree's own guard on an absolute-path call from it (KAN-902)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `git worktree add -q --detach <scratch>/wt HEAD && printf '\nA brand new rule sentence that nobody acknowledged.\n' >> <scratch>/wt/skills/flow/integrate.md && (cd <scratch>/wt && bash /Users/tweety53/Projects/agents-worktrees/self-review-backlog-flow-10/scripts/check-verbatim-moves.sh HEAD | tail -1); git worktree remove --force <scratch>/wt`:
     it prints `check-verbatim-moves: 0 violation(s), 0 to review, against HEAD` — the call judged this worktree, not `<scratch>/wt`, whose relative call reports 1.
     <!-- measured: the commands above, under the session scratchpad, in a scratch clone @ 46db35e0 → 0 violation(s); after the diff → 1 violation(s) -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 46db35e0 after Tasks 1-2's diffs; bash scripts/test-lib-flow-guard.sh passes; cases 15a and 16 fail with the mutations Step 3 names; Step 1's call reports 1 violation and check-references.sh's absolute call from a worktree holding a stale reference exits 1
 diff --git a/scripts/check-ask-silence.sh b/scripts/check-ask-silence.sh
@@ -482,14 +482,14 @@ index 39331f1d..b479dfdd 100755
  run "$FIX/scripts/check-x.sh"
 ````
 
-  - [ ] **Step 3: RED, then GREEN.** Apply each mutation in turn, restoring it after, and run `bash scripts/test-lib-flow-guard.sh`:
+  - [x] **Step 3: RED, then GREEN.** Apply each mutation in turn, restoring it after, and run `bash scripts/test-lib-flow-guard.sh`:
     `local script="$1" here top common` in `scripts/lib/flow-guard.sh` prefixed with `return 0; ` → it fails on `case 15a: called by absolute path from another worktree, the worktree's own shim answers`;
     the `flow_guard_cwd_checkout` line deleted from `scripts/check-verbatim-moves.sh` → it fails on `case 16: scripts/check-verbatim-moves.sh calls flow_guard_cwd_checkout before deriving its root`. Restored, it passes.
     <!-- measured: both mutations together in a scratch clone @ 46db35e0 after the diff → exactly those two FAIL lines; restored → PASS -->
-  - [ ] **Step 4: Verify.** `bash scripts/test-lib-flow-guard.sh` ends `✓ PASS`; Step 1's commands print `1 violation(s)`;
+  - [x] **Step 4: Verify.** `bash scripts/test-lib-flow-guard.sh` ends `✓ PASS`; Step 1's commands print `1 violation(s)`;
     `cd stats && go test ./internal/guard -run 'TestCheckReferences|TestCheckInstalledCitations|TestCheckGuardSymlinks|TestCheckDispatchParagraphs|TestCheckStageMarkCalls|TestCheckSelfReviewReport|TestCheckVerbatimMoves|TestCheckPlanProvenance'` passes;
     `scripts/check-guard-symlinks.sh`, `scripts/check-references.sh`, `scripts/check-plan-provenance.sh` and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 5: Commit** the eleven files with the subject below.
+  - [x] **Step 5: Commit** the eleven files with the subject below.
 
 **Build:** green
 **Files:** `scripts/lib/flow-guard.sh`, `scripts/test-lib-flow-guard.sh`, `scripts/check-ask-silence.sh`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-guard-symlinks.sh`, `scripts/check-installed-citations.sh`, `scripts/check-plan-provenance.sh`, `scripts/check-references.sh`, `scripts/check-self-review-report.sh`, `scripts/check-stage-mark-calls.sh`, `scripts/check-verbatim-moves.sh`
@@ -501,12 +501,12 @@ index 39331f1d..b479dfdd 100755
 
 **Decision:** guard-runs-cwd-worktree-copy
 
-- [ ] 4. Skip a parity test whose pinned commit a shallow clone lacks (KAN-905)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 4. Skip a parity test whose pinned commit a shallow clone lacks (KAN-905)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `git clone -q --depth 1 file:///Users/tweety53/Projects/agents-worktrees/self-review-backlog-flow-10 <scratch>/shallow && (cd <scratch>/shallow/stats && FLOW_GUARD_CACHE_DIR=<scratch>/cache go test ./internal/guard 2>&1 | grep -c '^--- FAIL'); rm -rf <scratch>/shallow <scratch>/cache`:
     it prints `14`.
     <!-- measured: the commands above, under the session scratchpad, @ 46db35e0 → 14; with the diff applied in a worktree of that shallow clone → ok, 0 FAIL -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to a scratch clone at 46db35e0 after Tasks 1-3's diffs; gofmt -l and go vet ./internal/guard clean; go test ./internal/guard passes in that full clone with no history skip, and in a --depth 1 clone with the history-bound tests skipped
 diff --git a/stats/internal/guard/aside_planning_artifacts_test.go b/stats/internal/guard/aside_planning_artifacts_test.go
@@ -712,11 +712,11 @@ index d292b79b..0346e122 100644
  	if i < 0 {
 ````
 
-  - [ ] **Step 3: RED, then GREEN.** Step 1's commands, run on a commit carrying this diff, print `0`; on its parent they print `14`.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` prints nothing and exits 0;
+  - [x] **Step 3: RED, then GREEN.** Step 1's commands, run on a commit carrying this diff, print `0`; on its parent they print `14`.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` prints nothing and exits 0;
     `cd stats && go test ./internal/guard -v -run '^(TestAsidePlanningArtifactsParity|TestBreakAndProve|TestThrowawayWorktreeCreate|TestProveReproducerExecBitCheck|TestProjectGetParity|TestCheckStageMarkCalls|TestCheckPanelFixSingleDispatch|TestCheckWorkspaceIsolation|TestCheckGuardSymlinks|TestCheckDispatchParagraphs|TestCheckFinishPreflight|TestThrowawayWorktreeRemoveFoldBack|TestProveReproducerBashParity|TestMutateAndVerify)$' 2>&1 | grep -c 'shallow clone'` prints `0`, and the same selector without `-v` passes.
     <!-- measured: go test ./internal/guard -v in a full scratch clone @ 46db35e0 after the diff → ok, 0 skip lines naming a shallow clone -->
-  - [ ] **Step 5: Commit** the twelve files with the subject below.
+  - [x] **Step 5: Commit** the twelve files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/helpers_test.go`, `stats/internal/guard/aside_planning_artifacts_test.go`, `stats/internal/guard/check_dispatch_paragraphs_test.go`, `stats/internal/guard/check_finish_preflight_test.go`, `stats/internal/guard/check_guard_symlinks_test.go`, `stats/internal/guard/check_panel_fix_single_dispatch_test.go`, `stats/internal/guard/check_stage_mark_calls_test.go`, `stats/internal/guard/check_workspace_isolation_test.go`, `stats/internal/guard/mutate_and_verify_test.go`, `stats/internal/guard/project_get_test.go`, `stats/internal/guard/prove_reproducer_test.go`, `stats/internal/guard/throwaway_worktree_test.go`
@@ -727,11 +727,11 @@ index d292b79b..0346e122 100644
 
 **Decision:** skip-parity-without-history
 
-- [ ] 5. Prove an ignored signal stays ignored without a timed look (KAN-907)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 5. Prove an ignored signal stays ignored without a timed look (KAN-907)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -c -F 'time.Sleep(500 * time.Millisecond)' stats/internal/guard/prove_reproducer_test.go stats/internal/guard/mutate_and_verify_test.go`: each file prints `1`.
     <!-- measured: the grep above in this worktree @ 46db35e0 → 1, 1 -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree @ 384f6a7c (Tasks 1-4 committed); gofmt -l and go vet ./internal/guard clean; go test ./internal/guard -run 'TestProveReproducerSignals|TestMutateAndVerify' -count=10 passes; both ignored-SIGHUP subtests fail 10 of 10 with the mutation Step 3 names
 diff --git a/stats/internal/guard/mutate_and_verify_test.go b/stats/internal/guard/mutate_and_verify_test.go
@@ -801,12 +801,12 @@ index 7f3babf6..2457dd5a 100644
  			} else if !ws.Signaled() || ws.Signal() != c.sig {
 ````
 
-  - [ ] **Step 3: RED, then GREEN.** In `trapExitSignals` (`stats/internal/guard/provereproducer.go`) replace `if !signal.Ignored(s) {` with `if true || !signal.Ignored(s) {`:
+  - [x] **Step 3: RED, then GREEN.** In `trapExitSignals` (`stats/internal/guard/provereproducer.go`) replace `if !signal.Ignored(s) {` with `if true || !signal.Ignored(s) {`:
     `cd stats && go test ./internal/guard -run 'TestProveReproducerSignals|TestMutateAndVerify' -count=5` fails on `TestProveReproducerSignals/ignored_SIGHUP` (`status exit status 129, want a finished run`) and `TestMutateAndVerify/ignored_SIGHUP_mid-run` (`status exit status 129`) on every run. Restore the line: it passes.
     <!-- measured: the replacement above in this worktree @ 384f6a7c after the diff, -count=10 → each subtest FAIL 10 of 10, both reporting exit status 129; restored → ok, 10 of 10. Without the diff's `ws.ExitStatus() != 1` term the prove-reproducer subtest passes under the mutation, 3 of 3 (the handled SIGHUP's re-raise lands on the restored ignore, and the run exits 129 after printing the post-fix leg line) -->
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` prints nothing and exits 0;
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .` prints nothing and exits 0;
     `cd stats && go test ./internal/guard -run 'TestProveReproducerSignals|TestMutateAndVerify'` passes; Step 1's grep prints `0` for each file.
-  - [ ] **Step 5: Commit** the two files with the subject below.
+  - [x] **Step 5: Commit** the two files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/prove_reproducer_test.go`, `stats/internal/guard/mutate_and_verify_test.go`

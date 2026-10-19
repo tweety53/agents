@@ -9,3 +9,5 @@ Between the two, the rebased tree runs the project's whole `## lint` list (`run-
 SETTINGS_JSON="$(flow settings get || true)"
 The read leaves the CLI's stderr visible: report it verbatim as the cause, and resolve `REVIEWERS` by the table's Unreachable row below, never as the empty list the failed read leaves (KAN-899).
 `STOP: rebase-lint` is the project's `## lint` list failing on the rebased tree, handled the same way.
+Between the two, the rebased tree runs the project's whole `## lint` list (`run-verify-list.sh <worktree> lint`, under the `KEY=value` lines `prepare-workspace.sh` prints for it): a textually clean rebase can still break the build, as one that dropped a Go import did (KAN-900), so a failure is `STOP: rebase-lint`, and so is a passing list that rewrote tracked files, leaving the worktree rebased.
+`STOP: rebase-lint` is the project's `## lint` list failing on, or rewriting tracked files of, the rebased tree, handled the same way.
