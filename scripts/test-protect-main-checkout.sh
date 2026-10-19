@@ -105,6 +105,14 @@
 #  101. `$GIT push origin HEAD` (expanded git command word)          -> deny
 #  102. Bash `cat > <link into main/sub>/../f.txt` from elsewhere    -> deny (kan-963: judged after symlinks resolve)
 #  103. Bash `rm <link into main>` / `mv <link into main> ..`       -> allow (they act on the link itself)
+#  110. `cat > <sibling>/r.md <<EOF`, body ``see `a` > b``, cwd = main -> allow (only a substitution runs)
+#  111. `cat > <sibling>/r.md <<EOF`, body ``see `rm <main>/x` ``      -> deny (the backtick span still runs)
+#  112. `echo `rm <main>/x`` from elsewhere                          -> deny (a backtick span is a command)
+#  113. `echo "$(rm <main>/x)"` from elsewhere                        -> deny (a quoted substitution still runs)
+#  114. `cat > <sibling>/r.md <<EOF` from elsewhere, body ``see `cp a <main>/y` `` -> deny (cp's walk stops at `)`)
+#  115. `echo $(cp a <main>/y)` from elsewhere                        -> deny
+#  116. `(cp a <main>/y)` from elsewhere                              -> deny
+#  117. `cat > <sibling>/r.md <<EOF`, body ``\` `rm <main>/x` \` ``   -> deny (an escaped backtick is a literal)
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$SCRIPT_DIR/../hooks/protect-main-checkout.py"
@@ -492,6 +500,30 @@ expect "102 a symlink into the checkout, then .., resolves before judging" deny 
 ln -s "$MAIN/sub" "$ROOT/elsewhere/lsub2"
 expect "103 rm and mv of a symlink into the checkout act on the link, outside it" allow \
   "$(run "$ROOT" Bash "{\"command\":$(q "rm $ROOT/elsewhere/lsub2 && mv $ROOT/elsewhere/lsub $ROOT/elsewhere/l3")}")"
+expect "110 an unquoted data heredoc's literal redirect beside a backtick span is data" allow \
+  "$(run "$MAIN" Bash "{\"command\":$(q "cat > $SIB/r.md <<EOF
+see \`a\` > b
+EOF")}")"
+expect "111 a backtick span in an unquoted data heredoc body is still scanned" deny \
+  "$(run "$MAIN" Bash "{\"command\":$(q "cat > $SIB/r.md <<EOF
+see \`rm $MAIN/x\` here
+EOF")}")"
+expect "112 a backtick span is scanned as a command" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "echo \`rm $MAIN/x\`")}")"
+expect "113 a command substitution inside a double-quoted word is scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "echo \"\$(rm $MAIN/x)\"")}")"
+expect "114 a backtick cp in an unquoted data heredoc body is scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $SIB/r.md <<EOF
+see \`cp a $MAIN/y\` here
+EOF")}")"
+expect "115 a cp inside an unquoted \$(...) is scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "echo \$(cp a $MAIN/y)")}")"
+expect "116 a cp inside a subshell is scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "(cp a $MAIN/y)")}")"
+expect "117 an escaped backtick does not pair with a real span" deny \
+  "$(run "$MAIN" Bash "{\"command\":$(q "cat > $SIB/r.md <<EOF
+\\\` \`rm $MAIN/x\` \\\`
+EOF")}")"
 
 # 104-107: a push of a change branch runs check-untasked-commits over its
 # unpushed commits (kan-941); a stub stands in for the guard.

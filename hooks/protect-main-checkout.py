@@ -226,9 +226,16 @@ def tokenize(command):
     try:
         lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
         lexer.whitespace_split = True
-        return list(lexer)
+        words = list(lexer)
     except ValueError:
         return command.split()
+    # A backtick span, and a `$(...)` inside a quoted word, still run: each one's command is
+    # scanned again as a command of its own, after the line's words.
+    spans = [sp for w in words for sp in SUBST_SPAN_RE.findall(w) if sp.startswith("$(")]
+    spans += [sp for sp in SUBST_SPAN_RE.findall(command.replace("\\`", "")) if sp.startswith("`")]
+    for span in spans:
+        words += [";", *tokenize(span[1:-1] if span.startswith("`") else span[2:-1]), ";"]
+    return words
 
 
 LITERAL_ABS = r"(/[^\s'\"$`\\;&|<>(){}*?\[\]~!#]+)"
@@ -289,6 +296,11 @@ def may_run_code(text):
     return False
 
 
+# A `$(...)` without a nested paren, or a backtick pair: the spans of an unquoted heredoc body
+# that bash runs.
+SUBST_SPAN_RE = re.compile(r"\$\([^()]*\)|`[^`]*`")
+
+
 def strip_data_heredocs(command):
     """command with the body of a `cat`/`tee` heredoc to a named file removed — that body is
     data for a writer whose target the opening line already names, so a report line such as
@@ -298,8 +310,9 @@ def strip_data_heredocs(command):
     body (written, then run), the target is a device or a process substitution (`/dev/stdout`,
     `>(sh)`), the rest of the command may run code (`may_run_code` — an enclosing `bash <(` or
     `eval "$(`, a later `sh "$D"/x.sh`), the opener is not a plain `cat`/`tee`
-    (`python3 - <<EOF`, `x=$(cat <<EOF`), or an unquoted-delimiter body runs `$(...)` or
-    backticks."""
+    (`python3 - <<EOF`, `x=$(cat <<EOF`). An unquoted-delimiter body that runs `$(...)` or
+    backticks keeps only those spans scanned, a backtick span as `$(...)` — bash runs them and
+    nothing else of the body — or the whole body when a span cannot be closed."""
     lines = command.split("\n")
     out = []
     k = 0
@@ -333,8 +346,15 @@ def strip_data_heredocs(command):
             continue
         if may_run_code("\n".join(lines[:k] + lines[end + 1 :])):
             continue
-        if m.group(3) and any(c in "\n".join(lines[k:end]) for c in ("$(", "`")):
-            continue
+        # An escaped backtick is a literal in an unquoted body; dropped, it cannot pair with a real one.
+        body = "\n".join(lines[k:end]).replace("\\`", "")
+        if m.group(3) and any(c in body for c in ("$(", "`")):
+            # Only the substitutions of an unquoted body run; its other text is data, so the
+            # spans alone are kept scanned. A span this cannot close keeps the whole body.
+            spans = SUBST_SPAN_RE.findall(body)
+            if body.count("$(") != sum(sp.startswith("$(") for sp in spans) or body.count("`") % 2:
+                continue
+            out.extend("$(" + sp[1:-1] + ")" if sp.startswith("`") else sp for sp in spans)
         k = end + 1
     return "\n".join(out)
 
@@ -660,7 +680,7 @@ def bash_hits(command, cwd, landings=None):
             if tok in ("cp", "mv", "rm"):
                 args = []
                 for t in tokens[i + 1 :]:
-                    if t in ("&&", "||", ";", "|"):
+                    if t in ("&&", "||", ";", "|", ")"):
                         break
                     if not t.startswith("-"):
                         args.append(t)
