@@ -253,3 +253,73 @@ func TestGlobalInstallRefusedFromLinkedWorktree(t *testing.T) {
 	g.runSetup(wt, g.newHome(), "global", "")
 	g.assertRCZero("global from the worktree into a sandboxed home succeeds", g.rc, g.log)
 }
+
+// setup.sh global writes an exec shim per flow script into ~/.local/bin, so the bare script
+// names the skills cite resolve on PATH (kan-998). A shim reaches the script's own lib/, a shim
+// of a deleted script is removed, and a user's own file there is never overwritten or removed.
+func TestGlobalInstallsScriptShims(t *testing.T) {
+	const marker = "# flow script shim — written by setup.sh global; do not edit"
+	g := newGroup(t)
+	fx := filepath.Join(g.dir, "fixture-repo-shims")
+	if err := makeFixtureRepo(fx, false); err != nil {
+		t.Fatal(err)
+	}
+	g.seedFile(filepath.Join(fx, "scripts/doomed.sh"), 0o755, "#!/bin/sh\necho doomed\n")
+	g.seedFile(filepath.Join(fx, "scripts/test-demo.sh"), 0o755, "#!/bin/sh\necho test\n")
+	g.seedFile(filepath.Join(fx, "scripts/sourced.sh"), 0o644, "sourced=1\n")
+	home := g.newHome()
+	bin := filepath.Join(home, ".local/bin")
+
+	g.runSetup(fx, home, "global", "")
+	g.assertRCZero("global succeeds", g.rc, g.log)
+	for _, name := range []string{"project-get.sh", "doomed.sh"} {
+		p := filepath.Join(bin, name)
+		g.assertExecutable(name+" shim is executable", p)
+		if isSymlink(p) {
+			g.fail(name+" shim is not a symlink", p+" is a symlink")
+		}
+		if b, err := os.ReadFile(p); err != nil || !strings.Contains(string(b), marker+"\n") {
+			g.fail(name+" shim carries the marker", p+": "+string(b))
+		}
+	}
+	g.assertAbsent("a test- script gets no shim", filepath.Join(bin, "test-demo.sh"))
+	g.assertAbsent("a non-executable script gets no shim", filepath.Join(bin, "sourced.sh"))
+
+	proj := filepath.Join(g.dir, "shim-proj")
+	g.seedFile(filepath.Join(proj, ".flow/project.md"), 0o644, "# p\n\n## default landing route\n\nmerge and push\n")
+	out, err := exec.Command(filepath.Join(bin, "project-get.sh"), proj, "default landing route").Output()
+	if err != nil || strings.TrimSpace(string(out)) != "merge and push" {
+		g.fail("the shim reaches the script's own lib/", string(out)+" "+errString(err))
+	}
+
+	if err := os.Remove(filepath.Join(fx, "scripts/doomed.sh")); err != nil {
+		t.Fatal(err)
+	}
+	g.seedFile(filepath.Join(bin, "mine.sh"), 0o755, "#!/bin/sh\necho mine\n")
+	g.runSetup(fx, home, "global", "")
+	g.assertRCZero("re-install succeeds", g.rc, g.log)
+	g.assertAbsent("a deleted script's shim is removed", filepath.Join(bin, "doomed.sh"))
+	if b, _ := os.ReadFile(filepath.Join(bin, "mine.sh")); string(b) != "#!/bin/sh\necho mine\n" {
+		g.fail("a user's own file is unchanged", string(b))
+	}
+
+	home = g.newHome()
+	bin = filepath.Join(home, ".local/bin")
+	own := "#!/bin/sh\necho users own doomed\n"
+	g.seedFile(filepath.Join(bin, "doomed.sh"), 0o755, own)
+	g.seedFile(filepath.Join(fx, "scripts/doomed.sh"), 0o755, "#!/bin/sh\necho doomed\n")
+	g.runSetup(fx, home, "global", "")
+	if g.rc != 1 {
+		g.fail("a user's file in a shim's place is SKIPPED (rc 1)", g.log)
+	}
+	if b, _ := os.ReadFile(filepath.Join(bin, "doomed.sh")); string(b) != own {
+		g.fail("the user's file is byte-identical", string(b))
+	}
+}
+
+func errString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}

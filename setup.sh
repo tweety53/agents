@@ -1135,6 +1135,37 @@ install_project_standards() {
   finish_banner "Project standards" "$skipped_before"
 }
 
+# install_script_shims <bin-dir>
+# Writes one exec shim per flow script into <bin-dir> (~/.local/bin), so the bare script names
+# the skills cite (`project-get.sh <root> <key>`) resolve on PATH (kan-998). ~/.local/bin because
+# it is already on PATH and already holds `flow`. A shim, not a symlink: the scripts load their
+# siblings through BASH_SOURCE (`$(dirname "${BASH_SOURCE[0]}")/lib/...`), which a symlink would
+# point at the bin dir; exec keeps $0/BASH_SOURCE at the real path. A shim carries the marker line
+# and only marked files are ever removed or rewritten — a user's own file of the same name is
+# SKIPPED with a warning, never touched. test-*.sh scripts get no shim.
+SHIM_MARKER='# flow script shim — written by setup.sh global; do not edit'
+install_script_shims() {
+  local bin="$1" f src name
+  # ponytail: the exec target is single-quoted, so a checkout path holding ' is refused
+  # rather than escaped; escape it if such a checkout ever matters.
+  [[ "$SCRIPT_DIR" != *"'"* ]] || die "SCRIPT_DIR contains a single quote ($SCRIPT_DIR) — cannot write script shims"
+  mkdir -p "$bin"
+  for f in "$bin"/*; do
+    [[ -f "$f" && ! -L "$f" ]] && grep -qxF "$SHIM_MARKER" "$f" && rm -f "$f"
+  done
+  for src in "$SCRIPT_DIR"/scripts/*.sh; do
+    name="$(basename "$src")"
+    [[ "$name" == test-* || ! -x "$src" ]] && continue
+    if [[ -e "$bin/$name" || -L "$bin/$name" ]]; then
+      warn "$bin/$name already exists and is not a flow shim — SKIPPED, no shim written"
+      SKIPPED=$((SKIPPED + 1))
+      continue
+    fi
+    printf "#!/bin/sh\n%s\nexec '%s' \"\$@\"\n" "$SHIM_MARKER" "$src" > "$bin/$name"
+    chmod 0755 "$bin/$name"
+  done
+}
+
 install_global() {
   local home_dir="${HOME:?HOME must be set}"
   local skipped_before=$SKIPPED
@@ -1176,6 +1207,7 @@ install_global() {
   install_rules_zcode "$home_dir/.zcode/rules"
   install_hooks "$home_dir/.claude"
   install_hooks_zcode "$home_dir/.zcode"
+  install_script_shims "$home_dir/.local/bin"
   install_zcode_env "$home_dir"
   install_managed_block "$home_dir/.claude/CLAUDE.md"
   # The ZCode block is rendered from the same rules as the Claude Code one, then has its
@@ -1191,6 +1223,7 @@ install_global() {
   echo "   Mods     → $home_dir/.claude/skills/ (Claude Code function-hooks plugins)"
   echo "   Commands → $home_dir/.claude/commands/ and $home_dir/.zcode/commands/"
   echo "   Agents   → $home_dir/.claude/agents/"
+  echo "   Scripts  → $home_dir/.local/bin/"
   echo "   Rules    → the managed block in $home_dir/.claude/CLAUDE.md and"
   echo "              $home_dir/.zcode/AGENTS.md"
   echo "              Full texts → $home_dir/.claude/rules/ and $home_dir/.zcode/rules/, which"

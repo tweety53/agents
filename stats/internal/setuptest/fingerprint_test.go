@@ -52,6 +52,17 @@ func realHomeFingerprint(home string) string {
 			b.WriteString(statLine(filepath.Join(home, d, f)))
 		}
 	}
+	// ~/.local/bin holds setup.sh's script shims: list it the way skills is listed, so a shim
+	// leaking into the real home fails the closing comparison.
+	bin := filepath.Join(home, ".local/bin")
+	if entries, err := os.ReadDir(bin); err != nil {
+		fmt.Fprintf(&b, "absent %s\n", bin)
+	} else {
+		fmt.Fprintf(&b, "dir %s\n", bin)
+		for _, e := range entries {
+			fmt.Fprintf(&b, "  %s\n", e.Name())
+		}
+	}
 	for _, f := range []string{".zshrc", ".bashrc"} {
 		b.WriteString(statLine(filepath.Join(home, f)))
 	}
