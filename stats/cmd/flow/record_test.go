@@ -687,7 +687,7 @@ func TestRecordWithNoSubcommandPrintsUsage(t *testing.T) {
 func TestRecordDispatchSendsAgentIDOnlyWhenGiven(t *testing.T) {
 	dispatchArgs := func(repo, addr string, extra ...string) []string {
 		args := []string{"record", "dispatch", "begin", "-effort", "default", "-addr", addr, "-timeout", "500ms", "-C", repo,
-			"-change", "kan-258", "-role", "reviewer", "-model", "sonnet", "-key", "panel-1-primary",
+			"-change", "kan-258", "-role", "reviewer", "-model", "sonnet", "-key", "panel-1-primary", "-slot", "primary",
 			"-session-token", "mf-record-agent-id"}
 		return append(args, extra...)
 	}
@@ -768,7 +768,7 @@ func dispatchBeginBody(t *testing.T, extra ...string) map[string]any {
 	defer srv.Close()
 
 	args := []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-		"-change", "kan-327", "-role", "reviewer", "-model", "sonnet", "-key", "panel-1-principles",
+		"-change", "kan-327", "-role", "reviewer", "-model", "sonnet", "-key", "panel-1-principles", "-slot", "principles",
 		"-session-token", "mf-record-diff-base"}
 
 	var stdout, stderr bytes.Buffer
@@ -5294,12 +5294,14 @@ func dispatchBeginKey(t *testing.T, role, key string) (int, string, bool) {
 		_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
 	}))
 	defer srv.Close()
+	argv := []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "kan-258", "-role", role, "-model", "opus", "-key", key,
+		"-session-token", "mf-record-key-shape"}
+	if role == "reviewer" && strings.HasPrefix(key, "panel-") {
+		argv = append(argv, "-slot", "primary")
+	}
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(),
-		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-change", "kan-258", "-role", role, "-model", "opus", "-key", key,
-			"-session-token", "mf-record-key-shape"},
-		strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), argv, strings.NewReader(""), &stdout, &stderr)
 	return code, stderr.String(), contacted
 }
 
@@ -5345,6 +5347,46 @@ func TestRecordDispatchBeginRefusesAnOffConventionImplementerKey(t *testing.T) {
 		"self-review-demo-fix-g1", "pipeline-fix-7-demo-fix"} {
 		if code, stderr, _ := dispatchBeginKey(t, "implementer", ok); code != 0 {
 			t.Errorf("-key %s: exit %d, want 0; stderr:\n%s", ok, code, stderr)
+		}
+	}
+}
+
+// TestRecordDispatchBeginRefusesAPanelReviewerWithoutSlot pins that a
+// review-panel reviewer row carries its slot (decision
+// panel-reviewer-slot-required), while a non-panel reviewer key and every
+// other role still record with none.
+func TestRecordDispatchBeginRefusesAPanelReviewerWithoutSlot(t *testing.T) {
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	contacted := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		contacted = true
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
+	}))
+	defer srv.Close()
+	begin := func(role, key string) (int, string) {
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-change", "kan-258", "-role", role, "-model", "opus", "-key", key,
+				"-session-token", "mf-record-slot-required"},
+			strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String()
+	}
+	code, stderr := begin("reviewer", "panel-1-primary")
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr)
+	}
+	if !strings.Contains(stderr, "-slot") {
+		t.Errorf("stderr does not name -slot:\n%s", stderr)
+	}
+	if contacted {
+		t.Error("a refused panel reviewer row was sent to the daemon")
+	}
+	for _, ok := range [][2]string{{"reviewer", "self-review-demo-review-1"}, {"implementer", "task-1-implementer"}} {
+		if code, stderr := begin(ok[0], ok[1]); code != 0 {
+			t.Errorf("-role %s -key %s: exit %d, want 0; stderr:\n%s", ok[0], ok[1], code, stderr)
 		}
 	}
 }

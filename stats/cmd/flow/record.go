@@ -1035,6 +1035,12 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		fmt.Fprintf(stderr, "flow: -key %q is not panel-<round>-<slot>: a reviewer's panel key carries its numeric round\n", *key)
 		return 2
 	}
+	// A panel reviewer row with no slot cannot be matched to the panel's
+	// slot coverage (decision panel-reviewer-slot-required).
+	if *role == "reviewer" && strings.HasPrefix(*key, "panel-") && *slot == "" {
+		fmt.Fprintf(stderr, "flow: -key %q is a review-panel reviewer key: pass -slot <slot|slot+slot+slot> (skills/flow/review-panel.md)\n", *key)
+		return 2
+	}
 	if *role == "implementer" && !implementerKey.MatchString(*key) && !strings.HasPrefix(*key, "self-review-") && !strings.HasPrefix(*key, "pipeline-fix-") {
 		fmt.Fprintf(stderr, "flow: -key %q is not task-<ids>-implementer[-fix-<k>][-retry]: ids are +-joined\n", *key)
 		return 2
