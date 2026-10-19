@@ -653,3 +653,44 @@ func TestCheckVisualVerifyDispatchedCommaJoinedDiffBase(t *testing.T) {
 		t.Fatalf("got exit %d stdout %q stderr %q, want exit 0 and the OK verdict", r.code, r.out, r.err)
 	}
 }
+
+// TestCheckVisualVerifyDispatchedIgnoresAChangeRecordMove pins the kan-970
+// self-review fix: a satellite whose only commit after the verified HEAD
+// archives its own change record (spectre/changes/<name>/link.md) is OK,
+// although the canonical `gymie-frontend/**` names every path of the
+// satellite.
+func TestCheckVisualVerifyDispatchedIgnoresAChangeRecordMove(t *testing.T) {
+	t.Parallel()
+	masters, err := vvdMasters()
+	if err != nil {
+		t.Fatal(err)
+	}
+	top, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	wt, canon, bin := top+"/gymie-frontend", top+"/gymie", top+"/bin"
+	gdcCopyTree(t, masters["plain-docs"].dir, wt)
+	writeFile(t, wt+"/spectre/changes/demo/link.md", "## Part of\n")
+	gitRun(t, wt, "add", "spectre/changes/demo/link.md")
+	gitRun(t, wt, "commit", "-q", "-m", "link")
+	verified := tcfGit(t, wt, "rev-parse", "HEAD")
+	if err := os.MkdirAll(wt+"/spectre/changes/archive", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, wt, "mv", "spectre/changes/demo", "spectre/changes/archive/demo")
+	gitRun(t, wt, "commit", "-q", "-m", "chore(spectre): archive demo")
+	writeFile(t, canon+"/.flow/project.md", strings.Replace(vvdSection, "`app/src/**`", "`gymie-frontend/**`", 1))
+	writeExec(t, bin+"/flow", vvdFlowRows(`[{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"`+verified+`"}]`, "[]"))
+	env := Env{Dir: top, Getenv: func(k string) string {
+		if k == "PATH" {
+			return bin + ":" + os.Getenv("PATH")
+		}
+		return os.Getenv(k)
+	}}
+	var out, errb bytes.Buffer
+	code := Registry["check-visual-verify-dispatched"]([]string{wt, "demo", masters["plain-docs"].base, canon}, env, &out, &errb)
+	if code != 0 || out.String() != vvdOK {
+		t.Fatalf("exit %d stdout %q stderr %q, want 0 %q", code, out.String(), errb.String(), vvdOK)
+	}
+}

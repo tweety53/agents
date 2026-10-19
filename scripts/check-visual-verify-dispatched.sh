@@ -63,6 +63,10 @@
 #      then made under the canonical worktree, whose project the run's rows
 #      were recorded in. A canonical worktree that is not a directory, or a
 #      repository git cannot name, is exit 2.
+#   Paths under the worktree's `<spec root>/changes/` — the change's own
+#   records, an archive move of its `link.md` included — are dropped from
+#   the diff first, for this question and the freshness check below alike
+#   (kan-970 self-review).
 #
 # THE DISPATCH CHECK READS THE STORE, NOT A RENDERED FILE — the same
 # posture check-panel-fix-single-dispatch.sh and check-panel-reproducers.sh

@@ -140,7 +140,23 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		}
 		return exit
 	}
-	paths := strings.Split(changed, "\n")
+	// A CHANGE'S OWN RECORDS ARE NOT UI WORK (kan-970 self-review): a
+	// satellite's every path matches a canonical `<repo>/**`, so the archive
+	// commit moving its `<spec root>/changes/<name>/link.md` read as a UI
+	// change after the verified HEAD and forced a re-verify of nothing.
+	// Paths under `<spec root>/changes/` are dropped before both the trigger
+	// question and the freshness intersection, as unfinishedwork.go's range
+	// walk drops them.
+	records := specRootLeaf(worktree, io.Discard) + "/changes/"
+	var paths []string
+	for _, p := range strings.Split(changed, "\n") {
+		if !strings.HasPrefix(p, records) {
+			paths = append(paths, p)
+		}
+	}
+	if len(paths) == 0 {
+		paths = []string{""}
+	}
 	triggerExit := ask(paths)
 	if triggerExit < 0 {
 		return 2
