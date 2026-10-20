@@ -1439,6 +1439,28 @@ func (s *Store) StampLoopDispatchAgent(ctx context.Context, key, agentID string)
 	return tag.RowsAffected() > 0, nil
 }
 
+// StampSessionDispatchAgent fills an empty agent_id on the latest row
+// recorded under key in session sessionID, reporting whether it stamped.
+// It is the harvester's keyed stamp: a launch whose Agent-tool description
+// opens with its row's key names that row in the launching session, so no
+// time pairing is needed. A row already carrying an agent is never touched.
+func (s *Store) StampSessionDispatchAgent(ctx context.Context, sessionID, key, agentID string) (bool, error) {
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE dispatches
+		SET agent_id = $3
+		WHERE id = (
+			SELECT d.id FROM dispatches d
+			WHERE d.session_id = $1 AND d.dispatch_key = $2 AND COALESCE(d.agent_id, '') = ''
+			ORDER BY d.started_at DESC, d.id DESC
+			LIMIT 1
+		)
+	`, sessionID, key, agentID)
+	if err != nil {
+		return false, fmt.Errorf("store: stamp session dispatch agent for key %q: %w", key, err)
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
 // RunRecord returns one change's whole derived record: its dispatches in
 // seq order and its findings in the order the numbers their refs spell,
 // which is the order every rendering of the record reads them in.

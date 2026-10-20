@@ -506,6 +506,12 @@ type Watcher struct {
 	// silence, never a wrong pairing.
 	pendingBegins   map[string][]dispatchBeginEvent
 	pendingLaunches map[string][]AgentLaunch
+
+	// keyStampedKeys carries, per transcript path, the keys a keyed stamp
+	// (stampKeyedLaunches) used, so a begin naming one -- in this batch or a
+	// later one -- is dropped before time pairing. Cleared wholesale past
+	// maxOpenAgentCalls, as openAgentCalls is.
+	keyStampedKeys map[string]map[string]bool
 }
 
 // NewWatcher builds a Watcher over sources (each root scanned recursively
@@ -537,6 +543,7 @@ func NewWatcher(sources []Source, sink HarvestSink, attributor *Attributor, deps
 		dispatchMetaCycles:  make(map[string]int),
 		gaveUpDispatchMeta:  make(map[string]bool),
 		pendingBegins:       make(map[string][]dispatchBeginEvent),
+		keyStampedKeys:      make(map[string]map[string]bool),
 		pendingLaunches:     make(map[string][]AgentLaunch),
 		pendingDenials:      make(map[string][]time.Time),
 		openAgentCalls:      make(map[string]map[string]bool),
@@ -1629,6 +1636,10 @@ func shellAssignment(piece string) (name, value string, ok bool) {
 // begin commands that name their rows, and stamps each pair's agent id
 // onto that row via deps' DispatchAgentStamper.
 //
+// A LAUNCH IS FIRST STAMPED BY ITS DESCRIPTION'S KEY (stampKeyedLaunches):
+// the row its Agent-tool description's first word names in the launching
+// session. Only a launch naming no row pairs by time, below.
+//
 // PAIRING IS BY TIME, NOT BY LINE POSITION, and the reason is the two
 // orderings the dispatch protocol itself produces. A single dispatch
 // records its begin immediately before the launch (implement.md), so the
@@ -1674,6 +1685,7 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 	begins = append(w.pendingBegins[path], begins...)
 	launches = append(w.pendingLaunches[path], launches...)
 	denials = append(w.pendingDenials[path], denials...)
+	launches, begins = w.stampKeyedLaunches(ctx, path, launches, begins)
 
 	// Every (begin, launch) pair within tolerance is considered; a pair
 	// is taken only while both sides are unclaimed, in the sorted order
@@ -1787,6 +1799,52 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 	w.pendingBegins[path] = appendPending(nil, survivors(begins, takenBegin))
 	w.pendingLaunches[path] = appendPending(nil, unclaimed(launches, claimed))
 	w.pendingDenials[path] = appendPending(w.pendingDenials[path], denials)
+}
+
+// stampKeyedLaunches stamps each launch whose description's first word
+// (AgentLaunch.Key) names an empty row in its session, and returns the
+// launches it did not stamp and the begins no keyed stamp used. A begin
+// whose key a keyed stamp used -- in this batch or an earlier one
+// (keyStampedKeys) -- is dropped, so it can never claim another launch by
+// time. The failure posture is stampLoopLaunches': warn, and the launch
+// stays for time pairing.
+func (w *Watcher) stampKeyedLaunches(ctx context.Context, path string, launches []AgentLaunch, begins []dispatchBeginEvent) ([]AgentLaunch, []dispatchBeginEvent) {
+	rest := launches[:0:0]
+	for _, launch := range launches {
+		if launch.Key == "" || launch.SessionID == "" {
+			rest = append(rest, launch)
+			continue
+		}
+		stamped, err := w.deps.StampSessionDispatchAgent(ctx, launch.SessionID, launch.Key, launch.AgentID)
+		if err != nil {
+			w.warn("harvest: stamp session dispatch agent failed, the launch pairs by time",
+				"path", path, "key", launch.Key, "agent_id", launch.AgentID, "error", err)
+			rest = append(rest, launch)
+			continue
+		}
+		if !stamped {
+			rest = append(rest, launch)
+			continue
+		}
+		w.creditStampedAgentFile(ctx, path, launch.AgentID)
+		used := w.keyStampedKeys[path]
+		if used == nil || len(used) >= maxOpenAgentCalls {
+			used = map[string]bool{}
+			w.keyStampedKeys[path] = used
+		}
+		used[launch.Key] = true
+	}
+	used := w.keyStampedKeys[path]
+	if len(used) == 0 {
+		return rest, begins
+	}
+	kept := begins[:0:0]
+	for _, b := range begins {
+		if !used[b.Key] {
+			kept = append(kept, b)
+		}
+	}
+	return rest, kept
 }
 
 // stampLoopLaunches stamps each fix-loop launch (AgentLaunch.LoopKey) onto

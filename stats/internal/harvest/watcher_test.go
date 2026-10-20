@@ -3312,6 +3312,130 @@ func TestWatcherStampsLaunchAgainstPrecedingBegin(t *testing.T) {
 	}
 }
 
+// keyStampDeps answers StampSessionDispatchAgent true for the keys it
+// holds and records every keyed and time-paired stamp.
+type keyStampDeps struct {
+	harvest.NoDeps
+
+	rows  map[string]bool
+	keyed []stampCall
+	timed []stampCall
+}
+
+func (d *keyStampDeps) StampSessionDispatchAgent(ctx context.Context, sessionID, key, agentID string) (bool, error) {
+	if !d.rows[key] {
+		return false, nil
+	}
+	d.keyed = append(d.keyed, stampCall{sessionID, key, agentID})
+	return true, nil
+}
+
+func (d *keyStampDeps) StampDispatchAgent(ctx context.Context, sessionToken, key, agentID string) (bool, error) {
+	d.timed = append(d.timed, stampCall{sessionToken, key, agentID})
+	return true, nil
+}
+
+// TestWatcherStampsALaunchByItsDescriptionKey pins kan-1000 round 9: the
+// begins went out in slot order, the launches verifier first, and time
+// pairing rotated every row by one. A launch whose description's first word
+// names its row stamps that row, and the begins it used claim nothing later.
+func TestWatcherStampsALaunchByItsDescriptionKey(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	keys := []string{"panel-9-primary+principles", "panel-9-test-sanity+call-efficiency", "visual-verify-fixrun1-final-gymie"}
+	var cmd []string
+	for _, k := range keys {
+		cmd = append(cmd, "flow record dispatch begin -change kan-1000 -role reviewer -key "+k+" -session-token mf-k1000f1")
+	}
+	command, err := json.Marshal(strings.Join(cmd, "\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	begin := `{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":` + string(command) + `}}]}}`
+	launch := func(at, desc, agent string) string {
+		return `{"type":"user","timestamp":"2026-01-01T` + at + `Z","sessionId":"s","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"` + agent + `","description":"` + desc + `"}}`
+	}
+	if err := os.WriteFile(path, stampFixtureLines(begin,
+		launch("00:00:20", keys[2], "av"),
+		launch("00:00:23", keys[0], "ap"),
+		launch("00:00:26", keys[1], "at"),
+	), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	deps := &keyStampDeps{rows: map[string]bool{keys[0]: true, keys[1]: true, keys[2]: true}}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	want := []stampCall{{"s", keys[2], "av"}, {"s", keys[0], "ap"}, {"s", keys[1], "at"}}
+	if !reflect.DeepEqual(deps.keyed, want) {
+		t.Errorf("keyed stamps = %+v, want %+v", deps.keyed, want)
+	}
+	if len(deps.timed) != 0 {
+		t.Fatalf("time pairing stamped: %+v", deps.timed)
+	}
+
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(launch("00:00:41", "Task 1/1 (x)", "ai") + "\n"); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("second RunOnce: %v", err)
+	}
+	if len(deps.timed) != 0 {
+		t.Errorf("a begin a keyed stamp used claimed a later launch: %+v", deps.timed)
+	}
+}
+
+// TestWatcherDropsALateBeginAKeyedStampUsed pins the per-path memory of
+// keyed stamps: a launch stamped by its description key in one batch, whose
+// begin is only read in a later batch, leaves that begin unable to claim a
+// following unkeyed launch by time.
+func TestWatcherDropsALateBeginAKeyedStampUsed(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	key := "panel-9-primary+principles"
+	launch := func(at, desc, agent string) string {
+		return `{"type":"user","timestamp":"2026-01-01T` + at + `Z","sessionId":"s","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"` + agent + `","description":"` + desc + `"}}`
+	}
+	if err := os.WriteFile(path, stampFixtureLines(launch("00:00:20", key, "ap")), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	deps := &keyStampDeps{rows: map[string]bool{key: true}}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	if want := []stampCall{{"s", key, "ap"}}; !reflect.DeepEqual(deps.keyed, want) {
+		t.Fatalf("keyed stamps = %+v, want %+v", deps.keyed, want)
+	}
+
+	command, err := json.Marshal("flow record dispatch begin -change kan-1000 -role reviewer -key " + key + " -session-token mf-k1000f1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	begin := `{"type":"assistant","timestamp":"2026-01-01T00:00:30Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":` + string(command) + `}}]}}`
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(begin + "\n" + launch("00:00:41", "Task 1/1 (x)", "ai") + "\n"); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("second RunOnce: %v", err)
+	}
+	if len(deps.timed) != 0 {
+		t.Errorf("a late begin a keyed stamp used claimed a later launch: %+v", deps.timed)
+	}
+}
+
 // TestWatcherStampsLoopLaunchByItsKey pins KAN-967: a fix-loop launch,
 // whose begin the PreToolUse hook recorded and no transcript command
 // carries, stamps the row its prompt's Key line names -- and never pairs

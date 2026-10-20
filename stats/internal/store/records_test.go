@@ -3277,6 +3277,56 @@ func TestStampLoopDispatchAgentFillsLatestRowByKey(t *testing.T) {
 	}
 }
 
+// TestStampSessionDispatchAgentFillsTheSessionsLatestEmptyRow pins the
+// keyed stamp: a launch whose description names its row stamps the latest
+// empty row under that key in the launching session only -- never another
+// session's row, never a row already carrying an agent.
+func TestStampSessionDispatchAgentFillsTheSessionsLatestEmptyRow(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+
+	projectKey := fmt.Sprintf("proj-stamp-session-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	const key = "panel-9-primary+principles"
+	seed := func(token, sessionID, agentID string, at time.Time) {
+		in := baseDispatch("reviewer", "opus")
+		in.SessionToken, in.Key, in.SessionID, in.AgentID, in.StartedAt = token, key, sessionID, agentID, at
+		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", in); err != nil {
+			t.Fatalf("RecordDispatch: %v", err)
+		}
+	}
+	base := time.Date(2026, 8, 22, 9, 0, 0, 0, time.UTC)
+	seed("mf-old", "s1", "aold", base)
+	seed("mf-s1", "s1", "", base.Add(time.Minute))
+	seed("mf-s2", "s2", "", base.Add(2*time.Minute))
+
+	stamped, err := st.StampSessionDispatchAgent(ctx, "s1", key, "a1")
+	if err != nil || !stamped {
+		t.Fatalf("StampSessionDispatchAgent = (%v, %v), want (true, nil)", stamped, err)
+	}
+	for token, want := range map[string]string{"mf-old": "aold", "mf-s1": "a1", "mf-s2": ""} {
+		var agentID *string
+		if err := pool.QueryRow(ctx,
+			"SELECT agent_id FROM dispatches WHERE session_token = $1 AND dispatch_key = $2", token, key,
+		).Scan(&agentID); err != nil {
+			t.Fatalf("read agent_id back: %v", err)
+		}
+		got := ""
+		if agentID != nil {
+			got = *agentID
+		}
+		if got != want {
+			t.Errorf("%s: agent_id = %q, want %q", token, got, want)
+		}
+	}
+	if stamped, err := st.StampSessionDispatchAgent(ctx, "s1", key, "a2"); err != nil || stamped {
+		t.Errorf("a second stamp = (%v, %v), want (false, nil)", stamped, err)
+	}
+	if stamped, err := st.StampSessionDispatchAgent(ctx, "s3", key, "a3"); err != nil || stamped {
+		t.Errorf("an unknown session's stamp = (%v, %v), want (false, nil)", stamped, err)
+	}
+}
+
 // TestStampDispatchAgentNeverOverwrites pins the recorded-intent rule: a
 // begin that carried an explicit -agent-id (or an end that supplied one)
 // stated what the harness reported, by hand, and the automatic stamp must

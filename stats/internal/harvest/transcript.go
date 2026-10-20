@@ -157,9 +157,10 @@ type rawLine struct {
 // resolvedModel, and whatever else a harness adds) is never named here,
 // the same tolerance rawLine's own doc comment commits to.
 type rawToolUseResult struct {
-	AgentID string `json:"agentId"`
-	Status  string `json:"status"`
-	Prompt  string `json:"prompt"`
+	AgentID     string `json:"agentId"`
+	Status      string `json:"status"`
+	Prompt      string `json:"prompt"`
+	Description string `json:"description"`
 }
 
 // UnmarshalJSON leaves r zero for any value that is not an object. A
@@ -451,6 +452,12 @@ type AgentLaunch struct {
 	// transcript carries, so no begin event exists to pair with: the key
 	// names the row instead (KAN-967).
 	LoopKey string
+	// Key is the first whitespace-delimited word of the launch's Agent-tool
+	// description, "" when it has none. **Every dispatch's Agent-tool
+	// description** (skills/flow/implement.md) opens every non-task row's
+	// description with its dispatch key, so the word names the row the
+	// launch belongs to.
+	Key string
 }
 
 // loopKeyPattern reads a fix-loop dispatch key off a launched prompt --
@@ -567,11 +574,20 @@ func ParseAgentLaunches(complete []byte) []AgentLaunch {
 					Timestamp: ts,
 					Line:      lineIndex,
 					LoopKey:   loopKey(raw.ToolUseResult.Prompt),
+					Key:       firstWord(raw.ToolUseResult.Description),
 				})
 			}
 		}
 	}
 	return out
+}
+
+// firstWord returns s's first whitespace-delimited word, or "".
+func firstWord(s string) string {
+	if f := strings.Fields(s); len(f) > 0 {
+		return f[0]
+	}
+	return ""
 }
 
 // Batch is one transcript read's results: the token records and Bash

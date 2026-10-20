@@ -24,6 +24,10 @@ type DispatchAgentStamper interface {
 	// row's begin is never a transcript command, so no session token
 	// reaches the watcher with it.
 	StampLoopDispatchAgent(ctx context.Context, key, agentID string) (stamped bool, err error)
+	// StampSessionDispatchAgent fills an empty agent_id on the latest row
+	// recorded under key in session sessionID -- the row a launch's
+	// description names (AgentLaunch.Key).
+	StampSessionDispatchAgent(ctx context.Context, sessionID, key, agentID string) (stamped bool, err error)
 }
 
 // Deps is everything a Watcher needs beyond its root, its sink and its
@@ -122,5 +126,10 @@ func (NoDeps) StampDispatchAgent(ctx context.Context, sessionToken, key, agentID
 
 // StampLoopDispatchAgent stamps nothing and reports false.
 func (NoDeps) StampLoopDispatchAgent(ctx context.Context, key, agentID string) (stamped bool, err error) {
+	return false, nil
+}
+
+// StampSessionDispatchAgent stamps nothing and reports false.
+func (NoDeps) StampSessionDispatchAgent(ctx context.Context, sessionID, key, agentID string) (stamped bool, err error) {
 	return false, nil
 }

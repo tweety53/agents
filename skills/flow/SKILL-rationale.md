@@ -750,7 +750,7 @@ flow tasks count -C <worktree> <name>
 
 The invariant is the working tree, not the build tool, and it holds however file-disjoint two tasks look on paper: UI fixes routinely touch shared files — icon sets, shared components, menu wiring — neither task named.
 
-`begin` is recorded immediately before the dispatch — or, when several launches go out together in one message, in the next Bash call, one call for all (step 3 of **The next implementer overlaps the guard**, below) — carrying no `-agent-id`: the daemon captures the agent's identifier — Claude Code writes it into the parent transcript's own launch tool result, the harvester pairs that result with the begin nearest it in time, and the row's empty `agent_id` is filled from it, which is why `begin` never waits for the launch's id.
+`begin` is recorded immediately before the dispatch — or, when several launches go out together in one message, in the next Bash call, one call for all (step 3 of **The next implementer overlaps the guard**, below) — carrying no `-agent-id`: the daemon captures the agent's identifier — Claude Code writes it into the parent transcript's own launch tool result, the harvester stamps that result onto the row its `description`'s first word names, else pairs it with the begin nearest it in time, and the row's empty `agent_id` is filled from it, which is why `begin` never waits for the launch's id.
 
 A generic warning ("be careful with git") is not a carry: kan-527's chunk 1 worked under one and its git incident happened anyway; chunk 2's dispatch carried the specific three and finished with ancestry confirmed clean.
 
