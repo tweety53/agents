@@ -4181,3 +4181,120 @@ func TestWatcherRetiresBeginsOfHookDeniedLaunches(t *testing.T) {
 		}
 	})
 }
+
+// inlineBackfillDeps serves an inline window once its row exists and
+// records every RestampInlineDispatch call.
+type inlineBackfillDeps struct {
+	harvest.NoDeps
+
+	windows  []harvest.DispatchWindow
+	restamps map[int64]json.RawMessage
+	onLookup func() // runs on InlineDispatchID, after the watcher's read
+}
+
+func (d *inlineBackfillDeps) DispatchWindowsForSession(ctx context.Context, sessionID string) ([]harvest.DispatchWindow, error) {
+	return d.windows, nil
+}
+
+func (d *inlineBackfillDeps) InlineDispatchID(ctx context.Context, sessionToken, key string) (int64, bool, error) {
+	if sessionToken == "mf-x" && key == "task-1-implementer-fix-1" && len(d.windows) > 0 {
+		if d.onLookup != nil {
+			d.onLookup()
+		}
+		return 7, true, nil
+	}
+	return 0, false, nil
+}
+
+func (d *inlineBackfillDeps) RestampInlineDispatch(ctx context.Context, dispatchID int64, patch json.RawMessage) error {
+	d.restamps[dispatchID] = patch
+	return nil
+}
+
+func mainThreadLine(at string, output int) string {
+	return fmt.Sprintf(`{"type":"assistant","timestamp":"2026-01-01T%sZ","sessionId":"s","message":{"id":"m-%s","model":"m","usage":{"input_tokens":1,"output_tokens":%d}}}`, at, at, output)
+}
+
+func inlineWindow() harvest.DispatchWindow {
+	end := time.Date(2026, 1, 1, 0, 2, 0, 0, time.UTC)
+	return harvest.DispatchWindow{DispatchID: 7, AgentID: harvest.InlineAgentID, StartedAt: time.Date(2026, 1, 1, 0, 0, 30, 0, time.UTC), EndedAt: &end}
+}
+
+// mainOutput reads tokens.main.output off a metrics patch.
+func mainOutput(t *testing.T, patch json.RawMessage) int64 {
+	t.Helper()
+	var p struct {
+		Tokens struct {
+			Main struct {
+				Output int64 `json:"output"`
+			} `json:"main"`
+		} `json:"tokens"`
+	}
+	if err := json.Unmarshal(patch, &p); err != nil {
+		t.Fatalf("decode patch %s: %v", patch, err)
+	}
+	return p.Tokens.Main.Output
+}
+
+// TestWatcherMeasuresABackfilledInlineRow pins kan-1000's rows 24, 42, 60
+// and 73: an inline row back-filled after its window's main-thread records
+// were committed is measured from the parent transcript up to the committed
+// offset, since no later batch carries those records again -- and never
+// past it, where a record written after the watcher's read sits.
+func TestWatcherMeasuresABackfilledInlineRow(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	if err := os.WriteFile(path, stampFixtureLines(mainThreadLine("00:01:00", 7)), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	deps := &inlineBackfillDeps{restamps: map[int64]json.RawMessage{}}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+
+	command, err := json.Marshal(`flow record dispatch backfill -change c -task 1 -role implementer -model opus -agent-id inline -key task-1-implementer-fix-1 -session-token mf-x -started-at "$(date -u +%FT%TZ)" -ended-at "$(date -u +%FT%TZ)" -outcome completed`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(`{"type":"assistant","timestamp":"2026-01-01T00:05:00Z","sessionId":"s","message":{"model":"m","content":[{"type":"tool_use","name":"Bash","input":{"command":` + string(command) + `}}]}}` + "\n"); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	deps.windows = []harvest.DispatchWindow{inlineWindow()}
+	// A window record written after the watcher read this batch lies past
+	// the committed offset, so the back-fill must not count it.
+	deps.onLookup = func() { appendLine(t, path, mainThreadLine("00:01:30", 100)) }
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("second RunOnce: %v", err)
+	}
+
+	if len(deps.restamps) != 1 || deps.restamps[7] == nil {
+		t.Fatalf("restamps = %v, want exactly one for row 7", deps.restamps)
+	}
+	if got := mainOutput(t, deps.restamps[7]); got != 7 {
+		t.Errorf("tokens.main.output = %d, want 7", got)
+	}
+}
+
+// TestInlineDispatchPatchCreditsOnlyTheRowsWindow pins InlineDispatchPatch:
+// only the main-thread records inside the row's window count, and a row no
+// window carries is ErrNoInlineShare.
+func TestInlineDispatchPatchCreditsOnlyTheRowsWindow(t *testing.T) {
+	raw := stampFixtureLines(mainThreadLine("00:00:10", 1), mainThreadLine("00:01:00", 2), mainThreadLine("00:03:00", 4))
+	deps := &inlineBackfillDeps{windows: []harvest.DispatchWindow{inlineWindow()}}
+	patch, err := harvest.InlineDispatchPatch(context.Background(), deps, raw, 7)
+	if err != nil {
+		t.Fatalf("InlineDispatchPatch: %v", err)
+	}
+	if got := mainOutput(t, patch); got != 2 {
+		t.Errorf("tokens.main.output = %d, want 2", got)
+	}
+	if _, err := harvest.InlineDispatchPatch(context.Background(), deps, raw, 8); !errors.Is(err, harvest.ErrNoInlineShare) {
+		t.Errorf("InlineDispatchPatch for an unwindowed id = %v, want ErrNoInlineShare", err)
+	}
+}

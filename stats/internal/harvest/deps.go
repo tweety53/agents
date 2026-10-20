@@ -48,6 +48,15 @@ type Deps interface {
 	DispatchWindowSource
 	AgentWindowSource
 	DispatchAgentStamper
+	InlineDispatchRestamper
+}
+
+// InlineDispatchRestamper finds a back-filled inline row and replaces its
+// figures with the share its parent transcript's records give it
+// (Watcher.measureInlineBackfills).
+type InlineDispatchRestamper interface {
+	InlineDispatchID(ctx context.Context, sessionToken, key string) (id int64, found bool, err error)
+	RestampInlineDispatch(ctx context.Context, dispatchID int64, patch json.RawMessage) error
 }
 
 // AgentWindowSource answers which dispatch rows carry an agentId -- the
@@ -132,4 +141,14 @@ func (NoDeps) StampLoopDispatchAgent(ctx context.Context, key, agentID string) (
 // StampSessionDispatchAgent stamps nothing and reports false.
 func (NoDeps) StampSessionDispatchAgent(ctx context.Context, sessionID, key, agentID string) (stamped bool, err error) {
 	return false, nil
+}
+
+// InlineDispatchID never finds a row.
+func (NoDeps) InlineDispatchID(ctx context.Context, sessionToken, key string) (id int64, found bool, err error) {
+	return 0, false, nil
+}
+
+// RestampInlineDispatch restamps nothing and never fails.
+func (NoDeps) RestampInlineDispatch(ctx context.Context, dispatchID int64, patch json.RawMessage) error {
+	return nil
 }

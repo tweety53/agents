@@ -517,26 +517,23 @@ func formatBuild(settings []debug.BuildSetting) string {
 }
 
 // restampDispatch implements `flowd restamp-dispatch <dispatch-id>
-// <agent-transcript>`: it names the row's agent from the transcript's file
-// name and replaces the row's figures with that whole transcript's usage
-// (store.Store.RestampDispatch). It repairs a row the harvester stamped
-// with the wrong agent, and talks to the database directly, so it needs
-// no running daemon.
+// <agent-transcript | parent-transcript>`. Given an agent transcript, it
+// names the row's agent from the file name and replaces the row's figures
+// with that whole transcript's usage (store.Store.RestampDispatch) -- the
+// repair for a row the harvester stamped with the wrong agent. Given a
+// parent transcript, it replaces an inline row's figures with the share
+// the dispatch attributor gives it over the whole transcript
+// (harvest.InlineDispatchPatch, store.Store.RestampInlineDispatch) -- the
+// repair for a back-filled inline row; a row that is not inline is
+// refused. It talks to the database directly, so it needs no running
+// daemon.
 func restampDispatch(args []string) error {
 	if len(args) != 2 {
-		return fmt.Errorf("usage: flowd restamp-dispatch <dispatch-id> <agent-transcript.jsonl>")
+		return fmt.Errorf("usage: flowd restamp-dispatch <dispatch-id> <agent-transcript.jsonl | parent-transcript.jsonl>")
 	}
 	id, err := strconv.ParseInt(args[0], 10, 64)
 	if err != nil {
 		return fmt.Errorf("dispatch id %q: %w", args[0], err)
-	}
-	agentID, ok := harvest.AgentIDFromTranscriptPath(args[1])
-	if !ok {
-		return fmt.Errorf("%s is not an agent transcript", args[1])
-	}
-	patch, err := harvest.AgentFileDispatchPatch(args[1])
-	if err != nil {
-		return err
 	}
 	cfg, err := config.FromEnv()
 	if err != nil {
@@ -548,5 +545,21 @@ func restampDispatch(args []string) error {
 		return err
 	}
 	defer st.Close()
+	agentID, ok := harvest.AgentIDFromTranscriptPath(args[1])
+	if !ok {
+		raw, err := os.ReadFile(args[1])
+		if err != nil {
+			return err
+		}
+		patch, err := harvest.InlineDispatchPatch(ctx, st, raw, id)
+		if err != nil {
+			return err
+		}
+		return st.RestampInlineDispatch(ctx, id, patch)
+	}
+	patch, err := harvest.AgentFileDispatchPatch(args[1])
+	if err != nil {
+		return err
+	}
 	return st.RestampDispatch(ctx, id, agentID, patch)
 }

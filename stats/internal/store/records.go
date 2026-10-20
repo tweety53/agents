@@ -1182,6 +1182,49 @@ func (s *Store) RestampDispatch(ctx context.Context, dispatchID int64, agentID s
 	return nil
 }
 
+// InlineDispatchID returns the latest inline row recorded under
+// (sessionToken, key) -- the row a `flow record dispatch backfill -agent-id
+// inline` opened. No such row is (0, false, nil).
+func (s *Store) InlineDispatchID(ctx context.Context, sessionToken, key string) (int64, bool, error) {
+	var id int64
+	err := s.pool.QueryRow(ctx, `
+		SELECT id FROM dispatches
+		WHERE session_token = $1 AND dispatch_key = $2 AND agent_id = 'inline'
+		ORDER BY started_at DESC, id DESC
+		LIMIT 1
+	`, sessionToken, key).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, fmt.Errorf("store: inline dispatch for key %q: %w", key, err)
+	}
+	return id, true, nil
+}
+
+// RestampInlineDispatch replaces an inline row's harvested "tokens" and
+// "signals" with patch, keeping every other key -- RestampDispatch's
+// replacement for a row whose agent is the parent itself, so agent_id is
+// never changed. A row that is not inline is ErrDispatchNotFound and is
+// left untouched.
+func (s *Store) RestampInlineDispatch(ctx context.Context, dispatchID int64, patch json.RawMessage) error {
+	if patch == nil {
+		return ErrNilMetricsPatch
+	}
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE dispatches
+		SET metrics = (metrics - 'tokens' - 'signals') || $2::jsonb
+		WHERE id = $1 AND agent_id = 'inline'
+	`, dispatchID, string(patch))
+	if err != nil {
+		return fmt.Errorf("store: restamp inline dispatch %d: %w", dispatchID, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("%w: %d", ErrDispatchNotFound, dispatchID)
+	}
+	return nil
+}
+
 // MarkDispatchesUnattributed stamps every dispatch recorded under token
 // with the reason its session's cost could not be attributed --
 // RecordSessionTokenGiveUp's dispatch-grain counterpart

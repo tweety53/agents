@@ -4441,3 +4441,67 @@ func TestRestampDispatchReplacesAgentAndFigures(t *testing.T) {
 		t.Errorf("RestampDispatch on an unknown id = %v, want ErrDispatchNotFound", err)
 	}
 }
+
+// TestInlineDispatchIDAndRestampInlineDispatch pins the back-filled inline
+// row's repair seam: the lookup finds the latest inline row under a token
+// and key, and the restamp replaces an inline row's figures only.
+func TestInlineDispatchIDAndRestampInlineDispatch(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-inline-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	record := func(key, agentID string, at time.Time) int64 {
+		in := baseDispatch("implementer", "opus")
+		in.SessionToken, in.Key, in.AgentID, in.StartedAt = "mf-x", key, agentID, at
+		got, err := st.RecordDispatch(ctx, projectKey, "kan-1", in)
+		if err != nil {
+			t.Fatalf("RecordDispatch: %v", err)
+		}
+		return got.ID
+	}
+	base := time.Date(2026, 8, 22, 9, 0, 0, 0, time.UTC)
+	inline := record("task-1-implementer-fix-1", "inline", base)
+	agent := record("task-2-implementer", "a1", base)
+
+	id, found, err := st.InlineDispatchID(ctx, "mf-x", "task-1-implementer-fix-1")
+	if err != nil || !found || id != inline {
+		t.Errorf("InlineDispatchID = (%d, %v, %v), want (%d, true, nil)", id, found, err, inline)
+	}
+	if _, found, err := st.InlineDispatchID(ctx, "mf-x", "task-2-implementer"); err != nil || found {
+		t.Errorf("InlineDispatchID on an agent row = (%v, %v), want (false, nil)", found, err)
+	}
+
+	if err := st.MergeDispatchMetrics(ctx, inline, json.RawMessage(`{"tokens":{"main":{"output":99}},"signals":{"main":{"x":1}},"reported":true}`)); err != nil {
+		t.Fatalf("MergeDispatchMetrics: %v", err)
+	}
+	if err := st.RestampInlineDispatch(ctx, inline, json.RawMessage(`{"tokens":{"main":{"output":7}}}`)); err != nil {
+		t.Fatalf("RestampInlineDispatch: %v", err)
+	}
+	if err := st.MergeDispatchMetrics(ctx, agent, json.RawMessage(`{"tokens":{"sidechain":{"output":5}}}`)); err != nil {
+		t.Fatalf("MergeDispatchMetrics: %v", err)
+	}
+	if err := st.RestampInlineDispatch(ctx, agent, json.RawMessage(`{}`)); !errors.Is(err, store.ErrDispatchNotFound) {
+		t.Errorf("RestampInlineDispatch on an agent row = %v, want ErrDispatchNotFound", err)
+	}
+	if err := st.RestampInlineDispatch(ctx, inline, nil); !errors.Is(err, store.ErrNilMetricsPatch) {
+		t.Errorf("RestampInlineDispatch with a nil patch = %v, want ErrNilMetricsPatch", err)
+	}
+
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	want := map[int64]string{
+		inline: `{"tokens":{"main":{"output":7}},"reported":true}`,
+		agent:  `{"tokens":{"sidechain":{"output":5}}}`,
+	}
+	for _, d := range rec.Dispatches {
+		if d.AgentID != map[int64]string{inline: "inline", agent: "a1"}[d.ID] {
+			t.Errorf("dispatch %d agent = %q", d.ID, d.AgentID)
+		}
+		if !jsonEqual(t, d.Metrics, json.RawMessage(want[d.ID])) {
+			t.Errorf("dispatch %d metrics = %s, want %s", d.ID, d.Metrics, want[d.ID])
+		}
+	}
+}

@@ -733,6 +733,7 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 			// re-read from the same offset next cycle, so its launches are
 			// processed exactly once too.
 			w.stampDispatchAgents(ctx, path, commands, launches, denials)
+			w.measureInlineBackfills(ctx, path, commands, newOffset)
 			w.rememberOpenAgentCalls(path, batch.OpenCalls)
 
 			// Once this batch has actually committed, decide whether this
@@ -1074,6 +1075,70 @@ func AgentFileDispatchPatch(path string) (json.RawMessage, error) {
 	return json.Marshal(MetricsPatch{Tokens: dd.Tokens, Signals: &SignalsDelta{Sidechain: dd.Signals}})
 }
 
+// ErrNoInlineShare is InlineDispatchPatch's answer for a row the parent
+// transcript's records credit nothing to.
+var ErrNoInlineShare = errors.New("harvest: no parent-transcript record falls in the inline row's window")
+
+// InlineDispatchPatch runs the dispatch attributor over complete, a parent
+// transcript's bytes, and returns the metrics patch for dispatchID's share,
+// built as attributeDispatches builds one. It is the input to
+// store.Store.RestampInlineDispatch: a back-filled inline row whose window's
+// records were committed before the row existed, which no later batch
+// re-attributes. A row the records credit nothing to is ErrNoInlineShare.
+func InlineDispatchPatch(ctx context.Context, windows DispatchWindowSource, complete []byte, dispatchID int64) (json.RawMessage, error) {
+	records := append(ParseAssistantRecords(complete), ParseSignalRecords(complete)...)
+	deltas, err := NewDispatchAttributor(windows).Attribute(ctx, records)
+	if err != nil {
+		return nil, err
+	}
+	dd, ok := deltas[dispatchID]
+	if !ok {
+		return nil, fmt.Errorf("%w: dispatch %d", ErrNoInlineShare, dispatchID)
+	}
+	mp := MetricsPatch{Tokens: dd.Tokens, Signals: &SignalsDelta{Sidechain: dd.Signals}}
+	if dd.ApportionedRecords > 0 {
+		mp.Apportioned = &ApportionedDelta{Records: dd.ApportionedRecords}
+	}
+	return json.Marshal(mp)
+}
+
+// measureInlineBackfills measures every inline row a committed batch's
+// `flow record dispatch backfill -agent-id inline` commands recorded: the
+// row's window lies behind the committed offset, so attributeDispatches
+// credited its records before the row existed. The row's figures are
+// replaced with its share of path's bytes up to committed -- never added
+// to, so a re-read cannot double them, and never past committed, which the
+// next batch credits the ordinary way. Every failure, ErrNoInlineShare
+// included, is warned and stepped over; the row stays as it was.
+func (w *Watcher) measureInlineBackfills(ctx context.Context, path string, commands []CommandRecord, committed int64) {
+	var raw []byte
+	for _, c := range commands {
+		for _, ev := range inlineBackfillsFromCommand(c.Command) {
+			id, found, err := w.deps.InlineDispatchID(ctx, ev.SessionToken, ev.Key)
+			if err != nil || !found {
+				if err != nil {
+					w.warn("harvest: inline dispatch lookup failed, the back-filled row stays unmeasured", "path", path, "key", ev.Key, "error", err)
+				}
+				continue
+			}
+			if raw == nil {
+				if raw, err = os.ReadFile(path); err != nil || int64(len(raw)) < committed {
+					w.warn("harvest: read parent transcript failed, the back-filled row stays unmeasured", "path", path, "key", ev.Key, "error", err)
+					return
+				}
+				raw = raw[:committed]
+			}
+			patch, err := InlineDispatchPatch(ctx, w.deps, raw, id)
+			if err == nil {
+				err = w.deps.RestampInlineDispatch(ctx, id, patch)
+			}
+			if err != nil {
+				w.warn("harvest: measure back-filled inline row failed, it stays as it was", "path", path, "dispatch_id", id, "error", err)
+			}
+		}
+	}
+}
+
 // dispatchBeginEvent is the pairing-relevant slice of a
 // `flow record dispatch begin` command found in a transcript: the row the
 // launch's agent id will be stamped onto is named by (sessionToken, key),
@@ -1155,6 +1220,44 @@ var beginCommandShape = []string{
 // a begin without them, so a fragment missing one is a mention or a
 // mistype, never a row opener.
 func dispatchBeginsFromCommand(command string) []dispatchBeginEvent {
+	return judgeInvocations(command, dispatchBeginFromInvocation)
+}
+
+// inlineBackfillsFromCommand judges one Bash command's text as zero or more
+// `flow record dispatch backfill -agent-id inline` invocations, split the
+// way dispatchBeginsFromCommand splits begins, each read by
+// inlineBackfillFromInvocation.
+func inlineBackfillsFromCommand(command string) []dispatchBeginEvent {
+	return judgeInvocations(command, inlineBackfillFromInvocation)
+}
+
+// inlineBackfillFromInvocation reads one invocation as an inline backfill:
+// it must contain `flow record dispatch backfill`, its -agent-id must read
+// inline, and its -key and -session-token must resolve to literals holding
+// no `$` or backquote.
+func inlineBackfillFromInvocation(invocation string, vars map[string]string) (dispatchBeginEvent, bool) {
+	if !strings.Contains(invocation, "flow record dispatch backfill") {
+		return dispatchBeginEvent{}, false
+	}
+	if id, ok := commandFlagValue(invocation, "-agent-id"); !ok || id != InlineAgentID {
+		return dispatchBeginEvent{}, false
+	}
+	token, ok := resolvedFlagValue(invocation, "-session-token", vars)
+	if !ok || strings.ContainsAny(token, "$`") {
+		return dispatchBeginEvent{}, false
+	}
+	key, ok := resolvedFlagValue(invocation, "-key", vars)
+	if !ok || strings.ContainsAny(key, "$`") {
+		return dispatchBeginEvent{}, false
+	}
+	return dispatchBeginEvent{SessionToken: token, Key: key}, true
+}
+
+// judgeInvocations is the split loop dispatchBeginsFromCommand's doc
+// comment describes, shared by both judges: it folds continuations, expands
+// for loops, splits on newlines, `&&` and `;`, records literal assignments,
+// and hands every other piece to judge.
+func judgeInvocations(command string, judge func(string, map[string]string) (dispatchBeginEvent, bool)) []dispatchBeginEvent {
 	joined := strings.ReplaceAll(command, "\\\n", " ")
 	var out []dispatchBeginEvent
 	vars := map[string]string{}
@@ -1171,7 +1274,7 @@ func dispatchBeginsFromCommand(command string) []dispatchBeginEvent {
 						vars[name] = value
 						continue
 					}
-					ev, ok := dispatchBeginFromInvocation(piece, vars)
+					ev, ok := judge(piece, vars)
 					if ok {
 						out = append(out, ev)
 					}
