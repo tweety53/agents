@@ -70,6 +70,15 @@ One round runs these steps in order:
    a test that drives the real composable or component, never a hand-copied constant, and asserts
    the value the verifier measured against the frame — so a later change that moves it again fails
    a test instead of waiting for the next visual verification (KAN-790).
+   **The implementer measures before it hands back.** When the round's defects include a mockup
+   departure, its dispatch names the absolute path of `skills/flow/visual-verify-verifier.md`, the
+   capture spec with its `<spec>.mockups` sidecar, the resolved `mockups` root and `mockup frame`
+   value, and the project's `capture` command, and tells it: on every view its fix touched,
+   recapture against the stack rebuilt from its fix, as step 4's confirming re-run rebuilds it, and
+   run step 10's measurements on each — `compose-mockup-frames.sh` and the band, seam and matrix
+   reads of `measure-visual-properties.sh` — fixing until they come back clean or each leftover is
+   named with its cause, and report every view's measured numbers (KAN-1000: rounds 2–5 each found
+   a new 1–3px offset the previous fix had judged by eye, 45–70 minutes a round).
    **A task fixing a test that passes alone and fails only in the full suite closes after two
    more full runs.** Such load flakes surface one per full-suite round, so after the task's commit
    and before `close-task.sh` the parent runs the worktree's whole `## test` list twice more, and
