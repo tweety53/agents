@@ -58,12 +58,12 @@ in this worktree.
 - A report carrying no count lines, or the parent's `no verbatim report captured` placeholder,
   must never fail the guard (Task 3).
 
-- [ ] 1. Stamp a launch onto the row its description names before pairing by time, and restamp kan-1000's 22 rows
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Write
+- [x] 1. Stamp a launch onto the row its description names before pairing by time, and restamp kan-1000's 22 rows
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Write
     `TestWatcherStampsALaunchByItsDescriptionKey` (Step 2) and run it against the untouched
     harvester: it fails, the three launches stamped by time onto the rotated rows (kan-1000 round
     9's shape). Keep the test.
-  - [ ] **Step 2: Write the failing tests.**
+  - [x] **Step 2: Write the failing tests.**
     - `stats/internal/harvest/watcher_test.go`, `TestWatcherStampsALaunchByItsDescriptionKey`:
       one transcript, session `"s"`, holding one Bash line at `00:00:00Z` whose command begins
       three rows in this order — keys `panel-9-primary+principles`,
@@ -86,12 +86,12 @@ in this worktree.
       an agent. `StampSessionDispatchAgent(ctx, "s1", key, "a1")` returns `true` and fills only
       the empty `s1` row; a second call returns `false`; a call for session `s3` returns `false`.
       Seed rows the way `TestStampLoopDispatchAgentFillsLatestRowByKey` does, with a session id.
-  - [ ] **Step 3: Run them to see them fail.** `cd stats && go test ./internal/harvest/
+  - [x] **Step 3: Run them to see them fail.** `cd stats && go test ./internal/harvest/
     ./internal/store/ -run
     'TestWatcherStampsALaunchByItsDescriptionKey|TestStampSessionDispatchAgentFillsTheSessionsLatestEmptyRow'
     -count=1` — the store test fails to compile (no method), the watcher test fails on time
     stamps.
-  - [ ] **Step 4: Implement.**
+  - [x] **Step 4: Implement.**
     - `stats/internal/harvest/transcript.go`: `rawToolUseResult` gains
       ``Description string `json:"description"` ``; `AgentLaunch` gains `Key string` — the first
       `strings.Fields` word of the description, `""` when it has none — set in
@@ -127,12 +127,12 @@ stamping each launch onto the row its Agent-tool `description`'s first word name
       immediately before the dispatch ``, replace
       `the harvester pairs that result with the begin nearest it in time,` with
       ``the harvester stamps that result onto the row its `description`'s first word names, else pairs it with the begin nearest it in time,``.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -w . && gofmt -l . && make -s web-dist && go vet
+  - [x] **Step 5: Verify.** `cd stats && gofmt -w . && gofmt -l . && make -s web-dist && go vet
     ./...` is clean; `go test ./internal/harvest/ ./internal/store/ -run
     'TestWatcherStampsALaunchByItsDescriptionKey|TestStampSessionDispatchAgentFillsTheSessionsLatestEmptyRow|TestWatcherStamps|TestWatcherCarries|TestLateStamp|TestStampLoopDispatchAgent'
     -count=1` passes; from `<wt>`, `scripts/check-verbatim-moves.sh` exits 0 and
     `scripts/check-markdown-integrity.py` exits 0. Commit.
-  - [ ] **Step 6: Repair the store.** Build the binary once and restamp each row onto its true
+  - [x] **Step 6: Repair the store.** Build the binary once and restamp each row onto its true
     agent, each pair `<dispatch id>:<agent id>`:
 
 ```bash verified:every agent file below exists under <agents>, and each pair's agent meta description opens with that row's dispatch_key (store rows read 2026-10-21)
@@ -165,11 +165,11 @@ done
 
 **Decision:** launch-stamp-by-description-key
 
-- [ ] 2. Measure a back-filled inline row from the parent transcript, and repair kan-1000's four
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Write
+- [x] 2. Measure a back-filled inline row from the parent transcript, and repair kan-1000's four
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Write
     `TestWatcherMeasuresABackfilledInlineRow` (Step 2) and run it against the untouched watcher:
     no `RestampInlineDispatch` call is made — the row stays unmeasured. Keep the test.
-  - [ ] **Step 2: Write the failing tests.**
+  - [x] **Step 2: Write the failing tests.**
     - `stats/internal/harvest/watcher_test.go`, `TestWatcherMeasuresABackfilledInlineRow`: a
       transcript, session `"s"`, whose first `RunOnce` reads one main-thread assistant record at
       `00:01:00Z` (output 7) while the fake window source returns no windows; then a Bash line at
@@ -190,11 +190,11 @@ done
       `RestampInlineDispatch` replaces an inline row's `tokens` and `signals`, keeps its other
       metrics keys, and returns `store.ErrDispatchNotFound` for a non-inline row, leaving it
       untouched.
-  - [ ] **Step 3: Run them to see them fail.** `cd stats && go test ./internal/harvest/
+  - [x] **Step 3: Run them to see them fail.** `cd stats && go test ./internal/harvest/
     ./internal/store/ -run
     'TestWatcherMeasuresABackfilledInlineRow|TestInlineDispatchPatchCreditsOnlyTheRowsWindow|TestInlineDispatchIDAndRestampInlineDispatch'
     -count=1` fails.
-  - [ ] **Step 4: Implement.**
+  - [x] **Step 4: Implement.**
     - `stats/internal/harvest/deps.go`: interface `InlineDispatchRestamper` —
       `InlineDispatchID(ctx context.Context, sessionToken, key string) (id int64, found bool, err
       error)` and `RestampInlineDispatch(ctx context.Context, dispatchID int64, patch
@@ -228,11 +228,11 @@ done
       `st.RestampInlineDispatch(ctx, id, patch)`. The usage line becomes
       `usage: flowd restamp-dispatch <dispatch-id> <agent-transcript.jsonl | parent-transcript.jsonl>`
       and the doc comment names both modes.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -w . && gofmt -l . && make -s web-dist && go vet
+  - [x] **Step 5: Verify.** `cd stats && gofmt -w . && gofmt -l . && make -s web-dist && go vet
     ./...` is clean; `go test ./internal/harvest/ ./internal/store/ ./cmd/flowd/ -run
     'TestWatcherMeasuresABackfilledInlineRow|TestInlineDispatchPatchCreditsOnlyTheRowsWindow|TestInlineDispatchIDAndRestampInlineDispatch|TestWatcherStamps|TestWatcherCarries|Wiring'
     -count=1` passes. Commit.
-  - [ ] **Step 6: Repair the store.** Rebuild the binary from this commit and measure rows 24, 42,
+  - [x] **Step 6: Repair the store.** Rebuild the binary from this commit and measure rows 24, 42,
     60 and 73 from the parent transcript:
 
 ```bash unverified:confirm each command prints no error; the four ids are the inline rows with no tokens in the 2026-10-21 store read
@@ -258,13 +258,13 @@ done
 
 **Decision:** inline-backfill-recompute
 
-- [ ] 3. Fail the panel close when a slot's report counts more findings than the store holds, and record kan-1000's F10
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 3. Fail the panel close when a slot's report counts more findings than the store holds, and record kan-1000's F10
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `scripts/check-panel-findings-closed.sh
     /Users/tweety53/Projects/gymie-worktrees/kan-1000-fe-group-sessions-through-the-same-doors
     kan-1000-fe-group-sessions-through-the-same-doors` from `<wt>`: it prints `FINDINGS-CLOSED`,
     exit 0, while `panel-report-11-primary.md` there raises an Important the store lacks.
-  - [ ] **Step 2: Write the failing test.**
+  - [x] **Step 2: Write the failing test.**
     `stats/internal/guard/check_panel_findings_closed_test.go`,
     `TestCheckPanelFindingsClosedReportCounts`, table-driven over a worktree whose
     `.superpowers/sdd/` holds report files, findings from `cfcJSON`, dispatches from
@@ -278,9 +278,9 @@ done
       timeout` → exit 0.
     - `panel-report-3-test-sanity.md` with `Critical: 1` / `Important: 0` and one round-3
       Critical `withdrawn duplicate of F2` under `test-sanity` → exit 0.
-  - [ ] **Step 3: Run it to see it fail.** `cd stats && go test ./internal/guard/ -run
+  - [x] **Step 3: Run it to see it fail.** `cd stats && go test ./internal/guard/ -run
     'TestCheckPanelFindingsClosedReportCounts' -count=1` fails on the first case.
-  - [ ] **Step 4: Implement.**
+  - [x] **Step 4: Implement.**
     - `stats/internal/guard/panelfindingsclosed.go`: after the fixed-without-rerun class, glob
       `<worktree>/.superpowers/sdd/panel-report-*.md`; a name matching
       `^panel-report-([0-9]+)-(.+)\.md$` gives round and id. Read the file's first
@@ -309,12 +309,12 @@ done
 none. It fires as well when a slot's report counts more Critical and Important findings on its
 `Critical: <n>` and `Important: <n>` lines than the store holds for that round and slot. Either way, return to the
 ```
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -w . && gofmt -l . && make -s web-dist && go vet
+  - [x] **Step 5: Verify.** `cd stats && gofmt -w . && gofmt -l . && make -s web-dist && go vet
     ./...` is clean; `go test ./internal/guard/ -run
     'TestCheckPanelFindingsClosed|RenderSlot|DispatchParagraph' -count=1` passes; from `<wt>`,
     `scripts/check-verbatim-moves.sh`, `scripts/check-dispatch-paragraphs.sh` and
     `scripts/check-markdown-integrity.py` exit 0. Commit.
-  - [ ] **Step 6: Repair the record.** Record round 11's Important as F10 and close it:
+  - [x] **Step 6: Repair the record.** Record round 11's Important as F10 and close it:
 
 ```bash unverified:confirm F10 is still the next free ref (flow record findings lists F1-F9 on 2026-10-21)
 N=kan-1000-fe-group-sessions-through-the-same-doors
@@ -340,11 +340,11 @@ flow record status -C /Users/tweety53/Projects/gymie -change $N -ref F10 -status
 **Decision:** panel-report-count-lines
 **Decision:** f10-recorded-fixed
 
-- [ ] 4. Pin each PNG's mtime before zipping the full-app suite
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In a scratch directory
+- [x] 4. Pin each PNG's mtime before zipping the full-app suite
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In a scratch directory
     outside the worktree, zip one file with `zip -X -j` twice, `touch` between: `cmp` reports the
     two zips differ.
-  - [ ] **Step 2: Edit.** In `skills/flow/visual-verify-verifier.md` step 8, replace the block's
+  - [x] **Step 2: Edit.** In `skills/flow/visual-verify-verifier.md` step 8, replace the block's
     resolver-into-zip line with:
 
 ```bash verified:spiked at plan time — two zips over the same files with mtimes pinned compare identical, unpinned they differ
@@ -362,7 +362,7 @@ flow record status -C /Users/tweety53/Projects/gymie -change $N -ref F10 -status
    resolves it. Every PNG's mtime is pinned before zipping because the zip stores it: a rebuild over
    unchanged images is then byte-identical and commits nothing. A resolver exit 1 or 2, or a non-zero `zip`, blocks.
 ````
-  - [ ] **Step 3: Verify.** From `<wt>`, `scripts/check-verbatim-moves.sh` and
+  - [x] **Step 3: Verify.** From `<wt>`, `scripts/check-verbatim-moves.sh` and
     `scripts/check-markdown-integrity.py` exit 0; run the three lines over two scratch PNGs
     twice, `touch`ing them between runs: the zips compare identical. Commit.
 
@@ -375,21 +375,21 @@ flow record status -C /Users/tweety53/Projects/gymie -change $N -ref F10 -status
 
 **Decision:** zip-pin-mtime
 
-- [ ] 5. Refuse a visual-verify verifier begin with no diff base
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Write the test (Step 2) and
+- [x] 5. Refuse a visual-verify verifier begin with no diff base
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Write the test (Step 2) and
     run it on the untouched CLI: the begin exits 0 and contacts the daemon.
-  - [ ] **Step 2: Write the failing test.** `stats/cmd/flow/record_test.go`,
+  - [x] **Step 2: Write the failing test.** `stats/cmd/flow/record_test.go`,
     `TestRecordDispatchBeginRefusesAVisualVerifyVerifierWithoutDiffBase`, on the
     `TestRecordDispatchBeginRefusesAPanelReviewerWithoutSlot` pattern: `-role verifier -key
     visual-verify-gymie` with no `-diff-base` → exit 2, stderr names `-diff-base`, the daemon not
     contacted; the same with `-diff-base 0123456789abcdef0123456789abcdef01234567` → exit 0;
     `-role verifier -key verify-gymie` with no `-diff-base` → exit 0.
-  - [ ] **Step 3: Implement.** In `runRecordDispatchBegin` (`stats/cmd/flow/record.go`), beside
+  - [x] **Step 3: Implement.** In `runRecordDispatchBegin` (`stats/cmd/flow/record.go`), beside
     the panel-slot refusal: `if *role == "verifier" && strings.HasPrefix(*key, "visual-verify")
     && *diffBase == ""` print
     `flow: -key %q is a visual-verify verifier row: pass -diff-base <the HEAD it verifies> (skills/flow/visual-verify.md)`
     and return `2`.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && make -s web-dist && go vet
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && make -s web-dist && go vet
     ./...` is clean; `go test ./cmd/flow/ -run 'TestRecordDispatchBegin|TestRecordDispatchBackfill'
     -count=1` passes. Commit.
 
