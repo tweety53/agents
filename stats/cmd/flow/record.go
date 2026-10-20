@@ -1042,6 +1042,12 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		fmt.Fprintf(stderr, "flow: -key %q is a review-panel reviewer key: pass -slot <slot|slot+slot+slot> (skills/flow/review-panel.md)\n", *key)
 		return 2
 	}
+	// A visual-verify verifier row with no diff base cannot say which HEAD
+	// its screenshots verified (skills/flow/visual-verify.md).
+	if *role == "verifier" && strings.HasPrefix(*key, "visual-verify") && *diffBase == "" {
+		fmt.Fprintf(stderr, "flow: -key %q is a visual-verify verifier row: pass -diff-base <the HEAD it verifies> (skills/flow/visual-verify.md)\n", *key)
+		return 2
+	}
 	if *role == "implementer" && !implementerKey.MatchString(*key) && !strings.HasPrefix(*key, "self-review-") && !strings.HasPrefix(*key, "pipeline-fix-") {
 		fmt.Fprintf(stderr, "flow: -key %q is not task-<ids>-implementer[-fix-<k>][-retry]: ids are +-joined\n", *key)
 		return 2

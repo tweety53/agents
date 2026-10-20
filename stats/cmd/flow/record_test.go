@@ -5394,6 +5394,45 @@ func TestRecordDispatchBeginRefusesAPanelReviewerWithoutSlot(t *testing.T) {
 	}
 }
 
+// TestRecordDispatchBeginRefusesAVisualVerifyVerifierWithoutDiffBase pins
+// that a visual-verify verifier row carries the HEAD it verifies, while a
+// plain verify verifier still records with none.
+func TestRecordDispatchBeginRefusesAVisualVerifyVerifierWithoutDiffBase(t *testing.T) {
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	contacted := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		contacted = true
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
+	}))
+	defer srv.Close()
+	begin := func(key string, extra ...string) (int, string) {
+		var stdout, stderr bytes.Buffer
+		args := append([]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "verifier", "-model", "opus", "-key", key,
+			"-session-token", "mf-record-vv-diff-base"}, extra...)
+		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String()
+	}
+	code, stderr := begin("visual-verify-gymie")
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr)
+	}
+	if !strings.Contains(stderr, "-diff-base") {
+		t.Errorf("stderr does not name -diff-base:\n%s", stderr)
+	}
+	if contacted {
+		t.Error("a refused visual-verify verifier row was sent to the daemon")
+	}
+	if code, stderr := begin("visual-verify-gymie", "-diff-base", "0123456789abcdef0123456789abcdef01234567"); code != 0 {
+		t.Errorf("with -diff-base: exit %d, want 0; stderr:\n%s", code, stderr)
+	}
+	if code, stderr := begin("verify-gymie"); code != 0 {
+		t.Errorf("-key verify-gymie: exit %d, want 0; stderr:\n%s", code, stderr)
+	}
+}
+
 // TestRecordDispatchBeginRefusesAPanelRoundBelowTheRecorded pins decision
 // panel-round-floor: a panel reviewer key opening a round below the highest
 // the change's records carry is refused, while a round at or above it, and
