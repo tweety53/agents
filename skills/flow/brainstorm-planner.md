@@ -266,6 +266,11 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > group (`skills/flow/implement.md`) and to `flow.verify`. A task whose `**Tests:**` is `none` names
 > lint alone and no test command.
 
+> **A task that adds a member to an existing class or interface** counts that type's members
+> against the project's size-rule thresholds — detekt's `TooManyFunctions`, and the like — and,
+> where the type has no headroom left, plans the split in that same task rather than a "no new
+> type" constraint the lint then breaks (kan-999).
+
 > **Write a feature's UI tests as their own follow-on task.** When a feature's tests live in a
 > UI-test source set of their own — Compose Multiplatform's `desktopTest`, and the like — the plan
 > carries two tasks: the feature task, whose `**Files:**` names the source files and the unit-test
