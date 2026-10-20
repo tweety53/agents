@@ -162,6 +162,19 @@ type rawToolUseResult struct {
 	Prompt  string `json:"prompt"`
 }
 
+// UnmarshalJSON leaves r zero for any value that is not an object. A
+// hook-denied Agent call's user line carries "toolUseResult" as a string
+// ("Error: PreToolUse:Agent hook error: ..."); decoding that into the
+// struct failed the whole line, so the denial was never seen and the
+// denied begins claimed later launches (kan-995).
+func (r *rawToolUseResult) UnmarshalJSON(b []byte) error {
+	if len(b) == 0 || b[0] != '{' {
+		return nil
+	}
+	type plain rawToolUseResult
+	return json.Unmarshal(b, (*plain)(r))
+}
+
 // rawCompactMeta is a compact_boundary system line's "compactMetadata"
 // object -- the pre/post token counts and wall-clock duration a
 // compaction actually cost, confirmed against a live transcript during

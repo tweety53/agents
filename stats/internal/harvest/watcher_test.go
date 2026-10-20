@@ -3985,3 +3985,75 @@ func TestLateStampLeavesAResumedAgentsFileAlone(t *testing.T) {
 		t.Fatalf("merged = %v, want one merge on the prior row 3 and none on the new row 7", deps.merged)
 	}
 }
+
+// TestWatcherRetiresBeginsOfHookDeniedLaunches replays kan-995's panel
+// round 1: two panel begins, both Agent calls denied by a PreToolUse hook
+// whose user lines carry a string "toolUseResult", then the flake agent's
+// launch, the panel's real launches, and the flake's own begin. The
+// denied lines must decode, so both panel begins retire and only the
+// flake begin stamps -- its own launch.
+func TestWatcherRetiresBeginsOfHookDeniedLaunches(t *testing.T) {
+	bash := func(ts, command string) string {
+		c, err := json.Marshal(command)
+		if err != nil {
+			t.Fatalf("marshal command: %v", err)
+		}
+		return `{"type":"assistant","timestamp":"2026-10-20T` + ts + `","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":` + string(c) + `}}]}}`
+	}
+	agentCall := func(ts, id string) string {
+		return `{"type":"assistant","timestamp":"2026-10-20T` + ts + `","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","id":"` + id + `","name":"Agent","input":{"prompt":"p"}}]}}`
+	}
+	denial := func(ts, id string) string {
+		return `{"type":"user","timestamp":"2026-10-20T` + ts + `","sessionId":"s","message":{"content":[{"type":"tool_result","tool_use_id":"` + id + `","is_error":true,"content":"PreToolUse:Agent hook error: Dispatch blocked"}]},"toolUseResult":"Error: PreToolUse:Agent hook error: Dispatch blocked"}`
+	}
+	launch := func(ts, agentID string) string {
+		return `{"type":"user","timestamp":"2026-10-20T` + ts + `","sessionId":"s","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"` + agentID + `"}}`
+	}
+	lines := []string{
+		bash("00:35:51.286Z", `flow record dispatch begin -change kan-995 -role reviewer -key "panel-1-primary+principles" -slot "primary+principles" -session-token mf-k995 && flow record dispatch begin -change kan-995 -role reviewer -key "panel-1-test-sanity+call-efficiency" -slot "test-sanity+call-efficiency" -session-token mf-k995`),
+		agentCall("00:36:03.257Z", "toolu_a"),
+		denial("00:36:03.314Z", "toolu_a"),
+		agentCall("00:36:11.607Z", "toolu_b"),
+		denial("00:36:11.666Z", "toolu_b"),
+		launch("00:36:21.557Z", "a0c94877856e38f6d"),
+		launch("00:36:47.533Z", "ad7ad88ef851a442c"),
+		launch("00:36:47.537Z", "a783c4dc147d1cd18"),
+		bash("00:36:51.097Z", "flow record dispatch begin -change kan-995 -role panel-fix -key verify-flake-1 -session-token mf-k995"),
+	}
+	want := []stampCall{{"mf-k995", "verify-flake-1", "a0c94877856e38f6d"}}
+
+	t.Run("one batch", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "session.jsonl")
+		if err := os.WriteFile(path, stampFixtureLines(lines...), 0o644); err != nil {
+			t.Fatalf("write fixture: %v", err)
+		}
+		deps := &stampRecordingDeps{}
+		w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+		if _, err := w.RunOnce(context.Background()); err != nil {
+			t.Fatalf("RunOnce: %v", err)
+		}
+		if !reflect.DeepEqual(deps.stamps, want) {
+			t.Errorf("stamps = %+v, want %+v", deps.stamps, want)
+		}
+	})
+
+	t.Run("line by line", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "session.jsonl")
+		if err := os.WriteFile(path, nil, 0o644); err != nil {
+			t.Fatalf("write fixture: %v", err)
+		}
+		deps := &stampRecordingDeps{}
+		w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+		for _, line := range lines {
+			appendLine(t, path, line)
+			if _, err := w.RunOnce(context.Background()); err != nil {
+				t.Fatalf("RunOnce: %v", err)
+			}
+		}
+		if !reflect.DeepEqual(deps.stamps, want) {
+			t.Errorf("stamps = %+v, want %+v", deps.stamps, want)
+		}
+	})
+}
