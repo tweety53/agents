@@ -45,10 +45,14 @@
 #      later round — the ordering review-panel.md's **Recording findings**
 #      requires, violated, the store's only witness of that re-run being
 #      the slot's own dispatch row (KAN-770); each still-open ref and each
-#      unverified ref with its slot is named on stderr
+#      unverified ref with its slot is named on stderr; or a slot's
+#      panel-report-<round>-<id>.md counts on its Critical: <n> and
+#      Important: <n> lines more findings than the store holds for that
+#      round and slot
 #   2  cannot answer at all — no worktree, no change name, a change name
 #      outside the allowlist, a worktree that is not a directory, the store
-#      unreachable, or its answer unreadable (empty output included)
+#      unreachable, its answer unreadable (empty output included), or an
+#      unreadable panel report
 # Ported to Go: the body's reasoning for every branch is in
 # stats/internal/guard/panelfindingsclosed.go.
 # flow-guard is built from this checkout, never taken from PATH:

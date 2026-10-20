@@ -602,7 +602,8 @@ slot's resolved id substituted:
 > finding with its `file:line`, severity, the sentence naming the defect, its reproducer, and the
 > id of the task whose `Task-Id:` commit its `file:line` falls in — none where it spans tasks or
 > falls in none. Your return message is the findings summary, each finding naming its task id
-> too; the file is the record.
+> too; the file is the record. Open the file with one `Critical: <n>` and one `Important: <n>` line
+> counting the findings it raises at each severity.
 
 **Every slot's dispatch prompt also carries the WORKTREES paragraph**, listing the resolved set
 and, when it holds more than one worktree, the qualification rule:
@@ -1002,7 +1003,8 @@ Exit 0 proceeds to the stage close below. Exit 1 means a finding still reads `op
 in the store — nothing is deferred (**Panel re-runs** above); the line names the refs. It also
 fires on the class **Panel re-runs**' ordering above added: a Critical or Important recorded
 `fixed` whose slot has no clean re-run dispatch of it in any later round — a fixed Minor needs
-none. Either way, return to the
+none. It fires as well when a slot's report counts more Critical and Important findings on its
+`Critical: <n>` and `Important: <n>` lines than the store holds for that round and slot. Either way, return to the
 handback loop above for them. Exit 2 stops the run.
 
 Beside it, run

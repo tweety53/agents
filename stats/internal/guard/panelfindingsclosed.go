@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -203,6 +204,46 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		fmt.Fprintf(stderr, "%sfinding(s) recorded fixed with no clean re-run dispatch of their slot in any later round: %s\n", cfcPrefix, strings.Join(unverified, " "))
 		violated = true
 	}
+
+	// A SLOT'S REPORT COUNTS ITS OWN FINDINGS on one `Critical: <n>` and one
+	// `Important: <n>` line (review-panel.md's REPORT FILE paragraph). When
+	// the sum exceeds the store's Critical and Important rows of that round
+	// whose slot's `+`-components include the report's id, any status, a
+	// finding the slot raised never reached the store -- kan-1000's round 11.
+	// A report missing either line predates the paragraph and is not compared.
+	reports, _ := filepath.Glob(filepath.Join(worktree, ".superpowers", "sdd", "panel-report-*.md"))
+	var uncounted []string
+	for _, p := range reports {
+		m := cfcReportNameRE.FindStringSubmatch(filepath.Base(p))
+		if m == nil {
+			continue
+		}
+		round, _ := strconv.Atoi(m[1])
+		body, err := os.ReadFile(p)
+		if err != nil {
+			fmt.Fprintf(stderr, "%scannot read panel report %s — cannot determine anything: %v\n", cfcPrefix, p, err)
+			return 2
+		}
+		c, i := cfcCriticalRE.FindSubmatch(body), cfcImportantRE.FindSubmatch(body)
+		if c == nil || i == nil {
+			continue
+		}
+		nc, _ := strconv.Atoi(string(c[1]))
+		ni, _ := strconv.Atoi(string(i[1]))
+		recorded := 0
+		for _, f := range findings {
+			if f.round == round && (strings.EqualFold(f.severity, "critical") || strings.EqualFold(f.severity, "important")) && slices.Contains(strings.Split(f.slot, "+"), m[2]) {
+				recorded++
+			}
+		}
+		if nc+ni > recorded {
+			uncounted = append(uncounted, fmt.Sprintf("%s (report %d, recorded %d)", filepath.Base(p), nc+ni, recorded))
+		}
+	}
+	if len(uncounted) > 0 {
+		fmt.Fprintf(stderr, "%sfinding(s) a slot's report counts that the store does not hold: %s\n", cfcPrefix, strings.Join(uncounted, " "))
+		violated = true
+	}
 	if violated {
 		return 1
 	}
@@ -231,6 +272,15 @@ type cfcDispatchRow struct {
 // regexp's prefix match tolerates; panel-fix-<round> and task keys never
 // match, panel- not being followed by digits in them.
 var cfcPanelRoundRE = regexp.MustCompile(`^panel-([0-9]+)-`)
+
+// cfcReportNameRE matches a slot's panel-report-<round>-<slot>.md file name,
+// and cfcCriticalRE / cfcImportantRE read the Critical: / Important: count
+// lines of that report.
+var (
+	cfcReportNameRE = regexp.MustCompile(`^panel-report-([0-9]+)-(.+)\.md$`)
+	cfcCriticalRE   = regexp.MustCompile(`(?m)^Critical: ([0-9]+)\s*$`)
+	cfcImportantRE  = regexp.MustCompile(`(?m)^Important: ([0-9]+)\s*$`)
+)
 
 // cfcParse decodes `flow record findings`' array. It refuses, where the
 // bash guard's jq failed: a non-array, a non-object row, a non-string

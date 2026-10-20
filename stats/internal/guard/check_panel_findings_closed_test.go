@@ -304,3 +304,65 @@ exit 0
 		}
 	})
 }
+
+// A slot's report counting more Critical and Important findings on its own
+// count lines than the store holds for that round and slot fails the close:
+// kan-1000's panel-report-11-primary.md raised an Important nobody recorded.
+func TestCheckPanelFindingsClosedReportCounts(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		label  string
+		files  map[string]string
+		json   string
+		disp   string
+		want   int
+		needle string
+	}{
+		{label: "a report counting an Important the store lacks exits 1",
+			files: map[string]string{"panel-report-11-primary.md": "Critical: 0\nImportant: 1\n\nbody\n"},
+			json:  "[]", want: 1, needle: "panel-report-11-primary.md (report 1, recorded 0)"},
+		{label: "the Important recorded fixed with a clean re-run exits 0",
+			files: map[string]string{"panel-report-11-primary.md": "Critical: 0\nImportant: 1\n"},
+			json:  cfcJSON(cfcFinding{Ref: "F10", Severity: "Important", Status: "fixed", Round: 11, Slot: "primary+principles"}),
+			disp:  cfcDispatchJSON(cfcDispatch{Key: "panel-12-primary+principles", Role: "reviewer", Slot: "primary+principles", Outcome: "completed"}),
+			want:  0},
+		{label: "the Important recorded at another round exits 1",
+			files: map[string]string{"panel-report-11-primary.md": "Critical: 0\nImportant: 1\n"},
+			json:  cfcJSON(cfcFinding{Ref: "F10", Severity: "Important", Status: "withdrawn dup", Round: 10, Slot: "primary"}),
+			want:  1, needle: "report 1, recorded 0"},
+		{label: "reports with no count lines or a placeholder are not compared",
+			files: map[string]string{
+				"panel-report-2-primary.md":    "#### Important\n- something\n",
+				"panel-report-3-principles.md": "no verbatim report captured — timeout\n",
+			},
+			json: "[]", want: 0},
+		{label: "a withdrawn Critical of the slot counts as recorded",
+			files: map[string]string{"panel-report-3-test-sanity.md": "Critical: 1\nImportant: 0\n"},
+			json:  cfcJSON(cfcFinding{Ref: "F3", Severity: "Critical", Status: "withdrawn duplicate of F2", Round: 3, Slot: "test-sanity"}),
+			want:  0},
+	}
+	for _, c := range cases {
+		t.Run(c.label, func(t *testing.T) {
+			t.Parallel()
+			wt := t.TempDir()
+			sdd := filepath.Join(wt, ".superpowers", "sdd")
+			if err := os.MkdirAll(sdd, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			for n, body := range c.files {
+				writeFile(t, filepath.Join(sdd, n), body)
+			}
+			disp := c.disp
+			if disp == "" {
+				disp = "[]"
+			}
+			rc, out, errs := cfcRun(t, cfcBinDispatches(t, c.json, disp, "", 0), wt, "demo")
+			if rc != c.want {
+				t.Fatalf("expected exit %d, got %d\nstdout: %s\nstderr: %s", c.want, rc, out, errs)
+			}
+			if c.needle != "" && !strings.Contains(errs, c.needle) {
+				t.Fatalf("expected stderr to name %q, got:\n%s", c.needle, errs)
+			}
+		})
+	}
+}
