@@ -525,6 +525,10 @@ between them; chrome (a title, a bar) and content change in the same frame; a re
 strip shows no intermediate frame; a gesture's content follows the pointer in every frame and
 settles where the motion's end state says** — plus any frame rule the project's own instructions
 state. A frame that breaks one is a departure, named by its index and what it shows.
+**A re-record replaces the strip.** A later round's recording of a motion first deletes `<changeRoot>/visual-verification/motion/<motion
+id>/` and writes its frames there, never into a suffixed sibling such as `<changeRoot>/visual-verification/motion/<motion
+id>-r2/`, and `visual-verification.md` cites an earlier round's strip by its round number,
+never by a path (kan-995: superseded strips were 28.6 MB of a 43 MB archive).
 **A difference between two triggers is judged at one sampling.** Before reporting that one
 trigger draws a frame its sibling does not — Back against the forward navigation, a gesture
 against the tap it replaces — record the sibling in the same session by the same capture method
