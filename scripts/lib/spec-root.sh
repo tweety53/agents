@@ -59,7 +59,10 @@
 # are invisible to the caller. It is a note rather than a failure, because a
 # migration in progress is a legitimate state to be in for as long as it takes
 # to move the directories, and refusing to run every guard until it finishes
-# would make the migration harder rather than safer.
+# would make the migration harder rather than safer. The note fires only while
+# openspec/changes/ holds an entry other than archive/: a project that froze
+# its openspec/ tree as history (gymie) has no change there to hide, and the
+# note on every guard call was noise.
 spec_root_leaf() {
   local dir="$1"
   local has_spectre=0 has_openspec=0
@@ -68,7 +71,10 @@ spec_root_leaf() {
   [ -d "$dir/openspec/changes" ] && has_openspec=1
 
   if [ "$has_spectre" -eq 1 ] && [ "$has_openspec" -eq 1 ]; then
-    echo "spec-root: $dir carries both spectre/changes/ and openspec/changes/ — using spectre/; every change under openspec/changes/ is invisible to this guard until that tree is moved" >&2
+    # archive/ alone is frozen history, not a change this guard could miss.
+    if [ -n "$(ls -A "$dir/openspec/changes" | grep -vx archive)" ]; then
+      echo "spec-root: $dir carries both spectre/changes/ and openspec/changes/ — using spectre/; every change under openspec/changes/ is invisible to this guard until that tree is moved" >&2
+    fi
     printf 'spectre\n'
     return 0
   fi

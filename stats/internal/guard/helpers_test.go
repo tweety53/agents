@@ -119,17 +119,21 @@ func TestSpecRoot(t *testing.T) {
 		trees              []string
 	}{
 		{"neither tree is spectre", "spectre", "", nil},
-		{"spectre only", "spectre", "", []string{"spectre"}},
-		{"openspec only", "openspec", "", []string{"openspec"}},
-		{"both: spectre wins and the other is reported", "spectre",
+		{"spectre only", "spectre", "", []string{"spectre/changes"}},
+		{"openspec only", "openspec", "", []string{"openspec/changes"}},
+		{"both: spectre wins and the other's open change is reported", "spectre",
 			"spec-root: DIR carries both spectre/changes/ and openspec/changes/ — using spectre/; every change under openspec/changes/ is invisible to this guard until that tree is moved\n",
-			[]string{"spectre", "openspec"}},
+			[]string{"spectre/changes", "openspec/changes/archive", "openspec/changes/open-change"}},
+		{"both: an openspec tree of archive/ alone is not reported", "spectre", "",
+			[]string{"spectre/changes", "openspec/changes/archive/old-change"}},
+		{"both: an empty openspec/changes/ is not reported", "spectre", "",
+			[]string{"spectre/changes", "openspec/changes"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			dir := t.TempDir()
 			for _, tree := range tc.trees {
-				mkdir(t, dir+"/"+tree+"/changes")
+				mkdir(t, dir+"/"+tree)
 			}
 			var stderr bytes.Buffer
 			if got := specRootLeaf(dir, &stderr); got != tc.want {

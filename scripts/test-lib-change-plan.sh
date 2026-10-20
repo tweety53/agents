@@ -941,6 +941,21 @@ set -e
 assert_nonzero_rc "case 16c: neither a live nor an archived directory cannot resolve" "$RC"
 assert_eq "case 16c: it prints nothing to stdout" "" "$OUT"
 
+# Case 17: spec_root_leaf, which change-plan.sh sources, reports a both-trees
+# project on stderr only while openspec/changes/ holds an open change — never
+# for an openspec/ tree of archive/ alone (gymie's frozen history).
+CASE17="$WORK/case17-both-trees"
+mkdir -p "$CASE17/spectre/changes" "$CASE17/openspec/changes/archive/old-change"
+ERR="$(spec_root_leaf "$CASE17" 2>&1 >/dev/null)"
+assert_eq "case 17: an openspec tree of archive/ alone prints no note" "" "$ERR"
+mkdir -p "$CASE17/openspec/changes/open-change"
+ERR="$(spec_root_leaf "$CASE17" 2>&1 >/dev/null)"
+case "$ERR" in
+  *"invisible to this guard"*) pass "case 17b: an open openspec change is reported" ;;
+  *) fail "case 17b: an open openspec change is reported — got [$ERR]" ;;
+esac
+assert_eq "case 17c: spectre still wins" "spectre" "$(spec_root_leaf "$CASE17" 2>/dev/null)"
+
 # ---------------------------------------------------------------------------
 if [ "$FAILURES" -eq 0 ]; then
   printf '\n✓ PASS\n'
