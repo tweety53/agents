@@ -514,11 +514,11 @@ line reads n/a and the step is skipped. Otherwise, for each motion: in a Chromiu
 reduced motion off (`page.emulateMedia({ reducedMotion: 'no-preference' })`) and the viewport and
 clock step 8 pins, bring the view to the motion's start, then record frames from before its
 trigger until the view settles — a CDP screencast (`Page.startScreencast`, each frame acknowledged
-with `Page.screencastFrameAck`), or `page.screenshot` sampled back-to-back where no screencast is
-available — while driving the trigger (a tap, a navigation, a drag through `page.mouse` in small
-steps). Write the frames, in order, to `<changeRoot>/visual-verification/motion/<motion
+with `Page.screencastFrameAck`) — while driving the trigger (a tap, a navigation, a drag through `page.mouse` in small
+steps). Never sample with `page.screenshot`: the Chromium page this step mandates always
+carries the screencast, and sampling skips the frames it catches (kan-995). Write the frames, in order, to `<changeRoot>/visual-verification/motion/<motion
 id>/<nnn>-<ms>.png`, `<ms>` the frame's offset in milliseconds from the trigger — the screencast
-frame's own timestamp, or the clock read as a sampled screenshot is taken — read every one, and
+frame's own timestamp — read every one, and
 judge the strip frame by frame: **every frame shows the view
 being left or the view being entered, never an empty, default or wrong-but-plausible rendering
 between them; chrome (a title, a bar) and content change in the same frame; a removed motion's
