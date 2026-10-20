@@ -41,7 +41,12 @@ cases is a stop for nothing (KAN-1000):
 - **Failures that are already on the base:** attribute them to their cause first, then fix them in this
   run (**The sweep**, `skills/flow-contracts/known-bugs.md`). If the cause is a base branch that has
   fallen behind the branch it tracks (a feature branch that never took in develop or main), the
-  recommended option is to sync that base and re-run. Pushing the synced base is still confirmed,
+  recommended option is to sync that base and re-run. The parent checks this at the start of
+  whichever of `flow.verify` and `flow.visual-verify` runs first, before any failure arrives: for
+  each repository whose recorded base is a feature branch, after `git fetch origin`, a
+  `git rev-list --count origin/<base>..origin/<the branch it tracks>` above 0 — develop or main
+  holding commits the base lacks — syncs the base first (KAN-1000: a stale feature/cardio base
+  cost 61 failures and about an hour). Pushing the synced base is still confirmed,
   per **What still stops**.
 - **A departure from the mockup:** match the mockup (`rules/design-mockups-are-specs.mdc`). An element
   the mockup does not draw stays only when the screen cannot work without it. Record that reason
