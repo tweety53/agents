@@ -327,6 +327,14 @@ with no strip under `<changeRoot>/visual-verification/motion/` or no entry in
 `visual-verification.md`, and a frame its strip shows breaking the motion step's rule, block as a
 departure would.**
 
+**A position departure of at most 1dp — 2px at 2x — on a band or an element may stand, and only
+when all of these hold:** a fix round has already tried to close it at its source; the run records
+why no easy fix exists, such as a font's glyph metrics; `visual-verification.md` carries it beside
+the frame with its measured value and that reason; and the handoff's `**Decisions:**` lines name it.
+It is never the first answer, and colour, a missing or extra element, and copy get no tolerance
+(KAN-1000: the operator states this approximation as the requirement, the one widening
+`rules/fix-determinism-at-the-source.mdc` admits).
+
 **Every blocking item but the pre-flight, a stack that could not be started and the fingerprint
 is the branch's own defect, never a `## Question`:** it takes **The loop**
 (`skills/flow/verify-fix-loop.md`). Those three are the environment's and end the stage as their

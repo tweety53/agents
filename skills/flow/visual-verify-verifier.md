@@ -230,6 +230,9 @@ never an exit code the command did not return.
    carries no baseline PNG for: every departure on either is this change's, and the report names
    the missing baseline. Every line that reports the departure names its cause or its attribution
    beside it — never a bare `departure`.
+   A departure within 1dp is reported like any other, its measured value beside it: whether it
+   stands is the parent's call under the Blocking paragraph of **Steps 3–13**
+   (`skills/flow/visual-verify.md`), never yours (KAN-1000).
    **A part the frame's sidecar comment declares expected until a named sibling ticket lands is
    no departure.** The line reporting the frame names that part
    `expected — <sibling ticket>, <decision ID>` and nothing blocks on it, while every part the
