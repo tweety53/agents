@@ -21,6 +21,8 @@ var (
 	vrStepsLine = regexp.MustCompile(`^\s*- steps:\s*(.*)$`)
 	vrMotion    = regexp.MustCompile(`^\s*- motion:\s*(\d+)/(\d+)\b`)
 	vrCitedExit = regexp.MustCompile(`\bexit [1-9][0-9]*\b`)
+	// Step 10's own blocking exit (skills/flow/visual-verify-verifier.md step 10).
+	vrComposeExit = regexp.MustCompile(`\bcompose-mockup-frames(\.sh)? exit [1-9][0-9]*\b`)
 )
 
 func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
@@ -64,7 +66,13 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		case s == "done" && id == "motion" && motions > 0 && !motionLine:
 			undone = append(undone, fmt.Sprintf("motion: no `- motion: %d/%d` line", motions, motions))
 		case s == "done":
-		case isNA && naAllowed && strings.TrimSpace(reason) != "":
+		// Step 10 is n/a only when no mockups are declared, so its reason must say so.
+		case isNA && naAllowed && strings.TrimSpace(reason) != "" && (id != "10" || strings.Contains(reason, "mockups")):
+		// Step 10 measures the captures step 8 wrote, so it blocks only when step 8 did or
+		// on compose-mockup-frames' own exit (KAN-1000: two verifiers skipped step 10 with
+		// every capture on disk, and departures surfaced one round at a time).
+		case isBlocked && id == "10" && !strings.HasPrefix(status["8"], "blocked — ") && !vrComposeExit.MatchString(cause):
+			undone = append(undone, strings.TrimSpace(id+" "+s)+" (step 8 captured)")
 		case isBlocked && vrCitedExit.MatchString(cause):
 		default:
 			undone = append(undone, strings.TrimSpace(id+" "+s))

@@ -84,7 +84,8 @@ check-verify-report.sh <abs-worktree>/.superpowers/sdd/verify-report-<key>.md <m
 `<motions named>` is the count of motions this dispatch's prompt named, `0` for `motions: none`;
 the guard's header is canonical for the report's `steps:` line and its admissible statuses. Exit 0
 → the report is complete; read it. Exit 1 → **the report is incomplete and is never accepted,
-whatever its prose says**: close the dispatch `-outcome aborted` and dispatch its remainder at
+whatever its prose says**, and no fix task is planned from it, its departures included, until its
+remainder completes it (KAN-1000): close the dispatch `-outcome aborted` and dispatch its remainder at
 once, recorded under the incomplete dispatch's own key suffixed `-rest` before any `-<repository
 name>` suffix, its prompt identical to the incomplete dispatch's plus that report verbatim
 under a `## Incomplete attempt` heading and the guard's verdict line, which names the steps it

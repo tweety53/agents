@@ -16,7 +16,9 @@
 # (skills/flow/visual-verify-verifier.md). A status is admissible when it is
 #   done
 #   n/a — <reason>       steps 4 and 10 only, and `motion` when <motions named> is 0
-#   blocked — <reason>   the reason citing a non-zero `exit <n>`
+#   blocked — <reason>   the reason citing a non-zero `exit <n>`; step 10 only
+#                        when step 8 is blocked too or the reason cites
+#                        `compose-mockup-frames exit <n>` (KAN-1000)
 # and `motion done` with <motions named> above 0 also needs a
 # `- motion: <n>/<n>` line, <n> that count — a strip recorded beyond the
 # named motions goes on a sub-bullet, never into <n>. Every other status — absent,
