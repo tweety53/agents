@@ -30,6 +30,25 @@ resolves to nothing, leaves the scope exactly as the paragraph above states it. 
 to choose, anything outward-facing or irreversible, and every prompt outside the run's own phases
 are asked under the mode exactly as off it.
 
+**A blocked verify or visual-verify is never turned into questions.** Each class below has one
+answer the pipeline's own rules already give, so the run takes it and goes on to **The loop**
+(`skills/flow/verify-fix-loop.md`) without asking. A list of "Decisions for you" built from these
+cases is a stop for nothing (KAN-1000):
+
+- **A failure this branch introduced**, such as a capture's seed data crowding another spec's search:
+  fix the branch so the other spec passes again, with the smallest change that does it (rename the
+  seed, for example).
+- **Failures that are already on the base:** attribute them to their cause first, then fix them in this
+  run (**The sweep**, `skills/flow-contracts/known-bugs.md`). If the cause is a base branch that has
+  fallen behind the branch it tracks (a feature branch that never took in develop or main), the
+  recommended option is to sync that base and re-run. Pushing the synced base is still confirmed,
+  per **What still stops**.
+- **A departure from the mockup:** match the mockup (`rules/design-mockups-are-specs.mdc`). An element
+  the mockup does not draw stays only when the screen cannot work without it. Record that reason
+  with the frame.
+- **A declared frame that was not captured:** add the capture. A missing capture means the report is
+  incomplete. It is never a scope choice.
+
 Every auto-resolution:
 
 - is recorded in the pass log when the mode is on — a `flow
