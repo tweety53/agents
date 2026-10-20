@@ -36,10 +36,10 @@ in this worktree.
 - Task 1: only a `noted` line is refused — a `filed:`, `fixed:` or `declined` line saying "operator decision" still lands; the refusal exits 4 before anything is staged, like the untraced one.
 - Task 2: the base sync pushes only on a clean merge and a green run, and never resolves a conflict.
 
-- [ ] 1. Refuse a noted self-review finding that leaves its action to the operator
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run the **Live check** in `design.md` against the unmodified tree: it prints `LAND-NOTHING-TO-COMMIT` and exits 0 — kan-995's deferred line lands.
-  - [ ] **Step 2: Write `TestLandSelfReviewReportRefusesDeferredFinding`** in `stats/internal/guard/land_self_review_report_test.go`, after `TestLandSelfReviewReportRefusesUntracedFinding` and shaped like it (same repo setup, same `Registry["land-self-review-report"]` call): the report `docs/self-review/kan-d-self-review.md` holds `## 1. Problems — \`flow-fix\`\n\n` then the line `- **[flow-fix]** \`feature/cardio\` lacks develop's devRestart isolation fix 98da4aad; a branch decision for the operator — noted`; assert rc 4, empty stdout, stderr exactly `LAND-DEFERRED-FINDING: docs/self-review/kan-d-self-review.md:3: <that line> — fix it in the run, never leave it to the operator; nothing added, committed, pulled or pushed\n`, and `HEAD` and the index unchanged. Then rewrite the report to three lines — the same finding ending `— fixed: abc1234`, `- **[flow-fix]** resolving it required an operator decision about another change's work — filed: KAN-56` and `- **[flow-fix]** it needed an operator decision to skip — declined` — and assert the land returns 0. Run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestLandSelfReviewReportRefusesDeferredFinding' -count=1`: it fails.
-  - [ ] **Step 3: Implement** in `stats/internal/guard/landselfreviewreport.go` (decision `deferred-finding-guard`): in `lsrrUntraced`'s loop, after the untraced check, a second check on the same line — and extend the function's doc comment with one sentence naming the deferred refusal and this change:
+- [x] 1. Refuse a noted self-review finding that leaves its action to the operator
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run the **Live check** in `design.md` against the unmodified tree: it prints `LAND-NOTHING-TO-COMMIT` and exits 0 — kan-995's deferred line lands.
+  - [x] **Step 2: Write `TestLandSelfReviewReportRefusesDeferredFinding`** in `stats/internal/guard/land_self_review_report_test.go`, after `TestLandSelfReviewReportRefusesUntracedFinding` and shaped like it (same repo setup, same `Registry["land-self-review-report"]` call): the report `docs/self-review/kan-d-self-review.md` holds `## 1. Problems — \`flow-fix\`\n\n` then the line `- **[flow-fix]** \`feature/cardio\` lacks develop's devRestart isolation fix 98da4aad; a branch decision for the operator — noted`; assert rc 4, empty stdout, stderr exactly `LAND-DEFERRED-FINDING: docs/self-review/kan-d-self-review.md:3: <that line> — fix it in the run, never leave it to the operator; nothing added, committed, pulled or pushed\n`, and `HEAD` and the index unchanged. Then rewrite the report to three lines — the same finding ending `— fixed: abc1234`, `- **[flow-fix]** resolving it required an operator decision about another change's work — filed: KAN-56` and `- **[flow-fix]** it needed an operator decision to skip — declined` — and assert the land returns 0. Run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestLandSelfReviewReportRefusesDeferredFinding' -count=1`: it fails.
+  - [x] **Step 3: Implement** in `stats/internal/guard/landselfreviewreport.go` (decision `deferred-finding-guard`): in `lsrrUntraced`'s loop, after the untraced check, a second check on the same line — and extend the function's doc comment with one sentence naming the deferred refusal and this change:
 
   ```go unverified:compiles and gofmt-clean in lsrrUntraced's loop, l the lowered line it already computes
   		if strings.HasPrefix(line, "- **[") && strings.HasSuffix(strings.TrimSpace(l), "— noted") && lsrrDefers(l) {
@@ -64,7 +64,7 @@ in this worktree.
   }
   ```
 
-  - [ ] **Step 4: Edit `scripts/land-self-review-report.sh`'s header**: the exit-code `4` entry becomes exactly:
+  - [x] **Step 4: Edit `scripts/land-self-review-report.sh`'s header**: the exit-code `4` entry becomes exactly:
 
   ```bash verified:authored in-tree for this change
   #   4  an open finding — one LAND-UNTRACED-FINDING line per finding line
@@ -76,15 +76,15 @@ in this worktree.
   #      pulled or pushed
   ```
 
-  - [ ] **Step 5: Edit the prose.** In `skills/flow-self-review/SKILL.md`, step 7, directly below the line opening ``` `land-self-review-report.sh` refuses a report whose finding line says ```, add this line:
+  - [x] **Step 5: Edit the prose.** In `skills/flow-self-review/SKILL.md`, step 7, directly below the line opening ``` `land-self-review-report.sh` refuses a report whose finding line says ```, add this line:
 
   ```markdown verified:applied at plan time; check-verbatim-moves.sh, check-installed-citations.sh and check-markdown-integrity.py ran clean of every hit but the sentences verbatim-moves.txt lists
   It refuses a `noted` finding line that leaves its action to the operator — one saying `for the operator`, `operator decision`, `operator's call`, `operator's choice`, `your call` or `if you want` — the same way, `LAND-DEFERRED-FINDING`, exit 4, nothing committed: fix that finding per step 3 (`skills/flow-self-review/SKILL.md`), rewrite its line, and land again.
   ```
 
   In `skills/flow/integrate.md` and in `skills/flow-fast/SKILL.md`, the words ``A `LAND-UNTRACED-FINDING` refusal is not a stop:`` become ``A `LAND-UNTRACED-FINDING` or `LAND-DEFERRED-FINDING` refusal is not a stop:``, the rest of each line unchanged.
-  - [ ] **Step 6: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestLandSelfReviewReport' -count=1` passes; the **Live check** in `design.md` now exits 4 with exactly one `LAND-DEFERRED-FINDING` line, for line 15 of the kan-995 report; `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` and `scripts/check-installed-citations.sh` exit 0.
-  - [ ] **Step 7: Commit** the six files below with the subject below.
+  - [x] **Step 6: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestLandSelfReviewReport' -count=1` passes; the **Live check** in `design.md` now exits 4 with exactly one `LAND-DEFERRED-FINDING` line, for line 15 of the kan-995 report; `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` and `scripts/check-installed-citations.sh` exit 0.
+  - [x] **Step 7: Commit** the six files below with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/landselfreviewreport.go`, `stats/internal/guard/land_self_review_report_test.go`, `scripts/land-self-review-report.sh`, `skills/flow-self-review/SKILL.md`, `skills/flow/integrate.md`, `skills/flow-fast/SKILL.md`
@@ -97,9 +97,9 @@ in this worktree.
 
 **Decision:** deferred-finding-guard
 
-- [ ] 2. Self-review fixes an actionable observation, repairs corrupted data, and syncs a base missing a fix
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `git grep -n -F -e 'An observation that names' -e 'A fix repairs what its defect' -e 'The base sync' -- skills/flow-self-review/SKILL.md` prints nothing, and `git grep -n -F -e 'left as the operator' -- skills/flow/cleanup.md` prints nothing.
-  - [ ] **Step 2: Step 2 of `skills/flow-self-review/SKILL.md`** (decision `observation-with-action-is-a-finding`): the text `is ever offered for filing**.` ending the sentence that opens "A finding that names no defect" is followed, on the same paragraph, by:
+- [x] 2. Self-review fixes an actionable observation, repairs corrupted data, and syncs a base missing a fix
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `git grep -n -F -e 'An observation that names' -e 'A fix repairs what its defect' -e 'The base sync' -- skills/flow-self-review/SKILL.md` prints nothing, and `git grep -n -F -e 'left as the operator' -- skills/flow/cleanup.md` prints nothing.
+  - [x] **Step 2: Step 2 of `skills/flow-self-review/SKILL.md`** (decision `observation-with-action-is-a-finding`): the text `is ever offered for filing**.` ending the sentence that opens "A finding that names no defect" is followed, on the same paragraph, by:
 
   ```markdown verified:applied at plan time; check-verbatim-moves.sh, check-installed-citations.sh and check-markdown-integrity.py ran clean of every hit but the sentences verbatim-moves.txt lists
   **An observation that names
@@ -110,7 +110,7 @@ in this worktree.
   as an open decision, and the operator then had the run merge the branch).
   ```
 
-  - [ ] **Step 3: Step 3, the planner paragraph** (decision `fix-repairs-corrupted-data`): directly after `the operator answered "fix them now").` and before `A finding a re-plan`, insert the block below on lines of its own, so `A finding a re-plan` starts the line after it:
+  - [x] **Step 3: Step 3, the planner paragraph** (decision `fix-repairs-corrupted-data`): directly after `the operator answered "fix them now").` and before `A finding a re-plan`, insert the block below on lines of its own, so `A finding a re-plan` starts the line after it:
 
   ```markdown verified:applied at plan time; check-verbatim-moves.sh, check-installed-citations.sh and check-markdown-integrity.py ran clean of every hit but the sentences verbatim-moves.txt lists
   **A fix repairs what its defect already wrote wrong** — a store row, a record or a file the defect
@@ -120,7 +120,7 @@ in this worktree.
   once the operator asked).
   ```
 
-  - [ ] **Step 4: Step 3, the base sync** (decision `base-sync-by-session`): in the sentence opening `**This session plans, changes and reviews nothing itself**`, the words `save item 4's ticks and archive commit:` become `save item 4's ticks and archive commit and **The base sync** below:`; and after item 5's last line (`merges.`), before `### 4. Explain, then ask`, insert this paragraph with a blank line on each side:
+  - [x] **Step 4: Step 3, the base sync** (decision `base-sync-by-session`): in the sentence opening `**This session plans, changes and reviews nothing itself**`, the words `save item 4's ticks and archive commit:` become `save item 4's ticks and archive commit and **The base sync** below:`; and after item 5's last line (`merges.`), before `### 4. Explain, then ask`, insert this paragraph with a blank line on each side:
 
   ```markdown verified:applied at plan time; check-verbatim-moves.sh, check-installed-citations.sh and check-markdown-integrity.py ran clean of every hit but the sentences verbatim-moves.txt lists
   **The base sync.** A finding that a `--base` change's `<base>` (`skills/flow/SKILL.md`) lacks a
@@ -134,9 +134,9 @@ in this worktree.
   removes the worktree, and is offered in step 4 as a `big` finding is.
   ```
 
-  - [ ] **Step 5: `skills/flow/cleanup.md`**: in the paragraph opening `**The Finished handoff, and the run's final report beside it, carry no open item**`, the words `"still open", unverified or untraced.` become `"still open", unverified, untraced or left as the operator's call.`
-  - [ ] **Step 6: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-normative-inventory.sh` and `scripts/check-ask-silence.sh` exit 0; Step 1's two greps each print their new lines.
-  - [ ] **Step 7: Commit** the two files below with the subject below.
+  - [x] **Step 5: `skills/flow/cleanup.md`**: in the paragraph opening `**The Finished handoff, and the run's final report beside it, carry no open item**`, the words `"still open", unverified or untraced.` become `"still open", unverified, untraced or left as the operator's call.`
+  - [x] **Step 6: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-normative-inventory.sh` and `scripts/check-ask-silence.sh` exit 0; Step 1's two greps each print their new lines.
+  - [x] **Step 7: Commit** the two files below with the subject below.
 
 **Build:** green
 **Files:** `skills/flow-self-review/SKILL.md`, `skills/flow/cleanup.md`
