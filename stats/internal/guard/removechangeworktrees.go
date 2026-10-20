@@ -58,7 +58,8 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 	}
 	listed, copies := changeWorktrees(porcelain, name)
 	// The main checkout is the porcelain's first entry, whatever <repo> named:
-	// an unclassified entry byte-identical to the same path there is preserved.
+	// an unclassified entry with a counterpart at the same path there — a
+	// per-worktree copy of a main-checkout local config — is preserved.
 	mainCheckout, _ := strings.CutPrefix(strings.SplitN(string(porcelain), "\n", 2)[0], "worktree ")
 	// An already-removed worktree is success: only its registration is left,
 	// which the prune below clears.
@@ -112,8 +113,12 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 			case p == "":
 			case rcwRegeneratable(p), rcwCaptureOutput(playwright, p):
 				regen++
-			case wt != mainCheckout && rcwIdentical(wt+"/"+p, mainCheckout+"/"+p):
-				fmt.Fprintf(stdout, "UNCLASSIFIED: %s — %s — preserved: identical in %s\n", wt, rcwFlat(p), rcwFlat(mainCheckout))
+			case wt != mainCheckout && !strings.Contains(p, "/") && rcwCounterpart(wt+"/"+p, mainCheckout+"/"+p):
+				how := "differs from"
+				if rcwSameBytes(wt+"/"+p, mainCheckout+"/"+p) {
+					how = "identical in"
+				}
+				fmt.Fprintf(stdout, "UNCLASSIFIED: %s — %s — preserved: %s %s\n", wt, rcwFlat(p), how, rcwFlat(mainCheckout))
 			default:
 				unpreserved = true
 				fmt.Fprintf(stdout, "UNCLASSIFIED: %s — %s\n", wt, rcwFlat(p))
@@ -327,17 +332,21 @@ func rcwPlaywrightCheckout(wt string) bool {
 	return len(configs) > 0
 }
 
-// rcwIdentical reports whether a and b are two distinct regular files with
-// the same bytes — check 4's "preserved": the entry still exists in the main
-// checkout. One file reached by both paths (a symlinked directory in the main
-// checkout pointing into the worktree) is not a copy: removing the worktree
-// destroys it.
-func rcwIdentical(a, b string) bool {
+// rcwCounterpart reports whether a and b are two distinct regular files —
+// check 4's "preserved", for an entry at the worktree root: the entry has a
+// counterpart in the main checkout, a per-worktree copy of a main-checkout
+// local config (kan-999: a worktree's .env with its own ports). One file reached by both paths (a symlinked
+// directory in the main checkout pointing into the worktree) is not a
+// counterpart: removing the worktree destroys it.
+func rcwCounterpart(a, b string) bool {
 	fa, errA := os.Lstat(a)
 	fb, errB := os.Lstat(b)
-	if errA != nil || errB != nil || !fa.Mode().IsRegular() || !fb.Mode().IsRegular() || fa.Size() != fb.Size() || os.SameFile(fa, fb) {
-		return false
-	}
+	return errA == nil && errB == nil && fa.Mode().IsRegular() && fb.Mode().IsRegular() && !os.SameFile(fa, fb)
+}
+
+// rcwSameBytes reports whether a and b hold the same bytes — which of the
+// two preserved labels check 4 prints.
+func rcwSameBytes(a, b string) bool {
 	da, errA := os.ReadFile(a)
 	db, errB := os.ReadFile(b)
 	return errA == nil && errB == nil && bytes.Equal(da, db)

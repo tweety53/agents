@@ -432,17 +432,41 @@ func TestRemoveChangeWorktreesDisclose(t *testing.T) {
 		})
 	}
 
-	t.Run("an entry that differs from the main checkout's stops", func(t *testing.T) {
+	// kan-999: a worktree's own copy of a main-checkout local config — a .env
+	// carrying the worktree's isolated ports — is preserved too: shown, and
+	// the removal proceeds in the same call.
+	t.Run("an entry that differs from the main checkout's proceeds", func(t *testing.T) {
 		t.Parallel()
 		fx := rcwNewFx(t)
-		fx.g.write(fx.wt+"/.env", "SECRET=1")
-		fx.g.write(fx.repo+"/.env", "SECRET=2")
+		fx.g.write(fx.wt+"/.env", "PORT=3100")
+		fx.g.write(fx.repo+"/.env", "PORT=3000")
+		code, out, errb := fx.run(t, nil)
+		if code != 0 || rcwExists(fx.wt) || len(rcwLines(out, "DISCLOSE: ")) != 0 {
+			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
+		}
+		if l := rcwLines(out, "UNCLASSIFIED: "); len(l) != 1 || !strings.Contains(l[0], " — .env — preserved: differs from ") {
+			t.Errorf("UNCLASSIFIED lines %q, want .env shown as preserved, differing", l)
+		}
+	})
+
+	// Only an entry at the worktree root is preserved: a nested file that
+	// differs from the main checkout's (a local DB, IDE state) still stops.
+	t.Run("a nested entry that differs from the main checkout's stops", func(t *testing.T) {
+		t.Parallel()
+		fx := rcwNewFx(t)
+		for _, d := range []string{fx.wt + "/data", fx.repo + "/data"} {
+			if err := os.Mkdir(d, 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}
+		fx.g.write(fx.wt+"/data/.env", "worktree")
+		fx.g.write(fx.repo+"/data/.env", "main")
 		code, out, _ := fx.run(t, nil)
 		if code != 3 {
 			t.Fatalf("exit %d, stdout %q; want 3", code, out)
 		}
-		if l := rcwLines(out, "UNCLASSIFIED: "); len(l) != 1 || !strings.HasSuffix(l[0], " — .env") {
-			t.Errorf("UNCLASSIFIED lines %q, want .env unpreserved", l)
+		if l := rcwLines(out, "UNCLASSIFIED: "); len(l) != 1 || !strings.HasSuffix(l[0], " — data/.env") {
+			t.Errorf("UNCLASSIFIED lines %q, want data/.env unpreserved", l)
 		}
 		fx.assertUntouched(t)
 	})
