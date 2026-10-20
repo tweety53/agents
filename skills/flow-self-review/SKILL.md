@@ -143,7 +143,7 @@ design that holds, the next step is effort `xhigh` — and an `xhigh` dispatch i
 without the operator's approval, asked first with the finding, the objection and what `high`
 returned; a refusal leaves the finding offered for filing in step 4. **This session plans,
 changes and reviews nothing itself** (`design.md`, `one-shot-subagent-fix-loop`), save item 4's
-ticks and archive commit and **The base sync** below: each numbered step below that does is a fresh dispatch on the pair it names, its prompt carrying the MODEL HANDSHAKE,
+ticks and archive commit and **The base sync** below: each numbered step below that does is a fresh dispatch on the pair it names, never a fork of this session (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), its prompt carrying the MODEL HANDSHAKE,
 TOOLS, FOREGROUND BUILDS and NO DELEGATION paragraphs of **4. Execute (SDD + TDD)**
 (`skills/flow/implement.md`) verbatim — a review's READ-ONLY REVIEW too — with **The
 handshake** there applying to each reply. Every dispatch is one-shot: no `SendMessage` to it once

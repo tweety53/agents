@@ -76,6 +76,13 @@ other name.
 **The self-check.** Before any Agent-tool call, the parent names which row above the call is. A
 call that names no row is not made.
 
+**No row is ever a fork.** No `/flow*` phase, and no loop a phase or the self-review runs,
+dispatches `subagent_type: "fork"`: every flow dispatch is a fresh agent whose prompt carries what
+it needs — paths to the run's artifacts, reports and records — never the parent's context, and
+`hooks/enforce-agent-baseline.py` denies a fork in a flow session (KAN-1000: a parent forked itself
+to run a self-review loop, dragging about 300k tokens of uncached context into a dispatch that
+needed a change list and file paths).
+
 **Every dispatch's Agent-tool `description` names what it carries, in the operator's status-line
 shape.** A dispatch carrying plan tasks — an implementer, a gated reviewer bundle — names them
 by plan id over the plan's task count, then a few words in parentheses: `Task 3/22 (port guard)`

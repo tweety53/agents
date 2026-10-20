@@ -17,18 +17,36 @@ merely cites the role's contract file -- an implementer, a self-review planner, 
 escalation carrying verifier reports -- is not that role. Prose in
 skills/flow/visual-verify.md did not stop a hand-written verifier dispatch on flow-high.
 
+It denies every fork in a flow session -- one whose transcript records a /flow, /flow-fast,
+/flow-plan or /flow-self-review command, or whose prompt names a flow skill: a flow dispatch is a
+fresh agent whose prompt carries the paths it needs (KAN-1000: a parent forked itself into a
+self-review loop and dragged ~300k tokens of its own context into it).
+
 Fails open: any unexpected input, parse error, or internal fault exits 0 and lets the
 dispatch through. A guardrail on a convention must never be the reason work stops.
 """
 
 import json
+import re
 import sys
 
 # The tool that spawns a subagent. Current builds name it "Agent"; older ones "Task".
 DISPATCH_TOOLS = {"Agent", "Task"}
 
-# A fork inherits the parent's full context, CLAUDE.md included, so it needs no pointer.
+# A fork inherits the parent's full context, CLAUDE.md included, so it needs no pointer --
+# outside a flow session, where it is denied instead (fork_reason).
 EXEMPT_SUBAGENT_TYPES = {"fork"}
+
+# A flow run's slash command as the harness writes it into the session transcript.
+FLOW_COMMAND = re.compile(r"<command-name>/flow(?:-fast|-plan|-self-review)?</command-name>")
+
+FORK_REASON = (
+    "Dispatch blocked: no flow phase, and no loop a phase or the self-review runs, dispatches "
+    "subagent_type \"fork\" (skills/flow/implement.md, KAN-1000).\n\n"
+    "Re-send this call as a fresh agent on the pair its contract names, its prompt carrying "
+    "what it needs -- paths to the run's artifacts, reports and records -- never this "
+    "session's context."
+)
 
 # Both must appear in the prompt: the file being pointed at, and the propagation clause
 # that makes the receiving agent a carrier. Either alone is not the rule.
@@ -48,7 +66,8 @@ DENY_REASON = (
     "Re-send this call with the following two sentences included verbatim in `prompt`:\n\n"
     f"{REQUIRED_TEXT}\n\n"
     "The second sentence is not optional: it is what carries the rules past depth 1.\n"
-    "Exempt: subagent_type \"fork\", which inherits this session's context already."
+    "Exempt: subagent_type \"fork\" outside a flow session, which inherits this session's "
+    "context already."
 )
 
 # (marker line, subagent_type, model, the contract that fixes the pair). The marker is
@@ -110,6 +129,36 @@ def pinned_role_reason(prompt: str, tool_input: dict) -> "str | None":
     return None
 
 
+def fork_reason(payload: dict, tool_input: dict) -> "str | None":
+    prompt = tool_input.get("prompt")
+    if isinstance(prompt, str) and "skills/flow" in prompt:
+        return FORK_REASON
+    path = payload.get("transcript_path")
+    if not isinstance(path, str):
+        return None
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            if any(is_flow_command(line) for line in f):
+                return FORK_REASON
+    except OSError:
+        return None
+    return None
+
+
+def is_flow_command(line: str) -> bool:
+    # Only a user turn with string content is a typed slash command; a tool result quoting the
+    # tag carries list content and does not count.
+    try:
+        entry = json.loads(line)
+    except ValueError:
+        return False
+    if not isinstance(entry, dict) or entry.get("type") != "user":
+        return False
+    message = entry.get("message")
+    content = message.get("content") if isinstance(message, dict) else None
+    return isinstance(content, str) and bool(FLOW_COMMAND.search(content))
+
+
 def deny(reason: str) -> None:
     json.dump(
         {
@@ -140,6 +189,9 @@ def main() -> int:
         return 0
 
     if tool_input.get("subagent_type") in EXEMPT_SUBAGENT_TYPES:
+        reason = fork_reason(payload, tool_input)
+        if reason:
+            deny(reason)
         return 0
 
     prompt = tool_input.get("prompt")

@@ -19,7 +19,12 @@
 #  8b. the same from ~/.zcode/hooks on flow-high /
 #      glm-5.3-flash, a type ZCode does not offer (KAN-609) -> deny, names general-purpose
 #   9. the same from ~/.zcode/hooks on flow-low / opus     -> deny, names glm-5.3-flash
-#  10. a fork dispatch carrying the verifier marker        -> allow
+#  10. a fork dispatch carrying the verifier marker        -> deny (names a flow skill)
+#  10b. a fork naming no flow skill, no transcript          -> allow
+#  10c. the same fork in a session whose transcript records
+#       a /flow command                                     -> deny
+#  10d. the same fork, transcript recording only /flow-status -> allow
+#  10e. the same fork, the /flow tag only inside a tool result -> allow
 #  11. malformed JSON                                      -> allow, exit 0
 #  12. a planner or implementer prompt citing the verifier
 #      or analyst file, with no marker line, off the
@@ -51,6 +56,12 @@ payload() {
 ti={"prompt":sys.argv[1],"subagent_type":sys.argv[2]}
 if len(sys.argv)>3: ti["model"]=sys.argv[3]
 print(json.dumps({"tool_name":"Agent","tool_input":ti}))' "$@"
+}
+
+# payload_in <transcript> <prompt> <subagent_type>: a payload naming its session transcript
+payload_in() {
+  python3 -c 'import json,sys
+print(json.dumps({"tool_name":"Agent","transcript_path":sys.argv[1],"tool_input":{"prompt":sys.argv[2],"subagent_type":sys.argv[3]}}))' "$@"
 }
 
 # run_hook <hook path> <stdin>: sets RC and OUT
@@ -125,7 +136,22 @@ run_hook "$SANDBOX/.zcode/hooks/enforce-agent-baseline.py" "$(payload "$VERIFIER
 expect_deny "9 zcode verifier on the claude pair" 'model: \"glm-5.3-flash\"'
 
 run_hook "$HOOK" "$(payload "$VERIFIER" fork)"
-expect_allow "10 fork exempt"
+expect_deny "10 fork naming a flow skill" 'subagent_type \"fork\"'
+
+run_hook "$HOOK" "$(payload 'summarise the thread above' fork)"
+expect_allow "10b fork outside a flow session"
+
+printf '%s\n' '{"type":"user","message":{"content":"<command-name>/flow</command-name>"}}' >"$SANDBOX/flow.jsonl"
+run_hook "$HOOK" "$(payload_in "$SANDBOX/flow.jsonl" 'run the loop above' fork)"
+expect_deny "10c fork in a /flow session" 'KAN-1000'
+
+printf '%s\n' '{"type":"user","message":{"content":"<command-name>/flow-status</command-name>"}}' >"$SANDBOX/status.jsonl"
+run_hook "$HOOK" "$(payload_in "$SANDBOX/status.jsonl" 'run the loop above' fork)"
+expect_allow "10d fork after /flow-status alone"
+
+printf '%s\n' '{"type":"user","message":{"content":[{"type":"tool_result","content":"<command-name>/flow</command-name>"}]}}' >"$SANDBOX/tool.jsonl"
+run_hook "$HOOK" "$(payload_in "$SANDBOX/tool.jsonl" 'run the loop above' fork)"
+expect_allow "10e fork whose transcript holds the tag only in a tool result"
 
 run_hook "$HOOK" '{not json'
 expect_allow "11 malformed JSON"
