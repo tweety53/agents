@@ -408,6 +408,7 @@ it in `<project>/.flow/project.md`'s `## lint` section; fix any violation before
 unreadable report inside it, an internal coverage.sh call failing) — is not a violation**: report it and stop before the
 commit, never commit a report the guard could not read.
 `land-self-review-report.sh` refuses a report whose finding line says `not traced` or `untraced` — `LAND-UNTRACED-FINDING`, exit 4, nothing committed: trace that finding to a verdict per step 2 (`skills/flow-self-review/SKILL.md`), rewrite its line, and land again.
+It refuses a `noted` finding line that leaves its action to the operator the same way, `LAND-DEFERRED-FINDING`, exit 4, nothing committed: fix that finding per step 3 (`skills/flow-self-review/SKILL.md`), or reword a line the guard misread, and land again.
 Commit both paths in one commit through the landing chain's one script — the same invocation
 `skills/flow/integrate.md` step 4 lands the report with, differing in the asserted branch,
 the removed context-bundle path and the `--push` — since the round-trip through the seven-angle

@@ -229,7 +229,9 @@ func lsrrWords(lines []string) string {
 // traced: an untraced finding is an open item, and a run whose report
 // carries one must not reach FINISHED (pipeline-fix-kan-954-…-11). Every
 // such line is named, and exit 4 leaves nothing added, committed, pulled or
-// pushed. A path it cannot read is left to `git add`, which names it.
+// pushed. A path it cannot read is left to `git add`, which names it. A
+// `— noted` finding line leaving its action to the operator is refused the
+// same way, as LAND-DEFERRED-FINDING (pipeline-fix-kan-995-…-24).
 func lsrrUntraced(env Env, repo, addPath string, stderr io.Writer) int {
 	p := addPath
 	if !filepath.IsAbs(p) {
@@ -249,6 +251,22 @@ func lsrrUntraced(env Env, repo, addPath string, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "LAND-UNTRACED-FINDING: %s:%d: %s — trace it to a verdict before landing; nothing added, committed, pulled or pushed\n", addPath, i+1, strings.TrimSpace(line))
 			rc = 4
 		}
+		if strings.HasPrefix(line, "- **[") && strings.Contains(l, "— noted") && lsrrDefers(l) {
+			fmt.Fprintf(stderr, "LAND-DEFERRED-FINDING: %s:%d: %s — fix it in the run, never leave it to the operator; nothing added, committed, pulled or pushed\n", addPath, i+1, strings.TrimSpace(line))
+			rc = 4
+		}
 	}
 	return rc
+}
+
+// lsrrDefers reports whether a lowered finding line leaves its action to
+// the operator — a noted observation the run could have acted on
+// (pipeline-fix-kan-995-…-24).
+func lsrrDefers(l string) bool {
+	for _, p := range []string{"for the operator", "operator decision", "operator's call", "operator's choice", "your call", "if you want"} {
+		if strings.Contains(l, p) {
+			return true
+		}
+	}
+	return false
 }

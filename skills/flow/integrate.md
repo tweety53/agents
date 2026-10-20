@@ -162,7 +162,7 @@ land-self-review-report.sh "<canonical-worktree>" "spectre/<name>" \
 A branch mismatch or a commit that FAILS is reported and stops the run at `IN_PROGRESS`. A staged
 index holding anything beyond the chain's own path refuses the commit the same way
 (`LAND-FOREIGN-STAGED`).
-A `LAND-UNTRACED-FINDING` refusal is not a stop: resolve it per step 7 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`) and land again.
+A `LAND-UNTRACED-FINDING` or `LAND-DEFERRED-FINDING` refusal is not a stop: resolve it per step 7 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`) and land again.
 
 A product defect the pass met stops it at the end of step 2 of `/flow-self-review`, closes that mark
 `-outcome stopped` instead, and the run stops before step 5 on the handoff block **the sweep**
