@@ -1,0 +1,124 @@
+diff --git a/scripts/lib/spec-root.sh b/scripts/lib/spec-root.sh
+index 88c7ae32..6adc5f2a 100644
+--- a/scripts/lib/spec-root.sh
++++ b/scripts/lib/spec-root.sh
+@@ -59,7 +59,10 @@
+ # are invisible to the caller. It is a note rather than a failure, because a
+ # migration in progress is a legitimate state to be in for as long as it takes
+ # to move the directories, and refusing to run every guard until it finishes
+-# would make the migration harder rather than safer.
++# would make the migration harder rather than safer. The note fires only while
++# openspec/changes/ holds an entry other than archive/: a project that froze
++# its openspec/ tree as history (gymie) has no change there to hide, and the
++# note on every guard call was noise.
+ spec_root_leaf() {
+   local dir="$1"
+   local has_spectre=0 has_openspec=0
+@@ -68,7 +71,10 @@ spec_root_leaf() {
+   [ -d "$dir/openspec/changes" ] && has_openspec=1
+ 
+   if [ "$has_spectre" -eq 1 ] && [ "$has_openspec" -eq 1 ]; then
+-    echo "spec-root: $dir carries both spectre/changes/ and openspec/changes/ — using spectre/; every change under openspec/changes/ is invisible to this guard until that tree is moved" >&2
++    # archive/ alone is frozen history, not a change this guard could miss.
++    if [ -n "$(ls -A "$dir/openspec/changes" | grep -vx archive)" ]; then
++      echo "spec-root: $dir carries both spectre/changes/ and openspec/changes/ — using spectre/; every change under openspec/changes/ is invisible to this guard until that tree is moved" >&2
++    fi
+     printf 'spectre\n'
+     return 0
+   fi
+diff --git a/scripts/test-lib-change-plan.sh b/scripts/test-lib-change-plan.sh
+index d3370dc7..bf068282 100755
+--- a/scripts/test-lib-change-plan.sh
++++ b/scripts/test-lib-change-plan.sh
+@@ -941,6 +941,21 @@ set -e
+ assert_nonzero_rc "case 16c: neither a live nor an archived directory cannot resolve" "$RC"
+ assert_eq "case 16c: it prints nothing to stdout" "" "$OUT"
+ 
++# Case 17: spec_root_leaf, which change-plan.sh sources, reports a both-trees
++# project on stderr only while openspec/changes/ holds an open change — never
++# for an openspec/ tree of archive/ alone (gymie's frozen history).
++CASE17="$WORK/case17-both-trees"
++mkdir -p "$CASE17/spectre/changes" "$CASE17/openspec/changes/archive/old-change"
++ERR="$(spec_root_leaf "$CASE17" 2>&1 >/dev/null)"
++assert_eq "case 17: an openspec tree of archive/ alone prints no note" "" "$ERR"
++mkdir -p "$CASE17/openspec/changes/open-change"
++ERR="$(spec_root_leaf "$CASE17" 2>&1 >/dev/null)"
++case "$ERR" in
++  *"invisible to this guard"*) pass "case 17b: an open openspec change is reported" ;;
++  *) fail "case 17b: an open openspec change is reported — got [$ERR]" ;;
++esac
++assert_eq "case 17c: spectre still wins" "spectre" "$(spec_root_leaf "$CASE17" 2>/dev/null)"
++
+ # ---------------------------------------------------------------------------
+ if [ "$FAILURES" -eq 0 ]; then
+   printf '\n✓ PASS\n'
+diff --git a/stats/internal/guard/helpers_test.go b/stats/internal/guard/helpers_test.go
+index 013d048f..c9f67016 100644
+--- a/stats/internal/guard/helpers_test.go
++++ b/stats/internal/guard/helpers_test.go
+@@ -119,17 +119,21 @@ func TestSpecRoot(t *testing.T) {
+ 		trees              []string
+ 	}{
+ 		{"neither tree is spectre", "spectre", "", nil},
+-		{"spectre only", "spectre", "", []string{"spectre"}},
+-		{"openspec only", "openspec", "", []string{"openspec"}},
+-		{"both: spectre wins and the other is reported", "spectre",
++		{"spectre only", "spectre", "", []string{"spectre/changes"}},
++		{"openspec only", "openspec", "", []string{"openspec/changes"}},
++		{"both: spectre wins and the other's open change is reported", "spectre",
+ 			"spec-root: DIR carries both spectre/changes/ and openspec/changes/ — using spectre/; every change under openspec/changes/ is invisible to this guard until that tree is moved\n",
+-			[]string{"spectre", "openspec"}},
++			[]string{"spectre/changes", "openspec/changes/archive", "openspec/changes/open-change"}},
++		{"both: an openspec tree of archive/ alone is not reported", "spectre", "",
++			[]string{"spectre/changes", "openspec/changes/archive/old-change"}},
++		{"both: an empty openspec/changes/ is not reported", "spectre", "",
++			[]string{"spectre/changes", "openspec/changes"}},
+ 	} {
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			t.Parallel()
+ 			dir := t.TempDir()
+ 			for _, tree := range tc.trees {
+-				mkdir(t, dir+"/"+tree+"/changes")
++				mkdir(t, dir+"/"+tree)
+ 			}
+ 			var stderr bytes.Buffer
+ 			if got := specRootLeaf(dir, &stderr); got != tc.want {
+diff --git a/stats/internal/guard/specroot.go b/stats/internal/guard/specroot.go
+index a3237005..54b23acf 100644
+--- a/stats/internal/guard/specroot.go
++++ b/stats/internal/guard/specroot.go
+@@ -9,10 +9,15 @@ import (
+ // specRootLeaf is scripts/lib/spec-root.sh's spec_root_leaf, whose header is
+ // canonical for why: `spectre` when dir/spectre/changes/ exists, `openspec`
+ // when only dir/openspec/changes/ does, `spectre` when neither does; both
+-// present picks `spectre` and says so on stderr.
++// present picks `spectre`, and says so on stderr only while openspec/changes/
++// holds an entry other than archive/ -- a tree of frozen history alone hides
++// no open change.
+ func specRootLeaf(dir string, stderr io.Writer) string {
+ 	hasSpectre, hasOpenspec := isDir(dir+"/spectre/changes"), isDir(dir+"/openspec/changes")
+ 	if hasSpectre && hasOpenspec {
++		if !holdsOpenChange(dir + "/openspec/changes") {
++			return "spectre"
++		}
+ 		fmt.Fprintf(stderr, "spec-root: %s carries both spectre/changes/ and openspec/changes/ — using spectre/; every change under openspec/changes/ is invisible to this guard until that tree is moved\n", dir)
+ 		return "spectre"
+ 	}
+@@ -22,6 +27,17 @@ func specRootLeaf(dir string, stderr io.Writer) string {
+ 	return "spectre"
+ }
+ 
++// holdsOpenChange reports whether changes/ holds any entry but archive/.
++func holdsOpenChange(changes string) bool {
++	entries, _ := os.ReadDir(changes)
++	for _, e := range entries {
++		if e.Name() != "archive" {
++			return true
++		}
++	}
++	return false
++}
++
+ // isDir and isFile are bash's `[ -d ]` and `[ -f ]`: they follow symlinks.
+ func isDir(p string) bool {
+ 	fi, err := os.Stat(p)

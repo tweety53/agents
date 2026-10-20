@@ -1,0 +1,37 @@
+diff --git a/.flow/project.md b/.flow/project.md
+index 80d1783..3e770ec 100644
+--- a/.flow/project.md
++++ b/.flow/project.md
+@@ -57,6 +57,32 @@ uses `scripts/count-request-queries.sh <database> [<curl-option>...] -- <url>...
+ worktree's database — the name in `DB_URL` from `./gradlew devWorkspace`; the script's header states
+ the method.
+ 
++**A live check's fixtures start from `dbSeed`'s rows, and its cleanup deletes only what it created**
++(kan-999). `dbSeed` leaves this worktree's database holding the friend cast under `## credentials`, their
++workouts, and the group sessions `LocalDevGroupSessionSeeder` creates — three squad sessions and DEV's
++week with `dev-wife`, every one with participants. A check starts from those rows and creates anything
++still missing through the API as a seeded account (`POST <backend>/api/auth/login` for its token, then
++the feature's own endpoint), never by `psql` inserts: those meet the schema's constraints one at a time
++(`group_session_participant_active_user`, `user_slug_lower_unique`), and one `psql -c` carrying several
++statements is one transaction, so a failing insert silently rolls back every row before it. Its cleanup
++deletes the rows it created, by id, and nothing wider — kan-999's `delete from group_session` took every
++seeded session with it; after any wider delete, `./gradlew dbSeed` restores the seed.
++
++**A before figure runs the merge base's backend against this worktree's database, beside the change's
++own stack.** From this worktree, `git worktree add --detach ../<name>-before "$(git merge-base
++origin/<base> HEAD)"`; then, in that worktree, `:app:bootRun` on the arguments `dbSeed`'s own run
++passes (`seedDatabase`, `gradle/dev-lifecycle.gradle.kts`), its values copied from `./gradlew
++devWorkspace` in this worktree and its port any free one: `./gradlew :app:bootRun
++--args="--spring.profiles.active=local --server.port=<free port> --spring.datasource.url=<DB_URL>
++--spring.data.redis.database=<REDIS_DATABASE> --gymie.storage.bucket=<STORAGE_BUCKET>
++--gymie.storage.endpoint=<STORAGE_ENDPOINT> --gymie.storage.public-base-url=<STORAGE_PUBLIC_BASE_URL>
++--spring.security.oauth2.client.registration.google.client-id=local-dev-placeholder-client-id
++--spring.security.oauth2.client.registration.google.client-secret=local-dev-placeholder-client-secret"`.
++Every value goes on the command line because the Gradle daemon's environment is fixed when it starts,
++as `seedDatabase` explains. The before figure is `http://localhost:<free port>`'s answer and the after
++figure the change's own backend's, both counted with `scripts/count-request-queries.sh` against the one
++database; then stop the before backend and `git worktree remove ../<name>-before`.
++
+ Single services, when the full stack is not wanted:
+ 
+ ```bash
