@@ -110,11 +110,14 @@ never an exit code the command did not return.
 
    ```bash
    rm -f <screenshots root>/full-app-suite.zip
-   resolve-visual-screenshots.sh <worktree> full-app-suite.spec.ts | zip -X -j -@ <screenshots root>/full-app-suite.zip
+   list=$(resolve-visual-screenshots.sh <worktree> full-app-suite.spec.ts)
+   printf '%s\n' "$list" | tr '\n' '\0' | xargs -0 touch -t 198001010000
+   printf '%s\n' "$list" | zip -X -j -@ <screenshots root>/full-app-suite.zip
    ```
 
    `<screenshots root>` is `screenshots` resolved the way `resolve-visual-screenshots.sh`
-   resolves it. A resolver exit 1 or 2, or a non-zero `zip`, blocks.
+   resolves it. Every PNG's mtime is pinned before zipping because the zip stores it: a rebuild over
+   unchanged images is then byte-identical and commits nothing. A resolver exit 1 or 2, or a non-zero `zip`, blocks.
 
    Then run `check-spec-reach.sh <worktree>` — the spec
    `capture` just wrote must be reached by a `package.json` script of the `regression checkout`;
