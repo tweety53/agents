@@ -1,0 +1,10 @@
+# Prose Tasks 1, 3 and 4 add or reword on purpose — each line exactly as check-verbatim-moves.sh prints it.
+**`-agent-id` is never typed on a slot's row, never invented** — the daemon captures the launch identifier, pairing each launch with the begin nearest it in time; record the round's `begin`s in the one Bash call after its launch message, as above, and never reuse a `-key`.
+resolve-visual-screenshots.sh <worktree> full-app-suite.spec.ts | zip -X -j -@ <screenshots root>/full-app-suite.zip
+**`-agent-id` is never typed on a slot's row, never invented** — the daemon captures the launch identifier, stamping each launch onto the row its Agent-tool `description`'s first word names in the launching session, and pairing a launch whose description names no row with the begin nearest it in time; record the round's `begin`s in the one Bash call after its launch message, as above, and never reuse a `-key`.
+Every PNG's mtime is pinned before zipping because the zip stores it: a rebuild over unchanged images is then byte-identical and commits nothing.
+It fires as well when a slot's report counts more Critical and Important findings on its `Critical: <n>` and `Important: <n>` lines than the store holds for that round and slot.
+Open the file with one `Critical: <n>` and one `Important: <n>` line counting the findings it raises at each severity.
+list=$(resolve-visual-screenshots.sh <worktree> full-app-suite.spec.ts)
+printf '%s\n' "$list" | tr '\n' '\0' | xargs -0 touch -t 198001010000
+printf '%s\n' "$list" | zip -X -j -@ <screenshots root>/full-app-suite.zip
