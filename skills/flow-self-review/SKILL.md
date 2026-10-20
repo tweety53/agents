@@ -96,7 +96,11 @@ is never offered for filing; one that reads `deferred` is an angle-1 finding lik
 **A finding is fixed or filed only from the seven angles.** A finding about the pipeline itself is
 fixed in step 3 unless it is `big`, and offered under its angle when it is. A finding that names no defect — what
 went well, under angle 3, or an observation with nothing to fix — is reported and recorded `noted`, never offered: **only a `big`
-finding, or one whose fix step 3 dropped, is ever offered for filing**. **The pass covers
+finding, or one whose fix step 3 dropped, is ever offered for filing**. **An observation that names
+an action the run can take is a fixable finding, never `noted`**, unless the action is `big`, reaches production
+(`rules/never-touch-production.mdc`) or deletes what cannot be restored (kan-995: "feature/cardio
+lacks develop's fix 98da4aad; a branch decision for the operator" was recorded `noted` and relayed
+as an open decision, and the operator then had the run merge the branch). **The pass covers
 the pipeline and the project's own dev tooling — build scripts, dev-stack and test-harness
 config, guards — and nothing else.** A finding about the project's own product code is out of
 scope: it is never offered or filed, and goes to a fix run instead — a pass inside a run stops
@@ -125,7 +129,13 @@ plans the fix. A finding leaves step 3 unfixed only when it is `big`, or disprov
 shows, with evidence, that the defect it names does not exist. A planner report that drops a
 finding on any other ground is sent back to a fresh planner dispatch carrying the objection as a
 constraint, never offered for filing in step 4 (kan-982: the `Task-Id:` guard and the scope check
-were dropped as imprecise and offered for filing; the operator answered "fix them now"). A finding a re-plan
+were dropped as imprecise and offered for filing; the operator answered "fix them now").
+**A fix repairs what its defect already wrote wrong** — a store row, a record or a file the defect
+left corrupted is repaired in the same plan, a small command added where none exists, never left
+as a forward-only fix with the repair an operator's option (kan-995: decision `k995-rows-left`
+left three mis-stamped ledger rows wrong, and `flowd restamp-dispatch`, `b2555b98`, repaired them
+once the operator asked).
+A finding a re-plan
 did not solve — the same finding back on the same evidence — escalates the planner rather than leaving the loop: that re-plan, key
 `self-review-<name>-plan-<n>`, is the no-progress escalation and may run on `flow-high` (effort `high`) in place of the planner
 pair's `flow-medium`. Where `high` still cannot produce a
@@ -133,7 +143,7 @@ design that holds, the next step is effort `xhigh` — and an `xhigh` dispatch i
 without the operator's approval, asked first with the finding, the objection and what `high`
 returned; a refusal leaves the finding offered for filing in step 4. **This session plans,
 changes and reviews nothing itself** (`design.md`, `one-shot-subagent-fix-loop`), save item 4's
-ticks and archive commit: each numbered step below that does is a fresh dispatch on the pair it names, its prompt carrying the MODEL HANDSHAKE,
+ticks and archive commit and **The base sync** below: each numbered step below that does is a fresh dispatch on the pair it names, its prompt carrying the MODEL HANDSHAKE,
 TOOLS, FOREGROUND BUILDS and NO DELEGATION paragraphs of **4. Execute (SDD + TDD)**
 (`skills/flow/implement.md`) verbatim — a review's READ-ONLY REVIEW too — with **The
 handshake** there applying to each reply. Every dispatch is one-shot: no `SendMessage` to it once
@@ -273,6 +283,18 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    finding's sha is read off `<agents-base>` after the landing, never from
    the branch before its rebase; on a route that opens a pull request, once that pull request
    merges.
+
+**The base sync.** A finding that a `--base` change's `<base>` (`skills/flow/SKILL.md`) lacks a
+commit the project's `<default-branch>` carries is no task of the loop: in each repository of the
+change whose `<base>` lacks it, this session adds a detached worktree of `origin/<base>`, named
+`base-sync-<name>`, in that repository's worktrees directory after a `git fetch origin`, runs
+`git merge --no-edit origin/<default-branch>` in it, then the `## lint` and `## test` commands
+`<project>/.flow/project.md` declares for that repository — a repository with no declared `## lint`
+and `## test` command has no green run; on a clean merge and a green run it
+pushes the merge to `<base>` on `origin` without asking, removes the worktree, and records the
+finding `fixed` with the merge commit's sha. A merge that conflicts, a red or absent run, or a
+rejected push pushes nothing,
+removes the worktree, and is offered in step 4 as a `big` finding is.
 
 ### 4. Explain, then ask
 

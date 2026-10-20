@@ -64,7 +64,7 @@ merged** (`skills/flow-contracts/finish-contract-run2.md`).
 A run 2 that **completes step 5** is terminal and names **no** next command.
 
 **The Finished handoff, and the run's final report beside it, carry no open item** — nothing
-"still open", unverified or untraced. Each one is resolved before the handoff prints: fixed,
+"still open", unverified, untraced or left as the operator's call. Each one is resolved before the handoff prints: fixed,
 disproved with its evidence, or a `big` finding filed or declined at step 4's prompt of
 `/flow-self-review` (`skills/flow-self-review/SKILL.md`).
 
