@@ -34,12 +34,12 @@ worktree.
 - Task 1: both trees present still returns `spectre`, and an `openspec/changes/` holding any entry but `archive/` still prints the note (`TestSpecRoot`'s open-change case).
 - Task 3: an open dispatch (`EndedAt` nil) renders no Ended line.
 
-- [ ] 1. Print the both-trees note only for an open openspec change
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In this agents worktree, apply the test hunks alone — `git apply --include='stats/internal/guard/helpers_test.go' --include='scripts/test-lib-change-plan.sh' $P/patches/task-1.diff` — and run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestSpecRoot' -count=1` and `bash scripts/test-lib-change-plan.sh`: both fail, the archive-only cases printing the note.
+- [x] 1. Print the both-trees note only for an open openspec change
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In this agents worktree, apply the test hunks alone — `git apply --include='stats/internal/guard/helpers_test.go' --include='scripts/test-lib-change-plan.sh' $P/patches/task-1.diff` — and run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestSpecRoot' -count=1` and `bash scripts/test-lib-change-plan.sh`: both fail, the archive-only cases printing the note.
     <!-- measured: the test hunks alone, go test -run TestSpecRoot and bash scripts/test-lib-change-plan.sh @ branch self-review-kan-999-group-session-workout-names (c53570af) → FAIL, case 17 got the note -->
-  - [ ] **Step 2: Apply the fix** — the rest: `git apply --exclude='stats/internal/guard/helpers_test.go' --exclude='scripts/test-lib-change-plan.sh' $P/patches/task-1.diff` (`spec_root_leaf` and `specRootLeaf` print the note only while `openspec/changes/` holds an entry other than `archive/`; the bash header says why).
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestSpecRoot' -count=1` passes; `bash scripts/test-lib-change-plan.sh` ends `✓ PASS`; `bash -c 'source scripts/lib/spec-root.sh; spec_root_leaf /Users/tweety53/Projects/gymie-worktrees/kan-999-group-session-workout-names'` prints `spectre` and nothing on stderr; `scripts/check-references.sh` exits 0.
-  - [ ] **Step 4: Commit** the four files below with the subject below.
+  - [x] **Step 2: Apply the fix** — the rest: `git apply --exclude='stats/internal/guard/helpers_test.go' --exclude='scripts/test-lib-change-plan.sh' $P/patches/task-1.diff` (`spec_root_leaf` and `specRootLeaf` print the note only while `openspec/changes/` holds an entry other than `archive/`; the bash header says why).
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestSpecRoot' -count=1` passes; `bash scripts/test-lib-change-plan.sh` ends `✓ PASS`; `bash -c 'source scripts/lib/spec-root.sh; spec_root_leaf /Users/tweety53/Projects/gymie-worktrees/kan-999-group-session-workout-names'` prints `spectre` and nothing on stderr; `scripts/check-references.sh` exits 0.
+  - [x] **Step 4: Commit** the four files below with the subject below.
 
 **Build:** green
 **Files:** `scripts/lib/spec-root.sh`, `scripts/test-lib-change-plan.sh`, `stats/internal/guard/specroot.go`, `stats/internal/guard/helpers_test.go`
@@ -53,10 +53,10 @@ worktree.
 **Decision:** note-only-for-open-openspec-change
 **Decision:** spec-root-both-sides
 
-- [ ] 2. Count a grown type against the size rules when planning it
-  - [ ] **Step 1: Apply** `git apply $P/patches/task-2.diff` in this agents worktree: one blockquote sentence in section D of `skills/flow/brainstorm-planner.md`, after the verify-step rule.
-  - [ ] **Step 2: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-installed-citations.sh` and `python3 scripts/check-markdown-integrity.py` exit 0 — the new sentence is listed in `$P/verbatim-moves.txt`.
-  - [ ] **Step 3: Commit** `skills/flow/brainstorm-planner.md` with the subject below.
+- [x] 2. Count a grown type against the size rules when planning it
+  - [x] **Step 1: Apply** `git apply $P/patches/task-2.diff` in this agents worktree: one blockquote sentence in section D of `skills/flow/brainstorm-planner.md`, after the verify-step rule.
+  - [x] **Step 2: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-installed-citations.sh` and `python3 scripts/check-markdown-integrity.py` exit 0 — the new sentence is listed in `$P/verbatim-moves.txt`.
+  - [x] **Step 3: Commit** `skills/flow/brainstorm-planner.md` with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/brainstorm-planner.md`
@@ -67,12 +67,12 @@ worktree.
 
 **Decision:** size-rule-in-section-d
 
-- [ ] 3. Render when a dispatch ended in the ledger
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In this agents worktree, apply the test hunk alone — `git apply --include='stats/internal/records/render_test.go' $P/patches/task-3.diff` — and run `cd stats && make -s web-dist && go test ./internal/records/ -run 'TestRenderLedgerNamesWhenADispatchEnded' -count=1`: it fails, the ledger carrying no `- Ended:` line.
+- [x] 3. Render when a dispatch ended in the ledger
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In this agents worktree, apply the test hunk alone — `git apply --include='stats/internal/records/render_test.go' $P/patches/task-3.diff` — and run `cd stats && make -s web-dist && go test ./internal/records/ -run 'TestRenderLedgerNamesWhenADispatchEnded' -count=1`: it fails, the ledger carrying no `- Ended:` line.
     <!-- measured: the test hunk alone, go test -run TestRenderLedgerNamesWhenADispatchEnded @ branch self-review-kan-999-group-session-workout-names (c53570af) → FAIL -->
-  - [ ] **Step 2: Apply the fix** — the rest: `git apply --exclude='stats/internal/records/render_test.go' $P/patches/task-3.diff`.
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/records/ && go test ./internal/records/ -run 'TestRenderLedger' -count=1` passes.
-  - [ ] **Step 4: Commit** `stats/internal/records/render.go` and `stats/internal/records/render_test.go` with the subject below.
+  - [x] **Step 2: Apply the fix** — the rest: `git apply --exclude='stats/internal/records/render_test.go' $P/patches/task-3.diff`.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/records/ && go test ./internal/records/ -run 'TestRenderLedger' -count=1` passes.
+  - [x] **Step 4: Commit** `stats/internal/records/render.go` and `stats/internal/records/render_test.go` with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/records/render.go`, `stats/internal/records/render_test.go`
@@ -85,10 +85,10 @@ worktree.
 
 **Decision:** ledger-ended-line
 
-- [ ] 4. Document gymie live-check fixtures and the before-figure backend
-  - [ ] **Step 1: Apply** `git apply $P/patches/task-4.diff` in the gymie worktree `/Users/tweety53/Projects/gymie-worktrees/kan-999-group-session-workout-names`: two paragraphs after the `count-request-queries.sh` paragraph of `## run`.
-  - [ ] **Step 2: Verify.** `git diff --stat` names `.flow/project.md` alone, and `git diff | grep -c '^+```'` prints `0` — the new paragraphs add no fenced block to `## run`; `/Users/tweety53/Projects/agents/scripts/project-get.sh /Users/tweety53/Projects/gymie-worktrees/kan-999-group-session-workout-names run` exits 0 and its output carries both new paragraphs. No lint line applies to this file.
-  - [ ] **Step 3: Commit** `.flow/project.md` on branch `spectre/kan-999-group-session-workout-names` with the subject below; it rides that change's merge and push.
+- [x] 4. Document gymie live-check fixtures and the before-figure backend
+  - [x] **Step 1: Apply** `git apply $P/patches/task-4.diff` in the gymie worktree `/Users/tweety53/Projects/gymie-worktrees/kan-999-group-session-workout-names`: two paragraphs after the `count-request-queries.sh` paragraph of `## run`.
+  - [x] **Step 2: Verify.** `git diff --stat` names `.flow/project.md` alone, and `git diff | grep -c '^+```'` prints `0` — the new paragraphs add no fenced block to `## run`; `/Users/tweety53/Projects/agents/scripts/project-get.sh /Users/tweety53/Projects/gymie-worktrees/kan-999-group-session-workout-names run` exits 0 and its output carries both new paragraphs. No lint line applies to this file.
+  - [x] **Step 3: Commit** `.flow/project.md` on branch `spectre/kan-999-group-session-workout-names` with the subject below; it rides that change's merge and push.
 
 **Build:** green
 **Files:** `.flow/project.md`
