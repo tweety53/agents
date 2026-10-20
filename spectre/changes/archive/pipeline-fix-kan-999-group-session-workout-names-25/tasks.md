@@ -38,13 +38,13 @@ copy of a main-checkout local config such as `.env`.
 - The differing case proceeds and stays visible as `— preserved: differs from <main-checkout>`
   (`differs-label-kept-visible`).
 
-- [ ] 1. Preserve a worktree's copy of a main-checkout local config
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
+- [x] 1. Preserve a worktree's copy of a main-checkout local config
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
     `/tmp/pf25-task1.diff`, apply its test hunk alone
     (`git apply --include='stats/internal/guard/remove_change_worktrees_test.go' /tmp/pf25-task1.diff`)
     and run `cd stats && make -s web-dist && go test ./internal/guard -run TestRemoveChangeWorktrees -count=1`:
     `--- FAIL: TestRemoveChangeWorktreesDisclose/an_entry_that_differs_from_the_main_checkout's_proceeds`.
-  - [ ] **Step 2: Implement.** Apply the rest
+  - [x] **Step 2: Implement.** Apply the rest
     (`git apply --exclude='stats/internal/guard/remove_change_worktrees_test.go' /tmp/pf25-task1.diff`):
 
 ````diff verified:applied with git apply to this worktree at 94818c76; go test ./internal/guard -count=1 passes with it and the new subtest fails with removechangeworktrees.go untouched; gofmt, check-references, check-guard-symlinks, check-markdown-integrity and check-verbatim-moves (with this change's verbatim-moves.txt) exit 0
@@ -185,11 +185,11 @@ index 7d3cbda7..739ec8f2 100644
  	return errA == nil && errB == nil && bytes.Equal(da, db)
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l .` prints nothing;
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l .` prints nothing;
     `cd stats && go vet ./internal/guard/ && go test ./internal/guard -run TestRemoveChangeWorktrees -count=1`
     passes; `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`,
     `scripts/check-guard-symlinks.sh` and `scripts/check-markdown-integrity.py` exit 0.
-  - [ ] **Step 4: Commit** the four files with the subject below.
+  - [x] **Step 4: Commit** the four files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/removechangeworktrees.go`, `stats/internal/guard/remove_change_worktrees_test.go`, `scripts/remove-change-worktrees.sh`, `skills/flow-contracts/finish-contract-run2.md`

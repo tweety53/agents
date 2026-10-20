@@ -56,7 +56,7 @@ change's own record, left as written. The fix touches four of them plus this cha
 **ID:** first-review-effort
 **Status:** active
 **Chosen:** `flow-low` — one predicate in a Go guard widened, one subtest flipped, one contract sentence; the no-counterpart and symlink subtests already pin the cases that must still stop.
-**Considered:** `flow-medium` — the guard gates destruction of ignored files, but the change only widens "preserved" to files the main checkout still holds, and both stopping cases keep their tests.
+**Considered:** `flow-medium` — the guard gates destruction of ignored files, and the change preserves only entries at the worktree root with a main-checkout counterpart, even when they differ; nested entries, entries with no counterpart and symlink-reached entries still stop, each with its own test.
 
 ### Fixer grouping
 
