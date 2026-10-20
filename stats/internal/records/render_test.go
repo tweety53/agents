@@ -1083,3 +1083,25 @@ func TestRenderLedgerDerivesTheTaskFromTheKey(t *testing.T) {
 		}
 	}
 }
+
+// TestRenderLedgerNamesWhenADispatchEnded pins that a closed dispatch renders
+// its end and its duration right after its start, and an open one renders no
+// Ended line at all (kan-999: every ledger showed only `- Started:`).
+func TestRenderLedgerNamesWhenADispatchEnded(t *testing.T) {
+	started := time.Date(2026, 10, 20, 9, 0, 0, 0, time.UTC)
+	ended := started.Add(4*time.Minute + 12*time.Second + 400*time.Millisecond)
+	out := records.RenderLedger(records.Run{
+		Change: "demo",
+		Dispatches: []records.Dispatch{
+			{Seq: 1, Role: "implementer", Model: "opus", Outcome: "completed", StartedAt: started, EndedAt: &ended},
+			{Seq: 2, Role: "reviewer", Model: "opus", StartedAt: started},
+		},
+	})
+
+	if !strings.Contains(out, "- Started: 2026-10-20T09:00:00Z\n- Ended: 2026-10-20T09:04:12Z (4m12s)\n") {
+		t.Errorf("a closed dispatch must render its end and duration after its start:\n%s", out)
+	}
+	if open := out[strings.Index(out, "## Dispatch 2 —"):]; strings.Contains(open, "- Ended:") {
+		t.Errorf("an open dispatch must render no Ended line:\n%s", open)
+	}
+}

@@ -575,6 +575,9 @@ func RenderLedger(r Run) string {
 			started = d.StartedAt.UTC().Format(time.RFC3339)
 		}
 		fmt.Fprintf(&b, "- Started: %s\n", started)
+		if d.EndedAt != nil && !d.StartedAt.IsZero() {
+			fmt.Fprintf(&b, "- Ended: %s (%s)\n", d.EndedAt.UTC().Format(time.RFC3339), d.EndedAt.Sub(d.StartedAt).Round(time.Second))
+		}
 		fmt.Fprintf(&b, "- Tokens: %s\n", tokenLine(d.Metrics))
 		if strings.TrimSpace(d.Notes) != "" {
 			fmt.Fprintf(&b, "- Notes: %s\n", neutraliseMarkers(d.Notes))
