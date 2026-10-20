@@ -552,6 +552,50 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 				}
 			}
 		}
+		// SIGNAL TEN — a multi-repository change whose merge-order record
+		// misses a repository (decision merge-order-signal, kan-995
+		// self-review). Every range whose worktree's main checkout differs
+		// from the plan worktree's must be named, in backticks, by a numbered
+		// line of link.md's `## Merge order` section whose peer name the
+		// spectre/peers file resolves to that main checkout. A single-range
+		// or single-repository call reads nothing; an absent link.md holds
+		// no entries.
+		if planRC == 0 && len(ranges) > 1 {
+			if own, ok := changePlanMainCheckout(env, worktree); ok {
+				own = filepath.Clean(own)
+				link := planDir + "/link.md"
+				var named []string
+				if b, err := os.ReadFile(link); err == nil {
+					in := false
+					for _, l := range strings.Split(string(b), "\n") {
+						if strings.HasPrefix(l, "## ") {
+							in = strings.TrimSpace(l) == "## Merge order"
+							continue
+						}
+						if m := uwMergeOrderEntryRE.FindStringSubmatch(l); in && m != nil {
+							if root, ok := changePlanPeerRoot(env, worktree, specRootLeaf(worktree, io.Discard), m[1]); ok {
+								named = append(named, filepath.Clean(root))
+							}
+						}
+					}
+				} else if !os.IsNotExist(err) {
+					return unreadable(link)
+				}
+				seen := map[string]bool{}
+				for _, r := range ranges {
+					mc, ok := changePlanMainCheckout(env, r[0])
+					if !ok {
+						continue
+					}
+					mc = filepath.Clean(mc)
+					if mc == own || seen[mc] || slices.Contains(named, mc) {
+						continue
+					}
+					seen[mc] = true
+					reasons = append(reasons, "merge order does not name "+mc+": "+link+" — write the change's ## Merge order per skills/flow/cross-repo-worktrees.md (\"Then make the merge-order record cover the whole set\") before landing")
+				}
+			}
+		}
 		// THE VISUAL VERDICT IS FOLDED IN (decision uw-fold-visual-verdict):
 		// check-visual-verify-dispatched over this guard's own worktree's
 		// range, its MISSING line a reason here and its refusal this guard's.
@@ -921,6 +965,10 @@ func uwVisualFlagged(env Env, name, worktree, anchor, line string) bool {
 	}
 	return false
 }
+
+// uwMergeOrderEntryRE is one numbered `## Merge order` entry of link.md,
+// its backticked peer name captured (signal ten).
+var uwMergeOrderEntryRE = regexp.MustCompile("^\\s*\\d+\\.\\s+`([^`]+)`")
 
 // uwVerifyFailure is one failure signal nine reads: a spec, its line, and
 // the capture base name (no `.png`) it names, if any.

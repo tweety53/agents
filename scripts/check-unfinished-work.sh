@@ -125,6 +125,17 @@
 # commit. Each other failure is one reason, `verify failure not addressed:
 # <spec>:<line>[ <name>.png] (<report>)`; an unreadable report is exit 2.
 #
+# SIGNAL TEN: A MULTI-REPOSITORY CHANGE WHOSE MERGE ORDER MISSES A REPOSITORY
+# IS UNFINISHED (kan-995 self-review, decision merge-order-signal). Read in
+# the worktree holding the plan when more than one range is passed: every
+# range whose worktree's main checkout differs from the plan worktree's must
+# be named by a numbered line of the plan directory's link.md under
+# `## Merge order` (up to the next `## `), its backticked name a peer the
+# spectre/peers file resolves to that main checkout. Each repository not
+# covered is one reason, `merge order does not name <main checkout>:
+# <planDir>/link.md`; an absent link.md holds no entries, an unreadable one
+# is exit 2. A `## Part of` section is never the merge-order record.
+#
 # THE VISUAL VERDICT IS FOLDED IN (kan-989 self-review): over this worktree's
 # own range, check-visual-verify-dispatched.sh's VISUAL-VERIFY-MISSING line
 # is one more reason, and its exit 2 is this guard's exit 2 — unless an

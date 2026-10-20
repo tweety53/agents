@@ -311,7 +311,10 @@ func TestCheckUnfinishedWork(t *testing.T) {
 			f.plan(t, "> **Tasks appended:** 1\n\n- [x] 1. done\n- [x] 7. appended by a fix run\n")
 			f.setFile(t, "dispatches.json", covered+"\n")
 			if peer {
-				f.ranges = []string{uwCommits(t, f.wt, "base", "fix: no trailer"), uwCommits(t, t.TempDir(), "base", msg)}
+				// A peer the merge-order record names, so signal ten is satisfied.
+				writeFile(t, f.wt+"/spectre/peers", "peer ../peer\n")
+				writeFile(t, f.wt+"/spectre/changes/demo/link.md", "## Merge order\n\n1. `.`\n2. `peer`\n")
+				f.ranges = []string{uwCommits(t, f.wt, "base", "fix: no trailer"), uwCommits(t, filepath.Dir(f.wt)+"/peer", "base", msg)}
 				return
 			}
 			f.ranges = []string{uwCommits(t, f.wt, baseMsg, msg)}
@@ -1075,6 +1078,60 @@ func TestCheckUnfinishedWorkVerifyFailureNotAddressed(t *testing.T) {
 			r := f.run(t, f.wt, "demo", "", f.wt+"="+base)
 			if r.rc != 0 || strings.Contains(r.out, c.want) != c.wantIn {
 				t.Fatalf("exit %d stdout %q stderr %q; want exit 0 and %q present=%v", r.rc, r.out, r.err, c.want, c.wantIn)
+			}
+		})
+	}
+}
+
+// TestCheckUnfinishedWorkMergeOrderRecord pins signal ten (decision
+// merge-order-signal, kan-995 self-review): a change whose ranges span a
+// second repository is OUTSTANDING until link.md's `## Merge order` names
+// that repository by a peer the spectre/peers file resolves to it.
+func TestCheckUnfinishedWorkMergeOrderRecord(t *testing.T) {
+	t.Parallel()
+	const reason = "merge order does not name "
+	for _, c := range []struct {
+		name   string
+		link   string // "" writes no link.md
+		peers  string
+		ranges string // "both", "plan" or "same-repo"
+		wantIn bool
+	}{
+		{"no link.md", "", "peer ../peer\n", "both", true},
+		{"merge order names only the plan repository", "## Merge order\n\n1. `.`\n", "peer ../peer\n", "both", true},
+		{"merge order names the peer", "## Merge order\n\n1. `.`\n2. `peer`\n", "peer ../peer\n", "both", false},
+		{"a Part of section is not the merge order", "## Part of\n\n1. `.`\n2. `peer`\n", "peer ../peer\n", "both", true},
+		{"one range reads nothing", "", "peer ../peer\n", "plan", false},
+		{"two worktrees of one repository read nothing", "", "peer ../peer\n", "same-repo", false},
+		{"a peer the peers file does not declare", "## Merge order\n\n1. `.`\n2. `peer`\n", "other ../other\n", "both", true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			f := newUW(t)
+			planRange := uwCommits(t, f.wt, "base", "fix: plan")
+			writeFile(t, f.wt+"/spectre/peers", c.peers)
+			if c.link != "" {
+				writeFile(t, f.wt+"/spectre/changes/demo/link.md", c.link)
+			}
+			args := []string{f.wt, "demo", "", planRange}
+			switch c.ranges {
+			case "both":
+				args = append(args, uwCommits(t, filepath.Dir(f.wt)+"/peer", "base", "fix: peer"))
+			case "same-repo":
+				linked := filepath.Dir(f.wt) + "/linked"
+				gitRun(t, f.wt, "worktree", "add", "-q", linked)
+				args = append(args, linked+"="+tcfGit(t, linked, "rev-parse", "HEAD~1"))
+			}
+			r := f.run(t, args...)
+			if r.rc != 0 || strings.Contains(r.out, reason) != c.wantIn {
+				t.Fatalf("exit %d stdout %q stderr %q; want exit 0 and %q present=%v", r.rc, r.out, r.err, reason, c.wantIn)
+			}
+			peer, err := filepath.EvalSymlinks(filepath.Dir(f.wt) + "/peer")
+			if err != nil {
+				peer = filepath.Dir(f.wt) + "/peer"
+			}
+			if c.wantIn && !strings.Contains(r.out, reason+peer+":") {
+				t.Fatalf("the reason does not name the peer's main checkout: %s", r.out)
 			}
 		})
 	}
