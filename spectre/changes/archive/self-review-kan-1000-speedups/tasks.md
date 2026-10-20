@@ -33,13 +33,13 @@
 - Task 2: a round with no round base still runs `specs` unscoped; only a run under a round base loses the whole-suite fallback.
 - Task 5: colour, a missing or extra element, and copy stay outside the allowance; the band and seam pairings' thresholds are untouched.
 
-- [ ] 1. Refuse a step 10 the verifier blocked with its captures on disk
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
+- [x] 1. Refuse a step 10 the verifier blocked with its captures on disk
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
     test hunk alone (`git apply --include='stats/internal/guard/check_verify_report_test.go' <the saved diff>`)
     and run `cd stats && go test ./internal/guard/ -run 'TestCheckVerifyReport' -count=1`: the case
     `step 10 blocked with captures on disk` fails, the guard answering `VERIFY-REPORT-COMPLETE`.
     <!-- measured: the test hunk alone, go test ./internal/guard/ -run TestCheckVerifyReport @ 09bec571 → FAIL TestCheckVerifyReport/step_10_blocked_with_captures_on_disk -->
-  - [ ] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/internal/guard/check_verify_report_test.go' <the saved diff>`):
+  - [x] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/internal/guard/check_verify_report_test.go' <the saved diff>`):
 
 ````diff verified:applied in order with git apply to a scratch clone at 09bec571; the scratch tree with all six applied passes the checks design.md ## Context lists
 diff --git a/scripts/check-verify-report.sh b/scripts/check-verify-report.sh
@@ -112,8 +112,8 @@ index e2047e88..6c5727b6 100644
  			undone = append(undone, strings.TrimSpace(id+" "+s))
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l internal/guard && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckVerifyReport' -count=1` passes, `gofmt -l` printing nothing; then from the root `scripts/check-references.sh && scripts/check-installed-citations.sh && scripts/check-markdown-integrity.py && scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 4: Commit** the four files with the subject below.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l internal/guard && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckVerifyReport' -count=1` passes, `gofmt -l` printing nothing; then from the root `scripts/check-references.sh && scripts/check-installed-citations.sh && scripts/check-markdown-integrity.py && scripts/check-verbatim-moves.sh` exit 0.
+  - [x] **Step 4: Commit** the four files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/verifyreport.go`, `stats/internal/guard/check_verify_report_test.go`, `scripts/check-verify-report.sh`, `skills/flow/visual-verify.md`
@@ -128,8 +128,8 @@ index e2047e88..6c5727b6 100644
 **Decision:** not-done-already-enforced
 **Decision:** no-plan-from-incomplete
 
-- [ ] 2. Keep a scoped round's verify to the round's own specs
-  - [ ] **Step 1: Apply** the diff:
+- [x] 2. Keep a scoped round's verify to the round's own specs
+  - [x] **Step 1: Apply** the diff:
 
 ````diff verified:applied in order with git apply to a scratch clone at 09bec571; the scratch tree with all six applied passes the checks design.md ## Context lists
 diff --git a/skills/flow/verify-fix-loop.md b/skills/flow/verify-fix-loop.md
@@ -169,8 +169,8 @@ index a8db84a2..32d45ee3 100644
     of `specs`' output, which is not run — and the report's `verify:` line reads `exit <n> — rerun
 ````
 
-  - [ ] **Step 2: Verify.** From the root, `scripts/check-references.sh && scripts/check-installed-citations.sh && scripts/check-markdown-integrity.py && scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 3: Commit** the two files with the subject below.
+  - [x] **Step 2: Verify.** From the root, `scripts/check-references.sh && scripts/check-installed-citations.sh && scripts/check-markdown-integrity.py && scripts/check-verbatim-moves.sh` exit 0.
+  - [x] **Step 3: Commit** the two files with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/visual-verify-verifier.md`, `skills/flow/verify-fix-loop.md`
@@ -182,8 +182,8 @@ index a8db84a2..32d45ee3 100644
 **Decision:** scoped-verify-never-whole
 **Decision:** gymie-specs-fallback-out-of-scope
 
-- [ ] 3. Have the loop's implementer measure its fix against the frame
-  - [ ] **Step 1: Apply** the diff:
+- [x] 3. Have the loop's implementer measure its fix against the frame
+  - [x] **Step 1: Apply** the diff:
 
 ````diff verified:applied in order with git apply to a scratch clone at 09bec571; the scratch tree with all six applied passes the checks design.md ## Context lists
 diff --git a/skills/flow/verify-fix-loop.md b/skills/flow/verify-fix-loop.md
@@ -208,8 +208,8 @@ index 3077df99..3a1964b4 100644
     and before `close-task.sh` the parent runs the worktree's whole `## test` list twice more, and
 ````
 
-  - [ ] **Step 2: Verify.** From the root, `scripts/check-references.sh && scripts/check-installed-citations.sh && scripts/check-markdown-integrity.py && scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 3: Commit** the file with the subject below.
+  - [x] **Step 2: Verify.** From the root, `scripts/check-references.sh && scripts/check-installed-citations.sh && scripts/check-markdown-integrity.py && scripts/check-verbatim-moves.sh` exit 0.
+  - [x] **Step 3: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/verify-fix-loop.md`
@@ -220,8 +220,8 @@ index 3077df99..3a1964b4 100644
 
 **Decision:** implementer-measures-prose
 
-- [ ] 4. Check a feature-branch base before the first verify stage
-  - [ ] **Step 1: Apply** the diff:
+- [x] 4. Check a feature-branch base before the first verify stage
+  - [x] **Step 1: Apply** the diff:
 
 ````diff verified:applied in order with git apply to a scratch clone at 09bec571; the scratch tree with all six applied passes the checks design.md ## Context lists
 diff --git a/skills/flow-contracts/operator-prompts-auto-resolution.md b/skills/flow-contracts/operator-prompts-auto-resolution.md
@@ -244,8 +244,8 @@ index 426adf23..28177c9a 100644
    the mockup does not draw stays only when the screen cannot work without it. Record that reason
 ````
 
-  - [ ] **Step 2: Verify.** From the root, `scripts/check-references.sh && scripts/check-installed-citations.sh && scripts/check-markdown-integrity.py && scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 3: Commit** the file with the subject below.
+  - [x] **Step 2: Verify.** From the root, `scripts/check-references.sh && scripts/check-installed-citations.sh && scripts/check-markdown-integrity.py && scripts/check-verbatim-moves.sh` exit 0.
+  - [x] **Step 3: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow-contracts/operator-prompts-auto-resolution.md`
@@ -256,8 +256,8 @@ index 426adf23..28177c9a 100644
 
 **Decision:** base-check-in-auto-resolution
 
-- [ ] 5. Let a 1dp position departure stand only after a fix round tried it
-  - [ ] **Step 1: Apply** the diff:
+- [x] 5. Let a 1dp position departure stand only after a fix round tried it
+  - [x] **Step 1: Apply** the diff:
 
 ````diff verified:applied in order with git apply to a scratch clone at 09bec571; the scratch tree with all six applied passes the checks design.md ## Context lists
 diff --git a/skills/flow/visual-verify-verifier.md b/skills/flow/visual-verify-verifier.md
@@ -295,8 +295,8 @@ index 1fe7d6d6..8e926529 100644
  (`skills/flow/verify-fix-loop.md`). Those three are the environment's and end the stage as their
 ````
 
-  - [ ] **Step 2: Verify.** From the root, `scripts/check-references.sh && scripts/check-installed-citations.sh && scripts/check-markdown-integrity.py && scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 3: Commit** the two files with the subject below.
+  - [x] **Step 2: Verify.** From the root, `scripts/check-references.sh && scripts/check-installed-citations.sh && scripts/check-markdown-integrity.py && scripts/check-verbatim-moves.sh` exit 0.
+  - [x] **Step 3: Commit** the two files with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/visual-verify.md`, `skills/flow/visual-verify-verifier.md`
@@ -307,13 +307,13 @@ index 1fe7d6d6..8e926529 100644
 
 **Decision:** allowance-in-blocking
 
-- [ ] 6. Deny a fork dispatch in a flow session
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
+- [x] 6. Deny a fork dispatch in a flow session
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
     harness hunk alone (`git apply --include='scripts/test-enforce-agent-baseline-hook.sh' <the saved diff>`)
     and run `bash scripts/test-enforce-agent-baseline-hook.sh`: cases `10 fork naming a flow skill`
     and `10c fork in a /flow session` fail, the hook admitting both.
     <!-- measured: the harness hunk alone, bash scripts/test-enforce-agent-baseline-hook.sh @ 09bec571 → FAIL 10 and 10c, exit 1 -->
-  - [ ] **Step 2: Apply the fix** — the rest (`git apply --exclude='scripts/test-enforce-agent-baseline-hook.sh' <the saved diff>`):
+  - [x] **Step 2: Apply the fix** — the rest (`git apply --exclude='scripts/test-enforce-agent-baseline-hook.sh' <the saved diff>`):
 
 ````diff verified:applied in order with git apply to a scratch clone at 09bec571; the scratch tree with all six applied passes the checks design.md ## Context lists
 diff --git a/hooks/enforce-agent-baseline.py b/hooks/enforce-agent-baseline.py
@@ -485,8 +485,8 @@ index 08f8c759..7ec32fdd 100644
  by plan id over the plan's task count, then a few words in parentheses: `Task 3/22 (port guard)`
 ````
 
-  - [ ] **Step 3: Verify.** `bash scripts/test-enforce-agent-baseline-hook.sh` prints `PASS`; then from the root `scripts/check-python-suppressions.sh && scripts/check-references.sh && scripts/check-installed-citations.sh && scripts/check-markdown-integrity.py && scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 4: Commit** the four files with the subject below.
+  - [x] **Step 3: Verify.** `bash scripts/test-enforce-agent-baseline-hook.sh` prints `PASS`; then from the root `scripts/check-python-suppressions.sh && scripts/check-references.sh && scripts/check-installed-citations.sh && scripts/check-markdown-integrity.py && scripts/check-verbatim-moves.sh` exit 0.
+  - [x] **Step 4: Commit** the four files with the subject below.
 
 **Build:** green
 **Files:** `hooks/enforce-agent-baseline.py`, `scripts/test-enforce-agent-baseline-hook.sh`, `skills/flow/implement.md`, `skills/flow-self-review/SKILL.md`
