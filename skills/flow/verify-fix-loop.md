@@ -82,12 +82,18 @@ One round runs these steps in order:
    reproduction test alone, no production change, its body stating the measured rate — runs and
    failures — in place of a fix for a flake nobody saw, and the task ticks through
    `close-task.sh <canonical-worktree> <name> <merge-base> <n>:<that commit's sha>` as any task.
-3. **Re-review the delta.** Open `flow.review-panel` again and run one dispatch: `primary` alone,
-   reading `late-fix.diff` over the range since the panel's last clean close, written, paired,
-   ceilinged and recorded as **The late-fix reduction** (`skills/flow/review-panel-late-fix.md`)
-   states its dispatch, its prompt carrying the FIX-ROUND SCOPE paragraph of **Panel re-runs**
-   (`skills/flow/review-panel-fix-round.md`). That file's finding, voiding and staleness rules
+3. **Re-review the delta.** Open `flow.review-panel` again and run `primary` beside **The always-on
+   extra dispatch** (`skills/flow/review-panel.md`), reading `late-fix.diff` over the range since
+   the panel's last clean close, written, paired, ceilinged and recorded as **The late-fix
+   reduction** (`skills/flow/review-panel-late-fix.md`) states its dispatch, its prompt carrying
+   the FIX-ROUND SCOPE paragraph of **Panel re-runs** (`skills/flow/review-panel-fix-round.md`).
+   The two dispatches are keyed `panel-<round>-primary` and
+   `panel-<round>-test-sanity+call-efficiency`, `<round>` the number `flow record next-round`
+   prints, and the round records its `flow record pass -round <round>` rows like any panel round.
+   That file's finding, voiding and staleness rules
    apply as written — a clean or Minor-only read leaves every slot it did not dispatch current.
+   Once any round's read raises a Critical or Important, the reduction is void for the rest of the
+   run: every later round's step 3 opens the decided full roster, never `primary` alone.
    `check-late-fix-trigger.sh` is not run: its scope-growth condition denies every appended task the late-fix reduction,
    and this task's premise is a defect a verifier measured, not an operator's unverified flag.
    The stage then closes through its own close (**Review panel**, `skills/flow/review-panel.md`).
