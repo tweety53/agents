@@ -19,7 +19,11 @@ never an exit code the command did not return.
    Under a round base the output feeds `verify` alone, and an empty one runs no `verify` spec — the
    report's `verify:` line reads `not run — no spec since the round base` and step 7 reports `done`; step 8 takes its capture
    spec from `specs` run against the merge base.
-   A `specs` with no `<merge-base>` cannot take a round base: it runs as declared, its full list,
+   **Under a round base `verify` never runs the whole suite**: a non-zero `specs` exit, or a
+   `specs` with no `<merge-base>`, runs no `verify` spec, and the report's `verify:` line reads
+   `not run — specs cannot scope to the round base` and step 7 reports `done`; the whole suite runs
+   once, in the loop's closing unscoped run (**The loop**, `skills/flow/verify-fix-loop.md`).
+   Without a round base, a `specs` with no `<merge-base>` runs as declared, its full list,
    and the report names `specs: not scoped — specs has no <merge-base>`.
    **A prompt naming `rerun specs:` runs those specs alone** — substituted for `<specs>` in place
    of `specs`' output, which is not run — and the report's `verify:` line reads `exit <n> — rerun

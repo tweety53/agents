@@ -127,8 +127,10 @@ One round runs these steps in order:
 **One full run closes the loop.** A scoped re-run whose final report carries no fixable defect is
 followed by **Visual verification** once more from its `begin` mark, unscoped — no round base,
 every motion of the change — its dispatch keys suffixed `-fix-<k>-full` before any `-<repository
-name>` suffix. A fixable defect it reports opens the next round; its clean report is the one the
-handoff reports.
+name>` suffix. A fixable defect it reports opens the next round, whose step-4 re-run is scoped
+like any round's, its round base the HEAD this full run verified: a `-full` run follows only a
+clean scoped re-run, never another round's fix (KAN-1000: three rounds in a row re-ran unscoped).
+Its clean report is the one the handoff reports.
 
 ## No cap
 
