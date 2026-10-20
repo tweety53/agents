@@ -24,6 +24,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -82,6 +83,14 @@ const sweepSilenceTimeout = 6 * time.Hour
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+
+	if len(os.Args) > 1 && os.Args[1] == "restamp-dispatch" {
+		if err := restampDispatch(os.Args[2:]); err != nil {
+			logger.Error("flowd restamp-dispatch failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	if err := run(logger); err != nil {
 		logger.Error("flowd exiting", "error", err)
@@ -505,4 +514,39 @@ func formatBuild(settings []debug.BuildSetting) string {
 		out += ", modified"
 	}
 	return out + ")"
+}
+
+// restampDispatch implements `flowd restamp-dispatch <dispatch-id>
+// <agent-transcript>`: it names the row's agent from the transcript's file
+// name and replaces the row's figures with that whole transcript's usage
+// (store.Store.RestampDispatch). It repairs a row the harvester stamped
+// with the wrong agent, and talks to the database directly, so it needs
+// no running daemon.
+func restampDispatch(args []string) error {
+	if len(args) != 2 {
+		return fmt.Errorf("usage: flowd restamp-dispatch <dispatch-id> <agent-transcript.jsonl>")
+	}
+	id, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("dispatch id %q: %w", args[0], err)
+	}
+	agentID, ok := harvest.AgentIDFromTranscriptPath(args[1])
+	if !ok {
+		return fmt.Errorf("%s is not an agent transcript", args[1])
+	}
+	patch, err := harvest.AgentFileDispatchPatch(args[1])
+	if err != nil {
+		return err
+	}
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	st, err := store.Open(ctx, cfg.DSN)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	return st.RestampDispatch(ctx, id, agentID, patch)
 }

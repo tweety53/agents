@@ -1157,6 +1157,31 @@ func (s *Store) MergeDispatchMetrics(ctx context.Context, dispatchID int64, patc
 	return nil
 }
 
+// RestampDispatch names dispatch id's agent outright and replaces the
+// row's harvested "tokens" and "signals" with patch -- the repair for a row
+// the harvester stamped with another agent's id, whose figures therefore
+// came from that other agent's transcript. Unlike StampDispatchAgent it
+// overwrites an existing agent_id, and unlike MergeDispatchMetrics it
+// replaces rather than adds: patch is the true agent's whole usage, not a
+// batch delta. Every other key of the bag is kept.
+func (s *Store) RestampDispatch(ctx context.Context, dispatchID int64, agentID string, patch json.RawMessage) error {
+	if patch == nil {
+		return ErrNilMetricsPatch
+	}
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE dispatches
+		SET agent_id = $2, metrics = (metrics - 'tokens' - 'signals') || $3::jsonb
+		WHERE id = $1
+	`, dispatchID, agentID, string(patch))
+	if err != nil {
+		return fmt.Errorf("store: restamp dispatch %d: %w", dispatchID, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("%w: %d", ErrDispatchNotFound, dispatchID)
+	}
+	return nil
+}
+
 // MarkDispatchesUnattributed stamps every dispatch recorded under token
 // with the reason its session's cost could not be attributed --
 // RecordSessionTokenGiveUp's dispatch-grain counterpart

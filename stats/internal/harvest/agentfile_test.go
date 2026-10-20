@@ -1,6 +1,7 @@
 package harvest
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 )
@@ -58,5 +59,25 @@ func TestAgentFileRecordsWithNoRowsCreditNothing(t *testing.T) {
 	records := []Record{{AgentID: "a1", IsSidechain: true, Usage: Usage{InputTokens: 1}}}
 	if got := attributeAgentFileRecords(nil, records); len(got) != 0 {
 		t.Errorf("deltas = %+v, want none — an agent with no rows has nothing to credit", got)
+	}
+}
+
+// TestAgentFileDispatchPatchCreditsTheWholeFile pins the restamp repair's
+// input: one agent transcript read from offset 0 yields that agent's whole
+// sidechain usage and signals, in the shape MergeDispatchMetrics stores.
+func TestAgentFileDispatchPatchCreditsTheWholeFile(t *testing.T) {
+	patch, err := AgentFileDispatchPatch("../../testdata/transcripts/signals-agent.jsonl")
+	if err != nil {
+		t.Fatalf("AgentFileDispatchPatch: %v", err)
+	}
+	var got MetricsPatch
+	if err := json.Unmarshal(patch, &got); err != nil {
+		t.Fatalf("decode patch %s: %v", patch, err)
+	}
+	if got.Tokens.Sidechain.Input != 5 || got.Tokens.Sidechain.Output != 7 || got.Tokens.Main.Input != 0 {
+		t.Errorf("tokens = %+v, want the file's sidechain usage (input 5, output 7) and nothing on main", got.Tokens)
+	}
+	if got.Signals == nil || got.Signals.Sidechain.ToolCallsTotal == 0 {
+		t.Errorf("signals = %+v, want the file's tool calls counted", got.Signals)
 	}
 }

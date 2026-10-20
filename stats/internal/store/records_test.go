@@ -4353,3 +4353,41 @@ func TestDispatchWindowsForSessionLeavesAConcurrentInlineSiblingOpen(t *testing.
 		t.Fatalf("windows = %+v, want both siblings open", windows)
 	}
 }
+
+// TestRestampDispatchReplacesAgentAndFigures pins the wrong-agent repair:
+// an already-named row takes the new agent id, its harvested tokens and
+// signals are replaced rather than added to, and other bag keys survive.
+func TestRestampDispatchReplacesAgentAndFigures(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-restamp-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	in := baseDispatch("reviewer", "opus")
+	in.AgentID = "wrong-agent"
+	recorded, err := st.RecordDispatch(ctx, projectKey, "kan-1", in)
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	if err := st.MergeDispatchMetrics(ctx, recorded.ID, json.RawMessage(`{"tokens":{"sidechain":{"input":99}},"signals":{"sidechain":{"tool_calls_total":9}},"reported":true}`)); err != nil {
+		t.Fatalf("MergeDispatchMetrics: %v", err)
+	}
+	if err := st.RestampDispatch(ctx, recorded.ID, "right-agent", json.RawMessage(`{"tokens":{"sidechain":{"input":3}}}`)); err != nil {
+		t.Fatalf("RestampDispatch: %v", err)
+	}
+
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	got := rec.Dispatches[0]
+	if got.AgentID != "right-agent" {
+		t.Errorf("agent id = %q, want right-agent", got.AgentID)
+	}
+	if !jsonEqual(t, got.Metrics, json.RawMessage(`{"tokens":{"sidechain":{"input":3}},"reported":true}`)) {
+		t.Errorf("metrics = %s, want the patch replacing tokens and signals, reported kept", got.Metrics)
+	}
+	if err := st.RestampDispatch(ctx, recorded.ID+9999, "x", json.RawMessage(`{}`)); !errors.Is(err, store.ErrDispatchNotFound) {
+		t.Errorf("RestampDispatch on an unknown id = %v, want ErrDispatchNotFound", err)
+	}
+}

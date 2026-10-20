@@ -1054,6 +1054,19 @@ func (w *Watcher) attributeAgentFile(ctx context.Context, records []Record, path
 	}
 }
 
+// AgentFileDispatchPatch reads one agent transcript whole and returns the
+// metrics patch attributeAgentFile would credit to that agent's single
+// dispatch row: the input to store.Store.RestampDispatch when a row was
+// stamped with the wrong agent and its figures must be recomputed.
+func AgentFileDispatchPatch(path string) (json.RawMessage, error) {
+	batch, err := ReadNewRecords(path, 0, nil)
+	if err != nil {
+		return nil, err
+	}
+	dd := attributeAgentFileRecords([]DispatchWindow{{}}, batch.Records)[0]
+	return json.Marshal(MetricsPatch{Tokens: dd.Tokens, Signals: &SignalsDelta{Sidechain: dd.Signals}})
+}
+
 // dispatchBeginEvent is the pairing-relevant slice of a
 // `flow record dispatch begin` command found in a transcript: the row the
 // launch's agent id will be stamped onto is named by (sessionToken, key),
