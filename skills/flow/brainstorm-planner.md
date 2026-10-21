@@ -405,7 +405,8 @@ with `**Build:**` per **The build-green tag**
   and their like — is expanded by the writer, never left in the field for
   the guard to expand.
 - `**Tests:**` — the names of the tests this task adds. **The field is parsed, not read:** a
-  `Case <N>` label is checked by that label alone and backticks beside it parse as nothing;
+  `Case <N>` label — `<N>` a number with an optional letter suffix, `Case 13b` — is checked by
+  that label alone and backticks beside it parse as nothing;
   otherwise every backticked token becomes a declared test name the commit's diff and the tree
   are searched for; any other prose in it is invisible to the check — write what covers the task
   outside the field, never inside it. A task adding none writes a field opening with the literal

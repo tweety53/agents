@@ -278,7 +278,8 @@ check-plan-shape.py's F4 exempts the annotated value for the same reason.
 Only an opening `none`
 counts: the word appearing mid-sentence, as in "added `test_alpha`, none
 of the other paths change", does not. Short of that, every `Case <N>`
-label mentioned anywhere in the field's text becomes a declared test named
+label mentioned anywhere in the field's text — `<N>` a number with an
+optional letter suffix, `Case 13b` — becomes a declared test named
 "Case <N>", and it is checked by asking whether `Case <N>` (any case, e.g.
 as a `# Case <N>:` comment or a `case <N>:` pass/fail line — the
 convention this repository's own test harnesses already use, per
@@ -361,7 +362,7 @@ FIELD_RE = re.compile(
     r":\*\*\s*(.*)$"
 )
 BACKTICK_RE = re.compile(r"`([^`]+)`")
-CASE_LABEL_RE = re.compile(r"\bCase\s+(\d+)\b", re.IGNORECASE)
+CASE_LABEL_RE = re.compile(r"\bCase\s+(\d+[a-z]?)\b", re.IGNORECASE)
 # NONE_OPEN_RE — a `Tests:` value that OPENS with the literal `none`:
 # case-insensitive, leading Markdown emphasis and whitespace stripped. This
 # is the one definition of the shape; check-plan-shape.py imports it rather

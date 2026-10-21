@@ -328,6 +328,19 @@ run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 11: a Case N label satisfies Tests:" || fail "case 11: rc=$RC out=$OUT"
 
 # ===========================================================================
+# Case 11b: a Tests: field carrying a lettered Case label (`Case 13b`, the
+# shape 15 Go test files name their cases) -> F6 does not fire.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Lettered case-labeled Tests field\n\n'
+  printf '**Files:** `a.py`\n\n'
+  printf '**Tests:** Case 13b pins the new behaviour\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 11b: a lettered Case label satisfies Tests:" || fail "case 11b: rc=$RC out=$OUT"
+
+# ===========================================================================
 # Case 12: a Tests: field carrying a backtick token -> F6 does not fire.
 # ===========================================================================
 new_fixture

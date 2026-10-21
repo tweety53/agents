@@ -1370,6 +1370,13 @@ After the change: 186 tests
 **Commit:** repair alpha
 **Build:** green
 `),
+	"163": bt(`- [ ] 163. A lettered case label
+
+**Files:** ¤guard_test.go¤
+**Tests:** Case 13b: a lettered label is checked by that label
+**Commit:** add lettered case
+**Build:** green
+`),
 }
 
 // tcfMapRepos is cases 147-155's cross-repo shape: two repositories carrying
@@ -3074,6 +3081,18 @@ func TestCheckTaskCommitFields(t *testing.T) {
 			sha1, sha2 := tcfGit(t, b1, "rev-parse", "HEAD"), tcfGit(t, b2, "rev-parse", "HEAD")
 			res := fx.run(b1, "1", b1+"="+sha1+","+b2+"="+sha2, "", a, "x-repo-change")
 			ok(t, "case 162: a link-route satellite resolves the canonical plan under the commit map", res.rc == 0, res)
+		}},
+		{"case 163", func(t *testing.T) {
+			r := fx.repo(t, "change-a")
+			r.plan(tcfPlans["163"])
+			sha := r.commit("add lettered case", "guard_test.go", "t.Run(\"case 13b: a lettered label\", nil)\n")
+			res := r.run("163", sha)
+			ok(t, "case 163: a lettered Case label found in the diff passes", res.rc == 0, res)
+			r2 := fx.repo(t, "change-a")
+			r2.plan(tcfPlans["163"])
+			bare := r2.commit("add lettered case", "guard_test.go", "t.Run(\"case 13: the bare number\", nil)\n")
+			res = r2.run("163", bare)
+			ok(t, "case 163: the bare number does not satisfy a lettered label", res.rc == 1 && has(res.out, "Case 13b", "not found in the diff"), res)
 		}},
 	}
 	for _, c := range cases {

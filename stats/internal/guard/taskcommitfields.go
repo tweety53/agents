@@ -284,7 +284,7 @@ func tcfSelectTask(lines []string, taskID string) *tcfTaskBody {
 
 var (
 	tcfBacktickRE  = regexp.MustCompile("`([^`]+)`")
-	tcfCaseLabelRE = regexp.MustCompile(`(?i)\bCase[` + tcfWS + `]+([0-9]+)\b`)
+	tcfCaseLabelRE = regexp.MustCompile(`(?i)\bCase[` + tcfWS + `]+([0-9]+[a-z]?)\b`)
 	tcfNoneOpenRE  = regexp.MustCompile(`(?i)^[` + tcfWS + `*_]*none\b`)
 	tcfCamelRE     = regexp.MustCompile(`\b[A-Za-z][a-z0-9]*(?:[A-Z][a-z0-9]*[a-z][a-z0-9]*)+\b`)
 )
@@ -1274,7 +1274,7 @@ func tcfCheckDeclaredFiles(task tcfTask, changed []string) []string {
 // must not arrive under a rule under which it was never declared.
 //
 // tcfTestsParseRule is TESTS_PARSE_RULE.
-const tcfTestsParseRule = "a **Tests:** field is parsed, not read: a `Case <N>` label is checked by that label alone and backticks beside it parse as nothing, any other backticked token is a declared test name, the tree check also treats a bare camelCase identifier as one, and a task adding no tests opens the field with `none`; coverage prose belongs outside the field"
+const tcfTestsParseRule = "a **Tests:** field is parsed, not read: a `Case <N>` label, `<N>` a number with an optional letter suffix (`Case 13b`), is checked by that label alone and backticks beside it parse as nothing, any other backticked token is a declared test name, the tree check also treats a bare camelCase identifier as one, and a task adding no tests opens the field with `none`; coverage prose belongs outside the field"
 
 // Moved from check-task-commit-fields.py's DIFF_LEADING_MARKER_RE (KAN-760 deleted the
 // Python copy once this port replaced it; panel round 0, F9):
