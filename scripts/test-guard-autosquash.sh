@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Assertion harness for guard-autosquash.sh. Builds throwaway git
 # repositories under a sandboxed TMPDIR and asserts the guard's verdict and
-# exit status. Never touches the real repository tree. Same shape as
-# test-aside-planning-artifacts.sh: an indexed REPOS array (bash 3.2 has no
+# exit status. Never touches the real repository tree. An indexed REPOS array (bash 3.2 has no
 # associative arrays), removed by an EXIT trap, real git repositories rather
 # than fixture trees.
 #
