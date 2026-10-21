@@ -70,6 +70,14 @@ gitignored or otherwise uncommitted side output, whose removal a later cleanup t
 criterion nothing satisfies — and the archive commit refuses one that does, enforced by **Archive on
 the change branch** (`skills/flow-contracts/finish-contract-run1.md`).
 
+**A decision that departs from a handoff ticket's Done-when amends that line before the plan-gate
+commit.** When a `## Decisions` entry chooses otherwise than a handoff ticket's `## Done when`
+states — a branch, a landing target, an acceptance criterion — rewrite that line to what the
+decision chose, citing the decision's `**ID:**` and its date, in its own commit carrying
+`-m "Flow-Key: flow.brainstorm"`, so integrate never stops on a criterion the plan already
+overruled (kan-1003: decision `lands-on-develop` left "Branch `feature/one-block` in both repos, <!-- citations-guard:allow -->
+never develop" standing, and integrate stopped and asked again).
+
 ### Stage exit — never the command's own judgment
 
 Within a single run, a stage that loops — most concretely `/flow`'s brainstorm
