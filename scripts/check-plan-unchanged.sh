@@ -39,10 +39,10 @@
 # holds the plan tree precisely because the parent commits before it
 # snapshots), never by re-running the reviewer.
 #
-# THE CHANGE NAME IS A PATHSPEC COMPONENT here, so the same containment
-# `case` block as check-task-reviewer-single-dispatch.sh's own copy (itself
-# duplicated, on purpose, from check-panel-findings-closed.sh) refuses
-# anything but a plain change name before git ever sees it.
+# THE CHANGE NAME IS A PATHSPEC COMPONENT here, so the package's one
+# change-name allowlist (stats/internal/guard/changename.go's
+# plainChangeName) refuses anything but a plain change name before git ever
+# sees it.
 #
 # Exit codes:
 #   0  snapshot written, or the plan tree matches its snapshot
@@ -52,75 +52,16 @@
 #      worktree, a change name outside the allowlist, the worktree not being
 #      a git repository, a git failure, or (on verify) a missing or
 #      unreadable snapshot file or an unwritable snapshot path (on snapshot)
+#
+# The guard itself is Go: stats/internal/guard/planunchanged.go.
+# flow-guard is built from this checkout, never taken from PATH:
+# scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
+# cannot-answer code) with the cause when it cannot.
 set -euo pipefail
-
-export LC_ALL=C
-
-MODE="${1:-}"
-WORKTREE="${2:-}"
-NAME="${3:-}"
-SNAP="${4:-}"
-
-usage() {
-  echo "check-plan-unchanged: usage: check-plan-unchanged.sh snapshot|verify <worktree> <change-name> <snapshot-file>" >&2
+# $SCRIPT_DIR/ spells each sibling this shim needs where check-guard-symlinks rule 2 reads it.
+SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+[ -r "$SCRIPT_DIR/lib/flow-guard.sh" ] && . "$SCRIPT_DIR/lib/flow-guard.sh" || {
+  echo "check-plan-unchanged: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }
-
-[[ "$MODE" = "snapshot" || "$MODE" = "verify" ]] || usage
-[[ -n "$WORKTREE" && -d "$WORKTREE" ]] || { echo "check-plan-unchanged: not a directory: ${WORKTREE:-<missing>}" >&2; exit 2; }
-[[ -n "$NAME" ]] || usage
-[[ -n "$SNAP" ]] || usage
-
-# CONTAINMENT, identical to check-task-reviewer-single-dispatch.sh's own
-# copy -- see that script's header for why this `case` block stays
-# duplicated rather than centralized. The name lands in a git pathspec, so
-# `../escape` and a glob metacharacter are hazards here exactly as they are
-# in a state-file-derived change name there.
-case "$NAME" in
-  [!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789]* \
-  | *[!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-]*)
-    echo "check-plan-unchanged: change name '$NAME' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'" >&2
-    exit 2
-    ;;
-esac
-
-# Canonicalise before git runs against it, and refuse rather than proceed
-# if it vanished between the `-d` check above and here.
-WORKTREE="$(cd "$WORKTREE" && pwd -P)" || { echo "check-plan-unchanged: worktree vanished: $WORKTREE" >&2; exit 2; }
-
-plan_status() {
-  git -C "$WORKTREE" status --porcelain --untracked-files=all -- "spectre/changes/$NAME" "spectre/changes/archive/$NAME"
-}
-
-case "$MODE" in
-  snapshot)
-    if ! plan_status > "$SNAP"; then
-      rm -f "$SNAP"
-      echo "check-plan-unchanged: git status failed in $WORKTREE -- cannot answer (is it a git repository?)" >&2
-      exit 2
-    fi
-    echo "PLAN-SNAPSHOT-OK: spectre/changes/$NAME status pinned at $SNAP"
-    ;;
-  verify)
-    [[ -f "$SNAP" && -r "$SNAP" ]] || {
-      echo "check-plan-unchanged: no readable snapshot at $SNAP -- cannot answer; snapshot runs before the dispatch, never after it" >&2
-      exit 2
-    }
-    current="$(mktemp "${TMPDIR:-/tmp}/check-plan-unchanged-verify.XXXXXX")" || {
-      echo "check-plan-unchanged: mktemp failed -- cannot answer" >&2
-      exit 2
-    }
-    trap 'rm -f "$current"' EXIT
-    if ! plan_status > "$current"; then
-      echo "check-plan-unchanged: git status failed in $WORKTREE -- cannot answer (is it a git repository?)" >&2
-      exit 2
-    fi
-    if cmp -s "$SNAP" "$current"; then
-      echo "PLAN-UNCHANGED-OK: spectre/changes/$NAME matches its pre-dispatch snapshot"
-      exit 0
-    fi
-    echo "check-plan-unchanged: spectre/changes/$NAME changed across the review dispatch -- the reviewer's own clean-or-restored claim is not evidence; stop and recover by hand from the pre-dispatch commit" >&2
-    diff "$SNAP" "$current" | sed 's/^/check-plan-unchanged: /' >&2
-    exit 1
-    ;;
-esac
+flow_guard_exec check-plan-unchanged 2 "check-plan-unchanged:" "$@"
