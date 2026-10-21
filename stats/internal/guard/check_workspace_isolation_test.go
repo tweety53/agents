@@ -535,10 +535,10 @@ func TestCheckWorkspaceIsolation(t *testing.T) {
 | ~url~ | ~FRONTEND_URL~ | ~http://localhost:3000~ | ~http://localhost:3000~ |`, wiValidCmd),
 		"several port and url rows are legal")
 
-	// 10. The command table: three verbs, two columns.
+	// 10. The command table: four verbs, two columns.
 	r = wiIso(t, wiValidRes, `| ~create~ | ~./scripts/workspace create~ |
 | ~verify~ | ~./scripts/workspace verify~ |`)
-	wiInvalid(t, r, "a command verb outside the three is a violation")
+	wiInvalid(t, r, "a command verb outside the four is a violation")
 	wiReports(t, r, "verify", "the unknown-verb report names the verb")
 
 	r = wiIso(t, wiValidRes, `| ~remove~ | ~./scripts/workspace remove~ |
@@ -557,6 +557,8 @@ func TestCheckWorkspaceIsolation(t *testing.T) {
 	r = wiIso(t, wiValidRes, "| ~remove~ | ~./scripts/workspace remove <value:API_PORT>~ |")
 	wiInvalid(t, r, "a <value:…> reference in a command is a violation")
 	wiReports(t, r, "<value:API_PORT>", "the command-reference report names the token")
+
+	wiOK(t, wiIso(t, wiValidRes, "| ~orphans~ | ~./scripts/workspace orphans~ |"), "an orphans row is legal")
 
 	// 10f. `create` and `remove` with no `survivors` is a supported state.
 	wiOK(t, wiIso(t, wiValidRes, `| ~create~ | ~./scripts/workspace create~ |
@@ -989,6 +991,11 @@ func wiParity(t *testing.T) {
 						vars["CHECK_WORKSPACE_ISOLATION_PRINT_ROWS"] = rows
 					}
 					want := wiBash(t, tree+"/scripts/check-workspace-isolation.sh", base, env, args...)
+					// The one deliberate divergence from the bash: the port accepts a
+					// fourth verb, `orphans`, which the unknown-verb report names.
+					want.out = strings.ReplaceAll(want.out,
+						"has three verbs — `create`, `remove` and `survivors` —",
+						"has four verbs — `create`, `remove`, `survivors` and `orphans` —")
 					fn := Registry["check-workspace-isolation"]
 					if fn == nil {
 						t.Fatal("check-workspace-isolation is not registered")

@@ -638,8 +638,8 @@ func (p *wiParse) resourceRow(line int, cells []string) {
 // reports the wrong thing about all of them.
 func (p *wiParse) commandRow(line int, cells []string) {
 	verb := p.fold(cells[0])
-	if verb != "create" && verb != "remove" && verb != "survivors" {
-		p.violation(line, "command row `"+p.trim(cells[0])+"`: the command table has three verbs — `create`, `remove` and `survivors` — and nothing calls anything else, so the row is dropped and never runs")
+	if verb != "create" && verb != "remove" && verb != "survivors" && verb != "orphans" {
+		p.violation(line, "command row `"+p.trim(cells[0])+"`: the command table has four verbs — `create`, `remove`, `survivors` and `orphans` — and nothing calls anything else, so the row is dropped and never runs")
 		return
 	}
 	if first, ok := p.cmdSeen[verb]; ok {
