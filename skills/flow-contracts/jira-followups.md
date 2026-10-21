@@ -22,8 +22,8 @@ below and in the join file (`skills/flow-contracts/jira-followups-join.md`) — 
 append guard's per-item matching, the three writes, the outcome rows — reads "this run's items" and
 "this run's `<m>` outstanding items" as that list.
 
-**Every filing ask explains before it asks** — stated where the filing prompt fires, under
-**The prompt** (`skills/flow/unfinished-work-gate.md`).
+**The unfinished-work gate asks nothing** — it finishes unfinished work rather than offering it
+for filing, per **Finish it — never a prompt** (`skills/flow/unfinished-work-gate.md`).
 
 **Join an open follow-up rather than filing a second one.** Before creating a follow-up, search the
 project (`searchJiraIssuesUsingJql`) for an issue that carries the `AI-generated` label, is titled
