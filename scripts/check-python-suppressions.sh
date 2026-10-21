@@ -7,9 +7,10 @@
 # `git ls-files '*.py'` from the repo root resolved from this script's own
 # location, paths made absolute before the scan so the answer never depends
 # on the caller's working directory. With arguments it scans the given files
-# or directories instead: the seam its harness
-# (test-check-python-suppressions.sh) uses to point the guard at fixture
-# trees without touching the real one. Untracked or ignored Python is never
+# or directories instead: the seam its Go test
+# (stats/internal/guard/check_python_suppressions_test.go) uses to point the
+# guard at fixture trees without touching the real one. The mechanism is
+# stats/internal/guard/pythonsuppressions.go. Untracked or ignored Python is never
 # scanned — the guard answers for what the repository owns.
 #
 # WHAT IT CATCHES: the inline markers whose job is to silence a linter or
@@ -38,105 +39,14 @@
 # cannot answer must say so loudly, because a vacuous pass is the failure
 # mode this exit code exists for.
 
-set -uo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-
-# One extended regex, case-insensitive at the grep site. Alternation covers
-# every marker the header names; `noqa` alone also covers `# flake8: noqa`,
-# `# ruff: noqa` and every coded `# noqa: <codes>` spelling.
-MARKER_RE='noqa|nolint|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore|pylint:[[:space:]]*disable|mypy:[[:space:]]*ignore-errors'
-
-# Enumeration writes each source's NUL-delimited output to a temp file whose
-# writer's exit status is checked synchronously. Neither source may run in a
-# process substitution or command substitution: a substitution severs the
-# exit status, so a failed `git ls-files` or `find` would silently read as
-# an empty scan set — the vacuous pass this guard's exit-2 contract exists
-# to prevent. Symlinked entries (skills/*/scripts/ carry symlinks to
-# scripts/'s own copies) are skipped — grep follows them and would report
-# the same target file once per link; the target itself is always in the
-# list from its real path.
-TMP_LISTS=()
-cleanup_tmp() { [ "${#TMP_LISTS[@]}" -eq 0 ] || rm -f "${TMP_LISTS[@]}"; }
-trap cleanup_tmp EXIT
-
-# Sets LIST to a fresh temp file's path. Called in the parent, never inside
-# a command substitution: a substitution runs in a subshell, whose
-# TMP_LISTS+= dies with it and leaves the EXIT trap nothing to remove —
-# one leaked temp file per guard run (panel round-1 finding F6).
-new_list() {
-  LIST="$(mktemp "${TMPDIR:-/tmp}/check-python-suppressions.XXXXXX")" || {
-    echo "ERROR: mktemp failed — cannot enumerate the scan set" >&2
-    exit 2
-  }
-  TMP_LISTS+=("$LIST")
+set -euo pipefail
+# $SCRIPT_DIR/ spells each sibling this shim needs where check-guard-symlinks rule 2 reads it.
+SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+[ -r "$SCRIPT_DIR/lib/flow-guard.sh" ] && . "$SCRIPT_DIR/lib/flow-guard.sh" || {
+  echo "check-python-suppressions: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
+  exit 2
 }
-
-FILES=()
-if [ "$#" -eq 0 ]; then
-  new_list
-  if ! git -C "$REPO_ROOT" ls-files -z -- '*.py' > "$LIST"; then
-    echo "ERROR: git ls-files failed — cannot enumerate the tracked Python" >&2
-    exit 2
-  fi
-  while IFS= read -r -d '' f; do
-    # The symlink test resolves $f against the caller's cwd unless it is
-    # prefixed — from a foreign cwd every tracked symlink would pass the
-    # test and re-enter the scan set (panel round-1 finding F7).
-    [ -L "$REPO_ROOT/$f" ] && continue
-    FILES+=("$REPO_ROOT/$f")
-  done < "$LIST"
-else
-  for arg in "$@"; do
-    if [ -f "$arg" ]; then
-      [ -L "$arg" ] && continue
-      case "$arg" in
-        *.py) FILES+=("$arg") ;;
-      esac
-    elif [ -d "$arg" ]; then
-      new_list
-      if ! find "$arg" -type f -name '*.py' -print0 > "$LIST"; then
-        echo "ERROR: find failed on $arg — cannot enumerate the scan set" >&2
-        exit 2
-      fi
-      while IFS= read -r -d '' f; do
-        [ -L "$f" ] && continue
-        FILES+=("$f")
-      done < "$LIST"
-    else
-      echo "ERROR: no such file or directory: $arg" >&2
-      exit 2
-    fi
-  done
-fi
-
-# No Python in scope is a clean answer, not an error.
-if [ "${#FILES[@]}" -eq 0 ]; then
-  echo "suppressions-ok: no python file in scope"
-  exit 0
-fi
-
-# -H keeps every hit line prefixed with its filename even when the scan set
-# holds a single file — a hit a reader cannot locate is half a report.
-set +e
-HITS="$(grep -n -H -i -I -E -e "$MARKER_RE" -- "${FILES[@]}")"
-GREP_RC=$?
-set -e
-
-# grep's own contract: exit 0 = lines selected, 1 = none, 2 = trouble.
-case "$GREP_RC" in
-  0)
-    printf '%s\n' "$HITS"
-    echo "suppressions-found: $(printf '%s\n' "$HITS" | wc -l | tr -d ' ') marker hit(s) — fix the code, never widen this guard" >&2
-    exit 1
-    ;;
-  1)
-    echo "suppressions-ok: no linter suppression marker in the python in scope"
-    exit 0
-    ;;
-  *)
-    echo "ERROR: grep failed with exit $GREP_RC — cannot answer" >&2
-    exit 2
-    ;;
-esac
+flow_guard_cwd_checkout "${BASH_SOURCE[0]}" "$@"
+FLOW_GUARD_REPO_ROOT="$(cd "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+export FLOW_GUARD_REPO_ROOT
+flow_guard_exec check-python-suppressions 2 "check-python-suppressions:" "$@"
