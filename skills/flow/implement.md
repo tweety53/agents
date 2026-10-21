@@ -673,6 +673,14 @@ committed PNGs are deleted and `capture` runs with `<spec>` substituted for its 
 as PNGs that do not yet exist, and they are committed by the regression checkout's rules, step 12
 of `skills/flow/visual-verify.md`.
 
+**The pass-1 panel reads while the suite runs.** On a run whose `skills/flow/review-panel.md`
+opens a pass 1, the full-suite run above waits for that pass: the parent closes `flow.sdd-tdd`,
+enters the panel, and runs the list there, between recording the pass-1 begins and the round's
+wait, as that file's **Bundled dispatch** states. The slots are read-only, so their verdict and the
+suite's arrive together rather than one after the other (kan-920: the panel waited six and a half
+minutes for a suite it did not read). A full-suite fix is applied only after the round's wait ends, never
+while the slots are reading the tree.
+
 **The next implementer overlaps the guard.** The unit is the group — the decision's `groups`
 entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, in this order:
 
@@ -914,9 +922,10 @@ the plan-tree guard, never in its place.
 
 **The last group's guard pass is the stage's last boundary.** `final-review.diff` is written and
 the slots dispatched once it has passed, every gate-fired reviewer has closed clean with any fix
-landed, and the parent's full-suite run has passed, after any fix of its own; the review panel's
-pre-work may share the last implementer's wait, in its one call. The panel never runs on a red
-branch.
+landed, and the parent's full-suite run has passed, after any fix of its own — save a pass 1,
+whose slots are dispatched before the suite runs (**The pass-1 panel reads while the suite runs**,
+above); the review panel's pre-work may share the last implementer's wait, in its one call. No
+panel verdict is taken, and no round after pass 1 is dispatched, on a red branch.
 
 **Turn discipline.** A turn is spent only where an output must be read before the next action is
 chosen. Calls that do not depend on one another share one Bash call — every verdict printed, each

@@ -424,6 +424,13 @@ launched pass's report file; every `end` is recorded in one call once they all e
 (SDD + TDD)**, `skills/flow/implement.md`). A dispatch whose report never appears within its
 ceiling takes the breach path under **No forking, and a wall-clock ceiling on every slot** below.
 
+**On pass 1 the full suite runs between the begins and the wait.** The parent runs it there, in
+the foreground, while the read-only slots review (**The pass-1 panel reads while the suite
+runs.**, `skills/flow/implement.md`). A full-suite fix is applied only once the round's wait
+ends, never under the reading slots, so once the round's reports exist, every pass-1 role re-runs in the next round over the
+delta that commit adds, under **Panel re-runs** (`skills/flow/review-panel-fix-round.md`) — a
+role that raised nothing included; a suite that passes adds no commit and re-dispatches nothing.
+
 The same plan-tree discipline rides every round, re-run rounds included: before the launches the
 parent makes the reviewer-dispatch planning commit (**Planning commits**,
 `skills/flow-contracts/git-boundaries.md`) and runs
