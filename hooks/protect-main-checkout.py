@@ -235,7 +235,10 @@ def tokenize(command):
         lexer.whitespace_split = True
         words = list(lexer)
     except ValueError:
-        return command.split()
+        # Unbalanced quotes: raw words, a redirect glued to its target split off it, so `>f`
+        # and `2>>f` read as shlex would have split them; a quoted word keeps its quote and
+        # never matches.
+        return [p for w in command.split() for p in _split_redirect(w)]
     # A backtick span, and a `$(...)` inside a quoted word, still run: each one's command is
     # scanned again as a command of its own, after the line's words.
     spans = [sp for w in words for sp in SUBST_SPAN_RE.findall(w) if sp.startswith("$(")]
@@ -352,6 +355,18 @@ def may_run_code(text, target):
 # A `$(...)` without a nested paren, or a backtick pair: the spans of an unquoted heredoc body
 # that bash runs.
 SUBST_SPAN_RE = re.compile(r"\$\([^()]*\)|`[^`]*`")
+
+# The operators that write a file: shlex (punctuation_chars) yields each as a word of its own, so
+# a word that merely starts with `>` came out of quotes and is data (`'>Save<'`).
+REDIRECT_OPS = (">", ">>", ">|", "&>", "&>>")
+# A redirect glued to its target in an unbalanced-quote fallback word: `>f`, `2>>f`, `&>f`; `>&1`
+# duplicates a descriptor and writes no file.
+ATTACHED_REDIRECT_RE = re.compile(r"^\d*(&>>|&>|>>|>\||>)([^&].*)$")
+
+
+def _split_redirect(word):
+    m = ATTACHED_REDIRECT_RE.match(word)
+    return [m.group(1), m.group(2)] if m else [word]
 
 
 def strip_data_heredocs(command):
@@ -787,13 +802,11 @@ def bash_hits(command, cwd, landings=None):
                         hits.append(resolve(t, cur))
                 i += 1
                 continue
-            if tok in (">", ">>") and i + 1 < n:
+            # `>& f` writes stdout and stderr to f; `>& 2` and `>& -` only duplicate or close
+            nxt = tokens[i + 1] if i + 1 < n else None
+            if nxt is not None and (tok in REDIRECT_OPS or (tok == ">&" and not nxt.isdigit() and nxt != "-")):
                 hits.append(resolve(tokens[i + 1], cur))
                 i += 2
-                continue
-            if tok.startswith((">", ">>")) and len(tok) > 2 and tok.lstrip(">") not in ("&1", "&2"):
-                hits.append(resolve(tok.lstrip(">"), cur))
-                i += 1
                 continue
             if tok in ("cp", "mv", "rm"):
                 args = []

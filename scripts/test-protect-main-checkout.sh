@@ -126,6 +126,12 @@
 #  135. the same heredoc, then `rg --pre <sib>/x.sh x f`              -> deny (rg's --pre runs the target)
 #  136. `cat > <sib>/check-a.sh <<EOF`, body `rm <main>/f.txt`, then `<sib>/check-a.sh` -> deny (a written check script run)
 #  137. the x.sh heredoc, then `GIT_EXTERNAL_DIFF=<sib>/x.sh git diff --ext-diff a b` -> deny (an assignment can make a reader run the target)
+#  138. `python3 grab.py "<sib>/a.html" '>Save<' 1 1200`, cwd = main -> allow (a quoted `>` is data)
+#  139. a python heredoc body finding `'>Save<'`, cwd = main          -> allow
+#  140. Bash `echo x >| <main>/f.txt`                                 -> deny
+#  141. Bash `echo x &> <main>/f.txt`                                 -> deny
+#  142. Bash `echo it's ><main>/f.txt` (unbalanced quote, glued `>`)  -> deny
+#  149. Bash `echo x >& <main>/f.txt`                                 -> deny
 #  143. `cd <wt> && git commit -qm '<no trailer>' && git push -q`  -> deny (kan-1003: a commit pushed in the same command)
 #  144. the same with `-m 'Flow-Key: <key>'`                         -> allow
 #  145. `git -C <wt> commit -m ... -- spectre/changes/chg && push`   -> allow (a planning commit)
@@ -724,6 +730,23 @@ git_q -C "$RWT" add u.txt
 git_q -C "$RWT" commit -q -m "fix(app): review Minors"
 expect "109 the real checker still lists the change's own untasked commit" deny \
   "$(run "$ROOT" Bash "{\"command\":$(q "git -C $RWT push --force-with-lease origin spectre/chg4")}")"
+
+# 138-142: a `>` inside quotes is data, never a redirect (kan-1003's self-review); every
+# operator that writes a file is still judged.
+expect "138 a quoted '>Save<' argument, cwd = main" allow \
+  "$(run "$MAIN" Bash "{\"command\":$(q "python3 grab.py \"$SIB/a.html\" '>Save<' 1 1200")}")"
+expect "139 a python heredoc body finding '>Save<', cwd = main" allow \
+  "$(run "$MAIN" Bash "{\"command\":$(q "python3 - <<'EOF'
+print(open('$SIB/a.html').read().find('>Save<'))
+EOF")}")"
+expect "140 '>|' into the main checkout" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "echo x >| $MAIN/f.txt")}")"
+expect "141 '&>' into the main checkout" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "echo x &> $MAIN/f.txt")}")"
+expect "142 an unbalanced quote, then '>' glued to a main-checkout path" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "echo it's >$MAIN/f.txt")}")"
+expect "149 '>&' into the main checkout" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "echo x >& $MAIN/f.txt")}")"
 
 # 3 last: moving the main checkout off main lifts the protection
 git_q -C "$MAIN" checkout -q -b feature
