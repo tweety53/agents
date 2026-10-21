@@ -244,6 +244,12 @@ func pfEnd(env Env, pe pfEnv, key, outcome string, stdout, stderr io.Writer) int
 	if rc != 0 {
 		return rc
 	}
+	if lpFamily(suffix) == "pass" {
+		// check-loop-dispatch admits the pass off its pair and records no row
+		// -- it runs before any loop change exists -- so there is nothing to close.
+		fmt.Fprintf(stdout, "PIPELINE-FIX-END-NA %s: the pass is pair-checked, never recorded; nothing to close\n", key)
+		return 0
+	}
 	if lpFamily(suffix) == "review" && outcome != "aborted" {
 		// clean: the review raised no Critical and no Important.
 		o, err := pfReviewOutcome(outcome)

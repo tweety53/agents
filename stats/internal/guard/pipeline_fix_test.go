@@ -311,6 +311,20 @@ func TestPipelineFixEndClearsOwnBranchEscalation(t *testing.T) {
 	}
 }
 
+// end of the pass closes nothing: check-loop-dispatch admits the pass and
+// records no row, so a flow call would answer 404 (kan-1001's self-review).
+func TestPipelineFixEndPassRecordsNothing(t *testing.T) {
+	const token = "self-review-kan-1-demo"
+	fx := pfNew(t, "[]")
+	rc, out := fx.pf(t, "end", token+"-pass", "completed")
+	if rc != 0 || !strings.Contains(out, "PIPELINE-FIX-END-NA "+token+"-pass") {
+		t.Fatalf("rc %d: %s", rc, out)
+	}
+	if strings.Contains(fx.calls(t), "record dispatch end") {
+		t.Fatalf("end of the pass called flow:\n%s", fx.calls(t))
+	}
+}
+
 // end and escalate of an own-branch self-review in another project run in
 // that project -- the caller's working directory -- and verify diffs a
 // worktree against its own origin/HEAD, not <agents repo>'s.
