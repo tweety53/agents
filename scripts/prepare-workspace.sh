@@ -27,9 +27,11 @@
 # branch: every apply worktree is created on `spectre/<name>`, per
 # skills/flow/implement.md, and that branch is the one place the name is
 # already recorded where a script can read it without being handed it
-# separately. A worktree not on such a branch — detached HEAD, or checked out
-# on something else — cannot be resolved, and this script refuses rather than
-# guessing at a name.
+# separately. A self-review or pipeline-fix loop worktree is its own change,
+# named after its whole branch — `self-review-<name>`, `pipeline-fix-<name>-<k>`
+# — by scripts/pipeline-fix.sh, so that whole branch is its name (KAN-997). A
+# worktree on none of these — detached HEAD, or checked out on something else —
+# cannot be resolved, and this script refuses rather than guessing at a name.
 #
 # THE CACHE INDEX IS THE ONE ROW THIS SCRIPT DOES NOT EXPORT. Per **The cache
 # index** (skills/flow-contracts/workspace-isolation.md), a `cache index`

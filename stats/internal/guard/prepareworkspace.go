@@ -110,18 +110,24 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 
 	// The change name, read from the worktree's own branch. Every apply
-	// worktree is created on `spectre/<name>` per skills/flow/implement.md,
-	// and the id is derived from the change name and nothing else, per **The
-	// workspace id** (skills/flow-contracts/workspace-isolation.md).
+	// worktree is created on `spectre/<name>` per skills/flow/implement.md; a
+	// self-review or pipeline-fix loop worktree is its own change, named after
+	// its whole branch — `self-review-<name>`, `pipeline-fix-<name>-<k>` — by
+	// scripts/pipeline-fix.sh (KAN-997). The id is derived from the change name
+	// and nothing else, per **The workspace id**
+	// (skills/flow-contracts/workspace-isolation.md).
 	branch, _ := gitExec(env.Dir, nil, io.Discard, "-C", worktree, "symbolic-ref", "--quiet", "--short", "HEAD")
 	branch = strings.TrimRight(branch, "\n")
 	name, ok := strings.CutPrefix(branch, "spectre/")
+	if !ok && (strings.HasPrefix(branch, "self-review-") || strings.HasPrefix(branch, "pipeline-fix-")) {
+		name, ok = branch, true
+	}
 	if !ok {
 		got := branch
 		if got == "" {
 			got = "detached HEAD"
 		}
-		fmt.Fprintf(stderr, "prepare-workspace: %s is not on a spectre/<name> branch (got '%s') — cannot derive a workspace id without the change name\n", worktree, got)
+		fmt.Fprintf(stderr, "prepare-workspace: %s is not on a spectre/<name>, self-review-<name> or pipeline-fix-<name>-<k> branch (got '%s') — cannot derive a workspace id without the change name\n", worktree, got)
 		return 2
 	}
 
