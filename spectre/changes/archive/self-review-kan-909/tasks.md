@@ -36,14 +36,14 @@ between `stopRuns()` and `cleanup()`; a `testing/synctest` test pins it.
 - An uninterrupted `scripts/test-setup.sh` run behaves exactly as before: same groups, same results, sandbox removed.
 - `makeFixtureRepo` failing still returns exit 2 and leaves the gate's count balanced.
 
-- [ ] 1. KAN-909 — hold every sandbox writer behind one gate the SIGINT path closes
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Confirm on the untouched
+- [x] 1. KAN-909 — hold every sandbox writer behind one gate the SIGINT path closes
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Confirm on the untouched
     tree that `stats/internal/setuptest/main_test.go`'s handler waits only on `running`, that
     `running` is counted only in `runSetup` (`helpers_test.go`), and that every top-level test
     that writes the sandbox begins with `newGroup(t)` (`grep -n '^func Test' stats/internal/setuptest/*.go`
     against `grep -c 'newGroup(t)'`). Anything that disagrees with `design.md`'s Context is
     reported, not worked around.
-  - [ ] **Step 2: Write the failing test** `TestWritersGateHoldsCloseUntilEveryWriterLeaves` in
+  - [x] **Step 2: Write the failing test** `TestWritersGateHoldsCloseUntilEveryWriterLeaves` in
     `stats/internal/setuptest/selfcheck_test.go` (add `testing/synctest` to its imports):
 
 ```go verified:spiked as zz_spike_test.go in stats/internal/setuptest at b76c2cf1 (type renamed); go test -race -count=1 -run 'TestSpikeGate$' ./internal/setuptest/ passes, and fails with close's Wait removed
@@ -71,15 +71,15 @@ func TestWritersGateHoldsCloseUntilEveryWriterLeaves(t *testing.T) {
 }
 ```
 
-  - [ ] **Step 3: Run it to see it fail.** Run:
+  - [x] **Step 3: Run it to see it fail.** Run:
     `cd stats && go test -count=1 -run 'TestWritersGateHoldsCloseUntilEveryWriterLeaves$' ./internal/setuptest/`
     Expected: build failure, `undefined: gate`.
-  - [ ] **Step 4: Add the gate** to `stats/internal/setuptest/main_test.go`, beside the package
+  - [x] **Step 4: Add the gate** to `stats/internal/setuptest/main_test.go`, beside the package
     vars, per decision `gate-shape`: `type gate struct { mu sync.Mutex; closed bool; in sync.WaitGroup }`
     with `func (w *gate) enter() bool`, `func (w *gate) leave()` and `func (w *gate) close()`,
     each with a one-line doc comment. Replace the `running sync.WaitGroup` var with
     `writers gate // every sandbox writer in flight; the interrupt handler closes it before removing the sandbox`.
-  - [ ] **Step 5: Wire it.** In `main_test.go`: the handler body becomes
+  - [x] **Step 5: Wire it.** In `main_test.go`: the handler body becomes
     `<-sig; stopRuns(); writers.close(); cleanup(); os.Exit(130)`, its comment saying it now
     waits for every sandbox writer, not only installers; `runMain` wraps
     `makeFixtureRepo(fixture, false)` in `if !writers.enter() { return 130 }` … `writers.leave()`,
@@ -88,14 +88,14 @@ func TestWritersGateHoldsCloseUntilEveryWriterLeaves(t *testing.T) {
     `if !writers.enter() { t.Skip("interrupted") }` then `t.Cleanup(writers.leave)`; `runSetup`
     drops `running.Add(1)` and `defer running.Done()`, and its process-group comment keeps
     saying the installer is killed on an interrupt.
-  - [ ] **Step 6: Run the test and the package.** Run:
+  - [x] **Step 6: Run the test and the package.** Run:
     `cd stats && go test -race -count=1 -run 'TestWritersGateHoldsCloseUntilEveryWriterLeaves$' ./internal/setuptest/`
     Expected: `ok`. Then prove the pin: delete `close`'s `w.in.Wait()` line, rerun — expected
     `FAIL … close returned while an admitted writer was still in` — and restore it. Then
     `scripts/test-setup.sh`; expected exit 0 with the close-out's three `✓` lines.
-  - [ ] **Step 7: Lint.** Run `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .`;
+  - [x] **Step 7: Lint.** Run `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .`;
     expected no output and exit 0.
-  - [ ] **Step 8: Commit** `stats/internal/setuptest/main_test.go`,
+  - [x] **Step 8: Commit** `stats/internal/setuptest/main_test.go`,
     `stats/internal/setuptest/helpers_test.go` and `stats/internal/setuptest/selfcheck_test.go`
     with the subject below.
 
