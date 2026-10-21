@@ -140,7 +140,7 @@ func TestCheckPanelReproducers(t *testing.T) {
 	// Case 19: the bash guard sourced the one shared set file rather than
 	// carrying its own literal. The port reads metachars.go's
 	// reproducerMetachars; this pins it to the expected set.
-	t.Run("case 19: check-panel-reproducers.sh and run-reproducer.sh agree on the banned-character set", func(t *testing.T) {
+	t.Run("case 19: the compiled-in banned-character set is the expected one", func(t *testing.T) {
 		t.Parallel()
 		const want = "|;&$`<>(){}~*?[]#\\'\""
 		if reproducerMetachars != want {
@@ -153,7 +153,7 @@ func TestCheckPanelReproducers(t *testing.T) {
 	// would have been a false clean. The port compiles the set in, so no file
 	// can be missing; what remains to assert is that the set binds with no
 	// scripts/ directory anywhere near the guard's working directory.
-	t.Run("case 20: a missing banned-set file is cannot-answer, not violations-found", func(t *testing.T) {
+	t.Run("case 20: the compiled-in banned set binds with no scripts/ directory nearby", func(t *testing.T) {
 		t.Parallel()
 		got, out := cprRun(t, okBin, wt, "demo", cprFindings(false, "F1", "open", "scripts/x;sh"))
 		cprExpect(t, got, out, 1, "shell metacharacter")
