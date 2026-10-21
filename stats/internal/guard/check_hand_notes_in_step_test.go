@@ -107,6 +107,21 @@ func TestCheckHandNotesInStep(t *testing.T) {
 		}
 	})
 
+	t.Run("one_sided_edit: a hand section above the managed block drifts too", func(t *testing.T) {
+		t.Parallel()
+		home := hnhFixtureHome(t)
+		agents := home + "/.zcode/AGENTS.md"
+		b, err := os.ReadFile(agents)
+		if err != nil {
+			t.Fatal(err)
+		}
+		writeFile(t, agents, "# edited on one side\n"+string(b))
+		code, stdout, _ := run(t, home, "", root)
+		if code != 1 || !strings.HasPrefix(stdout, "HAND-NOTES-DRIFT: "+home) {
+			t.Fatalf("code = %d, stdout = %q; want 1 and a HAND-NOTES-DRIFT verdict", code, stdout)
+		}
+	})
+
 	t.Run("missing_final_newline: the comparison is byte-exact", func(t *testing.T) {
 		t.Parallel()
 		home := hnhFixtureHome(t)
