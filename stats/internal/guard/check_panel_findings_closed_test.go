@@ -212,6 +212,10 @@ func TestCheckPanelFindingsClosed(t *testing.T) {
 			json: cfcJSON(cfcFinding{Ref: "F1", Severity: "Important", Status: "fixed", Round: 1, Slot: "primary"}, cfcFinding{Ref: "F2", Severity: "Important", Status: "fixed", Round: 2, Slot: "bugbot", Supersedes: "F1"}),
 			disp: cfcDispatchJSON(cfcDispatch{Key: "panel-3-primary", Role: "reviewer", Slot: "primary", Outcome: "completed"}),
 			want: 1, needle: []string{"in any later round: F2 (bugbot)\n"}, absent: "F1 ("},
+		{label: "case 32: a re-run that ended clean covers the finding",
+			json: cfcJSON(cfcFinding{Ref: "F1", Status: "fixed", Slot: "primary"}),
+			disp: cfcDispatchJSON(cfcDispatch{Key: "panel-1-primary", Role: "reviewer", Slot: "primary", Outcome: "clean"}),
+			want: 0, needle: []string{"FINDINGS-CLOSED"}, clean: true},
 	}
 	for _, c := range cases {
 		t.Run(c.label, func(t *testing.T) {

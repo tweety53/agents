@@ -140,14 +140,17 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 	// A FINDING IS RECORDED `fixed` ONLY AFTER THE RE-RUN THAT VERIFIES IT
 	// (review-panel.md's **Recording findings**, KAN-770), and the store's
 	// only witness of that re-run is the raising slot's own dispatch row at
-	// a later round, ended `completed`. A `fixed` finding whose slot has
+	// a later round, ended `completed` or `clean`. A `fixed` finding whose slot has
 	// none stands verified before its verification existed, which is the
 	// defect this class exists to catch: the ordering was luck, not
 	// discipline. A slot's re-run qualifies when its row carries role
 	// `reviewer`, a key of the shape panel-<round>-... (a handshake retry's
 	// trailing -retry tolerated; a panel-fix or task key never matches), a
 	// round strictly greater than the finding's, an outcome exactly
-	// `completed` -- a timed-out or never-ended dispatch is not a clean
+	// `completed` or `clean` -- review-panel.md closes a slot `completed`,
+	// while `flow record dispatch end` also takes a gated reviewer's
+	// `clean`, and 50 panel rows in the store end that way (KAN-887's
+	// self-review); a timed-out or never-ended dispatch is not a clean
 	// re-run -- and a slot whose `+`-components cover every component of the
 	// finding's: a bundled re-run covers its members, a solo re-run of one
 	// member does not cover a joined finding. Withdrawn findings claim no
@@ -173,7 +176,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		required := strings.Split(slot, "+")
 		var missing []string
 		for _, d := range dispatches {
-			if d.role != "reviewer" || d.outcome != "completed" || d.round <= round {
+			if d.role != "reviewer" || (d.outcome != "completed" && d.outcome != "clean") || d.round <= round {
 				continue
 			}
 			provides := strings.Split(d.slot, "+")
