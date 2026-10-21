@@ -38,12 +38,12 @@ pure move of cross-guard helpers into six shared files.
 - Task 4: a joined re-run (`bugbot+primary`) covers a `primary` finding when `panel-report-<round>-primary.md` is written, whatever `panel-report-<round>-bugbot.md` holds.
 - Task 5: no function body, comment text or exported name changes — `git diff --stat` shows moves, and Step 1's selector is green before and after.
 
-- [ ] 1. KAN-910 — pin the fix-dispatch shapes check-panel-fix-single-dispatch accepts
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Read the guard's role and
+- [x] 1. KAN-910 — pin the fix-dispatch shapes check-panel-fix-single-dispatch accepts
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Read the guard's role and
     key filter (`pfdPanelFixRows`, `stats/internal/guard/panelfixsingledispatch.go`) and confirm
     the four shapes below behave as the test asserts on the untouched tree: the test is a pin of
     behaviour the guard already has, not a fix.
-  - [ ] **Step 2: Add the test** `TestCheckPanelFixSingleDispatchNonPanelFixShapes` to
+  - [x] **Step 2: Add the test** `TestCheckPanelFixSingleDispatchNonPanelFixShapes` to
     `stats/internal/guard/check_panel_fix_single_dispatch_test.go`, a table run through the
     file's existing `pfdExpect` helper, raw JSON rows as case 6b writes them:
 
@@ -72,7 +72,7 @@ func TestCheckPanelFixSingleDispatchNonPanelFixShapes(t *testing.T) {
 }
 ```
 
-  - [ ] **Step 3: State the roles.** Apply the prose diff (the key rule's new sentence):
+  - [x] **Step 3: State the roles.** Apply the prose diff (the key rule's new sentence):
 
 ````diff verified:applied with git apply at 1c4c3e38; check-references.sh, check-installed-citations.sh, check-markdown-integrity.py and check-verbatim-moves.sh exit 0
 diff --git a/skills/flow/review-panel-fix-round.md b/skills/flow/review-panel-fix-round.md
@@ -94,11 +94,11 @@ index e5f11397..d163b443 100644
     `A subagent's row under that key still counts.`, add the comment line
     `# A gated reviewer's fix round records under role implementer (gated-review-fix.md), so its`
     and `# task-<n+n>-implementer-fix-<k> rows never reach this check.`
-  - [ ] **Step 4: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckPanelFixSingleDispatch' -count=1`
+  - [x] **Step 4: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckPanelFixSingleDispatch' -count=1`
     passes; `gofmt -l internal/guard` prints nothing; `scripts/check-references.sh`,
     `scripts/check-installed-citations.sh`, `python3 scripts/check-markdown-integrity.py`,
     `scripts/check-guard-symlinks.sh` and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 5: Commit** the three files with the subject below.
+  - [x] **Step 5: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/check_panel_fix_single_dispatch_test.go`, `skills/flow/review-panel-fix-round.md`, `scripts/check-panel-fix-single-dispatch.sh`
@@ -111,18 +111,18 @@ index e5f11397..d163b443 100644
 
 **Decision:** non-panel-fix-roles-stated
 
-- [ ] 2. KAN-911 — handle a `--base` change's deleted base, standalone bundle and main-checkout refresh
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In a scratch clone whose
+- [x] 2. KAN-911 — handle a `--base` change's deleted base, standalone bundle and main-checkout refresh
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In a scratch clone whose
     branch records `git config branch.<cur>.flowBase feature/gone` and whose origin carries no
     `feature/gone`, `scripts/resolve-base-branch.sh <clone>` prints `feature/gone` and exits 0.
-  - [ ] **Step 2: Write the failing Go test** `TestResolveBaseBranchRefusesARecordedBaseGoneFromOrigin`
+  - [x] **Step 2: Write the failing Go test** `TestResolveBaseBranchRefusesARecordedBaseGoneFromOrigin`
     in `stats/internal/guard/resolve_base_branch_test.go`: a copy of the fixture's `wt`
     (`rbbCopy`) recording `branch.spectre/fixture.flowBase` = `feature/gone`, which the fixture's
     remote does not carry; run the registered `resolve-base-branch` guard as the file's
     `TestResolveBaseBranch` runs it; assert exit 1, empty stdout, and stderr containing
     `recorded base 'feature/gone' is not on origin`. It fails on the untouched code (exit 0,
     stdout `feature/gone`).
-  - [ ] **Step 3: Keep the existing recorded-base cases honest.** Case 14 (`recorded flowBase wins
+  - [x] **Step 3: Keep the existing recorded-base cases honest.** Case 14 (`recorded flowBase wins
     over origin/HEAD`) records `feature/offline-mode`, which the fixture remote does not carry and
     which the refusal would now reject: add `{"-C", seed, "push", "-q", "origin", "main:feature/offline-mode"}`
     to the fixture's seed steps so the remote carries it, and leave the case's expectation as is.
@@ -131,7 +131,7 @@ index e5f11397..d163b443 100644
     `bash scripts/test-integrate-change.sh`, `bash scripts/test-check-task-records.sh`,
     `bash scripts/test-flow-task-list-landed.sh` — and give any fixture the refusal now trips the
     same remote branch, never a weaker check.
-  - [ ] **Step 4: Implement the refusal** in `resolveBaseBranch`
+  - [x] **Step 4: Implement the refusal** in `resolveBaseBranch`
     (`stats/internal/guard/resolvebasebranch.go`): keep the `recordedBase` result in a variable;
     after the name-validation loop, only when the base came from it, run
     `git -C <dir> -c core.askpass=true ls-remote --exit-code --heads origin refs/heads/<base>`
@@ -139,7 +139,7 @@ index e5f11397..d163b443 100644
     `resolve-base-branch: recorded base '<base>' is not on origin — re-point the change (skills/flow/SKILL.md)`
     to stderr and returns 1; any other status resolves as today. Add the case to the exit-1 list
     of `scripts/resolve-base-branch.sh`'s header and to its `A RECORDED BASE WINS.` paragraph.
-  - [ ] **Step 5: Write the failing harness scenario** `refresh_on_recorded_base` in
+  - [x] **Step 5: Write the failing harness scenario** `refresh_on_recorded_base` in
     `scripts/test-integrate-change.sh`: the full prepare → commit → land run of the existing
     happy path, but with worktree `a` recording `branch.spectre/demo.flowBase` = `feature/x` (cut
     from and landing on `origin/feature/x`, which the scenario pushes first) and `a`'s main
@@ -147,13 +147,13 @@ index e5f11397..d163b443 100644
     — `$OUT` carries a `REFRESH-DONE: $WORK/a` or `REFRESH-CURRENT: $WORK/a` line and no
     `REFRESH-REFUSED: $WORK/a` line. It fails on the untouched script with
     `REFRESH-REFUSED: $WORK/a is on feature/x, not main`.
-  - [ ] **Step 6: Implement the refresh base** in `cmd_cleanup` (`scripts/integrate-change.sh`):
+  - [x] **Step 6: Implement the refresh base** in `cmd_cleanup` (`scripts/integrate-change.sh`):
     in the `flow.verify-merge` loop store each worktree's `$BASE` as `RBASE[i]`; in the
     `flow.refresh-main-checkout` loop take `origin/HEAD`'s branch as today, then, for each `i`
     with `REPO[i]` equal to `$m` and `RBASE[i]` equal to `git -C "$m" branch --show-current`,
     use `RBASE[i]` instead. Update the header's `refresh-main-checkout per repository` line to
     say so.
-  - [ ] **Step 7: Apply the prose diff** — the recovery sentence, the landing branch and the run-2
+  - [x] **Step 7: Apply the prose diff** — the recovery sentence, the landing branch and the run-2
     refresh sentence:
 
 ````diff verified:applied with git apply at 1c4c3e38; check-references.sh, check-installed-citations.sh, check-markdown-integrity.py and check-verbatim-moves.sh (with this change's verbatim-moves.txt) exit 0
@@ -233,13 +233,13 @@ index 7c5c8071..be8f2c06 100644
  
 ````
 
-  - [ ] **Step 8: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestResolveBaseBranch|TestKickoffWorktree|TestVerbatimMoves' -count=1`
+  - [x] **Step 8: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestResolveBaseBranch|TestKickoffWorktree|TestVerbatimMoves' -count=1`
     passes; `bash scripts/test-integrate-change.sh`, `bash scripts/test-check-task-records.sh`
     and `bash scripts/test-flow-task-list-landed.sh` pass; `gofmt -l internal/guard` prints
     nothing; `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py`, `scripts/check-guard-symlinks.sh` and
     `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 9: Commit** with the subject below.
+  - [x] **Step 9: Commit** with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/resolvebasebranch.go`, `stats/internal/guard/resolve_base_branch_test.go`, `scripts/resolve-base-branch.sh`, `scripts/integrate-change.sh`, `scripts/test-integrate-change.sh`, `skills/flow/SKILL.md`, `skills/flow-self-review/SKILL.md`, `skills/flow-contracts/finish-contract-run2.md`
@@ -253,8 +253,8 @@ index 7c5c8071..be8f2c06 100644
 **Decision:** self-review-landing-branch
 **Decision:** refresh-onto-checked-out-base
 
-- [ ] 3. KAN-912 — update slot, model and effort on a repeated dispatch begin
-  - [ ] **Step 1: Write the failing tests** in `stats/internal/store/records_test.go`, beside
+- [x] 3. KAN-912 — update slot, model and effort on a repeated dispatch begin
+  - [x] **Step 1: Write the failing tests** in `stats/internal/store/records_test.go`, beside
     `TestRecordDispatchReopensAnAbortedKey`:
     `TestRecordDispatchReBeginUpdatesSlotModelAndEffort` — begin key `panel-1-primary` (token
     `tok`, role `reviewer`, slot `primary`, model `opus`, effort `high`), begin it again with slot
@@ -265,7 +265,7 @@ index 7c5c8071..be8f2c06 100644
     carries the second begin's three values. Run
     `cd stats && make -s web-dist && go test ./internal/store/ -run 'TestRecordDispatchReBegin' -count=1`:
     both fail on the untouched code, the row still on `primary`, `opus`, `high`.
-  - [ ] **Step 2: Implement** in `insertDispatch` (`stats/internal/store/records.go`): add to the
+  - [x] **Step 2: Implement** in `insertDispatch` (`stats/internal/store/records.go`): add to the
     `ON CONFLICT ON CONSTRAINT … DO UPDATE SET` list, unconditionally,
 
 ```sql unverified:confirm EXCLUDED.slot already holds canonical_slot($6) and EXCLUDED.effort the defaulted value
@@ -278,10 +278,10 @@ index 7c5c8071..be8f2c06 100644
     new begin's slot, model and effort, last begin wins — a journal replay carries the same
     values, so it stays a no-op — so a re-dispatch on a new pair never keeps the stale one
     (KAN-912).
-  - [ ] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./internal/store/ -run 'TestRecordDispatch' -count=1`
+  - [x] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./internal/store/ -run 'TestRecordDispatch' -count=1`
     passes (`TestRecordDispatchIsIdempotentUnderTheSameKey` included); `go vet ./internal/store`
     and `gofmt -l internal/store` print nothing.
-  - [ ] **Step 4: Commit** the two files with the subject below.
+  - [x] **Step 4: Commit** the two files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/store/records.go`, `stats/internal/store/records_test.go`
@@ -295,8 +295,8 @@ index 7c5c8071..be8f2c06 100644
 **Decision:** rebegin-last-wins
 **Decision:** rebegin-no-repair
 
-- [ ] 4. KAN-915 — count a panel re-run as clean only once its report file is written
-  - [ ] **Step 1: Write the failing test** `TestCheckPanelFindingsClosedRerunNeedsItsReportFile`
+- [x] 4. KAN-915 — count a panel re-run as clean only once its report file is written
+  - [x] **Step 1: Write the failing test** `TestCheckPanelFindingsClosedRerunNeedsItsReportFile`
     in `stats/internal/guard/check_panel_findings_closed_test.go`, shaped like
     `TestCheckPanelFindingsClosedReportCounts` (its own `wt` per case, report files written under
     `.superpowers/sdd/`). Finding `F1`, Important, `fixed`, round 1, slot `primary`, unless a case
@@ -311,7 +311,7 @@ index 7c5c8071..be8f2c06 100644
 
     Run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckPanelFindingsClosedRerunNeedsItsReportFile' -count=1`:
     the missing and placeholder cases fail on the untouched code (exit 0).
-  - [ ] **Step 2: Implement** in `checkPanelFindingsClosed`
+  - [x] **Step 2: Implement** in `checkPanelFindingsClosed`
     (`stats/internal/guard/panelfindingsclosed.go`): add
     `func cfcReportWritten(worktree string, round int, id string) bool` — true when
     `<worktree>/.superpowers/sdd/panel-report-<round>-<id>.md` is non-empty and does not begin
@@ -322,20 +322,20 @@ index 7c5c8071..be8f2c06 100644
     `check-panel-findings-closed: re-run(s) answered without writing their report file: <names>`,
     beside the existing unverified line. Extend the comment block above `covers` with the rule
     and KAN-915.
-  - [ ] **Step 3: Keep the existing cases honest.** `TestCheckPanelFindingsClosed` and
+  - [x] **Step 3: Keep the existing cases honest.** `TestCheckPanelFindingsClosed` and
     `TestCheckPanelFindingsClosedReportCounts` cases that expect a clean re-run to cover a fixed
     Critical or Important now need that re-run's report: write `panel-report-<round>-<id>.md`
     with a body carrying no `Critical:`/`Important:` lines (so the count check skips it) into
     the shared `wt` for `cfcDefaultDispatches`' rounds and every slot id a passing case's
     dispatches name, and into the per-case files of `ReportCounts`' passing case. A case whose
     expectation changes is a defect in the plan — report it, never edit the expectation.
-  - [ ] **Step 4: Update the contract** in `scripts/check-panel-findings-closed.sh`'s header:
+  - [x] **Step 4: Update the contract** in `scripts/check-panel-findings-closed.sh`'s header:
     the exit-0 line says each clean re-run's `panel-report-<round>-<id>.md` is written, and the
     exit-1 list adds a re-run that answered without writing it (absent, empty or the parent's
     placeholder).
-  - [ ] **Step 5: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckPanelFindingsClosed' -count=1`
+  - [x] **Step 5: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckPanelFindingsClosed' -count=1`
     passes; `gofmt -l internal/guard` prints nothing; `scripts/check-guard-symlinks.sh` exits 0.
-  - [ ] **Step 6: Commit** the three files with the subject below.
+  - [x] **Step 6: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/panelfindingsclosed.go`, `stats/internal/guard/check_panel_findings_closed_test.go`, `scripts/check-panel-findings-closed.sh`
@@ -348,10 +348,10 @@ index 7c5c8071..be8f2c06 100644
 
 **Decision:** rerun-needs-report
 
-- [ ] 5. KAN-906 — move cross-guard helpers into shared files
-  - [ ] **Step 1: Record the green baseline.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'Test(Check)?(Panel|CleanupComplete|StageMark|TaskCommit|References|WorktreeLocation|GatherDispatch|RunReproducer|ChangePlan|SpecRoot|FinishPreflight|BaseMoved|UnfinishedWork|SyncPanel|WritePanel)' -count=1`
+- [x] 5. KAN-906 — move cross-guard helpers into shared files
+  - [x] **Step 1: Record the green baseline.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'Test(Check)?(Panel|CleanupComplete|StageMark|TaskCommit|References|WorktreeLocation|GatherDispatch|RunReproducer|ChangePlan|SpecRoot|FinishPreflight|BaseMoved|UnfinishedWork|SyncPanel|WritePanel)' -count=1`
     passes before any move — the tests of every guard whose file loses a helper.
-  - [ ] **Step 2: Move**, each function with its doc comment and any unexported declaration
+  - [x] **Step 2: Move**, each function with its doc comment and any unexported declaration
     (type, var, const, regexp) only the moved functions use, unchanged, from its file to the
     new file named — no renames, no merges, no body or comment edits; imports follow the code:
     - `stats/internal/guard/paths.go`: `isDir`, `isFile` (`specroot.go`); `pcAbs`
@@ -371,14 +371,14 @@ index 7c5c8071..be8f2c06 100644
 
     Open each new file with one comment line saying what it holds, e.g.
     `// paths.go holds the path helpers several guards share.`
-  - [ ] **Step 3: Update the citations.** `git grep -n -E '(isDir|isFile|pcAbs|smcAbs|gdcDirname|hasDotDotSegment|siblingRoot|capture|envGit|lookPath|gitOut|panelResolveGit|exitCode|rrExitCode|pcFlow|pcRaw|pfdRead|pfdStream|lines|crSort|ccSanitize|ccASCIILower|smcUTF8|plainChangeName|tcfPlanLines|tcfParseTask|tcfResolveTasksMD|tcfUnfenced)[^A-Za-z]' -- stats/internal/guard scripts`
+  - [x] **Step 3: Update the citations.** `git grep -n -E '(isDir|isFile|pcAbs|smcAbs|gdcDirname|hasDotDotSegment|siblingRoot|capture|envGit|lookPath|gitOut|panelResolveGit|exitCode|rrExitCode|pcFlow|pcRaw|pfdRead|pfdStream|lines|crSort|ccSanitize|ccASCIILower|smcUTF8|plainChangeName|tcfPlanLines|tcfParseTask|tcfResolveTasksMD|tcfUnfenced)[^A-Za-z]' -- stats/internal/guard scripts`
     and change every comment that names a moved function beside its old file (`plainChangeName
     (cleanupcomplete.go)` and the like) to the new file; nothing else.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w internal/guard && make -s web-dist && go vet ./... && go test ./internal/guard/ -run 'Test(Check)?(Panel|CleanupComplete|StageMark|TaskCommit|References|WorktreeLocation|GatherDispatch|RunReproducer|ChangePlan|SpecRoot|FinishPreflight|BaseMoved|UnfinishedWork|SyncPanel|WritePanel)' -count=1`
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w internal/guard && make -s web-dist && go vet ./... && go test ./internal/guard/ -run 'Test(Check)?(Panel|CleanupComplete|StageMark|TaskCommit|References|WorktreeLocation|GatherDispatch|RunReproducer|ChangePlan|SpecRoot|FinishPreflight|BaseMoved|UnfinishedWork|SyncPanel|WritePanel)' -count=1`
     passes and `gofmt -l .` prints nothing; `git diff --stat` shows only moves (added and removed
     line counts equal per moved block, plus the new files' header comments and import blocks);
     `scripts/check-guard-symlinks.sh` and `scripts/check-references.sh` exit 0.
-  - [ ] **Step 5: Commit** with the subject below.
+  - [x] **Step 5: Commit** with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/paths.go`, `stats/internal/guard/exec.go`, `stats/internal/guard/flowcli.go`, `stats/internal/guard/text.go`, `stats/internal/guard/changename.go`, `stats/internal/guard/planparse.go`, `stats/internal/guard/specroot.go`, `stats/internal/guard/panelreproducers.go`, `stats/internal/guard/stagemarkcalls.go`, `stats/internal/guard/gatherdispatch.go`, `stats/internal/guard/runreproducer.go`, `stats/internal/guard/worktreelocation.go`, `stats/internal/guard/resolveremotebase.go`, `stats/internal/guard/changeplan.go`, `stats/internal/guard/paneltouchedpaths.go`, `stats/internal/guard/finishpreflight.go`, `stats/internal/guard/panelexitcontract.go`, `stats/internal/guard/panelfixsingledispatch.go`, `stats/internal/guard/references.go`, `stats/internal/guard/cleanupcomplete.go`, `stats/internal/guard/taskcommitfields.go`
