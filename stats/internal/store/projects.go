@@ -3,6 +3,8 @@ package store
 import (
 	"context"
 	"fmt"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // ProjectRoot is one registered project's identity and the main checkout
@@ -42,4 +44,17 @@ func (s *Store) ProjectRoots(ctx context.Context) ([]ProjectRoot, error) {
 		return nil, fmt.Errorf("store: list project roots: %w", err)
 	}
 	return roots, nil
+}
+
+// EnsureProject creates projectKey's projects row with mainCheckoutPath when
+// none exists, and leaves an existing row as it is. It is the bootstrap
+// PutChange and insertPlanStageRun run inside their own writes, for a
+// caller with no change to write -- a workspace daemon seeding its own
+// project at startup (KAN-914), so record writes that carry only the key
+// find their row. An empty mainCheckoutPath returns
+// ErrInvalidMainCheckoutPath and creates nothing.
+func (s *Store) EnsureProject(ctx context.Context, projectKey, mainCheckoutPath string) error {
+	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		return ensureProject(ctx, tx, projectKey, mainCheckoutPath)
+	})
 }

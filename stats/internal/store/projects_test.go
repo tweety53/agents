@@ -3,9 +3,11 @@ package store_test
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -75,5 +77,41 @@ func TestProjectRootsOnEmptyStore(t *testing.T) {
 	}
 	if errors.Is(err, store.ErrChangeNotFound) {
 		t.Fatal("a plain read never carries ErrChangeNotFound")
+	}
+}
+
+// TestEnsureProjectLetsARecordWriteThrough pins KAN-914: a fresh database
+// refuses a record write for a project it has no row for, and
+// EnsureProject's row lets it through; a second call and an existing row
+// are left as they are, and an empty path never creates one.
+func TestEnsureProjectLetsARecordWriteThrough(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	run := records.GuardRun{Guard: "check-x", Worktree: "/ws/alpha", Outcome: "clear"}
+
+	if _, err := st.RecordGuardRun(ctx, "ws-alpha-key", run); !errors.Is(err, store.ErrProjectNotFound) {
+		t.Fatalf("RecordGuardRun before EnsureProject: err = %v, want ErrProjectNotFound", err)
+	}
+	if err := st.EnsureProject(ctx, "ws-alpha-key", ""); !errors.Is(err, store.ErrInvalidMainCheckoutPath) {
+		t.Fatalf("EnsureProject with an empty path: err = %v, want ErrInvalidMainCheckoutPath", err)
+	}
+	for range 2 {
+		if err := st.EnsureProject(ctx, "ws-alpha-key", "/ws/alpha"); err != nil {
+			t.Fatalf("EnsureProject: %v", err)
+		}
+	}
+	if err := st.EnsureProject(ctx, "ws-alpha-key", "/ws/other"); err != nil {
+		t.Fatalf("EnsureProject on an existing row: %v", err)
+	}
+	if _, err := st.RecordGuardRun(ctx, "ws-alpha-key", run); err != nil {
+		t.Fatalf("RecordGuardRun after EnsureProject: %v", err)
+	}
+	roots, err := st.ProjectRoots(ctx)
+	if err != nil {
+		t.Fatalf("ProjectRoots: %v", err)
+	}
+	want := []store.ProjectRoot{{ProjectKey: "ws-alpha-key", MainCheckoutPath: "/ws/alpha"}}
+	if !reflect.DeepEqual(roots, want) {
+		t.Fatalf("ProjectRoots = %+v, want %+v", roots, want)
 	}
 }

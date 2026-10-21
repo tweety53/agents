@@ -251,6 +251,25 @@ func TestReplaysSharedJournalOnlyIntoTheFlowDatabase(t *testing.T) {
 	}
 }
 
+// TestSeedsWorkspaceProjectOnlyIntoAWorkspaceDatabase pins KAN-914: a
+// workspace daemon's own flow_<id> database seeds its project row at
+// startup, while the dev workspace's flow database and a UI-test
+// flow_<id>_uitest database never do.
+func TestSeedsWorkspaceProjectOnlyIntoAWorkspaceDatabase(t *testing.T) {
+	cases := map[string]bool{
+		config.DefaultDSN: false,
+		"postgres://flow:flow@localhost:5433/flow_kan_9_x?sslmode=disable":   true,
+		"postgres://flow:flow@localhost:5433/flow_ui_uitest?sslmode=disable": false,
+		"postgres://flow:flow@localhost:5433/flowd?sslmode=disable":          false,
+		"host=localhost port=5433 dbname=flow_kan_9_x user=flow":             false,
+	}
+	for dsn, want := range cases {
+		if got := seedsWorkspaceProject(dsn); got != want {
+			t.Errorf("seedsWorkspaceProject(%q) = %v, want %v", dsn, got, want)
+		}
+	}
+}
+
 func TestFormatBuild(t *testing.T) {
 	for _, c := range []struct {
 		name     string

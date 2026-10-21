@@ -154,6 +154,20 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
+	// KAN-914: a workspace daemon's fresh flow_<id> database has no
+	// projects row, and every record write keyed on the project refuses
+	// until one exists. Seed it from the working directory -- the same
+	// checkout originRemote already reads -- with the key every flow CLI
+	// write derives. A failure is logged, never fatal: the daemon then
+	// starts exactly as it did before this seed existed.
+	if seedsWorkspaceProject(cfg.DSN) {
+		if key, mainCheckout, err := fallback.ProjectKey("."); err != nil {
+			logger.Warn("flowd did not seed the workspace project row", "error", err)
+		} else if err := st.EnsureProject(ctx, key, mainCheckout); err != nil {
+			logger.Warn("flowd did not seed the workspace project row", "project_key", key, "error", err)
+		}
+	}
+
 	// Task 12: embed and serve the SPA at "/". internal/web.FS requires
 	// stats/web/vite.config.ts's outDir (internal/web/dist) to already
 	// exist and contain a real build -- go:embed itself refuses to
@@ -431,6 +445,16 @@ var (
 func replaysSharedJournal(dsn string) bool {
 	u, err := url.Parse(dsn)
 	return err == nil && u.Path == "/flow"
+}
+
+// seedsWorkspaceProject reports whether dsn names a workspace database
+// (flow_<id>, .flow/project.md's ## workspace isolation) whose daemon seeds
+// its own project row at startup. The dev workspace's flow database never
+// does -- its writers bootstrap rows -- nor does a flow_<id>_uitest
+// database, whose rows cmd/uitest-seed owns.
+func seedsWorkspaceProject(dsn string) bool {
+	u, err := url.Parse(dsn)
+	return err == nil && strings.HasPrefix(u.Path, "/flow_") && !strings.HasSuffix(u.Path, "_uitest")
 }
 
 // logReconcileResult reports one Reconciler.Run outcome. A replay failure
