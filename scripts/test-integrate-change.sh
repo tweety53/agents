@@ -249,6 +249,54 @@ to_land() {
   g -C "$WORK/a-worktrees/demo" commit -qm "docs(self-review): demo self-review report"
 }
 
+# peer_fix_case <prefix>: the report names a fix committed in b, b's base
+# moves, and land runs — checked under <prefix>.
+peer_fix_case() {
+  to_land "$1" no-report
+  printf 'fix\n' >"$WORK/b-worktrees/demo/fix-b.txt"
+  g -C "$WORK/b-worktrees/demo" add fix-b.txt && g -C "$WORK/b-worktrees/demo" commit -qm "fix(b): the peer fix"
+  old="$(git -C "$WORK/b-worktrees/demo" rev-parse --short HEAD)"
+  mkdir -p "$WORK/a-worktrees/demo/docs/self-review"
+  printf '# demo self-review\n\n- **[flow-fix]** the peer fix — fixed: %s\n' "$old" >"$WORK/a-worktrees/demo/docs/self-review/demo-self-review.md"
+  g -C "$WORK/a-worktrees/demo" add docs/self-review/demo-self-review.md
+  g -C "$WORK/a-worktrees/demo" commit -qm "docs(self-review): demo self-review report"
+  printf 'moved\n' >"$WORK/b/moved.txt"
+  g -C "$WORK/b" add moved.txt && g -C "$WORK/b" commit -qm "base: moved" && g -C "$WORK/b" push -q origin main
+  sut land "$WORK/a" demo
+  new="$(git --git-dir="$WORK/b-origin.git" log --format=%h --grep="^fix(b): the peer fix$" -1 main)"
+  check "${1}land exits 0" '[ "$RC" -eq 0 ]'
+  check "${1}the re-sync rewrote b's fix sha" '[ -n "$new" ] && [ "$new" != "$old" ]'
+  check "${1}the report on a's origin main names the rewritten sha" \
+    'git --git-dir="$WORK/a-origin.git" show main:docs/self-review/demo-self-review.md | grep -q "fixed: $new$"'
+  check "${1}a fixed row is recorded for b's fix" \
+    'grep -q -- "-disposition fixed -ref $new " "$WORK/fixed.log"'
+}
+
+# ui_a: a declares `ui paths` its task commit touches, and carries the
+# verifier's record a verifier row counts only with.
+ui_a() {
+  printf '\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `work-a.txt` |\n' >>"$WORK/a-worktrees/demo/.flow/project.md"
+  printf '# Visual verification — demo\n' >"$WORK/a-worktrees/demo/spectre/changes/demo/visual-verification.md"
+  g -C "$WORK/a-worktrees/demo" add spectre/changes/demo/visual-verification.md
+  g -C "$WORK/a-worktrees/demo" commit -qam "chore(spectre): plan-gate demo" --amend
+}
+# flag <worktree> <sha> [<change>]: an operator's false-positive flag on
+# <worktree>'s MISSING verdict row naming HEAD <sha>.
+flag() {
+  printf '[{"change":"%s","guard":"check-visual-verify-dispatched","worktree":"%s","verdict":"VISUAL-VERIFY-MISSING: no verifier — HEAD %s","falsePositive":true,"falsePositiveReason":"hand-verified","flaggedAt":"2026-01-01T00:00:00Z"}]' \
+    "${3:-demo}" "$(cd "$1" && pwd -P)" "$2" >"$WORK/verdicts.json"
+}
+
+# Every case below runs in its own background subshell — its own fixture
+# ($WORK), counters and log — and the run waits for them all, so the suite
+# takes as long as its slowest case rather than their sum: run serially,
+# this harness alone set the guard suite's wall (kan-918's self-review).
+LOGS="$(mktemp -d)"
+PIDS=()
+# end_case: last in a case's log, its own tally; its status, the case's.
+end_case() { printf '%d passed, %d failed\n' "$PASS" "$FAIL"; [ "$FAIL" -eq 0 ]; }
+
+( trap cleanup_work EXIT
 # --- narrative_format ---
 fixture
 sut prepare "$WORK/a" demo
@@ -274,7 +322,10 @@ narrative_passes "a prose mention of the token" 'The `In-run pipeline fix:` line
 narrative_passes "a well-formed line with trailing whitespace" '- In-run pipeline fix: 1a2b3c4 — the defect (blast radius 2 files)   '
 narrative_passes "a deferred line" '- In-run pipeline fix: deferred — the defect (blast radius 1 file)'
 narrative_passes "a backticked sha" '- In-run pipeline fix: `1a2b3c4` — the defect (blast radius 3 files).' 
+end_case ) >"$LOGS/01.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- narrative_runs ---
 fixture
 echo 1 >"$WORK/fix-sessions"
@@ -296,7 +347,10 @@ sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b
 check "narrative_runs: a failed stage-sessions read names the failure in the stop" \
   '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: narrative — check-narrative-runs: flow stage sessions"'
 rm -f "$WORK/fail-sessions"
+end_case ) >"$LOGS/02.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- happy_path ---
 fixture
 sut prepare "$WORK/a" demo
@@ -335,7 +389,10 @@ check "the stage log runs preflight through refresh-main-checkout" \
 check "run 2 keeps a's pre-reshape pin, locally and on origin" \
   'git -C "$WORK/a" rev-parse -q --verify refs/flow/pre-reshape/demo >/dev/null && git --git-dir="$WORK/a-origin.git" rev-parse -q --verify refs/flow/pre-reshape/demo >/dev/null'
 check "land ends on NEXT: Finished handoff" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: print the Finished handoff"'
+end_case ) >"$LOGS/03.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- foreign_staged ---
 fixture
 printf 'stray\n' >"$WORK/b/stray.txt"
@@ -345,7 +402,10 @@ check "staged work in a main checkout stops prepare with exit 1" '[ "$RC" -eq 1 
 check "the stop is STOP: foreign-staged" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: foreign-staged"'
 check "the guard's own STAGED-FOREIGN line is relayed" 'printf "%s" "$OUT" | grep -q "^STAGED-FOREIGN: $WORK/b"'
 check "no preflight ran" '! grep -q flow.preflight "$WORK/stages.log" 2>/dev/null'
+end_case ) >"$LOGS/04.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- no_report ---
 fixture
 to_land "no_report: " no-report
@@ -359,7 +419,10 @@ check "no_report: nothing was landed" \
   '[ "$(git --git-dir="$WORK/b-origin.git" log --format=%s main -1)" = base ] && [ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -1)" = base ]'
 check "no_report: a's remote branch still sits at commit's HEAD" \
   '[ "$(git --git-dir="$WORK/a-origin.git" rev-parse spectre/demo)" = "$pushed" ]'
+end_case ) >"$LOGS/05.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- loop_landing ---
 fixture
 to_land "loop_landing: "
@@ -369,7 +432,10 @@ check "loop_landing: an open own-branch self-review loop stops land at STOP: loo
   '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: loop-landing"'
 check "loop_landing: nothing landed on either main" \
   '[ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -1)" = base ] && [ "$(git --git-dir="$WORK/b-origin.git" log --format=%s main -1)" = base ]'
+end_case ) >"$LOGS/06.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- untasked ---
 fixture
 printf 'stray\n' >"$WORK/b-worktrees/demo/stray.txt"
@@ -379,7 +445,10 @@ check "untasked: prepare stops at STOP: unfinished-work" 'printf "%s" "$OUT" | t
 check "untasked: the stray commit is listed" 'printf "%s" "$OUT" | grep -q "^  [0-9a-f]\{12\} test(b): a stray edit$"'
 sut prepare "$WORK/a" demo --accept-outstanding
 check "untasked: --accept-outstanding passes the gate" '[ "$RC" -eq 0 ]'
+end_case ) >"$LOGS/07.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- archived_rerun ---
 fixture
 to_land "archived_rerun: "
@@ -388,7 +457,10 @@ g -C "$WORK/a-worktrees/demo" add more.txt && g -C "$WORK/a-worktrees/demo" comm
 sut prepare "$WORK/a" demo
 check "archived_rerun: prepare passes the gate" '[ "$RC" -eq 0 ]'
 check "archived_rerun: b's reshaped commit is not listed" '! printf "%s" "$OUT" | grep -q "feat(b): do the work"'
+end_case ) >"$LOGS/08.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- no_verdict ---
 fixture
 : >"$WORK/fail-findings"
@@ -396,7 +468,10 @@ sut prepare "$WORK/a" demo --accept-outstanding
 check "no_verdict: prepare stops with exit 1" '[ "$RC" -eq 1 ]'
 check "no_verdict: the stop is STOP: no-verdict, not passed by --accept-outstanding" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: no-verdict — check-unfinished-work"'
 check "no_verdict: the gate mark closes stopped" 'tail -1 "$WORK/stages.log" | grep -q "stage end .*-stage flow.unfinished-work-gate -outcome stopped"'
+end_case ) >"$LOGS/09.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- sync_conflict ---
 fixture
 printf 'base side\n' >"$WORK/b/work-b.txt"
@@ -405,7 +480,10 @@ sut prepare "$WORK/a" demo
 check "sync_conflict: prepare stops with exit 1" '[ "$RC" -eq 1 ]'
 check "sync_conflict: the stop line names the --resume call and what follows it" \
   'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: sync-conflict — .*sync-onto-base.sh. --resume, the whole ## lint and ## test lists, then re-run prepare$"'
+end_case ) >"$LOGS/10.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- guard_test ---
 # A scoped re-verification is <agents repo>/scripts/test-<stem>.sh, the repo
 # derived from the guards' own path: run a copy of scripts/ whose stats/ is
@@ -425,7 +503,10 @@ SUT="$SUT_SAVED"
 check "guard_test: prepare stops with exit 1" '[ "$RC" -eq 1 ]'
 check "guard_test: the stop is STOP: guard-test" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: guard-test"'
 check "guard_test: the failing test's own output is relayed" 'printf "%s" "$OUT" | grep -qx "gt-test-own-output"'
+end_case ) >"$LOGS/11.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- rebase_lint ---
 # b's base gains a .flow/project.md whose ## lint list fails and nothing this
 # change touches: the rebase is clean, and the rebased tree's lint list runs.
@@ -438,7 +519,10 @@ check "rebase_lint: prepare stops with exit 1" '[ "$RC" -eq 1 ]'
 check "rebase_lint: the rebase was clean" 'printf "%s" "$OUT" | grep -q "^REBASED: $WORK/b-worktrees/demo"'
 check "rebase_lint: the stop is STOP: rebase-lint" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: rebase-lint — the ## lint list failed on $WORK/b-worktrees/demo"'
 check "rebase_lint: the list's own output is relayed" 'printf "%s" "$OUT" | grep -q "lint-own-output"'
+end_case ) >"$LOGS/12.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- rebase_lint_env: the list runs under prepare-workspace.sh's exports ---
 fixture
 mkdir -p "$WORK/b/.flow"
@@ -446,7 +530,10 @@ printf '# project\n\n## lint\n\n```bash\necho "lint-env:${DEMO_ADDR:-unset}"; ex
 g -C "$WORK/b" add .flow/project.md && g -C "$WORK/b" commit -qm "base: lint list" && g -C "$WORK/b" push -q origin main
 sut prepare "$WORK/a" demo
 check "rebase_lint_env: the list saw the workspace's exported variable" 'printf "%s" "$OUT" | grep -q "lint-env:http://127.0.0.1:2"'
+end_case ) >"$LOGS/13.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- rebase_lint_rewrite: a passing list that rewrote tracked files stops ---
 fixture
 mkdir -p "$WORK/b/.flow"
@@ -455,7 +542,10 @@ g -C "$WORK/b" add .flow/project.md && g -C "$WORK/b" commit -qm "base: lint lis
 sut prepare "$WORK/a" demo
 check "rebase_lint_rewrite: prepare stops with exit 1" '[ "$RC" -eq 1 ]'
 check "rebase_lint_rewrite: the stop names the rewrite" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: rebase-lint — the ## lint list rewrote tracked files on $WORK/b-worktrees/demo"'
+end_case ) >"$LOGS/14.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- rebase_lint_land: land's re-sync after a rejected push runs the list ---
 fixture
 sut prepare "$WORK/a" demo
@@ -473,7 +563,10 @@ sut land "$WORK/a" demo
 check "rebase_lint_land: land stops at rebase-lint naming what was already pushed" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: rebase-lint — already pushed: $WORK/b-worktrees/demo; the ## lint list failed on $WORK/a-worktrees/demo"'
 check "rebase_lint_land: the list's own output is relayed" 'printf "%s" "$OUT" | grep -q "land-lint-output"'
 check "rebase_lint_land: a was not pushed to its base" '[ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -1)" = "base: lint list" ]'
+end_case ) >"$LOGS/15.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- gh_open_merged ---
 fixture
 printf '#!/usr/bin/env bash\n[ "$1 $2" = "pr view" ] && { echo OPEN; exit 0; }\nexit 1\n' >"$WORK/bin/gh"
@@ -483,7 +576,10 @@ to_land "gh_open_merged: "
 sut land "$WORK/a" demo
 check "gh_open_merged: land runs to the Finished handoff" '[ "$RC" -eq 0 ] && printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: print the Finished handoff"'
 check "gh_open_merged: the record is FINISHED" '[ "$(jq -r .state "$WORK/state.json")" = FINISHED ]'
+end_case ) >"$LOGS/16.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- disclose ---
 fixture
 for r in a b; do
@@ -501,7 +597,10 @@ check "disclose: the re-run stops at STOP: disclose for b" \
   '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: disclose — relay $WORK/b.s "'
 sut cleanup "$WORK/a" demo --proceed "$WORK/a" --proceed "$WORK/b"
 check "disclose: --proceed for both finishes" '[ "$RC" -eq 0 ] && [ ! -d "$WORK/b-worktrees/demo" ] && [ "$(jq -r .state "$WORK/state.json")" = FINISHED ]'
+end_case ) >"$LOGS/17.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- rerun_leftover ---
 fixture
 mkdir -p "$WORK/a/spectre/changes/demo"
@@ -516,7 +615,10 @@ check "rerun_leftover: the re-run reaches b and deletes its remote branch" \
   '! git --git-dir="$WORK/b-origin.git" rev-parse -q --verify refs/heads/spectre/demo >/dev/null'
 check "rerun_leftover: b's cleanup check ran" 'printf "%s" "$OUT" | grep -q "^COMPLETE: .*$WORK/b"'
 check "rerun_leftover: the re-run writes FINISHED" '[ "$RC" -eq 0 ] && [ "$(jq -r .state "$WORK/state.json")" = FINISHED ]'
+end_case ) >"$LOGS/18.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- no_state_dir ---
 fixture
 to_land "no_state_dir: "
@@ -525,7 +627,10 @@ sut land "$WORK/a" demo
 check "no_state_dir: run 2 reaches COMPLETE, not STOP: leftover" \
   '[ "$RC" -eq 0 ] && printf "%s" "$OUT" | grep -q "^COMPLETE: " && ! printf "%s" "$OUT" | grep -q "^STOP: leftover"'
 check "no_state_dir: the record is FINISHED" '[ "$(jq -r .state "$WORK/state.json")" = FINISHED ]'
+end_case ) >"$LOGS/19.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- pr_url ---
 fixture
 printf '#!/usr/bin/env bash\necho "gh: no forge" >&2\nexit 1\n' >"$WORK/bin/gh"
@@ -540,7 +645,10 @@ check "pr_url: b's answer does not answer for a" \
 sut land "$WORK/a" demo --route "pull request" --pr-url "$WORK/b-worktrees/demo=https://forge.invalid/b/1" --pr-url "$WORK/a-worktrees/demo=https://forge.invalid/a/1"
 check "pr_url: with both answered, IN_PROGRESS records the canonical PR" \
   '[ "$RC" -eq 0 ] && [ "$(jq -r "[.state, .prUrl] | join(\" \")" "$WORK/state.json")" = "IN_PROGRESS https://forge.invalid/a/1" ]'
+end_case ) >"$LOGS/20.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- nested_link ---
 # commit-split adds `<spec>/changes/*/link.md` only when a change directory
 # holds a link.md, so b's base carries one; the branch adds a nested one.
@@ -560,7 +668,10 @@ sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b
 check "nested_link: commit exits 0" '[ "$RC" -eq 0 ]'
 check "nested_link: b's implementation commit carries the nested link.md" \
   '[ "$(git -C "$WORK/b-worktrees/demo" log --format=%s --diff-filter=A -1 -- spectre/changes/archive/y/link.md)" = "feat(b): nest a link" ]'
+end_case ) >"$LOGS/21.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- mixed_roots ---
 fixture
 mkdir -p "$WORK/b-worktrees/demo/openspec/changes/demo"
@@ -569,7 +680,10 @@ g -C "$WORK/b-worktrees/demo" add -A && g -C "$WORK/b-worktrees/demo" commit -qm
 sut prepare "$WORK/a" demo
 check "mixed_roots: prepare exits 0" '[ "$RC" -eq 0 ]'
 check "mixed_roots: b's diffstat lists no openspec/changes/ path" '! printf "%s" "$OUT" | grep -q "openspec/changes/"'
+end_case ) >"$LOGS/22.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- planning_only ---
 fixture
 g -C "$WORK/b-worktrees/demo" reset -q --hard main
@@ -585,7 +699,10 @@ sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work"
 check "planning_only: commit with no subject for b exits 0" '[ "$RC" -eq 0 ]'
 check "planning_only: b's branch is the base plus its planning and archive commits" \
   '[ "$(git -C "$WORK/b-worktrees/demo" log --format=%s main..HEAD | tr "\n" "|")" = "chore(spectre): archive demo|chore(spectre): plan demo|" ]'
+end_case ) >"$LOGS/23.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- satellite_archive ---
 fixture
 mkdir -p "$WORK/b-worktrees/demo/spectre/changes/demo"
@@ -596,7 +713,10 @@ check "satellite_archive: b's change directory is archived" \
   '[ ! -d "$WORK/b-worktrees/demo/spectre/changes/demo" ] && [ -f "$WORK/b-worktrees/demo/spectre/changes/archive/demo/link.md" ]'
 check "satellite_archive: b's branch ends on its own archive commit" \
   '[ "$(git -C "$WORK/b-worktrees/demo" log -1 --format=%s)" = "chore(spectre): archive demo" ]'
+end_case ) >"$LOGS/24.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- link_only_canon ---
 fixture
 g -C "$WORK/a-worktrees/demo" reset -q --hard main
@@ -614,48 +734,37 @@ sut commit "$WORK/a" demo "$WORK/b-worktrees/demo=feat(b): do the work"
 check "link_only_canon: commit with no subject for a exits 0" '[ "$RC" -eq 0 ]'
 check "link_only_canon: a's link.md lands in a commit subjected chore(spectre): merge order" \
   '[ "$(git -C "$WORK/a-worktrees/demo" log --format=%s --diff-filter=A -1 -- spectre/changes/archive/demo/link.md spectre/changes/demo/link.md)" = "chore(spectre): merge order" ]'
+end_case ) >"$LOGS/25.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- commit_pushes ---
 fixture
 for r in a b; do g -C "$WORK/$r-worktrees/demo" push -q -u origin spectre/demo; done
 to_land "commit_pushes: " no-report
 check "commit_pushes: each remote branch is the reshaped HEAD" \
   '[ "$(git --git-dir="$WORK/a-origin.git" rev-parse spectre/demo)" = "$(git -C "$WORK/a-worktrees/demo" rev-parse HEAD)" ] && [ "$(git --git-dir="$WORK/b-origin.git" rev-parse spectre/demo)" = "$(git -C "$WORK/b-worktrees/demo" rev-parse HEAD)" ]'
+end_case ) >"$LOGS/26.log" 2>&1 &
+PIDS+=($!)
 
-# peer_fix_case <prefix>: the report names a fix committed in b, b's base
-# moves, and land runs — checked under <prefix>.
-peer_fix_case() {
-  to_land "$1" no-report
-  printf 'fix\n' >"$WORK/b-worktrees/demo/fix-b.txt"
-  g -C "$WORK/b-worktrees/demo" add fix-b.txt && g -C "$WORK/b-worktrees/demo" commit -qm "fix(b): the peer fix"
-  old="$(git -C "$WORK/b-worktrees/demo" rev-parse --short HEAD)"
-  mkdir -p "$WORK/a-worktrees/demo/docs/self-review"
-  printf '# demo self-review\n\n- **[flow-fix]** the peer fix — fixed: %s\n' "$old" >"$WORK/a-worktrees/demo/docs/self-review/demo-self-review.md"
-  g -C "$WORK/a-worktrees/demo" add docs/self-review/demo-self-review.md
-  g -C "$WORK/a-worktrees/demo" commit -qm "docs(self-review): demo self-review report"
-  printf 'moved\n' >"$WORK/b/moved.txt"
-  g -C "$WORK/b" add moved.txt && g -C "$WORK/b" commit -qm "base: moved" && g -C "$WORK/b" push -q origin main
-  sut land "$WORK/a" demo
-  new="$(git --git-dir="$WORK/b-origin.git" log --format=%h --grep="^fix(b): the peer fix$" -1 main)"
-  check "${1}land exits 0" '[ "$RC" -eq 0 ]'
-  check "${1}the re-sync rewrote b's fix sha" '[ -n "$new" ] && [ "$new" != "$old" ]'
-  check "${1}the report on a's origin main names the rewritten sha" \
-    'git --git-dir="$WORK/a-origin.git" show main:docs/self-review/demo-self-review.md | grep -q "fixed: $new$"'
-  check "${1}a fixed row is recorded for b's fix" \
-    'grep -q -- "-disposition fixed -ref $new " "$WORK/fixed.log"'
-}
-
+( trap cleanup_work EXIT
 # --- peer_fix ---
 fixture
 peer_fix_case "peer_fix: "
+end_case ) >"$LOGS/27.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- peer_fix_canon_first ---
 fixture
 printf '# demo\n\n## Parts\n\n`b:demo`\n\n## Branch\n\nmain\n\n## Merge order\n\n1. `.`\n2. `b`\n' \
   >"$WORK/a-worktrees/demo/spectre/changes/demo/link.md"
 g -C "$WORK/a-worktrees/demo" commit -qam "chore(spectre): plan-gate demo" --amend
 peer_fix_case "peer_fix_canon_first: "
+end_case ) >"$LOGS/28.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- pre_reshape_pin ---
 fixture
 pa="$(git -C "$WORK/a-worktrees/demo" rev-parse HEAD)"; pb="$(git -C "$WORK/b-worktrees/demo" rev-parse HEAD)"
@@ -683,7 +792,10 @@ printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/cha
 sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
 check "pre_reshape_pin: a differing pin on origin stops commit, untouched" \
   'printf "%s" "$OUT" | grep -q "^STOP: pre-reshape" && [ "$(git --git-dir="$WORK/b-origin.git" rev-parse refs/flow/pre-reshape/demo)" = "$stray" ]'
+end_case ) >"$LOGS/29.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- rerun_pin ---
 rerun_pin_case() {
   fixture
@@ -702,22 +814,11 @@ rerun_pin_case() {
 }
 rerun_pin_case "rerun_pin: "
 rerun_pin_case "rerun_pin reclone: " reclone
+end_case ) >"$LOGS/30.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- visual_stop ---
-# ui_a: a declares `ui paths` its task commit touches, and carries the
-# verifier's record a verifier row counts only with.
-ui_a() {
-  printf '\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `work-a.txt` |\n' >>"$WORK/a-worktrees/demo/.flow/project.md"
-  printf '# Visual verification — demo\n' >"$WORK/a-worktrees/demo/spectre/changes/demo/visual-verification.md"
-  g -C "$WORK/a-worktrees/demo" add spectre/changes/demo/visual-verification.md
-  g -C "$WORK/a-worktrees/demo" commit -qam "chore(spectre): plan-gate demo" --amend
-}
-# flag <worktree> <sha> [<change>]: an operator's false-positive flag on
-# <worktree>'s MISSING verdict row naming HEAD <sha>.
-flag() {
-  printf '[{"change":"%s","guard":"check-visual-verify-dispatched","worktree":"%s","verdict":"VISUAL-VERIFY-MISSING: no verifier — HEAD %s","falsePositive":true,"falsePositiveReason":"hand-verified","flaggedAt":"2026-01-01T00:00:00Z"}]' \
-    "${3:-demo}" "$(cd "$1" && pwd -P)" "$2" >"$WORK/verdicts.json"
-}
 fixture
 ui_a
 A="$WORK/a-worktrees/demo"
@@ -746,7 +847,10 @@ printf '[{"key":"task-1-implementer","outcome":"completed"},{"key":"verify","rol
   "$(git -C "$A" rev-parse HEAD)" >"$WORK/dispatches.json"
 sut prepare "$WORK/a" demo
 check "visual_stop: a verifier of the HEAD passes the gate" '[ "$RC" -eq 0 ]'
+end_case ) >"$LOGS/31.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- visual_archived: an archived re-run with no new work runs the gate ---
 fixture
 ui_a
@@ -760,7 +864,10 @@ check "visual_archived: commit archives, then stops before a's unverified branch
 sut prepare "$WORK/a" demo
 check "visual_archived: the re-run is archived without new work" 'printf "%s\n" "$OUT" | grep -q "^ARCHIVED: demo — without new work"'
 check "visual_archived: a flag on the pre-archive HEAD does not pass the gate" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
+end_case ) >"$LOGS/32.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- visual_rebased: a base move in prepare re-runs the gate ---
 fixture
 ui_a
@@ -771,7 +878,10 @@ g -C "$WORK/a" add moved.txt && g -C "$WORK/a" commit -qm "base: moved" && g -C 
 sut prepare "$WORK/a" demo
 check "visual_rebased: a was rebased" 'printf "%s\n" "$OUT" | grep -q "^REBASED: "'
 check "visual_rebased: the rebased HEAD no verifier saw stops prepare" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — rebased onto origin/main after the gate: .*a-worktrees/demo: "'
+end_case ) >"$LOGS/33.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- visual_resync: land's re-sync re-runs the gate before that push ---
 fixture
 ui_a
@@ -798,7 +908,10 @@ check "visual_resync: a was not pushed to its base" '[ "$(git --git-dir="$WORK/a
 sut land "$WORK/a" demo
 check "visual_resync: re-running land after the stop still stops at visual-verify" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
 check "visual_resync: the re-run did not push a's unverified HEAD" '[ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -1)" = "base: moved" ]'
+end_case ) >"$LOGS/34.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- visual_resync_reread: land's re-sync rewrites the canonical report first ---
 # a is canonical and its own fix sha is rebased by the re-sync, so
 # reread_fix_shas commits the rewrite into a; a flag on the pre-rewrite
@@ -834,7 +947,10 @@ unset GIT_COMMITTER_DATE
 check "visual_resync_reread: the re-sync rewrote a's own fix sha" 'printf "%s\n" "$OUT" | grep -q "^FIXED-SHA: $old -> "'
 check "visual_resync_reread: a flag on the pre-rewrite HEAD does not pass the rewrite commit" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
 check "visual_resync_reread: a was not pushed to its base" '[ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -1)" = "base: moved" ]'
+end_case ) >"$LOGS/35.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- visual_reread: reread_fix_shas's canonical re-push runs the gate ---
 # The report is a's declared UI path, so the rewrite commit alone — all a's
 # HEAD adds past its landed push — is a UI change no verifier saw.
@@ -869,7 +985,10 @@ check "visual_reread: the rewrite of b's fix sha stops the canonical re-push" \
   'printf "%s\n" "$OUT" | grep -q "^FIXED-SHA: $old -> " && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — the rewritten report was not pushed"'
 check "visual_reread: neither a's branch nor its base carries the rewritten report" \
   'git --git-dir="$WORK/a-origin.git" show spectre/demo:docs/self-review/demo-self-review.md | grep -q "fixed: $old$" && git --git-dir="$WORK/a-origin.git" show main:docs/self-review/demo-self-review.md | grep -q "fixed: $old$"'
+end_case ) >"$LOGS/36.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- visual_uncommitted: an uncommitted UI edit folded in by commit stops every push ---
 for route in "merge and push" "pull request" manual; do
   fixture
@@ -893,7 +1012,10 @@ for route in "merge and push" "pull request" manual; do
   check "visual_uncommitted ($route): land stops at visual-verify" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
   check "visual_uncommitted ($route): land pushed neither a's branch nor its base" '! git --git-dir="$WORK/a-origin.git" rev-parse -q --verify spectre/demo >/dev/null && [ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -1)" = base ]'
 done
+end_case ) >"$LOGS/37.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- base_mismatch ---
 fixture
 for r in a b; do g -C "$WORK/$r" push -q origin main:refs/heads/feature/x; done
@@ -911,7 +1033,10 @@ g -C "$WORK/a" push -q origin main:refs/heads/feature/x
 g -C "$WORK/a-worktrees/demo" config branch.spectre/demo.flowBase feature/x
 sut prepare "$WORK/a" demo
 check "base_mismatch: feature/x on a's origin only passes the gate" '! printf "%s" "$OUT" | grep -q "STOP: base-mismatch" && grep -q flow.preflight "$WORK/stages.log"'
+end_case ) >"$LOGS/38.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- refresh_on_recorded_base ---
 fixture
 g -C "$WORK/a" push -q origin main:refs/heads/feature/x
@@ -934,7 +1059,10 @@ check "refresh_on_recorded_base: a's main checkout on its recorded base is refre
 sut cleanup "$WORK/a" demo
 check "refresh_on_recorded_base: a cleanup re-run after worktree removal still refreshes onto feature/x" \
   'printf "%s\n" "$OUT" | grep -qE "^REFRESH-(DONE|CURRENT): $WORK/a( |\$)" && ! printf "%s\n" "$OUT" | grep -q "^REFRESH-REFUSED: $WORK/a "'
+end_case ) >"$LOGS/39.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- orphan_sweep ---
 fixture
 printf '\n## workspace isolation\n\n| Command | Runs |\n|---------|------|\n| `remove` | `echo <id> >>%s/removed.log; [ <id> != orph-bad ]` |\n| `orphans` | `printf "orph-1\\norph-bad\\n"` |\n' "$WORK" >>"$WORK/a/.flow/project.md"
@@ -946,7 +1074,10 @@ check "orphan_sweep: each orphan id goes through the remove command" '[ "$(cat "
 check "orphan_sweep: a removed orphan is reported" 'printf "%s\n" "$OUT" | grep -qx "WORKSPACE-ORPHAN-REMOVED: orph-1"'
 check "orphan_sweep: a failed orphan removal is reported and cleanup still finishes" \
   'printf "%s\n" "$OUT" | grep -qx "WORKSPACE-ORPHAN-REMOVE-FAILED: orph-bad — exit 1" && [ "$(jq -r .state "$WORK/state.json")" = FINISHED ]'
+end_case ) >"$LOGS/40.log" 2>&1 &
+PIDS+=($!)
 
+( trap cleanup_work EXIT
 # --- outstanding ---
 fixture
 sut prepare "$WORK/a" demo
@@ -958,6 +1089,20 @@ sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b
 check "outstanding: commit exits 0" '[ "$RC" -eq 0 ]'
 check "outstanding: the planning commit keeps its own subject and carries the text in its body" \
   '[ "$(g -C "$WORK/a-worktrees/demo" log --format=%s --grep="^Outstanding: " -1)" = "chore(spectre): plan demo" ] && [ "$(g -C "$WORK/a-worktrees/demo" log --format=%b --grep="^Outstanding: " -1)" = "Outstanding: Task 3 is unticked" ]'
+end_case ) >"$LOGS/41.log" 2>&1 &
+PIDS+=($!)
 
+for pid in "${PIDS[@]}"; do wait "$pid"; done
+for log in "$LOGS"/*.log; do
+  tally="$(tail -1 "$log")"
+  case "$tally" in
+    *" passed, "*" failed")
+      sed '$d' "$log"
+      f="${tally#* passed, }"
+      PASS=$((PASS + ${tally%% *})); FAIL=$((FAIL + ${f%% *})) ;;
+    *) cat "$log"; fail "$log ended without its tally" ;;
+  esac
+done
+rm -rf "$LOGS"
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
