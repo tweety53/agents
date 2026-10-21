@@ -1,0 +1,64 @@
+diff --git a/scripts/integrate-change.sh b/scripts/integrate-change.sh
+index 608c3b5d..681f025c 100755
+--- a/scripts/integrate-change.sh
++++ b/scripts/integrate-change.sh
+@@ -402,16 +402,20 @@ guard_tests() {
+ # line; a project declaring no list (exit 3) has nothing to run. A passing list
+ # that rewrote tracked files (a formatter pre-step) stops too: the rewrite
+ # would otherwise ride into the reshape unreviewed or be left behind a push.
++# What the list rewrote is the tracked diff's change across it, never the
++# diff itself: the rebase sets the planning paths aside and restores them,
++# so an uncommitted narrative edit is already there (kan-1010's self-review).
+ # The prefix leads the stop text — land passes what it already pushed.
+ rebase_lint() {
+-  local out rc
++  local out rc before
++  before="$(git -C "$1" diff HEAD | git hash-object --stdin)"
+   out="$("$SCRIPT_DIR/prepare-workspace.sh" "$1")" ||
+     { printf '%s\n' "$out"; stop rebase-lint "${2-}prepare-workspace.sh failed on $1 after its rebase, so its ## lint list did not run — report its output above; the change stays IN_PROGRESS"; }
+   out="$(while IFS= read -r kv; do case "$kv" in [A-Za-z_]*=*) export "$kv" ;; esac; done <<<"$out"
+     "$SCRIPT_DIR/run-verify-list.sh" "$1" lint 2>&1)"
+   rc=$?
+   case "$rc" in
+-    0) [ -z "$(git -C "$1" status --porcelain --untracked-files=no)" ] ||
++    0) [ "$(git -C "$1" diff HEAD | git hash-object --stdin)" = "$before" ] ||
+          stop rebase-lint "${2-}the ## lint list rewrote tracked files on $1 after its rebase — commit or revert them; the change stays IN_PROGRESS"
+        say "REBASE-LINT-PASSED: $1" ;;
+     3) say "REBASE-LINT-NONE: $1 — its project declares no ## lint list" ;;
+diff --git a/scripts/test-integrate-change.sh b/scripts/test-integrate-change.sh
+index 1e7cfa25..a8c30082 100755
+--- a/scripts/test-integrate-change.sh
++++ b/scripts/test-integrate-change.sh
+@@ -46,7 +46,9 @@
+ #                   stops prepare at STOP: rebase-lint with the list's own
+ #                   output relayed (KAN-900); rebase_lint_env, _rewrite and
+ #                   _land pin its workspace exports, its stop on a list that
+-#                   rewrote tracked files, and land's re-sync running it.
++#                   rewrote tracked files, and land's re-sync running it;
++#                   rebase_lint_dirty an uncommitted plan edit the rebase
++#                   restored, which is no rewrite of the list's.
+ #   gh_open_merged  gh reports the recorded PR OPEN but the branch is on
+ #                   origin/main: run 2 still runs to FINISHED.
+ #   disclose        both apply worktrees hold an unpreserved ignored file:
+@@ -1092,6 +1094,21 @@ check "outstanding: the planning commit keeps its own subject and carries the te
+ end_case ) >"$LOGS/41.log" 2>&1 &
+ PIDS+=($!)
+ 
++( trap cleanup_work EXIT
++# --- rebase_lint_dirty: an uncommitted plan edit the rebase set aside and
++# restored is no rewrite of the list's (kan-1010's self-review) ---
++fixture
++printf '\nCorrection: narrative.\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/tasks.md"
++printf '\n## lint\n\n```bash\ntrue\n```\n' >>"$WORK/a/.flow/project.md"
++g -C "$WORK/a" add .flow/project.md && g -C "$WORK/a" commit -qm "base: lint list" && g -C "$WORK/a" push -q origin main
++sut prepare "$WORK/a" demo
++check "rebase_lint_dirty: the rebase ran" 'printf "%s" "$OUT" | grep -q "^REBASED: $WORK/a-worktrees/demo"'
++check "rebase_lint_dirty: the list passed" 'printf "%s" "$OUT" | grep -q "^REBASE-LINT-PASSED: $WORK/a-worktrees/demo"'
++check "rebase_lint_dirty: no rebase-lint stop" '! printf "%s" "$OUT" | grep -q "^STOP: rebase-lint"'
++check "rebase_lint_dirty: the edit is still uncommitted" 'grep -q "^Correction: narrative.$" "$WORK/a-worktrees/demo/spectre/changes/demo/tasks.md" && [ -n "$(g -C "$WORK/a-worktrees/demo" status --porcelain --untracked-files=no)" ]'
++end_case ) >"$LOGS/42.log" 2>&1 &
++PIDS+=($!)
++
+ for pid in "${PIDS[@]}"; do wait "$pid"; done
+ for log in "$LOGS"/*.log; do
+   tally="$(tail -1 "$log")"

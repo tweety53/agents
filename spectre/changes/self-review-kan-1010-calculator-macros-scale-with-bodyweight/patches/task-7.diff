@@ -1,0 +1,13 @@
+diff --git a/.flow/project.md b/.flow/project.md
+index f4d9afc..52e25fe 100644
+--- a/.flow/project.md
++++ b/.flow/project.md
+@@ -401,7 +401,7 @@ tag-shaped `const val` — through the spec's own text, `expectRoom`/`openRoom`,
+ file declaring no spec-reached tag, a deleted file, a non-test file outside the UI tree, or an empty diff selects
+ every spec. visual-verify substitutes the list for `verify`'s `<specs>`; with no list, `verify` runs every spec.
+ 
+-**A change that moves captures re-baselines them with `node scripts/rebaseline.mjs <spec>...`** in the regression checkout's worktree, under the `capture` row's prefix — its `GW`/`FE` reads and its `FRONTEND_URL`/`BACKEND_URL` —: one Playwright run with `--update-snapshots=changed`, then one line per changed PNG with its diff's bounding box against `HEAD`. A box outside the region the change moved names a capture to restore with `git checkout -- <png>`, not to commit. The specs are arguments — never one unquoted variable, which zsh does not split (kan-994).
++**A change that moves captures re-baselines them with `node scripts/rebaseline.mjs <spec>...`** in the regression checkout's worktree, under the `capture` row's prefix — its `GW`/`FE` reads and its `FRONTEND_URL`/`BACKEND_URL` —: one Playwright run with `--update-snapshots=all`, which rewrites every capture the specs take — `changed` would keep the old PNG of a move inside the comparison tolerance — and leaves a capture whose pixels did not move byte-identical, then one line per PNG whose pixels differ from `HEAD`, with its diff's bounding box. A box outside the region the change moved names a capture to restore with `git checkout -- <png>`, not to commit. The specs are arguments — never one unquoted variable, which zsh does not split (kan-994).
+ 
+ **`verify` and `capture` set `BACKEND_URL` to the gateway because the suite and the gateway read that one name
+ as two different servers.** The suite reads it as the gateway the page calls (`api.ts`'s `API`), and

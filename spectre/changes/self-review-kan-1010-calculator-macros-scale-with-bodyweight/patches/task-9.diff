@@ -1,0 +1,127 @@
+diff --git a/stats/internal/harvest/watcher.go b/stats/internal/harvest/watcher.go
+index a8900513..8b5387b6 100644
+--- a/stats/internal/harvest/watcher.go
++++ b/stats/internal/harvest/watcher.go
+@@ -1855,6 +1855,7 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
+ 	// stamps.
+ 	takenBegin := make([]bool, len(begins))
+ 	claimed := make([]bool, len(launches))
++	var retry []pairing
+ 	for _, c := range candidates {
+ 		if takenBegin[c.beginIdx] || claimed[c.launchIdx] {
+ 			continue
+@@ -1884,14 +1885,24 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
+ 			continue
+ 		}
+ 		if !stamped {
+-			// No empty row under (session-token, key): the begin fell back
+-			// to a journal not yet replayed, the row carries a hand-typed
+-			// id already, or the key names a row this transcript cannot
+-			// see. All ordinary; nothing to stamp, nothing to log.
++			// No empty row under (session-token, key) yet. The begin's
++			// command line reaches the transcript before the command has
++			// written the row, so the batch that reads it can pair it
++			// before the row exists (kan-1010's self-review: both panel-0
++			// rows, begun 4 s after their command line, stayed unstamped).
++			// The pair goes back to pending, and the next batch tries
++			// again -- its keyed stamp first. A row that never appears --
++			// a begin in a journal not yet replayed, a hand-typed id, a
++			// row this transcript cannot see -- is evicted by the bound,
++			// the ordinary silence.
++			retry = append(retry, c)
+ 			continue
+ 		}
+ 		w.creditStampedAgentFile(ctx, path, launches[c.launchIdx].AgentID)
+ 	}
++	for _, c := range retry {
++		takenBegin[c.beginIdx], claimed[c.launchIdx] = false, false
++	}
+ 
+ 	// Whatever remains unpaired or unclaimed REPLACES the pending lists --
+ 	// the merged lists already contain the carried events, so appending
+diff --git a/stats/internal/harvest/watcher_test.go b/stats/internal/harvest/watcher_test.go
+index ba72cfd9..f1513f06 100644
+--- a/stats/internal/harvest/watcher_test.go
++++ b/stats/internal/harvest/watcher_test.go
+@@ -3392,6 +3392,81 @@ func TestWatcherStampsALaunchByItsDescriptionKey(t *testing.T) {
+ 	}
+ }
+ 
++// rowStampDeps stamps, keyed or by time, only a row its rows map holds --
++// the store's answer before and after the begin command has run.
++type rowStampDeps struct {
++	harvest.NoDeps
++
++	rows    map[string]bool
++	stamped []stampCall
++}
++
++func (d *rowStampDeps) StampSessionDispatchAgent(ctx context.Context, sessionID, key, agentID string) (bool, error) {
++	if !d.rows[key] {
++		return false, nil
++	}
++	d.stamped = append(d.stamped, stampCall{sessionID, key, agentID})
++	delete(d.rows, key)
++	return true, nil
++}
++
++func (d *rowStampDeps) StampDispatchAgent(ctx context.Context, sessionToken, key, agentID string) (bool, error) {
++	return d.StampSessionDispatchAgent(ctx, sessionToken, key, agentID)
++}
++
++// TestWatcherRetriesAPairWhoseRowIsNotWrittenYet replays kan-1010's panel
++// round 0: two launches, then the Bash call recording both begins, read in
++// one batch before that call had written the rows. The pairs stamp in the
++// next batch, once the rows exist, instead of being spent on rows not there.
++func TestWatcherRetriesAPairWhoseRowIsNotWrittenYet(t *testing.T) {
++	dir := t.TempDir()
++	path := filepath.Join(dir, "session.jsonl")
++	keys := []string{"panel-0-primary+principles", "panel-0-test-sanity+call-efficiency"}
++	command, err := json.Marshal("N=kan-1010; flow record dispatch begin -change $N -role reviewer -key " + keys[0] +
++		" -session-token mf-k1010b; flow record dispatch begin -change $N -role reviewer -key " + keys[1] + " -session-token mf-k1010b")
++	if err != nil {
++		t.Fatal(err)
++	}
++	launch := func(at, desc, agent string) string {
++		return `{"type":"user","timestamp":"2026-10-21T` + at + `Z","sessionId":"s","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"` + agent + `","description":"` + desc + `"}}`
++	}
++	begin := `{"type":"assistant","timestamp":"2026-10-21T20:22:13Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":` + string(command) + `}}]}}`
++	if err := os.WriteFile(path, stampFixtureLines(
++		launch("20:22:05", keys[0]+" review", "a198d990a8e9305e5"),
++		launch("20:22:07", keys[1]+" review", "ad9089f7f5a39abe2"),
++		begin,
++	), 0o644); err != nil {
++		t.Fatalf("write fixture: %v", err)
++	}
++	deps := &rowStampDeps{rows: map[string]bool{}}
++	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
++	if _, err := w.RunOnce(context.Background()); err != nil {
++		t.Fatalf("RunOnce: %v", err)
++	}
++	if len(deps.stamped) != 0 {
++		t.Fatalf("stamped before the rows existed: %+v", deps.stamped)
++	}
++
++	deps.rows = map[string]bool{keys[0]: true, keys[1]: true}
++	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
++	if err != nil {
++		t.Fatal(err)
++	}
++	// The session's next Bash call, nine minutes on: any later batch with an
++	// event of its own retries the pending pairs.
++	if _, err := f.WriteString(`{"type":"assistant","timestamp":"2026-10-21T20:31:05Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":"git status"}}]}}` + "\n"); err != nil {
++		t.Fatal(err)
++	}
++	f.Close()
++	if _, err := w.RunOnce(context.Background()); err != nil {
++		t.Fatalf("second RunOnce: %v", err)
++	}
++	want := []stampCall{{"s", keys[0], "a198d990a8e9305e5"}, {"s", keys[1], "ad9089f7f5a39abe2"}}
++	if !reflect.DeepEqual(deps.stamped, want) {
++		t.Errorf("stamps = %+v, want %+v", deps.stamped, want)
++	}
++}
++
+ // TestWatcherDropsALateBeginAKeyedStampUsed pins the per-path memory of
+ // keyed stamps: a launch stamped by its description key in one batch, whose
+ // begin is only read in a later batch, leaves that begin unable to claim a

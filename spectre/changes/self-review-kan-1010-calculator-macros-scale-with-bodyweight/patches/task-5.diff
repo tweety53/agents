@@ -1,0 +1,98 @@
+diff --git a/.flow/project.md b/.flow/project.md
+index ad93ec7..f4d9afc 100644
+--- a/.flow/project.md
++++ b/.flow/project.md
+@@ -390,8 +390,8 @@ in hand, and never logged for later.**
+ | Command | Runs |
+ |---------|------|
+ | `setup` | `npm install && npx playwright install chromium` |
+-| `verify` | `GW=$(cat ../../gymie-worktrees/"${PWD##*/}"/.dev-stack/ports/gateway.port 2>/dev/null); FE=$(cat ../../gymie-worktrees/"${PWD##*/}"/.dev-stack/ports/frontend.port 2>/dev/null); FRONTEND_URL=http://localhost:${FRONTEND_PORT:-${FE:-3000}} BACKEND_URL=http://localhost:${GATEWAY_PORT:-${GW:-8080}} GATEWAY_PORT=${GATEWAY_PORT:-${GW:-8080}} npx playwright test <specs> --output test-results/$(date -u +%Y%m%dT%H%M%SZ)` |
+-| `capture` | `GW=$(cat ../../gymie-worktrees/"${PWD##*/}"/.dev-stack/ports/gateway.port 2>/dev/null); FE=$(cat ../../gymie-worktrees/"${PWD##*/}"/.dev-stack/ports/frontend.port 2>/dev/null); FRONTEND_URL=http://localhost:${FRONTEND_PORT:-${FE:-3000}} BACKEND_URL=http://localhost:${GATEWAY_PORT:-${GW:-8080}} GATEWAY_PORT=${GATEWAY_PORT:-${GW:-8080}} npx playwright test <spec> --update-snapshots --output test-results/$(date -u +%Y%m%dT%H%M%SZ)` |
++| `verify` | `B=../gymie; [ -d ../../gymie-worktrees/"${PWD##*/}" ] && B=../../gymie-worktrees/"${PWD##*/}"; (cd "$B" && ./gradlew -q devStackFresh) && { GW=$(cat ../../gymie-worktrees/"${PWD##*/}"/.dev-stack/ports/gateway.port 2>/dev/null); FE=$(cat ../../gymie-worktrees/"${PWD##*/}"/.dev-stack/ports/frontend.port 2>/dev/null); FRONTEND_URL=http://localhost:${FRONTEND_PORT:-${FE:-3000}} BACKEND_URL=http://localhost:${GATEWAY_PORT:-${GW:-8080}} GATEWAY_PORT=${GATEWAY_PORT:-${GW:-8080}} npx playwright test <specs> --output test-results/$(date -u +%Y%m%dT%H%M%SZ); }` |
++| `capture` | `B=../gymie; [ -d ../../gymie-worktrees/"${PWD##*/}" ] && B=../../gymie-worktrees/"${PWD##*/}"; (cd "$B" && ./gradlew -q devStackFresh) && { GW=$(cat ../../gymie-worktrees/"${PWD##*/}"/.dev-stack/ports/gateway.port 2>/dev/null); FE=$(cat ../../gymie-worktrees/"${PWD##*/}"/.dev-stack/ports/frontend.port 2>/dev/null); FRONTEND_URL=http://localhost:${FRONTEND_PORT:-${FE:-3000}} BACKEND_URL=http://localhost:${GATEWAY_PORT:-${GW:-8080}} GATEWAY_PORT=${GATEWAY_PORT:-${GW:-8080}} npx playwright test <spec> --update-snapshots --output test-results/$(date -u +%Y%m%dT%H%M%SZ); }` |
+ | `start` | `docker compose up -d && ./gradlew devStart -PisolateOAuthPorts -PfrontendRoot=<FRONTEND_ROOT> -PadminFrontendRoot=<ADMIN_FRONTEND_ROOT>` |
+ | `fingerprint` | `./gradlew -q devStackFresh` |
+ | `specs` | `node scripts/specs-for-diff.mjs <frontend-root> <merge-base>` |
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index e158830..a8e76b9 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -30,6 +30,7 @@ jobs:
+           bash scripts/test-check-migrations-immutable.sh
+           bash scripts/test-count-request-queries.sh
+           bash scripts/test-env-link-wiring.sh
++          bash scripts/test-playwright-rows-check-stack.sh
+           bash scripts/test-preflight-bind-sources.sh
+           bash scripts/test-preflight-host-paths.sh
+           bash scripts/test-preflight-redis-password.sh
+diff --git a/scripts/test-playwright-rows-check-stack.sh b/scripts/test-playwright-rows-check-stack.sh
+new file mode 100755
+index 0000000..a9c154c
+--- /dev/null
++++ b/scripts/test-playwright-rows-check-stack.sh
+@@ -0,0 +1,65 @@
++#!/usr/bin/env bash
++# Regression checks for the `verify` and `capture` rows of .flow/project.md's `## visual verification`
++#
++# Both rows run Playwright against whatever stack is serving, and a stack started before the worktree's
++# last rebuild serves an older build: kan-1010's suite ran on one until devStackFresh, which the `## run`
++# block requires before any Playwright run, was run by hand. Each row therefore opens on the backend
++# worktree's `./gradlew -q devStackFresh` and runs Playwright only when it exits 0.
++#
++# The harness lays out a scratch gymie-worktrees/demo holding a stub `gradlew` that answers stale or
++# fresh, and a gymie-playwright-worktrees/demo to run each row from, with a stub `npx` first on PATH that
++# records its call. A stale answer must fail the row with npx never called; a fresh one must reach npx.
++
++set -euo pipefail
++
++repo_root=$(cd "$(dirname "$0")/.." && pwd)
++project="$repo_root/.flow/project.md"
++
++work_dir=$(mktemp -d)
++trap 'rm -rf "$work_dir"' EXIT
++mkdir -p "$work_dir/gymie-worktrees/demo" "$work_dir/gymie-playwright-worktrees/demo" "$work_dir/bin"
++printf '#!/usr/bin/env bash\n[ -e "%s/stale" ] && { echo "dev stack is stale"; exit 1; }\nexit 0\n' "$work_dir" \
++  >"$work_dir/gymie-worktrees/demo/gradlew"
++printf '#!/usr/bin/env bash\necho "$*" >>"%s/npx.calls"\n' "$work_dir" >"$work_dir/bin/npx"
++chmod +x "$work_dir/gymie-worktrees/demo/gradlew" "$work_dir/bin/npx"
++
++failures=0
++fail() {
++  echo "FAIL: $1" >&2
++  failures=$((failures + 1))
++}
++
++# row <name>: the command cell of the `| `<name>` | `…` |` row, its placeholders filled.
++row() {
++  local line
++  line=$(grep -m1 "^| \`$1\` | \`" "$project") || { fail "$1: no such row in $project"; return 1; }
++  line=${line#"| \`$1\` | \`"}
++  line=${line%"\` |"}
++  line=${line//<specs>/demo.spec.ts}
++  printf '%s\n' "${line//<spec>/demo.spec.ts}"
++}
++
++for name in verify capture; do
++  cmd=$(row "$name") || continue
++  for state in stale fresh; do
++    rm -f "$work_dir/stale" "$work_dir/npx.calls"
++    [ "$state" = fresh ] || touch "$work_dir/stale"
++    set +e
++    (cd "$work_dir/gymie-playwright-worktrees/demo" && PATH="$work_dir/bin:$PATH" bash -c "$cmd") >/dev/null 2>&1
++    rc=$?
++    set -e
++    if [ "$state" = stale ]; then
++      [ "$rc" -ne 0 ] || fail "$name: a stale stack exited 0"
++      [ ! -e "$work_dir/npx.calls" ] || fail "$name: a stale stack still ran npx"
++    else
++      [ "$rc" -eq 0 ] || fail "$name: a fresh stack exited $rc"
++      [ -e "$work_dir/npx.calls" ] || fail "$name: a fresh stack never ran npx"
++    fi
++  done
++done
++
++if [ "$failures" -ne 0 ]; then
++  echo "test-playwright-rows-check-stack: $failures failure(s)" >&2
++  exit 1
++fi
++echo "test-playwright-rows-check-stack: ok"

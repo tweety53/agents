@@ -1,0 +1,46 @@
+diff --git a/scripts/rebaseline.mjs b/scripts/rebaseline.mjs
+index 80b7035..ad2ba60 100644
+--- a/scripts/rebaseline.mjs
++++ b/scripts/rebaseline.mjs
+@@ -23,6 +23,12 @@ export function diffBox(a, b) {
+   return pixels === 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1, pixels };
+ }
+ 
++// The one Playwright run's arguments. `all`, not `changed`: `changed` rewrites only a capture outside
++// its comparison tolerance, so a move the change meant that stays inside it keeps the old PNG
++// (kan-1010's self-review); a capture whose pixels did not move is rewritten byte-identical, and the
++// listing below names only the PNGs whose pixels differ from HEAD.
++export const playwrightArgs = (specs) => ['playwright', 'test', ...specs, '--update-snapshots=all'];
++
+ if (process.argv[1] === fileURLToPath(import.meta.url)) {
+   const specs = process.argv.slice(2);
+   if (specs.length === 0) {
+@@ -30,7 +36,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
+     process.exit(2);
+   }
+   const root = fileURLToPath(new URL('..', import.meta.url));
+-  const run = spawnSync('npx', ['playwright', 'test', ...specs, '--update-snapshots=changed'], { cwd: root, stdio: 'inherit' });
++  const run = spawnSync('npx', playwrightArgs(specs), { cwd: root, stdio: 'inherit' });
+   const { PNG } = createRequire(import.meta.url)('playwright-core/lib/utilsBundle');
+   const entries = execFileSync('git', ['status', '--porcelain=v1', '-z', '--', '*.png'], { cwd: root, encoding: 'utf8' }).split('\0').filter(Boolean);
+   for (const entry of entries) {
+diff --git a/scripts/rebaseline.test.mjs b/scripts/rebaseline.test.mjs
+index bdf3949..dcc737c 100644
+--- a/scripts/rebaseline.test.mjs
++++ b/scripts/rebaseline.test.mjs
+@@ -1,6 +1,6 @@
+ import { test } from 'node:test';
+ import assert from 'node:assert/strict';
+-import { diffBox } from './rebaseline.mjs';
++import { diffBox, playwrightArgs } from './rebaseline.mjs';
+ 
+ const image = (width, height, set = []) => {
+   const data = new Uint8Array(width * height * 4).fill(255);
+@@ -19,3 +19,7 @@ test('the box bounds every differing pixel', () => {
+ test('a size change is reported, not boxed', () => {
+   assert.deepEqual(diffBox(image(4, 4), image(4, 5)), { resized: true });
+ });
++
++test('every capture the specs take is rewritten, an in-tolerance move included', () => {
++  assert.deepEqual(playwrightArgs(['a.spec.ts', 'b.spec.ts']), ['playwright', 'test', 'a.spec.ts', 'b.spec.ts', '--update-snapshots=all']);
++});

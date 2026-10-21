@@ -1,0 +1,115 @@
+diff --git a/scripts/check-verify-report.sh b/scripts/check-verify-report.sh
+index 2c762839..b900619a 100755
+--- a/scripts/check-verify-report.sh
++++ b/scripts/check-verify-report.sh
+@@ -23,7 +23,9 @@
+ # `- motion: <n>/<n>` line, <n> that count — a strip recorded beyond the
+ # named motions goes on a sub-bullet, never into <n>. Every other status — absent,
+ # `not done`, an n/a on a required step, a block citing no failing exit — is
+-# an undone step.
++# an undone step. A `- fingerprint: not declared` line with no ` — <reason>`
++# is undone too: step 6 reports its exit 2 with the guard's reason, which the
++# prompt carries (kan-1010's self-review).
+ #
+ # Prints ONE verdict line to stdout:
+ #   VERIFY-REPORT-COMPLETE: <report file>
+diff --git a/skills/flow/visual-verify-verifier.md b/skills/flow/visual-verify-verifier.md
+index 874a518b..4bfd1ac5 100644
+--- a/skills/flow/visual-verify-verifier.md
++++ b/skills/flow/visual-verify-verifier.md
+@@ -604,7 +604,7 @@ or a measurement the pixels could not give is step 10 undone.
+ ## Report
+ - setup: <not declared | exit <n>>
+ - stack: <already running | started and stopped | could not be started — <output>>
+-- fingerprint: <not declared | exit 0 | mismatch → restarted → exit <n>>
++- fingerprint: <not declared — <step 6's reason, from the prompt> | exit 0 | mismatch → restarted → exit <n>>
+ - verify: exit <n> | exit <n> — rerun of <k> failed specs at unchanged HEAD | not run — no spec since the round base
+   <output, verbatim or last 40 lines>
+ - capture: exit <n>
+diff --git a/skills/flow/visual-verify.md b/skills/flow/visual-verify.md
+index 8e926529..ebeab9b5 100644
+--- a/skills/flow/visual-verify.md
++++ b/skills/flow/visual-verify.md
+@@ -161,7 +161,9 @@ parent applies **Blocking** to its report. Its prompt states: the absolute workt
+ `KEY=value` lines **Verify** (`skills/flow/verify-and-handoff.md`) exported for it; this section's resolved `setup`, `verify`, `capture` and
+ `specs` commands and `screenshots` root, its resolved `mockups` root when
+ declared, and its `mockup frame` value when declared; the worktree-resolved URL of each app `ui paths`
+-matched; the project's `## run` commands; the views touched; `<changeRoot>`; the relay contract
++matched; the project's `## run` commands; steps 5 and 6's results, as the report's `stack:` and
++`fingerprint:` lines state them — what step 5 found or started, and step 6's exit or its
++`not declared` reason; the views touched; `<changeRoot>`; the relay contract
+ above, with its report path resolved for this dispatch's `<key>`; `sweeps-<n>.md`'s path
+ when **A missed defect — the tooling analysis** above completed this round, with the re-run rule
+ its loaded file states, as written; the change's motions, named as the paragraph below states; the
+diff --git a/stats/internal/guard/check_verify_report_test.go b/stats/internal/guard/check_verify_report_test.go
+index d60dc593..2ada59ab 100644
+--- a/stats/internal/guard/check_verify_report_test.go
++++ b/stats/internal/guard/check_verify_report_test.go
+@@ -59,3 +59,29 @@ func TestCheckVerifyReport(t *testing.T) {
+ 		}
+ 	}
+ }
++
++// TestCheckVerifyReportFingerprintReason pins kan-1010's self-review: a
++// verifier wrote a bare `fingerprint: not declared` for a project declaring
++// the row, its parent's step-6 result never named in the prompt. A bare one
++// is an undone item; one carrying step 6's reason, or an exit, is not.
++func TestCheckVerifyReportFingerprintReason(t *testing.T) {
++	const steps = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n"
++	for _, tc := range []struct {
++		line string
++		rc   int
++		want string
++	}{
++		{"- fingerprint: not declared\n", 1, "fingerprint: `not declared` with no reason"},
++		{"- fingerprint: not declared — no fingerprint row in .flow/project.md\n", 0, "COMPLETE"},
++		{"- fingerprint: exit 0\n", 0, "COMPLETE"},
++	} {
++		path := filepath.Join(t.TempDir(), "verify-report-visual-verify.md")
++		if err := os.WriteFile(path, []byte("## Report\n"+tc.line+steps), 0o644); err != nil {
++			t.Fatal(err)
++		}
++		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
++		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
++			t.Fatalf("%q: rc=%d out=%q; want rc=%d containing %q", tc.line, r.rc, r.out, tc.rc, tc.want)
++		}
++	}
++}
+diff --git a/stats/internal/guard/verifyreport.go b/stats/internal/guard/verifyreport.go
+index 4bcfdfb4..729e0ac3 100644
+--- a/stats/internal/guard/verifyreport.go
++++ b/stats/internal/guard/verifyreport.go
+@@ -23,6 +23,11 @@ var (
+ 	vrCitedExit = regexp.MustCompile(`\bexit [1-9][0-9]*\b`)
+ 	// Step 10's own blocking exit (skills/flow/visual-verify-verifier.md step 10).
+ 	vrComposeExit = regexp.MustCompile(`\bcompose-mockup-frames(\.sh)? exit [1-9][0-9]*\b`)
++	// A bare `- fingerprint: not declared`: step 6 reports exit 2 as `not
++	// declared — <the guard's stderr reason>`, and the verifier has that
++	// reason only from the prompt (kan-1010's self-review: a verifier wrote
++	// it bare for a project declaring the row, its parent's FRESH=0 unseen).
++	vrBareFingerprint = regexp.MustCompile(`^\s*- fingerprint:\s*not declared\s*$`)
+ )
+ 
+ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
+@@ -42,7 +47,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
+ 		return 2
+ 	}
+ 	status := map[string]string{}
+-	motionLine := false
++	motionLine, bareFingerprint := false, false
+ 	for _, line := range strings.Split(string(data), "\n") {
+ 		if m := vrStepsLine.FindStringSubmatch(line); m != nil {
+ 			for _, item := range strings.Split(m[1], " | ") {
+@@ -53,8 +58,12 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
+ 		if m := vrMotion.FindStringSubmatch(line); m != nil && m[1] == m[2] && m[2] == strconv.Itoa(motions) {
+ 			motionLine = true
+ 		}
++		bareFingerprint = bareFingerprint || vrBareFingerprint.MatchString(line)
+ 	}
+ 	var undone []string
++	if bareFingerprint {
++		undone = append(undone, "fingerprint: `not declared` with no reason — state step 6's result as the prompt names it")
++	}
+ 	for _, id := range vrSteps {
+ 		s, ok := status[id]
+ 		naAllowed := id == "4" || id == "10" || (id == "motion" && motions == 0)

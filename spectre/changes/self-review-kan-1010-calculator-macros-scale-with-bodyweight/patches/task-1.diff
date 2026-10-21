@@ -1,0 +1,202 @@
+diff --git a/scripts/check-planning-commit-location.sh b/scripts/check-planning-commit-location.sh
+index d1c2dc64..cc0b5178 100755
+--- a/scripts/check-planning-commit-location.sh
++++ b/scripts/check-planning-commit-location.sh
+@@ -14,10 +14,18 @@
+ #                                                     linked worktree
+ #   PLANNING-COMMIT-WRONG-BRANCH: <worktree> on <branch|detached> — expected spectre/<name>
+ #   PLANNING-COMMIT-LOCATION-OK: <worktree> on spectre/<name>
++#   PLANNING-COMMIT-TICKED-APPEND: <tasks.md path> task <n> — appended already ticked; …
+ #
+-# Both violation lines print when both hold. Exit 0 on the OK verdict; exit 1
+-# on any violation; exit 2 with NOTHING on stdout when the arguments are
+-# missing or empty, or <worktree> is not a readable git work tree — an
++# The last line follows the location verdict, once per task the working
++# tree's `<name>/tasks.md` adds over HEAD's already ticked (`- [x] <n>.`)
++# whose number HEAD's file did not carry: a task is appended unticked and
++# committed before its work runs (kan-1010's self-review). A tasks.md HEAD
++# lacks is a new plan and is not read. reshape-branch.sh and commit-split.sh
++# run the location check alone — their planning half carries every tick.
++#
++# Both location violation lines print when both hold. Exit 0 on the OK
++# verdict with no ticked append; exit 1 on any violation; exit 2 with NOTHING
++# on stdout when the arguments are missing or empty, or <worktree> is not a readable git work tree — an
+ # inability is never reported as a verdict.
+ #
+ # flow-guard is built from this checkout, never taken from PATH:
+diff --git a/skills/flow/document-fix.md b/skills/flow/document-fix.md
+index 6301b424..b61a0934 100644
+--- a/skills/flow/document-fix.md
++++ b/skills/flow/document-fix.md
+@@ -128,6 +128,10 @@ planning commit below.
+ 
+ Then make the fix-run planning commit over the appended plan (**Planning commits**,
+ `skills/flow-contracts/git-boundaries.md`), before any implementer is dispatched.
++**Every appended task is committed unticked.** `check-planning-commit-location.sh` refuses a
++planning commit whose `tasks.md` adds a task already ticked (`PLANNING-COMMIT-TICKED-APPEND`, exit
++1); the task is ticked only once its commit passes `check-task-commit-fields.sh` (kan-1010: a fix
++run appended Task 3 ticked and skipped implement, panel and handoff).
+ 
+ ```bash
+ flow stage end -command '/flow' -stage flow.document-fix -outcome completed <name>
+diff --git a/stats/internal/guard/check_planning_commit_location_test.go b/stats/internal/guard/check_planning_commit_location_test.go
+index c659c2c2..f575bfef 100644
+--- a/stats/internal/guard/check_planning_commit_location_test.go
++++ b/stats/internal/guard/check_planning_commit_location_test.go
+@@ -2,6 +2,7 @@ package guard
+ 
+ import (
+ 	"os"
++	"strings"
+ 	"testing"
+ )
+ 
+@@ -120,3 +121,68 @@ func TestCheckPlanningCommitLocation(t *testing.T) {
+ 		}
+ 	})
+ }
++
++// TestCheckPlanningCommitTickedAppend pins kan-1010's self-review: a fix
++// run appended Task 3 to an archived plan already ticked, and its planning
++// commit went through. A task appended ticked is refused, in an active or an
++// archived change folder; ticking a task HEAD carries, appending one
++// unticked and a plan HEAD lacks all pass; reshape-branch and commit-split
++// still call the location check alone.
++func TestCheckPlanningCommitTickedAppend(t *testing.T) {
++	t.Parallel()
++	env := Env{Getenv: os.Getenv}
++	const plan = "# demo\n\n- [x] 1. One\n- [ ] 2. Two\n"
++	const refusal = " — appended already ticked; append it unticked, commit, and tick it once its commit passes check-task-commit-fields.sh\n"
++	for _, c := range []struct {
++		name, dir, head, now string
++		rc                   int
++		want                 string
++	}{
++		{"an appended ticked task is refused", "spectre/changes/demo", plan, plan + "- [x] 3. Three\n", 1,
++			"PLANNING-COMMIT-TICKED-APPEND: spectre/changes/demo/tasks.md task 3" + refusal},
++		{"an archived plan's ticked append is refused", "spectre/changes/archive/demo", plan, plan + "- [X] 3. Three\n", 1,
++			"PLANNING-COMMIT-TICKED-APPEND: spectre/changes/archive/demo/tasks.md task 3" + refusal},
++		{"a tick of a carried task passes", "spectre/changes/demo", plan, "# demo\n\n- [x] 1. One\n- [x] 2. Two\n", 0, ""},
++		{"an unticked append passes", "spectre/changes/demo", plan, plan + "- [ ] 3. Three\n", 0, ""},
++		{"a new plan passes", "spectre/changes/demo", "", plan + "- [x] 3. Three\n", 0, ""},
++		{"another change's ticked append is not this change's", "spectre/changes/other", plan, plan + "- [x] 3. Three\n", 0, ""},
++	} {
++		t.Run(c.name, func(t *testing.T) {
++			t.Parallel()
++			_, main := pclFx(t)
++			wt := main + "/.worktrees/demo"
++			var g fxGit
++			if c.head != "" {
++				writeFile(t, wt+"/"+c.dir+"/tasks.md", c.head)
++				g.git(wt, "add", "-A")
++				g.git(wt, "commit", "-q", "-m", "plan")
++			}
++			writeFile(t, wt+"/"+c.dir+"/tasks.md", c.now)
++			if g.err != nil {
++				t.Fatal(g.err)
++			}
++			r := runGuard("check-planning-commit-location", []string{wt, "demo"}, env)
++			want := "PLANNING-COMMIT-LOCATION-OK: " + wt + " on spectre/demo\n" + c.want
++			if r.rc != c.rc || r.stdout != want {
++				t.Fatalf("rc=%d stdout=%q stderr=%q; want %d and %q", r.rc, r.stdout, r.err, c.rc, want)
++			}
++		})
++	}
++	t.Run("the in-process location check never reads the plan", func(t *testing.T) {
++		t.Parallel()
++		_, main := pclFx(t)
++		wt := main + "/.worktrees/demo"
++		var g fxGit
++		writeFile(t, wt+"/spectre/changes/demo/tasks.md", plan)
++		g.git(wt, "add", "-A")
++		g.git(wt, "commit", "-q", "-m", "plan")
++		writeFile(t, wt+"/spectre/changes/demo/tasks.md", plan+"- [x] 3. Three\n")
++		if g.err != nil {
++			t.Fatal(g.err)
++		}
++		var out, errb strings.Builder
++		if rc := checkPlanningCommitLocation([]string{wt, "demo"}, env, &out, &errb); rc != 0 {
++			t.Fatalf("rc=%d stdout=%q stderr=%q; want 0", rc, out.String(), errb.String())
++		}
++	})
++}
+diff --git a/stats/internal/guard/planningcommitlocation.go b/stats/internal/guard/planningcommitlocation.go
+index b0de3a06..0723468a 100644
+--- a/stats/internal/guard/planningcommitlocation.go
++++ b/stats/internal/guard/planningcommitlocation.go
+@@ -3,6 +3,8 @@ package guard
+ import (
+ 	"fmt"
+ 	"io"
++	"regexp"
++	"strings"
+ )
+ 
+ // checkPlanningCommitLocation is scripts/check-planning-commit-location.sh:
+@@ -20,7 +22,65 @@ import (
+ // step of this change ever sees it. Every planning commit therefore runs
+ // behind this guard; git-boundaries.md's **Planning commits** is canonical
+ // for where it is called.
+-func init() { Registry["check-planning-commit-location"] = checkPlanningCommitLocation }
++//
++// Run as the script, it also refuses a commit appending a task already
++// ticked: checkPlanningCommit below. Reshape and commit-split call
++// checkPlanningCommitLocation alone, since their planning half folds every
++// planning commit of the run into one, ticks included.
++func init() { Registry["check-planning-commit-location"] = checkPlanningCommit }
++
++// pclTask is one task line of a tasks.md diff hunk: its sign, its checkbox
++// and its number.
++var pclTask = regexp.MustCompile(`^([-+])- \[([ xX])\] ([0-9]+)\. `)
++
++// checkPlanningCommit is checkPlanningCommitLocation, then: a task line the
++// working tree's change-folder tasks.md adds over HEAD's, already ticked,
++// whose number HEAD's file did not carry, is
++// PLANNING-COMMIT-TICKED-APPEND at exit 1. A task is appended unticked and
++// committed before any work on it runs (document-fix.md's fix-run planning
++// commit), and ticked once its commit passes check-task-commit-fields.sh —
++// kan-1010's fix run appended Task 3 already ticked and skipped implement,
++// panel and handoff. A tick of a task HEAD already carries removes that
++// task's line in the same diff, so it passes; a tasks.md HEAD lacks is a new
++// plan, never an append, and is not read.
++func checkPlanningCommit(args []string, env Env, stdout, stderr io.Writer) int {
++	rc := checkPlanningCommitLocation(args, env, stdout, stderr)
++	if rc == 2 {
++		return 2
++	}
++	wt, name := args[0], args[1]
++	diff, ok := capture(envGit(env)("-C", wt, "diff", "HEAD", "--no-renames", "--diff-filter=M", "-U0", "--",
++		":(top,glob)**/"+name+"/tasks.md"))
++	if !ok {
++		fmt.Fprintf(stderr, "check-planning-commit-location.sh: cannot diff %s's tasks.md against HEAD in %s\n", name, wt)
++		return 2
++	}
++	for _, file := range strings.Split(diff, "diff --git ")[1:] {
++		path := ""
++		had := map[string]bool{}
++		var ticked []string
++		for _, l := range strings.Split(file, "\n") {
++			if p, ok := strings.CutPrefix(l, "+++ b/"); ok {
++				path = p
++			}
++			m := pclTask.FindStringSubmatch(l)
++			switch {
++			case m == nil:
++			case m[1] == "-":
++				had[m[3]] = true
++			case m[2] != " ":
++				ticked = append(ticked, m[3])
++			}
++		}
++		for _, n := range ticked {
++			if !had[n] {
++				fmt.Fprintf(stdout, "PLANNING-COMMIT-TICKED-APPEND: %s task %s — appended already ticked; append it unticked, commit, and tick it once its commit passes check-task-commit-fields.sh\n", path, n)
++				rc = 1
++			}
++		}
++	}
++	return rc
++}
+ 
+ func checkPlanningCommitLocation(args []string, env Env, stdout, stderr io.Writer) int {
+ 	die := func(format string, a ...any) int {
