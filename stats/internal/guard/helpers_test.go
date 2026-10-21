@@ -64,8 +64,8 @@ func TestMain(m *testing.M) {
 
 // The rows below pin the helpers' own outputs: sha256.go (known SHA-256
 // vectors, the outputs the retired scripts/lib/sha256-hex.sh produced), scripts/lib/spec-root.sh (its four documented
-// branches) and scripts/lib/change-plan.sh (every case of
-// scripts/test-lib-change-plan.sh, named after its ok: label).
+// branches) and changeplan.go (every case of its deleted bash twin's harness
+// (KAN-887), named after its ok: label).
 
 func TestSHA256Hex(t *testing.T) {
 	t.Parallel()
@@ -594,7 +594,7 @@ func gitRun(t *testing.T, dir string, args ...string) {
 }
 
 // TestPlainNameRefusesEmpty pins the empty-name refusal plainChangeName took over
-// from change-plan.sh's _change_plan_name_ok when the package's two copies of
+// from the bash change-plan library's name check when the package's two copies of
 // the allowlist became one: a satellite ref such as `:change` hands it an
 // empty peer name, which must be refused rather than indexed.
 func TestPlainNameRefusesEmpty(t *testing.T) {

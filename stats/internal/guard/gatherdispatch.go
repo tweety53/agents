@@ -143,9 +143,8 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 	// a change with neither file is not a satellite, and its leaves keep the
 	// ordinary absent-leaf handling. changePlanRef's answer is the
 	// <peer>:<change-id> ref of the link the successful resolution already
-	// validated, feeding the section label. Both are Go ports of
-	// lib/change-plan.sh's change_plan_dir and change_plan_ref (changeplan.go);
-	// the bash sourced that library as the owner of link.md's grammar.
+	// validated, feeding the section label. Both live in changeplan.go, the
+	// owner of link.md's grammar.
 	contentDir, suffix, satelliteLink := changeRootReal, "", ""
 	if !isFile(changeRootReal + "/tasks.md") {
 		// A relative canonical stays relative, as in bash: changePlanDir

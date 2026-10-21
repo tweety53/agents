@@ -640,5 +640,5 @@ so a fix run after a run 1 that stopped at a pull request or a manual route find
 archived, and writes into the archived directory — its appended tasks, its narrative and its
 planning commits. Every step that reads or writes a change's planning artifacts resolves the
 directory this way; the guards resolve it through `changePlanDir`
-(`<agents repo>/stats/internal/guard/changeplan.go`) and its bash twin
-`<agents repo>/scripts/lib/change-plan.sh`, and `flow tasks` through the same rule.
+(`<agents repo>/stats/internal/guard/changeplan.go`), whose bash twin KAN-887 deleted, and `flow tasks`
+through the same rule.

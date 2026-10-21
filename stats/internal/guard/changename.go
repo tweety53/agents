@@ -48,8 +48,8 @@ import "strings"
 // the reasoning moved there rather than going with the script, and moved here
 // with the port (KAN-760).
 //
-// It is also change-plan.sh's _change_plan_name_ok, which the change-plan
-// resolver (changeplan.go), gather-dispatch-context and
+// It is also the change-plan resolver's allowlist (changeplan.go), which it,
+// gather-dispatch-context and
 // check-panel-reproducer-exit-contract call: one allowlist in this package,
 // so an empty name is refused here rather than indexed.
 func plainChangeName(name string) bool {
