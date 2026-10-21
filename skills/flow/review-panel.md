@@ -844,13 +844,16 @@ reduction read, or the small append, has its own carve-out (`skills/flow/review-
 
 **Every fix subagent's dispatch prompt also carries the PLAN FIELDS paragraph**:
 
-> **PLAN FIELDS:** your fix owns its plan record, as part of the fix itself: when it adds a test
+> **PLAN FIELDS:** your fix owns its plan record, as part of the fix itself, when it folds into a
+> task's commit with `fold-fixup.sh`: when it adds a test
 > case or changes what tests a task names, update that task's `**Tests:**` field; when it changes
 > what a task's `**Baseline:**` counts or `**Files:**` paths declare — a test case added, a file
 > created — update those fields too. All of it lands in the worktree's
 > `<changeRoot>/tasks.md` in this same pass — never left for a reviewer to
 > catch next round. Edit them; do not stage or commit them — the plan record is
-> a planning path and is committed later by the pipeline, never in a fixup.
+> a planning path and is committed later by the pipeline, never in a fixup. A fix that lands as
+> its own commit on top, carrying the round's `Flow-Key:` trailer, is outside every task: it
+> edits no task's fields.
 
 **Every fix subagent's dispatch prompt also carries the ROUND SCOPE paragraph**:
 

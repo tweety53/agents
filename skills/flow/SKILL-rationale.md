@@ -506,6 +506,10 @@ parent's inline fix drops all four, so a Minor now costs about what writing its
 > never left for a reviewer to
 > catch next round (gymie kan-454, gymie KAN-459).
 
+> Scoped to the `fold-fixup.sh` route (kan-918): an on-top commit carrying `Flow-Key:` is outside
+> every task, and `check-task-records`' rule 2 holds a task's `**Files:**` to that task's own
+> commit, so task 3's fields widened for an on-top fix were refused at verify and reverted.
+
 ### review-panel.md — the fix step
 
 > A round may not chunk freely: its chunk count is bounded by

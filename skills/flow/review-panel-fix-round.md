@@ -373,7 +373,7 @@ beside the mutation lines: the fix's report names the probe assertion it landed 
 actual rendered pixels or geometry, and a fix commit for this class of bug that landed no such
 probe is rejected at the fix step — the round does not close and the finding stays open, for the
 handback below — rather than the regression being discovered next round. **The same
-walk holds the fix subagent to its PLAN FIELDS obligation:** a hunk that adds a
+walk holds a folded fix to its PLAN FIELDS obligation:** a `fold-fixup.sh` hunk that adds a
 test case, adds a file, or changes what a task's `**Baseline:**` counts, whose task's `**Tests:**`,
 `**Baseline:**` or `**Files:**` field in `<changeRoot>/tasks.md` does not reflect it, does not close
 the round; it goes to the handback.
