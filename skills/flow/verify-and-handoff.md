@@ -142,8 +142,10 @@ flow record dispatch end -change <name> -key verify[-<worktree basename>] \
 
 **Runs only when `design.md` carries a `## Live check` section naming something to exercise**
 (**D. Basic Workflow #3 — Writing plans**, `skills/flow/brainstorm-planner.md`); a one-line
-no-runtime section, or none, skips it. After the lint and test list, with the parent's own Bash
-calls: when the stack's worktree-resolved URLs do not answer, or `check-dev-stack-fresh.sh
+no-runtime section, or none, skips it. Once both groups of the lint and test list have exited —
+never while either still runs: kan-918's live check, run beside the polled groups, wrote
+`live-verification.md` into the tree `run-guard-tests.sh` watches, failing its watched-tree check
+and costing a 272-second re-run — with the parent's own Bash calls: when the stack's worktree-resolved URLs do not answer, or `check-dev-stack-fresh.sh
 <worktree>` exits non-zero, start it as **One stack for the verification tasks**
 (`skills/flow/implement.md`) does; then exercise what the section names and write each
 before/after figure, beside the failure look the section states, to `live-verification.md` in
