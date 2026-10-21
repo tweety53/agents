@@ -44,13 +44,13 @@ carries it; nothing of it is to be applied.
 **Tests:** none — task dropped
 **After:** none
 
-- [ ] 2. Refuse an inline dispatch begin over earlier work, and repair task 5's start
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.**
+- [x] 2. Refuse an inline dispatch begin over earlier work, and repair task 5's start
+  - [x] **Step 1: Reproduce before touching anything; do not guess.**
     `grep -c 'status", "--porcelain' stats/cmd/flow/record.go` prints `0`: no begin reads the
     worktree. kan-920's `task-5-implementer` row reads 22:48:47 to 22:48:54 +03:00 in
     `flow record dispatches -change kan-920-flow-improvement-port-the-markdown-and-lint -C .`.
     <!-- measured: flow record dispatches -change kan-920-flow-improvement-port-the-markdown-and-lint -C . on the dev store, read 2026-10-21 → started 22:48:47.687 +03:00, ended 22:48:54.752 +03:00 -->
-  - [ ] **Step 2: Apply the diff** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the diff** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at 6a023063 after Task 1's diff (since dropped); go test ./cmd/flow/ -count=1 passes, TestRecordDispatchBeginRefusesAnInlineRowOverEarlierWork fails with the refusal disabled, go vet and gofmt -l clean, check-verbatim-moves.sh exits 0
 diff --git a/skills/flow/implement.md b/skills/flow/implement.md
@@ -193,9 +193,9 @@ index a42278c3..d1c2fd54 100644
 +}
 ````
 
-  - [ ] **Step 3: Verify** — `cd stats && gofmt -l ./cmd/flow && go vet ./cmd/flow/ && go test ./cmd/flow/ -run 'TestRecordDispatchBegin' -count=1`
+  - [x] **Step 3: Verify** — `cd stats && gofmt -l ./cmd/flow && go vet ./cmd/flow/ && go test ./cmd/flow/ -run 'TestRecordDispatchBegin' -count=1`
     passes with no `gofmt` output; `scripts/check-verbatim-moves.sh` and `scripts/check-references.sh` exit 0.
-  - [ ] **Step 4: Repair kan-920's record** (decision `repair-task-5-start`):
+  - [x] **Step 4: Repair kan-920's record** (decision `repair-task-5-start`):
 
 ```bash verified:column and table names read from information_schema on the dev store; the instant from the creating run's transcript, design.md's Context
 docker exec flow-postgres psql -U flow -d flow -v ON_ERROR_STOP=1 -c "UPDATE dispatches d SET started_at = '2026-10-21T19:48:16.246Z' FROM changes c WHERE c.id = d.change_id AND c.name = 'kan-920-flow-improvement-port-the-markdown-and-lint' AND d.session_token = 'mf-k920b' AND d.dispatch_key = 'task-5-implementer'"
@@ -215,13 +215,13 @@ docker exec flow-postgres psql -U flow -d flow -v ON_ERROR_STOP=1 -c "UPDATE dis
 **Decision:** inline-begin-clean-tree
 **Decision:** repair-task-5-start
 
-- [ ] 3. Record an unstated parent effort as default
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.**
+- [x] 3. Record an unstated parent effort as default
+  - [x] **Step 1: Reproduce before touching anything; do not guess.**
     `grep -n 'unknown. where the harness does not state one' skills/flow/brainstorm-planner.md` prints
     one line, and the micro case of `TestDecisionRenderGolden` renders a `parent.effort` of `unknown`
     without complaint.
     <!-- measured: grep -c 'unknown. where the harness does not state one' skills/flow/brainstorm-planner.md @ branch spectre/kan-920-flow-improvement-port-the-markdown-and-lint → 1 -->
-  - [ ] **Step 2: Apply the diff** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the diff** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at 6a023063 after Tasks 1-2's diffs; go test ./cmd/flow/ -run TestDecision passes, go test ./internal/store/ -run Migrat passes, the migration's UPDATE ran inside a rolled-back transaction on the dev store, check-verbatim-moves.sh exits 0
 diff --git a/skills/flow/brainstorm-planner.md b/skills/flow/brainstorm-planner.md
@@ -311,7 +311,7 @@ index 00000000..639168ce
 +WHERE decision->'parent'->>'effort' = 'unknown';
 ````
 
-  - [ ] **Step 3: Verify** — `cd stats && gofmt -l ./cmd/flow && go vet ./cmd/flow/ && go test ./cmd/flow/ -run 'TestDecision' -count=1 && go test ./internal/store/ -run 'Migrat' -count=1`
+  - [x] **Step 3: Verify** — `cd stats && gofmt -l ./cmd/flow && go vet ./cmd/flow/ && go test ./cmd/flow/ -run 'TestDecision' -count=1 && go test ./internal/store/ -run 'Migrat' -count=1`
     passes with no `gofmt` output; `scripts/check-verbatim-moves.sh` and `scripts/check-references.sh` exit 0.
 
 **Build:** green
@@ -325,13 +325,13 @@ index 00000000..639168ce
 
 **Decision:** parent-effort-default
 
-- [ ] 4. Mark stream-start subagent output not measured
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** The panel slot's transcript
+- [x] 4. Mark stream-start subagent output not measured
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** The panel slot's transcript
     `~/.claude/projects/-Users-tweety53-Projects-agents/31fac4f3-d562-4a7c-be01-42daf8793a8d/subagents/agent-ac204c32268548ea7.jsonl`
     carries `"stop_reason": null` on all 30 assistant lines and sums to the 184 output tokens its
     dispatch row stores.
     <!-- measured: a python3 count over that transcript, a machine-local file, read 2026-10-21 → 30 lines with stop_reason null, per-message maximum output summing to 184 -->
-  - [ ] **Step 2: Apply the diff** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the diff** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at 6a023063 after Tasks 1-3's diffs; go test ./internal/... ./cmd/... -count=1 passes, npm test and npx tsc -b pass, the fixture regenerated with UPDATE_METRICS_FIXTURE=1, both UPDATEs of the migration ran inside a rolled-back transaction on the dev store
 diff --git a/stats/internal/harvest/attribute.go b/stats/internal/harvest/attribute.go
@@ -812,7 +812,7 @@ index b9701572..52e84799 100644
  }
 ````
 
-  - [ ] **Step 3: Verify** — `cd stats && gofmt -l ./internal && go vet ./internal/... && go test ./internal/harvest/ ./internal/records/ -count=1 && go test ./internal/store/ -run 'TestCost|Migrat' -count=1`
+  - [x] **Step 3: Verify** — `cd stats && gofmt -l ./internal && go vet ./internal/... && go test ./internal/harvest/ ./internal/records/ -count=1 && go test ./internal/store/ -run 'TestCost|Migrat' -count=1`
     passes with no `gofmt` output, and `cd stats/web && npx tsc -b && npx vitest run src/metrics.test.ts -t 'read output as absent when a bucket carries output_unmeasured'` passes.
 
 **Build:** green
@@ -827,12 +827,12 @@ index b9701572..52e84799 100644
 **Decision:** output-unmeasured
 **Decision:** output-unmeasured-repair
 
-- [ ] 5. Run the test list's commands concurrently
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `scripts/run-verify-list.sh`'s
+- [x] 5. Run the test list's commands concurrently
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `scripts/run-verify-list.sh`'s
     loop calls `run` for each command in turn and returns only when it exits; kan-920's run spent
     6:25 and 6:58 wall in its `## test` list.
     <!-- measured: the creating run's transcript timeline, a machine-local file, read 2026-10-21 → 19:49:02-19:55:27 and 19:59:24-20:06:22 -->
-  - [ ] **Step 2: Apply the diff** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the diff** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at 6a023063 after Tasks 1-4's diffs; scripts/test-run-verify-list.sh passes every case and fails both new ones on the serial script; two concurrent make -s web-dist with dist absent ran npm ci once and both exited 0
 diff --git a/scripts/run-verify-list.sh b/scripts/run-verify-list.sh
@@ -966,7 +966,7 @@ index 2c62ff43..20537de1 100644
  # the other way around -- so the embedded assets `go build` bakes in are
 ````
 
-  - [ ] **Step 3: Verify** — `bash -n scripts/run-verify-list.sh` and `scripts/test-run-verify-list.sh` end `all cases passed`;
+  - [x] **Step 3: Verify** — `bash -n scripts/run-verify-list.sh` and `scripts/test-run-verify-list.sh` end `all cases passed`;
     `scripts/run-verify-list.sh . test` exits 0 with its three blocks in list order.
 
 **Build:** green
@@ -980,12 +980,12 @@ index 2c62ff43..20537de1 100644
 
 **Decision:** concurrent-test-list
 
-- [ ] 6. Run the full suite while pass 1 reviews
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.**
+- [x] 6. Run the full suite while pass 1 reviews
+  - [x] **Step 1: Reproduce before touching anything; do not guess.**
     `grep -c 'The pass-1 panel reads while the suite runs' skills/flow/implement.md` prints `0`: the
     suite runs before `flow.sdd-tdd` closes and the panel is entered.
     <!-- measured: grep -c 'The pass-1 panel reads while the suite runs' skills/flow/implement.md @ branch spectre/kan-920-flow-improvement-port-the-markdown-and-lint → 0 -->
-  - [ ] **Step 2: Apply the diff** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the diff** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at 6a023063 after Tasks 1-5's diffs; check-verbatim-moves.sh, check-references.sh, check-markdown-integrity.py and check-dispatch-paragraphs.sh exit 0
 diff --git a/skills/flow/implement.md b/skills/flow/implement.md
@@ -1026,7 +1026,7 @@ index 49bf108e..0764daf0 100644
  `skills/flow-contracts/git-boundaries.md`) and runs
 ````
 
-  - [ ] **Step 3: Verify** — `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`,
+  - [x] **Step 3: Verify** — `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`,
     `scripts/check-markdown-integrity.py` and `scripts/check-dispatch-paragraphs.sh` exit 0.
 
 **Build:** green
