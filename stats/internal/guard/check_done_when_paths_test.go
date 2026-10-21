@@ -251,4 +251,12 @@ func TestCheckDoneWhenPaths(t *testing.T) {
 			t.Fatalf("exit %d, stdout %q; want 2 and nothing on stdout", code, out)
 		}
 	})
+
+	t.Run("case 13b: an empty worktree argument cannot answer", func(t *testing.T) {
+		t.Parallel()
+		code, out, _ := runDoneWhen(t, "")
+		if code != 2 || out != "" {
+			t.Fatalf("exit %d, stdout %q; want 2 and nothing on stdout", code, out)
+		}
+	})
 }
