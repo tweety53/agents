@@ -6,16 +6,12 @@ import (
 	"strings"
 )
 
-// The visual-verify guards' shared parsing: the Go twins of
-// scripts/lib/strip-bom.sh, scripts/lib/sanitize-display.sh,
-// scripts/lib/visual-table-cells.awk and the since-deleted
-// scripts/lib/trim-glob-element.sh,
-// plus the `## visual verification` section rule every one of those scripts
-// carried inline. The bash libraries stay for their remaining bash callers
-// (check-spec-reach.sh, check-dev-stack-fresh.sh);
-// TestStripBOMParity, TestSanitizeDisplayParity and TestVisualTableCellsParity
-// run them against these twins so a fix to one side cannot miss the other
-// (kan850-helper-twins).
+// The visual-verify guards' shared parsing: the Go twins of the bash
+// libraries every visual guard once sourced, all since deleted — the last
+// three by kan-919 — plus the `## visual verification` section rule every
+// one of those scripts carried inline. TestStripBOMParity,
+// TestSanitizeDisplayParity and TestVisualTableCellsParity run the deleted
+// libraries, as they last stood, against these twins (kan850-helper-twins).
 //
 // `.flow/project.md` is tracked in the repository and editable in any pull
 // request, so every input here is attacker-influenced: the twins are byte
@@ -36,8 +32,8 @@ func stripBOM(b []byte) []byte {
 	return bytes.TrimPrefix(b, []byte("\xef\xbb\xbf"))
 }
 
-// sanitizeDisplay is sanitize_display: text (stdin) to stdout, one line at a
-// time, with every C0 control byte, DEL and backslash rendered as visible
+// sanitizeDisplay is the bash libraries' display sanitizer: text (stdin) to
+// stdout, one line at a time, with every C0 control byte, DEL and backslash rendered as visible
 // text, and every line — the last one included — ending in "\n". Every line a
 // caller prints through it quotes a cell out of `.flow/project.md`, so a cell
 // holding an escape sequence would otherwise write that sequence to the

@@ -79,13 +79,12 @@
 # the table parsing happens in flow-guard
 # (stats/internal/guard/visualverification.go), whose only input is the
 # file's text, and every violation line, plus every cell this guard
-# interpolates into a message afterward, passes through sanitizeDisplay —
-# the Go twin of lib/sanitize-display.sh — before it reaches the terminal;
+# interpolates into a message afterward, passes through sanitizeDisplay
+# before it reaches the terminal;
 # see stats/internal/guard/visualsection.go for why escaping and not
 # stripping or refusing.
 #
-# THE PARSER'S split_cells/trimcell/foldcell TRIO IS SHARED — the Go twins
-# of scripts/lib/visual-table-cells.awk in
+# THE PARSER'S vtSplitCells/vtTrimCell/vtFoldCell TRIO IS SHARED — in
 # stats/internal/guard/visualsection.go, not check-workspace-isolation's own
 # (wider, four-column; stats/internal/guard/workspaceisolation.go) copy of
 # the same shape. Its hazards are the same because its input is: a `|`
@@ -93,8 +92,8 @@
 # trailing `|`; a file may arrive with CRLF line endings.
 #
 # A LEADING UTF-8 BOM IS STRIPPED BEFORE ANY OF THE ABOVE READS THE FILE, via
-# stripBOM, the Go twin of scripts/lib/strip-bom.sh — see that file's
-# header for why a BOM would otherwise make a present section read as
+# stripBOM in stats/internal/guard/visualsection.go — see its comment for
+# why a BOM would otherwise make a present section read as
 # absent: the fix arrived after check-visual-trigger.sh and
 # resolve-visual-screenshots.sh already existed, sharing this same
 # heading-parse convention, and stayed a single guard's own logic for one

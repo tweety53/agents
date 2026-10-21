@@ -60,9 +60,8 @@
 # request. This guard never executes anything it reads — `ui paths` values
 # are matched as glob patterns, never interpolated into a shell command —
 # and every interpolated cell that reaches an exit-2 message or a MATCH line
-# passes through sanitizeDisplay (visualsection.go, the Go twin of
-# scripts/lib/sanitize-display.sh) first — see its comment for the
-# forged-verdict reason.
+# passes through sanitizeDisplay (visualsection.go) first — see its comment
+# for the forged-verdict reason.
 #
 # THE HEADING SCAN AND TABLE PARSER ARE check-visual-verification.sh's OWN
 # CONVENTIONS, reused rather than reinvented: the same `## visual
@@ -70,8 +69,8 @@
 # section's own level ends it, a deeper one is prose" rule, and the same
 # `|`-row split with `\|`-escape awareness. They are the Go twins in
 # stats/internal/guard/visualsection.go (vvHeadingCount, vvSectionLines,
-# vtSplitCells, vtTrimCell, vtFoldCell), which carry the reasoning of
-# scripts/lib/visual-table-cells.awk and its parity test.
+# vtSplitCells, vtTrimCell, vtFoldCell), whose comments carry the reasoning
+# and TestVisualTableCellsParity its parity record.
 #
 # A LEADING UTF-8 BOM IS STRIPPED BEFORE EITHER HEADING READ OR THE TABLE
 # PARSE, via the same file's stripBOM — see its comment for why a BOM would

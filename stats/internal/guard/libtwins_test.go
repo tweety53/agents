@@ -48,6 +48,21 @@ func bashLibIO(t *testing.T, env []string, stdin io.Reader, lib, fn string, args
 // test whose twin is gone runs it as it stood there (parity-at-historical-ref).
 const libTwinBase = "ef6f87cd"
 
+// visualLibBase is the merge base of kan-919, which deleted lib/strip-bom.sh,
+// lib/sanitize-display.sh and lib/visual-table-cells.awk once their last bash
+// callers were ported; their parity tests run them as they stood there.
+// Not libTwinBase: strip-bom.sh changed after it (a9bb6d12).
+const visualLibBase = "b1b0d601"
+
+// visualLibAt writes scripts/lib/<lib> as it stood at visualLibBase into a
+// temp dir of its own and returns its path.
+func visualLibAt(t *testing.T, lib string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), lib)
+	writeFile(t, path, string(historicalFile(t, "../../..", visualLibBase, "scripts/lib/"+lib)))
+	return path
+}
+
 // bashLibAt is bashLibEnv for deleted libs: it writes each of libs, as it
 // stood at libTwinBase, into a temp dir of its own and sources the first.
 func bashLibAt(t *testing.T, env []string, libs []string, fn string, args ...string) libRes {
@@ -376,10 +391,12 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 	}
 }
 
-// TestStripBOMParity pins stripBOM against lib/strip-bom.sh's strip_bom_cat.
+// TestStripBOMParity pins stripBOM against lib/strip-bom.sh's strip_bom_cat,
+// at visualLibBase.
 func TestStripBOMParity(t *testing.T) {
 	t.Parallel()
 	d := t.TempDir()
+	lib := visualLibAt(t, "strip-bom.sh")
 	for i, tc := range []struct{ name, body string }{
 		{"leading BOM", "\xef\xbb\xbf## visual verification\n"},
 		{"BOM not at byte 0", "x\xef\xbb\xbfy\n"},
@@ -394,7 +411,7 @@ func TestStripBOMParity(t *testing.T) {
 		}
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			bashRes := bashLib(t, "strip-bom.sh", "strip_bom_cat", file)
+			bashRes := bashRun(t, nil, nil, lib, "strip_bom_cat", file)
 			b, err := os.ReadFile(file)
 			if err != nil {
 				// The twin takes bytes; a missing file is its caller's read
@@ -410,10 +427,11 @@ func TestStripBOMParity(t *testing.T) {
 }
 
 // TestSanitizeDisplayParity pins sanitizeDisplay against
-// lib/sanitize-display.sh's sanitize_display, one line per input as every
-// caller's `printf '...\n' | sanitize_display` feeds it.
+// lib/sanitize-display.sh's sanitize_display at visualLibBase, one line per
+// input as every caller's `printf '...\n' | sanitize_display` fed it.
 func TestSanitizeDisplayParity(t *testing.T) {
 	t.Parallel()
+	lib := visualLibAt(t, "sanitize-display.sh")
 	cases := map[string]string{
 		"DEL":                   "a\x7fb",
 		"backslash":             `a\b\\c`,
@@ -432,7 +450,7 @@ func TestSanitizeDisplayParity(t *testing.T) {
 	for name, in := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			bashRes := bashLibIO(t, nil, strings.NewReader(in+"\n"), "sanitize-display.sh", "sanitize_display")
+			bashRes := bashRun(t, nil, strings.NewReader(in+"\n"), lib, "sanitize_display")
 			assertParity(t, libRes{stdout: sanitizeDisplay(in + "\n")}, bashRes)
 		})
 	}
@@ -462,14 +480,16 @@ func vtGoDriver(line string) string {
 }
 
 // TestVisualTableCellsParity pins vtSplitCells, vtTrimCell and vtFoldCell
-// against lib/visual-table-cells.awk, run the way its callers run it — as a
-// second -f beside the caller's program — under LC_ALL=C: the C locale's
-// [[:space:]] and an ASCII-only tolower (the non-ASCII rows pin that).
+// against lib/visual-table-cells.awk at visualLibBase, run the way its
+// callers ran it — as a second -f beside the caller's program — under
+// LC_ALL=C: the C locale's [[:space:]] and an ASCII-only tolower (the
+// non-ASCII rows pin that).
 func TestVisualTableCellsParity(t *testing.T) {
 	t.Parallel()
 	d := t.TempDir()
 	driver := d + "/driver.awk"
 	writeFile(t, driver, vtDriver)
+	lib := visualLibAt(t, "visual-table-cells.awk")
 	for i, line := range []string{
 		"| Setting | Value |",
 		"| Setting | Value",
@@ -492,7 +512,7 @@ func TestVisualTableCellsParity(t *testing.T) {
 	} {
 		t.Run(strconv.Itoa(i)+" "+strconv.Quote(line), func(t *testing.T) {
 			t.Parallel()
-			cmd := exec.Command("awk", "-f", "../../../scripts/lib/visual-table-cells.awk", "-f", driver)
+			cmd := exec.Command("awk", "-f", lib, "-f", driver)
 			cmd.Env = append(os.Environ(), "LC_ALL=C")
 			cmd.Stdin = strings.NewReader(line + "\n")
 			out, err := cmd.Output()
