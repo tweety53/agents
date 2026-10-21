@@ -16,8 +16,7 @@ import (
 // the same repositories, each case building its own in a directory the parent
 // test owns, so every subtest reading the case's one run sees it.
 //
-// The harness's git shims (scripts/lib/test-git-shim.sh and the hand-written
-// ones beside it) become stubGit: the same bash stub on PATH, which the guard
+// The harness's git shims become stubGit: the same bash stub on PATH, which the guard
 // resolves over Env's PATH as the bash guard resolved `git` over its own.
 
 // fxGit builds fixtures under fixtureGitEnv with gitRun's fixed identity. The
