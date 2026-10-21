@@ -360,7 +360,7 @@ beside the rendered path where a dispatch bundles it — the render still carrie
 role's pass and the INDEPENDENT PASSES paragraph, and a dispatch carrying `mutation` alone renders
 the shared paragraphs and no PASS section, the brief typed beside that rendered path. The Agent call's prompt carries only the baseline
 pointer, MODEL HANDSHAKE, CONTEXT BUNDLE, the relocation-comparison pointer where one exists, the
-reproducer rule, GATE FOCUS where it applies, and `read <rendered path> in full first — it is your brief`. The return message carries one findings summary per role under a heading naming the
+reproducer rule, GATE FOCUS where it applies, `read <rendered path> in full first — it is your brief`, and each role's REPORT FILE path — so a slot that answers without reading its brief still owes its file (kan-918: round 1's `primary+principles` re-run read only the diff and handed back in 14 seconds, writing neither report). The return message carries one findings summary per role under a heading naming the
 role; the parent records each finding under that role.
 
 Every bundle prompt also carries this paragraph verbatim:
