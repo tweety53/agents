@@ -249,6 +249,12 @@ never an exit code the command did not return.
    departure this change's, its line naming `merge-base capture failed — <reason>` beside it.
    Every line that reports the departure names its cause or its attribution
    beside it — never a bare `departure`.
+   **A departure's expected value cites the mockup's source wherever the handoff ships one, never a
+   rule inferred from the pixels**: where the frame was drawn from HTML or CSS in the tree — beside
+   the mockups or cited by `design.md` — the line names the declaration the expected layout, size or
+   colour comes from (`grid-template-columns:1fr 1.3fr 1fr; height:32px`), and a value no
+   declaration states is named as read from the pixels (kan-1003: an inferred `flex: 1 1 auto`
+   cost four fix rounds against the grid the HTML declared).
    A departure within 1dp is reported like any other, its measured value beside it: whether it
    stands is the parent's call under the Blocking paragraph of **Steps 3–13**
    (`skills/flow/visual-verify.md`), never yours (KAN-1000).
