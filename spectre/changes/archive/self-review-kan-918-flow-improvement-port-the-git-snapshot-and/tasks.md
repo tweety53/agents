@@ -32,11 +32,11 @@ new flag on `flow record finding`, and the integrate-change harness run case by 
 - Task 5: a line's keys go through the single-finding validation unchanged; a `from` key is refused; the first failing line stops the run and names its line.
 - Task 6: a case that fails, or halts, still fails the run; a case log with no tally counts as a failure; every case gets its own `$WORK` and EXIT trap.
 
-- [ ] 1. Scope PLAN FIELDS to a fix folded into its task
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -c 'when it folds into' skills/flow/review-panel.md`
+- [x] 1. Scope PLAN FIELDS to a fix folded into its task
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -c 'when it folds into' skills/flow/review-panel.md`
     prints `0`: the brief binds every fix route, the on-top `Flow-Key:` commit included.
     <!-- measured: grep -c 'when it folds into' skills/flow/review-panel.md @ eff5ca1c → 0 -->
-  - [ ] **Step 2: Apply the diff** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the diff** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at eff5ca1c; check-verbatim-moves.sh, check-markdown-integrity.py, check-references.sh and check-dispatch-paragraphs.sh exit 0
 diff --git a/skills/flow/review-panel.md b/skills/flow/review-panel.md
@@ -92,7 +92,7 @@ index d163b443..61b35457 100644
  the round; it goes to the handback.
 ````
 
-  - [ ] **Step 3: Verify** — `scripts/check-verbatim-moves.sh`, `scripts/check-markdown-integrity.py`,
+  - [x] **Step 3: Verify** — `scripts/check-verbatim-moves.sh`, `scripts/check-markdown-integrity.py`,
     `scripts/check-references.sh` and `scripts/check-dispatch-paragraphs.sh` each exit 0.
 
 **Build:** green
@@ -104,11 +104,11 @@ index d163b443..61b35457 100644
 
 **Decision:** plan-fields-fold-only
 
-- [ ] 2. Start the live check once the lint and test groups exit
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -c 'After the lint and test list' skills/flow/verify-and-handoff.md`
+- [x] 2. Start the live check once the lint and test groups exit
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -c 'After the lint and test list' skills/flow/verify-and-handoff.md`
     prints `1`, while the same file starts that list as two detached, polled groups.
     <!-- measured: grep -c 'After the lint and test list' skills/flow/verify-and-handoff.md @ eff5ca1c → 1 -->
-  - [ ] **Step 2: Apply the diff** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the diff** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at eff5ca1c after Task 1's diff; check-verbatim-moves.sh and check-markdown-integrity.py exit 0
 diff --git a/skills/flow/verify-and-handoff.md b/skills/flow/verify-and-handoff.md
@@ -130,7 +130,7 @@ index 363e8c93..6bfa550a 100644
  before/after figure, beside the failure look the section states, to `live-verification.md` in
 ````
 
-  - [ ] **Step 3: Verify** — `scripts/check-verbatim-moves.sh`, `scripts/check-markdown-integrity.py`
+  - [x] **Step 3: Verify** — `scripts/check-verbatim-moves.sh`, `scripts/check-markdown-integrity.py`
     and `scripts/check-references.sh` each exit 0.
 
 **Build:** green
@@ -142,13 +142,13 @@ index 363e8c93..6bfa550a 100644
 
 **Decision:** live-check-after-groups
 
-- [ ] 3. Flag a Tests name the base already declares outside the task's files
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
+- [x] 3. Flag a Tests name the base already declares outside the task's files
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
     harness hunk alone (`git apply --include='scripts/test-check-plan-shape.sh' <the saved diff>`)
     and run `scripts/test-check-plan-shape.sh`: case 39's first and last assertions fail with `rc=0`,
     and its mutation assertion fails with `the mutation did not apply`.
     <!-- measured: the harness hunk alone, scripts/test-check-plan-shape.sh @ eff5ca1c → 3 failure(s), all case 39 -->
-  - [ ] **Step 2: Apply the fix** — the rest (`git apply --exclude='scripts/test-check-plan-shape.sh' <the saved diff>`):
+  - [x] **Step 2: Apply the fix** — the rest (`git apply --exclude='scripts/test-check-plan-shape.sh' <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at eff5ca1c; scripts/test-check-plan-shape.sh passes all cases and fails case 39 with check-plan-shape.py reverted; scripts/check-plan-shape.sh with no argument exits 0; kan-918's task 3 copied into spectre/changes/ exits 1 naming TestFoldFixup
 diff --git a/scripts/check-plan-shape.py b/scripts/check-plan-shape.py
@@ -397,7 +397,7 @@ index d7a53c44..4e263f63 100755
  # not carry -> exit 2, never a scan that silently skips them. A copy of the
 ````
 
-  - [ ] **Step 3: Verify** — `scripts/test-check-plan-shape.sh` ends `all cases passed`;
+  - [x] **Step 3: Verify** — `scripts/test-check-plan-shape.sh` ends `all cases passed`;
     `scripts/check-plan-shape.sh` (no argument) and `scripts/check-python-suppressions.sh` exit 0.
 
 **Build:** green
@@ -412,12 +412,12 @@ index d7a53c44..4e263f63 100755
 **Decision:** f15-in-plan-shape
 **Decision:** f15-match-rule
 
-- [ ] 4. Carry each slot's REPORT FILE path in its Agent call
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** The traced slot never read its
+- [x] 4. Carry each slot's REPORT FILE path in its Agent call
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** The traced slot never read its
     brief: `python3 -c "import json,sys; print(sorted(b.get('name') for l in open(sys.argv[1]) for d in [json.loads(l)] if d.get('type')=='assistant' for b in (d['message'].get('content') or []) if isinstance(b,dict) and b.get('type')=='tool_use'))" ~/.claude/projects/-Users-tweety53-Projects-agents/5c844d2a-d709-4945-b838-b398826a1566/subagents/agent-a49d6b737c5810fb7.jsonl`
     prints `['Bash', 'SubagentHandback']` — no `Read`. `design.md` **Context** carries the full trace.
     <!-- measured: the python3 one-liner on the slot transcript; a machine-local file, read 2026-10-21 → ['Bash', 'SubagentHandback'] -->
-  - [ ] **Step 2: Apply the diff** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the diff** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at eff5ca1c after Tasks 1-3's diffs; check-verbatim-moves.sh and check-dispatch-paragraphs.sh exit 0
 diff --git a/skills/flow/review-panel.md b/skills/flow/review-panel.md
@@ -435,7 +435,7 @@ index 41501f60..f43cc4d5 100644
  Every bundle prompt also carries this paragraph verbatim:
 ````
 
-  - [ ] **Step 3: Verify** — `scripts/check-verbatim-moves.sh`, `scripts/check-markdown-integrity.py`
+  - [x] **Step 3: Verify** — `scripts/check-verbatim-moves.sh`, `scripts/check-markdown-integrity.py`
     and `scripts/check-dispatch-paragraphs.sh` each exit 0.
 
 **Build:** green
@@ -447,13 +447,13 @@ index 41501f60..f43cc4d5 100644
 
 **Decision:** report-path-in-call
 
-- [ ] 5. Record a round's findings from a JSON-lines file
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
+- [x] 5. Record a round's findings from a JSON-lines file
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
     test hunk alone (`git apply --include='stats/cmd/flow/record_test.go' <the saved diff>`) and run
     `cd stats && go test ./cmd/flow/ -run '^TestRecordFindingFromFile$' -count=1`: it fails — `-from`
     is an unknown flag.
     <!-- measured: the test hunk alone, go test -run '^TestRecordFindingFromFile$' @ eff5ca1c → FAIL -->
-  - [ ] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/cmd/flow/record_test.go' <the saved diff>`):
+  - [x] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/cmd/flow/record_test.go' <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at eff5ca1c after Tasks 1-4's diffs; go test ./cmd/flow/ -count=1 passes, TestRecordFindingFromFile fails with record.go reverted, go vet and gofmt -l clean, check-verbatim-moves.sh exits 0
 diff --git a/skills/flow/review-panel.md b/skills/flow/review-panel.md
@@ -627,7 +627,7 @@ index 9c7d41b5..707adc8d 100644
 +}
 ````
 
-  - [ ] **Step 3: Verify** — `cd stats && gofmt -l . && make -s web-dist && go vet ./cmd/flow/` prints nothing
+  - [x] **Step 3: Verify** — `cd stats && gofmt -l . && make -s web-dist && go vet ./cmd/flow/` prints nothing
     and exits 0, then `cd stats && go test ./cmd/flow/ -run '^TestRecordFinding' -count=1` passes;
     `scripts/check-verbatim-moves.sh` and `scripts/check-markdown-integrity.py` exit 0.
 
@@ -642,11 +642,11 @@ index 9c7d41b5..707adc8d 100644
 
 **Decision:** record-finding-from-jsonl
 
-- [ ] 6. Run the integrate-change harness cases in parallel
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `time bash scripts/test-integrate-change.sh`
+- [x] 6. Run the integrate-change harness cases in parallel
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `time bash scripts/test-integrate-change.sh`
     ends `195 passed, 0 failed` after several minutes of wall.
     <!-- measured: time bash scripts/test-integrate-change.sh @ eff5ca1c → 195 passed, 6:30 and 5:39 wall on two runs -->
-  - [ ] **Step 2: Apply the diff** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the diff** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at eff5ca1c; bash -n passes; the harness passes every check in a fraction of its serial wall; a copy with every halt-guarded prepare forced to halt exits 1, its failures counted
 diff --git a/scripts/test-integrate-change.sh b/scripts/test-integrate-change.sh
@@ -1203,7 +1203,7 @@ index b0c7e7da..1e7cfa25 100755
  [ "$FAIL" -eq 0 ]
 ````
 
-  - [ ] **Step 3: Verify** — `bash -n scripts/test-integrate-change.sh` exits 0; `time bash scripts/test-integrate-change.sh`
+  - [x] **Step 3: Verify** — `bash -n scripts/test-integrate-change.sh` exits 0; `time bash scripts/test-integrate-change.sh`
     exits 0, ends `195 passed, 0 failed`, and its wall is a fraction of Step 1's.
     <!-- measured: time bash scripts/test-integrate-change.sh with the diff applied @ branch spectre/kan-918-flow-improvement-port-the-git-snapshot-and → 195 passed, 52 s -->
 
