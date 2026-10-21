@@ -1,0 +1,11 @@
+# Sentences this change rewords or adds on purpose — the self-review-backlog-flow-1021 fix loop: KAN-911's landing branch for a --base change's bundle (flow-self-review/SKILL.md).
+**Never** push directly to a protected branch under any name but the project's own default branch, and never force-push.
+--push "<default-branch>"
+`git branch --show-current` must be `<default-branch>` (the project's own default branch).
+allowed-tools: Bash(git:*), Bash(flow:*), Bash(go:*), Bash(scripts/check-self-review-report.sh:*), Bash(land-self-review-report.sh:*) license: MIT compatibility: Standalone, requires the change's default branch to be checked out and a saved context bundle at docs/self-review/<name>-context.md.
+land-self-review-report.sh "<project>" "<default-branch>" \
+**Never** push directly to a protected branch under any name but the project's own default branch, or the `<landing-branch>` step 1 accepted, and never force-push.
+--push "<landing-branch>"
+`git branch --show-current` must be `<landing-branch>`: `<default-branch>` (the project's own default branch), or a `--base` change's `<base>` — a branch other than the change's own (`spectre/<name>`, `<name>` on `/flow-fast`) whose `origin/<branch>` tree holds `<bundle>`.
+allowed-tools: Bash(git:*), Bash(flow:*), Bash(go:*), Bash(scripts/check-self-review-report.sh:*), Bash(land-self-review-report.sh:*) license: MIT compatibility: Standalone, requires the change's default branch, or its `--base` branch, to be checked out and a saved context bundle at docs/self-review/<name>-context.md.
+land-self-review-report.sh "<project>" "<landing-branch>" \
