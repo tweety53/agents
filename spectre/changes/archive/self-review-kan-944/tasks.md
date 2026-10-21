@@ -24,12 +24,12 @@ specs swap their inline recorders for it; one stack-free spec covers it.
 - gymie-playwright declares no lint command; `npx playwright test --list` is the compile check.
 - The motion specs need the dev stack; no step starts it. Only `fidelity/screencast.spec.ts` runs.
 
-- [ ] 1. Record motion strips through one shared CDP recorder (KAN-944)
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 1. Record motion strips through one shared CDP recorder (KAN-944)
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `git grep -n -e 'Page.startScreencast' -- fidelity/` and `ls fidelity/screencast.ts`: four hits
     (kan-870, kan-940, kan-983, nav-scoped-rights) and no such file.
     <!-- measured: git grep -n startScreencast origin/main @ gymie-playwright 1f2b43f → 4 hits; fidelity/ holds cardio.ts, fixtures.ts, frames.ts, offline-l5.ts and no screencast.ts -->
-  - [ ] **Step 2: Write the failing spec** `fidelity/screencast.spec.ts`:
+  - [x] **Step 2: Write the failing spec** `fidelity/screencast.spec.ts`:
 
 ```ts verified:ran npx playwright test fidelity/screencast.spec.ts --project=fidelity with the Step 3 module, no stack, gymie-playwright 1f2b43f, 1 passed
 /**
@@ -62,7 +62,7 @@ test('recordScreencast writes an ordered nnn-ms strip and replaces the old one',
 
     Run `npx playwright test fidelity/screencast.spec.ts --project=fidelity`: it fails, `./screencast`
     not found.
-  - [ ] **Step 3: Add `fidelity/screencast.ts`** (decisions `recorder-helper-module`, `strip-naming`):
+  - [x] **Step 3: Add `fidelity/screencast.ts`** (decisions `recorder-helper-module`, `strip-naming`):
 
 ```ts verified:same spike as Step 2, gymie-playwright 1f2b43f, 1 passed
 import fs from 'fs';
@@ -110,7 +110,7 @@ export async function recordScreencast(
 ```
 
     Run Step 2's command again: it passes.
-  - [ ] **Step 4: Move the three specs onto it** (decisions `migrated-specs`, `kan940-motion-on`).
+  - [x] **Step 4: Move the three specs onto it** (decisions `migrated-specs`, `kan940-motion-on`).
     - `fidelity/kan-870-motion.spec.ts`: delete its `record` function and doc comment; keep `OUT`;
       add `import { recordScreencast } from './screencast';` and define
       `const record = (page: Page, name: string, action: () => Promise<void>, tailMs = 900) => recordScreencast(page, path.join(OUT, name), action, { tailMs }).then(() => {});`
@@ -149,13 +149,13 @@ async function record(page: Page, id: string, action: () => Promise<void>, tailM
     - `README.md`: in the `fidelity/` bullet, add one sentence: "`fidelity/screencast.ts`'s
       `recordScreencast` records a motion strip — `<nnn>-<ms>.png` by CDP screencast, reduced motion
       off — and every strip, a spec's, the visual verifier's or a fix run's, is recorded through it."
-  - [ ] **Step 5: Verify.** `git grep -n -e 'Page.startScreencast' -- fidelity/` prints exactly two
+  - [x] **Step 5: Verify.** `git grep -n -e 'Page.startScreencast' -- fidelity/` prints exactly two
     lines, `fidelity/screencast.ts` and `fidelity/nav-scoped-rights.spec.ts`;
     `npx playwright test --list --project=fidelity fidelity/kan-870-motion.spec.ts fidelity/kan-940-cardio-rows.spec.ts fidelity/kan-983-first-frame.spec.ts fidelity/screencast.spec.ts`
     prints `Total: 24 tests in 4 files`; `npx playwright test fidelity/screencast.spec.ts --project=fidelity`
     passes.
     <!-- measured: npx playwright test --list --project=fidelity on the three specs @ gymie-playwright 1f2b43f → Total: 23 tests in 3 files -->
-  - [ ] **Step 6: Commit** the six files with the subject below.
+  - [x] **Step 6: Commit** the six files with the subject below.
 
 **Build:** green
 **Files:** `fidelity/screencast.ts`, `fidelity/screencast.spec.ts`, `fidelity/kan-870-motion.spec.ts`, `fidelity/kan-940-cardio-rows.spec.ts`, `fidelity/kan-983-first-frame.spec.ts`, `README.md`
