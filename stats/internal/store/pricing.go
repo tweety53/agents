@@ -98,6 +98,9 @@ type chargeableTokens struct {
 	CacheCreation1h      *float64 `json:"cache_creation_1h"`
 	CacheCreationUnknown *float64 `json:"cache_creation_unknown"`
 	CacheRead            *float64 `json:"cache_read"`
+	// OutputUnmeasured is internal/harvest's Bucket.OutputUnmeasured: how
+	// many messages' output the bucket's Output leaves out, never a charge.
+	OutputUnmeasured *float64 `json:"output_unmeasured"`
 }
 
 // hasCharge reports whether t carries at least one of the chargeable
@@ -141,6 +144,13 @@ func (t chargeableTokens) hasCharge() bool {
 //     model with no fast rate is unpriceable, not silently priced at the
 //     standard rate.
 func (t chargeableTokens) cost(rate PricingRate, fast bool) (cost float64, ok bool) {
+	// A bucket whose Output leaves out messages no transcript line measured
+	// prices nothing: a cost from it reads as complete while under-pricing
+	// output (kan-920 self-review) -- the partial-sum failure the
+	// CacheCreationUnknown rule below refuses too.
+	if t.OutputUnmeasured != nil && *t.OutputUnmeasured > 0 {
+		return 0, false
+	}
 	if t.CacheCreationUnknown != nil {
 		if rate.CacheWrite1hPerMTok == nil || *rate.CacheWrite1hPerMTok != rate.CacheWrite5mPerMTok {
 			return 0, false
@@ -220,6 +230,7 @@ func combineMainAndSidechain(main, sidechain *chargeableTokens) chargeableTokens
 		CacheCreation1h:      sumOptional(m.CacheCreation1h, sc.CacheCreation1h),
 		CacheCreationUnknown: sumOptional(m.CacheCreationUnknown, sc.CacheCreationUnknown),
 		CacheRead:            sumOptional(m.CacheRead, sc.CacheRead),
+		OutputUnmeasured:     sumOptional(m.OutputUnmeasured, sc.OutputUnmeasured),
 	}
 }
 
@@ -402,10 +413,13 @@ func (s *Store) Price(ctx context.Context, stageRunID int64) error {
 	}
 
 	modelsPatch := make(map[string]any, len(candidates))
-	var missing []string
+	var missing, unmeasured []string
 	var total float64
 	priced := 0
 	for _, c := range candidates {
+		if c.tokens.OutputUnmeasured != nil && *c.tokens.OutputUnmeasured > 0 {
+			unmeasured = append(unmeasured, c.model)
+		}
 		rate, cost, ok, err := priceCandidate(resolveRate, c.model, c.tokens, fast, &missing)
 		if err != nil {
 			return err
@@ -537,6 +551,20 @@ func (s *Store) Price(ctx context.Context, stageRunID int64) error {
 		}
 	}
 
+	// A bucket refusing for output_unmeasured removes whatever cost an
+	// earlier pass priced before the first unmeasured subagent message
+	// landed: jsonb_deep_merge never deletes, so that figure would stay
+	// and read as complete while leaving out every later token (kan-920
+	// self-review F2).
+	for _, m := range unmeasured {
+		if _, err := s.pool.Exec(ctx, `
+			UPDATE stage_runs SET metrics = (metrics - 'cost_usd') #- ARRAY['models', $2, 'cost_usd']
+			WHERE id = $1
+		`, stageRunID, m); err != nil {
+			return fmt.Errorf("store: price stage run %d: clear unmeasured cost of %s: %w", stageRunID, m, err)
+		}
+	}
+
 	if len(missing) > 0 {
 		// At least one candidate model bucket had no rate in effect, or
 		// carried a component its rate could not charge -- reported here
@@ -581,6 +609,9 @@ func priceCandidate(resolveRate func(string) (PricingRate, error), model string,
 	}
 	cost, ok = tokens.cost(rate, fast)
 	if !ok {
+		if tokens.OutputUnmeasured != nil && *tokens.OutputUnmeasured > 0 {
+			model += " (output not measured)"
+		}
 		*missing = append(*missing, model)
 		return PricingRate{}, 0, false, nil
 	}

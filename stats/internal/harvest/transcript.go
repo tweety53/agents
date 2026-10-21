@@ -88,6 +88,15 @@ type Usage struct {
 	CacheReadInputTokens     int64
 	OutputTokens             int64
 	ThinkingTokens           int64
+	// OutputUnmeasured is set when every line of the message carries an
+	// explicit "stop_reason": null. A subagent transcript writes each
+	// message's usage at stream start that way and never its final count,
+	// so OutputTokens and ThinkingTokens are a first-chunk figure, never the
+	// message's (kan-920 self-review: a 5035-character tool input recorded
+	// 28 output tokens). A line with no stop_reason key at all is an older
+	// shape and stays measured. Bucket.add counts such a message instead of
+	// adding its output.
+	OutputUnmeasured bool
 	// Speed is the message's own "speed" field verbatim -- "standard",
 	// "fast", or "" when the transcript line carried none (an older
 	// format, or a harness that never sets it). Fast mode doubles Opus's
@@ -188,10 +197,11 @@ type rawCompactMeta struct {
 }
 
 type rawMessage struct {
-	ID      string          `json:"id"`
-	Model   string          `json:"model"`
-	Usage   *rawUsage       `json:"usage"`
-	Content json.RawMessage `json:"content"`
+	ID         string          `json:"id"`
+	Model      string          `json:"model"`
+	Usage      *rawUsage       `json:"usage"`
+	Content    json.RawMessage `json:"content"`
+	StopReason json.RawMessage `json:"stop_reason"`
 }
 
 // contentBlocks decodes a message's "content" field into its content
@@ -356,11 +366,13 @@ func ParseAssistantRecords(complete []byte) []Record {
 		if u.OutputTokensDetails != nil {
 			thinking = u.OutputTokensDetails.ThinkingTokens
 		}
+		streaming := string(raw.Message.StopReason) == "null"
 		if id := raw.Message.ID; id != "" {
 			if i, ok := seen[id]; ok {
 				kept := &out[i].Usage
 				kept.OutputTokens = max(kept.OutputTokens, u.OutputTokens)
 				kept.ThinkingTokens = max(kept.ThinkingTokens, thinking)
+				kept.OutputUnmeasured = kept.OutputUnmeasured && streaming
 				continue
 			}
 			seen[id] = len(out)
@@ -391,6 +403,7 @@ func ParseAssistantRecords(complete []byte) []Record {
 				CacheReadInputTokens:     u.CacheReadInputTokens,
 				OutputTokens:             u.OutputTokens,
 				ThinkingTokens:           thinking,
+				OutputUnmeasured:         streaming,
 				Speed:                    u.Speed,
 			},
 		})

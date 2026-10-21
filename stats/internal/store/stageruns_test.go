@@ -2628,3 +2628,52 @@ func TestStageCompletedFalseForOtherStage(t *testing.T) {
 		t.Errorf("StageCompleted = true, want false when only a different stage completed")
 	}
 }
+
+// TestPriceClearsCostOnceOutputUnmeasured pins kan-920 self-review F2: a run
+// priced before its first unmeasured subagent message keeps no cost_usd once
+// output_unmeasured lands -- the earlier figure would read as complete.
+func TestPriceClearsCostOnceOutputUnmeasured(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-price-unmeasured-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
+	in.StartedAt = time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
+	run, err := st.BeginStage(ctx, in)
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	if err := st.PutPricing(ctx, store.PricingRate{
+		Model: "claude-unmeasured-test", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		InputPerMTok: 3, OutputPerMTok: 15, CacheWrite5mPerMTok: 3.75, CacheReadPerMTok: 0.3,
+	}); err != nil {
+		t.Fatalf("PutPricing: %v", err)
+	}
+	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{"models": {"claude-unmeasured-test": {"tokens": {"main": {"input": 1000000, "output": 1000}}}}}`)); err != nil {
+		t.Fatalf("MergeMetrics(measured): %v", err)
+	}
+	if err := st.Price(ctx, run.ID); err != nil {
+		t.Fatalf("Price(measured): %v", err)
+	}
+	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{"models": {"claude-unmeasured-test": {"tokens": {"sidechain": {"output": 10, "output_unmeasured": 1}}}}}`)); err != nil {
+		t.Fatalf("MergeMetrics(unmeasured): %v", err)
+	}
+	if err := st.Price(ctx, run.ID); err == nil || !strings.Contains(err.Error(), "output not measured") {
+		t.Fatalf("Price(unmeasured) err = %v, want ErrPricingNotFound naming output not measured", err)
+	}
+	got, err := st.GetStageRun(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun: %v", err)
+	}
+	var bag map[string]any
+	if err := json.Unmarshal(got.Metrics, &bag); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if _, ok := bag["cost_usd"]; ok {
+		t.Errorf("top-level cost_usd still present: %s", got.Metrics)
+	}
+	if _, ok := bag["models"].(map[string]any)["claude-unmeasured-test"].(map[string]any)["cost_usd"]; ok {
+		t.Errorf("models bucket cost_usd still present: %s", got.Metrics)
+	}
+}

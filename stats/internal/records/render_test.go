@@ -359,6 +359,24 @@ func TestTokenLineRendersApportionedQualifier(t *testing.T) {
 	}
 }
 
+// TestTokenLineRendersUnmeasuredOutput pins kan-920's self-review: a bucket
+// carrying output_unmeasured left out output no transcript line measured, so
+// its output renders as not measured, never as the undercount.
+func TestTokenLineRendersUnmeasuredOutput(t *testing.T) {
+	out := records.RenderLedger(records.Run{
+		Change: "demo",
+		Dispatches: []records.Dispatch{{
+			Seq: 1, Role: "reviewer", Model: "opus",
+			StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+			Metrics:   json.RawMessage(`{"tokens":{"main":{"input":0,"output":0,"cache_read":0,"cache_creation":0},"sidechain":{"input":32,"output":184,"cache_read":811464,"cache_creation":75632,"output_unmeasured":1}}}`),
+		}},
+	})
+	want := "- Tokens: input 32, output not measured, cache read 811464, cache creation 75632\n"
+	if !strings.Contains(out, want) {
+		t.Errorf("unmeasured output must render as not measured %q:\n%s", strings.TrimSuffix(want, "\n"), out)
+	}
+}
+
 // TestTokenLineWithoutTokensIgnoresApportioned pins the pointer rule on
 // the read side: an `apportioned` record without a `tokens` object is
 // contradictory input the render resolves the same way it resolves a

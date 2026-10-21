@@ -146,11 +146,22 @@ type Bucket struct {
 	CacheCreationUnknown int64 `json:"cache_creation_unknown,omitempty"`
 	CacheRead            int64 `json:"cache_read"`
 	Thinking             int64 `json:"thinking"`
+	// OutputUnmeasured counts the messages whose output no transcript line
+	// measured (Usage.OutputUnmeasured). Their output and thinking are left
+	// out of Output and Thinking, so a bucket carrying any reads its output
+	// as not measured, never as the first-chunk sum (kan-920 self-review);
+	// store.Store.Price refuses to price it.
+	OutputUnmeasured int64 `json:"output_unmeasured,omitempty"`
 }
 
 func (b *Bucket) add(u Usage) {
 	b.Input += u.InputTokens
-	b.Output += u.OutputTokens
+	if u.OutputUnmeasured {
+		b.OutputUnmeasured++
+	} else {
+		b.Output += u.OutputTokens
+		b.Thinking += u.ThinkingTokens
+	}
 	b.CacheCreation += u.CacheCreationInputTokens
 	if u.CacheSplitKnown {
 		b.CacheCreation5m += u.CacheCreation5mTokens
@@ -159,7 +170,6 @@ func (b *Bucket) add(u Usage) {
 		b.CacheCreationUnknown += u.CacheCreationInputTokens
 	}
 	b.CacheRead += u.CacheReadInputTokens
-	b.Thinking += u.ThinkingTokens
 }
 
 // TokenDelta is the usage found in *one batch* of newly read records,
@@ -926,6 +936,7 @@ func splitUsage(u Usage, weights []float64) []Usage {
 			CacheReadInputTokens:     parts[4][j],
 			OutputTokens:             parts[5][j],
 			ThinkingTokens:           parts[6][j],
+			OutputUnmeasured:         u.OutputUnmeasured,
 		}
 	}
 	return out

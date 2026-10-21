@@ -64,3 +64,19 @@ func TestCostPricesUnknownSplitAtFlatRate(t *testing.T) {
 }
 
 func ptr(v float64) *float64 { return &v }
+
+// TestCostRefusesUnmeasuredOutput pins kan-920's self-review: a bucket whose
+// output_unmeasured counts messages its Output leaves out prices nothing --
+// a cost from it would read as complete while under-pricing output.
+func TestCostRefusesUnmeasuredOutput(t *testing.T) {
+	rate := PricingRate{Model: "claude-test", InputPerMTok: 1, OutputPerMTok: 2, CacheWrite5mPerMTok: 6.25, CacheReadPerMTok: 0.1}
+	if _, ok := (chargeableTokens{Input: ptr(1000), Output: ptr(400), OutputUnmeasured: ptr(1)}).cost(rate, false); ok {
+		t.Error("ok = true, want false: output_unmeasured leaves output out of the bucket")
+	}
+	if _, ok := (chargeableTokens{Input: ptr(1000), Output: ptr(400)}).cost(rate, false); !ok {
+		t.Error("ok = false, want true: a fully measured bucket prices")
+	}
+	if got := combineMainAndSidechain(&chargeableTokens{Input: ptr(1)}, &chargeableTokens{OutputUnmeasured: ptr(2)}).OutputUnmeasured; got == nil || *got != 2 {
+		t.Errorf("combined output_unmeasured = %v, want 2", got)
+	}
+}

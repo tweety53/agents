@@ -2029,8 +2029,9 @@ func dropCarriedMessage(records []Record, carried carriedMessage) []Record {
 		if r.Signal == nil && r.MessageID == carried.id {
 			if r.Usage.OutputTokens > carried.output {
 				r.Usage = Usage{
-					OutputTokens:   r.Usage.OutputTokens - carried.output,
-					ThinkingTokens: max(0, r.Usage.ThinkingTokens-carried.thinking),
+					OutputTokens:     r.Usage.OutputTokens - carried.output,
+					ThinkingTokens:   max(0, r.Usage.ThinkingTokens-carried.thinking),
+					OutputUnmeasured: r.Usage.OutputUnmeasured,
 				}
 				out = append(out, r)
 			}

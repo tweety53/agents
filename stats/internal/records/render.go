@@ -395,10 +395,11 @@ type tokenTotals struct {
 }
 
 type tokenBucket struct {
-	Input         int64 `json:"input"`
-	Output        int64 `json:"output"`
-	CacheCreation int64 `json:"cache_creation"`
-	CacheRead     int64 `json:"cache_read"`
+	Input            int64 `json:"input"`
+	Output           int64 `json:"output"`
+	CacheCreation    int64 `json:"cache_creation"`
+	CacheRead        int64 `json:"cache_read"`
+	OutputUnmeasured int64 `json:"output_unmeasured"`
 }
 
 // tokenLine renders a dispatch's token figures, or the words that say why
@@ -467,9 +468,15 @@ func tokenLine(raw json.RawMessage) string {
 	if m.Tokens != nil {
 		t := *m.Tokens
 		sum := func(a, b int64) int64 { return a + b }
-		line := fmt.Sprintf("input %d, output %d, cache read %d, cache creation %d",
+		// A bucket carrying output_unmeasured left out output no transcript
+		// line measured (internal/harvest's Bucket), so its sum is no figure.
+		output := strconv.FormatInt(sum(t.Main.Output, t.Sidechain.Output), 10)
+		if sum(t.Main.OutputUnmeasured, t.Sidechain.OutputUnmeasured) > 0 {
+			output = reasonNotMeasured
+		}
+		line := fmt.Sprintf("input %d, output %s, cache read %d, cache creation %d",
 			sum(t.Main.Input, t.Sidechain.Input),
-			sum(t.Main.Output, t.Sidechain.Output),
+			output,
 			sum(t.Main.CacheRead, t.Sidechain.CacheRead),
 			sum(t.Main.CacheCreation, t.Sidechain.CacheCreation))
 		if m.Apportioned != nil && m.Apportioned.Records > 0 {

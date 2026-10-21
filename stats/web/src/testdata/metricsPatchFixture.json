@@ -8,7 +8,8 @@
       "cache_creation_1h": 15000,
       "cache_creation_unknown": 5000,
       "cache_read": 950000,
-      "thinking": 10000
+      "thinking": 10000,
+      "output_unmeasured": 2
     },
     "sidechain": {
       "input": 400000,
@@ -18,7 +19,8 @@
       "cache_creation_1h": 6000,
       "cache_creation_unknown": 2000,
       "cache_read": 300000,
-      "thinking": 5000
+      "thinking": 5000,
+      "output_unmeasured": 3
     }
   }
 }

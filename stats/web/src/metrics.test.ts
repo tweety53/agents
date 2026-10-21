@@ -144,9 +144,16 @@ describe("token readers", () => {
 
   it("sum a present numeric field across both buckets, for each per-field key", () => {
     expect(readInputTokens(bag)).toBe(main.input + sidechain.input);
-    expect(readOutputTokens(bag)).toBe(main.output + sidechain.output);
+    expect(readOutputTokens({ tokens: { main: { ...main, output_unmeasured: 0 }, sidechain: { ...sidechain, output_unmeasured: 0 } } })).toBe(
+      main.output + sidechain.output,
+    );
     expect(readCacheReadTokens(bag)).toBe(main.cache_read + sidechain.cache_read);
     expect(readCacheCreationTokens(bag)).toBe(main.cache_creation + sidechain.cache_creation);
+  });
+
+  it("read output as absent when a bucket carries output_unmeasured", () => {
+    expect(readOutputTokens(bag)).toBeNull();
+    expect(readOutputTokens({ tokens: { main: { output: 9 }, sidechain: { output: 184, output_unmeasured: 1 } } })).toBeNull();
   });
 
   it("sum each bucket's own fields into that bucket's grand total", () => {

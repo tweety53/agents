@@ -170,6 +170,32 @@ func TestMessageOutsideItsWindowIntervalIsNotAttributed(t *testing.T) {
 
 func ptrTime(t time.Time) *time.Time { return &t }
 
+// TestAttributeCountsUnmeasuredOutputApart pins kan-920's self-review: a
+// message whose output no transcript line measured adds its input to the
+// dispatch's bucket and one to output_unmeasured, never its first-chunk
+// output or thinking.
+func TestAttributeCountsUnmeasuredOutputApart(t *testing.T) {
+	at := mustParse(t, "2026-01-01T00:00:01Z")
+	records := []harvest.Record{
+		{Timestamp: at, SessionID: mainSessionID, IsSidechain: true, MessageID: "a",
+			Usage: harvest.Usage{InputTokens: 5, OutputTokens: 28, ThinkingTokens: 9, OutputUnmeasured: true}},
+		{Timestamp: at, SessionID: mainSessionID, IsSidechain: true, MessageID: "b",
+			Usage: harvest.Usage{InputTokens: 7, OutputTokens: 400, ThinkingTokens: 50}},
+	}
+	windows := &fakeDispatchWindowSource{bySession: map[string][]harvest.DispatchWindow{
+		mainSessionID: {{DispatchID: 5, StartedAt: mustParse(t, "2026-01-01T00:00:00Z"),
+			EndedAt: ptrTime(mustParse(t, "2026-01-01T00:00:02Z"))}},
+	}}
+	deltas, err := harvest.NewDispatchAttributor(windows).Attribute(context.Background(), records)
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	got := deltas[5].Tokens.Sidechain
+	if got.Input != 12 || got.Output != 400 || got.Thinking != 50 || got.OutputUnmeasured != 1 {
+		t.Errorf("sidechain = %+v, want input 12, output 400, thinking 50, output_unmeasured 1", got)
+	}
+}
+
 // TestSidechainAccumulatesSeparately attributes main-thread and sidechain
 // fixture records that share one session id into one window, and checks
 // that main and sidechain totals land in separate buckets rather than
@@ -212,8 +238,10 @@ func TestSidechainAccumulatesSeparately(t *testing.T) {
 	if d.Total.Sidechain.CacheRead != 77676 {
 		t.Errorf("tokens.sidechain.cache_read = %v, want 77676", d.Total.Sidechain.CacheRead)
 	}
-	if d.Total.Sidechain.Output != 125 {
-		t.Errorf("tokens.sidechain.output = %v, want 125", d.Total.Sidechain.Output)
+	// The fixture's four sidechain lines carry "stop_reason": null, as a
+	// subagent transcript writes them: their output is not measured.
+	if d.Total.Sidechain.Output != 0 || d.Total.Sidechain.OutputUnmeasured != 4 {
+		t.Errorf("tokens.sidechain output = %v, output_unmeasured = %v, want 0 and 4", d.Total.Sidechain.Output, d.Total.Sidechain.OutputUnmeasured)
 	}
 }
 
@@ -1082,8 +1110,8 @@ func TestDispatchWindowAttributesSidechainUsage(t *testing.T) {
 	if d.Tokens.Sidechain.CacheRead != 77676 {
 		t.Errorf("tokens.sidechain.cache_read = %v, want 77676", d.Tokens.Sidechain.CacheRead)
 	}
-	if d.Tokens.Sidechain.Output != 125 {
-		t.Errorf("tokens.sidechain.output = %v, want 125", d.Tokens.Sidechain.Output)
+	if d.Tokens.Sidechain.Output != 0 || d.Tokens.Sidechain.OutputUnmeasured != 4 {
+		t.Errorf("tokens.sidechain output = %v, output_unmeasured = %v, want 0 and 4 -- the fixture's stream-start lines", d.Tokens.Sidechain.Output, d.Tokens.Sidechain.OutputUnmeasured)
 	}
 }
 
@@ -1298,7 +1326,7 @@ func TestDispatchAttributionLeavesStageAttributionUnchanged(t *testing.T) {
 			CacheRead: 109042,
 		},
 		Sidechain: harvest.Bucket{
-			Input: 8, Output: 125,
+			Input: 8, OutputUnmeasured: 4,
 			CacheCreation: 35348, CacheCreation5m: 35348,
 			CacheRead: 77676,
 		},
@@ -1365,11 +1393,11 @@ func TestDispatchWindowIntervalIsHalfOpen(t *testing.T) {
 		// Only the fixture's first record (00:05:00.500) precedes the
 		// seam; the record *on* the seam and the two after it belong to
 		// the window that is starting.
-		if got := deltas[1].Tokens.Sidechain.Output; got != 30 {
-			t.Errorf("order %v: dispatch 1 output = %v, want 30 (its one record before the seam)", order, got)
+		if got := deltas[1].Tokens.Sidechain.OutputUnmeasured; got != 1 {
+			t.Errorf("order %v: dispatch 1 output_unmeasured = %v, want 1 (its one record before the seam)", order, got)
 		}
-		if got := deltas[2].Tokens.Sidechain.Output; got != 95 {
-			t.Errorf("order %v: dispatch 2 output = %v, want 95 (the record on the seam plus the two after it)", order, got)
+		if got := deltas[2].Tokens.Sidechain.OutputUnmeasured; got != 3 {
+			t.Errorf("order %v: dispatch 2 output_unmeasured = %v, want 3 (the record on the seam plus the two after it)", order, got)
 		}
 		if got := deltas[1].Tokens.Sidechain.CacheCreation; got != 20000 {
 			t.Errorf("order %v: dispatch 1 cache_creation = %v, want 20000", order, got)

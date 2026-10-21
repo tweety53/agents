@@ -31,12 +31,12 @@ var spaMetricsFixturePatch = harvest.MetricsPatch{
 		Main: harvest.Bucket{
 			Input: 600000, Output: 300000, CacheCreation: 50000,
 			CacheCreation5m: 30000, CacheCreation1h: 15000, CacheCreationUnknown: 5000,
-			CacheRead: 950000, Thinking: 10000,
+			CacheRead: 950000, Thinking: 10000, OutputUnmeasured: 2,
 		},
 		Sidechain: harvest.Bucket{
 			Input: 400000, Output: 100000, CacheCreation: 20000,
 			CacheCreation5m: 12000, CacheCreation1h: 6000, CacheCreationUnknown: 2000,
-			CacheRead: 300000, Thinking: 5000,
+			CacheRead: 300000, Thinking: 5000, OutputUnmeasured: 3,
 		},
 	},
 }

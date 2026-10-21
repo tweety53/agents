@@ -364,6 +364,29 @@ func TestParseAssistantRecordsTakesLargestOutputPerMessage(t *testing.T) {
 	}
 }
 
+// TestParseAssistantRecordsMarksStreamingOutputUnmeasured pins kan-920's
+// self-review: a subagent transcript writes every line of a message with an
+// explicit "stop_reason": null and its stream-start usage, so its output is
+// not measured. One line carrying a stop_reason measures the message; a line
+// with no stop_reason key is an older shape and stays measured.
+func TestParseAssistantRecordsMarksStreamingOutputUnmeasured(t *testing.T) {
+	line := func(id, stop string) string {
+		return fmt.Sprintf(`{"type":"assistant","timestamp":"2026-01-01T00:00:01Z","sessionId":"s","message":{"id":%q,"model":"m",%s"usage":{"input_tokens":5,"output_tokens":28}}}`+"\n", id, stop)
+	}
+	records := harvest.ParseAssistantRecords([]byte(
+		line("msg_stream", `"stop_reason":null,`) + line("msg_stream", `"stop_reason":null,`) +
+			line("msg_final", `"stop_reason":null,`) + line("msg_final", `"stop_reason":"tool_use",`) +
+			line("msg_old", "")))
+	if len(records) != 3 {
+		t.Fatalf("got %d records, want 3", len(records))
+	}
+	for i, want := range []bool{true, false, false} {
+		if got := records[i].Usage.OutputUnmeasured; got != want {
+			t.Errorf("%s: OutputUnmeasured = %v, want %v", records[i].MessageID, got, want)
+		}
+	}
+}
+
 // TestParseAssistantRecordsAgentIDAbsent is the negative companion: a
 // parent-session line carries no "agentId" at all, and must decode to
 // AgentID == "" -- never a placeholder, per this change's own

@@ -172,8 +172,14 @@ export function readInputTokens(bag: unknown): number | null {
   return readSummedBucketField(bag, "input");
 }
 
-/** `output`, summed across `tokens.main` and `tokens.sidechain`. */
+/**
+ * `output`, summed across `tokens.main` and `tokens.sidechain` -- or null
+ * when either bucket carries `output_unmeasured`: `internal/harvest.Bucket`
+ * then leaves out the output no transcript line measured, so the sum is no
+ * figure (kan-920 self-review).
+ */
 export function readOutputTokens(bag: unknown): number | null {
+  if ((readSummedBucketField(bag, "output_unmeasured") ?? 0) > 0) return null;
   return readSummedBucketField(bag, "output");
 }
 
