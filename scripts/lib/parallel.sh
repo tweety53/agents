@@ -62,8 +62,7 @@
 # caller reads PARALLEL_OUTFILES (or replays failures) only AFTER
 # parallel_run returns; removing the tmp dir any earlier than process exit
 # would race the caller's own read of it. Installing these traps means this
-# library --- unlike scripts/lib/coverage.sh and scripts/lib/owned-corpus.sh
-# --- is NOT trap-neutral: a caller that needs its own EXIT/INT/TERM trap
+# library --- unlike scripts/lib/coverage.sh --- is NOT trap-neutral: a caller that needs its own EXIT/INT/TERM trap
 # must install it before sourcing this file and chain to
 # `_parallel_cleanup` itself, or install it after sourcing and call
 # `_parallel_cleanup` from within it. scripts/run-guard-tests.sh installs no

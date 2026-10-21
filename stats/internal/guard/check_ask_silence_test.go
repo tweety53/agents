@@ -24,7 +24,7 @@ import (
 func asFixtureRoot(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
-	for _, dir := range askSilenceScopes {
+	for _, dir := range ownedCorpusScopes {
 		mkdir(t, filepath.Join(root, dir))
 	}
 	return root
@@ -302,13 +302,13 @@ func TestAskSilence(t *testing.T) {
 	})
 }
 
-// TestAskSilenceCorpusParity pins the Go corpus twin against
-// scripts/lib/owned-corpus.sh — the one definition of the run-loaded
-// Markdown this port cannot source — by running both walkers over the same
-// seeded fixture roots and failing on any difference in the refusal status
+// TestAskSilenceCorpusParity pins ownedCorpus against
+// scripts/lib/owned-corpus.sh as it stood at libTwinBase — the bash
+// definition of the run-loaded Markdown KAN-920 deleted — by running both
+// walkers over the same seeded fixture roots and failing on any difference in the refusal status
 // or the produced file set (shared-helper-go-twins, per helper-parity-tests,
 // the libtwins_test.go mechanism). The table tests above cannot do this:
-// their fixtures are laid out FROM askSilenceScopes, so the suite is
+// their fixtures are laid out FROM ownedCorpusScopes, so the suite is
 // structurally blind to scope drift.
 func TestAskSilenceCorpusParity(t *testing.T) {
 	t.Parallel()
@@ -316,7 +316,7 @@ func TestAskSilenceCorpusParity(t *testing.T) {
 	newRoot := func(t *testing.T) string {
 		t.Helper()
 		root := t.TempDir()
-		for _, dir := range askSilenceScopes {
+		for _, dir := range ownedCorpusScopes {
 			mkdir(t, filepath.Join(root, dir))
 		}
 		return root
@@ -324,13 +324,13 @@ func TestAskSilenceCorpusParity(t *testing.T) {
 
 	bashSide := func(t *testing.T, root string) (int, []string) {
 		t.Helper()
-		res := bashLib(t, "owned-corpus.sh", "owned_corpus_files", root)
+		res := bashLibAt(t, nil, []string{"owned-corpus.sh"}, "owned_corpus_files", root)
 		return res.status, asRelSet(t, root, strings.Split(res.stdout, "\x00"))
 	}
 	goSide := func(t *testing.T, root string) (int, []string) {
 		t.Helper()
 		var stderr bytes.Buffer
-		files, code := asCorpus(root, &stderr)
+		files, code := ownedCorpus(root, askSilenceName, &stderr)
 		return code, asRelSet(t, root, files)
 	}
 
