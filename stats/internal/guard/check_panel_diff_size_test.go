@@ -153,6 +153,26 @@ func TestCheckPanelDiffSize(t *testing.T) {
 	r = pdsRun(repo, "no-such-ref")
 	want("case 7e: an unresolved merge base exits 2", r.rc == 2 && r.err == "check-panel-diff-size: merge base does not resolve in "+repo+": 'no-such-ref'\n", r)
 
+	// 8. A git diff failing after the merge base resolved is a cannot-answer
+	// exit 2, never git's own code: a git exit 1 would read as over cap.
+	realGit, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stub := t.TempDir()
+	writeFile(t, stub+"/git", "#!/bin/sh\nfor a; do [ \"$a\" = diff ] && { echo boom >&2; exit 1; }; done\nexec "+realGit+" \"$@\"\n")
+	if err := os.Chmod(stub+"/git", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	stubEnv := Env{Getenv: func(k string) string {
+		if k == "PATH" {
+			return stub + ":" + os.Getenv("PATH")
+		}
+		return os.Getenv(k)
+	}}
+	r = runGuard("check-panel-diff-size", []string{repo, base}, stubEnv)
+	want("case 8: a failing git diff exits 2", r.rc == 2 && r.stdout == "" && r.err == "boom\ncheck-panel-diff-size: git diff failed in "+repo+" -- cannot answer\n", r)
+
 	for _, c := range checks {
 		t.Run(c.label, func(t *testing.T) {
 			t.Parallel()

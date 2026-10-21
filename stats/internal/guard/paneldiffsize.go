@@ -1,10 +1,8 @@
 package guard
 
 import (
-	"errors"
 	"fmt"
 	"io"
-	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -73,17 +71,14 @@ func checkPanelDiffSize(args []string, env Env, stdout, stderr io.Writer) int {
 	// with rename detection a pure rename counts as zero changed lines,
 	// without it as a full delete+add -- the same tree would measure
 	// differently.
-	// The bash ran this under `set -e` with git's stderr passing through, so
-	// a failing diff ends the guard with git's own exit code.
+	// git's stderr passes through. The bash ran this under `set -e`, so a
+	// failing diff ended it with git's own exit code -- and a git exit 1
+	// read as over cap; the port answers 2, as the header promises.
 	cmd := git("-C", worktree, "diff", "--no-renames", "--shortstat", "--end-of-options", mergePoint)
 	cmd.Stderr = stderr
 	out, err := cmd.Output()
 	if err != nil {
-		var exit *exec.ExitError
-		if errors.As(err, &exit) {
-			return exit.ExitCode()
-		}
-		return fail("cannot run git diff in %s", worktree)
+		return fail("git diff failed in %s -- cannot answer", worktree)
 	}
 	shortstat := strings.TrimRight(string(out), "\n")
 	total := 0
