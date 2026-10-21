@@ -39,10 +39,10 @@ store.
 - Task 8: a dispatched (non-inline) row is never refused for its commit time; a blocked or aborted inline row with no commit is accepted; an `end` whose `-commit` no worktree knows sends no `commitAt` and is not refused for it.
 - Task 8's repair: every one of the 17 rows ends at its table values, and no other row changes.
 
-- [ ] 1. Read a dotless name under no tracked directory as a branch in check-done-when-paths
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In a scratch directory outside every worktree, `git clone -q --single-branch --branch develop /Users/tweety53/Projects/gymie gclone`, then `scripts/check-done-when-paths.sh <that clone>` from this worktree: exit 1 and 8 `DONE-WHEN-PATH` lines, every one `feature/cardio` or `feature/workout-rows`.
+- [x] 1. Read a dotless name under no tracked directory as a branch in check-done-when-paths
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In a scratch directory outside every worktree, `git clone -q --single-branch --branch develop /Users/tweety53/Projects/gymie gclone`, then `scripts/check-done-when-paths.sh <that clone>` from this worktree: exit 1 and 8 `DONE-WHEN-PATH` lines, every one `feature/cardio` or `feature/workout-rows`.
     <!-- measured: scripts/check-done-when-paths.sh <gymie develop single-branch clone> @ 75261910 → exit 1, 8 DONE-WHEN-PATH lines -->
-  - [ ] **Step 2: Apply the diff** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the diff** (`git apply <the saved diff>`):
 
 ````diff verified:git apply in a scratch clone at 75261910; go test ./internal/guard -run TestCheckDoneWhenPaths passes, the new test fails on the unpatched guard, and the gymie clone of Step 1 exits 0
 diff --git a/stats/internal/guard/donewhenpaths.go b/stats/internal/guard/donewhenpaths.go
@@ -108,7 +108,7 @@ index ee6f2f27..449f3118 100644
  // syntax included, so `[e](shots/27.png)` and `<shots/27.png>` yield the path
 ````
 
-  - [ ] **Step 3: Add the test** at the end of `stats/internal/guard/check_done_when_paths_test.go`:
+  - [x] **Step 3: Add the test** at the end of `stats/internal/guard/check_done_when_paths_test.go`:
 
 ````go verified:passes in a scratch clone at 75261910 with Step 2 applied; fails without it
 // A branch named in a Done-when that no ref carries any more — merged and
@@ -134,7 +134,7 @@ func TestCheckDoneWhenPathsBranchShapedNames(t *testing.T) {
 }
 ````
 
-  - [ ] **Step 4: Update the shim's header.** In `scripts/check-done-when-paths.sh`, after the sentence ending "is a branch, not a path, and is\n# never judged.", add these comment lines:
+  - [x] **Step 4: Update the shim's header.** In `scripts/check-done-when-paths.sh`, after the sentence ending "is a branch, not a path, and is\n# never judged.", add these comment lines:
 
 ```bash verified:comment text only, authored for this change
 # A token whose last segment carries no dot, which neither starts with `/`
@@ -145,7 +145,7 @@ func TestCheckDoneWhenPathsBranchShapedNames(t *testing.T) {
 # dotless file under a tracked directory (`src/Makefile`) is still judged.
 ```
 
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l internal/guard` prints nothing; `cd stats && go test ./internal/guard -run 'TestCheckDoneWhenPaths' -count=1` passes; Step 1's command now exits 0 with `DONE-WHEN-OK`; `scripts/check-done-when-paths.sh "$PWD"` exits 0. Commit.
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l internal/guard` prints nothing; `cd stats && go test ./internal/guard -run 'TestCheckDoneWhenPaths' -count=1` passes; Step 1's command now exits 0 with `DONE-WHEN-OK`; `scripts/check-done-when-paths.sh "$PWD"` exits 0. Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/donewhenpaths.go`, `stats/internal/guard/check_done_when_paths_test.go`, `scripts/check-done-when-paths.sh`
@@ -157,10 +157,10 @@ func TestCheckDoneWhenPathsBranchShapedNames(t *testing.T) {
 
 **Decision:** done-when-branch-shape
 
-- [ ] 2. Amend a handoff ticket's Done-when when a decision overrules it
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -c 'departs from a handoff ticket' skills/flow/brainstorm-planner.md` prints `0`.
+- [x] 2. Amend a handoff ticket's Done-when when a decision overrules it
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -c 'departs from a handoff ticket' skills/flow/brainstorm-planner.md` prints `0`.
     <!-- measured: grep -c 'departs from a handoff ticket' skills/flow/brainstorm-planner.md @ 75261910 → 0 -->
-  - [ ] **Step 2: Add the rule.** In `skills/flow/brainstorm-planner.md`, after the paragraph ending "enforced by **Archive on\nthe change branch** (`skills/flow-contracts/finish-contract-run1.md`).", add one blank line and this paragraph:
+  - [x] **Step 2: Add the rule.** In `skills/flow/brainstorm-planner.md`, after the paragraph ending "enforced by **Archive on\nthe change branch** (`skills/flow-contracts/finish-contract-run1.md`).", add one blank line and this paragraph:
 
 ```markdown verified:applied in a scratch clone at 75261910; check-verbatim-moves.sh exits 0 with this change's verbatim-moves.txt
 **A decision that departs from a handoff ticket's Done-when amends that line before the plan-gate
@@ -172,7 +172,7 @@ overruled (kan-1003: decision `lands-on-develop` left "Branch `feature/one-block
 never develop" standing, and integrate stopped and asked again).
 ```
 
-  - [ ] **Step 3: Verify** — `scripts/check-verbatim-moves.sh`, `scripts/check-markdown-integrity.py` and `scripts/check-references.sh` each exit 0. Commit.
+  - [x] **Step 3: Verify** — `scripts/check-verbatim-moves.sh`, `scripts/check-markdown-integrity.py` and `scripts/check-references.sh` each exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/brainstorm-planner.md`
@@ -183,10 +183,10 @@ never develop" standing, and integrate stopped and asked again).
 
 **Decision:** done-when-amended-by-decision
 
-- [ ] 3. Cite the plan decision that landed KAN-1003 on develop
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-worktrees/kan-1003-one-block-a-gym-workout-can-t-be-saved-without`, `git branch --show-current` prints `spectre/kan-1003-one-block-a-gym-workout-can-t-be-saved-without`, and `tail -1 docs/design/one-block/tickets/KAN-1003-step-1.md` prints the line Step 2 replaces.
+- [x] 3. Cite the plan decision that landed KAN-1003 on develop
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-worktrees/kan-1003-one-block-a-gym-workout-can-t-be-saved-without`, `git branch --show-current` prints `spectre/kan-1003-one-block-a-gym-workout-can-t-be-saved-without`, and `tail -1 docs/design/one-block/tickets/KAN-1003-step-1.md` prints the line Step 2 replaces.
     <!-- measured: tail -1 docs/design/one-block/tickets/KAN-1003-step-1.md @ gymie e8554100 → the line Step 2 replaces -->
-  - [ ] **Step 2: Replace the Done-when line.** In `docs/design/one-block/tickets/KAN-1003-step-1.md`, replace
+  - [x] **Step 2: Replace the Done-when line.** In `docs/design/one-block/tickets/KAN-1003-step-1.md`, replace
 
 ```markdown verified:tail -1 of the file at gymie e8554100
 Backend tests per path green; Playwright fidelity OB1, OB3, OB5. Landed on `develop` (operator decision at integrate, 2026-10-22).
@@ -198,7 +198,7 @@ Backend tests per path green; Playwright fidelity OB1, OB3, OB5. Landed on `deve
 Backend tests per path green; Playwright fidelity OB1, OB3, OB5. Landed on `develop` (plan decision `lands-on-develop`, 2026-10-21).
 ```
 
-  - [ ] **Step 3: Verify and commit in that gymie worktree.** `git diff --stat` names only `docs/design/one-block/tickets/KAN-1003-step-1.md`; nothing under `spectre/` is touched. Commit with the `**Commit:**` subject and `-m "Flow-Key: self-review-kan-1003-one-block-a-gym-workout-can-t-be-saved-without-fix-g1"` — a commit outside every task of gymie's change (**Commits outside every task**, `skills/flow-contracts/git-boundaries.md`). Never push.
+  - [x] **Step 3: Verify and commit in that gymie worktree.** `git diff --stat` names only `docs/design/one-block/tickets/KAN-1003-step-1.md`; nothing under `spectre/` is touched. Commit with the `**Commit:**` subject and `-m "Flow-Key: self-review-kan-1003-one-block-a-gym-workout-can-t-be-saved-without-fix-g1"` — a commit outside every task of gymie's change (**Commits outside every task**, `skills/flow-contracts/git-boundaries.md`). Never push.
 
 **Build:** green
 **Files:** `docs/design/one-block/tickets/KAN-1003-step-1.md`
@@ -209,10 +209,10 @@ Backend tests per path green; Playwright fidelity OB1, OB3, OB5. Landed on `deve
 
 **Decision:** ticket-repair-own-task
 
-- [ ] 4. Judge a commit and its push in one command, and clear verdict 646
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run the hook on kan-1003's 10:52 command shape, aimed at gymie's kan-1003 worktree (branch `spectre/kan-1003-one-block-a-gym-workout-can-t-be-saved-without`, fully pushed): `printf '%s' '{"tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"cd /Users/tweety53/Projects/gymie-worktrees/kan-1003-one-block-a-gym-workout-can-t-be-saved-without && git commit -qm \"docs(design): x\" && git push -q"}}' | python3 hooks/protect-main-checkout.py` prints nothing (allowed); the hook only reads the command, it never runs it. `flow record verdicts -C /Users/tweety53/Projects/gymie -guard check-unfinished-work -false-positive` lists verdict 646 (kan-1003) and 436 (kan-941).
+- [x] 4. Judge a commit and its push in one command, and clear verdict 646
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run the hook on kan-1003's 10:52 command shape, aimed at gymie's kan-1003 worktree (branch `spectre/kan-1003-one-block-a-gym-workout-can-t-be-saved-without`, fully pushed): `printf '%s' '{"tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"cd /Users/tweety53/Projects/gymie-worktrees/kan-1003-one-block-a-gym-workout-can-t-be-saved-without && git commit -qm \"docs(design): x\" && git push -q"}}' | python3 hooks/protect-main-checkout.py` prints nothing (allowed); the hook only reads the command, it never runs it. `flow record verdicts -C /Users/tweety53/Projects/gymie -guard check-unfinished-work -false-positive` lists verdict 646 (kan-1003) and 436 (kan-941).
     <!-- measured: the hook command above @ 75261910 → no output, and a deny with this task's hook diff in a scratch clone; flow record verdicts -guard check-unfinished-work -false-positive, run from /Users/tweety53/Projects/gymie @ dev store 2026-10-22 → ids 646 and 436 -->
-  - [ ] **Step 2: Apply the hook diff** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the hook diff** (`git apply <the saved diff>`):
 
 ````diff verified:git apply in a scratch clone at 75261910; scripts/test-protect-main-checkout.sh passes, and case 143 fails without the hook half
 diff --git a/hooks/protect-main-checkout.py b/hooks/protect-main-checkout.py
@@ -338,8 +338,8 @@ index 40cb3ba4..a5415e76 100755
  RWT="$ROOT/main-worktrees/chg4"
 ````
 
-  - [ ] **Step 3: Document the check.** In the hook's module docstring, after the paragraph opening "It also denies a push of a `/flow` change branch (`spectre/<name>`) whose unpushed commits", add a paragraph: "It also denies a command that commits and then pushes the same repository to a `spectre/` branch when that commit's message, as the command states it (`-m`, `-qm`, `--message`), carries neither trailer, its subject is no `chore`, and its pathspec is not limited to `<spec-root>/changes/` — the push check above runs before the command does and cannot see a commit the command makes first (kan-1003: 0497d943). A message the command does not state (`-F`, `-C`, `--amend`, a shell expansion) is not judged." In the harness header, add one line per case 143–148, in its style.
-  - [ ] **Step 4: Add the prose.** In `skills/flow-contracts/git-boundaries.md`, after the paragraph ending "(kan-941 pushed four\nsuch commits before either check existed).", add one blank line and:
+  - [x] **Step 3: Document the check.** In the hook's module docstring, after the paragraph opening "It also denies a push of a `/flow` change branch (`spectre/<name>`) whose unpushed commits", add a paragraph: "It also denies a command that commits and then pushes the same repository to a `spectre/` branch when that commit's message, as the command states it (`-m`, `-qm`, `--message`), carries neither trailer, its subject is no `chore`, and its pathspec is not limited to `<spec-root>/changes/` — the push check above runs before the command does and cannot see a commit the command makes first (kan-1003: 0497d943). A message the command does not state (`-F`, `-C`, `--amend`, a shell expansion) is not judged." In the harness header, add one line per case 143–148, in its style.
+  - [x] **Step 4: Add the prose.** In `skills/flow-contracts/git-boundaries.md`, after the paragraph ending "(kan-941 pushed four\nsuch commits before either check existed).", add one blank line and:
 
 ```markdown verified:applied in a scratch clone at 75261910; check-verbatim-moves.sh exits 0 with this change's verbatim-moves.txt
 **A commit and its push in one command are judged together.** The push check above runs before
@@ -359,10 +359,10 @@ verdict 646). A listed commit's author is the identity every session commits und
 never calls it the operator's own.
 ```
 
-  - [ ] **Step 5: Write the failing store test.** In `stats/internal/store/records_test.go`, `TestUnflagVerdictClearsTheFlag`: record a verdict, flag it with `FlagVerdictFalsePositive`, call `st.UnflagVerdict(ctx, v.ID)`; assert `ListVerdicts(ctx, projectKey, guard, true)` is empty and `ListVerdicts(ctx, projectKey, guard, false)` returns the row with `FalsePositive == false`, `FalsePositiveReason == ""` and a nil `FlaggedAt`; and `st.UnflagVerdict(ctx, <an id no row has>)` returns an error wrapping `store.ErrDispatchNotFound`. Run `cd stats && go test ./internal/store -run TestUnflagVerdictClearsTheFlag -count=1`: fails to compile.
-  - [ ] **Step 6: Implement.** `func (s *Store) UnflagVerdict(ctx context.Context, id int64) error` in `stats/internal/store/records.go`, beside `FlagVerdictFalsePositive`: `UPDATE guard_verdicts SET false_positive = false, false_positive_reason = NULL, flagged_at = NULL WHERE id = $1`, zero rows → `fmt.Errorf("%w: verdict %d", ErrDispatchNotFound, id)`. In `stats/cmd/flowd/main.go`, an `unflag-verdict` branch beside `restamp-dispatch` in `main` and `func unflagVerdict(args []string) error` beside `restampDispatch`: usage `flowd unflag-verdict <verdict-id>`, the id parsed with `strconv.ParseInt`, `config.FromEnv`, `store.Open`, `st.UnflagVerdict`. Run Step 5's command: passes.
-  - [ ] **Step 7: Repair verdict 646.** `cd stats && make -s web-dist && FLOWD_DSN='postgres://flow:flow@localhost:5433/flow?sslmode=disable' go run ./cmd/flowd unflag-verdict 646` exits 0; Step 1's `flow record verdicts … -false-positive` now lists 436 alone. No kan-994 row is flagged (`design.md`, **Context**), so nothing else is repaired.
-  - [ ] **Step 8: Verify.** `bash scripts/test-protect-main-checkout.sh` ends `all protect-main-checkout cases pass`; Step 1's hook command now prints a deny; `cd stats && go test ./internal/store -run 'Verdict' -count=1` and `cd stats && make -s web-dist && go vet ./cmd/flowd ./internal/store` pass; `scripts/check-verbatim-moves.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-references.sh` and `scripts/check-python-suppressions.sh` exit 0. Commit.
+  - [x] **Step 5: Write the failing store test.** In `stats/internal/store/records_test.go`, `TestUnflagVerdictClearsTheFlag`: record a verdict, flag it with `FlagVerdictFalsePositive`, call `st.UnflagVerdict(ctx, v.ID)`; assert `ListVerdicts(ctx, projectKey, guard, true)` is empty and `ListVerdicts(ctx, projectKey, guard, false)` returns the row with `FalsePositive == false`, `FalsePositiveReason == ""` and a nil `FlaggedAt`; and `st.UnflagVerdict(ctx, <an id no row has>)` returns an error wrapping `store.ErrDispatchNotFound`. Run `cd stats && go test ./internal/store -run TestUnflagVerdictClearsTheFlag -count=1`: fails to compile.
+  - [x] **Step 6: Implement.** `func (s *Store) UnflagVerdict(ctx context.Context, id int64) error` in `stats/internal/store/records.go`, beside `FlagVerdictFalsePositive`: `UPDATE guard_verdicts SET false_positive = false, false_positive_reason = NULL, flagged_at = NULL WHERE id = $1`, zero rows → `fmt.Errorf("%w: verdict %d", ErrDispatchNotFound, id)`. In `stats/cmd/flowd/main.go`, an `unflag-verdict` branch beside `restamp-dispatch` in `main` and `func unflagVerdict(args []string) error` beside `restampDispatch`: usage `flowd unflag-verdict <verdict-id>`, the id parsed with `strconv.ParseInt`, `config.FromEnv`, `store.Open`, `st.UnflagVerdict`. Run Step 5's command: passes.
+  - [x] **Step 7: Repair verdict 646.** `cd stats && make -s web-dist && FLOWD_DSN='postgres://flow:flow@localhost:5433/flow?sslmode=disable' go run ./cmd/flowd unflag-verdict 646` exits 0; Step 1's `flow record verdicts … -false-positive` now lists 436 alone. No kan-994 row is flagged (`design.md`, **Context**), so nothing else is repaired.
+  - [x] **Step 8: Verify.** `bash scripts/test-protect-main-checkout.sh` ends `all protect-main-checkout cases pass`; Step 1's hook command now prints a deny; `cd stats && go test ./internal/store -run 'Verdict' -count=1` and `cd stats && make -s web-dist && go vet ./cmd/flowd ./internal/store` pass; `scripts/check-verbatim-moves.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-references.sh` and `scripts/check-python-suppressions.sh` exit 0. Commit.
 
 **Build:** green
 **Files:** `hooks/protect-main-checkout.py`, `scripts/test-protect-main-checkout.sh`, `skills/flow-contracts/git-boundaries.md`, `skills/flow/unfinished-work-gate.md`, `stats/internal/store/records.go`, `stats/internal/store/records_test.go`, `stats/cmd/flowd/main.go`
@@ -374,10 +374,10 @@ never calls it the operator's own.
 
 **Decision:** commit-push-one-command, untasked-never-flagged, flowd-unflag-verdict
 
-- [ ] 5. Read only standalone redirect operators in protect-main-checkout
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** From this worktree, `printf '%s' '{"tool_name":"Bash","cwd":"/Users/tweety53/Projects/gymie","tool_input":{"command":"python3 grab.py \"/Users/tweety53/Projects/gymie-worktrees/x/a.html\" '"'"'>Save<'"'"' 1 1200"}}' | python3 hooks/protect-main-checkout.py` prints a deny.
+- [x] 5. Read only standalone redirect operators in protect-main-checkout
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** From this worktree, `printf '%s' '{"tool_name":"Bash","cwd":"/Users/tweety53/Projects/gymie","tool_input":{"command":"python3 grab.py \"/Users/tweety53/Projects/gymie-worktrees/x/a.html\" '"'"'>Save<'"'"' 1 1200"}}' | python3 hooks/protect-main-checkout.py` prints a deny.
     <!-- measured: the command above @ 75261910 → permissionDecision deny -->
-  - [ ] **Step 2: Apply the diff** (`git apply <the saved diff>`), on top of Task 4's:
+  - [x] **Step 2: Apply the diff** (`git apply <the saved diff>`), on top of Task 4's:
 
 ````diff verified:git apply in a scratch clone at 75261910 after Task 4's hook diff; scripts/test-protect-main-checkout.sh passes, and cases 138-141 fail on the unpatched hook
 diff --git a/hooks/protect-main-checkout.py b/hooks/protect-main-checkout.py
@@ -459,8 +459,8 @@ index a5415e76..05ae5994 100755
  expect "3 Write in main checkout on a feature branch" allow \
 ````
 
-  - [ ] **Step 3: Header lines.** In the harness header, add one line per case 138–142, in its style.
-  - [ ] **Step 4: Verify.** `bash scripts/test-protect-main-checkout.sh` ends `all protect-main-checkout cases pass`; Step 1's command prints nothing; `scripts/check-python-suppressions.sh` exits 0. Commit.
+  - [x] **Step 3: Header lines.** In the harness header, add one line per case 138–142, in its style.
+  - [x] **Step 4: Verify.** `bash scripts/test-protect-main-checkout.sh` ends `all protect-main-checkout cases pass`; Step 1's command prints nothing; `scripts/check-python-suppressions.sh` exits 0. Commit.
 
 **Build:** green
 **Files:** `hooks/protect-main-checkout.py`, `scripts/test-protect-main-checkout.sh`
@@ -472,10 +472,10 @@ index a5415e76..05ae5994 100755
 
 **Decision:** redirect-operators-only
 
-- [ ] 6. Cite the handoff source for a departure's expected value
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -c 'inferred from the pixels' skills/flow/visual-verify-verifier.md` prints `0`.
+- [x] 6. Cite the handoff source for a departure's expected value
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -c 'inferred from the pixels' skills/flow/visual-verify-verifier.md` prints `0`.
     <!-- measured: grep -c 'inferred from the pixels' skills/flow/visual-verify-verifier.md @ 75261910 → 0 -->
-  - [ ] **Step 2: Add the rule.** In `skills/flow/visual-verify-verifier.md`, directly after the line `   beside it — never a bare `departure`.`, add:
+  - [x] **Step 2: Add the rule.** In `skills/flow/visual-verify-verifier.md`, directly after the line `   beside it — never a bare `departure`.`, add:
 
 ```markdown verified:applied in a scratch clone at 75261910; check-verbatim-moves.sh exits 0 with this change's verbatim-moves.txt
    **A departure's expected value cites the mockup's source wherever the handoff ships one, never a
@@ -486,7 +486,7 @@ index a5415e76..05ae5994 100755
    cost four fix rounds against the grid the HTML declared).
 ```
 
-  - [ ] **Step 3: Verify** — `scripts/check-verbatim-moves.sh`, `scripts/check-markdown-integrity.py` and `scripts/check-dispatch-paragraphs.sh` each exit 0. Commit.
+  - [x] **Step 3: Verify** — `scripts/check-verbatim-moves.sh`, `scripts/check-markdown-integrity.py` and `scripts/check-dispatch-paragraphs.sh` each exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/visual-verify-verifier.md`
@@ -497,10 +497,10 @@ index a5415e76..05ae5994 100755
 
 **Decision:** expected-cites-source
 
-- [ ] 7. Rebuild the full app suite's zip with one script
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -c 'zip -X -j' skills/flow/visual-verify-verifier.md` prints `1` and `grep -c 'full-app-suite.zip' skills/flow/verify-fix-loop.md` prints `0`: the rebuild lives only in the verifier's step 8, and the in-run fix loop never names it.
+- [x] 7. Rebuild the full app suite's zip with one script
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -c 'zip -X -j' skills/flow/visual-verify-verifier.md` prints `1` and `grep -c 'full-app-suite.zip' skills/flow/verify-fix-loop.md` prints `0`: the rebuild lives only in the verifier's step 8, and the in-run fix loop never names it.
     <!-- measured: both greps @ 75261910 → 1 and 0 -->
-  - [ ] **Step 2: Write the harness** `scripts/test-rebuild-full-app-suite-zip.sh` (executable) and run `bash scripts/test-rebuild-full-app-suite-zip.sh`: it fails, the script being absent.
+  - [x] **Step 2: Write the harness** `scripts/test-rebuild-full-app-suite-zip.sh` (executable) and run `bash scripts/test-rebuild-full-app-suite-zip.sh`: it fails, the script being absent.
 
 ````bash verified:passes in a scratch clone at 75261910 with Step 3's script; exits non-zero without it
 #!/usr/bin/env bash
@@ -558,7 +558,7 @@ fi
 echo "all rebuild-full-app-suite-zip cases pass"
 ````
 
-  - [ ] **Step 3: Write the script** `scripts/rebuild-full-app-suite-zip.sh` (executable) and its link `skills/flow/scripts/rebuild-full-app-suite-zip.sh` → `../../../scripts/rebuild-full-app-suite-zip.sh` (`ln -s`, relative). Run Step 2's harness: passes.
+  - [x] **Step 3: Write the script** `scripts/rebuild-full-app-suite-zip.sh` (executable) and its link `skills/flow/scripts/rebuild-full-app-suite-zip.sh` → `../../../scripts/rebuild-full-app-suite-zip.sh` (`ln -s`, relative). Run Step 2's harness: passes.
 
 ````bash verified:scripts/test-rebuild-full-app-suite-zip.sh passes against it in a scratch clone at 75261910; check-guard-symlinks.sh exits 0 with the link
 #!/usr/bin/env bash
@@ -595,7 +595,7 @@ printf '%s\n' "$list" | tr '\n' '\0' | xargs -0 touch -t 198001010000
 printf '%s\n' "$list" | zip -q -X -j -@ "$zip_path" || exit 2
 ````
 
-  - [ ] **Step 4: Point the three callers at it.** In `skills/flow/visual-verify-verifier.md` replace
+  - [x] **Step 4: Point the three callers at it.** In `skills/flow/visual-verify-verifier.md` replace
 
 ````markdown verified:the verifier's step 8 text at 75261910
    Then rebuild the zip from
@@ -642,7 +642,7 @@ printf '%s\n' "$list" | zip -q -X -j -@ "$zip_path" || exit 2
    trails the baselines it archives (kan-1003: two rounds left it stale).
 ```
 
-  - [ ] **Step 5: Verify** — `bash scripts/test-rebuild-full-app-suite-zip.sh` passes; `scripts/check-guard-symlinks.sh`, `scripts/check-verbatim-moves.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-references.sh` and `scripts/check-dispatch-paragraphs.sh` each exit 0; `git grep -n -F -e 'zip -X -j -@' -- skills` prints nothing. Commit.
+  - [x] **Step 5: Verify** — `bash scripts/test-rebuild-full-app-suite-zip.sh` passes; `scripts/check-guard-symlinks.sh`, `scripts/check-verbatim-moves.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-references.sh` and `scripts/check-dispatch-paragraphs.sh` each exit 0; `git grep -n -F -e 'zip -X -j -@' -- skills` prints nothing. Commit.
 
 **Build:** green
 **Files:** `scripts/rebuild-full-app-suite-zip.sh`, `scripts/test-rebuild-full-app-suite-zip.sh`, `skills/flow/scripts/rebuild-full-app-suite-zip.sh`, `skills/flow/visual-verify-verifier.md`, `skills/flow/sync-onto-base.md`, `skills/flow/verify-fix-loop.md`
@@ -654,23 +654,23 @@ printf '%s\n' "$list" | zip -q -X -j -@ "$zip_path" || exit 2
 
 **Decision:** zip-rebuild-script
 
-- [ ] 8. Refuse an inline row begun after its commit, and retime kan-1003's rows
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `docker exec -i flow-postgres psql -U flow -d flow -At -c "select id, extract(epoch from ended_at-started_at)::int, coalesce(left(commit_sha,8),'-') from dispatches where id in (6799,6842,6903) order by id"` prints `6799|2700|22c9796f`, `6842|11|-` and `6903|3|-`.
+- [x] 8. Refuse an inline row begun after its commit, and retime kan-1003's rows
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `docker exec -i flow-postgres psql -U flow -d flow -At -c "select id, extract(epoch from ended_at-started_at)::int, coalesce(left(commit_sha,8),'-') from dispatches where id in (6799,6842,6903) order by id"` prints `6799|2700|22c9796f`, `6842|11|-` and `6903|3|-`.
     <!-- measured: the psql query above @ dev store 2026-10-22 → 6799|2700|22c9796f, 6842|11|-, 6903|3|- -->
-  - [ ] **Step 2: Write the failing store tests** in `stats/internal/store/records_test.go`, after `TestEndDispatchRefusesAZeroWidthInlineRow`:
+  - [x] **Step 2: Write the failing store tests** in `stats/internal/store/records_test.go`, after `TestEndDispatchRefusesAZeroWidthInlineRow`:
     - `TestEndDispatchRefusesAnInlineTaskRowWithNoCommit` — an inline row keyed `task-3-implementer` ended `completed` with no `CommitSHA`, 10 s after its begin, returns an error wrapping `store.ErrInlineCommitMissing`; the same end with a `CommitSHA` succeeds; an inline row keyed `verify-gymie` ended with no commit succeeds; an inline task row ended `blocked` with no commit succeeds.
     - `TestEndDispatchRefusesAnInlineRowBegunAfterItsCommit` — an inline task row whose end carries `CommitAt` one minute before its begin returns an error wrapping `store.ErrInlineBegunAfterCommit`; `CommitAt` one minute after its begin succeeds; a dispatched row (agent id not `inline`) with `CommitAt` before its begin succeeds.
     - `TestRetimeDispatchSetsInstantsAndCommit` — `st.RetimeDispatch(ctx, id, started, ended, sha)` sets the row's `started_at`, `ended_at` and `commit_sha` exactly; an id no row has returns an error wrapping `store.ErrDispatchNotFound`; `started` after `ended` is an error and changes nothing.
     `TestEndDispatchRefusesAZeroWidthInlineRow`'s closing end (seven seconds after the begin, key `task-1-implementer`) gains a `CommitSHA`, since a completed inline task row with no commit is now refused. Run `cd stats && go test ./internal/store -run 'TestEndDispatchRefusesAnInline|TestRetimeDispatch' -count=1`: fails to compile.
-  - [ ] **Step 3: Implement the store half.** In `stats/internal/records/types.go`, `records.DispatchEnd` gains a `CommitAt *time.Time` field, JSON key `commitAt` with `omitempty` — the commit's committer time, as the CLI read it. In `stats/internal/store/records.go`: sentinels `ErrInlineCommitMissing` and `ErrInlineBegunAfterCommit` beside `ErrInlineWindowTooShort`, each with a doc comment naming kan-1003; `EndDispatch` reads the row's agent id and `started_at` whenever `in.Outcome == "completed"` (no longer only when `in.Tokens == nil`) and, for an inline row, keeps the window floor for a token-less end and refuses (a) a key that starts `task-` and contains `-implementer` with an empty `CommitSHA`, (b) a `CommitAt` before `started_at`, each error naming the key, the instants and the remedy (`-commit <the task's commit>`; `flow record dispatch backfill` with the real instants). `func (s *Store) RetimeDispatch(ctx context.Context, id int64, started, ended time.Time, commit string) error` beside `RestampDispatch`. In `stats/internal/api/server.go`'s `mapStoreError` both sentinels answer `http.StatusConflict`, as `ErrInlineWindowTooShort` does; in `stats/internal/reconcile/reconcile.go` both are retired on replay beside it. Run Step 2's command: passes.
-  - [ ] **Step 4: Pin the mapping and the retirement.** Add rows `{"inline commit missing", store.ErrInlineCommitMissing, http.StatusConflict}` and `{"inline begun after commit", store.ErrInlineBegunAfterCommit, http.StatusConflict}` to `TestErrorStatusMapping`'s table in `stats/internal/api/changes_test.go`. In `stats/internal/reconcile/record_test.go`, `TestDispatchEndRefusedForItsCommitIsRetired`, shaped as `TestDispatchEndRefusedAsTooShortIsRetiredAndAppliesEntryBehindIt`, over both sentinels: each journalled end retires and the finding behind it applies (`{Applied:1 Refused:1}`, no pending entry). `cd stats && go test ./internal/api -run TestErrorStatusMapping -count=1` and `cd stats && go test ./internal/reconcile -run TestDispatchEndRefused -count=1` pass.
-  - [ ] **Step 5: Write the failing CLI tests** in `stats/cmd/flow/record_test.go`, after `TestRecordDispatchBackfillInstants`; each builds its fixture commits with `GIT_COMMITTER_DATE` pinned:
+  - [x] **Step 3: Implement the store half.** In `stats/internal/records/types.go`, `records.DispatchEnd` gains a `CommitAt *time.Time` field, JSON key `commitAt` with `omitempty` — the commit's committer time, as the CLI read it. In `stats/internal/store/records.go`: sentinels `ErrInlineCommitMissing` and `ErrInlineBegunAfterCommit` beside `ErrInlineWindowTooShort`, each with a doc comment naming kan-1003; `EndDispatch` reads the row's agent id and `started_at` whenever `in.Outcome == "completed"` (no longer only when `in.Tokens == nil`) and, for an inline row, keeps the window floor for a token-less end and refuses (a) a key that starts `task-` and contains `-implementer` with an empty `CommitSHA`, (b) a `CommitAt` before `started_at`, each error naming the key, the instants and the remedy (`-commit <the task's commit>`; `flow record dispatch backfill` with the real instants). `func (s *Store) RetimeDispatch(ctx context.Context, id int64, started, ended time.Time, commit string) error` beside `RestampDispatch`. In `stats/internal/api/server.go`'s `mapStoreError` both sentinels answer `http.StatusConflict`, as `ErrInlineWindowTooShort` does; in `stats/internal/reconcile/reconcile.go` both are retired on replay beside it. Run Step 2's command: passes.
+  - [x] **Step 4: Pin the mapping and the retirement.** Add rows `{"inline commit missing", store.ErrInlineCommitMissing, http.StatusConflict}` and `{"inline begun after commit", store.ErrInlineBegunAfterCommit, http.StatusConflict}` to `TestErrorStatusMapping`'s table in `stats/internal/api/changes_test.go`. In `stats/internal/reconcile/record_test.go`, `TestDispatchEndRefusedForItsCommitIsRetired`, shaped as `TestDispatchEndRefusedAsTooShortIsRetiredAndAppliesEntryBehindIt`, over both sentinels: each journalled end retires and the finding behind it applies (`{Applied:1 Refused:1}`, no pending entry). `cd stats && go test ./internal/api -run TestErrorStatusMapping -count=1` and `cd stats && go test ./internal/reconcile -run TestDispatchEndRefused -count=1` pass.
+  - [x] **Step 5: Write the failing CLI tests** in `stats/cmd/flow/record_test.go`, after `TestRecordDispatchBackfillInstants`; each builds its fixture commits with `GIT_COMMITTER_DATE` pinned:
     - `TestRecordDispatchEndSendsCommitAt` — `flow record dispatch end -commit <a fixture commit>` sends `commitAt` equal to that commit's committer time (RFC 3339); `-commit` of a sha no worktree knows sends no `commitAt` key and still exits 0.
     - `TestRecordDispatchBackfillDerivesInlineInstants` — two fixture commits at `2026-10-21T11:02:00Z` and `2026-10-21T11:10:31Z`; `backfill -agent-id inline -commit <the second>` with no instants sends begin `startedAt` `2026-10-21T11:02:00Z` and end `endedAt` `2026-10-21T11:10:31Z`; the same call with `-started-at` or `-ended-at` exits 2 with no store call; `backfill -agent-id none` without instants still exits 2 as today.
     Run `cd stats && make -s web-dist && go test ./cmd/flow -run 'TestRecordDispatchEndSendsCommitAt|TestRecordDispatchBackfillDerivesInlineInstants' -count=1`: fails.
-  - [ ] **Step 6: Implement the CLI half** in `stats/cmd/flow/record.go`. `func commitTime(sha string, roots []string) (time.Time, bool)` — `git -C <root> show -s --format=%cI <sha>` over roots in order, the first that knows it. `func commitBefore(t time.Time, roots []string) (time.Time, bool)` — the newest `git -C <root> log -1 --format=%cI --before=<t minus one second, RFC 3339> HEAD` across roots. `runRecordDispatchEnd`, given `-commit`, sets `in.CommitAt` from `commitTime` over `-C`'s repository first, then `mutationRoots` only when that misses — so an end whose sha `-C` knows makes no state-record read. `runRecordDispatchBackfill`, given `-agent-id inline` and `-commit`: refuses `-started-at` or `-ended-at` (exit 2, naming that both derive from the commit); resolves the project key with `fallback.ProjectKey(f.dir)` and the roots with `mutationRoots`; derives `-ended-at` from `commitTime` and `-started-at` from `commitBefore` (either missing: exit 2 naming the sha); and passes both on to begin and end as if given. Any existing `cmd/flow` test whose fake daemon now also answers the state-record read of `mutationRoots` (an `end` with a `-commit` its fixture repository lacks) counts POST bodies only. unverified:list which existing cmd/flow tests count every daemon request on an end carrying a -commit the fixture repository lacks — TestRecordDispatchBackfill is one — and narrow each to POSTs. Run Step 5's command, then `cd stats && make -s web-dist && go test ./cmd/flow -run 'RecordDispatch' -count=1`: pass.
-  - [ ] **Step 7: Add the repair command.** In `stats/cmd/flowd/main.go`, a `retime-dispatch` branch beside `restamp-dispatch` in `main` and `func retimeDispatch(args []string) error`: usage `flowd retime-dispatch <dispatch-id> <started-at> <ended-at> <commit>`, both instants RFC 3339, then `st.RetimeDispatch`. `cd stats && make -s web-dist && go vet ./cmd/flowd` passes.
-  - [ ] **Step 8: Add the prose.** In `skills/flow/implement.md`, after the line ending "`-tokens` is refused where `CLAUDE_CODE_SESSION_ID` is set." in the **Records:** bullet, add these lines at the bullet's indent:
+  - [x] **Step 6: Implement the CLI half** in `stats/cmd/flow/record.go`. `func commitTime(sha string, roots []string) (time.Time, bool)` — `git -C <root> show -s --format=%cI <sha>` over roots in order, the first that knows it. `func commitBefore(t time.Time, roots []string) (time.Time, bool)` — the newest `git -C <root> log -1 --format=%cI --before=<t minus one second, RFC 3339> HEAD` across roots. `runRecordDispatchEnd`, given `-commit`, sets `in.CommitAt` from `commitTime` over `-C`'s repository first, then `mutationRoots` only when that misses — so an end whose sha `-C` knows makes no state-record read. `runRecordDispatchBackfill`, given `-agent-id inline` and `-commit`: refuses `-started-at` or `-ended-at` (exit 2, naming that both derive from the commit); resolves the project key with `fallback.ProjectKey(f.dir)` and the roots with `mutationRoots`; derives `-ended-at` from `commitTime` and `-started-at` from `commitBefore` (either missing: exit 2 naming the sha); and passes both on to begin and end as if given. Any existing `cmd/flow` test whose fake daemon now also answers the state-record read of `mutationRoots` (an `end` with a `-commit` its fixture repository lacks) counts POST bodies only. unverified:list which existing cmd/flow tests count every daemon request on an end carrying a -commit the fixture repository lacks — TestRecordDispatchBackfill is one — and narrow each to POSTs. Run Step 5's command, then `cd stats && make -s web-dist && go test ./cmd/flow -run 'RecordDispatch' -count=1`: pass.
+  - [x] **Step 7: Add the repair command.** In `stats/cmd/flowd/main.go`, a `retime-dispatch` branch beside `restamp-dispatch` in `main` and `func retimeDispatch(args []string) error`: usage `flowd retime-dispatch <dispatch-id> <started-at> <ended-at> <commit>`, both instants RFC 3339, then `st.RetimeDispatch`. `cd stats && make -s web-dist && go vet ./cmd/flowd` passes.
+  - [x] **Step 8: Add the prose.** In `skills/flow/implement.md`, after the line ending "`-tokens` is refused where `CLAUDE_CODE_SESSION_ID` is set." in the **Records:** bullet, add these lines at the bullet's indent:
 
 ```markdown verified:applied in a scratch clone at 75261910; check-verbatim-moves.sh exits 0 with this change's verbatim-moves.txt
   It also refuses a `completed` inline row on a task's key (`task-<n>-implementer…`) that
@@ -688,7 +688,7 @@ commit before it in any of the change's worktrees, and refuses either flag besid
 hand-written instant there is a guess (kan-1003: `-started-at $(date -u -v-45M …)`).
 ```
 
-  - [ ] **Step 9: Retime kan-1003's rows.** For each line of the table below — `<dispatch id> <started-at> <ended-at> <commit>`, derived by **inline-backfill-derives**'s rule (`design.md`, **Context**) — run `cd stats && FLOWD_DSN='postgres://flow:flow@localhost:5433/flow?sslmode=disable' go run ./cmd/flowd retime-dispatch <id> <started-at> <ended-at> <commit>`; each exits 0.
+  - [x] **Step 9: Retime kan-1003's rows.** For each line of the table below — `<dispatch id> <started-at> <ended-at> <commit>`, derived by **inline-backfill-derives**'s rule (`design.md`, **Context**) — run `cd stats && FLOWD_DSN='postgres://flow:flow@localhost:5433/flow?sslmode=disable' go run ./cmd/flowd retime-dispatch <id> <started-at> <ended-at> <commit>`; each exits 0.
 
 ```text verified:derived over the four kan-1003 worktrees' HEAD and refs/flow/pre-reshape/kan-1003-one-block-a-gym-workout-can-t-be-saved-without on 2026-10-22, the commit from each row's recorded sha, else the newest Flow-Key:<key> commit, else the newest Task-Id:<n> commit
 6799 2026-10-21T11:02:00Z 2026-10-21T11:10:31Z 22c9796f13a2d44a8e8a16397ba13cd338f51743
@@ -710,8 +710,8 @@ hand-written instant there is a guess (kan-1003: `-started-at $(date -u -v-45M �
 6903 2026-10-21T19:32:52Z 2026-10-21T19:37:51Z a5e8a8b36cddb6eb4000e025813927f24b0c763a
 ```
 
-  - [ ] **Step 10: Restamp them.** unverified:confirm `flowd restamp-dispatch 6799 <transcript>` exits 0 before looping. For each id in Step 9's table, `cd stats && FLOWD_DSN='postgres://flow:flow@localhost:5433/flow?sslmode=disable' go run ./cmd/flowd restamp-dispatch <id> /Users/tweety53/.claude/projects/-Users-tweety53-Projects-gymie/85208c79-6c1b-4be3-9f2a-5b8150f79a68.jsonl` — the parent transcript carrying session token `mf-k1003b`. An id whose restamp exits non-zero is reported with its output, never retried blind.
-  - [ ] **Step 11: Verify.** The `design.md` **Live check**'s psql query prints every row at its table values. `cd stats && go test ./internal/store -run 'EndDispatch|RetimeDispatch|RestampDispatch' -count=1`, `cd stats && go test ./internal/api -run 'TestErrorStatusMapping|Dispatch' -count=1`, `cd stats && go test ./internal/reconcile -run 'DispatchEnd' -count=1` and `cd stats && make -s web-dist && go test ./cmd/flow -run 'RecordDispatch' -count=1` pass; `cd stats && gofmt -l .` prints nothing; `cd stats && make -s web-dist && go vet ./...` exits 0; `scripts/check-verbatim-moves.sh` and `scripts/check-markdown-integrity.py` exit 0. Commit.
+  - [x] **Step 10: Restamp them.** unverified:confirm `flowd restamp-dispatch 6799 <transcript>` exits 0 before looping. For each id in Step 9's table, `cd stats && FLOWD_DSN='postgres://flow:flow@localhost:5433/flow?sslmode=disable' go run ./cmd/flowd restamp-dispatch <id> /Users/tweety53/.claude/projects/-Users-tweety53-Projects-gymie/85208c79-6c1b-4be3-9f2a-5b8150f79a68.jsonl` — the parent transcript carrying session token `mf-k1003b`. An id whose restamp exits non-zero is reported with its output, never retried blind.
+  - [x] **Step 11: Verify.** The `design.md` **Live check**'s psql query prints every row at its table values. `cd stats && go test ./internal/store -run 'EndDispatch|RetimeDispatch|RestampDispatch' -count=1`, `cd stats && go test ./internal/api -run 'TestErrorStatusMapping|Dispatch' -count=1`, `cd stats && go test ./internal/reconcile -run 'DispatchEnd' -count=1` and `cd stats && make -s web-dist && go test ./cmd/flow -run 'RecordDispatch' -count=1` pass; `cd stats && gofmt -l .` prints nothing; `cd stats && make -s web-dist && go vet ./...` exits 0; `scripts/check-verbatim-moves.sh` and `scripts/check-markdown-integrity.py` exit 0. Commit.
 
 **Build:** green
 **Files:** `stats/internal/records/types.go`, `stats/internal/store/records.go`, `stats/internal/store/records_test.go`, `stats/internal/api/server.go`, `stats/internal/api/changes_test.go`, `stats/internal/reconcile/reconcile.go`, `stats/internal/reconcile/record_test.go`, `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`, `stats/cmd/flowd/main.go`, `skills/flow/implement.md`
