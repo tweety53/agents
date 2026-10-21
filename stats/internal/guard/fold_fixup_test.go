@@ -2,6 +2,7 @@ package guard
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -14,6 +15,7 @@ import (
 type ffFx struct {
 	*bmFx
 	task, parent, tasksMD string
+	autosquash            string // overrides the real guard-autosquash.sh when set
 }
 
 func ffNewFx(t *testing.T) *ffFx {
@@ -50,6 +52,9 @@ func (fx *ffFx) run(t *testing.T, args ...string) (int, string, string) {
 func (fx *ffFx) runAsIs(t *testing.T, args ...string) (int, string, string) {
 	t.Helper()
 	autosquash := tcfScriptsDir(t) + "/guard-autosquash.sh"
+	if fx.autosquash != "" {
+		autosquash = fx.autosquash
+	}
 	env := Env{Dir: fx.dir, Getenv: func(k string) string {
 		if k == "FLOW_GUARD_AUTOSQUASH" {
 			return autosquash
@@ -104,6 +109,30 @@ func TestFoldFixupFolds(t *testing.T) {
 		t.Errorf("the task commit carries %q, want the fix folded in", got)
 	}
 	fx.assertSettled(t)
+}
+
+// TestFoldFixupAfterVerdict pins that fold-fixup returns guard-autosquash's
+// post-rebase `after` verdict: a refusal (1) passes through, and any exit
+// past 1 reads as cannot-answer (2). The stand-in runs the real guard for
+// `targets` and exits rc for `after`.
+func TestFoldFixupAfterVerdict(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct{ rc, want int }{{1, 1}, {3, 2}} {
+		t.Run(fmt.Sprintf("after exits %d", c.rc), func(t *testing.T) {
+			t.Parallel()
+			fx := ffNewFx(t)
+			fx.autosquash = t.TempDir() + "/guard-autosquash"
+			script := fmt.Sprintf("#!/bin/sh\n[ \"$1\" = after ] && exit %d\nexec %q \"$@\"\n", c.rc, tcfScriptsDir(t)+"/guard-autosquash.sh")
+			if err := os.WriteFile(fx.autosquash, []byte(script), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			fx.g.write(fx.repo+"/task.txt", "task fixed")
+			code, out, errs := fx.run(t, fx.repo, fx.task, fx.tasksMD, "task.txt")
+			if code != c.want || out != "" {
+				t.Errorf("exit %d stdout %q, want exit %d and no FOLDED line\nstderr %s", code, out, c.want, errs)
+			}
+		})
+	}
 }
 
 func TestFoldFixupEmptyDrop(t *testing.T) {

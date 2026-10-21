@@ -43,8 +43,8 @@ func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
 			return 2
 		}
 	}
-	// guard-autosquash stays bash, exec'd from beside the shim, which
-	// exports its $SCRIPT_DIR/guard-autosquash.sh spelling.
+	// guard-autosquash is exec'd through its own shim beside this one,
+	// which exports its $SCRIPT_DIR/guard-autosquash.sh spelling.
 	autosquash := env.Getenv("FLOW_GUARD_AUTOSQUASH")
 	if autosquash == "" {
 		return refuse("FLOW_GUARD_AUTOSQUASH is unset — run scripts/fold-fixup.sh, which sets it")

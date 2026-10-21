@@ -191,6 +191,12 @@ def scan_go(path, hits):
     # closing parenthesis.
     text = path.read_text(errors="replace")
     for m in re.finditer(r'(?<![\w\[])"(diff|diff-tree|apply|status)"\s*[,)]', text):
+        # A literal naming the program itself — lookPath(env, "diff"),
+        # exec.Command("diff", …) — is diff(1), never a git subcommand. Only
+        # lookPath takes a leading identifier: exec.Command(gitBin, "diff", …)
+        # is a git diff and stays audited.
+        if re.search(r'(?:exec\.Command\(|lookPath\(\s*\w+\s*,)\s*$', text[: m.start()]):
+            continue
         depth = 0
         i = m.start()
         quote = None
@@ -341,6 +347,8 @@ func d() {
 	s := pcRaw(o["status"])
 }
 func e() { args := append([]string{"-C", repo, "diff", "--name-only", "--no-renames"}, cached...) }
+func f() { out, err := exec.Command(gitBin, "diff", "--name-only").Output() }
+func g() { p, ok := lookPath(env, "diff"); d := exec.Command("diff", a, b) }
 EOF
 cat > "$GODIR/guard_test.go" <<'EOF'
 func t() { runGit(env, wt, "diff", "--name-only") }
@@ -348,8 +356,9 @@ EOF
 run_audit "$GODIR"
 if [ "$AUDIT_RC" -eq 1 ] && grep -q 'guard.go:1: R1' <<<"$AUDIT_OUT" \
   && grep -q 'guard.go:3: R3' <<<"$AUDIT_OUT" \
-  && [ "$(grep -c . <<<"$AUDIT_OUT")" -eq 2 ]; then
-  pass "case 6: go — unpinned diff and status are named; pinned, multi-line, composite-literal, map-index and _test.go are not"
+  && grep -q 'guard.go:10: R1' <<<"$AUDIT_OUT" \
+  && [ "$(grep -c . <<<"$AUDIT_OUT")" -eq 3 ]; then
+  pass "case 6: go — unpinned diff (incl. exec.Command(<var>, \"diff\")) and status are named; pinned, multi-line, composite-literal, map-index, diff(1)-program and _test.go are not"
 else
   fail "case 6: go — rc=$AUDIT_RC out=[$AUDIT_OUT]"
 fi
