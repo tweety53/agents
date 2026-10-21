@@ -191,6 +191,10 @@ def scan_go(path, hits):
     # closing parenthesis.
     text = path.read_text(errors="replace")
     for m in re.finditer(r'(?<![\w\[])"(diff|diff-tree|apply|status)"\s*[,)]', text):
+        # A literal naming the program itself — lookPath(env, "diff"),
+        # exec.Command("diff", …) — is diff(1), never a git subcommand.
+        if re.search(r'(?:exec\.Command|lookPath)\((?:\s*\w+\s*,)?\s*$', text[: m.start()]):
+            continue
         depth = 0
         i = m.start()
         quote = None

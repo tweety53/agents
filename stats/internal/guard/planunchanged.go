@@ -16,9 +16,6 @@ import (
 // written or unchanged, 1 changed (each difference on stderr), 2 cannot
 // answer. The reasoning for each step, moved here from the bash body it
 // replaced (c9b8fde8), sits beside the code it explains.
-// diffTool is diff(1), not git: named once so the git-config-pins audit,
-// which reads a quoted "diff" argument as a git subcommand, sees no git call.
-const diffTool = "diff"
 
 func init() {
 	Registry["check-plan-unchanged"] = checkPlanUnchanged
@@ -146,8 +143,8 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "check-plan-unchanged: mktemp failed -- cannot answer")
 		return 2
 	}
-	diffBin := diffTool
-	if p, ok := lookPath(env, diffTool); ok {
+	diffBin := "diff"
+	if p, ok := lookPath(env, "diff"); ok {
 		diffBin = p
 	}
 	d := exec.Command(diffBin, snapPath, cur.Name())
