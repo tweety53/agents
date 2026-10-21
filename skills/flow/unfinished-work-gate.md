@@ -6,29 +6,27 @@ course here passes. The verdicts and the stage mark are `integrate-change.sh`'s,
 **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) is canonical
 for the guards.
 
-## The prompt
+## Finish it — never a prompt
 
-- **`OUTSTANDING:`** → show the breakdown — and the guard's
-  `prior false positives for this guard on this project` stderr line when it printed — relay the
-  guard's hand-verification procedure per **Hand-verifying a guard verdict**
-  (`skills/flow-contracts/pipeline.md`), and offer exactly three courses, shape per Operator
-  prompts (`skills/flow-contracts/operator-prompts.md`):
+On `OUTSTANDING` or `UNTASKED` — from either guard — **nothing is asked: the parent finishes the
+unfinished work itself and re-runs the guard**, at integrate as at **Write `IN_PROGRESS`**
+(`skills/flow/verify-and-handoff.md`). Recorded at the operator's instruction (2026-10-22): an
+unfinished-work verdict is work to do, never a stop and never a question.
 
-  > **This change carries unfinished work — how should integration proceed?**
-  > - **Stop — I'll finish it first** *(recommended)*
-  > - **Continue — integrate anyway**
-  > - **File or join a Jira follow-up, then continue**
+- A missing dispatch, review, pass row or inline verify is run and recorded — never recorded after
+  the fact for work that did not run.
+- A verify failure is fixed at its source, held to `~/.claude/rules/fix-determinism-at-the-source.md`
+  when it does not fail every run.
+- An untasked commit is covered as **Commits outside every task**
+  (`skills/flow-contracts/git-boundaries.md`) states.
 
-  There is no fourth.
-
-**The `OUTSTANDING:` prompt above is a filing ask** — its third course files exactly these items,
-per **Follow-up issues** (`skills/flow-contracts/jira-followups.md`).
-**Every filing ask explains before it asks.** Before the filing prompt fires, the message body
-explains each item the run would file — what was observed, what breaks because of it, and what the
-fix would be — never leaving that explanation to the prompt's option text. The prompt itself follows
-the shape **Operator prompts** (`skills/flow-contracts/operator-prompts.md`) defines and records
-only the decision. A filed issue is durable and already on the board; an explanation reaching the
-operator afterward would describe something they never agreed to.
+**An item no change to the tree can finish** — a verify failure that does not recur in a measured
+re-run, its run count and failure rate stated; a verdict the guard reaches over a report line that
+names a passing spec — is recorded as a guard false positive per **A verdict the operator calls
+structural** below, its `-reason` carrying that measurement, and the run continues to the landing
+route. The outstanding items and their dispositions go into the message of the commit that carries
+the planning artifacts and into the handoff's `**Decisions:**` lines. The three courses below are
+never offered.
 
 ## The three courses
 
@@ -77,8 +75,8 @@ The signals that produce that list are the script's own.
 
 ## A verdict the operator calls structural
 
-When the operator's answer says the verdict was verified structural — the plan held in another
-worktree with every task ticked and no open finding — run once, before the landing question:
+When the verdict is structural — the plan held in another worktree with every task ticked and no
+open finding — or an item **Finish it** above cannot finish, run once, before the landing question:
 
 ```bash verified:the flag set is design.md §5's; the call shape mirrors the `flow record verdict` invocation in scripts/check-unfinished-work.sh
 flow record verdict false-positive -change <name> -guard check-unfinished-work \
