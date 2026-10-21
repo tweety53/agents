@@ -26,11 +26,11 @@ rewritten; no code, no guard.
 - Task 1: a view this change creates is still wholly the change's, and a merge-base capture that cannot run still leaves the departure the change's — the fix never turns a missing capture into a pre-existing attribution.
 - Task 1: the teardown removes the derived workspace before the worktrees, and nothing the merge-base capture writes reaches a commit or the change's baseline.
 
-- [ ] 1. KAN-942 — capture a baseline-less existing view at the merge base before attributing its departures
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Confirm the defect on the
+- [x] 1. KAN-942 — capture a baseline-less existing view at the merge base before attributing its departures
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Confirm the defect on the
     untouched tree: `git grep -n -F -e "and neither has one the merge base" -- skills/flow/visual-verify-verifier.md`
     prints line 232.
-  - [ ] **Step 2: Apply the prose diff.**
+  - [x] **Step 2: Apply the prose diff.**
 
 ````diff verified:applied with git apply at b76c2cf1; check-references.sh, check-installed-citations.sh, check-markdown-integrity.py, check-normative-inventory.sh and check-verbatim-moves.sh (with this change's verbatim-moves.txt) exit 0
 diff --git a/skills/flow/visual-verify-verifier.md b/skills/flow/visual-verify-verifier.md
@@ -68,11 +68,11 @@ index be4e4d2b..325970f4 100644
     stands is the parent's call under the Blocking paragraph of **Steps 3–13**
 ````
 
-  - [ ] **Step 3: Verify.** `git grep -n -F -e "and neither has one the merge base" -- skills/flow/visual-verify-verifier.md`
+  - [x] **Step 3: Verify.** `git grep -n -F -e "and neither has one the merge base" -- skills/flow/visual-verify-verifier.md`
     prints nothing; `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `python3 scripts/check-markdown-integrity.py`, `scripts/check-normative-inventory.sh` and
     `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/visual-verify-verifier.md`
