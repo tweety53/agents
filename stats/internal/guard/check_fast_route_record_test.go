@@ -181,13 +181,13 @@ func TestFastRouteRecordProseBodyClean(t *testing.T) {
 
 func TestFastRouteRecordCannotAnswer(t *testing.T) {
 	wt := fastRecordRepo(t, "kan-838-demo")
-	if code, out, errOut := runFastRecord(t, wt, "", []string{}); code != 2 || out != "" || errOut == "" {
+	if code, out, errOut := runFastRecord(t, wt, "", []string{}); code != 2 || out != "" || !strings.Contains(errOut, "usage: check-fast-route-record.sh") {
 		t.Fatalf("no args: exit %d, stdout %q, stderr %q", code, out, errOut)
 	}
-	if code, out, _ := runFastRecord(t, t.TempDir(), "main", nil); code != 2 || out != "" {
-		t.Fatalf("not a repo: exit %d, stdout %q", code, out)
+	if code, out, errOut := runFastRecord(t, t.TempDir(), "main", nil); code != 2 || out != "" || !strings.Contains(errOut, "is not a git worktree") {
+		t.Fatalf("not a repo: exit %d, stdout %q, stderr %q", code, out, errOut)
 	}
-	if code, out, _ := runFastRecord(t, wt, "nosuch", nil); code != 2 || out != "" {
-		t.Fatalf("bad base: exit %d, stdout %q", code, out)
+	if code, out, errOut := runFastRecord(t, wt, "nosuch", nil); code != 2 || out != "" || !strings.Contains(errOut, "resolves neither as origin/nosuch") {
+		t.Fatalf("bad base: exit %d, stdout %q, stderr %q", code, out, errOut)
 	}
 }
