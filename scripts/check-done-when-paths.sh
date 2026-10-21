@@ -31,6 +31,12 @@
 # A token naming a local or remote-tracking branch of the worktree's
 # repository (`feature/x`, `origin/feature/x`) is a branch, not a path, and is
 # never judged.
+# A token whose last segment carries no dot, which neither starts with `/`
+# nor climbs with `../`, and whose first segment — read relative to the
+# naming file's directory or any directory between it and the root — names
+# no tracked directory is a branch too, whether or not a ref of that name
+# exists: a merged-and-deleted `feature/cardio` (kan-1003's self-review). A
+# dotless file under a tracked directory (`src/Makefile`) is still judged.
 #
 # Prints one DONE-WHEN-PATH line per missing path with the file that named
 # it, then ONE verdict line:

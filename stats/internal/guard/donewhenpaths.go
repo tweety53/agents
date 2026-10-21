@@ -60,12 +60,16 @@ func checkDoneWhenPaths(args []string, env Env, stdout, stderr io.Writer) int {
 		return die("cannot read the index of %s", root)
 	}
 	tracked := map[string]bool{}
+	dirs := map[string]bool{}
 	var markdown []string
 	for _, p := range strings.Split(raw, "\x00") {
 		if p == "" {
 			continue
 		}
 		tracked[p] = true
+		for d := path.Dir(p); d != "."; d = path.Dir(d) {
+			dirs[d] = true
+		}
 		if strings.HasSuffix(p, ".md") {
 			markdown = append(markdown, p)
 		}
@@ -120,7 +124,7 @@ func checkDoneWhenPaths(args []string, env Env, stdout, stderr io.Writer) int {
 				continue
 			}
 			for _, p := range dwPaths(line) {
-				if !branch[p] && !dwResolves(tracked, path.Dir(file), p) && !seen[p+"\x00"+file] {
+				if !branch[p] && !dwBranchShaped(dirs, path.Dir(file), p) && !dwResolves(tracked, path.Dir(file), p) && !seen[p+"\x00"+file] {
 					seen[p+"\x00"+file] = true
 					offenders = append(offenders, fmt.Sprintf("%s — %s", p, file))
 				}
@@ -156,6 +160,30 @@ func dwResolves(tracked map[string]bool, dir, named string) bool {
 		}
 		if dir == "." {
 			return false
+		}
+		dir = path.Dir(dir)
+	}
+}
+
+// dwBranchShaped reports whether named reads as a branch rather than a path
+// even when no ref of that name exists (a merged-and-deleted `feature/cardio`,
+// kan-1003's self-review): its last segment carries no dot, it neither climbs
+// (`../`) nor starts at the root, and its first segment — read relative to dir
+// or any ancestor of dir up to the root, as dwResolves reads the whole name —
+// is no tracked directory. A dotless file under a tracked directory
+// (`src/Makefile`) is still judged.
+func dwBranchShaped(dirs map[string]bool, dir, named string) bool {
+	if strings.HasPrefix(named, "/") || strings.HasPrefix(named, "../") ||
+		strings.Contains(named[strings.LastIndex(named, "/")+1:], ".") {
+		return false
+	}
+	first, _, _ := strings.Cut(named, "/")
+	for {
+		if dirs[path.Join(dir, first)] {
+			return false
+		}
+		if dir == "." {
+			return true
 		}
 		dir = path.Dir(dir)
 	}

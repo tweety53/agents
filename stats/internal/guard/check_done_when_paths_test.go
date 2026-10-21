@@ -260,3 +260,25 @@ func TestCheckDoneWhenPaths(t *testing.T) {
 		}
 	})
 }
+
+// A branch named in a Done-when that no ref carries any more — merged and
+// deleted, or never fetched into this clone — is still no path (kan-1003's
+// self-review: a gymie clone without feature/cardio refused every archive),
+// while a dotless file under a tracked directory, a dotted name and a name
+// under a tracked ancestor of the ticket's directory are still judged.
+func TestCheckDoneWhenPathsBranchShapedNames(t *testing.T) {
+	t.Parallel()
+	dir := dwRepo(t, "src/main.go", "docs/x/notes/a.md")
+	dwFile(t, dir, "docs/x/tickets/t.md",
+		"## Done when\nBranch `feature/one-block` in both repos, `origin/feature/cardio` merged; "+
+			"`src/Makefile`, `src/gen/Makefile`, `notes/Makefile` and `feature/notes.md` committed.\n")
+	code, out, errb := runDoneWhen(t, dir)
+	want := "DONE-WHEN-PATH: src/Makefile — docs/x/tickets/t.md\n" +
+		"DONE-WHEN-PATH: src/gen/Makefile — docs/x/tickets/t.md\n" +
+		"DONE-WHEN-PATH: notes/Makefile — docs/x/tickets/t.md\n" +
+		"DONE-WHEN-PATH: feature/notes.md — docs/x/tickets/t.md\n" +
+		"DONE-WHEN-VIOLATION: " + dir + " — 4\n"
+	if code != 1 || out != want {
+		t.Fatalf("exit %d, stdout %q, stderr %q; want 1 and %q", code, out, errb, want)
+	}
+}
