@@ -281,11 +281,12 @@ func TestPrepareWorkspace(t *testing.T) {
 		}},
 		{"other", func(t *testing.T) pwResult {
 			repo := pwRepo(t, "kan-12-other", pwPortSection("8080"))
-			gitRun(t, repo, "checkout", "-q", "-b", "feature/kan-12")
+			// A loop prefix anywhere but the branch's start is no loop branch.
+			gitRun(t, repo, "checkout", "-q", "-b", "feature/self-review-kan-12")
 			return pwRun(t, pwRealSibling(t), repo)
 		}, []check{
 			{"other branch still refused", func(r pwResult) bool {
-				return r.rc == 2 && r.out == "" && strings.Contains(r.err, "(got 'feature/kan-12')")
+				return r.rc == 2 && r.out == "" && strings.Contains(r.err, "(got 'feature/self-review-kan-12')")
 			}},
 		}},
 		{"detached", func(t *testing.T) pwResult {
