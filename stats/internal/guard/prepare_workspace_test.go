@@ -62,6 +62,22 @@ func pwRepo(t *testing.T, name, cfg string) string {
 	return repo
 }
 
+// pwLoopRun runs prepare-workspace on a worktree checked out on the loop branch
+// [branch], and answers rc 99 when its output differs from a spectre/<branch>
+// worktree's — the whole branch is the change name.
+func pwLoopRun(t *testing.T, branch string) pwResult {
+	t.Helper()
+	root := pwRealSibling(t)
+	reference := pwRun(t, root, pwRepo(t, branch, pwPortSection("8080")))
+	repo := pwRepo(t, branch, pwPortSection("8080"))
+	gitRun(t, repo, "checkout", "-q", "-b", branch)
+	r := pwRun(t, root, repo)
+	if r.out != reference.out {
+		r.rc = 99
+	}
+	return r
+}
+
 // pwRealSibling is a repository root whose scripts/check-workspace-isolation.sh
 // runs the real guard.
 func pwRealSibling(t *testing.T) string {
@@ -246,13 +262,40 @@ func TestPrepareWorkspace(t *testing.T) {
 				return r.rc == 1 && r.out == "" && r.err == "prepare-workspace: `API_PORT` (port) default \"x80\" is not a base-10 integer\n"
 			}},
 		}},
+		// KAN-997: a self-review or pipeline-fix loop worktree is its own change, named
+		// after its whole branch (scripts/pipeline-fix.sh), so its id derives from that
+		// name — the same output a spectre/<that name> worktree gets.
+		{"self-review", func(t *testing.T) pwResult {
+			return pwLoopRun(t, "self-review-kan-1-x")
+		}, []check{
+			{"self-review branch derives the id from the branch", func(r pwResult) bool {
+				return r.rc == 0 && strings.Contains(r.out, "API_PORT=")
+			}},
+		}},
+		{"pipeline-fix", func(t *testing.T) pwResult {
+			return pwLoopRun(t, "pipeline-fix-kan-1-x-2")
+		}, []check{
+			{"pipeline-fix branch derives the id from the branch", func(r pwResult) bool {
+				return r.rc == 0 && strings.Contains(r.out, "API_PORT=")
+			}},
+		}},
+		{"other", func(t *testing.T) pwResult {
+			repo := pwRepo(t, "kan-12-other", pwPortSection("8080"))
+			// A loop prefix anywhere but the branch's start is no loop branch.
+			gitRun(t, repo, "checkout", "-q", "-b", "feature/self-review-kan-12")
+			return pwRun(t, pwRealSibling(t), repo)
+		}, []check{
+			{"other branch still refused", func(r pwResult) bool {
+				return r.rc == 2 && r.out == "" && strings.Contains(r.err, "(got 'feature/self-review-kan-12')")
+			}},
+		}},
 		{"detached", func(t *testing.T) pwResult {
 			repo := pwRepo(t, "kan-10-detached", pwPortSection("8080"))
 			gitRun(t, repo, "checkout", "-q", "--detach")
 			return pwRun(t, pwRealSibling(t), repo)
 		}, []check{
 			{"a detached worktree is exit 2 naming detached HEAD", func(r pwResult) bool {
-				return r.rc == 2 && r.out == "" && strings.Contains(r.err, "is not on a spectre/<name> branch (got 'detached HEAD') — cannot derive a workspace id without the change name\n")
+				return r.rc == 2 && r.out == "" && strings.Contains(r.err, "is not on a spectre/<name>, self-review-<name> or pipeline-fix-<name>-<k> branch (got 'detached HEAD') — cannot derive a workspace id without the change name\n")
 			}},
 		}},
 	}
