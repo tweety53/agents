@@ -137,7 +137,7 @@ its step 5 names. The full package and `scripts/run-guard-tests.sh` run in task 
 - [x] 3. Port guard-autosquash
 
 **Files:** `stats/internal/guard/guardautosquash.go`, `stats/internal/guard/guard_autosquash_test.go`, `scripts/guard-autosquash.sh`, `scripts/test-guard-autosquash.sh`, `stats/internal/guard/foldfixup.go`, `stats/internal/guard/fold_fixup_test.go`
-**Tests:** `TestGuardAutosquash`, `TestFoldFixupAfterVerdict` (added by panel fix 1-2)
+**Tests:** `TestGuardAutosquash`, `TestFoldFixupAfterVerdict` (added by panel fix 1-2); `TestGuardAutosquash/targets_accepts_an_annotated_tag's_object_sha` (added by panel fix 2)
 **Regression:** fails if any of the harness's 12 `ok:` behaviours regress; the existing TestFoldFixup, run unchanged, fails if
 fold-fixup stops reading the shim's verdicts.
 **Baseline:** before=0 after=1
