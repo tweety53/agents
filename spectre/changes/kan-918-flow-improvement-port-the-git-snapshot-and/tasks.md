@@ -137,8 +137,8 @@ its step 5 names. The full package and `scripts/run-guard-tests.sh` run in task 
 - [ ] 3. Port guard-autosquash
 
 **Files:** `stats/internal/guard/guardautosquash.go`, `stats/internal/guard/guard_autosquash_test.go`, `scripts/guard-autosquash.sh`, `scripts/test-guard-autosquash.sh`, `stats/internal/guard/foldfixup.go`
-**Tests:** `TestGuardAutosquash`, `TestFoldFixup`
-**Regression:** fails if any of the harness's 12 `ok:` behaviours regress; `TestFoldFixup` fails if
+**Tests:** `TestGuardAutosquash`
+**Regression:** fails if any of the harness's 12 `ok:` behaviours regress; the existing TestFoldFixup, run unchanged, fails if
 fold-fixup stops reading the shim's verdicts.
 **Baseline:** before=0 after=1
 <!-- measured: cat stats/internal/guard/guard_autosquash_test.go 2>/dev/null | grep -cE '^func Test' @ c9b8fde8 -->
@@ -147,6 +147,8 @@ fold-fixup stops reading the shim's verdicts.
 **Build:** green
 
 **Decision:** fold-fixup-execs-autosquash-shim
+
+Correction (2026-10-21): the plan declared `TestFoldFixup` under **Tests:**; the commit leaves that existing test unchanged and runs it, so it moved to **Regression:**.
 
   - [ ] **Step 1: Failing test.** Port every case of `scripts/test-guard-autosquash.sh`, one
     subtest per `ok:` label (`targets` and `after` subcommands, usage exits). Run — expect failure.
