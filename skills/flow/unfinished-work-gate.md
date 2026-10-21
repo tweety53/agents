@@ -90,3 +90,8 @@ change — a satellite's `-C` names a project holding none, and the store refuse
 "dispatch not found" for both satellites).
 
 A write that falls back to the journal is one warning line and the run continues.
+
+**An `UNTASKED` listing is never flagged this way.** `check-untasked-commits.sh` records no
+verdict, so the flag would land on `check-unfinished-work`'s newest row, a `CLEAR` (kan-1003:
+verdict 646). A listed commit's author is the identity every session commits under, so the relay
+never calls it the operator's own.

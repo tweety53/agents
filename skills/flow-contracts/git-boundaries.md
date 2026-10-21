@@ -143,6 +143,13 @@ through a reword; the push or the close is then made again. A commit already on 
 judged there — run 1's unfinished-work gate lists it and handles `UNTASKED` (kan-941 pushed four
 such commits before either check existed).
 
+**A commit and its push in one command are judged together.** The push check above runs before
+the command does, so it cannot see a commit the same command makes first:
+`hooks/protect-main-checkout.py` therefore denies a command that commits and pushes a `spectre/` <!-- citations-guard:allow -->
+branch when that commit's own `-m` text carries neither trailer and no `chore` subject, and its
+pathspec is not limited to `<project>/<spec-root>/changes/` (kan-1003: the design handoff 0497d943 was
+committed and pushed in one command, and run 1's gate listed it).
+
 ## Revert and back-out commits
 
 **A back-out's commit body carries the rejection reason.** When a landed-then-reverted prototype

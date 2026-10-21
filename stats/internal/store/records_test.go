@@ -2240,6 +2240,53 @@ func TestFlagVerdictFalsePositiveReportsNoVerdict(t *testing.T) {
 	}
 }
 
+// TestUnflagVerdictClearsTheFlag asserts UnflagVerdict clears a verdict's
+// false-positive flag, reason and flagged_at by row id, and that an id no row
+// has is ErrDispatchNotFound (kan-1003: verdict 646 was flagged in error).
+func TestUnflagVerdictClearsTheFlag(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-verdict-unflag-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	const guard = "check-unfinished-work"
+
+	v, err := st.RecordVerdict(ctx, projectKey, "kan-1", baseVerdict(guard,
+		"CLEAR", time.Date(2026, 9, 1, 9, 0, 0, 0, time.UTC)))
+	if err != nil {
+		t.Fatalf("RecordVerdict: %v", err)
+	}
+	if _, err := st.FlagVerdictFalsePositive(ctx, projectKey, "kan-1",
+		records.VerdictFlag{Guard: guard, Reason: "flagged in error"}); err != nil {
+		t.Fatalf("FlagVerdictFalsePositive: %v", err)
+	}
+	if err := st.UnflagVerdict(ctx, v.ID); err != nil {
+		t.Fatalf("UnflagVerdict: %v", err)
+	}
+
+	flagged, err := st.ListVerdicts(ctx, projectKey, guard, true)
+	if err != nil {
+		t.Fatalf("ListVerdicts flagged: %v", err)
+	}
+	if len(flagged) != 0 {
+		t.Errorf("flagged verdicts after unflag = %d, want 0", len(flagged))
+	}
+	all, err := st.ListVerdicts(ctx, projectKey, guard, false)
+	if err != nil {
+		t.Fatalf("ListVerdicts: %v", err)
+	}
+	if len(all) != 1 || all[0].ID != v.ID {
+		t.Fatalf("ListVerdicts = %+v, want the one verdict %d", all, v.ID)
+	}
+	if all[0].FalsePositive || all[0].FalsePositiveReason != "" || all[0].FlaggedAt != nil {
+		t.Errorf("after unflag: FalsePositive=%v reason=%q FlaggedAt=%v, want false, empty, nil",
+			all[0].FalsePositive, all[0].FalsePositiveReason, all[0].FlaggedAt)
+	}
+
+	if err := st.UnflagVerdict(ctx, -1); !errors.Is(err, store.ErrDispatchNotFound) {
+		t.Errorf("UnflagVerdict(unknown id) error = %v, want errors.Is(_, store.ErrDispatchNotFound)", err)
+	}
+}
+
 // TestListVerdictsFiltersByGuardAndFlag asserts ListVerdicts' two filters
 // compose independently and that, whichever filter is applied, the result
 // is newest first.

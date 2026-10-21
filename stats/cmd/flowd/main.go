@@ -92,6 +92,14 @@ func main() {
 		return
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == "unflag-verdict" {
+		if err := unflagVerdict(os.Args[2:]); err != nil {
+			logger.Error("flowd unflag-verdict failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if err := run(logger); err != nil {
 		logger.Error("flowd exiting", "error", err)
 		os.Exit(1)
@@ -538,6 +546,31 @@ func formatBuild(settings []debug.BuildSetting) string {
 		out += ", modified"
 	}
 	return out + ")"
+}
+
+// unflagVerdict implements `flowd unflag-verdict <verdict-id>`: it clears
+// that verdict's false-positive flag (store.Store.UnflagVerdict) -- the repair
+// for a flag that landed on the wrong row. It talks to the database
+// directly, so it needs no running daemon.
+func unflagVerdict(args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("usage: flowd unflag-verdict <verdict-id>")
+	}
+	id, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("verdict id %q: %w", args[0], err)
+	}
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	st, err := store.Open(ctx, cfg.DSN)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	return st.UnflagVerdict(ctx, id)
 }
 
 // restampDispatch implements `flowd restamp-dispatch <dispatch-id>

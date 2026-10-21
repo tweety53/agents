@@ -42,6 +42,13 @@ task**, skills/flow-contracts/git-boundaries.md; kan-941 pushed four such commit
 push of HEAD's commit to a branch origin already holds, and fails open: a checker that cannot
 answer, cannot run or times out lets the push through, and run 1's gate still lists the commit.
 
+It also denies a command that commits and then pushes the same repository to a `spectre/` branch
+when that commit's message, as the command states it (`-m`, `-qm`, `--message`), carries neither
+trailer, its subject is no `chore`, and its pathspec is not limited to `<spec-root>/changes/` — the
+push check above runs before the command does and cannot see a commit the command makes first
+(kan-1003: 0497d943). A message the command does not state (`-F`, `-C`, `--amend`, a shell
+expansion) is not judged.
+
 Both landing checks read the push from the command text, so a push the hook cannot read is denied
 rather than let through: one whose repository (`-C <path>`, a `cd`), remote or refspec goes through
 a shell expansion the hook cannot resolve — `$W`, `"${B}:main"`, `$(git branch --show-current)`, a
@@ -621,6 +628,52 @@ def untasked_push(args, target):
     return None
 
 
+# A Conventional Commits `chore` subject: the pipeline's planning, link and archive commits.
+CHORE_SUBJECT_RE = re.compile(r"^chore(\([^)]*\))?!?:")
+TRAILER_RE = re.compile(r"^(Task-Id|Flow-Key):[ \t]*\S", re.M)
+# Options that take the message from somewhere the command text does not show.
+UNREAD_MESSAGE_OPTS = ("-F", "--file", "-C", "-c", "--reuse-message", "--reedit-message", "--fixup", "--squash", "--amend")
+
+
+def commit_lacks_trailer(args, target):
+    """True when `git commit <args>` states its message with -m/--message, that message carries
+    neither a `Task-Id:` nor a `Flow-Key:` trailer, its subject is no `chore`, and its pathspec
+    is not limited to `<spec-root>/changes/`. A message the command text does not state — none
+    given, -F, -C, --amend, a shell expansion left in it — is never judged."""
+    msgs, paths, i = [], [], 0
+    while i < len(args):
+        a = args[i]
+        if a == "--":
+            paths += args[i + 1 :]
+            break
+        if a.startswith(UNREAD_MESSAGE_OPTS):
+            return False
+        if a == "--message" and i + 1 < len(args):
+            msgs.append(args[i + 1])
+            i += 2
+            continue
+        if a.startswith("--message="):
+            msgs.append(a.partition("=")[2])
+        elif a.startswith("-") and not a.startswith("--") and "m" in a[1:]:
+            rest = a[a.index("m", 1) + 1 :]
+            if rest:
+                msgs.append(rest)
+            elif i + 1 < len(args):
+                msgs.append(args[i + 1])
+                i += 2
+                continue
+        elif not a.startswith("-"):
+            # no `--`: the words left after the message values are the pathspec
+            paths.append(a)
+        i += 1
+    if not msgs or any("$" in m or "`" in m for m in msgs):
+        return False
+    if TRAILER_RE.search("\n".join(msgs)) or CHORE_SUBJECT_RE.match(msgs[0]):
+        return False
+    planning = ("/spectre/changes/", "/openspec/changes/")
+    return not (paths and all(any(s in resolve(p, target) + "/" for s in planning) for p in paths))
+
+
 def bash_hits(command, cwd, landings=None):
     """Paths a Bash command writes into or git-mutates, resolved against cwd and `cd`.
 
@@ -635,6 +688,7 @@ def bash_hits(command, cwd, landings=None):
     if target:
         return [target]
     hits = []
+    commits = []
     cur = cwd
     env = {}
     for line in logical_lines(strip_data_heredocs(command)):
@@ -677,6 +731,13 @@ def bash_hits(command, cwd, landings=None):
                     j += 1
                 if j < n and tokens[j] in DENIED_GIT_VERBS:
                     hits.append(target)
+                if j < n and tokens[j] == "commit" and target is not None:
+                    cargs = []
+                    for t in tokens[j + 1 :]:
+                        if t in SEPARATORS:
+                            break
+                        cargs.append(t)
+                    commits.append((target, cargs))
                 if j < n and tokens[j] == "push" and landings is not None:
                     args = []
                     for t in tokens[j + 1 :]:
@@ -695,6 +756,17 @@ def bash_hits(command, cwd, landings=None):
                     untasked = None if unreadable else untasked_push(args, target)
                     if untasked:
                         landings.append(untasked)
+                    dsts = [d for _, d in push_refspecs(args, target) if d.startswith("spectre/")] if target else []
+                    for ct, cargs in commits:
+                        if dsts and os.path.realpath(ct) == os.path.realpath(target) and commit_lacks_trailer(cargs, ct):
+                            landings.append(
+                                f"Blocked: this command commits and then pushes to {dsts[0]}, and that commit's "
+                                "message carries neither a `Task-Id:` nor a `Flow-Key:` trailer — the push check runs "
+                                "before the command does and cannot see the commit. Add `-m \"Flow-Key: <key>\"` "
+                                "(**Commits outside every task**, skills/flow-contracts/git-boundaries.md), or "
+                                "`-m \"Task-Id: <n>\"` on a task's own commit, then run it again."
+                            )
+                            break
                 i = j + 1
                 continue
             if tok == "sed" and any(t.startswith("-i") for t in tokens[i + 1 : i + 4]):

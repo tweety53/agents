@@ -126,6 +126,13 @@
 #  135. the same heredoc, then `rg --pre <sib>/x.sh x f`              -> deny (rg's --pre runs the target)
 #  136. `cat > <sib>/check-a.sh <<EOF`, body `rm <main>/f.txt`, then `<sib>/check-a.sh` -> deny (a written check script run)
 #  137. the x.sh heredoc, then `GIT_EXTERNAL_DIFF=<sib>/x.sh git diff --ext-diff a b` -> deny (an assignment can make a reader run the target)
+#  143. `cd <wt> && git commit -qm '<no trailer>' && git push -q`  -> deny (kan-1003: a commit pushed in the same command)
+#  144. the same with `-m 'Flow-Key: <key>'`                         -> allow
+#  145. `git -C <wt> commit -m ... -- spectre/changes/chg && push`   -> allow (a planning commit)
+#  146. the same shape, a `chore(...)` subject                       -> allow
+#  147. `git commit -F msg.txt && git push`                          -> allow (a message the command does not state)
+#  148. a trailer-less commit pushed to `HEAD:feature/x`             -> allow (no change branch)
+#  150. the 145 planning commit with its pathspec given without `--` -> allow
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$SCRIPT_DIR/../hooks/protect-main-checkout.py"
@@ -679,6 +686,24 @@ expect "106 a change branch origin does not hold yet" allow \
 expect "107 a checker that cannot run fails open" allow \
   "$(UNTASKED_COMMITS_CHECK="$ROOT/missing" run "$ROOT" Bash "{\"command\":$(q "git -C $CWT push origin HEAD:spectre/chg2")}")"
 unset UNTASKED_COMMITS_CHECK
+
+# 143-148: a commit and its push in one command (kan-1003's self-review: the design handoff
+# 0497d943 was committed and pushed in one call, before the push check could see it).
+echo h >"$CWT/h.txt"
+expect "143 commit and push in one command, no trailer" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cd $CWT && git add h.txt && git commit -qm 'docs(design): add the handoff' && git push -q")}")"
+expect "144 the same with a Flow-Key trailer" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cd $CWT && git commit -q -m 'docs(design): add the handoff' -m 'Flow-Key: flow.brainstorm' && git push -q")}")"
+expect "145 a planning commit pathspec-limited to spectre/changes/" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $CWT commit -q -m 'docs(spectre): record' -- spectre/changes/chg && git -C $CWT push -q origin spectre/chg3")}")"
+expect "150 a planning commit's pathspec given without '--'" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $CWT commit -q -m 'docs(spectre): record' spectre/changes/chg && git -C $CWT push -q origin spectre/chg3")}")"
+expect "146 a chore subject" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cd $CWT && git commit -q -m 'chore(spectre): plan chg — plan gate' && git push -q")}")"
+expect "147 a message the command does not state" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cd $CWT && git commit -q -F msg.txt && git push -q")}")"
+expect "148 a trailer-less commit pushed to a branch that is no change branch" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cd $CWT && git commit -qm 'docs(x): y' && git push -q origin HEAD:feature/x")}")"
 
 # 108-109: the real checker after a rebase onto a moved base — the base's own
 # trailer-less commits are on origin already, never the change's to judge.

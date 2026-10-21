@@ -1886,6 +1886,24 @@ func (s *Store) FlagVerdictFalsePositive(ctx context.Context, projectKey, change
 	return out, nil
 }
 
+// UnflagVerdict clears the false-positive flag, reason and flagged_at of the
+// verdict with the given row id -- the repair for a flag that landed on the
+// wrong row (kan-1003: verdict 646). An id no row has is ErrDispatchNotFound.
+func (s *Store) UnflagVerdict(ctx context.Context, id int64) error {
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE guard_verdicts
+		SET false_positive = false, false_positive_reason = NULL, flagged_at = NULL
+		WHERE id = $1
+	`, id)
+	if err != nil {
+		return fmt.Errorf("store: unflag verdict %d: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("%w: verdict %d", ErrDispatchNotFound, id)
+	}
+	return nil
+}
+
 // scanFlaggedVerdictRow decodes a verdictColumns row that carries no joined
 // change name of its own -- FlagVerdictFalsePositive's UPDATE ... RETURNING
 // already knows the change from its caller, unlike a read that joins it in.
