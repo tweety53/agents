@@ -309,12 +309,19 @@ func pfTouched(env Env, pe pfEnv, wt, base string) ([]string, bool) {
 	return strings.Fields(out), rc == 0
 }
 
+// pfGoAudits is every scripts/ harness auditing stats/ Go source as a whole:
+// test-flow-addr-declaration.sh reads stats/cmd/flow, test-git-config-pins.sh
+// stats/internal/guard.
+var pfGoAudits = []string{"scripts/test-flow-addr-declaration.sh", "scripts/test-git-config-pins.sh"}
+
 // pfChecks is the lint lines and tests the touched paths need: every guard
 // line of `## lint`, its `cd stats` lines only for touched Go and its
 // `cd stats/web` lines only for a touched SPA file; `go test` of each
 // touched package, the scripts/test-*.sh harness of a touched script or
 // hook, and vitest of a touched SPA test file or the test beside a touched
-// source file.
+// source file. A touched Go file also selects pfGoAudits: harnesses that
+// audit the whole Go tree, named after no Go file, which main landed red
+// without twice (KAN-887's self-review).
 func pfChecks(env Env, pe pfEnv, wt string, touched []string) ([]string, int) {
 	get := exec.Command(pe.projectGet, wt, "lint")
 	var body bytes.Buffer
@@ -344,6 +351,13 @@ func pfChecks(env Env, pe pfEnv, wt string, touched []string) ([]string, int) {
 	add := func(c string) {
 		if !slices.Contains(cmds, c) {
 			cmds = append(cmds, c)
+		}
+	}
+	if goTouched {
+		for _, h := range pfGoAudits {
+			if exists(h) {
+				add(h)
+			}
 		}
 	}
 	for _, p := range touched {

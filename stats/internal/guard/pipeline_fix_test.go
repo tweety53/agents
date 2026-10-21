@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -193,6 +194,32 @@ func TestPipelineFixVerify(t *testing.T) {
 	gitRun(t, wt, "commit", "-q", "-am", "fix: break foo")
 	if rc, out := fx.pf(t, "verify", wt); rc != 1 || !strings.Contains(out, "red: scripts/test-foo.sh (exit 1)") {
 		t.Fatalf("a red harness: rc %d: %s", rc, out)
+	}
+}
+
+// A touched Go file selects the harnesses auditing the whole Go tree, which
+// no Go file's name leads to; a touched script alone does not.
+func TestPipelineFixChecksGoAudits(t *testing.T) {
+	t.Parallel()
+	wt := t.TempDir()
+	writeFile(t, wt+"/.flow/project.md", pfProject)
+	audits := []string{"scripts/test-flow-addr-declaration.sh", "scripts/test-git-config-pins.sh"}
+	for _, h := range audits {
+		writeExec(t, wt+"/"+h, "#!/usr/bin/env bash\n")
+	}
+	pe := pfEnv{projectGet: tcfScriptsDir(t) + "/project-get.sh"}
+	env := Env{Getenv: os.Getenv}
+	cmds, rc := pfChecks(env, pe, wt, []string{"stats/internal/guard/x.go"})
+	for _, h := range audits {
+		if rc != 0 || !slices.Contains(cmds, h) {
+			t.Fatalf("a touched Go file: rc %d, %q lacks %s", rc, cmds, h)
+		}
+	}
+	cmds, _ = pfChecks(env, pe, wt, []string{"scripts/foo.sh"})
+	for _, h := range audits {
+		if slices.Contains(cmds, h) {
+			t.Fatalf("a touched script alone: %q selects %s", cmds, h)
+		}
 	}
 }
 
