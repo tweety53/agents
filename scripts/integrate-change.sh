@@ -845,8 +845,18 @@ cmd_land() {
   fi
 }
 
+# workspace_command <main> <verb>: the Runs cell of <verb>'s row in <main>'s
+# `## workspace isolation` command table, or nothing.
+workspace_command() {
+  "$SCRIPT_DIR/project-get.sh" "$1" "workspace isolation" 2>/dev/null |
+    awk -F'|' -v verb="$2" '{c=$2; gsub(/[ `]/,"",c); if (c==verb) {r=$3; sub(/^[ ]*`/,"",r); sub(/`[ ]*$/,"",r); print r; exit}}'
+}
+
+# with_id <command> <id>: <command> with the workspace id tokens substituted.
+with_id() { local c="${1//<id_underscored>/${2//-/_}}"; printf '%s' "${c//<id>/$2}"; }
+
 cmd_cleanup() {
-  local i m mb out rc row id sd v leftover=0 keep base p pf cur hit
+  local i m mb out rc row orow o id sd v leftover=0 keep base p pf cur hit
   local -a RBASE=()
   load_set
   mark_begin flow.verify-merge
@@ -880,15 +890,24 @@ cmd_cleanup() {
   done
   id="$(flow workspace-id "$NAME")" || id=""
   for m in "${MAINS[@]}"; do
-    row="$("$SCRIPT_DIR/project-get.sh" "$m" "workspace isolation" 2>/dev/null |
-      awk -F'|' '{c=$2; gsub(/[ `]/,"",c); if (c=="remove") {r=$3; sub(/^[ ]*`/,"",r); sub(/`[ ]*$/,"",r); print r; exit}}')"
+    row="$(workspace_command "$m" remove)"
     if [ -z "$row" ] || [ -z "$id" ]; then
       say "WORKSPACE: $m — skipped, no remove command declared"
       continue
     fi
-    row="${row//<id_underscored>/${id//-/_}}"; row="${row//<id>/$id}"
-    (cd "$m" && bash -c "$row"); rc=$?
+    (cd "$m" && bash -c "$(with_id "$row" "$id")"); rc=$?
     if [ "$rc" -eq 0 ]; then say "WORKSPACE-REMOVED: $m"; else say "WORKSPACE-REMOVE-FAILED: $m — exit $rc; the cleanup check decides"; fi
+    orow="$(workspace_command "$m" orphans)"
+    [ -n "$orow" ] || continue
+    out="$(cd "$m" && bash -c "$orow")"; rc=$?
+    [ "$rc" -eq 0 ] || { say "WORKSPACE-ORPHANS-FAILED: $m — exit $rc"; continue; }
+    while IFS= read -r o; do
+      [ -n "$o" ] || continue
+      # The id reaches a shell command; anything outside the id alphabet is refused.
+      case "$o" in *[!A-Za-z0-9_.-]*) say "WORKSPACE-ORPHAN-REMOVE-FAILED: $o — refused, not an id"; continue ;; esac
+      (cd "$m" && bash -c "$(with_id "$row" "$o")"); rc=$?
+      if [ "$rc" -eq 0 ]; then say "WORKSPACE-ORPHAN-REMOVED: $o"; else say "WORKSPACE-ORPHAN-REMOVE-FAILED: $o — exit $rc"; fi
+    done <<<"$out"
   done
   sd="$(flow state dir -C "$MAIN")"
   if [ -f "$sd/$NAME-proposal-artifact.html" ]; then

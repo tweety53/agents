@@ -11,7 +11,7 @@ commands, and nothing else in the section is read.
 for what that prose is for.
 
 **Three words in this section, and they name three different things.** A **row** is one line of
-either table — one resource, or one of the three commands. A **cell** is one column of a row. And
+either table — one resource, or one of the commands. A **cell** is one column of a row. And
 **entry** keeps the meaning it has everywhere else in this file: one declaration in some other
 section, such as a `## standards` line. Every rule below that says *row* means the whole line and
 every rule that says *cell* means one column of it, so a report naming both is naming two things
@@ -229,7 +229,7 @@ for why.
 `cache index` row; each of the four `In a workspace` cell forms against the `Resource` that selects
 it; `<value:…>` resolving to a row that exists and is neither a `url` row nor a `cache index` row;
 `database`, `bucket` and `cache index` each appearing at most once; two rows never holding one
-`Variable`; the command table naming only `create`, `remove` and `survivors`, once each and with a
+`Variable`; the command table naming only `create`, `remove`, `survivors` and `orphans`, once each and with a
 non-empty command; the tokens a command may name; the two tables having the columns named above in
 that order; and the section being declared at most once.
 

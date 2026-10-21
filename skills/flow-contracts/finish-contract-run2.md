@@ -29,13 +29,14 @@ procedure for them is there.
 
    The removal runs the project's `remove` command, read from the command table below, with the workspace id substituted into its text by the token rule below it.
 
-   The command table has three rows and two columns:
+   The command table has up to four rows and two columns:
 
    | Command | Runs |
    |---------|------|
    | `create` | The command that creates this workspace's resources when they are absent. Whatever starts the project's applications calls it. |
    | `remove` | The command that removes them. `/flow`'s cleanup run calls it, and nothing else does. |
    | `survivors` | The command that reports which of them still exist. Run 2 calls it after `remove`, and `<agents repo>/scripts/check-cleanup-complete.sh` turns its result into the registry row's verdict. Its output and its exit code are read, so both are specified below. |
+   | `orphans` | Optional. The command that prints, one per line, the id of every workspace on the machine that no live worktree derives. Run 2 calls it from the main checkout after its own `remove`, runs `remove` for each id printed with that id substituted, and reports `WORKSPACE-ORPHAN-REMOVED: <id>` or `WORKSPACE-ORPHAN-REMOVE-FAILED: <id> — exit <rc>`, and `WORKSPACE-ORPHANS-FAILED: <repo> — exit <rc>` when `orphans` itself fails; no failure of either stops run 2. |
 
    Why a third verb rather than two — why "ran `remove`" is not "verified gone", and why a guard in the
    agents repository cannot ask the question itself — is stated under **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`).

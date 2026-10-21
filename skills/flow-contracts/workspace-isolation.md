@@ -313,7 +313,7 @@ having failed. A survivor is therefore established by asking, never inferred fro
 code. The project owns the question and answers it in its
 own configuration, exactly as it owns creation and removal —
 see **Project configuration — workspace isolation** (`skills/flow-contracts/project-configuration-isolation.md`), canonical for how
-the three commands are written, what the survivor report prints, what its exit code means, what a
+the commands are written, what the survivor report prints, what its exit code means, what a
 non-empty report does to the terminal state, and what a project that declares no survivor report at
 all gets in place of the verification.
 

@@ -128,6 +128,9 @@
 #                   run with --accept-foreign past the main checkout's drift),
 #                   and a cleanup re-run after the worktrees are removed
 #                   still does.
+#   orphan_sweep    a project declaring an `orphans` command: cleanup runs
+#                   `remove` for each id it prints after the change's own,
+#                   reports each, and a failed one does not stop the run.
 #   outstanding     commit --outstanding keeps the planning commit's own
 #                   subject and puts the text in its body; --plan-message,
 #                   which replaced the subject whole, is refused.
@@ -931,6 +934,18 @@ check "refresh_on_recorded_base: a's main checkout on its recorded base is refre
 sut cleanup "$WORK/a" demo
 check "refresh_on_recorded_base: a cleanup re-run after worktree removal still refreshes onto feature/x" \
   'printf "%s\n" "$OUT" | grep -qE "^REFRESH-(DONE|CURRENT): $WORK/a( |\$)" && ! printf "%s\n" "$OUT" | grep -q "^REFRESH-REFUSED: $WORK/a "'
+
+# --- orphan_sweep ---
+fixture
+printf '\n## workspace isolation\n\n| Command | Runs |\n|---------|------|\n| `remove` | `echo <id> >>%s/removed.log; [ <id> != orph-bad ]` |\n| `orphans` | `printf "orph-1\\norph-bad\\n"` |\n' "$WORK" >>"$WORK/a/.flow/project.md"
+g -C "$WORK/a" commit -qam "chore: workspace commands" && g -C "$WORK/a" push -q origin main
+to_land "orphan_sweep: "
+sut land "$WORK/a" demo
+check "orphan_sweep: the change's own workspace is removed" 'printf "%s\n" "$OUT" | grep -qx "WORKSPACE-REMOVED: $WORK/a"'
+check "orphan_sweep: each orphan id goes through the remove command" '[ "$(cat "$WORK/removed.log")" = "$(printf "demo-id\norph-1\norph-bad")" ]'
+check "orphan_sweep: a removed orphan is reported" 'printf "%s\n" "$OUT" | grep -qx "WORKSPACE-ORPHAN-REMOVED: orph-1"'
+check "orphan_sweep: a failed orphan removal is reported and cleanup still finishes" \
+  'printf "%s\n" "$OUT" | grep -qx "WORKSPACE-ORPHAN-REMOVE-FAILED: orph-bad — exit 1" && [ "$(jq -r .state "$WORK/state.json")" = FINISHED ]'
 
 # --- outstanding ---
 fixture
