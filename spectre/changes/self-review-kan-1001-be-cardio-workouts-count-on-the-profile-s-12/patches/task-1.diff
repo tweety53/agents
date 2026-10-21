@@ -1,0 +1,42 @@
+diff --git a/stats/internal/guard/pipeline_fix_test.go b/stats/internal/guard/pipeline_fix_test.go
+index 69fa8ca5..b103caa2 100644
+--- a/stats/internal/guard/pipeline_fix_test.go
++++ b/stats/internal/guard/pipeline_fix_test.go
+@@ -311,6 +311,20 @@ func TestPipelineFixEndClearsOwnBranchEscalation(t *testing.T) {
+ 	}
+ }
+ 
++// end of the pass closes nothing: check-loop-dispatch admits the pass and
++// records no row, so a flow call would answer 404 (kan-1001's self-review).
++func TestPipelineFixEndPassRecordsNothing(t *testing.T) {
++	const token = "self-review-kan-1-demo"
++	fx := pfNew(t, "[]")
++	rc, out := fx.pf(t, "end", token+"-pass", "completed")
++	if rc != 0 || !strings.Contains(out, "PIPELINE-FIX-END-NA "+token+"-pass") {
++		t.Fatalf("rc %d: %s", rc, out)
++	}
++	if strings.Contains(fx.calls(t), "record dispatch end") {
++		t.Fatalf("end of the pass called flow:\n%s", fx.calls(t))
++	}
++}
++
+ // end and escalate of an own-branch self-review in another project run in
+ // that project -- the caller's working directory -- and verify diffs a
+ // worktree against its own origin/HEAD, not <agents repo>'s.
+diff --git a/stats/internal/guard/pipelinefix.go b/stats/internal/guard/pipelinefix.go
+index 5ad188d9..f4ae6748 100644
+--- a/stats/internal/guard/pipelinefix.go
++++ b/stats/internal/guard/pipelinefix.go
+@@ -244,6 +244,12 @@ func pfEnd(env Env, pe pfEnv, key, outcome string, stdout, stderr io.Writer) int
+ 	if rc != 0 {
+ 		return rc
+ 	}
++	if lpFamily(suffix) == "pass" {
++		// check-loop-dispatch admits the pass off its pair and records no row
++		// -- it runs before any loop change exists -- so there is nothing to close.
++		fmt.Fprintf(stdout, "PIPELINE-FIX-END-NA %s: the pass is pair-checked, never recorded; nothing to close\n", key)
++		return 0
++	}
+ 	if lpFamily(suffix) == "review" && outcome != "aborted" {
+ 		// clean: the review raised no Critical and no Important.
+ 		o, err := pfReviewOutcome(outcome)

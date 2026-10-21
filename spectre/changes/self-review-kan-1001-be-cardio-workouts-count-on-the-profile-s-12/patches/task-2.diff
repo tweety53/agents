@@ -1,0 +1,119 @@
+diff --git a/hooks/protect-main-checkout.py b/hooks/protect-main-checkout.py
+index 256f870e..956f535e 100755
+--- a/hooks/protect-main-checkout.py
++++ b/hooks/protect-main-checkout.py
+@@ -278,11 +278,22 @@ RUNNER_WORDS = {
+ }
+ 
+ 
+-def may_run_code(text):
+-    """True when text — the command outside one heredoc body — could run that body or a file
+-    it writes: a process or command substitution (`>(sh)`, `bash <(`, `eval "$(`), a word that
+-    runs code (`sh`, `eval`, `xargs`, ...) anywhere, or a command named by a path or an
+-    expansion (`"$D"/x.sh`). Over-matching only keeps the body scanned."""
++def names_target(word, target):
++    """True when a command word may name the heredoc's target: the same spelling, the same file
++    name under another path (`"$D"/x.sh` for `$SIB/x.sh`), or a file name an expansion hides."""
++    word = word.replace('"', "").replace("'", "")
++    name = word.rsplit("/", 1)[-1]
++    return word == target or name == target.rsplit("/", 1)[-1] or "$" in name
++
++
++def may_run_code(text, target):
++    """True when text — the command outside one heredoc body — could run that body or the file
++    target it writes: a process or command substitution (`>(sh)`, `bash <(`, `eval "$(`), a word
++    that runs code (`sh`, `eval`, `xargs`, ...) anywhere, or a command named by a path or an
++    expansion that may be target (`names_target` — `"$D"/x.sh`, `$T`). A path-named command
++    naming another file (`~/.claude/skills/flow/scripts/check-plan-shape.sh "$T"`, `./gradlew`)
++    runs that file, not the body, and target as its argument is data. Over-matching only keeps
++    the body scanned."""
+     if SUBST_RE.search(text):
+         return True
+     for seg in COMMAND_CUT_RE.split(text):
+@@ -291,7 +302,8 @@ def may_run_code(text):
+             return True
+         while words and ASSIGNMENT_RE.match(words[0]):
+             words.pop(0)
+-        if words and ("/" in words[0] or "$" in words[0] or words[0].startswith("~")):
++        named = words and ("/" in words[0] or "$" in words[0] or words[0].startswith("~"))
++        if named and names_target(words[0], target):
+             return True
+     return False
+ 
+@@ -306,10 +318,10 @@ def strip_data_heredocs(command):
+     data for a writer whose target the opening line already names, so a report line such as
+     `a > the` must not read as a redirect (kan-929: subagents' report writes
+     `D=...; cat > $D/r.md <<'EOF'` were denied over their own prose). A body stays scanned when
+-    the writer has no target, its output is piped on, the target is named again after the
+-    body (written, then run), the target is a device or a process substitution (`/dev/stdout`,
+-    `>(sh)`), the rest of the command may run code (`may_run_code` — an enclosing `bash <(` or
+-    `eval "$(`, a later `sh "$D"/x.sh`), the opener is not a plain `cat`/`tee`
++    the writer has no target, its output is piped on, the target is a device or a process
++    substitution (`/dev/stdout`, `>(sh)`), the rest of the command may run code (`may_run_code` —
++    an enclosing `bash <(` or `eval "$(`, a later `sh "$D"/x.sh` or `"$D"/x.sh`: written, then
++    run; the target named again only as an argument is data), the opener is not a plain `cat`/`tee`
+     (`python3 - <<EOF`, `x=$(cat <<EOF`). An unquoted-delimiter body that runs `$(...)` or
+     backticks keeps only those spans scanned, a backtick span as `$(...)` — bash runs them and
+     nothing else of the body — or the whole body when a span cannot be closed."""
+@@ -340,11 +352,11 @@ def strip_data_heredocs(command):
+             (j for j in range(k, len(lines)) if (lines[j].lstrip("\t") if tabs else lines[j]).rstrip("\r") == delim),
+             None,
+         )
+-        if not target or end is None or target in "\n".join(lines[end + 1 :]):
++        if not target or end is None:
+             continue
+         if target.startswith("/dev/") or "(" in target:
+             continue
+-        if may_run_code("\n".join(lines[:k] + lines[end + 1 :])):
++        if may_run_code("\n".join(lines[:k] + lines[end + 1 :]), target):
+             continue
+         # An escaped backtick is a literal in an unquoted body; dropped, it cannot pair with a real one.
+         body = "\n".join(lines[k:end]).replace("\\`", "")
+diff --git a/scripts/test-protect-main-checkout.sh b/scripts/test-protect-main-checkout.sh
+index 831aef2c..027d09ed 100755
+--- a/scripts/test-protect-main-checkout.sh
++++ b/scripts/test-protect-main-checkout.sh
+@@ -113,6 +113,12 @@
+ #  115. `echo $(cp a <main>/y)` from elsewhere                        -> deny
+ #  116. `(cp a <main>/y)` from elsewhere                              -> deny
+ #  117. `cat > <sibling>/r.md <<EOF`, body ``\` `rm <main>/x` \` ``   -> deny (an escaped backtick is a literal)
++#  118. `C=<sibling>; cat > $C/t.md <<'EOF'`, body `a > b; rm x`, then
++#       `check-plan-shape.sh $C/t.md`, cwd = main                    -> allow (the target as an argument is data)
++#  119. the same body, then `~/.claude/.../check-plan-shape.sh /x/o.md` -> allow (a path-named command naming another file)
++#  120. the same body, then `chmod +x $C/t.md && $C/t.md`            -> deny (the target run as a command)
++#  121. `cat > <sibling>/x.sh <<'EOF'`, body `rm <main>/f.txt`, then
++#       `/elsewhere/x.sh`                                             -> deny (the same file name under another path)
+ set -euo pipefail
+ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ HOOK="$SCRIPT_DIR/../hooks/protect-main-checkout.py"
+@@ -524,6 +530,30 @@ expect "117 an escaped backtick does not pair with a real span" deny \
+   "$(run "$MAIN" Bash "{\"command\":$(q "cat > $SIB/r.md <<EOF
+ \\\` \`rm $MAIN/x\` \\\`
+ EOF")}")"
++# Case 118: the heredoc target named again as an argument is data.
++expect "118 a data heredoc's target named again as an argument keeps its body as data" allow \
++  "$(run "$MAIN" Bash "{\"command\":$(q "C=$SIB; cat > \$C/t.md <<'EOF'
++> **Execution:** a > b; rm x
++EOF
++check-plan-shape.sh \$C/t.md")}")"
++# Case 119: a path-named command naming another file runs that file, not the body.
++expect "119 a path-named command naming another file keeps the body as data" allow \
++  "$(run "$MAIN" Bash "{\"command\":$(q "C=$SIB; cat > \$C/t.md <<'EOF'
++> **Execution:** a > b; rm x
++EOF
++~/.claude/skills/flow/scripts/check-plan-shape.sh /x/o.md")}")"
++# Case 120: the heredoc target run as a command keeps its body scanned.
++expect "120 a data heredoc's target run as a command keeps its body scanned" deny \
++  "$(run "$MAIN" Bash "{\"command\":$(q "C=$SIB; cat > \$C/t.md <<'EOF'
++> **Execution:** a > b; rm x
++EOF
++chmod +x \$C/t.md && \$C/t.md")}")"
++# Case 121: the same file name run under another path keeps its body scanned.
++expect "121 a heredoc's file name run under another path keeps its body scanned" deny \
++  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $SIB/x.sh <<'EOF'
++rm $MAIN/f.txt
++EOF
++/elsewhere/x.sh")}")"
+ 
+ # 104-107: a push of a change branch runs check-untasked-commits over its
+ # unpushed commits (kan-941); a stub stands in for the guard.

@@ -1,0 +1,88 @@
+diff --git a/.flow/project.md b/.flow/project.md
+index 3e770ec2..41d11b02 100644
+--- a/.flow/project.md
++++ b/.flow/project.md
+@@ -100,8 +100,10 @@ and every value falls back to the default in the table below.
+ 
+ `dbReset` and `dbSeed` follow the same rule: in a worktree they default to that worktree's own
+ database, in the main checkout to `gymie`, and `-PpgDb` still overrides both. A worktree's database is
+-seeded once, by whichever of `devWorkspaceCreate`, `devStart` or `dbSeed` creates it, so a fresh
+-worktree's stack already carries the dev users and the `DEV_INVITE_EMAIL` invite; `dbSeed` after that
++seeded once, by whichever of `devWorkspaceCreate`, `devStart` or `dbSeed` creates it — each first runs
++`linkEnvFile`, which symlinks the main checkout's `.env` into the worktree, so the seed reads
++`DEV_INVITE_EMAIL` — and a fresh worktree's stack already carries the dev users and the
++`DEV_INVITE_EMAIL` invite; `dbSeed` after that
+ re-runs the idempotent seed, re-anchoring the seed data to today. Because it seeds, `devWorkspaceCreate`
+ compiles the backend and needs the Redis container up as well as Postgres and storage, and it can run
+ past 120s — callers set a 600000ms timeout. To see what a checkout resolves without starting anything:
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 1da6a664..e1588306 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -29,6 +29,7 @@ jobs:
+         run: |
+           bash scripts/test-check-migrations-immutable.sh
+           bash scripts/test-count-request-queries.sh
++          bash scripts/test-env-link-wiring.sh
+           bash scripts/test-preflight-bind-sources.sh
+           bash scripts/test-preflight-host-paths.sh
+           bash scripts/test-preflight-redis-password.sh
+diff --git a/gradle/git-hooks.gradle.kts b/gradle/git-hooks.gradle.kts
+index 89dea762..458271da 100644
+--- a/gradle/git-hooks.gradle.kts
++++ b/gradle/git-hooks.gradle.kts
+@@ -77,7 +77,7 @@ fun Project.mainCheckoutRoot(): java.io.File? {
+ 
+ tasks.register("linkEnvFile") {
+     group = "gymie dev"
+-    description = "Symlink .env from the main checkout into a worktree so devStart picks up secrets"
++    description = "Symlink .env from the main checkout into a worktree so devStart and the seed read its values"
+     doLast {
+         val envFile = rootDir.resolve(".env")
+         if (envFile.exists()) return@doLast
+@@ -96,3 +96,10 @@ tasks.register("linkEnvFile") {
+ tasks.named("devStart") {
+     dependsOn("setupGitHooks", "linkEnvFile")
+ }
++
++// Both seed a fresh worktree's database, and the seed reads `DEV_INVITE_EMAIL` from `.env`
++// (`seedDatabase`, `dev-lifecycle.gradle.kts`): without the link a worktree seeded before its first
++// `devStart` carries no developer invite and no friend cast. `scripts/test-env-link-wiring.sh` pins it.
++listOf("dbSeed", "devWorkspaceCreate").forEach { name ->
++    tasks.named(name) { dependsOn("linkEnvFile") }
++}
+diff --git a/scripts/test-env-link-wiring.sh b/scripts/test-env-link-wiring.sh
+new file mode 100755
+index 00000000..6c52d420
+--- /dev/null
++++ b/scripts/test-env-link-wiring.sh
+@@ -0,0 +1,29 @@
++#!/usr/bin/env bash
++# Regression check for the `.env` link the seeding tasks depend on (gradle/git-hooks.gradle.kts).
++#
++# `dbSeed` and `devWorkspaceCreate` seed a fresh worktree's database, and the seed reads
++# DEV_INVITE_EMAIL from `.env`; `linkEnvFile` symlinks the main checkout's `.env` into a worktree.
++# Wired to `devStart` alone, a worktree seeded before its first `devStart` carried no developer
++# invite and no friend cast (kan-1001's self-review). A dry run (`-m`) prints every task the
++# invocation would execute and runs none of them, so this asserts the task graph itself.
++
++set -euo pipefail
++
++repo_root=$(cd "$(dirname "$0")/.." && pwd)
++failures=0
++
++for task in dbSeed devWorkspaceCreate devStart; do
++  graph=$(cd "$repo_root" && ./gradlew -q -m "$task")
++  if grep -qx ':linkEnvFile SKIPPED' <<<"$graph"; then
++    echo "ok: $task runs linkEnvFile first"
++  else
++    echo "FAIL: $task does not run linkEnvFile; its dry run was:" >&2
++    echo "$graph" >&2
++    failures=$((failures + 1))
++  fi
++done
++
++if [ "$failures" -gt 0 ]; then
++  exit 1
++fi
++echo "all env-link wiring cases pass"

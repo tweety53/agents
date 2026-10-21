@@ -1,0 +1,19 @@
+diff --git a/.flow/project.md b/.flow/project.md
+index 7a81ba66..e8773801 100644
+--- a/.flow/project.md
++++ b/.flow/project.md
+@@ -76,8 +76,12 @@ same `workspaceBootRunArgs` `dbSeed`'s own run uses (`gradle/dev-lifecycle.gradl
+ that worktree, `./gradlew :app:bootRun "$ARGS"`. Every value goes on the command line because the
+ Gradle daemon's environment is fixed when it starts, as `seedDatabase` explains. The before figure is
+ `http://localhost:<free port>`'s answer and the after figure the change's own backend's, both counted
+-with `scripts/count-request-queries.sh` against the one database; then stop the before backend and
+-`git worktree remove ../<name>-before`.
++with `scripts/count-request-queries.sh` against the one database; then stop the before backend. If
++any db or dev task ran in `../<name>-before` — `devStart`, `dbSeed`, `devWorkspaceCreate` — it
++created a workspace of its own: run `./gradlew devWorkspaceRemove -PworkspaceId=<its id>`, the id
++`./gradlew devWorkspace` prints there, before `git worktree remove ../<name>-before`, or its database,
++bucket and cache index outlive the worktree with no id left to aim a removal at (kan-1001 left
++`kan-1001-be-9051` so).
+ 
+ Single services, when the full stack is not wanted:
+ 

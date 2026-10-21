@@ -1,0 +1,213 @@
+diff --git a/.flow/project.md b/.flow/project.md
+index 41d11b02..7a81ba66 100644
+--- a/.flow/project.md
++++ b/.flow/project.md
+@@ -70,18 +70,14 @@ seeded session with it; after any wider delete, `./gradlew dbSeed` restores the
+ 
+ **A before figure runs the merge base's backend against this worktree's database, beside the change's
+ own stack.** From this worktree, `git worktree add --detach ../<name>-before "$(git merge-base
+-origin/<base> HEAD)"`; then, in that worktree, `:app:bootRun` on the arguments `dbSeed`'s own run
+-passes (`seedDatabase`, `gradle/dev-lifecycle.gradle.kts`), its values copied from `./gradlew
+-devWorkspace` in this worktree and its port any free one: `./gradlew :app:bootRun
+---args="--spring.profiles.active=local --server.port=<free port> --spring.datasource.url=<DB_URL>
+---spring.data.redis.database=<REDIS_DATABASE> --gymie.storage.bucket=<STORAGE_BUCKET>
+---gymie.storage.endpoint=<STORAGE_ENDPOINT> --gymie.storage.public-base-url=<STORAGE_PUBLIC_BASE_URL>
+---spring.security.oauth2.client.registration.google.client-id=local-dev-placeholder-client-id
+---spring.security.oauth2.client.registration.google.client-secret=local-dev-placeholder-client-secret"`.
+-Every value goes on the command line because the Gradle daemon's environment is fixed when it starts,
+-as `seedDatabase` explains. The before figure is `http://localhost:<free port>`'s answer and the after
+-figure the change's own backend's, both counted with `scripts/count-request-queries.sh` against the one
+-database; then stop the before backend and `git worktree remove ../<name>-before`.
++origin/<base> HEAD)"` and `ARGS="$(./gradlew -q devBootRunArgs -PbootPort=<free port>)"` — the
++`--args=` of a `:app:bootRun` against this worktree's database, cache index and bucket, built by the
++same `workspaceBootRunArgs` `dbSeed`'s own run uses (`gradle/dev-lifecycle.gradle.kts`); then, in
++that worktree, `./gradlew :app:bootRun "$ARGS"`. Every value goes on the command line because the
++Gradle daemon's environment is fixed when it starts, as `seedDatabase` explains. The before figure is
++`http://localhost:<free port>`'s answer and the after figure the change's own backend's, both counted
++with `scripts/count-request-queries.sh` against the one database; then stop the before backend and
++`git worktree remove ../<name>-before`.
+ 
+ Single services, when the full stack is not wanted:
+ 
+diff --git a/buildSrc/src/main/kotlin/com/gymie/gradle/BootRunArgs.kt b/buildSrc/src/main/kotlin/com/gymie/gradle/BootRunArgs.kt
+new file mode 100644
+index 00000000..73175c3e
+--- /dev/null
++++ b/buildSrc/src/main/kotlin/com/gymie/gradle/BootRunArgs.kt
+@@ -0,0 +1,32 @@
++package com.gymie.gradle
++
++/**
++ * The `--args` value of a local `:app:bootRun` against one workspace. Every value goes on the command
++ * line because the Gradle daemon's environment is fixed when it starts (`seedDatabase`,
++ * `gradle/dev-lifecycle.gradle.kts`, says why value by value). `dbSeed`'s seed run and
++ * `devBootRunArgs` both build it here, so a before-figure backend (`.flow/project.md`, `## run`) runs
++ * on exactly the arguments the seed run does; [extra] carries the seed run's own flags.
++ */
++fun bootRunArgs(
++    port: Int,
++    jdbcUrl: String,
++    bucket: String,
++    storageEndpoint: String,
++    cacheIndex: Int,
++    extra: List<String> = emptyList(),
++): String =
++    (
++        listOf(
++            "--spring.profiles.active=local",
++            "--server.port=$port",
++            "--spring.datasource.url=$jdbcUrl",
++        ) + extra +
++            listOf(
++                "--gymie.storage.bucket=$bucket",
++                "--gymie.storage.endpoint=$storageEndpoint",
++                "--gymie.storage.public-base-url=$storageEndpoint/$bucket",
++                "--spring.data.redis.database=$cacheIndex",
++                "--spring.security.oauth2.client.registration.google.client-id=local-dev-placeholder-client-id",
++                "--spring.security.oauth2.client.registration.google.client-secret=local-dev-placeholder-client-secret",
++            )
++    ).joinToString(" ")
+diff --git a/buildSrc/src/test/kotlin/com/gymie/gradle/BootRunArgsTest.kt b/buildSrc/src/test/kotlin/com/gymie/gradle/BootRunArgsTest.kt
+new file mode 100644
+index 00000000..2c1d7bb1
+--- /dev/null
++++ b/buildSrc/src/test/kotlin/com/gymie/gradle/BootRunArgsTest.kt
+@@ -0,0 +1,32 @@
++package com.gymie.gradle
++
++import org.junit.jupiter.api.Assertions.assertEquals
++import org.junit.jupiter.api.Test
++
++class BootRunArgsTest {
++    @Test
++    fun `every value of a workspace bootRun goes on the command line, the seed run's flags beside them`() {
++        val args =
++            bootRunArgs(
++                port = 18080,
++                jdbcUrl = "jdbc:postgresql://localhost:5432/gymie_kan_1_demo_abcd",
++                bucket = "gymie-media-kan-1-demo-abcd",
++                storageEndpoint = "http://localhost:9000",
++                cacheIndex = 3,
++                extra = listOf("--app.seed.enabled=true"),
++            )
++
++        assertEquals(
++            "--spring.profiles.active=local --server.port=18080 " +
++                "--spring.datasource.url=jdbc:postgresql://localhost:5432/gymie_kan_1_demo_abcd " +
++                "--app.seed.enabled=true " +
++                "--gymie.storage.bucket=gymie-media-kan-1-demo-abcd " +
++                "--gymie.storage.endpoint=http://localhost:9000 " +
++                "--gymie.storage.public-base-url=http://localhost:9000/gymie-media-kan-1-demo-abcd " +
++                "--spring.data.redis.database=3 " +
++                "--spring.security.oauth2.client.registration.google.client-id=local-dev-placeholder-client-id " +
++                "--spring.security.oauth2.client.registration.google.client-secret=local-dev-placeholder-client-secret",
++            args,
++        )
++    }
++}
+diff --git a/gradle/dev-lifecycle.gradle.kts b/gradle/dev-lifecycle.gradle.kts
+index db9b29bd..d99f385f 100644
+--- a/gradle/dev-lifecycle.gradle.kts
++++ b/gradle/dev-lifecycle.gradle.kts
+@@ -6,6 +6,7 @@ import com.gymie.gradle.AdminFrontendEnvOutcome
+ import com.gymie.gradle.BACKEND_URL_ENV_VAR
+ import com.gymie.gradle.BlockOrigin
+ import com.gymie.gradle.BlockResolution
++import com.gymie.gradle.bootRunArgs
+ import com.gymie.gradle.CACHE_CLAIM_KEY
+ import com.gymie.gradle.CacheIndexRegistry
+ import com.gymie.gradle.DB_URL_ENV_VAR
+@@ -2968,44 +2969,60 @@ fun Project.seedDatabase(
+     val devInviteEmail =
+         dotEnvValues()["DEV_INVITE_EMAIL"]
+             ?: System.getenv("DEV_INVITE_EMAIL")
+-    val inviteArg = devInviteEmail?.takeIf { it.isNotBlank() }?.let { " --app.dev.invite-email=$it" } ?: ""
+-    val seedTodayArg = seedToday?.let { " --gymie.dev.fixed-today=$it" } ?: ""
+-
+-    // Derived from the same workspace `ensureWorkspaceResources` provisions, so the
+-    // bucket this seed run is told about is the one that actually exists — never hardcoded, and
+-    // never the empty string an inherited STORAGE_* variable would otherwise pass through to defeat
+-    // `application-local.yml`'s `${STORAGE_BUCKET:gymie-media}`-shaped defaults.
+-    val storageArgs =
+-        " --gymie.storage.bucket=${workspace.bucket}" +
+-            " --gymie.storage.endpoint=$workspaceStorageEndpoint" +
+-            " --gymie.storage.public-base-url=$workspaceStorageEndpoint/${workspace.bucket}"
+-
+-    // Same rule, a second instance: an empty inherited REDIS_DATABASE defeats
+-    // `application-local.yml`'s `${REDIS_DATABASE:0}` exactly as an empty STORAGE_BUCKET defeats
+-    // its own default — except this one fails Spring's *type* conversion rather than Bean
+-    // Validation, so it never even reaches the seeder's own beans. `resolveCacheIndex` is the same
+-    // claim `devStart` makes for this workspace, so the seed run talks to the same Redis index the
+-    // rest of the stack does rather than colliding with the shared default.
+-    val cacheIndex = resolveCacheIndex(workspace)
+-    val redisArgs = " --spring.data.redis.database=$cacheIndex"
+-
+-    // Same rule, a third instance: a daemon that inherited an empty GOOGLE_CLIENT_ID defeats
+-    // `application-local.yml`'s placeholder and the seed run dies building the OAuth client. It
+-    // signs nobody in, so the placeholders are passed outright.
+-    val oauthArgs =
+-        " --spring.security.oauth2.client.registration.google.client-id=local-dev-placeholder-client-id" +
+-            " --spring.security.oauth2.client.registration.google.client-secret=local-dev-placeholder-client-secret"
++    val seedFlags =
++        listOfNotNull(
++            "--app.seed.enabled=true",
++            devInviteEmail?.takeIf { it.isNotBlank() }?.let { "--app.dev.invite-email=$it" },
++            seedToday?.let { "--gymie.dev.fixed-today=$it" },
++        )
+ 
+     runCommandStreaming(
+-        listOf(
+-            "./gradlew",
+-            ":app:bootRun",
+-            "--args=--spring.profiles.active=local --app.seed.enabled=true --server.port=0 " +
+-                "--spring.datasource.url=${workspaceJdbcUrl(pgDb)}$inviteArg$seedTodayArg$storageArgs$redisArgs$oauthArgs",
+-        ),
++        listOf("./gradlew", ":app:bootRun", "--args=" + workspaceBootRunArgs(workspace, pgDb, port = 0, extra = seedFlags)),
+     )
+ }
+ 
++/**
++ * The `--args` value of a `:app:bootRun` against [workspace]'s resources, [bootRunArgs] filled in.
++ *
++ * The bucket is derived from the same workspace `ensureWorkspaceResources` provisions, so the bucket
++ * the run is told about is the one that actually exists — never hardcoded, and never the empty string
++ * an inherited STORAGE_* variable would otherwise pass through to defeat `application-local.yml`'s
++ * `${STORAGE_BUCKET:gymie-media}`-shaped defaults. An empty inherited REDIS_DATABASE defeats
++ * `${REDIS_DATABASE:0}` the same way, failing Spring's *type* conversion rather than Bean Validation;
++ * `resolveCacheIndex` is the same claim `devStart` makes for this workspace, so the run talks to the
++ * Redis index the rest of the stack does. A daemon that inherited an empty GOOGLE_CLIENT_ID defeats
++ * `application-local.yml`'s placeholder and the run dies building the OAuth client; it signs nobody
++ * in, so the placeholders are passed outright.
++ */
++fun Project.workspaceBootRunArgs(
++    workspace: Workspace,
++    pgDb: String,
++    port: Int,
++    extra: List<String> = emptyList(),
++): String =
++    bootRunArgs(
++        port = port,
++        jdbcUrl = workspaceJdbcUrl(pgDb),
++        bucket = workspace.bucket,
++        storageEndpoint = workspaceStorageEndpoint,
++        cacheIndex = resolveCacheIndex(workspace),
++        extra = extra,
++    )
++
++// Prints the `--args=` of a `:app:bootRun` against this checkout's workspace, from the same
++// `workspaceBootRunArgs` the seed run uses — the before-figure backend of `.flow/project.md`'s
++// `## run`. Run with `-q`: the line goes to stdout through `println` and is the only output.
++tasks.register("devBootRunArgs") {
++    group = "gymie dev"
++    description = "Print the --args= of a :app:bootRun against this workspace — -PbootPort=<free port>, run with -q"
++    doLast {
++        val port =
++            project.findProperty("bootPort")?.toString()?.toIntOrNull()
++                ?: throw GradleException("-PbootPort=<free port> is required")
++        println("--args=" + project.workspaceBootRunArgs(project.workspace(), project.resolvePgDb(), port))
++    }
++}
++
+ tasks.register("dbSeed") {
+     group = "gymie dev"
+     description = "Seed local Postgres with dev users"

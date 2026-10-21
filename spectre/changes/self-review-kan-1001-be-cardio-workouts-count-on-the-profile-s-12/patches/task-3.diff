@@ -1,0 +1,150 @@
+diff --git a/skills/flow-contracts/finish-contract-run1.md b/skills/flow-contracts/finish-contract-run1.md
+index 1ef48cff..6567c244 100644
+--- a/skills/flow-contracts/finish-contract-run1.md
++++ b/skills/flow-contracts/finish-contract-run1.md
+@@ -317,7 +317,7 @@ bundle with
+ `flow self-review bundle -change <name>`: flowd assembles the whole bundle — the ledger and the
+ panel record rendered from the store, or, when the store yields no render for that record, read
+ from the copies the archive commit carries, the archived `tasks.md`,
+-`design.md`, `narrative.md` and `visual-verification.md`
++`design.md`, `narrative.md`, `visual-verification.md` and `live-verification.md`
+ read out of `spectre/<name>` in the repository the command resolves from its
+ own location (the main checkout its working directory sits in — the store carries no repository
+ roots for the pipeline's changes), and the `git log --stat` of every implementation, planning and
+diff --git a/skills/flow-fast/SKILL.md b/skills/flow-fast/SKILL.md
+index ee3bbc55..29380dd1 100644
+--- a/skills/flow-fast/SKILL.md
++++ b/skills/flow-fast/SKILL.md
+@@ -299,8 +299,8 @@ a fix re-run never records its findings twice.
+ Assemble the bundle in memory, never written to `<project>/docs/self-review/` or committed, as, in
+ order: the stdout of `flow self-review
+ bundle -change <name>` run from the worktree — of the sources `/flow`'s bundle judges a change
+-by, a `/flow-fast` run can never have tasks.md, design.md, narrative.md and visual-verification.md (no spectre
+-artifacts and no archive), so those four report `skipped` by design, never silently;
++by, a `/flow-fast` run can never have tasks.md, design.md, narrative.md, visual-verification.md and live-verification.md (no spectre
++artifacts and no archive), so those five report `skipped` by design, never silently;
+ the git-log source resolves from the main checkout the command resolves, as the change branch's
+ commits; the ledger and panel render from the store when the run wrote rows — then
+ `## Session narrative`, one paragraph this session writes on what it
+diff --git a/stats/internal/api/selfreview.go b/stats/internal/api/selfreview.go
+index c7a8068d..a641daa4 100644
+--- a/stats/internal/api/selfreview.go
++++ b/stats/internal/api/selfreview.go
+@@ -45,8 +45,8 @@ type selfreviewStore interface {
+ // /api/v1/self-review/{project}/{change}/bundle?repo=<abs-path>: the whole
+ // self-review context bundle, assembled server-side — the ledger and panel
+ // record rendered from the store exactly as the render route renders them,
+-// the archived change's tasks.md, design.md, narrative.md and visual-verification.md
+-// read out of the change branch spectre/<name> of the repository the caller named, or
++// the archived change's tasks.md, design.md, narrative.md, visual-verification.md
++// and live-verification.md read out of the change branch spectre/<name> of the repository the caller named, or
+ // its base branch once the change has landed, and
+ // the git log of the finish-run commits, derived here rather than in any
+ // Bash the caller would have to run. The CLI transports the result and
+diff --git a/stats/internal/selfreview/bundle_test.go b/stats/internal/selfreview/bundle_test.go
+index 38eb5954..162adae4 100644
+--- a/stats/internal/selfreview/bundle_test.go
++++ b/stats/internal/selfreview/bundle_test.go
+@@ -98,7 +98,7 @@ func TestBundleAssemblySkipsAbsentSources(t *testing.T) {
+ 
+ 	// A change the store has never heard of renders nothing: the ledger
+ 	// needs dispatch rows and the panel needs any row at all.
+-	if !strings.Contains(bundle, "found: 0 of 8 sources; skipped: 8 of 8 sources") {
++	if !strings.Contains(bundle, "found: 0 of 9 sources; skipped: 9 of 9 sources") {
+ 		t.Errorf("summary line wrong:\n%s", bundle)
+ 	}
+ 	if strings.Contains(bundle, "## .superpowers/sdd/ledgers/demo.md") {
+@@ -217,6 +217,28 @@ func TestBundleServesArchivedVisualVerification(t *testing.T) {
+ 	}
+ }
+ 
++func TestBundleServesArchivedLiveVerification(t *testing.T) {
++	repo := gitRepo(t)
++	writeArchiveBranch(t, repo, "demo", map[string]string{
++		"tasks.md":             "# demo tasks\n",
++		"live-verification.md": "# Live verification — demo\n",
++	})
++
++	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, ExecRunner{})
++	if err != nil {
++		t.Fatalf("Bundle: %v", err)
++	}
++
++	for _, want := range []string{
++		"## spectre/changes/archive/demo/live-verification.md",
++		"# Live verification — demo",
++	} {
++		if !strings.Contains(bundle, want) {
++			t.Errorf("bundle missing %q:\n%s", want, bundle)
++		}
++	}
++}
++
+ func TestBundleElidesMatrixRowsUnderAnyMatrixHeading(t *testing.T) {
+ 	repo := gitRepo(t)
+ 	commitAll(t, repo, "a.go", "package a\n", "feat(demo): a")
+@@ -340,7 +362,7 @@ func TestBundleAssemblyGitLogFallsBackToChangeBranch(t *testing.T) {
+ 	}
+ 	// One found source — the git log; every other source a flow-fast run
+ 	// has no archive to read and no store rows to render.
+-	if !strings.Contains(bundle, "found: 1 of 8 sources; skipped: 7 of 8 sources") {
++	if !strings.Contains(bundle, "found: 1 of 9 sources; skipped: 8 of 9 sources") {
+ 		t.Errorf("summary line wrong:\n%s", bundle)
+ 	}
+ }
+@@ -418,7 +440,7 @@ func TestBundleAssemblyFallsBackToCommittedRecords(t *testing.T) {
+ 		// tasks.md and the archive commit's git log resolve besides the two
+ 		// fallback sections; design.md, narrative.md and
+ 		// visual-verification.md stay skipped.
+-		"found: 4 of 8 sources",
++		"found: 4 of 9 sources",
+ 		"skipped: spectre/changes/archive/demo/design.md (absent)",
+ 		"skipped: spectre/changes/archive/demo/narrative.md (absent)",
+ 		"skipped: spectre/changes/archive/demo/visual-verification.md (absent)",
+@@ -825,7 +847,7 @@ func TestBundleServesRecordedSummaryFirst(t *testing.T) {
+ 	for _, want := range []string{
+ 		"## change summary",
+ 		"what changed and why",
+-		"found: 1 of 8 sources",
++		"found: 1 of 9 sources",
+ 	} {
+ 		if !strings.Contains(bundle, want) {
+ 			t.Errorf("bundle missing %q:\n%s", want, bundle)
+@@ -844,7 +866,7 @@ func TestBundleSkipsAbsentSummary(t *testing.T) {
+ 		t.Fatalf("Bundle: %v", err)
+ 	}
+ 
+-	if !strings.Contains(bundle, "found: 0 of 8 sources; skipped: 8 of 8 sources") {
++	if !strings.Contains(bundle, "found: 0 of 9 sources; skipped: 9 of 9 sources") {
+ 		t.Errorf("summary line wrong:\n%s", bundle)
+ 	}
+ 	if !strings.Contains(bundle, "skipped: change summary (absent)") {
+@@ -871,7 +893,7 @@ func TestBundleNamesRecordsLossWhenPanelRanWithoutDispatches(t *testing.T) {
+ 	}
+ 	// The note is a note, not a source: the found/skipped line still
+ 	// counts exactly the eight real sources.
+-	if !strings.Contains(bundle, "found: 0 of 8 sources; skipped: 8 of 8 sources") {
++	if !strings.Contains(bundle, "found: 0 of 9 sources; skipped: 9 of 9 sources") {
+ 		t.Errorf("found/skipped line disturbed by the note:\n%s", bundle)
+ 	}
+ 	if strings.Contains(bundle, "skipped: note:") {
+diff --git a/stats/internal/selfreview/git.go b/stats/internal/selfreview/git.go
+index ea417a41..63fd3ba3 100644
+--- a/stats/internal/selfreview/git.go
++++ b/stats/internal/selfreview/git.go
+@@ -497,10 +497,11 @@ func trimmedOutput(b []byte, err error) string {
+ 
+ // archivedFiles are the change's archived files the bundle serves, in
+ // order. visual-verification.md is the record the flow-eval angle's visual
+-// candidates are read from (skills/flow-self-review/SKILL.md, angle 7); a
+-// change with no visual verification reports it skipped like any absent
+-// source.
+-var archivedFiles = []string{"tasks.md", "design.md", "narrative.md", "visual-verification.md"}
++// candidates are read from (skills/flow-self-review/SKILL.md, angle 7), and
++// live-verification.md the live check's before/after figures
++// (skills/flow/verify-and-handoff.md); a change with neither reports each
++// skipped like any absent source.
++var archivedFiles = []string{"tasks.md", "design.md", "narrative.md", "visual-verification.md", "live-verification.md"}
+ 
+ // Bundle assembles the whole self-review context bundle for change as one
+ // Markdown document: the header, the found/skipped summary line, one
