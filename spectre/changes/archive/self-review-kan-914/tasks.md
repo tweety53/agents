@@ -34,8 +34,8 @@ non-UI-test workspace database.
 - `EnsureProject` on an existing row keeps its first path, and with an empty path creates nothing (`ErrInvalidMainCheckoutPath`).
 - A daemon started outside a git checkout still starts, logging one `Warn` line.
 
-- [ ] 1. KAN-914 — seed a workspace daemon's project row at startup
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Add the store test below
+- [x] 1. KAN-914 — seed a workspace daemon's project row at startup
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Add the store test below
     to `stats/internal/store/projects_test.go` (imports `reflect` and
     `github.com/tweety53/agents/stats/internal/records`) with its `EnsureProject` calls commented
     out, and run
@@ -81,7 +81,7 @@ func TestEnsureProjectLetsARecordWriteThrough(t *testing.T) {
 }
 ```
 
-  - [ ] **Step 2: Implement `func (s *Store) EnsureProject(ctx context.Context, projectKey, mainCheckoutPath string) error`**
+  - [x] **Step 2: Implement `func (s *Store) EnsureProject(ctx context.Context, projectKey, mainCheckoutPath string) error`**
     in `stats/internal/store/projects.go`, with a doc comment naming it the bootstrap
     `PutChange` and `insertPlanStageRun` run inside their own writes, for a caller with no
     change to write:
@@ -93,7 +93,7 @@ func TestEnsureProjectLetsARecordWriteThrough(t *testing.T) {
 ```
 
     Run the Step 1 command again: it passes.
-  - [ ] **Step 3: Write the predicate test** `TestSeedsWorkspaceProjectOnlyIntoAWorkspaceDatabase`
+  - [x] **Step 3: Write the predicate test** `TestSeedsWorkspaceProjectOnlyIntoAWorkspaceDatabase`
     in `stats/cmd/flowd/wiring_test.go`, beside `TestReplaysSharedJournalOnlyIntoTheFlowDatabase`
     and shaped like it, a table over `seedsWorkspaceProject(dsn)`:
 
@@ -107,7 +107,7 @@ func TestEnsureProjectLetsARecordWriteThrough(t *testing.T) {
 	}
 ```
 
-  - [ ] **Step 4: Implement** in `stats/cmd/flowd/main.go`
+  - [x] **Step 4: Implement** in `stats/cmd/flowd/main.go`
     `func seedsWorkspaceProject(dsn string) bool` beside `replaysSharedJournal` — true when
     `url.Parse(dsn)` succeeds and its path starts `/flow_` and does not end `_uitest` — and, in
     `run` after `st.SeedPricing` and before the SPA wiring, a block that, when
@@ -118,7 +118,7 @@ func TestEnsureProjectLetsARecordWriteThrough(t *testing.T) {
     working directory as the checkout `originRemote` already reads. Run
     `cd stats && make -s web-dist && go test ./cmd/flowd/ -run 'TestSeedsWorkspaceProject|TestReplaysSharedJournal' -count=1`:
     passes.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .`
+  - [x] **Step 5: Verify.** `cd stats && gofmt -w . && make -s web-dist && go vet ./... && gofmt -l .`
     exits 0 and prints nothing; rerun the Step 2 and Step 4 test commands. Commit.
 
 **Build:** green
