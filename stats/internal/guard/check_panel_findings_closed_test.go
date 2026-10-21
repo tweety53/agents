@@ -110,6 +110,17 @@ func cfcRun(t *testing.T, bin string, args ...string) (int, string, string) {
 func TestCheckPanelFindingsClosed(t *testing.T) {
 	t.Parallel()
 	wt := t.TempDir()
+	// Every clean re-run a passing case's dispatches name writes its report
+	// (KAN-915); no count lines, so the count check skips them.
+	sdd := filepath.Join(wt, ".superpowers", "sdd")
+	if err := os.MkdirAll(sdd, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range []string{"1", "2", "3"} {
+		for _, id := range []string{"primary", "bugbot"} {
+			writeFile(t, filepath.Join(sdd, "panel-report-"+r+"-"+id+".md"), "clean\n")
+		}
+	}
 	cases := []struct {
 		label  string
 		json   string
@@ -322,10 +333,14 @@ func TestCheckPanelFindingsClosedReportCounts(t *testing.T) {
 			files: map[string]string{"panel-report-11-primary.md": "Critical: 0\nImportant: 1\n\nbody\n"},
 			json:  "[]", want: 1, needle: "panel-report-11-primary.md (report 1, recorded 0)"},
 		{label: "the Important recorded fixed with a clean re-run exits 0",
-			files: map[string]string{"panel-report-11-primary.md": "Critical: 0\nImportant: 1\n"},
-			json:  cfcJSON(cfcFinding{Ref: "F10", Severity: "Important", Status: "fixed", Round: 11, Slot: "primary+principles"}),
-			disp:  cfcDispatchJSON(cfcDispatch{Key: "panel-12-primary+principles", Role: "reviewer", Slot: "primary+principles", Outcome: "completed"}),
-			want:  0},
+			files: map[string]string{
+				"panel-report-11-primary.md":    "Critical: 0\nImportant: 1\n",
+				"panel-report-12-primary.md":    "clean\n",
+				"panel-report-12-principles.md": "clean\n",
+			},
+			json: cfcJSON(cfcFinding{Ref: "F10", Severity: "Important", Status: "fixed", Round: 11, Slot: "primary+principles"}),
+			disp: cfcDispatchJSON(cfcDispatch{Key: "panel-12-primary+principles", Role: "reviewer", Slot: "primary+principles", Outcome: "completed"}),
+			want: 0},
 		{label: "the Important recorded at another round exits 1",
 			files: map[string]string{"panel-report-11-primary.md": "Critical: 0\nImportant: 1\n"},
 			json:  cfcJSON(cfcFinding{Ref: "F10", Severity: "Important", Status: "withdrawn dup", Round: 10, Slot: "primary"}),
@@ -357,6 +372,53 @@ func TestCheckPanelFindingsClosedReportCounts(t *testing.T) {
 				disp = "[]"
 			}
 			rc, out, errs := cfcRun(t, cfcBinDispatches(t, c.json, disp, "", 0), wt, "demo")
+			if rc != c.want {
+				t.Fatalf("expected exit %d, got %d\nstdout: %s\nstderr: %s", c.want, rc, out, errs)
+			}
+			if c.needle != "" && !strings.Contains(errs, c.needle) {
+				t.Fatalf("expected stderr to name %q, got:\n%s", c.needle, errs)
+			}
+		})
+	}
+}
+
+// A completed re-run covers a fixed finding only once its
+// panel-report-<round>-<id>.md is written -- not absent, empty or the
+// parent's placeholder (KAN-915).
+func TestCheckPanelFindingsClosedRerunNeedsItsReportFile(t *testing.T) {
+	t.Parallel()
+	solo := cfcDispatchJSON(cfcDispatch{Key: "panel-2-primary", Role: "reviewer", Slot: "primary", Outcome: "completed"})
+	joined := cfcDispatchJSON(cfcDispatch{Key: "panel-2-bugbot+primary", Role: "reviewer", Slot: "bugbot+primary", Outcome: "completed"})
+	f1 := cfcJSON(cfcFinding{Ref: "F1", Severity: "Important", Status: "fixed", Round: 1, Slot: "primary"})
+	cases := []struct {
+		label, json, disp string
+		files             map[string]string
+		want              int
+		needle            string
+	}{
+		{label: "no report file exits 1", json: f1, disp: solo, want: 1, needle: "panel-report-2-primary.md"},
+		{label: "the placeholder exits 1", json: f1, disp: solo,
+			files: map[string]string{"panel-report-2-primary.md": "no verbatim report captured — timeout\n"}, want: 1, needle: "panel-report-2-primary.md"},
+		{label: "a written report exits 0", json: f1, disp: solo,
+			files: map[string]string{"panel-report-2-primary.md": "Critical: 0\nImportant: 0\n"}, want: 0},
+		{label: "a joined re-run covers a primary finding with only its primary report", json: f1, disp: joined,
+			files: map[string]string{"panel-report-2-primary.md": "Critical: 0\nImportant: 0\n"}, want: 0},
+		{label: "a joined finding needs every component's report",
+			json: cfcJSON(cfcFinding{Ref: "F1", Severity: "Important", Status: "fixed", Round: 1, Slot: "bugbot+primary"}), disp: joined,
+			files: map[string]string{"panel-report-2-primary.md": "Critical: 0\nImportant: 0\n"}, want: 1, needle: "panel-report-2-bugbot.md"},
+	}
+	for _, c := range cases {
+		t.Run(c.label, func(t *testing.T) {
+			t.Parallel()
+			wt := t.TempDir()
+			sdd := filepath.Join(wt, ".superpowers", "sdd")
+			if err := os.MkdirAll(sdd, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			for n, body := range c.files {
+				writeFile(t, filepath.Join(sdd, n), body)
+			}
+			rc, out, errs := cfcRun(t, cfcBinDispatches(t, c.json, c.disp, "", 0), wt, "demo")
 			if rc != c.want {
 				t.Fatalf("expected exit %d, got %d\nstdout: %s\nstderr: %s", c.want, rc, out, errs)
 			}

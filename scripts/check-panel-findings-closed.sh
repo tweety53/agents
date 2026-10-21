@@ -38,8 +38,9 @@
 # Exit codes:
 #   0  no finding is open or deferred, and every Critical or Important
 #      recorded `fixed` has a clean re-run dispatch of its slot in a later
-#      round — for a row whose `supersedes` names a row of the same round
-#      (review-panel.md's cross-role fold), the named row's slot covers it
+#      round whose panel-report-<round>-<id>.md is written — for a row whose
+#      `supersedes` names a row of the same round (review-panel.md's
+#      cross-role fold), the named row's slot covers it
 #   1  a finding is open or `deferred`, or a Critical or Important is
 #      recorded `fixed` with no clean re-run dispatch of its slot in any
 #      later round — the ordering review-panel.md's **Recording findings**
@@ -48,7 +49,9 @@
 #      unverified ref with its slot is named on stderr; or a slot's
 #      panel-report-<round>-<id>.md counts on its Critical: <n> and
 #      Important: <n> lines more findings than the store holds for that
-#      round and slot
+#      round and slot; or a re-run answered without writing its
+#      panel-report-<round>-<id>.md (absent, empty or the parent's
+#      `no verbatim report captured` placeholder), named on stderr (KAN-915)
 #   2  cannot answer at all — no worktree, no change name, a change name
 #      outside the allowlist, a worktree that is not a directory, the store
 #      unreachable, its answer unreadable (empty output included), or an

@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -163,27 +164,41 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 	for _, f := range findings {
 		byRef[f.ref] = f
 	}
-	covers := func(slot string, round int) bool {
+	// A RE-RUN COUNTS ONLY ONCE ITS REPORT FILE IS WRITTEN (KAN-915): a
+	// dispatch provides a required component only when
+	// panel-report-<round>-<component>.md is non-empty and not the parent's
+	// `no verbatim report captured` placeholder. A re-run that would have
+	// covered the finding but for a missing report names that file.
+	covers := func(slot string, round int) (bool, []string) {
 		required := strings.Split(slot, "+")
+		var missing []string
 		for _, d := range dispatches {
 			if d.role != "reviewer" || d.outcome != "completed" || d.round <= round {
 				continue
 			}
 			provides := strings.Split(d.slot, "+")
 			all := true
+			var lacking []string
 			for _, r := range required {
 				if !slices.Contains(provides, r) {
 					all = false
 					break
 				}
+				if !cfcReportWritten(worktree, d.round, r) {
+					lacking = append(lacking, fmt.Sprintf("panel-report-%d-%s.md", d.round, r))
+				}
 			}
-			if all {
-				return true
+			if !all {
+				continue
 			}
+			if len(lacking) == 0 {
+				return true, nil
+			}
+			missing = append(missing, lacking...)
 		}
-		return false
+		return false, missing
 	}
-	var unverified []string
+	var unverified, unreported []string
 	for _, f := range findings {
 		if f.status != "fixed" {
 			continue
@@ -192,13 +207,23 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		if strings.EqualFold(f.severity, "minor") {
 			continue
 		}
-		covered := covers(f.slot, f.round)
+		covered, missing := covers(f.slot, f.round)
 		if t, ok := byRef[f.supersedes]; !covered && ok && f.supersedes != "" && t.round == f.round {
-			covered = covers(t.slot, f.round)
+			var more []string
+			covered, more = covers(t.slot, f.round)
+			missing = append(missing, more...)
 		}
 		if !covered {
 			unverified = append(unverified, f.ref+" ("+f.slot+")")
+			for _, m := range missing {
+				if !slices.Contains(unreported, m) {
+					unreported = append(unreported, m)
+				}
+			}
 		}
+	}
+	if len(unreported) > 0 {
+		fmt.Fprintf(stderr, "%sre-run(s) answered without writing their report file: %s\n", cfcPrefix, strings.Join(unreported, " "))
 	}
 	if len(unverified) > 0 {
 		fmt.Fprintf(stderr, "%sfinding(s) recorded fixed with no clean re-run dispatch of their slot in any later round: %s\n", cfcPrefix, strings.Join(unverified, " "))
@@ -249,6 +274,13 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 	}
 	fmt.Fprintln(stdout, "FINDINGS-CLOSED")
 	return 0
+}
+
+// cfcReportWritten reports whether a re-run wrote its report: the file is
+// non-empty and does not begin with the parent's placeholder.
+func cfcReportWritten(worktree string, round int, id string) bool {
+	b, err := os.ReadFile(filepath.Join(worktree, ".superpowers", "sdd", fmt.Sprintf("panel-report-%d-%s.md", round, id)))
+	return err == nil && len(b) > 0 && !bytes.HasPrefix(b, []byte("no verbatim report captured"))
 }
 
 type cfcFindingRow struct {
