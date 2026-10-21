@@ -172,6 +172,11 @@ func TestCheckTreeMarkers(t *testing.T) {
 		tmExit("case 7h: an empty marker exits 2", fx.run("snapshot", fx.wt, bad+"/emptymarker", fx.snap), 2),
 		tmExit("case 7i: snapshot to an unwritable path exits 2", fx.run("snapshot", fx.wt, fx.markers, fx.snap+"/no-dir/snapshot"), 2),
 		tmExit("case 7j: an empty path in the markers file exits 2", fx.run("snapshot", fx.wt, bad+"/emptypath", fx.snap), 2))
+	// 7k: an existing regular file as the worktree is refused as a
+	// non-directory before any marker is read.
+	r = fx.run("snapshot", fx.markers, fx.markers, fx.snap)
+	add(tmExit("case 7k: a regular-file worktree exits 2", r, 2),
+		tmExact("case 7k: a regular-file worktree is named as not a directory", r.err, "check-tree-markers: not a directory: "+fx.markers+"\n"))
 
 	// Case 8: verify with no readable snapshot file.
 	fx = tmNew(t)

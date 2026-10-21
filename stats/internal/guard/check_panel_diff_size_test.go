@@ -88,7 +88,6 @@ func TestCheckPanelDiffSize(t *testing.T) {
 	pdsCommit(t, repo, "small.txt", pdsLines(10))
 	r := pdsRun(repo, base)
 	want("case 1: exits 0 for a diff under the cap", r.rc == 0, r)
-	want("case 1: prints the count", strings.Contains(r.out, "10"), r)
 	want("case 1: stdout is the count then the verdict", r.stdout == "10\nunder cap\n" && r.err == "", r)
 
 	// 2. A diff over the default cap exits 1 and prints the count. 5200
@@ -98,8 +97,14 @@ func TestCheckPanelDiffSize(t *testing.T) {
 	pdsCommit(t, repo, "big.txt", pdsLines(5200))
 	r = pdsRun(repo, base)
 	want("case 2: exits 1 for a diff over the cap", r.rc == 1, r)
-	want("case 2: prints the count", strings.Contains(r.out, "5200"), r)
 	want("case 2: stdout is the count then over cap", r.stdout == "5200\nover cap\n", r)
+
+	// 2b. A diff exactly at the default cap, run without a cap argument, is
+	// under it: pins the default's value at its boundary.
+	repo, base = pdsRepo(t)
+	pdsCommit(t, repo, "edge.txt", pdsLines(5000))
+	r = pdsRun(repo, base)
+	want("case 2b: a diff exactly at the default cap is under it", r.rc == 0 && r.stdout == "5000\nunder cap\n", r)
 
 	// 3. An explicit third argument overrides the default cap.
 	repo, base = pdsRepo(t)

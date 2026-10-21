@@ -57,14 +57,33 @@ func guardAutosquash(args []string, env Env, stdout, stderr io.Writer) int {
 	if head.Run() != nil {
 		return cannot(wt + " has no resolvable HEAD")
 	}
-	isCommit := func(sha string) bool { return git("-C", wt, "cat-file", "-e", sha+"^{commit}").Run() == nil }
+	// commits is `cat-file -e <sha>^{commit}` for every sha in one
+	// --batch-check process: one output line per input line, in order,
+	// `<sha> commit <size>` where -e would have passed and `<input>
+	// missing` or `<input> ambiguous` where it would have failed. A failed
+	// run reads every sha as unresolved, as a failing -e did.
+	commits := func(shas []string) []bool {
+		ok := make([]bool, len(shas))
+		if len(shas) == 0 {
+			return ok
+		}
+		cmd := git("-C", wt, "cat-file", "--batch-check")
+		cmd.Stdin = strings.NewReader(strings.Join(shas, "^{commit}\n") + "^{commit}\n")
+		out, err := cmd.Output()
+		lines := strings.Split(string(out), "\n")
+		for i := range shas {
+			ok[i] = err == nil && i < len(lines) && strings.Contains(lines[i], " commit ")
+		}
+		return ok
+	}
 	isAncestor := func(sha string) bool {
 		return git("-C", wt, "merge-base", "--is-ancestor", sha, "HEAD").Run() == nil
 	}
 
 	if sub == "targets" {
-		for _, sha := range rest {
-			if !isCommit(sha) {
+		resolved := commits(rest)
+		for i, sha := range rest {
+			if !resolved[i] {
 				violation("fixup target " + sha + " does not resolve as a commit object — refusing the autosquash")
 				continue
 			}
@@ -90,8 +109,10 @@ func guardAutosquash(args []string, env Env, stdout, stderr io.Writer) int {
 		if !isAncestor(base) {
 			violation("base " + base + " is no longer an ancestor of HEAD")
 		}
-		for _, token := range gaTokens(body) {
-			if !isCommit(token) {
+		tokens := gaTokens(body)
+		resolved := commits(tokens)
+		for i, token := range tokens {
+			if !resolved[i] {
 				violation(token + " does not resolve as a commit object")
 				continue
 			}

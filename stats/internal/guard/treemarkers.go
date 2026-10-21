@@ -181,6 +181,7 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 			cmd := exec.Command(diffBin, snap, tmp.Name())
 			cmd.Dir = env.Dir
+			cmd.Env = append(os.Environ(), "LC_ALL=C") // the bash exported LC_ALL=C for its whole run
 			out, _ := cmd.Output()
 			for _, l := range strings.SplitAfter(string(out), "\n") {
 				if l != "" {

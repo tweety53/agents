@@ -209,12 +209,17 @@ func TestCheckPlanUnchanged(t *testing.T) {
 		{steps: []pucStep{
 			pucArgs("case 9a: no arguments exits 2", 2, func(string, string) []string { return nil }),
 			pucArgs("case 9b: a bad mode exits 2", 2, func(wt, snap string) []string { return []string{"check", wt, "demo", snap} }),
+			pucNames("case 9b: a bad mode prints the usage", "usage: check-plan-unchanged.sh"),
 			pucArgs("case 9c: a non-directory worktree exits 2", 2, func(wt, snap string) []string {
 				return []string{"snapshot", wt + "/no-such-dir", "demo", snap}
 			}),
 			pucArgs("case 9d: a change name with a separator exits 2", 2, func(wt, snap string) []string {
 				return []string{"snapshot", wt, "../escape", snap}
 			}),
+			pucArgs("case 9e: an empty change name exits 2", 2, func(wt, snap string) []string { return []string{"snapshot", wt, "", snap} }),
+			pucNames("case 9e: an empty change name prints the usage", "usage: check-plan-unchanged.sh"),
+			pucArgs("case 9f: an empty snapshot path exits 2", 2, func(wt, _ string) []string { return []string{"snapshot", wt, "demo", ""} }),
+			pucNames("case 9f: an empty snapshot path prints the usage", "usage: check-plan-unchanged.sh"),
 		}},
 		{snapRel: "no-dir/snapshot", steps: []pucStep{
 			pucRun("snapshot", 2, "case 10: snapshot to an unwritable path exits 2"),
