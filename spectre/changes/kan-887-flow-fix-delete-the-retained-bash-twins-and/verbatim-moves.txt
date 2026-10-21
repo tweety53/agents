@@ -1,0 +1,3 @@
+# KAN-887 deleted the bash twin the changePlanDir sentence named (Decision record-in-go-header).
+Every step that reads or writes a change's planning artifacts resolves the directory this way; the guards resolve it through `changePlanDir` (`<agents repo>/stats/internal/guard/changeplan.go`) and its bash twin `<agents repo>/scripts/lib/change-plan.sh`, and `flow tasks` through the same rule.
+Every step that reads or writes a change's planning artifacts resolves the directory this way; the guards resolve it through `changePlanDir` (`<agents repo>/stats/internal/guard/changeplan.go`), whose bash twin KAN-887 deleted, and `flow tasks` through the same rule.
