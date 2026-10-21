@@ -76,19 +76,19 @@ func guardAutosquash(args []string, env Env, stdout, stderr io.Writer) int {
 		base, tasksMD := rest[0], rest[1]
 		// `[ -f ]`: a directory passes a readability test but not a
 		// regular-file test, so the sweep refuses rather than fail open.
+		// The bash read the file after that test alone, so a regular file it
+		// could not read swept no tokens and could pass; the read is now part
+		// of the same refusal, as the header always stated.
 		fi, err := os.Stat(smcAbs(env, tasksMD))
+		var body []byte
+		if err == nil && fi.Mode().IsRegular() {
+			body, err = os.ReadFile(smcAbs(env, tasksMD))
+		}
 		if err != nil || !fi.Mode().IsRegular() {
 			return cannot("tasks file " + tasksMD + " is missing, not a regular file, or unreadable")
 		}
 		if !isAncestor(base) {
 			violation("base " + base + " is no longer an ancestor of HEAD")
-		}
-		// The bash read the file with `<"$TASKS_MD"` after the -f test
-		// alone: a regular file it cannot read printed the shell's error and
-		// swept no tokens. Kept as it was.
-		body, err := os.ReadFile(smcAbs(env, tasksMD))
-		if err != nil {
-			fmt.Fprintf(stderr, "%s: %v\n", tasksMD, err)
 		}
 		for _, token := range gaTokens(body) {
 			if !isCommit(token) {

@@ -122,6 +122,14 @@ func TestGuardAutosquash(t *testing.T) {
 			setup: func(g *fxGit, repo, sandbox string) ([]string, string) {
 				return []string{"after", repo, rootSHA(g, repo), sandbox}, ""
 			}},
+		{label: "after exits 2 on an unreadable tasks.md", want: 2, emptyOut: true,
+			setup: func(g *fxGit, repo, sandbox string) ([]string, string) {
+				p := tasks(g, sandbox, "- baseline deadbeef\n")
+				if g.err == nil {
+					g.err = os.Chmod(p, 0)
+				}
+				return []string{"after", repo, rootSHA(g, repo), p}, "unreadable"
+			}},
 		{label: "after exits 2 on a missing tasks.md", want: 2, emptyOut: true,
 			setup: func(g *fxGit, repo, sandbox string) ([]string, string) {
 				return []string{"after", repo, rootSHA(g, repo), sandbox + "/absent-tasks.md"}, ""
