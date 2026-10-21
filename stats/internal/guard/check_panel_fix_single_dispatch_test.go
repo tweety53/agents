@@ -363,3 +363,26 @@ func TestCheckPanelFixSingleDispatchCommitIsATaskCommit(t *testing.T) {
 	pfdExpect(t, pfdCase{dispatches: row(plan), args: args}, 1, "panel-fix-0 records commit "+plan)
 	pfdExpect(t, pfdCase{dispatches: row("0123456789abcdef0123456789abcdef01234567"), args: args}, 1, "no repository of the change holds")
 }
+
+func TestCheckPanelFixSingleDispatchNonPanelFixShapes(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		label, rows, needle string
+		want                int
+	}{
+		{"a gated fix round under role implementer is no panel-fix row",
+			`[{"key":"task-1+2-implementer-fix-1","role":"implementer","sessionToken":"mf-tok","agentId":"inline"}]`, "OK", 0},
+		{"the parent's inline full-suite-fix row is skipped",
+			`[{"key":"full-suite-fix-1","role":"panel-fix","sessionToken":"mf-tok","agentId":"inline"}]`, "OK", 0},
+		{"a subagent's full-suite-fix row is refused (KAN-482)",
+			`[{"key":"full-suite-fix-1","role":"panel-fix","sessionToken":"mf-tok","agentId":"a1b2c3"}]`, "full-suite-fix-1", 1},
+		{"a gated fix round misrecorded under role panel-fix is refused",
+			`[{"key":"task-1+2-implementer-fix-1","role":"panel-fix","sessionToken":"mf-tok","agentId":"inline"}]`, "task-1+2-implementer-fix-1", 1},
+	}
+	for _, c := range cases {
+		t.Run(c.label, func(t *testing.T) {
+			t.Parallel()
+			pfdExpect(t, pfdCase{dispatches: []byte(c.rows)}, c.want, c.needle)
+		})
+	}
+}

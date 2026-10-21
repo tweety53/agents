@@ -80,6 +80,8 @@
 # `full-suite-fix-<n>` rows recorded with agent id `inline`: implement.md
 # records the parent's own full-suite fix rounds under role `panel-fix`, and
 # they are no panel fix round. A subagent's row under that key still counts.
+# A gated reviewer's fix round records under role implementer (gated-review-fix.md), so its
+# task-<n+n>-implementer-fix-<k> rows never reach this check.
 #
 # THE GUARD NEVER READS THE JOURNAL and never consults anything but the
 # store's answer, matching check-panel-findings-closed.sh: a read that
