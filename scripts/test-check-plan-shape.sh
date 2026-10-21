@@ -8,7 +8,7 @@
 # REAL fixture files on disk — never a copy of its logic, never its Python
 # internals imported and asserted on directly.
 #
-# One case per finding (F1-F14), a clean-plan case, a no-arg aggregation
+# One case per finding (F1-F15), a clean-plan case, a no-arg aggregation
 # case, and three exit-2 cases (missing sibling module, unreadable file,
 # usage error). Additionally, for each of F1-F6 and F11, a MUTATION case: a
 # throwaway copy of check-plan-shape.py with that finding's own check
@@ -1075,6 +1075,52 @@ assert_mutation_removes_finding "F14" "$TASKS_MD" "all lie under the planning pa
 sed -i.bak 's#`docs/superpowers/notes.md`#`docs/visual-sweep.md`#' "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 38 (F14): one implementation path passes" || fail "case 38 (F14) with an implementation path: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 39 (F15): a **Tests:** name a base test file outside the task's
+# **Files:** already declares cannot be added by the task's commit (kan-918's
+# Task 3, `TestFoldFixup`); a new `TestFoo` beside an existing `TestFooBar`
+# passes, in the task's own file and in another file of the package alike.
+# ===========================================================================
+new_fixture
+git init -q -b main "$FIXTURE"
+mkdir -p "$FIXTURE/pkg"
+printf 'package pkg\n\nfunc TestFoldFixupFolds(t *testing.T) {}\n' > "$FIXTURE/pkg/fold_fixup_test.go"
+printf 'package pkg\n\nfunc TestFooBar(t *testing.T) {}\n' > "$FIXTURE/pkg/foo_bar_test.go"
+git -C "$FIXTURE" add pkg
+git -C "$FIXTURE" -c user.name=t -c user.email=t@example.invalid -c core.hooksPath=/dev/null commit -qm base
+git -C "$FIXTURE" checkout -q -b work
+git -C "$FIXTURE" config branch.work.flowBase main
+{
+  printf -- '- [ ] 1. Port guard-autosquash\n\n'
+  printf '**Files:** `pkg/autosquash.go`, `pkg/autosquash_test.go`\n'
+  printf '**Tests:** `TestAutosquash`, `TestFoldFixup`\n'
+  printf '**Commit:** `feat(pkg): port guard-autosquash`\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+case "$RC:$OUT" in
+  1:*'names `TestFoldFixup`, which the base already declares outside its **Files:** — pkg/fold_fixup_test.go (`TestFoldFixupFolds`)'*) pass "case 39 (F15): an existing test family outside Files fails" ;;
+  *) fail "case 39 (F15): rc=$RC out=$OUT" ;;
+esac
+assert_mutation_removes_finding "F15" "$TASKS_MD" "which the base already declares" "case 39 (F15) mutation"
+sed -i.bak 's#`pkg/autosquash_test.go`#`pkg/autosquash_test.go`, `pkg/fold_fixup_test.go`#' "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 39 (F15): the family's file in Files passes" || fail "case 39 (F15) file in Files: rc=$RC out=$OUT"
+sed -i.bak 's#`TestFoldFixup`#`TestFoo`#' "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 39 (F15): a new TestFoo beside TestFooBar in another file passes" || fail "case 39 (F15) TestFoo: rc=$RC out=$OUT"
+sed -i.bak 's#`pkg/fold_fixup_test.go`#`pkg/foo_bar_test.go`#' "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 39 (F15): a new TestFoo beside TestFooBar in its own file passes" || fail "case 39 (F15) TestFoo own file: rc=$RC out=$OUT"
+printf 'package pkg\n\nfunc TestFoo(t *testing.T) {}\n' > "$FIXTURE/pkg/old_test.go"
+git -C "$FIXTURE" add pkg
+git -C "$FIXTURE" -c user.name=t -c user.email=t@example.invalid -c core.hooksPath=/dev/null commit -qm more
+git -C "$FIXTURE" branch -f main HEAD
+run_guard "$TASKS_MD"
+case "$RC:$OUT" in
+  1:*'names `TestFoo`, which the base already declares outside its **Files:** — pkg/old_test.go (`TestFoo`)'*) pass "case 39 (F15): an exact name outside Files fails" ;;
+  *) fail "case 39 (F15) exact name: rc=$RC out=$OUT" ;;
+esac
 
 # ===========================================================================
 # Unlanded archives: the scan cannot list the archived changes the base does

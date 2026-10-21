@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """check-plan-shape.py — check that a `tasks.md` is SHAPED so the guard
 that will later judge its commits (`check-task-commit-fields.py`) can
-actually read it. Fourteen findings, F1-F14 (F1-F6's canonical definitions,
+actually read it. Fifteen findings, F1-F15 (F1-F6's canonical definitions,
 decisions and rationale: `spectre/changes/kan-121-run-the-guards-own-
 parsers-over-tasks-md-at-plan/design.md` — do not restate them here, a
 second copy is a Single Source of Truth violation, the same class of drift
-stats/internal/guard/planprovenance.go's ported docstring warns against; F7-F14's canonical
+stats/internal/guard/planprovenance.go's ported docstring warns against; F7-F15's canonical
 definitions are the rows in the Findings list below).
 
 This guard IMPORTS the real parsers rather than reimplementing their
@@ -34,7 +34,7 @@ Exit codes:
   0  clean — every task in the file is shaped so the real parsers read it
      without ambiguity (including a file with zero findings; a file with
      zero TASKS is F5, not clean — see below).
-  1  one or more of F1-F14 found. Printed one per line as
+  1  one or more of F1-F15 found. Printed one per line as
      `file:line: message`, naming the task id (F5 excepted: a file with no
      tasks has no task id to name).
   2  invocation error — wrong argument count, or the file cannot be read.
@@ -166,6 +166,25 @@ field-shaped line inside a worked example is not a declaration.
       paths, so the task lands as a planning commit and is ticked by hand
       (kan-941's Task 4, `visual-sweep.md`). Reported at the task line.
 
+  F15 A backticked `**Tests:**` name that a test-shaped file outside the
+      task's `**Files:**` (and its `**Allowed-collateral:**` globs), in a
+      directory one of those files lies in, already declares at the
+      change's base: a `func`/`fun`/`def` of exactly that name, or one
+      starting with it in the file whose subject the name is
+      (`TestFoldFixup` and `fold_fixup_test.go`). The task's commit cannot
+      touch that file, so check-task-commit-fields' diff search never finds
+      the name and refuses the commit (kan-918's Task 3 declared
+      `TestFoldFixup`, the prefix of five existing tests there). A new
+      `TestFoo` beside an existing `TestFooBar` passes: a file the task
+      declares is never read, and another file's `TestFooBar` is a prefix
+      hit only in `foo_test.go`. Another directory is never read — Go
+      allows one name per package, and `TestMain` is in many. The base is
+      the merge base of HEAD with the branch's recorded base
+      (`branch.<current>.flowBase`, its origin/ copy preferred) or else with
+      `refs/remotes/origin/HEAD`; a plan outside a git repository, or one
+      whose base does not resolve, is not checked for F15. Reported at the
+      task's `**Tests:**` line.
+
 A duplicate task id (two task lines sharing one id) is check-task-build-
 green.py's own violation, not this guard's: `collect_task_ids` de-
 duplicates by first occurrence, and `select_task`/`parse_task_fields`
@@ -182,6 +201,7 @@ import fnmatch
 import importlib.util
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional, Set
@@ -554,6 +574,108 @@ def _check_task(
     return violations
 
 
+# DECL_NAME_RE — F15's test declaration: Go's `func`, Kotlin's `fun`,
+# Python's `def`, then the declared name. IDENT_RE — a `**Tests:**` name
+# shaped like one; any other name is never a declaration and is skipped.
+DECL_NAME_RE = re.compile(r"\b(?:func|fun|def)\s+([A-Za-z_]\w*)")
+IDENT_RE = re.compile(r"[A-Za-z_]\w*\Z")
+
+
+def _stem(path: str) -> str:
+    """A test-shaped file's subject: `fold_fixup_test.go` -> `fold_fixup`."""
+    name = os.path.basename(path)
+    for suffix in ("_test.go", ".spec.ts"):
+        name = name[: -len(suffix)] if name.endswith(suffix) else name
+    name = name.split(".test.")[0]
+    return name[len("test-"):] if name.startswith("test-") else name
+
+
+def _key(name: str) -> str:
+    """A name folded for F15's stem comparison: no leading `Test`/`test_`,
+    lower case, letters and digits only."""
+    return re.sub(r"[^a-z0-9]", "", re.sub(r"^test_?", "", name, flags=re.I).lower())
+
+
+def _git(root: str, *args: str) -> Optional[str]:
+    proc = subprocess.run(
+        ["git", "-C", root, "-c", "core.quotePath=false", *args],
+        capture_output=True,
+        text=True,
+    )
+    return proc.stdout if proc.returncode == 0 else None
+
+
+def _base_declarations(path: str) -> List[tuple]:
+    """F15's (file, name) test declarations in the test-shaped files of the
+    change's base tree; [] when the plan sits outside a git repository or
+    no base resolves."""
+    root = _git(os.path.dirname(os.path.abspath(path)), "rev-parse", "--show-toplevel")
+    if root is None:
+        return []
+    root = root.strip()
+    branch = (_git(root, "branch", "--show-current") or "").strip()
+    recorded = (_git(root, "config", "--get", f"branch.{branch}.flowBase") or "").strip() if branch else ""
+    candidates = [f"refs/remotes/origin/{recorded}", recorded] if recorded else ["refs/remotes/origin/HEAD"]
+    rev = None
+    for ref in candidates:
+        rev = _git(root, "merge-base", "HEAD", ref)
+        if rev is not None:
+            break
+    if rev is None:
+        return []
+    rev = rev.strip()
+    out = _git(
+        root, "grep", "-I", "-z", "-E", "(func|fun|def)[[:space:]]", rev, "--",
+        *(f":(glob)**/{pattern}" for pattern in TEST_SHAPED_PATTERNS),
+    ) or ""
+    decls = []
+    for record in out.splitlines():
+        where, _, text = record.partition("\0")
+        for name in DECL_NAME_RE.findall(text):
+            decls.append((where[len(rev) + 1:], name))
+    return decls
+
+
+def _check_f15(path: str, lines: List[str], ids: List[str]) -> List[str]:
+    """F15 — a `**Tests:**` name a base-tree test file outside the task's
+    own files already declares."""
+    decls = _base_declarations(path)
+    if not decls:
+        return []
+    violations: List[str] = []
+    for task_id in ids:
+        fields = parse_task_fields(lines, task_id)
+        if fields.unclosed_fence_line is not None:
+            continue
+        dirs = {os.path.dirname(f) for f in fields.files}
+        for spec in fields.tests:
+            if not IDENT_RE.match(spec.label):
+                continue
+            hits: Dict[str, List[str]] = {}
+            for file, name in decls:
+                same = name == spec.label or (
+                    name.startswith(spec.label) and _key(_stem(file)) == _key(spec.label)
+                )
+                owned = file in fields.files or any(
+                    fnmatch.fnmatch(file, g) for g in fields.allowed_collateral
+                )
+                if same and not owned and os.path.dirname(file) in dirs:  # F15
+                    hits.setdefault(file, []).append(f"`{name}`")
+            if not hits:
+                continue
+            found = select_task(lines, task_id)
+            field = _first_field_line(found.lines, found.body_start, "Tests")
+            where = "; ".join(f"{f} ({', '.join(n)})" for f, n in sorted(hits.items()))
+            violations.append(
+                f"{path}:{field.line}: task {task_id}'s **Tests:** names "
+                f"`{spec.label}`, which the base already declares outside its "
+                f"**Files:** — {where}; the task's commit cannot "
+                "add it, so check-task-commit-fields refuses the commit — "
+                "name the test this task adds, or list the file in **Files:**"
+            )
+    return violations
+
+
 def check_file(path: str) -> List[str]:
     """Read `path` and return its F1-F6 violations, formatted with `path`
     itself as the file portion of each `file:line: message` line."""
@@ -582,6 +704,7 @@ def check_file(path: str) -> List[str]:
     violations.extend(_check_after_references(path, lines))
     violations.extend(_check_file_ownership(path, lines))
     violations.extend(_check_baseline_convention(path, lines))
+    violations.extend(_check_f15(path, lines, ids))
     return violations
 
 
