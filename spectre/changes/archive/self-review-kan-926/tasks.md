@@ -32,14 +32,14 @@ paths restored to `HEAD` and is fast-forwarded; its script header states the rul
 - A dirty checkout already at `origin/<base>`, on another branch, detached, or with local commits keeps its existing refusal, and nothing is restored before every refusal has been checked.
 - Paths with spaces or pathspec magic characters (`*`, `:`) reach `git diff`/`git restore` literally (`--literal-pathspecs`, `-z`).
 
-- [ ] 1. Fast-forward a main checkout over copies identical to the landed drift
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
+- [x] 1. Fast-forward a main checkout over copies identical to the landed drift
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
     test hunk alone (`git apply --include='stats/internal/guard/refresh_main_checkout_test.go' <the saved diff>`)
     and run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestRefreshMainCheckoutDiscardsLandedCopies' -count=1`:
     the `copies identical to origin are discarded, then fast-forwarded` subtest fails with
     `REFRESH-REFUSED: <repo> has tracked changes — nothing touched`.
     <!-- measured: the test hunk alone, go test -run TestRefreshMainCheckoutDiscardsLandedCopies @ b76c2cf1 → FAIL, that subtest refused with has tracked changes -->
-  - [ ] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/internal/guard/refresh_main_checkout_test.go' <the saved diff>`):
+  - [x] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/internal/guard/refresh_main_checkout_test.go' <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at b76c2cf1; go test ./internal/guard/ -count=1 passes, the new test fails with refreshmaincheckout.go reverted, go vet and gofmt -l clean
 diff --git a/scripts/refresh-main-checkout.sh b/scripts/refresh-main-checkout.sh
@@ -246,10 +246,10 @@ index 173042ea..2f35f7e5 100644
 +}
 ````
 
-  - [ ] **Step 3: Verify.** Run `cd stats && gofmt -l ./internal/guard && make -s web-dist && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestRefreshMainCheckout' -count=1`
+  - [x] **Step 3: Verify.** Run `cd stats && gofmt -l ./internal/guard && make -s web-dist && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestRefreshMainCheckout' -count=1`
     — `gofmt` prints nothing and the tests pass — then `scripts/check-references.sh` and
     `scripts/check-guard-symlinks.sh`, both exit 0.
-  - [ ] **Step 4: Commit** the three files with the subject below.
+  - [x] **Step 4: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/refreshmaincheckout.go`, `stats/internal/guard/refresh_main_checkout_test.go`, `scripts/refresh-main-checkout.sh`
