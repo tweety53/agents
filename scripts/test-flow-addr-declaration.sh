@@ -136,9 +136,10 @@ assert_root() {
 
   # 5. every -addr registration takes a resolver default, never a literal —
   # the same variable-agnostic shape, so a registration into any target
-  # field is counted and attributed
+  # field is counted and attributed, a fset.String one returning its own
+  # pointer included
   local regs dres rres
-  regs="$(grep -h 'StringVar(.*"addr", ' $srcs | wc -l | tr -d ' ')"
+  regs="$(grep -hE '\.String(Var)?\(.*"addr", ' $srcs | wc -l | tr -d ' ')"
   dres="$(grep -h '"addr", resolveDefaultAddr()' $srcs | wc -l | tr -d ' ')"
   rres="$(grep -h '"addr", resolveRecordsAddr()' $srcs | wc -l | tr -d ' ')"
   [ "$regs" -eq "$((dres + rres))" ] ||
