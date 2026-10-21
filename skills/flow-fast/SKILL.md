@@ -299,8 +299,8 @@ a fix re-run never records its findings twice.
 Assemble the bundle in memory, never written to `<project>/docs/self-review/` or committed, as, in
 order: the stdout of `flow self-review
 bundle -change <name>` run from the worktree — of the sources `/flow`'s bundle judges a change
-by, a `/flow-fast` run can never have tasks.md, design.md, narrative.md and visual-verification.md (no spectre
-artifacts and no archive), so those four report `skipped` by design, never silently;
+by, a `/flow-fast` run can never have tasks.md, design.md, narrative.md, visual-verification.md and live-verification.md (no spectre
+artifacts and no archive), so those five report `skipped` by design, never silently;
 the git-log source resolves from the main checkout the command resolves, as the change branch's
 commits; the ledger and panel render from the store when the run wrote rows — then
 `## Session narrative`, one paragraph this session writes on what it

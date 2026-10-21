@@ -497,10 +497,11 @@ func trimmedOutput(b []byte, err error) string {
 
 // archivedFiles are the change's archived files the bundle serves, in
 // order. visual-verification.md is the record the flow-eval angle's visual
-// candidates are read from (skills/flow-self-review/SKILL.md, angle 7); a
-// change with no visual verification reports it skipped like any absent
-// source.
-var archivedFiles = []string{"tasks.md", "design.md", "narrative.md", "visual-verification.md"}
+// candidates are read from (skills/flow-self-review/SKILL.md, angle 7), and
+// live-verification.md the live check's before/after figures
+// (skills/flow/verify-and-handoff.md); a change with neither reports each
+// skipped like any absent source.
+var archivedFiles = []string{"tasks.md", "design.md", "narrative.md", "visual-verification.md", "live-verification.md"}
 
 // Bundle assembles the whole self-review context bundle for change as one
 // Markdown document: the header, the found/skipped summary line, one

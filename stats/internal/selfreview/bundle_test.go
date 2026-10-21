@@ -98,7 +98,7 @@ func TestBundleAssemblySkipsAbsentSources(t *testing.T) {
 
 	// A change the store has never heard of renders nothing: the ledger
 	// needs dispatch rows and the panel needs any row at all.
-	if !strings.Contains(bundle, "found: 0 of 8 sources; skipped: 8 of 8 sources") {
+	if !strings.Contains(bundle, "found: 0 of 9 sources; skipped: 9 of 9 sources") {
 		t.Errorf("summary line wrong:\n%s", bundle)
 	}
 	if strings.Contains(bundle, "## .superpowers/sdd/ledgers/demo.md") {
@@ -214,6 +214,28 @@ func TestBundleServesArchivedVisualVerification(t *testing.T) {
 	}
 	if strings.Contains(bundle, "skipped: spectre/changes/archive/demo/visual-verification.md") {
 		t.Errorf("visual-verification.md archived, yet reported skipped:\n%s", bundle)
+	}
+}
+
+func TestBundleServesArchivedLiveVerification(t *testing.T) {
+	repo := gitRepo(t)
+	writeArchiveBranch(t, repo, "demo", map[string]string{
+		"tasks.md":             "# demo tasks\n",
+		"live-verification.md": "# Live verification — demo\n",
+	})
+
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, ExecRunner{})
+	if err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+
+	for _, want := range []string{
+		"## spectre/changes/archive/demo/live-verification.md",
+		"# Live verification — demo",
+	} {
+		if !strings.Contains(bundle, want) {
+			t.Errorf("bundle missing %q:\n%s", want, bundle)
+		}
 	}
 }
 
@@ -340,7 +362,7 @@ func TestBundleAssemblyGitLogFallsBackToChangeBranch(t *testing.T) {
 	}
 	// One found source — the git log; every other source a flow-fast run
 	// has no archive to read and no store rows to render.
-	if !strings.Contains(bundle, "found: 1 of 8 sources; skipped: 7 of 8 sources") {
+	if !strings.Contains(bundle, "found: 1 of 9 sources; skipped: 8 of 9 sources") {
 		t.Errorf("summary line wrong:\n%s", bundle)
 	}
 }
@@ -416,9 +438,9 @@ func TestBundleAssemblyFallsBackToCommittedRecords(t *testing.T) {
 		"## spectre/changes/archive/demo/panel.md",
 		"# Review panel — demo",
 		// tasks.md and the archive commit's git log resolve besides the two
-		// fallback sections; design.md, narrative.md and
-		// visual-verification.md stay skipped.
-		"found: 4 of 8 sources",
+		// fallback sections; design.md, narrative.md,
+		// visual-verification.md and live-verification.md stay skipped.
+		"found: 4 of 9 sources",
 		"skipped: spectre/changes/archive/demo/design.md (absent)",
 		"skipped: spectre/changes/archive/demo/narrative.md (absent)",
 		"skipped: spectre/changes/archive/demo/visual-verification.md (absent)",
@@ -825,7 +847,7 @@ func TestBundleServesRecordedSummaryFirst(t *testing.T) {
 	for _, want := range []string{
 		"## change summary",
 		"what changed and why",
-		"found: 1 of 8 sources",
+		"found: 1 of 9 sources",
 	} {
 		if !strings.Contains(bundle, want) {
 			t.Errorf("bundle missing %q:\n%s", want, bundle)
@@ -835,7 +857,7 @@ func TestBundleServesRecordedSummaryFirst(t *testing.T) {
 
 // TestBundleSkipsAbsentSummary asserts the missing-source shape: a change
 // with no recorded summary reports it skipped like any other absent
-// source, in the same words, and the found line counts the eight sources.
+// source, in the same words, and the found line counts the nine sources.
 func TestBundleSkipsAbsentSummary(t *testing.T) {
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
 
@@ -844,7 +866,7 @@ func TestBundleSkipsAbsentSummary(t *testing.T) {
 		t.Fatalf("Bundle: %v", err)
 	}
 
-	if !strings.Contains(bundle, "found: 0 of 8 sources; skipped: 8 of 8 sources") {
+	if !strings.Contains(bundle, "found: 0 of 9 sources; skipped: 9 of 9 sources") {
 		t.Errorf("summary line wrong:\n%s", bundle)
 	}
 	if !strings.Contains(bundle, "skipped: change summary (absent)") {
@@ -870,8 +892,8 @@ func TestBundleNamesRecordsLossWhenPanelRanWithoutDispatches(t *testing.T) {
 		t.Errorf("records-loss note never names the missing dispatch rows:\n%s", bundle)
 	}
 	// The note is a note, not a source: the found/skipped line still
-	// counts exactly the eight real sources.
-	if !strings.Contains(bundle, "found: 0 of 8 sources; skipped: 8 of 8 sources") {
+	// counts exactly the nine real sources.
+	if !strings.Contains(bundle, "found: 0 of 9 sources; skipped: 9 of 9 sources") {
 		t.Errorf("found/skipped line disturbed by the note:\n%s", bundle)
 	}
 	if strings.Contains(bundle, "skipped: note:") {
