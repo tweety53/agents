@@ -8,13 +8,15 @@ import (
 	"strings"
 )
 
-// The Go twin of scripts/lib/panel-touched-paths.sh, which stays the source
-// of truth for its bash callers and whose header carries the reasoning: this
-// change's own touched paths, defined once for every guard asking "which
-// paths did this change touch?". Each function takes the calling guard's own
-// name as its error-message prefix, so each guard's stderr wording is the
-// bash's. TestPanelTouchedPathsParity runs the bash library and these
-// functions over the same inputs and fails on any difference.
+// This change's own touched paths, defined once for every guard asking
+// "which paths did this change touch?": the union of committed-since-merge-
+// base, staged and unstaged paths, sorted and de-duplicated. Its bash twin
+// was deleted (KAN-887); one definition is what stops the line-for-line
+// copies the guards once carried from drifting. Each function takes the
+// calling guard's own name as its error-message prefix, so each guard's
+// stderr wording is the bash's. TestPanelTouchedPathsParity runs the bash
+// library, as it stood at the change's base, and these functions over the
+// same inputs and fails on any difference.
 
 // panelGit runs gitBin -C worktree args from env's directory, its stderr
 // discarded, as the library's `2>/dev/null` calls do.

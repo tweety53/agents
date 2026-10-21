@@ -243,7 +243,8 @@ func envWith(t *testing.T, over []string) Env {
 }
 
 // TestPanelTouchedPathsParity pins panelResolveGit, panelValidateWorktree and
-// panelTouchedPaths against lib/panel-touched-paths.sh's three functions.
+// panelTouchedPaths against the deleted bash library's three functions, at
+// libTwinBase.
 func TestPanelTouchedPathsParity(t *testing.T) {
 	t.Parallel()
 	d := t.TempDir()
@@ -318,7 +319,7 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 				got.status = 2
 			}
 			got.stderr = errb.String()
-			assertParity(t, got, bashLibEnv(t, over, "panel-touched-paths.sh", "panel_resolve_git", "prog"))
+			assertParity(t, got, bashLibAt(t, over, []string{"panel-touched-paths.sh"}, "panel_resolve_git", "prog"))
 		})
 	}
 
@@ -341,7 +342,7 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 				got.status = 2
 			}
 			got.stderr = errb.String()
-			assertParity(t, got, bashLib(t, "panel-touched-paths.sh", "panel_validate_worktree", "prog", tc.wt, tc.mb, fixtureGit))
+			assertParity(t, got, bashLibAt(t, nil, []string{"panel-touched-paths.sh"}, "panel_validate_worktree", "prog", tc.wt, tc.mb, fixtureGit))
 		})
 	}
 
@@ -370,7 +371,7 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 				got.status = 2
 			}
 			got.stderr = errb.String()
-			assertParity(t, got, bashLibEnv(t, tc.over, "panel-touched-paths.sh", "panel_touched_paths", "prog", tc.wt, tc.mb, tc.git))
+			assertParity(t, got, bashLibAt(t, tc.over, []string{"panel-touched-paths.sh"}, "panel_touched_paths", "prog", tc.wt, tc.mb, tc.git))
 		})
 	}
 }
