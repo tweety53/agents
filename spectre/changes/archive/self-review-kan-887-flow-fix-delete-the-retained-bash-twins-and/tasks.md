@@ -33,13 +33,13 @@ through it.
 - F-B: the Go regex and the Python one stay identical (`TestTaskFieldParseMatchesPython` compares their parses); a bare `case 13:` never satisfies a declared `Case 13b`.
 - F-D: no skip on a dirty tree, without git, or when `git diff` fails; nothing is written into the tree; a run with any red writes no sha; a command declaring no `# inputs:` always runs unless HEAD is the green sha.
 
-- [ ] 1. Count a panel re-run closed clean
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
+- [x] 1. Count a panel re-run closed clean
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
     test hunk alone (`git apply --include='stats/internal/guard/check_panel_findings_closed_test.go' <the saved diff>`)
     and run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckPanelFindingsClosed$' -count=1`:
     `case 32: a re-run that ended clean covers the finding` fails.
     <!-- measured: the test hunk alone, go test -run 'TestCheckPanelFindingsClosed$' @ b9e7118b → FAIL on case 32 -->
-  - [ ] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/internal/guard/check_panel_findings_closed_test.go' <the saved diff>`):
+  - [x] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/internal/guard/check_panel_findings_closed_test.go' <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at b9e7118b; go test ./internal/guard/ -count=1 passes, case 32 fails with panelfindingsclosed.go reverted, go vet and gofmt -l clean
 diff --git a/stats/internal/guard/check_panel_findings_closed_test.go b/stats/internal/guard/check_panel_findings_closed_test.go
@@ -92,7 +92,7 @@ index e239f738..881a5774 100644
  			provides := strings.Split(d.slot, "+")
 ````
 
-  - [ ] **Step 3: Verify** — `cd stats && make -s web-dist && go vet ./... && gofmt -l .` exits clean with no `gofmt -l` output, then
+  - [x] **Step 3: Verify** — `cd stats && make -s web-dist && go vet ./... && gofmt -l .` exits clean with no `gofmt -l` output, then
     `cd stats && go test ./internal/guard/ -run 'TestCheckPanelFindingsClosed' -count=1` passes.
 
 **Build:** green
@@ -106,14 +106,14 @@ index e239f738..881a5774 100644
 
 **Decision:** clean-rerun-counts
 
-- [ ] 2. Accept a lettered Case label
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
+- [x] 2. Accept a lettered Case label
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
     test hunks alone (`git apply --include='stats/internal/guard/check_task_commit_fields_test.go' --include='scripts/test-check-plan-shape.sh' <the saved diff>`),
     then run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckTaskCommitFields$/case_163' -count=1`
     (fails: `the bare number does not satisfy a lettered label`) and `scripts/test-check-plan-shape.sh`
     (fails: `case 11b` with `declares nothing`).
     <!-- measured: the test hunks alone, both commands @ b9e7118b → FAIL on case 163 and case 11b -->
-  - [ ] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/internal/guard/check_task_commit_fields_test.go' --exclude='scripts/test-check-plan-shape.sh' <the saved diff>`):
+  - [x] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/internal/guard/check_task_commit_fields_test.go' --exclude='scripts/test-check-plan-shape.sh' <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at b9e7118b; go test ./internal/guard/ -count=1 and scripts/test-check-plan-shape.sh pass, case 163 fails with taskcommitfields.go reverted and case 11b with the Python regex reverted, go vet and gofmt -l clean
 diff --git a/scripts/check-task-commit-fields.py b/scripts/check-task-commit-fields.py
@@ -238,7 +238,7 @@ index f18a5e90..86ab4eec 100644
  // Python copy once this port replaced it; panel round 0, F9):
 ````
 
-  - [ ] **Step 3: Verify** — `cd stats && make -s web-dist && go vet ./... && gofmt -l .` exits clean with no `gofmt -l` output;
+  - [x] **Step 3: Verify** — `cd stats && make -s web-dist && go vet ./... && gofmt -l .` exits clean with no `gofmt -l` output;
     `cd stats && go test ./internal/guard/ -run 'TestCheckTaskCommitFields|TestTaskFieldParseMatchesPython' -count=1`
     passes; `scripts/test-check-plan-shape.sh`, `scripts/check-references.sh`,
     `scripts/check-markdown-integrity.py` and `scripts/check-verbatim-moves.sh` exit 0.
@@ -252,13 +252,13 @@ index f18a5e90..86ab4eec 100644
 
 **Decision:** lettered-case-label
 
-- [ ] 3. Select the Go-tree audits when a Go file is touched
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
+- [x] 3. Select the Go-tree audits when a Go file is touched
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
     test hunk alone (`git apply --include='stats/internal/guard/pipeline_fix_test.go' <the saved diff>`)
     and run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestPipelineFixChecksGoAudits' -count=1`:
     it fails with `a touched Go file: … lacks scripts/test-flow-addr-declaration.sh`.
     <!-- measured: the test hunk alone, go test -run TestPipelineFixChecksGoAudits @ b9e7118b → FAIL, lacks scripts/test-flow-addr-declaration.sh -->
-  - [ ] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/internal/guard/pipeline_fix_test.go' <the saved diff>`):
+  - [x] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/internal/guard/pipeline_fix_test.go' <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at b9e7118b; go test ./internal/guard/ -count=1 passes, TestPipelineFixChecksGoAudits fails with the goTouched loop emptied, go vet and gofmt -l clean
 diff --git a/stats/internal/guard/pipeline_fix_test.go b/stats/internal/guard/pipeline_fix_test.go
@@ -347,7 +347,7 @@ index f4ae6748..6b7fdd65 100644
  		stem := strings.TrimSuffix(base, filepath.Ext(base))
 ````
 
-  - [ ] **Step 3: Verify** — `cd stats && make -s web-dist && go vet ./... && gofmt -l .` exits clean with no `gofmt -l` output, then
+  - [x] **Step 3: Verify** — `cd stats && make -s web-dist && go vet ./... && gofmt -l .` exits clean with no `gofmt -l` output, then
     `cd stats && go test ./internal/guard/ -run 'TestPipelineFix' -count=1` passes.
 
 **Build:** green
@@ -361,13 +361,13 @@ index f4ae6748..6b7fdd65 100644
 
 **Decision:** go-audits-on-go
 
-- [ ] 4. Skip verify tests a green run already covered
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
+- [x] 4. Skip verify tests a green run already covered
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
     harness hunk alone (`git apply --include='scripts/test-run-verify-list.sh' <the saved diff>`) and run
     `scripts/test-run-verify-list.sh`: it fails on `green sha`, `every command skipped at the green sha`,
     `a command re-ran at the green sha` and `a command whose inputs the delta skips is skipped`.
     <!-- measured: the harness hunk alone, scripts/test-run-verify-list.sh | grep -c FAIL → 4 @ b9e7118b -->
-  - [ ] **Step 2: Apply the fix** — the rest (`git apply --exclude='scripts/test-run-verify-list.sh' <the saved diff>`):
+  - [x] **Step 2: Apply the fix** — the rest (`git apply --exclude='scripts/test-run-verify-list.sh' <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at b9e7118b; scripts/test-run-verify-list.sh and scripts/test-git-config-pins.sh pass, the harness fails on the unchanged run-verify-list.sh, check-verbatim-moves.sh clean with verbatim-moves.txt
 diff --git a/.flow/project.md b/.flow/project.md
@@ -609,7 +609,7 @@ index 0fb3d876..363e8c93 100644
  inline re-run of that command — the environmental-flake case. A second non-zero exit from the same
 ````
 
-  - [ ] **Step 3: Verify** — `scripts/test-run-verify-list.sh`, `scripts/test-git-config-pins.sh`,
+  - [x] **Step 3: Verify** — `scripts/test-run-verify-list.sh`, `scripts/test-git-config-pins.sh`,
     `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`,
     `scripts/check-verbatim-moves.sh` and `scripts/project-get.sh . test` exit 0, the last printing
     the `# inputs: stats/web/ stats/Makefile` line above the SPA test line.
