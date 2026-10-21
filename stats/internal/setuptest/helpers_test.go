@@ -29,6 +29,10 @@ type group struct {
 func newGroup(t *testing.T) *group {
 	t.Helper()
 	t.Parallel()
+	if !writers.enter() {
+		t.Skip("interrupted")
+	}
+	t.Cleanup(writers.leave)
 	dir := filepath.Join(sandbox, t.Name())
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("cannot create the group sandbox %s: %v", dir, err)
@@ -82,8 +86,6 @@ func (g *group) runSetup(repo, home, mode, proj string) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
 	cmd.WaitDelay = 5 * time.Second
-	running.Add(1)
-	defer running.Done()
 	g.rc = 0
 	if err := cmd.Run(); err != nil {
 		var ee *exec.ExitError

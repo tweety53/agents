@@ -70,6 +70,35 @@ import (
 // kotlinRule is the opt-in rule two groups in different files assert on.
 const kotlinRule = "kotlin-backend-development-standard.mdc"
 
+// gate admits sandbox writers until it is closed, and its close waits for every admitted one.
+type gate struct {
+	mu     sync.Mutex
+	closed bool
+	in     sync.WaitGroup
+}
+
+// enter admits one writer, or reports false once the gate is closed.
+func (w *gate) enter() bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.closed {
+		return false
+	}
+	w.in.Add(1)
+	return true
+}
+
+// leave releases one writer enter admitted.
+func (w *gate) leave() { w.in.Done() }
+
+// close refuses every later enter, then waits for every admitted writer to leave.
+func (w *gate) close() {
+	w.mu.Lock()
+	w.closed = true
+	w.mu.Unlock()
+	w.in.Wait()
+}
+
 var (
 	repoRoot string // this checkout, the parent of stats/
 	realHome string // $HOME as the test binary started
@@ -79,7 +108,7 @@ var (
 	fixture  string // the shared base fixture repo — read-only for every group using it
 
 	runCtx, stopRuns = context.WithCancel(context.Background()) // cancelled on an interrupt
-	running          sync.WaitGroup                             // the installer runs in flight
+	writers          gate                                       // every sandbox writer in flight; the interrupt handler closes it before removing the sandbox
 )
 
 func TestMain(m *testing.M) { os.Exit(runMain(m)) }
@@ -114,14 +143,15 @@ func runMain(m *testing.M) int {
 		return die("cannot create the sandbox under /tmp: %v", err)
 	}
 	defer cleanup()
-	// An interrupt kills every in-flight installer's process group, waits for them, and removes
-	// the sandbox, as the bash harness's EXIT trap did.
+	// An interrupt kills every in-flight installer's process group, waits for every sandbox
+	// writer — not only installers — to leave, and removes the sandbox, as the bash harness's
+	// EXIT trap did.
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-sig
 		stopRuns()
-		running.Wait()
+		writers.close()
 		cleanup()
 		os.Exit(130)
 	}()
@@ -129,7 +159,12 @@ func runMain(m *testing.M) int {
 	homeBefore := realHomeFingerprint(realHome)
 	srcBefore := sourceTreeFingerprint(repoRoot)
 	fixture = filepath.Join(sandbox, "fixture-repo")
-	if err := makeFixtureRepo(fixture, false); err != nil {
+	if !writers.enter() {
+		return 130
+	}
+	err = makeFixtureRepo(fixture, false)
+	writers.leave()
+	if err != nil {
 		return die("%v", err)
 	}
 	fixtureBefore := treeFingerprint(fixture)

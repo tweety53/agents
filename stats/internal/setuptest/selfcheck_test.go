@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/synctest"
 )
 
 // The harness's own safety logic, pinned: a refusal, a cleanup bound or a close-out verdict that
@@ -97,4 +98,27 @@ func TestCountLinesMatchingCountsWholeLines(t *testing.T) {
 	if got := countLinesMatching(filepath.Join(g.dir, "absent"), "MARK"); got != 0 {
 		t.Errorf("countLinesMatching on a missing file = %d, want 0", got)
 	}
+}
+
+func TestWritersGateHoldsCloseUntilEveryWriterLeaves(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		var w gate
+		if !w.enter() {
+			t.Fatal("an open gate refused a writer")
+		}
+		closed := false
+		go func() { w.close(); closed = true }()
+		synctest.Wait()
+		if closed {
+			t.Fatal("close returned while an admitted writer was still in")
+		}
+		if w.enter() {
+			t.Fatal("a closing gate admitted a new writer")
+		}
+		w.leave()
+		synctest.Wait()
+		if !closed {
+			t.Fatal("close did not return after the last writer left")
+		}
+	})
 }
