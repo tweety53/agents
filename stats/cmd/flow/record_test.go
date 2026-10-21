@@ -5018,6 +5018,10 @@ func TestRecordDispatchBackfill(t *testing.T) {
 	isolatedStateRoot(t)
 	var bodies []map[string]any
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 		raw, _ := readAll(r)
 		var b map[string]any
 		_ = json.Unmarshal(raw, &b)
@@ -5103,6 +5107,110 @@ func TestRecordDispatchBackfillInstants(t *testing.T) {
 		gotBody = nil
 		if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 2 || !strings.Contains(stderr.String(), "is not an RFC 3339 instant") || gotBody != nil {
 			t.Errorf("%s: exit %d, store called %v, stderr %q; want 2, no call, an RFC 3339 refusal", args[2], code, gotBody != nil, stderr.String())
+		}
+	}
+}
+
+// fixtureCommit makes an empty commit in repo with its committer (and
+// author) time pinned to at, and returns its sha.
+func fixtureCommit(t *testing.T, repo, at string) string {
+	t.Helper()
+	cmd := exec.Command("git", "-C", repo, "commit", "--allow-empty", "-q", "-m", "fixture "+at)
+	cmd.Env = append(os.Environ(),
+		"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
+		"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com",
+		"GIT_AUTHOR_DATE="+at, "GIT_COMMITTER_DATE="+at)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git commit: %v\n%s", err, out)
+	}
+	out, err := exec.Command("git", "-C", repo, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// postBodies serves a genuine daemon that records every POST body and
+// answers anything else 404.
+func postBodies(t *testing.T) (*httptest.Server, *[]map[string]any) {
+	t.Helper()
+	var bodies []map[string]any
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		raw, _ := readAll(r)
+		var b map[string]any
+		_ = json.Unmarshal(raw, &b)
+		bodies = append(bodies, b)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"implementer","model":"opus"}`))
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &bodies
+}
+
+// TestRecordDispatchEndSendsCommitAt pins kan-1003's CLI half: an end's
+// -commit carries its committer time as commitAt, so the store can refuse
+// an inline row begun after it; a sha no worktree knows sends none.
+func TestRecordDispatchEndSendsCommitAt(t *testing.T) {
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	sha := fixtureCommit(t, repo, "2026-10-21T11:10:31Z")
+	srv, bodies := postBodies(t)
+	base := []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "kan-258", "-key", "task-1-implementer", "-session-token", "mf-record-commitat", "-outcome", "completed"}
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(), append(append([]string{}, base...), "-commit", sha), strings.NewReader(""), &stdout, &stderr); code != 0 {
+		t.Fatalf("exit %d; stderr:\n%s", code, stderr.String())
+	}
+	if len(*bodies) != 1 || (*bodies)[0]["commitAt"] != "2026-10-21T11:10:31Z" {
+		t.Fatalf("bodies = %v, want one with commitAt 2026-10-21T11:10:31Z", *bodies)
+	}
+	*bodies = nil
+	if code := run(context.Background(), append(append([]string{}, base...), "-commit", "abc1234000000000000000000000000000000000"), strings.NewReader(""), &stdout, &stderr); code != 0 {
+		t.Fatalf("unknown sha: exit %d; stderr:\n%s", code, stderr.String())
+	}
+	if len(*bodies) != 1 {
+		t.Fatalf("unknown sha: bodies = %v, want one", *bodies)
+	}
+	if _, has := (*bodies)[0]["commitAt"]; has {
+		t.Errorf("unknown sha sent commitAt: %v", (*bodies)[0])
+	}
+}
+
+// TestRecordDispatchBackfillDerivesInlineInstants pins kan-1003's derived
+// back-fill: an inline back-fill with -commit takes its end from that
+// commit and its start from the commit before it, and refuses either
+// instant given by hand.
+func TestRecordDispatchBackfillDerivesInlineInstants(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	fixtureCommit(t, repo, "2026-10-21T11:02:00Z")
+	sha := fixtureCommit(t, repo, "2026-10-21T11:10:31Z")
+	srv, bodies := postBodies(t)
+	base := []string{"record", "dispatch", "backfill", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "kan-258", "-task", "1", "-role", "implementer", "-model", "opus",
+		"-key", "task-1-implementer", "-session-token", "mf-record-derive", "-outcome", "completed"}
+	inline := append(append([]string{}, base...), "-agent-id", "inline", "-commit", sha)
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(), inline, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		t.Fatalf("exit %d; stderr:\n%s", code, stderr.String())
+	}
+	if len(*bodies) != 2 || (*bodies)[0]["startedAt"] != "2026-10-21T11:02:00Z" || (*bodies)[1]["endedAt"] != "2026-10-21T11:10:31Z" {
+		t.Fatalf("bodies = %v, want begin startedAt 11:02:00Z and end endedAt 11:10:31Z", *bodies)
+	}
+	for name, args := range map[string][]string{
+		"-started-at beside an inline -commit": append(append([]string{}, inline...), "-started-at", "2026-10-21T11:00:00Z"),
+		"-ended-at beside an inline -commit":   append(append([]string{}, inline...), "-ended-at", "2026-10-21T11:20:00Z"),
+		"no instants with -agent-id none":      append(append([]string{}, base...), "-agent-id", "none", "-commit", sha),
+	} {
+		*bodies = nil
+		stderr.Reset()
+		if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 2 || len(*bodies) != 0 {
+			t.Errorf("%s: exit %d, store calls %d; want 2 and none (stderr %q)", name, code, len(*bodies), stderr.String())
 		}
 	}
 }

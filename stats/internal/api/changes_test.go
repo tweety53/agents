@@ -883,6 +883,8 @@ func TestErrorStatusMapping(t *testing.T) {
 	}{
 		{"change not found", store.ErrChangeNotFound, http.StatusNotFound},
 		{"monotonic violation", store.ErrMonotonicViolation, http.StatusConflict},
+		{"inline commit missing", store.ErrInlineCommitMissing, http.StatusConflict},
+		{"inline begun after commit", store.ErrInlineBegunAfterCommit, http.StatusConflict},
 		{"invalid state", store.ErrInvalidState, http.StatusBadRequest},
 		{"invalid main checkout path", store.ErrInvalidMainCheckoutPath, http.StatusBadRequest},
 		{"invalid merge base", store.ErrInvalidMergeBase, http.StatusBadRequest},

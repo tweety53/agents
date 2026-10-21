@@ -946,6 +946,42 @@ func TestDispatchEndRefusedAsTooShortIsRetiredAndAppliesEntryBehindIt(t *testing
 	}
 }
 
+// commitRefusedRecordStore answers every dispatch end with err.
+type commitRefusedRecordStore struct {
+	fakeRecordStore
+	err error
+}
+
+func (s *commitRefusedRecordStore) EndDispatch(context.Context, string, string, records.DispatchEnd) (records.Dispatch, error) {
+	return records.Dispatch{}, fmt.Errorf("%w: key task-1-implementer", s.err)
+}
+
+// TestDispatchEndRefusedForItsCommitIsRetired: an inline end refused for
+// its missing commit, or for a commit made before its begin (kan-1003), is
+// refused identically on every replay, so it retires rather than blocking
+// the queue.
+func TestDispatchEndRefusedForItsCommitIsRetired(t *testing.T) {
+	for _, sentinel := range []error{store.ErrInlineCommitMissing, store.ErrInlineBegunAfterCommit} {
+		root := t.TempDir()
+		const project, change = "proj-record-commitinline", "chg-record-commitinline"
+
+		appendRecordWrite(t, root, project, change, "dispatch-end", testDispatchEnd())
+		appendRecordWrite(t, root, project, change, "finding", testFinding("F2", "open"))
+
+		rec := reconcile.New(&fakeStore{}, nopStageStore{}, &commitRefusedRecordStore{err: sentinel}, root, nil)
+		result, err := rec.Run(context.Background())
+		if err != nil {
+			t.Fatalf("%v: Run: %v", sentinel, err)
+		}
+		if result.Applied != 1 || result.Refused != 1 {
+			t.Fatalf("%v: Run result = %+v, want {Applied:1 Refused:1}", sentinel, result)
+		}
+		if n := pendingRecordCount(t, root, project, change); n != 0 {
+			t.Fatalf("%v: pending record entries after replay = %d, want 0", sentinel, n)
+		}
+	}
+}
+
 // --- a journalled entry missing a required field is refused, not written ---
 
 // TestRecordEntryMissingARequiredFieldIsRefusedWithoutWritingARow pins the

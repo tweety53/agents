@@ -106,6 +106,18 @@ var ErrAgentIDInvalid = errors.New("store: invalid agent id")
 // cost unmeasured.
 var ErrInlineWindowTooShort = errors.New("store: inline dispatch window too short")
 
+// ErrInlineCommitMissing is returned by EndDispatch when an inline row on a
+// task's implementer key (`task-<n>-implementer…`) closes completed with no
+// commit sha: kan-1003's tasks 10–22 recorded none, so no row could be tied
+// to the work it measured.
+var ErrInlineCommitMissing = errors.New("store: inline task dispatch closed with no commit")
+
+// ErrInlineBegunAfterCommit is returned by EndDispatch when an inline row's
+// end carries a commit time before the row's begin: the begin was recorded
+// after the work it opens (kan-1003: rows opened after their commits read
+// 3–53 s), so the harvester's window misses the work entirely.
+var ErrInlineBegunAfterCommit = errors.New("store: inline dispatch begun after its commit")
+
 // minInlineWindow is the shortest window an inline row may close with.
 // One Bash call lands its begin and end milliseconds apart, and that is
 // the case the floor exists to refuse; real inline work takes seconds at
@@ -540,7 +552,7 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 	if err := validateAgentID(in.AgentID); err != nil {
 		return records.Dispatch{}, fmt.Errorf("store: end dispatch %q for %s/%s: %w", in.Key, projectKey, change, err)
 	}
-	if in.Tokens == nil {
+	if in.Outcome == "completed" {
 		var agentID *string
 		var startedAt time.Time
 		err := s.pool.QueryRow(ctx, `
@@ -550,8 +562,16 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 			  AND d.session_token = $3 AND d.dispatch_key = $4`,
 			projectKey, change, in.SessionToken, in.Key).Scan(&agentID, &startedAt)
 		inline := in.AgentID == "inline" || (in.AgentID == "" && agentID != nil && *agentID == "inline")
-		if err == nil && inline && in.Outcome == "completed" && in.EndedAt.Sub(startedAt) < minInlineWindow {
-			return records.Dispatch{}, fmt.Errorf("%w: %s/%s key %q closed %s after its begin -- record begin when the work starts and end once its commit lands, or pass -tokens where no transcript is harvested", ErrInlineWindowTooShort, projectKey, change, in.Key, in.EndedAt.Sub(startedAt))
+		if err == nil && inline {
+			if in.Tokens == nil && in.EndedAt.Sub(startedAt) < minInlineWindow {
+				return records.Dispatch{}, fmt.Errorf("%w: %s/%s key %q closed %s after its begin -- record begin when the work starts and end once its commit lands, or pass -tokens where no transcript is harvested", ErrInlineWindowTooShort, projectKey, change, in.Key, in.EndedAt.Sub(startedAt))
+			}
+			if strings.HasPrefix(in.Key, "task-") && strings.Contains(in.Key, "-implementer") && in.CommitSHA == "" {
+				return records.Dispatch{}, fmt.Errorf("%w: %s/%s key %q -- pass -commit <the task's commit>, or record it with flow record dispatch backfill and the real instants", ErrInlineCommitMissing, projectKey, change, in.Key)
+			}
+			if in.CommitAt != nil && in.CommitAt.Before(startedAt.Truncate(time.Second)) {
+				return records.Dispatch{}, fmt.Errorf("%w: %s/%s key %q begun %s, its commit made %s -- record begin when the work starts, or record it with flow record dispatch backfill and the real instants", ErrInlineBegunAfterCommit, projectKey, change, in.Key, startedAt.UTC().Format(time.RFC3339), in.CommitAt.UTC().Format(time.RFC3339))
+			}
 		}
 	}
 	out, err := scanDispatchRow(s.pool.QueryRow(ctx, `
@@ -1188,6 +1208,27 @@ func (s *Store) RestampDispatch(ctx context.Context, dispatchID int64, agentID s
 	}
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("%w: %d", ErrDispatchNotFound, dispatchID)
+	}
+	return nil
+}
+
+// RetimeDispatch sets dispatch id's started_at, ended_at and commit_sha
+// outright -- the repair for an inline row whose begin and end were recorded
+// after the work (kan-1003). started after ended is refused and changes
+// nothing.
+func (s *Store) RetimeDispatch(ctx context.Context, id int64, started, ended time.Time, commit string) error {
+	if started.After(ended) {
+		return fmt.Errorf("store: retime dispatch %d: started %s after ended %s", id, started.Format(time.RFC3339), ended.Format(time.RFC3339))
+	}
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE dispatches SET started_at = $2, ended_at = $3, commit_sha = $4
+		WHERE id = $1
+	`, id, started, ended, nullIfEmpty(commit))
+	if err != nil {
+		return fmt.Errorf("store: retime dispatch %d: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("%w: %d", ErrDispatchNotFound, id)
 	}
 	return nil
 }

@@ -180,6 +180,8 @@ type DispatchEnd struct {
 	EndedAt      time.Time    `json:"endedAt"`
 	AgentID      string       `json:"agentId,omitempty"`
 	Tokens       *TokenReport `json:"tokens,omitempty"`
+	// CommitAt is the commit's committer time, as the CLI read it.
+	CommitAt *time.Time `json:"commitAt,omitempty"`
 }
 
 // TokenReport is the token usage a caller reports for a same-session

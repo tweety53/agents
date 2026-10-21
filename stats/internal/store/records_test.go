@@ -4194,8 +4194,145 @@ func TestEndDispatchRefusesAZeroWidthInlineRow(t *testing.T) {
 		t.Fatalf("EndDispatch a blocked inline row one second after its begin: %v", err)
 	}
 	end.EndedAt = begin.StartedAt.Add(7 * time.Second)
+	end.CommitSHA = "abc1234"
 	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", end); err != nil {
 		t.Fatalf("EndDispatch seven seconds after an inline begin: %v", err)
+	}
+}
+
+// TestEndDispatchRefusesAnInlineTaskRowWithNoCommit pins kan-1003's first
+// refusal: a completed inline row on a task's implementer key must name its
+// commit, while a non-task key, or a blocked task row, need none.
+func TestEndDispatchRefusesAnInlineTaskRowWithNoCommit(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-end-nocommit-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	begin := func(key string) records.Dispatch {
+		d := baseDispatch("implementer", "opus")
+		d.Key = key
+		d.SessionToken = "mf-end-nocommit"
+		d.AgentID = "inline"
+		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", d); err != nil {
+			t.Fatalf("RecordDispatch %s: %v", key, err)
+		}
+		return d
+	}
+	b := begin("task-3-implementer")
+	end := records.DispatchEnd{SessionToken: "mf-end-nocommit", Key: "task-3-implementer", Outcome: "completed", EndedAt: b.StartedAt.Add(10 * time.Second)}
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", end); !errors.Is(err, store.ErrInlineCommitMissing) {
+		t.Fatalf("EndDispatch an inline task row with no commit: err = %v, want store.ErrInlineCommitMissing", err)
+	}
+	end.CommitSHA = "abc1234"
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", end); err != nil {
+		t.Fatalf("EndDispatch an inline task row with a commit: %v", err)
+	}
+	begin("verify-gymie")
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{SessionToken: "mf-end-nocommit", Key: "verify-gymie", Outcome: "completed", EndedAt: b.StartedAt.Add(10 * time.Second)}); err != nil {
+		t.Fatalf("EndDispatch an inline non-task row with no commit: %v", err)
+	}
+	begin("task-4-implementer")
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{SessionToken: "mf-end-nocommit", Key: "task-4-implementer", Outcome: "blocked", EndedAt: b.StartedAt.Add(10 * time.Second)}); err != nil {
+		t.Fatalf("EndDispatch a blocked inline task row with no commit: %v", err)
+	}
+}
+
+// TestEndDispatchRefusesAnInlineRowBegunAfterItsCommit pins kan-1003's
+// second refusal: an inline row whose commit predates its begin was opened
+// after the work. A dispatched row is never judged on its commit time.
+func TestEndDispatchRefusesAnInlineRowBegunAfterItsCommit(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-end-aftercommit-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	b := baseDispatch("implementer", "opus")
+	b.Key = "task-1-implementer"
+	b.SessionToken = "mf-end-aftercommit"
+	b.AgentID = "inline"
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", b); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	before := b.StartedAt.Add(-time.Minute)
+	after := b.StartedAt.Add(time.Minute)
+	end := records.DispatchEnd{SessionToken: b.SessionToken, Key: b.Key, CommitSHA: "abc1234", Outcome: "completed", EndedAt: b.StartedAt.Add(2 * time.Minute), CommitAt: &before}
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", end); !errors.Is(err, store.ErrInlineBegunAfterCommit) {
+		t.Fatalf("EndDispatch with a commit before the begin: err = %v, want store.ErrInlineBegunAfterCommit", err)
+	}
+	end.CommitAt = &after
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", end); err != nil {
+		t.Fatalf("EndDispatch with a commit after the begin: %v", err)
+	}
+	// %cI has whole seconds: a commit 500 ms after a sub-second begin reads as its whole second
+	s := baseDispatch("implementer", "opus")
+	s.Key = "task-3-implementer"
+	s.SessionToken = b.SessionToken
+	s.AgentID = "inline"
+	s.StartedAt = s.StartedAt.Add(300 * time.Millisecond)
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", s); err != nil {
+		t.Fatalf("RecordDispatch sub-second: %v", err)
+	}
+	sameSecond := s.StartedAt.Add(500 * time.Millisecond).Truncate(time.Second)
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{SessionToken: s.SessionToken, Key: s.Key, CommitSHA: "abc1234", Outcome: "completed", EndedAt: s.StartedAt.Add(time.Minute), CommitAt: &sameSecond}); err != nil {
+		t.Fatalf("EndDispatch with a commit in the begin's second: %v", err)
+	}
+	d := baseDispatch("implementer", "opus")
+	d.Key = "task-2-implementer"
+	d.SessionToken = b.SessionToken
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", d); err != nil {
+		t.Fatalf("RecordDispatch dispatched: %v", err)
+	}
+	end.Key = d.Key
+	end.CommitAt = &before
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", end); err != nil {
+		t.Fatalf("EndDispatch a dispatched row with a commit before its begin: %v", err)
+	}
+}
+
+// TestRetimeDispatchSetsInstantsAndCommit pins flowd retime-dispatch's store
+// half: the instants and commit land exactly, an unknown id is
+// ErrDispatchNotFound, and inverted instants change nothing.
+func TestRetimeDispatchSetsInstantsAndCommit(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-retime-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	b := baseDispatch("implementer", "opus")
+	b.Key = "task-1-implementer"
+	b.SessionToken = "mf-retime"
+	b.AgentID = "inline"
+	row, err := st.RecordDispatch(ctx, projectKey, "kan-1", b)
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	started := time.Date(2026, 10, 21, 11, 2, 0, 0, time.UTC)
+	ended := time.Date(2026, 10, 21, 11, 10, 31, 0, time.UTC)
+	read := func() (time.Time, *time.Time, *string) {
+		var s time.Time
+		var e *time.Time
+		var c *string
+		if err := pool.QueryRow(ctx, `SELECT started_at, ended_at, commit_sha FROM dispatches WHERE id = $1`, row.ID).Scan(&s, &e, &c); err != nil {
+			t.Fatalf("read row: %v", err)
+		}
+		return s, e, c
+	}
+	if err := st.RetimeDispatch(ctx, row.ID, started, ended, "22c9796f"); err != nil {
+		t.Fatalf("RetimeDispatch: %v", err)
+	}
+	s, e, c := read()
+	if !s.Equal(started) || e == nil || !e.Equal(ended) || c == nil || *c != "22c9796f" {
+		t.Fatalf("row = %v %v %v, want %v %v 22c9796f", s, e, c, started, ended)
+	}
+	if err := st.RetimeDispatch(ctx, 1<<62, started, ended, "x"); !errors.Is(err, store.ErrDispatchNotFound) {
+		t.Fatalf("RetimeDispatch unknown id: err = %v, want store.ErrDispatchNotFound", err)
+	}
+	if err := st.RetimeDispatch(ctx, row.ID, ended, started, "other"); err == nil {
+		t.Fatal("RetimeDispatch with started after ended: err = nil")
+	}
+	if s2, e2, c2 := read(); !s2.Equal(s) || !e2.Equal(*e) || *c2 != *c {
+		t.Fatalf("inverted retime changed the row: %v %v %v", s2, e2, *c2)
 	}
 }
 

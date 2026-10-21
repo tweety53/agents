@@ -203,6 +203,10 @@ these substitutions:
   modification other than the change's own `tasks.md`, naming each dirty path — work already
   under way when its row begins (kan-920: task 5's row began after its edit and recorded 7
   seconds).
+  It also refuses a `completed` inline row on a task's key (`task-<n>-implementer…`) that
+  carries no `-commit`, and one whose `-commit` — found in any of the change's worktrees — was
+  made before the row's begin, a begin recorded after the work it opens (kan-1003: tasks 10–22's
+  rows opened after their commits, read 3–53 s and recorded no commit).
 
 ## 1. Load context and validate the plan
 
@@ -396,6 +400,10 @@ flat integer id, omitted for a dispatch against no single task. `-session-token`
 never a shell substitution. The start and end instants are the daemon's own — never
 caller inputs.
 **A dispatch recorded only after it finished is a back-fill, and is one call** — `flow record dispatch backfill`, carrying `begin`'s flags and `end`'s together with the dispatch's real `-started-at` and `-ended-at`, both required — never a `begin` and `end` pair, whose instants would read the back-fill's own moment.
+An inline back-fill (`-agent-id inline`) carrying `-commit` takes neither instant:
+`backfill` derives `-ended-at` from that commit's committer time and `-started-at` from the newest
+commit before it in any of the change's worktrees, and refuses either flag beside it — a
+hand-written instant there is a guess (kan-1003: `-started-at $(date -u -v-45M …)`).
 
 **`-model` is the model this dispatch was actually given — the group's own `model` from the
 decision's `groups` entry** (chosen per **Model and effort**, `skills/flow/brainstorm-planner.md`,

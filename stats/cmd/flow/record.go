@@ -1242,6 +1242,16 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 	// the instant the original attempt was made rather than dating the
 	// close to the replay.
 	attemptAt := time.Now()
+	var commitAt *time.Time
+	if *commit != "" {
+		t, ok := commitTime(*commit, []string{f.dir})
+		if !ok {
+			t, ok = commitTime(*commit, mutationRoots(ctx, f, projectKey))
+		}
+		if ok {
+			commitAt = &t
+		}
+	}
 	in := records.DispatchEnd{
 		SessionToken: *sessionToken,
 		Key:          *key,
@@ -1251,6 +1261,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 		AgentID:      *agentID,
 		Tokens:       report,
 		EndedAt:      ended,
+		CommitAt:     commitAt,
 	}
 	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Dispatch, error) {
 		return cl.EndDispatch(ctx, projectKey, f.change, in)
@@ -1298,6 +1309,39 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stder
 	if err := fset.Parse(args); err != nil || fset.NArg() != 0 {
 		return 2
 	}
+	// An inline back-fill carrying -commit takes neither instant: both
+	// derive from the commits (kan-1003: a hand-written -started-at was a
+	// guess). ended is the commit's committer time, started the newest
+	// commit before it in any of the change's worktrees.
+	var derived []string
+	if *v["agent-id"] == "inline" && *v["commit"] != "" {
+		if *v["started-at"] != "" || *v["ended-at"] != "" {
+			fmt.Fprintln(stderr, "flow: an inline back-fill with -commit takes neither -started-at nor -ended-at -- both derive from the commit")
+			return 2
+		}
+		if err := finishRecordConnFlags(fset, &f); err != nil {
+			fmt.Fprintf(stderr, "flow: %v\n", err)
+			return 2
+		}
+		projectKey, _, err := fallback.ProjectKey(f.dir)
+		if err != nil {
+			fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+			return 1
+		}
+		roots := mutationRoots(ctx, f, projectKey)
+		endT, ok := commitTime(*v["commit"], roots)
+		var startT time.Time
+		if ok {
+			startT, ok = commitBefore(endT, roots)
+		}
+		if !ok {
+			fmt.Fprintf(stderr, "flow: cannot derive the instants of commit %s (or the commit before it) from any of the change's worktrees\n", *v["commit"])
+			return 2
+		}
+		*v["started-at"] = startT.UTC().Format(time.RFC3339)
+		*v["ended-at"] = endT.UTC().Format(time.RFC3339)
+		derived = []string{"-started-at", *v["started-at"], "-ended-at", *v["ended-at"]}
+	}
 	if !requireRecordFlags(stderr,
 		[2]string{"-started-at", *v["started-at"]},
 		[2]string{"-ended-at", *v["ended-at"]},
@@ -1336,6 +1380,10 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stder
 			begin, end = append(begin, arg...), append(end, arg...)
 		}
 	})
+	if derived != nil {
+		begin = append(begin, derived[:2]...)
+		end = append(end, derived[2:]...)
+	}
 	// backfill keeps -effort optional; begin requires it, so an omitted one
 	// is sent as the explicit "default" it always recorded.
 	if *v["effort"] == "" {
@@ -3156,6 +3204,38 @@ func inlineDirtyPaths(dir, change string) []string {
 		}
 	}
 	return dirty
+}
+
+// commitTime is sha's committer time in the first of roots that knows it.
+func commitTime(sha string, roots []string) (time.Time, bool) {
+	for _, r := range roots {
+		out, err := exec.Command("git", "-C", r, "show", "-s", "--format=%cI", sha).Output()
+		if err != nil {
+			continue
+		}
+		if t, err := time.Parse(time.RFC3339, strings.TrimSpace(string(out))); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
+}
+
+// commitBefore is the newest committer time strictly before t on any of
+// roots' HEAD.
+func commitBefore(t time.Time, roots []string) (time.Time, bool) {
+	var best time.Time
+	found := false
+	for _, r := range roots {
+		out, err := exec.Command("git", "-C", r, "log", "-1", "--format=%cI", "--before="+t.Add(-time.Second).Format(time.RFC3339), "HEAD").Output()
+		if err != nil {
+			continue
+		}
+		c, err := time.Parse(time.RFC3339, strings.TrimSpace(string(out)))
+		if err == nil && (!found || c.After(best)) {
+			best, found = c, true
+		}
+	}
+	return best, found
 }
 
 // mutationRoots is the -C repository's top level plus every key of the
