@@ -76,6 +76,13 @@ func TestGuardAutosquash(t *testing.T) {
 			setup: func(g *fxGit, repo, _ string) ([]string, string) {
 				return []string{"targets", repo, rootSHA(g, repo), headSHA(g, repo)}, ""
 			}},
+		// The bash's `cat-file -e <sha>^{commit}` peeled an annotated tag's
+		// object sha to its commit and accepted it (exit 0 at c9b8fde8).
+		{label: "targets accepts an annotated tag's object sha", want: 0,
+			setup: func(g *fxGit, repo, _ string) ([]string, string) {
+				g.git(repo, "tag", "-a", "gatag", "-m", "tag")
+				return []string{"targets", repo, g.git(repo, "rev-parse", "gatag")}, ""
+			}},
 		{label: "targets refuses a non-ancestor sha and names it", want: 1,
 			setup: func(g *fxGit, repo, _ string) ([]string, string) {
 				stray := gaOrphan(g, repo)
