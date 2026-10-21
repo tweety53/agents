@@ -81,6 +81,52 @@ expect_rc "a placeholder line refuses the list" 2
 expect_has "the refusal names the line" "test line is a template, not a command — move it out of the fence: ./gradlew verifyChange :<module>:test --tests '<selectors>'"
 expect_lacks "nothing runs before the refusal" 'ran-first'
 
+# THE GREEN SHA: a git worktree whose `test` list counts its own runs.
+G="$ROOT/git"
+mkdir -p "$G/.flow" "$G/web" "$G/go"
+cat > "$G/.flow/project.md" <<'CFG'
+## test
+
+```bash
+# inputs: web/
+echo ran >> "$(git rev-parse --git-dir)/web-runs"; echo web
+# inputs: go/
+echo go
+echo all
+```
+CFG
+echo a > "$G/web/a"
+echo b > "$G/go/b"
+git -C "$G" init -q
+git -C "$G" -c user.name=t -c user.email=t@t add -A
+git -C "$G" -c user.name=t -c user.email=t@t commit -q -m one
+SHA1="$(git -C "$G" rev-parse HEAD)"
+run_bin "$G" test
+expect_rc "a first green run" 0
+expect_has "a first run runs every command" '- `echo all` — exit 0'
+GREEN="$(git -C "$G" rev-parse --path-format=absolute --git-path flow-test-green)"
+[ "$(cat "$GREEN" 2>/dev/null)" = "$SHA1" ] && pass "a green run records HEAD in the git dir" || fail "green sha: $(cat "$GREEN" 2>/dev/null)"
+[ -z "$(git -C "$G" status --porcelain)" ] && pass "the record leaves the tree clean" || fail "the record dirtied the tree"
+run_bin "$G" test
+expect_rc "a re-run at the green sha" 0
+expect_has "every command skipped at the green sha" "- \`echo all\` — skipped, no input changed since $SHA1 passed the list"
+[ "$(wc -l < "$(git -C "$G" rev-parse --absolute-git-dir)/web-runs")" -eq 1 ] && pass "nothing re-ran at the green sha" || fail "a command re-ran at the green sha"
+echo c > "$G/go/b"
+git -C "$G" -c user.name=t -c user.email=t@t commit -q -am two
+run_bin "$G" test
+expect_has "a command whose inputs the delta skips is skipped" "- \`echo ran >> \"\$(git rev-parse --git-dir)/web-runs\"; echo web\` — skipped, no input changed since $SHA1"
+expect_has "a command whose inputs the delta touches runs" $'- `echo go` — exit 0'
+expect_has "a command declaring no inputs runs" $'- `echo all` — exit 0'
+echo dirty > "$G/web/a"
+run_bin "$G" test
+expect_has "a dirty tree runs the whole list" $'echo web` — exit 0'
+git -C "$G" checkout -q -- web/a
+run_bin "$G" test
+sed -i.bak 's/^echo go$/echo go2/' "$G/.flow/project.md" && rm "$G/.flow/project.md.bak"
+git -C "$G" -c user.name=t -c user.email=t@t commit -q -am three
+run_bin "$G" test
+expect_has "an edited command runs though its inputs are untouched" $'- `echo go2` — exit 0'
+
 run_bin "$ROOT" build
 expect_rc "an unknown list" 2
 run_bin "$ROOT/missing" lint

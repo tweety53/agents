@@ -638,8 +638,10 @@ Every implementer dispatch also carries:
 **The parent runs the full suite — never an implementer.** Once the plan-last group — the group
 holding the last `bundle <k>` line `plan-dispatch-bundles.sh` printed — has passed the guard, by
 direct commit or by its wave's final pick, **the parent itself** runs the resolved `## test` list
-once on the canonical worktree, in the foreground, in the order the context bundle carries it, its
-output through `tail`. Every failure, wherever it lies, **the parent fixes itself** at its root
+once on the canonical worktree, in the foreground, as `run-verify-list.sh <canonical-worktree> test`
+— by hand, in the order the context bundle carries it, only where that exits 3 — its output
+through `tail`; the green sha that run records is what lets **Inline verify**
+(`skills/flow/verify-and-handoff.md`) skip what no later commit touched. Every failure, wherever it lies, **the parent fixes itself** at its root
 cause, as inline fixes are applied: it edits, commits on the route the branch's push state
 dictates (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`), records the round as one
 `dispatches` pair `-role panel-fix -model <parent model> -effort <parent effort> -agent-id inline`

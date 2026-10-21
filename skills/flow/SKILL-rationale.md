@@ -178,6 +178,7 @@ text after it is the passage, verbatim.
 
 - *…the baseline is the project's own statement that the failure exists on an unmodified tree* — (KAN-547)
 - *`environment` where the environment itself failed twice* — KAN-510
+- *The test group skips what the list's last green run on a clean tree already covered* — KAN-887's self-review: verify re-ran the whole `## test` list about 14 minutes after a green full-suite run when the only delta was a test-name rename. The skip keys on the tree, never on time: a green sha is reused only for a command whose declared inputs the delta leaves untouched.
 
 ### visual-verify.md — The verifier dispatch
 

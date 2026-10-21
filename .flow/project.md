@@ -70,6 +70,7 @@ forbids any agent action touching it at all.
 ```bash
 scripts/run-guard-tests.sh
 cd stats && make -s web-dist && go test ./... -race -count=1
+# inputs: stats/web/ stats/Makefile
 cd stats && make -s web-dist && cd web && npm test
 ```
 
@@ -77,6 +78,10 @@ cd stats && make -s web-dist && cd web && npm test
 refuses to compile without it, so `make -s web-dist` (`stats/Makefile`) opens every line here and in
 `## lint` that compiles `internal/web` or needs `stats/web/node_modules`: it runs `make web-build`,
 `npm ci && npm run build` in `stats/web`, only when the build is absent.
+
+Only the SPA line declares `# inputs:` (`skills/flow-contracts/project-configuration.md`): the guard
+harnesses and the Go tests read files across the whole repository — `stats/internal/guard`'s tests
+open `skills/`, `scripts/` and `setup.sh` through `../../../` — so both always run.
 
 `scripts/run-guard-tests.sh` discovers every `scripts/test-*.sh` by glob and runs them concurrently
 through `scripts/lib/parallel.sh`; a new harness added to `scripts/` is picked up automatically, with

@@ -107,6 +107,10 @@ call; the lint and test run, this run's `flow record dispatch begin`, and the le
 are one more.
 
 `run-verify-list.sh <worktree> lint` and `run-verify-list.sh <worktree> test` are the two groups: each runs its list as above, stdin detached, and prints that list's `## Report` lines, its exit codes canonical in its header — never a runner built by hand.
+The test group skips what the list's last green run on a clean tree already covered: every command
+when HEAD is the sha that run recorded, otherwise each command whose `# inputs:` pathspecs the delta
+since that sha leaves untouched; a skipped command's `## Report` line says so, and the script's
+header is canonical for the rule.
 
 **Inline verify — a failing command.** A non-zero exit from any command in the list earns **one**
 inline re-run of that command — the environmental-flake case. A second non-zero exit from the same
