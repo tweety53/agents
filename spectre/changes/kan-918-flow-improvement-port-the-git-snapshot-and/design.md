@@ -30,6 +30,20 @@
 
 Each Go test carries at least its harness's floor in subtests (`parity-by-case-count`).
 
+**After** — subtests per port:
+
+| Go test | `--- PASS` subtests | floor |
+|---|--:|--:|
+| `TestCheckPlanUnchanged` | 30 | 30 |
+| `TestCheckTreeMarkers` | 38 | 30 |
+| `TestGuardAutosquash` | 13 | 12 |
+| `TestCheckPanelDiffSize` | 21 | 8 |
+| `TestCheckWorktreeProcesses` | 44 | 27 |
+
+<!-- measured: cd stats && go test ./internal/guard/ -run '^Test<Name>$' -count=1 -v | grep -c -- '--- PASS: Test<Name>/' @ branch spectre/kan-918-flow-improvement-port-the-git-snapshot-and -->
+
+Full guard package: `ok  	github.com/tweety53/agents/stats/internal/guard	109.802s` (`go test ./internal/guard/ -count=1 -race`).
+
 ### Suite before/after
 
 **Before** — `@ c9b8fde8`:
@@ -47,7 +61,21 @@ Each Go test carries at least its harness's floor in subtests (`parity-by-case-c
 
 <!-- measured: FLOW_GUARD_CACHE_DIR=$(mktemp -d) scripts/run-guard-tests.sh x3 on a quiet tree, the runner's own "N harnesses, … Ns wall" line and grep '(Ns)' sorted descending @ c9b8fde8 -->
 
-**After** — task 7 records it in the same columns.
+**After** — `@ branch spectre/kan-918-flow-improvement-port-the-git-snapshot-and`:
+
+| Run | suite wall | exit | harnesses | slowest five |
+|---|--:|--:|--:|---|
+| 1 | 365s | 0 | 33 | integrate-change 364s, go-guards 91s, protect-main-checkout 26s, check-plan-shape 22s, check-task-records 17s |
+| 2 | 405s | 0 | 33 | integrate-change 405s, go-guards 118s, protect-main-checkout 47s, check-plan-shape 32s, generate-relocation-comparison 27s |
+| 3 | 391s | 0 | 33 | integrate-change 391s, go-guards 120s, protect-main-checkout 34s, check-plan-shape 31s, check-task-records 24s |
+| **median** | **391s** | | | |
+
+<!-- measured: FLOW_GUARD_CACHE_DIR=$(mktemp -d) scripts/run-guard-tests.sh x3, the runner's own "N harnesses, … Ns wall" line and grep '(Ns)' sorted descending @ branch spectre/kan-918-flow-improvement-port-the-git-snapshot-and -->
+
+- Every harness green and every port at or above its floor; the median is 77s above Before's.
+  `test-integrate-change.sh`, which this change does not touch, is the critical path in all six
+  runs (313–411s Before, 364–405s After), so the difference reads as machine load, not a
+  regression — an inference, not a measurement.
 
 ## Decisions
 

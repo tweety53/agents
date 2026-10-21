@@ -108,7 +108,7 @@ its step 5 names. The full package and `scripts/run-guard-tests.sh` run in task 
     verify of this worktree through `scripts/check-plan-unchanged.sh` exits as the bash did at
     `c9b8fde8`, directly and through a symlink to it in a temp directory.
 
-- [ ] 2. Port check-tree-markers
+- [x] 2. Port check-tree-markers
 
 **Files:** `stats/internal/guard/treemarkers.go`, `stats/internal/guard/check_tree_markers_test.go`, `scripts/check-tree-markers.sh`, `scripts/test-check-tree-markers.sh`
 **Tests:** `TestCheckTreeMarkers`
@@ -121,16 +121,16 @@ its step 5 names. The full package and `scripts/run-guard-tests.sh` run in task 
 
 **Decision:** scope-five-issue-guards
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-tree-markers.sh`, one
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-tree-markers.sh`, one
     subtest per `ok:` label (the absolute-path, empty-path and empty-marker refusals included). Run
     — expect failure.
-  - [ ] **Step 2: Port**, registering `check-tree-markers`; markers-file parsing and every exit-2
+  - [x] **Step 2: Port**, registering `check-tree-markers`; markers-file parsing and every exit-2
     message byte-identical.
-  - [ ] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestCheckTreeMarkers$'
+  - [x] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestCheckTreeMarkers$'
     -count=1 -race -v | grep -c -- '--- PASS: TestCheckTreeMarkers/'` — at least 30.
-  - [ ] **Step 4: Shim and delete** — shim template, code 2;
+  - [x] **Step 4: Shim and delete** — shim template, code 2;
     `git rm scripts/test-check-tree-markers.sh`.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`; a snapshot then
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`; a snapshot then
     verify on a temp markers file through `scripts/check-tree-markers.sh` exits as the bash did at
     `c9b8fde8`, directly and through a symlink.
 
@@ -164,7 +164,7 @@ Correction (2026-10-21): the plan declared `TestFoldFixup` under **Tests:**; the
     `scripts/guard-autosquash.sh targets <this worktree> HEAD` exits as the bash did at
     `c9b8fde8`, directly and through a symlink.
 
-- [ ] 4. Port check-panel-diff-size
+- [x] 4. Port check-panel-diff-size
 
 **Files:** `stats/internal/guard/paneldiffsize.go`, `stats/internal/guard/check_panel_diff_size_test.go`, `scripts/check-panel-diff-size.sh`, `scripts/test-check-panel-diff-size.sh`
 **Tests:** `TestCheckPanelDiffSize`
@@ -177,14 +177,14 @@ Correction (2026-10-21): the plan declared `TestFoldFixup` under **Tests:**; the
 
 **Decision:** scope-five-issue-guards
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-panel-diff-size.sh`, one
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-panel-diff-size.sh`, one
     subtest per `ok:` label. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-panel-diff-size`.
-  - [ ] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestCheckPanelDiffSize$'
+  - [x] **Step 2: Port**, registering `check-panel-diff-size`.
+  - [x] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestCheckPanelDiffSize$'
     -count=1 -race -v | grep -c -- '--- PASS: TestCheckPanelDiffSize/'` — at least 8.
-  - [ ] **Step 4: Shim and delete** — shim template, code 2;
+  - [x] **Step 4: Shim and delete** — shim template, code 2;
     `git rm scripts/test-check-panel-diff-size.sh`.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
     `scripts/check-panel-diff-size.sh` on this worktree with the arguments its header's usage names
     exits as the bash did at `c9b8fde8`, directly and through a symlink.
 
@@ -217,7 +217,7 @@ always-CLEAR mutation case included.
     `scripts/check-worktree-processes.sh <this worktree>` exits as the bash did at `c9b8fde8`,
     directly and through a symlink.
 
-- [ ] 6. Repoint citations of the deleted harnesses and the bash plumbing
+- [x] 6. Repoint citations of the deleted harnesses and the bash plumbing
 
 **Files:** `.flow/project.md`
 **Allowed-collateral:** `.flow/*.md`, `scripts/*.sh`, `scripts/lib/*.sh`, `scripts/*.py`, `hooks/*.py`, `skills/**/*.md`, `rules/*.mdc`, `README.md`, `CONTRIBUTING.md`, `stats/internal/guard/*.go`
@@ -231,20 +231,20 @@ always-CLEAR mutation case included.
 
 **Decision:** carry-prior-port-decisions
 
-  - [ ] **Step 1: Find.** `grep -rlF -e test-check-plan-unchanged.sh -e test-check-tree-markers.sh
+  - [x] **Step 1: Find.** `grep -rlF -e test-check-plan-unchanged.sh -e test-check-tree-markers.sh
     -e test-guard-autosquash.sh -e test-check-panel-diff-size.sh -e
     test-check-worktree-processes.sh --exclude-dir=archive --exclude-dir=.worktrees
     --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=self-review .`; then grep the same
     tree for citations of a ported script's body comments.
     `unverified: the file set is known only after tasks 1–5 land; widen **Files:** by a correction if a hit falls outside the collateral globs`
-  - [ ] **Step 2: Repoint** each citation to the Go file or Go test that now holds what it cites; a
+  - [x] **Step 2: Repoint** each citation to the Go file or Go test that now holds what it cites; a
     sentence describing bash plumbing that no longer exists is corrected, not repointed.
     `.flow/project.md`'s paragraph naming which guards are Go lists the five new ones.
-  - [ ] **Step 3: Verify.** Step 1's grep returns only `spectre/changes/kan-918-*`,
+  - [x] **Step 3: Verify.** Step 1's grep returns only `spectre/changes/kan-918-*`,
     `docs/self-review/` and the Go ports' own history comments; every guard in `.flow/project.md`'s
     `## lint` exits 0.
 
-- [ ] 7. Live verification: after timings and parity
+- [x] 7. Live verification: after timings and parity
 
 **Files:** none
 **Tests:** none — measurement task; the figures it records are the check
@@ -254,13 +254,13 @@ always-CLEAR mutation case included.
 **After:** Task 1, 2, 3, 4, 5, 6
 **Build:** green
 
-  - [ ] **Step 1: Suite, after.** `FLOW_GUARD_CACHE_DIR=$(mktemp -d) scripts/run-guard-tests.sh`,
+  - [x] **Step 1: Suite, after.** `FLOW_GUARD_CACHE_DIR=$(mktemp -d) scripts/run-guard-tests.sh`,
     three times on the branch head; record each run's wall, exit, harness count and slowest five.
-  - [ ] **Step 2: Parity.** `cd stats && go test ./internal/guard/ -run '^Test<Name>$' -count=1 -v
+  - [x] **Step 2: Parity.** `cd stats && go test ./internal/guard/ -run '^Test<Name>$' -count=1 -v
     | grep -c -- '--- PASS: Test<Name>/'` per port against its floor in `design.md`.
-  - [ ] **Step 3: Record** an **After** table beside design.md's **Before**, same columns, each
+  - [x] **Step 3: Record** an **After** table beside design.md's **Before**, same columns, each
     figure tagged `measured:` with the command and
     `@ branch spectre/kan-918-flow-improvement-port-the-git-snapshot-and`.
-  - [ ] **Step 4: Judge.** Failure looks like: any harness red; any port's `--- PASS` count below
+  - [x] **Step 4: Judge.** Failure looks like: any harness red; any port's `--- PASS` count below
     its floor; the suite median above the Before median. Any of these is reported, not recorded as
     success.
