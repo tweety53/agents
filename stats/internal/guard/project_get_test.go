@@ -95,6 +95,10 @@ func TestProjectGetParity(t *testing.T) {
 			wt := pgCfg + "## other\nx\n"
 			return []string{repo(t, "", pgCfg, &wt), "lint"}
 		}, 0},
+		{"HEAD's duplicate heading refuses though the working tree is unambiguous", func(t *testing.T) []string {
+			wt := "## lint\n\nvalue-b\n"
+			return []string{repo(t, "", "## lint\n\nfirst\n\n## lint\n\nsecond\n", &wt), "lint"}
+		}, 2},
 		{"HEAD read from a subdirectory root", func(t *testing.T) []string { return []string{repo(t, "proj", pgCfg, nil), "last"} }, 0},
 		{"HEAD carries it, working tree deleted it", func(t *testing.T) []string {
 			root := repo(t, "", pgCfg, nil)
@@ -124,6 +128,25 @@ func TestProjectGetParity(t *testing.T) {
 				t.Errorf("differs from the bash at ae805186\ngot:  %+v\nwant: %+v", got, want)
 			}
 		})
+	}
+}
+
+// TestProjectGetIgnoresAmbientGitEnv: GIT_DIR, GIT_WORK_TREE and
+// GIT_INDEX_FILE exported by a caller (a hook, a rebase --exec) never hijack
+// which repository's HEAD is read. Not parallel: t.Setenv.
+func TestProjectGetIgnoresAmbientGitEnv(t *testing.T) {
+	root, other := t.TempDir(), t.TempDir()
+	for dir, body := range map[string]string{root: "## lint\n\nvalue-a\n", other: "## lint\n\nhostile\n"} {
+		gitRun(t, dir, "init", "-q")
+		writeFile(t, dir+"/.flow/project.md", body)
+		gitRun(t, dir, "add", "-A")
+		gitRun(t, dir, "commit", "-q", "-m", "base")
+	}
+	t.Setenv("GIT_DIR", other+"/.git")
+	t.Setenv("GIT_WORK_TREE", other)
+	t.Setenv("GIT_INDEX_FILE", other+"/.git/index")
+	if r := pgGo(root, "lint"); r.rc != 0 || r.out != "value-a\n" {
+		t.Fatalf("got %+v, want exit 0 and value-a — the ambient git env hijacked HEAD resolution", r)
 	}
 }
 
