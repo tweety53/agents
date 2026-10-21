@@ -34,7 +34,20 @@ Each Go test carries at least its harness's floor in subtests (`parity-by-case-c
 
 **Before** — `@ c9b8fde8`:
 
-BEFORE_TABLE
+| Run | suite wall | exit | harnesses | slowest five |
+|---|--:|--:|--:|---|
+| 1 | 313s | 0 | 38 | integrate-change 313s, go-guards 108s, check-plan-shape 34s, protect-main-checkout 29s, lib-flow-guard 25s |
+| 2 | 314s | 0 | 38 | integrate-change 313s, go-guards 117s, protect-main-checkout 42s, check-plan-shape 31s, check-task-records 25s |
+| 3 | 413s | 0 | 38 | integrate-change 411s, go-guards 89s, protect-main-checkout 30s, check-plan-shape 24s, generate-relocation-comparison 20s |
+| **median** | **314s** | | | |
+
+- `test-integrate-change.sh` is the critical path; the five harnesses this change deletes are not
+  in any run's slowest five, so the suite wall is not expected to move — the gain is five fewer
+  bash harnesses (38 → 33).
+
+<!-- measured: FLOW_GUARD_CACHE_DIR=$(mktemp -d) scripts/run-guard-tests.sh x3 on a quiet tree, the runner's own "N harnesses, … Ns wall" line and grep '(Ns)' sorted descending @ c9b8fde8 -->
+
+**After** — task 7 records it in the same columns.
 
 ## Decisions
 
