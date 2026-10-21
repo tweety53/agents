@@ -113,6 +113,19 @@
 #  115. `echo $(cp a <main>/y)` from elsewhere                        -> deny
 #  116. `(cp a <main>/y)` from elsewhere                              -> deny
 #  117. `cat > <sibling>/r.md <<EOF`, body ``\` `rm <main>/x` \` ``   -> deny (an escaped backtick is a literal)
+#  118. `C=<sibling>; cat > $C/t.md <<'EOF'`, body `a > b; rm x`, then
+#       `check-plan-shape.sh $C/t.md`, cwd = main                    -> allow (the target as an argument is data)
+#  119. the same body, then `~/.claude/.../check-plan-shape.sh /x/o.md` -> allow (a path-named command naming another file)
+#  120. the same body, then `chmod +x $C/t.md && $C/t.md`            -> deny (the target run as a command)
+#  121. `cat > <sibling>/x.sh <<'EOF'`, body `rm <main>/f.txt`, then
+#       `/elsewhere/x.sh`                                             -> deny (the same file name under another path)
+#  122-128. the same heredoc, then `/bin/bash <sib>/x.sh`, `/bin/sh <sib>/x.sh`,
+#       `cd <sib> && x.sh`, `awk -f`, `make -f`, `watch`, `crontab` on it -> deny (each runs the body)
+#  129-134. the same heredoc, then `php`, `setsid`, `find -exec`, `ssh`, `psql -f`, `git -c ... show`
+#       naming it                                                     -> deny (not a known reader)
+#  135. the same heredoc, then `rg --pre <sib>/x.sh x f`              -> deny (rg's --pre runs the target)
+#  136. `cat > <sib>/check-a.sh <<EOF`, body `rm <main>/f.txt`, then `<sib>/check-a.sh` -> deny (a written check script run)
+#  137. the x.sh heredoc, then `GIT_EXTERNAL_DIFF=<sib>/x.sh git diff --ext-diff a b` -> deny (an assignment can make a reader run the target)
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$SCRIPT_DIR/../hooks/protect-main-checkout.py"
@@ -524,6 +537,112 @@ expect "117 an escaped backtick does not pair with a real span" deny \
   "$(run "$MAIN" Bash "{\"command\":$(q "cat > $SIB/r.md <<EOF
 \\\` \`rm $MAIN/x\` \\\`
 EOF")}")"
+# Case 118: the heredoc target named again as an argument is data.
+expect "118 a data heredoc's target named again as an argument keeps its body as data" allow \
+  "$(run "$MAIN" Bash "{\"command\":$(q "C=$SIB; cat > \$C/t.md <<'EOF'
+> **Execution:** a > b; rm x
+EOF
+check-plan-shape.sh \$C/t.md")}")"
+# Case 119: a path-named command naming another file runs that file, not the body.
+expect "119 a path-named command naming another file keeps the body as data" allow \
+  "$(run "$MAIN" Bash "{\"command\":$(q "C=$SIB; cat > \$C/t.md <<'EOF'
+> **Execution:** a > b; rm x
+EOF
+~/.claude/skills/flow/scripts/check-plan-shape.sh /x/o.md")}")"
+# Case 120: the heredoc target run as a command keeps its body scanned.
+expect "120 a data heredoc's target run as a command keeps its body scanned" deny \
+  "$(run "$MAIN" Bash "{\"command\":$(q "C=$SIB; cat > \$C/t.md <<'EOF'
+> **Execution:** a > b; rm x
+EOF
+chmod +x \$C/t.md && \$C/t.md")}")"
+# Case 121: the same file name run under another path keeps its body scanned.
+expect "121 a heredoc's file name run under another path keeps its body scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $SIB/x.sh <<'EOF'
+rm $MAIN/f.txt
+EOF
+/elsewhere/x.sh")}")"
+# Cases 122-128: a runner spelled as a path, a bare target name, or a file-executing tool keeps the body scanned.
+expect "122 a heredoc body then '/bin/bash $SIB/x.sh' keeps its body scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $SIB/x.sh <<'EOF'
+rm $MAIN/f.txt
+EOF
+/bin/bash $SIB/x.sh")}")"
+expect "123 a heredoc body then '/bin/sh $SIB/x.sh' keeps its body scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $SIB/x.sh <<'EOF'
+rm $MAIN/f.txt
+EOF
+/bin/sh $SIB/x.sh")}")"
+expect "124 a heredoc body then 'cd $SIB && x.sh' keeps its body scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $SIB/x.sh <<'EOF'
+rm $MAIN/f.txt
+EOF
+cd $SIB && x.sh")}")"
+expect "125 a heredoc body then 'awk -f $SIB/x.sh' keeps its body scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $SIB/x.sh <<'EOF'
+rm $MAIN/f.txt
+EOF
+awk -f $SIB/x.sh")}")"
+expect "126 a heredoc body then 'make -f $SIB/x.sh' keeps its body scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $SIB/x.sh <<'EOF'
+rm $MAIN/f.txt
+EOF
+make -f $SIB/x.sh")}")"
+expect "127 a heredoc body then 'watch $SIB/x.sh' keeps its body scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $SIB/x.sh <<'EOF'
+rm $MAIN/f.txt
+EOF
+watch $SIB/x.sh")}")"
+expect "128 a heredoc body then 'crontab $SIB/x.sh' keeps its body scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $SIB/x.sh <<'EOF'
+rm $MAIN/f.txt
+EOF
+crontab $SIB/x.sh")}")"
+# Cases 129-134: the target named by a command not known to only read it keeps the body scanned.
+expect "129 a heredoc body then 'php $SIB/x.sh' keeps its body scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $SIB/x.sh <<'EOF'
+rm $MAIN/f.txt
+EOF
+php $SIB/x.sh")}")"
+expect "130 a heredoc body then 'setsid $SIB/x.sh' keeps its body scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $SIB/x.sh <<'EOF'
+rm $MAIN/f.txt
+EOF
+setsid $SIB/x.sh")}")"
+expect "131 a heredoc body then 'find $SIB -name x.sh -exec {} ;' keeps its body scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $SIB/x.sh <<'EOF'
+rm $MAIN/f.txt
+EOF
+find $SIB -name x.sh -exec {} ;")}")"
+expect "132 a heredoc body then 'ssh localhost $SIB/x.sh' keeps its body scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $SIB/x.sh <<'EOF'
+rm $MAIN/f.txt
+EOF
+ssh localhost $SIB/x.sh")}")"
+expect "133 a heredoc body then 'psql -f $SIB/x.sh' keeps its body scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $SIB/x.sh <<'EOF'
+rm $MAIN/f.txt
+EOF
+psql -f $SIB/x.sh")}")"
+expect "134 a heredoc body then 'git -c core.pager=x show $SIB/x.sh' keeps its body scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $SIB/x.sh <<'EOF'
+rm $MAIN/f.txt
+EOF
+git -c core.pager=x show $SIB/x.sh")}")"
+expect "135 a heredoc body then 'rg --pre $SIB/x.sh x f' keeps its body scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $SIB/x.sh <<'EOF'
+rm $MAIN/f.txt
+EOF
+rg --pre $SIB/x.sh x f")}")"
+expect "136 a written check script run afterwards keeps its body scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $SIB/check-a.sh <<EOF
+rm $MAIN/f.txt
+EOF
+$SIB/check-a.sh")}")"
+expect "137 a heredoc body then 'GIT_EXTERNAL_DIFF=$SIB/x.sh git diff' keeps its body scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $SIB/x.sh <<'EOF'
+rm $MAIN/f.txt
+EOF
+GIT_EXTERNAL_DIFF=$SIB/x.sh git diff --ext-diff a b")}")"
 
 # 104-107: a push of a change branch runs check-untasked-commits over its
 # unpushed commits (kan-941); a stub stands in for the guard.

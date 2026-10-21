@@ -274,24 +274,70 @@ COMMAND_CUT_RE = re.compile(r"&&|\|\||[\n;|&(){}]")
 RUNNER_WORDS = {
     "sh", "bash", "zsh", "dash", "ksh", "fish", "source", ".", "eval", "exec", "xargs", "env",
     "command", "builtin", "nohup", "timeout", "nice", "time", "sudo", "python", "python3",
-    "perl", "ruby", "node", "osascript",
+    "perl", "ruby", "node", "osascript", "awk", "gawk", "mawk", "nawk", "make", "gmake", "watch",
+    "crontab", "at", "batch",
 }
 
 
-def may_run_code(text):
-    """True when text — the command outside one heredoc body — could run that body or a file
-    it writes: a process or command substitution (`>(sh)`, `bash <(`, `eval "$(`), a word that
-    runs code (`sh`, `eval`, `xargs`, ...) anywhere, or a command named by a path or an
-    expansion (`"$D"/x.sh`). Over-matching only keeps the body scanned."""
+def names_target(word, target):
+    """True when a command word may name the heredoc's target: the same spelling, the same file
+    name under another path (`"$D"/x.sh` for `$SIB/x.sh`), or a file name an expansion hides."""
+    word = word.replace('"', "").replace("'", "")
+    name = word.rsplit("/", 1)[-1]
+    return word == target or name == target.rsplit("/", 1)[-1] or "$" in name
+
+
+# Commands known not to execute a file they are given: the heredoc target named only as an
+# argument of one of these is data. Anything else naming it may run it, so the body stays scanned.
+READER_WORDS = {
+    "cat", "tee", "head", "tail", "wc", "grep", "diff", "cmp", "ls", "test", "[", "stat",
+}
+GIT_READ_SUBCOMMANDS = {"diff", "add", "show", "log", "status"}
+CHECK_SCRIPT_RE = re.compile(r"check-[\w.-]*\.(?:sh|py)")
+
+
+def reads_only(words, target):
+    """True when the command words are one known not to execute its file arguments: a
+    pipeline guard `check-*.sh`/`check-*.py` other than the target itself (a written check
+    script run afterwards runs the body), a reader in READER_WORDS (`rg` is not one: its
+    `--pre` runs a command), `git` with a read subcommand, or `spectre validate`."""
+    name = words[0].rsplit("/", 1)[-1]
+    if CHECK_SCRIPT_RE.fullmatch(name) and name != target.rsplit("/", 1)[-1]:
+        return True
+    if name in READER_WORDS:
+        return True
+    if name == "git":
+        return len(words) > 1 and words[1] in GIT_READ_SUBCOMMANDS
+    if name == "spectre":
+        return len(words) > 1 and words[1] == "validate"
+    return False
+
+
+def may_run_code(text, target):
+    """True when text — the command outside one heredoc body — could run that body or the file
+    target it writes. Fails closed: a process or command substitution (`>(sh)`, `bash <(`,
+    `eval "$(`), a word that runs code (RUNNER_WORDS, matched by file name so `/bin/bash`
+    counts as `bash`) anywhere, or any command whose words may name target (`names_target` —
+    the same spelling, the same file name, a bare `x.sh`, an expansion) unless that command is
+    one `reads_only` allows. A command naming another file (`check-plan-shape.sh /x/o.md`,
+    `./gradlew`) leaves the body as data; `php $T`, `setsid $T`, `find . -exec`, `ssh h $T`
+    keep it scanned, as does any command behind a leading `NAME=value` or run under
+    `env`/`export`. Over-matching only keeps the body scanned."""
     if SUBST_RE.search(text):
         return True
     for seg in COMMAND_CUT_RE.split(text):
         words = [w.strip("'\"") for w in seg.split()]
-        if any(w in RUNNER_WORDS for w in words):
+        if any(w.rsplit("/", 1)[-1] in RUNNER_WORDS for w in words):
             return True
+        assigned = False
         while words and ASSIGNMENT_RE.match(words[0]):
             words.pop(0)
-        if words and ("/" in words[0] or "$" in words[0] or words[0].startswith("~")):
+            assigned = True
+        # An env assignment can make any command run a file (GIT_EXTERNAL_DIFF, PAGER,
+        # LD_PRELOAD, …): a command carrying one, or run under `env`/`export`, is never a reader.
+        if words and (assigned or words[0].rsplit("/", 1)[-1] in {"env", "export"}):
+            return True
+        if words and any(names_target(w, target) for w in words) and not reads_only(words, target):
             return True
     return False
 
@@ -306,10 +352,10 @@ def strip_data_heredocs(command):
     data for a writer whose target the opening line already names, so a report line such as
     `a > the` must not read as a redirect (kan-929: subagents' report writes
     `D=...; cat > $D/r.md <<'EOF'` were denied over their own prose). A body stays scanned when
-    the writer has no target, its output is piped on, the target is named again after the
-    body (written, then run), the target is a device or a process substitution (`/dev/stdout`,
-    `>(sh)`), the rest of the command may run code (`may_run_code` — an enclosing `bash <(` or
-    `eval "$(`, a later `sh "$D"/x.sh`), the opener is not a plain `cat`/`tee`
+    the writer has no target, its output is piped on, the target is a device or a process
+    substitution (`/dev/stdout`, `>(sh)`), the rest of the command may run code (`may_run_code` —
+    an enclosing `bash <(` or `eval "$(`, a later `sh "$D"/x.sh` or `"$D"/x.sh`: written, then
+    run; the target named again only as an argument is data), the opener is not a plain `cat`/`tee`
     (`python3 - <<EOF`, `x=$(cat <<EOF`). An unquoted-delimiter body that runs `$(...)` or
     backticks keeps only those spans scanned, a backtick span as `$(...)` — bash runs them and
     nothing else of the body — or the whole body when a span cannot be closed."""
@@ -340,11 +386,11 @@ def strip_data_heredocs(command):
             (j for j in range(k, len(lines)) if (lines[j].lstrip("\t") if tabs else lines[j]).rstrip("\r") == delim),
             None,
         )
-        if not target or end is None or target in "\n".join(lines[end + 1 :]):
+        if not target or end is None:
             continue
         if target.startswith("/dev/") or "(" in target:
             continue
-        if may_run_code("\n".join(lines[:k] + lines[end + 1 :])):
+        if may_run_code("\n".join(lines[:k] + lines[end + 1 :]), target):
             continue
         # An escaped backtick is a literal in an unquoted body; dropped, it cannot pair with a real one.
         body = "\n".join(lines[k:end]).replace("\\`", "")
