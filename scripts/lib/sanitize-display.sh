@@ -26,7 +26,7 @@
 # into scripts/lib/ beside it — so it sources this file
 # rather than carrying its own copy. The Go ports of check-workspace-isolation
 # and check-cleanup-complete share one Go copy of this same function
-# (ccSanitize, stats/internal/guard/cleanupcomplete.go), which a bash caller
+# (ccSanitize, stats/internal/guard/text.go), which a bash caller
 # cannot source.
 #
 # Not meant to be executed directly — a caller sources it and calls

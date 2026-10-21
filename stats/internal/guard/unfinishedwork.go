@@ -82,7 +82,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	// The rule is records.Destination's Protection 1
 	// (stats/internal/records/render.go), character for character, and that
 	// function's comment is canonical for why each hazard is in it. This is
-	// plainChangeName (cleanupcomplete.go) itself now, where the bash guard
+	// plainChangeName (changename.go) itself now, where the bash guard
 	// kept its own `case` copy: TestCheckUnfinishedWork's 8e cases and
 	// TestCheckCleanupComplete/12 still assert the same rejected shapes.
 	//

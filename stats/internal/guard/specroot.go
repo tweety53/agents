@@ -37,14 +37,3 @@ func holdsOpenChange(changes string) bool {
 	}
 	return false
 }
-
-// isDir and isFile are bash's `[ -d ]` and `[ -f ]`: they follow symlinks.
-func isDir(p string) bool {
-	fi, err := os.Stat(p)
-	return err == nil && fi.IsDir()
-}
-
-func isFile(p string) bool {
-	fi, err := os.Stat(p)
-	return err == nil && fi.Mode().IsRegular()
-}

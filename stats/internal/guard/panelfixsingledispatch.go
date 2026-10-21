@@ -1,7 +1,6 @@
 package guard
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -84,7 +83,7 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 	// the change name arrives from a pull-request-editable state file and is
 	// passed to `flow record dispatches -change`, so `../../../planted` and a
 	// glob metacharacter are hazards here exactly as they are there. The
-	// check is plainChangeName (cleanupcomplete.go), whose comment is
+	// check is plainChangeName (changename.go), whose comment is
 	// canonical for the reasoning; it compares bytes, as the bash's
 	// `export LC_ALL=C` made its enumeration do.
 	if !plainChangeName(name) {
@@ -284,37 +283,6 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 	}
 	fmt.Fprintln(stdout, "PANEL-FIX-SINGLE-DISPATCH-OK: every panel-fix dispatch of this run is one per chunked round (bounds and retries included)")
 	return 0
-}
-
-// pfdRead is one `flow record <verb> -change <name> -C <worktree>` read:
-// the hook when set, else the CLI on PATH, its stderr discarded as the
-// bash's 2>/dev/null did.
-func pfdRead(env Env, hook func(string) ([]byte, error), verb, name, worktree string) ([]byte, error) {
-	if hook != nil {
-		return hook(name)
-	}
-	out, _, rc := pcFlow(env, false, "record", verb, "-change", name, "-C", worktree)
-	if rc != 0 {
-		return nil, fmt.Errorf("flow exit %d", rc)
-	}
-	return out, nil
-}
-
-// pfdStream decodes a stream of JSON values, jq's input: any number of
-// them, none included.
-func pfdStream(raw []byte) ([]any, bool) {
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.UseNumber()
-	var vals []any
-	for {
-		var v any
-		if err := dec.Decode(&v); err == io.EOF {
-			return vals, true
-		} else if err != nil {
-			return nil, false
-		}
-		vals = append(vals, v)
-	}
 }
 
 // pfdRow is one panel-fix row of the run: its key, and the commitSha its

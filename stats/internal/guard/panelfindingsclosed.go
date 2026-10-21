@@ -47,7 +47,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		fmt.Fprintln(stderr, "usage: check-panel-findings-closed.sh <worktree> <change-name>")
 		return 2
 	}
-	// CONTAINMENT: plainChangeName (cleanupcomplete.go) is canonical for why
+	// CONTAINMENT: plainChangeName (changename.go) is canonical for why
 	// -- the name arrives from a pull-request-editable state file and is
 	// passed to `flow record findings -change`.
 	if !plainChangeName(name) {

@@ -99,11 +99,3 @@ func checkWorktreeLocation(args []string, env Env, stdout, stderr io.Writer) int
 	fmt.Fprintf(stdout, "LOCATION-OK: %s\n", root)
 	return 0
 }
-
-// siblingRoot is where every worktree of the repository whose main checkout
-// is main lives: <dirname main>/<basename main>-worktrees (design.md:
-// sibling-worktrees-layout). Kickoff creates there, this guard accepts only
-// there, and migrate-worktrees moves there — one rule, one spelling.
-func siblingRoot(main string) string {
-	return filepath.Join(filepath.Dir(main), filepath.Base(main)+"-worktrees")
-}

@@ -1,9 +1,7 @@
 package guard
 
 import (
-	"os"
 	"os/exec"
-	"strings"
 )
 
 // resolveremotebase.go is the Go home of scripts/lib/resolve-remote-base.sh at d71a2327
@@ -19,31 +17,6 @@ func baseRefUsage(script string) string {
 		"              (origin/main). The guard prefers refs/remotes/origin/<base-ref>\n" +
 		"              when it resolves, so a bare name is never tested against a\n" +
 		"              stale local branch.\n"
-}
-
-// envGit returns a builder for `git <args>` run as the bash guards ran it:
-// git resolved over env's PATH, in env.Dir (so a relative worktree argument
-// resolves as it did), with extra appended to the process environment.
-func envGit(env Env, extra ...string) func(args ...string) *exec.Cmd {
-	git := "git"
-	if p, ok := lookPath(env, "git"); ok {
-		git = p
-	}
-	return func(args ...string) *exec.Cmd {
-		cmd := exec.Command(git, args...)
-		cmd.Dir = env.Dir
-		if len(extra) > 0 {
-			cmd.Env = append(os.Environ(), extra...)
-		}
-		return cmd
-	}
-}
-
-// capture is `VAR="$(cmd 2>/dev/null)"`: stdout with trailing newlines
-// stripped, and whether the command exited 0.
-func capture(cmd *exec.Cmd) (string, bool) {
-	out, err := cmd.Output()
-	return strings.TrimRight(string(out), "\n"), err == nil
 }
 
 // resolveRemoteBase is resolve_remote_base <worktree> <base-ref>:

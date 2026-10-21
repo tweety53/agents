@@ -470,11 +470,6 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	return 1
 }
 
-// hasDotDotSegment is the bash `..|../*|*/..|*/../*` case pattern.
-func hasDotDotSegment(p string) bool {
-	return p == ".." || strings.HasPrefix(p, "../") || strings.HasSuffix(p, "/..") || strings.Contains(p, "/../")
-}
-
 // headLines is `head -n <n> -- <path>`, one entry per line without its
 // newline; an unreadable file has no lines.
 func headLines(path string, n int) []string {
@@ -849,14 +844,6 @@ func rrSweep(pids []int, grace time.Duration, kill func(int, syscall.Signal) err
 		_ = kill(k, syscall.SIGKILL)
 	}
 	return survivors
-}
-
-// rrExitCode is bash's `$?` after `wait`: the exit status, or 128+signal.
-func rrExitCode(ps *os.ProcessState) int {
-	if ws, ok := ps.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
-		return 128 + int(ws.Signal())
-	}
-	return ps.ExitCode()
 }
 
 type rrProc struct{ pid, ppid, pgid int }

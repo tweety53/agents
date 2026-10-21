@@ -16,17 +16,6 @@ import (
 // bash's. TestPanelTouchedPathsParity runs the bash library and these
 // functions over the same inputs and fails on any difference.
 
-// panelResolveGit is panel_resolve_git: the git binary's path, found by a
-// real search of env's PATH (`type -P git`), so every later call runs that
-// binary by path. False, with a message on stderr, when PATH has no git.
-func panelResolveGit(env Env, prog string, stderr io.Writer) (string, bool) {
-	p, ok := lookPath(env, "git")
-	if !ok {
-		fmt.Fprintf(stderr, "%s: no git binary found on PATH\n", prog)
-	}
-	return p, ok
-}
-
 // panelGit runs gitBin -C worktree args from env's directory, its stderr
 // discarded, as the library's `2>/dev/null` calls do.
 func panelGit(env Env, gitBin, worktree string, args ...string) *exec.Cmd {

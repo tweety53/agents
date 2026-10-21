@@ -60,7 +60,7 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 	// here: `../../../planted` names a change outside any sane scope, and a
 	// glob metacharacter has no business in a plain change name either.
 	//
-	// THE CHECK IS plainChangeName (cleanupcomplete.go), whose comment is
+	// THE CHECK IS plainChangeName (changename.go), whose comment is
 	// canonical for the reasoning and for the measurement behind enumerating
 	// the characters rather than writing them as ranges. plainChangeName
 	// compares bytes, as the bash's `export LC_ALL=C` made its enumeration do.
@@ -355,13 +355,4 @@ func cprSeverities(b []byte) ([]string, bool) {
 // cprSpace is the C locale's [[:space:]].
 func cprSpace(c byte) bool {
 	return strings.IndexByte(" \t\n\v\f\r", c) >= 0
-}
-
-// pcAbs is a worktree argument as the panel guards read it: joined to the
-// working directory when relative, then cleaned.
-func pcAbs(env Env, p string) string {
-	if !filepath.IsAbs(p) {
-		p = filepath.Join(env.Dir, p)
-	}
-	return filepath.Clean(p)
 }

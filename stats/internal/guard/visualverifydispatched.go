@@ -57,7 +57,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	}
 
 	// CONTAINMENT, duplicated on purpose from check-panel-fix-single-
-	// dispatch's copy: plainChangeName (cleanupcomplete.go), whose comment is
+	// dispatch's copy: plainChangeName (changename.go), whose comment is
 	// canonical for the reasoning.
 	if !plainChangeName(name) {
 		fmt.Fprintf(stderr, "%schange name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", vvdPrefix, name)

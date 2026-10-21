@@ -116,7 +116,7 @@ source "$_CHANGE_PLAN_LIB_DIR/spec-root.sh"
 # The same allowlist check-unfinished-work.sh applies to its own <name>
 # argument, character for character — kept as its own copy here rather than
 # sourced from that guard, matching check-cleanup-complete's own copy
-# (plainChangeName, stats/internal/guard/cleanupcomplete.go):
+# (plainChangeName, stats/internal/guard/changename.go):
 # the six-line check gains nothing from being centralized a third time, and
 # this file must not depend on a guard script to do library work.
 _change_plan_name_ok() {

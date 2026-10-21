@@ -274,17 +274,6 @@ func crMarkdownUnder(env Env, dir string) ([]string, error) {
 	return crSort(env, files, false)
 }
 
-// crSort is `sort` (or `sort -u`) over lines, exec'd rather than
-// reimplemented: its order is the locale's collation (en_US.UTF-8 on macOS
-// sorts "SKILL-rationale.md" after "session-records-rationale.md"), which
-// no byte comparison reproduces, and the guard's output order is its.
-func crSort(env Env, lines []string, unique bool) ([]string, error) {
-	if unique {
-		return crSortSep(env, lines, "\n", "-u")
-	}
-	return crSortSep(env, lines, "\n")
-}
-
 // crSortSep is crSort over lines joined and terminated by sep, sort run with
 // args (`-z` for a NUL separator); the caller's collation variables are the
 // only environment sort sees.

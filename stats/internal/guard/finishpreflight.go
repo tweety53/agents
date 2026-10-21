@@ -184,17 +184,3 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	fmt.Fprintf(stdout, "RUN2: HEAD is an ancestor of %s, differs from the recorded merge base, and the worktree is clean\n", ref)
 	return 0
 }
-
-// exitCode is `$?` after a command: its exit status, 128+n when a signal
-// killed it, and 126 — bash's "found but cannot execute" — when it never
-// started.
-func exitCode(err error) int {
-	var ee *exec.ExitError
-	switch {
-	case err == nil:
-		return 0
-	case errors.As(err, &ee):
-		return rrExitCode(ee.ProcessState)
-	}
-	return 126
-}

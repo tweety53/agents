@@ -505,26 +505,6 @@ func smcFind(env Env, target string, stderr io.Writer) []string {
 	return files
 }
 
-// smcAbs is p as the bash resolved it: relative to the working directory.
-func smcAbs(env Env, p string) string {
-	if strings.HasPrefix(p, "/") || env.Dir == "" {
-		return p
-	}
-	return env.Dir + "/" + p
-}
-
-// smcUTF8 is whether bash's printf %q runs under a UTF-8 character type:
-// LC_ALL, else LC_CTYPE, else LANG, the first one set and non-empty.
-func smcUTF8(env Env) bool {
-	for _, k := range []string{"LC_ALL", "LC_CTYPE", "LANG"} {
-		if v := env.Getenv(k); v != "" {
-			v = strings.ToLower(v)
-			return strings.Contains(v, "utf-8") || strings.Contains(v, "utf8")
-		}
-	}
-	return false
-}
-
 // smcBackslashed is the set bash's printf %q backslash-escapes anywhere in a
 // word; `#` and `~` are escaped only as its first byte.
 const smcBackslashed = " !\"$&'()*,;<>?[\\]^`{|}"

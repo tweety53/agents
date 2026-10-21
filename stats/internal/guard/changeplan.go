@@ -24,15 +24,6 @@ import (
 // the bash helper tests them against its own; env.Dir is only the cwd for
 // the git and flow subprocesses. Callers pass absolute paths today.
 
-// lines splits a file's content the way `while IFS= read -r line || [ -n
-// "$line" ]` reads it: a trailing newline does not add an empty last line.
-func lines(b []byte) []string {
-	if len(b) == 0 {
-		return nil
-	}
-	return strings.Split(strings.TrimSuffix(string(b), "\n"), "\n")
-}
-
 // changePlanLinkPartOf is _change_plan_link_part_of: the first code span
 // under link.md's `## Part of` heading, stopping at the next `## ` heading.
 func changePlanLinkPartOf(file string) (string, bool) {
@@ -59,18 +50,6 @@ func changePlanLinkPartOf(file string) (string, bool) {
 		}
 	}
 	return ref, ref != ""
-}
-
-// gitOut runs git in env.Dir and returns its stdout with trailing newlines
-// stripped, as command substitution does.
-func gitOut(env Env, args ...string) (string, bool) {
-	cmd := exec.Command("git", args...)
-	cmd.Dir = env.Dir
-	out, ok := capture(cmd)
-	if !ok {
-		return "", false
-	}
-	return out, true
 }
 
 // changePlanMainCheckout is _change_plan_main_checkout: the main checkout
@@ -135,20 +114,6 @@ func changePlanPeerRoot(env Env, worktree, specRoot, peerName string) (string, b
 		return "", false
 	}
 	return p, true
-}
-
-// lookPath is `command -v <name>` over env's PATH, not the process's.
-func lookPath(env Env, name string) (string, bool) {
-	for _, dir := range filepath.SplitList(env.Getenv("PATH")) {
-		if dir == "" {
-			dir = "."
-		}
-		p := dir + "/" + name
-		if fi, err := os.Stat(p); err == nil && fi.Mode().IsRegular() && fi.Mode()&0o111 != 0 {
-			return p, true
-		}
-	}
-	return "", false
 }
 
 // changePlanStoreDir is _change_plan_store_dir: the change directory the

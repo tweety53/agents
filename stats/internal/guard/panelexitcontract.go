@@ -3,11 +3,9 @@ package guard
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -40,8 +38,6 @@ const (
 	pcDeclare        = "# demonstrates: "
 	pcPremiseDeclare = "# premise: "
 	pcJQFailed       = pcPrefix + "jq failed — cannot determine anything"
-	pcNotFound       = "flow: command not found"
-	pcNotFoundC      = 127
 )
 
 // pcFinding is one `flow record findings` object as jq -r reads it.
@@ -545,34 +541,6 @@ func pcResolveCitation(ref, tree, decl, prefix, noun string, prefixTrees map[str
 	return nil
 }
 
-// pcFlow runs the flow CLI from env's PATH in env.Dir: stdout (with stderr
-// folded in when combined, as `2>&1` does), stderr, and the exit code --
-// 127 with bash's "command not found" when there is no flow to run.
-func pcFlow(env Env, combined bool, args ...string) ([]byte, []byte, int) {
-	flow, ok := lookPath(env, "flow")
-	if !ok {
-		return []byte(pcNotFound), []byte(pcNotFound + "\n"), pcNotFoundC
-	}
-	cmd := exec.Command(flow, args...)
-	cmd.Dir = env.Dir
-	var out, errb bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &errb
-	if combined {
-		cmd.Stderr = &out
-	}
-	err := cmd.Run()
-	var ee *exec.ExitError
-	switch {
-	case err == nil:
-		return out.Bytes(), errb.Bytes(), 0
-	case errors.As(err, &ee):
-		return out.Bytes(), errb.Bytes(), rrExitCode(ee.ProcessState)
-	default:
-		return out.Bytes(), []byte(err.Error() + "\n"), 126
-	}
-}
-
 // resolvedRecordedTrees is the recorded-worktree to physical-tree resolution
 // both consumers of the state record's `worktrees` map share (panel finding
 // F3, kan-795 round 0): an empty entry is skipped like an absent one, a path
@@ -647,23 +615,6 @@ func pcParseFindings(b []byte) ([]pcFinding, bool) {
 
 func pcIsString(raw json.RawMessage) bool {
 	return strings.HasPrefix(strings.TrimSpace(string(raw)), `"`)
-}
-
-// pcRaw is `jq -r` of one value: a string's text, null (or absent) as
-// "null", anything else as compact JSON.
-func pcRaw(raw json.RawMessage) string {
-	if len(raw) == 0 {
-		return "null"
-	}
-	var s string
-	if pcIsString(raw) && json.Unmarshal(raw, &s) == nil {
-		return s
-	}
-	var c bytes.Buffer
-	if json.Compact(&c, raw) != nil {
-		return string(raw)
-	}
-	return c.String()
 }
 
 // pcExists is bash's `[ -e ]`: it follows symlinks.

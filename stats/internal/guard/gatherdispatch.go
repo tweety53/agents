@@ -617,20 +617,3 @@ func lexicallyCollapse(abs string) string {
 func withinRoot(p, root string) bool {
 	return p == root || strings.HasPrefix(p, root+"/")
 }
-
-// gdcDirname is dirname(1).
-func gdcDirname(p string) string {
-	if p != "" && strings.Trim(p, "/") == "" {
-		return "/"
-	}
-	p = strings.TrimRight(p, "/")
-	i := strings.LastIndex(p, "/")
-	if i < 0 {
-		return "."
-	}
-	d := strings.TrimRight(p[:i+1], "/")
-	if d == "" {
-		return "/"
-	}
-	return d
-}

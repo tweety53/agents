@@ -90,8 +90,9 @@
 # with CRLF line endings; and a row may be indented. THE PARSER ITSELF stays a
 # copy of its own (wiParse.splitCells, not the cleanup guard's ccWorkspaceRow);
 # the heading rule, the token shape and the display escaping are the cleanup
-# guard's own Go values (ccHeading, ccUnknownToken, ccSanitize in
-# stats/internal/guard/cleanupcomplete.go), in the one flow-guard binary both
+# guard's own Go values (ccHeading, ccUnknownToken in
+# stats/internal/guard/cleanupcomplete.go, ccSanitize in
+# stats/internal/guard/text.go), in the one flow-guard binary both
 # guards run in.
 #
 # `lib/flow-guard.sh` IS SOURCED (in the bash it was `resolve_file`, now
