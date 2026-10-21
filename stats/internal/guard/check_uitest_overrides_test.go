@@ -94,6 +94,20 @@ func TestCheckUitestOverrides(t *testing.T) {
 	t.Run("missing makefile", func(t *testing.T) {
 		uoAssert(t, uoRun(nil, "/no/such/Makefile"), 2, "check-uitest-overrides: /no/such/Makefile not found")
 	})
+	t.Run("unreadable makefile", func(t *testing.T) {
+		if os.Getuid() == 0 {
+			t.Skip("root reads a mode-000 file")
+		}
+		mk := uoFixture(t, map[string]string{"Makefile": "include extra.mk\n", "extra.mk": "UITEST_EVIL := x\n"})
+		if err := os.Chmod(filepath.Join(filepath.Dir(mk), "extra.mk"), 0); err != nil {
+			t.Fatal(err)
+		}
+		uoAssert(t, uoRun(nil, mk), 2, "extra.mk: open")
+	})
+	t.Run("line too long", func(t *testing.T) {
+		mk := uoFixture(t, map[string]string{"Makefile": strings.Repeat("x", 1<<24+1) + "\nUITEST_EVIL := x\n"})
+		uoAssert(t, uoRun(nil, mk), 2, "token too long")
+	})
 	t.Run("repo root unset", func(t *testing.T) {
 		uoAssert(t, uoRun(nil), 2, "FLOW_GUARD_REPO_ROOT is unset")
 	})

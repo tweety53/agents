@@ -18,7 +18,7 @@ func init() {
 	Registry["check-uitest-overrides"] = checkUitestOverrides
 }
 
-const uoSpace = `[ \t\n\v\f\r]`
+var uoSpace = "[" + cSpace + "]"
 
 var (
 	uoEndef   = regexp.MustCompile(`^[ ]*endef(` + uoSpace + `|$)`)
@@ -50,15 +50,20 @@ func checkUitestOverrides(args []string, env Env, stdout, stderr io.Writer) int 
 		return 2
 	}
 
-	violations := 0
+	violations, unread := 0, false
 	// scanned holds every file already scanned, so an include cycle ends and
 	// a file reachable twice is reported once.
 	scanned := map[string]bool{makefile: true}
 	var scan func(file string)
 	scan = func(file string) {
 		baseDir := filepath.Clean(pcAbs(env, filepath.Dir(file)))
+		// A file that cannot be read fails the run: the bash's `done <
+		// "$file"` did, and a guard reporting clean on a file it never read
+		// is fail-open.
 		f, err := os.Open(smcAbs(env, file))
 		if err != nil {
+			fmt.Fprintf(stderr, "check-uitest-overrides: %s: %v\n", file, err)
+			unread = true
 			return
 		}
 		defer f.Close()
@@ -117,9 +122,16 @@ func checkUitestOverrides(args []string, env Env, stdout, stderr io.Writer) int 
 				violations++
 			}
 		}
+		if err := sc.Err(); err != nil {
+			fmt.Fprintf(stderr, "check-uitest-overrides: %s: %v\n", file, err)
+			unread = true
+		}
 	}
 	scan(makefile)
 
+	if unread {
+		return 2
+	}
 	if violations != 0 {
 		fmt.Fprintf(stdout, "UITEST-OVERRIDES-FAIL: %d UITEST_* variable(s) assigned without override\n", violations)
 		return 1

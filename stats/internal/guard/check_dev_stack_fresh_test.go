@@ -71,9 +71,9 @@ func TestCheckDevStackFresh(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { fmt.Fprint(w, served) }))
 		defer srv.Close()
 		root := dsfRoot(t, dsfSection("curl -sf "+srv.URL+"/index.html \\| cmp -s - dist.html"), map[string]string{"dist.html": "fresh-bundle\n"})
-		dsfAssert(t, dsfRun(root), 1, "stack-stale")
+		t.Run("case 3 stale", func(t *testing.T) { dsfAssert(t, dsfRun(root), 1, "stack-stale") })
 		served = "fresh-bundle\n"
-		dsfAssert(t, dsfRun(root), 0, "stack-fresh")
+		t.Run("case 3 fresh", func(t *testing.T) { dsfAssert(t, dsfRun(root), 0, "stack-fresh") })
 	})
 	t.Run("case 4", func(t *testing.T) {
 		root := dsfRoot(t, dsfSection("test -f .flow/project.md"), map[string]string{})
@@ -82,6 +82,10 @@ func TestCheckDevStackFresh(t *testing.T) {
 	t.Run("case 5", func(t *testing.T) {
 		root := dsfRoot(t, dsfSection(`printf a-b\n \| grep -q b`), map[string]string{})
 		dsfAssert(t, dsfRun(root), 0, "printf a-b")
+		// The harness's case passed with the unescape broken; a pipe whose
+		// grep fails proves the command really ran as one.
+		root = dsfRoot(t, dsfSection(`printf a \| grep -q b`), map[string]string{})
+		dsfAssert(t, dsfRun(root), 1, "stack-stale")
 	})
 	t.Run("case 6", func(t *testing.T) {
 		root := dsfRoot(t, dsfFenced, map[string]string{})
@@ -102,12 +106,10 @@ func TestCheckDevStackFresh(t *testing.T) {
 		root := dsfRoot(t, "## visual verification\n\n| Command | Runs |\n|---------|------|\n| `verify` | `npm run test:visual` |", map[string]string{})
 		dsfAssert(t, dsfRun(root), 2, "no readable `fingerprint` row")
 	})
-	t.Run("case 11", func(t *testing.T) {
-		root := t.TempDir()
-		dsfAssert(t, dsfRun(), 2, "usage")
-		dsfAssert(t, dsfRun(root, "extra"), 2)
-		dsfAssert(t, dsfRun(root+"/no-such-dir"), 2)
-	})
+	root := t.TempDir()
+	t.Run("case 11 no args", func(t *testing.T) { dsfAssert(t, dsfRun(), 2, "usage") })
+	t.Run("case 11 two args", func(t *testing.T) { dsfAssert(t, dsfRun(root, "extra"), 2) })
+	t.Run("case 11 not a directory", func(t *testing.T) { dsfAssert(t, dsfRun(root+"/no-such-dir"), 2) })
 	t.Run("case 12", func(t *testing.T) {
 		root := dsfRoot(t, "## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `fingerprint` | `true` |", map[string]string{})
 		dsfAssert(t, dsfRun(root), 2)

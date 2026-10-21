@@ -112,14 +112,7 @@ func checkSpecReach(args []string, env Env, stdout, stderr io.Writer) int {
 		cmd.Dir, cmd.Env = dir, srEnviron(env)
 		cmd.Stdin = strings.NewReader(stdin)
 		out, err := cmd.CombinedOutput()
-		rc := 0
-		if err != nil {
-			rc = 1
-			if ee, ok := err.(*exec.ExitError); ok {
-				rc = ee.ExitCode()
-			}
-		}
-		return strings.TrimRight(string(out), "\n"), rc
+		return strings.TrimRight(string(out), "\n"), exitCode(err)
 	}
 
 	scripts, rc := run(env.Dir, "", "node", "-e", srScripts, checkout+"/package.json")

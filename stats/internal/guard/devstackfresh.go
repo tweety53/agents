@@ -17,8 +17,8 @@ func init() {
 }
 
 var (
-	dsfClose = regexp.MustCompile(`^##[ \t\n\v\f\r]+`)
-	dsfBlank = regexp.MustCompile(`^[ \t\n\v\f\r]*$`)
+	dsfClose = regexp.MustCompile("^##[" + cSpace + "]+")
+	dsfBlank = regexp.MustCompile("^[" + cSpace + "]*$")
 )
 
 func checkDevStackFresh(args []string, env Env, stdout, stderr io.Writer) int {
@@ -62,6 +62,7 @@ func checkDevStackFresh(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	cmd := exec.Command(bash, "-c", fpr)
 	cmd.Dir = smcAbs(env, worktree)
+	cmd.Env = append(os.Environ(), "PATH="+env.Getenv("PATH"))
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = env.Stdin, stdout, stderr
 	if cmd.Run() == nil {
 		fmt.Fprintln(stdout, "stack-fresh: the fingerprint exited 0 — the stack is serving the worktree's build")
