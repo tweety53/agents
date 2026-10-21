@@ -45,7 +45,7 @@ Callers are unchanged: `scripts/run-verify-list.sh`, the `skills/flow/*.md` pros
 
 **ID:** harness-cases-by-label
 **Status:** active
-**Chosen:** each Go test carries every case of its bash harness as it stands at `b1b0d601`, one subtest per harness case label, asserting the harness's exit code and output patterns; `check-spec-reach`'s Go port runs `npm` and `npx` the way the bash did, and its test puts the harness's fake binaries on `PATH` through the guard's `Env`.
+**Chosen:** each Go test carries every case of its bash harness as it stands at `b1b0d601`, one subtest per harness case label, asserting the harness's exit code and output patterns; `check-spec-reach`'s Go port runs `node` and `npm` the way the bash did, and its test puts the harness's fake binaries on `PATH` through the guard's `Env`.
 **Considered:** live byte-for-byte diffing of the bash against the Go on every case — rejected: the bash is deleted in the same commit, and the c20a7ab2 precedent carries harness cases rather than running both.
 
 ## Open questions
