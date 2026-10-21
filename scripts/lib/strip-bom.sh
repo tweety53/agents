@@ -1,7 +1,6 @@
 # scripts/lib/strip-bom.sh — strip_bom_cat, defined once.
 #
-# Sourced by scripts/check-spec-reach.sh, scripts/check-dev-stack-fresh.sh
-# and scripts/lib/project-section.sh.
+# Sourced by scripts/check-spec-reach.sh and scripts/check-dev-stack-fresh.sh.
 # The three visual guards that once sourced this file —
 # check-visual-verification, check-visual-trigger and
 # resolve-visual-screenshots — are Go ports now (KAN-850) and use its Go

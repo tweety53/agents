@@ -6,12 +6,12 @@ import (
 	"strings"
 )
 
-// projectSection is the Go twin of scripts/lib/project-section.sh, which stays
-// the source of truth while project-get.sh still sources it; its header
-// carries the reasoning, and TestProjectSectionParity fails when the two
-// print or return differently for the same file and key.
+// projectSection is the one copy of the heading-to-next-heading reader that
+// used to live inline in three scripts and drift: its bash twin was deleted
+// (KAN-887), and TestProjectSectionParity still runs that twin, as it stood
+// at the change's base, against this one.
 
-// projectSection is lib/project-section.sh's project_section: the body of
+// projectSection is the bash project_section: the body of
 // "## <key>" up to the next "## " heading, a leading UTF-8 BOM dropped,
 // blank lines trimmed at both ends, trailing newlines stripped.
 func projectSection(file, key string) string {
