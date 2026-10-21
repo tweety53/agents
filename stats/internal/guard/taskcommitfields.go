@@ -36,7 +36,7 @@ import (
 // functions at 0747740.
 // The wrapper body's own reasoning moved here with it (0747740), beside the
 // resolution code it explains. The wrapper also checked that
-// lib/plan_grammar.py, lib/spec-root.sh and lib/change-plan.sh were present
+// lib/plan_grammar.py, lib/spec-root.sh and the change-plan library were present
 // before using them — a Python import and a `source` being invisible to
 // check-guard-symlinks.sh's rule 2 — and those checks have no counterpart:
 // the grammar and the resolvers are compiled in.

@@ -1,9 +1,9 @@
 # scripts/lib/spec-root.sh — spec_root_leaf, defined once.
 #
 # Sourced by every bash guard that has to locate a project's change directory:
-# the retired self-review gather (kan-526) and plan-dispatch-bundles.sh — plus
-# scripts/lib/change-plan.sh, which sources it in turn so a satellite
-# worktree's link.md is resolved against the same tree-name probe on
+# the retired self-review gather (kan-526) and plan-dispatch-bundles.sh; the
+# Go guards' plan resolver, stats/internal/guard/changeplan.go, carries the
+# same probe so a satellite worktree's link.md is resolved against it on
 # whichever tree the link points at. Each of those once hardcoded one leaf
 # name: right for a project whose tree is named `spectre/` and wrong —
 # silently — for a consuming project whose tree is still named `openspec/`.

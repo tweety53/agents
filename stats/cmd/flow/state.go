@@ -684,7 +684,7 @@ func writeStateListOutput(stdout, stderr io.Writer, out stateListOutput) int {
 // --- state find ---
 
 // stateFindRecord is one record of `state find`'s output: the fields the
-// state-record plan resolution (scripts/lib/change-plan.sh) reads --
+// state-record plan resolution (stats/internal/guard/changeplan.go) reads --
 // projectKey and worktrees above all -- plus Unreadable for a fallback
 // file that exists but cannot be read or parsed. An unreadable record is
 // named, never silently dropped, exactly as state list's own fallback

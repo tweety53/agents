@@ -41,8 +41,28 @@ func bashLibEnv(t *testing.T, env []string, lib, fn string, args ...string) libR
 // bashLibIO is bashLibEnv with stdin fed to fn (nil: no stdin).
 func bashLibIO(t *testing.T, env []string, stdin io.Reader, lib, fn string, args ...string) libRes {
 	t.Helper()
+	return bashRun(t, env, stdin, "../../../scripts/lib/"+lib, fn, args...)
+}
+
+// libTwinBase is the commit KAN-887 deleted the bash twins from; a parity
+// test whose twin is gone runs it as it stood there (parity-at-historical-ref).
+const libTwinBase = "ef6f87cd"
+
+// bashLibAt is bashLibEnv for deleted libs: it writes each of libs, as it
+// stood at libTwinBase, into a temp dir of its own and sources the first.
+func bashLibAt(t *testing.T, env []string, libs []string, fn string, args ...string) libRes {
+	t.Helper()
+	dir := t.TempDir()
+	for _, lib := range libs {
+		writeFile(t, filepath.Join(dir, lib), string(historicalFile(t, "../../..", libTwinBase, "scripts/lib/"+lib)))
+	}
+	return bashRun(t, env, nil, filepath.Join(dir, libs[0]), fn, args...)
+}
+
+func bashRun(t *testing.T, env []string, stdin io.Reader, path, fn string, args ...string) libRes {
+	t.Helper()
 	cmd := exec.Command("bash", append([]string{"-c",
-		`set -uo pipefail; . "$1" || exit 99; shift; "$@"`, "_", "../../../scripts/lib/" + lib, fn}, args...)...)
+		`set -uo pipefail; . "$1" || exit 99; shift; "$@"`, "_", path, fn}, args...)...)
 	if env != nil {
 		cmd.Env = append(os.Environ(), env...)
 	}
@@ -150,8 +170,8 @@ func TestResolveFileParity(t *testing.T) {
 	}
 }
 
-// TestProjectSectionParity pins projectSection against
-// lib/project-section.sh's project_section.
+// TestProjectSectionParity pins projectSection against the deleted bash
+// project_section, at libTwinBase.
 func TestProjectSectionParity(t *testing.T) {
 	t.Parallel()
 	d := t.TempDir()
@@ -181,7 +201,7 @@ func TestProjectSectionParity(t *testing.T) {
 			if s := projectSection(file, tc.key); s != "" {
 				got.stdout = s + "\n"
 			}
-			assertParity(t, got, bashLib(t, "project-section.sh", "project_section", file, tc.key))
+			assertParity(t, got, bashLibAt(t, nil, []string{"project-section.sh", "strip-bom.sh"}, "project_section", file, tc.key))
 		})
 	}
 }
@@ -223,7 +243,8 @@ func envWith(t *testing.T, over []string) Env {
 }
 
 // TestPanelTouchedPathsParity pins panelResolveGit, panelValidateWorktree and
-// panelTouchedPaths against lib/panel-touched-paths.sh's three functions.
+// panelTouchedPaths against the deleted bash library's three functions, at
+// libTwinBase.
 func TestPanelTouchedPathsParity(t *testing.T) {
 	t.Parallel()
 	d := t.TempDir()
@@ -298,7 +319,7 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 				got.status = 2
 			}
 			got.stderr = errb.String()
-			assertParity(t, got, bashLibEnv(t, over, "panel-touched-paths.sh", "panel_resolve_git", "prog"))
+			assertParity(t, got, bashLibAt(t, over, []string{"panel-touched-paths.sh"}, "panel_resolve_git", "prog"))
 		})
 	}
 
@@ -321,7 +342,7 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 				got.status = 2
 			}
 			got.stderr = errb.String()
-			assertParity(t, got, bashLib(t, "panel-touched-paths.sh", "panel_validate_worktree", "prog", tc.wt, tc.mb, fixtureGit))
+			assertParity(t, got, bashLibAt(t, nil, []string{"panel-touched-paths.sh"}, "panel_validate_worktree", "prog", tc.wt, tc.mb, fixtureGit))
 		})
 	}
 
@@ -350,7 +371,7 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 				got.status = 2
 			}
 			got.stderr = errb.String()
-			assertParity(t, got, bashLibEnv(t, tc.over, "panel-touched-paths.sh", "panel_touched_paths", "prog", tc.wt, tc.mb, tc.git))
+			assertParity(t, got, bashLibAt(t, tc.over, []string{"panel-touched-paths.sh"}, "panel_touched_paths", "prog", tc.wt, tc.mb, tc.git))
 		})
 	}
 }

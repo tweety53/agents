@@ -68,8 +68,8 @@
 # When that glob comes back empty, and exactly one LINK-ONLY change
 # directory exists under `<worktree>/<spec-root>/changes/` — one whose own
 # `link.md` exists and whose own `tasks.md` does not — this wrapper resolves
-# that satellite's plan through `scripts/lib/change-plan.sh`'s rules (task
-# 7; ported to stats/internal/guard/changeplan.go),
+# that satellite's plan through stats/internal/guard/changeplan.go's rules
+# (task 7),
 # passing the optional fifth argument straight through as its
 # canonical-worktree, before giving up. More than one link-only directory,
 # or a resolution that fails, still ends in the same "no tasks.md found"
@@ -90,7 +90,7 @@
 # change changes nothing about which root that test resolves to.
 #
 # SYMLINKS. The file and directory tests used throughout the Go port, as
-# `-f` and `-d` in scripts/lib/change-plan.sh, follow symlinks — so a symlink at
+# in stats/internal/guard/changeplan.go, follow symlinks — so a symlink at
 # `<worktree>/<spec-root>/changes/<allowlisted-name>` is followed and its
 # content read as that change's plan. check-unfinished-work.sh's own header
 # accepts the identical tradeoff for the identical reason; this is not a

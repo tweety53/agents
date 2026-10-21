@@ -12,7 +12,7 @@ import (
 // scripts/lib/trim-glob-element.sh,
 // plus the `## visual verification` section rule every one of those scripts
 // carried inline. The bash libraries stay for their remaining bash callers
-// (check-spec-reach.sh, check-dev-stack-fresh.sh, lib/project-section.sh);
+// (check-spec-reach.sh, check-dev-stack-fresh.sh);
 // TestStripBOMParity, TestSanitizeDisplayParity and TestVisualTableCellsParity
 // run them against these twins so a fix to one side cannot miss the other
 // (kan850-helper-twins).

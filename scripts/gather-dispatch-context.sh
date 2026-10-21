@@ -136,8 +136,7 @@
 # single-repo change, whose bundle is therefore byte-for-byte what this
 # script always wrote — and otherwise, when <change-root> carries a
 # satellite's link.md (## Part of) and no tasks.md, the canonical change
-# directory scripts/lib/change-plan.sh's rules (ported to
-# stats/internal/guard/changeplan.go) resolve through the optional
+# directory stats/internal/guard/changeplan.go's rules resolve through the optional
 # seventh argument <canonical-worktree>, or — only when that argument is
 # empty — through <worktree>/<spec-root>/peers, the same resolution order
 # check-unfinished-work.sh and check-task-commit-fields.sh have used since
@@ -150,7 +149,7 @@
 #   1. The boundary the three leaves are checked against is the CONTENT
 #      DIRECTORY, not the argument <change-root>: the canonical directory is
 #      the same change's tracked content, reached through a link whose peer
-#      name and change id change-plan.sh allowlist-checks character for
+#      name and change id changeplan.go allowlist-checks character for
 #      character. The invocation-level containment rules above are
 #      unchanged — <change-root> must still sit inside <worktree> or
 #      <canonical-worktree>, exit 2.
@@ -191,12 +190,12 @@
 # empty result as "hazards (none)".
 #
 # <canonical-worktree>, when given, is validated nowhere beyond what
-# change-plan.sh's own [ -f ] probes imply and the change-root containment
+# changeplan.go's own file probes imply and the change-root containment
 # above — the same trust level as
 # check-unfinished-work.sh's third argument: a caller-supplied worktree
 # path, not attacker-influenced change content, and every name concatenated
 # under it (the canonical change id) is allowlist-checked inside
-# change-plan.sh itself.
+# changeplan.go itself.
 
 # Header corrected for the Go port (KAN-760): the hash helper, the leaf
 # check and the plan resolver are named as they now are. The body's

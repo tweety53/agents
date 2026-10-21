@@ -35,8 +35,8 @@
 #      canonical worktree, so a peer tree's store read is a cannot-answer
 #      and never a clean verdict — KAN-658), or the store unreachable
 #
-# Ported to Go (KAN-778): the banned-character set is compiled in rather than
-# sourced from reproducer-metachars.sh beside this script. The body's
+# Ported to Go (KAN-778): the banned-character set is compiled in, from
+# stats/internal/guard/metachars.go. The body's
 # reasoning for every branch is in stats/internal/guard/panelreproducers.go.
 # flow-guard is built from this checkout, never taken from PATH:
 # scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's

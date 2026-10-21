@@ -14,8 +14,8 @@ import (
 // The port of scripts/gather-dispatch-context.sh, whose header is canonical
 // for the contract: arguments, VALIDATION, LEAF VALIDATION, the content
 // directory, the incidents and hazards sections, and SKIP-WHEN-UNCHANGED.
-// The helpers it sourced -- lib/resolve-file.sh and lib/project-section.sh,
-// twinned in resolvefile.go and projectsection.go, and
+// The helpers it sourced -- lib/resolve-file.sh, twinned in resolvefile.go;
+// the section reader now in projectsection.go; and
 // the since-deleted lib/within-root.sh and lib/lexical-normalize.sh -- are
 // ported below as far as this guard uses them.
 //
@@ -143,9 +143,8 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 	// a change with neither file is not a satellite, and its leaves keep the
 	// ordinary absent-leaf handling. changePlanRef's answer is the
 	// <peer>:<change-id> ref of the link the successful resolution already
-	// validated, feeding the section label. Both are Go ports of
-	// lib/change-plan.sh's change_plan_dir and change_plan_ref (changeplan.go);
-	// the bash sourced that library as the owner of link.md's grammar.
+	// validated, feeding the section label. Both live in changeplan.go, the
+	// owner of link.md's grammar.
 	contentDir, suffix, satelliteLink := changeRootReal, "", ""
 	if !isFile(changeRootReal + "/tasks.md") {
 		// A relative canonical stays relative, as in bash: changePlanDir
@@ -334,8 +333,8 @@ func (b *gdcBundle) addFixedSource(path, label, root string) {
 // (CLAUDE.md's lint-fix-priority rule sends every subagent there). Extracted,
 // not the whole 20+ KB file, per design.md's
 // scoped-dispatch-bundle-not-full-project-md decision. Appended after the
-// principles file section, as the last "found" entry. projectSection is the
-// port of lib/project-section.sh's project_section (projectsection.go).
+// principles file section, as the last "found" entry. projectSection is in
+// projectsection.go.
 func (b *gdcBundle) addProjectCommands(worktree string) {
 	file := worktree + "/.flow/project.md"
 	if !isFile(file) {

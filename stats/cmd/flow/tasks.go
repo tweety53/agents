@@ -85,7 +85,7 @@ func specRootLeaf(dir string) string {
 }
 
 // changeNamePattern is the same containment allowlist
-// scripts/lib/change-plan.sh's _change_plan_name_ok applies to a change
+// stats/internal/guard/changename.go's plainChangeName applies to a change
 // name before concatenating it into a path: start with a letter or
 // digit, then only letters, digits, '.', '_' and '-' -- so a value like
 // "../escape" can never walk planPath outside <dir>/<spec-root>/changes/.
@@ -96,7 +96,7 @@ var changeNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 // <dir>/<spec-root>/changes/archive/<change>/tasks.md (guard.ChangeDir) --
 // or an error when change fails changeNamePattern. It resolves only the
 // change's own directory -- no link.md/peer indirection the way
-// scripts/lib/change-plan.sh's change_plan_path offers guards checking
+// stats/internal/guard/changeplan.go's changePlanPath offers guards checking
 // a different worktree's plan from outside it: flow tasks tick only
 // ever runs inside the worktree that owns the plan it is ticking
 // (design.md's tasks-tick-no-peer-indirection).

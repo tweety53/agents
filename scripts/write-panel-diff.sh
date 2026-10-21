@@ -32,7 +32,7 @@
 # Exit codes:
 #   0  both files written
 #   2  cannot answer — a usage error, a worktree/sha pair that fails
-#      panel_validate_worktree (scripts/lib/panel-touched-paths.sh), or a git
+#      panelValidateWorktree (stats/internal/guard/paneltouchedpaths.go), or a git
 #      failure; nothing is written
 #
 # flow-guard is built from this checkout, never taken from PATH:

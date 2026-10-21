@@ -184,7 +184,7 @@
 # there, not here. Reading that absence the same way as a genuinely missing
 # plan would report OUTSTANDING with nothing an operator can act on — the
 # plan is not missing, it is elsewhere, and this guard's job is to reach it,
-# per `scripts/lib/change-plan.sh` (task 7) and design.md's
+# per stats/internal/guard/changeplan.go (task 7) and design.md's
 # `guards-take-the-canonical-worktree-path`. So a satellite takes one of two
 # outcomes and never the third: its canonical plan resolves and is counted
 # exactly like a local one would be, or it does not resolve at all and the
@@ -201,15 +201,14 @@
 # change whose plan resolves only in the canonical worktree, so the worktree
 # this verdict names holds neither signal. Verify from the primary records
 # before acting on the verdict: resolve the plan the way this guard does
-# (scripts/lib/change-plan.sh) and count column-0 `^- \[ \]` lines by hand;
+# (stats/internal/guard/changeplan.go) and count column-0 `^- \[ \]` lines by hand;
 # run `flow record findings -change <name> -C <worktree>` and expect `[]`.
 # Both clean means the verdict was structural — record it (unfinished-work-gate.md's
 # false-positive course) rather than trusting it or silently overriding it.
 # Anything else means the verdict was right, and the courses it offers stand.
 
-# Header note for the Go port (KAN-778): scripts/lib/change-plan.sh's
-# resolution now runs as its Go port, stats/internal/guard/changeplan.go, and
-# the body's reasoning for every branch is in
+# Header note for the Go port (KAN-778): the plan resolution runs in
+# stats/internal/guard/changeplan.go, and the body's reasoning for every branch is in
 # stats/internal/guard/unfinishedwork.go.
 # flow-guard is built from this checkout, never taken from PATH:
 # scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's

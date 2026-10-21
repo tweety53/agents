@@ -92,9 +92,10 @@ def subcommand(tokens):
 
 
 def norm(tokens):
-    # Shell syntax rides along in a raw token — `--quiet)"`, `"--no-renames",`
-    # — so comparisons see the flag, never the quoting around it.
-    return [t.strip("\"'(),;") for t in tokens]
+    # Shell syntax rides along in a raw token — `--quiet)"`, `"--no-renames",`,
+    # a Go composite literal's `"--no-renames"}` — so comparisons see the
+    # flag, never the quoting around it.
+    return [t.strip("\"'(){},;") for t in tokens]
 
 
 def classify(location, sub, joined, hits):
@@ -339,6 +340,7 @@ func d() {
 		"status", "--porcelain", "--untracked-files=normal").Output()
 	s := pcRaw(o["status"])
 }
+func e() { args := append([]string{"-C", repo, "diff", "--name-only", "--no-renames"}, cached...) }
 EOF
 cat > "$GODIR/guard_test.go" <<'EOF'
 func t() { runGit(env, wt, "diff", "--name-only") }
@@ -347,7 +349,7 @@ run_audit "$GODIR"
 if [ "$AUDIT_RC" -eq 1 ] && grep -q 'guard.go:1: R1' <<<"$AUDIT_OUT" \
   && grep -q 'guard.go:3: R3' <<<"$AUDIT_OUT" \
   && [ "$(grep -c . <<<"$AUDIT_OUT")" -eq 2 ]; then
-  pass "case 6: go — unpinned diff and status are named; pinned, multi-line, map-index and _test.go are not"
+  pass "case 6: go — unpinned diff and status are named; pinned, multi-line, composite-literal, map-index and _test.go are not"
 else
   fail "case 6: go — rc=$AUDIT_RC out=[$AUDIT_OUT]"
 fi

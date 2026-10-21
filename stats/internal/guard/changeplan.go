@@ -11,17 +11,104 @@ import (
 	"strings"
 )
 
-// The port of scripts/lib/change-plan.sh's change_plan_ref, change_plan_path
-// and change_plan_dir -- the three functions the ported guards call. That
-// file's header is canonical for the resolution order and the containment
-// rules; this is its body in Go, returning the bash function's exit status
-// as an int (0 resolved, 1 unresolvable, 3 an ambiguous store answer) and
-// writing its stderr lines to stderr.
+// changePlanRef, changePlanPath and changePlanDir -- the three functions the
+// guards call -- began as a port of a bash library whose bash twin was
+// deleted (KAN-887); its header moved here and is canonical for the
+// resolution order and the containment rules. Each returns the bash
+// function's exit status as an int (0 resolved, 1 unresolvable, 3 an
+// ambiguous store answer) and writes its stderr lines to stderr.
 //
-// Paths are composed by string concatenation, as the bash does, never
+// One owner for "where is this change's tasks.md, really" — KAN-363 task 7,
+// called by check-unfinished-work (task 8) and check-task-commit-fields
+// (task 9) in place of composing `<worktree>/<spec-root>/changes/<name>`
+// directly. KAN-343 shipped a cross-repository change by hand: the second
+// repository's worktree carried no plan at all, and every guard that looked
+// for one there reported the absence as a verdict — `OUTSTANDING: no plan at
+// <path>`, or exit 2 with nothing further — because "no tasks.md" and "this
+// change's plan lives somewhere else" were the same observation to them. This
+// file is what tells the two apart, by reading `link.md` (spectre task 1's
+// grammar) the way a caller of `spectre validate` would.
+//
+// Resolution order, per design.md's `guards-take-the-canonical-worktree-path`:
+//
+//   1. <worktree>/<spec-root>/changes/<name>/tasks.md exists → that path;
+//      or no <worktree>/<spec-root>/changes/<name>/ directory at all and
+//      <worktree>/<spec-root>/changes/archive/<name>/tasks.md exists → that
+//      path. Integrate's run 1 archives the change on its branch before the
+//      route, and a fix run after it writes into the archived directory, so
+//      the archived plan is this change's plan, not a stale copy. Every
+//      worktree read in the steps below resolves a change's directory the
+//      same way (_change_plan_change_dir).
+//   2. Otherwise, no local tasks.md and no local link.md for <name> here at
+//      all (the cross-repo shape where the plan lives only in the canonical
+//      repo — the change directory absent entirely, or an empty scaffold a
+//      refused or aborted link step left behind, KAN-430) and a canonical
+//      worktree argument was passed → the same-named plan under the
+//      canonical worktree's own <spec-root>/changes/, if it exists. The gate
+//      is BOTH files being absent, not merely an absent tasks.md or an
+//      absent directory, so a satellite's link resolution below is never
+//      preempted (design.md's no-fallback-for-linked-satellites — whose
+//      letter named the absent directory; the empty scaffold is the recorded
+//      widening, an existing-but-empty directory carrying no signal of its
+//      own).
+//   3. Otherwise, <worktree>/<spec-root>/changes/<name>/link.md exists and
+//      carries `## Part of`:
+//        - a canonical worktree argument was passed → its own
+//          <spec-root>/changes/<canonical-id>/tasks.md, if that exists;
+//          no fallback to peers when the argument was passed but the plan
+//          is not there — a guard that named its own canonical worktree
+//          already resolved it through flow's own worktree set, and a
+//          wrong answer from that set is a fact worth failing loudly on,
+//          not a cue to go looking somewhere else.
+//        - no canonical worktree argument → resolve the peer name through
+//          <worktree>/<spec-root>/peers and print the plan there, if it
+//          exists. A peer that is declared but not present on disk is not
+//          a finding (design.md's `peer-absence-is-not-a-finding`) and,
+//          here, not a refusal either — it is simply unresolvable, and the
+//          caller decides what that means.
+//   4. None of the above, and no canonical worktree argument was passed →
+//      the store step (KAN-267): `flow state find` for the change's own
+//      name, or for the link's canonical id when the change is a
+//      satellite, and walk each matching record's `worktrees` map — the
+//      one place that names every tree a cross-repo change affects, which
+//      is what lets a guard resolve the plan from the satellite side with
+//      no caller-supplied argument at all. See changePlanStoreDir's
+//      own comment for the refusal and never-blocks rules.
+//
+//   5. None of the above → unresolvable.
+//
+// WHY A PEER ROOT DOES NOT FALL BACK TO changes/archive/ THE WAY spectre's
+// own `internal/check` does for the peer side of a link (task 2's
+// `independent-archive`). That fallback answers "is the counterpart change
+// still findable at all", which matters to `validate` reporting archive skew.
+// This function answers a narrower question for a guard running inside a
+// live worktree: a peer root is a sibling repository's main checkout, where
+// a change's archive appears only once the change has landed and nothing is
+// left for a guard to judge, and a `peers`-relative archive lookup would
+// require duplicating spectre's own two-step search for a case this
+// repository's guards do not reach. Narrower is deliberate here, not an
+// oversight. A worktree is different: integrate's run 1 archives on the
+// change branch in a worktree that stays open until run 2, which is why
+// step 1's archived half applies to every worktree this function reads.
+//
+// CONTAINMENT applies to every name concatenated into a path in this
+// function: the change name (the caller's own argument, from a
+// pull-request-editable state file), and the peer name and canonical change
+// id (both read out of link.md, itself a pull-request-editable file this
+// function parses). All three are checked against
+// check-unfinished-work.sh's own allowlist — start with a letter or digit,
+// then only letters, digits, '.', '_' and '-' — character for character, so
+// `../escape` in any of the three positions cannot walk this function
+// outside the worktree(s) it was given. #
+// SYMLINKS: the file and directory tests follow symlinks, so a symlink at
+// `<worktree>/<spec-root>/changes/<allowlisted-name>` is followed and its
+// content returned as the change's plan — the same accepted tradeoff
+// check-unfinished-work.sh's own header already ships and argues.
+//
+// Paths are composed by string concatenation, as the bash did, never
 // filepath.Join, so every printed path is byte-identical to the helper's.
 // ponytail: relative worktree paths are tested against the process cwd, as
-// the bash helper tests them against its own; env.Dir is only the cwd for
+// the bash helper tested them against its own; env.Dir is only the cwd for
 // the git and flow subprocesses. Callers pass absolute paths today.
 
 // changePlanLinkPartOf is _change_plan_link_part_of: the first code span

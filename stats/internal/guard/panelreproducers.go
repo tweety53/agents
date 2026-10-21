@@ -17,10 +17,8 @@ import (
 // body it replaced (3e48ecac), sits beside the code it explains.
 //
 // The banned-character set is single-sourced with run-reproducer's own copy
-// of the same check -- metachars.go's reproducerMetachars, pinned to
-// scripts/reproducer-metachars.sh by TestMetacharsMatchBashSource -- see
-// scripts/reproducer-metachars.sh's header for why: this set has already
-// drifted between the two scripts twice. The bash guard sourced that file at
+// of the same check -- metachars.go's reproducerMetachars -- because this set
+// had already drifted between the two scripts twice. The bash guard sourced its file at
 // run time and refused at exit 2 when it was unreadable, rather than run
 // with nothing banned; the set is compiled in here, so there is no file left
 // to find missing.

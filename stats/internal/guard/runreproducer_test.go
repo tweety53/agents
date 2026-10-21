@@ -147,25 +147,6 @@ func rrSurvivorKilled(t *testing.T, got int, out, needle string) {
 	rrGone(t, pid)
 }
 
-// rrMetachars reads REPRODUCER_METACHARS the way the bash guards bind it:
-// by sourcing scripts/reproducer-metachars.sh.
-func rrMetachars(t *testing.T) string {
-	t.Helper()
-	out, err := exec.Command("bash", "-c", `source "$1" && printf '%s' "$REPRODUCER_METACHARS"`, "_",
-		"../../../scripts/reproducer-metachars.sh").Output()
-	if err != nil || len(out) == 0 {
-		t.Fatalf("sourcing reproducer-metachars.sh: %v", err)
-	}
-	return string(out)
-}
-
-func TestMetacharsMatchBashSource(t *testing.T) {
-	t.Parallel()
-	if got, want := reproducerMetachars, rrMetachars(t); got != want {
-		t.Fatalf("metachars.go = %q, scripts/reproducer-metachars.sh = %q", got, want)
-	}
-}
-
 func TestRunReproducer(t *testing.T) {
 	t.Parallel()
 	// Simple verdict and refusal rows: fixture (if any), command line and
@@ -212,7 +193,7 @@ func TestRunReproducer(t *testing.T) {
 		rows = append(rows, row{label: fmt.Sprintf("case 23.%s: --pre-fix-verdict '%s' is a usage failure", bad, bad),
 			rel: "scripts/never-runs.sh", body: "exit 0", args: []string{"scripts/never-runs.sh", "--pre-fix-verdict", bad}, want: 4, needle: "usage", notRan: true})
 	}
-	for i, c := range rrMetachars(t) {
+	for i, c := range reproducerMetachars {
 		rows = append(rows, row{label: fmt.Sprintf("case 6.%d: banned metacharacter '%c' alone is refused", i, c),
 			args: []string{fmt.Sprintf("scripts/x%csh", c)}, want: 2, needle: "metacharacter", notRan: true})
 	}

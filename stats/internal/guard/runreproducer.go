@@ -157,10 +157,8 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	// including both quote characters: a direct exec never expands any of
 	// these, so their presence only ever means the author expected a shell to
 	// see them. reproducerMetachars (metachars.go) is this set, single-sourced
-	// with check-panel-reproducers.sh's bash copy in
-	// scripts/reproducer-metachars.sh — see that file's header for why: this
-	// set has already drifted between the two scripts twice — and
-	// TestMetacharsMatchBashSource pins the two together.
+	// with check-panel-reproducers because it had already drifted between the
+	// two scripts twice.
 	for _, c := range reproducerMetachars {
 		if strings.ContainsRune(cmdText, c) {
 			return refuse(fmt.Sprintf("the command carries the shell metacharacter '%c' — a reproducer is a bare path optionally followed by plain arguments, never a shell command line", c))
@@ -214,8 +212,8 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	// shape class. Printed with every verdict below, so the caller holding a
 	// dispatch-time verdict also holds the sha its re-run must pin. It comes
 	// from the repository's one sha256 helper (sha256.go) — a second wrapper
-	// here would be exactly the drift the reproducer-metachars.sh extraction
-	// exists to stop.
+	// here would be exactly the drift metachars.go's single copy exists to
+	// stop.
 	sha, err := sha256HexFile(resolved)
 	if err != nil {
 		fmt.Fprintf(stderr, "run-reproducer: cannot take a sha of '%s' — no SHA-256 tool on this machine\n", resolved)

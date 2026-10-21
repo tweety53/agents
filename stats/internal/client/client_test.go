@@ -1212,7 +1212,7 @@ func TestClientSetFindingStatusSendsCategory(t *testing.T) {
 
 // TestFindStateDecodesRecords asserts FindState decodes the find route's
 // envelope into per-project records -- the cross-project shape the
-// state-record plan resolution (change-plan.sh) reads -- and that a
+// state-record plan resolution (guard/changeplan.go) reads -- and that a
 // look-alike server missing the daemon header reads as ErrUnavailable,
 // exactly as ListStateBoard requires.
 func TestFindStateDecodesRecords(t *testing.T) {

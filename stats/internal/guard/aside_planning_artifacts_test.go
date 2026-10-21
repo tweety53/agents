@@ -166,3 +166,145 @@ func TestAsidePlanningArtifactsParity(t *testing.T) {
 		})
 	}
 }
+
+// TestAsidePlanningArtifactsState asserts what the parity test cannot: the
+// tree and stash state each verdict leaves behind — every case of the
+// deleted bash harness (KAN-887) beyond stdout, stderr and exit code.
+func TestAsidePlanningArtifactsState(t *testing.T) {
+	t.Parallel()
+	run := func(t *testing.T, args ...string) apaRes {
+		t.Helper()
+		var out, errb bytes.Buffer
+		code := Registry["aside-planning-artifacts"](args, Env{Getenv: os.Getenv}, &out, &errb)
+		return apaRes{code, out.String(), errb.String()}
+	}
+	expect := func(t *testing.T, r apaRes, code int, prefix string) {
+		t.Helper()
+		if r.code != code || !strings.HasPrefix(r.out, prefix) || prefix == "" && r.out != "" {
+			t.Fatalf("got %+v, want exit %d and a %q verdict", r, code, prefix)
+		}
+	}
+	read := func(t *testing.T, path string) string {
+		t.Helper()
+		b, _ := os.ReadFile(path)
+		return string(b)
+	}
+	status := func(t *testing.T, repo string, paths ...string) string {
+		t.Helper()
+		out, _ := exec.Command(fixtureGit, append([]string{"-C", repo, "status", "--porcelain", "--"}, paths...)...).Output()
+		return string(out)
+	}
+	stashes := func(t *testing.T, repo string) int {
+		t.Helper()
+		out, _ := exec.Command(fixtureGit, "-C", repo, "stash", "list").Output()
+		return strings.Count(string(out), "\n")
+	}
+	both := func(t *testing.T) string { return apaRepo(t, "spectre", "docs") }
+
+	t.Run("case 1: aside clears the planning paths and restore brings them back", func(t *testing.T) {
+		t.Parallel()
+		repo := both(t)
+		writeFile(t, repo+"/spectre/changes/demo/tasks.md", "plan-edited\n")
+		writeFile(t, repo+"/spectre/changes/demo/notes.md", "scratch\n")
+		expect(t, run(t, "aside", repo), 0, "PLANNING-ARTIFACTS-ASIDE:")
+		if s := status(t, repo, "spectre/changes", "docs/superpowers"); s != "" {
+			t.Fatalf("planning paths still dirty after aside:\n%s", s)
+		}
+		expect(t, run(t, "restore", repo), 0, "PLANNING-ARTIFACTS-RESTORED:")
+		if read(t, repo+"/spectre/changes/demo/tasks.md") != "plan-edited\n" || read(t, repo+"/spectre/changes/demo/notes.md") != "scratch\n" {
+			t.Fatal("restore did not bring the tracked edit and the untracked file back")
+		}
+	})
+	t.Run("case 2: docs/superpowers alone is set aside and restored", func(t *testing.T) {
+		t.Parallel()
+		repo := both(t)
+		writeFile(t, repo+"/docs/superpowers/ledger.md", "ledger-edited\n")
+		expect(t, run(t, "aside", repo), 0, "PLANNING-ARTIFACTS-ASIDE:")
+		if read(t, repo+"/docs/superpowers/ledger.md") != "ledger\n" {
+			t.Fatal("aside did not clear docs/superpowers")
+		}
+		expect(t, run(t, "restore", repo), 0, "PLANNING-ARTIFACTS-RESTORED:")
+		if read(t, repo+"/docs/superpowers/ledger.md") != "ledger-edited\n" {
+			t.Fatal("restore did not bring the docs/superpowers edit back")
+		}
+	})
+	t.Run("case 3: implementation WIP outside the planning paths is untouched", func(t *testing.T) {
+		t.Parallel()
+		repo := both(t)
+		writeFile(t, repo+"/spectre/changes/demo/tasks.md", "plan-edited\n")
+		writeFile(t, repo+"/src.txt", "wip\n")
+		expect(t, run(t, "aside", repo), 0, "PLANNING-ARTIFACTS-ASIDE:")
+		if read(t, repo+"/src.txt") != "wip\n" || status(t, repo, "src.txt") == "" {
+			t.Fatal("src.txt was stashed or modified by aside")
+		}
+	})
+	t.Run("case 4b: an operator stash on top is never popped", func(t *testing.T) {
+		t.Parallel()
+		repo := both(t)
+		writeFile(t, repo+"/src.txt", "operator-wip\n")
+		gitRun(t, repo, "stash", "push", "-q", "-m", "operator wip", "--", "src.txt")
+		writeFile(t, repo+"/spectre/changes/demo/tasks.md", "plan-edited\n")
+		expect(t, run(t, "aside", repo), 0, "PLANNING-ARTIFACTS-ASIDE:")
+		writeFile(t, repo+"/src.txt", "operator-later\n")
+		gitRun(t, repo, "stash", "push", "-q", "-m", "operator second", "--", "src.txt")
+		expect(t, run(t, "restore", repo), 0, "PLANNING-ARTIFACTS-NONE:")
+		if n := stashes(t, repo); n != 3 {
+			t.Fatalf("%d stashes, want 3", n)
+		}
+	})
+	t.Run("case 5: a conflicted restore exits 1 and keeps the stash", func(t *testing.T) {
+		t.Parallel()
+		repo := both(t)
+		writeFile(t, repo+"/spectre/changes/demo/tasks.md", "line-one-aside\n")
+		expect(t, run(t, "aside", repo), 0, "PLANNING-ARTIFACTS-ASIDE:")
+		writeFile(t, repo+"/spectre/changes/demo/tasks.md", "line-one-upstream\n")
+		gitRun(t, repo, "commit", "-qam", "upstream moves the planning file")
+		expect(t, run(t, "restore", repo), 1, "PLANNING-ARTIFACTS-CONFLICT:")
+		if n := stashes(t, repo); n != 1 {
+			t.Fatalf("%d stashes, want 1", n)
+		}
+	})
+	t.Run("case 6: restore is refused mid-rebase and succeeds once it aborts", func(t *testing.T) {
+		t.Parallel()
+		repo := both(t)
+		gitRun(t, repo, "checkout", "-q", "-b", "upstream")
+		writeFile(t, repo+"/src.txt", "upstream-line\n")
+		gitRun(t, repo, "commit", "-qam", "upstream rewrites src")
+		gitRun(t, repo, "checkout", "-q", "demo")
+		writeFile(t, repo+"/src.txt", "demo-line\n")
+		gitRun(t, repo, "commit", "-qam", "demo rewrites src")
+		writeFile(t, repo+"/spectre/changes/demo/tasks.md", "plan-edited\n")
+		expect(t, run(t, "aside", repo), 0, "PLANNING-ARTIFACTS-ASIDE:")
+		if exec.Command(fixtureGit, "-C", repo, "rebase", "upstream").Run() == nil {
+			t.Fatal("the fixture rebase did not stop on its conflict")
+		}
+		expect(t, run(t, "restore", repo), 2, "")
+		_ = exec.Command(fixtureGit, "-C", repo, "rebase", "--abort").Run()
+		expect(t, run(t, "restore", repo), 0, "PLANNING-ARTIFACTS-RESTORED:")
+	})
+	t.Run("case 8: clean planning paths stash nothing", func(t *testing.T) {
+		t.Parallel()
+		repo := both(t)
+		expect(t, run(t, "aside", repo), 0, "PLANNING-ARTIFACTS-CLEAN:")
+		if n := stashes(t, repo); n != 0 {
+			t.Fatalf("%d stashes, want 0", n)
+		}
+	})
+	t.Run("case 9: a long stash list is read without a SIGPIPE refusal", func(t *testing.T) {
+		t.Parallel()
+		repo := both(t)
+		head, err := exec.Command(fixtureGit, "-C", repo, "rev-parse", "HEAD").Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		sha := strings.TrimSpace(string(head))
+		gitRun(t, repo, "update-ref", "-m", "operator wip 0", "--create-reflog", "refs/stash", "HEAD")
+		var log strings.Builder
+		log.WriteString(read(t, repo+"/.git/logs/refs/stash"))
+		for n := 1; n <= 2000; n++ {
+			fmt.Fprintf(&log, "%s %s Test <test@example.invalid> %d +0000\toperator wip %d\n", sha, sha, 1700000000+n, n)
+		}
+		writeFile(t, repo+"/.git/logs/refs/stash", log.String())
+		expect(t, run(t, "restore", repo), 0, "PLANNING-ARTIFACTS-NONE:")
+	})
+}
