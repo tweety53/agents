@@ -79,6 +79,10 @@ One round runs these steps in order:
    reads of `measure-visual-properties.sh` — fixing until they come back clean or each leftover is
    named with its cause, and report every view's measured numbers (KAN-1000: rounds 2–5 each found
    a new 1–3px offset the previous fix had judged by eye, 45–70 minutes a round).
+   **Every recapture the round runs rebuilds the full app suite's zip after it** —
+   `rebuild-full-app-suite-zip.sh <worktree> <screenshots root>` in the checkout the recapture
+   wrote to, the rebuilt `full-app-suite.zip` committed with the task's PNGs — so the zip never
+   trails the baselines it archives (kan-1003: two rounds left it stale).
    **A task fixing a test that passes alone and fails only in the full suite closes after two
    more full runs.** Such load flakes surface one per full-suite round, so after the task's commit
    and before `close-task.sh` the parent runs the worktree's whole `## test` list twice more, and

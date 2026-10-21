@@ -52,8 +52,9 @@ and `check-base-moved.sh` performs no fetch of its own.
      named for, and `full-app-suite.spec.ts` for the zip — through `capture` with `<spec>`
      substituted and `--update-snapshots=all` appended (step 8 of
      `skills/flow/visual-verify-verifier.md` states why), in the checkout the conflict is in.
-  3. Rebuild `full-app-suite.zip` when it was named, exactly as step 8 of
-     `skills/flow/visual-verify-verifier.md` does.
+  3. Rebuild `full-app-suite.zip` when it was named, with
+     `rebuild-full-app-suite-zip.sh <worktree> <screenshots root>` as step 8 of
+     `skills/flow/visual-verify-verifier.md` runs it.
   4. `git add` every recaptured PNG and the zip, stop the stack if step 1 started it, then continue the
      rebase as above.
 

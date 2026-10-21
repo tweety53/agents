@@ -105,19 +105,13 @@ never an exit code the command did not return.
    suite's path and `-g '<titles>'` appended, naming only the tests this step added or updated —
    never the whole suite; a non-zero exit blocks as any `capture` failure does, a failing test this
    change did not introduce included (**the sweep**, `skills/flow-contracts/known-bugs.md`).
-   Then rebuild the zip from
-   exactly what the suite just produced:
-
-   ```bash
-   rm -f <screenshots root>/full-app-suite.zip
-   list=$(resolve-visual-screenshots.sh <worktree> full-app-suite.spec.ts)
-   printf '%s\n' "$list" | tr '\n' '\0' | xargs -0 touch -t 198001010000
-   printf '%s\n' "$list" | zip -X -j -@ <screenshots root>/full-app-suite.zip
-   ```
+   Then rebuild the zip from exactly what the suite just produced with
+   `rebuild-full-app-suite-zip.sh <worktree> <screenshots root>`, the one script every recapture
+   that moves the suite runs too (`skills/flow/verify-fix-loop.md`, `skills/flow/sync-onto-base.md`).
 
    `<screenshots root>` is `screenshots` resolved the way `resolve-visual-screenshots.sh`
    resolves it. Every PNG's mtime is pinned before zipping because the zip stores it: a rebuild over
-   unchanged images is then byte-identical and commits nothing. A resolver exit 1 or 2, or a non-zero `zip`, blocks.
+   unchanged images is then byte-identical and commits nothing. A non-zero exit blocks.
 
    Then run `check-spec-reach.sh <worktree>` — the spec
    `capture` just wrote must be reached by a `package.json` script of the `regression checkout`;
