@@ -75,201 +75,23 @@
 # which is correct, since a worked example is one of the things a trim may never
 # cut.
 #
-# The corpus is resolved by scripts/lib/owned-corpus.sh.
+# The corpus is ownedCorpus (stats/internal/guard/ownedcorpus.go), the one
+# definition check-ask-silence walks too; the mechanism is
+# stats/internal/guard/normativeinventory.go.
+#
+# The repository root is this shim's own parent, exported as
+# FLOW_GUARD_REPO_ROOT — that is what makes the guard argument-free and
+# self-scoped from any cwd. CHECK_NORMATIVE_INVENTORY_ROOT is an explicit,
+# opt-in override honored only when set, for a sandboxed fixture tree — never
+# set it for a normal invocation; set-but-empty is refused.
 set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# REPO_ROOT is resolved from this script's own location. That is what makes the guard
-# argument-free and self-scoped from any cwd. This is repo lint, not a shipped
-# guard: it is symlinked into no skill's scripts/ directory, so
-# check-guard-symlinks.sh's rule 4 — which forbids a SHIPPED guard from deriving
-# a root as $SCRIPT_DIR/.. — does not reach it.
-#
-# CHECK_NORMATIVE_INVENTORY_ROOT is an explicit, opt-in override honored only
-# when set. It exists solely so the companion harness can point the guard at a
-# sandboxed fixture tree — never set it for a normal invocation. Set-but-empty is
-# refused rather than treated as unset: falling back there would make the harness
-# scan the real repository while believing it scanned a fixture.
-if [ -n "${CHECK_NORMATIVE_INVENTORY_ROOT:-}" ]; then
-  REPO_ROOT="$CHECK_NORMATIVE_INVENTORY_ROOT"
-elif [ "${CHECK_NORMATIVE_INVENTORY_ROOT+set}" = "set" ]; then
-  printf 'CHECK_NORMATIVE_INVENTORY_ROOT is set but empty\n' >&2
+# $SCRIPT_DIR/ spells each sibling this shim needs where check-guard-symlinks rule 2 reads it.
+SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+[ -r "$SCRIPT_DIR/lib/flow-guard.sh" ] && . "$SCRIPT_DIR/lib/flow-guard.sh" || {
+  echo "check-normative-inventory: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
-else
-  REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-fi
-
-[ -d "$REPO_ROOT" ] || { printf 'not a directory: %s\n' "$REPO_ROOT" >&2; exit 2; }
-
-# shellcheck source=lib/owned-corpus.sh
-source "$SCRIPT_DIR/lib/owned-corpus.sh"
-
-WORK="$(mktemp -d)" || { printf 'cannot create a temporary directory\n' >&2; exit 2; }
-trap 'rm -rf "$WORK"' EXIT
-
-owned_corpus_files "$REPO_ROOT" > "$WORK/files" || exit 2
-
-files=()
-while IFS= read -r -d '' path; do
-  files+=("$path")
-done < "$WORK/files"
-
-# An empty corpus is refused, not reported as an empty inventory. The two are
-# indistinguishable on stdout, and one of them is "every normative sentence in
-# this repository has just been deleted" — the exact comparison this guard feeds.
-if [ "${#files[@]}" -eq 0 ]; then
-  printf 'no .md or .mdc file found under %s — refusing to report an empty inventory\n' \
-    "$REPO_ROOT" >&2
-  exit 2
-fi
-
-read -r -d '' AWK_INVENTORY <<'AWK' || true
-function has_keyword(s) {
-  return (s ~ /(^|[^A-Za-z0-9_])(SHALL|MUST)([^A-Za-z0-9_]|$)/)
 }
-
-# ABBREVIATIONS whose trailing period does NOT end a sentence. Matched on the
-# last whitespace-separated token before the period, lower-cased, with any
-# leading punctuation ("(e.g.") stripped first.
-#
-# Without this the splitter truncates a requirement at its first abbreviation
-# and inventories only the stub. That is worse than missing the sentence
-# outright: the stub is a STABLE line that keeps matching while the obligation
-# behind it is replaced wholesale — "The tool SHALL validate e.g. input for XSS
-# and SQL injection before use." and "The tool SHALL validate e.g. nothing at
-# all here whatsoever." both reduce to "The tool SHALL validate e.g." and the
-# inventory does not move. A keyword-occurrence reconciliation cannot see it
-# either, because the keyword never moves.
-function is_abbrev(text,   w, n, parts, last) {
-  w = text
-  sub(/ +$/, "", w)
-  if (w !~ /\.$/) return 0
-  n = split(w, parts, " ")
-  last = parts[n]
-  sub(/^[^A-Za-z0-9]+/, "", last)
-  return (index(" e.g. i.e. cf. vs. etc. al. dr. no. ", " " tolower(last) " ") > 0)
-}
-
-# emit(block) — normalise one block, split it into sentences, print the
-# normative ones.
-function emit(s,   rest, cut, candidate, sentence, pending) {
-  gsub(/[ \t]+/, " ", s)
-  sub(/^ +/, "", s)
-  sub(/ +$/, "", s)
-  if (s == "") return
-  rest = s
-  pending = ""
-  while (match(rest, /[.!?][]"'`*_)]* +/)) {
-    cut = RSTART + RLENGTH - 1
-    candidate = pending substr(rest, 1, cut)
-    rest = substr(rest, cut + 1)
-    # An abbreviation's period is not a boundary: carry the text forward and
-    # keep looking for the real terminator.
-    if (is_abbrev(candidate)) {
-      pending = candidate
-      continue
-    }
-    sentence = candidate
-    sub(/ +$/, "", sentence)
-    if (has_keyword(sentence)) print sentence
-    pending = ""
-  }
-  rest = pending rest
-  if (has_keyword(rest)) print rest
-}
-
-function flush() {
-  if (block != "") { emit(block); block = "" }
-}
-
-FNR == 1 { flush(); in_fence = 0 }
-
-{
-  line = $0
-  sub(/\r$/, "", line)
-  sub(/^[ \t]+/, "", line)
-  sub(/[ \t]+$/, "", line)
-
-  # A fence line ends the block it interrupts and toggles fenced mode. Inside a
-  # fence every line is its own block: code is not reflowable prose, so joining
-  # its lines would be a fiction, and dropping them would lose a worked example.
-  if (line ~ /^(```|~~~)/) { flush(); in_fence = (in_fence ? 0 : 1); next }
-  if (in_fence) { emit(line); next }
-
-  # Blockquote markers are stripped before classification, so a quoted heading,
-  # bullet or paragraph is read exactly as an unquoted one. rules/*.mdc carry
-  # normative text inside block quotes; without this they would be one
-  # unreflowable line each.
-  while (line ~ /^>/) {
-    sub(/^>[ \t]?/, "", line)
-    sub(/^[ \t]+/, "", line)
-  }
-  sub(/[ \t]+$/, "", line)
-
-  if (line == "") { flush(); next }
-  if (line ~ /^(---+|___+|\*\*\*+|===+)$/) { flush(); next }
-  if (line ~ /^#+ /) { flush(); emit(line); next }
-
-  # A table row is split on the cell separator: each cell is an independent
-  # unit, so editing one cell cannot perturb the inventory line another cell
-  # produces. agents-baseline.md's rule table is one requirement per cell.
-  if (line ~ /^\|/) {
-    flush()
-    n = split(line, cells, "|")
-    for (i = 1; i <= n; i++) emit(cells[i])
-    next
-  }
-
-  if (line ~ /^([-*+]|[0-9]+[.)])[ \t]+/) {
-    flush()
-    sub(/^([-*+]|[0-9]+[.)])[ \t]+/, "", line)
-    block = line
-    next
-  }
-
-  block = (block == "" ? line : block " " line)
-}
-
-END { flush() }
-AWK
-
-: > "$WORK/sentences"
-for path in "${files[@]}"; do
-  if [ ! -r "$path" ]; then
-    printf 'cannot read %s\n' "$path" >&2
-    exit 2
-  fi
-  if ! awk "$AWK_INVENTORY" < "$path" >> "$WORK/sentences"; then
-    printf 'cannot scan %s\n' "$path" >&2
-    exit 2
-  fi
-done
-
-# Every remaining step is guarded so its own status can never escape as this
-# guard's. The contract allows 0 and 2 and nothing else, and an unguarded `sort`
-# under `set -e` would exit with sort's status — 2 by coincidence today, whatever
-# a future sort chooses tomorrow — which is an exit code this guard never decided
-# to return.
-if ! count="$(wc -l < "$WORK/sentences")"; then
-  printf 'cannot count the inventory\n' >&2
-  exit 2
-fi
-if ! count="$(printf '%s' "$count" | tr -d '[:space:]')"; then
-  printf 'cannot normalise the inventory count\n' >&2
-  exit 2
-fi
-
-if ! LC_ALL=C sort "$WORK/sentences"; then
-  printf 'cannot sort the inventory\n' >&2
-  exit 2
-fi
-
-# The counts go to STDERR, never stdout: stdout is the set the caller diffs, and
-# a verdict line in it would be a difference of its own every time a sentence was
-# legitimately added elsewhere. They are printed at all because a silent run and a run that
-# scanned nothing look identical otherwise.
-if ! printf 'check-normative-inventory: %s normative sentence(s) from %s file(s) under %s\n' \
-  "$count" "${#files[@]}" "$REPO_ROOT" >&2; then
-  exit 2
-fi
+flow_guard_cwd_checkout "${BASH_SOURCE[0]}" "$@"
+FLOW_GUARD_REPO_ROOT="$(cd "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+export FLOW_GUARD_REPO_ROOT
+flow_guard_exec check-normative-inventory 2 "check-normative-inventory:" "$@"

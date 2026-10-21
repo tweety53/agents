@@ -3,10 +3,8 @@ package guard
 import (
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 )
 
@@ -45,16 +43,8 @@ import (
 // code block is neither a heading, a mention nor an outcome — a worked
 // example in a fence is not a live ask.
 //
-// THE CORPUS mirrors scripts/lib/owned-corpus.sh — the one definition of the
-// run-loaded Markdown, which this Go port cannot source: the scope roots
-// skills/, rules/, spectre/specs/, commands-claude/ and .flow/, plus the
-// *.md and *.mdc files directly at the root; the exclusions node_modules,
-// .superpowers, spectre/changes/archive and docs/superpowers; a symlinked
-// scope root refused rather than skipped, and a nested symlinked directory
-// refused when following it would reach any .md or .mdc or when it cannot be
-// looked through at all, exactly as that library refuses them. Drift between
-// the two definitions is a real defect: change them together or move the
-// walk behind one implementation.
+// THE CORPUS is ownedCorpus (ownedcorpus.go), shared with
+// check-normative-inventory.
 //
 // Exit 0 when every ask section passes (and when the corpus holds none), 1
 // on violation(s), 2 when the corpus cannot be answered at all —
@@ -66,9 +56,6 @@ func init() {
 }
 
 const askSilenceName = "check-ask-silence"
-
-// askSilenceScopes is owned-corpus.sh's OWNED_CORPUS_SCOPE_DIRS.
-var askSilenceScopes = []string{"skills", "rules", "spectre/specs", "commands-claude", ".flow"}
 
 // asVocabulary is the contract's own words for a stated silence outcome; asDelegation
 // is the prepositions a section delegates its ask's governance with.
@@ -92,7 +79,7 @@ func checkAskSilence(_ []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, askSilenceName+": FLOW_GUARD_REPO_ROOT is unset — run scripts/check-ask-silence.sh, which sets it\n")
 		return 2
 	}
-	files, code := asCorpus(root, stderr)
+	files, code := ownedCorpus(root, askSilenceName, stderr)
 	if files == nil {
 		return code
 	}
@@ -205,178 +192,4 @@ func isHeadingLine(trimmed string) bool {
 		n++
 	}
 	return n >= 1 && n <= 6 && (n == len(trimmed) || trimmed[n] == ' ')
-}
-
-// asCorpus enumerates the owned corpus under root, mirroring
-// owned_corpus_files: every .md/.mdc directly at the root and under the
-// scope roots, exclusions applied, sorted for stable output. It returns nil
-// with an exit code when it cannot answer at all.
-func asCorpus(root string, stderr io.Writer) ([]string, int) {
-	refuse := func(format string, a ...any) ([]string, int) {
-		fmt.Fprintf(stderr, askSilenceName+": "+format+"\n", a...)
-		return nil, 2
-	}
-	readable := func(path string) bool {
-		info, err := os.Stat(path)
-		return err == nil && info.IsDir()
-	}
-	for _, dir := range askSilenceScopes {
-		if lp, err := os.Lstat(filepath.Join(root, dir)); err == nil && lp.Mode()&fs.ModeSymlink != 0 {
-			return refuse("scope root is a symlink: %s", filepath.Join(root, dir))
-		}
-		if !readable(filepath.Join(root, dir)) {
-			return refuse("scope root missing or unreadable: %s", filepath.Join(root, dir))
-		}
-	}
-
-	// Non-nil from the start: nil is the cannot-answer signal below, and an
-	// empty corpus is a success the caller must still print a verdict for.
-	files := []string{}
-	add := func(p string) { files = append(files, p) }
-
-	// Root-level files, maxdepth 1.
-	roots, err := os.ReadDir(root)
-	if err != nil {
-		return refuse("not a readable directory: %s", root)
-	}
-	for _, ent := range roots {
-		if ent.Type().IsRegular() && asOwnedName(ent.Name()) {
-			add(filepath.Join(root, ent.Name()))
-		}
-	}
-
-	// Scope trees, physical mode: symlinks are never followed, so a nested
-	// symlinked directory hides whatever sits behind it. As owned-corpus.sh
-	// does, that is refused — loudly, naming the path — when the target
-	// would reach any .md or .mdc, and skipped when it would not.
-	for _, dir := range askSilenceScopes {
-		base := filepath.Join(root, dir)
-		err := filepath.WalkDir(base, func(p string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			switch {
-			case d.Type()&fs.ModeSymlink != 0:
-				// Exclusions win for link paths too, exactly as the bash
-				// sweep's owned_corpus_excluded skip does: a link named
-				// node_modules hides nothing this corpus is missing.
-				if asExcluded(asRel(root, p)) {
-					return nil
-				}
-				// A symlink is never descended into; one pointing at a
-				// directory that would reach Markdown is refused, one
-				// pointing at a file — or a dangling one — is not this
-				// rule's subject and is skipped. A target that cannot be
-				// read through is cannot-answer, exactly as the bash sweep's
-				// failing `find -L` capture is.
-				hides, err := asHidesMarkdown(p)
-				if err != nil {
-					return fmt.Errorf("cannot look through the symlinked directory: %s — %v", p, err)
-				}
-				if hides {
-					return fmt.Errorf("symlinked directory hides Markdown from the corpus: %s", p)
-				}
-				return nil
-			case d.IsDir():
-				if asExcluded(asRel(root, p)) {
-					return filepath.SkipDir
-				}
-				return nil
-			case d.Type().IsRegular() && asOwnedName(d.Name()):
-				if !asExcluded(asRel(root, p)) {
-					add(p)
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			return refuse("%v", err)
-		}
-	}
-
-	sort.Strings(files)
-	return files, 0
-}
-
-// asHidesMarkdown reports whether following the symlink at p reaches a
-// directory holding any .md or .mdc file — the coarse predicate
-// owned-corpus.sh walks its link list with, deliberately: a refusal is loud
-// and resolved by a human, a silent skip quietly shrinks the corpus. A link
-// to a file, and a dangling one, hide nothing. The walk follows symlinks
-// the way find -L does — a link→dir→link→.md chain is a hiding link — and
-// skips a loop silently, which is find -L's measured behaviour. A directory
-// that cannot be read is an error, not a hidden-nothing: find -L fails on
-// it and the bash capture refuses, so the twin does too.
-func asHidesMarkdown(p string) (bool, error) {
-	target, err := filepath.EvalSymlinks(p)
-	if err != nil {
-		return false, nil
-	}
-	info, err := os.Stat(target)
-	if err != nil || !info.IsDir() {
-		return false, nil
-	}
-	visited := map[string]bool{target: true}
-	var walk func(dir string) (bool, error)
-	walk = func(dir string) (bool, error) {
-		entries, err := os.ReadDir(dir)
-		if err != nil {
-			return false, err
-		}
-		for _, ent := range entries {
-			full := filepath.Join(dir, ent.Name())
-			resolved := full
-			if ent.Type()&fs.ModeSymlink != 0 {
-				resolved, err = filepath.EvalSymlinks(full)
-				if err != nil {
-					continue // a dangling link hides nothing
-				}
-			}
-			fi, err := os.Stat(resolved) // Stat follows the whole chain
-			if err != nil {
-				continue
-			}
-			switch {
-			case fi.IsDir():
-				if visited[resolved] {
-					continue // a loop: find -L skips it silently
-				}
-				visited[resolved] = true
-				hides, err := walk(resolved)
-				if err != nil || hides {
-					return hides, err
-				}
-			case fi.Mode().IsRegular() && asOwnedName(ent.Name()):
-				return true, nil
-			}
-		}
-		return false, nil
-	}
-	return walk(target)
-}
-
-// asRel is filepath.Rel with the separator normalised, for exclusion tests.
-func asRel(root, p string) string {
-	rel, err := filepath.Rel(root, p)
-	if err != nil {
-		return p
-	}
-	return filepath.ToSlash(rel)
-}
-
-// asOwnedName is the corpus's extension test: .md and .mdc.
-func asOwnedName(name string) bool {
-	return strings.HasSuffix(name, ".md") || strings.HasSuffix(name, ".mdc")
-}
-
-// asExcluded is owned_corpus_excluded: structural path-component and
-// path-prefix tests, never a filename list.
-func asExcluded(rel string) bool {
-	for _, part := range strings.Split(rel, "/") {
-		if part == "node_modules" || part == ".superpowers" {
-			return true
-		}
-	}
-	return rel == "spectre/changes/archive" || strings.HasPrefix(rel, "spectre/changes/archive/") ||
-		rel == "docs/superpowers" || strings.HasPrefix(rel, "docs/superpowers/")
 }
