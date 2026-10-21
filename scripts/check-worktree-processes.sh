@@ -50,7 +50,7 @@
 #
 # PATHS ARE COMPARED IN THEIR PHYSICAL FORM. lsof reports resolved paths, so on
 # macOS a worktree under /tmp reaches it as /private/tmp/... The worktree
-# argument is resolved the same way (`cd … && pwd -P`) before anything is
+# argument is resolved the same way (the `pwd -P` form) before anything is
 # compared, and the verdict line echoes that resolved form rather than the
 # argument, so the path in the report is the path the comparison used. Skipping
 # this makes every symlinked worktree report CLEAR while holding a process.
@@ -66,85 +66,14 @@
 # turn every failure into a CLEAR verdict — the inversion this guard exists to
 # prevent, one layer down.
 #
-# `-e` IS OMITTED ON PURPOSE, AND THE SIBLING GUARDS' `-euo` DOES NOT APPLY
-# HERE. Every other integrate/cleanup guard opens `set -euo pipefail`; this one
-# opens `set -uo pipefail`, and adding the `-e` would break the contract stated
-# at the top of this header. The lsof call below assigns its output in a command
-# substitution and reads `$?` on the very next line, which is what lets a failed
-# lsof be reported by name. Under `set -e` the shell aborts at the assignment
-# itself, before that status is ever read, so the operator gets bash's bare
-# unexplained exit in place of the named reason — an inability reported without
-# its reason, which is precisely what this guard promises never to do. Nothing
-# here relies on `-e` to stop: every failure path calls die() explicitly, so the
-# exit-2 refusals are deliberate rather than inherited.
-
-set -uo pipefail
-
-SELF="check-worktree-processes"
-
-die() {
-  printf '%s: %s\n' "$SELF" "$*" >&2
+# flow-guard is built from this checkout, never taken from PATH:
+# scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
+# cannot-answer code) with the cause when it cannot.
+set -euo pipefail
+# $SCRIPT_DIR/ spells each sibling this shim needs where check-guard-symlinks rule 2 reads it.
+SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+[ -r "$SCRIPT_DIR/lib/flow-guard.sh" ] && . "$SCRIPT_DIR/lib/flow-guard.sh" || {
+  echo "check-worktree-processes: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }
-
-[ "$#" -eq 1 ] || die "usage: check-worktree-processes.sh <worktree>"
-
-WT="$1"
-
-# lsof is this guard's only source of an answer, so its absence is an inability
-# and never an empty result. The message names the tool, because "the check
-# failed" leaves the operator nothing to install.
-command -v lsof >/dev/null 2>&1 \
-  || die "lsof is not on PATH — this guard has no other way to read the process table"
-
-[ -d "$WT" ] || die "not a directory, so it cannot be scanned: $WT"
-
-# `cd` fails on a directory whose contents cannot be read, which `-d` above does
-# not catch — a mode the operator set, or one inherited from a parent.
-PHYS="$(cd -- "$WT" 2>/dev/null && pwd -P)" || PHYS=""
-[ -n "$PHYS" ] || die "cannot resolve the worktree to a physical path — unreadable directory: $WT"
-
-# One pass over every process's working directory. -Fp emits `p<pid>`, -Fn emits
-# `n<path>`, and lsof always emits the `f<fd>` line that opens each file record;
-# with -d cwd the only file record a process has is its working directory, so
-# every `n` line belongs to the `p` line above it.
-LSOF_OUT="$(lsof -d cwd -Fpn 2>/dev/null)"
-LSOF_RC=$?
-[ "$LSOF_RC" -eq 0 ] \
-  || die "lsof -d cwd -Fpn exited $LSOF_RC — the process table could not be read, which is not the same as finding nothing"
-
-# is_at_or_under <path> — the guard's one decision. Both patterns are needed:
-# the first for a process sitting in the worktree root, the second for one in
-# any descendant of it. The quoted "$PHYS" is matched literally, so a worktree
-# path containing a glob character cannot widen the match.
-is_at_or_under() {
-  case "$1" in
-    "$PHYS"|"$PHYS"/*) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
-held=""
-pid=""
-while IFS= read -r line; do
-  case "$line" in
-    p*)
-      pid="${line#p}"
-      ;;
-    n*)
-      path="${line#n}"
-      if is_at_or_under "$path"; then
-        held="$held${held:+; }$pid $path"
-      fi
-      ;;
-  esac
-done <<EOF
-$LSOF_OUT
-EOF
-
-if [ -n "$held" ]; then
-  printf 'HELD: %s — %s\n' "$PHYS" "$held"
-else
-  printf 'CLEAR: %s\n' "$PHYS"
-fi
-exit 0
+flow_guard_exec check-worktree-processes 2 "check-worktree-processes:" "$@"
