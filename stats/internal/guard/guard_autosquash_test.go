@@ -138,6 +138,18 @@ func TestGuardAutosquash(t *testing.T) {
 			setup: func(g *fxGit, repo, sandbox string) ([]string, string) {
 				return []string{"targets", sandbox, rootSHA(g, repo)}, ""
 			}},
+		{label: "targets exits 2 in a repository with no resolvable HEAD", want: 2,
+			setup: func(g *fxGit, _, sandbox string) ([]string, string) {
+				g.git(sandbox, "init", "-q")
+				return []string{"targets", sandbox, "deadbeefcafe1234"}, "no resolvable HEAD"
+			}},
+		{label: "targets with no sha exits 2", want: 2,
+			setup: func(_ *fxGit, repo, _ string) ([]string, string) { return []string{"targets", repo}, "usage" }},
+		// A six-letter hex word is prose, never a sha: the token floor is 7.
+		{label: "after ignores a six-letter hex word", want: 0,
+			setup: func(g *fxGit, repo, sandbox string) ([]string, string) {
+				return []string{"after", repo, rootSHA(g, repo), tasks(g, sandbox, "the facade of a decade\n")}, ""
+			}},
 		{label: "no subcommand exits 2", want: 2,
 			setup: func(*fxGit, string, string) ([]string, string) { return nil, "" }},
 	}

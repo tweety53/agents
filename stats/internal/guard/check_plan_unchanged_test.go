@@ -52,6 +52,7 @@ type pucStep struct {
 	args   func(wt, snap string) []string
 	want   int
 	needle string
+	probe  func(wt, snap string) int
 }
 
 func pucRun(mode string, want int, label string) pucStep {
@@ -67,6 +68,17 @@ func pucArgs(label string, want int, args func(wt, snap string) []string) pucSte
 func pucNames(label, needle string) pucStep { return pucStep{label: label, needle: needle} }
 
 func pucAct(f func(g *fxGit, wt string)) pucStep { return pucStep{act: f} }
+
+// pucSnapAbsent is a labelled check that the snapshot file does not exist:
+// exit 0 absent, 1 present.
+func pucSnapAbsent(label string) pucStep {
+	return pucStep{label: label, probe: func(_, snap string) int {
+		if _, err := os.Lstat(snap); err == nil {
+			return 1
+		}
+		return 0
+	}}
+}
 
 func pucEditPlan(g *fxGit, wt string) {
 	g.appendLine(wt+"/spectre/changes/demo/tasks.md", "plan: edited")
@@ -118,6 +130,8 @@ func pucExec(root string, steps []pucStep, notRepo bool, snapRel string) ([]pucR
 			res[i].code = guard(s.args(wt, snap), Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: root}, &out, &out)
 			last = out.String()
 			res[i].out = last
+		case s.probe != nil:
+			res[i].code = s.probe(wt, snap)
 		default:
 			res[i].out = last
 		}
@@ -207,6 +221,7 @@ func TestCheckPlanUnchanged(t *testing.T) {
 		}},
 		{notRepo: true, steps: []pucStep{
 			pucRun("snapshot", 2, "case 11: a non-repository worktree exits 2"),
+			pucSnapAbsent("case 11b: the failed snapshot leaves no partial snapshot file"),
 		}},
 		// A change with no plan tree has nothing to lose.
 		{steps: []pucStep{
@@ -240,6 +255,30 @@ func TestCheckPlanUnchanged(t *testing.T) {
 			pucRun("snapshot", 0, "case 14a: snapshot of an archived change exits 0"),
 			pucAct(func(g *fxGit, wt string) { g.git(wt, "checkout", "-q", "--", "spectre/changes/archive/demo/tasks.md") }),
 			pucRun("verify", 1, "case 14b: verify after the archived plan edit was destroyed exits 1"),
+		}},
+		// A second untracked file in an already-untracked subdirectory: the
+		// default `normal` mode collapses both into one `sub/` entry, so only
+		// --untracked-files=all sees it.
+		{steps: []pucStep{
+			pucAct(func(g *fxGit, wt string) {
+				if err := os.MkdirAll(wt+"/spectre/changes/demo/sub", 0o755); err != nil && g.err == nil {
+					g.err = err
+				}
+				g.write(wt+"/spectre/changes/demo/sub/a.md", "a")
+			}),
+			pucRun("snapshot", 0, "case 15a: snapshot with an untracked plan subdirectory exits 0"),
+			pucAct(func(g *fxGit, wt string) { g.write(wt+"/spectre/changes/demo/sub/b.md", "b") }),
+			pucRun("verify", 1, "case 15b: verify after a file planted in the untracked subdirectory exits 1"),
+		}},
+		// git status failing during verify is cannot answer, never changed.
+		{steps: []pucStep{
+			pucRun("snapshot", 0, "case 16a: snapshot exits 0"),
+			pucAct(func(g *fxGit, wt string) {
+				if err := os.RemoveAll(wt + "/.git"); err != nil && g.err == nil {
+					g.err = err
+				}
+			}),
+			pucRun("verify", 2, "case 16b: verify where git status fails exits 2"),
 		}},
 	}
 	for _, c := range cases {

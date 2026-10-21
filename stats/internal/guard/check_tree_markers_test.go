@@ -235,6 +235,22 @@ func TestCheckTreeMarkers(t *testing.T) {
 	add(tmExact("case 11g: the usage line is the bash's", r.err,
 		"check-tree-markers: usage: check-tree-markers.sh snapshot|verify <worktree> <markers-file> <snapshot-file>\n"))
 
+	// Case 12: the ERE dialect, and a blank markers-file line skipped.
+	// `uncommit+ed` and `the-decision|nothing` match only as EREs; a BRE grep
+	// would count both 0.
+	fx = tmNew(t)
+	writeFile(t, fx.root+"/ere/markers", "notes.md\tuncommit+ed\n\nspectre/changes/demo/design.md\tthe-decision|nothing\n")
+	add(tmExit("case 12a: snapshot over a markers file with a blank line exits 0", fx.run("snapshot", fx.wt, fx.root+"/ere/markers", fx.snap), 0),
+		tmFileLine("case 12b: an ERE `+` marker is counted", fx.snap, "notes.md\tuncommit+ed\t1"),
+		tmFileLine("case 12c: an ERE `|` marker is counted", fx.snap, "spectre/changes/demo/design.md\tthe-decision|nothing\t1"))
+
+	// Case 13: grep failing (an invalid ERE, exit 2) cannot answer.
+	fx = tmNew(t)
+	writeFile(t, fx.root+"/badere/markers", "notes.md\t(\n")
+	r = fx.run("snapshot", fx.wt, fx.root+"/badere/markers", fx.snap)
+	add(tmExit("case 13a: snapshot whose grep fails exits 2", r, 2),
+		tmNames("case 13b: names the grep failure", r, "grep failed"))
+
 	for _, c := range checks {
 		t.Run(c.label, func(t *testing.T) {
 			t.Parallel()
