@@ -229,9 +229,25 @@ never an exit code the command did not return.
    **The loop** (`skills/flow/verify-fix-loop.md`) per **Steps 3–13**
    (`skills/flow/visual-verify.md`); **corrected or gone at 2x** — a mis-measurement, the
    corrected number standing in its place. A
-   view this change creates has no rendering at the merge base, and neither has one the merge base
-   carries no baseline PNG for: every departure on either is this change's, and the report names
-   the missing baseline. Every line that reports the departure names its cause or its attribution
+   view this change creates has no rendering at the merge base: every departure on it is this
+   change's. **A view the merge base already draws but carries no baseline PNG for is captured at
+   the merge base before any departure on it is attributed — never counted as this change's for
+   want of a baseline** (KAN-942: KAN-758's verifier counted some 39 over-tolerance band pairs as
+   its change's, every one geometry the merge base already shipped or a frame artefact). One
+   capture per spec serves every departure on its views. In each repository the stack and the
+   capture run from, add a detached worktree `<name>-merge-base` beside the change's own, at that
+   repository's merge base (`git worktree add --detach ../<name>-merge-base <merge-base>`); copy
+   this change's capture spec, its `<spec>.mockups` sidecar and its fixtures into the merge-base
+   worktree of the repository that holds specs; start the stack there from `start` when declared, else `## run` — on its own
+   derived workspace, never the change's running stack — and run `capture` from there with
+   `<spec>` substituted. Measure the same element on the PNG it writes and judge it as above. Whether
+   or not the capture ran, stop that stack, remove the workspace it derived with the project's declared removal command
+   (**Creation and cleanup**, `skills/flow-contracts/workspace-isolation.md`),
+   and remove those worktrees before the report is written: nothing the merge-base capture writes
+   is committed or stands as this change's baseline. A merge-base capture that cannot run — the
+   spec reaches a route or control the merge base lacks, the stack does not start — leaves the
+   departure this change's, its line naming `merge-base capture failed — <reason>` beside it.
+   Every line that reports the departure names its cause or its attribution
    beside it — never a bare `departure`.
    A departure within 1dp is reported like any other, its measured value beside it: whether it
    stands is the parent's call under the Blocking paragraph of **Steps 3–13**
