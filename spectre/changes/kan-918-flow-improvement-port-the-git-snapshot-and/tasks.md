@@ -136,8 +136,8 @@ its step 5 names. The full package and `scripts/run-guard-tests.sh` run in task 
 
 - [x] 3. Port guard-autosquash
 
-**Files:** `stats/internal/guard/guardautosquash.go`, `stats/internal/guard/guard_autosquash_test.go`, `scripts/guard-autosquash.sh`, `scripts/test-guard-autosquash.sh`, `stats/internal/guard/foldfixup.go`, `stats/internal/guard/fold_fixup_test.go`
-**Tests:** `TestGuardAutosquash`, `TestFoldFixupAfterVerdict` (added by panel fix 1-2); `TestGuardAutosquash/targets_accepts_an_annotated_tag's_object_sha` (added by panel fix 2)
+**Files:** `stats/internal/guard/guardautosquash.go`, `stats/internal/guard/guard_autosquash_test.go`, `scripts/guard-autosquash.sh`, `scripts/test-guard-autosquash.sh`, `stats/internal/guard/foldfixup.go`
+**Tests:** `TestGuardAutosquash`
 **Regression:** fails if any of the harness's 12 `ok:` behaviours regress; the existing TestFoldFixup, run unchanged, fails if
 fold-fixup stops reading the shim's verdicts.
 **Baseline:** before=0 after=1
@@ -148,7 +148,7 @@ fold-fixup stops reading the shim's verdicts.
 
 **Decision:** fold-fixup-execs-autosquash-shim
 
-Correction (2026-10-21): the plan declared `TestFoldFixup` under **Tests:**; the commit leaves that existing test unchanged and runs it, so it moved to **Regression:**.
+Correction (2026-10-21): panel fixes landed TestFoldFixupAfterVerdict in fold_fixup_test.go (fix 1-2) and the annotated-tag subtest (fix 2) as their own Flow-Key commits, outside this task's commit, so neither is declared here. The plan declared `TestFoldFixup` under **Tests:**; the commit leaves that existing test unchanged and runs it, so it moved to **Regression:**.
 
   - [x] **Step 1: Failing test.** Port every case of `scripts/test-guard-autosquash.sh`, one
     subtest per `ok:` label (`targets` and `after` subcommands, usage exits). Run — expect failure.
