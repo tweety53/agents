@@ -62,6 +62,7 @@ var rbbMasters = sync.OnceValues(func() (rbbFixture, error) {
 		{"-C", seed, "commit", "-qm", "base"},
 		{"-C", seed, "remote", "add", "origin", f.remote},
 		{"-C", seed, "push", "-q", "origin", "main"},
+		{"-C", seed, "push", "-q", "origin", "main:feature/offline-mode"},
 		{"-C", f.noOrigin, "add", "file.txt"},
 		{"-C", f.noOrigin, "commit", "-qm", "base"},
 	}
@@ -301,5 +302,23 @@ func TestResolveBaseBranch(t *testing.T) {
 				}
 			})
 		})
+	}
+}
+
+// TestResolveBaseBranchRefusesARecordedBaseGoneFromOrigin pins KAN-911: a
+// recorded base origin no longer carries -- merged and deleted -- is refused
+// by name rather than resolved.
+func TestResolveBaseBranchRefusesARecordedBaseGoneFromOrigin(t *testing.T) {
+	t.Parallel()
+	fx, err := rbbMasters()
+	if err != nil {
+		t.Fatal(err)
+	}
+	wt := rbbCopy(t, fx.wt)
+	rbbGit(t, wt, "config", "branch.spectre/fixture.flowBase", "feature/gone")
+	var out, errb bytes.Buffer
+	code := Registry["resolve-base-branch"]([]string{wt}, Env{Dir: t.TempDir(), Getenv: os.Getenv}, &out, &errb)
+	if code != 1 || out.String() != "" || !strings.Contains(errb.String(), "recorded base 'feature/gone' is not on origin") {
+		t.Fatalf("exit %d stdout %q stderr %q, want exit 1 naming the gone base", code, out.String(), errb.String())
 	}
 }

@@ -97,7 +97,9 @@
 #          one), the workspace `remove` row, the
 #          proposal artifact, check-cleanup-complete per repository, the
 #          FINISHED write (clearing every worktree no longer on disk) and
-#          refresh-main-checkout per repository.
+#          refresh-main-checkout per repository (onto origin/HEAD's branch,
+#          or onto a worktree's resolved base when the main checkout has that
+#          base checked out).
 #
 # Prints the guards' own lines, one verdict line per step of its own, and
 # ends on exactly one machine-readable line:
@@ -844,12 +846,14 @@ cmd_land() {
 }
 
 cmd_cleanup() {
-  local i m mb out rc row id sd v leftover=0 keep base p pf
+  local i m mb out rc row id sd v leftover=0 keep base p pf cur hit
+  local -a RBASE=()
   load_set
   mark_begin flow.verify-merge
   for i in "${!WT[@]}"; do
     [ -d "${WT[i]}" ] || continue
     base_of "$i"
+    RBASE[i]="$BASE"
     v=""
     if [ -n "$PR_URL_STATE" ] && command -v gh >/dev/null; then
       v="$(gh pr view "$PR_URL_STATE" --json state -q .state 2>/dev/null)" || v=""
@@ -916,7 +920,21 @@ cmd_cleanup() {
   mark_begin flow.refresh-main-checkout
   for m in "${MAINS[@]}"; do
     base="$(git -C "$m" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)"
-    run "$SCRIPT_DIR/refresh-main-checkout.sh" "$m" "${base#origin/}"
+    base="${base#origin/}"
+    # A main checkout on a --base change's base is refreshed onto it (KAN-911).
+    cur="$(git -C "$m" branch --show-current 2>/dev/null)"
+    hit=""
+    for i in "${!RBASE[@]}"; do
+      [ "${REPO[i]}" = "$m" ] && hit=1 && [ -n "$cur" ] && [ "${RBASE[i]}" = "$cur" ] && base="$cur"
+    done
+    # A re-run after the worktrees were removed has no RBASE for m: fall back
+    # to the checkout's own branch when origin carries it and it is not the
+    # change's branch.
+    if [ -z "$hit" ] && [ -n "$cur" ] && [ "$cur" != "spectre/$NAME" ] &&
+      git -C "$m" rev-parse --verify --quiet "refs/remotes/origin/$cur" >/dev/null; then
+      base="$cur"
+    fi
+    run "$SCRIPT_DIR/refresh-main-checkout.sh" "$m" "$base"
   done
   mark_end flow.refresh-main-checkout completed
   say "NEXT: print the Finished handoff"

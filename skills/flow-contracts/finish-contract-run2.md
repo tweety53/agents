@@ -119,6 +119,10 @@ procedure for them is there.
    refresh-main-checkout.sh <main-checkout> <base>
    ```
 
+   A main checkout that has a `--base` change's `<base>` (`skills/flow/SKILL.md`) checked out is
+   refreshed onto that `<base>` instead — the branch the merge check resolved for that
+   repository's worktree before removing it — so it is brought forward rather than refused.
+
    The script fast-forwards the main checkout onto `origin/<base>` only when that loses nothing,
    and refuses by name otherwise; its header is canonical for the conditions. `REFRESH-REFUSED`
    and `FLOWD-RESTART-FAILED` are reported in the handoff, the latter with its `make` command for

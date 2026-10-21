@@ -10,7 +10,8 @@
 #
 #   Exit 0   Resolved; the name is on stdout.
 #   Exit 1   A named refusal — detached HEAD, no base resolved, base equal
-#            to the current branch, or a base name that fails validation.
+#            to the current branch, a base name that fails validation, or a
+#            recorded base origin no longer carries.
 #            Validation requires the first character to be one of
 #            [A-Za-z0-9._] (so a leading '-' or a leading '/' is refused)
 #            and every character in the name to be one of [A-Za-z0-9._/-].
@@ -22,7 +23,9 @@
 # A RECORDED BASE WINS. When `git config branch.<current>.flowBase` is set —
 # kickoff-worktree.sh writes it when a change is created with `--base
 # <branch>` — that name is the base, ahead of origin/HEAD, and faces the same
-# equal-to-current and name-validation refusals.
+# equal-to-current and name-validation refusals. A recorded base origin no
+# longer carries — merged and deleted — is refused by name (`ls-remote
+# --exit-code` status 2); an unreachable remote never refuses.
 #
 # WHY THE FETCH IS WRAPPED. `git remote show origin` against an unreachable
 # host blocks for roughly 75s on the default TCP timeout, which would turn a

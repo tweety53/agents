@@ -54,7 +54,7 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	// A failed fetch is not this guard's failure (the header's WHY THE FETCH
 	// IS WRAPPED): a stale origin/HEAD still resolves, and the next
 	// invocation's fetch corrects it.
-	_ = git("-C", dir, "-c", "core.askpass=true", "fetch", "--quiet", "origin").Run()
+	fetched := git("-C", dir, "-c", "core.askpass=true", "fetch", "--quiet", "origin").Run() == nil
 
 	// Each resolution attempt is allowed to fail -- a missing origin/HEAD or
 	// an unreachable remote is an ordinary outcome here -- so only its output
@@ -93,7 +93,8 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	// a change cut from a feature branch lands back on it. It is read
 	// after the fetch so the remote resolution above still warms
 	// origin/<base>, and it faces the same refusals below.
-	if rec := recordedBase(git, dir, cur); rec != "" {
+	rec := recordedBase(git, dir, cur)
+	if rec != "" {
 		base = rec
 	}
 	if base == "" {
@@ -114,6 +115,20 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	for i := 0; i < len(base); i++ {
 		if !rbbNameByte(base[i], i > 0) {
 			fmt.Fprintln(stderr, "resolve-base-branch: the resolved base branch name is invalid")
+			return 1
+		}
+	}
+
+	// A recorded base origin no longer carries -- merged and deleted -- is
+	// refused by name (KAN-911). Only `ls-remote --exit-code`'s status 2
+	// (reached, no such head) refuses: an unreachable remote resolves as
+	// before, and an origin/HEAD-resolved base never reaches this call. A
+	// fetch that just failed already answered "unreachable", so the call is
+	// skipped rather than blocking a second time.
+	if rec != "" && fetched {
+		err := envGit(env, "LC_ALL=C", "GIT_TERMINAL_PROMPT=0")("-C", dir, "-c", "core.askpass=true", "ls-remote", "--exit-code", "--heads", "origin", "refs/heads/"+base).Run()
+		if ee, ok := err.(*exec.ExitError); ok && ee.ExitCode() == 2 {
+			fmt.Fprintf(stderr, "resolve-base-branch: recorded base '%s' is not on origin — re-point the change (skills/flow/SKILL.md)\n", base)
 			return 1
 		}
 	}

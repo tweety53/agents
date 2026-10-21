@@ -122,6 +122,12 @@
 #                   b's origin has feature/x stops prepare at
 #                   STOP: base-mismatch, exit 1, before the preflight; b
 #                   recording it too, or feature/x on a's origin only, passes.
+#   refresh_on_recorded_base a recording flowBase feature/x with a's main
+#                   checkout on feature/x: land refreshes it onto feature/x
+#                   rather than refusing it for not being on main (prepare
+#                   run with --accept-foreign past the main checkout's drift),
+#                   and a cleanup re-run after the worktrees are removed
+#                   still does.
 #   outstanding     commit --outstanding keeps the planning commit's own
 #                   subject and puts the text in its body; --plan-message,
 #                   which replaced the subject whole, is refused.
@@ -902,6 +908,29 @@ g -C "$WORK/a" push -q origin main:refs/heads/feature/x
 g -C "$WORK/a-worktrees/demo" config branch.spectre/demo.flowBase feature/x
 sut prepare "$WORK/a" demo
 check "base_mismatch: feature/x on a's origin only passes the gate" '! printf "%s" "$OUT" | grep -q "STOP: base-mismatch" && grep -q flow.preflight "$WORK/stages.log"'
+
+# --- refresh_on_recorded_base ---
+fixture
+g -C "$WORK/a" push -q origin main:refs/heads/feature/x
+g -C "$WORK/a" checkout -q -b feature/x --track origin/feature/x
+g -C "$WORK/a-worktrees/demo" config branch.spectre/demo.flowBase feature/x
+# a's main checkout off main is foreign-staged drift; the operator continues.
+sut prepare "$WORK/a" demo --accept-foreign
+[ "$RC" -eq 0 ] || halt prepare
+printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
+[ "$RC" -eq 0 ] || halt commit
+mkdir -p "$WORK/a-worktrees/demo/docs/self-review"
+printf '# demo self-review\n' >"$WORK/a-worktrees/demo/docs/self-review/demo-self-review.md"
+g -C "$WORK/a-worktrees/demo" add docs/self-review/demo-self-review.md
+g -C "$WORK/a-worktrees/demo" commit -qm "docs(self-review): demo self-review report"
+sut land "$WORK/a" demo
+check "refresh_on_recorded_base: a's main checkout on its recorded base is refreshed, not refused" \
+  'printf "%s\n" "$OUT" | grep -qE "^REFRESH-(DONE|CURRENT): $WORK/a( |\$)" && ! printf "%s\n" "$OUT" | grep -q "^REFRESH-REFUSED: $WORK/a "'
+# The re-run a leftover stop asks for comes after the worktrees are gone.
+sut cleanup "$WORK/a" demo
+check "refresh_on_recorded_base: a cleanup re-run after worktree removal still refreshes onto feature/x" \
+  'printf "%s\n" "$OUT" | grep -qE "^REFRESH-(DONE|CURRENT): $WORK/a( |\$)" && ! printf "%s\n" "$OUT" | grep -q "^REFRESH-REFUSED: $WORK/a "'
 
 # --- outstanding ---
 fixture

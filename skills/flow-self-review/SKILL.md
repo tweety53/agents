@@ -3,7 +3,7 @@ name: flow-self-review
 description: Run a change's self-review pass, a one-shot opus dispatch — inside `/flow`'s integrate and `/flow-fast`'s verify, or standalone from the context bundle an older run saved; plan in full, fix and land every finding that is not big, file the big ones, mine the flow-eval cases the operator approves, record each in the flow store, rate, write the report, delete the bundle. Standalone, not a pipeline stage. Use for /flow-self-review.
 allowed-tools: Bash(git:*), Bash(flow:*), Bash(go:*), Bash(scripts/check-self-review-report.sh:*), Bash(land-self-review-report.sh:*)
 license: MIT
-compatibility: Standalone, requires the change's default branch to be checked out and a saved context bundle at docs/self-review/<name>-context.md.
+compatibility: Standalone, requires the change's default branch, or its `--base` branch, to be checked out and a saved context bundle at docs/self-review/<name>-context.md.
 ---
 
 Run a change's self-review reasoning pass — the only one the pipeline has — over the bundle
@@ -28,8 +28,9 @@ per-change state file, and marks no `flow stage` call.
 
 `<bundle>` is `<project>/docs/self-review/<name>-context.md`. Absent: print every
 `docs/self-review/*-context.md` present (or `none pending` when there are none) and stop.
+The absent case also prints every `origin/<branch>` whose tree holds `<bundle>` (`git cat-file -e origin/<branch>:<bundle-path>`, `<bundle-path>` the bundle's path relative to `<project>`, over `git for-each-ref --format='%(refname:short)' refs/remotes/origin`), so a `--base` change's bundle (`skills/flow/SKILL.md`), landed on its `<base>`, is found from any checkout.
 
-`git branch --show-current` must be `<default-branch>` (the project's own default branch). A
+`git branch --show-current` must be `<landing-branch>`: `<default-branch>` (the project's own default branch), or a `--base` change's `<base>` — a branch other than the change's own (`spectre/<name>`, `<name>` on `/flow-fast`) whose `origin/<branch>` tree holds `<bundle>`. A
 checkout on any other branch: print the branch and stop.
 
 **Both refusals bind the standalone command only.** A pass run inside `/flow`'s integrate or
@@ -438,11 +439,11 @@ pass and the filing-and-rating prompt above is long enough that the branch is wo
 rather than trusted from step 1 alone:
 
 ```bash
-land-self-review-report.sh "<project>" "<default-branch>" \
+land-self-review-report.sh "<project>" "<landing-branch>" \
   "docs(self-review): <name> self-review report" \
   "docs/self-review/<name>-self-review.md" \
   "docs/self-review/<name>-context.md" \
-  --push "<default-branch>"
+  --push "<landing-branch>"
 ```
 
 A branch mismatch stops here — nothing is committed, pulled, or pushed. Staged work in the
@@ -457,7 +458,7 @@ End naming the report path, the rating, the shas landed, the Jira keys filed and
 ## Guardrails
 
 - **Never** push directly to a protected branch under any name but the project's own default
-  branch, and never force-push.
+  branch, or the `<landing-branch>` step 1 accepted, and never force-push.
 
 ## Commands (user-facing)
 
