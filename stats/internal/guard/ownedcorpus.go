@@ -191,7 +191,7 @@ func ocHidesMarkdown(p string) (bool, error) {
 	return walk(target)
 }
 
-// asRel is filepath.Rel with the separator normalised, for exclusion tests.
+// ocRel is filepath.Rel with the separator normalised, for exclusion tests.
 func ocRel(root, p string) string {
 	rel, err := filepath.Rel(root, p)
 	if err != nil {

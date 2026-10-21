@@ -65,7 +65,10 @@ func checkNormativeInventory(_ []string, env Env, stdout, stderr io.Writer) int 
 		return 2
 	}
 
-	files, code := ownedCorpus(fsRoot, "owned_corpus_files", stderr)
+	// The corpus walk gets the root as spelled, so its refusals and the
+	// file paths below print as the bash printed them; a relative root
+	// resolves against the process's working directory, the caller's.
+	files, code := ownedCorpus(root, "owned_corpus_files", stderr)
 	if files == nil {
 		return code
 	}
@@ -115,11 +118,7 @@ func niScan(text string, out []string) []string {
 			block = ""
 		}
 	}
-	lines := strings.Split(text, "\n")
-	if strings.HasSuffix(text, "\n") {
-		lines = lines[:len(lines)-1]
-	}
-	for _, line := range lines {
+	for _, line := range fileLines(text) {
 		line = strings.TrimSuffix(line, "\r")
 		line = strings.Trim(line, " \t")
 

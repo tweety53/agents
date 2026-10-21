@@ -2,6 +2,7 @@ package guard
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -41,7 +42,7 @@ func checkPythonSuppressions(args []string, env Env, stdout, stderr io.Writer) i
 		b, err := os.ReadFile(smcAbs(env, f))
 		if err != nil {
 			// grep's trouble exit, reported as the bash reported it.
-			fmt.Fprintf(stderr, "grep: %s: %v\nERROR: grep failed with exit 2 — cannot answer\n", f, err)
+			fmt.Fprintf(stderr, "grep: %s: %s\nERROR: grep failed with exit 2 — cannot answer\n", f, psStrerror(err))
 			return 2
 		}
 		// A file holding a NUL byte is binary and yields no hit — how grep
@@ -49,7 +50,7 @@ func checkPythonSuppressions(args []string, env Env, stdout, stderr io.Writer) i
 		if bytes.IndexByte(b, 0) >= 0 {
 			continue
 		}
-		for i, line := range mrpLines(string(b)) {
+		for i, line := range fileLines(string(b)) {
 			if psMarker.MatchString(line) {
 				hits = append(hits, fmt.Sprintf("%s:%d:%s", f, i+1, line))
 			}
@@ -160,4 +161,18 @@ func psFind(env Env, dir string) ([]string, bool) {
 	}
 	walk(dir)
 	return files, ok
+}
+
+// psStrerror is err's errno text as grep prints it, strerror-capitalised:
+// "Permission denied", not Go's "open f: permission denied".
+func psStrerror(err error) string {
+	var pe *fs.PathError
+	if errors.As(err, &pe) {
+		err = pe.Err
+	}
+	msg := err.Error()
+	if msg == "" {
+		return msg
+	}
+	return strings.ToUpper(msg[:1]) + msg[1:]
 }

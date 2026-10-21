@@ -108,7 +108,7 @@ func mrpScan(env Env, root string) (violations []string, marker, window string, 
 	// means the reading is ambiguous. Either way this guard refuses to guess.
 	declLine := func(re *regexp.Regexp, what string) (string, *mrpExit2) {
 		var hits []string
-		for _, l := range mrpLines(text[source]) {
+		for _, l := range fileLines(text[source]) {
 			if re.MatchString(l) {
 				hits = append(hits, l)
 			}
@@ -151,7 +151,7 @@ func mrpScan(env Env, root string) (violations []string, marker, window string, 
 			return
 		}
 		line := 0
-		for i, l := range mrpLines(text[file]) {
+		for i, l := range fileLines(text[file]) {
 			if anchor.MatchString(l) {
 				line = i + 1
 				break
@@ -226,7 +226,7 @@ func mrpNearMiss(file, text, window, marker string) []string {
 		}
 	}
 	prev := ""
-	for i, l := range mrpLines(text) {
+	for i, l := range fileLines(text) {
 		scan(l, i+1, 0)
 		if i > 0 {
 			scan(prev+" "+l, i, len(prev)+1)
@@ -243,9 +243,9 @@ func mrpNearMiss(file, text, window, marker string) []string {
 	return out
 }
 
-// mrpLines is a file's lines as grep and awk read them: a final line without
+// fileLines is a file's lines as grep and awk read them: a final line without
 // its newline still counts, and a trailing newline adds no empty line.
-func mrpLines(text string) []string {
+func fileLines(text string) []string {
 	lines := strings.Split(text, "\n")
 	if strings.HasSuffix(text, "\n") {
 		lines = lines[:len(lines)-1]
