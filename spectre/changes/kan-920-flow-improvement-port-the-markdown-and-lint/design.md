@@ -39,7 +39,15 @@
 
 Each Go test carries at least its harness's floor in subtests (`parity-by-case-count`).
 
-**After** — subtests per port: recorded by task 5.
+### After
+
+| Go test | `--- PASS` subtests | floor |
+|---|--:|--:|
+| `TestCheckNormativeInventory` | 20 | 20 |
+| `TestCheckMutationReproducerPin` | 20 | 20 |
+| `TestCheckPythonSuppressions` | 19 | 19 |
+
+<!-- measured: cd stats && go test ./internal/guard/ -run '^Test<Name>$' -count=1 -v | grep -c -- '--- PASS: Test<Name>/' @ branch spectre/kan-920-flow-improvement-port-the-markdown-and-lint -->
 
 ## Decisions
 

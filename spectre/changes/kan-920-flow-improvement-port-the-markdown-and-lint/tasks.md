@@ -93,7 +93,7 @@ its step 5 names. The full package and `scripts/run-guard-tests.sh` run in `flow
 
 ---
 
-- [ ] 1. Port check-normative-inventory and share the owned-corpus walk
+- [x] 1. Port check-normative-inventory and share the owned-corpus walk
 
 **Files:** `stats/internal/guard/normativeinventory.go`, `stats/internal/guard/check_normative_inventory_test.go`, `stats/internal/guard/ownedcorpus.go`, `stats/internal/guard/asksilence.go`, `stats/internal/guard/check_ask_silence_test.go`, `scripts/check-normative-inventory.sh`, `scripts/test-check-normative-inventory.sh`, `scripts/lib/owned-corpus.sh`
 **Tests:** `TestCheckNormativeInventory`
@@ -110,27 +110,27 @@ lose their `check-ask-silence:` prefix.
 **Decision:** scope-three-guards-and-owned-corpus
 **Decision:** shared-owned-corpus-walk
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-normative-inventory.sh`,
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-normative-inventory.sh`,
     one subtest per `ok` label (the abbreviation, reflow-invariance, duplicate-kept, empty-corpus
     and set-but-empty-override cases included). Run — expect failure.
-  - [ ] **Step 2: Share the walk.** Move `asCorpus` and `askSilenceScopes` from `asksilence.go`
+  - [x] **Step 2: Share the walk.** Move `asCorpus` and `askSilenceScopes` from `asksilence.go`
     into `ownedcorpus.go` as `ownedCorpus(root, prefix string, stderr io.Writer) ([]string, int)`
     and `ownedCorpusScopes`, the refusal prefix a parameter; `checkAskSilence` passes
     `askSilenceName`; the `THE CORPUS mirrors scripts/lib/owned-corpus.sh` comment moves with it,
     rewritten to say this file is now the one definition and the bash library was deleted.
     `TestAskSilenceCorpusParity`'s `bashLib(t, "owned-corpus.sh", …)` becomes
     `bashLibAt(t, nil, []string{"owned-corpus.sh"}, "owned_corpus_files", root)`.
-  - [ ] **Step 3: Port**, registering `check-normative-inventory`: corpus via
+  - [x] **Step 3: Port**, registering `check-normative-inventory`: corpus via
     `ownedCorpus(root, "owned_corpus_files", stderr)`; the awk program's line classification,
     `emit`, `is_abbrev` and `has_keyword` reproduced; sentences sorted bytewise, duplicates kept;
     the count line on stderr byte-identical; every exit-2 message byte-identical.
-  - [ ] **Step 4: Green.** `cd stats && go test ./internal/guard/ -run
+  - [x] **Step 4: Green.** `cd stats && go test ./internal/guard/ -run
     '^(TestCheckNormativeInventory|TestAskSilenceCorpusParity|TestCheckAskSilence)$' -count=1
     -race -v | grep -c -- '--- PASS: TestCheckNormativeInventory/'` — at least 20, and the run
     exits 0.
-  - [ ] **Step 5: Shim and delete** — shim template, code 2;
+  - [x] **Step 5: Shim and delete** — shim template, code 2;
     `git rm scripts/test-check-normative-inventory.sh scripts/lib/owned-corpus.sh`.
-  - [ ] **Step 6: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
+  - [x] **Step 6: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
     `scripts/check-normative-inventory.sh` on this worktree prints stdout byte-identical to the
     bash at `75261910` (`git show 75261910:scripts/check-normative-inventory.sh` and
     `git show 75261910:scripts/lib/owned-corpus.sh` written into a temp `scripts/` +
@@ -138,7 +138,7 @@ lose their `check-ask-silence:` prefix.
     pointing at this worktree) and the same exit code, directly and through a symlink to it in a
     temp directory.
 
-- [ ] 2. Port check-mutation-reproducer-pin
+- [x] 2. Port check-mutation-reproducer-pin
 
 **Files:** `stats/internal/guard/mutationreproducerpin.go`, `stats/internal/guard/check_mutation_reproducer_pin_test.go`, `scripts/check-mutation-reproducer-pin.sh`, `scripts/test-check-mutation-reproducer-pin.sh`
 **Tests:** `TestCheckMutationReproducerPin`
@@ -151,25 +151,25 @@ lose their `check-ask-silence:` prefix.
 
 **Decision:** carry-prior-port-decisions
 
-  - [ ] **Step 1: Failing test.** Port every case of
+  - [x] **Step 1: Failing test.** Port every case of
     `scripts/test-check-mutation-reproducer-pin.sh`, one subtest per `ok` label (the wrapped-window
     near-miss, the boundary-spanning-only joined scan, the absent/ambiguous declaration exit 2 and
     the symlinked-site exit 2 included). Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-mutation-reproducer-pin`: the two declaration lines of
+  - [x] **Step 2: Port**, registering `check-mutation-reproducer-pin`: the two declaration lines of
     `runreproducer.go` found by the same patterns (exactly one each, else exit 2), marker and window
     extracted by the same token patterns, presence checks with anchor lines, the near-miss scan per
     file sorted and de-duplicated; every message byte-identical.
-  - [ ] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run
+  - [x] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run
     '^TestCheckMutationReproducerPin$' -count=1 -race -v | grep -c -- '--- PASS:
     TestCheckMutationReproducerPin/'` — at least 20.
-  - [ ] **Step 4: Shim and delete** — shim template, code 2;
+  - [x] **Step 4: Shim and delete** — shim template, code 2;
     `git rm scripts/test-check-mutation-reproducer-pin.sh`.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
     `scripts/check-mutation-reproducer-pin.sh` on this worktree prints the
     `MUTATION-REPRODUCER-PIN-OK` line the bash printed at `75261910` and exits 0, directly and
     through a symlink.
 
-- [ ] 3. Port check-python-suppressions
+- [x] 3. Port check-python-suppressions
 
 **Files:** `stats/internal/guard/pythonsuppressions.go`, `stats/internal/guard/check_python_suppressions_test.go`, `scripts/check-python-suppressions.sh`, `scripts/test-check-python-suppressions.sh`
 **Tests:** `TestCheckPythonSuppressions`
@@ -182,24 +182,24 @@ lose their `check-ask-silence:` prefix.
 
 **Decision:** python-suppressions-binary-skip
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-python-suppressions.sh`,
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-python-suppressions.sh`,
     one subtest per `ok` label (every marker spelling, case-insensitivity, the symlink skip, the
     missing-path exit 2 and the no-argument tracked-files scan included). Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-python-suppressions`: no arguments → `git ls-files -z
+  - [x] **Step 2: Port**, registering `check-python-suppressions`: no arguments → `git ls-files -z
     -- '*.py'` at the root through `gitExec`, symlinks skipped, paths absolute; arguments → files
     (`*.py`, non-symlink) and directories walked for regular `*.py` files, symlinks skipped; hits
     printed `path:line:text` on stdout in argument then walk order, the `suppressions-found` count
     line on stderr; every message byte-identical.
-  - [ ] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run
+  - [x] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run
     '^TestCheckPythonSuppressions$' -count=1 -race -v | grep -c -- '--- PASS:
     TestCheckPythonSuppressions/'` — at least 19.
-  - [ ] **Step 4: Shim and delete** — shim template, code 2;
+  - [x] **Step 4: Shim and delete** — shim template, code 2;
     `git rm scripts/test-check-python-suppressions.sh`.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
     `scripts/check-python-suppressions.sh` with no arguments, and with `hooks/` as its one argument,
     prints what the bash printed at `75261910` and exits the same, directly and through a symlink.
 
-- [ ] 4. Repoint citations of the deleted harnesses and library
+- [x] 4. Repoint citations of the deleted harnesses and library
 
 **Files:** `.flow/project.md`
 **Allowed-collateral:** `.flow/*.md`, `scripts/*.sh`, `scripts/lib/*.sh`, `scripts/*.py`, `hooks/*.py`, `skills/**/*.md`, `rules/*.mdc`, `README.md`, `CONTRIBUTING.md`, `stats/internal/guard/*.go`
@@ -213,23 +213,23 @@ lose their `check-ask-silence:` prefix.
 
 **Decision:** carry-prior-port-decisions
 
-  - [ ] **Step 1: Find.** `grep -rlF -e test-check-normative-inventory.sh -e
+  - [x] **Step 1: Find.** `grep -rlF -e test-check-normative-inventory.sh -e
     test-check-mutation-reproducer-pin.sh -e test-check-python-suppressions.sh -e owned-corpus.sh
     --exclude-dir=archive --exclude-dir=.worktrees --exclude-dir=node_modules --exclude-dir=.git
     --exclude-dir=self-review .`
     `unverified: the file set is known only after tasks 1–3 land; widen **Files:** by a correction if a hit falls outside the collateral globs`
-  - [ ] **Step 2: Repoint** each citation to the Go file or Go test that now holds what it cites; a
+  - [x] **Step 2: Repoint** each citation to the Go file or Go test that now holds what it cites; a
     sentence describing bash plumbing that no longer exists is corrected, not repointed —
     `.flow/project.md`'s "resolves the corpus through `scripts/lib/owned-corpus.sh`" names
     `stats/internal/guard/ownedcorpus.go`, `scripts/lib/parallel.sh`'s trap-neutral comment drops
     the deleted library, and `.flow/project.md`'s paragraph naming which guards are Go lists the
     three new ones.
-  - [ ] **Step 3: Verify.** Step 1's grep returns only `spectre/changes/kan-920-*`,
+  - [x] **Step 3: Verify.** Step 1's grep returns only `spectre/changes/kan-920-*`,
     `stats/internal/guard/libtwins_test.go`/`check_ask_silence_test.go`'s historical
     `owned-corpus.sh` reference and the Go ports' own history comments; every guard in
     `.flow/project.md`'s `## lint` exits 0.
 
-- [ ] 5. Live verification: parity counts
+- [x] 5. Live verification: parity counts
 
 **Files:** none
 **Tests:** none — measurement task; the figures it records are the check
@@ -241,11 +241,11 @@ lose their `check-ask-silence:` prefix.
 
 **Decision:** no-suite-timings
 
-  - [ ] **Step 1: Parity.** `cd stats && go test ./internal/guard/ -run '^Test<Name>$' -count=1 -v
+  - [x] **Step 1: Parity.** `cd stats && go test ./internal/guard/ -run '^Test<Name>$' -count=1 -v
     | grep -c -- '--- PASS: Test<Name>/'` per port against its floor in `design.md`.
-  - [ ] **Step 2: Record** an **After** table under design.md's parity floors — Go test, `--- PASS`
+  - [x] **Step 2: Record** an **After** table under design.md's parity floors — Go test, `--- PASS`
     subtests, floor — tagged `measured:` with the command and
     `@ branch spectre/kan-920-flow-improvement-port-the-markdown-and-lint`, replacing the
     "recorded by task 5" line, in a planning commit.
-  - [ ] **Step 3: Judge.** Failure looks like: any port's `--- PASS` count below
+  - [x] **Step 3: Judge.** Failure looks like: any port's `--- PASS` count below
     its floor. It is reported, not recorded as success.
