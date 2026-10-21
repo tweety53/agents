@@ -49,7 +49,7 @@ func TestDecisionRenderGolden(t *testing.T) {
 			"implementer":"skipped — inline","fixer":"skipped — inline","panel":"default",
 			"groups":null,"groups_mechanical":null,"groups_override":null,"groups_reason":null,
 			"visual":{"verify":"required","reason":"the Files list carries a page component"},
-			"parent":{"model":"claude-opus-5-5","effort":"unknown"},"overrides":[]}`,
+			"parent":{"model":"claude-opus-5-5","effort":"default"},"overrides":[]}`,
 			"## Decision\n\n" +
 				"- **Class:** micro · tasks 1 · files 1 · repos 1\n" +
 				"- **Execution:** inline\n" +
@@ -148,6 +148,7 @@ func TestDecisionRenderRefusals(t *testing.T) {
 		{"missing groups", strings.Replace(good, `,"groups":null`, "", 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: missing required field \"groups\"\n"},
 		{"visual.verify outside the set", strings.Replace(good, `"groups":null`, `"groups":null,"visual":{"verify":"skip","reason":"x"}`, 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: visual.verify \"skip\" is not one of required, skipped, not configured\n"},
 		{"visual with a blank reason", strings.Replace(good, `"groups":null`, `"groups":null,"visual":{"verify":"skipped","reason":" "}`, 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: visual.reason is required\n"},
+		{"parent.effort outside the -effort set", strings.Replace(good, `"groups":null`, `"groups":null,"parent":{"model":"unknown (agent-defined)","effort":"unknown"}`, 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: parent.effort \"unknown\" is not one of: low, medium, high, default\n"},
 		{"missing panel.rerun_dispatch", strings.Replace(good, `"panel":"default"`, `"panel":{"compact":true,"rerun":"delta","grouping":"static","dispatches":[]}`, 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: missing required field \"panel.rerun_dispatch\"\n"},
 	}
 	for _, c := range cases {

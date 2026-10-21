@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -127,7 +128,10 @@ type dDecision struct {
 	GroupsOverride   *string             `json:"groups_override"`
 	GroupsReason     string              `json:"groups_reason"`
 	Visual           *dVisual            `json:"visual"`
-	ExtraDispatch    *struct {
+	Parent           *struct {
+		Effort string `json:"effort"`
+	} `json:"parent"`
+	ExtraDispatch *struct {
 		Slots  []string `json:"slots"`
 		Model  string   `json:"model"`
 		Effort string   `json:"effort"`
@@ -252,6 +256,12 @@ func renderDecision(body []byte, _, reviewers string) (string, error) {
 		if strings.TrimSpace(v.Reason) == "" {
 			return "", fmt.Errorf("visual.reason is required")
 		}
+	}
+	// parent.effort is the -effort every inline dispatch row copies, so it
+	// takes that flag's closed set -- `default` where the session states none
+	// (kan-920 self-review: `unknown` was refused at task 1's begin).
+	if p := d.Parent; p != nil && !slices.Contains(recordEfforts, p.Effort) {
+		return "", fmt.Errorf("parent.effort %q is not one of: %s", p.Effort, strings.Join(recordEfforts, ", "))
 	}
 	var panelDefault string
 	var p dPanel
