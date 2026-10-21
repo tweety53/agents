@@ -116,6 +116,20 @@ missing-`lsof` case stays exit 2 with the bash's message; tests drive real child
 **Considered:** reading process cwds through `/proc` or libproc — no `/proc` on macOS, and a cgo
 or syscall route is a new mechanism the parity contract forbids.
 
+### Where a script's header and body disagree on an exit code, the port follows the header
+
+**ID:** header-wins-on-exit-code
+**Status:** active
+**Chosen:** two ports depart from their bash body's exit code and follow the script's own header
+instead: `guard-autosquash after` exits 2 (cannot answer) on a regular `tasks.md` it cannot read,
+where the bash swept zero tokens and could pass (commit 5e2f347f); `check-panel-diff-size` exits 2
+when `git diff --shortstat` fails, where the bash exited with git's own code (commit ebd0cbf2).
+Every other exit code stays the bash's, so proposal.md's unchanged-exit-codes claim holds for all
+but these two cases.
+**Considered:** keeping the bash bodies' codes byte-for-byte — that preserves a fail-open pass on an
+unreadable plan and an exit code outside the header's 0/1/2 contract, both defects the header
+already ruled out.
+
 ## Live check
 
 `flow.verify` runs each of the five shims once on this repository through

@@ -136,8 +136,8 @@ its step 5 names. The full package and `scripts/run-guard-tests.sh` run in task 
 
 - [x] 3. Port guard-autosquash
 
-**Files:** `stats/internal/guard/guardautosquash.go`, `stats/internal/guard/guard_autosquash_test.go`, `scripts/guard-autosquash.sh`, `scripts/test-guard-autosquash.sh`, `stats/internal/guard/foldfixup.go`
-**Tests:** `TestGuardAutosquash`
+**Files:** `stats/internal/guard/guardautosquash.go`, `stats/internal/guard/guard_autosquash_test.go`, `scripts/guard-autosquash.sh`, `scripts/test-guard-autosquash.sh`, `stats/internal/guard/foldfixup.go`, `stats/internal/guard/fold_fixup_test.go`
+**Tests:** `TestGuardAutosquash`, `TestFoldFixupAfterVerdict` (added by panel fix 1-2)
 **Regression:** fails if any of the harness's 12 `ok:` behaviours regress; the existing TestFoldFixup, run unchanged, fails if
 fold-fixup stops reading the shim's verdicts.
 **Baseline:** before=0 after=1
@@ -221,7 +221,7 @@ always-CLEAR mutation case included.
 
 **Files:** `.flow/project.md`
 **Allowed-collateral:** `.flow/*.md`, `scripts/*.sh`, `scripts/lib/*.sh`, `scripts/*.py`, `hooks/*.py`, `skills/**/*.md`, `rules/*.mdc`, `README.md`, `CONTRIBUTING.md`, `stats/internal/guard/*.go`
-**Tests:** none — citation sweep; the lint guards are the check
+**Tests:** `scripts/test-git-config-pins.sh` case 6 (the diff(1)-program skip, added by panel fix 1); otherwise none — citation sweep; the lint guards are the check
 **Regression:** none — prose and comments only
 **Baseline:** before=0 after=0
 <!-- predicted: no test is added by this task -->
