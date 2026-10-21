@@ -221,3 +221,101 @@ func TestRefreshMainCheckoutRestartsFlowdWhenStatsMoved(t *testing.T) {
 		})
 	}
 }
+
+// KAN-926: drift landed on origin from another worktree leaves the main
+// checkout holding identical uncommitted copies -- an unstaged edit, a
+// staged addition -- which git's own fast-forward refuses to overwrite.
+func TestRefreshMainCheckoutDiscardsLandedCopies(t *testing.T) {
+	t.Parallel()
+	env := Env{Getenv: os.Getenv}
+
+	t.Run("copies identical to origin are discarded, then fast-forwarded", func(t *testing.T) {
+		t.Parallel()
+		repo, _ := behindRepo(t)
+		old := rmcRev(t, repo, "HEAD")
+		writeFile(t, repo+"/f.txt", "b\n")
+		writeFile(t, repo+"/g.txt", "new\n")
+		gitRun(t, repo, "add", "g.txt")
+		r := runGuard("refresh-main-checkout", []string{repo, "main"}, env)
+		tip := rmcRev(t, repo, "origin/main")
+		want := "REFRESH-DISCARDED: " + repo + " 2 tracked paths identical to origin/main\n" +
+			"REFRESH-DONE: " + repo + " fast-forwarded " + old + " -> " + tip + "\n"
+		if r.rc != 0 || r.stdout != want {
+			t.Fatalf("want %q; got %+v", want, r)
+		}
+		var g fxGit
+		if s := g.git(repo, "status", "--porcelain"); g.err != nil || s != "" {
+			t.Fatalf("checkout not clean: %q %v", s, g.err)
+		}
+	})
+
+	// One path matching origin does not carry another that does not: the
+	// whole set is refused and every copy kept.
+	t.Run("a copy differing from origin refuses the whole set", func(t *testing.T) {
+		t.Parallel()
+		repo, _ := behindRepo(t)
+		before := rmcRev(t, repo, "main")
+		writeFile(t, repo+"/f.txt", "b\n")
+		writeFile(t, repo+"/g.txt", "mine\n")
+		gitRun(t, repo, "add", "g.txt")
+		r := runGuard("refresh-main-checkout", []string{repo, "main"}, env)
+		if want := "REFRESH-REFUSED: " + repo + " has tracked changes — nothing touched\n"; r.rc != 1 || r.stdout != want {
+			t.Fatalf("want exit 1, stdout %q; got %+v", want, r)
+		}
+		if got := rmcRev(t, repo, "main"); got != before {
+			t.Fatalf("local main moved: %s -> %s", before, got)
+		}
+		if body, _ := os.ReadFile(repo + "/f.txt"); string(body) != "b\n" {
+			t.Fatal("identical copy discarded beside a differing one")
+		}
+	})
+
+	refusedKept := func(t *testing.T, r guardResult, repo, reason string) {
+		t.Helper()
+		if want := "REFRESH-REFUSED: " + repo + " " + reason + " — nothing touched\n"; r.rc != 1 || r.stdout != want {
+			t.Fatalf("want exit 1, stdout %q; got %+v", want, r)
+		}
+	}
+
+	// The index differing is enough: a worktree copy matching origin does
+	// not carry a staged copy that does not.
+	t.Run("an index copy differing from origin refuses", func(t *testing.T) {
+		t.Parallel()
+		repo, _ := behindRepo(t)
+		writeFile(t, repo+"/f.txt", "mine\n")
+		gitRun(t, repo, "add", "f.txt")
+		writeFile(t, repo+"/f.txt", "b\n")
+		refusedKept(t, runGuard("refresh-main-checkout", []string{repo, "main"}, env), repo, "has tracked changes")
+		var g fxGit
+		if s := g.git(repo, "show", ":f.txt"); g.err != nil || s != "mine" {
+			t.Fatalf("index copy lost: %q %v", s, g.err)
+		}
+	})
+
+	// A lossy clean filter makes differing bytes compare identical; any
+	// filtered path refuses, so the stripped line survives.
+	t.Run("a filtered path refuses", func(t *testing.T) {
+		t.Parallel()
+		repo, _ := behindRepo(t)
+		writeFile(t, repo+"/.git/info/attributes", "f.txt filter=strip\n")
+		gitRun(t, repo, "config", "filter.strip.clean", "sed '/^OUT/d'")
+		writeFile(t, repo+"/f.txt", "b\nOUT precious\n")
+		refusedKept(t, runGuard("refresh-main-checkout", []string{repo, "main"}, env), repo, "has tracked changes")
+		if body, _ := os.ReadFile(repo + "/f.txt"); !strings.Contains(string(body), "OUT precious") {
+			t.Fatal("filtered content discarded")
+		}
+	})
+
+	// Discarding is only worth it when the fast-forward then succeeds: an
+	// untracked g.txt origin adds refuses before any copy is touched.
+	t.Run("an untracked path origin adds refuses before discarding", func(t *testing.T) {
+		t.Parallel()
+		repo, _ := behindRepo(t)
+		writeFile(t, repo+"/f.txt", "b\n")
+		writeFile(t, repo+"/g.txt", "mine\n")
+		refusedKept(t, runGuard("refresh-main-checkout", []string{repo, "main"}, env), repo, "has untracked g.txt origin/main adds")
+		if body, _ := os.ReadFile(repo + "/f.txt"); string(body) != "b\n" {
+			t.Fatal("copy discarded ahead of a failing fast-forward")
+		}
+	})
+}

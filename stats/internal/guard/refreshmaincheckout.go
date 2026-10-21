@@ -3,6 +3,11 @@ package guard
 import (
 	"fmt"
 	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"slices"
+	"strings"
 )
 
 // refreshMainCheckout is scripts/refresh-main-checkout.sh: that script's
@@ -45,13 +50,11 @@ func refreshMainCheckout(args []string, env Env, stdout, stderr io.Writer) int {
 		return refuse("is on " + cur + ", not " + base)
 	}
 	// Any tracked entry -- modified, staged or unmerged -- is work the
-	// fast-forward could collide with; untracked files are git's own concern.
+	// fast-forward could collide with, unless it is a landed copy (below);
+	// untracked files are git's own concern.
 	status, ok := g("status", "--porcelain", "--untracked-files=no")
 	if !ok {
 		return 2
-	}
-	if status != "" {
-		return refuse("has tracked changes")
 	}
 	tip, ok := g("rev-parse", "--short", "HEAD")
 	if !ok {
@@ -62,11 +65,32 @@ func refreshMainCheckout(args []string, env Env, stdout, stderr io.Writer) int {
 		return refuse("has no origin/" + base)
 	}
 	if tip == remote {
+		if status != "" {
+			return refuse("has tracked changes")
+		}
 		fmt.Fprintf(stdout, "REFRESH-CURRENT: %s already at %s\n", repo, tip)
 		return 0
 	}
 	if err := git("-C", repo, "merge-base", "--is-ancestor", "HEAD", "refs/remotes/origin/"+base).Run(); err != nil {
 		return refuse("has " + base + " commits origin/" + base + " lacks")
+	}
+	if status != "" {
+		paths := landedCopies(git, repo, "refs/remotes/origin/"+base)
+		if paths == nil {
+			return refuse("has tracked changes")
+		}
+		// Never discard ahead of a fast-forward git would then refuse: a
+		// path origin adds that sits here untracked, outside the copies.
+		added, _ := g("diff", "--name-only", "-z", "--no-renames", "--diff-filter=A", "HEAD", "refs/remotes/origin/"+base)
+		for _, p := range strings.Split(added, "\x00") {
+			if p != "" && !slices.Contains(paths, p) && rmcPresent(filepath.Join(pcAbs(env, repo), p)) {
+				return refuse("has untracked " + p + " origin/" + base + " adds")
+			}
+		}
+		if _, ok := g(append([]string{"--literal-pathspecs", "restore", "--source=HEAD", "--staged", "--worktree", "--"}, paths...)...); !ok {
+			return 2
+		}
+		fmt.Fprintf(stdout, "REFRESH-DISCARDED: %s %d tracked paths identical to origin/%s\n", repo, len(paths), base)
 	}
 	if _, ok := g("merge", "--ff-only", "-q", "refs/remotes/origin/"+base); !ok {
 		return 2
@@ -77,3 +101,63 @@ func refreshMainCheckout(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	return 0
 }
+
+// landedCopies returns the tracked paths a dirty main checkout holds when
+// every one is byte-identical to ref -- its worktree copy, and its index
+// copy wherever one is staged -- the copies a change landed from another
+// worktree leaves behind (KAN-926); nil when any path differs, any entry is
+// unmerged, or a read fails. An unstaged path's index copy is HEAD's, already
+// committed, so restoring exactly these paths to HEAD loses nothing the
+// fast-forward does not write back.
+func landedCopies(git func(args ...string) *exec.Cmd, repo, ref string) []string {
+	if u, ok := capture(git("-C", repo, "ls-files", "--unmerged")); !ok || u != "" {
+		return nil
+	}
+	names := func(cached ...string) ([]string, bool) {
+		args := append([]string{"-C", repo, "diff", "--name-only", "-z", "--no-renames"}, cached...)
+		out, ok := capture(git(append(args, "HEAD")...))
+		var ps []string
+		for _, p := range strings.Split(out, "\x00") {
+			if p != "" {
+				ps = append(ps, p)
+			}
+		}
+		return ps, ok
+	}
+	// same is `git diff --quiet ref -- paths`: worktree, or with --cached
+	// the index, byte-identical to ref at every path.
+	same := func(paths []string, cached ...string) bool {
+		args := append([]string{"-C", repo, "--literal-pathspecs", "diff", "--quiet"}, cached...)
+		return len(paths) == 0 || git(append(append(args, ref, "--"), paths...)...).Run() == nil
+	}
+	worktree, ok := names()
+	staged, ok2 := names("--cached")
+	if !ok || !ok2 || !same(staged, "--cached") {
+		return nil
+	}
+	paths := append([]string{}, worktree...)
+	for _, p := range staged {
+		if !slices.Contains(paths, p) {
+			paths = append(paths, p)
+		}
+	}
+	if len(paths) == 0 || !same(paths) {
+		return nil
+	}
+	// A clean filter compares what it keeps, not the bytes on disk: a lossy
+	// one (output stripping, secret scrubbing) would pass differing content
+	// as identical, so any filtered path refuses.
+	attrs, ok := capture(git(append([]string{"-C", repo, "check-attr", "filter", "-z", "--"}, paths...)...))
+	if !ok {
+		return nil
+	}
+	f := strings.Split(attrs, "\x00")
+	for i := 2; i < len(f); i += 3 {
+		if f[i] != "unspecified" && f[i] != "unset" {
+			return nil
+		}
+	}
+	return paths
+}
+
+func rmcPresent(p string) bool { _, err := os.Lstat(p); return err == nil }

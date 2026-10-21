@@ -15,17 +15,34 @@
 # In order: the bounded, credential-free fetch resolve-base-branch.sh runs
 # (`-c core.askpass=true fetch --quiet origin`, its failure ignored — a
 # stale origin/<base> only means a smaller step); then every refusal below,
-# checked before anything moves; then `git merge --ff-only origin/<base>`.
+# checked before anything moves; then the landed-copies discard; then
+# `git merge --ff-only origin/<base>`.
+#
+# LANDED COPIES (KAN-926). Drift landed on origin/<base> from another
+# worktree leaves the main checkout holding uncommitted copies of exactly
+# what the fast-forward brings, and git's merge refuses to overwrite them.
+# When every tracked change is such a copy — each changed path's worktree
+# content, and its index content wherever staged, byte-identical to
+# origin/<base>, with no unmerged entry — those paths alone are restored to
+# HEAD (`git restore --source=HEAD --staged --worktree -- <paths>`) and the
+# fast-forward writes the same bytes back: nothing is lost. Any path that
+# differs refuses the whole set, every copy kept; so does any path with a
+# `filter` attribute, whose clean filter compares only what it keeps; so
+# does an untracked path origin/<base> adds, before anything is restored.
 #
 # Exit codes:
-#   0  REFRESH-DONE: <path> fast-forwarded <old> -> <new>
+#   0  REFRESH-DISCARDED: <path> <n> tracked paths identical to origin/<base>
+#      — before REFRESH-DONE, when landed copies were restored
+#      REFRESH-DONE: <path> fast-forwarded <old> -> <new>
 #      REFRESH-CURRENT: <path> already at <tip> (nothing to do)
 #      FLOWD-RESTARTED: <path>/stats — after REFRESH-DONE, when <old>..<new>
 #      moved a stats/ path and <path>/stats/Makefile and stats/cmd/flowd exist: `make -C
 #      <path>/stats restart` ran
 #   1  REFRESH-REFUSED: <path> <reason> — nothing touched. Reasons: is
 #      detached; is on <branch>, not <base>; has tracked changes (any
-#      modified, staged or unmerged entry); has no origin/<base>; has <base>
+#      modified, staged or unmerged entry not a landed copy above); has no
+#      origin/<base>; has untracked <p> origin/<base> adds (only when
+#      landed copies would be discarded); has <base>
 #      commits origin/<base> lacks (local <base> is not an ancestor of
 #      origin/<base>)
 #   2  usage; or cannot answer — a git read or the merge fails outright
