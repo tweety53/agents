@@ -124,7 +124,7 @@ read it at the pinned base `ef6f87cd` through `historicalFile` (`stats/internal/
 
 **Build:** green
 **Files:** `scripts/test-check-done-when-paths.sh`, `stats/internal/guard/donewhenpaths_test.go`, `stats/internal/guard/check_done_when_paths_test.go`
-**Tests:** Case 13b
+**Tests:** `TestCheckDoneWhenPaths`
 **Regression:** none — deletion of a duplicate harness.
 **Commit:** test(guard): delete the bash harness duplicating donewhenpaths_test.go
 **After:** none
