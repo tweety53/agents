@@ -83,7 +83,7 @@ its step 5 names. The full package and `scripts/run-guard-tests.sh` run in task 
 
 ---
 
-- [ ] 1. Port check-plan-unchanged
+- [x] 1. Port check-plan-unchanged
 
 **Files:** `stats/internal/guard/planunchanged.go`, `stats/internal/guard/check_plan_unchanged_test.go`, `scripts/check-plan-unchanged.sh`, `scripts/test-check-plan-unchanged.sh`
 **Tests:** `TestCheckPlanUnchanged`
@@ -96,15 +96,15 @@ its step 5 names. The full package and `scripts/run-guard-tests.sh` run in task 
 
 **Decision:** scope-five-issue-guards
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-plan-unchanged.sh`, one
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-plan-unchanged.sh`, one
     subtest per `ok:` label (cases 14a/14b on an archived change included). Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-plan-unchanged`; snapshot file format and location
+  - [x] **Step 2: Port**, registering `check-plan-unchanged`; snapshot file format and location
     byte-identical to the bash's.
-  - [ ] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestCheckPlanUnchanged$'
+  - [x] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestCheckPlanUnchanged$'
     -count=1 -race -v | grep -c -- '--- PASS: TestCheckPlanUnchanged/'` — at least 30.
-  - [ ] **Step 4: Shim and delete** — shim template, code 2;
+  - [x] **Step 4: Shim and delete** — shim template, code 2;
     `git rm scripts/test-check-plan-unchanged.sh`.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`; a snapshot then
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`; a snapshot then
     verify of this worktree through `scripts/check-plan-unchanged.sh` exits as the bash did at
     `c9b8fde8`, directly and through a symlink to it in a temp directory.
 
@@ -134,7 +134,7 @@ its step 5 names. The full package and `scripts/run-guard-tests.sh` run in task 
     verify on a temp markers file through `scripts/check-tree-markers.sh` exits as the bash did at
     `c9b8fde8`, directly and through a symlink.
 
-- [ ] 3. Port guard-autosquash
+- [x] 3. Port guard-autosquash
 
 **Files:** `stats/internal/guard/guardautosquash.go`, `stats/internal/guard/guard_autosquash_test.go`, `scripts/guard-autosquash.sh`, `scripts/test-guard-autosquash.sh`, `stats/internal/guard/foldfixup.go`
 **Tests:** `TestGuardAutosquash`
@@ -150,17 +150,17 @@ fold-fixup stops reading the shim's verdicts.
 
 Correction (2026-10-21): the plan declared `TestFoldFixup` under **Tests:**; the commit leaves that existing test unchanged and runs it, so it moved to **Regression:**.
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-guard-autosquash.sh`, one
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-guard-autosquash.sh`, one
     subtest per `ok:` label (`targets` and `after` subcommands, usage exits). Run — expect failure.
-  - [ ] **Step 2: Port**, registering `guard-autosquash`; `targets`/`after` subcommands, the
+  - [x] **Step 2: Port**, registering `guard-autosquash`; `targets`/`after` subcommands, the
     `usage` and `cannot_answer` lines byte-identical.
-  - [ ] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestGuardAutosquash$'
+  - [x] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestGuardAutosquash$'
     -count=1 -race -v | grep -c -- '--- PASS: TestGuardAutosquash/'` — at least 12; `go test
     ./internal/guard/ -run '^TestFoldFixup' -count=1 -race` passes.
-  - [ ] **Step 4: Shim and delete** — shim template, code 2;
+  - [x] **Step 4: Shim and delete** — shim template, code 2;
     `git rm scripts/test-guard-autosquash.sh`; `foldfixup.go`'s "guard-autosquash stays bash"
     comment corrected to name the shim it execs.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
     `scripts/guard-autosquash.sh targets <this worktree> HEAD` exits as the bash did at
     `c9b8fde8`, directly and through a symlink.
 
@@ -188,7 +188,7 @@ Correction (2026-10-21): the plan declared `TestFoldFixup` under **Tests:**; the
     `scripts/check-panel-diff-size.sh` on this worktree with the arguments its header's usage names
     exits as the bash did at `c9b8fde8`, directly and through a symlink.
 
-- [ ] 5. Port check-worktree-processes
+- [x] 5. Port check-worktree-processes
 
 **Files:** `stats/internal/guard/worktreeprocesses.go`, `stats/internal/guard/check_worktree_processes_test.go`, `scripts/check-worktree-processes.sh`, `scripts/test-check-worktree-processes.sh`
 **Tests:** `TestCheckWorktreeProcesses`
@@ -202,18 +202,18 @@ always-CLEAR mutation case included.
 
 **Decision:** worktree-processes-execs-lsof
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-worktree-processes.sh`,
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-worktree-processes.sh`,
     one subtest per `ok:` label; real child processes with their cwd in a `t.TempDir()` worktree,
     every path compared physically (`filepath.EvalSymlinks`), each child killed in `t.Cleanup`; the
     missing-`lsof` case runs with a `PATH` on `Env` that holds no `lsof`. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-worktree-processes`; `lsof` resolved through `Env`'s
+  - [x] **Step 2: Port**, registering `check-worktree-processes`; `lsof` resolved through `Env`'s
     `PATH`, its `-F` output parsed as the bash did.
-  - [ ] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run
+  - [x] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run
     '^TestCheckWorktreeProcesses$' -count=1 -race -v | grep -c -- '--- PASS:
     TestCheckWorktreeProcesses/'` — at least 27.
-  - [ ] **Step 4: Shim and delete** — shim template, code 2;
+  - [x] **Step 4: Shim and delete** — shim template, code 2;
     `git rm scripts/test-check-worktree-processes.sh`.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
     `scripts/check-worktree-processes.sh <this worktree>` exits as the bash did at `c9b8fde8`,
     directly and through a symlink.
 
