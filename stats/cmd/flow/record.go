@@ -1062,6 +1062,14 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
 	}
+	// An inline row begins before its work's first edit (implement.md's
+	// Records); a back-filled row (-started-at) records work already done.
+	if *agentID == "inline" && *startedAt == "" {
+		if dirty := inlineDirtyPaths(f.dir, f.change); len(dirty) > 0 {
+			fmt.Fprintf(stderr, "flow: -agent-id inline begins before the work's first edit, and the worktree already carries tracked modifications: %s -- commit the earlier work, or begin the row before editing (skills/flow/implement.md)\n", strings.Join(dirty, ", "))
+			return 2
+		}
+	}
 
 	projectKey, _, err := fallback.ProjectKey(f.dir)
 	if err != nil {
@@ -3119,6 +3127,35 @@ func requireChangeCheckout(dir, change string, stderr io.Writer) bool {
 	}
 	fmt.Fprintf(stderr, "flow: no checkout of the repository holding %s carries change %q (spectre/changes/, spectre/changes/archive/ or .superpowers/sdd/) -- refused, so the row is not filed under the wrong project; pass -C <the change's canonical worktree>\n", dir, change)
 	return false
+}
+
+// inlineDirtyPaths is every tracked path of dir's worktree modified, staged
+// or not, save the change's own tasks.md -- close-task.sh's ticks stay
+// uncommitted between tasks. An inline row begun over any other records work
+// already under way (kan-920 self-review: task 5's row began after its
+// design.md edit and recorded 7 seconds). A git call that fails answers
+// nothing, and the begin is not refused on it.
+func inlineDirtyPaths(dir, change string) []string {
+	out, err := exec.Command("git", "-C", dir, "status", "--porcelain=v1", "-z", "--untracked-files=no").Output()
+	if err != nil {
+		return nil
+	}
+	own := "spectre/changes/" + change + "/tasks.md"
+	var dirty []string
+	entries := strings.Split(string(out), "\x00")
+	for i := 0; i < len(entries); i++ {
+		e := entries[i]
+		if len(e) < 4 {
+			continue
+		}
+		if e[0] == 'R' || e[0] == 'C' {
+			i++ // the rename's or copy's source path is the next entry
+		}
+		if p := e[3:]; p != own {
+			dirty = append(dirty, p)
+		}
+	}
+	return dirty
 }
 
 // mutationRoots is the -C repository's top level plus every key of the

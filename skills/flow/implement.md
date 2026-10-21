@@ -199,6 +199,10 @@ these substitutions:
   no time; `flow record dispatch end` refuses a `completed` inline row closed under three seconds
   after its begin when it carries no `-tokens` report — which only a harness without a
   harvested transcript may pass; `-tokens` is refused where `CLAUDE_CODE_SESSION_ID` is set.
+  `flow record dispatch begin -agent-id inline` refuses while the worktree carries a tracked
+  modification other than the change's own `tasks.md`, naming each dirty path — work already
+  under way when its row begins (kan-920: task 5's row began after its edit and recorded 7
+  seconds).
 
 ## 1. Load context and validate the plan
 

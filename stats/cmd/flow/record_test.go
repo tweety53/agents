@@ -5679,3 +5679,63 @@ func TestRecordFindingFromFile(t *testing.T) {
 		t.Errorf("-note from: exit %d, stderr %q, posted %+v; want F6 recorded with note \"from\"", code, stderr.String(), posted)
 	}
 }
+
+// TestRecordDispatchBeginRefusesAnInlineRowOverEarlierWork pins kan-920's
+// self-review: task 5's inline row began after its design.md edit and
+// recorded 7 seconds. An inline begin refuses a worktree carrying tracked
+// modifications, naming them -- save the change's own tasks.md, whose
+// close-task ticks stay uncommitted -- while a dispatched row and a
+// back-filled one are not judged.
+func TestRecordDispatchBeginRefusesAnInlineRowOverEarlierWork(t *testing.T) {
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	change := filepath.Join(repo, "spectre", "changes", "kan-258")
+	write := func(name, body string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(change, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("tasks.md", "- [ ] 1. x\n")
+	write("design.md", "## Context\n")
+	for _, args := range [][]string{{"add", "-A"}, {"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "plan"}} {
+		if out, err := exec.Command("git", append([]string{"-C", repo}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	begin := func(extra ...string) (int, string, bool) {
+		t.Helper()
+		contacted := false
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			contacted = true
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
+		}))
+		defer srv.Close()
+		argv := append([]string{"record", "dispatch", "begin", "-effort", "default", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-key", "task-5-implementer",
+			"-session-token", "mf-record-inline-dirty"}, extra...)
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), argv, strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String(), contacted
+	}
+
+	write("tasks.md", "- [x] 1. x\n")
+	if code, stderr, _ := begin("-agent-id", "inline"); code != 0 {
+		t.Fatalf("a ticked tasks.md alone: exit %d, want 0; stderr:\n%s", code, stderr)
+	}
+	write("design.md", "## Context\nedited\n")
+	code, stderr, contacted := begin("-agent-id", "inline")
+	if code != 2 || !strings.Contains(stderr, "spectre/changes/kan-258/design.md") || strings.Contains(stderr, "tasks.md") {
+		t.Fatalf("an inline begin over an edited design.md: exit %d, want 2 naming design.md alone; stderr:\n%s", code, stderr)
+	}
+	if contacted {
+		t.Error("a refused inline begin was sent to the daemon")
+	}
+	if code, stderr, _ := begin("-agent-id", "none"); code != 0 {
+		t.Errorf("a dispatched row over the same tree: exit %d, want 0; stderr:\n%s", code, stderr)
+	}
+	if code, stderr, _ := begin("-agent-id", "inline", "-started-at", "2026-10-21T19:48:16Z"); code != 0 {
+		t.Errorf("a back-filled inline row: exit %d, want 0; stderr:\n%s", code, stderr)
+	}
+}
