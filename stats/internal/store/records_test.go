@@ -4301,6 +4301,57 @@ func TestRecordDispatchReopensAnAbortedKey(t *testing.T) {
 	}
 }
 
+// rebeginSlotModelEffort begins panel-1-primary on primary/opus/high,
+// optionally ends it aborted, begins it again on principles/sonnet/medium,
+// and asserts the row -- returned and as RunRecord reads it -- carries the
+// second begin's three values, the same ID and seq, still open (KAN-912).
+func rebeginSlotModelEffort(t *testing.T, abort bool) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-rebegin-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	d := baseDispatch("reviewer", "opus")
+	d.SessionToken, d.Key, d.Slot, d.Effort = "tok", "panel-1-primary", "primary", "high"
+	first, err := st.RecordDispatch(ctx, projectKey, "kan-1", d)
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	if abort {
+		if _, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{
+			SessionToken: "tok", Key: d.Key, Outcome: "aborted", EndedAt: d.StartedAt.Add(time.Minute),
+		}); err != nil {
+			t.Fatalf("EndDispatch: %v", err)
+		}
+	}
+	d.Slot, d.Model, d.Effort = "principles", "sonnet", "medium"
+	got, err := st.RecordDispatch(ctx, projectKey, "kan-1", d)
+	if err != nil {
+		t.Fatalf("re-begin: %v", err)
+	}
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	if len(rec.Dispatches) != 1 {
+		t.Fatalf("RunRecord has %d dispatches, want 1", len(rec.Dispatches))
+	}
+	for _, r := range []records.Dispatch{got, rec.Dispatches[0]} {
+		if r.Slot != "principles" || r.Model != "sonnet" || r.Effort != "medium" ||
+			r.ID != first.ID || r.Seq != first.Seq || r.EndedAt != nil || r.Outcome != "" {
+			t.Errorf("re-begun row = slot %q model %q effort %q id %d seq %d ended %v outcome %q, want principles/sonnet/medium id %d seq %d open",
+				r.Slot, r.Model, r.Effort, r.ID, r.Seq, r.EndedAt, r.Outcome, first.ID, first.Seq)
+		}
+	}
+}
+
+func TestRecordDispatchReBeginUpdatesSlotModelAndEffort(t *testing.T) {
+	rebeginSlotModelEffort(t, false)
+}
+
+func TestRecordDispatchReBeginOfAnAbortedKeyUpdatesSlotModelAndEffort(t *testing.T) {
+	rebeginSlotModelEffort(t, true)
+}
+
 // TestStampLoopDispatchAgentRestampsAReBegunAbortedKey pins that the
 // re-dispatch of an aborted loop key clears the dead attempt's agent id, so
 // the stamp names the re-run's agent rather than leaving the row on the first.

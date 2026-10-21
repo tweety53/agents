@@ -401,6 +401,13 @@ func scanDispatchRow(row dispatchRowScanner) (records.Dispatch, error) {
 // reBegin is a begin (no ended_at) replayed onto a row that ended aborted: the
 // re-dispatch of an aborted loop key reopens that row, so the OPEN check and
 // its attribution window see the re-run rather than the aborted attempt.
+//
+// A repeated begin takes the new begin's slot, model and effort, last begin
+// wins -- a journal replay carries the same values, so it stays a no-op -- so
+// a re-dispatch on a new pair never keeps the stale one (KAN-912).
+// That holds only for in-order replay: the reconciler replays the journal
+// asynchronously, so a begin journaled before a newer begin reached the store
+// is replayed after it and sets the row back to the older pair.
 const reBegin = `(dispatches.outcome = 'aborted' AND EXCLUDED.ended_at IS NULL)`
 
 func (s *Store) insertDispatch(ctx context.Context, projectKey, change string, in records.Dispatch) (records.Dispatch, error) {
@@ -437,7 +444,10 @@ func (s *Store) insertDispatch(ctx context.Context, projectKey, change string, i
 			ended_at = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.ended_at END,
 			cause = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.cause END,
 			outcome = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.outcome END,
-			agent_id = CASE WHEN `+reBegin+` THEN EXCLUDED.agent_id ELSE dispatches.agent_id END
+			agent_id = CASE WHEN `+reBegin+` THEN EXCLUDED.agent_id ELSE dispatches.agent_id END,
+			slot = EXCLUDED.slot,
+			model = EXCLUDED.model,
+			effort = EXCLUDED.effort
 		RETURNING `+dispatchColumns+`
 	`,
 		projectKey, change, in.StageRunID, nullIfEmpty(in.TaskID), in.Role, nullIfEmpty(in.Slot),
