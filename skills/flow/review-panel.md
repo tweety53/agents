@@ -731,7 +731,11 @@ discipline**'s never-`cat`-a-report rule (`skills/flow/implement.md`).
 
 **Every finding is a row in the store. The panel record is rendered from those rows.** The parent
 records every finding itself. Every
-finding a round raised is recorded in one Bash call, one `flow record finding` per finding:
+finding a round raised is recorded in one Bash call, `flow record finding -change <name> -from
+<abs-worktree>/.superpowers/sdd/findings-<round>.jsonl`, over a file the parent writes first: one
+JSON object per finding, its keys the flags below without their dash, a flag the finding omits
+left out — never a shell loop of single `flow record finding` calls, whose quoting of an optional
+flag cost kan-918's run a retry.
 
 ```bash
 flow record finding -change <name> -ref F<n> -round <r> -slot <slot> -severity <sev> \

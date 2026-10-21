@@ -5592,3 +5592,90 @@ func TestRecordMutationRefusesAPathNoWorktreeHolds(t *testing.T) {
 		}
 	})
 }
+
+// TestRecordFindingFromFile pins `flow record finding -from <file>`: every
+// non-blank JSON line is one finding, recorded in file order with the
+// command line's own flags, a note carrying a tab, quotes and a `$` arrives
+// intact, and a malformed line stops the run at its line number.
+func TestRecordFindingFromFile(t *testing.T) {
+	repo := recordRepo(t, "kan-918")
+	isolatedStateRoot(t)
+
+	var posted []records.Finding
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var f records.Finding
+		if err := json.Unmarshal(body, &f); err != nil {
+			t.Errorf("decode posted finding: %v\n%s", err, body)
+		}
+		posted = append(posted, f)
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	file := filepath.Join(t.TempDir(), "findings.jsonl")
+	lines := `{"ref":"F1","round":1,"slot":"primary","severity":"Important","location":"a.go:3","status":"open","reproducer":"scripts/x.sh","note":"tab\there \"q\" ${7:+-task $7}","dispatch-seq":4,"task":"3"}
+
+{"ref":"F2","slot":"principles","severity":"Minor","status":"open","reproducer":"none — prose","note":"second"}
+`
+	if err := os.WriteFile(file, []byte(lines), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918", "-from", file},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("record finding -from exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if len(posted) != 2 || posted[0].Ref != "F1" || posted[1].Ref != "F2" {
+		t.Fatalf("posted = %+v, want F1 then F2", posted)
+	}
+	if got := posted[0]; got.Round != 1 || got.TaskID != "3" || got.DispatchSeq == nil || *got.DispatchSeq != 4 ||
+		got.Note != "tab\there \"q\" ${7:+-task $7}" {
+		t.Errorf("F1 = %+v, want round 1, task 3, dispatch-seq 4 and the note byte for byte", got)
+	}
+	if got := posted[1]; got.Round != 0 || got.TaskID != "" {
+		t.Errorf("F2 = %+v, want round 0 and no task", got)
+	}
+
+	if err := os.WriteFile(file, []byte(`{"ref":"F3","slot":"primary","severity":"Minor","status":"open","reproducer":"none — x","note":"ok"}`+"\n{not json\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stderr.Reset()
+	code = run(context.Background(),
+		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918", "-from=" + file},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 2 || !strings.Contains(stderr.String(), file+":2:") {
+		t.Errorf("malformed line 2: exit %d, stderr %q; want 2 naming %s:2", code, stderr.String(), file)
+	}
+	if len(posted) != 3 || posted[2].Ref != "F3" {
+		t.Errorf("posted = %+v, want line 1 (F3) recorded before line 2 stopped the run", posted)
+	}
+
+	// A null reads as a missing key; a non-scalar value is refused.
+	if err := os.WriteFile(file, []byte(`{"ref":"F4","slot":"primary","severity":"Minor","status":"open","reproducer":"none — x","note":"n","task":null}`+"\n"+`{"ref":"F5","slot":"primary","severity":"Minor","status":"open","reproducer":"none — x","note":["a"]}`+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stderr.Reset()
+	code = run(context.Background(),
+		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918", "-from", file},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 2 || !strings.Contains(stderr.String(), file+":2:") {
+		t.Errorf("non-scalar line 2: exit %d, stderr %q; want 2 naming %s:2", code, stderr.String(), file)
+	}
+	if len(posted) != 4 || posted[3].Ref != "F4" || posted[3].TaskID != "" {
+		t.Errorf("posted = %+v, want F4 recorded with no task and F5 refused", posted)
+	}
+
+	// A flag value that is the bare word `from` is not the -from flag.
+	stderr.Reset()
+	code = run(context.Background(),
+		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918",
+			"-note", "from", "-ref", "F6", "-slot", "primary", "-severity", "Minor", "-status", "open", "-reproducer", "none — x"},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 0 || len(posted) != 5 || posted[4].Note != "from" {
+		t.Errorf("-note from: exit %d, stderr %q, posted %+v; want F6 recorded with note \"from\"", code, stderr.String(), posted)
+	}
+}

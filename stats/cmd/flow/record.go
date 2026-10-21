@@ -290,6 +290,8 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              [-dispatch-seq n] -note text
                              [-supersedes F<n>] [-regression-of F<n>]
                              [-pattern name] [-task id]
+       flow record finding  [-addr url] [-timeout dur] [-C dir]
+                             -change name -from file
        flow record status   [-addr url] [-timeout dur] [-C dir]
                              -change name -ref F<n> -status status
                              [-category cat]
@@ -1440,6 +1442,78 @@ func beginQueued(projectKey, change, key, sessionToken string) bool {
 	return false
 }
 
+// splitFromFlag takes `-from <file>` (or `-from=<file>`) out of a `flow
+// record finding` command line, returning the file and the other arguments.
+func splitFromFlag(args []string) (path string, rest []string, ok bool) {
+	for i := 0; i < len(args); i++ {
+		a := strings.TrimPrefix(args[i], "-")
+		switch {
+		case !strings.HasPrefix(args[i], "-"):
+			rest = append(rest, args[i])
+		case (a == "from" || a == "-from") && i+1 < len(args):
+			path, ok = args[i+1], true
+			i++
+		case strings.HasPrefix(a, "from=") || strings.HasPrefix(a, "-from="):
+			path, ok = a[strings.Index(a, "=")+1:], true
+		default:
+			rest = append(rest, args[i])
+		}
+	}
+	return path, rest, ok
+}
+
+// runRecordFindingFrom implements `flow record finding -from <file>`: one
+// finding per non-blank line of <file>, each a JSON object whose keys are
+// the single-finding flags without their dash ({"ref":"F3","round":1,
+// "slot":"primary",...}), recorded in file order through runRecordFinding
+// with the command line's other flags (-change, -C, ...) ahead of the
+// line's own. JSON rather than a delimited row, so a note carrying a tab, a
+// quote or a `$` needs no shell quoting (kan-918's self-review: a
+// hand-built zsh loop over 21 findings word-split an optional -task). The
+// first line that fails stops the run, naming its line number; the lines
+// before it stay recorded and each line is a rewrite by ref, so a re-run
+// after the fix is safe.
+func runRecordFindingFrom(ctx context.Context, path string, rest []string, stdout, stderr io.Writer) int {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: -from: %v\n", err)
+		return 2
+	}
+	for i, line := range strings.Split(string(data), "\n") {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		var row map[string]any
+		dec := json.NewDecoder(strings.NewReader(line))
+		dec.UseNumber()
+		if err := dec.Decode(&row); err != nil {
+			fmt.Fprintf(stderr, "flow: -from %s:%d: %v\n", path, i+1, err)
+			return 2
+		}
+		args := append([]string(nil), rest...)
+		for _, k := range slices.Sorted(maps.Keys(row)) {
+			if k == "from" {
+				fmt.Fprintf(stderr, "flow: -from %s:%d: a line cannot carry \"from\"\n", path, i+1)
+				return 2
+			}
+			switch v := row[k].(type) {
+			case nil:
+				// A null reads as a missing key.
+			case string, json.Number, bool:
+				args = append(args, "-"+k+"="+fmt.Sprint(v))
+			default:
+				fmt.Fprintf(stderr, "flow: -from %s:%d: %q is not a string, number or boolean\n", path, i+1, k)
+				return 2
+			}
+		}
+		if code := runRecordFinding(ctx, args, stdout, stderr); code != 0 {
+			fmt.Fprintf(stderr, "flow: -from %s:%d: not recorded; the lines after it were not tried\n", path, i+1)
+			return code
+		}
+	}
+	return 0
+}
+
 // runRecordFinding implements `flow record finding`: one call per
 // finding, as the slot raises it. A ref is unique per change, not per
 // round, so recording the same ref twice replaces the row rather than
@@ -1451,6 +1525,9 @@ func beginQueued(projectKey, change, key, sessionToken string) bool {
 // panel run can then tell a finding it has just raised from one a fix
 // round restated, which is a fact no caller can work out for itself.
 func runRecordFinding(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	if path, rest, ok := splitFromFlag(args); ok {
+		return runRecordFindingFrom(ctx, path, rest, stdout, stderr)
+	}
 	fset := flag.NewFlagSet("flow record finding", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
