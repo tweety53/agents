@@ -105,6 +105,25 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 		return fail("the markers file names no artifact -- cannot answer")
 	}
 
+	// Both snapshot-path checks run before any marker is recomputed, as the
+	// bash ran them ahead of record_all.
+	snapAbs := smcAbs(env, snap)
+	var recorded []byte
+	if mode == "snapshot" {
+		// F1 (panel round 1): mv files the snapshot INSIDE an existing
+		// directory, so the promised path would hold nothing while exit 0
+		// claimed a snapshot -- refused before anything is written.
+		if isDir(snapAbs) {
+			return fail("snapshot path is an existing directory: %s", snap)
+		}
+	} else {
+		var err error
+		recorded, err = os.ReadFile(snapAbs)
+		if err != nil || !isFile(snapAbs) {
+			return fail("no readable snapshot at %s -- cannot answer; snapshot runs before the dispatch, never after it", snap)
+		}
+	}
+
 	// One snapshot line per spec line: <path><TAB><marker><TAB><status>,
 	// where status is the literal `missing` or the grep -cE line count.
 	// grep runs as the bash ran it, under LC_ALL=C over env's PATH, so the
@@ -136,14 +155,7 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(&current, "%s\t%s\t%s\n", s.path, s.marker, count)
 	}
 
-	snapAbs := smcAbs(env, snap)
 	if mode == "snapshot" {
-		// F1 (panel round 1): mv files the snapshot INSIDE an existing
-		// directory, so the promised path would hold nothing while exit 0
-		// claimed a snapshot -- refused before anything is written.
-		if isDir(snapAbs) {
-			return fail("snapshot path is an existing directory: %s", snap)
-		}
 		// Written to a temp file beside the snapshot and renamed over it, as
 		// the bash's mktemp + mv: never half-made, mode 0600.
 		if !writeAtomic(snapAbs, current.Bytes()) {
@@ -153,10 +165,6 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 		return 0
 	}
 
-	recorded, err := os.ReadFile(snapAbs)
-	if err != nil || !isFile(snapAbs) {
-		return fail("no readable snapshot at %s -- cannot answer; snapshot runs before the dispatch, never after it", snap)
-	}
 	if bytes.Equal(recorded, current.Bytes()) {
 		fmt.Fprintln(stdout, "TREE-MARKERS-OK: every recorded marker matches its pre-dispatch snapshot")
 		return 0

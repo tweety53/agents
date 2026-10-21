@@ -181,6 +181,18 @@ func TestCheckTreeMarkers(t *testing.T) {
 	fx = tmNew(t)
 	add(tmExit("case 9: snapshot to an existing directory exits 2", fx.run("snapshot", fx.wt, fx.markers, fx.root+"/s"), 2))
 
+	// Case 9b/9c: the snapshot-path checks run before any marker is
+	// recomputed, as the bash ran them, so an unusable snapshot path is
+	// named even when a marker's ERE would also fail.
+	fx = tmNew(t)
+	writeFile(t, fx.root+"/badere/markers", "notes.md\t(\n")
+	r = fx.run("snapshot", fx.wt, fx.root+"/badere/markers", fx.root+"/s")
+	add(tmExact("case 9b: a directory snapshot path is named before a failing grep", r.err,
+		"check-tree-markers: snapshot path is an existing directory: "+fx.root+"/s\n"))
+	r = fx.run("verify", fx.wt, fx.root+"/badere/markers", fx.root+"/s/absent")
+	add(tmExact("case 9c: a missing snapshot is named before a failing grep", r.err,
+		"check-tree-markers: no readable snapshot at "+fx.root+"/s/absent -- cannot answer; snapshot runs before the dispatch, never after it\n"))
+
 	// Case 10: F2 -- a markers file with zero valid lines.
 	fx = tmNew(t)
 	writeFile(t, fx.root+"/empty/markers", "")
