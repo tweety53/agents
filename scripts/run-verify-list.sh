@@ -17,6 +17,11 @@
 # so the list is refused before anything runs (kan-983 self-review). Each command runs from
 # <worktree> in a fresh `bash -c`, stdin detached (</dev/null) so none waits
 # on a terminal, and the whole list always runs: a failure never stops it.
+# A `test` list's commands run concurrently, each into its own output file,
+# reported in list order once every one has exited (kan-920 self-review: the
+# guard harnesses and `go test -race` ran one after the other, 6½ minutes; run
+# together they took 307 s, each slowed by the other's CPU). A `lint` list
+# runs in order, one command at a time.
 # The caller exports the KEY=value lines prepare-workspace.sh printed for
 # <worktree> first; every command inherits them. This script retries
 # nothing — the one inline re-run of a failing command stays the caller's.
@@ -36,7 +41,7 @@
 # ponytail: the sha ignores the exported KEY=value lines; a run under other
 # isolation values reuses the green, so key the file by them if they ever vary.
 #
-# OUTPUT, one block per command in the order run, stdout and stderr together:
+# OUTPUT, one block per command in list order, stdout and stderr together:
 #   - `<command>` — exit <n>
 #     <each output line, indented two spaces; past 20 lines,
 #     `(truncated — last 20 of <N> lines)` and then the last 20>
@@ -113,32 +118,48 @@ unchanged() {
   git -C "$WT" diff --quiet "$SINCE" "$HEAD_SHA" -- "${specs[@]}" .flow/project.md 2>/dev/null
 }
 
-OUT="$(mktemp "${TMPDIR:-/tmp}/run-verify-list.XXXXXX")"
-trap 'rm -f "$OUT"' EXIT
+OUTDIR="$(mktemp -d "${TMPDIR:-/tmp}/run-verify-list.XXXXXX")"
+trap 'rm -rf "$OUTDIR"' EXIT
 
 FAILED=0
-# run <command-as-shown> <command-to-run>
-run() {
-  local rc n
-  (cd "$WT" && bash -c "$2") </dev/null >"$OUT" 2>&1
-  rc=$?
-  [ "$rc" -eq 0 ] || FAILED=1
-  printf -- '- `%s` — exit %d\n' "$1" "$rc"
-  n="$(awk 'END{print NR}' "$OUT")"
+# report <command-as-shown> <exit> <output-file>
+report() {
+  local n
+  [ "$2" -eq 0 ] || FAILED=1
+  printf -- '- `%s` — exit %d\n' "$1" "$2"
+  n="$(awk 'END{print NR}' "$3")"
   if [ "$n" -gt 20 ]; then
     printf '  (truncated — last 20 of %d lines)\n' "$n"
-    tail -n 20 "$OUT" | awk '{print "  " $0}'
+    tail -n 20 "$3" | awk '{print "  " $0}'
   else
-    awk '{print "  " $0}' "$OUT"
+    awk '{print "  " $0}' "$3"
   fi
 }
+# run <command-as-shown> <command-to-run>, in the foreground
+run() {
+  (cd "$WT" && bash -c "$2") </dev/null >"$OUTDIR/out" 2>&1
+  report "$1" "$?" "$OUTDIR/out"
+}
 
+# PIDS[i] is the background pid of a `test` command, or `skip`.
+PIDS=()
 for i in "${!CMDS[@]}"; do
   if unchanged "${INPUTS[$i]}"; then
+    PIDS[i]=skip
+  elif [ "$LIST" = test ]; then
+    (cd "$WT" && bash -c "${CMDS[$i]}") </dev/null >"$OUTDIR/$i" 2>&1 &
+    PIDS[i]=$!
+  else
+    run "${CMDS[$i]}" "${CMDS[$i]}"
+  fi
+done
+for i in "${!PIDS[@]}"; do
+  if [ "${PIDS[$i]}" = skip ]; then
     printf -- '- `%s` — skipped, no input changed since %s passed the list\n' "${CMDS[$i]}" "$SINCE"
     continue
   fi
-  run "${CMDS[$i]}" "${CMDS[$i]}"
+  wait "${PIDS[$i]}"
+  report "${CMDS[$i]}" "$?" "$OUTDIR/$i"
 done
 if [ -n "$HEAD_SHA" ] && [ "$FAILED" -eq 0 ] &&
   STATUS="$(git -C "$WT" status --porcelain --untracked-files=all 2>/dev/null)" && [ -z "$STATUS" ]; then

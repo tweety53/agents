@@ -71,6 +71,14 @@ expect_has "test list reported" $'- `printf \'ok\\n\'` — exit 0\n  ok'
 expect_has "output without a final newline ends its line" $'  nonl\n- `echo next` — exit 0'
 expect_lacks "test never appends check-spec-reach.sh" 'check-spec-reach.sh'
 
+# The first command waits for a file only the second creates: run one after
+# the other it gives up after five seconds and fails the list.
+printf '## test\n\n```bash\nfor i in $(seq 50); do [ -f made-by-two ] && echo saw-two && exit 0; sleep 0.1; done; exit 1\ntouch made-by-two\n```\n' > "$ROOT/.flow/project.md"
+run_bin "$ROOT" test
+rm -f "$ROOT/made-by-two"
+expect_rc "test commands run concurrently" 0
+expect_has "concurrent output reported in list order" $'  saw-two\n- `touch made-by-two` — exit 0'
+
 printf '## lint\n\n```bash\ntrue\n```\n' > "$ROOT/.flow/project.md"
 run_bin "$ROOT" test
 expect_rc "an undeclared list" 3

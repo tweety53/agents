@@ -44,8 +44,21 @@ web-build:
 # (KAN-987).
 web-dist: internal/web/dist/index.html
 
+# The `## test` list's commands run concurrently (scripts/run-verify-list.sh),
+# and each opens with `make -s web-dist`, so the build takes a lock in the
+# git dir -- outside the tree, where the suites watch for changes -- and a
+# second caller waits for the first build instead of running `npm ci` over it.
+# A build killed by a signal (SIGKILL anywhere; SIGTERM/SIGINT where /bin/sh is
+# dash, whose EXIT trap does not run on a signal) leaves the lock, so a caller
+# that cannot take it within 600s fails naming the directory to remove.
 internal/web/dist/index.html:
-	$(MAKE) web-build
+	@lock="$$(git rev-parse --path-format=absolute --git-path web-build.lock 2>/dev/null)" || lock="$${TMPDIR:-/tmp}/flow-web-build.lock"; \
+	n=0; until mkdir "$$lock" 2>/dev/null; do \
+		n=$$((n+1)); [ $$n -lt 600 ] || { echo "web-dist: lock $$lock not taken within 600s -- remove it if no build is running" >&2; exit 1; }; \
+		sleep 1; \
+	done; \
+	trap 'rmdir "$$lock"' EXIT; \
+	[ -f $@ ] || $(MAKE) web-build
 
 # Both binaries: the Vite build, then `go build`, in that order -- never
 # the other way around -- so the embedded assets `go build` bakes in are
