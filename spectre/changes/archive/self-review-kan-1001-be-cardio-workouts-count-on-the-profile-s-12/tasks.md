@@ -37,12 +37,12 @@ in this agents worktree.
 - Task 5: the seed run's `--args` carries every value it did before (`--app.seed.enabled=true`, the invite, the fixed day, datasource, storage, Redis index, OAuth placeholders).
 - Task 6: no workspace a live worktree derives is removed.
 
-- [ ] 1. Close a self-review pass as nothing to close
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In this agents worktree, apply the test hunk alone — `git apply --include='stats/internal/guard/pipeline_fix_test.go' $P/patches/task-1.diff` — and run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestPipelineFixEndPassRecordsNothing' -count=1`: it fails, `rc 0:` with no `PIPELINE-FIX-END-NA` line.
+- [x] 1. Close a self-review pass as nothing to close
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In this agents worktree, apply the test hunk alone — `git apply --include='stats/internal/guard/pipeline_fix_test.go' $P/patches/task-1.diff` — and run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestPipelineFixEndPassRecordsNothing' -count=1`: it fails, `rc 0:` with no `PIPELINE-FIX-END-NA` line.
     <!-- measured: the test hunk alone, go test -run TestPipelineFixEndPassRecordsNothing @ branch self-review-kan-1001-be-cardio-workouts-count-on-the-profile-s-12 (1c4c3e38) → FAIL, pipeline_fix_test.go:321: rc 0: -->
-  - [ ] **Step 2: Apply the fix** — the rest: `git apply --exclude='stats/internal/guard/pipeline_fix_test.go' $P/patches/task-1.diff`.
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestPipelineFix|TestCheckLoopDispatch' -count=1` passes.
-  - [ ] **Step 4: Commit** the two files below with the subject below.
+  - [x] **Step 2: Apply the fix** — the rest: `git apply --exclude='stats/internal/guard/pipeline_fix_test.go' $P/patches/task-1.diff`.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestPipelineFix|TestCheckLoopDispatch' -count=1` passes.
+  - [x] **Step 4: Commit** the two files below with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/pipelinefix.go`, `stats/internal/guard/pipeline_fix_test.go`
@@ -55,13 +55,13 @@ in this agents worktree.
 
 **Decision:** pass-end-is-a-no-op
 
-- [ ] 2. Keep a data heredoc's body as data when its target is only named
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In this agents worktree, apply the harness hunk alone — `git apply --include='scripts/test-protect-main-checkout.sh' $P/patches/task-2.diff` — and run `bash scripts/test-protect-main-checkout.sh`: cases 118 and 119 fail (`wanted allow, got deny`), every other case passes.
+- [x] 2. Keep a data heredoc's body as data when its target is only named
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In this agents worktree, apply the harness hunk alone — `git apply --include='scripts/test-protect-main-checkout.sh' $P/patches/task-2.diff` — and run `bash scripts/test-protect-main-checkout.sh`: cases 118 and 119 fail (`wanted allow, got deny`), every other case passes.
     <!-- measured: the harness hunk alone, bash scripts/test-protect-main-checkout.sh @ branch self-review-kan-1001-be-cardio-workouts-count-on-the-profile-s-12 (1c4c3e38) → 2 failure(s), cases 118 and 119 -->
-  - [ ] **Step 2: Apply the fix** — the rest: `git apply --exclude='scripts/test-protect-main-checkout.sh' $P/patches/task-2.diff`.
-  - [ ] **Step 3: Verify.** `bash scripts/test-protect-main-checkout.sh` ends `all protect-main-checkout cases pass`; `scripts/check-python-suppressions.sh` and `scripts/check-references.sh` exit 0.
-  - [ ] **Step 4: Update the saved memory** (no commit — it lives outside the repository): copy `$P/memory-protect-main-checkout-hook-quirks.md` over `/Users/tweety53/.claude/projects/-Users-tweety53-Projects-gymie/memory/protect-main-checkout-hook-quirks.md`, then set its `modified:` line to the current UTC time. Its `MEMORY.md` index line stays.
-  - [ ] **Step 5: Commit** the two files below with the subject below.
+  - [x] **Step 2: Apply the fix** — the rest: `git apply --exclude='scripts/test-protect-main-checkout.sh' $P/patches/task-2.diff`.
+  - [x] **Step 3: Verify.** `bash scripts/test-protect-main-checkout.sh` ends `all protect-main-checkout cases pass`; `scripts/check-python-suppressions.sh` and `scripts/check-references.sh` exit 0.
+  - [x] **Step 4: Update the saved memory** (no commit — it lives outside the repository): copy `$P/memory-protect-main-checkout-hook-quirks.md` over `/Users/tweety53/.claude/projects/-Users-tweety53-Projects-gymie/memory/protect-main-checkout-hook-quirks.md`, then set its `modified:` line to the current UTC time. Its `MEMORY.md` index line stays.
+  - [x] **Step 5: Commit** the two files below with the subject below.
 
 **Build:** green
 **Files:** `hooks/protect-main-checkout.py`, `scripts/test-protect-main-checkout.sh`
@@ -74,12 +74,12 @@ in this agents worktree.
 
 **Decision:** heredoc-target-run-not-named
 
-- [ ] 3. Serve archived live-verification.md in the self-review bundle
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In this agents worktree, apply the test hunks alone — `git apply --include='stats/internal/selfreview/bundle_test.go' $P/patches/task-3.diff` — and run `cd stats && make -s web-dist && go test ./internal/selfreview/ -run 'TestBundleServesArchivedLiveVerification' -count=1`: it fails, the bundle missing the `live-verification.md` section.
+- [x] 3. Serve archived live-verification.md in the self-review bundle
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In this agents worktree, apply the test hunks alone — `git apply --include='stats/internal/selfreview/bundle_test.go' $P/patches/task-3.diff` — and run `cd stats && make -s web-dist && go test ./internal/selfreview/ -run 'TestBundleServesArchivedLiveVerification' -count=1`: it fails, the bundle missing the `live-verification.md` section.
     <!-- measured: with git.go reverted, go test -run TestBundleServesArchivedLiveVerification @ branch self-review-kan-1001-be-cardio-workouts-count-on-the-profile-s-12 (1c4c3e38) → FAIL -->
-  - [ ] **Step 2: Apply the fix** — the rest: `git apply --exclude='stats/internal/selfreview/bundle_test.go' $P/patches/task-3.diff`.
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/selfreview/ ./internal/api/ && go test ./internal/selfreview/ -run 'TestBundle' -count=1` passes; `scripts/check-verbatim-moves.sh` reports 0 violations (the four sentences are listed in `$P/verbatim-moves.txt`); `scripts/check-references.sh`, `scripts/check-installed-citations.sh` and `python3 scripts/check-markdown-integrity.py` exit 0.
-  - [ ] **Step 4: Commit** the five files below with the subject below.
+  - [x] **Step 2: Apply the fix** — the rest: `git apply --exclude='stats/internal/selfreview/bundle_test.go' $P/patches/task-3.diff`.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/selfreview/ ./internal/api/ && go test ./internal/selfreview/ -run 'TestBundle' -count=1` passes; `scripts/check-verbatim-moves.sh` reports 0 violations (the four sentences are listed in `$P/verbatim-moves.txt`); `scripts/check-references.sh`, `scripts/check-installed-citations.sh` and `python3 scripts/check-markdown-integrity.py` exit 0.
+  - [x] **Step 4: Commit** the five files below with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/selfreview/git.go`, `stats/internal/selfreview/bundle_test.go`, `stats/internal/api/selfreview.go`, `skills/flow-contracts/finish-contract-run1.md`, `skills/flow-fast/SKILL.md`
@@ -92,12 +92,12 @@ in this agents worktree.
 
 **Decision:** live-verification-after-visual
 
-- [ ] 4. Link .env before dbSeed and devWorkspaceCreate seed
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In the gymie worktree, run `./gradlew -q -m dbSeed` and `./gradlew -q -m devWorkspaceCreate`: each prints its own task line and no `:linkEnvFile SKIPPED` line.
+- [x] 4. Link .env before dbSeed and devWorkspaceCreate seed
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In the gymie worktree, run `./gradlew -q -m dbSeed` and `./gradlew -q -m devWorkspaceCreate`: each prints its own task line and no `:linkEnvFile SKIPPED` line.
     <!-- measured: ./gradlew -q -m dbSeed and -m devWorkspaceCreate @ branch spectre/kan-1001-be-cardio-workouts-count-on-the-profile-s-12 (94c2e80f) → ":dbSeed SKIPPED" / ":devWorkspaceCreate SKIPPED" alone -->
-  - [ ] **Step 2: Apply** `git apply $P/patches/task-4.diff` in the gymie worktree (it creates `scripts/test-env-link-wiring.sh`, mode 755).
-  - [ ] **Step 3: Verify.** `bash scripts/test-env-link-wiring.sh` ends `all env-link wiring cases pass`; `./gradlew ktlintFormat`, then `./gradlew verifyChange :app:test --tests 'com.gymie.CiWorkflowTest'` passes.
-  - [ ] **Step 4: Commit** the four files below on branch `spectre/kan-1001-be-cardio-workouts-count-on-the-profile-s-12` with the subject below; it rides that change's merge and push.
+  - [x] **Step 2: Apply** `git apply $P/patches/task-4.diff` in the gymie worktree (it creates `scripts/test-env-link-wiring.sh`, mode 755).
+  - [x] **Step 3: Verify.** `bash scripts/test-env-link-wiring.sh` ends `all env-link wiring cases pass`; `./gradlew ktlintFormat`, then `./gradlew verifyChange :app:test --tests 'com.gymie.CiWorkflowTest'` passes.
+  - [x] **Step 4: Commit** the four files below on branch `spectre/kan-1001-be-cardio-workouts-count-on-the-profile-s-12` with the subject below; it rides that change's merge and push.
 
 **Build:** green
 **Files:** `gradle/git-hooks.gradle.kts`, `scripts/test-env-link-wiring.sh`, `.github/workflows/ci.yml`, `.flow/project.md`
@@ -110,11 +110,11 @@ in this agents worktree.
 
 **Decision:** link-env-before-seed
 
-- [ ] 5. Print the before backend's bootRun arguments from the seed run's builder
-  - [ ] **Step 1: Apply** `git apply $P/patches/task-5.diff` in the gymie worktree, on Task 4's commit.
-  - [ ] **Step 2: Verify.** `./gradlew ktlintFormat`, then `./gradlew verifyChange` passes, and `buildSrc`'s suite (it runs as `:buildSrc:jar`'s finalizer on any invocation) reports `BootRunArgsTest` passed in `buildSrc/build/test-results/test/TEST-com.gymie.gradle.BootRunArgsTest.xml`; `./gradlew -q devBootRunArgs -PbootPort=18080` prints one `--args=` line naming this worktree's database `gymie_kan_1001_be_5a0d`, and `./gradlew -q devBootRunArgs` fails with `-PbootPort=<free port> is required`.
+- [x] 5. Print the before backend's bootRun arguments from the seed run's builder
+  - [x] **Step 1: Apply** `git apply $P/patches/task-5.diff` in the gymie worktree, on Task 4's commit.
+  - [x] **Step 2: Verify.** `./gradlew ktlintFormat`, then `./gradlew verifyChange` passes, and `buildSrc`'s suite (it runs as `:buildSrc:jar`'s finalizer on any invocation) reports `BootRunArgsTest` passed in `buildSrc/build/test-results/test/TEST-com.gymie.gradle.BootRunArgsTest.xml`; `./gradlew -q devBootRunArgs -PbootPort=18080` prints one `--args=` line naming this worktree's database `gymie_kan_1001_be_5a0d`, and `./gradlew -q devBootRunArgs` fails with `-PbootPort=<free port> is required`.
     <!-- measured: ./gradlew -q devBootRunArgs -PbootPort=18080 with patches 4 and 5 applied @ branch spectre/kan-1001-be-cardio-workouts-count-on-the-profile-s-12 (94c2e80f) → one --args= line, database gymie_kan_1001_be_5a0d, redis database 1 -->
-  - [ ] **Step 3: Commit** the four files below on branch `spectre/kan-1001-be-cardio-workouts-count-on-the-profile-s-12` with the subject below.
+  - [x] **Step 3: Commit** the four files below on branch `spectre/kan-1001-be-cardio-workouts-count-on-the-profile-s-12` with the subject below.
 
 **Build:** green
 **Files:** `buildSrc/src/main/kotlin/com/gymie/gradle/BootRunArgs.kt`, `buildSrc/src/test/kotlin/com/gymie/gradle/BootRunArgsTest.kt`, `gradle/dev-lifecycle.gradle.kts`, `.flow/project.md`
@@ -127,13 +127,13 @@ in this agents worktree.
 
 **Decision:** boot-run-args-builder
 
-- [ ] 6. Remove the before worktree's workspace, and the orphans left so far
-  - [ ] **Step 1: Apply** `git apply $P/patches/task-6.diff` in the gymie worktree, on Task 5's commit.
-  - [ ] **Step 2: Verify.** `git diff --stat` names `.flow/project.md` alone, and `git diff | grep -c '^+```'` prints `0`.
-  - [ ] **Step 3: Commit** `.flow/project.md` on branch `spectre/kan-1001-be-cardio-workouts-count-on-the-profile-s-12` with the subject below.
-  - [ ] **Step 4: Repair (no commit) — reproduce before touching anything; do not guess.** In the gymie worktree run `./gradlew devWorkspaceInventory` and record its workspace lines. Then, for each worktree `git -C /Users/tweety53/Projects/gymie worktree list` and `git -C /Users/tweety53/Projects/gymie-frontend worktree list` print (main checkouts excluded), run `./gradlew devWorkspace -PworkspaceChange=<worktree directory name>` and record the id on its first `workspace <id>:` line.
+- [x] 6. Remove the before worktree's workspace, and the orphans left so far
+  - [x] **Step 1: Apply** `git apply $P/patches/task-6.diff` in the gymie worktree, on Task 5's commit.
+  - [x] **Step 2: Verify.** `git diff --stat` names `.flow/project.md` alone, and `git diff | grep -c '^+```'` prints `0`.
+  - [x] **Step 3: Commit** `.flow/project.md` on branch `spectre/kan-1001-be-cardio-workouts-count-on-the-profile-s-12` with the subject below.
+  - [x] **Step 4: Repair (no commit) — reproduce before touching anything; do not guess.** In the gymie worktree run `./gradlew devWorkspaceInventory` and record its workspace lines. Then, for each worktree `git -C /Users/tweety53/Projects/gymie worktree list` and `git -C /Users/tweety53/Projects/gymie-frontend worktree list` print (main checkouts excluded), run `./gradlew devWorkspace -PworkspaceChange=<worktree directory name>` and record the id on its first `workspace <id>:` line.
     <!-- measured: devWorkspaceInventory → fix-backend-f56d, kan-1000-fe-a183, kan-1001-be-5a0d, kan-1001-be-9051, kan-692-flow-23fd, kan-825-flow-9836, self-review-4fe5; live worktree ids → kan-1001-be-5a0d, ci-only-on-2d89, docs-ce28, kan-627-flow-9a73, review-a3ed, self-review-b008 @ 2026-10-21 -->
-  - [ ] **Step 5: Remove** each of `kan-1001-be-9051`, `kan-1000-fe-a183`, `kan-692-flow-23fd`, `kan-825-flow-9836`, `fix-backend-f56d`, `self-review-4fe5` that the inventory still lists and no live worktree derived: `./gradlew devWorkspaceRemove -PworkspaceId=<id>`, then `./gradlew -q devWorkspaceSurvivors -PworkspaceId=<id>` prints nothing. An id a live worktree derives is left in place and reported. Re-run `./gradlew devWorkspaceInventory` and report what it lists.
+  - [x] **Step 5: Remove** each of `kan-1001-be-9051`, `kan-1000-fe-a183`, `kan-692-flow-23fd`, `kan-825-flow-9836`, `fix-backend-f56d`, `self-review-4fe5` that the inventory still lists and no live worktree derived: `./gradlew devWorkspaceRemove -PworkspaceId=<id>`, then `./gradlew -q devWorkspaceSurvivors -PworkspaceId=<id>` prints nothing. An id a live worktree derives is left in place and reported. Re-run `./gradlew devWorkspaceInventory` and report what it lists.
 
 **Build:** green
 **Files:** `.flow/project.md`
