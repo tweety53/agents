@@ -146,7 +146,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 		stderr func(root string) string
 	}{
 		{label: "a clean run prints the OK line on stdout alone", files: clean, rc: 0,
-			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 32 site(s) validated\n" }},
+			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 33 site(s) validated\n" }},
 		{label: "a relative root prints its findings and the INVALID line as given, on stdout alone", files: noRange,
 			env: func(root string) Env {
 				return crEnv(filepath.Dir(root), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": filepath.Base(root)})
@@ -187,7 +187,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 			}},
 		{label: "with no override the root is FLOW_GUARD_REPO_ROOT", files: clean,
 			env: func(root string) Env { return crEnv(root, map[string]string{"FLOW_GUARD_REPO_ROOT": root}) },
-			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 32 site(s) validated\n" }},
+			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 33 site(s) validated\n" }},
 		{label: "with no override and no FLOW_GUARD_REPO_ROOT it exits 2", files: clean,
 			env: func(root string) Env { return crEnv(root, nil) },
 			rc:  2, stderr: func(string) string {
@@ -298,7 +298,7 @@ func dpInOrder(s string, want []string) bool {
 
 var dpCases = []dpCase{
 	{files: map[string]string{
-		"review-panel.md": dpDoc(dpReviewerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpMutationBlock, dpPixelProbeBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpIndependentBlock, dpDelegationBlock, dpDelegationBlock, dpEntryContextBlock, dpFindingsInputBlock, dpContextBundleFailureBlock, dpOutputBudgetBlock),
+		"review-panel.md": dpDoc(dpReviewerBlock, dpReproducerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpMutationBlock, dpPixelProbeBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpIndependentBlock, dpDelegationBlock, dpDelegationBlock, dpEntryContextBlock, dpFindingsInputBlock, dpContextBundleFailureBlock, dpOutputBudgetBlock),
 		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock, dpOutputBudgetBlock, dpReadonlyBlock, dpProofRunsBlock),
 	},
 		checks: []dpCheck{
@@ -1103,6 +1103,21 @@ var dpCases = []dpCase{
 		checks: []dpCheck{
 			dpRC("case 99: exits 1", 1),
 			dpHas("case 99: names the dropped phrase", "missing the required phrase: \"shows the check failing with the mechanism removed\""),
+		}}, {files: map[string]string{
+		"review-panel.md": strings.Replace(dpCleanReviewPanel, dpReproducerBlock+"\n\n", "", 1),
+		"implement.md":    dpCleanImplement,
+	},
+		checks: []dpCheck{
+			dpRC("case 100: review-panel.md without the REPRODUCER block exits 1", 1),
+			dpHas("case 100: names the missing REPRODUCER block", "requires at least 1 block(s) carrying the label \"**REPRODUCER:**\", found 0"),
+		}},
+	{files: map[string]string{
+		"review-panel.md": strings.Replace(dpCleanReviewPanel, "|| true", "|| :", 1),
+		"implement.md":    dpCleanImplement,
+	},
+		checks: []dpCheck{
+			dpRC("case 101: a REPRODUCER block without the zero-count rule exits 1", 1),
+			dpHas("case 101: names the dropped phrase", "missing the required phrase: \"|| true\""),
 		}},
 }
 
@@ -1696,7 +1711,11 @@ const (
 // CLEAN_REVIEW_PANEL, CLEAN_IMPLEMENT_NO_READONLY and CLEAN_IMPLEMENT: case
 // 1's fully-correct site files, the baseline later cases vary one deficiency
 // against.
-var dpCleanReviewPanel = dpDoc(dpReviewerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpMutationBlock, dpPixelProbeBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpIndependentBlock, dpDelegationBlock, dpDelegationBlock, dpEntryContextBlock, dpFindingsInputBlock, dpContextBundleFailureBlock, dpOutputBudgetBlock)
+// dpReproducerBlock carries the REPRODUCER paragraph's shared phrases.
+var dpReproducerBlock = "> **REPRODUCER:** a reproducer exits non-zero when the defect is present; it declares\n" +
+	"> `# demonstrates: <path>:<line>:<content>`, never a prose description, and counts with `|| true`."
+
+var dpCleanReviewPanel = dpDoc(dpReviewerBlock, dpReproducerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpMutationBlock, dpPixelProbeBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpIndependentBlock, dpDelegationBlock, dpDelegationBlock, dpEntryContextBlock, dpFindingsInputBlock, dpContextBundleFailureBlock, dpOutputBudgetBlock)
 var dpCleanImplementNoReadonly = dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock)
 var dpCleanImplement = dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlock)
 

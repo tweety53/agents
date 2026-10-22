@@ -157,7 +157,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		return strings.ReplaceAll(b, "`final-review.diff`", "the **Diff file:** each PASS section names")
 	}
-	for _, label := range []string{"TOOLS", "FOREGROUND BUILDS", "NO DELEGATION", "REPRODUCE, DON'T READ", "WORKTREES"} {
+	for _, label := range []string{"TOOLS", "FOREGROUND BUILDS", "NO DELEGATION", "REPRODUCE, DON'T READ", "REPRODUCER", "WORKTREES"} {
 		b, ok := block(panel, "review-panel.md", label)
 		if !ok {
 			return 2

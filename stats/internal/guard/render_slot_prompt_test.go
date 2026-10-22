@@ -364,3 +364,20 @@ func TestRenderSlotPromptSlotFromTemplate(t *testing.T) {
 		}
 	}
 }
+
+// TestRenderSlotPromptCarriesReproducer pins kan-1006's self-review: every
+// rendered slot prompt carries review-panel.md's REPRODUCER paragraph
+// verbatim, so a slot authors its reproducer's declarations and exit
+// convention from its own prompt.
+func TestRenderSlotPromptCarriesReproducer(t *testing.T) {
+	t.Parallel()
+	skill := rspSkillDir(t)
+	fx := rspNewFx(t)
+	r, got := fx.run(t, skill, skill, "0", fx.canon, fx.plan, "primary", "-diff", "final", "--", fx.canon)
+	if r.rc != 0 {
+		t.Fatalf("exit %d\n%s", r.rc, r.out)
+	}
+	if b := rspTestBlock(t, skill+"/review-panel.md", "REPRODUCER"); strings.Count(got, b) != 1 {
+		t.Errorf("the REPRODUCER block is not carried exactly once, verbatim")
+	}
+}

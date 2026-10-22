@@ -601,6 +601,24 @@ the **AskUserQuestion** it states.
 > and a passing test can each read plausibly and be false. Run it before you accept it, and run it
 > before you reject it.
 
+**Every slot's dispatch prompt also carries the REPRODUCER paragraph** — the reproducer rule above
+in the shape a slot authors to, since a slot reads its prompt and not this file:
+
+> **REPRODUCER:** every finding carries a reproducer: a script under the canonical worktree's
+> `<project>/.superpowers/sdd/reproducers/`, named by round, finding id and sequence number and ending `.sh`, recorded by its worktree-relative path, or
+> `none — <reason>` on a Minor finding only. It exits non-zero when the defect is present, and 0
+> only when it is not; a `# mutation-reproducer` follows the mutation brief instead. Within its
+> first 10 lines it declares one `# demonstrates: <path>:<line>:<content>` line per cited location
+> and one `# premise: <path>:<line>:<content>` line per file its checks read, each in grep-output
+> shape with the content copied off that line — never a prose description — and
+> `# reproducer-bound: <seconds>` when it builds or runs tests. Its body names every premise path
+> and asserts each one exists before its real checks run, exiting non-zero with the missing premise
+> on stderr. It starts with a shebang and is made executable with `chmod +x`; a demonstrating
+> command needing a pipe, a quote, a glob or any other shell metacharacter goes in the script,
+> never in the recorded line. Under `set -e` or `pipefail`, take a count that may be zero as
+> `n=$(grep -c <pattern> <file> || true)`: a bare `grep -c` exits 1 on zero matches, and the script
+> then reads as defect demonstrated.
+
 **Every slot's dispatch prompt also carries the REPORT FILE paragraph**, with the round and the
 slot's resolved id substituted:
 
