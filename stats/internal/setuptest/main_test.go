@@ -3,8 +3,8 @@
 // Every case runs against a throwaway HOME created under /tmp, and the real ~/.claude and
 // ~/.zcode are fingerprinted before the first case and again after the last one — a mismatch
 // fails the run. Nothing here writes outside the sandbox. Each assertion group is one
-// top-level test marked parallel, with its own sub-sandbox; scripts/test-setup.sh runs the
-// package.
+// top-level test marked parallel, with its own sub-sandbox; the project's `## test` Go suite
+// (`go test ./...` under stats/) runs the package.
 //
 // WHY THIS EXISTS. setup.sh writes into the user's home directory, and two data-loss defects
 // reached review:
