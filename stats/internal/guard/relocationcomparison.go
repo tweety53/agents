@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"regexp"
 	"slices"
@@ -41,7 +42,8 @@ import (
 //	   that is not UTF-8 included: the Python let that decode error escape
 //	   as a traceback and exit 1; its header named it exit 2, and the header
 //	   wins), <merge-base> does not resolve to a real commit, a scoped file
-//	   is missing from the worktree on disk or is a symlink there, a scoped
+//	   is missing on disk while still in the worktree's index or is a
+//	   symlink there, a scoped
 //	   path is a tree (directory) or a symlink rather than a blob at
 //	   <merge-base>, a `git cat-file -t` or `git show` failure once `git
 //	   cat-file -e` has said the path exists there, a scoped file (worktree
@@ -62,7 +64,8 @@ import (
 //     <merge-base>:<path> and from the worktree file. Absent at the
 //     merge-base (`cat-file -e` fails) is empty text, the ordinary shape of
 //     a file the plan creates fresh -- decided by `-e` alone, never by
-//     parsing `git show` stderr (F14). Present but unreadable (`cat-file -t`
+//     parsing `git show` stderr (F14). A path absent on disk and from the
+//     worktree's index -- deleted by the branch -- is empty text likewise. Present but unreadable (`cat-file -t`
 //     fails: a corrupt object `-e` still reports as existing, case l) is
 //     cannot-answer, never folded into "absent". Present as anything but a
 //     blob (a tree, F18) or as a symlink entry (mode 120000 from `git
@@ -134,6 +137,9 @@ func generateRelocationComparison(args []string, env Env, stdout, stderr io.Writ
 			return 2
 		}
 		afterText, err := grcReadWorktree(env, wtPath)
+		if err != nil && grcDeletedByBranch(env, worktree, wtPath, p) {
+			afterText, err = "", nil
+		}
 		if err != nil {
 			fmt.Fprintf(stderr, "%s%v\n", grcLabel, err)
 			return 2
@@ -230,6 +236,16 @@ func grcReadWorktree(env Env, path string) (string, error) {
 		return "", fmt.Errorf("%s is not valid UTF-8: %s", path, strings.TrimPrefix(err.Error(), "UnicodeDecodeError: "))
 	}
 	return s, nil
+}
+
+// grcDeletedByBranch reports a scoped path absent on disk and from the
+// worktree's index -- a file the branch deleted, whose after text is empty.
+func grcDeletedByBranch(env Env, worktree, wtPath, path string) bool {
+	if _, err := os.Lstat(psAbs(env, wtPath)); !errors.Is(err, fs.ErrNotExist) {
+		return false
+	}
+	_, _, code, err := tcfExec(env.Dir, nil, "git", "-C", worktree, "ls-files", "--error-unmatch", "--", path)
+	return err == nil && code == 1
 }
 
 // grcGitShow is _git_show: the blob at <ref>:<path>, "" when nothing exists

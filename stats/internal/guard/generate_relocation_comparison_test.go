@@ -117,8 +117,14 @@ func TestGenerateRelocationComparison(t *testing.T) {
 
 	dir, sha = repo(map[string]string{"eta.md": "## Eta\n\nSome content.\n"}, map[string]string{"eta.md": "\x00"})
 	r, table = gen(dir, sha, plan("yes", "eta.md"))
-	want("case g: scoped file missing from worktree exits 2", r.rc == 2, r, table)
+	want("case g: scoped file missing on disk but still tracked exits 2", r.rc == 2, r, table)
 	want("pin: case g's refusal byte for byte", r.err == "generate-relocation-comparison: scoped file missing from worktree: "+dir+"/eta.md: [Errno 2] No such file or directory: '"+dir+"/eta.md'\n", r, table)
+
+	dir, sha = repo(map[string]string{"old.md": "## Old\n\nThis paragraph leaves a file the branch deletes outright.\n\n", "new.md": "## New\n\nFiller.\n"}, nil)
+	gitRun(t, dir, "rm", "-q", "old.md")
+	writeFile(t, dir+"/new.md", "## New\n\nFiller.\n\nThis paragraph leaves a file the branch deletes outright.\n\n")
+	r, table = gen(dir, sha, plan("yes", "old.md", "new.md"))
+	ok("case g2: a file the branch deleted reads as empty text", r, table, in(table, "| `old.md` § Old | `new.md` § New | moved |"))
 
 	dir, sha = repo(map[string]string{"theta.md": "## Theta\n\nSome content.\n"}, nil)
 	r, table = gen(dir, sha, "")
