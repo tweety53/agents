@@ -56,7 +56,7 @@ func tcfParseTask(lines []string, taskID string) (tcfTask, bool) {
 		}
 	}
 	task.build = tcfSelectBuildKind(body)
-	task.squashValue, task.squashPartners = tcfSelectSquashWith(body)
+	task.squashValue, task.squashPartners, _ = tcfSelectSquashWith(body)
 	if off := tcfUnclosedFence(body); off >= 0 {
 		task.unclosedFenceLine = found.taskLine + off + 1
 	}
@@ -292,18 +292,36 @@ func tcfPathShorthand(lines []string) tcfShorthand {
 // tcfSelectBuildKind is select_build_tag's kind: "green", "red", or "" for
 // no tag or a first tag opening with neither.
 func tcfSelectBuildKind(body []string) string {
-	kind := ""
-	tcfUnfenced(body, func(_ int, line string) bool {
+	if tag := tcfSelectBuildTag(body); tag != nil {
+		return tag.kind
+	}
+	return ""
+}
+
+// tcfBuildTag is BuildTag: offset is the 0-based body index of the line,
+// kind "green", "red", or "" for a malformed tag, value the stripped text
+// after **Build:**.
+type tcfBuildTag struct {
+	offset      int
+	kind, value string
+}
+
+// tcfSelectBuildTag is select_build_tag: the first non-fenced **Build:**
+// line, well-formed or not, or nil when the body carries none.
+func tcfSelectBuildTag(body []string) *tcfBuildTag {
+	var tag *tcfBuildTag
+	tcfUnfenced(body, func(off int, line string) bool {
 		m := tcfBuildLineRE.FindStringSubmatch(line)
 		if m == nil {
 			return false
 		}
+		tag = &tcfBuildTag{offset: off, value: tcfStrip(m[1])}
 		if k := tcfBuildKindRE.FindStringSubmatch(m[1]); k != nil {
-			kind = k[1]
+			tag.kind = k[1]
 		}
 		return true
 	})
-	return kind
+	return tag
 }
 
 // tcfBacktickTokens is _extract_backtick_tokens.
@@ -395,15 +413,18 @@ func tcfHighestFix(changes, root string, candidates []string) string {
 
 // tcfSelectSquashWith is select_squash_with: the first candidate whose value
 // gates, else the first candidate with no partners; nil value for none.
-func tcfSelectSquashWith(body []string) (value *string, partners []string) {
-	tcfUnfenced(body, func(_ int, line string) bool {
+// gated is the body offset of a gating line, -1 when none gates -- Python's
+// `partners is not None`, which an empty partners slice cannot tell apart.
+func tcfSelectSquashWith(body []string) (value *string, partners []string, gated int) {
+	gated = -1
+	tcfUnfenced(body, func(off int, line string) bool {
 		m := tcfSquashFieldRE.FindStringSubmatch(line)
 		if m == nil {
 			return false
 		}
 		v := tcfStrip(m[1])
 		if g := tcfSquashValueRE.FindStringSubmatch(v); g != nil {
-			value, partners = &v, tcfDottedIDRE.FindAllString(g[1], -1)
+			value, partners, gated = &v, tcfDottedIDRE.FindAllString(g[1], -1), off
 			return true
 		}
 		if value == nil {
@@ -411,7 +432,7 @@ func tcfSelectSquashWith(body []string) (value *string, partners []string) {
 		}
 		return false
 	})
-	return value, partners
+	return value, partners, gated
 }
 
 // tcfUnclosedFence is unclosed_fence: the offset of a fence the body opens
@@ -562,4 +583,35 @@ func tcfPythonFiles(lines []string, t tcfTask) []string {
 		return t.files
 	}
 	return tcfPathShorthand(lines).expand(tcfBacktickTokens(strings.Join(tcfBodyFields(found.lines)["Files"], " ")))
+}
+
+// tcfScanPlans is the no-argument scan's file list the tasks.md wrappers
+// shared: every live change's tasks.md under root's spec leaf, then that of
+// every archived change the base does not carry yet (unlanded-archives, the
+// one statement of that rule), each spelled root-relative as the wrapper's
+// "$CHANGES_DIR"/... did and kept only while it exists. Empty with true when
+// root has no changes directory; false when unlanded-archives could not
+// answer, its reason already on stderr.
+func tcfScanPlans(env Env, root string, stderr io.Writer) ([]string, bool) {
+	changes := root + "/" + specRootLeaf(psAbs(env, root), stderr) + "/changes"
+	if !isDir(psAbs(env, changes)) {
+		return nil, true
+	}
+	var archived bytes.Buffer
+	if unlandedArchivesCmd([]string{root}, env, &archived, stderr) != 0 {
+		return nil, false
+	}
+	var files []string
+	for _, name := range tcfEntries(psAbs(env, changes)) {
+		files = append(files, changes+"/"+name+"/tasks.md")
+	}
+	for _, name := range strings.Split(archived.String(), "\n") {
+		if name != "" {
+			files = append(files, changes+"/archive/"+name+"/tasks.md")
+		}
+	}
+	return slices.DeleteFunc(files, func(f string) bool {
+		_, err := os.Stat(psAbs(env, f))
+		return err != nil
+	}), true
 }
