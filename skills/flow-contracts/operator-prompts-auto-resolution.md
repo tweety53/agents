@@ -98,5 +98,6 @@ These are asked, or stop with `## Question`, exactly as their call sites state:
   every Jira write — the follow-up filing and the self-review filing included — and the
   self-review's flow-eval mining.
   The global rules require these confirmed.
+  One push is not asked: creating a `--base` a repository's origin lacks, from that repository's default branch — kickoff's (`skills/flow/SKILL.md`) and integrate's `prepare` (`BASE-CREATED:`, `skills/flow/integrate.md`) — adds a branch at the default branch's own tip, overwrites nothing, and is what the operator's `--base` already asked for.
 - **Outside implementation and fix runs.** The wrong-state override, the plain-message ambiguity
   prompt that decides whether a fix run starts at all, and every integrate and cleanup prompt.
