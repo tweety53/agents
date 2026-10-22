@@ -1,0 +1,2 @@
+# Sentences this change rewords, adds or removes on purpose (check-verbatim-moves.sh).
+Output carrying `WARNING: DATA RACE` or `race detected during execution of test` is never that case: the command takes **The loop** whatever its re-run exits, since a race that passes once is still a race (`rules/fix-determinism-at-the-source.mdc`), and `run-verify-list.sh` marks its block with `data race — never environmental`.
