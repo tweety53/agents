@@ -14,7 +14,7 @@ that task's body**:
 - `**Build:** red` — this task alone does not leave a green build. A `red`-tagged task also
   carries a separate `**Squash-with:** Task <N>` field, naming one or more other tasks in the same
   plan (comma- or whitespace-separated ids, e.g. `2, 4`) that this task is dispatched together
-  with as a single unit — `plan-dispatch-bundles.py` places a red task in its partner's bundle —
+  with as a single unit — `plan-dispatch-bundles.sh` places a red task in its partner's bundle —
   and whose commit this task's work lands in. The field's own grammar still admits a dotted id, so
   a partner written `2.1` parses and then names no task — reported as the absent partner it is,
   rather than silently ignored.
@@ -46,9 +46,9 @@ overridden by a well-formed `**Build:**` line further down.
 
 ## The guard's scope
 
-A guard script (`<agents repo>/scripts/check-task-build-green.py`, wrapped by
-`<agents repo>/scripts/check-task-build-green.sh` to resolve which `tasks.md` files to scan) parses a single
-`tasks.md` and fails the run when:
+A guard script (`<agents repo>/scripts/check-task-build-green.sh`, a shim over its Go port
+`<agents repo>/stats/internal/guard/taskbuildgreen.go`) parses each `tasks.md` it scans and fails
+the run when:
 
 - a task has no `**Build:**` tag;
 - a task's first `**Build:**` line is malformed — its value opens with neither `green` nor `red`;

@@ -56,9 +56,9 @@ import (
 // inside a worked example is code), on lib/plan_grammar.py's own fence rule
 // (tcfFenceRE here), the same toggle `parse_task_fields` uses.
 //
-// check-task-commit-fields.py keeps its parse half and check_files:
-// check-task-records.py and check-plan-shape.py still load it as a module,
-// and TestTaskFieldParseMatchesPython pins this parse against it.
+// check-task-commit-fields.py's remaining parse half and lib/plan_grammar.py
+// were deleted once plan-dispatch-bundles, their last importer, was ported
+// (KAN-923); the grammar lives in planparse.go.
 //
 // Python's str regexes are Unicode-aware; these are RE2. Whitespace (\s,
 // str.strip, str.split) is Python's Unicode set throughout (tcfWS,

@@ -491,8 +491,8 @@ func (b *gdcBundle) render() string {
 // scopeTasks is scope_tasks: the plan's header plus the named tasks' blocks
 // in document order, trailing newlines stripped as `$(...)` strips them.
 // Each named id with no task line is reported on stderr, and ok is false.
-// Task-line, body-boundary and fence grammar are plan-dispatch-bundles.py's
-// (see its docstring), so the ids that script printed are the ids this finds.
+// Task-line, body-boundary and fence grammar are planparse.go's
+// (pdbParseTasks), so the ids plan-dispatch-bundles printed are the ids this finds.
 func scopeTasks(path, ids string, stderr io.Writer) (string, bool) {
 	content, _ := os.ReadFile(path)
 	want := strings.Split(ids, ",")

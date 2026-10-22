@@ -847,7 +847,7 @@ label a finding's note or location happens to carry, on the way out only.
 
 ```
 reproducers-total: 1
-finding-reproducer: F1 scripts/test-check-plan-shape.sh
+finding-reproducer: F1 scripts/test-check-narrative-runs.sh
 ```
 
 A finding recorded with no reproducer renders the `none — <reason>` exemption form.

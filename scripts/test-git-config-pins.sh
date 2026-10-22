@@ -4,7 +4,8 @@
 # inherit the invoking machine's config — rename detection, whitespace action
 # and untracked-file visibility are each pinned explicitly at every call whose
 # output decides something. KAN-540 fixed one instance
-# (check-task-commit-fields.py's changed-file list); this harness pins the
+# (check-task-commit-fields's changed-file list, now
+# stats/internal/guard/taskcommitfields.go); this harness pins the
 # class, both by asserting the audit's verdicts on seeded fixtures and by
 # running the audit live against this repository's own corpus, so a future
 # unpinned invocation lands as a red harness instead of as a machine-dependent

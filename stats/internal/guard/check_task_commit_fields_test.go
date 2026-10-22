@@ -2,13 +2,10 @@ package guard
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"reflect"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -3103,154 +3100,12 @@ func TestCheckTaskCommitFields(t *testing.T) {
 	}
 }
 
-// TestTaskFieldParseMatchesPython runs scripts/check-task-commit-fields.py's
-// own parse_task_fields -- loaded the way check-task-records.py loads it --
-// once over every plan fixture above, and fails where the Go parse of any
-// task differs. check-task-records.py and check-plan-shape.py still read the
-// Python parse, so a drift here is two guards disagreeing about one plan.
-func TestTaskFieldParseMatchesPython(t *testing.T) {
-	t.Parallel()
-	if _, err := exec.LookPath("python3"); err != nil {
-		t.Fatal("python3 not on PATH: a hard dependency of the live check-task-records.py, so this drift check must run")
-	}
-	dir := t.TempDir()
-	keys := make([]string, 0, len(tcfPlans))
-	for k := range tcfPlans {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	var paths []string
-	for _, k := range keys {
-		p := dir + "/" + k + "/tasks.md"
-		writeFile(t, p, tcfPlans[k])
-		paths = append(paths, p)
-	}
-	const script = `
-import importlib.util, json, sys
-from pathlib import Path
-
-scripts = Path(sys.argv[1])
-sys.path.insert(0, str(scripts / "lib"))
-spec = importlib.util.spec_from_file_location("check_task_commit_fields", str(scripts / "check-task-commit-fields.py"))
-cff = importlib.util.module_from_spec(spec)
-sys.modules["check_task_commit_fields"] = cff
-spec.loader.exec_module(cff)
-
-out = {}
-for path in sys.argv[2:]:
-    with open(path, "r", encoding="utf-8") as handle:
-        lines = handle.read().splitlines()
-    tasks = []
-    for task_id in cff.collect_task_ids(lines):
-        f = cff.parse_task_fields(lines, task_id)
-        tasks.append({
-            "id": f.id, "files": f.files, "tests": [s.label for s in f.tests],
-            "tests_value": f.tests_value, "tree_names": cff._extract_tree_names(f.tests_value),
-            "allowed_collateral": f.allowed_collateral, "commit": f.commit,
-            "baseline": list(f.baseline) if f.baseline else None,
-            "baseline_measured": f.baseline_measured, "build": f.build,
-            "squash_value": f.squash_value, "squash_partners": f.squash_partners,
-            "unclosed_fence_line": f.unclosed_fence_line,
-        })
-    out[path] = tasks
-json.dump(out, sys.stdout)
-`
-	cmd := exec.Command("python3", append([]string{"-c", script, tcfScriptsDir(t)}, paths...)...)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	pyOut, err := cmd.Output()
-	if err != nil {
-		t.Fatalf("python3: %v\n%s", err, stderr.String())
-	}
-	var want map[string]any
-	if err := json.Unmarshal(pyOut, &want); err != nil {
-		t.Fatal(err)
-	}
-	for _, p := range paths {
-		body, err := os.ReadFile(p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		lines, err := tcfPlanLines(body)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var tasks []map[string]any
-		for _, id := range tcfTaskIDs(lines) {
-			f, _ := tcfParseTask(lines, id)
-			var baseline, build, fence any
-			if f.baseline != nil {
-				baseline = []any{f.baseline[0], f.baseline[1]}
-			}
-			if f.build != "" {
-				build = f.build
-			}
-			if f.unclosedFenceLine != 0 {
-				fence = f.unclosedFenceLine
-			}
-			var tests []string
-			for _, s := range f.tests {
-				tests = append(tests, s.label)
-			}
-			tasks = append(tasks, map[string]any{
-				"id": f.id, "files": f.files, "tests": tests,
-				"tests_value": f.testsValue, "tree_names": tcfTreeNames(f.testsValue),
-				"allowed_collateral": f.allowedCollateral, "commit": f.commit,
-				"baseline": baseline, "baseline_measured": f.baselineMeasured, "build": build,
-				"squash_value": f.squashValue, "squash_partners": f.squashPartners,
-				"unclosed_fence_line": fence,
-			})
-		}
-		// A JSON round trip gives both sides the same shapes: nil and empty
-		// lists, *string and string, big.Int and float64.
-		raw, err := json.Marshal(tasks)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var got any
-		if err := json.Unmarshal(raw, &got); err != nil {
-			t.Fatal(err)
-		}
-		if !reflect.DeepEqual(tcfNullEmpty(got), tcfNullEmpty(want[p])) {
-			t.Errorf("%s: Go parse differs from Python\n go: %s\n py: %s", p, raw, tcfJSON(want[p]))
-		}
-	}
-}
-
-// tcfNullEmpty maps an empty list to nil, so Python's [] and a nil Go slice
-// compare equal; every other value is unchanged.
-func tcfNullEmpty(v any) any {
-	switch x := v.(type) {
-	case []any:
-		if len(x) == 0 {
-			return nil
-		}
-		out := make([]any, len(x))
-		for i := range x {
-			out[i] = tcfNullEmpty(x[i])
-		}
-		return out
-	case map[string]any:
-		out := map[string]any{}
-		for k, e := range x {
-			out[k] = tcfNullEmpty(e)
-		}
-		return out
-	}
-	return v
-}
-
-func tcfJSON(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
-}
-
 // TestTcfFnmatchMatchesPython runs Python's own fnmatch over glob shapes
 // whose bracket expressions Go's regexp and Python's re read differently.
 func TestTcfFnmatchMatchesPython(t *testing.T) {
 	t.Parallel()
 	if _, err := exec.LookPath("python3"); err != nil {
-		t.Fatal("python3 not on PATH: a hard dependency of the live check-task-records.py, so this drift check must run")
+		t.Fatal("python3 not on PATH: its fnmatch is the reference this drift check compares against")
 	}
 	patterns := []string{"docs/[x[:alpha:]*[y]", "[[:alpha:]]", "a[[]b", "[![:digit:]]x", "*[[]*", "d[a-c[]"}
 	names := []string{"docs/b", "docs/x", "docs/[y", "a", ":", "[", "a[b", "5x", "bx", "[x", "da", "d[", "dz"}

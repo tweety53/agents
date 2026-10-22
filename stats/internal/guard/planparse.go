@@ -4,8 +4,10 @@ package guard
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"math/big"
 	"os"
 	"regexp"
@@ -33,7 +35,49 @@ func tcfParseTask(lines []string, taskID string) (tcfTask, bool) {
 		return tcfTask{}, false
 	}
 	body := found.lines
+	fields := tcfBodyFields(body)
+	joined := func(name string) string { return strings.Join(fields[name], " ") }
 
+	task := tcfTask{id: taskID, testsValue: joined("Tests")}
+	if cp := fields["Commit"]; len(cp) > 0 {
+		v := tcfStrip(strings.Join(cp, " "))
+		if m := tcfBacktickAll.FindStringSubmatch(v); m != nil {
+			v = m[1]
+		}
+		task.commit = &v
+	}
+	baselineValue := joined("Baseline")
+	if m := tcfBaselineRE.FindStringSubmatch(baselineValue); m != nil {
+		before, _ := new(big.Int).SetString(m[1], 10)
+		after, _ := new(big.Int).SetString(m[2], 10)
+		task.baseline = &[2]*big.Int{before, after}
+	}
+	for _, m := range tcfMeasuredRE.FindAllStringSubmatch(baselineValue, -1) {
+		if c := tcfStrip(m[1]); c != "" && !slices.Contains(task.baselineMeasured, c) {
+			task.baselineMeasured = append(task.baselineMeasured, c)
+		}
+	}
+	task.build = tcfSelectBuildKind(body)
+	task.squashValue, task.squashPartners, _ = tcfSelectSquashWith(body)
+	if off := tcfUnclosedFence(body); off >= 0 {
+		task.unclosedFenceLine = found.taskLine + off + 1
+	}
+	shorthand := tcfPathShorthand(lines)
+	// `Files: none` declares no path, as `Tests: none` declares no test.
+	if files := joined("Files"); !tcfNoneOpenRE.MatchString(files) {
+		task.files = shorthand.expand(tcfBacktickTokens(files))
+	}
+	task.allowedCollateral = shorthand.expand(tcfBacktickTokens(joined("Allowed-collateral")))
+	task.tests = tcfParseTestSpecs(task.testsValue)
+	return task, true
+}
+
+// tcfBodyFields is parse_task_fields' field walk: each non-fenced field line
+// opens a field, a blank or Squash-with line closes it, and every other line
+// while one is open is a stripped continuation; a repeated field keeps its
+// last occurrence. Joined with " ", a field's parts are the *_value strings
+// parse_task_fields exposes (files_value, tests_value, collateral_value).
+func tcfBodyFields(body []string) map[string][]string {
 	fields := map[string][]string{}
 	current, parts := "", []string(nil)
 	commitField := func() {
@@ -58,40 +102,7 @@ func tcfParseTask(lines []string, taskID string) (tcfTask, bool) {
 		return false
 	})
 	commitField()
-	joined := func(name string) string { return strings.Join(fields[name], " ") }
-
-	task := tcfTask{id: taskID, testsValue: joined("Tests")}
-	if cp := fields["Commit"]; len(cp) > 0 {
-		v := tcfStrip(strings.Join(cp, " "))
-		if m := tcfBacktickAll.FindStringSubmatch(v); m != nil {
-			v = m[1]
-		}
-		task.commit = &v
-	}
-	baselineValue := joined("Baseline")
-	if m := tcfBaselineRE.FindStringSubmatch(baselineValue); m != nil {
-		before, _ := new(big.Int).SetString(m[1], 10)
-		after, _ := new(big.Int).SetString(m[2], 10)
-		task.baseline = &[2]*big.Int{before, after}
-	}
-	for _, m := range tcfMeasuredRE.FindAllStringSubmatch(baselineValue, -1) {
-		if c := tcfStrip(m[1]); c != "" && !slices.Contains(task.baselineMeasured, c) {
-			task.baselineMeasured = append(task.baselineMeasured, c)
-		}
-	}
-	task.build = tcfSelectBuildKind(body)
-	task.squashValue, task.squashPartners = tcfSelectSquashWith(body)
-	if off := tcfUnclosedFence(body); off >= 0 {
-		task.unclosedFenceLine = found.taskLine + off + 1
-	}
-	shorthand := tcfPathShorthand(lines)
-	// `Files: none` declares no path, as `Tests: none` declares no test.
-	if files := joined("Files"); !tcfNoneOpenRE.MatchString(files) {
-		task.files = shorthand.expand(tcfBacktickTokens(files))
-	}
-	task.allowedCollateral = shorthand.expand(tcfBacktickTokens(joined("Allowed-collateral")))
-	task.tests = tcfParseTestSpecs(task.testsValue)
-	return task, true
+	return fields
 }
 
 // tcfResolveTasksMD is the plan resolution check-task-commit-fields and
@@ -283,18 +294,36 @@ func tcfPathShorthand(lines []string) tcfShorthand {
 // tcfSelectBuildKind is select_build_tag's kind: "green", "red", or "" for
 // no tag or a first tag opening with neither.
 func tcfSelectBuildKind(body []string) string {
-	kind := ""
-	tcfUnfenced(body, func(_ int, line string) bool {
+	if tag := tcfSelectBuildTag(body); tag != nil {
+		return tag.kind
+	}
+	return ""
+}
+
+// tcfBuildTag is BuildTag: offset is the 0-based body index of the line,
+// kind "green", "red", or "" for a malformed tag, value the stripped text
+// after **Build:**.
+type tcfBuildTag struct {
+	offset      int
+	kind, value string
+}
+
+// tcfSelectBuildTag is select_build_tag: the first non-fenced **Build:**
+// line, well-formed or not, or nil when the body carries none.
+func tcfSelectBuildTag(body []string) *tcfBuildTag {
+	var tag *tcfBuildTag
+	tcfUnfenced(body, func(off int, line string) bool {
 		m := tcfBuildLineRE.FindStringSubmatch(line)
 		if m == nil {
 			return false
 		}
+		tag = &tcfBuildTag{offset: off, value: tcfStrip(m[1])}
 		if k := tcfBuildKindRE.FindStringSubmatch(m[1]); k != nil {
-			kind = k[1]
+			tag.kind = k[1]
 		}
 		return true
 	})
-	return kind
+	return tag
 }
 
 // tcfBacktickTokens is _extract_backtick_tokens.
@@ -386,15 +415,18 @@ func tcfHighestFix(changes, root string, candidates []string) string {
 
 // tcfSelectSquashWith is select_squash_with: the first candidate whose value
 // gates, else the first candidate with no partners; nil value for none.
-func tcfSelectSquashWith(body []string) (value *string, partners []string) {
-	tcfUnfenced(body, func(_ int, line string) bool {
+// gated is the body offset of a gating line, -1 when none gates -- Python's
+// `partners is not None`, which an empty partners slice cannot tell apart.
+func tcfSelectSquashWith(body []string) (value *string, partners []string, gated int) {
+	gated = -1
+	tcfUnfenced(body, func(off int, line string) bool {
 		m := tcfSquashFieldRE.FindStringSubmatch(line)
 		if m == nil {
 			return false
 		}
 		v := tcfStrip(m[1])
 		if g := tcfSquashValueRE.FindStringSubmatch(v); g != nil {
-			value, partners = &v, tcfDottedIDRE.FindAllString(g[1], -1)
+			value, partners, gated = &v, tcfDottedIDRE.FindAllString(g[1], -1), off
 			return true
 		}
 		if value == nil {
@@ -402,7 +434,7 @@ func tcfSelectSquashWith(body []string) (value *string, partners []string) {
 		}
 		return false
 	})
-	return value, partners
+	return value, partners, gated
 }
 
 // tcfUnclosedFence is unclosed_fence: the offset of a fence the body opens
@@ -474,3 +506,241 @@ var (
 	tcfSquashValueRE = regexp.MustCompile(`^Task[` + tcfWS + `]+([0-9.,` + tcfWS + `]+)[` + tcfWS + `]*$`)
 	tcfDottedIDRE    = regexp.MustCompile(`[0-9]+(?:\.[0-9]+)*`)
 )
+
+// tcfRepairsOpenRE is REPAIRS_OPEN_RE, the test-repair annotation (KAN-794):
+// a Tests value opening with `none`, an optional em dash, en dash or `--`,
+// then `repairs existing tests:` -- the phrase and its colon required, so
+// "none added — repairs existing tests" is not the form. Its only effect is
+// check-plan-shape's F4 exemption.
+var tcfRepairsOpenRE = regexp.MustCompile(`(?i)^[` + tcfWS + `*_]*none\b[` + tcfWS + `]*(?:[—–]|--)?[` + tcfWS + `]*repairs[` + tcfWS + `]+existing[` + tcfWS + `]+tests[` + tcfWS + `]*:`)
+
+// AFTER_FIELD_RE is the field's presence on one physical line; AFTER_VALUE_RE
+// the gate: a value is `Task <ids>` or the literal `none`, nothing else.
+var (
+	tcfAfterFieldRE = regexp.MustCompile(`^\*\*After:\*\*[` + tcfWS + `]*(.*)$`)
+	tcfAfterValueRE = regexp.MustCompile(`^(?:Task[` + tcfWS + `]+[0-9.,` + tcfWS + `]+|none)[` + tcfWS + `]*$`)
+)
+
+// tcfAfterIDs is after_ids: the ids an After value names, empty for `none`,
+// and false when the value does not gate -- a caller never falls back to
+// extracting ids from a raw value. The serial default (an absent field means
+// every plan-order earlier task) is applied where after-sets are resolved,
+// never here.
+func tcfAfterIDs(value string) ([]string, bool) {
+	if !tcfAfterValueRE.MatchString(value) {
+		return nil, false
+	}
+	if tcfStrip(value) == "none" {
+		return []string{}, true
+	}
+	return tcfDottedIDRE.FindAllString(value, -1), true
+}
+
+// tcfAfter is AfterField: offset is the 0-based body index of the line,
+// value its stripped remainder, gates whether ids is what after_ids made of it.
+type tcfAfter struct {
+	offset int
+	value  string
+	ids    []string
+	gates  bool
+}
+
+// tcfSelectAfter is select_after: the first non-fenced candidate whose value
+// gates, else the first candidate with gates false; nil when the body carries
+// none. Which line is the field is decided here and nowhere else, so a
+// non-gating candidate ahead of the real field never shadows it.
+func tcfSelectAfter(body []string) *tcfAfter {
+	var ungated *tcfAfter
+	var found *tcfAfter
+	tcfUnfenced(body, func(off int, line string) bool {
+		m := tcfAfterFieldRE.FindStringSubmatch(line)
+		if m == nil {
+			return false
+		}
+		v := tcfStrip(m[1])
+		if ids, ok := tcfAfterIDs(v); ok {
+			found = &tcfAfter{off, v, ids, true}
+			return true
+		}
+		if ungated == nil {
+			ungated = &tcfAfter{offset: off, value: v}
+		}
+		return false
+	})
+	if found != nil {
+		return found
+	}
+	return ungated
+}
+
+// tcfPythonFiles is check-task-commit-fields.py's parse_task_fields files
+// list, which -- unlike tcfParseTask's -- keeps a `none`-opening Files value
+// as the prose path it falls back to (["none"] for `**Files:** none`): the
+// Go commit guard learned that `Files: none` declares no path, the Python
+// importers never did, and their ports keep the Python's verdicts -- F2
+// stays silent on a measurement task's `**Files:** none`.
+func tcfPythonFiles(lines []string, t tcfTask) []string {
+	found := tcfSelectTask(lines, t.id)
+	if t.files != nil || found == nil {
+		return t.files
+	}
+	return tcfPathShorthand(lines).expand(tcfBacktickTokens(strings.Join(tcfBodyFields(found.lines)["Files"], " ")))
+}
+
+// tcfScanPlans is the no-argument scan's file list the tasks.md wrappers
+// shared: every live change's tasks.md under root's spec leaf, then that of
+// every archived change the base does not carry yet (unlanded-archives, the
+// one statement of that rule), each spelled root-relative as the wrapper's
+// "$CHANGES_DIR"/... did and kept only while it exists. Empty with true when
+// root has no changes directory; false when unlanded-archives could not
+// answer, its reason already on stderr.
+func tcfScanPlans(env Env, root string, stderr io.Writer) ([]string, bool) {
+	changes := root + "/" + specRootLeaf(psAbs(env, root), stderr) + "/changes"
+	if !isDir(psAbs(env, changes)) {
+		return nil, true
+	}
+	var archived bytes.Buffer
+	if unlandedArchivesCmd([]string{root}, env, &archived, stderr) != 0 {
+		return nil, false
+	}
+	var files []string
+	for _, name := range tcfEntries(psAbs(env, changes)) {
+		files = append(files, changes+"/"+name+"/tasks.md")
+	}
+	for _, name := range strings.Split(archived.String(), "\n") {
+		if name != "" {
+			files = append(files, changes+"/archive/"+name+"/tasks.md")
+		}
+	}
+	return slices.DeleteFunc(files, func(f string) bool {
+		_, err := os.Stat(psAbs(env, f))
+		return err != nil
+	}), true
+}
+
+// pdbTask is plan-dispatch-bundles.py's Task: one task of a tasks.md, read
+// for dispatch bundling. afterSet is the DECLARED ids when the task's
+// **After:** value gates (afterDeclared; empty for `none` or `Task ,`) --
+// with no field the serial default is applied where bundles are resolved,
+// never here. afterMalformed holds the offending value when the field is
+// present but does not gate.
+type pdbTask struct {
+	id             string
+	taskLine       int
+	unchecked      bool
+	filesPresent   bool
+	files          []string
+	partners       []string
+	afterSet       []string
+	afterDeclared  bool
+	afterMalformed *string
+}
+
+// pdbParseTasks is plan-dispatch-bundles.py's parse_tasks: every task of
+// lines in document order (tcfIterTasks' task and body grammar), its open
+// state read off its own task line, its gated **Squash-with:** partners and
+// **After:** field, and its **Files:** bullet entries.
+//
+// The first line opening with `**Files:**` opens the field; its entries are
+// every immediately following `- ` bullet that is not a checkbox (`- [ ]`,
+// `- [x]`, `- [X]`), read until the first line that is not such a bullet. A
+// fence line toggles fence state without ending the run, and a fenced line
+// is never read. The Files line's own inline value is not read -- the
+// Python never did; generate-relocation-comparison reads Files through
+// tcfPythonFiles instead. An **Allowed-collateral:** entry never joins.
+func pdbParseTasks(lines []string) []pdbTask {
+	var tasks []pdbTask
+	for _, b := range tcfIterTasks(lines) {
+		t := pdbTask{id: b.id, taskLine: b.taskLine, unchecked: tcfTaskLineRE.FindStringSubmatch(lines[b.taskLine-1])[1] == " "}
+		if _, partners, gated := tcfSelectSquashWith(b.lines); gated >= 0 {
+			t.partners = partners
+		}
+		if a := tcfSelectAfter(b.lines); a != nil {
+			if a.gates {
+				t.afterSet, t.afterDeclared = a.ids, true
+			} else {
+				v := a.value
+				t.afterMalformed = &v
+			}
+		}
+		inFence, inFiles := false, false
+		for _, line := range b.lines {
+			if tcfFenceRE.MatchString(line) {
+				inFence = !inFence
+				continue
+			}
+			if inFence {
+				continue
+			}
+			if inFiles {
+				if entry, ok := pdbBullet(line); ok {
+					t.files = append(t.files, pdbExtractPaths(entry)...)
+					continue
+				}
+				inFiles = false
+			}
+			if strings.HasPrefix(line, "**Files:**") {
+				t.filesPresent, inFiles = true, true
+			}
+		}
+		tasks = append(tasks, t)
+	}
+	return tasks
+}
+
+// pdbBullet is BULLET_RE, `^- (?!\[[ xX]\])\s*(.*)$`: a Files entry line --
+// never a checkbox, so neither a step nor the next task's own line is read
+// as a path -- and its text after the dash and any whitespace.
+func pdbBullet(line string) (string, bool) {
+	rest, ok := strings.CutPrefix(line, "- ")
+	if !ok || len(rest) >= 3 && rest[0] == '[' && strings.IndexByte(" xX", rest[1]) >= 0 && rest[2] == ']' {
+		return "", false
+	}
+	return strings.TrimLeftFunc(rest, tcfIsSpace), true
+}
+
+var (
+	pdbEntryPrefixRE = regexp.MustCompile(`^(?:Create|Modify|Delete):[` + tcfWS + `]*`)
+	pdbBacktickRE    = regexp.MustCompile("`([^`]+)`")
+)
+
+// pdbExtractPaths is _extract_paths: one entry's every backtick-quoted path
+// after a Create:/Modify:/Delete: prefix, or its remaining text when it
+// quotes none. Paths compare as this literal text, never resolved.
+func pdbExtractPaths(entry string) []string {
+	stripped := tcfStrip(pdbEntryPrefixRE.ReplaceAllLiteralString(tcfStrip(entry), ""))
+	var paths []string
+	for _, m := range pdbBacktickRE.FindAllStringSubmatch(stripped, -1) {
+		paths = append(paths, tcfStrip(m[1]))
+	}
+	if paths == nil {
+		return []string{stripped}
+	}
+	return paths
+}
+
+// tcfReadPlan reads a tasks.md as the Python importers' open(path,
+// encoding="utf-8") did, rendering a failure as str(OSError) naming the path
+// as given, or as the UnicodeDecodeError's own message.
+func tcfReadPlan(env Env, path string) ([]string, error) {
+	lines, err := tcfReadPlanTyped(env, path)
+	if err != nil {
+		return nil, errors.New(strings.TrimPrefix(err.Error(), "UnicodeDecodeError: "))
+	}
+	return lines, nil
+}
+
+// tcfReadPlanTyped is tcfReadPlan keeping a decode failure's
+// "UnicodeDecodeError: " prefix, which check-plan-shape and
+// check-task-build-green print after "cannot read file: ".
+func tcfReadPlanTyped(env Env, path string) ([]string, error) {
+	b, err := os.ReadFile(psAbs(env, path))
+	if pe := (*fs.PathError)(nil); errors.As(err, &pe) {
+		pe.Path = path
+		return nil, tcfOSError(path, pe)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return tcfPlanLines(b)
+}
