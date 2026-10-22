@@ -1,0 +1,3 @@
+# coverage.sh is deleted (KAN-921); the exit-2 clause names the coverage call generically.
+**Exit 2 — the guard cannot answer at all (a missing or unreadable target directory, an unreadable report inside it, an internal coverage.sh call failing) — is not a violation**: the chain refuses it as `LAND-REPORT-UNCHECKED`, exit 5; report it and stop, never commit a report the guard could not read.
+**Exit 2 — the guard cannot answer at all (a missing or unreadable target directory, an unreadable report inside it, an internal coverage call failing) — is not a violation**: the chain refuses it as `LAND-REPORT-UNCHECKED`, exit 5; report it and stop, never commit a report the guard could not read.
