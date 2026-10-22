@@ -1,0 +1,6 @@
+# Jira: twg is the first route, MCP only when twg is absent (operator request after kan-922's connector hang).
+Each MCP call named in this contract means its `twg` counterpart on that route.
+flow reads and writes it through the Atlassian MCP tools available to the session (`getJiraIssue`, `getTransitionsForJiraIssue`, `transitionJiraIssue`, `editJiraIssue`) or, when those are not loaded, through the `twg` CLI (`twg jira workitem get`, `twg jira workitem transition` — without `--transition-id` it lists the transitions, with one it fires it — `twg jira workitem update`, `twg jira workitem create`).
+Each MCP call named in this contract means its `twg` counterpart on the `twg` route.
+The MCP connector resolves a cloud ID through a remote lookup first and can hang for minutes; `twg` answers in about a second.
+flow reads and writes it through the `twg` CLI whenever `command -v twg` finds it (`twg jira workitem get`, `twg jira workitem transition` — without `--transition-id` it lists the transitions, with one it fires it — `twg jira workitem update`, `twg jira workitem create`, `twg jira workitem comment`, `twg jira workitem query <jql>`), and through the Atlassian MCP tools available to the session (`getJiraIssue`, `getTransitionsForJiraIssue`, `transitionJiraIssue`, `editJiraIssue`, `createJiraIssue`, `searchJiraIssuesUsingJql`) only when `twg` is absent.
