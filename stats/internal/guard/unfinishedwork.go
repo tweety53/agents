@@ -508,6 +508,8 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 				}
 			}
 			narrative, _ := os.ReadFile(filepath.Dir(primary) + "/narrative.md")
+			var flagged []string
+			flaggedRead := false
 			for _, rp := range reports {
 				b, err := os.ReadFile(rp)
 				if err != nil {
@@ -538,6 +540,21 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 						}
 						for _, c := range commits {
 							if strings.HasPrefix(c.sha, cited) {
+								addressed = true
+							}
+						}
+					}
+					// A failure an earlier false-positive verdict of this
+					// change names by its `<spec>:<line>` is cleared: the
+					// flag lands on that run's newest row only, so without
+					// this every later run re-flags it (kan-1010's
+					// self-review: screenshots.spec.ts:52, three times).
+					if !addressed {
+						if !flaggedRead {
+							flagged, flaggedRead = uwFlaggedReasons(env, name, anchor), true
+						}
+						for _, r := range flagged {
+							if uwNamesFailure(r, fl.spec+":"+fl.line) {
 								addressed = true
 							}
 						}
@@ -892,6 +909,47 @@ func uwOpenFindings(b []byte) (int, bool) {
 		}
 	}
 	return n, true
+}
+
+// uwFlaggedReasons is the reason of every false-positive verdict the store
+// holds for change under check-unfinished-work. A failed or unparseable
+// read is none: the read can only clear an item, so a store outage leaves
+// every item outstanding, never refused (script-reads-are-advisory).
+func uwFlaggedReasons(env Env, change, anchor string) []string {
+	out, _, rc := pcFlow(env, false, "record", "verdicts", "-guard", "check-unfinished-work", "-false-positive", "-C", anchor)
+	var rows []struct {
+		Change string `json:"change"`
+		Reason string `json:"falsePositiveReason"`
+	}
+	if rc != 0 || json.Unmarshal(out, &rows) != nil {
+		return nil
+	}
+	var reasons []string
+	for _, r := range rows {
+		if r.Change == change {
+			reasons = append(reasons, r.Reason)
+		}
+	}
+	return reasons
+}
+
+// uwNamesFailure reports whether reason names spec:line as a whole token:
+// no path character before it and no digit after, so `a.spec.ts:5` names
+// neither `ba.spec.ts:5` nor `a.spec.ts:52`.
+func uwNamesFailure(reason, specLine string) bool {
+	for i := 0; ; {
+		j := strings.Index(reason[i:], specLine)
+		if j < 0 {
+			return false
+		}
+		start, end := i+j, i+j+len(specLine)
+		before := start == 0 || !strings.ContainsRune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_./-", rune(reason[start-1]))
+		after := end == len(reason) || reason[end] < '0' || reason[end] > '9'
+		if before && after {
+			return true
+		}
+		i = start + 1
+	}
 }
 
 // uwPriorFalsePositives is the advisory's two jq reads of `flow record

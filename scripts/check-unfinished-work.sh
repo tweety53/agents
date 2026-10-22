@@ -122,7 +122,10 @@
 # `<name>.png` or `<name>-<anything>.png` (the spec's base name for a failure
 # naming no capture), or when the change's narrative.md holds
 # `Verify failure addressed: <spec>:<line> — <sha>` with <sha> a range
-# commit. Each other failure is one reason, `verify failure not addressed:
+# commit, or when an earlier false-positive verdict of this change names
+# `<spec>:<line>` in its reason, no path character before it and no digit
+# after (kan-1010's self-review) — a store that cannot answer clears
+# nothing. Each other failure is one reason, `verify failure not addressed:
 # <spec>:<line>[ <name>.png] (<report>)`; an unreadable report is exit 2.
 #
 # SIGNAL TEN: A MULTI-REPOSITORY CHANGE WHOSE MERGE ORDER MISSES A REPOSITORY

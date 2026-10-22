@@ -1083,6 +1083,51 @@ func TestCheckUnfinishedWorkVerifyFailureNotAddressed(t *testing.T) {
 	}
 }
 
+// TestCheckUnfinishedWorkVerifyFailureFlaggedEarlier pins kan-1010's
+// self-review: screenshots.spec.ts:52 was flagged a false positive three
+// times, each flag landing on that run's newest row only. An earlier
+// false-positive verdict of this change naming the failure's `<spec>:<line>`
+// clears it; another change's verdict, another line's, a longer line
+// number's and a store that cannot answer do not.
+func TestCheckUnfinishedWorkVerifyFailureFlaggedEarlier(t *testing.T) {
+	t.Parallel()
+	const reason = "verify failure not addressed: screenshots.spec.ts:52"
+	row := func(change, why string) string {
+		return `{"id":1,"change":"` + change + `","guard":"check-unfinished-work","falsePositive":true,"falsePositiveReason":"` + why + `","flaggedAt":"2026-10-22T02:09:55Z"}`
+	}
+	for _, c := range []struct {
+		name     string
+		verdicts string
+		fail     bool
+		wantIn   bool
+	}{
+		{"no verdict leaves it outstanding", "[]", false, true},
+		{"this change's verdict naming it clears it", "[" + row("demo", "screenshots.spec.ts:52 does not recur: 5/5 passed") + "]", false, false},
+		{"another change's verdict does not", "[" + row("other", "screenshots.spec.ts:52 does not recur") + "]", false, true},
+		{"a verdict naming another line does not", "[" + row("demo", "screenshots.spec.ts:520 does not recur") + "]", false, true},
+		{"a verdict naming another spec does not", "[" + row("demo", "fidelity/screenshots.spec.ts:52 does not recur") + "]", false, true},
+		{"a store that cannot answer leaves it outstanding", "", true, true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			f := newUW(t)
+			gitRun(t, "", "init", "-q", f.wt)
+			gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "base")
+			base := tcfGit(t, f.wt, "rev-parse", "HEAD")
+			writeFile(t, f.wt+"/.superpowers/sdd/verify-report-visual-verify.md",
+				"# Verify\n\n- verify: exit 1\n  1) [functional] screenshots.spec.ts:52 sweep every reachable screen — test timeout\n")
+			f.setFile(t, "verdicts.json", c.verdicts+"\n")
+			if c.fail {
+				f.setFile(t, "verdicts.fail", "")
+			}
+			r := f.run(t, f.wt, "demo", "", f.wt+"="+base)
+			if r.rc != 0 || strings.Contains(r.out, reason) != c.wantIn {
+				t.Fatalf("exit %d stdout %q stderr %q; want exit 0 and %q present=%v", r.rc, r.out, r.err, reason, c.wantIn)
+			}
+		})
+	}
+}
+
 // TestCheckUnfinishedWorkMergeOrderRecord pins signal ten (decision
 // merge-order-signal, kan-995 self-review): a change whose ranges span a
 // second repository is OUTSTANDING until link.md's `## Merge order` names

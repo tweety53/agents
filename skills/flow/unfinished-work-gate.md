@@ -89,6 +89,11 @@ every worktree's verdict under the canonical project (THE STORE CALLS ANCHOR AT 
 change — a satellite's `-C` names a project holding none, and the store refuses it (kan-941:
 "dispatch not found" for both satellites).
 
+**A flagged verify failure stays cleared.** `check-unfinished-work.sh` clears a verify failure
+whose `<spec>:<line>` an earlier false-positive verdict of the change names, so the `-reason`
+names each verify failure it flags by the `<spec>:<line>` the verdict printed (kan-1010:
+`screenshots.spec.ts:52` was flagged three times, each flag on that run's newest row alone).
+
 A write that falls back to the journal is one warning line and the run continues.
 
 **An `UNTASKED` listing is never flagged this way.** `check-untasked-commits.sh` records no
