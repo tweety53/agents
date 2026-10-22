@@ -10,7 +10,7 @@ import (
 )
 
 // planSuiteStepsCmd is `flow-guard plan-suite-steps <tasks.md>`, run by
-// check-plan-shape.sh beside check-plan-shape.py on every tasks.md it scans.
+// check-plan-shape (planshape.go) in-process on every tasks.md it scans.
 // It refuses a task body that runs a module or repository test suite: an
 // inline code span outside a fence whose command — at its start or after
 // `&&`, `;` or `|` — invokes Gradle on a test task with no

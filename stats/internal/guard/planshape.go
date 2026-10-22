@@ -1,12 +1,8 @@
 package guard
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
 	"io"
-	"io/fs"
-	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -165,28 +161,12 @@ func checkPlanShape(args []string, env Env, stdout, stderr io.Writer) int {
 			return 2
 		}
 	}
-	changes := root + "/" + specRootLeaf(psAbs(env, root), stderr) + "/changes"
-	if !isDir(psAbs(env, changes)) {
-		return 0
-	}
-	var archived bytes.Buffer
-	if unlandedArchivesCmd([]string{root}, env, &archived, stderr) != 0 {
+	files, ok := tcfScanPlans(env, root, stderr)
+	if !ok {
 		return 2
-	}
-	var files []string
-	for _, name := range tcfEntries(psAbs(env, changes)) {
-		files = append(files, changes+"/"+name+"/tasks.md")
-	}
-	for _, name := range strings.Split(archived.String(), "\n") {
-		if name != "" {
-			files = append(files, changes+"/archive/"+name+"/tasks.md")
-		}
 	}
 	status := 0
 	for _, f := range files {
-		if _, err := os.Stat(psAbs(env, f)); err != nil {
-			continue
-		}
 		status = psWorse(status, psCheckOne(f, env, "", stdout, stderr))
 	}
 	return status
@@ -224,14 +204,7 @@ func psCheckOne(path string, env Env, off string, stdout, stderr io.Writer) int 
 }
 
 func psShape(path string, env Env, off string, stdout, stderr io.Writer) int {
-	b, err := os.ReadFile(psAbs(env, path))
-	var lines []string
-	if err == nil {
-		lines, err = tcfPlanLines(b)
-	} else if pe := (*fs.PathError)(nil); errors.As(err, &pe) {
-		pe.Path = path // str(OSError) names the path as given
-		err = tcfOSError(path, pe)
-	}
+	lines, err := tcfReadPlanTyped(env, path)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read file: %v\n", path, err)
 		return 2

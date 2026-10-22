@@ -14,7 +14,7 @@
 # document order, instead of the whole file — a named id the plan does not
 # carry is a malformed invocation (exit 2), reported like any other plan
 # defect. Task-line, body-boundary and fence grammar are
-# plan-dispatch-bundles.py's (see its docstring) — the ids that script
+# plan-dispatch-bundles's (stats/internal/guard/planparse.go) — the ids that guard
 # printed are the ids this finds.
 #
 # <worktree> and <change-root> are absolute paths; <change-root> is expected

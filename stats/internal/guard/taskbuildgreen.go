@@ -1,11 +1,8 @@
 package guard
 
 import (
-	"errors"
 	"fmt"
 	"io"
-	"io/fs"
-	"os"
 )
 
 // check-task-build-green fails when a tasks.md's tasks carry no **Build:**
@@ -117,14 +114,7 @@ func checkTaskBuildGreen(args []string, env Env, stdout, stderr io.Writer) int {
 }
 
 func tbgCheckFile(path string, env Env, stdout, stderr io.Writer) int {
-	b, err := os.ReadFile(psAbs(env, path))
-	var lines []string
-	if err == nil {
-		lines, err = tcfPlanLines(b)
-	} else if pe := (*fs.PathError)(nil); errors.As(err, &pe) {
-		pe.Path = path // str(OSError) names the path as given
-		err = tcfOSError(path, pe)
-	}
+	lines, err := tcfReadPlanTyped(env, path)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read file: %v\n", path, err)
 		return 2

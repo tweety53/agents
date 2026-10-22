@@ -2,11 +2,9 @@
 # check-task-commit-fields.sh — thin wrapper.
 #
 # All field-parsing and diff-checking logic lives in the Go port,
-# stats/internal/guard/taskcommitfields.go, which ports
-# check-task-commit-fields.py (Python 3, standard library only) — the parser
-# the bash body exec'd, split out the same way check-task-build-green.sh is
-# and for the same reason. That .py stays, loaded as a module by
-# plan-dispatch-bundles.py. This file exists only so an
+# stats/internal/guard/taskcommitfields.go, its plan grammar in
+# stats/internal/guard/planparse.go, which plan-dispatch-bundles and
+# check-plan-shape read too. This file exists only so an
 # operator's muscle memory invoking this exact filename, and
 # .flow/project.md's declared commands, keep working, while the field
 # grammar underneath gets a real parser.

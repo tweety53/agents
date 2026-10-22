@@ -723,6 +723,17 @@ func pdbExtractPaths(entry string) []string {
 // encoding="utf-8") did, rendering a failure as str(OSError) naming the path
 // as given, or as the UnicodeDecodeError's own message.
 func tcfReadPlan(env Env, path string) ([]string, error) {
+	lines, err := tcfReadPlanTyped(env, path)
+	if err != nil {
+		return nil, errors.New(strings.TrimPrefix(err.Error(), "UnicodeDecodeError: "))
+	}
+	return lines, nil
+}
+
+// tcfReadPlanTyped is tcfReadPlan keeping a decode failure's
+// "UnicodeDecodeError: " prefix, which check-plan-shape and
+// check-task-build-green print after "cannot read file: ".
+func tcfReadPlanTyped(env Env, path string) ([]string, error) {
 	b, err := os.ReadFile(psAbs(env, path))
 	if pe := (*fs.PathError)(nil); errors.As(err, &pe) {
 		pe.Path = path
@@ -731,9 +742,5 @@ func tcfReadPlan(env Env, path string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	lines, err := tcfPlanLines(b)
-	if err != nil {
-		return nil, errors.New(strings.TrimPrefix(err.Error(), "UnicodeDecodeError: "))
-	}
-	return lines, nil
+	return tcfPlanLines(b)
 }

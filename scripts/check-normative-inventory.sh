@@ -4,7 +4,7 @@
 #
 # It exists because nothing else in `## lint` would notice a deleted
 # requirement. check-references.sh and check-installed-citations.sh catch a
-# citation that stops resolving; check-markdown-integrity.py catches structural
+# citation that stops resolving; check-markdown-integrity.sh catches structural
 # damage; the harnesses under `## test` exercise script behaviour. A sentence
 # carrying a SHALL can be deleted with every one of them green — which is the
 # failure mode a corpus-wide prose trim risks, and the reason this guard is a
