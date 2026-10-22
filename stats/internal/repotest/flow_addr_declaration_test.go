@@ -154,9 +154,12 @@ func assertFlowAddrRoot(root string) string {
 	// the file each declared command maps to, per the dispatch convention
 	var declaredFiles []string
 	for _, c := range declared {
+		// a one-word command maps to ".go", as the harness's awk '{print $2}' did
+		word := ""
 		if f := strings.Fields(c); len(f) > 1 {
-			declaredFiles = append(declaredFiles, strings.ReplaceAll(f[1], "-", "")+".go")
+			word = f[1]
 		}
+		declaredFiles = append(declaredFiles, strings.ReplaceAll(word, "-", "")+".go")
 	}
 	slices.Sort(declaredFiles)
 	declaredFiles = slices.Compact(declaredFiles)

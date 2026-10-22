@@ -320,8 +320,8 @@ const pfGoAudits = "cd stats && go test ./internal/repotest/ -run '^Test(GitConf
 // touched package, the scripts/test-*.sh harness of a touched script, the
 // stats/internal/repotest package for a touched hook, and vitest of a touched
 // SPA test file or the test beside a touched source file. A touched Go file
-// also selects pfGoAudits: tests that audit the whole Go tree, named after no Go file, which main landed red
-// without twice (KAN-887's self-review).
+// also selects pfGoAudits: tests that audit the whole Go tree, named after no
+// Go file, which main landed red without twice (KAN-887's self-review).
 func pfChecks(env Env, pe pfEnv, wt string, touched []string) ([]string, int) {
 	get := exec.Command(pe.projectGet, wt, "lint")
 	var body bytes.Buffer

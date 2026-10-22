@@ -21,7 +21,7 @@ package repotest
 // carry the pins KAN-540 and KAN-596 put in their bash and python originals,
 // so case 7 points it at stats/internal/guard/ — without it those pins could
 // be deleted and `go test` stay green (panel round 2, F18). The auditor skips
-// test-* and *_test.go files, which excludes this file from its own scan.
+// test-* and *_test.go files; case 6 asserts that skip.
 //
 // THE THREE RULES, and their exemptions (all deliberate):
 //
