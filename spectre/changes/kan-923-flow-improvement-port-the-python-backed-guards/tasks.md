@@ -131,7 +131,7 @@ its shim resolves its real path per the shim-template correction above. A `**Fil
 keeps the Python reading (`["none"]`) through a new `tcfPythonFiles` in `planparse.go`, because
 `tcfParseTask`'s reading made F2 fire on 15 plans that pass at base.
 
-- [ ] 2. Port check-task-build-green
+- [x] 2. Port check-task-build-green
 
 **Files:** `stats/internal/guard/taskbuildgreen.go`, `stats/internal/guard/check_task_build_green_test.go`, `stats/internal/guard/planparse.go`, `scripts/check-task-build-green.sh`, `scripts/check-task-build-green.py`, `scripts/test-check-task-build-green.sh`
 **Allowed-collateral:** `stats/internal/guard/helpers_test.go`
@@ -146,15 +146,15 @@ keeps the Python reading (`["none"]`) through a new `tcfPythonFiles` in `planpar
 **Decision:** scope-seven-guards
 **Decision:** shims-export-repo-root
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-task-build-green.sh`, one
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-task-build-green.sh`, one
     subtest per `ok:` label, the `CHECK_TASK_BUILD_GREEN_ROOT` scans included. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-task-build-green`: the one-file check and the
+  - [x] **Step 2: Port**, registering `check-task-build-green`: the one-file check and the
     no-argument scan plus `unlanded-archives` in-process, reusing `planparse.go`'s grammar.
-  - [ ] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestCheckTaskBuildGreen$'
+  - [x] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestCheckTaskBuildGreen$'
     -count=1 -race -v | grep -c -- '--- PASS: TestCheckTaskBuildGreen/'` — at least 88.
-  - [ ] **Step 4: Shim and delete** — shim template with the repo-root lines, code 2;
+  - [x] **Step 4: Shim and delete** — shim template with the repo-root lines, code 2;
     `git rm scripts/test-check-task-build-green.sh scripts/check-task-build-green.py`.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
     `scripts/check-task-build-green.sh` (no argument) exits and prints as the wrapper did at
     `bbfe685e`, directly and through a symlink.
 
@@ -190,7 +190,7 @@ keeps the Python reading (`["none"]`) through a new `tcfPythonFiles` in `planpar
 
 - [ ] 4. Port plan-dispatch-groups
 
-**Files:** `stats/internal/guard/plandispatchgroups.go`, `stats/internal/guard/plan_dispatch_groups_test.go`, `scripts/plan-dispatch-groups.sh`, `scripts/plan-dispatch-groups.py`, `scripts/test-plan-dispatch-groups.sh`
+**Files:** `stats/internal/guard/plandispatchgroups.go`, `stats/internal/guard/plan_dispatch_groups_test.go`, `scripts/plan-dispatch-groups.sh`, `scripts/plan-dispatch-groups.py`, `scripts/test-plan-dispatch-groups.sh`, `skills/flow/scripts/plan-dispatch-groups.py`, `skills/flow-plan/scripts/plan-dispatch-groups.py`
 **Allowed-collateral:** `stats/internal/guard/helpers_test.go`
 **Tests:** `TestPlanDispatchGroups`
 **Regression:** fails if any of the harness's 14 `ok:` behaviours regress.
@@ -217,7 +217,7 @@ keeps the Python reading (`["none"]`) through a new `tcfPythonFiles` in `planpar
 
 - [ ] 5. Port generate-relocation-comparison
 
-**Files:** `stats/internal/guard/relocationcomparison.go`, `stats/internal/guard/generate_relocation_comparison_test.go`, `scripts/generate-relocation-comparison.sh`, `scripts/generate-relocation-comparison.py`, `scripts/test-generate-relocation-comparison.sh`
+**Files:** `stats/internal/guard/relocationcomparison.go`, `stats/internal/guard/generate_relocation_comparison_test.go`, `scripts/generate-relocation-comparison.sh`, `scripts/generate-relocation-comparison.py`, `scripts/test-generate-relocation-comparison.sh`, `skills/flow/scripts/generate-relocation-comparison.py`
 **Allowed-collateral:** `stats/internal/guard/helpers_test.go`
 **Tests:** `TestGenerateRelocationComparison`
 **Regression:** fails if any of the harness's 35 `PASS:` behaviours regress.
@@ -244,6 +244,13 @@ keeps the Python reading (`["none"]`) through a new `tcfPythonFiles` in `planpar
     declaring `**Relocation:** yes`, produces the comparison the base's Python produced on it, byte
     for byte, directly and through a symlink.
     <!-- verified: grep -l 'Relocation:\*\* yes' spectre/changes/archive/*/tasks.md @ bbfe685e -->
+
+Correction (2026-10-22): kan-300's first `**Relocation:**` line is `no` (its `yes` is a template
+line), so step 5 ran instead on
+`spectre/changes/archive/kan-378-flow-deletion-only-cut-of-stale-restated-and/tasks.md` and the six
+other real `Relocation: yes` plans — byte-identical, directly and through a symlink. The commit also
+removes the tracked `skills/flow/scripts/generate-relocation-comparison.py` symlink, now declared,
+and task 4's removes its two `plan-dispatch-groups.py` skill symlinks. Error lines keep the `generate-relocation-comparison.py:` prefix — byte-identical output is the contract.
 
 - [ ] 6. Port check-task-records
 
@@ -340,4 +347,4 @@ keeps the Python reading (`["none"]`) through a new `tcfPythonFiles` in `planpar
 
 Correction (2026-10-22): task 2 added `tcfScanPlans` to `planparse.go`, the no-argument scan's file
 list with unlanded-archives in-process; `planshape.go`'s own no-argument scan duplicates it and is
-switched to it here (`stats/internal/guard/*.go` is already collateral), output unchanged.
+switched to it here, and `planshape.go` and `taskbuildgreen.go` read plans through task 3's `tcfReadPlan` (`stats/internal/guard/*.go` is already collateral), output unchanged.
