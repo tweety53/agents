@@ -22,7 +22,8 @@ import (
 // reviewer flies beside a working implementer whose commits and source edits
 // legitimately move the rest of the worktree. Cases 6 and 7 pin exactly that;
 // cases 3-5 are the failure shapes the guard exists for, case 3 verbatim the
-// KAN-635 incident.
+// KAN-635 incident. Cases 17-18 pin the tick tolerance: a checkbox tick made
+// during the flight passes, a tick beside any other edit does not.
 
 // pucRepo is make_repo: one committed plan file and one committed source
 // file, built once; every case copies it.
@@ -82,6 +83,11 @@ func pucSnapAbsent(label string) pucStep {
 
 func pucEditPlan(g *fxGit, wt string) {
 	g.appendLine(wt+"/spectre/changes/demo/tasks.md", "plan: edited")
+}
+
+func pucCommitTickPlan(g *fxGit, wt string) {
+	g.write(wt+"/spectre/changes/demo/tasks.md", "- [ ] 1. A\n  - [ ] **Step 1: do it**\n- [ ] 2. B")
+	g.git(wt, "commit", "-qam", "tickable plan")
 }
 
 func pucRemovePlan(g *fxGit, wt string) {
@@ -275,7 +281,7 @@ func TestCheckPlanUnchanged(t *testing.T) {
 			pucAct(func(g *fxGit, wt string) { g.write(wt+"/spectre/changes/demo/sub/b.md", "b") }),
 			pucRun("verify", 1, "case 15b: verify after a file planted in the untracked subdirectory exits 1"),
 		}},
-		// git status failing during verify is cannot answer, never changed.
+		// git ls-files failing during verify is cannot answer, never changed.
 		{steps: []pucStep{
 			pucRun("snapshot", 0, "case 16a: snapshot exits 0"),
 			pucAct(func(g *fxGit, wt string) {
@@ -283,7 +289,27 @@ func TestCheckPlanUnchanged(t *testing.T) {
 					g.err = err
 				}
 			}),
-			pucRun("verify", 2, "case 16b: verify where git status fails exits 2"),
+			pucRun("verify", 2, "case 16b: verify where git ls-files fails exits 2"),
+		}},
+		// A checkbox tick the parent makes while a reviewer flies is not a
+		// change; a tick beside a prose edit still is.
+		{steps: []pucStep{
+			pucAct(pucCommitTickPlan),
+			pucRun("snapshot", 0, "case 17a: snapshot of an unticked plan exits 0"),
+			pucAct(func(g *fxGit, wt string) {
+				g.write(wt+"/spectre/changes/demo/tasks.md", "- [x] 1. A\n  - [x] **Step 1: do it**\n- [ ] 2. B")
+			}),
+			pucRun("verify", 0, "case 17b: verify after a task tick during the flight exits 0"),
+		}},
+		{steps: []pucStep{
+			pucAct(pucCommitTickPlan),
+			pucRun("snapshot", 0, "case 18a: snapshot of an unticked plan exits 0"),
+			pucAct(func(g *fxGit, wt string) {
+				g.write(wt+"/spectre/changes/demo/tasks.md", "- [x] 1. A edited\n  - [x] **Step 1: do it**\n- [ ] 2. B")
+			}),
+			pucRun("verify", 1, "case 18b: verify after a tick beside a prose edit exits 1"),
+			pucNames("case 18c: names the edited line", "A edited"),
+			pucNames("case 18d: names the changed path", "changed: spectre/changes/demo/tasks.md"),
 		}},
 	}
 	for _, c := range cases {

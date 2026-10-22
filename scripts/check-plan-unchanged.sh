@@ -14,10 +14,13 @@
 #
 #   snapshot  run immediately BEFORE the dispatch's Agent call, after the
 #             parent has committed any uncommitted plan edits — writes the
-#             plan tree's git status to <snapshot-file>
+#             plan tree's content (every tracked or untracked file under it,
+#             each path then its bytes) to <snapshot-file>
 #   verify    run when the dispatch's report file(s) exist, BEFORE any
-#             verdict is read or acted on — recomputes the same status and
-#             compares byte-for-byte
+#             verdict is read or acted on — recomputes the same content and
+#             compares it, naming each changed path; a checkbox tick
+#             (`- [ ] ` to `- [x] `, the parent's `flow tasks tick` during
+#             the flight) is not a change, any other difference is
 #
 # THE GUARD IS SCOPED TO THE PLAN TREE (`spectre/changes/<name>/`, and
 # `spectre/changes/archive/<name>/`, where a fix run writes once integrate's
@@ -27,9 +30,11 @@
 # everything else while the reviewer is in flight — a whole-worktree assert
 # would fire on every normal run, and the incident's own loss was the plan
 # tree ("source code was never at risk", the KAN-635 issue records). The
-# status includes untracked files, so a file planted under the plan tree is
-# a violation too; the plan directory being absent at snapshot and still
-# absent at verify is clean (nothing was there to lose).
+# snapshot is the plan tree's content, untracked files included, so a file
+# planted under the plan tree is a violation too, and so is a prose edit
+# beside a checkbox tick — only a line whose sole change is a tick passes;
+# the plan directory being absent at snapshot and still absent at verify is
+# clean (nothing was there to lose).
 #
 # THE SNAPSHOT IS THE EVIDENCE, and verify is the only restore claim this
 # pipeline accepts: the dispatching parent never reads the reviewer's

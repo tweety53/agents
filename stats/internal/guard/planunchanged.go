@@ -7,15 +7,17 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
 // checkPlanUnchanged is scripts/check-plan-unchanged.sh: that script's
-// header comment is the contract -- snapshot writes the plan tree's git
-// status to a file, verify recomputes it and compares byte for byte; exit 0
-// written or unchanged, 1 changed (each difference on stderr), 2 cannot
-// answer. The reasoning for each step, moved here from the bash body it
-// replaced (c9b8fde8), sits beside the code it explains.
+// header comment is the contract -- snapshot writes the plan tree's content
+// to a file, verify recomputes it and compares it, a checkbox tick
+// (`- [ ] ` to `- [x] `) not counting as a change; exit 0 written or
+// unchanged, 1 changed (each difference on stderr), 2 cannot answer. The
+// reasoning for each step, moved here from the bash body it replaced
+// (c9b8fde8), sits beside the code it explains.
 
 func init() {
 	Registry["check-plan-unchanged"] = checkPlanUnchanged
@@ -72,14 +74,44 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 
 	// The bash exported LC_ALL=C for its whole run; git and diff inherit it.
 	git := envGit(env, "LC_ALL=C")
+	// The snapshot is the plan tree's content: every path git lists under
+	// it (tracked or untracked-not-ignored), sorted, each as `== <path>`
+	// then its bytes, or `== <path> (missing)` when listed but gone from
+	// disk (a tracked file deleted in the working tree).
 	planStatus := func(out io.Writer) bool {
-		cmd := git("-C", wt, "status", "--porcelain", "--untracked-files=all", "--",
+		cmd := git("-C", wt, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--",
 			"spectre/changes/"+name, "spectre/changes/archive/"+name)
-		cmd.Stdout, cmd.Stderr = out, stderr
-		return cmd.Run() == nil
+		var list bytes.Buffer
+		cmd.Stdout, cmd.Stderr = &list, stderr
+		if cmd.Run() != nil {
+			return false
+		}
+		paths := strings.Split(strings.TrimSuffix(list.String(), "\x00"), "\x00")
+		sort.Strings(paths)
+		var dump bytes.Buffer
+		prev := ""
+		for _, p := range paths {
+			if p == "" || p == prev {
+				continue
+			}
+			prev = p
+			b, err := os.ReadFile(filepath.Join(wt, p))
+			if err != nil {
+				fmt.Fprintf(&dump, "== %s (missing)\n", p)
+				continue
+			}
+			fmt.Fprintf(&dump, "== %s\n", p)
+			dump.Write(b)
+			if len(b) > 0 && b[len(b)-1] != '\n' {
+				dump.WriteByte('\n')
+			}
+		}
+		_, err := out.Write(dump.Bytes())
+		return err == nil
 	}
 	gitFailed := func() int {
-		fmt.Fprintf(stderr, "check-plan-unchanged: git status failed in %s -- cannot answer (is it a git repository?)\n", wt)
+		fmt.Fprintf(stderr, "check-plan-unchanged: git ls-files failed in %s, or the plan content "+
+			"could not be written -- cannot answer (is it a git repository?)\n", wt)
 		return 2
 	}
 	snapPath := smcAbs(env, snap)
@@ -102,7 +134,7 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 			_ = os.Remove(snapPath)
 			return gitFailed()
 		}
-		fmt.Fprintf(stdout, "PLAN-SNAPSHOT-OK: spectre/changes/%s status pinned at %s\n", name, snap)
+		fmt.Fprintf(stdout, "PLAN-SNAPSHOT-OK: spectre/changes/%s content pinned at %s\n", name, snap)
 		return 0
 	}
 
@@ -121,10 +153,19 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "PLAN-UNCHANGED-OK: spectre/changes/%s matches its pre-dispatch snapshot\n", name)
 		return 0
 	}
+	if ticksOnly(string(want), got.String()) {
+		fmt.Fprintf(stdout, "PLAN-UNCHANGED-OK: spectre/changes/%s matches its pre-dispatch snapshot (checkbox ticks only)\n", name)
+		return 0
+	}
 	fmt.Fprintf(stderr, "check-plan-unchanged: spectre/changes/%s changed across the review dispatch -- the reviewer's own clean-or-restored claim is not evidence; stop and recover by hand from the pre-dispatch commit\n", name)
+	// The content dump's diff lines carry no path, so each changed path is
+	// named first.
+	for _, p := range changedPaths(string(want), got.String()) {
+		fmt.Fprintf(stderr, "check-plan-unchanged: changed: %s\n", p)
+	}
 	// `diff "$SNAP" "$current" | sed 's/^/check-plan-unchanged: /' >&2`:
-	// diff(1)'s normal format names each difference; the current status
-	// goes through a temp file, as the bash's mktemp did.
+	// diff(1)'s normal format names each difference; the current plan
+	// content goes through a temp file, as the bash's mktemp did.
 	tmpdir := env.Getenv("TMPDIR")
 	if tmpdir == "" {
 		tmpdir = "/tmp"
@@ -156,4 +197,54 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 	return 1
+}
+
+// ticksOnly reports whether cur differs from old only by checkbox ticks: the
+// same line count, and every differing line is old's line, opening `- [ ] `
+// after its indent, with that first `- [ ] ` turned to `- [x] `. The parent
+// ticks a task (`flow tasks tick`) while a reviewer flies; no step unticks.
+func ticksOnly(old, cur string) bool {
+	o, c := strings.Split(old, "\n"), strings.Split(cur, "\n")
+	if len(o) != len(c) {
+		return false
+	}
+	for i := range o {
+		if o[i] == c[i] {
+			continue
+		}
+		if !strings.HasPrefix(strings.TrimLeft(o[i], " "), "- [ ] ") || c[i] != strings.Replace(o[i], "- [ ] ", "- [x] ", 1) {
+			return false
+		}
+	}
+	return true
+}
+
+// changedPaths names, sorted, each path whose `== <path>` section differs
+// between two content dumps, or is in one only.
+func changedPaths(old, cur string) []string {
+	sections := func(dump string) map[string]string {
+		m := map[string]string{}
+		key := ""
+		for _, l := range strings.SplitAfter(dump, "\n") {
+			if strings.HasPrefix(l, "== ") {
+				key = strings.TrimSuffix(strings.TrimSuffix(strings.TrimPrefix(l, "== "), "\n"), " (missing)")
+			}
+			m[key] += l
+		}
+		return m
+	}
+	o, c := sections(old), sections(cur)
+	var out []string
+	for k, v := range o {
+		if c[k] != v {
+			out = append(out, k)
+		}
+	}
+	for k := range c {
+		if _, ok := o[k]; !ok {
+			out = append(out, k)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
