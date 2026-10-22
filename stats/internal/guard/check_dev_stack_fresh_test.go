@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -67,12 +68,13 @@ func TestCheckDevStackFresh(t *testing.T) {
 		dsfAssert(t, dsfRun(root), 1, "stack-stale")
 	})
 	t.Run("case 3", func(t *testing.T) {
-		served := "stale-bundle\n"
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { fmt.Fprint(w, served) }))
+		var served atomic.Value
+		served.Store("stale-bundle\n")
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { fmt.Fprint(w, served.Load()) }))
 		defer srv.Close()
 		root := dsfRoot(t, dsfSection("curl -sf "+srv.URL+"/index.html \\| cmp -s - dist.html"), map[string]string{"dist.html": "fresh-bundle\n"})
 		t.Run("case 3 stale", func(t *testing.T) { dsfAssert(t, dsfRun(root), 1, "stack-stale") })
-		served = "fresh-bundle\n"
+		served.Store("fresh-bundle\n")
 		t.Run("case 3 fresh", func(t *testing.T) { dsfAssert(t, dsfRun(root), 0, "stack-fresh") })
 	})
 	t.Run("case 4", func(t *testing.T) {
