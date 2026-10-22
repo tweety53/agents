@@ -13,12 +13,12 @@ import (
 	"testing"
 )
 
-// The integrate-change cases are scripts/test-integrate-change.sh's cases,
-// each run as its own bash session over that harness's own fixture, `g`,
-// `to_land`, `peer_fix_case`, `ui_a` and `flag`, kept verbatim so every
-// case's setup and every `check` expression is the harness's own. Only
-// `sut` changes: it hands its argv and environment back to this test, which
-// runs Registry["integrate-change"] in process and returns OUT, RC and the
+// The integrate-change cases are its former bash harness's cases, each run
+// as its own bash session over that harness's own fixture, `g`, `to_land`,
+// `peer_fix_case`, `ui_a` and `flag`, kept verbatim so every case's setup
+// and every `check` expression is the harness's own. Only `sut` changes: it
+// hands its argv and environment back to this test, which runs
+// Registry["integrate-change"] in process and returns OUT, RC and the
 // stderr file — so the cases exercise the Go under `go test -cover`, and
 // each `check` label is a subtest of its case.
 

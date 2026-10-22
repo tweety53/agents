@@ -2,8 +2,8 @@ package guard
 
 import "testing"
 
-// The prepare and commit cases of scripts/test-integrate-change.sh, run as
-// integrate_change_test.go runs the happy path.
+// The prepare and commit cases of integrate-change's former bash harness,
+// run as integrate_change_test.go runs the happy path.
 func TestIntegrateChangePrepareCommit(t *testing.T) {
 	icRunCases(t, []icCaseDef{
 		{"narrative_format", `# --- narrative_format ---

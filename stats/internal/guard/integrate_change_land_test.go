@@ -2,8 +2,8 @@ package guard
 
 import "testing"
 
-// The land, cleanup and visual-gate cases of scripts/test-integrate-change.sh,
-// run as integrate_change_test.go runs the happy path; peer_fix_case is the
+// The land, cleanup and visual-gate cases of integrate-change's former bash
+// harness, run as integrate_change_test.go runs the happy path; peer_fix_case is the
 // helper both peer-fix cases call.
 func TestIntegrateChangeLandCleanup(t *testing.T) {
 	icRunCases(t, []icCaseDef{
