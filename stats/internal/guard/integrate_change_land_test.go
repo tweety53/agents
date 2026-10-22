@@ -323,5 +323,26 @@ check "orphan_sweep: each orphan id goes through the remove command" '[ "$(cat "
 check "orphan_sweep: a removed orphan is reported" 'printf "%s\n" "$OUT" | grep -qx "WORKSPACE-ORPHAN-REMOVED: orph-1"'
 check "orphan_sweep: a failed orphan removal is reported and cleanup still finishes" \
   'printf "%s\n" "$OUT" | grep -qx "WORKSPACE-ORPHAN-REMOVE-FAILED: orph-bad — exit 1" && [ "$(jq -r .state "$WORK/state.json")" = FINISHED ]'`},
+		{"indented_fixed_row", `# --- indented_fixed_row ---
+fixture
+to_land "indented_fixed_row: " no-report
+printf 'fix\n' >"$WORK/b-worktrees/demo/fix-b.txt"
+g -C "$WORK/b-worktrees/demo" add fix-b.txt && g -C "$WORK/b-worktrees/demo" commit -qm "fix(b): the peer fix"
+old="$(git -C "$WORK/b-worktrees/demo" rev-parse --short HEAD)"
+mkdir -p "$WORK/a-worktrees/demo/docs/self-review"
+printf '# demo self-review\n\n  - **[flow-fix]** the peer fix — fixed: %s\n' "$old" >"$WORK/a-worktrees/demo/docs/self-review/demo-self-review.md"
+g -C "$WORK/a-worktrees/demo" add docs/self-review/demo-self-review.md
+g -C "$WORK/a-worktrees/demo" commit -qm "docs(self-review): demo self-review report"
+sut land "$WORK/a" demo
+check "indented_fixed_row: land exits 0" '[ "$RC" -eq 0 ]'
+check "indented_fixed_row: an indented report row is not recorded as fixed" '! grep -q -- "-disposition fixed" "$WORK/fixed.log" 2>/dev/null'`},
+		{"padded_orphan", `# --- padded_orphan ---
+fixture
+printf '\n## workspace isolation\n\n| Command | Runs |\n|---------|------|\n| ` + "`" + `remove` + "`" + ` | ` + "`" + `echo "[<id>]" >>%s/removed.log` + "`" + ` |\n| ` + "`" + `orphans` + "`" + ` | ` + "`" + `printf " orph-1\\n"` + "`" + ` |\n' "$WORK" >>"$WORK/a/.flow/project.md"
+g -C "$WORK/a" commit -qam "chore: workspace commands" && g -C "$WORK/a" push -q origin main
+to_land "padded_orphan: "
+sut land "$WORK/a" demo
+check "padded_orphan: land exits 0" '[ "$RC" -eq 0 ]'
+check "padded_orphan: a padded orphan id is refused and never removed" 'printf "%s\n" "$OUT" | grep -qx "WORKSPACE-ORPHAN-REMOVE-FAILED:  orph-1 — refused, not an id" && ! grep -q "orph-1" "$WORK/removed.log"'`},
 	})
 }

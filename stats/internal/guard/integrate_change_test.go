@@ -301,3 +301,20 @@ check "run 2 keeps a's pre-reshape pin, locally and on origin" \
 check "land ends on NEXT: Finished handoff" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: print the Finished handoff"'`},
 	})
 }
+
+// The shim's own `cd /`: run outside sut, from inside the canonical
+// worktree, with a relative main checkout.
+func TestIntegrateChangeShim(t *testing.T) {
+	icRunCases(t, []icCaseDef{
+		{"shim_caller_cwd", `# --- shim_caller_cwd ---
+fixture
+for r in a b; do
+  g -C "$WORK/$r-worktrees/demo" push -q origin HEAD:main
+  g -C "$WORK/$r" fetch -q origin
+done
+OUT="$(cd "$WORK/a-worktrees/demo" && PATH="$WORK/bin:$PATH" exec "$SUT" cleanup ../../a demo --harness test --session-token mf-test 2>"$WORK/stderr")"; RC=$?
+check "shim_caller_cwd: cleanup run from inside a worktree is not HELD by its own cwd" '! printf "%s\n" "$OUT" | grep -q "^HELD:"'
+check "shim_caller_cwd: a relative main checkout resolves against the caller's directory" \
+  '[ "$RC" -eq 0 ] && [ ! -d "$WORK/a-worktrees/demo" ] && [ "$(jq -r .state "$WORK/state.json")" = FINISHED ]'`},
+	})
+}
