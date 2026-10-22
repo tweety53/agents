@@ -457,15 +457,31 @@ cmd_prepare() {
     exit 0
   fi
 
-  # A worktree off the base another worktree records, while its own origin
-  # carries that base, would land the change on two different branches.
-  local fi fj fb
+  # A worktree off the base another worktree records would land the change
+  # on two different branches. One on its default branch whose origin lacks
+  # that base gets it: created from the default branch at the same commit, so
+  # the recorded merge base stands and the base-moved sync below moves the
+  # branch. Any other mismatch stops.
+  local fi fj fb fmb
   for fi in "${!WT[@]}"; do
     fb="$(git -C "${WT[fi]}" config --get "branch.spectre/$NAME.flowBase")" || continue
     for fj in "${!WT[@]}"; do
       [ "${BASES[fj]}" != "$fb" ] || continue
-      git -C "${WT[fj]}" rev-parse -q --verify "refs/remotes/origin/$fb" >/dev/null || continue
-      stop base-mismatch "${WT[fj]} resolves base ${BASES[fj]}, but ${WT[fi]} records $fb and origin/$fb exists in ${WT[fj]}'s repository — ask the operator; never land it on ${BASES[fj]}"
+      git -C "${WT[fj]}" fetch -q origin >/dev/null 2>&1 || true
+      if ! git -C "${WT[fj]}" rev-parse -q --verify "refs/remotes/origin/$fb" >/dev/null &&
+        ! git -C "${WT[fj]}" config --get "branch.spectre/$NAME.flowBase" >/dev/null &&
+        [ "${MB[fj]}" != "-" ]; then
+        git -C "${WT[fj]}" push -q origin "refs/remotes/origin/${BASES[fj]}:refs/heads/$fb" &&
+          git -C "${WT[fj]}" fetch -q origin "$fb" &&
+          git -C "${WT[fj]}" config "branch.spectre/$NAME.flowBase" "$fb" &&
+          fmb="${MB[fj]}" &&
+          flow state add-worktree -C "$MAIN" "$NAME" "${WT[fj]}" "$fmb" >&2 ||
+          stop base-mismatch "creating origin/$fb from ${BASES[fj]} and recording it as ${WT[fj]}'s base failed — ask the operator"
+        say "BASE-CREATED: origin/$fb from ${BASES[fj]} in ${WT[fj]}'s repository; ${WT[fj]}'s base recorded as it"
+        BASES[fj]="$fb"; MB[fj]="$fmb"
+        continue
+      fi
+      stop base-mismatch "${WT[fj]} resolves base ${BASES[fj]}, but ${WT[fi]} records $fb — ask the operator; never land it on ${BASES[fj]}"
     done
   done
 

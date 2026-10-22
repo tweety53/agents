@@ -123,7 +123,9 @@
 #   base_mismatch   a recording flowBase feature/x while b resolves main and
 #                   b's origin has feature/x stops prepare at
 #                   STOP: base-mismatch, exit 1, before the preflight; b
-#                   recording it too, or feature/x on a's origin only, passes.
+#                   recording it too passes; feature/x on a's origin only is
+#                   created on b's origin from main and b re-pointed onto
+#                   it; b recording another base stops.
 #   refresh_on_recorded_base a recording flowBase feature/x with a's main
 #                   checkout on feature/x: land refreshes it onto feature/x
 #                   rather than refusing it for not being on main (prepare
@@ -1035,6 +1037,16 @@ g -C "$WORK/a" push -q origin main:refs/heads/feature/x
 g -C "$WORK/a-worktrees/demo" config branch.spectre/demo.flowBase feature/x
 sut prepare "$WORK/a" demo
 check "base_mismatch: feature/x on a's origin only passes the gate" '! printf "%s" "$OUT" | grep -q "STOP: base-mismatch" && grep -q flow.preflight "$WORK/stages.log"'
+check "base_mismatch: feature/x on a's origin only is created on b's origin from main" \
+  'printf "%s" "$OUT" | grep -q "^BASE-CREATED: origin/feature/x from main" && [ "$(git --git-dir="$WORK/b-origin.git" rev-parse feature/x)" = "$(git --git-dir="$WORK/b-origin.git" rev-parse main)" ]'
+check "base_mismatch: b is re-pointed onto feature/x" \
+  '[ "$(git -C "$WORK/b-worktrees/demo" config branch.spectre/demo.flowBase)" = feature/x ] && PATH="$WORK/bin:$PATH" flow state get -C "$WORK/a" demo | grep -qF "$(git -C "$WORK/b-worktrees/demo" merge-base HEAD origin/feature/x)"'
+fixture
+g -C "$WORK/a" push -q origin main:refs/heads/feature/x
+g -C "$WORK/a-worktrees/demo" config branch.spectre/demo.flowBase feature/x
+g -C "$WORK/b-worktrees/demo" config branch.spectre/demo.flowBase main
+sut prepare "$WORK/a" demo
+check "base_mismatch: b recording another base stops" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: base-mismatch — "'
 end_case ) >"$LOGS/38.log" 2>&1 &
 PIDS+=($!)
 

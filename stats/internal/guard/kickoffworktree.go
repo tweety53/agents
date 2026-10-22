@@ -144,24 +144,42 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	if rc, out := kwRun(env, "", git, "-C", project, "fetch", "origin"); rc != 0 {
 		return relay(1, out)
 	}
+	// The default branch by name, never HEAD: the main checkout may be on
+	// any branch and is never moved.
+	defaultBranch := func() (string, bool) {
+		rc, out := kwRun(env, "", git, "-C", project, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
+		if rc != 0 {
+			fmt.Fprintf(stderr, "%s: cannot resolve the default branch — refs/remotes/origin/HEAD is unset (git remote set-head origin --auto)\n", self)
+			return "", false
+		}
+		return strings.TrimSpace(out), true
+	}
+	// A base this origin lacks is created from its default branch, so every
+	// repository of the change records the same base.
 	if base != "" {
 		if rc, _ := kwRun(env, "", git, "-C", project, "rev-parse", "-q", "--verify", "refs/remotes/origin/"+base); rc != 0 {
-			fmt.Fprintf(stderr, "%s: origin/%s does not exist in %s — stop and ask the operator: push %s to that origin, or re-run naming that repository's default branch as <base>\n", self, base, project, base)
-			return 1
+			def, ok := defaultBranch()
+			if !ok {
+				return 2
+			}
+			if rc, out := kwRun(env, "", git, "-C", project, "push", "origin", "refs/remotes/"+def+":refs/heads/"+base); rc != 0 {
+				return relay(1, out)
+			}
+			if rc, out := kwRun(env, "", git, "-C", project, "fetch", "origin", base); rc != 0 {
+				return relay(1, out)
+			}
+			fmt.Fprintf(stderr, "%s: origin/%s did not exist in %s — created it from %s\n", self, base, project, def)
 		}
 	}
 	add := []string{"-C", project, "worktree", "add", wt, branch}
 	if rc, _ := kwRun(env, "", git, "-C", project, "rev-parse", "-q", "--verify", "origin/"+branch); rc != 0 {
 		start := "origin/" + base
 		if base == "" {
-			// The default branch by name, never HEAD: the main checkout may
-			// be on any branch and is never moved.
-			rc, out := kwRun(env, "", git, "-C", project, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
-			if rc != 0 {
-				fmt.Fprintf(stderr, "%s: cannot resolve the default branch — refs/remotes/origin/HEAD is unset (git remote set-head origin --auto)\n", self)
+			def, ok := defaultBranch()
+			if !ok {
 				return 2
 			}
-			start = strings.TrimSpace(out)
+			start = def
 		}
 		add = []string{"-C", project, "worktree", "add", wt, "-b", branch, start}
 	} else if base != "" {

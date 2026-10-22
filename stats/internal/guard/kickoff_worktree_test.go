@@ -290,16 +290,21 @@ func TestKickoffWorktree(t *testing.T) {
 		}
 	})
 
-	t.Run("named base missing on origin: exit 1, nothing added", func(t *testing.T) {
+	t.Run("named base missing on origin: created from the default branch and recorded", func(t *testing.T) {
 		t.Parallel()
 		fx := kwNew(t, "", true)
 		fx.started(t)
+		def := fx.git(t, fx.project, "rev-parse", "origin/HEAD")
 		r := fx.run(t, fx.project, kwName, "feature/nope")
-		if r.rc != 1 || !strings.Contains(r.err, "kickoff-worktree: origin/feature/nope does not exist") {
+		if r.rc != 0 || !strings.Contains(r.err, "kickoff-worktree: origin/feature/nope did not exist") {
 			t.Fatalf("rc=%d out=%s", r.rc, r.out)
 		}
-		if _, err := os.Stat(fx.project + "-worktrees/" + kwName); err == nil {
-			t.Errorf("a worktree was added for a missing base")
+		if got := fx.git(t, "", "--git-dir", fx.origin, "rev-parse", "refs/heads/feature/nope"); got != def {
+			t.Errorf("origin feature/nope = %q, want %q", got, def)
+		}
+		wt := fx.project + "-worktrees/" + kwName
+		if got := fx.git(t, wt, "config", "--get", "branch.spectre/"+kwName+".flowBase"); got != "feature/nope" {
+			t.Errorf("flowBase = %q", got)
 		}
 	})
 
@@ -336,7 +341,7 @@ func TestKickoffWorktree(t *testing.T) {
 		}
 	})
 
-	t.Run("--from: base missing on that origin: exit 1, both remedies named, nothing added", func(t *testing.T) {
+	t.Run("--from: base missing on that origin: created there and recorded", func(t *testing.T) {
 		t.Parallel()
 		canon, peer := kwNew(t, "", true), kwNew(t, "", true)
 		kwPushFeature(t, canon)
@@ -345,12 +350,14 @@ func TestKickoffWorktree(t *testing.T) {
 			t.Fatalf("kickoff rc=%d out=%s", r.rc, r.out)
 		}
 		r := canon.run(t, "--from", canon.project+"-worktrees/"+kwName, peer.project, kwName)
-		if r.rc != 1 || !strings.Contains(r.err, "origin/feature/x does not exist") ||
-			!strings.Contains(r.err, "push feature/x") || !strings.Contains(r.err, "default branch") {
+		if r.rc != 0 || !strings.Contains(r.err, "origin/feature/x did not exist") {
 			t.Fatalf("rc=%d out=%s", r.rc, r.out)
 		}
-		if _, err := os.Stat(peer.project + "-worktrees/" + kwName); err == nil {
-			t.Errorf("a worktree was added for a missing base")
+		if _, err := os.Stat(peer.project + "-worktrees/" + kwName); err != nil {
+			t.Errorf("no worktree added: %v", err)
+		}
+		if got := canon.git(t, peer.project+"-worktrees/"+kwName, "config", "--get", "branch.spectre/"+kwName+".flowBase"); got != "feature/x" {
+			t.Errorf("flowBase = %q", got)
 		}
 	})
 

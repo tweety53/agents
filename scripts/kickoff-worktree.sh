@@ -5,8 +5,10 @@
 # Usage: kickoff-worktree.sh [--from <worktree>] <project> <name> [<base>]
 #
 # <base>, when given, names the branch the change is cut from and lands on
-# instead of origin/HEAD's: origin/<base> must exist (exit 1 otherwise,
-# nothing added), a fresh branch is created from it, and either form records
+# instead of origin/HEAD's: an origin/<base> this repository's origin lacks is
+# first pushed from its origin default branch (one stderr line), so every
+# repository of the change records the same base; a fresh branch is created
+# from it, and either form records
 # it as `git config branch.spectre/<name>.flowBase <base>`, which
 # resolve-base-branch.sh reads ahead of origin/HEAD. A name failing
 # resolve-base-branch's validation is exit 2.
@@ -47,9 +49,8 @@
 #   merge-base: <sha>
 #
 # Exit codes: 0 all four steps done; 1 a step stopped the run — the location
-# guard's refusal, origin/<base> missing in <project> (both remedies named:
-# push <base> to that origin, or re-run naming its default branch; nothing
-# added), a failed git call, `flow state add-worktree` refusing (no
+# guard's refusal, a failed git call (creating a missing origin/<base>
+# among them), `flow state add-worktree` refusing (no
 # STARTED record), a setup command's non-zero exit (named, with its output)
 # or a failed push — its lines relayed on stderr, and the worktree already
 # persisted when step 2 got that far; 2 usage, `flow` absent from PATH, no

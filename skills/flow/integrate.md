@@ -40,7 +40,7 @@ that stopped once the stop is handled.
 - **`STOP: preflight` or `STOP: base`** → stop, report what the script reported, relay the guard's
   hand-verification procedure per **Hand-verifying a guard verdict** (`skills/flow-contracts/pipeline.md`), and ask
   the operator.
-- **`STOP: base-mismatch`** → report the line and ask the operator.
+- **`STOP: base-mismatch`** → report the line and ask the operator. A worktree on its default branch whose origin lacks the base another worktree records is not a stop: `prepare` creates that base on its origin from the default branch, records it as the worktree's base with the first and third commands below (the merge base unchanged, since the new base sits at the default branch's commit), leaves moving the branch to the base-moved sync, and prints one `BASE-CREATED:` line.
   The answer that moves the worktree is `git -C <wt> config branch.spectre/<name>.flowBase <b>`, <!-- citations-guard:allow -->
   `git -C <wt> rebase --onto origin/<b> <its recorded merge base>`,
   `flow state add-worktree -C <the change's canonical worktree> <name> <wt> $(git -C <wt> merge-base HEAD origin/<b>)`, then re-run
