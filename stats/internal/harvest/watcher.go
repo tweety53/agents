@@ -1855,6 +1855,7 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 	// stamps.
 	takenBegin := make([]bool, len(begins))
 	claimed := make([]bool, len(launches))
+	var retry []pairing
 	for _, c := range candidates {
 		if takenBegin[c.beginIdx] || claimed[c.launchIdx] {
 			continue
@@ -1884,13 +1885,23 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 			continue
 		}
 		if !stamped {
-			// No empty row under (session-token, key): the begin fell back
-			// to a journal not yet replayed, the row carries a hand-typed
-			// id already, or the key names a row this transcript cannot
-			// see. All ordinary; nothing to stamp, nothing to log.
+			// No empty row under (session-token, key) yet. The begin's
+			// command line reaches the transcript before the command has
+			// written the row, so the batch that reads it can pair it
+			// before the row exists (kan-1010's self-review: both panel-0
+			// rows, begun 4 s after their command line, stayed unstamped).
+			// The pair goes back to pending, and the next batch tries
+			// again -- its keyed stamp first. A row that never appears --
+			// a begin in a journal not yet replayed, a hand-typed id, a
+			// row this transcript cannot see -- is evicted by the bound,
+			// the ordinary silence.
+			retry = append(retry, c)
 			continue
 		}
 		w.creditStampedAgentFile(ctx, path, launches[c.launchIdx].AgentID)
+	}
+	for _, c := range retry {
+		takenBegin[c.beginIdx], claimed[c.launchIdx] = false, false
 	}
 
 	// Whatever remains unpaired or unclaimed REPLACES the pending lists --
