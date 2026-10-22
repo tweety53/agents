@@ -113,7 +113,11 @@ since that sha leaves untouched; a skipped command's `## Report` line says so, a
 header is canonical for the rule.
 
 **Inline verify — a failing command.** A non-zero exit from any command in the list earns **one**
-inline re-run of that command — the environmental-flake case. A second non-zero exit from the same
+inline re-run of that command — the environmental-flake case. Output carrying `WARNING: DATA RACE`
+or `race detected during execution of test` is never that case: the command takes **The loop**
+whatever its re-run exits, since a race that passes once is still a race
+(`rules/fix-determinism-at-the-source.mdc`), and `run-verify-list.sh` marks its block with
+`data race — never environmental`. A second non-zero exit from the same
 command is the branch's own defect and takes **The loop** (`skills/flow/verify-fix-loop.md`) once
 the whole list has run; where the environment itself failed — a missing build prerequisite — it
 ends the turn with `## Question` naming the command and its output, verbatim. A failing test this

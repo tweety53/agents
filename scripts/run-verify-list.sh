@@ -24,7 +24,8 @@
 # runs in order, one command at a time.
 # The caller exports the KEY=value lines prepare-workspace.sh printed for
 # <worktree> first; every command inherits them. This script retries
-# nothing — the one inline re-run of a failing command stays the caller's.
+# nothing — the one inline re-run of a failing command stays the caller's,
+# and a race-marked command takes **The loop** whatever its re-run exits.
 #
 # THE GREEN SHA (KAN-887's self-review: verify re-ran the whole list minutes
 # after a green full-suite run, the delta a test rename). A `test` run that
@@ -45,6 +46,9 @@
 #   - `<command>` — exit <n>
 #     <each output line, indented two spaces; past 20 lines,
 #     `(truncated — last 20 of <N> lines)` and then the last 20>
+#     `data race — never environmental` — when the command's whole output,
+#     not only its tail, carries `WARNING: DATA RACE` or `race detected
+#     during execution of test`
 #     `full output: <path>` — on a non-zero exit inside a git worktree, the
 #     command's whole output copied to `<git-path flow-verify-failed>/<list>-<n>.log`
 #     (<n> its 0-based list position, `spec-reach` for the appended
@@ -143,6 +147,9 @@ report() {
     tail -n 20 "$3" | awk '{print "  " $0}'
   else
     awk '{print "  " $0}' "$3"
+  fi
+  if grep -Eq 'WARNING: DATA RACE|race detected during execution of test' "$3"; then
+    printf '  data race — never environmental\n'
   fi
   if [ "$2" -ne 0 ] && [ -n "$KEEP" ]; then
     cp "$3" "$KEEP/$LIST-$4.log"

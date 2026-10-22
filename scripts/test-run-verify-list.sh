@@ -72,6 +72,12 @@ expect_has "test list reported" $'- `printf \'ok\\n\'` — exit 0\n  ok'
 expect_has "output without a final newline ends its line" $'  nonl\n- `echo next` — exit 0'
 expect_lacks "test never appends check-spec-reach.sh" 'check-spec-reach.sh'
 
+printf '## test\n\n```bash\n%s\n%s\n%s\n```\n' "printf 'WARNING: DATA RACE\\n'; seq 1 25; exit 1" "printf 'testing.go:1: race detected during execution of test\\n'; exit 1" "printf 'plain\\n'; exit 1" > "$ROOT/.flow/project.md"
+run_bin "$ROOT" test
+expect_rc "a list with a race fails" 1
+expect_has "a race banner the tail dropped still marks its block" $'  25\n  data race — never environmental'
+[ "$(grep -c 'data race — never environmental' <<<"$OUT")" -eq 2 ] && pass "each race block is marked, a plain failure is not" || fail "race marks: $(grep -c 'data race — never environmental' <<<"$OUT")"
+
 # The first command waits for a file only the second creates: run one after
 # the other it gives up after five seconds and fails the list.
 printf '## test\n\n```bash\nfor i in $(seq 50); do [ -f made-by-two ] && echo saw-two && exit 0; sleep 0.1; done; exit 1\ntouch made-by-two\n```\n' > "$ROOT/.flow/project.md"
