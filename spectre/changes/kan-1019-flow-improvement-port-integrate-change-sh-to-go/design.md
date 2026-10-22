@@ -83,7 +83,7 @@ cases split across `integrate_change_test.go` (fixture, prepare and commit cases
 by side.
 **Considered:** running the shim as a subprocess — rejected, every case would pay the shim's
 build-cache check and the test would not exercise the code under `go test -cover`.
-**Superseded because:** implementation found a Go transcription of the harness's fixture and case bodies would restate about 1000 lines of setup the bash already proves.
+**Superseded because:** implementation found a Go transcription of the harness's fixture and case bodies would restate the harness's whole setup, which the bash already proves.
 
 ### Shape of the Go tests, as shipped
 

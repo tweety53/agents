@@ -131,7 +131,7 @@ surviving run 2, and the stage log running from `flow.preflight` to `flow.refres
     `integratechange_prepare.go`, see the test fail, restore it.
   - [x] **Step 4: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard && go test ./internal/guard -run 'TestIntegrateChangeHappyPath'`.
 
-Correction (2026-10-22): the plan declared the fixture and each case's steps ported into Go helpers; what shipped keeps the harness's fixture, `g`, `to_land`, `peer_fix_case`, `ui_a`, `flag`, every case body and every `check` expression verbatim as bash, run per case as its own bash session whose `sut` hands argv and environment back to the test, which runs `Registry["integrate-change"]` in process. The SUT still runs in process under `t.Parallel()` and `go test -cover`, each `check` label is its own subtest, and no setup step or assertion was re-expressed by hand — a transcription into Go would have restated about 1000 lines of setup the bash already proves, with a new place for each to drift.
+Correction (2026-10-22): the plan declared the fixture and each case's steps ported into Go helpers; what shipped keeps the harness's fixture, `g`, `to_land`, `peer_fix_case`, `ui_a`, `flag`, every case body and every `check` expression verbatim as bash, run per case as its own bash session whose `sut` hands argv and environment back to the test, which runs `Registry["integrate-change"]` in process. The SUT still runs in process under `t.Parallel()`, each `check` label is its own subtest, and no setup step or assertion was re-expressed by hand — a transcription into Go would have restated the harness's whole setup the bash already proves, with a new place for each to drift.
 
 - [x] 3. Port the prepare and commit cases to Go
 
@@ -190,7 +190,7 @@ Correction (2026-10-22): the plan declared the fixture and each case's steps por
 Step 1 rules out.
 **Baseline:** before=3 after=3
 <!-- measured: cat stats/internal/guard/integrate_change*_test.go 2>/dev/null | grep -cE '^func Test' @ a03f3c4b -->
-**After:** Task 3, 4
+**After:** Task 2, 3, 4
 **Commit:** `test(scripts): drop integrate-change's bash harness for its Go tests`
 **Build:** green
 
