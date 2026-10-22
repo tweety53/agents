@@ -56,14 +56,19 @@ func srReached(name string, spec []byte) bool {
 
 func checkSidecarReach(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-sidecar-reach"
-	if len(args) != 1 {
-		fmt.Fprintf(stderr, "%s: usage: check-sidecar-reach.sh <capture root>\n", prog)
+	if len(args) != 1 && len(args) != 2 {
+		fmt.Fprintf(stderr, "%s: usage: check-sidecar-reach.sh <capture root> [<mockups root>]\n", prog)
 		return 2
 	}
-	root := args[0]
-	if st, err := os.Stat(root); err != nil || !st.IsDir() {
-		fmt.Fprintf(stderr, "%s: not a directory: %s\n", prog, root)
-		return 2
+	for _, dir := range args {
+		if st, err := os.Stat(dir); err != nil || !st.IsDir() {
+			fmt.Fprintf(stderr, "%s: not a directory: %s\n", prog, dir)
+			return 2
+		}
+	}
+	root, mockups := args[0], ""
+	if len(args) == 2 {
+		mockups = args[1]
 	}
 	var misses []string
 	lines, sidecars := 0, 0
@@ -105,6 +110,10 @@ func checkSidecarReach(args []string, env Env, stdout, stderr io.Writer) int {
 				misses = append(misses, fmt.Sprintf("%s:%d: %s — %s does not exist", rel, n, name, relSpec))
 			case !srReached(name, spec):
 				misses = append(misses, fmt.Sprintf("%s:%d: %s — taken by no screenshot in %s", rel, n, name, relSpec))
+			case mockups != "" && len(fields) > 1:
+				if _, err := os.Stat(filepath.Join(mockups, fields[1]+".png")); err != nil {
+					misses = append(misses, fmt.Sprintf("%s:%d: %s — frame %s has no %s/%s.png", rel, n, name, fields[1], mockups, fields[1]))
+				}
 			}
 		}
 		return sc.Err()
