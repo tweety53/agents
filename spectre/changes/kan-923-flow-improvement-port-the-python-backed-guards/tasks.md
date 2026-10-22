@@ -252,7 +252,7 @@ other real `Relocation: yes` plans — byte-identical, directly and through a sy
 removes the tracked `skills/flow/scripts/generate-relocation-comparison.py` symlink, now declared,
 and task 4's removes its two `plan-dispatch-groups.py` skill symlinks. Error lines keep the `generate-relocation-comparison.py:` prefix — byte-identical output is the contract.
 
-- [ ] 6. Port check-task-records
+- [x] 6. Port check-task-records
 
 **Files:** `stats/internal/guard/taskrecords.go`, `stats/internal/guard/check_task_records_test.go`, `scripts/check-task-records.sh`, `scripts/check-task-records.py`, `scripts/test-check-task-records.sh`, `skills/flow/scripts/check-task-records.py`, `stats/internal/guard/unlandedarchives.go`, `stats/internal/guard/taskcommitfields.go`, `stats/internal/guard/check_task_commit_fields_test.go`, `mods/flow-task-list/hooks/landed.ts`, `skills/flow-contracts/pipeline.md`, `scripts/check-task-commit-fields.py`, `scripts/check-task-commit-fields.sh`
 **Allowed-collateral:** `stats/internal/guard/helpers_test.go`
@@ -267,17 +267,17 @@ and task 4's removes its two `plan-dispatch-groups.py` skill symlinks. Error lin
 **Decision:** scope-seven-guards
 **Decision:** shims-export-repo-root
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-task-records.sh`, one
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-task-records.sh`, one
     subtest per `ok:` label. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-task-records`: `unlanded-archives` in-process in place
+  - [x] **Step 2: Port**, registering `check-task-records`: `unlanded-archives` in-process in place
     of `CHECK_TASK_RECORDS_ARCHIVED`, the commit-fields `check_files` and parse twins from
     `planparse.go` / `taskcommitfields.go`.
-  - [ ] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestCheckTaskRecords$'
+  - [x] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestCheckTaskRecords$'
     -count=1 -race -v | grep -c -- '--- PASS: TestCheckTaskRecords/'` — at least 23.
-  - [ ] **Step 4: Shim and delete** — shim template (repo-root lines when the wrapper derived the
+  - [x] **Step 4: Shim and delete** — shim template (repo-root lines when the wrapper derived the
     root from its own location), code 2; `git rm scripts/test-check-task-records.sh
     scripts/check-task-records.py`.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
     `scripts/check-task-records.sh .` exits and prints as the wrapper did at `bbfe685e`, directly
     and through a symlink.
 
@@ -320,12 +320,20 @@ reused: the Python hard-codes `spectre/changes` and `sorted()` order, which it d
 
 - [ ] 8. Delete the shared Python modules and repoint their citations
 
-**Files:** `scripts/plan-dispatch-bundles.py`, `scripts/lib/plan_grammar.py`, `scripts/check-task-commit-fields.py`, `.flow/project.md`
+**Files:** `scripts/plan-dispatch-bundles.py`, `scripts/lib/plan_grammar.py`, `scripts/check-task-commit-fields.py`, `.flow/project.md`, `skills/flow/scripts/plan-dispatch-bundles.py`, `skills/flow-plan/scripts/plan-dispatch-bundles.py`, `skills/flow/scripts/check-task-commit-fields.py`, `skills/flow-plan/scripts/check-task-commit-fields.py`, `skills/flow-fast/scripts/check-task-commit-fields.py`
 **Allowed-collateral:** `.flow/*.md`, `scripts/*.sh`, `scripts/lib/*.sh`, `hooks/*.py`, `mods/**/*.ts`, `skills/**/*.md`, `rules/*.mdc`, `README.md`, `CONTRIBUTING.md`, `stats/internal/guard/*.go`, `stats/cmd/flow/*.go`
 **Tests:** none — deletion and citation sweep; the lint guards are the check
 **Regression:** none — deleted modules no code imports, prose and comments only
-**Baseline:** before=0 after=0
-<!-- predicted: no test is added by this task -->
+**Baseline:** before=43 after=40
+<!-- measured: check-task-commit-fields.sh's own count at a97df412^ and a97df412 — TestTaskFieldParseMatchesPython, which ran the deleted .py, is removed -->
+
+Correction (2026-10-22): the commit removes the five tracked skill symlinks to the deleted `.py`
+files, now declared, and deletes `TestTaskFieldParseMatchesPython`, which executed the deleted
+`check-task-commit-fields.py`. `tcfReadPlan` strips the `UnicodeDecodeError: ` prefix that
+`planshape.go` and `taskbuildgreen.go` print and pin, so those two call a new `tcfReadPlanTyped`
+that keeps it; `tcfReadPlan` wraps it plus the strip. Old-vs-new over every tracked `tasks.md`:
+416 runs, 0 byte differences. `docs/prompt-audit-2026-09-29` is a dated snapshot and keeps its
+citations.
 **After:** Task 1, 2, 3, 4, 5, 6, 7
 **Commit:** `refactor(scripts): delete the shared Python plan modules`
 **Build:** green
