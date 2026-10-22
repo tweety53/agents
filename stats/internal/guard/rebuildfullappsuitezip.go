@@ -71,9 +71,15 @@ func rebuildFullAppSuiteZip(args []string, env Env, stdout, stderr io.Writer) in
 	}
 	epoch := time.Date(1980, 1, 1, 0, 0, 0, 0, time.Local)
 	for _, png := range strings.Split(list, "\n") {
-		if err := os.Chtimes(abs(png), epoch, epoch); err != nil {
+		// touch -t: creates a missing file; a failure exits as xargs did, 123.
+		f, err := os.OpenFile(abs(png), os.O_CREATE|os.O_WRONLY, 0o666)
+		if err == nil {
+			f.Close()
+			err = os.Chtimes(abs(png), epoch, epoch)
+		}
+		if err != nil {
 			fmt.Fprintf(stderr, "rebuild-full-app-suite-zip: cannot pin the mtime of %s: %v\n", png, err)
-			return 2
+			return 123
 		}
 	}
 	zipBin := "zip"
