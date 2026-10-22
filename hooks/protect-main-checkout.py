@@ -750,6 +750,21 @@ def discards_unstaged(verb, args, target):
     )
 
 
+def git_args(tokens, start):
+    """A git verb's own arguments: the words from `start` up to the first separator, `)` or
+    redirect — `2>&1` and `>/dev/null` are the shell's, never a remote, refspec or pathspec."""
+    out = []
+    for t in tokens[start:]:
+        if t in SEPARATORS or t == ")":
+            break
+        if t.startswith(("<", ">", "&>")):
+            if out and out[-1].isdigit():
+                out.pop()  # the fd of `2>&1`
+            break
+        out.append(t)
+    return out
+
+
 def bash_hits(command, cwd, landings=None):
     """Paths a Bash command writes into or git-mutates, resolved against cwd and `cd`.
 
@@ -808,31 +823,15 @@ def bash_hits(command, cwd, landings=None):
                 if j < n and tokens[j] in DENIED_GIT_VERBS:
                     hits.append(target)
                 if j < n and tokens[j] in ("checkout", "restore") and landings is not None:
-                    rargs = []
-                    for t in tokens[j + 1 :]:
-                        if t in SEPARATORS or t == ")":
-                            break
-                        if t[0] in "<>" or t.startswith("&>"):
-                            if rargs and rargs[-1].isdigit():
-                                rargs.pop()  # the fd of `2>/dev/null`
-                            break
-                        rargs.append(t)
+                    rargs = git_args(tokens, j + 1)
                     discard = discards_unstaged(tokens[j], rargs, target)
                     if discard:
                         landings.append(discard)
                 if j < n and tokens[j] == "commit" and target is not None:
-                    cargs = []
-                    for t in tokens[j + 1 :]:
-                        if t in SEPARATORS:
-                            break
-                        cargs.append(t)
+                    cargs = git_args(tokens, j + 1)
                     commits.append((target, cargs))
                 if j < n and tokens[j] == "push" and landings is not None:
-                    args = []
-                    for t in tokens[j + 1 :]:
-                        if t in ("&&", "||", ";", "|"):
-                            break
-                        args.append(t)
+                    args = git_args(tokens, j + 1)
                     unreadable = unreadable_landing(args, target)
                     if unreadable:
                         landings.append(unreadable)

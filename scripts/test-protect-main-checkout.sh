@@ -144,6 +144,13 @@
 #  153. Bash `cd <wt> && git checkout HEAD -- f.txt`, the same       -> deny
 #  154. Bash `git -C <wt> restore --staged f.txt`, the same          -> allow (the index only)
 #  155. Bash `git -C <wt> checkout -- f.txt`, f.txt clean            -> allow
+#  156. Bash `git -C <wt> restore f.txt 2>/dev/null`, unstaged edits -> deny
+#  157. Bash `git -C <wt> checkout -- f.txt >/dev/null`, the same    -> deny
+#  158. Bash `git -C <wt> checkout HEAD -- f.txt`, a staged-only edit -> deny
+#  159. Bash `git -C <wt> restore --source=HEAD --staged --worktree f.txt`, the same -> deny
+#  160. a bare change-branch push, output redirected and piped     -> deny
+#  161. commit and push in one command, both redirected, no trailer -> deny
+#  162. the 145 planning commit, redirected                         -> allow
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$SCRIPT_DIR/../hooks/protect-main-checkout.py"
@@ -685,6 +692,8 @@ expect "104 a change-branch push carrying an untasked commit" deny \
   "$(run "$ROOT" Bash "{\"command\":$(q "git -C $CWT push origin spectre/chg2")}")"
 [ "$(tr '\n' ' ' <"$UNTASKED_LOG")" = "$CWT refs/remotes/origin/spectre/chg2 --not-remotes " ] \
   && pass "104 checker args" || fail "104 checker args: $(tr '\n' ' ' <"$UNTASKED_LOG")"
+expect "160 a bare change-branch push with its output redirected and piped" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $CWT push -q 2>&1 | tail -1")}")"
 echo 0 >"$UNTASKED_RC"
 expect "105 a change-branch push the checker clears" allow \
   "$(run "$ROOT" Bash "{\"command\":$(q "cd $CWT && git push")}")"
@@ -713,6 +722,10 @@ expect "146 a chore subject" allow \
   "$(run "$ROOT" Bash "{\"command\":$(q "cd $CWT && git commit -q -m 'chore(spectre): plan chg — plan gate' && git push -q")}")"
 expect "147 a message the command does not state" allow \
   "$(run "$ROOT" Bash "{\"command\":$(q "cd $CWT && git commit -q -F msg.txt && git push -q")}")"
+expect "161 commit and push in one command, both redirected, no trailer" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cd $CWT && git commit -qm 'docs(design): add the handoff' 2>&1 && git push -q >/dev/null 2>&1")}")"
+expect "162 a planning commit pathspec-limited to spectre/changes/, redirected" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $CWT commit -q -m 'docs(spectre): record' -- spectre/changes/chg 2>&1 && git -C $CWT push -q origin spectre/chg3")}")"
 expect "148 a trailer-less commit pushed to a branch that is no change branch" allow \
   "$(run "$ROOT" Bash "{\"command\":$(q "cd $CWT && git commit -qm 'docs(x): y' && git push -q origin HEAD:feature/x")}")"
 
