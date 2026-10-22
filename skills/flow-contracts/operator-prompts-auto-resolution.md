@@ -53,6 +53,16 @@ cases is a stop for nothing (KAN-1000):
   with the frame.
 - **A declared frame that was not captured:** add the capture. A missing capture means the report is
   incomplete. It is never a scope choice.
+- **The ticket or a design decision conflicts with a project rule** — a requested entrance motion
+  against a no-blank-first-frame rule, for example: take the reading that satisfies both (the row
+  drawn from its first frame and sliding into place, never starting invisible), record it as a
+  decision superseding the plan's, and go on to **The loop**. A conflict is never a reason to stop.
+
+**A blocked verify never ends the turn.** The report of a blocked `flow.verify` or
+`flow.visual-verify` is the input to **The loop**, dispatched in the same turn; a handoff that
+lists the failures and stops, or ends on a "Decision for you" whose recommended option the run
+could have taken, is the stop this file exists to prevent (kan-1007: the run stopped after
+visual-verify to ask whether a requested rise could start visible).
 
 Every auto-resolution:
 
