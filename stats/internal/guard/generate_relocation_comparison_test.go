@@ -113,17 +113,17 @@ func TestGenerateRelocationComparison(t *testing.T) {
 	dir, _ = repo(map[string]string{"zeta.md": "## Zeta\n\nSome content.\n"}, nil)
 	r, table = gen(dir, "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", plan("yes", "zeta.md"))
 	want("case f: unresolvable merge-base exits 2 via the merge-base-resolves guard", r.rc == 2 && in(r.out, "does not resolve to a commit"), r, table)
-	want("pin: case f's refusal byte for byte", r.stdout == "" && r.err == "generate-relocation-comparison.py: merge-base 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef' does not resolve to a commit in "+dir+"\n", r, table)
+	want("pin: case f's refusal byte for byte", r.stdout == "" && r.err == "generate-relocation-comparison: merge-base 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef' does not resolve to a commit in "+dir+"\n", r, table)
 
 	dir, sha = repo(map[string]string{"eta.md": "## Eta\n\nSome content.\n"}, map[string]string{"eta.md": "\x00"})
 	r, table = gen(dir, sha, plan("yes", "eta.md"))
 	want("case g: scoped file missing from worktree exits 2", r.rc == 2, r, table)
-	want("pin: case g's refusal byte for byte", r.err == "generate-relocation-comparison.py: scoped file missing from worktree: "+dir+"/eta.md: [Errno 2] No such file or directory: '"+dir+"/eta.md'\n", r, table)
+	want("pin: case g's refusal byte for byte", r.err == "generate-relocation-comparison: scoped file missing from worktree: "+dir+"/eta.md: [Errno 2] No such file or directory: '"+dir+"/eta.md'\n", r, table)
 
 	dir, sha = repo(map[string]string{"theta.md": "## Theta\n\nSome content.\n"}, nil)
 	r, table = gen(dir, sha, "")
 	want("case h: missing tasks.md exits 2", r.rc == 2, r, table)
-	want("pin: case h's refusal byte for byte", r.err == "generate-relocation-comparison.py: cannot read "+dir+"/tasks.md: [Errno 2] No such file or directory: '"+dir+"/tasks.md'\n", r, table)
+	want("pin: case h's refusal byte for byte", r.err == "generate-relocation-comparison: cannot read "+dir+"/tasks.md: [Errno 2] No such file or directory: '"+dir+"/tasks.md'\n", r, table)
 
 	dir, sha = repo(map[string]string{"iota.md": "## Iota\n\nSome content.\n"}, map[string]string{"iota.md": "## Iota\n\nSome different content.\n"})
 	r, table = gen(dir, sha, "# fixture plan\n\n- [ ] 1. Only task\n\n**Files:**\n- Modify: `iota.md`\n\n")
@@ -137,7 +137,7 @@ func TestGenerateRelocationComparison(t *testing.T) {
 	dir, sha = repo(map[string]string{"mu.md": "## Kappa2\n\nSome content.\n"}, map[string]string{"mu.md": "## Kappa2\n\nSome content \xff\xfe binary garbage.\n"})
 	r, table = gen(dir, sha, plan("yes", "mu.md"))
 	want("case k: non-UTF-8 worktree file exits 2 (F1 regression)", r.rc == 2, r, table)
-	want("pin: case k's refusal byte for byte", r.err == "generate-relocation-comparison.py: "+dir+"/mu.md is not valid UTF-8: 'utf-8' codec can't decode byte 0xff in position 24: invalid start byte\n", r, table)
+	want("pin: case k's refusal byte for byte", r.err == "generate-relocation-comparison: "+dir+"/mu.md is not valid UTF-8: 'utf-8' codec can't decode byte 0xff in position 24: invalid start byte\n", r, table)
 
 	dir, sha = repo(map[string]string{"nu.md": "## Nu\n\nSome content.\n"}, nil)
 	blob := tcfGit(t, dir, "rev-parse", sha+":nu.md")
@@ -148,7 +148,7 @@ func TestGenerateRelocationComparison(t *testing.T) {
 	writeFile(t, obj, "corrupt")
 	r, table = gen(dir, sha, plan("yes", "nu.md"))
 	want("case l: corrupt merge-base blob exits 2, not misread as missing path (F2 regression)", r.rc == 2 && !in(r.out, "does not exist in"), r, table)
-	want("pin: case l names the failing cat-file", strings.HasPrefix(r.err, "generate-relocation-comparison.py: git cat-file -t "+sha+":nu.md failed: "), r, table)
+	want("pin: case l names the failing cat-file", strings.HasPrefix(r.err, "generate-relocation-comparison: git cat-file -t "+sha+":nu.md failed: "), r, table)
 
 	edit := func(file, heading, before, after string) (string, string) {
 		return repo(map[string]string{file: heading + "\n\n" + before + "\n\n"}, map[string]string{file: heading + "\n\n" + after + "\n\n"})
@@ -215,7 +215,7 @@ func TestGenerateRelocationComparison(t *testing.T) {
 		map[string]string{"psi": "This is now a plain file where a directory used to be.\n"})
 	r, table = gen(dir, sha, plan("yes", "psi"))
 	want("case x: directory-to-file scoped path exits 2, not garbage rows (F18 regression guard)", r.rc == 2, r, table)
-	want("pin: case x's refusal byte for byte", r.err == "generate-relocation-comparison.py: "+sha+":psi is a tree, not a file (blob)\n", r, table)
+	want("pin: case x's refusal byte for byte", r.err == "generate-relocation-comparison: "+sha+":psi is a tree, not a file (blob)\n", r, table)
 
 	dir, sha = moved("h3_src.md", "### SectionH3A", "h3_dst.md", "### SectionH3B", "This paragraph moves verbatim under a level-three heading only.", stays)
 	r, table = gen(dir, sha, plan("yes", "h3_src.md", "h3_dst.md"))
@@ -251,7 +251,7 @@ func TestGenerateRelocationComparison(t *testing.T) {
 	sha = tcfGit(t, dir, "rev-parse", "HEAD")
 	r, table = gen(dir, sha, plan("yes", "link_ff.md"))
 	want("case ff: symlink scoped path at merge-base ref exits 2, not a spurious row (F21 regression guard)", r.rc == 2, r, table)
-	want("pin: case ff's refusal names the worktree symlink first", r.err == "generate-relocation-comparison.py: scoped file is a symlink in the worktree, cannot compare: "+dir+"/link_ff.md\n", r, table)
+	want("pin: case ff's refusal names the worktree symlink first", r.err == "generate-relocation-comparison: scoped file is a symlink in the worktree, cannot compare: "+dir+"/link_ff.md\n", r, table)
 
 	dir, sha = repo(map[string]string{"gg.md": "original content at the scoped path, as an ordinary regular file\n"},
 		map[string]string{"gg.md": "\x00", "gg_target.md": "different real content the symlink target actually holds\n"})
@@ -283,17 +283,17 @@ func TestGenerateRelocationComparison(t *testing.T) {
 	writeFile(t, dir+"/sym.md", "## S\n\nkeep\n")
 	r, table = gen(dir, sha, plan("yes", "sym.md"))
 	want("pin: a symlink at the merge-base only exits 2 naming it", r.rc == 2 &&
-		r.err == "generate-relocation-comparison.py: "+sha+":sym.md is a symlink, not a regular file\n", r, table)
+		r.err == "generate-relocation-comparison: "+sha+":sym.md is a symlink, not a regular file\n", r, table)
 	dir, sha = repo(map[string]string{"bin.md": "## B\n\n\xff\n"}, map[string]string{"bin.md": "## B\n\nok\n"})
 	r, table = gen(dir, sha, plan("yes", "bin.md"))
 	want("pin: a merge-base blob that is not UTF-8 exits 2", r.rc == 2 &&
-		r.err == "generate-relocation-comparison.py: "+sha+":bin.md is not valid UTF-8: 'utf-8' codec can't decode byte 0xff in position 6: invalid start byte\n", r, table)
+		r.err == "generate-relocation-comparison: "+sha+":bin.md is not valid UTF-8: 'utf-8' codec can't decode byte 0xff in position 6: invalid start byte\n", r, table)
 	// Header wins: the Python let a non-UTF-8 tasks.md escape as a traceback
 	// (exit 1); its header names "tasks.md cannot be read" exit 2.
 	dir, sha = repo(map[string]string{"a.md": "x\n"}, nil)
 	r, table = gen(dir, sha, "> **Relocation:** yes \xff\n")
 	want("pin: a tasks.md that is not UTF-8 exits 2", r.rc == 2 &&
-		r.err == "generate-relocation-comparison.py: cannot read "+dir+"/tasks.md: 'utf-8' codec can't decode byte 0xff in position 22: invalid start byte\n", r, table)
+		r.err == "generate-relocation-comparison: cannot read "+dir+"/tasks.md: 'utf-8' codec can't decode byte 0xff in position 22: invalid start byte\n", r, table)
 	// The header's own grammar: leading space and `>` spacing are free, the
 	// first matching line decides, and `yes` must end at a word boundary.
 	dir, sha = moved("m1.md", "## M1", "m2.md", "## M2", "Moving words.", "Other words.")

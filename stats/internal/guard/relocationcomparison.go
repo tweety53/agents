@@ -27,8 +27,8 @@ import (
 // caller's working directory, as every git call here runs `git -C
 // <worktree>` from it.
 //
-// Every diagnostic keeps the `generate-relocation-comparison.py:` opening
-// the Python printed, byte for byte.
+// Every diagnostic opens `generate-relocation-comparison:`, the shim's own
+// name; the Python printed its deleted file's name, `…comparison.py:`.
 //
 // Exit codes:
 //
@@ -81,7 +81,7 @@ import (
 //     Destination / Class, a literal `|` in a cell escaped as `\|`.
 func init() { Registry["generate-relocation-comparison"] = generateRelocationComparison }
 
-const grcLabel = "generate-relocation-comparison.py: "
+const grcLabel = "generate-relocation-comparison: "
 
 var (
 	grcRelocationRE = regexp.MustCompile(`^[` + tcfWS + `]*>[` + tcfWS + `]*\*\*Relocation:\*\*[` + tcfWS + `]+(yes|no)`)

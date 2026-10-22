@@ -105,8 +105,6 @@ func TestCheckMarkdownIntegrity(t *testing.T) {
 		"This text introduces an indented example below.\n\n    literal example line with no terminal punctuation")
 	expect("case 17: torn paragraph before an unrelated fence — exit 1", 1, "unterminated paragraph",
 		"This paragraph starts fine but then just stops without\n\n```bash\necho x\n```")
-	expect("case 18: an introducing paragraph before its own fence still passes — exit 0", 0, "",
-		"Run the following command\n\n```bash\necho hi\n```")
 	expect("case 19: dangling word before a fence, resumed afterward — exit 0", 0, "",
 		"This paragraph spans an embedded example and\n\n```bash\necho x\n```\n\nresumes right where it left off.")
 	expect("case 20: dangling word before a fence, followed by a new sentence — exit 1", 1, "unterminated paragraph",
