@@ -118,7 +118,7 @@ child's own environment, never `os.Setenv`; no test touches the operator's `$HOM
   - [x] **Step 6: Break and prove.** Change the truncation threshold to 21 in `runverifylist.go`, see the test fail, restore it.
   - [x] **Step 7: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard && go test ./internal/guard -run 'TestRunVerifyList|TestRunGuardTests' -race -count=1`; `bash scripts/check-guard-symlinks.sh` and `bash scripts/check-references.sh` exit 0.
 
-Correction (2026-10-22): Step 6's mutation (threshold 21) survived the harness's cases — its only long output is 25 lines, truncated under either threshold. `TestRunVerifyList` gained a `21 lines are truncated` subtest beyond the harness, which the mutation fails.
+Correction (2026-10-22): Step 6's mutation (the threshold raised by one) survived the harness's cases — its only long output truncates under either threshold. `TestRunVerifyList` gained a subtest one line past the threshold, beyond the harness, which the mutation fails.
 
 - [x] 4. Delete lib/resolve-file.sh and lib/spec-root.sh
 
