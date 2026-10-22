@@ -180,9 +180,11 @@ func TestRunReproducer(t *testing.T) {
 		// fixture() prepends the shebang and RAN-marker lines, so N filler
 		// lines put the marker at line N+3 (KAN-623).
 		{label: "case 28.a: a marker beyond the first 10 lines declares nothing", rel: "scripts/late-marker.sh", body: strings.Repeat("# filler line\n", 12) + "# mutation-reproducer\nexit 0", args: []string{"scripts/late-marker.sh"}, want: 1},
-		{label: "case 28.b: a marker line carrying extra text declares nothing", rel: "scripts/marker-with-suffix.sh", body: "# mutation-reproducer: because the build succeeded\nexit 0", args: []string{"scripts/marker-with-suffix.sh"}, want: 1},
+		{label: "case 28.b: a marker line carrying extra text is refused unrun", rel: "scripts/marker-with-suffix.sh", body: "# mutation-reproducer: because the build succeeded\nexit 0", args: []string{"scripts/marker-with-suffix.sh"}, want: 2, needle: "near-miss", notRan: true},
 		{label: "case 28.c: a marker at exactly line 10 declares", rel: "scripts/edge-marker-10.sh", body: strings.Repeat("# filler line\n", 7) + "# mutation-reproducer\nexit 0", args: []string{"scripts/edge-marker-10.sh"}, want: 0},
 		{label: "case 28.d: a marker at line 11 declares nothing", rel: "scripts/edge-marker-11.sh", body: strings.Repeat("# filler line\n", 8) + "# mutation-reproducer\nexit 0", args: []string{"scripts/edge-marker-11.sh"}, want: 1},
+		{label: "case 28.e: a marker mid-line is prose and declares nothing", rel: "scripts/marker-mid-line.sh", body: ": see # mutation-reproducer\nexit 0", args: []string{"scripts/marker-mid-line.sh"}, want: 1},
+		{label: "case 28.f: an indented marker is a near-miss and is refused", rel: "scripts/marker-indented.sh", body: "  # mutation-reproducer\nexit 0", args: []string{"scripts/marker-indented.sh"}, want: 2, needle: "near-miss", notRan: true},
 		{label: "case 30: a mismatched --reproducer-sha pin is refused without running", rel: "scripts/sha-pinned.sh", body: "exit 5", args: []string{"scripts/sha-pinned.sh", "--reproducer-sha", strings.Repeat("0", 64)}, want: 2, needle: "pinned sha", notRan: true},
 		{label: "case 31: a non-hex --reproducer-sha value is a usage failure", rel: "scripts/sha-never-runs.sh", body: "exit 0", args: []string{"scripts/sha-never-runs.sh", "--reproducer-sha", "zz-nothex"}, want: 4, needle: "usage", notRan: true},
 		// The bash 3.2 floor cases: the empty-ARGS and the argument paths.

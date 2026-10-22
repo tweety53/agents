@@ -62,7 +62,10 @@
 # kill sequence and the exit-code vocabulary itself never move; only the
 # reading of the reproducer's own exit status flips, and because the
 # ambiguity refusal (KAN-524) compares verdicts rather than raw exit codes,
-# it works unchanged under either.
+# it works unchanged under either. A line within the first 10 lines that,
+# leading whitespace trimmed, opens with the marker but is not exactly it is
+# a near-miss: refused (exit 2, the shape class), never read under either
+# convention, since its author meant the inverted reading.
 #
 # THE BOUND IS 20 SECONDS UNLESS THE REPRODUCER DECLARES ITS OWN (KAN-831).
 # A reproducer that builds or runs tests — a Gradle suite outlives 20
@@ -92,7 +95,8 @@
 #      convention); the instruction built on this reproducer cannot
 #      be verified as a fix
 #   2  refused — one of two classes. The shape class failed a lexical or
-#      resolved containment/shape check — or a --reproducer-sha pin — before
+#      resolved containment/shape check — or a --reproducer-sha pin, or a
+#      near-miss mutation-reproducer marker line — before
 #      execution and was never run at all. The ambiguity class (KAN-524) ran
 #      to a verdict that is
 #      IDENTICAL to the pre-fix verdict the caller passed in

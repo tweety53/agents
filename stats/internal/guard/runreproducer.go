@@ -206,6 +206,9 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	// decided by the same containment checks every reproducer passes, never a
 	// second path around them.
 	mutation := declaresMutation(resolved)
+	if near := nearMissMarker(resolved); !mutation && near != "" {
+		return refuse(fmt.Sprintf("the line '%s' within the first 10 lines is a near-miss of the mutation-reproducer marker — the declaration is the exact line '%s' alone; write it exactly, or drop the marker", near, rrMarker))
+	}
 	// The reproducer's identity, taken from the same resolved file every
 	// containment check above passed, and taken before execution so a
 	// --reproducer-sha pin refuses a re-authored file in the never-executed
@@ -492,9 +495,11 @@ func headLines(path string, n int) []string {
 
 // declaresMutation is `head -n 10 -- <path> | grep -qx '# mutation-reproducer'`:
 // the KAN-568 declaration is that exact line within the first 10. Exact line,
-// within that window: a line that merely CONTAINS the marker, or one buried
-// below the shebang and its immediate commentary, is prose, not a
-// declaration — the generic convention applies. rrMarker and the headLines
+// within that window. A line that opens with the marker (leading whitespace
+// ignored) without being exactly it is a near miss, rejected with exit 2 —
+// see nearMissMarker. A marker in the middle of a line, or one buried below
+// the first 10 lines, is prose, not a declaration — the generic convention
+// applies. rrMarker and the headLines
 // call below are the canonical declaration
 // scripts/check-mutation-reproducer-pin.sh pins against review-panel.md and
 // run-reproducer.sh's header.
@@ -505,6 +510,19 @@ func declaresMutation(path string) bool {
 		}
 	}
 	return false
+}
+
+// nearMissMarker returns the first of the reproducer's first 10 lines that,
+// leading whitespace trimmed, opens with rrMarker without being exactly it —
+// a declaration its author meant but declaresMutation reads as prose, which
+// would invert the verdict. "" when there is none.
+func nearMissMarker(file string) string {
+	for _, l := range headLines(file, 10) {
+		if l != rrMarker && strings.HasPrefix(strings.TrimSpace(l), rrMarker) {
+			return l
+		}
+	}
+	return ""
 }
 
 // rrBoundPrefix opens the line a reproducer declares its own bound with
