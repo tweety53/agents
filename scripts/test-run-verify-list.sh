@@ -64,6 +64,7 @@ expect_has "long output truncated to its last 20" $'(truncated — last 20 of 25
 expect_lacks "truncated head dropped" $'\n  5\n'
 expect_has "commands run from the worktree" "  $ROOT"
 expect_has "lint appends check-spec-reach.sh" $'- `check-spec-reach.sh '"$ROOT"$'` — exit 0\n  Spec reach: not configured'
+expect_lacks "outside a git worktree no output is kept" 'full output:'
 
 run_bin "$ROOT" test
 expect_rc "a passing list" 0
@@ -134,6 +135,25 @@ sed -i.bak 's/^echo go$/echo go2/' "$G/.flow/project.md" && rm "$G/.flow/project
 git -C "$G" -c user.name=t -c user.email=t@t commit -q -am three
 run_bin "$G" test
 expect_has "an edited command runs though its inputs are untouched" $'- `echo go2` — exit 0'
+
+# A failing command's full output is kept in the git dir, never the tree.
+F="$ROOT/fail"
+mkdir -p "$F/.flow"
+printf '## test\n\n```bash\nseq 1 25; exit 4\ntrue\n```\n' > "$F/.flow/project.md"
+git -C "$F" init -q
+git -C "$F" -c user.name=t -c user.email=t@t add -A
+git -C "$F" -c user.name=t -c user.email=t@t commit -q -m one
+run_bin "$F" test
+KEPT="$(git -C "$F" rev-parse --path-format=absolute --git-path flow-verify-failed)/test-0.log"
+expect_rc "a failing list in a git worktree" 1
+expect_has "a failing command names its kept full output" "  full output: $KEPT"
+[ "$(head -n 1 "$KEPT" 2>/dev/null)" = 1 ] && pass "the kept output holds what the report truncated" || fail "kept output: $(head -n 1 "$KEPT" 2>/dev/null)"
+expect_lacks "a passing command keeps no output" 'test-1.log'
+[ -z "$(git -C "$F" status --porcelain)" ] && pass "the kept output leaves the tree clean" || fail "the kept output dirtied the tree"
+printf '## test\n\n```bash\ntrue\n```\n' > "$F/.flow/project.md"
+git -C "$F" -c user.name=t -c user.email=t@t commit -q -am two
+run_bin "$F" test
+[ ! -e "$KEPT" ] && pass "a later run clears an earlier run's kept output" || fail "a stale kept output survived"
 
 run_bin "$ROOT" build
 expect_rc "an unknown list" 2

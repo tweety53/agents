@@ -45,6 +45,11 @@
 #   - `<command>` — exit <n>
 #     <each output line, indented two spaces; past 20 lines,
 #     `(truncated — last 20 of <N> lines)` and then the last 20>
+#     `full output: <path>` — on a non-zero exit inside a git worktree, the
+#     command's whole output copied to `<git-path flow-verify-failed>/<list>-<n>.log`
+#     (<n> its 0-based list position, `spec-reach` for the appended
+#     check-spec-reach.sh), never into the tree; each run first removes that
+#     list's earlier logs, so a printed path holds this run's output
 #
 # Exit codes:
 #   0  every command exited 0
@@ -120,9 +125,14 @@ unchanged() {
 
 OUTDIR="$(mktemp -d "${TMPDIR:-/tmp}/run-verify-list.XXXXXX")"
 trap 'rm -rf "$OUTDIR"' EXIT
+KEEP="$(git -C "$WT" rev-parse --path-format=absolute --git-path flow-verify-failed 2>/dev/null || true)"
+if [ -n "$KEEP" ]; then
+  mkdir -p "$KEEP"
+  rm -f "$KEEP/$LIST"-*.log
+fi
 
 FAILED=0
-# report <command-as-shown> <exit> <output-file>
+# report <command-as-shown> <exit> <output-file> <key>
 report() {
   local n
   [ "$2" -eq 0 ] || FAILED=1
@@ -134,11 +144,15 @@ report() {
   else
     awk '{print "  " $0}' "$3"
   fi
+  if [ "$2" -ne 0 ] && [ -n "$KEEP" ]; then
+    cp "$3" "$KEEP/$LIST-$4.log"
+    printf '  full output: %s\n' "$KEEP/$LIST-$4.log"
+  fi
 }
-# run <command-as-shown> <command-to-run>, in the foreground
+# run <command-as-shown> <command-to-run> <key>, in the foreground
 run() {
   (cd "$WT" && bash -c "$2") </dev/null >"$OUTDIR/out" 2>&1
-  report "$1" "$?" "$OUTDIR/out"
+  report "$1" "$?" "$OUTDIR/out" "$3"
 }
 
 # PIDS[i] is the background pid of a `test` command, or `skip`.
@@ -150,7 +164,7 @@ for i in "${!CMDS[@]}"; do
     (cd "$WT" && bash -c "${CMDS[$i]}") </dev/null >"$OUTDIR/$i" 2>&1 &
     PIDS[i]=$!
   else
-    run "${CMDS[$i]}" "${CMDS[$i]}"
+    run "${CMDS[$i]}" "${CMDS[$i]}" "$i"
   fi
 done
 for i in "${!PIDS[@]}"; do
@@ -159,14 +173,14 @@ for i in "${!PIDS[@]}"; do
     continue
   fi
   wait "${PIDS[$i]}"
-  report "${CMDS[$i]}" "$?" "$OUTDIR/$i"
+  report "${CMDS[$i]}" "$?" "$OUTDIR/$i" "$i"
 done
 if [ -n "$HEAD_SHA" ] && [ "$FAILED" -eq 0 ] &&
   STATUS="$(git -C "$WT" status --porcelain --untracked-files=all 2>/dev/null)" && [ -z "$STATUS" ]; then
   printf '%s\n' "$HEAD_SHA" >"$GREEN_FILE"
 fi
 if [ "$LIST" = lint ]; then
-  run "check-spec-reach.sh $WT" "\"$SCRIPT_DIR/check-spec-reach.sh\" \"$WT\""
+  run "check-spec-reach.sh $WT" "\"$SCRIPT_DIR/check-spec-reach.sh\" \"$WT\"" spec-reach
 fi
 
 exit "$FAILED"
