@@ -4,8 +4,10 @@ package guard
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"math/big"
 	"os"
 	"regexp"
@@ -614,4 +616,124 @@ func tcfScanPlans(env Env, root string, stderr io.Writer) ([]string, bool) {
 		_, err := os.Stat(psAbs(env, f))
 		return err != nil
 	}), true
+}
+
+// pdbTask is plan-dispatch-bundles.py's Task: one task of a tasks.md, read
+// for dispatch bundling. afterSet is the DECLARED ids when the task's
+// **After:** value gates (afterDeclared; empty for `none` or `Task ,`) --
+// with no field the serial default is applied where bundles are resolved,
+// never here. afterMalformed holds the offending value when the field is
+// present but does not gate.
+type pdbTask struct {
+	id             string
+	taskLine       int
+	unchecked      bool
+	filesPresent   bool
+	files          []string
+	partners       []string
+	afterSet       []string
+	afterDeclared  bool
+	afterMalformed *string
+}
+
+// pdbParseTasks is plan-dispatch-bundles.py's parse_tasks: every task of
+// lines in document order (tcfIterTasks' task and body grammar), its open
+// state read off its own task line, its gated **Squash-with:** partners and
+// **After:** field, and its **Files:** bullet entries.
+//
+// The first line opening with `**Files:**` opens the field; its entries are
+// every immediately following `- ` bullet that is not a checkbox (`- [ ]`,
+// `- [x]`, `- [X]`), read until the first line that is not such a bullet. A
+// fence line toggles fence state without ending the run, and a fenced line
+// is never read. The Files line's own inline value is not read -- the
+// Python never did; generate-relocation-comparison reads Files through
+// tcfPythonFiles instead. An **Allowed-collateral:** entry never joins.
+func pdbParseTasks(lines []string) []pdbTask {
+	var tasks []pdbTask
+	for _, b := range tcfIterTasks(lines) {
+		t := pdbTask{id: b.id, taskLine: b.taskLine, unchecked: tcfTaskLineRE.FindStringSubmatch(lines[b.taskLine-1])[1] == " "}
+		if _, partners, gated := tcfSelectSquashWith(b.lines); gated >= 0 {
+			t.partners = partners
+		}
+		if a := tcfSelectAfter(b.lines); a != nil {
+			if a.gates {
+				t.afterSet, t.afterDeclared = a.ids, true
+			} else {
+				v := a.value
+				t.afterMalformed = &v
+			}
+		}
+		inFence, inFiles := false, false
+		for _, line := range b.lines {
+			if tcfFenceRE.MatchString(line) {
+				inFence = !inFence
+				continue
+			}
+			if inFence {
+				continue
+			}
+			if inFiles {
+				if entry, ok := pdbBullet(line); ok {
+					t.files = append(t.files, pdbExtractPaths(entry)...)
+					continue
+				}
+				inFiles = false
+			}
+			if strings.HasPrefix(line, "**Files:**") {
+				t.filesPresent, inFiles = true, true
+			}
+		}
+		tasks = append(tasks, t)
+	}
+	return tasks
+}
+
+// pdbBullet is BULLET_RE, `^- (?!\[[ xX]\])\s*(.*)$`: a Files entry line --
+// never a checkbox, so neither a step nor the next task's own line is read
+// as a path -- and its text after the dash and any whitespace.
+func pdbBullet(line string) (string, bool) {
+	rest, ok := strings.CutPrefix(line, "- ")
+	if !ok || len(rest) >= 3 && rest[0] == '[' && strings.IndexByte(" xX", rest[1]) >= 0 && rest[2] == ']' {
+		return "", false
+	}
+	return strings.TrimLeftFunc(rest, tcfIsSpace), true
+}
+
+var (
+	pdbEntryPrefixRE = regexp.MustCompile(`^(?:Create|Modify|Delete):[` + tcfWS + `]*`)
+	pdbBacktickRE    = regexp.MustCompile("`([^`]+)`")
+)
+
+// pdbExtractPaths is _extract_paths: one entry's every backtick-quoted path
+// after a Create:/Modify:/Delete: prefix, or its remaining text when it
+// quotes none. Paths compare as this literal text, never resolved.
+func pdbExtractPaths(entry string) []string {
+	stripped := tcfStrip(pdbEntryPrefixRE.ReplaceAllLiteralString(tcfStrip(entry), ""))
+	var paths []string
+	for _, m := range pdbBacktickRE.FindAllStringSubmatch(stripped, -1) {
+		paths = append(paths, tcfStrip(m[1]))
+	}
+	if paths == nil {
+		return []string{stripped}
+	}
+	return paths
+}
+
+// tcfReadPlan reads a tasks.md as the Python importers' open(path,
+// encoding="utf-8") did, rendering a failure as str(OSError) naming the path
+// as given, or as the UnicodeDecodeError's own message.
+func tcfReadPlan(env Env, path string) ([]string, error) {
+	b, err := os.ReadFile(psAbs(env, path))
+	if pe := (*fs.PathError)(nil); errors.As(err, &pe) {
+		pe.Path = path
+		return nil, tcfOSError(path, pe)
+	}
+	if err != nil {
+		return nil, err
+	}
+	lines, err := tcfPlanLines(b)
+	if err != nil {
+		return nil, errors.New(strings.TrimPrefix(err.Error(), "UnicodeDecodeError: "))
+	}
+	return lines, nil
 }
