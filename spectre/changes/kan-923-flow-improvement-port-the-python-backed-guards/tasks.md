@@ -250,7 +250,9 @@ line), so step 5 ran instead on
 `spectre/changes/archive/kan-378-flow-deletion-only-cut-of-stale-restated-and/tasks.md` and the six
 other real `Relocation: yes` plans — byte-identical, directly and through a symlink. The commit also
 removes the tracked `skills/flow/scripts/generate-relocation-comparison.py` symlink, now declared,
-and task 4's removes its two `plan-dispatch-groups.py` skill symlinks. Error lines keep the `generate-relocation-comparison.py:` prefix — byte-identical output is the contract.
+and task 4's removes its two `plan-dispatch-groups.py` skill symlinks. Error lines kept the `generate-relocation-comparison.py:` prefix for byte parity until the review
+panel's Minor renamed it `generate-relocation-comparison:` — no consumer reads it, and it named a
+deleted file.
 
 - [x] 6. Port check-task-records
 
