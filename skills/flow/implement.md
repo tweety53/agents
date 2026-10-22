@@ -799,7 +799,9 @@ the plan did not name — the parent appends a paragraph opening `Correction (YY
 that task's entry in `tasks.md`, at the task-close boundary where the task's other corrections
 are transcribed (before the guard runs on the commit), stating what the plan declared, what
 shipped instead, and why. The disclosure route is the same as any correction's: the implementer
-reports the deviation, the parent transcribes it; inline, the session is both halves.
+reports the deviation, the parent transcribes it; inline, the session is both halves. A `Correction:` paragraph is plan prose `check-plan-provenance.sh` reads: run that guard when
+transcribing it, and give each numeric claim its `measured:` comment or word it without a count
+(kan-1020: a bare count in a Correction was refused only at verify).
 
 **A pivot reconciles the three artifacts together.** When implementation pivots — a reality
 discovered mid-run (a route already taken on the base, a capability spec another change already
