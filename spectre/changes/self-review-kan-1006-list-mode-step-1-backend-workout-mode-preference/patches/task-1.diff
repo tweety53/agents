@@ -1,0 +1,152 @@
+diff --git a/skills/flow/review-panel.md b/skills/flow/review-panel.md
+index 1f923c54..e550d5ff 100644
+--- a/skills/flow/review-panel.md
++++ b/skills/flow/review-panel.md
+@@ -601,6 +601,22 @@ the **AskUserQuestion** it states.
+ > and a passing test can each read plausibly and be false. Run it before you accept it, and run it
+ > before you reject it.
+ 
++**Every slot's dispatch prompt also carries the REPRODUCER paragraph** — the reproducer rule above
++in the shape a slot authors to, since a slot reads its prompt and not this file:
++
++> **REPRODUCER:** every finding carries a reproducer: a script under the canonical worktree's
++> `<project>/.superpowers/sdd/reproducers/`, recorded by its worktree-relative path, or
++> `none — <reason>` on a Minor finding only. It exits non-zero when the defect is present, and 0
++> only when it is not; a `# mutation-reproducer` follows the mutation brief instead. Within its
++> first 10 lines it declares one `# demonstrates: <path>:<line>:<content>` line per cited location
++> and one `# premise: <path>:<line>:<content>` line per file its checks read, each in grep-output
++> shape with the content copied off that line — never a prose description — and
++> `# reproducer-bound: <seconds>` when it builds or runs tests. Its body names every premise path
++> and asserts each one exists before its real checks run, exiting non-zero with the missing premise
++> on stderr. Under `set -e` or `pipefail`, take a count that may be zero as
++> `n=$(grep -c <pattern> <file> || true)`: a bare `grep -c` exits 1 on zero matches, and the script
++> then reads as defect demonstrated.
++
+ **Every slot's dispatch prompt also carries the REPORT FILE paragraph**, with the round and the
+ slot's resolved id substituted:
+ 
+diff --git a/stats/internal/guard/check_dispatch_paragraphs_test.go b/stats/internal/guard/check_dispatch_paragraphs_test.go
+index fb49c21e..4d15e7ee 100644
+--- a/stats/internal/guard/check_dispatch_paragraphs_test.go
++++ b/stats/internal/guard/check_dispatch_paragraphs_test.go
+@@ -146,7 +146,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
+ 		stderr func(root string) string
+ 	}{
+ 		{label: "a clean run prints the OK line on stdout alone", files: clean, rc: 0,
+-			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 32 site(s) validated\n" }},
++			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 33 site(s) validated\n" }},
+ 		{label: "a relative root prints its findings and the INVALID line as given, on stdout alone", files: noRange,
+ 			env: func(root string) Env {
+ 				return crEnv(filepath.Dir(root), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": filepath.Base(root)})
+@@ -187,7 +187,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
+ 			}},
+ 		{label: "with no override the root is FLOW_GUARD_REPO_ROOT", files: clean,
+ 			env: func(root string) Env { return crEnv(root, map[string]string{"FLOW_GUARD_REPO_ROOT": root}) },
+-			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 32 site(s) validated\n" }},
++			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 33 site(s) validated\n" }},
+ 		{label: "with no override and no FLOW_GUARD_REPO_ROOT it exits 2", files: clean,
+ 			env: func(root string) Env { return crEnv(root, nil) },
+ 			rc:  2, stderr: func(string) string {
+@@ -298,7 +298,7 @@ func dpInOrder(s string, want []string) bool {
+ 
+ var dpCases = []dpCase{
+ 	{files: map[string]string{
+-		"review-panel.md": dpDoc(dpReviewerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpMutationBlock, dpPixelProbeBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpIndependentBlock, dpDelegationBlock, dpDelegationBlock, dpEntryContextBlock, dpFindingsInputBlock, dpContextBundleFailureBlock, dpOutputBudgetBlock),
++		"review-panel.md": dpDoc(dpReviewerBlock, dpReproducerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpMutationBlock, dpPixelProbeBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpIndependentBlock, dpDelegationBlock, dpDelegationBlock, dpEntryContextBlock, dpFindingsInputBlock, dpContextBundleFailureBlock, dpOutputBudgetBlock),
+ 		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock, dpOutputBudgetBlock, dpReadonlyBlock, dpProofRunsBlock),
+ 	},
+ 		checks: []dpCheck{
+@@ -1103,6 +1103,21 @@ var dpCases = []dpCase{
+ 		checks: []dpCheck{
+ 			dpRC("case 99: exits 1", 1),
+ 			dpHas("case 99: names the dropped phrase", "missing the required phrase: \"shows the check failing with the mechanism removed\""),
++		}}, {files: map[string]string{
++		"review-panel.md": strings.Replace(dpCleanReviewPanel, dpReproducerBlock+"\n\n", "", 1),
++		"implement.md":    dpCleanImplement,
++	},
++		checks: []dpCheck{
++			dpRC("case 100: review-panel.md without the REPRODUCER block exits 1", 1),
++			dpHas("case 100: names the missing REPRODUCER block", "requires at least 1 block(s) carrying the label \"**REPRODUCER:**\", found 0"),
++		}},
++	{files: map[string]string{
++		"review-panel.md": strings.Replace(dpCleanReviewPanel, "|| true", "|| :", 1),
++		"implement.md":    dpCleanImplement,
++	},
++		checks: []dpCheck{
++			dpRC("case 101: a REPRODUCER block without the zero-count rule exits 1", 1),
++			dpHas("case 101: names the dropped phrase", "missing the required phrase: \"|| true\""),
+ 		}},
+ }
+ 
+@@ -1696,7 +1711,11 @@ const (
+ // CLEAN_REVIEW_PANEL, CLEAN_IMPLEMENT_NO_READONLY and CLEAN_IMPLEMENT: case
+ // 1's fully-correct site files, the baseline later cases vary one deficiency
+ // against.
+-var dpCleanReviewPanel = dpDoc(dpReviewerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpMutationBlock, dpPixelProbeBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpIndependentBlock, dpDelegationBlock, dpDelegationBlock, dpEntryContextBlock, dpFindingsInputBlock, dpContextBundleFailureBlock, dpOutputBudgetBlock)
++// dpReproducerBlock carries the REPRODUCER paragraph's shared phrases.
++var dpReproducerBlock = "> **REPRODUCER:** a reproducer exits non-zero when the defect is present; it declares\n" +
++	"> `# demonstrates: <path>:<line>:<content>`, never a prose description, and counts with `|| true`."
++
++var dpCleanReviewPanel = dpDoc(dpReviewerBlock, dpReproducerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpMutationBlock, dpPixelProbeBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpIndependentBlock, dpDelegationBlock, dpDelegationBlock, dpEntryContextBlock, dpFindingsInputBlock, dpContextBundleFailureBlock, dpOutputBudgetBlock)
+ var dpCleanImplementNoReadonly = dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock)
+ var dpCleanImplement = dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlock)
+ 
+diff --git a/stats/internal/guard/dispatchparagraphs.go b/stats/internal/guard/dispatchparagraphs.go
+index 3855b3c1..beb4740e 100644
+--- a/stats/internal/guard/dispatchparagraphs.go
++++ b/stats/internal/guard/dispatchparagraphs.go
+@@ -37,6 +37,8 @@ var dpEntries = map[string]dpEntry{
+ 	"reproduce": {"**REPRODUCE, DON'T READ:**",
+ 		[]string{"crosses a boundary", "the store, the filesystem, a guard, a real transcript", "exercise the real thing"},
+ 		map[string]string{"reviewer": "worth less than one you did", "implementer": "a fake or a hand-built value"}},
++	"reproducer": {"**REPRODUCER:**",
++		[]string{"exits non-zero when the defect is present", "`# demonstrates: <path>:<line>:<content>`", "never a prose description", "|| true"}, nil},
+ 	"verbatim": {"**VERBATIM REPORT — THE FACT:**",
+ 		[]string{"the reviewer's own report", "never a source of fact", "the report wins"}, nil},
+ 	"foreground": {"**FOREGROUND BUILDS:**",
+@@ -96,6 +98,7 @@ var dpSites = []dpSite{
+ 	{"reproduce", "skills/flow/review-panel.md", 1, []string{"reviewer"}},
+ 	{"reproduce", "skills/flow/implement.md", 3, []string{"reviewer", "implementer"}},
+ 	{"verbatim", "skills/flow/review-panel.md", 1, nil},
++	{"reproducer", "skills/flow/review-panel.md", 1, nil},
+ 	{"foreground", "skills/flow/implement.md", 3, nil},
+ 	{"foreground", "skills/flow/review-panel.md", 2, nil},
+ 	{"targeted", "skills/flow/implement.md", 1, nil},
+diff --git a/stats/internal/guard/render_slot_prompt_test.go b/stats/internal/guard/render_slot_prompt_test.go
+index f37d8400..6fbeca8b 100644
+--- a/stats/internal/guard/render_slot_prompt_test.go
++++ b/stats/internal/guard/render_slot_prompt_test.go
+@@ -364,3 +364,20 @@ func TestRenderSlotPromptSlotFromTemplate(t *testing.T) {
+ 		}
+ 	}
+ }
++
++// TestRenderSlotPromptCarriesReproducer pins kan-1006's self-review: every
++// rendered slot prompt carries review-panel.md's REPRODUCER paragraph
++// verbatim, so a slot authors its reproducer's declarations and exit
++// convention from its own prompt.
++func TestRenderSlotPromptCarriesReproducer(t *testing.T) {
++	t.Parallel()
++	skill := rspSkillDir(t)
++	fx := rspNewFx(t)
++	r, got := fx.run(t, skill, skill, "0", fx.canon, fx.plan, "primary", "-diff", "final", "--", fx.canon)
++	if r.rc != 0 {
++		t.Fatalf("exit %d\n%s", r.rc, r.out)
++	}
++	if b := rspTestBlock(t, skill+"/review-panel.md", "REPRODUCER"); strings.Count(got, b) != 1 {
++		t.Errorf("the REPRODUCER block is not carried exactly once, verbatim")
++	}
++}
+diff --git a/stats/internal/guard/renderslotprompt.go b/stats/internal/guard/renderslotprompt.go
+index 4279b31a..6096d391 100644
+--- a/stats/internal/guard/renderslotprompt.go
++++ b/stats/internal/guard/renderslotprompt.go
+@@ -157,7 +157,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
+ 		}
+ 		return strings.ReplaceAll(b, "`final-review.diff`", "the **Diff file:** each PASS section names")
+ 	}
+-	for _, label := range []string{"TOOLS", "FOREGROUND BUILDS", "NO DELEGATION", "REPRODUCE, DON'T READ", "WORKTREES"} {
++	for _, label := range []string{"TOOLS", "FOREGROUND BUILDS", "NO DELEGATION", "REPRODUCE, DON'T READ", "REPRODUCER", "WORKTREES"} {
+ 		b, ok := block(panel, "review-panel.md", label)
+ 		if !ok {
+ 			return 2

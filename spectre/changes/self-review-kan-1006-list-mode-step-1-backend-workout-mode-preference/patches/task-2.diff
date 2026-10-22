@@ -1,0 +1,14 @@
+diff --git a/.flow/project.md b/.flow/project.md
+--- a/.flow/project.md
++++ b/.flow/project.md
+@@ -76,7 +76,9 @@
+ that worktree, `./gradlew :app:bootRun "$ARGS"`. Every value goes on the command line because the
+ Gradle daemon's environment is fixed when it starts, as `seedDatabase` explains. The before figure is
+ `http://localhost:<free port>`'s answer and the after figure the change's own backend's, both counted
+-with `scripts/count-request-queries.sh` against the one database; then stop the before backend. If
++with `scripts/count-request-queries.sh` against the one database; then stop the before backend by
++its port listener, `lsof -ti tcp:<free port> -sTCP:LISTEN | xargs kill` — never `./gradlew --stop`,
++which stops every Gradle daemon of that version, the change's own stack among them (kan-1006). If
+ any db or dev task ran in `../<name>-before` — `devStart`, `dbSeed`, `devWorkspaceCreate` — it
+ created a workspace of its own: run `./gradlew devWorkspaceRemove -PworkspaceId=<its id>`, the id
+ `./gradlew devWorkspace` prints there, before `git worktree remove ../<name>-before`, or its database,

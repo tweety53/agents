@@ -1,0 +1,163 @@
+diff --git a/skills/flow/review-panel.md b/skills/flow/review-panel.md
+--- a/skills/flow/review-panel.md
++++ b/skills/flow/review-panel.md
+@@ -983,6 +983,9 @@
+ > you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather
+ > than deciding it yourself.
+ 
++**A restore that would discard unstaged edits is denied** (**Restoring a path with unstaged edits**,
++`skills/flow-contracts/git-boundaries.md`).
++
+ **Every fix subagent's dispatch prompt also carries the PIXEL PROBE paragraph**:
+ 
+ > **PIXEL PROBE:** every fix you land to draw/geometry code — code that computes what is
+diff --git a/skills/flow-contracts/git-boundaries.md b/skills/flow-contracts/git-boundaries.md
+index 26a91774..2999e660 100644
+--- a/skills/flow-contracts/git-boundaries.md
++++ b/skills/flow-contracts/git-boundaries.md
+@@ -150,6 +150,16 @@ branch when that commit's own `-m` text carries neither trailer and no `chore` s
+ pathspec is not limited to `<project>/<spec-root>/changes/` (kan-1003: the design handoff 0497d943 was
+ committed and pushed in one command, and run 1's gate listed it).
+ 
++## Restoring a path with unstaged edits
++
++**A restore that would discard unstaged edits is denied.** `hooks/protect-main-checkout.py` denies
++a typed `git checkout … -- <path>` or `git restore <path>` in a linked worktree when a path it names
++carries unstaged edits: the restore reverts the file to its index state, and an uncommitted fix on
++it is lost with the flip a mutation proof made (kan-1006's self-review). Restore a flipped file
++with `break-and-prove.sh` or `mutate-and-verify.sh`, which restore from a pre-mutation byte
++snapshot (**Panel re-runs**, `skills/flow/review-panel.md`); `git restore --staged`, and a path
++with no unstaged edits, are restored as before.
++
+ ## Revert and back-out commits
+ 
+ **A back-out's commit body carries the rejection reason.** When a landed-then-reverted prototype
+diff --git a/hooks/protect-main-checkout.py b/hooks/protect-main-checkout.py
+index 7b06d8af..c1ef7518 100755
+--- a/hooks/protect-main-checkout.py
++++ b/hooks/protect-main-checkout.py
+@@ -25,6 +25,11 @@ sibling `<dirname top>/<basename top>-worktrees/<change>` only. "Default branch"
+ of main, master or develop counts. A main checkout on a feature branch is not protected — leaving
+ the default branch is how work gets a branch of its own.
+ 
++It also denies, in a linked worktree, a `git checkout … -- <path>` or `git restore <path>` naming
++a path with unstaged edits: the restore reverts it to its index state and an uncommitted fix dies
++with it. The reason points at break-and-prove.sh and mutate-and-verify.sh, which restore from a
++byte snapshot.
++
+ It also denies a landing push that would leave its change open: `git push <remote> <src>:<default>`
+ where `<src>`'s tree still holds `spectre/changes/<branch>/` — `<branch>` being `<src>`, or the
+ current branch for `HEAD`, with a `/flow` branch's `spectre/` prefix dropped. A change lands
+@@ -689,6 +694,59 @@ def commit_lacks_trailer(args, target):
+     return not (paths and all(any(s in resolve(p, target) + "/" for s in planning) for p in paths))
+ 
+ 
++def discards_unstaged(verb, args, target):
++    """The deny reason when `git checkout … -- <path>` or `git restore <path>` in a linked worktree
++    names a path carrying unstaged edits, else None. Either restore reverts the file to its index
++    state, so an uncommitted fix dies with the mutation-proof flip it was meant to undo (kan-1006's
++    self-review). `git restore --staged` touches only the index and passes.
++
++    ponytail: a `git checkout <path>` without `--` is not judged — telling a path from a branch
++    there needs the ref namespace; add it when that spelling shows up in a reflog."""
++    if target is None:
++        return None
++    if verb == "checkout":
++        if "--" not in args:
++            return None
++        paths = args[args.index("--") + 1 :]
++    elif verb == "restore":
++        if ("--staged" in args or "-S" in args) and "--worktree" not in args and "-W" not in args:
++            return None
++        if "--" in args:
++            paths = args[args.index("--") + 1 :]
++        else:
++            paths, skip = [], False
++            for a in args:
++                if skip:
++                    skip = False
++                elif a in ("-s", "--source"):
++                    skip = True
++                elif not a.startswith("-"):
++                    paths.append(a)
++    else:
++        return None
++    if not paths:
++        return None
++    git_dir = git(target, "rev-parse", "--absolute-git-dir")
++    common = git(target, "rev-parse", "--git-common-dir")
++    if not git_dir or not common:
++        return None
++    if not os.path.isabs(common):
++        common = os.path.join(target, common)
++    if os.path.realpath(git_dir) == os.path.realpath(common):
++        return None  # not a linked worktree
++    dirty = git(target, "diff", "--name-only", "--", *paths)
++    if not dirty:
++        return None
++    files = ", ".join(dirty.splitlines())
++    return (
++        f"Blocked: this `git {verb}` would discard the unstaged edits on {files} — it reverts the "
++        "file to its index state, and an uncommitted fix on it is lost with the flip a mutation "
++        "proof made (**Restoring a path with unstaged edits**, skills/flow-contracts/git-boundaries.md). "
++        "Restore a flipped file with `break-and-prove.sh` or `mutate-and-verify.sh`, which restore "
++        "from a pre-mutation byte snapshot; edits that must go are committed or stashed first."
++    )
++
++
+ def bash_hits(command, cwd, landings=None):
+     """Paths a Bash command writes into or git-mutates, resolved against cwd and `cd`.
+ 
+@@ -746,6 +804,15 @@ def bash_hits(command, cwd, landings=None):
+                     j += 1
+                 if j < n and tokens[j] in DENIED_GIT_VERBS:
+                     hits.append(target)
++                if j < n and tokens[j] in ("checkout", "restore") and landings is not None:
++                    rargs = []
++                    for t in tokens[j + 1 :]:
++                        if t in SEPARATORS or t == ")":
++                            break
++                        rargs.append(t)
++                    discard = discards_unstaged(tokens[j], rargs, target)
++                    if discard:
++                        landings.append(discard)
+                 if j < n and tokens[j] == "commit" and target is not None:
+                     cargs = []
+                     for t in tokens[j + 1 :]:
+diff --git a/scripts/test-protect-main-checkout.sh b/scripts/test-protect-main-checkout.sh
+index 28da1de1..429f1a83 100755
+--- a/scripts/test-protect-main-checkout.sh
++++ b/scripts/test-protect-main-checkout.sh
+@@ -139,6 +139,11 @@
+ #  147. `git commit -F msg.txt && git push`                          -> allow (a message the command does not state)
+ #  148. a trailer-less commit pushed to `HEAD:feature/x`             -> allow (no change branch)
+ #  150. the 145 planning commit with its pathspec given without `--` -> allow
++#  151. Bash `git -C <wt> checkout -- f.txt`, f.txt with unstaged edits -> deny
++#  152. Bash `git -C <wt> restore f.txt`, the same                  -> deny
++#  153. Bash `cd <wt> && git checkout HEAD -- f.txt`, the same       -> deny
++#  154. Bash `git -C <wt> restore --staged f.txt`, the same          -> allow (the index only)
++#  155. Bash `git -C <wt> checkout -- f.txt`, f.txt clean            -> allow
+ set -euo pipefail
+ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ HOOK="$SCRIPT_DIR/../hooks/protect-main-checkout.py"
+@@ -748,6 +753,20 @@ expect "142 an unbalanced quote, then '>' glued to a main-checkout path" deny \
+ expect "149 '>&' into the main checkout" deny \
+   "$(run "$ROOT" Bash "{\"command\":$(q "echo x >& $MAIN/f.txt")}")"
+ 
++# 151-155: a restore that would discard unstaged edits in a linked worktree (kan-1006's self-review)
++echo flipped >"$WT/f.txt"
++expect "151 checkout -- of a path with unstaged edits" deny \
++  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $WT checkout -- f.txt")}")"
++expect "152 restore of a path with unstaged edits" deny \
++  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $WT restore f.txt")}")"
++expect "153 checkout HEAD -- after a cd" deny \
++  "$(run "$ROOT" Bash "{\"command\":$(q "cd $WT && git checkout HEAD -- f.txt")}")"
++expect "154 restore --staged touches the index only" allow \
++  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $WT restore --staged f.txt")}")"
++git_q -C "$WT" checkout -- f.txt
++expect "155 checkout -- of a clean path" allow \
++  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $WT checkout -- f.txt")}")"
++
+ # 3 last: moving the main checkout off main lifts the protection
+ git_q -C "$MAIN" checkout -q -b feature
+ expect "3 Write in main checkout on a feature branch" allow \

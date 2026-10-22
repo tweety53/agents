@@ -1,0 +1,12 @@
+# Sentences this change adds on purpose (check-verbatim-moves.sh).
+\## Restoring a path with unstaged edits
+**A restore that would discard unstaged edits is denied** (**Restoring a path with unstaged edits**, `skills/flow-contracts/git-boundaries.md`).
+**A restore that would discard unstaged edits is denied.
+**Every slot's dispatch prompt also carries the REPRODUCER paragraph** — the reproducer rule above in the shape a slot authors to, since a slot reads its prompt and not this file:
+**REPRODUCER:** every finding carries a reproducer: a script under the canonical worktree's `<project>/.superpowers/sdd/reproducers/`, recorded by its worktree-relative path, or `none — <reason>` on a Minor finding only.
+It exits non-zero when the defect is present, and 0 only when it is not; a `# mutation-reproducer` follows the mutation brief instead.
+Its body names every premise path and asserts each one exists before its real checks run, exiting non-zero with the missing premise on stderr.
+Restore a flipped file with `break-and-prove.sh` or `mutate-and-verify.sh`, which restore from a pre-mutation byte snapshot (**Panel re-runs**, `skills/flow/review-panel.md`); `git restore --staged`, and a path with no unstaged edits, are restored as before.
+Under `set -e` or `pipefail`, take a count that may be zero as `n=$(grep -c <pattern> <file> || true)`: a bare `grep -c` exits 1 on zero matches, and the script then reads as defect demonstrated.
+Within its first 10 lines it declares one `# demonstrates: <path>:<line>:<content>` line per cited location and one `# premise: <path>:<line>:<content>` line per file its checks read, each in grep-output shape with the content copied off that line — never a prose description — and `# reproducer-bound: <seconds>` when it builds or runs tests.
+`hooks/protect-main-checkout.py` denies a typed `git checkout … -- <path>` or `git restore <path>` in a linked worktree when a path it names carries unstaged edits: the restore reverts the file to its index state, and an uncommitted fix on it is lost with the flip a mutation proof made (kan-1006's self-review).
