@@ -161,7 +161,9 @@ parent applies **Blocking** to its report. Its prompt states: the absolute workt
 `KEY=value` lines **Verify** (`skills/flow/verify-and-handoff.md`) exported for it; this section's resolved `setup`, `verify`, `capture` and
 `specs` commands and `screenshots` root, its resolved `mockups` root when
 declared, and its `mockup frame` value when declared; the worktree-resolved URL of each app `ui paths`
-matched; the project's `## run` commands; the views touched; `<changeRoot>`; the relay contract
+matched; the project's `## run` commands; steps 5 and 6's results, as the report's `stack:` and
+`fingerprint:` lines state them — what step 5 found or started, and step 6's exit or its
+`not declared` reason; the views touched; `<changeRoot>`; the relay contract
 above, with its report path resolved for this dispatch's `<key>`; `sweeps-<n>.md`'s path
 when **A missed defect — the tooling analysis** above completed this round, with the re-run rule
 its loaded file states, as written; the change's motions, named as the paragraph below states; the

@@ -604,7 +604,7 @@ or a measurement the pixels could not give is step 10 undone.
 ## Report
 - setup: <not declared | exit <n>>
 - stack: <already running | started and stopped | could not be started — <output>>
-- fingerprint: <not declared | exit 0 | mismatch → restarted → exit <n>>
+- fingerprint: <not declared — <step 6's reason, from the prompt> | exit 0 | mismatch → restarted → exit <n>>
 - verify: exit <n> | exit <n> — rerun of <k> failed specs at unchanged HEAD | not run — no spec since the round base
   <output, verbatim or last 40 lines>
 - capture: exit <n>

@@ -23,6 +23,11 @@ var (
 	vrCitedExit = regexp.MustCompile(`\bexit [1-9][0-9]*\b`)
 	// Step 10's own blocking exit (skills/flow/visual-verify-verifier.md step 10).
 	vrComposeExit = regexp.MustCompile(`\bcompose-mockup-frames(\.sh)? exit [1-9][0-9]*\b`)
+	// A bare `- fingerprint: not declared`: step 6 reports exit 2 as `not
+	// declared — <the guard's stderr reason>`, and the verifier has that
+	// reason only from the prompt (kan-1010's self-review: a verifier wrote
+	// it bare for a project declaring the row, its parent's FRESH=0 unseen).
+	vrBareFingerprint = regexp.MustCompile(`^\s*- fingerprint:\s*not declared\s*$`)
 )
 
 func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
@@ -42,7 +47,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	status := map[string]string{}
-	motionLine := false
+	motionLine, bareFingerprint := false, false
 	for _, line := range strings.Split(string(data), "\n") {
 		if m := vrStepsLine.FindStringSubmatch(line); m != nil {
 			for _, item := range strings.Split(m[1], " | ") {
@@ -53,8 +58,12 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		if m := vrMotion.FindStringSubmatch(line); m != nil && m[1] == m[2] && m[2] == strconv.Itoa(motions) {
 			motionLine = true
 		}
+		bareFingerprint = bareFingerprint || vrBareFingerprint.MatchString(line)
 	}
 	var undone []string
+	if bareFingerprint {
+		undone = append(undone, "fingerprint: `not declared` with no reason — state step 6's result as the prompt names it")
+	}
 	for _, id := range vrSteps {
 		s, ok := status[id]
 		naAllowed := id == "4" || id == "10" || (id == "motion" && motions == 0)

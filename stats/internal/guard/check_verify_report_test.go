@@ -59,3 +59,29 @@ func TestCheckVerifyReport(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckVerifyReportFingerprintReason pins kan-1010's self-review: a
+// verifier wrote a bare `fingerprint: not declared` for a project declaring
+// the row, its parent's step-6 result never named in the prompt. A bare one
+// is an undone item; one carrying step 6's reason, or an exit, is not.
+func TestCheckVerifyReportFingerprintReason(t *testing.T) {
+	const steps = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n"
+	for _, tc := range []struct {
+		line string
+		rc   int
+		want string
+	}{
+		{"- fingerprint: not declared\n", 1, "fingerprint: `not declared` with no reason"},
+		{"- fingerprint: not declared — no fingerprint row in .flow/project.md\n", 0, "COMPLETE"},
+		{"- fingerprint: exit 0\n", 0, "COMPLETE"},
+	} {
+		path := filepath.Join(t.TempDir(), "verify-report-visual-verify.md")
+		if err := os.WriteFile(path, []byte("## Report\n"+tc.line+steps), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
+		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
+			t.Fatalf("%q: rc=%d out=%q; want rc=%d containing %q", tc.line, r.rc, r.out, tc.rc, tc.want)
+		}
+	}
+}

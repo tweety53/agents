@@ -23,7 +23,9 @@
 # `- motion: <n>/<n>` line, <n> that count — a strip recorded beyond the
 # named motions goes on a sub-bullet, never into <n>. Every other status — absent,
 # `not done`, an n/a on a required step, a block citing no failing exit — is
-# an undone step.
+# an undone step. A `- fingerprint: not declared` line with no ` — <reason>`
+# is undone too: step 6 reports its exit 2 with the guard's reason, which the
+# prompt carries (kan-1010's self-review).
 #
 # Prints ONE verdict line to stdout:
 #   VERIFY-REPORT-COMPLETE: <report file>
