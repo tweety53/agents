@@ -75,13 +75,14 @@ func tcfParseTask(lines []string, taskID string) (tcfTask, bool) {
 // tcfBodyFields is parse_task_fields' field walk: each non-fenced field line
 // opens a field, a blank or Squash-with line closes it, and every other line
 // while one is open is a stripped continuation; a repeated field keeps its
-// last occurrence. Joined with " ", a field's parts are the *_value strings
+// first occurrence, so a later prose line opening with a field never
+// replaces the declaration. Joined with " ", a field's parts are the *_value strings
 // parse_task_fields exposes (files_value, tests_value, collateral_value).
 func tcfBodyFields(body []string) map[string][]string {
 	fields := map[string][]string{}
 	current, parts := "", []string(nil)
 	commitField := func() {
-		if current != "" {
+		if _, seen := fields[current]; current != "" && !seen {
 			fields[current] = parts
 		}
 	}

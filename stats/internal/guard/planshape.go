@@ -55,7 +55,7 @@ import (
 //
 //	F1  A second Files, Tests, Commit, Baseline or Allowed-collateral line
 //	    in one task body (psF1Fields) -- naming which occurrence wins, since
-//	    the parser keeps the last.
+//	    the parser keeps the first.
 //	F2  No Files line, or one whose backtick token list is empty -- read
 //	    off tcfParseTask's own files, which is empty in exactly these two
 //	    cases (a value with prose and no backticks falls back to that prose
@@ -357,7 +357,7 @@ func (p *psPlan) checkTask(found tcfTaskBody) []string {
 			return false
 		}
 		if first, ok := seen[m[1]]; ok && p.on("F1") {
-			v = append(v, p.at(start+off+1, fmt.Sprintf("task %s declares a second **%s:** line (first at line %d); the parser keeps the last occurrence and silently discards this one", id, m[1], first)))
+			v = append(v, p.at(start+off+1, fmt.Sprintf("task %s declares a second **%s:** line (first at line %d); the parser keeps the first occurrence and ignores this one", id, m[1], first)))
 		} else {
 			seen[m[1]] = start + off + 1
 		}

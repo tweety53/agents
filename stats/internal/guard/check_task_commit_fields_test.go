@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -3133,5 +3134,18 @@ func TestTcfFnmatchMatchesPython(t *testing.T) {
 			}
 			i++
 		}
+	}
+}
+
+// A later prose line opening `**Files:**` never replaces the task's declared
+// files: a repeated field keeps its first occurrence.
+func TestTcfBodyFieldsFirstOccurrenceWins(t *testing.T) {
+	plan := "- [ ] 1. One\n\n**Files:** `a.go`\n**Tests:** none\n**Commit:** fix: one\n\nCorrection: the shim moved\n**Files:**) and so on.\n"
+	task, ok := tcfParseTask(strings.Split(plan, "\n"), "1")
+	if !ok {
+		t.Fatal("task 1 not found")
+	}
+	if !slices.Equal(task.files, []string{"a.go"}) {
+		t.Fatalf("files = %q, want [\"a.go\"]", task.files)
 	}
 }
