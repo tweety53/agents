@@ -260,7 +260,7 @@ key where the change name leads with one and the phase — read from the run's o
 worktree's git log on every draw, followed by ` │ ` and a tally of those rows by emoji. A task counts
 as done when it is ticked or a commit carrying its `Task-Id:` trailer is on the change branch since its
 base — `branch.<current>.flowBase` when recorded (its `refs/remotes/origin/` ref first), otherwise
-`refs/remotes/origin/HEAD`, as `<agents repo>/scripts/check-task-records.py` resolves it — so a gated task counts before its deferred tick.
+`refs/remotes/origin/HEAD`, as `<agents repo>/stats/internal/guard/taskrecords.go` resolves it — so a gated task counts before its deferred tick.
 Only the change's worktree in the session's own repository is read: a task whose commit lands in a peer
 repository's worktree counts once it is ticked. Work no subagent carries — brainstorming, an inline-executed task, a finish step —
 shows on the main agent's own `main` row, always first on the band, as `main: <label>`, `in progress` while the

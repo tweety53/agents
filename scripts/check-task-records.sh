@@ -1,17 +1,15 @@
 #!/usr/bin/env bash
 # check-task-records.sh — thin wrapper.
 #
-# All parsing and checking logic lives in check-task-records.py (Python 3,
-# standard library only), following the same split check-plan-provenance.sh
-# and check-plan-shape.sh use and for the same reason: this file exists only
-# so .flow/project.md's declared commands and an operator's muscle memory
-# invoking this exact filename keep working, while the record checking
-# underneath is a real parser — lib/plan_grammar.py's task grammar and
-# check-task-commit-fields.py's field parser, imported rather than
-# restated. The Python module's own docstring is canonical for the three
-# checks (tick state vs commit existence, declared Files vs the commit's
-# real files in both directions, Build tag format) and the exit-code
-# contract.
+# All parsing and checking logic lives in `flow-guard check-task-records`
+# (stats/internal/guard/taskrecords.go), built from this checkout by
+# lib/flow-guard.sh. This file exists only so .flow/project.md's declared
+# commands and an operator's muscle memory invoking this exact filename keep
+# working, while the record checking underneath reads the shared plan grammar
+# (stats/internal/guard/planparse.go) that check-task-commit-fields and
+# check-plan-shape read. taskrecords.go's header is canonical for the three
+# checks (tick state vs commit existence, declared Files vs the commit's real
+# files in both directions, Build tag format) and the exit-code contract.
 #
 #   check-task-records.sh [repo-root] [base-ref]
 #
@@ -20,58 +18,10 @@
 # spectre/changes/ exits 0, which is what makes the guard a legitimate
 # bare-tree lint step.
 set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PYTHON_GUARD="$SCRIPT_DIR/check-task-records.py"
-# Named and checked for the two reasons every wrapper here names its
-# siblings: a Python import is invisible to check-guard-symlinks.sh's rule
-# 2, which derives a guard's required siblings by grepping its source for
-# $SCRIPT_DIR/<name>, and a missing module should say which one rather than
-# surface as a traceback.
-GRAMMAR_MODULE="$SCRIPT_DIR/lib/plan_grammar.py"
-COMMIT_FIELDS_MODULE="$SCRIPT_DIR/check-task-commit-fields.py"
-
-if [ ! -f "$GRAMMAR_MODULE" ]; then
-  echo "check-task-records.sh: required sibling module not found: $GRAMMAR_MODULE" >&2
-  exit 2
-fi
-
-if [ ! -f "$COMMIT_FIELDS_MODULE" ]; then
-  echo "check-task-records.sh: required sibling module not found: $COMMIT_FIELDS_MODULE" >&2
-  exit 2
-fi
-
-command -v python3 >/dev/null 2>&1 || {
-  echo "check-task-records.sh: python3 not found on PATH — cannot run the guard" >&2
+# $SCRIPT_DIR/ spells each sibling this shim needs where check-guard-symlinks rule 2 reads it.
+SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+[ -r "$SCRIPT_DIR/lib/flow-guard.sh" ] && . "$SCRIPT_DIR/lib/flow-guard.sh" || {
+  echo "check-task-records: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }
-
-# `command -v` proves the file exists, not that it runs: on macOS without
-# the Command Line Tools, /usr/bin/python3 is a stub that exits 1 with
-# "xcrun: error: invalid active developer path", which a caller would read
-# as "violations found".
-if ! python3 -c 'import sys; sys.exit(0)'; then
-  echo "check-task-records.sh: python3 is present but failed to run a trivial program (see above) — cannot run the guard" >&2
-  exit 2
-fi
-
-if [ "$#" -gt 2 ]; then
-  echo "usage: check-task-records.sh [repo-root] [base-ref]" >&2
-  exit 2
-fi
-
-# An archived change joins the check only while the base does not carry it —
-# archived on this branch by integrate's run 1, then written into by a fix
-# run. `flow-guard unlanded-archives` (stats/internal/guard/unlandedarchives.go)
-# is the one statement of that rule; its names reach the Python guard as
-# CHECK_TASK_RECORDS_ARCHIVED, one per line. Every archive the base carries
-# stays out.
-FLOW_GUARD_LIB="$SCRIPT_DIR/lib/flow-guard.sh"
-if [ ! -f "$FLOW_GUARD_LIB" ]; then
-  echo "check-task-records.sh: required sibling module not found: $FLOW_GUARD_LIB" >&2
-  exit 2
-fi
-source "$FLOW_GUARD_LIB"
-ARCHIVED="$(flow_guard_exec unlanded-archives 2 "check-task-records: COULD NOT JUDGE — not a record verdict:" "${1:-$PWD}")" || exit 2
-
-CHECK_TASK_RECORDS_ARCHIVED="$ARCHIVED" exec python3 "$PYTHON_GUARD" "$@"
+flow_guard_exec check-task-records 2 "check-task-records:" "$@"

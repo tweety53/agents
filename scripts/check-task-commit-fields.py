@@ -68,8 +68,8 @@ below, whose partner is looked up in the same tasks.md.
 `check-task-commit-fields.sh` is the thin wrapper a caller invokes. Since
 KAN-760 it execs the Go port, stats/internal/guard/taskcommitfields.go,
 which resolves WHICH tasks.md and worktree a caller means and ports this
-module's checks; this module stays because check-task-records.py and
-check-plan-shape.py load it, and TestTaskFieldParseMatchesPython pins the
+module's checks; this module stays because plan-dispatch-bundles.py
+loads it, and TestTaskFieldParseMatchesPython pins the
 Go parse to it. Only the parse half and `check_files` remain here: the
 verdict half — the fold resolution, every other check against git,
 `check_task_commit` and `main` — was deleted once nothing ran it (KAN-760,

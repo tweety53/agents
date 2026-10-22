@@ -6,7 +6,7 @@
 # check-task-commit-fields.py (Python 3, standard library only) — the parser
 # the bash body exec'd, split out the same way check-task-build-green.sh is
 # and for the same reason. That .py stays, loaded as a module by
-# check-task-records.py and check-plan-shape.py. This file exists only so an
+# plan-dispatch-bundles.py. This file exists only so an
 # operator's muscle memory invoking this exact filename, and
 # .flow/project.md's declared commands, keep working, while the field
 # grammar underneath gets a real parser.

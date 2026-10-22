@@ -57,7 +57,7 @@ import (
 // (tcfFenceRE here), the same toggle `parse_task_fields` uses.
 //
 // check-task-commit-fields.py keeps its parse half and check_files:
-// check-task-records.py and check-plan-shape.py still load it as a module,
+// plan-dispatch-bundles.py still loads it as a module,
 // and TestTaskFieldParseMatchesPython pins this parse against it.
 //
 // Python's str regexes are Unicode-aware; these are RE2. Whitespace (\s,

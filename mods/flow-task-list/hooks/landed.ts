@@ -8,7 +8,7 @@ export type Run = (argv: string[]) => Promise<{ exitCode: number; stdout: string
 
 // The tasks whose `Task-Id:` commits are on the worktree `dir`'s branch since its base — the base recorded as
 // `branch.<current>.flowBase` (its `refs/remotes/origin/` ref first), else `refs/remotes/origin/HEAD`, as
-// scripts/check-task-records.py resolves it, offline; none when git cannot say. Only this one worktree is read:
+// stats/internal/guard/taskrecords.go resolves it, offline; none when git cannot say. Only this one worktree is read:
 // a task landing in a peer repo's worktree counts once it is ticked.
 export const landedIn = async (run: Run, dir: string): Promise<number[]> => {
   const git = async (...args: string[]) => {

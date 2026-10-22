@@ -3104,14 +3104,14 @@ func TestCheckTaskCommitFields(t *testing.T) {
 }
 
 // TestTaskFieldParseMatchesPython runs scripts/check-task-commit-fields.py's
-// own parse_task_fields -- loaded the way check-task-records.py loads it --
+// own parse_task_fields -- loaded the way plan-dispatch-bundles.py loads it --
 // once over every plan fixture above, and fails where the Go parse of any
-// task differs. check-task-records.py and check-plan-shape.py still read the
-// Python parse, so a drift here is two guards disagreeing about one plan.
+// task differs. plan-dispatch-bundles.py still reads the Python parse, so a
+// drift here is two guards disagreeing about one plan.
 func TestTaskFieldParseMatchesPython(t *testing.T) {
 	t.Parallel()
 	if _, err := exec.LookPath("python3"); err != nil {
-		t.Fatal("python3 not on PATH: a hard dependency of the live check-task-records.py, so this drift check must run")
+		t.Fatal("python3 not on PATH: a hard dependency of the live plan-dispatch-bundles.py, so this drift check must run")
 	}
 	dir := t.TempDir()
 	keys := make([]string, 0, len(tcfPlans))
@@ -3250,7 +3250,7 @@ func tcfJSON(v any) string {
 func TestTcfFnmatchMatchesPython(t *testing.T) {
 	t.Parallel()
 	if _, err := exec.LookPath("python3"); err != nil {
-		t.Fatal("python3 not on PATH: a hard dependency of the live check-task-records.py, so this drift check must run")
+		t.Fatal("python3 not on PATH: a hard dependency of the live plan-dispatch-bundles.py, so this drift check must run")
 	}
 	patterns := []string{"docs/[x[:alpha:]*[y]", "[[:alpha:]]", "a[[]b", "[![:digit:]]x", "*[[]*", "d[a-c[]"}
 	names := []string{"docs/b", "docs/x", "docs/[y", "a", ":", "[", "a[b", "5x", "bx", "[x", "da", "d[", "dz"}

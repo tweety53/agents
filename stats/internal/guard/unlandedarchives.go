@@ -13,8 +13,8 @@ import (
 
 // unlandedArchivesCmd is `flow-guard unlanded-archives <root>`, the shared
 // rule's entry point for the scanners not written in Go —
-// check-task-build-green.sh, check-plan-shape.sh, plan-dispatch-bundles.sh
-// and check-task-records.sh call it through scripts/lib/flow-guard.sh's
+// check-task-build-green.sh, check-plan-shape.sh and plan-dispatch-bundles.sh
+// call it through scripts/lib/flow-guard.sh's
 // flow_guard_exec and scan <spec-root>/changes/archive/<name>/ for each name
 // it prints, one per line. The base is vmDefaultBase's — the merge base of
 // HEAD with the change's base, resolved offline — so every scanner judges
