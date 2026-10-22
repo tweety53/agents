@@ -16,8 +16,8 @@
 #     that file.
 #
 # The no-argument scan's root is CHECK_TASK_BUILD_GREEN_ROOT when set (a test
-# harness's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT — the parent
-# of this script's real directory — so the scan works from any cwd.
+# harness's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT — derived by
+# flow_guard_root (scripts/lib/flow-guard.sh) — so the scan works from any cwd.
 # flow-guard is built from this checkout, never taken from PATH:
 # scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
 # cannot-answer code) with the cause when it cannot.
@@ -29,19 +29,6 @@ SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
   exit 2
 }
 flow_guard_cwd_checkout "${BASH_SOURCE[0]}" "$@"
-# The root is this script's REAL parent's parent, resolved through
-# lib/resolve-file.sh rather than `dirname` of the invoked path: run through
-# a symlink under skills/<skill>/scripts/, the invoked path's parent's parent
-# is skills/<skill> — a scan of a tree with no changes/ there exits 0 with no
-# output.
-[ -r "$SCRIPT_DIR/lib/resolve-file.sh" ] && . "$SCRIPT_DIR/lib/resolve-file.sh" || {
-  echo "check-task-build-green: cannot load lib/resolve-file.sh beside ${BASH_SOURCE[0]}" >&2
-  exit 2
-}
-SELF_REAL="$(resolve_file "${BASH_SOURCE[0]}")" || {
-  echo "check-task-build-green: cannot resolve this script's own location" >&2
-  exit 2
-}
-FLOW_GUARD_REPO_ROOT="$(cd "$(dirname -- "$SELF_REAL")/.." && pwd)"
+FLOW_GUARD_REPO_ROOT="$(flow_guard_root)"
 export FLOW_GUARD_REPO_ROOT
 flow_guard_exec check-task-build-green 2 "check-task-build-green:" "$@"

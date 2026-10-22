@@ -16,8 +16,8 @@
 #     that file.
 #
 # The no-argument scan's root is PLAN_DISPATCH_BUNDLES_ROOT when set (a test
-# harness's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT — the parent
-# of this script's real directory — as the checkout whose changes are
+# harness's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT — derived by
+# flow_guard_root (scripts/lib/flow-guard.sh) — as the checkout whose changes are
 # scanned.
 # flow-guard is built from this checkout, never taken from PATH:
 # scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
@@ -30,19 +30,6 @@ SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
   exit 2
 }
 flow_guard_cwd_checkout "${BASH_SOURCE[0]}" "$@"
-# The root is this script's REAL parent's parent, resolved through
-# lib/resolve-file.sh rather than `dirname` of the invoked path: this guard
-# also ships as a symlink under skills/<skill>/scripts/, where the invoked
-# path's parent's parent is the skill directory — a scan of a tree with no
-# changes/ there exits 0 with no output.
-[ -r "$SCRIPT_DIR/lib/resolve-file.sh" ] && . "$SCRIPT_DIR/lib/resolve-file.sh" || {
-  echo "plan-dispatch-bundles: cannot load lib/resolve-file.sh beside ${BASH_SOURCE[0]}" >&2
-  exit 2
-}
-SELF_REAL="$(resolve_file "${BASH_SOURCE[0]}")" || {
-  echo "plan-dispatch-bundles: cannot resolve this script's own location" >&2
-  exit 2
-}
-FLOW_GUARD_REPO_ROOT="$(cd "$(dirname -- "$SELF_REAL")/.." && pwd)"
+FLOW_GUARD_REPO_ROOT="$(flow_guard_root)"
 export FLOW_GUARD_REPO_ROOT
 flow_guard_exec plan-dispatch-bundles 2 "plan-dispatch-bundles:" "$@"

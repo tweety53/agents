@@ -172,7 +172,8 @@ func TestCheckPlanShape(t *testing.T) {
 	// scan resolves the root to the sandbox, not to skills/flow.
 	sandbox := t.TempDir()
 	psCopy(t, psShim, sandbox+"/scripts/check-plan-shape.sh")
-	psLink(t, psScripts+"/lib", sandbox+"/scripts/lib")
+	psCopy(t, psScripts+"/lib/flow-guard.sh", sandbox+"/scripts/lib/flow-guard.sh")
+	psLink(t, filepath.Dir(psScripts)+"/stats", sandbox+"/stats")
 	psLink(t, "../../../scripts/check-plan-shape.sh", sandbox+"/skills/flow/scripts/check-plan-shape.sh")
 	psLink(t, "../../../scripts/lib", sandbox+"/skills/flow/scripts/lib")
 	writeFile(t, sandbox+"/spectre/changes/dirty-change/tasks.md", "- [ ] 1. Dirty\n\n**Tests:** `test-a.sh`\n")
@@ -384,10 +385,6 @@ func TestCheckPlanShape(t *testing.T) {
 	psCopy(t, psShim, u+"/scripts/check-plan-shape.sh")
 	psCopy(t, psScripts+"/lib/flow-guard.sh", u+"/scripts/lib/flow-guard.sh")
 	uenv := []string{"CHECK_PLAN_SHAPE_ROOT=" + u + "/root", "FLOW_GUARD_CACHE_DIR=" + t.TempDir()}
-	r = psExec(t, uenv, u+"/scripts/check-plan-shape.sh")
-	want("pin: a shim copy with no lib/resolve-file.sh exits 2 naming it", r.rc == 2 &&
-		r.err == "check-plan-shape: cannot load lib/resolve-file.sh beside "+u+"/scripts/check-plan-shape.sh\n", r)
-	psCopy(t, psScripts+"/lib/resolve-file.sh", u+"/scripts/lib/resolve-file.sh")
 	r = psExec(t, uenv, u+"/scripts/check-plan-shape.sh")
 	want("unlanded archives: flow-guard that cannot be built exits 2", r.rc == 2 && has(r, "cannot build flow-guard"), r)
 	if err := os.Remove(u + "/scripts/lib/flow-guard.sh"); err != nil {

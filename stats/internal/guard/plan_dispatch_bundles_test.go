@@ -3,6 +3,7 @@ package guard
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -85,7 +86,8 @@ func TestPlanDispatchBundles(t *testing.T) {
 	// skills/flow/scripts/ symlink scans its REAL root's changes.
 	sandbox := t.TempDir()
 	psCopy(t, pdbShim, sandbox+"/scripts/plan-dispatch-bundles.sh")
-	psLink(t, psScripts+"/lib", sandbox+"/scripts/lib")
+	psCopy(t, psScripts+"/lib/flow-guard.sh", sandbox+"/scripts/lib/flow-guard.sh")
+	psLink(t, filepath.Dir(psScripts)+"/stats", sandbox+"/stats")
 	psLink(t, "../../../scripts/plan-dispatch-bundles.sh", sandbox+"/skills/flow/scripts/plan-dispatch-bundles.sh")
 	psLink(t, "../../../scripts/lib", sandbox+"/skills/flow/scripts/lib")
 	writeFile(t, sandbox+"/spectre/changes/some-change/tasks.md", fieldless)
@@ -168,10 +170,6 @@ func TestPlanDispatchBundles(t *testing.T) {
 	psCopy(t, pdbShim, u+"/scripts/plan-dispatch-bundles.sh")
 	psCopy(t, psScripts+"/lib/flow-guard.sh", u+"/scripts/lib/flow-guard.sh")
 	uenv := []string{"PLAN_DISPATCH_BUNDLES_ROOT=" + u + "/root", "FLOW_GUARD_CACHE_DIR=" + t.TempDir()}
-	r = psExec(t, uenv, u+"/scripts/plan-dispatch-bundles.sh")
-	want("pin: a shim copy with no lib/resolve-file.sh exits 2 naming it", r.rc == 2 &&
-		r.err == "plan-dispatch-bundles: cannot load lib/resolve-file.sh beside "+u+"/scripts/plan-dispatch-bundles.sh\n", r)
-	psCopy(t, psScripts+"/lib/resolve-file.sh", u+"/scripts/lib/resolve-file.sh")
 	r = psExec(t, uenv, u+"/scripts/plan-dispatch-bundles.sh")
 	want("unlanded archives: flow-guard that cannot be built exits 2", r.rc == 2 && has(r, "cannot build flow-guard"), r)
 	if err := os.Remove(u + "/scripts/lib/flow-guard.sh"); err != nil {

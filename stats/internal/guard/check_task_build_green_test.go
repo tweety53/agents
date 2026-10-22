@@ -3,6 +3,7 @@ package guard
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -236,10 +237,6 @@ func TestCheckTaskBuildGreen(t *testing.T) {
 	psCopy(t, psScripts+"/lib/flow-guard.sh", u+"/scripts/lib/flow-guard.sh")
 	uenv := []string{"CHECK_TASK_BUILD_GREEN_ROOT=" + u + "/root", "FLOW_GUARD_CACHE_DIR=" + t.TempDir()}
 	r = psExec(t, uenv, u+"/scripts/check-task-build-green.sh")
-	want("pin: a shim copy with no lib/resolve-file.sh exits 2 naming it", r.rc == 2 &&
-		r.err == "check-task-build-green: cannot load lib/resolve-file.sh beside "+u+"/scripts/check-task-build-green.sh\n", r)
-	psCopy(t, psScripts+"/lib/resolve-file.sh", u+"/scripts/lib/resolve-file.sh")
-	r = psExec(t, uenv, u+"/scripts/check-task-build-green.sh")
 	want("unlanded archives: flow-guard that cannot be built exits 2", r.rc == 2 && has(r, "cannot build flow-guard"), r)
 	if err := os.Remove(u + "/scripts/lib/flow-guard.sh"); err != nil {
 		t.Fatal(err)
@@ -251,7 +248,8 @@ func TestCheckTaskBuildGreen(t *testing.T) {
 	// printed them at bbfe685e.
 	sandbox := t.TempDir()
 	psCopy(t, tbgShim, sandbox+"/scripts/check-task-build-green.sh")
-	psLink(t, psScripts+"/lib", sandbox+"/scripts/lib")
+	psCopy(t, psScripts+"/lib/flow-guard.sh", sandbox+"/scripts/lib/flow-guard.sh")
+	psLink(t, filepath.Dir(psScripts)+"/stats", sandbox+"/stats")
 	psLink(t, "../../../scripts/check-task-build-green.sh", sandbox+"/skills/flow/scripts/check-task-build-green.sh")
 	psLink(t, "../../../scripts/lib", sandbox+"/skills/flow/scripts/lib")
 	writeFile(t, sandbox+"/spectre/changes/dirty-change/tasks.md", "- [ ] 1. Dirty\n")
