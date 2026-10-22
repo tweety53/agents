@@ -37,8 +37,6 @@ func TestCoverage(t *testing.T) {
 			"call rc=0\ncall rc=0\na.md 2 · b.md 0\nb.md: 0 checked, and not declared expected-zero (coverage)\nverdict rc=1\n"},
 		{"a declared zero with a reason", []call{dec("b.md", "stub — nothing to check"), rec("a.md", 1), rec("b.md", 0)},
 			"call rc=0\ncall rc=0\ncall rc=0\na.md 1 · b.md 0 (declared: stub — nothing to check)\nverdict rc=0\n"},
-		{"a declared zero without a reason", []call{dec("b.md", ""), rec("b.md", 0)},
-			"call rc=0\ncall rc=0\nb.md 0 (declared)\nverdict rc=0\n"},
 		{"a declared zero with an empty reason", []call{dec("b.md", ""), rec("b.md", 0)},
 			"call rc=0\ncall rc=0\nb.md 0 (declared)\nverdict rc=0\n"},
 		{"a declared member now non-zero, with and without a reason",

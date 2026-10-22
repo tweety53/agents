@@ -88,7 +88,10 @@ func runGuardTests(_ []string, env Env, stdout, stderr io.Writer) int {
 
 	// DISCOVERY IS BY GLOB, <test root>/test-*.sh, flat -- never recursive,
 	// never a hand-maintained list -- so a new harness nobody wires into
-	// .flow/project.md is never silently skipped.
+	// .flow/project.md is never silently skipped. Byte order, where the
+	// script's glob sorted by LC_COLLATE: the two differ only on names mixing
+	// case or punctuation, which no harness name does, and only where no
+	// recorded duration orders the list.
 	harnesses, _ := filepath.Glob(filepath.Join(testRoot, "test-*.sh"))
 
 	// COMPANION PRESENCE (kan-387): every check-*.sh guard gets a
@@ -152,15 +155,6 @@ func runGuardTests(_ []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 
-	tmp := env.Getenv("TMPDIR")
-	if tmp == "" {
-		tmp = "/tmp"
-	}
-	tmpDir, err := os.MkdirTemp(tmp, rgtName+"-time.")
-	if err != nil {
-		fmt.Fprintf(stderr, "%s: cannot create a temporary directory under %s\n", rgtName, tmp)
-		return 2
-	}
 	// An interrupt removes the temp dir, then dies of that signal, as
 	// the bash parallel library's EXIT/INT/TERM traps did for its capture directory: a
 	// deferred RemoveAll alone never runs in a signal-killed process. The
@@ -179,6 +173,17 @@ func runGuardTests(_ []string, env Env, stdout, stderr io.Writer) int {
 		case <-ctx.Done():
 		}
 	}()
+	tmp := env.Getenv("TMPDIR")
+	if tmp == "" {
+		tmp = "/tmp"
+	}
+	tmpDir, err := os.MkdirTemp(tmp, rgtName+"-time.")
+	if err != nil {
+		signal.Stop(sigs)
+		cancel()
+		fmt.Fprintf(stderr, "%s: cannot create a temporary directory under %s\n", rgtName, tmp)
+		return 2
+	}
 	defer func() {
 		signal.Stop(sigs)
 		cancel()
