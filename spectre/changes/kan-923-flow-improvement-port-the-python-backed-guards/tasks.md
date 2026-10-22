@@ -58,6 +58,15 @@ flow_guard_exec <name> 2 "<name>:" "$@"
 the `flow_guard_cwd_checkout` line are kept only by a shim whose wrapper derived the repository root
 from its own location (**Decision:** shims-export-repo-root); every other shim drops them.
 
+Correction (2026-10-22): the template's `FLOW_GUARD_REPO_ROOT` line derives the root from the
+symlink's own location, so a shim run through `skills/<skill>/scripts/` scans `skills/<skill>` and
+reports clean having checked nothing. A self-locating shim instead loads
+`$SCRIPT_DIR/lib/resolve-file.sh` (exit 2 naming it when absent), sets
+`SELF_REAL="$(resolve_file "${BASH_SOURCE[0]}")"` (exit 2 when it cannot resolve), then
+`FLOW_GUARD_REPO_ROOT="$(cd "$(dirname -- "$SELF_REAL")/.." && pwd)"` — as task 1's
+`scripts/check-plan-shape.sh` does. A port also removes every tracked `skills/*/scripts/<name>.py`
+symlink to its deleted `.py`, which otherwise fails `check-guard-symlinks.sh` rule 1.
+
 **Test isolation:** every Go test calls `t.Parallel()`; fixture trees (git repos included) are built
 once in `TestMain` or a `sync.Once` helper (`helpers_test.go` has the existing ones) and each case
 copies its own into `t.TempDir()`; deadlines are injected on `Env`, never through the environment
@@ -84,7 +93,7 @@ step 5 names. The full package and `scripts/run-guard-tests.sh` run in `flow.ver
 
 - [ ] 1. Port check-plan-shape
 
-**Files:** `stats/internal/guard/planshape.go`, `stats/internal/guard/check_plan_shape_test.go`, `stats/internal/guard/planparse.go`, `scripts/check-plan-shape.sh`, `scripts/check-plan-shape.py`, `scripts/test-check-plan-shape.sh`
+**Files:** `stats/internal/guard/planshape.go`, `stats/internal/guard/check_plan_shape_test.go`, `stats/internal/guard/planparse.go`, `scripts/check-plan-shape.sh`, `scripts/check-plan-shape.py`, `scripts/test-check-plan-shape.sh`, `skills/flow/scripts/check-plan-shape.py`, `skills/flow-fast/scripts/check-plan-shape.py`, `skills/flow-plan/scripts/check-plan-shape.py`
 **Allowed-collateral:** `stats/internal/guard/helpers_test.go`
 **Tests:** `TestCheckPlanShape`
 **Regression:** fails if any of the harness's 131 `ok:` behaviours regress.
@@ -115,6 +124,12 @@ step 5 names. The full package and `scripts/run-guard-tests.sh` run in `flow.ver
     spectre/changes/kan-923-flow-improvement-port-the-python-backed-guards/tasks.md` exit and print
     as the wrapper did at `bbfe685e`, directly and through a symlink to the shim in a temp
     directory.
+
+Correction (2026-10-22): the commit also removes the three tracked
+`skills/{flow,flow-fast,flow-plan}/scripts/check-plan-shape.py` symlinks (now in **Files:**), and
+its shim resolves its real path per the shim-template correction above. A `**Files:** none` line
+keeps the Python reading (`["none"]`) through a new `tcfPythonFiles` in `planparse.go`, because
+`tcfParseTask`'s reading made F2 fire on 15 plans that pass at base.
 
 - [ ] 2. Port check-task-build-green
 
