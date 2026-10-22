@@ -24,9 +24,11 @@ if [ "$#" -ne 2 ]; then
   exit 2
 fi
 zip_path="$2/full-app-suite.zip"
-rm -f "$zip_path"
 rc=0
 list=$("$SCRIPT_DIR/resolve-visual-screenshots.sh" "$1" full-app-suite.spec.ts) || rc=$?
+# A resolver that cannot answer (exit 2) leaves the old zip alone: only a resolved list replaces it.
+[ "$rc" -eq 2 ] && exit 2
+rm -f "$zip_path"
 [ "$rc" -eq 0 ] || exit "$rc"
 printf '%s\n' "$list" | tr '\n' '\0' | xargs -0 touch -t 198001010000
 printf '%s\n' "$list" | zip -q -X -j -@ "$zip_path" || exit 2

@@ -46,6 +46,13 @@ rm "$P/shots/full-app-suite.spec.ts-snapshots/a.png"
 "$REBUILD" "$P" 2>/dev/null && rc=0 || rc=$?
 [ "$rc" -eq 2 ] && pass "case 5 usage" || fail "case 5: exit $rc"
 
+# Case 6: a resolver that cannot answer is exit 2 and leaves the old zip in place.
+printf a >"$P/shots/full-app-suite.spec.ts-snapshots/a.png"
+"$REBUILD" "$P" "$P/shots"
+printf '# p\n' >"$P/.flow/project.md"
+"$REBUILD" "$P" "$P/shots" 2>/dev/null && rc=0 || rc=$?
+[ "$rc" -eq 2 ] && [ -e "$Z" ] && pass "case 6 cannot answer keeps the zip" || fail "case 6: exit $rc, zip present: $([ -e "$Z" ] && echo yes || echo no)"
+
 if [ "$FAILURES" -gt 0 ]; then
   echo "$FAILURES failure(s)" >&2
   exit 1
