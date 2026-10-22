@@ -77,11 +77,11 @@ internal/web/dist/index.html:
 # binaries, which is why the documented launch sequence used to carry a
 # second, hand-written `go build -o bin/flowd ./cmd/flowd` after this
 # target -- and why an operator who skipped that half ran whatever stale
-# bin/flowd was already on disk. scripts/test-make-build.sh asserts all
+# bin/flowd was already on disk. stats/internal/repotest/make_build_test.go asserts all
 # three lines are present, over `make -n build`.
 #
 # bin/flow-guard is the Go ports of the guard scripts (cmd/flow-guard),
-# built here so `make build` compiles every binary; scripts/test-make-build.sh
+# built here so `make build` compiles every binary; stats/internal/repotest/make_build_test.go
 # asserts its line too. No shim runs this copy: a ported scripts/<name>.sh
 # builds its own from the checkout (scripts/lib/flow-guard.sh).
 build: web-build
@@ -118,7 +118,7 @@ down:
 # Removing it makes the dependency load-bearing rather than decorative: drop
 # `build` from the line below and this target starts whatever stale
 # $(LIVE_BIN) is on disk, with nothing left to refresh it. That is what
-# scripts/test-make-build.sh's `restart depends on build` case pins.
+# stats/internal/repotest/make_build_test.go's `restart depends on build` case pins.
 #
 # THIS KILL IS PORT-DRIVEN, deliberately -- and it stays port-driven now that
 # a pidfile exists. flowd writes a pidfile on EVERY start, however it was
@@ -378,8 +378,8 @@ endef
 #   trailing, and `kill -0` then rejects the result as an illegal pid --
 #   always, and never because the daemon is dead. The guard below would take
 #   its "no previous daemon" branch against a live one, rm -f its pidfile,
-#   and launch a second daemon that cannot bind. scripts/test-make-build.sh
-#   case 6 runs each of these reads against a real two-line file rather than
+#   and launch a second daemon that cannot bind. stats/internal/repotest/make_build_test.go
+#   pid-read case runs each of these reads against a real two-line file rather than
 #   asserting on how they are spelled.
 ui-test-up: web-build check-uitest-overrides
 	@if [ -f $(UITEST_PIDFILE) ] && kill -0 "$$(head -n1 $(UITEST_PIDFILE))" 2>/dev/null; then \
