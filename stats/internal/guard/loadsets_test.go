@@ -99,16 +99,18 @@ func TestLoadSets(t *testing.T) {
 		}
 	})
 
-	t.Run("defaults to FLOW_GUARD_REPO_ROOT and HOME", func(t *testing.T) {
+	t.Run("defaults to FLOW_GUARD_REPO_ROOT and HOME, for absent and empty arguments", func(t *testing.T) {
 		t.Parallel()
 		repo, _ := lsFixture(t)
 		home := t.TempDir()
 		vars := map[string]string{"FLOW_GUARD_REPO_ROOT": repo, "HOME": home}
 		denv := Env{Getenv: func(k string) string { return vars[k] }}
-		r := runGuard("load-sets", nil, denv)
-		if r.rc != 0 || !strings.HasPrefix(r.stdout, "always-on (global block + project CLAUDE.md)            10 bytes") ||
-			!strings.Contains(r.err, "load-sets: MISSING "+home+"/.claude/CLAUDE.md\n") {
-			t.Fatalf("rc=%d stdout=%q", r.rc, r.stdout)
+		for _, args := range [][]string{nil, {"", ""}} {
+			r := runGuard("load-sets", args, denv)
+			if r.rc != 0 || !strings.HasPrefix(r.stdout, "always-on (global block + project CLAUDE.md)            10 bytes") ||
+				!strings.Contains(r.err, "load-sets: MISSING "+home+"/.claude/CLAUDE.md\n") {
+				t.Fatalf("rc=%d stdout=%q", r.rc, r.stdout)
+			}
 		}
 	})
 }

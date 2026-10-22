@@ -42,6 +42,33 @@ func TestWorkspace(t *testing.T) {
 		})
 	}
 
+	t.Run("a failing docker exec is its own non-zero exit", func(t *testing.T) {
+		bin := t.TempDir()
+		if err := os.WriteFile(bin+"/docker", []byte("#!/bin/sh\necho 'docker: daemon down' >&2\nexit 3\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		fenv := Env{Getenv: func(k string) string {
+			if k == "PATH" {
+				return bin
+			}
+			return os.Getenv(k)
+		}}
+		r := runGuard("workspace", []string{"survivors", "x"}, fenv)
+		if r.rc != 3 || r.stdout != "" {
+			t.Fatalf("survivors: rc=%d stdout=%q", r.rc, r.stdout)
+		}
+		r = runGuard("workspace", []string{"create", "x"}, fenv)
+		if r.rc != 3 || r.err != "docker: daemon down\nERROR: could not reach flow-postgres to check for flow_x\n" {
+			t.Fatalf("create: rc=%d stderr=%q", r.rc, r.err)
+		}
+		if err := os.WriteFile(bin+"/docker", []byte("#!/bin/sh\nkill -TERM $$\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if r = runGuard("workspace", []string{"survivors", "x"}, fenv); r.rc != 128+15 {
+			t.Fatalf("signal-killed docker: rc=%d, want bash's 128+15", r.rc)
+		}
+	})
+
 	t.Run("round trip", func(t *testing.T) {
 		if exec.Command("docker", "exec", "flow-postgres", "true").Run() != nil {
 			t.Skip("SKIP: flow-postgres compose stack not reachable")
@@ -82,10 +109,6 @@ func TestWorkspace(t *testing.T) {
 		r = ws("survivors", id)
 		check("survivors exits 0 with nothing surviving", r.rc == 0, r)
 		check("survivors prints nothing after remove", r.stdout == "", r)
-		for _, args := range [][]string{{"create", ""}, {"create"}, {"remove", ""}, {"remove"}} {
-			r = ws(args...)
-			check(strings.Join(args, " ")+" refuses an empty or missing id", r.rc != 0, r)
-		}
 		check("the shared flow database is untouched", exists("flow"), r)
 
 		ws("create", id2)

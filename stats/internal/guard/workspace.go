@@ -115,8 +115,12 @@ func workspace(args []string, env Env, stdout, stderr io.Writer) int {
 		return fail("ERROR: --force refused: database '"+db+"' does not end in _uitest", 2)
 	}
 
+	docker := "docker"
+	if p, ok := lookPath(env, "docker"); ok {
+		docker = p
+	}
 	run := func(out io.Writer, dockerArgs ...string) int {
-		c := exec.Command("docker", append([]string{"exec"}, dockerArgs...)...)
+		c := exec.Command(docker, append([]string{"exec"}, dockerArgs...)...)
 		c.Stdout, c.Stderr = out, stderr
 		return wsExitCode(c.Run())
 	}
@@ -161,14 +165,15 @@ func workspace(args []string, env Env, stdout, stderr io.Writer) int {
 }
 
 // wsExitCode is the exit status bash would report for a command that ran
-// with err: the child's own code, or 127 when docker could not be started.
+// with err: the child's own code, 128+n when a signal killed it, or 127 when
+// docker could not be started.
 func wsExitCode(err error) int {
 	var exitErr *exec.ExitError
 	switch {
 	case err == nil:
 		return 0
 	case errors.As(err, &exitErr):
-		return exitErr.ExitCode()
+		return rrExitCode(exitErr.ProcessState)
 	default:
 		return 127
 	}

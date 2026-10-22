@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -189,24 +190,25 @@ func isdInstall(tree, home, log string) bool {
 
 // isdManifest is the normalized manifest of one sandbox HOME.
 func isdManifest(home, tree string) ([]byte, error) {
-	var rels []string
-	err := filepath.WalkDir(home, func(p string, _ fs.DirEntry, err error) error {
+	infos := map[string]fs.FileInfo{}
+	err := filepath.WalkDir(home, func(p string, d fs.DirEntry, err error) error {
 		if err == nil && p != home {
-			rels = append(rels, strings.TrimPrefix(p, home+"/"))
+			st, err := d.Info()
+			if err != nil {
+				return err
+			}
+			infos[strings.TrimPrefix(p, home+"/")] = st
 		}
 		return err
 	})
 	if err != nil {
 		return nil, err
 	}
-	slices.Sort(rels)
+	rels := slices.Sorted(maps.Keys(infos))
 	var b bytes.Buffer
 	for _, rel := range rels {
 		path := filepath.Join(home, rel)
-		st, err := os.Lstat(path)
-		if err != nil {
-			return nil, err
-		}
+		st := infos[rel]
 		switch {
 		case st.Mode()&fs.ModeSymlink != 0:
 			target, err := os.Readlink(path)

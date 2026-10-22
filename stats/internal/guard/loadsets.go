@@ -31,11 +31,11 @@ func init() { Registry["load-sets"] = loadSets }
 
 func loadSets(args []string, env Env, stdout, stderr io.Writer) int {
 	r := env.Getenv("FLOW_GUARD_REPO_ROOT")
-	if len(args) > 0 {
+	if len(args) > 0 && args[0] != "" {
 		r = args[0]
 	}
 	global := env.Getenv("HOME") + "/.claude/CLAUDE.md"
-	if len(args) > 1 {
+	if len(args) > 1 && args[1] != "" {
 		global = args[1]
 	}
 	f, c := r+"/skills/flow/", r+"/skills/flow-contracts/"
