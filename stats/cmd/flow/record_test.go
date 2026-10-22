@@ -5847,3 +5847,58 @@ func TestRecordDispatchBeginRefusesAnInlineRowOverEarlierWork(t *testing.T) {
 		t.Errorf("a back-filled inline row: exit %d, want 0; stderr:\n%s", code, stderr)
 	}
 }
+
+// A review-panel round reads the whole diff, so every task must be closed
+// first (kan-1007: panel round 4 began before task 8's close).
+func TestRecordDispatchBeginRefusesAPanelRoundOverAnUntickedTask(t *testing.T) {
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	plan := filepath.Join(repo, "spectre", "changes", "kan-258", "tasks.md")
+	write := func(body string) {
+		t.Helper()
+		if err := os.WriteFile(plan, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	begin := func(key string, extra ...string) (int, string, bool) {
+		t.Helper()
+		contacted := false
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			contacted = true
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
+		}))
+		defer srv.Close()
+		argv := append([]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", key,
+			"-session-token", "mf-record-panel-unticked"}, extra...)
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), argv, strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String(), contacted
+	}
+
+	write("- [x] 1. a\n- [ ] 8. b\n")
+	code, stderr, contacted := begin("panel-4-primary", "-slot", "primary")
+	if code != 2 || !strings.Contains(stderr, "8") || !strings.Contains(stderr, "close-task.sh") {
+		t.Fatalf("a panel begin over unticked task 8: exit %d, want 2 naming 8 and close-task.sh; stderr:\n%s", code, stderr)
+	}
+	if contacted {
+		t.Error("a refused panel begin was sent to the daemon")
+	}
+	if code, stderr, _ := begin("panel-4-primary", "-slot", "primary", "-started-at", "2026-10-22T12:18:45Z"); code != 0 {
+		t.Errorf("a back-filled panel row: exit %d, want 0; stderr:\n%s", code, stderr)
+	}
+	if code, stderr, _ := begin("self-review-demo-review-1"); code != 0 {
+		t.Errorf("a non-panel reviewer key: exit %d, want 0; stderr:\n%s", code, stderr)
+	}
+	write("- [x] 1. a\n- [x] 8. b\n")
+	if code, stderr, _ := begin("panel-4-primary", "-slot", "primary"); code != 0 {
+		t.Errorf("a panel begin over a ticked plan: exit %d, want 0; stderr:\n%s", code, stderr)
+	}
+	if err := os.Remove(plan); err != nil {
+		t.Fatal(err)
+	}
+	if code, stderr, _ := begin("panel-4-primary", "-slot", "primary"); code != 0 {
+		t.Errorf("a panel begin with no tasks.md: exit %d, want 0; stderr:\n%s", code, stderr)
+	}
+}

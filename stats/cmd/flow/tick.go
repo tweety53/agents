@@ -139,6 +139,23 @@ func tickTask(plan []byte, taskID string) ([]byte, int, error) {
 	return bytes.Join(lines, []byte("\n")), steps, nil
 }
 
+// untickedTasks returns the ids of the plan's unticked task lines, fenced
+// lines skipped as countTasks skips them.
+func untickedTasks(plan []byte) []string {
+	var ids []string
+	inFence := false
+	for _, line := range bytes.Split(plan, []byte("\n")) {
+		if fencePattern.Match(line) {
+			inFence = !inFence
+			continue
+		}
+		if m := taskLinePattern.FindSubmatch(line); !inFence && m != nil && string(m[1]) == " " {
+			ids = append(ids, string(m[2]))
+		}
+	}
+	return ids
+}
+
 // countTasks returns the number of column-0 task checkbox lines in plan.
 // Fence state is tracked across the whole scan exactly as tickTask tracks
 // it, so a task line shown inside a fenced example is documentation, not

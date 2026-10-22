@@ -1044,6 +1044,18 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		fmt.Fprintf(stderr, "flow: -key %q is a review-panel reviewer key: pass -slot <slot|slot+slot+slot> (skills/flow/review-panel.md)\n", *key)
 		return 2
 	}
+	// A panel round reads the whole diff, so every task closes first
+	// (kan-1007); a back-filled row records a round already run.
+	if _, ok := records.PanelDispatchRound(records.Dispatch{Key: *key, Role: *role}); ok && *role == "reviewer" && *startedAt == "" {
+		if p, err := planPath(f.dir, f.change); err == nil {
+			if plan, err := os.ReadFile(p); err == nil {
+				if ids := untickedTasks(plan); len(ids) > 0 {
+					fmt.Fprintf(stderr, "flow: -key %q opens a review-panel round while tasks.md holds unticked task(s) %s — close every task with close-task.sh before the panel reads it (skills/flow/verify-fix-loop.md)\n", *key, strings.Join(ids, ","))
+					return 2
+				}
+			}
+		}
+	}
 	// A visual-verify verifier row with no diff base cannot say which HEAD
 	// its screenshots verified (skills/flow/visual-verify.md).
 	if *role == "verifier" && strings.HasPrefix(*key, "visual-verify") && *diffBase == "" {
