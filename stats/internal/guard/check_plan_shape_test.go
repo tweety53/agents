@@ -378,6 +378,26 @@ func TestCheckPlanShape(t *testing.T) {
 	want("case 40 (F16): a single unbackticked path and a none sentence pass", !has(r, "task 3") && !has(r, "task 4"), r)
 	mutation("F16", md, md, "names no backticked path", "case 40")
 
+	// Case 41 (F17): a Baseline chain falling back under one measured: command.
+	chain := func(t1, t2 string) string {
+		return psFixture(t, "# plan\n\n> **Baseline convention:** chain-position absolutes.\n\n"+
+			"- [ ] 1. One\n\n**Files:** `a_test.go`\n**Tests:** `TestA`\n"+t1+"\n**After:** none\n**Commit:** `fix: one`\n\n"+
+			"- [ ] 2. Two\n\n**Files:** `b_test.go`\n**Tests:** `TestB`\n"+t2+"\n**After:** Task 1\n**Commit:** `fix: two`\n")
+	}
+	m := "<!-- measured: grep -c x f @ abc -->"
+	md = chain("**Baseline:** before=1 after=2 "+m, "**Baseline:** before=1 after=2 "+m)
+	r = one(md)
+	want("case 41 (F17): a chain falling back mid-plan fails", r.rc == 1 && has(r, "task 2's **Baseline:** before=1 is below task 1's after=2"), r)
+	mutation("F17", md, md, "is below task", "case 41")
+
+	// Case 42 (F17 absent): a continuing chain, a Squash-with pair, two commands.
+	r = one(chain("**Baseline:** before=1 after=2 "+m, "**Baseline:** before=2 after=3 "+m))
+	want("case 42 (F17): a continuing chain passes", r.rc == 0, r)
+	r = one(chain("**Build:** red\n**Squash-with:** Task 2\n**Baseline:** before=1 after=2 "+m, "**Baseline:** before=1 after=2 "+m))
+	want("case 42 (F17): a Squash-with pair sharing one pair passes", r.rc == 0, r)
+	r = one(chain("**Baseline:** before=1 after=2 "+m, "**Baseline:** before=1 after=2 <!-- measured: grep -c y g @ abc -->"))
+	want("case 42 (F17): tasks under different measured: commands pass", r.rc == 0, r)
+
 	// Unlanded archives: a shim copy with no stats/ beside it cannot build
 	// flow-guard; the same copy with no lib/flow-guard.sh cannot load it.
 	u := t.TempDir()

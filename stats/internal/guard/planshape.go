@@ -3,6 +3,7 @@ package guard
 import (
 	"fmt"
 	"io"
+	"math/big"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -13,10 +14,10 @@ import (
 )
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
-// judges its commits (check-task-commit-fields) can actually read it. Sixteen
-// findings, F1-F16 (F1-F6's canonical definitions, decisions and rationale:
+// judges its commits (check-task-commit-fields) can actually read it. Seventeen
+// findings, F1-F17 (F1-F6's canonical definitions, decisions and rationale:
 // spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-md-at-plan/
-// design.md -- not restated here; F7-F16's are the rows below).
+// design.md -- not restated here; F7-F17's are the rows below).
 //
 // The guard reads the plan with the very grammar the commit guard reads it
 // with -- tcfParseTask, tcfTaskIDs, tcfIterTasks, tcfSelectTask,
@@ -34,7 +35,7 @@ import (
 // its own real location -- so a run through the shipped
 // skills/flow/scripts/ symlink judges the repository, never skills/flow.
 //
-// Per file, the F1-F16 checks run, then plan-suite-steps
+// Per file, the F1-F17 checks run, then plan-suite-steps
 // (plansuitesteps.go: a task step running a module or repository suite),
 // plan-script-paths (planscriptpaths.go: a step citing a scripts/ path the
 // repository does not carry) and plan-task-id-rule (plantaskidrule.go: a
@@ -139,6 +140,14 @@ import (
 //	    backticked token, not opening with `none`, and containing a comma or
 //	    whitespace: the commit guard's prose fallback reads it as ONE path
 //	    (kan-919's self-review). Reported at the field's line.
+//	F17 A task whose Baseline before is below the after of the previous
+//	    task whose Baseline carries the same measured: command, in plan
+//	    order: chain-position absolutes chain, so a later task re-declaring
+//	    a plan-time pair fails only at its commit (kan-1019). The later task
+//	    of a Squash-with pair -- either naming the other -- shares its
+//	    partner's commit and is exempt. `<` rather than `!=`: a task between
+//	    the two may add tests to the same source set under another command
+//	    (kan-916, kan-939). Reported at the task's Baseline line.
 //
 // A duplicate task id is check-task-build-green's violation, not this
 // guard's: tcfTaskIDs keeps the first occurrence, and every per-task read
@@ -191,7 +200,7 @@ func psAbs(env Env, p string) string {
 	return filepath.Join(env.Dir, p)
 }
 
-// psCheckOne checks one file: F1-F16, then the three plan sub-guards. off
+// psCheckOne checks one file: F1-F17, then the three plan sub-guards. off
 // names one finding whose decision is disabled -- the harness's mutation
 // proof, which sed-disabled that decision's `if` in a copy of the guard;
 // production passes "".
@@ -340,6 +349,7 @@ func (p *psPlan) check() []string {
 	v = append(v, p.afterReferences()...)
 	v = append(v, p.fileOwnership()...)
 	v = append(v, p.baselineConvention()...)
+	v = append(v, p.baselineChain()...)
 	return append(v, p.baseDeclared(ids)...)
 }
 
@@ -465,6 +475,35 @@ func (p *psPlan) baselineConvention() []string {
 		return nil
 	}
 	return []string{p.at(line, "task "+declaring+" declares **Baseline:** fields but the plan states no **Baseline convention:** header line — one stated convention is what keeps later tasks from drifting between counting methods; seed the `> **Baseline convention:**` line (skills/flow/brainstorm-planner.md)")}
+}
+
+// baselineChain is F17: per measured: command, each task's Baseline before
+// against the after of the last task seen under that command.
+func (p *psPlan) baselineChain() []string {
+	type seen struct {
+		id      string
+		after   *big.Int
+		partner []string
+	}
+	last := map[string]seen{}
+	var v []string
+	for _, task := range tcfIterTasks(p.lines) {
+		if tcfUnclosedFence(task.lines) >= 0 {
+			continue // F3b: this task's fields are unread
+		}
+		t := p.parse(task.id)
+		if t.baseline == nil {
+			continue
+		}
+		for _, cmd := range t.baselineMeasured {
+			if prev, ok := last[cmd]; ok && t.baseline[0].Cmp(prev.after) < 0 &&
+				!slices.Contains(t.squashPartners, prev.id) && !slices.Contains(prev.partner, task.id) && p.on("F17") {
+				v = append(v, p.at(psFieldLine(task.lines, task.taskLine, "Baseline"), fmt.Sprintf("task %s's **Baseline:** before=%s is below task %s's after=%s under the same measured: command — chain-position absolutes chain in plan order; restate before from task %s's after", task.id, t.baseline[0], prev.id, prev.after, prev.id)))
+			}
+			last[cmd] = seen{task.id, t.baseline[1], t.squashPartners}
+		}
+	}
+	return v
 }
 
 // fileOwnership is F11. Owners come from tcfParseTask's files, one task at a

@@ -511,6 +511,7 @@ same way and no later task can drift between conventions (KAN-678):
 
 A plan that declares `**Baseline:**` fields and carries no such line fails `check-plan-shape.sh`
 (F12). A plan whose tasks declare no Baselines states no convention and writes no line.
+Tasks whose Baselines carry the same `measured:` command form one chain in plan order: a task whose `before` is below the previous such task's `after` fails `check-plan-shape.sh` (F17), save the later task of a `**Squash-with:**` pair, which shares its partner's commit.
 
 Before continuing, run `spectre validate "<name>"` — implementation's entry check (section **1**,
 `skills/flow/implement.md`), run here so a capture it would refuse never reaches the gate — and
