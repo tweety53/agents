@@ -194,7 +194,7 @@ return a verdict. Each one has a `test-*.sh` harness in `scripts/`, and
   line — on another agent type or model than its contract fixes, and any `flow-high` dispatch
   but a no-progress escalation (an opening `No-progress escalation` line, or a self-review or
   pipeline-fix loop key) and a panel dispatch opening `Operator-approved high`
-  (`scripts/test-enforce-agent-baseline-hook.sh`).
+  (`stats/internal/repotest/enforce_agent_baseline_hook_test.go`).
 - `enforce-loop-dispatch.py`: blocks a pipeline-fix or self-review loop dispatch off its pairs
   row, a fix with no completed plan, or one while an earlier dispatch is open, and records the
   admitted one in flowd (`scripts/check-loop-dispatch.sh`).

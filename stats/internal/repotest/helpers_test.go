@@ -34,10 +34,14 @@ func goCacheEnv() []string {
 }
 
 // runHook execs `python3 <repo>/hooks/<hook>` with payload on stdin and HOME set
-// to a fresh temp dir; env entries are appended last, so they override.
+// to a fresh temp dir; env entries are appended last, so they override. An
+// absolute hook path is run as given (a hook reached through an install symlink).
 func runHook(t *testing.T, hook string, payload []byte, env ...string) (stdout, stderr string, rc int) {
 	t.Helper()
-	cmd := exec.Command("python3", filepath.Join(repoRoot(t), "hooks", hook))
+	if !filepath.IsAbs(hook) {
+		hook = filepath.Join(repoRoot(t), "hooks", hook)
+	}
+	cmd := exec.Command("python3", hook)
 	cmd.Stdin = bytes.NewReader(payload)
 	cmd.Env = append(append(append(os.Environ(), "HOME="+t.TempDir()), goCacheEnv()...), env...)
 	var out, errb bytes.Buffer
