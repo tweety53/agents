@@ -53,6 +53,14 @@ export were performed manually and why.
 
 **Load `skills/flow-contracts/project-configuration-isolation.md`** only when the script cannot be located.
 
+**Then compare every recorded base with the branch it tracks, on the run's first `flow.verify` only.** Run
+
+```bash
+check-base-behind.sh <worktree>...
+```
+
+over the same resolved set; its header is canonical for its lines. Exit 0 → continue. Exit 1 → relay every `BASE-BEHIND:` block and run its two command lines in order — the first pushes the base and is confirmed per **What still stops** (`skills/flow-contracts/operator-prompts-auto-resolution.md`) — then run **Verify** again from its `begin` mark. Exit 2 → name its stderr in the handoff and continue (kan-1007: a stale `--base` was papered over by merging develop into the change branches, and integrate's reshape folded KAN-1010 into the squash).
+
 **This step does not call the project's `create` command.** `create` is called by whatever starts
 the project's applications, per **Project configuration**
 (`skills/flow-contracts/project-configuration.md`), and this step starts them only for **Live check** below, through the project's own `## run`.
