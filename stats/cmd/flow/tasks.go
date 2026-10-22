@@ -61,7 +61,8 @@ func runTasks(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	}
 }
 
-// specRootLeaf ports scripts/lib/spec-root.sh's spec_root_leaf probe:
+// specRootLeaf ports the retired scripts/lib/spec-root.sh's spec_root_leaf
+// probe, whose Go twin is stats/internal/guard/specroot.go:
 // "spectre" when <dir>/spectre/changes exists, "openspec" when only
 // <dir>/openspec/changes does, "spectre" when neither does (a project
 // with no open changes yet is expected to gain the canonical tree, so

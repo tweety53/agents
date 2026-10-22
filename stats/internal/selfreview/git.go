@@ -42,7 +42,8 @@ const liveDir = "spectre/changes"
 
 // archiveDir is the archived change's directory under the repository's
 // spectre tree. The Bash gather resolved the spec root leaf per repository
-// (scripts/lib/spec-root.sh); the app pins `spectre`, this repository's
+// (the since-retired scripts/lib/spec-root.sh, twinned in
+// stats/internal/guard/specroot.go); the app pins `spectre`, this repository's
 // leaf — a second spec root would be a store schema question first, not a
 // string to probe for.
 const archiveDir = "spectre/changes/archive"

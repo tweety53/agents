@@ -13,7 +13,8 @@
 #   aside-planning-artifacts.sh restore <worktree>
 #
 # The planning paths are the spec tree's changes directory — the leaf
-# resolved per project through scripts/lib/spec-root.sh, `spectre` or
+# resolved per project through spec-root.sh's Go twin
+# (stats/internal/guard/specroot.go), `spectre` or
 # `openspec`, never hardcoded — and `docs/superpowers/`, the same two paths
 # check-task-commit-planning-paths.sh sweeps for. Each enters the pathspec
 # only when the directory exists in <worktree>: a pathspec naming an absent

@@ -6,8 +6,9 @@ import (
 	"os"
 )
 
-// specRootLeaf is scripts/lib/spec-root.sh's spec_root_leaf, whose header is
-// canonical for why: `spectre` when dir/spectre/changes/ exists, `openspec`
+// specRootLeaf is the Go twin of spec_root_leaf from scripts/lib/spec-root.sh,
+// retired by KAN-1020 once no script sourced it; its header as it stood at
+// 8c54d6d3 carries the why: `spectre` when dir/spectre/changes/ exists, `openspec`
 // when only dir/openspec/changes/ does, `spectre` when neither does; both
 // present picks `spectre`, and says so on stderr only while openspec/changes/
 // holds an entry other than archive/ -- a tree of frozen history alone hides
