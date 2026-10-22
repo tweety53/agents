@@ -430,6 +430,11 @@ class TaskFields:
     # re-joining continuation lines a second time — see that guard's own
     # module docstring, "Parser identity is structural".
     tests_value: str = ""
+    # The **Files:** and **Allowed-collateral:** fields' continuation-joined
+    # values, exposed for the same reason as tests_value (check-plan-shape.py's
+    # F16 reads them).
+    files_value: str = ""
+    collateral_value: str = ""
     allowed_collateral: List[str] = field(default_factory=list)
     commit: Optional[str] = None
     baseline: Optional[Tuple[int, int]] = None
@@ -716,6 +721,8 @@ def parse_task_fields(lines: List[str], task_id: str) -> TaskFields:
         files=_expand_shorthand(_extract_backtick_tokens(files_value), shorthand),
         tests=_parse_test_specs(tests_value),
         tests_value=tests_value,
+        files_value=files_value,
+        collateral_value=collateral_value,
         allowed_collateral=_expand_shorthand(
             _extract_backtick_tokens(collateral_value), shorthand
         ),

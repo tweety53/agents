@@ -8,7 +8,7 @@
 # REAL fixture files on disk — never a copy of its logic, never its Python
 # internals imported and asserted on directly.
 #
-# One case per finding (F1-F15), a clean-plan case, a no-arg aggregation
+# One case per finding (F1-F16), a clean-plan case, a no-arg aggregation
 # case, and three exit-2 cases (missing sibling module, unreadable file,
 # usage error). Additionally, for each of F1-F6 and F11, a MUTATION case: a
 # throwaway copy of check-plan-shape.py with that finding's own check
@@ -1121,6 +1121,29 @@ case "$RC:$OUT" in
   1:*'names `TestFoo`, which the base already declares outside its **Files:** — pkg/old_test.go (`TestFoo`)'*) pass "case 39 (F15): an exact name outside Files fails" ;;
   *) fail "case 39 (F15) exact name: rc=$RC out=$OUT" ;;
 esac
+
+# ===========================================================================
+# Case 40 (F16): an unbackticked **Files:** or **Allowed-collateral:** value
+# carrying a comma or whitespace is read by the commit guard as one path; a
+# single unbackticked path and a `none, unless …` sentence still pass.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. One\n\n**Files:** a.py, b.py\n**Tests:** `test_a`\n**After:** none\n**Commit:** `fix: one`\n\n'
+  printf -- '- [ ] 2. Two\n\n**Files:** `c.py`\n**Allowed-collateral:** docs/a.md docs/b.md\n**Tests:** `test_c`\n**After:** none\n**Commit:** `fix: two`\n\n'
+  printf -- '- [ ] 3. Three\n\n**Files:** d.py\n**Tests:** `test_d`\n**After:** none\n**Commit:** `fix: three`\n\n'
+  printf -- '- [ ] 4. Four\n\n**Files:** `e.py`\n**Allowed-collateral:** none, unless step 1 says otherwise\n**Tests:** `test_e`\n**After:** none\n**Commit:** `fix: four`\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+case "$RC:$OUT" in
+  1:*"task 1's **Files:** value names no backticked path"*"task 2's **Allowed-collateral:** value names no backticked path"*) pass "case 40 (F16): unbackticked multi-path values fail" ;;
+  *) fail "case 40 (F16): rc=$RC out=$OUT" ;;
+esac
+case "$OUT" in
+  *"task 3"*|*"task 4"*) fail "case 40 (F16): a single path or a none sentence was flagged: $OUT" ;;
+  *) pass "case 40 (F16): a single unbackticked path and a none sentence pass" ;;
+esac
+assert_mutation_removes_finding "F16" "$TASKS_MD" "names no backticked path" "case 40"
 
 # ===========================================================================
 # Unlanded archives: the scan cannot list the archived changes the base does

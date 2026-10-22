@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """check-plan-shape.py — check that a `tasks.md` is SHAPED so the guard
 that will later judge its commits (`check-task-commit-fields.py`) can
-actually read it. Fifteen findings, F1-F15 (F1-F6's canonical definitions,
+actually read it. Sixteen findings, F1-F16 (F1-F6's canonical definitions,
 decisions and rationale: `spectre/changes/kan-121-run-the-guards-own-
 parsers-over-tasks-md-at-plan/design.md` — do not restate them here, a
 second copy is a Single Source of Truth violation, the same class of drift
-stats/internal/guard/planprovenance.go's ported docstring warns against; F7-F15's canonical
+stats/internal/guard/planprovenance.go's ported docstring warns against; F7-F16's canonical
 definitions are the rows in the Findings list below).
 
 This guard IMPORTS the real parsers rather than reimplementing their
@@ -34,7 +34,7 @@ Exit codes:
   0  clean — every task in the file is shaped so the real parsers read it
      without ambiguity (including a file with zero findings; a file with
      zero TASKS is F5, not clean — see below).
-  1  one or more of F1-F15 found. Printed one per line as
+  1  one or more of F1-F16 found. Printed one per line as
      `file:line: message`, naming the task id (F5 excepted: a file with no
      tasks has no task id to name).
   2  invocation error — wrong argument count, or the file cannot be read.
@@ -55,7 +55,8 @@ field-shaped line inside a worked example is not a declaration.
       list, which is `[]` in exactly these two cases (see
       `_extract_backtick_tokens` in check-task-commit-fields.py: a present
       field with prose but no backticks instead falls back to that prose
-      as a one-element list, so this finding does not fire there).
+      as a one-element list, so this finding does not fire there; F16
+      catches that fallback's multi-path shape).
   F3  Two distinct shapes, either replacing every check below for that
       task:
         a. a field-shaped line indented past column 0, invisible to
@@ -184,6 +185,14 @@ field-shaped line inside a worked example is not a declaration.
       `refs/remotes/origin/HEAD`; a plan outside a git repository, or one
       whose base does not resolve, is not checked for F15. Reported at the
       task's `**Tests:**` line.
+
+  F16 A `**Files:**` or `**Allowed-collateral:**` value — the joined
+      `files_value` / `collateral_value` `parse_task_fields` exposes — that
+      carries no backticked token, does not open with `none`
+      (`NONE_OPEN_RE`), and contains a comma or whitespace: the commit
+      guard's prose fallback reads it as ONE path (kan-919's self-review).
+      A single unbackticked path and a `none, unless …` sentence pass.
+      Reported at the field's line.
 
 A duplicate task id (two task lines sharing one id) is check-task-build-
 green.py's own violation, not this guard's: `collect_task_ids` de-
@@ -536,6 +545,16 @@ def _check_task(
             "— name the file the task's work lands in, or make the record "
             "a planning commit with no task"
         )
+
+    for name, value in (("Files", fields.files_value), ("Allowed-collateral", fields.collateral_value)):
+        if value and not BACKTICK_RE.search(value) and not NONE_OPEN_RE.match(value) and re.search(r"[,\s]", value):  # F16
+            field_line = _first_field_line(body, body_start, name)
+            violations.append(
+                f"{path}:{field_line.line if field_line is not None else task_line}: "
+                f"task {task_id}'s **{name}:** value names no backticked path "
+                "but carries a comma or whitespace — the commit guard reads it "
+                "as one path; backtick each path"
+            )
 
     # NONE_OPEN_RE and REPAIRS_OPEN_RE are applied to fields.tests_value —
     # the SAME continuation-joined string parse_task_fields itself builds
