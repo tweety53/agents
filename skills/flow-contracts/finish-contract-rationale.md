@@ -65,6 +65,25 @@ cleanup `LEFTOVER` and fail again on every re-run. A rejected push of `<base>` r
 fetches nothing: `origin/<base>` would still name the tip the push was refused against, and the
 re-sync would rebase onto it and be refused again.
 
+## finish-contract-run1.md — a clean drift branch is switched back (2026-10-22)
+
+During kan-922's integrate run, `prepare` stopped at `STOP: foreign-staged` on a main checkout
+that was clean but left on another session's `fix/base-missing-on-satellite` branch. The <!-- citations-guard:allow -->
+operator's instruction: "resolve it yourself, update flow to resolve such things automatically".
+So `integrate-change.sh prepare` now switches such a checkout back to its default branch.
+
+Only the clean shape switches — `STAGED-CLEAN` and a lone `DRIFT-BRANCH` — because then nothing
+tracked can be lost: no staged, modified or unmerged entry rides along or blocks the switch. A
+detached HEAD is excluded because its commits sit on no branch; switching away would leave them
+reachable only through the reflog. A checkout on a base the change records is excluded because of
+KAN-911: run 2 refreshes a main checkout sitting on the change's recorded base onto that base, so
+moving it to the default branch would undo what run 2 relies on. The switch is a plain
+`git switch`, never `checkout -B` or a reset, so the branch left behind keeps every commit it
+carried.
+
+The switch lives in `integrate-change.sh`, not in the drift guard nor a new Go subcommand, for the
+reasons decision `prepare-switch-clean-drift`'s Considered line records.
+
 ## finish-contract-run1.md — Archive on the change branch
 
 Step 1, moved verbatim from the contract, where it closed "**There is nothing to sync into

@@ -47,7 +47,9 @@ checkout by hand in the same shape its header's hand-verification procedure give
 branch against the branch `refs/remotes/origin/HEAD` names with its prefix stripped, and
 `git status --porcelain --untracked-files=no`, asking the same question over what those find, and
 say in the handoff that the surfacing was done manually; it is never skipped for want of the
-script.
+script. A checkout whose only finding is its branch is switched back by hand with
+`git -C <main-checkout> switch <default>` under the same four exclusions, per **Surface foreign
+staged work before the preflight** (`skills/flow-contracts/finish-contract-run1.md`).
 
 ## `check-base-moved.sh` — Run 1 — the branch is not merged
 

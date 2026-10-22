@@ -24,6 +24,8 @@
 # prepare  resolves the worktree set (the state file's `worktrees` map, else
 #          the porcelain scan of <main-checkout>), runs check-foreign-staged
 #          and check-main-checkout-drift per distinct main checkout,
+#          switching a checkout whose only drift is DRIFT-BRANCH back to its
+#          default branch (switch_back below) and re-reading its drift,
 #          migrate-worktrees, then check-finish-preflight per worktree. Every
 #          worktree RUN2 -> NEXT is `cleanup`. Otherwise run 1, which first
 #          stops at STOP: base-mismatch when one worktree records a flowBase
@@ -423,15 +425,50 @@ rebase_lint() {
   esac
 }
 
+# switch_back <main-checkout>: a clean checkout on another branch goes back
+# to its default branch (operator instruction, kan-922's integrate run) —
+# never a detached HEAD, whose commits sit on no branch, and never a branch
+# the change records as its base (KAN-911), which run 2 refreshes. The
+# branch left behind keeps every commit; a refused switch changes nothing
+# and leaves the drift for the question.
+switch_back() {
+  local b d k base sha n p
+  b="$(git -C "$1" branch --show-current 2>/dev/null)" && [ -n "$b" ] || return 0
+  d="$(git -C "$1" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)" || return 0
+  d="${d#origin/}"
+  for k in "${MAINS[@]}"; do
+    base="$(git -C "$k" config --get "branch.spectre/$NAME.flowBase" 2>/dev/null)" && [ "$base" = "$b" ] && return 0
+  done
+  sha="$(git -C "$1" rev-parse --short HEAD)"
+  # git overwrites an ignored file the target tracks without asking.
+  while IFS= read -r p; do
+    if [ -e "$1/$p" ] || [ -L "$1/$p" ]; then
+      say "DRIFT-SWITCH-REFUSED: $1 — $p exists on disk and $d tracks it; left on $b"
+      return 0
+    fi
+  done < <(git -C "$1" diff --name-only --no-renames --diff-filter=D "$d" HEAD)
+  if git -C "$1" switch -q "$d"; then
+    n="$(git -C "$1" rev-list --count "$d..$b")"
+    say "DRIFT-SWITCHED: $1 — $b -> $d, $b kept at $sha ($n commits ahead of $d)"
+  else
+    say "DRIFT-SWITCH-REFUSED: $1 — git switch $d failed; left on $b"
+  fi
+}
+
 cmd_prepare() {
-  local i m v ask=0 run1=0 rb vline sha t
+  local i m v fs ask=0 run1=0 rb vline sha t
   load_set
   [ ${#WT[@]} -gt 0 ] || stop preflight "the resolved worktree set is empty — report it and ask the operator"
 
   for m in "${MAINS[@]}"; do
     run "$SCRIPT_DIR/check-foreign-staged.sh" "$m"
-    { [ "$RC" -eq 0 ] && [ -n "$(verdict STAGED-CLEAN)" ]; } || ask=1
+    fs=0; { [ "$RC" -eq 0 ] && [ -n "$(verdict STAGED-CLEAN)" ]; } && fs=1
     run "$SCRIPT_DIR/check-main-checkout-drift.sh" "$m"
+    if [ "$fs" -eq 1 ] && [ "$RC" -eq 0 ] && [ -n "$(verdict DRIFT-BRANCH)" ] && [ -z "$(verdict DRIFT-DIRTY)" ]; then
+      switch_back "$m"
+      run "$SCRIPT_DIR/check-main-checkout-drift.sh" "$m"
+    fi
+    [ "$fs" -eq 1 ] || ask=1
     { [ "$RC" -eq 0 ] && [ -n "$(verdict DRIFT-CLEAN)" ]; } || ask=1
   done
   [ "$ask" -eq 1 ] && [ -z "$ACCEPT_FOREIGN" ] &&

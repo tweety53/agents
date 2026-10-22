@@ -129,6 +129,7 @@
 #   refresh_on_recorded_base a recording flowBase feature/x with a's main
 #                   checkout on feature/x: land refreshes it onto feature/x
 #                   rather than refusing it for not being on main (prepare
+#                   leaves the checkout on its recorded base and still asks,
 #                   run with --accept-foreign past the main checkout's drift),
 #                   and a cleanup re-run after the worktrees are removed
 #                   still does.
@@ -138,6 +139,15 @@
 #   outstanding     commit --outstanding keeps the planning commit's own
 #                   subject and puts the text in its body; --plan-message,
 #                   which replaced the subject whole, is refused.
+#   drift_switch    a clean main checkout left on another branch: prepare
+#                   switches it back to main, prints one DRIFT-SWITCHED line,
+#                   the branch keeps its commit, and the run continues.
+#   drift_switch_stops a dirty b on another branch stops prepare and stays
+#                   put while a clean a is still switched; a detached HEAD
+#                   stops and stays detached.
+#   drift_switch_refused a switch git refuses (main checked out in another
+#                   worktree) prints DRIFT-SWITCH-REFUSED, stops, and leaves
+#                   the checkout on its branch.
 #
 # Bash 3.2 is the floor: indexed arrays only.
 set -u
@@ -1056,6 +1066,9 @@ fixture
 g -C "$WORK/a" push -q origin main:refs/heads/feature/x
 g -C "$WORK/a" checkout -q -b feature/x --track origin/feature/x
 g -C "$WORK/a-worktrees/demo" config branch.spectre/demo.flowBase feature/x
+sut prepare "$WORK/a" demo
+check "refresh_on_recorded_base: prepare never switches a checkout on its recorded base" \
+  '[ "$RC" -eq 1 ] && [ "$(git -C "$WORK/a" branch --show-current)" = feature/x ] && ! printf "%s" "$OUT" | grep -q "^DRIFT-SWITCHED:"'
 # a's main checkout off main is foreign-staged drift; the operator continues.
 sut prepare "$WORK/a" demo --accept-foreign
 [ "$RC" -eq 0 ] || halt prepare
@@ -1119,6 +1132,68 @@ check "rebase_lint_dirty: the list passed" 'printf "%s" "$OUT" | grep -q "^REBAS
 check "rebase_lint_dirty: no rebase-lint stop" '! printf "%s" "$OUT" | grep -q "^STOP: rebase-lint"'
 check "rebase_lint_dirty: the edit is still uncommitted" 'grep -q "^Correction: narrative.$" "$WORK/a-worktrees/demo/spectre/changes/demo/tasks.md" && [ -n "$(g -C "$WORK/a-worktrees/demo" status --porcelain --untracked-files=no)" ]'
 end_case ) >"$LOGS/42.log" 2>&1 &
+PIDS+=($!)
+
+( trap cleanup_work EXIT
+# --- drift_switch: a clean main checkout left on another branch is switched
+# back to its default branch, the branch keeping its commits ---
+fixture
+g -C "$WORK/a" checkout -q -b side
+printf 'side\n' >"$WORK/a/side.txt"
+g -C "$WORK/a" add side.txt && g -C "$WORK/a" commit -qm "side work"
+side="$(g -C "$WORK/a" rev-parse side)"
+sut prepare "$WORK/a" demo
+check "drift_switch: prepare exits 0" '[ "$RC" -eq 0 ]'
+check "drift_switch: one DRIFT-SWITCHED line names side, its sha and its one commit" \
+  '[ "$(printf "%s\n" "$OUT" | grep -c "^DRIFT-SWITCHED:")" -eq 1 ] && printf "%s\n" "$OUT" | grep -qxF "DRIFT-SWITCHED: $WORK/a — side -> main, side kept at $(git -C "$WORK/a" rev-parse --short "$side") (1 commits ahead of main)"'
+check "drift_switch: a's main checkout is on main" '[ "$(git -C "$WORK/a" branch --show-current)" = main ]'
+check "drift_switch: side keeps its commit" '[ "$(git -C "$WORK/a" rev-parse side)" = "$side" ]'
+check "drift_switch: the re-read prints DRIFT-CLEAN" 'printf "%s\n" "$OUT" | grep -qxF "DRIFT-CLEAN: $WORK/a — main"'
+check "drift_switch: no foreign-staged stop and the preflight ran" '! printf "%s" "$OUT" | grep -q "STOP: foreign-staged" && grep -q flow.preflight "$WORK/stages.log"'
+end_case ) >"$LOGS/43.log" 2>&1 &
+PIDS+=($!)
+
+( trap cleanup_work EXIT
+# --- drift_switch_stops: each repository is judged on its own; a dirty or
+# detached checkout is never switched ---
+fixture
+g -C "$WORK/a" checkout -q -b side
+g -C "$WORK/b" checkout -q -b other
+printf 'dirty\n' >"$WORK/b/base.txt"
+sut prepare "$WORK/a" demo
+check "drift_switch_stops: a dirty b stops prepare at STOP: foreign-staged" \
+  '[ "$RC" -eq 1 ] && printf "%s\n" "$OUT" | tail -1 | grep -q "^STOP: foreign-staged"'
+check "drift_switch_stops: a is switched though b stops the run" \
+  '[ "$(git -C "$WORK/a" branch --show-current)" = main ] && printf "%s\n" "$OUT" | grep -qF "DRIFT-SWITCHED: $WORK/a "'
+check "drift_switch_stops: dirty b is not switched" \
+  '[ "$(git -C "$WORK/b" branch --show-current)" = other ] && [ "$(cat "$WORK/b/base.txt")" = dirty ] && ! printf "%s\n" "$OUT" | grep -qF "DRIFT-SWITCHED: $WORK/b "'
+fixture
+g -C "$WORK/a" checkout -q --detach
+sut prepare "$WORK/a" demo
+check "drift_switch_stops: a detached HEAD stops and stays detached" \
+  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | grep -q "STOP: foreign-staged" && [ -z "$(git -C "$WORK/a" branch --show-current)" ] && ! printf "%s" "$OUT" | grep -q "DRIFT-SWITCHED"'
+end_case ) >"$LOGS/44.log" 2>&1 &
+PIDS+=($!)
+
+( trap cleanup_work EXIT
+# --- drift_switch_refused: a switch git refuses changes nothing and stops ---
+fixture
+g -C "$WORK/a" checkout -q -b side
+g -C "$WORK/a" worktree add -q "$WORK/a-main" main
+sut prepare "$WORK/a" demo
+check "drift_switch_refused: a switch git refuses stops and leaves a on side" \
+  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | grep -q "STOP: foreign-staged" && printf "%s\n" "$OUT" | grep -qxF "DRIFT-SWITCH-REFUSED: $WORK/a — git switch main failed; left on side" && [ "$(git -C "$WORK/a" branch --show-current)" = side ]'
+fixture
+printf 'tracked\n' >"$WORK/a/.env"
+g -C "$WORK/a" add .env && g -C "$WORK/a" commit -qm "track .env" && g -C "$WORK/a" push -q origin main
+g -C "$WORK/a" checkout -q -b side
+g -C "$WORK/a" rm -q --cached .env && printf '.env\n' >"$WORK/a/.gitignore"
+g -C "$WORK/a" add .gitignore && g -C "$WORK/a" commit -qm "ignore .env"
+printf 'SECRET local\n' >"$WORK/a/.env"
+sut prepare "$WORK/a" demo
+check "drift_switch_refused: an ignored file main tracks is never overwritten" \
+  '[ "$RC" -eq 1 ] && printf "%s\n" "$OUT" | grep -qF "DRIFT-SWITCH-REFUSED: $WORK/a " && [ "$(git -C "$WORK/a" branch --show-current)" = side ] && [ "$(cat "$WORK/a/.env")" = "SECRET local" ]'
+end_case ) >"$LOGS/45.log" 2>&1 &
 PIDS+=($!)
 
 for pid in "${PIDS[@]}"; do wait "$pid"; done

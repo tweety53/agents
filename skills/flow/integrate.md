@@ -34,7 +34,7 @@ that stopped once the stop is handled.
 - **`NEXT:` naming `cleanup`** — every worktree returned `RUN2` → `skills/flow/cleanup.md` <!-- refs-guard:allow -->
 - **`STOP: foreign-staged`** → ask the question of **Surface foreign staged work before the
   preflight** (`skills/flow-contracts/finish-contract-run1.md`) once, every repository's lines
-  shown together; **Continue** re-runs `prepare` with `--accept-foreign`.
+  shown together; **Continue** re-runs `prepare` with `--accept-foreign`. A `DRIFT-SWITCHED:` line is relayed as printed and asks nothing: `prepare` already switched that clean checkout back to its default branch and carried on, per **Surface foreign staged work before the preflight** (`skills/flow-contracts/finish-contract-run1.md`).
 - **`STOP: migrate`** → stop at `IN_PROGRESS` and report the script's lines, per **Migrate
   retired-layout worktrees before the preflight** (`skills/flow-contracts/finish-contract-run1.md`).
 - **`STOP: preflight` or `STOP: base`** → stop, report what the script reported, relay the guard's

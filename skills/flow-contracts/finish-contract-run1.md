@@ -64,8 +64,22 @@ nothing tracked modified, staged or unmerged. `check-main-checkout-drift.sh` run
 distinct main checkout, and its header is canonical for the verdict grammar it prints: a
 `DRIFT-BRANCH` line names a checkout on any other branch than the one `refs/remotes/origin/HEAD`
 points at, a `DRIFT-DIRTY` line counts tracked entries. On `DRIFT-CLEAN` from every
-repository the run continues with nothing more said. On any `DRIFT-BRANCH` or `DRIFT-DIRTY`
-line, every repository's findings — this guard's and `check-foreign-staged.sh`'s alike — are
+repository the run continues with nothing more said. **A clean checkout on another branch is
+switched back, never asked about.** When a repository's only finding is `DRIFT-BRANCH` — both
+guards exited 0, `check-foreign-staged.sh` printed `STAGED-CLEAN` and no `DRIFT-DIRTY` printed —
+`integrate-change.sh prepare` runs `git -C <main-checkout> switch <default>`, prints one
+`DRIFT-SWITCHED: <main-checkout> — <branch> -> <default>, <branch> kept at <sha> (<n> commits
+ahead of <default>)` line, and re-runs `check-main-checkout-drift.sh`, continuing only on
+`DRIFT-CLEAN`. The switch moves no commit: `<branch>` keeps every commit it carried, and a live
+session that had the checkout on it finds its HEAD moved, which the printed line names. Four
+shapes are never switched, and stop and ask as below: a detached HEAD, whose commits sit on no
+branch; a checkout on a base the change records (`branch.spectre/<name>.flowBase`), which run 2's <!-- citations-guard:allow -->
+refresh brings forward (KAN-911); a switch git refuses — the default branch checked out in
+another worktree, an untracked file it would overwrite, no default branch to switch to, a locked
+index — which leaves the checkout as it was and adds a `DRIFT-SWITCH-REFUSED` line to the
+listing; and a re-run that does not print `DRIFT-CLEAN`. Each repository is judged on its own: one
+repository's switch never waits on another's question. On any other `DRIFT-BRANCH` line, or any
+`DRIFT-DIRTY` line, every repository's findings — this guard's and `check-foreign-staged.sh`'s alike — are
 shown together and the run stops to ask the question below exactly once; **an exit 2 with no
 verdict** — a checkout whose branch, default branch or status cannot be read — stops and asks the
 same way, an inability never reading as `DRIFT-CLEAN`. A checkout clean but behind its default
