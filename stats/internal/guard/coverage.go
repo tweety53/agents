@@ -7,18 +7,36 @@ import (
 	"strings"
 )
 
-// coverage is scripts/lib/coverage.sh's per-member coverage for the Go
-// guards: recording a per-member count (record), rendering the
-// members-and-counts fragment a verdict line carries (report), and deciding
-// declared vs. undeclared zero (verdict). coverage.sh stays the source of
-// truth while bash guards still source it; its header carries the reasoning
-// (KAN-73, KAN-197 F3, KAN-374 F9) and TestCoverageParity fails when the two
-// render, decide or reject differently.
+// coverage is per-member coverage, defined once for every guard (KAN-921
+// retired scripts/lib/coverage.sh, its bash original, once no bash guard
+// sourced it; TestCoverage pins this file to what that script printed).
 //
-// Declaration is a call the guard's own source makes (declare), never
-// inferred from the tree. A rejected call — an empty member, a negative
-// count, a second record or declaration of one member — returns coverage.sh's
-// own message as an error rather than being coerced or overwritten.
+// A guard exits 0 when it finds no violation — the same result a guard
+// produces when it examined nothing at all. KAN-73 hit exactly this:
+// check-guard-symlinks' rule 2 computed an empty required set for
+// skills/flow-fast/, and deleting a symlink from that skill still reported
+// GUARD-SYMLINKS-OK. Three reviewers read that guard and missed it, because
+// the guard's own output gave them nothing to notice. This type makes
+// "nothing was checked for this member" a visible, failing fact on a
+// healthy tree, and keeps the guards using it (check-guard-symlinks,
+// check-references, check-stage-mark-calls) from disagreeing about how —
+// the five-copy `resolve_file` drift KAN-73's own review raised as a
+// Critical.
+//
+// It owns exactly three things, so no guard can invent a fourth way to do
+// any of them: RECORDING a per-member count (record), RENDERING the
+// members-and-counts fragment a verdict line carries (report), and DECIDING
+// declared vs. undeclared zero (verdict) — fine vs. a named, non-zero-exit
+// violation (KAN-197 F3, KAN-374 F9).
+//
+// Declaration is an explicit call the guard's own source makes (declare),
+// never inferred from the tree — inferring it would restate the assumption
+// the zero already encodes, which is exactly the case this exists to fail
+// instead of pass. Reject, never coerce: a rejected call — an empty member,
+// a negative count, a second record or declaration of one member — returns
+// its message as an error rather than being folded into a reassuring
+// default or overwriting, since either would let a guard's own
+// double-counting or double-scanning bug hide behind a plausible total.
 type coverage struct {
 	members  []string
 	counts   []int
