@@ -125,7 +125,7 @@ One round runs these steps in order:
    for `specs`' `<merge-base>` — never another worktree's of the change; when the
    `<frontend-root>` worktree has no round base, the prompt names none and `specs` runs unscoped. A worktree
    whose round diff is empty is not dispatched. A worktree with no round base — no verifier of
-   this run has verified it, or the parent no longer holds the sha — runs the stage unscoped.
+   this run has verified it, or the parent no longer holds the sha — runs the stage unscoped. **A round whose diff touches only the mockups root composes instead of verifying.** When `git diff <round base>..HEAD` matches no `ui paths` entry in any worktree and touches nothing outside the mockups root, no `visual-verify` verifier is dispatched: for each `<spec>.mockups` sidecar with a line naming a changed `<frame id>.png`, the parent runs the compose command and the `measure-visual-properties.sh … --props bands,seams` read of step 10 (`skills/flow/visual-verify-verifier.md`) on every pair; a leftover is a defect that opens the next round, and clean composites close the round with no `-full` run, the last verifier's report standing for every path outside the mockups root (kan-1007: a mockups-only round re-ran the whole suite, 18m28s).
    The confirming re-run
    verifies a fresh build, never a stale stack: before this round's re-run reports the fix
    confirmed live, rebuild the stack from the branch HEAD — current source through the project's
