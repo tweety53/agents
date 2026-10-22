@@ -197,29 +197,32 @@ func TestPipelineFixVerify(t *testing.T) {
 	}
 }
 
-// A touched Go file selects the harnesses auditing the whole Go tree, which
+// A touched Go file selects the repotest audits of the whole Go tree, which
 // no Go file's name leads to; a touched script alone does not.
 func TestPipelineFixChecksGoAudits(t *testing.T) {
 	t.Parallel()
 	wt := t.TempDir()
 	writeFile(t, wt+"/.flow/project.md", pfProject)
-	audits := []string{"scripts/test-flow-addr-declaration.sh", "scripts/test-git-config-pins.sh"}
-	for _, h := range audits {
-		writeExec(t, wt+"/"+h, "#!/usr/bin/env bash\n")
-	}
+	audits := "cd stats && go test ./internal/repotest/ -run '^Test(GitConfigPins|FlowAddrDeclaration)$' -count=1"
 	pe := pfEnv{projectGet: tcfScriptsDir(t) + "/project-get.sh"}
 	env := Env{Getenv: os.Getenv}
-	cmds, rc := pfChecks(env, pe, wt, []string{"stats/internal/guard/x.go"})
-	for _, h := range audits {
-		if rc != 0 || !slices.Contains(cmds, h) {
-			t.Fatalf("a touched Go file: rc %d, %q lacks %s", rc, cmds, h)
-		}
+	if cmds, rc := pfChecks(env, pe, wt, []string{"stats/internal/guard/x.go"}); rc != 0 || !slices.Contains(cmds, audits) {
+		t.Fatalf("a touched Go file: rc %d, %q lacks %s", rc, cmds, audits)
 	}
-	cmds, _ = pfChecks(env, pe, wt, []string{"scripts/foo.sh"})
-	for _, h := range audits {
-		if slices.Contains(cmds, h) {
-			t.Fatalf("a touched script alone: %q selects %s", cmds, h)
-		}
+	if cmds, _ := pfChecks(env, pe, wt, []string{"scripts/foo.sh"}); slices.Contains(cmds, audits) {
+		t.Fatalf("a touched script alone: %q selects %s", cmds, audits)
+	}
+}
+
+// A touched hook selects the whole repotest package, where its test lives.
+func TestPipelineFixChecksHooks(t *testing.T) {
+	t.Parallel()
+	wt := t.TempDir()
+	writeFile(t, wt+"/.flow/project.md", pfProject)
+	pe := pfEnv{projectGet: tcfScriptsDir(t) + "/project-get.sh"}
+	want := "cd stats && go test ./internal/repotest/ -count=1"
+	if cmds, rc := pfChecks(Env{Getenv: os.Getenv}, pe, wt, []string{"hooks/protect-main-checkout.py"}); rc != 0 || !slices.Contains(cmds, want) {
+		t.Fatalf("a touched hook: rc %d, %q lacks %s", rc, cmds, want)
 	}
 }
 

@@ -309,18 +309,18 @@ func pfTouched(env Env, pe pfEnv, wt, base string) ([]string, bool) {
 	return strings.Fields(out), rc == 0
 }
 
-// pfGoAudits is every scripts/ harness auditing stats/ Go source as a whole:
-// test-flow-addr-declaration.sh reads stats/cmd/flow, test-git-config-pins.sh
+// pfGoAudits runs the stats/internal/repotest tests auditing stats/ Go source
+// as a whole: TestFlowAddrDeclaration reads stats/cmd/flow, TestGitConfigPins
 // stats/internal/guard.
-var pfGoAudits = []string{"scripts/test-flow-addr-declaration.sh", "scripts/test-git-config-pins.sh"}
+const pfGoAudits = "cd stats && go test ./internal/repotest/ -run '^Test(GitConfigPins|FlowAddrDeclaration)$' -count=1"
 
 // pfChecks is the lint lines and tests the touched paths need: every guard
 // line of `## lint`, its `cd stats` lines only for touched Go and its
 // `cd stats/web` lines only for a touched SPA file; `go test` of each
-// touched package, the scripts/test-*.sh harness of a touched script or
-// hook, and vitest of a touched SPA test file or the test beside a touched
-// source file. A touched Go file also selects pfGoAudits: harnesses that
-// audit the whole Go tree, named after no Go file, which main landed red
+// touched package, the scripts/test-*.sh harness of a touched script, the
+// stats/internal/repotest package for a touched hook, and vitest of a touched
+// SPA test file or the test beside a touched source file. A touched Go file
+// also selects pfGoAudits: tests that audit the whole Go tree, named after no Go file, which main landed red
 // without twice (KAN-887's self-review).
 func pfChecks(env Env, pe pfEnv, wt string, touched []string) ([]string, int) {
 	get := exec.Command(pe.projectGet, wt, "lint")
@@ -354,11 +354,7 @@ func pfChecks(env Env, pe pfEnv, wt string, touched []string) ([]string, int) {
 		}
 	}
 	if goTouched {
-		for _, h := range pfGoAudits {
-			if exists(h) {
-				add(h)
-			}
-		}
+		add(pfGoAudits)
 	}
 	for _, p := range touched {
 		base := filepath.Base(p)
@@ -380,7 +376,9 @@ func pfChecks(env Env, pe pfEnv, wt string, touched []string) ([]string, int) {
 			}
 		case strings.HasPrefix(p, "scripts/test-") && strings.HasSuffix(p, ".sh") && exists(p):
 			add(p)
-		case strings.HasPrefix(p, "scripts/") || strings.HasPrefix(p, "hooks/"):
+		case strings.HasPrefix(p, "hooks/"):
+			add("cd stats && go test ./internal/repotest/ -count=1")
+		case strings.HasPrefix(p, "scripts/"):
 			for _, h := range []string{"scripts/test-" + stem + ".sh", "scripts/test-" + stem + "-hook.sh"} {
 				if exists(h) {
 					add(h)
