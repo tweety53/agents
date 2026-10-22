@@ -973,7 +973,9 @@ the **AskUserQuestion** it states.
 > `break-and-prove.sh [--clean <command>] <file> (--sed <expr> | --patch <patch>) -- <test-command>` mechanizes a
 > single-file flip: it mutates `<file>`, asserts the test fails, restores `<file>` from a
 > pre-mutation byte snapshot rather than `git checkout --`, so uncommitted edits on it survive, and
-> asserts the restored run passes. Each mutation alters one mechanism — where a single
+> asserts the restored run passes. `<test-command>` runs from the repository root, so a runner
+> rooted in a subdirectory names it with its own directory flag — `go -C stats test ./internal/guard` in a <!-- citations-guard:allow -->
+> repository whose `go.mod` sits in `<project>/stats/`. Each mutation alters one mechanism — where a single
 > revert would also change state a second check reads, split it into surgical mutations, one per
 > mechanism. A mutation no test catches is a surviving mutant: add the test that catches it before
 > your turn ends. Where your fix changed a guard script — a check that exists to fail on a defect
