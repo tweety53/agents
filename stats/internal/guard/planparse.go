@@ -33,31 +33,7 @@ func tcfParseTask(lines []string, taskID string) (tcfTask, bool) {
 		return tcfTask{}, false
 	}
 	body := found.lines
-
-	fields := map[string][]string{}
-	current, parts := "", []string(nil)
-	commitField := func() {
-		if current != "" {
-			fields[current] = parts
-		}
-	}
-	tcfUnfenced(body, func(_ int, line string) bool {
-		switch m := tcfFieldRE.FindStringSubmatch(line); {
-		case tcfSquashFieldRE.MatchString(line):
-			commitField()
-			current, parts = "", nil
-		case m != nil:
-			commitField()
-			current, parts = m[1], []string{m[2]}
-		case tcfStrip(line) == "":
-			commitField()
-			current, parts = "", nil
-		case current != "":
-			parts = append(parts, tcfStrip(line))
-		}
-		return false
-	})
-	commitField()
+	fields := tcfBodyFields(body)
 	joined := func(name string) string { return strings.Join(fields[name], " ") }
 
 	task := tcfTask{id: taskID, testsValue: joined("Tests")}
@@ -92,6 +68,39 @@ func tcfParseTask(lines []string, taskID string) (tcfTask, bool) {
 	task.allowedCollateral = shorthand.expand(tcfBacktickTokens(joined("Allowed-collateral")))
 	task.tests = tcfParseTestSpecs(task.testsValue)
 	return task, true
+}
+
+// tcfBodyFields is parse_task_fields' field walk: each non-fenced field line
+// opens a field, a blank or Squash-with line closes it, and every other line
+// while one is open is a stripped continuation; a repeated field keeps its
+// last occurrence. Joined with " ", a field's parts are the *_value strings
+// parse_task_fields exposes (files_value, tests_value, collateral_value).
+func tcfBodyFields(body []string) map[string][]string {
+	fields := map[string][]string{}
+	current, parts := "", []string(nil)
+	commitField := func() {
+		if current != "" {
+			fields[current] = parts
+		}
+	}
+	tcfUnfenced(body, func(_ int, line string) bool {
+		switch m := tcfFieldRE.FindStringSubmatch(line); {
+		case tcfSquashFieldRE.MatchString(line):
+			commitField()
+			current, parts = "", nil
+		case m != nil:
+			commitField()
+			current, parts = m[1], []string{m[2]}
+		case tcfStrip(line) == "":
+			commitField()
+			current, parts = "", nil
+		case current != "":
+			parts = append(parts, tcfStrip(line))
+		}
+		return false
+	})
+	commitField()
+	return fields
 }
 
 // tcfResolveTasksMD is the plan resolution check-task-commit-fields and
@@ -474,3 +483,83 @@ var (
 	tcfSquashValueRE = regexp.MustCompile(`^Task[` + tcfWS + `]+([0-9.,` + tcfWS + `]+)[` + tcfWS + `]*$`)
 	tcfDottedIDRE    = regexp.MustCompile(`[0-9]+(?:\.[0-9]+)*`)
 )
+
+// tcfRepairsOpenRE is REPAIRS_OPEN_RE, the test-repair annotation (KAN-794):
+// a Tests value opening with `none`, an optional em dash, en dash or `--`,
+// then `repairs existing tests:` -- the phrase and its colon required, so
+// "none added — repairs existing tests" is not the form. Its only effect is
+// check-plan-shape's F4 exemption.
+var tcfRepairsOpenRE = regexp.MustCompile(`(?i)^[` + tcfWS + `*_]*none\b[` + tcfWS + `]*(?:[—–]|--)?[` + tcfWS + `]*repairs[` + tcfWS + `]+existing[` + tcfWS + `]+tests[` + tcfWS + `]*:`)
+
+// AFTER_FIELD_RE is the field's presence on one physical line; AFTER_VALUE_RE
+// the gate: a value is `Task <ids>` or the literal `none`, nothing else.
+var (
+	tcfAfterFieldRE = regexp.MustCompile(`^\*\*After:\*\*[` + tcfWS + `]*(.*)$`)
+	tcfAfterValueRE = regexp.MustCompile(`^(?:Task[` + tcfWS + `]+[0-9.,` + tcfWS + `]+|none)[` + tcfWS + `]*$`)
+)
+
+// tcfAfterIDs is after_ids: the ids an After value names, empty for `none`,
+// and false when the value does not gate -- a caller never falls back to
+// extracting ids from a raw value. The serial default (an absent field means
+// every plan-order earlier task) is applied where after-sets are resolved,
+// never here.
+func tcfAfterIDs(value string) ([]string, bool) {
+	if !tcfAfterValueRE.MatchString(value) {
+		return nil, false
+	}
+	if tcfStrip(value) == "none" {
+		return []string{}, true
+	}
+	return tcfDottedIDRE.FindAllString(value, -1), true
+}
+
+// tcfAfter is AfterField: offset is the 0-based body index of the line,
+// value its stripped remainder, gates whether ids is what after_ids made of it.
+type tcfAfter struct {
+	offset int
+	value  string
+	ids    []string
+	gates  bool
+}
+
+// tcfSelectAfter is select_after: the first non-fenced candidate whose value
+// gates, else the first candidate with gates false; nil when the body carries
+// none. Which line is the field is decided here and nowhere else, so a
+// non-gating candidate ahead of the real field never shadows it.
+func tcfSelectAfter(body []string) *tcfAfter {
+	var ungated *tcfAfter
+	var found *tcfAfter
+	tcfUnfenced(body, func(off int, line string) bool {
+		m := tcfAfterFieldRE.FindStringSubmatch(line)
+		if m == nil {
+			return false
+		}
+		v := tcfStrip(m[1])
+		if ids, ok := tcfAfterIDs(v); ok {
+			found = &tcfAfter{off, v, ids, true}
+			return true
+		}
+		if ungated == nil {
+			ungated = &tcfAfter{offset: off, value: v}
+		}
+		return false
+	})
+	if found != nil {
+		return found
+	}
+	return ungated
+}
+
+// tcfPythonFiles is check-task-commit-fields.py's parse_task_fields files
+// list, which -- unlike tcfParseTask's -- keeps a `none`-opening Files value
+// as the prose path it falls back to (["none"] for `**Files:** none`): the
+// Go commit guard learned that `Files: none` declares no path, the Python
+// importers never did, and their ports keep the Python's verdicts -- F2
+// stays silent on a measurement task's `**Files:** none`.
+func tcfPythonFiles(lines []string, t tcfTask) []string {
+	found := tcfSelectTask(lines, t.id)
+	if t.files != nil || found == nil {
+		return t.files
+	}
+	return tcfPathShorthand(lines).expand(tcfBacktickTokens(strings.Join(tcfBodyFields(found.lines)["Files"], " ")))
+}
