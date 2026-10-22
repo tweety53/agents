@@ -1077,7 +1077,20 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	// An inline row begins before its work's first edit (implement.md's
 	// Records); a back-filled row (-started-at) records work already done.
 	if *agentID == "inline" && *startedAt == "" {
-		if dirty := inlineDirtyPaths(f.dir, f.change); len(dirty) > 0 {
+		tree := f.dir
+		if main, carrying, err := changeCheckouts(f.dir, f.change); err == nil {
+			top, _ := exec.Command("git", "-C", f.dir, "rev-parse", "--show-toplevel").Output()
+			if slices.Contains(carrying, strings.TrimSpace(string(top))) {
+				carrying = nil // -C names a carrying worktree: read that one
+			}
+			for _, wt := range carrying {
+				if wt != main {
+					tree = wt
+					break
+				}
+			}
+		}
+		if dirty := inlineDirtyPaths(tree, f.change); len(dirty) > 0 {
 			fmt.Fprintf(stderr, "flow: -agent-id inline begins before the work's first edit, and the worktree already carries tracked modifications: %s -- commit the earlier work, or begin the row before editing (skills/flow/implement.md)\n", strings.Join(dirty, ", "))
 			return 2
 		}
@@ -3169,31 +3182,52 @@ func requireChangeCheckout(dir, change string, stderr io.Writer) bool {
 		fmt.Fprintf(stderr, "flow: %q is not a change name -- refused\n", change)
 		return false
 	}
-	out, err := exec.Command("git", "-C", dir, "worktree", "list", "--porcelain").Output()
+	_, carrying, err := changeCheckouts(dir, change)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: list the checkouts of %s: %v\n", dir, err)
 		return false
+	}
+	if len(carrying) > 0 {
+		return true
+	}
+	fmt.Fprintf(stderr, "flow: no checkout of the repository holding %s carries change %q (spectre/changes/, spectre/changes/archive/ or .superpowers/sdd/) -- refused, so the row is not filed under the wrong project; pass -C <the change's canonical worktree>\n", dir, change)
+	return false
+}
+
+// changeCheckouts scans dir's repository's worktrees: main is the first
+// `worktree` entry of `git worktree list --porcelain`, carrying every entry
+// holding change under spectre/changes/, spectre/changes/archive/ or
+// .superpowers/sdd/, in list order.
+func changeCheckouts(dir, change string) (main string, carrying []string, err error) {
+	out, err := exec.Command("git", "-C", dir, "worktree", "list", "--porcelain").Output()
+	if err != nil {
+		return "", nil, err
 	}
 	for line := range strings.Lines(string(out)) {
 		wt, ok := strings.CutPrefix(strings.TrimRight(line, "\n"), "worktree ")
 		if !ok {
 			continue
 		}
+		if main == "" {
+			main = wt
+		}
 		for _, root := range []string{"spectre/changes", "spectre/changes/archive", ".superpowers/sdd"} {
 			if fi, err := os.Stat(filepath.Join(wt, root, change)); err == nil && fi.IsDir() {
-				return true
+				carrying = append(carrying, wt)
+				break
 			}
 		}
 	}
-	fmt.Fprintf(stderr, "flow: no checkout of the repository holding %s carries change %q (spectre/changes/, spectre/changes/archive/ or .superpowers/sdd/) -- refused, so the row is not filed under the wrong project; pass -C <the change's canonical worktree>\n", dir, change)
-	return false
+	return main, carrying, nil
 }
 
 // inlineDirtyPaths is every tracked path of dir's worktree modified, staged
 // or not, save the change's own tasks.md -- close-task.sh's ticks stay
 // uncommitted between tasks. An inline row begun over any other records work
 // already under way (kan-920 self-review: task 5's row began after its
-// design.md edit and recorded 7 seconds). A git call that fails answers
+// design.md edit and recorded 7 seconds). Its caller passes the change's
+// worktree, not its cwd (kan-922's self-review: a /flow parent's cwd is the
+// main checkout, where another session's edits are not the change's). A git call that fails answers
 // nothing, and the begin is not refused on it.
 func inlineDirtyPaths(dir, change string) []string {
 	out, err := exec.Command("git", "-C", dir, "status", "--porcelain=v1", "-z", "--untracked-files=no").Output()

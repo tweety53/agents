@@ -5902,3 +5902,104 @@ func TestRecordDispatchBeginRefusesAPanelRoundOverAnUntickedTask(t *testing.T) {
 		t.Errorf("a panel begin with no tasks.md: exit %d, want 0; stderr:\n%s", code, stderr)
 	}
 }
+
+func TestRecordDispatchBeginInlineReadsTheChangeWorktree(t *testing.T) {
+	main := gitRepo(t)
+	isolatedStateRoot(t)
+	wt := filepath.Join(t.TempDir(), "wt")
+	gitIn := func(dir string, args ...string) {
+		t.Helper()
+		if out, err := exec.Command("git", append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	write := func(path, body string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(filepath.Join(main, "other.txt"), "base\n")
+	gitIn(main, "add", "-A")
+	gitIn(main, "commit", "-q", "-m", "other")
+	gitIn(main, "worktree", "add", "-q", "-b", "spectre/kan-259", wt)
+	change := filepath.Join(wt, "spectre", "changes", "kan-259")
+	write(filepath.Join(change, "tasks.md"), "- [ ] 1. x\n")
+	write(filepath.Join(change, "design.md"), "## Context\n")
+	gitIn(wt, "add", "-A")
+	gitIn(wt, "commit", "-q", "-m", "plan")
+	write(filepath.Join(main, "other.txt"), "another session's edit\n")
+	begin := func(extra ...string) (int, string) {
+		t.Helper()
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
+		}))
+		defer srv.Close()
+		argv := append([]string{"record", "dispatch", "begin", "-effort", "default", "-addr", srv.URL, "-timeout", "500ms", "-C", main,
+			"-change", "kan-259", "-role", "implementer", "-model", "opus", "-key", "task-6-implementer",
+			"-session-token", "mf-record-inline-dirty"}, extra...)
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), argv, strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String()
+	}
+
+	if code, stderr := begin("-agent-id", "inline"); code != 0 {
+		t.Fatalf("a dirty main checkout beside a clean change worktree: exit %d, want 0; stderr:\n%s", code, stderr)
+	}
+	write(filepath.Join(change, "design.md"), "## Context\nedited\n")
+	code, stderr := begin("-agent-id", "inline")
+	if code != 2 || !strings.Contains(stderr, "spectre/changes/kan-259/design.md") || strings.Contains(stderr, "other.txt") {
+		t.Fatalf("an inline begin over an edited change worktree: exit %d, want 2 naming design.md alone; stderr:\n%s", code, stderr)
+	}
+}
+
+func TestRecordDispatchBeginInlineKeepsANamedCarryingWorktree(t *testing.T) {
+	main := gitRepo(t)
+	isolatedStateRoot(t)
+	root := t.TempDir()
+	gitIn := func(dir string, args ...string) {
+		t.Helper()
+		if out, err := exec.Command("git", append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	write := func(path, body string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(filepath.Join(main, "other.txt"), "base\n")
+	gitIn(main, "add", "-A")
+	gitIn(main, "commit", "-q", "-m", "other")
+	var wts []string
+	for _, n := range []string{"a", "b"} {
+		wt := filepath.Join(root, n)
+		gitIn(main, "worktree", "add", "-q", "-b", "spectre/kan-259-"+n, wt)
+		write(filepath.Join(wt, "spectre", "changes", "kan-259", "tasks.md"), "- [ ] 1. x\n")
+		gitIn(wt, "add", "-A")
+		gitIn(wt, "commit", "-q", "-m", "plan")
+		wts = append(wts, wt)
+	}
+	// The first carrying worktree is dirty; -C names the clean second one.
+	write(filepath.Join(wts[0], "other.txt"), "edit in a\n")
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
+	}))
+	defer srv.Close()
+	argv := []string{"record", "dispatch", "begin", "-effort", "default", "-addr", srv.URL, "-timeout", "500ms", "-C", wts[1],
+		"-change", "kan-259", "-role", "implementer", "-model", "opus", "-key", "task-6-implementer",
+		"-session-token", "mf-record-inline-named", "-agent-id", "inline"}
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(), argv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		t.Fatalf("-C a clean carrying worktree beside a dirty one: exit %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+}
