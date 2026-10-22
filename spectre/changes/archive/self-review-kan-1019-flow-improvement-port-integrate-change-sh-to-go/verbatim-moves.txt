@@ -5,6 +5,7 @@
 -session-token mf-<literal-token> -outcome completed \
 A section is that no-runtime form when its first line opens with `None`, `No ` or `Not applicable`, however many lines its justification wraps to.
 Each `end` passes its own slot's report-file modification time as `-ended-at`, so a slot that finished early is never stamped with the round's last finish (kan-1019: two slots of one round both read 15m31s).
+A bundled dispatch's `<report-file>` is the newest of its slots' reports.
 Every step of the check runs at `flow.verify`, before the change lands: a step that needs the change landed, a restarted shared service, or a write to the change's own integrate state is written as the stand-in that runs in its place — a scratch fixture, a workspace's own service, a scratch copy of the record — named in the section (kan-1019: a check deferred to integrate was never run).
 Tasks whose Baselines carry the same `measured:` command form one chain in plan order: a task whose `before` is below the previous such task's `after` fails `check-plan-shape.sh` (F17), save the later task of a `**Squash-with:**` pair, which shares its partner's commit.
 The check is never deferred past this stage: `integrate-change.sh prepare` stops at `STOP: live-check` while the section names something to exercise and `live-verification.md` is missing or fails `check-live-verification.sh` (kan-1019).
