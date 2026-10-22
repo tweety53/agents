@@ -128,6 +128,10 @@ planning commit below.
 
 Then make the fix-run planning commit over the appended plan (**Planning commits**,
 `skills/flow-contracts/git-boundaries.md`), before any implementer is dispatched.
+**Every appended task is committed unticked.** `check-planning-commit-location.sh` refuses a
+planning commit whose `tasks.md` adds a task already ticked (`PLANNING-COMMIT-TICKED-APPEND`, exit
+1); the task is ticked only once its commit passes `check-task-commit-fields.sh` (kan-1010: a fix
+run appended Task 3 ticked and skipped implement, panel and handoff).
 
 ```bash
 flow stage end -command '/flow' -stage flow.document-fix -outcome completed <name>

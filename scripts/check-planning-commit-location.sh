@@ -14,10 +14,18 @@
 #                                                     linked worktree
 #   PLANNING-COMMIT-WRONG-BRANCH: <worktree> on <branch|detached> — expected spectre/<name>
 #   PLANNING-COMMIT-LOCATION-OK: <worktree> on spectre/<name>
+#   PLANNING-COMMIT-TICKED-APPEND: <tasks.md path> task <n> — appended already ticked; …
 #
-# Both violation lines print when both hold. Exit 0 on the OK verdict; exit 1
-# on any violation; exit 2 with NOTHING on stdout when the arguments are
-# missing or empty, or <worktree> is not a readable git work tree — an
+# The last line follows the location verdict, once per task the working
+# tree's `<name>/tasks.md` adds over HEAD's already ticked (`- [x] <n>.`)
+# whose number HEAD's file did not carry: a task is appended unticked and
+# committed before its work runs (kan-1010's self-review). A tasks.md HEAD
+# lacks is a new plan and is not read. reshape-branch.sh and commit-split.sh
+# run the location check alone — their planning half carries every tick.
+#
+# Both location violation lines print when both hold. Exit 0 on the OK
+# verdict with no ticked append; exit 1 on any violation; exit 2 with NOTHING
+# on stdout when the arguments are missing or empty, or <worktree> is not a readable git work tree — an
 # inability is never reported as a verdict.
 #
 # flow-guard is built from this checkout, never taken from PATH:

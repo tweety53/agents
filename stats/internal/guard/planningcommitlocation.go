@@ -3,6 +3,8 @@ package guard
 import (
 	"fmt"
 	"io"
+	"regexp"
+	"strings"
 )
 
 // checkPlanningCommitLocation is scripts/check-planning-commit-location.sh:
@@ -20,7 +22,65 @@ import (
 // step of this change ever sees it. Every planning commit therefore runs
 // behind this guard; git-boundaries.md's **Planning commits** is canonical
 // for where it is called.
-func init() { Registry["check-planning-commit-location"] = checkPlanningCommitLocation }
+//
+// Run as the script, it also refuses a commit appending a task already
+// ticked: checkPlanningCommit below. Reshape and commit-split call
+// checkPlanningCommitLocation alone, since their planning half folds every
+// planning commit of the run into one, ticks included.
+func init() { Registry["check-planning-commit-location"] = checkPlanningCommit }
+
+// pclTask is one task line of a tasks.md diff hunk: its sign, its checkbox
+// and its number.
+var pclTask = regexp.MustCompile(`^([-+])- \[([ xX])\] ([0-9]+)\. `)
+
+// checkPlanningCommit is checkPlanningCommitLocation, then: a task line the
+// working tree's change-folder tasks.md adds over HEAD's, already ticked,
+// whose number HEAD's file did not carry, is
+// PLANNING-COMMIT-TICKED-APPEND at exit 1. A task is appended unticked and
+// committed before any work on it runs (document-fix.md's fix-run planning
+// commit), and ticked once its commit passes check-task-commit-fields.sh —
+// kan-1010's fix run appended Task 3 already ticked and skipped implement,
+// panel and handoff. A tick of a task HEAD already carries removes that
+// task's line in the same diff, so it passes; a tasks.md HEAD lacks is a new
+// plan, never an append, and is not read.
+func checkPlanningCommit(args []string, env Env, stdout, stderr io.Writer) int {
+	rc := checkPlanningCommitLocation(args, env, stdout, stderr)
+	if rc == 2 {
+		return 2
+	}
+	wt, name := args[0], args[1]
+	diff, ok := capture(envGit(env)("-C", wt, "diff", "HEAD", "--no-renames", "--diff-filter=M", "-U0", "--",
+		":(top,glob)**/"+name+"/tasks.md"))
+	if !ok {
+		fmt.Fprintf(stderr, "check-planning-commit-location.sh: cannot diff %s's tasks.md against HEAD in %s\n", name, wt)
+		return 2
+	}
+	for _, file := range strings.Split(diff, "diff --git ")[1:] {
+		path := ""
+		had := map[string]bool{}
+		var ticked []string
+		for _, l := range strings.Split(file, "\n") {
+			if p, ok := strings.CutPrefix(l, "+++ b/"); ok {
+				path = p
+			}
+			m := pclTask.FindStringSubmatch(l)
+			switch {
+			case m == nil:
+			case m[1] == "-":
+				had[m[3]] = true
+			case m[2] != " ":
+				ticked = append(ticked, m[3])
+			}
+		}
+		for _, n := range ticked {
+			if !had[n] {
+				fmt.Fprintf(stdout, "PLANNING-COMMIT-TICKED-APPEND: %s task %s — appended already ticked; append it unticked, commit, and tick it once its commit passes check-task-commit-fields.sh\n", path, n)
+				rc = 1
+			}
+		}
+	}
+	return rc
+}
 
 func checkPlanningCommitLocation(args []string, env Env, stdout, stderr io.Writer) int {
 	die := func(format string, a ...any) int {

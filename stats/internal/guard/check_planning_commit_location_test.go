@@ -2,6 +2,7 @@ package guard
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -117,6 +118,71 @@ func TestCheckPlanningCommitLocation(t *testing.T) {
 		r := runGuard("check-planning-commit-location", nil, env)
 		if want := "check-planning-commit-location.sh: usage: check-planning-commit-location.sh <worktree> <name>\n"; r.err != want {
 			t.Errorf("stderr %q, want %q", r.err, want)
+		}
+	})
+}
+
+// TestCheckPlanningCommitTickedAppend pins kan-1010's self-review: a fix
+// run appended Task 3 to an archived plan already ticked, and its planning
+// commit went through. A task appended ticked is refused, in an active or an
+// archived change folder; ticking a task HEAD carries, appending one
+// unticked and a plan HEAD lacks all pass; reshape-branch and commit-split
+// still call the location check alone.
+func TestCheckPlanningCommitTickedAppend(t *testing.T) {
+	t.Parallel()
+	env := Env{Getenv: os.Getenv}
+	const plan = "# demo\n\n- [x] 1. One\n- [ ] 2. Two\n"
+	const refusal = " — appended already ticked; append it unticked, commit, and tick it once its commit passes check-task-commit-fields.sh\n"
+	for _, c := range []struct {
+		name, dir, head, now string
+		rc                   int
+		want                 string
+	}{
+		{"an appended ticked task is refused", "spectre/changes/demo", plan, plan + "- [x] 3. Three\n", 1,
+			"PLANNING-COMMIT-TICKED-APPEND: spectre/changes/demo/tasks.md task 3" + refusal},
+		{"an archived plan's ticked append is refused", "spectre/changes/archive/demo", plan, plan + "- [X] 3. Three\n", 1,
+			"PLANNING-COMMIT-TICKED-APPEND: spectre/changes/archive/demo/tasks.md task 3" + refusal},
+		{"a tick of a carried task passes", "spectre/changes/demo", plan, "# demo\n\n- [x] 1. One\n- [x] 2. Two\n", 0, ""},
+		{"an unticked append passes", "spectre/changes/demo", plan, plan + "- [ ] 3. Three\n", 0, ""},
+		{"a new plan passes", "spectre/changes/demo", "", plan + "- [x] 3. Three\n", 0, ""},
+		{"another change's ticked append is not this change's", "spectre/changes/other", plan, plan + "- [x] 3. Three\n", 0, ""},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			_, main := pclFx(t)
+			wt := main + "/.worktrees/demo"
+			var g fxGit
+			if c.head != "" {
+				writeFile(t, wt+"/"+c.dir+"/tasks.md", c.head)
+				g.git(wt, "add", "-A")
+				g.git(wt, "commit", "-q", "-m", "plan")
+			}
+			writeFile(t, wt+"/"+c.dir+"/tasks.md", c.now)
+			if g.err != nil {
+				t.Fatal(g.err)
+			}
+			r := runGuard("check-planning-commit-location", []string{wt, "demo"}, env)
+			want := "PLANNING-COMMIT-LOCATION-OK: " + wt + " on spectre/demo\n" + c.want
+			if r.rc != c.rc || r.stdout != want {
+				t.Fatalf("rc=%d stdout=%q stderr=%q; want %d and %q", r.rc, r.stdout, r.err, c.rc, want)
+			}
+		})
+	}
+	t.Run("the in-process location check never reads the plan", func(t *testing.T) {
+		t.Parallel()
+		_, main := pclFx(t)
+		wt := main + "/.worktrees/demo"
+		var g fxGit
+		writeFile(t, wt+"/spectre/changes/demo/tasks.md", plan)
+		g.git(wt, "add", "-A")
+		g.git(wt, "commit", "-q", "-m", "plan")
+		writeFile(t, wt+"/spectre/changes/demo/tasks.md", plan+"- [x] 3. Three\n")
+		if g.err != nil {
+			t.Fatal(g.err)
+		}
+		var out, errb strings.Builder
+		if rc := checkPlanningCommitLocation([]string{wt, "demo"}, env, &out, &errb); rc != 0 {
+			t.Fatalf("rc=%d stdout=%q stderr=%q; want 0", rc, out.String(), errb.String())
 		}
 	})
 }
