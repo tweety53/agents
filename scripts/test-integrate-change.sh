@@ -46,7 +46,9 @@
 #                   stops prepare at STOP: rebase-lint with the list's own
 #                   output relayed (KAN-900); rebase_lint_env, _rewrite and
 #                   _land pin its workspace exports, its stop on a list that
-#                   rewrote tracked files, and land's re-sync running it.
+#                   rewrote tracked files, and land's re-sync running it;
+#                   rebase_lint_dirty an uncommitted plan edit the rebase
+#                   restored, which is no rewrite of the list's.
 #   gh_open_merged  gh reports the recorded PR OPEN but the branch is on
 #                   origin/main: run 2 still runs to FINISHED.
 #   disclose        both apply worktrees hold an unpreserved ignored file:
@@ -1090,6 +1092,21 @@ check "outstanding: commit exits 0" '[ "$RC" -eq 0 ]'
 check "outstanding: the planning commit keeps its own subject and carries the text in its body" \
   '[ "$(g -C "$WORK/a-worktrees/demo" log --format=%s --grep="^Outstanding: " -1)" = "chore(spectre): plan demo" ] && [ "$(g -C "$WORK/a-worktrees/demo" log --format=%b --grep="^Outstanding: " -1)" = "Outstanding: Task 3 is unticked" ]'
 end_case ) >"$LOGS/41.log" 2>&1 &
+PIDS+=($!)
+
+( trap cleanup_work EXIT
+# --- rebase_lint_dirty: an uncommitted plan edit the rebase set aside and
+# restored is no rewrite of the list's (kan-1010's self-review) ---
+fixture
+printf '\nCorrection: narrative.\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/tasks.md"
+printf '\n## lint\n\n```bash\ntrue\n```\n' >>"$WORK/a/.flow/project.md"
+g -C "$WORK/a" add .flow/project.md && g -C "$WORK/a" commit -qm "base: lint list" && g -C "$WORK/a" push -q origin main
+sut prepare "$WORK/a" demo
+check "rebase_lint_dirty: the rebase ran" 'printf "%s" "$OUT" | grep -q "^REBASED: $WORK/a-worktrees/demo"'
+check "rebase_lint_dirty: the list passed" 'printf "%s" "$OUT" | grep -q "^REBASE-LINT-PASSED: $WORK/a-worktrees/demo"'
+check "rebase_lint_dirty: no rebase-lint stop" '! printf "%s" "$OUT" | grep -q "^STOP: rebase-lint"'
+check "rebase_lint_dirty: the edit is still uncommitted" 'grep -q "^Correction: narrative.$" "$WORK/a-worktrees/demo/spectre/changes/demo/tasks.md" && [ -n "$(g -C "$WORK/a-worktrees/demo" status --porcelain --untracked-files=no)" ]'
+end_case ) >"$LOGS/42.log" 2>&1 &
 PIDS+=($!)
 
 for pid in "${PIDS[@]}"; do wait "$pid"; done

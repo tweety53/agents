@@ -402,16 +402,20 @@ guard_tests() {
 # line; a project declaring no list (exit 3) has nothing to run. A passing list
 # that rewrote tracked files (a formatter pre-step) stops too: the rewrite
 # would otherwise ride into the reshape unreviewed or be left behind a push.
+# What the list rewrote is the tracked diff's change across it, never the
+# diff itself: the rebase sets the planning paths aside and restores them,
+# so an uncommitted narrative edit is already there (kan-1010's self-review).
 # The prefix leads the stop text — land passes what it already pushed.
 rebase_lint() {
-  local out rc
+  local out rc before
+  before="$(git -C "$1" diff --no-renames HEAD | git hash-object --stdin)"
   out="$("$SCRIPT_DIR/prepare-workspace.sh" "$1")" ||
     { printf '%s\n' "$out"; stop rebase-lint "${2-}prepare-workspace.sh failed on $1 after its rebase, so its ## lint list did not run — report its output above; the change stays IN_PROGRESS"; }
   out="$(while IFS= read -r kv; do case "$kv" in [A-Za-z_]*=*) export "$kv" ;; esac; done <<<"$out"
     "$SCRIPT_DIR/run-verify-list.sh" "$1" lint 2>&1)"
   rc=$?
   case "$rc" in
-    0) [ -z "$(git -C "$1" status --porcelain --untracked-files=no)" ] ||
+    0) [ "$(git -C "$1" diff --no-renames HEAD | git hash-object --stdin)" = "$before" ] ||
          stop rebase-lint "${2-}the ## lint list rewrote tracked files on $1 after its rebase — commit or revert them; the change stays IN_PROGRESS"
        say "REBASE-LINT-PASSED: $1" ;;
     3) say "REBASE-LINT-NONE: $1 — its project declares no ## lint list" ;;
