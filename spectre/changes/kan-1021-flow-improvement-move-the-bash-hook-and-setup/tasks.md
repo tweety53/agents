@@ -123,7 +123,7 @@ names, then the absence sweep. The full suite runs in `flow.verify`.
   - [x] **Step 3: Parity check.** `cd stats && go test ./internal/repotest/ -run '^TestFlowActiveChangeHook$' -count=1 -race -v | grep -c -- '--- PASS: TestFlowActiveChangeHook/'` equals the harness's own case count, read from `bash scripts/test-flow-active-change-hook.sh` run once before deleting it (count its `ok:`/`PASS` lines, or its case list where it prints none).
   - [x] **Step 4: Delete** `scripts/test-flow-active-change-hook.sh`.
   - [x] **Step 5: Absence sweep.** `git grep -n -F -e 'test-flow-active-change-hook.sh' -- stats scripts hooks mods README.md CLAUDE.md AGENTS.md .flow` prints nothing.
-- [ ] 5. Port test-git-config-pins.sh
+- [x] 5. Port test-git-config-pins.sh
 
 **Files:** `stats/internal/repotest/git_config_pins_test.go`, `scripts/test-git-config-pins.sh`
 **Tests:** `TestGitConfigPins`
@@ -139,14 +139,14 @@ names, then the absence sweep. The full suite runs in `flow.verify`.
 **Decision:** repotest-package
 **Decision:** case-parity
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-git-config-pins.sh` to `TestGitConfigPins` in `stats/internal/repotest/git_config_pins_test.go`, one subtest per case, named after the harness's own case label. Run `cd stats && go test ./internal/repotest/ -run '^TestGitConfigPins$' -count=1` — expect it to fail only where an assertion was mis-ported; fix the port until green against the untouched hook/source (the code under test does not change in this task).
-  - [ ] **Step 2: Self-exclusion.** The harness excludes itself (`SELF_NAME`) from its own audit scan; the Go test excludes `stats/internal/repotest/git_config_pins_test.go` the same way.
-  - [ ] **Step 3: Parity check.** `cd stats && go test ./internal/repotest/ -run '^TestGitConfigPins$' -count=1 -race -v | grep -c -- '--- PASS: TestGitConfigPins/'` equals the harness's own case count, read from `bash scripts/test-git-config-pins.sh` run once before deleting it (count its `ok:`/`PASS` lines, or its case list where it prints none).
-  - [ ] **Step 4: Delete** `scripts/test-git-config-pins.sh`.
-  - [ ] **Step 5: Absence sweep.** `git grep -n -F -e 'test-git-config-pins.sh' -- stats scripts hooks mods README.md CLAUDE.md AGENTS.md .flow` prints nothing.
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-git-config-pins.sh` to `TestGitConfigPins` in `stats/internal/repotest/git_config_pins_test.go`, one subtest per case, named after the harness's own case label. Run `cd stats && go test ./internal/repotest/ -run '^TestGitConfigPins$' -count=1` — expect it to fail only where an assertion was mis-ported; fix the port until green against the untouched hook/source (the code under test does not change in this task).
+  - [x] **Step 2: Self-exclusion.** The harness excludes itself (`SELF_NAME`) from its own audit scan; the Go test excludes `stats/internal/repotest/git_config_pins_test.go` the same way.
+  - [x] **Step 3: Parity check.** `cd stats && go test ./internal/repotest/ -run '^TestGitConfigPins$' -count=1 -race -v | grep -c -- '--- PASS: TestGitConfigPins/'` equals the harness's own case count, read from `bash scripts/test-git-config-pins.sh` run once before deleting it (count its `ok:`/`PASS` lines, or its case list where it prints none).
+  - [x] **Step 4: Delete** `scripts/test-git-config-pins.sh`.
+  - [x] **Step 5: Absence sweep.** `git grep -n -F -e 'test-git-config-pins.sh' -- stats scripts hooks mods README.md CLAUDE.md AGENTS.md .flow` prints nothing.
 
 Correction (2026-10-23): Step 5 declared the sweep prints nothing at this task's commit; it still named `stats/internal/guard/pipelinefix.go` and `pipeline_fix_test.go` there, which Task 10 owns and rewires. The sweep prints nothing once Task 10 lands.
-- [ ] 6. Port test-flow-addr-declaration.sh
+- [x] 6. Port test-flow-addr-declaration.sh
 
 **Files:** `stats/internal/repotest/flow_addr_declaration_test.go`, `scripts/test-flow-addr-declaration.sh`
 **Tests:** `TestFlowAddrDeclaration`
@@ -162,14 +162,14 @@ Correction (2026-10-23): Step 5 declared the sweep prints nothing at this task's
 **Decision:** repotest-package
 **Decision:** case-parity
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-flow-addr-declaration.sh` to `TestFlowAddrDeclaration` in `stats/internal/repotest/flow_addr_declaration_test.go`, one subtest per case, named after the harness's own case label. Run `cd stats && go test ./internal/repotest/ -run '^TestFlowAddrDeclaration$' -count=1` — expect it to fail only where an assertion was mis-ported; fix the port until green against the untouched hook/source (the code under test does not change in this task).
-  - [ ] **Step 2: Sources read.** Reads `.flow/project.md` and `stats/cmd/flow` from `repoRoot(t)`, as the harness does.
-  - [ ] **Step 3: Parity check.** `cd stats && go test ./internal/repotest/ -run '^TestFlowAddrDeclaration$' -count=1 -race -v | grep -c -- '--- PASS: TestFlowAddrDeclaration/'` equals the harness's own case count, read from `bash scripts/test-flow-addr-declaration.sh` run once before deleting it (count its `ok:`/`PASS` lines, or its case list where it prints none).
-  - [ ] **Step 4: Delete** `scripts/test-flow-addr-declaration.sh`.
-  - [ ] **Step 5: Absence sweep.** `git grep -n -F -e 'test-flow-addr-declaration.sh' -- stats scripts hooks mods README.md CLAUDE.md AGENTS.md .flow` prints nothing.
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-flow-addr-declaration.sh` to `TestFlowAddrDeclaration` in `stats/internal/repotest/flow_addr_declaration_test.go`, one subtest per case, named after the harness's own case label. Run `cd stats && go test ./internal/repotest/ -run '^TestFlowAddrDeclaration$' -count=1` — expect it to fail only where an assertion was mis-ported; fix the port until green against the untouched hook/source (the code under test does not change in this task).
+  - [x] **Step 2: Sources read.** Reads `.flow/project.md` and `stats/cmd/flow` from `repoRoot(t)`, as the harness does.
+  - [x] **Step 3: Parity check.** `cd stats && go test ./internal/repotest/ -run '^TestFlowAddrDeclaration$' -count=1 -race -v | grep -c -- '--- PASS: TestFlowAddrDeclaration/'` equals the harness's own case count, read from `bash scripts/test-flow-addr-declaration.sh` run once before deleting it (count its `ok:`/`PASS` lines, or its case list where it prints none).
+  - [x] **Step 4: Delete** `scripts/test-flow-addr-declaration.sh`.
+  - [x] **Step 5: Absence sweep.** `git grep -n -F -e 'test-flow-addr-declaration.sh' -- stats scripts hooks mods README.md CLAUDE.md AGENTS.md .flow` prints nothing.
 
 Correction (2026-10-23): Step 5 declared the sweep prints nothing at this task's commit; it still named `stats/internal/guard/pipelinefix.go` and `pipeline_fix_test.go` there, which Task 10 owns and rewires. The sweep prints nothing once Task 10 lands.
-- [ ] 7. Port test-make-build.sh
+- [x] 7. Port test-make-build.sh
 
 **Files:** `stats/internal/repotest/make_build_test.go`, `scripts/test-make-build.sh`, `stats/Makefile`
 **Tests:** `TestMakeBuild`
@@ -185,12 +185,12 @@ Correction (2026-10-23): Step 5 declared the sweep prints nothing at this task's
 **Decision:** repotest-package
 **Decision:** case-parity
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-make-build.sh` to `TestMakeBuild` in `stats/internal/repotest/make_build_test.go`, one subtest per case, named after the harness's own case label. Run `cd stats && go test ./internal/repotest/ -run '^TestMakeBuild$' -count=1` — expect it to fail only where an assertion was mis-ported; fix the port until green against the untouched hook/source (the code under test does not change in this task).
-  - [ ] **Step 2: Makefile comments.** The four `stats/Makefile` comments naming `scripts/test-make-build.sh` name `stats/internal/repotest/make_build_test.go` instead; recipe lines unchanged. `make -n` cases run in a copy or with `-C <repo>/stats` read-only, as the harness does — never a real build into the tree.
-  - [ ] **Step 3: Parity check.** `cd stats && go test ./internal/repotest/ -run '^TestMakeBuild$' -count=1 -race -v | grep -c -- '--- PASS: TestMakeBuild/'` equals the harness's own case count, read from `bash scripts/test-make-build.sh` run once before deleting it (count its `ok:`/`PASS` lines, or its case list where it prints none).
-  - [ ] **Step 4: Delete** `scripts/test-make-build.sh`.
-  - [ ] **Step 5: Absence sweep.** `git grep -n -F -e 'test-make-build.sh' -- stats scripts hooks mods README.md CLAUDE.md AGENTS.md .flow` prints nothing.
-- [ ] 8. Port test-flow-task-list-landed.sh
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-make-build.sh` to `TestMakeBuild` in `stats/internal/repotest/make_build_test.go`, one subtest per case, named after the harness's own case label. Run `cd stats && go test ./internal/repotest/ -run '^TestMakeBuild$' -count=1` — expect it to fail only where an assertion was mis-ported; fix the port until green against the untouched hook/source (the code under test does not change in this task).
+  - [x] **Step 2: Makefile comments.** The four `stats/Makefile` comments naming `scripts/test-make-build.sh` name `stats/internal/repotest/make_build_test.go` instead; recipe lines unchanged. `make -n` cases run in a copy or with `-C <repo>/stats` read-only, as the harness does — never a real build into the tree.
+  - [x] **Step 3: Parity check.** `cd stats && go test ./internal/repotest/ -run '^TestMakeBuild$' -count=1 -race -v | grep -c -- '--- PASS: TestMakeBuild/'` equals the harness's own case count, read from `bash scripts/test-make-build.sh` run once before deleting it (count its `ok:`/`PASS` lines, or its case list where it prints none).
+  - [x] **Step 4: Delete** `scripts/test-make-build.sh`.
+  - [x] **Step 5: Absence sweep.** `git grep -n -F -e 'test-make-build.sh' -- stats scripts hooks mods README.md CLAUDE.md AGENTS.md .flow` prints nothing.
+- [x] 8. Port test-flow-task-list-landed.sh
 
 **Files:** `stats/internal/repotest/flow_task_list_landed_test.go`, `scripts/test-flow-task-list-landed.sh`, `mods/flow-task-list/hooks/landed.ts`
 **Tests:** `TestFlowTaskListLanded`
@@ -206,11 +206,11 @@ Correction (2026-10-23): Step 5 declared the sweep prints nothing at this task's
 **Decision:** repotest-package
 **Decision:** case-parity
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-flow-task-list-landed.sh` to `TestFlowTaskListLanded` in `stats/internal/repotest/flow_task_list_landed_test.go`, one subtest per case, named after the harness's own case label. Run `cd stats && go test ./internal/repotest/ -run '^TestFlowTaskListLanded$' -count=1` — expect it to fail only where an assertion was mis-ported; fix the port until green against the untouched hook/source (the code under test does not change in this task).
-  - [ ] **Step 2: Runner and comment.** Runs `landed.ts` under `node` exactly as the harness does (same flags), against the same temp-repo fixture; skips with the harness's reason if it had one when `node` is absent, else fails. `landed.ts`'s line-2 comment names the Go test instead of the script.
-  - [ ] **Step 3: Parity check.** `cd stats && go test ./internal/repotest/ -run '^TestFlowTaskListLanded$' -count=1 -race -v | grep -c -- '--- PASS: TestFlowTaskListLanded/'` equals the harness's own case count, read from `bash scripts/test-flow-task-list-landed.sh` run once before deleting it (count its `ok:`/`PASS` lines, or its case list where it prints none).
-  - [ ] **Step 4: Delete** `scripts/test-flow-task-list-landed.sh`.
-  - [ ] **Step 5: Absence sweep.** `git grep -n -F -e 'test-flow-task-list-landed.sh' -- stats scripts hooks mods README.md CLAUDE.md AGENTS.md .flow` prints nothing.
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-flow-task-list-landed.sh` to `TestFlowTaskListLanded` in `stats/internal/repotest/flow_task_list_landed_test.go`, one subtest per case, named after the harness's own case label. Run `cd stats && go test ./internal/repotest/ -run '^TestFlowTaskListLanded$' -count=1` — expect it to fail only where an assertion was mis-ported; fix the port until green against the untouched hook/source (the code under test does not change in this task).
+  - [x] **Step 2: Runner and comment.** Runs `landed.ts` under `node` exactly as the harness does (same flags), against the same temp-repo fixture; skips with the harness's reason if it had one when `node` is absent, else fails. `landed.ts`'s line-2 comment names the Go test instead of the script.
+  - [x] **Step 3: Parity check.** `cd stats && go test ./internal/repotest/ -run '^TestFlowTaskListLanded$' -count=1 -race -v | grep -c -- '--- PASS: TestFlowTaskListLanded/'` equals the harness's own case count, read from `bash scripts/test-flow-task-list-landed.sh` run once before deleting it (count its `ok:`/`PASS` lines, or its case list where it prints none).
+  - [x] **Step 4: Delete** `scripts/test-flow-task-list-landed.sh`.
+  - [x] **Step 5: Absence sweep.** `git grep -n -F -e 'test-flow-task-list-landed.sh' -- stats scripts hooks mods README.md CLAUDE.md AGENTS.md .flow` prints nothing.
 - [x] 9. Port test-setup-agents.sh and drop the test-setup.sh shim
 
 **Files:** `stats/internal/setuptest/agents_test.go`, `stats/internal/setuptest/main_test.go`, `scripts/test-setup-agents.sh`, `scripts/test-setup.sh`
@@ -230,7 +230,7 @@ Correction (2026-10-23): Step 5 declared the sweep prints nothing at this task's
   - [x] **Step 2: Parity check.** Subtest count equals the harness's assertion count (three symlinks resolve; each `flow-<effort>` frontmatter has its `effort:` line and no `model:` line).
   - [x] **Step 3: Delete** `scripts/test-setup-agents.sh` and `scripts/test-setup.sh` (the latter already only ran this package); `stats/internal/setuptest/main_test.go`'s package doc names `## test`'s Go suite as its runner instead of the script.
   - [x] **Step 4: Absence sweep.** `git grep -n -F -e 'test-setup-agents.sh' -e 'scripts/test-setup.sh' -- stats/internal/setuptest scripts hooks mods README.md CLAUDE.md AGENTS.md .flow` prints nothing.
-- [ ] 10. Rewire pipeline-fix check selection to the Go packages
+- [x] 10. Rewire pipeline-fix check selection to the Go packages
 
 **Files:** `stats/internal/guard/pipelinefix.go`, `stats/internal/guard/pipeline_fix_test.go`
 **Tests:** `TestPipelineFixChecksHooks`
@@ -243,7 +243,7 @@ Correction (2026-10-23): Step 5 declared the sweep prints nothing at this task's
 
 **Decision:** pipelinefix-packages
 
-  - [ ] **Step 1: Failing test.** In `stats/internal/guard/pipeline_fix_test.go`: rewrite `TestPipelineFixChecksGoAudits` to assert a touched Go file selects one command running the `stats/internal/repotest` package filtered to `TestGitConfigPins` and `TestFlowAddrDeclaration` (no fixture scripts written) and a touched shell script under `scripts/` alone does not; add `TestPipelineFixChecksHooks` asserting a touched `hooks/protect-main-checkout.py` selects the whole `stats/internal/repotest` package. Run — expect failure.
-  - [ ] **Step 2: Implement.** In `stats/internal/guard/pipelinefix.go`: `pfGoAudits` becomes that one filtered package command (doc comment updated: the audits live in `stats/internal/repotest/`); the `hooks/` prefix gets its own `case` adding the whole-package `stats/internal/repotest` command, leaving the `scripts/` stem lookup for remaining `test-*.sh` harnesses.
-  - [ ] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestPipelineFixChecks' -count=1 -race -v`.
-  - [ ] **Step 4: Absence sweep.** `git grep -n -F -e 'test-flow-addr-declaration.sh' -e 'test-git-config-pins.sh' -- stats/internal/guard` prints nothing.
+  - [x] **Step 1: Failing test.** In `stats/internal/guard/pipeline_fix_test.go`: rewrite `TestPipelineFixChecksGoAudits` to assert a touched Go file selects one command running the `stats/internal/repotest` package filtered to `TestGitConfigPins` and `TestFlowAddrDeclaration` (no fixture scripts written) and a touched shell script under `scripts/` alone does not; add `TestPipelineFixChecksHooks` asserting a touched `hooks/protect-main-checkout.py` selects the whole `stats/internal/repotest` package. Run — expect failure.
+  - [x] **Step 2: Implement.** In `stats/internal/guard/pipelinefix.go`: `pfGoAudits` becomes that one filtered package command (doc comment updated: the audits live in `stats/internal/repotest/`); the `hooks/` prefix gets its own `case` adding the whole-package `stats/internal/repotest` command, leaving the `scripts/` stem lookup for remaining `test-*.sh` harnesses.
+  - [x] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestPipelineFixChecks' -count=1 -race -v`.
+  - [x] **Step 4: Absence sweep.** `git grep -n -F -e 'test-flow-addr-declaration.sh' -e 'test-git-config-pins.sh' -- stats/internal/guard` prints nothing.
