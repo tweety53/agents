@@ -1,0 +1,2 @@
+# The review panel ENTRY CONTEXT gains the deleted-file sentence (panel-diff-irreversible-delete).
+A deleted file shows in the diff as its header alone; read its old body with `git show <sha>:<path>`, the sha the section's diff range starts from — for `slot-delta` with a held sha, the held sha; otherwise the sha its section's `# worktree:` header names.
