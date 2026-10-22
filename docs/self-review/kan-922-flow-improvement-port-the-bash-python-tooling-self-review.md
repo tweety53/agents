@@ -7,10 +7,10 @@ The pass covers what the bundle holds plus the commits, files and logs it names,
 
 ## Problems encountered, and what pipeline change would avoid them — `flow-fix`
 
-- **[flow-fix]** `integrate-change.sh prepare` stopped to ask on a `DRIFT-BRANCH` main checkout that was otherwise clean; it now switches it back to its default branch, keeping the drift branch's commits, and still asks on a detached HEAD, a recorded base, a refused switch or an on-disk path the switch would overwrite — fixed: 98d52e00
-- **[flow-fix]** `land-self-review-report` never ran `check-self-review-report`, so the KAN-923 report landed red and cost this run `full-suite-fix-1`; the land chain now refuses a failing report — fixed: 5b69d48e
-- **[flow-fix]** Inline `flow record dispatch begin` checked the session cwd (the main checkout) for uncommitted edits instead of the change's worktree — fixed: 7f3c750e
-- **[flow-fix]** The fixer brief never said `break-and-prove.sh` runs its test command from the repository root, so both mutation legs failed with `go.mod not found` — fixed: 21356dfe
+- **[flow-fix]** `integrate-change.sh prepare` stopped to ask on a `DRIFT-BRANCH` main checkout that was otherwise clean; it now switches it back to its default branch, keeping the drift branch's commits, and still asks on a detached HEAD, a recorded base, a refused switch or an on-disk path the switch would overwrite — fixed: e35e3948
+- **[flow-fix]** `land-self-review-report` never ran `check-self-review-report`, so the KAN-923 report landed red and cost this run `full-suite-fix-1`; the land chain now refuses a failing report — fixed: c1e9db18
+- **[flow-fix]** Inline `flow record dispatch begin` checked the session cwd (the main checkout) for uncommitted edits instead of the change's worktree — fixed: 54163ba6
+- **[flow-fix]** The fixer brief never said `break-and-prove.sh` runs its test command from the repository root, so both mutation legs failed with `go.mod not found` — fixed: d6e3166d
 - **[flow-fix]** Task 2's TDD order was broken (code before test) and recovered in-run by moving the code aside for a RED run — noted
 
 ## Token/time cost, and what would reduce it without quality loss — `flow-cost`
