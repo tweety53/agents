@@ -319,6 +319,13 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > `<frame id>.png`** — a capture screenshot's name takes that shape too, so only the path form is
 > a citation `check-mockup-citations.sh` can resolve.
 
+> **Write a capture task that baselines against a mockup to measure before it commits.** Such a
+> task's steps, after its capture, run `compose-mockup-frames.sh` on its spec's `<spec>.mockups`
+> sidecar and the band, seam and matrix reads of `measure-visual-properties.sh` on every pair, and
+> fix until they come back clean or each leftover is named with its cause — the rule
+> **The implementer measures before it hands back** in **The loop** (`skills/flow/verify-fix-loop.md`) states for a fix
+> round, applied at plan time (kan-1007: a plan-time capture was judged by eye).
+
 > **Write a frame a sibling ticket finishes as this change's parts only.** When sibling tickets
 > share a mockup frame family and a frame on this change's list also draws parts a sibling ticket
 > builds, `design.md` records a decision naming the parts of that frame this change builds, and
