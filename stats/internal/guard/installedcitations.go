@@ -33,8 +33,8 @@ import (
 // It was a bash wrapper around check-installed-citations.py (3e48ecac): the
 // Python classified and handed back violation lines plus a root and
 // per-member coverage behind sentinel prefixes, because only the wrapper
-// could source scripts/lib/coverage.sh. Here the classifier and the coverage
-// decision (coverage.go, coverage.sh's twin) are one process, so the
+// could source the bash coverage library. Here the classifier and the coverage
+// decision (coverage.go) are one process, so the
 // sentinel hand-off is gone; the reasoning the two files carried sits beside
 // the code it explains.
 //

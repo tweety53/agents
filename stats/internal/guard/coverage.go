@@ -8,7 +8,7 @@ import (
 )
 
 // coverage is per-member coverage, defined once for every guard (KAN-921
-// retired scripts/lib/coverage.sh, its bash original, once no bash guard
+// retired its bash original, the coverage library, once no bash guard
 // sourced it; TestCoverage pins this file to what that script printed).
 //
 // A guard exits 0 when it finds no violation — the same result a guard

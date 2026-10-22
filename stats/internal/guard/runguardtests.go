@@ -23,7 +23,7 @@ import (
 // a summary, replay only the failures, and fail a suite that changed the
 // watched repository's tree; exit 0 clean, 1 a failing harness, a companion
 // gap or a tree change, 2 cannot answer. It replaced the script's body and
-// scripts/lib/parallel.sh, the spawn/capture/replay library whose last
+// the bash spawn/capture/replay library whose last
 // caller it was (KAN-362, KAN-921).
 func init() { Registry["run-guard-tests"] = runGuardTests }
 
@@ -162,7 +162,7 @@ func runGuardTests(_ []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	// An interrupt removes the temp dir, then dies of that signal, as
-	// lib/parallel.sh's EXIT/INT/TERM traps did for its capture directory: a
+	// the bash parallel library's EXIT/INT/TERM traps did for its capture directory: a
 	// deferred RemoveAll alone never runs in a signal-killed process. The
 	// context also kills every harness still running.
 	ctx, cancel := context.WithCancel(context.Background())

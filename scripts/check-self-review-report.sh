@@ -69,7 +69,7 @@
 # list that exists but cannot be read is "cannot answer" (exit 2), never an
 # empty exemption set.
 #
-# PER-REPORT COVERAGE, via coverage.go (scripts/lib/coverage.sh's Go twin).
+# PER-REPORT COVERAGE, via coverage.go.
 # Each report's recorded
 # count is the number of section-level checks this guard actually performed
 # on it: one per angle heading it FOUND (not one per angle attempted), plus
@@ -77,7 +77,7 @@
 # not recognizable as a self-review report at all — none of the angle
 # headings present anywhere in it — gets NO per-section "missing" findings,
 # because there was nothing in it to check against; it is instead flagged
-# entirely through coverage.sh's undeclared-zero mechanism, so a report
+# entirely through coverage.go's undeclared-zero mechanism, so a report
 # checked for nothing is a named, failing fact rather than a silent pass
 # (KAN-73's own regression shape, reproduced as case 8 of this guard's Go
 # test). A report that IS recognizable — at least one angle
@@ -90,8 +90,7 @@
 # and a real error, and `--` before every path. This guard uses neither
 # `grep` nor `awk` against a report — each report is read whole and every
 # line is classified at the point it is read — so the first and third
-# disciplines have no call site on the report path, exactly as
-# scripts/lib/coverage.sh's own header states for the same reason. The
+# disciplines have no call site on the report path. The
 # canonical-table parse reads a generated-shaped Markdown table, not
 # untrusted report prose. The posture behind them still applies: the
 # directory walk and each report file's own read are the two remaining I/O

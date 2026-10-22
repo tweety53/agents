@@ -12,12 +12,12 @@ import (
 	"time"
 )
 
-// Every case of scripts/test-run-guard-tests.sh and cases 1–6 (with 5b) of
-// scripts/test-lib-parallel.sh at 2a3a0297, one subtest per ok: label,
+// Every case of the runner's bash harness and cases 1–6 (with 5b) of the
+// bash parallel library's harness at 2a3a0297, one subtest per ok: label,
 // plus the duration ordering and a SIGINT case. The bash harnesses ran the
 // runner with RUN_GUARD_TESTS_ROOT on a fixture and asserted on its exit and
 // combined output; here the runner runs in-process with the same overrides
-// on Env. Cases 7–9 of test-lib-parallel.sh tested bash traps, mktemp and
+// on Env. Cases 7–9 of the library's harness tested bash traps, mktemp and
 // `set -e` inside a library that no longer exists, and are not ported.
 
 const (
@@ -326,7 +326,7 @@ func TestRunGuardTests(t *testing.T) {
 		})
 	})
 
-	// test-lib-parallel.sh's cases, at the runner's level.
+	// The parallel library harness's cases, at the runner's level.
 	t.Run("parallel case 1/one failure among passes exits 1", func(t *testing.T) {
 		t.Parallel()
 		root := rgtFixture(t, map[string]string{"test-a.sh": "exit 0\n", "test-b.sh": "exit 1\n", "test-c.sh": "true\n"})

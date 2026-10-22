@@ -84,8 +84,7 @@
 #   GUARD-SYMLINKS-OK:      <root> — N guard(s) across M skill(s) validated
 #     <skill> <count> · <skill> <count> (declared) · ...
 #   GUARD-SYMLINKS-INVALID: <root> — N violation(s)
-# The second OK line is coverage.go's report fragment (the Go twin of
-# scripts/lib/coverage.sh's coverage_report):
+# The second OK line is coverage.go's report fragment:
 # how many rule-2-required guards this run actually found for EACH command
 # skill, so a rule computing an empty required set for one skill (KAN-73's
 # own defect, for skills/flow-fast/, before delegation resolution existed)

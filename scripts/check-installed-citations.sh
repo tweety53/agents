@@ -29,7 +29,7 @@
 #
 # Ported to Go (KAN-778), replacing this wrapper and
 # the Python guard it ran: classification and the coverage decision
-# (scripts/lib/coverage.sh's Go twin) now run in one process, so the
+# (coverage.go) now run in one process, so the
 # sentinel-prefix hand-off between the two files is gone. The binary does
 # not live in this checkout, so this shim exports FLOW_GUARD_REPO_ROOT —
 # this script's physical parent directory, the root the Python derived from
