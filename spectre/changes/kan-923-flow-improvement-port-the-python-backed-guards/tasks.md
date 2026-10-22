@@ -158,7 +158,7 @@ keeps the Python reading (`["none"]`) through a new `tcfPythonFiles` in `planpar
     `scripts/check-task-build-green.sh` (no argument) exits and prints as the wrapper did at
     `bbfe685e`, directly and through a symlink.
 
-- [ ] 3. Port plan-dispatch-bundles
+- [x] 3. Port plan-dispatch-bundles
 
 **Files:** `stats/internal/guard/plandispatchbundles.go`, `stats/internal/guard/plan_dispatch_bundles_test.go`, `stats/internal/guard/planparse.go`, `scripts/plan-dispatch-bundles.sh`, `scripts/test-plan-dispatch-bundles.sh`
 **Allowed-collateral:** `stats/internal/guard/helpers_test.go`
@@ -173,22 +173,22 @@ keeps the Python reading (`["none"]`) through a new `tcfPythonFiles` in `planpar
 **Decision:** scope-seven-guards
 **Decision:** shared-modules-deleted-last
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-plan-dispatch-bundles.sh`, one
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-plan-dispatch-bundles.sh`, one
     subtest per `ok:` label, the `PLAN_DISPATCH_BUNDLES_ROOT` scans included. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `plan-dispatch-bundles`; `parse_tasks` becomes the
+  - [x] **Step 2: Port**, registering `plan-dispatch-bundles`; `parse_tasks` becomes the
     `planparse.go` twin later tasks reuse.
-  - [ ] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestPlanDispatchBundles$'
+  - [x] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestPlanDispatchBundles$'
     -count=1 -race -v | grep -c -- '--- PASS: TestPlanDispatchBundles/'` — at least 50.
-  - [ ] **Step 4: Shim and delete** — shim template (repo-root lines when the wrapper's no-argument
+  - [x] **Step 4: Shim and delete** — shim template (repo-root lines when the wrapper's no-argument
     scan derives the root from its own location), code 2; `git rm
     scripts/test-plan-dispatch-bundles.sh`. `scripts/plan-dispatch-bundles.py` stays until task 8.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
     `scripts/plan-dispatch-bundles.sh
     spectre/changes/kan-923-flow-improvement-port-the-python-backed-guards/tasks.md` prints what
     `python3 scripts/plan-dispatch-bundles.py` prints on the same file, byte for byte, directly and
     through a symlink.
 
-- [ ] 4. Port plan-dispatch-groups
+- [x] 4. Port plan-dispatch-groups
 
 **Files:** `stats/internal/guard/plandispatchgroups.go`, `stats/internal/guard/plan_dispatch_groups_test.go`, `scripts/plan-dispatch-groups.sh`, `scripts/plan-dispatch-groups.py`, `scripts/test-plan-dispatch-groups.sh`, `skills/flow/scripts/plan-dispatch-groups.py`, `skills/flow-plan/scripts/plan-dispatch-groups.py`
 **Allowed-collateral:** `stats/internal/guard/helpers_test.go`
@@ -202,20 +202,20 @@ keeps the Python reading (`["none"]`) through a new `tcfPythonFiles` in `planpar
 
 **Decision:** scope-seven-guards
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-plan-dispatch-groups.sh`, one
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-plan-dispatch-groups.sh`, one
     subtest per `ok:` label. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `plan-dispatch-groups`, calling task 3's bundle computation
+  - [x] **Step 2: Port**, registering `plan-dispatch-groups`, calling task 3's bundle computation
     in-process; bundle violations pass through unchanged, as the Python did.
-  - [ ] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestPlanDispatchGroups$'
+  - [x] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestPlanDispatchGroups$'
     -count=1 -race -v | grep -c -- '--- PASS: TestPlanDispatchGroups/'` — at least 14.
-  - [ ] **Step 4: Shim and delete** — shim template, code 2; `git rm
+  - [x] **Step 4: Shim and delete** — shim template, code 2; `git rm
     scripts/test-plan-dispatch-groups.sh scripts/plan-dispatch-groups.py`.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
     `scripts/plan-dispatch-groups.sh
     spectre/changes/kan-923-flow-improvement-port-the-python-backed-guards/tasks.md` prints what the
     base's Python printed on the same file, directly and through a symlink.
 
-- [ ] 5. Port generate-relocation-comparison
+- [x] 5. Port generate-relocation-comparison
 
 **Files:** `stats/internal/guard/relocationcomparison.go`, `stats/internal/guard/generate_relocation_comparison_test.go`, `scripts/generate-relocation-comparison.sh`, `scripts/generate-relocation-comparison.py`, `scripts/test-generate-relocation-comparison.sh`, `skills/flow/scripts/generate-relocation-comparison.py`
 **Allowed-collateral:** `stats/internal/guard/helpers_test.go`
@@ -229,17 +229,17 @@ keeps the Python reading (`["none"]`) through a new `tcfPythonFiles` in `planpar
 
 **Decision:** scope-seven-guards
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-generate-relocation-comparison.sh`,
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-generate-relocation-comparison.sh`,
     one subtest per `PASS:` label (the symlink-path exit-2 cases included). Run — expect failure.
-  - [ ] **Step 2: Port**, registering `generate-relocation-comparison`, reusing task 3's
+  - [x] **Step 2: Port**, registering `generate-relocation-comparison`, reusing task 3's
     `parse_tasks` twin and `planparse.go`'s **Files:** parsing; every git call carries the pins the
     Python's did.
-  - [ ] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run
+  - [x] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run
     '^TestGenerateRelocationComparison$' -count=1 -race -v | grep -c -- '--- PASS:
     TestGenerateRelocationComparison/'` — at least 35.
-  - [ ] **Step 4: Shim and delete** — shim template, code 2; `git rm
+  - [x] **Step 4: Shim and delete** — shim template, code 2; `git rm
     scripts/test-generate-relocation-comparison.sh scripts/generate-relocation-comparison.py`.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`; the shim run on
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`; the shim run on
     `spectre/changes/archive/kan-300-myflow-reviewing-a-relocation-through-a-diff-is/tasks.md`, a plan
     declaring `**Relocation:** yes`, produces the comparison the base's Python produced on it, byte
     for byte, directly and through a symlink.
@@ -318,7 +318,7 @@ reused: the Python hard-codes `spectre/changes` and `sorted()` order, which it d
     `scripts/check-markdown-integrity.sh` on this tree exits and prints as the base's `.py` did,
     directly and through a symlink; `scripts/check-guard-symlinks.sh` exits 0.
 
-- [ ] 8. Delete the shared Python modules and repoint their citations
+- [x] 8. Delete the shared Python modules and repoint their citations
 
 **Files:** `scripts/plan-dispatch-bundles.py`, `scripts/lib/plan_grammar.py`, `scripts/check-task-commit-fields.py`, `.flow/project.md`, `skills/flow/scripts/plan-dispatch-bundles.py`, `skills/flow-plan/scripts/plan-dispatch-bundles.py`, `skills/flow/scripts/check-task-commit-fields.py`, `skills/flow-plan/scripts/check-task-commit-fields.py`, `skills/flow-fast/scripts/check-task-commit-fields.py`
 **Allowed-collateral:** `.flow/*.md`, `scripts/*.sh`, `scripts/lib/*.sh`, `hooks/*.py`, `mods/**/*.ts`, `skills/**/*.md`, `rules/*.mdc`, `README.md`, `CONTRIBUTING.md`, `stats/internal/guard/*.go`, `stats/cmd/flow/*.go`
@@ -341,12 +341,12 @@ citations.
 **Decision:** shared-modules-deleted-last
 **Decision:** carry-prior-port-decisions
 
-  - [ ] **Step 1: Confirm no importer.** `grep -lE 'plan_grammar|check-task-commit-fields\.py|plan-dispatch-bundles\.py' scripts/*.py scripts/lib/*.py`
+  - [x] **Step 1: Confirm no importer.** `grep -lE 'plan_grammar|check-task-commit-fields\.py|plan-dispatch-bundles\.py' scripts/*.py scripts/lib/*.py`
     prints only the three files themselves; any other hit is a port this plan missed — stop and
     report.
-  - [ ] **Step 2: Delete.** `git rm scripts/plan-dispatch-bundles.py scripts/lib/plan_grammar.py
+  - [x] **Step 2: Delete.** `git rm scripts/plan-dispatch-bundles.py scripts/lib/plan_grammar.py
     scripts/check-task-commit-fields.py`.
-  - [ ] **Step 3: Repoint.** `git grep -n -F -e plan_grammar.py -e check-task-commit-fields.py -e
+  - [x] **Step 3: Repoint.** `git grep -n -F -e plan_grammar.py -e check-task-commit-fields.py -e
     plan-dispatch-bundles.py -e check-plan-shape.py -e check-task-build-green.py -e
     check-task-records.py -e check-markdown-integrity.py -e plan-dispatch-groups.py -e
     generate-relocation-comparison.py -e test-check-plan-shape.sh -e test-check-task-build-green.sh
@@ -358,7 +358,7 @@ citations.
     `.flow/project.md`'s Bash + Python + Go paragraph lists the seven new Go guards and drops the
     `.py` examples it names.
     `unverified: the file set is known only after tasks 1–7 land; widen **Files:** by a correction if a hit falls outside the collateral globs`
-  - [ ] **Step 4: Verify.** Step 3's grep prints only the Go ports' own history comments; every
+  - [x] **Step 4: Verify.** Step 3's grep prints only the Go ports' own history comments; every
     guard in `.flow/project.md`'s `## lint` exits 0; `cd stats && make -s web-dist && go vet ./...
     && gofmt -l .` is clean.
 
