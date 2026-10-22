@@ -4,7 +4,9 @@
 # skills/flow-self-review/SKILL.md step 7 and skills/flow/integrate.md's bundle step
 # so the chain is correct once and harness-covered instead of
 # per-prose-copy. The chain, in order: re-assert the branch (F3 — nothing
-# at all runs on a mismatch), git add the report, optionally git rm the
+# at all runs on a mismatch), refuse an open finding, run the repository's
+# own scripts/check-self-review-report.sh over a report's directory when it
+# carries one, git add the report, optionally git rm the
 # context bundle, skip cleanly when nothing is staged, refuse loudly when
 # the staged set is anything beyond the chain's own paths (kan-657 — a
 # bare git commit takes the whole index, so a shared checkout's foreign
@@ -35,6 +37,10 @@
 #      "operator's choice", "your call", "if you want"); checked right after
 #      the start-of-run branch assert, so nothing is added, committed,
 #      pulled or pushed
+#   5  the report fails its check — one LAND-REPORT-INVALID line after the
+#      check's own, or LAND-REPORT-UNCHECKED when the check exits other than
+#      0 or 1; checked before anything is added, so nothing is added,
+#      committed, pulled or pushed
 #   otherwise git's own exit code, unmasked: a rejected push leaves the
 #   commit local and names itself on stderr; this script never retries it.
 #   A pull --rebase that stops on a conflict leaves <repo> mid-rebase with

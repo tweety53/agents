@@ -627,3 +627,71 @@ func TestLandSelfReviewReportRefusesDeferredFinding(t *testing.T) {
 		t.Fatalf("a non-noted report did not land: rc=%d stderr=%q", rc, e.String())
 	}
 }
+
+func TestLandSelfReviewReportRefusesAReportFailingItsCheck(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	repo := dir + "/repo"
+	var g fxGit
+	g.git("", "init", "-q", "-b", "main", repo)
+	for _, kv := range [][2]string{{"user.name", "land-test"}, {"user.email", "land-test@example.com"}, {"commit.gpgsign", "false"}} {
+		g.git(repo, "config", kv[0], kv[1])
+	}
+	g.git(repo, "commit", "-q", "--allow-empty", "-m", "base")
+	mkdir(t, repo+"/docs/self-review")
+	mkdir(t, repo+"/scripts")
+	g.write(repo+"/scripts/check-self-review-report.sh", `if [ -e "$1/UNANSWERABLE" ]; then exit 2; fi; if cat "$1"/*-self-review.md 2>/dev/null | grep -q BAD; then echo "$1/kan-c-self-review.md:3: BAD line"; exit 1; fi; exit 0`+"\n")
+	const ctx = "docs/self-review/kan-c-context.md"
+	const rep = "docs/self-review/kan-c-self-review.md"
+	g.write(repo+"/"+ctx, "BAD\n")
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	env := Env{Dir: dir, Getenv: os.Getenv, LookupEnv: hermeticGitLookup}
+	var o, e bytes.Buffer
+	land := func(path string) int {
+		o.Reset()
+		e.Reset()
+		return Registry["land-self-review-report"]([]string{repo, "main", "docs(self-review): kan-c self-review report", path}, env, &o, &e)
+	}
+
+	// (a) only a *-self-review.md add-path is checked.
+	if rc := land(ctx); rc != 0 {
+		t.Fatalf("(a) a context file did not land: rc=%d stderr=%q", rc, e.String())
+	}
+
+	// (b) a violation refuses before anything is staged.
+	g.write(repo+"/"+rep, "# kan-c\n\nBAD\n")
+	base := g.git(repo, "rev-parse", "HEAD")
+	rc := land(rep)
+	want := "LAND-REPORT-INVALID: " + rep + " fails check-self-review-report — fix the lines it names; nothing added, committed, pulled or pushed\n"
+	if rc != 5 || e.String() != want || !strings.Contains(o.String(), "kan-c-self-review.md:3: BAD line") {
+		t.Fatalf("(b) rc=%d stdout=%q stderr=%q", rc, o.String(), e.String())
+	}
+	if head := g.git(repo, "rev-parse", "HEAD"); head != base || g.git(repo, "diff", "--cached", "--name-only") != "" {
+		t.Fatalf("(b) the refusal moved HEAD or staged a path: %s", g.git(repo, "status", "--short"))
+	}
+
+	// (c) a check that cannot answer refuses too.
+	g.write(repo+"/"+rep, "# kan-c\n\nfine\n")
+	g.write(repo+"/docs/self-review/UNANSWERABLE", "")
+	rc = land(rep)
+	want = "LAND-REPORT-UNCHECKED: " + rep + " — check-self-review-report could not answer (exit 2); nothing added, committed, pulled or pushed\n"
+	if rc != 5 || e.String() != want {
+		t.Fatalf("(c) rc=%d stdout=%q stderr=%q", rc, o.String(), e.String())
+	}
+	if head := g.git(repo, "rev-parse", "HEAD"); head != base {
+		t.Fatalf("(c) the refusal moved HEAD")
+	}
+
+	// (d) a passing check lands the report.
+	if err := os.Remove(repo + "/docs/self-review/UNANSWERABLE"); err != nil {
+		t.Fatal(err)
+	}
+	if rc := land(rep); rc != 0 {
+		t.Fatalf("(d) a passing report did not land: rc=%d stderr=%q", rc, e.String())
+	}
+	if g.git(repo, "log", "-1", "--format=%s", "--", rep) == "" {
+		t.Fatalf("(d) the report was not committed")
+	}
+}

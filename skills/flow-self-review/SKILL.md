@@ -425,11 +425,13 @@ An angle-7 candidate is a `noted` line naming its kind and whether the operator 
 it, its template's fields beneath it as indented sub-bullets.
 
 Delete `<bundle>`; a pass inside a run has no bundle file and commits the report alone, per its
-run's own section. Run `<project>/scripts/check-self-review-report.sh` when the project declares
-it in `<project>/.flow/project.md`'s `## lint` section; fix any violation before committing.
+run's own section. `land-self-review-report.sh` runs `<project>/scripts/check-self-review-report.sh` over the
+report's directory when `<repo>` carries that script, and refuses a violation —
+`LAND-REPORT-INVALID`, exit 5, nothing committed: fix the lines the check names and land again.
 **Exit 2 — the guard cannot answer at all (a missing or unreadable target directory, an
-unreadable report inside it, an internal coverage.sh call failing) — is not a violation**: report it and stop before the
-commit, never commit a report the guard could not read.
+unreadable report inside it, an internal coverage.sh call failing) — is not a violation**: the
+chain refuses it as `LAND-REPORT-UNCHECKED`, exit 5; report it and stop, never commit a report
+the guard could not read.
 `land-self-review-report.sh` refuses a report whose finding line says `not traced` or `untraced` — `LAND-UNTRACED-FINDING`, exit 4, nothing committed: trace that finding to a verdict per step 2 (`skills/flow-self-review/SKILL.md`), rewrite its line, and land again.
 It refuses a `noted` finding line that leaves its action to the operator the same way, `LAND-DEFERRED-FINDING`, exit 4, nothing committed: fix that finding per step 3 (`skills/flow-self-review/SKILL.md`), or reword a line the guard misread, and land again.
 Commit both paths in one commit through the landing chain's one script — the same invocation

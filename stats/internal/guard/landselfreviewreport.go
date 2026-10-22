@@ -13,8 +13,9 @@ import (
 // landSelfReviewReport is scripts/land-self-review-report.sh: that script's
 // header comment is the contract -- the one landing chain for a self-review
 // report or context bundle, in its order, with exit 0 landed or nothing to
-// land, 1 branch mismatch, 2 usage, 3 foreign staged work, and otherwise
-// git's own exit code, unmasked.
+// land, 1 branch mismatch, 2 usage, 3 foreign staged work, 4 an open
+// finding, 5 a report failing its repository's check-self-review-report,
+// and otherwise git's own exit code, unmasked.
 //
 // Every git call is the bash's g() -- git resolved over env's PATH, run as
 // `git -C <repo>` from env.Dir -- with git's own output passed through to
@@ -90,6 +91,9 @@ func landSelfReviewReport(args []string, env Env, stdout, stderr io.Writer) int 
 		return rc
 	}
 	if rc := lsrrUntraced(env, repo, addPath, stderr); rc != 0 {
+		return rc
+	}
+	if rc := lsrrReportCheck(env, repo, addPath, stdout, stderr); rc != 0 {
 		return rc
 	}
 	if rc := lsrrStatus(g("add", "--", addPath).Run(), stderr); rc != 0 {
@@ -232,6 +236,48 @@ func lsrrWords(lines []string) string {
 // pushed. A path it cannot read is left to `git add`, which names it. A
 // `— noted` finding line leaving its action to the operator is refused the
 // same way, as LAND-DEFERRED-FINDING (pipeline-fix-kan-995-…-24).
+// lsrrReportCheck runs the landing repository's own
+// scripts/check-self-review-report.sh over a *-self-review.md add-path's
+// directory, before anything is staged: kan-922's self-review found KAN-923's
+// report landed on the base with two violations that check refuses. A
+// repository without the script, or any other add-path, lands as before.
+// Exit 1 is LAND-REPORT-INVALID, any other failure LAND-REPORT-UNCHECKED;
+// both return 5.
+func lsrrReportCheck(env Env, repo, addPath string, stdout, stderr io.Writer) int {
+	if !strings.HasSuffix(filepath.Base(addPath), "-self-review.md") {
+		return 0
+	}
+	root := repo
+	if !filepath.IsAbs(root) {
+		root = filepath.Join(env.Dir, root)
+	}
+	p := addPath
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(root, p)
+	}
+	script := filepath.Join(root, "scripts", "check-self-review-report.sh")
+	if fi, err := os.Stat(script); err != nil || !fi.Mode().IsRegular() {
+		return 0
+	}
+	cmd := exec.Command("bash", script, filepath.Dir(p))
+	cmd.Dir, cmd.Stdout, cmd.Stderr = root, stdout, stderr
+	err := cmd.Run()
+	if err == nil {
+		return 0
+	}
+	var ee *exec.ExitError
+	if errors.As(err, &ee) && ee.ExitCode() == 1 {
+		fmt.Fprintf(stderr, "LAND-REPORT-INVALID: %s fails check-self-review-report — fix the lines it names; nothing added, committed, pulled or pushed\n", addPath)
+		return 5
+	}
+	code := -1
+	if ee != nil {
+		code = ee.ExitCode()
+	}
+	fmt.Fprintf(stderr, "LAND-REPORT-UNCHECKED: %s — check-self-review-report could not answer (exit %d); nothing added, committed, pulled or pushed\n", addPath, code)
+	return 5
+}
+
 func lsrrUntraced(env Env, repo, addPath string, stderr io.Writer) int {
 	p := addPath
 	if !filepath.IsAbs(p) {
