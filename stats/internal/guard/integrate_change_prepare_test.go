@@ -15,22 +15,17 @@ printf '\n## integrate run\n\n- In-run pipeline fix: the renderer could not rend
 sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
 check "narrative_format: an off-format in-run fix line stops commit with exit 1" '[ "$RC" -eq 1 ]'
 check "narrative_format: the stop names the off-format line" \
-  'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: narrative — .*the renderer could not render an exp- slot"'
-# narrative_passes <label> <line>: a fresh prepare, <line> as the narrative's
-# in-run fix entry, and commit must pass.
-narrative_passes() {
-  fixture
-  sut prepare "$WORK/a" demo
-  [ "$RC" -eq 0 ] || halt prepare
-  printf '\n## integrate run\n\n%s\n' "$2" >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
-  sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
-  check "narrative_format: $1 passes commit" '[ "$RC" -eq 0 ]'
-}
-narrative_passes "a line in the format" '- In-run pipeline fix: 1a2b3c4 — the renderer could not render an exp- slot (blast radius 2 files)'
-narrative_passes "a prose mention of the token" 'The ` + "`" + `In-run pipeline fix:` + "`" + ` line was missing a sha.'
-narrative_passes "a well-formed line with trailing whitespace" '- In-run pipeline fix: 1a2b3c4 — the defect (blast radius 2 files)   '
-narrative_passes "a deferred line" '- In-run pipeline fix: deferred — the defect (blast radius 1 file)'
-narrative_passes "a backticked sha" '- In-run pipeline fix: ` + "`" + `1a2b3c4` + "`" + ` — the defect (blast radius 3 files).' `},
+  'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: narrative — .*the renderer could not render an exp- slot"'`},
+		{"narrative_format_in_format", icNarrativePasses + `# --- narrative_format_in_format ---
+narrative_passes "a line in the format" '- In-run pipeline fix: 1a2b3c4 — the renderer could not render an exp- slot (blast radius 2 files)'`},
+		{"narrative_format_prose_mention", icNarrativePasses + `# --- narrative_format_prose_mention ---
+narrative_passes "a prose mention of the token" 'The ` + "`" + `In-run pipeline fix:` + "`" + ` line was missing a sha.'`},
+		{"narrative_format_trailing_space", icNarrativePasses + `# --- narrative_format_trailing_space ---
+narrative_passes "a well-formed line with trailing whitespace" '- In-run pipeline fix: 1a2b3c4 — the defect (blast radius 2 files)   '`},
+		{"narrative_format_deferred", icNarrativePasses + `# --- narrative_format_deferred ---
+narrative_passes "a deferred line" '- In-run pipeline fix: deferred — the defect (blast radius 1 file)'`},
+		{"narrative_format_backticked_sha", icNarrativePasses + `# --- narrative_format_backticked_sha ---
+narrative_passes "a backticked sha" '- In-run pipeline fix: ` + "`" + `1a2b3c4` + "`" + ` — the defect (blast radius 3 files).'`},
 		{"narrative_runs", `# --- narrative_runs ---
 fixture
 echo 1 >"$WORK/fix-sessions"
@@ -252,23 +247,9 @@ printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/cha
 sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
 check "pre_reshape_pin: a differing pin on origin stops commit, untouched" \
   'printf "%s" "$OUT" | grep -q "^STOP: pre-reshape" && [ "$(git --git-dir="$WORK/b-origin.git" rev-parse refs/flow/pre-reshape/demo)" = "$stray" ]'`},
-		{"rerun_pin", `# --- rerun_pin ---
-rerun_pin_case() {
-  fixture
-  to_land "${1}"
-  [ "${2:-}" = reclone ] && git -C "$WORK/a" update-ref -d refs/flow/pre-reshape/demo
-  printf 'more\n' >"$WORK/a-worktrees/demo/more.txt"
-  g -C "$WORK/a-worktrees/demo" add more.txt && g -C "$WORK/a-worktrees/demo" commit -qm "feat(a): more" -m "Task-Id: 2"
-  sut prepare "$WORK/a" demo
-  [ "$RC" -eq 0 ] || halt prepare
-  sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): more work" "$WORK/b=feat(b): do the work"
-  check "${1}the re-run commit exits 0" '[ "$RC" -eq 0 ]'
-  check "${1}a's pin reaches both Task-Id commits" \
-    '[ "$(git -C "$WORK/a" log --format=%s --grep="^Task-Id: [12]$" main..refs/flow/pre-reshape/demo | sort | tr "\n" ,)" = "feat(a): more,feat(a): task 1," ]'
-  check "${1}origin holds the advanced pin" \
-    '[ "$(git --git-dir="$WORK/a-origin.git" rev-parse refs/flow/pre-reshape/demo)" = "$(git -C "$WORK/a" rev-parse refs/flow/pre-reshape/demo)" ]'
-}
-rerun_pin_case "rerun_pin: "
+		{"rerun_pin", icRerunPinCase + `# --- rerun_pin ---
+rerun_pin_case "rerun_pin: "`},
+		{"rerun_pin_reclone", icRerunPinCase + `# --- rerun_pin_reclone ---
 rerun_pin_case "rerun_pin reclone: " reclone`},
 		{"base_mismatch", `# --- base_mismatch ---
 fixture
@@ -386,3 +367,34 @@ sut prepare "$WORK/a" demo
 check "live_check_none: a wrapped no-runtime section needs no record" '[ "$RC" -eq 0 ]'`},
 	})
 }
+
+// icNarrativePasses is narrative_format's pass case, one call per case.
+const icNarrativePasses = `# narrative_passes <label> <line>: a fresh prepare, <line> as the narrative's
+# in-run fix entry, and commit must pass.
+narrative_passes() {
+  fixture
+  sut prepare "$WORK/a" demo
+  [ "$RC" -eq 0 ] || halt prepare
+  printf '\n## integrate run\n\n%s\n' "$2" >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
+  sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
+  check "narrative_format: $1 passes commit" '[ "$RC" -eq 0 ]'
+}
+`
+
+// icRerunPinCase is rerun_pin's case, one call per case.
+const icRerunPinCase = `rerun_pin_case() {
+  fixture
+  to_land "${1}"
+  [ "${2:-}" = reclone ] && git -C "$WORK/a" update-ref -d refs/flow/pre-reshape/demo
+  printf 'more\n' >"$WORK/a-worktrees/demo/more.txt"
+  g -C "$WORK/a-worktrees/demo" add more.txt && g -C "$WORK/a-worktrees/demo" commit -qm "feat(a): more" -m "Task-Id: 2"
+  sut prepare "$WORK/a" demo
+  [ "$RC" -eq 0 ] || halt prepare
+  sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): more work" "$WORK/b=feat(b): do the work"
+  check "${1}the re-run commit exits 0" '[ "$RC" -eq 0 ]'
+  check "${1}a's pin reaches both Task-Id commits" \
+    '[ "$(git -C "$WORK/a" log --format=%s --grep="^Task-Id: [12]$" main..refs/flow/pre-reshape/demo | sort | tr "\n" ,)" = "feat(a): more,feat(a): task 1," ]'
+  check "${1}origin holds the advanced pin" \
+    '[ "$(git --git-dir="$WORK/a-origin.git" rev-parse refs/flow/pre-reshape/demo)" = "$(git -C "$WORK/a" rev-parse refs/flow/pre-reshape/demo)" ]'
+}
+`
