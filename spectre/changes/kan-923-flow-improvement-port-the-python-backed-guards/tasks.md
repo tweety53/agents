@@ -91,7 +91,7 @@ step 5 names. The full package and `scripts/run-guard-tests.sh` run in `flow.ver
 
 ---
 
-- [ ] 1. Port check-plan-shape
+- [x] 1. Port check-plan-shape
 
 **Files:** `stats/internal/guard/planshape.go`, `stats/internal/guard/check_plan_shape_test.go`, `stats/internal/guard/planparse.go`, `scripts/check-plan-shape.sh`, `scripts/check-plan-shape.py`, `scripts/test-check-plan-shape.sh`, `skills/flow/scripts/check-plan-shape.py`, `skills/flow-fast/scripts/check-plan-shape.py`, `skills/flow-plan/scripts/check-plan-shape.py`
 **Allowed-collateral:** `stats/internal/guard/helpers_test.go`
@@ -107,19 +107,19 @@ step 5 names. The full package and `scripts/run-guard-tests.sh` run in `flow.ver
 **Decision:** plan-shape-subguards-in-process
 **Decision:** shims-export-repo-root
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-plan-shape.sh`, one subtest
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-plan-shape.sh`, one subtest
     per `ok:` label, the `CHECK_PLAN_SHAPE_ROOT` scans and the unlanded-archive scans included. Run —
     expect failure.
-  - [ ] **Step 2: Port**, registering `check-plan-shape`: every check of `check-plan-shape.py`, then
+  - [x] **Step 2: Port**, registering `check-plan-shape`: every check of `check-plan-shape.py`, then
     `plan-suite-steps`, `plan-script-paths` and `plan-task-id-rule` in-process per file, and the
     no-argument scan over `<spec-root>/changes/*/tasks.md` plus `unlanded-archives`, with
     `check_one`'s exit combination. The `plan_grammar.py` and commit-fields parse twins it needs go
     in `planparse.go`.
-  - [ ] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestCheckPlanShape$'
+  - [x] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestCheckPlanShape$'
     -count=1 -race -v | grep -c -- '--- PASS: TestCheckPlanShape/'` — at least 131.
-  - [ ] **Step 4: Shim and delete** — shim template with the repo-root lines, code 2;
+  - [x] **Step 4: Shim and delete** — shim template with the repo-root lines, code 2;
     `git rm scripts/test-check-plan-shape.sh scripts/check-plan-shape.py`.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
     `scripts/check-plan-shape.sh` (no argument) and `scripts/check-plan-shape.sh
     spectre/changes/kan-923-flow-improvement-port-the-python-backed-guards/tasks.md` exit and print
     as the wrapper did at `bbfe685e`, directly and through a symlink to the shim in a temp
@@ -274,7 +274,7 @@ keeps the Python reading (`["none"]`) through a new `tcfPythonFiles` in `planpar
     `scripts/check-task-records.sh .` exits and prints as the wrapper did at `bbfe685e`, directly
     and through a symlink.
 
-- [ ] 7. Port check-markdown-integrity
+- [x] 7. Port check-markdown-integrity
 
 **Files:** `stats/internal/guard/markdownintegrity.go`, `stats/internal/guard/check_markdown_integrity_test.go`, `scripts/check-markdown-integrity.sh`, `scripts/check-markdown-integrity.py`, `scripts/test-check-markdown-integrity.sh`, `.flow/project.md`
 **Allowed-collateral:** `stats/internal/guard/helpers_test.go`
@@ -289,16 +289,16 @@ keeps the Python reading (`["none"]`) through a new `tcfPythonFiles` in `planpar
 **Decision:** scope-seven-guards
 **Decision:** markdown-integrity-shim
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-markdown-integrity.sh`, one
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-markdown-integrity.sh`, one
     subtest per `ok:` label. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-markdown-integrity`.
-  - [ ] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestCheckMarkdownIntegrity$'
+  - [x] **Step 2: Port**, registering `check-markdown-integrity`.
+  - [x] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run '^TestCheckMarkdownIntegrity$'
     -count=1 -race -v | grep -c -- '--- PASS: TestCheckMarkdownIntegrity/'` — at least 25.
-  - [ ] **Step 4: Shim and delete** — new `scripts/check-markdown-integrity.sh` from the shim
+  - [x] **Step 4: Shim and delete** — new `scripts/check-markdown-integrity.sh` from the shim
     template (`chmod +x`), its header the `.py` docstring's contract paragraph; `.flow/project.md`'s
     `## lint` line `scripts/check-markdown-integrity.py` becomes `scripts/check-markdown-integrity.sh`;
     `git rm scripts/test-check-markdown-integrity.sh scripts/check-markdown-integrity.py`.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
     `scripts/check-markdown-integrity.sh` on this tree exits and prints as the base's `.py` did,
     directly and through a symlink; `scripts/check-guard-symlinks.sh` exits 0.
 
@@ -337,3 +337,7 @@ keeps the Python reading (`["none"]`) through a new `tcfPythonFiles` in `planpar
   - [ ] **Step 4: Verify.** Step 3's grep prints only the Go ports' own history comments; every
     guard in `.flow/project.md`'s `## lint` exits 0; `cd stats && make -s web-dist && go vet ./...
     && gofmt -l .` is clean.
+
+Correction (2026-10-22): task 2 added `tcfScanPlans` to `planparse.go`, the no-argument scan's file
+list with unlanded-archives in-process; `planshape.go`'s own no-argument scan duplicates it and is
+switched to it here (`stats/internal/guard/*.go` is already collateral), output unchanged.
