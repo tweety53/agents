@@ -40,7 +40,7 @@ _none — this angle produced no findings._
 
 ## What would make a good flow-eval case — `flow-eval`
 
-- **[flow-eval]** impl case: task 4, Port plan-dispatch-groups — noted
+- **[flow-eval]** impl case: task 4, Port plan-dispatch-groups (the operator chose not to mine it) — noted
   - Task: tasks.md task 4, "Port plan-dispatch-groups"
   - Code: `stats/internal/guard/plandispatchgroups.go:83` (`pdgComputeGroups`), commit 66a10378
   - Why: small, self-contained, a byte-exact oracle and a 14-case parity floor
