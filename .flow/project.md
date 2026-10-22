@@ -84,7 +84,7 @@ harnesses and the Go tests read files across the whole repository — `stats/int
 open `skills/`, `scripts/` and `setup.sh` through `../../../` — so both always run.
 
 `scripts/run-guard-tests.sh` discovers every `scripts/test-*.sh` by glob and runs them concurrently
-through `scripts/lib/parallel.sh`; a new harness added to `scripts/` is picked up automatically, with
+in `flow-guard` (`stats/internal/guard/runguardtests.go`); a new harness added to `scripts/` is picked up automatically, with
 no edit needed here. It points `FLOW_GUARD_CACHE_DIR` at its own temp directory, so a ported
 guard's shim builds `flow-guard` from this tree there rather than in the operator's cache;
 `scripts/test-go-guards.sh` runs the Go guard tests (`stats/internal/guard/`) as one harness. A

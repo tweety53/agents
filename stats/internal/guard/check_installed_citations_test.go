@@ -24,7 +24,7 @@ import (
 // Three of the harness's labels asserted on the harness itself, not the
 // guard: "CHECK PHASE replays every case in ascending build order" and the
 // two EXIT-trap-chaining cases, which pinned how the harness combined its
-// own cleanup trap with scripts/lib/parallel.sh's. Neither mechanism exists
+// own cleanup trap with the bash parallel library's. Neither mechanism exists
 // once the harness is gone; the three rows standing in for them pin the
 // guard-side facts they protected — the guard's own sandbox is gone after a
 // clean run and after a refused one, and setup.sh ran inside that sandbox.

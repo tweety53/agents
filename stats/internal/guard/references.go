@@ -782,7 +782,7 @@ func (r *crScan) checkReference(file string, lineno int, ref string, pairs [][2]
 	}
 	// This is a CHECKED reference: a bold token associated with a path that
 	// resolved to a real, headed file, and was actually compared against that
-	// file's headings — see scripts/lib/coverage.sh's header for why this
+	// file's headings — see coverage.go's doc comment for why this
 	// count, not the mere fact that checkFile ran, is what "coverage" means
 	// here. A file with none of these is a file this guard read but verified
 	// nothing in, indistinguishable from the outside from a rule that

@@ -429,7 +429,7 @@ run's own section. `land-self-review-report.sh` runs `<project>/scripts/check-se
 report's directory when `<repo>` carries that script, and refuses a violation —
 `LAND-REPORT-INVALID`, exit 5, nothing committed: fix the lines the check names and land again.
 **Exit 2 — the guard cannot answer at all (a missing or unreadable target directory, an
-unreadable report inside it, an internal coverage.sh call failing) — is not a violation**: the
+unreadable report inside it, an internal coverage call failing) — is not a violation**: the
 chain refuses it as `LAND-REPORT-UNCHECKED`, exit 5; report it and stop, never commit a report
 the guard could not read.
 `land-self-review-report.sh` refuses a report whose finding line says `not traced` or `untraced` — `LAND-UNTRACED-FINDING`, exit 4, nothing committed: trace that finding to a verdict per step 2 (`skills/flow-self-review/SKILL.md`), rewrite its line, and land again.
