@@ -7,16 +7,16 @@ The pass covers what the bundle holds plus the commits, files and logs it names,
 
 ## Problems encountered, and what pipeline change would avoid them — `flow-fix`
 
-- **[flow-fix]** Three new shims hand-rolled `resolve-file.sh` + `SELF_REAL` root resolution that `flow_guard_root()` already provides through skill symlinks — fixed: 44cc08d2
-- **[flow-fix]** `check-plan-unchanged verify` false-fired on the parent's own `flow tasks tick` made while a reviewer ran; it now snapshots plan content and passes checkbox-only flips — fixed: bfe442ac
-- **[flow-fix]** `tcfBodyFields` was last-wins, so a Correction line opening with `**Files:**)` overwrote task 5's real Files field; the first occurrence now wins — fixed: def4b823
+- **[flow-fix]** Three new shims hand-rolled `resolve-file.sh` + `SELF_REAL` root resolution that `flow_guard_root()` already provides through skill symlinks — fixed: f161defe
+- **[flow-fix]** `check-plan-unchanged verify` false-fired on the parent's own `flow tasks tick` made while a reviewer ran; it now snapshots plan content and passes checkbox-only flips — fixed: f477ba07
+- **[flow-fix]** `tcfBodyFields` was last-wins, so a Correction line opening with `**Files:**)` overwrote task 5's real Files field; the first occurrence now wins — fixed: 1e8705a6
 - **[flow-fix]** Tracked `skills/*/scripts/<name>.py` symlinks were not foreseen by the plan; `check-guard-symlinks.sh` rule 1 caught each at the first commit — noted
 - **[flow-fix]** The design.md premise on `check-task-records.sh`'s root was disproved: its Context already stated `${1:-$PWD}`, and the task-6 hedge was corrected — noted
 - **[flow-fix]** The live check ran the worktree's `skills/flow/scripts/` symlinks because `~/.claude/skills/flow` points at the main checkout; same path shape, byte-identical parity — noted
 
 ## Token/time cost, and what would reduce it without quality loss — `flow-cost`
 
-- **[flow-cost]** The panel diff carried about 10.8k lines of deleted-file bodies that every pass-1 slot read; `write-panel-diff` now passes `--irreversible-delete` — fixed: ddf1c636
+- **[flow-cost]** The panel diff carried about 10.8k lines of deleted-file bodies that every pass-1 slot read; `write-panel-diff` now passes `--irreversible-delete` — fixed: caafd6ca
 - **[flow-cost]** Implementer cache reads of 9.3M and 11.6M on the parity-heavy ports, with no redundant re-dispatch — noted
 
 ## What went well, and how to reproduce it — `flow-improvement`
@@ -36,7 +36,7 @@ _none — this angle produced no findings beyond the `check-plan-unchanged` fix 
 
 ## What can be sped up — `flow-speed`
 
-- **[flow-speed]** A race in `views.test.tsx` (the region renders while loading) forced a full `npm test` re-run in verify; the five sites now await loaded content — fixed: f635b62a
+- **[flow-speed]** A race in `views.test.tsx` (the region renders while loading) forced a full `npm test` re-run in verify; the five sites now await loaded content — fixed: b4071157
 
 ## What would make a good flow-eval case — `flow-eval`
 
