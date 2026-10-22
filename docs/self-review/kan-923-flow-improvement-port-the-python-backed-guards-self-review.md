@@ -28,7 +28,7 @@ The pass covers what the bundle holds plus the commits, files and logs it names,
 
 ## What could be automated or moved to a script — `flow-automation`
 
-_none — this angle produced no findings beyond the `check-plan-unchanged` fix under `flow-fix`._
+_none — this angle produced no findings._
 
 ## What could move to the Go app or its persistent storage — `flow-stats-app`
 
@@ -40,7 +40,7 @@ _none — this angle produced no findings beyond the `check-plan-unchanged` fix 
 
 ## What would make a good flow-eval case — `flow-eval`
 
-- **[flow-eval]** impl case: task 4, Port plan-dispatch-groups — noted, operator chose not to mine
+- **[flow-eval]** impl case: task 4, Port plan-dispatch-groups (the operator chose not to mine it) — noted
   - Task: tasks.md task 4, "Port plan-dispatch-groups"
   - Code: `stats/internal/guard/plandispatchgroups.go:83` (`pdgComputeGroups`), commit 66a10378
   - Why: small, self-contained, a byte-exact oracle and a 14-case parity floor
