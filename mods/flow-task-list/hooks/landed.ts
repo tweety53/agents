@@ -1,5 +1,5 @@
 // Which plan tasks have landed on a change branch, read from git. No imports, so
-// scripts/test-flow-task-list-landed.sh runs it under node against a real repository.
+// stats/internal/repotest/flow_task_list_landed_test.go runs it under node against a real repository.
 
 // The task numbers in the `Task-Id:` trailers `git log` printed, one value per line.
 export const landed = (log: string): number[] => (log.match(/\d+/g) ?? []).map(Number)
