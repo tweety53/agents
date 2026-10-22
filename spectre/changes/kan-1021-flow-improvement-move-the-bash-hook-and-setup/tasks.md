@@ -62,7 +62,7 @@ names, then the absence sweep. The full suite runs in `flow.verify`.
   - [ ] **Step 5: Absence sweep.** `git grep -n -F -e 'test-protect-main-checkout.sh' -- stats scripts hooks mods README.md CLAUDE.md AGENTS.md .flow` prints nothing.
 - [ ] 2. Port test-enforce-agent-baseline-hook.sh
 
-**Files:** `stats/internal/repotest/enforce_agent_baseline_hook_test.go`, `scripts/test-enforce-agent-baseline-hook.sh`, `README.md`
+**Files:** `stats/internal/repotest/enforce_agent_baseline_hook_test.go`, `scripts/test-enforce-agent-baseline-hook.sh`, `README.md`, `stats/internal/repotest/helpers_test.go`
 **Tests:** `TestEnforceAgentBaselineHook`
 **Regression:** `TestEnforceAgentBaselineHook` fails if any behaviour `scripts/test-enforce-agent-baseline-hook.sh` pinned at `e77f951b` regresses.
 **Baseline:** before=1 after=2
