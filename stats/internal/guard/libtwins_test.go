@@ -109,10 +109,13 @@ func symlink(t *testing.T, target, link string) {
 	}
 }
 
-// TestResolveFileParity pins resolveFile against lib/resolve-file.sh's
-// resolve_file.
+// TestResolveFileParity pins resolveFile against the retired
+// lib/resolve-file.sh's resolve_file, as it stood at 8c54d6d3 (KAN-1020
+// deleted it once no script sourced it).
 func TestResolveFileParity(t *testing.T) {
 	t.Parallel()
+	lib := filepath.Join(t.TempDir(), "resolve-file.sh")
+	writeFile(t, lib, string(historicalFile(t, "../../..", "8c54d6d3", "scripts/lib/resolve-file.sh")))
 	d := t.TempDir()
 	writeFile(t, d+"/file.txt", "x\n")
 	writeFile(t, d+"/dir/inner.txt", "x\n")
@@ -180,7 +183,7 @@ func TestResolveFileParity(t *testing.T) {
 			} else {
 				got.status = 1
 			}
-			assertParity(t, got, bashLib(t, "resolve-file.sh", "resolve_file", tc.in))
+			assertParity(t, got, bashRun(t, nil, nil, lib, "resolve_file", tc.in))
 		})
 	}
 }

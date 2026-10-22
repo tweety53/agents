@@ -6,14 +6,13 @@ import (
 	"strings"
 )
 
-// resolveFile is the Go twin of scripts/lib/resolve-file.sh, which stays the
-// source of truth while check-plan-shape.sh and plan-dispatch-bundles.sh
-// still source it;
-// its header carries the reasoning (KAN-73's F1, F9, KAN-201's F16), and
+// resolveFile is the Go twin of scripts/lib/resolve-file.sh, retired by
+// KAN-1020 once no script sourced it; its header as it stood at 8c54d6d3
+// carries the reasoning (KAN-73's F1, F9, KAN-201's F16), and
 // TestResolveFileParity fails when the two print or return differently for
 // the same path.
 
-// resolveFile is lib/resolve-file.sh's resolve_file:
+// resolveFile is the retired lib/resolve-file.sh's resolve_file:
 // follow the leaf's symlinks (at most 40 hops), then resolve its directory
 // physically, as `cd -P`. false where the bash function returns non-zero.
 func resolveFile(p string) (string, bool) {

@@ -63,7 +63,7 @@ func TestMain(m *testing.M) {
 }
 
 // The rows below pin the helpers' own outputs: sha256.go (known SHA-256
-// vectors, the outputs the retired scripts/lib/sha256-hex.sh produced), scripts/lib/spec-root.sh (its four documented
+// vectors, the outputs the retired scripts/lib/sha256-hex.sh produced), specroot.go (the retired scripts/lib/spec-root.sh's four documented
 // branches) and changeplan.go (every case of its deleted bash twin's harness
 // (KAN-887), named after its ok: label).
 

@@ -14,7 +14,7 @@ import (
 // The port of scripts/gather-dispatch-context.sh, whose header is canonical
 // for the contract: arguments, VALIDATION, LEAF VALIDATION, the content
 // directory, the incidents and hazards sections, and SKIP-WHEN-UNCHANGED.
-// The helpers it sourced -- lib/resolve-file.sh, twinned in resolvefile.go;
+// The helpers it sourced -- the since-retired lib/resolve-file.sh, twinned in resolvefile.go;
 // the section reader now in projectsection.go; and
 // the since-deleted lib/within-root.sh and lib/lexical-normalize.sh -- are
 // ported below as far as this guard uses them.
@@ -577,7 +577,7 @@ func validatePath(env Env, path string) (real string, mismatch bool) {
 	// anywhere in the chain. The lexical form is always absolute with no "."
 	// segment and no trailing slash, so resolveFile never sees either shape
 	// here. resolveFile itself also normalizes the trailing slash on its own
-	// input (F9, lib/resolve-file.sh's own "NORMALIZES ITS OWN INPUT"
+	// input (F9, the retired lib/resolve-file.sh's own "NORMALIZES ITS OWN INPUT"
 	// comment), so this pre-normalization is belt-and-braces, not the only
 	// thing standing between this function and the bug.
 	real, ok := resolveFile(lexical)
