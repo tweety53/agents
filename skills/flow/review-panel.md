@@ -661,9 +661,12 @@ INDEPENDENT PASSES and WORKTREES:
 > this prompt is your named entry context — begin from those two, not from a whole-tree
 > exploration. The list names every path this branch touched, per worktree, with the named
 > contracts among them; read a listed file only as far as the diff and a finding require, and step
-> outside the list only when a finding cannot otherwise be established. Name the coverage trade in
-> your report: which touched files you read in full, which you read only at the diff's hunks, and
-> which you deliberately did not read.
+> outside the list only when a finding cannot otherwise be established. A deleted file shows in the
+> diff as its header alone; read its old body with `git show <sha>:<path>`, the sha the section's
+> diff range starts from — for `slot-delta` with a held sha, the held sha; otherwise the sha its
+> section's `# worktree:` header names. Name the coverage trade in your report: which touched
+> files you read in full, which you read only at the diff's hunks, and which you deliberately did
+> not read.
 
 **Resolve `[TOUCHED_FILES]` before dispatching any slot**: it is the `.touched` file the
 round's `write-panel-diff.sh` call wrote beside the diff the slot reads, over that diff's own

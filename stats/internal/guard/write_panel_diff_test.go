@@ -35,8 +35,8 @@ func wpdNewWT(t *testing.T, g *fxGit, path string) wpdWT {
 // wpdRecipe is the prose's hand recipe: `printf` headers and `git -C <wt>
 // diff` sections appended to one file, run by bash under the process
 // environment, as the parent ran it. $1 the output file, $2 the semantics
-// line ("" for none), $3 the diff flags ("" or --name-status), $4 the range
-// shape, then <wt> <header-sha> <from> triples.
+// line ("" for none), $3 the diff flags (--irreversible-delete or
+// --name-status), $4 the range shape, then <wt> <header-sha> <from> triples.
 const wpdRecipe = `set -e
 out=$1 sem=$2 flags=$3 shape=$4; shift 4
 : > "$out"
@@ -128,7 +128,7 @@ func TestWritePanelDiffParity(t *testing.T) {
 					if strings.HasPrefix(tc.label, "slot-delta") && tc.triples[i+2] == tc.triples[i+1] {
 						shape = "to-tree"
 					}
-					want += wpdHand(t, scratch+"/d", sem, "", shape, tc.triples[i:i+3])
+					want += wpdHand(t, scratch+"/d", sem, "--irreversible-delete", shape, tc.triples[i:i+3])
 					wantTouched += wpdHand(t, scratch+"/t", "", "--name-status", shape, tc.triples[i:i+3])
 				}
 				r := runGuard("write-panel-diff", tc.args, Env{Dir: dir, Getenv: os.Getenv})
@@ -211,5 +211,33 @@ func TestWritePanelDiffRefusals(t *testing.T) {
 				t.Errorf("wrote %d file(s) on a refusal", len(entries))
 			}
 		})
+	}
+}
+
+// A deleted file shows in a panel diff as its header alone: its body is
+// never sent to a reviewer, and the .touched list still names it.
+func TestWritePanelDiffOmitsDeletedBodies(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	var g fxGit
+	w := wpdNewWT(t, &g, dir+"/wt")
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	r := runGuard("write-panel-diff", []string{"final", w.path, w.path, w.mb}, Env{Dir: dir, Getenv: os.Getenv})
+	if r.rc != 0 {
+		t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
+	}
+	diff := rbRead(w.path + "/.superpowers/sdd/final-review.diff")
+	if !strings.Contains(diff, "diff --git a/gone.txt b/gone.txt") || !strings.Contains(diff, "deleted file mode") {
+		t.Errorf("diff lacks gone.txt's deletion header:\n%s", diff)
+	}
+	for _, l := range strings.Split(diff, "\n") {
+		if l == "-gone" {
+			t.Errorf("diff carries the deleted body line -gone:\n%s", diff)
+		}
+	}
+	if touched := rbRead(w.path + "/.superpowers/sdd/final-review.diff.touched"); !strings.Contains(touched, "D\tgone.txt") {
+		t.Errorf(".touched lacks D\\tgone.txt:\n%s", touched)
 	}
 }

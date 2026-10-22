@@ -101,7 +101,7 @@ func writePanelDiff(args []string, env Env, stdout, stderr io.Writer) int {
 		for _, o := range []struct {
 			buf   *bytes.Buffer
 			flags []string
-		}{{&diff, nil}, {&touched, []string{"--name-status"}}} {
+		}{{&diff, []string{"--irreversible-delete"}}, {&touched, []string{"--name-status"}}} {
 			out, err := panelGit(env, gitBin, wt, append(append([]string{"diff"}, o.flags...), rng...)...).Output()
 			if err != nil {
 				fmt.Fprintf(stderr, "write-panel-diff: git diff %v failed in %s\n", append(o.flags, rng...), wt)

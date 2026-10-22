@@ -28,6 +28,11 @@
 #   fix-round   git diff <fix-base>..HEAD
 #   slot-delta  git diff <held-sha> HEAD; a `-` held sha — a worktree in
 #               which the slot holds no sha — reads git diff <merge-base>
+# Every diff section (never the .touched one) runs with --irreversible-delete,
+# so a deleted file shows as its header alone; its old body is
+# `git show <sha>:<path>`, the sha the section's diff range starts from —
+# for slot-delta with a held sha, the held sha; otherwise the sha its
+# section's `# worktree:` header names.
 #
 # Exit codes:
 #   0  both files written
