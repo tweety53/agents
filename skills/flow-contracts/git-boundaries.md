@@ -150,6 +150,16 @@ branch when that commit's own `-m` text carries neither trailer and no `chore` s
 pathspec is not limited to `<project>/<spec-root>/changes/` (kan-1003: the design handoff 0497d943 was
 committed and pushed in one command, and run 1's gate listed it).
 
+## Restoring a path with unstaged edits
+
+**A restore that would discard unstaged edits is denied.** `hooks/protect-main-checkout.py` denies
+a typed `git checkout … -- <path>` or `git restore <path>` in a linked worktree when a path it names
+carries unstaged edits: the restore reverts the file to its index state, and an uncommitted fix on
+it is lost with the flip a mutation proof made (kan-1006's self-review). Restore a flipped file
+with `break-and-prove.sh` or `mutate-and-verify.sh`, which restore from a pre-mutation byte
+snapshot (**Panel re-runs**, `skills/flow/review-panel.md`); `git restore --staged`, and a path
+with no unstaged edits, are restored as before.
+
 ## Revert and back-out commits
 
 **A back-out's commit body carries the rejection reason.** When a landed-then-reverted prototype

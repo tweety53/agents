@@ -139,6 +139,11 @@
 #  147. `git commit -F msg.txt && git push`                          -> allow (a message the command does not state)
 #  148. a trailer-less commit pushed to `HEAD:feature/x`             -> allow (no change branch)
 #  150. the 145 planning commit with its pathspec given without `--` -> allow
+#  151. Bash `git -C <wt> checkout -- f.txt`, f.txt with unstaged edits -> deny
+#  152. Bash `git -C <wt> restore f.txt`, the same                  -> deny
+#  153. Bash `cd <wt> && git checkout HEAD -- f.txt`, the same       -> deny
+#  154. Bash `git -C <wt> restore --staged f.txt`, the same          -> allow (the index only)
+#  155. Bash `git -C <wt> checkout -- f.txt`, f.txt clean            -> allow
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$SCRIPT_DIR/../hooks/protect-main-checkout.py"
@@ -747,6 +752,29 @@ expect "142 an unbalanced quote, then '>' glued to a main-checkout path" deny \
   "$(run "$ROOT" Bash "{\"command\":$(q "echo it's >$MAIN/f.txt")}")"
 expect "149 '>&' into the main checkout" deny \
   "$(run "$ROOT" Bash "{\"command\":$(q "echo x >& $MAIN/f.txt")}")"
+
+# 151-155: a restore that would discard unstaged edits in a linked worktree (kan-1006's self-review)
+echo flipped >"$WT/f.txt"
+expect "151 checkout -- of a path with unstaged edits" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $WT checkout -- f.txt")}")"
+expect "152 restore of a path with unstaged edits" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $WT restore f.txt")}")"
+expect "153 checkout HEAD -- after a cd" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cd $WT && git checkout HEAD -- f.txt")}")"
+expect "154 restore --staged touches the index only" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $WT restore --staged f.txt")}")"
+expect "156 restore with stderr sent to /dev/null" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $WT restore f.txt 2>/dev/null")}")"
+expect "157 checkout -- with stdout sent to /dev/null" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $WT checkout -- f.txt >/dev/null")}")"
+git_q -C "$WT" add f.txt
+expect "158 checkout HEAD -- of a staged-only edit" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $WT checkout HEAD -- f.txt")}")"
+expect "159 restore --source=HEAD --staged --worktree of a staged-only edit" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $WT restore --source=HEAD --staged --worktree f.txt")}")"
+git_q -C "$WT" checkout HEAD -- f.txt
+expect "155 checkout -- of a clean path" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $WT checkout -- f.txt")}")"
 
 # 3 last: moving the main checkout off main lifts the protection
 git_q -C "$MAIN" checkout -q -b feature

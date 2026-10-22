@@ -985,6 +985,9 @@ the **AskUserQuestion** it states.
 > you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather
 > than deciding it yourself.
 
+**A restore that would discard unstaged edits is denied** (**Restoring a path with unstaged edits**,
+`skills/flow-contracts/git-boundaries.md`).
+
 **Every fix subagent's dispatch prompt also carries the PIXEL PROBE paragraph**:
 
 > **PIXEL PROBE:** every fix you land to draw/geometry code — code that computes what is

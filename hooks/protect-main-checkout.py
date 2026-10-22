@@ -25,6 +25,11 @@ sibling `<dirname top>/<basename top>-worktrees/<change>` only. "Default branch"
 of main, master or develop counts. A main checkout on a feature branch is not protected — leaving
 the default branch is how work gets a branch of its own.
 
+It also denies, in a linked worktree, a `git checkout … -- <path>` or `git restore <path>` naming
+a path with unstaged edits: the restore reverts it to its index state and an uncommitted fix dies
+with it. The reason points at break-and-prove.sh and mutate-and-verify.sh, which restore from a
+byte snapshot.
+
 It also denies a landing push that would leave its change open: `git push <remote> <src>:<default>`
 where `<src>`'s tree still holds `spectre/changes/<branch>/` — `<branch>` being `<src>`, or the
 current branch for `HEAD`, with a `/flow` branch's `spectre/` prefix dropped. A change lands
@@ -689,6 +694,62 @@ def commit_lacks_trailer(args, target):
     return not (paths and all(any(s in resolve(p, target) + "/" for s in planning) for p in paths))
 
 
+def discards_unstaged(verb, args, target):
+    """The deny reason when `git checkout … -- <path>` or `git restore <path>` in a linked worktree
+    names a path carrying unstaged edits, else None. Either restore reverts the file to its index
+    state, so an uncommitted fix dies with the mutation-proof flip it was meant to undo (kan-1006's
+    self-review). `git restore --staged` touches only the index and passes.
+
+    ponytail: a `git checkout <path>` without `--` is not judged — telling a path from a branch
+    there needs the ref namespace; add it when that spelling shows up in a reflog."""
+    if target is None:
+        return None
+    if verb == "checkout":
+        if "--" not in args:
+            return None
+        paths = args[args.index("--") + 1 :]
+        tree_ish = any(not a.startswith("-") for a in args[: args.index("--")])
+    elif verb == "restore":
+        if ("--staged" in args or "-S" in args) and "--worktree" not in args and "-W" not in args:
+            return None
+        tree_ish = any(a in ("-s", "--source") or a.startswith("--source=") for a in args)
+        if "--" in args:
+            paths = args[args.index("--") + 1 :]
+        else:
+            paths, skip = [], False
+            for a in args:
+                if skip:
+                    skip = False
+                elif a in ("-s", "--source"):
+                    skip = True
+                elif not a.startswith("-"):
+                    paths.append(a)
+    else:
+        return None
+    if not paths:
+        return None
+    git_dir = git(target, "rev-parse", "--absolute-git-dir")
+    common = git(target, "rev-parse", "--git-common-dir")
+    if not git_dir or not common:
+        return None
+    if not os.path.isabs(common):
+        common = os.path.join(target, common)
+    if os.path.realpath(git_dir) == os.path.realpath(common):
+        return None  # not a linked worktree
+    # a tree-ish or --source overwrites the index too, so staged edits are lost as well
+    dirty = git(target, "diff", "--name-only", *(["HEAD"] if tree_ish else []), "--", *paths)
+    if not dirty:
+        return None
+    files = ", ".join(dirty.splitlines())
+    return (
+        f"Blocked: this `git {verb}` would discard the uncommitted edits on {files} — it reverts the "
+        "file to its index state, and an uncommitted fix on it is lost with the flip a mutation "
+        "proof made (**Restoring a path with unstaged edits**, skills/flow-contracts/git-boundaries.md). "
+        "Restore a flipped file with `break-and-prove.sh` or `mutate-and-verify.sh`, which restore "
+        "from a pre-mutation byte snapshot; edits that must go are committed or stashed first."
+    )
+
+
 def bash_hits(command, cwd, landings=None):
     """Paths a Bash command writes into or git-mutates, resolved against cwd and `cd`.
 
@@ -746,6 +807,19 @@ def bash_hits(command, cwd, landings=None):
                     j += 1
                 if j < n and tokens[j] in DENIED_GIT_VERBS:
                     hits.append(target)
+                if j < n and tokens[j] in ("checkout", "restore") and landings is not None:
+                    rargs = []
+                    for t in tokens[j + 1 :]:
+                        if t in SEPARATORS or t == ")":
+                            break
+                        if t[0] in "<>" or t.startswith("&>"):
+                            if rargs and rargs[-1].isdigit():
+                                rargs.pop()  # the fd of `2>/dev/null`
+                            break
+                        rargs.append(t)
+                    discard = discards_unstaged(tokens[j], rargs, target)
+                    if discard:
+                        landings.append(discard)
                 if j < n and tokens[j] == "commit" and target is not None:
                     cargs = []
                     for t in tokens[j + 1 :]:
