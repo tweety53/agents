@@ -1,0 +1,24 @@
+# 54603278 (cherry-picked onto this branch): kickoff and integrate create a missing --base.
+Kickoff records it on the change's branch in every repository (`kickoff-worktree.sh <project> <name> <base>`, and `kickoff-worktree.sh --from <this change's worktree>` for every worktree added after kickoff), and `resolve-base-branch.sh` reads it back for every later phase, so it is never passed again.
+A worktree on its default branch whose origin lacks the base another worktree records is not a stop: `prepare` creates that base on its origin from the default branch, re-points the worktree with the three commands below, and prints one `BASE-CREATED:` line.
+Kickoff records it on the change's branch in every repository (`kickoff-worktree.sh <project> <name> <base>`, and `kickoff-worktree.sh --from <this change's worktree>` for every worktree added after kickoff), first creating it from that repository's default branch where its origin lacks it, and `resolve-base-branch.sh` reads it back for every later phase, so it is never passed again.
+# Task 3 (check-base-behind-guard, the verify call site and the never-merge rule).
+**Never merge the tracked branch into a change branch** (kan-1007): the change branch then carries the tracked branch's commits as its own, and integrate's reshape folds them into the change's squash — the base is what gets synced.
+**Then compare every recorded base with the branch it tracks, on the run's first `flow.verify` only.
+Exit 2 → name its stderr in the handoff and continue (kan-1007: a stale `--base` was papered over by merging develop into the change branches, and integrate's reshape folded KAN-1010 into the squash).
+`check-base-behind.sh` makes that count for every worktree of the change and prints the sync commands (**Verify**, `skills/flow/verify-and-handoff.md`).
+check-base-behind.sh <worktree>...
+over the same resolved set; its header is canonical for its lines.
+# Task 4 (panel-refuses-unticked-tasks).
+The task closes through `close-task.sh` — an inline-committed one included — before step 3 opens any `panel-<round>-*` dispatch; `flow record dispatch begin` refuses a panel key while `tasks.md` holds an unticked task (kan-1007: panel round 4 began 16 seconds after task 8's inline commit, before its close).
+# Task 5 (leftover-1dp-not-clean).
+A leftover of any size — a 1dp offset included — is closed or named with its cause, never reported clean because it is small (kan-1007: a fix round called a first-try 1dp offset clean).
+# Task 6 (plan-time-capture-measured).
+**Write a capture task that baselines against a mockup to measure before it commits.
+# Task 7 (sidecar-frame-exists): the call-site paragraph is reworded.
+Exit 1 → each line names a sidecar line whose screenshot no spec beside it takes, a failing check: kan-998's stale lines surfaced only at compose, after a 13-minute capture.
+When `mockups` is declared, the same Bash call also runs `check-sidecar-reach.sh <capture root>`, `<capture root>` the `regression checkout`'s worktree when one is declared, else this worktree; its header is canonical for the rule.
+Exit 1 → each line names a sidecar line whose screenshot no spec beside it takes, or whose frame the mockups root does not hold, a failing check: kan-998's stale lines surfaced only at compose, after a 13-minute capture.
+When `mockups` is declared, the same Bash call also runs `check-sidecar-reach.sh <capture root> <mockups root>`, `<capture root>` the `regression checkout`'s worktree when one is declared, else this worktree, and `<mockups root>` the resolved `mockups` root (`<worktree>/<mockups>`); its header is canonical for the rule.
+# Task 8 (mockups-only-round-composes).
+**A round whose diff touches only the mockups root composes instead of verifying.
