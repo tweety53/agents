@@ -1,7 +1,7 @@
 # scripts/lib/resolve-file.sh — resolve_file, defined once.
 #
-# Sourced by scripts/check-dev-stack-fresh.sh, scripts/check-plan-shape.sh
-# and scripts/plan-dispatch-bundles.sh, as it was by
+# Sourced by scripts/check-plan-shape.sh and scripts/plan-dispatch-bundles.sh,
+# as it was by
 # scripts/check-guard-symlinks.sh until its Go port (KAN-841) and by
 # scripts/check-workspace-isolation.sh until its (KAN-842); the twin is
 # resolveFile, stats/internal/guard/resolvefile.go. check-guard-symlinks.sh,
