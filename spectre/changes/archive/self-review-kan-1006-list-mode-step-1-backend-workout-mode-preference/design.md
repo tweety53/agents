@@ -127,3 +127,5 @@ Task 4 is two store commands.
 **Considered:** a dispatch per repository — three cold starts for four patch-sized tasks.
 
 ## Open questions
+
+- **Correction (review-1):** `restore-denial-in-protect-hook` widened — when `checkout` names a tree-ish before `--`, or `restore` takes `-s`/`--source`, the dirty check diffs against HEAD so staged-only edits are protected too; redirect tokens end the path scan.
