@@ -16,6 +16,9 @@ type Env struct {
 	// LookupEnv is os.LookupEnv in production: bash's `${NAME+set}`, for a
 	// guard whose contract tells a set-but-empty variable from an unset one.
 	LookupEnv func(string) (string, bool)
+	// Environ is os.Environ in production (nil reads as it): the whole
+	// environment a guard hands its children.
+	Environ func() []string
 	// Deadlines override the guards' integer-second env knobs in tests only;
 	// zero means "parse the env knob as the bash guard does".
 	ReproducerBound, ReproducerGrace, SurvivorsTimeout, SurvivorsKillGrace time.Duration
