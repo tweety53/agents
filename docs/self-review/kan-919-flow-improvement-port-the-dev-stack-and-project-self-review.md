@@ -7,9 +7,9 @@ The pass covers what the bundle holds plus the commits and files it names, and n
 
 ## Problems encountered, and what pipeline change would avoid them — `flow-fix`
 
-- **[flow-fix]** Data race in the new `TestCheckDevStackFresh` case 3: the httptest handler read `served` while the test goroutine wrote it; the race detector flagged parallel tests too, and verify waived it as environmental — fixed: 74492d54
-- **[flow-fix]** `run-verify-list.sh` deleted a failing command's full output and kept 20 lines, losing the race stack; the output now stays in the git dir and its path is printed — fixed: 5e9f6de7
-- **[flow-fix]** Verify's one inline re-run waived a data race that passed on re-run; a `WARNING: DATA RACE` is now never environmental and goes to The loop — fixed: 47c4ae9a
+- **[flow-fix]** Data race in the new `TestCheckDevStackFresh` case 3: the httptest handler read `served` while the test goroutine wrote it; the race detector flagged parallel tests too, and verify waived it as environmental — fixed: 7fcd8e21
+- **[flow-fix]** `run-verify-list.sh` deleted a failing command's full output and kept 20 lines, losing the race stack; the output now stays in the git dir and its path is printed — fixed: 8068271f
+- **[flow-fix]** Verify's one inline re-run waived a data race that passed on re-run; a `WARNING: DATA RACE` is now never environmental and goes to The loop — fixed: bb8d0a92
 - **[flow-fix]** The plan named `npx` and two unrelated Files paths; panel F5 and `check-task-commit-fields` caught both, each fixed by a one-line Correction — noted
 
 ## Token/time cost, and what would reduce it without quality loss — `flow-cost`
@@ -26,8 +26,8 @@ The pass covers what the bundle holds plus the commits and files it names, and n
 
 ## What could be automated or moved to a script — `flow-automation`
 
-- **[flow-automation]** `check-plan-shape` passed an unbackticked multi-path `**Files:**` that `check-task-commit-fields` read as one path; it is now a plan-shape violation — fixed: 02d5dcea
-- **[flow-automation]** `run-reproducer` silently read a near-miss `# mutation-reproducer: …` marker as generic; it now refuses with exit 2 — fixed: 22ed70c5
+- **[flow-automation]** `check-plan-shape` passed an unbackticked multi-path `**Files:**` that `check-task-commit-fields` read as one path; it is now a plan-shape violation — fixed: 090d4e2d
+- **[flow-automation]** `run-reproducer` silently read a near-miss `# mutation-reproducer: …` marker as generic; it now refuses with exit 2 — fixed: 81b36d0d
 
 ## What could move to the Go app or its persistent storage — `flow-stats-app`
 
