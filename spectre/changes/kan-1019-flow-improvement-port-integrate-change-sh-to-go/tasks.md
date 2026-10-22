@@ -64,7 +64,7 @@ the operator's real `$HOME`, cache or this repository's tree.
 
 ---
 
-- [ ] 1. Port integrate-change.sh to flow-guard behind a shim
+- [x] 1. Port integrate-change.sh to flow-guard behind a shim
 
 **Files:** `stats/internal/guard/integratechange.go`, `stats/internal/guard/integratechange_prepare.go`, `stats/internal/guard/integratechange_commit.go`, `stats/internal/guard/integratechange_land.go`, `stats/internal/guard/integratechange_cleanup.go`, `scripts/integrate-change.sh`
 **Tests:** **none** — the unchanged `scripts/test-integrate-change.sh` is this task's regression, run against the shim.
@@ -81,11 +81,11 @@ the operator's real `$HOME`, cache or this repository's tree.
 **Decision:** bash-harness-is-the-oracle
 **Decision:** header-moves-to-doc-comment
 
-  - [ ] **Step 1: Record the oracle.** Run the harness on the untouched tree and keep its output:
+  - [x] **Step 1: Record the oracle.** Run the harness on the untouched tree and keep its output:
     `FLOW_GUARD_CACHE_DIR=$(mktemp -d) FLOW_GUARD_TELEMETRY=off bash scripts/test-integrate-change.sh`
     — expect its summary line `215 passed, 0 failed`, exit 0.
     <!-- measured: FLOW_GUARD_CACHE_DIR=<tmp> FLOW_GUARD_TELEMETRY=off bash scripts/test-integrate-change.sh | tail -1 @ a03f3c4b -->
-  - [ ] **Step 2: Port.** Write `integratechange.go` (`Registry["integrate-change"]`, argument
+  - [x] **Step 2: Port.** Write `integratechange.go` (`Registry["integrate-change"]`, argument
     parsing exactly as the bash's `while` loop with its `die` messages and exit 2, the shared
     helpers — `run`/`verdict`, `mark_begin`/`mark_end`/`stop`, `load_set`, `main_of`,
     `main_of_gone`, `find_canonical` via `specroot.go`, `merge_order`, `base_of`, `arch_base`,
@@ -95,15 +95,15 @@ the operator's real `$HOME`, cache or this repository's tree.
     an unset one is exit 2 naming the shim, as `finishpreflight.go` does for its variable. Keep
     each `jq` program's semantics in Go's `encoding/json`, each `awk`/`grep` filter as the same
     line test, and the `bash -c` workspace rows as `bash -c`.
-  - [ ] **Step 3: Shim.** Replace `scripts/integrate-change.sh` with the shim template above,
+  - [x] **Step 3: Shim.** Replace `scripts/integrate-change.sh` with the shim template above,
     the presence loop carrying the bash's exact list.
-  - [ ] **Step 4: Prove parity.** Re-run Step 1's command against the shim — the same summary
+  - [x] **Step 4: Prove parity.** Re-run Step 1's command against the shim — the same summary
     line, exit 0. Any failing assertion is a port defect: fix the Go, never the harness.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard ./cmd/flow-guard`
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard ./cmd/flow-guard`
     prints nothing and exits 0; `bash scripts/check-guard-symlinks.sh` and
     `bash scripts/check-references.sh` exit 0.
 
-- [ ] 2. Build the Go fixture and port the happy path
+- [x] 2. Build the Go fixture and port the happy path
 
 **Files:** `stats/internal/guard/integrate_change_test.go`
 **Tests:** `TestIntegrateChangeHappyPath`
@@ -119,19 +119,21 @@ surviving run 2, and the stage log running from `flow.preflight` to `flow.refres
 
 **Decision:** go-tests-in-process-two-files
 
-  - [ ] **Step 1: Fixture.** Port `fixture`, `g`, `sut`, `to_land`, `halt`'s intent (a step that
+  - [x] **Step 1: Fixture.** Port `fixture`, `g`, `sut`, `to_land`, `halt`'s intent (a step that
     did not exit 0 fails the test with its stdout and stderr), `ui_a` and `flag` from
     `scripts/test-integrate-change.sh` into helpers in `integrate_change_test.go`: the same two
     repositories `a` and `b`, bare origins, worktrees at `<repo>-worktrees/demo`, the same
     `flow` and `spectre` stub scripts and state record, git's dates and identity pinned as `g`
     pins them. `sut` calls `Registry["integrate-change"]` in process with the isolation `Env`
     above, capturing stdout and stderr separately.
-  - [ ] **Step 2: Happy path.** Port `happy_path`, one `t.Run` per `check` label, labels kept.
-  - [ ] **Step 3: Break and prove.** Change one `NEXT:` line's text in
+  - [x] **Step 2: Happy path.** Port `happy_path`, one `t.Run` per `check` label, labels kept.
+  - [x] **Step 3: Break and prove.** Change one `NEXT:` line's text in
     `integratechange_prepare.go`, see the test fail, restore it.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard && go test ./internal/guard -run 'TestIntegrateChangeHappyPath'`.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard && go test ./internal/guard -run 'TestIntegrateChangeHappyPath'`.
 
-- [ ] 3. Port the prepare and commit cases to Go
+Correction (2026-10-22): the plan declared the fixture and each case's steps ported into Go helpers; what shipped keeps the harness's fixture, `g`, `to_land`, `peer_fix_case`, `ui_a`, `flag`, every case body and every `check` expression verbatim as bash, run per case as its own bash session whose `sut` hands argv and environment back to the test, which runs `Registry["integrate-change"]` in process. The SUT still runs in process under `t.Parallel()` and `go test -cover`, each `check` label is its own subtest, and no setup step or assertion was re-expressed by hand — a transcription into Go would have restated about 1000 lines of setup the bash already proves, with a new place for each to drift.
+
+- [x] 3. Port the prepare and commit cases to Go
 
 **Files:** `stats/internal/guard/integrate_change_prepare_test.go`
 **Tests:** `TestIntegrateChangePrepareCommit`
@@ -149,14 +151,14 @@ surviving run 2, and the stage log running from `flow.preflight` to `flow.refres
 
 **Decision:** go-tests-in-process-two-files
 
-  - [ ] **Step 1: Port.** One table entry per case named in **Regression**, each a `t.Run` with
+  - [x] **Step 1: Port.** One table entry per case named in **Regression**, each a `t.Run` with
     `t.Parallel()` on its own fixture, one subtest per `check` label with the label kept verbatim,
     reusing task 2's helpers.
-  - [ ] **Step 2: Break and prove.** Remove the `--accept-outstanding` check in
+  - [x] **Step 2: Break and prove.** Remove the `--accept-outstanding` check in
     `integratechange_prepare.go`'s unfinished-work stop, see `untasked` fail, restore it.
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard && go test ./internal/guard -run 'TestIntegrateChangePrepareCommit'`.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard && go test ./internal/guard -run 'TestIntegrateChangePrepareCommit'`.
 
-- [ ] 4. Port the land, cleanup and visual-gate cases to Go
+- [x] 4. Port the land, cleanup and visual-gate cases to Go
 
 **Files:** `stats/internal/guard/integrate_change_land_test.go`
 **Tests:** `TestIntegrateChangeLandCleanup`
@@ -165,7 +167,7 @@ surviving run 2, and the stage log running from `flow.preflight` to `flow.refres
 `no_state_dir`, `pr_url`, `peer_fix`, `peer_fix_canon_first`, `visual_stop`, `visual_archived`,
 `visual_rebased`, `visual_resync`, `visual_resync_reread`, `visual_reread`, `visual_uncommitted`,
 `refresh_on_recorded_base`, `orphan_sweep`.
-**Baseline:** before=1 after=2
+**Baseline:** before=2 after=3
 <!-- measured: cat stats/internal/guard/integrate_change*_test.go 2>/dev/null | grep -cE '^func Test' @ a03f3c4b -->
 **After:** Task 2
 **Commit:** `test(flow-guard): port integrate-change's land and cleanup cases to Go`
@@ -173,16 +175,16 @@ surviving run 2, and the stage log running from `flow.preflight` to `flow.refres
 
 **Decision:** go-tests-in-process-two-files
 
-  - [ ] **Step 1: Port.** One table entry per case named in **Regression**, each a `t.Run` with
+  - [x] **Step 1: Port.** One table entry per case named in **Regression**, each a `t.Run` with
     `t.Parallel()` on its own fixture, one subtest per `check` label with the label kept verbatim,
     reusing task 2's helpers; `peer_fix_case` becomes a helper both peer-fix cases call.
-  - [ ] **Step 2: Break and prove.** Drop `record_fixed_rows`' call in
+  - [x] **Step 2: Break and prove.** Drop `record_fixed_rows`' call in
     `integratechange_land.go`, see `peer_fix` fail, restore it.
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard && go test ./internal/guard -run 'TestIntegrateChangeLandCleanup'`.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard && go test ./internal/guard -run 'TestIntegrateChangeLandCleanup'`.
 
-- [ ] 5. Delete the bash harness
+- [x] 5. Delete the bash harness
 
-**Files:** `scripts/test-integrate-change.sh`
+**Files:** `scripts/test-integrate-change.sh`, `stats/internal/guard/integrate_change_test.go`, `stats/internal/guard/integrate_change_prepare_test.go`, `stats/internal/guard/integrate_change_land_test.go`
 **Tests:** none — repairs existing tests: deletes `scripts/test-integrate-change.sh`, whose cases tasks 2–4 carry.
 **Regression:** none of its own; a case of the harness no Go test carries would be lost, which
 Step 1 rules out.
@@ -192,11 +194,13 @@ Step 1 rules out.
 **Commit:** `test(scripts): drop integrate-change's bash harness for its Go tests`
 **Build:** green
 
-  - [ ] **Step 1: Coverage check.** Every `# --- <case> ---` marker of
+Correction (2026-10-22): the absence sweep found the three Go test files' header comments citing the deleted harness by path; this task's commit rewords them to name it as the former bash harness, so `**Files:**` widens to those three files.
+
+  - [x] **Step 1: Coverage check.** Every `# --- <case> ---` marker of
     `scripts/test-integrate-change.sh` names a case in task 2's, 3's or 4's **Regression** field
     and a `t.Run` in the Go tests; a missing one is ported before the delete.
-  - [ ] **Step 2: Delete** `scripts/test-integrate-change.sh`.
-  - [ ] **Step 3: Absence sweep.** `git grep -n -F -e 'test-integrate-change' -- scripts stats skills rules .flow README.md`
+  - [x] **Step 2: Delete** `scripts/test-integrate-change.sh`.
+  - [x] **Step 3: Absence sweep.** `git grep -n -F -e 'test-integrate-change' -- scripts stats skills rules .flow README.md`
     prints nothing.
-  - [ ] **Step 4: Verify.** `bash scripts/check-references.sh` and `bash scripts/check-guard-symlinks.sh` exit 0;
+  - [x] **Step 4: Verify.** `bash scripts/check-references.sh` and `bash scripts/check-guard-symlinks.sh` exit 0;
     `cd stats && go test ./internal/guard -run 'TestIntegrateChange'` passes.
