@@ -192,7 +192,11 @@ func TestEnforceLoopDispatchHook(t *testing.T) {
 		}},
 		{"12 admitted with a cwd", func(t *testing.T) {
 			s := newLoopStub(t, "0")
-			allow(t, hook(t, s.check, payload("Agent", loopPrompt, s.dir)))
+			project := s.dir + "/project"
+			if err := os.Mkdir(project, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			allow(t, hook(t, s.check, payload("Agent", loopPrompt, project)))
 		}},
 		{"12 checker ran in the payload's cwd", func(t *testing.T) {
 			s := newLoopStub(t, "0")
