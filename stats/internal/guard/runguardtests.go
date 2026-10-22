@@ -226,7 +226,11 @@ func runGuardTests(_ []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "%s: could not run the harnesses (see above)\n", rgtName)
 		return 2
 	}
-	results := rgtRun(ctx, harnesses, jobs, tmpDir, env.Dir, childEnv)
+	argvs := make([][]string, len(harnesses))
+	for i, h := range harnesses {
+		argvs[i] = []string{"bash", h}
+	}
+	results := rgtRun(ctx, argvs, jobs, tmpDir, env.Dir, childEnv)
 	if ctx.Err() != nil {
 		return 2 // interrupted: the deferred cleanup ends the process
 	}
@@ -308,17 +312,18 @@ func runGuardTests(_ []string, env Env, stdout, stderr io.Writer) int {
 	return 1
 }
 
-// rgtRun runs each harness as `bash <harness>` in dir, at most jobs at a
-// time, starting them in list order. Results are indexed by list position,
+// rgtRun runs each argv in dir — `bash <harness>` for run-guard-tests, `bash
+// -c <command>` for run-verify-list's test list — at most jobs at a time,
+// starting them in list order, stdin /dev/null. Results are indexed by list position,
 // so every later walk is in list order by construction. stdout and stderr
 // share one capture file -- one descriptor, so the harness's own write order
 // is kept -- and a file rather than a pipe, so a background process a
 // harness leaves holding its output never delays the run.
-func rgtRun(ctx context.Context, harnesses []string, jobs int, tmpDir, dir string, childEnv []string) []rgtJob {
-	results := make([]rgtJob, len(harnesses))
+func rgtRun(ctx context.Context, argvs [][]string, jobs int, tmpDir, dir string, childEnv []string) []rgtJob {
+	results := make([]rgtJob, len(argvs))
 	sem := make(chan struct{}, jobs)
 	var wg sync.WaitGroup
-	for i, h := range harnesses {
+	for i, argv := range argvs {
 		sem <- struct{}{}
 		wg.Add(1)
 		go func() {
@@ -331,7 +336,7 @@ func rgtRun(ctx context.Context, harnesses []string, jobs int, tmpDir, dir strin
 				return
 			}
 			defer f.Close()
-			cmd := exec.CommandContext(ctx, "bash", h)
+			cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 			cmd.Dir, cmd.Env, cmd.Stdout, cmd.Stderr = dir, childEnv, f, f
 			// Per-harness wall time is whole Unix seconds end minus start,
 			// what the script's `$(date +%s)` arithmetic computed -- never

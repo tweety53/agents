@@ -1,0 +1,295 @@
+package guard
+
+import (
+	"bytes"
+	"errors"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// TestRunVerifyList carries the cases of the retired
+// scripts/test-run-verify-list.sh, in its order and over its fixtures. Every
+// step runs twice, on twin roots: through the Go guard and through the bash
+// at 8c54d6d3, whose project-get.sh and check-spec-reach.sh siblings are the
+// live shims. Each step asserts the harness's expectations on the Go output
+// and byte-for-byte stdout/stderr/exit parity with the bash, each twin's root
+// written as <ROOT>.
+func TestRunVerifyList(t *testing.T) {
+	t.Parallel()
+	repo, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bashDir := t.TempDir()
+	writeExec(t, filepath.Join(bashDir, "run-verify-list.sh"),
+		string(historicalFile(t, repo, "8c54d6d3", "scripts/run-verify-list.sh")))
+	for _, l := range []string{"lib", "project-get.sh", "check-spec-reach.sh"} {
+		if err := os.Symlink(filepath.Join(repo, "scripts", l), filepath.Join(bashDir, l)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
+	goEnviron := append(environ[:len(environ):len(environ)], "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"))
+	getenv := func(k string) string {
+		for i := len(goEnviron) - 1; i >= 0; i-- {
+			if v, ok := strings.CutPrefix(goEnviron[i], k+"="); ok {
+				return v
+			}
+		}
+		return ""
+	}
+	gitIn := func(t *testing.T, dir string, args ...string) {
+		t.Helper()
+		cmd := exec.Command(fixtureGit, append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...)
+		// A pinned date gives both twins the same shas, so the skip lines
+		// naming one compare byte for byte.
+		cmd.Env = append(os.Environ(), "GIT_AUTHOR_DATE=2026-01-01T00:00:00Z", "GIT_COMMITTER_DATE=2026-01-01T00:00:00Z")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	gitOutIn := func(t *testing.T, dir string, args ...string) string {
+		t.Helper()
+		out, err := exec.Command(fixtureGit, append([]string{"-C", dir}, args...)...).Output()
+		if err != nil {
+			t.Fatalf("git %v: %v", args, err)
+		}
+		return strings.TrimRight(string(out), "\n")
+	}
+
+	// Two twin roots, built as the harness built $ROOT; the root's physical
+	// path, so `pwd` and git's absolute paths agree with it.
+	newRoot := func() string {
+		r, err := filepath.EvalSymlinks(t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+		writeFile(t, filepath.Join(r, ".flow/project.md"), "## lint\n\nProse outside the fence is never run.\n\n```bash\n# a comment line is never run\nprintf 'one\\n'\nprintf 'to-stderr\\n' >&2; exit 3\ncat\nseq 1 25\npwd\n```\n\n## test\n\n```bash\nprintf 'ok\\n'\nprintf nonl\necho next\n```\n")
+		return r
+	}
+	gr, br := newRoot(), newRoot()
+	both := func(f func(root string)) { f(gr); f(br) }
+
+	type res struct {
+		rc  int
+		out string // stdout then stderr, <ROOT> for the twin's root
+	}
+	run := func(t *testing.T, args ...string) res {
+		t.Helper()
+		norm := func(root string, s ...string) string { return strings.ReplaceAll(strings.Join(s, ""), root, "<ROOT>") }
+		gargs := make([]string, len(args))
+		for i, a := range args {
+			gargs[i] = strings.ReplaceAll(a, "<ROOT>", gr)
+		}
+		var o, e bytes.Buffer
+		grc := Registry["run-verify-list"](gargs, Env{Getenv: getenv, Environ: func() []string { return goEnviron },
+			Dir: gr, Stdin: strings.NewReader("LEAKED-STDIN\n")}, &o, &e)
+		g := res{grc, norm(gr, o.String(), e.String())}
+
+		bargs := make([]string, len(args))
+		for i, a := range args {
+			bargs[i] = strings.ReplaceAll(a, "<ROOT>", br)
+		}
+		cmd := exec.Command("bash", append([]string{filepath.Join(bashDir, "run-verify-list.sh")}, bargs...)...)
+		cmd.Dir, cmd.Env, cmd.Stdin = br, append(environ[:len(environ):len(environ)], "PWD="+br), strings.NewReader("LEAKED-STDIN\n")
+		var bo, be bytes.Buffer
+		cmd.Stdout, cmd.Stderr = &bo, &be
+		brc := 0
+		if err := cmd.Run(); err != nil {
+			var ee *exec.ExitError
+			if !errors.As(err, &ee) {
+				t.Fatal(err)
+			}
+			brc = ee.ExitCode()
+		}
+		if b := (res{brc, norm(br, bo.String(), be.String())}); g != b {
+			t.Errorf("port rc=%d out=%q\nbash rc=%d out=%q", g.rc, g.out, b.rc, b.out)
+		}
+		return g
+	}
+	rc := func(t *testing.T, r res, want int) {
+		t.Helper()
+		if r.rc != want {
+			t.Errorf("exit %d, want %d; out=%q", r.rc, want, r.out)
+		}
+	}
+	has := func(t *testing.T, r res, s string) {
+		t.Helper()
+		if !strings.Contains(r.out, s) {
+			t.Errorf("missing %q in %q", s, r.out)
+		}
+	}
+	lacks := func(t *testing.T, r res, s string) {
+		t.Helper()
+		if strings.Contains(r.out, s) {
+			t.Errorf("unexpected %q in %q", s, r.out)
+		}
+	}
+	project := func(dir, body string) { writeFile(t, filepath.Join(dir, ".flow/project.md"), body) }
+
+	t.Run("a failing command fails the list", func(t *testing.T) {
+		r := run(t, "<ROOT>", "lint")
+		rc(t, r, 1)
+		has(t, r, "- `printf 'one\\n'` — exit 0\n  one")
+		has(t, r, "exit 3\n  to-stderr")
+		has(t, r, "- `pwd` — exit 0")
+		lacks(t, r, "LEAKED-STDIN")
+		lacks(t, r, "comment line")
+		has(t, r, "(truncated — last 20 of 25 lines)\n  6\n")
+		lacks(t, r, "\n  5\n")
+		has(t, r, "  <ROOT>")
+		has(t, r, "- `check-spec-reach.sh <ROOT>` — exit 0\n  Spec reach: not configured")
+		lacks(t, r, "full output:")
+	})
+
+	t.Run("a passing list", func(t *testing.T) {
+		r := run(t, "<ROOT>", "test")
+		rc(t, r, 0)
+		has(t, r, "- `printf 'ok\\n'` — exit 0\n  ok")
+		has(t, r, "  nonl\n- `echo next` — exit 0")
+		lacks(t, r, "check-spec-reach.sh")
+	})
+
+	// Beyond the harness: the threshold itself, which 25 lines never pinned.
+	t.Run("21 lines are truncated", func(t *testing.T) {
+		both(func(root string) { project(root, "## test\n\n```bash\nseq 1 21\nseq 1 20\n```\n") })
+		r := run(t, "<ROOT>", "test")
+		has(t, r, "(truncated — last 20 of 21 lines)\n  2\n")
+		has(t, r, "- `seq 1 20` — exit 0\n  1\n")
+	})
+
+	t.Run("a list with a race fails", func(t *testing.T) {
+		both(func(root string) {
+			project(root, "## test\n\n```bash\nprintf 'WARNING: DATA RACE\\n'; seq 1 25; exit 1\nprintf 'testing.go:1: race detected during execution of test\\n'; exit 1\nprintf 'plain\\n'; exit 1\n```\n")
+		})
+		r := run(t, "<ROOT>", "test")
+		rc(t, r, 1)
+		has(t, r, "  25\n  data race — never environmental")
+		if n := strings.Count(r.out, "data race — never environmental"); n != 2 {
+			t.Errorf("race marks: %d", n)
+		}
+	})
+
+	// The first command waits for a file only the second creates: run one
+	// after the other it gives up after five seconds and fails the list.
+	t.Run("test commands run concurrently", func(t *testing.T) {
+		both(func(root string) {
+			project(root, "## test\n\n```bash\nfor i in $(seq 50); do [ -f made-by-two ] && echo saw-two && exit 0; sleep 0.1; done; exit 1\ntouch made-by-two\n```\n")
+		})
+		r := run(t, "<ROOT>", "test")
+		both(func(root string) { os.Remove(filepath.Join(root, "made-by-two")) })
+		rc(t, r, 0)
+		has(t, r, "  saw-two\n- `touch made-by-two` — exit 0")
+	})
+
+	t.Run("an undeclared list", func(t *testing.T) {
+		both(func(root string) { project(root, "## lint\n\n```bash\ntrue\n```\n") })
+		rc(t, run(t, "<ROOT>", "test"), 3)
+	})
+
+	t.Run("a placeholder line refuses the list", func(t *testing.T) {
+		both(func(root string) {
+			project(root, "## test\n\n```bash\nprintf ran-first\n./gradlew verifyChange :<module>:test --tests '<selectors>'\n```\n")
+		})
+		r := run(t, "<ROOT>", "test")
+		rc(t, r, 2)
+		has(t, r, "test line is a template, not a command — move it out of the fence: ./gradlew verifyChange :<module>:test --tests '<selectors>'")
+		lacks(t, r, "ran-first")
+	})
+
+	// THE GREEN SHA: a git worktree whose `test` list counts its own runs.
+	t.Run("the green sha", func(t *testing.T) {
+		both(func(root string) {
+			g := filepath.Join(root, "git")
+			project(g, "## test\n\n```bash\n# inputs: web/\necho ran >> \"$(git rev-parse --git-dir)/web-runs\"; echo web\n# inputs: go/\necho go\necho all\n```\n")
+			writeFile(t, filepath.Join(g, "web/a"), "a\n")
+			writeFile(t, filepath.Join(g, "go/b"), "b\n")
+			gitIn(t, g, "init", "-q")
+			gitIn(t, g, "add", "-A")
+			gitIn(t, g, "commit", "-q", "-m", "one")
+		})
+		g := filepath.Join(gr, "git")
+		sha1 := gitOutIn(t, g, "rev-parse", "HEAD")
+		if b := gitOutIn(t, filepath.Join(br, "git"), "rev-parse", "HEAD"); b != sha1 {
+			t.Fatalf("twin shas differ: %s, %s", sha1, b)
+		}
+
+		r := run(t, "<ROOT>/git", "test")
+		rc(t, r, 0)
+		has(t, r, "- `echo all` — exit 0")
+		green := gitOutIn(t, g, "rev-parse", "--path-format=absolute", "--git-path", "flow-test-green")
+		if b, _ := os.ReadFile(green); strings.TrimSpace(string(b)) != sha1 {
+			t.Errorf("green sha: %q", b)
+		}
+		if st := gitOutIn(t, g, "status", "--porcelain"); st != "" {
+			t.Errorf("the record dirtied the tree: %q", st)
+		}
+
+		r = run(t, "<ROOT>/git", "test")
+		rc(t, r, 0)
+		has(t, r, "- `echo all` — skipped, no input changed since "+sha1+" passed the list")
+		runs, _ := os.ReadFile(filepath.Join(gitOutIn(t, g, "rev-parse", "--absolute-git-dir"), "web-runs"))
+		if strings.Count(string(runs), "\n") != 1 {
+			t.Errorf("a command re-ran at the green sha: %q", runs)
+		}
+
+		both(func(root string) {
+			writeFile(t, filepath.Join(root, "git/go/b"), "c\n")
+			gitIn(t, filepath.Join(root, "git"), "commit", "-q", "-am", "two")
+		})
+		r = run(t, "<ROOT>/git", "test")
+		has(t, r, "- `echo ran >> \"$(git rev-parse --git-dir)/web-runs\"; echo web` — skipped, no input changed since "+sha1)
+		has(t, r, "- `echo go` — exit 0")
+		has(t, r, "- `echo all` — exit 0")
+
+		both(func(root string) { writeFile(t, filepath.Join(root, "git/web/a"), "dirty\n") })
+		has(t, run(t, "<ROOT>/git", "test"), "echo web` — exit 0")
+
+		both(func(root string) { gitIn(t, filepath.Join(root, "git"), "checkout", "-q", "--", "web/a") })
+		run(t, "<ROOT>/git", "test")
+		both(func(root string) {
+			p := filepath.Join(root, "git/.flow/project.md")
+			b, _ := os.ReadFile(p)
+			writeFile(t, p, strings.Replace(string(b), "\necho go\n", "\necho go2\n", 1))
+			gitIn(t, filepath.Join(root, "git"), "commit", "-q", "-am", "three")
+		})
+		has(t, run(t, "<ROOT>/git", "test"), "- `echo go2` — exit 0")
+	})
+
+	// A failing command's full output is kept in the git dir, never the tree.
+	t.Run("a failing list in a git worktree", func(t *testing.T) {
+		both(func(root string) {
+			f := filepath.Join(root, "fail")
+			project(f, "## test\n\n```bash\nseq 1 25; exit 4\ntrue\n```\n")
+			gitIn(t, f, "init", "-q")
+			gitIn(t, f, "add", "-A")
+			gitIn(t, f, "commit", "-q", "-m", "one")
+		})
+		f := filepath.Join(gr, "fail")
+		r := run(t, "<ROOT>/fail", "test")
+		kept := gitOutIn(t, f, "rev-parse", "--path-format=absolute", "--git-path", "flow-verify-failed") + "/test-0.log"
+		rc(t, r, 1)
+		has(t, r, "  full output: "+strings.ReplaceAll(kept, gr, "<ROOT>"))
+		if b, _ := os.ReadFile(kept); !strings.HasPrefix(string(b), "1\n") {
+			t.Errorf("kept output: %q", b)
+		}
+		lacks(t, r, "test-1.log")
+		if st := gitOutIn(t, f, "status", "--porcelain"); st != "" {
+			t.Errorf("the kept output dirtied the tree: %q", st)
+		}
+		both(func(root string) {
+			project(filepath.Join(root, "fail"), "## test\n\n```bash\ntrue\n```\n")
+			gitIn(t, filepath.Join(root, "fail"), "commit", "-q", "-am", "two")
+		})
+		run(t, "<ROOT>/fail", "test")
+		if _, err := os.Stat(kept); err == nil {
+			t.Error("a stale kept output survived")
+		}
+	})
+
+	t.Run("an unknown list", func(t *testing.T) { rc(t, run(t, "<ROOT>", "build"), 2) })
+	t.Run("a missing worktree", func(t *testing.T) { rc(t, run(t, "<ROOT>/missing", "lint"), 2) })
+}
