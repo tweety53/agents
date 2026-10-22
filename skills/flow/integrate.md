@@ -63,6 +63,11 @@ the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
   `**Summary:**` bullets the last run printed, or, where this session never saw them, bullets
   written from the change's `tasks.md` and `narrative.md` — with the command the breakdown names,
   then re-running `prepare`.
+- **`STOP: live-check`** → the change's `design.md` names a live check and `live-verification.md`
+  beside it is missing or fails `check-live-verification.sh`. Run **Live check**
+  (`skills/flow/verify-and-handoff.md`) now, through the stand-in the section states wherever a
+  step would write this change's integrate state, then re-run `prepare`. `--accept-outstanding`
+  never passes it.
 - **`STOP: no-verdict`** → a guard of the gate printed no verdict line, or exited non-zero without
   one: stop and ask, reporting its output. `--accept-outstanding` never passes it.
 - **`STOP: visual-verify`** → a worktree printed `VISUAL-VERIFY-MISSING`: the UI about to land was

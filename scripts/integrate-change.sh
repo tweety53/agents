@@ -24,7 +24,7 @@ SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
   exit 2
 }
 missing=""
-for g in check-base-moved check-cleanup-complete check-finish-preflight check-foreign-staged \
+for g in check-base-moved check-cleanup-complete check-finish-preflight check-foreign-staged check-live-verification \
   check-main-checkout-drift check-unfinished-work check-untasked-commits check-visual-verify-dispatched commit-archive \
   commit-split land-self-review-report migrate-worktrees project-get refresh-main-checkout \
   remove-change-worktrees reshape-branch resolve-base-branch run-verify-list sync-onto-base; do
@@ -38,7 +38,7 @@ done
 : "$SCRIPT_DIR/project-get.sh" "$SCRIPT_DIR/refresh-main-checkout.sh" "$SCRIPT_DIR/remove-change-worktrees.sh"
 : "$SCRIPT_DIR/reshape-branch.sh" "$SCRIPT_DIR/resolve-base-branch.sh" "$SCRIPT_DIR/run-verify-list.sh"
 : "$SCRIPT_DIR/sync-onto-base.sh" "$SCRIPT_DIR/prepare-workspace.sh" "$SCRIPT_DIR/check-loop-landing.sh"
-: "$SCRIPT_DIR/check-narrative-runs.sh"
+: "$SCRIPT_DIR/check-narrative-runs.sh" "$SCRIPT_DIR/check-live-verification.sh"
 FLOW_GUARD_SCRIPT_DIR="$SCRIPT_DIR" FLOW_GUARD_CALLER_DIR="$PWD"
 export FLOW_GUARD_SCRIPT_DIR FLOW_GUARD_CALLER_DIR
 # Outside every worktree: remove-change-worktrees' check 6 counts this

@@ -344,7 +344,11 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > system from an untouched one. `flow.verify` runs it (**Live check**,
 > `skills/flow/verify-and-handoff.md`); no task in `tasks.md` does. When the planner judges the
 > change has no runtime to verify against, the section is one line saying so — the
-> justification is required, the check is not.
+> justification is required, the check is not. Every step of the check runs at `flow.verify`,
+> before the change lands: a step that needs the change landed, a restarted shared service, or a
+> write to the change's own integrate state is written as the stand-in that runs in its place — a
+> scratch fixture, a workspace's own service, a scratch copy of the record — named in the section
+> (kan-1019: a check deferred to integrate was never run). The no-runtime line opens with `None`.
 
 > **Write a verification change so its found defects become their own tasks.** When a plan's task
 > exists to exercise a surface and report what it finds — a final-verification pass over a feature

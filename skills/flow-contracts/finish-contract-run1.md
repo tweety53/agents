@@ -183,6 +183,12 @@ breakdown in; a `VISUAL-VERIFY-MISSING` line is a hard stop, never an `OUTSTANDI
 `skills/flow/integrate.md`'s `STOP: visual-verify`. Exit 2 (cannot answer) is stop-and-ask,
 the same as a missing `check-unfinished-work.sh` verdict line above.
 
+**Then the live-check record.** When the change's `design.md` carries a `## Live check` section
+naming something to exercise (**Live check**, `skills/flow/verify-and-handoff.md`),
+`live-verification.md` beside it exists and passes `check-live-verification.sh`; otherwise
+`prepare` stops at `STOP: live-check`, handled in `skills/flow/integrate.md`, and
+`--accept-outstanding` never passes it.
+
 **Then run `check-untasked-commits.sh <worktree> <base>`**, once per worktree in the same
 resolved set, `<base>` the same fork point — or, where the change is archived, the archived
 re-run's base that fork point yields. An `UNTASKED-OK` line joins `CLEAR`; an `UNTASKED` line and

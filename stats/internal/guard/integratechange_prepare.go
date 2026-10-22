@@ -179,6 +179,12 @@ func (c *ic) prepare() {
 		}
 	}
 
+	if archived {
+		c.liveCheckGate(arch)
+	} else {
+		c.liveCheckGate(live)
+	}
+
 	if archived && !newwork {
 		// No new work still runs the visual gate: the archive is no verifier.
 		c.visualGate()
@@ -323,4 +329,50 @@ func (c *ic) defaultRoute() string {
 		return ""
 	}
 	return r
+}
+
+// icLiveCheckNamed: design's `## Live check` section names something to
+// exercise — its first non-blank line opens with none of None, No ,
+// Not applicable. False when the file cannot be read or has no section.
+func icLiveCheckNamed(design string) bool {
+	b, err := os.ReadFile(design)
+	if err != nil {
+		return false
+	}
+	in := false
+	for _, l := range strings.Split(string(b), "\n") {
+		l = strings.TrimRight(l, " \t\r")
+		if !in {
+			in = l == "## Live check"
+			continue
+		}
+		if strings.HasPrefix(l, "# ") || strings.HasPrefix(l, "## ") {
+			return false
+		}
+		if l == "" {
+			continue
+		}
+		return !strings.HasPrefix(l, "None") && !strings.HasPrefix(l, "No ") && !strings.HasPrefix(l, "Not applicable")
+	}
+	return false
+}
+
+// liveCheckGate: a design naming a live check needs live-verification.md
+// beside it passing check-live-verification, else STOP: live-check, which
+// --accept-outstanding never passes.
+func (c *ic) liveCheckGate(dir string) {
+	if !icLiveCheckNamed(dir + "/design.md") {
+		return
+	}
+	rec := dir + "/live-verification.md"
+	if !isFile(rec) {
+		c.stop("live-check", dir+"/design.md names a live check and "+rec+" is missing — run Live check (skills/flow/verify-and-handoff.md), through the stand-in its section states wherever a step would write this change's integrate state, then re-run prepare; --accept-outstanding does not pass this")
+	}
+	c.run("check-live-verification", rec)
+	if c.rc == 2 {
+		c.stop("live-check", fmt.Sprintf("check-live-verification could not answer on %s (exit 2) — correct the input it names, then re-run prepare; --accept-outstanding does not pass this", rec))
+	}
+	if c.rc != 0 {
+		c.stop("live-check", fmt.Sprintf("check-live-verification exit %d on %s — measure what it names, rewrite the record, then re-run prepare; --accept-outstanding does not pass this", c.rc, rec))
+	}
 }

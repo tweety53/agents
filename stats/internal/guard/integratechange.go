@@ -80,7 +80,10 @@ type ic struct {
 //	worktree RUN2 -> NEXT is `cleanup`. Otherwise run 1, which first
 //	stops at STOP: base-mismatch when one worktree records a flowBase
 //	another resolves away from while that one's origin carries it: the
-//	uncommitted-archive undo, the archived decision, the unfinished-work
+//	uncommitted-archive undo, the archived decision, a design naming
+//	a live check needs live-verification.md passing
+//	check-live-verification, else STOP: live-check, which
+//	--accept-outstanding never passes, the unfinished-work
 //	gate (check-unfinished-work, check-visual-verify-dispatched against
 //	`git merge-base HEAD origin/$BASE`, check-untasked-commits from that
 //	base or an archived re-run's), check-base-moved and

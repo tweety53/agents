@@ -358,5 +358,31 @@ printf 'SECRET local\n' >"$WORK/a/.env"
 sut prepare "$WORK/a" demo
 check "drift_switch_refused: an ignored file main tracks is never overwritten" \
   '[ "$RC" -eq 1 ] && printf "%s\n" "$OUT" | grep -qF "DRIFT-SWITCH-REFUSED: $WORK/a " && [ "$(git -C "$WORK/a" branch --show-current)" = side ] && [ "$(cat "$WORK/a/.env")" = "SECRET local" ]'`},
+		{"live_check", `# --- live_check ---
+fixture
+d="$WORK/a-worktrees/demo/spectre/changes/demo"
+printf '# demo\n\n## Live check\n\nRun prepare twice and compare the two runs.\n\n## Decisions\n' >"$d/design.md"
+g -C "$WORK/a-worktrees/demo" add -A && g -C "$WORK/a-worktrees/demo" commit -q --amend -m "chore(spectre): plan-gate demo"
+sut prepare "$WORK/a" demo
+check "live_check: a named live check with no record stops prepare at STOP: live-check" \
+  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: live-check — "'
+printf 'Before figure: not measured\n' >"$d/live-verification.md"
+sut prepare "$WORK/a" demo --accept-outstanding
+check "live_check: a refused record stops prepare, --accept-outstanding or not" \
+  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: live-check — "'
+chmod 000 "$d/live-verification.md"
+sut prepare "$WORK/a" demo
+chmod 644 "$d/live-verification.md"
+check "live_check: an unreadable record stops prepare with the guard's could-not-answer text" \
+  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: live-check — check-live-verification could not answer "'
+printf 'Before: two lines. After: two lines.\n' >"$d/live-verification.md"
+sut prepare "$WORK/a" demo
+check "live_check: a passing record lets prepare through" '[ "$RC" -eq 0 ]'`},
+		{"live_check_none", `# --- live_check_none ---
+fixture
+printf '# demo\n\n## Live check\n\nNone — the change runs per invocation;\nno service holds its state.\n\n## Decisions\n' >"$WORK/a-worktrees/demo/spectre/changes/demo/design.md"
+g -C "$WORK/a-worktrees/demo" add -A && g -C "$WORK/a-worktrees/demo" commit -q --amend -m "chore(spectre): plan-gate demo"
+sut prepare "$WORK/a" demo
+check "live_check_none: a wrapped no-runtime section needs no record" '[ "$RC" -eq 0 ]'`},
 	})
 }

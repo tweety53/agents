@@ -154,7 +154,8 @@ flow record dispatch end -change <name> -key verify[-<worktree basename>] \
 
 **Runs only when `design.md` carries a `## Live check` section naming something to exercise**
 (**D. Basic Workflow #3 — Writing plans**, `skills/flow/brainstorm-planner.md`); a one-line
-no-runtime section, or none, skips it. Once both groups of the lint and test list have exited —
+no-runtime section, or none, skips it. A section is that no-runtime form when its first line opens
+with `None`, `No ` or `Not applicable`, however many lines its justification wraps to. Once both groups of the lint and test list have exited —
 never while either still runs: kan-918's live check, run beside the polled groups, wrote
 `live-verification.md` into the tree `run-guard-tests.sh` watches, failing its watched-tree check
 and costing a 272-second re-run — with the parent's own Bash calls: when the stack's worktree-resolved URLs do not answer, or `check-dev-stack-fresh.sh
@@ -169,7 +170,10 @@ removed with `git worktree remove` once the figure is written — never by check
 over the change worktree. Then run `check-live-verification.sh
 <changeRoot>/live-verification.md`; its header is canonical for the record it accepts. Exit 1 → the
 record carries no before figure, or states one was not measured: measure it from the merge base as
-above and rewrite the record, never proceed past it (kan-998). Exit 2 → it cannot answer; correct
+above and rewrite the record, never proceed past it (kan-998). The check is never deferred past this stage:
+`integrate-change.sh prepare` stops at `STOP: live-check` while the section names something to
+exercise and `live-verification.md` is missing or fails `check-live-verification.sh` (kan-1019).
+Exit 2 → it cannot answer; correct
 the input and run it again. The `## Report` gains one line, `live check — <matched | failure look>`. A figure that
 shows the failure look is the branch's own defect and takes **The loop**
 (`skills/flow/verify-fix-loop.md`); a stack that will not start ends the turn as a failed
