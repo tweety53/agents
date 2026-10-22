@@ -415,13 +415,16 @@ flow record dispatch begin -change <name> -role reviewer -slot <slot|slot+slot+s
   -diff-base <sha> -key panel-<round>-<slot|slot+slot+slot> \
   -session-token mf-<literal-token>
 flow record dispatch end -change <name> -key panel-<round>-<slot|slot+slot+slot> \
-  -session-token mf-<literal-token> -outcome completed
+  -session-token mf-<literal-token> -outcome completed \
+  -ended-at "$(date -u -r <report-file> +%Y-%m-%dT%H:%M:%SZ)"
 ```
 
 Every dispatch of a round launches in one message; every `begin` is recorded in the next Bash
 call, one call for all; the round's wait is one call whose condition is `test -s` on every
 launched pass's report file; every `end` is recorded in one call once they all exist (the turn discipline of **4. Execute
-(SDD + TDD)**, `skills/flow/implement.md`). A dispatch whose report never appears within its
+(SDD + TDD)**, `skills/flow/implement.md`).
+Each `end` passes its own slot's report-file modification time as `-ended-at`, so a slot that finished early is never stamped with the round's last finish (kan-1019: two slots of one round both read 15m31s). A bundled dispatch's `<report-file>` is the newest of its slots' reports.
+A dispatch whose report never appears within its
 ceiling takes the breach path under **No forking, and a wall-clock ceiling on every slot** below.
 
 **On pass 1 the full suite runs between the begins and the wait.** The parent runs it there, in
