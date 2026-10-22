@@ -95,6 +95,8 @@ child's own environment, never `os.Setenv`; no test touches the operator's `$HOM
   - [x] **Step 5: Break and prove.** Drop the `os.Chtimes` call, see the byte-identical case fail, restore it.
   - [x] **Step 6: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard && go test ./internal/guard -run 'TestRebuildFullAppSuiteZip' -race -count=1`; `bash scripts/check-guard-symlinks.sh` and `bash scripts/check-references.sh` exit 0.
 
+Correction (2026-10-22): Step 5's mutation (the `os.Chtimes` call dropped) survived the byte-identical case while that case re-touched the PNG to the current time, as the harness did — inside zip's DOS-time granularity of the first build, so both zips matched. The case now moves the PNG's mtime back an hour before the rebuild (`stats/internal/guard/rebuild_full_app_suite_zip_test.go`), and the mutation fails it.
+
 - [x] 3. Port run-verify-list.sh to flow-guard on rgtRun
 
 **Files:** `stats/internal/guard/runverifylist.go`, `stats/internal/guard/run_verify_list_test.go`, `stats/internal/guard/runguardtests.go`, `scripts/run-verify-list.sh`, `scripts/test-run-verify-list.sh`

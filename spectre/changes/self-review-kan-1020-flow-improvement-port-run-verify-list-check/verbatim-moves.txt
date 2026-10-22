@@ -1,0 +1,3 @@
+# Task 1 (correction-provenance-at-transcription) and Task 2 (contract-load-via-read) add these run-loaded sentences on purpose.
+A `Correction:` paragraph is plan prose `check-plan-provenance.sh` reads: run that guard when transcribing it, and give each numeric claim its `measured:` comment or word it without a count (kan-1020: a bare count in a Correction was refused only at verify).
+Load every contract file with the harness's file-read tool — Read on Claude Code — in offset chunks wherever one read cannot return the whole file, never with `cat`: `pipeline.md` and `finish-contract-run1.md` exceed the shell tool's output cap, and a `cat` load arrives truncated (kan-1020).
