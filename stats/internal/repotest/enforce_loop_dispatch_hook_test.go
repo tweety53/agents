@@ -1,6 +1,6 @@
 package repotest
 
-// TestEnforceLoopDispatchHook ports scripts/test-enforce-loop-dispatch-hook.sh,
+// TestEnforceLoopDispatchHook ports the retired shell harness,
 // the harness for hooks/enforce-loop-dispatch.py. It points the hook at a stub
 // checker through LOOP_DISPATCH_CHECK — the guard itself is covered by
 // stats/internal/guard/check_loop_dispatch_test.go — and pipes PreToolUse

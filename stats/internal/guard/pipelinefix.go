@@ -353,7 +353,9 @@ func pfChecks(env Env, pe pfEnv, wt string, touched []string) ([]string, int) {
 			cmds = append(cmds, c)
 		}
 	}
-	if goTouched {
+	// repotest is <agents repo>'s own package; another project's worktree lacks it
+	repotest := isDir(filepath.Join(wt, "stats/internal/repotest"))
+	if goTouched && repotest {
 		add(pfGoAudits)
 	}
 	for _, p := range touched {
@@ -376,7 +378,7 @@ func pfChecks(env Env, pe pfEnv, wt string, touched []string) ([]string, int) {
 			}
 		case strings.HasPrefix(p, "scripts/test-") && strings.HasSuffix(p, ".sh") && exists(p):
 			add(p)
-		case strings.HasPrefix(p, "hooks/"):
+		case strings.HasPrefix(p, "hooks/") && repotest:
 			add("cd stats && go test ./internal/repotest/ -count=1")
 		case strings.HasPrefix(p, "scripts/"):
 			for _, h := range []string{"scripts/test-" + stem + ".sh", "scripts/test-" + stem + "-hook.sh"} {

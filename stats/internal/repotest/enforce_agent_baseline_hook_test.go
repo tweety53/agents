@@ -1,6 +1,6 @@
 package repotest
 
-// TestEnforceAgentBaselineHook ports scripts/test-enforce-agent-baseline-hook.sh,
+// TestEnforceAgentBaselineHook ports the retired shell harness,
 // the harness for hooks/enforce-agent-baseline.py. It pipes PreToolUse payloads
 // to the hook and asserts its decision, one subtest per harness case:
 //

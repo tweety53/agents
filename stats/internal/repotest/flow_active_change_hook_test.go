@@ -1,6 +1,6 @@
 package repotest
 
-// TestFlowActiveChangeHook ports scripts/test-flow-active-change-hook.sh, the
+// TestFlowActiveChangeHook ports the retired shell harness, the
 // harness for hooks/flow-active-change.py. Each subtest starts its own stub
 // store (an httptest server answering GET /api/v1/stage-runs with a canned body
 // and status, logging every request's path), points the hook at it through

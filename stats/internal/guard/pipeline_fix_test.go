@@ -203,6 +203,11 @@ func TestPipelineFixChecksGoAudits(t *testing.T) {
 	t.Parallel()
 	wt := t.TempDir()
 	writeFile(t, wt+"/.flow/project.md", pfProject)
+	pe0 := pfEnv{projectGet: tcfScriptsDir(t) + "/project-get.sh"}
+	if cmds, _ := pfChecks(Env{Getenv: os.Getenv}, pe0, wt, []string{"stats/internal/guard/x.go", "hooks/h.py"}); slices.ContainsFunc(cmds, func(c string) bool { return strings.Contains(c, "internal/repotest") }) {
+		t.Fatalf("a worktree without stats/internal/repotest: %q selects it", cmds)
+	}
+	writeFile(t, wt+"/stats/internal/repotest/doc.go", "package repotest\n")
 	audits := "cd stats && go test ./internal/repotest/ -run '^Test(GitConfigPins|FlowAddrDeclaration)$' -count=1"
 	pe := pfEnv{projectGet: tcfScriptsDir(t) + "/project-get.sh"}
 	env := Env{Getenv: os.Getenv}
@@ -219,6 +224,7 @@ func TestPipelineFixChecksHooks(t *testing.T) {
 	t.Parallel()
 	wt := t.TempDir()
 	writeFile(t, wt+"/.flow/project.md", pfProject)
+	writeFile(t, wt+"/stats/internal/repotest/doc.go", "package repotest\n")
 	pe := pfEnv{projectGet: tcfScriptsDir(t) + "/project-get.sh"}
 	want := "cd stats && go test ./internal/repotest/ -count=1"
 	if cmds, rc := pfChecks(Env{Getenv: os.Getenv}, pe, wt, []string{"hooks/protect-main-checkout.py"}); rc != 0 || !slices.Contains(cmds, want) {

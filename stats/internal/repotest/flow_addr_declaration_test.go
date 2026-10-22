@@ -304,28 +304,30 @@ func TestFlowAddrDeclaration(t *testing.T) {
 		}
 	})
 
-	cases := []struct{ name, file, old, repl string }{
+	cases := []struct{ name, file, old, repl, want string }{
 		// a verb outside the record family joins the record seam
-		{"mutate-record-seam-outside-family", "stats/cmd/flow/hazard.go", "registerConnFlags(", "registerRecordConnFlags("},
+		{"mutate-record-seam-outside-family", "stats/cmd/flow/hazard.go", "registerConnFlags(", "registerRecordConnFlags(", "call-site files"},
 		// registerRecordConnFlags stops resolving FLOW_RECORDS_ADDR
-		{"mutate-record-seam-default", "stats/cmd/flow/record.go", `"addr", resolveRecordsAddr()`, `"addr", resolveDefaultAddr()`},
+		{"mutate-record-seam-default", "stats/cmd/flow/record.go", `"addr", resolveRecordsAddr()`, `"addr", resolveDefaultAddr()`, "FLOW_RECORDS_ADDR -addr registration"},
 		// a record-family verb falls back to the FLOW_ADDR-only seam
-		{"mutate-family-verb-switches-seam", "stats/cmd/flow/selfreview.go", "registerRecordConnFlags(fset, &f)", "registerConnFlags(fset, &f)"},
+		{"mutate-family-verb-switches-seam", "stats/cmd/flow/selfreview.go", "registerRecordConnFlags(fset, &f)", "registerConnFlags(fset, &f)", "call-site files"},
 		// the declared set loses every `flow self-review` verb (they share
 		// one source file); the closing paren stays, so the case fails
 		// through assertion 3's set comparison, not the sentence parse
-		{"mutate-declaration-drops-verb", ".flow/project.md", ", `flow self-review finding`, `flow self-review findings`, `flow self-review bundle`", ""},
+		{"mutate-declaration-drops-verb", ".flow/project.md", ", `flow self-review finding`, `flow self-review findings`, `flow self-review bundle`", "", "call-site files"},
 		// `flow suite` (declared so its runtime rows outlive a worktree)
 		// falls back to the FLOW_ADDR-only seam
-		{"mutate-family-suite-switches-seam", "stats/cmd/flow/suite.go", "registerRecordConnFlags(fset, &f)", "registerConnFlags(fset, &f)"},
+		{"mutate-family-suite-switches-seam", "stats/cmd/flow/suite.go", "registerRecordConnFlags(fset, &f)", "registerConnFlags(fset, &f)", "call-site files"},
 		// a registration takes a hardcoded default
-		{"mutate-literal-addr-registration", "stats/cmd/flow/jira.go", `"addr", resolveDefaultAddr()`, `"addr", "http://127.0.0.1:9999"`},
+		{"mutate-literal-addr-registration", "stats/cmd/flow/jira.go", `"addr", resolveDefaultAddr()`, `"addr", "http://127.0.0.1:9999"`, "take a resolver default"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			if r := assertFlowAddrRoot(flowAddrRoot(t, c.file, c.old, c.repl)); r == "" {
-				t.Fatal("expected fail, got pass")
+			// the reason must name the check the mutation targets, so a
+			// mutation failing for an unrelated reason does not pass
+			if r := assertFlowAddrRoot(flowAddrRoot(t, c.file, c.old, c.repl)); !strings.Contains(r, c.want) {
+				t.Fatalf("expected a failure naming %q, got %q", c.want, r)
 			}
 		})
 	}

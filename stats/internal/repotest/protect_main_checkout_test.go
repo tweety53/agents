@@ -1,6 +1,6 @@
 package repotest
 
-// TestProtectMainCheckout ports scripts/test-protect-main-checkout.sh, the
+// TestProtectMainCheckout ports the retired shell harness, the
 // harness for hooks/protect-main-checkout.py.
 //
 // It builds one bare origin with a clone whose main checkout sits on `main`
@@ -69,7 +69,11 @@ func (f *pmFixture) run(t *testing.T, cwd, tool string, input map[string]string,
 	if err := enc.Encode(map[string]any{"tool_name": tool, "tool_input": input, "cwd": cwd}); err != nil {
 		t.Fatal(err)
 	}
-	out, _, _ := runHook(t, "protect-main-checkout.py", buf.Bytes(), append(append([]string{}, f.env...), env...)...)
+	out, stderr, rc := runHook(t, "protect-main-checkout.py", buf.Bytes(), append(append([]string{}, f.env...), env...)...)
+	if rc != 0 {
+		// a crashing hook prints nothing, which would read as allow
+		t.Fatalf("hook exited %d: %s", rc, stderr)
+	}
 	return out
 }
 
