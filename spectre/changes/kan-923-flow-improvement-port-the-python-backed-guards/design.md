@@ -14,8 +14,9 @@
 - `check-plan-shape.sh`'s per-file check runs the Python checks plus three Go guards
   (`plan-suite-steps`, `plan-script-paths`, `plan-task-id-rule`); its no-argument scan, like
   `check-task-build-green.sh`'s, `check-task-records.sh`'s and `plan-dispatch-bundles.sh`'s, adds
-  `flow-guard unlanded-archives`. Those wrappers derive the repository root from their own location,
-  with a `*_ROOT` environment override for harnesses.
+  `flow-guard unlanded-archives`. Those wrappers but `check-task-records.sh` (which takes
+  `${1:-$PWD}`) derive the repository root from their own location, with a `*_ROOT` environment
+  override for harnesses.
   <!-- verified: scripts/check-plan-shape.sh check_one and no-argument branch; grep -n '_ROOT' scripts/check-task-build-green.sh scripts/plan-dispatch-bundles.sh @ bbfe685e -->
 
 ## Measurements

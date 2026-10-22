@@ -254,7 +254,7 @@ and task 4's removes its two `plan-dispatch-groups.py` skill symlinks. Error lin
 
 - [ ] 6. Port check-task-records
 
-**Files:** `stats/internal/guard/taskrecords.go`, `stats/internal/guard/check_task_records_test.go`, `stats/internal/guard/planparse.go`, `scripts/check-task-records.sh`, `scripts/check-task-records.py`, `scripts/test-check-task-records.sh`
+**Files:** `stats/internal/guard/taskrecords.go`, `stats/internal/guard/check_task_records_test.go`, `scripts/check-task-records.sh`, `scripts/check-task-records.py`, `scripts/test-check-task-records.sh`, `skills/flow/scripts/check-task-records.py`, `stats/internal/guard/unlandedarchives.go`, `stats/internal/guard/taskcommitfields.go`, `stats/internal/guard/check_task_commit_fields_test.go`, `mods/flow-task-list/hooks/landed.ts`, `skills/flow-contracts/pipeline.md`, `scripts/check-task-commit-fields.py`, `scripts/check-task-commit-fields.sh`
 **Allowed-collateral:** `stats/internal/guard/helpers_test.go`
 **Tests:** `TestCheckTaskRecords`
 **Regression:** fails if any of the harness's 23 `ok:` behaviours regress.
@@ -280,6 +280,15 @@ and task 4's removes its two `plan-dispatch-groups.py` skill symlinks. Error lin
   - [ ] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`;
     `scripts/check-task-records.sh .` exits and prints as the wrapper did at `bbfe685e`, directly
     and through a symlink.
+
+Correction (2026-10-22): the wrapper at `bbfe685e` took its root from `${1:-$PWD}`, not its own
+location, so the shim drops the repo-root lines and `shims-export-repo-root` does not apply here;
+`planparse.go` needed no change and leaves the declared set. The commit also removes the tracked
+`skills/flow/scripts/check-task-records.py` symlink and repoints seven citations that named
+`check-task-records.py` or `check-plan-shape.py` as a loader of the shared modules — now declared.
+`CHECK_TASK_RECORDS_ARCHIVED` is no longer read; the old wrapper always overwrote it. A non-UTF-8
+plan exits 2 rather than crashing with 1 (`header-wins-on-exit-code`). `tcfScanPlans` is not
+reused: the Python hard-codes `spectre/changes` and `sorted()` order, which it does not share.
 
 - [x] 7. Port check-markdown-integrity
 
