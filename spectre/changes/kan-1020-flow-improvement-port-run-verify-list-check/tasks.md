@@ -51,7 +51,7 @@ child's own environment, never `os.Setenv`; no test touches the operator's `$HOM
 
 ---
 
-- [ ] 1. Port check-narrative-runs.sh to flow-guard
+- [x] 1. Port check-narrative-runs.sh to flow-guard
 
 **Files:** `stats/internal/guard/narrativeruns.go`, `stats/internal/guard/check_narrative_runs_test.go`, `scripts/check-narrative-runs.sh`, `scripts/test-check-narrative-runs.sh`
 **Tests:** `TestCheckNarrativeRuns`
@@ -66,14 +66,14 @@ child's own environment, never `os.Setenv`; no test touches the operator's `$HOM
 **Decision:** bash-at-8c54d6d3-is-the-oracle
 **Decision:** narrative-runs-exec-flow
 
-  - [ ] **Step 1: Record the oracle.** `bash scripts/test-check-narrative-runs.sh` on the untouched tree — exit 0, every line `ok:`.
-  - [ ] **Step 2: Port.** Write `narrativeruns.go`: `Registry["check-narrative-runs"]`, the bash header verbatim as its doc comment, `flow stage sessions` exec'd via PATH with `-C <wt>`, the two section counts as the same `^## .* — fix run` / `^## .* — integrate run` line tests.
-  - [ ] **Step 3: Shim.** Replace `scripts/check-narrative-runs.sh` per the template; re-run Step 1's command against the shim — exit 0. A failing assertion is a port defect: fix the Go, never the harness.
-  - [ ] **Step 4: Go test.** Write `check_narrative_runs_test.go`: `TestCheckNarrativeRuns`, one `t.Run` per harness case (labels kept), each running `Registry["check-narrative-runs"]` in process and the bash read at `8c54d6d3` over the same stub `flow` and narrative, asserting both the harness's expectation and byte-for-byte parity. Delete `scripts/test-check-narrative-runs.sh`.
-  - [ ] **Step 5: Break and prove.** Change the MISSING line's text in `narrativeruns.go`, see the test fail, restore it.
-  - [ ] **Step 6: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard && go test ./internal/guard -run 'TestCheckNarrativeRuns' -race -count=1`; `bash scripts/check-guard-symlinks.sh` and `bash scripts/check-references.sh` exit 0.
+  - [x] **Step 1: Record the oracle.** `bash scripts/test-check-narrative-runs.sh` on the untouched tree — exit 0, every line `ok:`.
+  - [x] **Step 2: Port.** Write `narrativeruns.go`: `Registry["check-narrative-runs"]`, the bash header verbatim as its doc comment, `flow stage sessions` exec'd via PATH with `-C <wt>`, the two section counts as the same `^## .* — fix run` / `^## .* — integrate run` line tests.
+  - [x] **Step 3: Shim.** Replace `scripts/check-narrative-runs.sh` per the template; re-run Step 1's command against the shim — exit 0. A failing assertion is a port defect: fix the Go, never the harness.
+  - [x] **Step 4: Go test.** Write `check_narrative_runs_test.go`: `TestCheckNarrativeRuns`, one `t.Run` per harness case (labels kept), each running `Registry["check-narrative-runs"]` in process and the bash read at `8c54d6d3` over the same stub `flow` and narrative, asserting both the harness's expectation and byte-for-byte parity. Delete `scripts/test-check-narrative-runs.sh`.
+  - [x] **Step 5: Break and prove.** Change the MISSING line's text in `narrativeruns.go`, see the test fail, restore it.
+  - [x] **Step 6: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard && go test ./internal/guard -run 'TestCheckNarrativeRuns' -race -count=1`; `bash scripts/check-guard-symlinks.sh` and `bash scripts/check-references.sh` exit 0.
 
-- [ ] 2. Port rebuild-full-app-suite-zip.sh to flow-guard
+- [x] 2. Port rebuild-full-app-suite-zip.sh to flow-guard
 
 **Files:** `stats/internal/guard/rebuildfullappsuitezip.go`, `stats/internal/guard/rebuild_full_app_suite_zip_test.go`, `scripts/rebuild-full-app-suite-zip.sh`, `scripts/test-rebuild-full-app-suite-zip.sh`
 **Tests:** `TestRebuildFullAppSuiteZip`
@@ -88,14 +88,14 @@ child's own environment, never `os.Setenv`; no test touches the operator's `$HOM
 **Decision:** bash-at-8c54d6d3-is-the-oracle
 **Decision:** zip-via-exec
 
-  - [ ] **Step 1: Record the oracle.** `FLOW_GUARD_CACHE_DIR=$(mktemp -d) bash scripts/test-rebuild-full-app-suite-zip.sh` on the untouched tree — exit 0.
-  - [ ] **Step 2: Port.** Write `rebuildfullappsuitezip.go`: `Registry["rebuild-full-app-suite-zip"]`, header as doc comment, `resolve-visual-screenshots.sh` exec'd from `FLOW_GUARD_SCRIPT_DIR`, mtimes pinned with `os.Chtimes` to `time.Date(1980,1,1,0,0,0,0,time.Local)`, `zip -q -X -j -@` exec'd with the list on stdin, exit codes as the bash's.
-  - [ ] **Step 3: Shim.** Replace the script per the template, with `: "$SCRIPT_DIR/resolve-visual-screenshots.sh"`; re-run Step 1's command against the shim — exit 0.
-  - [ ] **Step 4: Go test.** Write `rebuild_full_app_suite_zip_test.go`: `TestRebuildFullAppSuiteZip`, one `t.Run` per harness case, each asserting the harness's expectation and byte-for-byte stdout/stderr/exit parity with the bash at `8c54d6d3` (its `resolve-visual-screenshots.sh` sibling the live shim); the byte-identical case compares the Go zip with the bash zip too. Delete `scripts/test-rebuild-full-app-suite-zip.sh`.
-  - [ ] **Step 5: Break and prove.** Drop the `os.Chtimes` call, see the byte-identical case fail, restore it.
-  - [ ] **Step 6: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard && go test ./internal/guard -run 'TestRebuildFullAppSuiteZip' -race -count=1`; `bash scripts/check-guard-symlinks.sh` and `bash scripts/check-references.sh` exit 0.
+  - [x] **Step 1: Record the oracle.** `FLOW_GUARD_CACHE_DIR=$(mktemp -d) bash scripts/test-rebuild-full-app-suite-zip.sh` on the untouched tree — exit 0.
+  - [x] **Step 2: Port.** Write `rebuildfullappsuitezip.go`: `Registry["rebuild-full-app-suite-zip"]`, header as doc comment, `resolve-visual-screenshots.sh` exec'd from `FLOW_GUARD_SCRIPT_DIR`, mtimes pinned with `os.Chtimes` to `time.Date(1980,1,1,0,0,0,0,time.Local)`, `zip -q -X -j -@` exec'd with the list on stdin, exit codes as the bash's.
+  - [x] **Step 3: Shim.** Replace the script per the template, with `: "$SCRIPT_DIR/resolve-visual-screenshots.sh"`; re-run Step 1's command against the shim — exit 0.
+  - [x] **Step 4: Go test.** Write `rebuild_full_app_suite_zip_test.go`: `TestRebuildFullAppSuiteZip`, one `t.Run` per harness case, each asserting the harness's expectation and byte-for-byte stdout/stderr/exit parity with the bash at `8c54d6d3` (its `resolve-visual-screenshots.sh` sibling the live shim); the byte-identical case compares the Go zip with the bash zip too. Delete `scripts/test-rebuild-full-app-suite-zip.sh`.
+  - [x] **Step 5: Break and prove.** Drop the `os.Chtimes` call, see the byte-identical case fail, restore it.
+  - [x] **Step 6: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard && go test ./internal/guard -run 'TestRebuildFullAppSuiteZip' -race -count=1`; `bash scripts/check-guard-symlinks.sh` and `bash scripts/check-references.sh` exit 0.
 
-- [ ] 3. Port run-verify-list.sh to flow-guard on rgtRun
+- [x] 3. Port run-verify-list.sh to flow-guard on rgtRun
 
 **Files:** `stats/internal/guard/runverifylist.go`, `stats/internal/guard/run_verify_list_test.go`, `stats/internal/guard/runguardtests.go`, `scripts/run-verify-list.sh`, `scripts/test-run-verify-list.sh`
 **Tests:** `TestRunVerifyList`
@@ -110,15 +110,17 @@ child's own environment, never `os.Setenv`; no test touches the operator's `$HOM
 **Decision:** bash-at-8c54d6d3-is-the-oracle
 **Decision:** verify-list-on-rgtrun
 
-  - [ ] **Step 1: Record the oracle.** `FLOW_GUARD_CACHE_DIR=$(mktemp -d) bash scripts/test-run-verify-list.sh` on the untouched tree — exit 0.
-  - [ ] **Step 2: rgtRun takes argv.** Change `rgtRun(ctx, harnesses []string, …)` to take `[][]string` argv, `exec.CommandContext(ctx, argv[0], argv[1:]...)`; `runGuardTests` builds `{"bash", h}` per harness. `go test ./internal/guard -run 'TestRunGuardTests' -count=1` stays green.
-  - [ ] **Step 3: Port.** Write `runverifylist.go`: `Registry["run-verify-list"]`, header as doc comment; `project-get.sh` and `check-spec-reach.sh` exec'd from `FLOW_GUARD_SCRIPT_DIR`; the fence/`# inputs:` parse as the awk's line tests; `test` commands through `rgtRun` with `{"bash","-c",cmd}` and `jobs = len` of the non-skipped commands, `Dir` the worktree; `lint` commands one at a time; reporting, truncation, race line, logs and green sha exactly as the bash.
-  - [ ] **Step 4: Shim.** Replace the script per the template, with `: "$SCRIPT_DIR/project-get.sh" "$SCRIPT_DIR/check-spec-reach.sh"`; re-run Step 1's command against the shim — exit 0.
-  - [ ] **Step 5: Go test.** Write `run_verify_list_test.go`: `TestRunVerifyList`, one `t.Run` per harness case, each asserting the harness's expectation and byte-for-byte parity with the bash at `8c54d6d3` (siblings the live shims), with the temp `run-verify-list.XXXXXX` and worktree paths normalised the same way on both sides. Delete `scripts/test-run-verify-list.sh`.
-  - [ ] **Step 6: Break and prove.** Change the truncation threshold to 21 in `runverifylist.go`, see the test fail, restore it.
-  - [ ] **Step 7: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard && go test ./internal/guard -run 'TestRunVerifyList|TestRunGuardTests' -race -count=1`; `bash scripts/check-guard-symlinks.sh` and `bash scripts/check-references.sh` exit 0.
+  - [x] **Step 1: Record the oracle.** `FLOW_GUARD_CACHE_DIR=$(mktemp -d) bash scripts/test-run-verify-list.sh` on the untouched tree — exit 0.
+  - [x] **Step 2: rgtRun takes argv.** Change `rgtRun(ctx, harnesses []string, …)` to take `[][]string` argv, `exec.CommandContext(ctx, argv[0], argv[1:]...)`; `runGuardTests` builds `{"bash", h}` per harness. `go test ./internal/guard -run 'TestRunGuardTests' -count=1` stays green.
+  - [x] **Step 3: Port.** Write `runverifylist.go`: `Registry["run-verify-list"]`, header as doc comment; `project-get.sh` and `check-spec-reach.sh` exec'd from `FLOW_GUARD_SCRIPT_DIR`; the fence/`# inputs:` parse as the awk's line tests; `test` commands through `rgtRun` with `{"bash","-c",cmd}` and `jobs = len` of the non-skipped commands, `Dir` the worktree; `lint` commands one at a time; reporting, truncation, race line, logs and green sha exactly as the bash.
+  - [x] **Step 4: Shim.** Replace the script per the template, with `: "$SCRIPT_DIR/project-get.sh" "$SCRIPT_DIR/check-spec-reach.sh"`; re-run Step 1's command against the shim — exit 0.
+  - [x] **Step 5: Go test.** Write `run_verify_list_test.go`: `TestRunVerifyList`, one `t.Run` per harness case, each asserting the harness's expectation and byte-for-byte parity with the bash at `8c54d6d3` (siblings the live shims), with the temp `run-verify-list.XXXXXX` and worktree paths normalised the same way on both sides. Delete `scripts/test-run-verify-list.sh`.
+  - [x] **Step 6: Break and prove.** Change the truncation threshold to 21 in `runverifylist.go`, see the test fail, restore it.
+  - [x] **Step 7: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard && go test ./internal/guard -run 'TestRunVerifyList|TestRunGuardTests' -race -count=1`; `bash scripts/check-guard-symlinks.sh` and `bash scripts/check-references.sh` exit 0.
 
-- [ ] 4. Delete lib/resolve-file.sh and lib/spec-root.sh
+Correction (2026-10-22): Step 6's mutation (threshold 21) survived the harness's cases — its only long output is 25 lines, truncated under either threshold. `TestRunVerifyList` gained a `21 lines are truncated` subtest beyond the harness, which the mutation fails.
+
+- [x] 4. Delete lib/resolve-file.sh and lib/spec-root.sh
 
 **Files:** `scripts/lib/resolve-file.sh`, `scripts/lib/spec-root.sh`, `stats/internal/guard/libtwins_test.go`
 **Allowed-collateral:** `stats/**/*.go`, `scripts/*.sh`
@@ -132,8 +134,8 @@ child's own environment, never `os.Setenv`; no test touches the operator's `$HOM
 
 **Decision:** delete-dead-libs
 
-  - [ ] **Step 1: Confirm no loader.** `git grep -nE '(\.|source) .*lib/(resolve-file|spec-root)\.sh' -- scripts skills hooks setup.sh stats` prints nothing.
-  - [ ] **Step 2: Repoint the test.** In `libtwins_test.go`, `TestResolveFileParity` writes `historicalFile(t, "../../..", "8c54d6d3", "scripts/lib/resolve-file.sh")` into a temp dir and sources that copy (`bashRun` on its path), the doc comment naming the ref.
-  - [ ] **Step 3: Delete and update comments.** `git rm scripts/lib/resolve-file.sh scripts/lib/spec-root.sh`; every comment in `stats/**/*.go` and `scripts/*.sh` naming either as a live file (`resolvefile.go`, `specroot.go`, `changeplan.go`, `gatherdispatch.go`, `helpers_test.go`, `stats/cmd/flow/tasks.go`, `stats/internal/selfreview/git.go`, `scripts/aside-planning-artifacts.sh`, `scripts/check-task-commit-planning-paths.sh`) says it is retired and names its Go twin.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./... && go test ./internal/guard -run 'TestResolveFileParity|TestSpecRoot' -count=1`; `bash scripts/check-references.sh` and `bash scripts/check-guard-symlinks.sh` exit 0.
-  - [ ] **Step 5: Absence sweep.** `git grep -n -F -e 'scripts/lib/resolve-file.sh' -e 'scripts/lib/spec-root.sh' -- scripts skills hooks setup.sh` prints nothing.
+  - [x] **Step 1: Confirm no loader.** `git grep -nE '(\.|source) .*lib/(resolve-file|spec-root)\.sh' -- scripts skills hooks setup.sh stats` prints nothing.
+  - [x] **Step 2: Repoint the test.** In `libtwins_test.go`, `TestResolveFileParity` writes `historicalFile(t, "../../..", "8c54d6d3", "scripts/lib/resolve-file.sh")` into a temp dir and sources that copy (`bashRun` on its path), the doc comment naming the ref.
+  - [x] **Step 3: Delete and update comments.** `git rm scripts/lib/resolve-file.sh scripts/lib/spec-root.sh`; every comment in `stats/**/*.go` and `scripts/*.sh` naming either as a live file (`resolvefile.go`, `specroot.go`, `changeplan.go`, `gatherdispatch.go`, `helpers_test.go`, `stats/cmd/flow/tasks.go`, `stats/internal/selfreview/git.go`, `scripts/aside-planning-artifacts.sh`, `scripts/check-task-commit-planning-paths.sh`) says it is retired and names its Go twin.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./... && go test ./internal/guard -run 'TestResolveFileParity|TestSpecRoot' -count=1`; `bash scripts/check-references.sh` and `bash scripts/check-guard-symlinks.sh` exit 0.
+  - [x] **Step 5: Absence sweep.** `git grep -n -F -e 'scripts/lib/resolve-file.sh' -e 'scripts/lib/spec-root.sh' -- scripts skills hooks setup.sh` prints nothing.
