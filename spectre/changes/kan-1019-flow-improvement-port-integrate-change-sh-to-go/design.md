@@ -73,7 +73,7 @@ normalisation layer the harness's own assertions already make unnecessary.
 ### Shape of the Go tests
 
 **ID:** go-tests-in-process-two-files
-**Status:** active
+**Status:** superseded by go-tests-bash-session-sut-in-process
 **Chosen:** the harness's fixture becomes a Go helper building the same two-repository fixture
 with the same `flow` and `spectre` stubs on `PATH`; each case calls `Registry["integrate-change"]`
 in process with an env carrying the stubs' `PATH` and `FLOW_GUARD_SCRIPT_DIR` pointed at the real
@@ -83,6 +83,14 @@ cases split across `integrate_change_test.go` (fixture, prepare and commit cases
 by side.
 **Considered:** running the shim as a subprocess — rejected, every case would pay the shim's
 build-cache check and the test would not exercise the code under `go test -cover`.
+**Superseded because:** implementation found a Go transcription of the harness's fixture and case bodies would restate about 1000 lines of setup the bash already proves.
+
+### Shape of the Go tests, as shipped
+
+**ID:** go-tests-bash-session-sut-in-process
+**Status:** active
+**Chosen:** each case is a `t.Run` with `t.Parallel()` running the harness's own fixture, helpers, case body and `check` expressions verbatim as one bash session; its `sut` hands argv and environment back to the test, which runs `Registry["integrate-change"]` in process. Each `check` label is a subtest. The cases split across `integrate_change_test.go` (driver and happy path), `integrate_change_prepare_test.go` and `integrate_change_land_test.go`.
+**Considered:** transcribing every setup step and assertion into Go (go-tests-in-process-two-files) — rejected, a hand restatement with a new place for each to drift; the SUT runs in process either way.
 
 ### Where the contract text lives
 
