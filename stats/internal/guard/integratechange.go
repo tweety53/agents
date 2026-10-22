@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -211,34 +212,13 @@ func integrateChange(args []string, env Env, stdout, stderr io.Writer) (code int
 	return 0
 }
 
-// icChildEnv is what every child runs under: the process environment with
-// each variable the harness's `sut` set taken from env instead, so a test's
-// stubs and identity reach the guards as the bash's exported ones did.
+// icChildEnv is what every child runs under: the environment the caller
+// handed over, the process's own in production.
 func icChildEnv(env Env) []string {
-	names := []string{"PATH", "HOME", "TMPDIR", "FLOW_GUARD_CACHE_DIR", "FLOW_GUARD_TELEMETRY", "FLOW_GUARD_SCRIPT_DIR",
-		"GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
-		"GIT_AUTHOR_DATE", "GIT_COMMITTER_DATE"}
-	lookup := env.LookupEnv
-	if lookup == nil {
-		lookup = func(n string) (string, bool) { v := env.Getenv(n); return v, v != "" }
+	if env.Environ != nil {
+		return env.Environ()
 	}
-	var out []string
-	for _, kv := range os.Environ() {
-		n, _, _ := strings.Cut(kv, "=")
-		keep := true
-		for _, m := range names {
-			keep = keep && n != m
-		}
-		if keep {
-			out = append(out, kv)
-		}
-	}
-	for _, n := range names {
-		if v, ok := lookup(n); ok {
-			out = append(out, n+"="+v)
-		}
-	}
-	return out
+	return os.Environ()
 }
 
 func (c *ic) die(format string, a ...any) {
@@ -260,7 +240,14 @@ func (c *ic) parse(args []string) {
 	if sub == "" || mainArg == "" || name == "" {
 		c.die("usage: integrate-change.sh prepare|commit|land|cleanup <main-checkout> <name> [flags]")
 	}
-	m, ok := icPhys(c.env.Dir, mainArg)
+	// The shim runs this from `/`, as the bash's `cd /` did, so the process
+	// never holds a worktree remove-change-worktrees' check 6 counts; a
+	// relative argument resolves against the directory it was called from.
+	dir := c.env.Getenv("FLOW_GUARD_CALLER_DIR")
+	if dir == "" {
+		dir = c.env.Dir
+	}
+	m, ok := icPhys(dir, mainArg)
 	if !ok {
 		c.die("%s is not a directory", mainArg)
 	}
@@ -311,7 +298,7 @@ func (c *ic) parse(args []string) {
 			c.prArgs = append(c.prArgs, next())
 			i++
 		case "--proceed":
-			p, ok := icPhys(c.env.Dir, next())
+			p, ok := icPhys(dir, next())
 			if !ok {
 				c.die("--proceed takes the main checkout its disclosure stop named")
 			}
@@ -392,7 +379,7 @@ func (c *ic) cmd(dir, name string, args ...string) *exec.Cmd {
 
 // rcOf is `$?`: 127 for a command never found, as bash gives it.
 func rcOf(err error) int {
-	if errors.Is(err, exec.ErrNotFound) {
+	if errors.Is(err, exec.ErrNotFound) || errors.Is(err, fs.ErrNotExist) {
 		return 127
 	}
 	return exitCode(err)
@@ -608,8 +595,8 @@ func icParseState(s string) icState {
 			return st
 		}
 		val := icJQText(v)
-		if val == "" {
-			val = "-" // `.value // "-"`
+		if v == nil || v == false {
+			val = "-" // `.value // "-"`: only null and false fall through
 		}
 		st.keys, st.values = append(st.keys, k.(string)), append(st.values, val)
 	}
@@ -831,6 +818,8 @@ func (c *ic) reshapeFile(w string) string {
 	return f
 }
 
+var icExportable = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=`)
+
 var icLinkUnder = regexp.MustCompile(`/link\.md$`)
 
 // implPaths: the paths commit-split would put in the implementation commit
@@ -956,7 +945,8 @@ func (c *ic) rebaseLint(w, prefix string) {
 	cmd := c.cmd("/", c.sibling("run-verify-list"), w, "lint")
 	cmd.Env = append([]string{}, c.childEnv...)
 	for _, kv := range icLines(out) {
-		if kv != "" && (kv[0] == '_' || kv[0] >= 'A' && kv[0] <= 'Z' || kv[0] >= 'a' && kv[0] <= 'z') && strings.Contains(kv, "=") {
+		// `export "$kv"` refused a name that is no identifier.
+		if icExportable.MatchString(kv) {
 			cmd.Env = append(cmd.Env, kv)
 		}
 	}

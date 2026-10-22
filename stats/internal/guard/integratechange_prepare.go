@@ -289,7 +289,9 @@ func (c *ic) prepare() {
 		if archived {
 			rb = c.archBase(c.wt[i], rb)
 		}
-		os.WriteFile(f, []byte(rb+"\n"), 0o644)
+		if err := os.WriteFile(f, []byte(rb+"\n"), 0o644); err != nil {
+			fmt.Fprintf(c.stderr, "integrate-change: %v\n", err)
+		}
 		reshape = true
 		c.say("WORKTREE: " + c.wt[i] + " — base " + c.bases[i] + ", reshape base " + rb)
 		sp := specRootLeaf(c.wt[i], c.stderr)

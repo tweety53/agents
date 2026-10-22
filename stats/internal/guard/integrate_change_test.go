@@ -173,8 +173,12 @@ func icRun(t *testing.T, script string) {
 	}
 	cmd := exec.Command("bash", "-c", icDriver+icHelpers+"\n"+script)
 	cmd.Dir = tmp
+	// HOME is the test's own, so no guard's commit reads the operator's
+	// git config; the Go caches stay where the toolchain keeps them.
 	cmd.Env = append(os.Environ(), "IC_TMP="+tmp, "IC_SCRIPTS="+scripts,
-		"FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_TELEMETRY=off")
+		"FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_TELEMETRY=off",
+		"HOME="+tmp+"/home", "GIT_CONFIG_NOSYSTEM=1")
+	cmd.Env = append(cmd.Env, icGoEnv(t)...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	stdout, err := cmd.StdoutPipe()
@@ -209,15 +213,27 @@ func icRun(t *testing.T, script string) {
 	}
 }
 
+// icGoEnv pins the Go caches a moved HOME would otherwise relocate.
+func icGoEnv(t *testing.T) []string {
+	out, err := exec.Command("go", "env", "GOCACHE", "GOMODCACHE", "GOPATH").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := strings.Split(strings.TrimSpace(string(out)), "\n")
+	return []string{"GOCACHE=" + v[0], "GOMODCACHE=" + v[1], "GOPATH=" + v[2]}
+}
+
 // icServe is one `sut` call: the session's argv and environment, run in
 // process, its stdout, stderr and exit code handed back.
 func icServe(t *testing.T, tmp string) {
 	t.Helper()
 	vars := map[string]string{}
+	var environ []string
 	raw, _ := os.ReadFile(tmp + "/sut.env")
 	for _, kv := range strings.Split(string(raw), "\x00") {
 		if k, v, ok := strings.Cut(kv, "="); ok {
 			vars[k] = v
+			environ = append(environ, kv)
 		}
 	}
 	argv, _ := os.ReadFile(tmp + "/sut.args")
@@ -225,6 +241,7 @@ func icServe(t *testing.T, tmp string) {
 	env := Env{
 		Getenv:    func(k string) string { return vars[k] },
 		LookupEnv: func(k string) (string, bool) { v, ok := vars[k]; return v, ok },
+		Environ:   func() []string { return environ },
 		Dir:       "/",
 	}
 	var out, errOut bytes.Buffer

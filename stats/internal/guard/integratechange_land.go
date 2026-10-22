@@ -52,7 +52,9 @@ func (c *ic) rereadFixShas(i int) {
 			continue
 		}
 		cur, _ := os.ReadFile(rpt)
-		os.WriteFile(rpt, []byte(strings.ReplaceAll(string(cur), "fixed: "+old, "fixed: "+nw)), 0o644)
+		if err := os.WriteFile(rpt, []byte(strings.ReplaceAll(string(cur), "fixed: "+old, "fixed: "+nw)), 0o644); err != nil {
+			fmt.Fprintf(c.stderr, "integrate-change: %v\n", err)
+		}
 		c.say("FIXED-SHA: " + old + " -> " + nw)
 		changed = true
 	}
@@ -89,10 +91,10 @@ func (c *ic) recordFixedRows() {
 	known := c.cmd("/", "flow", "self-review", "findings", "-C", c.main, "-change", c.name)
 	known.Stderr = nil
 	knownOut, _ := c.capture(known)
-	// `while read -r line`: whitespace trimmed, an unterminated last line unread.
+	// `while IFS= read -r line`: nothing trimmed, an unterminated last line unread.
 	lines := strings.Split(string(b), "\n")
 	for _, line := range lines[:len(lines)-1] {
-		m := icFixedRow.FindStringSubmatch(strings.Trim(line, " \t"))
+		m := icFixedRow.FindStringSubmatch(line)
 		if m == nil {
 			continue
 		}

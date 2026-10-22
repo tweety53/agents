@@ -39,6 +39,9 @@ done
 : "$SCRIPT_DIR/reshape-branch.sh" "$SCRIPT_DIR/resolve-base-branch.sh" "$SCRIPT_DIR/run-verify-list.sh"
 : "$SCRIPT_DIR/sync-onto-base.sh" "$SCRIPT_DIR/prepare-workspace.sh" "$SCRIPT_DIR/check-loop-landing.sh"
 : "$SCRIPT_DIR/check-narrative-runs.sh"
-FLOW_GUARD_SCRIPT_DIR="$SCRIPT_DIR"
-export FLOW_GUARD_SCRIPT_DIR
+FLOW_GUARD_SCRIPT_DIR="$SCRIPT_DIR" FLOW_GUARD_CALLER_DIR="$PWD"
+export FLOW_GUARD_SCRIPT_DIR FLOW_GUARD_CALLER_DIR
+# Outside every worktree: remove-change-worktrees' check 6 counts this
+# process's own cwd. Relative arguments resolve against FLOW_GUARD_CALLER_DIR.
+cd / || { echo "integrate-change: cannot cd /" >&2; exit 2; }
 flow_guard_exec integrate-change 2 "integrate-change:" "$@"

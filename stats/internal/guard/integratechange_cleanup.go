@@ -121,7 +121,7 @@ func (c *ic) cleanup() {
 			continue
 		}
 		for _, o := range strings.Split(out, "\n") {
-			if o = strings.Trim(o, " \t"); o == "" {
+			if o == "" {
 				continue
 			}
 			// The id reaches a shell command; anything outside the id alphabet is refused.
@@ -152,7 +152,9 @@ func (c *ic) cleanup() {
 		// project has none on disk, which the guard would read as a typo.
 		sd, rc := c.capture(c.cmd("/", "flow", "state", "dir", "-C", m))
 		if rc == 0 {
-			os.MkdirAll(sd, 0o755)
+			if err := os.MkdirAll(sd, 0o755); err != nil {
+				fmt.Fprintf(c.stderr, "integrate-change: %v\n", err)
+			}
 		}
 		c.run("check-cleanup-complete", m, c.name, sd)
 		if c.rc != 0 || c.verdict("COMPLETE") == "" {
