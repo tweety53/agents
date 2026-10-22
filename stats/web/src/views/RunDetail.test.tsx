@@ -307,7 +307,7 @@ describe("a change with more stage runs than one page holds", () => {
     render(<RunDetail project={PROJECT} change={CHANGE} />);
 
     const totalCostPanel = await screen.findByRole("region", { name: "Total cost" });
-    expect(within(totalCostPanel).getByText("$99.99")).toBeInTheDocument();
+    expect(await within(totalCostPanel).findByText("$99.99")).toBeInTheDocument();
     expect(within(totalCostPanel).queryByText("$1.00")).not.toBeInTheDocument();
   });
 });

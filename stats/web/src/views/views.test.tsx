@@ -361,7 +361,7 @@ describe("views render their fixture response's actual values", () => {
     // rows -- "regular / inline" and "regular / sdd" -- each with its own
     // mean cost.
     const summaryRegion = await screen.findByRole("region", { name: "By class and execution" });
-    expect(within(summaryRegion).getByText("regular / inline")).toBeInTheDocument();
+    expect(await within(summaryRegion).findByText("regular / inline")).toBeInTheDocument();
     expect(within(summaryRegion).getByText("regular / sdd")).toBeInTheDocument();
     expect(within(summaryRegion).getByText("$1.25")).toBeInTheDocument();
     expect(within(summaryRegion).getByText("$3.75")).toBeInTheDocument();
@@ -380,7 +380,7 @@ describe("views render their fixture response's actual values", () => {
     render(<Decisions period={period} project={undefined} />);
 
     const region = await screen.findByRole("region", { name: "By implementer model" });
-    const rows = within(region).getAllByRole("row").slice(1);
+    const rows = (await within(region).findAllByRole("row")).slice(1);
     expect(rows).toHaveLength(2);
     // opus first: two runs, mean cost (3.75 + 1.25) / 2, mean wall-clock
     // (1200 s + 600 s) / 2, mean findings 3, mean fix rounds 1.
@@ -625,7 +625,7 @@ describe("flow health", () => {
     render(<FlowHealth period={period} project={undefined} />);
     const tile = (name: string) => within(screen.getByRole("region", { name }));
     expect(await screen.findByRole("region", { name: "Changes started" })).toBeInTheDocument();
-    tile("Changes started").getByText("4");
+    await tile("Changes started").findByText("4");
     tile("Changes finished").getByText("3");
     tile("Total cost").getByText("$42.50");
     tile("Mean cost per finished change").getByText("$9.25");
@@ -646,7 +646,7 @@ describe("flow health", () => {
     );
     render(<FlowHealth period={period} project={undefined} />);
     const lead = await screen.findByRole("region", { name: "Median lead time" });
-    expect(within(lead).getByTestId("unavailable")).toBeInTheDocument();
+    expect(await within(lead).findByTestId("unavailable")).toBeInTheDocument();
   });
 });
 
