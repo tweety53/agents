@@ -2603,3 +2603,39 @@ func TestRecordDecisionChecksExtraDispatchModel(t *testing.T) {
 		})
 	}
 }
+
+// TestRecordDecisionChecksExtraDispatchMutationModel pins kan-1028: the
+// always-on extra_dispatch_mutation pair is checked like extra_dispatch — an
+// off-policy model is refused naming extra_dispatch_mutation.model; sonnet
+// and opus record.
+func TestRecordDecisionChecksExtraDispatchMutationModel(t *testing.T) {
+	body := func(model string) string {
+		return `{"class":"micro","execution":"inline","implementer":"skipped — inline","fixer":"skipped — inline","panel":"default","groups":null,` +
+			`"extra_dispatch_mutation":{"slots":["mutation","failure-modes"],"model":"` + model + `","effort":"low","reason":"r"}}`
+	}
+	for _, bad := range []string{"haiku", "fable", ""} {
+		t.Run("refuses "+bad, func(t *testing.T) {
+			_, fs := recordTestServer(t, "proj", "kan-1")
+			_, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
+				records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(body(bad))})
+			if !errors.Is(err, api.ErrInvalidRecord) {
+				t.Fatalf("ApplyDecisionRecord error = %v, want ErrInvalidRecord", err)
+			}
+			if want := fmt.Sprintf("extra_dispatch_mutation.model %q", bad); !strings.Contains(err.Error(), want) {
+				t.Errorf("error = %q, want it to contain %q", err.Error(), want)
+			}
+			if fs.recordCalls != 0 {
+				t.Errorf("the store was reached for an off-policy extra_dispatch_mutation")
+			}
+		})
+	}
+	for _, good := range []string{"sonnet", "opus"} {
+		t.Run("records "+good, func(t *testing.T) {
+			_, fs := recordTestServer(t, "proj", "kan-1")
+			if _, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
+				records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(body(good))}); err != nil {
+				t.Fatalf("ApplyDecisionRecord: %v", err)
+			}
+		})
+	}
+}
