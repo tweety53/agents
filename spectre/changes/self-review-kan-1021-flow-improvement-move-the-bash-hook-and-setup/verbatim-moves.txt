@@ -1,0 +1,12 @@
+# Sentences this change adds or rewords on purpose — the kan-1021 self-review pass: the fenced citation-check body (review-panel.md), the superpowers sub-skills a flow-* agent cannot load (implement.md, review-panel-fix-round.md), the parent's in-place line-number correction (review-panel-fix-round.md).
+**REQUIRED SUB-SKILL:** Use superpowers:test-driven-development — RED-GREEN-REFACTOR for this task.
+**REQUIRED SUB-SKILL:** When a test fails for a reason RED-GREEN-REFACTOR did not plan, invoke superpowers:systematic-debugging before writing a fix.
+An expected RED step needs no invocation.
+If declared, run its command from the apply worktree and capture combined stdout+stderr verbatim to `<abs-worktree>/.superpowers/sdd/citation-check.md`.
+Where a finding is confirmed as a real defect, the fix subagent invokes **superpowers:systematic-debugging** before writing its fix.
+**REQUIRED SUB-SKILL:** Read and follow superpowers:test-driven-development from its file — on Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/test-driven-development/SKILL.md` — RED-GREEN-REFACTOR for this task.
+**REQUIRED SUB-SKILL:** When a test fails for a reason RED-GREEN-REFACTOR did not plan, read and follow superpowers:systematic-debugging from its file — on Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/systematic-debugging/SKILL.md` — before writing a fix.
+An expected RED step needs no such read.
+An unresolving demonstrates citation whose cited path holds the claimed content verbatim on another line — the reviewer's line number off, nothing else — is the one exception, never bounced: the parent corrects the line number in the reproducer in place, re-runs the audit, and records the correction, old line and new, in that round's `flow record pass`.
+If declared, run its command from the apply worktree — the lines between the fence markers `project-get.sh` prints around it, never an `eval` of the printed body, whose opening `` ```bash `` line runs a bare `bash` that hangs on open stdin — and capture combined stdout+stderr verbatim to `<abs-worktree>/.superpowers/sdd/citation-check.md`.
+Where a finding is confirmed as a real defect, the fix subagent reads and follows **superpowers:systematic-debugging** from its file before writing its fix — on Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/systematic-debugging/SKILL.md`, since a `flow-*` agent carries no Skill tool.
