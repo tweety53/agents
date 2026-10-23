@@ -1,0 +1,61 @@
+# kan-1027: the learning setting and note — sentences reworded or added on purpose
+Ask about the one field the settings store holds, `reviewers`, with **AskUserQuestion**, starting from the current value read in step 1:
+If the operator keeps the list unchanged, say so and stop — do not call `settings set` for a no-op write.
+Offer to change the reviewers
+On success, report exactly what changed against the value read in step 1: old list → new list.
+Read and change the harness-wide settings record `flow settings get`/`set` manage: the reviewer slots (`reviewers`) the review panel dispatches by default.
+Silence on the ask keeps the current list — the seeded selection, unchanged (**Unanswered mid-run asks**, `skills/flow-contracts/pipeline.md`).
+The CLI itself refuses an empty `-reviewers` before the store is ever contacted: its required-flags check (`<agents repo>/stats/cmd/flow/settings.go`'s `-reviewers is required` check) exits 2, distinct from the store's own exit-1 rejection covered in step 3 below — warn the operator before they try it that selecting zero slots fails at step 3 with exit 2, rather than turning review off.
+`flow settings get` prints one line of JSON: `reviewers` (an array of strings).
+`settings set` writes the whole record, replacing what was recorded before.
+flow settings set -reviewers "<comma,separated,list>"
+name: flow-settings description: Read and change the harness-wide flow defaults — the reviewer slots.
+\## Learning — <topic>
+\## Learning — <topic> (run-only, when composed — **Learning**, `skills/flow-contracts/learning.md`)
+\### Choosing a topic
+\### Reading the setting
+\### Recording it
+\### The note
+\### The printed section
+\### When a note runs
+**Answer:** <the answer>
+**Learning** — on or off, plus "keep current".
+**Otherwise random** — a programming-language feature or a system-design pattern.
+**Puzzle:** <the puzzle>
+**Related to the run** — the plan's language, a design approach its tasks use, or an agentic-coding, LLM or AI-infrastructure practice the run itself exercises.
+**Study** — two or three links, each checked first with `curl -sfI --max-time 5 <url>` — credential-free, read-only — and dropped on a non-zero exit.
+**Study:** <link> · <link> · <link>
+**Theory** — one paragraph of at most about 150 words, tied to the run where the topic is.
+**This file is canonical for the learning note.
+**`/flow`'s implement phase prints `Summary`, `Running`, `Decisions`, the `## Learning` section (**Learning**, `skills/flow-contracts/learning.md`) and `Next` alone** (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`) — every other line of this rendering is `/flow-status`'s only, and the run omits it — the one rendering whose skill copy carries fewer lines than its template.
+<the ## Learning section, when this run composed one>
+<the theory paragraph>
+A note is composed only on `/flow`'s implementation run — the first run past the plan gate — and on `/flow-fast`.
+A topic at `count` 3 is exhausted and skipped.
+A topic is a lowercase kebab slug (`go-generics`, `advisory-locks`), at most 64 characters.
+Any other non-zero exit — the store unreachable — prints the note unrecorded and never blocks.
+Anything else — a non-zero exit, or the empty output the pipe leaves when the store is unreachable — prints no note and never blocks the run.
+Ask about both fields the settings store holds with **AskUserQuestion**, starting from the current values read in step 1.
+Exit 1 with stderr naming `already shown three times` or `rejected` is the store refusing the topic, and the run picks another topic.
+If the operator keeps both unchanged, say so and stop — do not call `settings set` for a no-op write.
+Never a fix run, an integrate run, or a creating run that stops at the plan gate.
+Offer to change the reviewers and the learning note
+On success, report exactly what changed against the values read in step 1: old → new, per field.
+Pass only the fields the operator changed: `settings set` reads the current record, overrides the given fields and writes it back, so the other field is kept.
+Pick, in this order:
+Printed in the run's final message, where the citing phase file places it:
+Read and change the harness-wide settings record `flow settings get`/`set` manage: the reviewer slots (`reviewers`) the review panel dispatches by default, and `learning` — whether an implementation run prints a learning note (**Learning**, `skills/flow-contracts/learning.md`).
+Recorded as the final message prints, never at composition, so a run that stops earlier spends no showing of the topic:
+Silence on the ask keeps the current values — the seeded selection, unchanged (**Unanswered mid-run asks**, `skills/flow-contracts/pipeline.md`).
+The CLI never sends an empty roster: an empty `-reviewers` is read as "not given", so selecting zero slots with nothing else changed fails at step 3 with exit 2 (`<agents repo>/stats/cmd/flow/settings.go`'s `needs -reviewers, -learning or both` check), distinct from the store's own exit-1 rejection — warn the operator before they try it that zero slots does not turn review off.
+The phase files that compose and print it cite it and restate none of it.
+`**Puzzle:**` and `**Answer:**` are omitted where the note carries none.
+`flow settings get` prints one line of JSON: `reviewers` (an array of strings) and `learning` (a boolean).
+`true` composes a note; `false` composes none.
+flow learning add <topic> -note '<the topic in under 80 characters>' -change <name> -C <worktree>
+flow learning list
+flow settings get | jq .learning
+flow settings set [-reviewers "<comma,separated,list>"] [-learning on|off]
+learning: <on | off>
+name: flow-settings description: Read and change the harness-wide flow defaults — the reviewer slots and the learning note.
+prints one JSON array of `{topic, count, lastNote}`.
