@@ -57,3 +57,25 @@ The change summary in section 5 then also carries the `## Decision` block and, w
 The three dispatches are keyed `panel-<round>-primary`, `panel-<round>-test-sanity+call-efficiency` and `panel-<round>-mutation+failure-modes`, `<round>` the number `flow record next-round` prints, and the round records its `flow record pass -round <round>` rows like any panel round.
 `-slot` names the dispatch's roles from **The roster** table above, or from **The always-on extra dispatches**' table for that bundle.
 `failure-modes` and `mutation` run on **The always-on extra dispatches** below, so a `default` panel's resolved roster drops any role an always-on extra dispatch carries, each recorded with `flow record pass -round 0 -note 'not dispatched — carried by an always-on extra dispatch: <slot>'`.
+# Task 6
+\### The printed section
+**The `## Learning` section** is printed by the run only, after `Decisions:`, in the shape **Learning** (`skills/flow-contracts/learning.md`) states.
+**`/flow`'s implement phase prints `Summary`, `Running`, `Decisions`, the `## Learning` section (**Learning**, `skills/flow-contracts/learning.md`) and `Next` alone** (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`) — every other line of this rendering is `/flow-status`'s only, and the run omits it — the one rendering whose skill copy carries fewer lines than its template.
+<the ## Learning section, when this run composed one>
+Any other non-zero exit — the store unreachable — prints the note unrecorded and never blocks.
+Compose the learning note here per **Learning** (`skills/flow-contracts/learning.md`) and print it in the final report.
+Exit 1 with stderr naming `already shown three times` or `rejected` is the store refusing the topic, and the run picks another topic.
+On an implementation run, not a fix run, compose the learning note per **Learning** (`skills/flow-contracts/learning.md`) once the plan validates.
+Printed in the run's final message, where the citing phase file places it:
+Recorded as the final message prints, never at composition, so a run that stops earlier spends no showing of the topic:
+\### The file
+**Learning:** <the learning note's absolute path, when this run composed one>
+**The note is a file, `<project>-learning/<name>.md`** — `<project>` the main checkout's absolute path, so the folder sits beside it as `<project>-worktrees` does, outside every git repository — created with `mkdir -p` on first use.
+**`/flow`'s implement phase prints `Summary`, `Running`, `Decisions`, the `Learning` line (**Learning**, `skills/flow-contracts/learning.md`) and `Next` alone** (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`) — every other line of this rendering is `/flow-status`'s only, and the run omits it — the one rendering whose skill copy carries fewer lines than its template.
+Any other non-zero exit — the store unreachable — writes the note unrecorded and never blocks.
+Exit 1 with stderr naming `already shown three times` or `rejected` is the store refusing the topic, and the run picks another topic before writing the file.
+It is written as soon as the note is composed, at the start of implementation, and the run prints `Learning: <absolute path>` at once; the handoff carries `**Learning:** <absolute path>` in place of the note itself (kan-1028).
+Recorded as the file is written:
+The file's whole content:
+**The note is a Markdown file named after the change, in the folder `<project>-learning/`** — `<project>` the main checkout's absolute path, so the folder sits beside it as `<project>-worktrees` does, outside every git repository — created with `mkdir -p` on first use.
+**The note is a Markdown file named after the change, in the folder `<project>-learning`** — `<project>` the main checkout's absolute path, so the folder sits beside it as `<project>-worktrees` does, outside every git repository — created with `mkdir -p` on first use.

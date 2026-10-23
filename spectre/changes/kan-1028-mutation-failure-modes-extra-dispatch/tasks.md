@@ -114,10 +114,10 @@
 
 Correction (2026-10-23): the plan named `skills/flow/failure-modes-reviewer-prompt.md` in `**Files:**`; it never calls its role a roster or optional slot, so the commit leaves it untouched and the field drops it.
 
-- [ ] 6. The learning note is a file beside the repository, its path printed at implementation start
-  - [ ] **Step 1: learning.md.** **When a note runs** gains the file: `<project>-learning/<name>.md`, `<project>` the main checkout's absolute path, created with `mkdir -p`, never inside a git repository. **Recording it** records when the file is written, not when the final message prints. **The printed section** becomes the file's content, and the run prints `Learning: <absolute path>` as soon as the file is written; the handoff carries `**Learning:** <absolute path>`.
-  - [ ] **Step 2: callers.** `skills/flow/implement.md` (compose, write and print the path at `flow.load-context`), `skills/flow/verify-and-handoff.md` (the handoff's `**Learning:**` line replaces the section), `skills/flow-contracts/handoff-blocks.md` (names `Learning` as a line), `skills/flow-fast/SKILL.md` (write and print the path at load-context; the final report repeats it).
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh` (FAIL sentences listed under `# Task 6`), then every `scripts/check-*.sh` guard `.flow/project.md`'s `## lint` names — all exit 0. Commit.
+- [x] 6. The learning note is a file beside the repository, its path printed at implementation start
+  - [x] **Step 1: learning.md.** **When a note runs** gains the file: `<project>-learning/<name>.md`, `<project>` the main checkout's absolute path, created with `mkdir -p`, never inside a git repository. **Recording it** records when the file is written, not when the final message prints. **The printed section** becomes the file's content, and the run prints `Learning: <absolute path>` as soon as the file is written; the handoff carries `**Learning:** <absolute path>`.
+  - [x] **Step 2: callers.** `skills/flow/implement.md` (compose, write and print the path at `flow.load-context`), `skills/flow/verify-and-handoff.md` (the handoff's `**Learning:**` line replaces the section), `skills/flow-contracts/handoff-blocks.md` (names `Learning` as a line), `skills/flow-fast/SKILL.md` (write and print the path at load-context; the final report repeats it).
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh` (FAIL sentences listed under `# Task 6`), then every `scripts/check-*.sh` guard `.flow/project.md`'s `## lint` names — all exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow-contracts/learning.md`, `skills/flow/implement.md`, `skills/flow/verify-and-handoff.md`, `skills/flow-contracts/handoff-blocks.md`, `skills/flow-fast/SKILL.md`
