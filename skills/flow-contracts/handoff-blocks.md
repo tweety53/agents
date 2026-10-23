@@ -107,7 +107,8 @@ Next:
 /flow <name>
 ```
 
-**`/flow`'s implement phase prints `Summary`, `Running`, `Decisions` and `Next` alone** (**Write
+**`/flow`'s implement phase prints `Summary`, `Running`, `Decisions`, the `## Learning` section
+(**Learning**, `skills/flow-contracts/learning.md`) and `Next` alone** (**Write
 `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`) — every other line of this rendering is
 `/flow-status`'s only, and the run omits it — the one rendering whose skill copy carries fewer
 lines than its template.

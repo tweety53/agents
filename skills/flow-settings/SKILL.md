@@ -1,13 +1,14 @@
 ---
 name: flow-settings
-description: Read and change the harness-wide flow defaults — the reviewer slots. Standalone, not a pipeline stage. Use for /flow-settings.
+description: Read and change the harness-wide flow defaults — the reviewer slots and the learning note. Standalone, not a pipeline stage. Use for /flow-settings.
 allowed-tools: Bash(flow:*), Bash(jq:*)
 license: MIT
 compatibility: Requires the flow CLI and jq.
 ---
 
 Read and change the harness-wide settings record `flow settings get`/`set` manage: the reviewer
-slots (`reviewers`) the review panel dispatches by default. Models are not a setting — the Decide
+slots (`reviewers`) the review panel dispatches by default, and `learning` — whether an
+implementation run prints a learning note (**Learning**, `skills/flow-contracts/learning.md`). Models are not a setting — the Decide
 step chooses every dispatch's model (**Model and effort**, `skills/flow/brainstorm-planner.md`).
 
 **This is a standalone command, not a pipeline stage.** It takes no change name, reads and writes
@@ -28,7 +29,8 @@ only input is the operator's answers to the questions this skill asks interactiv
 CURRENT="$(flow settings get)"
 ```
 
-`flow settings get` prints one line of JSON: `reviewers` (an array of strings). A non-zero exit means the store could not be reached — report the CLI's stderr verbatim and stop;
+`flow settings get` prints one line of JSON: `reviewers` (an array of strings) and `learning` (a
+boolean). A non-zero exit means the store could not be reached — report the CLI's stderr verbatim and stop;
 there is no per-harness fallback file for this record the way a per-change state file has one.
 
 Print the current values plainly before asking anything:
@@ -36,16 +38,17 @@ Print the current values plainly before asking anything:
 ```
 Current flow settings:
   reviewers:  <comma-separated list from Reviewers, verbatim>
+  learning:   <on | off>
 ```
 
 Then run step 3's conductor-depth check against the **stored** roster and print its line when it
 fires — a roster saved before the check existed surfaces its gap here too, not only when the
 operator changes something.
 
-### 2. Offer to change the reviewers
+### 2. Offer to change the reviewers and the learning note
 
-Ask about the one field the settings store holds, `reviewers`, with **AskUserQuestion**, starting
-from the current value read in step 1:
+Ask about both fields the settings store holds with **AskUserQuestion**, starting from the current
+values read in step 1. **Learning** — on or off, plus "keep current".
 
 - **Reviewers** — offer the exact reviewer-slot ids read from `<agents repo>/stats/internal/store/settings.go`'s
   `ValidReviewers` map at the time this skill runs, never a copy of that list written into this
@@ -57,21 +60,22 @@ from the current value read in step 1:
   what makes every run dispatch it. Offer the full
   set as a multi-select seeded with the current list, plus "keep current", and say plainly when
   asking that the selection made here becomes every subsequent run's panel, not just this one. The
-  CLI itself refuses an empty `-reviewers` before the store is ever contacted: its required-flags
-  check (`<agents repo>/stats/cmd/flow/settings.go`'s `-reviewers is required` check) exits 2, distinct from the store's own
-  exit-1 rejection covered in step 3 below — warn the operator before they try it that selecting zero
-  slots fails at step 3 with exit 2, rather than turning review off.
-If the operator keeps the list unchanged, say so and stop — do not call `settings set` for a no-op
-write. Silence on the ask keeps the current list — the seeded selection, unchanged (**Unanswered
+  CLI never sends an empty roster: an empty `-reviewers` is read as "not given", so selecting zero
+  slots with nothing else changed fails at step 3 with exit 2 (`<agents repo>/stats/cmd/flow/settings.go`'s
+  `needs -reviewers, -learning or both` check), distinct from the store's own exit-1 rejection —
+  warn the operator before they try it that zero slots does not turn review off.
+If the operator keeps both unchanged, say so and stop — do not call `settings set` for a no-op
+write. Silence on the ask keeps the current values — the seeded selection, unchanged (**Unanswered
 mid-run asks**, `skills/flow-contracts/pipeline.md`).
 
 ### 3. Write the change
 
 ```bash
-flow settings set -reviewers "<comma,separated,list>"
+flow settings set [-reviewers "<comma,separated,list>"] [-learning on|off]
 ```
 
-`settings set` writes the whole record, replacing what was recorded before.
+Pass only the fields the operator changed: `settings set` reads the current record, overrides the
+given fields and writes it back, so the other field is kept.
 
 **Before the write, tell the operator which slots cannot dispatch as themselves here.** The
 roster's slots spawn as **The roster** (`skills/flow/review-panel.md`) spawns them — on
@@ -92,7 +96,7 @@ A non-zero exit means the store rejected the write (an invalid reviewer name) or
 be reached. Print the CLI's stderr verbatim — it names the specific bad value on a rejection — and
 do not report success.
 
-On success, report exactly what changed against the value read in step 1: old list → new list.
+On success, report exactly what changed against the values read in step 1: old → new, per field.
 
 ## Guardrails
 
