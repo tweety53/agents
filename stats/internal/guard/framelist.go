@@ -19,6 +19,10 @@ func init() { Registry["check-frame-list"] = checkFrameList }
 var (
 	flSpecLine   = regexp.MustCompile(`^\s*- spec:\s*(\S+)\s*$`)
 	flFramesLine = regexp.MustCompile(`^\s*- frames:\s*(\d+)/(\d+)(.*)$`)
+	// flConsidered is a decision's rejected-alternatives line: its frames are not declared.
+	flConsidered = regexp.MustCompile(`(?m)^\s*\*\*Considered:\*\*.*$`)
+	// flRange is `<prefix><a> … <prefix><b>`, each end optionally a path ending in `/`, `.png` and backticks.
+	flRange = regexp.MustCompile("`?(?:[^\\s`]*/)?([A-Za-z0-9_-]*?)(\\d+)(?:\\.png)?`?\\s*(?:…|–|\\.\\.\\.)\\s*`?(?:[^\\s`]*/)?([A-Za-z0-9_-]*?)(\\d+)(?:\\.png)?`?")
 )
 
 // flToken matches id as a whole token: not preceded or followed by a letter,
@@ -49,10 +53,36 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	var declared []string
+	design = flConsidered.ReplaceAll(design, nil)
+	frames := map[string]bool{}
 	for _, e := range entries {
-		id, ok := strings.CutSuffix(e.Name(), ".png")
-		if ok && !e.IsDir() && id != "" && flToken(id).Match(design) {
+		if id, ok := strings.CutSuffix(e.Name(), ".png"); ok && !e.IsDir() && id != "" {
+			frames[id] = true
+		}
+	}
+	ranges := flRange.FindAllStringSubmatch(string(design), -1)
+	// A frame is in a range when it carries the range's prefix and a number between its ends:
+	// one check per mockup and range, never one per integer the span covers.
+	inRange := func(id string) bool {
+		for _, m := range ranges {
+			if m[1] != m[3] {
+				continue
+			}
+			n, err := strconv.Atoi(strings.TrimPrefix(id, m[1]))
+			if !strings.HasPrefix(id, m[1]) || err != nil || strconv.Itoa(n) != id[len(m[1]):] {
+				continue
+			}
+			a, _ := strconv.Atoi(m[2])
+			b, _ := strconv.Atoi(m[4])
+			if a <= n && n <= b {
+				return true
+			}
+		}
+		return false
+	}
+	var declared []string
+	for id := range frames {
+		if inRange(id) || flToken(id).Match(design) {
 			declared = append(declared, id)
 		}
 	}

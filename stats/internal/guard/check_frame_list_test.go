@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // Every case of the check-frame-list contract (scripts/check-frame-list.sh):
@@ -99,5 +100,60 @@ func TestCheckFrameList(t *testing.T) {
 		if r := runGuard("check-frame-list", args, Env{Getenv: os.Getenv}); r.rc != 2 {
 			t.Fatalf("args %q: rc=%d out=%q; want exit 2", args, r.rc, r.out)
 		}
+	}
+}
+
+// TestCheckFrameListExpandsRangesAndSkipsConsidered pins kan-1009's
+// self-review: a range `LM-R1 … LM-R4` declares every frame between its
+// ends, and a `**Considered:**` line's rejected alternatives declare none.
+func TestCheckFrameListExpandsRangesAndSkipsConsidered(t *testing.T) {
+	dir := t.TempDir()
+	mockups := filepath.Join(dir, "mockups")
+	if err := os.Mkdir(mockups, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{"LM-R1.png", "LM-R2.png", "LM-R3.png", "LM-R4.png", "R1.png", "R2.png"} {
+		if err := os.WriteFile(filepath.Join(mockups, f), nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	spec := filepath.Join(dir, "kan-1.spec.ts")
+	if err := os.WriteFile(spec+".mockups", []byte("a LM-R1\nb LM-R2\nc LM-R3\nd LM-R4\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	check := func(design, report string) guardResult {
+		t.Helper()
+		d, r := filepath.Join(dir, "design.md"), filepath.Join(dir, "report.md")
+		if err := os.WriteFile(d, []byte(design), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(r, []byte(strings.ReplaceAll(report, "%SPEC%", spec)), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return runGuard("check-frame-list", []string{d, mockups, r}, Env{Getenv: os.Getenv})
+	}
+	const design = "Frames `docs/design/mockups/LM-R1.png` … `docs/design/mockups/LM-R4.png`.\n" +
+		"  **Considered:** bare `R<n>.png` — `R1.png`/`R2.png` already exist.\n"
+	const all = "- spec: %SPEC%\n- LM-R1: x\n- LM-R2: x\n- LM-R3: x\n- LM-R4: x\n- frames: 4/4\n"
+	if r := check(design, all); r.rc != 0 || !strings.Contains(r.out, "4 declared") {
+		t.Errorf("full report: rc=%d out=%q; want 0 with 4 declared", r.rc, r.out)
+	}
+	r := check(design, strings.Replace(all, "- LM-R2: x\n", "", 1))
+	if r.rc != 1 || !strings.Contains(r.out, "no report line: LM-R2") || strings.Contains(r.out, ": R1") || strings.Contains(r.out, ": R2") {
+		t.Errorf("gap report: rc=%d out=%q; want 1 naming LM-R2 and no R1/R2", r.rc, r.out)
+	}
+	if r := check("Frames LM-R1 … X3.\n", "- spec: %SPEC%\n- LM-R1: x\n- frames: 1/1\n"); r.rc != 0 || !strings.Contains(r.out, "1 declared") {
+		t.Errorf("mixed-prefix range: rc=%d out=%q; want 0 with 1 declared", r.rc, r.out)
+	}
+	// A huge numeric span costs one check per mockup, never one per integer.
+	done := make(chan guardResult, 1)
+	go func() { done <- check("Frames LM-R1 … LM-R4; rows 1 … 2000000000.\n", all) }()
+	select {
+	case r := <-done:
+		if r.rc != 0 || !strings.Contains(r.out, "4 declared") {
+			t.Errorf("huge span: rc=%d out=%q; want 0 with 4 declared", r.rc, r.out)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("huge span: guard still running after 5s")
 	}
 }

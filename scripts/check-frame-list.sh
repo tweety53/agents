@@ -16,7 +16,12 @@
 # THE DECLARED LIST is derived, never written down twice: every
 # `<frame id>.png` directly inside <mockups dir> whose <frame id> design.md
 # names as a whole token — bounded on each side by the start or end of a line
-# or by a character that is not a letter, digit, `_` or `-`.
+# or by a character that is not a letter, digit, `_` or `-`. A range
+# `<prefix><a> … <prefix><b>` (joined by `…`, `–` or `...`, each end optionally
+# a path ending in `/`, a `.png` suffix and backticks) names every
+# `<prefix><n>` from <a> to <b>; ends with different prefixes name only
+# themselves. A design line opening with `**Considered:**` names no frame:
+# its alternatives were rejected.
 #
 # THE SIDECARS are `<spec>.mockups` beside every spec the report's
 # `- spec: <path>` lines name; a missing sidecar contributes no frame. A
