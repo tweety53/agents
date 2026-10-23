@@ -63,9 +63,13 @@ own system prompt>`.
 **The prompt also carries the REPORT FORMAT paragraph**, `<agents repo>` resolved:
 
 > **REPORT FORMAT:** Before writing `## Report`, read the header of
-> `<agents repo>/scripts/check-verify-report.sh` — the check your report must pass before it is
-> read; a report it rejects costs a remainder dispatch. Report every departure you see in this
-> one pass.
+> `<agents repo>/scripts/check-verify-report.sh`, and run it on your report before handing back:
+> an exit 1 names the steps you still owe — do them in this dispatch and run it again. Hand back
+> an incomplete report only for a blocker you cannot cure, named; time, context and a departure
+> found are none. Report every departure you see in this one pass.
+
+kan-1009: the paragraph priced a rejected report as one more dispatch, and a verifier handed back
+with step 10 undone on that reading; its remainder ran 9m34s.
 
 **Recording.** The parent records each dispatch, `-role verifier`, `-task` omitted, `-model
 opus -effort low`, `-key visual-verify`, suffixed `-<repository name>` when this run's resolved set holds
