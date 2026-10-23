@@ -95,7 +95,9 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 		if !sidecar[id] && !absent {
 			gaps = append(gaps, "no sidecar line: "+id)
 		}
-		perFrame := regexp.MustCompile(`^\s*- ` + regexp.QuoteMeta(id) + `( [^:]*)?:`)
+		// A per-frame line may name several frames joined by ` / ` — `- LM-L9 / LM-L11 …:` names both
+		// (kan-1008's self-review: LM-L11 read as unreported and blocked the dispatch).
+		perFrame := regexp.MustCompile(`^\s*- ([^\s:]+ / )*` + regexp.QuoteMeta(id) + `( [^:]*)?:`)
 		named := absent
 		for _, line := range lines {
 			if perFrame.MatchString(line) {

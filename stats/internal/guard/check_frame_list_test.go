@@ -48,6 +48,11 @@ func TestCheckFrameList(t *testing.T) {
 			"",
 			"- spec: %SPEC%\n- Q1: x\n- Q2: x\n- M1: x\n- frames: 3/3\n",
 			1, "no sidecar line: M1; no sidecar line: Q1; no sidecar line: Q2"},
+		// kan-1008's self-review: one per-frame line naming two frames reports both.
+		{"a per-frame line naming frames joined by a slash",
+			"q1 Q1\nq2 Q2\nm1 M1\n",
+			"- spec: %SPEC%\n- Q1 / Q2 / M1 bands: 3/3 paired — match\n- frames: 3/3 — none absent\n",
+			0, "FRAME-LIST-COMPLETE"},
 		{"no frames line",
 			"q1 Q1\nq2 Q2\nm1 M1\n",
 			"- spec: %SPEC%\n- Q1: x\n- Q2: x\n- M1: x\n",

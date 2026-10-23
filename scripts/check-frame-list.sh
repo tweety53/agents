@@ -26,8 +26,9 @@
 # A GAP is, for a declared frame:
 #   no sidecar line: <frame id>   no read sidecar maps a screenshot to it
 #   no report line: <frame id>    no `- <frame id>:` or `- <frame id> <…>:`
-#                                 line, and the `- frames:` line does not
-#                                 name it
+#                                 line — the id may follow other ids joined
+#                                 by ` / `, `- <id> / <frame id> <…>:` — and
+#                                 the `- frames:` line does not name it
 # and, for the report:
 #   no frames line                the report carries no `- frames: <n>/<m>`
 #                                 line while design.md declares a frame
