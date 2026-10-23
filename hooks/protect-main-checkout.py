@@ -16,6 +16,9 @@ landing as staged changes. This hook denies the tools that create such residue:
     `cat > ABS <<EOF`, `cat >> ABS <<EOF` or `tee [-a] ABS <<EOF` to a literal absolute path,
     its body and closing line, nothing after — where only ABS is judged — and except the body of
     any `cat`/`tee` heredoc inside a longer command, which is that writer's data, never commands.
+    A body no shell runs — a `python`/`python3`/`node` program on stdin, or a file the rest of
+    the command runs only through one of those or `npx playwright test` — is that language's
+    text: only the git invocations its lines name are judged (kan-1026: `d>0` read as a write).
 
 "Main checkout" is the worktree whose git dir IS the common dir — a linked worktree's `--git-dir`
 is `<common>/worktrees/<name>`, so `<repo>-worktrees/<change>` beside the main checkout passes,
@@ -305,10 +308,18 @@ def names_target(word, target):
 # Commands known not to execute a file they are given: the heredoc target named only as an
 # argument of one of these is data. Anything else naming it may run it, so the body stays scanned.
 READER_WORDS = {
-    "cat", "tee", "head", "tail", "wc", "grep", "diff", "cmp", "ls", "test", "[", "stat",
+    "cat", "tee", "head", "tail", "wc", "grep", "diff", "cmp", "ls", "test", "[", "stat", "cd",
+    "echo", "printf",
 }
+# Shell keywords that open a command without being one: `do x`'s command is `x`.
+LEADING_KEYWORDS = {"do", "then", "else", "elif", "!"}
 GIT_READ_SUBCOMMANDS = {"diff", "add", "show", "log", "status"}
 CHECK_SCRIPT_RE = re.compile(r"check-[\w.-]*\.(?:sh|py)")
+# Pipeline scripts that only read a file argument: render-slot-prompt.sh names its -fix-report
+# paths in the prompt it prints (kan-1026: a panel round's report write was denied over its body).
+PIPELINE_READERS = {"render-slot-prompt.sh"}
+# Interpreters whose program text is not shell: a body they run is scanned for git verbs only.
+PROGRAM_RUNNERS = {"python", "python3", "node"}
 
 
 def reads_only(words, target):
@@ -319,6 +330,8 @@ def reads_only(words, target):
     name = words[0].rsplit("/", 1)[-1]
     if CHECK_SCRIPT_RE.fullmatch(name) and name != target.rsplit("/", 1)[-1]:
         return True
+    if name in PIPELINE_READERS:
+        return True
     if name in READER_WORDS:
         return True
     if name == "git":
@@ -326,6 +339,34 @@ def reads_only(words, target):
     if name == "spectre":
         return len(words) > 1 and words[1] == "validate"
     return False
+
+
+def command_segments(text):
+    """(words, assigned) per command of text — quotes stripped, a leading `do`/`then`/`!`
+    dropped, `assigned` when NAME=value words led it — or None when text holds a substitution
+    this cannot read: a process substitution, a backtick, a nested `$(`. A plain `$(...)` is a
+    command of its own. A literal NAME=value expands later words, so `$D/r.md` reads as the file
+    D names; a name no literal assigns stays an expansion `names_target` reads as hiding any."""
+    spans = re.findall(r"\$\(([^()]*)\)", text)
+    flat = re.sub(r"\$\([^()]*\)", " ", text)
+    if SUBST_RE.search(flat):
+        return None
+    env, out = {}, []
+    for seg in COMMAND_CUT_RE.split(flat + "\n" + "\n".join(spans)):
+        words = [w.strip("'\"") for w in seg.split()]
+        while words and words[0] in LEADING_KEYWORDS:
+            words.pop(0)
+        assigned = False
+        while words and ASSIGNMENT_RE.match(words[0]):
+            name, _, value = words.pop(0).partition("=")
+            value = expand_vars(value, env)
+            if value and "$" not in value:
+                env[name] = value
+            else:
+                env.pop(name, None)
+            assigned = True
+        out.append(([expand_vars(w, env) for w in words], assigned))
+    return out
 
 
 def may_run_code(text, target):
@@ -338,16 +379,12 @@ def may_run_code(text, target):
     `./gradlew`) leaves the body as data; `php $T`, `setsid $T`, `find . -exec`, `ssh h $T`
     keep it scanned, as does any command behind a leading `NAME=value` or run under
     `env`/`export`. Over-matching only keeps the body scanned."""
-    if SUBST_RE.search(text):
+    segments = command_segments(text)
+    if segments is None:
         return True
-    for seg in COMMAND_CUT_RE.split(text):
-        words = [w.strip("'\"") for w in seg.split()]
+    for words, assigned in segments:
         if any(w.rsplit("/", 1)[-1] in RUNNER_WORDS for w in words):
             return True
-        assigned = False
-        while words and ASSIGNMENT_RE.match(words[0]):
-            words.pop(0)
-            assigned = True
         # An env assignment can make any command run a file (GIT_EXTERNAL_DIFF, PAGER,
         # LD_PRELOAD, …): a command carrying one, or run under `env`/`export`, is never a reader.
         if words and (assigned or words[0].rsplit("/", 1)[-1] in {"env", "export"}):
@@ -355,6 +392,45 @@ def may_run_code(text, target):
         if words and any(names_target(w, target) for w in words) and not reads_only(words, target):
             return True
     return False
+
+
+def runs_as_program(text, target):
+    """True when text — the command outside one heredoc body — runs target only as a non-shell
+    program: no substitution, and every command naming target is a reader (`reads_only`), a
+    PROGRAM_RUNNERS interpreter given it (`python3 x.py`, `node x.js`) or `npx playwright test`,
+    with no other runner word anywhere. Such a body is that language's text, never shell."""
+    segments = command_segments(text)
+    if segments is None:
+        return False
+    for words, assigned in segments:
+        if not words:
+            continue
+        if words[0].rsplit("/", 1)[-1] in PROGRAM_RUNNERS or words[:3] == ["npx", "playwright", "test"]:
+            if any(w.rsplit("/", 1)[-1] in RUNNER_WORDS for w in words[1:]):
+                return False
+            continue
+        if any(w.rsplit("/", 1)[-1] in RUNNER_WORDS for w in words):
+            return False
+        if assigned or words[0].rsplit("/", 1)[-1] in {"env", "export"}:
+            return False
+        if any(names_target(w, target) for w in words) and not reads_only(words, target):
+            return False
+    return True
+
+
+PROGRAM_GIT_RE = re.compile(r"(?:^|\s)(git\s.*)$")
+
+
+def program_git_lines(body):
+    """The git invocations a non-shell program body may make, one scan line each: quotes and
+    brackets become spaces, so `subprocess.run(["git", "-C", d, "commit"])` reads `git -C d
+    commit`, and every other word — a `d>0` comparison, an `rm` in a string — is dropped."""
+    out = []
+    for line in body.split("\n"):
+        m = PROGRAM_GIT_RE.search(re.sub(r"[\"'()\[\],<>|;&{}]", " ", line))
+        if m:
+            out.append(m.group(1))
+    return out
 
 
 # A `$(...)` without a nested paren, or a backtick pair: the spans of an unquoted heredoc body
@@ -400,6 +476,20 @@ def strip_data_heredocs(command):
         words = seg.split()
         while words and ASSIGNMENT_RE.match(words[0]):
             words.pop(0)
+        delim = m.group(1) or m.group(2) or m.group(3)
+        tabs = line[m.start() : m.start() + 3] == "<<-"
+        end = next(
+            (j for j in range(k, len(lines)) if (lines[j].lstrip("\t") if tabs else lines[j]).rstrip("\r") == delim),
+            None,
+        )
+        if words and words[0].rsplit("/", 1)[-1] in PROGRAM_RUNNERS and end is not None:
+            # A python/node program on stdin: its text is not shell (kan-1026: `d>0`).
+            body = "\n".join(lines[k:end])
+            if m.group(3) and any(c in body for c in ("$(", "`")):
+                continue
+            out.extend(program_git_lines(body))
+            k = end + 1
+            continue
         if not words or words[0] not in ("cat", "tee"):
             continue
         if words[0] == "cat":
@@ -407,17 +497,15 @@ def strip_data_heredocs(command):
             target = t.group(1) if t else None
         else:
             target = next((w for w in words[1:] if not w.startswith(("-", ">"))), None)
-        delim = m.group(1) or m.group(2) or m.group(3)
-        tabs = line[m.start() : m.start() + 3] == "<<-"
-        end = next(
-            (j for j in range(k, len(lines)) if (lines[j].lstrip("\t") if tabs else lines[j]).rstrip("\r") == delim),
-            None,
-        )
         if not target or end is None:
             continue
         if target.startswith("/dev/") or "(" in target:
             continue
-        if may_run_code("\n".join(lines[:k] + lines[end + 1 :]), target):
+        rest = "\n".join(lines[:k] + lines[end + 1 :])
+        if may_run_code(rest, target):
+            if runs_as_program(rest, target) and not (m.group(3) and any(c in "\n".join(lines[k:end]) for c in ("$(", "`"))):
+                out.extend(program_git_lines("\n".join(lines[k:end])))
+                k = end + 1
             continue
         # An escaped backtick is a literal in an unquoted body; dropped, it cannot pair with a real one.
         body = "\n".join(lines[k:end]).replace("\\`", "")
