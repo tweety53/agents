@@ -14,6 +14,7 @@ the connection rather than returning the degraded bundle `DefaultGitBound`'s com
 <!-- measured: Bundle with a timing ExecRunner, kan-1009 → 27 git calls 0.39s; kan-1026 → 26 calls 0.26s -->
 
 Blast radius: 5 files cite `DefaultGitBound`, `ExecRunner` or `BundleBudget` outside archives; the
+<!-- measured: git grep -l -e DefaultGitBound -e ExecRunner -e BundleBudget -- . ':!spectre/changes/archive' | wc -l @ 9e91b85c with this fix applied → 5 -->
 fix touches 4 of them (`server.go` constructs `ExecRunner{}` unchanged). No saved memory encodes
 this defect.
 
