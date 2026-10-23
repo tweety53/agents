@@ -1,0 +1,3 @@
+# Sentences pipeline-fix-kan-1021-flow-improvement-move-the-bash-hook-and-setup-27 adds on purpose:
+# the absence sweep's scope limit and its F18 guard citation (decision sweep-scope-sentence).
+Its paths never cover a later task's `**Files:**` while that file still holds a string the sweep removes — `check-plan-shape.sh` refuses that sweep (F18) — nor a comment or doc line a step of the plan tells the task to keep.
