@@ -39,14 +39,14 @@ sentence in `.flow/project.md`'s `## lint` prose; a `panelFixFloor` helper in
 - Task 4: a floor later than the fix commit itself is ignored, so the derived start never passes the derived end.
 - Task 5: the before figure goes to `.superpowers/sdd/`, gitignored, never to the change's tracked directory while the suite's tree gate runs.
 
-- [ ] 1. Record the learning note against the main checkout
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 1. Record the learning note against the main checkout
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `git -C /nonexistent/worktree rev-parse --git-common-dir; echo $?` — the call
     `fallback.ProjectKey` makes for a removed `-C` directory — and
     `grep -n 'flow learning add' skills/flow-contracts/learning.md`: git exits 128, and the
     contract's line ends `-C <worktree>`.
     <!-- measured: the two commands above @ a68fd756 → git exit 128; learning.md:52 ends -C <worktree> -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at a68fd756 together with the other four tasks' diffs, in task order; check-verbatim-moves.sh, check-references.sh, check-markdown-integrity.sh and check-installed-citations.sh exit 0
 diff --git a/skills/flow-contracts/learning.md b/skills/flow-contracts/learning.md
@@ -70,8 +70,8 @@ index ea9d6bb6..ccdd22bf 100644
  note unrecorded and never blocks.
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0.
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow-contracts/learning.md`
@@ -82,13 +82,13 @@ index ea9d6bb6..ccdd22bf 100644
 
 **Decision:** learning-add-project-dir
 
-- [ ] 2. Anchor the commit-per-task chain at the worktree root
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In a scratch repository
+- [x] 2. Anchor the commit-per-task chain at the worktree root
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In a scratch repository
     outside the worktree holding a committed `stats/f`, modify `stats/f`, `cd stats`, and run the
     chain's unanchored `git add -- stats/f`: it exits 128 with `pathspec 'stats/f' did not match
     any files`; the same chain with `git -C <the scratch repo>` commits.
     <!-- measured: throwaway repo in the session scratchpad @ a68fd756 → unanchored exit 128, anchored exit 0 -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at a68fd756 together with the other four tasks' diffs, in task order; check-verbatim-moves.sh, check-references.sh, check-markdown-integrity.sh, check-installed-citations.sh and check-dispatch-paragraphs.sh exit 0
 diff --git a/skills/flow/implement.md b/skills/flow/implement.md
@@ -118,11 +118,11 @@ index d02423e1..4ce01c20 100644
  > `git add -A`, `git add .`, or `git commit -a`**:
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0; `scripts/check-dispatch-paragraphs.sh` prints `DISPATCH-PARAGRAPHS-OK`.
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0; `scripts/check-dispatch-paragraphs.sh` prints `DISPATCH-PARAGRAPHS-OK`.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
-**Files:** `skills/flow/implement.md`
+**Files:** `skills/flow/implement.md`, `skills/flow-contracts/git-boundaries.md`
 **Tests:** **none** — a prose rule; `check-verbatim-moves.sh` covers its acknowledged sentences.
 **Regression:** none — no test is declared.
 **Commit:** fix(flow): anchor the commit-per-task chain at the worktree root
@@ -130,12 +130,12 @@ index d02423e1..4ce01c20 100644
 
 **Decision:** commit-chain-anchored
 
-- [ ] 3. Tell a plan to carry the verbatim-moves step for run-loaded prose
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 3. Tell a plan to carry the verbatim-moves step for run-loaded prose
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `scripts/project-get.sh . lint | grep -n 'verify step'`: it prints nothing — the section names
     `check-verbatim-moves.sh` as the guard but tells no plan to run it.
     <!-- measured: scripts/project-get.sh . lint | grep -n 'verify step' @ a68fd756 → no output, exit 1; grep -c 'verify step' .flow/project.md → 0 before, 2 with the diff applied -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at a68fd756 together with the other four tasks' diffs, in task order; check-verbatim-moves.sh, check-references.sh and check-markdown-integrity.sh exit 0
 diff --git a/.flow/project.md b/.flow/project.md
@@ -157,11 +157,11 @@ index 61ffc540..a38873ce 100644
  not.** It takes a project root, defaults to this repository when given none, and answers a question
 ````
 
-  - [ ] **Step 3: Verify.** `grep -c 'verify step' .flow/project.md` prints `2` (it prints `0`
+  - [x] **Step 3: Verify.** `grep -c 'verify step' .flow/project.md` prints `2` (it prints `0`
     before the fix; `project-get.sh` resolves from HEAD while the file diverges, so it is run only
     after the commit, where `scripts/project-get.sh . lint | grep -c 'verify step'` prints `2`);
     `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0.
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `.flow/project.md`
@@ -172,15 +172,15 @@ index 61ffc540..a38873ce 100644
 
 **Decision:** verbatim-moves-in-lint-prose
 
-- [ ] 4. Floor an inline panel-fix back-fill at its round's reviewer reports
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 4. Floor an inline panel-fix back-fill at its round's reviewer reports
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `flow record dispatches -change kan-1027-flow-learning-setting -C . | jq -c '.[] | select(.role=="reviewer" or .role=="panel-fix") | [.id,.key,.startedAt,.endedAt,.metrics]'`:
     row 7260 `panel-fix-1` starts `2026-10-23T12:19:34+03:00`, before `panel-0-primary+principles`
     begins (12:20:01) and ends (12:28:18), with `metrics` `{}`; and
     `git log -1 --format='%h %cI %s' cafe4c30~1` prints `70f3d736 2026-10-23T12:19:34+03:00 chore(spectre): plan kan-1027-flow-learning-setting — before review`,
     the commit the back-fill derived the start from.
     <!-- measured: the two commands above @ a68fd756 → as stated -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`) — the helper, its call, the
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`) — the helper, its call, the
     derivation comment, the new test and the `implement.md` sentence:
 
 ````diff verified:applied with git apply to this worktree at a68fd756 together with the other four tasks' diffs, in task order; with it `cd stats && go test ./cmd/flow/ -count=1` passes and go vet is clean; with the record.go hunks reverted alone TestRecordDispatchBackfillFloorsAPanelFixAtItsRoundsReviewers fails on panel-fix-1 and panel-fix-1-2
@@ -326,15 +326,15 @@ index d02423e1..4ce01c20 100644
  **`-model` is the model this dispatch was actually given — the group's own `model` from the
 ````
 
-  - [ ] **Step 3: Prove the test bites.** Revert the `stats/cmd/flow/record.go` hunks alone
+  - [x] **Step 3: Prove the test bites.** Revert the `stats/cmd/flow/record.go` hunks alone
     (`git diff -- stats/cmd/flow/record.go > <scratch>; git apply -R <scratch>`), run
     `cd stats && go test ./cmd/flow/ -run 'TestRecordDispatchBackfillFloorsAPanelFixAtItsRoundsReviewers' -count=1`
     and capture its failure on `panel-fix-1` and `panel-fix-1-2`, then `git apply <scratch>` and
     capture the pass.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./... && go test ./cmd/flow/ -run 'TestRecordDispatchBackfill' -count=1`
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./... && go test ./cmd/flow/ -run 'TestRecordDispatchBackfill' -count=1`
     passes and prints no file; `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0.
-  - [ ] **Step 5: Commit** the three files with the subject below.
-  - [ ] **Step 6: Repair row 7260**, the row the defect stamped, from `stats/` with the
+  - [x] **Step 5: Commit** the three files with the subject below.
+  - [x] **Step 6: Repair row 7260**, the row the defect stamped, from `stats/` with the
     persistent store named explicitly — never this worktree's own derived database:
 
 ```bash verified:spiked — go run ./cmd/flowd retime-dispatch and restamp-dispatch with no arguments print their usage @ a68fd756
@@ -344,7 +344,7 @@ go run ./cmd/flowd restamp-dispatch 7260 /Users/tweety53/.claude/projects/-Users
 ```
 
     <!-- unverified:restamp-dispatch's inline attribution over the retimed window yields a non-empty tokens figure — the implementer reads it back in Step 7 -->
-  - [ ] **Step 7: Read the repair back** — the `## Live check` of `design.md`: `startedAt`
+  - [x] **Step 7: Read the repair back** — the `## Live check` of `design.md`: `startedAt`
     `2026-10-23T12:28:18+03:00`, `endedAt` `2026-10-23T12:30:03+03:00`, `metrics.tokens` present.
     A restamp that exits non-zero or leaves `metrics` empty is reported with its output, never
     retried blind.
@@ -361,13 +361,13 @@ go run ./cmd/flowd restamp-dispatch 7260 /Users/tweety53/.claude/projects/-Users
 **Decision:** panel-fix-backfill-floor
 **Decision:** panel-fix-1-row-repair
 
-- [ ] 5. Measure a live check's before figures during pass 1's panel
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 5. Measure a live check's before figures during pass 1's panel
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n 'before figure' skills/flow/review-panel.md skills/flow/verify-and-handoff.md`: only
     `verify-and-handoff.md`'s **Live check** names one, and it runs after both lint and test
     groups have exited, after the panel.
     <!-- measured: the grep above @ a68fd756 → verify-and-handoff.md hits only -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at a68fd756 together with the other four tasks' diffs, in task order; check-verbatim-moves.sh, check-references.sh, check-markdown-integrity.sh and check-installed-citations.sh exit 0
 diff --git a/skills/flow/review-panel.md b/skills/flow/review-panel.md
@@ -404,8 +404,8 @@ index cb703340..b38be96b 100644
  above and rewrite the record, never proceed past it (kan-998). The check is never deferred past this stage:
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0.
-  - [ ] **Step 4: Commit** the two files with the subject below.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0.
+  - [x] **Step 4: Commit** the two files with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/review-panel.md`, `skills/flow/verify-and-handoff.md`
