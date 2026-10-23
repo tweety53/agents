@@ -577,7 +577,7 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 	out, err := scanDispatchRow(s.pool.QueryRow(ctx, `
 		UPDATE dispatches d
 		SET commit_sha = $5, outcome = $6, ended_at = $7, agent_id = COALESCE($8, d.agent_id),
-		    cause = $9,
+		    cause = $9, diff_base = COALESCE($11, d.diff_base),
 		    metrics = CASE WHEN $10::text IS NULL THEN d.metrics
 		               ELSE jsonb_set(
 		                     d.metrics || jsonb_build_object(
@@ -594,7 +594,7 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 		projectKey, change, in.SessionToken, in.Key,
 		nullIfEmpty(in.CommitSHA), nullIfEmpty(in.Outcome), in.EndedAt, nullIfEmpty(in.AgentID),
 		nullIfEmpty(in.Cause),
-		reportParam,
+		reportParam, nullIfEmpty(in.DiffBase),
 	))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -1229,6 +1229,34 @@ func (s *Store) RetimeDispatch(ctx context.Context, id int64, started, ended tim
 	}
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("%w: %d", ErrDispatchNotFound, id)
+	}
+	return nil
+}
+
+// FoldDispatch moves the diff base of drop -- an agentless row back-filled
+// only to correct keep's -diff-base, before `dispatch end` took one -- onto
+// keep, and deletes drop (kan-1008's self-review: rows 48 and 49). Both must
+// be rows of one change under one session token, drop carrying a diff base
+// and no agent id; anything else is ErrDispatchNotFound and changes nothing.
+func (s *Store) FoldDispatch(ctx context.Context, keep, drop int64) error {
+	var id int64
+	err := s.pool.QueryRow(ctx, `
+		WITH src AS (
+			SELECT id, change_id, session_token, diff_base FROM dispatches
+			WHERE id = $2 AND agent_id IS NULL AND diff_base IS NOT NULL
+		), upd AS (
+			UPDATE dispatches k SET diff_base = src.diff_base FROM src
+			WHERE k.id = $1 AND k.id <> src.id AND k.change_id = src.change_id
+			  AND k.session_token IS NOT DISTINCT FROM src.session_token
+			RETURNING k.id
+		)
+		DELETE FROM dispatches d USING upd WHERE d.id = $2 RETURNING d.id
+	`, keep, drop).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("%w: fold %d into %d -- want two rows of one change and session token, %d agentless with a diff base", ErrDispatchNotFound, drop, keep, drop)
+	}
+	if err != nil {
+		return fmt.Errorf("store: fold dispatch %d into %d: %w", drop, keep, err)
 	}
 	return nil
 }

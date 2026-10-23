@@ -4740,3 +4740,72 @@ func TestInlineDispatchIDAndRestampInlineDispatch(t *testing.T) {
 		}
 	}
 }
+
+// TestEndDispatchCorrectsDiffBase pins `dispatch end -diff-base`'s store
+// half: a given base replaces begin's, an omitted one leaves it (kan-1008's
+// self-review: the correction took a second, agentless row).
+func TestEndDispatchCorrectsDiffBase(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-end-diff-base-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	d := baseDispatch("verifier", "opus")
+	d.SessionToken = "mf-diff-base"
+	d.Key = "visual-verify-fix-3-full-gymie"
+	d.DiffBase = "aa758b6a"
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", d); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	end := records.DispatchEnd{SessionToken: d.SessionToken, Key: d.Key, Outcome: "completed", EndedAt: d.StartedAt.Add(time.Minute)}
+	if out, err := st.EndDispatch(ctx, projectKey, "kan-1", end); err != nil || out.DiffBase != "aa758b6a" {
+		t.Fatalf("end with no diff base: DiffBase = %q, err = %v; want begin's aa758b6a kept", out.DiffBase, err)
+	}
+	end.DiffBase = "aa758b6a,79c0541d"
+	if out, err := st.EndDispatch(ctx, projectKey, "kan-1", end); err != nil || out.DiffBase != "aa758b6a,79c0541d" {
+		t.Fatalf("end with a diff base: DiffBase = %q, err = %v; want aa758b6a,79c0541d", out.DiffBase, err)
+	}
+}
+
+// TestFoldDispatchMovesTheDiffBaseAndDropsTheRow pins flowd
+// fold-dispatch's store half: the agentless row's base lands on the kept
+// row and the agentless row is gone; a row with an agent id, or another
+// session's, is ErrDispatchNotFound and changes nothing.
+func TestFoldDispatchMovesTheDiffBaseAndDropsTheRow(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-fold-dispatch-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	record := func(key, agent, token, base string) int64 {
+		t.Helper()
+		d := baseDispatch("verifier", "opus")
+		d.Key, d.AgentID, d.SessionToken, d.DiffBase = key, agent, token, base
+		row, err := st.RecordDispatch(ctx, projectKey, "kan-1", d)
+		if err != nil {
+			t.Fatalf("RecordDispatch %s: %v", key, err)
+		}
+		return row.ID
+	}
+	keep := record("visual-verify-fix-3-full-gymie", "a9a8709ccc39e1f2f", "mf-fold", "aa758b6a")
+	drop := record("visual-verify-fix-3-full-gymie-heads", "", "mf-fold", "aa758b6a,79c0541d")
+	agent := record("visual-verify-2", "a1b2c3d4e5f6a7b8c", "mf-fold", "bb")
+	other := record("visual-verify-3", "", "mf-other", "cc")
+
+	for _, bad := range [][2]int64{{keep, agent}, {keep, other}, {keep, keep}, {keep, 1 << 62}} {
+		if err := st.FoldDispatch(ctx, bad[0], bad[1]); !errors.Is(err, store.ErrDispatchNotFound) {
+			t.Fatalf("FoldDispatch(%d, %d): err = %v, want store.ErrDispatchNotFound", bad[0], bad[1], err)
+		}
+	}
+	if err := st.FoldDispatch(ctx, keep, drop); err != nil {
+		t.Fatalf("FoldDispatch: %v", err)
+	}
+	var base string
+	if err := pool.QueryRow(ctx, `SELECT diff_base FROM dispatches WHERE id = $1`, keep).Scan(&base); err != nil || base != "aa758b6a,79c0541d" {
+		t.Fatalf("kept row diff_base = %q, err = %v; want aa758b6a,79c0541d", base, err)
+	}
+	var n int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM dispatches WHERE id IN ($1, $2, $3)`, drop, agent, other).Scan(&n); err != nil || n != 2 {
+		t.Fatalf("rows left of drop, agent, other = %d, err = %v; want 2 (drop gone)", n, err)
+	}
+}

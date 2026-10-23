@@ -6003,3 +6003,42 @@ func TestRecordDispatchBeginInlineKeepsANamedCarryingWorktree(t *testing.T) {
 		t.Fatalf("-C a clean carrying worktree beside a dirty one: exit %d, want 0; stderr:\n%s", code, stderr.String())
 	}
 }
+
+// TestDispatchEndDiffBaseCarriedOnWire pins `dispatch end -diff-base`: the
+// correction reaches the daemon as diffBase, and an end without it sends
+// no diffBase key, so begin's value stands (kan-1008's self-review).
+func TestDispatchEndDiffBaseCarriedOnWire(t *testing.T) {
+	send := func(t *testing.T, extra ...string) map[string]any {
+		t.Helper()
+		repo := recordRepo(t, "kan-1008")
+		isolatedStateRoot(t)
+		var gotBody []byte
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			var err error
+			gotBody, err = readAll(r)
+			if err != nil {
+				t.Errorf("read request body: %v", err)
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id":7,"seq":48,"role":"verifier","model":"opus","endedAt":"2026-10-23T00:55:20Z"}`))
+		}))
+		defer srv.Close()
+		var stdout, stderr bytes.Buffer
+		args := append([]string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-1008", "-key", "visual-verify-fix-3-full-gymie", "-session-token", "mf-k1008r2", "-outcome", "completed"}, extra...)
+		if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+		}
+		var sent map[string]any
+		if err := json.Unmarshal(gotBody, &sent); err != nil {
+			t.Fatalf("decode request body: %v\nbody: %s", err, gotBody)
+		}
+		return sent
+	}
+	if sent := send(t, "-diff-base", "aa758b6a,79c0541d"); sent["diffBase"] != "aa758b6a,79c0541d" {
+		t.Errorf("diffBase = %v, want aa758b6a,79c0541d", sent["diffBase"])
+	}
+	if sent := send(t); sent["diffBase"] != nil {
+		t.Errorf("diffBase = %v, want no key when -diff-base is omitted", sent["diffBase"])
+	}
+}

@@ -180,6 +180,10 @@ type DispatchEnd struct {
 	EndedAt      time.Time    `json:"endedAt"`
 	AgentID      string       `json:"agentId,omitempty"`
 	Tokens       *TokenReport `json:"tokens,omitempty"`
+	// DiffBase corrects the HEAD(s) begin recorded, as Dispatch.DiffBase
+	// reads; empty leaves begin's value (kan-1008's self-review: a wrong
+	// visual-verify base could only be patched by a second, agentless row).
+	DiffBase string `json:"diffBase,omitempty"`
 	// CommitAt is the commit's committer time, as the CLI read it.
 	CommitAt *time.Time `json:"commitAt,omitempty"`
 }

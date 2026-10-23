@@ -277,6 +277,7 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              -change name -key key -session-token token
                              [-commit sha] [-outcome outcome] [-cause cause]
                              [-agent-id id] [-tokens k=v,...] [-ended-at instant]
+                             [-diff-base sha[,sha...]]
        flow record dispatch backfill [-addr url] [-timeout dur] [-C dir]
                              -change name [-task id] -role role [-slot name]
                              -model model [-effort level] [-agent-id id|none]
@@ -1216,6 +1217,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 	agentID := fset.String("agent-id", "", "the harness's own identifier for the dispatched subagent, where begin could not carry it -- optional, and never clears an identifier begin already recorded")
 	tokens := fset.String("tokens", "", "the token usage a same-session (inline) dispatch spent, as comma-separated key=value pairs over: input, output, cache-read, cache-creation (optional -- for a harness that writes no transcript the harvester could credit the inline row from)")
 	endedAt := fset.String("ended-at", "", "a back-filled row's real end instant, RFC 3339 -- optional: omitted, the daemon stamps the moment it closes the row")
+	diffBase := fset.String("diff-base", "", "corrects the sha (or comma-joined shas) begin recorded as the HEAD this dispatch verified -- optional: omitted, begin's value stands")
 
 	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
 		return code
@@ -1287,6 +1289,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 		Tokens:       report,
 		EndedAt:      ended,
 		CommitAt:     commitAt,
+		DiffBase:     *diffBase,
 	}
 	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Dispatch, error) {
 		return cl.EndDispatch(ctx, projectKey, f.change, in)

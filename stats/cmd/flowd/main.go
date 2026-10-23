@@ -100,6 +100,14 @@ func main() {
 		return
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == "fold-dispatch" {
+		if err := foldDispatch(os.Args[2:]); err != nil {
+			logger.Error("flowd fold-dispatch failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "unflag-verdict" {
 		if err := unflagVerdict(os.Args[2:]); err != nil {
 			logger.Error("flowd unflag-verdict failed", "error", err)
@@ -627,6 +635,35 @@ func restampDispatch(args []string) error {
 		return err
 	}
 	return st.RestampDispatch(ctx, id, agentID, patch)
+}
+
+// foldDispatch implements `flowd fold-dispatch <keep-id> <drop-id>`
+// (store.Store.FoldDispatch): the repair for a verifier row whose
+// -diff-base a second, agentless row was back-filled to correct. It talks
+// to the database directly, so it needs no running daemon.
+func foldDispatch(args []string) error {
+	if len(args) != 2 {
+		return fmt.Errorf("usage: flowd fold-dispatch <keep-id> <drop-id>")
+	}
+	var ids [2]int64
+	for i, a := range args {
+		id, err := strconv.ParseInt(a, 10, 64)
+		if err != nil {
+			return fmt.Errorf("dispatch id %q: %w", a, err)
+		}
+		ids[i] = id
+	}
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	st, err := store.Open(ctx, cfg.DSN)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	return st.FoldDispatch(ctx, ids[0], ids[1])
 }
 
 // retimeDispatch implements `flowd retime-dispatch <dispatch-id>
