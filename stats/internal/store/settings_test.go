@@ -178,7 +178,7 @@ func TestSettingsStore_MigrationDropsRetiredReviewers(t *testing.T) {
 
 // TestSettingsStore_MigrationDropsModelColumns asserts
 // 0034_flow_settings_drop_model_columns.sql leaves flow_settings holding
-// id, reviewers and updated_at alone, and that a row written before it -- both model
+// id, reviewers, updated_at and 0043's learning alone, and that a row written before it -- both model
 // columns populated -- keeps its reviewer list through the drop.
 func TestSettingsStore_MigrationDropsModelColumns(t *testing.T) {
 	st, pool := newRecordStore(t)
@@ -222,7 +222,7 @@ func TestSettingsStore_MigrationDropsModelColumns(t *testing.T) {
 		cols = append(cols, c)
 	}
 	rows.Close()
-	if want := []string{"id", "reviewers", "updated_at"}; !reflect.DeepEqual(cols, want) {
+	if want := []string{"id", "learning", "reviewers", "updated_at"}; !reflect.DeepEqual(cols, want) {
 		t.Errorf("flow_settings columns = %v, want %v", cols, want)
 	}
 
@@ -232,5 +232,39 @@ func TestSettingsStore_MigrationDropsModelColumns(t *testing.T) {
 	}
 	if want := []string{"primary", "failure-modes"}; !reflect.DeepEqual(got.Reviewers, want) {
 		t.Errorf("reviewers = %v, want %v", got.Reviewers, want)
+	}
+}
+
+// TestSettingsStore_LearningDefaultsOn asserts GetSettings reports
+// Learning on when flow_settings holds no row yet (learning-default-on).
+func TestSettingsStore_LearningDefaultsOn(t *testing.T) {
+	st := newTestStore(t)
+
+	got, err := st.GetSettings(context.Background())
+	if err != nil {
+		t.Fatalf("GetSettings: %v", err)
+	}
+	if !got.Learning {
+		t.Errorf("GetSettings().Learning = false on an empty store, want true")
+	}
+}
+
+// TestSettingsStore_LearningRoundTrip asserts Learning off survives a
+// PutSettings/GetSettings round trip beside the reviewer list
+// (learning-in-settings).
+func TestSettingsStore_LearningRoundTrip(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	want := store.Settings{Reviewers: []string{"primary"}, Learning: false}
+	if err := st.PutSettings(ctx, want); err != nil {
+		t.Fatalf("PutSettings: %v", err)
+	}
+	got, err := st.GetSettings(ctx)
+	if err != nil {
+		t.Fatalf("GetSettings: %v", err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("GetSettings = %+v, want %+v", got, want)
 	}
 }
