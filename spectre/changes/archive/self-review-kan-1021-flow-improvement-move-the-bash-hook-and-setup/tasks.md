@@ -33,12 +33,12 @@ exception sentence in `skills/flow/review-panel-fix-round.md`'s audit dispositio
 - Task 2: both REQUIRED SUB-SKILL blocks keep the plugin-cache path on one line — the guard joins a block's lines with a space, so a wrap inside the backticked path breaks its shared phrase.
 - Task 3: the exception covers a line-number offset alone; a citation whose content is not on any line of the cited path is still bounced.
 
-- [ ] 1. Run the citation check's fenced lines, never an eval of its body
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 1. Run the citation check's fenced lines, never an eval of its body
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `scripts/project-get.sh . "review panel citation check" | head -1`: it prints the fence line
     `` ```bash ``.
     <!-- measured: scripts/project-get.sh . "review panel citation check" | od -c @ f85971db → first line is the fence -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at f85971db together with the other two tasks' diffs; check-verbatim-moves.sh exits 0 with this change's verbatim-moves.txt, check-references.sh, check-markdown-integrity.sh and check-installed-citations.sh exit 0
 diff --git a/skills/flow/review-panel.md b/skills/flow/review-panel.md
@@ -58,9 +58,9 @@ index 09122798..c68cc81b 100644
  guard's own exit 2 below is. On exit 1, skip silently — no file written, no CITATION CHECK
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`,
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`,
     `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0.
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/review-panel.md`
@@ -71,12 +71,12 @@ index 09122798..c68cc81b 100644
 
 **Decision:** citation-fence-prose
 
-- [ ] 2. Name the superpowers skill files a flow-* agent reads
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 2. Name the superpowers skill files a flow-* agent reads
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n "Skill" agents/flow-medium.md; grep -n "REQUIRED SUB-SKILL" skills/flow/implement.md`:
     the agent file grants no Skill tool and both paragraphs say "Use"/"invoke" with no file path.
     <!-- measured: the two greps above @ f85971db → no Skill grant; paragraphs at implement.md lines 526 and 529 -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`) — the two paragraphs, the panel-fix
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`) — the two paragraphs, the panel-fix
     sentence and the guard row:
 
 ````diff verified:applied with git apply to this worktree at f85971db together with the other two tasks' diffs; check-verbatim-moves.sh exits 0 with this change's verbatim-moves.txt, check-references.sh, check-markdown-integrity.sh and check-installed-citations.sh exit 0; with it check-dispatch-paragraphs.sh prints DISPATCH-PARAGRAPHS-OK, 34 sites, and with the implement.md hunk reverted alone it prints DISPATCH-PARAGRAPHS-INVALID, 6 violations
@@ -143,7 +143,7 @@ index beb4740e..5ba512bd 100644
  func checkDispatchParagraphs(_ []string, env Env, stdout, stderr io.Writer) int {
 ````
 
-  - [ ] **Step 3: Update `stats/internal/guard/check_dispatch_paragraphs_test.go`.** With the row in,
+  - [x] **Step 3: Update `stats/internal/guard/check_dispatch_paragraphs_test.go`.** With the row in,
     seven existing subtests of `TestCheckDispatchParagraphs` fail, every one on an `implement.md`
     fixture that now lacks the two blocks or on the `33 site(s)` OK line.
     <!-- measured: cd stats && go test ./internal/guard/ -run 'TestCheckDispatchParagraphs' -count=1 with Step 2 applied @ f85971db → 7 failing subtests -->
@@ -158,15 +158,15 @@ index beb4740e..5ba512bd 100644
       `missing the required phrase: \"from its file\"`;
     - case 104: the TDD block twice and no debugging block exits 1 and names
       `missing a block that satisfies the debugging variant`.
-  - [ ] **Step 4: Prove the guard bites.** Save `skills/flow/implement.md`, revert its two
+  - [x] **Step 4: Prove the guard bites.** Save `skills/flow/implement.md`, revert its two
     paragraphs to their `f85971db` text, run `scripts/check-dispatch-paragraphs.sh` and capture its
     `DISPATCH-PARAGRAPHS-INVALID` line, restore the saved file, and capture the OK line.
-  - [ ] **Step 5: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckDispatchParagraphs' -count=1`
+  - [x] **Step 5: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckDispatchParagraphs' -count=1`
     passes; `cd stats && go vet ./internal/guard && gofmt -l internal/guard` prints nothing;
     `scripts/check-dispatch-paragraphs.sh`, `scripts/check-verbatim-moves.sh`,
     `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and
     `scripts/check-installed-citations.sh` exit 0.
-  - [ ] **Step 6: Commit** the four files with the subject below.
+  - [x] **Step 6: Commit** the four files with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/implement.md`, `skills/flow/review-panel-fix-round.md`, `stats/internal/guard/dispatchparagraphs.go`, `stats/internal/guard/check_dispatch_paragraphs_test.go`
@@ -181,12 +181,12 @@ index beb4740e..5ba512bd 100644
 **Decision:** subskill-guard-row
 **Decision:** flow-fast-and-shim-unchanged
 
-- [ ] 3. Let the parent correct a reproducer citation's line number in place
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 3. Let the parent correct a reproducer citation's line number in place
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n "bounced exactly as the per-finding run's own answer 1" skills/flow/review-panel-fix-round.md`:
     the audit's exit-1 dispositions bounce every unresolving demonstrates citation, with no exception.
     <!-- measured: the grep above @ f85971db → one hit, line 234 -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at f85971db together with the other two tasks' diffs; check-verbatim-moves.sh exits 0 with this change's verbatim-moves.txt, check-references.sh, check-markdown-integrity.sh and check-installed-citations.sh exit 0
 diff --git a/skills/flow/review-panel-fix-round.md b/skills/flow/review-panel-fix-round.md
@@ -208,9 +208,9 @@ index 61b35457..a8ea198b 100644
  the run, the same as the lexical guard's exit 2.
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`,
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`,
     `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0.
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/review-panel-fix-round.md`
