@@ -435,6 +435,11 @@ runs.**, `skills/flow/implement.md`). A full-suite fix is applied only once the 
 ends, never under the reading slots, so once the round's reports exist, every pass-1 role re-runs in the next round over the
 delta that commit adds, under **Panel re-runs** (`skills/flow/review-panel-fix-round.md`) — a
 role that raised nothing included; a suite that passes adds no commit and re-dispatches nothing.
+**A live check's before figures are measured in the same window**, after the suite: when
+`design.md`'s `## Live check` names something to exercise, the parent measures each before figure
+from the merge base the way **Live check** (`skills/flow/verify-and-handoff.md`) states and writes
+it to `<abs-worktree>/.superpowers/sdd/live-before.md` with the merge-base sha it was measured at — never into the change's directory, a
+tracked path the suite's tree gate reads.
 
 The same plan-tree discipline rides every round, re-run rounds included: before the launches the
 parent makes the reviewer-dispatch planning commit (**Planning commits**,

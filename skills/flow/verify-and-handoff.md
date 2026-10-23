@@ -167,7 +167,10 @@ planning path the write-in-progress planning commit carries. **A before figure i
 detached worktree at the merge base** — `git -C <worktree> worktree add --detach
 <project>-worktrees/<name>-before <merge-base>`, the base's stack run from there, then stopped, and the worktree
 removed with `git worktree remove` once the figure is written — never by checking base sources out
-over the change worktree. Then run `check-live-verification.sh
+over the change worktree. A before figure already in
+`<abs-worktree>/.superpowers/sdd/live-before.md`, measured while pass 1's panel read
+(`skills/flow/review-panel.md`), is copied into the record only when the merge-base sha it records equals the current `git -C <abs-worktree> merge-base` — a round-boundary rebase moves the base (`skills/flow/review-panel-fix-round.md`) — and is measured again otherwise. Then run
+`check-live-verification.sh
 <changeRoot>/live-verification.md`; its header is canonical for the record it accepts. Exit 1 → the
 record carries no before figure, or states one was not measured: measure it from the merge base as
 above and rewrite the record, never proceed past it (kan-998). The check is never deferred past this stage:
