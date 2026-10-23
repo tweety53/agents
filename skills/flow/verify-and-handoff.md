@@ -537,7 +537,7 @@ flow stage end -command '/flow' -stage flow.write-in-progress -outcome completed
 - ? <an open question the operator must answer>
 - 🤖 <question> → <the recommended option taken>
 
-<the ## Learning section, when this run composed one>
+**Learning:** <the learning note's absolute path, when this run composed one>
 
 Next:
 /clear
@@ -559,7 +559,7 @@ option (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`), so th
 overrule any of them with a fix run; it reads `none` when the run took none and left no open
 question. Planning answers the `## decisions: recommended` mode took are named here the same way.
 
-**The `## Learning` section** is printed by the run only, after `Decisions:`, in the shape
+**The `**Learning:**` line** is printed by the run only, after `Decisions:`, naming the file
 **Learning** (`skills/flow-contracts/learning.md`) states.
 
 **The parent prints this block directly, as this stage's own output** — no return, no relay: the

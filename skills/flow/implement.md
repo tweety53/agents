@@ -275,7 +275,8 @@ Extract the **Global constraints** verbatim from the capability specs the propos
 `design.md` for the reviewers.
 
 On an implementation run, not a fix run, compose the learning note per **Learning**
-(`skills/flow-contracts/learning.md`) once the plan validates.
+(`skills/flow-contracts/learning.md`) once the plan validates, write its file and print its
+absolute path then.
 
 ```bash
 flow stage end -command '/flow' -stage flow.load-context -outcome completed <name>

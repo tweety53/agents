@@ -9,6 +9,12 @@ A note is composed only on `/flow`'s implementation run — the first run past t
 `/flow-fast`.
 Never a fix run, an integrate run, or a creating run that stops at the plan gate.
 
+**The note is a Markdown file named after the change, in the folder `<project>-learning`** — `<project>` the main checkout's absolute
+path, so the folder sits beside it as `<project>-worktrees` does, outside every git repository —
+created with `mkdir -p` on first use. It is written as soon as the note is composed, at the start
+of implementation, and the run prints `Learning: <absolute path>` at once; the handoff carries
+`**Learning:** <absolute path>` in place of the note itself (kan-1028).
+
 ### Reading the setting
 
 ```bash
@@ -45,8 +51,7 @@ A topic is a lowercase kebab slug (`go-generics`, `advisory-locks`), at most 64 
 
 ### Recording it
 
-Recorded as the final message prints, never at composition, so a run that stops earlier spends no
-showing of the topic:
+Recorded as the file is written:
 
 ```bash
 flow learning add <topic> -note '<the topic in under 80 characters>' -change <name> -C <project>
@@ -57,12 +62,12 @@ before the final message prints, and the project key derives from the git common
 same from either.
 
 Exit 1 with stderr naming `already shown three times` or `rejected` is the store refusing the
-topic, and the run picks another topic. Any other non-zero exit — the store unreachable — prints the
-note unrecorded and never blocks.
+topic, and the run picks another topic before writing the file. Any other non-zero exit — the store
+unreachable — writes the note unrecorded and never blocks.
 
-### The printed section
+### The file
 
-Printed in the run's final message, where the citing phase file places it:
+The file's whole content:
 
 ```text
 ## Learning — <topic>

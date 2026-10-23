@@ -210,8 +210,8 @@ flow stage end   -command '/flow-fast' -stage flow.decide -outcome completed <na
 flow stage begin -command '/flow-fast' -stage flow.load-context -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
-Compose the learning note here per **Learning** (`skills/flow-contracts/learning.md`) and print
-it in the final report.
+Compose the learning note here per **Learning** (`skills/flow-contracts/learning.md`), write its
+file and print its absolute path; the final report repeats the path.
 
 The project's instruction file is already in this session's context (`<project>/CLAUDE.md` on
 Claude Code, `<project>/AGENTS.md` on ZCode and Muse); never read either one here. Read
