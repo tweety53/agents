@@ -111,6 +111,7 @@ its own `add` after the exclude, guarded so a `link.md`-less change still commit
 
 `git add -A` respects `<project>/.gitignore`. Never force-add.
 
+**Every `git add` and `git commit` a run instructs runs as `git -C <abs-worktree>`, written out or not** — a pathspec read against a subdirectory the shell sits in misses the paths it names (`skills/flow/implement.md`).
 **A commit a run instructs defaults to the pathspec-scoped form.** `git commit -m "<subject>" -- <paths>`:
 the commit carries only the paths it names, whatever else the index holds. A plain commit takes
 the whole staged tree with it, so wherever a run's instructions know the paths a commit should carry,

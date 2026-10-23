@@ -498,13 +498,15 @@ Every implementer dispatch **must** carry:
 > step already staged:
 >
 > ```bash
-> git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ \
->   && git add -- <this task's files> ':(exclude)spectre/changes/' ':(exclude)openspec/changes/' \
->   ':(exclude)docs/superpowers/' \
->   && git commit -m "<the task's declared subject>" -m "Task-Id: <n>" -- <this task's files>
+> git -C <abs-worktree> reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ \
+>   && git -C <abs-worktree> add -- <this task's files> ':(exclude)spectre/changes/' \
+>   ':(exclude)openspec/changes/' ':(exclude)docs/superpowers/' \
+>   && git -C <abs-worktree> commit -m "<the task's declared subject>" -m "Task-Id: <n>" -- <this task's files>
 > ```
 >
-> Paths are relative to the worktree root. Both spec-tree leaf spellings are named because the
+> Paths are relative to the worktree root, which `-C <abs-worktree>` anchors whatever directory
+> the shell is in — from a subdirectory of it, an unanchored `git add` reads them
+> against that directory and fails with a pathspec error. Both spec-tree leaf spellings are named because the
 > leaf is the project's — `spectre` or `openspec` — and a path the project does not use is a
 > reset that clears nothing and an exclude that matches nothing. **Never a bare
 > `git add -A`, `git add .`, or `git commit -a`**:
