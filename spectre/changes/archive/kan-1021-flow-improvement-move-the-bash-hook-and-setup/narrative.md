@@ -8,3 +8,10 @@
 - Panel round 0: primary raised one Important — the rewired `pfChecks` selected the repotest package unconditionally, so a pipeline-fix in another project with a `hooks/` dir or `stats/*.go` would run a command it cannot pass; the replaced code gated on the scripts existing. Fixed by gating on `stats/internal/repotest` existing, plus three Minors (doc comments naming deleted scripts, `pmFixture.run` ignoring rc, flow-addr mutation cases not asserting which check fired).
 - Time sinks: the `review panel citation check` value came back as a fenced block and an `eval` of it hung the shell until killed — ran `scripts/check-references.sh` directly instead. F1's reproducer citation was one line off; corrected in place rather than bounced. The F4 re-run verdict cited a line outside the fix hunk; one `-cite` send-back fixed it.
 - The panel-fix subagent reported no Skill tool for systematic-debugging; the defect was already reproduced, so it fixed directly.
+
+## 2026-10-23 — integrate run
+
+- Preflight clean: no foreign staged work, main checkout on `main`.
+- Unfinished-work gate clear: every task ticked, no open finding; 18 commits task-traced; no UI paths.
+- `origin/main` unmoved since the merge base — no rebase.
+- Route: merge and push, from the project's configured default.
