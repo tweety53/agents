@@ -1538,6 +1538,26 @@ func (s *Store) StampDispatchAgent(ctx context.Context, sessionToken, key, agent
 	return tag.RowsAffected() > 0, nil
 }
 
+// DispatchStartedAt reads the started_at of the latest row recorded under
+// (sessionToken, key) -- harvest.DispatchAgentStamper's anchor for a lone
+// begin. found is false, with a nil error, while no such row exists.
+func (s *Store) DispatchStartedAt(ctx context.Context, sessionToken, key string) (time.Time, bool, error) {
+	var at time.Time
+	err := s.pool.QueryRow(ctx, `
+		SELECT started_at FROM dispatches
+		WHERE session_token = $1 AND dispatch_key = $2
+		ORDER BY started_at DESC, id DESC
+		LIMIT 1
+	`, sessionToken, key).Scan(&at)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return time.Time{}, false, nil
+	}
+	if err != nil {
+		return time.Time{}, false, fmt.Errorf("store: dispatch started_at for key %q: %w", key, err)
+	}
+	return at, true, nil
+}
+
 // StampLoopDispatchAgent is StampDispatchAgent for a fix-loop row, named
 // by its key alone (harvest.AgentLaunch.LoopKey): the loop's begin is
 // recorded by the PreToolUse hook, so the transcript carries no session

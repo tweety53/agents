@@ -471,7 +471,7 @@ instead — the one pair the store accepts on a `zcode` session token — and on
 the session's own (**Harness mapping**, `skills/flow-contracts/model-policy.md`; KAN-898).
 
 **`-agent-id` is never typed on a slot's row, never invented** — the daemon captures the launch identifier,
-stamping each launch onto the row its Agent-tool `description`'s first word names in the launching session, and pairing a launch whose description names no row with the begin nearest it in time;
+stamping each launch onto the row its Agent-tool `description`'s first word names in the launching session — each slot's description opens with its row's `-key` (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`) — and pairing a launch whose description names no row with the begin nearest it in time;
 record the round's `begin`s in the one Bash call after its launch message, as above, and never reuse a `-key`.
 
 **Record a slot's dispatch before recording that slot's findings**, and carry the seq the command

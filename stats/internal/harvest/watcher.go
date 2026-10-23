@@ -1155,6 +1155,11 @@ type dispatchBeginEvent struct {
 	SessionToken string
 	Key          string
 	StartedAt    time.Time
+	// Alone marks the only begin its Bash command recorded, and Anchored
+	// a begin whose StartedAt is already its row's own started_at
+	// (Watcher.anchorBegins).
+	Alone    bool
+	Anchored bool
 }
 
 // maxStampTimeTolerance is how far a begin's own -started-at may sit from
@@ -1775,17 +1780,20 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 
 	var begins []dispatchBeginEvent
 	for _, c := range commands {
-		for _, ev := range dispatchBeginsFromCommand(c.Command) {
+		evs := dispatchBeginsFromCommand(c.Command)
+		for _, ev := range evs {
 			// The command line's own instant is the begin's time anchor; a
 			// command whose line carries none can never pair.
 			if !c.Timestamp.IsZero() {
 				ev.StartedAt = c.Timestamp
+				ev.Alone = len(evs) == 1
 				begins = append(begins, ev)
 			}
 		}
 	}
 	launches = w.stampLoopLaunches(ctx, path, launches)
 	begins = append(w.pendingBegins[path], begins...)
+	w.anchorBegins(ctx, path, begins)
 	launches = append(w.pendingLaunches[path], launches...)
 	denials = append(w.pendingDenials[path], denials...)
 	launches, begins = w.stampKeyedLaunches(ctx, path, launches, begins)
@@ -1913,6 +1921,34 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 	w.pendingBegins[path] = appendPending(nil, survivors(begins, takenBegin))
 	w.pendingLaunches[path] = appendPending(nil, unclaimed(launches, claimed))
 	w.pendingDenials[path] = appendPending(w.pendingDenials[path], denials)
+}
+
+// anchorBegins moves each lone begin's time anchor from its Bash command's
+// transcript instant to its row's own started_at. The command line is
+// written when the call starts, and a begin at the end of a long call ran
+// minutes later: kan-1026's row 76, begun 2m56s into its call, sat 42 s
+// from another dispatch's launch made before the call and 3m14s from its
+// own, and took the other one. Begins sharing one command keep its
+// instant: that shared instant is what pairs a panel round's begins with
+// its launches in order. A begin whose row is not written yet keeps the
+// command's instant -- its stamp then finds no row, and the pair is
+// retried -- and is looked up again next batch.
+func (w *Watcher) anchorBegins(ctx context.Context, path string, begins []dispatchBeginEvent) {
+	for i := range begins {
+		b := &begins[i]
+		if !b.Alone || b.Anchored {
+			continue
+		}
+		at, found, err := w.deps.DispatchStartedAt(ctx, b.SessionToken, b.Key)
+		if err != nil {
+			w.warn("harvest: read dispatch started_at failed, the begin keeps its command's instant",
+				"path", path, "key", b.Key, "error", err)
+			continue
+		}
+		if found {
+			b.StartedAt, b.Anchored = at, true
+		}
+	}
 }
 
 // stampKeyedLaunches stamps each launch whose description's first word

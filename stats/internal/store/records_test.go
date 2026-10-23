@@ -3324,6 +3324,28 @@ func TestStampLoopDispatchAgentFillsLatestRowByKey(t *testing.T) {
 	}
 }
 
+func TestDispatchStartedAtReadsTheLatestRowsBegin(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+
+	projectKey := fmt.Sprintf("proj-started-at-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	in := baseDispatch("verifier", "opus")
+	in.SessionToken, in.Key = "mf-k1", "visual-verify-fix-11-gymie"
+	in.StartedAt = time.Date(2026, 10, 23, 9, 40, 11, 0, time.UTC)
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", in); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+
+	at, found, err := st.DispatchStartedAt(ctx, "mf-k1", "visual-verify-fix-11-gymie")
+	if err != nil || !found || !at.Equal(in.StartedAt) {
+		t.Errorf("DispatchStartedAt = (%v, %v, %v), want (%v, true, nil)", at, found, err, in.StartedAt)
+	}
+	if _, found, err := st.DispatchStartedAt(ctx, "mf-k1", "panel-1-primary"); err != nil || found {
+		t.Errorf("an unknown key = (found %v, %v), want (false, nil)", found, err)
+	}
+}
+
 // TestStampSessionDispatchAgentFillsTheSessionsLatestEmptyRow pins the
 // keyed stamp: a launch whose description names its row stamps the latest
 // empty row under that key in the launching session only -- never another

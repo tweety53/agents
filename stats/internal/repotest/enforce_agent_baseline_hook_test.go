@@ -68,9 +68,13 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 	statusT := transcript("status.jsonl", `{"type":"user","message":{"content":"<command-name>/flow-status</command-name>"}}`)
 	toolT := transcript("tool.jsonl", `{"type":"user","message":{"content":[{"type":"tool_result","content":"<command-name>/flow</command-name>"}]}}`)
 
-	// payload builds an Agent payload; model "" omits it, transcript "" omits transcript_path.
-	payload := func(prompt, typ, model, transcript string) string {
+	// described builds an Agent payload; description "" and model "" omit those fields,
+	// transcript "" omits transcript_path.
+	described := func(description, prompt, typ, model, transcript string) string {
 		ti := map[string]string{"prompt": prompt, "subagent_type": typ}
+		if description != "" {
+			ti["description"] = description
+		}
 		if model != "" {
 			ti["model"] = model
 		}
@@ -83,6 +87,9 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 			t.Fatal(err)
 		}
 		return string(b)
+	}
+	payload := func(prompt, typ, model, transcript string) string {
+		return described("", prompt, typ, model, transcript)
 	}
 
 	const hook = "enforce-agent-baseline.py"
@@ -112,6 +119,14 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 		{"11 malformed JSON", hook, "{not json", nil},
 		{"12 a planner citing the verifier file, no marker line", hook, payload("Key: self-review-x-plan\n"+baseline+" Finding 2 cites /x/skills/flow/visual-verify-verifier.md:120.", "flow-medium", "opus", ""), nil},
 		{"12b an implementer citing both files, no marker line", hook, payload(baseline+" Task 4 re-reads .superpowers/sdd/tooling-analysis-1.md and step 8 of skills/flow/visual-verify-verifier.md.", "flow-low", "sonnet", ""), nil},
+		{"13 a /flow dispatch described in prose", hook, described("Round-11 primary review", baseline+" review the diff", "flow-low", "opus", flowT), []string{"opens with the row it records"}},
+		{"13b a /flow dispatch with no description", hook, payload(baseline+" review the diff", "flow-low", "opus", flowT), []string{"opens with the row it records"}},
+		{"13c a /flow dispatch opening with its key", hook, described("panel-11-primary correctness review", baseline+" review the diff", "flow-low", "opus", flowT), nil},
+		{"13d a /flow task dispatch", hook, described("Tasks 3+4+7/22 (review)", baseline+" review tasks 3, 4 and 7", "flow-low", "opus", flowT), nil},
+		{"13e a /flow loop dispatch carrying its Key line", hook, described("Self-review plan", "Key: self-review-x-plan\n"+baseline+" plan", "flow-medium", "opus", flowT), nil},
+		{"13f a prose description outside a flow session", hook, described("Round-11 primary review", baseline+" review the diff", "flow-low", "opus", statusT), nil},
+		{"13g a bare loop key prefix does not exempt", hook, described("Round-11 primary review", "Key: self-review-\n"+baseline+" plan", "flow-medium", "opus", flowT), []string{"opens with the row it records"}},
+		{"13h a loop key line with trailing words does not exempt", hook, described("Round-11 primary review", "Key: self-review-x more words\n"+baseline+" plan", "flow-medium", "opus", flowT), []string{"opens with the row it records"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

@@ -28,6 +28,11 @@ type DispatchAgentStamper interface {
 	// recorded under key in session sessionID -- the row a launch's
 	// description names (AgentLaunch.Key).
 	StampSessionDispatchAgent(ctx context.Context, sessionID, key, agentID string) (stamped bool, err error)
+	// DispatchStartedAt reads the started_at of the latest row recorded
+	// under (sessionToken, key) -- the instant its begin actually ran,
+	// which Watcher.anchorBegins pairs a lone begin by; found is false
+	// while no such row exists yet.
+	DispatchStartedAt(ctx context.Context, sessionToken, key string) (startedAt time.Time, found bool, err error)
 }
 
 // Deps is everything a Watcher needs beyond its root, its sink and its
@@ -141,6 +146,11 @@ func (NoDeps) StampLoopDispatchAgent(ctx context.Context, key, agentID string) (
 // StampSessionDispatchAgent stamps nothing and reports false.
 func (NoDeps) StampSessionDispatchAgent(ctx context.Context, sessionID, key, agentID string) (stamped bool, err error) {
 	return false, nil
+}
+
+// DispatchStartedAt never finds a row.
+func (NoDeps) DispatchStartedAt(ctx context.Context, sessionToken, key string) (startedAt time.Time, found bool, err error) {
+	return time.Time{}, false, nil
 }
 
 // InlineDispatchID never finds a row.

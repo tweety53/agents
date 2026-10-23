@@ -4231,6 +4231,55 @@ func TestLateStampLeavesAResumedAgentsFileAlone(t *testing.T) {
 	}
 }
 
+// anchoredStampDeps is stampRecordingDeps whose store answers each key's
+// row started_at from startedAt.
+type anchoredStampDeps struct {
+	stampRecordingDeps
+	startedAt map[string]time.Time
+}
+
+func (d *anchoredStampDeps) DispatchStartedAt(ctx context.Context, sessionToken, key string) (time.Time, bool, error) {
+	at, ok := d.startedAt[key]
+	return at, ok, nil
+}
+
+// TestWatcherAnchorsALoneBeginAtItsRowsStartedAt is kan-1026's row 76: the
+// begin closed a three-minute Bash call, so the call's transcript instant
+// sat 42 s from another dispatch's launch made before the call and 3m14s
+// from its own. Anchored at the row's started_at, the begin takes its own.
+func TestWatcherAnchorsALoneBeginAtItsRowsStartedAt(t *testing.T) {
+	bash := func(ts, command string) string {
+		c, err := json.Marshal(command)
+		if err != nil {
+			t.Fatalf("marshal command: %v", err)
+		}
+		return `{"type":"assistant","timestamp":"2026-10-23T` + ts + `","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":` + string(c) + `}}]}}`
+	}
+	launch := func(ts, agentID string) string {
+		return `{"type":"user","timestamp":"2026-10-23T` + ts + `","sessionId":"s","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"` + agentID + `"}}`
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	if err := os.WriteFile(path, stampFixtureLines(
+		launch("09:36:33.893Z", "abe0a67c405742bad"),
+		bash("09:37:15.000Z", "npx playwright test >/dev/null; flow record dispatch begin -change kan-1026 -role verifier -key visual-verify-fix-11-gymie -session-token mf-k1026r1"),
+		launch("09:40:29.885Z", "a549fee896ec5faec"),
+	), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	deps := &anchoredStampDeps{startedAt: map[string]time.Time{
+		"visual-verify-fix-11-gymie": mustParse(t, "2026-10-23T09:40:11Z"),
+	}}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	want := []stampCall{{"mf-k1026r1", "visual-verify-fix-11-gymie", "a549fee896ec5faec"}}
+	if !reflect.DeepEqual(deps.stamps, want) {
+		t.Errorf("stamps = %+v, want %+v", deps.stamps, want)
+	}
+}
+
 // TestWatcherRetiresBeginsOfHookDeniedLaunches replays kan-995's panel
 // round 1: two panel begins, both Agent calls denied by a PreToolUse hook
 // whose user lines carry a string "toolUseResult", then the flake agent's

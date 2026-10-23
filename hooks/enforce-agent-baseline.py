@@ -22,6 +22,13 @@ It denies every fork in a flow session -- one whose transcript records a /flow, 
 fresh agent whose prompt carries the paths it needs (KAN-1000: a parent forked itself into a
 self-review loop and dragged ~300k tokens of its own context into it).
 
+It denies, in a flow session, a dispatch whose `description` does not open with its row: `Task
+<x>/<n>` or `Tasks <a+b>/<n>` for plan tasks, else the row's literal `-key` (**Every dispatch's
+Agent-tool `description`**, skills/flow/implement.md) -- the word the harvester stamps the launch
+by. A loop dispatch, whose prompt carries a `Key: self-review-`/`Key: pipeline-fix-` line, is
+stamped by that line and exempt (kan-1026: 29 of 41 launches opened "Round-11 primary review" and
+the like, and 14 ledger rows were left empty or stamped with another dispatch's agent).
+
 Fails open: any unexpected input, parse error, or internal fault exits 0 and lets the
 dispatch through. A guardrail on a convention must never be the reason work stops.
 """
@@ -95,6 +102,42 @@ FLOW_HIGH_MARKERS = (
 )
 
 
+# A description naming its row: plan tasks by id over the plan's count, any other row by a key-shaped
+# first word -- lowercase, no spaces (`panel-4-primary`, `visual-verify-fix-11-gymie`, `planner`).
+ROW_DESCRIPTION = re.compile(r"Tasks? \d+(?:\+\d+)*/\d+(?:\s|$)|[a-z][a-z0-9+._-]*(?:\s|$)")
+# The loop key line exactly as the harvester reads it (loopKeyPattern, stats/internal/harvest/transcript.go).
+LOOP_KEY_LINE = re.compile(r"^[ \t]*Key:[ \t]*(?:pipeline-fix|self-review)-\S+[ \t]*$", re.M)
+
+DESCRIPTION_REASON = (
+    "Dispatch blocked: in a flow run, a dispatch's `description` opens with the row it records "
+    "-- `Task <x>/<n> (...)` for plan tasks, else the row's literal `-key` and a few words, "
+    "`panel-4-primary correctness review` (skills/flow/implement.md, kan-1026). The daemon stamps "
+    "the launch onto the row that word names; a description like \"Round-11 primary review\" "
+    "leaves the row to time pairing, which mis-stamps.\n\n"
+    "Re-send this call with `description` opening with its row's key, nothing else changed."
+)
+
+
+def description_reason(payload: dict, tool_input: dict, prompt: str) -> "str | None":
+    if LOOP_KEY_LINE.search(prompt):
+        return None
+    description = tool_input.get("description")
+    if isinstance(description, str) and ROW_DESCRIPTION.match(description):
+        return None
+    return DESCRIPTION_REASON if in_flow_session(payload) else None
+
+
+def in_flow_session(payload: dict) -> bool:
+    path = payload.get("transcript_path")
+    if not isinstance(path, str):
+        return False
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return any(is_flow_command(line) for line in f)
+    except OSError:
+        return False
+
+
 def flow_high_reason(prompt: str, tool_input: dict) -> "str | None":
     if tool_input.get("subagent_type") != "flow-high" or "/.zcode/" in __file__:
         return None
@@ -133,21 +176,15 @@ def fork_reason(payload: dict, tool_input: dict) -> "str | None":
     prompt = tool_input.get("prompt")
     if isinstance(prompt, str) and "skills/flow" in prompt:
         return FORK_REASON
-    path = payload.get("transcript_path")
-    if not isinstance(path, str):
-        return None
-    try:
-        with open(path, encoding="utf-8", errors="replace") as f:
-            if any(is_flow_command(line) for line in f):
-                return FORK_REASON
-    except OSError:
-        return None
-    return None
+    return FORK_REASON if in_flow_session(payload) else None
 
 
 def is_flow_command(line: str) -> bool:
     # Only a user turn with string content is a typed slash command; a tool result quoting the
-    # tag carries list content and does not count.
+    # tag carries list content and does not count. The substring test spares a json parse of
+    # every line of a long transcript that holds no flow command at all.
+    if "<command-name>/flow" not in line:
+        return False
     try:
         entry = json.loads(line)
     except ValueError:
@@ -203,7 +240,11 @@ def main() -> int:
         deny(DENY_REASON)
         return 0
 
-    reason = pinned_role_reason(prompt, tool_input) or flow_high_reason(prompt, tool_input)
+    reason = (
+        pinned_role_reason(prompt, tool_input)
+        or flow_high_reason(prompt, tool_input)
+        or description_reason(payload, tool_input, prompt)
+    )
     if reason:
         deny(reason)
     return 0

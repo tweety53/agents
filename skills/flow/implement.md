@@ -88,7 +88,10 @@ shape.** A dispatch carrying plan tasks — an implementer, a gated reviewer bun
 by plan id over the plan's task count, then a few words in parentheses: `Task 3/22 (port guard)`
 for one task, `Tasks 3+4+7/22 (review)` for a group, its ids in the order its key lists them. Every other row is its key and a few
 words, with no parentheses: `panel-1-primary correctness review`. The `flow-task-list` mod
-(`mods/flow-task-list/`) reads that prefix to number its row.
+(`mods/flow-task-list/`) reads that prefix to number its row. The daemon stamps a launch onto the
+row its description's first word names, so `hooks/enforce-agent-baseline.py` denies, in a flow run,
+a dispatch whose description opens any other way (kan-1026: launches described `Round-11 primary
+review` left their rows to time pairing, which stamped two with another dispatch's agent).
 
 **Every dispatch is one-shot — a finished child is never resumed.** The parent never sends a
 `SendMessage` to a child that has written its report. Whatever a
