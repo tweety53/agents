@@ -125,8 +125,8 @@ stack (frontend `http://localhost:6740` and gateway `11820` answered 200 at plan
 
 **ID:** inset-timeout-trace-first
 **Status:** active
-**Chosen:** the task reproduces the `:364`/`:446` timeouts under 5-worker load first, names the boot step that spends the budget, and fixes it at the source; never a raised timeout.
-**Considered:** closing as "not reproduced" — Task 16's implementer already did that; the finding asks for the cause.
+**Chosen:** the task reproduces the `:364`/`:446` timeouts under 5-worker load first, names the boot step that spends the budget, and fixes it at the source; never a raised timeout. If the stated runs do not reproduce them, the task makes no commit and records the runs here, as Task 10 Step 3 allows. They did not reproduce: `npx playwright test fidelity/kan-749-inset-scroll-runner.spec.ts --repeat-each=10 --workers=5` → 70/70 passed; kan-749 + list-mode + quick-mode + full-app-suite at `--repeat-each=3 --workers=5` → 150 passed, 3 skipped; the verify artifacts kept no error context for the original failures.
+**Considered:** raising the timeout — it would pass with the defect present.
 
 ### First review effort
 
