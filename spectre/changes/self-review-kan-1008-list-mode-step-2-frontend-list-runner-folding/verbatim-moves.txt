@@ -1,0 +1,11 @@
+# Sentences this change rewords, adds or removes on purpose (check-verbatim-moves.sh).
+flow stage end -command '/flow' -stage flow.verify -outcome completed <name>
+&& flow stage end -command '/flow' -stage flow.verify -outcome completed <name>
+**The live check gates the stage end.
+Exit 1 → run **Live check** above and rewrite the record, never end the stage past it; exit 2 → correct the input it names and run it again (kan-1008: the stage end checked nothing, the live check first ran at integrate, and its defect landed after the panel).
+`check-live-verification.sh <changeRoot>` runs in the same Bash call as the stage end, the end chained behind it; its header is canonical for the verdict.
+check-live-verification.sh <changeRoot> \
+Before it, in the same Bash call, run `check-verify-green.sh <abs-worktree> <name> mf-<literal-token>` once per stage; its header is canonical for the verdict.
+**A departure found never shortens the pass:** every step still runs to its end in the same dispatch, and a fix round's re-verify finishing what this one left is no reason to leave it (kan-1008: a verifier left step 10 "by choice" once it had found departures, and two remainder dispatches cost 19 and 10 minutes).
+**A motion that changes an element's height is recorded in a viewport tall enough to hold that element's settled height** — step 8's viewport made taller for that recording alone — since an element whose bottom edge leaves the viewport reads as no height change (kan-1008: an 816px viewport twice reported "no height animation").
+A `-diff-base` found wrong after the begin is corrected on that row's `end`, which takes `-diff-base` too, never by back-filling a second row (kan-1008: an agentless `-heads` row carried the correction).

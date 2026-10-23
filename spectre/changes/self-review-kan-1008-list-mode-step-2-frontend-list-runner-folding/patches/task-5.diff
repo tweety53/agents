@@ -1,0 +1,47 @@
+diff --git a/scripts/check-frame-list.sh b/scripts/check-frame-list.sh
+index e4f2d273..601c8f61 100755
+--- a/scripts/check-frame-list.sh
++++ b/scripts/check-frame-list.sh
+@@ -26,8 +26,9 @@
+ # A GAP is, for a declared frame:
+ #   no sidecar line: <frame id>   no read sidecar maps a screenshot to it
+ #   no report line: <frame id>    no `- <frame id>:` or `- <frame id> <…>:`
+-#                                 line, and the `- frames:` line does not
+-#                                 name it
++#                                 line — the id may follow other ids joined
++#                                 by ` / `, `- <id> / <frame id> <…>:` — and
++#                                 the `- frames:` line does not name it
+ # and, for the report:
+ #   no frames line                the report carries no `- frames: <n>/<m>`
+ #                                 line while design.md declares a frame
+diff --git a/stats/internal/guard/check_frame_list_test.go b/stats/internal/guard/check_frame_list_test.go
+index ec223e59..ce4df1a6 100644
+--- a/stats/internal/guard/check_frame_list_test.go
++++ b/stats/internal/guard/check_frame_list_test.go
+@@ -48,6 +48,11 @@ func TestCheckFrameList(t *testing.T) {
+ 			"",
+ 			"- spec: %SPEC%\n- Q1: x\n- Q2: x\n- M1: x\n- frames: 3/3\n",
+ 			1, "no sidecar line: M1; no sidecar line: Q1; no sidecar line: Q2"},
++		// kan-1008's self-review: one per-frame line naming two frames reports both.
++		{"a per-frame line naming frames joined by a slash",
++			"q1 Q1\nq2 Q2\nm1 M1\n",
++			"- spec: %SPEC%\n- Q1 / Q2 / M1 bands: 3/3 paired — match\n- frames: 3/3 — none absent\n",
++			0, "FRAME-LIST-COMPLETE"},
+ 		{"no frames line",
+ 			"q1 Q1\nq2 Q2\nm1 M1\n",
+ 			"- spec: %SPEC%\n- Q1: x\n- Q2: x\n- M1: x\n",
+diff --git a/stats/internal/guard/framelist.go b/stats/internal/guard/framelist.go
+index 082e5a08..6b1cf58c 100644
+--- a/stats/internal/guard/framelist.go
++++ b/stats/internal/guard/framelist.go
+@@ -95,7 +95,9 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
+ 		if !sidecar[id] && !absent {
+ 			gaps = append(gaps, "no sidecar line: "+id)
+ 		}
+-		perFrame := regexp.MustCompile(`^\s*- ` + regexp.QuoteMeta(id) + `( [^:]*)?:`)
++		// A per-frame line may name several frames joined by ` / ` — `- LM-L9 / LM-L11 …:` names both
++		// (kan-1008's self-review: LM-L11 read as unreported and blocked the dispatch).
++		perFrame := regexp.MustCompile(`^\s*- ([^\s:]+ / )*` + regexp.QuoteMeta(id) + `( [^:]*)?:`)
+ 		named := absent
+ 		for _, line := range lines {
+ 			if perFrame.MatchString(line) {

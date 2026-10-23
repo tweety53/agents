@@ -1,0 +1,134 @@
+diff --git a/scripts/check-live-verification.sh b/scripts/check-live-verification.sh
+index 9ff661e2..adbec973 100755
+--- a/scripts/check-live-verification.sh
++++ b/scripts/check-live-verification.sh
+@@ -4,6 +4,17 @@
+ # measured on a merge-base stack", and **Live check** accepted it).
+ #
+ # Usage: check-live-verification.sh <changeRoot>/live-verification.md
++#        check-live-verification.sh <changeRoot>
++#
++# Given the change directory instead — the gate run before flow.verify's
++# stage end (skills/flow/verify-and-handoff.md, **Close the stage**) — it
++# reads <changeRoot>/design.md: a design naming no live check (no `## Live
++# check` section, or one whose first line opens `None`, `No ` or `Not
++# applicable`) prints `LIVE-CHECK-NONE: <changeRoot>`, exit 0; a design naming
++# one judges <changeRoot>/live-verification.md as below, a missing record
++# printing `<record>: missing — design.md names a live check`, exit 1; a
++# directory with no design.md cannot answer, exit 2 (kan-1008's self-review:
++# the stage end checked nothing, and the live check first ran at integrate).
+ #
+ # A line NAMES a before figure when it carries the word `before`, any case, as
+ # a whole word (`beforehand` is not one). A table header `| Before |` counts —
+diff --git a/skills/flow/verify-and-handoff.md b/skills/flow/verify-and-handoff.md
+index 39b98697..1fb93a0d 100644
+--- a/skills/flow/verify-and-handoff.md
++++ b/skills/flow/verify-and-handoff.md
+@@ -204,8 +204,15 @@ rows for <name>` means this run recorded no dispatch at all**, reported plainly
+ discovered later. The outcome words are the table under
+ **Rendering the session records** (`skills/flow-contracts/session-records.md`).
+ 
++**The live check gates the stage end.** `check-live-verification.sh <changeRoot>` runs in the
++same Bash call as the stage end, the end chained behind it; its header is canonical for the
++verdict. Exit 1 → run **Live check** above and rewrite the record, never end the stage past it;
++exit 2 → correct the input it names and run it again (kan-1008: the stage end checked nothing,
++the live check first ran at integrate, and its defect landed after the panel).
++
+ ```bash
+-flow stage end -command '/flow' -stage flow.verify -outcome completed <name>
++check-live-verification.sh <changeRoot> \
++  && flow stage end -command '/flow' -stage flow.verify -outcome completed <name>
+ ```
+ 
+ ## Visual verification
+diff --git a/stats/internal/guard/check_live_verification_test.go b/stats/internal/guard/check_live_verification_test.go
+index cd3ac64d..18a5e610 100644
+--- a/stats/internal/guard/check_live_verification_test.go
++++ b/stats/internal/guard/check_live_verification_test.go
+@@ -45,10 +45,10 @@ func TestCheckLiveVerification(t *testing.T) {
+ 
+ 	dir := t.TempDir()
+ 	for name, args := range map[string][]string{
+-		"no argument":   nil,
+-		"two arguments": {"a", "b"},
+-		"absent path":   {filepath.Join(dir, "absent.md")},
+-		"a directory":   {dir},
++		"no argument":                   nil,
++		"two arguments":                 {"a", "b"},
++		"absent path":                   {filepath.Join(dir, "absent.md")},
++		"a directory with no design.md": {dir},
+ 	} {
+ 		t.Run("exit 2: "+name, func(t *testing.T) {
+ 			r := runGuard("check-live-verification", args, Env{})
+@@ -58,3 +58,37 @@ func TestCheckLiveVerification(t *testing.T) {
+ 		})
+ 	}
+ }
++
++// The change-directory form, run before flow.verify's stage end
++// (kan-1008's self-review: the live check first ran at integrate).
++func TestCheckLiveVerificationChangeRoot(t *testing.T) {
++	cases := []struct {
++		name, design, record string // record "" writes none
++		rc                   int
++		want                 string // %D% is the change directory
++	}{
++		{"no live check section passes", "## Context\n", "", 0, "LIVE-CHECK-NONE: %D%\n"},
++		{"a no-runtime section passes", "## Live check\n\nNone — prose only.\n", "", 0, "LIVE-CHECK-NONE: %D%\n"},
++		{"a named check with no record fails", "## Live check\n\nRun the daemon.\n", "", 1, "%D%/live-verification.md: missing — design.md names a live check\n"},
++		{"a named check with a measured record passes", "## Live check\n\nRun the daemon.\n", "- Before: 3\n- After: 0\n", 0, "LIVE-VERIFICATION-OK: %D%/live-verification.md\n"},
++		{"a named check with an unmeasured record fails", "## Live check\n\nRun the daemon.\n", "| Check | After |\n", 1, "%D%/live-verification.md: no before figure — no line names one\n"},
++	}
++	for _, c := range cases {
++		t.Run(c.name, func(t *testing.T) {
++			dir := t.TempDir()
++			if err := os.WriteFile(filepath.Join(dir, "design.md"), []byte(c.design), 0o644); err != nil {
++				t.Fatal(err)
++			}
++			if c.record != "" {
++				if err := os.WriteFile(filepath.Join(dir, "live-verification.md"), []byte(c.record), 0o644); err != nil {
++					t.Fatal(err)
++				}
++			}
++			r := runGuard("check-live-verification", []string{dir}, Env{})
++			want := strings.ReplaceAll(c.want, "%D%", dir)
++			if r.rc != c.rc || r.stdout != want {
++				t.Fatalf("rc=%d stdout=%q, want rc=%d stdout=%q", r.rc, r.stdout, c.rc, want)
++			}
++		})
++	}
++}
+diff --git a/stats/internal/guard/liveverification.go b/stats/internal/guard/liveverification.go
+index 2c735f0b..333b7528 100644
+--- a/stats/internal/guard/liveverification.go
++++ b/stats/internal/guard/liveverification.go
+@@ -21,10 +21,28 @@ var (
+ func checkLiveVerification(args []string, env Env, stdout, stderr io.Writer) int {
+ 	const prog = "check-live-verification"
+ 	if len(args) != 1 {
+-		fmt.Fprintf(stderr, "%s: usage: check-live-verification.sh <live-verification.md>\n", prog)
++		fmt.Fprintf(stderr, "%s: usage: check-live-verification.sh <live-verification.md | changeRoot>\n", prog)
+ 		return 2
+ 	}
+ 	record := args[0]
++	// A change directory is the stage-end gate (kan-1008's self-review): no
++	// check named passes, a named one needs its record, judged as below.
++	if isDir(record) {
++		design := record + "/design.md"
++		if !isFile(design) {
++			fmt.Fprintf(stderr, "%s: cannot read %s\n", prog, design)
++			return 2
++		}
++		if !icLiveCheckNamed(design) {
++			fmt.Fprintf(stdout, "LIVE-CHECK-NONE: %s\n", record)
++			return 0
++		}
++		record += "/live-verification.md"
++		if !isFile(record) {
++			fmt.Fprintf(stdout, "%s: missing — design.md names a live check\n", record)
++			return 1
++		}
++	}
+ 	data, err := os.ReadFile(record)
+ 	if err != nil {
+ 		fmt.Fprintf(stderr, "%s: cannot read %s: %v\n", prog, record, err)

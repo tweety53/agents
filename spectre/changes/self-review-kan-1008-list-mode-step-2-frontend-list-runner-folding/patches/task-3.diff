@@ -1,0 +1,17 @@
+diff --git a/.flow/project.md b/.flow/project.md
+--- a/.flow/project.md
++++ b/.flow/project.md
+@@ -31,8 +31,12 @@
+ ## test
+ 
+ ```bash
+-./gradlew test allTests                                              # full suite
++./gradlew test allTests -x iosSimulatorArm64Test               # full suite
+ ```
++
++`allTests` would also run `iosSimulatorArm64Test`, whose test-binary link always fails:
++iOS is not a target of this app (PWA and web only), so the line excludes it. With the exclusion,
++`./gradlew test allTests -x iosSimulatorArm64Test --dry-run` schedules no iOS task at all.
+ 
+ A task's verify step runs the one-invocation verify bundle, `./gradlew verifyChange :shared:desktopTest --tests '<selectors>'`, its
+ `<selectors>` filled in. It is a template, not a command, so it stays out of

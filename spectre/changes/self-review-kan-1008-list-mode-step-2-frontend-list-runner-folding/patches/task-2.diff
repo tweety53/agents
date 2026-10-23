@@ -1,0 +1,61 @@
+diff --git a/scripts/check-verify-green.sh b/scripts/check-verify-green.sh
+index d6108915..664153f5 100755
+--- a/scripts/check-verify-green.sh
++++ b/scripts/check-verify-green.sh
+@@ -19,8 +19,9 @@
+ #   VERIFY-NOT-GREEN: <change> — <key> (running|<outcome>)[, …]
+ # Exit 0 every judged row carries outcome `completed` and at least one exists;
+ # 1 VERIFY-NOT-GREEN; 2 cannot answer (usage, a missing worktree, a change
+-# name that is not plain, a failed or malformed store read) — the cause on
+-# stderr.
++# name that is not plain, a failed or malformed store read, a read that
++# returns no row of the change at all — <worktree> is not the canonical
++# worktree its rows are recorded from) — the cause on stderr.
+ #
+ # flow-guard is built from this checkout, never taken from PATH:
+ # scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
+diff --git a/skills/flow/visual-verify.md b/skills/flow/visual-verify.md
+index 041046a8..5ac09b74 100644
+--- a/skills/flow/visual-verify.md
++++ b/skills/flow/visual-verify.md
+@@ -217,8 +217,8 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
+    each check's rule. Exit 0 → every check passed. Exit 1 → each `FAIL:` line names a failing check
+    and its evidence. Exit 2 → it cannot answer; treat it as a failing check, carrying its stderr.
+ 
+-   Before it, in the same Bash call, run `check-verify-green.sh <abs-worktree> <name> mf-<literal-token>`
+-   once per stage; its header is canonical for the verdict. Exit 0 → continue. Exit 1 → no verifier is
++   Before it, in the same Bash call, run `check-verify-green.sh <canonical-worktree> <name> mf-<literal-token>`
++   once per stage, `<canonical-worktree>` the one **Close the stage** (`skills/flow/verify-and-handoff.md`) renders the ledger into; its header is canonical for the verdict. Exit 0 → continue. Exit 1 → no verifier is
+    dispatched: **Verify** has not closed green, so the run returns to it and visual verification
+    starts again only once it has. Exit 2 → it cannot answer; treat it as a failing check, carrying
+    its stderr.
+diff --git a/stats/internal/guard/check_verify_green_test.go b/stats/internal/guard/check_verify_green_test.go
+index 5da64dd1..471d9c1f 100644
+--- a/stats/internal/guard/check_verify_green_test.go
++++ b/stats/internal/guard/check_verify_green_test.go
+@@ -26,6 +26,7 @@ func TestCheckVerifyGreen(t *testing.T) {
+ 		{"a fix round's blocked verify after a green one", "[" + row("verify", "mf-tok", "completed") + "," + row("verify-fix-1", "mf-tok", "blocked") + "]", nil, 1, "verify-fix-1 (blocked)"},
+ 		{"another run's green and a visual verifier do not count", "[" + row("verify", "mf-old", "completed") + "," + row("visual-verify", "mf-tok", "completed") + "]", nil, 1, "no inline verify"},
+ 		{"an unreadable store cannot answer", "", errors.New("down"), 2, "cannot answer"},
++		{"no row for the change names the canonical worktree", "[]", nil, 2, "pass the change's canonical worktree"},
+ 	} {
+ 		t.Run(c.name, func(t *testing.T) {
+ 			t.Parallel()
+diff --git a/stats/internal/guard/verifygreen.go b/stats/internal/guard/verifygreen.go
+index 0ec06f3f..4234f810 100644
+--- a/stats/internal/guard/verifygreen.go
++++ b/stats/internal/guard/verifygreen.go
+@@ -40,6 +40,13 @@ func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
+ 		fmt.Fprintf(stderr, "%sflow record dispatches failed for '%s' -- cannot answer\n", vgPrefix, name)
+ 		return 2
+ 	}
++	// No row at all is a store read that resolved no change, never a run
++	// that verified nothing: a sibling worktree resolves a project the
++	// change's rows are not recorded under (kan-1008's self-review).
++	if len(rows) == 0 {
++		fmt.Fprintf(stderr, "%sflow record dispatches returned no row for '%s' from %s -- pass the change's canonical worktree, the one its rows are recorded from\n", vgPrefix, name, wt)
++		return 2
++	}
+ 	// Rows come back in seq order; only the latest row per worktree is
+ 	// judged, a fix round's `verify-fix-<k>[-<basename>]` superseding the
+ 	// `verify[-<basename>]` row it re-ran.
