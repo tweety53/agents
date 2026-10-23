@@ -56,6 +56,10 @@ func TestSettingsCmd_Get(t *testing.T) {
 // fallback value to record, per the task's own instruction.
 func TestSettingsCmd_Set_PrintsRejectionReason(t *testing.T) {
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/api/v1/settings" {
+			_, _ = w.Write([]byte(`{"reviewers":["primary"],"learning":true}`))
+			return
+		}
 		if r.Method != http.MethodPut || r.URL.Path != "/api/v1/settings" {
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
@@ -84,6 +88,10 @@ func TestSettingsCmd_Set_PrintsRejectionReason(t *testing.T) {
 // proved here for a write.
 func TestSettingsCmd_Set_Valid(t *testing.T) {
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/api/v1/settings" {
+			_, _ = w.Write([]byte(`{"reviewers":["primary"],"learning":true}`))
+			return
+		}
 		if r.Method != http.MethodPut || r.URL.Path != "/api/v1/settings" {
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
@@ -150,5 +158,78 @@ func TestSettingsCmd_ModelsIsUnknown(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), `unknown settings command "models"`) {
 		t.Errorf("stderr = %q, want it to name the unknown command", stderr.String())
+	}
+}
+
+// settingsServer fakes GET/PUT /api/v1/settings over one in-memory record,
+// so `settings set`'s read-merge-write is exercised end to end.
+func settingsServer(t *testing.T, stored *map[string]any) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/settings" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		if r.Method == http.MethodPut {
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatalf("decode request body: %v", err)
+			}
+			*stored = body
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(*stored)
+	}))
+}
+
+func runSettingsArgs(addr string, extra ...string) (int, string) {
+	var stdout, stderr bytes.Buffer
+	args := append([]string{"settings", "set", "-addr", addr, "-timeout", "2s"}, extra...)
+	code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+	return code, stderr.String()
+}
+
+// TestSettingsSet_LearningKeepsReviewers asserts `set -learning off` keeps
+// the stored reviewer list (settings-set-merges).
+func TestSettingsSet_LearningKeepsReviewers(t *testing.T) {
+	stored := map[string]any{"reviewers": []any{"primary", "mutation"}, "learning": true}
+	srv := settingsServer(t, &stored)
+	defer srv.Close()
+
+	if code, stderr := runSettingsArgs(srv.URL, "-learning", "off"); code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr=%s", code, stderr)
+	}
+	if got, _ := json.Marshal(stored); string(got) != `{"learning":false,"reviewers":["primary","mutation"]}` {
+		t.Errorf("stored = %s, want reviewers kept and learning false", got)
+	}
+}
+
+// TestSettingsSet_ReviewersKeepLearning asserts `set -reviewers` keeps a
+// stored learning off (settings-set-merges).
+func TestSettingsSet_ReviewersKeepLearning(t *testing.T) {
+	stored := map[string]any{"reviewers": []any{"primary", "mutation"}, "learning": false}
+	srv := settingsServer(t, &stored)
+	defer srv.Close()
+
+	if code, stderr := runSettingsArgs(srv.URL, "-reviewers", "primary"); code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr=%s", code, stderr)
+	}
+	if got, _ := json.Marshal(stored); string(got) != `{"learning":false,"reviewers":["primary"]}` {
+		t.Errorf("stored = %s, want learning kept off", got)
+	}
+}
+
+// TestSettingsSet_NeedsAFlag asserts `set` with neither flag is a usage
+// error.
+func TestSettingsSet_NeedsAFlag(t *testing.T) {
+	if code, _ := runSettingsArgs("http://127.0.0.1:1"); code != 2 {
+		t.Errorf("exit code = %d, want 2", code)
+	}
+}
+
+// TestSettingsSet_LearningRejectsBadValue asserts -learning takes on or
+// off only.
+func TestSettingsSet_LearningRejectsBadValue(t *testing.T) {
+	if code, _ := runSettingsArgs("http://127.0.0.1:1", "-learning", "maybe"); code != 2 {
+		t.Errorf("exit code = %d, want 2", code)
 	}
 }

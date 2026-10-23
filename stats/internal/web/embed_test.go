@@ -552,7 +552,7 @@ func (fakeStore) ListDecisions(context.Context, string, string) ([]records.Decis
 	return nil, nil
 }
 
-// GetSettings and PutSettings are here for the same reason
+// GetSettings, PutSettings and the learning-topic pair are here for the same reason
 // AllRecordedRunsUnmeasured's own doc comment gives: api.New gained a
 // fifth store parameter (task 2) for the settings routes, and every
 // implementer must keep compiling -- this file's fakeStore never
@@ -563,4 +563,12 @@ func (fakeStore) GetSettings(context.Context) (store.Settings, error) {
 
 func (fakeStore) PutSettings(context.Context, store.Settings) error {
 	return nil
+}
+
+func (fakeStore) RecordLearningTopic(context.Context, store.LearningTopic) error {
+	return nil
+}
+
+func (fakeStore) ListLearningTopics(context.Context) ([]store.LearningTopicCount, error) {
+	return nil, nil
 }

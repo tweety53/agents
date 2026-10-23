@@ -18,16 +18,18 @@ import (
 )
 
 const settingsUsage = `usage: flow settings get    [-addr url] [-timeout dur]
-       flow settings set    [-addr url] [-timeout dur] -reviewers a,b,c
+       flow settings set    [-addr url] [-timeout dur] [-reviewers a,b,c] [-learning on|off]
 
 settings get prints the harness-wide settings record (the default reviewer
-slots) as one line of JSON.
+slots and the learning-note switch) as one line of JSON.
 
-settings set writes the whole record, replacing whatever was recorded
-before. Unlike state/stage's never-block-on-store-failure pattern, a
-rejected -reviewers value is a caller mistake, not a store failure: there
-is no fallback value to record for an invalid one, so this prints the
-store's rejection reason and exits non-zero.
+settings set takes at least one of -reviewers and -learning: it reads the
+current record, overrides the given fields and writes the whole record
+back, so setting one never resets the other. Unlike state/stage's
+never-block-on-store-failure pattern, a rejected -reviewers value is a
+caller mistake, not a store failure: there is no fallback value to record
+for an invalid one, so this prints the store's rejection reason and exits
+non-zero.
 `
 
 func runSettings(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -94,7 +96,10 @@ func runSettingsGet(ctx context.Context, args []string, stdout, stderr io.Writer
 	return writeSettingsOutput(stdout, stderr, s)
 }
 
-// runSettingsSet implements `flow settings set`. A successful write
+// runSettingsSet implements `flow settings set`. It reads the current
+// record, overrides the fields given -- -reviewers, -learning, at least
+// one -- and writes the whole record back (settings-set-merges). A
+// successful write
 // prints the record the store echoes back and exits 0. A rejection
 // (client.ErrSettingsRejected -- the API's 400, naming the bad value) is a
 // caller mistake: it is printed and this exits 1, never silently falling
@@ -107,7 +112,8 @@ func runSettingsSet(ctx context.Context, args []string, stdout, stderr io.Writer
 	fset.SetOutput(stderr)
 	var f settingsConnFlags
 	registerSettingsConnFlags(fset, &f)
-	reviewers := fset.String("reviewers", "", "comma-separated reviewer slots, from "+strings.Join(slices.Sorted(maps.Keys(store.ValidReviewers)), ",")+" (required)")
+	reviewers := fset.String("reviewers", "", "comma-separated reviewer slots, from "+strings.Join(slices.Sorted(maps.Keys(store.ValidReviewers)), ","))
+	learning := fset.String("learning", "", "print a learning note on implementation runs: on or off")
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -122,13 +128,28 @@ func runSettingsSet(ctx context.Context, args []string, stdout, stderr io.Writer
 		fmt.Fprint(stderr, settingsUsage)
 		return 2
 	}
-	if *reviewers == "" {
-		fmt.Fprintln(stderr, "flow: -reviewers is required")
+	if *reviewers == "" && *learning == "" {
+		fmt.Fprintln(stderr, "flow: settings set needs -reviewers, -learning or both")
+		fmt.Fprint(stderr, settingsUsage)
+		return 2
+	}
+	if *learning != "" && *learning != "on" && *learning != "off" {
+		fmt.Fprintf(stderr, "flow: -learning must be on or off, got %q\n", *learning)
 		fmt.Fprint(stderr, settingsUsage)
 		return 2
 	}
 
-	in := client.Settings{Reviewers: strings.Split(*reviewers, ",")}
+	in, err := getSettings(ctx, f.addr, f.timeout)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: settings set: read current settings: %v\n", err)
+		return 1
+	}
+	if *reviewers != "" {
+		in.Reviewers = strings.Split(*reviewers, ",")
+	}
+	if *learning != "" {
+		in.Learning = *learning == "on"
+	}
 	s, err := putSettings(ctx, f.addr, f.timeout, in)
 	switch {
 	case err == nil:

@@ -51,11 +51,13 @@ var ErrInvalidReviewer = errors.New("store: invalid reviewer")
 var DefaultReviewers = []string{"primary", "principles"}
 
 // Settings is the harness-wide record /flow-settings manages: which
-// reviewer slots the panel dispatches by default. flow_settings
-// (0015_flow_settings.sql, 0034_flow_settings_drop_model_columns.sql)
-// holds exactly one row of this shape.
+// reviewer slots the panel dispatches by default, and whether /flow and
+// /flow-fast print a learning note (learning-in-settings). flow_settings
+// (0015_flow_settings.sql, 0034_flow_settings_drop_model_columns.sql,
+// 0043_flow_learning.sql) holds exactly one row of this shape.
 type Settings struct {
 	Reviewers []string
+	Learning  bool
 }
 
 // ValidateSettings reports whether every entry of s.Reviewers falls within
@@ -88,12 +90,13 @@ func (s *Store) PutSettings(ctx context.Context, settings Settings) error {
 	}
 
 	_, err = s.pool.Exec(ctx, `
-		INSERT INTO flow_settings (id, reviewers)
-		VALUES (TRUE, $1)
+		INSERT INTO flow_settings (id, reviewers, learning)
+		VALUES (TRUE, $1, $2)
 		ON CONFLICT (id) DO UPDATE SET
 			reviewers  = EXCLUDED.reviewers,
+			learning   = EXCLUDED.learning,
 			updated_at = now()
-	`, json.RawMessage(reviewers))
+	`, json.RawMessage(reviewers), settings.Learning)
 	if err != nil {
 		return fmt.Errorf("store: put settings: %w", err)
 	}
@@ -101,22 +104,22 @@ func (s *Store) PutSettings(ctx context.Context, settings Settings) error {
 }
 
 // GetSettings returns flow_settings' single row, or -- when no row has
-// ever been written -- DefaultReviewers: a /flow run started before
-// /flow-settings has ever been invoked still resolves to a defined roster
-// rather than an error.
+// ever been written -- DefaultReviewers with Learning on: a /flow run
+// started before /flow-settings has ever been invoked still resolves to a
+// defined roster rather than an error (learning-default-on).
 func (s *Store) GetSettings(ctx context.Context) (Settings, error) {
 	var reviewers []byte
+	var out Settings
 	err := s.pool.QueryRow(ctx, `
-		SELECT reviewers FROM flow_settings WHERE id = TRUE
-	`).Scan(&reviewers)
+		SELECT reviewers, learning FROM flow_settings WHERE id = TRUE
+	`).Scan(&reviewers, &out.Learning)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return Settings{Reviewers: append([]string(nil), DefaultReviewers...)}, nil
+			return Settings{Reviewers: append([]string(nil), DefaultReviewers...), Learning: true}, nil
 		}
 		return Settings{}, fmt.Errorf("store: get settings: %w", err)
 	}
 
-	var out Settings
 	if err := json.Unmarshal(reviewers, &out.Reviewers); err != nil {
 		return Settings{}, fmt.Errorf("store: get settings: decode reviewers: %w", err)
 	}

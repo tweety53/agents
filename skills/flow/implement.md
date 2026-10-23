@@ -271,6 +271,9 @@ to repair it before touching code.
 Extract the **Global constraints** verbatim from the capability specs the proposal names and
 `design.md` for the reviewers.
 
+On an implementation run, not a fix run, compose the learning note per **Learning**
+(`skills/flow-contracts/learning.md`) once the plan validates.
+
 ```bash
 flow stage end -command '/flow' -stage flow.load-context -outcome completed <name>
 ```

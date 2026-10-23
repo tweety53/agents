@@ -384,6 +384,8 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/mutations", rh.recordMutation)
 	mux.HandleFunc("GET /api/v1/settings", seth.get)
 	mux.HandleFunc("PUT /api/v1/settings", seth.put)
+	mux.HandleFunc("GET /api/v1/learning", seth.listLearning)
+	mux.HandleFunc("POST /api/v1/learning", seth.addLearning)
 	mux.HandleFunc("POST /api/v1/jira/transition", jh.transition)
 	mux.HandleFunc(apiPathPrefix, func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, fmt.Sprintf("no such API route: %s %s", r.Method, r.URL.Path))
