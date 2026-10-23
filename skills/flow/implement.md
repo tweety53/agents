@@ -405,7 +405,9 @@ caller inputs.
 **A dispatch recorded only after it finished is a back-fill, and is one call** — `flow record dispatch backfill`, carrying `begin`'s flags and `end`'s together with the dispatch's real `-started-at` and `-ended-at`, both required — never a `begin` and `end` pair, whose instants would read the back-fill's own moment.
 An inline back-fill (`-agent-id inline`) carrying `-commit` takes neither instant:
 `backfill` derives `-ended-at` from that commit's committer time and `-started-at` from the newest
-commit before it in any of the change's worktrees, and refuses either flag beside it — a
+commit before it in any of the change's worktrees — for a `panel-fix-<r>` key never earlier than the
+last end among round `<r-1>`'s reviewer rows, whose reports the fix works from — and refuses either
+flag beside it — a
 hand-written instant there is a guess (kan-1003: `-started-at $(date -u -v-45M …)`).
 
 **`-model` is the model this dispatch was actually given — the group's own `model` from the

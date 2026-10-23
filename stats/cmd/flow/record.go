@@ -1340,7 +1340,8 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stder
 	// An inline back-fill carrying -commit takes neither instant: both
 	// derive from the commits (kan-1003: a hand-written -started-at was a
 	// guess). ended is the commit's committer time, started the newest
-	// commit before it in any of the change's worktrees.
+	// commit before it in any of the change's worktrees, floored for a
+	// panel-fix row at its round's reviewer ends (panelFixFloor).
 	var derived []string
 	if *v["agent-id"] == "inline" && *v["commit"] != "" {
 		if *v["started-at"] != "" || *v["ended-at"] != "" {
@@ -1365,6 +1366,9 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stder
 		if !ok {
 			fmt.Fprintf(stderr, "flow: cannot derive the instants of commit %s (or the commit before it) from any of the change's worktrees\n", *v["commit"])
 			return 2
+		}
+		if floor, ok := panelFixFloor(ctx, f, projectKey, *v["role"], *v["key"]); ok && floor.After(startT) && !floor.After(endT) {
+			startT = floor
 		}
 		*v["started-at"] = startT.UTC().Format(time.RFC3339)
 		*v["ended-at"] = endT.UTC().Format(time.RFC3339)
@@ -3285,6 +3289,37 @@ func commitBefore(t time.Time, roots []string) (time.Time, bool) {
 		}
 	}
 	return best, found
+}
+
+// panelFixFloor is the latest end among the reviewer rows of the panel
+// round a panel-fix-<r>[-<chunk>] key fixes, round r-1: an inline fix
+// cannot begin before the reports it fixes exist (kan-1027's self-review:
+// panel-fix-1's derived start was the pre-review planning commit, eight
+// minutes before panel-0's reviewers reported). Any other role or key, a
+// failed record read, or a round with no ended reviewer row has no floor.
+func panelFixFloor(ctx context.Context, f recordIdentityFlags, projectKey, role, key string) (time.Time, bool) {
+	rest, ok := strings.CutPrefix(key, "panel-fix-")
+	if role != "panel-fix" || !ok {
+		return time.Time{}, false
+	}
+	digits, _, _ := strings.Cut(rest, "-")
+	r, err := strconv.Atoi(digits)
+	if err != nil || r < 1 {
+		return time.Time{}, false
+	}
+	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+		return cl.GetRunRecord(ctx, projectKey, f.change)
+	})
+	if err != nil {
+		return time.Time{}, false
+	}
+	var floor time.Time
+	for _, d := range run.Dispatches {
+		if n, ok := records.PanelDispatchRound(d); ok && n == r-1 && d.EndedAt != nil && d.EndedAt.After(floor) {
+			floor = *d.EndedAt
+		}
+	}
+	return floor, !floor.IsZero()
 }
 
 // mutationRoots is the -C repository's top level plus every key of the

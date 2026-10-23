@@ -5215,6 +5215,72 @@ func TestRecordDispatchBackfillDerivesInlineInstants(t *testing.T) {
 	}
 }
 
+// TestRecordDispatchBackfillFloorsAPanelFixAtItsRoundsReviewers pins the
+// kan-1027 self-review fix: an inline panel-fix-<r> back-fill never starts
+// before the latest end among round r-1's reviewer rows, however early the
+// commit before its fix commit is; a round with no ended reviewer row, and
+// any other role, keep the commit-derived start.
+func TestRecordDispatchBackfillFloorsAPanelFixAtItsRoundsReviewers(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	fixtureCommit(t, repo, "2026-10-23T09:19:34Z")
+	sha := fixtureCommit(t, repo, "2026-10-23T09:30:03Z")
+	record := `{"change":"kan-258","dispatches":[` +
+		`{"key":"panel-0-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-23T09:20:01Z","endedAt":"2026-10-23T09:28:18Z"},` +
+		`{"key":"panel-0-tests","role":"reviewer","slot":"tests","startedAt":"2026-10-23T09:20:01Z","endedAt":"2026-10-23T09:20:39Z"},` +
+		`{"key":"panel-1-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-23T09:30:32Z","endedAt":"2026-10-23T09:30:56Z"},` +
+		`{"key":"panel-3-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-23T09:39:00Z","endedAt":"2026-10-23T09:40:00Z"}]}`
+	var bodies []map[string]any
+	recordFails := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
+			if recordFails {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			_, _ = w.Write([]byte(record))
+			return
+		}
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		raw, _ := readAll(r)
+		var b map[string]any
+		_ = json.Unmarshal(raw, &b)
+		bodies = append(bodies, b)
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"panel-fix","model":"opus"}`))
+	}))
+	t.Cleanup(srv.Close)
+	for _, tc := range []struct {
+		role, key, want string
+		recordFails     bool
+	}{
+		{"panel-fix", "panel-fix-1", "2026-10-23T09:28:18Z", false},
+		{"panel-fix", "panel-fix-1-2", "2026-10-23T09:28:18Z", false},
+		{"panel-fix", "panel-fix-3", "2026-10-23T09:19:34Z", false},
+		{"implementer", "task-1-implementer", "2026-10-23T09:19:34Z", false},
+		// a reviewer end later than the fix commit never becomes the floor
+		{"panel-fix", "panel-fix-4", "2026-10-23T09:19:34Z", false},
+		// a failed record read keeps the commit-derived start
+		{"panel-fix", "panel-fix-1", "2026-10-23T09:19:34Z", true},
+	} {
+		bodies = nil
+		recordFails = tc.recordFails
+		args := []string{"record", "dispatch", "backfill", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", tc.role, "-model", "opus", "-key", tc.key,
+			"-session-token", "mf-record-panel-fix-floor", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
+		var stdout, stderr bytes.Buffer
+		if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+			t.Fatalf("%s: exit %d; stderr:\n%s", tc.key, code, stderr.String())
+		}
+		if len(bodies) != 2 || bodies[0]["startedAt"] != tc.want {
+			t.Errorf("%s: bodies = %v, want begin startedAt %s", tc.key, bodies, tc.want)
+		}
+	}
+}
+
 // TestRecordDispatchBeginRequiresEffort pins that an omitted -effort is
 // refused before the store is contacted, never recorded as "default" --
 // an explicit -effort default is still accepted.
