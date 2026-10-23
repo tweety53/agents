@@ -853,6 +853,41 @@ func TestExecRunnerBoundKillsHangingGit(t *testing.T) {
 	}
 }
 
+// TestBundleGitBudgetCapsSlowRepository pins the bundle's overall git
+// budget: with every git call slow (a shim sleeping past each call's
+// Bound), the serial calls of one bundle would add up to Bound per call —
+// thirty-odd calls on a loaded machine outran the server's writeTimeout
+// and the client got an empty reply. A Deadline caps them all together,
+// so Bundle still returns, degraded, once the deadline passes. Without the
+// Deadline check the shimmed bundle below runs 20 repositories' calls at
+// 300ms each, several seconds past this guard.
+func TestBundleGitBudgetCapsSlowRepository(t *testing.T) {
+	shimDir := t.TempDir()
+	shim := filepath.Join(shimDir, "git")
+	if err := os.WriteFile(shim, []byte("#!/bin/bash\nexec sleep 300\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	var repos []string
+	for range 20 {
+		repos = append(repos, t.TempDir())
+	}
+	runner := ExecRunner{Bound: 300 * time.Millisecond, Deadline: time.Now().Add(500 * time.Millisecond)}
+
+	start := time.Now()
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", repos, runner)
+	if err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+	if took := time.Since(start); took > 3*time.Second {
+		t.Fatalf("Bundle took %s past a 500ms git deadline — the deadline does not cap the serial git calls", took)
+	}
+	if !strings.Contains(bundle, "could not be read") {
+		t.Errorf("degraded bundle does not name the unreadable repositories:\n%s", bundle)
+	}
+}
+
 // TestBundleServesRecordedSummaryFirst asserts the recorded change summary
 // is the bundle's first source: the change's own statement of what it did
 // and why is the central content a deferred reasoning pass reads, served

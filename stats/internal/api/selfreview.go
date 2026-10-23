@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"path/filepath"
+	"time"
 
 	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/selfreview"
@@ -115,7 +116,14 @@ func (h *selfreviewHandler) bundle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bundle, err := selfreview.Bundle(change, rec, summary, summaryFound, panelRan, h.build, []string{repo}, h.git)
+	// The real runner gets the bundle's overall git budget, so a slow
+	// repository degrades the bundle rather than outrunning writeTimeout.
+	git := h.git
+	if er, ok := git.(selfreview.ExecRunner); ok {
+		er.Deadline = time.Now().Add(selfreview.BundleBudget)
+		git = er
+	}
+	bundle, err := selfreview.Bundle(change, rec, summary, summaryFound, panelRan, h.build, []string{repo}, git)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return

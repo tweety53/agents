@@ -57,14 +57,11 @@ type Runner interface {
 
 // DefaultGitBound bounds one git invocation: a hung repository must cost
 // the handler its bound, not an unbounded goroutine and a git process that
-// outlives the request. It sits comfortably inside the API server's
-// writeTimeout, so a bundle degraded by a bound-exceeded call still gets
-// served. ExecRunner's Bound field overrides it per runner — the seam the
-// bound's own test drives a sleeping git through.
+// outlives the request. It bounds one call only; BundleBudget bounds the
+// bundle's calls together. ExecRunner's Bound field overrides it per
+// runner — the seam the bound's own test drives a sleeping git through.
 // DefaultGitBound is the bound an ExecRunner with a zero Bound applies.
-// Exported for the api package's budget test: the bound must sit
-// comfortably inside that server's writeTimeout, so a bundle degraded by a
-// bound-exceeded call is still delivered.
+// Exported for the api package's budget test.
 const DefaultGitBound = 10 * time.Second
 
 // waitAfterKill bounds how long Wait may stay blocked on pipes a killed
@@ -72,9 +69,22 @@ const DefaultGitBound = 10 * time.Second
 // helper that ignores the signal defeats the bound entirely.
 const waitAfterKill = 5 * time.Second
 
+// BundleBudget bounds every git call of one bundle together. One bundle
+// runs some thirty git calls in series, so DefaultGitBound alone would let
+// a slow repository — a loaded machine where each call takes a couple of
+// seconds — run the bundle far past the server's writeTimeout, which cuts
+// the connection with an empty reply instead of serving the degraded
+// bundle. Once the budget is spent, every remaining call fails at once and
+// its source is reported skipped. Exported for the api package's budget
+// test: BundleBudget plus DefaultGitBound must sit inside writeTimeout.
+const BundleBudget = 15 * time.Second
+
 // ExecRunner runs the real git binary. A zero Bound means DefaultGitBound.
+// A non-zero Deadline caps every call: a call starting past it fails
+// without running git, and a call running into it is killed there.
 type ExecRunner struct {
-	Bound time.Duration
+	Bound    time.Duration
+	Deadline time.Time
 }
 
 // Output runs git in repo and returns its stdout. The command is bound —
@@ -86,6 +96,13 @@ func (r ExecRunner) Output(repo string, args ...string) ([]byte, error) {
 	bound := r.Bound
 	if bound == 0 {
 		bound = DefaultGitBound
+	}
+	if !r.Deadline.IsZero() {
+		left := time.Until(r.Deadline)
+		if left <= 0 {
+			return nil, fmt.Errorf("git %s: the bundle's git budget is spent", strings.Join(args, " "))
+		}
+		bound = min(bound, left)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), bound)
 	defer cancel()

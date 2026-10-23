@@ -188,13 +188,14 @@ func TestSelfReviewBundleHandlerRequiresRepo(t *testing.T) {
 	}
 }
 
-// TestGitBoundInsideWriteBudget pins the bound's relation to the server's
-// own write budget: a git call that hangs costs at most DefaultGitBound,
-// comfortably inside writeTimeout, so the degraded note-bearing bundle is
-// still delivered rather than cut off mid-write.
+// TestGitBoundInsideWriteBudget pins the bounds' relation to the server's
+// own write budget: every git call of a bundle together costs at most
+// BundleBudget, plus one call's wait past its kill (under DefaultGitBound),
+// inside writeTimeout, so the degraded note-bearing bundle is still
+// delivered rather than cut off mid-write.
 func TestGitBoundInsideWriteBudget(t *testing.T) {
-	if selfreview.DefaultGitBound*2 >= 30*time.Second {
-		t.Errorf("git bound %s must sit well inside the write budget 30s (server.go writeTimeout)", selfreview.DefaultGitBound)
+	if selfreview.BundleBudget+selfreview.DefaultGitBound >= 30*time.Second {
+		t.Errorf("git budget %s plus bound %s must sit inside the write budget 30s (server.go writeTimeout)", selfreview.BundleBudget, selfreview.DefaultGitBound)
 	}
 }
 
