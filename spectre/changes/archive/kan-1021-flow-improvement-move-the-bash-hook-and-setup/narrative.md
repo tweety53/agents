@@ -15,3 +15,11 @@
 - Unfinished-work gate clear: every task ticked, no open finding; 18 commits task-traced; no UI paths.
 - `origin/main` unmoved since the merge base — no rebase.
 - Route: merge and push, from the project's configured default.
+
+## 2026-10-23 — integrate run
+
+Resumed run 1 after the prior integrate run stopped mid self-review. The unfinished-work gate
+stopped on one open dispatch row — the self-review planner, whose plan was already committed as
+`chore(spectre): plan self-review-…` at 02:25 — closed `completed` from that commit's time, after
+which the gate cleared. Preflight clean, origin/main had not moved since the merge base, so no
+rebase. Route: merge and push, from the project's configured default.
