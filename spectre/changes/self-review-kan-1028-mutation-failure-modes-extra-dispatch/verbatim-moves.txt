@@ -1,0 +1,10 @@
+# Sentences this change adds or rewords on purpose — the kan-1028 self-review pass: a dropped role leaves its decided bundle (review-panel.md), the handoff template's Learning line (handoff-blocks.md), the session token's UTC timestamp (pipeline.md, flow/SKILL.md, flow-fast/SKILL.md), re-deciding a task added mid-run (implement.md).
+\## Learning — <topic> (run-only, when composed — **Learning**, `skills/flow-contracts/learning.md`)
+**Generate this run's session token once, right here, before the first mark any phase file below makes — a short, unique literal string — and reuse that exact same value at every `stage begin` this run makes, including inside every phase file it dispatches into.
+`<harness>` is this harness's name, `ff-<literal-token>` is one token generated once at the start of the run and typed the same at every `stage begin` and `stage mark` — never a shell substitution, per the CLI's own usage text.
+⚠ roster: no `flow-low` agent type at conductor depth — primary, principles, failure-modes will be substituted (general-purpose) at panel time
+**A task added after the decision row is re-decided before it runs.
+**Learning:** (run-only) <the learning note's absolute path, when composed — **Learning**, `skills/flow-contracts/learning.md`>
+**The token ends in the run's start time, UTC to the second** — read once with `date -u +%Y%m%dT%H%M%SZ` and typed as a literal, `mf-k1028-20261023T183402Z` — so no two runs share one: a name-derived token alone repeats across sessions (kan-1028: `mf-k1028b`, reused by a resumed run, collided with the dead session's rows).
+A dropped role leaves its `panel.dispatches` bundle too: that bundle dispatches the roles it still names, and a bundle left naming none is not dispatched — so no role an always-on extra dispatch carries runs twice, and no two dispatches of one round create the same `<worktree>-mutation-<round>` copy.
+⚠ roster: no `flow-low` agent type at conductor depth — primary, principles will be substituted (general-purpose) at panel time
