@@ -26,6 +26,7 @@ func TestCheckVerifyGreen(t *testing.T) {
 		{"a fix round's blocked verify after a green one", "[" + row("verify", "mf-tok", "completed") + "," + row("verify-fix-1", "mf-tok", "blocked") + "]", nil, 1, "verify-fix-1 (blocked)"},
 		{"another run's green and a visual verifier do not count", "[" + row("verify", "mf-old", "completed") + "," + row("visual-verify", "mf-tok", "completed") + "]", nil, 1, "no inline verify"},
 		{"an unreadable store cannot answer", "", errors.New("down"), 2, "cannot answer"},
+		{"no row for the change names the canonical worktree", "[]", nil, 2, "pass the change's canonical worktree"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()

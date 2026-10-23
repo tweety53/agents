@@ -40,6 +40,13 @@ func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "%sflow record dispatches failed for '%s' -- cannot answer\n", vgPrefix, name)
 		return 2
 	}
+	// No row at all is a store read that resolved no change, never a run
+	// that verified nothing: a sibling worktree resolves a project the
+	// change's rows are not recorded under (kan-1008's self-review).
+	if len(rows) == 0 {
+		fmt.Fprintf(stderr, "%sflow record dispatches returned no row for '%s' from %s -- pass the change's canonical worktree, the one its rows are recorded from\n", vgPrefix, name, wt)
+		return 2
+	}
 	// Rows come back in seq order; only the latest row per worktree is
 	// judged, a fix round's `verify-fix-<k>[-<basename>]` superseding the
 	// `verify[-<basename>]` row it re-ran.

@@ -19,8 +19,9 @@
 #   VERIFY-NOT-GREEN: <change> — <key> (running|<outcome>)[, …]
 # Exit 0 every judged row carries outcome `completed` and at least one exists;
 # 1 VERIFY-NOT-GREEN; 2 cannot answer (usage, a missing worktree, a change
-# name that is not plain, a failed or malformed store read) — the cause on
-# stderr.
+# name that is not plain, a failed or malformed store read, a read that
+# returns no row of the change at all — <worktree> is not the canonical
+# worktree its rows are recorded from) — the cause on stderr.
 #
 # flow-guard is built from this checkout, never taken from PATH:
 # scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
