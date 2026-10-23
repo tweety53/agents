@@ -158,7 +158,10 @@ overrides:
 **The roster names only `primary` and `principles`.** `failure-modes` and `mutation` run on
 **The always-on extra dispatches** below, so every resolved roster — a `default` panel's, and a decided one recorded before
 kan-1028 — drops any role an always-on extra dispatch carries, each recorded with `flow record pass -round 0 -note 'not
-dispatched — carried by an always-on extra dispatch: <slot>'`.
+dispatched — carried by an always-on extra dispatch: <slot>'`. A dropped role leaves its
+`panel.dispatches` bundle too: that bundle dispatches the roles it still names, and a bundle left
+naming none is not dispatched — so no role an always-on extra dispatch carries runs twice, and no
+two dispatches of one round create the same `<worktree>-mutation-<round>` copy.
 
 **A subagent-facing file is passed by absolute path, never read into this context.** This repository's
 `primary-reviewer-prompt.md` and `reviewer-calibration.md` (Primary), `principles-reviewer-prompt.md` and
