@@ -57,8 +57,7 @@ Recorded as the file is written:
 flow learning add <topic> -note '<the topic in under 80 characters>' -change <name> -C <project>
 ```
 
-`-C` names the main checkout, never the worktree: `/flow-fast`'s cleanup has removed its worktree
-before the final message prints, and the project key derives from the git common directory, the
+`-C` names the main checkout, never the worktree: the project key derives from the git common directory, the
 same from either.
 
 Exit 1 with stderr naming `already shown three times` or `rejected` is the store refusing the

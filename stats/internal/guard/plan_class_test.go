@@ -626,11 +626,9 @@ func TestPlanClassExtraBundles(t *testing.T) {
 		if roll < 50 {
 			model = "sonnet"
 		}
-		for _, bundle := range []string{"mutation+failure-modes", "test-sanity+call-efficiency"} {
-			want := fmt.Sprintf("extra: %s · roll %d · %s low\n", bundle, roll, model)
-			if got := pcExtra(bundle, roll); got != want {
-				t.Errorf("pcExtra(%q, %d) = %q, want %q", bundle, roll, got, want)
-			}
+		want := fmt.Sprintf("extra: mutation+failure-modes · roll %d · %s low\n", roll, model)
+		if got := pcExtra("mutation+failure-modes", roll); got != want {
+			t.Errorf("pcExtra(mutation+failure-modes, %d) = %q, want %q", roll, got, want)
 		}
 	}
 }

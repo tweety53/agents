@@ -156,8 +156,8 @@ overrides:
 | `principles` | **Principles** | `flow-low` + `principles-reviewer-prompt.md`; all three principle groups always apply <!-- refs-guard:allow --> |
 
 **The roster names only `primary` and `principles`.** `failure-modes` and `mutation` run on
-**The always-on extra dispatches** below, so a `default` panel's resolved roster drops any role an
-always-on extra dispatch carries, each recorded with `flow record pass -round 0 -note 'not
+**The always-on extra dispatches** below, so every resolved roster — a `default` panel's, and a decided one recorded before
+kan-1028 — drops any role an always-on extra dispatch carries, each recorded with `flow record pass -round 0 -note 'not
 dispatched — carried by an always-on extra dispatch: <slot>'`.
 
 **A subagent-facing file is passed by absolute path, never read into this context.** This repository's
