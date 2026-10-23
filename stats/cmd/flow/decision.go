@@ -136,6 +136,11 @@ type dDecision struct {
 		Model  string   `json:"model"`
 		Effort string   `json:"effort"`
 	} `json:"extra_dispatch"`
+	ExtraDispatchMutation *struct {
+		Slots  []string `json:"slots"`
+		Model  string   `json:"model"`
+		Effort string   `json:"effort"`
+	} `json:"extra_dispatch_mutation"`
 }
 
 // dVisual is Decide's visual-verification decision. Optional, so a decision
@@ -322,6 +327,9 @@ func renderDecision(body []byte, _, reviewers string) (string, error) {
 		line("Panel", strings.Join(parts, " · "))
 	}
 	if x := d.ExtraDispatch; x != nil {
+		line("Extra dispatch", strings.Join(x.Slots, "+")+" "+dPair{Model: x.Model, Effort: x.Effort}.pair())
+	}
+	if x := d.ExtraDispatchMutation; x != nil {
 		line("Extra dispatch", strings.Join(x.Slots, "+")+" "+dPair{Model: x.Model, Effort: x.Effort}.pair())
 	}
 
