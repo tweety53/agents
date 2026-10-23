@@ -45,15 +45,49 @@ func TestCheckLiveVerification(t *testing.T) {
 
 	dir := t.TempDir()
 	for name, args := range map[string][]string{
-		"no argument":   nil,
-		"two arguments": {"a", "b"},
-		"absent path":   {filepath.Join(dir, "absent.md")},
-		"a directory":   {dir},
+		"no argument":                   nil,
+		"two arguments":                 {"a", "b"},
+		"absent path":                   {filepath.Join(dir, "absent.md")},
+		"a directory with no design.md": {dir},
 	} {
 		t.Run("exit 2: "+name, func(t *testing.T) {
 			r := runGuard("check-live-verification", args, Env{})
 			if r.rc != 2 || r.stdout != "" {
 				t.Fatalf("rc=%d stdout=%q, want 2 and empty stdout", r.rc, r.stdout)
+			}
+		})
+	}
+}
+
+// The change-directory form, run before flow.verify's stage end
+// (kan-1008's self-review: the live check first ran at integrate).
+func TestCheckLiveVerificationChangeRoot(t *testing.T) {
+	cases := []struct {
+		name, design, record string // record "" writes none
+		rc                   int
+		want                 string // %D% is the change directory
+	}{
+		{"no live check section passes", "## Context\n", "", 0, "LIVE-CHECK-NONE: %D%\n"},
+		{"a no-runtime section passes", "## Live check\n\nNone — prose only.\n", "", 0, "LIVE-CHECK-NONE: %D%\n"},
+		{"a named check with no record fails", "## Live check\n\nRun the daemon.\n", "", 1, "%D%/live-verification.md: missing — design.md names a live check\n"},
+		{"a named check with a measured record passes", "## Live check\n\nRun the daemon.\n", "- Before: 3\n- After: 0\n", 0, "LIVE-VERIFICATION-OK: %D%/live-verification.md\n"},
+		{"a named check with an unmeasured record fails", "## Live check\n\nRun the daemon.\n", "| Check | After |\n", 1, "%D%/live-verification.md: no before figure — no line names one\n"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, "design.md"), []byte(c.design), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if c.record != "" {
+				if err := os.WriteFile(filepath.Join(dir, "live-verification.md"), []byte(c.record), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			r := runGuard("check-live-verification", []string{dir}, Env{})
+			want := strings.ReplaceAll(c.want, "%D%", dir)
+			if r.rc != c.rc || r.stdout != want {
+				t.Fatalf("rc=%d stdout=%q, want rc=%d stdout=%q", r.rc, r.stdout, c.rc, want)
 			}
 		})
 	}

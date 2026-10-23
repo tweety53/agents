@@ -21,10 +21,28 @@ var (
 func checkLiveVerification(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-live-verification"
 	if len(args) != 1 {
-		fmt.Fprintf(stderr, "%s: usage: check-live-verification.sh <live-verification.md>\n", prog)
+		fmt.Fprintf(stderr, "%s: usage: check-live-verification.sh <live-verification.md | changeRoot>\n", prog)
 		return 2
 	}
 	record := args[0]
+	// A change directory is the stage-end gate (kan-1008's self-review): no
+	// check named passes, a named one needs its record, judged as below.
+	if isDir(record) {
+		design := record + "/design.md"
+		if !isFile(design) {
+			fmt.Fprintf(stderr, "%s: cannot read %s\n", prog, design)
+			return 2
+		}
+		if !icLiveCheckNamed(design) {
+			fmt.Fprintf(stdout, "LIVE-CHECK-NONE: %s\n", record)
+			return 0
+		}
+		record += "/live-verification.md"
+		if !isFile(record) {
+			fmt.Fprintf(stdout, "%s: missing — design.md names a live check\n", record)
+			return 1
+		}
+	}
 	data, err := os.ReadFile(record)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read %s: %v\n", prog, record, err)

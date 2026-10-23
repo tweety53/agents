@@ -4,6 +4,17 @@
 # measured on a merge-base stack", and **Live check** accepted it).
 #
 # Usage: check-live-verification.sh <changeRoot>/live-verification.md
+#        check-live-verification.sh <changeRoot>
+#
+# Given the change directory instead — the gate run before flow.verify's
+# stage end (skills/flow/verify-and-handoff.md, **Close the stage**) — it
+# reads <changeRoot>/design.md: a design naming no live check (no `## Live
+# check` section, or one whose first line opens `None`, `No ` or `Not
+# applicable`) prints `LIVE-CHECK-NONE: <changeRoot>`, exit 0; a design naming
+# one judges <changeRoot>/live-verification.md as below, a missing record
+# printing `<record>: missing — design.md names a live check`, exit 1; a
+# directory with no design.md cannot answer, exit 2 (kan-1008's self-review:
+# the stage end checked nothing, and the live check first ran at integrate).
 #
 # A line NAMES a before figure when it carries the word `before`, any case, as
 # a whole word (`beforehand` is not one). A table header `| Before |` counts —

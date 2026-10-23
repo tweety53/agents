@@ -204,8 +204,15 @@ rows for <name>` means this run recorded no dispatch at all**, reported plainly 
 discovered later. The outcome words are the table under
 **Rendering the session records** (`skills/flow-contracts/session-records.md`).
 
+**The live check gates the stage end.** `check-live-verification.sh <changeRoot>` runs in the
+same Bash call as the stage end, the end chained behind it; its header is canonical for the
+verdict. Exit 1 → run **Live check** above and rewrite the record, never end the stage past it;
+exit 2 → correct the input it names and run it again (kan-1008: the stage end checked nothing,
+the live check first ran at integrate, and its defect landed after the panel).
+
 ```bash
-flow stage end -command '/flow' -stage flow.verify -outcome completed <name>
+check-live-verification.sh <changeRoot> \
+  && flow stage end -command '/flow' -stage flow.verify -outcome completed <name>
 ```
 
 ## Visual verification
