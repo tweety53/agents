@@ -35,8 +35,8 @@ by the phase files that compose and print the note.
 - The contract states the note's composition once, in `skills/flow-contracts/learning.md`; the
   phase files cite it and restate nothing.
 
-- [ ] 1. Store the learning setting and the topic history
-  - [ ] **Step 1: Write the failing tests.** In `stats/internal/store/settings_test.go` add
+- [x] 1. Store the learning setting and the topic history
+  - [x] **Step 1: Write the failing tests.** In `stats/internal/store/settings_test.go` add
     `TestSettingsStore_LearningDefaultsOn` (no row written → `GetSettings().Learning == true`) and
     `TestSettingsStore_LearningRoundTrip` (put `Learning: false` with a reviewer list, get it back
     equal). Create `stats/internal/store/learningtopics_test.go` with
@@ -48,16 +48,16 @@ by the phase files that compose and print the note.
     each return `store.ErrInvalidLearningTopic`). Run
     `cd stats && go test ./internal/store/ -run 'TestSettingsStore_Learning|TestLearningTopics' -count=1`:
     FAIL (undefined symbols).
-  - [ ] **Step 2: Migration.** Create `stats/internal/store/migrations/0043_flow_learning.sql`,
+  - [x] **Step 2: Migration.** Create `stats/internal/store/migrations/0043_flow_learning.sql`,
     header comment in the style of `0034_flow_settings_drop_model_columns.sql`:
     `ALTER TABLE flow_settings ADD COLUMN learning BOOLEAN NOT NULL DEFAULT TRUE;`,
     `CREATE TABLE flow_learning_topics (id BIGSERIAL PRIMARY KEY, topic TEXT NOT NULL, note TEXT NOT NULL, change TEXT NOT NULL, project_key TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now());`
     and `CREATE INDEX flow_learning_topics_topic ON flow_learning_topics (topic);`. The cap is
     harness-wide — counted over every project — since the operator reads one stream of notes.
-  - [ ] **Step 3: Settings.** In `stats/internal/store/settings.go` add `Learning bool` to
+  - [x] **Step 3: Settings.** In `stats/internal/store/settings.go` add `Learning bool` to
     `Settings`, write it in `PutSettings`' upsert, read it in `GetSettings`, and return
     `Learning: true` on the no-row path.
-  - [ ] **Step 4: Topics.** Create `stats/internal/store/learningtopics.go`: a
+  - [x] **Step 4: Topics.** Create `stats/internal/store/learningtopics.go`: a
     `LearningTopic{Topic, Note, Change, ProjectKey string}` input, a
     `LearningTopicCount{Topic string; Count int; LastNote string}` row,
     `ErrInvalidLearningTopic`, `ErrLearningTopicExhausted`, `const MaxLearningTopicShows = 3`,
@@ -66,7 +66,7 @@ by the phase files that compose and print the note.
     error, the count read and the insert made in one transaction holding
     `pg_advisory_xact_lock(hashtext(topic))` so two concurrent adds cannot both pass the cap — and
     `ListLearningTopics(ctx) ([]LearningTopicCount, error)` ordered by topic.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./... && go test ./internal/store/ -run 'TestSettingsStore|TestLearningTopics' -count=1`
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./... && go test ./internal/store/ -run 'TestSettingsStore|TestLearningTopics' -count=1`
     passes, the existing `TestSettingsStore_*` cases included.
 
 **Files:** `stats/internal/store/migrations/0043_flow_learning.sql`, `stats/internal/store/settings.go`, `stats/internal/store/settings_test.go`, `stats/internal/store/learningtopics.go`, `stats/internal/store/learningtopics_test.go`
@@ -83,8 +83,8 @@ by the phase files that compose and print the note.
 
 **Build:** green
 
-- [ ] 2. Serve the learning setting and the topic history
-  - [ ] **Step 1: Write the failing tests.** In `stats/internal/api/settings_test.go` add
+- [x] 2. Serve the learning setting and the topic history
+  - [x] **Step 1: Write the failing tests.** In `stats/internal/api/settings_test.go` add
     `TestSettingsHandler_LearningRoundTrip` (PUT `{"reviewers":["primary"],"learning":false}` then
     GET returns `"learning":false`) and `TestSettingsHandler_LearningAbsentReadsOn` (PUT without
     `learning` stores `Learning: true`). Create `stats/internal/api/learning_test.go` with
@@ -94,7 +94,7 @@ by the phase files that compose and print the note.
     store `settings_test.go` already uses, extended with the two new methods. Run
     `cd stats && make -s web-dist && go test ./internal/api/ -run 'TestSettingsHandler_Learning|TestLearningHandler' -count=1`:
     FAIL.
-  - [ ] **Step 2: Implement.** In `stats/internal/api/settings.go` add an optional `learning`
+  - [x] **Step 2: Implement.** In `stats/internal/api/settings.go` add an optional `learning`
     field to `settingsDTO` (a `*bool`, absent read as `true`), and give `SettingsStore`
     `RecordLearningTopic` and `ListLearningTopics` — the learning endpoints share the settings
     handler's store, so `api.New`'s signature is unchanged. Create `stats/internal/api/learning.go`
@@ -106,10 +106,12 @@ by the phase files that compose and print the note.
     `client.ErrLearningTopicExhausted` and a 400 as `client.ErrLearningTopicRejected`; give
     `stubStageStore` in `stats/internal/client/client_test.go` the two methods so it still
     satisfies `api.SettingsStore`.
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./... && go test ./internal/api/ ./internal/client/ -run 'Settings|Learning' -count=1`
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./... && go test ./internal/api/ ./internal/client/ -run 'Settings|Learning' -count=1`
     passes.
 
-**Files:** `stats/internal/api/settings.go`, `stats/internal/api/settings_test.go`, `stats/internal/api/learning.go`, `stats/internal/api/learning_test.go`, `stats/internal/api/server.go`, `stats/internal/client/client.go`, `stats/internal/client/client_test.go`
+**Files:** `stats/internal/api/settings.go`, `stats/internal/api/settings_test.go`, `stats/internal/api/learning.go`, `stats/internal/api/learning_test.go`, `stats/internal/api/server.go`, `stats/internal/client/client.go`, `stats/internal/client/client_test.go`, `stats/internal/api/changes_test.go`, `stats/internal/web/embed_test.go`
+
+Correction (2026-10-23): the plan declared the fake-store extension in `settings_test.go` alone; the fake's topic slice is a field of `fakeStore`, declared in `stats/internal/api/changes_test.go`, and `stats/internal/web/embed_test.go`'s own `fakeStore` also implements `api.SettingsStore`, so both gained the two methods' support to keep compiling.
 **Tests:** `TestSettingsHandler_LearningRoundTrip`, `TestSettingsHandler_LearningAbsentReadsOn`, `TestLearningHandler_AddAndList`, `TestLearningHandler_ExhaustedIs409`, `TestLearningHandler_BadTopicIs400`
 **Regression:** the two settings cases fail without `learning` in the DTO; the three learning cases fail without `learning.go` and its routes.
 **After:** Task 1
@@ -120,8 +122,8 @@ by the phase files that compose and print the note.
 
 **Build:** green
 
-- [ ] 3. Add `flow settings set -learning` and `flow learning`
-  - [ ] **Step 1: Write the failing tests.** In `stats/cmd/flow/settings_test.go` add
+- [x] 3. Add `flow settings set -learning` and `flow learning`
+  - [x] **Step 1: Write the failing tests.** In `stats/cmd/flow/settings_test.go` add
     `TestSettingsSet_LearningKeepsReviewers` (store holds `primary,mutation` and learning on;
     `set -learning off` → stored reviewers unchanged, learning false),
     `TestSettingsSet_ReviewersKeepLearning` (learning off stored; `set -reviewers primary` keeps it
@@ -132,7 +134,7 @@ by the phase files that compose and print the note.
     `TestLearningList_PrintsCounts` (one JSON array line), on the fake-server pattern
     `settings_test.go` already uses. Run
     `cd stats && make -s web-dist && go test ./cmd/flow/ -run 'TestSettingsSet_|TestLearning' -count=1`: FAIL.
-  - [ ] **Step 2: Implement.** In `stats/cmd/flow/settings.go` add `-learning on|off` beside
+  - [x] **Step 2: Implement.** In `stats/cmd/flow/settings.go` add `-learning on|off` beside
     `-reviewers`, at least one required; `set` reads the current record with `getSettings`,
     overrides the given fields and puts the whole record; update `settingsUsage`. Create
     `stats/cmd/flow/learning.go` with `runLearning`:
@@ -141,7 +143,7 @@ by the phase files that compose and print the note.
     1 on a store refusal or failure, 2 on usage) and `flow learning list [-addr url] [-timeout dur]`
     (prints the JSON array; exit 1 when the store is unreachable). Route `learning` in
     `stats/cmd/flow/main.go` and add its two lines to the top-level usage.
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./... && go test ./cmd/flow/ -run 'Settings|Learning' -count=1`
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./... && go test ./cmd/flow/ -run 'Settings|Learning' -count=1`
     passes.
 
 **Files:** `stats/cmd/flow/settings.go`, `stats/cmd/flow/settings_test.go`, `stats/cmd/flow/learning.go`, `stats/cmd/flow/learning_test.go`, `stats/cmd/flow/main.go`
@@ -155,8 +157,8 @@ by the phase files that compose and print the note.
 
 **Build:** green
 
-- [ ] 4. Compose and print the learning note
-  - [ ] **Step 1: The contract.** Create `skills/flow-contracts/learning.md`, canonical for the
+- [x] 4. Compose and print the learning note
+  - [x] **Step 1: The contract.** Create `skills/flow-contracts/learning.md`, canonical for the
     note: when it runs (the runs `learning-scope` names), reading the setting
     (`flow settings get | jq .learning`; an unreachable store prints no note and never blocks),
     choosing a topic (`flow learning list`, exhausted topics skipped; related first — the plan's
@@ -168,7 +170,7 @@ by the phase files that compose and print the note.
     (`flow learning add <topic> -note '<the topic in under 80 characters>' -change <name> -C <worktree>`;
     a refusal picks another topic), and the printed section's shape: a `## Learning — <topic>`
     heading, the theory, a `**Puzzle:**` line where one applies, and a `**Study:**` line of links.
-  - [ ] **Step 2: Cite it.** One sentence each, restating nothing of the contract:
+  - [x] **Step 2: Cite it.** One sentence each, restating nothing of the contract:
     `skills/flow/implement.md` **1. Load context and validate the plan** — on an implementation
     run, not a fix run, compose the note per **Learning** (`skills/flow-contracts/learning.md`)
     once the plan validates; `skills/flow/verify-and-handoff.md` **Write `IN_PROGRESS`** and
@@ -177,11 +179,13 @@ by the phase files that compose and print the note.
     Implement** and print in the final report; `skills/flow-settings/SKILL.md` — `learning` shown
     and set with `flow settings set -learning on|off`. Add `learning.md` to the `flow-contracts`
     row of the skill index in `CLAUDE.md` and `AGENTS.md`.
-  - [ ] **Step 3: Verify.** `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh`,
+  - [x] **Step 3: Verify.** `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh`,
     `scripts/check-normative-inventory.sh` and `scripts/check-installed-citations.sh` exit 0; fix
     every hit.
 
-**Files:** `skills/flow-contracts/learning.md`, `skills/flow/implement.md`, `skills/flow/verify-and-handoff.md`, `skills/flow-contracts/handoff-blocks.md`, `skills/flow-fast/SKILL.md`, `skills/flow-settings/SKILL.md`, `CLAUDE.md`, `AGENTS.md`
+**Files:** `skills/flow-contracts/learning.md`, `skills/flow/implement.md`, `skills/flow/verify-and-handoff.md`, `skills/flow-contracts/handoff-blocks.md`, `skills/flow-fast/SKILL.md`, `skills/flow-settings/SKILL.md`, `CLAUDE.md`, `AGENTS.md`, `templates/CLAUDE.md`, `templates/AGENTS.md`
+
+Correction (2026-10-23): the plan named `CLAUDE.md` and `AGENTS.md` alone; their skill-index row is rendered from `templates/CLAUDE.md` and `templates/AGENTS.md`, which carry the same row, so both templates gained the `learning.md` entry too.
 **Tests:** none — prose; the guards in Step 3 check its references.
 **Regression:** none — no test declared.
 **After:** Task 3
