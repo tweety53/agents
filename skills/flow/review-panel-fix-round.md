@@ -234,7 +234,11 @@ whose script cannot be read to audit at all, are
 bounced exactly as the per-finding run's own answer 1 below,
 once, back to the raising slot; a reproducer the runner refused as unusable is recorded
 **unverifiable** and put to the round's one batched operator ask, exactly as the per-finding run's own answer 2 below, since
-a refused reproducer never ran and so carries no passing output a bounce could carry. Exit 2 — any
+a refused reproducer never ran and so carries no passing output a bounce could carry. An
+unresolving demonstrates citation whose cited path holds the claimed content verbatim on another
+line — the reviewer's line number off, nothing else — is the one exception, never bounced: the
+parent corrects the line number in the reproducer in place, re-runs the audit, and records the
+correction, old line and new, in that round's `flow record pass`. Exit 2 — any
 reproducer the runner could not verdict: a timeout, a surviving process, a plumbing failure, the
 state record absent or unreadable, an ambiguous worktree — stops
 the run, the same as the lexical guard's exit 2.
