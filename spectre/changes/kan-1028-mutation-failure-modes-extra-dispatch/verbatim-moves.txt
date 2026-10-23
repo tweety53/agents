@@ -79,3 +79,11 @@ Recorded as the file is written:
 The file's whole content:
 **The note is a Markdown file named after the change, in the folder `<project>-learning/`** — `<project>` the main checkout's absolute path, so the folder sits beside it as `<project>-worktrees` does, outside every git repository — created with `mkdir -p` on first use.
 **The note is a Markdown file named after the change, in the folder `<project>-learning`** — `<project>` the main checkout's absolute path, so the folder sits beside it as `<project>-worktrees` does, outside every git repository — created with `mkdir -p` on first use.
+# Panel round 0 fixes
+`-C` names the main checkout, never the worktree: `/flow-fast`'s cleanup has removed its worktree before the final message prints, and the project key derives from the git common directory, the same from either.
+flow fixes every panel slot at its dispatch's decision pair instead and escalates breadth (the conditional Failure-modes and Mutation slots) rather than the model.
+| `skills/flow/review-panel-optional-slots.md` | `flow.review-panel` — loaded only for a round whose roster carries `mutation` |
+`-C` names the main checkout, never the worktree: the project key derives from the git common directory, the same from either.
+`failure-modes` and `mutation` run on **The always-on extra dispatches** below, so every resolved roster — a `default` panel's, and a decided one recorded before kan-1028 — drops any role an always-on extra dispatch carries, each recorded with `flow record pass -round 0 -note 'not dispatched — carried by an always-on extra dispatch: <slot>'`.
+flow fixes every panel slot at its dispatch's decision pair instead.
+| `skills/flow/review-panel-optional-slots.md` | `flow.review-panel` — loaded per that file's own trigger |
