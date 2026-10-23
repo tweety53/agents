@@ -38,7 +38,7 @@ the preservation sentence in `skills/flow-contracts/finish-contract-run2.md` and
 - The existing reverse case, `an entry the main checkout reaches through a symlink stops`, still
   passes.
 
-- [ ] 1. Preserve a root symlink to the main checkout's file
+- [x] 1. Preserve a root symlink to the main checkout's file
 
 **Files:** `stats/internal/guard/removechangeworktrees.go`, `stats/internal/guard/remove_change_worktrees_test.go`, `skills/flow-contracts/finish-contract-run2.md`, `scripts/remove-change-worktrees.sh`
 **Tests:** `an entry linked to the main checkout's proceeds`
@@ -54,9 +54,9 @@ the preservation sentence in `skills/flow-contracts/finish-contract-run2.md` and
 
 **Build:** green
 
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** The kan-1026 stop is the
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** The kan-1026 stop is the
     reproducer: Step 2's failing test is it, run against the untouched `removechangeworktrees.go`.
-  - [ ] **Step 2: Failing test.** Save the diff below to `.superpowers/sdd/pf28-task1.diff` (the path
+  - [x] **Step 2: Failing test.** Save the diff below to `.superpowers/sdd/pf28-task1.diff` (the path
     is gitignored), apply its test hunk alone
     (`git apply --include='stats/internal/guard/remove_change_worktrees_test.go' .superpowers/sdd/pf28-task1.diff`) and run
     `cd stats && go test ./internal/guard/ -run '^TestRemoveChangeWorktreesDisclose$' -count=1`:
@@ -178,12 +178,12 @@ index 842f1b94..52b3c26d 100644
  func rcwSameBytes(a, b string) bool {
 ````
 
-  - [ ] **Step 3: Implement.** Apply the rest
+  - [x] **Step 3: Implement.** Apply the rest
     (`git apply --exclude='stats/internal/guard/remove_change_worktrees_test.go' .superpowers/sdd/pf28-task1.diff`) and rerun Step 2's test: PASS;
     then `cd stats && go test ./internal/guard/ -run '^TestRemoveChangeWorktrees' -count=1`: ok.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/` prints nothing;
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/` prints nothing;
     `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh` and
     `scripts/check-markdown-integrity.sh` exit 0.
-  - [ ] **Step 5: Commit** `stats/internal/guard/removechangeworktrees.go`, `stats/internal/guard/remove_change_worktrees_test.go`,
+  - [x] **Step 5: Commit** `stats/internal/guard/removechangeworktrees.go`, `stats/internal/guard/remove_change_worktrees_test.go`,
     `skills/flow-contracts/finish-contract-run2.md` and `scripts/remove-change-worktrees.sh` with the
     subject above.
