@@ -489,6 +489,52 @@ func elideMatrixRows(md string) string {
 	return b.String()
 }
 
+// measurementHeading names a verification record's raw measurement
+// section by its heading's first word: the bands and seams summaries and
+// the ink runs the verifier writes beside its verdicts (kan-1026's
+// self-review: about 200 of the bundle's lines, read by no angle). A heading
+// naming one later, `### Q1 sweeps (rows, ink)`, is a verdict section.
+var measurementHeading = regexp.MustCompile(`(?i)^#+\s+(bands|seams|ink)\b`)
+
+// elideMeasurementSections drops every section whose heading names a raw
+// measurement (measurementHeading), from that heading through the line
+// before the next heading of its level or higher, leaving one `_(<n> lines
+// elided: <heading> — in <label>)_` line per section. The header, the
+// verify output and every verdict section stay whole, and so does a matrix
+// section, whose rows elideMatrixRows already dropped. A line inside a ```
+// fence is never a heading.
+func elideMeasurementSections(md, label string) string {
+	var b strings.Builder
+	inFence, level, n, heading := false, 0, 0, ""
+	flush := func() {
+		if level > 0 {
+			fmt.Fprintf(&b, "_(%d lines elided: %s — in %s)_\n\n", n, heading, label)
+		}
+		level, n = 0, 0
+	}
+	for l := range strings.Lines(md) {
+		if strings.HasPrefix(strings.TrimSpace(l), "```") {
+			inFence = !inFence
+		}
+		if !inFence && strings.HasPrefix(l, "#") {
+			depth := len(l) - len(strings.TrimLeft(l, "#"))
+			if level > 0 && depth <= level {
+				flush()
+			}
+			if level == 0 && measurementHeading.MatchString(l) {
+				level, heading = depth, strings.TrimSpace(strings.TrimLeft(l, "# "))
+			}
+		}
+		if level > 0 {
+			n++
+			continue
+		}
+		b.WriteString(l)
+	}
+	flush()
+	return b.String()
+}
+
 func trimmedOutput(b []byte, err error) string {
 	if err != nil {
 		return ""
@@ -620,7 +666,7 @@ func Bundle(change string, run records.Run, summary string, summaryFound bool, p
 			content, err := show(g, repo, rev, label)
 			text := string(content)
 			if file == "visual-verification.md" {
-				text = elideMatrixRows(text)
+				text = elideMeasurementSections(elideMatrixRows(text), label)
 			}
 			add(label, text, err == nil)
 		}

@@ -349,7 +349,9 @@ archive commit of the change, oldest first, followed by each peer the archived `
 `## Merge order` names, its `spectre/<name>` commits against its base under a `### <peer>`
 heading — and prints it as one Markdown document. Its `visual-verification.md` keeps every heading and
 drops the table rows under each heading naming a matrix — any level, `matrix` in its text, any
-case — and its `git log --stat` lines leave out every `*.png` path. A source that is absent is reported
+case — replaces each section whose heading opens with bands, seams or ink, through the next heading of
+its level or higher, with one line naming the lines it held, its heading and the record's path,
+and its `git log --stat` lines leave out every `*.png` path. A source that is absent is reported
 `skipped: <source> (absent)` inside the bundle, never fatal.
 The session appends `## Session narrative` (one paragraph it writes for run 1 itself; the
 archived `narrative.md` is already a bundle section, and a change predating the narrative rule

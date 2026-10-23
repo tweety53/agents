@@ -267,6 +267,37 @@ func TestBundleElidesMatrixRowsUnderAnyMatrixHeading(t *testing.T) {
 	}
 }
 
+func TestBundleElidesBandsSeamsAndInkSections(t *testing.T) {
+	repo := gitRepo(t)
+	commitAll(t, repo, "a.go", "package a\n", "feat(demo): a")
+	writeArchiveBranch(t, repo, "demo", map[string]string{
+		"tasks.md": "# demo tasks\n",
+		"visual-verification.md": "# Visual verification — demo\n\nHEADER-LINE\n\n## Verify\n\nVERIFY-LINE\n\n" +
+			"## Views\n\n- q2: departure — VERDICT-LINE\n\n" +
+			"## Bands and seams (raw summaries)\n\n### q2-answer\n\nBAND-LINE\n\n" +
+			"## Ink (runs through each band)\n\nINK-LINE\n\n## Motions\n\nMOTION-LINE\n\n### Q1 sweeps (rows, ink)\n\nSWEEP-LINE\n",
+	})
+
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, ExecRunner{})
+	if err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+
+	label := "spectre/changes/archive/demo/visual-verification.md"
+	for _, want := range []string{"HEADER-LINE", "VERIFY-LINE", "VERDICT-LINE", "MOTION-LINE", "SWEEP-LINE",
+		"_(6 lines elided: Bands and seams (raw summaries) — in " + label + ")_",
+		"_(4 lines elided: Ink (runs through each band) — in " + label + ")_"} {
+		if !strings.Contains(bundle, want) {
+			t.Errorf("bundle missing %q:\n%s", want, bundle)
+		}
+	}
+	for _, gone := range []string{"BAND-LINE", "INK-LINE", "### q2-answer"} {
+		if strings.Contains(bundle, gone) {
+			t.Errorf("bundle still carries measurement line %q:\n%s", gone, bundle)
+		}
+	}
+}
+
 func TestBundleElidesMatrixRowsAndPNGStatLines(t *testing.T) {
 	repo := gitRepo(t)
 	if err := os.WriteFile(filepath.Join(repo, "shot.png"), []byte("\x89PNG"), 0o644); err != nil {
