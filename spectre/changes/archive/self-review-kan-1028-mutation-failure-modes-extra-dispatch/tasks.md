@@ -40,14 +40,14 @@ in this worktree.
 - Task 4: the example token in `pipeline.md` stays a literal `check-stage-mark-calls.sh` accepts.
 - Task 5: the corrected row changes `inputs` alone — class, panel, rolls and pairs unchanged.
 
-- [ ] 1. Drop a removed role from a decided panel's bundles
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 1. Drop a removed role from a decided panel's bundles
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n 'panel.dispatches' skills/flow/review-panel.md` and read the drop rule after
     `**The roster names only`: it drops the roles from the roster and records each, and no
     sentence removes them from a decided `panel.dispatches` bundle, which the dispatch paragraph
     after `write-panel-diff.sh` dispatches as recorded.
     <!-- measured: grep -n 'panel.dispatches' skills/flow/review-panel.md @ d7933ad6 → no hit in the drop rule -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at d7933ad6 together with the other four tasks' diffs, in task order; check-verbatim-moves.sh, check-references.sh, check-markdown-integrity.sh and check-installed-citations.sh exit 0
 diff --git a/skills/flow/review-panel.md b/skills/flow/review-panel.md
@@ -68,8 +68,8 @@ index 43f8e87c..282109b3 100644
  `primary-reviewer-prompt.md` and `reviewer-calibration.md` (Primary), `principles-reviewer-prompt.md` and
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0.
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/review-panel.md`
@@ -80,12 +80,12 @@ index 43f8e87c..282109b3 100644
 
 **Decision:** dropped-role-leaves-bundle
 
-- [ ] 2. Print the Learning path in the status handoff template
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 2. Print the Learning path in the status handoff template
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n 'Learning' skills/flow-contracts/handoff-blocks.md skills/flow-contracts/learning.md`:
     the template carries `## Learning — <topic>`, the contract `**Learning:** <absolute path>`.
     <!-- measured: the grep above @ d7933ad6 → handoff-blocks.md:89 section, learning.md:15-16 line -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at d7933ad6 together with the other four tasks' diffs, in task order; check-verbatim-moves.sh, check-references.sh, check-markdown-integrity.sh and check-installed-citations.sh exit 0
 diff --git a/skills/flow-contracts/handoff-blocks.md b/skills/flow-contracts/handoff-blocks.md
@@ -103,8 +103,8 @@ index 3978cba2..e8ec5ad4 100644
  
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0.
-  - [ ] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0.
+  - [x] **Step 4: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow-contracts/handoff-blocks.md`
@@ -115,12 +115,12 @@ index 3978cba2..e8ec5ad4 100644
 
 **Decision:** status-template-learning-line
 
-- [ ] 3. Retire failure-modes and mutation from the reviewer settings
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 3. Retire failure-modes and mutation from the reviewer settings
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n '"failure-modes"\|"mutation"' stats/internal/store/settings.go` — both ids sit in
     `ValidReviewers` — and `flow settings get`, which prints the stored list.
     <!-- measured: the grep and flow settings get @ d7933ad6 → settings.go:38-39; {"reviewers":["primary","principles"],"learning":true} -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`) — the vocabulary, the migration,
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`) — the vocabulary, the migration,
     the tests and the skill's example line:
 
 ````diff verified:applied with git apply to this worktree at d7933ad6 together with the other four tasks' diffs, in task order; with it `cd stats && go test ./internal/store/ ./internal/api/ ./cmd/flow/ -count=1` passes and go vet is clean; with settings.go reverted and the migration removed, TestSettingsStore_MigrationDropsExtraDispatchRoles and TestSettingsStore_RejectsExtraDispatchRoles fail
@@ -310,15 +310,15 @@ index 969a6ab0..5b2733f7 100644
  // id, reviewers, updated_at and 0043's learning alone, and that a row written before it -- both model
 ````
 
-  - [ ] **Step 3: Prove the tests bite.** Save the `stats/internal/store/settings.go` hunk
+  - [x] **Step 3: Prove the tests bite.** Save the `stats/internal/store/settings.go` hunk
     (`git diff -- stats/internal/store/settings.go > <scratch>`), `git apply -R <scratch>`, move
     the migration file to the scratch directory, run
     `cd stats && go test ./internal/store/ -run 'TestSettingsStore_(MigrationDropsExtraDispatchRoles|RejectsExtraDispatchRoles)' -count=1`
     and capture both failures, then `git apply <scratch>`, move the migration back, and capture
     the pass.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./... && go test ./internal/store/ ./internal/api/ ./cmd/flow/ -run 'TestSettings' -count=1`
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./... && go test ./internal/store/ ./internal/api/ ./cmd/flow/ -run 'TestSettings' -count=1`
     passes and prints no file; `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0.
-  - [ ] **Step 5: Commit** the five files with the subject below.
+  - [x] **Step 5: Commit** the five files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/store/settings.go`, `stats/internal/store/migrations/0044_flow_settings_drop_extra_dispatch_roles.sql`, `stats/internal/store/settings_test.go`, `stats/internal/api/settings_test.go`, `skills/flow-settings/SKILL.md`
@@ -332,13 +332,13 @@ index 969a6ab0..5b2733f7 100644
 **Decision:** retire-extra-dispatch-reviewers
 **Decision:** settings-row-no-repair
 
-- [ ] 4. End every session token in a UTC timestamp
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 4. End every session token in a UTC timestamp
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -n 'unique literal string' skills/flow/SKILL.md` and read **Stage marks** in
     `skills/flow-contracts/pipeline.md`: neither states a shape that keeps two runs' tokens apart,
     and kan-1028's archived `narrative.md` records `mf-k1028b` reused across sessions.
     <!-- measured: the grep above @ d7933ad6 → skills/flow/SKILL.md:149 -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at d7933ad6 together with the other four tasks' diffs, in task order; check-verbatim-moves.sh, check-references.sh, check-markdown-integrity.sh and check-installed-citations.sh exit 0; check-stage-mark-calls.sh exits 0
 diff --git a/skills/flow-contracts/pipeline.md b/skills/flow-contracts/pipeline.md
@@ -387,8 +387,8 @@ index b4c4f59f..13815ce6 100644
  the placeholder, never the placeholder itself, and a later `/flow` invocation — a resume or a fix
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0; `scripts/check-stage-mark-calls.sh` exits 0.
-  - [ ] **Step 4: Commit** the three files with the subject below.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0; `scripts/check-stage-mark-calls.sh` exits 0.
+  - [x] **Step 4: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `skills/flow-contracts/pipeline.md`, `skills/flow/SKILL.md`, `skills/flow-fast/SKILL.md`
@@ -399,13 +399,13 @@ index b4c4f59f..13815ce6 100644
 
 **Decision:** session-token-utc-suffix
 
-- [ ] 5. Re-decide a task added mid-run, and correct kan-1028's decision row
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
-    `flow record decisions -change kan-1028-mutation-failure-modes-extra-dispatch -C . | jq 'length, .[-1].decision.inputs'`
+- [x] 5. Re-decide a task added mid-run, and correct kan-1028's decision row
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
+    `flow record decisions -change kan-1028-mutation-failure-modes-extra-dispatch -C . | jq 'length, .[0].decision.inputs'`
     and `scripts/plan-class.sh spectre/changes/archive/kan-1028-mutation-failure-modes-extra-dispatch/tasks.md 1 . 53b0dfcd | head -1`:
     one row reading `tasks 5, files 20`, against `inputs: tasks=6 files=23`.
     <!-- measured: the two commands above @ d7933ad6 → length 1, tasks 5 files 20; tasks=6 files=23 -->
-  - [ ] **Step 2: Apply the fix** (`git apply <the saved diff>`):
+  - [x] **Step 2: Apply the fix** (`git apply <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at d7933ad6 together with the other four tasks' diffs, in task order; check-verbatim-moves.sh, check-references.sh, check-markdown-integrity.sh and check-installed-citations.sh exit 0
 diff --git a/skills/flow/implement.md b/skills/flow/implement.md
@@ -429,9 +429,9 @@ index fbcc9697..fe56f811 100644
  the discipline **Bundled dispatch** (`skills/flow/review-panel.md`) applies to panel rounds.
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0.
-  - [ ] **Step 4: Commit** the file with the subject below.
-  - [ ] **Step 5: Repair the decision row.** Read the UTC time once with `date -u +%Y%m%dT%H%M%SZ`
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0.
+  - [x] **Step 4: Commit** the file with the subject below.
+  - [x] **Step 5: Repair the decision row.** Read the UTC time once with `date -u +%Y%m%dT%H%M%SZ`
     and type it into the token as a literal (`sr-k1028-<that time>`), then, from this worktree's
     root:
 
@@ -442,12 +442,12 @@ flow record decision -change kan-1028-mutation-failure-modes-extra-dispatch -C .
 ```
 
     <!-- unverified:flow record decision prints recorded: decision <id> against the live store — Step 6 reads it back -->
-  - [ ] **Step 6: Read the repair back** — the `## Live check` of `design.md`: the Step 1 `jq`
+  - [x] **Step 6: Read the repair back** — the `## Live check` of `design.md`: the Step 1 `jq`
     prints a length of two and the newest row's inputs `tasks 6, files 23`, class `regular`. A
     record that exits non-zero is reported with its output, never retried blind.
 
 **Build:** green
-**Files:** `skills/flow/implement.md`
+**Files:** `skills/flow/implement.md`, `spectre/changes/self-review-kan-1028-mutation-failure-modes-extra-dispatch/verbatim-moves.txt`
 **Tests:** **none** — a prose rule; `check-verbatim-moves.sh` covers its acknowledged sentences.
 **Regression:** none — no test is declared.
 **Commit:** fix(flow): re-decide a task added after the decision row

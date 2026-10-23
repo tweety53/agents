@@ -82,7 +82,7 @@ applied.
 ## Live check
 
 Task 5 writes a decision row and Task 3 adds a migration, the two runtime touches. Before:
-`flow record decisions -change kan-1028-mutation-failure-modes-extra-dispatch -C <this worktree> | jq 'length, .[-1].decision.inputs'`
+`flow record decisions -change kan-1028-mutation-failure-modes-extra-dispatch -C <this worktree> | jq 'length, .[0].decision.inputs'`
 prints a length of one and inputs `tasks 5, files 20`; `flow settings get` prints
 `["primary","principles"]`.
 <!-- measured: flow record decisions -change kan-1028-mutation-failure-modes-extra-dispatch -C . @ branch spectre/kan-1028-mutation-failure-modes-extra-dispatch (live store read, d7933ad6) -->
