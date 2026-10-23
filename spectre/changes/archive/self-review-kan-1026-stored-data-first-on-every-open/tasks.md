@@ -57,14 +57,14 @@ refusal into the store; Task 7 elides raw measurement sections from the self-rev
   prefix on a non-interpreter, or the target run as a command still keeps a body scanned.
 - Task 6: the two kan-525 fixtures move to `muse` and nothing else in them changes.
 
-- [ ] 1. Stamp every flow launch by its row's key, anchor a lone begin at its row, and repair kan-1026's rows
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 1. Stamp every flow launch by its row's key, anchor a lone begin at its row, and repair kan-1026's rows
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `grep -o -- '-key panel-\$R[^ ]*' /Users/tweety53/.claude/projects/-Users-tweety53-Projects-gymie/50d27d94-f31d-4308-90ff-eef33cdbaa77.jsonl | sort | uniq -c`: it prints the substituted keys
     (`panel-$R-$s`, `panel-$R-primary`, `panel-$R-primary+test-sanity`). Run
     `flow record dispatches -C /Users/tweety53/Projects/gymie -change kan-1026-stored-data-first-on-every-open`: seqs 37, 38, 52, 57, 58, 61, 62, 64, 68, 69, 73 and
     74 carry no `agentId`; seq 53 carries `a18dd75d85c0d7828` and seq 76 `abe0a67c405742bad`.
     <!-- measured: the grep above @ machine-local transcript, 2026-10-23 → 16 substituted-key begins -->
-  - [ ] **Step 2: Apply the fix.** Save the diff below by copying the lines between its fence markers into a scratch file outside the worktree, then `git apply <that file>` from the worktree root.
+  - [x] **Step 2: Apply the fix.** Save the diff below by copying the lines between its fence markers into a scratch file outside the worktree, then `git apply <that file>` from the worktree root.
 
 ````diff verified:applied with git apply in order with the other tasks' diffs and prose replacements onto c1282bc4 in this worktree; the result equals the spiked tree, go vet ./... and gofmt -l clean, go test of internal/harvest, internal/store, internal/api, internal/guard, internal/repotest, internal/selfreview, internal/reconcile, cmd/flow and cmd/flowd passing, and check-verbatim-moves.sh, check-references.sh, check-guard-symlinks.sh, check-markdown-integrity.sh and check-installed-citations.sh exiting 0
 diff --git a/hooks/enforce-agent-baseline.py b/hooks/enforce-agent-baseline.py
@@ -466,23 +466,23 @@ index 0b35d5c5..1b3cdee4 100644
  	ctx := context.Background()
 ````
 
-  - [ ] **Step 3: Prove the anchor.** Comment out the `w.anchorBegins(ctx, path, begins)` line in
+  - [x] **Step 3: Prove the anchor.** Comment out the `w.anchorBegins(ctx, path, begins)` line in
     `stats/internal/harvest/watcher.go`, run
     `cd stats && go test ./internal/harvest/ -run 'TestWatcherAnchorsALoneBeginAtItsRowsStartedAt' -count=1`:
     it fails with `stamps = [{... agentID:abe0a67c405742bad}]`. Restore the line.
     <!-- measured: the same mutation at plan time @ branch self-review-kan-1026-stored-data-first-on-every-open → FAIL stamping abe0a67c405742bad -->
-  - [ ] **Step 4: Prove the description gate.** With `hooks/enforce-agent-baseline.py` at HEAD's
+  - [x] **Step 4: Prove the description gate.** With `hooks/enforce-agent-baseline.py` at HEAD's
     content (`git show HEAD:hooks/enforce-agent-baseline.py` written over it), cases
     `13 a /flow dispatch described in prose` and `13b a /flow dispatch with no description` of
     `TestEnforceAgentBaselineHook` fail; restore the patched hook.
     <!-- measured: cd stats && go test ./internal/repotest/ -run TestEnforceAgentBaselineHook with the hook at c1282bc4 @ branch self-review-kan-1026-stored-data-first-on-every-open → 13 and 13b FAIL -->
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -w . && gofmt -l . && make -s web-dist && go vet ./...`
+  - [x] **Step 5: Verify.** `cd stats && gofmt -w . && gofmt -l . && make -s web-dist && go vet ./...`
     is clean; `cd stats && go test ./internal/harvest/ ./internal/store/ ./internal/repotest/ -run
     'TestWatcherAnchorsALoneBeginAtItsRowsStartedAt|TestWatcherStamps|TestWatcherPairs|TestWatcherRetires|TestDispatchStartedAtReadsTheLatestRowsBegin|TestEnforceAgentBaselineHook' -count=1`
     passes; `cd stats && go build ./cmd/flowd` succeeds (`*store.Store` still satisfies
     `harvest.Deps`); from the worktree root `scripts/check-verbatim-moves.sh`,
     `scripts/check-references.sh` and `scripts/check-markdown-integrity.sh` exit 0. Commit.
-  - [ ] **Step 6: Repair the store.** Build the binary once and restamp each row onto its true
+  - [x] **Step 6: Repair the store.** Build the binary once and restamp each row onto its true
     agent, each pair `<dispatch id>:<agent id>`:
 
 ```bash verified:every agent file below exists under the parent transcript's subagents/ directory, and each agent's launch description in the parent transcript names that row's round and slot (dispatch ids read from flow record dispatches, 2026-10-23)
@@ -517,11 +517,11 @@ done
 **Decision:** pairing-order-unchanged
 **Decision:** gymie-ledger-refresh-by-parent
 
-- [ ] 2. Record a panel round's begins under literal keys
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `ls scripts/panel-round-begins.sh`
+- [x] 2. Record a panel round's begins under literal keys
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `ls scripts/panel-round-begins.sh`
     fails (no such file), and Task 1 Step 1's grep shows the parent's hand-built `-key panel-$R-$s`
     loop.
-  - [ ] **Step 2: Apply the fix.** Save the diff below by copying the lines between its fence markers into a scratch file outside the worktree, then `git apply <that file>` from the worktree root.
+  - [x] **Step 2: Apply the fix.** Save the diff below by copying the lines between its fence markers into a scratch file outside the worktree, then `git apply <that file>` from the worktree root.
 
 ````diff verified:applied with git apply in order with the other tasks' diffs and prose replacements onto c1282bc4 in this worktree; the result equals the spiked tree, go vet ./... and gofmt -l clean, go test of internal/harvest, internal/store, internal/api, internal/guard, internal/repotest, internal/selfreview, internal/reconcile, cmd/flow and cmd/flowd passing, and check-verbatim-moves.sh, check-references.sh, check-guard-symlinks.sh, check-markdown-integrity.sh and check-installed-citations.sh exiting 0
 diff --git a/scripts/panel-round-begins.sh b/scripts/panel-round-begins.sh
@@ -701,7 +701,7 @@ index 00000000..7bb36009
 \ No newline at end of file
 ````
 
-  - [ ] **Step 3: Edit the skill.** In `skills/flow/review-panel.md`, replace
+  - [x] **Step 3: Edit the skill.** In `skills/flow/review-panel.md`, replace
 
 ```markdown verified:applied at plan time on c1282bc4 in order with the other tasks; check-verbatim-moves.sh exits 0 against this change's verbatim-moves.txt, check-references.sh and check-markdown-integrity.sh exit 0
 Every dispatch of a round launches in one message; every `begin` is recorded in the next Bash
@@ -717,14 +717,14 @@ call, one call for all, as `panel-round-begins.sh <worktree> <name> <round> mf-<
 `panel-<round>-<slot>`, `<round>` written as the number itself, never a shell substitution; the round's wait
 ```
 
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/` is clean;
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/` is clean;
     `cd stats && go test ./internal/guard/ -run 'TestPanelRoundBeginsRecordsLiteralKeys' -count=1`
     passes; `scripts/panel-round-begins.sh` with no arguments exits 2 printing its usage; from the
     worktree root `scripts/check-guard-symlinks.sh`, `scripts/check-verbatim-moves.sh`,
     `scripts/check-references.sh` and `scripts/check-markdown-integrity.sh` exit 0. Commit.
 
 **Build:** green
-**Files:** `scripts/panel-round-begins.sh`, `skills/flow/scripts/panel-round-begins.sh`, `skills/flow/review-panel.md`, `stats/internal/guard/panelroundbegins.go`, `stats/internal/guard/panel_round_begins_test.go`
+**Files:** `scripts/panel-round-begins.sh`, `skills/flow/scripts/panel-round-begins.sh`, `skills/flow/review-panel.md`, `stats/internal/guard/panelroundbegins.go`, `stats/internal/guard/panel_round_begins_test.go`, `stats/internal/harvest/watcher.go`, `stats/internal/harvest/watcher_test.go`
 **Tests:** `TestPanelRoundBeginsRecordsLiteralKeys`
 **Regression:** reverting `panelroundbegins.go` fails `TestPanelRoundBeginsRecordsLiteralKeys` to compile; a key built from anything but the validated round fails its recorded-call comparison.
 **Baseline:** before=276 after=277
@@ -734,11 +734,11 @@ call, one call for all, as `panel-round-begins.sh <worktree> <name> <round> mf-<
 
 **Decision:** panel-round-begins-script
 
-- [ ] 3. Close a stamped row at its agent transcript's last write
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.**
+- [x] 3. Close a stamped row at its agent transcript's last write
+  - [x] **Step 1: Reproduce before touching anything; do not guess.**
     `grep -n 'date -u -r <report-file>' skills/flow/review-panel.md` prints the `-ended-at` line of
     the end template, and `grep -rn 'AgentTranscriptEnd' stats` prints nothing.
-  - [ ] **Step 2: Apply the fix.** Save the diff below by copying the lines between its fence markers into a scratch file outside the worktree, then `git apply <that file>` from the worktree root.
+  - [x] **Step 2: Apply the fix.** Save the diff below by copying the lines between its fence markers into a scratch file outside the worktree, then `git apply <that file>` from the worktree root.
 
 ````diff verified:applied with git apply in order with the other tasks' diffs and prose replacements onto c1282bc4 in this worktree; the result equals the spiked tree, go vet ./... and gofmt -l clean, go test of internal/harvest, internal/store, internal/api, internal/guard, internal/repotest, internal/selfreview, internal/reconcile, cmd/flow and cmd/flowd passing, and check-verbatim-moves.sh, check-references.sh, check-guard-symlinks.sh, check-markdown-integrity.sh and check-installed-citations.sh exiting 0
 diff --git a/stats/cmd/flowd/main.go b/stats/cmd/flowd/main.go
@@ -1005,7 +1005,7 @@ index d6aadea4..189b14ea 100644
 +}
 ````
 
-  - [ ] **Step 3: Edit the skill.** In `skills/flow/review-panel.md`'s dispatch template, replace
+  - [x] **Step 3: Edit the skill.** In `skills/flow/review-panel.md`'s dispatch template, replace
 
 ```markdown verified:applied at plan time on c1282bc4 in order with the other tasks; check-verbatim-moves.sh exits 0 against this change's verbatim-moves.txt, check-references.sh and check-markdown-integrity.sh exit 0
   -session-token mf-<literal-token> -outcome completed \
@@ -1030,12 +1030,12 @@ Each `end` passes its own slot's report-file modification time as `-ended-at`, s
 Each `end` passes no `-ended-at`: the daemon closes a stamped row at its own agent transcript's last write, so a slot that finished early is never stamped with the round's last finish (kan-1019: two slots of one round both read 15m31s).
 ```
 
-  - [ ] **Step 4: Prove the handler.** Change `h.agentEndOf(out, err, stamped); ok {` to
+  - [x] **Step 4: Prove the handler.** Change `h.agentEndOf(out, err, stamped); ok {` to
     `h.agentEndOf(out, err, stamped && false); ok {` in `stats/internal/api/records.go`, run
     `cd stats && go test ./internal/api/ -run 'TestEndDispatchRouteTakesAStampedRowsEndFromItsAgent' -count=1`:
     it fails with `endedAt = <now>, want the agent's last write`. Restore the line.
     <!-- measured: the same mutation at plan time @ branch self-review-kan-1026-stored-data-first-on-every-open → FAIL -->
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -w . && gofmt -l . && make -s web-dist && go vet ./...`
+  - [x] **Step 5: Verify.** `cd stats && gofmt -w . && gofmt -l . && make -s web-dist && go vet ./...`
     is clean; `cd stats && go test ./internal/api/ ./internal/harvest/ ./cmd/flowd/ -run
     'TestEndDispatchRoute|TestAgentTranscriptEndReadsTheAgentsLastWrite|TestDaemonWiresTheRealStore' -count=1`
     passes; from the worktree root `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`
@@ -1052,12 +1052,12 @@ Each `end` passes no `-ended-at`: the daemon closes a stamped row at its own age
 
 **Decision:** end-from-agent-transcript
 
-- [ ] 4. Leave a worktree's visual-verify commit to Branch backup
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.**
+- [x] 4. Leave a worktree's visual-verify commit to Branch backup
+  - [x] **Step 1: Reproduce before touching anything; do not guess.**
     `grep -n 'Never push' skills/flow/visual-verify.md` prints the step's line, and the hand-push
     paragraph after it names the change's own `spectre/<name>` among the branches it prints a push
     for.
-  - [ ] **Step 2: Apply the fix.** In `skills/flow/visual-verify.md`, replace
+  - [x] **Step 2: Apply the fix.** In `skills/flow/visual-verify.md`, replace
 
 ```markdown verified:applied at plan time on c1282bc4 in order with the other tasks; check-verbatim-moves.sh exits 0 against this change's verbatim-moves.txt, check-references.sh and check-markdown-integrity.sh exit 0
     the main checkout directly. **Never push**: a file inside a repository cannot authorise a push to another repository, so no
@@ -1098,13 +1098,13 @@ that checkout rides **Branch backup**, and only a commit in its main checkout le
 printing the push command for the operator to run by hand.
 ```
 
-  - [ ] **Step 3: Verify.** From the worktree root `scripts/check-verbatim-moves.sh`,
+  - [x] **Step 3: Verify.** From the worktree root `scripts/check-verbatim-moves.sh`,
     `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh`,
     `scripts/check-installed-citations.sh` and `scripts/check-visual-verification.sh .` exit 0.
     Commit.
 
 **Build:** green
-**Files:** `skills/flow/visual-verify.md`, `skills/flow-contracts/project-configuration-visual.md`
+**Files:** `skills/flow/visual-verify.md`, `skills/flow-contracts/project-configuration-visual.md`, `skills/flow-contracts/git-boundaries.md`
 **Tests:** **none** — a prose rule; `check-verbatim-moves.sh` covers its acknowledged sentences.
 **Regression:** none — no test is declared.
 **Commit:** docs(flow): leave a worktree's visual-verify commit to Branch backup
@@ -1112,15 +1112,15 @@ printing the push command for the operator to run by hand.
 
 **Decision:** worktree-commit-rides-branch-backup
 
-- [ ] 5. Judge a non-shell heredoc body by its git invocations only
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Write a scratch script with
+- [x] 5. Judge a non-shell heredoc body by its git invocations only
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Write a scratch script with
     the Write tool that feeds `hooks/protect-main-checkout.py` a `Bash` payload, `cwd` `/Users/tweety53/Projects/gymie` (a
     main checkout on `develop`), for each of two commands — `python3 -I - x.png <<'EOF'` /
     `if v<230 or d>0: print(y)` / `EOF`, and `D=/tmp/d; cat > $D/r.md <<'EOF'` /
     ``crop from `x-<n>.png` here`` / `EOF` / `echo $N` — and run it: the hook prints
     `"permissionDecision": "deny"` for both.
     <!-- measured: both payloads through hooks/protect-main-checkout.py @ c1282bc4 → deny, with the fix → allow; the eleven denied commands of the kan-1026 transcript → deny at c1282bc4, allow with the fix -->
-  - [ ] **Step 2: Apply the fix.** Save the diff below by copying the lines between its fence markers into a scratch file outside the worktree, then `git apply <that file>` from the worktree root.
+  - [x] **Step 2: Apply the fix.** Save the diff below by copying the lines between its fence markers into a scratch file outside the worktree, then `git apply <that file>` from the worktree root.
 
 ````diff verified:applied with git apply in order with the other tasks' diffs and prose replacements onto c1282bc4 in this worktree; the result equals the spiked tree, go vet ./... and gofmt -l clean, go test of internal/harvest, internal/store, internal/api, internal/guard, internal/repotest, internal/selfreview, internal/reconcile, cmd/flow and cmd/flowd passing, and check-verbatim-moves.sh, check-references.sh, check-guard-symlinks.sh, check-markdown-integrity.sh and check-installed-citations.sh exiting 0
 diff --git a/hooks/protect-main-checkout.py b/hooks/protect-main-checkout.py
@@ -1335,7 +1335,7 @@ index 1c561700..1122503c 100644
  	f.bash("151 checkout -- of a path with unstaged edits", "deny", "{ROOT}", `git -C {WT} checkout -- f.txt`)
 ````
 
-  - [ ] **Step 3: Verify.** `python3 -m py_compile hooks/protect-main-checkout.py` succeeds;
+  - [x] **Step 3: Verify.** `python3 -m py_compile hooks/protect-main-checkout.py` succeeds;
     `cd stats && go test ./internal/repotest/ -run 'TestProtectMainCheckout' -count=1` passes; with
     the hook at HEAD's content cases 160–165 fail, and 166 and 167 pass either way (restore the
     patched hook); Step 1's script now prints no deny; from the worktree root
@@ -1353,11 +1353,11 @@ index 1c561700..1122503c 100644
 
 **Decision:** program-body-git-only
 
-- [ ] 6. Refuse a token report on a harvested session
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.**
+- [x] 6. Refuse a token report on a harvested session
+  - [x] **Step 1: Reproduce before touching anything; do not guess.**
     `grep -n 'CLAUDE_CODE_SESSION_ID' stats/cmd/flow/record.go stats/internal/store/records.go`
     prints only `record.go`'s environment check: nothing in the store refuses `-tokens`.
-  - [ ] **Step 2: Apply the fix.** Save the diff below by copying the lines between its fence markers into a scratch file outside the worktree, then `git apply <that file>` from the worktree root.
+  - [x] **Step 2: Apply the fix.** Save the diff below by copying the lines between its fence markers into a scratch file outside the worktree, then `git apply <that file>` from the worktree root.
 
 ````diff verified:applied with git apply in order with the other tasks' diffs and prose replacements onto c1282bc4 in this worktree; the result equals the spiked tree, go vet ./... and gofmt -l clean, go test of internal/harvest, internal/store, internal/api, internal/guard, internal/repotest, internal/selfreview, internal/reconcile, cmd/flow and cmd/flowd passing, and check-verbatim-moves.sh, check-references.sh, check-guard-symlinks.sh, check-markdown-integrity.sh and check-installed-citations.sh exiting 0
 diff --git a/stats/cmd/flow/record.go b/stats/cmd/flow/record.go
@@ -1523,7 +1523,7 @@ index 1b3cdee4..41db3a0f 100644
  	}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -w . && gofmt -l . && make -s web-dist && go vet ./...`
+  - [x] **Step 3: Verify.** `cd stats && gofmt -w . && gofmt -l . && make -s web-dist && go vet ./...`
     is clean; `cd stats && go test ./internal/store/ ./internal/api/ ./internal/reconcile/ ./cmd/flow/ -run
     'TestEndDispatch|Token|Inline|Reconcile' -count=1` passes, `TestEndDispatchRefusesTokensOnAHarvestedSession`
     among them and not skipped. Commit.
@@ -1539,12 +1539,12 @@ index 1b3cdee4..41db3a0f 100644
 
 **Decision:** tokens-refused-on-harvested-session
 
-- [ ] 7. Elide the verification record's bands, seams and ink sections from the bundle
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In the kan-1026 bundle the
+- [x] 7. Elide the verification record's bands, seams and ink sections from the bundle
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In the kan-1026 bundle the
     pass read, the `## Bands and seams (raw summaries)` and `## Ink` sections of
     `visual-verification.md` sit between its matrix sections and `live-verification.md`, and
     `grep -n 'Bands and seams\|elideMeasurement' stats/internal/selfreview/git.go` prints nothing.
-  - [ ] **Step 2: Apply the fix.** Save the diff below by copying the lines between its fence markers into a scratch file outside the worktree, then `git apply <that file>` from the worktree root.
+  - [x] **Step 2: Apply the fix.** Save the diff below by copying the lines between its fence markers into a scratch file outside the worktree, then `git apply <that file>` from the worktree root.
 
 ````diff verified:applied with git apply in order with the other tasks' diffs and prose replacements onto c1282bc4 in this worktree; the result equals the spiked tree, go vet ./... and gofmt -l clean, go test of internal/harvest, internal/store, internal/api, internal/guard, internal/repotest, internal/selfreview, internal/reconcile, cmd/flow and cmd/flowd passing, and check-verbatim-moves.sh, check-references.sh, check-guard-symlinks.sh, check-markdown-integrity.sh and check-installed-citations.sh exiting 0
 diff --git a/skills/flow-contracts/finish-contract-run1.md b/skills/flow-contracts/finish-contract-run1.md
@@ -1671,7 +1671,7 @@ index 83d5a8df..de16a757 100644
  		}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/selfreview/` is clean;
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/selfreview/` is clean;
     `cd stats && go test ./internal/selfreview/ -run 'TestBundleElides' -count=1` passes; with the
     `elideMeasurementSections(` call reverted to `text = elideMatrixRows(text)` the new test fails
     (restore it); from the worktree root `scripts/check-verbatim-moves.sh` and
