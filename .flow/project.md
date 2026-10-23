@@ -166,7 +166,11 @@ sentences — 8 in the whole corpus, against hundreds of rules stated with "neve
 "only" — and a `MUST` moved into a `-rationale.md`, which no run loads, leaves its output unchanged.
 `check-verbatim-moves.sh` is the guard for that: it fails a run-loaded sentence that was deleted or
 reworded rather than moved verbatim, and new run-loaded prose, unless the change lists the sentence
-in its `verbatim-moves.txt`.
+in its `verbatim-moves.txt`. **A plan whose task edits run-loaded prose names
+`check-verbatim-moves.sh` in that task's verify step and commits the change's `verbatim-moves.txt`,
+listing every sentence its tasks add or reword, with the plan** — a `/flow` implementer never writes
+`spectre/changes/`, so a verify step naming only the other prose guards lets the FAIL reach the
+review panel (kan-1027's F1 and F8).
 
 **`check-workspace-isolation.sh` is a lint step where the other `## workspace isolation` guard is
 not.** It takes a project root, defaults to this repository when given none, and answers a question
