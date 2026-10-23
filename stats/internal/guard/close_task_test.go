@@ -35,8 +35,8 @@ var ctPlan = bt(`- [ ] 1. One
 `)
 
 type ctFx struct {
-	wt, peer, base, log, decisions, dispatches string
-	env                                        Env
+	wt, peer, base, log, decisions, dispatches, state string
+	env                                               Env
 }
 
 // ctRepo is a repository on spectre/demo with one base commit and a bare
@@ -58,17 +58,18 @@ func ctRepo(t *testing.T, dir string, origin bool) {
 // a peer repository, and the flow stub: tickRC and recordRC are the exit
 // codes of `flow tasks tick` and `flow record …`; `flow record decisions`
 // and `flow record dispatches` print fx.decisions and fx.dispatches when a
-// test wrote them, nothing otherwise.
+// test wrote them, nothing otherwise; `flow state get` prints fx.state the
+// same way and is never logged.
 func ctFixture(t *testing.T, origin bool, tickRC, recordRC string) *ctFx {
 	t.Helper()
 	root := t.TempDir()
-	fx := &ctFx{wt: root + "/wt", peer: root + "/peer", log: root + "/calls.log", decisions: root + "/decisions.json", dispatches: root + "/dispatches.json"}
+	fx := &ctFx{wt: root + "/wt", peer: root + "/peer", log: root + "/calls.log", decisions: root + "/decisions.json", dispatches: root + "/dispatches.json", state: root + "/state.json"}
 	ctRepo(t, fx.wt, origin)
 	ctRepo(t, fx.peer, origin)
 	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", ctPlan)
 	fx.base = tcfGit(t, fx.wt, "rev-parse", "HEAD")
 	bin := root + "/bin"
-	writeExec(t, bin+"/flow", "#!/bin/sh\necho \"flow $*\" >> "+fx.log+"\ncase \"$1 $2\" in\n\"tasks tick\") exit "+tickRC+";;\n\"record decisions\") cat "+fx.decisions+" 2>/dev/null; exit "+recordRC+";;\n\"record dispatches\") cat "+fx.dispatches+" 2>/dev/null; exit "+recordRC+";;\nrecord*) exit "+recordRC+";;\nesac\n")
+	writeExec(t, bin+"/flow", "#!/bin/sh\n[ \"$1 $2\" = \"state get\" ] && { cat "+fx.state+" 2>/dev/null; exit 0; }\necho \"flow $*\" >> "+fx.log+"\ncase \"$1 $2\" in\n\"tasks tick\") exit "+tickRC+";;\n\"record decisions\") cat "+fx.decisions+" 2>/dev/null; exit "+recordRC+";;\n\"record dispatches\") cat "+fx.dispatches+" 2>/dev/null; exit "+recordRC+";;\nrecord*) exit "+recordRC+";;\nesac\n")
 	writeExec(t, bin+"/git", "#!/bin/sh\ncase \" $* \" in *\" push \"*) echo \"git $*\" >> "+fx.log+";; esac\nexec "+fixtureGit+" \"$@\"\n")
 	fx.env = Env{Getenv: pathEnv(bin), Dir: fx.wt}
 	return fx
@@ -474,5 +475,41 @@ func TestCloseTaskSurfacesAFailedDispatchEnd(t *testing.T) {
 	last := lines[len(lines)-1]
 	if !strings.HasPrefix(last, "close-task: UNRECORDED — the dispatch end for k did not reach the store; run: flow record dispatch end -change demo -C ") || !strings.HasSuffix(last, "-outcome completed") {
 		t.Fatalf("last stderr line %q", last)
+	}
+}
+
+// kan-1008's self-review: a recorded worktree the commit map leaves out
+// joins the verdict through its newest commit carrying the task's trailer,
+// so a commit there touching an undeclared path is refused; a worktree with
+// no such commit adds nothing.
+func TestCloseTaskJoinsARecordedWorktreeTheMapLeftOut(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		name, peerFile, peerTask string
+		rc                       int
+	}{
+		{"a peer commit outside Files is refused", "z.txt", "1", 1},
+		{"a peer commit inside Files passes", "a.txt", "1", 0},
+		{"a peer commit of another task adds nothing", "z.txt", "2", 0},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			fx := ctFixture(t, true, "0", "0")
+			gitRun(t, fx.peer, "branch", "main")
+			writeFile(t, fx.state, `{"worktrees":{"`+fx.wt+`":"`+fx.base+`","`+fx.peer+`":"-"}}`)
+			fx.commit(t, fx.peer, "one", c.peerTask, c.peerFile, "p\n")
+			s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
+			r := fx.run(fx.wt, "demo", fx.base, "1:"+s1)
+			if r.rc != c.rc {
+				t.Fatalf("exit %d, want %d\n%s", r.rc, c.rc, r.out)
+			}
+			joined := strings.Contains(r.err, "close-task: task 1: joined "+fx.peer+"=")
+			if joined != (c.peerTask == "1") {
+				t.Errorf("joined line present = %v, want %v\n%s", joined, c.peerTask == "1", r.out)
+			}
+			if c.rc == 1 && !strings.Contains(r.stdout, "z.txt") {
+				t.Errorf("want the refusal to name z.txt\n%s", r.out)
+			}
+		})
 	}
 }

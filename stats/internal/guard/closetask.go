@@ -49,11 +49,13 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	type task struct{ id, commit string }
 	var tasks []task
 	var worktrees []string // distinct, in first-named order: one push each
+	recorded := ctRecordedWorktrees(env, canonical, name)
 	for _, a := range pos[3:] {
 		id, commit, ok := strings.Cut(a, ":")
 		if !ok || id == "" || commit == "" {
 			return usage("task argument is not <task-id>:<sha|map>: " + a)
 		}
+		commit = ctJoinRecorded(env, stderr, canonical, id, commit, recorded)
 		tasks = append(tasks, task{id, commit})
 		wts := []string{canonical}
 		if strings.Contains(commit, "=") {
@@ -188,6 +190,74 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 		}
 	}
 	return rc
+}
+
+// ctRecordedWorktrees is the change's recorded worktree set, the keys of
+// `flow state get`'s worktrees map, sorted; nil when it cannot be read.
+func ctRecordedWorktrees(env Env, canonical, name string) []string {
+	out, _, rc := pcFlow(env, false, "state", "get", "-C", canonical, name)
+	var rec struct {
+		Worktrees map[string]json.RawMessage `json:"worktrees"`
+	}
+	if rc != 0 || json.Unmarshal(out, &rec) != nil {
+		return nil
+	}
+	var wts []string
+	for wt := range rec.Worktrees {
+		if wt != "" {
+			wts = append(wts, wt)
+		}
+	}
+	slices.Sort(wts)
+	return wts
+}
+
+// ctJoinRecorded adds to a task's commit — a bare sha is the canonical
+// worktree's — one <worktree>=<sha> pair for each recorded worktree the
+// caller left out whose newest commit since its base carries the task's
+// Task-Id: trailer, and names each on stderr (kan-1008's self-review: the
+// parent's map omitted the backend repository, and Task 13's and 14's
+// backend commits were never judged against their Files:). The base is
+// vmDefaultBase's; a worktree with none, or that git cannot read, adds
+// nothing.
+func ctJoinRecorded(env Env, stderr io.Writer, canonical, id, commit string, recorded []string) string {
+	pairs := []string{canonical + "=" + commit}
+	if strings.Contains(commit, "=") {
+		pairs = strings.Split(commit, ",")
+	}
+	have := map[string]bool{}
+	for _, p := range pairs {
+		wt, _, _ := strings.Cut(strings.TrimSpace(p), "=")
+		have[trResolvePath(env, wt)] = true
+	}
+	git := envGit(env)
+	added := false
+	for _, wt := range recorded {
+		if have[trResolvePath(env, wt)] {
+			continue
+		}
+		base, _, ok := vmDefaultBase(git, wt)
+		if !ok {
+			continue
+		}
+		out, ok := capture(git("-C", wt, "log", "--no-merges", "--format=%H %(trailers:key=Task-Id,valueonly,separator=%x2C)", base+"..HEAD"))
+		if !ok {
+			continue
+		}
+		for _, line := range strings.Split(out, "\n") {
+			sha, ids, _ := strings.Cut(strings.TrimSpace(line), " ")
+			if sha != "" && slices.Contains(ctTaskNumberRE.FindAllString(ids, -1), id) {
+				fmt.Fprintf(stderr, "close-task: task %s: joined %s=%s — a recorded worktree the commit map left out\n", id, wt, sha)
+				pairs = append(pairs, wt+"="+sha)
+				added = true
+				break
+			}
+		}
+	}
+	if !added {
+		return commit
+	}
+	return strings.Join(pairs, ",")
 }
 
 // ctNewestClass is the change's newest decision class, "" when it cannot be

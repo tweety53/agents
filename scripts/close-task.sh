@@ -19,7 +19,14 @@
 #      `flow record dispatches -change <name> -C <canonical>`:
 #      an appended task no row names is refused at step 4 (exit 1); a
 #      store that cannot be read refuses nothing.
-#   2. check-task-commit-fields.sh <canonical> <id> <sha|map> "" <canonical>
+#   2. Each task's commit first gains one <worktree>=<sha> pair per worktree
+#      of `flow state get -C <canonical> <name>`'s worktrees map the argument
+#      left out whose newest commit since its base carries the task's
+#      Task-Id: trailer — a bare sha is the canonical worktree's pair — each
+#      named on stderr as `close-task: task <id>: joined <worktree>=<sha>`
+#      (kan-1008's self-review: a map omitting the backend repository left
+#      its commits unjudged). Then
+#      check-task-commit-fields.sh <canonical> <id> <sha|map> "" <canonical>
 #      <name> for every task, and its commit's — every map pair's — Task-Id:
 #      trailer must name the task or a task its Build: red fold joins (exit 1
 #      otherwise): the trailer is how a task's commit is found again.
