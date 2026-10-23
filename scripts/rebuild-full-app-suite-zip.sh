@@ -5,7 +5,9 @@
 # Usage: rebuild-full-app-suite-zip.sh <worktree> <screenshots root>
 #
 # Exit 0 the zip is written; 1 the resolver matched no PNG (nothing written);
-# 2 cannot answer — a usage error, the resolver's own exit 2, or a failing zip.
+# 2 cannot answer — a usage error, a relative <screenshots root> (it would land
+# under the caller's working directory), the resolver's own exit 2, or a
+# failing zip.
 #
 # The mechanism, and its full contract, is
 # stats/internal/guard/rebuildfullappsuitezip.go; its test is

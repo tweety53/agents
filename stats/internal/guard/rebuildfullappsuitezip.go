@@ -17,7 +17,9 @@
 // and commits nothing.
 //
 // Exit 0 the zip is written; 1 the resolver matched no PNG (nothing written);
-// 2 cannot answer — a usage error, the resolver's own exit 2, or a failing zip.
+// 2 cannot answer — a usage error, a relative <screenshots root> (it would land
+// under the caller's working directory), the resolver's own exit 2, or a
+// failing zip.
 //
 // The resolver is exec'd from FLOW_GUARD_SCRIPT_DIR, the directory the shim
 // exports as its own. The archive is still Info-ZIP's `zip -q -X -j -@`, never
@@ -41,6 +43,10 @@ func init() { Registry["rebuild-full-app-suite-zip"] = rebuildFullAppSuiteZip }
 func rebuildFullAppSuiteZip(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 2 {
 		fmt.Fprintln(stderr, "usage: rebuild-full-app-suite-zip.sh <worktree> <screenshots root>")
+		return 2
+	}
+	if !filepath.IsAbs(args[1]) {
+		fmt.Fprintf(stderr, "rebuild-full-app-suite-zip: <screenshots root> %q is relative — pass it resolved the way resolve-visual-screenshots.sh resolves it\n", args[1])
 		return 2
 	}
 	scriptDir := env.Getenv("FLOW_GUARD_SCRIPT_DIR")

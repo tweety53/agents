@@ -179,4 +179,23 @@ func TestRebuildFullAppSuiteZip(t *testing.T) {
 			t.Errorf("exit %d, zip stat err %v", r.rc, err)
 		}
 	})
+
+	// The bash twin accepts a relative root, so the Go port runs alone.
+	t.Run("case 7 relative screenshots root", func(t *testing.T) {
+		t.Parallel()
+		g := newTwin(t)
+		r := runGo(g.root, g.root, "shots")
+		if r.rc != 2 || !strings.Contains(r.errOut, `"shots"`) {
+			t.Errorf("exit %d, stderr %q; want 2 naming \"shots\"", r.rc, r.errOut)
+		}
+		cwd, err := os.Getwd()
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, d := range []string{g.root, filepath.Join(g.root, "shots"), cwd, filepath.Join(cwd, "shots")} {
+			if _, err := os.Stat(filepath.Join(d, "full-app-suite.zip")); err == nil {
+				t.Errorf("full-app-suite.zip written under %s", d)
+			}
+		}
+	})
 }
