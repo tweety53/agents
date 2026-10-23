@@ -41,7 +41,7 @@ resolution (extracted to `baseRev`); one case in `TestCheckPlanShape`; one sente
 - A plan outside a git repository, or whose base does not resolve, is not checked — F15's
   behaviour, unchanged by the `baseRev` extraction (cases 39 and 43 both pass).
 
-- [ ] 1. Refuse an absence sweep covering a later task's file
+- [x] 1. Refuse an absence sweep covering a later task's file
 
 **Files:** `stats/internal/guard/planshape.go`, `stats/internal/guard/check_plan_shape_test.go`, `skills/flow/brainstorm-planner.md`, `skills/flow/SKILL-rationale.md`
 **Tests:** Case 43
@@ -60,11 +60,11 @@ resolution (extracted to `baseRev`); one case in `TestCheckPlanShape`; one sente
 
 **Build:** green
 
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** From this worktree:
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** From this worktree:
     `mkdir -p .superpowers/sdd && sed 's/^- \[x\]/- [ ]/' /Users/tweety53/Projects/agents-worktrees/kan-1021-flow-improvement-move-the-bash-hook-and-setup/spectre/changes/archive/kan-1021-flow-improvement-move-the-bash-hook-and-setup/tasks.md > .superpowers/sdd/kan-1021-unticked-tasks.md`
     (the path is gitignored), then `scripts/check-plan-shape.sh .superpowers/sdd/kan-1021-unticked-tasks.md`:
     exit 0 and no `absence sweep searches` line — the misfire passes today.
-  - [ ] **Step 2: Failing test.** Save the diff below to `.superpowers/sdd/pf27-task1.diff`, apply its
+  - [x] **Step 2: Failing test.** Save the diff below to `.superpowers/sdd/pf27-task1.diff`, apply its
     test hunk alone (`git apply --include='stats/internal/guard/check_plan_shape_test.go' .superpowers/sdd/pf27-task1.diff`)
     and run `cd stats && make -s web-dist && go test ./internal/guard/ -run '^TestCheckPlanShape$' -count=1`:
     FAIL on `case 43 (F18): a sweep over a later task's file holding the string fails` and
@@ -371,16 +371,16 @@ index 480dfc82..7218fc54 100644
  	decls := p.baseDeclarations()
 ````
 
-  - [ ] **Step 3: Implement.** Apply the rest
+  - [x] **Step 3: Implement.** Apply the rest
     (`git apply --exclude='stats/internal/guard/check_plan_shape_test.go' .superpowers/sdd/pf27-task1.diff`)
     and rerun Step 2's test: PASS.
-  - [ ] **Step 4: Measure.** Step 1's call exits 1 with exactly four lines — task 5's and task 6's
+  - [x] **Step 4: Measure.** Step 1's call exits 1 with exactly four lines — task 5's and task 6's
     sweeps, each naming `stats/internal/guard/pipelinefix.go` and
     `stats/internal/guard/pipeline_fix_test.go` as task 10's. `scripts/check-plan-shape.sh /Users/tweety53/Projects/agents-worktrees/kan-1021-flow-improvement-move-the-bash-hook-and-setup/spectre/changes/archive/kan-1021-flow-improvement-move-the-bash-hook-and-setup/tasks.md` exits 0
     (every task ticked). `for f in spectre/changes/archive/*/tasks.md; do scripts/check-plan-shape.sh "$f"; done | grep -c 'absence sweep searches'`
     prints `0`.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/` prints nothing;
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/` prints nothing;
     `scripts/check-plan-shape.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh`,
     `scripts/check-installed-citations.sh` and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 6: Commit** `stats/internal/guard/planshape.go`, `stats/internal/guard/check_plan_shape_test.go`,
+  - [x] **Step 6: Commit** `stats/internal/guard/planshape.go`, `stats/internal/guard/check_plan_shape_test.go`,
     `skills/flow/brainstorm-planner.md` and `skills/flow/SKILL-rationale.md` with the subject above.
