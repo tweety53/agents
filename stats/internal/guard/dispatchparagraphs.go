@@ -76,6 +76,9 @@ var dpEntries = map[string]dpEntry{
 		[]string{"never mutate it", "no file edit outside your own report file", "a claim nobody can check"}, nil},
 	"fixround": {"**FIX-ROUND SCOPE:**",
 		[]string{"this is a fix-round re-review", "and nothing else on the branch", "never the module, repository or live-spec suite"}, nil},
+	"subskill": {"**REQUIRED SUB-SKILL:**",
+		[]string{"from its file", "on Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/"},
+		map[string]string{"tdd": "skills/test-driven-development/SKILL.md`", "debugging": "skills/systematic-debugging/SKILL.md`"}},
 	"proofruns": {"**PROOF RUNS:**",
 		[]string{"size the run count to the flake rate you measured", "never a fixed count per step", "shows the check failing with the mechanism removed"}, nil},
 }
@@ -128,6 +131,7 @@ var dpSites = []dpSite{
 	{"readonly", "skills/flow/implement.md", 1, nil},
 	{"fixround", "skills/flow/review-panel-fix-round.md", 1, nil},
 	{"proofruns", "skills/flow/implement.md", 1, nil},
+	{"subskill", "skills/flow/implement.md", 2, []string{"tdd", "debugging"}},
 }
 
 func checkDispatchParagraphs(_ []string, env Env, stdout, stderr io.Writer) int {

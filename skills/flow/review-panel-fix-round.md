@@ -432,8 +432,10 @@ to exactly this shape (**Before closing the stage**, below). Inline
 itself under the same paragraphs, dispatching no subagent, and records the pass with `-role
 panel-fix -model <parent model> -effort <parent effort> -agent-id inline`, `begin` before its first
 edit and `end` once the fix commit lands, as that section's **Records** bullet states. Where a finding is
-confirmed as a real defect, the fix subagent invokes **superpowers:systematic-debugging** before
-writing its fix. **Dispatch it on the decision's `fixer` object** — its own model and effort,
+confirmed as a real defect, the fix subagent reads and follows **superpowers:systematic-debugging**
+from its file before writing its fix — on Claude Code the newest
+`~/.claude/plugins/cache/*/superpowers/*/skills/systematic-debugging/SKILL.md`, since a `flow-*` agent
+carries no Skill tool. **Dispatch it on the decision's `fixer` object** — its own model and effort,
 chosen apart from the implementer's, `subagent_type:
 flow-<effort>` with that `model` passed as the Agent tool's own `model` parameter, and
 `-model`/`-effort` below carry that pair. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`); on harness `muse` the dispatch names no model and no `subagent_type`, and the recorded pair is the session's own. Record

@@ -146,14 +146,14 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 		stderr func(root string) string
 	}{
 		{label: "a clean run prints the OK line on stdout alone", files: clean, rc: 0,
-			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 33 site(s) validated\n" }},
+			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 34 site(s) validated\n" }},
 		{label: "a relative root prints its findings and the INVALID line as given, on stdout alone", files: noRange,
 			env: func(root string) Env {
 				return crEnv(filepath.Dir(root), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": filepath.Base(root)})
 			},
 			rc: 1, stdout: func(root string) string {
 				b := filepath.Base(root)
-				return b + `/skills/flow/implement.md:88: block carrying "**OUTPUT BUDGET:**" is missing the required phrase: "by line range"` + "\n" +
+				return b + `/skills/flow/implement.md:96: block carrying "**OUTPUT BUDGET:**" is missing the required phrase: "by line range"` + "\n" +
 					"DISPATCH-PARAGRAPHS-INVALID: " + b + " — 1 violation(s)\n"
 			}},
 		{label: "a refusal prints file:0 on stderr alone, dropping earlier sites' findings",
@@ -187,7 +187,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 			}},
 		{label: "with no override the root is FLOW_GUARD_REPO_ROOT", files: clean,
 			env: func(root string) Env { return crEnv(root, map[string]string{"FLOW_GUARD_REPO_ROOT": root}) },
-			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 33 site(s) validated\n" }},
+			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 34 site(s) validated\n" }},
 		{label: "with no override and no FLOW_GUARD_REPO_ROOT it exits 2", files: clean,
 			env: func(root string) Env { return crEnv(root, nil) },
 			rc:  2, stderr: func(string) string {
@@ -299,7 +299,7 @@ func dpInOrder(s string, want []string) bool {
 var dpCases = []dpCase{
 	{files: map[string]string{
 		"review-panel.md": dpDoc(dpReviewerBlock, dpReproducerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpMutationBlock, dpPixelProbeBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpIndependentBlock, dpDelegationBlock, dpDelegationBlock, dpEntryContextBlock, dpFindingsInputBlock, dpContextBundleFailureBlock, dpOutputBudgetBlock),
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock, dpOutputBudgetBlock, dpReadonlyBlock, dpProofRunsBlock),
+		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock, dpOutputBudgetBlock, dpReadonlyBlock, dpProofRunsBlock, dpSubSkillTDDBlock, dpSubSkillDebuggingBlock),
 	},
 		checks: []dpCheck{
 			dpRC("case 1: both sites correct exits 0", 0),
@@ -1119,6 +1119,30 @@ var dpCases = []dpCase{
 			dpRC("case 101: a REPRODUCER block without the zero-count rule exits 1", 1),
 			dpHas("case 101: names the dropped phrase", "missing the required phrase: \"|| true\""),
 		}},
+	{files: map[string]string{
+		"review-panel.md": dpCleanReviewPanel,
+		"implement.md":    strings.Replace(strings.Replace(dpCleanImplement, dpSubSkillTDDBlock+"\n\n", "", 1), dpSubSkillDebuggingBlock+"\n\n", "", 1),
+	},
+		checks: []dpCheck{
+			dpRC("case 102: implement.md without the REQUIRED SUB-SKILL blocks exits 1", 1),
+			dpHas("case 102: names the missing blocks", "requires at least 2 block(s) carrying the label \"**REQUIRED SUB-SKILL:**\", found 0"),
+		}},
+	{files: map[string]string{
+		"review-panel.md": dpCleanReviewPanel,
+		"implement.md":    strings.Replace(dpCleanImplement, "systematic-debugging from its file", "systematic-debugging", 1),
+	},
+		checks: []dpCheck{
+			dpRC("case 103: a debugging block without its file phrase exits 1", 1),
+			dpHas("case 103: names the dropped phrase", "missing the required phrase: \"from its file\""),
+		}},
+	{files: map[string]string{
+		"review-panel.md": dpCleanReviewPanel,
+		"implement.md":    strings.Replace(dpCleanImplement, dpSubSkillDebuggingBlock, dpSubSkillTDDBlock, 1),
+	},
+		checks: []dpCheck{
+			dpRC("case 104: the TDD block twice and no debugging block exits 1", 1),
+			dpHas("case 104: names the unsatisfied variant", "missing a block that satisfies the debugging variant"),
+		}},
 }
 
 // The harness's fixture paragraphs.
@@ -1691,6 +1715,12 @@ const (
 		"> step. Your report states the measured rate and the run count. Sizing the runs never replaces\n" +
 		"> the proof `~/.claude/rules/fix-determinism-at-the-source.md` requires: a determinism fix still\n" +
 		"> shows the check failing with the mechanism removed."
+	dpSubSkillTDDBlock = "> **REQUIRED SUB-SKILL:** Read and follow superpowers:test-driven-development from its file — on\n" +
+		"> Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/test-driven-development/SKILL.md`\n" +
+		"> — RED-GREEN-REFACTOR for this task. Delete any code written before its test."
+	dpSubSkillDebuggingBlock = "> **REQUIRED SUB-SKILL:** When a test fails for a reason RED-GREEN-REFACTOR did not plan, read and\n" +
+		"> follow superpowers:systematic-debugging from its file — on Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/systematic-debugging/SKILL.md`\n" +
+		"> — before writing a fix. An expected RED step needs no such read."
 	dpProofRunsBlockNoFlakeRate = "> **PROOF RUNS:** When a check has to be run repeatedly to prove a flake reproduced or fixed, size\n" +
 		"> the run count to the step count, 10–15 runs by default, never a fixed count per\n" +
 		"> step. Your report states the measured rate and the run count. Sizing the runs never replaces\n" +
@@ -1716,7 +1746,7 @@ var dpReproducerBlock = "> **REPRODUCER:** a reproducer exits non-zero when the 
 	"> `# demonstrates: <path>:<line>:<content>`, never a prose description, and counts with `|| true`."
 
 var dpCleanReviewPanel = dpDoc(dpReviewerBlock, dpReproducerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpMutationBlock, dpPixelProbeBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpIndependentBlock, dpDelegationBlock, dpDelegationBlock, dpEntryContextBlock, dpFindingsInputBlock, dpContextBundleFailureBlock, dpOutputBudgetBlock)
-var dpCleanImplementNoReadonly = dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock)
+var dpCleanImplementNoReadonly = dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock, dpSubSkillTDDBlock, dpSubSkillDebuggingBlock)
 var dpCleanImplement = dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlock)
 
 // dpCleanVisualVerify is one visual-verify site file at its one dispatch

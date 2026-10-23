@@ -523,11 +523,13 @@ output — then the green partner, and makes **one** commit for the pair: the pa
 `**Commit:**` subject and `Task-Id: <partner>` trailer. The red task never has a commit of its
 own; `check-task-commit-fields.sh` resolves the pair from either id against that commit.
 
-> **REQUIRED SUB-SKILL:** Use superpowers:test-driven-development — RED-GREEN-REFACTOR for this
-> task. Delete any code written before its test.
+> **REQUIRED SUB-SKILL:** Read and follow superpowers:test-driven-development from its file — on
+> Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/test-driven-development/SKILL.md`
+> — RED-GREEN-REFACTOR for this task. Delete any code written before its test.
 
-> **REQUIRED SUB-SKILL:** When a test fails for a reason RED-GREEN-REFACTOR did not plan, invoke
-> superpowers:systematic-debugging before writing a fix. An expected RED step needs no invocation.
+> **REQUIRED SUB-SKILL:** When a test fails for a reason RED-GREEN-REFACTOR did not plan, read and
+> follow superpowers:systematic-debugging from its file — on Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/systematic-debugging/SKILL.md`
+> — before writing a fix. An expected RED step needs no such read.
 
 > **PROVE THE GUARD BITES:** When this task's tests assert on configuration or file content — a
 > guard script, an embedded config, a fixture file — a passing run alone is not evidence: break
