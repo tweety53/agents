@@ -1,6 +1,6 @@
 # Call-Efficiency Reviewer Prompt Template
 
-The panel's `call-efficiency` slot, one of the two roles of the always-on extra dispatch — see **The always-on extra dispatch** (`skills/flow/review-panel.md`).
+The panel's `call-efficiency` slot, one of the two roles of the always-on `test-sanity+call-efficiency` extra dispatch — see **The always-on extra dispatches** (`skills/flow/review-panel.md`).
 
 ```
     You are a call-efficiency reviewer. You are NOT doing a plan-alignment or code review, a

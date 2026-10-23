@@ -588,10 +588,11 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
    the bundled findings need separation (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`): its `model` is
    chosen per **Model and effort** below, and its `effort` is `low`, fixed, since a re-run reads a
    delta to confirm a fix and must be short and fast.
-4. **extra dispatch** — on every class, `micro` included: record `plan-class.sh`'s `extra:` line as
-   `extra_dispatch` `{slots, model, effort, reason}` — `slots` `["test-sanity", "call-efficiency"]`,
-   `model` and `effort` the line's pair, `reason` naming its roll. It is never chosen: the roll
-   decides the model and the effort is `low`, always.
+4. **extra dispatches** — on every class, `micro` included: record `plan-class.sh`'s two `extra:`
+   lines, each `{slots, model, effort, reason}` — the first as `extra_dispatch`, `slots`
+   `["test-sanity", "call-efficiency"]`, the second as `extra_dispatch_mutation`, `slots`
+   `["mutation", "failure-modes"]` — `model` and `effort` each line's pair, `reason` naming its
+   roll. Neither is chosen: the roll decides the model and the effort is `low`, always.
 5. **implementer groups** — on every run whose step 1 came out `sdd`: run `plan-dispatch-bundles.sh <changeRoot>/tasks.md`, then
    `plan-dispatch-groups.sh <changeRoot>/tasks.md` for the mechanical default — a deterministic
    grouping biased toward fewer, larger groups (no roll, no static table, no per-group ceiling; at
@@ -631,7 +632,7 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
 
 **The micro row** records defaults, never choices: what it skips is every roster, model/effort and
 grouping choice, and every roll the script printed; what it never skips is the decision record
-itself, the extra dispatch, step 6's visual judgement, the verify stage, or the self-review.
+itself, the extra dispatches, step 6's visual judgement, the verify stage, or the self-review.
 
 #### Model and effort
 
@@ -645,7 +646,7 @@ assigns — the implementer, the fixer, each panel dispatch, the rerun pair, eac
 - **a pair carrying a hard seam** — concurrency, platform interop, a data-model change,
   performance-sensitive code — `opus`, always;
 - **every other pass-1 panel dispatch** — `opus`, always;
-- **the extra dispatch** — its rolled pair, `sonnet` or `opus` at `low`: the one pass-1 panel dispatch that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`, kan-959);
+- **the extra dispatches** — `test-sanity+call-efficiency` and `mutation+failure-modes`, each its own rolled pair, `sonnet` or `opus` at `low`: the only pass-1 panel dispatches that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`, kan-959; kan-1028);
 - **every gated per-task reviewer bundle** — `opus`, always, at the panel roll's effort, never `high`, since no decision pair records it; it is a first-pass review too (`skills/flow/implement.md`);
 - **the rerun pair** — `opus` or `sonnet`; nothing requires it to differ from a pass-1 dispatch.
 
@@ -696,7 +697,7 @@ skipped for the cap is recorded as the string `"experimental": "skipped — bund
 `roster`), `groups` (objects `{bundles, model, effort, reason}`, `bundles` an array of bundle ids, plus
 sibling `groups_mechanical` (arrays of bundle ids), `groups_override` and
 `groups_reason` fields, or all four `null` when `execution` is inline), `visual` (an object
-`{verify, reason}`, `verify` one of `required`, `skipped` or `not configured`), `extra_dispatch` (an object `{slots, model, effort, reason}`, recorded on every class), `parent` (the parent's own
+`{verify, reason}`, `verify` one of `required`, `skipped` or `not configured`), `extra_dispatch` and `extra_dispatch_mutation` (each an object `{slots, model, effort, reason}`, recorded on every class), `parent` (the parent's own
 model/effort, per **Harness mapping** (`skills/flow-contracts/model-policy.md`): `unknown
 (agent-defined)` and `default` where the session does not state them), `overrides` (session-instruction
 overrides to a *result*, each replacing the pair(s) it names for this run; empty unless one was

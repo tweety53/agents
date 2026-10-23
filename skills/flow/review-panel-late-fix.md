@@ -30,14 +30,14 @@ reduction fires; exit 1 → the full path, each failed condition on its own line
 answer, read as the full path; exit 3 → **The append scope** below — the full path for the
 roster, never for the read scope; exit 4 → **The small append** below.
 
-**On trigger, pass 1 is one dispatch: `primary` alone**, beside **The always-on extra dispatch** (`skills/flow/review-panel.md`), which still runs, plus every slot the operator named at
+**On trigger, pass 1 is one dispatch: `primary` alone**, beside **The always-on extra dispatches** (`skills/flow/review-panel.md`), which still run, plus every slot the operator named at
 this stage's start, reading not the whole `final-review.diff` but only
 `<abs-worktree>/.superpowers/sdd/late-fix.diff`, written over the since-close range by
 `write-panel-diff.sh late-fix <abs-worktree> <worktree> <since-close-sha> [<worktree> <since-close-sha>…]`,
 whose exits read as the pass-1 write's. On a decided panel the dispatch runs on the decision's `panel.rerun_dispatch`
 pair under the fix-round re-run's 5-minute ceiling; on a `default` panel, which carries no
 decision to read a pair from, on `opus` at `low` effort under the ordinary 15-minute
-ceiling. Mutation and Failure-modes are not dispatched, and each dropped slot is recorded
+ceiling. Each dropped slot is recorded
 with `flow record pass -round <round> -note 'not dispatched — late-fix reduction: <slot>'`, the
 docs-only reduction's own convention. Every entry check above still runs as any round's — base
 movement, the diff-size cap, the docs-only guard — and where both reductions fire, the late-fix
@@ -88,7 +88,7 @@ narrow. A clean close moves the close sha to the round's HEAD, as any close does
 ## The small append
 
 **A fix run whose late-fix check exits 4 — the append scope's verdict on a countable delta of at
-most 250 changed lines — runs pass 1 as one dispatch: `primary` alone**, beside **The always-on extra dispatch** (`skills/flow/review-panel.md`), which still runs, plus every slot the
+most 250 changed lines — runs pass 1 as one dispatch: `primary` alone**, beside **The always-on extra dispatches** (`skills/flow/review-panel.md`), which still run, plus every slot the
 operator named at this stage's start, on `opus` at `low` effort under the ordinary 15-minute
 ceiling, reading `late-fix.diff` written and rendered as **The append scope** writes and renders
 it. `primary` reads every line of the new source, so nothing appended goes unreviewed; what the

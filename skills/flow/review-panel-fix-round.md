@@ -20,7 +20,7 @@ entry check is an entry step, and the round does not re-run it.
 resolved roster, `primary` alone on a docs-only branch, or `primary` alone on the late-fix delta
 where the reduction's trigger holds, or the decided roster on the since-close delta under the
 append scope, or `primary` alone on that delta under the small append — plus every slot the operator named at this stage's start
-that it did not already carry.** Only re-runs after a fix are scoped. A `test-sanity` or `call-efficiency` role re-runs in the round's rerun bundle like any other role, on `opus` on a `default` panel. Record
+that it did not already carry.** Only re-runs after a fix are scoped. A `test-sanity`, `call-efficiency`, `mutation` or `failure-modes` role re-runs in the round's rerun bundle like any other role, on `opus` on a `default` panel. Record
 `FIX_BASE` — the branch tip the fix round starts from, per worktree — commit the fix, then write
 `<abs-worktree>/.superpowers/sdd/fix-round-N.diff` and its touched list with
 `write-panel-diff.sh fix-round <N> <abs-worktree> <worktree> <fix-base> [<worktree> <fix-base>…]`,
