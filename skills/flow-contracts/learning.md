@@ -16,8 +16,8 @@ flow settings get | jq .learning
 ```
 
 `true` composes a note; `false` composes none. The operator switches it with `/flow-settings`, per
-**Workflow** (`skills/flow-settings/SKILL.md`). A non-zero exit — the store unreachable — prints no
-note and never blocks the run.
+**Workflow** (`skills/flow-settings/SKILL.md`). Anything else — a non-zero exit, or the empty output the pipe
+leaves when the store is unreachable — prints no note and never blocks the run.
 
 ### Choosing a topic
 
@@ -37,19 +37,24 @@ A topic is a lowercase kebab slug (`go-generics`, `advisory-locks`), at most 64 
 ### The note
 
 - **Theory** — one paragraph of at most about 150 words, tied to the run where the topic is.
-- **Puzzle** — a short coding puzzle where the topic admits one, its answer behind a
-  `<details>` block; omitted where it does not.
+- **Puzzle** — a short coding puzzle where the topic admits one, its answer on its own
+  `**Answer:**` line after it — never an HTML fold, per **Handoff output**
+  (`skills/flow-contracts/pipeline.md`); omitted where it does not.
 - **Study** — two or three links, each checked first with
   `curl -sfI --max-time 5 <url>` — credential-free, read-only — and dropped on a non-zero exit.
 
 ### Recording it
 
+Recorded as the final message prints, never at composition, so a run that stops earlier spends no
+showing of the topic:
+
 ```bash
 flow learning add <topic> -note '<the topic in under 80 characters>' -change <name> -C <worktree>
 ```
 
-Exit 1 is the store refusing the topic — malformed, or already shown three times — and the run
-picks another topic. A store that cannot be reached prints the note unrecorded and never blocks.
+Exit 1 with stderr naming `already shown three times` or `rejected` is the store refusing the
+topic, and the run picks another topic. Any other non-zero exit — the store unreachable — prints the
+note unrecorded and never blocks.
 
 ### The printed section
 
@@ -60,9 +65,11 @@ Printed in the run's final message, where the citing phase file places it:
 
 <the theory paragraph>
 
-**Puzzle:** <the puzzle> <details><summary>Answer</summary><the answer></details>
+**Puzzle:** <the puzzle>
+
+**Answer:** <the answer>
 
 **Study:** <link> · <link> · <link>
 ```
 
-`**Puzzle:**` is omitted where the note carries none.
+`**Puzzle:**` and `**Answer:**` are omitted where the note carries none.

@@ -24,8 +24,7 @@ records.
 ## SKILL.md — Model resolution
 
 > An empty list can never reach this table from `/flow-settings`: `<agents repo>/stats/cmd/flow/settings.go`'s
-> `settings set` refuses an empty `-reviewers` as a caller mistake before any write reaches the
-> store. The empty-list row exists because this resolver must still define a value for a state the
+> `settings set` reads an empty `-reviewers` as not given, keeping the stored list. The empty-list row exists because this resolver must still define a value for a state the
 > store's schema permits, not because an operator can produce one.
 
 ## SKILL.md — Guardrails
