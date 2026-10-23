@@ -19,7 +19,7 @@ func TestSettingsStore_RoundTrip(t *testing.T) {
 	ctx := context.Background()
 
 	want := store.Settings{
-		Reviewers: []string{"primary", "principles", "failure-modes", "mutation"},
+		Reviewers: []string{"primary", "principles"},
 	}
 
 	if err := st.PutSettings(ctx, want); err != nil {
@@ -44,7 +44,7 @@ func TestSettingsStore_RoundTripUpdates(t *testing.T) {
 	ctx := context.Background()
 
 	first := store.Settings{Reviewers: []string{"primary"}}
-	second := store.Settings{Reviewers: []string{"primary", "failure-modes"}}
+	second := store.Settings{Reviewers: []string{"primary", "principles"}}
 
 	if err := st.PutSettings(ctx, first); err != nil {
 		t.Fatalf("first PutSettings: %v", err)
@@ -151,7 +151,7 @@ func TestSettingsStore_MigrationDropsRetiredReviewers(t *testing.T) {
 
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO flow_settings (id, reviewers)
-		VALUES (TRUE, '["primary","bugbot","principles","security","code-review-low","simple-reviewer","mutation"]')
+		VALUES (TRUE, '["primary","bugbot","principles","security","code-review-low","simple-reviewer"]')
 		ON CONFLICT (id) DO UPDATE SET reviewers = EXCLUDED.reviewers
 	`); err != nil {
 		t.Fatalf("seed legacy row: %v", err)
@@ -167,12 +167,62 @@ func TestSettingsStore_MigrationDropsRetiredReviewers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSettings: %v", err)
 	}
-	want := []string{"primary", "principles", "mutation"}
+	want := []string{"primary", "principles"}
 	if !reflect.DeepEqual(got.Reviewers, want) {
 		t.Errorf("reviewers = %v, want %v", got.Reviewers, want)
 	}
 	if err := st.PutSettings(ctx, got); err != nil {
 		t.Errorf("PutSettings(migrated row) = %v, want it accepted", err)
+	}
+}
+
+// TestSettingsStore_MigrationDropsExtraDispatchRoles asserts
+// 0044_flow_settings_drop_extra_dispatch_roles.sql strips failure-modes and
+// mutation from a flow_settings row written before kan-1028, keeping the
+// surviving ids' order, and that the migrated row is one PutSettings
+// accepts -- the list /flow-settings' "keep current" writes back.
+func TestSettingsStore_MigrationDropsExtraDispatchRoles(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO flow_settings (id, reviewers)
+		VALUES (TRUE, '["primary","failure-modes","principles","mutation"]')
+		ON CONFLICT (id) DO UPDATE SET reviewers = EXCLUDED.reviewers
+	`); err != nil {
+		t.Fatalf("seed pre-kan-1028 row: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `DELETE FROM schema_migrations WHERE filename = '0044_flow_settings_drop_extra_dispatch_roles.sql'`); err != nil {
+		t.Fatalf("unrecord migration: %v", err)
+	}
+	if err := st.RunMigrations(ctx); err != nil {
+		t.Fatalf("RunMigrations: %v", err)
+	}
+
+	got, err := st.GetSettings(ctx)
+	if err != nil {
+		t.Fatalf("GetSettings: %v", err)
+	}
+	if want := []string{"primary", "principles"}; !reflect.DeepEqual(got.Reviewers, want) {
+		t.Errorf("reviewers = %v, want %v", got.Reviewers, want)
+	}
+	if err := st.PutSettings(ctx, got); err != nil {
+		t.Errorf("PutSettings(migrated row) = %v, want it accepted", err)
+	}
+}
+
+// TestSettingsStore_RejectsExtraDispatchRoles asserts failure-modes and
+// mutation, carried by the always-on extra dispatch since kan-1028, are
+// refused on write like any unknown id.
+func TestSettingsStore_RejectsExtraDispatchRoles(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	for _, id := range []string{"failure-modes", "mutation"} {
+		err := st.PutSettings(ctx, store.Settings{Reviewers: []string{"primary", id}})
+		if !errors.Is(err, store.ErrInvalidReviewer) {
+			t.Errorf("PutSettings(%q) error = %v, want it to wrap ErrInvalidReviewer", id, err)
+		}
 	}
 }
 

@@ -97,7 +97,7 @@ func TestSettingsAPI_Put_Valid(t *testing.T) {
 	ts := newSettingsTestServer(t, fs)
 	defer ts.Close()
 
-	body := `{"reviewers":["primary","principles","mutation","failure-modes"]}`
+	body := `{"reviewers":["primary","principles"]}`
 	req, err := http.NewRequest(http.MethodPut, ts.URL+"/api/v1/settings", bytes.NewReader([]byte(body)))
 	if err != nil {
 		t.Fatalf("build request: %v", err)
@@ -115,7 +115,7 @@ func TestSettingsAPI_Put_Valid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSettings: %v", err)
 	}
-	want := []string{"primary", "principles", "mutation", "failure-modes"}
+	want := []string{"primary", "principles"}
 	if len(got.Reviewers) != len(want) {
 		t.Fatalf("stored reviewers = %v, want %v", got.Reviewers, want)
 	}

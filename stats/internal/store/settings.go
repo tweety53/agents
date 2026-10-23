@@ -26,17 +26,17 @@ var ValidModels = map[string]bool{
 // "code-review-low" once it proved a shallower copy of primary's
 // code-review angle; "bugbot" and "security" once the flow store showed
 // security raising no finding and bugbot the lowest yield of any slot;
-// "failure-modes" was promoted from the experimental exp-failure-modes
-// prompt. The store rejects every retired id like any other unknown id.
-// Only writes are validated: the record/aggregate paths read historical
-// rows carrying a retired id unchanged, and a stored flow_settings list
-// had its retired ids stripped once by
-// 0033_flow_settings_drop_retired_reviewers.sql.
+// "failure-modes" and "mutation" once kan-1028 moved both onto the
+// always-on mutation+failure-modes extra dispatch, which every pass 1 runs
+// whatever this list holds. The store rejects every retired id like any
+// other unknown id. Only writes are validated: the record/aggregate paths
+// read historical rows carrying a retired id unchanged, and a stored
+// flow_settings list had its retired ids stripped once by
+// 0033_flow_settings_drop_retired_reviewers.sql and
+// 0044_flow_settings_drop_extra_dispatch_roles.sql.
 var ValidReviewers = map[string]bool{
-	"primary":       true,
-	"principles":    true,
-	"failure-modes": true,
-	"mutation":      true,
+	"primary":    true,
+	"principles": true,
 }
 
 // ErrInvalidReviewer is returned by PutSettings when a Reviewers entry is
