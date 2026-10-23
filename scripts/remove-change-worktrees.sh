@@ -25,8 +25,10 @@
 #     with a distinct regular file at the same path in the repository's
 #     main checkout (the first entry of its worktree list) is preserved —
 #     a per-worktree copy of a main-checkout local config, identical or
-#     not; an entry with no such counterpart, or below the root, stays
-#     unpreserved.
+#     not — and so is a symlink there resolving to that regular file
+#     (a link the project's dev tooling made; removal drops the link
+#     alone); an entry with no such counterpart, or below the root,
+#     stays unpreserved.
 #   the disclosure stop — without --proceed, an unpreserved unclassified
 #     entry or any wave-group copy stops here, before check 5 runs anything;
 #     preserved entries alone are shown and the removal proceeds.
@@ -57,6 +59,7 @@
 #   UNCLASSIFIED: <worktree> — <path>            check 4, one per entry
 #   UNCLASSIFIED: <worktree> — <path> — preserved: identical in <main-checkout>
 #   UNCLASSIFIED: <worktree> — <path> — preserved: differs from <main-checkout>
+#   UNCLASSIFIED: <worktree> — <path> — preserved: linked to <main-checkout>
 #   REGENERATABLE: <worktree> — <count>          check 4
 #   SKIPPED: check 5 — ## stop declares no fenced command   a declared `## stop`
 #     whose body carries no fence; check 5 is skipped, never silently

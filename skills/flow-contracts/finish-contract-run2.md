@@ -148,7 +148,7 @@ the handoff's **Remote branch:** — deleted, already gone, or not deleted. Exit
 `worktrees`. Exit 2: stop and report. Exit 3: the disclosure stop — nothing removed and nothing
 run; relay its `UNCLASSIFIED:` and `DISCLOSE:` lines per check 4 and the wave-group copies below,
 ask only what they ask, then call again with `--proceed`.
-An unclassified entry at the worktree root that is a regular file with a distinct regular file at the same path in the repository's main checkout — a per-worktree copy of a main-checkout local config such as `.env` — is preserved: its `UNCLASSIFIED:` line ends `— preserved: identical in <main-checkout>`, or `— preserved: differs from <main-checkout>` when the bytes differ, it never makes the disclosure stop, and it is relayed per check 4 whatever the exit; an entry with no counterpart there is unpreserved and still stops.
+An unclassified entry at the worktree root that is a regular file with a distinct regular file at the same path in the repository's main checkout — a per-worktree copy of a main-checkout local config such as `.env` — or a symlink resolving to the regular file at that path, as a project's dev tooling links one in, is preserved: its `UNCLASSIFIED:` line ends `— preserved: identical in <main-checkout>`, `— preserved: differs from <main-checkout>` when the bytes differ, or `— preserved: linked to <main-checkout>` for the symlink, it never makes the disclosure stop, and it is relayed per check 4 whatever the exit; an entry with no counterpart there is unpreserved and still stops.
 
 **Check 6 requires the orchestrating shell's own cwd to be outside every worktree in the resolved
 set before it runs.** `cd` out first, for every worktree, before

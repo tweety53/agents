@@ -59,7 +59,8 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 	listed, copies := changeWorktrees(porcelain, name)
 	// The main checkout is the porcelain's first entry, whatever <repo> named:
 	// an unclassified entry with a counterpart at the same path there — a
-	// per-worktree copy of a main-checkout local config — is preserved.
+	// per-worktree copy of a main-checkout local config, or a symlink to
+	// it — is preserved.
 	mainCheckout, _ := strings.CutPrefix(strings.SplitN(string(porcelain), "\n", 2)[0], "worktree ")
 	// An already-removed worktree is success: only its registration is left,
 	// which the prune below clears.
@@ -119,6 +120,8 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 					how = "identical in"
 				}
 				fmt.Fprintf(stdout, "UNCLASSIFIED: %s — %s — preserved: %s %s\n", wt, rcwFlat(p), how, rcwFlat(mainCheckout))
+			case wt != mainCheckout && !strings.Contains(p, "/") && rcwLinkToCounterpart(wt+"/"+p, mainCheckout+"/"+p):
+				fmt.Fprintf(stdout, "UNCLASSIFIED: %s — %s — preserved: linked to %s\n", wt, rcwFlat(p), rcwFlat(mainCheckout))
 			default:
 				unpreserved = true
 				fmt.Fprintf(stdout, "UNCLASSIFIED: %s — %s\n", wt, rcwFlat(p))
@@ -342,6 +345,17 @@ func rcwCounterpart(a, b string) bool {
 	fa, errA := os.Lstat(a)
 	fb, errB := os.Lstat(b)
 	return errA == nil && errB == nil && fa.Mode().IsRegular() && fb.Mode().IsRegular() && !os.SameFile(fa, fb)
+}
+
+// rcwLinkToCounterpart reports whether a is a symlink resolving to b, a
+// regular file — check 4's "preserved" for a main-checkout local config a
+// project's dev tooling links into the worktree (kan-1026: gymie's
+// linkEnvFile .env). Removing the worktree removes the link alone.
+func rcwLinkToCounterpart(a, b string) bool {
+	la, errL := os.Lstat(a)
+	fa, errA := os.Stat(a)
+	fb, errB := os.Lstat(b)
+	return errL == nil && errA == nil && errB == nil && la.Mode()&os.ModeSymlink != 0 && fb.Mode().IsRegular() && os.SameFile(fa, fb)
 }
 
 // rcwSameBytes reports whether a and b hold the same bytes — which of the

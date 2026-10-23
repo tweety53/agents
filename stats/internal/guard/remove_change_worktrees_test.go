@@ -378,6 +378,58 @@ func TestRemoveChangeWorktreesDisclose(t *testing.T) {
 		}
 	})
 
+	// kan-1026: a .env the project's dev tooling symlinks to the main
+	// checkout's is preserved — shown, the removal proceeds in the same call,
+	// and the main checkout's file survives it.
+	t.Run("an entry linked to the main checkout's proceeds", func(t *testing.T) {
+		t.Parallel()
+		fx := rcwNewFx(t)
+		fx.g.write(fx.repo+"/.env", "SECRET=1")
+		if err := os.Symlink(fx.repo+"/.env", fx.wt+"/.env"); err != nil {
+			t.Fatal(err)
+		}
+		code, out, errb := fx.run(t, nil)
+		if code != 0 || rcwExists(fx.wt) || len(rcwLines(out, "DISCLOSE: ")) != 0 {
+			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
+		}
+		if l := rcwLines(out, "UNCLASSIFIED: "); len(l) != 1 || !strings.Contains(l[0], " — .env — preserved: linked to ") {
+			t.Errorf("UNCLASSIFIED lines %q, want .env shown as preserved, linked", l)
+		}
+		if !rcwExists(fx.repo + "/.env") {
+			t.Errorf("the main checkout's .env is gone")
+		}
+	})
+
+	// kan-1026: a link is preserved only when it resolves to the main
+	// checkout's counterpart — a link elsewhere, a dangling link, or a link
+	// into the worktree itself still stops.
+	for _, tc := range []struct {
+		name   string
+		target func(fx *rcwFx) string
+	}{
+		{"a link outside the main checkout stops", func(fx *rcwFx) string {
+			p := t.TempDir() + "/.env"
+			fx.g.write(p, "SECRET=1")
+			return p
+		}},
+		{"a dangling link stops", func(fx *rcwFx) string { return fx.dir + "/missing.env" }},
+		{"a link into the worktree stops", func(fx *rcwFx) string { return fx.wt + "/work.txt" }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fx := rcwNewFx(t)
+			fx.g.write(fx.repo+"/.env", "SECRET=1")
+			if err := os.Symlink(tc.target(fx), fx.wt+"/.env"); err != nil {
+				t.Fatal(err)
+			}
+			code, out, _ := fx.run(t, nil)
+			if code != 3 || len(rcwLines(out, "DISCLOSE: ")) == 0 {
+				t.Fatalf("exit %d, stdout %q; want 3 and DISCLOSE lines", code, out)
+			}
+			fx.assertUntouched(t)
+		})
+	}
+
 	// pipeline-fix-19: a Finder .DS_Store anywhere and a Playwright
 	// checkout's root screenshot-spec output are regeneratable — counted, never
 	// a disclosure stop; the same root .png outside a Playwright checkout, or
