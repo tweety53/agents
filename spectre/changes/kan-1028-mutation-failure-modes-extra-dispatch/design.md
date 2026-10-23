@@ -40,6 +40,13 @@
 **Chosen:** `mutation+failure-modes`, the operator's own spelling, everywhere: plan-class output, `extra_dispatch_mutation.slots`, `flow record dispatch -slot`, `render-slot-prompt.sh`'s slot argument.
 **Considered:** `failure-modes+mutation` (old roster order, mutating role last) — rejected, the bundle is its own dispatch so the overflow ordering it served no longer applies.
 
+### Learning note is a file beside the repository
+
+**ID:** learning-note-file
+**Status:** active
+**Chosen:** the note is written to `<project>-learning/<name>.md`, `<project>` the main checkout's absolute path, the folder created on first use and never inside a git repository; its absolute path is printed the moment the note is composed (`flow.load-context` on `/flow`, the same stage on `/flow-fast`), and the handoff's `**Learning:**` line repeats the path in place of the `## Learning` section. Recorded with `flow learning add` when the file is written. Operator's request (2026-10-23).
+**Considered:** keeping the section inline in the handoff — rejected by the operator, it arrives only at the end of the run; writing it under the worktree or `flow state dir` — rejected, the operator asked for a sibling folder like `<project>-worktrees`, outside git.
+
 ## Open questions
 
 ## Live check
