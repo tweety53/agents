@@ -724,9 +724,9 @@ func TestRecordDispatchSendsAgentIDOnlyWhenGiven(t *testing.T) {
 	}
 
 	t.Run("given", func(t *testing.T) {
-		sent := send(t, "-agent-id", "agent-example0001")
-		if sent["agentId"] != "agent-example0001" {
-			t.Errorf("agentId = %v, want agent-example0001", sent["agentId"])
+		sent := send(t, "-agent-id", "a0123456789abcdef")
+		if sent["agentId"] != "a0123456789abcdef" {
+			t.Errorf("agentId = %v, want a0123456789abcdef", sent["agentId"])
 		}
 	})
 
@@ -883,9 +883,9 @@ func TestDispatchEndAcceptsAgentID(t *testing.T) {
 	}
 
 	t.Run("given", func(t *testing.T) {
-		sent := send(t, "-agent-id", "agent-example0001")
-		if sent["agentId"] != "agent-example0001" {
-			t.Errorf("agentId = %v, want agent-example0001", sent["agentId"])
+		sent := send(t, "-agent-id", "a0123456789abcdef")
+		if sent["agentId"] != "a0123456789abcdef" {
+			t.Errorf("agentId = %v, want a0123456789abcdef", sent["agentId"])
 		}
 	})
 
@@ -6146,5 +6146,22 @@ func TestRecordDispatchBeginRefusesAKeyEndingInADash(t *testing.T) {
 	}
 	if code, stderr, _ := dispatchCall(t, "begin", "-agent-id", "inline", "-key", "verify-gymie"); code != 0 {
 		t.Errorf("-key verify-gymie: exit %d, stderr %q; want 0", code, stderr)
+	}
+}
+
+// TestRecordDispatchRefusesAnInventedAgentID pins kan-1009's unmeasured
+// rows: a dispatch label passed as -agent-id blocks the daemon's stamp, so
+// begin and end refuse anything but a harness id, inline or none.
+func TestRecordDispatchRefusesAnInventedAgentID(t *testing.T) {
+	for _, c := range []struct{ verb, id string }{{"begin", "task-11"}, {"end", "visual-verify"}} {
+		code, stderr, requests := dispatchCall(t, c.verb, "-key", "verify-gymie", "-agent-id", c.id)
+		if code != 2 || !strings.Contains(stderr, fmt.Sprintf("%q", c.id)) || !strings.Contains(stderr, "omit -agent-id") || requests != 0 {
+			t.Errorf("%s -agent-id %s: exit %d, %d requests, stderr %q; want exit 2, 0 requests, the value named and omit -agent-id", c.verb, c.id, code, requests, stderr)
+		}
+	}
+	for _, id := range []string{"a30f48a5e14b11392", "agent_541a9582-890b-417e-a3c3-419047bb4ee6", "inline", "none"} {
+		if code, stderr, _ := dispatchCall(t, "begin", "-key", "verify-gymie", "-agent-id", id); code != 0 {
+			t.Errorf("begin -agent-id %s: exit %d, stderr %q; want 0", id, code, stderr)
+		}
 	}
 }

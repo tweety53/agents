@@ -938,6 +938,17 @@ func runRecordDispatchVerb(ctx context.Context, args []string, stdout, stderr io
 	}
 }
 
+// harnessAgentID is the id shape each harness writes: Claude Code's
+// a<16 hex>, ZCode's agent_<uuid> (harvest.AgentIDFromRolloutPath).
+var harnessAgentID = regexp.MustCompile(`^(a[0-9a-f]{16}|agent_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$`)
+
+// validAgentIDFlag reports whether -agent-id is absent, inline, none or a
+// harness id. A dispatch label passed instead blocks the daemon's stamp and
+// leaves the row unmeasured (kan-1009's self-review).
+func validAgentIDFlag(id string) bool {
+	return id == "" || id == "inline" || id == "none" || harnessAgentID.MatchString(id)
+}
+
 // runRecordDispatchBegin implements `flow record dispatch begin`: the
 // opening call, sent as the dispatch starts, carrying everything already
 // known then -- the task, the role, the slot, the model, the harness's
@@ -1029,6 +1040,10 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		[2]string{"-key", *key},
 		[2]string{"-session-token", *sessionToken},
 	) {
+		return 2
+	}
+	if !validAgentIDFlag(*agentID) {
+		fmt.Fprintf(stderr, "flow: -agent-id %q is not a harness id -- omit -agent-id and the daemon stamps the launch (skills/flow/implement.md)\n", *agentID)
 		return 2
 	}
 	if *agentID == "none" {
@@ -1261,6 +1276,10 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 	// means "not given here" -- which never clears an identifier begin
 	// already recorded -- rather than the store's placeholder refusal
 	// (KAN-560, panel F2/F4).
+	if !validAgentIDFlag(*agentID) {
+		fmt.Fprintf(stderr, "flow: -agent-id %q is not a harness id -- omit -agent-id and the daemon stamps the launch (skills/flow/implement.md)\n", *agentID)
+		return 2
+	}
 	if *agentID == "none" {
 		*agentID = ""
 	}
