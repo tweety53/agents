@@ -542,7 +542,7 @@ clock step 8 pins, bring the view to the motion's start, then record frames from
 trigger until the view settles — a CDP screencast (`Page.startScreencast`, each frame acknowledged
 with `Page.screencastFrameAck`) — while driving the trigger (a tap, a navigation, a drag through `page.mouse` in small
 steps). Never sample with `page.screenshot`: the Chromium page this step mandates always
-carries the screencast, and sampling skips the frames it catches (kan-995). Write the frames, in order, to `<changeRoot>/visual-verification/motion/<motion
+carries the screencast, and sampling skips the frames it catches (kan-995). **A motion that changes an element's height is recorded in a viewport tall enough to hold that element's settled height** — step 8's viewport made taller for that recording alone — since an element whose bottom edge leaves the viewport reads as no height change (kan-1008: an 816px viewport twice reported "no height animation"). Write the frames, in order, to `<changeRoot>/visual-verification/motion/<motion
 id>/<nnn>-<ms>.png`, `<ms>` the frame's offset in milliseconds from the trigger — the screencast
 frame's own timestamp — read every one, and
 judge the strip frame by frame: **every frame shows the view
