@@ -106,6 +106,19 @@ var ErrAgentIDInvalid = errors.New("store: invalid agent id")
 // cost unmeasured.
 var ErrInlineWindowTooShort = errors.New("store: inline dispatch window too short")
 
+// ErrTokensOnHarvestedSession is returned by EndDispatch when an end carries
+// a caller token report (-tokens) for a session token begun on a harness
+// whose transcript the harvester reads (harvestedHarnesses): the harvester
+// credits that row, and the report would replace what it measured.
+// Refused on the store's own record, never the caller's environment --
+// kan-1026's full-suite-fix-1 row went through with CLAUDE_CODE_SESSION_ID
+// unset for one call.
+var ErrTokensOnHarvestedSession = errors.New("store: token report refused on a harvested session")
+
+// harvestedHarnesses are the stage-run harnesses whose transcripts the
+// daemon's watcher reads (cmd/flowd: the Claude and ZCode rollout sources).
+var harvestedHarnesses = []string{"claude-code", "zcode"}
+
 // ErrInlineCommitMissing is returned by EndDispatch when an inline row on a
 // task's implementer key (`task-<n>-implementer…`) closes completed with no
 // commit sha: kan-1003's tasks 10–22 recorded none, so no row could be tied
@@ -551,6 +564,17 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 	// identifier (KAN-560).
 	if err := validateAgentID(in.AgentID); err != nil {
 		return records.Dispatch{}, fmt.Errorf("store: end dispatch %q for %s/%s: %w", in.Key, projectKey, change, err)
+	}
+	if in.Tokens != nil {
+		var harvested bool
+		if err := s.pool.QueryRow(ctx, `
+			SELECT EXISTS (SELECT 1 FROM stage_runs WHERE session_token = $1 AND harness = ANY($2))`,
+			in.SessionToken, harvestedHarnesses).Scan(&harvested); err != nil {
+			return records.Dispatch{}, fmt.Errorf("store: end dispatch %q for %s/%s: read session harness: %w", in.Key, projectKey, change, err)
+		}
+		if harvested {
+			return records.Dispatch{}, fmt.Errorf("%w: %s/%s key %q -- session token %q runs on a harness whose transcript the harvester reads; drop -tokens, and record a begin and commit made in one call with flow record dispatch backfill -agent-id inline -commit <sha>", ErrTokensOnHarvestedSession, projectKey, change, in.Key, in.SessionToken)
+		}
 	}
 	if in.Outcome == "completed" {
 		var agentID *string

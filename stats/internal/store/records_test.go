@@ -3802,6 +3802,39 @@ func TestListFindingPatternOccurrencesRefusesSeparatorsOnly(t *testing.T) {
 	}
 }
 
+func TestEndDispatchRefusesTokensOnAHarvestedSession(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+
+	projectKey := fmt.Sprintf("proj-end-tokens-harvested-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	const token, key = "mf-k1026r1", "full-suite-fix-1"
+	begin := baseBeginInput(projectKey, "kan-1", "/flow", "implementation")
+	begin.SessionToken = ptr(token)
+	if _, err := st.BeginStage(ctx, begin); err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	dispatch := baseDispatch("implementer", "opus")
+	dispatch.SessionToken, dispatch.Key, dispatch.AgentID = token, key, "inline"
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", dispatch); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+
+	_, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{
+		SessionToken: token,
+		Key:          key,
+		Outcome:      "completed",
+		EndedAt:      dispatch.StartedAt,
+		Tokens:       &records.TokenReport{Input: 1, Output: 1},
+	})
+	if !errors.Is(err, store.ErrTokensOnHarvestedSession) {
+		t.Fatalf("EndDispatch with -tokens on a claude-code session = %v, want ErrTokensOnHarvestedSession", err)
+	}
+	if !strings.Contains(err.Error(), "flow record dispatch backfill -agent-id inline -commit") {
+		t.Errorf("refusal names no sanctioned route: %v", err)
+	}
+}
+
 // TestEndDispatchWritesReportedTokensIntoBag pins the KAN-525 write end to
 // end against a real database: an end carrying a caller's TokenReport
 // stores it under the bag's "tokens.main" and stamps the row "reported" --
@@ -3819,6 +3852,9 @@ func TestEndDispatchWritesReportedTokensIntoBag(t *testing.T) {
 	)
 	begin := baseBeginInput(projectKey, "kan-1", "/flow-fast", "inline implementation")
 	begin.SessionToken = ptr(token)
+	// A harness whose transcript the harvester never reads: -tokens is its
+	// only measurement (ErrTokensOnHarvestedSession).
+	begin.Harness = "muse"
 	if _, err := st.BeginStage(ctx, begin); err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -3895,6 +3931,9 @@ func TestEndDispatchTokenReplayIsIdempotent(t *testing.T) {
 	)
 	begin := baseBeginInput(projectKey, "kan-1", "/flow-fast", "inline implementation")
 	begin.SessionToken = ptr(token)
+	// A harness whose transcript the harvester never reads: -tokens is its
+	// only measurement (ErrTokensOnHarvestedSession).
+	begin.Harness = "muse"
 	if _, err := st.BeginStage(ctx, begin); err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
