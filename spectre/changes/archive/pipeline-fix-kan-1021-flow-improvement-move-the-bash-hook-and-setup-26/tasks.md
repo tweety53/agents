@@ -34,14 +34,14 @@ the contract sentence in `skills/flow-contracts/finish-contract-run1.md` and its
   stays new work (`self-review-loop-base`).
 - The contract sentence and the code state the same base.
 
-- [ ] 1. Run an archived re-run's reshape base past the self-review loop
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
+- [x] 1. Run an archived re-run's reshape base past the self-review loop
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
     `/tmp/pf26-task1.diff`, apply its test hunk alone
     (`git apply --include='stats/internal/guard/integrate_change_prepare_test.go' /tmp/pf26-task1.diff`)
     and from `stats/` run `make -s web-dist && go test ./internal/guard -run
     'TestIntegrateChangePrepareCommit/archived_rerun_self_review'`: FAIL, output carrying
     `ARCHIVED: demo — with new work` and `STOP: unfinished-work`.
-  - [ ] **Step 2: Implement.** Apply the rest
+  - [x] **Step 2: Implement.** Apply the rest
     (`git apply --exclude='stats/internal/guard/integrate_change_prepare_test.go' /tmp/pf26-task1.diff`):
 
 ````diff verified:applied with git apply to this worktree at e77f951b; the new case fails with integratechange.go untouched and passes with it; go test -run TestIntegrateChange, go vet ./..., gofmt -l ., check-references, check-markdown-integrity, check-normative-inventory and check-verbatim-moves (with this change's verbatim-moves.txt) exit clean
@@ -174,11 +174,11 @@ index ac3f7190..ab2fb158 100644
  func icFirstSubject(log string, subjects ...string) string {
 ````
 
-  - [ ] **Step 3: Verify.** From `stats/`: `gofmt -l .` prints nothing; `make -s web-dist && go vet
+  - [x] **Step 3: Verify.** From `stats/`: `gofmt -l .` prints nothing; `make -s web-dist && go vet
     ./...` exits 0; `go test ./internal/guard -run 'TestIntegrateChange'` exits 0. From the
     worktree root: `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh`,
     `scripts/check-normative-inventory.sh` and `scripts/check-verbatim-moves.sh` exit 0.
-  - [ ] **Step 4: Commit** the four files with the subject below.
+  - [x] **Step 4: Commit** the four files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/integratechange.go`, `stats/internal/guard/integrate_change_prepare_test.go`, `skills/flow-contracts/finish-contract-run1.md`, `skills/flow-contracts/finish-contract-rationale.md`
