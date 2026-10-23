@@ -8,3 +8,5 @@
 **The token ends in the run's start time, UTC to the second** — read once with `date -u +%Y%m%dT%H%M%SZ` and typed as a literal, `mf-k1028-20261023T183402Z` — so no two runs share one: a name-derived token alone repeats across sessions (kan-1028: `mf-k1028b`, reused by a resumed run, collided with the dead session's rows).
 A dropped role leaves its `panel.dispatches` bundle too: that bundle dispatches the roles it still names, and a bundle left naming none is not dispatched — so no role an always-on extra dispatch carries runs twice, and no two dispatches of one round create the same `<worktree>-mutation-<round>` copy.
 ⚠ roster: no `flow-low` agent type at conductor depth — primary, principles will be substituted (general-purpose) at panel time
+The tasks still to run follow the new row's implementer and fixer pairs and panel roster, never the first row's.
+So the newest row's `inputs` count the plan that ran (kan-1028: Task 6, added mid-run, left the only row at `tasks=5 files=20` against `tasks=6 files=23`).

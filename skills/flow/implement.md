@@ -834,6 +834,17 @@ superseded decision beside its replacement. The amended plan is
 re-validated — `spectre validate` and `check-plan-shape.sh` — before the next task dispatches; a
 change already archived runs `check-plan-shape.sh` alone, as section 1 does.
 
+**A task added after the decision row is re-decided before it runs.** Whenever `tasks.md` gains a
+task once the run's decision is recorded — a pivot, an operator's mid-run request, any append
+outside a fix run's, which re-decides on its own — the parent re-runs **Decide**
+(`skills/flow/brainstorm-planner.md`) and records the new row as **The appended plan is re-decided
+before load-context.** (`skills/flow/document-fix.md`) does — its own `flow.decide` begin/record/end
+block, opened and closed while `flow.sdd-tdd` stays open — before the added task is implemented. The
+tasks still to run follow the new row's implementer and fixer pairs and panel roster, never the first
+row's. So the newest row's `inputs` count the plan that
+ran (kan-1028: Task 6, added mid-run, left the only row at `tasks=5 files=20` against
+`tasks=6 files=23`).
+
 **The gated per-task reviewer.** One combined review per gate-fired task — spec compliance and
 code quality together — but **one dispatch per bundle of gate-fired tasks, never one per task**,
 the discipline **Bundled dispatch** (`skills/flow/review-panel.md`) applies to panel rounds.
