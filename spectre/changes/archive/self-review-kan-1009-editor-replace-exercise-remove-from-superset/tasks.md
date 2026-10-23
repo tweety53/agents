@@ -39,12 +39,12 @@ route through.
 - A UI file referenced only from outside the UI tree still selects every spec (Task 6).
 - A `//` inside a string such as `https://` does not swallow the rest of the line (Task 6).
 
-- [ ] 1. Refuse a dispatch key ending in a dash and re-key the rows it wrote
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** From `stats/`, run
+- [x] 1. Refuse a dispatch key ending in a dash and re-key the rows it wrote
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** From `stats/`, run
     `go run ./cmd/flow record dispatches -change kan-1009-editor-replace-exercise-remove-from-superset -C /Users/tweety53/Projects/gymie-worktrees/kan-1009-editor-replace-exercise-remove-from-superset`
     and confirm rows 7290, 7308, 7315, 7321 and 7334 carry the keys `design.md` **Context §1**
     lists.
-  - [ ] **Step 2: Write the failing tests.**
+  - [x] **Step 2: Write the failing tests.**
     - `stats/cmd/flow/record_test.go`, `TestRecordDispatchBeginRefusesAKeyEndingInADash`:
       `dispatch begin` with `-key verify-` and with `-key verify-fix-1-` each exit 2, stderr names
       the key, and the fake daemon receives no request; `-key verify-gymie` exits 0.
@@ -53,7 +53,7 @@ route through.
       key; a re-key onto a key another row of the same run holds returns an error and leaves both
       rows as they were; an unknown id returns `store.ErrDispatchNotFound`.
     Run both; they fail.
-  - [ ] **Step 3: Implement.** In `runRecordDispatchBegin` (`stats/cmd/flow/record.go`), beside
+  - [x] **Step 3: Implement.** In `runRecordDispatchBegin` (`stats/cmd/flow/record.go`), beside
     the other key checks, refuse a `-key` with suffix `-`: exit 2 with
     `flow: -key %q ends in '-': a suffix that expanded to nothing (skills/flow/verify-and-handoff.md, verify[-<worktree basename>])`.
     Add `func (s *Store) RekeyDispatch(ctx context.Context, id int64, key string) error` to
@@ -61,11 +61,11 @@ route through.
     `ErrDispatchNotFound` on no row), and `flowd rekey-dispatch <dispatch-id> <key>` to
     `stats/cmd/flowd/main.go`, wired and documented exactly as `retime-dispatch` is.
     Decisions `key-trailing-dash-refused-at-begin`, `rekey-dispatch-command`.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./...` clean;
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./...` clean;
     `go test ./cmd/flow/ -run 'TestRecordDispatchBeginRefusesAKeyEndingInADash|TestRecordDispatchBeginAcceptsDiffBase' -count=1`
     and `go test ./internal/store/ -run 'TestRekeyDispatchSetsTheKey|TestRetimeDispatchSetsInstantsAndCommit' -count=1`
     pass. Commit the five files with the subject below.
-  - [ ] **Step 5: Repair the store.** Build the binary once and re-key each row, each pair
+  - [x] **Step 5: Repair the store.** Build the binary once and re-key each row, each pair
     `<dispatch id>:<key>` from `design.md` **Context §1**:
 
 ```bash verified:row ids and target keys read from flow record dispatches and the parent transcript's Bash calls, 2026-10-23
@@ -91,14 +91,14 @@ done
 **Decision:** key-trailing-dash-refused-at-begin
 **Decision:** rekey-dispatch-command
 
-- [ ] 2. Refuse an invented agent id and restamp the rows it left unmeasured
-  - [ ] **Step 1: Trace before touching anything; do not guess.** In the parent transcript
+- [x] 2. Refuse an invented agent id and restamp the rows it left unmeasured
+  - [x] **Step 1: Trace before touching anything; do not guess.** In the parent transcript
     `/Users/tweety53/.claude/projects/-Users-tweety53-Projects-gymie/9fe58c09-fded-4f35-bacc-6270f79bd1a9.jsonl`,
     confirm the `flow record dispatch begin` Bash calls from `2026-10-23T11:20:06Z` on carry
     `-agent-id` labels (`task-11`, `task-11-rev`, `panel-2-extra`, `visual-verify` …), and that
     the store rows of `design.md` **Context §4**'s table carry those labels with empty `metrics`.
     A row that does not fit the trace is reported, not restamped.
-  - [ ] **Step 2: Write the failing test.** `stats/cmd/flow/record_test.go`,
+  - [x] **Step 2: Write the failing test.** `stats/cmd/flow/record_test.go`,
     `TestRecordDispatchRefusesAnInventedAgentID`: `dispatch begin` with `-agent-id task-11`, and
     `dispatch end` with `-agent-id visual-verify`, each exit 2 with stderr naming the value and
     telling the caller to omit the flag, and the fake daemon receives no request; begin with
@@ -106,16 +106,16 @@ done
     `-agent-id inline` and with `-agent-id none` each exit 0. Change the two
     `agent-example0001` values of `TestRecordDispatchSendsAgentIDOnlyWhenGiven` and
     `TestDispatchEndAcceptsAgentID` to `a0123456789abcdef`. Run it; it fails.
-  - [ ] **Step 3: Implement.** In `stats/cmd/flow/record.go`, one
+  - [x] **Step 3: Implement.** In `stats/cmd/flow/record.go`, one
     `func validAgentIDFlag(id string) bool` — `""`, `inline`, `none`, `^a[0-9a-f]{16}$`,
     `^agent_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$` — called by
     `runRecordDispatchBegin` and `runRecordDispatchEnd` before any request, exit 2 with
     `flow: -agent-id %q is not a harness id -- omit -agent-id and the daemon stamps the launch (skills/flow/implement.md)`.
     Decision `agent-id-shape-at-cli`.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./...` clean;
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./...` clean;
     `go test ./cmd/flow/ -run 'TestRecordDispatchRefusesAnInventedAgentID|TestRecordDispatchSendsAgentIDOnlyWhenGiven|TestDispatchEndAcceptsAgentID' -count=1`
     passes. Commit the two files with the subject below.
-  - [ ] **Step 5: Repair the store.** Build the binary once; restamp each subagent row onto its
+  - [x] **Step 5: Repair the store.** Build the binary once; restamp each subagent row onto its
     agent transcript, each pair `<dispatch id>:<agent id>` from `design.md` **Context §4**, then
     each inline row from the parent transcript:
 
@@ -152,23 +152,23 @@ done
 **Decision:** agent-id-shape-at-cli
 **Decision:** restamp-21-rows
 
-- [ ] 3. Refuse a relative screenshots root in the full-app-suite zip rebuild
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In a scratch directory
+- [x] 3. Refuse a relative screenshots root in the full-app-suite zip rebuild
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In a scratch directory
     holding a `.flow/project.md` whose `screenshots` is `shots`, run
     `scripts/rebuild-full-app-suite-zip.sh <that dir> shots` from a different working directory
     and see the zip land under the working directory, not under `<that dir>`.
-  - [ ] **Step 2: Write the failing test.** In
+  - [x] **Step 2: Write the failing test.** In
     `stats/internal/guard/rebuild_full_app_suite_zip_test.go`, subtest
     `case 7 relative screenshots root`, run through `runGo` alone (the historical bash twin
     accepts it): `[]string{p, "shots"}` exits 2, stderr names `shots`, and no
     `full-app-suite.zip` exists under `p` or the test's working directory. Run it; it fails.
-  - [ ] **Step 3: Implement.** In `rebuildFullAppSuiteZip`
+  - [x] **Step 3: Implement.** In `rebuildFullAppSuiteZip`
     (`stats/internal/guard/rebuildfullappsuitezip.go`), after the usage check, a
     `!filepath.IsAbs(args[1])` exits 2 with
     `rebuild-full-app-suite-zip: <screenshots root> %q is relative — pass it resolved the way resolve-visual-screenshots.sh resolves it`;
     add that exit-2 case to the header of `scripts/rebuild-full-app-suite-zip.sh` and of the Go
     file. Decision `relative-screenshots-root-refused`.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./...` clean;
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./...` clean;
     `go test ./internal/guard/ -run 'TestRebuildFullAppSuiteZip' -count=1` passes;
     `scripts/check-guard-symlinks.sh` exits 0. Commit the three files with the subject below.
 
@@ -183,13 +183,13 @@ done
 
 **Decision:** relative-screenshots-root-refused
 
-- [ ] 4. Expand frame ranges and skip rejected alternatives in the frame-list guard
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+- [x] 4. Expand frame ranges and skip rejected alternatives in the frame-list guard
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `scripts/check-frame-list.sh` on the archived kan-1009 `design.md`
     (`/Users/tweety53/Projects/gymie-worktrees/kan-1009-editor-replace-exercise-remove-from-superset/spectre/changes/archive/kan-1009-editor-replace-exercise-remove-from-superset/design.md`),
     that worktree's `docs/design/mockups` and a report holding only `- frames: 0/0`; see the
     verdict declare `LM-R1`, `LM-R10`, `LM-R3` and `LM-R9` only.
-  - [ ] **Step 2: Write the failing test.** `stats/internal/guard/check_frame_list_test.go`,
+  - [x] **Step 2: Write the failing test.** `stats/internal/guard/check_frame_list_test.go`,
     `TestCheckFrameListExpandsRangesAndSkipsConsidered`: a mockups dir holding `LM-R1.png` to
     `LM-R4.png`, `R1.png` and `R2.png`; a design reading
     ``Frames `docs/design/mockups/LM-R1.png` … `docs/design/mockups/LM-R4.png`.`` and
@@ -197,10 +197,10 @@ done
     covering `LM-R1`–`LM-R4` exit 0 with `4 declared`; the same report missing `LM-R2`'s line
     exits 1 with `no report line: LM-R2`; neither verdict names `R1` or `R2`. A third case,
     `LM-R1 … X3`, declares `LM-R1` alone. Run it; it fails.
-  - [ ] **Step 3: Implement** decision `frame-list-ranges-and-considered` in `checkFrameList`
+  - [x] **Step 3: Implement** decision `frame-list-ranges-and-considered` in `checkFrameList`
     (`stats/internal/guard/framelist.go`), and state both rules in the THE DECLARED LIST
     paragraph of `scripts/check-frame-list.sh`'s header.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./...` clean;
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./...` clean;
     `go test ./internal/guard/ -run 'TestCheckFrameList' -count=1` passes, and the Step 1 run now
     declares the ten `LM-R` frames and no `R1`/`R2`. Commit the three files with the subject below.
 
@@ -215,14 +215,14 @@ done
 
 **Decision:** frame-list-ranges-and-considered
 
-- [ ] 5. Tell the visual verifier to finish the steps its report guard names
-  - [ ] **Step 1: Trace before touching anything; do not guess.** In
+- [x] 5. Tell the visual verifier to finish the steps its report guard names
+  - [x] **Step 1: Trace before touching anything; do not guess.** In
     `/Users/tweety53/.claude/projects/-Users-tweety53-Projects-gymie/9fe58c09-fded-4f35-bacc-6270f79bd1a9/subagents/agent-ae9f09c3949fc0d17.jsonl`,
     confirm the `check-verify-report.sh` call returning `VERIFY-REPORT-INCOMPLETE … 10 not done`
     and the handback that follows it ("left work, not a blocker; it needs a remainder dispatch");
     confirm the dispatch prompt (its first line) carries the REPORT FORMAT paragraph with "costs a
     remainder dispatch".
-  - [ ] **Step 2: Rewrite the paragraph.** In `skills/flow/visual-verify.md`, replace the quoted
+  - [x] **Step 2: Rewrite the paragraph.** In `skills/flow/visual-verify.md`, replace the quoted
     REPORT FORMAT paragraph with:
 
 ```markdown verified:authored for this change from decision report-format-forbids-early-handback
@@ -237,7 +237,7 @@ done
     dispatch", and a verifier handed back with step 10 undone in those words; its remainder ran
     9m34s.`
     <!-- measured: flow record dispatches row 7310 started 16:37:57 ended 16:47:30 @ store read 2026-10-23 -->
-  - [ ] **Step 3: Verify.** `git grep -n -F -e 'costs a remainder dispatch' -- skills` prints
+  - [x] **Step 3: Verify.** `git grep -n -F -e 'costs a remainder dispatch' -- skills` prints
     nothing; `scripts/check-markdown-integrity.sh`, `scripts/check-references.sh`,
     `scripts/check-dispatch-paragraphs.sh` and `scripts/check-verbatim-moves.sh` exit 0. Commit
     with the subject below.
@@ -250,12 +250,12 @@ done
 
 **Decision:** report-format-forbids-early-handback
 
-- [ ] 6. Map a frontend diff to specs through declarations, not comments or whole files
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In the playwright worktree,
+- [x] 6. Map a frontend diff to specs through declarations, not comments or whole files
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In the playwright worktree,
     `node scripts/specs-for-diff.mjs /Users/tweety53/Projects/gymie-frontend-worktrees/kan-1009-editor-replace-exercise-remove-from-superset a6b3e80e | wc -l`
     prints 94.
     <!-- measured: same command @ gymie-playwright 4c62dc9 → 94 -->
-  - [ ] **Step 2: Write the failing tests** in `scripts/specs-for-diff.test.mjs`, in its
+  - [x] **Step 2: Write the failing tests** in `scripts/specs-for-diff.test.mjs`, in its
     existing `specsFor(touched, gated, helpers, ui, others)` style:
     - `a name a caller only mentions in a comment is no call`: the touched file declares
       `HomeRow`; a tagged UI file mentions `HomeRow` only in `// …` and `/** … */`, another calls
@@ -273,14 +273,14 @@ done
     source (`shared/src/commonMain/kotlin/com/gymie/App.kt`) calling `HomeSheet()`, so it still
     pins the every-spec fallback. Run `node --test scripts/specs-for-diff.test.mjs`; the new tests
     fail.
-  - [ ] **Step 3: Implement** decision `specs-walk-declarations` in `scripts/specs-for-diff.mjs`:
+  - [x] **Step 3: Implement** decision `specs-walk-declarations` in `scripts/specs-for-diff.mjs`:
     one `stripComments(text)` applied to every Kotlin text the CLI reads (touched, `ui`,
     `others`); `declared()` with `suspend` and a generic receiver; `reachedBy` following each
     caller through its using top-level declarations only, keyed in `seen` by path plus those
     declarations' names; a caller-less UI file with no reference in `others` ending its branch
     with no specs; `specsFor(touched, gated, helpers = [], ui = [], others = [])`, the CLI
     passing `git -C <frontend> ls-files '*.kt'` minus `UI_FILE` and `INERT` paths as `others`.
-  - [ ] **Step 4: Verify.** `node --test scripts/specs-for-diff.test.mjs` passes, and the Step 1
+  - [x] **Step 4: Verify.** `node --test scripts/specs-for-diff.test.mjs` passes, and the Step 1
     command prints fewer than 94 lines — 51 on the traced copy — and still lists
     <!-- measured: traced copy of specs-for-diff.mjs with all four rules, same diff @ gymie-playwright 4c62dc9 → 51 -->
     `fidelity/list-mode-editor.spec.ts` and `fidelity/kan-847-exercise-info.spec.ts`, the run's
