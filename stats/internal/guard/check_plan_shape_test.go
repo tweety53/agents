@@ -398,6 +398,37 @@ func TestCheckPlanShape(t *testing.T) {
 	r = one(chain("**Baseline:** before=1 after=2 "+m, "**Baseline:** before=1 after=2 <!-- measured: grep -c y g @ abc -->"))
 	want("case 42 (F17): tasks under different measured: commands pass", r.rc == 0, r)
 
+	// Case 43 (F18): an absence sweep covering a later task's file that
+	// still holds the swept string at the base (kan-1021's Tasks 5 and 6).
+	f18 := func(mark, paths string) string {
+		repo := psF15Repo(t)
+		md := repo + "/tasks.md"
+		writeFile(t, md, "- ["+mark+"] 1. Drop the fold\n\n**Files:** `pkg/fold.go`\n**Tests:** none\n**After:** none\n**Commit:** `fix(pkg): drop the fold`\n\n"+
+			"  - [ ] **Step 1: Absence sweep.** `git grep -n -F -e 'TestFoldFixupFolds' -- "+paths+"` prints nothing.\n\n"+
+			"- [ ] 2. Rewire the fold test\n\n**Files:** `pkg/fold_fixup_test.go`\n**Tests:** none — repairs existing tests: `TestFoldFixupFolds`\n**After:** Task 1\n**Commit:** `test(pkg): rewire the fold test`\n")
+		return md
+	}
+	md = f18(" ", "pkg")
+	r = one(md)
+	want("case 43 (F18): a sweep over a later task's file holding the string fails", r.rc == 1 &&
+		has(r, "task 1's absence sweep searches pkg/fold_fixup_test.go, which task 2 owns"), r)
+	mutation("F18", md, md, "absence sweep searches", "case 43 (F18) mutation")
+	r = one(f18(" ", "pkg/fold.go"))
+	want("case 43 (F18): a sweep scoped to the task's own Files passes", r.rc == 0, r)
+	r = one(f18("x", "pkg"))
+	want("case 43 (F18): a ticked task's sweep is not read", r.rc == 0, r)
+	r = one(f18(" ", "./pkg"))
+	want("case 43 (F18): a ./-prefixed sweep path is matched", r.rc == 1 && has(r, "absence sweep searches pkg/fold_fixup_test.go"), r)
+	// An earlier task owning the file may remove the string first.
+	repo := psF15Repo(t)
+	md = repo + "/tasks.md"
+	writeFile(t, md, "- [ ] 1. Drop the test\n\n**Files:** `pkg/fold_fixup_test.go`\n**Tests:** none — repairs existing tests: `TestFoldFixupFolds`\n**After:** none\n**Commit:** `test(pkg): drop the test`\n\n"+
+		"- [ ] 2. Drop the fold\n\n**Files:** `pkg/fold.go`\n**Tests:** none\n**After:** Task 1\n**Commit:** `fix(pkg): drop the fold`\n\n"+
+		"  - [ ] **Step 1: Absence sweep.** `git grep -n -F -e 'TestFoldFixupFolds' -- pkg` prints nothing.\n\n"+
+		"- [ ] 3. Rewire the fold test\n\n**Files:** `pkg/fold_fixup_test.go`\n**Tests:** none — repairs existing tests: `TestFoldFixupFolds`\n**After:** Task 1, 2\n**Commit:** `test(pkg): rewire the fold test`\n")
+	r = one(md)
+	want("case 43 (F18): a file an earlier task owns is not reported", r.rc == 0, r)
+
 	// Unlanded archives: a shim copy with no stats/ beside it cannot build
 	// flow-guard; the same copy with no lib/flow-guard.sh cannot load it.
 	u := t.TempDir()

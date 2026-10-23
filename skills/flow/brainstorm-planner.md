@@ -380,6 +380,9 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > an identifier — its last verify step is one `git grep -n -F` over every string it removes, each
 > passed as its own `-e '<string>'`, scoped to the paths the task touches: the sweep prints
 > nothing when the task is done, and any hit means it is not.
+> Its paths never cover a later task's `**Files:**` while that file still holds a string the
+> sweep removes — `check-plan-shape.sh` refuses that sweep (F18) — nor a comment or doc line a
+> step of the plan tells the task to keep.
 >
 > A removed UI tag, test id or label that a declared `regression checkout` drives
 > (**Project configuration — visual verification**,

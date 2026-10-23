@@ -14,10 +14,10 @@ import (
 )
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
-// judges its commits (check-task-commit-fields) can actually read it. Seventeen
-// findings, F1-F17 (F1-F6's canonical definitions, decisions and rationale:
+// judges its commits (check-task-commit-fields) can actually read it. Eighteen
+// findings, F1-F18 (F1-F6's canonical definitions, decisions and rationale:
 // spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-md-at-plan/
-// design.md -- not restated here; F7-F17's are the rows below).
+// design.md -- not restated here; F7-F18's are the rows below).
 //
 // The guard reads the plan with the very grammar the commit guard reads it
 // with -- tcfParseTask, tcfTaskIDs, tcfIterTasks, tcfSelectTask,
@@ -35,7 +35,7 @@ import (
 // its own real location -- so a run through the shipped
 // skills/flow/scripts/ symlink judges the repository, never skills/flow.
 //
-// Per file, the F1-F17 checks run, then plan-suite-steps
+// Per file, the F1-F18 checks run, then plan-suite-steps
 // (plansuitesteps.go: a task step running a module or repository suite),
 // plan-script-paths (planscriptpaths.go: a step citing a scripts/ path the
 // repository does not carry) and plan-task-id-rule (plantaskidrule.go: a
@@ -148,6 +148,13 @@ import (
 //	    partner's commit and is exempt. `<` rather than `!=`: a task between
 //	    the two may add tests to the same source set under another command
 //	    (kan-916, kan-939). Reported at the task's Baseline line.
+//	F18 An unticked task's absence sweep (a backticked `git grep ... --
+//	    <paths>` followed by `prints nothing`) whose paths cover a later
+//	    task's Files path the task does not own, while that file holds one
+//	    of the sweep's `-e '<string>'` strings at the base F15 resolves --
+//	    the sweep cannot print nothing at this task's commit (kan-1021's
+//	    Tasks 5 and 6). A plan whose base does not resolve is not checked.
+//	    Reported at the sweep's line, once per such file.
 //
 // A duplicate task id is check-task-build-green's violation, not this
 // guard's: tcfTaskIDs keeps the first occurrence, and every per-task read
@@ -200,7 +207,7 @@ func psAbs(env Env, p string) string {
 	return filepath.Join(env.Dir, p)
 }
 
-// psCheckOne checks one file: F1-F17, then the three plan sub-guards. off
+// psCheckOne checks one file: F1-F18, then the three plan sub-guards. off
 // names one finding whose decision is disabled -- the harness's mutation
 // proof, which sed-disabled that decision's `if` in a copy of the guard;
 // production passes "".
@@ -279,6 +286,10 @@ var (
 	psIdentRE = regexp.MustCompile(`^[A-Za-z_][\p{L}\p{N}_]*$`)
 	psTestPfx = regexp.MustCompile(`(?i)^test_?`)
 	psNonKey  = regexp.MustCompile(`[^a-z0-9]`)
+	// psSweepRE is F18's absence sweep: group 1 the git grep's options and
+	// strings, group 2 its paths. psSweepPatRE is one `-e '<string>'`.
+	psSweepRE    = regexp.MustCompile("`(git grep [^`]*?) -- ([^`]*)`[" + tcfWS + "]*prints nothing")
+	psSweepPatRE = regexp.MustCompile(`-e[` + tcfWS + `]+'([^']*)'`)
 )
 
 func psWord(r rune) bool { return unicode.IsLetter(r) || unicode.IsNumber(r) || r == '_' }
@@ -350,7 +361,8 @@ func (p *psPlan) check() []string {
 	v = append(v, p.fileOwnership()...)
 	v = append(v, p.baselineConvention()...)
 	v = append(v, p.baselineChain()...)
-	return append(v, p.baseDeclared(ids)...)
+	v = append(v, p.baseDeclared(ids)...)
+	return append(v, p.sweepScope()...)
 }
 
 func (p *psPlan) checkTask(found tcfTaskBody) []string {
@@ -707,37 +719,45 @@ func psKey(name string) string {
 
 type psDecl struct{ file, name string }
 
-// baseDeclarations is F15's (file, name) test declarations in the
-// test-shaped files of the change's base tree; none when the plan sits
-// outside a git repository or no base resolves.
-func (p *psPlan) baseDeclarations() []psDecl {
+// baseRev is the change's base: the merge base of HEAD with
+// branch.<current>.flowBase (its origin/ copy preferred) or else with
+// refs/remotes/origin/HEAD, and run, a git call in the plan's repository
+// root. rev is empty when the plan sits outside a git repository or no base
+// resolves.
+func (p *psPlan) baseRev() (run func(args ...string) (string, bool), rev string) {
 	git := envGit(p.env)
-	run := func(dir string, args ...string) (string, bool) {
+	inDir := func(dir string, args ...string) (string, bool) {
 		out, err := git(append([]string{"-C", dir, "-c", "core.quotePath=false"}, args...)...).Output()
 		return string(out), err == nil
 	}
-	root, ok := run(psDir(filepath.Clean(psAbs(p.env, p.path))), "rev-parse", "--show-toplevel")
+	root, ok := inDir(psDir(filepath.Clean(psAbs(p.env, p.path))), "rev-parse", "--show-toplevel")
 	if !ok {
-		return nil
+		return nil, ""
 	}
 	root = tcfStrip(root)
-	branch, _ := run(root, "branch", "--show-current")
+	run = func(args ...string) (string, bool) { return inDir(root, args...) }
+	branch, _ := run("branch", "--show-current")
 	recorded := ""
 	if branch = tcfStrip(branch); branch != "" {
-		recorded, _ = run(root, "config", "--get", "branch."+branch+".flowBase")
+		recorded, _ = run("config", "--get", "branch."+branch+".flowBase")
 		recorded = tcfStrip(recorded)
 	}
 	candidates := []string{"refs/remotes/origin/HEAD"}
 	if recorded != "" {
 		candidates = []string{"refs/remotes/origin/" + recorded, recorded}
 	}
-	rev := ""
 	for _, ref := range candidates {
-		if out, ok := run(root, "merge-base", "HEAD", ref); ok {
-			rev = tcfStrip(out)
-			break
+		if out, ok := run("merge-base", "HEAD", ref); ok {
+			return run, tcfStrip(out)
 		}
 	}
+	return run, ""
+}
+
+// baseDeclarations is F15's (file, name) test declarations in the
+// test-shaped files of the change's base tree; none when no base resolves.
+func (p *psPlan) baseDeclarations() []psDecl {
+	run, rev := p.baseRev()
 	if rev == "" {
 		return nil
 	}
@@ -745,7 +765,7 @@ func (p *psPlan) baseDeclarations() []psDecl {
 	for _, g := range psTestShaped {
 		args = append(args, ":(glob)**/"+g)
 	}
-	out, _ := run(root, args...)
+	out, _ := run(args...)
 	var decls []psDecl
 	for _, record := range tcfSplitLines(out) {
 		where, text, _ := strings.Cut(record, "\x00")
@@ -758,6 +778,107 @@ func (p *psPlan) baseDeclarations() []psDecl {
 		}
 	}
 	return decls
+}
+
+// sweepScope is F18. A ticked task's sweep already ran, and a later commit
+// may have emptied the file, so it is not read. A file a task at or before
+// the sweeping task lists is skipped: that task may remove the string first.
+// ponytail: one-line sweeps, single-quoted -e strings and plain or ./ paths
+// only (a quoted or :(glob) path is never matched) -- the shape
+// skills/flow/brainstorm-planner.md prescribes; "later" is document order,
+// not **After:** order; and an earlier task listing the file without
+// removing the string is a missed finding. Upgrade: read each earlier
+// task's diff when a plan hits one.
+func (p *psPlan) sweepScope() []string {
+	if !p.on("F18") {
+		return nil
+	}
+	tasks := tcfIterTasks(p.lines)
+	type sweep struct {
+		task        tcfTaskBody
+		line        int
+		paths, pats []string
+		own         []string
+	}
+	var sweeps []sweep
+	files := map[string][]string{}
+	for _, task := range tasks {
+		if tcfUnclosedFence(task.lines) >= 0 {
+			continue // F3b: this task's fields are unread
+		}
+		files[task.id] = p.parse(task.id).files
+		if tcfTaskLineRE.FindStringSubmatch(p.lines[task.taskLine-1])[1] == "x" {
+			continue
+		}
+		tcfUnfenced(task.lines, func(off int, l string) bool {
+			for _, m := range psSweepRE.FindAllStringSubmatch(l, -1) {
+				var pats []string
+				for _, e := range psSweepPatRE.FindAllStringSubmatch(m[1], -1) {
+					pats = append(pats, e[1])
+				}
+				if len(pats) > 0 {
+					sweeps = append(sweeps, sweep{task, task.taskLine + off + 1, strings.FieldsFunc(m[2], tcfIsSpace), pats, files[task.id]})
+				}
+			}
+			return false
+		})
+	}
+	if len(sweeps) == 0 {
+		return nil
+	}
+	run, rev := p.baseRev()
+	if rev == "" {
+		return nil
+	}
+	covers := func(paths []string, f string) bool {
+		return slices.ContainsFunc(paths, func(s string) bool {
+			s = strings.TrimSuffix(strings.TrimPrefix(s, "./"), "/")
+			return s == "." || s == ":/" || f == s || strings.HasPrefix(f, s+"/")
+		})
+	}
+	var v []string
+	for _, s := range sweeps {
+		owner := map[string]string{}
+		earlier := map[string]bool{}
+		later := false
+		for _, task := range tasks {
+			if !later {
+				for _, f := range files[task.id] {
+					earlier[f] = true
+				}
+				later = task.id == s.task.id
+				continue
+			}
+			for _, f := range files[task.id] {
+				if _, ok := owner[f]; !ok && !earlier[f] && covers(s.paths, f) {
+					owner[f] = task.id
+				}
+			}
+		}
+		if len(owner) == 0 {
+			continue
+		}
+		args := []string{"grep", "-l", "-F"}
+		for _, pat := range s.pats {
+			args = append(args, "-e", pat)
+		}
+		args = append(args, rev, "--")
+		for f := range owner {
+			args = append(args, f)
+		}
+		out, _ := run(args...)
+		var held []string
+		for _, l := range tcfSplitLines(out) {
+			if f := strings.TrimPrefix(l, rev+":"); owner[f] != "" {
+				held = append(held, f)
+			}
+		}
+		sort.Strings(held)
+		for _, f := range held {
+			v = append(v, p.at(s.line, "task "+s.task.id+"'s absence sweep searches "+f+", which task "+owner[f]+" owns and which still holds a swept string at the base — the sweep cannot print nothing at this task's commit; scope it to the paths this task touches"))
+		}
+	}
+	return v
 }
 
 // baseDeclared is F15.
