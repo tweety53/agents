@@ -56,6 +56,15 @@ the archive commit the re-run's base and hide that work. Archived-ness is read f
 canonical repository alone because only it holds the change directory; a satellite worktree has
 nothing to judge it by.
 
+The base runs past the self-review loop's own commits, not only its report, because a run 1
+resumed mid-loop — after `chore(spectre): plan self-review-<name>` and its fix commits, before the
+report — otherwise took `chore(spectre): archive <name>` as its base, folded the loop's fix
+commits into a new implementation commit and lost their shas, and carried the loop's plan files
+under `chore(spectre): plan <name>` (kan-1021). A fix commit carries no marker subject, so the
+loop is every commit from its plan commit on; a fix run's own planning commit,
+`chore(spectre): plan <name>` with or without its ` — <stage>` suffix, ends it, since a fix run
+commits that before its first task and its work is new work.
+
 The merge-and-push route pushes `spectre/<name>` before `<base>`, so `origin/spectre/<name>` never
 stays at its pre-reshape tip. Run 2's `git branch -d` does not depend on it: `remove-change-worktrees.sh`
 points the branch's upstream at `origin/<base>` first, because `-d` refuses a branch not merged into

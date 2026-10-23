@@ -128,13 +128,17 @@ worktree's `<project>/spectre/changes/archive/<name>/` exists and its
 somewhere after it, and any fix run since wrote into the archived directory (**A change's
 directory**, `skills/flow-contracts/pipeline.md`).
 
-**An archived re-run's base** is the newest commit in `<merge-base>..HEAD` whose subject is
-`docs(self-review): <name> self-review report` — or, from a run before KAN-927,
-`docs(self-review): <name> self-review context bundle` — else the newest whose subject is
-`chore(spectre): archive <name>`, else `<merge-base>` itself — a satellite worktree whose run 1
+**An archived re-run's base** is the newest commit of the self-review loop in
+`<merge-base>..HEAD`: its `docs(self-review): <name> self-review report` commit — or, from a run
+before KAN-927, `docs(self-review): <name> self-review context bundle` — its
+`chore(spectre): archive self-review-<name>` commit, or, from its
+`chore(spectre): plan self-review-<name>` commit on, every commit above that plan up to a fix
+run's first `chore(spectre): plan <name>` planning commit, with or without its ` — <stage>`
+suffix, which opens new work. Else it is the
+newest whose subject is `chore(spectre): archive <name>`, else `<merge-base>` itself — a satellite worktree whose run 1
 predates KAN-815 holds neither — `<merge-base>` being the merge base the reshape below would otherwise take. Everything at
-or below it is kept untouched — a reshape from that merge base itself would fold the archive and
-report commits into the implementation commit. The re-run **carries new work** when a commit sits
+or below it is kept untouched — a reshape from that merge base itself would fold the archive, the
+self-review loop's plan and fix commits and the report into the implementation commit. The re-run **carries new work** when a commit sits
 above the canonical worktree's base — every fix run commits its plan there, whichever repositories
 its tasks touched — or any worktree in the set holds an uncommitted tracked change, judged at the
 unfinished-work gate, before this run's own narrative append.

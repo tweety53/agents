@@ -73,6 +73,28 @@ g -C "$WORK/a-worktrees/demo" add more.txt && g -C "$WORK/a-worktrees/demo" comm
 sut prepare "$WORK/a" demo
 check "archived_rerun: prepare passes the gate" '[ "$RC" -eq 0 ]'
 check "archived_rerun: b's reshaped commit is not listed" '! printf "%s" "$OUT" | grep -q "feat(b): do the work"'`},
+		{"archived_rerun_self_review", `# --- archived_rerun_self_review: the self-review loop's commits sit below the base ---
+fixture
+to_land "archived_rerun_self_review: " no-report
+A="$WORK/a-worktrees/demo"
+mkdir -p "$A/spectre/changes/self-review-demo"
+printf '# tasks\n' >"$A/spectre/changes/self-review-demo/tasks.md"
+g -C "$A" add spectre/changes/self-review-demo && g -C "$A" commit -qm "chore(spectre): plan self-review-demo"
+printf 'fix\n' >"$A/sr-fix.txt"
+g -C "$A" add sr-fix.txt && g -C "$A" commit -qm "fix(a): a self-review fix"
+sut prepare "$WORK/a" demo
+check "archived_rerun_self_review: a resumed run 1 holds no new work" 'printf "%s\n" "$OUT" | grep -q "^ARCHIVED: demo — without new work"'
+g -C "$A" commit -q --allow-empty -m "chore(spectre): plan demo — fix-run tasks"
+sut prepare "$WORK/a" demo
+check "archived_rerun_self_review: a fix run's plan commit above the loop is new work" 'printf "%s\n" "$OUT" | grep -q "^ARCHIVED: demo — with new work"'
+g -C "$A" commit -q --allow-empty -m "chore(spectre): archive self-review-demo"
+sut prepare "$WORK/a" demo
+check "archived_rerun_self_review: the loop's archive commit re-covers the plan above it" 'printf "%s\n" "$OUT" | grep -q "^ARCHIVED: demo — without new work"'
+g -C "$A" commit -q --allow-empty -m "chore(spectre): plan self-review-demo"
+g -C "$A" commit -q --allow-empty -m "chore(spectre): plan demo"
+g -C "$A" commit -q --allow-empty -m "fix(a): fix-run work"
+sut prepare "$WORK/a" demo
+check "archived_rerun_self_review: a bare fix-run plan commit closes the loop" 'printf "%s\n" "$OUT" | grep -q "^ARCHIVED: demo — with new work"'`},
 		{"no_verdict", `# --- no_verdict ---
 fixture
 : >"$WORK/fail-findings"

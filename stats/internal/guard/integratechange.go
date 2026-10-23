@@ -791,17 +791,45 @@ func (c *ic) baseOf(i int) {
 	}
 }
 
-// archBase: an archived re-run's base.
+// archBase: an archived re-run's base — past the self-review loop's
+// commits when it ran, else the archive commit, else mb.
 func (c *ic) archBase(w, mb string) string {
 	log, _ := c.git("-C", w, "log", "--format=%H %s", mb+"..HEAD")
-	if s := icFirstSubject(log, "docs(self-review): "+c.name+" self-review report", "docs(self-review): "+c.name+" self-review context bundle"); s != "" {
+	if s := c.selfReviewBase(log); s != "" {
 		return s
 	}
-	log, _ = c.git("-C", w, "log", "--format=%H %s", mb+"..HEAD")
 	if s := icFirstSubject(log, "chore(spectre): archive "+c.name); s != "" {
 		return s
 	}
 	return mb
+}
+
+// selfReviewBase: the newest commit of the self-review loop in log (newest
+// first) — its report or bundle, its archive, or, from its plan commit on,
+// every commit up to a fix run's own planning commit, which opens new work.
+func (c *ic) selfReviewBase(log string) string {
+	plan := "chore(spectre): plan " + c.name
+	marks := []string{
+		"docs(self-review): " + c.name + " self-review report",
+		"docs(self-review): " + c.name + " self-review context bundle",
+		"chore(spectre): archive self-review-" + c.name,
+	}
+	base, loop := "", false
+	l := icLines(log)
+	for i := len(l) - 1; i >= 0; i-- {
+		h, s, _ := strings.Cut(l[i], " ")
+		switch {
+		case s == "chore(spectre): plan self-review-"+c.name:
+			base, loop = h, true
+		case icHas(marks, s):
+			base, loop = h, false
+		case s == plan || strings.HasPrefix(s, plan+" — "):
+			loop = false
+		case loop:
+			base = h
+		}
+	}
+	return base
 }
 
 // icFirstSubject: the hash of the first `<hash> <subject>` line whose
