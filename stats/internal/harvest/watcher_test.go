@@ -3728,6 +3728,47 @@ func appendLine(t *testing.T, path, line string) {
 	}
 }
 
+// TestWatcherReadsPanelRoundBeginsScript pins kan-1026's self-review I2: a
+// round's begins recorded by panel-round-begins.sh run inside flow-guard, so
+// the transcript holds only the script's invocation. The watcher reads it as
+// one begin per slot, key panel-<round>-<slot>, token its fourth argument,
+// and both launches stamp a slot row.
+func TestWatcherReadsPanelRoundBeginsScript(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	launch2 := strings.Replace(stampLaunchLine, "a68cee7239419a7e7", "a8884ead3c626d980", 1)
+	launch2 = strings.Replace(launch2, "00:00:01Z", "00:00:02Z", 1)
+	if err := os.WriteFile(path, stampFixtureLines(stampLaunchLine, launch2), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	deps := &stampRecordingDeps{}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (launch batch): %v", err)
+	}
+
+	commandJSON, err := json.Marshal("/a/skills/flow/scripts/panel-round-begins.sh /wt kan-322 4 mf-kan322 primary:opus:high principles:opus:high:origin/main")
+	if err != nil {
+		t.Fatalf("marshal command: %v", err)
+	}
+	appendLine(t, path, `{"type":"assistant","timestamp":"2026-01-01T00:00:03Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":`+string(commandJSON)+`}}]}}`)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (begin batch): %v", err)
+	}
+
+	keys, agents := map[string]bool{}, map[string]bool{}
+	for _, got := range deps.stamps {
+		if got.sessionToken != "mf-kan322" {
+			t.Errorf("stamp %+v, want token mf-kan322", got)
+		}
+		keys[got.key], agents[got.agentID] = true, true
+	}
+	if len(deps.stamps) != 2 || !keys["panel-4-primary"] || !keys["panel-4-principles"] ||
+		!agents["a68cee7239419a7e7"] || !agents["a8884ead3c626d980"] {
+		t.Fatalf("stamps = %+v, want panel-4-primary and panel-4-principles on the two launches", deps.stamps)
+	}
+}
+
 // TestWatcherDeniedBeginNeverClaimsLaterLaunch is the fix the panel's
 // stale-begin finding demanded: a begin whose dispatch was denied -- an
 // errored Agent tool result -- is retired, never left pending, so it

@@ -1225,7 +1225,44 @@ var beginCommandShape = []string{
 // a begin without them, so a fragment missing one is a mention or a
 // mistype, never a row opener.
 func dispatchBeginsFromCommand(command string) []dispatchBeginEvent {
-	return judgeInvocations(command, dispatchBeginFromInvocation)
+	out := judgeInvocations(command, dispatchBeginFromInvocation)
+	judgeInvocations(command, func(invocation string, _ map[string]string) (dispatchBeginEvent, bool) {
+		out = append(out, panelRoundBeginsFromInvocation(invocation)...)
+		return dispatchBeginEvent{}, false
+	})
+	return out
+}
+
+// panelRoundBeginsFromInvocation reads one `panel-round-begins.sh
+// <worktree> <change> <round> <session-token> <slot>:<model>:<effort>...`
+// invocation as the begins it records -- one per slot, under the key
+// panel-<round>-<slot> -- because the script runs them inside flow-guard,
+// so the transcript never holds their `flow record dispatch begin` text
+// (kan-1026's self-review). A round or token that is not a literal names
+// no row and yields nothing.
+func panelRoundBeginsFromInvocation(invocation string) []dispatchBeginEvent {
+	f := strings.Fields(invocation)
+	i := 0
+	for i < len(f) && !strings.HasSuffix(f[i], "/panel-round-begins.sh") && f[i] != "panel-round-begins.sh" {
+		i++
+	}
+	args := f[min(i+1, len(f)):]
+	if len(args) < 5 {
+		return nil
+	}
+	round, token := strings.Trim(args[2], `'"`), strings.Trim(args[3], `'"`)
+	if strings.ContainsAny(round+token, "$`") {
+		return nil
+	}
+	var out []dispatchBeginEvent
+	for _, spec := range args[4:] {
+		slot, _, _ := strings.Cut(strings.Trim(spec, `'"`), ":")
+		if slot == "" || strings.ContainsAny(slot, "$`") {
+			continue
+		}
+		out = append(out, dispatchBeginEvent{SessionToken: token, Key: "panel-" + round + "-" + slot})
+	}
+	return out
 }
 
 // inlineBackfillsFromCommand judges one Bash command's text as zero or more

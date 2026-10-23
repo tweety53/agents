@@ -422,7 +422,9 @@ flow record dispatch end -change <name> -key panel-<round>-<slot|slot+slot+slot>
 ```
 
 Every dispatch of a round launches in one message; every `begin` is recorded in the next Bash
-call, one call for all; the round's wait is one call whose condition is `test -s` on every
+call, one call for all, as `panel-round-begins.sh <worktree> <name> <round> mf-<literal-token>
+<slot>:<model>:<effort>[:<diff-base>]...` — the begin above once per slot, under the literal key
+`panel-<round>-<slot>`, `<round>` written as the number itself, never a shell substitution; the round's wait is one call whose condition is `test -s` on every
 launched pass's report file; every `end` is recorded in one call once they all exist (the turn discipline of **4. Execute
 (SDD + TDD)**, `skills/flow/implement.md`).
 Each `end` passes its own slot's report-file modification time as `-ended-at`, so a slot that finished early is never stamped with the round's last finish (kan-1019: two slots of one round both read 15m31s). A bundled dispatch's `<report-file>` is the newest of its slots' reports.
