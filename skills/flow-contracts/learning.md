@@ -49,8 +49,12 @@ Recorded as the final message prints, never at composition, so a run that stops 
 showing of the topic:
 
 ```bash
-flow learning add <topic> -note '<the topic in under 80 characters>' -change <name> -C <worktree>
+flow learning add <topic> -note '<the topic in under 80 characters>' -change <name> -C <project>
 ```
+
+`-C` names the main checkout, never the worktree: `/flow-fast`'s cleanup has removed its worktree
+before the final message prints, and the project key derives from the git common directory, the
+same from either.
 
 Exit 1 with stderr naming `already shown three times` or `rejected` is the store refusing the
 topic, and the run picks another topic. Any other non-zero exit — the store unreachable — prints the
