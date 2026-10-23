@@ -26,6 +26,7 @@ func (f *fakeStore) GetSettings(_ context.Context) (store.Settings, error) {
 	if f.settings == nil {
 		return store.Settings{
 			Reviewers: append([]string(nil), store.DefaultReviewers...),
+			Learning:  true,
 		}, nil
 	}
 	return *f.settings, nil
@@ -55,8 +56,8 @@ func newSettingsTestServer(t *testing.T, fs *fakeStore) *httptest.Server {
 // TestSettingsAPI_Get asserts GET /api/v1/settings answers with the
 // harness-wide default reviewers when flow_settings holds no row yet -- the
 // GetSettings contract store.DefaultReviewers documents -- and that the
-// body is exactly {"reviewers":[…]}: no model key survives the removal of
-// default_model and self_review_model.
+// body is exactly {"reviewers":[…],"learning":…}: no model key survives the
+// removal of default_model and self_review_model.
 func TestSettingsAPI_Get(t *testing.T) {
 	fs := newFakeStore()
 	ts := newSettingsTestServer(t, fs)
@@ -75,8 +76,8 @@ func TestSettingsAPI_Get(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if len(got) != 1 {
-		t.Errorf("response keys = %v, want reviewers alone", got)
+	if len(got) != 2 {
+		t.Errorf("response keys = %v, want reviewers and learning alone", got)
 	}
 	var reviewers []string
 	if err := json.Unmarshal(got["reviewers"], &reviewers); err != nil {
@@ -225,5 +226,61 @@ func TestSettingsAPI_Put_RejectsDefaultModelField(t *testing.T) {
 	}
 	if fs.settings != nil {
 		t.Errorf("store written = %+v, want untouched", *fs.settings)
+	}
+}
+
+func putSettingsBody(t *testing.T, url, body string) {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPut, url+"/api/v1/settings", bytes.NewReader([]byte(body)))
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("PUT /api/v1/settings: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+}
+
+// TestSettingsHandler_LearningRoundTrip asserts learning off survives a
+// PUT and reads back through GET (learning-in-settings).
+func TestSettingsHandler_LearningRoundTrip(t *testing.T) {
+	fs := newFakeStore()
+	ts := newSettingsTestServer(t, fs)
+	defer ts.Close()
+
+	putSettingsBody(t, ts.URL, `{"reviewers":["primary"],"learning":false}`)
+
+	resp, err := http.Get(ts.URL + "/api/v1/settings")
+	if err != nil {
+		t.Fatalf("GET /api/v1/settings: %v", err)
+	}
+	defer resp.Body.Close()
+	var got struct {
+		Learning *bool `json:"learning"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got.Learning == nil || *got.Learning {
+		t.Errorf("learning = %v, want false", got.Learning)
+	}
+}
+
+// TestSettingsHandler_LearningAbsentReadsOn asserts a PUT without learning
+// stores it on, matching the default (settings-set-merges).
+func TestSettingsHandler_LearningAbsentReadsOn(t *testing.T) {
+	fs := newFakeStore()
+	fs.settings = &store.Settings{Reviewers: []string{"primary"}, Learning: false}
+	ts := newSettingsTestServer(t, fs)
+	defer ts.Close()
+
+	putSettingsBody(t, ts.URL, `{"reviewers":["primary"]}`)
+
+	if !fs.settings.Learning {
+		t.Errorf("stored Learning = false, want true when the body omits it")
 	}
 }

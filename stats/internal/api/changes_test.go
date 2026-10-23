@@ -249,6 +249,7 @@ type fakeStore struct {
 	settings       *store.Settings
 	getSettingsErr error
 	putSettingsErr error
+	learningTopics []store.LearningTopic
 }
 
 func (f *fakeStore) ProjectKeysByDisplayName(_ context.Context, displayName string) ([]string, error) {

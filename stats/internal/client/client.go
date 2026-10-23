@@ -166,6 +166,7 @@ func (c *Client) settingsURL() string { return c.baseURL + "/api/v1/settings" }
 // the CLI knows only HTTP, never the daemon's internal packages.
 type Settings struct {
 	Reviewers []string `json:"reviewers"`
+	Learning  bool     `json:"learning"`
 }
 
 // ErrSettingsRejected means the store was reached and refused a
@@ -230,6 +231,83 @@ func (c *Client) PutSettings(ctx context.Context, in Settings) (Settings, error)
 	default:
 		return Settings{}, fmt.Errorf("%w: unexpected status %d", ErrUnavailable, status)
 	}
+}
+
+// learningURL is flowd's learning-topic endpoint -- GET/POST
+// /api/v1/learning, harness-wide like settingsURL (topics-in-flowd).
+func (c *Client) learningURL() string { return c.baseURL + "/api/v1/learning" }
+
+// LearningTopic is the wire shape POST /api/v1/learning accepts, copied
+// from internal/api's learningTopicDTO for the same boundary reason
+// Settings is.
+type LearningTopic struct {
+	Topic      string `json:"topic"`
+	Note       string `json:"note"`
+	Change     string `json:"change"`
+	ProjectKey string `json:"projectKey"`
+}
+
+// LearningTopicCount is one element of GET /api/v1/learning's array.
+type LearningTopicCount struct {
+	Topic    string `json:"topic"`
+	Count    int    `json:"count"`
+	LastNote string `json:"lastNote"`
+}
+
+// ErrLearningTopicExhausted means the store refused a topic already shown
+// its maximum number of times (HTTP 409, cap-in-store).
+var ErrLearningTopicExhausted = errors.New("client: learning topic already shown three times")
+
+// ErrLearningTopicRejected means the store refused a malformed topic or an
+// empty note (HTTP 400), naming the value in the wrapped text.
+var ErrLearningTopicRejected = errors.New("client: store rejected the learning topic")
+
+// RecordLearningTopic records one learning note via POST /api/v1/learning.
+// A 201 is success; a 409 is ErrLearningTopicExhausted and a 400
+// ErrLearningTopicRejected, each carrying the daemon's message; every
+// other outcome is ErrUnavailable.
+func (c *Client) RecordLearningTopic(ctx context.Context, in LearningTopic) error {
+	respBody, status, err := c.sendJSON(ctx, http.MethodPost, c.learningURL(), in)
+	if err != nil {
+		return err
+	}
+
+	var wire errorWireResponse
+	_ = json.Unmarshal(respBody, &wire)
+	switch status {
+	case http.StatusCreated:
+		return nil
+	case http.StatusConflict:
+		return fmt.Errorf("%w: %s", ErrLearningTopicExhausted, wire.Error)
+	case http.StatusBadRequest:
+		return fmt.Errorf("%w: %s", ErrLearningTopicRejected, wire.Error)
+	default:
+		return fmt.Errorf("%w: unexpected status %d", ErrUnavailable, status)
+	}
+}
+
+// ListLearningTopics fetches every recorded topic with its count via GET
+// /api/v1/learning. Any outcome other than a 200 with a well-formed body
+// is ErrUnavailable.
+func (c *Client) ListLearningTopics(ctx context.Context) ([]LearningTopicCount, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.learningURL(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+
+	body, status, err := c.send(req)
+	if err != nil {
+		return nil, err
+	}
+	if status != http.StatusOK {
+		return nil, fmt.Errorf("%w: unexpected status %d", ErrUnavailable, status)
+	}
+
+	var out []LearningTopicCount
+	if err := json.Unmarshal(body, &out); err != nil {
+		return nil, fmt.Errorf("%w: response body is not valid JSON", ErrUnavailable)
+	}
+	return out, nil
 }
 
 // stateBoardEpoch is the "from" instant ListStateBoard's underlying query

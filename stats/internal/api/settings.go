@@ -21,11 +21,15 @@ func ValidateSettings(s store.Settings) error {
 }
 
 // SettingsStore is the store dependency the settings endpoints need,
-// defined here at the consumer per go-interface-design -- exactly the two
-// methods settingsHandler calls, so a test needs no database.
+// defined here at the consumer per go-interface-design -- exactly the
+// methods settingsHandler calls, so a test needs no database. The learning
+// endpoints (learning.go) share this handler's store, so api.New's
+// signature carries no second settings-shaped dependency.
 type SettingsStore interface {
 	GetSettings(ctx context.Context) (store.Settings, error)
 	PutSettings(ctx context.Context, s store.Settings) error
+	RecordLearningTopic(ctx context.Context, in store.LearningTopic) error
+	ListLearningTopics(ctx context.Context) ([]store.LearningTopicCount, error)
 }
 
 // var _ SettingsStore = (*store.Store)(nil) verifies at compile time that
@@ -45,13 +49,16 @@ type settingsHandler struct {
 
 // settingsDTO is the wire representation of a store.Settings: the JSON
 // shape GET and PUT exchange. Field names match store.Settings' own
-// field-for-field, following changeDTO's own precedent.
+// field-for-field, following changeDTO's own precedent. Learning is a
+// pointer so a PUT that omits it reads as on, matching the column default
+// (settings-set-merges, learning-default-on).
 type settingsDTO struct {
 	Reviewers []string `json:"reviewers"`
+	Learning  *bool    `json:"learning,omitempty"`
 }
 
 func toSettingsDTO(s store.Settings) settingsDTO {
-	return settingsDTO{Reviewers: s.Reviewers}
+	return settingsDTO{Reviewers: s.Reviewers, Learning: &s.Learning}
 }
 
 // get serves GET /api/v1/settings.
@@ -78,7 +85,7 @@ func (h *settingsHandler) put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s := store.Settings{Reviewers: dto.Reviewers}
+	s := store.Settings{Reviewers: dto.Reviewers, Learning: dto.Learning == nil || *dto.Learning}
 	if err := h.store.PutSettings(r.Context(), s); err != nil {
 		if errors.Is(err, store.ErrInvalidReviewer) {
 			// A caller mistake, not a store failure -- mapStoreError's

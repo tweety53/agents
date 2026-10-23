@@ -1060,6 +1060,14 @@ func (stubStageStore) PutSettings(context.Context, store.Settings) error {
 	return errStageStoreNotImplemented
 }
 
+func (stubStageStore) RecordLearningTopic(context.Context, store.LearningTopic) error {
+	return errStageStoreNotImplemented
+}
+
+func (stubStageStore) ListLearningTopics(context.Context) ([]store.LearningTopicCount, error) {
+	return nil, errStageStoreNotImplemented
+}
+
 var _ api.SettingsStore = stubStageStore{}
 
 // TestSettingsPutBodyCarriesNoModelKeys asserts client.PutSettings' wire
