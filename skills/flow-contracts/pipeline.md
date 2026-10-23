@@ -353,7 +353,10 @@ identifier is the **key**, never the prose name, from **Level 1 — the stages o
 
 **A `stage begin` mark MUST carry `-session-token` and `-harness`.** Generate the token once, near the start of
 the run, before the first `stage begin`, and reuse that exact value at every later mark site in the
-same run; do not invent a fresh one per mark. `-harness` names the harness actually running the mark
+same run; do not invent a fresh one per mark. **The token ends in the run's start time, UTC to the
+second** — read once with `date -u +%Y%m%dT%H%M%SZ` and typed as a literal, `mf-k1028-20261023T183402Z`
+— so no two runs share one: a name-derived token alone repeats across sessions (kan-1028:
+`mf-k1028b`, reused by a resumed run, collided with the dead session's rows). `-harness` names the harness actually running the mark
 — `claude-code`, `zcode` or `muse`.
 
 **Neither `-session-token` nor `-harness` is ever a hardcoded value in the skill text: both are

@@ -22,7 +22,8 @@ instructions on a re-run; report anything else rather than ignoring it. One exce
 `--base <branch>` on a creating run, as `/flow` takes it (`skills/flow/SKILL.md`).
 
 **Every mark is a literal call.** `<harness>` is this harness's name, `ff-<literal-token>` is one
-token generated once at the start of the run and typed the same at every `stage begin` and
+token generated once at the start of the run, shaped as **Stage marks**
+(`skills/flow-contracts/pipeline.md`) states, and typed the same at every `stage begin` and
 `stage mark` — never a shell substitution, per the CLI's own usage text. A `flow stage mark` line
 marks each `-stages` key begun and ended `completed`, in order: the stages `/flow-fast` has nothing
 to run for; the mark stays so the run's stage set matches `/flow`'s.

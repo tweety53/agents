@@ -146,7 +146,8 @@ section has produced it, per **Change name resolution (all `/flow*` commands)**
 a guess or the best available name, which is legal for a read; it is never legal for a mark.
 
 **Generate this run's session token once, right here, before the first mark any phase file below
-makes — a short, unique literal string — and reuse that exact same value at every `stage begin` this
+makes — a short literal string shaped as **Stage marks** (`skills/flow-contracts/pipeline.md`)
+states — and reuse that exact same value at every `stage begin` this
 run makes, including inside every phase file it dispatches into.** One run, one token, never a fresh
 one per mark or per phase file. `<literal-token>` in each mark is that string written in place of
 the placeholder, never the placeholder itself, and a later `/flow` invocation — a resume or a fix
