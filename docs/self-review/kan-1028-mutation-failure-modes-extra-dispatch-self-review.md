@@ -6,11 +6,11 @@ The pass covers what the bundle holds plus the commits and files it names, and n
 
 ## Problems encountered, and what pipeline change would avoid them — `flow-fix`
 
-- **[flow-fix]** A decided panel's `panel.dispatches` was dispatched literally, so a pre-kan-1028 decision listing `failure-modes`/`mutation` would run them twice; a dropped role now leaves its bundle too — fixed: db6cdfd9
-- **[flow-fix]** `handoff-blocks.md` still carried the old `## Learning — <topic>` section in the `IN_PROGRESS` template; it now prints the `**Learning:**` path line — fixed: 0b417323
-- **[flow-fix]** `/flow-settings` still offered `failure-modes` and `mutation` though every resolved roster drops them; both retired from `ValidReviewers` with migration 0044 — fixed: 29db9a0d
-- **[flow-fix]** Session tokens derived from the change key plus a letter collided across sessions (`mf-k1028b`); **Stage marks** now requires a UTC-second timestamp suffix — fixed: 557f69d6
-- **[flow-fix]** A task appended after Decide left `decision.json` inputs stale (`tasks=5 files=20` vs `6/23`); `implement.md` now re-decides, and a corrected decision row was recorded — fixed: f741896f
+- **[flow-fix]** A decided panel's `panel.dispatches` was dispatched literally, so a pre-kan-1028 decision listing `failure-modes`/`mutation` would run them twice; a dropped role now leaves its bundle too — fixed: 2effacd4
+- **[flow-fix]** `handoff-blocks.md` still carried the old `## Learning — <topic>` section in the `IN_PROGRESS` template; it now prints the `**Learning:**` path line — fixed: d080fae0
+- **[flow-fix]** `/flow-settings` still offered `failure-modes` and `mutation` though every resolved roster drops them; both retired from `ValidReviewers` with migration 0044 — fixed: 76585018
+- **[flow-fix]** Session tokens derived from the change key plus a letter collided across sessions (`mf-k1028b`); **Stage marks** now requires a UTC-second timestamp suffix — fixed: d3cef531
+- **[flow-fix]** A task appended after Decide left `decision.json` inputs stale (`tasks=5 files=20` vs `6/23`); `implement.md` now re-decides, and a corrected decision row was recorded — fixed: 27ccc0e7
 - **[flow-fix]** Dev-postgres fast shutdowns at 16:27:40Z and 16:54:30Z were a manual external restart; no pipeline tool call caused them — noted
 - **[flow-fix]** F6's withdrawal on the simplest-build rule holds: the plan prescribed the struct and no second caller exists — noted
 - **[flow-fix]** "mutation is always the last pass" vs the bundle name `mutation+failure-modes` is no contradiction: `renderslotprompt.go` renders no mutation PASS — noted
