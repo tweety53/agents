@@ -3,15 +3,16 @@
 #
 # Usage: plan-class.sh [-class <class>] <tasks.md> <repos> [<worktree> <merge-base>]
 #
-# Prints exactly eight lines to stdout:
+# Prints exactly nine lines to stdout:
 #   inputs: tasks=N files=N repos=N migration=yes|no spec=yes|no red=yes|no unverified=yes|no
 #   class: micro|small|regular|big
 #   rolls: compact N · experimental N · bundle N · effort N
 #   tree: class <c> · execution inline|sdd · implementer skipped — inline|chosen
 #   panel: default|compact|full · roster <slot; …> · rerun delta
-#   grouping: static|free · dispatches primary+principles[+failure-modes · mutation[+exp-<name>]]
+#   grouping: static|free · dispatches primary+principles[+exp-<name>]
 #   experimental: no slot|none available|exp-<name> · skills/flow/experimental/<name>.md · <description>[ · skipped — bundle cap]
 #   extra: test-sanity+call-efficiency · roll N · sonnet|opus low
+#   extra: mutation+failure-modes · roll N · sonnet|opus low
 #
 # The first three lines are the mechanical answer. The four tree lines are
 # brainstorm-planner.md's Decide tree for the effective class — the -class
@@ -20,12 +21,12 @@
 # experimental < 30. The slot is sorted(skills/flow/experimental/*.md)
 # [experimental mod count] under FLOW_GUARD_REPO_ROOT, with its line-1
 # `description:` value; an absent directory or no *.md file is `none
-# available`. The first dispatch fills to its three-role cap in roster
-# order, the mutating role last, so the slot joins a full regular/big
-# roster's overflow dispatch and is otherwise `skipped — bundle cap`. On
+# available`. The slot joins the first dispatch of a full regular/big
+# panel and is otherwise `skipped — bundle cap`. On
 # micro, panel is `default` and grouping/experimental read `not
 # consulted — micro`.
 # The extra line is printed on every class, micro included: the always-on test-sanity+call-efficiency dispatch's pair, sonnet when roll(<name>extra) < 50, else opus, always at low (kan-959).
+# The second extra line is the always-on mutation+failure-modes dispatch's pair, rolled the same way on roll(<name>extramf) (kan-1028).
 #
 # -class may equal class_mechanical or sit one step above it
 # (micro→small→regular→big) — the planner's recorded raise; the class: line

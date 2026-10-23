@@ -67,15 +67,16 @@ var pcClasses = []string{"micro", "small", "regular", "big"}
 // its line-1 description: value.
 type pcExp struct{ name, desc string }
 
-// pcExtra is the always-on test-sanity+call-efficiency dispatch's line:
-// its roll and the pair it picks — sonnet below 50, opus otherwise, always
-// at low. Printed on every class, micro included (kan-959).
-func pcExtra(roll uint64) string {
+// pcExtra is an always-on extra dispatch's line — test-sanity+call-efficiency
+// (kan-959) or mutation+failure-modes (kan-1028): its bundle, its roll and
+// the pair it picks — sonnet below 50, opus otherwise, always at low.
+// Printed on every class, micro included.
+func pcExtra(bundle string, roll uint64) string {
 	model := "opus"
 	if roll < 50 {
 		model = "sonnet"
 	}
-	return fmt.Sprintf("extra: test-sanity+call-efficiency · roll %d · %s low\n", roll, model)
+	return fmt.Sprintf("extra: %s · roll %d · %s low\n", bundle, roll, model)
 }
 
 // pcTree is the decision tree brainstorm-planner.md's Decide reads, for the
@@ -83,10 +84,10 @@ func pcExtra(roll uint64) string {
 // roster, its grouping and dispatches, and the experimental slot. Compact
 // when compact < 90, static grouping when bundle < 30, an experimental slot
 // when exp < 30, picked at index exp mod len(cands) of the byte-ordered
-// candidates. The first dispatch fills to its three-role cap in roster
-// order, the mutating role last, so the slot joins a full roster's overflow
-// dispatch and is otherwise skipped for the bundle cap. micro records
-// defaults and consults no roll.
+// candidates. The roster is primary and principles alone — failure-modes and
+// mutation run on an always-on extra dispatch — so the slot joins the first
+// dispatch of a full regular/big panel and is otherwise skipped for the
+// bundle cap. micro records defaults and consults no roll.
 func pcTree(class string, compact, exp, bundle uint64, cands []pcExp) string {
 	if class == "micro" {
 		return "tree: class micro · execution inline · implementer skipped — inline\n" +
@@ -101,11 +102,7 @@ func pcTree(class string, compact, exp, bundle uint64, cands []pcExp) string {
 	shape, roster, dispatches, room := "compact", "primary; principles", "primary+principles", false
 	if compact >= 90 {
 		shape = "full"
-		if class != "small" {
-			roster += "; failure-modes; mutation"
-			dispatches += "+failure-modes · mutation"
-			room = true
-		}
+		room = class != "small"
 	}
 	grouping := "free"
 	if bundle < 30 {
@@ -345,6 +342,7 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "class: %s\n", class)
 	fmt.Fprintf(stdout, "rolls: compact %d · experimental %d · bundle %d · effort %d\n", roll(name), roll(name+"exp"), roll(name+"bundle"), roll(name+"effort"))
 	fmt.Fprint(stdout, pcTree(effective, roll(name), roll(name+"exp"), roll(name+"bundle"), cands))
-	fmt.Fprint(stdout, pcExtra(roll(name+"extra")))
+	fmt.Fprint(stdout, pcExtra("test-sanity+call-efficiency", roll(name+"extra")))
+	fmt.Fprint(stdout, pcExtra("mutation+failure-modes", roll(name+"extramf")))
 	return 0
 }

@@ -306,7 +306,8 @@ func TestPlanClass(t *testing.T) {
 				"panel: default\n" +
 				"grouping: not consulted — micro\n" +
 				"experimental: not consulted — micro\n" +
-				"extra: test-sanity+call-efficiency · roll 25 · sonnet low\n"
+				"extra: test-sanity+call-efficiency · roll 25 · sonnet low\n" +
+				"extra: mutation+failure-modes · roll 2 · sonnet low\n"
 			if r.rc != 0 || r.stdout != want || r.err != "" {
 				t.Fatalf("rc=%d stdout=%q stderr=%q", r.rc, r.stdout, r.err)
 			}
@@ -379,15 +380,15 @@ func TestPlanClass(t *testing.T) {
 func TestPlanClassTree(t *testing.T) {
 	t.Parallel()
 	two := []pcExp{{"a", "first probe"}, {"b", "second probe"}}
-	// Per class: the tree line, the full roster, whether a full roster has a
-	// second dispatch the experimental slot can join.
+	// Per class: the tree line, the full roster, whether a full panel has
+	// room for the experimental slot in its first dispatch.
 	classes := []struct {
 		class, tree, full string
 		second            bool
 	}{
 		{"small", "tree: class small · execution inline · implementer skipped — inline", "primary; principles", false},
-		{"regular", "tree: class regular · execution inline · implementer skipped — inline", "primary; principles; failure-modes; mutation", true},
-		{"big", "tree: class big · execution sdd · implementer chosen", "primary; principles; failure-modes; mutation", true},
+		{"regular", "tree: class regular · execution inline · implementer skipped — inline", "primary; principles", true},
+		{"big", "tree: class big · execution sdd · implementer chosen", "primary; principles", true},
 	}
 	for _, c := range classes {
 		for _, compact := range []uint64{89, 90} {
@@ -399,9 +400,6 @@ func TestPlanClassTree(t *testing.T) {
 						if compact >= 90 {
 							shape, roster = "full", c.full
 							room = c.second
-							if c.second {
-								dispatches += "+failure-modes · mutation"
-							}
 						}
 						grouping := "free"
 						if bundle < 30 {
@@ -448,7 +446,7 @@ func TestPlanClassTree(t *testing.T) {
 	// The guard end to end. plan-class-pin rolls compact 71 · experimental 0
 	// · bundle 75 on a regular plan (compact, so the slot has no room);
 	// tree-192 rolls compact 91 · experimental 4 · bundle 16 (full, static,
-	// 4 mod 2 = 0 picks a.md, which joins the second dispatch).
+	// 4 mod 2 = 0 picks a.md, which joins the first dispatch).
 	pin := "- [ ] 1. First\n" +
 		"**Files:** `docs/a.md`, `spectre/specs/x/spec.md`, `src/b.go`\n" +
 		"**Build:** red\n" +
@@ -463,7 +461,8 @@ func TestPlanClassTree(t *testing.T) {
 			"panel: compact · roster primary; principles · rerun delta\n" +
 			"grouping: free · dispatches primary+principles\n" +
 			"experimental: " + experimental + "\n" +
-			"extra: test-sanity+call-efficiency · roll 17 · sonnet low\n"
+			"extra: test-sanity+call-efficiency · roll 17 · sonnet low\n" +
+			"extra: mutation+failure-modes · roll 90 · opus low\n"
 	}
 	expDir := func(t *testing.T, files map[string]string) string {
 		root := t.TempDir()
@@ -490,15 +489,16 @@ func TestPlanClassTree(t *testing.T) {
 		{"empty directory", "plan-class-pin", pin, map[string]string{}, pinHead + pinTree("none available")},
 		{"two candidates, no room", "plan-class-pin", pin, twoFiles,
 			pinHead + pinTree("exp-a · skills/flow/experimental/a.md · first probe · skipped — bundle cap")},
-		{"two candidates, joins the second dispatch", "tree-192", pcMake(9, false), twoFiles,
+		{"two candidates, joins the first dispatch", "tree-192", pcMake(9, false), twoFiles,
 			"inputs: tasks=9 files=9 repos=1 migration=no spec=no red=no unverified=no\n" +
 				"class: regular\n" +
 				"rolls: compact 91 · experimental 4 · bundle 16 · effort 93\n" +
 				"tree: class regular · execution inline · implementer skipped — inline\n" +
-				"panel: full · roster primary; principles; failure-modes; mutation; exp-a · rerun delta\n" +
-				"grouping: static · dispatches primary+principles+failure-modes · mutation+exp-a\n" +
+				"panel: full · roster primary; principles; exp-a · rerun delta\n" +
+				"grouping: static · dispatches primary+principles+exp-a\n" +
 				"experimental: exp-a · skills/flow/experimental/a.md · first probe\n" +
-				"extra: test-sanity+call-efficiency · roll 71 · opus low\n"},
+				"extra: test-sanity+call-efficiency · roll 71 · opus low\n" +
+				"extra: mutation+failure-modes · roll 97 · opus low\n"},
 	} {
 		t.Run(c.label, func(t *testing.T) {
 			t.Parallel()
@@ -610,8 +610,27 @@ func TestPlanClassExtra(t *testing.T) {
 		50: "extra: test-sanity+call-efficiency · roll 50 · opus low\n",
 		99: "extra: test-sanity+call-efficiency · roll 99 · opus low\n",
 	} {
-		if got := pcExtra(roll); got != want {
+		if got := pcExtra("test-sanity+call-efficiency", roll); got != want {
 			t.Errorf("pcExtra(%d) = %q, want %q", roll, got, want)
+		}
+	}
+}
+
+// TestPlanClassExtraBundles pins both always-on bundles' lines (kan-1028,
+// decision mf-own-roll): each its own roll, sonnet below 50, opus from 50,
+// always low.
+func TestPlanClassExtraBundles(t *testing.T) {
+	t.Parallel()
+	for _, roll := range []uint64{0, 49, 50, 99} {
+		model := "opus"
+		if roll < 50 {
+			model = "sonnet"
+		}
+		for _, bundle := range []string{"mutation+failure-modes", "test-sanity+call-efficiency"} {
+			want := fmt.Sprintf("extra: %s · roll %d · %s low\n", bundle, roll, model)
+			if got := pcExtra(bundle, roll); got != want {
+				t.Errorf("pcExtra(%q, %d) = %q, want %q", bundle, roll, got, want)
+			}
 		}
 	}
 }
