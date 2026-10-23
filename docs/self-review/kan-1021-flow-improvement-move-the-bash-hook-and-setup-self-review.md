@@ -7,15 +7,15 @@ The pass covers what the bundle holds plus the commits and files it names, and n
 
 ## Problems encountered, and what pipeline change would avoid them — `flow-fix`
 
-- **[flow-fix]** `project-get.sh` prints the citation check inside its fence; an `eval` of the body ran a bare `bash` and hung — fixed: e80c85a6
-- **[flow-fix]** flow-* agents carry no Skill tool yet were told to invoke the superpowers skills; the paragraphs now name the installed SKILL.md files, guard-pinned — fixed: 2212f3f2
+- **[flow-fix]** `project-get.sh` prints the citation check inside its fence; an `eval` of the body ran a bare `bash` and hung — fixed: 336ff297
+- **[flow-fix]** flow-* agents carry no Skill tool yet were told to invoke the superpowers skills; the paragraphs now name the installed SKILL.md files, guard-pinned — fixed: 07ca983e
 - **[flow-fix]** integrate run 1's reshape base ignored self-review loop commits, folding the self-review plan into the change's plan commit; this branch's folded commit was split back — fixed: 6241891c
 - **[flow-fix]** Absence sweeps covering a later task's files misfired on tasks 5 and 6; plan-shape guard F18 now refuses them — fixed: 22d9f1ed
 - **[flow-fix]** One land attempt of loop 27 hit `go test`'s 10-minute timeout in the guard package; the suite passed alone in 3.5 minutes and on the immediate retry — noted
 
 ## Token/time cost, and what would reduce it without quality loss — `flow-cost`
 
-- **[flow-cost]** An off-by-one reproducer citation cost a slot round-trip; the parent now corrects a verbatim-elsewhere line in place — fixed: 2246560e
+- **[flow-cost]** An off-by-one reproducer citation cost a slot round-trip; the parent now corrects a verbatim-elsewhere line in place — fixed: 6c0ff1f9
 - **[flow-cost]** F4's re-run verdict outside the fix hunk closed with one `-cite` send-back (31s), as designed — noted
 - **[flow-cost]** G1's and the planner's cache reads match their scope; no reducible step — noted
 
