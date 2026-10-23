@@ -491,6 +491,9 @@ func ApplySubstitutionRecord(ctx context.Context, rw RecordStore, projectKey, ch
 type recordHandler struct {
 	store  RecordStore
 	logger *slog.Logger
+	// agentEnd answers the instant an agent's own transcript last wrote
+	// (WithAgentEnds); nil leaves every end at the daemon's clock.
+	agentEnd func(agentID string) (time.Time, bool)
 }
 
 // findingStatusRequest is the wire shape
@@ -568,7 +571,12 @@ func (h *recordHandler) endDispatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	stamped := in.EndedAt.IsZero()
 	out, err := ApplyDispatchEnd(r.Context(), h.store, project, change, in)
+	if at, ok := h.agentEndOf(out, err, stamped); ok {
+		in.EndedAt = at
+		out, err = ApplyDispatchEnd(r.Context(), h.store, project, change, in)
+	}
 	if err != nil {
 		if errors.Is(err, ErrInvalidRecord) {
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -579,6 +587,25 @@ func (h *recordHandler) endDispatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// agentEndOf answers the end instant a just-closed row takes from its own
+// agent's transcript: the instant that transcript last wrote, when the end
+// carried no -ended-at, the row carries a launched agent's id, and that
+// instant falls inside the row's window. A panel round closes its slots in
+// one call once every report exists, so the daemon's clock would give each
+// the round's last finish (kan-1019); the agent's own last record is its
+// finish (kan-1026's self-review: the parent derived it from report-file
+// mtimes in Bash).
+func (h *recordHandler) agentEndOf(out records.Dispatch, err error, stamped bool) (time.Time, bool) {
+	if err != nil || !stamped || h.agentEnd == nil || out.AgentID == "" || out.AgentID == "inline" || out.EndedAt == nil {
+		return time.Time{}, false
+	}
+	at, ok := h.agentEnd(out.AgentID)
+	if !ok || !at.Before(*out.EndedAt) || at.Before(out.StartedAt) {
+		return time.Time{}, false
+	}
+	return at, true
 }
 
 // recordFinding serves POST /api/v1/records/{project}/{change}/findings.

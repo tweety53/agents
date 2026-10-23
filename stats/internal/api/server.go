@@ -177,6 +177,7 @@ type serverOptions struct {
 	guardRuns  GuardRunStore
 	commitBase string
 	build      string
+	agentEnd   func(agentID string) (time.Time, bool)
 }
 
 // WithSPA mounts h at "/" as the daemon's user interface, task 12's
@@ -209,6 +210,17 @@ func WithCommitBase(base string) Option {
 func WithBuild(build string) Option {
 	return func(o *serverOptions) {
 		o.build = build
+	}
+}
+
+// WithAgentEnds closes a dispatch row whose end names no instant at the
+// instant its own agent's transcript last wrote, where end answers one
+// (recordHandler.agentEndOf) -- harvest.AgentTranscriptEnd over the
+// daemon's transcripts root in production. Passing none leaves every such
+// end at the daemon's clock.
+func WithAgentEnds(end func(agentID string) (time.Time, bool)) Option {
+	return func(o *serverOptions) {
+		o.agentEnd = end
 	}
 }
 
@@ -317,7 +329,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	h := &changeHandler{store: cs, logger: logger}
 	sh := &stageHandler{store: ss, logger: logger}
 	sth := &statsHandler{store: sts, logger: logger, commitBase: so.commitBase}
-	rh := &recordHandler{store: rs, logger: logger}
+	rh := &recordHandler{store: rs, logger: logger, agentEnd: so.agentEnd}
 	srb := &selfreviewHandler{store: rs, git: selfreview.ExecRunner{}, build: so.build, logger: logger}
 	lh := &lessonsHandler{store: rs, logger: logger}
 	hz := &hazardHandler{store: rs, logger: logger}

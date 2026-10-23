@@ -210,8 +210,19 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
+	transcriptsRoot, err := harvest.DefaultTranscriptsRoot()
+	if err != nil {
+		return err
+	}
 	srv, err := api.New(cfg, st, st, st, st, st, logger, api.WithSPA(spaHandler), api.WithGuardRuns(st),
-		api.WithCommitBase(commitBaseFromRemote(originRemote())), api.WithBuild(buildIdentity()))
+		api.WithCommitBase(commitBaseFromRemote(originRemote())), api.WithBuild(buildIdentity()),
+		api.WithAgentEnds(func(agentID string) (time.Time, bool) {
+			at, found, err := harvest.AgentTranscriptEnd(transcriptsRoot, agentID)
+			if err != nil {
+				logger.Warn("flowd: read agent transcript end failed, the row ends at the daemon's clock", "agent_id", agentID, "error", err)
+			}
+			return at, found
+		}))
 	if err != nil {
 		// api.New calls config.Config.Validate itself, which keeps
 		// internal/api correct for any other caller, but the loopback
@@ -254,10 +265,6 @@ func run(logger *slog.Logger) error {
 	// see watcher.go's own doc comment on HarvestSink for why a purely
 	// local, separately-committed offset was unsafe (task 9's post-commit
 	// review, findings F1 and its follow-up).
-	transcriptsRoot, err := harvest.DefaultTranscriptsRoot()
-	if err != nil {
-		return err
-	}
 	rolloutRoot, err := harvest.DefaultZcodeRolloutRoot()
 	if err != nil {
 		return err

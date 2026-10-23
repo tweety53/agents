@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/api"
+	"github.com/tweety53/agents/stats/internal/config"
 	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
@@ -908,6 +909,52 @@ func TestEndDispatchRouteStampsAZeroEndedAt(t *testing.T) {
 	}
 	if fs.dispatches[0].dispatch.StartedAt.IsZero() {
 		t.Errorf("the stamped close lost the row's startedAt")
+	}
+}
+
+// TestEndDispatchRouteTakesAStampedRowsEndFromItsAgent pins kan-1026's
+// self-review: an end naming no instant on a row carrying a launched
+// agent's id closes at that agent's own last transcript write, so a panel
+// round closed in one call keeps each slot's own finish; a supplied
+// instant is kept, and the agent is never asked.
+func TestEndDispatchRouteTakesAStampedRowsEndFromItsAgent(t *testing.T) {
+	fs := newFakeStore()
+	fs.changes[changeKey("proj", "kan-1")] = store.Change{ProjectKey: "proj", Name: "kan-1", State: store.StateInProgress}
+	finished := time.Date(2026, 8, 22, 9, 5, 0, 0, time.UTC)
+	asked := 0
+	srv, err := api.New(config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}, fs, fs, fs, fs, fs, nil,
+		api.WithAgentEnds(func(agentID string) (time.Time, bool) {
+			asked++
+			return finished, agentID == "a-slot"
+		}))
+	if err != nil {
+		t.Fatalf("api.New: %v", err)
+	}
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	beginBody := dispatchBody("reviewer", "opus")
+	beginBody["agentId"] = "a-slot"
+	if resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches", beginBody); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("POST dispatches = %d (%s), want 201", resp.StatusCode, body)
+	}
+	endBody := dispatchEndBody("task-3-reviewer")
+	delete(endBody, "endedAt")
+	if resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches/end", endBody); resp.StatusCode != http.StatusOK {
+		t.Fatalf("POST dispatches/end = %d (%s), want 200", resp.StatusCode, body)
+	}
+	if got := fs.dispatches[0].dispatch.EndedAt; got == nil || !got.Equal(finished) {
+		t.Errorf("endedAt = %v, want the agent's last write %s", got, finished)
+	}
+
+	supplied := time.Date(2026, 8, 22, 9, 7, 0, 0, time.UTC)
+	endBody["endedAt"] = supplied.Format(time.RFC3339)
+	asked = 0
+	if resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches/end", endBody); resp.StatusCode != http.StatusOK {
+		t.Fatalf("POST dispatches/end with endedAt = %d (%s), want 200", resp.StatusCode, body)
+	}
+	if got := fs.dispatches[0].dispatch.EndedAt; got == nil || !got.Equal(supplied) || asked != 0 {
+		t.Errorf("endedAt = %v after %d agent reads, want the supplied %s and none", got, asked, supplied)
 	}
 }
 

@@ -673,3 +673,28 @@ func TestParseDispatchEventsCarriesOpenCallsAcrossBatches(t *testing.T) {
 		t.Errorf("stillOpen = %v, want empty (the carried call resolved)", stillOpen)
 	}
 }
+
+// TestAgentTranscriptEndReadsTheAgentsLastWrite pins the end instant
+// flowd closes a stamped row at (api.WithAgentEnds): the latest timestamp
+// in <root>/<project>/<session>/subagents/agent-<id>.jsonl.
+func TestAgentTranscriptEndReadsTheAgentsLastWrite(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "-proj", "sess", "subagents")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body := `{"type":"user","timestamp":"2026-10-23T08:16:07.000Z"}` + "\n" +
+		`{"type":"assistant","timestamp":"2026-10-23T08:21:44.500Z"}` + "\n" +
+		`not json` + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "agent-af3a362078da4cf37.jsonl"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	end, found, err := harvest.AgentTranscriptEnd(root, "af3a362078da4cf37")
+	if err != nil || !found || !end.Equal(time.Date(2026, 10, 23, 8, 21, 44, 500_000_000, time.UTC)) {
+		t.Errorf("AgentTranscriptEnd = (%v, %v, %v), want (08:21:44.5Z, true, nil)", end, found, err)
+	}
+	if _, found, err := harvest.AgentTranscriptEnd(root, "a-none"); err != nil || found {
+		t.Errorf("an absent agent = (found %v, %v), want (false, nil)", found, err)
+	}
+}

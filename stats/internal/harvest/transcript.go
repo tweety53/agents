@@ -800,6 +800,31 @@ type DispatchMeta struct {
 // against a real transcript tree during planning, not assumed.
 const subagentsDirName = "subagents"
 
+// AgentTranscriptEnd answers the latest record instant of agentID's own
+// transcript under root -- Claude Code's <project>/<session>/subagents/
+// agent-<id>.jsonl -- the instant the agent last wrote, which is when it
+// finished once its report exists. found is false where no such file, or
+// no timestamped line in it, exists.
+func AgentTranscriptEnd(root, agentID string) (end time.Time, found bool, err error) {
+	paths, err := filepath.Glob(filepath.Join(root, "*", "*", subagentsDirName, "agent-"+agentID+".jsonl"))
+	if err != nil || len(paths) == 0 {
+		return time.Time{}, false, err
+	}
+	raw, err := os.ReadFile(paths[0])
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	for line := range bytes.Lines(raw) {
+		var rec struct {
+			Timestamp time.Time `json:"timestamp"`
+		}
+		if json.Unmarshal(line, &rec) == nil && rec.Timestamp.After(end) {
+			end, found = rec.Timestamp, true
+		}
+	}
+	return end, found, nil
+}
+
 // ReadDispatchMeta reads the sidecar meta file alongside transcriptPath
 // and returns that dispatch's descriptors. It reports false, never an
 // error, in every case a dispatch's tokens must still be attributable
