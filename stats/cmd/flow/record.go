@@ -1039,6 +1039,10 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		fmt.Fprintf(stderr, "flow: -role %q is not one of: %s\n", *role, strings.Join(recordRoles, ", "))
 		return 2
 	}
+	if strings.HasSuffix(*key, "-") {
+		fmt.Fprintf(stderr, "flow: -key %q ends in '-': a suffix that expanded to nothing (skills/flow/verify-and-handoff.md, verify[-<worktree basename>])\n", *key)
+		return 2
+	}
 	if _, ok := records.PanelDispatchRound(records.Dispatch{Key: *key, Role: *role}); *role == "reviewer" && strings.HasPrefix(*key, "panel-") && !ok {
 		fmt.Fprintf(stderr, "flow: -key %q is not panel-<round>-<slot>: a reviewer's panel key carries its numeric round\n", *key)
 		return 2

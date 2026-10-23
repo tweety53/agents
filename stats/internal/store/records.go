@@ -1257,6 +1257,21 @@ func (s *Store) RetimeDispatch(ctx context.Context, id int64, started, ended tim
 	return nil
 }
 
+// RekeyDispatch sets dispatch id's dispatch_key outright -- the repair for a
+// row whose key's suffix expanded to nothing (kan-1009's self-review). A key
+// another row of the run holds violates the run's key uniqueness and changes
+// nothing.
+func (s *Store) RekeyDispatch(ctx context.Context, id int64, key string) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE dispatches SET dispatch_key = $2 WHERE id = $1`, id, key)
+	if err != nil {
+		return fmt.Errorf("store: rekey dispatch %d: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("%w: %d", ErrDispatchNotFound, id)
+	}
+	return nil
+}
+
 // FoldDispatch moves the diff base of drop -- an agentless row back-filled
 // only to correct keep's -diff-base, before `dispatch end` took one -- onto
 // keep, and deletes drop (kan-1008's self-review: rows 48 and 49). Both must

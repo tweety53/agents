@@ -4397,6 +4397,52 @@ func TestRetimeDispatchSetsInstantsAndCommit(t *testing.T) {
 	}
 }
 
+// TestRekeyDispatchSetsTheKey pins flowd rekey-dispatch's store half: the
+// repair for a row whose key's suffix expanded to nothing (kan-1009's
+// self-review). A key another row of the run holds is refused and changes
+// neither row; an unknown id is ErrDispatchNotFound.
+func TestRekeyDispatchSetsTheKey(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-rekey-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	record := func(key string) int64 {
+		b := baseDispatch("verifier", "opus")
+		b.Key = key
+		b.SessionToken = "mf-rekey"
+		b.AgentID = "inline"
+		row, err := st.RecordDispatch(ctx, projectKey, "kan-1", b)
+		if err != nil {
+			t.Fatalf("RecordDispatch %s: %v", key, err)
+		}
+		return row.ID
+	}
+	keyOf := func(id int64) string {
+		var k string
+		if err := pool.QueryRow(ctx, `SELECT dispatch_key FROM dispatches WHERE id = $1`, id).Scan(&k); err != nil {
+			t.Fatalf("read row %d: %v", id, err)
+		}
+		return k
+	}
+	a, b := record("verify-"), record("verify-fix-1-gymie")
+	if err := st.RekeyDispatch(ctx, a, "verify-gymie"); err != nil {
+		t.Fatalf("RekeyDispatch: %v", err)
+	}
+	if got := keyOf(a); got != "verify-gymie" {
+		t.Fatalf("key = %q, want verify-gymie", got)
+	}
+	if err := st.RekeyDispatch(ctx, a, "verify-fix-1-gymie"); err == nil {
+		t.Fatal("RekeyDispatch onto a held key: err = nil")
+	}
+	if ka, kb := keyOf(a), keyOf(b); ka != "verify-gymie" || kb != "verify-fix-1-gymie" {
+		t.Fatalf("refused rekey changed the rows: %q %q", ka, kb)
+	}
+	if err := st.RekeyDispatch(ctx, 1<<62, "x"); !errors.Is(err, store.ErrDispatchNotFound) {
+		t.Fatalf("RekeyDispatch unknown id: err = %v, want store.ErrDispatchNotFound", err)
+	}
+}
+
 // TestStampDispatchAgentStillAcceptsHarnessShapes pins the boundary
 // KAN-560 draws: the validation covers the dispatcher-typed paths, and the
 // daemon's stamp stays verbatim (its own doc comment records why). Both

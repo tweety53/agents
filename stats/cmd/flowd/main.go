@@ -100,6 +100,14 @@ func main() {
 		return
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == "rekey-dispatch" {
+		if err := rekeyDispatch(os.Args[2:]); err != nil {
+			logger.Error("flowd rekey-dispatch failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "fold-dispatch" {
 		if err := foldDispatch(os.Args[2:]); err != nil {
 			logger.Error("flowd fold-dispatch failed", "error", err)
@@ -671,6 +679,31 @@ func foldDispatch(args []string) error {
 	}
 	defer st.Close()
 	return st.FoldDispatch(ctx, ids[0], ids[1])
+}
+
+// rekeyDispatch implements `flowd rekey-dispatch <dispatch-id> <key>`
+// (store.Store.RekeyDispatch): the repair for a row whose key's suffix
+// expanded to nothing (kan-1009's self-review). It talks to the database
+// directly, so it needs no running daemon.
+func rekeyDispatch(args []string) error {
+	if len(args) != 2 {
+		return fmt.Errorf("usage: flowd rekey-dispatch <dispatch-id> <key>")
+	}
+	id, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("dispatch id %q: %w", args[0], err)
+	}
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	st, err := store.Open(ctx, cfg.DSN)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	return st.RekeyDispatch(ctx, id, args[1])
 }
 
 // retimeDispatch implements `flowd retime-dispatch <dispatch-id>

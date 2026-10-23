@@ -6108,3 +6108,43 @@ func TestDispatchEndDiffBaseCarriedOnWire(t *testing.T) {
 		t.Errorf("diffBase = %v, want no key when -diff-base is omitted", sent["diffBase"])
 	}
 }
+
+// dispatchCall runs one `flow record dispatch <verb>` against a fake daemon
+// and returns its exit code, stderr and how many requests the daemon saw.
+func dispatchCall(t *testing.T, verb string, extra ...string) (int, string, int) {
+	t.Helper()
+	repo := recordRepo(t, "kan-327")
+	isolatedStateRoot(t)
+
+	requests := 0
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"verifier","model":"opus","startedAt":"2026-01-02T03:04:05Z","endedAt":"2026-01-02T03:44:05Z"}`))
+	}))
+	defer srv.Close()
+
+	args := []string{"record", "dispatch", verb, "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "kan-327", "-session-token", "mf-record-key-shape"}
+	if verb == "begin" {
+		args = append(args, "-role", "verifier", "-model", "opus", "-effort", "default")
+	}
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(), append(args, extra...), strings.NewReader(""), &stdout, &stderr)
+	return code, stderr.String(), requests
+}
+
+// TestRecordDispatchBeginRefusesAKeyEndingInADash pins kan-1009's verify
+// rows: a key whose suffix expanded to nothing (`verify-`) is refused before
+// any request, while a key that merely ends in a letter still records.
+func TestRecordDispatchBeginRefusesAKeyEndingInADash(t *testing.T) {
+	for _, key := range []string{"verify-", "verify-fix-1-"} {
+		code, stderr, requests := dispatchCall(t, "begin", "-agent-id", "inline", "-key", key)
+		if code != 2 || !strings.Contains(stderr, fmt.Sprintf("%q", key)) || requests != 0 {
+			t.Errorf("-key %s: exit %d, %d requests, stderr %q; want exit 2, 0 requests, the key named", key, code, requests, stderr)
+		}
+	}
+	if code, stderr, _ := dispatchCall(t, "begin", "-agent-id", "inline", "-key", "verify-gymie"); code != 0 {
+		t.Errorf("-key verify-gymie: exit %d, stderr %q; want 0", code, stderr)
+	}
+}
