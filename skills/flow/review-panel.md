@@ -101,7 +101,9 @@ check-panel-citation-trigger.sh <worktree> <merge-base>
 On exit 0, run `project-get.sh <worktree> "review panel citation check"` (**Guard resolution**,
 `skills/flow-contracts/pipeline.md`; the key itself is canonical in **Project configuration**,
 `skills/flow-contracts/project-configuration.md`). If declared, run its command
-from the apply worktree and capture combined stdout+stderr verbatim to
+from the apply worktree — the lines between the fence markers `project-get.sh` prints around it,
+never an `eval` of the printed body, whose opening `` ```bash `` line runs a bare `bash` that hangs
+on open stdin — and capture combined stdout+stderr verbatim to
 `<abs-worktree>/.superpowers/sdd/citation-check.md`. `project-get.sh` exit 1 is the "key absent —
 skip silently" case just named; exit 2 is reported and the worktree skipped, the same way the
 guard's own exit 2 below is. On exit 1, skip silently — no file written, no CITATION CHECK
