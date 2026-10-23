@@ -81,7 +81,8 @@ committing.
 A change's branch lives on the remote from the moment its worktree exists: `git worktree add` is
 followed by `git push -u origin <branch>`, and every commit a run makes on the branch — a task
 commit, a fixup, a panel fix — is followed by `git push origin <branch>` from the same parent
-call that made or verified it. A lost worktree is then rebuilt with `git worktree add <path>
+call that made or verified it. The one deferred push is a visual-verify commit in a `regression checkout` worktree
+(`skills/flow/visual-verify.md`): integrate's push below carries it. A lost worktree is then rebuilt with `git worktree add <path>
 origin/<branch>`. The one rewrite is integrate's reshape (`reshape-branch.sh`, then
 the two commits), so that run's push is `git push --force-with-lease origin <branch>`, made once the
 archive commit lands and before the self-review pass, so a run that stops before its route still

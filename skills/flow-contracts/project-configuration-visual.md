@@ -20,7 +20,7 @@ rows below is reported and its row dropped, never silently ignored.
 | `ui paths` | yes | Comma-separated globs, relative to each app root in `## apps`. A run whose diff matches none of them skips the `flow.visual-verify` stage. |
 | `screenshots` | yes | The root beneath which `verify` and `capture` write PNGs, **searched recursively rather than joined with a filename** — relative to the regression checkout when one is declared, otherwise to the project root. A per-change `capture` spec lands its PNGs in its own nested snapshot directory, a different one for every spec, so no single leaf path is correct for both the baseline suite and an arbitrary capture; naming the root instead is. |
 | `regression checkout` | no | Absolute path to the repository the per-change spec and its PNGs are committed to. **Absent means they are committed to the change's own branch instead.** When this same repository is also declared in `## apps`, its root follows that table's own rule — **Roots in `## apps` are main checkouts** above — resolving to the change's apply worktree there rather than the main checkout; a `regression checkout` with no matching `## apps` row resolves the same way — to a worktree of that repository on the change's branch when one exists, otherwise the main checkout. Also the root `<agents repo>/scripts/check-spec-reach.sh` enumerates `*.spec.ts` under and diffs against what the checkout's `package.json` scripts list — its header is canonical for that gate and its exit codes. |
-| `regression repo` | only with `regression checkout` | The remote URL that checkout's real `origin` must equal — **an identity assertion, never an authorisation.** Nothing pushes automatically; see below. |
+| `regression repo` | only with `regression checkout` | The remote URL that checkout's real `origin` must equal — **an identity assertion, never an authorisation.** The visual-verify step pushes nothing; integrate's push carries a worktree commit, see below. |
 | `mockups` | no | Directory holding one `<frame id>.png` per drawn frame, relative to the project root. Declared, it enables the compose step of `flow.visual-verify` for any capture spec carrying a `<spec>.mockups` sidecar; absent, the stage composes nothing and reports `mockups: not declared`. |
 | `mockup frame` | no | `scale=<int> status=<px> border=<px>`: the mockup PNGs' scale factor, the status-line height and the border width, the last two in logical px. Declared, the compose step crops each frame to its content area — the sides and the top from these values, the bottom found per frame as the first row below the status line every one of whose pixels between the borders equals the page colour at (0, 0) — and reports a capture whose size differs from the cropped frame as a finding rather than composing it. Absent, frames compose at native size, uncropped, with no size check. |
 
@@ -67,8 +67,9 @@ row of the settings table names them, and the spec, its PNGs and the zip are com
 the per-change spec is.
 
 **No push to a `regression checkout` is ever automatic** — the change branch's own pushes are **Branch backup** (`skills/flow-contracts/git-boundaries.md`), inside the one repository the run owns. `flow.visual-verify` commits the per-change spec and its PNGs to the
-`regression checkout` when one is declared and stops there; the handoff prints the push command for
-the operator to run by hand. `regression repo` records which repository the checkout is expected to
+`regression checkout` when one is declared and stops there: a commit in the change's worktree of
+that checkout goes up with integrate's push under **Branch backup**, and only a commit in its main checkout leaves the handoff
+printing the push command for the operator to run by hand. `regression repo` records which repository the checkout is expected to
 be, and a mismatch against its real `origin` is reported — but that is an identity assertion, not an
 authorisation, because `<project>/.flow/project.md` is tracked and editable in any pull request, and
 a file inside a repository cannot authorise a push to another repository.

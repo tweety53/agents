@@ -268,13 +268,14 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
     map, per **Roots in `## apps` are main checkouts** (`skills/flow-contracts/project-configuration.md`) <!-- refs-guard:allow -->
     — never the main checkout while a worktree for it holds the change's work. A `regression
     checkout` not also declared in `## apps` has no worktree to resolve and this step commits to
-    the main checkout directly. **Never push**: a file inside a repository cannot authorise a push to another repository, so no
-    guard here grants one, worktree or not. `regression repo` records which repository the
+    the main checkout directly. **This step pushes nothing**: a file inside a repository cannot authorise a push to another repository, so no
+    guard here grants one. `regression repo` records which repository the
     checkout is expected to be, and `check-visual-verification.sh` reports a mismatch against
-    its real `origin`, but that is an identity assertion, not an authorisation. When a commit landed
-    in a `regression checkout`, print the push command for the operator to run by hand, naming
-    whichever branch actually received the commit — the change's own `spectre/<name>` when a
-    worktree resolved, the main checkout's current branch otherwise:
+    its real `origin`, but that is an identity assertion, not an authorisation. A commit in a
+    resolved worktree is on the change's own `spectre/<name>`, and integrate's push under **Branch
+    backup** (`skills/flow-contracts/git-boundaries.md`) carries it to the remote — no hand push is printed for it (kan-1026: the operator was told to push a
+    worktree integrate had already pushed). When the commit landed in the main checkout, print
+    the push command for the operator to run by hand, naming that checkout's current branch:
 
     ```bash
     git -C <regression checkout> push
