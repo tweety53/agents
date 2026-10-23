@@ -1106,6 +1106,71 @@ func TestReviewersIncludesExtraDispatchSlots(t *testing.T) {
 	}
 }
 
+// TestReviewersCountsMutationExtraDispatch seeds the always-on
+// mutation+failure-modes bundle (kan-1028), whose slots a decision records
+// under extra_dispatch_mutation.slots and no roster names, and asserts both
+// roles surface as rows, failure-modes with its finding, each with the
+// description review-panel.md gives it.
+func TestReviewersCountsMutationExtraDispatch(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-reviewers-extramf-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	d := baseDispatch("reviewer", "opus")
+	d.Slot = "mutation+failure-modes"
+	d.StartedAt = time.Date(2026, 6, 10, 9, 0, 0, 0, time.UTC)
+	bundle, err := st.RecordDispatch(ctx, projectKey, "kan-1", d)
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	f := baseFinding("F1", 1)
+	f.Slot = "failure-modes"
+	f.Severity = "Important"
+	f.Status = "fixed"
+	f.DispatchSeq = &bundle.Seq
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", f); err != nil {
+		t.Fatalf("UpsertFinding: %v", err)
+	}
+	if _, _, err := st.RecordDecision(ctx, projectKey, "kan-1", records.Decision{
+		SessionToken: "mf-extramf-" + projectKey,
+		Decision:     json.RawMessage(`{"panel": "default", "extra_dispatch_mutation": {"slots": ["mutation", "failure-modes"], "model": "opus", "effort": "low"}}`),
+	}); err != nil {
+		t.Fatalf("RecordDecision: %v", err)
+	}
+
+	period := store.Period{
+		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+	}
+	rows, err := st.Reviewers(ctx, period, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("Reviewers: %v", err)
+	}
+	bySlot := map[string]store.ReviewerRow{}
+	for _, r := range rows {
+		bySlot[r.Slot] = r
+	}
+	for slot, desc := range map[string]string{
+		"mutation":      "Mutation — sabotage-proofing",
+		"failure-modes": "Failure-modes — error return, timeout, partial write, concurrent re-entry",
+	} {
+		r, ok := bySlot[slot]
+		if !ok {
+			t.Fatalf("no row for extra-dispatch slot %q (rows: %+v)", slot, rows)
+		}
+		if r.Dispatches != 1 {
+			t.Errorf("%s Dispatches = %d, want 1", slot, r.Dispatches)
+		}
+		if r.Description != desc {
+			t.Errorf("%s Description = %q, want %q", slot, r.Description, desc)
+		}
+	}
+	if got := bySlot["failure-modes"].Important; got != 1 {
+		t.Errorf("failure-modes Important = %d, want 1", got)
+	}
+}
+
 // TestDecisionsJoinsRunTotals seeds one recorded decision together with the
 // stage run, dispatches and findings its own session token shares, and
 // asserts Decisions (design.md's "Stats views › decisions") joins every one

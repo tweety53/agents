@@ -496,9 +496,10 @@ type ReviewerRow struct {
 // when some recorded roster names it. Dispatches of other roles (panel-fix,
 // verifier) and one-off reviewers sometimes carry an invented -slot, and
 // without this join each surfaced as a zero-findings row. The always-on
-// extra dispatch's slots are recorded under extra_dispatch.slots, never in
-// the roster, so they count as members too; that record carries no
-// description, so theirs comes from extraDispatchDescriptions.
+// extra dispatches' slots are recorded under extra_dispatch.slots and
+// extra_dispatch_mutation.slots, never in the roster, so they count as
+// members too; those records carry no description, so theirs comes from
+// extraDispatchDescriptions.
 func (s *Store) Reviewers(ctx context.Context, period Period, project, model *string) ([]ReviewerRow, error) {
 	rows, err := s.pool.Query(ctx, `
 		WITH scoped_dispatches AS (
@@ -538,6 +539,9 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 			SELECT slot FROM slot_desc
 			UNION
 			SELECT jsonb_path_query(decision, '$.extra_dispatch.slots[*]') #>> '{}'
+			FROM decisions
+			UNION
+			SELECT jsonb_path_query(decision, '$.extra_dispatch_mutation.slots[*]') #>> '{}'
 			FROM decisions
 		)
 		SELECT
@@ -580,11 +584,14 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 	return out, nil
 }
 
-// extraDispatchDescriptions describes the always-on extra dispatch's
-// slots, in the words of skills/flow/review-panel.md's table for it.
+// extraDispatchDescriptions describes the always-on extra dispatches'
+// slots (extra_dispatch and extra_dispatch_mutation), in the words of
+// skills/flow/review-panel.md's table for them.
 var extraDispatchDescriptions = map[string]string{
 	"test-sanity":     "Test-sanity — would each test the diff adds or changes fail if its behaviour broke",
 	"call-efficiency": "Call-efficiency — second callers, a read repeated in one request, a query per list item",
+	"failure-modes":   "Failure-modes — error return, timeout, partial write, concurrent re-entry",
+	"mutation":        "Mutation — sabotage-proofing",
 }
 
 // DecisionRow is one recorded planner decision (design.md's "The decision
