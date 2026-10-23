@@ -96,12 +96,12 @@ One round runs these steps in order:
    failures — in place of a fix for a flake nobody saw, and the task ticks through
    `close-task.sh <canonical-worktree> <name> <merge-base> <n>:<that commit's sha>` as any task.
 3. **Re-review the delta.** Open `flow.review-panel` again and run `primary` beside **The always-on
-   extra dispatch** (`skills/flow/review-panel.md`), reading `late-fix.diff` over the range since
+   extra dispatches** (`skills/flow/review-panel.md`), reading `late-fix.diff` over the range since
    the panel's last clean close, written, paired, ceilinged and recorded as **The late-fix
    reduction** (`skills/flow/review-panel-late-fix.md`) states its dispatch, its prompt carrying
    the FIX-ROUND SCOPE paragraph of **Panel re-runs** (`skills/flow/review-panel-fix-round.md`).
-   The two dispatches are keyed `panel-<round>-primary` and
-   `panel-<round>-test-sanity+call-efficiency`, `<round>` the number `flow record next-round`
+   The three dispatches are keyed `panel-<round>-primary`,
+   `panel-<round>-test-sanity+call-efficiency` and `panel-<round>-mutation+failure-modes`, `<round>` the number `flow record next-round`
    prints, and the round records its `flow record pass -round <round>` rows like any panel round.
    That file's finding, voiding and staleness rules
    apply as written — a clean or Minor-only read leaves every slot it did not dispatch current.

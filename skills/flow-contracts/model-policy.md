@@ -27,8 +27,7 @@ guidance's cost savings do not apply here.
 
 **Two further instructions in that same upstream skill are also overridden: dispatching the final
 review on the most capable model, and escalating the model in fix rounds 4-5.** flow fixes every
-panel slot at its dispatch's decision pair instead and escalates breadth (the conditional Failure-modes and
-Mutation slots) rather than the model. See **Model policy**
+panel slot at its dispatch's decision pair instead. See **Model policy**
 (`skills/flow-contracts/model-policy-rationale.md`) for the reasoning.
 
 **The planner makes the choice.** The implementer, the fixer and each panel dispatch run on the

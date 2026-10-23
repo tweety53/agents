@@ -20,7 +20,7 @@ The full key list, in the order each phase file marks them:
 | `skills/flow/review-panel.md` | `flow.review-panel` |
 | `skills/flow/review-panel-late-fix.md` | `flow.review-panel` — loaded only on a fix run |
 | `skills/flow/review-panel-fix-round.md` | `flow.review-panel` — loaded only once a round has recorded a Critical or Important finding, or a close guard sends the run back to the handback loop; read by section where a citer names it |
-| `skills/flow/review-panel-optional-slots.md` | `flow.review-panel` — loaded only for a round whose roster carries `mutation` |
+| `skills/flow/review-panel-optional-slots.md` | `flow.review-panel` — loaded per that file's own trigger |
 | `skills/flow/review-panel-experimental-slot.md` | `flow.review-panel` — loaded only for a round whose roster carries an `exp-` slot |
 | `skills/flow/verify-and-handoff.md` | `flow.verify`, `flow.visual-verify` (steps 1–2), `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
 | `skills/flow/verify-fix-loop.md` | `flow.document-fix`, `flow.decide`, `flow.sdd-tdd`, `flow.review-panel`, `flow.verify`, `flow.visual-verify` — re-run through their own files; loaded only when a verify stage's final report carries a fixable defect; begins no mark of its own |
