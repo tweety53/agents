@@ -595,6 +595,10 @@ each of steps 4, 7–11 and the motion step a status `check-verify-report.sh` ad
 is canonical for them — and the parent runs that guard on the report before reading it.
 Run it on your own report before handing back: an exit 1 names the steps still owed, so do them
 and run it again, and hand back an incomplete report only for a blocker you cannot cure, named.
+**A departure found never shortens the pass:** every step still runs to its end in the same
+dispatch, and a fix round's re-verify finishing what this one left is no reason to leave it
+(kan-1008: a verifier left step 10 "by choice" once it had found departures, and two remainder
+dispatches cost 19 and 10 minutes).
 **Step 10 is `done` only when every frame's matrix and sweeps are**: a row for every element the
 frame draws, every cell filled as step 10 states, and every sweep on each `sweeps:` and `added
 sweep` line `done` or `n/a — <why it does not apply>` — a sweep or a cell left for time, context
