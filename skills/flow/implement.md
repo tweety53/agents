@@ -91,7 +91,9 @@ words, with no parentheses: `panel-1-primary correctness review`. The `flow-task
 (`mods/flow-task-list/`) reads that prefix to number its row. The daemon stamps a launch onto the
 row its description's first word names, so `hooks/enforce-agent-baseline.py` denies, in a flow run,
 a dispatch whose description opens any other way (kan-1026: launches described `Round-11 primary
-review` left their rows to time pairing, which stamped two with another dispatch's agent).
+review` left their rows to time pairing, which stamped two with another dispatch's agent). A first
+word off the **Key shape** column above is another way: kan-1029's `verify-fix-1` and `verify`
+launches recorded no row.
 
 **Every dispatch is one-shot — a finished child is never resumed.** The parent never sends a
 `SendMessage` to a child that has written its report. Whatever a

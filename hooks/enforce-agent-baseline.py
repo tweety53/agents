@@ -24,8 +24,8 @@ self-review loop and dragged ~300k tokens of its own context into it).
 
 It denies, in a flow session, a dispatch whose `description` does not open with its row: `Task
 <x>/<n>` or `Tasks <a+b>/<n>` for plan tasks, else the row's literal `-key` (**Every dispatch's
-Agent-tool `description`**, skills/flow/implement.md) -- the word the harvester stamps the launch
-by. A loop dispatch, whose prompt carries a `Key: self-review-`/`Key: pipeline-fix-` line, is
+Agent-tool `description`**, skills/flow/implement.md), of a Key shape the closed list names -- the
+word the harvester stamps the launch by. A loop dispatch, whose prompt carries a `Key: self-review-`/`Key: pipeline-fix-` line, is
 stamped by that line and exempt (kan-1026: 29 of 41 launches opened "Round-11 primary review" and
 the like, and 14 ledger rows were left empty or stamped with another dispatch's agent).
 
@@ -102,9 +102,19 @@ FLOW_HIGH_MARKERS = (
 )
 
 
-# A description naming its row: plan tasks by id over the plan's count, any other row by a key-shaped
-# first word -- lowercase, no spaces (`panel-4-primary`, `visual-verify-fix-11-gymie`, `planner`).
-ROW_DESCRIPTION = re.compile(r"Tasks? \d+(?:\+\d+)*/\d+(?:\s|$)|[a-z][a-z0-9+._-]*(?:\s|$)")
+# A description naming its row: plan tasks by id over the plan's count, any other row by a first
+# word of a Key shape the closed list names (**Dispatch sites -- the parent's closed list**,
+# skills/flow/implement.md) -- `panel-4-primary`, `visual-verify-fix-11-gymie`. A lowercase word off
+# the list -- `verify-fix-1`, `verify` -- names no row (kan-1029: both launched with no row).
+ROW_KEY = (
+    r"task-\d+(?:\+\d+)*-(?:implementer|reviewer)(?:-[a-z0-9-]+)?"
+    r"|panel-\d+-[a-z][a-z0-9+-]*"
+    r"|panel-fix-\d+(?:-\d+)?(?:-retry)?"
+    r"|visual-verify(?:-[a-z0-9][a-z0-9-]*)?"
+    r"|tooling-analysis-\d+(?:-[a-z0-9][a-z0-9-]*)?"
+    r"|pipeline-fix-[a-z0-9][a-z0-9-]*"
+)
+ROW_DESCRIPTION = re.compile(r"(?:Tasks? \d+(?:\+\d+)*/\d+|" + ROW_KEY + r")(?:\s|$)")
 # The loop key line exactly as the harvester reads it (loopKeyPattern, stats/internal/harvest/transcript.go).
 LOOP_KEY_LINE = re.compile(r"^[ \t]*Key:[ \t]*(?:pipeline-fix|self-review)-\S+[ \t]*$", re.M)
 
