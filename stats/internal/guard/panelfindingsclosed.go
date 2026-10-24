@@ -239,6 +239,26 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 	// whose slot's `+`-components include the report's id, any status, a
 	// finding the slot raised never reached the store -- kan-1000's round 11.
 	// A report missing either line predates the paragraph and is not compared.
+	uncounted, err := cfcUncounted(worktree, findings)
+	if err != nil {
+		fmt.Fprintf(stderr, "%s%v\n", cfcPrefix, err)
+		return 2
+	}
+	if len(uncounted) > 0 {
+		fmt.Fprintf(stderr, "%sfinding(s) a slot's report counts that the store does not hold: %s\n", cfcPrefix, strings.Join(uncounted, " "))
+		violated = true
+	}
+	if violated {
+		return 1
+	}
+	fmt.Fprintln(stdout, "FINDINGS-CLOSED")
+	return 0
+}
+
+// cfcUncounted answers the slot reports under <worktree>'s
+// .superpowers/sdd whose Critical and Important sum exceeds the store's rows
+// of that round and slot, each as `<file> (report <n>, recorded <m>)`.
+func cfcUncounted(worktree string, findings []cfcFindingRow) ([]string, error) {
 	reports, _ := filepath.Glob(filepath.Join(worktree, ".superpowers", "sdd", "panel-report-*.md"))
 	var uncounted []string
 	for _, p := range reports {
@@ -249,8 +269,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		round, _ := strconv.Atoi(m[1])
 		body, err := os.ReadFile(p)
 		if err != nil {
-			fmt.Fprintf(stderr, "%scannot read panel report %s — cannot determine anything: %v\n", cfcPrefix, p, err)
-			return 2
+			return nil, fmt.Errorf("cannot read panel report %s — cannot determine anything: %v", p, err)
 		}
 		c, i := cfcCriticalRE.FindSubmatch(body), cfcImportantRE.FindSubmatch(body)
 		if c == nil || i == nil {
@@ -268,15 +287,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 			uncounted = append(uncounted, fmt.Sprintf("%s (report %d, recorded %d)", filepath.Base(p), nc+ni, recorded))
 		}
 	}
-	if len(uncounted) > 0 {
-		fmt.Fprintf(stderr, "%sfinding(s) a slot's report counts that the store does not hold: %s\n", cfcPrefix, strings.Join(uncounted, " "))
-		violated = true
-	}
-	if violated {
-		return 1
-	}
-	fmt.Fprintln(stdout, "FINDINGS-CLOSED")
-	return 0
+	return uncounted, nil
 }
 
 // cfcReportWritten reports whether a re-run wrote its report: the file is

@@ -286,6 +286,25 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	if open > 0 {
 		reasons = append(reasons, strconv.Itoa(open)+" open finding(s) in the review panel record")
 	}
+	// Signal two's report half (kan-1015): a slot's report counting more
+	// Critical and Important findings than the store holds is a finding that
+	// never reached the store -- check-panel-findings-closed's count, read
+	// once, by the worktree holding the plan.
+	if anchor == worktree {
+		rows, ok := cfcParse(findingsJSON)
+		if !ok {
+			fmt.Fprintln(stderr, uwPrefix+"jq failed — cannot determine anything")
+			return 2
+		}
+		uncounted, err := cfcUncounted(anchor, rows)
+		if err != nil {
+			fmt.Fprintf(stderr, "%s%v\n", uwPrefix, err)
+			return 2
+		}
+		if len(uncounted) > 0 {
+			reasons = append(reasons, strconv.Itoa(len(uncounted))+" panel report(s) count findings the store does not hold ("+strings.Join(uncounted, " ")+") — record each with `flow record finding -change "+name+" -C "+anchor+"` before landing")
+		}
+	}
 
 	// Signal three — dispatch rows never closed with an outcome (kan-929: a
 	// `dispatch end` run without -C in a second repo's worktree journalled

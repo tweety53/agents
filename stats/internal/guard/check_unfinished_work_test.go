@@ -1181,3 +1181,30 @@ func TestCheckUnfinishedWorkMergeOrderRecord(t *testing.T) {
 		})
 	}
 }
+
+// TestCheckUnfinishedWorkReportCount pins kan-1015's self-review: five panel
+// reports counted 13 Critical and Important findings the store never held,
+// and integrate read CLEAR. The gate now counts each report against the
+// store as check-panel-findings-closed does.
+func TestCheckUnfinishedWorkReportCount(t *testing.T) {
+	t.Parallel()
+	const reason = "panel-report-0-primary.md (report 2, recorded 0)"
+	for _, c := range []struct {
+		name, findings string
+		want           bool
+	}{
+		{"a report the store under-counts is OUTSTANDING", "[]", true},
+		{"a report the store holds is not refused", `[{"ref":"F1","status":"fixed","severity":"important","round":0,"slot":"primary"},{"ref":"F2","status":"fixed","severity":"important","round":0,"slot":"primary"}]`, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			f := newUW(t)
+			f.findings = []byte(c.findings)
+			writeFile(t, f.wt+"/.superpowers/sdd/panel-report-0-primary.md", "# primary\n\nCritical: 0\nImportant: 2\n")
+			r := f.run(t, f.wt, "demo")
+			if got := strings.Contains(r.out, reason); got != c.want || (c.want && !strings.HasPrefix(r.out, "OUTSTANDING:")) {
+				t.Fatalf("exit %d stdout %q stderr %q; want reason %q present=%v", r.rc, r.out, r.err, reason, c.want)
+			}
+		})
+	}
+}
