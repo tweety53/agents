@@ -40,7 +40,7 @@ in this worktree.
 - Task 9: a verifier row begun with no `-round-base` reads `roundBase` empty, and older rows keep passing the guard.
 - Task 13: a report line that says "not pre-existing" or names `merge-base capture failed — <reason>` beside a this-change attribution is not refused.
 
-- [ ] 1. Hold the PIXEL PROBE to rendered pixels
+- [x] 1. Hold the PIXEL PROBE to rendered pixels
   - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'rendered pixels or geometry' skills/flow/review-panel.md skills/flow/review-panel-fix-round.md stats/internal/guard/dispatchparagraphs.go` prints one line in each file.
     <!-- measured: git grep -n 'rendered pixels or geometry' @ 0f456593 → review-panel.md:1028, review-panel-fix-round.md:378, dispatchparagraphs.go:53 -->
   - [ ] **Step 2: Apply the prose.** In `skills/flow/review-panel.md` replace the first block with the second:
@@ -65,7 +65,7 @@ in this worktree.
 **Commit:** fix(review-panel): hold the PIXEL PROBE to rendered pixels
 **After:** none
 
-- [ ] 2. Check the base against its tracked branch before task 1
+- [x] 2. Check the base against its tracked branch before task 1
   - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'check-base-behind' skills/flow/implement.md; echo $?` prints only `1`.
     <!-- measured: grep -n check-base-behind skills/flow/implement.md @ 0f456593 → exit 1 -->
   - [ ] **Step 2: Apply the prose.** In `skills/flow/implement.md` §1, insert this paragraph, followed by one blank line, immediately before the line `**The plan is refreshed against the base before task 1 runs.** Before the`:
@@ -90,7 +90,7 @@ after implement).
 **Commit:** fix(implement): check the base against its tracked branch before task 1
 **After:** none
 
-- [ ] 3. Run a visual-fix task's capture spec before it closes
+- [x] 3. Run a visual-fix task's capture spec before it closes
   - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'runs its capture spec before it closes' skills/flow/verify-fix-loop.md; echo $?` prints only `1`.
   - [ ] **Step 2: Apply the prose.** In `skills/flow/verify-fix-loop.md` step 2, insert these lines immediately before the line `   **Every recapture the round runs rebuilds the full app suite's zip after it** —`:
 
@@ -111,7 +111,7 @@ after implement).
 **Commit:** fix(verify-fix-loop): run a visual-fix task's capture spec before it closes
 **After:** none
 
-- [ ] 4. Measure fix rounds on the 2× pair, never a composite
+- [x] 4. Measure fix rounds on the 2× pair, never a composite
   - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'never on a `compose-mockup-frames.sh`' skills/flow/verify-fix-loop.md; echo $?` prints only `1`.
   - [ ] **Step 2: Apply the prose.** In `skills/flow/verify-fix-loop.md` replace the first block with the second:
 
@@ -134,7 +134,7 @@ after implement).
 **Commit:** fix(verify-fix-loop): measure fix rounds on the 2x pair, never a composite
 **After:** Task 3
 
-- [ ] 5. Order F11 pairs through the After graph
+- [x] 5. Order F11 pairs through the After graph
   - [ ] **Step 1: Reproduce before touching anything; do not guess.** Write `TestCheckPlanShapeF11Reachability` in `stats/internal/guard/check_plan_shape_test.go`: a plan of three tasks, task 1 `**Files:** \`a.go\``, task 2 `**Files:** \`b.go\`` `**After:** Task 1`, task 3 `**Files:** \`a.go\`` `**After:** Task 2`, each with the fields `check-plan-shape` reads; `checkPlanShape` exits 0 and prints no F11 line. A second case drops task 3's `**After:**` to `none` and expects the F11 line naming task 3 and task 1. Run `cd stats && go test ./internal/guard/ -run 'TestCheckPlanShapeF11Reachability' -count=1`: the first case fails.
   - [ ] **Step 2: Fix.** In `fileOwnership` (`stats/internal/guard/planshape.go`) replace the direct test `!slices.Contains(declared[earlier], later) && !slices.Contains(declared[later], earlier)` with `!psReaches(declared, later, earlier) && !psReaches(declared, earlier, later)`, where `psReaches(declared map[string][]string, from, to string) bool` walks `declared` depth-first from `from` with a visited set and answers whether `to` is reached. Update the F11 line of the file's header comment: "no GATING declared After edge between a co-owning pair, in either direction" becomes "no path of GATING declared After edges between a co-owning pair, in either direction".
   - [ ] **Step 3: Verify.** The test passes; `cd stats && go test ./internal/guard/ -run 'TestCheckPlanShape' -count=1` passes; `gofmt -l internal/guard` and `go vet ./internal/guard` print nothing.
@@ -151,7 +151,7 @@ after implement).
 
 **Decision:** f11-reachability
 
-- [ ] 6. Run the plan guards on a planning commit that appends a task, and repair the archived change record
+- [x] 6. Run the plan guards on a planning commit that appends a task, and repair the archived change record
   - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run this worktree's `scripts/check-plan-shape.sh` and `scripts/check-task-build-green.sh` on `<backend wt>/spectre/changes/archive/<name>/tasks.md`: both exit 1 — with Task 5 landed, plan-shape's After hits are task 15 against task 9 alone, beside its `**Tests:**` hits on tasks 21–23; build-green names tasks 21–24 `pending`.
     <!-- measured: both guards on the archived tasks.md @ backend fe872cce → exit 1, 42 plan-shape lines, 4 build-green lines (before Task 5) -->
   - [ ] **Step 2: Write the failing test.** `TestCheckPlanningCommitAppendRunsPlanGuards` in `stats/internal/guard/check_planning_commit_location_test.go`, built like `TestCheckPlanningCommitTickedAppend`: HEAD's `spectre/changes/<name>/tasks.md` holds one green task; the working tree appends an unticked task 2 whose `**Build:**` reads `pending`. `checkPlanningCommit` exits 1 and its output carries build-green's `task 2 has a **Build:** line reading "pending"` line. A second case appends a well-formed task 2 and expects exit 0. Run it: the first case fails.
@@ -172,7 +172,7 @@ after implement).
 
 **Decision:** append-runs-plan-guards
 
-- [ ] 7. Refuse a panel report the store under-counts at integrate, and record the missing rows
+- [x] 7. Refuse a panel report the store under-counts at integrate, and record the missing rows
   - [ ] **Step 1: Reproduce before touching anything; do not guess.** `scripts/check-panel-findings-closed.sh <backend wt> <name>` exits 1 naming `panel-report-0-failure-modes.md (report 3, recorded 0)`, `panel-report-0-mutation.md (report 1, recorded 0)`, `panel-report-0-primary.md (report 2, recorded 0)`, `panel-report-0-principles.md (report 6, recorded 0)` and `panel-report-2-mutation.md (report 1, recorded 0)`; `scripts/check-unfinished-work.sh <backend wt> <name>` names none of them.
     <!-- measured: check-panel-findings-closed.sh <backend wt> <name> @ backend fe872cce → those five reports -->
   - [ ] **Step 2: Write the failing test.** `TestCheckUnfinishedWorkReportCount` in `stats/internal/guard/check_unfinished_work_test.go`, on the file's existing fake-store setup: the store answers `[]` findings and the worktree's `.superpowers/sdd/panel-report-0-primary.md` reads `Critical: 0` / `Important: 2`; the verdict is `OUTSTANDING:` naming `panel-report-0-primary.md (report 2, recorded 0)`. A second case with two matching Important rows of round 0, slot `primary`, reads no such reason. Run it: the first case fails.
@@ -191,7 +191,7 @@ after implement).
 
 **Decision:** share-report-count
 
-- [ ] 8. Derive the pass log's verdict from finding rows
+- [x] 8. Derive the pass log's verdict from finding rows
   - [ ] **Step 1: Write the failing test.** `TestRenderPanelPassLogVerdictFromFindings` in `stats/internal/records/render_test.go`: a `Run` with pass rows for rounds 0 and 1, findings one Critical and two Important in round 0 and none in round 1; the round 0 section carries `- verdict: fix (1 Critical, 2 Important)` after its notes, and round 1 `- verdict: clean`. Run `cd stats && go test ./internal/records/ -run 'TestRenderPanelPassLogVerdictFromFindings' -count=1`: it fails.
   - [ ] **Step 2: Fix.** In `RenderPanel` (`stats/internal/records/render.go`), after the round's pass notes (and after the `no pass row recorded` line), count `r.Findings` whose `Round` is the round and whose severity is `critical` or `important`, case-insensitive, any status, and write `- verdict: clean` when both counts are 0, else `- verdict: fix (<c> Critical, <i> Important)`. Note it in the pass-log comment block above the loop: the notes stay verbatim; the verdict is derived (kan-1015 round 1's note claimed four Importants the store never held).
   - [ ] **Step 3: Verify.** `cd stats && go test ./internal/records/ -run 'TestRenderPanel' -count=1` passes; `gofmt -l internal/records` and `go vet ./internal/records` print nothing.
@@ -208,7 +208,7 @@ after implement).
 
 **Decision:** derived-verdict
 
-- [ ] 9. Record a verifier's round base and refuse a scoped closing run
+- [x] 9. Record a verifier's round base and refuse a scoped closing run
   - [ ] **Step 1: Write the failing tests.** `TestDispatchRoundBaseRoundTrips` in `stats/internal/store/records_test.go`: a dispatch begun with a round base `c75529d2` reads it back as `RoundBase`, and one begun without reads `""`. `TestCheckVisualVerifyDispatchedRefusesAScopedNewestVerifier` in `stats/internal/guard/check_visual_verify_dispatched_test.go`, on the file's existing fixtures: two completed `visual-verify` rows for the worktree, the newer carrying `"roundBase":"c75529d2"` → exit 1 and a `VISUAL-VERIFY-MISSING:` line naming the key and `c75529d2`; the newer carrying none → exit 0. Run both with `-run`: they fail (the first does not compile).
   - [ ] **Step 2: Fix.** Mirror the `diff_base` path end to end (`grep -rn 'diff_base\|DiffBase\|diff-base' stats/cmd stats/internal --include=*.go` lists every site): migration `stats/internal/store/migrations/0046_dispatch_round_base.sql` adding a nullable `round_base text` to `dispatches`; the store's begin insert and its dispatch reads; the `RoundBase string \`json:"roundBase,omitempty"\`` field on `records.Dispatch` (`stats/internal/records/types.go`); the daemon's begin route; and `flow record dispatch begin`'s `-round-base sha` flag and usage line in `stats/cmd/flow/record.go`. In `stats/internal/guard/visualverifydispatched.go`, among the qualifying verifier rows the guard already finds for the worktree, the newest by `startedAt` must carry an empty `roundBase`; otherwise the verdict is `VISUAL-VERIFY-MISSING: the newest verifier row '<key>' ran scoped to round base <sha> — the loop's closing unscoped run is not recorded (skills/flow/verify-fix-loop.md, **One full run closes the loop**)`. Add that verdict to `scripts/check-visual-verify-dispatched.sh`'s header.
   - [ ] **Step 3: Apply the prose.** In `skills/flow/verify-fix-loop.md` insert these lines immediately after the line `clean scoped re-run, never another round's fix (KAN-1000: three rounds in a row re-ran unscoped).`:
@@ -233,7 +233,7 @@ row carries one — the closing unscoped run is not recorded.
 
 **Decision:** round-base-column
 
-- [ ] 10. Deny a flow dispatch whose row was never begun, and back-fill the missing rows
+- [x] 10. Deny a flow dispatch whose row was never begun, and back-fill the missing rows
   - [ ] **Step 1: Write the failing test.** `TestEnforceAgentBaselineHookRequiresAnOpenRow` in `stats/internal/repotest/enforce_agent_baseline_hook_test.go`: an `httptest` server answering `/api/v1/stage-runs` with one row `{"changeName":"c1"}`, `FLOW_ADDR` pointed at it, and a fake `flow` first on `PATH` printing a dispatches array; a flow-session payload (transcript holding a `/flow` command) with the baseline pointer and `description: "panel-4-primary review"`. Cases: the array holds `panel-4-primary` with an empty `outcome` → allow; the array holds it with `outcome: "completed"` or lacks it → deny, the reason naming `flow record dispatch begin`; `description: "Task 3/9 (x)"` with an open `task-3-implementer` → allow; `description: "Tasks 1+3/9 (x)"` with an open `task-1+3-implementer` → allow; the fake `flow` exiting 1, or the server answering 500 → allow; a prompt carrying `Key: self-review-x-fix` → allow without calling `flow`. Run `cd stats && go test ./internal/repotest/ -run 'TestEnforceAgentBaselineHookRequiresAnOpenRow' -count=1`: the deny cases fail.
   - [ ] **Step 2: Fix.** In `hooks/enforce-agent-baseline.py` add `begin_row_reason(payload, tool_input, prompt)`, called after `description_reason` in `main`'s `or` chain: it returns `None` for a loop-key prompt, outside a flow session, or for a description `ROW_DESCRIPTION` does not match; resolves the change as `flow-active-change.py`'s `last_flow_change` does (`session_id` from the payload, `GET $FLOW_ADDR/api/v1/stage-runs?session_id=…&command=/flow&sort=-started_at&limit=1`, timeout 2 s); runs `flow record dispatches -change <change> -C <payload cwd>` (timeout 5 s); and denies only when that printed a JSON array holding no row with an empty `outcome` whose `key` is the description's first word, or — for `Task <ids>/<n>` / `Tasks <ids>/<n>` — starts with `task-<ids>-`. Every fault, timeout, non-zero exit or unparseable answer returns `None`. The reason: `Dispatch blocked: no open ledger row for '<word>' in <change> — record it first with \`flow record dispatch begin -change <change> -key <key> …\` (skills/flow/implement.md), then re-send this call unchanged.` Add one paragraph to the module docstring stating the check and that it fails open.
   - [ ] **Step 3: Verify.** `cd stats && go test ./internal/repotest/ -run 'TestEnforceAgentBaselineHook' -count=1` passes; `scripts/check-python-suppressions.sh` exits 0. Commit the two files with the subject below.
@@ -257,7 +257,7 @@ row carries one — the closing unscoped run is not recorded.
 
 **Decision:** backfill-keys
 
-- [ ] 11. Deny an untrailered commit on a change branch
+- [x] 11. Deny an untrailered commit on a change branch
   - [ ] **Step 1: Write the failing test.** `TestProtectMainCheckoutDeniesAnUntraileredChangeBranchCommit` in `stats/internal/repotest/protect_main_checkout_test.go`, on the file's existing repo fixtures: a linked worktree on `spectre/c1`; `git commit -m "fix(x): y"` → deny, the reason naming `Flow-Key:`; `git commit -m "fix(x): y" -m "Task-Id: 3"`, `git commit -m "chore(spectre): plan c1"`, `git commit -F msg.txt` and `git commit --amend --no-edit` → allow; the same `-m "fix(x): y"` in a linked worktree on `feature/c1` → allow. Run `cd stats && go test ./internal/repotest/ -run 'TestProtectMainCheckoutDeniesAnUntraileredChangeBranchCommit' -count=1`: the deny case fails.
   - [ ] **Step 2: Fix.** In `bash_hits` (`hooks/protect-main-checkout.py`), where a `commit` verb is collected, when `landings is not None` and the target worktree's current branch (`git(target, "symbolic-ref", "--short", "-q", "HEAD")`) starts with `spectre/` and `commit_lacks_trailer(cargs, target)` holds, append the reason `Blocked: this commit lands on <branch> with neither a \`Task-Id:\` nor a \`Flow-Key:\` trailer and no \`chore\` subject (**Commits outside every task**, skills/flow-contracts/git-boundaries.md). Add \`-m "Flow-Key: <key>"\`, or \`-m "Task-Id: <n>"\` on a task's own commit, then run it again.` A git failure reading the branch judges nothing. Add one paragraph to the module docstring beside the commit-then-push paragraph.
   - [ ] **Step 3: Verify.** `cd stats && go test ./internal/repotest/ -run 'TestProtectMainCheckout' -count=1` passes; `scripts/check-python-suppressions.sh` exits 0.
@@ -274,7 +274,7 @@ row carries one — the closing unscoped run is not recorded.
 
 **Decision:** spectre-branch-commit-trailer
 
-- [ ] 12. Name the verifier's -rest keys on the closed list
+- [x] 12. Name the verifier's -rest keys on the closed list
   - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -n -- '`-rest`' skills/flow/implement.md; echo $?` prints only `1`, while `skills/flow/visual-verify.md` defines `-rest` and `-rest-<n>`.
   - [ ] **Step 2: Apply the prose.** In `skills/flow/implement.md` replace `` `visual-verify` (`-2`, `-retry`, `-fix-<k>`, `-fix-<k>-full`) `` with `` `visual-verify` (`-2`, `-retry`, `-rest`, `-rest-<n>`, `-fix-<k>`, `-fix-<k>-full`) ``.
   - [ ] **Step 3: Pin the keys.** `TestEnforceAgentBaselineHookAdmitsRestKeys` in `stats/internal/repotest/enforce_agent_baseline_hook_test.go`, on Task 10's fixtures with an open row for each: descriptions `visual-verify-rest-gymie verifier remainder` and `visual-verify-rest-2-gymie verifier remainder` in a flow session → allow.
@@ -292,7 +292,7 @@ row carries one — the closing unscoped run is not recorded.
 
 **Decision:** rest-keys-on-closed-list
 
-- [ ] 13. Allow the merge-base stack and refuse an unevidenced pre-existing attribution
+- [x] 13. Allow the merge-base stack and refuse an unevidenced pre-existing attribution
   - [ ] **Step 1: Write the failing test.** `TestCheckVerifyReportPreExistingNeedsMergeBaseEvidence` in `stats/internal/guard/check_verify_report_test.go`, on a report otherwise complete (every step `done`): a `## Report` sub-bullet `  - kan-466 weight-tab: … Attributed as pre-existing from the code path only` → exit 1, `VERIFY-REPORT-INCOMPLETE:` naming `10` and `pre-existing attribution with no merge-base evidence`; the same line carrying `merge-base baseline: 4f8f8344:kan-466-weigh-in-history.spec.ts-snapshots/kan466-weight-tab-darwin.png` → exit 0; `present at merge base … merge-base capture: /tmp/x.png` → exit 0; `not pre-existing` → exit 0. Run it: the first case fails.
   - [ ] **Step 2: Fix.** In `checkVerifyReport` (`stats/internal/guard/verifyreport.go`), over the lines of the `## Report` section, a line matching `(?i)(?:^|[^-\w])pre-existing|present at (?:the )?merge base` and not `(?i)\bnot pre-existing`, carrying neither `merge-base baseline: ` nor `merge-base capture: `, makes step 10 undone with the status `pre-existing attribution with no merge-base evidence: <the line, trimmed, at most 120 characters>`. Add the rule to `scripts/check-verify-report.sh`'s header after the fingerprint paragraph: "A `## Report` line attributing a departure as `pre-existing` or `present at the merge base` that names neither `merge-base baseline: <sha>:<path>` nor `merge-base capture: <path>` leaves step 10 undone (kan-1015: a re-baseline over a defect attributed from the code path alone)."
   - [ ] **Step 3: Apply the prose.** In `skills/flow/visual-verify.md` replace the first block with the second; in `skills/flow/visual-verify-verifier.md` step 10 insert the third block immediately before the line `   Every line that reports the departure names its cause or its attribution`:
@@ -329,7 +329,7 @@ attribution starts, committing and pushing nothing.
 
 **Decision:** attribution-in-verify-report
 
-- [ ] 14. Measure a frame's elements inside its app surface
+- [x] 14. Measure a frame's elements inside its app surface
   - [ ] **Step 1: Write the failing test.** `TestMeasureVisualPropertiesElements` in `stats/internal/guard/measure_visual_properties_test.go`: synthesise two PNGs 120×200 — rows 0–79 a dark scrim (`#555555`), rows 80–199 a white surface with a 1px full-width rule (`#cccccc`) at y=100 and a 40×10 dark text block (`#222222`) at x=20, y=120; the second identical but its text block at y=124. `--props elements --scale 1` prints `a.elements.surface_top` 80, two elements per image (`rule` then `text/control`), and `delta.elements` pairing them with `top` delta 0 then 4 and `gap` delta 4. A third image with no scrim reads `surface_top` 0. Run `cd stats && go test ./internal/guard/ -run 'TestMeasureVisualPropertiesElements' -count=1`: it fails (`elements` is refused).
   - [ ] **Step 2: Fix.** In `stats/internal/guard/measurevisualproperties.go` accept `elements` in `--props` without adding it to `mvpAllProps` (the default set is unchanged), and treat it as a page property beside `bands` and `seams`. Port the run's hand-written matrix script — its surface-top and segmentation functions are reproduced below — to Go: per image, `surface_top`, `background` (hex), and `elements`, each `top`, `height`, `left`, `width`, `right`, `colour` (hex), `kind` (`rule`, `fill band` or `text/control`) and `gap` (from the previous element's bottom, the first from `surface_top`). Pair the two images' elements in order through `mvpPairInOrder` with the `--scale` calibration and emit `delta.elements` and `delta.elements_summary` the way `bands` does; flag nothing. Document `elements` in `scripts/measure-visual-properties.sh`'s property list: "elements — the app surface's top (`surface_top`: the first row, walking column 3 up from the bottom, whose mean channel value is not above 200, plus one; 0 when that row is above row 60 — the whole image is the surface) and every ink run below it against the surface's modal colour (distance over 30), each run's box, modal colour, kind and gap above; paired in order across two images like `bands`. Not in the default set (kan-1015: scrim-dimmed sheet frames read as one band)."
 
@@ -394,7 +394,7 @@ def elems(im, t):
 
 **Decision:** elements-opt-in
 
-- [ ] 15. Refuse a scoped re-run that ran another spec count
+- [x] 15. Refuse a scoped re-run that ran another spec count
   - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `<playwright wt>`, `node <playwright wt>/scripts/specs-for-diff.mjs <frontend wt> c75529d2` prints 2 paths, and `grep '^- verify:' <backend wt>/.superpowers/sdd/verify-report-visual-verify-5-gymie.md` reads `95 mapped specs`.
     <!-- measured: both commands @ backend fe872cce, frontend a4e9f0e5 → 2 paths; "95 mapped specs" -->
   - [ ] **Step 2: Write the failing test.** `TestCheckVerifyReportScopedSpecCount` in `stats/internal/guard/check_verify_report_test.go`: a complete report whose `- verify:` line reads `exit 1 — 95 mapped specs, …` checked with a third argument `2` → exit 1, `VERIFY-REPORT-INCOMPLETE:` naming `7` and `ran 95 mapped specs where specs printed 2`; `exit 0 — 2 mapped specs` with `2` → exit 0; `not run — no spec since the round base` with `0` → exit 0; the 95 line with no third argument → exit 0; a third argument `x` → exit 2. Run it: the first case fails.
@@ -431,7 +431,7 @@ def elems(im, t):
 
 **Decision:** scoped-specs-count
 
-- [ ] 16. Fix the kan-466 weight-tab button and restore its baseline
+- [x] 16. Fix the kan-466 weight-tab button and restore its baseline
   - [ ] **Step 1: Reproduce before touching anything; do not guess.** Read the pass's diff image `/private/tmp/claude-501/-Users-tweety53-Projects-gymie/c483d41b-ee52-4470-baed-b83e5f43d1f0/scratchpad/rerun/kan-466-weigh-in-history-K-1a91a-gainst-the-extended-backend-functional/kan466-weight-tab-diff.png`, `git -C <playwright wt> show 6554b4d^:kan-466-weigh-in-history.spec.ts-snapshots/kan466-weight-tab-darwin.png` and the committed one; measure the "Log a weigh-in" button on each (`measure-visual-properties.sh … --props fill,content`). Then capture the weight tab at the frontend merge base `4f8f8344` exactly as step 10 of `skills/flow/visual-verify-verifier.md` prescribes a merge-base capture (detached `<name>-merge-base` worktrees, its own derived workspace, the kan-466 spec), and at the change's HEAD on the change's stack. Record which renders draw fill `224,234,237` / ink `81,207,255`.
     <!-- measured: the fill and ink values quoted from the pass's finding, read off its diff image (a session scratch file) -->
   - [ ] **Step 2: Trace the cause** — `BroadsheetAccentOutlineButton` and `BodyEmptyHistory` (`shared/src/commonMain/kotlin/com/gymie/shared/ui/body/BodyScreen.kt`), what the spec does before its capture (a click, a focus, the parked pointer), and what the merge brought to `WeighInHistory`/`BodyState`; name the line that draws the tinted state. unverified:whether the tint is a hover, focus or disabled state, and whether its cause is in gymie-frontend or the kan-466 spec.
