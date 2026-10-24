@@ -24,9 +24,9 @@
 - A rerun at the HEAD the previous verifier row verified, and an unscoped run after a HEAD change, must still pass the finish gate (Task 3).
 - A passing rerun that is not the report next after the failed one must clear nothing (Task 4).
 
-- [ ] 1. Admit n/a on steps 8–10 beside a wire contract
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to the test file alone (`git apply --include='stats/internal/guard/check_verify_report_test.go' <the saved diff>`) and run `cd stats && go test ./internal/guard/ -run 'TestCheckVerifyReport$' -count=1`: `steps 8-10 n/a beside a wire contract` fails `rc=1` — the defect. Keep the applied hunk; Step 2 applies the rest with `git apply --exclude='stats/internal/guard/check_verify_report_test.go' <the saved diff>`.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 1. Admit n/a on steps 8–10 beside a wire contract
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to the test file alone (`git apply --include='stats/internal/guard/check_verify_report_test.go' <the saved diff>`) and run `cd stats && go test ./internal/guard/ -run 'TestCheckVerifyReport$' -count=1`: `steps 8-10 n/a beside a wire contract` fails `rc=1` — the defect. Keep the applied hunk; Step 2 applies the rest with `git apply --exclude='stats/internal/guard/check_verify_report_test.go' <the saved diff>`.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at 86c20900; with it applied go test ./internal/guard/ -run TestCheckVerifyReport passes, and with verifyreport.go reverted the wire-contract case fails rc=1
 diff --git a/scripts/check-verify-report.sh b/scripts/check-verify-report.sh
@@ -130,8 +130,8 @@ index d9ebc7c1..d981ba7f 100644
  		// every capture on disk, and departures surfaced one round at a time).
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && go test ./internal/guard/ -run 'TestCheckVerifyReport' -count=1` passes; `cd stats && gofmt -l .` prints nothing and `cd stats && go vet ./internal/guard/` exits 0; `scripts/check-verbatim-moves.sh`, `scripts/check-installed-citations.sh`, `scripts/check-references.sh` and `scripts/check-markdown-integrity.sh` exit 0. Commit.
-  - [ ] **Step 4: Repair the kan-1022 record.** In `/Users/tweety53/Projects/gymie-worktrees/kan-1022-templates-step-2-be-own-templates-crud-from/.superpowers/sdd/verify-report-visual-verify-2.md` (gitignored; nothing is committed in gymie) replace the `- steps:` line with `- steps: 4 done | 7 done | 8 n/a — wire contract, no view drawn | 9 n/a — wire contract, no view drawn | 10 n/a — wire contract, no view drawn | 11 done | motion n/a — no motions named`, then run `scripts/check-verify-report.sh /Users/tweety53/Projects/gymie-worktrees/kan-1022-templates-step-2-be-own-templates-crud-from/.superpowers/sdd/verify-report-visual-verify-2.md 0` from this worktree: it prints `VERIFY-REPORT-COMPLETE`. A file no longer on disk is reported, never recreated.
+  - [x] **Step 3: Verify.** `cd stats && go test ./internal/guard/ -run 'TestCheckVerifyReport' -count=1` passes; `cd stats && gofmt -l .` prints nothing and `cd stats && go vet ./internal/guard/` exits 0; `scripts/check-verbatim-moves.sh`, `scripts/check-installed-citations.sh`, `scripts/check-references.sh` and `scripts/check-markdown-integrity.sh` exit 0. Commit.
+  - [x] **Step 4: Repair the kan-1022 record.** In `/Users/tweety53/Projects/gymie-worktrees/kan-1022-templates-step-2-be-own-templates-crud-from/.superpowers/sdd/verify-report-visual-verify-2.md` (gitignored; nothing is committed in gymie) replace the `- steps:` line with `- steps: 4 done | 7 done | 8 n/a — wire contract, no view drawn | 9 n/a — wire contract, no view drawn | 10 n/a — wire contract, no view drawn | 11 done | motion n/a — no motions named`, then run `scripts/check-verify-report.sh /Users/tweety53/Projects/gymie-worktrees/kan-1022-templates-step-2-be-own-templates-crud-from/.superpowers/sdd/verify-report-visual-verify-2.md 0` from this worktree: it prints `VERIFY-REPORT-COMPLETE`. A file no longer on disk is reported, never recreated.
 
 **Build:** green
 **Files:** `stats/internal/guard/verifyreport.go`, `stats/internal/guard/check_verify_report_test.go`, `scripts/check-verify-report.sh`, `skills/flow/visual-verify-verifier.md`
@@ -145,8 +145,8 @@ index d9ebc7c1..d981ba7f 100644
 **Decision:** wire-contract-na
 **Decision:** repair-kan-1022-report
 
-- [ ] 2. Give a flowBase change a worktree in every apps repository
-  - [ ] **Step 1: Apply the fix.** Apply this diff:
+- [x] 2. Give a flowBase change a worktree in every apps repository
+  - [x] **Step 1: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at 86c20900 after Task 1; check-verbatim-moves.sh then fails only on sentences this change's verbatim-moves.txt lists
 diff --git a/skills/flow/visual-verify.md b/skills/flow/visual-verify.md
@@ -169,7 +169,7 @@ index 3dd010d8..4f195550 100644
     configuration resolving to the workspace's values, origin allowed, one Playwright checkout per
 ````
 
-  - [ ] **Step 2: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-installed-citations.sh`, `scripts/check-references.sh` and `scripts/check-markdown-integrity.sh` exit 0. Commit.
+  - [x] **Step 2: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-installed-citations.sh`, `scripts/check-references.sh` and `scripts/check-markdown-integrity.sh` exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/visual-verify.md`
@@ -179,9 +179,9 @@ index 3dd010d8..4f195550 100644
 
 **Decision:** flowbase-apps-worktrees
 
-- [ ] 3. Refuse a failed-spec rerun recorded across HEADs
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to the test file alone (`git apply --include='stats/internal/guard/check_visual_verify_dispatched_test.go' <the saved diff>`) and run `cd stats && go test ./internal/guard/ -run 'TestCheckVisualVerifyDispatchedRefusesARerunAcrossHeads' -count=1`: `a rerun across a HEAD change` gets exit 0 and the OK verdict — the defect. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='stats/internal/guard/check_visual_verify_dispatched_test.go' <the saved diff>`.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 3. Refuse a failed-spec rerun recorded across HEADs
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to the test file alone (`git apply --include='stats/internal/guard/check_visual_verify_dispatched_test.go' <the saved diff>`) and run `cd stats && go test ./internal/guard/ -run 'TestCheckVisualVerifyDispatchedRefusesARerunAcrossHeads' -count=1`: `a rerun across a HEAD change` gets exit 0 and the OK verdict — the defect. Keep the applied hunks; Step 2 applies the rest with `git apply --exclude='stats/internal/guard/check_visual_verify_dispatched_test.go' <the saved diff>`.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at 86c20900 after Task 2; with it applied go test ./internal/guard/ -run TestCheckVisualVerifyDispatched passes, and with visualverifydispatched.go reverted the rerun-across-HEADs case gets exit 0
 diff --git a/scripts/check-visual-verify-dispatched.sh b/scripts/check-visual-verify-dispatched.sh
@@ -358,7 +358,7 @@ index 865b6494..2f0c60a6 100644
  type vvdVerifier struct{ key, head, start, roundBase string }
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && go test ./internal/guard/ -run 'TestCheckVisualVerifyDispatched' -count=1` passes; `cd stats && gofmt -l .` prints nothing and `cd stats && go vet ./internal/guard/` exits 0; `scripts/check-verbatim-moves.sh`, `scripts/check-installed-citations.sh`, `scripts/check-references.sh` and `scripts/check-markdown-integrity.sh` exit 0. Commit.
+  - [x] **Step 3: Verify.** `cd stats && go test ./internal/guard/ -run 'TestCheckVisualVerifyDispatched' -count=1` passes; `cd stats && gofmt -l .` prints nothing and `cd stats && go vet ./internal/guard/` exits 0; `scripts/check-verbatim-moves.sh`, `scripts/check-installed-citations.sh`, `scripts/check-references.sh` and `scripts/check-markdown-integrity.sh` exit 0. Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/visualverifydispatched.go`, `stats/internal/guard/check_visual_verify_dispatched_test.go`, `scripts/check-visual-verify-dispatched.sh`, `skills/flow/visual-verify.md`
@@ -371,9 +371,9 @@ index 865b6494..2f0c60a6 100644
 
 **Decision:** rerun-same-head-gate
 
-- [ ] 4. Count a passing rerun of failed specs in signal nine
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to the test file alone (`git apply --include='stats/internal/guard/check_unfinished_work_test.go' <the saved diff>`) and run `cd stats && go test ./internal/guard/ -run 'TestCheckUnfinishedWorkVerifyFailureRerunPassed' -count=1`: `a later passing rerun addresses it` fails — the defect. Keep the applied hunk; Step 2 applies the rest with `git apply --exclude='stats/internal/guard/check_unfinished_work_test.go' <the saved diff>`.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 4. Count a passing rerun of failed specs in signal nine
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Apply Step 2's diff to the test file alone (`git apply --include='stats/internal/guard/check_unfinished_work_test.go' <the saved diff>`) and run `cd stats && go test ./internal/guard/ -run 'TestCheckUnfinishedWorkVerifyFailureRerunPassed' -count=1`: `a later passing rerun addresses it` fails — the defect. Keep the applied hunk; Step 2 applies the rest with `git apply --exclude='stats/internal/guard/check_unfinished_work_test.go' <the saved diff>`.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at 86c20900 after Task 3; with it applied go test ./internal/guard/ -run TestCheckUnfinishedWork passes, and with unfinishedwork.go reverted the later-passing-rerun case fails
 diff --git a/scripts/check-unfinished-work.sh b/scripts/check-unfinished-work.sh
@@ -497,7 +497,7 @@ index 2000fa02..2495b431 100644
  // uwVerifyFailures reads a verify report's failed `- verify: exit <n>` item
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && go test ./internal/guard/ -run 'TestCheckUnfinishedWork' -count=1` passes; `cd stats && gofmt -l .` prints nothing and `cd stats && go vet ./internal/guard/` exits 0. Commit.
+  - [x] **Step 3: Verify.** `cd stats && go test ./internal/guard/ -run 'TestCheckUnfinishedWork' -count=1` passes; `cd stats && gofmt -l .` prints nothing and `cd stats && go vet ./internal/guard/` exits 0. Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/unfinishedwork.go`, `stats/internal/guard/check_unfinished_work_test.go`, `scripts/check-unfinished-work.sh`
@@ -510,8 +510,8 @@ index 2000fa02..2495b431 100644
 
 **Decision:** signal-nine-rerun
 
-- [ ] 5. A reproducer reads the defect's behaviour, never a fix's text
-  - [ ] **Step 1: Apply the fix.** Apply this diff:
+- [x] 5. A reproducer reads the defect's behaviour, never a fix's text
+  - [x] **Step 1: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at 86c20900 after Task 4; go test ./internal/guard/ -run TestRenderSlotPrompt passes with it applied
 diff --git a/skills/flow/review-panel.md b/skills/flow/review-panel.md
@@ -533,7 +533,7 @@ index e18b6512..b3b4cdea 100644
  reproducer line is recorded, its author has executed the script in both directions and recorded
 ````
 
-  - [ ] **Step 2: Verify.** `cd stats && go test ./internal/guard/ -run 'TestRenderSlotPrompt' -count=1` passes; `scripts/check-verbatim-moves.sh`, `scripts/check-installed-citations.sh`, `scripts/check-references.sh` and `scripts/check-markdown-integrity.sh` exit 0. Commit.
+  - [x] **Step 2: Verify.** `cd stats && go test ./internal/guard/ -run 'TestRenderSlotPrompt' -count=1` passes; `scripts/check-verbatim-moves.sh`, `scripts/check-installed-citations.sh`, `scripts/check-references.sh` and `scripts/check-markdown-integrity.sh` exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/review-panel.md`
@@ -541,8 +541,8 @@ index e18b6512..b3b4cdea 100644
 **Commit:** fix(review-panel): a reproducer reads the defect's behaviour, never a fix's text
 **After:** none
 
-- [ ] 6. A mutation reproducer's tree is the worktree it runs in
-  - [ ] **Step 1: Apply the fix.** Apply this diff:
+- [x] 6. A mutation reproducer's tree is the worktree it runs in
+  - [x] **Step 1: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply at 86c20900 after Task 5; go test ./internal/guard/ -run TestRenderSlotPrompt passes with it applied, where a wording naming a placeholder failed it
 diff --git a/skills/flow/review-panel.md b/skills/flow/review-panel.md
@@ -563,7 +563,7 @@ index b3b4cdea..32415374 100644
  
 ````
 
-  - [ ] **Step 2: Verify.** `cd stats && go test ./internal/guard/ -run 'TestRenderSlotPrompt' -count=1` passes; `scripts/check-verbatim-moves.sh`, `scripts/check-installed-citations.sh`, `scripts/check-references.sh` and `scripts/check-markdown-integrity.sh` exit 0. Commit.
+  - [x] **Step 2: Verify.** `cd stats && go test ./internal/guard/ -run 'TestRenderSlotPrompt' -count=1` passes; `scripts/check-verbatim-moves.sh`, `scripts/check-installed-citations.sh`, `scripts/check-references.sh` and `scripts/check-markdown-integrity.sh` exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/review-panel.md`
