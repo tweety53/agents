@@ -1123,3 +1123,33 @@ func TestRenderLedgerNamesWhenADispatchEnded(t *testing.T) {
 		t.Errorf("an open dispatch must render no Ended line:\n%s", open)
 	}
 }
+
+// TestRenderPanelPassLogVerdictFromFindings pins that each round's pass log
+// closes on a verdict derived from the round's finding rows, never the
+// note's free text -- kan-1015 round 1's note claimed four Importants the
+// store never held.
+func TestRenderPanelPassLogVerdictFromFindings(t *testing.T) {
+	out := records.RenderPanel(records.Run{
+		Change: "demo",
+		Findings: []records.Finding{
+			{Ref: "F1", Round: 0, Slot: "primary", Severity: "Critical", Note: "a", Status: "fixed"},
+			{Ref: "F2", Round: 0, Slot: "primary", Severity: "important", Note: "b", Status: "open"},
+			{Ref: "F3", Round: 0, Slot: "primary", Severity: "Important", Note: "c", Status: "withdrawn"},
+			{Ref: "F4", Round: 0, Slot: "primary", Severity: "Minor", Note: "d", Status: "fixed"},
+		},
+		Passes: []records.Pass{
+			{ID: 1, Round: 0, Note: "roster: compact — 60"},
+			{ID: 2, Round: 1, Note: "four Importants"},
+		},
+	})
+
+	section := out[strings.Index(out, "## Pass log"):]
+	for _, want := range []string{
+		"- roster: compact — 60\n- verdict: fix (1 Critical, 2 Important)\n",
+		"- four Importants\n- verdict: clean\n",
+	} {
+		if !strings.Contains(section, want) {
+			t.Errorf("pass-log section missing %q:\n%s", want, section)
+		}
+	}
+}

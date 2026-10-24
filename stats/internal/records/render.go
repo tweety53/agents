@@ -203,6 +203,10 @@ func RenderPanel(r Run) string {
 	// no pass row for it, naming the dispatch keys: kan-951's round 1 ran
 	// panel-1-primary+principles and recorded nothing, and its record showed
 	// Round 0 alone, as if the round had never run.
+	//
+	// The notes stay verbatim; each round's verdict line is derived from
+	// its Critical and Important finding rows, any status -- kan-1015
+	// round 1's note claimed four Importants the store never held.
 	rounds := passLogRounds(r)
 	if len(rounds) > 0 {
 		b.WriteString("\n## Pass log\n")
@@ -225,6 +229,23 @@ func RenderPanel(r Run) string {
 				if len(keys) > 0 {
 					fmt.Fprintf(&b, "- no pass row recorded — dispatched: %s\n", strings.Join(keys, ", "))
 				}
+			}
+			critical, important := 0, 0
+			for _, f := range r.Findings {
+				if f.Round != round {
+					continue
+				}
+				switch strings.ToLower(f.Severity) {
+				case "critical":
+					critical++
+				case "important":
+					important++
+				}
+			}
+			if critical == 0 && important == 0 {
+				b.WriteString("- verdict: clean\n")
+			} else {
+				fmt.Fprintf(&b, "- verdict: fix (%d Critical, %d Important)\n", critical, important)
 			}
 			mutations := 0
 			for _, m := range r.Mutations {
