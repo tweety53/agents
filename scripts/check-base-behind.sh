@@ -16,11 +16,11 @@
 #   BASE-CURRENT: <wt> — <base> is the tracked branch
 #   BASE-CURRENT: <wt> — origin/<base> holds every commit of origin/<tracked>
 #   BASE-BEHIND: <wt> — origin/<base> lacks <n> commits of origin/<tracked>; sync the base, never merge <tracked> into the change branch (kan-1007):
-#     T=$(git -C <wt> merge-tree --write-tree origin/<base> origin/<tracked>) && C=$(git -C <wt> commit-tree "$T" -p origin/<base> -p origin/<tracked> -m 'Merge <tracked> into <base>') && git -C <wt> push origin "$C:refs/heads/<base>"
+#     T=$(git -C <wt> merge-tree --write-tree origin/<base> origin/<tracked>) && C=$(git -C <wt> commit-tree "$T" -p origin/<base> -p origin/<tracked> -m 'Merge <tracked> into <base>') && git -C <wt> push origin "${C}:refs/heads/<base>"
 #     git -C <wt> fetch -q origin && sync-onto-base.sh <wt> origin/<base> <merge-base>
 # where <merge-base> is the sha `git merge-base HEAD origin/<base>` prints. The
 # first command line syncs the base with no checkout (merge-tree exits 1 on a
-# conflict and stops the chain); its push is outward-facing and confirmed.
+# conflict and stops the chain); its push runs unasked (operator-prompts-auto-resolution.md).
 #
 # Exit 0 no BASE-BEHIND, 1 at least one, 2 cannot answer (no argument, a path
 # that is not a git worktree, no origin/HEAD, a failing rev-list or

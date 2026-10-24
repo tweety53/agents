@@ -63,7 +63,7 @@ func checkBaseBehind(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		rc = 1
 		fmt.Fprintf(&out, "BASE-BEHIND: %s — origin/%s lacks %d commits of origin/%s; sync the base, never merge %s into the change branch (kan-1007):\n", wt, base, n, tracked, tracked)
-		fmt.Fprintf(&out, "  T=$(git -C %s merge-tree --write-tree origin/%s origin/%s) && C=$(git -C %s commit-tree \"$T\" -p origin/%s -p origin/%s -m 'Merge %s into %s') && git -C %s push origin \"$C:refs/heads/%s\"\n",
+		fmt.Fprintf(&out, "  T=$(git -C %s merge-tree --write-tree origin/%s origin/%s) && C=$(git -C %s commit-tree \"$T\" -p origin/%s -p origin/%s -m 'Merge %s into %s') && git -C %s push origin \"${C}:refs/heads/%s\"\n",
 			wt, base, tracked, wt, base, tracked, tracked, base, wt, base)
 		fmt.Fprintf(&out, "  git -C %s fetch -q origin && sync-onto-base.sh %s origin/%s %s\n", wt, wt, base, mb)
 	}
