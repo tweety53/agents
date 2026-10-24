@@ -17,7 +17,10 @@
 # step, ` | `-separated, for steps 4, 7, 8, 9, 10, 11 and `motion`
 # (skills/flow/visual-verify-verifier.md). A status is admissible when it is
 #   done
-#   n/a — <reason>       steps 4 and 10 only, and `motion` when <motions named> is 0
+#   n/a — <reason>       steps 4 and 10 only, and `motion` when <motions named> is 0;
+#                        steps 8, 9 and 10 too when a `- wire contract:` line
+#                        names an endpoint — the dispatch named no view, so
+#                        nothing is captured (kan-1022's self-review)
 #   blocked — <reason>   the reason citing a non-zero `exit <n>`; step 10 only
 #                        when step 8 is blocked too or the reason cites
 #                        `compose-mockup-frames exit <n>` (KAN-1000)

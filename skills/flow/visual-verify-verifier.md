@@ -600,7 +600,9 @@ report's `wire contract:` line reads n/a. Otherwise, signed in as an account
 `<project>/.flow/project.md`'s `## credentials` declares, call each named endpoint on the running
 API at its worktree-resolved URL, read the response's shape and wire names against the line, then
 drive the stated acceptance behaviour through the API and read the next response — a screenshot
-comparison is no substitute for it.
+comparison is no substitute for it. With a `wire contract:` line the dispatch names no view, so
+steps 8, 9 and 10 read n/a — wire contract, no view drawn — never `done` over a capture that
+never ran (kan-1022's self-review).
 
 **No required step is left undone for want of time or context.** The report's `steps:` line gives
 each of steps 4, 7–11 and the motion step a status `check-verify-report.sh` admits — its header

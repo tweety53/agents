@@ -37,6 +37,10 @@ var (
 	// (kan-1015: `specs` printed 2 under the round base, the verifier ran 95).
 	vrVerifyLine  = regexp.MustCompile(`^\s*- verify:\s*(.*)$`)
 	vrMappedSpecs = regexp.MustCompile(`\b(\d+) mapped specs\b`)
+	// A `- wire contract:` line naming an endpoint: the dispatch named no
+	// view, so steps 8-10 have nothing to capture (kan-1022's self-review: a
+	// verifier wrote them `done` over a capture it never ran).
+	vrWireContract = regexp.MustCompile(`^\s*- wire contract:\s*(.*)$`)
 )
 
 func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
@@ -66,6 +70,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	status := map[string]string{}
 	motionLine, bareFingerprint := false, false
 	inReport, unevidenced, verify := false, "", ""
+	noView := false
 	for _, line := range strings.Split(string(data), "\n") {
 		if m := vrVerifyLine.FindStringSubmatch(line); m != nil && verify == "" {
 			verify = strings.TrimSpace(m[1])
@@ -90,6 +95,9 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 			motionLine = true
 		}
 		bareFingerprint = bareFingerprint || vrBareFingerprint.MatchString(line)
+		if m := vrWireContract.FindStringSubmatch(line); m != nil && !strings.HasPrefix(strings.TrimSpace(m[1]), "n/a") {
+			noView = true
+		}
 	}
 	var undone []string
 	if bareFingerprint {
@@ -107,7 +115,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	for _, id := range vrSteps {
 		s, ok := status[id]
-		naAllowed := id == "4" || id == "10" || (id == "motion" && motions == 0)
+		naAllowed := id == "4" || id == "10" || (id == "motion" && motions == 0) || (noView && (id == "8" || id == "9"))
 		reason, isNA := strings.CutPrefix(s, "n/a — ")
 		cause, isBlocked := strings.CutPrefix(s, "blocked — ")
 		switch {
@@ -116,8 +124,9 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		case s == "done" && id == "motion" && motions > 0 && !motionLine:
 			undone = append(undone, fmt.Sprintf("motion: no `- motion: %d/%d` line", motions, motions))
 		case s == "done":
-		// Step 10 is n/a only when no mockups are declared, so its reason must say so.
-		case isNA && naAllowed && strings.TrimSpace(reason) != "" && (id != "10" || strings.Contains(reason, "mockups")):
+		// Step 10 is n/a only when no mockups are declared, so its reason must say so,
+		// or when a wire contract names no view to compose.
+		case isNA && naAllowed && strings.TrimSpace(reason) != "" && (id != "10" || noView || strings.Contains(reason, "mockups")):
 		// Step 10 measures the captures step 8 wrote, so it blocks only when step 8 did or
 		// on compose-mockup-frames' own exit (KAN-1000: two verifiers skipped step 10 with
 		// every capture on disk, and departures surfaced one round at a time).
