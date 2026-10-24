@@ -375,7 +375,7 @@ assertion states in the record what it used to cover and names what still covers
 now — checked by running the named covering test against the **pre-fix** code and confirming it
 fails. A hunk whose path is draw/geometry code is held to the **PIXEL PROBE** paragraph
 beside the mutation lines: the fix's report names the probe assertion it landed against the
-actual rendered pixels or geometry, and a fix commit for this class of bug that landed no such
+actual rendered pixels, and a fix commit for this class of bug that landed no such
 probe is rejected at the fix step — the round does not close and the finding stays open, for the
 handback below — rather than the regression being discovered next round. **The same
 walk holds a folded fix to its PLAN FIELDS obligation:** a `fold-fixup.sh` hunk that adds a

@@ -63,7 +63,7 @@
 # numbers. KAN-496
 # added a tenth required paragraph — PIXEL PROBE, which requires any fix
 # the panel-fix round lands to draw/geometry code to carry a probe
-# assertion against the actual rendered pixels or geometry, and rejects a
+# assertion against the actual rendered pixels, and rejects a
 # fix commit that lacks one at the fix step rather than discovering the
 # regression next round — at the panel-fix subagent dispatch in
 # review-panel.md alone, the same single site MUTATION PROOF occupies.

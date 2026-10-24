@@ -231,7 +231,9 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 	// root and comparing stdout, stderr and exit byte for byte.
 	bash := filepath.Join(t.TempDir(), "check-dispatch-paragraphs.sh")
 	src := historicalFile(t, "../../..", "d71a2327", "scripts/check-dispatch-paragraphs.sh")
-	writeFile(t, bash, string(src))
+	// The PIXEL PROBE phrase moved after d71a2327; the parity cases pin
+	// block parsing, not that phrase, so the historical bash carries the new one.
+	writeFile(t, bash, strings.ReplaceAll(string(src), "actual rendered pixels or geometry", "actual rendered pixels, in the style"))
 	parity := []struct {
 		label string
 		root  func(t *testing.T) string
@@ -778,7 +780,7 @@ var dpCases = []dpCase{
 	},
 		checks: []dpCheck{
 			dpRC("case 58: exits 1", 1),
-			dpHas("case 58: names the missing phrase", "actual rendered pixels or geometry"),
+			dpHas("case 58: names the missing phrase", "actual rendered pixels, in the style"),
 		}},
 	{files: map[string]string{
 		"implement.md":    dpCleanImplement,
@@ -1405,7 +1407,7 @@ const (
 		"> fixing are your own Read, Bash and Edit calls."
 	dpPixelProbeBlock = "> **PIXEL PROBE:** every fix you land to draw/geometry code — code that computes what is\n" +
 		"> drawn: extents, bounds, gridlines, offsets, paths, positions, sizes — carries a probe assertion\n" +
-		"> against the actual rendered pixels or geometry, in the style the reviewers' reproducers\n" +
+		"> against the actual rendered pixels, in the style the reviewers' reproducers\n" +
 		"> already use: drive the real draw path and assert on the value it renders or computes, never on\n" +
 		"> a hand-derived copy of it. A fix commit for this class of bug that lands no such probe is\n" +
 		"> rejected at the fix step — the finding stays open and the round does not close — so the\n" +
@@ -1415,7 +1417,7 @@ const (
 		"> output itself was not asserted."
 	dpPixelProbeBlockNoClass = "> **PIXEL PROBE:** every fix you land to draw-and-geometry code — code that computes what is\n" +
 		"> drawn: extents, bounds, gridlines, offsets, paths, positions, sizes — carries a probe assertion\n" +
-		"> against the actual rendered pixels or geometry, in the style the reviewers' reproducers\n" +
+		"> against the actual rendered pixels, in the style the reviewers' reproducers\n" +
 		"> already use: drive the real draw path and assert on the value it renders or computes, never on\n" +
 		"> a hand-derived copy of it. A fix commit for this class of bug that lands no such probe is\n" +
 		"> rejected at the fix step — the finding stays open and the round does not close — so the\n" +
@@ -1435,7 +1437,7 @@ const (
 		"> output itself was not asserted."
 	dpPixelProbeBlockNoRejection = "> **PIXEL PROBE:** every fix you land to draw/geometry code — code that computes what is\n" +
 		"> drawn: extents, bounds, gridlines, offsets, paths, positions, sizes — carries a probe assertion\n" +
-		"> against the actual rendered pixels or geometry, in the style the reviewers' reproducers\n" +
+		"> against the actual rendered pixels, in the style the reviewers' reproducers\n" +
 		"> already use: drive the real draw path and assert on the value it renders or computes, never on\n" +
 		"> a hand-derived copy of it. A fix commit for this class of bug that lands no such probe is\n" +
 		"> refused before the round closes — the finding stays open — so the\n" +

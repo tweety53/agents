@@ -50,7 +50,7 @@ var dpEntries = map[string]dpEntry{
 			"confirm the edit landed", "a refusal, not a surviving mutant", "never buys a test",
 			"`fix-mutation: <path> — <what was mutated> — <the test that failed>`"}, nil},
 	"pixel": {"**PIXEL PROBE:**",
-		[]string{"draw/geometry code", "actual rendered pixels or geometry", "rejected at the fix step"}, nil},
+		[]string{"draw/geometry code", "actual rendered pixels, in the style", "rejected at the fix step"}, nil},
 	"tools": {"**TOOLS:**",
 		[]string{"in your first turn", "never a wildcard query", "re-prices your whole context"}, nil},
 	"handshake": {"**MODEL HANDSHAKE:**",

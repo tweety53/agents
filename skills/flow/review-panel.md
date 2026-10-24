@@ -1025,7 +1025,7 @@ the **AskUserQuestion** it states.
 
 > **PIXEL PROBE:** every fix you land to draw/geometry code — code that computes what is
 > drawn: extents, bounds, gridlines, offsets, paths, positions, sizes — carries a probe assertion
-> against the actual rendered pixels or geometry, in the style the reviewers' reproducers
+> against the actual rendered pixels, in the style the reviewers' reproducers
 > already use: drive the real draw path and assert on the value it renders or computes, never on
 > a hand-derived copy of it. A fix commit for this class of bug that lands no such probe is
 > rejected at the fix step — the finding stays open and the round does not close — so the
