@@ -4025,6 +4025,15 @@ func TestWatcherStampsKan925LoopBegins(t *testing.T) {
 			want: []stampCall{{"mf-t", "task-12-good", "a1"}},
 		},
 		{
+			name: "prefix and suffix strips of the loop variable resolve the key",
+			lines: []string{
+				bash("2026-01-01T00:00:00Z", `for k in "9:task-9-implementer" "11:task-11-implementer"; do `+begin+` -task ${k%%:*} -key ${k#*:} -session-token mf-t; done`),
+				launch("2026-01-01T00:01:00.000Z", "a1"),
+				launch("2026-01-01T00:01:00.005Z", "a2"),
+			},
+			want: []stampCall{{"mf-t", "task-9-implementer", "a1"}, {"mf-t", "task-11-implementer", "a2"}},
+		},
+		{
 			name: "before and donezo are not keywords",
 			lines: []string{
 				bash("2026-01-01T00:00:00Z", "before x; donezo y; "+begin+" -key task-13-good -session-token mf-t"),

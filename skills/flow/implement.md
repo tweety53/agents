@@ -403,6 +403,8 @@ literal `inline` on a row the parent's own inline work records included. A row w
 in a launched agent never carries `-agent-id inline` — the daemon stamps no id onto such a row, so
 its tokens are never measured. `-key` is this dispatch's own literal label,
 unique within the run's session token — `task-<n>-implementer`, reused identically in both calls.
+Inside a `for` loop it may expand the loop variable — `$k`, `${k}`, or a `#`/`%` strip of it — the
+only shapes the harvester reads; any other expansion leaves the row without its agent.
 `-role` is one of `implementer`, `reviewer`, `panel-fix`, `verifier` (**Verify**,
 `skills/flow/verify-and-handoff.md`) or `planner` (the tooling analyst, `skills/flow/visual-verify.md`); `-task` is the task's
 flat integer id, omitted for a dispatch against no single task. `-session-token` takes a literal,

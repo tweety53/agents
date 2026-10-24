@@ -1652,6 +1652,17 @@ func substituteLoopVar(body, name, word string) string {
 			i += len(name) + 3
 			continue
 		}
+		// ${name#pat}, ${name##pat}, ${name%pat}, ${name%%pat}: the shell's
+		// prefix and suffix strips, which kan-1029's loop used to split
+		// "9:task-9-implementer" into -task and -key.
+		if body[i] == '$' && strings.HasPrefix(body[i+1:], "{"+name) {
+			rest := body[i+2+len(name):]
+			if end := strings.IndexByte(rest, '}'); end > 0 && (rest[0] == '#' || rest[0] == '%') {
+				out.WriteString(stripLoopWord(word, rest[:end]))
+				i += 2 + len(name) + end + 1
+				continue
+			}
+		}
 		if body[i] == '$' {
 			rest := body[i+1:]
 			n, _ := scanShellName(rest, 0)
@@ -1665,6 +1676,50 @@ func substituteLoopVar(body, name, word string) string {
 		i++
 	}
 	return out.String()
+}
+
+// stripLoopWord applies one shell strip, op the text between the variable's
+// name and its closing brace (`#*:`, `%%:*`), to word: `#` removes the
+// shortest prefix the glob matches, `##` the longest, `%` the shortest
+// suffix, `%%` the longest. A word the glob matches no part of is returned
+// whole, as the shell does.
+func stripLoopWord(word, op string) string {
+	longest := len(op) > 1 && op[1] == op[0]
+	pat := op[1:]
+	if longest {
+		pat = op[2:]
+	}
+	var re strings.Builder
+	re.WriteString("^")
+	for _, r := range pat {
+		switch r {
+		case '*':
+			re.WriteString(".*")
+		case '?':
+			re.WriteString(".")
+		default:
+			re.WriteString(regexp.QuoteMeta(string(r)))
+		}
+	}
+	re.WriteString("$")
+	glob, err := regexp.Compile(re.String())
+	if err != nil {
+		return word
+	}
+	n := len(word)
+	for k := 0; k <= n; k++ {
+		cut := k // shortest first
+		if longest {
+			cut = n - k
+		}
+		if op[0] == '#' && glob.MatchString(word[:cut]) {
+			return word[cut:]
+		}
+		if op[0] == '%' && glob.MatchString(word[n-cut:]) {
+			return word[:n-cut]
+		}
+	}
+	return word
 }
 
 // dispatchBeginFromCommand judges one invocation's text as a possible
