@@ -124,7 +124,12 @@ verified and that report's `verify:` exit was non-zero, the prompt adds `rerun s
 spec paths that report's `verify` output names as failing; the verifier's step 7 runs those alone
 (`skills/flow/visual-verify-verifier.md`), and their exit is the `verify` exit — a non-zero one
 still blocks, exactly as above: kan-983's `visual-verify-2` re-ran all 87 specs, ~14 minutes, to
-clear one the previous run had already passed 30 times out of 30. The ledger render and this stage's `end` mark follow
+clear one the previous run had already passed 30 times out of 30. **An environment cure that
+changes what the stack serves — a served root switched, a worktree added to the set — voids every
+earlier pass**, so the next re-dispatch runs unscoped; `check-visual-verify-dispatched.sh` reports
+a newest verifier whose report re-ran failed specs under a `-diff-base` other than the verifier row
+before it as MISSING (kan-1022: a rerun of 19 failed specs left 76 never run against the served
+feature/templates frontend). The ledger render and this stage's `end` mark follow
 whichever report was last.
 
 **A final report that is a block closes its dispatch `-outcome blocked -cause <cause>`, never

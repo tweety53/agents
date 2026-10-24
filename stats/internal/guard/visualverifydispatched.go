@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -304,6 +305,28 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		fmt.Fprintln(stdout, verdict)
 		return 1
 	}
+	// A RERUN OF FAILED SPECS STANDS ONLY AT THE HEAD THE ROW BEFORE IT
+	// VERIFIED (kan-1022 self-review): a newest verifier whose report re-ran
+	// only the specs that failed, at a -diff-base other than the verifier row
+	// before it, left every spec that passed there unrun at this HEAD
+	// (skills/flow/visual-verify.md, **A re-dispatch at an unchanged HEAD
+	// re-runs only the specs that failed**). A report no longer on disk
+	// reads as no rerun.
+	if found {
+		prev, ok := vvdHeadBefore(rows, newestKey, resolves)
+		report, err := os.ReadFile(worktree + "/.superpowers/sdd/verify-report-" + newestKey + ".md")
+		if ok && prev != vvdResolving(newest.head, resolves) && err == nil && vvdRerun.Match(report) {
+			headSHA, ok := capture(envGit(env)("-C", worktree, "rev-parse", "HEAD"))
+			if !ok {
+				fmt.Fprintf(stderr, "%sgit cannot name HEAD in %s — cannot answer\n", vvdPrefix, worktree)
+				return 2
+			}
+			verdict := "VISUAL-VERIFY-MISSING: the newest verifier row '" + newestKey + "' re-ran only failed specs at " + newest.head + " where the verifier row before it verified " + prev + " — the unscoped run at this HEAD is not recorded (skills/flow/visual-verify.md) — HEAD " + headSHA
+			record(verdict)
+			fmt.Fprintln(stdout, verdict)
+			return 1
+		}
+	}
 	if found {
 		verdict := "VISUAL-VERIFY-OK: UI paths touched and a completed (or ended-but-unclosed) verifier dispatch is recorded for '" + name + "'"
 		record(verdict)
@@ -569,6 +592,52 @@ func vvdCompletedVerifiers(raw []byte) (rows []vvdVerifier, ok bool) {
 		}
 	}
 	return rows, true
+}
+
+// vvdRerun is a report's `- verify:` item naming a rerun of failed specs.
+var vvdRerun = regexp.MustCompile(`(?m)^\s*- verify:.*\brerun of\b`)
+
+// vvdHeadBefore is the HEAD this worktree resolves of the `visual-verify…`
+// verifier row, of any outcome, recorded just before the last row keyed key
+// among rows naming such a HEAD -- another repository's row between them says
+// nothing about this worktree; ok is false when no such row precedes it or
+// the rows do not parse.
+func vvdHeadBefore(raw []byte, key string, resolves func(string) bool) (head string, ok bool) {
+	vals, ok := pfdStream(raw)
+	if !ok || len(vals) != 1 {
+		return "", false
+	}
+	arr, _ := vals[0].([]any)
+	prev, found := "", false
+	head, ok = "", false
+	for _, e := range arr {
+		row, _ := e.(map[string]any)
+		k, _ := row["key"].(string)
+		if row["role"] != "verifier" || !strings.HasPrefix(k, "visual-verify") {
+			continue
+		}
+		base, _ := row["diffBase"].(string)
+		sha := vvdResolving(base, resolves)
+		if sha == "" {
+			continue
+		}
+		if k == key {
+			head, ok = prev, found
+		}
+		prev, found = sha, true
+	}
+	return head, ok
+}
+
+// vvdResolving is the first of a comma-joined diffBase's heads this worktree
+// resolves, or "" when none does.
+func vvdResolving(heads string, resolves func(string) bool) string {
+	for _, h := range strings.Split(heads, ",") {
+		if resolves(h) {
+			return h
+		}
+	}
+	return ""
 }
 
 // vvdVerifier is one qualifying verifier row: its key, the HEAD(s) it

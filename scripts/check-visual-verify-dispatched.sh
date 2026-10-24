@@ -40,6 +40,17 @@
 #   base <sha> — the loop's closing unscoped run is not recorded
 #   (skills/flow/verify-fix-loop.md, **One full run closes the loop**) — HEAD <sha>
 #
+# Nor may its report, `<worktree>/.superpowers/sdd/verify-report-<key>.md`,
+# carry a `- verify:` item naming a `rerun of` failed specs when the
+# `visual-verify…` verifier row recorded just before it, of any outcome,
+# carries a different `-diff-base` — a rerun stands only at the HEAD that
+# row verified (kan-1022 self-review); the verdict is
+#   VISUAL-VERIFY-MISSING: the newest verifier row '<key>' re-ran only failed
+#   specs at <diff-base> where the verifier row before it verified <diff-base>
+#   — the unscoped run at this HEAD is not recorded
+#   (skills/flow/visual-verify.md) — HEAD <sha>
+# A report no longer on disk reads as no rerun.
+#
 # Exit 0 on a VISUAL-VERIFY-OK verdict, exit 1 on VISUAL-VERIFY-MISSING —
 # UI paths were touched and no qualifying verifier dispatch is recorded;
 # the verdict line carries the answer — and exit 2 when it cannot answer at
