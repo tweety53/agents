@@ -93,7 +93,7 @@ to report, never a creating run.
 - **Exit 0, `"state": "IN_PROGRESS"`, an argument other than the change's name** — a fix run — or a plain message, per
   **A plain message at IN_PROGRESS** below. See
   **3. Documenting a fix, before implementing it** and then **The parent orchestrates directly**
-  (`skills/flow/implement.md`); unless `reviewBeforeLanding` is `true`, the run continues into
+  (`skills/flow/implement.md`); unless `reviewBeforeLanding` is `true` or the run leaves an open question, the run continues into
   integrate once it writes the state (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`).
 - **Exit 0, `"state": "IN_PROGRESS"`, no argument or the change's name alone** (**Change name
   resolution (all `/flow*` commands)**, `skills/flow-contracts/pipeline.md`) — an integrate run. See

@@ -35,7 +35,7 @@ ignored word is indistinguishable from a flag that stopped working.
 ### Every command is re-entrant
 
 Integrate's one sanctioned chain — **Write `IN_PROGRESS`** continuing into it when the record's
-`reviewBeforeLanding` is not `true` — exists because most changes had nothing for the operator to
+`reviewBeforeLanding` is not `true` and no open question is left — exists because most changes had nothing for the operator to
 review at `IN_PROGRESS`, and the stop cost one extra turn per change (KAN-1030). The flag lives on
 the state record, not in session memory, because it has to survive the `/clear` between the plan
 gate and the implementing run. The ban on integrate inferred from mid-turn words stays: a stray

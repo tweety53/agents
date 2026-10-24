@@ -96,8 +96,8 @@ installed. Those two need none — reading a spectre tree, or a contract file, i
 ```text
 /flow  (no state)          → STARTED                  you: /clear, then /flow <name> to implement
 /flow  (reachability end)  → FINISHED (withdrawn)     nothing to plan — the operator may withdraw
-/flow  (STARTED, planned)  → IN_PROGRESS or FINISHED  lands straight away unless review-before-landing is set
-/flow  <fix instructions>  → IN_PROGRESS or FINISHED  lands straight away unless review-before-landing is set
+/flow  (STARTED, planned)  → IN_PROGRESS or FINISHED  lands straight away unless review-before-landing is set or a question is open
+/flow  <fix instructions>  → IN_PROGRESS or FINISHED  lands straight away unless review-before-landing is set or a question is open
 /flow  (bare, IN_PROGRESS) → IN_PROGRESS or FINISHED  terminal only on the merge-and-push route
 ```
 
@@ -129,7 +129,7 @@ description or Jira key, or fix instructions at `IN_PROGRESS`); anything else is
 | Command | What it does |
 |---------|-------------|
 | `/flow <name>` | No state creates the change and writes `STARTED` immediately, then — same invocation — runs brainstorming (fully interactive), ending at `STARTED` at the plan gate with a `/clear` handoff; re-run at `STARTED`, it runs implementation behind the review panel the recorded decision names (`skills/flow/review-panel.md` is canonical for the roster), ending at `IN_PROGRESS`. Asks no planning-effort, model, or review-panel-roster question on a creating run, and publishes no proposal artifact. An argument at `IN_PROGRESS` is a fix run — state unchanged. Bare at `IN_PROGRESS`, it lands the branch by the project's `## default landing route`, asking — open PR *(default)*, merge and push, or manual — only when none is declared, and, on merge-and-push, continues the same invocation through cleanup to `FINISHED`; open PR and manual stop and hand off. **Runs no tests, linters or coverage check outside implementation's own verify stage**, beyond the two exceptions its no-verification-gate rule names under **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) |
-| *(gate)* | **You** — creating run or fix with review-before-landing set: review the staged diff — the stack is running (otherwise it lands straight away); integrate with open PR or manual: wait for the branch to merge (or finish your manual steps); merge-and-push: nothing — the state is terminal |
+| *(gate)* | **You** — creating run or fix with review-before-landing set: review the staged diff — the stack is running (otherwise, with no question open, it lands straight away); integrate with open PR or manual: wait for the branch to merge (or finish your manual steps); merge-and-push: nothing — the state is terminal |
 | `/flow-status <name>` | Read-only state report for open changes |
 
 The branch's merge status alone decides which `/flow` integrate/cleanup run happens — so a PR you

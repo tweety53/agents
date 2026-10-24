@@ -105,7 +105,7 @@ type Change struct {
 
 	// ReviewBeforeLanding keeps /flow at the IN_PROGRESS review handoff for
 	// this change. False — the default — lets the run that writes IN_PROGRESS
-	// continue straight into integrate.
+	// continue straight into integrate unless it leaves an open question.
 	ReviewBeforeLanding bool
 
 	Branch            *string

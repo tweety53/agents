@@ -147,7 +147,7 @@ field is how it gets erased.
   the object and the worktree values and forwards the body — so no CLI change writes it; `state
   get` prints it as stored.
 - `reviewBeforeLanding` — `true` keeps a run that writes `IN_PROGRESS` at its review handoff;
-  absent or `false`, the default, lets that run continue straight into integrate in the same
+  absent or `false`, the default, lets that run, unless it leaves an open question, continue straight into integrate in the same
   invocation (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`). Written by any `/flow`
   run of the change the moment the operator asks to review before landing, or to land without
   review (**Review-before-landing instruction**, `skills/flow/SKILL.md`); every other write
