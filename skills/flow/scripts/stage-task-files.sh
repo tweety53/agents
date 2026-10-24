@@ -1,0 +1,1 @@
+../../../scripts/stage-task-files.sh

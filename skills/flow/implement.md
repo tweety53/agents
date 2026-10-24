@@ -508,12 +508,14 @@ Every implementer dispatch **must** carry:
 > step already staged:
 >
 > ```bash
-> git -C <abs-worktree> reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ \
->   && git -C <abs-worktree> add -- <this task's files> ':(exclude)spectre/changes/' \
->   ':(exclude)openspec/changes/' ':(exclude)docs/superpowers/' \
+> stage-task-files.sh <abs-worktree> <this task's files> \
 >   && git -C <abs-worktree> commit -m "<the task's declared subject>" -m "Task-Id: <n>" -- <this task's files>
 > ```
 >
+> `stage-task-files.sh <abs-worktree> <file>…` runs that clearing reset, then the add with the excludes
+> ahead of the paths, then exits 1 when git left any of this task's paths unstaged: report the lines it printed and
+> commit nothing (kan-1012: `git add` exited 0 with 15 new paths untracked, and the commit failed).
+> Its header (`<agents repo>/scripts/stage-task-files.sh`) is canonical for the sequence.
 > Paths are relative to the worktree root, which `-C <abs-worktree>` anchors whatever directory
 > the shell is in — from a subdirectory of it, an unanchored `git add` reads them
 > against that directory and fails with a pathspec error. Both spec-tree leaf spellings are named because the
