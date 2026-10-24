@@ -1,0 +1,9 @@
+# Sentences this change adds or rewords on purpose — the kan-1012 self-review pass: the per-task staging guard (implement.md) and the panel diff exclusion key (project-configuration.md).
+```bash git -C <abs-worktree> reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ \ && git -C <abs-worktree> add -- <this task's files> ':(exclude)spectre/changes/' \ ':(exclude)openspec/changes/' ':(exclude)docs/superpowers/' \ && git -C <abs-worktree> commit -m "<the task's declared subject>" -m "Task-Id: <n>" -- <this task's files> ```
+Its header (`<agents repo>/scripts/stage-task-files.sh`) is canonical for the sequence.
+```bash stage-task-files.sh <abs-worktree> <this task's files> \ && git -C <abs-worktree> commit -m "<the task's declared subject>" -m "Task-Id: <n>" -- <this task's files> ```
+`stage-task-files.sh <abs-worktree> <file>…` runs that clearing reset, then the add with the excludes ahead of the paths, then exits 1 when git left any of this task's paths unstaged: report the lines it printed and commit nothing (kan-1012: `git add` exited 0 with 15 new paths untracked, and the commit failed).
+A single fenced block of git glob pathspecs, one per line, matched against the repository root — vendored trees a change carries but no reviewer judges, such as a design handoff's `handoff_*/**`.
+Absent means nothing is excluded (kan-1012: vendored `handoff_*` directories were a third of `final-review.diff`).
+`<agents repo>/scripts/write-panel-diff.sh` leaves every path they match out of that repository's panel diff sections and their `.touched` list, so the size cap and the docs-only check never count them; its header is canonical for the pathspec.
+| `## panel diff exclude` | Optional.

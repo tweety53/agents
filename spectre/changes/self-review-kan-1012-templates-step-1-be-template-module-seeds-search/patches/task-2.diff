@@ -1,0 +1,233 @@
+diff --git a/scripts/stage-task-files.sh b/scripts/stage-task-files.sh
+new file mode 100755
+index 00000000..8842be9b
+--- /dev/null
++++ b/scripts/stage-task-files.sh
+@@ -0,0 +1,38 @@
++#!/usr/bin/env bash
++# stage-task-files.sh — stage one /flow task's files for its pathspec-scoped
++# commit (skills/flow/implement.md, FLOW — COMMIT-PER-TASK), and refuse when
++# git leaves any of them unstaged.
++#
++# Usage: stage-task-files.sh <abs-worktree> <file>...
++#
++# In this order, every git call anchored by `git -C <abs-worktree>`:
++#   1. git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/
++#      — the clearing pass, before any add, because an exclude governs what
++#      an add adds and cannot retract what an earlier step already staged.
++#   2. git add -- ':(exclude)spectre/changes/' ':(exclude)openspec/changes/'
++#      ':(exclude)docs/superpowers/' <file>... — the excludes lead the
++#      paths: git 2.50.1 given the paths first and an exclude after them
++#      staged the tracked paths alone, left every new file untracked and
++#      exited 0 (kan-1012 self-review, 15 paths).
++#   3. git status --porcelain --untracked-files=all -- <file>... — any line
++#      whose worktree column is not blank (an unstaged edit or `??`), outside
++#      the three planning prefixes, is a task path the commit would miss.
++#
++# Exit codes:
++#   0  every named path git reports a change for is staged
++#   1  git add exited 0 and left a named path unstaged — each such status
++#      line is printed; commit nothing and report it
++#   2  usage, a worktree that is not a directory, no git, or a git call
++#      failed — git's own output is printed
++#
++# flow-guard is built from this checkout, never taken from PATH:
++# scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
++# cannot-answer code) with the cause when it cannot.
++set -euo pipefail
++# $SCRIPT_DIR/ spells each sibling this shim needs where check-guard-symlinks rule 2 reads it.
++SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
++[ -r "$SCRIPT_DIR/lib/flow-guard.sh" ] && . "$SCRIPT_DIR/lib/flow-guard.sh" || {
++  echo "stage-task-files: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
++  exit 2
++}
++flow_guard_exec stage-task-files 2 "stage-task-files:" "$@"
+diff --git a/skills/flow/implement.md b/skills/flow/implement.md
+index 79888d28..bb310f61 100644
+--- a/skills/flow/implement.md
++++ b/skills/flow/implement.md
+@@ -508,12 +508,14 @@ Every implementer dispatch **must** carry:
+ > step already staged:
+ >
+ > ```bash
+-> git -C <abs-worktree> reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ \
+->   && git -C <abs-worktree> add -- <this task's files> ':(exclude)spectre/changes/' \
+->   ':(exclude)openspec/changes/' ':(exclude)docs/superpowers/' \
++> stage-task-files.sh <abs-worktree> <this task's files> \
+ >   && git -C <abs-worktree> commit -m "<the task's declared subject>" -m "Task-Id: <n>" -- <this task's files>
+ > ```
+ >
++> `stage-task-files.sh <abs-worktree> <file>…` runs that clearing reset, then the add with the excludes
++> ahead of the paths, then exits 1 when git left any of this task's paths unstaged: report the lines it printed and
++> commit nothing (kan-1012: `git add` exited 0 with 15 new paths untracked, and the commit failed).
++> Its header (`<agents repo>/scripts/stage-task-files.sh`) is canonical for the sequence.
+ > Paths are relative to the worktree root, which `-C <abs-worktree>` anchors whatever directory
+ > the shell is in — from a subdirectory of it, an unanchored `git add` reads them
+ > against that directory and fails with a pathspec error. Both spec-tree leaf spellings are named because the
+diff --git a/skills/flow/scripts/stage-task-files.sh b/skills/flow/scripts/stage-task-files.sh
+new file mode 120000
+index 00000000..989119cd
+--- /dev/null
++++ b/skills/flow/scripts/stage-task-files.sh
+@@ -0,0 +1 @@
++../../../scripts/stage-task-files.sh
+\ No newline at end of file
+diff --git a/stats/internal/guard/stage_task_files_test.go b/stats/internal/guard/stage_task_files_test.go
+new file mode 100644
+index 00000000..3f9c75e1
+--- /dev/null
++++ b/stats/internal/guard/stage_task_files_test.go
+@@ -0,0 +1,75 @@
++package guard
++
++import (
++	"os"
++	"strings"
++	"testing"
++)
++
++// stfRepo is a fixture worktree shaped like kan-1012's task 2: a tracked file
++// edited, new files under directories git has never seen, and an edited
++// spectre/changes/ file the task does not name.
++func stfRepo(t *testing.T, g *fxGit, wt string) []string {
++	t.Helper()
++	g.git("", "init", "-q", "-b", "work", wt)
++	for _, d := range []string{"/src/app/template/src/test/x", "/src/app/template/src/main/k/l", "/spectre/changes/c"} {
++		mkdir(t, wt+d)
++	}
++	g.write(wt+"/src/app/template/src/test/x/T.kt", "base")
++	g.write(wt+"/spectre/changes/c/tasks.md", "base")
++	g.git(wt, "add", ".")
++	g.git(wt, "commit", "-qm", "base")
++	g.write(wt+"/src/app/template/src/test/x/T.kt", "edited")
++	g.write(wt+"/spectre/changes/c/tasks.md", "ticked")
++	g.write(wt+"/src/app/template/src/main/k/A.kt", "new")
++	g.write(wt+"/src/app/template/src/main/k/l/B.kt", "new")
++	return []string{"src/app/template/src/main/k/A.kt", "src/app/template/src/main/k/l/B.kt", "src/app/template/src/test/x/T.kt"}
++}
++
++// Every named path is staged, the new ones under unseen directories
++// included, and the unnamed planning edit is not. With the excludes after
++// the paths, git 2.50.1 stages T.kt alone on this layout and exits 0.
++func TestStageTaskFilesStagesNewFilesUnderNewDirectories(t *testing.T) {
++	t.Parallel()
++	dir := t.TempDir()
++	var g fxGit
++	files := stfRepo(t, &g, dir+"/wt")
++	if g.err != nil {
++		t.Fatal(g.err)
++	}
++	r := runGuard("stage-task-files", append([]string{dir + "/wt"}, files...), Env{Dir: dir, Getenv: os.Getenv})
++	if r.rc != 0 {
++		t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
++	}
++	staged := g.git(dir+"/wt", "diff", "--cached", "--name-only")
++	if staged != strings.Join(files, "\n") {
++		t.Errorf("staged:\n%s\nwant:\n%s", staged, strings.Join(files, "\n"))
++	}
++}
++
++// An add that exits 0 having staged nothing is refused, naming each path.
++func TestStageTaskFilesRefusesAPathLeftUnstaged(t *testing.T) {
++	t.Parallel()
++	dir := t.TempDir()
++	var g fxGit
++	files := stfRepo(t, &g, dir+"/wt")
++	if g.err != nil {
++		t.Fatal(g.err)
++	}
++	writeExec(t, dir+"/bin/git", "#!/usr/bin/env bash\nfor a in \"$@\"; do [ \"$a\" = add ] && exit 0; done\nexec "+fixtureGit+" \"$@\"\n")
++	env := Env{Dir: dir, Getenv: func(k string) string {
++		if k == "PATH" {
++			return dir + "/bin:" + os.Getenv("PATH")
++		}
++		return os.Getenv(k)
++	}}
++	r := runGuard("stage-task-files", append([]string{dir + "/wt"}, files...), env)
++	if r.rc != 1 {
++		t.Fatalf("exit %d, want 1\n%s", r.rc, r.out)
++	}
++	for _, want := range []string{"?? src/app/template/src/main/k/A.kt", "?? src/app/template/src/main/k/l/B.kt", " M src/app/template/src/test/x/T.kt"} {
++		if !strings.Contains(r.out, want) {
++			t.Errorf("output lacks %q:\n%s", want, r.out)
++		}
++	}
++}
+diff --git a/stats/internal/guard/stagetaskfiles.go b/stats/internal/guard/stagetaskfiles.go
+new file mode 100644
+index 00000000..49276f35
+--- /dev/null
++++ b/stats/internal/guard/stagetaskfiles.go
+@@ -0,0 +1,72 @@
++package guard
++
++import (
++	"fmt"
++	"io"
++	"strings"
++)
++
++// stageTaskFiles is scripts/stage-task-files.sh: that script's header is the
++// contract -- the staging half of a /flow implementer's per-task commit
++// (skills/flow/implement.md, FLOW — COMMIT-PER-TASK), refusing to hand the
++// commit a task path git left unstaged.
++func init() { Registry["stage-task-files"] = stageTaskFiles }
++
++// stfPlanning is what the clearing reset unstages and the add excludes: both
++// spec-tree leaf spellings and the superpowers notes.
++var stfPlanning = []string{"spectre/changes/", "openspec/changes/", "docs/superpowers/"}
++
++func stageTaskFiles(args []string, env Env, stdout, stderr io.Writer) int {
++	if len(args) < 2 {
++		fmt.Fprint(stderr, "usage: stage-task-files.sh <abs-worktree> <file>...\n")
++		return 2
++	}
++	wt, files := args[0], args[1:]
++	if !isDir(smcAbs(env, wt)) {
++		fmt.Fprintf(stderr, "stage-task-files: %s is not a directory\n", wt)
++		return 2
++	}
++	gitBin, ok := panelResolveGit(env, "stage-task-files", stderr)
++	if !ok {
++		return 2
++	}
++	add := []string{"add", "--"}
++	for _, p := range stfPlanning {
++		add = append(add, ":(exclude)"+p)
++	}
++	// The excludes lead the paths: git 2.50.1 given the task's paths first
++	// and an exclude after them stages tracked paths alone and exits 0
++	// (kan-1012 self-review).
++	for _, step := range [][]string{append([]string{"reset", "-q", "--"}, stfPlanning...), append(add, files...)} {
++		if out, err := panelGit(env, gitBin, wt, step...).CombinedOutput(); err != nil {
++			fmt.Fprintf(stderr, "stage-task-files: git %s failed in %s:\n%s", step[0], wt, out)
++			return 2
++		}
++	}
++	out, err := panelGit(env, gitBin, wt, append([]string{"status", "--porcelain", "--untracked-files=all", "--"}, files...)...).Output()
++	if err != nil {
++		fmt.Fprintf(stderr, "stage-task-files: git status failed in %s\n", wt)
++		return 2
++	}
++	var left []string
++	for _, l := range strings.Split(strings.TrimRight(string(out), "\n"), "\n") {
++		if len(l) < 4 || l[1] == ' ' || stfIsPlanning(l[3:]) {
++			continue
++		}
++		left = append(left, l)
++	}
++	if len(left) > 0 {
++		fmt.Fprintf(stderr, "stage-task-files: git add exited 0 and left %d task path(s) unstaged — commit nothing, report this:\n%s\n", len(left), strings.Join(left, "\n"))
++		return 1
++	}
++	return 0
++}
++
++func stfIsPlanning(path string) bool {
++	for _, p := range stfPlanning {
++		if strings.HasPrefix(path, p) {
++			return true
++		}
++	}
++	return false
++}

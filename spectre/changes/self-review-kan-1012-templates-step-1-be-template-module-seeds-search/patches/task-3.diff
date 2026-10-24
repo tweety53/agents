@@ -1,0 +1,120 @@
+diff --git a/scripts/write-panel-diff.sh b/scripts/write-panel-diff.sh
+index 1f254902..bf8d8ce2 100755
+--- a/scripts/write-panel-diff.sh
++++ b/scripts/write-panel-diff.sh
+@@ -34,6 +34,11 @@
+ # for slot-delta with a held sha, the held sha; otherwise the sha its
+ # section's `# worktree:` header names.
+ #
++# A worktree whose own .flow/project.md declares `## panel diff exclude`
++# has every path one of that fence's globs matches left out of both its
++# sections: each git diff above then ends `-- . ':(glob,exclude)<glob>'...`,
++# one per non-blank fence line (skills/flow-contracts/project-configuration.md).
++#
+ # Exit codes:
+ #   0  both files written
+ #   2  cannot answer — a usage error, a worktree/sha pair that fails
+diff --git a/skills/flow-contracts/project-configuration.md b/skills/flow-contracts/project-configuration.md
+index 977ca857..0b007582 100644
+--- a/skills/flow-contracts/project-configuration.md
++++ b/skills/flow-contracts/project-configuration.md
+@@ -36,6 +36,7 @@ exactly what that row specifies and nothing else. The row is authoritative.
+ | `## workspace isolation` | Optional. The resources an apply worktree runs against its own copy of: for each one, the environment variable that carries it and the value it falls back to, plus the commands that create them, remove them and report which of them survived. Most of those values are derived from the workspace id, and one is not — the cache index is claimed at run time and is not derived from it. Its rows are resolved and validated rather than read, so the two tables specified in `skills/flow-contracts/project-configuration-isolation.md` are the whole of what this body means to the resolver — prose beside them is for the reader, and is where a project records what it has deliberately **not** isolated. Absent means the project is not isolated, which is a supported state and not a misconfiguration — again, see below. Which resources there are, and how each derived value is derived, is stated once under **What the id derives** (`skills/flow-contracts/workspace-isolation.md`). |
+ | `## visual verification` | Optional. What the `flow.visual-verify` stage validates before it runs: which UI paths in a change's diff trigger it, where captured screenshots land, the `setup`/`verify`/`capture`/`fingerprint`/`specs` commands, and an optional `regression checkout` naming the repository the spec and its PNGs commit to, with `regression repo` recording the identity — never an authorisation — that checkout's real `origin` must equal. Its rows are resolved and validated rather than read, so the two tables specified in `skills/flow-contracts/project-configuration-visual.md` are the whole of what this body means to the resolver — prose beside them is for the reader. Absent means the stage is not configured for this project, a supported state and not a misconfiguration. Mechanically enforced by `<agents repo>/scripts/check-visual-verification.sh`, canonical for what it checks. |
+ | `## review panel citation check` | Optional. A single fenced command block and nothing else in the section — unlike `## workspace isolation` and `## visual verification` above, this key gets no dedicated parsing guard: the whole of what it means to the resolver is "a fenced block exists, read literally". **Absent means the whole pre-panel step is skipped**, exactly like every other optional key. The command runs from the apply worktree only when `check-panel-citation-trigger.sh` exits 0 (**Guard resolution**, `skills/flow-contracts/pipeline.md`, is how `skills/flow/review-panel.md` names it, which is also canonical for the full wiring procedure); its combined stdout+stderr is captured verbatim and its exit code is never gating. |
++| `## panel diff exclude` | Optional. A single fenced block of git glob pathspecs, one per line, matched against the repository root — vendored trees a change carries but no reviewer judges, such as a design handoff's `handoff_*/**`. `<agents repo>/scripts/write-panel-diff.sh` leaves every path they match out of that repository's panel diff sections and their `.touched` list, so the size cap and the docs-only check never count them; its header is canonical for the pathspec. Absent means nothing is excluded (kan-1012: vendored `handoff_*` directories were a third of `final-review.diff`). |
+ 
+ **Load `skills/flow-contracts/project-configuration-standards.md`** only when resolving a `## standards` entry.
+ 
+diff --git a/stats/internal/guard/write_panel_diff_test.go b/stats/internal/guard/write_panel_diff_test.go
+index 430bd45b..0df68f2b 100644
+--- a/stats/internal/guard/write_panel_diff_test.go
++++ b/stats/internal/guard/write_panel_diff_test.go
+@@ -241,3 +241,37 @@ func TestWritePanelDiffOmitsDeletedBodies(t *testing.T) {
+ 		t.Errorf(".touched lacks D\\tgone.txt:\n%s", touched)
+ 	}
+ }
++
++// A worktree's `## panel diff exclude` globs leave matching paths out of
++// both the diff and its .touched list; every other path stays (kan-1012: the
++// vendored handoff_* directories were a third of final-review.diff).
++func TestWritePanelDiffHonoursProjectExcludes(t *testing.T) {
++	t.Parallel()
++	dir := t.TempDir()
++	var g fxGit
++	w := wpdNewWT(t, &g, dir+"/wt")
++	for _, d := range []string{"/.flow", "/handoff_x"} {
++		if err := os.MkdirAll(w.path+d, 0o755); err != nil {
++			t.Fatal(err)
++		}
++	}
++	g.write(w.path+"/.flow/project.md", "# p\n\n## panel diff exclude\n\n```text\nhandoff_*/**\n```\n")
++	g.write(w.path+"/handoff_x/screen.html", "vendored")
++	g.git(w.path, "add", ".flow/project.md", "handoff_x/screen.html")
++	if g.err != nil {
++		t.Fatal(g.err)
++	}
++	r := runGuard("write-panel-diff", []string{"final", w.path, w.path, w.mb}, Env{Dir: dir, Getenv: os.Getenv})
++	if r.rc != 0 {
++		t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
++	}
++	for _, f := range []string{"final-review.diff", "final-review.diff.touched"} {
++		body := rbRead(w.path + "/.superpowers/sdd/" + f)
++		if strings.Contains(body, "handoff_x/") {
++			t.Errorf("%s carries the excluded handoff_x/:\n%s", f, body)
++		}
++		if !strings.Contains(body, "b.txt") || !strings.Contains(body, ".flow/project.md") {
++			t.Errorf("%s lost a path no glob matches:\n%s", f, body)
++		}
++	}
++}
+diff --git a/stats/internal/guard/writepaneldiff.go b/stats/internal/guard/writepaneldiff.go
+index edeef6b2..312ebbe1 100644
+--- a/stats/internal/guard/writepaneldiff.go
++++ b/stats/internal/guard/writepaneldiff.go
+@@ -9,6 +9,7 @@ import (
+ 	"os"
+ 	"path/filepath"
+ 	"regexp"
++	"strings"
+ )
+ 
+ // writePanelDiff is scripts/write-panel-diff.sh: that script's header
+@@ -97,12 +98,13 @@ func writePanelDiff(args []string, env Env, stdout, stderr io.Writer) int {
+ 				rng = []string{held, "HEAD"}
+ 			}
+ 		}
++		excludes := wpdExcludes(smcAbs(env, wt))
+ 		header := fmt.Sprintf("# worktree: %s — merge base %s\n", wt, base)
+ 		for _, o := range []struct {
+ 			buf   *bytes.Buffer
+ 			flags []string
+ 		}{{&diff, []string{"--irreversible-delete"}}, {&touched, []string{"--name-status"}}} {
+-			out, err := panelGit(env, gitBin, wt, append(append([]string{"diff"}, o.flags...), rng...)...).Output()
++			out, err := panelGit(env, gitBin, wt, append(append(append([]string{"diff"}, o.flags...), rng...), excludes...)...).Output()
+ 			if err != nil {
+ 				fmt.Fprintf(stderr, "write-panel-diff: git diff %v failed in %s\n", append(o.flags, rng...), wt)
+ 				return 2
+@@ -142,6 +144,22 @@ func writePanelDiff(args []string, env Env, stdout, stderr io.Writer) int {
+ 	return 0
+ }
+ 
++// wpdExcludes is the pathspec tail that leaves out of a worktree's panel
++// diff every path a glob of its own .flow/project.md's `## panel diff
++// exclude` fence matches -- `-- . ':(glob,exclude)<glob>'...` -- or nil when
++// the worktree declares none.
++func wpdExcludes(wt string) []string {
++	globs := kwFenced(projectSection(filepath.Join(wt, ".flow", "project.md"), "panel diff exclude"))
++	if len(globs) == 0 {
++		return nil
++	}
++	tail := []string{"--", "."}
++	for _, g := range globs {
++		tail = append(tail, ":(glob,exclude)"+strings.TrimSpace(g))
++	}
++	return tail
++}
++
+ // wpdWriteAtomic writes body to a temp file beside path and renames it over
+ // path, so a reader never sees a half-written diff.
+ func wpdWriteAtomic(path string, body []byte) error {

@@ -1,0 +1,171 @@
+diff --git a/buildSrc/src/main/kotlin/com/gymie/gradle/FrontendPortContract.kt b/buildSrc/src/main/kotlin/com/gymie/gradle/FrontendPortContract.kt
+index b80533ea..fc3f38df 100644
+--- a/buildSrc/src/main/kotlin/com/gymie/gradle/FrontendPortContract.kt
++++ b/buildSrc/src/main/kotlin/com/gymie/gradle/FrontendPortContract.kt
+@@ -107,9 +107,12 @@ fun inheritsOAuthIsolation(
+  *    service" as an ordinary case (a service added to the block after the last full run looks the same
+  *    way), so dropping the entry here routes the service into machinery this file already tests rather
+  *    than adding a new one.
+- *  - **In [binding].** This run is about to stop and start that service itself, so its own
+- *    deterministic port — computed under today's flag — is what it will actually bind, never a number
+- *    an earlier run wrote down under a flag choice that may no longer hold.
++ *  - **In [binding], on a port other than its [deterministic] one.** This run is about to stop and start
++ *    that service itself, so its own deterministic port — computed under today's flag — is what it will
++ *    actually bind, never a number an earlier run wrote down under a flag choice that may no longer hold.
++ *    An entry that already equals today's deterministic port is kept: it is the truth either way, and
++ *    dropping it made this checkout's own running listener on that port read as an unplaced stranger's,
++ *    so re-running `devStart` over a (partly) up stack refused itself (kan-1012 self-review).
+  *
+  * **Trusted, unchanged, otherwise.** An OAuth-pinned service that is running and that this run is
+  * leaving alone is genuinely serving wherever the record says — overriding that with today's
+@@ -122,13 +125,14 @@ fun inheritsOAuthIsolation(
+  * [resolveBlock]'s other per-service checks already do.
+  */
+ fun Recorded<Map<String, Int>>.withoutStaleOAuthPinnedEntries(
++    deterministic: Map<String, Int>,
+     binding: Set<String>,
+     running: Set<String>,
+ ): Recorded<Map<String, Int>> {
+     val placed = (this as? Recorded.Value)?.value ?: return this
+     val stale =
+         OAUTH_PINNED_SERVICE_NAMES.filter { name ->
+-            name in placed && !(name in running && name !in binding)
++            name in placed && (name !in running || (name in binding && placed[name] != deterministic[name]))
+         }
+     return if (stale.isEmpty()) this else Recorded.Value(placed - stale.toSet())
+ }
+diff --git a/buildSrc/src/test/kotlin/com/gymie/gradle/FrontendPortContractTest.kt b/buildSrc/src/test/kotlin/com/gymie/gradle/FrontendPortContractTest.kt
+index b5eb947a..ee3319b0 100644
+--- a/buildSrc/src/test/kotlin/com/gymie/gradle/FrontendPortContractTest.kt
++++ b/buildSrc/src/test/kotlin/com/gymie/gradle/FrontendPortContractTest.kt
+@@ -219,6 +219,38 @@ class FrontendPortContractTest {
+     private companion object {
+         /** A workspace record naming every service, written by an earlier full run. */
+         val RECORD = mapOf("backend" to 11711, "gateway" to 11710, "frontend" to 3000, "admin-frontend" to 6631)
++
++        /** Today's deterministic block, under a flag choice other than the one [RECORD] was written under. */
++        val TODAY = mapOf("backend" to 11711, "gateway" to 8080, "frontend" to 3011, "admin-frontend" to 6631)
++    }
++
++    @Test
++    fun `re-running a whole-stack devStart over its own partly up stack is not refused`() {
++        // kan-1012 self-review: the gateway's entry was dropped for being in the binding although it
++        // already equals today's deterministic port, so its own listener on 8080 read as an unplaced
++        // stranger's and resolveBlock refused the very re-run documented as the recovery.
++        val block = mapOf("backend" to 11711, "gateway" to 8080, "frontend" to 3000, "admin-frontend" to 6631)
++        val running = setOf("backend", "gateway")
++        val held = setOf(11711, 8080)
++
++        val filtered =
++            Recorded
++                .Value(block)
++                .withoutStaleOAuthPinnedEntries(block, binding = block.keys, running = running)
++        val resolution =
++            resolveBlock(
++                deterministic = block,
++                recorded = filtered,
++                binding = block.keys,
++                running = running,
++                portOffset = 11,
++                isolateOAuthPorts = false,
++                isPortHeld = { it in held },
++                discoverFreePorts = { error("a re-run over its own stack discovers nothing") },
++            )
++
++        assertTrue(resolution is BlockResolution.Resolved, resolution.toString())
++        assertEquals(block, (resolution as BlockResolution.Resolved).ports)
+     }
+ 
+     @Test
+@@ -227,7 +259,7 @@ class FrontendPortContractTest {
+         // overriding it would silently move a live service's port. Both running so neither reads as
+         // the other's "not running" case below.
+         val filtered =
+-            Recorded.Value(RECORD).withoutStaleOAuthPinnedEntries(binding = setOf("backend"), running = setOf("frontend", "gateway"))
++            Recorded.Value(RECORD).withoutStaleOAuthPinnedEntries(TODAY, binding = setOf("backend"), running = setOf("frontend", "gateway"))
+ 
+         assertEquals(Recorded.Value(RECORD), filtered)
+     }
+@@ -239,21 +271,21 @@ class FrontendPortContractTest {
+         // before `-PisolateOAuthPorts` existed, it always was: the deterministic block never varied run
+         // to run, so a disagreement could only have meant genuine discovery. The gateway is running and
+         // untouched, so its entry is unaffected: each pinned service is judged on its own.
+-        val filtered = Recorded.Value(RECORD).withoutStaleOAuthPinnedEntries(binding = emptySet(), running = setOf("gateway"))
++        val filtered = Recorded.Value(RECORD).withoutStaleOAuthPinnedEntries(TODAY, binding = emptySet(), running = setOf("gateway"))
+ 
+         assertEquals(Recorded.Value(RECORD - "frontend"), filtered)
+     }
+ 
+     @Test
+     fun `a gateway that is not running loses its recorded entry while a running frontend keeps its own`() {
+-        val filtered = Recorded.Value(RECORD).withoutStaleOAuthPinnedEntries(binding = emptySet(), running = setOf("frontend"))
++        val filtered = Recorded.Value(RECORD).withoutStaleOAuthPinnedEntries(TODAY, binding = emptySet(), running = setOf("frontend"))
+ 
+         assertEquals(Recorded.Value(RECORD - "gateway"), filtered)
+     }
+ 
+     @Test
+     fun `neither pinned service running loses both recorded entries`() {
+-        val filtered = Recorded.Value(RECORD).withoutStaleOAuthPinnedEntries(binding = emptySet(), running = emptySet())
++        val filtered = Recorded.Value(RECORD).withoutStaleOAuthPinnedEntries(TODAY, binding = emptySet(), running = emptySet())
+ 
+         assertEquals(Recorded.Value(RECORD - "frontend" - "gateway"), filtered)
+     }
+@@ -264,7 +296,9 @@ class FrontendPortContractTest {
+         // computed under today's flag — is what it will actually bind, never a number an earlier run
+         // wrote down under a flag choice that may no longer hold.
+         val filtered =
+-            Recorded.Value(RECORD).withoutStaleOAuthPinnedEntries(binding = setOf("frontend"), running = setOf("frontend", "gateway"))
++            Recorded
++                .Value(RECORD)
++                .withoutStaleOAuthPinnedEntries(TODAY, binding = setOf("frontend"), running = setOf("frontend", "gateway"))
+ 
+         // The gateway is untouched by this run and still running, so its entry survives while the
+         // frontend's — the one about to restart — does not: each pinned service is judged on its own.
+@@ -274,14 +308,14 @@ class FrontendPortContractTest {
+     @Test
+     fun `a gateway this run is about to restart loses its recorded entry even while it is running`() {
+         val filtered =
+-            Recorded.Value(RECORD).withoutStaleOAuthPinnedEntries(binding = setOf("gateway"), running = setOf("frontend", "gateway"))
++            Recorded.Value(RECORD).withoutStaleOAuthPinnedEntries(TODAY, binding = setOf("gateway"), running = setOf("frontend", "gateway"))
+ 
+         assertEquals(Recorded.Value(RECORD - "gateway"), filtered)
+     }
+ 
+     @Test
+     fun `every other service's recorded entry survives being untrusted for the pinned pair`() {
+-        val filtered = Recorded.Value(RECORD).withoutStaleOAuthPinnedEntries(binding = emptySet(), running = emptySet())
++        val filtered = Recorded.Value(RECORD).withoutStaleOAuthPinnedEntries(TODAY, binding = emptySet(), running = emptySet())
+ 
+         val remaining = (filtered as Recorded.Value).value
+         assertEquals(11711, remaining["backend"])
+@@ -294,13 +328,13 @@ class FrontendPortContractTest {
+ 
+         assertEquals(
+             Recorded.Value(noPinned),
+-            Recorded.Value(noPinned).withoutStaleOAuthPinnedEntries(emptySet(), emptySet()),
++            Recorded.Value(noPinned).withoutStaleOAuthPinnedEntries(TODAY, emptySet(), emptySet()),
+         )
+     }
+ 
+     @Test
+     fun `no record and an unreadable record are both unaffected`() {
+-        assertEquals(Recorded.None, Recorded.None.withoutStaleOAuthPinnedEntries(emptySet(), emptySet()))
+-        assertEquals(Recorded.Unknown, Recorded.Unknown.withoutStaleOAuthPinnedEntries(emptySet(), emptySet()))
++        assertEquals(Recorded.None, Recorded.None.withoutStaleOAuthPinnedEntries(TODAY, emptySet(), emptySet()))
++        assertEquals(Recorded.Unknown, Recorded.Unknown.withoutStaleOAuthPinnedEntries(TODAY, emptySet(), emptySet()))
+     }
+ }
+diff --git a/gradle/dev-lifecycle.gradle.kts b/gradle/dev-lifecycle.gradle.kts
+index 2481c760..0b82619c 100644
+--- a/gradle/dev-lifecycle.gradle.kts
++++ b/gradle/dev-lifecycle.gradle.kts
+@@ -938,7 +938,7 @@ fun Project.resolveWorkspaceBlock(workspace: Workspace, binding: Set<String>): B
+ 
+     val decision = resolveBlock(
+         deterministic = block,
+-        recorded = recordedPortBlock().withoutStaleOAuthPinnedEntries(binding, running),
++        recorded = recordedPortBlock().withoutStaleOAuthPinnedEntries(block, binding, running),
+         binding = binding,
+         running = running,
+         portOffset = workspace.portOffset,

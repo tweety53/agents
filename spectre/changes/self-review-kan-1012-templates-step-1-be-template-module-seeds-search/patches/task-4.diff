@@ -1,0 +1,20 @@
+diff --git a/.flow/project.md b/.flow/project.md
+index 52e25fed..4f53e115 100644
+--- a/.flow/project.md
++++ b/.flow/project.md
+@@ -521,6 +521,15 @@ dynamic
+ 
+ dynamic
+ 
++## panel diff exclude
++
++```text
++handoff_*/**
++```
++
++The vendored design handoff bundles at the repository root: a change carries them as its mockup
++source, and no reviewer judges them (kan-1012: a third of `final-review.diff`).
++
+ ## jira
+ 
+ KAN
