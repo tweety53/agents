@@ -524,14 +524,14 @@ The state file lives outside the repo — never `git add` it.
 flow stage end -command '/flow' -stage flow.write-in-progress -outcome completed <name>
 ```
 
-**Then land straight away unless review was asked for.** Re-read the record:
+**Then land straight away unless review was asked for** — a run that lands re-records first any
+`**Summary:**` bullet changed after the guard, since no printed block records it again. Re-read the record:
 
 ```bash
 flow state get <name> | jq -r '.reviewBeforeLanding // false'
 ```
 
-`true` prints the block below and ends the run. Anything else prints no block — the `**Summary:**`
-bullets are already recorded — and continues at **Deciding which run this is**
+`true` prints the block below and ends the run. Anything else prints no block and continues at **Deciding which run this is**
 (`skills/flow/integrate.md`) in the same turn, as if a bare `/flow <name>` had started it; that
 run prints its own handoff or stop. This is the one chain into integrate **Every invocation is
 re-entrant** (`skills/flow-contracts/pipeline.md`) sanctions.

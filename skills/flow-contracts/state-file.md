@@ -70,7 +70,8 @@ reaches the network.
 }
 ```
 
-This is the whole wire shape `state get` prints and `state set` reads — the same shape the on-disk
+This is the whole wire shape `state get` prints and `state set` reads (`withdrawn` and `reviewBeforeLanding`
+are omitted when `false`) — the same shape the on-disk
 fallback file and each journal entry's payload carry, unchanged, so replay needs no translation
 step.
 
