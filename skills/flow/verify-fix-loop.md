@@ -130,7 +130,12 @@ One round runs these steps in order:
    base>..HEAD` adds, changes or removes, plus every motion this round's defects name. Its prompt
    names the `<frontend-root>` worktree's own round base, which the verifier's step 7 substitutes
    for `specs`' `<merge-base>` — never another worktree's of the change; when the
-   `<frontend-root>` worktree has no round base, the prompt names none and `specs` runs unscoped. A worktree
+   `<frontend-root>` worktree has no round base, the prompt names none and `specs` runs unscoped.
+   Before that dispatch the parent runs `specs` itself with the round base for `<merge-base>`, names
+   the count of paths it prints in the prompt as `scoped specs: <n>`, and passes `<n>` to
+   `check-verify-report.sh` as its third argument, which refuses a report whose `verify:` line
+   names another count (kan-1015: a re-run under round base `c75529d2` printed 2 specs, and the
+   verifier ran 95). A worktree
    whose round diff is empty is not dispatched. A worktree with no round base — no verifier of
    this run has verified it, or the parent no longer holds the sha — runs the stage unscoped. **A round whose diff touches only the mockups root composes instead of verifying.** When `git diff <round base>..HEAD` matches no `ui paths` entry in any worktree and touches nothing outside the mockups root, no `visual-verify` verifier is dispatched: for each `<spec>.mockups` sidecar with a line naming a changed `<frame id>.png`, the parent runs the compose command and the `measure-visual-properties.sh … --props bands,seams` read of step 10 (`skills/flow/visual-verify-verifier.md`) on every pair; a leftover is a defect that opens the next round, and clean composites close the round with no `-full` run, the last verifier's report standing for every path outside the mockups root (kan-1007: a mockups-only round re-ran the whole suite, 18m28s).
    The confirming re-run

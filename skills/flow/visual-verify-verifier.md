@@ -25,6 +25,8 @@ never an exit code the command did not return.
    once, in the loop's closing unscoped run (**The loop**, `skills/flow/verify-fix-loop.md`).
    Without a round base, a `specs` with no `<merge-base>` runs as declared, its full list,
    and the report names `specs: not scoped — specs has no <merge-base>`.
+   Under a round base the `verify:` line names the count of paths `specs` printed as `<n> mapped
+   specs` beside its exit.
    **A prompt naming `rerun specs:` runs those specs alone** — substituted for `<specs>` in place
    of `specs`' output, which is not run — and the report's `verify:` line reads `exit <n> — rerun
    of <k> failed specs at unchanged HEAD` (**Steps 3–13**, `skills/flow/visual-verify.md`). A `verify`

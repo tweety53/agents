@@ -112,3 +112,33 @@ func TestCheckVerifyReportPreExistingNeedsMergeBaseEvidence(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckVerifyReportScopedSpecCount pins kan-1015's self-review: a re-run
+// under round base c75529d2, where `specs` printed 2 paths, ran 95 mapped
+// specs. Given the scoped count, the `- verify:` line must name it.
+func TestCheckVerifyReportScopedSpecCount(t *testing.T) {
+	const steps = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n"
+	const ran95 = "- verify: exit 1 — 95 mapped specs, 443 passed, 2 failed\n"
+	for _, tc := range []struct {
+		verify string
+		args   []string
+		rc     int
+		want   string
+	}{
+		{ran95, []string{"2"}, 1, "7 ran 95 mapped specs where specs printed 2"},
+		{"- verify: exit 0 — 2 mapped specs, 40 passed\n", []string{"2"}, 0, "COMPLETE"},
+		{"- verify: not run — no spec since the round base\n", []string{"0"}, 0, "COMPLETE"},
+		{"- verify: exit 0\n", []string{"2"}, 1, "7 names no mapped-spec count"},
+		{ran95, nil, 0, "COMPLETE"},
+		{ran95, []string{"x"}, 2, "usage"},
+	} {
+		path := filepath.Join(t.TempDir(), "verify-report-visual-verify.md")
+		if err := os.WriteFile(path, []byte("## Report\n"+tc.verify+steps), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		r := runGuard("check-verify-report", append([]string{path, "0"}, tc.args...), Env{Getenv: os.Getenv})
+		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
+			t.Fatalf("%q %q: rc=%d out=%q; want rc=%d containing %q", tc.verify, tc.args, r.rc, r.out, tc.rc, tc.want)
+		}
+	}
+}

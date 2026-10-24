@@ -4,12 +4,14 @@
 # its prose (KAN-870: two verifiers ran the tests and the capture, listed
 # steps 9-11 under "Not done", and both reports were accepted).
 #
-# Usage: check-verify-report.sh <report file> <motions named>
+# Usage: check-verify-report.sh <report file> <motions named> [<scoped specs>]
 #
 # <report file> is the relay contract's
 # <abs-worktree>/.superpowers/sdd/verify-report-<key>.md
 # (skills/flow/visual-verify.md); <motions named> is the count of motions the
-# dispatch prompt named, 0 for `motions: none`.
+# dispatch prompt named, 0 for `motions: none`; <scoped specs>, given for a
+# re-run under a round base alone, is the count of paths `specs` printed for
+# that round base (skills/flow/verify-fix-loop.md).
 #
 # The report's `- steps:` line carries one `<step> <status>` item per required
 # step, ` | `-separated, for steps 4, 7, 8, 9, 10, 11 and `motion`
@@ -32,12 +34,19 @@
 # `merge-base capture: <path>` leaves step 10 undone (kan-1015: a re-baseline
 # over a defect attributed from the code path alone).
 #
+# Given <scoped specs>, the report's `- verify:` line must read `not run — no
+# spec since the round base` when it is 0, else name `<n> mapped specs` with
+# <n> equal to it; otherwise step 7 is undone as `ran <k> mapped specs where
+# specs printed <n>` or `names no mapped-spec count` (kan-1015: a re-run under
+# a round base where `specs` printed 2 ran 95).
+#
 # Prints ONE verdict line to stdout:
 #   VERIFY-REPORT-COMPLETE: <report file>
 #   VERIFY-REPORT-INCOMPLETE: <report file> — <each undone step and its status, `; `-separated>
 #
 # Exit 0 complete, 1 incomplete, 2 cannot answer (a usage error, a count
-# that is not a non-negative integer, a report file it cannot read).
+# or scoped count that is not a non-negative integer, a report file it
+# cannot read).
 #
 # Go, in flow-guard (stats/internal/guard/verifyreport.go).
 # flow-guard is built from this checkout, never taken from PATH:

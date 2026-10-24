@@ -33,18 +33,30 @@ var (
 	// pre-existing from the code path alone and re-baselined over the defect).
 	vrPreExisting    = regexp.MustCompile(`(?i)(?:^|[^-\w])pre-existing|present at (?:the )?merge base`)
 	vrNotPreExisting = regexp.MustCompile(`(?i)\bnot pre-existing`)
+	// A scoped re-run's `- verify:` line names how many specs it ran
+	// (kan-1015: `specs` printed 2 under the round base, the verifier ran 95).
+	vrVerifyLine  = regexp.MustCompile(`^\s*- verify:\s*(.*)$`)
+	vrMappedSpecs = regexp.MustCompile(`\b(\d+) mapped specs\b`)
 )
 
 func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-verify-report"
-	if len(args) != 2 {
-		fmt.Fprintf(stderr, "%s: usage: check-verify-report.sh <report file> <motions named>\n", prog)
+	const usage = "check-verify-report.sh <report file> <motions named> [<scoped specs>]"
+	if len(args) != 2 && len(args) != 3 {
+		fmt.Fprintf(stderr, "%s: usage: %s\n", prog, usage)
 		return 2
 	}
 	motions, err := strconv.Atoi(args[1])
 	if err != nil || motions < 0 {
-		fmt.Fprintf(stderr, "%s: usage: check-verify-report.sh <report file> <motions named> — %q is not a count\n", prog, args[1])
+		fmt.Fprintf(stderr, "%s: usage: %s — %q is not a count\n", prog, usage, args[1])
 		return 2
+	}
+	scoped := -1
+	if len(args) == 3 {
+		if scoped, err = strconv.Atoi(args[2]); err != nil || scoped < 0 {
+			fmt.Fprintf(stderr, "%s: usage: %s — %q is not a count\n", prog, usage, args[2])
+			return 2
+		}
 	}
 	data, err := os.ReadFile(args[0])
 	if err != nil {
@@ -53,8 +65,11 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	status := map[string]string{}
 	motionLine, bareFingerprint := false, false
-	inReport, unevidenced := false, ""
+	inReport, unevidenced, verify := false, "", ""
 	for _, line := range strings.Split(string(data), "\n") {
+		if m := vrVerifyLine.FindStringSubmatch(line); m != nil && verify == "" {
+			verify = strings.TrimSpace(m[1])
+		}
 		if strings.HasPrefix(line, "## ") {
 			inReport = strings.TrimSpace(line) == "## Report"
 		}
@@ -82,6 +97,13 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if unevidenced != "" {
 		status["10"] = "pre-existing attribution with no merge-base evidence: " + unevidenced
+	}
+	if scoped >= 0 && !(scoped == 0 && strings.HasPrefix(verify, "not run — no spec since the round base")) {
+		if m := vrMappedSpecs.FindStringSubmatch(verify); m == nil {
+			status["7"] = "names no mapped-spec count"
+		} else if m[1] != strconv.Itoa(scoped) {
+			status["7"] = fmt.Sprintf("ran %s mapped specs where specs printed %d", m[1], scoped)
+		}
 	}
 	for _, id := range vrSteps {
 		s, ok := status[id]

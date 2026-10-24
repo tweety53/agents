@@ -83,10 +83,12 @@ A verifier whose worktree's `ui paths` also match a sibling worktree's diff — 
 **Every report is checked for completeness before anything else reads it:**
 
 ```bash
-check-verify-report.sh <abs-worktree>/.superpowers/sdd/verify-report-<key>.md <motions named>
+check-verify-report.sh <abs-worktree>/.superpowers/sdd/verify-report-<key>.md <motions named> [<scoped specs>]
 ```
 
 `<motions named>` is the count of motions this dispatch's prompt named, `0` for `motions: none`;
+`<scoped specs>` is passed for a re-run under a round base alone, the count **The loop**
+(`skills/flow/verify-fix-loop.md`) names in its prompt;
 the guard's header is canonical for the report's `steps:` line and its admissible statuses. Exit 0
 → the report is complete; read it. Exit 1 → **the report is incomplete and is never accepted,
 whatever its prose says**, and no fix task is planned from it, its departures included, until its
