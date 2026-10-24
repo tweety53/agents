@@ -59,7 +59,7 @@ export were performed manually and why.
 check-base-behind.sh <worktree>...
 ```
 
-over the same resolved set; its header is canonical for its lines. Exit 0 → continue. Exit 1 → relay every `BASE-BEHIND:` block and run its two command lines in order — the first pushes the base and is confirmed per **What still stops** (`skills/flow-contracts/operator-prompts-auto-resolution.md`) — then run **Verify** again from its `begin` mark. Exit 2 → name its stderr in the handoff and continue (kan-1007: a stale `--base` was papered over by merging develop into the change branches, and integrate's reshape folded KAN-1010 into the squash).
+over the same resolved set; its header is canonical for its lines. Exit 0 → continue. Exit 1 → relay every `BASE-BEHIND:` block and run its two command lines in order — the first pushes the base, unasked (**What still stops**, `skills/flow-contracts/operator-prompts-auto-resolution.md`); on zsh write `${C}:refs/heads/…`, since a bare `$C:r…` is the `:r` modifier — then run **Verify** again from its `begin` mark. Exit 2 → name its stderr in the handoff and continue (kan-1007: a stale `--base` was papered over by merging develop into the change branches, and integrate's reshape folded KAN-1010 into the squash).
 
 **This step does not call the project's `create` command.** `create` is called by whatever starts
 the project's applications, per **Project configuration**

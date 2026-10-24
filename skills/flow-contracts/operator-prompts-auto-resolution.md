@@ -46,8 +46,7 @@ cases is a stop for nothing (KAN-1000):
   each repository whose recorded base is a feature branch, after `git fetch origin`, a
   `git rev-list --count origin/<base>..origin/<the branch it tracks>` above 0 — develop or main
   holding commits the base lacks — syncs the base first (KAN-1000: a stale feature/cardio base
-  cost 61 failures and about an hour). `check-base-behind.sh` makes that count for every worktree of the change and prints the sync commands (**Verify**, `skills/flow/verify-and-handoff.md`). Pushing the synced base is still confirmed,
-  per **What still stops**.
+  cost 61 failures and about an hour). `check-base-behind.sh` makes that count for every worktree of the change and prints the sync commands (**Verify**, `skills/flow/verify-and-handoff.md`). Pushing the synced base is not asked (below).
   **Never merge the tracked branch into a change branch** (kan-1007): the change branch then carries the tracked branch's commits as its own, and integrate's reshape folds them into the change's squash — the base is what gets synced.
 - **A departure from the mockup:** match the mockup (`rules/design-mockups-are-specs.mdc`). An element
   the mockup does not draw stays only when the screen cannot work without it. Record that reason
@@ -99,5 +98,9 @@ These are asked, or stop with `## Question`, exactly as their call sites state:
   self-review's flow-eval mining.
   The global rules require these confirmed.
   One push is not asked: creating a `--base` a repository's origin lacks, from that repository's default branch — kickoff's (`skills/flow/SKILL.md`) and integrate's `prepare` (`BASE-CREATED:`, `skills/flow/integrate.md`) — adds a branch at the default branch's own tip, overwrites nothing, and is what the operator's `--base` already asked for.
+  Nor is the base sync `check-base-behind.sh` prints: a merge commit of the tracked branch onto the
+  `--base`, pushed fast-forward — it rewrites no history and only brings the base up to what it
+  tracks (gymie KAN-1015: the run stopped mid-verify to ask it, and the operator said to answer it
+  automatically).
 - **Outside implementation and fix runs.** The wrong-state override, the plain-message ambiguity
   prompt that decides whether a fix run starts at all, and every integrate and cleanup prompt.
