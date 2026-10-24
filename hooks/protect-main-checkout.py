@@ -57,6 +57,12 @@ push check above runs before the command does and cannot see a commit the comman
 (kan-1003: 0497d943). A message the command does not state (`-F`, `-C`, `--amend`, a shell
 expansion) is not judged.
 
+It also denies a commit, as the command states it, into a worktree whose current branch is a
+`spectre/` change branch when its message carries neither trailer, its subject is no `chore`, and its
+pathspec is not limited to `<spec-root>/changes/` — the same judgement as above, made at the commit
+rather than at a push the command may never make. A commit on any other branch, a branch git cannot
+read, or a message the command does not state (`-F`, `--amend`) is not judged.
+
 Both landing checks read the push from the command text, so a push the hook cannot read is denied
 rather than let through: one whose repository (`-C <path>`, a `cd`), remote or refspec goes through
 a shell expansion the hook cannot resolve — `$W`, `"${B}:main"`, `$(git branch --show-current)`, a
@@ -918,6 +924,14 @@ def bash_hits(command, cwd, landings=None):
                 if j < n and tokens[j] == "commit" and target is not None:
                     cargs = git_args(tokens, j + 1)
                     commits.append((target, cargs))
+                    branch = git(target, "symbolic-ref", "--short", "-q", "HEAD") if landings is not None else None
+                    if branch and branch.startswith("spectre/") and commit_lacks_trailer(cargs, target):
+                        landings.append(
+                            f"Blocked: this commit lands on {branch} with neither a `Task-Id:` nor a `Flow-Key:` "
+                            "trailer and no `chore` subject (**Commits outside every task**, "
+                            "skills/flow-contracts/git-boundaries.md). Add `-m \"Flow-Key: <key>\"`, or "
+                            "`-m \"Task-Id: <n>\"` on a task's own commit, then run it again."
+                        )
                 if j < n and tokens[j] == "push" and landings is not None:
                     args = git_args(tokens, j + 1)
                     unreadable = unreadable_landing(args, target)

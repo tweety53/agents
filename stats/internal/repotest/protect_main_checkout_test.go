@@ -426,7 +426,7 @@ func TestProtectMainCheckout(t *testing.T) {
 	f.bash("147 a message the command does not state", "allow", "{ROOT}", `cd {CWT} && git commit -q -F msg.txt && git push -q`)
 	f.bash("161 commit and push in one command, both redirected, no trailer", "deny", "{ROOT}", `cd {CWT} && git commit -qm 'docs(design): add the handoff' 2>&1 && git push -q >/dev/null 2>&1`)
 	f.bash("162 a planning commit pathspec-limited to spectre/changes/, redirected", "allow", "{ROOT}", `git -C {CWT} commit -q -m 'docs(spectre): record' -- spectre/changes/chg 2>&1 && git -C {CWT} push -q origin spectre/chg3`)
-	f.bash("148 a trailer-less commit pushed to a branch that is no change branch", "allow", "{ROOT}", `cd {CWT} && git commit -qm 'docs(x): y' && git push -q origin HEAD:feature/x`)
+	f.bash("148 a trailer-less commit on a change branch, pushed to a branch that is no change branch, is denied at the commit", "deny", "{ROOT}", `cd {CWT} && git commit -qm 'docs(x): y' && git push -q origin HEAD:feature/x`)
 
 	// 108-109: the real checker after a rebase onto a moved base — the base's own
 	// trailer-less commits are on origin already, never the change's to judge.
@@ -484,4 +484,40 @@ func TestProtectMainCheckout(t *testing.T) {
 	// 3 last: moving the main checkout off main lifts the protection
 	f.git("-C", main, "checkout", "-q", "-b", "feature")
 	f.writeTool("3 Write in main checkout on a feature branch", "allow", "{MAIN}/new.txt")
+}
+
+// TestProtectMainCheckoutDeniesAnUntraileredChangeBranchCommit pins the change-branch commit
+// check: a commit the command states with no trailer and no chore subject, in a worktree on
+// spectre/<name>, is denied; a trailered, chore, -F or --amend commit, and any commit on another
+// branch, passes.
+func TestProtectMainCheckoutDeniesAnUntraileredChangeBranchCommit(t *testing.T) {
+	t.Parallel()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &pmFixture{t: t, home: t.TempDir(), vars: map[string]string{"ROOT": root}}
+	main := root + "/main"
+	f.vars["SWT"], f.vars["FWT"] = root+"/main-worktrees/c1", root+"/main-worktrees/fc1"
+	f.git("init", "-q", "--bare", root+"/origin.git")
+	f.git("clone", "-q", root+"/origin.git", main)
+	f.write(main+"/f.txt", "a\n")
+	f.git("-C", main, "add", "f.txt")
+	f.git("-C", main, "commit", "-q", "-m", "init")
+	f.git("-C", main, "branch", "-M", "main")
+	f.git("-C", main, "push", "-q", "-u", "origin", "main")
+	f.git("-C", main, "worktree", "add", f.vars["SWT"], "-b", "spectre/c1")
+	f.git("-C", main, "worktree", "add", f.vars["FWT"], "-b", "feature/c1")
+
+	f.check("1 untrailered commit on spectre/c1", func(t *testing.T) {
+		out := f.run(t, root, "Bash", map[string]string{"command": f.x(`git -C {SWT} commit -m "fix(x): y"`)})
+		if decision(out) != "deny" || !strings.Contains(out, "Flow-Key:") {
+			t.Errorf("out=%s", out)
+		}
+	})
+	f.bash("2 Task-Id trailer", "allow", "{ROOT}", `git -C {SWT} commit -m "fix(x): y" -m "Task-Id: 3"`)
+	f.bash("3 chore subject", "allow", "{ROOT}", `git -C {SWT} commit -m "chore(spectre): plan c1"`)
+	f.bash("4 message from a file", "allow", "{ROOT}", `git -C {SWT} commit -F msg.txt`)
+	f.bash("5 amend", "allow", "{ROOT}", `git -C {SWT} commit --amend --no-edit`)
+	f.bash("6 another branch", "allow", "{ROOT}", `git -C {FWT} commit -m "fix(x): y"`)
 }
