@@ -23,6 +23,12 @@ more — so a later run never reuses a round an earlier run of the change alread
 
 ## Check base movement first
 
+**The before-review planning commit comes first.** Before the script below runs in any worktree,
+the parent makes the before-review planning commit (**Planning commits**,
+`skills/flow-contracts/git-boundaries.md`): the script's rebase is a bare `git rebase`, which git
+refuses while the change's directory carries uncommitted ticks or notes, and the script reports
+that refusal as exit 2 (kan-1030).
+
 Once per worktree in this run's resolved set (**Resolving a change's worktrees**,
 `skills/flow-contracts/worktree-resolution.md`), on every panel run — creating, resumed, or fix:
 

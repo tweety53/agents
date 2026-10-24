@@ -14,7 +14,8 @@ per-worktree `sync-panel-base.sh` call, with that section's
 verdicts, automatic no-overlap rebase, overlap prompt and conflict handling unchanged — a `MOVED`
 with no overlap rebases unasked at a round boundary just as at entry.** **Continue** at a round
 boundary proceeds into the round's own remaining steps — the citation pre-check that follows the
-entry check is an entry step, and the round does not re-run it.
+entry check is an entry step, and the round does not re-run it. The section's before-review planning
+commit comes first at a round boundary too.
 
 **Pass 1 runs the roster **The docs-only reduction** or **The late-fix reduction** chose — the
 resolved roster, `primary` alone on a docs-only branch, or `primary` alone on the late-fix delta
