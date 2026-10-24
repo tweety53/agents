@@ -12,12 +12,14 @@ When running `/flow`, follow this **fixed three-state pipeline**:
 ```text
 /flow  (no state)          → STARTED                  you: /clear, then /flow <name> to implement
 /flow  (reachability end)  → FINISHED (withdrawn)     nothing to plan — the operator may withdraw
-/flow  (STARTED, planned)  → IN_PROGRESS              you: review the staged diff — the stack is running
-/flow  <fix instructions>  → IN_PROGRESS (unchanged)  you: review the staged diff — the stack is running
+/flow  (STARTED, planned)  → IN_PROGRESS or FINISHED  lands straight away unless review-before-landing is set
+/flow  <fix instructions>  → IN_PROGRESS or FINISHED  lands straight away unless review-before-landing is set
 /flow  (bare, IN_PROGRESS) → IN_PROGRESS or FINISHED  terminal only on the merge-and-push route
 ```
 
-One invocation carries the run named after wherever it stops. The human gate is a property of the
+One invocation carries the run named after wherever it stops. A run that writes `IN_PROGRESS`
+continues into integrate in the same invocation unless the operator asked to review before landing,
+which keeps it at the gate. The human gate is a property of the
 state, not a separate step — which is why no command exists whose only job is to record that a
 review happened. A creating or fix run produces both the staged diff and the run instructions, so
 reviewing and testing are one gate. Every invocation is re-entrant, and a fix never moves the state.

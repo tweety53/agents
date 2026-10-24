@@ -34,6 +34,14 @@ ignored word is indistinguishable from a flag that stopped working.
 
 ### Every command is re-entrant
 
+Integrate's one sanctioned chain — **Write `IN_PROGRESS`** continuing into it when the record's
+`reviewBeforeLanding` is not `true` — exists because most changes had nothing for the operator to
+review at `IN_PROGRESS`, and the stop cost one extra turn per change (KAN-1030). The flag lives on
+the state record, not in session memory, because it has to survive the `/clear` between the plan
+gate and the implementing run. The ban on integrate inferred from mid-turn words stays: a stray
+"merge and push" said mid-run is still conversation, and only the run's own chain point or a fresh
+bare `/flow` starts integrate.
+
 ### A fix never moves the state
 
 Moved from the contract, where it followed **This table is authoritative.**: Every command file in

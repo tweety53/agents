@@ -93,7 +93,8 @@ to report, never a creating run.
 - **Exit 0, `"state": "IN_PROGRESS"`, an argument other than the change's name** — a fix run — or a plain message, per
   **A plain message at IN_PROGRESS** below. See
   **3. Documenting a fix, before implementing it** and then **The parent orchestrates directly**
-  (`skills/flow/implement.md`).
+  (`skills/flow/implement.md`); unless `reviewBeforeLanding` is `true`, the run continues into
+  integrate once it writes the state (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`).
 - **Exit 0, `"state": "IN_PROGRESS"`, no argument or the change's name alone** (**Change name
   resolution (all `/flow*` commands)**, `skills/flow-contracts/pipeline.md`) — an integrate run. See
   **Deciding which run this is** (`skills/flow/integrate.md`).
@@ -152,6 +153,22 @@ run makes, including inside every phase file it dispatches into.** One run, one 
 one per mark or per phase file. `<literal-token>` in each mark is that string written in place of
 the placeholder, never the placeholder itself, and a later `/flow` invocation — a resume or a fix
 run — generates its own rather than reusing an earlier run's.
+
+## Review-before-landing instruction
+
+**A plain-language instruction to review before landing, or to land without review, given at any
+point of any `/flow` run of the change — the creating run's planning included — is written to the
+record at once:**
+
+```bash
+flow state get <name> | jq '.reviewBeforeLanding = <true|false>' | flow state set <name>
+```
+
+The latest instruction wins. It is one line in the run's narrative and one `Decisions:` bullet. It
+is never itself an integrate trigger: integrate still starts only at the run's own chain point or
+on a fresh bare `/flow` (**Every invocation is re-entrant**, `skills/flow-contracts/pipeline.md`).
+An instruction given before **A. Resolve the change and write `STARTED`**
+(`skills/flow/brainstorm.md`) has produced the record is written right after that write.
 
 ## Guardrails
 
