@@ -29,7 +29,10 @@ var mvpAllProps = []string{"box", "radius", "border", "fill", "shadow", "content
 
 // Properties that read the region as a whole page: background is the modal
 // colour and the corners need not be background.
-var mvpPageProps = []string{"bands", "seams"}
+var mvpPageProps = []string{"bands", "seams", "elements"}
+
+// mvpOptIn are properties --props accepts that the default set leaves out.
+var mvpOptIn = []string{"elements"}
 
 // mvpFull is the share of a band's height a column must ink to be a seam, and
 // of a cell's width a row must ink to be a rule rather than a text line.
@@ -94,7 +97,7 @@ func measureVisualProperties(args []string, env Env, stdout, stderr io.Writer) i
 	for _, s := range strings.Split(a.props, ",") {
 		if s = pyStrip(s); s != "" {
 			props = append(props, s)
-			if !slices.Contains(mvpAllProps, s) {
+			if !slices.Contains(mvpAllProps, s) && !slices.Contains(mvpOptIn, s) {
 				unknown = append(unknown, s)
 			}
 		}
@@ -1013,6 +1016,8 @@ func (r *mvpRegion) measureSeams(bands []mvpBand) []mvpBand {
 type mvpMeasured struct {
 	out          pyObj
 	bands, seams []mvpBand
+	surfaceTop   int
+	elements     []mvpElement
 }
 
 func (r *mvpRegion) measure(props []string) (mvpMeasured, error) {
@@ -1020,7 +1025,7 @@ func (r *mvpRegion) measure(props []string) (mvpMeasured, error) {
 		return slices.ContainsFunc(names, func(n string) bool { return slices.Contains(props, n) })
 	}
 	m := mvpMeasured{out: pyObj{{"background", mvpHex(r.bg)}}}
-	needsBox := slices.ContainsFunc(props, func(p string) bool { return !slices.Contains([]string{"ink", "runs", "bands", "seams"}, p) })
+	needsBox := slices.ContainsFunc(props, func(p string) bool { return !slices.Contains([]string{"ink", "runs", "bands", "seams", "elements"}, p) })
 	if needsBox {
 		if c := r.clippedText(); c != "" {
 			m.out = append(m.out, pyKV{"clipped", c})
@@ -1085,7 +1090,103 @@ func (r *mvpRegion) measure(props []string) (mvpMeasured, error) {
 			m.out = append(m.out, pyKV{"seams", list})
 		}
 	}
+	if has("elements") {
+		var bg [3]byte
+		list := []pyObj{}
+		m.surfaceTop, bg, m.elements = r.measureElements()
+		for _, e := range m.elements {
+			list = append(list, e.obj())
+		}
+		m.out = append(m.out, pyKV{"elements", pyObj{{"surface_top", m.surfaceTop}, {"background", mvpHex(bg)}, {"elements", list}}})
+	}
 	return m, nil
+}
+
+type mvpElement struct {
+	top, height, left, width, right, gap int
+	colour                               [3]byte
+	kind                                 string
+}
+
+func (e mvpElement) obj() pyObj {
+	return pyObj{{"top", e.top}, {"height", e.height}, {"left", e.left}, {"width", e.width}, {"right", e.right},
+		{"colour", mvpHex(e.colour)}, {"kind", e.kind}, {"gap", e.gap}}
+}
+
+// measureElements is kan-1015's verifier matrix script (elems.py): the app
+// surface's top — the first row, walking column 3 up from the bottom, whose
+// mean channel is not above 200, plus one; 0 when that row is above row 60,
+// the whole image then the surface — and every ink run below it against the
+// surface's modal colour (distance over 30), 8px in from each side.
+func (r *mvpRegion) measureElements() (int, [3]byte, []mvpElement) {
+	y := r.h - 1
+	for y > 0 {
+		c := r.at(min(3, r.w-1), y)
+		if int(c[0])+int(c[1])+int(c[2]) <= 600 {
+			break
+		}
+		y--
+	}
+	t := y + 1
+	if t < 60 {
+		t = 0
+	}
+	x0, x1 := 8, r.w-8
+	var bgc mvpCounter
+	for yy := t; yy < r.h; yy += 4 {
+		for x := x0; x < x1; x += 4 {
+			bgc.add(r.at(x, yy))
+		}
+	}
+	bg, _ := bgc.top()
+	rows := make([][]int, r.h-t)
+	for i := range rows {
+		for x := x0; x < x1; x++ {
+			if mvpDist(r.at(x, t+i), bg) > 30 {
+				rows[i] = append(rows[i], x)
+			}
+		}
+	}
+	var out []mvpElement
+	prev := t
+	for i := 0; i < len(rows); {
+		if len(rows[i]) == 0 {
+			i++
+			continue
+		}
+		s := i
+		for i < len(rows) && len(rows[i]) > 0 {
+			i++
+		}
+		left, right, span := rows[s][0], rows[s][0], 0
+		for _, row := range rows[s:i] {
+			left, right, span = min(left, row[0]), max(right, row[len(row)-1]), max(span, len(row))
+		}
+		mid := s + (i-s)/2
+		var col mvpCounter
+		for _, x := range rows[mid] {
+			col.add(r.at(x, t+mid))
+		}
+		colour, _ := col.top()
+		kind := "text/control"
+		if inner := float64(x1 - x0); i-s <= 3 && float64(span) > 0.5*inner {
+			kind = "rule"
+		} else if float64(span) > 0.8*inner {
+			kind = "fill band"
+		}
+		e := mvpElement{top: s + t, height: i - s, left: left, width: right - left + 1, right: r.w - 1 - right, colour: colour, kind: kind, gap: s + t - prev}
+		prev = e.top + e.height
+		out = append(out, e)
+	}
+	return t, bg, out
+}
+
+func mvpElementRecs(elems []mvpElement) []mvpRec {
+	recs := make([]mvpRec, len(elems))
+	for i, e := range elems {
+		recs[i] = mvpRec{e.top, e.height, e.gap, []string{mvpHex(e.colour)}, e.obj()}
+	}
+	return recs
 }
 
 // mvpLeaves is every non-object value under d, keyed by its dotted path.
@@ -1344,6 +1445,16 @@ func mvpDelta(a, b mvpMeasured, props []string, scale float64) pyObj {
 		seams, summary := mvpPairSeams(a.seams, b.seams, scale)
 		out = append(out, pyKV{"seams", seams}, pyKV{"seams_summary", summary})
 	}
+	if slices.Contains(props, "elements") {
+		pairs := mvpPairInOrder(mvpElementRecs(a.elements), mvpElementRecs(b.elements), scale, "gap", "height", []string{"colour"})
+		for k, p := range pairs {
+			if p.status == "paired" {
+				pairs[k].obj = append(p.obj, pyKV{"top", mvpNumberDelta(a.elements[p.i].top, b.elements[p.j].top, scale)})
+			}
+		}
+		p, m, e := mvpCountStatus(pairs)
+		out = append(out, pyKV{"elements", mvpPairObjs(pairs)}, pyKV{"elements_summary", pyObj{{"paired", p}, {"missing", m}, {"extra", e}}})
+	}
 	bl := map[string]any{}
 	for _, kv := range mvpLeaves(b.out, "") {
 		bl[kv.k] = kv.v
@@ -1357,7 +1468,7 @@ func mvpDelta(a, b mvpMeasured, props []string, scale float64) pyObj {
 	}
 	for _, kv := range mvpLeaves(a.out, "") {
 		key, av, bv := kv.k, kv.v, bl[kv.k]
-		if key == "bands" || key == "seams" {
+		if key == "bands" || key == "seams" || strings.HasPrefix(key, "elements.") {
 			continue
 		}
 		as, aok := av.(string)

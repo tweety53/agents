@@ -405,7 +405,12 @@ never an exit code the command did not return.
       and its thumb separately, an icon), each row, card or section container, each rule, divider
       and fill band. An element in the capture the frame does not draw is itself a row, marked
       `extra`. A fix run enumerates afresh from the frame — the previous round's departures are
-      cells in the new matrix, never its rows.
+      cells in the new matrix, never its rows. Seed the enumeration with
+      `measure-visual-properties.sh <frame> <capture> --scale <f> --props elements`: it finds each
+      image's app surface — a sheet's top edge on a scrim frame — and lists every ink run inside it,
+      paired in order with its deltas; every element it merges or misses is added by hand
+      (kan-1015: the band read took each scrim-dimmed frame as one band, and every matrix was
+      measured with a hand-written script).
    2. **Fill every column for every row from the script's own output**, one call per element:
 
       | column | text run (`--props ink`, the crop spanning the run's container's full width) | control, row, card (`--props box,radius,border,fill,shadow,content,gap`) | rule, divider, fill band (`--props runs`, the region crossing it) |

@@ -16,7 +16,8 @@
 #     --ref-b x,y,w,h       both images: scale = ref-b width / ref-a width
 #                           (heights must agree with that factor within 5%)
 #     --props <list>        comma-separated subset of box,radius,border,fill,
-#                           shadow,content,gap,ink,runs,bands,seams (default: all)
+#                           shadow,content,gap,ink,runs,bands,seams (default: all),
+#                           or the opt-in elements
 #     --edge <n>            adjacent-pixel colour jump (RGB Euclidean, 0-441)
 #                           that counts as a hard edge (default 24)
 #     --noise <n>           colour distance to background below which a pixel
@@ -169,6 +170,14 @@
 #            unread until the border is back (the real KAN-437 pre-fix
 #            capture: GOAL and PROTEIN each read as a plain band of the same
 #            height and gap as the frame's boxed one).
+#   elements — the app surface's top (`surface_top`: the first row, walking
+#            column 3 up from the bottom, whose mean channel value is not
+#            above 200, plus one; 0 when that row is above row 60 — the whole
+#            image is the surface) and every ink run below it against the
+#            surface's modal colour (distance over 30), each run's box, modal
+#            colour, kind and gap above; paired in order across two images
+#            like `bands`. Not in the default set (kan-1015: scrim-dimmed
+#            sheet frames read as one band).
 #
 # Output (stdout): one JSON object — `a`, `b` (when given), `scale`, and
 # `delta`: for every numeric leaf, `a`, `a_scaled` (`a` × scale for lengths,

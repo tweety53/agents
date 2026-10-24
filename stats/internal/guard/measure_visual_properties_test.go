@@ -490,3 +490,53 @@ func mvpCells(band any) string {
 	}
 	return fmt.Sprint(out)
 }
+
+// TestMeasureVisualPropertiesElements pins kan-1015's self-review: the band
+// read took each scrim-dimmed sheet frame as one band, so the verifier
+// measured every matrix with a hand-written script. `elements` finds the app
+// surface below the scrim and lists every ink run inside it.
+func TestMeasureVisualPropertiesElements(t *testing.T) {
+	t.Parallel()
+	sheet := func(scrim bool, textTop int) func(x, y int) color.RGBA {
+		return func(x, y int) color.RGBA {
+			switch {
+			case scrim && y < 80:
+				return color.RGBA{0x55, 0x55, 0x55, 0xff}
+			case y == 100:
+				return color.RGBA{0xcc, 0xcc, 0xcc, 0xff}
+			case x >= 20 && x < 60 && y >= textTop && y < textTop+10:
+				return color.RGBA{0x22, 0x22, 0x22, 0xff}
+			}
+			return color.RGBA{0xff, 0xff, 0xff, 0xff}
+		}
+	}
+	a, b := mvpPNG(t, 120, 200, sheet(true, 120)), mvpPNG(t, 120, 200, sheet(true, 124))
+	d := mvpJSON(t, "", a, b, "--scale", "1", "--props", "elements")
+	var got []string
+	for _, side := range []string{"a", "b"} {
+		got = append(got, mvpSp(side, mvpDig(d, side, "elements", "surface_top"), mvpDig(d, side, "elements", "background")))
+		for _, e := range mvpList(mvpDig(d, side, "elements", "elements")) {
+			got = append(got, mvpSp(mvpDig(e, "kind"), mvpDig(e, "top"), mvpDig(e, "height"), mvpDig(e, "gap"), mvpDig(e, "colour")))
+		}
+	}
+	for _, p := range mvpList(mvpDig(d, "delta", "elements")) {
+		got = append(got, mvpSp(mvpDig(p, "status"), mvpDig(p, "top", "abs"), mvpDig(p, "gap", "abs")))
+	}
+	s := mvpDig(d, "delta", "elements_summary")
+	got = append(got, mvpSp(mvpDig(s, "paired"), mvpDig(s, "missing"), mvpDig(s, "extra")))
+	want := []string{
+		"a 80 #ffffff", "rule 100 1 20 #cccccc", "text/control 120 10 19 #222222",
+		"b 80 #ffffff", "rule 100 1 20 #cccccc", "text/control 124 10 23 #222222",
+		"paired 0 0", "paired 4 4", "2 0 0",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+	c := mvpJSON(t, "", mvpPNG(t, 120, 200, sheet(false, 120)), "--props", "elements")
+	if top := mvpDig(c, "a", "elements", "surface_top"); top != float64(0) {
+		t.Fatalf("no scrim: surface_top %v, want 0", top)
+	}
+	if rc, _, stderr := mvpRun(t, "", a, "--props", "bands,elements"); rc != 0 {
+		t.Fatalf("bands,elements: exit %d, stderr %q", rc, stderr)
+	}
+}
