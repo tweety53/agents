@@ -38,14 +38,14 @@ in this worktree.
 - Task 2: a task deleting a file (`D ` in porcelain) and a task renaming one pass; a task path under `spectre/changes/` stays unstaged and is not reported; git's own error from `add` (an ignored or missing path) is printed and exits 2.
 - Task 3: a worktree declaring no key gets byte-identical output to before (`TestWritePanelDiffParity`); a fence carrying several globs excludes each.
 
-- [ ] 1. Keep a running pinned service's entry when it sits on today's port
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `<gymie-wt>`, `grep -n 'name in placed && !(name in running && name !in binding)' buildSrc/src/main/kotlin/com/gymie/gradle/FrontendPortContract.kt` prints the predicate, which drops a running gateway's entry for being in the binding whatever its port.
+- [x] 1. Keep a running pinned service's entry when it sits on today's port
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `<gymie-wt>`, `grep -n 'name in placed && !(name in running && name !in binding)' buildSrc/src/main/kotlin/com/gymie/gradle/FrontendPortContract.kt` prints the predicate, which drops a running gateway's entry for being in the binding whatever its port.
     <!-- measured: that grep @ 612f5e9f → FrontendPortContract.kt:131 -->
-  - [ ] **Step 2: Apply `patches/task-1.diff`** from `<gymie-wt>`: the `deterministic` parameter, the new predicate and the KDoc bullet (`buildSrc/src/main/kotlin/com/gymie/gradle/FrontendPortContract.kt`); `block` passed at the one call site (`gradle/dev-lifecycle.gradle.kts`); `TODAY` passed by every existing call and the new test `re-running a whole-stack devStart over its own partly up stack is not refused` (`buildSrc/src/test/kotlin/com/gymie/gradle/FrontendPortContractTest.kt`).
+  - [x] **Step 2: Apply `patches/task-1.diff`** from `<gymie-wt>`: the `deterministic` parameter, the new predicate and the KDoc bullet (`buildSrc/src/main/kotlin/com/gymie/gradle/FrontendPortContract.kt`); `block` passed at the one call site (`gradle/dev-lifecycle.gradle.kts`); `TODAY` passed by every existing call and the new test `re-running a whole-stack devStart over its own partly up stack is not refused` (`buildSrc/src/test/kotlin/com/gymie/gradle/FrontendPortContractTest.kt`).
     <!-- measured: git apply --check patches/task-1.diff @ 612f5e9f → exit 0 -->
-  - [ ] **Step 3: Prove the test pins the fix.** With a saved diff re-applied afterwards, replace the predicate `name in placed && (name !in running || (name in binding && placed[name] != deterministic[name]))` with `name in placed && !(name in running && name !in binding) && deterministic.isNotEmpty()` — `./gradlew :buildSrc:test --tests 'com.gymie.gradle.FrontendPortContractTest'` fails `re-running a whole-stack devStart over its own partly up stack is not refused`; restore.
+  - [x] **Step 3: Prove the test pins the fix.** With a saved diff re-applied afterwards, replace the predicate `name in placed && (name !in running || (name in binding && placed[name] != deterministic[name]))` with `name in placed && !(name in running && name !in binding) && deterministic.isNotEmpty()` — `./gradlew :buildSrc:test --tests 'com.gymie.gradle.FrontendPortContractTest'` fails `re-running a whole-stack devStart over its own partly up stack is not refused`; restore.
     <!-- measured: that flip @ 612f5e9f with the patch → the new test FAILED; restored → 24 tests, 0 failures -->
-  - [ ] **Step 4: Verify.** `./gradlew ktlintFormat`, then `./gradlew verifyChange :buildSrc:test --tests 'com.gymie.gradle.FrontendPortContractTest'` exits 0 (the buildSrc build runs its own ktlint and detekt first). Commit with the Flow-Key line.
+  - [x] **Step 4: Verify.** `./gradlew ktlintFormat`, then `./gradlew verifyChange :buildSrc:test --tests 'com.gymie.gradle.FrontendPortContractTest'` exits 0 (the buildSrc build runs its own ktlint and detekt first). Commit with the Flow-Key line.
     <!-- measured: ./gradlew :buildSrc:test --tests 'com.gymie.gradle.FrontendPortContractTest' @ 612f5e9f with the patch → BUILD SUCCESSFUL, 24 tests -->
 
 **Build:** green
@@ -60,14 +60,14 @@ in this worktree.
 
 **Decision:** k1012-live-verification-line-left
 
-- [ ] 2. Stage a task's files through a guard that refuses a path left unstaged
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In a scratch repo (`git init -q -b work r && cd r`), commit `src/app/template/src/test/x/T.kt` and `spectre/changes/c/tasks.md`, then create `src/app/template/src/main/k/A.kt`: `git add -- src/app/template/src/main/k/A.kt ':(exclude)spectre/changes/'; echo $?; git diff --cached --name-only` prints `0` and nothing staged.
+- [x] 2. Stage a task's files through a guard that refuses a path left unstaged
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In a scratch repo (`git init -q -b work r && cd r`), commit `src/app/template/src/test/x/T.kt` and `spectre/changes/c/tasks.md`, then create `src/app/template/src/main/k/A.kt`: `git add -- src/app/template/src/main/k/A.kt ':(exclude)spectre/changes/'; echo $?; git diff --cached --name-only` prints `0` and nothing staged.
     <!-- measured: that sequence @ git 2.50.1 (Apple Git-155) → exit 0, nothing staged; with the exclude first → A.kt staged -->
-  - [ ] **Step 2: Apply `patches/task-2.diff`** from `<agents-wt>`: `stageTaskFiles` (`stats/internal/guard/stagetaskfiles.go`), `TestStageTaskFilesStagesNewFilesUnderNewDirectories` and `TestStageTaskFilesRefusesAPathLeftUnstaged` (`stats/internal/guard/stage_task_files_test.go`), the shim `scripts/stage-task-files.sh`, its symlink `skills/flow/scripts/stage-task-files.sh`, and the COMMIT-PER-TASK fence and its following sentences (`skills/flow/implement.md`).
+  - [x] **Step 2: Apply `patches/task-2.diff`** from `<agents-wt>`: `stageTaskFiles` (`stats/internal/guard/stagetaskfiles.go`), `TestStageTaskFilesStagesNewFilesUnderNewDirectories` and `TestStageTaskFilesRefusesAPathLeftUnstaged` (`stats/internal/guard/stage_task_files_test.go`), the shim `scripts/stage-task-files.sh`, its symlink `skills/flow/scripts/stage-task-files.sh`, and the COMMIT-PER-TASK fence and its following sentences (`skills/flow/implement.md`).
     <!-- measured: git apply --check patches/task-2.diff @ ebfb5504 → exit 0 -->
-  - [ ] **Step 3: Prove the tests pin the fix.** With a saved diff re-applied afterwards: in `stagetaskfiles.go` replace `append(add, files...)}` with `append(append([]string{"add", "--"}, files...), add[2:]...)}` (the excludes after the paths) — `cd stats && go test ./internal/guard -run 'TestStageTaskFiles' -count=1` fails `TestStageTaskFilesStagesNewFilesUnderNewDirectories` with exit 1; restore. Then replace `if len(left) > 0 {` with `if false && len(left) > 0 {` — the same command fails `TestStageTaskFilesRefusesAPathLeftUnstaged`; restore.
+  - [x] **Step 3: Prove the tests pin the fix.** With a saved diff re-applied afterwards: in `stagetaskfiles.go` replace `append(add, files...)}` with `append(append([]string{"add", "--"}, files...), add[2:]...)}` (the excludes after the paths) — `cd stats && go test ./internal/guard -run 'TestStageTaskFiles' -count=1` fails `TestStageTaskFilesStagesNewFilesUnderNewDirectories` with exit 1; restore. Then replace `if len(left) > 0 {` with `if false && len(left) > 0 {` — the same command fails `TestStageTaskFilesRefusesAPathLeftUnstaged`; restore.
     <!-- measured: both flips @ ebfb5504 with the patch → the named test FAILs each time; restored → ok -->
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l internal/guard` prints nothing; `cd stats && go test ./internal/guard -run 'TestStageTaskFiles|TestShim|TestCheckGuardSymlinks' -count=1` passes; `scripts/check-verbatim-moves.sh`, `scripts/check-guard-symlinks.sh`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0. Commit.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l internal/guard` prints nothing; `cd stats && go test ./internal/guard -run 'TestStageTaskFiles|TestShim|TestCheckGuardSymlinks' -count=1` passes; `scripts/check-verbatim-moves.sh`, `scripts/check-guard-symlinks.sh`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0. Commit.
     <!-- measured: those commands @ ebfb5504 with the patch → ok, exit 0 each -->
 
 **Build:** green
@@ -80,18 +80,18 @@ in this worktree.
 
 **Decision:** stage-task-files-guard
 
-- [ ] 3. Leave a project's declared globs out of the panel diff
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -c 'exclude' stats/internal/guard/writepaneldiff.go` prints `0`.
+- [x] 3. Leave a project's declared globs out of the panel diff
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -c 'exclude' stats/internal/guard/writepaneldiff.go` prints `0`.
     <!-- measured: that grep @ ebfb5504 → 0 -->
-  - [ ] **Step 2: Apply `patches/task-3.diff`** from `<agents-wt>`: `wpdExcludes` and its use in both diff calls (`stats/internal/guard/writepaneldiff.go`), `TestWritePanelDiffHonoursProjectExcludes` (`stats/internal/guard/write_panel_diff_test.go`), the exclusion paragraph (`scripts/write-panel-diff.sh`), the `## panel diff exclude` row (`skills/flow-contracts/project-configuration.md`).
+  - [x] **Step 2: Apply `patches/task-3.diff`** from `<agents-wt>`: `wpdExcludes` and its use in both diff calls (`stats/internal/guard/writepaneldiff.go`), `TestWritePanelDiffHonoursProjectExcludes` (`stats/internal/guard/write_panel_diff_test.go`), the exclusion paragraph (`scripts/write-panel-diff.sh`), the `## panel diff exclude` row (`skills/flow-contracts/project-configuration.md`).
     <!-- measured: git apply --check patches/task-3.diff @ ebfb5504 → exit 0 -->
-  - [ ] **Step 3: Prove the test pins the fix.** With a saved diff re-applied afterwards, replace `excludes := wpdExcludes(smcAbs(env, wt))` with `excludes := []string(nil)` — `cd stats && go test ./internal/guard -run 'TestWritePanelDiffHonoursProjectExcludes' -count=1` fails with `final-review.diff carries the excluded handoff_x/`; restore.
+  - [x] **Step 3: Prove the test pins the fix.** With a saved diff re-applied afterwards, replace `excludes := wpdExcludes(smcAbs(env, wt))` with `excludes := []string(nil)` — `cd stats && go test ./internal/guard -run 'TestWritePanelDiffHonoursProjectExcludes' -count=1` fails with `final-review.diff carries the excluded handoff_x/`; restore.
     <!-- measured: that flip @ ebfb5504 with the patch → FAIL on both files; restored → ok -->
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l internal/guard` prints nothing; `cd stats && go test ./internal/guard -run 'TestWritePanelDiff' -count=1` passes; `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0. Commit.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l internal/guard` prints nothing; `cd stats && go test ./internal/guard -run 'TestWritePanelDiff' -count=1` passes; `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0. Commit.
     <!-- measured: those commands @ ebfb5504 with tasks 2 and 3 → ok, exit 0 each -->
 
 **Build:** green
-**Files:** `stats/internal/guard/writepaneldiff.go`, `stats/internal/guard/write_panel_diff_test.go`, `scripts/write-panel-diff.sh`, `skills/flow-contracts/project-configuration.md`
+**Files:** `stats/internal/guard/writepaneldiff.go`, `stats/internal/guard/write_panel_diff_test.go`, `scripts/write-panel-diff.sh`, `skills/flow-contracts/project-configuration.md`, `stats/internal/guard/paneldiffsize.go`, `stats/internal/guard/paneltouchedpaths.go`, `stats/internal/guard/planclass.go`
 **Tests:** `TestWritePanelDiffHonoursProjectExcludes`
 **Regression:** `TestWritePanelDiffHonoursProjectExcludes` fails — a declared glob's paths reach the panel diff and its `.touched` list again.
 **Baseline:** before=4 after=5 <!-- measured: grep -c -E '^func Test' stats/internal/guard/write_panel_diff_test.go @ ebfb5504 → 4, and 5 with the patch -->
@@ -100,12 +100,12 @@ in this worktree.
 
 **Decision:** panel-diff-project-excludes
 
-- [ ] 4. Declare gymie's handoff bundles excluded from the panel diff
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `<gymie-wt>`, `grep -c '^## panel diff exclude' .flow/project.md` prints `0`, and `git ls-files 'handoff_*' | wc -l` prints `102`.
+- [x] 4. Declare gymie's handoff bundles excluded from the panel diff
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `<gymie-wt>`, `grep -c '^## panel diff exclude' .flow/project.md` prints `0`, and `git ls-files 'handoff_*' | wc -l` prints `102`.
     <!-- measured: both @ 612f5e9f → 0 and 102 -->
-  - [ ] **Step 2: Apply `patches/task-4.diff`** from `<gymie-wt>`: the `## panel diff exclude` section, fence `handoff_*/**`, before `## jira` (`.flow/project.md`).
+  - [x] **Step 2: Apply `patches/task-4.diff`** from `<gymie-wt>`: the `## panel diff exclude` section, fence `handoff_*/**`, before `## jira` (`.flow/project.md`).
     <!-- measured: git apply --check patches/task-4.diff @ 612f5e9f → exit 0 -->
-  - [ ] **Step 3: Verify.** After Task 3's commit, from `<agents-wt>`: `scripts/project-get.sh <gymie-wt> 'panel diff exclude'` exits 0 printing the fence; `mkdir -p "$TMPDIR/k1012-canon" && scripts/write-panel-diff.sh final "$TMPDIR/k1012-canon" <gymie-wt> 1787e99e` exits 0 and `grep -c handoff_ "$TMPDIR/k1012-canon/.superpowers/sdd/final-review.diff.touched"` prints `0`. Commit with the Flow-Key line.
+  - [x] **Step 3: Verify.** After Task 3's commit, from `<agents-wt>`: `scripts/project-get.sh <gymie-wt> 'panel diff exclude'` exits 0 printing the fence; `mkdir -p "$TMPDIR/k1012-canon" && scripts/write-panel-diff.sh final "$TMPDIR/k1012-canon" <gymie-wt> 1787e99e` exits 0 and `grep -c handoff_ "$TMPDIR/k1012-canon/.superpowers/sdd/final-review.diff.touched"` prints `0`. Commit with the Flow-Key line.
     <!-- measured: write-panel-diff with tasks 3 and 4 applied, canonical dir in the scratchpad → 234273-byte diff, 0 handoff_ lines; without task 4 → 6340872 bytes, 65 lines -->
 
 **Build:** green
