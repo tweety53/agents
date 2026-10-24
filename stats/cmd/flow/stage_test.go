@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -1623,4 +1625,65 @@ func TestRunStageSessions(t *testing.T) {
 			t.Fatalf("exit %d, want 2", code)
 		}
 	})
+}
+
+// TestStageEndFlowVerifyRunsLiveCheck pins the in-process gate on a
+// completed /flow flow.verify end (kan-1029's self-review: the parent ended
+// the stage with no check-live-verification chained before it). A refused
+// end never reaches the store.
+func TestStageEndFlowVerifyRunsLiveCheck(t *testing.T) {
+	cases := []struct {
+		name, design, record string // design "" writes no change directory
+		command, outcome     string // "" means /flow and completed
+		want                 int
+	}{
+		{"a named check with no record is refused", "## Live check\n\nRun the daemon.\n", "", "", "", 1},
+		{"a named check with a measured record ends", "## Live check\n\nRun the daemon.\n", "- Before: 3\n- After: 0\n", "", "", 0},
+		{"a design naming no check ends", "## Context\n", "", "", "", 0},
+		{"no change directory under -C is refused", "", "", "", "", 1},
+		{"a /flow-fast end passes through", "", "", "/flow-fast", "", 0},
+		{"a blocked /flow end passes through", "", "", "", "blocked", 0},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			repo := gitRepo(t)
+			isolatedStateRoot(t)
+			if c.design != "" {
+				root := filepath.Join(repo, "spectre", "changes", "kan-1")
+				if err := os.MkdirAll(root, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(root, "design.md"), []byte(c.design), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				if c.record != "" {
+					if err := os.WriteFile(filepath.Join(root, "live-verification.md"), []byte(c.record), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			reached := false
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				reached = true
+				_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+			}))
+			defer srv.Close()
+
+			command, outcome := "/flow", "completed"
+			if c.command != "" {
+				command = c.command
+			}
+			if c.outcome != "" {
+				outcome = c.outcome
+			}
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+					"-command", command, "-stage", "flow.verify", "-outcome", outcome, "kan-1"},
+				strings.NewReader(""), &stdout, &stderr)
+			if code != c.want || reached != (c.want == 0) {
+				t.Fatalf("exit=%d reached=%v, want exit %d; stderr:\n%s", code, reached, c.want, stderr.String())
+			}
+		})
+	}
 }

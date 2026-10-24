@@ -6,8 +6,9 @@
 # Usage: check-live-verification.sh <changeRoot>/live-verification.md
 #        check-live-verification.sh <changeRoot>
 #
-# Given the change directory instead — the gate run before flow.verify's
-# stage end (skills/flow/verify-and-handoff.md, **Close the stage**) — it
+# Given the change directory instead — the gate flow.verify's stage end runs
+# in-process (stats/cmd/flow/stage.go, gateLiveVerification;
+# skills/flow/verify-and-handoff.md, **Close the stage**) — it
 # reads <changeRoot>/design.md: a design naming no live check (no `## Live
 # check` section, or one whose first line opens `None`, `No ` or `Not
 # applicable`) prints `LIVE-CHECK-NONE: <changeRoot>`, exit 0; a design naming
