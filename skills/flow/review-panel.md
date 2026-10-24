@@ -561,7 +561,11 @@ declarations sit in the window.** The pre-fix leg reads the tree that leg runs i
 defect-logic reads cwd-relative to that leg's worktree, never an archived HEAD of the live
 worktree, which is what lets `prove-reproducer.sh` hold both legs. The `# demonstrates:` and
 `# premise:` declarations sit inside the first-10-lines window the checker reads, above the
-script's body, so the window rule above resolves them without a bounce.
+script's body, so the window rule above resolves them without a bounce. **A reproducer's check
+reads the defect's behaviour, never one fix route's text**: it runs the path the defect takes, or
+reads the defect's own code, so any fix that removes the defect turns it to defect not
+demonstrated — a grep for one fix's call, or for call-site text a fix leaves unchanged, makes the
+parent re-author it (kan-1022's F7 grepped `catalog.byKeys(keys)`).
 
 **A reproducer is authored, or repaired, only with both recorded exits.** Before the finding's
 reproducer line is recorded, its author has executed the script in both directions and recorded
