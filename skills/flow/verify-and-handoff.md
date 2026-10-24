@@ -367,6 +367,11 @@ Resolve the run instructions the start below uses, the handoff's `**Running:**` 
   <worktree>` exits 0 before the start, the start is skipped — the stack the verification tasks
   or **Live check** started is the one handed off. Exit 1 or 2 starts it as above.
 
+  **A run that will land straight away starts nothing.** When the record's `reviewBeforeLanding`
+  is not `true` and the run leaves no `?` line for its `Decisions:` (**Write `IN_PROGRESS`**,
+  below), no handoff hands a stack to anyone: the start, the stack freshness check and a refused
+  start's stop below are all skipped, so a held port never keeps the change from landing (kan-1030).
+
   Resolve the start from the two keys the project already declares, in order: its `## stop`, when
   it declares a command, then its `## run`. **A `## stop` that deliberately declares no command
   means there is nothing to stop, not that this rule is skipped** — the start is then whatever
