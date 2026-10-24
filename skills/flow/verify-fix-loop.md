@@ -78,7 +78,9 @@ One round runs these steps in order:
    run step 10's measurements on each — `compose-mockup-frames.sh` and the band, seam and matrix
    reads of `measure-visual-properties.sh` — fixing until they come back clean or each leftover is
    named with its cause, and report every view's measured numbers (KAN-1000: rounds 2–5 each found
-   a new 1–3px offset the previous fix had judged by eye, 45–70 minutes a round). A leftover of any size — a 1dp offset included — is closed or named with its cause, never reported clean because it is small (kan-1007: a fix round called a first-try 1dp offset clean).
+   a new 1–3px offset the previous fix had judged by eye, 45–70 minutes a round). It measures each
+   pair on the 2× capture and the 2× mockup frame themselves, never on a `compose-mockup-frames.sh`
+   composite (kan-1015 self-review). A leftover of any size — a 1dp offset included — is closed or named with its cause, never reported clean because it is small (kan-1007: a fix round called a first-try 1dp offset clean).
    **A task fixing a visual departure runs its capture spec before it closes.** Its verify step
    runs the project's `capture` command with the round's capture spec for `<spec>`, against the
    stack rebuilt from its fix, and the task closes through `close-task.sh` only on that run's exit
