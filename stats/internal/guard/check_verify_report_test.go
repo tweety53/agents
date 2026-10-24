@@ -85,3 +85,30 @@ func TestCheckVerifyReportFingerprintReason(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckVerifyReportPreExistingNeedsMergeBaseEvidence pins kan-1015's
+// self-review: the kan-466 weight-tab button was attributed pre-existing from
+// the code path alone and its baseline re-captured over the defect. A
+// pre-existing attribution must name its merge-base evidence.
+func TestCheckVerifyReportPreExistingNeedsMergeBaseEvidence(t *testing.T) {
+	const steps = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n"
+	for _, tc := range []struct {
+		line string
+		rc   int
+		want string
+	}{
+		{"  - kan-466 weight-tab: button fill differs. Attributed as pre-existing from the code path only\n", 1, "10 pre-existing attribution with no merge-base evidence"},
+		{"  - kan-466 weight-tab: pre-existing — merge-base baseline: 4f8f8344:kan-466-weigh-in-history.spec.ts-snapshots/kan466-weight-tab-darwin.png\n", 0, "COMPLETE"},
+		{"  - kan-466 weight-tab: present at merge base — merge-base capture: /tmp/x.png\n", 0, "COMPLETE"},
+		{"  - templates T2: not pre-existing — this change's fill token\n", 0, "COMPLETE"},
+	} {
+		path := filepath.Join(t.TempDir(), "verify-report-visual-verify.md")
+		if err := os.WriteFile(path, []byte("## Report\n"+steps+tc.line), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
+		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
+			t.Fatalf("%q: rc=%d out=%q; want rc=%d containing %q", tc.line, r.rc, r.out, tc.rc, tc.want)
+		}
+	}
+}

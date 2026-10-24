@@ -28,6 +28,11 @@ var (
 	// reason only from the prompt (kan-1010's self-review: a verifier wrote
 	// it bare for a project declaring the row, its parent's FRESH=0 unseen).
 	vrBareFingerprint = regexp.MustCompile(`^\s*- fingerprint:\s*not declared\s*$`)
+	// A `## Report` line attributing a departure to the merge base must name
+	// its evidence (kan-1015: the kan-466 weight-tab button was attributed
+	// pre-existing from the code path alone and re-baselined over the defect).
+	vrPreExisting    = regexp.MustCompile(`(?i)(?:^|[^-\w])pre-existing|present at (?:the )?merge base`)
+	vrNotPreExisting = regexp.MustCompile(`(?i)\bnot pre-existing`)
 )
 
 func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
@@ -48,7 +53,18 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	status := map[string]string{}
 	motionLine, bareFingerprint := false, false
+	inReport, unevidenced := false, ""
 	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "## ") {
+			inReport = strings.TrimSpace(line) == "## Report"
+		}
+		if inReport && unevidenced == "" && vrPreExisting.MatchString(line) && !vrNotPreExisting.MatchString(line) &&
+			!strings.Contains(line, "merge-base baseline: ") && !strings.Contains(line, "merge-base capture: ") {
+			unevidenced = strings.TrimSpace(line)
+			if r := []rune(unevidenced); len(r) > 120 {
+				unevidenced = string(r[:120])
+			}
+		}
 		if m := vrStepsLine.FindStringSubmatch(line); m != nil {
 			for _, item := range strings.Split(m[1], " | ") {
 				id, rest, _ := strings.Cut(strings.TrimSpace(item), " ")
@@ -63,6 +79,9 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	var undone []string
 	if bareFingerprint {
 		undone = append(undone, "fingerprint: `not declared` with no reason — state step 6's result as the prompt names it")
+	}
+	if unevidenced != "" {
+		status["10"] = "pre-existing attribution with no merge-base evidence: " + unevidenced
 	}
 	for _, id := range vrSteps {
 		s, ok := status[id]

@@ -176,7 +176,8 @@ round base when **The loop** (`skills/flow/verify-fix-loop.md`) scopes this re-r
 `moved:` frames when that file names them; and
 to read the absolute path of
 `visual-verify-verifier.md` beside this file and run its steps 4 and 7–11 and its motion step as written against the stack steps 5 and 6 left serving the
-worktree's build, starting, stopping and restarting nothing, committing and pushing nothing.
+worktree's build, starting, stopping and restarting nothing but the merge-base stack step 10's
+attribution starts, committing and pushing nothing.
 
 **The parent names the change's motions in the prompt** — `motions:`, then one `<motion id>:
 <trigger> → <end state>` line per motion, or `motions: none`. A motion is every animation,

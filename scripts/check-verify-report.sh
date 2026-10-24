@@ -27,6 +27,11 @@
 # is undone too: step 6 reports its exit 2 with the guard's reason, which the
 # prompt carries (kan-1010's self-review).
 #
+# A `## Report` line attributing a departure as `pre-existing` or `present at
+# the merge base` that names neither `merge-base baseline: <sha>:<path>` nor
+# `merge-base capture: <path>` leaves step 10 undone (kan-1015: a re-baseline
+# over a defect attributed from the code path alone).
+#
 # Prints ONE verdict line to stdout:
 #   VERIFY-REPORT-COMPLETE: <report file>
 #   VERIFY-REPORT-INCOMPLETE: <report file> — <each undone step and its status, `; `-separated>

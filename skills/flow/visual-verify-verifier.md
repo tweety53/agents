@@ -241,6 +241,11 @@ never an exit code the command did not return.
    is committed or stands as this change's baseline. A merge-base capture that cannot run — the
    spec reaches a route or control the merge base lacks, the stack does not start — leaves the
    departure this change's, its line naming `merge-base capture failed — <reason>` beside it.
+   A line attributing a departure as present at the merge base names its evidence beside it —
+   `merge-base baseline: <merge-base sha>:<baseline png path>` or `merge-base capture: <absolute
+   png path>` — and `check-verify-report.sh` refuses a `pre-existing` or `present at the merge
+   base` attribution that names neither (kan-1015: the kan-466 weight-tab button was attributed
+   pre-existing from the code path alone, and its baseline re-captured over the defect).
    Every line that reports the departure names its cause or its attribution
    beside it — never a bare `departure`.
    **A departure's expected value cites the mockup's source wherever the handoff ships one, never a
