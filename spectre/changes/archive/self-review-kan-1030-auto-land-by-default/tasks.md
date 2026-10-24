@@ -29,12 +29,12 @@ sync; an open-question stop and a 🤖-line print on the land-straight-away path
 - Task 2: a run with both `?` and 🤖 lines stops and prints the full block once — never the 🤖 heading first; a run with neither prints nothing before integrate.
 - Task 3: a run that stops on an open question still starts its stack, so its block's `Running:` section holds; a `reviewBeforeLanding: true` run is unchanged.
 
-- [ ] 1. Commit the change's directory before the panel's base sync
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'before-review planning commit' skills/flow/review-panel.md` prints nothing, and `grep -n 'Once per worktree in this run' skills/flow/review-panel.md` prints line 26, ahead of every planning-commit mention (`grep -n 'planning commit' skills/flow/review-panel.md`, first at line 457).
+- [x] 1. Commit the change's directory before the panel's base sync
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'before-review planning commit' skills/flow/review-panel.md` prints nothing, and `grep -n 'Once per worktree in this run' skills/flow/review-panel.md` prints line 26, ahead of every planning-commit mention (`grep -n 'planning commit' skills/flow/review-panel.md`, first at line 457).
     <!-- measured: those greps @ c0075269 → no hit; 26:Once per worktree…; 457:parent makes the reviewer-dispatch planning commit -->
-  - [ ] **Step 2: Apply `patches/task-1.diff`**: the **The before-review planning commit comes first.** paragraph opening **Check base movement first** (`skills/flow/review-panel.md`), its round-boundary sentence (`skills/flow/review-panel-fix-round.md`), and the base-sync clause in the "Before every reviewer dispatch" row (`skills/flow-contracts/git-boundaries.md`).
+  - [x] **Step 2: Apply `patches/task-1.diff`**: the **The before-review planning commit comes first.** paragraph opening **Check base movement first** (`skills/flow/review-panel.md`), its round-boundary sentence (`skills/flow/review-panel-fix-round.md`), and the base-sync clause in the "Before every reviewer dispatch" row (`skills/flow-contracts/git-boundaries.md`).
     <!-- measured: git apply --check patches/task-1.diff @ c0075269 → exit 0 -->
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh`, `scripts/check-installed-citations.sh` and `scripts/check-dispatch-paragraphs.sh` exit 0. Commit.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh`, `scripts/check-installed-citations.sh` and `scripts/check-dispatch-paragraphs.sh` exit 0. Commit.
     <!-- measured: those guards @ c0075269 with tasks 1–3 applied → exit 0 each -->
 
 **Build:** green
@@ -46,16 +46,16 @@ sync; an open-question stop and a 🤖-line print on the land-straight-away path
 
 **Decision:** planning-commit-before-base-sync
 
-- [ ] 2. Stop at the handoff on an open question and print auto-resolutions before landing
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'Anything else prints no block and continues' skills/flow/verify-and-handoff.md` prints line 534, and `grep -n 'reviewBeforeLanding. is .true. or' skills/flow-contracts/pipeline.md skills/flow/SKILL.md` prints nothing.
+- [x] 2. Stop at the handoff on an open question and print auto-resolutions before landing
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'Anything else prints no block and continues' skills/flow/verify-and-handoff.md` prints line 534, and `grep -n 'reviewBeforeLanding. is .true. or' skills/flow-contracts/pipeline.md skills/flow/SKILL.md` prints nothing.
     <!-- measured: those greps @ c0075269 → 534:…; no hit -->
-  - [ ] **Step 2: Apply `patches/task-2.diff`**: the `?`-line stop and the 🤖-line print (`skills/flow/verify-and-handoff.md`), the open-question clause in the **States** sentence and three transition-table cells (`skills/flow-contracts/pipeline.md`), and in the fix-run line (`skills/flow/SKILL.md`).
+  - [x] **Step 2: Apply `patches/task-2.diff`**: the `?`-line stop and the 🤖-line print (`skills/flow/verify-and-handoff.md`), the open-question clause in the **States** sentence and three transition-table cells (`skills/flow-contracts/pipeline.md`), and in the fix-run line (`skills/flow/SKILL.md`).
     <!-- measured: git apply --check patches/task-2.diff @ c0075269 with task 1 applied → exit 0 -->
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0. Commit.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0. Commit.
     <!-- measured: those guards @ c0075269 with tasks 1–3 applied → exit 0 each -->
 
 **Build:** green
-**Files:** `skills/flow/verify-and-handoff.md`, `skills/flow-contracts/pipeline.md`, `skills/flow/SKILL.md`
+**Files:** `skills/flow/verify-and-handoff.md`, `skills/flow-contracts/pipeline.md`, `skills/flow/SKILL.md`, `skills/flow-contracts/state-file.md`, `skills/flow/integrate.md`, `skills/flow-contracts/pipeline-rationale.md`, `rules/flow-manual-review.mdc`, `AGENTS.md`, `templates/AGENTS.md`, `skills/README.md`, `stats/internal/store/changes.go`
 **Tests:** **none** — contract prose; `check-verbatim-moves.sh` and the reference guards cover it (decision `prose-guards-cover`)
 **Regression:** none — no test is declared.
 **Commit:** fix(flow): stop at the handoff on an open question and print auto-resolutions before landing
@@ -63,12 +63,12 @@ sync; an open-question stop and a 🤖-line print on the land-straight-away path
 
 **Decision:** open-question-stops-auto-land
 
-- [ ] 3. Start no stack on a run that lands straight away
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'land straight away\|lands straight away' skills/flow/verify-and-handoff.md` prints only line 527, below **Resolve the run instructions**, whose start carries no exception for such a run.
+- [x] 3. Start no stack on a run that lands straight away
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'land straight away\|lands straight away' skills/flow/verify-and-handoff.md` prints only line 527, below **Resolve the run instructions**, whose start carries no exception for such a run.
     <!-- measured: that grep @ c0075269 → 527:**Then land straight away unless review was asked for** -->
-  - [ ] **Step 2: Apply `patches/task-3.diff`**: the **A run that will land straight away starts nothing.** paragraph under **Before this stage ends, start the stack** (`skills/flow/verify-and-handoff.md`).
+  - [x] **Step 2: Apply `patches/task-3.diff`**: the **A run that will land straight away starts nothing.** paragraph under **Before this stage ends, start the stack** (`skills/flow/verify-and-handoff.md`).
     <!-- measured: git apply --check patches/task-3.diff @ c0075269 with tasks 1–2 applied → exit 0 -->
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0. Commit.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh` and `scripts/check-installed-citations.sh` exit 0. Commit.
     <!-- measured: those guards @ c0075269 with tasks 1–3 applied → exit 0 each -->
 
 **Build:** green
