@@ -253,3 +253,19 @@ func TestEnforceAgentBaselineHookRequiresAnOpenRow(t *testing.T) {
 		})
 	}
 }
+
+// TestEnforceAgentBaselineHookAdmitsRestKeys pins the verifier's -rest keys on the closed list: a
+// flow dispatch opening with one, its row open, passes.
+func TestEnforceAgentBaselineHookAdmitsRestKeys(t *testing.T) {
+	t.Parallel()
+	for _, key := range []string{"visual-verify-rest-gymie", "visual-verify-rest-2-gymie"} {
+		t.Run(key, func(t *testing.T) {
+			t.Parallel()
+			env, _ := openRowFixture(t, `[{"key":"`+key+`","outcome":""}]`, false)
+			out, _, rc := runHook(t, "enforce-agent-baseline.py", openRowPayload(t, key+" verifier remainder", "verify"), env...)
+			if rc != 0 || out != "" {
+				t.Fatalf("rc=%d out=%s", rc, out)
+			}
+		})
+	}
+}
