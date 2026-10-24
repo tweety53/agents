@@ -270,7 +270,7 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 		if !ok {
 			return 2
 		}
-		cmd := panelGit(env, gitBin, worktree, "diff", "--no-renames", "--numstat", "--end-of-options", mergebase)
+		cmd := panelGit(env, gitBin, worktree, append([]string{"diff", "--no-renames", "--numstat", "--end-of-options", mergebase}, wpdExcludes(smcAbs(env, worktree))...)...)
 		cmd.Stderr = stderr
 		numstat, err := cmd.Output()
 		if err != nil {

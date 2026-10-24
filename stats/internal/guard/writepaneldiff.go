@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 // writePanelDiff is scripts/write-panel-diff.sh: that script's header
@@ -97,12 +98,13 @@ func writePanelDiff(args []string, env Env, stdout, stderr io.Writer) int {
 				rng = []string{held, "HEAD"}
 			}
 		}
+		excludes := wpdExcludes(smcAbs(env, wt))
 		header := fmt.Sprintf("# worktree: %s — merge base %s\n", wt, base)
 		for _, o := range []struct {
 			buf   *bytes.Buffer
 			flags []string
 		}{{&diff, []string{"--irreversible-delete"}}, {&touched, []string{"--name-status"}}} {
-			out, err := panelGit(env, gitBin, wt, append(append([]string{"diff"}, o.flags...), rng...)...).Output()
+			out, err := panelGit(env, gitBin, wt, append(append(append([]string{"diff"}, o.flags...), rng...), excludes...)...).Output()
 			if err != nil {
 				fmt.Fprintf(stderr, "write-panel-diff: git diff %v failed in %s\n", append(o.flags, rng...), wt)
 				return 2
@@ -140,6 +142,22 @@ func writePanelDiff(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "%s\n%s.touched\n", path, path)
 	return 0
+}
+
+// wpdExcludes is the pathspec tail that leaves out of a worktree's panel
+// diff every path a glob of its own .flow/project.md's `## panel diff
+// exclude` fence matches -- `-- . ':(glob,exclude)<glob>'...` -- or nil when
+// the worktree declares none.
+func wpdExcludes(wt string) []string {
+	globs := kwFenced(projectSection(filepath.Join(wt, ".flow", "project.md"), "panel diff exclude"))
+	if len(globs) == 0 {
+		return nil
+	}
+	tail := []string{"--", "."}
+	for _, g := range globs {
+		tail = append(tail, ":(glob,exclude)"+strings.TrimSpace(g))
+	}
+	return tail
 }
 
 // wpdWriteAtomic writes body to a temp file beside path and renames it over

@@ -34,6 +34,11 @@
 # for slot-delta with a held sha, the held sha; otherwise the sha its
 # section's `# worktree:` header names.
 #
+# A worktree whose own .flow/project.md declares `## panel diff exclude`
+# has every path one of that fence's globs matches left out of both its
+# sections: each git diff above then ends `-- . ':(glob,exclude)<glob>'...`,
+# one per non-blank fence line (skills/flow-contracts/project-configuration.md).
+#
 # Exit codes:
 #   0  both files written
 #   2  cannot answer — a usage error, a worktree/sha pair that fails

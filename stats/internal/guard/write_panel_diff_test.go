@@ -241,3 +241,80 @@ func TestWritePanelDiffOmitsDeletedBodies(t *testing.T) {
 		t.Errorf(".touched lacks D\\tgone.txt:\n%s", touched)
 	}
 }
+
+// A worktree's `## panel diff exclude` globs leave matching paths out of
+// both the diff and its .touched list; every other path stays (kan-1012: the
+// vendored handoff_* directories were a third of final-review.diff).
+func TestWritePanelDiffHonoursProjectExcludes(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	var g fxGit
+	w := wpdNewWT(t, &g, dir+"/wt")
+	for _, d := range []string{"/.flow", "/handoff_x"} {
+		if err := os.MkdirAll(w.path+d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	g.write(w.path+"/.flow/project.md", "# p\n\n## panel diff exclude\n\n```text\nhandoff_*/**\n```\n")
+	g.write(w.path+"/handoff_x/screen.html", "vendored")
+	g.git(w.path, "add", ".flow/project.md", "handoff_x/screen.html")
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	r := runGuard("write-panel-diff", []string{"final", w.path, w.path, w.mb}, Env{Dir: dir, Getenv: os.Getenv})
+	if r.rc != 0 {
+		t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
+	}
+	for _, f := range []string{"final-review.diff", "final-review.diff.touched"} {
+		body := rbRead(w.path + "/.superpowers/sdd/" + f)
+		if strings.Contains(body, "handoff_x/") {
+			t.Errorf("%s carries the excluded handoff_x/:\n%s", f, body)
+		}
+		if !strings.Contains(body, "b.txt") || !strings.Contains(body, ".flow/project.md") {
+			t.Errorf("%s lost a path no glob matches:\n%s", f, body)
+		}
+	}
+}
+
+// The size cap and the docs-only check leave a worktree's `## panel diff
+// exclude` paths out as the panel diff does (kan-1012 self-review): a
+// 40-line vendored handoff_x/screen.html beside a Markdown-only change
+// counts toward neither.
+func TestPanelGuardsHonourProjectExcludes(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	var g fxGit
+	wt := dir + "/wt"
+	g.git("", "init", "-q", "-b", "work", wt)
+	g.write(wt+"/README.md", "base")
+	g.git(wt, "add", ".")
+	g.git(wt, "commit", "-qm", "base")
+	mb := g.git(wt, "rev-parse", "HEAD")
+	for _, d := range []string{"/.flow", "/handoff_x"} {
+		mkdir(t, wt+d)
+	}
+	g.write(wt+"/.flow/project.md", "# p\n\n## panel diff exclude\n\n```text\nhandoff_*/**\n```\n")
+	g.write(wt+"/handoff_x/screen.html", strings.Repeat("vendored\n", 40))
+	g.git(wt, "add", ".")
+	g.git(wt, "commit", "-qm", "change")
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	env := Env{Dir: dir, Getenv: os.Getenv, LookupEnv: hermeticGitLookup}
+	if r := runGuard("check-panel-diff-size", []string{wt, mb, "10"}, env); r.rc != 0 || r.stdout != "8\nunder cap\n" {
+		t.Errorf("check-panel-diff-size: exit %d, stdout %q; want 0, 8 under cap\n%s", r.rc, r.stdout, r.out)
+	}
+	if r := runGuard("check-panel-docs-only", []string{wt, mb}, env); r.rc != 0 {
+		t.Errorf("check-panel-docs-only: exit %d, want 0\n%s", r.rc, r.out)
+	}
+	tasks := dir + "/tasks.md"
+	g.write(tasks, "- [ ] 1. Docs\n**Files:** `README.md`\n")
+	if r := runGuard("plan-class", []string{tasks, "1", wt, mb}, Env{Dir: dir, Getenv: func(k string) string {
+		if k == "FLOW_GUARD_REPO_ROOT" {
+			return dir
+		}
+		return os.Getenv(k)
+	}, LookupEnv: hermeticGitLookup}); r.rc != 0 || !strings.Contains(r.stdout, "class: micro\n") {
+		t.Errorf("plan-class: exit %d, stdout %q; want class micro\n%s", r.rc, r.stdout, r.out)
+	}
+}

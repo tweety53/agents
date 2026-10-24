@@ -71,7 +71,9 @@ func panelTouchedPaths(env Env, prog, worktree, mergebase, gitBin string, stderr
 		{"staged", []string{"diff", "--no-renames", "--name-only", "--cached"}},
 		{"unstaged", []string{"diff", "--no-renames", "--name-only"}},
 	} {
-		out, ok := capture(panelGit(env, gitBin, worktree, c.args...))
+		// The worktree's `## panel diff exclude` globs leave the same paths
+		// out here as out of the panel diff.
+		out, ok := capture(panelGit(env, gitBin, worktree, append(c.args, wpdExcludes(smcAbs(env, worktree))...)...))
 		if !ok {
 			fmt.Fprintf(stderr, "%s: cannot list this change's %s paths in %s\n", prog, c.what, worktree)
 			return nil, false

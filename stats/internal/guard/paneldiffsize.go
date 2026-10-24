@@ -74,7 +74,9 @@ func checkPanelDiffSize(args []string, env Env, stdout, stderr io.Writer) int {
 	// git's stderr passes through. The bash ran this under `set -e`, so a
 	// failing diff ended it with git's own exit code -- and a git exit 1
 	// read as over cap; the port answers 2, as the header promises.
-	cmd := git("-C", worktree, "diff", "--no-renames", "--shortstat", "--end-of-options", mergePoint)
+	// The worktree's `## panel diff exclude` globs are left out of the
+	// count, as they are out of the panel diff.
+	cmd := git(append([]string{"-C", worktree, "diff", "--no-renames", "--shortstat", "--end-of-options", mergePoint}, wpdExcludes(smcAbs(env, worktree))...)...)
 	cmd.Stderr = stderr
 	out, err := cmd.Output()
 	if err != nil {
