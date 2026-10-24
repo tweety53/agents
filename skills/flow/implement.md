@@ -243,6 +243,14 @@ stops the run.
 - `<changeRoot>/design.md` — how, when the change carries one
 - `<project>/spectre/specs/<capability>.md` for every capability the proposal names
 
+**Every recorded base is compared with the branch it tracks before task 1 runs.** Run
+`check-base-behind.sh <worktree>...` over the run's resolved worktree set; its header is canonical
+for its lines. Exit 0 → continue. Exit 1 → relay every `BASE-BEHIND:` block, run its two command
+lines in order as **Verify** (`skills/flow/verify-and-handoff.md`) runs them, and run the check
+again. Exit 2 → name its stderr in the handoff and continue (kan-1015: feature/templates sat 21
+commits behind develop through every task, and the base sync at verify exposed a Flyway clash only
+after implement).
+
 **The plan is refreshed against the base before task 1 runs.** Before the
 first task dispatches — inline or as an implementer — run, with this run's working-notes merge
 base and every capability spec the proposal names as `<spec-path>` — the spec's
