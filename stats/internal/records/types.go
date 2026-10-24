@@ -94,18 +94,21 @@ import (
 // no stage -- so an inline row still takes the parent's main-thread usage
 // (KAN-967). It is written at begin and never read back.
 type Dispatch struct {
-	ID           int64           `json:"id"`
-	AgentID      string          `json:"agentId,omitempty"`
-	Seq          int             `json:"seq"`
-	Key          string          `json:"key,omitempty"`
-	StageRunID   *int64          `json:"stageRunId,omitempty"`
-	TaskID       string          `json:"taskId,omitempty"`
-	Role         string          `json:"role"`
-	Slot         string          `json:"slot,omitempty"`
-	Model        string          `json:"model"`
-	Effort       string          `json:"effort,omitempty"`
-	CommitSHA    string          `json:"commitSha,omitempty"`
-	DiffBase     string          `json:"diffBase,omitempty"`
+	ID         int64  `json:"id"`
+	AgentID    string `json:"agentId,omitempty"`
+	Seq        int    `json:"seq"`
+	Key        string `json:"key,omitempty"`
+	StageRunID *int64 `json:"stageRunId,omitempty"`
+	TaskID     string `json:"taskId,omitempty"`
+	Role       string `json:"role"`
+	Slot       string `json:"slot,omitempty"`
+	Model      string `json:"model"`
+	Effort     string `json:"effort,omitempty"`
+	CommitSHA  string `json:"commitSha,omitempty"`
+	DiffBase   string `json:"diffBase,omitempty"`
+	// RoundBase is the fix round's base sha a scoped visual-verify re-run
+	// was begun with (-round-base); empty on every unscoped dispatch.
+	RoundBase    string          `json:"roundBase,omitempty"`
 	Outcome      string          `json:"outcome,omitempty"`
 	Cause        string          `json:"cause,omitempty"`
 	SessionToken string          `json:"sessionToken,omitempty"`

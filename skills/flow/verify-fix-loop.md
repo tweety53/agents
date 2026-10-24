@@ -150,6 +150,9 @@ every motion of the change — its dispatch keys suffixed `-fix-<k>-full` before
 name>` suffix. A fixable defect it reports opens the next round, whose step-4 re-run is scoped
 like any round's, its round base the HEAD this full run verified: a `-full` run follows only a
 clean scoped re-run, never another round's fix (KAN-1000: three rounds in a row re-ran unscoped).
+A scoped re-run's verifier row is begun with `-round-base <sha>`, the round base its prompt
+names, and `check-visual-verify-dispatched.sh` refuses a worktree whose newest completed verifier
+row carries one — the closing unscoped run is not recorded.
 Its clean report is the one the handoff reports.
 
 ## No cap

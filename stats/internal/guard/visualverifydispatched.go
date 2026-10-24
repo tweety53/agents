@@ -180,7 +180,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		fmt.Fprintf(stderr, "%sflow record dispatches failed for '%s' — cannot answer\n", vvdPrefix, name)
 		return 2
 	}
-	heads, ok := vvdCompletedVerifiers(rows)
+	heads, newestKey, newestRoundBase, ok := vvdCompletedVerifiers(rows)
 	if !ok {
 		fmt.Fprintf(stderr, "%sdispatch rows were not readable JSON — cannot answer\n", vvdPrefix)
 		return 2
@@ -271,6 +271,21 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		if !isFile(changes+name+"/visual-verification.md") && !isFile(changes+"archive/"+name+"/visual-verification.md") {
 			found, missingRecord = false, changes+name+"/visual-verification.md"
 		}
+	}
+	// ONE FULL RUN CLOSES THE LOOP (skills/flow/verify-fix-loop.md): a
+	// scoped re-run is begun with -round-base, so a newest qualifying row
+	// carrying one means the closing unscoped run was never recorded. The
+	// line ends on the HEAD it judged, as every MISSING verdict does.
+	if found && newestRoundBase != "" {
+		headSHA, ok := capture(envGit(env)("-C", worktree, "rev-parse", "HEAD"))
+		if !ok {
+			fmt.Fprintf(stderr, "%sgit cannot name HEAD in %s — cannot answer\n", vvdPrefix, worktree)
+			return 2
+		}
+		verdict := "VISUAL-VERIFY-MISSING: the newest verifier row '" + newestKey + "' ran scoped to round base " + newestRoundBase + " — the loop's closing unscoped run is not recorded (skills/flow/verify-fix-loop.md, **One full run closes the loop**) — HEAD " + headSHA
+		record(verdict)
+		fmt.Fprintln(stdout, verdict)
+		return 1
 	}
 	if found {
 		verdict := "VISUAL-VERIFY-OK: UI paths touched and a completed (or ended-but-unclosed) verifier dispatch is recorded for '" + name + "'"
@@ -491,23 +506,23 @@ func vvdLastLine(v json.RawMessage) (string, bool) {
 // verifier row whose key is neither a string nor null/false (jq failing, the
 // bash exiting 5 under set -e). A top-level object is refused as
 // pfdPanelFixKeys's comment explains.
-func vvdCompletedVerifiers(raw []byte) ([]string, bool) {
+func vvdCompletedVerifiers(raw []byte) (heads []string, newestKey, newestRoundBase string, ok bool) {
 	vals, ok := pfdStream(raw)
 	if !ok || len(vals) != 1 {
-		return nil, false
+		return nil, "", "", false
 	}
 	arr, ok := vals[0].([]any)
 	if !ok {
-		return nil, false
+		return nil, "", "", false
 	}
-	var heads []string
+	var newestStart string
 	for _, e := range arr {
 		if e == nil {
 			continue
 		}
 		row, ok := e.(map[string]any)
 		if !ok {
-			return nil, false
+			return nil, "", "", false
 		}
 		if row["role"] != "verifier" {
 			continue
@@ -517,12 +532,12 @@ func vvdCompletedVerifiers(raw []byte) ([]string, bool) {
 		case nil:
 		case bool:
 			if k {
-				return nil, false
+				return nil, "", "", false
 			}
 		case string:
 			key = k
 		default:
-			return nil, false
+			return nil, "", "", false
 		}
 		// `// ""` reads null, false and absent as the empty string.
 		outcome := row["outcome"]
@@ -532,9 +547,16 @@ func vvdCompletedVerifiers(raw []byte) ([]string, bool) {
 		if strings.HasPrefix(key, "visual-verify") && (outcome == "completed" || (row["endedAt"] != nil && outcome == "")) {
 			head, _ := row["diffBase"].(string)
 			heads = append(heads, head)
+			// Newest by startedAt; rows arrive in seq order, so a tie or an
+			// absent instant falls to the later row.
+			if start, _ := row["startedAt"].(string); start >= newestStart {
+				newestStart = start
+				newestKey = key
+				newestRoundBase, _ = row["roundBase"].(string)
+			}
 		}
 	}
-	return heads, true
+	return heads, newestKey, newestRoundBase, true
 }
 
 // vvdSHA is a commit id as `git rev-parse HEAD` prints it, abbreviated or

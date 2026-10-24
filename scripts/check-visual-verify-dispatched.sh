@@ -34,6 +34,12 @@
 # skills/flow/visual-verify-verifier.md step 11 writes; absent, the verdict is
 # VISUAL-VERIFY-MISSING naming that path (kan-970 self-review).
 #
+# The newest qualifying verifier row must carry no round base: one begun with
+# `-round-base <sha>` is a scoped re-run, and the verdict is
+#   VISUAL-VERIFY-MISSING: the newest verifier row '<key>' ran scoped to round
+#   base <sha> — the loop's closing unscoped run is not recorded
+#   (skills/flow/verify-fix-loop.md, **One full run closes the loop**) — HEAD <sha>
+#
 # Exit 0 on a VISUAL-VERIFY-OK verdict, exit 1 on VISUAL-VERIFY-MISSING —
 # UI paths were touched and no qualifying verifier dispatch is recorded;
 # the verdict line carries the answer — and exit 2 when it cannot answer at

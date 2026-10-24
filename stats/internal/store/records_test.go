@@ -1387,6 +1387,40 @@ func TestRecordDispatchRoundTripsDiffBase(t *testing.T) {
 	}
 }
 
+// TestDispatchRoundBaseRoundTrips pins the round base a scoped verifier
+// re-run is begun with: written, it reads back as RoundBase; absent, it
+// reads back empty.
+func TestDispatchRoundBaseRoundTrips(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-dispatch-round-base-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	scoped := baseDispatch("verifier", "opus")
+	scoped.Key = "visual-verify-2"
+	scoped.RoundBase = "c75529d2"
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", scoped); err != nil {
+		t.Fatalf("RecordDispatch (scoped): %v", err)
+	}
+	full := baseDispatch("verifier", "opus")
+	full.Key = "visual-verify-3"
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", full); err != nil {
+		t.Fatalf("RecordDispatch (unscoped): %v", err)
+	}
+
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	got := map[string]string{}
+	for _, d := range rec.Dispatches {
+		got[d.Key] = d.RoundBase
+	}
+	if got["visual-verify-2"] != "c75529d2" || got["visual-verify-3"] != "" {
+		t.Errorf("RunRecord round bases = %v, want visual-verify-2=c75529d2 and visual-verify-3 empty", got)
+	}
+}
+
 // TestRecordDispatchOmitsAbsentDiffBase pins the other half: a dispatch
 // that recorded no base reads back with none, and the rest of its row is
 // untouched by the column's addition.

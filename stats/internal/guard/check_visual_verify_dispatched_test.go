@@ -724,3 +724,24 @@ func TestCheckVisualVerifyDispatchedRequiresTheVerifierRecord(t *testing.T) {
 		t.Fatalf("archived record: got exit %d stdout %q stderr %q, want exit 0 %q", r.code, r.out, r.err, vvdOK)
 	}
 }
+
+// TestCheckVisualVerifyDispatchedRefusesAScopedNewestVerifier pins that the
+// loop's closing run is unscoped (skills/flow/verify-fix-loop.md, **One full
+// run closes the loop**): a worktree whose newest completed verifier row
+// carries a roundBase is MISSING, naming the key and the base; one whose
+// newest row carries none passes, an older scoped row notwithstanding.
+func TestCheckVisualVerifyDispatchedRefusesAScopedNewestVerifier(t *testing.T) {
+	t.Parallel()
+	scoped := vvdRun(t, vvdCase{dispatches: []byte(`[` +
+		`{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"@HEAD@","startedAt":"2026-10-24T10:00:00Z"},` +
+		`{"key":"visual-verify-2","role":"verifier","outcome":"completed","diffBase":"@HEAD@","roundBase":"c75529d2","startedAt":"2026-10-24T11:00:00Z"}]`)})
+	if scoped.code != 1 || !strings.Contains(scoped.out, "VISUAL-VERIFY-MISSING: the newest verifier row 'visual-verify-2' ran scoped to round base c75529d2") {
+		t.Fatalf("scoped newest: got exit %d stdout %q stderr %q, want exit 1 naming visual-verify-2 and c75529d2", scoped.code, scoped.out, scoped.err)
+	}
+	closed := vvdRun(t, vvdCase{dispatches: []byte(`[` +
+		`{"key":"visual-verify-2","role":"verifier","outcome":"completed","diffBase":"@HEAD@","roundBase":"c75529d2","startedAt":"2026-10-24T10:00:00Z"},` +
+		`{"key":"visual-verify-3","role":"verifier","outcome":"completed","diffBase":"@HEAD@","startedAt":"2026-10-24T11:00:00Z"}]`)})
+	if closed.code != 0 || !strings.HasPrefix(closed.out, "VISUAL-VERIFY-OK: UI paths touched") {
+		t.Fatalf("unscoped newest: got exit %d stdout %q stderr %q, want exit 0 and the OK verdict", closed.code, closed.out, closed.err)
+	}
+}
