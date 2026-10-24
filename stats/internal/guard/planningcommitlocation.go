@@ -3,7 +3,9 @@ package guard
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -58,7 +60,7 @@ func checkPlanningCommit(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, file := range strings.Split(diff, "diff --git ")[1:] {
 		path := ""
 		had := map[string]bool{}
-		var ticked []string
+		var ticked, added []string
 		for _, l := range strings.Split(file, "\n") {
 			if p, ok := strings.CutPrefix(l, "+++ b/"); ok {
 				path = p
@@ -68,14 +70,28 @@ func checkPlanningCommit(args []string, env Env, stdout, stderr io.Writer) int {
 			case m == nil:
 			case m[1] == "-":
 				had[m[3]] = true
-			case m[2] != " ":
-				ticked = append(ticked, m[3])
+			default:
+				added = append(added, m[3])
+				if m[2] != " " {
+					ticked = append(ticked, m[3])
+				}
 			}
 		}
 		for _, n := range ticked {
 			if !had[n] {
 				fmt.Fprintf(stdout, "PLANNING-COMMIT-TICKED-APPEND: %s task %s — appended already ticked; append it unticked, commit, and tick it once its commit passes check-task-commit-fields.sh\n", path, n)
 				rc = 1
+			}
+		}
+		if slices.ContainsFunc(added, func(n string) bool { return !had[n] }) {
+			plan := []string{filepath.Join(wt, path)}
+			for _, guard := range []func([]string, Env, io.Writer, io.Writer) int{checkPlanShape, checkTaskBuildGreen} {
+				switch guard(plan, env, stdout, stderr) {
+				case 2:
+					return 2
+				case 1:
+					rc = 1
+				}
 			}
 		}
 	}

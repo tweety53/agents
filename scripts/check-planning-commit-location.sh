@@ -23,6 +23,8 @@
 # lacks is a new plan and is not read. reshape-branch.sh and commit-split.sh
 # run the location check alone — their planning half carries every tick.
 #
+# A tasks.md the working tree appends a task to — any task number HEAD's file did not carry — is also run through check-plan-shape.sh and check-task-build-green.sh, their lines printed as they print them; either one's exit 1 is this guard's exit 1 and its exit 2 this guard's exit 2 (kan-1015: tasks 15–24 were appended with `**Build:** pending` and no declared tests).
+#
 # Both location violation lines print when both hold. Exit 0 on the OK
 # verdict with no ticked append; exit 1 on any violation; exit 2 with NOTHING
 # on stdout when the arguments are missing or empty, or <worktree> is not a readable git work tree — an

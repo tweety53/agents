@@ -131,21 +131,21 @@ func TestCheckPlanningCommitLocation(t *testing.T) {
 func TestCheckPlanningCommitTickedAppend(t *testing.T) {
 	t.Parallel()
 	env := Env{Getenv: os.Getenv}
-	const plan = "# demo\n\n- [x] 1. One\n- [ ] 2. Two\n"
+	plan := "# demo\n\n" + pclTaskMd("x", "1", "green") + pclTaskMd(" ", "2", "green")
 	const refusal = " — appended already ticked; append it unticked, commit, and tick it once its commit passes check-task-commit-fields.sh\n"
 	for _, c := range []struct {
 		name, dir, head, now string
 		rc                   int
 		want                 string
 	}{
-		{"an appended ticked task is refused", "spectre/changes/demo", plan, plan + "- [x] 3. Three\n", 1,
+		{"an appended ticked task is refused", "spectre/changes/demo", plan, plan + pclTaskMd("x", "3", "green"), 1,
 			"PLANNING-COMMIT-TICKED-APPEND: spectre/changes/demo/tasks.md task 3" + refusal},
 		{"an archived plan's ticked append is refused", "spectre/changes/archive/demo", plan, plan + "- [X] 3. Three\n", 1,
 			"PLANNING-COMMIT-TICKED-APPEND: spectre/changes/archive/demo/tasks.md task 3" + refusal},
-		{"a tick of a carried task passes", "spectre/changes/demo", plan, "# demo\n\n- [x] 1. One\n- [x] 2. Two\n", 0, ""},
-		{"an unticked append passes", "spectre/changes/demo", plan, plan + "- [ ] 3. Three\n", 0, ""},
-		{"a new plan passes", "spectre/changes/demo", "", plan + "- [x] 3. Three\n", 0, ""},
-		{"another change's ticked append is not this change's", "spectre/changes/other", plan, plan + "- [x] 3. Three\n", 0, ""},
+		{"a tick of a carried task passes", "spectre/changes/demo", plan, "# demo\n\n" + pclTaskMd("x", "1", "green") + pclTaskMd("x", "2", "green"), 0, ""},
+		{"an unticked append passes", "spectre/changes/demo", plan, plan + pclTaskMd(" ", "3", "green"), 0, ""},
+		{"a new plan passes", "spectre/changes/demo", "", plan + pclTaskMd("x", "3", "green"), 0, ""},
+		{"another change's ticked append is not this change's", "spectre/changes/other", plan, plan + pclTaskMd("x", "3", "green"), 0, ""},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
@@ -176,7 +176,7 @@ func TestCheckPlanningCommitTickedAppend(t *testing.T) {
 		writeFile(t, wt+"/spectre/changes/demo/tasks.md", plan)
 		g.git(wt, "add", "-A")
 		g.git(wt, "commit", "-q", "-m", "plan")
-		writeFile(t, wt+"/spectre/changes/demo/tasks.md", plan+"- [x] 3. Three\n")
+		writeFile(t, wt+"/spectre/changes/demo/tasks.md", plan+pclTaskMd("x", "3", "green"))
 		if g.err != nil {
 			t.Fatal(g.err)
 		}
@@ -185,4 +185,45 @@ func TestCheckPlanningCommitTickedAppend(t *testing.T) {
 			t.Fatalf("rc=%d stdout=%q stderr=%q; want 0", rc, out.String(), errb.String())
 		}
 	})
+}
+
+// pclTaskMd is one task block check-plan-shape and check-task-build-green
+// read as well formed, its checkbox tick and its **Build:** value given.
+func pclTaskMd(tick, n, build string) string {
+	return "- [" + tick + "] " + n + ". Task " + n + "\n\n**Build:** " + build + "\n**Files:** `f" + n + ".go`\n**Tests:** `TestF" + n + "`\n**Commit:** `fix: task " + n + "`\n**After:** none\n\n"
+}
+
+// TestCheckPlanningCommitAppendRunsPlanGuards pins kan-1015's self-review:
+// tasks 15-24 were appended with **Build:** pending and no declared tests,
+// and the planning commit ran neither plan guard. An appended task now runs
+// check-plan-shape and check-task-build-green on the working tree's file.
+func TestCheckPlanningCommitAppendRunsPlanGuards(t *testing.T) {
+	t.Parallel()
+	env := Env{Getenv: os.Getenv}
+	head := "# demo\n\n" + pclTaskMd(" ", "1", "green")
+	for _, c := range []struct {
+		name, build, want string
+		rc                int
+	}{
+		{"an append reading Build pending is refused", "pending", `task 2 has a **Build:** line reading "pending"`, 1},
+		{"a well-formed append passes", "green", "", 0},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			_, main := pclFx(t)
+			wt := main + "/.worktrees/demo"
+			var g fxGit
+			writeFile(t, wt+"/spectre/changes/demo/tasks.md", head)
+			g.git(wt, "add", "-A")
+			g.git(wt, "commit", "-q", "-m", "plan")
+			writeFile(t, wt+"/spectre/changes/demo/tasks.md", head+pclTaskMd(" ", "2", c.build))
+			if g.err != nil {
+				t.Fatal(g.err)
+			}
+			r := runGuard("check-planning-commit-location", []string{wt, "demo"}, env)
+			if r.rc != c.rc || (c.want != "" && !strings.Contains(r.out, c.want)) {
+				t.Fatalf("rc=%d out=%q stderr=%q; want %d carrying %q", r.rc, r.out, r.err, c.rc, c.want)
+			}
+		})
+	}
 }
