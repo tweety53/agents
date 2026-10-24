@@ -207,7 +207,12 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
    missing checkout, ~4.45M tokens spent for nothing. The recipe's merge-order record runs with
    it, its planning commit included (**Isolate the workspace — additional worktrees**,
    `skills/flow/cross-repo-worktrees.md`): a repository the canonical `link.md`'s `## Merge order`
-   omits is one run 1 never sequences and the self-review bundle never reads (kan-998). With the
+   omits is one run 1 never sequences and the self-review bundle never reads (kan-998). **A change
+   whose worktree records a flowBase gets a worktree in every `## apps` repository the set holds
+   none in, the same way** — the `kickoff-worktree.sh --from` call and its merge-order record,
+   before the checks below — so the stack serves `<base>`'s build, never a main checkout on the
+   default branch: kan-1022's stack served the `develop` frontend to a change based on
+   feature/templates, and 28 specs failed on it. With the
    parent's own Bash call, before the
    dispatch below, run the four checks — ports held only by their own app, the base-URL
    configuration resolving to the workspace's values, origin allowed, one Playwright checkout per
