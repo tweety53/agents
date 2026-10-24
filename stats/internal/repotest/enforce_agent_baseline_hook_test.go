@@ -40,6 +40,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -161,14 +162,18 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 // openRowFixture serves a store answering /api/v1/stage-runs with change c1 (status 500 when
 // fail), and a fake `flow` first on PATH printing rows (exiting 1 when rows is ""). It returns the
 // env the hook runs under and a file the fake `flow` touches when called.
-func openRowFixture(t *testing.T, rows string, fail bool) (env []string, called string) {
+func openRowFixture(t *testing.T, rows string, fail bool, projectKey ...string) (env []string, called string) {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if fail || r.URL.Path != "/api/v1/stage-runs" || r.URL.Query().Get("session_id") != "s1" {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		_, _ = w.Write([]byte(`{"stageRuns":[{"changeName":"c1"}]}`))
+		run := map[string]string{"changeName": "c1"}
+		if len(projectKey) > 0 {
+			run["projectKey"] = projectKey[0]
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"stageRuns": []any{run}})
 	}))
 	t.Cleanup(srv.Close)
 	bin := t.TempDir()
@@ -251,6 +256,30 @@ func TestEnforceAgentBaselineHookRequiresAnOpenRow(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestEnforceAgentBaselineHookAllowsAnotherRepoCwd pins the fail-open on a cwd outside the
+// change's project: its rows read empty there, so the hook lets the dispatch through.
+func TestEnforceAgentBaselineHookAllowsAnotherRepoCwd(t *testing.T) {
+	t.Parallel()
+	repo := t.TempDir()
+	if out, err := exec.Command("git", "init", "-q", repo).CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	env, _ := openRowFixture(t, `[]`, false, "gymie-7c1f238a")
+	var payload map[string]any
+	if err := json.Unmarshal(openRowPayload(t, "panel-4-primary review", "review"), &payload); err != nil {
+		t.Fatal(err)
+	}
+	payload["cwd"] = repo
+	b, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, _, rc := runHook(t, "enforce-agent-baseline.py", b, env...)
+	if rc != 0 || out != "" {
+		t.Fatalf("rc=%d out=%s", rc, out)
 	}
 }
 

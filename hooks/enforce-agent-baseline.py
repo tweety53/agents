@@ -40,6 +40,7 @@ Fails open: any unexpected input, parse error, or internal fault exits 0 and let
 dispatch through. A guardrail on a convention must never be the reason work stops.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -150,13 +151,26 @@ def description_reason(payload: dict, tool_input: dict, prompt: str) -> "str | N
 TASK_DESCRIPTION = re.compile(r"Tasks? (\d+(?:\+\d+)*)/\d+")
 
 
-def session_change(session_id: str) -> "str | None":
+def project_key(cwd: str) -> "str | None":
+    """The store's project key for cwd: stats/internal/fallback/statefile.go ProjectKey."""
+    done = subprocess.run(
+        ["git", "-C", cwd, "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        capture_output=True, text=True, timeout=5, check=False,
+    )
+    if done.returncode != 0:
+        return None
+    main = os.path.realpath(os.path.dirname(os.path.normpath(done.stdout.strip())))
+    return f"{os.path.basename(main)}-{hashlib.sha1(main.encode()).hexdigest()[:8]}"
+
+
+def session_change(session_id: str) -> "tuple[str | None, str | None]":
     addr = os.environ.get("FLOW_ADDR") or "http://127.0.0.1:4173"
     query = parse.urlencode({"session_id": session_id, "command": "/flow", "sort": "-started_at", "limit": "1"})
     with request.urlopen(f"{addr}/api/v1/stage-runs?{query}", timeout=2) as resp:
         runs = json.load(resp).get("stageRuns")
-    name = runs[0].get("changeName") if isinstance(runs, list) and runs else None
-    return name if isinstance(name, str) and name else None
+    run = runs[0] if isinstance(runs, list) and runs and isinstance(runs[0], dict) else {}
+    name, key = run.get("changeName"), run.get("projectKey")
+    return (name if isinstance(name, str) and name else None, key if isinstance(key, str) and key else None)
 
 
 def begin_row_reason(payload: dict, tool_input: dict, prompt: str) -> "str | None":
@@ -171,8 +185,11 @@ def begin_row_reason(payload: dict, tool_input: dict, prompt: str) -> "str | Non
     if not in_flow_session(payload):
         return None
     try:
-        change = session_change(session_id)
+        change, key = session_change(session_id)
         if not change:
+            return None
+        # The rows are read under cwd's project: another repo's cwd reads none, so fail open.
+        if key and project_key(cwd) != key:
             return None
         done = subprocess.run(
             ["flow", "record", "dispatches", "-change", change, "-C", cwd],
