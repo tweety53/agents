@@ -1083,6 +1083,49 @@ func TestCheckUnfinishedWorkVerifyFailureNotAddressed(t *testing.T) {
 	}
 }
 
+// TestCheckUnfinishedWorkVerifyFailureRerunPassed pins kan-1022's
+// self-review: a failed report whose next report, by mtime, passed a rerun
+// of the failed specs is addressed; a passing rerun before the failure, or a
+// failing next report, addresses nothing.
+func TestCheckUnfinishedWorkVerifyFailureRerunPassed(t *testing.T) {
+	t.Parallel()
+	const failed = "- verify: exit 1\n  1) fidelity/templates.spec.ts:80 opens the template — timeout\n"
+	const reason = "verify failure not addressed: fidelity/templates.spec.ts:80"
+	first, second := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC), time.Date(2026, 1, 1, 13, 0, 0, 0, time.UTC)
+	for _, c := range []struct {
+		name           string
+		failAt, nextAt time.Time
+		next           string
+		wantIn         bool
+	}{
+		{"a later passing rerun addresses it", first, second, "- verify: exit 0 — rerun of 19 failed specs at unchanged HEAD\n", false},
+		{"an earlier passing rerun does not", second, first, "- verify: exit 0 — rerun of 19 failed specs at unchanged HEAD\n", true},
+		{"a later failing rerun does not", first, second, "- verify: exit 1 — rerun of 19 failed specs at unchanged HEAD\n", true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			f := newUW(t)
+			gitRun(t, "", "init", "-q", f.wt)
+			gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "base")
+			base := tcfGit(t, f.wt, "rev-parse", "HEAD")
+			for _, r := range []struct {
+				name, body string
+				at         time.Time
+			}{{"visual-verify", failed, c.failAt}, {"visual-verify-2", c.next, c.nextAt}} {
+				rp := f.wt + "/.superpowers/sdd/verify-report-" + r.name + ".md"
+				writeFile(t, rp, "## Report\n"+r.body)
+				if err := os.Chtimes(rp, r.at, r.at); err != nil {
+					t.Fatal(err)
+				}
+			}
+			r := f.run(t, f.wt, "demo", "", f.wt+"="+base)
+			if r.rc != 0 || strings.Contains(r.out, reason) != c.wantIn {
+				t.Fatalf("exit %d stdout %q stderr %q; want exit 0 and %q present=%v", r.rc, r.out, r.err, reason, c.wantIn)
+			}
+		})
+	}
+}
+
 // TestCheckUnfinishedWorkVerifyFailureFlaggedEarlier pins kan-1010's
 // self-review: screenshots.spec.ts:52 was flagged a false positive three
 // times, each flag landing on that run's newest row only. An earlier

@@ -133,7 +133,9 @@
 # commit, or when an earlier false-positive verdict of this change names
 # `<spec>:<line>` in its reason, no path character before it and no digit
 # after (kan-1010's self-review) — a store that cannot answer clears
-# nothing. Each other failure is one reason, `verify failure not addressed:
+# nothing — or when the report next after it by mtime opens its `- verify:`
+# item `exit 0 — rerun of`, a rerun of exactly those failed specs that passed
+# (kan-1022's self-review). Each other failure is one reason, `verify failure not addressed:
 # <spec>:<line>[ <name>.png] (<report>)`; an unreadable report is exit 2.
 #
 # SIGNAL TEN: A MULTI-REPOSITORY CHANGE WHOSE MERGE ORDER MISSES A REPOSITORY

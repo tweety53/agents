@@ -529,7 +529,10 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 			narrative, _ := os.ReadFile(filepath.Dir(primary) + "/narrative.md")
 			var flagged []string
 			flaggedRead := false
-			for _, rp := range reports {
+			// The reports in mtime order: a report whose next one passed a
+			// rerun of its failed specs is addressed (kan-1022's self-review).
+			bodies, infos := make([]string, len(reports)), make([]os.FileInfo, len(reports))
+			for i, rp := range reports {
 				b, err := os.ReadFile(rp)
 				if err != nil {
 					return unreadable(rp)
@@ -538,8 +541,18 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 				if err != nil {
 					return unreadable(rp)
 				}
-				for _, fl := range uwVerifyFailures(string(b)) {
-					addressed := false
+				bodies[i], infos[i] = string(b), st
+			}
+			order := make([]int, len(reports))
+			for i := range order {
+				order[i] = i
+			}
+			slices.SortStableFunc(order, func(a, b int) int { return infos[a].ModTime().Compare(infos[b].ModTime()) })
+			for k, i := range order {
+				rp, st := reports[i], infos[i]
+				rerunPassed := k+1 < len(order) && uwRerunPassed.MatchString(bodies[order[k+1]])
+				for _, fl := range uwVerifyFailures(bodies[i]) {
+					addressed := rerunPassed
 					for _, c := range commits {
 						if c.at < st.ModTime().Unix() {
 							continue
@@ -1052,8 +1065,10 @@ var uwMergeOrderEntryRE = regexp.MustCompile("^\\s*\\d+\\.\\s+`([^`]+)`")
 type uwVerifyFailure struct{ spec, line, png string }
 
 var (
-	uwSpecRE = regexp.MustCompile(`([^\s:]+\.spec\.ts):(\d+)`)
-	uwPngRE  = regexp.MustCompile(`([A-Za-z0-9_.-]+)\.png`)
+	// A report's `- verify:` item passing a rerun of the failed specs.
+	uwRerunPassed = regexp.MustCompile(`(?m)^- verify: exit 0 — rerun of\b`)
+	uwSpecRE      = regexp.MustCompile(`([^\s:]+\.spec\.ts):(\d+)`)
+	uwPngRE       = regexp.MustCompile(`([A-Za-z0-9_.-]+)\.png`)
 )
 
 // uwVerifyFailures reads a verify report's failed `- verify: exit <n>` item
