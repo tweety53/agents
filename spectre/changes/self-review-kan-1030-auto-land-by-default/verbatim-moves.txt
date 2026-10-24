@@ -1,0 +1,14 @@
+# Sentences self-review-kan-1030-auto-land-by-default adds or rewords on purpose (check-verbatim-moves.sh).
+| Before every reviewer dispatch — a gated per-task reviewer bundle, a panel round, a re-run | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — before review` |
+**A run that will land straight away starts nothing.
+**So does a run that leaves a `?
+**The before-review planning commit comes first.
+**The gate is opt-in per change:** a run that writes `IN_PROGRESS` stops there only when the record's `reviewBeforeLanding` is `true` (`state-file.md`) or the run leaves an open question; otherwise it continues into integrate in the same invocation (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`).
+Before the script below runs in any worktree, the parent makes the before-review planning commit (**Planning commits**, `skills/flow-contracts/git-boundaries.md`): the script's rebase is a bare `git rebase`, which git refuses while the change's directory carries uncommitted ticks or notes, and the script reports that refusal as exit 2 (kan-1030).
+The section's before-review planning commit comes first at a round boundary too.
+When the record's `reviewBeforeLanding` is not `true` and the run leaves no `?
+line for its `Decisions:` (**Write `IN_PROGRESS`**, below), no handoff hands a stack to anyone: the start, the stack freshness check and a refused start's stop below are all skipped, so a held port never keeps the change from landing (kan-1030).
+line for its `Decisions:`, whatever the record holds** — an open question the operator must answer is never landed past (kan-1030).
+| Before every reviewer dispatch — a gated per-task reviewer bundle, a panel round, a re-run — and before the panel's base sync (**Check base movement first**, `skills/flow/review-panel.md`) | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — before review` |
+| `/flow` | `IN_PROGRESS`, with an argument other than the change's name | fix run; state unchanged — then, unless `reviewBeforeLanding` is `true` or an open question is left, integrate in the same invocation |
+| `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still planning, or planning just finished — `/clear` handoff) or, the plan already ready, as the implementation run ends — at `IN_PROGRESS` when `reviewBeforeLanding` is `true` or an open question is left, otherwise continuing into integrate and ending as an integrate run ends; or `FINISHED` (withdrawn) on an explicit withdraw answer at a planless resume (**The withdrawal route**, `skills/flow/withdrawal.md`) |

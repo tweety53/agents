@@ -1,0 +1,55 @@
+diff --git a/skills/flow-contracts/pipeline.md b/skills/flow-contracts/pipeline.md
+index e198ef79..8cf0260b 100644
+--- a/skills/flow-contracts/pipeline.md
++++ b/skills/flow-contracts/pipeline.md
+@@ -36,7 +36,7 @@ A change is always in exactly one of three states, recorded in its state file.
+ **The human gate is a property of the state, not a separate stage.** `IN_PROGRESS` *means* a
+ staged diff is waiting for the human to review, alongside a stack the handoff already started.
+ **The gate is opt-in per change:** a run that writes `IN_PROGRESS` stops there only when the
+-record's `reviewBeforeLanding` is `true` (`state-file.md`); otherwise it continues into integrate
++record's `reviewBeforeLanding` is `true` (`state-file.md`) or the run leaves an open question; otherwise it continues into integrate
+ in the same invocation (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`).
+ Nothing records that the review or the testing happened; the operator running the next
+ command is what carries the change forward.
+@@ -70,9 +70,9 @@ An argument that is none of those is **reported**, not silently ignored.
+ | Command | Accepts | Ends at |
+ |---------|---------|---------|
+ | `/flow` | *(no state — creates the change)* | `STARTED` — the run ends at the plan gate with a `/clear` handoff (see **Resuming at `STARTED`** in `skills/flow/resume.md`); or `FINISHED` (withdrawn) when the reachability check ends the run and the operator answers the withdraw ask |
+-| `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still planning, or planning just finished — `/clear` handoff) or, the plan already ready, as the implementation run ends — at `IN_PROGRESS` when `reviewBeforeLanding` is `true`, otherwise continuing into integrate and ending as an integrate run ends; or `FINISHED` (withdrawn) on an explicit withdraw answer at a planless resume (**The withdrawal route**, `skills/flow/withdrawal.md`) |
+-| `/flow` | `IN_PROGRESS`, with an argument other than the change's name | fix run; state unchanged — then, unless `reviewBeforeLanding` is `true`, integrate in the same invocation |
+-| *(none — a plain message)* | `IN_PROGRESS`, in the session whose last `/flow` run marked the change | fix run; state unchanged — **A plain message at `IN_PROGRESS`** (`skills/flow/SKILL.md`) — then, unless `reviewBeforeLanding` is `true`, integrate in the same invocation |
++| `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still planning, or planning just finished — `/clear` handoff) or, the plan already ready, as the implementation run ends — at `IN_PROGRESS` when `reviewBeforeLanding` is `true` or an open question is left, otherwise continuing into integrate and ending as an integrate run ends; or `FINISHED` (withdrawn) on an explicit withdraw answer at a planless resume (**The withdrawal route**, `skills/flow/withdrawal.md`) |
++| `/flow` | `IN_PROGRESS`, with an argument other than the change's name | fix run; state unchanged — then, unless `reviewBeforeLanding` is `true` or an open question is left, integrate in the same invocation |
++| *(none — a plain message)* | `IN_PROGRESS`, in the session whose last `/flow` run marked the change | fix run; state unchanged — **A plain message at `IN_PROGRESS`** (`skills/flow/SKILL.md`) — then, unless `reviewBeforeLanding` is `true` or an open question is left, integrate in the same invocation |
+ | `/flow` | `IN_PROGRESS`, bare — or the change's name alone (**Change name resolution (all `/flow*` commands)**) | integrate run; ends at `IN_PROGRESS` (run 1) or `FINISHED` (run 1 chained into run 2) |
+ | `/flow` | `FINISHED` | wrong-state handoff — the change is archived |
+ | `/flow-status` | any — read-only, never block | unchanged |
+diff --git a/skills/flow/SKILL.md b/skills/flow/SKILL.md
+index 98244e3f..58356dbb 100644
+--- a/skills/flow/SKILL.md
++++ b/skills/flow/SKILL.md
+@@ -93,7 +93,7 @@ to report, never a creating run.
+ - **Exit 0, `"state": "IN_PROGRESS"`, an argument other than the change's name** — a fix run — or a plain message, per
+   **A plain message at IN_PROGRESS** below. See
+   **3. Documenting a fix, before implementing it** and then **The parent orchestrates directly**
+-  (`skills/flow/implement.md`); unless `reviewBeforeLanding` is `true`, the run continues into
++  (`skills/flow/implement.md`); unless `reviewBeforeLanding` is `true` or the run leaves an open question, the run continues into
+   integrate once it writes the state (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`).
+ - **Exit 0, `"state": "IN_PROGRESS"`, no argument or the change's name alone** (**Change name
+   resolution (all `/flow*` commands)**, `skills/flow-contracts/pipeline.md`) — an integrate run. See
+diff --git a/skills/flow/verify-and-handoff.md b/skills/flow/verify-and-handoff.md
+index 38665732..aecc75dc 100644
+--- a/skills/flow/verify-and-handoff.md
++++ b/skills/flow/verify-and-handoff.md
+@@ -531,7 +531,10 @@ flow stage end -command '/flow' -stage flow.write-in-progress -outcome completed
+ flow state get <name> | jq -r '.reviewBeforeLanding // false'
+ ```
+ 
+-`true` prints the block below and ends the run. Anything else prints no block and continues at **Deciding which run this is**
++`true` prints the block below and ends the run. **So does a run that leaves a `?` line for its
++`Decisions:`, whatever the record holds** — an open question the operator must answer is never
++landed past (kan-1030). Anything else prints no block but its 🤖 `Decisions:` lines, when it took
++any, under a `**Decisions:**` heading — integrate's handoffs carry no such field — and continues at **Deciding which run this is**
+ (`skills/flow/integrate.md`) in the same turn, as if a bare `/flow <name>` had started it; that
+ run prints its own handoff or stop. This is the one chain into integrate **Every invocation is
+ re-entrant** (`skills/flow-contracts/pipeline.md`) sanctions.

@@ -1,0 +1,44 @@
+diff --git a/skills/flow-contracts/git-boundaries.md b/skills/flow-contracts/git-boundaries.md
+index 55ed0ce9..d5bc699a 100644
+--- a/skills/flow-contracts/git-boundaries.md
++++ b/skills/flow-contracts/git-boundaries.md
+@@ -43,7 +43,7 @@ task-commit check — and is pushed plain (**Branch backup** below):
+ | The plan gate answers **Yes** (**Plan review gate**, `skills/flow/brainstorm-planner.md`) | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — plan gate` |
+ | After each `spectre link` in `flow.isolate-workspace` (`skills/flow/implement.md`), before the next link | each `<project>/spectre/changes/<name>/link.md` the link wrote — the canonical worktree's and the satellite's — in the worktree holding it | `chore(spectre): link <peer>` |
+ | After the merge-order record write in `flow.isolate-workspace` (`skills/flow/implement.md`) | each `<project>/spectre/changes/<name>/link.md` that write created or extended — the canonical worktree's | `chore(spectre): merge order` |
+-| Before every reviewer dispatch — a gated per-task reviewer bundle, a panel round, a re-run | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — before review` |
++| Before every reviewer dispatch — a gated per-task reviewer bundle, a panel round, a re-run — and before the panel's base sync (**Check base movement first**, `skills/flow/review-panel.md`) | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — before review` |
+ | `flow.document-fix` has appended a fix run's tasks, before the first implementer dispatch | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — fix-run tasks` |
+ | `flow.write-in-progress` has appended the narrative, before the handoff | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — narrative` |
+ 
+diff --git a/skills/flow/review-panel-fix-round.md b/skills/flow/review-panel-fix-round.md
+index e0e64307..12a498ff 100644
+--- a/skills/flow/review-panel-fix-round.md
++++ b/skills/flow/review-panel-fix-round.md
+@@ -14,7 +14,8 @@ per-worktree `sync-panel-base.sh` call, with that section's
+ verdicts, automatic no-overlap rebase, overlap prompt and conflict handling unchanged — a `MOVED`
+ with no overlap rebases unasked at a round boundary just as at entry.** **Continue** at a round
+ boundary proceeds into the round's own remaining steps — the citation pre-check that follows the
+-entry check is an entry step, and the round does not re-run it.
++entry check is an entry step, and the round does not re-run it. The section's before-review planning
++commit comes first at a round boundary too.
+ 
+ **Pass 1 runs the roster **The docs-only reduction** or **The late-fix reduction** chose — the
+ resolved roster, `primary` alone on a docs-only branch, or `primary` alone on the late-fix delta
+diff --git a/skills/flow/review-panel.md b/skills/flow/review-panel.md
+index 91a6db1c..3258ae16 100644
+--- a/skills/flow/review-panel.md
++++ b/skills/flow/review-panel.md
+@@ -23,6 +23,12 @@ more — so a later run never reuses a round an earlier run of the change alread
+ 
+ ## Check base movement first
+ 
++**The before-review planning commit comes first.** Before the script below runs in any worktree,
++the parent makes the before-review planning commit (**Planning commits**,
++`skills/flow-contracts/git-boundaries.md`): the script's rebase is a bare `git rebase`, which git
++refuses while the change's directory carries uncommitted ticks or notes, and the script reports
++that refusal as exit 2 (kan-1030).
++
+ Once per worktree in this run's resolved set (**Resolving a change's worktrees**,
+ `skills/flow-contracts/worktree-resolution.md`), on every panel run — creating, resumed, or fix:
+ 
