@@ -1,0 +1,45 @@
+# Sentences kan-1030 adds or rewords on purpose: the auto-land default after IN_PROGRESS,
+# the reviewBeforeLanding field, the review-before-landing instruction and the narrowed re-entrancy rule.
+**A handoff that leaves the change at `IN_PROGRESS`, or at `STARTED` once the plan gate answered Yes, puts `/clear` on the line above the next command.
+**Concretely: never chain straight from a fix, a mid-turn question, or a dispatched-agent report into integrate's unfinished-work gate, its landing question, or any git action the chosen route performs — even when the operator's own words include "merge and push" — without the turn first ending and a fresh bare invocation starting it.
+**The bare invocation that starts integrate must be an actual new `/flow` (or `/flow <name>`) command from the operator — never inferred from anything said inside a still-running turn.
+**This block is the whole handoff of a creating, resuming or fix run that ends at `IN_PROGRESS`** — no heading, no other field, and no summary or live-stack line before it (**Summary and live-stack line, before every handoff**, `skills/flow-contracts/pipeline.md`); bullets that changed after the guard — a visual-fix task, a re-verify — are recorded again as the block prints.
+/flow (STARTED, planned) → IN_PROGRESS you: review the staged diff — the stack is running
+/flow <fix instructions> → IN_PROGRESS (unchanged) you: review the staged diff — the stack is running
+An argument at `IN_PROGRESS` is a fix run; state unchanged.
+Carry `artifactUrl` (always `null` under `/flow`), `jiraIssue`, `planningEffort` (never written — `null` unless a legacy record holds a level), `models.default` (a legacy field, likewise never written — `/flow` resolves models from the settings store per run, never records a value into the per-change state) and `prUrl` forward verbatim.
+Loaded by `skills/flow/SKILL.md` on a **bare** invocation at `IN_PROGRESS` — no argument, or the change's name alone (**Change name resolution (all `/flow*` commands)**, `skills/flow-contracts/pipeline.md`).
+See **3. Documenting a fix, before implementing it** and then **The parent orchestrates directly** (`skills/flow/implement.md`).
+| *(gate)* | you | Creating run or fix: review the staged diff — the stack is running.
+| *(none — a plain message)* | `IN_PROGRESS`, in the session whose last `/flow` run marked the change | fix run; state unchanged — **A plain message at `IN_PROGRESS`** (`skills/flow/SKILL.md`) |
+| `/flow <name>` | `flow` | Single-command pipeline: no state creates the change and writes `STARTED`, then — same invocation — runs brainstorming (fully interactive) and implementation behind the review panel resolved from the settings store, ending at `IN_PROGRESS`.
+| `/flow` | `IN_PROGRESS`, with an argument other than the change's name | fix run; state unchanged |
+| `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still planning, or planning just finished — `/clear` handoff) or `IN_PROGRESS` (the plan was already ready); or `FINISHED` (withdrawn) on an explicit withdraw answer at a planless resume (**The withdrawal route**, `skills/flow/withdrawal.md`) |
+\## Review-before-landing instruction
+**A handoff printed at `IN_PROGRESS`, or at `STARTED` once the plan gate answered Yes, puts `/clear` on the line above the next command.
+**A plain-language instruction to review before landing, or to land without review, given at any point of any `/flow` run of the change — the creating run's planning included — is written to the record at once:**
+**Concretely: never chain straight from a fix, a mid-turn question, or a dispatched-agent report into integrate's unfinished-work gate, its landing question, or any git action the chosen route performs — even when the operator's own words include "merge and push" — without the turn first ending and a fresh bare invocation starting it**, save that sanctioned continuation.
+**The gate is opt-in per change:** a run that writes `IN_PROGRESS` stops there only when the record's `reviewBeforeLanding` is `true` (`state-file.md`); otherwise it continues into integrate in the same invocation (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`).
+**Then land straight away unless review was asked for.
+**This block is the whole handoff of a creating, resuming or fix run that stops at `IN_PROGRESS`** — no heading, no other field, and no summary or live-stack line before it (**Summary and live-stack line, before every handoff**, `skills/flow-contracts/pipeline.md`); bullets that changed after the guard — a visual-fix task, a re-verify — are recorded again as the block prints.
+/flow (STARTED, planned) → IN_PROGRESS or FINISHED lands straight away unless review-before-landing is set
+/flow <fix instructions> → IN_PROGRESS or FINISHED lands straight away unless review-before-landing is set
+A run that writes `IN_PROGRESS` continues into integrate in the same invocation unless the operator asked to review before landing, which keeps it at the gate.
+An argument at `IN_PROGRESS` is a fix run; state unchanged, and it lands the same way.
+An instruction given before **A.
+An operator instruction to review before landing, or to land without review, sets `reviewBeforeLanding` and is never itself an integrate trigger (**Review-before-landing instruction**, `skills/flow/SKILL.md`).
+Carry `artifactUrl` (always `null` under `/flow`), `jiraIssue`, `planningEffort` (never written — `null` unless a legacy record holds a level), `models.default` (a legacy field, likewise never written — `/flow` resolves models from the settings store per run, never records a value into the per-change state), `reviewBeforeLanding` and `prUrl` forward verbatim.
+It is never itself an integrate trigger: integrate still starts only at the run's own chain point or on a fresh bare `/flow` (**Every invocation is re-entrant**, `skills/flow-contracts/pipeline.md`).
+It is one line in the run's narrative and one `Decisions:` bullet.
+Re-read the record:
+The CLI carries the field byte-transparently, as it does `withdrawn`.
+The latest instruction wins.
+Written by any `/flow` run of the change the moment the operator asks to review before landing, or to land without review (**Review-before-landing instruction**, `skills/flow/SKILL.md`); every other write **carries it forward verbatim**.
+`reviewBeforeLanding` — `true` keeps a run that writes `IN_PROGRESS` at its review handoff; absent or `false`, the default, lets that run continue straight into integrate in the same invocation (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`).
+`true` prints the block below and ends the run.
+flow state get <name> | jq '.reviewBeforeLanding = <true|false>' | flow state set <name>
+flow state get <name> | jq -r '.reviewBeforeLanding // false'
+| *(gate)* | you | Creating run or fix with review-before-landing set: review the staged diff — the stack is running (otherwise it lands straight away).
+| `/flow <name>` | `flow` | Single-command pipeline: no state creates the change and writes `STARTED`, then — same invocation — runs brainstorming (fully interactive) and implementation behind the review panel resolved from the settings store, ending at `IN_PROGRESS` — or, unless review-before-landing is set, landing straight away in the same invocation.
+| `/flow` | `IN_PROGRESS`, with an argument other than the change's name | fix run; state unchanged — then, unless `reviewBeforeLanding` is `true`, integrate in the same invocation |
+| `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still planning, or planning just finished — `/clear` handoff) or, the plan already ready, as the implementation run ends — at `IN_PROGRESS` when `reviewBeforeLanding` is `true`, otherwise continuing into integrate and ending as an integrate run ends; or `FINISHED` (withdrawn) on an explicit withdraw answer at a planless resume (**The withdrawal route**, `skills/flow/withdrawal.md`) |
