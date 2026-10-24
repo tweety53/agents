@@ -200,23 +200,25 @@ func pclTaskMd(tick, n, build string) string {
 func TestCheckPlanningCommitAppendRunsPlanGuards(t *testing.T) {
 	t.Parallel()
 	env := Env{Getenv: os.Getenv}
-	head := "# demo\n\n" + pclTaskMd(" ", "1", "green")
+	green := "# demo\n\n" + pclTaskMd(" ", "1", "green")
+	pending := "# demo\n\n" + pclTaskMd(" ", "1", "pending")
 	for _, c := range []struct {
-		name, build, want string
-		rc                int
+		name, head, tree, want string
+		rc                     int
 	}{
-		{"an append reading Build pending is refused", "pending", `task 2 has a **Build:** line reading "pending"`, 1},
-		{"a well-formed append passes", "green", "", 0},
+		{"an append reading Build pending is refused", green, green + pclTaskMd(" ", "2", "pending"), `task 2 has a **Build:** line reading "pending"`, 1},
+		{"a well-formed append passes", green, green + pclTaskMd(" ", "2", "green"), "", 0},
+		{"a tick of an existing task alone runs neither guard", pending, "# demo\n\n" + pclTaskMd("x", "1", "pending"), "", 0},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			_, main := pclFx(t)
 			wt := main + "/.worktrees/demo"
 			var g fxGit
-			writeFile(t, wt+"/spectre/changes/demo/tasks.md", head)
+			writeFile(t, wt+"/spectre/changes/demo/tasks.md", c.head)
 			g.git(wt, "add", "-A")
 			g.git(wt, "commit", "-q", "-m", "plan")
-			writeFile(t, wt+"/spectre/changes/demo/tasks.md", head+pclTaskMd(" ", "2", c.build))
+			writeFile(t, wt+"/spectre/changes/demo/tasks.md", c.tree)
 			if g.err != nil {
 				t.Fatal(g.err)
 			}
