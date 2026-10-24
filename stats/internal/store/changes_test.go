@@ -142,6 +142,38 @@ func TestPutChangeWithdrawnRoundTrip(t *testing.T) {
 	}
 }
 
+func TestPutChangeReviewBeforeLandingRoundTrip(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	c := baseChange("agents", "review-before-landing-rt")
+	c.ReviewBeforeLanding = true
+	if err := st.PutChange(ctx, c); err != nil {
+		t.Fatalf("PutChange STARTED: %v", err)
+	}
+	got, err := st.GetChange(ctx, c.ProjectKey, c.Name)
+	if err != nil {
+		t.Fatalf("GetChange: %v", err)
+	}
+	if !got.ReviewBeforeLanding {
+		t.Errorf("ReviewBeforeLanding = false, want true")
+	}
+
+	c.State = store.StateInProgress
+	c.ReviewBeforeLanding = false
+	c.UpdatedAt = c.UpdatedAt.Add(time.Minute)
+	if err := st.PutChange(ctx, c); err != nil {
+		t.Fatalf("PutChange IN_PROGRESS: %v", err)
+	}
+	got, err = st.GetChange(ctx, c.ProjectKey, c.Name)
+	if err != nil {
+		t.Fatalf("GetChange after clear: %v", err)
+	}
+	if got.ReviewBeforeLanding {
+		t.Errorf("ReviewBeforeLanding = true after clearing, want false")
+	}
+}
+
 func TestPutChangeRefusesWithdrawnOutsideFinished(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()

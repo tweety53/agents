@@ -1,7 +1,9 @@
 # Integrate (run 1)
 
 Loaded by `skills/flow/SKILL.md` on a **bare** invocation at `IN_PROGRESS` — no argument, or the change's name alone (**Change
-name resolution (all `/flow*` commands)**, `skills/flow-contracts/pipeline.md`).
+name resolution (all `/flow*` commands)**, `skills/flow-contracts/pipeline.md`) — and by **Write
+`IN_PROGRESS`** (`skills/flow/verify-and-handoff.md`), which continues here in the same invocation
+when the record's `reviewBeforeLanding` is not `true`.
 
 ## Deciding which run this is
 

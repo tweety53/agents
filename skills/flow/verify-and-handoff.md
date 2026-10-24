@@ -516,12 +516,25 @@ add any entry still missing (a worktree added after the last incremental write) 
 proceeding. Carry `artifactUrl` (always `null` under `/flow`), `jiraIssue`, `planningEffort`
 (never written — `null` unless a legacy record holds a level), `models.default` (a legacy field,
 likewise never written — `/flow` resolves models from the settings
-store per run, never records a value into the per-change state) and `prUrl` forward verbatim.
+store per run, never records a value into the per-change state), `reviewBeforeLanding` and `prUrl`
+forward verbatim.
 The state file lives outside the repo — never `git add` it.
 
 ```bash
 flow stage end -command '/flow' -stage flow.write-in-progress -outcome completed <name>
 ```
+
+**Then land straight away unless review was asked for** — a run that lands re-records first any
+`**Summary:**` bullet changed after the guard, since no printed block records it again. Re-read the record:
+
+```bash
+flow state get <name> | jq -r '.reviewBeforeLanding // false'
+```
+
+`true` prints the block below and ends the run. Anything else prints no block and continues at **Deciding which run this is**
+(`skills/flow/integrate.md`) in the same turn, as if a bare `/flow <name>` had started it; that
+run prints its own handoff or stop. This is the one chain into integrate **Every invocation is
+re-entrant** (`skills/flow-contracts/pipeline.md`) sanctions.
 
 ```
 **Summary:**
@@ -545,7 +558,7 @@ Next:
 /flow <name>
 ```
 
-**This block is the whole handoff of a creating, resuming or fix run that ends at `IN_PROGRESS`**
+**This block is the whole handoff of a creating, resuming or fix run that stops at `IN_PROGRESS`**
 — no heading, no other field, and no summary or live-stack line before it (**Summary and
 live-stack line, before every handoff**, `skills/flow-contracts/pipeline.md`); bullets that changed after the guard — a visual-fix task, a re-verify — are recorded again as the block prints. A stop — a failure,
 a blocked step, a refused start, a `## Question` — prints as its own rule states, not this block.

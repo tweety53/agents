@@ -28,13 +28,16 @@ A change is always in exactly one of three states, recorded in its state file.
 ```text
 /flow  (no state)          → STARTED                  you: /clear, then /flow <name> to implement
 /flow  (reachability end)  → FINISHED (withdrawn)     nothing to plan — the operator may withdraw
-/flow  (STARTED, planned)  → IN_PROGRESS              you: review the staged diff — the stack is running
-/flow  <fix instructions>  → IN_PROGRESS (unchanged)  you: review the staged diff — the stack is running
+/flow  (STARTED, planned)  → IN_PROGRESS or FINISHED  lands straight away unless review-before-landing is set
+/flow  <fix instructions>  → IN_PROGRESS or FINISHED  lands straight away unless review-before-landing is set
 /flow  (bare, IN_PROGRESS) → IN_PROGRESS or FINISHED  terminal only on the merge-and-push route — see the finish contract
 ```
 
 **The human gate is a property of the state, not a separate stage.** `IN_PROGRESS` *means* a
 staged diff is waiting for the human to review, alongside a stack the handoff already started.
+**The gate is opt-in per change:** a run that writes `IN_PROGRESS` stops there only when the
+record's `reviewBeforeLanding` is `true` (`state-file.md`); otherwise it continues into integrate
+in the same invocation (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`).
 Nothing records that the review or the testing happened; the operator running the next
 command is what carries the change forward.
 
@@ -67,9 +70,9 @@ An argument that is none of those is **reported**, not silently ignored.
 | Command | Accepts | Ends at |
 |---------|---------|---------|
 | `/flow` | *(no state — creates the change)* | `STARTED` — the run ends at the plan gate with a `/clear` handoff (see **Resuming at `STARTED`** in `skills/flow/resume.md`); or `FINISHED` (withdrawn) when the reachability check ends the run and the operator answers the withdraw ask |
-| `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still planning, or planning just finished — `/clear` handoff) or `IN_PROGRESS` (the plan was already ready); or `FINISHED` (withdrawn) on an explicit withdraw answer at a planless resume (**The withdrawal route**, `skills/flow/withdrawal.md`) |
-| `/flow` | `IN_PROGRESS`, with an argument other than the change's name | fix run; state unchanged |
-| *(none — a plain message)* | `IN_PROGRESS`, in the session whose last `/flow` run marked the change | fix run; state unchanged — **A plain message at `IN_PROGRESS`** (`skills/flow/SKILL.md`) |
+| `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still planning, or planning just finished — `/clear` handoff) or, the plan already ready, as the implementation run ends — at `IN_PROGRESS` when `reviewBeforeLanding` is `true`, otherwise continuing into integrate and ending as an integrate run ends; or `FINISHED` (withdrawn) on an explicit withdraw answer at a planless resume (**The withdrawal route**, `skills/flow/withdrawal.md`) |
+| `/flow` | `IN_PROGRESS`, with an argument other than the change's name | fix run; state unchanged — then, unless `reviewBeforeLanding` is `true`, integrate in the same invocation |
+| *(none — a plain message)* | `IN_PROGRESS`, in the session whose last `/flow` run marked the change | fix run; state unchanged — **A plain message at `IN_PROGRESS`** (`skills/flow/SKILL.md`) — then, unless `reviewBeforeLanding` is `true`, integrate in the same invocation |
 | `/flow` | `IN_PROGRESS`, bare — or the change's name alone (**Change name resolution (all `/flow*` commands)**) | integrate run; ends at `IN_PROGRESS` (run 1) or `FINISHED` (run 1 chained into run 2) |
 | `/flow` | `FINISHED` | wrong-state handoff — the change is archived |
 | `/flow-status` | any — read-only, never block | unchanged |
@@ -80,8 +83,10 @@ Which phase file marks each `flow.*` key is **Stage keys** (`skills/flow/stage-k
 
 ### Every invocation is re-entrant
 
-**The bare invocation that starts integrate must be an actual new `/flow` (or `/flow <name>`)
-command from the operator — never inferred from anything said inside a still-running turn.** A
+**Integrate starts at exactly two points: an actual new bare `/flow` (or `/flow <name>`) command
+from the operator, or the continuation **Write `IN_PROGRESS`** (`skills/flow/verify-and-handoff.md`)
+makes when the record's `reviewBeforeLanding` is not `true` — never inferred from anything said
+inside a still-running turn.** A
 running `/flow` turn is mid fix run, mid a question the run itself asked, or simply still executing
 — and an instruction the operator gives during that turn, however explicit ("merge and push", "go
 ahead", an answer to an unrelated question with a trailing aside about landing the branch), is
@@ -90,7 +95,10 @@ conversation, not a re-invocation. This is what the human gate at `IN_PROGRESS`
 *command*, not a quiet moment in an ongoing one. **Concretely: never chain straight from a fix, a
 mid-turn question, or a dispatched-agent report into integrate's unfinished-work gate, its landing
 question, or any git action the chosen route performs — even when the operator's own words include
-"merge and push" — without the turn first ending and a fresh bare invocation starting it.** On a
+"merge and push" — without the turn first ending and a fresh bare invocation starting it**, save
+that sanctioned continuation. An operator instruction to review before landing, or to land without
+review, sets `reviewBeforeLanding` and is never itself an integrate trigger
+(**Review-before-landing instruction**, `skills/flow/SKILL.md`). On a
 mismatch, treat it exactly as **Wrong state for this command** below already requires: report what
 was said, name the bare re-invocation as what actually starts integrate, and stop rather than
 inferring consent.
@@ -412,7 +420,7 @@ Next:
   literally and whatever it was meant to fold spills into the output.
 - **The next command is the last line** — bare, copy-pasteable, with no prose after it. See
   **Handoff output** (`skills/flow-contracts/pipeline-rationale.md`) for why.
-- **A handoff that leaves the change at `IN_PROGRESS`, or at `STARTED` once the plan gate answered
+- **A handoff printed at `IN_PROGRESS`, or at `STARTED` once the plan gate answered
   Yes, puts `/clear` on the line above the next command.** It is a recommendation the operator may skip, never a gate, and the next
   command stays the last line.
 - **A bare invocation at `IN_PROGRESS` that opened a PR or handed off manually names itself** as the

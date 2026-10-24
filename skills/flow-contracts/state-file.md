@@ -70,7 +70,8 @@ reaches the network.
 }
 ```
 
-This is the whole wire shape `state get` prints and `state set` reads — the same shape the on-disk
+This is the whole wire shape `state get` prints and `state set` reads (`withdrawn` and `reviewBeforeLanding`
+are omitted when `false`) — the same shape the on-disk
 fallback file and each journal entry's payload carry, unchanged, so replay needs no translation
 step.
 
@@ -145,6 +146,13 @@ field is how it gets erased.
   (`store.ErrInvalidState`). The CLI carries the field byte-transparently — `state set` validates
   the object and the worktree values and forwards the body — so no CLI change writes it; `state
   get` prints it as stored.
+- `reviewBeforeLanding` — `true` keeps a run that writes `IN_PROGRESS` at its review handoff;
+  absent or `false`, the default, lets that run continue straight into integrate in the same
+  invocation (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`). Written by any `/flow`
+  run of the change the moment the operator asks to review before landing, or to land without
+  review (**Review-before-landing instruction**, `skills/flow/SKILL.md`); every other write
+  **carries it forward verbatim**. The CLI carries the field byte-transparently, as it does
+  `withdrawn`.
 - `updatedAt` — the ISO-8601 UTC instant of the last write, and **CLI-owned**: `flow state set`
   stamps it on every write from its own clock, at full precision, overwriting whatever value the
   payload carried. The stamped instant is the one the store row, the on-disk fallback file and the
