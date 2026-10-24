@@ -752,7 +752,10 @@ a test. A mutation no test catches is a
 withdrawn with a reason under the fix round's handback. A surviving mutant's reproducer carries the exact line
 `# mutation-reproducer` within its first 10 lines — the declaration
 `run-reproducer.sh` reads as the mutation convention, since the build succeeding
-with the mutation landed is the bug present, the reverse of the generic exit-code contract.
+with the mutation landed is the bug present, the reverse of the generic exit-code contract. Its
+tree is `$PWD`, the worktree `run-reproducer.sh` passes — never the slot's throwaway copy it was
+authored in, which is gone once the dispatch closes (kan-1022's F8 pointed at that copy and
+demonstrated nothing).
 
 ### Principles
 
