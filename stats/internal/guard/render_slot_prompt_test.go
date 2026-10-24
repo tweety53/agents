@@ -270,11 +270,21 @@ func TestRenderSlotPromptUnresolvedPlaceholder(t *testing.T) {
 	if _, err := os.Stat(fx.canon + "/.superpowers/sdd/slot-prompt-0-primary.md"); !os.IsNotExist(err) {
 		t.Errorf("a render with an unfilled placeholder was written: %v", err)
 	}
+}
 
-	// A mutation-alone dispatch renders the shared paragraphs and no PASS
-	// section — no ENTRY CONTEXT either, mutation reading no diff file — and
-	// the parent types the brief beside the rendered path.
-	r, _ = fx.run(t, real, real, "0", fx.canon, fx.plan, "mutation", "-diff", "final", "--", fx.canon)
+// TestRenderSlotPromptRendersMutationPass pins kan-1029's self-review: a
+// bundle naming mutation renders its PASS section — the mutation-testing
+// brief, its throwaway copies and its report file — where the render used
+// to leave it for the parent to type, and kan-1029's round 2 ran
+// failure-modes alone.
+func TestRenderSlotPromptRendersMutationPass(t *testing.T) {
+	t.Parallel()
+	real := rspSkillDir(t)
+	fx := rspNewFx(t)
+	// A mutation-alone dispatch renders the shared paragraphs and its PASS
+	// section — the mutation-testing brief and its throwaway copies — with no
+	// ENTRY CONTEXT, mutation reading no diff file (kan-1029's self-review).
+	r, _ := fx.run(t, real, real, "0", fx.canon, fx.plan, "mutation", "-diff", "final", "--", fx.canon)
 	wantMutation := fx.canon + "/.superpowers/sdd/slot-prompt-0-mutation.md"
 	if r.rc != 0 || strings.TrimSpace(r.stdout) != wantMutation {
 		t.Fatalf("mutation alone: exit %d stdout %q stderr %q; want 0 and %s", r.rc, r.stdout, r.err, wantMutation)
@@ -283,34 +293,35 @@ func TestRenderSlotPromptUnresolvedPlaceholder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, s := range []string{"**NO DELEGATION:**", "**WORKTREES:**"} {
+	for _, s := range []string{"**NO DELEGATION:**", "**WORKTREES:**", "## PASS mutation",
+		"**surviving mutant**", "`" + fx.canon + "-mutation-0`",
+		fx.canon + "/.superpowers/sdd/panel-report-0-mutation.md"} {
 		if !strings.Contains(string(mb), s) {
 			t.Errorf("mutation-alone render lacks %q", s)
 		}
 	}
-	for _, s := range []string{"## PASS", "**ENTRY CONTEXT:**"} {
-		if strings.Contains(string(mb), s) {
-			t.Errorf("mutation-alone render carries %q", s)
-		}
+	if strings.Contains(string(mb), "**ENTRY CONTEXT:**") {
+		t.Errorf("mutation-alone render carries **ENTRY CONTEXT:**")
 	}
-	// A bundle carrying mutation renders every other role and the shared
-	// INDEPENDENT PASSES paragraph, with no PASS section for mutation.
-	r, _ = fx.run(t, real, real, "0", fx.canon, fx.plan, "failure-modes+mutation", "-diff", "final", "--", fx.canon)
-	want := fx.canon + "/.superpowers/sdd/slot-prompt-0-failure-modes+mutation.md"
+	// A bundle carrying mutation renders every role's PASS section, mutation's
+	// last whatever the slot argument's order (the pipeline sends
+	// mutation+failure-modes), and the shared INDEPENDENT PASSES paragraph.
+	r, _ = fx.run(t, real, real, "0", fx.canon, fx.plan, "mutation+failure-modes", "-diff", "final", "--", fx.canon)
+	want := fx.canon + "/.superpowers/sdd/slot-prompt-0-mutation+failure-modes.md"
 	if r.rc != 0 || strings.TrimSpace(r.stdout) != want {
-		t.Fatalf("failure-modes+mutation: exit %d stdout %q stderr %q; want 0 and %s", r.rc, r.stdout, r.err, want)
+		t.Fatalf("mutation+failure-modes: exit %d stdout %q stderr %q; want 0 and %s", r.rc, r.stdout, r.err, want)
 	}
 	b, err := os.ReadFile(want)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, s := range []string{"**INDEPENDENT PASSES:**", "## PASS failure-modes"} {
+	for _, s := range []string{"**INDEPENDENT PASSES:**", "## PASS failure-modes", "## PASS mutation"} {
 		if !strings.Contains(string(b), s) {
-			t.Errorf("failure-modes+mutation render lacks %q", s)
+			t.Errorf("mutation+failure-modes render lacks %q", s)
 		}
 	}
-	if strings.Contains(string(b), "## PASS mutation") {
-		t.Errorf("failure-modes+mutation render carries a PASS mutation section")
+	if strings.Index(string(b), "## PASS failure-modes") > strings.Index(string(b), "## PASS mutation") {
+		t.Errorf("mutation+failure-modes render puts mutation's pass first")
 	}
 }
 

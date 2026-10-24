@@ -367,10 +367,10 @@ path. Its header (`<agents repo>/scripts/render-slot-prompt.sh`) is canonical fo
 writes: the shared paragraphs below, then one **PASS `<id>`** section per role in roster order,
 each with its own REPORT FILE line. Exit 0 prints the rendered path; exit 1 names a placeholder it
 could not fill, and exit 2 means it cannot answer — either stops the round before its launches.
-`mutation`'s pass is never rendered: its brief and its throwaway copy stay typed by the parent,
-beside the rendered path where a dispatch bundles it — the render still carries every other
-role's pass and the INDEPENDENT PASSES paragraph, and a dispatch carrying `mutation` alone renders
-the shared paragraphs and no PASS section, the brief typed beside that rendered path. The Agent call's prompt carries only the baseline
+`mutation`'s pass is rendered from **The mutation-testing brief** below and names its throwaway
+copies, `<worktree>-mutation-<round>` per repository; its MUTATION ENTRY CONTEXT paragraph and
+tests stay typed beside the rendered path (kan-1029: an unrendered mutation pass, bundled with
+`failure-modes`, never ran). The Agent call's prompt carries only the baseline
 pointer, MODEL HANDSHAKE, CONTEXT BUNDLE, the relocation-comparison pointer where one exists, the
 reproducer rule, GATE FOCUS where it applies, `read <rendered path> in full first — it is your brief`, and each role's REPORT FILE path — so a slot that answers without reading its brief still owes its file (kan-918: round 1's `primary+principles` re-run read only the diff and handed back in 14 seconds, writing neither report). The return message carries one findings summary per role under a heading naming the
 role; the parent records each finding under that role.

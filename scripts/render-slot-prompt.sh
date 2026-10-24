@@ -39,13 +39,14 @@
 # design.md (or `none`). -standard paths are [STANDARDS_PATHS]; empty when
 # none are given.
 #
-# `mutation`'s pass is never rendered: its brief and its throwaway copy stay
-# typed by the parent. A bundle naming it renders every other role, the
-# shared INDEPENDENT PASSES paragraph and a file name carrying the whole
-# bundle; a mutation-alone bundle renders the shared paragraphs and no PASS
-# section — the brief stays typed beside the rendered path. MODEL HANDSHAKE,
-# CONTEXT BUNDLE, the relocation-comparison
-# pointer and the reproducer rule stay typed in the Agent call too.
+# `mutation` has no template: its `## PASS mutation` section is the body of
+# review-panel.md's `### The mutation-testing brief`, one line naming its
+# throwaway copies — `<worktree>-mutation-<round>` per worktree given — and
+# its REPORT FILE block. It reads no diff file, so a mutation-alone render
+# carries no ENTRY CONTEXT and no touched list; review-panel.md carrying no
+# brief is exit 2. MUTATION ENTRY CONTEXT and its tests, MODEL HANDSHAKE,
+# CONTEXT BUNDLE, the relocation-comparison pointer and the reproducer rule
+# stay typed in the Agent call.
 #
 # Exit codes:
 #   0  written; its path on stdout

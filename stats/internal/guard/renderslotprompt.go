@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -84,11 +85,10 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 			return refuse("%q is not an absolute path — a subagent resolves every path it is given from its own directory", p)
 		}
 	}
-	// mutation's brief and throwaway copy stay typed by the parent, but a
-	// bundle naming it still gets every other role's pass, the shared
-	// INDEPENDENT PASSES paragraph and a file name carrying the whole bundle;
-	// a mutation-alone dispatch renders the shared paragraphs and no PASS
-	// section — the parent types the brief beside the rendered path.
+	// mutation has no template: its PASS section is review-panel.md's
+	// mutation-testing brief and the throwaway copies it mutates in
+	// (kan-1029's self-review: an unrendered mutation pass never ran). roles
+	// are the template slots, the ones reading a diff file.
 	slots := strings.Split(slotArg, "+")
 	var roles []string
 	for _, s := range slots {
@@ -245,7 +245,29 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	if !ok {
 		return 2
 	}
-	for _, id := range roles {
+	// The mutating pass runs last, whatever position the slot argument gives it
+	// (review-panel-optional-slots.md: mutation is always a bundle's last pass).
+	ordered := slices.DeleteFunc(slices.Clone(slots), func(s string) bool { return s == "mutation" })
+	if len(ordered) < len(slots) {
+		ordered = append(ordered, "mutation")
+	}
+	for _, id := range ordered {
+		if id == "mutation" {
+			brief := rspSection(panel, "### The mutation-testing brief")
+			if brief == "" {
+				return refuse("review-panel.md carries no mutation-testing brief")
+			}
+			copies := make([]string, len(wts))
+			for i, wt := range wts {
+				copies[i] = wt + "-mutation-" + round
+			}
+			emit("## PASS mutation")
+			emit(brief)
+			emit("Mutate and run the tests only in your throwaway copies, one per repository — `" +
+				strings.Join(copies, "`, `") + "` — never in the shared worktrees above.")
+			emit(strings.NewReplacer("<abs-worktree>", canon, "<round>", round, "<id>", id).Replace(report))
+			continue
+		}
 		tmplPath := skill + "/" + id + "-reviewer-prompt.md"
 		if name, ok := strings.CutPrefix(id, "exp-"); ok {
 			tmplPath = skill + "/experimental/" + name + ".md"
@@ -308,6 +330,23 @@ func rspBlock(src, label string) string {
 		out = append(out, l)
 	}
 	return strings.Join(out, "\n")
+}
+
+// rspSection is the body under heading in src: the lines after it up to the
+// next Markdown heading, trimmed; "" when src has no such heading.
+func rspSection(src, heading string) string {
+	_, after, found := strings.Cut(src, "\n"+heading+"\n")
+	if !found {
+		return ""
+	}
+	var out []string
+	for _, l := range strings.Split(after, "\n") {
+		if strings.HasPrefix(l, "#") {
+			break
+		}
+		out = append(out, l)
+	}
+	return strings.TrimSpace(strings.Join(out, "\n"))
 }
 
 // rspFenced is a template's first fenced body, each line's four-space
