@@ -162,7 +162,7 @@ after implement).
   - [ ] **Step 7: Commit both repairs** in `<backend wt>` as one commit, `chore(spectre): repair the kan-1015 plan's appended tasks and narrative`, with the Flow-Key trailer.
 
 **Build:** green
-**Files:** `stats/internal/guard/planningcommitlocation.go`, `stats/internal/guard/check_planning_commit_location_test.go`, `scripts/check-planning-commit-location.sh`, `spectre/changes/archive/kan-1015-templates-step-1-fe-templates-room-search-gym/tasks.md`, `spectre/changes/archive/kan-1015-templates-step-1-fe-templates-room-search-gym/narrative.md`
+**Files:** `stats/internal/guard/planningcommitlocation.go`, `stats/internal/guard/check_planning_commit_location_test.go`, `scripts/check-planning-commit-location.sh`
 **Tests:** `TestCheckPlanningCommitAppendRunsPlanGuards`
 **Regression:** `TestCheckPlanningCommitAppendRunsPlanGuards` — reverting lets an append with `**Build:** pending` pass the planning commit.
 **Baseline:** before=2 after=3
@@ -222,7 +222,7 @@ row carries one — the closing unscoped run is not recorded.
   - [ ] **Step 5: Commit** every file with the subject below.
 
 **Build:** green
-**Files:** `stats/internal/store/migrations/0046_dispatch_round_base.sql`, `stats/internal/store/records.go`, `stats/internal/store/records_test.go`, `stats/internal/records/types.go`, `stats/cmd/flow/record.go`, `stats/cmd/flowd/main.go`, `stats/internal/guard/visualverifydispatched.go`, `stats/internal/guard/check_visual_verify_dispatched_test.go`, `scripts/check-visual-verify-dispatched.sh`, `skills/flow/verify-fix-loop.md`
+**Files:** `stats/internal/store/migrations/0046_dispatch_round_base.sql`, `stats/internal/store/records.go`, `stats/internal/store/records_test.go`, `stats/internal/records/types.go`, `stats/cmd/flow/record.go`, `stats/internal/guard/visualverifydispatched.go`, `stats/internal/guard/check_visual_verify_dispatched_test.go`, `scripts/check-visual-verify-dispatched.sh`, `skills/flow/verify-fix-loop.md`
 **Allowed-collateral:** `stats/internal/store/*.go`, `stats/internal/server/**`
 **Tests:** `TestDispatchRoundBaseRoundTrips`, `TestCheckVisualVerifyDispatchedRefusesAScopedNewestVerifier`
 **Regression:** `TestCheckVisualVerifyDispatchedRefusesAScopedNewestVerifier` — reverting passes a change whose last verifier ran scoped; `TestDispatchRoundBaseRoundTrips` — reverting drops the column.
