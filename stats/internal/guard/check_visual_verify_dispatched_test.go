@@ -745,3 +745,17 @@ func TestCheckVisualVerifyDispatchedRefusesAScopedNewestVerifier(t *testing.T) {
 		t.Fatalf("unscoped newest: got exit %d stdout %q stderr %q, want exit 0 and the OK verdict", closed.code, closed.out, closed.err)
 	}
 }
+
+// TestCheckVisualVerifyDispatchedScopesTheNewestVerifierPerWorktree pins that
+// the newest verifier row is chosen among the rows this worktree resolves: a
+// newer scoped re-run of another worktree (a sha this one cannot resolve)
+// leaves this worktree's closing unscoped run standing.
+func TestCheckVisualVerifyDispatchedScopesTheNewestVerifierPerWorktree(t *testing.T) {
+	t.Parallel()
+	r := vvdRun(t, vvdCase{dispatches: []byte(`[` +
+		`{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"@HEAD@","startedAt":"2026-10-24T10:00:00Z"},` +
+		`{"key":"visual-verify-2","role":"verifier","outcome":"completed","diffBase":"0123456789abcdef0123456789abcdef01234567","roundBase":"c75529d2","startedAt":"2026-10-24T11:00:00Z"}]`)})
+	if r.code != 0 || !strings.HasPrefix(r.out, "VISUAL-VERIFY-OK: UI paths touched") {
+		t.Fatalf("got exit %d stdout %q stderr %q, want exit 0 and the OK verdict", r.code, r.out, r.err)
+	}
+}
