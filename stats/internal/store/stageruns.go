@@ -876,3 +876,17 @@ func (s *Store) SweepAbandoned(ctx context.Context, silentBefore time.Time) (int
 	}
 	return tag.RowsAffected(), nil
 }
+
+// RetokenStageRun sets a stage run's session_token -- the repair for a row
+// begun under a placeholder token (kan-1029's self-review: rows 17078 and
+// 17079 carry `mf-k1029-PLACEHOLDER`). An unknown id is ErrStageRunNotFound.
+func (s *Store) RetokenStageRun(ctx context.Context, id int64, sessionToken string) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE stage_runs SET session_token = $2 WHERE id = $1`, id, sessionToken)
+	if err != nil {
+		return fmt.Errorf("store: retoken stage run %d: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("%w: %d", ErrStageRunNotFound, id)
+	}
+	return nil
+}

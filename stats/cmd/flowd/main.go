@@ -116,6 +116,14 @@ func main() {
 		return
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == "retoken-stage-run" {
+		if err := retokenStageRun(os.Args[2:]); err != nil {
+			logger.Error("flowd retoken-stage-run failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "unflag-verdict" {
 		if err := unflagVerdict(os.Args[2:]); err != nil {
 			logger.Error("flowd unflag-verdict failed", "error", err)
@@ -679,6 +687,31 @@ func foldDispatch(args []string) error {
 	}
 	defer st.Close()
 	return st.FoldDispatch(ctx, ids[0], ids[1])
+}
+
+// retokenStageRun implements `flowd retoken-stage-run <stage-run-id>
+// <session-token>` (store.Store.RetokenStageRun): the repair for a stage run
+// begun under a placeholder token (kan-1029's self-review). It talks to the
+// database directly, so it needs no running daemon.
+func retokenStageRun(args []string) error {
+	if len(args) != 2 {
+		return fmt.Errorf("usage: flowd retoken-stage-run <stage-run-id> <session-token>")
+	}
+	id, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("stage run id %q: %w", args[0], err)
+	}
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	st, err := store.Open(ctx, cfg.DSN)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	return st.RetokenStageRun(ctx, id, args[1])
 }
 
 // rekeyDispatch implements `flowd rekey-dispatch <dispatch-id> <key>`

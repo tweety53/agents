@@ -70,6 +70,8 @@ stage only.
 shell substitution ("$(...)", a backtick, or "$VAR"): the transcript
 records the command text before the shell expands it, so a substitution
 would be recorded identically by every caller and identify nothing.
+begin, wrap and mark also refuse a token that does not end in the run's
+start time, UTC to the second (-20261024T002513Z): exit 2.
 
 This CLI can only reject a substitution shape it can still see -- write
 -session-token $T (unquoted or double-quoted) and the calling shell expands
@@ -256,6 +258,25 @@ func validateSessionToken(sessionToken string) error {
 	return nil
 }
 
+// sessionTokenStampPattern is the run's UTC start time a stage mark's token
+// ends in -- Stage marks (skills/flow-contracts/pipeline.md).
+var sessionTokenStampPattern = regexp.MustCompile(`-\d{8}T\d{6}Z$`)
+
+// validateSessionTokenStamp refuses a stage mark's token that does not end in
+// the run's start time, UTC to the second (kan-1029's self-review:
+// `mf-k1029-PLACEHOLDER` was accepted and its rows bound to no run). Only the
+// stage marks check it: a record command's token is the same literal, and a
+// run that began before the rule switches to a stamped token at its next
+// mark, attributed to the same session as the old one.
+func validateSessionTokenStamp(sessionToken string) error {
+	if !sessionTokenStampPattern.MatchString(sessionToken) {
+		return fmt.Errorf("-session-token %q does not end in the run's start time, UTC to the second -- "+
+			"read it once with `date -u +%%Y%%m%%dT%%H%%M%%SZ` and type it as a literal, e.g. mf-k1029-20261024T002513Z, "+
+			"then use that token at every later mark of this run", sessionToken)
+	}
+	return nil
+}
+
 // stageJournalPath is where a stage mark's fallback intent is journalled:
 // beside the change's state file and its own state journal
 // (fallback.JournalFilePath), but under a distinct filename. This is
@@ -354,6 +375,10 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 		return 2
 	}
 	if err := validateSessionToken(*sessionTokenFlag); err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		return 2
+	}
+	if err := validateSessionTokenStamp(*sessionTokenFlag); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
 	}
@@ -740,6 +765,10 @@ func runStageWrap(ctx context.Context, args []string, stdin io.Reader, stdout, s
 		return 2
 	}
 	if err := validateSessionToken(*sessionTokenFlag); err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		return 2
+	}
+	if err := validateSessionTokenStamp(*sessionTokenFlag); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
 	}

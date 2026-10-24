@@ -2677,3 +2677,32 @@ func TestPriceClearsCostOnceOutputUnmeasured(t *testing.T) {
 		t.Errorf("models bucket cost_usd still present: %s", got.Metrics)
 	}
 }
+
+// TestRetokenStageRunSetsTheToken pins flowd retoken-stage-run's store half
+// (kan-1029's self-review); an unknown id is ErrStageRunNotFound.
+func TestRetokenStageRunSetsTheToken(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-retoken-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "flow.preflight")
+	in.SessionToken = ptr("mf-k1-PLACEHOLDER")
+	run, err := st.BeginStage(ctx, in)
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	if err := st.RetokenStageRun(ctx, run.ID, "mf-k1-20261024T002513Z"); err != nil {
+		t.Fatalf("RetokenStageRun: %v", err)
+	}
+	got, err := st.GetStageRun(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun: %v", err)
+	}
+	if got.SessionToken == nil || *got.SessionToken != "mf-k1-20261024T002513Z" {
+		t.Fatalf("session token = %v, want mf-k1-20261024T002513Z", got.SessionToken)
+	}
+	if err := st.RetokenStageRun(ctx, 1<<62, "x"); !errors.Is(err, store.ErrStageRunNotFound) {
+		t.Fatalf("RetokenStageRun unknown id: err = %v, want store.ErrStageRunNotFound", err)
+	}
+}
