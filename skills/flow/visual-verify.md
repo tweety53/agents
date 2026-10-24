@@ -336,6 +336,13 @@ with no strip under `<changeRoot>/visual-verification/motion/` or no entry in
 `visual-verification.md`, and a frame its strip shows breaking the motion step's rule, block as a
 departure would.**
 
+**A departure caused by missing seed data is fixed in the seed, never explained away.** When a
+frame shows an element the render lacks because the seeded account lacks the data that shows it —
+a grant, a template, a scheduled workout — the fix round extends the project's dev seed so the
+captured account carries that data, then re-captures. "Seed difference" is a cause only for
+content the frame draws with different values (names, counts, dates), never for an element the
+seed hides (gymie KAN-1015: A1's Group session row, hidden because the seed had no grant).
+
 **A position departure of at most 1dp — 2px at 2x — on a band or an element may stand, and only
 when all of these hold:** a fix round has already tried to close it at its source; the run records
 why no easy fix exists, such as a font's glyph metrics; `visual-verification.md` carries it beside

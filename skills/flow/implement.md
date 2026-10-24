@@ -967,6 +967,14 @@ whose slots are dispatched before the suite runs (**The pass-1 panel reads while
 above); the review panel's pre-work may share the last implementer's wait, in its one call. No
 panel verdict is taken, and no round after pass 1 is dispatched, on a red branch.
 
+**A finished phase is never a stop.** Once a task, a fix round or a re-capture closes clean,
+the same turn loads the next phase's file and dispatches its first step — the review panel after
+the last tick, verify after the panel. A phase file still to be read, the size of the next phase,
+or the context it will cost are never reasons to end the turn; the run ends only where
+`skills/flow-contracts/pipeline.md` names a stop — blocked, a human gate, or a question only the
+operator can settle (gymie KAN-1015: the parent ticked Tasks 15–19 and ended its turn with
+"the review panel is next").
+
 **Turn discipline.** A turn is spent only where an output must be read before the next action is
 chosen. Calls that do not depend on one another share one Bash call — every verdict printed, each
 read afterwards — and launches that do not depend on one another share one message. A stage's
