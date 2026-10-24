@@ -1,0 +1,187 @@
+diff --git a/scripts/render-slot-prompt.sh b/scripts/render-slot-prompt.sh
+index 05086ed2..3dbd07ed 100755
+--- a/scripts/render-slot-prompt.sh
++++ b/scripts/render-slot-prompt.sh
+@@ -39,13 +39,14 @@
+ # design.md (or `none`). -standard paths are [STANDARDS_PATHS]; empty when
+ # none are given.
+ #
+-# `mutation`'s pass is never rendered: its brief and its throwaway copy stay
+-# typed by the parent. A bundle naming it renders every other role, the
+-# shared INDEPENDENT PASSES paragraph and a file name carrying the whole
+-# bundle; a mutation-alone bundle renders the shared paragraphs and no PASS
+-# section — the brief stays typed beside the rendered path. MODEL HANDSHAKE,
+-# CONTEXT BUNDLE, the relocation-comparison
+-# pointer and the reproducer rule stay typed in the Agent call too.
++# `mutation` has no template: its `## PASS mutation` section is the body of
++# review-panel.md's `### The mutation-testing brief`, one line naming its
++# throwaway copies — `<worktree>-mutation-<round>` per worktree given — and
++# its REPORT FILE block. It reads no diff file, so a mutation-alone render
++# carries no ENTRY CONTEXT and no touched list; review-panel.md carrying no
++# brief is exit 2. MUTATION ENTRY CONTEXT and its tests, MODEL HANDSHAKE,
++# CONTEXT BUNDLE, the relocation-comparison pointer and the reproducer rule
++# stay typed in the Agent call.
+ #
+ # Exit codes:
+ #   0  written; its path on stdout
+diff --git a/skills/flow/review-panel.md b/skills/flow/review-panel.md
+index 282109b3..91a6db1c 100644
+--- a/skills/flow/review-panel.md
++++ b/skills/flow/review-panel.md
+@@ -367,10 +367,10 @@ path. Its header (`<agents repo>/scripts/render-slot-prompt.sh`) is canonical fo
+ writes: the shared paragraphs below, then one **PASS `<id>`** section per role in roster order,
+ each with its own REPORT FILE line. Exit 0 prints the rendered path; exit 1 names a placeholder it
+ could not fill, and exit 2 means it cannot answer — either stops the round before its launches.
+-`mutation`'s pass is never rendered: its brief and its throwaway copy stay typed by the parent,
+-beside the rendered path where a dispatch bundles it — the render still carries every other
+-role's pass and the INDEPENDENT PASSES paragraph, and a dispatch carrying `mutation` alone renders
+-the shared paragraphs and no PASS section, the brief typed beside that rendered path. The Agent call's prompt carries only the baseline
++`mutation`'s pass is rendered from **The mutation-testing brief** below and names its throwaway
++copies, `<worktree>-mutation-<round>` per repository; its MUTATION ENTRY CONTEXT paragraph and
++tests stay typed beside the rendered path (kan-1029: an unrendered mutation pass, bundled with
++`failure-modes`, never ran). The Agent call's prompt carries only the baseline
+ pointer, MODEL HANDSHAKE, CONTEXT BUNDLE, the relocation-comparison pointer where one exists, the
+ reproducer rule, GATE FOCUS where it applies, `read <rendered path> in full first — it is your brief`, and each role's REPORT FILE path — so a slot that answers without reading its brief still owes its file (kan-918: round 1's `primary+principles` re-run read only the diff and handed back in 14 seconds, writing neither report). The return message carries one findings summary per role under a heading naming the
+ role; the parent records each finding under that role.
+diff --git a/stats/internal/guard/render_slot_prompt_test.go b/stats/internal/guard/render_slot_prompt_test.go
+index 6fbeca8b..54c07852 100644
+--- a/stats/internal/guard/render_slot_prompt_test.go
++++ b/stats/internal/guard/render_slot_prompt_test.go
+@@ -270,11 +270,21 @@ func TestRenderSlotPromptUnresolvedPlaceholder(t *testing.T) {
+ 	if _, err := os.Stat(fx.canon + "/.superpowers/sdd/slot-prompt-0-primary.md"); !os.IsNotExist(err) {
+ 		t.Errorf("a render with an unfilled placeholder was written: %v", err)
+ 	}
++}
+ 
+-	// A mutation-alone dispatch renders the shared paragraphs and no PASS
+-	// section — no ENTRY CONTEXT either, mutation reading no diff file — and
+-	// the parent types the brief beside the rendered path.
+-	r, _ = fx.run(t, real, real, "0", fx.canon, fx.plan, "mutation", "-diff", "final", "--", fx.canon)
++// TestRenderSlotPromptRendersMutationPass pins kan-1029's self-review: a
++// bundle naming mutation renders its PASS section — the mutation-testing
++// brief, its throwaway copies and its report file — where the render used
++// to leave it for the parent to type, and kan-1029's round 2 ran
++// failure-modes alone.
++func TestRenderSlotPromptRendersMutationPass(t *testing.T) {
++	t.Parallel()
++	real := rspSkillDir(t)
++	fx := rspNewFx(t)
++	// A mutation-alone dispatch renders the shared paragraphs and its PASS
++	// section — the mutation-testing brief and its throwaway copies — with no
++	// ENTRY CONTEXT, mutation reading no diff file (kan-1029's self-review).
++	r, _ := fx.run(t, real, real, "0", fx.canon, fx.plan, "mutation", "-diff", "final", "--", fx.canon)
+ 	wantMutation := fx.canon + "/.superpowers/sdd/slot-prompt-0-mutation.md"
+ 	if r.rc != 0 || strings.TrimSpace(r.stdout) != wantMutation {
+ 		t.Fatalf("mutation alone: exit %d stdout %q stderr %q; want 0 and %s", r.rc, r.stdout, r.err, wantMutation)
+@@ -283,18 +293,18 @@ func TestRenderSlotPromptUnresolvedPlaceholder(t *testing.T) {
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+-	for _, s := range []string{"**NO DELEGATION:**", "**WORKTREES:**"} {
++	for _, s := range []string{"**NO DELEGATION:**", "**WORKTREES:**", "## PASS mutation",
++		"**surviving mutant**", "`" + fx.canon + "-mutation-0`",
++		fx.canon + "/.superpowers/sdd/panel-report-0-mutation.md"} {
+ 		if !strings.Contains(string(mb), s) {
+ 			t.Errorf("mutation-alone render lacks %q", s)
+ 		}
+ 	}
+-	for _, s := range []string{"## PASS", "**ENTRY CONTEXT:**"} {
+-		if strings.Contains(string(mb), s) {
+-			t.Errorf("mutation-alone render carries %q", s)
+-		}
++	if strings.Contains(string(mb), "**ENTRY CONTEXT:**") {
++		t.Errorf("mutation-alone render carries **ENTRY CONTEXT:**")
+ 	}
+-	// A bundle carrying mutation renders every other role and the shared
+-	// INDEPENDENT PASSES paragraph, with no PASS section for mutation.
++	// A bundle carrying mutation renders every role's PASS section, in the
++	// order given, and the shared INDEPENDENT PASSES paragraph.
+ 	r, _ = fx.run(t, real, real, "0", fx.canon, fx.plan, "failure-modes+mutation", "-diff", "final", "--", fx.canon)
+ 	want := fx.canon + "/.superpowers/sdd/slot-prompt-0-failure-modes+mutation.md"
+ 	if r.rc != 0 || strings.TrimSpace(r.stdout) != want {
+@@ -304,13 +314,13 @@ func TestRenderSlotPromptUnresolvedPlaceholder(t *testing.T) {
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+-	for _, s := range []string{"**INDEPENDENT PASSES:**", "## PASS failure-modes"} {
++	for _, s := range []string{"**INDEPENDENT PASSES:**", "## PASS failure-modes", "## PASS mutation"} {
+ 		if !strings.Contains(string(b), s) {
+ 			t.Errorf("failure-modes+mutation render lacks %q", s)
+ 		}
+ 	}
+-	if strings.Contains(string(b), "## PASS mutation") {
+-		t.Errorf("failure-modes+mutation render carries a PASS mutation section")
++	if strings.Index(string(b), "## PASS failure-modes") > strings.Index(string(b), "## PASS mutation") {
++		t.Errorf("failure-modes+mutation render puts mutation's pass first")
+ 	}
+ }
+ 
+diff --git a/stats/internal/guard/renderslotprompt.go b/stats/internal/guard/renderslotprompt.go
+index 6096d391..8a98f090 100644
+--- a/stats/internal/guard/renderslotprompt.go
++++ b/stats/internal/guard/renderslotprompt.go
+@@ -84,11 +84,10 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
+ 			return refuse("%q is not an absolute path — a subagent resolves every path it is given from its own directory", p)
+ 		}
+ 	}
+-	// mutation's brief and throwaway copy stay typed by the parent, but a
+-	// bundle naming it still gets every other role's pass, the shared
+-	// INDEPENDENT PASSES paragraph and a file name carrying the whole bundle;
+-	// a mutation-alone dispatch renders the shared paragraphs and no PASS
+-	// section — the parent types the brief beside the rendered path.
++	// mutation has no template: its PASS section is review-panel.md's
++	// mutation-testing brief and the throwaway copies it mutates in
++	// (kan-1029's self-review: an unrendered mutation pass never ran). roles
++	// are the template slots, the ones reading a diff file.
+ 	slots := strings.Split(slotArg, "+")
+ 	var roles []string
+ 	for _, s := range slots {
+@@ -245,7 +244,23 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
+ 	if !ok {
+ 		return 2
+ 	}
+-	for _, id := range roles {
++	for _, id := range slots {
++		if id == "mutation" {
++			brief := rspSection(panel, "### The mutation-testing brief")
++			if brief == "" {
++				return refuse("review-panel.md carries no mutation-testing brief")
++			}
++			copies := make([]string, len(wts))
++			for i, wt := range wts {
++				copies[i] = wt + "-mutation-" + round
++			}
++			emit("## PASS mutation")
++			emit(brief)
++			emit("Mutate and run the tests only in your throwaway copies, one per repository — `" +
++				strings.Join(copies, "`, `") + "` — never in the shared worktrees above.")
++			emit(strings.NewReplacer("<abs-worktree>", canon, "<round>", round, "<id>", id).Replace(report))
++			continue
++		}
+ 		tmplPath := skill + "/" + id + "-reviewer-prompt.md"
+ 		if name, ok := strings.CutPrefix(id, "exp-"); ok {
+ 			tmplPath = skill + "/experimental/" + name + ".md"
+@@ -310,6 +325,23 @@ func rspBlock(src, label string) string {
+ 	return strings.Join(out, "\n")
+ }
+ 
++// rspSection is the body under heading in src: the lines after it up to the
++// next Markdown heading, trimmed; "" when src has no such heading.
++func rspSection(src, heading string) string {
++	_, after, found := strings.Cut(src, "\n"+heading+"\n")
++	if !found {
++		return ""
++	}
++	var out []string
++	for _, l := range strings.Split(after, "\n") {
++		if strings.HasPrefix(l, "#") {
++			break
++		}
++		out = append(out, l)
++	}
++	return strings.TrimSpace(strings.Join(out, "\n"))
++}
++
+ // rspFenced is a template's first fenced body, each line's four-space
+ // indent removed.
+ func rspFenced(src string) (string, bool) {

@@ -1,0 +1,45 @@
+diff --git a/gradle/dev-lifecycle.gradle.kts b/gradle/dev-lifecycle.gradle.kts
+index 9fc15b43..2481c760 100644
+--- a/gradle/dev-lifecycle.gradle.kts
++++ b/gradle/dev-lifecycle.gradle.kts
+@@ -2587,15 +2587,21 @@ tasks.register("devStatus") {
+     }
+ }
+ 
+-// The phone opens http://localhost:3000 over USB, so its 3000 (frontend), 8080 (gateway — the
+-// Google OAuth client is registered for these two) and 9000 (MinIO media URLs) are reversed onto the
+-// host's. The stack must be the operator's `devStart` without `-PisolateOAuthPorts`, which keeps
+-// those ports. adb runs from the home directory: its first call forks a server that keeps its
+-// caller's working directory, and one started inside a worktree blocks that worktree's removal.
++// The phone opens this workspace's frontend over USB, so the frontend's and the gateway's resolved
++// ports — the ones `devStatus` prints, 3000 and 8080 in the main checkout, moved under
++// `-PisolateOAuthPorts` — and 9000 (MinIO media URLs, never moved) are reversed onto the host's, each
++// to the same number. The same number, not 3000 and 8080 remapped: the page calls the gateway on the
++// port `gatewayPort.js` injected, and the gateway's CORS allows only the resolved frontend origin. A
++// moved stack therefore signs in by password; Google's OAuth client knows only 3000 and 8080. adb runs
++// from the home directory: its first call forks a server that keeps its caller's working directory,
++// and one started inside a worktree blocks that worktree's removal.
+ tasks.register("devPhone") {
+     group = "gymie dev"
+-    description = "Reverse 3000, 8080 and 9000 from the USB-connected Android phone onto this host"
++    description = "Reverse this workspace's frontend and gateway ports and 9000 from the USB-connected Android phone"
+     doLast {
++        val ports = project.resolveWorkspaceBlock(project.workspace(), emptySet()).ports
++        val frontend = ports.getValue("frontend")
++        val reversed = listOf(frontend, ports.getValue("gateway"), 9000)
+         val sdk = System.getenv("ANDROID_HOME") ?: "${System.getProperty("user.home")}/Library/Android/sdk"
+         val adb = "$sdk/platform-tools/adb"
+         val home = File(System.getProperty("user.home"))
+@@ -2606,8 +2612,10 @@ tasks.register("devPhone") {
+         }
+         run("start-server")
+         run("wait-for-device")
+-        listOf(3000, 8080, 9000).forEach { run("reverse", "tcp:$it", "tcp:$it") }
+-        logger.lifecycle("Phone ports 3000, 8080, 9000 reversed — open http://localhost:3000 in Chrome on the phone.")
++        reversed.forEach { run("reverse", "tcp:$it", "tcp:$it") }
++        logger.lifecycle(
++            "Phone ports ${reversed.joinToString(", ")} reversed — open http://localhost:$frontend in Chrome on the phone.",
++        )
+     }
+ }
+ 

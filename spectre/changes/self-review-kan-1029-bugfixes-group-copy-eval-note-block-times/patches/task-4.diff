@@ -1,0 +1,68 @@
+diff --git a/hooks/enforce-agent-baseline.py b/hooks/enforce-agent-baseline.py
+index 969de410..c0cc4205 100755
+--- a/hooks/enforce-agent-baseline.py
++++ b/hooks/enforce-agent-baseline.py
+@@ -24,8 +24,8 @@ self-review loop and dragged ~300k tokens of its own context into it).
+ 
+ It denies, in a flow session, a dispatch whose `description` does not open with its row: `Task
+ <x>/<n>` or `Tasks <a+b>/<n>` for plan tasks, else the row's literal `-key` (**Every dispatch's
+-Agent-tool `description`**, skills/flow/implement.md) -- the word the harvester stamps the launch
+-by. A loop dispatch, whose prompt carries a `Key: self-review-`/`Key: pipeline-fix-` line, is
++Agent-tool `description`**, skills/flow/implement.md), of a Key shape the closed list names -- the
++word the harvester stamps the launch by. A loop dispatch, whose prompt carries a `Key: self-review-`/`Key: pipeline-fix-` line, is
+ stamped by that line and exempt (kan-1026: 29 of 41 launches opened "Round-11 primary review" and
+ the like, and 14 ledger rows were left empty or stamped with another dispatch's agent).
+ 
+@@ -102,9 +102,19 @@ FLOW_HIGH_MARKERS = (
+ )
+ 
+ 
+-# A description naming its row: plan tasks by id over the plan's count, any other row by a key-shaped
+-# first word -- lowercase, no spaces (`panel-4-primary`, `visual-verify-fix-11-gymie`, `planner`).
+-ROW_DESCRIPTION = re.compile(r"Tasks? \d+(?:\+\d+)*/\d+(?:\s|$)|[a-z][a-z0-9+._-]*(?:\s|$)")
++# A description naming its row: plan tasks by id over the plan's count, any other row by a first
++# word of a Key shape the closed list names (**Dispatch sites -- the parent's closed list**,
++# skills/flow/implement.md) -- `panel-4-primary`, `visual-verify-fix-11-gymie`. A lowercase word off
++# the list -- `verify-fix-1`, `verify` -- names no row (kan-1029: both launched with no row).
++ROW_KEY = (
++    r"task-\d+(?:\+\d+)*-(?:implementer|reviewer)(?:-[a-z0-9-]+)?"
++    r"|panel-\d+-[a-z][a-z0-9+-]*"
++    r"|panel-fix-\d+(?:-\d+)?(?:-retry)?"
++    r"|visual-verify(?:-[a-z0-9][a-z0-9-]*)?"
++    r"|tooling-analysis-\d+"
++    r"|pipeline-fix-[a-z0-9][a-z0-9-]*"
++)
++ROW_DESCRIPTION = re.compile(r"(?:Tasks? \d+(?:\+\d+)*/\d+|" + ROW_KEY + r")(?:\s|$)")
+ # The loop key line exactly as the harvester reads it (loopKeyPattern, stats/internal/harvest/transcript.go).
+ LOOP_KEY_LINE = re.compile(r"^[ \t]*Key:[ \t]*(?:pipeline-fix|self-review)-\S+[ \t]*$", re.M)
+ 
+diff --git a/skills/flow/implement.md b/skills/flow/implement.md
+index 77496ee5..52ed595f 100644
+--- a/skills/flow/implement.md
++++ b/skills/flow/implement.md
+@@ -91,7 +91,9 @@ words, with no parentheses: `panel-1-primary correctness review`. The `flow-task
+ (`mods/flow-task-list/`) reads that prefix to number its row. The daemon stamps a launch onto the
+ row its description's first word names, so `hooks/enforce-agent-baseline.py` denies, in a flow run,
+ a dispatch whose description opens any other way (kan-1026: launches described `Round-11 primary
+-review` left their rows to time pairing, which stamped two with another dispatch's agent).
++review` left their rows to time pairing, which stamped two with another dispatch's agent). A first
++word off the **Key shape** column above is another way: kan-1029's `verify-fix-1` and `verify`
++launches recorded no row.
+ 
+ **Every dispatch is one-shot — a finished child is never resumed.** The parent never sends a
+ `SendMessage` to a child that has written its report. Whatever a
+diff --git a/stats/internal/repotest/enforce_agent_baseline_hook_test.go b/stats/internal/repotest/enforce_agent_baseline_hook_test.go
+index 360e486b..7fcef0dd 100644
+--- a/stats/internal/repotest/enforce_agent_baseline_hook_test.go
++++ b/stats/internal/repotest/enforce_agent_baseline_hook_test.go
+@@ -126,6 +126,10 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
+ 		{"13e a /flow loop dispatch carrying its Key line", hook, described("Self-review plan", "Key: self-review-x-plan\n"+baseline+" plan", "flow-medium", "opus", flowT), nil},
+ 		{"13f a prose description outside a flow session", hook, described("Round-11 primary review", baseline+" review the diff", "flow-low", "opus", statusT), nil},
+ 		{"13g a bare loop key prefix does not exempt", hook, described("Round-11 primary review", "Key: self-review-\n"+baseline+" plan", "flow-medium", "opus", flowT), []string{"opens with the row it records"}},
++		{"13i a /flow dispatch whose first word is off the closed list", hook, described("verify-fix-1 m3 m4 departures", baseline+" fix the departures", "flow-low", "opus", flowT), []string{"opens with the row it records"}},
++		{"13j a /flow dispatch opening with an inline key", hook, described("verify live check kan-1029", baseline+" run the live check", "flow-low", "opus", flowT), []string{"opens with the row it records"}},
++		{"13k a /flow verifier opening with its repository-suffixed key", hook, described("visual-verify-fix-11-gymie re-verify", baseline+" verify", "flow-low", "opus", flowT), nil},
++		{"13l a /flow panel-fix chunk", hook, described("panel-fix-2-3 chunk three", baseline+" fix", "flow-low", "opus", flowT), nil},
+ 		{"13h a loop key line with trailing words does not exempt", hook, described("Round-11 primary review", "Key: self-review-x more words\n"+baseline+" plan", "flow-medium", "opus", flowT), []string{"opens with the row it records"}},
+ 	}
+ 	for _, c := range cases {

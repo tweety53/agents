@@ -1,0 +1,19 @@
+diff --git a/.flow/project.md b/.flow/project.md
+index 238824dd..bb442eac 100644
+--- a/.flow/project.md
++++ b/.flow/project.md
+@@ -31,9 +31,13 @@ src="$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); ex
+ ## test
+ 
+ ```bash
+-./gradlew test allTests                                              # full suite
++./gradlew test allTests :shared:compileTestKotlinIosSimulatorArm64 -x :shared:iosSimulatorArm64Test   # full suite
+ ```
+ 
++Gymie ships as PWA and web only, so the suite excludes `:shared:iosSimulatorArm64Test`, whose
++`:shared:linkDebugTestIosSimulatorArm64` needs Xcode, and keeps the iOS test compile, which needs
++none and still catches common code that does not build for iOS.
++
+ A task's verify step runs the one-invocation verify bundle, `./gradlew verifyChange :shared:desktopTest --tests '<selectors>'`, its
+ `<selectors>` filled in. It is a template, not a command, so it stays out of
+ the fence: `run-verify-list.sh` runs every fence line literally, and refuses a `<word>` placeholder

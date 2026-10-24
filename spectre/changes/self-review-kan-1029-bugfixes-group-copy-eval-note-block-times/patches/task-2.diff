@@ -1,0 +1,560 @@
+diff --git a/skills/flow-contracts/pipeline.md b/skills/flow-contracts/pipeline.md
+index 8f0d0e76..23eadf8a 100644
+--- a/skills/flow-contracts/pipeline.md
++++ b/skills/flow-contracts/pipeline.md
+@@ -356,7 +356,10 @@ the run, before the first `stage begin`, and reuse that exact value at every lat
+ same run; do not invent a fresh one per mark. **The token ends in the run's start time, UTC to the
+ second** — read once with `date -u +%Y%m%dT%H%M%SZ` and typed as a literal, `mf-k1028-20261023T183402Z`
+ — so no two runs share one: a name-derived token alone repeats across sessions (kan-1028:
+-`mf-k1028b`, reused by a resumed run, collided with the dead session's rows). `-harness` names the harness actually running the mark
++`mf-k1028b`, reused by a resumed run, collided with the dead session's rows). `flow stage begin`,
++`wrap` and `mark` refuse a token that does not end so, exit 2; a run whose token predates the rule
++reads the clock then and marks under the stamped token from there on (kan-1029:
++`mf-k1029-PLACEHOLDER` was accepted). `-harness` names the harness actually running the mark
+ — `claude-code`, `zcode` or `muse`.
+ 
+ **Neither `-session-token` nor `-harness` is ever a hardcoded value in the skill text: both are
+diff --git a/stats/cmd/flow/stage.go b/stats/cmd/flow/stage.go
+index a1b1e514..ebf59b19 100644
+--- a/stats/cmd/flow/stage.go
++++ b/stats/cmd/flow/stage.go
+@@ -70,6 +70,8 @@ stage only.
+ shell substitution ("$(...)", a backtick, or "$VAR"): the transcript
+ records the command text before the shell expands it, so a substitution
+ would be recorded identically by every caller and identify nothing.
++begin, wrap and mark also refuse a token that does not end in the run's
++start time, UTC to the second (-20261024T002513Z): exit 2.
+ 
+ This CLI can only reject a substitution shape it can still see -- write
+ -session-token $T (unquoted or double-quoted) and the calling shell expands
+@@ -256,6 +258,25 @@ func validateSessionToken(sessionToken string) error {
+ 	return nil
+ }
+ 
++// sessionTokenStampPattern is the run's UTC start time a stage mark's token
++// ends in -- Stage marks (skills/flow-contracts/pipeline.md).
++var sessionTokenStampPattern = regexp.MustCompile(`-\d{8}T\d{6}Z$`)
++
++// validateSessionTokenStamp refuses a stage mark's token that does not end in
++// the run's start time, UTC to the second (kan-1029's self-review:
++// `mf-k1029-PLACEHOLDER` was accepted and its rows bound to no run). Only the
++// stage marks check it: a record command's token is the same literal, and a
++// run that began before the rule switches to a stamped token at its next
++// mark, attributed to the same session as the old one.
++func validateSessionTokenStamp(sessionToken string) error {
++	if !sessionTokenStampPattern.MatchString(sessionToken) {
++		return fmt.Errorf("-session-token %q does not end in the run's start time, UTC to the second -- "+
++			"read it once with `date -u +%%Y%%m%%dT%%H%%M%%SZ` and type it as a literal, e.g. mf-k1029-20261024T002513Z, "+
++			"then use that token at every later mark of this run", sessionToken)
++	}
++	return nil
++}
++
+ // stageJournalPath is where a stage mark's fallback intent is journalled:
+ // beside the change's state file and its own state journal
+ // (fallback.JournalFilePath), but under a distinct filename. This is
+@@ -357,6 +378,10 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
+ 		fmt.Fprintf(stderr, "flow: %v\n", err)
+ 		return 2
+ 	}
++	if err := validateSessionTokenStamp(*sessionTokenFlag); err != nil {
++		fmt.Fprintf(stderr, "flow: %v\n", err)
++		return 2
++	}
+ 
+ 	if err := stages.Validate(stages.Command(f.command), f.stage); err != nil {
+ 		fmt.Fprintf(stderr, "flow: %v\n", err)
+@@ -743,6 +768,10 @@ func runStageWrap(ctx context.Context, args []string, stdin io.Reader, stdout, s
+ 		fmt.Fprintf(stderr, "flow: %v\n", err)
+ 		return 2
+ 	}
++	if err := validateSessionTokenStamp(*sessionTokenFlag); err != nil {
++		fmt.Fprintf(stderr, "flow: %v\n", err)
++		return 2
++	}
+ 
+ 	if err := stages.Validate(stages.Command(f.command), f.stage); err != nil {
+ 		fmt.Fprintf(stderr, "flow: %v\n", err)
+diff --git a/stats/cmd/flow/stage_test.go b/stats/cmd/flow/stage_test.go
+index 2f6ad095..4a8b0b24 100644
+--- a/stats/cmd/flow/stage_test.go
++++ b/stats/cmd/flow/stage_test.go
+@@ -51,7 +51,7 @@ func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
+ 			"-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+ 			"-command", "/flow", "-stage", "flow.sdd-tdd",
+ 			"-harness", "claude-code", "-session", "sess-123",
+-			"-session-token", "mf-session-token-identity-abc",
++			"-session-token", "mf-session-token-identity-abc-20261024T000000Z",
+ 			"kan-16",
+ 		},
+ 		strings.NewReader(""), &stdout, &stderr)
+@@ -82,8 +82,8 @@ func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
+ 	if got["sessionId"] != "sess-123" {
+ 		t.Errorf("sessionId = %v, want sess-123", got["sessionId"])
+ 	}
+-	if got["sessionToken"] != "mf-session-token-identity-abc" {
+-		t.Errorf("sessionToken = %v, want mf-session-token-identity-abc", got["sessionToken"])
++	if got["sessionToken"] != "mf-session-token-identity-abc-20261024T000000Z" {
++		t.Errorf("sessionToken = %v, want mf-session-token-identity-abc-20261024T000000Z", got["sessionToken"])
+ 	}
+ 	if got["projectKey"] == nil || got["projectKey"] == "" {
+ 		t.Errorf("projectKey was not sent: %s", gotBody)
+@@ -117,7 +117,7 @@ func TestStageBeginDefaultsHarnessWhenUnset(t *testing.T) {
+ 	var stdout, stderr bytes.Buffer
+ 	code := run(context.Background(),
+ 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+-			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-default-harness", "kan-16"},
++			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-default-harness-20261024T000000Z", "kan-16"},
+ 		strings.NewReader(""), &stdout, &stderr)
+ 	if code != 0 {
+ 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+@@ -156,7 +156,7 @@ func TestStageBeginRejectsUndocumentedStageWithoutContactingStore(t *testing.T)
+ 	var stdout, stderr bytes.Buffer
+ 	code := run(context.Background(),
+ 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+-			"-command", "/flow", "-stage", "a stage nobody documented", "-session-token", "mf-session-token-undocumented-stage", "kan-16"},
++			"-command", "/flow", "-stage", "a stage nobody documented", "-session-token", "mf-session-token-undocumented-stage-20261024T000000Z", "kan-16"},
+ 		strings.NewReader(""), &stdout, &stderr)
+ 
+ 	if code != 2 {
+@@ -278,7 +278,7 @@ func TestStageBeginAcceptsLiteralSessionToken(t *testing.T) {
+ 	var stdout, stderr bytes.Buffer
+ 	code := run(context.Background(),
+ 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+-			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-20260814-abc123", "kan-16"},
++			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-20260814-abc123-20261024T000000Z", "kan-16"},
+ 		strings.NewReader(""), &stdout, &stderr)
+ 	if code != 0 {
+ 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+@@ -288,8 +288,8 @@ func TestStageBeginAcceptsLiteralSessionToken(t *testing.T) {
+ 	if err := json.Unmarshal(gotBody, &got); err != nil {
+ 		t.Fatalf("decode request body: %v", err)
+ 	}
+-	if got["sessionToken"] != "mf-20260814-abc123" {
+-		t.Errorf("sessionToken = %v, want mf-20260814-abc123", got["sessionToken"])
++	if got["sessionToken"] != "mf-20260814-abc123-20261024T000000Z" {
++		t.Errorf("sessionToken = %v, want mf-20260814-abc123-20261024T000000Z", got["sessionToken"])
+ 	}
+ }
+ 
+@@ -316,7 +316,7 @@ func TestStageBeginCannotDetectShellExpandedSessionToken(t *testing.T) {
+ 	// double-quoted $T -- ordinary characters, no "$", no backtick: this is
+ 	// what -session-token $T actually delivers to argv, not the literal
+ 	// text "$T" a caller reading the call site would assume was recorded.
+-	const expandedValue = "mf-20260815-142233-9f3c1a"
++	const expandedValue = "mf-20260815-142233-9f3c1a-20261024T000000Z"
+ 
+ 	var gotBody []byte
+ 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+@@ -374,7 +374,7 @@ func TestStageBeginDefaultsSessionFromClaudeCodeEnv(t *testing.T) {
+ 	var stdout, stderr bytes.Buffer
+ 	code := run(context.Background(),
+ 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+-			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-env-bind", "kan-16"},
++			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-env-bind-20261024T000000Z", "kan-16"},
+ 		strings.NewReader(""), &stdout, &stderr)
+ 	if code != 0 {
+ 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+@@ -387,8 +387,8 @@ func TestStageBeginDefaultsSessionFromClaudeCodeEnv(t *testing.T) {
+ 	if got["sessionId"] != "6af6b60e-72da-4615-8e3f-75d37bdf8f9d" {
+ 		t.Errorf("sessionId = %v, want the CLAUDE_CODE_SESSION_ID value", got["sessionId"])
+ 	}
+-	if got["sessionToken"] != "mf-session-token-env-bind" {
+-		t.Errorf("sessionToken = %v, want mf-session-token-env-bind", got["sessionToken"])
++	if got["sessionToken"] != "mf-session-token-env-bind-20261024T000000Z" {
++		t.Errorf("sessionToken = %v, want mf-session-token-env-bind-20261024T000000Z", got["sessionToken"])
+ 	}
+ }
+ 
+@@ -417,7 +417,7 @@ func TestStageBeginDefaultsSessionFromMuseEnv(t *testing.T) {
+ 	var stdout, stderr bytes.Buffer
+ 	code := run(context.Background(),
+ 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+-			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-muse-env", "kan-16"},
++			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-muse-env-20261024T000000Z", "kan-16"},
+ 		strings.NewReader(""), &stdout, &stderr)
+ 	if code != 0 {
+ 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+@@ -430,8 +430,8 @@ func TestStageBeginDefaultsSessionFromMuseEnv(t *testing.T) {
+ 	if got["sessionId"] != "01a1252a-531b-7a13-8cf8-0f07531311ea" {
+ 		t.Errorf("sessionId = %v, want the MUSE_SESSION_ID value", got["sessionId"])
+ 	}
+-	if got["sessionToken"] != "mf-session-token-muse-env" {
+-		t.Errorf("sessionToken = %v, want mf-session-token-muse-env", got["sessionToken"])
++	if got["sessionToken"] != "mf-session-token-muse-env-20261024T000000Z" {
++		t.Errorf("sessionToken = %v, want mf-session-token-muse-env-20261024T000000Z", got["sessionToken"])
+ 	}
+ }
+ 
+@@ -458,7 +458,7 @@ func TestStageBeginSessionFlagWinsOverClaudeCodeEnv(t *testing.T) {
+ 	code := run(context.Background(),
+ 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+ 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session", "sess-flag",
+-			"-session-token", "mf-session-token-flag-wins", "kan-16"},
++			"-session-token", "mf-session-token-flag-wins-20261024T000000Z", "kan-16"},
+ 		strings.NewReader(""), &stdout, &stderr)
+ 	if code != 0 {
+ 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+@@ -471,8 +471,8 @@ func TestStageBeginSessionFlagWinsOverClaudeCodeEnv(t *testing.T) {
+ 	if got["sessionId"] != "sess-flag" {
+ 		t.Errorf("sessionId = %v, want sess-flag (the flag must win over the env var)", got["sessionId"])
+ 	}
+-	if got["sessionToken"] != "mf-session-token-flag-wins" {
+-		t.Errorf("sessionToken = %v, want mf-session-token-flag-wins", got["sessionToken"])
++	if got["sessionToken"] != "mf-session-token-flag-wins-20261024T000000Z" {
++		t.Errorf("sessionToken = %v, want mf-session-token-flag-wins-20261024T000000Z", got["sessionToken"])
+ 	}
+ }
+ 
+@@ -502,7 +502,7 @@ func TestStageBeginOmitsSessionWhenEnvUnset(t *testing.T) {
+ 	var stdout, stderr bytes.Buffer
+ 	code := run(context.Background(),
+ 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+-			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-no-env", "kan-16"},
++			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-no-env-20261024T000000Z", "kan-16"},
+ 		strings.NewReader(""), &stdout, &stderr)
+ 	if code != 0 {
+ 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+@@ -640,7 +640,7 @@ func TestStageMarkFallsBackAndExitsZero(t *testing.T) {
+ 		var stdout, stderr bytes.Buffer
+ 		code := run(context.Background(),
+ 			[]string{"stage", "begin", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+-				"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-fallback-begin", "kan-16"},
++				"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-fallback-begin-20261024T000000Z", "kan-16"},
+ 			strings.NewReader(""), &stdout, &stderr)
+ 
+ 		if code != 0 {
+@@ -721,7 +721,7 @@ func TestStageMarkFallbackDoesNotTouchStateJournal(t *testing.T) {
+ 	var stdout, stderr bytes.Buffer
+ 	code := run(context.Background(),
+ 		[]string{"stage", "begin", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+-			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-fallback-journal", "kan-16"},
++			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-fallback-journal-20261024T000000Z", "kan-16"},
+ 		strings.NewReader(""), &stdout, &stderr)
+ 	if code != 0 {
+ 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+@@ -813,7 +813,7 @@ func TestRunStageWrapEndNoOpenRunNamesMissingBegin(t *testing.T) {
+ 	code := run(context.Background(),
+ 		[]string{"stage", "wrap", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+ 			"-command", "/flow-fast", "-stage", "flow.brainstorm", "-harness", "zcode",
+-			"-session-token", "ff-session-token-wrap-noopen", "kan-700-demo",
++			"-session-token", "ff-session-token-wrap-noopen-20261024T000000Z", "kan-700-demo",
+ 			"--", "sh", "-c", "true"},
+ 		strings.NewReader(""), &stdout, &stderr)
+ 
+@@ -884,7 +884,7 @@ func TestStageBeginJiraKeySendsAPlanSessionMark(t *testing.T) {
+ 	var stdout, stderr bytes.Buffer
+ 	code := run(context.Background(),
+ 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+-			"-command", "/flow-plan", "-stage", "plan.session", "-session-token", "fp-cli-plan", "-jira-key", "KAN-900"},
++			"-command", "/flow-plan", "-stage", "plan.session", "-session-token", "fp-cli-plan-20261024T000000Z", "-jira-key", "KAN-900"},
+ 		strings.NewReader(""), &stdout, &stderr)
+ 	if code != 0 {
+ 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+@@ -900,7 +900,7 @@ func TestStageBeginJiraKeyAndChangeNameTogetherIsAUsageError(t *testing.T) {
+ 	var stdout, stderr bytes.Buffer
+ 	code := run(context.Background(),
+ 		[]string{"stage", "begin", "-C", repo, "-command", "/flow-plan", "-stage", "plan.session",
+-			"-session-token", "fp-cli-plan", "-jira-key", "KAN-900", "kan-900-slug"},
++			"-session-token", "fp-cli-plan-20261024T000000Z", "-jira-key", "KAN-900", "kan-900-slug"},
+ 		strings.NewReader(""), &stdout, &stderr)
+ 	if code != 2 {
+ 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+@@ -941,7 +941,7 @@ func TestRunStageWrapRunsChildAndMarksPair(t *testing.T) {
+ 	code := run(context.Background(),
+ 		[]string{"stage", "wrap", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+ 			"-command", "/flow-fast", "-stage", "flow.brainstorm", "-harness", "zcode",
+-			"-session-token", "ff-session-token-wrap-happy", "kan-323",
++			"-session-token", "ff-session-token-wrap-happy-20261024T000000Z", "kan-323",
+ 			"--", "sh", "-c", "sleep 0.2; echo wrapped-output"},
+ 		strings.NewReader(""), &stdout, &stderr)
+ 
+@@ -978,8 +978,8 @@ func TestRunStageWrapRunsChildAndMarksPair(t *testing.T) {
+ 	if beginReq["stage"] != "flow.brainstorm" {
+ 		t.Errorf("begin stage = %v, want flow.brainstorm", beginReq["stage"])
+ 	}
+-	if beginReq["sessionToken"] != "ff-session-token-wrap-happy" {
+-		t.Errorf("begin sessionToken = %v, want ff-session-token-wrap-happy", beginReq["sessionToken"])
++	if beginReq["sessionToken"] != "ff-session-token-wrap-happy-20261024T000000Z" {
++		t.Errorf("begin sessionToken = %v, want ff-session-token-wrap-happy-20261024T000000Z", beginReq["sessionToken"])
+ 	}
+ 	if beginReq["startedAt"] == nil || beginReq["startedAt"] == "" {
+ 		t.Errorf("begin startedAt was not sent: %s", bodies["/api/v1/stages/begin"])
+@@ -1022,7 +1022,7 @@ func TestRunStageWrapChildFailureMarksFailedOutcome(t *testing.T) {
+ 	code := run(context.Background(),
+ 		[]string{"stage", "wrap", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+ 			"-command", "/flow-fast", "-stage", "flow.verify",
+-			"-session-token", "ff-session-token-wrap-fail", "kan-323",
++			"-session-token", "ff-session-token-wrap-fail-20261024T000000Z", "kan-323",
+ 			"--", "sh", "-c", "exit 3"},
+ 		strings.NewReader(""), &stdout, &stderr)
+ 
+@@ -1046,7 +1046,7 @@ func TestRunStageWrapStoreUnreachableStillRunsChild(t *testing.T) {
+ 	code := run(context.Background(),
+ 		[]string{"stage", "wrap", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+ 			"-command", "/flow-fast", "-stage", "flow.brainstorm",
+-			"-session-token", "ff-session-token-wrap-dead", "kan-323",
++			"-session-token", "ff-session-token-wrap-dead-20261024T000000Z", "kan-323",
+ 			"--", "sh", "-c", "echo wrapped-anyway"},
+ 		strings.NewReader(""), &stdout, &stderr)
+ 
+@@ -1093,11 +1093,11 @@ func TestRunStageWrapUsageErrorsRunNoChild(t *testing.T) {
+ 	}{
+ 		{"no separator", []string{
+ 			"-command", "/flow-fast", "-stage", "flow.brainstorm",
+-			"-session-token", "ff-session-token-wrap-nosep", "kan-323",
++			"-session-token", "ff-session-token-wrap-nosep-20261024T000000Z", "kan-323",
+ 			"sh", "-c", "echo should-not-run"}},
+ 		{"empty child", []string{
+ 			"-command", "/flow-fast", "-stage", "flow.brainstorm",
+-			"-session-token", "ff-session-token-wrap-empty", "kan-323", "--"}},
++			"-session-token", "ff-session-token-wrap-empty-20261024T000000Z", "kan-323", "--"}},
+ 		{"missing session token", []string{
+ 			"-command", "/flow-fast", "-stage", "flow.brainstorm", "kan-323",
+ 			"--", "sh", "-c", "echo should-not-run"}},
+@@ -1155,7 +1155,7 @@ func TestRunStageWrapUndocumentedStageRunsNoChild(t *testing.T) {
+ 	code := run(context.Background(),
+ 		[]string{"stage", "wrap", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+ 			"-command", "/flow-fast", "-stage", "a stage nobody documented",
+-			"-session-token", "ff-session-token-wrap-undoc", "kan-323",
++			"-session-token", "ff-session-token-wrap-undoc-20261024T000000Z", "kan-323",
+ 			"--", "sh", "-c", "echo should-not-run"},
+ 		strings.NewReader(""), &stdout, &stderr)
+ 
+@@ -1202,7 +1202,7 @@ func TestRunStageWrapContextCancelTerminatesChildAndExits143(t *testing.T) {
+ 	code := run(ctx,
+ 		[]string{"stage", "wrap", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+ 			"-command", "/flow-fast", "-stage", "flow.brainstorm",
+-			"-session-token", "ff-session-token-wrap-cancel", "kan-323",
++			"-session-token", "ff-session-token-wrap-cancel-20261024T000000Z", "kan-323",
+ 			"--", "sh", "-c", "sleep 30"},
+ 		strings.NewReader(""), &stdout, &stderr)
+ 
+@@ -1241,7 +1241,7 @@ func TestRunStageWrapContextCancelForceKillsChildIgnoringTerm(t *testing.T) {
+ 	code := run(ctx,
+ 		[]string{"stage", "wrap", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+ 			"-command", "/flow-fast", "-stage", "flow.verify",
+-			"-session-token", "ff-session-token-wrap-stubborn", "kan-323",
++			"-session-token", "ff-session-token-wrap-stubborn-20261024T000000Z", "kan-323",
+ 			"--", "sh", "-c", "trap \"\" TERM; sleep 30"},
+ 		strings.NewReader(""), &stdout, &stderr)
+ 
+@@ -1281,7 +1281,7 @@ func TestRunStageWrapChildKilledBySignalExitsConventional128PlusSig(t *testing.T
+ 			code := run(context.Background(),
+ 				[]string{"stage", "wrap", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+ 					"-command", "/flow-fast", "-stage", "flow.brainstorm",
+-					"-session-token", "ff-session-token-wrap-sigchild", "kan-323",
++					"-session-token", "ff-session-token-wrap-sigchild-20261024T000000Z", "kan-323",
+ 					"--", "sh", "-c", tc.kill},
+ 				strings.NewReader(""), &stdout, &stderr)
+ 
+@@ -1364,7 +1364,7 @@ func TestRunStageBeginWarnsOnSupersededRuns(t *testing.T) {
+ 			"stage", "begin",
+ 			"-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+ 			"-command", "/flow", "-stage", "flow.verify",
+-			"-harness", "claude-code", "-session-token", "ff-session-token-warn-abc",
++			"-harness", "claude-code", "-session-token", "ff-session-token-warn-abc-20261024T000000Z",
+ 			"kan-618",
+ 		},
+ 		strings.NewReader(""), &stdout, &stderr)
+@@ -1414,7 +1414,7 @@ func TestStageMarkBeginsAndEndsEachKey(t *testing.T) {
+ 	code := run(context.Background(),
+ 		[]string{"stage", "mark", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+ 			"-command", "/flow-fast", "-stages", "flow.preflight,flow.unfinished-work-gate", "-harness", "zcode",
+-			"-session-token", "ff-session-token-mark-happy", "kan-860"},
++			"-session-token", "ff-session-token-mark-happy-20261024T000000Z", "kan-860"},
+ 		strings.NewReader(""), &stdout, &stderr)
+ 
+ 	if code != 0 {
+@@ -1424,9 +1424,9 @@ func TestStageMarkBeginsAndEndsEachKey(t *testing.T) {
+ 		t.Errorf("stderr = %q, want empty on a clean success", stderr.String())
+ 	}
+ 	want := []string{
+-		"begin flow.preflight ff-session-token-mark-happy zcode kan-860",
++		"begin flow.preflight ff-session-token-mark-happy-20261024T000000Z zcode kan-860",
+ 		"end flow.preflight completed kan-860",
+-		"begin flow.unfinished-work-gate ff-session-token-mark-happy zcode kan-860",
++		"begin flow.unfinished-work-gate ff-session-token-mark-happy-20261024T000000Z zcode kan-860",
+ 		"end flow.unfinished-work-gate completed kan-860",
+ 	}
+ 	mu.Lock()
+@@ -1443,11 +1443,11 @@ func TestStageMarkBeginsAndEndsEachKey(t *testing.T) {
+ // missing -session-token are usage errors the same way.
+ func TestStageMarkValidatesAllKeysFirst(t *testing.T) {
+ 	cases := map[string][]string{
+-		"bad second key":  {"-stages", "flow.preflight,flow.no-such-stage", "-session-token", "ff-mark-bad-key"},
+-		"bad first key":   {"-stages", "flow.no-such-stage,flow.preflight", "-session-token", "ff-mark-bad-key"},
+-		"empty key":       {"-stages", "flow.preflight,", "-session-token", "ff-mark-empty-key"},
+-		"missing -stages": {"-session-token", "ff-mark-no-stages"},
+-		"stray -stage":    {"-stage", "flow.preflight", "-stages", "flow.preflight", "-session-token", "ff-mark-stray"},
++		"bad second key":  {"-stages", "flow.preflight,flow.no-such-stage", "-session-token", "ff-mark-bad-key-20261024T000000Z"},
++		"bad first key":   {"-stages", "flow.no-such-stage,flow.preflight", "-session-token", "ff-mark-bad-key-20261024T000000Z"},
++		"empty key":       {"-stages", "flow.preflight,", "-session-token", "ff-mark-empty-key-20261024T000000Z"},
++		"missing -stages": {"-session-token", "ff-mark-no-stages-20261024T000000Z"},
++		"stray -stage":    {"-stage", "flow.preflight", "-stages", "flow.preflight", "-session-token", "ff-mark-stray-20261024T000000Z"},
+ 		"missing token":   {"-stages", "flow.preflight"},
+ 	}
+ 	for name, extra := range cases {
+@@ -1495,7 +1495,7 @@ func TestStageMarkJournalFallback(t *testing.T) {
+ 	code := run(context.Background(),
+ 		[]string{"stage", "mark", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+ 			"-command", "/flow-fast", "-stages", "flow.preflight,flow.unfinished-work-gate",
+-			"-session-token", "ff-session-token-mark-dead", "kan-860"},
++			"-session-token", "ff-session-token-mark-dead-20261024T000000Z", "kan-860"},
+ 		strings.NewReader(""), &stdout, &stderr)
+ 
+ 	if code != 0 {
+@@ -1545,7 +1545,7 @@ func TestStageBeginTakesFlagsAfterTheChangeName(t *testing.T) {
+ 	base := []string{
+ 		"stage", "begin", "-addr", srv.URL, "-timeout", "500ms",
+ 		"-command", "/flow", "-stage", "flow.verify", "-harness", "h",
+-		"-session-token", "mf-x",
++		"-session-token", "mf-x-20261024T000000Z",
+ 	}
+ 	var stdout, stderr bytes.Buffer
+ 	code := run(context.Background(), append(append([]string{}, base...), "demo", "-C", repo),
+@@ -1677,3 +1677,34 @@ func TestStageEndFlowVerifyRunsLiveCheck(t *testing.T) {
+ 		})
+ 	}
+ }
++
++// TestStageBeginRefusesUnstampedSessionToken pins the token's UTC start-time
++// suffix (kan-1029's self-review: `mf-k1029-PLACEHOLDER` opened two stage
++// runs bound to no run). begin and wrap both refuse before any network call.
++func TestStageBeginRefusesUnstampedSessionToken(t *testing.T) {
++	for _, sub := range []string{"begin", "wrap"} {
++		for _, token := range []string{"mf-k1029-PLACEHOLDER", "mf-k1028b", "mf-k1029-20261024T002513"} {
++			t.Run(sub+" "+token, func(t *testing.T) {
++				repo := gitRepo(t)
++				isolatedStateRoot(t)
++				contacted := false
++				srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
++					contacted = true
++					_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
++				}))
++				defer srv.Close()
++
++				args := []string{"stage", sub, "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
++					"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", token, "kan-16"}
++				if sub == "wrap" {
++					args = append(args, "--", "true")
++				}
++				var stdout, stderr bytes.Buffer
++				code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
++				if code != 2 || contacted || !strings.Contains(stderr.String(), "UTC") {
++					t.Fatalf("exit=%d contacted=%v, want 2 and no store call; stderr:\n%s", code, contacted, stderr.String())
++				}
++			})
++		}
++	}
++}
+diff --git a/stats/cmd/flowd/main.go b/stats/cmd/flowd/main.go
+index 9f8d081c..58f2b377 100644
+--- a/stats/cmd/flowd/main.go
++++ b/stats/cmd/flowd/main.go
+@@ -116,6 +116,14 @@ func main() {
+ 		return
+ 	}
+ 
++	if len(os.Args) > 1 && os.Args[1] == "retoken-stage-run" {
++		if err := retokenStageRun(os.Args[2:]); err != nil {
++			logger.Error("flowd retoken-stage-run failed", "error", err)
++			os.Exit(1)
++		}
++		return
++	}
++
+ 	if len(os.Args) > 1 && os.Args[1] == "unflag-verdict" {
+ 		if err := unflagVerdict(os.Args[2:]); err != nil {
+ 			logger.Error("flowd unflag-verdict failed", "error", err)
+@@ -681,6 +689,31 @@ func foldDispatch(args []string) error {
+ 	return st.FoldDispatch(ctx, ids[0], ids[1])
+ }
+ 
++// retokenStageRun implements `flowd retoken-stage-run <stage-run-id>
++// <session-token>` (store.Store.RetokenStageRun): the repair for a stage run
++// begun under a placeholder token (kan-1029's self-review). It talks to the
++// database directly, so it needs no running daemon.
++func retokenStageRun(args []string) error {
++	if len(args) != 2 {
++		return fmt.Errorf("usage: flowd retoken-stage-run <stage-run-id> <session-token>")
++	}
++	id, err := strconv.ParseInt(args[0], 10, 64)
++	if err != nil {
++		return fmt.Errorf("stage run id %q: %w", args[0], err)
++	}
++	cfg, err := config.FromEnv()
++	if err != nil {
++		return err
++	}
++	ctx := context.Background()
++	st, err := store.Open(ctx, cfg.DSN)
++	if err != nil {
++		return err
++	}
++	defer st.Close()
++	return st.RetokenStageRun(ctx, id, args[1])
++}
++
+ // rekeyDispatch implements `flowd rekey-dispatch <dispatch-id> <key>`
+ // (store.Store.RekeyDispatch): the repair for a row whose key's suffix
+ // expanded to nothing (kan-1009's self-review). It talks to the database
+diff --git a/stats/internal/store/stageruns.go b/stats/internal/store/stageruns.go
+index f737cb0c..34b8512c 100644
+--- a/stats/internal/store/stageruns.go
++++ b/stats/internal/store/stageruns.go
+@@ -876,3 +876,17 @@ func (s *Store) SweepAbandoned(ctx context.Context, silentBefore time.Time) (int
+ 	}
+ 	return tag.RowsAffected(), nil
+ }
++
++// RetokenStageRun sets a stage run's session_token -- the repair for a row
++// begun under a placeholder token (kan-1029's self-review: rows 17078 and
++// 17079 carry `mf-k1029-PLACEHOLDER`). An unknown id is ErrStageRunNotFound.
++func (s *Store) RetokenStageRun(ctx context.Context, id int64, sessionToken string) error {
++	tag, err := s.pool.Exec(ctx, `UPDATE stage_runs SET session_token = $2 WHERE id = $1`, id, sessionToken)
++	if err != nil {
++		return fmt.Errorf("store: retoken stage run %d: %w", id, err)
++	}
++	if tag.RowsAffected() == 0 {
++		return fmt.Errorf("%w: %d", ErrStageRunNotFound, id)
++	}
++	return nil
++}
+diff --git a/stats/internal/store/stageruns_test.go b/stats/internal/store/stageruns_test.go
+index 6ad8e637..fca79c76 100644
+--- a/stats/internal/store/stageruns_test.go
++++ b/stats/internal/store/stageruns_test.go
+@@ -2677,3 +2677,32 @@ func TestPriceClearsCostOnceOutputUnmeasured(t *testing.T) {
+ 		t.Errorf("models bucket cost_usd still present: %s", got.Metrics)
+ 	}
+ }
++
++// TestRetokenStageRunSetsTheToken pins flowd retoken-stage-run's store half
++// (kan-1029's self-review); an unknown id is ErrStageRunNotFound.
++func TestRetokenStageRunSetsTheToken(t *testing.T) {
++	st := newTestStore(t)
++	ctx := context.Background()
++	projectKey := fmt.Sprintf("proj-retoken-%d", time.Now().UnixNano())
++	seedChange(t, st, projectKey, "kan-1")
++
++	in := baseBeginInput(projectKey, "kan-1", "/flow", "flow.preflight")
++	in.SessionToken = ptr("mf-k1-PLACEHOLDER")
++	run, err := st.BeginStage(ctx, in)
++	if err != nil {
++		t.Fatalf("BeginStage: %v", err)
++	}
++	if err := st.RetokenStageRun(ctx, run.ID, "mf-k1-20261024T002513Z"); err != nil {
++		t.Fatalf("RetokenStageRun: %v", err)
++	}
++	got, err := st.GetStageRun(ctx, run.ID)
++	if err != nil {
++		t.Fatalf("GetStageRun: %v", err)
++	}
++	if got.SessionToken == nil || *got.SessionToken != "mf-k1-20261024T002513Z" {
++		t.Fatalf("session token = %v, want mf-k1-20261024T002513Z", got.SessionToken)
++	}
++	if err := st.RetokenStageRun(ctx, 1<<62, "x"); !errors.Is(err, store.ErrStageRunNotFound) {
++		t.Fatalf("RetokenStageRun unknown id: err = %v, want store.ErrStageRunNotFound", err)
++	}
++}
