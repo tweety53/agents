@@ -37,6 +37,8 @@ package repotest
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -150,6 +152,102 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 			for _, s := range c.deny {
 				if !strings.Contains(out, s) {
 					t.Errorf("reason lacks %s (out=%s)", s, out)
+				}
+			}
+		})
+	}
+}
+
+// openRowFixture serves a store answering /api/v1/stage-runs with change c1 (status 500 when
+// fail), and a fake `flow` first on PATH printing rows (exiting 1 when rows is ""). It returns the
+// env the hook runs under and a file the fake `flow` touches when called.
+func openRowFixture(t *testing.T, rows string, fail bool) (env []string, called string) {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if fail || r.URL.Path != "/api/v1/stage-runs" || r.URL.Query().Get("session_id") != "s1" {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		_, _ = w.Write([]byte(`{"stageRuns":[{"changeName":"c1"}]}`))
+	}))
+	t.Cleanup(srv.Close)
+	bin := t.TempDir()
+	called = filepath.Join(bin, "called")
+	script := "#!/bin/sh\ntouch " + called + "\n"
+	if rows == "" {
+		script += "exit 1\n"
+	} else {
+		if err := os.WriteFile(filepath.Join(bin, "rows.json"), []byte(rows), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		script += "cat " + filepath.Join(bin, "rows.json") + "\n"
+	}
+	if err := os.WriteFile(filepath.Join(bin, "flow"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return []string{"FLOW_ADDR=" + srv.URL, "PATH=" + bin + string(os.PathListSeparator) + os.Getenv("PATH")}, called
+}
+
+// openRowPayload is a flow-session Agent payload for session s1 carrying the baseline pointer.
+func openRowPayload(t *testing.T, description, prompt string) []byte {
+	t.Helper()
+	tr := filepath.Join(t.TempDir(), "s1.jsonl")
+	if err := os.WriteFile(tr, []byte(`{"type":"user","message":{"content":"<command-name>/flow</command-name>"}}`+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	b, err := json.Marshal(map[string]any{
+		"tool_name":       "Agent",
+		"session_id":      "s1",
+		"cwd":             t.TempDir(),
+		"transcript_path": tr,
+		"tool_input": map[string]string{
+			"description":   description,
+			"prompt":        prompt + "\nBefore anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task. Include this instruction verbatim in any prompt you write for another agent.",
+			"subagent_type": "flow-low",
+			"model":         "opus",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+// TestEnforceAgentBaselineHookRequiresAnOpenRow pins the begun-row check: a flow dispatch the
+// store answers for with no open matching row is denied; every unanswered store, and a loop-key
+// dispatch, passes.
+func TestEnforceAgentBaselineHookRequiresAnOpenRow(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name, rows, description, prompt string
+		fail, deny                      bool
+	}{
+		{"open row", `[{"key":"panel-4-primary","outcome":""}]`, "panel-4-primary review", "review", false, false},
+		{"open row, null outcome", `[{"key":"panel-4-primary","outcome":null}]`, "panel-4-primary review", "review", false, false},
+		{"closed row", `[{"key":"panel-4-primary","outcome":"completed"}]`, "panel-4-primary review", "review", false, true},
+		{"no row", `[{"key":"panel-3-primary","outcome":""}]`, "panel-4-primary review", "review", false, true},
+		{"open task row", `[{"key":"task-3-implementer","outcome":""}]`, "Task 3/9 (x)", "implement", false, false},
+		{"task row of another task", `[{"key":"task-13-implementer","outcome":""}]`, "Task 3/9 (x)", "implement", false, true},
+		{"open group row", `[{"key":"task-1+3-implementer","outcome":""}]`, "Tasks 1+3/9 (x)", "implement", false, false},
+		{"flow exits 1", "", "panel-4-primary review", "review", false, false},
+		{"store answers 500", `[]`, "panel-4-primary review", "review", true, false},
+		{"loop key", `[]`, "Self-review fix", "Key: self-review-x-fix", false, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			env, called := openRowFixture(t, c.rows, c.fail)
+			out, _, rc := runHook(t, "enforce-agent-baseline.py", openRowPayload(t, c.description, c.prompt), env...)
+			denied := strings.Contains(out, `"permissionDecision": "deny"`)
+			if rc != 0 || denied != c.deny {
+				t.Fatalf("rc=%d deny=%v want %v out=%s", rc, denied, c.deny, out)
+			}
+			if c.deny && !strings.Contains(out, "flow record dispatch begin") {
+				t.Errorf("reason lacks the begin command: %s", out)
+			}
+			if c.name == "loop key" {
+				if _, err := os.Stat(called); err == nil {
+					t.Errorf("flow was called for a loop-key dispatch")
 				}
 			}
 		})

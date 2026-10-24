@@ -29,13 +29,23 @@ word the harvester stamps the launch by. A loop dispatch, whose prompt carries a
 stamped by that line and exempt (kan-1026: 29 of 41 launches opened "Round-11 primary review" and
 the like, and 14 ledger rows were left empty or stamped with another dispatch's agent).
 
+It denies, in a flow session, a dispatch whose row was never begun: the session's change is read
+off the store as flow-active-change.py reads it, `flow record dispatches` lists its rows, and a
+dispatch is denied when that list holds no open row (empty `outcome`) whose key is the
+description's first word or, for `Task <ids>/<n>`, starts with `task-<ids>-`. A loop-key dispatch
+is never checked. An unreachable store, no /flow stage-begin for the session, an absent or failing
+`flow` CLI, or an unparseable answer lets the dispatch through.
+
 Fails open: any unexpected input, parse error, or internal fault exits 0 and lets the
 dispatch through. A guardrail on a convention must never be the reason work stops.
 """
 
 import json
+import os
 import re
+import subprocess
 import sys
+from urllib import parse, request
 
 # The tool that spawns a subagent. Current builds name it "Agent"; older ones "Task".
 DISPATCH_TOOLS = {"Agent", "Task"}
@@ -135,6 +145,61 @@ def description_reason(payload: dict, tool_input: dict, prompt: str) -> "str | N
     if isinstance(description, str) and ROW_DESCRIPTION.match(description):
         return None
     return DESCRIPTION_REASON if in_flow_session(payload) else None
+
+
+TASK_DESCRIPTION = re.compile(r"Tasks? (\d+(?:\+\d+)*)/\d+")
+
+
+def session_change(session_id: str) -> "str | None":
+    addr = os.environ.get("FLOW_ADDR") or "http://127.0.0.1:4173"
+    query = parse.urlencode({"session_id": session_id, "command": "/flow", "sort": "-started_at", "limit": "1"})
+    with request.urlopen(f"{addr}/api/v1/stage-runs?{query}", timeout=2) as resp:
+        runs = json.load(resp).get("stageRuns")
+    name = runs[0].get("changeName") if isinstance(runs, list) and runs else None
+    return name if isinstance(name, str) and name else None
+
+
+def begin_row_reason(payload: dict, tool_input: dict, prompt: str) -> "str | None":
+    if LOOP_KEY_LINE.search(prompt):
+        return None
+    description = tool_input.get("description")
+    if not isinstance(description, str) or not ROW_DESCRIPTION.match(description):
+        return None
+    session_id, cwd = payload.get("session_id"), payload.get("cwd")
+    if not isinstance(session_id, str) or not session_id or not isinstance(cwd, str):
+        return None
+    if not in_flow_session(payload):
+        return None
+    try:
+        change = session_change(session_id)
+        if not change:
+            return None
+        done = subprocess.run(
+            ["flow", "record", "dispatches", "-change", change, "-C", cwd],
+            capture_output=True, text=True, timeout=5, check=False,
+        )
+        rows = json.loads(done.stdout) if done.returncode == 0 else None
+    except (OSError, ValueError, subprocess.SubprocessError, AttributeError):
+        return None
+    if not isinstance(rows, list):
+        return None
+    task = TASK_DESCRIPTION.match(description)
+    word = description.split()[0]
+    for row in rows:
+        if not isinstance(row, dict) or row.get("outcome"):
+            continue
+        key = row.get("key")
+        if not isinstance(key, str):
+            continue
+        if (key.startswith(f"task-{task.group(1)}-") if task else key == word):
+            return None
+    key = f"task-{task.group(1)}-implementer" if task else word
+    word = f"task-{task.group(1)}-" if task else word
+    return (
+        f"Dispatch blocked: no open ledger row for '{word}' in {change} — record it first with "
+        f"`flow record dispatch begin -change {change} -key {key} …` (skills/flow/implement.md), "
+        "then re-send this call unchanged."
+    )
 
 
 def in_flow_session(payload: dict) -> bool:
@@ -254,6 +319,7 @@ def main() -> int:
         pinned_role_reason(prompt, tool_input)
         or flow_high_reason(prompt, tool_input)
         or description_reason(payload, tool_input, prompt)
+        or begin_row_reason(payload, tool_input, prompt)
     )
     if reason:
         deny(reason)
