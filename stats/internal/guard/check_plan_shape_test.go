@@ -607,3 +607,22 @@ func psF15Repo(t *testing.T) string {
 	}
 	return repo
 }
+
+// TestCheckPlanShapeF11Reachability pins F11 to the After graph's paths:
+// task 3 and task 1 co-own a.go, and task 2 serialises them.
+func TestCheckPlanShapeF11Reachability(t *testing.T) {
+	t.Parallel()
+	env := Env{Getenv: os.Getenv}
+	task := func(n, file, after string) string {
+		return "- [ ] " + n + ". Task " + n + "\n\n**Files:** `" + file + "`\n**Tests:** `scripts/test-" + n + ".sh`\n**Commit:** `fix: task " + n + "`\n**After:** " + after + "\n\n"
+	}
+	head := task("1", "a.go", "none") + task("2", "b.go", "Task 1")
+	r := runGuard("check-plan-shape", []string{psFixture(t, head+task("3", "a.go", "Task 2"))}, env)
+	if r.rc != 0 || strings.Contains(r.out, "also names") {
+		t.Errorf("a path through task 2 orders tasks 1 and 3: rc=%d out=%q", r.rc, r.out)
+	}
+	r = runGuard("check-plan-shape", []string{psFixture(t, head+task("3", "a.go", "none"))}, env)
+	if r.rc != 1 || !strings.Contains(r.out, "task 3's **Files:** also names `a.go`, first named by task 1") {
+		t.Errorf("no path between tasks 1 and 3 is F11: rc=%d out=%q", r.rc, r.out)
+	}
+}

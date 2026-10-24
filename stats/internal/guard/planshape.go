@@ -100,8 +100,8 @@ import (
 //	    one-node cycle. A task whose fence never closes is skipped for
 //	    F7-F11; its field reads as absent, the serial default, exactly as
 //	    plan-dispatch-bundles resolves it.
-//	F11 A file named in more than one task's Files with no GATING declared
-//	    After edge between a co-owning pair, in either direction -- the
+//	F11 A file named in more than one task's Files with no path of GATING
+//	    declared After edges between a co-owning pair, in either direction -- the
 //	    shared-file conflict KAN-339's self-review recorded. The serial
 //	    default notes nothing and `none` declares independence, not an
 //	    order. Reported once per unordered pair at the LATER task's Files
@@ -559,7 +559,7 @@ func (p *psPlan) fileOwnership() []string {
 		for i := 1; i < len(ids); i++ {
 			later := ids[i]
 			for _, earlier := range ids[:i] {
-				unordered := !slices.Contains(declared[earlier], later) && !slices.Contains(declared[later], earlier)
+				unordered := !psReaches(declared, later, earlier) && !psReaches(declared, earlier, later)
 				if unordered && p.on("F11") {
 					line := filesLines[later]
 					if line == 0 {
@@ -571,6 +571,27 @@ func (p *psPlan) fileOwnership() []string {
 		}
 	}
 	return v
+}
+
+// psReaches answers whether to is reachable from from along declared After
+// edges, depth-first with a visited set.
+func psReaches(declared map[string][]string, from, to string) bool {
+	seen := map[string]bool{}
+	stack := []string{from}
+	for len(stack) > 0 {
+		n := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		for _, next := range declared[n] {
+			if next == to {
+				return true
+			}
+			if !seen[next] {
+				seen[next] = true
+				stack = append(stack, next)
+			}
+		}
+	}
+	return false
 }
 
 // afterReferences is F9 and F10 over the After fields: F9 a gating id
