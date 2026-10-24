@@ -180,6 +180,17 @@ func TestRebuildFullAppSuiteZip(t *testing.T) {
 		}
 	})
 
+	// The bash twin zips into any root, so the Go port runs alone (kan-1009:
+	// a backend main checkout given as the root kept a stray zip).
+	t.Run("case 8 a root no PNG lies under", func(t *testing.T) {
+		t.Parallel()
+		g, other := newTwin(t), t.TempDir()
+		r := runGo(g.root, g.root, other)
+		if _, err := os.Stat(filepath.Join(other, "full-app-suite.zip")); r.rc != 2 || err == nil || !strings.Contains(r.errOut, "outside <screenshots root>") {
+			t.Errorf("exit %d, zip stat err %v, stderr %q; want 2 and no zip", r.rc, err, r.errOut)
+		}
+	})
+
 	// The bash twin accepts a relative root, so the Go port runs alone.
 	t.Run("case 7 relative screenshots root", func(t *testing.T) {
 		t.Parallel()

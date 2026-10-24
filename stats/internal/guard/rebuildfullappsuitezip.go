@@ -18,8 +18,8 @@
 //
 // Exit 0 the zip is written; 1 the resolver matched no PNG (nothing written);
 // 2 cannot answer — a usage error, a relative <screenshots root> (it would land
-// under the caller's working directory), the resolver's own exit 2, or a
-// failing zip.
+// under the caller's working directory), a resolved PNG outside <screenshots
+// root> (another checkout's root), the resolver's own exit 2, or a failing zip.
 //
 // The resolver is exec'd from FLOW_GUARD_SCRIPT_DIR, the directory the shim
 // exports as its own. The archive is still Info-ZIP's `zip -q -X -j -@`, never
@@ -70,6 +70,17 @@ func rebuildFullAppSuiteZip(args []string, env Env, stdout, stderr io.Writer) in
 	// A resolver that cannot answer (exit 2) leaves the old zip alone: only a resolved list replaces it.
 	if rc == 2 {
 		return 2
+	}
+	// A root no resolved PNG lies under is the wrong root: zipping there
+	// leaves a stray archive in another checkout (kan-1009 wrote one into
+	// the backend main checkout). Refused before the old zip is touched.
+	if rc == 0 {
+		for _, png := range strings.Split(list, "\n") {
+			if !strings.HasPrefix(abs(png), filepath.Clean(args[1])+"/") {
+				fmt.Fprintf(stderr, "rebuild-full-app-suite-zip: %s lies outside <screenshots root> %s — pass `screenshots` resolved the way resolve-visual-screenshots.sh resolves it\n", png, args[1])
+				return 2
+			}
+		}
 	}
 	os.Remove(abs(zipPath))
 	if rc != 0 {
