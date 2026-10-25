@@ -656,6 +656,15 @@ func TestPlanShapeDesignSections(t *testing.T) {
 			t.Errorf("rc=%d out=%s", r.rc, r.out)
 		}
 	})
+	t.Run("an unreadable design.md names the read error", func(t *testing.T) {
+		p := psFixture(t, header+psTasks("a"))
+		if err := os.Mkdir(filepath.Dir(p)+"/design.md", 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if r := psMutant(p, ""); r.rc != 1 || !strings.Contains(r.out, "cannot read design.md") {
+			t.Errorf("rc=%d out=%s", r.rc, r.out)
+		}
+	})
 	t.Run("no header line is not checked", func(t *testing.T) {
 		if r := check(t, psTasks("a"), "# nothing\n"); r.rc != 0 {
 			t.Errorf("rc=%d out=%s", r.rc, r.out)
