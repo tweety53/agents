@@ -10,7 +10,11 @@
 # satellite, the loop's branch in another repository it carried a task into —
 # is read under the project of the agents checkout this script sits in, where
 # a loop run from that checkout files them; a FINISHED loop's rows still
-# admit its satellites, which land after its own branch.
+# admit its satellites, which land after its own branch. A self-review-*
+# branch whose diff from origin/HEAD touches only docs/prompt-tuning/ lands
+# without rows (LOOP-LANDING-OK … (prompt-tuning cases only)): it carries the
+# self-review's prompt-tuning cases and no code, so no review had anything to
+# judge.
 # hooks/protect-main-checkout.py runs it on a landing push typed by hand;
 # pipeline-fix.sh land runs the same check before its own push.
 #

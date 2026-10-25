@@ -16,6 +16,9 @@ import (
 // review, every row closed, the highest review `clean` -- no Critical or Important -- and
 // no red-line fix (`fix-v<v>`) after it. protect-main-checkout.py runs it on
 // a landing push typed by hand; pipeline-fix.sh land runs it before its own.
+// One admission skips the rows: a self-review-* branch whose diff from
+// origin/HEAD touches only docs/prompt-tuning/ carries prompt-tuning cases and
+// no code, so no loop review had anything to judge (kan-1032 design.md §4).
 func init() {
 	Registry["check-loop-landing"] = checkLoopLanding
 }
@@ -100,6 +103,26 @@ func lpLandingRefusals(lp lpLoop, rows []lpDispatch) []string {
 	return out
 }
 
+// lpPromptTuningOnly is whether branch's diff from origin/HEAD is non-empty
+// and every path lies under docs/prompt-tuning/.
+func lpPromptTuningOnly(env Env, git, repo, branch string) bool {
+	rc, base := kwRun(env, "", git, "-C", repo, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
+	if rc != 0 {
+		return false
+	}
+	rc, out := kwRun(env, "", git, "-C", repo, "diff", "--no-renames", "--name-only", strings.TrimSpace(base)+"..."+branch)
+	paths := strings.Fields(out)
+	if rc != 0 || len(paths) == 0 {
+		return false
+	}
+	for _, p := range paths {
+		if !strings.HasPrefix(p, "docs/prompt-tuning/") {
+			return false
+		}
+	}
+	return true
+}
+
 func checkLoopLanding(args []string, env Env, stdout, stderr io.Writer) int {
 	const self = "check-loop-landing"
 	if len(args) != 2 || args[0] == "" || args[1] == "" {
@@ -119,6 +142,10 @@ func checkLoopLanding(args []string, env Env, stdout, stderr io.Writer) int {
 	if !ok {
 		fmt.Fprintf(stderr, "%s: %s is not a git checkout\n", self, args[0])
 		return 2
+	}
+	if strings.HasPrefix(args[1], "self-review-") && lpPromptTuningOnly(env, git, smcAbs(env, args[0]), args[1]) {
+		fmt.Fprintf(stdout, "LOOP-LANDING-OK %s (prompt-tuning cases only)\n", args[1])
+		return 0
 	}
 	rows, ok := lpRows(env, main, lp)
 	if !ok && lpOwnBranch(args[1]) {

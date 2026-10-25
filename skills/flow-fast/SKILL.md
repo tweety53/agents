@@ -319,7 +319,7 @@ process lesson the run paid for is promoted to the
 lessons home (**Process lessons**, `skills/flow-contracts/lessons.md`).
 
 Over that bundle run steps 2–6 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`),
-canonical for the seven angles, the fix loop, where the fixes land — on `<name>` itself
+canonical for the eight angles, the fix loop, where the fixes land — on `<name>` itself
 when `<worktree>` is `<agents repo>`'s — the filing-and-rating prompt and the store rows. Write
 the report per that file's step 7, its `**Deferred:**` line naming `the in-run bundle` as the
 bundle path, then commit and push it through the landing chain, asserting the change branch:

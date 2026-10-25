@@ -10,7 +10,7 @@ Run a change's self-review reasoning pass — the only one the pipeline has — 
 `/flow`'s run 1 (**Run the self-review pass**,
 `skills/flow-contracts/finish-contract-run1.md`, canonical for that bundle's shape) or **5. Verify**
 (`skills/flow-fast/SKILL.md`) assembles: inside that run, or, as this standalone command, from the
-bundle an older run saved on the change branch before landing. This file is canonical for the seven angles, what is fixed, what may be filed and what may be mined, the
+bundle an older run saved on the change branch before landing. This file is canonical for the eight angles, what is fixed, what may be filed and what may be mined, the
 filing-and-rating prompt, the store record and the report. **Neither the pass nor its fixes run
 in this session**: step 2 dispatches the pass, and step 3 plans, fixes and reviews, each a one-shot
 dispatch on the pair this file names — never the model this session runs on.
@@ -36,7 +36,7 @@ checkout on any other branch: print the branch and stop.
 **Both refusals bind the standalone command only.** A pass run inside `/flow`'s integrate or
 `/flow-fast`'s verify holds its bundle in memory, runs on the change branch, and starts at step 2.
 
-### 2. Read the bundle and run the seven angles
+### 2. Read the bundle and run the eight angles
 
 Dispatch the pass, in-run and standalone alike: key `self-review-<name>-pass`, on the `pass` row
 of the pairs table (step 3), its prompt carrying the bundle in full (`<bundle>`
@@ -52,7 +52,7 @@ traced", "unverified" or a cause left unknown is never a classification: such a 
 step 3's planner as a non-`big` finding whose plan opens on the trace, never into the report or
 into the run's final report as an open item.
 
-The pass runs the seven-angle table over the bundle, every angle explicit —
+The pass runs the eight-angle table over the bundle, every angle explicit —
 present-but-empty for an angle with no findings, never omitted:
 
 | # | Angle | Label |
@@ -64,6 +64,7 @@ present-but-empty for an angle with no findings, never omitted:
 | 5 | What could move to the Go app or its persistent storage | `flow-stats-app` |
 | 6 | What can be sped up — wall-clock time the run spent waiting or working that a pipeline change would cut | `flow-speed` |
 | 7 | What would make a good flow-eval case — a task, a review finding or a visual pair from this run | `flow-eval` |
+| 8 | Instruction gaps that cost review-panel fix rounds, and the generic implementer or reviewer prompt update that would have avoided them | `flow-prompt-tuning` |
 
 Angle 5's remit covers the records the pipeline writes to files today and the derivation work
 now done in Bash or by the agent — **not** what the SPA should display. Angle 6 is elapsed time, where angle 2 is what a step spends: serial steps that could run in parallel, slow guards, builds or test runs, waits, and redundant re-runs. A silent angle and a
@@ -90,11 +91,64 @@ item offered, for mining in step 4. Angle 7 reads its candidates from the run's 
 run touched, product code included, and reads beyond the bundle only for the commits and files
 the bundle names.
 
+Angle 8 reads the run's review-panel findings, each judged alone on its own severity — no severity
+needs another alongside it. A Critical finding qualifies; an Important finding qualifies; a Minor
+finding qualifies only when the pass judges it genuinely useful, meaning it is in a class the
+prompts should handle and would recur. A finding is a case only when its root cause is a generic
+gap in instructions:
+
+- **`implementer`** — a rule in the implementer instructions (`skills/flow/implement.md`,
+  `skills/flow/sdd-dispatch.md`, `skills/flow/engineering-principles.md`) would have prevented the
+  bad code.
+- **`reviewer`** — either a **miss**, a defect raised only in a later round or by a later slot that
+  a round-1 reviewer instruction (`skills/flow/*-reviewer-prompt.md`,
+  `skills/flow/reviewer-calibration.md`) would have caught, or a **false positive**, a finding later
+  disproved or withdrawn that cost a fix round for nothing.
+
+Every case carries a `scope` along two independent axes, language and layer (`frontend` or
+`backend`), each pinned or left open:
+
+| `scope` | The rule holds in | Target |
+|---|---|---|
+| `generic` | every language, frontend and backend | the shared prompt under `skills/` |
+| `language:<lang>` | one language, frontend and backend | `rules/lang-<lang>.mdc` |
+| `layer:<frontend\|backend>` | one layer, every language | `rules/layer-<frontend\|backend>.mdc` |
+| `language:<lang>/layer:<frontend\|backend>` | one language on one layer | `rules/lang-<lang>-<frontend\|backend>.mdc` |
+
+`<lang>` is the lowercase language name (`kotlin`, `go`, `typescript`). An axis is pinned only when
+the rule would be wrong or meaningless without it: a rule true for both layers of a language leaves
+the layer open, and a rule true in every language on one layer leaves the language open. The test,
+per axis: would the rule still be true, word for word, in a project on the other layer, or in
+another language? If yes, that axis stays open. The pass picks the widest scope that is still true.
+Every `rules/` target is an opt-in rule file a project receives only by naming it in its
+`<project>/.flow/project.md` `## standards`; a scoped rule never goes into a shared prompt.
+
+A case is picked only when its `why_picked` states all four:
+
+1. The defect class in one sentence, with no names from the task.
+2. The current prompt text quoted, showing that no rule covers the class — the case's `target` and
+   its `before` are that quote.
+3. Why the update generalises: other code it would apply to, or other runs that show the class.
+   Being one vivid incident is never enough.
+4. Why the update is not patch accretion: it states a principle, not a special case.
+
+**Zero cases is a normal result** — the section then carries the none-marker like any empty angle.
+The pass never lowers the bar to produce a case; a finding that fails any of the four is not
+picked and not mentioned. Every case is recorded `noted` — never fixed in step 3, never offered
+for filing in step 4 and never asked about, in a run or standalone — its report line naming its
+folder:
+
+```
+- **[flow-prompt-tuning]** <defect class> — <type> — docs/prompt-tuning/<case-id>/ — noted
+```
+
+The pass returns each case's `case.json` fields (step 2a); it writes nothing.
+
 An `In-run pipeline fix:` line in the bundle (**Pipeline defects found mid-run**,
 `skills/flow-contracts/pipeline.md`) that names a sha is reported under angle 1 as fixed and
 is never offered for filing; one that reads `deferred` is an angle-1 finding like any other.
 
-**A finding is fixed or filed only from the seven angles.** A finding about the pipeline itself is
+**A finding is fixed or filed only from the eight angles.** A finding about the pipeline itself is
 fixed in step 3 unless it is `big`, and offered under its angle when it is. A finding that names no defect — what
 went well, under angle 3, or an observation with nothing to fix — is reported and recorded `noted`, never offered: **only a `big`
 finding, or one whose fix step 3 dropped, is ever offered for filing**. **An observation that names
@@ -107,11 +161,43 @@ config, guards — and nothing else.** A finding about the project's own product
 scope: it is never offered or filed, and goes to a fix run instead — a pass inside a run stops
 here, at the end of this step (**the sweep**, `skills/flow-contracts/known-bugs.md`). A landing HEAD
 whose UI no visual verifier saw is such a finding, never a risk line. The report carries no
-section beyond the seven angles and the rating. The filing prompt is never waived: a pass with
+section beyond the eight angles and the rating. The filing prompt is never waived: a pass with
 no operator to answer it files and mines nothing and records every offered finding `declined`.
 
-**One combined pass** — never seven separate reads. The pass covers what the bundle holds and
+**One combined pass** — never eight separate reads. The pass covers what the bundle holds and
 nothing beyond it — say so in the report's `**Deferred:**` line.
+
+### 2a. Write the prompt-tuning cases
+
+A pass with no angle-8 case writes nothing here. Otherwise this session, after the pass and before
+step 3, first resolves the worktree of `<fix-branch>` — the branch named at the end of this step —
+creating it with `<agents repo>/scripts/pipeline-fix.sh start <name>` when it is
+`self-review-<name>` and absent; it never writes the agents main checkout. It writes each case into that
+worktree — `<agents repo>-worktrees/<name>/docs/prompt-tuning/<case-id>/` on the change's own branch,
+`<agents repo>-worktrees/self-review-<name>/docs/prompt-tuning/<case-id>/` otherwise, `<case-id>` being
+`<name>-<n>`, `<n>` counting from 1 within the change:
+
+| File | Content |
+|---|---|
+| `case.json` | `id`, `type` (`implementer`/`reviewer`), `reviewer_kind` (`miss`/`false-positive`, reviewer only), `scope` (one of the four forms of angle 8's scope table), `source` {`project`, `change`, `jira`, `repo`, `fix_sha`, `finding_ref`, `round`, `slot`, `severity`}, `target` (agents-repo-relative prompt path), `target_sha` (the agents commit the `before` text was read at), `defect_class`, `why_picked`, `before`, `after` |
+| `finding.md` | the reviewer's own sentence, severity, location |
+| `bad.diff` | the code as the implementer first wrote it: the hunk(s) the finding names, from the commit before the fix |
+| `good.diff` | the fix-round commit's diff for those hunks (`git show <fix_sha>`) |
+| `task.md` | the task text as `tasks.md` recorded it (implementer cases; `none` for reviewer cases) |
+| `index.html` | rendered by `flow prompt-tuning render <case-dir>` from the files above, never written by hand |
+
+`bad.diff`, `good.diff` and `task.md` are extracted with `git -C <repo> show` exactly as angle 7's
+extraction does. Once a case's files are written, run `flow prompt-tuning render <case-dir>`, then
+`<agents repo>/scripts/check-prompt-tuning-cases.sh` over the new folders. A red line is fixed by
+rewriting the field it names; a case no generic rewrite passes is dropped, and its report line says
+so, disposition `noted`.
+
+The cases are committed as `docs(prompt-tuning): <name> cases` on the branch step 3 names as
+`<fix-branch>`: inside a run whose canonical repository is `<agents repo>`, the change's own branch,
+landed by the run's own route; otherwise, and standalone, `self-review-<name>`. When step 3 has no
+worktree — no non-`big` finding — the worktree this step created carries the cases alone: this session commits them there and lands that
+cases-only branch by step 3 item 5's route; `check-loop-landing.sh` admits a `self-review-*` branch
+whose diff touches only `<agents repo>/docs/prompt-tuning/` without loop rows.
 
 ### 3. Fix every finding that is not `big`
 
@@ -427,7 +513,7 @@ A row is stated as recorded only once `flow self-review findings -change <name>`
 ### 7. Write the report, delete the bundle, land it
 
 Write `<project>/docs/self-review/<name>-self-review.md` in the shape
-`<project>/scripts/check-self-review-report.sh` checks — one section per angle, all seven present; each
+`<project>/scripts/check-self-review-report.sh` checks — one section per angle, all eight present; each
 finding one line naming its angle's label, the finding, and its disposition (`fixed: <sha>`, `filed: <KEY>`,
 `declined` or `noted`); an angle with no findings carrying the explicit none-marker — plus one line under the
 title:
@@ -451,7 +537,7 @@ the guard could not read.
 It refuses a `noted` finding line that leaves its action to the operator the same way, `LAND-DEFERRED-FINDING`, exit 4, nothing committed: fix that finding per step 3 (`skills/flow-self-review/SKILL.md`), or reword a line the guard misread, and land again.
 Commit both paths in one commit through the landing chain's one script — the same invocation
 `skills/flow/integrate.md` step 4 lands the report with, differing in the asserted branch,
-the removed context-bundle path and the `--push` — since the round-trip through the seven-angle
+the removed context-bundle path and the `--push` — since the round-trip through the eight-angle
 pass and the filing-and-rating prompt above is long enough that the branch is worth re-checking
 rather than trusted from step 1 alone:
 

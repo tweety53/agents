@@ -7,7 +7,7 @@ rather than assuming a project-local path.
 
 Follow that skill exactly. **Standalone, not a pipeline stage** — it takes one change name, writes
 no per-change state file, and marks no `flow stage` call. It reads the context bundle an
-older `/flow` or `/flow-fast` run saved — newer runs run the same pass in-run — dispatches the seven-angle reasoning pass, plans, fixes and
+older `/flow` or `/flow-fast` run saved — newer runs run the same pass in-run — dispatches the eight-angle reasoning pass, plans, fixes and
 lands every finding that is not big, files the big ones, mines the flow-eval cases the operator approves, rates, records each finding in the flow
 store, writes the report, deletes the bundle, and lands both on the default branch.
 

@@ -61,9 +61,11 @@
 # EARLIER REPORTS ARE FROZEN LISTS. `five-angle-reports.txt` in the
 # scanned directory names, one basename per line, every report written
 # before angle 6 (`flow-speed`) existed, and `six-angle-reports.txt` every
-# report written after it and before angle 7 (`flow-eval`). A listed report
-# is checked against the first five, or six, angles of the table only;
-# every report on neither list must carry every angle the table serves. A
+# report written after it and before angle 7 (`flow-eval`), and
+# `seven-angle-reports.txt` every report written after that and before
+# angle 8 (`flow-prompt-tuning`). A listed report is checked against the
+# first five, six or seven angles of the table only; every report on no
+# list must carry every angle the table serves. A
 # list is frozen: it never gains an entry, so a new report cannot be
 # exempted from a later angle. A directory with no list exempts nothing. A
 # list that exists but cannot be read is "cannot answer" (exit 2), never an

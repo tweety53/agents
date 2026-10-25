@@ -49,6 +49,7 @@ still apply.
 | `/flow-plan` | `flow-plan` | Thinking-partner mode — no implementation; a captured session creates the change at `STARTED` for `/flow` to resume |
 | `/flow-settings` | `flow-settings` | Reads/writes the harness-wide reviewer slots every `/flow` run reads from |
 | `/flow-self-review <name>` | `flow-self-review` | Runs a change's self-review pass, a one-shot opus dispatch whose non-big findings are planned in full, from the context bundle an older `/flow` or `/flow-fast` run saved; the same pass runs inside `/flow`'s integrate and `/flow-fast`'s verify. Standalone, not a pipeline stage. Fixes and lands every non-big finding; files the big ones. |
+| `/flow-prompt-tuning` | `flow-prompt-tuning` | Applies the generic implementer/reviewer prompt updates the self-review's prompt-tuning angle saved, after an A/B replay proves each; records each case in docs/prompt-tuning/LEDGER.md and removes its folder. Standalone, not a pipeline stage. |
 | `/call-efficiency-audit` | `call-efficiency-audit` | Measures a running dev stack's call efficiency — browser request log, per-endpoint SQL statement counts, cache `MONITOR` — and reports repeated reads, repeated queries within a request and per-item queries. Standalone, not a pipeline stage. |
 
 Each row says what a command is *for*. Its stages, in order, are stated once under
@@ -65,6 +66,7 @@ skills/
 ├── flow-plan/       ← /flow-plan
 ├── flow-settings/       ← /flow-settings
 ├── flow-self-review/   ← /flow-self-review (self-review pass)
+├── flow-prompt-tuning/ ← /flow-prompt-tuning (replay and apply saved prompt updates)
 ├── call-efficiency-audit/ ← /call-efficiency-audit (measure a dev stack's call efficiency)
 └── flow-contracts/    ← on-demand contracts; `pipeline.md` is canonical for the state machine
 ```

@@ -30,3 +30,21 @@ finds a task's commit by its `**Commit:**` subject, and `close-task.sh` never ru
 on `spectre/<name>` a `Task-Id: <n>` would name the change's own task of that number. The ticks ride
 the archive commit, made before item 4's lint lines because `check-task-records.sh` reads a live
 unticked task whose subject a commit carries as a violation.
+
+## SKILL.md — 2. Read the bundle and run the eight angles
+
+### Angle 8 — prompt tuning
+
+The angle borrows from `/claude-api prompt-audit` and its eval-hillclimb guide: describe the
+behaviour, never paste the incident's content into the prompt; scale a change to how many cases
+show the behaviour, never to one vivid failure; treat a prompt change as a hypothesis proven by a
+before/after behavioural probe; one idea per change; and keep context and reasons, which are never
+cruft — re-baselining can add text as well as remove it (kan-1032).
+
+- **The four-part picking bar, zero cases a normal result** (decision `picking-bar`) — rejected:
+  picking any finding a prompt line could address, because it would turn every round into an
+  incident-specific prompt patch (prompt-audit's overgeneralization and patch-accretion rows).
+- **The angle asks nothing, every case `noted`** (decision `never-ask-in-run`) — rejected: offering
+  cases in step 4's filing prompt, by the operator's instruction.
+- **Cases ride the pass's fix branch** (decision `cases-ride-fix-branch`) — rejected: a separate
+  `prompt-tuning-<name>` branch, because it adds a second landing per run.
