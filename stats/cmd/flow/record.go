@@ -54,7 +54,11 @@ import (
 // It still lives here rather than behind a package of its own: this
 // comment, the usage text's -role line and the served printing are one
 // place, and the store's rows are the only other copy.
-var recordRoles = []string{"implementer", "reviewer", "panel-fix", "red-partner", "planner", "conductor", "verifier"}
+//
+// explorer is an Explore subagent a /flow planning session dispatches during
+// flow.brainstorm; a Plan subagent there records planner (kan-1033,
+// design.md §1).
+var recordRoles = []string{"implementer", "reviewer", "panel-fix", "red-partner", "planner", "conductor", "verifier", "explorer"}
 
 // locationLineRe is what a non-empty finding -location must carry: a line
 // number after a colon (path:12, path:12-20).
@@ -526,7 +530,7 @@ and replayed carrying the identical key, so it updates the row the first
 attempt inserted instead of inserting a second row for one dispatch. Write
 it as a literal, unique among the dispatches of one -session-token.
 
--role is one of: implementer, reviewer, panel-fix, red-partner, planner, conductor, verifier.
+-role is one of: implementer, reviewer, panel-fix, red-partner, planner, conductor, verifier, explorer.
 "flow record roles" prints that set, one per line.
 
 -agent-id is the harness's own identifier for the subagent that was

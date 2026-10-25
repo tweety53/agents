@@ -551,6 +551,36 @@ func TestRecordAcceptsPlannerRole(t *testing.T) {
 	}
 }
 
+// TestRecordAcceptsExplorerRole pins that "explorer" is in the accepted-role
+// allowlist -- the role `/flow` records for an Explore subagent its planning
+// session dispatches during flow.brainstorm (kan-1033).
+func TestRecordAcceptsExplorerRole(t *testing.T) {
+	repo := recordRepo(t, "kan-1033")
+	isolatedStateRoot(t)
+
+	contacted := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		contacted = true
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":1,"seq":1,"role":"explorer","model":"sonnet","startedAt":"2026-01-02T03:04:05Z"}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "dispatch", "begin", "-effort", "low", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-1033", "-role", "explorer", "-model", "sonnet", "-key", "explore-1",
+			"-session-token", "mf-record-explorer-role"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if !contacted {
+		t.Error("the store was not contacted for the explorer role")
+	}
+}
+
 // TestRecordAcceptsConductorRole pins that "conductor" is in the
 // accepted-role allowlist -- the role `/flow` records for the subagent
 // that runs implement.md, review-panel.md and verify-and-handoff.md as
