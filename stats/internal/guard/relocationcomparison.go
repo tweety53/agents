@@ -42,9 +42,8 @@ import (
 //	   that is not UTF-8 included: the Python let that decode error escape
 //	   as a traceback and exit 1; its header named it exit 2, and the header
 //	   wins), <merge-base> does not resolve to a real commit, a scoped file
-//	   is missing on disk while still in the worktree's index or is a
-//	   symlink there, a scoped
-//	   path is a tree (directory) or a symlink rather than a blob at
+//	   is missing on disk while still in the worktree's index, a scoped
+//	   path is a tree (directory) rather than a blob at
 //	   <merge-base>, a `git cat-file -t` or `git show` failure once `git
 //	   cat-file -e` has said the path exists there, a scoped file (worktree
 //	   copy or merge-base blob) that is not valid UTF-8, or the comparison
@@ -68,11 +67,12 @@ import (
 //     worktree's index -- deleted by the branch -- is empty text likewise. Present but unreadable (`cat-file -t`
 //     fails: a corrupt object `-e` still reports as existing, case l) is
 //     cannot-answer, never folded into "absent". Present as anything but a
-//     blob (a tree, F18) or as a symlink entry (mode 120000 from `git
-//     ls-tree` -- `cat-file -t` says `blob` for a symlink too, F21) is
-//     cannot-answer: `git show` would hand back a tree listing or a link
-//     target, never content. A worktree symlink is likewise refused rather
-//     than followed, so neither side resolves a link the other would not.
+//     blob (a tree, F18) is cannot-answer: `git show` would hand back a
+//     tree listing, never content. A symlink on either side -- a worktree
+//     symlink, or a symlink entry at the merge-base (mode 120000 from `git
+//     ls-tree` -- `cat-file -t` says `blob` for a symlink too, F21) -- is
+//     skipped with a `skipped symlink <path>` stderr note, so neither side
+//     ever resolves a link and the rest of the scope still compares.
 //     A passage is a run of non-blank lines between two blank lines or
 //     `##`/`###` headings; OR a single `- `/`* ` bullet line; OR a single
 //     Markdown table row. Each carries the nearest preceding heading text.
@@ -133,8 +133,8 @@ func generateRelocationComparison(args []string, env Env, stdout, stderr io.Writ
 	for _, p := range paths {
 		wtPath := grcJoin(worktree, p)
 		if fi, err := os.Lstat(psAbs(env, wtPath)); err == nil && fi.Mode()&os.ModeSymlink != 0 {
-			fmt.Fprintf(stderr, "%sscoped file is a symlink in the worktree, cannot compare: %s\n", grcLabel, wtPath)
-			return 2
+			fmt.Fprintf(stderr, "%sskipped symlink %s\n", grcLabel, wtPath)
+			continue
 		}
 		afterText, err := grcReadWorktree(env, wtPath)
 		if err != nil && grcDeletedByBranch(env, worktree, wtPath, p) {
@@ -145,6 +145,10 @@ func generateRelocationComparison(args []string, env Env, stdout, stderr io.Writ
 			return 2
 		}
 		beforeText, err := grcGitShow(env, worktree, base, p)
+		if errors.Is(err, errGrcSymlink) {
+			fmt.Fprintf(stderr, "%sskipped symlink %s:%s\n", grcLabel, base, p)
+			continue
+		}
 		if err != nil {
 			fmt.Fprintf(stderr, "%s%v\n", grcLabel, err)
 			return 2
@@ -248,6 +252,10 @@ func grcDeletedByBranch(env Env, worktree, wtPath, path string) bool {
 	return err == nil && code == 1
 }
 
+// errGrcSymlink marks a scoped path that is a symlink at the merge-base; the
+// caller skips it rather than refusing the whole comparison.
+var errGrcSymlink = errors.New("is a symlink")
+
 // grcGitShow is _git_show: the blob at <ref>:<path>, "" when nothing exists
 // there, or the cannot-answer error.
 func grcGitShow(env Env, worktree, ref, path string) (string, error) {
@@ -267,7 +275,7 @@ func grcGitShow(env Env, worktree, ref, path string) (string, error) {
 	}
 	if out, _, code, err := tcfExec(env.Dir, nil, "git", "-C", worktree, "ls-tree", ref, "--", path); err == nil && code == 0 {
 		if f := strings.FieldsFunc(string(out), tcfIsSpace); len(f) > 0 && f[0] == "120000" {
-			return "", fmt.Errorf("%s is a symlink, not a regular file", spec)
+			return "", fmt.Errorf("%s: %w", spec, errGrcSymlink)
 		}
 	}
 	out, errOut, code, err = tcfExec(env.Dir, nil, "git", "-C", worktree, "show", spec)

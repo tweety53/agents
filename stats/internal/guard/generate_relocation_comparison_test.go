@@ -256,14 +256,15 @@ func TestGenerateRelocationComparison(t *testing.T) {
 	gitRun(t, dir, "commit", "-qm", "base")
 	sha = tcfGit(t, dir, "rev-parse", "HEAD")
 	r, table = gen(dir, sha, plan("yes", "link_ff.md"))
-	want("case ff: symlink scoped path at merge-base ref exits 2, not a spurious row (F21 regression guard)", r.rc == 2, r, table)
-	want("pin: case ff's refusal names the worktree symlink first", r.err == "generate-relocation-comparison: scoped file is a symlink in the worktree, cannot compare: "+dir+"/link_ff.md\n", r, table)
+	want("case ff: symlink scoped path exits 0 with no row, not a spurious one (F21 regression guard)", r.rc == 0 && table == "| Passage | Source | Destination | Class |\n| --- | --- | --- | --- |\n", r, table)
+	want("pin: case ff's skip note names the worktree symlink first", r.err == "generate-relocation-comparison: skipped symlink "+dir+"/link_ff.md\n", r, table)
 
 	dir, sha = repo(map[string]string{"gg.md": "original content at the scoped path, as an ordinary regular file\n"},
 		map[string]string{"gg.md": "\x00", "gg_target.md": "different real content the symlink target actually holds\n"})
 	psLink(t, "gg_target.md", dir+"/gg.md")
 	r, table = gen(dir, sha, plan("yes", "gg.md"))
-	want("case gg: symlink scoped path in the worktree exits 2, not a spurious row (F21 regression guard)", r.rc == 2, r, table)
+	want("case gg: symlink scoped path in the worktree is skipped, not a spurious row (F21 regression guard)", r.rc == 0 && table == "| Passage | Source | Destination | Class |\n| --- | --- | --- | --- |\n" &&
+		r.err == "generate-relocation-comparison: skipped symlink "+dir+"/gg.md\n", r, table)
 
 	repoint("case hh: trailing word + whitespace + punctuation not left diverging after above-strip (F22 regression guard)", "alpha_hh", "beta_hh",
 		"`old-file.md` **Old Heading** is the place to look above  .", "`new-file.md` **New Heading** is the place to look .")
@@ -288,8 +289,8 @@ func TestGenerateRelocationComparison(t *testing.T) {
 	}
 	writeFile(t, dir+"/sym.md", "## S\n\nkeep\n")
 	r, table = gen(dir, sha, plan("yes", "sym.md"))
-	want("pin: a symlink at the merge-base only exits 2 naming it", r.rc == 2 &&
-		r.err == "generate-relocation-comparison: "+sha+":sym.md is a symlink, not a regular file\n", r, table)
+	want("pin: a symlink at the merge-base only is skipped naming it", r.rc == 0 && table == "| Passage | Source | Destination | Class |\n| --- | --- | --- | --- |\n" &&
+		r.err == "generate-relocation-comparison: skipped symlink "+sha+":sym.md\n", r, table)
 	dir, sha = repo(map[string]string{"bin.md": "## B\n\n\xff\n"}, map[string]string{"bin.md": "## B\n\nok\n"})
 	r, table = gen(dir, sha, plan("yes", "bin.md"))
 	want("pin: a merge-base blob that is not UTF-8 exits 2", r.rc == 2 &&
@@ -336,3 +337,55 @@ func TestGenerateRelocationComparison(t *testing.T) {
 }
 
 var grcShim = psScripts + "/generate-relocation-comparison.sh"
+
+// TestGenerateRelocationComparisonSkipsSymlinks: a scoped symlink on either
+// side is skipped with a stderr note, never followed, and the rest of the
+// scope still compares (kan-1034 self-review).
+func TestGenerateRelocationComparisonSkipsSymlinks(t *testing.T) {
+	t.Parallel()
+	env := Env{Getenv: os.Getenv}
+	tasks := "# fixture plan\n\n> **Relocation:** yes\n\n- [ ] 1. Only task\n\n**Files:**\n- Modify: `src.md`\n- Modify: `dst.md`\n- Modify: `link.md`\n\n"
+	text := "A paragraph that moves verbatim between files."
+	// setup commits the base with link.md a symlink when linkAtBase, then
+	// moves text from src.md to dst.md and makes link.md the other kind.
+	setup := func(linkAtBase bool) (string, string) {
+		dir := t.TempDir()
+		gitRun(t, dir, "init", "-q")
+		writeFile(t, dir+"/src.md", "## Src\n\n"+text+"\n\nStays.\n")
+		writeFile(t, dir+"/dst.md", "## Dst\n\nFiller.\n")
+		writeFile(t, dir+"/target.md", "## T\n\nTarget content.\n")
+		if linkAtBase {
+			psLink(t, "target.md", dir+"/link.md")
+		} else {
+			writeFile(t, dir+"/link.md", "## L\n\nOriginal.\n")
+		}
+		gitRun(t, dir, "add", "-A")
+		gitRun(t, dir, "commit", "-qm", "base")
+		sha := tcfGit(t, dir, "rev-parse", "HEAD")
+		writeFile(t, dir+"/src.md", "## Src\n\nStays.\n")
+		writeFile(t, dir+"/dst.md", "## Dst\n\nFiller.\n\n"+text+"\n")
+		if err := os.Remove(dir + "/link.md"); err != nil {
+			t.Fatal(err)
+		}
+		if linkAtBase {
+			writeFile(t, dir+"/link.md", "## L\n\nNow a regular file.\n")
+		} else {
+			psLink(t, "target.md", dir+"/link.md")
+		}
+		writeFile(t, dir+"/tasks.md", tasks)
+		return dir, sha
+	}
+	for _, linkAtBase := range []bool{false, true} {
+		dir, sha := setup(linkAtBase)
+		r := runGuard("generate-relocation-comparison", []string{dir, dir, sha}, env)
+		b, _ := os.ReadFile(dir + "/.superpowers/sdd/relocation-comparison.md")
+		table := string(b)
+		note := "generate-relocation-comparison: skipped symlink " + dir + "/link.md\n"
+		if linkAtBase {
+			note = "generate-relocation-comparison: skipped symlink " + sha + ":link.md\n"
+		}
+		if r.rc != 0 || r.err != note || !strings.Contains(table, "moved") || strings.Contains(table, "link.md") {
+			t.Errorf("linkAtBase=%v: rc=%d err=%q table=%q", linkAtBase, r.rc, r.err, table)
+		}
+	}
+}
