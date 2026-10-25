@@ -522,6 +522,34 @@ func TestProtectMainCheckoutDeniesAnUntraileredChangeBranchCommit(t *testing.T) 
 	f.bash("6 another branch", "allow", "{ROOT}", `git -C {FWT} commit -m "fix(x): y"`)
 }
 
+// TestProtectMainCheckoutSkipsAMessageItCannotRead pins kan-1032's
+// self-review: an apostrophe in a quoted heredoc unbalances tokenize, whose
+// raw-word fallback keeps the quote on the message; such a message is not
+// judged, so a chore commit after it is allowed.
+func TestProtectMainCheckoutSkipsAMessageItCannotRead(t *testing.T) {
+	t.Parallel()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &pmFixture{t: t, home: t.TempDir(), vars: map[string]string{"ROOT": root}}
+	main := root + "/main"
+	f.vars["SWT"] = root + "/main-worktrees/c1"
+	f.git("init", "-q", "--bare", root+"/origin.git")
+	f.git("clone", "-q", root+"/origin.git", main)
+	f.write(main+"/f.txt", "a\n")
+	f.git("-C", main, "add", "f.txt")
+	f.git("-C", main, "commit", "-q", "-m", "init")
+	f.git("-C", main, "branch", "-M", "main")
+	f.git("-C", main, "push", "-q", "-u", "origin", "main")
+	f.git("-C", main, "worktree", "add", f.vars["SWT"], "-b", "spectre/c1")
+
+	f.bash("the same without the apostrophe", "allow", "{ROOT}",
+		"cat <<'EOF'\nthe coordinators note\nEOF\ngit -C {SWT} commit -q -m \"chore(spectre): plan c1\"")
+	f.bash("a chore commit after a heredoc apostrophe", "allow", "{ROOT}",
+		"cat <<'EOF'\nthe coordinator's note\nEOF\ngit -C {SWT} commit -q -m \"chore(spectre): plan c1\"")
+}
+
 // TestProtectMainCheckoutDeniesABareCatRedirect pins kan-1033's finding 4.2:
 // a bare `cat > <file>` reads stdin, which a Bash call never has, so it
 // hangs until the call times out; a cat with input of its own passes.
