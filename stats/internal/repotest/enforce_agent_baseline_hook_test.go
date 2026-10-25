@@ -190,7 +190,9 @@ func openRowFixture(t *testing.T, rows string, fail bool, projectKey ...string) 
 	if err := os.WriteFile(filepath.Join(bin, "flow"), []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	return []string{"FLOW_ADDR=" + srv.URL, "PATH=" + bin + string(os.PathListSeparator) + os.Getenv("PATH")}, called
+	// FLOW_HOOK_UNBOUNDED lifts the hook's wall-clock bounds: under the full -race suite a stub
+	// starved past them failed a deny case open (kan-1033).
+	return []string{"FLOW_ADDR=" + srv.URL, "FLOW_HOOK_UNBOUNDED=1", "PATH=" + bin + string(os.PathListSeparator) + os.Getenv("PATH")}, called
 }
 
 // openRowPayload is a flow-session Agent payload for session s1 carrying the baseline pointer.
