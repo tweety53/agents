@@ -3,12 +3,13 @@
 # verify** (skills/flow/verify-and-handoff.md) prescribes, and print its
 # `## Report` lines.
 #
-# Usage: run-verify-list.sh <worktree> lint|test
+# Usage: run-verify-list.sh <worktree> lint|test [<change> <key> <session-token> <model> <effort>]
 #
 # Exit codes:
 #   0  every command exited 0
 #   1  at least one command exited non-zero
-#   2  usage (not exactly `<worktree> lint|test`, or <worktree> is not a
+#   2  usage (not `<worktree> lint|test` plus none or all five recording
+#      arguments, no flow binary on PATH for those, or <worktree> is not a
 #      directory), a list line holding a `<word>` placeholder — its stderr
 #      line names it — or project-get.sh exit 2 — its stderr line says why
 #   3  the list is not declared (project-get.sh exit 1): the caller

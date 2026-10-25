@@ -87,7 +87,8 @@ func TestRunVerifyList(t *testing.T) {
 		var o, e bytes.Buffer
 		grc := Registry["run-verify-list"](gargs, Env{Getenv: getenv, Environ: func() []string { return goEnviron },
 			Dir: gr, Stdin: strings.NewReader("LEAKED-STDIN\n")}, &o, &e)
-		g := res{grc, norm(gr, o.String(), e.String())}
+		// The recording arguments postdate the bash (kan-1033): its usage line lacks them.
+		g := res{grc, strings.Replace(norm(gr, o.String(), e.String()), " [<change> <key> <session-token> <model> <effort>]", "", 1)}
 
 		bargs := make([]string, len(args))
 		for i, a := range args {
@@ -292,4 +293,65 @@ func TestRunVerifyList(t *testing.T) {
 
 	t.Run("an unknown list", func(t *testing.T) { rc(t, run(t, "<ROOT>", "build"), 2) })
 	t.Run("a missing worktree", func(t *testing.T) { rc(t, run(t, "<ROOT>/missing", "lint"), 2) })
+}
+
+// TestRunVerifyListRecordsTheVerifyRow pins kan-1033's self-review: given
+// the five trailing arguments the list records its own verify row — begin
+// before its first command, end only when it exited 0.
+func TestRunVerifyListRecordsTheVerifyRow(t *testing.T) {
+	repo, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\necho \"flow $*\" >> "+log+"\n")
+	wt, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := dir + ":" + os.Getenv("PATH")
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"), "PATH="+path)
+	getenv := func(k string) string {
+		for i := len(environ) - 1; i >= 0; i-- {
+			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
+				return v
+			}
+		}
+		return ""
+	}
+	run := func(args ...string) (int, string) {
+		os.Remove(log)
+		var o, e bytes.Buffer
+		rc := runVerifyList(args, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+		calls, _ := os.ReadFile(log)
+		return rc, string(calls)
+	}
+	project := func(cmds string) {
+		writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n"+cmds+"\n```\n")
+	}
+	rec := []string{"kan-1", "verify", "mf-k1", "opus", "low"}
+	begin := "flow record dispatch begin -C " + wt + " -change kan-1 -role verifier -model opus -effort low -agent-id inline -key verify -session-token mf-k1\n"
+	end := "flow record dispatch end -C " + wt + " -change kan-1 -key verify -session-token mf-k1 -outcome completed\n"
+
+	project("echo first >> " + log + "\necho last >> " + log)
+	rc, calls := run(append([]string{wt, "test"}, rec...)...)
+	if rc != 0 || !strings.HasPrefix(calls, begin) || !strings.HasSuffix(calls, end) || strings.Count(calls, "flow ") != 2 {
+		t.Errorf("a passing list: exit %d, calls:\n%s", rc, calls)
+	}
+
+	project("echo ran >> " + log + "; exit 1")
+	if rc, calls := run(append([]string{wt, "test"}, rec...)...); rc != 1 || calls != begin+"ran\n" {
+		t.Errorf("a failing list: exit %d, calls:\n%s", rc, calls)
+	}
+
+	project("true")
+	if rc, calls := run(wt, "test"); rc != 0 || calls != "" {
+		t.Errorf("the two-argument form: exit %d, calls:\n%s", rc, calls)
+	}
+	for n := 3; n <= 6; n++ {
+		if rc, calls := run(append([]string{wt, "test"}, rec[:n-2]...)...); rc != 2 || calls != "" {
+			t.Errorf("%d arguments: exit %d, calls %q", n, rc, calls)
+		}
+	}
 }

@@ -6,7 +6,16 @@
 // self-review-backlog-flow-6 self-review pass found the parent writing one
 // per run, its stdin detach patched in on a second call).
 //
-// Usage: run-verify-list.sh <worktree> lint|test
+// Usage: run-verify-list.sh <worktree> lint|test [<change> <key> <session-token> <model> <effort>]
+//
+// RECORDING (kan-1033 self-review: the parent hand-recorded the verify row and
+// back-filled a forgotten begin with a guessed start). Given the five trailing
+// arguments, the list records its own `verifier` row through `flow record
+// dispatch`: `begin` (`-agent-id inline`) before its first command, and `end
+// -outcome completed` after its last only when the list exited 0. No `flow`
+// on PATH exits 2 before any command runs; a failed record call prints
+// `run-verify-list: flow record dispatch <begin|end> failed: <its output>` on
+// stderr and never changes the exit code.
 //
 // THE LIST is every non-blank, non-`#` line inside a ```bash fence of
 // `project-get.sh <worktree> <list>`'s output, in the order printed; `lint`
@@ -59,7 +68,8 @@
 // Exit codes:
 //   0  every command exited 0
 //   1  at least one command exited non-zero
-//   2  usage (not exactly `<worktree> lint|test`, or <worktree> is not a
+//   2  usage (not `<worktree> lint|test` plus none or all five recording
+//      arguments, no flow binary on PATH for those, or <worktree> is not a
 //      directory), a list line holding a `<word>` placeholder — its stderr
 //      line names it — or project-get.sh exit 2 — its stderr line says why
 //   3  the list is not declared (project-get.sh exit 1): the caller
@@ -99,13 +109,36 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		return p
 	}
-	if len(args) != 2 || (args[1] != "lint" && args[1] != "test") {
-		fmt.Fprintln(stderr, "usage: run-verify-list.sh <worktree> lint|test")
+	const usage = "usage: run-verify-list.sh <worktree> lint|test [<change> <key> <session-token> <model> <effort>]"
+	if (len(args) != 2 && len(args) != 7) || (args[1] != "lint" && args[1] != "test") {
+		fmt.Fprintln(stderr, usage)
 		return 2
 	}
 	if fi, err := os.Stat(abs(args[0])); err != nil || !fi.IsDir() {
-		fmt.Fprintln(stderr, "usage: run-verify-list.sh <worktree> lint|test")
+		fmt.Fprintln(stderr, usage)
 		return 2
+	}
+	record := func(string, ...string) {}
+	if len(args) == 7 {
+		flow, ok := lookPath(env, "flow")
+		if !ok {
+			fmt.Fprintln(stderr, "run-verify-list: no flow binary on PATH")
+			return 2
+		}
+		wt, change := args[0], args[2]
+		key, token, model, effort := args[3], args[4], args[5], args[6]
+		record = func(verb string, flags ...string) {
+			argv := []string{"record", "dispatch", verb, "-C", wt, "-change", change}
+			if verb == "begin" {
+				argv = append(argv, "-role", "verifier", "-model", model, "-effort", effort, "-agent-id", "inline")
+			}
+			argv = append(argv, "-key", key, "-session-token", token)
+			argv = append(argv, flags...)
+			if rc, out := kwRun(env, "", flow, argv...); rc != 0 {
+				fmt.Fprintf(stderr, "run-verify-list: flow record dispatch %s failed: %s\n", verb, strings.TrimSpace(out))
+			}
+		}
+		args = args[:2]
 	}
 	scriptDir := env.Getenv("FLOW_GUARD_SCRIPT_DIR")
 	if scriptDir == "" {
@@ -249,6 +282,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		report(shown, results[0].rc, results[0].out, key)
 	}
 
+	record("begin")
 	skip := make([]bool, len(cmds))
 	var argvs [][]string
 	for i, c := range cmds {
@@ -278,6 +312,9 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if list == "lint" {
 		run("check-spec-reach.sh "+wt, `"`+scriptDir+`/check-spec-reach.sh" "`+wt+`"`, "spec-reach")
+	}
+	if failed == 0 {
+		record("end", "-outcome", "completed")
 	}
 	return failed
 }
