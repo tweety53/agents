@@ -310,3 +310,12 @@ and the planners' nested dispatches record none (my call).
 before capture.
 
 ## Open questions
+
+## Correction (2026-10-25): the hook-test load flake
+
+`TestEnforceAgentBaselineHookRequiresAnOpenRow` failed in 2 of 2 full `-race` suite runs before
+the fix (a different deny subtest each time, each at ~5.1 s, the hook's subprocess bound), and
+passed 10 of 10 in isolation. The fix injects `FLOW_HOOK_UNBOUNDED=1` in the hook's tests
+(commit `fix(hooks): let the hook's tests lift its wall-clock bounds`). Afterwards it passed 4 of 4
+full `-race` suite runs. With the injection removed, a stub sleeping 6 s fails the `no row` case
+every time; with it, the case passes. <!-- measured: go test ./... -race -count=1 in stats/, 2 runs before and 4 after, this session -->
