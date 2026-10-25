@@ -2,8 +2,9 @@
 
 Sections **B**, **C** and **D** of the brainstorming phase, run by whichever session is executing
 `/flow`'s brainstorming stage — or, for **C**, **D** and **Decide**, a `/flow-plan` capture
-(**Capturing a new change**, `skills/flow-plan/SKILL.md`) — no dispatched subagent, no relay,
-save the self-review planner, which runs B, C and D as item 1 of **3. Fix every finding that is
+(**Capturing a new change**, `skills/flow-plan/SKILL.md`) — no one relays these sections, though
+the session may dispatch the fresh subagents **Explore and design agents** below allows, and
+neither does the self-review planner, which runs B, C and D as item 1 of **3. Fix every finding that is
 not `big`** (`skills/flow-self-review/SKILL.md`) binds them, and the in-run fix planner, which
 runs them as **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline.md`) binds them. Every "you" below addresses that session, or that planner, directly.
 
@@ -38,7 +39,8 @@ the design.
   never write it to the main checkout.
 - **HARD GATE:** do not run `spectre new` until the user approves the design. Approval is the
   merged confirm's first option under **Convergence** below; no separate approval question is
-  asked.
+  asked. On Claude Code, `/flow` and `/flow-plan` take the approval from `ExitPlanMode` instead —
+  the merged confirm still closes the checklist (decision `exit-plan-mode-is-approval`, kan-1033).
 - **A frame-specified design needs its handoff assets reachable from the tree.** When the
   design's specification is a drawn frame — a mockup the implementation must match (**Design mockups are a specification, not an inspiration**, `rules/design-mockups-are-specs.mdc`) — the design is not
   approvable, and no task whose specification is that frame is written, until the handoff assets
@@ -77,6 +79,37 @@ decision chose, citing the decision's `**ID:**` and its date, in its own commit 
 `-m "Flow-Key: flow.brainstorm"`, so integrate never stops on a criterion the plan already
 overruled (kan-1003: decision `lands-on-develop` left "Branch `feature/one-block` in both repos, <!-- citations-guard:allow -->
 never develop" standing, and integrate stopped and asked again).
+
+### Explore and design agents
+
+**Explore before the first question.** Before the first design question — after the withdrawal
+reachability check, when that runs — dispatch 1–3 Explore agents (`subagent_type: "Explore"`) in
+one message, so they run concurrently, each on a different area: the code the change touches,
+existing patterns and utilities to reuse, and the tests and guards around it. One when the change
+is confined to one known area; more when its scope is uncertain or spans areas. Then read the
+critical files the agents name yourself before asking anything. Their conclusions feed the
+questions; they never replace asking.
+
+**Competing designs for a change that is not trivial** — more than one valid approach, a
+cross-cutting change, or an architectural choice: dispatch 1–3 Plan agents (`subagent_type:
+"Plan"`) in one message, each briefed with the Explore conclusions and its own angle — simplest,
+most robust, best fit with existing patterns. Compare their proposals and recommend one. Each
+alternative you reject becomes the `**Considered:**` line of the matching `## Decisions` entry,
+with the tradeoff that ruled it out. A change with one obvious approach skips this step and records
+why under `## Recommended approach`.
+
+**Every planning dispatch** takes its pair from `plan-agent-pair.sh <seed> <n>` — `<seed>` the
+change name (in `/flow-plan` before capture, the session token; for the self-review and in-run fix
+planners, their own `Key:`), `<n>` counting the session's planning dispatches from 1 — passing the
+printed model as the Agent tool's `model` and the effort as its `effort`. Its prompt carries the
+two agent-baseline sentences and the report-tersely line (`~/.claude/rules/dispatch-carries-the-baseline.md`)
+and a narrow, explicit scope: what to look at, what is already known, what to return. Never a
+`fork`, and never an agent that edits files. The agents investigate and propose; you decide.
+
+In `/flow` and `/flow-plan` the recommendation goes to the operator as part of the design, its
+alternatives shown only when they help the operator decide. The self-review and in-run fix planners
+take the recommendation without asking, per **Auto-resolution**
+(`skills/flow-contracts/operator-prompts-auto-resolution.md`).
 
 ### Stage exit — never the command's own judgment
 
@@ -183,7 +216,15 @@ keeping every stub heading:
 
 - **proposal.md** — what and why, carrying `## Why` and `## What changes`
 - **design.md** — how, from the approved design, carrying `## Context`, `## Decisions` and
-  `## Open questions` (the last two below)
+  `## Open questions` (the last two below), and four plan sections, each kept even when short:
+  - `## Recommended approach` — the one chosen approach in prose, with a one-line reason for each
+    rejected alternative pointing at its decision ID;
+  - `## Critical files` — every file the change edits or depends on, by repository-relative path,
+    one line on its role each;
+  - `## Existing code to reuse` — the functions, scripts, guards and patterns the change builds
+    on, by path (and symbol); `none` only with a one-line reason;
+  - `## Verification` — how to prove the change works end to end: the commands, the run or
+    scenario to exercise, and what is observed, beyond each task's own verify step.
 - **tasks.md** — a checkbox scaffold; **writing-plans enriches it next**
 
 **A spec edit is planned here, never written here.** A capability whose requirements the
@@ -499,6 +540,10 @@ or `**Relocation:** no`. This line is required and explicit on every plan — ne
 comparison (generated later in the pipeline, by `generate-relocation-comparison.sh`,
 run before the review panel's `final-review.diff`) to the union
 of every task's own `**Files:**` field across the plan.
+
+Seed `> **Design shape:** plan-mode` into the same block of every plan: on a `tasks.md`
+carrying it, `check-plan-shape.sh` refuses a sibling `design.md` missing any of section **C**'s
+four plan sections (decision `design-shape-line`, kan-1033).
 
 Seed a third header line, in the same block, into every plan whose tasks declare `**Baseline:**`
 fields — the exact line below, copied verbatim, so every plan states its baselines' convention the

@@ -47,6 +47,14 @@ type dpCase struct {
 	checks []dpCheck
 }
 
+// dpCleanPlanning is a self-review SKILL.md whose PLANNING DELEGATION block
+// is a blockquote indented under a list item, its phrases wrapped across lines.
+const dpCleanPlanning = `1. **Plan, then fix**
+
+   > **PLANNING DELEGATION:** You may dispatch fresh ` + "`Explore` and `Plan`" + ` subagents, never a
+   > ` + "`fork`" + `, and never an agent that edits files; pairs from plan-agent-pair.sh.
+`
+
 // dpFixture is new_root plus the case's files: every root carries a
 // visual-verify.md and a visual-verify-tooling-analysis.md, each with its
 // three required blocks at its one dispatch site, and a
@@ -59,6 +67,9 @@ func dpFixture(t *testing.T, files map[string]string) string {
 	writeFile(t, filepath.Join(flow, "visual-verify.md"), dpCleanVisualVerify+"\n")
 	writeFile(t, filepath.Join(flow, "visual-verify-tooling-analysis.md"), dpCleanVisualVerify+"\n")
 	writeFile(t, filepath.Join(flow, "review-panel-fix-round.md"), dpCleanFixRound+"\n")
+	writeFile(t, filepath.Join(root, "skills", "flow-self-review", "SKILL.md"), dpCleanPlanning)
+	// The self-review SKILL.md carries the PLANNING DELEGATION block; a case
+	// may overwrite it.
 	for name, body := range files {
 		writeFile(t, filepath.Join(flow, name), body+"\n")
 	}
@@ -146,7 +157,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 		stderr func(root string) string
 	}{
 		{label: "a clean run prints the OK line on stdout alone", files: clean, rc: 0,
-			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 34 site(s) validated\n" }},
+			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 35 site(s) validated\n" }},
 		{label: "a relative root prints its findings and the INVALID line as given, on stdout alone", files: noRange,
 			env: func(root string) Env {
 				return crEnv(filepath.Dir(root), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": filepath.Base(root)})
@@ -187,7 +198,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 			}},
 		{label: "with no override the root is FLOW_GUARD_REPO_ROOT", files: clean,
 			env: func(root string) Env { return crEnv(root, map[string]string{"FLOW_GUARD_REPO_ROOT": root}) },
-			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 34 site(s) validated\n" }},
+			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 35 site(s) validated\n" }},
 		{label: "with no override and no FLOW_GUARD_REPO_ROOT it exits 2", files: clean,
 			env: func(root string) Env { return crEnv(root, nil) },
 			rc:  2, stderr: func(string) string {
@@ -1759,3 +1770,22 @@ var dpCleanVisualVerify = dpDoc(dpToolsBlock, dpHandshakeBlock, dpDelegationBloc
 // dpCleanFixRound is review-panel-fix-round.md at its one dispatch site,
 // carrying its one block.
 var dpCleanFixRound = dpDoc(dpFixRoundScopeBlock)
+
+// TestCheckDispatchParagraphsPlanningPhrases pins every shared phrase of the
+// PLANNING DELEGATION entry, listed literally so a phrase dropped from
+// dpEntries is caught: a self-review block missing one fails naming it.
+func TestCheckDispatchParagraphsPlanningPhrases(t *testing.T) {
+	t.Parallel()
+	for _, phrase := range []string{"fresh `Explore` and `Plan` subagents", "never a `fork`", "never an agent that edits files", "plan-agent-pair.sh"} {
+		t.Run(phrase, func(t *testing.T) {
+			t.Parallel()
+			root := dpFixture(t, map[string]string{"review-panel.md": dpCleanReviewPanel, "implement.md": dpCleanImplement})
+			body := strings.ReplaceAll(dpCleanPlanning, "\n   > ", " ")
+			writeFile(t, filepath.Join(root, "skills", "flow-self-review", "SKILL.md"), strings.Replace(body, phrase, "", 1))
+			rc, out, _, _ := dpRun(t, crEnv(t.TempDir(), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": root}))
+			if rc != 1 || !strings.Contains(out, "missing the required phrase: \""+phrase+"\"") {
+				t.Fatalf("rc=%d out:\n%s", rc, out)
+			}
+		})
+	}
+}

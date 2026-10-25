@@ -393,7 +393,7 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 		return refuse(fmt.Sprintf("PLAN — %s needs a completed %splan dispatch first", key, lp.prefix))
 	}
 	role := map[string]string{"plan": "planner", "fix": "implementer", "fix-r": "implementer", "fix-v": "implementer", "review": "reviewer"}[family]
-	effort := strings.TrimPrefix(typ, "flow-")
+	effort := strings.TrimPrefix(strings.TrimPrefix(typ, "flow-"), "planner-")
 	if !slices.Contains([]string{"low", "medium", "high"}, effort) {
 		effort = "default"
 	}

@@ -151,11 +151,18 @@ def description_reason(payload: dict, tool_input: dict, prompt: str) -> "str | N
 TASK_DESCRIPTION = re.compile(r"Tasks? (\d+(?:\+\d+)*)/\d+")
 
 
+def bound(seconds: float) -> "float | None":
+    """A store or subprocess call's wall-clock bound. FLOW_HOOK_UNBOUNDED=1 lifts it: the hook's
+    tests inject that so a deny case never fails open because the full -race suite starved its
+    stub of CPU past the bound (kan-1033) -- the bound is production's fail-open, not under test."""
+    return None if os.environ.get("FLOW_HOOK_UNBOUNDED") == "1" else seconds
+
+
 def project_key(cwd: str) -> "str | None":
     """The store's project key for cwd: stats/internal/fallback/statefile.go ProjectKey."""
     done = subprocess.run(
         ["git", "-C", cwd, "rev-parse", "--path-format=absolute", "--git-common-dir"],
-        capture_output=True, text=True, timeout=5, check=False,
+        capture_output=True, text=True, timeout=bound(5), check=False,
     )
     if done.returncode != 0:
         return None
@@ -166,7 +173,7 @@ def project_key(cwd: str) -> "str | None":
 def session_change(session_id: str) -> "tuple[str | None, str | None]":
     addr = os.environ.get("FLOW_ADDR") or "http://127.0.0.1:4173"
     query = parse.urlencode({"session_id": session_id, "command": "/flow", "sort": "-started_at", "limit": "1"})
-    with request.urlopen(f"{addr}/api/v1/stage-runs?{query}", timeout=2) as resp:
+    with request.urlopen(f"{addr}/api/v1/stage-runs?{query}", timeout=bound(2)) as resp:
         runs = json.load(resp).get("stageRuns")
     run = runs[0] if isinstance(runs, list) and runs and isinstance(runs[0], dict) else {}
     name, key = run.get("changeName"), run.get("projectKey")
@@ -193,7 +200,7 @@ def begin_row_reason(payload: dict, tool_input: dict, prompt: str) -> "str | Non
             return None
         done = subprocess.run(
             ["flow", "record", "dispatches", "-change", change, "-C", cwd],
-            capture_output=True, text=True, timeout=5, check=False,
+            capture_output=True, text=True, timeout=bound(5), check=False,
         )
         rows = json.loads(done.stdout) if done.returncode == 0 else None
     except (OSError, ValueError, subprocess.SubprocessError, AttributeError):

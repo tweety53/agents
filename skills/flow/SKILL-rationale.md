@@ -103,6 +103,25 @@ existed only to bridge the late creation went with it. **Considered:** writing p
 scratch directory and moving it in later — rejected the same way kan-488 rejected it, and now with
 no gap left for it to bridge.
 
+## brainstorm.md — Run brainstorming and planning directly (kan-1033)
+
+The ban on every dispatch from kickoff to the plan gate narrowed to forks (decision
+`agent-tool-everywhere`). Its recorded reason was about forks alone: a fork copies the whole
+conversation, so it saves no context and doubles the spend. A fresh Explore or Plan agent starts
+empty and returns only its conclusions, so it saves the planning session's context — the opposite
+of the failure the ban was written against. **Considered:** keeping the ban for every dispatch —
+rejected because fresh agents save the context the ban protected.
+
+On Claude Code `ExitPlanMode` is the design approval and the merged convergence confirm still
+closes the checklist (decision `exit-plan-mode-is-approval`). **Considered:** `ExitPlanMode` in
+addition to the merged confirm's approval — rejected as two approvals of one design;
+`ExitPlanMode` replacing the plan review gate — rejected because that gate reviews `tasks.md` and
+the decision, which do not exist yet at design time.
+
+Planning keeps every current practice and gate and adds the plan-mode practices (decision
+`extend-not-replace`). **Considered:** replacing brainstorming with plan mode — rejected by the
+operator.
+
 ## git-boundaries.md — Branch backup
 
 Pushing the branch at creation and after every commit was asked for in the same instruction, so a

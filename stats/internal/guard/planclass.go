@@ -34,6 +34,13 @@ var (
 	pcMigration = regexp.MustCompile(`^stats/internal/store/migrations/|\.sql$`)
 )
 
+// pcRoll is one reproducible roll: the first 8 hex digits of sha256(s) read
+// as an integer, mod 100. plan-agent-pair rolls with it too.
+func pcRoll(s string) uint64 {
+	v, _ := strconv.ParseUint(sha256Hex(s)[:8], 16, 64)
+	return v % 100
+}
+
 // pcRed is grep -E '^\*\*Build:\*\* red\b' in the caller's locale: under
 // UTF-8 a non-ASCII letter or digit right after "red" continues the word, as
 // grep's locale-aware \b has it, and so does a byte that is not UTF-8 (grep
@@ -327,10 +334,7 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 	// Rolls are reproducible per change name (the directory holding
 	// <tasks.md>): each the first 8 hex digits of a SHA-256, mod 100.
 	name := uwBasename(gdcDirname(tasksFile))
-	roll := func(s string) uint64 {
-		v, _ := strconv.ParseUint(sha256Hex(s)[:8], 16, 64)
-		return v % 100
-	}
+	roll := pcRoll
 	yn := func(b bool) string {
 		if b {
 			return "yes"

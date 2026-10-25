@@ -144,12 +144,21 @@ rule. The resolution is recorded with the reasoning: a panel run in the pass log
 `skills/flow/verify-and-handoff.md`), naming the options considered and why the one taken is the
 safest that still makes progress.
 
+**An operator message that arrives mid-run is never a stop.** A question, an aside or a side
+request the operator sends while a run is executing — about the run, the change or anything else —
+is answered or done in the run's own output, and the same turn then continues into the run's next
+step. The run ends only where this file names a stop; an operator message that is not itself an
+answer to the run's own ask names none (kan-1033: the parent closed the review panel, answered
+two mid-run questions and filed a requested ticket, then ended the turn with verify still to run).
+
 ## The parent is the only orchestrator
 
 **Every dispatch a `/flow`, `/flow-fast` or `/flow-self-review` run makes does the work itself;
 none of them is an orchestrator.** The parent session dispatches each planner, implementer,
 fixer, reviewer and verifier directly, every one with the NO DELEGATION paragraph
-(`skills/flow/implement.md`) and a `subagent_type` that carries no `Agent` tool — never a
+(`skills/flow/implement.md`) and a `subagent_type` that carries no `Agent` tool — save a loop's
+planner, which carries PLANNING DELEGATION on a `flow-planner-<effort>` definition and may dispatch
+only fresh Explore and Plan agents (`skills/flow-self-review/SKILL.md`) — never a
 `general-purpose` or other agent whose job is to dispatch, sequence or wait on others. Where a
 contract says "this session" or "the parent" runs a loop, the parent runs it, even when the loop
 is long. An orchestrator duplicates the parent's context, idles between its children's returns

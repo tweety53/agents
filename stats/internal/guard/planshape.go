@@ -1,9 +1,12 @@
 package guard
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"math/big"
+	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -14,10 +17,10 @@ import (
 )
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
-// judges its commits (check-task-commit-fields) can actually read it. Eighteen
-// findings, F1-F18 (F1-F6's canonical definitions, decisions and rationale:
+// judges its commits (check-task-commit-fields) can actually read it. Nineteen
+// findings, F1-F19 (F1-F6's canonical definitions, decisions and rationale:
 // spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-md-at-plan/
-// design.md -- not restated here; F7-F18's are the rows below).
+// design.md -- not restated here; F7-F19's are the rows below).
 //
 // The guard reads the plan with the very grammar the commit guard reads it
 // with -- tcfParseTask, tcfTaskIDs, tcfIterTasks, tcfSelectTask,
@@ -155,6 +158,14 @@ import (
 //	    the sweep cannot print nothing at this task's commit (kan-1021's
 //	    Tasks 5 and 6). A plan whose base does not resolve is not checked.
 //	    Reported at the sweep's line, once per such file.
+//	F19 A tasks.md whose leading `>` header block carries
+//	    `> **Design shape:** plan-mode` beside a design.md missing any of
+//	    `## Recommended approach`, `## Critical files`, `## Existing code to
+//	    reuse`, `## Verification` -- one `<design.md>: missing section
+//	    <heading> (Design shape: plan-mode)` line each; an absent design.md
+//	    is one such line naming the file. A plan without the line is not
+//	    checked, so changes planned before the four sections existed keep
+//	    passing (kan-1033 design.md §4, decision design-shape-line).
 //
 // A duplicate task id is check-task-build-green's violation, not this
 // guard's: tcfTaskIDs keeps the first occurrence, and every per-task read
@@ -362,7 +373,51 @@ func (p *psPlan) check() []string {
 	v = append(v, p.baselineConvention()...)
 	v = append(v, p.baselineChain()...)
 	v = append(v, p.baseDeclared(ids)...)
-	return append(v, p.sweepScope()...)
+	v = append(v, p.sweepScope()...)
+	return append(v, p.designSections()...)
+}
+
+var (
+	psDesignShapeRE  = regexp.MustCompile(`^>[` + tcfWS + `]*\*\*Design shape:\*\*[` + tcfWS + `]*plan-mode[` + tcfWS + `]*$`)
+	psDesignSections = []string{"## Recommended approach", "## Critical files", "## Existing code to reuse", "## Verification"}
+)
+
+// designSections is F19: the plan-mode sections of the sibling design.md,
+// checked only when the header block -- the `>` lines before the first
+// task -- declares the plan-mode design shape.
+func (p *psPlan) designSections() []string {
+	shaped := false
+	for _, l := range p.lines {
+		if pcTaskLine.MatchString(l) {
+			break
+		}
+		if psDesignShapeRE.MatchString(l) {
+			shaped = true
+			break
+		}
+	}
+	if !shaped || !p.on("F19") {
+		return nil
+	}
+	design := filepath.Join(filepath.Dir(p.path), "design.md")
+	raw, err := os.ReadFile(psAbs(p.env, design))
+	if errors.Is(err, fs.ErrNotExist) {
+		return []string{design + ": missing file design.md (Design shape: plan-mode)"}
+	}
+	if err != nil {
+		return []string{design + ": cannot read design.md: " + err.Error() + " (Design shape: plan-mode)"}
+	}
+	have := map[string]bool{}
+	for _, l := range strings.Split(string(raw), "\n") {
+		have[strings.TrimRight(l, " \t\r")] = true
+	}
+	var v []string
+	for _, h := range psDesignSections {
+		if !have[h] {
+			v = append(v, design+": missing section "+h+" (Design shape: plan-mode)")
+		}
+	}
+	return v
 }
 
 func (p *psPlan) checkTask(found tcfTaskBody) []string {
