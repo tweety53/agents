@@ -1,0 +1,3 @@
+# Sentences Task 2 adds to skills/flow/verify-fix-loop.md (finding 2).
+**Every new branch the fix adds lands a test of its own in the same commit.
+A condition, flag, guard or state the fix introduces beyond the departure it closes — a hidden placeholder, a reset on return, a skipped refresh — carries a test that fails with that branch removed, and the task's `**Regression:**` names each such test beside the departure's probe, never the probe alone (kan-1023: panel rounds 3, 5, 7 and 9 each raised an Important the round's own fix had introduced).
