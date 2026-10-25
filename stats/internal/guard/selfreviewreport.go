@@ -60,6 +60,7 @@ var srrFrozenLists = []struct {
 }{
 	{"five-angle-reports.txt", "five-angle", 5},
 	{"six-angle-reports.txt", "six-angle", 6},
+	{"seven-angle-reports.txt", "seven-angle", 7},
 }
 
 // checkSelfReviewReport is scripts/check-self-review-report.sh's body. Its

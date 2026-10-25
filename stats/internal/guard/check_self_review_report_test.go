@@ -37,11 +37,13 @@ var (
 	csrStats = csrSec("Stats app", "flow-stats-app", csrNone)
 	csrSpeed = csrSec("Speed", "flow-speed", csrNone)
 	csrEval  = csrSec("Flow-eval cases", "flow-eval", csrNone)
+	csrTune  = csrSec("Prompt tuning", "flow-prompt-tuning", csrNone)
 	// csrFive is a report as written before angle 6 existed, csrSix one as
-	// written before angle 7 existed.
+	// written before angle 7 existed, csrSeven one as written before angle 8.
 	csrFive      = strings.Join([]string{csrFix, csrCost, csrImp, csrAuto, csrStats}, "\n")
 	csrSix       = csrFive + "\n" + csrSpeed
-	csrCompliant = csrSix + "\n" + csrEval
+	csrSeven     = csrSix + "\n" + csrEval
+	csrCompliant = csrSeven + "\n" + csrTune
 	// csrNoneFive is the five original sections, each carrying the marker.
 	csrNoneFive = strings.Join([]string{csrSec("Cost", "flow-cost", csrNone), csrImp, csrAuto, csrStats}, "\n")
 )
@@ -142,6 +144,10 @@ func TestCheckSelfReviewReport(t *testing.T) {
 		}, []check{
 			{"case 2: report missing the angle-5 section is caught", rcIs(1)},
 			{"case 2: finding names the missing angle-5 label", has("missing section", "flow-stats-app")},
+		}},
+		{func(t *testing.T) csrResult { return csrRun(t, nil, csrReport(t, csrSeven)) }, []check{
+			{"case: report missing the angle-8 section is caught", rcIs(1)},
+			{"case: finding names the missing angle-8 label", has("missing section for angle", "flow-prompt-tuning")},
 		}},
 		{func(t *testing.T) csrResult {
 			return csrRun(t, nil, csrReport(t, strings.Join([]string{csrFix, csrCost, csrImp,
@@ -374,7 +380,7 @@ func TestCheckSelfReviewReport(t *testing.T) {
 		}},
 		{func(t *testing.T) csrResult {
 			return csrRun(t, nil, csrReport(t, strings.Join([]string{csrFix,
-				csrSec("Cost", "flow-cost", "- **[flow-cost]** Every panel slot gathers the same context independently — fixed: abc1234"), csrImp, csrAuto, csrStats, csrSpeed, csrEval}, "\n")))
+				csrSec("Cost", "flow-cost", "- **[flow-cost]** Every panel slot gathers the same context independently — fixed: abc1234"), csrImp, csrAuto, csrStats, csrSpeed, csrEval, csrTune}, "\n")))
 		}, []check{
 			{"case 34: a fixed finding naming a sha exits 0", rcIs(0)},
 		}},
@@ -436,7 +442,7 @@ func TestCheckSelfReviewReport(t *testing.T) {
 			return r
 		}, []check{
 			{"a clean run prints the verdict and the coverage fragment on stdout", func(r csrResult) bool {
-				return r.out == "SELF-REVIEW-REPORT-OK: <dir> — 1 report(s) checked\n  <dir>/fixture-self-review.md 9\n" && r.err == ""
+				return r.out == "SELF-REVIEW-REPORT-OK: <dir> — 1 report(s) checked\n  <dir>/fixture-self-review.md 10\n" && r.err == ""
 			}},
 		}},
 		{func(t *testing.T) csrResult {
