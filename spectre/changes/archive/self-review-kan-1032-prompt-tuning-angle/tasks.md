@@ -52,12 +52,12 @@ hook judges no message its raw-word fallback split.
 - `commit` skips a row the self-review report names and a store it cannot read
   (`commit-requires-in-run-fix-line`).
 
-- [ ] 1. Stop the verify list when the store refuses its begin
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In
+- [x] 1. Stop the verify list when the store refuses its begin
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In
     `stats/internal/guard/run_verify_list_test.go`, the recording test's fake `flow` logs and exits
     0; read `record` in `stats/internal/guard/runverifylist.go` and confirm `record("begin")`'s
     result is never read before the list's commands run.
-  - [ ] **Step 2: Write the failing test** `TestRunVerifyListStopsOnARefusedBegin` in
+  - [x] **Step 2: Write the failing test** `TestRunVerifyListStopsOnARefusedBegin` in
     `stats/internal/guard/run_verify_list_test.go`, on the recording test's fixture: a fake `flow`
     that prints `flow: record dispatch refused: dirty` and exits 2 on `record dispatch begin` →
     `run-verify-list <wt> test <five recording args>` exits 4, the list's command (`echo ran`
@@ -65,16 +65,16 @@ hook judges no message its raw-word fallback split.
     `run-verify-list: flow record dispatch begin refused — no command ran: flow: record dispatch refused: dirty`;
     a fake `flow` that exits 0 on `begin` and 1 on `end` → the list exits 0. Run
     `cd stats && go test ./internal/guard -run 'TestRunVerifyListStopsOnARefusedBegin' -count=1` — it fails.
-  - [ ] **Step 3: Implement** in `runverifylist.go`: `record` returns whether the call succeeded;
+  - [x] **Step 3: Implement** in `runverifylist.go`: `record` returns whether the call succeeded;
     when `begin` fails, print the line above (`strings.TrimSpace` of its output) and return 4 before
     any command. `end`'s failure keeps today's warning. Rewrite the RECORDING paragraph of the file
     header to say so, and add `#   4  the store refused the recording begin (stderr names why): no command ran`
     to the Exit codes block of `scripts/run-verify-list.sh`.
-  - [ ] **Step 4: Apply `patches/task-1.diff`** from `<agents-wt>`: the **Recording** sentence
+  - [x] **Step 4: Apply `patches/task-1.diff`** from `<agents-wt>`: the **Recording** sentence
     (`skills/flow/verify-and-handoff.md`).
-  - [ ] **Step 5: Prove the test pins the fix.** Save a copy of `runverifylist.go`, make the
+  - [x] **Step 5: Prove the test pins the fix.** Save a copy of `runverifylist.go`, make the
     refused `begin` fall through again — the Step 2 test fails; restore the copy.
-  - [ ] **Step 6: Verify.** `cd stats && gofmt -l internal/guard` prints nothing;
+  - [x] **Step 6: Verify.** `cd stats && gofmt -l internal/guard` prints nothing;
     `go test ./internal/guard -run 'TestRunVerifyList' -count=1` passes; from `<agents-wt>`,
     `scripts/check-verbatim-moves.sh`, `scripts/check-markdown-integrity.sh` and
     `scripts/check-references.sh` exit 0. Commit.
@@ -89,11 +89,11 @@ hook judges no message its raw-word fallback split.
 
 **Decision:** verify-list-stops-on-refused-begin
 
-- [ ] 2. State how a mutation reproducer selects its tests
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -c 'every test of the package, file or module' skills/flow/review-panel.md` prints `0`.
-  - [ ] **Step 2: Apply `patches/task-2.diff`** from `<agents-wt>`: the sentence closing the
+- [x] 2. State how a mutation reproducer selects its tests
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -c 'every test of the package, file or module' skills/flow/review-panel.md` prints `0`.
+  - [x] **Step 2: Apply `patches/task-2.diff`** from `<agents-wt>`: the sentence closing the
     reproducer paragraph of **The mutation-testing brief** (`skills/flow/review-panel.md`).
-  - [ ] **Step 3: Verify.** The Step 1 grep prints `1`; from `<agents-wt>`,
+  - [x] **Step 3: Verify.** The Step 1 grep prints `1`; from `<agents-wt>`,
     `scripts/check-verbatim-moves.sh`, `scripts/check-mutation-reproducer-pin.sh`,
     `scripts/check-dispatch-paragraphs.sh`, `scripts/check-markdown-integrity.sh` and
     `scripts/check-references.sh` exit 0. Commit.
@@ -107,13 +107,13 @@ hook judges no message its raw-word fallback split.
 
 **Decision:** mutation-reproducer-runs-whole-package
 
-- [ ] 3. Record loop dispatches once, under the loop's change
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Pipe an `openRowPayload`
+- [x] 3. Record loop dispatches once, under the loop's change
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Pipe an `openRowPayload`
     (`stats/internal/repotest/enforce_agent_baseline_hook_test.go`) with description
     `pipeline-fix-7-plan x` and no `Key:` line, under `openRowFixture` rows `[]`, into
     `hooks/enforce-agent-baseline.py` (or read `begin_row_reason`): it denies with
     `no open ledger row for 'pipeline-fix-7-plan' in c1`, asking for `flow record dispatch begin -change c1 -key pipeline-fix-7-plan`.
-  - [ ] **Step 2: Write the failing tests.**
+  - [x] **Step 2: Write the failing tests.**
     `TestEnforceAgentBaselineHookAsksForTheLoopKeyLine` in the hook test file: description
     `pipeline-fix-7-plan x` with no `Key:` line → denied, the reason carries `Key: pipeline-fix-7-plan`
     and `enforce-loop-dispatch.py` and never `flow record dispatch begin`, and the fake `flow` was
@@ -135,7 +135,7 @@ hook judges no message its raw-word fallback split.
     `cd stats && go test ./internal/repotest -run 'TestEnforceAgentBaselineHookAsksForTheLoopKeyLine' -count=1`,
     `go test ./cmd/flow -run 'TestRecordDispatchBeginRefusesALoopKeyOffItsLoop' -count=1` and
     `go test ./internal/store -run 'TestMigration0047DropsLoopDispatchTwins' -count=1` — each fails.
-  - [ ] **Step 3: Implement.** In `hooks/enforce-agent-baseline.py`, a `loop_key_line_reason`
+  - [x] **Step 3: Implement.** In `hooks/enforce-agent-baseline.py`, a `loop_key_line_reason`
     checked after `description_reason` and before `begin_row_reason`: in a flow session, a
     description whose first word opens `pipeline-fix-` or `self-review-` and a prompt with no
     `LOOP_KEY_LINE` is denied with "Dispatch blocked: `<word>` is a loop key — its prompt carries
@@ -153,13 +153,13 @@ hook judges no message its raw-word fallback split.
     'pipeline-fix-%'`, and a dispatch `t` with the same `dispatch_key` under a change of the same
     `project_key` named `LIKE 'pipeline-fix-' || <d's change name> || '-%'`; set
     `findings.dispatch_id` to NULL where it names a twin, then delete the twins.
-  - [ ] **Step 4: Apply `patches/task-3.diff`** from `<agents-wt>`: the sentence under the closed
+  - [x] **Step 4: Apply `patches/task-3.diff`** from `<agents-wt>`: the sentence under the closed
     list (`skills/flow/implement.md`) and item 1's sentence in **Pipeline defects found mid-run**
     (`skills/flow-contracts/pipeline.md`).
-  - [ ] **Step 5: Prove the tests pin the fix.** One at a time, on a saved copy: drop the new hook
+  - [x] **Step 5: Prove the tests pin the fix.** One at a time, on a saved copy: drop the new hook
     reason (the hook test fails), drop the `pipeline-fix-` begin check (the record test fails),
     drop the twin `EXISTS` clause from the migration (the migration test fails); restore each.
-  - [ ] **Step 6: Verify.** `cd stats && gofmt -l . ` prints nothing; `go vet ./cmd/flow ./internal/store`
+  - [x] **Step 6: Verify.** `cd stats && gofmt -l . ` prints nothing; `go vet ./cmd/flow ./internal/store`
     is clean; `go test ./internal/repotest -run 'TestEnforceAgentBaselineHook' -count=1`,
     `go test ./cmd/flow -run 'TestRecordDispatch' -count=1` and
     `go test ./internal/store -run 'TestMigration' -count=1` pass; from `<agents-wt>`,
@@ -179,11 +179,11 @@ hook judges no message its raw-word fallback split.
 **Decision:** begin-refuses-loop-key-off-loop-change
 **Decision:** migration-drops-loop-twins
 
-- [ ] 4. Require the in-run fix line for every fixed in-run row
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Read `commit` in
+- [x] 4. Require the in-run fix line for every fixed in-run row
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Read `commit` in
     `stats/internal/guard/integratechange_commit.go`: only lines matching `icFixLine` are checked,
     and no store row is read.
-  - [ ] **Step 2: Write the failing test** `TestIntegrateChangeRequiresInRunFixLine` in
+  - [x] **Step 2: Write the failing test** `TestIntegrateChangeRequiresInRunFixLine` in
     `stats/internal/guard/integrate_change_prepare_test.go`, through `icRunCases`. First make the
     fake `flow` in `stats/internal/guard/integrate_change_test.go` answer `self-review findings`
     with `cat "$WORK/sr-findings.json" 2>/dev/null || echo '[]'`. Cases: a findings file with
@@ -194,7 +194,7 @@ hook judges no message its raw-word fallback split.
     `narrative_format_in_format` does; a `flow-cost` `fixed` row and a `flow-fix` `noted` row
     with no line → `commit` proceeds. Run
     `cd stats && go test ./internal/guard -run 'TestIntegrateChangeRequiresInRunFixLine' -count=1` — it fails.
-  - [ ] **Step 3: Implement** in `integratechange_commit.go`, after the format loop: run
+  - [x] **Step 3: Implement** in `integratechange_commit.go`, after the format loop: run
     `flow self-review findings -C <main> -change <name>` (as `recordFixedRows` does), parse its JSON
     array; for each row with `angle` `flow-fix` and `disposition` `fixed` whose `ref` no
     `icFixFormat` sha group prefixes (compare the shorter against the longer's prefix) and whose
@@ -203,11 +203,11 @@ hook judges no message its raw-word fallback split.
     prints `integrate-change: warning: flow self-review findings unreadable — the in-run fix line
     check is skipped` on stderr and continues. Extend the `commit` paragraph of the
     `integratechange.go` header with the new stop.
-  - [ ] **Step 4: Apply `patches/task-4.diff`** from `<agents-wt>`: the second
+  - [x] **Step 4: Apply `patches/task-4.diff`** from `<agents-wt>`: the second
     **`STOP: narrative`** line (`skills/flow/integrate.md`).
-  - [ ] **Step 5: Prove the test pins the fix.** On a saved copy, drop the new check — the first
+  - [x] **Step 5: Prove the test pins the fix.** On a saved copy, drop the new check — the first
     Step 2 case fails; restore the copy.
-  - [ ] **Step 6: Verify.** `cd stats && gofmt -l internal/guard` prints nothing;
+  - [x] **Step 6: Verify.** `cd stats && gofmt -l internal/guard` prints nothing;
     `go test ./internal/guard -run 'TestIntegrateChange' -count=1` passes; from `<agents-wt>`,
     `scripts/check-verbatim-moves.sh`, `scripts/check-markdown-integrity.sh` and
     `scripts/check-references.sh` exit 0. Commit.
@@ -222,22 +222,22 @@ hook judges no message its raw-word fallback split.
 
 **Decision:** commit-requires-in-run-fix-line
 
-- [ ] 5. Accept round 0 in a prompt-tuning case
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In
+- [x] 5. Accept round 0 in a prompt-tuning case
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In
     `stats/internal/guard/check_prompt_tuning_cases_test.go`, the row "an unset source round is
     caught" sets `Round = 0` and expects exit 1 — round 0, the initial panel's round, is refused.
-  - [ ] **Step 2: Write the failing test** `TestCheckPromptTuningCasesSourceRound` in that file, on
+  - [x] **Step 2: Write the failing test** `TestCheckPromptTuningCasesSourceRound` in that file, on
     the fixture the table test uses: `round` 0 → exit 0; `round` absent from `case.json` → exit 1,
     output `source.round is not set`; `round` -1 → exit 1, output `source.round`. Delete the old
     row. Run `cd stats && go test ./internal/guard -run 'TestCheckPromptTuningCasesSourceRound' -count=1` — it fails.
-  - [ ] **Step 3: Implement.** `Source.Round` in `stats/internal/prompttuning/prompttuning.go`
+  - [x] **Step 3: Implement.** `Source.Round` in `stats/internal/prompttuning/prompttuning.go`
     becomes `*int` (`json:"round"`); `prompttuningcases.go` reports `source.round is not set` for
     `nil` and `source.round %d is negative` below 0. Update every literal (`Round: new(2)`) in
     `check_prompt_tuning_cases_test.go` and `stats/internal/prompttuning/prompttuning_test.go`, and
     any reader `go build ./...` names.
-  - [ ] **Step 4: Prove the test pins the fix.** On a saved copy, restore `< 1` semantics — the
+  - [x] **Step 4: Prove the test pins the fix.** On a saved copy, restore `< 1` semantics — the
     round-0 case fails; restore the copy.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l . ` prints nothing; `go vet ./internal/... ./cmd/...`
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l . ` prints nothing; `go vet ./internal/... ./cmd/...`
     is clean; `go test ./internal/guard ./internal/prompttuning ./cmd/flow -run 'PromptTuning' -count=1`
     passes; from `<agents-wt>`, `scripts/check-prompt-tuning-cases.sh` exits 0. Commit.
 
@@ -251,24 +251,24 @@ hook judges no message its raw-word fallback split.
 
 **Decision:** round-zero-is-a-round
 
-- [ ] 6. Let planning agents through the hook's row checks
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** An `openRowPayload` with
+- [x] 6. Let planning agents through the hook's row checks
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** An `openRowPayload` with
     `subagent_type` `Explore` and description `self-review plan — trace` is denied with
     `DESCRIPTION_REASON` (`hooks/enforce-agent-baseline.py`).
-  - [ ] **Step 2: Write the failing test** `TestEnforceAgentBaselineHookAdmitsPlanningAgents` in
+  - [x] **Step 2: Write the failing test** `TestEnforceAgentBaselineHookAdmitsPlanningAgents` in
     `stats/internal/repotest/enforce_agent_baseline_hook_test.go` (give `openRowPayload` a
     `subagent_type` parameter, or build the payload beside it): `Explore` and `Plan` with
     description `self-review plan — trace`, rows `[]` → allowed; `flow-low` with the same
     description → denied. Run
     `cd stats && go test ./internal/repotest -run 'TestEnforceAgentBaselineHookAdmitsPlanningAgents' -count=1` — it fails.
-  - [ ] **Step 3: Implement.** A `PLANNING_AGENT_TYPES = {"Explore", "Plan"}` set beside
+  - [x] **Step 3: Implement.** A `PLANNING_AGENT_TYPES = {"Explore", "Plan"}` set beside
     `EXEMPT_SUBAGENT_TYPES`, with a comment citing kan-1032's self-review; `description_reason`,
     `loop_key_line_reason` and `begin_row_reason` return `None` for those types. The
     baseline-pointer, pinned-role and flow-high checks still apply. Add one sentence to the module
     docstring.
-  - [ ] **Step 4: Prove the test pins the fix.** On a saved copy, drop the exemption — the test
+  - [x] **Step 4: Prove the test pins the fix.** On a saved copy, drop the exemption — the test
     fails; restore the copy.
-  - [ ] **Step 5: Verify.** `cd stats && go test ./internal/repotest -run 'TestEnforceAgentBaselineHook' -count=1`
+  - [x] **Step 5: Verify.** `cd stats && go test ./internal/repotest -run 'TestEnforceAgentBaselineHook' -count=1`
     passes; from `<agents-wt>`, `scripts/check-python-suppressions.sh` exits 0. Commit.
 
 **Build:** green
@@ -281,25 +281,25 @@ hook judges no message its raw-word fallback split.
 
 **Decision:** planning-agents-pass-row-checks
 
-- [ ] 7. Read no message the hook's raw-word fallback split
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** A Bash payload whose command
+- [x] 7. Read no message the hook's raw-word fallback split
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** A Bash payload whose command
     is a quoted heredoc whose body holds one apostrophe (`the coordinator's note`) followed by
     `git -C {SWT} commit -q -m "chore(spectre): plan c1"` is denied by `hooks/protect-main-checkout.py`
     with `no \`chore\` subject`; the same command without the apostrophe is allowed — `tokenize`'s
     unbalanced-quote fallback keeps the quote on `"chore(spectre):`, so `CHORE_SUBJECT_RE` misses.
-  - [ ] **Step 2: Write the failing test**
+  - [x] **Step 2: Write the failing test**
     `TestProtectMainCheckoutSkipsAMessageItCannotRead` in
     `stats/internal/repotest/protect_main_checkout_test.go`, on the fixture of
     `TestProtectMainCheckoutDeniesAnUntraileredChangeBranchCommit`: the Step 1 command on
     `spectre/c1` → allowed. Run
     `cd stats && go test ./internal/repotest -run 'TestProtectMainCheckoutSkipsAMessageItCannotRead' -count=1` — it fails.
-  - [ ] **Step 3: Implement** in `commit_lacks_trailer`: a message value opening with `"` or `'`
+  - [x] **Step 3: Implement** in `commit_lacks_trailer`: a message value opening with `"` or `'`
     is a raw word the fallback split, so the commit is not judged (`return False`), as the
     docstring already says of a message the command text does not state; add that case to the
     docstring.
-  - [ ] **Step 4: Prove the test pins the fix.** On a saved copy, drop the new return — the test
+  - [x] **Step 4: Prove the test pins the fix.** On a saved copy, drop the new return — the test
     fails; restore the copy.
-  - [ ] **Step 5: Verify.** `cd stats && go test ./internal/repotest -run 'TestProtectMainCheckout' -count=1`
+  - [x] **Step 5: Verify.** `cd stats && go test ./internal/repotest -run 'TestProtectMainCheckout' -count=1`
     passes; from `<agents-wt>`, `scripts/check-python-suppressions.sh` exits 0. Commit.
 
 **Build:** green
