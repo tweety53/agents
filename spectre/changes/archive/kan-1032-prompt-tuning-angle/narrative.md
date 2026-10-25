@@ -14,3 +14,5 @@
 ## 2026-10-25 — integrate run
 
 - Chained straight from write-in-progress; the first verify left its row unrecorded because a dirty `verbatim-moves.txt` refused the inline begin, so the planning paths were committed and both verify groups re-ran to record it. Preflight and the unfinished-work gate passed; route merge and push from the configured default.
+
+In-run pipeline fix: 3936b37d — flow deferred the base sync to integrate; now rebases onto the base before task 1 (blast radius 9 files)
