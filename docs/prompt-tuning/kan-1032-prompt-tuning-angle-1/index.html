@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kan-1032-prompt-tuning-angle-1</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0 auto;max-width:1100px;padding:16px;line-height:1.45}
+pre{background:#f4f4f4;padding:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.ab{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:700px){.ab{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>kan-1032-prompt-tuning-angle-1</h1>
+<h2>Type</h2>
+<p>implementer · scope generic</p>
+<h2>Defect class</h2>
+<p>A compound decision ships with tests that pin only its passing path and one failing path, so dropping or loosening any single clause leaves the suite green.</p>
+<h2>Finding</h2>
+<pre>Dropping the self-review- prefix check survives: any branch would be admitted. — Important — `stats/internal/guard/looplanding.go:146` (mutation slot, round 0). The same class: F8 (`looplanding.go:115`), F10 (`selfreviewreport.go:63`), F11 (`prompttuningcases.go:136`).
+</pre>
+<pre><code>commit 40427747bc4315903ee93de1f354f32b0fae9f16
+Author: Yuriy Aleksandrov &lt;yatweety@gmail.com&gt;
+Date:   Sun Oct 25 20:13:47 2026 &#43;0200
+
+    feat(guard): land a self-review branch carrying only prompt-tuning cases
+    
+    Task-Id: 3
+
+diff --git a/stats/internal/guard/check_loop_landing_test.go b/stats/internal/guard/check_loop_landing_test.go
+index ca24833a..59c4b967 100644
+--- a/stats/internal/guard/check_loop_landing_test.go
+&#43;&#43;&#43; b/stats/internal/guard/check_loop_landing_test.go
+@@ -135,3 &#43;135,32 @@ esac
+ 		})
+ 	}
+ }
+&#43;
+&#43;// A self-review-* branch whose only commits add prompt-tuning cases lands
+&#43;// with no flowd rows; one more commit outside docs/prompt-tuning/ puts it
+&#43;// back under the loop&#39;s row checks.
+&#43;func TestLoopLandingAdmitsPromptTuningOnly(t *testing.T) {
+&#43;	t.Parallel()
+&#43;	const sr = &#34;self-review-x&#34;
+&#43;	fx := lpNew(t, `[]`)
+&#43;	gitRun(t, fx.repo, &#34;update-ref&#34;, &#34;refs/remotes/origin/main&#34;, &#34;HEAD&#34;)
+&#43;	gitRun(t, fx.repo, &#34;symbolic-ref&#34;, &#34;refs/remotes/origin/HEAD&#34;, &#34;refs/remotes/origin/main&#34;)
+&#43;	gitRun(t, fx.repo, &#34;checkout&#34;, &#34;-q&#34;, &#34;-b&#34;, sr)
+&#43;	writeFile(t, fx.repo&#43;&#34;/docs/prompt-tuning/x-1/case.json&#34;, &#34;{}\n&#34;)
+&#43;	gitRun(t, fx.repo, &#34;add&#34;, &#34;-A&#34;)
+&#43;	gitRun(t, fx.repo, &#34;commit&#34;, &#34;-q&#34;, &#34;-m&#34;, &#34;docs(prompt-tuning): x cases&#34;)
+&#43;
+&#43;	var o, e bytes.Buffer
+&#43;	if rc := checkLoopLanding([]string{fx.repo, sr}, fx.env, &amp;o, &amp;e); rc != 0 || !strings.Contains(o.String(), &#34;LOOP-LANDING-OK &#34;&#43;sr&#43;&#34; (prompt-tuning cases only)&#34;) {
+&#43;		t.Fatalf(&#34;cases-only branch: rc %d, output %q&#34;, rc, o.String()&#43;e.String())
+&#43;	}
+&#43;
+&#43;	writeFile(t, fx.repo&#43;&#34;/skills/flow/implement.md&#34;, &#34;edit\n&#34;)
+&#43;	gitRun(t, fx.repo, &#34;add&#34;, &#34;-A&#34;)
+&#43;	gitRun(t, fx.repo, &#34;commit&#34;, &#34;-q&#34;, &#34;-m&#34;, &#34;fix: an edit&#34;)
+&#43;	o.Reset()
+&#43;	e.Reset()
+&#43;	if rc := checkLoopLanding([]string{fx.repo, sr}, fx.env, &amp;o, &amp;e); rc != 1 || !strings.Contains(o.String(), &#34;LOOP-LANDING-REFUSED: PLAN&#34;) {
+&#43;		t.Fatalf(&#34;mixed branch: rc %d, output %q&#34;, rc, o.String()&#43;e.String())
+&#43;	}
+&#43;}
+diff --git a/stats/internal/guard/looplanding.go b/stats/internal/guard/looplanding.go
+index 55fc9a50..3908f197 100644
+--- a/stats/internal/guard/looplanding.go
+&#43;&#43;&#43; b/stats/internal/guard/looplanding.go
+@@ -16,6 &#43;16,9 @@ import (
+ // review, every row closed, the highest review `clean` -- no Critical or Important -- and
+ // no red-line fix (`fix-v&lt;v&gt;`) after it. protect-main-checkout.py runs it on
+ // a landing push typed by hand; pipeline-fix.sh land runs it before its own.
+&#43;// One admission skips the rows: a self-review-* branch whose diff from
+&#43;// origin/HEAD touches only docs/prompt-tuning/ carries prompt-tuning cases and
+&#43;// no code, so no loop review had anything to judge (kan-1032 design.md §4).
+ func init() {
+ 	Registry[&#34;check-loop-landing&#34;] = checkLoopLanding
+ }
+@@ -100,6 &#43;103,26 @@ func lpLandingRefusals(lp lpLoop, rows []lpDispatch) []string {
+ 	return out
+ }
+ 
+&#43;// lpPromptTuningOnly is whether branch&#39;s diff from origin/HEAD is non-empty
+&#43;// and every path lies under docs/prompt-tuning/.
+&#43;func lpPromptTuningOnly(env Env, git, repo, branch string) bool {
+&#43;	rc, base := kwRun(env, &#34;&#34;, git, &#34;-C&#34;, repo, &#34;symbolic-ref&#34;, &#34;--short&#34;, &#34;refs/remotes/origin/HEAD&#34;)
+&#43;	if rc != 0 {
+&#43;		return false
+&#43;	}
+&#43;	rc, out := kwRun(env, &#34;&#34;, git, &#34;-C&#34;, repo, &#34;diff&#34;, &#34;--name-only&#34;, strings.TrimSpace(base)&#43;&#34;...&#34;&#43;branch)
+&#43;	paths := strings.Fields(out)
+&#43;	if rc != 0 || len(paths) == 0 {
+&#43;		return false
+&#43;	}
+&#43;	for _, p := range paths {
+&#43;		if !strings.HasPrefix(p, &#34;docs/prompt-tuning/&#34;) {
+&#43;			return false
+&#43;		}
+&#43;	}
+&#43;	return true
+&#43;}
+&#43;
+ func checkLoopLanding(args []string, env Env, stdout, stderr io.Writer) int {
+ 	const self = &#34;check-loop-landing&#34;
+ 	if len(args) != 2 || args[0] == &#34;&#34; || args[1] == &#34;&#34; {
+@@ -120,6 &#43;143,10 @@ func checkLoopLanding(args []string, env Env, stdout, stderr io.Writer) int {
+ 		fmt.Fprintf(stderr, &#34;%s: %s is not a git checkout\n&#34;, self, args[0])
+ 		return 2
+ 	}
+&#43;	if strings.HasPrefix(args[1], &#34;self-review-&#34;) &amp;&amp; lpPromptTuningOnly(env, git, smcAbs(env, args[0]), args[1]) {
+&#43;		fmt.Fprintf(stdout, &#34;LOOP-LANDING-OK %s (prompt-tuning cases only)\n&#34;, args[1])
+&#43;		return 0
+&#43;	}
+ 	rows, ok := lpRows(env, main, lp)
+ 	if !ok &amp;&amp; lpOwnBranch(args[1]) {
+ 		// ponytail: an unreadable flowd lets a change branch land unchecked, so no
+</code></pre>
+<h2>Fix</h2>
+<pre><code>commit 0e3ae561e9ceff6ee29a6def1732aadc6ab51dde
+Author: Yuriy Aleksandrov &lt;yatweety@gmail.com&gt;
+Date:   Sun Oct 25 20:43:36 2026 &#43;0200
+
+    fix(guard): close the prompt-tuning panel findings
+    
+    Flow-Key: panel-fix-1
+
+diff --git a/stats/internal/guard/check_loop_landing_test.go b/stats/internal/guard/check_loop_landing_test.go
+index 59c4b967..d7c944e4 100644
+--- a/stats/internal/guard/check_loop_landing_test.go
+&#43;&#43;&#43; b/stats/internal/guard/check_loop_landing_test.go
+@@ -164,3 &#43;164,24 @@ func TestLoopLandingAdmitsPromptTuningOnly(t *testing.T) {
+ 		t.Fatalf(&#34;mixed branch: rc %d, output %q&#34;, rc, o.String()&#43;e.String())
+ 	}
+ }
+&#43;
+&#43;// The admission needs a non-empty diff and a self-review-* branch: an empty
+&#43;// self-review branch and a pipeline-fix branch carrying only cases both stay
+&#43;// under the row checks.
+&#43;func TestLoopLandingPromptTuningAdmissionBounds(t *testing.T) {
+&#43;	t.Parallel()
+&#43;	fx := lpNew(t, `[]`)
+&#43;	gitRun(t, fx.repo, &#34;update-ref&#34;, &#34;refs/remotes/origin/main&#34;, &#34;HEAD&#34;)
+&#43;	gitRun(t, fx.repo, &#34;symbolic-ref&#34;, &#34;refs/remotes/origin/HEAD&#34;, &#34;refs/remotes/origin/main&#34;)
+&#43;	gitRun(t, fx.repo, &#34;branch&#34;, &#34;self-review-empty&#34;)
+&#43;	gitRun(t, fx.repo, &#34;checkout&#34;, &#34;-q&#34;, &#34;-b&#34;, lpBranch)
+&#43;	writeFile(t, fx.repo&#43;&#34;/docs/prompt-tuning/x-1/case.json&#34;, &#34;{}\n&#34;)
+&#43;	gitRun(t, fx.repo, &#34;add&#34;, &#34;-A&#34;)
+&#43;	gitRun(t, fx.repo, &#34;commit&#34;, &#34;-q&#34;, &#34;-m&#34;, &#34;docs(prompt-tuning): x cases&#34;)
+&#43;	for _, b := range []string{&#34;self-review-empty&#34;, lpBranch} {
+&#43;		var o, e bytes.Buffer
+&#43;		if rc := checkLoopLanding([]string{fx.repo, b}, fx.env, &amp;o, &amp;e); rc != 1 || strings.Contains(o.String(), &#34;prompt-tuning cases only&#34;) {
+&#43;			t.Fatalf(&#34;%s: rc %d, output %q&#34;, b, rc, o.String()&#43;e.String())
+&#43;		}
+&#43;	}
+&#43;}
+diff --git a/stats/internal/guard/looplanding.go b/stats/internal/guard/looplanding.go
+index 3908f197..80f45a4e 100644
+--- a/stats/internal/guard/looplanding.go
+&#43;&#43;&#43; b/stats/internal/guard/looplanding.go
+@@ -110,7 &#43;110,7 @@ func lpPromptTuningOnly(env Env, git, repo, branch string) bool {
+ 	if rc != 0 {
+ 		return false
+ 	}
+-	rc, out := kwRun(env, &#34;&#34;, git, &#34;-C&#34;, repo, &#34;diff&#34;, &#34;--name-only&#34;, strings.TrimSpace(base)&#43;&#34;...&#34;&#43;branch)
+&#43;	rc, out := kwRun(env, &#34;&#34;, git, &#34;-C&#34;, repo, &#34;diff&#34;, &#34;--no-renames&#34;, &#34;--name-only&#34;, strings.TrimSpace(base)&#43;&#34;...&#34;&#43;branch)
+ 	paths := strings.Fields(out)
+ 	if rc != 0 || len(paths) == 0 {
+ 		return false
+</code></pre>
+<h2>Why picked</h2>
+<pre>1. Defect class: a decision built from several clauses (operands of a compound condition, a bound, the members of an accepted set) is tested only end to end, so a mutant that drops or loosens one clause survives. 2. The implementer instructions cover proof-by-breaking only for tests that assert on configuration or file content: &#34;When this task&#39;s tests assert on configuration or file content — a guard script, an embedded config, a fixture file — a passing run alone is not evidence: break the property the assertion protects ... the failing run against the broken state is the evidence.&#34; The per-clause demand exists only in the fix subagent&#39;s MUTATION PROOF, which a first implementation never receives. 3. It generalises: this run&#39;s round 0 raised four Important single-clause survivors in three separate decisions (an emptiness operand, a branch-prefix gate, a count, one member of an enum), and the store&#39;s panel records show the same class in other changes (for example kan-918&#39;s F2-F11 and F20 and kan-1033&#39;s F5 and F10, all Important mutation findings on untested branches or bounds), each costing a fix round. 4. It is not patch accretion: it states one principle (every clause of a decision is pinned by a test that fails without it), names no construct from this task, and holds in any language and on any layer.</pre>
+<h2>Prompt update</h2>
+<p>Target: <code>skills/flow/implement.md</code> at <code>c90ff3802127fdde2a8233b45c297566ce7df5a5</code></p>
+<div class="ab">
+<div><h3>Before</h3><pre>&gt; capture its failure, then restore and capture the pass. Report both runs. &#34;The pattern is now
+&gt; stricter&#34; is intent, not evidence — the failing run against the broken state is the evidence.</pre></div>
+<div><h3>After</h3><pre>&gt; capture its failure, then restore and capture the pass. Report both runs. &#34;The pattern is now
+&gt; stricter&#34; is intent, not evidence — the failing run against the broken state is the evidence.
+
+&gt; **PIN EVERY CLAUSE:** Every clause of a decision this task writes — each operand of a compound
+&gt; condition, each bound, each member of an accepted set, each error or cannot-answer branch — has
+&gt; a test that fails when that clause alone is dropped, flipped or moved by one. Before you commit,
+&gt; make each such single-clause edit once in a scratch copy and confirm a test goes red; a clause no
+&gt; test kills is untested code, whatever the suite&#39;s pass count says.</pre></div>
+</div>
+</body>
+</html>

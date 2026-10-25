@@ -1,0 +1,1 @@
+Dropping the self-review- prefix check survives: any branch would be admitted. — Important — `stats/internal/guard/looplanding.go:146` (mutation slot, round 0). The same class: F8 (`looplanding.go:115`), F10 (`selfreviewreport.go:63`), F11 (`prompttuningcases.go:136`).

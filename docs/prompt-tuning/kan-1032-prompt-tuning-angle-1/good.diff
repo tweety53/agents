@@ -1,0 +1,50 @@
+commit 0e3ae561e9ceff6ee29a6def1732aadc6ab51dde
+Author: Yuriy Aleksandrov <yatweety@gmail.com>
+Date:   Sun Oct 25 20:43:36 2026 +0200
+
+    fix(guard): close the prompt-tuning panel findings
+    
+    Flow-Key: panel-fix-1
+
+diff --git a/stats/internal/guard/check_loop_landing_test.go b/stats/internal/guard/check_loop_landing_test.go
+index 59c4b967..d7c944e4 100644
+--- a/stats/internal/guard/check_loop_landing_test.go
++++ b/stats/internal/guard/check_loop_landing_test.go
+@@ -164,3 +164,24 @@ func TestLoopLandingAdmitsPromptTuningOnly(t *testing.T) {
+ 		t.Fatalf("mixed branch: rc %d, output %q", rc, o.String()+e.String())
+ 	}
+ }
++
++// The admission needs a non-empty diff and a self-review-* branch: an empty
++// self-review branch and a pipeline-fix branch carrying only cases both stay
++// under the row checks.
++func TestLoopLandingPromptTuningAdmissionBounds(t *testing.T) {
++	t.Parallel()
++	fx := lpNew(t, `[]`)
++	gitRun(t, fx.repo, "update-ref", "refs/remotes/origin/main", "HEAD")
++	gitRun(t, fx.repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
++	gitRun(t, fx.repo, "branch", "self-review-empty")
++	gitRun(t, fx.repo, "checkout", "-q", "-b", lpBranch)
++	writeFile(t, fx.repo+"/docs/prompt-tuning/x-1/case.json", "{}\n")
++	gitRun(t, fx.repo, "add", "-A")
++	gitRun(t, fx.repo, "commit", "-q", "-m", "docs(prompt-tuning): x cases")
++	for _, b := range []string{"self-review-empty", lpBranch} {
++		var o, e bytes.Buffer
++		if rc := checkLoopLanding([]string{fx.repo, b}, fx.env, &o, &e); rc != 1 || strings.Contains(o.String(), "prompt-tuning cases only") {
++			t.Fatalf("%s: rc %d, output %q", b, rc, o.String()+e.String())
++		}
++	}
++}
+diff --git a/stats/internal/guard/looplanding.go b/stats/internal/guard/looplanding.go
+index 3908f197..80f45a4e 100644
+--- a/stats/internal/guard/looplanding.go
++++ b/stats/internal/guard/looplanding.go
+@@ -110,7 +110,7 @@ func lpPromptTuningOnly(env Env, git, repo, branch string) bool {
+ 	if rc != 0 {
+ 		return false
+ 	}
+-	rc, out := kwRun(env, "", git, "-C", repo, "diff", "--name-only", strings.TrimSpace(base)+"..."+branch)
++	rc, out := kwRun(env, "", git, "-C", repo, "diff", "--no-renames", "--name-only", strings.TrimSpace(base)+"..."+branch)
+ 	paths := strings.Fields(out)
+ 	if rc != 0 || len(paths) == 0 {
+ 		return false

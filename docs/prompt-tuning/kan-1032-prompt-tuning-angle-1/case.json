@@ -1,0 +1,22 @@
+{
+  "id": "kan-1032-prompt-tuning-angle-1",
+  "type": "implementer",
+  "scope": "generic",
+  "source": {
+    "project": "agents",
+    "change": "kan-1032-prompt-tuning-angle",
+    "jira": "KAN-1032",
+    "repo": "agents",
+    "fix_sha": "0e3ae561e9ceff6ee29a6def1732aadc6ab51dde",
+    "finding_ref": "F9",
+    "round": 0,
+    "slot": "mutation",
+    "severity": "Important"
+  },
+  "target": "skills/flow/implement.md",
+  "target_sha": "c90ff3802127fdde2a8233b45c297566ce7df5a5",
+  "defect_class": "A compound decision ships with tests that pin only its passing path and one failing path, so dropping or loosening any single clause leaves the suite green.",
+  "why_picked": "1. Defect class: a decision built from several clauses (operands of a compound condition, a bound, the members of an accepted set) is tested only end to end, so a mutant that drops or loosens one clause survives. 2. The implementer instructions cover proof-by-breaking only for tests that assert on configuration or file content: \"When this task's tests assert on configuration or file content — a guard script, an embedded config, a fixture file — a passing run alone is not evidence: break the property the assertion protects ... the failing run against the broken state is the evidence.\" The per-clause demand exists only in the fix subagent's MUTATION PROOF, which a first implementation never receives. 3. It generalises: this run's round 0 raised four Important single-clause survivors in three separate decisions (an emptiness operand, a branch-prefix gate, a count, one member of an enum), and the store's panel records show the same class in other changes (for example kan-918's F2-F11 and F20 and kan-1033's F5 and F10, all Important mutation findings on untested branches or bounds), each costing a fix round. 4. It is not patch accretion: it states one principle (every clause of a decision is pinned by a test that fails without it), names no construct from this task, and holds in any language and on any layer.",
+  "before": "> capture its failure, then restore and capture the pass. Report both runs. \"The pattern is now\n> stricter\" is intent, not evidence — the failing run against the broken state is the evidence.",
+  "after": "> capture its failure, then restore and capture the pass. Report both runs. \"The pattern is now\n> stricter\" is intent, not evidence — the failing run against the broken state is the evidence.\n\n> **PIN EVERY CLAUSE:** Every clause of a decision this task writes — each operand of a compound\n> condition, each bound, each member of an accepted set, each error or cannot-answer branch — has\n> a test that fails when that clause alone is dropped, flipped or moved by one. Before you commit,\n> make each such single-clause edit once in a scratch copy and confirm a test goes red; a clause no\n> test kills is untested code, whatever the suite's pass count says."
+}
