@@ -43,7 +43,7 @@ task-commit check — and is pushed plain (**Branch backup** below):
 | The plan gate answers **Yes** (**Plan review gate**, `skills/flow/brainstorm-planner.md`) | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — plan gate` |
 | After each `spectre link` in `flow.isolate-workspace` (`skills/flow/implement.md`), before the next link | each `<project>/spectre/changes/<name>/link.md` the link wrote — the canonical worktree's and the satellite's — in the worktree holding it | `chore(spectre): link <peer>` |
 | After the merge-order record write in `flow.isolate-workspace` (`skills/flow/implement.md`) | each `<project>/spectre/changes/<name>/link.md` that write created or extended — the canonical worktree's | `chore(spectre): merge order` |
-| Before every reviewer dispatch — a gated per-task reviewer bundle, a panel round, a re-run — and before the panel's base sync (**Check base movement first**, `skills/flow/review-panel.md`) | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — before review` |
+| Before every reviewer dispatch — a gated per-task reviewer bundle, a panel round, a re-run — before the panel's base sync (**Check base movement first**, `skills/flow/review-panel.md`), and before the base sync before task 1 (**1. Load context and validate the plan**, `skills/flow/implement.md`) | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — before review` |
 | `flow.document-fix` has appended a fix run's tasks, before the first implementer dispatch | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — fix-run tasks` |
 | `flow.write-in-progress` has appended the narrative, before the handoff | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — narrative` |
 

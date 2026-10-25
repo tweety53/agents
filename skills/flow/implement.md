@@ -272,7 +272,12 @@ reconciles the three artifacts together** (section 4 below) — never discovered
 **The change branch is rebased onto its base before task 1 runs**, on every implementation run —
 creating, resumed or fix — once the plan refresh above has named what moved (kan-1032: the base
 moved 13 commits during planning, and the overlap surfaced only at the review panel's base sync,
-after every task). Once per worktree in this run's resolved set, with its working-notes merge base:
+after every task). It runs before the collision reconciliation above. **The before-review
+planning commit comes first**, as at the panel's base sync: the parent makes that commit
+(**Planning commits**, `skills/flow-contracts/git-boundaries.md`) before the script runs, since
+its bare `git rebase` is refused over the uncommitted ticks or notes a resumed run carries, and
+that refusal is exit 2. Then, once per worktree in this run's resolved set, with its working-notes
+merge base:
 
 ```bash
 sync-panel-base.sh --rebase <worktree> <merge-base>

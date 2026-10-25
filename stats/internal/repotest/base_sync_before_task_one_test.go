@@ -38,6 +38,8 @@ func TestBaseSyncBeforeTaskOne(t *testing.T) {
 	impl := section(t, "skills/flow/implement.md", "1. Load context and validate the plan")
 	for _, want := range []string{
 		step,
+		"It runs before the collision reconciliation above.",
+		"**The before-review\nplanning commit comes first**",
 		"sync-panel-base.sh --rebase <worktree> <merge-base>",
 		"flow state add-worktree <name> <worktree> <sha>",
 		"git -C <worktree> push --force-with-lease origin spectre/<name>",
@@ -48,6 +50,14 @@ func TestBaseSyncBeforeTaskOne(t *testing.T) {
 	}
 	if strings.Contains(impl, "it never rebases") {
 		t.Errorf("skills/flow/implement.md section 1 still defers the rebase to integrate")
+	}
+	const row = "and before the base sync before task 1 (**1. Load context and validate the plan**, `skills/flow/implement.md`) | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — before review` |"
+	gb, err := os.ReadFile(filepath.Join(repoRoot(t), "skills/flow-contracts/git-boundaries.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(gb), row) {
+		t.Errorf("skills/flow-contracts/git-boundaries.md Planning commits lacks %q", row)
 	}
 	const cite = "rebased onto its base before task 1 runs, as the base-sync step of **1. Load context and validate the plan** (`skills/flow/implement.md`)"
 	fast := strings.Join(strings.Fields(section(t, "skills/flow-fast/SKILL.md", "4. Implement")), " ")
