@@ -33,6 +33,15 @@ type DispatchAgentStamper interface {
 	// which Watcher.anchorBegins pairs a lone begin by; found is false
 	// while no such row exists yet.
 	DispatchStartedAt(ctx context.Context, sessionToken, key string) (startedAt time.Time, found bool, err error)
+	// DispatchEndedAt reads the id, ended_at (zero while open) and agent
+	// id of the latest row recorded under (sessionToken, key) -- the
+	// settle pass's answer to whether a begun row has closed and how
+	// (Watcher.settleClosedRows); found is false while no such row exists.
+	DispatchEndedAt(ctx context.Context, sessionToken, key string) (id int64, endedAt time.Time, agentID string, found bool, err error)
+	// MarkDispatchInline sets agent_id to inline on row id when it names
+	// no agent -- the settle pass stamps exactly the row DispatchEndedAt
+	// checked, never an older row sharing its key.
+	MarkDispatchInline(ctx context.Context, id int64) (marked bool, err error)
 }
 
 // Deps is everything a Watcher needs beyond its root, its sink and its
@@ -151,6 +160,16 @@ func (NoDeps) StampSessionDispatchAgent(ctx context.Context, sessionID, key, age
 // DispatchStartedAt never finds a row.
 func (NoDeps) DispatchStartedAt(ctx context.Context, sessionToken, key string) (startedAt time.Time, found bool, err error) {
 	return time.Time{}, false, nil
+}
+
+// DispatchEndedAt never finds a row.
+func (NoDeps) DispatchEndedAt(ctx context.Context, sessionToken, key string) (id int64, endedAt time.Time, agentID string, found bool, err error) {
+	return 0, time.Time{}, "", false, nil
+}
+
+// MarkDispatchInline never marks a row.
+func (NoDeps) MarkDispatchInline(ctx context.Context, id int64) (marked bool, err error) {
+	return false, nil
 }
 
 // InlineDispatchID never finds a row.

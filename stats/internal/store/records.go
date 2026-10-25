@@ -1600,6 +1600,47 @@ func (s *Store) DispatchStartedAt(ctx context.Context, sessionToken, key string)
 	return at, true, nil
 }
 
+// DispatchEndedAt reads the id, ended_at and agent id of the latest row
+// recorded under (sessionToken, key) -- harvest.DispatchAgentStamper's
+// answer to the settle pass. endedAt is zero while the row is open, and
+// found is false, with a nil error, while no such row exists.
+func (s *Store) DispatchEndedAt(ctx context.Context, sessionToken, key string) (int64, time.Time, string, bool, error) {
+	var (
+		id      int64
+		endedAt *time.Time
+		agentID string
+	)
+	err := s.pool.QueryRow(ctx, `
+		SELECT id, ended_at, COALESCE(agent_id, '') FROM dispatches
+		WHERE session_token = $1 AND dispatch_key = $2
+		ORDER BY started_at DESC, id DESC
+		LIMIT 1
+	`, sessionToken, key).Scan(&id, &endedAt, &agentID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, time.Time{}, "", false, nil
+	}
+	if err != nil {
+		return 0, time.Time{}, "", false, fmt.Errorf("store: dispatch ended_at for key %q: %w", key, err)
+	}
+	if endedAt == nil {
+		return id, time.Time{}, agentID, true, nil
+	}
+	return id, *endedAt, agentID, true, nil
+}
+
+// MarkDispatchInline sets agent_id to inline on row id when it names no
+// agent, reporting whether it did -- flowd restamp-dispatch's repair for
+// an inline row begun without -agent-id inline. A row naming an agent is
+// never touched.
+func (s *Store) MarkDispatchInline(ctx context.Context, id int64) (bool, error) {
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE dispatches SET agent_id = 'inline' WHERE id = $1 AND COALESCE(agent_id, '') = ''`, id)
+	if err != nil {
+		return false, fmt.Errorf("store: mark dispatch %d inline: %w", id, err)
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
 // StampLoopDispatchAgent is StampDispatchAgent for a fix-loop row, named
 // by its key alone (harvest.AgentLaunch.LoopKey): the loop's begin is
 // recorded by the PreToolUse hook, so the transcript carries no session

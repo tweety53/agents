@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -512,6 +513,13 @@ type Watcher struct {
 	// later one -- is dropped before time pairing. Cleared wholesale past
 	// maxOpenAgentCalls, as openAgentCalls is.
 	keyStampedKeys map[string]map[string]bool
+
+	// settleCandidates and launchInstants carry, per transcript path, the
+	// begun rows the settle pass has not settled yet and every launch and
+	// denial instant seen (Watcher.settleClosedRows). Bounded, oldest
+	// dropped; a dropped candidate stays unsettled, the ordinary silence.
+	settleCandidates map[string][]settleCandidate
+	launchInstants   map[string][]time.Time
 }
 
 // NewWatcher builds a Watcher over sources (each root scanned recursively
@@ -547,6 +555,8 @@ func NewWatcher(sources []Source, sink HarvestSink, attributor *Attributor, deps
 		pendingLaunches:     make(map[string][]AgentLaunch),
 		pendingDenials:      make(map[string][]time.Time),
 		openAgentCalls:      make(map[string]map[string]bool),
+		settleCandidates:    make(map[string][]settleCandidate),
+		launchInstants:      make(map[string][]time.Time),
 	}
 }
 
@@ -734,6 +744,7 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 			// processed exactly once too.
 			w.stampDispatchAgents(ctx, path, commands, launches, denials)
 			w.measureInlineBackfills(ctx, path, commands, newOffset)
+			w.settleClosedRows(ctx, path, records, commands, launches, denials, newOffset)
 			w.rememberOpenAgentCalls(path, batch.OpenCalls)
 
 			// Once this batch has actually committed, decide whether this
@@ -1100,6 +1111,153 @@ func InlineDispatchPatch(ctx context.Context, windows DispatchWindowSource, comp
 		mp.Apportioned = &ApportionedDelta{Records: dd.ApportionedRecords}
 	}
 	return json.Marshal(mp)
+}
+
+// ClosedInlinePatch is InlineDispatchPatch for a closed inline row: a row
+// the records credit nothing to gets a zero patch, whose JSON still carries
+// a "tokens" key, so the row reads measured at zero instead of unmeasured.
+func ClosedInlinePatch(ctx context.Context, windows DispatchWindowSource, complete []byte, dispatchID int64) (json.RawMessage, error) {
+	patch, err := InlineDispatchPatch(ctx, windows, complete, dispatchID)
+	if errors.Is(err, ErrNoInlineShare) {
+		return json.Marshal(MetricsPatch{})
+	}
+	return patch, err
+}
+
+// settleCandidate is a begun row the settle pass waits on: its begin's
+// identity and command instant, and whether the begin named it inline.
+type settleCandidate struct {
+	dispatchBeginEvent
+	Inline bool
+}
+
+// ponytail: fixed per-path caps; a run with more rows open at once than
+// maxSettleCandidates leaves its oldest unsettled. Raise if that shows.
+const (
+	maxSettleCandidates = 64
+	maxLaunchInstants   = 256
+)
+
+// settleClosedRows settles each begun row once it has closed and the
+// harvest has read past its end (kan-1023's self-review): an agentless row
+// with no Agent launch or denial between its begin and its end was the
+// parent's own work and is stamped inline; every inline row so settled is
+// re-measured over path's bytes up to committed (ClosedInlinePatch), a row
+// with no share written as zero tokens. A row still open, ended after the
+// batch's newest record, or not written yet is kept for a later batch.
+// Failures are warned and the candidate kept.
+func (w *Watcher) settleClosedRows(ctx context.Context, path string, records []Record, commands []CommandRecord, launches []AgentLaunch, denials []time.Time, committed int64) {
+	var newest time.Time
+	later := func(t time.Time) {
+		if t.After(newest) {
+			newest = t
+		}
+	}
+	for _, r := range records {
+		later(r.Timestamp)
+	}
+	instants := w.launchInstants[path]
+	for _, l := range launches {
+		later(l.Timestamp)
+		instants = append(instants, l.Timestamp)
+	}
+	for _, d := range denials {
+		later(d)
+		instants = append(instants, d)
+	}
+	if len(instants) > maxLaunchInstants {
+		instants = instants[len(instants)-maxLaunchInstants:]
+	}
+	w.launchInstants[path] = instants
+	cands := w.settleCandidates[path]
+	for _, c := range commands {
+		later(c.Timestamp)
+		if c.Timestamp.IsZero() {
+			continue
+		}
+		for _, ev := range dispatchBeginsFromCommand(c.Command) {
+			ev.StartedAt = c.Timestamp
+			cands = append(cands, settleCandidate{dispatchBeginEvent: ev})
+		}
+		for _, ev := range judgeInvocations(c.Command, inlineBeginFromInvocation) {
+			ev.StartedAt = c.Timestamp
+			cands = append(cands, settleCandidate{dispatchBeginEvent: ev, Inline: true})
+		}
+	}
+	if len(cands) > maxSettleCandidates {
+		cands = cands[len(cands)-maxSettleCandidates:]
+	}
+	var raw []byte
+	kept := cands[:0:0]
+	for _, c := range cands {
+		rowID, endedAt, agentID, found, err := w.deps.DispatchEndedAt(ctx, c.SessionToken, c.Key)
+		if err != nil || !found || endedAt.IsZero() || endedAt.After(newest) {
+			if err != nil {
+				w.warn("harvest: settle lookup failed, the row waits", "path", path, "key", c.Key, "error", err)
+			}
+			kept = append(kept, c)
+			continue
+		}
+		if agentID == "" {
+			if slices.ContainsFunc(instants, func(at time.Time) bool { return !at.Before(c.StartedAt) && !at.After(endedAt) }) {
+				continue
+			}
+			if _, err := w.deps.MarkDispatchInline(ctx, rowID); err != nil {
+				w.warn("harvest: settle stamp failed, the row waits", "path", path, "key", c.Key, "error", err)
+				kept = append(kept, c)
+				continue
+			}
+		} else if agentID != InlineAgentID {
+			continue
+		}
+		id, found, err := w.deps.InlineDispatchID(ctx, c.SessionToken, c.Key)
+		if err != nil || !found {
+			if err != nil {
+				w.warn("harvest: settle inline lookup failed, the row waits", "path", path, "key", c.Key, "error", err)
+				kept = append(kept, c)
+			}
+			continue
+		}
+		if raw == nil {
+			if raw, err = os.ReadFile(path); err != nil || int64(len(raw)) < committed {
+				w.warn("harvest: read parent transcript failed, the row waits", "path", path, "key", c.Key, "error", err)
+				raw = nil
+				kept = append(kept, c)
+				continue
+			}
+			raw = raw[:committed]
+		}
+		patch, err := ClosedInlinePatch(ctx, w.deps, raw, id)
+		if err == nil {
+			err = w.deps.RestampInlineDispatch(ctx, id, patch)
+		}
+		if err != nil {
+			w.warn("harvest: settle measure failed, the row waits", "path", path, "dispatch_id", id, "error", err)
+			kept = append(kept, c)
+		}
+	}
+	w.settleCandidates[path] = kept
+}
+
+// inlineBeginFromInvocation reads one invocation as a
+// `flow record dispatch begin -agent-id inline` -- the inline begins
+// dispatchBeginsFromCommand leaves out, which the settle pass measures.
+func inlineBeginFromInvocation(invocation string, vars map[string]string) (dispatchBeginEvent, bool) {
+	if !strings.Contains(invocation, "flow record dispatch begin") {
+		return dispatchBeginEvent{}, false
+	}
+	if id, ok := commandFlagValue(invocation, "-agent-id"); !ok || id != InlineAgentID {
+		return dispatchBeginEvent{}, false
+	}
+	token, ok := resolvedFlagValue(invocation, "-session-token", vars)
+	if !ok || strings.ContainsAny(token, "$`") {
+		return dispatchBeginEvent{}, false
+	}
+	key, ok := resolvedFlagValue(invocation, "-key", vars)
+	if !ok || strings.ContainsAny(key, "$`") {
+		return dispatchBeginEvent{}, false
+	}
+	return dispatchBeginEvent{SessionToken: token, Key: key}, true
 }
 
 // measureInlineBackfills measures every inline row a committed batch's

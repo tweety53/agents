@@ -5000,3 +5000,75 @@ func TestFoldDispatchMovesTheDiffBaseAndDropsTheRow(t *testing.T) {
 		t.Fatalf("rows left of drop, agent, other = %d, err = %v; want 2 (drop gone)", n, err)
 	}
 }
+
+// TestDispatchEndedAtReadsTheLatestRow pins the settle pass's read: the
+// latest row's ended_at and agent id, zero for an open row, not found for
+// no row.
+func TestDispatchEndedAtReadsTheLatestRow(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+
+	projectKey := fmt.Sprintf("proj-ended-at-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedChange(t, st, projectKey, "kan-2")
+	base := time.Date(2026, 8, 22, 9, 0, 0, 0, time.UTC)
+	ended := base.Add(2 * time.Minute)
+	// A key is unique per change, so the older row sharing it is kan-2's.
+	seed := func(change, key, agentID string, at time.Time, end *time.Time) {
+		in := baseDispatch("implementer", "opus")
+		in.SessionToken, in.Key, in.AgentID, in.StartedAt, in.EndedAt = "mf-e", key, agentID, at, end
+		if _, err := st.RecordDispatch(ctx, projectKey, change, in); err != nil {
+			t.Fatalf("RecordDispatch: %v", err)
+		}
+	}
+	early := base.Add(time.Minute)
+	seed("kan-2", "k", "aold", base, &early)
+	seed("kan-1", "k", "inline", base.Add(time.Minute), &ended)
+	seed("kan-1", "open", "", base, nil)
+
+	if _, got, agent, found, err := st.DispatchEndedAt(ctx, "mf-e", "k"); err != nil || !found || !got.Equal(ended) || agent != "inline" {
+		t.Errorf("DispatchEndedAt(k) = (%v, %q, %v, %v), want (%v, inline, true, nil)", got, agent, found, err, ended)
+	}
+	if _, got, _, found, err := st.DispatchEndedAt(ctx, "mf-e", "open"); err != nil || !found || !got.IsZero() {
+		t.Errorf("DispatchEndedAt(open) = (%v, %v, %v), want (zero, true, nil)", got, found, err)
+	}
+	if _, _, _, found, err := st.DispatchEndedAt(ctx, "mf-e", "none"); err != nil || found {
+		t.Errorf("DispatchEndedAt(none) = (%v, %v), want (false, nil)", found, err)
+	}
+}
+
+// TestMarkDispatchInlineFillsOnlyAnEmptyID pins the restamp repair's
+// first step: an agentless row becomes inline, a row naming an agent is
+// left alone.
+func TestMarkDispatchInlineFillsOnlyAnEmptyID(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+
+	projectKey := fmt.Sprintf("proj-mark-inline-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	ids := map[string]int64{}
+	for _, agentID := range []string{"", "a1"} {
+		in := baseDispatch("implementer", "opus")
+		in.SessionToken, in.Key, in.AgentID = "mf-m", "k-"+agentID, agentID
+		rec, err := st.RecordDispatch(ctx, projectKey, "kan-1", in)
+		if err != nil {
+			t.Fatalf("RecordDispatch: %v", err)
+		}
+		ids[agentID] = rec.ID
+	}
+	if ok, err := st.MarkDispatchInline(ctx, ids[""]); err != nil || !ok {
+		t.Errorf("MarkDispatchInline(agentless) = (%v, %v), want (true, nil)", ok, err)
+	}
+	if ok, err := st.MarkDispatchInline(ctx, ids["a1"]); err != nil || ok {
+		t.Errorf("MarkDispatchInline(named) = (%v, %v), want (false, nil)", ok, err)
+	}
+	for agentID, want := range map[string]string{"": "inline", "a1": "a1"} {
+		var got string
+		if err := pool.QueryRow(ctx, "SELECT COALESCE(agent_id, '') FROM dispatches WHERE id = $1", ids[agentID]).Scan(&got); err != nil {
+			t.Fatalf("read back: %v", err)
+		}
+		if got != want {
+			t.Errorf("row %d agent_id = %q, want %q", ids[agentID], got, want)
+		}
+	}
+}

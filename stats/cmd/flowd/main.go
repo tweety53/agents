@@ -617,15 +617,17 @@ func unflagVerdict(args []string) error {
 // names the row's agent from the file name and replaces the row's figures
 // with that whole transcript's usage (store.Store.RestampDispatch) -- the
 // repair for a row the harvester stamped with the wrong agent. Given a
-// parent transcript, it replaces an inline row's figures with the share
-// the dispatch attributor gives it over the whole transcript
-// (harvest.InlineDispatchPatch, store.Store.RestampInlineDispatch) -- the
-// repair for a back-filled inline row; a row that is not inline is
+// parent transcript, it first marks an agentless row inline
+// (store.Store.MarkDispatchInline), then replaces the inline row's figures
+// with the share the dispatch attributor gives it over the whole transcript,
+// zero tokens when it has none (harvest.ClosedInlinePatch,
+// store.Store.RestampInlineDispatch) -- the repair for a back-filled inline
+// row or one begun without -agent-id inline; a row naming another agent is
 // refused. It talks to the database directly, so it needs no running
 // daemon.
 func restampDispatch(args []string) error {
 	if len(args) != 2 {
-		return fmt.Errorf("usage: flowd restamp-dispatch <dispatch-id> <agent-transcript.jsonl | parent-transcript.jsonl>")
+		return fmt.Errorf("usage: flowd restamp-dispatch <dispatch-id> <agent-transcript.jsonl | parent-transcript.jsonl (marks an agentless row inline)>")
 	}
 	id, err := strconv.ParseInt(args[0], 10, 64)
 	if err != nil {
@@ -647,7 +649,10 @@ func restampDispatch(args []string) error {
 		if err != nil {
 			return err
 		}
-		patch, err := harvest.InlineDispatchPatch(ctx, st, raw, id)
+		if _, err := st.MarkDispatchInline(ctx, id); err != nil {
+			return err
+		}
+		patch, err := harvest.ClosedInlinePatch(ctx, st, raw, id)
 		if err != nil {
 			return err
 		}

@@ -4566,3 +4566,200 @@ func TestInlineDispatchPatchCreditsOnlyTheRowsWindow(t *testing.T) {
 		t.Errorf("InlineDispatchPatch for an unwindowed id = %v, want ErrNoInlineShare", err)
 	}
 }
+
+// settleRow is one row settleDeps serves.
+type settleRow struct {
+	id      int64
+	endedAt time.Time
+	agentID string
+	// older is an earlier agentless row sharing the key, which a stamp by
+	// (token, key) would also fill.
+	older *settleRow
+}
+
+// settleDeps serves rows by key, honours only an inline stamp (so a time
+// pairing never names a row's agent), and records every restamp.
+type settleDeps struct {
+	harvest.NoDeps
+
+	rows     map[string]*settleRow
+	windows  []harvest.DispatchWindow
+	restamps map[int64]json.RawMessage
+}
+
+func (d *settleDeps) DispatchEndedAt(ctx context.Context, sessionToken, key string) (int64, time.Time, string, bool, error) {
+	r, ok := d.rows[key]
+	if !ok {
+		return 0, time.Time{}, "", false, nil
+	}
+	return r.id, r.endedAt, r.agentID, true, nil
+}
+
+// StampDispatchAgent mirrors the store: every agentless row under the key.
+func (d *settleDeps) StampDispatchAgent(ctx context.Context, sessionToken, key, agentID string) (bool, error) {
+	r, ok := d.rows[key]
+	if !ok || agentID != harvest.InlineAgentID {
+		return false, nil
+	}
+	stamped := false
+	for ; r != nil; r = r.older {
+		if r.agentID == "" {
+			r.agentID, stamped = agentID, true
+		}
+	}
+	return stamped, nil
+}
+
+func (d *settleDeps) MarkDispatchInline(ctx context.Context, id int64) (bool, error) {
+	for _, r := range d.rows {
+		for ; r != nil; r = r.older {
+			if r.id == id && r.agentID == "" {
+				r.agentID = harvest.InlineAgentID
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+func (d *settleDeps) InlineDispatchID(ctx context.Context, sessionToken, key string) (int64, bool, error) {
+	if r, ok := d.rows[key]; ok && r.agentID == harvest.InlineAgentID {
+		return r.id, true, nil
+	}
+	return 0, false, nil
+}
+
+func (d *settleDeps) DispatchWindowsForSession(ctx context.Context, sessionID string) ([]harvest.DispatchWindow, error) {
+	return d.windows, nil
+}
+
+func (d *settleDeps) RestampInlineDispatch(ctx context.Context, dispatchID int64, patch json.RawMessage) error {
+	d.restamps[dispatchID] = patch
+	return nil
+}
+
+// TestWatcherSettlesClosedRows pins kan-1023's rows 7562..7624: a closed
+// agentless row no launch ran inside is stamped inline and measured; one a
+// launch ran inside is left alone; an inline row with no share is written
+// zero tokens; an open row, and one ended after the batch's newest record,
+// settle in a later batch.
+func TestWatcherSettlesClosedRows(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	at := func(hms string) time.Time {
+		v, err := time.Parse(time.RFC3339, "2026-01-01T"+hms+"Z")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	bash := func(hms, command string) string {
+		c, err := json.Marshal(command)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return `{"type":"assistant","timestamp":"2026-01-01T` + hms + `Z","sessionId":"s","message":{"model":"m","content":[{"type":"tool_use","name":"Bash","input":{"command":` + string(c) + `}}]}}`
+	}
+	begin := func(key, extra string) string {
+		return "flow record dispatch begin -change c -role implementer -key " + key + " -session-token mf-s" + extra
+	}
+	launch := `{"type":"user","timestamp":"2026-01-01T00:00:25Z","sessionId":"s","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"ab"}}`
+	if err := os.WriteFile(path, stampFixtureLines(
+		bash("00:00:20", begin("task-1-implementer", "")),
+		launch,
+		bash("00:01:10", begin("fix-a", "")),
+		mainThreadLine("00:01:30", 5),
+		bash("00:02:00", begin("fix-c", " -agent-id inline")),
+		bash("00:02:30", begin("fix-d", "")),
+		bash("00:02:40", begin("fix-e", "")),
+		mainThreadLine("00:03:00", 1),
+	), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	endA, endC := at("00:01:50"), at("00:02:08")
+	deps := &settleDeps{
+		rows: map[string]*settleRow{
+			"fix-a":              {id: 1, endedAt: at("00:01:50")},
+			"task-1-implementer": {id: 2, endedAt: at("00:01:00")},
+			"fix-c":              {id: 3, endedAt: at("00:02:08"), agentID: harvest.InlineAgentID},
+			"fix-d":              {id: 4},
+			"fix-e":              {id: 5, endedAt: at("00:10:00")},
+		},
+		windows: []harvest.DispatchWindow{
+			{DispatchID: 1, AgentID: harvest.InlineAgentID, StartedAt: at("00:01:10"), EndedAt: &endA},
+			{DispatchID: 3, AgentID: harvest.InlineAgentID, StartedAt: at("00:02:00"), EndedAt: &endC},
+		},
+		restamps: map[int64]json.RawMessage{},
+	}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+
+	if got := deps.rows["fix-a"].agentID; got != harvest.InlineAgentID {
+		t.Errorf("fix-a agent = %q, want inline", got)
+	}
+	if p, ok := deps.restamps[1]; !ok || mainOutput(t, p) != 5 {
+		t.Errorf("fix-a restamp = %s (%v), want output 5", p, ok)
+	}
+	if got := deps.rows["task-1-implementer"].agentID; got != "" {
+		t.Errorf("a row a launch ran inside was stamped %q", got)
+	}
+	if _, ok := deps.restamps[2]; ok {
+		t.Error("a row a launch ran inside was restamped")
+	}
+	var zero map[string]json.RawMessage
+	if p, ok := deps.restamps[3]; !ok || json.Unmarshal(p, &zero) != nil || zero["tokens"] == nil || mainOutput(t, p) != 0 {
+		t.Errorf("fix-c restamp = %s (%v), want a zero patch carrying tokens", p, ok)
+	}
+	for _, id := range []int64{4, 5} {
+		if _, ok := deps.restamps[id]; ok {
+			t.Errorf("row %d settled before it closed and was harvested past", id)
+		}
+	}
+
+	deps.rows["fix-d"].endedAt = at("00:04:00")
+	appendLine(t, path, mainThreadLine("00:11:00", 1))
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("second RunOnce: %v", err)
+	}
+	for _, key := range []string{"fix-d", "fix-e"} {
+		r := deps.rows[key]
+		if _, ok := deps.restamps[r.id]; !ok || r.agentID != harvest.InlineAgentID {
+			t.Errorf("%s not settled in the later batch: agent %q", key, r.agentID)
+		}
+	}
+}
+
+// TestWatcherSettleStampsOnlyTheCheckedRow pins the settle stamp to the
+// row id DispatchEndedAt read: an older agentless row reusing the key,
+// which a launch ran, keeps its empty agent.
+func TestWatcherSettleStampsOnlyTheCheckedRow(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	c, err := json.Marshal("flow record dispatch begin -change c -role implementer -key fix-a -session-token mf-s")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, stampFixtureLines(
+		`{"type":"assistant","timestamp":"2026-01-01T00:01:10Z","sessionId":"s","message":{"model":"m","content":[{"type":"tool_use","name":"Bash","input":{"command":`+string(c)+`}}]}}`,
+		mainThreadLine("00:03:00", 1),
+	), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	older := &settleRow{id: 1, endedAt: time.Date(2026, 1, 1, 0, 0, 50, 0, time.UTC)}
+	deps := &settleDeps{
+		rows:     map[string]*settleRow{"fix-a": {id: 2, endedAt: time.Date(2026, 1, 1, 0, 1, 50, 0, time.UTC), older: older}},
+		restamps: map[int64]json.RawMessage{},
+	}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	if got := deps.rows["fix-a"].agentID; got != harvest.InlineAgentID {
+		t.Errorf("latest row agent = %q, want inline", got)
+	}
+	if older.agentID != "" {
+		t.Errorf("older row sharing the key was stamped %q", older.agentID)
+	}
+}
