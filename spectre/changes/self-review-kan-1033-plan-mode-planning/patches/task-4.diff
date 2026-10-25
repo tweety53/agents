@@ -1,0 +1,36 @@
+diff --git a/skills/flow/verify-and-handoff.md b/skills/flow/verify-and-handoff.md
+index d59fbc13..9305eda2 100644
+--- a/skills/flow/verify-and-handoff.md
++++ b/skills/flow/verify-and-handoff.md
+@@ -136,18 +136,22 @@ above still runs.
+ **Recording.** One `dispatches` row per worktree the list runs for, `-role verifier -key verify -model <parent
+ model> -effort <parent effort> -agent-id inline`, suffixed `-<repository name>` when this
+ run's resolved set holds more than one worktree — the same convention
+-**The verifier dispatch** (`skills/flow/visual-verify.md`) uses for the verifier's rows. `begin` is
+-recorded before the first command in the list; `end` after the `## Report` is written, carrying
+-`-outcome completed`, or `-outcome blocked -cause <cause>` when a command failed twice —
+-`test-failure` for a command of the branch that failed twice, `environment` where the
+-environment itself failed twice (a missing build prerequisite).
++**The verifier dispatch** (`skills/flow/visual-verify.md`) uses for the verifier's rows.
++`run-verify-list.sh` records the row itself, never the parent by hand: both groups are run with the
++same five trailing arguments, and each records `begin` before its first command and `end -outcome
++completed` after its last when its list exited 0. The first `begin` stamps the start and the later
++group's `end` the finish. A group that exited non-zero records no `end`; once its one inline re-run
++is decided, the parent ends the row itself, `-outcome completed` when the re-run passed, or
++`-outcome blocked -cause <cause>` when a command failed twice — `test-failure` for a command of the
++branch that failed twice, `environment` where the environment itself failed twice (a missing build
++prerequisite).
+ 
+ ```bash
+-flow record dispatch begin -change <name> -role verifier -model <parent model> -effort <parent effort> \
+-  -agent-id inline -key verify[-<worktree basename>] -session-token mf-<literal-token>
+-# … run the list above and write the ## Report — never begin and end in one call …
++run-verify-list.sh <worktree> lint <name> verify[-<worktree basename>] mf-<literal-token> <parent model> <parent effort>
++run-verify-list.sh <worktree> test <name> verify[-<worktree basename>] mf-<literal-token> <parent model> <parent effort>
++# … only after a group exited non-zero and its re-run is decided:
+ flow record dispatch end -change <name> -key verify[-<worktree basename>] \
+-  -session-token mf-<literal-token> -outcome completed
++  -session-token mf-<literal-token> -outcome completed|blocked [-cause <cause>]
+ ```
+ 
+ ### Live check

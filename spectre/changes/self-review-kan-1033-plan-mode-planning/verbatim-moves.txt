@@ -1,0 +1,16 @@
+# Every sentence Tasks 1, 4 and 6 add, reword or remove, exactly as check-verbatim-moves.sh prints it.
+\# … run the list above and write the ## Report — never begin and end in one call …
+-agent-id inline -key verify[-<worktree basename>] -session-token mf-<literal-token>
+-session-token mf-<literal-token> -outcome completed
+`begin` is recorded before the first command in the list; `end` after the `## Report` is written, carrying `-outcome completed`, or `-outcome blocked -cause <cause>` when a command failed twice — `test-failure` for a command of the branch that failed twice, `environment` where the environment itself failed twice (a missing build prerequisite).
+flow record dispatch begin -change <name> -role verifier -model <parent model> -effort <parent effort> \
+— the begin above once per slot, under the literal key `panel-<round>-<slot>`, `<round>` written as the number itself, never a shell substitution; the round's wait is one call whose condition is `test -s` on every launched pass's report file; every `end` is recorded in one call once they all exist (the turn discipline of **4. Execute (SDD + TDD)**, `skills/flow/implement.md`).
+\# … only after a group exited non-zero and its re-run is decided:
+-session-token mf-<literal-token> -outcome completed|blocked [-cause <cause>]
+A `Flow-Key: pipeline-fix-…` commit is the one trailer that never passes: an in-run pipeline fix runs its own loop on its own branch, never on a change branch (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`).
+A group that exited non-zero records no `end`; once its one inline re-run is decided, the parent ends the row itself, `-outcome completed` when the re-run passed, or `-outcome blocked -cause <cause>` when a command failed twice — `test-failure` for a command of the branch that failed twice, `environment` where the environment itself failed twice (a missing build prerequisite).
+The first `begin` stamps the start and the later group's `end` the finish.
+`run-verify-list.sh` records the row itself, never the parent by hand: both groups are run with the same five trailing arguments, and each records `begin` before its first command and `end -outcome completed` after its last when its list exited 0.
+run-verify-list.sh <worktree> lint <name> verify[-<worktree basename>] mf-<literal-token> <parent model> <parent effort>
+run-verify-list.sh <worktree> test <name> verify[-<worktree basename>] mf-<literal-token> <parent model> <parent effort>
+— the begin above once per slot, under the literal key `panel-<round>-<slot>`, `<round>` written as the number itself, never a shell substitution, and then the round's own pass row naming each slot's pair, so no round it began lacks one; the round's wait is one call whose condition is `test -s` on every launched pass's report file; every `end` is recorded in one call once they all exist (the turn discipline of **4. Execute (SDD + TDD)**, `skills/flow/implement.md`).

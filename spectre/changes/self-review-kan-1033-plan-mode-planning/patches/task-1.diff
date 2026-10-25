@@ -1,0 +1,32 @@
+diff --git a/scripts/check-untasked-commits.sh b/scripts/check-untasked-commits.sh
+index 78f16220..c0f21ccb 100755
+--- a/scripts/check-untasked-commits.sh
++++ b/scripts/check-untasked-commits.sh
+@@ -23,6 +23,11 @@
+ # **Commits outside every task**, skills/flow-contracts/git-boundaries.md),
+ # has a `chore` subject (the planning, link and archive commits), or touches
+ # only paths under the worktree's `<spec-root>/changes/` (a plan amendment).
++# A `Flow-Key: pipeline-fix-…` trailer is the exception, listed on any branch
++# but a `pipeline-fix-<name>-<k>` loop's own: an in-run pipeline fix runs its
++# own loop and never commits on a change branch (kan-1033's `ba68637c` did, and
++# nothing refused it). Its line reads `<sha12> <subject> — Flow-Key:
++# pipeline-fix-… on a change branch`.
+ #
+ # Prints one verdict line to stdout:
+ #   UNTASKED-OK: <n> commit(s) checked                      nothing listed — exit 0
+diff --git a/skills/flow-contracts/git-boundaries.md b/skills/flow-contracts/git-boundaries.md
+index d5bc699a..46ffc4dc 100644
+--- a/skills/flow-contracts/git-boundaries.md
++++ b/skills/flow-contracts/git-boundaries.md
+@@ -133,7 +133,10 @@ carries `-m "Flow-Key: <key>"`, `<key>` the dispatch key its round is recorded u
+ (`full-suite-fix-<n>`, `panel-fix-<round>`, `task-<n+n>-implementer-fix-<k>`) or, where the stage
+ records no such row, the stage key (`flow.review-panel`, `flow.visual-verify`, `flow.brainstorm`,
+ `flow.commit-two`). A task's own commit
+-carries `Task-Id:` instead, and a planning commit neither. Run 1's unfinished-work gate lists
++carries `Task-Id:` instead, and a planning commit neither. A `Flow-Key: pipeline-fix-…` commit
++is the one trailer that never passes: an in-run pipeline fix runs its own loop on its own branch,
++never on a change branch (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`).
++Run 1's unfinished-work gate lists
+ every other non-`chore` commit with `check-untasked-commits.sh`
+ (`skills/flow-contracts/finish-contract-run1.md`).
+ **Before such a commit is pushed, `check-untasked-commits.sh` judges every commit the push sends**,
