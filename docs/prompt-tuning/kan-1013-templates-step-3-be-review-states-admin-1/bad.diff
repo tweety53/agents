@@ -1,0 +1,26 @@
+--- a/src/app/template/src/main/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapter.kt
++++ b/src/app/template/src/main/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapter.kt
+@@ -118,23 +118,23 @@
+     }
+ 
+     override fun setState(
+         id: UUID,
+         state: TemplateState,
+         shownAs: ShownAs,
+         review: ReviewDecision,
+     ) {
+         jdbc.update(
+             "update workout_template set state = ?::template_state, shown_as = ?::template_shown_as, outcome = ?, reason = ?, " +
+                 "note = ?, reviewed_by = ?, reviewed_at = ?, updated_at = now() where id = ?",
+             state.name,
+             shownAs.name,
+             review.outcome?.name,
+             review.reason?.name,
+             review.note,
+             review.reviewedBy,
+             review.reviewedAt?.let { Timestamp.from(it) },
+             id,
+         )
+     }
+ 
+     override fun adminPage(

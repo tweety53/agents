@@ -1,0 +1,22 @@
+{
+  "id": "kan-1013-templates-step-3-be-review-states-admin-1",
+  "type": "implementer",
+  "scope": "layer:backend",
+  "source": {
+    "project": "gymie",
+    "change": "kan-1013-templates-step-3-be-review-states-admin",
+    "jira": "KAN-1013",
+    "repo": "gymie",
+    "fix_sha": "ac49f43f4476746a881550f56e25652957d3491f",
+    "finding_ref": "F2",
+    "round": 0,
+    "slot": "failure-modes",
+    "severity": "Important"
+  },
+  "target": "skills/flow/engineering-principles.md",
+  "target_sha": "361d664900a5e07ba3d7d2fdecf7a8a5408e6061",
+  "defect_class": "A status transition checks the current state in a read, then writes the new state with an update not conditioned on that state, so concurrent transitions both pass the check and the last writer wins.",
+  "why_picked": "1. Defect class: a persisted state transition guards its source state in a read and then writes unconditionally, so two concurrent transitions from the same state both succeed. 2. The robustness principle covers emit/accept strictness, fail-fast and graceful degradation but names no rule for concurrent state changes, check-then-act or conditional writes; a grep for race, concurrent and compare-and-set across engineering-principles.md, implement.md and sdd-dispatch.md finds nothing that applies. 3. It generalises to every persisted state machine a backend writes — review, publish, invite accept, order or payment status — in any language. 4. It states a principle (put the source-state guard in the write itself), not a special case of this task.",
+  "before": "Be strict about what you emit and defensive about what you accept, fail fast on\nprogrammer error, degrade gracefully on environmental error, and make every failure\nobservable.",
+  "after": "Be strict about what you emit and defensive about what you accept, fail fast on\nprogrammer error, degrade gracefully on environmental error, and make every failure\nobservable.\nA state transition on shared persisted data puts its source-state check in the write\nitself — a conditional update (`where state = <expected>`) or compare-and-set whose\nzero-row result is a conflict — never a read followed by an unconditional write."
+}

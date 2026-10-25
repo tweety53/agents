@@ -1,0 +1,32 @@
+diff --git a/src/app/template/src/main/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapter.kt b/src/app/template/src/main/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapter.kt
+index 33488010..820aed84 100644
+--- a/src/app/template/src/main/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapter.kt
++++ b/src/app/template/src/main/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapter.kt
+@@ -119,13 +119,14 @@ class TemplateRepositoryAdapter(
+ 
+     override fun setState(
+         id: UUID,
++        from: TemplateState,
+         state: TemplateState,
+         shownAs: ShownAs,
+         review: ReviewDecision,
+-    ) {
++    ): Boolean =
+         jdbc.update(
+             "update workout_template set state = ?::template_state, shown_as = ?::template_shown_as, outcome = ?, reason = ?, " +
+-                "note = ?, reviewed_by = ?, reviewed_at = ?, updated_at = now() where id = ?",
++                "note = ?, reviewed_by = ?, reviewed_at = ?, updated_at = now() where id = ? and state = ?::template_state",
+             state.name,
+             shownAs.name,
+             review.outcome?.name,
+@@ -134,8 +135,8 @@ class TemplateRepositoryAdapter(
+             review.reviewedBy,
+             review.reviewedAt?.let { Timestamp.from(it) },
+             id,
+-        )
+-    }
++            from.name,
++        ) == 1
+ 
+     override fun adminPage(
+         query: AdminTemplateQuery,

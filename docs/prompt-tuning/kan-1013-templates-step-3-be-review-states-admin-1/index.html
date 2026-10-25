@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kan-1013-templates-step-3-be-review-states-admin-1</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0 auto;max-width:1100px;padding:16px;line-height:1.45}
+pre{background:#f4f4f4;padding:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.ab{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:700px){.ab{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>kan-1013-templates-step-3-be-review-states-admin-1</h1>
+<h2>Type</h2>
+<p>implementer · scope layer:backend</p>
+<h2>Defect class</h2>
+<p>A status transition checks the current state in a read, then writes the new state with an update not conditioned on that state, so concurrent transitions both pass the check and the last writer wins.</p>
+<h2>Finding</h2>
+<pre>**Severity:** Important
+**Slot:** failure-modes (round 0)
+**Location:** src/app/template/src/main/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapter.kt:120
+
+Read-then-write with an unconditional update: admin approve racing the owner&#39;s withdraw both pass the WAITING check; last writer wins, so a withdrawn template can end PUBLIC.
+</pre>
+<pre><code>--- a/src/app/template/src/main/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapter.kt
+&#43;&#43;&#43; b/src/app/template/src/main/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapter.kt
+@@ -118,23 &#43;118,23 @@
+     }
+ 
+     override fun setState(
+         id: UUID,
+         state: TemplateState,
+         shownAs: ShownAs,
+         review: ReviewDecision,
+     ) {
+         jdbc.update(
+             &#34;update workout_template set state = ?::template_state, shown_as = ?::template_shown_as, outcome = ?, reason = ?, &#34; &#43;
+                 &#34;note = ?, reviewed_by = ?, reviewed_at = ?, updated_at = now() where id = ?&#34;,
+             state.name,
+             shownAs.name,
+             review.outcome?.name,
+             review.reason?.name,
+             review.note,
+             review.reviewedBy,
+             review.reviewedAt?.let { Timestamp.from(it) },
+             id,
+         )
+     }
+ 
+     override fun adminPage(
+</code></pre>
+<h2>Fix</h2>
+<pre><code>diff --git a/src/app/template/src/main/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapter.kt b/src/app/template/src/main/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapter.kt
+index 33488010..820aed84 100644
+--- a/src/app/template/src/main/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapter.kt
+&#43;&#43;&#43; b/src/app/template/src/main/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapter.kt
+@@ -119,13 &#43;119,14 @@ class TemplateRepositoryAdapter(
+ 
+     override fun setState(
+         id: UUID,
+&#43;        from: TemplateState,
+         state: TemplateState,
+         shownAs: ShownAs,
+         review: ReviewDecision,
+-    ) {
+&#43;    ): Boolean =
+         jdbc.update(
+             &#34;update workout_template set state = ?::template_state, shown_as = ?::template_shown_as, outcome = ?, reason = ?, &#34; &#43;
+-                &#34;note = ?, reviewed_by = ?, reviewed_at = ?, updated_at = now() where id = ?&#34;,
+&#43;                &#34;note = ?, reviewed_by = ?, reviewed_at = ?, updated_at = now() where id = ? and state = ?::template_state&#34;,
+             state.name,
+             shownAs.name,
+             review.outcome?.name,
+@@ -134,8 &#43;135,8 @@ class TemplateRepositoryAdapter(
+             review.reviewedBy,
+             review.reviewedAt?.let { Timestamp.from(it) },
+             id,
+-        )
+-    }
+&#43;            from.name,
+&#43;        ) == 1
+ 
+     override fun adminPage(
+         query: AdminTemplateQuery,
+</code></pre>
+<h2>Why picked</h2>
+<pre>1. Defect class: a persisted state transition guards its source state in a read and then writes unconditionally, so two concurrent transitions from the same state both succeed. 2. The robustness principle covers emit/accept strictness, fail-fast and graceful degradation but names no rule for concurrent state changes, check-then-act or conditional writes; a grep for race, concurrent and compare-and-set across engineering-principles.md, implement.md and sdd-dispatch.md finds nothing that applies. 3. It generalises to every persisted state machine a backend writes — review, publish, invite accept, order or payment status — in any language. 4. It states a principle (put the source-state guard in the write itself), not a special case of this task.</pre>
+<h2>Prompt update</h2>
+<p>Target: <code>skills/flow/engineering-principles.md</code> at <code>361d664900a5e07ba3d7d2fdecf7a8a5408e6061</code></p>
+<div class="ab">
+<div><h3>Before</h3><pre>Be strict about what you emit and defensive about what you accept, fail fast on
+programmer error, degrade gracefully on environmental error, and make every failure
+observable.</pre></div>
+<div><h3>After</h3><pre>Be strict about what you emit and defensive about what you accept, fail fast on
+programmer error, degrade gracefully on environmental error, and make every failure
+observable.
+A state transition on shared persisted data puts its source-state check in the write
+itself — a conditional update (`where state = &lt;expected&gt;`) or compare-and-set whose
+zero-row result is a conflict — never a read followed by an unconditional write.</pre></div>
+</div>
+</body>
+</html>
