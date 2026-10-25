@@ -1238,3 +1238,23 @@ func TestSelfDirSiblingSpellings(t *testing.T) {
 		gsCheck(t, "a /.. walk is no sibling", !strings.Contains(r.out, ".. is a sibling dependency"), "output: %s", r.out)
 	})
 }
+
+// TestGsPlaceholderLiteralPrefix pins kan-1033's finding 1.4: a first
+// argument whose placeholder opens with a literal word prefix
+// (`fp-<literal-token>`) still reads as an invocation.
+func TestGsPlaceholderLiteralPrefix(t *testing.T) {
+	t.Parallel()
+	for s, want := range map[string]bool{
+		" fp-<literal-token> <n>": true,
+		" <session-token> <n>":    true,
+		" targets <w>":            true,
+		" [--clean <c>] <f>":      true,
+		" --help":                 false,
+		" foo bar":                false,
+		"":                        false,
+	} {
+		if got := gsPlaceholder.MatchString(s); got != want {
+			t.Errorf("gsPlaceholder.MatchString(%q) = %v, want %v", s, got, want)
+		}
+	}
+}

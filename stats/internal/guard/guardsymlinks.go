@@ -98,7 +98,9 @@ var (
 	// the required set and its missing symlink read GUARD-SYMLINKS-OK.
 	// An optional `[--flag <arg>]` group may sit there too
 	// (`break-and-prove.sh [--clean <command>] <file>`), for the same reason.
-	gsPlaceholder  = regexp.MustCompile(`^([ \t]+([A-Za-z0-9._-]+|\[[^\]]*\]))*[ \t]+<`)
+	// The placeholder may open with a literal word prefix
+	// (`fp-<literal-token>`), which dropped that citation the same way (kan-1033).
+	gsPlaceholder  = regexp.MustCompile(`^([ \t]+([A-Za-z0-9._-]+|\[[^\]]*\]))*[ \t]+[A-Za-z0-9._-]*<`)
 	gsBlanks       = regexp.MustCompile(`[ \t]+`)
 	gsInvokingWord = regexp.MustCompile(`(run|invoke|invocation|invoking|execute)`)
 	gsBlankLine    = regexp.MustCompile(`^[ \t]*$`)
