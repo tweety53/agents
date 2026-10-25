@@ -403,6 +403,13 @@ func TestCheckPlanShape(t *testing.T) {
 	r = one(chain("**Baseline:** before=1 after=2 "+m, "**Baseline:** before=1 after=2 <!-- measured: grep -c y g @ abc -->"))
 	want("case 42 (F17): tasks under different measured: commands pass", r.rc == 0, r)
 
+	// Case 45 (F20): a Baseline measured: comment with no ` @ <ref>` is
+	// refused; the read form beside it in case 41 passes.
+	md = chain("**Baseline:** before=1 after=2 <!-- measured: grep -c x f → 1 at abc -->", "**Baseline:** before=2 after=3 "+m)
+	r = one(md)
+	want("case 45 (F20): an unreadable measured: comment fails", r.rc == 1 && has(r, "task 1's **Baseline:** carries a `<!-- measured: … -->` comment with no ` @ <ref>`"), r)
+	mutation("F20", md, md, "with no ` @ <ref>`", "case 45")
+
 	// Case 43 (F18): an absence sweep covering a later task's file that
 	// still holds the swept string at the base (kan-1021's Tasks 5 and 6).
 	f18 := func(mark, paths string) string {

@@ -17,10 +17,10 @@ import (
 )
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
-// judges its commits (check-task-commit-fields) can actually read it. Nineteen
-// findings, F1-F19 (F1-F6's canonical definitions, decisions and rationale:
+// judges its commits (check-task-commit-fields) can actually read it. Twenty
+// findings, F1-F20 (F1-F6's canonical definitions, decisions and rationale:
 // spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-md-at-plan/
-// design.md -- not restated here; F7-F19's are the rows below).
+// design.md -- not restated here; F7-F20's are the rows below).
 //
 // The guard reads the plan with the very grammar the commit guard reads it
 // with -- tcfParseTask, tcfTaskIDs, tcfIterTasks, tcfSelectTask,
@@ -160,6 +160,10 @@ import (
 //	    the sweep cannot print nothing at this task's commit (kan-1021's
 //	    Tasks 5 and 6). A plan whose base does not resolve is not checked.
 //	    Reported at the sweep's line, once per such file.
+//	F20 A Baseline value (the joined field) carrying a `<!-- measured: … -->`
+//	    comment tcfMeasuredRE cannot read -- no ` @ <ref>` before its `-->`:
+//	    the parser takes no command from it, so the re-measurement is
+//	    silently disabled (kan-1034's Task 2). Reported at the Baseline line.
 //	F19 A tasks.md whose leading `>` header block carries
 //	    `> **Design shape:** plan-mode` beside a design.md missing any of
 //	    `## Recommended approach`, `## Critical files`, `## Existing code to
@@ -498,6 +502,11 @@ func (p *psPlan) checkTask(found tcfTaskBody) []string {
 		}
 	}
 
+	for _, c := range psMeasuredCommentRE.FindAllString(strings.Join(joined["Baseline"], " "), -1) {
+		if !tcfMeasuredRE.MatchString(c) && p.on("F20") {
+			v = append(v, p.at(psFieldLine(body, start, "Baseline"), "task "+id+"'s **Baseline:** carries a `<!-- measured: … -->` comment with no ` @ <ref>`, so no command is read from it and the re-measurement never runs — write `<!-- measured: <command> @ <ref> -->`"))
+		}
+	}
 	// F4 and F6 read the continuation-joined Tests value tcfParseTask
 	// itself reads, never the field's first physical line: a `none` on
 	// the line after **Tests:** is invisible to the latter (KAN-121
@@ -517,6 +526,10 @@ func (p *psPlan) checkTask(found tcfTaskBody) []string {
 	}
 	return v
 }
+
+// psMeasuredCommentRE is any `<!-- measured: … -->` comment, read or not;
+// F20 holds each one against tcfMeasuredRE.
+var psMeasuredCommentRE = regexp.MustCompile(`<!--[` + tcfWS + `]*measured:.*?-->`)
 
 // baselineConvention is F12: the declaring task is the first whose
 // non-fenced body carries a Baseline field line; the stated convention is
