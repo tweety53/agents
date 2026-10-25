@@ -50,3 +50,8 @@ finding-reproducer: F10 none — cosmetic blank line
 
 - dispatched: panel-1-primary+principles+mutation on opus/low
 - verdict: clean
+
+### Round 2
+
+- dispatched: panel-2-primary on opus/low
+- verdict: clean
