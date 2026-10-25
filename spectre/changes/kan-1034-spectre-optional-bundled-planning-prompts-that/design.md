@@ -35,6 +35,13 @@
 **Chosen:** `spectre-planning` — names the tool it serves and the job.
 **Considered:** `planning-prompts` — collides in meaning with `flow-plan` and does not say which tool it belongs to.
 
+### The vendored skill carries no flow reference
+
+**ID:** planning-skill-flow-free
+**Status:** active
+**Chosen:** `skills/spectre-planning/SKILL.md` keeps only what works with spectre alone; every paragraph that cites a flow file, a flow guard or a flow stage — the tracked-path Done-when, the task-shape and field-family rules flow's guards check, the plan header lines, the verify-step, UI-test, end-to-end, live-check, verification-change, worktree and removal-sweep rules, the provenance and build-green loads, the guard runs and the gate question — goes back to `skills/flow/brainstorm-planner.md`; the `/flow`-scoped wording left in moved generic text is generalised (operator's answer at the review panel, 2026-10-25).
+**Considered:** keeping the flow references in the vendored skill and saying in spectre's README which parts need flow — a spectre-only user would follow Load directives and guard runs to files the plugin does not ship.
+
 ## Open questions
 
 ## Recommended approach

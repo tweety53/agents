@@ -33,6 +33,11 @@ requires once the skill names `check-plan-shape.sh`, declares the skill expected
 **Decision:** cursor-plan-mode-by-instruction
 **Decision:** skill-name-spectre-planning
 
+Correction (2026-10-25): Step 1 moved every listed paragraph verbatim, which left the skill
+citing flow files and flow guards; the review panel's fix round moved each flow-dependent
+paragraph back to `skills/flow/brainstorm-planner.md` and generalised the `/flow`-scoped
+wording, per decision `planning-skill-flow-free`.
+
 - [x] 2. spectre: vendor the skill and document the two modes
   - [x] **Step 1: In the spectre worktree `/Users/tweety53/Projects/spectre-worktrees/kan-1034-spectre-optional-bundled-planning-prompts-that` (branch `spectre/kan-1034-spectre-optional-bundled-planning-prompts-that`), copy `skills/spectre-planning/SKILL.md` from the agents worktree to `.claude/skills/spectre-planning/SKILL.md` byte for byte, and add `.claude/skills/spectre-planning/UPSTREAM.md` shaped like `.claude/skills/brainstorming/UPSTREAM.md`, naming the agents repo, the task 1 commit sha and "Unmodified".**
   - [x] **Step 2: Add `.cursor/rules/spectre-planning.mdc` (frontmatter `description`, `alwaysApply: false`) telling Cursor to read `.claude/skills/spectre-planning/SKILL.md` when planning a spectre change, Plan mode first.**

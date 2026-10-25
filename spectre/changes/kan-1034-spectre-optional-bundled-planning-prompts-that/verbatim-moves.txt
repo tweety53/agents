@@ -24,3 +24,21 @@ The generic planning prompts for a spectre change: brainstorm the design, create
 The tool-only mode is the bare spectre CLI and loads none of this.
 Use when planning a spectre change.
 name: spectre-planning description: The planning prompts of spectre's tool + planning prompts mode — brainstorming a design in plan mode, filling proposal.md, design.md and tasks.md, and writing a plan spectre's guards accept.
+# Review fix round 1 (decision planning-skill-flow-free): flow-scoped wording generalised, stale pointers re-pointed, Plan mode raised to h2.
+\# … the operator's approve-and-move-on answer — this is the HARD GATE above …
+**Here the safe default and the recommended option differ** — shape per Operator prompts (`skills/flow-contracts/operator-prompts.md`): silence or a stalled prompt from an operator who is present is not "approve the design and move on," and defaults to another round rather than to the recommended choice.
+On Claude Code, `/flow` and `/flow-plan` take the approval from `ExitPlanMode` instead — the merged confirm still closes the checklist (decision `exit-plan-mode-is-approval`, kan-1033).
+This is a scoped override of `superpowers:brainstorming`'s "Only one question per message", `/flow` only.
+This is a scoped override of `superpowers:brainstorming`'s hard design-approval gate, `/flow` only.
+Under the `## decisions: recommended` mode (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`) the confirm is not asked: the recommended **approve the design and move on** is taken, and the silence default above never fires.
+Under the mode the offer is not asked either: **Yes — run another round** is taken, and the silence default above never fires (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`).
+Within a single run, a stage that loops — most concretely `/flow`'s brainstorm stage, whose convergence test reopens after every planning-stage exchange that leaves a question the command's inputs do not answer — never closes on the command's own judgment.
+\# … the operator's approve-and-move-on answer — this is the HARD GATE (The checklist, skills/spectre-planning/SKILL.md) …
+\## Plan mode
+**Here the safe default and the recommended option differ**: silence or a stalled prompt from an operator who is present is not "approve the design and move on," and defaults to another round rather than to the recommended choice.
+In plan mode the approval comes from `ExitPlanMode` instead (**Plan mode**, above) — the merged confirm still closes the checklist (decision `exit-plan-mode-is-approval`, kan-1033).
+This is a scoped override of `superpowers:brainstorming`'s "Only one question per message".
+This is a scoped override of `superpowers:brainstorming`'s hard design-approval gate.
+Under the `## decisions: recommended` mode (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`) the confirm is not asked: the recommended **approve the design and move on** is taken, and the silence default (**Convergence**, `skills/spectre-planning/SKILL.md`) never fires.
+Under the mode the offer is not asked either: **Yes — run another round** is taken, and the silence default (**Convergence**, `skills/spectre-planning/SKILL.md`) never fires (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`).
+Within a single run, a stage that loops — most concretely the brainstorm stage, whose convergence test reopens after every planning-stage exchange that leaves a question the command's inputs do not answer — never closes on the command's own judgment.
