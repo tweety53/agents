@@ -128,6 +128,7 @@ type dDecision struct {
 	GroupsOverride   *string             `json:"groups_override"`
 	GroupsReason     string              `json:"groups_reason"`
 	Visual           *dVisual            `json:"visual"`
+	SessionCap       *sessionCap         `json:"session_cap"`
 	Parent           *struct {
 		Effort string `json:"effort"`
 	} `json:"parent"`
@@ -151,6 +152,21 @@ type dVisual struct {
 	Verify string `json:"verify"`
 	Reason string `json:"reason"`
 }
+
+// sessionCap is a decision's run-wide model and effort ceiling, as a
+// session instruction or a saved memory states it; null or absent when none
+// is given. `flow record dispatch begin` refuses a dispatch above it.
+type sessionCap struct {
+	Model       string `json:"model"`
+	Effort      string `json:"effort"`
+	Instruction string `json:"instruction"`
+}
+
+// capModelRank and capEffortRank order the values a session cap takes.
+var (
+	capModelRank  = map[string]int{"sonnet": 1, "opus": 2}
+	capEffortRank = map[string]int{"low": 1, "medium": 2, "high": 3}
+)
 
 // dVisualVerify is the closed set `visual.verify` takes.
 var dVisualVerify = map[string]bool{"required": true, "skipped": true, "not configured": true}
@@ -260,6 +276,11 @@ func renderDecision(body []byte, _, reviewers string) (string, error) {
 		}
 		if strings.TrimSpace(v.Reason) == "" {
 			return "", fmt.Errorf("visual.reason is required")
+		}
+	}
+	if c := d.SessionCap; c != nil {
+		if capModelRank[c.Model] == 0 || capEffortRank[c.Effort] == 0 || strings.TrimSpace(c.Instruction) == "" {
+			return "", fmt.Errorf("session_cap needs model in opus, sonnet, effort in low, medium, high and an instruction, got %q/%q", c.Model, c.Effort)
 		}
 	}
 	// parent.effort is the -effort every inline dispatch row copies, so it

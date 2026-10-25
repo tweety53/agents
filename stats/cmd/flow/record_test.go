@@ -5649,6 +5649,11 @@ func TestRecordDispatchBeginRefusesAPanelRoundBelowTheRecorded(t *testing.T) {
 		isolatedStateRoot(t)
 		posts := 0
 		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/decisions") {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte("[]"))
+				return
+			}
 			if r.Method == http.MethodGet {
 				if !strings.Contains(r.URL.Path, "/records/") || !strings.HasSuffix(r.URL.Path, "/kan-258") {
 					t.Errorf("unexpected read %s", r.URL.Path)
@@ -6295,6 +6300,44 @@ func TestRecordDispatchBeginRefusesSubagentUnderInline(t *testing.T) {
 			}
 			if tc.code == 2 && !strings.Contains(stderr, "execution: inline") {
 				t.Errorf("stderr %q does not name execution: inline", stderr)
+			}
+		})
+	}
+}
+
+// TestRecordDispatchBeginRefusesAboveSessionCap pins the decision's
+// session_cap: a row above the cap's model or effort, an unstated default
+// effort included, is refused; a row at or under it, and a decision with no
+// cap, begins.
+func TestRecordDispatchBeginRefusesAboveSessionCap(t *testing.T) {
+	capped := func(model string) string {
+		return decisionsBody(`{"execution":"subagent","session_cap":{"model":"` + model + `","effort":"low","instruction":"opus/low until 2026-10-28"}}`)
+	}
+	begin := func(model, effort string) []string {
+		return []string{"-agent-id", "none", "-role", "reviewer", "-key", "panel-1-primary", "-slot", "primary", "-model", model, "-effort", effort}
+	}
+	cases := []struct {
+		name, decisions string
+		args            []string
+		code            int
+	}{
+		{"effort above", capped("opus"), begin("opus", "medium"), 2},
+		{"default effort", capped("opus"), begin("opus", "default"), 2},
+		{"at the cap", capped("opus"), begin("opus", "low"), 0},
+		{"lower model", capped("opus"), begin("sonnet", "low"), 0},
+		{"model above", capped("sonnet"), begin("opus", "low"), 2},
+		{"unranked model", capped("opus"), begin("inherit", "low"), 2},
+		{"inline default effort", capped("opus"), []string{"-agent-id", "inline", "-role", "implementer", "-key", "task-1-implementer", "-model", "opus", "-effort", "default"}, 0},
+		{"no cap", decisionsBody(`{"execution":"subagent","session_cap":null}`), begin("opus", "high"), 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			code, stderr := beginUnderDecision(t, tc.decisions, tc.args...)
+			if code != tc.code {
+				t.Fatalf("exit %d, want %d; stderr:\n%s", code, tc.code, stderr)
+			}
+			if tc.code == 2 && !strings.Contains(stderr, "session cap") {
+				t.Errorf("stderr %q does not name the session cap", stderr)
 			}
 		})
 	}

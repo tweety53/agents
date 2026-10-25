@@ -746,7 +746,7 @@ sibling `groups_mechanical` (arrays of bundle ids), `groups_override` and
 model/effort, per **Harness mapping** (`skills/flow-contracts/model-policy.md`): `unknown
 (agent-defined)` and `default` where the session does not state them), `overrides` (session-instruction
 overrides to a *result*, each replacing the pair(s) it names for this run; empty unless one was
-given).
+given), `session_cap` (the run-wide model and effort ceiling a session instruction or a saved memory states — `{model, effort, instruction}`, or `null` when none is given; `flow record dispatch begin` refuses a dispatch above it, an unstated `default` effort included).
 
 Once the Decide step completes, render the run's own output from that file and print its output
 verbatim — the `## Decision` block, one short line per choice; the `STARTED` handoff prints the

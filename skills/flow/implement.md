@@ -132,7 +132,7 @@ line the MODEL HANDSHAKE paragraph (section **4** below) demands, and every disp
 this pipeline carries that paragraph verbatim. Compare the line against the model this dispatch
 requested — the dispatch's recorded pair's model (the literal `opus` where none is recorded), or
 the run's session override, mapped per **Harness mapping** (`skills/flow-contracts/model-policy.md`)
-on harnesses `zcode` and `muse`. A match proceeds. A **first** mismatch
+on harnesses `zcode` and `muse`. Effort is not handshaken; a decision's `session_cap` holds it instead, `flow record dispatch begin` refusing a row above the cap (exit 2). A match proceeds. A **first** mismatch
 closes the open dispatch row `-outcome fallback` and re-dispatches once, on the same requested
 model and `subagent_type`, under `<key>-retry`:
 

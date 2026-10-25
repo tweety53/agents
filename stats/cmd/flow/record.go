@@ -1160,13 +1160,30 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	// (skills/flow/implement.md, Inline -- the parent implements). A
 	// self-review or pipeline fixer is dispatched whatever the decision, and
 	// a decisions read that fails skips the check.
-	if *startedAt == "" && (*role == "implementer" || *role == "panel-fix") && *agentID != "inline" &&
-		!strings.HasPrefix(*key, "self-review-") && !strings.HasPrefix(*key, "pipeline-fix-") {
+	//
+	// A decision's session_cap is the run's model and effort ceiling: a row
+	// above it, an unstated default effort included, is refused (skills/flow/
+	// brainstorm-planner.md, Decide), and so is a model the cap cannot rank.
+	// The cap limits dispatches, not the parent: an inline row is exempt.
+	// One read serves both checks.
+	if *startedAt == "" {
 		if d, ok := latestDecision(ctx, f, projectKey); ok {
 			var execution string
-			if json.Unmarshal(d["execution"], &execution) == nil && execution == "inline" {
+			if (*role == "implementer" || *role == "panel-fix") && *agentID != "inline" &&
+				!strings.HasPrefix(*key, "self-review-") && !strings.HasPrefix(*key, "pipeline-fix-") &&
+				json.Unmarshal(d["execution"], &execution) == nil && execution == "inline" {
 				fmt.Fprintf(stderr, "flow: -role %s -key %s dispatches a subagent, but the change's recorded decision is execution: inline — the parent implements and fixes itself, beginning the row with -agent-id inline (skills/flow/implement.md, Inline — the parent implements)\n", *role, *key)
 				return 2
+			}
+			var c *sessionCap
+			if *agentID != "inline" && json.Unmarshal(d["session_cap"], &c) == nil && c != nil {
+				m := *model
+				aboveModel := capModelRank[m] == 0 || (capModelRank[c.Model] > 0 && capModelRank[m] > capModelRank[c.Model])
+				aboveEffort := *effort == "default" || capEffortRank[*effort] > capEffortRank[c.Effort]
+				if aboveModel || aboveEffort {
+					fmt.Fprintf(stderr, "flow: -model %s -effort %s is above the session cap %s/%s (%s) the change's decision records — dispatch at or under it (skills/flow/brainstorm-planner.md, Decide)\n", *model, *effort, c.Model, c.Effort, c.Instruction)
+					return 2
+				}
 			}
 		}
 	}

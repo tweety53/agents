@@ -215,3 +215,36 @@ func TestDecisionRenderExtraDispatchMutation(t *testing.T) {
 		t.Errorf("a decision without extra_dispatch_mutation renders its line:\n%s", out)
 	}
 }
+
+// TestDecisionRenderSessionCap pins session_cap's shape: a well-formed cap,
+// null or absent renders; a value outside the sets refuses naming it.
+func TestDecisionRenderSessionCap(t *testing.T) {
+	good := `{"class":"micro","classMechanical":"micro","override":null,
+		"inputs":{"tasks":1,"files":1,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},
+		"rolls":{"compact":65,"experimental":0,"bundle":43,"effort":50},"execution":"inline",
+		"implementer":"skipped — inline","fixer":"skipped — inline","panel":"default","groups":null}`
+	withCap := func(c string) string {
+		return strings.Replace(good, `"groups":null`, `"groups":null,"session_cap":`+c, 1)
+	}
+	cases := []struct {
+		name, body string
+		rc         int
+	}{
+		{"cap", withCap(`{"model":"opus","effort":"low","instruction":"x"}`), 0},
+		{"null", withCap(`null`), 0},
+		{"absent", good, 0},
+		{"effort max", withCap(`{"model":"opus","effort":"max","instruction":"x"}`), 2},
+		{"model haiku", withCap(`{"model":"haiku","effort":"low","instruction":"x"}`), 2},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			rc, _, errs := decisionRun(t, c.body, "render", "-file", "<file>", "-session-model", "m", "-reviewers", "r")
+			if rc != c.rc {
+				t.Fatalf("rc=%d, want %d; stderr=%q", rc, c.rc, errs)
+			}
+			if c.rc == 2 && !strings.Contains(errs, "session_cap") {
+				t.Errorf("stderr %q does not name session_cap", errs)
+			}
+		})
+	}
+}
