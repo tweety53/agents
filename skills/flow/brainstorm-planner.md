@@ -201,6 +201,12 @@ and cites its output in the task as a `measured:` comment per **Plan provenance*
 exit code or figures the run produced. A premise the run disproves strikes the task during
 planning, before the panel reads the plan.
 
+**Committed content never cites a commit sha on the change's own branch.** Integrate's run 1
+reshapes that branch (**Run 1 — the branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`),
+so a sha a task's committed file names stops resolving; cite a path on the default branch and the
+ticket instead (kan-1034: task 2's vendored `UPSTREAM.md` named the task 1 commit, unreachable once
+the branch was reshaped).
+
 **A task premise about a harness or tool is spiked live at plan time, never assumed.** When a
 task written here rests on how a harness or tool behaves — that a config key takes effect where
 the task puts it, how a clock or timer behaves, what a dev-stack rebuild picks up — planning runs
@@ -285,6 +291,12 @@ or `**Relocation:** no`. This line is required and explicit on every plan — ne
 comparison (generated later in the pipeline, by `generate-relocation-comparison.sh`,
 run before the review panel's `final-review.diff`) to the union
 of every task's own `**Files:**` field across the plan.
+
+A relocation whose destination is consumed outside this repository — a skill another repository
+vendors — checks, before the plan classes a paragraph as movable, that every file, guard and stage
+the paragraph cites resolves in what that destination ships (kan-1034: flow-only paragraphs classed
+generic moved into the vendored `skills/spectre-planning/SKILL.md`, and a fix round moved about 230
+lines back).
 
 Seed `> **Design shape:** plan-mode` into the same block of every plan: on a `tasks.md`
 carrying it, `check-plan-shape.sh` refuses a sibling `design.md` missing any of the four plan sections
