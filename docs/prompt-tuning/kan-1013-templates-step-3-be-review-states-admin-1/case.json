@@ -1,7 +1,7 @@
 {
   "id": "kan-1013-templates-step-3-be-review-states-admin-1",
   "type": "implementer",
-  "scope": "layer:backend",
+  "scope": "generic",
   "source": {
     "project": "gymie",
     "change": "kan-1013-templates-step-3-be-review-states-admin",

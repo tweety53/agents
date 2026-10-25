@@ -14,7 +14,7 @@ pre{background:#f4f4f4;padding:8px;overflow-x:auto;white-space:pre-wrap;word-bre
 <body>
 <h1>kan-1013-templates-step-3-be-review-states-admin-1</h1>
 <h2>Type</h2>
-<p>implementer · scope layer:backend</p>
+<p>implementer · scope generic</p>
 <h2>Defect class</h2>
 <p>A status transition checks the current state in a read, then writes the new state with an update not conditioned on that state, so concurrent transitions both pass the check and the last writer wins.</p>
 <h2>Finding</h2>
