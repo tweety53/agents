@@ -1,1 +1,0 @@
-../../../scripts/check-plan-shape.sh

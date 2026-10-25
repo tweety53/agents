@@ -7,7 +7,7 @@ description: The planning prompts of spectre's tool + planning prompts mode — 
 
 The generic planning prompts for a spectre change: brainstorm the design, create the change's three artifacts, and write the plan.
 
-### Plan mode
+## Plan mode
 
 **Planning runs in plan mode.** On Claude Code, call `EnterPlanMode` before exploring.
 Investigation, questions and competing designs run inside plan mode. Once convergence closes,
@@ -39,26 +39,21 @@ the design.
 
 - **HARD GATE:** do not run `spectre new` until the user approves the design. Approval is the
   merged confirm's first option under **Convergence** below; no separate approval question is
-  asked. On Claude Code, `/flow` and `/flow-plan` take the approval from `ExitPlanMode` instead —
+  asked. In plan mode the approval comes from `ExitPlanMode` instead (**Plan mode**, above) —
   the merged confirm still closes the checklist (decision `exit-plan-mode-is-approval`, kan-1033).
 
 - The design presentation does **not** end a section, or the whole design, with a "does this look
   right?" question — present the section(s) and proceed directly, section to section and then into
   artifact creation, unless the operator raises an objection during or after that presentation. This
-  is a scoped override of `superpowers:brainstorming`'s hard design-approval gate, `/flow` only.
+  is a scoped override of `superpowers:brainstorming`'s hard design-approval gate.
 - Ask every pending question whose wording does not depend on another pending answer in one
   **AskUserQuestion** call, up to four questions per call; a question that only makes sense once
   another is answered waits for the next call; the convergence confirm and the third-round offer
   may be the last question in such a call. This is a scoped override of
-  `superpowers:brainstorming`'s "Only one question per message", `/flow` only.
+  `superpowers:brainstorming`'s "Only one question per message".
 
 The approved design is the source for the change's `design.md`; adapt its format, never duplicate a
 conflicting design.
-
-A Done-when names only committed, tracked paths of the repository it belongs to — never a
-gitignored or otherwise uncommitted side output, whose removal a later cleanup turns into a done
-criterion nothing satisfies — and the archive commit refuses one that does, enforced by **Archive on
-the change branch** (`skills/flow-contracts/finish-contract-run1.md`).
 
 ### Explore and design agents
 
@@ -80,7 +75,7 @@ why under `## Recommended approach`.
 
 ### Stage exit — never the command's own judgment
 
-Within a single run, a stage that loops — most concretely `/flow`'s brainstorm
+Within a single run, a stage that loops — most concretely the brainstorm
 stage, whose convergence test reopens after every planning-stage exchange that leaves a question the
 command's inputs do not answer — never closes on the command's own judgment. It closes only on an
 explicit operator answer: at a confirm, or by declining an offer, recording what is still open
@@ -111,8 +106,7 @@ Open questions`**, including one deferred as far back as round one. Then ask, wi
 > - **Revise — I have a change to the design**
 
 End the stage only on an explicit choice of **approve the design and move on**. An answer that
-names something opens another round. **Here the safe default and the recommended option differ** — shape per Operator prompts
-(`skills/flow-contracts/operator-prompts.md`): silence or a stalled prompt from an operator who is
+names something opens another round. **Here the safe default and the recommended option differ**: silence or a stalled prompt from an operator who is
 present is not "approve the design and move on," and defaults to another round rather than to the
 recommended choice. Print `⚠ another round — no explicit answer` when this default fires.
 
@@ -233,42 +227,10 @@ Invoke **superpowers:writing-plans** to enrich `<changeRoot>/tasks.md` to plan q
 paths, verification commands, bite-sized steps, no placeholders. Run its self-review (spec
 coverage, placeholder scan, type consistency) before finishing.
 
-**Tell it the task shape, because it is spectre's and not writing-plans' own.** A task is a
-column-0 checkbox line, `- [ ] <n>. <title>`, whose `<n>` is a flat integer; that task's steps are
-`  - [ ] **Step N: …**` lines indented two columns beneath it. The rule in full is the `Placement`
-paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`).
-
-> **Write each task's verify step as its own lint commands plus targeted tests.** A verify step
-> names the lint commands the task's own `**Files:**` actually need — never the project's whole
-> `## lint` list — and the build tool's own selector for each `**Tests:**` entry (`--tests
-> '<class>'` for Gradle, `-run '<name>'` for `go test`, `-t '<name>'` for vitest), never the bare
-> module or repository suite: that run belongs to the parent's full-suite run after the last
-> group (`skills/flow/implement.md`) and to `flow.verify`. A task whose `**Tests:**` is `none` names
-> lint alone and no test command.
-
 > **A task that adds a member to an existing class or interface** counts that type's members
 > against the project's size-rule thresholds — detekt's `TooManyFunctions`, and the like — and,
 > where the type has no headroom left, plans the split in that same task rather than a "no new
 > type" constraint the lint then breaks (kan-999).
-
-> **Write a feature's UI tests as their own follow-on task.** When a feature's tests live in a
-> UI-test source set of their own — Compose Multiplatform's `desktopTest`, and the like — the plan
-> carries two tasks: the feature task, whose `**Files:**` names the source files and the unit-test
-> (`commonTest`) files, then one follow-on task per feature task whose `**Files:**` names only that
-> feature's UI-test file(s), all of them. The two are file-disjoint, so `plan-dispatch-bundles.sh`
-> keeps them separate bundles and the UI-test iteration starts in a fresh implementer at a small
-> context instead of the one that just wrote the feature. The follow-on declares
-> `**After:** Task <N>` naming its feature task, and the feature task declares its own
-> predecessors or `none` — the declarations alone run the follow-on after the feature task — and
-> the parent's full-suite run after the last group still covers the pair.
-
-> **Write end-to-end spec and fidelity-capture tasks to run side by side.** Each such task's
-> `**After:**` names only the feature tasks whose behaviour it exercises — never another
-> verification task, since one spec file never needs another's commit — and each seeds its own
-> accounts and data, so the tasks share one running stack (**One stack for the verification
-> tasks**, `skills/flow/implement.md`) without touching each other's state. Global Constraints
-> names the stack's start row and any build the tasks run against; no task's steps start, stop
-> or rebuild the stack.
 
 > **Write every click and capture in an end-to-end or fidelity spec on a structural locator.**
 > Each such task's steps reach every control the spec clicks, types into or captures by its role
@@ -280,34 +242,6 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > shortens it — the production value unchanged — in the task that adds the spec, and a suite
 > whose specs are independent runs on the test runner's parallel workers.
 
-> **Write a live check when the change touches a running service or persistent state — never a
-> live-verification task.** When the change under plan touches a long-running service, a daemon,
-> a store, a scheduler or anything else holding runtime state, `design.md` carries a
-> `## Live check` section naming what to exercise against the real thing — the running system
-> against its real state, not its fakes — the before/after figures to record, and what the
-> change **not** working would look like, so a null result is recognisable as failure rather
-> than read as success: a check that only asserts a command exited 0 cannot tell a repaired
-> system from an untouched one. `flow.verify` runs it (**Live check**,
-> `skills/flow/verify-and-handoff.md`); no task in `tasks.md` does. When the planner judges the
-> change has no runtime to verify against, the section is one line saying so — the
-> justification is required, the check is not. Every step of the check runs at `flow.verify`,
-> before the change lands: a step that needs the change landed, a restarted shared service, or a
-> write to the change's own integrate state is written as the stand-in that runs in its place — a
-> scratch fixture, a workspace's own service, a scratch copy of the record — named in the section
-> (kan-1019: a check deferred to integrate was never run). The no-runtime line opens with `None`.
-
-> **Write a verification change so its found defects become their own tasks.** When a plan's task
-> exists to exercise a surface and report what it finds — a final-verification pass over a feature
-> group, an end-to-end sweep — its `**Allowed-collateral:**` names what the verification commit
-> itself writes, the report or record files the pass produces, never the surface it inspects, and
-> every real defect it finds becomes a new task appended to `tasks.md`, carrying the field family
-> with the fix's own `**Files:**` and `**Allowed-collateral:**`. The
-> appended task is what makes the fix declared — `check-task-commit-fields.sh` refuses a commit
-> touching paths no task declared — so the change stays self-contained and every fix stays
-> traceable to a declared task.
-
-> **Triage the sweep's findings before any fix runs** — a defect a verification change's sweep finds is triaged before anything is edited: its fix is its own appended task, never an edit inside the verification task itself — a pre-existing defect, or one on a surface another change owns, included (**The sweep**, `skills/flow-contracts/known-bugs.md`).
-
 > **Open a task that verifies a reported behaviour with the reproduce-first step.** When a task's
 > job is confirming or refuting a report — an operator's defect report, a review or self-review
 > finding, a claimed behaviour — its first step reproduces the report against the untouched tree,
@@ -317,107 +251,9 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > code change, while an edit made before reproducing destroys the evidence the task set out to
 > gather.
 
-> **Never write a task that creates a worktree.** Every worktree a plan runs in exists before its
-> first task: each `## apps` repository's, on branch `spectre/<name>`, is created at `flow.kickoff`
-> (`skills/flow/brainstorm.md`) or in **2. Isolate the workspace** (`skills/flow/implement.md`), so a task names that worktree's path and no step
-> carries a `git worktree add` (self-review-backlog-flow-6).
-
-> **End a removal task on an absence sweep.** When a task's job is removing text — copy, a setting,
-> an identifier — its last verify step is one `git grep -n -F` over every string it removes, each
-> passed as its own `-e '<string>'`, scoped to the paths the task touches: the sweep prints
-> nothing when the task is done, and any hit means it is not.
-> Its paths never cover a later task's `**Files:**` while that file still holds a string the
-> sweep removes — `check-plan-shape.sh` refuses that sweep (F18) — nor a comment or doc line a
-> step of the plan tells the task to keep.
->
-> A removed UI tag, test id or label that a declared `regression checkout` drives
-> (**Project configuration — visual verification**,
-> `skills/flow-contracts/project-configuration-visual.md`) is swept in that checkout too, with
-> the same `-e` list, and the plan carries the task that updates every hit there: kan-998's
-> sweep, scoped to its own paths, missed the labels gymie-playwright drove, and the regression
-> suite failed 83 tests on them.
-
 > **List the rationale appendix a changed rule's reasoning lives in.** A step that changes a rule
 > whose reasoning a `*-rationale.md` appendix records lists that appendix in its task's
 > `**Files:**` and updates it.
-
-**Load `skills/flow-contracts/plan-provenance.md`.** While enriching `tasks.md`, tag every fenced
-block, every numeric claim and every assumption the plan cannot verify at plan time per **Plan
-provenance** (`skills/flow-contracts/plan-provenance.md`).
-
-**A task premise about a guard's behaviour is run at plan time, never assumed.** When a task
-written here rests on what a guard or check currently does — that a ratchet trips or does not,
-an exit code, the figures a guard prints — planning runs that guard before the task is written
-and cites its output in the task as a `measured:` comment per **Plan provenance**
-(`skills/flow-contracts/plan-provenance.md`), naming the command and the ref and quoting the
-exit code or figures the run produced. A premise the run disproves strikes the task during
-planning, before the panel reads the plan.
-
-**A task premise about a harness or tool is spiked live at plan time, never assumed.** When a
-task written here rests on how a harness or tool behaves — that a config key takes effect where
-the task puts it, how a clock or timer behaves, what a dev-stack rebuild picks up — planning runs
-a live spike of five minutes or less for each such assumption before the task is written, and
-records the result in the task as a `measured:` comment per **Plan provenance**
-(`skills/flow-contracts/plan-provenance.md`), naming the command and the ref. A premise the spike
-disproves is rewritten or struck during planning; one the spike cannot settle in five minutes
-stays tagged `unverified:<what-to-check>` for the implementer.
-
-**Load `skills/flow-contracts/build-green.md`.** While enriching `tasks.md`, also tag every task
-with `**Build:**` per **The build-green tag**
-(`skills/flow-contracts/build-green.md`), and with the mechanically-checkable field family
-`flow-task-commit-fields` requires:
-
-- `**Files:**` — the paths this task's commit will touch, with an optional
-  `**Allowed-collateral:**` glob. Every path is written literal and
-  repo-relative: a shorthand the plan's preamble defines — gs, commonMain
-  and their like — is expanded by the writer, never left in the field for
-  the guard to expand.
-- `**Tests:**` — the names of the tests this task adds. **The field is parsed, not read:** a
-  `Case <N>` label — `<N>` a number with an optional letter suffix, `Case 13b` — is checked by
-  that label alone and backticks beside it parse as nothing;
-  otherwise every backticked token becomes a declared test name the commit's diff and the tree
-  are searched for; any other prose in it is invisible to the check — write what covers the task
-  outside the field, never inside it. A task adding none writes a field opening with the literal
-  `none`, and `check-task-commit-fields.sh` then never reads that field's backticks as test names
-  it must find in the commit's diff. **Bold `**none**` opens such a field; italic `_none_` does
-  not** — the recognition ends on a word boundary, and `_` is a word character, so the trailing
-  underscore swallows it.
-- `**Regression:**` — per declared test, what fails if this task's commit is reverted.
-- `**Baseline:**` — the expected test counts, as `before=<N> after=<N>`, on ONE convention the
-  plan states in its own header (`> **Baseline convention:**`, seeded below), so later tasks
-  cannot drift between counting methods: **chain-position absolutes against each commit's
-  parent** — `before` is the count at this task's own commit's parent and `after` at the commit,
-  every task measured at its own position in the chain, never a plan-time pair that a fixup
-  landing earlier in the chain stales; when a fixup shifts the counts, the guard's re-measurement
-  failure names the numbers it measured and the declaration is restated from them, never
-  re-derived by hand; **split by source set** — each Baseline counts one source set's own counter
-  (one module's `@Test` annotations, one suite's cases), never one tree-wide number that a change
-  anywhere shifts; **a word-boundary-safe counter** — whole tokens anchored, so `@Test` never
-  substring-matches `@Testcontainers` (KAN-626); and **no pinned ref** — the recorded command
-  carries no tree, sha, branch or revision argument anywhere inside it (KAN-661). The counts are
-  counted statically from test declarations (`@Test` and its language equivalents), never from a
-  test run, and each task's delta its own: `after` is `before` plus the tests the task's own
-  `**Tests:**` field names. The counts are exact integers: `after=~N` is unparseable by the guard
-  and silently disables the re-measurement. A Baseline that records a plan-provenance `<!--
-  measured: <command> @ <ref>` `-->` comment is re-measured once the task's commit exists:
-  `check-task-commit-fields.sh` re-runs that command at the commit's parent and at the commit, and
-  a count differing from the declared one fails the task — record a command whose stdout is one
-  integer (a `| grep -c` pipeline is the shape), and read
-  "never from a test run" as constraining how the declared numbers are derived at plan time, not
-  the guard's re-measurement. The re-measurement checks each of its two points out itself and
-  runs the command in that working tree. The
-  comment's `@ <ref>` is the provenance annotation, never part of the command.
-- `**Commit:**` — the commit subject line this task's implementer must use, scope naming the module
-  the task's own `**Files:**` field carries, per **Commit scopes name the module**
-  (`<agents repo>/rules/commit-scope-is-the-module.mdc`).
-
-An `**After:**` field — `Task <id>[, <id>…]`, one `Task` prefix for the whole list (`Task 5, 6`, never `Task 5, Task 6`), or `none` — declares the task's predecessors, and **every
-task writes it**: a plan states its ordering in declarations, so `plan-dispatch-bundles.sh`
-resolves every bundle's after-set from what the tasks say and never needs a human judgment call
-about ordering. The dispatcher still reads an absent field as after every earlier task, so an
-older plan parses unchanged — the planner never relies on that inference. Name exactly the
-tasks this one's own files depend on, `none` when there are none, and write it consistently
-across a `**Squash-with:**` pair (union semantics merge the pair into one bundle).
 
 **A task cites the decision it implements, never restates it.** When a task exists to implement
 an entry of design.md's `## Decisions`, it names that entry by its `**ID:**` in a
@@ -427,59 +263,6 @@ implementing no recorded decision writes no such field. A block of `**Decision:*
 between blank lines — one before the first line of the block and one after the last, never
 glued to the `**Commit:**` subject above it.
 
-Add this header to `tasks.md`:
-
-```markdown
-> **Execution:** `/flow` implements this plan. Mark a task's own checkbox when
-> `check-task-commit-fields.sh` passes on that task's commit.
-```
-
-Add a second header line, in the same block, declaring whether this plan relocates existing
-prose:
-
-```markdown
-> **Relocation:** yes — <one-line reason>
-```
-
-or `**Relocation:** no`. This line is required and explicit on every plan — never omitted. `yes` scopes a mechanical passage
-comparison (generated later in the pipeline, by `generate-relocation-comparison.sh`,
-run before the review panel's `final-review.diff`) to the union
-of every task's own `**Files:**` field across the plan.
-
-Seed `> **Design shape:** plan-mode` into the same block of every plan: on a `tasks.md`
-carrying it, `check-plan-shape.sh` refuses a sibling `design.md` missing any of section **C**'s
-four plan sections (decision `design-shape-line`, kan-1033).
-
-Seed a third header line, in the same block, into every plan whose tasks declare `**Baseline:**`
-fields — the exact line below, copied verbatim, so every plan states its baselines' convention the
-same way and no later task can drift between conventions (KAN-678):
-
-```markdown
-> **Baseline convention:** every `**Baseline:** before=N after=M` is chain-position absolutes —
-> `before` is the count at this task's commit's parent and `after` at the commit, each task
-> measured at its own position, never a plan-wide pair — split by source set, counted by a
-> word-boundary-safe counter (`@Test` never matches `@Testcontainers`), with any `measured:`
-> command naming no ref of its own.
-```
-
-A plan that declares `**Baseline:**` fields and carries no such line fails `check-plan-shape.sh`
-(F12). A plan whose tasks declare no Baselines states no convention and writes no line.
-Tasks whose Baselines carry the same `measured:` command form one chain in plan order: a task whose `before` is below the previous such task's `after` fails `check-plan-shape.sh` (F17), save the later task of a `**Squash-with:**` pair, which shares its partner's commit.
-
-Before continuing, run `spectre validate "<name>"` — implementation's entry check (section **1**,
-`skills/flow/implement.md`), run here so a capture it would refuse never reaches the gate — and
-repair any exit-1 finding; its exit 2 is reported and stops the plan.
-
-Before continuing, run `check-plan-shape.sh` — a shipped guard, run unconditionally — and the
-project's configured plan-provenance guard and its configured build-green guard, if the project
-declares them, and fix any hit. **A hit is exit 1, and only exit 1.** The refusal exits are
-never repaired by editing the plan: check-plan-provenance's exit 2 (environment) and
-exit 3 (containment — a security finding first, per the guard's own contract) and the
-not-a-verdict exit 2 the shape and build-green guards share (a missing or unreadable plan file)
-are reported and stop the plan. Provenance's exit 4 (content-classification) is the one refusal
-whose remedy is editing the plan — fix the line it names and run the guard again, its own
-prescribed course, never accepting the plan while it stands.
-
 ### Plan review gate
 
 The summary is plain prose, not a listing of `tasks.md`: what will be implemented and how — the
@@ -487,7 +270,3 @@ behaviour being added or changed, the approach taken, the seams and decisions th
 shapes, boundaries, ordering constraints, what was deliberately left out) — in enough detail that
 the operator can judge the logic without opening the plan. No per-task rows, no file, test or
 commit fields. Then the `## Decision` block, verbatim, under it.
-
-Then the question — `/flow-plan`'s wording is **Push artifacts?**, `/flow`'s is **Proceed to
-implementation?** — with exactly two options: **Yes** *(recommended)* and **No (plan needs
-updates)**.

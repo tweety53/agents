@@ -7,16 +7,17 @@ import (
 	"testing"
 )
 
-// lsWant is what scripts/load-sets.sh at e111a883 printed for lsFixture.
+// lsWant is what scripts/load-sets.sh at e111a883 printed for lsFixture, its
+// planning rows grown by spectre-planning's 8-byte SKILL.md.
 const lsWant = `
 always-on (global block + project CLAUDE.md)            31 bytes  ~     7 tok
 router (command + SKILL.md + pipeline.md)              137 bytes  ~    34 tok
 --- planning session (creating run) ---
-  phase files + load directives                          0 bytes  ~     0 tok
+  phase files + load directives                          8 bytes  ~     2 tok
   + cited at point of use                                0 bytes  ~     0 tok
-  TOTAL definite                                       168 bytes  ~    42 tok
+  TOTAL definite                                       176 bytes  ~    44 tok
   + conditional (flow-fix/flow-cost/flow-speed, seeded note, resume)       0 bytes  ~     0 tok
-  TOTAL incl. cited                                    168 bytes  ~    42 tok
+  TOTAL incl. cited                                    176 bytes  ~    44 tok
 --- implementation session (enters via Resuming at STARTED) ---
   phase files + load directives                          0 bytes  ~     0 tok
   + cited / reviewer templates                           0 bytes  ~     0 tok
@@ -40,12 +41,12 @@ router (command + SKILL.md + pipeline.md)              137 bytes  ~    34 tok
 `
 
 // lsFixture builds a repo holding four of the listed files — spectre-planning's
-// SKILL.md empty, so no row's size moves — and a global
+// SKILL.md 8 bytes, so the planning rows count it — and a global
 // file outside it, of known sizes.
 func lsFixture(t *testing.T) (repo, global string) {
 	dir := t.TempDir()
 	repo = filepath.Join(dir, "r")
-	for path, n := range map[string]int{"CLAUDE.md": 10, "skills/flow/SKILL.md": 100, "skills/flow-contracts/pipeline.md": 37, "skills/spectre-planning/SKILL.md": 0, "../g.md": 21} {
+	for path, n := range map[string]int{"CLAUDE.md": 10, "skills/flow/SKILL.md": 100, "skills/flow-contracts/pipeline.md": 37, "skills/spectre-planning/SKILL.md": 8, "../g.md": 21} {
 		p := filepath.Join(repo, path)
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			t.Fatal(err)
