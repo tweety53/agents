@@ -5072,3 +5072,51 @@ func TestMarkDispatchInlineFillsOnlyAnEmptyID(t *testing.T) {
 		}
 	}
 }
+
+// TestEndDispatchRefusesShortWindowOnHarvestedSession pins the subagent
+// window floor: a subagent row on a harvested session closed completed one
+// second after its begin, with no token report, is refused; four seconds
+// later, aborted, carrying a token report, or on a session no harvester
+// reads, it is not refused for its window.
+func TestEndDispatchRefusesShortWindowOnHarvestedSession(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-end-subagent-window-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	for token, harness := range map[string]string{"mf-harvested": "claude-code", "mf-unharvested": "cursor"} {
+		begin := baseBeginInput(projectKey, "kan-1", "/flow", "implementation")
+		begin.SessionToken = ptr(token)
+		begin.Harness = harness
+		if _, err := st.BeginStage(ctx, begin); err != nil {
+			t.Fatalf("BeginStage: %v", err)
+		}
+	}
+	n := 0
+	end := func(token string, after time.Duration, outcome string, tokens *records.TokenReport) error {
+		n++
+		d := baseDispatch("explorer", "opus")
+		d.SessionToken, d.Key = token, fmt.Sprintf("explore-%d", n)
+		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", d); err != nil {
+			t.Fatalf("RecordDispatch: %v", err)
+		}
+		_, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{
+			SessionToken: token, Key: d.Key, Outcome: outcome, EndedAt: d.StartedAt.Add(after), Tokens: tokens,
+		})
+		return err
+	}
+	if err := end("mf-harvested", time.Second, "completed", nil); !errors.Is(err, store.ErrDispatchWindowTooShort) {
+		t.Fatalf("one second on a harvested session: err = %v, want ErrDispatchWindowTooShort", err)
+	}
+	if err := end("mf-harvested", 4*time.Second, "completed", nil); err != nil {
+		t.Errorf("four seconds: %v", err)
+	}
+	if err := end("mf-harvested", time.Second, "completed", &records.TokenReport{Input: 1, Output: 1}); errors.Is(err, store.ErrDispatchWindowTooShort) {
+		t.Errorf("with a token report: refused for its window: %v", err)
+	}
+	if err := end("mf-harvested", time.Second, "aborted", nil); err != nil {
+		t.Errorf("aborted: %v", err)
+	}
+	if err := end("mf-unharvested", time.Second, "completed", nil); err != nil {
+		t.Errorf("non-harvested session: %v", err)
+	}
+}

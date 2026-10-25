@@ -845,7 +845,7 @@ func isDefinitiveRecordOutcome(err error) bool {
 		// above get -- leaving it queued would block every valid entry
 		// behind it forever without ever making progress.
 		return true
-	case errors.Is(err, store.ErrInlineWindowTooShort), errors.Is(err, store.ErrInlineCommitMissing), errors.Is(err, store.ErrInlineBegunAfterCommit),
+	case errors.Is(err, store.ErrInlineWindowTooShort), errors.Is(err, store.ErrDispatchWindowTooShort), errors.Is(err, store.ErrInlineCommitMissing), errors.Is(err, store.ErrInlineBegunAfterCommit),
 		errors.Is(err, store.ErrTokensOnHarvestedSession):
 		// An inline end closed too soon (or with no commit, or with a
 		// commit made before its begin -- kan-1003) after its begin is refused on the

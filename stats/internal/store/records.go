@@ -106,6 +106,14 @@ var ErrAgentIDInvalid = errors.New("store: invalid agent id")
 // cost unmeasured.
 var ErrInlineWindowTooShort = errors.New("store: inline dispatch window too short")
 
+// ErrDispatchWindowTooShort is returned by EndDispatch when a subagent row
+// (any agent id but "inline") with no token report, begun on a session whose
+// harness is harvested, would close completed under minInlineWindow after
+// its begin: a begin and end recorded together after the Agent call returned
+// (kan-1013's explore-1 and explore-2) leave the harvester no window to
+// credit the subagent's transcript to.
+var ErrDispatchWindowTooShort = errors.New("store: subagent dispatch window too short")
+
 // ErrTokensOnHarvestedSession is returned by EndDispatch when an end carries
 // a caller token report (-tokens) for a session token begun on a harness
 // whose transcript the harvester reads (harvestedHarnesses): the harvester
@@ -589,6 +597,17 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 			  AND d.session_token = $3 AND d.dispatch_key = $4`,
 			projectKey, change, in.SessionToken, in.Key).Scan(&agentID, &startedAt)
 		inline := in.AgentID == "inline" || (in.AgentID == "" && agentID != nil && *agentID == "inline")
+		if err == nil && !inline && in.Tokens == nil && in.EndedAt.Sub(startedAt) < minInlineWindow {
+			var harvested bool
+			if err := s.pool.QueryRow(ctx, `
+				SELECT EXISTS (SELECT 1 FROM stage_runs WHERE session_token = $1 AND harness = ANY($2))`,
+				in.SessionToken, harvestedHarnesses).Scan(&harvested); err != nil {
+				return records.Dispatch{}, fmt.Errorf("store: end dispatch %q for %s/%s: read session harness: %w", in.Key, projectKey, change, err)
+			}
+			if harvested {
+				return records.Dispatch{}, fmt.Errorf("%w: %s/%s key %q closed %s after its begin -- begin the row before the Agent call and end it once it returns, or record the real instants with flow record dispatch backfill", ErrDispatchWindowTooShort, projectKey, change, in.Key, in.EndedAt.Sub(startedAt))
+			}
+		}
 		if err == nil && inline {
 			if in.Tokens == nil && in.EndedAt.Sub(startedAt) < minInlineWindow {
 				return records.Dispatch{}, fmt.Errorf("%w: %s/%s key %q closed %s after its begin -- record begin when the work starts and end once its commit lands, or pass -tokens where no transcript is harvested", ErrInlineWindowTooShort, projectKey, change, in.Key, in.EndedAt.Sub(startedAt))
