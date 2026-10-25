@@ -124,15 +124,10 @@ flow record dispatch begin -change <name> -role explorer|planner -model <m> -eff
 flow record dispatch end -change <name> -key explore-<n>|design-<n> -session-token mf-<literal-token> -outcome completed
 ```
 
-**Plan mode on Claude Code.** When `<harness>` is `claude-code`, call `EnterPlanMode` right after
+Plan mode (**Plan mode**, `skills/spectre-planning/SKILL.md`) is entered right after
 `flow.brainstorm` begins — `STARTED` and the worktree already exist — and before the Explore phase.
-Investigation, questions and competing designs run inside plan mode. Once convergence closes,
-write the design to the plan file the harness names and call `ExitPlanMode`: **Approve** is the
-HARD GATE's design approval (**The checklist**, `skills/flow/brainstorm-planner.md`) — save the
-design under `<project>-worktrees/<name>/.superpowers/sdd/` and continue into section **C**; **reject with feedback** reopens
-convergence with the feedback as the next round's input. A declined `EnterPlanMode` consent is one
-line, and planning continues without plan mode, exactly as on another harness. Every other gate is
-unchanged, the plan review gate included.
+On **Approve**, save the design under `<project>-worktrees/<name>/.superpowers/sdd/` and continue
+into section **C**.
 
 **Prose preceding a question is shown too, not dropped.** When the checklist carries a summary
 before a question — most concretely the convergence confirm's "state what you believe settled"

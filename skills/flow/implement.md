@@ -872,7 +872,7 @@ parent edit `proposal.md`, `design.md` and `tasks.md` in the same pass, never
 capability spec the plan edits (`<project>/spectre/specs/<capability>.md`) is rewritten to the pivoted
 scope in that same pass, and a
 decision the pivot displaces is superseded by ID per **Decisions**
-(`skills/flow/brainstorm-planner.md`) — the old entry's `**Status:**` set to `superseded by
+(`skills/spectre-planning/SKILL.md`) — the old entry's `**Status:**` set to `superseded by
 <new-id>`, its reasoning retained and its `**Superseded because:**` trigger line appended, a
 fresh entry appended, nothing deleted or rewritten — so the record carries the
 superseded decision beside its replacement. The amended plan is
