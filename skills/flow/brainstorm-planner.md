@@ -287,8 +287,8 @@ run before the review panel's `final-review.diff`) to the union
 of every task's own `**Files:**` field across the plan.
 
 Seed `> **Design shape:** plan-mode` into the same block of every plan: on a `tasks.md`
-carrying it, `check-plan-shape.sh` refuses a sibling `design.md` missing any of section **C**'s
-four plan sections (decision `design-shape-line`, kan-1033).
+carrying it, `check-plan-shape.sh` refuses a sibling `design.md` missing any of the four plan sections
+(**C. Create the change and its artifacts**, `skills/spectre-planning/SKILL.md`) (decision `design-shape-line`, kan-1033).
 
 Seed a third header line, in the same block, into every plan whose tasks declare `**Baseline:**`
 fields — the exact line below, copied verbatim, so every plan states its baselines' convention the
@@ -546,7 +546,6 @@ after the `flow.decide` record sequence (**Run brainstorming and planning direct
 Then the question — `/flow-plan`'s wording is **Push artifacts?**, `/flow`'s is **Proceed to
 implementation?** — with exactly two options: **Yes** *(recommended)* and **No (plan needs
 updates)**.
-
 
 **A `panel.dispatches` entry the planner judges worth `high`** — a hard seam the roll's effort may not carry —
 adds one question per such dispatch to the same AskUserQuestion call: **Raise `<dispatch>` to
