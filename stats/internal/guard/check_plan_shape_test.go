@@ -274,6 +274,11 @@ func TestCheckPlanShape(t *testing.T) {
 	r = repair(" none — repairs existing tests the fixture-collision cases")
 	want("case 34: the repair phrase without its colon still fails F4", r.rc == 1, r)
 	want("case 34: names the contradiction", has(r, "contradiction between the opt-out"), r)
+	// Case 44 (KAN-1034): the bold `**none**` repair form, which
+	// brainstorm-planner.md says opens the field, is the repair form too.
+	r = repair(" **none** — repairs existing tests: `TestLoadSets`")
+	want("case 44: the bold repair form over a test-shaped Files entry passes", r.rc == 0, r)
+	want("case 44: no output", r.out == "", r)
 
 	// plan-suite-steps, in-process, in both scans.
 	suite := "- [ ] 1. Menu\n\n**Files:** `A.kt`\n\n**Tests:** `aRowIsTall`\n\n  - [ ] **Step 1:** run `./gradlew :shared:desktopTest`; migrate failures\n"

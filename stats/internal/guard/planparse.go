@@ -509,11 +509,11 @@ var (
 )
 
 // tcfRepairsOpenRE is REPAIRS_OPEN_RE, the test-repair annotation (KAN-794):
-// a Tests value opening with `none`, an optional em dash, en dash or `--`,
-// then `repairs existing tests:` -- the phrase and its colon required, so
+// a Tests value opening with `none` (bold `**none**` included), an optional em dash,
+// en dash or `--`, then `repairs existing tests:` -- the phrase and its colon required, so
 // "none added — repairs existing tests" is not the form. Its only effect is
 // check-plan-shape's F4 exemption.
-var tcfRepairsOpenRE = regexp.MustCompile(`(?i)^[` + tcfWS + `*_]*none\b[` + tcfWS + `]*(?:[—–]|--)?[` + tcfWS + `]*repairs[` + tcfWS + `]+existing[` + tcfWS + `]+tests[` + tcfWS + `]*:`)
+var tcfRepairsOpenRE = regexp.MustCompile(`(?i)^[` + tcfWS + `*_]*none\b[*_]*[` + tcfWS + `]*(?:[—–]|--)?[` + tcfWS + `]*repairs[` + tcfWS + `]+existing[` + tcfWS + `]+tests[` + tcfWS + `]*:`)
 
 // AFTER_FIELD_RE is the field's presence on one physical line; AFTER_VALUE_RE
 // the gate: a value is `Task <ids>` or the literal `none`, nothing else.
