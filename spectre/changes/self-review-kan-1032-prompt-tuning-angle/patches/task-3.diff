@@ -1,0 +1,30 @@
+diff --git a/skills/flow-contracts/pipeline.md b/skills/flow-contracts/pipeline.md
+index cf440b29..be6b492b 100644
+--- a/skills/flow-contracts/pipeline.md
++++ b/skills/flow-contracts/pipeline.md
+@@ -216,7 +216,9 @@ the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-
+    `<agents repo>/scripts/pipeline-fix.sh start <name> <k>` — never the main checkout, never the
+    change's own worktree. It dispatches `pipeline-fix-<k>-plan`, its prompt carrying the defect, its evidence and the counted blast
+    radius, then `pipeline-fix-<k>-fix`, `-fix-g<g>` when the planner recorded more than one group,
+-   each as item 1 there states. The fixer also adds one test or guard that fails without the fix,
++   each as item 1 there states. Each prompt carries its `Key: pipeline-fix-<k>-<suffix>` as a line
++   of its own, from which `hooks/enforce-loop-dispatch.py` records the row under the loop's change;
++   the parent never runs `flow record dispatch begin` or `end` for it under its own change. The fixer also adds one test or guard that fails without the fix,
+    and updates a saved memory that encoded the defect.
+ 2. **Review** — a fresh `pipeline-fix-<k>-review-<r>` over
+    `git diff origin/<agents-base>...pipeline-fix-<name>-<k>`, as item 2 there states.
+diff --git a/skills/flow/implement.md b/skills/flow/implement.md
+index b54929ed..3e566439 100644
+--- a/skills/flow/implement.md
++++ b/skills/flow/implement.md
+@@ -66,6 +66,10 @@ These seven rows are **every** Agent-tool dispatch the parent may make, across s
+ | tooling analyst, one per worktree whose fix run reports a miss an earlier round passed | `planner` | `tooling-analysis-<n>` | `skills/flow/visual-verify.md`, **A missed defect — the tooling analysis** |
+ | in-run pipeline fix planner, fixer and review, one each per loop step | `planner` for the plan, `implementer` for every fixer, `reviewer` for the review | `pipeline-fix-<k>-plan`, `pipeline-fix-<k>-fix` (`-fix-g<g>`, `-fix-<r>`, `-fix-v<v>`), `pipeline-fix-<k>-review-<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
+ 
++The in-run pipeline fix row's dispatches are recorded by `hooks/enforce-loop-dispatch.py` under
++the loop's own change, off each prompt's `Key:` line: the parent never begins or ends one under its
++own change.
++
+ **Everything else in those six sections is the parent's own Bash and Read work, never
+ delegated** — every `check-*.sh`, `run-reproducer.sh`, `gather-dispatch-context.sh`,
+ `prepare-workspace.sh`, `## lint` and `## test`, every `flow record` and `flow stage` call,

@@ -1,0 +1,16 @@
+diff --git a/skills/flow/review-panel.md b/skills/flow/review-panel.md
+index 74a1e4d9..de802022 100644
+--- a/skills/flow/review-panel.md
++++ b/skills/flow/review-panel.md
+@@ -756,7 +756,10 @@ withdrawn with a reason under the fix round's handback. A surviving mutant's rep
+ with the mutation landed is the bug present, the reverse of the generic exit-code contract. Its
+ tree is `$PWD`, the worktree `run-reproducer.sh` passes — never the slot's throwaway copy it was
+ authored in, which is gone once the dispatch closes (kan-1022's F8 pointed at that copy and
+-demonstrated nothing).
++demonstrated nothing). Its test command runs every test of the package, file or module the mutated
++code belongs to, never a filter naming the tests that exist today: a test the fix adds under a new
++name has to be able to kill the mutant (kan-1032: `-run TestLoopLandingAdmitsPromptTuningOnly`
++never selected the killing `TestLoopLandingPromptTuningAdmissionBounds`).
+ 
+ ### Principles
+ 

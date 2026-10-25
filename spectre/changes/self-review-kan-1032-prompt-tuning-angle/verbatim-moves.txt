@@ -1,0 +1,6 @@
+# Every sentence Tasks 1, 2, 3 and 4 add, exactly as check-verbatim-moves.sh prints it.
+**`STOP: narrative`** also stops on a `flow-fix` row `flow self-review findings -change <name>` lists as `fixed` whose sha no `In-run pipeline fix:` line names: append that line, in that format, and re-run `commit`.
+A `begin` the store refuses stops the list before its first command, exit 4, its stderr line naming the refusal: clear the cause — a tracked modification, most often — and run the list again; a failed `end` is a warning line that never changes the exit code.
+Each prompt carries its `Key: pipeline-fix-<k>-<suffix>` as a line of its own, from which `hooks/enforce-loop-dispatch.py` records the row under the loop's change; the parent never runs `flow record dispatch begin` or `end` for it under its own change.
+Its test command runs every test of the package, file or module the mutated code belongs to, never a filter naming the tests that exist today: a test the fix adds under a new name has to be able to kill the mutant (kan-1032: `-run TestLoopLandingAdmitsPromptTuningOnly` never selected the killing `TestLoopLandingPromptTuningAdmissionBounds`).
+The in-run pipeline fix row's dispatches are recorded by `hooks/enforce-loop-dispatch.py` under the loop's own change, off each prompt's `Key:` line: the parent never begins or ends one under its own change.
