@@ -124,6 +124,10 @@ flow record dispatch begin -change <name> -role explorer|planner -model <m> -eff
 flow record dispatch end -change <name> -key explore-<n>|design-<n> -session-token mf-<literal-token> -outcome completed
 ```
 
+Run each `begin` immediately before its Agent call and its `end` once that agent returns — never
+both after it returns, which records a window of zero seconds (kan-1034: both explorer rows read
+0s).
+
 Plan mode (**Plan mode**, `skills/spectre-planning/SKILL.md`) is entered right after
 `flow.brainstorm` begins — `STARTED` and the worktree already exist — and before the Explore phase.
 On **Approve**, save the design under `<project>-worktrees/<name>/.superpowers/sdd/` and continue
