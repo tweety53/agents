@@ -33,7 +33,7 @@ in this worktree.
 - [x] 1. Panel close: every completed reviewer dispatch leaves a report, every fixed finding's reproducer exists
 
 **Build:** green
-**Files:** `stats/internal/guard/panelfindingsclosed.go`, `stats/internal/guard/check_panel_findings_closed_test.go`, `scripts/check-panel-findings-closed.sh`, `skills/flow/review-panel.md`
+**Files:** `stats/internal/guard/panelfindingsclosed.go`, `stats/internal/guard/check_panel_findings_closed_test.go`, `scripts/check-panel-findings-closed.sh`, `skills/flow/review-panel.md`, `stats/internal/guard/panelexitcontract.go`
 **Tests:** `TestCheckPanelFindingsClosedEveryRoleLeavesAReport`, `TestCheckPanelFindingsClosedFixedReproducerExists`
 **Regression:** `TestCheckPanelFindingsClosedEveryRoleLeavesAReport` passes a completed round-0 slot with no report file, so the F7 slot's lost report is silent again; `TestCheckPanelFindingsClosedFixedReproducerExists` passes a fixed finding whose reproducer path is absent from every worktree.
 **Commit:** `fix(guard): refuse a panel close missing a slot report or a fixed finding's reproducer`

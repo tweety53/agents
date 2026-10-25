@@ -17,7 +17,7 @@
   - [x] **Step 3: In each source file replace every moved passage with a `Load` directive naming `skills/spectre-planning/SKILL.md`, or a citation of the moved heading in that file; flow-only lines stay. `skills/flow-plan/SKILL.md`'s plan-mode paragraph cites the new section. Re-point every citation of a moved heading found by `grep -rn 'brainstorm-planner.md' skills rules commands-claude README.md AGENTS.md CLAUDE.md`. Add the file to the planning load set in `stats/internal/guard/loadsets.go`, and a row for `skills/spectre-planning/` in the skill index of `CLAUDE.md` and `AGENTS.md`.**
   - [x] **Step 4: Verify: `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-installed-citations.sh && scripts/check-markdown-integrity.sh && scripts/check-stage-mark-calls.sh && scripts/check-guard-symlinks.sh && (cd stats && gofmt -l . && go vet ./internal/guard/...)`, then `git grep -n -F -e 'Plan mode on Claude Code' -- skills` prints nothing.**
 **Build:** green
-**Files:** `skills/spectre-planning/SKILL.md`, `skills/flow/brainstorm-planner.md`, `skills/flow/brainstorm.md`, `skills/flow-plan/SKILL.md`, `stats/internal/guard/loadsets.go`, `CLAUDE.md`, `AGENTS.md`, `skills/spectre-planning/scripts/check-plan-shape.sh`, `skills/spectre-planning/scripts/lib`, `stats/internal/guard/stagemarkcalls.go`, `stats/internal/guard/loadsets_test.go`
+**Files:** `skills/spectre-planning/SKILL.md`, `skills/flow/brainstorm-planner.md`, `skills/flow/brainstorm.md`, `skills/flow-plan/SKILL.md`, `stats/internal/guard/loadsets.go`, `CLAUDE.md`, `AGENTS.md`, `stats/internal/guard/stagemarkcalls.go`, `stats/internal/guard/guardsymlinks.go`, `spectre/changes/kan-1034-spectre-optional-bundled-planning-prompts-that/link.md`, `stats/internal/guard/loadsets_test.go`
 **Allowed-collateral:** `skills/**/*.md`, `rules/*.mdc`, `commands-claude/**/*.md`, `README.md` — any sentence `check-verbatim-moves.sh` flags as reworded is acknowledged in this change's own `verbatim-moves.txt`, a planning artifact, never in this commit
 **Tests:** none — repairs existing tests: `TestLoadSets`
 **Regression:** reverting the commit restores the prompts inside flow only; spectre has nothing to vendor.
@@ -37,7 +37,7 @@ requires once the skill names `check-plan-shape.sh`, declares the skill expected
 Correction (2026-10-25): Step 1 moved every listed paragraph verbatim, which left the skill
 citing flow files and flow guards; the review panel's fix round moved each flow-dependent
 paragraph back to `skills/flow/brainstorm-planner.md` and generalised the `/flow`-scoped
-wording, per decision `planning-skill-flow-free`.
+wording, per decision `planning-skill-flow-free`; it dropped the skill's guard symlinks, which nothing cited any more, and declared the skill guard-free in `guardsymlinks.go`. Integrate's reshape folded that fix and the merge-order `link.md` into this task's commit, so Files names them.
 
 - [x] 2. spectre: vendor the skill and document the two modes
   - [x] **Step 1: In the spectre worktree `/Users/tweety53/Projects/spectre-worktrees/kan-1034-spectre-optional-bundled-planning-prompts-that` (branch `spectre/kan-1034-spectre-optional-bundled-planning-prompts-that`), copy `skills/spectre-planning/SKILL.md` from the agents worktree to `.claude/skills/spectre-planning/SKILL.md` byte for byte, and add `.claude/skills/spectre-planning/UPSTREAM.md` shaped like `.claude/skills/brainstorming/UPSTREAM.md`, naming the agents repo, the task 1 commit sha and "Unmodified".**
