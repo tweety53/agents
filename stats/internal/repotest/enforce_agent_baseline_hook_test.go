@@ -341,3 +341,29 @@ func TestEnforceAgentBaselineHookAsksForTheLoopKeyLine(t *testing.T) {
 		})
 	}
 }
+
+// TestEnforceAgentBaselineHookAdmitsPlanningAgents pins kan-1032's self-review: a planner's
+// Explore or Plan dispatch records no row, so the row checks let it through in a flow session,
+// while any other type with the same description is still denied.
+func TestEnforceAgentBaselineHookAdmitsPlanningAgents(t *testing.T) {
+	t.Parallel()
+	for typ, deny := range map[string]bool{"Explore": false, "Plan": false, "flow-low": true} {
+		t.Run(typ, func(t *testing.T) {
+			t.Parallel()
+			env, _ := openRowFixture(t, `[]`, false)
+			var payload map[string]any
+			if err := json.Unmarshal(openRowPayload(t, "self-review plan — trace", "trace"), &payload); err != nil {
+				t.Fatal(err)
+			}
+			payload["tool_input"].(map[string]any)["subagent_type"] = typ
+			b, err := json.Marshal(payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+			out, _, rc := runHook(t, "enforce-agent-baseline.py", b, env...)
+			if denied := strings.Contains(out, `"permissionDecision": "deny"`); rc != 0 || denied != deny {
+				t.Fatalf("rc=%d deny=%v want %v out=%s", rc, denied, deny, out)
+			}
+		})
+	}
+}

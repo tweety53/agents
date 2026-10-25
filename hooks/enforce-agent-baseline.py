@@ -41,6 +41,9 @@ description's first word or, for `Task <ids>/<n>`, starts with `task-<ids>-`. A 
 -- a `Key:` line, or a description opening with a loop key -- is never checked. An unreachable store, no /flow stage-begin for the session, an absent or failing
 `flow` CLI, or an unparseable answer lets the dispatch through.
 
+A planning agent (PLANNING_AGENT_TYPES: Explore, Plan) records no row, so none of those row checks
+applies to it; the baseline-pointer, pinned-role and flow-high checks still do.
+
 Fails open: any unexpected input, parse error, or internal fault exits 0 and lets the
 dispatch through. A guardrail on a convention must never be the reason work stops.
 """
@@ -59,6 +62,11 @@ DISPATCH_TOOLS = {"Agent", "Task"}
 # A fork inherits the parent's full context, CLAUDE.md included, so it needs no pointer --
 # outside a flow session, where it is denied instead (fork_reason).
 EXEMPT_SUBAGENT_TYPES = {"fork"}
+
+# A planner's own read-only agents record no ledger row, so the row checks (description, loop key
+# line, begun row) pass them; the baseline-pointer, pinned-role and flow-high checks still apply
+# (kan-1032's self-review: a planner's Explore dispatch was denied mid-plan).
+PLANNING_AGENT_TYPES = {"Explore", "Plan"}
 
 # A flow run's slash command as the harness writes it into the session transcript.
 FLOW_COMMAND = re.compile(r"<command-name>/flow(?:-fast|-plan|-self-review)?</command-name>")
@@ -156,7 +164,7 @@ def loop_word(tool_input: dict) -> "str | None":
 
 def loop_key_line_reason(payload: dict, tool_input: dict, prompt: str) -> "str | None":
     word = loop_word(tool_input)
-    if not word or LOOP_KEY_LINE.search(prompt) or not in_flow_session(payload):
+    if tool_input.get("subagent_type") in PLANNING_AGENT_TYPES or not word or LOOP_KEY_LINE.search(prompt) or not in_flow_session(payload):
         return None
     return (
         f"Dispatch blocked: `{word}` is a loop key — its prompt carries `Key: {word}` as a line of "
@@ -167,6 +175,8 @@ def loop_key_line_reason(payload: dict, tool_input: dict, prompt: str) -> "str |
 
 
 def description_reason(payload: dict, tool_input: dict, prompt: str) -> "str | None":
+    if tool_input.get("subagent_type") in PLANNING_AGENT_TYPES:
+        return None
     if LOOP_KEY_LINE.search(prompt) or loop_word(tool_input):
         return None
     description = tool_input.get("description")
@@ -208,6 +218,8 @@ def session_change(session_id: str) -> "tuple[str | None, str | None]":
 
 
 def begin_row_reason(payload: dict, tool_input: dict, prompt: str) -> "str | None":
+    if tool_input.get("subagent_type") in PLANNING_AGENT_TYPES:
+        return None
     if LOOP_KEY_LINE.search(prompt) or loop_word(tool_input):
         return None
     description = tool_input.get("description")
