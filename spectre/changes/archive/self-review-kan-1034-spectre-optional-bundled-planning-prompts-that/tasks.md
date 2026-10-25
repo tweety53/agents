@@ -30,7 +30,7 @@ in this worktree.
 - Task 4: a symlink on either side is skipped with its stderr note and never followed; every other scoped path still compares and the run exits 0.
 - Task 5: blank lines inside a fence never fire signal 6; an empty file never fires signal 5.
 
-- [ ] 1. Panel close: every completed reviewer dispatch leaves a report, every fixed finding's reproducer exists
+- [x] 1. Panel close: every completed reviewer dispatch leaves a report, every fixed finding's reproducer exists
 
 **Build:** green
 **Files:** `stats/internal/guard/panelfindingsclosed.go`, `stats/internal/guard/check_panel_findings_closed_test.go`, `scripts/check-panel-findings-closed.sh`, `skills/flow/review-panel.md`
@@ -42,16 +42,16 @@ in this worktree.
 **Decision:** report-presence-every-dispatch
 **Decision:** fixed-reproducer-resolves
 
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run
     `scripts/check-panel-findings-closed.sh /Users/tweety53/Projects/agents-worktrees/kan-1034-spectre-optional-bundled-planning-prompts-that kan-1034-spectre-optional-bundled-planning-prompts-that`:
     it prints `FINDINGS-CLOSED` although F7's recorded reproducer `.superpowers/sdd/reproducers/r1-F1-1.sh` is absent.
     <!-- measured: the same command @ bef019f7 → FINDINGS-CLOSED, exit 0 -->
-  - [ ] **Step 2: Write the two failing tests** in `check_panel_findings_closed_test.go`, on the `cfcBinDispatches` stub. Add a `Reproducer` field to `cfcFinding`, emitted as `"reproducer"` when non-empty, and a `*"state get"*)` branch to the stub answering a state record JSON the test supplies (default `{"worktrees":{}}`).
+  - [x] **Step 2: Write the two failing tests** in `check_panel_findings_closed_test.go`, on the `cfcBinDispatches` stub. Add a `Reproducer` field to `cfcFinding`, emitted as `"reproducer"` when non-empty, and a `*"state get"*)` branch to the stub answering a state record JSON the test supplies (default `{"worktrees":{}}`).
     `TestCheckPanelFindingsClosedEveryRoleLeavesAReport` table: a completed `panel-0-mutation+failure-modes` reviewer dispatch with no report files exits 1 naming both `panel-report-0-mutation.md` and `panel-report-0-failure-modes.md`; with one written it names only the other; with both written as the `no verbatim report captured — <reason>` placeholder it exits 0; an empty file counts as absent; a dispatch ended `aborted`, or of role `implementer`, or keyed `panel-fix-0`, needs no report; a missing re-run report is named once on stderr, not on both lines.
     `TestCheckPanelFindingsClosedFixedReproducerExists` table: a fixed finding whose reproducer `.superpowers/sdd/reproducers/r0-x-1.sh --flag` exists in the worktree exits 0; absent from the worktree and the state record's worktrees exits 1 naming the ref and the token; absent from the worktree but present in a state-record worktree exits 0; reproducers `none — cosmetic` and empty are never checked; an open finding's absent reproducer is not named on this line (the open line already fails it); a state read that fails while a token is absent exits 2.
     Run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckPanelFindingsClosed(EveryRoleLeavesAReport|FixedReproducerExists)' -count=1`: both fail.
-  - [ ] **Step 3: Implement in `panelfindingsclosed.go`.** Parse `reproducer` in `cfcParse` (string, else empty). After the re-run coverage block: for each dispatch with role `reviewer`, outcome `completed` or `clean` and `round >= 0`, each `+`-component of its slot whose `panel-report-<round>-<component>.md` is absent or empty (`os.Stat` size 0) and not already in `unreported` is collected; a non-empty list prints `check-panel-findings-closed: completed reviewer dispatch(es) left no report file: <files>` and sets `violated`. Then for each `fixed` finding whose reproducer is non-empty and not a `none` form (the predicate `panelexitcontract.go` uses), derive the path token as that guard does; when `pcExists(worktree+"/"+token)` is false, read the state record once (`pcFlow(env, false, "state", "get", "-C", worktree, name)`, `pcWorktreeKeys`, `resolvedRecordedTrees`; a failed or unparseable read is exit 2 with the cause) and look for the token in those trees; none carrying it collects `<ref> (<token>)`, printed as `check-panel-findings-closed: fixed finding(s) whose runnable reproducer resolves in no worktree of the change: <list>` and setting `violated`. Extend the comment above each block with its reason (kan-1034: F7's slot left no report and its reproducer was lost with its throwaway copy).
-  - [ ] **Step 4: Update the contract.** In `scripts/check-panel-findings-closed.sh`'s `Exit codes:` header, add to exit 1: a completed reviewer dispatch left a role's `panel-report-<round>-<id>.md` absent or empty (the placeholder accepted), or a `fixed` finding's runnable reproducer resolves in no worktree of the change; add to exit 2: the state record unreadable when a reproducer token is absent from the worktree. Apply the `review-panel.md` diff:
+  - [x] **Step 3: Implement in `panelfindingsclosed.go`.** Parse `reproducer` in `cfcParse` (string, else empty). After the re-run coverage block: for each dispatch with role `reviewer`, outcome `completed` or `clean` and `round >= 0`, each `+`-component of its slot whose `panel-report-<round>-<component>.md` is absent or empty (`os.Stat` size 0) and not already in `unreported` is collected; a non-empty list prints `check-panel-findings-closed: completed reviewer dispatch(es) left no report file: <files>` and sets `violated`. Then for each `fixed` finding whose reproducer is non-empty and not a `none` form (the predicate `panelexitcontract.go` uses), derive the path token as that guard does; when `pcExists(worktree+"/"+token)` is false, read the state record once (`pcFlow(env, false, "state", "get", "-C", worktree, name)`, `pcWorktreeKeys`, `resolvedRecordedTrees`; a failed or unparseable read is exit 2 with the cause) and look for the token in those trees; none carrying it collects `<ref> (<token>)`, printed as `check-panel-findings-closed: fixed finding(s) whose runnable reproducer resolves in no worktree of the change: <list>` and setting `violated`. Extend the comment above each block with its reason (kan-1034: F7's slot left no report and its reproducer was lost with its throwaway copy).
+  - [x] **Step 4: Update the contract.** In `scripts/check-panel-findings-closed.sh`'s `Exit codes:` header, add to exit 1: a completed reviewer dispatch left a role's `panel-report-<round>-<id>.md` absent or empty (the placeholder accepted), or a `fixed` finding's runnable reproducer resolves in no worktree of the change; add to exit 2: the state record unreadable when a reproducer token is absent from the worktree. Apply the `review-panel.md` diff:
 
 ````diff verified:git apply of this diff to the worktree at bef019f7; check-verbatim-moves.sh then FAILs exactly on the sentences verbatim-moves.txt lists, check-markdown-integrity.sh and check-references.sh exit 0
 diff --git a/skills/flow/review-panel.md b/skills/flow/review-panel.md
@@ -82,9 +82,9 @@ index de802022..77c71cd2 100644
  Beside it, run
 ````
 
-  - [ ] **Step 5: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckPanelFindingsClosed|TestCheckUnfinishedWork|TestCheckLateFixTrigger|TestCheckPanelFixSingleDispatch' -count=1` passes; `gofmt -l .` and `go vet ./...` clean; `scripts/check-markdown-integrity.sh`, `scripts/check-references.sh` and `scripts/check-verbatim-moves.sh` exit 0. Re-run Step 1's command: it now exits 1 naming `F7 (.superpowers/sdd/reproducers/r1-F1-1.sh)` — expected until the parent recreates that reproducer (decision `kan-1034-repair`); report the line, do not create the file.
+  - [x] **Step 5: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckPanelFindingsClosed|TestCheckUnfinishedWork|TestCheckLateFixTrigger|TestCheckPanelFixSingleDispatch' -count=1` passes; `gofmt -l .` and `go vet ./...` clean; `scripts/check-markdown-integrity.sh`, `scripts/check-references.sh` and `scripts/check-verbatim-moves.sh` exit 0. Re-run Step 1's command: it now exits 1 naming `F7 (.superpowers/sdd/reproducers/r1-F1-1.sh)` — expected until the parent recreates that reproducer (decision `kan-1034-repair`); report the line, do not create the file.
 
-- [ ] 2. Plan shape: the bold `**none**` opens the test-repair form
+- [x] 2. Plan shape: the bold `**none**` opens the test-repair form
 
 **Build:** green
 **Files:** `stats/internal/guard/planparse.go`, `stats/internal/guard/check_plan_shape_test.go`
@@ -95,7 +95,7 @@ index de802022..77c71cd2 100644
 
 **Decision:** bold-none-repair
 
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save the fixture below as `<scratch>/tasks.md` and run `scripts/check-plan-shape.sh <scratch>/tasks.md`: exit 1, the F4 contradiction line.
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save the fixture below as `<scratch>/tasks.md` and run `scripts/check-plan-shape.sh <scratch>/tasks.md`: exit 1, the F4 contradiction line.
     <!-- measured: scripts/check-plan-shape.sh on this fixture @ bef019f7 → exit 1, F4 -->
 
 ````markdown verified:check-plan-shape.sh exit 1 on it at bef019f7
@@ -107,7 +107,7 @@ index de802022..77c71cd2 100644
 **Commit:** fix: x
 ````
 
-  - [ ] **Step 2: Add Case 44** in `TestCheckPlanShape`, right after case 34's lines, and watch it fail:
+  - [x] **Step 2: Add Case 44** in `TestCheckPlanShape`, right after case 34's lines, and watch it fail:
 
 ````go verified:applied at bef019f7; go test -run 'TestCheckPlanShape$' fails on it with the regex unchanged and passes with Step 3
 	// Case 44 (KAN-1034): the bold `**none**` repair form, which
@@ -117,15 +117,15 @@ index de802022..77c71cd2 100644
 	want("case 44: no output", r.out == "", r)
 ````
 
-  - [ ] **Step 3: Fix `tcfRepairsOpenRE`** in `planparse.go` — `[*_]*` after `none\b` — so the declaration reads as below, and its comment's first line reads "a Tests value opening with `none` (bold `**none**` included), an optional em dash,":
+  - [x] **Step 3: Fix `tcfRepairsOpenRE`** in `planparse.go` — `[*_]*` after `none\b` — so the declaration reads as below, and its comment's first line reads "a Tests value opening with `none` (bold `**none**` included), an optional em dash,":
 
 ````go verified:applied at bef019f7; go test -run 'TestCheckPlanShape$' passes with Case 44
 var tcfRepairsOpenRE = regexp.MustCompile(`(?i)^[` + tcfWS + `*_]*none\b[*_]*[` + tcfWS + `]*(?:[—–]|--)?[` + tcfWS + `]*repairs[` + tcfWS + `]+existing[` + tcfWS + `]+tests[` + tcfWS + `]*:`)
 ````
 
-  - [ ] **Step 4: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckPlanShape$|TestCheckTaskCommitFields' -count=1` passes; Step 1's command exits 0; `gofmt -l .` and `go vet ./...` clean.
+  - [x] **Step 4: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckPlanShape$|TestCheckTaskCommitFields' -count=1` passes; Step 1's command exits 0; `gofmt -l .` and `go vet ./...` clean.
 
-- [ ] 3. Plan shape: refuse a Baseline `measured:` comment the parser cannot read (F20)
+- [x] 3. Plan shape: refuse a Baseline `measured:` comment the parser cannot read (F20)
 
 **Build:** green
 **Files:** `stats/internal/guard/planshape.go`, `stats/internal/guard/check_plan_shape_test.go`
@@ -136,9 +136,9 @@ var tcfRepairsOpenRE = regexp.MustCompile(`(?i)^[` + tcfWS + `*_]*none\b[*_]*[` 
 
 **Decision:** measured-comment-f20
 
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** A one-task plan whose Baseline reads `before=1 after=2 <!-- measured: grep -c x a_test.go → 1 at e093bad -->` passes `scripts/check-plan-shape.sh`.
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** A one-task plan whose Baseline reads `before=1 after=2 <!-- measured: grep -c x a_test.go → 1 at e093bad -->` passes `scripts/check-plan-shape.sh`.
     <!-- measured: scripts/check-plan-shape.sh on that one-task plan @ bef019f7 → exit 0 -->
-  - [ ] **Step 2: Add Case 45** in `TestCheckPlanShape`, just before `// Case 43 (F18)`, reusing case 41's `chain` and `m`; it fails until Step 3:
+  - [x] **Step 2: Add Case 45** in `TestCheckPlanShape`, just before `// Case 43 (F18)`, reusing case 41's `chain` and `m`; it fails until Step 3:
 
 ````go verified:applied at bef019f7 with Step 3; go test -run 'TestCheckPlanShape$' passes and the mutation line proves the rule bites
 	// Case 45 (F20): a Baseline measured: comment with no ` @ <ref>` is
@@ -149,7 +149,7 @@ var tcfRepairsOpenRE = regexp.MustCompile(`(?i)^[` + tcfWS + `*_]*none\b[*_]*[` 
 	mutation("F20", md, md, "with no ` @ <ref>`", "case 45")
 ````
 
-  - [ ] **Step 3: Add F20 to `planshape.go`.** In the header list, before `F19`:
+  - [x] **Step 3: Add F20 to `planshape.go`.** In the header list, before `F19`:
 
 ````go verified:applied at bef019f7; gofmt -l clean
 //	F20 A Baseline value (the joined field) carrying a `<!-- measured: … -->`
@@ -176,9 +176,9 @@ var tcfRepairsOpenRE = regexp.MustCompile(`(?i)^[` + tcfWS + `*_]*none\b[*_]*[` 
 var psMeasuredCommentRE = regexp.MustCompile(`<!--[` + tcfWS + `]*measured:.*?-->`)
 ````
 
-  - [ ] **Step 4: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckPlanShape' -count=1` passes; Step 1's plan now exits 1 naming F20's message; `scripts/check-plan-shape.sh` with no argument exits 0 on the branch; `gofmt -l .` and `go vet ./...` clean.
+  - [x] **Step 4: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckPlanShape' -count=1` passes; Step 1's plan now exits 1 naming F20's message; `scripts/check-plan-shape.sh` with no argument exits 0 on the branch; `gofmt -l .` and `go vet ./...` clean.
 
-- [ ] 4. Relocation comparison: skip a symlinked scoped path instead of refusing the comparison
+- [x] 4. Relocation comparison: skip a symlinked scoped path instead of refusing the comparison
 
 **Build:** green
 **Files:** `stats/internal/guard/relocationcomparison.go`, `stats/internal/guard/generate_relocation_comparison_test.go`
@@ -189,12 +189,12 @@ var psMeasuredCommentRE = regexp.MustCompile(`<!--[` + tcfWS + `]*measured:.*?--
 
 **Decision:** relocation-skip-symlink
 
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Read `relocationcomparison.go`'s worktree-symlink branch in `generateRelocationComparison` and `grcGitShow`'s mode-120000 branch: both return exit 2 for the whole run. The existing cases ff, gg and the `pin: a symlink at the merge-base only exits 2 naming it` case in `TestGenerateRelocationComparison` pin that refusal.
-  - [ ] **Step 2: Write `TestGenerateRelocationComparisonSkipsSymlinks`** with the file's own `repo`/`gen`/`plan` helpers (lift them out of `TestGenerateRelocationComparison` only if they are closures it cannot reach): a plan scoping `src.md`, `dst.md` (a paragraph moved between them) and `link.md` — a worktree symlink — exits 0 with a `moved` row and stderr `generate-relocation-comparison: skipped symlink <worktree>/link.md`; and the same with `link.md` a symlink only at the merge-base (regular file in the worktree) exits 0 with stderr `generate-relocation-comparison: skipped symlink <sha>:link.md` and no row from `link.md`. It fails until Step 3.
-  - [ ] **Step 3: Implement.** In `generateRelocationComparison`, the worktree `os.Lstat` symlink branch prints `<grcLabel>skipped symlink <wtPath>` to stderr and `continue`s. In `grcGitShow`, the mode-120000 branch returns a sentinel error `errGrcSymlink` wrapped with the spec (`fmt.Errorf("%s: %w", spec, errGrcSymlink)`); the caller, on `errors.Is(err, errGrcSymlink)`, prints `<grcLabel>skipped symlink <spec>` and `continue`s before appending either side's passages. Update the header: drop the symlink clauses from exit 2, and in Algorithm step 3 say a symlink on either side is skipped with that stderr note so neither side ever resolves a link. Update cases ff, gg and the merge-base pin to expect exit 0, the skip note and no row for the link.
-  - [ ] **Step 4: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestGenerateRelocationComparison' -count=1` passes; `gofmt -l .` and `go vet ./...` clean.
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Read `relocationcomparison.go`'s worktree-symlink branch in `generateRelocationComparison` and `grcGitShow`'s mode-120000 branch: both return exit 2 for the whole run. The existing cases ff, gg and the `pin: a symlink at the merge-base only exits 2 naming it` case in `TestGenerateRelocationComparison` pin that refusal.
+  - [x] **Step 2: Write `TestGenerateRelocationComparisonSkipsSymlinks`** with the file's own `repo`/`gen`/`plan` helpers (lift them out of `TestGenerateRelocationComparison` only if they are closures it cannot reach): a plan scoping `src.md`, `dst.md` (a paragraph moved between them) and `link.md` — a worktree symlink — exits 0 with a `moved` row and stderr `generate-relocation-comparison: skipped symlink <worktree>/link.md`; and the same with `link.md` a symlink only at the merge-base (regular file in the worktree) exits 0 with stderr `generate-relocation-comparison: skipped symlink <sha>:link.md` and no row from `link.md`. It fails until Step 3.
+  - [x] **Step 3: Implement.** In `generateRelocationComparison`, the worktree `os.Lstat` symlink branch prints `<grcLabel>skipped symlink <wtPath>` to stderr and `continue`s. In `grcGitShow`, the mode-120000 branch returns a sentinel error `errGrcSymlink` wrapped with the spec (`fmt.Errorf("%s: %w", spec, errGrcSymlink)`); the caller, on `errors.Is(err, errGrcSymlink)`, prints `<grcLabel>skipped symlink <spec>` and `continue`s before appending either side's passages. Update the header: drop the symlink clauses from exit 2, and in Algorithm step 3 say a symlink on either side is skipped with that stderr note so neither side ever resolves a link. Update cases ff, gg and the merge-base pin to expect exit 0, the skip note and no row for the link.
+  - [x] **Step 4: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestGenerateRelocationComparison' -count=1` passes; `gofmt -l .` and `go vet ./...` clean.
 
-- [ ] 5. Markdown integrity: flag a missing final newline and doubled blank lines
+- [x] 5. Markdown integrity: flag a missing final newline and doubled blank lines
 
 **Build:** green
 **Files:** `stats/internal/guard/markdownintegrity.go`, `stats/internal/guard/check_markdown_integrity_test.go`, `scripts/check-markdown-integrity.sh`, `skills/flow-contracts/workspace-isolation.md`, `skills/flow/SKILL-rationale.md`
@@ -205,14 +205,14 @@ var psMeasuredCommentRE = regexp.MustCompile(`<!--[` + tcfWS + `]*measured:.*?--
 
 **Decision:** markdown-layout-signals
 
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `scripts/check-markdown-integrity.sh` exits 0 on the branch while `skills/flow-contracts/workspace-isolation.md` ends without a newline and `skills/flow/SKILL-rationale.md` carries a doubled blank line ending at line 154 and another ending at line 288.
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `scripts/check-markdown-integrity.sh` exits 0 on the branch while `skills/flow-contracts/workspace-isolation.md` ends without a newline and `skills/flow/SKILL-rationale.md` carries a doubled blank line ending at line 154 and another ending at line 288.
     <!-- measured: tail -c1 per file and an awk scan for a blank line after a blank line outside ``` fences, over git ls-files 'skills/**/*.md' 'rules/*.mdc' @ bef019f7 → those three sites only -->
-  - [ ] **Step 2: Write `TestCheckMarkdownIntegrityLayoutSignals`** on `mdiProject`/`mdiRun`: `"Text.\n"` exits 0; `"Text."` exits 1 with `skills/foo/SKILL.md:1: missing final newline:`; `"One.\n\n\nTwo.\n"` exits 1 with `:3: consecutive blank lines:`; a fence holding two blank lines in a row exits 0; an empty file exits 0. It fails until Step 3. In `TestCheckMarkdownIntegrity`, `expect` appends `"\n"` to a body that does not end in one, so the existing cases keep testing their own signal; a case whose `want` text pins a line count is checked unchanged.
-  - [ ] **Step 3: Implement in `mdiScan`.** Signal 5 — text non-empty and not ending in `\n`: one finding at the last line, `missing final newline`, `the file does not end in a newline`. Signal 6 — a blank line (`mdiStrip` empty) directly after a blank line, neither inside a `fence` block's `start`..`end` range: one finding at the second line, `consecutive blank lines`, `two blank lines in a row; one separates blocks`. Extend the doc comment's signal list with both, and in `scripts/check-markdown-integrity.sh` replace "the four signals" (twice) with "the six signals" and add the two to its opening sentence.
-  - [ ] **Step 4: Fix the three sites.** Append the final newline to `skills/flow-contracts/workspace-isolation.md`; delete one blank line of each doubled pair in `skills/flow/SKILL-rationale.md` (before `## Moved by the 2026-09-22 prompt audit — incident records and recorded reasons` and before `## Moved by the 2026-09-22 prompt audit (pass A) — review-panel.md and implement.md`).
-  - [ ] **Step 5: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckMarkdownIntegrity' -count=1` passes; `scripts/check-markdown-integrity.sh` and `scripts/check-verbatim-moves.sh` exit 0; `gofmt -l .` and `go vet ./...` clean.
+  - [x] **Step 2: Write `TestCheckMarkdownIntegrityLayoutSignals`** on `mdiProject`/`mdiRun`: `"Text.\n"` exits 0; `"Text."` exits 1 with `skills/foo/SKILL.md:1: missing final newline:`; `"One.\n\n\nTwo.\n"` exits 1 with `:3: consecutive blank lines:`; a fence holding two blank lines in a row exits 0; an empty file exits 0. It fails until Step 3. In `TestCheckMarkdownIntegrity`, `expect` appends `"\n"` to a body that does not end in one, so the existing cases keep testing their own signal; a case whose `want` text pins a line count is checked unchanged.
+  - [x] **Step 3: Implement in `mdiScan`.** Signal 5 — text non-empty and not ending in `\n`: one finding at the last line, `missing final newline`, `the file does not end in a newline`. Signal 6 — a blank line (`mdiStrip` empty) directly after a blank line, neither inside a `fence` block's `start`..`end` range: one finding at the second line, `consecutive blank lines`, `two blank lines in a row; one separates blocks`. Extend the doc comment's signal list with both, and in `scripts/check-markdown-integrity.sh` replace "the four signals" (twice) with "the six signals" and add the two to its opening sentence.
+  - [x] **Step 4: Fix the three sites.** Append the final newline to `skills/flow-contracts/workspace-isolation.md`; delete one blank line of each doubled pair in `skills/flow/SKILL-rationale.md` (before `## Moved by the 2026-09-22 prompt audit — incident records and recorded reasons` and before `## Moved by the 2026-09-22 prompt audit (pass A) — review-panel.md and implement.md`).
+  - [x] **Step 5: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckMarkdownIntegrity' -count=1` passes; `scripts/check-markdown-integrity.sh` and `scripts/check-verbatim-moves.sh` exit 0; `gofmt -l .` and `go vet ./...` clean.
 
-- [ ] 6. Planner: check a relocation's citations against its destination, never cite a branch sha
+- [x] 6. Planner: check a relocation's citations against its destination, never cite a branch sha
 
 **Build:** green
 **Files:** `skills/flow/brainstorm-planner.md`
@@ -222,7 +222,7 @@ var psMeasuredCommentRE = regexp.MustCompile(`<!--[` + tcfWS + `]*measured:.*?--
 
 **Decision:** rules-in-brainstorm-planner
 
-  - [ ] **Step 1: Apply the diff:**
+  - [x] **Step 1: Apply the diff:**
 
 ````diff verified:git apply of this diff to the worktree at bef019f7; check-verbatim-moves.sh then FAILs exactly on the sentences verbatim-moves.txt lists, check-markdown-integrity.sh and check-references.sh exit 0
 diff --git a/skills/flow/brainstorm-planner.md b/skills/flow/brainstorm-planner.md
@@ -257,9 +257,9 @@ index f9e26cc2..b5bd2ccf 100644
  (**C. Create the change and its artifacts**, `skills/spectre-planning/SKILL.md`) (decision `design-shape-line`, kan-1033).
 ````
 
-  - [ ] **Step 2: Verify.** `scripts/check-markdown-integrity.sh`, `scripts/check-references.sh` and `scripts/check-verbatim-moves.sh` exit 0.
+  - [x] **Step 2: Verify.** `scripts/check-markdown-integrity.sh`, `scripts/check-references.sh` and `scripts/check-verbatim-moves.sh` exit 0.
 
-- [ ] 7. Brainstorm: record a planning dispatch's begin before its Agent call
+- [x] 7. Brainstorm: record a planning dispatch's begin before its Agent call
 
 **Build:** green
 **Files:** `skills/flow/brainstorm.md`
@@ -267,7 +267,7 @@ index f9e26cc2..b5bd2ccf 100644
 **Commit:** `docs(flow): begin a planning dispatch's record before its Agent call`
 **After:** none
 
-  - [ ] **Step 1: Apply the diff:**
+  - [x] **Step 1: Apply the diff:**
 
 ````diff verified:git apply of this diff to the worktree at bef019f7; check-verbatim-moves.sh then FAILs exactly on the sentences verbatim-moves.txt lists, check-markdown-integrity.sh and check-references.sh exit 0
 diff --git a/skills/flow/brainstorm.md b/skills/flow/brainstorm.md
@@ -289,7 +289,7 @@ index a446062e..381e304e 100644
 
   - [ ] **Step 2: Verify.** `scripts/check-markdown-integrity.sh`, `scripts/check-references.sh` and `scripts/check-verbatim-moves.sh` exit 0.
 
-- [ ] 8. Skill index: name the re-vendor duty for spectre's copy
+- [x] 8. Skill index: name the re-vendor duty for spectre's copy
 
 **Build:** green
 **Files:** `CLAUDE.md`, `AGENTS.md`
@@ -297,10 +297,10 @@ index a446062e..381e304e 100644
 **Commit:** `docs: name the re-vendor duty in the spectre-planning index row`
 **After:** none
 
-  - [ ] **Step 1: Edit both rows identically.** In the `skills/spectre-planning/` row of `CLAUDE.md` and of `AGENTS.md`, replace `and spectre vendors it for planning without flow |` with `and spectre vendors it for planning without flow — an edit here is re-copied byte for byte into spectre's vendored copy in the same change, as that copy's UPSTREAM.md says |`.
-  - [ ] **Step 2: Verify.** `git grep -n -F -e "re-copied byte for byte into spectre's vendored copy" -- CLAUDE.md AGENTS.md` prints one line per file; `scripts/check-references.sh` exits 0.
+  - [x] **Step 1: Edit both rows identically.** In the `skills/spectre-planning/` row of `CLAUDE.md` and of `AGENTS.md`, replace `and spectre vendors it for planning without flow |` with `and spectre vendors it for planning without flow — an edit here is re-copied byte for byte into spectre's vendored copy in the same change, as that copy's UPSTREAM.md says |`.
+  - [x] **Step 2: Verify.** `git grep -n -F -e "re-copied byte for byte into spectre's vendored copy" -- CLAUDE.md AGENTS.md` prints one line per file; `scripts/check-references.sh` exits 0.
 
-- [ ] 9. spectre: declare the lint and test lists
+- [x] 9. spectre: declare the lint and test lists
 
 **Build:** green
 **Files:** `.flow/project.md`
@@ -310,9 +310,9 @@ index a446062e..381e304e 100644
 
 **Decision:** spectre-gofmt-fails
 
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `/Users/tweety53/Projects/agents-worktrees/kan-1034-spectre-optional-bundled-planning-prompts-that/scripts/project-get.sh /Users/tweety53/Projects/spectre-worktrees/kan-1034-spectre-optional-bundled-planning-prompts-that lint` exits 1, and `… test` likewise.
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `/Users/tweety53/Projects/agents-worktrees/kan-1034-spectre-optional-bundled-planning-prompts-that/scripts/project-get.sh /Users/tweety53/Projects/spectre-worktrees/kan-1034-spectre-optional-bundled-planning-prompts-that lint` exits 1, and `… test` likewise.
     <!-- measured: project-get.sh <spectre worktree> lint|test, per self-review-pass.md angle 1 @ spectre 0b9073a → exit 1 -->
-  - [ ] **Step 2: Append to spectre's `.flow/project.md`**, after `## default landing route`'s body, in the spectre worktree:
+  - [x] **Step 2: Append to spectre's `.flow/project.md`**, after `## default landing route`'s body, in the spectre worktree:
 
 ````markdown verified:each command exited 0 in the spectre worktree at 0b9073a
 ## lint
@@ -332,4 +332,4 @@ go test ./...
 ```
 ````
 
-  - [ ] **Step 3: Verify.** From the agents worktree, `scripts/run-verify-list.sh /Users/tweety53/Projects/spectre-worktrees/kan-1034-spectre-optional-bundled-planning-prompts-that lint` and `… test` each exit 0.
+  - [x] **Step 3: Verify.** From the agents worktree, `scripts/run-verify-list.sh /Users/tweety53/Projects/spectre-worktrees/kan-1034-spectre-optional-bundled-planning-prompts-that lint` and `… test` each exit 0.
