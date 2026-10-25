@@ -33,14 +33,14 @@ and pushing `--force-with-lease`; `/flow-fast` section 4 cites it; **Branch back
 - The rewritten branch is recorded and pushed `--force-with-lease` (`record-and-force-push`).
 - `/flow-fast`'s `<merge-base>` follows the rebase (`flow-fast-same-step`).
 
-- [ ] 1. Rebase the change branch onto its base before task 1
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
+- [x] 1. Rebase the change branch onto its base before task 1
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
     `/tmp/pf30-task1.diff`, apply its test hunk alone
     (`git apply --include='stats/*' /tmp/pf30-task1.diff`) and run
     `cd stats && go test ./internal/repotest -run TestBaseSyncBeforeTaskOne -count=1`: FAIL, with
     `skills/flow/implement.md section 1 lacks` lines, `still defers the rebase to integrate`, and
     `skills/flow-fast/SKILL.md section 4 lacks`.
-  - [ ] **Step 2: Implement.** Apply the rest
+  - [x] **Step 2: Implement.** Apply the rest
     (`git apply --exclude='stats/*' /tmp/pf30-task1.diff`):
 
 ````diff verified:applied with git apply to this worktree at dd2268bd; TestBaseSyncBeforeTaskOne passes with it and fails with the skill edits reverted; check-references, check-verbatim-moves, check-markdown-integrity, check-guard-symlinks, check-dispatch-paragraphs, check-installed-citations, check-normative-inventory, check-ask-silence, check-hand-notes-in-step, gofmt -l and go vet exit 0
@@ -200,12 +200,12 @@ index 00000000..c80a4955
 +}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && go test ./internal/repotest -run TestBaseSyncBeforeTaskOne
+  - [x] **Step 3: Verify.** `cd stats && go test ./internal/repotest -run TestBaseSyncBeforeTaskOne
     -count=1` passes; `scripts/check-references.sh`, `scripts/check-verbatim-moves.sh`,
     `scripts/check-markdown-integrity.sh`, `scripts/check-dispatch-paragraphs.sh`,
     `scripts/check-installed-citations.sh`, `scripts/check-normative-inventory.sh` exit 0;
     `cd stats && gofmt -l . && go vet ./internal/repotest` prints nothing.
-  - [ ] **Step 4: Commit** the five files with the subject below.
+  - [x] **Step 4: Commit** the five files with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/implement.md`, `skills/flow-fast/SKILL.md`, `skills/flow-contracts/git-boundaries.md`, `scripts/refresh-plan-base.sh`, `stats/internal/repotest/base_sync_before_task_one_test.go`
