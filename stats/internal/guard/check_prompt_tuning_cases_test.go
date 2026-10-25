@@ -127,6 +127,18 @@ func TestCheckPromptTuningCases(t *testing.T) {
 				"- 2026-10-25 · `x-1` · reviewer · `skills/flow/implement.md` · a class — an update — applied abc1234\n"+
 				"- 2026-10-25 · x-2 · reviewer — broken\n")
 		}, rc: 1, out: "LEDGER.md:4:"},
+		{name: "a false-positive reviewer case passes", edit: func(c *prompttuning.Case) { c.Type, c.ReviewerKind = "reviewer", "false-positive" }},
+		{name: "a target_sha naming no commit is caught", edit: func(c *prompttuning.Case) {
+			c.Scope, c.Target, c.Before, c.TargetSHA = "language:kotlin", "rules/lang-kotlin.mdc", "", "0000000000000000000000000000000000000000"
+		}, rc: 1, out: "names no commit"},
+		{name: "an empty before for an existing target is caught", edit: func(c *prompttuning.Case) {
+			c.Scope, c.Target, c.Before = "layer:backend", "rules/layer-backend.mdc", ""
+		}, rc: 1, out: "before is empty"},
+		{name: "a scoped before for an absent target is caught", edit: func(c *prompttuning.Case) {
+			c.Scope, c.Target, c.Before = "language:kotlin", "rules/lang-kotlin.mdc", "Some rule."
+		}, rc: 1, out: "is absent at"},
+		{name: "an unset source round is caught", edit: func(c *prompttuning.Case) { c.Source.Round = 0 },
+			rc: 1, out: "source.round"},
 		{name: "an absent root exits 0", noRoot: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

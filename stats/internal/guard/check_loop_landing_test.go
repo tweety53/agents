@@ -164,3 +164,24 @@ func TestLoopLandingAdmitsPromptTuningOnly(t *testing.T) {
 		t.Fatalf("mixed branch: rc %d, output %q", rc, o.String()+e.String())
 	}
 }
+
+// The admission needs a non-empty diff and a self-review-* branch: an empty
+// self-review branch and a pipeline-fix branch carrying only cases both stay
+// under the row checks.
+func TestLoopLandingPromptTuningAdmissionBounds(t *testing.T) {
+	t.Parallel()
+	fx := lpNew(t, `[]`)
+	gitRun(t, fx.repo, "update-ref", "refs/remotes/origin/main", "HEAD")
+	gitRun(t, fx.repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
+	gitRun(t, fx.repo, "branch", "self-review-empty")
+	gitRun(t, fx.repo, "checkout", "-q", "-b", lpBranch)
+	writeFile(t, fx.repo+"/docs/prompt-tuning/x-1/case.json", "{}\n")
+	gitRun(t, fx.repo, "add", "-A")
+	gitRun(t, fx.repo, "commit", "-q", "-m", "docs(prompt-tuning): x cases")
+	for _, b := range []string{"self-review-empty", lpBranch} {
+		var o, e bytes.Buffer
+		if rc := checkLoopLanding([]string{fx.repo, b}, fx.env, &o, &e); rc != 1 || strings.Contains(o.String(), "prompt-tuning cases only") {
+			t.Fatalf("%s: rc %d, output %q", b, rc, o.String()+e.String())
+		}
+	}
+}

@@ -53,6 +53,9 @@ func TestPromptTuningRenderWritesIndex(t *testing.T) {
 	if code := run(context.Background(), []string{"prompt-tuning", "render"}, nil, &stdout, &stderr); code != 2 {
 		t.Errorf("missing argument: code = %d, want 2", code)
 	}
+	if code := run(context.Background(), []string{"prompt-tuning", "rendr", dir}, nil, &stdout, &stderr); code != 2 {
+		t.Errorf("unknown subcommand: code = %d, want 2", code)
+	}
 	stderr.Reset()
 	if code := run(context.Background(), []string{"prompt-tuning", "render", filepath.Join(dir, "absent")}, nil, &stdout, &stderr); code != 1 {
 		t.Errorf("absent folder: code = %d, want 1", code)

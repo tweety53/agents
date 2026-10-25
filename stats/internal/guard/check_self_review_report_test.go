@@ -413,6 +413,19 @@ func TestCheckSelfReviewReport(t *testing.T) {
 			{"case 38: the missing-section finding names flow-eval", has("missing section for angle", "flow-eval")},
 		}},
 		{func(t *testing.T) csrResult {
+			return csrRun(t, nil, csrDir(t, map[string]string{"fixture-self-review.md": csrSeven,
+				"seven-angle-reports.txt": "fixture-self-review.md\n"}))
+		}, []check{
+			{"case: a listed seven-angle report exits 0", rcIs(0)},
+		}},
+		{func(t *testing.T) csrResult {
+			return csrRun(t, nil, csrDir(t, map[string]string{"fixture-self-review.md": csrSix,
+				"seven-angle-reports.txt": "fixture-self-review.md\n"}))
+		}, []check{
+			{"case: a six-angle report on the seven-angle list is caught", rcIs(1)},
+			{"case: the missing-section finding names flow-eval", has("missing section for angle", "flow-eval")},
+		}},
+		{func(t *testing.T) csrResult {
 			dir := csrReport(t, csrCompliant)
 			mkdir(t, filepath.Join(dir, "six-angle-reports.txt"))
 			return csrRun(t, nil, dir)

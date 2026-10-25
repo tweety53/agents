@@ -35,6 +35,7 @@ func init() {
 var smcExpectedZero = []struct{ file, reason string }{
 	{"skills/flow-contracts/SKILL.md", "the contracts index — shared prose loaded by several command skills; it is never itself run as a command, so it marks no stage and dispatches no subagent of its own"},
 	{"skills/flow-self-review/SKILL.md", "a standalone command with no per-change state, no implementation or verification stage to mark, and no `flow record dispatch` call — its one-shot dispatches are recorded by none"},
+	{"skills/flow-prompt-tuning/SKILL.md", "a standalone command with no per-change state, no pipeline stage to mark, and no `flow record dispatch` call — its replay dispatches are recorded by none"},
 	{"skills/flow-settings/SKILL.md", "a standalone settings command with no per-change state, no implementation or verification stage to mark, and no subagent to dispatch — the same reason check-guard-symlinks.sh declares it expected-zero"},
 	{"skills/call-efficiency-audit/SKILL.md", "a standalone measuring skill, not a pipeline stage: it runs on no change, so it has no stage to mark and no subagent to dispatch"},
 	{"skills/flow/SKILL.md", "a legitimate zero-mark router file — it resolves state and dispatches into the topic file (brainstorm.md, implement.md, review-panel.md, verify-and-handoff.md, integrate.md, cleanup.md) that owns the phase in force; every flow.* mark lives in one of those phase files, which this guard's corpus now scans directly, never in this router itself"},

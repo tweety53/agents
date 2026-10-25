@@ -170,7 +170,11 @@ nothing beyond it — say so in the report's `**Deferred:**` line.
 ### 2a. Write the prompt-tuning cases
 
 A pass with no angle-8 case writes nothing here. Otherwise this session, after the pass and before
-step 3, writes each case to `<agents repo>/docs/prompt-tuning/<case-id>/`, `<case-id>` being
+step 3, first resolves the worktree of `<fix-branch>` — the branch named at the end of this step —
+creating it with `<agents repo>/scripts/pipeline-fix.sh start <name>` when it is
+`self-review-<name>` and absent; it never writes the agents main checkout. It writes each case into that
+worktree — `<agents repo>-worktrees/<name>/docs/prompt-tuning/<case-id>/` on the change's own branch,
+`<agents repo>-worktrees/self-review-<name>/docs/prompt-tuning/<case-id>/` otherwise, `<case-id>` being
 `<name>-<n>`, `<n>` counting from 1 within the change:
 
 | File | Content |
@@ -191,8 +195,7 @@ so, disposition `noted`.
 The cases are committed as `docs(prompt-tuning): <name> cases` on the branch step 3 names as
 `<fix-branch>`: inside a run whose canonical repository is `<agents repo>`, the change's own branch,
 landed by the run's own route; otherwise, and standalone, `self-review-<name>`. When step 3 has no
-worktree — no non-`big` finding — this session creates it with
-`<agents repo>/scripts/pipeline-fix.sh start <name>`, commits the cases there and lands that
+worktree — no non-`big` finding — the worktree this step created carries the cases alone: this session commits them there and lands that
 cases-only branch by step 3 item 5's route; `check-loop-landing.sh` admits a `self-review-*` branch
 whose diff touches only `<agents repo>/docs/prompt-tuning/` without loop rows.
 

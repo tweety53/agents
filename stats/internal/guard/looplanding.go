@@ -110,7 +110,7 @@ func lpPromptTuningOnly(env Env, git, repo, branch string) bool {
 	if rc != 0 {
 		return false
 	}
-	rc, out := kwRun(env, "", git, "-C", repo, "diff", "--name-only", strings.TrimSpace(base)+"..."+branch)
+	rc, out := kwRun(env, "", git, "-C", repo, "diff", "--no-renames", "--name-only", strings.TrimSpace(base)+"..."+branch)
 	paths := strings.Fields(out)
 	if rc != 0 || len(paths) == 0 {
 		return false

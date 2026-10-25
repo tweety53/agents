@@ -151,6 +151,12 @@ func ptCheckCase(env Env, git, repo, dir string) []string {
 		bad = append(bad, fmt.Sprintf("%s: target %q does not match scope %q (want %s)", cj, c.Target, c.Scope, want))
 	}
 
+	if c.TargetSHA != "" {
+		if rc, _ := kwRun(env, "", git, "-C", repo, "cat-file", "-e", c.TargetSHA+"^{commit}"); rc != 0 {
+			bad = append(bad, fmt.Sprintf("%s: target_sha %s names no commit", cj, c.TargetSHA))
+			c.TargetSHA = ""
+		}
+	}
 	if c.Target != "" && c.TargetSHA != "" {
 		rc, text := kwRun(env, "", git, "-C", repo, "show", c.TargetSHA+":"+c.Target)
 		switch {
