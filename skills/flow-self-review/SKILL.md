@@ -138,15 +138,16 @@ left three mis-stamped ledger rows wrong, and `flowd restamp-dispatch`, `b2555b9
 once the operator asked).
 A finding a re-plan
 did not solve — the same finding back on the same evidence — escalates the planner rather than leaving the loop: that re-plan, key
-`self-review-<name>-plan-<n>`, is the no-progress escalation and may run on `flow-high` (effort `high`) in place of the planner
-pair's `flow-medium`. Where `high` still cannot produce a
+`self-review-<name>-plan-<n>`, is the no-progress escalation and may run on `flow-planner-high` (effort `high`) in place of the planner
+pair's `flow-planner-medium` or `flow-planner-low`. Where `high` still cannot produce a
 design that holds, the next step is effort `xhigh` — and an `xhigh` dispatch is never made
 without the operator's approval, asked first with the finding, the objection and what `high`
 returned; a refusal leaves the finding offered for filing in step 4. **This session plans,
 changes and reviews nothing itself** (`design.md`, `one-shot-subagent-fix-loop`), save item 4's
 ticks and archive commit and **The base sync** below: each numbered step below that does is a fresh dispatch on the pair it names, never a fork of this session (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), its prompt carrying the MODEL HANDSHAKE,
 TOOLS, FOREGROUND BUILDS and NO DELEGATION paragraphs of **4. Execute (SDD + TDD)**
-(`skills/flow/implement.md`) verbatim — a review's READ-ONLY REVIEW too — with **The
+(`skills/flow/implement.md`) verbatim — a review's READ-ONLY REVIEW too, and the plan's
+PLANNING DELEGATION below in place of NO DELEGATION — with **The
 handshake** there applying to each reply. Every dispatch is one-shot: no `SendMessage` to it once
 it returns. The no-progress escalation of **Fewest operator actions**
 (`skills/flow-contracts/pipeline.md`) still runs on `flow-high`.
@@ -157,12 +158,15 @@ key suffix, the table `check-loop-dispatch.sh` reads and refuses a loop dispatch
 | Key suffix | `subagent_type` | Model | On a recorded escalation |
 |---|---|---|---|
 | `pass` | `flow-medium` | `opus` | — |
-| `plan`, `plan-<n>` | `flow-medium` | `opus` | `flow-high` |
+| `plan`, `plan-<n>` | `flow-planner-medium`, `flow-planner-low` | `opus` | `flow-planner-high` |
 | `fix`, `fix-<r>`, `fix-g<g>`, `fix-v<v>` | `flow-low` | `opus` | `flow-high` |
 | `review-1` | `flow-medium`, `flow-low` | `opus` | — |
 | `review-<r>` | `flow-low` | `sonnet` | — |
 
-**The planner pair** is the `plan` row, **the fixer pair** the `fix` row and **the review pair**
+**The planner pair** is the `plan` row — `flow-planner-medium` by default, `flow-planner-low` when
+every finding the plan carries is mechanical, this session recording the one-line reason with the
+dispatch; the `flow-planner-<effort>` definitions are the `flow-<effort>` ones plus `Agent`
+(decision `planner-carries-agent`, kan-1033) — **the fixer pair** the `fix` row and **the review pair**
 the two `review` rows: the first review on `flow-medium` or `flow-low` as the planner recorded —
 `flow-medium` when it recorded none — and every re-review after a fix on `flow-low` and `sonnet`.
 
@@ -200,8 +204,8 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    `skills/flow/brainstorm-planner.md`: brainstorming (section B), the artifacts (section C —
    `proposal.md`, and `design.md` with `## Context`, `## Decisions` and `## Open questions`) and
    writing plans (section D — a `tasks.md` in which each finding is carried by exactly one task, a
-   `Build: red` task counting with the partner it folds into). `flow-medium` carries no Skill
-   tool, so the prompt names the path of the installed superpowers plugin's
+   `Build: red` task counting with the partner it folds into). `flow-planner-medium`, like every
+   `flow-<effort>` definition, carries no Skill tool, so the prompt names the path of the installed superpowers plugin's
    `skills/brainstorming/SKILL.md` and `skills/writing-plans/SKILL.md` — on Claude Code the
    newest `~/.claude/plugins/cache/*/superpowers/*/skills/<skill>/SKILL.md` — and the planner reads and
    follows each file where those sections invoke its skill. **Every question it meets is
@@ -218,6 +222,17 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    its `**Chosen:**` line naming `flow-low` or `flow-medium` — the ID `check-loop-dispatch.sh` parses;
    under any other ID the guard sees no decision and wants `flow-medium`. It commits
    the artifacts as `chore(spectre): plan self-review-<name>`, and never merges or pushes.
+
+   The plan dispatch carries, in place of NO DELEGATION:
+
+   > **PLANNING DELEGATION:** You may dispatch fresh `Explore` and `Plan` subagents through the
+   > `Agent` tool while you plan, per **B. Basic Workflow #1 — Brainstorming** (`skills/flow/brainstorm-planner.md`) — never a
+   > `fork`, and never an agent that edits files or commits. Each dispatch's model and effort come
+   > from `plan-agent-pair.sh <your Key> <n>`, `<n>` counting your planning dispatches from 1, and
+   > every dispatch prompt carries the two sentences of **Propagate this**
+   > (`~/.claude/rules/agent-baseline.md`) verbatim. The agents investigate and propose; you
+   > decide, and every choice is auto-resolved to its recommended option. Fixing, implementing and
+   > reviewing are never delegated.
 
    Then one fixer per recorded group, in series — key `self-review-<name>-fix`, `-fix-g<g>` when
    the planner recorded more than one group — on the fixer pair, its prompt naming its tasks. It

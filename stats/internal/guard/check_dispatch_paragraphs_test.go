@@ -52,6 +52,14 @@ type dpCase struct {
 // three required blocks at its one dispatch site, and a
 // review-panel-fix-round.md with its one required block, which a case may
 // overwrite.
+// dpCleanPlanning is a self-review SKILL.md whose PLANNING DELEGATION block
+// is a blockquote indented under a list item, its phrases wrapped across lines.
+const dpCleanPlanning = `1. **Plan, then fix**
+
+   > **PLANNING DELEGATION:** You may dispatch fresh ` + "`Explore` and `Plan`" + ` subagents, never a
+   > ` + "`fork`" + `, and never an agent that edits files; pairs from plan-agent-pair.sh.
+`
+
 func dpFixture(t *testing.T, files map[string]string) string {
 	t.Helper()
 	root := t.TempDir()
@@ -59,6 +67,7 @@ func dpFixture(t *testing.T, files map[string]string) string {
 	writeFile(t, filepath.Join(flow, "visual-verify.md"), dpCleanVisualVerify+"\n")
 	writeFile(t, filepath.Join(flow, "visual-verify-tooling-analysis.md"), dpCleanVisualVerify+"\n")
 	writeFile(t, filepath.Join(flow, "review-panel-fix-round.md"), dpCleanFixRound+"\n")
+	writeFile(t, filepath.Join(root, "skills", "flow-self-review", "SKILL.md"), dpCleanPlanning)
 	for name, body := range files {
 		writeFile(t, filepath.Join(flow, name), body+"\n")
 	}
@@ -146,7 +155,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 		stderr func(root string) string
 	}{
 		{label: "a clean run prints the OK line on stdout alone", files: clean, rc: 0,
-			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 34 site(s) validated\n" }},
+			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 35 site(s) validated\n" }},
 		{label: "a relative root prints its findings and the INVALID line as given, on stdout alone", files: noRange,
 			env: func(root string) Env {
 				return crEnv(filepath.Dir(root), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": filepath.Base(root)})
@@ -187,7 +196,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 			}},
 		{label: "with no override the root is FLOW_GUARD_REPO_ROOT", files: clean,
 			env: func(root string) Env { return crEnv(root, map[string]string{"FLOW_GUARD_REPO_ROOT": root}) },
-			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 34 site(s) validated\n" }},
+			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 35 site(s) validated\n" }},
 		{label: "with no override and no FLOW_GUARD_REPO_ROOT it exits 2", files: clean,
 			env: func(root string) Env { return crEnv(root, nil) },
 			rc:  2, stderr: func(string) string {

@@ -79,6 +79,8 @@ var dpEntries = map[string]dpEntry{
 	"subskill": {"**REQUIRED SUB-SKILL:**",
 		[]string{"from its file", "on Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/"},
 		map[string]string{"tdd": "skills/test-driven-development/SKILL.md`", "debugging": "skills/systematic-debugging/SKILL.md`"}},
+	"planning": {"**PLANNING DELEGATION:**",
+		[]string{"fresh `Explore` and `Plan` subagents", "never a `fork`", "never an agent that edits files", "plan-agent-pair.sh"}, nil},
 	"proofruns": {"**PROOF RUNS:**",
 		[]string{"size the run count to the flake rate you measured", "never a fixed count per step", "shows the check failing with the mechanism removed"}, nil},
 }
@@ -132,6 +134,7 @@ var dpSites = []dpSite{
 	{"fixround", "skills/flow/review-panel-fix-round.md", 1, nil},
 	{"proofruns", "skills/flow/implement.md", 1, nil},
 	{"subskill", "skills/flow/implement.md", 2, []string{"tdd", "debugging"}},
+	{"planning", "skills/flow-self-review/SKILL.md", 1, nil},
 }
 
 func checkDispatchParagraphs(_ []string, env Env, stdout, stderr io.Writer) int {
@@ -275,7 +278,8 @@ func dpCheckSite(site dpSite, full string, lines []string) []string {
 // space and joined with single spaces (matching how a wrapped markdown
 // paragraph reads as prose), so a phrase split across two source lines by
 // the wrap is still found as one substring. A label line that is not itself
-// a blockquote line is a block of one line.
+// a blockquote line is a block of one line. A blockquote indented under a list
+// item counts as one: leading spaces before its `>` are dropped (kan-1033).
 //
 // The continuation walk stops at the first line that ITSELF carries any known
 // label, even though that line still begins with '>'. Without this, two
@@ -285,10 +289,10 @@ func dpCheckSite(site dpSite, full string, lines []string) []string {
 // own text -- the exact failure class this guard exists to catch, defeated
 // by its own continuation rule.
 func dpBlockText(lines []string, start int) string {
-	quoted := strings.HasPrefix(dpMapfile(lines[start]), ">")
+	quoted := strings.HasPrefix(dpDedent(lines[start]), ">")
 	var parts []string
 	for j := start; ; {
-		cur := dpMapfile(lines[j])
+		cur := dpDedent(lines[j])
 		if strings.HasPrefix(cur, ">") {
 			cur = strings.TrimPrefix(cur[1:], " ")
 		}
@@ -297,13 +301,16 @@ func dpBlockText(lines []string, start int) string {
 		if !quoted || j >= len(lines) {
 			break
 		}
-		next := dpMapfile(lines[j])
+		next := dpDedent(lines[j])
 		if !strings.HasPrefix(next, ">") || dpCarriesLabel(next) {
 			break
 		}
 	}
 	return strings.Join(parts, " ")
 }
+
+// dpDedent is dpMapfile with leading spaces dropped.
+func dpDedent(line string) string { return strings.TrimLeft(dpMapfile(line), " ") }
 
 func dpCarriesLabel(line string) bool {
 	for _, e := range dpEntries {

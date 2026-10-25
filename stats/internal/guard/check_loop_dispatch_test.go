@@ -80,7 +80,7 @@ func TestLoopTableIsTheSkillsOwn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]string{"pass": "flow-medium opus", "plan-2": "flow-medium opus", "fix-g1": "flow-low opus",
+	want := map[string]string{"pass": "flow-medium opus", "plan-2": "flow-planner-medium flow-planner-low opus", "fix-g1": "flow-low opus",
 		"fix-v3": "flow-low opus", "review-1": "flow-medium flow-low opus", "review-2": "flow-low sonnet"}
 	for suffix, pair := range want {
 		got := ""
@@ -105,7 +105,7 @@ func TestCheckLoopDispatch(t *testing.T) {
 		rc                          int
 		out, begin                  string // begin "" asserts no begin call
 	}{
-		{name: "plan admitted and recorded", rows: `[]`, key: "pipeline-fix-6-plan", typ: "flow-medium", model: "opus", branches: []string{lpBranch},
+		{name: "plan admitted and recorded", rows: `[]`, key: "pipeline-fix-6-plan", typ: "flow-planner-medium", model: "opus", branches: []string{lpBranch},
 			out: "LOOP-DISPATCH-OK", begin: "-change " + lpBranch + " -role planner -model opus -effort medium -key pipeline-fix-6-plan -session-token " + lpBranch},
 		{name: "fix without a plan", rows: `[]`, key: "pipeline-fix-6-fix", typ: "flow-low", model: "opus", branches: []string{lpBranch}, rc: 1, out: "PLAN —"},
 		{name: "fix after an open plan", rows: lpPlanOpen, key: "pipeline-fix-6-fix", typ: "flow-low", model: "opus", branches: []string{lpBranch}, rc: 1, out: "OPEN — pipeline-fix-6-plan"},
@@ -130,12 +130,12 @@ func TestCheckLoopDispatch(t *testing.T) {
 			rc: 1, out: "first-review-effort"},
 		{name: "first review on flow-medium with none recorded", rows: lpPlanDone, key: "pipeline-fix-6-review-1", typ: "flow-medium", model: "opus", branches: []string{lpBranch},
 			out: "LOOP-DISPATCH-OK", begin: "-role reviewer"},
-		{name: "a reused key", rows: lpPlanDone, key: "pipeline-fix-6-plan", typ: "flow-medium", model: "opus", branches: []string{lpBranch}, rc: 1, out: "KEY-REUSED —"},
-		{name: "no loop branch", rows: `[]`, key: "pipeline-fix-6-plan", typ: "flow-medium", model: "opus", rc: 1, out: "NOT-STARTED —"},
+		{name: "a reused key", rows: lpPlanDone, key: "pipeline-fix-6-plan", typ: "flow-planner-medium", model: "opus", branches: []string{lpBranch}, rc: 1, out: "KEY-REUSED —"},
+		{name: "no loop branch", rows: `[]`, key: "pipeline-fix-6-plan", typ: "flow-planner-medium", model: "opus", rc: 1, out: "NOT-STARTED —"},
 		{name: "an unknown suffix", rows: `[]`, key: "pipeline-fix-6-implementer", typ: "flow-low", model: "opus", branches: []string{lpBranch}, rc: 1, out: "KEY —"},
-		{name: "self-review on its own branch files under the change", rows: `[]`, key: "self-review-kan-1-demo-plan", typ: "flow-medium", model: "opus",
+		{name: "self-review on its own branch files under the change", rows: `[]`, key: "self-review-kan-1-demo-plan", typ: "flow-planner-medium", model: "opus",
 			out: "LOOP-DISPATCH-OK", begin: "-change kan-1-demo -role planner"},
-		{name: "self-review loop files under its branch", rows: `[]`, key: "self-review-kan-1-demo-plan", typ: "flow-medium", model: "opus", branches: []string{"self-review-kan-1-demo"},
+		{name: "self-review loop files under its branch", rows: `[]`, key: "self-review-kan-1-demo-plan", typ: "flow-planner-medium", model: "opus", branches: []string{"self-review-kan-1-demo"},
 			out: "LOOP-DISPATCH-OK", begin: "-change self-review-kan-1-demo -role planner -model opus -effort medium -key self-review-kan-1-demo-plan -session-token self-review-kan-1-demo"},
 		{name: "the pass is checked, never recorded", rows: `[]`, key: "self-review-kan-1-demo-pass", typ: "flow-medium", model: "opus", out: "LOOP-DISPATCH-OK"},
 		{name: "the pass off its pair", rows: `[]`, key: "self-review-kan-1-demo-pass", typ: "flow-low", model: "opus", rc: 1, out: "PAIR —"},
@@ -164,6 +164,39 @@ func TestCheckLoopDispatch(t *testing.T) {
 			}
 			if tc.begin != "" && !strings.Contains(calls, tc.begin) {
 				t.Fatalf("flow calls %q carry no %q", calls, tc.begin)
+			}
+		})
+	}
+}
+
+// TestLoopDispatchPlannerTypes pins the plan row's planner definitions
+// (kan-1033, decision planner-carries-agent): flow-planner-medium and
+// flow-planner-low are admitted, a leaf flow-medium is refused, and
+// flow-planner-high only on a recorded escalation after an earlier plan.
+func TestLoopDispatchPlannerTypes(t *testing.T) {
+	t.Parallel()
+	const plan2 = `[{"seq":1,"key":"self-review-x-plan","outcome":"completed","sessionToken":"self-review-x","endedAt":"2026-10-16T10:00:00Z"}]`
+	for _, tc := range []struct {
+		name, rows, key, typ string
+		escalated            bool
+		rc                   int
+		out                  string
+	}{
+		{"medium planner", `[]`, "self-review-x-plan", "flow-planner-medium", false, 0, "-effort medium"},
+		{"low planner", `[]`, "self-review-x-plan", "flow-planner-low", false, 0, "-effort low"},
+		{"leaf flow-medium", `[]`, "self-review-x-plan", "flow-medium", false, 1, "PAIR — self-review-x-plan runs on subagent_type flow-planner-medium or flow-planner-low"},
+		{"high planner unescalated", plan2, "self-review-x-plan-2", "flow-planner-high", false, 1, "ESCALATION —"},
+		{"high planner escalated", plan2, "self-review-x-plan-2", "flow-planner-high", true, 0, "-effort high"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fx := lpNew(t, tc.rows, "self-review-x")
+			if tc.escalated {
+				gitRun(t, fx.repo, "config", "--add", "flow.escalation", "self-review-x:"+tc.key)
+			}
+			rc, out := fx.run(t, tc.key, tc.typ, "opus")
+			if rc != tc.rc || !strings.Contains(out+fx.calls(t), tc.out) {
+				t.Fatalf("rc %d, want %d; output %q, calls %q, want %q", rc, tc.rc, out, fx.calls(t), tc.out)
 			}
 		})
 	}
