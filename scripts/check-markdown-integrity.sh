@@ -3,14 +3,15 @@
 # rule Markdown carries structural damage a rendering-agnostic reader would
 # mis-read: a code span broken by a misunderstood backslash escape, a
 # blockquote whose first line lost its `>` marker, a paragraph torn apart
-# mid-sentence, or a paragraph that promises content with a trailing colon
-# and then supplies none.
+# mid-sentence, a paragraph that promises content with a trailing colon
+# and then supplies none, a file that does not end in a newline, or two blank
+# lines in a row outside a fence.
 #
 # Usage: scripts/check-markdown-integrity.sh [project-root]
 #
 # Exit codes:
 #   0  clean — every scanned file is structurally sound.
-#   1  violations found — one or more of the four signals fired. Each is
+#   1  violations found — one or more of the six signals fired. Each is
 #      reported on stdout as `file:line: <signal>: <message>`. Fix the named
 #      line; there is no suppression marker and no mechanism for one.
 #   2  cannot answer — the project root does not exist, an argument this
@@ -24,7 +25,7 @@
 # merely reading badly. Nothing else is scanned: not `docs/`, not the
 # repository root's own Markdown.
 #
-# The block model, the four signals and why signal 4 is structural rather
+# The block model, the six signals and why signal 4 is structural rather
 # than phrase-based are the mechanism's doc comment,
 # stats/internal/guard/markdownintegrity.go; its table test
 # (stats/internal/guard/check_markdown_integrity_test.go) stands in the

@@ -226,3 +226,30 @@ func TestCheckMarkdownIntegrity(t *testing.T) {
 		}
 	})
 }
+
+// TestCheckMarkdownIntegrityLayoutSignals: signal 5 (missing final newline)
+// and signal 6 (consecutive blank lines outside a fence), kan-1034.
+func TestCheckMarkdownIntegrityLayoutSignals(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		label, body string
+		want        int
+		needle      string
+	}{
+		{"terminated", "Text.\n", 0, ""},
+		{"no final newline", "Text.", 1, "skills/foo/SKILL.md:1: missing final newline:"},
+		{"doubled blank", "One.\n\n\nTwo.\n", 1, ":3: consecutive blank lines:"},
+		{"doubled blank inside a fence", "One.\n\n```\na\n\n\nb\n```\n", 0, ""},
+		{"empty file", "", 0, ""},
+	} {
+		t.Run(c.label, func(t *testing.T) {
+			t.Parallel()
+			root := t.TempDir()
+			writeFile(t, filepath.Join(root, "skills/foo/SKILL.md"), c.body)
+			rc, out, errOut := mdiRun(t, crEnv(root, nil), root)
+			if rc != c.want || !strings.Contains(out+errOut, c.needle) {
+				t.Errorf("rc=%d want %d, needle %q\n%s%s", rc, c.want, c.needle, out, errOut)
+			}
+		})
+	}
+}

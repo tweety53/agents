@@ -151,7 +151,6 @@ Moved verbatim, the bullet addressed to the file's editor rather than to a run:
 - **Never** state a cleanup rule here — **Temporary artifacts registry** (`skills/flow-contracts/artifacts-registry.md`)
   and **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`) are canonical.
 
-
 ## Moved by the 2026-09-22 prompt audit — incident records and recorded reasons
 
 Each passage below sat inline in a run-loaded phase file beside the rule it motivated; the rule and its
@@ -284,7 +283,6 @@ text after it is the passage, verbatim.
 - *…alone — a `padding()` placed before the `background()` or `clip()` it was meant to inset the content of, or on the parent before its children's own backgrounds, shrinks the painted area, not the content — a checkable line of code before any screenshot* — (gymie KAN-30 manual re-sweep: a workout picker's selected-row fill stopped a `space2` gutter short of its box's border on every side, the parent `Column`'s padding sitting above the rows' backgrounds; the complaint "rows are still not filled with color fully till the borders" was answered twice with the wrong measurement — a centring check on an unrelated icon, then a colour-existence check with the gap tooling — and once with the right one, a scanline through the fill and both border strokes)
 - *…read the JSON's `delta` block: `abs` and `pct` per numeric property, RGB distance per colour* — (gymie KAN-30 fix round 10)
 - *A number no eye confirmed is a methodology error waiting to ship* — ; an eye with no number is round 9 again (gymie KAN-30 fix round 9, above)
-
 
 ## Moved by the 2026-09-22 prompt audit (pass A) — review-panel.md and implement.md
 

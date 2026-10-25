@@ -16,7 +16,7 @@ import (
 )
 
 // checkMarkdownIntegrity is scripts/check-markdown-integrity.sh's guard. The
-// shim's header states the contract — the four signals, the scope and the
+// shim's header states the contract — the six signals, the scope and the
 // exit codes; this comment is the mechanism.
 //
 // # The block model
@@ -84,6 +84,10 @@ import (
 // and the block immediately before it. Signal 4 (dangling promise) reads the
 // transition between a paragraph block and whatever block follows it, or its
 // absence.
+// Signal 5 (missing final newline) reads the raw text: a non-empty file
+// whose last byte is not `\n`. Signal 6 (consecutive blank lines) reads the
+// physical lines: a blank line directly after a blank line, neither inside a
+// fence block, reported at the second (kan-1034: both slipped past review).
 //
 // # Signal 1 — broken code span
 //
@@ -634,6 +638,27 @@ func mdiScan(text string) []mdiFinding {
 		if nxt := mdiAt(blocks, idx+1); nxt == nil || nxt.kind == "heading" {
 			out = append(out, mdiFinding{b.end, "dangling promise",
 				"a colon promises content, and the block ends with nothing following it"})
+		}
+	}
+	// Signal 5 — missing final newline.
+	lines := mdiSplitLines(text)
+	if text != "" && !strings.HasSuffix(text, "\n") {
+		out = append(out, mdiFinding{len(lines), "missing final newline",
+			"the file does not end in a newline"})
+	}
+	// Signal 6 — consecutive blank lines outside a fence.
+	inFence := func(line int) bool {
+		for _, b := range blocks {
+			if b.kind == "fence" && line >= b.start && line <= b.end {
+				return true
+			}
+		}
+		return false
+	}
+	for i := 1; i < len(lines); i++ {
+		if mdiStrip(lines[i]) == "" && mdiStrip(lines[i-1]) == "" && !inFence(i) && !inFence(i+1) {
+			out = append(out, mdiFinding{i + 1, "consecutive blank lines",
+				"two blank lines in a row; one separates blocks"})
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].line < out[j].line })
