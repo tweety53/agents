@@ -3,6 +3,7 @@
 > **Execution:** `/flow` implements this plan. Mark a task's own checkbox when
 > `check-task-commit-fields.sh` passes on that task's commit.
 > **Relocation:** no
+> **Design shape:** plan-mode
 > **Baseline convention:** every `**Baseline:** before=N after=M` is chain-position absolutes —
 > `before` is the count at this task's commit's parent and `after` at the commit, each task
 > measured at its own position, never a plan-wide pair — split by source set, counted by a
