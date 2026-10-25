@@ -4,6 +4,7 @@
 > `check-task-commit-fields.sh` passes on that task's commit.
 > **Relocation:** yes — the generic planning paragraphs move from the flow skills into `skills/spectre-planning/SKILL.md`
 > **Design shape:** plan-mode
+> **Tasks appended:** 1
 > **Baseline convention:** every `**Baseline:** before=N after=M` is chain-position absolutes —
 > `before` is the count at this task's commit's parent and `after` at the commit, each task
 > measured at its own position, never a plan-wide pair — split by source set, counted by a
@@ -52,3 +53,13 @@ wording, per decision `planning-skill-flow-free`.
 **After:** Task 1
 
 **Decision:** mode-by-install
+
+- [x] 3. spectre: the manifest test's comment names what UPSTREAM.md now holds
+  - [x] **Step 1: In the spectre worktree `/Users/tweety53/Projects/spectre-worktrees/kan-1034-spectre-optional-bundled-planning-prompts-that`, reword the comment above `TestPluginShipsSpectrePlanning` in `plugin_manifest_test.go`: "with the UPSTREAM.md that names its source commit" becomes "with the UPSTREAM.md that names its source path on agents main".**
+  - [x] **Step 2: Verify: `gofmt -l . && go vet ./... && go test -run 'TestPluginShipsSpectrePlanning' -count=1 .` in the spectre worktree, then `git grep -n -F -e 'names its source commit' -- plugin_manifest_test.go` prints nothing.**
+**Build:** green
+**Files:** `plugin_manifest_test.go`
+**Tests:** none — repairs existing tests: `TestPluginShipsSpectrePlanning`
+**Regression:** reverting the commit restores a comment that misstates what UPSTREAM.md names.
+**Commit:** fix(skills): say UPSTREAM.md names a source path
+**After:** Task 2
