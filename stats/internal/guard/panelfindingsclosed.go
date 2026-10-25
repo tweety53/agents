@@ -233,6 +233,77 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		violated = true
 	}
 
+	// EVERY COMPLETED REVIEWER DISPATCH LEAVES A REPORT PER ROLE, not only a
+	// re-run: each `+`-component of a panel-<round>- reviewer dispatch ended
+	// `completed` or `clean` needs a non-empty panel-report-<round>-<id>.md,
+	// the parent's `no verbatim report captured` placeholder accepted, as
+	// review-panel.md's **Recording findings** prescribes it. A file the
+	// re-run line above already names is not named again. kan-1034: F7's
+	// round-0 slot left no report and no guard noticed.
+	var unwritten []string
+	for _, d := range dispatches {
+		if d.role != "reviewer" || (d.outcome != "completed" && d.outcome != "clean") || d.round < 0 {
+			continue
+		}
+		for _, id := range strings.Split(d.slot, "+") {
+			f := fmt.Sprintf("panel-report-%d-%s.md", d.round, id)
+			if st, err := os.Stat(filepath.Join(worktree, ".superpowers", "sdd", f)); err == nil && st.Size() > 0 {
+				continue
+			}
+			if !slices.Contains(unreported, f) && !slices.Contains(unwritten, f) {
+				unwritten = append(unwritten, f)
+			}
+		}
+	}
+	if len(unwritten) > 0 {
+		fmt.Fprintf(stderr, "%scompleted reviewer dispatch(es) left no report file: %s\n", cfcPrefix, strings.Join(unwritten, " "))
+		violated = true
+	}
+
+	// A FIXED FINDING'S RUNNABLE REPRODUCER STILL EXISTS: its path token,
+	// derived as panelexitcontract.go derives it, resolves in the worktree,
+	// else in one of the state record's worktrees (a cross-repo peer's
+	// reproducer lives in its own tree, KAN-658) -- the record read only when
+	// the worktree lacks a token. The `none` forms and an empty reproducer
+	// claim nothing runnable; an open finding is the open line's. kan-1034:
+	// F7's reproducer was lost with its throwaway copy.
+	var lost []string
+	var trees []string
+	treesRead := false
+	for _, f := range findings {
+		r := f.reproducer
+		if f.status != "fixed" || r == "" || isNoneReproducer(r) {
+			continue
+		}
+		firstLine, _, _ := strings.Cut(r, "\n")
+		token := reproducerToken(firstLine)
+		if token == "" || pcExists(worktree+"/"+token) {
+			continue
+		}
+		if !treesRead {
+			treesRead = true
+			out, errOut, rc := pcFlow(env, false, "state", "get", "-C", worktree, name)
+			var state map[string]json.RawMessage
+			if rc != 0 || json.Unmarshal(bytes.TrimRight(out, "\n"), &state) != nil || state == nil {
+				fmt.Fprintf(stderr, "%scannot read the state record for '%s' while a fixed finding's reproducer is absent from the worktree — cannot determine anything: %s\n", cfcPrefix, name, strings.TrimRight(string(errOut), "\n"))
+				return 2
+			}
+			recorded, ok := pcWorktreeKeys(state["worktrees"])
+			if !ok {
+				fmt.Fprintln(stderr, cfcJQFailed)
+				return 2
+			}
+			trees = resolvedRecordedTrees(env, recorded)
+		}
+		if !slices.ContainsFunc(trees, func(t string) bool { return pcExists(t + "/" + token) }) {
+			lost = append(lost, f.ref+" ("+token+")")
+		}
+	}
+	if len(lost) > 0 {
+		fmt.Fprintf(stderr, "%sfixed finding(s) whose runnable reproducer resolves in no worktree of the change: %s\n", cfcPrefix, strings.Join(lost, " "))
+		violated = true
+	}
+
 	// A SLOT'S REPORT COUNTS ITS OWN FINDINGS on one `Critical: <n>` and one
 	// `Important: <n>` line (review-panel.md's REPORT FILE paragraph). When
 	// the sum exceeds the store's Critical and Important rows of that round
@@ -301,6 +372,7 @@ type cfcFindingRow struct {
 	ref, status, severity string
 	round                 int
 	slot, supersedes      string
+	reproducer            string
 }
 
 // cfcDispatchRow is one row of `flow record dispatches`' array, reduced to
@@ -367,6 +439,9 @@ func cfcParse(b []byte) ([]cfcFindingRow, bool) {
 		}
 		if pcIsString(o["supersedes"]) {
 			_ = json.Unmarshal(o["supersedes"], &f.supersedes)
+		}
+		if pcIsString(o["reproducer"]) {
+			_ = json.Unmarshal(o["reproducer"], &f.reproducer)
 		}
 		out = append(out, f)
 	}

@@ -25,6 +25,7 @@ type cfcFinding struct {
 	Ref, Status, Severity string
 	Round                 int
 	Slot, Supersedes      string
+	Reproducer            string
 }
 
 func cfcJSON(fs ...cfcFinding) string {
@@ -39,6 +40,9 @@ func cfcJSON(fs ...cfcFinding) string {
 		}
 		if f.Supersedes != "" {
 			row["supersedes"] = f.Supersedes
+		}
+		if f.Reproducer != "" {
+			row["reproducer"] = f.Reproducer
 		}
 		out = append(out, row)
 	}
@@ -84,12 +88,14 @@ func cfcBinDispatches(t *testing.T, body, dispatches, stderrLine string, rc int)
 	bin := t.TempDir()
 	writeFile(t, filepath.Join(bin, "findings.json"), body)
 	writeFile(t, filepath.Join(bin, "dispatches.json"), dispatches)
+	writeFile(t, filepath.Join(bin, "state.json"), `{"worktrees":{}}`)
 	script := "#!/usr/bin/env bash\ndir=\"$(dirname -- \"$0\")\"\n"
 	if stderrLine != "" {
 		script += "echo '" + stderrLine + "' >&2\n"
 	}
 	script += "case \"$*\" in\n"
 	script += "  *\"record dispatches\"*) cat \"$dir/dispatches.json\" ;;\n"
+	script += "  *\"state get\"*) cat \"$dir/state.json\" ;;\n"
 	script += "  *) cat \"$dir/findings.json\" ;;\n"
 	script += "esac\nexit " + strconv.Itoa(rc) + "\n"
 	writeExec(t, filepath.Join(bin, "flow"), script)
@@ -406,7 +412,7 @@ func TestCheckPanelFindingsClosedRerunNeedsItsReportFile(t *testing.T) {
 		{label: "a written report exits 0", json: f1, disp: solo,
 			files: map[string]string{"panel-report-2-primary.md": "Critical: 0\nImportant: 0\n"}, want: 0},
 		{label: "a joined re-run covers a primary finding with only its primary report", json: f1, disp: joined,
-			files: map[string]string{"panel-report-2-primary.md": "Critical: 0\nImportant: 0\n"}, want: 0},
+			files: map[string]string{"panel-report-2-primary.md": "Critical: 0\nImportant: 0\n", "panel-report-2-bugbot.md": "no verbatim report captured — timeout\n"}, want: 0},
 		{label: "a joined finding needs every component's report",
 			json: cfcJSON(cfcFinding{Ref: "F1", Severity: "Important", Status: "fixed", Round: 1, Slot: "bugbot+primary"}), disp: joined,
 			files: map[string]string{"panel-report-2-primary.md": "Critical: 0\nImportant: 0\n"}, want: 1, needle: "panel-report-2-bugbot.md"},
@@ -428,6 +434,135 @@ func TestCheckPanelFindingsClosedRerunNeedsItsReportFile(t *testing.T) {
 			}
 			if c.needle != "" && !strings.Contains(errs, c.needle) {
 				t.Fatalf("expected stderr to name %q, got:\n%s", c.needle, errs)
+			}
+		})
+	}
+}
+
+// cfcSDD makes <wt>/.superpowers/sdd and writes files into it.
+func cfcSDD(t *testing.T, wt string, files map[string]string) {
+	t.Helper()
+	sdd := filepath.Join(wt, ".superpowers", "sdd")
+	if err := os.MkdirAll(sdd, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for n, body := range files {
+		writeFile(t, filepath.Join(sdd, n), body)
+	}
+}
+
+// Every completed reviewer dispatch leaves each role's report file, the
+// placeholder accepted (kan-1034: F7's round-0 slot left none, unnoticed).
+func TestCheckPanelFindingsClosedEveryRoleLeavesAReport(t *testing.T) {
+	t.Parallel()
+	pair := cfcDispatchJSON(cfcDispatch{Key: "panel-0-mutation+failure-modes", Role: "reviewer", Slot: "mutation+failure-modes", Outcome: "completed"})
+	const line = "completed reviewer dispatch(es) left no report file: "
+	cases := []struct {
+		label, disp, json string
+		files             map[string]string
+		want              int
+		needles           []string
+		absent            string
+	}{
+		{label: "no report files exits 1 naming both", disp: pair, want: 1,
+			needles: []string{line + "panel-report-0-mutation.md panel-report-0-failure-modes.md\n"}},
+		{label: "one written names only the other", disp: pair, want: 1,
+			files:   map[string]string{"panel-report-0-mutation.md": "clean\n"},
+			needles: []string{line + "panel-report-0-failure-modes.md\n"}, absent: "panel-report-0-mutation.md"},
+		{label: "both placeholders exit 0", disp: pair, want: 0,
+			files: map[string]string{"panel-report-0-mutation.md": "no verbatim report captured — timeout\n", "panel-report-0-failure-modes.md": "no verbatim report captured — timeout\n"}},
+		{label: "an empty file counts as absent", disp: pair, want: 1,
+			files:   map[string]string{"panel-report-0-mutation.md": "clean\n", "panel-report-0-failure-modes.md": ""},
+			needles: []string{line + "panel-report-0-failure-modes.md\n"}},
+		{label: "an aborted dispatch needs no report", want: 0,
+			disp: cfcDispatchJSON(cfcDispatch{Key: "panel-0-mutation", Role: "reviewer", Slot: "mutation", Outcome: "aborted"})},
+		{label: "an implementer dispatch needs no report", want: 0,
+			disp: cfcDispatchJSON(cfcDispatch{Key: "panel-0-mutation", Role: "implementer", Slot: "mutation", Outcome: "completed"})},
+		{label: "a panel-fix key needs no report", want: 0,
+			disp: cfcDispatchJSON(cfcDispatch{Key: "panel-fix-0", Role: "reviewer", Slot: "mutation", Outcome: "completed"})},
+		{label: "a missing re-run report is named once", want: 1,
+			json:    cfcJSON(cfcFinding{Ref: "F1", Severity: "Important", Status: "fixed", Round: 0, Slot: "primary"}),
+			disp:    cfcDispatchJSON(cfcDispatch{Key: "panel-1-primary", Role: "reviewer", Slot: "primary", Outcome: "completed"}),
+			needles: []string{"re-run(s) answered without writing their report file: panel-report-1-primary.md\n"}, absent: line},
+	}
+	for _, c := range cases {
+		t.Run(c.label, func(t *testing.T) {
+			t.Parallel()
+			wt := t.TempDir()
+			cfcSDD(t, wt, c.files)
+			js := c.json
+			if js == "" {
+				js = "[]"
+			}
+			rc, out, errs := cfcRun(t, cfcBinDispatches(t, js, c.disp, "", 0), wt, "demo")
+			if rc != c.want {
+				t.Fatalf("expected exit %d, got %d\nstdout: %s\nstderr: %s", c.want, rc, out, errs)
+			}
+			for _, n := range c.needles {
+				if !strings.Contains(errs, n) {
+					t.Fatalf("expected stderr to name %q, got:\n%s", n, errs)
+				}
+			}
+			if c.absent != "" && strings.Contains(errs, c.absent) {
+				t.Fatalf("expected stderr not to name %q, got:\n%s", c.absent, errs)
+			}
+		})
+	}
+}
+
+// A fixed finding's runnable reproducer resolves in the worktree or one of
+// the state record's worktrees (kan-1034: F7's reproducer was lost).
+func TestCheckPanelFindingsClosedFixedReproducerExists(t *testing.T) {
+	t.Parallel()
+	const tok = ".superpowers/sdd/reproducers/r0-x-1.sh"
+	const line = "fixed finding(s) whose runnable reproducer resolves in no worktree of the change: "
+	minor := func(status, repro string) string {
+		return cfcJSON(cfcFinding{Ref: "F1", Severity: "Minor", Status: status, Slot: "primary", Reproducer: repro})
+	}
+	peer := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(peer, ".superpowers", "sdd", "reproducers"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(peer, tok), "#!/bin/sh\n")
+	cases := []struct {
+		label, json, state string
+		stateRC            int
+		inWT               bool
+		want               int
+		needle, absent     string
+	}{
+		{label: "present in the worktree exits 0", json: minor("fixed", tok+" --flag"), inWT: true, want: 0},
+		{label: "absent everywhere exits 1 naming ref and token", json: minor("fixed", tok+" --flag"), want: 1, needle: line + "F1 (" + tok + ")\n"},
+		{label: "present in a state-record worktree exits 0", json: minor("fixed", tok), state: `{"worktrees":{"` + peer + `":{}}}`, want: 0},
+		{label: "the none form is never checked", json: minor("fixed", "none — cosmetic"), want: 0},
+		{label: "an empty reproducer is never checked", json: minor("fixed", ""), want: 0},
+		{label: "an open finding's absent reproducer is not on this line", json: minor("open", tok), want: 1, absent: line},
+		{label: "a failed state read while a token is absent exits 2", json: minor("fixed", tok), stateRC: 1, want: 2},
+	}
+	for _, c := range cases {
+		t.Run(c.label, func(t *testing.T) {
+			t.Parallel()
+			wt := t.TempDir()
+			cfcSDD(t, wt, nil)
+			if c.inWT {
+				cfcSDD(t, wt, map[string]string{"reproducers/r0-x-1.sh": ""})
+			}
+			bin := cfcBinDispatches(t, c.json, "[]", "", 0)
+			if c.state != "" {
+				writeFile(t, filepath.Join(bin, "state.json"), c.state)
+			}
+			if c.stateRC != 0 {
+				writeExec(t, filepath.Join(bin, "flow"), "#!/usr/bin/env bash\ndir=\"$(dirname -- \"$0\")\"\ncase \"$*\" in\n  *\"record dispatches\"*) cat \"$dir/dispatches.json\" ;;\n  *\"state get\"*) echo boom >&2; exit 1 ;;\n  *) cat \"$dir/findings.json\" ;;\nesac\n")
+			}
+			rc, out, errs := cfcRun(t, bin, wt, "demo")
+			if rc != c.want {
+				t.Fatalf("expected exit %d, got %d\nstdout: %s\nstderr: %s", c.want, rc, out, errs)
+			}
+			if c.needle != "" && !strings.Contains(errs, c.needle) {
+				t.Fatalf("expected stderr to name %q, got:\n%s", c.needle, errs)
+			}
+			if c.absent != "" && strings.Contains(errs, c.absent) {
+				t.Fatalf("expected stderr not to name %q, got:\n%s", c.absent, errs)
 			}
 		})
 	}

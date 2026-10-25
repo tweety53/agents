@@ -51,11 +51,16 @@
 #      Important: <n> lines more findings than the store holds for that
 #      round and slot; or a re-run answered without writing its
 #      panel-report-<round>-<id>.md (absent, empty or the parent's
-#      `no verbatim report captured` placeholder), named on stderr (KAN-915)
+#      `no verbatim report captured` placeholder), named on stderr (KAN-915);
+#      or a completed reviewer dispatch left a role's
+#      panel-report-<round>-<id>.md absent or empty (the placeholder
+#      accepted); or a `fixed` finding's runnable reproducer resolves in no
+#      worktree of the change (kan-1034)
 #   2  cannot answer at all — no worktree, no change name, a change name
 #      outside the allowlist, a worktree that is not a directory, the store
 #      unreachable, its answer unreadable (empty output included), or an
-#      unreadable panel report
+#      unreadable panel report, or the state record unreadable when a
+#      `fixed` finding's reproducer token is absent from the worktree
 # Ported to Go: the body's reasoning for every branch is in
 # stats/internal/guard/panelfindingsclosed.go.
 # flow-guard is built from this checkout, never taken from PATH:

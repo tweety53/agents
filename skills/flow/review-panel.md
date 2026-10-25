@@ -795,6 +795,10 @@ yourself carrying the single line `no verbatim report captured — <reason>`.
 Every dispatched slot ends up with one, a slot that raised nothing included. **Never re-emit a
 slot's report from this context** — record its `F<n>` rows and cite the file, per **Read
 discipline**'s never-`cat`-a-report rule (`skills/flow/implement.md`).
+Confirm likewise that each runnable reproducer path a slot supplies exists in the worktree before
+recording its finding; when it does not, write the script there yourself from the demonstration
+the slot's final message gives (kan-1034: F7's mutation reproducer was lost with its throwaway
+copy).
 
 **Every finding is a row in the store. The panel record is rendered from those rows.** The parent
 records every finding itself. Every
@@ -1083,7 +1087,9 @@ in the store — nothing is deferred (**Panel re-runs** above); the line names t
 fires on the class **Panel re-runs**' ordering above added: a Critical or Important recorded
 `fixed` whose slot has no clean re-run dispatch of it in any later round — a fixed Minor needs
 none. It fires as well when a slot's report counts more Critical and Important findings on its
-`Critical: <n>` and `Important: <n>` lines than the store holds for that round and slot. Either way, return to the
+`Critical: <n>` and `Important: <n>` lines than the store holds for that round and slot. It fires too
+when a completed reviewer dispatch left one of its roles' `panel-report-<round>-<id>.md` absent or
+empty, or when a `fixed` finding's runnable reproducer resolves in no worktree of the change. Either way, return to the
 handback loop above for them. Exit 2 stops the run.
 
 Beside it, run

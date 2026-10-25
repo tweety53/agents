@@ -261,7 +261,7 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 		// (`nonexistent-script`) matches neither pattern and is a runnable
 		// command line.
 		reproducer := strings.Join(repros, "\n")
-		if reproducer == "none" || strings.HasPrefix(reproducer, "none") && strings.ContainsAny(reproducer[4:5], " \t\n\v\f\r") {
+		if isNoneReproducer(reproducer) {
 			continue
 		}
 
@@ -277,10 +277,7 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 		// everywhere else in the pipeline would reach this audit as one token
 		// and be bounced as unreadable (panel finding F1, kan-606 round 0).
 		firstLine, _, _ := strings.Cut(reproducer, "\n")
-		token := ""
-		if fields := strings.FieldsFunc(firstLine, func(r rune) bool { return r == ' ' || r == '\t' }); len(fields) > 0 {
-			token = fields[0]
-		}
+		token := reproducerToken(firstLine)
 		// THE FINDING'S TREE, RESOLVED PER FINDING (KAN-658). The canonical
 		// tree first — every single-repo change resolves here, exactly as this
 		// guard always has — then the change's recorded worktrees: on a
@@ -621,4 +618,19 @@ func pcIsString(raw json.RawMessage) bool {
 func pcExists(p string) bool {
 	_, err := os.Stat(p)
 	return err == nil
+}
+
+// isNoneReproducer reports a reproducer in a `none` form: the bare word, or
+// `none` followed by whitespace and a reason.
+func isNoneReproducer(r string) bool {
+	return r == "none" || strings.HasPrefix(r, "none") && strings.ContainsAny(r[4:5], " \t\n\v\f\r")
+}
+
+// reproducerToken is a reproducer line's path token: its first field split on
+// space and tab, as runReproducer's tokenizer splits it; "" for a blank line.
+func reproducerToken(line string) string {
+	if fields := strings.FieldsFunc(line, func(c rune) bool { return c == ' ' || c == '\t' }); len(fields) > 0 {
+		return fields[0]
+	}
+	return ""
 }
