@@ -28,7 +28,7 @@ type Source struct {
 	Repo       string `json:"repo"`
 	FixSHA     string `json:"fix_sha"`
 	FindingRef string `json:"finding_ref"`
-	Round      int    `json:"round"`
+	Round      *int   `json:"round"`
 	Slot       string `json:"slot"`
 	Severity   string `json:"severity"`
 }

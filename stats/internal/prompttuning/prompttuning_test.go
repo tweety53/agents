@@ -17,7 +17,7 @@ func sampleCase() (Case, Files) {
 		Scope:        "generic",
 		Source: Source{
 			Project: "agents", Change: "demo-change", Jira: "KAN-1", Repo: "/repo",
-			FixSHA: "abc1234", FindingRef: "F-3", Round: 2, Slot: "primary", Severity: "Important",
+			FixSHA: "abc1234", FindingRef: "F-3", Round: new(2), Slot: "primary", Severity: "Important",
 		},
 		Target:      "skills/flow/primary-reviewer-prompt.md",
 		TargetSHA:   "def5678",

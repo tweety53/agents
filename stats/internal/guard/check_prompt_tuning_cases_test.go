@@ -39,7 +39,7 @@ func ptCase(sha string) prompttuning.Case {
 		ID: "demo-change-1", Type: "implementer", Scope: "generic",
 		Source: prompttuning.Source{
 			Project: "agents", Change: "demo-change", Jira: "KAN-77", Repo: "/repo",
-			FixSHA: "abc1234", FindingRef: "F-1", Round: 2, Slot: "primary", Severity: "Important",
+			FixSHA: "abc1234", FindingRef: "F-1", Round: new(2), Slot: "primary", Severity: "Important",
 		},
 		Target: "skills/flow/implement.md", TargetSHA: sha,
 		DefectClass: "an exit path shipped without a test",
@@ -137,8 +137,6 @@ func TestCheckPromptTuningCases(t *testing.T) {
 		{name: "a scoped before for an absent target is caught", edit: func(c *prompttuning.Case) {
 			c.Scope, c.Target, c.Before = "language:kotlin", "rules/lang-kotlin.mdc", "Some rule."
 		}, rc: 1, out: "is absent at"},
-		{name: "an unset source round is caught", edit: func(c *prompttuning.Case) { c.Source.Round = 0 },
-			rc: 1, out: "source.round"},
 		{name: "an absent root exits 0", noRoot: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -172,6 +170,74 @@ func TestCheckPromptTuningCases(t *testing.T) {
 			}
 			if tc.rc == 0 && out != "" {
 				t.Fatalf("a clean run printed %q", out)
+			}
+		})
+	}
+}
+
+// TestCheckPromptTuningCasesSourceRound pins kan-1032's self-review: round
+// 0, the initial panel's round, is a round; only an absent or negative one is
+// refused.
+func TestCheckPromptTuningCasesSourceRound(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name  string
+		round string // the case.json value; "" drops the key
+		rc    int
+		out   string
+	}{
+		{"round 0 passes", "0", 0, ""},
+		{"an absent round is caught", "", 1, "source.round is not set"},
+		{"a negative round is caught", "-1", 1, "source.round"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			repo, sha := ptRepo(t)
+			root := repo + "/docs/prompt-tuning"
+			dir := ptWrite(t, root, ptCase(sha))
+			b, err := os.ReadFile(dir + "/case.json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var m map[string]any
+			if err := json.Unmarshal(b, &m); err != nil {
+				t.Fatal(err)
+			}
+			src := m["source"].(map[string]any)
+			delete(src, "round")
+			if tc.round != "" {
+				src["round"] = json.RawMessage(tc.round)
+			}
+			b, err = json.Marshal(m)
+			if err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, dir+"/case.json", string(b))
+			var c prompttuning.Case
+			if err := json.Unmarshal(b, &c); err != nil {
+				t.Fatal(err)
+			}
+			page, err := prompttuning.Render(c, prompttuning.Files{
+				Finding:  "the refusal path has no test",
+				BadDiff:  "--- a/stats/thing/widget.go\n+++ b/stats/thing/widget.go\n+bad\n",
+				GoodDiff: "--- a/stats/thing/widget.go\n+++ b/stats/thing/widget.go\n+good\n",
+				Task:     "the task text",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, dir+"/index.html", string(page))
+			env := Env{Getenv: func(k string) string {
+				if k == "FLOW_GUARD_REPO_ROOT" {
+					return repo
+				}
+				return os.Getenv(k)
+			}, Dir: repo}
+			var o, e bytes.Buffer
+			rc := checkPromptTuningCases(nil, env, &o, &e)
+			out := o.String() + e.String()
+			if rc != tc.rc || (tc.out != "" && !strings.Contains(out, tc.out)) {
+				t.Fatalf("rc %d, want %d; output %q, want %q", rc, tc.rc, out, tc.out)
 			}
 		})
 	}

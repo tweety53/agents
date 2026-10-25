@@ -124,8 +124,11 @@ func ptCheckCase(env Env, git, repo, dir string) []string {
 			bad = append(bad, fmt.Sprintf("%s: %s is empty", cj, name))
 		}
 	}
-	if c.Source.Round < 1 {
+	switch {
+	case c.Source.Round == nil:
 		bad = append(bad, fmt.Sprintf("%s: source.round is not set", cj))
+	case *c.Source.Round < 0:
+		bad = append(bad, fmt.Sprintf("%s: source.round %d is negative", cj, *c.Source.Round))
 	}
 	switch c.Type {
 	case "implementer":
