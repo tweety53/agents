@@ -1,0 +1,141 @@
+# kan-1032: the angle count moves from seven to eight, and angle 8 and step 2a are new rules.
+**A finding is fixed or filed only from the seven angles.
+**One combined pass** — never seven separate reads.
+Commit both paths in one commit through the landing chain's one script — the same invocation `skills/flow/integrate.md` step 4 lands the report with, differing in the asserted branch, the removed context-bundle path and the `--push` — since the round-trip through the seven-angle pass and the filing-and-rating prompt above is long enough that the branch is worth re-checking rather than trusted from step 1 alone:
+It reads the context bundle an older `/flow` or `/flow-fast` run saved — newer runs run the same pass in-run — dispatches the seven-angle reasoning pass, plans, fixes and lands every finding that is not big, files the big ones, mines the flow-eval cases the operator approves, rates, records each finding in the flow store, writes the report, deletes the bundle, and lands both on the default branch.
+Over that bundle run steps 2–6 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`), canonical for the seven angles, the fix loop, where the fixes land — on `<name>` itself when `<worktree>` is `<agents repo>`'s — the filing-and-rating prompt and the store rows.
+Over that bundle the session runs steps 2–6 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`), canonical for the seven angles, the fix loop and its dispatch pairs, where the fixes land, the filing-and-rating prompt and the store rows.
+Read the bundle and run the seven angles
+The pass runs the seven-angle table over the bundle, every angle explicit — present-but-empty for an angle with no findings, never omitted:
+The report carries no section beyond the seven angles and the rating.
+This file is canonical for the seven angles, what is fixed, what may be filed and what may be mined, the filing-and-rating prompt, the store record and the report.
+Write `<project>/docs/self-review/<name>-self-review.md` in the shape `<project>/scripts/check-self-review-report.sh` checks — one section per angle, all seven present; each finding one line naming its angle's label, the finding, and its disposition (`fixed: <sha>`, `filed: <KEY>`, `declined` or `noted`); an angle with no findings carrying the explicit none-marker — plus one line under the title:
+**A finding is fixed or filed only from the eight angles.
+**One combined pass** — never eight separate reads.
+**Zero cases is a normal result** — the section then carries the none-marker like any empty angle.
+**`implementer`** — a rule in the implementer instructions (`skills/flow/implement.md`, `skills/flow/sdd-dispatch.md`, `skills/flow/engineering-principles.md`) would have prevented the bad code.
+**`reviewer`** — either a **miss**, a defect raised only in a later round or by a later slot that a round-1 reviewer instruction (`skills/flow/*-reviewer-prompt.md`, `skills/flow/reviewer-calibration.md`) would have caught, or a **false positive**, a finding later disproved or withdrawn that cost a fix round for nothing.
+- **[flow-prompt-tuning]** <defect class> — <type> — docs/prompt-tuning/<case-id>/ — noted
+A Critical finding qualifies; an Important finding qualifies; a Minor finding qualifies only when the pass judges it genuinely useful, meaning it is in a class the prompts should handle and would recur.
+A case is picked only when its `why_picked` states all four:
+A finding is a case only when its root cause is a generic gap in instructions:
+A pass with no angle-8 case writes nothing here.
+A red line is fixed by rewriting the field it names; a case no generic rewrite passes is dropped, and its report line says so, disposition `noted`.
+An axis is pinned only when the rule would be wrong or meaningless without it: a rule true for both layers of a language leaves the layer open, and a rule true in every language on one layer leaves the language open.
+Angle 8 reads the run's review-panel findings, each judged alone on its own severity — no severity needs another alongside it.
+Being one vivid incident is never enough.
+Commit both paths in one commit through the landing chain's one script — the same invocation `skills/flow/integrate.md` step 4 lands the report with, differing in the asserted branch, the removed context-bundle path and the `--push` — since the round-trip through the eight-angle pass and the filing-and-rating prompt above is long enough that the branch is worth re-checking rather than trusted from step 1 alone:
+Every `rules/` target is an opt-in rule file a project receives only by naming it in its `.flow/project.md` `## standards`; a scoped rule never goes into a shared prompt.
+Every case carries a `scope` along two independent axes, language and layer (`frontend` or `backend`), each pinned or left open:
+Every case is recorded `noted` — never fixed in step 3, never offered for filing in step 4 and never asked about, in a run or standalone — its report line naming its folder:
+If yes, that axis stays open.
+It reads the context bundle an older `/flow` or `/flow-fast` run saved — newer runs run the same pass in-run — dispatches the eight-angle reasoning pass, plans, fixes and lands every finding that is not big, files the big ones, mines the flow-eval cases the operator approves, rates, records each finding in the flow store, writes the report, deletes the bundle, and lands both on the default branch.
+Once a case's files are written, run `flow prompt-tuning render <case-dir>`, then `<agents repo>/scripts/check-prompt-tuning-cases.sh` over the new folders.
+Otherwise this session, after the pass and before step 3, writes each case to `<agents repo>/docs/prompt-tuning/<case-id>/`, `<case-id>` being `<name>-<n>`, `<n>` counting from 1 within the change:
+Read the bundle and run the eight angles
+The cases are committed as `docs(prompt-tuning): <name> cases` on the branch step 3 names as `<fix-branch>`: inside a run whose canonical repository is `<agents repo>`, the change's own branch, landed by the run's own route; otherwise, and standalone, `self-review-<name>`.
+The current prompt text quoted, showing that no rule covers the class — the case's `target` and its `before` are that quote.
+The defect class in one sentence, with no names from the task.
+The pass never lowers the bar to produce a case; a finding that fails any of the four is not picked and not mentioned.
+The pass picks the widest scope that is still true.
+The pass returns each case's `case.json` fields (step 2a); it writes nothing.
+The pass runs the eight-angle table over the bundle, every angle explicit — present-but-empty for an angle with no findings, never omitted:
+The report carries no section beyond the eight angles and the rating.
+The test, per axis: would the rule still be true, word for word, in a project on the other layer, or in another language?
+This file is canonical for the eight angles, what is fixed, what may be filed and what may be mined, the filing-and-rating prompt, the store record and the report.
+When step 3 has no worktree — no non-`big` finding — this session creates it with `<agents repo>/scripts/pipeline-fix.sh start <name>`, commits the cases there and lands that cases-only branch by step 3 item 5's route; `check-loop-landing.sh` admits a `self-review-*` branch whose diff touches only `docs/prompt-tuning/` without loop rows.
+Why the update generalises: other code it would apply to, or other runs that show the class.
+Why the update is not patch accretion: it states a principle, not a special case.
+Write `<project>/docs/self-review/<name>-self-review.md` in the shape `<project>/scripts/check-self-review-report.sh` checks — one section per angle, all eight present; each finding one line naming its angle's label, the finding, and its disposition (`fixed: <sha>`, `filed: <KEY>`, `declined` or `noted`); an angle with no findings carrying the explicit none-marker — plus one line under the title:
+Write the prompt-tuning cases
+`<lang>` is the lowercase language name (`kotlin`, `go`, `typescript`).
+`bad.diff`, `good.diff` and `task.md` are extracted with `git -C <repo> show` exactly as angle 7's extraction does.
+| 8 | Instruction gaps that cost review-panel fix rounds, and the generic implementer or reviewer prompt update that would have avoided them | `flow-prompt-tuning` |
+| File | Content |
+| `bad.diff` | the code as the implementer first wrote it: the hunk(s) the finding names, from the commit before the fix |
+| `case.json` | `id`, `type` (`implementer`/`reviewer`), `reviewer_kind` (`miss`/`false-positive`, reviewer only), `scope` (one of the four forms of angle 8's scope table), `source` {`project`, `change`, `jira`, `repo`, `fix_sha`, `finding_ref`, `round`, `slot`, `severity`}, `target` (agents-repo-relative prompt path), `target_sha` (the agents commit the `before` text was read at), `defect_class`, `why_picked`, `before`, `after` |
+| `finding.md` | the reviewer's own sentence, severity, location |
+| `generic` | every language, frontend and backend | the shared prompt under `skills/` |
+| `good.diff` | the fix-round commit's diff for those hunks (`git show <fix_sha>`) |
+| `index.html` | rendered by `flow prompt-tuning render <case-dir>` from the files above, never written by hand |
+| `language:<lang>/layer:<frontend\|backend>` | one language on one layer | `rules/lang-<lang>-<frontend\|backend>.mdc` |
+| `language:<lang>` | one language, frontend and backend | `rules/lang-<lang>.mdc` |
+| `layer:<frontend\|backend>` | one layer, every language | `rules/layer-<frontend\|backend>.mdc` |
+| `scope` | The rule holds in | Target |
+| `task.md` | the task text as `tasks.md` recorded it (implementer cases; `none` for reviewer cases) |
+\## Every dispatch
+\## Workspace
+**Announce at start:** "Using flow-prompt-tuning."
+**Grader** — a grader dispatch judges each run against the case's `finding.md`: was the defect present (or raised), yes or no, with one line of evidence.
+**Input:** none.
+**Pass rule:** arm A shows the problem in at least 2 of 3 runs, and arm B avoids it in at least 2 of 3.
+**Standalone, not a pipeline stage** — it takes no argument, writes no state file, and marks no `flow stage` call.
+**When done:** nothing further to run — the updates and the ledger are already landed.
+**`implementer` case** — an implementer dispatch given `task.md` and the pre-change code, writing in a scratch directory under the session's scratchpad, never in a repository.
+**`reviewer` case** — a reviewer dispatch over `bad.diff` (a miss) or `good.diff` plus the finding's location (a false positive), with the target prompt as its instructions.
+- <UTC date> · `<case-id>` · <type> · `<target>` · <defect class> — <one-line summary of the update> — applied <sha>
+- <UTC date> · `<case-id>` · <type> · `<target>` · <defect class> — <one-line summary of the update> — rejected: <reason>
+A group passes when every one of its cases passes.
+A group that created a `rules/` file says the file reaches a project only once that project names it in `## standards`.
+A group's evidence is every case in it.
+A non-`generic` group whose `rules/` target does not exist creates it as a new file of its own kind, a prompt-tuning rule file: a header stating the file holds rules `/flow-prompt-tuning` applied for scope `<scope>`, each proven by an A/B replay, and that a project receives it only by naming it in its `<project>/.flow/project.md` `## standards`; then the update as its first rule.
+A prompt-tuning update never goes into a hand-written standard such as `rules/kotlin-backend-development-standard.mdc`, nor reuses its header.
+A replay dispatch never writes in a repository.
+A shows it in fewer than 2: the case is rejected `not reproducible`.
+All work happens in the worktree `<agents repo>-worktrees/prompt-tuning-<UTC date>`, on a branch of the same name off `origin/<default-branch>`, `<UTC date>` being `date -u +%Y-%m-%d`:
+An argument is reported rather than ignored.
+Any argument is reported rather than ignored.
+Append one entry per case to `<agents repo>/docs/prompt-tuning/LEDGER.md` and `git rm -r` its folder.
+Apply each passing group's update to its target in `<worktree>`, one commit per group.
+Arm A carries the target's current text, arm B the text with the update applied.
+B fails: rejected `no effect`.
+Cases with the same `target` and the same defect class become one group with one merged generic `after`.
+Every `rules/` target is an opt-in rule file a project receives only by naming it in its `<project>/.flow/project.md` `## standards`; a scoped rule never goes into a shared prompt.
+Every dispatch below runs on **opus**, passed explicitly as `model: "opus"`, and its prompt carries these two sentences verbatim:
+For an applied case, `<sha>` is the commit that applied it.
+For every case of the group, 3 runs per arm.
+If a group's `before` no longer occurs in the target at `<worktree>`'s HEAD, re-locate it.
+If the gap is gone, the group is rejected as `already covered`, with the line now covering it quoted.
+It takes no argument, writes no state file and marks no `flow stage` call.
+It walks the pending cases under `<agents repo>/docs/prompt-tuning/`, groups those proposing the same update, A/B-replays each group on opus, applies the updates that pass, records every case in the ledger, deletes the case folders and lands the result by the agents repository's default landing route.
+Land the branch by `<agents repo>`'s `## default landing route` (`project-get.sh <agents repo> 'default landing route'`), without asking.
+Ledger and cleanup
+List `<worktree>/docs/prompt-tuning/*/`.
+Never apply an update whose group did not pass the replay.
+Never edit the main checkout.
+No review panel runs over the prompt edits: the replay and the `## lint` guards are the gate.
+None: print `none pending`, remove the worktree and stop.
+One line per group: target, defect class, applied or rejected with its reason.
+Otherwise the update is rewritten against the current text and re-checked by the genericity rules of `check-prompt-tuning-cases.sh`: the `after` names no source change, no Jira key, no `kan-<digits>` key and no path or basename from the case's `bad.diff`/`good.diff` headers.
+Rejected cases are recorded too, so the same case is never re-mined:
+Replay (A/B)
+Run `check-prompt-tuning-cases.sh <worktree>/docs/prompt-tuning`; a case it names in a red line is reported by its folder and left untouched — never replayed, applied, recorded or deleted.
+The agents main checkout stays read-only.
+The ledger entries and the folder removals go in one commit, `docs(prompt-tuning): ledger <UTC date>`, after the update commits.
+The merge states the principle once — one idea per update.
+Then remove the worktree.
+Then run `<agents repo>/.flow/project.md`'s `## lint` lines for the touched files; a red line is fixed before the next step.
+Use for /flow-prompt-tuning.
+Use the **flow-prompt-tuning** skill — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
+Walk the prompt-tuning cases the self-review's angle 8, `flow-prompt-tuning`, saved — **2. Read the bundle and run the eight angles** and **2a.
+When step 3 has no worktree — no non-`big` finding — this session creates it with `<agents repo>/scripts/pipeline-fix.sh start <name>`, commits the cases there and lands that cases-only branch by step 3 item 5's route; `check-loop-landing.sh` admits a `self-review-*` branch whose diff touches only `<agents repo>/docs/prompt-tuning/` without loop rows.
+`<worktree>` below is that worktree.
+`check-prompt-tuning-cases.sh` must exit 0 on the result before it is committed.
+allowed-tools: Bash(git:*), Bash(flow:*), Bash(scripts/check-prompt-tuning-cases.sh:*), Bash(scripts/project-get.sh:*) license: MIT compatibility: Runs from the agents repository's main checkout, which stays read-only; needs the flow CLI and the Agent tool.
+description: Apply the generic implementer/reviewer prompt updates the self-review's prompt-tuning angle saved, after an A/B replay proves each; record each case in docs/prompt-tuning/LEDGER.md and remove its folder
+git -C <agents repo> fetch origin
+git -C <agents repo> worktree add -b prompt-tuning-<UTC date> <agents repo>-worktrees/prompt-tuning-<UTC date> origin/<default-branch>
+name: flow-prompt-tuning description: Apply the generic implementer and reviewer prompt updates the self-review's prompt-tuning angle saved, after an A/B replay on each case's repro data proves them; record every case in docs/prompt-tuning/LEDGER.md, remove its folder and land the result.
+| `/flow-prompt-tuning` | `flow-prompt-tuning` | Applies the generic implementer/reviewer prompt updates the self-review's prompt-tuning angle saved, after an A/B replay proves each; records each case in docs/prompt-tuning/LEDGER.md and removes its folder.
+├── flow-prompt-tuning/ ← /flow-prompt-tuning (replay and apply saved prompt updates)
+- <date> · `<case-id>` · <type> · `<target>` · <defect class> — <one-line summary of the update> — applied <sha>
+- <date> · `<case-id>` · <type> · `<target>` · <defect class> — <one-line summary of the update> — rejected: <reason>
+All work happens in the worktree `<agents repo>-worktrees/prompt-tuning-<date>`, on a branch of the same name off `origin/<default-branch>`, `<date>` being the UTC date `date -u +%Y-%m-%d` prints:
+Run `check-prompt-tuning-cases.sh <agents repo>-worktrees/prompt-tuning-<date>/docs/prompt-tuning`; a case it names in a red line is reported by its folder and left untouched — never replayed, applied, recorded or deleted.
+The ledger entries and the folder removals go in one commit, `docs(prompt-tuning): ledger <date>`, after the update commits.
+git -C <agents repo> worktree add -b prompt-tuning-<date> <agents repo>-worktrees/prompt-tuning-<date> origin/<default-branch>
+Before it is committed, `check-prompt-tuning-cases.sh` over the same root prints no line for `LEDGER.md` and none for a folder this run replayed; a line for a red case step 1 left untouched is expected and stays.
+In that worktree it writes each case to `<agents repo>-worktrees/<fix-branch>/docs/prompt-tuning/<case-id>/` (the change's own worktree on its own branch), `<case-id>` being `<name>-<n>`, `<n>` counting from 1 within the change:
+Otherwise this session, after the pass and before step 3, first resolves the worktree of `<fix-branch>` — the branch named at the end of this step — creating it with `<agents repo>/scripts/pipeline-fix.sh start <name>` when it is `self-review-<name>` and absent; it never writes the agents main checkout.
+When step 3 has no worktree — no non-`big` finding — the worktree this step created carries the cases alone: this session commits them there and lands that cases-only branch by step 3 item 5's route; `check-loop-landing.sh` admits a `self-review-*` branch whose diff touches only `<agents repo>/docs/prompt-tuning/` without loop rows.
+It writes each case into that worktree — `<agents repo>-worktrees/<name>/docs/prompt-tuning/<case-id>/` on the change's own branch, `<agents repo>-worktrees/self-review-<name>/docs/prompt-tuning/<case-id>/` otherwise, `<case-id>` being `<name>-<n>`, `<n>` counting from 1 within the change:
