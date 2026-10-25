@@ -626,3 +626,45 @@ func TestCheckPlanShapeF11Reachability(t *testing.T) {
 		t.Errorf("no path between tasks 1 and 3 is F11: rc=%d out=%q", r.rc, r.out)
 	}
 }
+
+// TestPlanShapeDesignSections pins F19: a plan-mode plan needs the four
+// design.md sections; a plan without the header line is not checked.
+func TestPlanShapeDesignSections(t *testing.T) {
+	const header = "> **Design shape:** plan-mode\n\n"
+	full := "## Recommended approach\n\n## Critical files\n\n## Existing code to reuse\n\n## Verification\n"
+	check := func(t *testing.T, tasks, design string) guardResult {
+		t.Helper()
+		p := psFixture(t, tasks)
+		if design != "" {
+			writeFile(t, filepath.Dir(p)+"/design.md", design)
+		}
+		return psMutant(p, "")
+	}
+	t.Run("all four sections pass", func(t *testing.T) {
+		if r := check(t, header+psTasks("a"), full); r.rc != 0 {
+			t.Errorf("rc=%d out=%s", r.rc, r.out)
+		}
+	})
+	t.Run("missing Verification fails naming it", func(t *testing.T) {
+		r := check(t, header+psTasks("a"), strings.Replace(full, "## Verification\n", "", 1))
+		if r.rc != 1 || !strings.Contains(r.out, "missing section ## Verification (Design shape: plan-mode)") || strings.Contains(r.out, "## Critical files") {
+			t.Errorf("rc=%d out=%s", r.rc, r.out)
+		}
+	})
+	t.Run("absent design.md fails naming the file", func(t *testing.T) {
+		if r := check(t, header+psTasks("a"), ""); r.rc != 1 || !strings.Contains(r.out, "design.md: missing file design.md") {
+			t.Errorf("rc=%d out=%s", r.rc, r.out)
+		}
+	})
+	t.Run("no header line is not checked", func(t *testing.T) {
+		if r := check(t, psTasks("a"), "# nothing\n"); r.rc != 0 {
+			t.Errorf("rc=%d out=%s", r.rc, r.out)
+		}
+	})
+	t.Run("the mutation disabling F19 lets a gap through", func(t *testing.T) {
+		p := psFixture(t, header+psTasks("a"))
+		if r := psMutant(p, "F19"); r.rc != 0 {
+			t.Errorf("rc=%d out=%s", r.rc, r.out)
+		}
+	})
+}
