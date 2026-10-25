@@ -54,9 +54,9 @@ wording, per decision `planning-skill-flow-free`.
 
 **Decision:** mode-by-install
 
-- [ ] 3. spectre: the manifest test's comment names what UPSTREAM.md now holds
-  - [ ] **Step 1: In the spectre worktree `/Users/tweety53/Projects/spectre-worktrees/kan-1034-spectre-optional-bundled-planning-prompts-that`, reword the comment above `TestPluginShipsSpectrePlanning` in `plugin_manifest_test.go`: "with the UPSTREAM.md that names its source commit" becomes "with the UPSTREAM.md that names its source path on agents main".**
-  - [ ] **Step 2: Verify: `gofmt -l . && go vet ./... && go test -run 'TestPluginShipsSpectrePlanning' -count=1 .` in the spectre worktree, then `git grep -n -F -e 'names its source commit' -- plugin_manifest_test.go` prints nothing.**
+- [x] 3. spectre: the manifest test's comment names what UPSTREAM.md now holds
+  - [x] **Step 1: In the spectre worktree `/Users/tweety53/Projects/spectre-worktrees/kan-1034-spectre-optional-bundled-planning-prompts-that`, reword the comment above `TestPluginShipsSpectrePlanning` in `plugin_manifest_test.go`: "with the UPSTREAM.md that names its source commit" becomes "with the UPSTREAM.md that names its source path on agents main".**
+  - [x] **Step 2: Verify: `gofmt -l . && go vet ./... && go test -run 'TestPluginShipsSpectrePlanning' -count=1 .` in the spectre worktree, then `git grep -n -F -e 'names its source commit' -- plugin_manifest_test.go` prints nothing.**
 **Build:** green
 **Files:** `plugin_manifest_test.go`
 **Tests:** none — repairs existing tests: `TestPluginShipsSpectrePlanning`
