@@ -556,7 +556,7 @@ commit local and this run names it — never retried around.
 
 ### 8. Report
 
-End naming the report path, the rating, the shas landed, the Jira keys filed and the flow-eval cases mined, by branch and sha (each `none` when empty), each chosen candidate left unmined with its `case add` command, and each product defect the pass met (**the sweep**, `skills/flow-contracts/known-bugs.md`).
+End naming the report path, the rating, the shas landed, the Jira keys filed and the flow-eval cases mined, by branch and sha, each prompt-tuning case written in step 2a by the absolute path of its `index.html` in `<agents repo>`'s main checkout once landed (`<agents repo>/docs/prompt-tuning/<case-id>/index.html`) (each `none` when empty), each chosen candidate left unmined with its `case add` command, and each product defect the pass met (**the sweep**, `skills/flow-contracts/known-bugs.md`).
 
 ## Guardrails
 
