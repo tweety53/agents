@@ -1,0 +1,67 @@
+# Sentences kan-1033-plan-mode-planning rewords or adds on purpose: the planning dispatch ban
+# narrowed to forks (agent-tool-everywhere), the planner pairs on flow-planner-<effort>
+# (planner-carries-agent), the four plan sections of design.md (design-shape-line) and
+# /flow-plan's dispatch statements (flow-plan-records-nothing).
+**No `flow record dispatch` call** either — this mode dispatches nothing.
+**No dispatch of any kind from kickoff to the plan gate — a `fork` included.
+**The planner pair** is the `plan` row, **the fixer pair** the `fix` row and **the review pair** the two `review` rows: the first review on `flow-medium` or `flow-low` as the planner recorded — `flow-medium` when it recorded none — and every re-review after a fix on `flow-low` and `sonnet`.
+**This session plans, changes and reviews nothing itself** (`design.md`, `one-shot-subagent-fix-loop`), save item 4's ticks and archive commit and **The base sync** below: each numbered step below that does is a fresh dispatch on the pair it names, never a fork of this session (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), its prompt carrying the MODEL HANDSHAKE, TOOLS, FOREGROUND BUILDS and NO DELEGATION paragraphs of **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) verbatim — a review's READ-ONLY REVIEW too — with **The handshake** there applying to each reply.
+**design.md** — how, from the approved design, carrying `## Context`, `## Decisions` and `## Open questions` (the last two below)
+A finding a re-plan did not solve — the same finding back on the same evidence — escalates the planner rather than leaving the loop: that re-plan, key `self-review-<name>-plan-<n>`, is the no-progress escalation and may run on `flow-high` (effort `high`) in place of the planner pair's `flow-medium`.
+Artifact creation, writing-plans, the guards and Decide all run in this session's own turns.
+No subagent is dispatched: the session itself reads the tree, runs the investigate-then-ask rounds and the convergence check below, and creates the change or offers the `design.md` capture directly.
+Sections **B**, **C** and **D** of the brainstorming phase, run by whichever session is executing `/flow`'s brainstorming stage — or, for **C**, **D** and **Decide**, a `/flow-plan` capture (**Capturing a new change**, `skills/flow-plan/SKILL.md`) — no dispatched subagent, no relay, save the self-review planner, which runs B, C and D as item 1 of **3. Fix every finding that is not `big`** (`skills/flow-self-review/SKILL.md`) binds them, and the in-run fix planner, which runs them as **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline.md`) binds them.
+`flow-medium` carries no Skill tool, so the prompt names the path of the installed superpowers plugin's `skills/brainstorming/SKILL.md` and `skills/writing-plans/SKILL.md` — on Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/<skill>/SKILL.md` — and the planner reads and follows each file where those sections invoke its skill.
+| `plan`, `plan-<n>` | `flow-medium` | `opus` | `flow-high` |
+\## Critical files
+\## Existing code to reuse
+\## Recommended approach
+\## Verification
+\### Explore and design agents
+**Competing designs for a change that is not trivial** — more than one valid approach, a cross-cutting change, or an architectural choice: dispatch 1–3 Plan agents (`subagent_type: "Plan"`) in one message, each briefed with the Explore conclusions and its own angle — simplest, most robust, best fit with existing patterns.
+**Every planning dispatch** takes its pair from `plan-agent-pair.sh <seed> <n>` — `<seed>` the change name (in `/flow-plan` before capture, the session token; for the self-review and in-run fix planners, their own `Key:`), `<n>` counting the session's planning dispatches from 1 — passing the printed model as the Agent tool's `model` and the effort as its `effort`.
+**Explore before the first question.
+**No `flow record dispatch` call** either — no change exists to record a planning dispatch against before capture (decision `flow-plan-records-nothing`, kan-1033).
+**No `fork` from kickoff to the plan gate.
+**PLANNING DELEGATION:** You may dispatch fresh `Explore` and `Plan` subagents through the `Agent` tool while you plan, per **B.
+**Plan mode on Claude Code.
+**The four plan sections** of **C.
+**The planner pair** is the `plan` row — `flow-planner-medium` by default, `flow-planner-low` when every finding the plan carries is mechanical, this session recording the one-line reason with the dispatch; the `flow-planner-<effort>` definitions are the `flow-<effort>` ones plus `Agent` (decision `planner-carries-agent`, kan-1033) — **the fixer pair** the `fix` row and **the review pair** the two `review` rows: the first review on `flow-medium` or `flow-low` as the planner recorded — `flow-medium` when it recorded none — and every re-review after a fix on `flow-low` and `sonnet`.
+**design.md** — how, from the approved design, carrying `## Context`, `## Decisions` and `## Open questions` (the last two below), and four plan sections, each kept even when short:
+-key explore-<n>|design-<n> -session-token mf-<literal-token>
+A change with one obvious approach skips this step and records why under `## Recommended approach`.
+A declined `EnterPlanMode` consent is one line, and planning continues without plan mode, exactly as on another harness.
+A declined `EnterPlanMode` consent is one line, and the session continues without plan mode.
+A finding a re-plan did not solve — the same finding back on the same evidence — escalates the planner rather than leaving the loop: that re-plan, key `self-review-<name>-plan-<n>`, is the no-progress escalation and may run on `flow-planner-high` (effort `high`) in place of the planner pair's `flow-planner-medium` or `flow-planner-low`.
+A research session that ends without a capture never calls `ExitPlanMode`.
+Before the first design question — after the withdrawal reachability check, when that runs — dispatch 1–3 Explore agents (`subagent_type: "Explore"`) in one message, so they run concurrently, each on a different area: the code the change touches, existing patterns and utilities to reuse, and the tests and guards around it.
+Call `ExitPlanMode` only once the session reaches a capturable design, as the design approval, before the capture question — which is still asked after approval.
+Compare their proposals and recommend one.
+Each alternative you reject becomes the `**Considered:**` line of the matching `## Decisions` entry, with the tradeoff that ruled it out.
+Each dispatch's model and effort come from `plan-agent-pair.sh <your Key> <n>`, `<n>` counting your planning dispatches from 1, and every dispatch prompt carries the two sentences of **Propagate this** (`~/.claude/rules/agent-baseline.md`) verbatim.
+Every other gate is unchanged, the plan review gate included.
+Fixing, implementing and reviewing are never delegated.
+In `/flow` and `/flow-plan` the recommendation goes to the operator as part of the design, its alternatives shown only when they help the operator decide.
+Investigation, questions and competing designs run inside plan mode.
+Its prompt carries the two agent-baseline sentences and the report-tersely line (`~/.claude/rules/dispatch-carries-the-baseline.md`) and a narrow, explicit scope: what to look at, what is already known, what to return.
+Never a `fork`, and never an agent that edits files.
+On Claude Code, `/flow` and `/flow-plan` take the approval from `ExitPlanMode` instead — the merged confirm still closes the checklist (decision `exit-plan-mode-is-approval`, kan-1033).
+Once convergence closes, write the design to the plan file the harness names and call `ExitPlanMode`: **Approve** is the HARD GATE's design approval (**The checklist**, `skills/flow/brainstorm-planner.md`) — save the design under `<project>-worktrees/<name>/.superpowers/sdd/` and continue into section **C**; **reject with feedback** reopens convergence with the feedback as the next round's input.
+One when the change is confined to one known area; more when its scope is uncertain or spans areas.
+Seed `> **Design shape:** plan-mode` into the same block of every plan: on a `tasks.md` carrying it, `check-plan-shape.sh` refuses a sibling `design.md` missing any of section **C**'s four plan sections (decision `design-shape-line`, kan-1033).
+The agents investigate and propose; you decide, and every choice is auto-resolved to its recommended option.
+The agents investigate and propose; you decide.
+The plan dispatch carries, in place of NO DELEGATION:
+Their conclusions feed the questions; they never replace asking.
+Then read the critical files the agents name yourself before asking anything.
+When `<harness>` is `claude-code`, call `EnterPlanMode` at session start.
+When `<harness>` is `claude-code`, call `EnterPlanMode` right after `flow.brainstorm` begins — `STARTED` and the worktree already exist — and before the Explore phase.
+`## Critical files` — every file the change edits or depends on, by repository-relative path, one line on its role each;
+`## Existing code to reuse` — the functions, scripts, guards and patterns the change builds on, by path (and symbol); `none` only with a one-line reason;
+`## Recommended approach` — the one chosen approach in prose, with a one-line reason for each rejected alternative pointing at its decision ID;
+`## Verification` — how to prove the change works end to end: the commands, the run or scenario to exercise, and what is observed, beyond each task's own verify step.
+`/flow` records each planning dispatch under `flow.brainstorm`, its pair from `plan-agent-pair.sh <name> <n>`, `<n>` counting this run's planning dispatches from 1 — role `explorer` for an Explore agent, `planner` for a Plan agent:
+`flow-planner-medium`, like every `flow-<effort>` definition, carries no Skill tool, so the prompt names the path of the installed superpowers plugin's `skills/brainstorming/SKILL.md` and `skills/writing-plans/SKILL.md` — on Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/<skill>/SKILL.md` — and the planner reads and follows each file where those sections invoke its skill.
+flow record dispatch begin -change <name> -role explorer|planner -model <m> -effort low \
+flow record dispatch end -change <name> -key explore-<n>|design-<n> -session-token mf-<literal-token> -outcome completed
+| `plan`, `plan-<n>` | `flow-planner-medium`, `flow-planner-low` | `opus` | `flow-planner-high` |
