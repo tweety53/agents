@@ -166,9 +166,11 @@ same name off `origin/<default-branch>`.
      2 of 3. A shows it in fewer than 2: rejected `not reproducible`. B fails: rejected `no effect`.
      A group passes when every one of its cases passes.
 5. **Apply** each passing group's update to its target in the worktree. A non-`generic` group
-   whose `rules/` target does not exist creates it, carrying the opt-in header of
-   `rules/kotlin-backend-development-standard.mdc` reworded for that scope, with the update as
-   its first rule; the final report's line for the group says the file reaches a project only once
+   whose `rules/` target does not exist creates it as a new file of its own kind, a prompt-tuning rule file:
+   a header stating the file holds rules `/flow-prompt-tuning` applied for scope `<scope>`, each
+   proven by an A/B replay, and that a project receives it only by naming it in `## standards`;
+   then the update as its first rule. A prompt-tuning update never goes into a hand-written
+   standard such as `rules/kotlin-backend-development-standard.mdc`, nor reuses its header; the final report's line for the group says the file reaches a project only once
    that project names it in `## standards`. Then run `.flow/project.md`'s
    `## lint` lines for the touched files.
 6. **Ledger and cleanup.** Append one entry per case to `docs/prompt-tuning/LEDGER.md` and
@@ -247,14 +249,17 @@ a prompt, and a durable trace of each once its folder is gone.
 **Status:** active
 **Chosen:** a scope on two independent axes, language and side (`fe`/`be`), each pinned or open —
 four scopes, see §1. A scoped update goes to the matching opt-in `rules/` file a project names in
-`## standards`, the existing mechanism `kotlin-backend-development-standard.mdc` uses; a rule true
-for both sides leaves the side open (operator's answer).
+`## standards`; a rule true for both sides leaves the side open (operator's answer). The scoped
+files are their own kind, prompt-tuning rule files, separate from the hand-written standards
+(operator's answer).
 **Considered:** applying it to the shared prompts for every run — rejected because a language rule
 costs tokens in every other language's runs and misleads them, and the genericity guard alone
 cannot tell a language-only rule from a universal one. Language alone — rejected because one
 language can span both sides (gymie's backend and Compose frontend are both Kotlin), so a backend
 rule would reach the frontend. Side as a sub-case of language only — rejected because some rules hold
-on one side in every language.
+on one side in every language. Adding updates to
+`kotlin-backend-development-standard.mdc` — rejected because a hand-written architecture standard
+and replay-proven prompt rules are different kinds of rule (operator's answer).
 
 ### cases-in-agents-repo
 
