@@ -192,6 +192,27 @@ func TestCheckTaskRecords(t *testing.T) {
 	r = run(stub(fmt.Sprintf("printf '%%s\\n' '{\"worktrees\":{\"%s\":\"x\"}}'\n", t.TempDir())), fx.root)
 	want("case 19 non-repository record path is skipped", r.rc == 1 && has(r, "no commit with subject 'fix(peer): one'"), r)
 
+	fx = trRepo(t)
+	writeFile(t, fx.root+"/spectre/changes/fixture-change/link.md", link)
+	fx.task(1, "x", "fix(peer): one", "green")
+	fx.commitAll("docs(plan): fixture plan")
+	sdir := t.TempDir()
+	writeExec(t, sdir+"/flow", "#!/bin/sh\n"+fmt.Sprintf("[ \"$FLOW_ADDR\" = http://127.0.0.1:4173 ] || exit 1\nprintf '%%s\\n' '{\"worktrees\":{\"%s\":\"x\",\"%s\":\"y\"}}'\n", peer, fx.root))
+	addrs := map[string]string{"FLOW_ADDR": "http://127.0.0.1:6783", "FLOW_RECORDS_ADDR": "http://127.0.0.1:4173"}
+	base := pathEnv(sdir)
+	r = run(Env{
+		Getenv: func(k string) string {
+			if v, ok := addrs[k]; ok {
+				return v
+			}
+			return base(k)
+		},
+		Environ: func() []string {
+			return append(os.Environ(), "FLOW_ADDR="+addrs["FLOW_ADDR"], "FLOW_RECORDS_ADDR="+addrs["FLOW_RECORDS_ADDR"])
+		},
+	}, fx.root)
+	want("case 20 peer state read follows FLOW_RECORDS_ADDR", r.rc == 0 && r.out == "", r)
+
 	// Unlanded archives: a shim copy with no stats/ beside it cannot build
 	// flow-guard; the same copy with no lib/flow-guard.sh cannot load it.
 	u := t.TempDir()

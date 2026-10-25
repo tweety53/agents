@@ -388,7 +388,8 @@ func trSubjectMap(git func(...string) *exec.Cmd, root, rev string) map[string][]
 
 // trPeerHeads is the change's other worktrees, from its state record's
 // `worktrees` map, each with its HEAD's subject map — only for a cross-repo
-// change, one whose directory carries a `link.md`.
+// change, one whose directory carries a `link.md`. The state record lives in
+// the records store, so the read follows `FLOW_RECORDS_ADDR` when set.
 func trPeerHeads(env Env, git func(...string) *exec.Cmd, root, changeDir string) []trPeer {
 	flow, ok := lookPath(env, "flow")
 	if !isFile(changeDir+"/link.md") || !ok {
@@ -396,6 +397,10 @@ func trPeerHeads(env Env, git func(...string) *exec.Cmd, root, changeDir string)
 	}
 	cmd := exec.Command(flow, "state", "get", "-C", root, filepath.Base(changeDir))
 	cmd.Dir = env.Dir
+	cmd.Env = icChildEnv(env)
+	if a := env.Getenv("FLOW_RECORDS_ADDR"); a != "" {
+		cmd.Env = append(cmd.Env, "FLOW_ADDR="+a)
+	}
 	out, err := cmd.Output()
 	if err != nil {
 		return nil
