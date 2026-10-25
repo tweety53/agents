@@ -36,24 +36,24 @@ is a generic gap in instructions:
   round-1 reviewer instruction would have caught, or a **false positive**, a finding later disproved
   or withdrawn that cost a fix round for nothing.
 
-**Scope.** Every case carries a `scope` along two independent axes, language and side (`fe`
-frontend, `be` backend). Each axis is either pinned or left open, so there are four scopes:
+**Scope.** Every case carries a `scope` along two independent axes, language and layer (`frontend` or
+`backend`). Each axis is either pinned or left open, so there are four scopes:
 
 | `scope` | The rule holds in | Target |
 |---|---|---|
 | `generic` | every language, frontend and backend | the shared prompt under `skills/` |
 | `language:<lang>` | one language, frontend and backend | `rules/lang-<lang>.mdc` |
-| `side:<fe\|be>` | one side, every language | `rules/side-<fe\|be>.mdc` |
-| `language:<lang>/side:<fe\|be>` | one language on one side | `rules/lang-<lang>-<fe\|be>.mdc` |
+| `layer:<frontend\|backend>` | one layer, every language | `rules/layer-<frontend\|backend>.mdc` |
+| `language:<lang>/layer:<frontend\|backend>` | one language on one layer | `rules/lang-<lang>-<frontend\|backend>.mdc` |
 
 `<lang>` is the lowercase language name (`kotlin`, `go`, `typescript`). An axis is pinned only when
-the rule would be wrong or meaningless without it: a rule true for both sides of a language leaves
-the side open (`language:kotlin`, applying to a Kotlin backend and a Compose frontend alike), and a
-rule true in every language on one side leaves the language open. The test, per axis: would the
-rule still be true, word for word, in a project on the other side, or in another language? If yes,
+the rule would be wrong or meaningless without it: a rule true for both layers of a language leaves
+the layer open (`language:kotlin`, applying to a Kotlin backend and a Compose frontend alike), and a
+rule true in every language on one layer leaves the language open. The test, per axis: would the
+rule still be true, word for word, in a project on the other layer, or in another language? If yes,
 that axis stays open. The pass picks the widest scope that is still true. Every `rules/` target is
 an opt-in rule file a project receives only by naming it in its `.flow/project.md` `## standards`;
-a project can name several, for example `lang-kotlin.mdc`, `side-be.mdc` and `lang-kotlin-be.mdc`
+a project can name several, for example `lang-kotlin.mdc`, `layer-backend.mdc` and `lang-kotlin-backend.mdc`
 together. A scoped rule never goes into a shared prompt.
 
 **The bar for picking a case**, all four stated in the case's `why_picked`:
@@ -89,7 +89,7 @@ from 1 within the change:
 | `index.html` | rendered by `flow prompt-tuning render <dir>` from the files above, never written by hand |
 
 `index.html` shows, in order: the type, the defect class, the finding with the bad code, the fix with
-the good code, why it was picked, and the prompt update with the before and after texts side by side
+the good code, why it was picked, and the prompt update with the before and after texts layer by layer
 and the target path. It is one self-contained page: inline CSS, no script, no external asset. Code
 and prompt text are HTML-escaped through `html/template`.
 
@@ -109,7 +109,7 @@ or `dir`, and `LEDGER.md`:
 - every file of the table above present; `case.json` parses, every field non-empty; `type` in the
   enum; `reviewer_kind` present exactly when `type` is `reviewer`;
 - `scope` matches one of the four forms of §1's scope table (`<lang>` matching `[a-z0-9+#-]+`,
-  side `fe` or `be`), and `target` is the one that table maps it to: under `skills/` for `generic`,
+  layer `frontend` or `backend`), and `target` is the one that table maps it to: under `skills/` for `generic`,
   exactly the `rules/` file name otherwise;
 - `before` occurs verbatim in `git show <target_sha>:<target>`, or — for a non-`generic` case
   only — `before` is empty and `target` does not exist at `target_sha` (the case creates the file);
@@ -247,17 +247,17 @@ a prompt, and a durable trace of each once its folder is gone.
 
 **ID:** language-scoped-rules
 **Status:** active
-**Chosen:** a scope on two independent axes, language and side (`fe`/`be`), each pinned or open —
+**Chosen:** a scope on two independent axes, language and layer (`frontend`/`backend`), each pinned or open —
 four scopes, see §1. A scoped update goes to the matching opt-in `rules/` file a project names in
-`## standards`; a rule true for both sides leaves the side open (operator's answer). The scoped
+`## standards`; a rule true for both layers leaves the layer open (operator's answer). The scoped
 files are their own kind, prompt-tuning rule files, separate from the hand-written standards
 (operator's answer).
 **Considered:** applying it to the shared prompts for every run — rejected because a language rule
 costs tokens in every other language's runs and misleads them, and the genericity guard alone
 cannot tell a language-only rule from a universal one. Language alone — rejected because one
-language can span both sides (gymie's backend and Compose frontend are both Kotlin), so a backend
-rule would reach the frontend. Side as a sub-case of language only — rejected because some rules hold
-on one side in every language. Adding updates to
+language can span both layers (gymie's backend and Compose frontend are both Kotlin), so a backend
+rule would reach the frontend. Layer as a sub-case of language only — rejected because some rules hold
+on one layer in every language. Adding updates to
 `kotlin-backend-development-standard.mdc` — rejected because a hand-written architecture standard
 and replay-proven prompt rules are different kinds of rule (operator's answer).
 
