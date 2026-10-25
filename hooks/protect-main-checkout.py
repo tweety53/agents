@@ -114,6 +114,16 @@ FALLBACK_DEFAULT_BRANCHES = {"main", "master", "develop"}
 
 # A fix loop's branch, or a change's own branch a self-review loop may have run on
 # (check-loop-landing.sh answers LOOP-LANDING-NA for one with no loop rows).
+# A bare `cat > <file>` with no input of its own: it reads stdin, which a Bash call
+# never has, so it waits until the call times out.
+# ponytail: a line scan — a heredoc body line opening with `cat > <file>` is denied
+# too; parse heredocs out first if that ever bites.
+BARE_CAT_RE = re.compile(r"(?:^|[;&(]|\|\|)\s*cat\s*>>?\s*[^\s<>|;&()]+\s*(?=$|[;&)]|\|\|)", re.M)
+BARE_CAT_REASON = (
+    "a bare `cat > <file>` reads stdin, which a Bash call never has, so it waits until the "
+    "call times out — write the file with the Write tool, or give cat a heredoc "
+    "(`cat > <file> <<'EOF'`)"
+)
 LOOP_BRANCH_RE = re.compile(r"^(pipeline-fix-.+-[0-9]+|self-review-.+|spectre/.+)$")
 
 # The whole budget for check-loop-landing.sh calls in one command (every push it makes), well under the
@@ -1049,6 +1059,8 @@ def main():
         command = tool_input.get("command")
         if isinstance(command, str) and command:
             landings = []
+            if BARE_CAT_RE.search(command):
+                landings.append(BARE_CAT_REASON)
             candidates.extend(bash_hits(command, cwd, landings))
             if landings:
                 json.dump(

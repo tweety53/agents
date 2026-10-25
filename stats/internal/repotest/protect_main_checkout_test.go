@@ -521,3 +521,26 @@ func TestProtectMainCheckoutDeniesAnUntraileredChangeBranchCommit(t *testing.T) 
 	f.bash("5 amend", "allow", "{ROOT}", `git -C {SWT} commit --amend --no-edit`)
 	f.bash("6 another branch", "allow", "{ROOT}", `git -C {FWT} commit -m "fix(x): y"`)
 }
+
+// TestProtectMainCheckoutDeniesABareCatRedirect pins kan-1033's finding 4.2:
+// a bare `cat > <file>` reads stdin, which a Bash call never has, so it
+// hangs until the call times out; a cat with input of its own passes.
+func TestProtectMainCheckoutDeniesABareCatRedirect(t *testing.T) {
+	t.Parallel()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &pmFixture{t: t, home: t.TempDir(), vars: map[string]string{"ROOT": root}}
+	for _, c := range []string{"cat > /tmp/x.go", "cat >> f", "cat >f; echo", "a && cat > f", "false || cat > f", "(cat > f)"} {
+		f.check("deny "+c, func(t *testing.T) {
+			out := f.run(t, root, "Bash", map[string]string{"command": c})
+			if decision(out) != "deny" || !strings.Contains(out, "Write tool") || !strings.Contains(out, "heredoc") {
+				t.Errorf("out=%s", out)
+			}
+		})
+	}
+	for _, c := range []string{"cat > f <<'EOF'\nbody\nEOF", "cat > f < in", "x | cat > f", "cat a > f", "cat -n f > g", "echo cat > f", "concat > f"} {
+		f.bash("allow "+c, "allow", "{ROOT}", c)
+	}
+}
