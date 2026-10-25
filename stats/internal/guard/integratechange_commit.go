@@ -2,6 +2,7 @@ package guard
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -22,6 +23,7 @@ func (c *ic) commit() {
 	}
 	live := c.canon + "/" + c.spec + "/changes/" + c.name
 	arch := c.canon + "/" + c.spec + "/changes/archive/" + c.name
+	var named []string // the sha group of every in-format in-run fix line
 	for _, nf := range []string{live + "/narrative.md", arch + "/narrative.md"} {
 		b, err := os.ReadFile(nf)
 		if err != nil || !isFile(nf) {
@@ -29,7 +31,12 @@ func (c *ic) commit() {
 		}
 		var bad []string
 		for n, l := range icLines(string(b)) {
-			if icFixLine.MatchString(l) && !icFixFormat.MatchString(l) {
+			if !icFixLine.MatchString(l) {
+				continue
+			}
+			if m := icFixFormat.FindStringSubmatch(l); m != nil {
+				named = append(named, m[1])
+			} else {
 				bad = append(bad, fmt.Sprintf("%d:%s", n+1, l))
 			}
 		}
@@ -37,6 +44,7 @@ func (c *ic) commit() {
 			c.stop("narrative", nf+" holds in-run fix line(s) off the format 'In-run pipeline fix: <agents sha | deferred> — <the defect> (blast radius <N> files)': "+strings.Join(bad, "; ")+" — rewrite each to it, then re-run commit")
 		}
 	}
+	c.requireFixLines(named)
 	nf := live + "/narrative.md"
 	if !isFile(nf) && isFile(arch+"/narrative.md") {
 		nf = arch + "/narrative.md"
@@ -151,6 +159,41 @@ func (c *ic) commit() {
 		c.say("NEXT: the self-review report is already committed — skip the pass; integrate-change.sh land " + c.main + " " + c.name + " " + c.flags())
 	} else {
 		c.say("NEXT: run the self-review pass over `flow self-review bundle -C " + c.canon + " -change " + c.name + "` and land its report in " + c.canon + ", then integrate-change.sh land " + c.main + " " + c.name + " " + c.flags())
+	}
+}
+
+// requireFixLines stops `narrative` on each `flow-fix` row the store lists
+// as `fixed` whose ref no in-run fix line's sha (named) prefixes and the
+// self-review report does not carry (kan-1032 self-review: a landed in-run
+// fix was narrated without its line). An unreadable store skips the check.
+func (c *ic) requireFixLines(named []string) {
+	read := c.cmd("/", "flow", "self-review", "findings", "-C", c.main, "-change", c.name)
+	read.Stderr = nil
+	out, rc := c.capture(read)
+	var rows []struct{ Angle, Disposition, Ref string }
+	if rc != 0 || json.Unmarshal([]byte(out), &rows) != nil {
+		fmt.Fprintln(c.stderr, "integrate-change: warning: flow self-review findings unreadable — the in-run fix line check is skipped")
+		return
+	}
+	report, _ := os.ReadFile(c.report())
+	var missing []string
+	for _, r := range rows {
+		if r.Angle != "flow-fix" || r.Disposition != "fixed" || r.Ref == "" || bytes.Contains(report, []byte(r.Ref)) {
+			continue
+		}
+		found := false
+		for _, s := range named {
+			if strings.HasPrefix(r.Ref, s) || strings.HasPrefix(s, r.Ref) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			missing = append(missing, r.Ref[:min(7, len(r.Ref))])
+		}
+	}
+	if len(missing) > 0 {
+		c.stop("narrative", "no in-run fix line names the fixed flow-fix row(s) "+strings.Join(missing, ", ")+" — append 'In-run pipeline fix: <agents sha> — <the defect> (blast radius <N> files)' for each, then re-run commit")
 	}
 }
 

@@ -84,7 +84,7 @@ case "\$1 \$2" in
   "stage begin"|"stage end") echo "\$*" >>"$WORK/stages.log" ;;
   "stage sessions") [ -f "$WORK/fail-sessions" ] && exit 1; if [ "\$6" = flow.document-fix ]; then cat "$WORK/fix-sessions" 2>/dev/null || echo 0; else echo 0; fi ;;
   "record findings") [ -f "$WORK/fail-findings" ] && exit 1; echo '[]' ;;
-  "self-review findings") echo '[]' ;;
+  "self-review findings") cat "$WORK/sr-findings.json" 2>/dev/null || echo '[]' ;;
   "self-review bundle") printf 'found: 1 of 1 sources; skipped: 0 of 1 sources\n' ;;
   "self-review finding") echo "\$*" >>"$WORK/fixed.log" ;;
   "record dispatches") [ -f "$WORK/loop-rows" ] && exec cat "$WORK/loop-rows"; cat "$WORK/dispatches.json" 2>/dev/null || echo '[{"key":"task-1-implementer","outcome":"completed"},{"key":"verify","role":"verifier","outcome":"completed","startedAt":"2026-01-02T00:00:00Z"}]' ;;

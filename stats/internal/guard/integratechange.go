@@ -124,7 +124,10 @@ type ic struct {
 //	archived change without new work skips straight to commit-archive.
 //	Before any of it, a narrative lacking the section of a fix or
 //	integrate run the store marked stops `narrative`
-//	(check-narrative-runs.sh).
+//	(check-narrative-runs.sh), and so does a `flow-fix` row `flow
+//	self-review findings` lists as `fixed` whose sha no in-format
+//	`In-run pipeline fix:` line names and the self-review report does
+//	not carry; an unreadable findings read is a warning and skips it.
 //	Then, each behind the visual-verify gate, the --force-with-lease
 //	branch push per worktree, in merge
 //	order — the reshape's push (Branch backup, git-boundaries.md) —

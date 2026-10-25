@@ -420,3 +420,37 @@ const icRerunPinCase = `rerun_pin_case() {
     '[ "$(git --git-dir="$WORK/a-origin.git" rev-parse refs/flow/pre-reshape/demo)" = "$(git -C "$WORK/a" rev-parse refs/flow/pre-reshape/demo)" ]'
 }
 `
+
+// TestIntegrateChangeRequiresInRunFixLine pins kan-1032's self-review: a
+// fixed flow-fix row the store lists needs an in-run fix line naming its sha.
+func TestIntegrateChangeRequiresInRunFixLine(t *testing.T) {
+	icRunCases(t, []icCaseDef{
+		{"fix_line_missing", `# --- fix_line_missing ---
+fixture
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+echo '[{"angle":"flow-fix","disposition":"fixed","ref":"1a2b3c4d5e6f"}]' >"$WORK/sr-findings.json"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
+check "fix_line_missing: a fixed flow-fix row with no line stops commit with exit 1" '[ "$RC" -eq 1 ]'
+check "fix_line_missing: the stop names the sha" \
+  'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: narrative — .*1a2b3c4"'
+rm -f "$WORK/sr-findings.json"`},
+		{"fix_line_present", `# --- fix_line_present ---
+fixture
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+echo '[{"angle":"flow-fix","disposition":"fixed","ref":"1a2b3c4d5e6f"}]' >"$WORK/sr-findings.json"
+printf '\n## integrate run\n\n%s\n' '- In-run pipeline fix: 1a2b3c4 — the renderer could not render an exp- slot (blast radius 2 files)' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
+check "fix_line_present: a fixed row with its line passes commit" '[ "$RC" -eq 0 ]'
+rm -f "$WORK/sr-findings.json"`},
+		{"fix_line_other_rows", `# --- fix_line_other_rows ---
+fixture
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+echo '[{"angle":"flow-cost","disposition":"fixed","ref":"1a2b3c4d5e6f"},{"angle":"flow-fix","disposition":"noted","ref":"2b3c4d5e6f7a"}]' >"$WORK/sr-findings.json"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
+check "fix_line_other_rows: a flow-cost fixed row and a flow-fix noted row pass commit" '[ "$RC" -eq 0 ]'
+rm -f "$WORK/sr-findings.json"`},
+	})
+}
