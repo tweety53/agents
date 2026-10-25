@@ -32,7 +32,8 @@ func TestPanelRoundBeginsRecordsLiteralKeys(t *testing.T) {
 	}
 	calls, _ := os.ReadFile(log)
 	want := "record dispatch begin -C /wt -change kan-1 -role reviewer -slot primary -model opus -effort low -diff-base a515c200 -key panel-4-primary -session-token mf-k1\n" +
-		"record dispatch begin -C /wt -change kan-1 -role reviewer -slot test-sanity+call-efficiency -model sonnet -effort low -key panel-4-test-sanity+call-efficiency -session-token mf-k1\n"
+		"record dispatch begin -C /wt -change kan-1 -role reviewer -slot test-sanity+call-efficiency -model sonnet -effort low -key panel-4-test-sanity+call-efficiency -session-token mf-k1\n" +
+		"record pass -C /wt -change kan-1 -round 4 -note dispatched: panel-4-primary on opus/low over a515c200; panel-4-test-sanity+call-efficiency on sonnet/low\n"
 	if string(calls) != want {
 		t.Errorf("flow calls:\n%s\nwant:\n%s", calls, want)
 	}
@@ -55,5 +56,50 @@ func TestPanelRoundBeginsRecordsLiteralKeys(t *testing.T) {
 		if code := panelRoundBegins(args, env, &out, &errb); code != 2 {
 			t.Errorf("%q: exit %d, want 2", args, code)
 		}
+	}
+}
+
+// TestPanelRoundBeginsRecordsThePassRow pins kan-1033's self-review: after
+// its begins the round records its own pass row, naming each slot whose
+// begin succeeded, so no round it began lacks one.
+func TestPanelRoundBeginsRecordsThePassRow(t *testing.T) {
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	stub := "#!/bin/sh\necho \"$*\" >> " + log + "\ncase \"$*\" in *-key\\ panel-4-bad*) echo refused; exit 1;; esac\n" +
+		"case \"$*\" in record\\ pass*) [ -e " + dir + "/refuse-pass ] && { echo no pass; exit 1; };; esac\necho recorded\n"
+	if err := os.WriteFile(filepath.Join(dir, "flow"), []byte(stub), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	env := Env{Getenv: func(k string) string {
+		if k == "PATH" {
+			return dir
+		}
+		return ""
+	}}
+	run := func(args ...string) (int, string, string) {
+		os.Remove(log)
+		var out, errb bytes.Buffer
+		code := panelRoundBegins(append([]string{"/wt", "kan-1", "4", "mf-k1"}, args...), env, &out, &errb)
+		calls, _ := os.ReadFile(log)
+		lines := strings.Split(strings.TrimSpace(string(calls)), "\n")
+		return code, lines[len(lines)-1], out.String()
+	}
+
+	code, last, out := run("primary:opus:low:a515c200", "test-sanity+call-efficiency:sonnet:low")
+	want := "record pass -C /wt -change kan-1 -round 4 -note dispatched: panel-4-primary on opus/low over a515c200; panel-4-test-sanity+call-efficiency on sonnet/low"
+	if code != 0 || last != want || !strings.Contains(out, "pass: recorded\n") {
+		t.Errorf("exit %d, last call %q, stdout %q", code, last, out)
+	}
+	if _, last, _ := run("bad:opus:low", "primary:opus:low"); last != "record pass -C /wt -change kan-1 -round 4 -note dispatched: panel-4-primary on opus/low" {
+		t.Errorf("a refused begin: last call %q", last)
+	}
+	if _, last, _ := run("bad:opus:low"); strings.HasPrefix(last, "record pass") {
+		t.Errorf("every begin refused, yet %q", last)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "refuse-pass"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code, _, out := run("primary:opus:low"); code != 1 || !strings.Contains(out, "pass: no pass\n") {
+		t.Errorf("a refused pass: exit %d, stdout %q", code, out)
 	}
 }
