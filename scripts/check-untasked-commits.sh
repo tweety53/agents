@@ -23,6 +23,11 @@
 # **Commits outside every task**, skills/flow-contracts/git-boundaries.md),
 # has a `chore` subject (the planning, link and archive commits), or touches
 # only paths under the worktree's `<spec-root>/changes/` (a plan amendment).
+# A `Flow-Key: pipeline-fix-…` trailer is the exception, listed on any branch
+# but a `pipeline-fix-<name>-<k>` loop's own: an in-run pipeline fix runs its
+# own loop and never commits on a change branch (kan-1033's `ba68637c` did, and
+# nothing refused it). Its line reads `<sha12> <subject> — Flow-Key:
+# pipeline-fix-… on a change branch`.
 #
 # Prints one verdict line to stdout:
 #   UNTASKED-OK: <n> commit(s) checked                      nothing listed — exit 0

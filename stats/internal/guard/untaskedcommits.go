@@ -18,6 +18,9 @@ const ucPrefix = "check-untasked-commits:"
 // planning, link and archive commits.
 var ucChoreRE = regexp.MustCompile(`^chore(\([^)]*\))?!?:`)
 
+// ucPipelineFixBranchRE is the branch a pipeline-fix Flow-Key belongs on.
+var ucPipelineFixBranchRE = regexp.MustCompile(`^pipeline-fix-.+-[0-9]+$`)
+
 func checkUntaskedCommits(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) < 2 || len(args) > 3 || args[0] == "" || args[1] == "" || (len(args) == 3 && args[2] != "--not-remotes") {
 		fmt.Fprintf(stderr, "%s usage: check-untasked-commits.sh <worktree> <base> [--not-remotes]\n", ucPrefix)
@@ -45,6 +48,9 @@ func checkUntaskedCommits(args []string, env Env, stdout, stderr io.Writer) int 
 		fmt.Fprintf(stderr, "%s git cannot read %s..HEAD in %s\n", ucPrefix, base, worktree)
 		return 2
 	}
+	// Empty on a detached HEAD, which is judged as a change branch.
+	branch, _ := capture(git("-C", worktree, "symbolic-ref", "--short", "-q", "HEAD"))
+	pipelineFixBranch := ucPipelineFixBranchRE.MatchString(strings.TrimSpace(branch))
 	planning := specRootLeaf(worktree, io.Discard) + "/changes/"
 	var listed []string
 	checked := 0
@@ -55,6 +61,10 @@ func checkUntaskedCommits(args []string, env Env, stdout, stderr io.Writer) int 
 		}
 		checked++
 		sha, subject := f[0], f[1]
+		if !pipelineFixBranch && ucHasPipelineFixKey(f[3]) {
+			listed = append(listed, fmt.Sprintf("  %s %s — Flow-Key: pipeline-fix-… on a change branch", sha[:12], strings.TrimSuffix(sanitizeDisplay(subject), "\n")))
+			continue
+		}
 		if strings.TrimSpace(f[2]) != "" || strings.TrimSpace(f[3]) != "" || ucChoreRE.MatchString(subject) {
 			continue
 		}
@@ -91,4 +101,14 @@ func ucPlanningOnly(paths, planning string) bool {
 		}
 	}
 	return true
+}
+
+// ucHasPipelineFixKey is whether any Flow-Key value opens pipeline-fix-.
+func ucHasPipelineFixKey(keys string) bool {
+	for _, k := range strings.Split(keys, ",") {
+		if strings.HasPrefix(strings.TrimSpace(k), "pipeline-fix-") {
+			return true
+		}
+	}
+	return false
 }

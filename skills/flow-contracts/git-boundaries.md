@@ -133,7 +133,10 @@ carries `-m "Flow-Key: <key>"`, `<key>` the dispatch key its round is recorded u
 (`full-suite-fix-<n>`, `panel-fix-<round>`, `task-<n+n>-implementer-fix-<k>`) or, where the stage
 records no such row, the stage key (`flow.review-panel`, `flow.visual-verify`, `flow.brainstorm`,
 `flow.commit-two`). A task's own commit
-carries `Task-Id:` instead, and a planning commit neither. Run 1's unfinished-work gate lists
+carries `Task-Id:` instead, and a planning commit neither. A `Flow-Key: pipeline-fix-…` commit
+is the one trailer that never passes: an in-run pipeline fix runs its own loop on its own branch,
+never on a change branch (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`).
+Run 1's unfinished-work gate lists
 every other non-`chore` commit with `check-untasked-commits.sh`
 (`skills/flow-contracts/finish-contract-run1.md`).
 **Before such a commit is pushed, `check-untasked-commits.sh` judges every commit the push sends**,

@@ -119,3 +119,50 @@ func TestCheckUntaskedCommitsCannotAnswer(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckUntaskedCommitsRefusesAPipelineFixKey pins kan-1033's finding
+// 1.2: a pipeline-fix Flow-Key belongs on a pipeline-fix-<name>-<k> branch
+// alone; on a change branch it is listed.
+func TestCheckUntaskedCommitsRefusesAPipelineFixKey(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name, branch, trailer string
+		code                  int
+		want                  []string
+	}{
+		{"pipeline-fix key on a change branch is listed", "spectre/demo", "Flow-Key: pipeline-fix-mid-run-question", 1,
+			[]string{"UNTASKED: 1 commit(s)", "fix(app): a — Flow-Key: pipeline-fix-… on a change branch"}},
+		{"pipeline-fix key on a pipeline-fix branch passes", "pipeline-fix-demo-3", "Flow-Key: pipeline-fix-mid-run-question", 0,
+			[]string{"UNTASKED-OK"}},
+		{"panel-fix key on a change branch passes", "spectre/demo", "Flow-Key: panel-fix-1", 0, []string{"UNTASKED-OK"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			g := &fxGit{}
+			g.git(dir, "init", "-q", "-b", "main")
+			writeFile(t, filepath.Join(dir, "README"), "base\n")
+			g.git(dir, "add", "-A")
+			g.git(dir, "commit", "-qm", "base")
+			base := g.git(dir, "rev-parse", "HEAD")
+			g.git(dir, "checkout", "-qb", tc.branch)
+			writeFile(t, filepath.Join(dir, "src/a.kt"), "a\n")
+			g.git(dir, "add", "-A")
+			g.git(dir, "commit", "-qm", "fix(app): a", "-m", tc.trailer)
+			if g.err != nil {
+				t.Fatal(g.err)
+			}
+			var out, errb bytes.Buffer
+			code := checkUntaskedCommits([]string{dir, base}, Env{Getenv: os.Getenv, Dir: dir}, &out, &errb)
+			if code != tc.code {
+				t.Fatalf("exit %d, want %d\nstdout:\n%s\nstderr:\n%s", code, tc.code, out.String(), errb.String())
+			}
+			for _, w := range tc.want {
+				if !strings.Contains(out.String(), w) {
+					t.Errorf("stdout lacks %q:\n%s", w, out.String())
+				}
+			}
+		})
+	}
+}
