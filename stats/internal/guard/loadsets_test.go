@@ -39,12 +39,13 @@ router (command + SKILL.md + pipeline.md)              137 bytes  ~    34 tok
   state-file.md (load before any state r/w)              0 bytes  ~     0 tok
 `
 
-// lsFixture builds a repo holding three of the listed files and a global
+// lsFixture builds a repo holding four of the listed files — spectre-planning's
+// SKILL.md empty, so no row's size moves — and a global
 // file outside it, of known sizes.
 func lsFixture(t *testing.T) (repo, global string) {
 	dir := t.TempDir()
 	repo = filepath.Join(dir, "r")
-	for path, n := range map[string]int{"CLAUDE.md": 10, "skills/flow/SKILL.md": 100, "skills/flow-contracts/pipeline.md": 37, "../g.md": 21} {
+	for path, n := range map[string]int{"CLAUDE.md": 10, "skills/flow/SKILL.md": 100, "skills/flow-contracts/pipeline.md": 37, "skills/spectre-planning/SKILL.md": 0, "../g.md": 21} {
 		p := filepath.Join(repo, path)
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			t.Fatal(err)

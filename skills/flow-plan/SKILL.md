@@ -62,8 +62,7 @@ here; the store attaches the open plan session to the change the moment the capt
 `STARTED` write creates it. **No `flow record dispatch` call** either — no change exists to record
 a planning dispatch against before capture (decision `flow-plan-records-nothing`, kan-1033).
 
-**Plan mode on Claude Code.** When `<harness>` is `claude-code`, call `EnterPlanMode` at session
-start. Call `ExitPlanMode` only once the session reaches a capturable design, as the design
+Plan mode (**Plan mode**, `skills/spectre-planning/SKILL.md`) is entered at session start. Call `ExitPlanMode` only once the session reaches a capturable design, as the design
 approval, before the capture question — which is still asked after approval. A research session
 that ends without a capture never calls `ExitPlanMode`. A declined `EnterPlanMode` consent is one
 line, and the session continues without plan mode.

@@ -71,7 +71,7 @@ func loadSets(args []string, env Env, stdout, stderr io.Writer) int {
 	row("router (command + SKILL.md + pipeline.md)", router...)
 
 	fmt.Fprintln(stdout, "--- planning session (creating run) ---")
-	pd := cat(in(f, "brainstorm.md", "brainstorm-planner.md"), in(c, "jira-integration.md", "plan-provenance.md", "build-green.md"))
+	pd := cat(in(f, "brainstorm.md", "brainstorm-planner.md"), []string{r + "/skills/spectre-planning/SKILL.md"}, in(c, "jira-integration.md", "plan-provenance.md", "build-green.md"))
 	pc := in(c, "worktree-resolution.md", "git-boundaries.md", "operator-prompts.md", "operator-prompts-auto-resolution.md")
 	px := in(f, "withdrawal.md", "seeded-note.md", "resume.md")
 	row("  phase files + load directives", pd...)
