@@ -10,3 +10,7 @@ Flow's planning prompts — Explore and Plan agents, the four `design.md` plan s
 - `spectre-planning` is the one source of the generic planning prompt text; flow loads it instead of carrying its own copy.
 - In the prompts mode, planning enters plan mode on its own: Claude Code's `EnterPlanMode`, and Cursor's Plan mode (switched to, or asked of the user, before exploring).
 - Flow-only parts — stage marks, Decide, `flow record`, Jira, `plan-agent-pair.sh`, mockups, withdrawal — stay in flow.
+
+## Fix round 1
+
+- The spectre manifest test's comment says `UPSTREAM.md` names its source commit; since integrate it names the skill's path on agents `main` and the ticket, so the comment is reworded to match.
