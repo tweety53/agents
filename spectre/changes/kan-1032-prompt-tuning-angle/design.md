@@ -36,6 +36,15 @@ is a generic gap in instructions:
   round-1 reviewer instruction would have caught, or a **false positive**, a finding later disproved
   or withdrawn that cost a fix round for nothing.
 
+**Scope.** Every case carries a `scope`. `generic` means the rule holds in every programming
+language, and the case targets a shared implementer or reviewer prompt under `skills/`.
+`language:<lang>` (lowercase language name, e.g. `language:kotlin`) means the rule is generic
+within one language but wrong or meaningless in others, and the case targets that language's rule
+file `rules/lang-<lang>.mdc`, which a project receives only by naming it in its `.flow/project.md`
+`## standards`. The test is: would the rule still be true, word for word, in a project in another
+language? If not, the scope is `language:<lang>`. A language-specific rule never goes into a shared
+prompt.
+
 **The bar for picking a case**, all four stated in the case's `why_picked`:
 
 1. The defect class in one sentence, with no names from the task.
@@ -61,7 +70,7 @@ from 1 within the change:
 
 | File | Content |
 |---|---|
-| `case.json` | `id`, `type` (`implementer`/`reviewer`), `reviewer_kind` (`miss`/`false-positive`, reviewer only), `source` {`project`, `change`, `jira`, `repo`, `fix_sha`, `finding_ref`, `round`, `slot`, `severity`}, `target` (agents-repo-relative prompt path), `target_sha` (the agents commit the `before` text was read at), `defect_class`, `why_picked`, `before`, `after` |
+| `case.json` | `id`, `type` (`implementer`/`reviewer`), `reviewer_kind` (`miss`/`false-positive`, reviewer only), `scope` (`generic`/`language:<lang>`), `source` {`project`, `change`, `jira`, `repo`, `fix_sha`, `finding_ref`, `round`, `slot`, `severity`}, `target` (agents-repo-relative prompt path), `target_sha` (the agents commit the `before` text was read at), `defect_class`, `why_picked`, `before`, `after` |
 | `finding.md` | the reviewer's own sentence, severity, location |
 | `bad.diff` | the code as the implementer first wrote it: the hunk(s) the finding names, from the commit before the fix |
 | `good.diff` | the fix-round commit's diff for those hunks (`git show <fix_sha>`) |
@@ -88,7 +97,10 @@ or `dir`, and `LEDGER.md`:
 
 - every file of the table above present; `case.json` parses, every field non-empty; `type` in the
   enum; `reviewer_kind` present exactly when `type` is `reviewer`;
-- `target` exists under `skills/` and `before` occurs verbatim in `git show <target_sha>:<target>`;
+- `scope` is `generic` or matches `language:[a-z0-9+#-]+`; a `generic` case's `target` is under
+  `skills/`, a `language:<lang>` case's `target` is exactly `rules/lang-<lang>.mdc`;
+- `before` occurs verbatim in `git show <target_sha>:<target>`, or — for a `language:<lang>` case
+  only — `before` is empty and `target` does not exist at `target_sha` (the case creates the file);
 - **genericity**: `after`, and the part of `after` that differs from `before`, contain none of: the
   source change name, its Jira key, any `kan-<digits>` (case-insensitive), any path or basename
   named in `bad.diff`/`good.diff` headers;
@@ -141,7 +153,11 @@ same name off `origin/<default-branch>`.
    - **Pass rule:** arm A shows the problem in at least 2 of 3 runs, and arm B avoids it in at least
      2 of 3. A shows it in fewer than 2: rejected `not reproducible`. B fails: rejected `no effect`.
      A group passes when every one of its cases passes.
-5. **Apply** each passing group's update to its target in the worktree; run `.flow/project.md`'s
+5. **Apply** each passing group's update to its target in the worktree. A `language:<lang>`
+   group whose `rules/lang-<lang>.mdc` does not exist creates it, carrying the opt-in header of
+   `rules/kotlin-backend-development-standard.mdc` reworded for that language, with the update as
+   its first rule; the final report's line for the group says the file reaches a project only once
+   that project names it in `## standards`. Then run `.flow/project.md`'s
    `## lint` lines for the touched files.
 6. **Ledger and cleanup.** Append one entry per case to `docs/prompt-tuning/LEDGER.md` and
    `git rm -r` its folder. Rejected cases are recorded too, so the same case is never re-mined:
@@ -212,6 +228,17 @@ a prompt, and a durable trace of each once its folder is gone.
 **Uses:** `scripts/check-installed-rules.sh`, `scripts/check-references.sh`.
 
 ## Decisions
+
+### language-scoped-rules
+
+**ID:** language-scoped-rules
+**Status:** active
+**Chosen:** an update true in only one programming language goes to `rules/lang-<lang>.mdc`, a
+per-language rule file a project opts into through `## standards`, the existing mechanism
+`kotlin-backend-development-standard.mdc` uses (operator's answer).
+**Considered:** applying it to the shared prompts for every run — rejected because a language rule
+costs tokens in every other language's runs and misleads them, and the genericity guard alone
+cannot tell a language-only rule from a universal one.
 
 ### cases-in-agents-repo
 

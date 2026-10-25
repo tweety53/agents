@@ -30,6 +30,9 @@
 - A new guard, `scripts/check-prompt-tuning-cases.sh` (Go, in flow-guard), keeps every case
   complete and generic: the proposed text names no change, Jira key or repro file, and the
   "before" text exists word for word in the target prompt.
+- Each case carries a `scope`: `generic` targets the shared prompts under `skills/`;
+  `language:<lang>` targets `rules/lang-<lang>.mdc`, which projects opt into through
+  `.flow/project.md`'s `## standards`, so a rule true in one language never reaches the others.
 - A new standalone command, `/flow-prompt-tuning`, walks the pending cases and groups those that
   propose the same generic update. For each group it A/B-replays the update on the cases' repro
   data (3 runs per arm on opus), applies the updates that pass, records every case in
