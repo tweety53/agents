@@ -144,6 +144,13 @@ rule. The resolution is recorded with the reasoning: a panel run in the pass log
 `skills/flow/verify-and-handoff.md`), naming the options considered and why the one taken is the
 safest that still makes progress.
 
+**An operator message that arrives mid-run is never a stop.** A question, an aside or a side
+request the operator sends while a run is executing — about the run, the change or anything else —
+is answered or done in the run's own output, and the same turn then continues into the run's next
+step. The run ends only where this file names a stop; an operator message that is not itself an
+answer to the run's own ask names none (kan-1033: the parent closed the review panel, answered
+two mid-run questions and filed a requested ticket, then ended the turn with verify still to run).
+
 ## The parent is the only orchestrator
 
 **Every dispatch a `/flow`, `/flow-fast` or `/flow-self-review` run makes does the work itself;
