@@ -12,3 +12,8 @@ The script's header (`<agents repo>/scripts/sync-panel-base.sh`) is canonical fo
 flow state add-worktree <name> <worktree> <sha>
 git -C <worktree> push --force-with-lease origin spectre/<name>
 sync-panel-base.sh --rebase <worktree> <merge-base>
+| Before every reviewer dispatch — a gated per-task reviewer bundle, a panel round, a re-run — and before the panel's base sync (**Check base movement first**, `skills/flow/review-panel.md`) | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — before review` |
+**The before-review planning commit comes first**, as at the panel's base sync: the parent makes that commit (**Planning commits**, `skills/flow-contracts/git-boundaries.md`) before the script runs, since its bare `git rebase` is refused over the uncommitted ticks or notes a resumed run carries, and that refusal is exit 2.
+It runs before the collision reconciliation above.
+Then, once per worktree in this run's resolved set, with its working-notes merge base:
+| Before every reviewer dispatch — a gated per-task reviewer bundle, a panel round, a re-run — before the panel's base sync (**Check base movement first**, `skills/flow/review-panel.md`), and before the base sync before task 1 (**1. Load context and validate the plan**, `skills/flow/implement.md`) | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — before review` |
