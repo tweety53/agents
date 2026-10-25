@@ -1067,7 +1067,7 @@ type uwVerifyFailure struct{ spec, line, png string }
 var (
 	// A report's `- verify:` item passing a rerun of the failed specs.
 	uwRerunPassed = regexp.MustCompile(`(?m)^- verify: exit 0 — rerun of\b`)
-	uwSpecRE      = regexp.MustCompile(`([^\s:]+\.spec\.ts):(\d+)`)
+	uwSpecRE      = regexp.MustCompile("([^\\s:(\\[`'\"]+\\.spec\\.ts):(\\d+)")
 	uwPngRE       = regexp.MustCompile(`([A-Za-z0-9_.-]+)\.png`)
 )
 

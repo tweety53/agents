@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -1249,5 +1250,26 @@ func TestCheckUnfinishedWorkReportCount(t *testing.T) {
 				t.Fatalf("exit %d stdout %q stderr %q; want reason %q present=%v", r.rc, r.out, r.err, reason, c.want)
 			}
 		})
+	}
+}
+
+// TestUWVerifyFailuresSpecExcludesOpeningPunctuation pins kan-1023's
+// self-review: a Playwright location wrapped in `(`, `[`, a backtick or a
+// quote names the spec alone, so the citation the guard demands carries no
+// stray character and a clean citation clears it.
+func TestUWVerifyFailuresSpecExcludesOpeningPunctuation(t *testing.T) {
+	t.Parallel()
+	report := "- verify: exit 1\n" +
+		"  1 failed (kan-341-route-b.spec.ts:224:5) and `fidelity/a.spec.ts:3` a.png\n" +
+		"  [x/b.spec.ts:9] 'c.spec.ts:1' \"d.spec.ts:2\"\n"
+	want := []uwVerifyFailure{
+		{spec: "kan-341-route-b.spec.ts", line: "224"},
+		{spec: "fidelity/a.spec.ts", line: "3", png: "a"},
+		{spec: "x/b.spec.ts", line: "9"},
+		{spec: "c.spec.ts", line: "1"},
+		{spec: "d.spec.ts", line: "2"},
+	}
+	if got := uwVerifyFailures(report); !slices.Equal(got, want) {
+		t.Fatalf("uwVerifyFailures = %+v, want %+v", got, want)
 	}
 }
