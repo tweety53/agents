@@ -3392,6 +3392,54 @@ func TestWatcherStampsALaunchByItsDescriptionKey(t *testing.T) {
 	}
 }
 
+// TestWatcherStampsATaskDescribedLaunchByItsPrefix pins kan-1023's row
+// 7560: a launch described "Task 13/13 (...)" stamps by the prefix
+// "task-13-" instead of the key "Task", and two denied Agent calls nearer
+// its begin never pair the begin by time.
+func TestWatcherStampsATaskDescribedLaunchByItsPrefix(t *testing.T) {
+	for _, tc := range []struct {
+		desc, key, prefix string
+	}{
+		{"Task 13/13 (visual-verify fixes)", "task-13-implementer", "task-13-"},
+		{"Tasks 2+3+5+8/12 (review)", "task-2+3+5+8-reviewer", "task-2+3+5+8-"},
+	} {
+		t.Run(tc.prefix, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "session.jsonl")
+			command, err := json.Marshal("flow record dispatch begin -change kan-1023 -role implementer -key " + tc.key + " -session-token mf-k1023")
+			if err != nil {
+				t.Fatal(err)
+			}
+			begin := `{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":` + string(command) + `}}]}}`
+			agentCall := func(at, id string) string {
+				return `{"type":"assistant","timestamp":"2026-01-01T` + at + `Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","id":"` + id + `","name":"Agent","input":{"prompt":"p"}}]}}`
+			}
+			denial := func(at, id string) string {
+				return `{"type":"user","timestamp":"2026-01-01T` + at + `Z","sessionId":"s","message":{"content":[{"type":"tool_result","tool_use_id":"` + id + `","is_error":true,"content":"PreToolUse:Agent hook error: Dispatch blocked"}]},"toolUseResult":"Error: PreToolUse:Agent hook error: Dispatch blocked"}`
+			}
+			launch := `{"type":"user","timestamp":"2026-01-01T00:01:25Z","sessionId":"s","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"afd","description":"` + tc.desc + `"}}`
+			if err := os.WriteFile(path, stampFixtureLines(begin,
+				agentCall("00:00:31", "u1"), denial("00:00:32", "u1"),
+				agentCall("00:00:58", "u2"), denial("00:00:59", "u2"),
+				agentCall("00:01:24", "u3"), launch,
+			), 0o644); err != nil {
+				t.Fatalf("write fixture: %v", err)
+			}
+			deps := &keyStampDeps{rows: map[string]bool{tc.prefix: true}}
+			w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+			if _, err := w.RunOnce(context.Background()); err != nil {
+				t.Fatalf("RunOnce: %v", err)
+			}
+			if want := []stampCall{{"s", tc.prefix, "afd"}}; !reflect.DeepEqual(deps.keyed, want) {
+				t.Errorf("keyed stamps = %+v, want %+v", deps.keyed, want)
+			}
+			if len(deps.timed) != 0 {
+				t.Errorf("time pairing stamped: %+v", deps.timed)
+			}
+		})
+	}
+}
+
 // rowStampDeps stamps, keyed or by time, only a row its rows map holds --
 // the store's answer before and after the begin command has run.
 type rowStampDeps struct {

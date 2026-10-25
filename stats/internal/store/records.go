@@ -1628,13 +1628,20 @@ func (s *Store) StampLoopDispatchAgent(ctx context.Context, key, agentID string)
 // It is the harvester's keyed stamp: a launch whose Agent-tool description
 // opens with its row's key names that row in the launching session, so no
 // time pairing is needed. A row already carrying an agent is never touched.
+//
+// A key ending in "-" is a prefix -- a task launch's "task-<ids>-"
+// (harvest.launchKey) -- and matches the newest open row whose key starts
+// with it: open rows only, the hook's own open-row rule, since a closed
+// agentless row is never a launch's.
 func (s *Store) StampSessionDispatchAgent(ctx context.Context, sessionID, key, agentID string) (bool, error) {
 	tag, err := s.pool.Exec(ctx, `
 		UPDATE dispatches
 		SET agent_id = $3
 		WHERE id = (
 			SELECT d.id FROM dispatches d
-			WHERE d.session_id = $1 AND d.dispatch_key = $2 AND COALESCE(d.agent_id, '') = ''
+			WHERE d.session_id = $1
+			  AND (d.dispatch_key = $2 OR (right($2, 1) = '-' AND starts_with(d.dispatch_key, $2) AND d.ended_at IS NULL))
+			  AND COALESCE(d.agent_id, '') = ''
 			ORDER BY d.started_at DESC, d.id DESC
 			LIMIT 1
 		)

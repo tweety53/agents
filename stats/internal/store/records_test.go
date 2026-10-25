@@ -3430,6 +3430,56 @@ func TestStampSessionDispatchAgentFillsTheSessionsLatestEmptyRow(t *testing.T) {
 	}
 }
 
+// TestStampSessionDispatchAgentStampsATaskPrefix pins kan-1023's row 7560:
+// a launch described "Task 13/13 (...)" carries the key prefix "task-13-",
+// which stamps the session's newest open agentless row under that prefix --
+// never a closed row, and never a "task-130-" row.
+func TestStampSessionDispatchAgentStampsATaskPrefix(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+
+	projectKey := fmt.Sprintf("proj-stamp-prefix-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	base := time.Date(2026, 8, 22, 9, 0, 0, 0, time.UTC)
+	seed := func(token, key string, at time.Time, ended bool) {
+		in := baseDispatch("implementer", "opus")
+		in.SessionToken, in.Key, in.SessionID, in.StartedAt = token, key, "s1", at
+		if ended {
+			end := at.Add(time.Minute)
+			in.EndedAt = &end
+		}
+		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", in); err != nil {
+			t.Fatalf("RecordDispatch: %v", err)
+		}
+	}
+	seed("mf-impl", "task-13-implementer", base, true)
+	seed("mf-130", "task-130-implementer", base.Add(time.Minute), false)
+	seed("mf-rev", "task-13-reviewer", base.Add(2*time.Minute), false)
+
+	stamped, err := st.StampSessionDispatchAgent(ctx, "s1", "task-13-", "a1")
+	if err != nil || !stamped {
+		t.Fatalf("StampSessionDispatchAgent = (%v, %v), want (true, nil)", stamped, err)
+	}
+	if stamped, err := st.StampSessionDispatchAgent(ctx, "s1", "task-13-", "a2"); err != nil || stamped {
+		t.Errorf("a second stamp = (%v, %v), want (false, nil)", stamped, err)
+	}
+	for token, want := range map[string]string{"mf-impl": "", "mf-130": "", "mf-rev": "a1"} {
+		var agentID *string
+		if err := pool.QueryRow(ctx,
+			"SELECT agent_id FROM dispatches WHERE session_token = $1", token,
+		).Scan(&agentID); err != nil {
+			t.Fatalf("read agent_id back: %v", err)
+		}
+		got := ""
+		if agentID != nil {
+			got = *agentID
+		}
+		if got != want {
+			t.Errorf("%s: agent_id = %q, want %q", token, got, want)
+		}
+	}
+}
+
 // TestStampDispatchAgentNeverOverwrites pins the recorded-intent rule: a
 // begin that carried an explicit -agent-id (or an end that supplied one)
 // stated what the harness reported, by hand, and the automatic stamp must

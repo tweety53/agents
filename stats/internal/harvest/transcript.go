@@ -465,11 +465,14 @@ type AgentLaunch struct {
 	// transcript carries, so no begin event exists to pair with: the key
 	// names the row instead (KAN-967).
 	LoopKey string
-	// Key is the first whitespace-delimited word of the launch's Agent-tool
-	// description, "" when it has none. **Every dispatch's Agent-tool
-	// description** (skills/flow/implement.md) opens every non-task row's
-	// description with its dispatch key, so the word names the row the
-	// launch belongs to.
+	// Key is launchKey of the launch's Agent-tool description: the key
+	// prefix "task-<ids>-" for a task launch described "Task <ids>/<n>" or
+	// "Tasks <ids>/<n>", otherwise the description's first
+	// whitespace-delimited word, "" when it has none. **Every dispatch's
+	// Agent-tool description** (skills/flow/implement.md) opens every
+	// non-task row's description with its dispatch key and every task
+	// row's with its task ids, so either form names the row the launch
+	// belongs to.
 	Key string
 }
 
@@ -587,12 +590,25 @@ func ParseAgentLaunches(complete []byte) []AgentLaunch {
 					Timestamp: ts,
 					Line:      lineIndex,
 					LoopKey:   loopKey(raw.ToolUseResult.Prompt),
-					Key:       firstWord(raw.ToolUseResult.Description),
+					Key:       launchKey(raw.ToolUseResult.Description),
 				})
 			}
 		}
 	}
 	return out
+}
+
+// taskDescriptionRE matches a task launch's description, "Task 13/13 (...)"
+// or "Tasks 2+3+5/12 (...)", capturing its task ids.
+var taskDescriptionRE = regexp.MustCompile(`^Tasks? (\d+(?:\+\d+)*)/\d+(?:\s|$)`)
+
+// launchKey returns the dispatch key, or key prefix ending in "-", a
+// launch's description names (AgentLaunch.Key).
+func launchKey(description string) string {
+	if m := taskDescriptionRE.FindStringSubmatch(description); m != nil {
+		return "task-" + m[1] + "-"
+	}
+	return firstWord(description)
 }
 
 // firstWord returns s's first whitespace-delimited word, or "".

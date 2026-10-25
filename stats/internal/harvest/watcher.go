@@ -2082,11 +2082,25 @@ func (w *Watcher) stampKeyedLaunches(ctx context.Context, path string, launches 
 	}
 	kept := begins[:0:0]
 	for _, b := range begins {
-		if !used[b.Key] {
+		if !usedKey(used, b.Key) {
 			kept = append(kept, b)
 		}
 	}
 	return rest, kept
+}
+
+// usedKey reports whether key is used, or starts with a used key prefix
+// ending in "-" (a task launch's launchKey).
+func usedKey(used map[string]bool, key string) bool {
+	if used[key] {
+		return true
+	}
+	for k := range used {
+		if strings.HasSuffix(k, "-") && strings.HasPrefix(key, k) {
+			return true
+		}
+	}
+	return false
 }
 
 // stampLoopLaunches stamps each fix-loop launch (AgentLaunch.LoopKey) onto
