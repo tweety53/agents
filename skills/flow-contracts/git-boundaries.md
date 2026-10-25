@@ -86,7 +86,9 @@ call that made or verified it. The one deferred push is a visual-verify commit i
 origin/<branch>`. The one rewrite is integrate's reshape (`reshape-branch.sh`, then
 the two commits), so that run's push is `git push --force-with-lease origin <branch>`, made once the
 archive commit lands and before the self-review pass, so a run that stops before its route still
-leaves the remote on the rewritten branch; every other push is plain.
+leaves the remote on the rewritten branch; every other push is plain, save a branch a base-sync
+rebase rewrote, which pushes `--force-with-lease` (the base-sync step of **1. Load context and
+validate the plan**, `skills/flow/implement.md`).
 
 **The planning path** is the one **Handoff output** (`skills/flow-contracts/pipeline.md`) names.
 `/flow`'s implement phase clears it from the index and only then stages with it excluded by

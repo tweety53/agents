@@ -267,9 +267,29 @@ the plan's `**Files:**` declares and each spec's text at the moved base (`SPEC-A
 gone there); exit 2 stops the run. The script's header (`<agents repo>/scripts/refresh-plan-base.sh`)
 is canonical for its output. On `MOVED:`, **name every route or requirement the plan adds that the
 moved base now already carries**. A collision is reconciled before task 1 runs, under **A pivot
-reconciles the three artifacts together** (section 4 below) — never discovered mid-task. The step
-names, it never rebases: the change branch is synced onto the base at integrate (**Sync the branch
-onto the base**, `skills/flow/sync-onto-base.md`).
+reconciles the three artifacts together** (section 4 below) — never discovered mid-task.
+
+**The change branch is rebased onto its base before task 1 runs**, on every implementation run —
+creating, resumed or fix — once the plan refresh above has named what moved (kan-1032: the base
+moved 13 commits during planning, and the overlap surfaced only at the review panel's base sync,
+after every task). Once per worktree in this run's resolved set, with its working-notes merge base:
+
+```bash
+sync-panel-base.sh --rebase <worktree> <merge-base>
+```
+
+The script's header (`<agents repo>/scripts/sync-panel-base.sh`) is canonical for its lines. Exit 0
+is settled. After a `REBASED:` line, that worktree's working-notes merge base becomes the sha the
+last `REBASED:` line names, and the run records it and pushes the rewritten branch:
+
+```bash
+flow state add-worktree <name> <worktree> <sha>
+git -C <worktree> push --force-with-lease origin spectre/<name>
+```
+
+Exit 1 is a `CONFLICT`, handled as the **Conflict** bullet of **Check base movement first**
+(`skills/flow/review-panel.md`) states, and the run stops for the operator. Exit 2 or 3 stops the
+run with its output named.
 
 **Whether there is anything left to implement is read off the task checkboxes**, from
 `spectre list --json`'s `{"changes":[{"id","done","total"}]}` for this change. A change already

@@ -28,7 +28,8 @@
 # answer — usage, a merge base that is not a commit, an unreadable
 # <tasks.md>, or a base branch resolve-base-branch cannot resolve (its own
 # reason precedes this guard's on stderr). It names, it never rebases: the
-# change branch is synced onto the base at integrate.
+# change branch is rebased onto the base right after it, by sync-panel-base.sh
+# --rebase (skills/flow/implement.md).
 #
 # flow-guard is built from this checkout, never taken from PATH:
 # scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's

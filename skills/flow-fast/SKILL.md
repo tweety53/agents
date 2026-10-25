@@ -70,7 +70,8 @@ basename is what keys the rolls — and `<project>/.superpowers/` is listed in
 `<project>/.git/info/exclude`. Every `skills/flow/` section cited below runs as written, with
 these substitutions and no others: `<changeRoot>` as above; `ff-<literal-token>` wherever it
 reads `mf-<literal-token>`; the one worktree as the resolved set, its `<merge-base>` the sha
-`git -C <worktree> rev-parse origin/<base>` prints right after section 3 creates it,
+`git -C <worktree> rev-parse origin/<base>` prints right after section 3 creates it — or, once
+section 4's base sync rebased the branch, the sha its last `REBASED:` line names —
 standing wherever a cited section reads the working notes' merge base; and nothing written to
 `<project>/spectre/` or a state file — `flow record render` is
 skipped, the finding rows are the record. The scripts a cited section calls run as it says.
@@ -213,6 +214,10 @@ flow stage begin -command '/flow-fast' -stage flow.load-context -harness <harnes
 
 Compose the learning note here per **Learning** (`skills/flow-contracts/learning.md`), write its
 file and print its absolute path; the final report repeats the path.
+
+The branch is then rebased onto its base before task 1 runs, as the base-sync step of **1. Load
+context and validate the plan** (`skills/flow/implement.md`) states, with no `flow state
+add-worktree` call and `<name>` as the pushed branch.
 
 The project's instruction file is already in this session's context (`<project>/CLAUDE.md` on
 Claude Code, `<project>/AGENTS.md` on ZCode and Muse); never read either one here. Read
