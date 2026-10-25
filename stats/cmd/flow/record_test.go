@@ -5551,7 +5551,7 @@ func TestRecordDispatchBeginRefusesAnOffConventionImplementerKey(t *testing.T) {
 	}
 	for _, ok := range []string{"task-12-implementer", "task-11+12-implementer", "task-3+4-implementer-fix-1",
 		"task-3-implementer-retry", "task-3+4-implementer-fix-1-retry",
-		"self-review-demo-fix-g1", "pipeline-fix-7-demo-fix"} {
+		"self-review-demo-fix-g1"} {
 		if code, stderr, _ := dispatchBeginKey(t, "implementer", ok); code != 0 {
 			t.Errorf("-key %s: exit %d, want 0; stderr:\n%s", ok, code, stderr)
 		}
@@ -6193,5 +6193,41 @@ func TestRecordDispatchRefusesAnInventedAgentID(t *testing.T) {
 		if code, stderr, _ := dispatchCall(t, "begin", "-key", "verify-gymie", "-agent-id", id); code != 0 {
 			t.Errorf("begin -agent-id %s: exit %d, stderr %q; want 0", id, code, stderr)
 		}
+	}
+}
+
+// TestRecordDispatchBeginRefusesALoopKeyOffItsLoop pins kan-1032's self-review: a pipeline-fix
+// loop key begun under a change that is not its loop's is refused before the store is
+// contacted -- the loop hook records it under the loop's change, so a hand-recorded row is a twin.
+func TestRecordDispatchBeginRefusesALoopKeyOffItsLoop(t *testing.T) {
+	cases := []struct {
+		change, key string
+		want        int
+	}{
+		{"kan-1", "pipeline-fix-7-plan", 2},
+		{"pipeline-fix-kan-1-7", "pipeline-fix-7-plan", 0},
+		{"kan-1", "self-review-kan-1-plan", 0},
+	}
+	for _, c := range cases {
+		t.Run(c.change+"/"+c.key, func(t *testing.T) {
+			repo := recordRepo(t, c.change)
+			isolatedStateRoot(t)
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
+			}))
+			defer srv.Close()
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+					"-change", c.change, "-role", "planner", "-model", "opus", "-key", c.key, "-session-token", "mf-loop-key"},
+				strings.NewReader(""), &stdout, &stderr)
+			if code != c.want {
+				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, c.want, stderr.String())
+			}
+			if c.want == 2 && !strings.Contains(stderr.String(), "enforce-loop-dispatch.py") {
+				t.Errorf("stderr does not name the loop hook:\n%s", stderr.String())
+			}
+		})
 	}
 }

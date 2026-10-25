@@ -2,6 +2,8 @@ package store_test
 
 import (
 	"context"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -140,5 +142,86 @@ func TestMigration0031RewritesLegacyRows(t *testing.T) {
 	}
 	if collapsed != 0 {
 		t.Errorf("pricing.cache_write_per_mtok still present after 0031")
+	}
+}
+
+// TestMigration0047DropsLoopDispatchTwins pins kan-1032's self-review: 0047 deletes only an
+// agentless pipeline-fix row whose same-key twin sits under its own loop change of the same
+// project, nulls the finding pointing at it, and is a no-op on a second run.
+func TestMigration0047DropsLoopDispatchTwins(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	dsn := newTestDatabase(t)
+	st, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(st.Close)
+	if err := st.RunMigrations(ctx); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open raw pool: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	exec := func(sql string, args ...any) {
+		t.Helper()
+		if _, err := pool.Exec(ctx, sql, args...); err != nil {
+			t.Fatalf("exec %q: %v", sql, err)
+		}
+	}
+
+	exec(`INSERT INTO projects (project_key, main_checkout_path) VALUES ('p', '/tmp/p')`)
+	exec(`INSERT INTO changes (project_key, name, state, updated_at, updated_by) VALUES
+		('p', 'kan-1', 'IN_PROGRESS', now(), '/flow'),
+		('p', 'pipeline-fix-kan-1-7', 'IN_PROGRESS', now(), '/flow'),
+		('p', 'kan-2', 'IN_PROGRESS', now(), '/flow')`)
+	exec(`INSERT INTO dispatches (change_id, seq, role, model, started_at, dispatch_key, agent_id)
+		SELECT c.id, v.seq, 'planner', 'opus', now(), v.k, v.a FROM changes c JOIN (VALUES
+			('kan-1', 1, 'pipeline-fix-7-plan', NULL),
+			('kan-1', 2, 'pipeline-fix-8-plan', NULL),
+			('kan-1', 3, 'pipeline-fix-7-fix', 'a3'),
+			('pipeline-fix-kan-1-7', 1, 'pipeline-fix-7-plan', 'a1'),
+			('pipeline-fix-kan-1-7', 2, 'pipeline-fix-7-fix', 'a2'),
+			('kan-2', 1, 'pipeline-fix-7-plan', NULL)
+		) AS v(ch, seq, k, a) ON c.name = v.ch`)
+	exec(`INSERT INTO findings (change_id, dispatch_id, ref, round, slot, severity, note, status)
+		SELECT d.change_id, d.id, 'F1', 1, 'primary', 'Minor', 'n', 'open'
+		FROM dispatches d JOIN changes c ON c.id = d.change_id
+		WHERE c.name = 'kan-1' AND d.dispatch_key = 'pipeline-fix-7-plan'`)
+
+	sql, err := os.ReadFile("migrations/0047_drop_loop_dispatch_twins.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec(string(sql))
+	exec(string(sql))
+
+	rows, err := pool.Query(ctx, `SELECT c.name || '/' || d.dispatch_key FROM dispatches d
+		JOIN changes c ON c.id = d.change_id ORDER BY 1`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, s)
+	}
+	rows.Close()
+	want := "kan-1/pipeline-fix-7-fix kan-1/pipeline-fix-8-plan kan-2/pipeline-fix-7-plan pipeline-fix-kan-1-7/pipeline-fix-7-fix pipeline-fix-kan-1-7/pipeline-fix-7-plan"
+	if g := strings.Join(got, " "); g != want {
+		t.Errorf("rows =\n %s\nwant\n %s", g, want)
+	}
+	var dispatchID *int64
+	if err := pool.QueryRow(ctx, `SELECT dispatch_id FROM findings WHERE ref = 'F1'`).Scan(&dispatchID); err != nil {
+		t.Fatal(err)
+	}
+	if dispatchID != nil {
+		t.Errorf("finding dispatch_id = %d, want NULL", *dispatchID)
 	}
 }

@@ -29,11 +29,16 @@ word the harvester stamps the launch by. A loop dispatch, whose prompt carries a
 stamped by that line and exempt (kan-1026: 29 of 41 launches opened "Round-11 primary review" and
 the like, and 14 ledger rows were left empty or stamped with another dispatch's agent).
 
+It denies, in a flow session, a dispatch whose description opens with a loop key (`pipeline-fix-`,
+`self-review-`) and whose prompt carries no `Key:` line: hooks/enforce-loop-dispatch.py records the
+row under the loop's change off that line, so the fix is the line, never a begin under the run's
+change (kan-1032's self-review: that begin left a twin row).
+
 It denies, in a flow session, a dispatch whose row was never begun: the session's change is read
 off the store as flow-active-change.py reads it, `flow record dispatches` lists its rows, and a
 dispatch is denied when that list holds no open row (empty `outcome`) whose key is the
 description's first word or, for `Task <ids>/<n>`, starts with `task-<ids>-`. A loop-key dispatch
-is never checked. An unreachable store, no /flow stage-begin for the session, an absent or failing
+-- a `Key:` line, or a description opening with a loop key -- is never checked. An unreachable store, no /flow stage-begin for the session, an absent or failing
 `flow` CLI, or an unparseable answer lets the dispatch through.
 
 Fails open: any unexpected input, parse error, or internal fault exits 0 and lets the
@@ -139,8 +144,30 @@ DESCRIPTION_REASON = (
 )
 
 
+# A description opening with a loop key names a row hooks/enforce-loop-dispatch.py records.
+LOOP_KEY_PREFIXES = ("pipeline-fix-", "self-review-")
+
+
+def loop_word(tool_input: dict) -> "str | None":
+    description = tool_input.get("description")
+    words = description.split() if isinstance(description, str) else []
+    return words[0] if words and words[0].startswith(LOOP_KEY_PREFIXES) else None
+
+
+def loop_key_line_reason(payload: dict, tool_input: dict, prompt: str) -> "str | None":
+    word = loop_word(tool_input)
+    if not word or LOOP_KEY_LINE.search(prompt) or not in_flow_session(payload):
+        return None
+    return (
+        f"Dispatch blocked: `{word}` is a loop key — its prompt carries `Key: {word}` as a line of "
+        "its own, and hooks/enforce-loop-dispatch.py records its row under the loop's change off "
+        "that line. Add the line and re-send; never `flow record dispatch begin` it under the "
+        "run's change."
+    )
+
+
 def description_reason(payload: dict, tool_input: dict, prompt: str) -> "str | None":
-    if LOOP_KEY_LINE.search(prompt):
+    if LOOP_KEY_LINE.search(prompt) or loop_word(tool_input):
         return None
     description = tool_input.get("description")
     if isinstance(description, str) and ROW_DESCRIPTION.match(description):
@@ -181,7 +208,7 @@ def session_change(session_id: str) -> "tuple[str | None, str | None]":
 
 
 def begin_row_reason(payload: dict, tool_input: dict, prompt: str) -> "str | None":
-    if LOOP_KEY_LINE.search(prompt):
+    if LOOP_KEY_LINE.search(prompt) or loop_word(tool_input):
         return None
     description = tool_input.get("description")
     if not isinstance(description, str) or not ROW_DESCRIPTION.match(description):
@@ -343,6 +370,7 @@ def main() -> int:
         pinned_role_reason(prompt, tool_input)
         or flow_high_reason(prompt, tool_input)
         or description_reason(payload, tool_input, prompt)
+        or loop_key_line_reason(payload, tool_input, prompt)
         or begin_row_reason(payload, tool_input, prompt)
     )
     if reason:

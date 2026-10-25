@@ -66,6 +66,10 @@ These seven rows are **every** Agent-tool dispatch the parent may make, across s
 | tooling analyst, one per worktree whose fix run reports a miss an earlier round passed | `planner` | `tooling-analysis-<n>` | `skills/flow/visual-verify.md`, **A missed defect — the tooling analysis** |
 | in-run pipeline fix planner, fixer and review, one each per loop step | `planner` for the plan, `implementer` for every fixer, `reviewer` for the review | `pipeline-fix-<k>-plan`, `pipeline-fix-<k>-fix` (`-fix-g<g>`, `-fix-<r>`, `-fix-v<v>`), `pipeline-fix-<k>-review-<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
 
+The in-run pipeline fix row's dispatches are recorded by `hooks/enforce-loop-dispatch.py` under
+the loop's own change, off each prompt's `Key:` line: the parent never begins or ends one under its
+own change.
+
 **Everything else in those six sections is the parent's own Bash and Read work, never
 delegated** — every `check-*.sh`, `run-reproducer.sh`, `gather-dispatch-context.sh`,
 `prepare-workspace.sh`, `## lint` and `## test`, every `flow record` and `flow stage` call,

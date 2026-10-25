@@ -216,7 +216,9 @@ the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-
    `<agents repo>/scripts/pipeline-fix.sh start <name> <k>` — never the main checkout, never the
    change's own worktree. It dispatches `pipeline-fix-<k>-plan`, its prompt carrying the defect, its evidence and the counted blast
    radius, then `pipeline-fix-<k>-fix`, `-fix-g<g>` when the planner recorded more than one group,
-   each as item 1 there states. The fixer also adds one test or guard that fails without the fix,
+   each as item 1 there states. Each prompt carries its `Key: pipeline-fix-<k>-<suffix>` as a line
+   of its own, from which `hooks/enforce-loop-dispatch.py` records the row under the loop's change;
+   the parent never runs `flow record dispatch begin` or `end` for it under its own change. The fixer also adds one test or guard that fails without the fix,
    and updates a saved memory that encoded the defect.
 2. **Review** — a fresh `pipeline-fix-<k>-review-<r>` over
    `git diff origin/<agents-base>...pipeline-fix-<name>-<k>`, as item 2 there states.

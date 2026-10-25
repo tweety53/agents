@@ -300,3 +300,44 @@ func TestEnforceAgentBaselineHookAdmitsRestKeys(t *testing.T) {
 		})
 	}
 }
+
+// TestEnforceAgentBaselineHookAsksForTheLoopKeyLine pins kan-1032's self-review: a flow dispatch
+// whose description opens with a loop key and whose prompt carries no `Key:` line is told to add
+// the line, never to begin a row under the run's change, and the store is never read for it.
+func TestEnforceAgentBaselineHookAsksForTheLoopKeyLine(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name, description, prompt string
+		deny                      bool
+	}{
+		{"pipeline-fix key, no line", "pipeline-fix-7-plan x", "plan", true},
+		{"self-review key, no line", "self-review-x-plan y", "plan", true},
+		{"pipeline-fix key with its line", "pipeline-fix-7-plan x", "Key: pipeline-fix-7-plan", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			env, called := openRowFixture(t, `[]`, false)
+			out, _, rc := runHook(t, "enforce-agent-baseline.py", openRowPayload(t, c.description, c.prompt), env...)
+			denied := strings.Contains(out, `"permissionDecision": "deny"`)
+			if rc != 0 || denied != c.deny {
+				t.Fatalf("rc=%d deny=%v want %v out=%s", rc, denied, c.deny, out)
+			}
+			if _, err := os.Stat(called); err == nil {
+				t.Errorf("flow was called for a loop-key dispatch")
+			}
+			if !c.deny {
+				return
+			}
+			word := strings.Fields(c.description)[0]
+			for _, s := range []string{"Key: " + word, "enforce-loop-dispatch.py"} {
+				if !strings.Contains(out, s) {
+					t.Errorf("reason lacks %q: %s", s, out)
+				}
+			}
+			if strings.Contains(out, "flow record dispatch begin -change") {
+				t.Errorf("reason asks for a begin under the run's change: %s", out)
+			}
+		})
+	}
+}
