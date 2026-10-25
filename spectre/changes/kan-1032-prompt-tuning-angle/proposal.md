@@ -18,7 +18,8 @@
 - An eighth self-review angle, `flow-prompt-tuning`, runs in the same single pass as the other
   seven, in `/flow`'s integrate, `/flow-fast`'s verify and standalone `/flow-self-review`. It picks
   the review-panel findings of the run whose root cause is a generic gap in the implementer or
-  reviewer instructions: Critical and Important ones, and a Minor one when it is genuinely useful.
+  reviewer instructions. Each finding qualifies on its own severity: a Critical one, an Important one, or a
+  Minor one judged genuinely useful.
   A `reviewer` case is a miss (caught only in a later round or by a later slot) or a false positive
   (a finding later disproved or withdrawn). Zero cases is a normal result.
 - Each picked case is saved to `<agents repo>/docs/prompt-tuning/<case-id>/`: `case.json`, the

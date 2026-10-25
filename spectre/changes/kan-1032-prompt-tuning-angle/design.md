@@ -25,7 +25,8 @@
 Row 8 of the angle table: `| 8 | Instruction gaps that cost review-panel fix rounds, and the generic
 implementer or reviewer prompt update that would have avoided them | flow-prompt-tuning |`.
 
-**What it looks at.** The review-panel findings of the run. A Critical or Important finding always
+**What it looks at.** The review-panel findings of the run, each judged alone on its own severity —
+no severity needs another alongside it. A Critical finding qualifies; an Important finding
 qualifies. A Minor finding qualifies only when the pass judges it genuinely useful, meaning it is
 in a class the prompts should handle and would recur. A finding is a case only when its root cause
 is a generic gap in instructions:
@@ -259,7 +260,7 @@ up forever.
 
 **ID:** minor-when-useful
 **Status:** active
-**Chosen:** Critical and Important findings qualify; a Minor qualifies when the pass judges it
+**Chosen:** each finding qualifies on its own severity — a Critical, an Important, or a Minor when the pass judges it
 genuinely useful under the same four-part bar (operator's answer).
 **Considered:** Critical and Important only — rejected because the operator asked for useful Minors.
 
