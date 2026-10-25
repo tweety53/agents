@@ -1,8 +1,10 @@
 package guard
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -399,8 +401,11 @@ func (p *psPlan) designSections() []string {
 	}
 	design := filepath.Join(filepath.Dir(p.path), "design.md")
 	raw, err := os.ReadFile(psAbs(p.env, design))
-	if err != nil {
+	if errors.Is(err, fs.ErrNotExist) {
 		return []string{design + ": missing file design.md (Design shape: plan-mode)"}
+	}
+	if err != nil {
+		return []string{design + ": cannot read design.md: " + err.Error() + " (Design shape: plan-mode)"}
 	}
 	have := map[string]bool{}
 	for _, l := range strings.Split(string(raw), "\n") {

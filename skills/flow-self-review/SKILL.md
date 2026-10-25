@@ -204,8 +204,8 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    `skills/flow/brainstorm-planner.md`: brainstorming (section B), the artifacts (section C —
    `proposal.md`, and `design.md` with `## Context`, `## Decisions` and `## Open questions`) and
    writing plans (section D — a `tasks.md` in which each finding is carried by exactly one task, a
-   `Build: red` task counting with the partner it folds into). `flow-planner-medium`, like every
-   `flow-<effort>` definition, carries no Skill tool, so the prompt names the path of the installed superpowers plugin's
+   `Build: red` task counting with the partner it folds into). `flow-planner-medium`, like the
+   `flow-<effort>` definitions it copies, carries no Skill tool, so the prompt names the path of the installed superpowers plugin's
    `skills/brainstorming/SKILL.md` and `skills/writing-plans/SKILL.md` — on Claude Code the
    newest `~/.claude/plugins/cache/*/superpowers/*/skills/<skill>/SKILL.md` — and the planner reads and
    follows each file where those sections invoke its skill. **Every question it meets is

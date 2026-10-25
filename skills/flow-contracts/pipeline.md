@@ -149,7 +149,9 @@ safest that still makes progress.
 **Every dispatch a `/flow`, `/flow-fast` or `/flow-self-review` run makes does the work itself;
 none of them is an orchestrator.** The parent session dispatches each planner, implementer,
 fixer, reviewer and verifier directly, every one with the NO DELEGATION paragraph
-(`skills/flow/implement.md`) and a `subagent_type` that carries no `Agent` tool — never a
+(`skills/flow/implement.md`) and a `subagent_type` that carries no `Agent` tool — save a loop's
+planner, which carries PLANNING DELEGATION on a `flow-planner-<effort>` definition and may dispatch
+only fresh Explore and Plan agents (`skills/flow-self-review/SKILL.md`) — never a
 `general-purpose` or other agent whose job is to dispatch, sequence or wait on others. Where a
 contract says "this session" or "the parent" runs a loop, the parent runs it, even when the loop
 is long. An orchestrator duplicates the parent's context, idles between its children's returns

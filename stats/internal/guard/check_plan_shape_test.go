@@ -661,6 +661,21 @@ func TestPlanShapeDesignSections(t *testing.T) {
 			t.Errorf("rc=%d out=%s", r.rc, r.out)
 		}
 	})
+	t.Run("a header line after the first task is not checked", func(t *testing.T) {
+		if r := check(t, psTasks("a")+"\n"+header, "# nothing\n"); r.rc != 0 {
+			t.Errorf("rc=%d out=%s", r.rc, r.out)
+		}
+	})
+	t.Run("a longer shape name is not plan-mode", func(t *testing.T) {
+		if r := check(t, "> **Design shape:** plan-mode-ish\n\n"+psTasks("a"), "# nothing\n"); r.rc != 0 {
+			t.Errorf("rc=%d out=%s", r.rc, r.out)
+		}
+	})
+	t.Run("trailing whitespace and CRLF headings still count", func(t *testing.T) {
+		if r := check(t, header+psTasks("a"), strings.ReplaceAll(full, "\n", " \r\n")); r.rc != 0 {
+			t.Errorf("rc=%d out=%s", r.rc, r.out)
+		}
+	})
 	t.Run("the mutation disabling F19 lets a gap through", func(t *testing.T) {
 		p := psFixture(t, header+psTasks("a"))
 		if r := psMutant(p, "F19"); r.rc != 0 {
