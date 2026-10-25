@@ -1,0 +1,48 @@
+# Sentences this change rewords or adds on purpose: re-pointed citations of headings moved into skills/spectre-planning/SKILL.md, the generalised plan-mode section, and the new skill frontmatter and intro.
+**Plan mode on Claude Code.
+Make every judgment call yourself and name it in the summary, each with its rejected alternative and the one-line reason it lost, however small the call — size never exempts one (**Decisions**, `skills/flow/brainstorm-planner.md`); a `/flow-fast` run with `## handoff` `none` is one command from the operator, `/flow-fast <key>`, and asks nothing after it.
+No round count ends the stage — see **Stage exit — never the command's own judgment** (`skills/flow/brainstorm-planner.md`).
+Once convergence closes, write the design to the plan file the harness names and call `ExitPlanMode`: **Approve** is the HARD GATE's design approval (**The checklist**, `skills/flow/brainstorm-planner.md`) — save the design under `<project>-worktrees/<name>/.superpowers/sdd/` and continue into section **C**; **reject with feedback** reopens convergence with the feedback as the next round's input.
+Once the Decide step has printed its `## Decision` block, print the plan summary below, then ask the gate question in one **AskUserQuestion** call.
+Only then does the parent edit `proposal.md`, `design.md` and `tasks.md` in the same pass, never `tasks.md` alone: `proposal.md`'s `## What changes` is brought to the pivoted scope, the capability spec the plan edits (`<project>/spectre/specs/<capability>.md`) is rewritten to the pivoted scope in that same pass, and a decision the pivot displaces is superseded by ID per **Decisions** (`skills/flow/brainstorm-planner.md`) — the old entry's `**Status:**` set to `superseded by <new-id>`, its reasoning retained and its `**Superseded because:**` trigger line appended, a fresh entry appended, nothing deleted or rewritten — so the record carries the superseded decision beside its replacement.
+The open-questions entry shape is stated once under **Open questions** (`skills/flow/brainstorm-planner.md`).
+The same explicit answer may both close the checklist and grant the design approval, as **Convergence** (`skills/flow/brainstorm-planner.md`) defines.
+When `<harness>` is `claude-code`, call `EnterPlanMode` at session start.
+When `<harness>` is `claude-code`, call `EnterPlanMode` right after `flow.brainstorm` begins — `STARTED` and the worktree already exist — and before the Explore phase.
+\# spectre planning
+\### Plan mode
+**Planning runs in plan mode.
+Make every judgment call yourself and name it in the summary, each with its rejected alternative and the one-line reason it lost, however small the call — size never exempts one (**Decisions**, `skills/spectre-planning/SKILL.md`); a `/flow-fast` run with `## handoff` `none` is one command from the operator, `/flow-fast <key>`, and asks nothing after it.
+On **Approve**, save the design under `<project>-worktrees/<name>/.superpowers/sdd/` and continue into section **C**.
+On Claude Code, call `EnterPlanMode` before exploring.
+On Cursor, switch to Plan mode before exploring, or ask the user to switch when the agent cannot switch modes itself.
+Once convergence closes, write the design to the plan file the harness names and call `ExitPlanMode`: **Approve** is the HARD GATE's design approval (**The checklist**, below); **reject with feedback** reopens convergence with the feedback as the next round's input.
+Once the Decide step has printed its `## Decision` block, print the plan summary (**Plan review gate**, `skills/spectre-planning/SKILL.md`), then ask the gate question in one **AskUserQuestion** call.
+Plan mode (**Plan mode**, `skills/spectre-planning/SKILL.md`) is entered at session start.
+Plan mode (**Plan mode**, `skills/spectre-planning/SKILL.md`) is entered right after `flow.brainstorm` begins — `STARTED` and the worktree already exist — and before the Explore phase.
+The generic planning prompts for a spectre change: brainstorm the design, create the change's three artifacts, and write the plan.
+The tool-only mode is the bare spectre CLI and loads none of this.
+Use when planning a spectre change.
+name: spectre-planning description: The planning prompts of spectre's tool + planning prompts mode — brainstorming a design in plan mode, filling proposal.md, design.md and tasks.md, and writing a plan spectre's guards accept.
+# Review fix round 1 (decision planning-skill-flow-free): flow-scoped wording generalised, stale pointers re-pointed, Plan mode raised to h2.
+\# … the operator's approve-and-move-on answer — this is the HARD GATE above …
+**Here the safe default and the recommended option differ** — shape per Operator prompts (`skills/flow-contracts/operator-prompts.md`): silence or a stalled prompt from an operator who is present is not "approve the design and move on," and defaults to another round rather than to the recommended choice.
+On Claude Code, `/flow` and `/flow-plan` take the approval from `ExitPlanMode` instead — the merged confirm still closes the checklist (decision `exit-plan-mode-is-approval`, kan-1033).
+This is a scoped override of `superpowers:brainstorming`'s "Only one question per message", `/flow` only.
+This is a scoped override of `superpowers:brainstorming`'s hard design-approval gate, `/flow` only.
+Under the `## decisions: recommended` mode (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`) the confirm is not asked: the recommended **approve the design and move on** is taken, and the silence default above never fires.
+Under the mode the offer is not asked either: **Yes — run another round** is taken, and the silence default above never fires (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`).
+Within a single run, a stage that loops — most concretely `/flow`'s brainstorm stage, whose convergence test reopens after every planning-stage exchange that leaves a question the command's inputs do not answer — never closes on the command's own judgment.
+\# … the operator's approve-and-move-on answer — this is the HARD GATE (The checklist, skills/spectre-planning/SKILL.md) …
+\## Plan mode
+**Here the safe default and the recommended option differ**: silence or a stalled prompt from an operator who is present is not "approve the design and move on," and defaults to another round rather than to the recommended choice.
+In plan mode the approval comes from `ExitPlanMode` instead (**Plan mode**, above) — the merged confirm still closes the checklist (decision `exit-plan-mode-is-approval`, kan-1033).
+This is a scoped override of `superpowers:brainstorming`'s "Only one question per message".
+This is a scoped override of `superpowers:brainstorming`'s hard design-approval gate.
+Under the `## decisions: recommended` mode (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`) the confirm is not asked: the recommended **approve the design and move on** is taken, and the silence default (**Convergence**, `skills/spectre-planning/SKILL.md`) never fires.
+Under the mode the offer is not asked either: **Yes — run another round** is taken, and the silence default (**Convergence**, `skills/spectre-planning/SKILL.md`) never fires (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`).
+Within a single run, a stage that loops — most concretely the brainstorm stage, whose convergence test reopens after every planning-stage exchange that leaves a question the command's inputs do not answer — never closes on the command's own judgment.
+# Review Minor F9: section C pointer re-pointed.
+Seed `> **Design shape:** plan-mode` into the same block of every plan: on a `tasks.md` carrying it, `check-plan-shape.sh` refuses a sibling `design.md` missing any of section **C**'s four plan sections (decision `design-shape-line`, kan-1033).
+Create the change and its artifacts**, `skills/spectre-planning/SKILL.md`) (decision `design-shape-line`, kan-1033).
+Seed `> **Design shape:** plan-mode` into the same block of every plan: on a `tasks.md` carrying it, `check-plan-shape.sh` refuses a sibling `design.md` missing any of the four plan sections (**C.
