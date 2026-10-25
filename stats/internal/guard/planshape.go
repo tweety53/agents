@@ -41,7 +41,9 @@ import (
 // Per file, the F1-F18 checks run, then plan-suite-steps
 // (plansuitesteps.go: a task step running a module or repository suite),
 // plan-script-paths (planscriptpaths.go: a step citing a scripts/ path the
-// repository does not carry) and plan-task-id-rule (plantaskidrule.go: a
+// repository does not carry), plan-files-paths (planfilespaths.go: a
+// **Files:** path whose directory exists only with a segment dropped) and
+// plan-task-id-rule (plantaskidrule.go: a
 // /flow plan stating task commits carry no Task-Id: trailer), in-process
 // and in that order, each printing its own lines.
 //
@@ -224,7 +226,7 @@ func psAbs(env Env, p string) string {
 // production passes "".
 func psCheckOne(path string, env Env, off string, stdout, stderr io.Writer) int {
 	rc := psShape(path, env, off, stdout, stderr)
-	for _, name := range []string{"plan-suite-steps", "plan-script-paths", "plan-task-id-rule"} {
+	for _, name := range []string{"plan-suite-steps", "plan-script-paths", "plan-files-paths", "plan-task-id-rule"} {
 		rc = psWorse(rc, Registry[name]([]string{path}, env, stdout, stderr))
 	}
 	return rc
