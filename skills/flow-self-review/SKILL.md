@@ -121,7 +121,7 @@ the layer open, and a rule true in every language on one layer leaves the langua
 per axis: would the rule still be true, word for word, in a project on the other layer, or in
 another language? If yes, that axis stays open. The pass picks the widest scope that is still true.
 Every `rules/` target is an opt-in rule file a project receives only by naming it in its
-`.flow/project.md` `## standards`; a scoped rule never goes into a shared prompt.
+`<project>/.flow/project.md` `## standards`; a scoped rule never goes into a shared prompt.
 
 A case is picked only when its `why_picked` states all four:
 
@@ -194,7 +194,7 @@ landed by the run's own route; otherwise, and standalone, `self-review-<name>`. 
 worktree — no non-`big` finding — this session creates it with
 `<agents repo>/scripts/pipeline-fix.sh start <name>`, commits the cases there and lands that
 cases-only branch by step 3 item 5's route; `check-loop-landing.sh` admits a `self-review-*` branch
-whose diff touches only `docs/prompt-tuning/` without loop rows.
+whose diff touches only `<agents repo>/docs/prompt-tuning/` without loop rows.
 
 ### 3. Fix every finding that is not `big`
 

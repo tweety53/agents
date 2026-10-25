@@ -53,6 +53,7 @@ asked. No command takes a flag.
 | `/flow-status [name]` | Read-only report of every open change |
 | `/flow-settings` | Global reviewer slots |
 | `/flow-self-review <name>` | Runs the self-review pass an older run deferred |
+| `/flow-prompt-tuning` | Applies the generic implementer/reviewer prompt updates the self-review's prompt-tuning angle saved, after an A/B replay proves each; records each case in docs/prompt-tuning/LEDGER.md and removes its folder. Standalone, not a pipeline stage |
 
 ## How the pipeline works
 
