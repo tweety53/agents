@@ -131,6 +131,7 @@ scripts/check-guard-symlinks.sh
 scripts/check-dispatch-paragraphs.sh
 scripts/check-mutation-reproducer-pin.sh
 scripts/check-self-review-report.sh
+scripts/check-prompt-tuning-cases.sh
 scripts/check-installed-citations.sh
 scripts/check-installed-rules.sh
 scripts/check-hand-notes-in-step.sh
