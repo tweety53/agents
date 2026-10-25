@@ -29,8 +29,11 @@ get there is scripted. You're a thinking partner helping the user explore.
 ## The session does the thinking itself
 
 `/flow-plan` runs entirely in the current session, on its own model, with any argument shape —
-a Jira key, an existing change's name, a bare topic, or nothing at all. No subagent is dispatched:
-the session itself reads the tree, runs the investigate-then-ask rounds and the convergence check
+a Jira key, an existing change's name, a bare topic, or nothing at all. The session may dispatch
+the fresh Explore and Plan agents **Explore and design agents** (`skills/flow/brainstorm-planner.md`)
+allows — its pair from `plan-agent-pair.sh <session-token> <n>`, seeded with this session's
+token — never a `fork`; the session itself
+does the thinking: it reads the tree, runs the investigate-then-ask rounds and the convergence check
 below, and creates the change or offers the `design.md` capture directly. Every "you" elsewhere
 in this skill addresses the running session.
 
@@ -56,8 +59,14 @@ otherwise, including a session that just stops.
 **`plan.session` is the one mark this mode makes.** The `flow.*` keys a capture executes
 (**Capturing a new change**, below) are `/flow`'s rows in the Level 1 table and are not marked
 here; the store attaches the open plan session to the change the moment the capture's own
-`STARTED` write creates it. **No `flow record dispatch` call** either — this mode dispatches
-nothing.
+`STARTED` write creates it. **No `flow record dispatch` call** either — no change exists to record
+a planning dispatch against before capture (decision `flow-plan-records-nothing`, kan-1033).
+
+**Plan mode on Claude Code.** When `<harness>` is `claude-code`, call `EnterPlanMode` at session
+start. Call `ExitPlanMode` only once the session reaches a capturable design, as the design
+approval, before the capture question — which is still asked after approval. A research session
+that ends without a capture never calls `ExitPlanMode`. A declined `EnterPlanMode` consent is one
+line, and the session continues without plan mode.
 
 **Every read is of the main checkout, read-only.** This mode writes nothing until a capture:
 **Capturing a new change** creates `<project>-worktrees/<name>` through `/flow`'s kickoff and
@@ -251,6 +260,10 @@ minimum:
    title, holding whatever prose, lists, or code excerpts the discussion produced for that thread.
    Order sections in the order the threads came up.
 2. **A step-by-step breakdown section**, always present (see below).
+3. **The four plan sections** of **C. Create the change and its artifacts**
+   (`skills/flow/brainstorm-planner.md`) —
+   `## Recommended approach`, `## Critical files`, `## Existing code to reuse` and
+   `## Verification` — on a new change's design.
 
 **A captured design carries no open items.** Everything the session surfaced is decided before
 the artifacts are written — decided by the user through the convergence round's questions, or by
@@ -272,6 +285,14 @@ mid-run asks**, `skills/flow-contracts/pipeline.md`).
 ## 2. <Second thread title>
 
 <prose, lists, findings>
+
+## Recommended approach
+
+## Critical files
+
+## Existing code to reuse
+
+## Verification
 
 ## Step-by-step breakdown
 

@@ -108,10 +108,31 @@ Read `skills/flow/brainstorm-planner.md`'s sections **B**, **C** and **D** and f
 directly — `REVIEWERS` (**Model resolution**, `skills/flow/SKILL.md`) is
 already in scope from this run's own earlier resolution.
 
-**No dispatch of any kind from kickoff to the plan gate — a `fork` included.** Artifact creation,
-writing-plans, the guards and Decide all run in this session's own turns. A fork copies the whole
-conversation, so it saves no context and doubles the token spend, and the `/clear` after the gate
-discards this session's context anyway; on kan-941 one also closed `flow.writing-plans` out of order.
+**No `fork` from kickoff to the plan gate.** A fork copies the whole conversation, so it saves no
+context and doubles the token spend, and the `/clear` after the gate discards this session's
+context anyway; on kan-941 one also closed `flow.writing-plans` out of order. **Fresh subagents
+through the Agent tool are allowed while planning** — the Explore and Plan agents of **Explore and
+design agents** (`skills/flow/brainstorm-planner.md`) — and the thinking stays in this session:
+the questions, convergence, the choice between designs, artifact creation, writing-plans, the
+guards and Decide all run in this session's own turns. `/flow` records each planning dispatch
+under `flow.brainstorm`, its pair from `plan-agent-pair.sh <name> <n>`, `<n>` counting this run's
+planning dispatches from 1 — role `explorer` for an Explore agent, `planner` for a Plan agent:
+
+```bash
+flow record dispatch begin -change <name> -role explorer|planner -model <m> -effort low \
+  -key explore-<n>|design-<n> -session-token mf-<literal-token>
+flow record dispatch end -change <name> -key explore-<n>|design-<n> -session-token mf-<literal-token> -outcome completed
+```
+
+**Plan mode on Claude Code.** When `<harness>` is `claude-code`, call `EnterPlanMode` right after
+`flow.brainstorm` begins — `STARTED` and the worktree already exist — and before the Explore phase.
+Investigation, questions and competing designs run inside plan mode. Once convergence closes,
+write the design to the plan file the harness names and call `ExitPlanMode`: **Approve** is the
+HARD GATE's design approval (**The checklist**, `skills/flow/brainstorm-planner.md`) — save the
+design under `<project>-worktrees/<name>/.superpowers/sdd/` and continue into section **C**; **reject with feedback** reopens
+convergence with the feedback as the next round's input. A declined `EnterPlanMode` consent is one
+line, and planning continues without plan mode, exactly as on another harness. Every other gate is
+unchanged, the plan review gate included.
 
 **Prose preceding a question is shown too, not dropped.** When the checklist carries a summary
 before a question — most concretely the convergence confirm's "state what you believe settled"
