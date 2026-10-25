@@ -13,9 +13,12 @@
 // arguments, the list records its own `verifier` row through `flow record
 // dispatch`: `begin` (`-agent-id inline`) before its first command, and `end
 // -outcome completed` after its last only when the list exited 0. No `flow`
-// on PATH exits 2 before any command runs; a failed record call prints
-// `run-verify-list: flow record dispatch <begin|end> failed: <its output>` on
-// stderr and never changes the exit code.
+// on PATH exits 2 before any command runs. A `begin` the store refuses prints
+// `run-verify-list: flow record dispatch begin refused — no command ran: <its
+// output>` on stderr and exits 4 before any command (kan-1032 self-review: the
+// list ran in full, its row unrecorded, and was re-run only to get the row); a
+// failed `end` prints `run-verify-list: flow record dispatch end failed: <its
+// output>` on stderr and never changes the exit code.
 //
 // THE LIST is every non-blank, non-`#` line inside a ```bash fence of
 // `project-get.sh <worktree> <list>`'s output, in the order printed; `lint`
@@ -74,6 +77,7 @@
 //      line names it — or project-get.sh exit 2 — its stderr line says why
 //   3  the list is not declared (project-get.sh exit 1): the caller
 //      auto-detects, as **Inline verify** says
+//   4  the store refused the recording begin (stderr names why): no command ran
 //
 // project-get.sh and check-spec-reach.sh are exec'd from
 // FLOW_GUARD_SCRIPT_DIR, the directory the shim exports as its own. The test
@@ -118,7 +122,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, usage)
 		return 2
 	}
-	record := func(string, ...string) {}
+	record := func(string, ...string) bool { return true }
 	if len(args) == 7 {
 		flow, ok := lookPath(env, "flow")
 		if !ok {
@@ -127,16 +131,23 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		wt, change := args[0], args[2]
 		key, token, model, effort := args[3], args[4], args[5], args[6]
-		record = func(verb string, flags ...string) {
+		record = func(verb string, flags ...string) bool {
 			argv := []string{"record", "dispatch", verb, "-C", wt, "-change", change}
 			if verb == "begin" {
 				argv = append(argv, "-role", "verifier", "-model", model, "-effort", effort, "-agent-id", "inline")
 			}
 			argv = append(argv, "-key", key, "-session-token", token)
 			argv = append(argv, flags...)
-			if rc, out := kwRun(env, "", flow, argv...); rc != 0 {
+			rc, out := kwRun(env, "", flow, argv...)
+			if rc == 0 {
+				return true
+			}
+			if verb == "begin" {
+				fmt.Fprintf(stderr, "run-verify-list: flow record dispatch begin refused — no command ran: %s\n", strings.TrimSpace(out))
+			} else {
 				fmt.Fprintf(stderr, "run-verify-list: flow record dispatch %s failed: %s\n", verb, strings.TrimSpace(out))
 			}
+			return false
 		}
 		args = args[:2]
 	}
@@ -282,7 +293,9 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		report(shown, results[0].rc, results[0].out, key)
 	}
 
-	record("begin")
+	if !record("begin") {
+		return 4
+	}
 	skip := make([]bool, len(cmds))
 	var argvs [][]string
 	for i, c := range cmds {

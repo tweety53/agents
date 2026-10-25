@@ -14,6 +14,7 @@
 #      line names it — or project-get.sh exit 2 — its stderr line says why
 #   3  the list is not declared (project-get.sh exit 1): the caller
 #      auto-detects, as **Inline verify** says
+#   4  the store refused the recording begin (stderr names why): no command ran
 #
 # The mechanism, and its full contract — the list, the green sha, the output
 # — is stats/internal/guard/runverifylist.go; its test is

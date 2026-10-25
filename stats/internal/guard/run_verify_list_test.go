@@ -355,3 +355,48 @@ func TestRunVerifyListRecordsTheVerifyRow(t *testing.T) {
 		}
 	}
 }
+
+// TestRunVerifyListStopsOnARefusedBegin pins kan-1032's self-review: a begin
+// the store refuses stops the list, exit 4, before any command; a failed end
+// never changes the exit code.
+func TestRunVerifyListStopsOnARefusedBegin(t *testing.T) {
+	repo, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	wt, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"), "PATH="+dir+":"+os.Getenv("PATH"))
+	getenv := func(k string) string {
+		for i := len(environ) - 1; i >= 0; i-- {
+			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
+				return v
+			}
+		}
+		return ""
+	}
+	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\necho ran >> "+log+"\n```\n")
+	run := func(flow string) (int, string, string) {
+		os.Remove(log)
+		writeExec(t, filepath.Join(dir, "flow"), flow)
+		var o, e bytes.Buffer
+		rc := runVerifyList([]string{wt, "test", "kan-1", "verify", "mf-k1", "opus", "low"},
+			Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+		calls, _ := os.ReadFile(log)
+		return rc, string(calls), e.String()
+	}
+
+	rc, calls, stderr := run("#!/bin/sh\ncase \"$3\" in begin) echo 'flow: record dispatch refused: dirty'; exit 2;; esac\n")
+	want := "run-verify-list: flow record dispatch begin refused — no command ran: flow: record dispatch refused: dirty"
+	if rc != 4 || calls != "" || !strings.Contains(stderr, want) {
+		t.Errorf("a refused begin: exit %d, calls %q, stderr %q", rc, calls, stderr)
+	}
+
+	if rc, calls, _ := run("#!/bin/sh\ncase \"$3\" in end) exit 1;; esac\n"); rc != 0 || calls != "ran\n" {
+		t.Errorf("a failed end: exit %d, calls %q", rc, calls)
+	}
+}
