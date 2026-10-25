@@ -42,3 +42,7 @@ This is a scoped override of `superpowers:brainstorming`'s hard design-approval 
 Under the `## decisions: recommended` mode (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`) the confirm is not asked: the recommended **approve the design and move on** is taken, and the silence default (**Convergence**, `skills/spectre-planning/SKILL.md`) never fires.
 Under the mode the offer is not asked either: **Yes — run another round** is taken, and the silence default (**Convergence**, `skills/spectre-planning/SKILL.md`) never fires (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`).
 Within a single run, a stage that loops — most concretely the brainstorm stage, whose convergence test reopens after every planning-stage exchange that leaves a question the command's inputs do not answer — never closes on the command's own judgment.
+# Review Minor F9: section C pointer re-pointed.
+Seed `> **Design shape:** plan-mode` into the same block of every plan: on a `tasks.md` carrying it, `check-plan-shape.sh` refuses a sibling `design.md` missing any of section **C**'s four plan sections (decision `design-shape-line`, kan-1033).
+Create the change and its artifacts**, `skills/spectre-planning/SKILL.md`) (decision `design-shape-line`, kan-1033).
+Seed `> **Design shape:** plan-mode` into the same block of every plan: on a `tasks.md` carrying it, `check-plan-shape.sh` refuses a sibling `design.md` missing any of the four plan sections (**C.
