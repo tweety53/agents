@@ -17,3 +17,7 @@ At verify, check-task-records failed task 2 under the exported workspace environ
 In-run pipeline fix: 36eb356ccb6d8002014382c42900e8380d6fa889 — check-task-records read a cross-repo peer's state from the workspace daemon under verify's exported FLOW_ADDR (blast radius 2 files)
 
 The loop planned, fixed, reviewed clean and landed on main through pipeline-fix.sh, which moved main under this change. spectre's UPSTREAM.md named the task 1 commit sha, which integrate's reshape would orphan; it now names the skill by its path on agents main and the ticket that landed it.
+
+## 2026-10-26 — fix run
+
+The fix run appended task 3 to the archived plan and reworded the spectre manifest test's comment to say `UPSTREAM.md` names a source path. The small-append panel (`primary` on opus) closed clean. The spectre worktree has no declared verify list, so `go vet` and `go test ./...` were run by hand and recorded as the verify row. The first `verify-spectre` begin was refused because the task's tick was still uncommitted; the row began again after the planning commit.
