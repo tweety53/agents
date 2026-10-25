@@ -38,8 +38,9 @@ It denies, in a flow session, a dispatch whose row was never begun: the session'
 off the store as flow-active-change.py reads it, `flow record dispatches` lists its rows, and a
 dispatch is denied when that list holds no open row (empty `outcome`) whose key is the
 description's first word or, for `Task <ids>/<n>`, starts with `task-<ids>-`. A loop-key dispatch
--- a `Key:` line, or a description opening with a loop key -- is never checked. An unreachable store, no /flow stage-begin for the session, an absent or failing
-`flow` CLI, or an unparseable answer lets the dispatch through.
+-- a `Key:` line, or a description opening with a loop key -- is never checked. An unreachable
+store, no /flow stage-begin for the session, an absent or failing `flow` CLI, or an unparseable
+answer lets the dispatch through.
 
 A planning agent (PLANNING_AGENT_TYPES: Explore, Plan) records no row, so none of those row checks
 applies to it; the baseline-pointer, pinned-role and flow-high checks still do.
@@ -164,7 +165,12 @@ def loop_word(tool_input: dict) -> "str | None":
 
 def loop_key_line_reason(payload: dict, tool_input: dict, prompt: str) -> "str | None":
     word = loop_word(tool_input)
-    if tool_input.get("subagent_type") in PLANNING_AGENT_TYPES or not word or LOOP_KEY_LINE.search(prompt) or not in_flow_session(payload):
+    if (
+        tool_input.get("subagent_type") in PLANNING_AGENT_TYPES
+        or not word
+        or LOOP_KEY_LINE.search(prompt)
+        or not in_flow_session(payload)
+    ):
         return None
     return (
         f"Dispatch blocked: `{word}` is a loop key — its prompt carries `Key: {word}` as a line of "

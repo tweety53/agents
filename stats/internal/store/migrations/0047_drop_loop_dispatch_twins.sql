@@ -6,7 +6,8 @@
 -- the real, stamped row under the loop's own change. The twin is a dispatch
 -- with no agent, a pipeline-fix- key, under a change that is not a loop change,
 -- whose same key exists under that change's loop (`pipeline-fix-<change>-<n>`)
--- in the same project. A finding pointing at a twin is unlinked first.
+-- in the same project -- matched by exact prefix and numeric suffix, so neither a
+-- LIKE wildcard in the name nor a longer name's loop counts. A finding pointing at a twin is unlinked first.
 
 WITH twins AS (
   SELECT d.id
@@ -20,7 +21,8 @@ WITH twins AS (
       JOIN changes lc ON lc.id = t.change_id
       WHERE t.dispatch_key = d.dispatch_key
         AND lc.project_key = c.project_key
-        AND lc.name LIKE 'pipeline-fix-' || c.name || '-%'
+        AND left(lc.name, length(c.name) + 14) = 'pipeline-fix-' || c.name || '-'
+        AND substr(lc.name, length(c.name) + 15) ~ '^[0-9]+$'
     )
 ), unlinked AS (
   UPDATE findings SET dispatch_id = NULL WHERE dispatch_id IN (SELECT id FROM twins)

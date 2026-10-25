@@ -177,7 +177,9 @@ func TestMigration0047DropsLoopDispatchTwins(t *testing.T) {
 	exec(`INSERT INTO changes (project_key, name, state, updated_at, updated_by) VALUES
 		('p', 'kan-1', 'IN_PROGRESS', now(), '/flow'),
 		('p', 'pipeline-fix-kan-1-7', 'IN_PROGRESS', now(), '/flow'),
-		('p', 'kan-2', 'IN_PROGRESS', now(), '/flow')`)
+		('p', 'kan-2', 'IN_PROGRESS', now(), '/flow'),
+		('p', 'kan-3', 'IN_PROGRESS', now(), '/flow'),
+		('p', 'pipeline-fix-kan-3-foo-4', 'IN_PROGRESS', now(), '/flow')`)
 	exec(`INSERT INTO dispatches (change_id, seq, role, model, started_at, dispatch_key, agent_id)
 		SELECT c.id, v.seq, 'planner', 'opus', now(), v.k, v.a FROM changes c JOIN (VALUES
 			('kan-1', 1, 'pipeline-fix-7-plan', NULL),
@@ -185,7 +187,9 @@ func TestMigration0047DropsLoopDispatchTwins(t *testing.T) {
 			('kan-1', 3, 'pipeline-fix-7-fix', 'a3'),
 			('pipeline-fix-kan-1-7', 1, 'pipeline-fix-7-plan', 'a1'),
 			('pipeline-fix-kan-1-7', 2, 'pipeline-fix-7-fix', 'a2'),
-			('kan-2', 1, 'pipeline-fix-7-plan', NULL)
+			('kan-2', 1, 'pipeline-fix-7-plan', NULL),
+			('kan-3', 1, 'pipeline-fix-4-plan', NULL),
+			('pipeline-fix-kan-3-foo-4', 1, 'pipeline-fix-4-plan', 'a4')
 		) AS v(ch, seq, k, a) ON c.name = v.ch`)
 	exec(`INSERT INTO findings (change_id, dispatch_id, ref, round, slot, severity, note, status)
 		SELECT d.change_id, d.id, 'F1', 1, 'primary', 'Minor', 'n', 'open'
@@ -213,7 +217,7 @@ func TestMigration0047DropsLoopDispatchTwins(t *testing.T) {
 		got = append(got, s)
 	}
 	rows.Close()
-	want := "kan-1/pipeline-fix-7-fix kan-1/pipeline-fix-8-plan kan-2/pipeline-fix-7-plan pipeline-fix-kan-1-7/pipeline-fix-7-fix pipeline-fix-kan-1-7/pipeline-fix-7-plan"
+	want := "kan-1/pipeline-fix-7-fix kan-1/pipeline-fix-8-plan kan-2/pipeline-fix-7-plan kan-3/pipeline-fix-4-plan pipeline-fix-kan-1-7/pipeline-fix-7-fix pipeline-fix-kan-1-7/pipeline-fix-7-plan pipeline-fix-kan-3-foo-4/pipeline-fix-4-plan"
 	if g := strings.Join(got, " "); g != want {
 		t.Errorf("rows =\n %s\nwant\n %s", g, want)
 	}
