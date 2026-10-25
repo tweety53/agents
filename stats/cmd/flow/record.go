@@ -1155,6 +1155,22 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		}
 	}
 
+	// An inline decision has the parent implement and fix itself, so an
+	// implementer or panel-fix row with a subagent behind it breaches it
+	// (skills/flow/implement.md, Inline -- the parent implements). A
+	// self-review or pipeline fixer is dispatched whatever the decision, and
+	// a decisions read that fails skips the check.
+	if *startedAt == "" && (*role == "implementer" || *role == "panel-fix") && *agentID != "inline" &&
+		!strings.HasPrefix(*key, "self-review-") && !strings.HasPrefix(*key, "pipeline-fix-") {
+		if d, ok := latestDecision(ctx, f, projectKey); ok {
+			var execution string
+			if json.Unmarshal(d["execution"], &execution) == nil && execution == "inline" {
+				fmt.Fprintf(stderr, "flow: -role %s -key %s dispatches a subagent, but the change's recorded decision is execution: inline — the parent implements and fixes itself, beginning the row with -agent-id inline (skills/flow/implement.md, Inline — the parent implements)\n", *role, *key)
+				return 2
+			}
+		}
+	}
+
 	// StartedAt is sent as nothing at all: the daemon stamps it at the
 	// moment it writes the row. A write that journals stamps the attempt
 	// instant taken BEFORE the call, so the replay restores the instant the
@@ -3036,6 +3052,28 @@ func runRecordSummary(ctx context.Context, args []string, stdin io.Reader, stdou
 		fmt.Fprintf(stdout, "recorded: summary %d\n", out.ID)
 	}
 	return classifyRecordWrite(callErr, projectKey, f.change, "summary", in, stderr)
+}
+
+// latestDecision is the change's newest recorded decision (highest ID) as
+// its top-level fields, or false when the read fails or none is recorded.
+func latestDecision(ctx context.Context, f recordIdentityFlags, projectKey string) (map[string]json.RawMessage, bool) {
+	ds, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]records.Decision, error) {
+		return cl.ListDecisions(ctx, projectKey, f.change)
+	})
+	if err != nil || len(ds) == 0 {
+		return nil, false
+	}
+	top := ds[0]
+	for _, d := range ds[1:] {
+		if d.ID > top.ID {
+			top = d
+		}
+	}
+	var m map[string]json.RawMessage
+	if json.Unmarshal(top.Decision, &m) != nil {
+		return nil, false
+	}
+	return m, true
 }
 
 // runRecordDecisions implements `flow record decisions`: a change's

@@ -6231,3 +6231,71 @@ func TestRecordDispatchBeginRefusesALoopKeyOffItsLoop(t *testing.T) {
 		})
 	}
 }
+
+// beginUnderDecision runs `flow record dispatch begin` with args against a
+// daemon whose decisions read answers decisions (an HTTP 500 when empty)
+// and whose dispatch write succeeds; it returns the exit code and stderr.
+func beginUnderDecision(t *testing.T, decisions string, args ...string) (int, string) {
+	t.Helper()
+	repo := recordRepo(t, "kan-327")
+	isolatedStateRoot(t)
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/decisions") {
+			if decisions == "" {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(decisions))
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"implementer","model":"opus","startedAt":"2026-01-02T03:04:05Z"}`))
+	}))
+	defer srv.Close()
+	base := []string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "kan-327", "-session-token", "mf-record-inline"}
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(), append(base, args...), strings.NewReader(""), &stdout, &stderr)
+	return code, stderr.String()
+}
+
+func decisionsBody(decision string) string {
+	return `[{"id":1,"sessionToken":"mf-a","recordedAt":"2026-01-01T00:00:00Z","decision":{"class":"small"}},` +
+		`{"id":2,"sessionToken":"mf-b","recordedAt":"2026-01-02T00:00:00Z","decision":` + decision + `}]`
+}
+
+// TestRecordDispatchBeginRefusesSubagentUnderInline pins the inline
+// decision's enforcement: an implementer or panel-fix row with a subagent
+// behind it is refused, while an inline row, a reviewer, a self-review
+// fixer, a subagent decision and a failed decisions read all begin.
+func TestRecordDispatchBeginRefusesSubagentUnderInline(t *testing.T) {
+	inline := decisionsBody(`{"execution":"inline"}`)
+	impl := []string{"-role", "implementer", "-key", "task-1-implementer", "-model", "opus", "-effort", "low"}
+	fix := []string{"-role", "panel-fix", "-key", "panel-fix-1", "-model", "opus", "-effort", "low"}
+	cases := []struct {
+		name, decisions string
+		args            []string
+		code            int
+	}{
+		{"subagent implementer", inline, append([]string{"-agent-id", "none"}, impl...), 2},
+		{"subagent panel-fix", inline, append([]string{"-agent-id", "none"}, fix...), 2},
+		{"inline implementer", inline, append([]string{"-agent-id", "inline"}, impl...), 0},
+		{"inline panel-fix", inline, append([]string{"-agent-id", "inline"}, fix...), 0},
+		{"reviewer", inline, []string{"-agent-id", "none", "-role", "reviewer", "-key", "panel-1-primary", "-slot", "primary", "-model", "opus", "-effort", "low"}, 0},
+		{"self-review fixer", inline, []string{"-agent-id", "none", "-role", "implementer", "-key", "self-review-x-fix", "-model", "opus", "-effort", "low"}, 0},
+		{"subagent decision", decisionsBody(`{"execution":"subagent"}`), append([]string{"-agent-id", "none"}, impl...), 0},
+		{"decisions read fails", "", append([]string{"-agent-id", "none"}, impl...), 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			code, stderr := beginUnderDecision(t, tc.decisions, tc.args...)
+			if code != tc.code {
+				t.Fatalf("exit %d, want %d; stderr:\n%s", code, tc.code, stderr)
+			}
+			if tc.code == 2 && !strings.Contains(stderr, "execution: inline") {
+				t.Errorf("stderr %q does not name execution: inline", stderr)
+			}
+		})
+	}
+}

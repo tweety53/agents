@@ -124,7 +124,7 @@ offers no per-dispatch type — so the NO DELEGATION paragraph alone governs the
 
 **Inline — the parent implements** below takes this same table minus the implementer, gated reviewer bundle and panel-fix
 rows — the parent's only permitted dispatches inline are the panel-bundle,
-verifier and tooling-analyst rows.
+verifier and tooling-analyst rows. `flow record dispatch begin` refuses an implementer or panel-fix row with a subagent behind it under an inline decision (exit 2).
 
 **The handshake.** Every dispatched role in this
 pipeline — implementer, gated per-task reviewer, panel slot, panel-fix, verifier, tooling analyst, in-run pipeline fix — opens its first reply with the `Model:`
