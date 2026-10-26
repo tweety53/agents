@@ -103,13 +103,13 @@ gap in instructions:
   `skills/flow/sdd-dispatch.md`, `skills/flow/engineering-principles.md`) would have prevented the
   bad code.
 - **`reviewer`** — either a **miss**, a defect raised only in a later round or by a later slot that
-  a round-1 reviewer instruction (`skills/flow/*-reviewer-prompt.md`,
+  a first-round reviewer instruction (`skills/flow/*-reviewer-prompt.md`,
   `skills/flow/reviewer-calibration.md`) would have caught, or a **false positive**, a finding later
   disproved or withdrawn that cost a fix round for nothing. A visual-verify finding's reviewer
   is the verifier: its miss or false positive targets `skills/flow/visual-verify-verifier.md` or
   `skills/flow/visual-verify.md`.
 
-A **late-round miss** — a finding a slot first raises in round 2 or later on a hunk that same slot
+A **late-round miss** — a finding a slot first raises in round 1 or later on a hunk that same slot
 already reviewed, unchanged, in an earlier round — is traced to why the earlier rounds missed it,
 whatever its severity: the pass compares that slot's earlier dispatches with the round that raised
 it — the slot's reviewer prompt file at the change's merge base, the diff each was given, the
