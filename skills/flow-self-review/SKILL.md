@@ -94,7 +94,9 @@ the bundle names.
 Angle 8 reads the run's review-panel findings and its visual-verify findings, each judged alone on its own severity — no severity
 needs another alongside it. A Critical finding qualifies; an Important finding qualifies; a Minor
 finding qualifies only when the pass judges it genuinely useful, meaning it is in a class the
-prompts should handle and would recur. A finding is a case only when its root cause is a generic
+prompts should handle and would recur. The verifier grades no severity: a visual-verify departure blocks the handoff
+(`skills/flow/visual-verify.md`, **Steps 3–13**), so it is judged as an Important, and its case records
+`source.slot` `visual-verify` and `source.severity` `Important`. A finding is a case only when its root cause is a generic
 gap in instructions:
 
 - **`implementer`** — a rule in the implementer instructions (`skills/flow/implement.md`,
