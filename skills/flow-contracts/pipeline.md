@@ -117,6 +117,17 @@ action that is irreversible or outward-facing — **What still stops**
 (`skills/flow-contracts/operator-prompts-auto-resolution.md`) — and every phase's contract is read
 under this one.
 
+**A run's size is never a stop.** Tokens spent, wall-clock time, context length, the number of
+rounds or tasks still ahead, a natural-looking checkpoint, and a list of open items that each carry
+a recommended option are never reasons to end a turn or to hand a status report to the operator
+mid-run: the run takes each recommendation (**Auto-resolution**,
+`skills/flow-contracts/operator-prompts.md`), names it on the handoff's `**Decisions:**` lines,
+and continues to the next stage. A departure or defect whose fix reaches a shared source outside
+the change's screens is fixed at that source in the same run, never offered as "a separate
+change" (kan-1017: the parent stopped after Task 11 with verify, the panel re-review and integrate
+still ahead, offering a seed-data flake, a shared heading departure and a mockup-frame config gap
+as open items, each of which had a recommended fix).
+
 **No round count ends a re-review or a re-verification.** A review-panel fix round, a gated
 per-task re-review, a verify stage's fix loop and a verifier re-dispatch each repeat until their
 own clean close. **A round that makes no progress — the same defect identity, on the same
