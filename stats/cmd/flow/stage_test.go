@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -1767,5 +1768,51 @@ func TestStageEndReviewPanelRunsFindingsClosed(t *testing.T) {
 				t.Fatalf("stderr does not name check-panel-findings-closed:\n%s", stderr.String())
 			}
 		})
+	}
+}
+
+// TestStageEndReviewPanelResolvesWorktreeWithoutC pins that a completed
+// /flow flow.review-panel end run with no -C from the main checkout runs
+// check-panel-findings-closed against the linked worktree carrying the
+// change, not the cwd (kan-1025: the main checkout held no report file and
+// the end was falsely refused).
+func TestStageEndReviewPanelResolvesWorktreeWithoutC(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	wt := filepath.Join(t.TempDir(), "wt")
+	if out, err := exec.Command("git", "-C", repo, "worktree", "add", wt).CombinedOutput(); err != nil {
+		t.Fatalf("worktree add: %v\n%s", err, out)
+	}
+	sdd := filepath.Join(wt, ".superpowers", "sdd")
+	if err := os.MkdirAll(filepath.Join(sdd, "kan-1"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sdd, "panel-report-0-primary.md"), []byte("clean\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bin := t.TempDir()
+	script := "#!/usr/bin/env bash\ncase \"$*\" in\n" +
+		"  *\"record dispatches\"*) echo '[{\"key\":\"panel-0-primary\",\"role\":\"reviewer\",\"slot\":\"primary\",\"outcome\":\"completed\"}]' ;;\n" +
+		"  *\"state get\"*) echo '{\"worktrees\":{}}' ;;\n" +
+		"  *) echo '[{\"ref\":\"F1\",\"status\":\"withdrawn: duplicate\",\"round\":0}]' ;;\nesac\n"
+	if err := os.WriteFile(filepath.Join(bin, "flow"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	reached := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		reached = true
+		_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+	}))
+	defer srv.Close()
+	t.Chdir(repo)
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms",
+			"-command", "/flow", "-stage", "flow.review-panel", "-outcome", "completed", "kan-1"},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 0 || !reached {
+		t.Fatalf("exit=%d reached=%v, want 0 and the daemon reached; stderr:\n%s", code, reached, stderr.String())
 	}
 }

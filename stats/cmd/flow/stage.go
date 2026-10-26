@@ -119,6 +119,10 @@ type stageIdentityFlags struct {
 	stage   string
 	name    string
 	jiraKey string
+	// dirGiven records an explicit -C; finishStageIdentityFlags fills an
+	// absent one with the cwd, which gatePanelFindingsClosed must not take
+	// for the change's checkout (kan-1025).
+	dirGiven bool
 }
 
 func registerStageIdentityFlags(fset *flag.FlagSet, f *stageIdentityFlags) {
@@ -142,6 +146,7 @@ func finishStageIdentityFlags(fset *flag.FlagSet, pos []string, f *stageIdentity
 	if f.command == "" || f.stage == "" {
 		return fmt.Errorf("-command and -stage are both required")
 	}
+	f.dirGiven = f.dir != ""
 	if f.dir == "" {
 		wd, err := os.Getwd()
 		if err != nil {
@@ -614,16 +619,27 @@ func gateLiveVerification(f stageIdentityFlags, outcome string, stderr io.Writer
 
 // gatePanelFindingsClosed refuses a completed /flow flow.review-panel end
 // the findings-closed guard refuses, so a round closed without the guard
-// never reaches integrate (kan-1017). Every other end passes through.
+// never reaches integrate (kan-1017). Every other end passes through. With
+// no -C it runs against the checkout carrying the change, a linked worktree
+// first: a /flow parent ends from the main checkout, which holds none of the
+// change's report files (kan-1025).
 func gatePanelFindingsClosed(f stageIdentityFlags, outcome string, stderr io.Writer) int {
 	if f.command != "/flow" || f.stage != "flow.review-panel" || outcome != "completed" {
 		return 0
 	}
 	dir := f.dir
-	if dir == "" {
-		dir = "."
+	if !f.dirGiven {
+		if main, carrying, err := changeCheckouts(dir, f.name); err == nil {
+			for _, wt := range carrying {
+				if wt != main {
+					dir = wt
+					break
+				}
+				dir = wt
+			}
+		}
 	}
-	if code := guard.Registry["check-panel-findings-closed"]([]string{dir, f.name}, guard.Env{Getenv: os.Getenv, Dir: f.dir}, stderr, stderr); code != 0 {
+	if code := guard.Registry["check-panel-findings-closed"]([]string{dir, f.name}, guard.Env{Getenv: os.Getenv, Dir: dir}, stderr, stderr); code != 0 {
 		fmt.Fprintf(stderr, "flow: stage end refused: check-panel-findings-closed exited %d\n", code)
 		return 1
 	}
