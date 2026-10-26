@@ -22,7 +22,9 @@ package repotest
 //	12. a payload carrying a cwd                        -> the checker runs in it
 //	13. a prompt naming a /flow change called self-review-<x>, no Key line, its
 //	    spectre/<name> branch in the payload's cwd    -> allow, checker never run;
-//	    the same prompt in a cwd without that branch  -> deny
+//	    the same prompt in a cwd with the loop's open branch but no spectre one -> deny
+//	14. a prompt naming a closed loop (no branch left), no Key line -> allow
+//	15. a planner's Explore/Plan sub-dispatch naming an open loop's worktree -> allow
 
 import (
 	"encoding/json"
@@ -102,13 +104,16 @@ func TestEnforceLoopDispatchHook(t *testing.T) {
 		}
 	}
 	// flowRepo is a repo whose cwd optionally holds the self-review change's spectre branch.
-	flowRepo := func(t *testing.T, withBranch bool) string {
+	flowRepo := func(t *testing.T, withBranch bool, loops ...string) string {
 		d := t.TempDir() + "/flowrepo"
 		env := []string{"HOME=" + t.TempDir()}
 		sh(t, "", env, "git", "init", "-q", "-b", "main", d)
 		sh(t, "", env, "git", "-C", d, "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "commit", "-q", "--allow-empty", "-m", "init")
 		if withBranch {
 			sh(t, "", env, "git", "-C", d, "branch", "spectre/self-review-backlog-demo-5")
+		}
+		for _, l := range loops {
+			sh(t, "", env, "git", "-C", d, "branch", l)
 		}
 		return d
 	}
@@ -159,7 +164,7 @@ func TestEnforceLoopDispatchHook(t *testing.T) {
 			notRun(t, s)
 		}},
 		{"8 loop worktree named, no Key line", func(t *testing.T) {
-			deny(t, hook(t, newLoopStub(t, "0").check, payload("Agent", "Fix it in /x/agents-worktrees/pipeline-fix-kan-1-demo-6 now.", "")), "carries no")
+			deny(t, hook(t, newLoopStub(t, "0").check, payload("Agent", "Fix it in /x/agents-worktrees/pipeline-fix-kan-1-demo-6 now.", flowRepo(t, false, "pipeline-fix-kan-1-demo-6"))), "carries no")
 		}},
 		{"8 checker not run", func(t *testing.T) {
 			s := newLoopStub(t, "0")
@@ -210,10 +215,19 @@ func TestEnforceLoopDispatchHook(t *testing.T) {
 			}
 		}},
 		{"13 self-review-named change, no spectre branch", func(t *testing.T) {
-			deny(t, hook(t, newLoopStub(t, "0").check, payload("Agent", flowPrompt, flowRepo(t, false))), "carries no")
+			deny(t, hook(t, newLoopStub(t, "0").check, payload("Agent", flowPrompt, flowRepo(t, false, "self-review-backlog-demo-5"))), "carries no")
 		}},
 		{"13 self-review-named /flow change", func(t *testing.T) {
 			allow(t, hook(t, newLoopStub(t, "0").check, payload("Agent", flowPrompt, flowRepo(t, true))))
+		}},
+		{"14 closed loop named in prose", func(t *testing.T) {
+			allow(t, hook(t, newLoopStub(t, "0").check, payload("Agent", "The loop self-review-kan-9-demo finished; summarise it.", flowRepo(t, false))))
+		}},
+		{"15 planner Explore sub-dispatch", func(t *testing.T) {
+			p := map[string]any{"tool_name": "Agent", "cwd": flowRepo(t, false, "pipeline-fix-kan-1-demo-6"), "tool_input": map[string]string{
+				"prompt": "Map /x/agents-worktrees/pipeline-fix-kan-1-demo-6 for the plan.", "subagent_type": "Explore"}}
+			b, _ := json.Marshal(p)
+			allow(t, hook(t, newLoopStub(t, "0").check, string(b)))
 		}},
 		{"13 checker not run", func(t *testing.T) {
 			s := newLoopStub(t, "0")

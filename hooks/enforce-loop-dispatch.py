@@ -18,8 +18,10 @@ checker's own lines.
 Fails open for anything that is not a loop dispatch -- unparseable input, another tool, a
 prompt with no loop key and no loop worktree or branch named. Fails CLOSED for a loop dispatch: a checker that cannot answer, or
 cannot run, denies it, because an unchecked loop dispatch is the skip this hook exists to stop.
-A prompt that names a loop's worktree or branch (`pipeline-fix-<name>-<k>`, `self-review-<name>`)
-with no Key line is denied too: dropping the line must not drop the check -- unless that name is a
+A prompt that names an open loop's worktree or branch (`pipeline-fix-<name>-<k>`, `self-review-<name>`
+whose local branch still exists in the payload `cwd`'s repository or this checkout) with no Key line is
+denied too -- a closed loop's name in prose is no dispatch, and a planner's read-only Explore/Plan
+sub-dispatch is admitted. Dropping the line must not drop the check -- unless that name is a
 `/flow` change's own, a `spectre/<name>` branch, local or on origin, in the payload `cwd`'s
 repository: a `/flow` change may itself be named `self-review-...`, and a loop's branch is its bare
 name, never `spectre/<name>`. A loop dispatch whose prompt lacks the agent-baseline pointer is
@@ -44,6 +46,9 @@ VALID_KEY = re.compile(r"pipeline-fix-[0-9]+-\S+|self-review-\S+-\S+")
 
 # A loop's branch or worktree name, the way a prompt that dropped its Key line still names it.
 LOOP_NAME_RE = re.compile(r"(?<![\w-])(?:pipeline-fix-[\w.-]+-[0-9]+|self-review-[\w.-]+)(?![\w-])")
+
+# Read-only agents a loop planner may dispatch inside its loop's worktree.
+PLANNER_SUBAGENTS = {"Explore", "Plan"}
 
 BASELINE = "~/.claude/rules/agent-baseline.md"
 
@@ -70,17 +75,28 @@ def deny(reason):
     return 0
 
 
-def flow_change(name, cwd):
-    """Is name a /flow change's own -- a spectre/<name> branch, local or on origin, in cwd's repository?"""
+def has_ref(repo, *refs):
+    """Does any of refs exist in repo's repository?"""
     try:
         r = subprocess.run(
-            ["git", "-C", cwd, "for-each-ref", "--count=1", "--format=x",
-             f"refs/heads/spectre/{name}", f"refs/remotes/origin/spectre/{name}"],
+            ["git", "-C", repo, "for-each-ref", "--count=1", "--format=x", *refs],
             capture_output=True, text=True, timeout=10,
         )
     except (OSError, subprocess.SubprocessError):
         return False
     return r.returncode == 0 and r.stdout.strip() == "x"
+
+
+def flow_change(name, cwd):
+    """Is name a /flow change's own -- a spectre/<name> branch, local or on origin, in cwd's repository?"""
+    return has_ref(cwd, f"refs/heads/spectre/{name}", f"refs/remotes/origin/spectre/{name}")
+
+
+def open_loop(name, cwd):
+    """Is name an open loop -- its branch still present in cwd's repository or this checkout's?
+
+    A loop's branch is removed when the loop closes, so a prose mention of a finished loop is no dispatch."""
+    return any(has_ref(r, f"refs/heads/{name}") for r in (cwd, REPO) if r)
 
 
 def main():
@@ -98,8 +114,13 @@ def main():
     cwd = cwd if isinstance(cwd, str) and os.path.isdir(cwd) else None
     m = KEY_RE.search(prompt)
     if not m:
+        # A loop planner's sanctioned read-only sub-dispatch names the loop's worktree, never its key.
+        if tool_input.get("subagent_type") in PLANNER_SUBAGENTS:
+            return 0
         for named in LOOP_NAME_RE.finditer(prompt):
             if cwd and flow_change(named.group(0), cwd):
+                continue
+            if not open_loop(named.group(0), cwd):
                 continue
             return deny(
                 f"Loop dispatch blocked: the prompt names {named.group(0)} but carries no "
