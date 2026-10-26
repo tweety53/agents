@@ -120,11 +120,9 @@ under this one.
 **A run's size is never a stop.** Tokens spent, wall-clock time, context length, the number of
 rounds or tasks still ahead, a natural-looking checkpoint, and a list of open items that each carry
 a recommended option are never reasons to end a turn or to hand a status report to the operator
-mid-run: the run takes each recommendation (**Auto-resolution**,
-`skills/flow-contracts/operator-prompts.md`), names it on the handoff's `**Decisions:**` lines,
-and continues to the next stage. A departure or defect whose fix reaches a shared source outside
-the change's screens is fixed at that source in the same run, never offered as "a separate
-change" (kan-1017: the parent stopped after Task 11 with verify, the panel re-review and integrate
+mid-run (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`). A
+shared-source fix (`skills/flow/verify-fix-loop.md`) is never offered as "a separate change"
+(kan-1017: the parent stopped after Task 11 with verify, the panel re-review and integrate
 still ahead, offering a seed-data flake, a shared heading departure and a mockup-frame config gap
 as open items, each of which had a recommended fix).
 
