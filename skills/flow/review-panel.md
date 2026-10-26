@@ -1061,7 +1061,11 @@ the **AskUserQuestion** it states.
 > contract requires, and the task commit each fixup folded into. Each fixed finding carries its
 > proof, each run's command and the tail of its output: the test run before the fix, the same
 > run after it, and the failure that run shows with the fix reverted — the re-running slot checks
-> this proof rather than re-deriving it. The dispatcher waits on that file's presence.
+> this proof rather than re-deriving it. Each fixed Critical or Important finding also carries one
+> line, `regression-test: F<n> — <repo-relative path> — <test name>`, naming the git-tracked suite
+> test that fails at the pre-fix code — a reproducer promoted into the suite, never one left under
+> `<project>/.superpowers/` — or `regression-test: F<n> — none — <reason>` where no suite test can exist.
+> The dispatcher waits on that file's presence.
 
 **The fix subagent's own dispatch is recorded too, with `-role panel-fix`:**
 
@@ -1095,7 +1099,9 @@ fires on the class **Panel re-runs**' ordering above added: a Critical or Import
 none. It fires as well when a slot's report counts more Critical and Important findings on its
 `Critical: <n>` and `Important: <n>` lines than the store holds for that round and slot. It fires too
 when a completed reviewer dispatch left one of its roles' `panel-report-<round>-<id>.md` absent or
-empty, or when a `fixed` finding's runnable reproducer resolves in no worktree of the change. Either way, return to the
+empty, or when a `fixed` finding's runnable reproducer resolves in no worktree of the change, or when
+a `fixed` Critical or Important finding has no `regression-test:` line in any
+`panel-fix-report-*.md`, or names a path that is untracked or under `<project>/.superpowers/`. Either way, return to the
 handback loop above for them. Exit 2 stops the run.
 
 Beside it, run

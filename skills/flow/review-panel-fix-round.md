@@ -342,6 +342,13 @@ test, not merely any test that happens to trip: the flip is what shows the fix's
 what it claims. The flip is recorded with the round's other `flow record mutation` rows before the
 round closes.
 
+**Every fixed Critical or Important finding leaves a tracked suite test behind** — the
+`regression-test:` line of the REPORT FILE paragraph (`skills/flow/review-panel.md`), so a
+regression of a reviewed defect is still caught once the worktree and its reproducers are gone
+(kan-1019). Where the parent fixes inline, it writes those lines to
+`panel-fix-report-<round>.md` itself. `check-panel-findings-closed` refuses the close without them;
+a fixed Minor needs none.
+
 **A fix round that fixed a Critical or Important finding and changed no executable behaviour still
 records one `-mutated none -test <reason>` row** — the landing gate (`check-unfinished-work`)
 refuses a round of fixed Critical or Important findings with no fix-mutation row at that round or

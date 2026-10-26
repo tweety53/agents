@@ -127,6 +127,9 @@ func TestCheckPanelFindingsClosed(t *testing.T) {
 			writeFile(t, filepath.Join(sdd, "panel-report-"+r+"-"+id+".md"), "clean\n")
 		}
 	}
+	// Every fixed Critical/Important a case records names its regression
+	// test's none form, so no case trips the regression-test check.
+	writeFile(t, filepath.Join(sdd, "panel-fix-report-1.md"), "regression-test: F1 — none — fixture\nregression-test: F2 — none — fixture\n")
 	cases := []struct {
 		label  string
 		json   string
@@ -347,6 +350,7 @@ func TestCheckPanelFindingsClosedReportCounts(t *testing.T) {
 				"panel-report-11-primary.md":    "Critical: 0\nImportant: 1\n",
 				"panel-report-12-primary.md":    "clean\n",
 				"panel-report-12-principles.md": "clean\n",
+				"panel-fix-report-11.md":        "regression-test: F10 — none — fixture\n",
 			},
 			json: cfcJSON(cfcFinding{Ref: "F10", Severity: "Important", Status: "fixed", Round: 11, Slot: "primary+principles"}),
 			disp: cfcDispatchJSON(cfcDispatch{Key: "panel-12-primary+principles", Role: "reviewer", Slot: "primary+principles", Outcome: "completed"}),
@@ -428,6 +432,7 @@ func TestCheckPanelFindingsClosedRerunNeedsItsReportFile(t *testing.T) {
 			for n, body := range c.files {
 				writeFile(t, filepath.Join(sdd, n), body)
 			}
+			writeFile(t, filepath.Join(sdd, "panel-fix-report-1.md"), "regression-test: F1 — none — fixture\n")
 			rc, out, errs := cfcRun(t, cfcBinDispatches(t, c.json, c.disp, "", 0), wt, "demo")
 			if rc != c.want {
 				t.Fatalf("expected exit %d, got %d\nstdout: %s\nstderr: %s", c.want, rc, out, errs)
@@ -563,6 +568,71 @@ func TestCheckPanelFindingsClosedFixedReproducerExists(t *testing.T) {
 			}
 			if c.absent != "" && strings.Contains(errs, c.absent) {
 				t.Fatalf("expected stderr not to name %q, got:\n%s", c.absent, errs)
+			}
+		})
+	}
+}
+
+// A fixed Critical or Important finding names a git-tracked suite test on a
+// `regression-test:` line of a panel-fix report, or `none — <reason>`
+// (kan-1019: three fixed Importants left only untracked reproducers).
+func TestCheckPanelFindingsClosedFixedNeedsARegressionTest(t *testing.T) {
+	t.Parallel()
+	const line = "fixed Critical/Important finding(s) with no tracked regression test: "
+	important := cfcJSON(cfcFinding{Ref: "F1", Severity: "Important", Status: "fixed", Round: 1, Slot: "primary"})
+	critical := cfcJSON(cfcFinding{Ref: "F1", Severity: "Critical", Status: "fixed", Round: 1, Slot: "primary"})
+	minor := cfcJSON(cfcFinding{Ref: "F1", Severity: "Minor", Status: "fixed", Round: 1, Slot: "primary"})
+	rerun := cfcDispatchJSON(cfcDispatch{Key: "panel-2-primary", Role: "reviewer", Slot: "primary", Outcome: "completed"})
+	// peer is a recorded worktree whose only tracked file is peer_test.go.
+	peer := t.TempDir()
+	gitRun(t, "", "init", "-q", peer)
+	writeFile(t, filepath.Join(peer, "peer_test.go"), "package foo\n")
+	gitRun(t, peer, "add", "peer_test.go")
+	cases := []struct {
+		label, json, report, state string
+		stateRC, want              int
+		needle                     string
+	}{
+		{label: "no line exits 1", json: important, want: 1, needle: "F1 (no regression-test: line)"},
+		{label: "a fixed Critical with no line exits 1", json: critical, want: 1, needle: "F1 (no regression-test: line)"},
+		{label: "an untracked path exits 1", json: important, report: "regression-test: F1 — untracked_test.go — TestX\n", want: 1, needle: "F1 (untracked_test.go is not tracked)"},
+		{label: "a tracked path under .superpowers exits 1", json: important, report: "regression-test: F1 — .superpowers/sdd/reproducers/r.sh — r\n", want: 1, needle: "F1 (.superpowers/sdd/reproducers/r.sh is under .superpowers/)"},
+		{label: "a tracked directory is not a test file", json: important, report: "regression-test: F1 — pkg — TestFoo\n", want: 1, needle: "F1 (pkg is not tracked)"},
+		{label: "dot is not a test file", json: important, report: "regression-test: F1 — . — TestFoo\n", want: 1, needle: "F1 (. is not tracked)"},
+		{label: "a committed test exits 0", json: important, report: "regression-test: F1 — pkg/foo_test.go — TestFoo\n", want: 0},
+		{label: "a test tracked only in a recorded worktree exits 0", json: important, report: "regression-test: F1 — peer_test.go — TestPeer\n", state: `{"worktrees":{"` + peer + `":{}}}`, want: 0},
+		{label: "an unreadable state record while the path is untracked here exits 2", json: important, report: "regression-test: F1 — peer_test.go — TestPeer\n", stateRC: 1, want: 2},
+		{label: "the none form exits 0", json: important, report: "regression-test: F1 — none — prose-only fix\n", want: 0},
+		{label: "the none form with no reason exits 1", json: important, report: "regression-test: F1 — none\n", want: 1, needle: "F1 (none form with no reason)"},
+		{label: "a fixed Minor needs no line", json: minor, want: 0},
+	}
+	for _, c := range cases {
+		t.Run(c.label, func(t *testing.T) {
+			t.Parallel()
+			wt := t.TempDir()
+			gitRun(t, "", "init", "-q", wt)
+			writeFile(t, filepath.Join(wt, "pkg", "foo_test.go"), "package foo\n")
+			writeFile(t, filepath.Join(wt, "untracked_test.go"), "package foo\n")
+			files := map[string]string{"panel-report-2-primary.md": "Critical: 0\nImportant: 0\n", "reproducers/r.sh": ""}
+			if c.report != "" {
+				files["panel-fix-report-1.md"] = c.report
+			}
+			cfcSDD(t, wt, files)
+			gitRun(t, wt, "add", "pkg/foo_test.go")
+			gitRun(t, wt, "add", "-f", ".superpowers/sdd/reproducers/r.sh")
+			bin := cfcBinDispatches(t, c.json, rerun, "", 0)
+			if c.state != "" {
+				writeFile(t, filepath.Join(bin, "state.json"), c.state)
+			}
+			if c.stateRC != 0 {
+				writeExec(t, filepath.Join(bin, "flow"), "#!/usr/bin/env bash\ndir=\"$(dirname -- \"$0\")\"\ncase \"$*\" in\n  *\"record dispatches\"*) cat \"$dir/dispatches.json\" ;;\n  *\"state get\"*) echo boom >&2; exit 1 ;;\n  *) cat \"$dir/findings.json\" ;;\nesac\n")
+			}
+			rc, out, errs := cfcRun(t, bin, wt, "demo")
+			if rc != c.want {
+				t.Fatalf("expected exit %d, got %d\nstdout: %s\nstderr: %s", c.want, rc, out, errs)
+			}
+			if c.needle != "" && !strings.Contains(errs, line+c.needle) {
+				t.Fatalf("expected stderr to name %q, got:\n%s", line+c.needle, errs)
 			}
 		})
 	}

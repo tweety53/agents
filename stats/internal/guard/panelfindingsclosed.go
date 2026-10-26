@@ -270,6 +270,27 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 	var lost []string
 	var trees []string
 	treesRead := false
+	// recordedTrees reads the state record's worktrees once, on first need;
+	// false means it printed why and the guard exits 2.
+	recordedTrees := func(why string) bool {
+		if treesRead {
+			return true
+		}
+		treesRead = true
+		out, errOut, rc := pcFlow(env, false, "state", "get", "-C", worktree, name)
+		var state map[string]json.RawMessage
+		if rc != 0 || json.Unmarshal(bytes.TrimRight(out, "\n"), &state) != nil || state == nil {
+			fmt.Fprintf(stderr, "%scannot read the state record for '%s' while %s — cannot determine anything: %s\n", cfcPrefix, name, why, strings.TrimRight(string(errOut), "\n"))
+			return false
+		}
+		recorded, ok := pcWorktreeKeys(state["worktrees"])
+		if !ok {
+			fmt.Fprintln(stderr, cfcJQFailed)
+			return false
+		}
+		trees = resolvedRecordedTrees(env, recorded)
+		return true
+	}
 	for _, f := range findings {
 		r := f.reproducer
 		if f.status != "fixed" || r == "" || isNoneReproducer(r) {
@@ -280,20 +301,8 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		if token == "" || pcExists(worktree+"/"+token) {
 			continue
 		}
-		if !treesRead {
-			treesRead = true
-			out, errOut, rc := pcFlow(env, false, "state", "get", "-C", worktree, name)
-			var state map[string]json.RawMessage
-			if rc != 0 || json.Unmarshal(bytes.TrimRight(out, "\n"), &state) != nil || state == nil {
-				fmt.Fprintf(stderr, "%scannot read the state record for '%s' while a fixed finding's reproducer is absent from the worktree — cannot determine anything: %s\n", cfcPrefix, name, strings.TrimRight(string(errOut), "\n"))
-				return 2
-			}
-			recorded, ok := pcWorktreeKeys(state["worktrees"])
-			if !ok {
-				fmt.Fprintln(stderr, cfcJQFailed)
-				return 2
-			}
-			trees = resolvedRecordedTrees(env, recorded)
+		if !recordedTrees("a fixed finding's reproducer is absent from the worktree") {
+			return 2
 		}
 		if !slices.ContainsFunc(trees, func(t string) bool { return pcExists(t + "/" + token) }) {
 			lost = append(lost, f.ref+" ("+token+")")
@@ -301,6 +310,77 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 	}
 	if len(lost) > 0 {
 		fmt.Fprintf(stderr, "%sfixed finding(s) whose runnable reproducer resolves in no worktree of the change: %s\n", cfcPrefix, strings.Join(lost, " "))
+		violated = true
+	}
+
+	// A FIXED CRITICAL OR IMPORTANT FINDING LEAVES A TRACKED SUITE TEST: a
+	// `regression-test: F<n> — <path> — <test>` line in some
+	// panel-fix-report-*.md, its path git-tracked in the worktree or a state-
+	// record worktree and outside .superpowers/, or `regression-test: F<n> —
+	// none — <reason>` (review-panel.md's REPORT FILE paragraph). A fixed
+	// Minor needs none. kan-1019: three fixed Importants' only proof was
+	// untracked reproducers, deleted with the worktree.
+	regression := map[string][]string{}
+	fixReports, _ := filepath.Glob(filepath.Join(worktree, ".superpowers", "sdd", "panel-fix-report-*.md"))
+	for _, p := range fixReports {
+		body, err := os.ReadFile(p)
+		if err != nil {
+			fmt.Fprintf(stderr, "%scannot read fix report %s — cannot determine anything: %v\n", cfcPrefix, p, err)
+			return 2
+		}
+		for _, m := range cfcRegressionRE.FindAllStringSubmatch(string(body), -1) {
+			path := strings.TrimSpace(m[2])
+			if path == "none" && strings.TrimSpace(m[3]) == "" {
+				path = "none (no reason)"
+			}
+			regression[m[1]] = append(regression[m[1]], path)
+		}
+	}
+	// tracked is the path itself, never a pathspec: a directory, `.` or a
+	// glob matching tracked files is not a test file.
+	tracked := func(tree, path string) bool {
+		out, ok := gitOut(env, "-C", tree, "ls-files", "-z", "--", ":(literal)"+path)
+		return ok && out == path+"\x00"
+	}
+	var untested []string
+	for _, f := range findings {
+		if f.status != "fixed" || !(strings.EqualFold(f.severity, "critical") || strings.EqualFold(f.severity, "important")) {
+			continue
+		}
+		lines := regression[f.ref]
+		reason := "no regression-test: line"
+		for _, path := range lines {
+			if path == "none" {
+				reason = ""
+				break
+			}
+			if path == "none (no reason)" {
+				reason = "none form with no reason"
+				continue
+			}
+			if strings.HasPrefix(path, ".superpowers/") {
+				reason = path + " is under .superpowers/"
+				continue
+			}
+			if tracked(worktree, path) {
+				reason = ""
+				break
+			}
+			if !recordedTrees("a fixed finding's regression test is untracked in the worktree") {
+				return 2
+			}
+			if slices.ContainsFunc(trees, func(t string) bool { return tracked(t, path) }) {
+				reason = ""
+				break
+			}
+			reason = path + " is not tracked"
+		}
+		if reason != "" {
+			untested = append(untested, f.ref+" ("+reason+")")
+		}
+	}
+	if len(untested) > 0 {
+		fmt.Fprintf(stderr, "%sfixed Critical/Important finding(s) with no tracked regression test: %s\n", cfcPrefix, strings.Join(untested, " "))
 		violated = true
 	}
 
@@ -399,6 +479,11 @@ var (
 	cfcCriticalRE   = regexp.MustCompile(`(?m)^Critical: ([0-9]+)\s*$`)
 	cfcImportantRE  = regexp.MustCompile(`(?m)^Important: ([0-9]+)\s*$`)
 )
+
+// cfcRegressionRE reads a fix report's `regression-test: F<n> — <path> — …`
+// line: the finding's ref, the path field (`none` in the none form) and the
+// rest, which the none form needs non-empty as its reason.
+var cfcRegressionRE = regexp.MustCompile(`(?m)^regression-test: (\S+) — ([^—\n]+)(?:— ([^\n]*))?`)
 
 // cfcParse decodes `flow record findings`' array. It refuses, where the
 // bash guard's jq failed: a non-array, a non-object row, a non-string

@@ -55,12 +55,16 @@
 #      or a completed reviewer dispatch left a role's
 #      panel-report-<round>-<id>.md absent or empty (the placeholder
 #      accepted); or a `fixed` finding's runnable reproducer resolves in no
-#      worktree of the change (kan-1034)
+#      worktree of the change (kan-1034); or a `fixed` Critical or Important
+#      has no `regression-test:` line in any panel-fix-report-*.md, or names
+#      a path untracked in every worktree of the change or under
+#      .superpowers/ (kan-1019)
 #   2  cannot answer at all — no worktree, no change name, a change name
 #      outside the allowlist, a worktree that is not a directory, the store
 #      unreachable, its answer unreadable (empty output included), or an
 #      unreadable panel report, or the state record unreadable when a
-#      `fixed` finding's reproducer token is absent from the worktree
+#      `fixed` finding's reproducer token is absent from the worktree or its
+#      regression test untracked there, or an unreadable panel-fix report
 # Ported to Go: the body's reasoning for every branch is in
 # stats/internal/guard/panelfindingsclosed.go.
 # flow-guard is built from this checkout, never taken from PATH:
