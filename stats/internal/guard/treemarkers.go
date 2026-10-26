@@ -233,11 +233,11 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 
 const tmPorcelainMark = "#porcelain\n"
 
-// tmPorcelain is `git -C <worktree> status --porcelain -uall`, one
+// tmPorcelain is `git -C <worktree> status --porcelain --untracked-files=all`, one
 // newline-terminated line per path, .superpowers/ dropped. A worktree git
 // cannot read yields no lines.
 func tmPorcelain(worktree string) []string {
-	out, err := exec.Command("git", "-C", worktree, "status", "--porcelain", "-uall").Output()
+	out, err := exec.Command("git", "-C", worktree, "status", "--porcelain", "--untracked-files=all").Output()
 	if err != nil {
 		return nil
 	}
