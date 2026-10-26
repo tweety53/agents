@@ -405,6 +405,7 @@ index aa1d2334..e4f2090b 100644
 
 **Build:** green
 **Files:** `stats/internal/guard/measurevisualproperties.go`, `stats/internal/guard/measure_visual_properties_test.go`, `scripts/measure-visual-properties.sh`, `skills/flow/visual-verify-verifier.md`
+**Allowed-collateral:** `stats/internal/guard/testdata/measure-visual-properties/*`
 **Tests:** `TestMeasureVisualPropertiesMatrix`
 **Regression:** `TestMeasureVisualPropertiesMatrix` — reverting refuses `--props matrix` and exits 2 on the edge band.
 **Baseline:** before=3 after=4
@@ -422,6 +423,7 @@ index aa1d2334..e4f2090b 100644
 
 **Build:** green
 **Files:** `stats/internal/guard/measurevisualproperties.go`, `stats/internal/guard/measure_visual_properties_test.go`, `scripts/measure-visual-properties.sh`
+**Allowed-collateral:** `stats/internal/guard/testdata/measure-visual-properties/*`
 **Tests:** `TestMeasureVisualPropertiesBandColourDarkestInk`
 **Regression:** `TestMeasureVisualPropertiesBandColourDarkestInk` — reverting reports the grey border as the band colour.
 **Baseline:** before=4 after=5

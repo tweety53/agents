@@ -188,7 +188,7 @@ attribution starts, committing and pushing nothing.
 
 **The parent names the mockup sources in the prompt** — `mockup sources:`, then every HTML or CSS
 path `design.md` cites that exists in the tree, or `mockup sources: none`. A bundled page, one
-carrying `<script type="__bundler/template">`, is decoded into the verifier's scratchpad first:
+carrying `<script type="__bundler/template">`, is decoded into the verifier's scratchpad first: <!-- citations-guard:allow -->
 
 ```bash
 python3 -I -c 'import sys,re,json,base64,gzip,os
@@ -236,7 +236,7 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
    default branch: kan-1022's stack served the `develop` frontend to a change based on
    feature/templates, and 28 specs failed on it. `check-visual-preflight.sh` fails a
    worktree whose branch records a flowBase while an `## apps` repository holds no
-   `<repo>-worktrees/<name>` worktree. With the
+   `<repo>-worktrees/<name>` worktree. With the <!-- citations-guard:allow -->
    parent's own Bash call, before the
    dispatch below, run the four checks — ports held only by their own app, the base-URL
    configuration resolving to the workspace's values, origin allowed, one Playwright checkout per

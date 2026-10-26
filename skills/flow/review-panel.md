@@ -474,7 +474,7 @@ artifacts and working notes the round reads, `check-tree-markers.sh snapshot <wo
 <markers-file> <snapshot-file>` runs with the plan-tree guard's own snapshot, and
 `check-tree-markers.sh verify <worktree> <markers-file> <snapshot-file>` runs before any report
 is read or finding recorded. `verify` also compares the worktree's `git status --porcelain` with the one `snapshot`
-recorded, paths under `.superpowers/` aside, and fails naming every path a slot left changed or
+recorded, paths under `<project>/.superpowers/` aside, and fails naming every path a slot left changed or
 untracked — a reproducer's scratch copy included (kan-1017).
 
 `-slot` names the dispatch's roles from **The roster** table above, or from **The always-on extra dispatches**' table for that bundle. `-role` is
