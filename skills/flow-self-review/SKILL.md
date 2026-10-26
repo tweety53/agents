@@ -109,6 +109,14 @@ gap in instructions:
   is the verifier: its miss or false positive targets `skills/flow/visual-verify-verifier.md` or
   `skills/flow/visual-verify.md`.
 
+A **late-round miss** — a finding a slot first raises in round 2 or later on a hunk that same slot
+already reviewed, unchanged, in an earlier round — is traced to why the earlier rounds missed it,
+whatever its severity: the pass compares that slot's earlier dispatches with the round that raised
+it — the prompt, the diff each was given, the findings it returned. A generic instruction gap is a
+`reviewer` miss case whose `why_picked` names the rounds that missed it; any other cause — a re-run
+shown only the delta, or reviewer variance the bundle cannot explain — is an angle-8 finding naming
+that cause, classified by this step's rules.
+
 The visual-verify step is analysed on both of its halves, because its fix rounds are where a run
 most often spends repeated rounds: its prompts, by the cases above, and its tooling — the capture,
 the mockup comparison, the scripts and browser setup `skills/flow/visual-verify.md` drives. A
