@@ -24,7 +24,7 @@
 
 **ID:** late-round-miss-no-schema-field
 **Status:** active
-**Chosen:** the earlier rounds and the cause go in the case's existing `why_picked`; a non-instruction cause is an ordinary angle-8 finding classified by step 2's rules.
+**Chosen:** the earlier rounds and the cause go in the case's existing `why_picked`; a non-instruction cause is an ordinary angle-8 finding classified by step 3's classification.
 **Considered:** a new `case.json` field (`missed_rounds`) — rejected, it needs a `check-prompt-tuning-cases.sh` and renderer change for data `why_picked` already carries.
 
 ## Recommended approach
@@ -39,7 +39,7 @@ Add one paragraph to angle 8 defining a late-round miss and requiring its trace 
 ## Existing code to reuse
 
 - Angle 8's `reviewer` miss case and step 2a's `case.json` (`why_picked`, `source.round`, `source.slot`) — the case shape is reused unchanged.
-- Step 2's classification rules (fixable / `big` / `noted`) — classify a non-instruction cause.
+- Step 3's classification rules (fixable / `big` / `noted`) — classify a non-instruction cause.
 
 ## Verification
 

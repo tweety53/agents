@@ -8,4 +8,4 @@
 ## What changes
 
 - Angle 8 of the self-review pass (`skills/flow-self-review/SKILL.md`) names a **late-round miss** and requires it traced, whatever its severity, by comparing that slot's earlier dispatches with the round that raised it.
-- A generic instruction gap becomes a `reviewer` miss case naming the earlier rounds; any other cause is an angle-8 finding classified by step 2's existing rules.
+- A generic instruction gap becomes a `reviewer` miss case naming the earlier rounds; any other cause is an angle-8 finding classified by step 3's classification.
