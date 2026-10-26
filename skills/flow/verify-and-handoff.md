@@ -150,12 +150,14 @@ branch that failed twice, `environment` where the environment itself failed twic
 prerequisite).
 
 ```bash
-run-verify-list.sh <worktree> lint <name> verify[-<worktree basename>] mf-<literal-token> <parent model> <parent effort>
-run-verify-list.sh <worktree> test <name> verify[-<worktree basename>] mf-<literal-token> <parent model> <parent effort>
+run-verify-list.sh <worktree> lint <name> verify[-<worktree basename>] mf-<literal-token> <parent model> <parent effort> [<canonical worktree>]
+run-verify-list.sh <worktree> test <name> verify[-<worktree basename>] mf-<literal-token> <parent model> <parent effort> [<canonical worktree>]
 # … only after a group exited non-zero and its re-run is decided:
-flow record dispatch end -change <name> -key verify[-<worktree basename>] \
+flow record dispatch end -C <canonical worktree> -change <name> -key verify[-<worktree basename>] \
   -session-token mf-<literal-token> -outcome completed|blocked [-cause <cause>]
 ```
+
+`<canonical worktree>` is the worktree holding `<project>/spectre/changes/<name>`; pass it when verifying any other worktree of a multi-repo change.
 
 ### Live check
 

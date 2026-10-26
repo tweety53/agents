@@ -88,7 +88,7 @@ func TestRunVerifyList(t *testing.T) {
 		grc := Registry["run-verify-list"](gargs, Env{Getenv: getenv, Environ: func() []string { return goEnviron },
 			Dir: gr, Stdin: strings.NewReader("LEAKED-STDIN\n")}, &o, &e)
 		// The recording arguments postdate the bash (kan-1033): its usage line lacks them.
-		g := res{grc, strings.Replace(norm(gr, o.String(), e.String()), " [<change> <key> <session-token> <model> <effort>]", "", 1)}
+		g := res{grc, strings.Replace(norm(gr, o.String(), e.String()), " [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]", "", 1)}
 
 		bargs := make([]string, len(args))
 		for i, a := range args {
@@ -398,5 +398,67 @@ func TestRunVerifyListStopsOnARefusedBegin(t *testing.T) {
 
 	if rc, calls, _ := run("#!/bin/sh\ncase \"$3\" in end) exit 1;; esac\n"); rc != 0 || calls != "ran\n" {
 		t.Errorf("a failed end: exit %d, calls %q", rc, calls)
+	}
+}
+
+// TestRunVerifyListRecordsAgainstTheCanonicalWorktree pins kan-1014's
+// self-review: verifying a worktree that holds no spectre/changes/<name>, the
+// optional eighth argument names the worktree that does, and every recording
+// call carries it as -C.
+func TestRunVerifyListRecordsAgainstTheCanonicalWorktree(t *testing.T) {
+	repo, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\necho \"flow $*\" >> "+log+"\n")
+	wt, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	canon, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(canon, "spectre/changes/kan-1/tasks.md"), "")
+	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\ntrue\n```\n")
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"), "PATH="+dir+":"+os.Getenv("PATH"))
+	getenv := func(k string) string {
+		for i := len(environ) - 1; i >= 0; i-- {
+			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
+				return v
+			}
+		}
+		return ""
+	}
+	run := func(args ...string) (int, string) {
+		os.Remove(log)
+		var o, e bytes.Buffer
+		rc := runVerifyList(args, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+		calls, _ := os.ReadFile(log)
+		return rc, string(calls)
+	}
+	rec := []string{wt, "test", "kan-1", "verify", "mf-k1", "opus", "low"}
+	allCarry := func(calls, target string) bool {
+		lines := strings.Split(strings.TrimSpace(calls), "\n")
+		for _, l := range lines {
+			if !strings.Contains(l, " -C "+target+" ") {
+				return false
+			}
+		}
+		return len(lines) == 2
+	}
+
+	if rc, calls := run(append(rec, canon)...); rc != 0 || !allCarry(calls, canon) {
+		t.Errorf("eight arguments: exit %d, calls:\n%s", rc, calls)
+	}
+	if rc, calls := run(rec...); rc != 0 || !allCarry(calls, wt) {
+		t.Errorf("seven arguments: exit %d, calls:\n%s", rc, calls)
+	}
+	for _, args := range [][]string{rec[:6], append(rec, canon, "extra")} {
+		if rc, calls := run(args...); rc != 2 || calls != "" {
+			t.Errorf("%d arguments: exit %d, calls %q", len(args), rc, calls)
+		}
 	}
 }

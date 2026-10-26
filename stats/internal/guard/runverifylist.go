@@ -6,14 +6,17 @@
 // self-review-backlog-flow-6 self-review pass found the parent writing one
 // per run, its stdin detach patched in on a second call).
 //
-// Usage: run-verify-list.sh <worktree> lint|test [<change> <key> <session-token> <model> <effort>]
+// Usage: run-verify-list.sh <worktree> lint|test [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]
 //
 // RECORDING (kan-1033 self-review: the parent hand-recorded the verify row and
 // back-filled a forgotten begin with a guessed start). Given the five trailing
 // arguments, the list records its own `verifier` row through `flow record
 // dispatch`: `begin` (`-agent-id inline`) before its first command, and `end
 // -outcome completed` after its last only when the list exited 0. No `flow`
-// on PATH exits 2 before any command runs. A `begin` the store refuses prints
+// on PATH exits 2 before any command runs. The optional sixth recording
+// argument, <canonical-worktree>, is the `-C` of both calls — the worktree
+// holding spectre/changes/<change> when <worktree> is another checkout of a
+// multi-repo change (kan-1014 self-review); it defaults to <worktree>. A `begin` the store refuses prints
 // `run-verify-list: flow record dispatch begin refused — no command ran: <its
 // output>` on stderr and exits 4 before any command (kan-1032 self-review: the
 // list ran in full, its row unrecorded, and was re-run only to get the row); a
@@ -71,7 +74,7 @@
 // Exit codes:
 //   0  every command exited 0
 //   1  at least one command exited non-zero
-//   2  usage (not `<worktree> lint|test` plus none or all five recording
+//   2  usage (not `<worktree> lint|test` plus none, all five, or all six recording
 //      arguments, no flow binary on PATH for those, or <worktree> is not a
 //      directory), a list line holding a `<word>` placeholder — its stderr
 //      line names it — or project-get.sh exit 2 — its stderr line says why
@@ -113,8 +116,8 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		return p
 	}
-	const usage = "usage: run-verify-list.sh <worktree> lint|test [<change> <key> <session-token> <model> <effort>]"
-	if (len(args) != 2 && len(args) != 7) || (args[1] != "lint" && args[1] != "test") {
+	const usage = "usage: run-verify-list.sh <worktree> lint|test [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]"
+	if (len(args) != 2 && len(args) != 7 && len(args) != 8) || (args[1] != "lint" && args[1] != "test") {
 		fmt.Fprintln(stderr, usage)
 		return 2
 	}
@@ -123,13 +126,16 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	record := func(string, ...string) bool { return true }
-	if len(args) == 7 {
+	if len(args) >= 7 {
 		flow, ok := lookPath(env, "flow")
 		if !ok {
 			fmt.Fprintln(stderr, "run-verify-list: no flow binary on PATH")
 			return 2
 		}
 		wt, change := args[0], args[2]
+		if len(args) == 8 {
+			wt = args[7]
+		}
 		key, token, model, effort := args[3], args[4], args[5], args[6]
 		record = func(verb string, flags ...string) bool {
 			argv := []string{"record", "dispatch", verb, "-C", wt, "-change", change}
