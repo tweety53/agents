@@ -286,7 +286,8 @@ flow stage end   -command '/flow-fast' -stage flow.review-panel -outcome complet
 flow stage begin -command '/flow-fast' -stage flow.verify -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
-Run every command in `## lint`, in the worktree, and the `## test` commands scoped to what the
+Run `<agents repo>/scripts/run-verify-list.sh <worktree> lint` — it runs every command of
+`## lint`'s fence, never the fence lines `project-get.sh` prints with them — and the `## test` commands scoped to what the
 change touched — the packages, modules or test files the diff names, never the full suite unless
 the operator asked for it. When the diff names nothing those commands can scope to, none of them
 runs — the change summary below states that empty-scope reason explicitly, the stated reason
