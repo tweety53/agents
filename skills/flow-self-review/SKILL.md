@@ -64,7 +64,7 @@ present-but-empty for an angle with no findings, never omitted:
 | 5 | What could move to the Go app or its persistent storage | `flow-stats-app` |
 | 6 | What can be sped up — wall-clock time the run spent waiting or working that a pipeline change would cut | `flow-speed` |
 | 7 | What would make a good flow-eval case — a task, a review finding or a visual pair from this run | `flow-eval` |
-| 8 | Instruction gaps that cost review-panel fix rounds, and the generic implementer or reviewer prompt update that would have avoided them | `flow-prompt-tuning` |
+| 8 | Instruction gaps that cost review-panel or visual-verify fix rounds, and the generic implementer or reviewer prompt update that would have avoided them | `flow-prompt-tuning` |
 
 Angle 5's remit covers the records the pipeline writes to files today and the derivation work
 now done in Bash or by the agent — **not** what the SPA should display. Angle 6 is elapsed time, where angle 2 is what a step spends: serial steps that could run in parallel, slow guards, builds or test runs, waits, and redundant re-runs. A silent angle and a
@@ -91,7 +91,7 @@ item offered, for mining in step 4. Angle 7 reads its candidates from the run's 
 run touched, product code included, and reads beyond the bundle only for the commits and files
 the bundle names.
 
-Angle 8 reads the run's review-panel findings, each judged alone on its own severity — no severity
+Angle 8 reads the run's review-panel findings and its visual-verify findings, each judged alone on its own severity — no severity
 needs another alongside it. A Critical finding qualifies; an Important finding qualifies; a Minor
 finding qualifies only when the pass judges it genuinely useful, meaning it is in a class the
 prompts should handle and would recur. A finding is a case only when its root cause is a generic
@@ -103,7 +103,16 @@ gap in instructions:
 - **`reviewer`** — either a **miss**, a defect raised only in a later round or by a later slot that
   a round-1 reviewer instruction (`skills/flow/*-reviewer-prompt.md`,
   `skills/flow/reviewer-calibration.md`) would have caught, or a **false positive**, a finding later
-  disproved or withdrawn that cost a fix round for nothing.
+  disproved or withdrawn that cost a fix round for nothing. A visual-verify finding's reviewer
+  is the verifier: its miss or false positive targets `skills/flow/visual-verify-verifier.md` or
+  `skills/flow/visual-verify.md`.
+
+The visual-verify step is analysed on both of its halves, because its fix rounds are where a run
+most often spends repeated rounds: its prompts, by the cases above, and its tooling — the capture,
+the mockup comparison, the scripts and browser setup `skills/flow/visual-verify.md` drives. A
+tooling gap that cost a visual-verify fix round — a capture that missed the state the defect was in,
+a comparison that could not see it, a setup step that failed and was redone — is reported under
+angle 8 as a finding, never as a case, and is fixed in step 3 unless it is `big`.
 
 Every case carries a `scope` along two independent axes, language and layer (`frontend` or
 `backend`), each pinned or left open:
