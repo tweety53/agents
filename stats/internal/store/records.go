@@ -435,7 +435,9 @@ func scanDispatchRow(row dispatchRowScanner) (records.Dispatch, error) {
 // change that does not exist.
 // reBegin is a begin (no ended_at) replayed onto a row that ended aborted: the
 // re-dispatch of an aborted loop key reopens that row, so the OPEN check and
-// its attribution window see the re-run rather than the aborted attempt.
+// its attribution window see the re-run rather than the aborted attempt. An open
+// row takes an earlier re-begin's instant, so `flow record dispatch backfill`
+// repairs a row begun after its commit.
 //
 // A repeated begin takes the new begin's slot, model and effort, last begin
 // wins -- a journal replay carries the same values, so it stays a no-op -- so
@@ -475,7 +477,7 @@ func (s *Store) insertDispatch(ctx context.Context, projectKey, change string, i
 		WHERE c.project_key = $1 AND c.name = $2
 		ON CONFLICT ON CONSTRAINT `+dispatchesKeyConstraint+` DO UPDATE SET
 			dispatch_key = EXCLUDED.dispatch_key,
-			started_at = CASE WHEN `+reBegin+` THEN EXCLUDED.started_at ELSE dispatches.started_at END,
+			started_at = CASE WHEN `+reBegin+` THEN EXCLUDED.started_at WHEN dispatches.ended_at IS NULL AND dispatches.outcome IS NULL AND EXCLUDED.started_at < dispatches.started_at THEN EXCLUDED.started_at ELSE dispatches.started_at END,
 			ended_at = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.ended_at END,
 			cause = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.cause END,
 			outcome = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.outcome END,

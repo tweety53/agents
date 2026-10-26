@@ -5200,3 +5200,52 @@ func TestSetDispatchOutcome(t *testing.T) {
 		t.Fatalf("unknown id: err = %v, want store.ErrDispatchNotFound", err)
 	}
 }
+
+// TestBeginDispatchMovesAnOpenRowsBeginEarlier pins kan-1018's self-review:
+// backfill is begin-then-end, so a re-begin with an earlier instant on an open
+// row moves its begin back and the end no longer refuses; a later re-begin
+// leaves started_at alone.
+func TestBeginDispatchMovesAnOpenRowsBeginEarlier(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-begin-earlier-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	b := baseDispatch("implementer", "opus")
+	b.Key = "task-1-implementer"
+	b.SessionToken = "mf-begin-earlier"
+	b.AgentID = "inline"
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", b); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	t0 := b.StartedAt
+	early := b
+	early.StartedAt = t0.Add(-6 * time.Second)
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", early); err != nil {
+		t.Fatalf("RecordDispatch earlier: %v", err)
+	}
+	commitAt := t0.Add(-3 * time.Second)
+	end := records.DispatchEnd{SessionToken: b.SessionToken, Key: b.Key, CommitSHA: "abc1234", Outcome: "completed", EndedAt: t0.Add(10 * time.Second), CommitAt: &commitAt}
+	got, err := st.EndDispatch(ctx, projectKey, "kan-1", end)
+	if err != nil {
+		t.Fatalf("EndDispatch after an earlier re-begin: %v", err)
+	}
+	if !got.StartedAt.Equal(early.StartedAt) {
+		t.Errorf("started_at = %v, want %v", got.StartedAt, early.StartedAt)
+	}
+
+	b2 := b
+	b2.Key = "task-2-implementer"
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", b2); err != nil {
+		t.Fatalf("RecordDispatch K2: %v", err)
+	}
+	late := b2
+	late.StartedAt = t0.Add(5 * time.Second)
+	got2, err := st.RecordDispatch(ctx, projectKey, "kan-1", late)
+	if err != nil {
+		t.Fatalf("RecordDispatch K2 later: %v", err)
+	}
+	if !got2.StartedAt.Equal(t0) {
+		t.Errorf("K2 started_at = %v, want %v", got2.StartedAt, t0)
+	}
+}
