@@ -158,11 +158,11 @@ func RenderPanel(r Run) string {
 	fmt.Fprintf(&b, "# Review panel — %s\n\n", neutraliseMarkers(r.Change))
 	b.WriteString("Rendered from the store. Do not edit: the findings are rows, and the next render overwrites this file.\n\n")
 
-	b.WriteString("| ID | Slot | Severity | Location | Note | Lineage |\n")
-	b.WriteString("|---|---|---|---|---|---|\n")
+	b.WriteString("| ID | Round | Slot | Severity | Location | Note | Lineage |\n")
+	b.WriteString("|---|---|---|---|---|---|---|\n")
 	for _, f := range r.Findings {
-		fmt.Fprintf(&b, "| %s | %s | %s | %s | %s | %s |\n",
-			tableCell(f.Ref), tableCell(f.Slot), tableCell(f.Severity),
+		fmt.Fprintf(&b, "| %s | %s | %s | %s | %s | %s | %s |\n",
+			tableCell(f.Ref), strconv.Itoa(f.Round), tableCell(f.Slot), tableCell(f.Severity),
 			tableCell(f.Location), tableCell(f.Note), tableCell(lineageCell(f)))
 	}
 	b.WriteString("\n")

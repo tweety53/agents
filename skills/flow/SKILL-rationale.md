@@ -845,9 +845,9 @@ Exit 1 or 2 stops the round the same way the per-task reviewer's stop works (the
 
 The record carries a findings table, one row per finding:
 
-| ID | Slot | Severity | Location | Note |
-|---|---|---|---|---|
-| F1 | Mutation | Minor | `src/Foo.kt:42` | replaced the silent catch |
+| ID | Round | Slot | Severity | Location | Note | Lineage |
+|---|---|---|---|---|---|---|
+| F1 | 0 | Mutation | Minor | `src/Foo.kt:42` | replaced the silent catch | |
 
 and, below it, the marker block — one line per row, plus the count:
 

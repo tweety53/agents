@@ -922,6 +922,26 @@ func TestRenderPanelNeutralisesPassLogLabelsInRows(t *testing.T) {
 	}
 }
 
+// TestRenderPanelCarriesEachFindingsRound pins the Round column: each row
+// carries its finding's stored round, read right after its ID.
+func TestRenderPanelCarriesEachFindingsRound(t *testing.T) {
+	r := records.Run{Change: "demo"}
+	r.Findings = append(r.Findings,
+		records.Finding{Ref: "F1", Round: 0, Slot: "primary", Severity: "Minor", Note: "n", Status: "open"},
+		records.Finding{Ref: "F2", Round: 2, Slot: "mutation", Severity: "Minor", Note: "n", Status: "open"},
+	)
+	out := records.RenderPanel(r)
+	for _, want := range []string{
+		"| ID | Round | Slot | Severity | Location | Note | Lineage |\n",
+		"\n| F1 | 0 | primary |",
+		"\n| F2 | 2 | mutation |",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("rendered record does not carry %q:\n%s", want, out)
+		}
+	}
+}
+
 // TestRenderPanelLineageColumn pins the lineage column's whole contract
 // (KAN-507): a finding carrying a supersedes link renders `supersedes
 // F<n>`, one carrying a regression-of link renders `regression of F<n>`,
@@ -942,7 +962,7 @@ func TestRenderPanelLineageColumn(t *testing.T) {
 
 	out := records.RenderPanel(r)
 
-	if !strings.Contains(out, "| ID | Slot | Severity | Location | Note | Lineage |\n") {
+	if !strings.Contains(out, "| ID | Round | Slot | Severity | Location | Note | Lineage |\n") {
 		t.Errorf("rendered record does not carry the Lineage column header:\n%s", out)
 	}
 	want := map[string]string{
@@ -959,11 +979,11 @@ func TestRenderPanelLineageColumn(t *testing.T) {
 			}
 			seen[prefix] = true
 			cols := strings.Split(line, "|")
-			if len(cols) != 8 {
-				t.Errorf("row %q has %d pipe-delimited columns, want 8", line, len(cols))
+			if len(cols) != 9 {
+				t.Errorf("row %q has %d pipe-delimited columns, want 9", line, len(cols))
 				continue
 			}
-			if got := strings.TrimSpace(cols[6]); got != cell {
+			if got := strings.TrimSpace(cols[7]); got != cell {
 				t.Errorf("row %q lineage cell = %q, want %q", line, got, cell)
 			}
 		}
