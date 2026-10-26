@@ -37,8 +37,8 @@ this worktree.
 - Task 2: kan-1036's F3 row keeps every field but its reproducer.
 - Task 4: an inline window already measured, still open, or ending after the batch's last main-thread record gets no zero delta; a launched window never does.
 
-- [ ] 1. Count round 1 as a late round in the late-round-miss definition
-  - [ ] **Step 1: Apply the prose diff** (decision `late-round-from-1`):
+- [x] 1. Count round 1 as a late round in the late-round-miss definition
+  - [x] **Step 1: Apply the prose diff** (decision `late-round-from-1`):
 
 ````diff verified:applied with git apply at c580312c; check-verbatim-moves.sh then reports exactly the sentences verbatim-moves.txt lists
 diff --git a/skills/flow-self-review/SKILL.md b/skills/flow-self-review/SKILL.md
@@ -63,11 +63,11 @@ index 3bbef742..98a2be49 100644
  it — the slot's reviewer prompt file at the change's merge base, the diff each was given, the
 ````
 
-  - [ ] **Step 2: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh` and
+  - [x] **Step 2: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh` and
     `scripts/check-markdown-integrity.sh` exit 0, and
     `git grep -n -F -e 'round 2 or later' -e 'round-1 reviewer' -- skills/flow-self-review/SKILL.md`
     prints nothing.
-  - [ ] **Step 3: Commit** the file with the subject below.
+  - [x] **Step 3: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow-self-review/SKILL.md`
@@ -78,8 +78,8 @@ index 3bbef742..98a2be49 100644
 
 **Decision:** late-round-from-1
 
-- [ ] 2. Name the reproducer shape in the slot prompt and refuse an off-shape path
-  - [ ] **Step 1: Write the failing test** `TestCheckPanelReproducersRefusesAnOffShapeName` in
+- [x] 2. Name the reproducer shape in the slot prompt and refuse an off-shape path
+  - [x] **Step 1: Write the failing test** `TestCheckPanelReproducersRefusesAnOffShapeName` in
     `stats/internal/guard/check_panel_reproducers_test.go`: a table run through `cprRun` and
     `cprExpect` on raw JSON findings carrying `ref`, `round`, `slot`, `status`, `severity` and
     `reproducer`. Cases — exit 1 naming the ref and `<round>-<id>-<n>.sh`: round 0 `mutation` with
@@ -95,7 +95,7 @@ index 3bbef742..98a2be49 100644
     `scripts/check-panel-reproducers.sh`; a Minor round 0 `primary` with
     `none — prose-only`. Run `cd stats && go test ./internal/guard/ -run TestCheckPanelReproducersRefusesAnOffShapeName`
     and see the exit-1 cases fail.
-  - [ ] **Step 2: Implement** (decision `reproducer-name-shape-guarded`) in
+  - [x] **Step 2: Implement** (decision `reproducer-name-shape-guarded`) in
     `stats/internal/guard/panelreproducers.go`: read each finding's `round` (a JSON number;
     absent reads as 0) and `slot` index-aligned with `pcParseFindings`, the way `cprSeverities`
     reads severity; for a runnable reproducer whose path token (text before the first space)
@@ -107,7 +107,7 @@ index 3bbef742..98a2be49 100644
     a case-insensitive filesystem) is why. Leave the exemption branch and `cprCommandViolations`
     as they are. Run Step 1's selector and the whole
     `cd stats && go test ./internal/guard/ -run 'TestCheckPanelReproducer'` green.
-  - [ ] **Step 3: Apply the prose diff:**
+  - [x] **Step 3: Apply the prose diff:**
 
 ````diff verified:applied with git apply at c580312c; check-verbatim-moves.sh then reports exactly the sentences verbatim-moves.txt lists
 diff --git a/skills/flow/review-panel.md b/skills/flow/review-panel.md
@@ -134,19 +134,19 @@ index 77c71cd2..a359b88f 100644
  > first 10 lines it declares one `# demonstrates: <path>:<line>:<content>` line per cited location
 ````
 
-  - [ ] **Step 4: Repair kan-1036's F3 row** (decision `repair-f3-only`) — a store write, no
+  - [x] **Step 4: Repair kan-1036's F3 row** (decision `repair-f3-only`) — a store write, no
     file change: read the row with
     `flow record findings -change kan-1036-late-round-finding-prompt-tuning -C /Users/tweety53/Projects/agents-worktrees/kan-1036-late-round-finding-prompt-tuning`, then
     re-record it with `flow record finding -C /Users/tweety53/Projects/agents-worktrees/kan-1036-late-round-finding-prompt-tuning -change kan-1036-late-round-finding-prompt-tuning -ref F3 -round 0 -slot mutation -severity Minor -dispatch-seq 4 -task 1`
     plus `-location`, `-status` and `-note` copied byte for byte from that read, and
     `-reproducer "none — its mutation script was overwritten by another slot's r1-m1-1.sh on a case-insensitive filesystem (kan-1036)"`.
     Read it back: every field but `reproducer` is unchanged.
-  - [ ] **Step 5: Verify.** `scripts/check-panel-reproducers.sh /Users/tweety53/Projects/agents-worktrees/kan-1036-late-round-finding-prompt-tuning kan-1036-late-round-finding-prompt-tuning`
+  - [x] **Step 5: Verify.** `scripts/check-panel-reproducers.sh /Users/tweety53/Projects/agents-worktrees/kan-1036-late-round-finding-prompt-tuning kan-1036-late-round-finding-prompt-tuning`
     prints `REPRODUCERS-OK (3 finding(s) declared)`; `scripts/check-verbatim-moves.sh`,
     `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh`,
     `scripts/check-dispatch-paragraphs.sh`, `cd stats && gofmt -l .` and
     `cd stats && make -s web-dist && go vet ./...` exit clean.
-  - [ ] **Step 6: Commit** the three files with the subject below.
+  - [x] **Step 6: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/panelreproducers.go`, `stats/internal/guard/check_panel_reproducers_test.go`, `skills/flow/review-panel.md`
@@ -159,24 +159,24 @@ index 77c71cd2..a359b88f 100644
 
 **Decision:** reproducer-name-shape-guarded, repair-f3-only
 
-- [ ] 3. Render each panel finding's round
-  - [ ] **Step 1: Write the failing test** `TestRenderPanelCarriesEachFindingsRound` in
+- [x] 3. Render each panel finding's round
+  - [x] **Step 1: Write the failing test** `TestRenderPanelCarriesEachFindingsRound` in
     `stats/internal/records/render_test.go`: a `Run` with findings `F1` round 0 and `F2` round 2;
     `RenderPanel` carries the header `| ID | Round | Slot | Severity | Location | Note | Lineage |`
     and rows opening `| F1 | 0 |` and `| F2 | 2 |`. Run
     `cd stats && go test ./internal/records/ -run TestRenderPanelCarriesEachFindingsRound` and see
     it fail.
-  - [ ] **Step 2: Implement** (decision `round-column`) in `RenderPanel`,
+  - [x] **Step 2: Implement** (decision `round-column`) in `RenderPanel`,
     `stats/internal/records/render.go`: the header and separator gain the `Round` column after
     `ID`, each row the cell `strconv.Itoa(f.Round)`. Update the existing Lineage test's header
     assertion in `render_test.go` to the new header. In `skills/flow/SKILL-rationale.md`'s
     "the rendered record's format (KAN-857 …)" example, set the header to
     `| ID | Round | Slot | Severity | Location | Note | Lineage |`, its separator to seven
     columns, and the example row to `| F1 | 0 | Mutation | Minor | `src/Foo.kt:42` | replaced the silent catch | |`.
-  - [ ] **Step 3: Verify.** `cd stats && go test ./internal/records/ -run 'TestRenderPanel'` green; `cd stats && gofmt -l .`,
+  - [x] **Step 3: Verify.** `cd stats && go test ./internal/records/ -run 'TestRenderPanel'` green; `cd stats && gofmt -l .`,
     `cd stats && make -s web-dist && go vet ./...`, `scripts/check-references.sh` and
     `scripts/check-markdown-integrity.sh` clean.
-  - [ ] **Step 4: Commit** the three files with the subject below.
+  - [x] **Step 4: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/records/render.go`, `stats/internal/records/render_test.go`, `skills/flow/SKILL-rationale.md`
@@ -189,8 +189,8 @@ index 77c71cd2..a359b88f 100644
 
 **Decision:** round-column
 
-- [ ] 4. Measure an inline window that held no parent turn as zero
-  - [ ] **Step 1: Write the failing test** `TestInlineWindowWithNoTurnInsideMeasuresZero` in
+- [x] 4. Measure an inline window that held no parent turn as zero
+  - [x] **Step 1: Write the failing test** `TestInlineWindowWithNoTurnInsideMeasuresZero` in
     `stats/internal/harvest/attribute_test.go`, after `TestInlineDispatchTakesMainThreadUsage`,
     built on kan-1036's real stamps: main-thread records of `mainSessionID` at
     `2026-10-26T13:31:25.743Z` and `2026-10-26T13:37:28.709Z` carrying non-zero usage; windows,
@@ -201,7 +201,7 @@ index 77c71cd2..a359b88f 100644
     `EndedAt` nil (wants no entry); dispatch 9 launched, agent `agent-x`, the same span as 6
     (wants no entry). Run `cd stats && go test ./internal/harvest/ -run TestInlineWindowWithNoTurnInsideMeasuresZero`
     and see it fail.
-  - [ ] **Step 2: Implement** (decision `inline-window-zero`): `DispatchWindow` gains
+  - [x] **Step 2: Implement** (decision `inline-window-zero`): `DispatchWindow` gains
     `Measured bool` with a doc line (the row's metrics already carry a `tokens` object).
     `DispatchWindowsForSession` (`stats/internal/store/records.go`) selects
     `(d.metrics -> 'tokens') IS NOT NULL` and scans it into `Measured`. In
@@ -214,14 +214,14 @@ index 77c71cd2..a359b88f 100644
     `TestDispatchWindowsForSessionResolvesTheBoundToken` in `stats/internal/store/records_test.go`
     to assert `Measured` false on a row with `{}` metrics and true once
     `MergeDispatchMetrics` has written a `tokens` patch to it.
-  - [ ] **Step 3: Verify.** `cd stats && go test ./internal/harvest/ ./internal/store/ -count=1 -run 'Inline|DispatchWindow|Attribut'`
+  - [x] **Step 3: Verify.** `cd stats && go test ./internal/harvest/ ./internal/store/ -count=1 -run 'Inline|DispatchWindow|Attribut'`
     green — a pre-existing test whose fixture now receives a zero entry for an empty closed inline
     window is updated to expect it, and named in the commit body; `cd stats && gofmt -l .` and
     `cd stats && make -s web-dist && go vet ./...` clean.
-  - [ ] **Step 4: Commit** the four files with the subject below.
+  - [x] **Step 4: Commit** the four files with the subject below.
 
 **Build:** green
-**Files:** `stats/internal/harvest/attribute.go`, `stats/internal/harvest/attribute_test.go`, `stats/internal/store/records.go`, `stats/internal/store/records_test.go`
+**Files:** `stats/internal/harvest/attribute.go`, `stats/internal/harvest/attribute_test.go`, `stats/internal/store/records.go`, `stats/internal/store/records_test.go`, `stats/internal/harvest/watcher.go`
 **Allowed-collateral:** `stats/internal/harvest/*_test.go`
 **Tests:** `TestInlineWindowWithNoTurnInsideMeasuresZero`
 **Regression:** `TestInlineWindowWithNoTurnInsideMeasuresZero` — reverting leaves dispatch 6 with no delta, so its bag stays `{}` and the ledger reads `not measured`.
