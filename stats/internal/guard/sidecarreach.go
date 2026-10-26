@@ -100,7 +100,8 @@ func checkSidecarReach(args []string, env Env, stdout, stderr io.Writer) int {
 		sc := bufio.NewScanner(f)
 		for n := 1; sc.Scan(); n++ {
 			fields := strings.Fields(sc.Text())
-			if len(fields) == 0 || strings.HasPrefix(fields[0], "#") {
+			// A `frame` directive (composemockupframes.go) names no screenshot.
+			if len(fields) == 0 || strings.HasPrefix(fields[0], "#") || fields[0] == "frame" {
 				continue
 			}
 			lines++

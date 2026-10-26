@@ -99,7 +99,7 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 			for _, l := range strings.Split(string(data), "\n") {
 				f := strings.Fields(l)
-				if len(f) >= 2 && !strings.HasPrefix(f[0], "#") {
+				if len(f) >= 2 && !strings.HasPrefix(f[0], "#") && f[0] != "frame" {
 					sidecar[f[1]] = true
 				}
 			}

@@ -22,6 +22,10 @@ func TestCheckSidecarReach(t *testing.T) {
 			"fidelity/a.spec.ts":         "await capture(page, 'a-1.png');",
 			"fidelity/a.spec.ts.mockups": "# c\n\na-1.png A-1\n",
 		}, 0, "SIDECAR-REACH-OK: 1 lines in 1 sidecars\n", nil},
+		{"a frame directive line is not a screenshot", map[string]string{
+			"fidelity/a.spec.ts":         "await capture(page, 'a-1.png');",
+			"fidelity/a.spec.ts.mockups": "# c\nframe none\na-1.png A-1\n",
+		}, 0, "SIDECAR-REACH-OK: 1 lines in 1 sidecars\n", nil},
 		{"double-quoted literal reaches", map[string]string{
 			"fidelity/a.spec.ts":         `shot("a-2.png")`,
 			"fidelity/a.spec.ts.mockups": "a-2.png A-2\n",
