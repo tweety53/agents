@@ -64,7 +64,7 @@ merged** (`skills/flow-contracts/finish-contract-run2.md`).
 ```
 
 **`Learning:` and `Prompt tuning:` are never omitted.** `Learning:` names the file **Learning**
-(`skills/flow-contracts/learning.md`) places at `<project>-learning/<name>.md` when it exists; its
+(`skills/flow-contracts/learning.md`) places at `<project>-learning/<name>.md` when it exists; its <!-- citations-guard:allow -->
 `none` reason is the setting off or the store unreachable. `Prompt tuning:` names every case the
 self-review's step 2a wrote (`skills/flow-self-review/SKILL.md`); its `none` reason is angle 8's
 own empty-angle sentence.
