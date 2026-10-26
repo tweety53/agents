@@ -50,9 +50,8 @@ store rows and the report.
 fixable, `big` or not; disproved, it is `noted`, the evidence that disproved it in its line. "Not
 traced", "unverified" or a cause left unknown is never a classification: such a finding goes to
 step 3's planner as a non-`big` finding whose plan opens on the trace, never into the report or
-into the run's final report as an open item. An observed test failure is fixed as **An observed failure is never closed as "not
-reproduced"** (`skills/flow/verify-fix-loop.md`) states, and a plan that allows closing it
-unreproduced is sent back.
+into the run's final report as an open item. An observed test failure is fixed as **The loop** (`skills/flow/verify-fix-loop.md`) states
+for one that does not reproduce, and a plan that allows closing it unreproduced is sent back.
 
 The pass runs the eight-angle table over the bundle, every angle explicit —
 present-but-empty for an angle with no findings, never omitted:
