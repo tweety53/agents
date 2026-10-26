@@ -23,7 +23,15 @@ narrative_passes "a prose mention of the token" 'The ` + "`" + `In-run pipeline 
 		{"narrative_format_trailing_space", icNarrativePasses + `# --- narrative_format_trailing_space ---
 narrative_passes "a well-formed line with trailing whitespace" '- In-run pipeline fix: 1a2b3c4 — the defect (blast radius 2 files)   '`},
 		{"narrative_format_deferred", icNarrativePasses + `# --- narrative_format_deferred ---
-narrative_passes "a deferred line" '- In-run pipeline fix: deferred — the defect (blast radius 1 file)'`},
+narrative_passes "a deferred big line" '- In-run pipeline fix: deferred — the defect (blast radius 60 files)'`},
+		{"narrative_format_deferred_small", `# --- narrative_format_deferred_small ---
+fixture
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+printf '\n## integrate run\n\n- In-run pipeline fix: deferred — the hook denied a planner (blast radius 3 files)\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
+check "narrative_format_deferred_small: a deferred fix under 60 files stops commit" \
+  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: narrative — .*defers an in-run fix of blast radius 3"'`},
 		{"narrative_format_backticked_sha", icNarrativePasses + `# --- narrative_format_backticked_sha ---
 narrative_passes "a backticked sha" '- In-run pipeline fix: ` + "`" + `1a2b3c4` + "`" + ` — the defect (blast radius 3 files).'`},
 		{"narrative_runs", `# --- narrative_runs ---

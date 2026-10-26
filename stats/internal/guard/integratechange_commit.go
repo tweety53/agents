@@ -8,12 +8,13 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
 var (
 	icFixLine   = regexp.MustCompile(`^(- )?In-run pipeline fix:`)
-	icFixFormat = regexp.MustCompile("In-run pipeline fix: `?([0-9a-f]{7,40}|deferred)`? — .+ \\(blast radius [0-9]+ files?\\)\\.?[[:space:]]*$")
+	icFixFormat = regexp.MustCompile("In-run pipeline fix: `?([0-9a-f]{7,40}|deferred)`? — .+ \\(blast radius ([0-9]+) files?\\)\\.?[[:space:]]*$")
 )
 
 func (c *ic) commit() {
@@ -35,6 +36,11 @@ func (c *ic) commit() {
 				continue
 			}
 			if m := icFixFormat.FindStringSubmatch(l); m != nil {
+				// Only a `big` fix -- 60 files or more -- is ever deferred
+				// (Pipeline defects found mid-run, pipeline.md).
+				if r, _ := strconv.Atoi(m[2]); m[1] == "deferred" && r < 60 {
+					c.stop("narrative", fmt.Sprintf("%s:%d defers an in-run fix of blast radius %d — only a fix of 60 files or more is deferred; fix and land it in this run, then re-run commit", nf, n+1, r))
+				}
 				named = append(named, m[1])
 			} else {
 				bad = append(bad, fmt.Sprintf("%d:%s", n+1, l))

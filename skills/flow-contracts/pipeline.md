@@ -190,7 +190,10 @@ behaviour. For this section alone `<agents repo>` is a repository the run was gi
 files the fix must touch: the defective file, its test, and every file `grep -rl` finds in
 `<agents repo>` citing the name or section the fix changes. The fix is `big` — `plan-class.sh`'s
 own `files>=60` threshold — when that count is 60 or more. A `big` fix is
-deferred to self-review, and so is one found `big` once under way, which stops there.
+deferred to self-review, and so is one found `big` once under way, which stops there. **Nothing
+else is ever deferred** — not "after the loop", not to the self-review, not to the operator: a
+non-`big` fix lands before the run's final report, and `integrate-change.sh commit` stops on a
+`deferred` line under 60 files.
 
 **A fix that reaches outside `<agents repo>` is never `big` for that alone** — a fix to the
 project's own dev tooling (`<project>/.flow/project.md`, build scripts, dev-stack or test-harness config)
@@ -232,9 +235,9 @@ the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-
 2. **Review** — a fresh `pipeline-fix-<k>-review-<r>` over
    `git diff origin/<agents-base>...pipeline-fix-<name>-<k>`, as item 2 there states.
 3. **Fix the findings** — a fresh `pipeline-fix-<k>-fix-<r>`, as item 3 there states, under
-   **Fewest operator actions** above. A defect whose commit the review drops is deferred, as a
-   `big` one is: the parent runs `<agents repo>/scripts/pipeline-fix.sh drop <worktree>`, landing
-   nothing.
+   **Fewest operator actions** above. A defect whose commit the review drops is re-planned: the
+   parent runs `<agents repo>/scripts/pipeline-fix.sh drop <worktree>`, landing nothing, and opens
+   a fresh loop on it, its planner carrying the review's objection.
 4. **Land** — once the parent has ticked and archived the plan in one
    `chore(spectre): archive pipeline-fix-<name>-<k>` commit and run the lint lines and tests, as
    item 4 there states, a red line fixed by `pipeline-fix-<k>-fix-v<v>`, it lands by
