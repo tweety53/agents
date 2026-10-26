@@ -759,6 +759,34 @@ TRAILER_RE = re.compile(r"^(Task-Id|Flow-Key):[ \t]*\S", re.M)
 UNREAD_MESSAGE_OPTS = ("-F", "--file", "-C", "-c", "--reuse-message", "--reedit-message", "--fixup", "--squash", "--amend")
 
 
+def commit_message_unread(args):
+    """True when `git commit <args>` does not state its message in the command text: none given,
+    -F, -C, --amend, a shell expansion left in it, or a raw word opening with a quote."""
+    msgs, i = [], 0
+    while i < len(args):
+        a = args[i]
+        if a == "--":
+            break
+        if a.startswith(UNREAD_MESSAGE_OPTS):
+            return True
+        if a == "--message" and i + 1 < len(args):
+            msgs.append(args[i + 1])
+            i += 2
+            continue
+        if a.startswith("--message="):
+            msgs.append(a.partition("=")[2])
+        elif a.startswith("-") and not a.startswith("--") and "m" in a[1:]:
+            rest = a[a.index("m", 1) + 1 :]
+            if rest:
+                msgs.append(rest)
+            elif i + 1 < len(args):
+                msgs.append(args[i + 1])
+                i += 2
+                continue
+        i += 1
+    return not msgs or any("$" in m or "`" in m or m[:1] in ("'", '"') for m in msgs)
+
+
 def commit_lacks_trailer(args, target):
     """True when `git commit <args>` states its message with -m/--message, that message carries
     neither a `Task-Id:` nor a `Flow-Key:` trailer, its subject is no `chore`, and its pathspec
@@ -766,14 +794,14 @@ def commit_lacks_trailer(args, target):
     given, -F, -C, --amend, a shell expansion left in it, or a raw word opening with a quote that
     tokenize's unbalanced-quote fallback split (kan-1032's self-review: an apostrophe in a heredoc
     body kept the quote on `"chore(...):`) — is never judged."""
+    if commit_message_unread(args):
+        return False
     msgs, paths, i = [], [], 0
     while i < len(args):
         a = args[i]
         if a == "--":
             paths += args[i + 1 :]
             break
-        if a.startswith(UNREAD_MESSAGE_OPTS):
-            return False
         if a == "--message" and i + 1 < len(args):
             msgs.append(args[i + 1])
             i += 2
@@ -792,8 +820,6 @@ def commit_lacks_trailer(args, target):
             # no `--`: the words left after the message values are the pathspec
             paths.append(a)
         i += 1
-    if not msgs or any("$" in m or "`" in m or m[:1] in ("'", '"') for m in msgs):
-        return False
     if TRAILER_RE.search("\n".join(msgs)) or CHORE_SUBJECT_RE.match(msgs[0]):
         return False
     planning = ("/spectre/changes/", "/openspec/changes/")
@@ -967,6 +993,15 @@ def bash_hits(command, cwd, landings=None):
                                 "before the command does and cannot see the commit. Add `-m \"Flow-Key: <key>\"` "
                                 "(**Commits outside every task**, skills/flow-contracts/git-boundaries.md), or "
                                 "`-m \"Task-Id: <n>\"` on a task's own commit, then run it again."
+                            )
+                            break
+                        if dsts and os.path.realpath(ct) == os.path.realpath(target) and commit_message_unread(cargs):
+                            landings.append(
+                                f"Blocked: this command commits and then pushes to {dsts[0]}, and the hook cannot read "
+                                "that commit's message (-F, -C, --amend, or a shell expansion), so it cannot tell whether "
+                                "it carries a `Task-Id:` or `Flow-Key:` trailer. Commit and push in two calls — the push "
+                                "check then reads the commit (**Commits outside every task**, "
+                                "skills/flow-contracts/git-boundaries.md)."
                             )
                             break
                 i = j + 1

@@ -423,7 +423,7 @@ func TestProtectMainCheckout(t *testing.T) {
 	f.bash("145 a planning commit pathspec-limited to spectre/changes/", "allow", "{ROOT}", `git -C {CWT} commit -q -m 'docs(spectre): record' -- spectre/changes/chg && git -C {CWT} push -q origin spectre/chg3`)
 	f.bash("150 a planning commit's pathspec given without '--'", "allow", "{ROOT}", `git -C {CWT} commit -q -m 'docs(spectre): record' spectre/changes/chg && git -C {CWT} push -q origin spectre/chg3`)
 	f.bash("146 a chore subject", "allow", "{ROOT}", `cd {CWT} && git commit -q -m 'chore(spectre): plan chg — plan gate' && git push -q`)
-	f.bash("147 a message the command does not state", "allow", "{ROOT}", `cd {CWT} && git commit -q -F msg.txt && git push -q`)
+	f.bash("147 a message the command does not state, pushed in the same call", "deny", "{ROOT}", `cd {CWT} && git commit -q -F msg.txt && git push -q`)
 	f.bash("161 commit and push in one command, both redirected, no trailer", "deny", "{ROOT}", `cd {CWT} && git commit -qm 'docs(design): add the handoff' 2>&1 && git push -q >/dev/null 2>&1`)
 	f.bash("162 a planning commit pathspec-limited to spectre/changes/, redirected", "allow", "{ROOT}", `git -C {CWT} commit -q -m 'docs(spectre): record' -- spectre/changes/chg 2>&1 && git -C {CWT} push -q origin spectre/chg3`)
 	f.bash("148 a trailer-less commit on a change branch, pushed to a branch that is no change branch, is denied at the commit", "deny", "{ROOT}", `cd {CWT} && git commit -qm 'docs(x): y' && git push -q origin HEAD:feature/x`)
@@ -571,4 +571,41 @@ func TestProtectMainCheckoutDeniesABareCatRedirect(t *testing.T) {
 	for _, c := range []string{"cat > f <<'EOF'\nbody\nEOF", "cat > f < in", "x | cat > f", "cat a > f", "cat -n f > g", "echo cat > f", "concat > f"} {
 		f.bash("allow "+c, "allow", "{ROOT}", c)
 	}
+}
+
+// TestCommitThenPushWithUnreadableMessageIsDenied pins kan-1018's self-review: a commit whose
+// message the hook cannot read (-F, a shell expansion), pushed to spectre/* in the same call, is
+// denied — the push check runs before the commit exists. The commit alone is still never judged,
+// and a readable trailered message pushed in one call passes.
+func TestCommitThenPushWithUnreadableMessageIsDenied(t *testing.T) {
+	t.Parallel()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &pmFixture{t: t, home: t.TempDir(), vars: map[string]string{"ROOT": root}}
+	main := root + "/main"
+	f.vars["SWT"] = root + "/main-worktrees/x"
+	f.git("init", "-q", "--bare", root+"/origin.git")
+	f.git("clone", "-q", root+"/origin.git", main)
+	f.write(main+"/f.txt", "a\n")
+	f.git("-C", main, "add", "f.txt")
+	f.git("-C", main, "commit", "-q", "-m", "init")
+	f.git("-C", main, "branch", "-M", "main")
+	f.git("-C", main, "push", "-q", "-u", "origin", "main")
+	f.git("-C", main, "worktree", "add", f.vars["SWT"], "-b", "spectre/x")
+
+	for _, cmd := range []string{
+		`cd {SWT} && git commit -F msg.txt && git push origin spectre/x`,
+		`cd {SWT} && git commit -m "$(cat msg)" && git push origin HEAD:spectre/x`,
+	} {
+		f.check(cmd, func(t *testing.T) {
+			out := f.run(t, root, "Bash", map[string]string{"command": f.x(cmd)})
+			if decision(out) != "deny" || !strings.Contains(out, "Commit and push in two calls") {
+				t.Errorf("out=%s", out)
+			}
+		})
+	}
+	f.bash("-F alone", "allow", "{ROOT}", `git -C {SWT} commit -F msg.txt`)
+	f.bash("trailered message then push", "allow", "{ROOT}", `cd {SWT} && git commit -m "fix(x): y" -m "Flow-Key: k" && git push origin spectre/x`)
 }
