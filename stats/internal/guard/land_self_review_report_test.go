@@ -695,3 +695,48 @@ func TestLandSelfReviewReportRefusesAReportFailingItsCheck(t *testing.T) {
 		t.Fatalf("(d) the report was not committed")
 	}
 }
+
+func TestLandSelfReviewReportRefusesAnUnlandedCase(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	repo, agents := dir+"/repo", dir+"/agents"
+	var g fxGit
+	for _, r := range []string{repo, agents} {
+		g.git("", "init", "-q", "-b", "main", r)
+		for _, kv := range [][2]string{{"user.name", "land-test"}, {"user.email", "land-test@example.com"}, {"commit.gpgsign", "false"}} {
+			g.git(r, "config", kv[0], kv[1])
+		}
+	}
+	g.git(repo, "commit", "-q", "--allow-empty", "-m", "base")
+	mkdir(t, agents+"/docs/prompt-tuning/kan-c-1")
+	g.write(agents+"/docs/prompt-tuning/kan-c-1/case.json", "{}\n")
+	g.git(agents, "add", "-A")
+	g.git(agents, "commit", "-q", "-m", "case")
+	g.git(agents, "update-ref", "refs/remotes/origin/main", "HEAD")
+	mkdir(t, repo+"/docs/self-review")
+	const rep = "docs/self-review/kan-c-self-review.md"
+	const bare = "- **[flow-prompt-tuning]** Prompt-tuning case: an implementer reads per item — noted"
+	const absent = "- **[flow-prompt-tuning]** reads per item — implementer — docs/prompt-tuning/kan-c-2/ — noted"
+	g.write(repo+"/"+rep, "## 8. Prompt tuning — `flow-prompt-tuning`\n\n"+bare+"\n"+absent+"\n")
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	getenv := func(k string) string {
+		if k == "FLOW_GUARD_REPO_ROOT" {
+			return agents
+		}
+		return os.Getenv(k)
+	}
+	env := Env{Dir: dir, Getenv: getenv, LookupEnv: hermeticGitLookup}
+	var o, e bytes.Buffer
+	rc := Registry["land-self-review-report"]([]string{repo, "main", "docs(self-review): kan-c self-review report", rep}, env, &o, &e)
+	if rc != 4 || strings.Count(e.String(), "LAND-CASE-MISSING") != 2 || !strings.Contains(e.String(), "kan-c-2/ is not on") {
+		t.Fatalf("rc=%d stderr=%q", rc, e.String())
+	}
+	g.write(repo+"/"+rep, "## 8. Prompt tuning — `flow-prompt-tuning`\n\n- **[flow-prompt-tuning]** reads per item — implementer — docs/prompt-tuning/kan-c-1/ — noted\n")
+	o.Reset()
+	e.Reset()
+	if rc := Registry["land-self-review-report"]([]string{repo, "main", "docs(self-review): kan-c self-review report", rep}, env, &o, &e); rc != 0 {
+		t.Fatalf("a landed case did not land: rc=%d stderr=%q", rc, e.String())
+	}
+}

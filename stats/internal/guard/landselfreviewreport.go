@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -91,6 +92,9 @@ func landSelfReviewReport(args []string, env Env, stdout, stderr io.Writer) int 
 		return rc
 	}
 	if rc := lsrrUntraced(env, repo, addPath, stderr); rc != 0 {
+		return rc
+	}
+	if rc := lsrrCases(env, repo, addPath, stderr); rc != 0 {
 		return rc
 	}
 	if rc := lsrrReportCheck(env, repo, addPath, stdout, stderr); rc != 0 {
@@ -299,6 +303,50 @@ func lsrrUntraced(env Env, repo, addPath string, stderr io.Writer) int {
 		}
 		if strings.HasPrefix(line, "- **[") && strings.Contains(l, "— noted") && lsrrDefers(l) {
 			fmt.Fprintf(stderr, "LAND-DEFERRED-FINDING: %s:%d: %s — fix it in the run, never leave it to the operator; nothing added, committed, pulled or pushed\n", addPath, i+1, strings.TrimSpace(line))
+			rc = 4
+		}
+	}
+	return rc
+}
+
+// lsrrCaseDir is the case folder a flow-prompt-tuning line names.
+var lsrrCaseDir = regexp.MustCompile(`docs/prompt-tuning/([^/\s` + "`" + `]+)/`)
+
+// lsrrCases refuses a report whose prompt-tuning case is not landed: a
+// `[flow-prompt-tuning]` line calling itself a case without naming its
+// `docs/prompt-tuning/<case-id>/` folder, or naming one absent from
+// origin/main of the agents checkout this guard runs from
+// (FLOW_GUARD_REPO_ROOT). kan-1017's self-review described two cases and
+// wrote neither. Exit 4, like an open finding; nothing added, committed,
+// pulled or pushed. FLOW_GUARD_REPO_ROOT unset skips the check.
+func lsrrCases(env Env, repo, addPath string, stderr io.Writer) int {
+	agents := env.Getenv("FLOW_GUARD_REPO_ROOT")
+	if agents == "" {
+		return 0
+	}
+	p := addPath
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(repo, p)
+	}
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(env.Dir, p)
+	}
+	b, err := os.ReadFile(p)
+	if err != nil {
+		return 0
+	}
+	rc := 0
+	for i, line := range strings.Split(string(b), "\n") {
+		if !strings.HasPrefix(line, "- **[flow-prompt-tuning]**") {
+			continue
+		}
+		m := lsrrCaseDir.FindStringSubmatch(line)
+		switch {
+		case m == nil && strings.Contains(strings.ToLower(line), "prompt-tuning case"):
+			fmt.Fprintf(stderr, "LAND-CASE-MISSING: %s:%d: %s — names no docs/prompt-tuning/<case-id>/ folder; write the case (flow-self-review step 2a) and land it first; nothing added, committed, pulled or pushed\n", addPath, i+1, strings.TrimSpace(line))
+			rc = 4
+		case m != nil && envGit(env)("-C", agents, "cat-file", "-e", "origin/main:docs/prompt-tuning/"+m[1]+"/case.json").Run() != nil:
+			fmt.Fprintf(stderr, "LAND-CASE-MISSING: %s:%d: docs/prompt-tuning/%s/ is not on %s origin/main — land the case first; nothing added, committed, pulled or pushed\n", addPath, i+1, m[1], agents)
 			rc = 4
 		}
 	}

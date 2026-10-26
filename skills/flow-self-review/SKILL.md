@@ -189,6 +189,10 @@ nothing beyond it — say so in the report's `**Deferred:**` line.
 
 ### 2a. Write the prompt-tuning cases
 
+**Every case the pass returns is a deliverable, landed on `<agents repo>` `main` before the report
+is:** `land-self-review-report.sh` refuses a report whose case line names no folder, or one absent from
+`<agents repo>` origin/main (`LAND-CASE-MISSING`).
+
 A pass with no angle-8 case writes nothing here. Otherwise this session, after the pass and before
 step 3, first resolves the worktree of `<fix-branch>` — the branch named at the end of this step —
 creating it with `<agents repo>/scripts/pipeline-fix.sh start <name>` when it is
