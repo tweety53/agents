@@ -716,9 +716,13 @@ that reports back directly; never drop the slot.
 
 Every panel slot carries a 15-minute wall-clock ceiling from its dispatch — 5 minutes for a
 fix-round re-run dispatch on a decided panel, which reads a delta at `low` effort
-and has no business running longer. The dispatcher
-tracks each in-flight slot's elapsed time itself rather than blocking indefinitely on a completion
-notification. **The ceiling is a record-and-review bound, not a stop**: it cannot halt
+and has no business running longer. The dispatcher tracks each in-flight slot's elapsed time
+itself rather than blocking indefinitely on a completion notification: it notes each slot's
+dispatch instant (`date +%s`) when it dispatches, waits on the slot only through
+**Turn discipline**'s bounded loop in **4. Execute (SDD + TDD)** (`skills/flow/implement.md`), and
+on every `still-running` compares the slot's elapsed time against its ceiling before re-issuing —
+a slot past its ceiling gets no further wait and takes the breach path below at once (kan-1025: with no named wake-up, a breach was caught
+at about three times the ceiling). **The ceiling is a record-and-review bound, not a stop**: it cannot halt
 an in-flight dispatch — a slot the harness runs as one blocking call pays the overrun in full
 before the breach can even be recorded — so a run is never promised a stop the harness cannot
 deliver.
