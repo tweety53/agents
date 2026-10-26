@@ -246,8 +246,9 @@ func validateFindingDeferralSeverity(severity, status string) error {
 // irreproducibility without saying why, which is the one shape this change's
 // `reproducer-safety-in-shell` decision still refuses here rather than
 // leaving to the guard. Any other non-empty value is a command, and this
-// validator has nothing further to say about its shape -- metacharacters,
-// absolute paths and ".." segments stay a guard-side check.
+// validator refuses an absolute first token here (decision
+// `finding-reproducer-relative`); metacharacters, ".." segments and later
+// tokens stay a guard-side check.
 func validateFindingReproducer(reproducer string) error {
 	if strings.TrimSpace(reproducer) == "" {
 		return fmt.Errorf("-reproducer is required")
@@ -256,6 +257,9 @@ func validateFindingReproducer(reproducer string) error {
 		if rest, ok := strings.CutPrefix(reproducer, "none — "); !ok || strings.TrimSpace(rest) == "" {
 			return fmt.Errorf("-reproducer %q must be a command, or \"none — <reason>\"", reproducer)
 		}
+	}
+	if fields := strings.Fields(reproducer); strings.HasPrefix(fields[0], "/") {
+		return fmt.Errorf("-reproducer token '%s' is an absolute path — a reproducer names a path relative to the worktree", fields[0])
 	}
 	return nil
 }

@@ -6342,3 +6342,46 @@ func TestRecordDispatchBeginRefusesAboveSessionCap(t *testing.T) {
 		})
 	}
 }
+
+// TestRecordFindingRejectsAbsoluteReproducer pins kan-1014's self-review: a
+// reproducer whose path token is absolute can never be resolved by
+// check-panel-findings-closed, so it is refused before the store is
+// contacted; a relative command with a later absolute argument, and
+// "none — <reason>", are still accepted.
+func TestRecordFindingRejectsAbsoluteReproducer(t *testing.T) {
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+
+	contacted := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+		contacted = true
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
+			"-severity", "major", "-status", "open", "-reproducer", "/tmp/x.sh arg",
+			"-note", "the note"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+	}
+	if contacted {
+		t.Error("the store was contacted for an absolute reproducer -- it must be refused first")
+	}
+	for _, want := range []string{"absolute path", "relative to the worktree"} {
+		if !strings.Contains(stderr.String(), want) {
+			t.Errorf("stderr does not name %q:\n%s", want, stderr.String())
+		}
+	}
+	for _, ok := range []string{"scripts/run-verify-list.sh /abs", "none — prose only"} {
+		if err := validateFindingReproducer(ok); err != nil {
+			t.Errorf("%q refused: %v", ok, err)
+		}
+	}
+}
