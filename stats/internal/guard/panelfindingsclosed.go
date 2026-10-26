@@ -329,12 +329,18 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 			return 2
 		}
 		for _, m := range cfcRegressionRE.FindAllStringSubmatch(string(body), -1) {
-			regression[m[1]] = append(regression[m[1]], strings.TrimSpace(m[2]))
+			path := strings.TrimSpace(m[2])
+			if path == "none" && strings.TrimSpace(m[3]) == "" {
+				path = "none (no reason)"
+			}
+			regression[m[1]] = append(regression[m[1]], path)
 		}
 	}
+	// tracked is the path itself, never a pathspec: a directory, `.` or a
+	// glob matching tracked files is not a test file.
 	tracked := func(tree, path string) bool {
-		_, ok := gitOut(env, "-C", tree, "ls-files", "--error-unmatch", "--", path)
-		return ok
+		out, ok := gitOut(env, "-C", tree, "ls-files", "-z", "--", ":(literal)"+path)
+		return ok && out == path+"\x00"
 	}
 	var untested []string
 	for _, f := range findings {
@@ -347,6 +353,10 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 			if path == "none" {
 				reason = ""
 				break
+			}
+			if path == "none (no reason)" {
+				reason = "none form with no reason"
+				continue
 			}
 			if strings.HasPrefix(path, ".superpowers/") {
 				reason = path + " is under .superpowers/"
@@ -471,8 +481,9 @@ var (
 )
 
 // cfcRegressionRE reads a fix report's `regression-test: F<n> — <path> — …`
-// line: the finding's ref and the path field, `none` in the none form.
-var cfcRegressionRE = regexp.MustCompile(`(?m)^regression-test: (\S+) — ([^—\n]+)`)
+// line: the finding's ref, the path field (`none` in the none form) and the
+// rest, which the none form needs non-empty as its reason.
+var cfcRegressionRE = regexp.MustCompile(`(?m)^regression-test: (\S+) — ([^—\n]+)(?:— ([^\n]*))?`)
 
 // cfcParse decodes `flow record findings`' array. It refuses, where the
 // bash guard's jq failed: a non-array, a non-object row, a non-string
