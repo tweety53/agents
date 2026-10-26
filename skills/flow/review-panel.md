@@ -761,7 +761,15 @@ authored in, which is gone once the dispatch closes (kan-1022's F8 pointed at th
 demonstrated nothing). Its test command runs every test of the package, file or module the mutated
 code belongs to, never a filter naming the tests that exist today: a test the fix adds under a new
 name has to be able to kill the mutant (kan-1032: `-run TestLoopLandingAdmitsPromptTuningOnly`
-never selected the killing `TestLoopLandingPromptTuningAdmissionBounds`).
+never selected the killing `TestLoopLandingPromptTuningAdmissionBounds`). When one run of that whole
+package takes more than a third of the slot's ceiling — measured once in the slot, before the first
+mutation — the command may instead filter by the name prefix the mutated code's test family shares
+(`-run '^TestCheckPanel'`), never a full test name, so a fix's new test under that prefix still
+kills the mutant (kan-1025: the guard package's 332 tests ran 165 s idle and about 455 s contended,
+the slot ran 55 minutes, and the parent narrowed the reproducer to one test's name). Its
+`# reproducer-bound:` is that measured run's seconds, doubled. Its exits follow the
+mutation-reproducer convention, never the generic one: it exits 0 when every test passes with the
+mutation in place — the mutant survived, the defect present — and non-zero when a test kills it.
 
 ### Principles
 
