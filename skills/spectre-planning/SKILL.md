@@ -22,7 +22,7 @@ unchanged, the plan review gate included.
 
 ### The checklist
 
-Invoke **superpowers:brainstorming** in full: checklist items 1–8, ending with the user approving
+Invoke the **brainstorming** skill in full: checklist items 1–8, ending with the user approving
 the design.
 
 - **Display-only formatting is decided, never asked.** A choice that changes only how a value is
@@ -45,12 +45,12 @@ the design.
 - The design presentation does **not** end a section, or the whole design, with a "does this look
   right?" question — present the section(s) and proceed directly, section to section and then into
   artifact creation, unless the operator raises an objection during or after that presentation. This
-  is a scoped override of `superpowers:brainstorming`'s hard design-approval gate.
+  is a scoped override of `brainstorming`'s hard design-approval gate.
 - Ask every pending question whose wording does not depend on another pending answer in one
   **AskUserQuestion** call, up to four questions per call; a question that only makes sense once
   another is answered waits for the next call; the convergence confirm and the third-round offer
   may be the last question in such a call. This is a scoped override of
-  `superpowers:brainstorming`'s "Only one question per message".
+  `brainstorming`'s "Only one question per message".
 
 The approved design is the source for the change's `design.md`; adapt its format, never duplicate a
 conflicting design.
@@ -223,7 +223,7 @@ once recorded.**
 
 ## D. Basic Workflow #3 — Writing plans
 
-Invoke **superpowers:writing-plans** to enrich `<changeRoot>/tasks.md` to plan quality: exact
+Invoke the **writing-plans** skill to enrich `<changeRoot>/tasks.md` to plan quality: exact
 paths, verification commands, bite-sized steps, no placeholders. Run its self-review (spec
 coverage, placeholder scan, type consistency) before finishing.
 
