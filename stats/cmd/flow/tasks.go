@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/fallback"
@@ -27,6 +28,7 @@ import (
 
 const tasksUsage = `usage: flow tasks tick [-C dir] <change> <task-id>
        flow tasks count [-C dir] [-addr url] [-timeout dur] <change>
+       flow tasks files [-C dir] <change> <task-id> add <path>...
 
 tasks tick flips one task's own checkbox and every step checkbox in its
 body from "[ ]" to "[x]" in <dir>/<spec-root>/changes/<change>/tasks.md
@@ -36,6 +38,12 @@ is archived and no live directory remains -- where <spec-root> is "spectre" when
 otherwise. It refuses (exit 1) rather than silently no-opping when the
 task is already ticked, or when no task with that id exists in the
 plan. <task-id> must be a bare non-negative integer (exit 2 otherwise).
+
+tasks files ... add widens one task's **Files:** field with every <path>
+it does not already name, as a backticked entry -- a "none" field becomes
+the paths alone -- leaving every other task, every fenced line and every
+other byte unchanged. It refuses (exit 1) an unknown task or one with no
+**Files:** line.
 
 tasks count counts the plan's column-0 task checkbox lines and records
 the figure as one observation of the change's plan-growth series
@@ -54,6 +62,8 @@ func runTasks(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		return runTasksTick(ctx, args[1:], stdout, stderr)
 	case "count":
 		return runTasksCount(ctx, args[1:], stdout, stderr)
+	case "files":
+		return runTasksFiles(args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown tasks command %q\n", args[0])
 		fmt.Fprint(stderr, tasksUsage)
@@ -165,6 +175,59 @@ func runTasksTick(_ context.Context, args []string, stdout, stderr io.Writer) in
 	}
 
 	fmt.Fprintf(stdout, "ticked task %s (%d steps)\n", taskID, steps)
+	return 0
+}
+
+// runTasksFiles implements `flow tasks files <change> <id> add <path>...`
+// (decision sr16-files-verb): the parent's transcription of a legitimate
+// widening, in place of a hand sed over tasks.md.
+func runTasksFiles(args []string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow tasks files", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	dir := fset.String("C", "", "resolve the plan as if run from this directory (default: cwd)")
+	pos, err := parseInterspersed(fset, args)
+	if err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprint(stderr, tasksUsage)
+		return 2
+	}
+	if len(pos) < 4 || pos[2] != "add" {
+		fmt.Fprintln(stderr, "flow: expected <change> <task-id> add <path>...")
+		fmt.Fprint(stderr, tasksUsage)
+		return 2
+	}
+	resolvedDir := *dir
+	if resolvedDir == "" {
+		if resolvedDir, err = os.Getwd(); err != nil {
+			fmt.Fprintf(stderr, "flow: resolve working directory: %v\n", err)
+			return 1
+		}
+	}
+	path, err := planPath(resolvedDir, pos[0])
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		return 2
+	}
+	plan, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: read %s: %v\n", path, err)
+		return 1
+	}
+	out, err := filesAdd(plan, pos[1], pos[3:])
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		if errors.Is(err, ErrTaskIDInvalid) {
+			return 2
+		}
+		return 1
+	}
+	if err := os.WriteFile(path, out, 0o644); err != nil {
+		fmt.Fprintf(stderr, "flow: write %s: %v\n", path, err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "files of task %s: %s\n", pos[1], strings.Join(pos[3:], " "))
 	return 0
 }
 

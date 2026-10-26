@@ -342,3 +342,48 @@ func TestTasksCountTakesFlagsAfterTheChangeName(t *testing.T) {
 		t.Errorf("stdout = %q", stdout.String())
 	}
 }
+
+// TestTasksFilesAddWidensOneTask pins decision sr16-files-verb: `flow tasks
+// files <change> <id> add <path>...` widens that one task's **Files:** field,
+// deduped, never another task's identical line nor a fenced one, and leaves
+// every other byte as it was.
+func TestTasksFilesAddWidensOneTask(t *testing.T) {
+	const plan = "# p\n\n" +
+		"- [ ] 1. One\n  - [ ] **Step 1: a**\n\n```markdown\n**Files:** `fenced.go`\n```\n\n**Files:** `x.go`\n**Commit:** one\n\n" +
+		"- [ ] 2. Two\n\n**Files:** none — no code\n\n" +
+		"- [ ] 3. Three\n\n**Files:** `x.go`\n"
+	dir := t.TempDir()
+	writePlan(t, dir, "spectre", "c", plan)
+	path := filepath.Join(dir, "spectre", "changes", "c", "tasks.md")
+	files := func(args ...string) int {
+		var stdout, stderr bytes.Buffer
+		return run(context.Background(), append([]string{"tasks", "files", "-C", dir, "c"}, args...), nil, &stdout, &stderr)
+	}
+	read := func() string {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+	if code := files("1", "add", "a.go", "b.go"); code != 0 {
+		t.Fatalf("add: exit %d", code)
+	}
+	want := strings.Replace(plan, "**Files:** `x.go`\n**Commit:** one", "**Files:** `x.go`, `a.go`, `b.go`\n**Commit:** one", 1)
+	if got := read(); got != want {
+		t.Fatalf("after add:\n%s\nwant:\n%s", got, want)
+	}
+	if code := files("1", "add", "a.go", "x.go"); code != 0 || read() != want {
+		t.Fatalf("a second add changed the plan (exit %d):\n%s", code, read())
+	}
+	if code := files("2", "add", "c.go"); code != 0 {
+		t.Fatalf("add to none: exit %d", code)
+	}
+	want = strings.Replace(want, "**Files:** none — no code", "**Files:** `c.go`", 1)
+	if got := read(); got != want {
+		t.Fatalf("after add to none:\n%s\nwant:\n%s", got, want)
+	}
+	if code := files("9", "add", "d.go"); code != 1 {
+		t.Fatalf("an unknown task: exit %d, want 1", code)
+	}
+}

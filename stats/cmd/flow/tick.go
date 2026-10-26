@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 // ErrTaskIDInvalid is returned when the caller's task id is not a bare
@@ -73,54 +74,18 @@ func tickTask(plan []byte, taskID string) ([]byte, int, error) {
 	}
 
 	lines := bytes.Split(plan, []byte("\n"))
-
-	start := -1
-	alreadyTicked := false
-	inFence := false
-	for i, line := range lines {
-		if fencePattern.Match(line) {
-			inFence = !inFence
-			continue
-		}
-		if inFence {
-			continue
-		}
-		m := taskLinePattern.FindSubmatch(line)
-		if m == nil || string(m[2]) != taskID {
-			continue
-		}
-		start = i
-		alreadyTicked = string(m[1]) == "x"
-		break
-	}
-	if start == -1 {
-		return nil, 0, fmt.Errorf("%w: %s", ErrTaskNotFound, taskID)
+	start, end, alreadyTicked, err := taskBody(lines, taskID)
+	if err != nil {
+		return nil, 0, err
 	}
 	if alreadyTicked {
 		return nil, 0, fmt.Errorf("%w: %s", ErrTaskAlreadyTicked, taskID)
 	}
 
-	end := len(lines)
-	inFence = false
-	for i := start + 1; i < len(lines); i++ {
-		line := lines[i]
-		if fencePattern.Match(line) {
-			inFence = !inFence
-			continue
-		}
-		if inFence {
-			continue
-		}
-		if taskLinePattern.Match(line) || headingPattern.Match(line) {
-			end = i
-			break
-		}
-	}
-
 	lines[start] = append([]byte("- [x] "), lines[start][len("- [ ] "):]...)
 
 	steps := 0
-	inFence = false
+	inFence := false
 	for i := start + 1; i < end; i++ {
 		line := lines[i]
 		if fencePattern.Match(line) {
@@ -137,6 +102,90 @@ func tickTask(plan []byte, taskID string) ([]byte, int, error) {
 	}
 
 	return bytes.Join(lines, []byte("\n")), steps, nil
+}
+
+// taskBody finds taskID's column-0 task line in lines, outside fences, and
+// returns its index, the index its body ends before (the next task line or
+// heading, or len(lines)), and whether its own checkbox is ticked.
+func taskBody(lines [][]byte, taskID string) (start, end int, ticked bool, err error) {
+	start = -1
+	inFence := false
+	for i, line := range lines {
+		if fencePattern.Match(line) {
+			inFence = !inFence
+			continue
+		}
+		if inFence {
+			continue
+		}
+		if m := taskLinePattern.FindSubmatch(line); m != nil && string(m[2]) == taskID {
+			start, ticked = i, string(m[1]) == "x"
+			break
+		}
+	}
+	if start == -1 {
+		return 0, 0, false, fmt.Errorf("%w: %s", ErrTaskNotFound, taskID)
+	}
+	end = len(lines)
+	inFence = false
+	for i := start + 1; i < len(lines); i++ {
+		line := lines[i]
+		if fencePattern.Match(line) {
+			inFence = !inFence
+			continue
+		}
+		if !inFence && (taskLinePattern.Match(line) || headingPattern.Match(line)) {
+			end = i
+			break
+		}
+	}
+	return start, end, ticked, nil
+}
+
+// filesLinePrefix opens a task's **Files:** field.
+const filesLinePrefix = "**Files:** "
+
+// filesAdd adds every path in paths not already on task id's **Files:**
+// line to it, as a backticked, comma-separated entry -- a `none` field
+// becomes the paths alone. Only that task's first unfenced **Files:** line
+// changes; every other byte of plan is kept.
+func filesAdd(plan []byte, id string, paths []string) ([]byte, error) {
+	if !taskIDPattern.MatchString(id) {
+		return nil, fmt.Errorf("%w: %q", ErrTaskIDInvalid, id)
+	}
+	lines := bytes.Split(plan, []byte("\n"))
+	start, end, _, err := taskBody(lines, id)
+	if err != nil {
+		return nil, err
+	}
+	inFence := false
+	for i := start + 1; i < end; i++ {
+		line := string(lines[i])
+		if fencePattern.MatchString(line) {
+			inFence = !inFence
+			continue
+		}
+		if inFence || !strings.HasPrefix(line, filesLinePrefix) {
+			continue
+		}
+		field := strings.TrimPrefix(line, filesLinePrefix)
+		if strings.HasPrefix(field, "none") {
+			field = ""
+		}
+		for _, p := range paths {
+			entry := "`" + p + "`"
+			if strings.Contains(field, entry) {
+				continue
+			}
+			if field != "" {
+				field += ", "
+			}
+			field += entry
+		}
+		lines[i] = []byte(filesLinePrefix + field)
+		return bytes.Join(lines, []byte("\n")), nil
+	}
+	return nil, fmt.Errorf("task %s has no **Files:** line", id)
 }
 
 // untickedTasks returns the ids of the plan's unticked task lines, fenced
