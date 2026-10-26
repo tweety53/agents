@@ -1193,6 +1193,64 @@ func TestInlineDispatchTakesMainThreadUsage(t *testing.T) {
 	}
 }
 
+// TestInlineWindowWithNoTurnInsideMeasuresZero pins, on kan-1036's real
+// stamps, that a closed, unmeasured inline window the batch has read past
+// without finding a parent turn inside it gets a zero delta -- a measurement
+// -- while a measured window, one ending after the batch's last main-thread
+// record, an open one and a launched one get none.
+func TestInlineWindowWithNoTurnInsideMeasuresZero(t *testing.T) {
+	records := []harvest.Record{
+		{SessionID: mainSessionID, Timestamp: mustParse(t, "2026-10-26T13:31:25.743Z"), Usage: harvest.Usage{InputTokens: 3, OutputTokens: 40}},
+		{SessionID: mainSessionID, Timestamp: mustParse(t, "2026-10-26T13:37:28.709Z"), Usage: harvest.Usage{InputTokens: 5, OutputTokens: 70}},
+	}
+	start, end := mustParse(t, "2026-10-26T13:31:27.823Z"), mustParse(t, "2026-10-26T13:37:25.519Z")
+	// 7 and 8 start after the last record, so no record falls inside them
+	// and nothing but the zero rule could give them an entry.
+	late := mustParse(t, "2026-10-26T13:37:30Z")
+	windows := &fakeDispatchWindowSource{bySession: map[string][]harvest.DispatchWindow{
+		mainSessionID: {
+			{DispatchID: 5, AgentID: harvest.InlineAgentID, StartedAt: mustParse(t, "2026-10-26T13:30:22.713Z"), EndedAt: ptrTime(mustParse(t, "2026-10-26T13:31:00.301Z")), Measured: true},
+			{DispatchID: 6, AgentID: harvest.InlineAgentID, StartedAt: start, EndedAt: ptrTime(end)},
+			{DispatchID: 7, AgentID: harvest.InlineAgentID, StartedAt: late, EndedAt: ptrTime(mustParse(t, "2026-10-26T13:40:00Z"))},
+			{DispatchID: 8, AgentID: harvest.InlineAgentID, StartedAt: late},
+			{DispatchID: 9, AgentID: "agent-x", StartedAt: start, EndedAt: ptrTime(end)},
+		},
+	}}
+	deltas, err := harvest.NewDispatchAttributor(windows).Attribute(context.Background(), records)
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	if d, ok := deltas[6]; !ok || !reflect.DeepEqual(d, harvest.DispatchDelta{}) {
+		t.Errorf("dispatch 6 delta = %+v (present %v), want a zero entry", d, ok)
+	}
+	for _, id := range []int64{5, 7, 8, 9} {
+		if d, ok := deltas[id]; ok {
+			t.Errorf("dispatch %d delta = %+v, want no entry", id, d)
+		}
+	}
+}
+
+// TestInlineWindowFromAnEarlierBatchGetsNoZero pins that a back-filled
+// inline window whose records came in an earlier batch -- this batch holds
+// only main-thread records past its end -- gets no zero entry: the batch
+// never saw the window, so it measures nothing for it.
+func TestInlineWindowFromAnEarlierBatchGetsNoZero(t *testing.T) {
+	start, end := mustParse(t, "2026-10-26T13:31:27.823Z"), mustParse(t, "2026-10-26T13:37:25.519Z")
+	records := []harvest.Record{
+		{SessionID: mainSessionID, Timestamp: mustParse(t, "2026-10-26T13:37:28.709Z"), Usage: harvest.Usage{InputTokens: 5, OutputTokens: 70}},
+	}
+	windows := &fakeDispatchWindowSource{bySession: map[string][]harvest.DispatchWindow{
+		mainSessionID: {{DispatchID: 6, AgentID: harvest.InlineAgentID, StartedAt: start, EndedAt: ptrTime(end)}},
+	}}
+	deltas, err := harvest.NewDispatchAttributor(windows).Attribute(context.Background(), records)
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	if d, ok := deltas[6]; ok {
+		t.Errorf("dispatch 6 delta = %+v, want no entry", d)
+	}
+}
+
 // TestInlineAndLaunchedWindowsOpenAtOnce pins the partition with both
 // kinds of window open over the same instant: the parent's main-thread
 // spend goes to the inline row, the launched agent's sidechain spend to

@@ -679,6 +679,9 @@ type DispatchWindow struct {
 	AgentID    string
 	StartedAt  time.Time
 	EndedAt    *time.Time
+	// Measured is true once the row's metrics carry a `tokens` object --
+	// some harvest batch has already written a figure to it.
+	Measured bool
 }
 
 // contains reports whether ts falls inside w's half-open attribution
@@ -776,7 +779,15 @@ type DispatchDelta struct {
 // measured" forever, since a parent has no figure of its own to pass to
 // `dispatch end -tokens` (kan-930's ledger: 33 of 79 rows). A
 // main-thread record inside no inline window stays the stage run's alone,
-// as before. Main-thread signals are not credited: the watcher writes a
+// as before. An inline row recorded around one blocking command -- the
+// parent issues the call before `begin` and writes its next record after
+// `end` -- holds no parent turn, and would read "not measured" forever. A
+// closed inline window not yet Measured whose start is at or after the
+// session's earliest main-thread record in this batch and whose end is at
+// or before its latest, and that took nothing above, gets an empty delta,
+// written as a `tokens` object of zeros: this batch spanning the whole
+// window is what makes zero a measurement rather than a guess -- a window
+// whose records came in an earlier batch gets none here. Main-thread signals are not credited: the watcher writes a
 // dispatch's signals as its sidechain side.
 //
 // It returns TokenDelta rather than Delta because a delta is all this
@@ -844,6 +855,29 @@ func (a *DispatchAttributor) Attribute(ctx context.Context, records []Record) (m
 				d.Tokens.bucket(r.IsSidechain).add(r.Usage)
 			}
 			deltas[w.DispatchID] = d
+		}
+
+		// A closed, unmeasured inline window this batch spans from before
+		// its start to past its end, with no parent turn inside it, spent
+		// nothing: a zero entry. A window whose start the batch does not
+		// reach may have had its records in an earlier batch (a back-filled
+		// row), so the batch proves nothing about it.
+		var first, last time.Time
+		for _, r := range bySession[sessionID] {
+			if r.IsSidechain {
+				continue
+			}
+			if first.IsZero() || r.Timestamp.Before(first) {
+				first = r.Timestamp
+			}
+			if r.Timestamp.After(last) {
+				last = r.Timestamp
+			}
+		}
+		for _, w := range inline {
+			if _, ok := deltas[w.DispatchID]; !ok && !w.Measured && w.EndedAt != nil && !first.IsZero() && !first.After(w.StartedAt) && !w.EndedAt.After(last) {
+				deltas[w.DispatchID] = DispatchDelta{}
+			}
 		}
 	}
 

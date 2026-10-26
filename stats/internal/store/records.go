@@ -1480,7 +1480,7 @@ func (s *Store) DispatchWindowsForSession(ctx context.Context, sessionID string)
 			WHERE d.stage_run_id IS NULL AND n.session_id = d.session_id
 			  AND n.agent_id = 'inline' AND n.id <> d.id
 			  AND n.started_at >= d.started_at + $2::float8 * interval '1 second'
-		)), d.agent_id
+		)), d.agent_id, (d.metrics -> 'tokens') IS NOT NULL
 		FROM dispatches d
 		LEFT JOIN stage_runs sr ON sr.id = d.stage_run_id
 		WHERE d.session_id = $1 OR d.session_token IN (
@@ -1498,7 +1498,7 @@ func (s *Store) DispatchWindowsForSession(ctx context.Context, sessionID string)
 	for rows.Next() {
 		var agentID *string
 		var w harvest.DispatchWindow
-		if err := rows.Scan(&w.DispatchID, &w.StartedAt, &w.EndedAt, &agentID); err != nil {
+		if err := rows.Scan(&w.DispatchID, &w.StartedAt, &w.EndedAt, &agentID, &w.Measured); err != nil {
 			return nil, fmt.Errorf("store: dispatch windows for session %s: scan: %w", sessionID, err)
 		}
 		w.AgentID = derefOrEmpty(agentID)

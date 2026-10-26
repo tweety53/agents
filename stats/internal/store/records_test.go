@@ -1061,6 +1061,15 @@ func TestDispatchWindowsForSessionResolvesTheBoundToken(t *testing.T) {
 		windows[0].EndedAt == nil || !windows[0].EndedAt.Equal(*want.EndedAt) {
 		t.Errorf("window = %+v, want %+v", windows[0], want)
 	}
+	if windows[0].Measured {
+		t.Errorf("window = %+v, want Measured false on a row with {} metrics", windows[0])
+	}
+	if err := st.MergeDispatchMetrics(ctx, recorded.ID, json.RawMessage(`{"tokens":{"input":0}}`)); err != nil {
+		t.Fatalf("MergeDispatchMetrics: %v", err)
+	}
+	if windows, err = st.DispatchWindowsForSession(ctx, sessionID); err != nil || len(windows) != 1 || !windows[0].Measured {
+		t.Errorf("windows = %+v (err %v), want the one window Measured once a tokens patch is written", windows, err)
+	}
 
 	unbound, err := st.DispatchWindowsForSession(ctx, "session-nobody-bound")
 	if err != nil {

@@ -1087,7 +1087,8 @@ func AgentFileDispatchPatch(path string) (json.RawMessage, error) {
 }
 
 // ErrNoInlineShare is InlineDispatchPatch's answer for a row the parent
-// transcript's records credit nothing to.
+// transcript's records credit nothing to and cannot measure at zero: one
+// still open, already measured, or whose window the records do not span.
 var ErrNoInlineShare = errors.New("harvest: no parent-transcript record falls in the inline row's window")
 
 // InlineDispatchPatch runs the dispatch attributor over complete, a parent
@@ -1095,7 +1096,9 @@ var ErrNoInlineShare = errors.New("harvest: no parent-transcript record falls in
 // built as attributeDispatches builds one. It is the input to
 // store.Store.RestampInlineDispatch: a back-filled inline row whose window's
 // records were committed before the row existed, which no later batch
-// re-attributes. A row the records credit nothing to is ErrNoInlineShare.
+// re-attributes. A closed, unmeasured row the records span with no parent
+// turn inside gets a zero patch; any other row the records credit nothing
+// to is ErrNoInlineShare.
 func InlineDispatchPatch(ctx context.Context, windows DispatchWindowSource, complete []byte, dispatchID int64) (json.RawMessage, error) {
 	records := append(ParseAssistantRecords(complete), ParseSignalRecords(complete)...)
 	deltas, err := NewDispatchAttributor(windows).Attribute(ctx, records)
@@ -1113,8 +1116,9 @@ func InlineDispatchPatch(ctx context.Context, windows DispatchWindowSource, comp
 	return json.Marshal(mp)
 }
 
-// ClosedInlinePatch is InlineDispatchPatch for a closed inline row: a row
-// the records credit nothing to gets a zero patch, whose JSON still carries
+// ClosedInlinePatch is InlineDispatchPatch for a closed inline row: any row
+// the records credit nothing to, ErrNoInlineShare included, gets a zero
+// patch, whose JSON still carries
 // a "tokens" key, so the row reads measured at zero instead of unmeasured.
 func ClosedInlinePatch(ctx context.Context, windows DispatchWindowSource, complete []byte, dispatchID int64) (json.RawMessage, error) {
 	patch, err := InlineDispatchPatch(ctx, windows, complete, dispatchID)
