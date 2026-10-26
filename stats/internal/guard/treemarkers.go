@@ -155,7 +155,13 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(&current, "%s\t%s\t%s\n", s.path, s.marker, count)
 	}
 
+	// sr6 (kan-1017): the tree's own porcelain, after a `#porcelain` line,
+	// so verify names any path a slot left changed or untracked. Paths
+	// under .superpowers/ are the run's own notes and are dropped.
+	porcelain := tmPorcelain(physical)
 	if mode == "snapshot" {
+		current.WriteString(tmPorcelainMark)
+		current.WriteString(strings.Join(porcelain, ""))
 		// Written to a temp file beside the snapshot and renamed over it, as
 		// the bash's mktemp + mv: never half-made, mode 0600.
 		if !writeAtomic(snapAbs, current.Bytes()) {
@@ -165,9 +171,31 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 		return 0
 	}
 
+	// A snapshot written before sr6 has no porcelain section and verifies
+	// on its markers alone.
+	recorded, recordedPorcelain, hasPorcelain := bytes.Cut(recorded, []byte(tmPorcelainMark))
+	var strays []string
+	if hasPorcelain {
+		before := map[string]bool{}
+		for _, l := range strings.SplitAfter(string(recordedPorcelain), "\n") {
+			before[l] = true
+		}
+		for _, l := range porcelain {
+			if !before[l] {
+				strays = append(strays, strings.TrimRight(l, "\n"))
+			}
+		}
+	}
 	if bytes.Equal(recorded, current.Bytes()) {
-		fmt.Fprintln(stdout, "TREE-MARKERS-OK: every recorded marker matches its pre-dispatch snapshot")
-		return 0
+		if len(strays) == 0 {
+			fmt.Fprintln(stdout, "TREE-MARKERS-OK: every recorded marker matches its pre-dispatch snapshot")
+			return 0
+		}
+		fmt.Fprintln(stderr, "check-tree-markers: the dispatch left paths changed or untracked that the snapshot did not hold -- the dispatch's own clean-or-restored claim is not evidence; remove them or recover by hand from before the dispatch:")
+		for _, l := range strays {
+			fmt.Fprintln(stderr, "check-tree-markers:   "+l)
+		}
+		return 1
 	}
 	fmt.Fprintln(stderr, "check-tree-markers: the tree's recorded markers changed across the dispatch -- the dispatch's own clean-or-restored claim is not evidence; stop and recover by hand from before the dispatch")
 	// `diff "$SNAP" "$CURRENT" | sed 's/^/check-tree-markers: /'`: the
@@ -179,7 +207,16 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 			if p, ok := lookPath(env, "diff"); ok {
 				diffBin = p
 			}
-			cmd := exec.Command(diffBin, snap, tmp.Name())
+			snapArg := snap
+			if hasPorcelain {
+				if rec, err := os.CreateTemp(env.Getenv("TMPDIR"), "check-tree-markers-recorded."); err == nil {
+					_, _ = rec.Write(recorded)
+					_ = rec.Close()
+					defer os.Remove(rec.Name())
+					snapArg = rec.Name()
+				}
+			}
+			cmd := exec.Command(diffBin, snapArg, tmp.Name())
 			cmd.Dir = env.Dir
 			cmd.Env = append(os.Environ(), "LC_ALL=C") // the bash exported LC_ALL=C for its whole run
 			out, _ := cmd.Output()
@@ -192,6 +229,25 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 		_ = os.Remove(tmp.Name())
 	}
 	return 1
+}
+
+const tmPorcelainMark = "#porcelain\n"
+
+// tmPorcelain is `git -C <worktree> status --porcelain -uall`, one
+// newline-terminated line per path, .superpowers/ dropped. A worktree git
+// cannot read yields no lines.
+func tmPorcelain(worktree string) []string {
+	out, err := exec.Command("git", "-C", worktree, "status", "--porcelain", "-uall").Output()
+	if err != nil {
+		return nil
+	}
+	var lines []string
+	for _, l := range strings.SplitAfter(string(out), "\n") {
+		if len(l) > 3 && !strings.HasPrefix(l[3:], ".superpowers/") && !strings.HasPrefix(l[3:], "\".superpowers/") {
+			lines = append(lines, l)
+		}
+	}
+	return lines
 }
 
 func orMissing(s string) string {

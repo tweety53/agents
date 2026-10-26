@@ -18,6 +18,13 @@
 #             or verdict is read or acted on — recomputes the same lines
 #             and compares byte-for-byte
 #
+# snapshot also writes `git -C <worktree> status --porcelain -uall` after a
+# `#porcelain` line, paths under `.superpowers/` dropped; verify fails (1)
+# naming every porcelain line present now and absent from the snapshot — a
+# path a slot left changed or untracked, a reproducer's scratch copy
+# included (kan-1017). A snapshot with no `#porcelain` section verifies on
+# its markers alone.
+#
 # <markers-file> carries one <path><TAB><ERE> line per artifact the
 # dispatch must not damage, each ERE a string the artifact is known to
 # contain — a decision ID, a task title, a section heading. Paths are
@@ -37,7 +44,8 @@
 #
 # Exit codes:
 #   0  snapshot written, or every recorded marker matches its snapshot
-#   1  verify found the tree's markers changed since the snapshot — each
+#   1  verify found the tree's markers changed since the snapshot, or a
+#      path changed or untracked that the snapshot did not hold — each
 #      difference named on stderr
 #   2  cannot answer at all — missing arguments, a bad mode, a non-directory
 #      worktree, an unreadable markers file, a malformed spec line (no tab,

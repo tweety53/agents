@@ -211,11 +211,12 @@ func TestCheckTreeMarkers(t *testing.T) {
 	r = fx.run("snapshot", "wt", fx.markers, "s/snapshot")
 	add(tmExact("case 11a: snapshot prints the bash's OK line", r.stdout, "TREE-MARKERS-SNAPSHOT-OK: markers pinned at s/snapshot\n"))
 	snapBytes, _ := os.ReadFile(fx.snap)
-	add(tmExact("case 11b: the snapshot file carries the bash's bytes", string(snapBytes),
+	add(tmExact("case 11b: the snapshot file carries the bash's bytes, then the porcelain section", string(snapBytes),
 		"spectre/changes/demo/design.md\tthe-decision\t1\n"+
 			"spectre/changes/demo/design.md\t## Decisions\t1\n"+
 			"notes.md\tuncommitted\t1\n"+
-			"notes.md\tno-such-marker\t0\n"))
+			"notes.md\tno-such-marker\t0\n"+
+			"#porcelain\n M notes.md\n"))
 	if fi, err := os.Stat(fx.snap); err == nil {
 		add(tmExact("case 11c: the snapshot file is mode 0600 as mktemp made it", fi.Mode().Perm().String(), "-rw-------"))
 	} else {
@@ -263,5 +264,45 @@ func TestCheckTreeMarkers(t *testing.T) {
 				t.Error(c.fail)
 			}
 		})
+	}
+}
+
+// kan-1017: a reproducer's scratch copy left in the tree passed every marker.
+// verify also compares `git status --porcelain` with the snapshot's.
+func TestCheckTreeMarkersFailsOnAStrayPath(t *testing.T) {
+	t.Parallel()
+	fx := tmNew(t)
+	if r := fx.run("snapshot", fx.wt, fx.markers, fx.snap); r.rc != 0 {
+		t.Fatalf("snapshot: %d\n%s", r.rc, r.out)
+	}
+	writeFile(t, fx.wt+"/components/X.tsx.x", "scratch")
+	r := fx.run("verify", fx.wt, fx.markers, fx.snap)
+	if r.rc != 1 || !strings.Contains(r.out, "components/X.tsx.x") {
+		t.Errorf("untracked stray: want exit 1 naming it, got %d\n%s", r.rc, r.out)
+	}
+
+	fx = tmNew(t)
+	fx.run("snapshot", fx.wt, fx.markers, fx.snap)
+	writeFile(t, fx.wt+"/spectre/changes/demo/design.md", "## Decisions\n\n**ID:** the-decision\nedited\n")
+	r = fx.run("verify", fx.wt, fx.markers, fx.snap)
+	if r.rc != 1 || !strings.Contains(r.out, "spectre/changes/demo/design.md") {
+		t.Errorf("modified tracked file: want exit 1 naming it, got %d\n%s", r.rc, r.out)
+	}
+
+	fx = tmNew(t)
+	fx.run("snapshot", fx.wt, fx.markers, fx.snap)
+	writeFile(t, fx.wt+"/.superpowers/sdd/notes.md", "scratch")
+	if r = fx.run("verify", fx.wt, fx.markers, fx.snap); r.rc != 0 {
+		t.Errorf(".superpowers path: want exit 0, got %d\n%s", r.rc, r.out)
+	}
+
+	fx = tmNew(t)
+	fx.run("snapshot", fx.wt, fx.markers, fx.snap)
+	b, _ := os.ReadFile(fx.snap)
+	head, _, _ := strings.Cut(string(b), "#porcelain\n")
+	writeFile(t, fx.snap, head)
+	writeFile(t, fx.wt+"/components/X.tsx.x", "scratch")
+	if r = fx.run("verify", fx.wt, fx.markers, fx.snap); r.rc != 0 {
+		t.Errorf("pre-change snapshot: want exit 0, got %d\n%s", r.rc, r.out)
 	}
 }
