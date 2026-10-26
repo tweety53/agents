@@ -1,0 +1,20 @@
+# Every sentence this change rewords or adds on purpose, exactly as check-verbatim-moves.sh prints it.
+**The parent names the mockup sources in the prompt** — `mockup sources:`, then every HTML or CSS path `design.md` cites that exists in the tree, or `mockup sources: none`.
+A `<spec>.mockups` sidecar whose first non-comment line is `frame <geometry>` or `frame none` overrides this value for its own frames, `none` composing them at native size, uncropped.
+A bundled page, one carrying `<script type="__bundler/template">`, is decoded into the verifier's scratchpad first:
+A sidecar's own first `frame` line overrides it.
+A visual verifier is a mutator here too — it builds the stack from the tree and writes `<changeRoot>/visual-verification/` — and `flow record dispatch begin` refuses a `visual-verify` row while an `implementer`, `panel-fix` or `red-partner` row of the change is open, and any of those while a `visual-verify` row is open.
+After an `In-run fix <k>` task is ticked, and until a `-fix-<k>-full` verifier row has completed, `flow record dispatch begin` refuses a `visual-verify` key that does not carry `-fix-<k>`, and one that is not the `-full` run, carries no `-round-base` and shares its repository suffix with a completed verifier row.
+The parent transcribes a widening with `flow tasks files -C <worktree> <change> <id> add <path>…`, which edits that one task's `**Files:**` field, never with a hand `sed` over `tasks.md`.
+The verifier runs `check-verify-report.sh` with `--design <changeRoot>/design.md`, which refuses a report, or the `visual-verification.md` beside `design.md`, reading `no mockup source` while `design.md` cites a source that exists (kan-1017: every verifier left 7 of 11 matrix columns n/a).
+`check-visual-preflight.sh` fails a worktree whose branch records a flowBase while an `## apps` repository holds no `<repo>-worktrees/<name>` worktree.
+`flow stage end -stage flow.review-panel -outcome completed` runs `check-panel-findings-closed` in process and refuses the close on its exit 1 or 2, so a round closed without the guard never reaches integrate (kan-1017: rounds 2–7 closed unguarded, and nine findings went unrecorded).
+`kickoff-worktree.sh --from <canonical worktree>` makes this record itself once that worktree holds `<changeRoot>` — writing the `link.md` in the shape below, or appending its repository's peers name — and leaves the planning commit to its caller.
+`measure-visual-properties.sh <frame> <capture> --scale <f> --props matrix` then fills every column below for every paired element in one call, each region clipped to its image; a row it does not pair takes the per-element calls.
+`verify` also compares the worktree's `git status --porcelain` with the one `snapshot` recorded, paths under `.superpowers/` aside, and fails naming every path a slot left changed or untracked — a reproducer's scratch copy included (kan-1017).
+b=base64.b64decode(v["data"]); open(o+"/"+k,"wb").write(gzip.decompress(b) if v["compressed"] else b)' "<page>" <scratchpad dir>
+for k,v in g("manifest").items():
+g=lambda t: json.loads(re.search(r"<script type=\"__bundler/"+t+r"\">\s*(.*?)\s*</script>",s,re.S).group(1))
+open(o+"/index.html","w").write(g("template"))
+python3 -I -c 'import sys,re,json,base64,gzip,os
+s=open(sys.argv[1],encoding="utf-8").read(); o=sys.argv[2]; os.makedirs(o,exist_ok=True)
