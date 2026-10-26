@@ -462,3 +462,45 @@ func cmfExists(name string, want bool) cmfCheck {
 		return ""
 	}
 }
+
+// kan-1017 (sr8): a sidecar's first non-comment line `frame <geometry>` or
+// `frame none` overrides the fourth argument for that sidecar's frames.
+func TestComposeMockupFramesSidecarFrameLine(t *testing.T) {
+	t.Parallel()
+	run := func(t *testing.T, sidecar, geom string) cmfResult {
+		t.Helper()
+		dir := t.TempDir()
+		if err := os.CopyFS(dir, os.DirFS("testdata/compose-mockup-frames/case-20")); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(dir+"/map.mockups", []byte(sidecar), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		var stdout, stderr bytes.Buffer
+		rc := Registry["compose-mockup-frames"]([]string{"map.mockups", "root", "out", geom},
+			Env{Getenv: os.Getenv, Dir: dir, Stdin: strings.NewReader("caps/g1-dash.png\n")}, &stdout, &stderr)
+		return cmfResult{rc: rc, stdout: stdout.String(), stderr: stderr.String(), out: dir + "/out"}
+	}
+	check := func(t *testing.T, r cmfResult, checks ...cmfCheck) {
+		t.Helper()
+		for _, c := range checks {
+			if msg := c(r); msg != "" {
+				t.Errorf("%s\nstdout:\n%s\nstderr:\n%s", msg, r.stdout, r.stderr)
+			}
+		}
+	}
+	t.Run("frame none composes at native size", func(t *testing.T) {
+		r := run(t, "# admin frames\nframe none\ng1-dash.png G1\n", cmfGeom)
+		check(t, r, cmfRC(0), cmfSize("g1-dash.png", 96+16+100, 148), cmfExists("g1-dash.frame.png", false))
+	})
+	t.Run("frame <geometry> overrides the argument", func(t *testing.T) {
+		r := run(t, "frame "+cmfGeom+"\ng1-dash.png G1\n", "scale=1 status=0 border=0")
+		check(t, r, cmfRC(0), cmfSize("g1-dash.png", 320, 60))
+	})
+	t.Run("a malformed frame line exits 2", func(t *testing.T) {
+		check(t, run(t, "frame bogus\ng1-dash.png G1\n", cmfGeom), cmfRC(2), cmfErr(`frame`))
+	})
+	t.Run("a frame line after a map line is a finding", func(t *testing.T) {
+		check(t, run(t, "g1-dash.png G1\nframe none\n", cmfGeom), cmfRC(1), cmfErr(`map\.mockups:2: .*frame`))
+	})
+}

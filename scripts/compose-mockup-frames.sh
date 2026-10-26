@@ -12,7 +12,11 @@
 # The map file is a `<spec>.mockups` sidecar: one `<screenshot name> <frame
 # id>` pair per line, whitespace-separated; blank lines and `#`-leading lines
 # are ignored (design.md section 3 — canonical for the map's shape and why
-# it is explicit rather than a filename convention).
+# it is explicit rather than a filename convention). Its first non-comment
+# line may instead be `frame <geometry>` or `frame none`, overriding the
+# fourth argument for this sidecar's frames — `none` composing them at
+# native size, uncropped (kan-1017: desktop admin frames beside a phone
+# project row). A `frame` line anywhere else is a malformed map line.
 #
 # Layout (design.md section 4): captured frame on the left, mockup on the
 # right, both native size, top-aligned, a 16px gutter, plain (40, 40, 40)
@@ -48,7 +52,8 @@
 #      page cannot be told from the frame (`frame has no border: <frame
 #      path>`). Every finding is printed as `<map>:<line>: <message>` to
 #      stderr; every other, well-formed line is still composed.
-#   2  cannot answer: usage error (including a malformed geometry argument),
+#   2  cannot answer: usage error (including a malformed geometry argument
+#      or a malformed sidecar `frame` line),
 #      the map unreadable or not UTF-8, the mockups root not a directory, the
 #      output directory not creatable, stdin not UTF-8, an unreadable PNG, or
 #      an output PNG not writable.

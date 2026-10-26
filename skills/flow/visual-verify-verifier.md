@@ -150,7 +150,7 @@ never an exit code the command did not return.
    ```
 
    The fourth argument is this project's resolved `mockup frame` value, quoted; omit it entirely
-   when the row is absent.
+   when the row is absent. A sidecar's own first `frame` line overrides it.
 
    Exit 0 prints one `<composite path> diff=<ratio>` line per pair — **read every one** and state,
    per pair, what the difference panel's white regions are, the ratio, and where the capture

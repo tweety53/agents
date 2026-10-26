@@ -90,6 +90,30 @@ func composeMockupFrames(args []string, env Env, stdout, stderr io.Writer) int {
 	// \r ends a line as \n and \r\n do.
 	mapLines := strings.Split(strings.ReplaceAll(strings.ReplaceAll(string(data), "\r\n", "\n"), "\r", "\n"), "\n")
 
+	// sr8 (kan-1017): the sidecar's first non-comment line may be
+	// `frame <geometry>` or `frame none`, overriding the fourth argument for
+	// this sidecar's frames; a `frame` line anywhere else is a finding below.
+	frameLine := -1
+	for i, raw := range mapLines {
+		line := pyStrip(raw)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if f := pySplit(line); f[0] == "frame" {
+			frameLine = i
+			rest := strings.Join(f[1:], " ")
+			if rest == "none" {
+				geometry = nil
+			} else if g, ok := cmfParseGeometry(rest); ok {
+				geometry = &g
+			} else {
+				fmt.Fprintf(stderr, cmfPrefix+"%s:%d: malformed `frame` line: want `frame scale=<int> status=<px> border=<px>` or `frame none`\n", mapPath, i+1)
+				return 2
+			}
+		}
+		break
+	}
+
 	if fi, err := os.Stat(at(mockupsRoot)); err != nil || !fi.IsDir() {
 		fmt.Fprintf(stderr, cmfPrefix+"mockups root is not a directory: %s\n", mockupsRoot)
 		return 2
@@ -151,6 +175,13 @@ func composeMockupFrames(args []string, env Env, stdout, stderr io.Writer) int {
 			continue
 		}
 		fields := pySplit(line)
+		if i == frameLine {
+			continue
+		}
+		if fields[0] == "frame" {
+			finding(lineno, "a `frame` line must be the sidecar's first non-comment line")
+			continue
+		}
 		if len(fields) != 2 {
 			finding(lineno, "expected `<screenshot name> <frame id>`, got %d fields", len(fields))
 			continue
