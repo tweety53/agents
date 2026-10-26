@@ -3331,7 +3331,8 @@ func resolveRenderKinds(kind string) ([]string, error) {
 // a second repo's worktree, a call that dropped -C -- would otherwise file
 // the row under a project the change's own reads never look at. Every
 // worktree is searched, not dir's alone: a /flow parent runs from the main
-// checkout while the change lives only in its worktree until it lands.
+// checkout while the change lives only in its worktree until it lands. A
+// change archived on any branch, local or remote-tracking, is accepted too.
 func requireChangeCheckout(dir, change string, stderr io.Writer) bool {
 	if change == "" || change == "archive" || change == "." || strings.Contains(change, "..") || strings.ContainsAny(change, `/\\`) {
 		fmt.Fprintf(stderr, "flow: %q is not a change name -- refused\n", change)
@@ -3343,6 +3344,12 @@ func requireChangeCheckout(dir, change string, stderr io.Writer) bool {
 		return false
 	}
 	if len(carrying) > 0 {
+		return true
+	}
+	// A change archived only on a branch no checkout has out -- a feature base
+	// the default branch's main checkout has not merged -- is still this
+	// repository's change.
+	if out, err := exec.Command("git", "-C", dir, "rev-list", "--all", "-n1", "--", "spectre/changes/archive/"+change).Output(); err == nil && len(bytes.TrimSpace(out)) > 0 {
 		return true
 	}
 	fmt.Fprintf(stderr, "flow: no checkout of the repository holding %s carries change %q (spectre/changes/, spectre/changes/archive/ or .superpowers/sdd/) -- refused, so the row is not filed under the wrong project; pass -C <the change's canonical worktree>\n", dir, change)

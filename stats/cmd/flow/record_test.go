@@ -6530,3 +6530,39 @@ func TestRecordDispatchBeginRefusesAnUnscopedVisualVerifyAfterAnInRunFix(t *test
 		})
 	}
 }
+
+// A change archived only on another branch -- a feature base the default
+// branch's main checkout has not merged -- is still this repository's change.
+func TestRequireChangeCheckoutAcceptsAnArchiveOnAnotherBranch(t *testing.T) {
+	repo := gitRepo(t)
+	for _, args := range [][]string{
+		{"checkout", "-q", "-b", "feature/base"},
+		{"commit", "-q", "--allow-empty", "-m", "base"},
+	} {
+		if out, err := exec.Command("git", append([]string{"-C", repo}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	dir := filepath.Join(repo, "spectre", "changes", "archive", "kan-7")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "proposal.md"), []byte("x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"add", "-A"},
+		{"-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "archive"},
+		{"checkout", "-q", "-"},
+	} {
+		if out, err := exec.Command("git", append([]string{"-C", repo}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	if !requireChangeCheckout(repo, "kan-7", io.Discard) {
+		t.Error("a change archived on feature/base refused")
+	}
+	if requireChangeCheckout(repo, "kan-8", io.Discard) {
+		t.Error("a change no branch carries accepted")
+	}
+}
