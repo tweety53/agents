@@ -30,12 +30,12 @@ one signal in `check-unfinished-work`, one doc correction in gymie.
 - Task 2: a re-begin with a later instant, or on an ended row, leaves `started_at` alone.
 - Task 3: a round whose fixed findings carry a `none — <reason>` mutation row passes; withdrawn findings never demand a row.
 
-- [ ] 1. Refuse a commit-then-push to spectre/* whose commit message the hook cannot read
-  - [ ] **Step 1: Write the failing test** `TestCommitThenPushWithUnreadableMessageIsDenied` in `stats/internal/repotest/protect_main_checkout_test.go`, following the file's existing harness: in a scratch repo on branch `spectre/x`, feed the hook `git commit -F msg.txt && git push origin spectre/x`, and also `git commit -m "$(cat msg)" && git push origin HEAD:spectre/x`; expect a deny naming "commit and push in two calls". Add a passing case: `git commit -F msg.txt` alone is allowed. Run it; it fails.
+- [x] 1. Refuse a commit-then-push to spectre/* whose commit message the hook cannot read
+  - [x] **Step 1: Write the failing test** `TestCommitThenPushWithUnreadableMessageIsDenied` in `stats/internal/repotest/protect_main_checkout_test.go`, following the file's existing harness: in a scratch repo on branch `spectre/x`, feed the hook `git commit -F msg.txt && git push origin spectre/x`, and also `git commit -m "$(cat msg)" && git push origin HEAD:spectre/x`; expect a deny naming "commit and push in two calls". Add a passing case: `git commit -F msg.txt` alone is allowed. Run it; it fails.
     <!-- unverified:the file's harness can drive a commit-then-push command against a scratch spectre/ branch -->
-  - [ ] **Step 2: Fix.** In `hooks/protect-main-checkout.py`, extract the unreadable-message test of `commit_lacks_trailer` (`UNREAD_MESSAGE_OPTS` prefixes, no message, `$`/backtick/leading-quote message) into `commit_message_unread(args)`; `commit_lacks_trailer` returns False when it is true (unchanged behaviour). In the commit-then-push loop (`for ct, cargs in commits:`), when `dsts` is non-empty, the commit is on `target`, and `commit_message_unread(cargs)`, append: `Blocked: this command commits and then pushes to <dst>, and the hook cannot read that commit's message (-F, -C, --amend, or a shell expansion), so it cannot tell whether it carries a `Task-Id:` or `Flow-Key:` trailer. Commit and push in two calls — the push check then reads the commit (**Commits outside every task**, skills/flow-contracts/git-boundaries.md).` then `break`.
-  - [ ] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./internal/repotest/ -run 'TestCommitThenPushWithUnreadableMessageIsDenied|ProtectMainCheckout' -count=1` passes; `python3 -m py_compile hooks/protect-main-checkout.py`.
-  - [ ] **Step 4: Commit** the two files.
+  - [x] **Step 2: Fix.** In `hooks/protect-main-checkout.py`, extract the unreadable-message test of `commit_lacks_trailer` (`UNREAD_MESSAGE_OPTS` prefixes, no message, `$`/backtick/leading-quote message) into `commit_message_unread(args)`; `commit_lacks_trailer` returns False when it is true (unchanged behaviour). In the commit-then-push loop (`for ct, cargs in commits:`), when `dsts` is non-empty, the commit is on `target`, and `commit_message_unread(cargs)`, append: `Blocked: this command commits and then pushes to <dst>, and the hook cannot read that commit's message (-F, -C, --amend, or a shell expansion), so it cannot tell whether it carries a `Task-Id:` or `Flow-Key:` trailer. Commit and push in two calls — the push check then reads the commit (**Commits outside every task**, skills/flow-contracts/git-boundaries.md).` then `break`.
+  - [x] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./internal/repotest/ -run 'TestCommitThenPushWithUnreadableMessageIsDenied|ProtectMainCheckout' -count=1` passes; `python3 -m py_compile hooks/protect-main-checkout.py`.
+  - [x] **Step 4: Commit** the two files.
 
 **Build:** green
 **Files:** `hooks/protect-main-checkout.py`, `stats/internal/repotest/protect_main_checkout_test.go`
@@ -48,11 +48,11 @@ one signal in `check-unfinished-work`, one doc correction in gymie.
 
 **Decision:** p1-deny-unreadable-commit-push
 
-- [ ] 2. Let a backfill move an open dispatch row's begin back
-  - [ ] **Step 1: Write the failing test** `TestBeginDispatchMovesAnOpenRowsBeginEarlier` in `stats/internal/store/records_test.go`, following the file's existing dispatch fixtures: begin inline row K at T, begin K again at T-6s, end K with `CommitAt` T-3s and EndedAt T+10s; expect the end to succeed and `started_at == T-6s`. Second case in the same test: begin K2 at T, re-begin at T+5s — `started_at` stays T. Run it; the first case fails with `ErrInlineBegunAfterCommit`.
-  - [ ] **Step 2: Fix.** In `insertDispatch`'s ON CONFLICT clause (`stats/internal/store/records.go`), make the `started_at` arm `CASE WHEN `+reBegin+` THEN EXCLUDED.started_at WHEN dispatches.ended_at IS NULL AND dispatches.outcome IS NULL AND EXCLUDED.started_at < dispatches.started_at THEN EXCLUDED.started_at ELSE dispatches.started_at END`, and add one sentence to the comment above `reBegin`: an open row takes an earlier re-begin's instant, so `flow record dispatch backfill` repairs a row begun after its commit.
-  - [ ] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./internal/store/ -run 'TestBeginDispatch|TestEndDispatch' -count=1` passes; `go vet ./internal/store && gofmt -l internal/store` prints nothing.
-  - [ ] **Step 4: Commit** the two files.
+- [x] 2. Let a backfill move an open dispatch row's begin back
+  - [x] **Step 1: Write the failing test** `TestBeginDispatchMovesAnOpenRowsBeginEarlier` in `stats/internal/store/records_test.go`, following the file's existing dispatch fixtures: begin inline row K at T, begin K again at T-6s, end K with `CommitAt` T-3s and EndedAt T+10s; expect the end to succeed and `started_at == T-6s`. Second case in the same test: begin K2 at T, re-begin at T+5s — `started_at` stays T. Run it; the first case fails with `ErrInlineBegunAfterCommit`.
+  - [x] **Step 2: Fix.** In `insertDispatch`'s ON CONFLICT clause (`stats/internal/store/records.go`), make the `started_at` arm `CASE WHEN `+reBegin+` THEN EXCLUDED.started_at WHEN dispatches.ended_at IS NULL AND dispatches.outcome IS NULL AND EXCLUDED.started_at < dispatches.started_at THEN EXCLUDED.started_at ELSE dispatches.started_at END`, and add one sentence to the comment above `reBegin`: an open row takes an earlier re-begin's instant, so `flow record dispatch backfill` repairs a row begun after its commit.
+  - [x] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./internal/store/ -run 'TestBeginDispatch|TestEndDispatch' -count=1` passes; `go vet ./internal/store && gofmt -l internal/store` prints nothing.
+  - [x] **Step 4: Commit** the two files.
 
 **Build:** green
 **Files:** `stats/internal/store/records.go`, `stats/internal/store/records_test.go`
@@ -65,17 +65,17 @@ one signal in `check-unfinished-work`, one doc correction in gymie.
 
 **Decision:** p2-open-row-earlier-begin
 
-- [ ] 3. Refuse landing when a panel fix round recorded no fix-mutation row
-  - [ ] **Step 1: Confirm the round mapping.** Read how `records.Mutation.Round` is recorded (`skills/flow/review-panel-fix-round.md`, `flow record` mutation subcommand in `stats/cmd/flow/record.go`): whether a fix of round-N findings records its mutations under round N or N+1. Use that mapping below.
+- [x] 3. Refuse landing when a panel fix round recorded no fix-mutation row
+  - [x] **Step 1: Confirm the round mapping.** Read how `records.Mutation.Round` is recorded (`skills/flow/review-panel-fix-round.md`, `flow record` mutation subcommand in `stats/cmd/flow/record.go`): whether a fix of round-N findings records its mutations under round N or N+1. Use that mapping below.
     <!-- unverified:the round a fix-mutation row carries relative to the round its fixed findings were raised in -->
-  - [ ] **Step 2: Write the failing test** `TestUnfinishedWorkRefusesAFixedRoundWithNoMutationRow` in `stats/internal/guard/check_unfinished_work_test.go`, on the file's existing stubbed `flow record` harness: findings round 0 `fixed` ×2, round 1 `withdrawn reason` ×1, no mutation rows → refuse naming round 0; add a mutation row (`none — doc-only`) for the mapped round → passes; only withdrawn findings → passes. Run it; it fails.
-  - [ ] **Step 3: Fix.** In `stats/internal/guard/unfinishedwork.go`, beside the open-findings signal, read the change's mutation rows through `pcFlow` (the same family as `record findings`; `record passes` if it carries mutations, else the run render's JSON), collect each round holding a finding whose status is exactly `fixed`, and append the reason `fixed finding(s) in round(s) <list> and no fix-mutation row for that fix round — record each fix's fix-mutation: line (skills/flow/review-panel-fix-round.md) before landing`. A store read failure exits 2 like the findings read.
-  - [ ] **Step 4: Measure against history.** Feed the new signal (recorded fixtures in the test are enough) the the mutation and findings rows of two recent archived changes that recorded mutations (`flow record passes -change <name>` read-only) and confirm no refusal; report the names.
-  - [ ] **Step 5: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestUnfinishedWork|TestCheckUnfinishedWork' -count=1` passes; `go vet ./internal/guard && gofmt -l internal/guard` prints nothing.
-  - [ ] **Step 6: Commit** the two files.
+  - [x] **Step 2: Write the failing test** `TestUnfinishedWorkRefusesAFixedRoundWithNoMutationRow` in `stats/internal/guard/check_unfinished_work_test.go`, on the file's existing stubbed `flow record` harness: findings round 0 `fixed` ×2, round 1 `withdrawn reason` ×1, no mutation rows → refuse naming round 0; add a mutation row (`none — doc-only`) for the mapped round → passes; only withdrawn findings → passes. Run it; it fails.
+  - [x] **Step 3: Fix.** In `stats/internal/guard/unfinishedwork.go`, beside the open-findings signal, read the change's mutation rows through `pcFlow` (the same family as `record findings`; `record passes` if it carries mutations, else the run render's JSON), collect each round holding a finding whose status is exactly `fixed`, and append the reason `fixed finding(s) in round(s) <list> and no fix-mutation row for that fix round — record each fix's fix-mutation: line (skills/flow/review-panel-fix-round.md) before landing`. A store read failure exits 2 like the findings read.
+  - [x] **Step 4: Measure against history.** Feed the new signal (recorded fixtures in the test are enough) the the mutation and findings rows of two recent archived changes that recorded mutations (`flow record passes -change <name>` read-only) and confirm no refusal; report the names.
+  - [x] **Step 5: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestUnfinishedWork|TestCheckUnfinishedWork' -count=1` passes; `go vet ./internal/guard && gofmt -l internal/guard` prints nothing.
+  - [x] **Step 6: Commit** the two files.
 
 **Build:** green
-**Files:** `stats/internal/guard/unfinishedwork.go`, `stats/internal/guard/check_unfinished_work_test.go`
+**Files:** `stats/internal/guard/unfinishedwork.go`, `stats/internal/guard/check_unfinished_work_test.go`, `stats/cmd/flow/record.go`, `skills/flow/review-panel-fix-round.md`, `spectre/changes/self-review-kan-1018-week-programs-plan-a-week/verbatim-moves.txt`
 **Tests:** `TestUnfinishedWorkRefusesAFixedRoundWithNoMutationRow`
 **Regression:** `TestUnfinishedWorkRefusesAFixedRoundWithNoMutationRow` — reverting lets a change with fixed findings and no mutation rows land.
 **Baseline:** before=10 after=11
