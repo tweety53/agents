@@ -198,7 +198,10 @@ worktree — `<agents repo>-worktrees/<name>/docs/prompt-tuning/<case-id>/` on t
 | `index.html` | rendered by `flow prompt-tuning render <case-dir>` from the files above, never written by hand |
 
 `bad.diff`, `good.diff` and `task.md` are extracted with `git -C <repo> show` exactly as angle 7's
-extraction does. Once a case's files are written, run `flow prompt-tuning render <case-dir>`, then
+extraction does. A `reviewer` case whose `target` is `skills/flow/visual-verify-verifier.md` or
+`skills/flow/visual-verify.md` also carries `capture.png`, the capture the verifier judged, and
+`mockup.png`, the mockup frame it judged that capture against, both copied into the case folder.
+Once a case's files are written, run `flow prompt-tuning render <case-dir>`, then
 `<agents repo>/scripts/check-prompt-tuning-cases.sh` over the new folders. A red line is fixed by
 rewriting the field it names; a case no generic rewrite passes is dropped, and its report line says
 so, disposition `noted`.

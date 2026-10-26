@@ -70,6 +70,9 @@ text with the update applied.
 
 - **`reviewer` case** — a reviewer dispatch over `bad.diff` (a miss) or `good.diff` plus the
   finding's location (a false positive), with the target prompt as its instructions.
+- **verifier case** — a `reviewer` case whose `target` is `skills/flow/visual-verify-verifier.md`
+  or `skills/flow/visual-verify.md` is replayed instead by a verifier dispatch judging the case's
+  `capture.png` against its `mockup.png`, with the target prompt as its instructions.
 - **`implementer` case** — an implementer dispatch given `task.md` and the pre-change code,
   writing in a scratch directory under the session's scratchpad, never in a repository.
 - **Grader** — a grader dispatch judges each run against the case's `finding.md`: was the defect
