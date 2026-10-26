@@ -517,6 +517,29 @@ func (c *mvpCounter) top() (colour [3]byte, n int) {
 	return colour, n
 }
 
+// darkest is the lowest-luminance colour holding at least 2% of the counted
+// pixels — a band's text ink rather than a wider border's grey (kan-1017) —
+// and share is the top two colours' share of the count, rounded to 3.
+func (c *mvpCounter) darkest() (colour [3]byte, share float64) {
+	total, n1, n2 := 0, 0, 0
+	for _, x := range c.order {
+		n := c.n[x]
+		total += n
+		if n > n1 {
+			n1, n2 = n, n1
+		} else if n > n2 {
+			n2 = n
+		}
+	}
+	lum := math.Inf(1)
+	for _, x := range c.order {
+		if l := 0.2126*float64(x[0]) + 0.7152*float64(x[1]) + 0.0722*float64(x[2]); c.n[x]*50 >= total && l < lum {
+			colour, lum = x, l
+		}
+	}
+	return colour, pyRound(float64(n1+n2)/float64(total), 3)
+}
+
 // row and col are the region-relative points of a scan line, both ends
 // included, walked from `from` towards `to`.
 func (r *mvpRegion) row(y, from, to int) [][2]int {
@@ -850,6 +873,7 @@ func (r *mvpRegion) measureRuns() pyObj {
 type mvpBand struct {
 	top, height, gapAbove int
 	edge, colour          [3]byte
+	share                 float64
 	seams                 []mvpSeam // measureSeams' boxed bands only
 	cells                 []mvpCell
 }
@@ -870,7 +894,7 @@ type mvpLine struct {
 }
 
 func (b mvpBand) obj() pyObj {
-	return pyObj{{"top", b.top}, {"height", b.height}, {"gap_above", b.gapAbove}, {"edge", mvpHex(b.edge)}, {"colour", mvpHex(b.colour)}}
+	return pyObj{{"top", b.top}, {"height", b.height}, {"gap_above", b.gapAbove}, {"edge", mvpHex(b.edge)}, {"colour", mvpHex(b.colour)}, {"share", b.share}}
 }
 
 func (s mvpSeam) obj() pyObj {
@@ -923,8 +947,8 @@ func (r *mvpRegion) measureBands() []mvpBand {
 			}
 		}
 		e, _ := edge.top()
-		c, _ := ink.top()
-		bands = append(bands, mvpBand{top: top, height: y - top, gapAbove: top - prevEnd - 1, edge: e, colour: c})
+		c, share := ink.darkest()
+		bands = append(bands, mvpBand{top: top, height: y - top, gapAbove: top - prevEnd - 1, edge: e, colour: c, share: share})
 		prevEnd = y - 1
 	}
 	return bands

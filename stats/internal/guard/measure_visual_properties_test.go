@@ -597,3 +597,26 @@ func TestMeasureVisualPropertiesMatrix(t *testing.T) {
 		t.Fatalf("region starting outside: exit %d, stderr %q, want 2 naming exceeds", rc, stderr)
 	}
 }
+
+// kan-1017 (sr13): a band's colour is its darkest ink holding at least 2% of
+// the band, not its modal colour, and `share` is the top two colours' share.
+func TestMeasureVisualPropertiesBandColourDarkestInk(t *testing.T) {
+	t.Parallel()
+	im := mvpPNG(t, 100, 30, func(x, y int) color.RGBA {
+		switch {
+		case y < 10 || y >= 20 || x >= 71:
+		case x < 60:
+			return color.RGBA{0xe2, 0xe8, 0xf0, 0xff} // border grey, 60%
+		case x < 70:
+			return color.RGBA{0x02, 0x08, 0x17, 0xff} // text ink, 10%
+		case y == 15:
+			return color.RGBA{0x00, 0x00, 0x00, 0xff} // one anti-aliased pixel
+		}
+		return color.RGBA{0xff, 0xff, 0xff, 0xff}
+	})
+	d := mvpJSON(t, "", im, "--props", "bands")
+	band := mvpDig(d, "a", "bands", 0)
+	if got := mvpSp(mvpDig(band, "colour"), mvpDig(band, "share")); got != "#020817 0.999" {
+		t.Fatalf("colour/share %q, want %q", got, "#020817 0.999")
+	}
+}

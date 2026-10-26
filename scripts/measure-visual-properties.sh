@@ -109,8 +109,11 @@
 #            `gap_above` (background rows since the previous band), `edge`
 #            (the modal non-background colour of the band's first row: a
 #            control's border or a card's fill, whichever the eye meets
-#            first) and `colour` (the modal non-background colour of the whole
-#            band). Background is the region's modal colour, not its corner,
+#            first), `colour` (the darkest non-background colour holding at
+#            least 2% of the band's ink — its text, not a wider border's grey;
+#            kan-1017 read a modal colour that flipped between the two) and
+#            `share` (the two most frequent ink colours' share of the band's
+#            ink, to 3 places). Background is the region's modal colour, not its corner,
 #            and no corner needs to be background: the region is the whole
 #            capture and the whole cropped frame. Unlike every other
 #            property, `bands` has a structural `delta`: the two lists are

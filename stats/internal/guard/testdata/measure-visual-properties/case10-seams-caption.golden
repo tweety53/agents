@@ -10,6 +10,7 @@
         "gap_above": 12,
         "edge": "#d7d3d3",
         "colour": "#d7d3d3",
+        "share": 1.0,
         "seams": [
           {
             "left": 20,

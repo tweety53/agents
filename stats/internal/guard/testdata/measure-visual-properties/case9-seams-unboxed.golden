@@ -9,7 +9,8 @@
         "height": 48,
         "gap_above": 60,
         "edge": "#d7d3d3",
-        "colour": "#0088b0",
+        "colour": "#201e1d",
+        "share": 0.885,
         "seams": [
           {
             "left": 20,

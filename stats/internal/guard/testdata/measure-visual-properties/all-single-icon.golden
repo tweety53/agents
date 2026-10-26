@@ -150,7 +150,8 @@
         "height": 48,
         "gap_above": 16,
         "edge": "#ffffff",
-        "colour": "#ffffff"
+        "colour": "#1e6fe0",
+        "share": 1.0
       }
     ],
     "seams": [
@@ -159,7 +160,8 @@
         "height": 48,
         "gap_above": 16,
         "edge": "#ffffff",
-        "colour": "#ffffff",
+        "colour": "#1e6fe0",
+        "share": 1.0,
         "seams": [
           {
             "left": 16,

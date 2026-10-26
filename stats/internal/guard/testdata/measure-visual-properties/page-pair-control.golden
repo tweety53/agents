@@ -9,14 +9,16 @@
         "height": 12,
         "gap_above": 20,
         "edge": "#201e1d",
-        "colour": "#201e1d"
+        "colour": "#201e1d",
+        "share": 1.0
       },
       {
         "top": 60,
         "height": 48,
         "gap_above": 28,
         "edge": "#d7d3d3",
-        "colour": "#201e1d"
+        "colour": "#201e1d",
+        "share": 1.0
       }
     ],
     "seams": [
@@ -26,6 +28,7 @@
         "gap_above": 28,
         "edge": "#d7d3d3",
         "colour": "#201e1d",
+        "share": 1.0,
         "seams": [
           {
             "left": 20,
@@ -111,14 +114,16 @@
         "height": 12,
         "gap_above": 20,
         "edge": "#201e1d",
-        "colour": "#201e1d"
+        "colour": "#201e1d",
+        "share": 1.0
       },
       {
         "top": 60,
         "height": 48,
         "gap_above": 28,
         "edge": "#d7d3d3",
-        "colour": "#201e1d"
+        "colour": "#201e1d",
+        "share": 1.0
       }
     ],
     "seams": [
@@ -128,6 +133,7 @@
         "gap_above": 28,
         "edge": "#d7d3d3",
         "colour": "#201e1d",
+        "share": 1.0,
         "seams": [
           {
             "left": 20,
@@ -196,14 +202,16 @@
           "height": 12,
           "gap_above": 20,
           "edge": "#201e1d",
-          "colour": "#201e1d"
+          "colour": "#201e1d",
+          "share": 1.0
         },
         "b": {
           "top": 20,
           "height": 12,
           "gap_above": 20,
           "edge": "#201e1d",
-          "colour": "#201e1d"
+          "colour": "#201e1d",
+          "share": 1.0
         },
         "gap_above": {
           "a": 20,
@@ -244,14 +252,16 @@
           "height": 48,
           "gap_above": 28,
           "edge": "#d7d3d3",
-          "colour": "#201e1d"
+          "colour": "#201e1d",
+          "share": 1.0
         },
         "b": {
           "top": 60,
           "height": 48,
           "gap_above": 28,
           "edge": "#d7d3d3",
-          "colour": "#201e1d"
+          "colour": "#201e1d",
+          "share": 1.0
         },
         "gap_above": {
           "a": 28,

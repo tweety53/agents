@@ -9,56 +9,64 @@
         "height": 40,
         "gap_above": 0,
         "edge": "#eae9e9",
-        "colour": "#eae9e9"
+        "colour": "#eae9e9",
+        "share": 1.0
       },
       {
         "top": 92,
         "height": 16,
         "gap_above": 52,
         "edge": "#201e1d",
-        "colour": "#201e1d"
+        "colour": "#201e1d",
+        "share": 1.0
       },
       {
         "top": 120,
         "height": 2,
         "gap_above": 12,
         "edge": "#d7d3d3",
-        "colour": "#d7d3d3"
+        "colour": "#d7d3d3",
+        "share": 1.0
       },
       {
         "top": 134,
         "height": 16,
         "gap_above": 12,
         "edge": "#201e1d",
-        "colour": "#201e1d"
+        "colour": "#201e1d",
+        "share": 1.0
       },
       {
         "top": 162,
         "height": 2,
         "gap_above": 12,
         "edge": "#d7d3d3",
-        "colour": "#d7d3d3"
+        "colour": "#d7d3d3",
+        "share": 1.0
       },
       {
         "top": 176,
         "height": 16,
         "gap_above": 12,
         "edge": "#201e1d",
-        "colour": "#201e1d"
+        "colour": "#201e1d",
+        "share": 1.0
       },
       {
         "top": 204,
         "height": 2,
         "gap_above": 12,
         "edge": "#d7d3d3",
-        "colour": "#d7d3d3"
+        "colour": "#d7d3d3",
+        "share": 1.0
       },
       {
         "top": 246,
         "height": 48,
         "gap_above": 40,
         "edge": "#0088b0",
-        "colour": "#0088b0"
+        "colour": "#0088b0",
+        "share": 1.0
       }
     ],
     "seams": [
@@ -68,6 +76,7 @@
         "gap_above": 0,
         "edge": "#eae9e9",
         "colour": "#eae9e9",
+        "share": 1.0,
         "seams": [
           {
             "left": 0,
@@ -84,6 +93,7 @@
         "gap_above": 52,
         "edge": "#201e1d",
         "colour": "#201e1d",
+        "share": 1.0,
         "seams": [
           {
             "left": 20,
@@ -100,6 +110,7 @@
         "gap_above": 12,
         "edge": "#d7d3d3",
         "colour": "#d7d3d3",
+        "share": 1.0,
         "seams": [
           {
             "left": 20,
@@ -116,6 +127,7 @@
         "gap_above": 12,
         "edge": "#201e1d",
         "colour": "#201e1d",
+        "share": 1.0,
         "seams": [
           {
             "left": 20,
@@ -132,6 +144,7 @@
         "gap_above": 12,
         "edge": "#d7d3d3",
         "colour": "#d7d3d3",
+        "share": 1.0,
         "seams": [
           {
             "left": 20,
@@ -148,6 +161,7 @@
         "gap_above": 12,
         "edge": "#201e1d",
         "colour": "#201e1d",
+        "share": 1.0,
         "seams": [
           {
             "left": 20,
@@ -164,6 +178,7 @@
         "gap_above": 12,
         "edge": "#d7d3d3",
         "colour": "#d7d3d3",
+        "share": 1.0,
         "seams": [
           {
             "left": 20,
@@ -180,6 +195,7 @@
         "gap_above": 40,
         "edge": "#0088b0",
         "colour": "#0088b0",
+        "share": 1.0,
         "seams": [
           {
             "left": 20,
