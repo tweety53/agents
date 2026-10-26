@@ -6447,3 +6447,66 @@ func TestRecordDispatchBeginRefusesAVerifierBesideAnOpenMutator(t *testing.T) {
 		})
 	}
 }
+
+// TestRecordDispatchBeginRefusesAnUnscopedVisualVerifyAfterAnInRunFix pins
+// decision sr17-tasks-md-read: once an In-run fix <k> task is ticked, and
+// until a -fix-<k>-full verifier row completed, a visual-verify key without
+// -fix-<k> is refused, and so is a non-full one with no -round-base sharing
+// its repository suffix with a completed verifier row.
+func TestRecordDispatchBeginRefusesAnUnscopedVisualVerifyAfterAnInRunFix(t *testing.T) {
+	const ticked = "# plan\n\n- [x] 1. a task\n- [x] 3. In-run fix 2 — flow.visual-verify: the chip colour\n"
+	const done = `{"key":"visual-verify-gymie","role":"verifier","outcome":"completed","endedAt":"2026-10-26T10:00:00Z"}`
+	const full = `{"key":"visual-verify-fix-2-full-gymie","role":"verifier","outcome":"completed","endedAt":"2026-10-26T11:00:00Z"}`
+	begin := func(t *testing.T, plan, dispatches, key string, extra ...string) (int, string, int) {
+		t.Helper()
+		repo := recordRepo(t, "kan-258")
+		isolatedStateRoot(t)
+		if err := os.WriteFile(filepath.Join(repo, "spectre", "changes", "kan-258", "tasks.md"), []byte(plan), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		posts := 0
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/decisions") {
+				_, _ = w.Write([]byte("[]"))
+				return
+			}
+			if r.Method == http.MethodGet {
+				_, _ = w.Write([]byte(`{"change":"kan-258","dispatches":[` + dispatches + `]}`))
+				return
+			}
+			posts++
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
+		}))
+		defer srv.Close()
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			append([]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-change", "kan-258", "-role", "verifier", "-model", "opus", "-key", key, "-session-token", "mf-record-vv-in-run-fix",
+				"-diff-base", "0123456789abcdef0123456789abcdef01234567"}, extra...),
+			strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String(), posts
+	}
+	cases := []struct {
+		name, plan, dispatches, key string
+		extra                       []string
+		want                        int
+	}{
+		{"an unscoped re-run after the fix", ticked, done, "visual-verify-3-gymie", nil, 2},
+		{"a scoped re-run with no round base", ticked, done, "visual-verify-fix-2-gymie", nil, 2},
+		{"a scoped re-run with its round base", ticked, done, "visual-verify-fix-2-gymie", []string{"-round-base", "abc1234"}, 0},
+		{"the full run", ticked, done, "visual-verify-fix-2-full-gymie", nil, 0},
+		{"a scoped run in a repository with no completed row", ticked, done, "visual-verify-fix-2-frontend", nil, 0},
+		{"an unscoped run once the full run completed", ticked, done + "," + full, "visual-verify-4-gymie", nil, 0},
+		{"no ticked in-run fix", "# plan\n\n- [x] 1. a task\n- [ ] 3. In-run fix 2 — flow.visual-verify: x\n", done, "visual-verify-2-gymie", nil, 0},
+		{"a ticked in-run fix inside a fence", "# plan\n\n```\n- [x] 3. In-run fix 2 — flow.visual-verify: x\n```\n", done, "visual-verify-2-gymie", nil, 0},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			code, stderr, posts := begin(t, c.plan, c.dispatches, c.key, c.extra...)
+			if code != c.want || (posts == 1) != (c.want == 0) {
+				t.Fatalf("exit %d, posts %d; want exit %d; stderr:\n%s", code, posts, c.want, stderr)
+			}
+		})
+	}
+}

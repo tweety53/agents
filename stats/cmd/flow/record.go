@@ -1186,6 +1186,28 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		}
 	}
 
+	// After an In-run fix <k> is ticked, and until its -fix-<k>-full row
+	// completed, a visual re-run is scoped to that fix (decision
+	// sr17-tasks-md-read, skills/flow/verify-fix-loop.md). A plan or record
+	// read that fails skips the check.
+	if *role == "verifier" && strings.HasPrefix(*key, "visual-verify") && *startedAt == "" {
+		if p, err := planPath(f.dir, f.change); err == nil {
+			if plan, err := os.ReadFile(p); err == nil {
+				if fixes := tickedInRunFixes(plan); len(fixes) > 0 {
+					run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+						return cl.GetRunRecord(ctx, projectKey, f.change)
+					})
+					if err == nil {
+						if why := inRunFixRefusal(fixes, run, *key, *roundBase); why != "" {
+							fmt.Fprintf(stderr, "flow: -key %q %s (skills/flow/verify-fix-loop.md)\n", *key, why)
+							return 2
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// An inline decision has the parent implement and fix itself, so an
 	// implementer or panel-fix row with a subagent behind it breaches it
 	// (skills/flow/implement.md, Inline -- the parent implements). A
@@ -3494,4 +3516,63 @@ func mutationPathExists(path string, roots []string) bool {
 		}
 	}
 	return false
+}
+
+// inRunFixTitle is a ticked In-run fix task line; group 1 is its fix number.
+var inRunFixTitle = regexp.MustCompile(`^- \[x\] [0-9]+\. In-run fix ([0-9]+) — `)
+
+// tickedInRunFixes returns the fix numbers of every ticked In-run fix task
+// in plan, outside fences.
+func tickedInRunFixes(plan []byte) []string {
+	var ks []string
+	inFence := false
+	for _, line := range bytes.Split(plan, []byte("\n")) {
+		if fencePattern.Match(line) {
+			inFence = !inFence
+			continue
+		}
+		if m := inRunFixTitle.FindSubmatch(line); !inFence && m != nil {
+			ks = append(ks, string(m[1]))
+		}
+	}
+	return ks
+}
+
+// inRunFixRefusal names why a visual-verify key may not begin after the
+// ticked in-run fixes ks, or returns "". A fix whose -fix-<k>-full verifier
+// row completed is closed.
+func inRunFixRefusal(ks []string, run records.Run, key, roundBase string) string {
+	completed := func(d records.Dispatch) bool {
+		return d.Role == "verifier" && strings.HasPrefix(d.Key, "visual-verify") && d.Outcome == "completed"
+	}
+	for _, k := range ks {
+		scoped := regexp.MustCompile(`-fix-` + k + `(-|$)`)
+		full := regexp.MustCompile(`-fix-` + k + `-full(-|$)`)
+		closed := false
+		for _, d := range run.Dispatches {
+			if completed(d) && full.MatchString(d.Key) {
+				closed = true
+			}
+		}
+		if closed {
+			continue
+		}
+		loc := scoped.FindStringIndex(key)
+		if loc == nil {
+			return "is not scoped to In-run fix " + k + ": key it as visual-verify-fix-" + k + "[-full]-<repo> until the -fix-" + k + "-full run has completed"
+		}
+		if full.MatchString(key) || roundBase != "" {
+			continue
+		}
+		suffix := key[loc[1]:]
+		if suffix != "" {
+			suffix = "-" + strings.TrimPrefix(suffix, "-")
+		}
+		for _, d := range run.Dispatches {
+			if completed(d) && strings.HasSuffix(d.Key, suffix) {
+				return "is a scoped re-run of In-run fix " + k + " with no -round-base while " + strconv.Quote(d.Key) + " completed in its repository: pass -round-base <the fix round's base sha>"
+			}
+		}
+	}
+	return ""
 }

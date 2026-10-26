@@ -163,6 +163,10 @@ clean scoped re-run, never another round's fix (KAN-1000: three rounds in a row 
 A scoped re-run's verifier row is begun with `-round-base <sha>`, the round base its prompt
 names, and `check-visual-verify-dispatched.sh` refuses a worktree whose newest completed verifier
 row carries one — the closing unscoped run is not recorded.
+After an `In-run fix <k>` task is ticked, and until a `-fix-<k>-full` verifier row has completed,
+`flow record dispatch begin` refuses a `visual-verify` key that does not carry `-fix-<k>`, and one
+that is not the `-full` run, carries no `-round-base` and shares its repository suffix with a
+completed verifier row.
 Its clean report is the one the handoff reports.
 
 ## No cap
