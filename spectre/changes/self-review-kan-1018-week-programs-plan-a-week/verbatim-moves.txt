@@ -1,0 +1,2 @@
+# I3 (self-review review 1): a Critical/Important fix round with nothing executable still records a none row.
+**A fix round that fixed a Critical or Important finding and changed no executable behaviour still records one `-mutated none -test <reason>` row** — the landing gate (`check-unfinished-work`) refuses a round of fixed Critical or Important findings with no fix-mutation row at that round or the next.

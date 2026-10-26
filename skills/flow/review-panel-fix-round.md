@@ -342,6 +342,11 @@ test, not merely any test that happens to trip: the flip is what shows the fix's
 what it claims. The flip is recorded with the round's other `flow record mutation` rows before the
 round closes.
 
+**A fix round that fixed a Critical or Important finding and changed no executable behaviour still
+records one `-mutated none -test <reason>` row** — the landing gate (`check-unfinished-work`)
+refuses a round of fixed Critical or Important findings with no fix-mutation row at that round or
+the next.
+
 **Record each one with one `flow record mutation -change <name> -round <round> -path <path>
 -mutated <what> -test <test>` call per line, transcribed from the fix subagent's report — the
 exemption form records `-mutated none -test <reason>`; the lines the calls write are:**

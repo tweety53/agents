@@ -352,6 +352,7 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
        flow record roles
        flow record pass     [-addr url] [-timeout dur] [-C dir]
                              -change name [-round n] -note text
+       flow record mutations [-addr url] [-timeout dur] [-C dir] -change name
        flow record mutation [-addr url] [-timeout dur] [-C dir]
                              -change name [-round n] -path path
                              -mutated what -test test
@@ -631,6 +632,8 @@ func runRecord(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 		return runRecordDispatches(ctx, args[1:], stdout, stderr)
 	case "passes":
 		return runRecordPasses(ctx, args[1:], stdout, stderr)
+	case "mutations":
+		return runRecordMutations(ctx, args[1:], stdout, stderr)
 	case "next-round":
 		return runRecordNextRound(ctx, args[1:], stdout, stderr)
 	case "next-ref":
@@ -2531,6 +2534,19 @@ func runRecordPasses(ctx context.Context, args []string, stdout, stderr io.Write
 			return []records.Pass{}
 		}
 		return r.Passes
+	})
+}
+
+// runRecordMutations implements `flow record mutations`: the change's
+// fix-mutation rows as one JSON array, `passes`' twin -- the read
+// check-unfinished-work needs to tell a fix round that recorded no
+// fix-mutation row.
+func runRecordMutations(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	return runRecordRunRows(ctx, "mutations", args, stdout, stderr, func(r records.Run) any {
+		if r.Mutations == nil {
+			return []records.Mutation{}
+		}
+		return r.Mutations
 	})
 }
 
