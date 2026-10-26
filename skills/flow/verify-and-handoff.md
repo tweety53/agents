@@ -127,7 +127,8 @@ whatever its re-run exits, since a race that passes once is still a race
 (`rules/fix-determinism-at-the-source.mdc`), and `run-verify-list.sh` marks its block with
 `data race — never environmental`. A second non-zero exit from the same
 command is the branch's own defect and takes **The loop** (`skills/flow/verify-fix-loop.md`) once
-the whole list has run; where the environment itself failed — a missing build prerequisite — it
+the whole list has run, its first run's `result files:` and `full output:` paths named in the
+fixer's dispatch; where the environment itself failed — a missing build prerequisite — it
 ends the turn with `## Question` naming the command and its output, verbatim. A failing test this
 change did not introduce takes **The loop** as well (**the sweep**, `skills/flow-contracts/known-bugs.md`). Never treat a
 passing re-run as license to skip the rest of the list — every remaining command in the order

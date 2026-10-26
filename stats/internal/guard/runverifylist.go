@@ -70,6 +70,10 @@
 //     (<n> its 0-based list position, `spec-reach` for the appended
 //     check-spec-reach.sh), never into the tree; each run first removes that
 //     list's earlier logs, so a printed path holds this run's output
+//     `result files: <dir>` — beside it, when the run wrote JUnit `TEST-*.xml`
+//     files under the worktree: each copied into a per-run
+//     `<git-path flow-verify-failed>/<list>-<n>-results-<ns>/` no later run
+//     removes, so a flake's first failing run stays traceable
 //
 // Exit codes:
 //   0  every command exited 0
@@ -100,7 +104,46 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 )
+
+// keepResults copies every JUnit result file (`TEST-*.xml`) under wt written
+// since the run started into dir, at its path relative to wt, and returns dir
+// -- or "" when there was none. A failing suite's result files are what a
+// flake is traced from, and the next run overwrites them (kan-1017's
+// self-review: an 8-test failure left nothing to trace). dir is per run and
+// never removed by a later one. .git and node_modules are not walked.
+func keepResults(wt, dir string, since time.Time) string {
+	kept := ""
+	filepath.WalkDir(wt, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			if n := d.Name(); n == ".git" || n == "node_modules" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasPrefix(d.Name(), "TEST-") || !strings.HasSuffix(d.Name(), ".xml") {
+			return nil
+		}
+		if fi, err := d.Info(); err != nil || fi.ModTime().Before(since) {
+			return nil
+		}
+		rel, _ := filepath.Rel(wt, p)
+		b, err := os.ReadFile(p)
+		if err != nil {
+			return nil
+		}
+		dst := filepath.Join(dir, rel)
+		if os.MkdirAll(filepath.Dir(dst), 0o777) == nil && os.WriteFile(dst, b, 0o666) == nil {
+			kept = dir
+		}
+		return nil
+	})
+	return kept
+}
 
 func init() { Registry["run-verify-list"] = runVerifyList }
 
@@ -264,6 +307,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 
+	started := time.Now().Add(-time.Second)
 	failed := 0
 	report := func(shown string, rc int, file, key string) {
 		if rc != 0 {
@@ -289,6 +333,9 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			log := filepath.Join(keep, list+"-"+key+".log")
 			os.WriteFile(log, out, 0o666)
 			fmt.Fprintf(stdout, "  full output: %s\n", log)
+			if dir := keepResults(abs(wt), filepath.Join(keep, fmt.Sprintf("%s-%s-results-%d", list, key, time.Now().UnixNano())), started); dir != "" {
+				fmt.Fprintf(stdout, "  result files: %s\n", dir)
+			}
 		}
 	}
 	// Each command runs as `(cd "$WT" && bash -c …)` did: from the worktree,

@@ -101,12 +101,22 @@ One round runs these steps in order:
    every further failure those runs show is fixed in this same task and folded into its one
    commit (`git commit --amend`, nothing is pushed yet) — never a further commit, since
    `close-task.sh` takes one sha per task per repository — never left to the next round.
-   **A determinism fix whose flake does not reproduce is not committed.** When the task's runs
-   reproducing a flake, sized as the PROOF RUNS paragraph (`skills/flow/implement.md`) sizes them,
-   see no failure without the fix, the fix is dropped: the task's one commit carries its
-   reproduction test alone, no production change, its body stating the measured rate — runs and
-   failures — in place of a fix for a flake nobody saw, and the task ticks through
-   `close-task.sh <canonical-worktree> <name> <merge-base> <n>:<that commit's sha>` as any task.
+   **An observed failure is never closed as "not reproduced".** This rule is canonical for every
+   fixer of a test failure a run saw — this loop's, a full-suite fix's, a self-review loop's. The
+   fixer reproduces it under the conditions of the run that failed — the same concurrent load and
+   the full-suite ordering, never the test alone or classes run one after another — and keeps every
+   failing run's result files (the `result files:` and `full output:` paths `run-verify-list.sh`
+   prints, or the JUnit XMLs and logs copied out by hand) before the next run overwrites them. A
+   failure that reproduces gets its determinism fix, held to the PROOF RUNS paragraph
+   (`skills/flow/implement.md`). One still unreproduced after runs sized as that paragraph sizes them
+   is fixed anyway: every source of nondeterminism the trace names as a candidate — a container
+   readiness wait, a shared port, an unpinned clock or order — is fixed at its source, each with a
+   forced reproduction as its evidence (the candidate made to fail on purpose, a delay or a fault
+   injected, failing the test without the fix and passing with it). The task's one commit carries
+   those fixes and its body states the measured rate — runs and failures — and each forced
+   reproduction; a fixer that names no candidate has not finished the trace, and is sent back to it.
+   The task ticks through `close-task.sh <canonical-worktree> <name> <merge-base> <n>:<that commit's sha>`
+   as any task.
 3. **Re-review the delta.** Open `flow.review-panel` again and run `primary` beside **The always-on
    extra dispatches** (`skills/flow/review-panel.md`), reading `late-fix.diff` over the range since
    the panel's last clean close, written, paired, ceilinged and recorded as **The late-fix

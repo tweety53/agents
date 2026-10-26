@@ -723,7 +723,7 @@ under `full-suite-fix-<n>`, and re-runs the list until it passes.
 The commit carries `-m "Flow-Key: full-suite-fix-<n>"` (**Commits outside every task**, `skills/flow-contracts/git-boundaries.md`).
 Before it is pushed, the untasked-commit check of **Commits outside every task** (`skills/flow-contracts/git-boundaries.md`) runs.
 The pair's `end` carries `-commit` with the sha `git -C <worktree> rev-parse HEAD` prints once that commit is made, never a task's commit.
-A fix for a failure that does not recur on every run is a determinism fix, held to the PROOF RUNS paragraph above: the failure is shown returning with the fix reverted before the fix is committed, and a fix whose failure never returns is not committed.
+A fix for a failure that does not recur on every run is a determinism fix, held to the PROOF RUNS paragraph above: the failure is shown returning with the fix reverted before the fix is committed; one that never returns is handled as **An observed failure is never closed as "not reproduced"** (`skills/flow/verify-fix-loop.md`) states.
 When the change's diff touches a `## visual verification` `ui paths` glob
 (`git -C <worktree> diff --name-only <merge-base>..HEAD | check-visual-trigger.sh <worktree>` exits 0
 for any worktree in the resolved set, or the `--repo` run step 2 of **Visual verification**

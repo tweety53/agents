@@ -541,3 +541,47 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 		t.Errorf("an all-skipped lint list: exit %d, calls:\n%s", rc, calls)
 	}
 }
+
+// TestRunVerifyListKeepsResultFiles pins kan-1017's self-review: a failing
+// command's JUnit result files are copied out of the tree into a per-run
+// directory the next run does not overwrite.
+func TestRunVerifyListKeepsResultFiles(t *testing.T) {
+	wt, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command(fixtureGit, "-C", wt, "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\nmkdir -p build/test-results && echo \"<x n='$$'/>\" > build/test-results/TEST-a.xml; exit 1\n```\n")
+	repo, _ := filepath.Abs("../../..")
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"))
+	getenv := func(k string) string {
+		for i := len(environ) - 1; i >= 0; i-- {
+			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
+				return v
+			}
+		}
+		return ""
+	}
+	var dirs []string
+	for range 2 {
+		var o, e bytes.Buffer
+		if rc := runVerifyList([]string{wt, "test"}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e); rc != 1 {
+			t.Fatalf("exit %d: %s %s", rc, o.String(), e.String())
+		}
+		_, dir, ok := strings.Cut(o.String(), "  result files: ")
+		if !ok {
+			t.Fatalf("no result files line:\n%s", o.String())
+		}
+		dirs = append(dirs, strings.TrimSpace(strings.SplitN(dir, "\n", 2)[0]))
+	}
+	for _, d := range dirs {
+		if _, err := os.Stat(filepath.Join(d, "build/test-results/TEST-a.xml")); err != nil {
+			t.Errorf("%s: %v", d, err)
+		}
+	}
+	if dirs[0] == dirs[1] {
+		t.Errorf("both runs kept into %s", dirs[0])
+	}
+}
