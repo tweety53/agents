@@ -5,6 +5,14 @@
 # steps 9-11 under "Not done", and both reports were accepted).
 #
 # Usage: check-verify-report.sh <report file> <motions named> [<scoped specs>]
+#          [--design <design.md>]
+#
+# Given --design, the report, or the `visual-verification.md` beside
+# <design.md>, reading `no mockup source` while <design.md> cites a
+# backticked `.html`, `.htm` or `.css` path that exists relative to the
+# worktree (three directories above <report file>) leaves step 10 undone
+# (kan-1017: every verifier left 7 of 11 matrix columns n/a). An unreadable
+# <design.md> cannot be answered (exit 2).
 #
 # <report file> is the relay contract's
 # <abs-worktree>/.superpowers/sdd/verify-report-<key>.md

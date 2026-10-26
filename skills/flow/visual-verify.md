@@ -186,6 +186,23 @@ to read the absolute path of
 worktree's build, starting, stopping and restarting nothing but the merge-base stack step 10's
 attribution starts, committing and pushing nothing.
 
+**The parent names the mockup sources in the prompt** — `mockup sources:`, then every HTML or CSS
+path `design.md` cites that exists in the tree, or `mockup sources: none`. A bundled page, one
+carrying `<script type="__bundler/template">`, is decoded into the verifier's scratchpad first:
+
+```bash
+python3 -I -c 'import sys,re,json,base64,gzip,os
+s=open(sys.argv[1],encoding="utf-8").read(); o=sys.argv[2]; os.makedirs(o,exist_ok=True)
+g=lambda t: json.loads(re.search(r"<script type=\"__bundler/"+t+r"\">\s*(.*?)\s*</script>",s,re.S).group(1))
+open(o+"/index.html","w").write(g("template"))
+for k,v in g("manifest").items():
+ b=base64.b64decode(v["data"]); open(o+"/"+k,"wb").write(gzip.decompress(b) if v["compressed"] else b)' "<page>" <scratchpad dir>
+```
+
+The verifier runs `check-verify-report.sh` with `--design <changeRoot>/design.md`, which refuses a
+report, or the `visual-verification.md` beside `design.md`, reading `no mockup source` while
+`design.md` cites a source that exists (kan-1017: every verifier left 7 of 11 matrix columns n/a).
+
 **The parent names the change's motions in the prompt** — `motions:`, then one `<motion id>:
 <trigger> → <end state>` line per motion, or `motions: none`. A motion is every animation,
 transition, entrance, exit, slide or gesture `design.md` or `proposal.md` names, and every one

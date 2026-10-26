@@ -145,3 +145,45 @@ func TestCheckVerifyReportScopedSpecCount(t *testing.T) {
 		}
 	}
 }
+
+// kan-1017 (sr12): every verifier wrote `no mockup source` while design.md
+// cited a handoff page that existed, and left 7 of 11 matrix columns n/a.
+func TestCheckVerifyReportNoMockupSourceWithCitedSource(t *testing.T) {
+	const steps = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n"
+	for _, tc := range []struct {
+		name                  string
+		inReport, inVV, cited bool
+		design                bool
+		rc                    int
+		want                  string
+	}{
+		{"report says it", true, false, true, true, 1, "10 `no mockup source` while design.md cites handoff/Flow.html"},
+		{"visual-verification.md says it", false, true, true, true, 1, "handoff/Flow.html"},
+		{"cited file absent", true, false, false, true, 0, "COMPLETE"},
+		{"no --design", true, false, true, false, 0, "COMPLETE"},
+	} {
+		wt := t.TempDir()
+		root := filepath.Join(wt, "spectre/changes/x")
+		writeFile(t, filepath.Join(root, "design.md"), "Mockups: `handoff/Flow.html`.\n")
+		if tc.cited {
+			writeFile(t, filepath.Join(wt, "handoff/Flow.html"), "<html>")
+		}
+		if tc.inVV {
+			writeFile(t, filepath.Join(root, "visual-verification.md"), "- AD1: no mockup source\n")
+		}
+		body := "## Report\n" + steps
+		if tc.inReport {
+			body += "- matrix: no mockup source\n"
+		}
+		path := filepath.Join(wt, ".superpowers/sdd/verify-report-visual-verify.md")
+		writeFile(t, path, body)
+		args := []string{path, "0"}
+		if tc.design {
+			args = append(args, "--design", filepath.Join(root, "design.md"))
+		}
+		r := runGuard("check-verify-report", args, Env{Getenv: os.Getenv})
+		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
+			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
+		}
+	}
+}

@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -41,11 +43,22 @@ var (
 	// view, so steps 8-10 have nothing to capture (kan-1022's self-review: a
 	// verifier wrote them `done` over a capture it never ran).
 	vrWireContract = regexp.MustCompile(`^\s*- wire contract:\s*(.*)$`)
+	// A backticked HTML or CSS path design.md cites (kan-1017).
+	vrMockupSource = regexp.MustCompile("`([^`\\s]+\\.(?:html|htm|css))`")
 )
 
 func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-verify-report"
-	const usage = "check-verify-report.sh <report file> <motions named> [<scoped specs>]"
+	const usage = "check-verify-report.sh <report file> <motions named> [<scoped specs>] [--design <design.md>]"
+	design := ""
+	if i := slices.Index(args, "--design"); i >= 0 {
+		if i+1 == len(args) {
+			fmt.Fprintf(stderr, "%s: usage: %s\n", prog, usage)
+			return 2
+		}
+		design = args[i+1]
+		args = slices.Delete(slices.Clone(args), i, i+2)
+	}
 	if len(args) != 2 && len(args) != 3 {
 		fmt.Fprintf(stderr, "%s: usage: %s\n", prog, usage)
 		return 2
@@ -102,6 +115,26 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	var undone []string
 	if bareFingerprint {
 		undone = append(undone, "fingerprint: `not declared` with no reason — state step 6's result as the prompt names it")
+	}
+	// sr12 (kan-1017): `no mockup source` while design.md cites an HTML or
+	// CSS source that exists in the worktree, three directories above the
+	// report, leaves step 10 undone.
+	if design != "" {
+		body, err := os.ReadFile(design)
+		if err != nil {
+			fmt.Fprintf(stderr, "%s: cannot read %s: %v\n", prog, design, err)
+			return 2
+		}
+		wt := filepath.Dir(filepath.Dir(filepath.Dir(args[0])))
+		vv, _ := os.ReadFile(filepath.Join(filepath.Dir(design), "visual-verification.md"))
+		if strings.Contains(string(data), "no mockup source") || strings.Contains(string(vv), "no mockup source") {
+			for _, m := range vrMockupSource.FindAllStringSubmatch(string(body), -1) {
+				if isFile(filepath.Join(wt, m[1])) {
+					status["10"] = "`no mockup source` while design.md cites " + m[1]
+					break
+				}
+			}
+		}
 	}
 	if unevidenced != "" {
 		status["10"] = "pre-existing attribution with no merge-base evidence: " + unevidenced
