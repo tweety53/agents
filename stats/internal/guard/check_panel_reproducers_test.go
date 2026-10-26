@@ -234,3 +234,43 @@ func TestCheckPanelReproducers(t *testing.T) {
 		cprExpect(t, got, out, 2, "cannot read the state record for 'demo' — cannot determine anything")
 	})
 }
+
+func TestCheckPanelReproducersRefusesAnOffShapeName(t *testing.T) {
+	t.Parallel()
+	wt := t.TempDir()
+	okBin := cprBin(t, `cat "$(dirname -- "$0")/state.json"; exit 0`, `exit 1`)
+	const dir = ".superpowers/sdd/reproducers/"
+	findingIn := func(status string, round int, slot, severity, repro string) []byte {
+		b, _ := json.Marshal([]map[string]any{{"ref": "F1", "round": round, "slot": slot, "status": status, "severity": severity, "reproducer": repro}})
+		return b
+	}
+	finding := func(round int, slot, severity, repro string) []byte {
+		return findingIn("open", round, slot, severity, repro)
+	}
+	cases := []struct {
+		label    string
+		findings []byte
+		want     int
+		needle   string
+	}{
+		{"another slot's id and an r-prefixed round", finding(0, "mutation", "Important", dir+"r1-M1-1.sh"), 1, "F1's reproducer '" + dir + "r1-M1-1.sh' is off the <round>-<id>-<n>.sh shape"},
+		{"an r-prefixed round and a short id", finding(0, "primary", "Important", dir+"r0-P1-1.sh"), 1, "<round>-<id>-<n>.sh"},
+		{"the wrong round", finding(1, "primary", "Important", dir+"0-primary-1.sh"), 1, "expected 1-<one of: primary>-<n>.sh"},
+		{"the slot in another case", finding(0, "primary", "Important", dir+"0-Primary-1.sh"), 1, "<round>-<id>-<n>.sh"},
+		{"a leading zero on the index", finding(0, "primary", "Important", dir+"0-primary-01.sh"), 1, "<round>-<id>-<n>.sh"},
+		{"on shape", finding(0, "primary", "Important", dir+"0-primary-1.sh"), 0, "REPRODUCERS-OK"},
+		{"on shape with an argument", finding(2, "mutation", "Important", dir+"2-mutation-12.sh --strict"), 0, "REPRODUCERS-OK"},
+		{"one part of a joined slot", finding(0, "primary+principles", "Important", dir+"0-principles-2.sh"), 0, "REPRODUCERS-OK"},
+		{"the whole joined slot", finding(0, "primary+principles", "Important", dir+"0-primary+principles-1.sh"), 0, "REPRODUCERS-OK"},
+		{"a script outside the reproducers directory", finding(0, "primary", "Important", "scripts/check-panel-reproducers.sh"), 0, "REPRODUCERS-OK"},
+		{"the exemption", finding(0, "primary", "Minor", "none — prose-only"), 0, "REPRODUCERS-OK"},
+		{"a closed finding off the shape", findingIn("fixed", 0, "mutation", "Important", dir+"r1-M1-1.sh"), 0, "REPRODUCERS-OK"},
+	}
+	for _, c := range cases {
+		t.Run(c.label, func(t *testing.T) {
+			t.Parallel()
+			got, out := cprRun(t, okBin, wt, "demo", c.findings)
+			cprExpect(t, got, out, c.want, c.needle)
+		})
+	}
+}

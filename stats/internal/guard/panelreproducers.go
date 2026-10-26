@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -166,6 +168,11 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 		fmt.Fprintln(stderr, cprJQFailed)
 		return 2
 	}
+	rounds, slots, open, ok := cprRoundsAndSlots([]byte(findingsText))
+	if !ok {
+		fmt.Fprintln(stderr, cprJQFailed)
+		return 2
+	}
 
 	// A FINDING WITH A NULL OR EMPTY REPRODUCER IS ITS OWN "CANNOT ANSWER"
 	// REFUSAL, exit 2, even though write-time validation should make this
@@ -206,7 +213,7 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 	// `select(.ref == $ref)` read them, every match's value one line each.
 	var violations []string
 	add := func(v string) { violations = append(violations, v) }
-	for _, f := range findings {
+	for fi, f := range findings {
 		ref := f.refText
 		var repros, sevs []string
 		for i, g := range findings {
@@ -253,6 +260,13 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 			continue
 		}
 		violations = append(violations, cprCommandViolations(ref, reproducer)...)
+		// Only an open finding's script still runs, so only its name can
+		// collide; a closed row is never refused over its name.
+		if open[fi] {
+			if v := cprNameViolation(ref, reproducer, rounds[fi], slots[fi]); v != "" {
+				add(v)
+			}
+		}
 	}
 
 	if len(violations) > 0 {
@@ -348,6 +362,67 @@ func cprSeverities(b []byte) ([]string, bool) {
 		out[i] = pcRaw(o["severity"])
 	}
 	return out, true
+}
+
+// cprReproducersDir is where a panel slot writes its reproducer script.
+const cprReproducersDir = ".superpowers/sdd/reproducers/"
+
+// cprNameViolation refuses a reproducer under cprReproducersDir whose name is
+// not <round>-<id>-<n>.sh: <round> the finding's own round, <id> its slot or
+// one of the `+`-separated slots of a joined finding, compared exactly, and
+// <n> a positive integer with no leading zero. Why: in kan-1036 two slots
+// wrote r1-m1-1.sh and r1-M1-1.sh, which a case-insensitive filesystem holds
+// as one file, so one finding's recorded script ran the other's check. The
+// exact slot id is what keeps two slots' names apart. A reproducer elsewhere
+// is not name-checked.
+func cprNameViolation(ref, cmd string, round int, slot string) string {
+	pathToken, _, _ := strings.Cut(cmd, " ")
+	name, ok := strings.CutPrefix(pathToken, cprReproducersDir)
+	if !ok {
+		return ""
+	}
+	if rest, ok := strings.CutPrefix(name, strconv.Itoa(round)+"-"); ok {
+		if rest, ok := strings.CutSuffix(rest, ".sh"); ok {
+			if i := strings.LastIndexByte(rest, '-'); i > 0 && cprPositive(rest[i+1:]) {
+				id := rest[:i]
+				if id == slot || slices.Contains(strings.Split(slot, "+"), id) {
+					return ""
+				}
+			}
+		}
+	}
+	return fmt.Sprintf("%s's reproducer '%s' is off the <round>-<id>-<n>.sh shape — expected %d-<one of: %s>-<n>.sh", ref, pathToken, round, slot)
+}
+
+// cprPositive reports whether s is [1-9][0-9]*.
+func cprPositive(s string) bool {
+	if s == "" || s[0] == '0' {
+		return false
+	}
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// cprRoundsAndSlots is each finding's round (absent reads as 0) and slot,
+// index-aligned with pcParseFindings' result.
+func cprRoundsAndSlots(b []byte) ([]int, []string, []bool, bool) {
+	var raw []struct {
+		Round  int    `json:"round"`
+		Slot   string `json:"slot"`
+		Status string `json:"status"`
+	}
+	if json.Unmarshal(b, &raw) != nil {
+		return nil, nil, nil, false
+	}
+	rounds, slots, open := make([]int, len(raw)), make([]string, len(raw)), make([]bool, len(raw))
+	for i, r := range raw {
+		rounds[i], slots[i], open[i] = r.Round, r.Slot, r.Status == "open"
+	}
+	return rounds, slots, open, true
 }
 
 // cprSpace is the C locale's [[:space:]].

@@ -544,7 +544,7 @@ gives it a shebang and `chmod +x`, and records that same path, the path relative
 not the `<abs-worktree>/`-prefixed form above; `run-reproducer.sh` refuses an absolute token.
 Mutation writes its own into the canonical worktree, never its
 `<worktree>-<slot>-<round>` copy, which is removed the moment its dispatch closes. The parent
-records the path the slot supplied verbatim — there is no rename step. **The cwd contract**: the
+records the path the slot supplied verbatim — there is no rename step. `check-panel-reproducers.sh` refuses a recorded path under `<project>/.superpowers/sdd/reproducers/` whose name is off `<round>-<id>-<n>.sh`, `<id>` one of the finding's slots, as a malformed field. **The cwd contract**: the
 reproducer always executes with its working directory set to the worktree the parent passes
 `run-reproducer.sh` — per finding, the worktree whose copy of the recorded relative path resolves:
 the canonical worktree first, else the one other entry of the state record's `worktrees` map
@@ -638,7 +638,7 @@ the **AskUserQuestion** it states.
 in the shape a slot authors to, since a slot reads its prompt and not this file:
 
 > **REPRODUCER:** every finding carries a reproducer: a script under the canonical worktree's
-> `<project>/.superpowers/sdd/reproducers/`, named by round, finding id and sequence number and ending `.sh`, recorded by its worktree-relative path, or
+> `<project>/.superpowers/sdd/reproducers/`, named `R-ID-N.sh` — `R` this round's number, `ID` your own resolved reviewer id, `N` your own 1-based finding index — and recorded by its worktree-relative path, or
 > `none — <reason>` on a Minor finding only. It exits non-zero when the defect is present, and 0
 > only when it is not; a `# mutation-reproducer` follows the mutation brief instead. Within its
 > first 10 lines it declares one `# demonstrates: <path>:<line>:<content>` line per cited location
