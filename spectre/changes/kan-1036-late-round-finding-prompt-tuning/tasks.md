@@ -13,8 +13,8 @@
 
 - Work in `/Users/tweety53/Projects/agents-worktrees/kan-1036-late-round-finding-prompt-tuning`; every `**Files:**` path is relative to its root. Never touch the main checkout.
 
-- [ ] 1. Trace a late-round miss in angle 8
-  - [ ] **Step 1: Add the paragraph** to `skills/flow-self-review/SKILL.md`, directly after the `reviewer` bullet's last line (`` `skills/flow/visual-verify.md`. ``) and before the paragraph opening `The visual-verify step is analysed`, separated by blank lines:
+- [x] 1. Trace a late-round miss in angle 8
+  - [x] **Step 1: Add the paragraph** to `skills/flow-self-review/SKILL.md`, directly after the `reviewer` bullet's last line (`` `skills/flow/visual-verify.md`. ``) and before the paragraph opening `The visual-verify step is analysed`, separated by blank lines:
 
 ```markdown unverified:applies-after-reviewer-bullet
 A **late-round miss** — a finding a slot first raises in round 2 or later on a hunk that same slot
@@ -26,8 +26,8 @@ shown only the delta, or reviewer variance the bundle cannot explain — is an a
 that cause, classified by this step's rules.
 ```
 
-  - [ ] **Step 2: Acknowledge** each new sentence: run `scripts/check-verbatim-moves.sh`, and append each FAIL line's text after `::` to `spectre/changes/kan-1036-late-round-finding-prompt-tuning/verbatim-moves.txt`, one per line.
-  - [ ] **Step 3: Verify:** `scripts/check-verbatim-moves.sh` and `scripts/check-references.sh` exit 0.
+  - [x] **Step 2: Acknowledge** each new sentence: run `scripts/check-verbatim-moves.sh`, and append each FAIL line's text after `::` to `spectre/changes/kan-1036-late-round-finding-prompt-tuning/verbatim-moves.txt`, one per line.
+  - [x] **Step 3: Verify:** `scripts/check-verbatim-moves.sh` and `scripts/check-references.sh` exit 0.
 
 **Files:** `skills/flow-self-review/SKILL.md`
 **Allowed-collateral:** `spectre/changes/kan-1036-late-round-finding-prompt-tuning/verbatim-moves.txt`
