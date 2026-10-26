@@ -326,6 +326,9 @@ func TestRunVerifyListRecordsTheVerifyRow(t *testing.T) {
 		var o, e bytes.Buffer
 		rc := runVerifyList(args, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
 		calls, _ := os.ReadFile(log)
+		if strings.Contains(string(calls), "-tokens") {
+			t.Errorf("an end carries -tokens:\n%s", calls)
+		}
 		return rc, string(calls)
 	}
 	project := func(cmds string) {
@@ -521,11 +524,7 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome completed")) {
 		t.Errorf("a green list: exit %d, calls:\n%s", rc, calls)
 	}
-	rc, calls := run()
-	if rc != 0 || !strings.HasSuffix(calls, endWith("-outcome skipped")) {
+	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome skipped")) {
 		t.Errorf("an all-skipped list: exit %d, calls:\n%s", rc, calls)
-	}
-	if strings.Contains(calls, "-tokens") {
-		t.Errorf("an end carries -tokens:\n%s", calls)
 	}
 }
