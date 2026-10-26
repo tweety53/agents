@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-// checkVisualPreflight is scripts/check-visual-preflight.sh: the four
+// checkVisualPreflight is scripts/check-visual-preflight.sh: the five
 // workspace checks `flow.visual-verify` step 3 runs before any verifier is
 // dispatched (skills/flow/visual-verify.md). The shim's header carries the
 // contract; design-verify.md § VV-18 records why checks 2 and 3 are the
@@ -304,6 +304,11 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 
 	}
 
+	// Check 5 — a change cut with --base (its branch records a flowBase) has
+	// a worktree in every `## apps` repository: one missing serves that
+	// repository's default branch (kan-1022, kan-1017).
+	fails = append(fails, vpFlowBaseSiblings(wtAbs)...)
+
 	for _, l := range append(infos, fails...) {
 		fmt.Fprintln(stdout, l)
 	}
@@ -503,6 +508,38 @@ func vpWalk(wt, dir string, want func(string) bool, visit func(rel string, n int
 		}
 		return nil
 	})
+}
+
+// vpFlowBaseSiblings is a FAIL line per `## apps` repository other than
+// wt's own holding no `<repo>-worktrees/<name>`, when wt's branch
+// `spectre/<name>` records a flowBase; none otherwise.
+func vpFlowBaseSiblings(wt string) []string {
+	git := func(args ...string) string {
+		out, _ := exec.Command("git", append([]string{"-C", wt}, args...)...).Output()
+		return strings.TrimSpace(string(out))
+	}
+	branch := git("symbolic-ref", "--short", "HEAD")
+	name, ok := strings.CutPrefix(branch, "spectre/")
+	if !ok || name == "" || git("config", "--get", "branch."+branch+".flowBase") == "" {
+		return nil
+	}
+	real := func(p string) string {
+		if r, err := filepath.EvalSymlinks(p); err == nil {
+			return r
+		}
+		return filepath.Clean(p)
+	}
+	own := filepath.Dir(real(git("rev-parse", "--path-format=absolute", "--git-common-dir")))
+	var fails []string
+	for _, root := range tcfAppRoots(projectSection(filepath.Join(wt, ".flow/project.md"), "apps")) {
+		if !isDir(root) || real(root) == own {
+			continue
+		}
+		if sib := root + "-worktrees/" + name; !isDir(sib) {
+			fails = append(fails, fmt.Sprintf("FAIL: siblings — %s is missing: %s records flowBase, so every `## apps` repository needs its own worktree of the change", sib, branch))
+		}
+	}
+	return fails
 }
 
 // vpRepoRoot is the nearest directory at or above dir carrying a `.git`

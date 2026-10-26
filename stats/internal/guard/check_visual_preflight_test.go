@@ -441,3 +441,33 @@ func TestCheckVisualPreflightCrossRepo(t *testing.T) {
 	code, out, errOut = vpRun(t, be, []string{vpApp}, vpStdin, vpBin(t, nil, ""))
 	vpWant{code: 1, contains: []string{"FAIL: base-url — web/api.ts:1:"}}.check(t, code, out, errOut)
 }
+
+// kan-1017: a change cut with --base held no worktree in one `## apps`
+// repository, so the stack served that repository's default branch.
+func TestCheckVisualPreflightFlowBaseSiblings(t *testing.T) {
+	t.Parallel()
+	top := t.TempDir()
+	wt, fe := filepath.Join(top, "be"), filepath.Join(top, "fe")
+	mkdir(t, fe)
+	apps := "\n## apps\n\n| App | Repo root | Kind | URL | Notes |\n|---|---|---|---|---|\n" +
+		"| be | `" + wt + "` | backend | - | - |\n| fe | `" + fe + "` | frontend | - | - |\n"
+	writeFile(t, filepath.Join(wt, ".flow/project.md"), vpIsolation+apps)
+	mkdir(t, filepath.Join(wt, "web"))
+	g := &fxGit{}
+	g.git(wt, "init", "-q", "-b", "spectre/x")
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	bin := vpBin(t, nil, "")
+
+	code, out, errOut := vpRun(t, wt, []string{vpApp}, vpStdin, bin)
+	vpWant{code: 0, omits: []string{"FAIL: siblings"}}.check(t, code, out, errOut)
+
+	g.git(wt, "config", "branch.spectre/x.flowBase", "feature/y")
+	code, out, errOut = vpRun(t, wt, []string{vpApp}, vpStdin, bin)
+	vpWant{code: 1, contains: []string{"FAIL: siblings — " + fe + "-worktrees/x"}}.check(t, code, out, errOut)
+
+	mkdir(t, fe+"-worktrees/x")
+	code, out, errOut = vpRun(t, wt, []string{vpApp}, vpStdin, bin)
+	vpWant{code: 0, omits: []string{"FAIL: siblings"}}.check(t, code, out, errOut)
+}

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-visual-preflight.sh — the four workspace checks `flow.visual-verify`
+# check-visual-preflight.sh — the five workspace checks `flow.visual-verify`
 # step 3 runs before any verifier is dispatched (skills/flow/visual-verify.md).
 #
 # Usage: prepare-workspace.sh <worktree> \
@@ -35,6 +35,11 @@
 #   4. playwright — `@playwright/test` resolved by `node` from each app root
 #                 must sit inside <worktree>; unresolvable or no `node` is an
 #                 INFO line and passes (setup installs it).
+#   5. siblings — when <worktree>'s branch `spectre/<name>` records
+#                 `branch.<branch>.flowBase`, every `## apps` Repo root other
+#                 than <worktree>'s own repository must hold
+#                 `<root>-worktrees/<name>`; a root absent from this machine
+#                 is skipped.
 # Skipped by checks 2–3: .git node_modules dist build coverage test-results
 # playwright-report testdata vendor .superpowers, a nested checkout, binaries,
 # files over 1 MiB. design-verify.md § VV-18 records why.

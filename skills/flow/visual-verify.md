@@ -217,7 +217,9 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
    none in, the same way** — the `kickoff-worktree.sh --from` call and its merge-order record,
    before the checks below — so the stack serves `<base>`'s build, never a main checkout on the
    default branch: kan-1022's stack served the `develop` frontend to a change based on
-   feature/templates, and 28 specs failed on it. With the
+   feature/templates, and 28 specs failed on it. `check-visual-preflight.sh` fails a
+   worktree whose branch records a flowBase while an `## apps` repository holds no
+   `<repo>-worktrees/<name>` worktree. With the
    parent's own Bash call, before the
    dispatch below, run the four checks — ports held only by their own app, the base-URL
    configuration resolving to the workspace's values, origin allowed, one Playwright checkout per
