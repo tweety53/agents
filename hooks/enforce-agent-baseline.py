@@ -42,6 +42,9 @@ description's first word or, for `Task <ids>/<n>`, starts with `task-<ids>-`. A 
 store, no /flow stage-begin for the session, an absent or failing `flow` CLI, or an unparseable
 answer lets the dispatch through.
 
+None of those row checks applies once the session's change is FINISHED in the store: the run is
+over, and a later dispatch in the same session is no flow dispatch.
+
 A planning agent (PLANNING_AGENT_TYPES: Explore, Plan) records no row, so none of those row checks
 applies to it; the baseline-pointer, pinned-role and flow-high checks still do.
 
@@ -169,7 +172,7 @@ def loop_key_line_reason(payload: dict, tool_input: dict, prompt: str) -> "str |
         tool_input.get("subagent_type") in PLANNING_AGENT_TYPES
         or not word
         or LOOP_KEY_LINE.search(prompt)
-        or not in_flow_session(payload)
+        or not in_flow_run(payload)
     ):
         return None
     return (
@@ -188,7 +191,7 @@ def description_reason(payload: dict, tool_input: dict, prompt: str) -> "str | N
     description = tool_input.get("description")
     if isinstance(description, str) and ROW_DESCRIPTION.match(description):
         return None
-    return DESCRIPTION_REASON if in_flow_session(payload) else None
+    return DESCRIPTION_REASON if in_flow_run(payload) else None
 
 
 TASK_DESCRIPTION = re.compile(r"Tasks? (\d+(?:\+\d+)*)/\d+")
@@ -234,7 +237,7 @@ def begin_row_reason(payload: dict, tool_input: dict, prompt: str) -> "str | Non
     session_id, cwd = payload.get("session_id"), payload.get("cwd")
     if not isinstance(session_id, str) or not session_id or not isinstance(cwd, str):
         return None
-    if not in_flow_session(payload):
+    if not in_flow_run(payload):
         return None
     try:
         change, key = session_change(session_id)
@@ -269,6 +272,30 @@ def begin_row_reason(payload: dict, tool_input: dict, prompt: str) -> "str | Non
         f"`flow record dispatch begin -change {change} -key {key} …` (skills/flow/implement.md), "
         "then re-send this call unchanged."
     )
+
+
+def change_finished(payload: dict) -> bool:
+    """Is the session's /flow change already FINISHED in the store? Then the session runs no flow
+    phase any more, and the row checks have no row to hold a dispatch to. Unanswered: False."""
+    session_id, cwd = payload.get("session_id"), payload.get("cwd")
+    if not isinstance(session_id, str) or not session_id:
+        return False
+    try:
+        change, key = session_change(session_id)
+        key = key or (project_key(cwd) if isinstance(cwd, str) else None)
+        if not change or not key:
+            return False
+        addr = os.environ.get("FLOW_ADDR") or "http://127.0.0.1:4173"
+        url = f"{addr}/api/v1/changes/{parse.quote(key)}/{parse.quote(change)}"
+        with request.urlopen(url, timeout=bound(2)) as resp:
+            return json.load(resp).get("state") == "FINISHED"
+    except (OSError, ValueError, subprocess.SubprocessError, AttributeError):
+        return False
+
+
+def in_flow_run(payload: dict) -> bool:
+    """A flow session whose change is not yet FINISHED -- the scope of the row checks."""
+    return in_flow_session(payload) and not change_finished(payload)
 
 
 def in_flow_session(payload: dict) -> bool:

@@ -367,3 +367,34 @@ func TestEnforceAgentBaselineHookAdmitsPlanningAgents(t *testing.T) {
 		})
 	}
 }
+
+// TestEnforceAgentBaselineHookSkipsAFinishedChange pins the row checks' scope: in a session whose
+// change the store reports FINISHED, a dispatch with an off-row description passes; the same
+// dispatch while the change is IN_PROGRESS is denied.
+func TestEnforceAgentBaselineHookSkipsAFinishedChange(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		state string
+		deny  bool
+	}{{"FINISHED", false}, {"IN_PROGRESS", true}} {
+		t.Run(c.state, func(t *testing.T) {
+			t.Parallel()
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/api/v1/stage-runs":
+					_ = json.NewEncoder(w).Encode(map[string]any{"stageRuns": []any{map[string]string{"changeName": "c1", "projectKey": "p"}}})
+				case "/api/v1/changes/p/c1":
+					_ = json.NewEncoder(w).Encode(map[string]string{"name": "c1", "state": c.state})
+				default:
+					w.WriteHeader(http.StatusInternalServerError)
+				}
+			}))
+			t.Cleanup(srv.Close)
+			out, _, rc := runHook(t, "enforce-agent-baseline.py", openRowPayload(t, "Round-11 review", "review"),
+				"FLOW_ADDR="+srv.URL, "FLOW_HOOK_UNBOUNDED=1")
+			if denied := strings.Contains(out, `"permissionDecision": "deny"`); rc != 0 || denied != c.deny {
+				t.Fatalf("rc=%d deny=%v want %v out=%s", rc, denied, c.deny, out)
+			}
+		})
+	}
+}
