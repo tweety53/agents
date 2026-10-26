@@ -620,3 +620,23 @@ func TestMeasureVisualPropertiesBandColourDarkestInk(t *testing.T) {
 		t.Fatalf("colour/share %q, want %q", got, "#020817 0.999")
 	}
 }
+
+// A band where no colour holds 2% of its ink (a gradient) reports its modal
+// colour, never a fabricated #000000.
+func TestMeasureVisualPropertiesBandColourFallsBackToModal(t *testing.T) {
+	t.Parallel()
+	im := mvpPNG(t, 160, 30, func(x, y int) color.RGBA {
+		switch {
+		case y < 10 || y >= 20 || x >= 150:
+		case x == 70 || x == 71:
+			return color.RGBA{0x40, 0x40, 0x40, 0xff} // modal, 20 of 1500 pixels
+		default:
+			return color.RGBA{uint8(x), 0x80, 0x80, 0xff} // one colour per column
+		}
+		return color.RGBA{0xff, 0xff, 0xff, 0xff}
+	})
+	band := mvpDig(mvpJSON(t, "", im, "--props", "bands"), "a", "bands", 0)
+	if got := mvpDig(band, "colour"); got != "#404040" {
+		t.Fatalf("colour %v, want #404040", got)
+	}
+}

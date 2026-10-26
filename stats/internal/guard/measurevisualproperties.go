@@ -518,8 +518,8 @@ func (c *mvpCounter) top() (colour [3]byte, n int) {
 }
 
 // darkest is the lowest-luminance colour holding at least 2% of the counted
-// pixels — a band's text ink rather than a wider border's grey (kan-1017) —
-// and share is the top two colours' share of the count, rounded to 3.
+// pixels — a band's text ink rather than a wider border's grey (kan-1017),
+// or the modal colour when none holds 2% — and share is the top two colours' share of the count, rounded to 3.
 func (c *mvpCounter) darkest() (colour [3]byte, share float64) {
 	total, n1, n2 := 0, 0, 0
 	for _, x := range c.order {
@@ -536,6 +536,9 @@ func (c *mvpCounter) darkest() (colour [3]byte, share float64) {
 		if l := 0.2126*float64(x[0]) + 0.7152*float64(x[1]) + 0.0722*float64(x[2]); c.n[x]*50 >= total && l < lum {
 			colour, lum = x, l
 		}
+	}
+	if math.IsInf(lum, 1) {
+		colour, _ = c.top()
 	}
 	return colour, pyRound(float64(n1+n2)/float64(total), 3)
 }
