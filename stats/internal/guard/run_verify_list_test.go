@@ -469,7 +469,7 @@ func TestRunVerifyListRecordsAgainstTheCanonicalWorktree(t *testing.T) {
 
 // TestRunVerifyListEndsEveryRun pins kan-1017's self-review: every list that
 // began its row ends it -- blocked with cause test-failure on a failure,
-// skipped when every command was skipped, completed otherwise -- and no end
+// skipped when every command of a test list was skipped, completed otherwise -- and no end
 // carries -tokens.
 func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	repo, err := filepath.Abs("../../..")
@@ -493,10 +493,11 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 		return ""
 	}
 	rec := []string{"kan-1", "verify", "mf-k1", "opus", "low"}
+	list := "test"
 	run := func() (int, string) {
 		os.Remove(log)
 		var o, e bytes.Buffer
-		rc := runVerifyList(append([]string{wt, "test"}, rec...), Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+		rc := runVerifyList(append([]string{wt, list}, rec...), Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
 		calls, _ := os.ReadFile(log)
 		return rc, string(calls)
 	}
@@ -526,5 +527,17 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	}
 	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome skipped")) {
 		t.Errorf("an all-skipped list: exit %d, calls:\n%s", rc, calls)
+	}
+	// A lint list whose every command is skipped still runs check-spec-reach.sh,
+	// so a check ran and the row ends completed.
+	list = "lint"
+	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\ntrue\n```\n")
+	gitIn(t, wt, "add", "-A")
+	gitIn(t, wt, "commit", "-q", "-m", "three")
+	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome completed")) {
+		t.Errorf("a green lint list: exit %d, calls:\n%s", rc, calls)
+	}
+	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome completed")) {
+		t.Errorf("an all-skipped lint list: exit %d, calls:\n%s", rc, calls)
 	}
 }

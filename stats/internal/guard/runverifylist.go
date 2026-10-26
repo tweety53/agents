@@ -336,7 +336,8 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	switch {
 	case failed != 0:
 		record("end", "-outcome", "blocked", "-cause", "test-failure")
-	case len(cmds) > 0 && !slices.Contains(skip, false):
+	case list != "lint" && len(cmds) > 0 && !slices.Contains(skip, false):
+		// A lint list always ran check-spec-reach.sh, so it never ends skipped.
 		record("end", "-outcome", "skipped")
 	default:
 		record("end", "-outcome", "completed")

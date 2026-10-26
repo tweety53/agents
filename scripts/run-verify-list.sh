@@ -18,8 +18,9 @@
 #
 # With the recording arguments the list ends the row it began with one of
 # three outcomes: blocked with cause test-failure when a command failed,
-# skipped when every command was skipped — a lint list's check-spec-reach.sh
-# still runs then, and does not change the outcome — and completed otherwise.
+# skipped when every command of a test list was skipped, and completed
+# otherwise — a lint list always runs check-spec-reach.sh, so it never ends
+# skipped.
 #
 # The mechanism, and its full contract — the list, the green sha, the output
 # — is stats/internal/guard/runverifylist.go; its test is
