@@ -98,6 +98,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -332,7 +333,12 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	if list == "lint" {
 		run("check-spec-reach.sh "+wt, `"`+scriptDir+`/check-spec-reach.sh" "`+wt+`"`, "spec-reach")
 	}
-	if failed == 0 {
+	switch {
+	case failed != 0:
+		record("end", "-outcome", "blocked", "-cause", "test-failure")
+	case len(cmds) > 0 && !slices.Contains(skip, false):
+		record("end", "-outcome", "skipped")
+	default:
 		record("end", "-outcome", "completed")
 	}
 	return failed

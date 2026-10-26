@@ -5129,3 +5129,74 @@ func TestEndDispatchRefusesShortWindowOnHarvestedSession(t *testing.T) {
 		t.Errorf("non-harvested session: %v", err)
 	}
 }
+
+// TestEndDispatchAdmitsAShortSkippedInlineRow pins that the inline floor
+// binds a completed end only: run-verify-list's all-skipped list ends its
+// row a second after begin with outcome skipped (kan-1017's self-review).
+func TestEndDispatchAdmitsAShortSkippedInlineRow(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-end-skipped-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	for _, key := range []string{"verify", "verify-2"} {
+		b := baseDispatch("verifier", "opus")
+		b.Key = key
+		b.SessionToken = "mf-end-skipped"
+		b.AgentID = "inline"
+		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", b); err != nil {
+			t.Fatalf("RecordDispatch: %v", err)
+		}
+		end := records.DispatchEnd{SessionToken: "mf-end-skipped", Key: key, Outcome: "skipped", EndedAt: b.StartedAt.Add(time.Second)}
+		if key == "verify-2" {
+			end.Outcome = "completed"
+			if _, err := st.EndDispatch(ctx, projectKey, "kan-1", end); !errors.Is(err, store.ErrInlineWindowTooShort) {
+				t.Fatalf("a 1 s completed inline end: err = %v, want store.ErrInlineWindowTooShort", err)
+			}
+			continue
+		}
+		if _, err := st.EndDispatch(ctx, projectKey, "kan-1", end); err != nil {
+			t.Fatalf("a 1 s skipped inline end: %v", err)
+		}
+	}
+}
+
+// TestSetDispatchOutcome pins flowd reoutcome-dispatch's store method: it
+// sets the outcome and cause, clears the cause for a non-blocked outcome,
+// and answers ErrDispatchNotFound on an unknown id.
+func TestSetDispatchOutcome(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-reoutcome-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	b := baseDispatch("verifier", "opus")
+	b.Key = "verify"
+	b.SessionToken = "mf-reoutcome"
+	row, err := st.RecordDispatch(ctx, projectKey, "kan-1", b)
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	read := func() (*string, *string) {
+		var o, c *string
+		if err := pool.QueryRow(ctx, `SELECT outcome, cause FROM dispatches WHERE id = $1`, row.ID).Scan(&o, &c); err != nil {
+			t.Fatalf("read row: %v", err)
+		}
+		return o, c
+	}
+	if err := st.SetDispatchOutcome(ctx, row.ID, "blocked", "test-failure"); err != nil {
+		t.Fatalf("SetDispatchOutcome blocked: %v", err)
+	}
+	if o, c := read(); o == nil || *o != "blocked" || c == nil || *c != "test-failure" {
+		t.Fatalf("row = %v %v, want blocked test-failure", o, c)
+	}
+	if err := st.SetDispatchOutcome(ctx, row.ID, "skipped", ""); err != nil {
+		t.Fatalf("SetDispatchOutcome skipped: %v", err)
+	}
+	if o, c := read(); o == nil || *o != "skipped" || c != nil {
+		t.Fatalf("row = %v %v, want skipped and no cause", o, c)
+	}
+	if err := st.SetDispatchOutcome(ctx, 1<<62, "skipped", ""); !errors.Is(err, store.ErrDispatchNotFound) {
+		t.Fatalf("unknown id: err = %v, want store.ErrDispatchNotFound", err)
+	}
+}

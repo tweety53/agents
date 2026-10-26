@@ -1279,6 +1279,20 @@ func (s *Store) RetimeDispatch(ctx context.Context, id int64, started, ended tim
 	return nil
 }
 
+// SetDispatchOutcome sets dispatch id's outcome and cause outright -- the
+// repair for a row a hand-run end closed with the wrong outcome (kan-1017's
+// self-review). An empty cause is stored as NULL.
+func (s *Store) SetDispatchOutcome(ctx context.Context, id int64, outcome, cause string) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE dispatches SET outcome = $2, cause = $3 WHERE id = $1`, id, outcome, nullIfEmpty(cause))
+	if err != nil {
+		return fmt.Errorf("store: reoutcome dispatch %d: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("%w: %d", ErrDispatchNotFound, id)
+	}
+	return nil
+}
+
 // RekeyDispatch sets dispatch id's dispatch_key outright -- the repair for a
 // row whose key's suffix expanded to nothing (kan-1009's self-review). A key
 // another row of the run holds violates the run's key uniqueness and changes

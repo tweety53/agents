@@ -101,7 +101,7 @@ var recordCauses = []string{"environment", "test-failure", "missing-fixture"}
 // (`done`, `approve`) reads as no contract's word, so it is refused rather
 // than mapped; an empty one stays allowed, and signal three of
 // check-unfinished-work reports the row it leaves open.
-var recordOutcomes = []string{"completed", "clean", "fix", "blocked", "aborted", "fallback", "timed-out"}
+var recordOutcomes = []string{"completed", "clean", "fix", "blocked", "aborted", "fallback", "timed-out", "skipped"}
 
 // tokenReportKeys maps the hyphenated keys `-tokens` accepts onto the
 // TokenReport field each one fills -- the bag's four figures the ledger's

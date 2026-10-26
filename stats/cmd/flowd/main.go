@@ -24,6 +24,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -95,6 +96,14 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "retime-dispatch" {
 		if err := retimeDispatch(os.Args[2:]); err != nil {
 			logger.Error("flowd retime-dispatch failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	if len(os.Args) > 1 && os.Args[1] == "reoutcome-dispatch" {
+		if err := reoutcomeDispatch(os.Args[2:]); err != nil {
+			logger.Error("flowd reoutcome-dispatch failed", "error", err)
 			os.Exit(1)
 		}
 		return
@@ -742,6 +751,45 @@ func rekeyDispatch(args []string) error {
 	}
 	defer st.Close()
 	return st.RekeyDispatch(ctx, id, args[1])
+}
+
+// reoutcomeDispatch implements `flowd reoutcome-dispatch <dispatch-id>
+// <outcome> [<cause>]` (store.Store.SetDispatchOutcome): the repair for a
+// row a hand-run end closed with the wrong outcome (kan-1017). The outcome
+// is one of flow record dispatch end's closed set, and a cause is accepted
+// with blocked only.
+func reoutcomeDispatch(args []string) error {
+	if len(args) != 2 && len(args) != 3 {
+		return fmt.Errorf("usage: flowd reoutcome-dispatch <dispatch-id> <outcome> [<cause>]")
+	}
+	id, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("dispatch id %q: %w", args[0], err)
+	}
+	outcome, cause := args[1], ""
+	if len(args) == 3 {
+		cause = args[2]
+	}
+	if !slices.Contains([]string{"completed", "clean", "fix", "blocked", "aborted", "fallback", "timed-out", "skipped"}, outcome) {
+		return fmt.Errorf("outcome %q is not a dispatch outcome", outcome)
+	}
+	if cause != "" && outcome != "blocked" {
+		return fmt.Errorf("a cause is recorded with outcome blocked only, not %q", outcome)
+	}
+	if cause != "" && !slices.Contains([]string{"environment", "test-failure", "missing-fixture"}, cause) {
+		return fmt.Errorf("cause %q is not a dispatch cause", cause)
+	}
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	st, err := store.Open(ctx, cfg.DSN)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	return st.SetDispatchOutcome(ctx, id, outcome, cause)
 }
 
 // retimeDispatch implements `flowd retime-dispatch <dispatch-id>

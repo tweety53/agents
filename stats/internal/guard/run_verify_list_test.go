@@ -297,7 +297,8 @@ func TestRunVerifyList(t *testing.T) {
 
 // TestRunVerifyListRecordsTheVerifyRow pins kan-1033's self-review: given
 // the five trailing arguments the list records its own verify row — begin
-// before its first command, end only when it exited 0.
+// before its first command, end once its commands ran (TestRunVerifyListEndsEveryRun
+// pins each outcome).
 func TestRunVerifyListRecordsTheVerifyRow(t *testing.T) {
 	repo, err := filepath.Abs("../../..")
 	if err != nil {
@@ -341,7 +342,7 @@ func TestRunVerifyListRecordsTheVerifyRow(t *testing.T) {
 	}
 
 	project("echo ran >> " + log + "; exit 1")
-	if rc, calls := run(append([]string{wt, "test"}, rec...)...); rc != 1 || calls != begin+"ran\n" {
+	if rc, calls := run(append([]string{wt, "test"}, rec...)...); rc != 1 || calls != begin+"ran\n"+strings.Replace(end, "-outcome completed", "-outcome blocked -cause test-failure", 1) {
 		t.Errorf("a failing list: exit %d, calls:\n%s", rc, calls)
 	}
 
@@ -460,5 +461,71 @@ func TestRunVerifyListRecordsAgainstTheCanonicalWorktree(t *testing.T) {
 		if rc, calls := run(args...); rc != 2 || calls != "" {
 			t.Errorf("%d arguments: exit %d, calls %q", len(args), rc, calls)
 		}
+	}
+}
+
+// TestRunVerifyListEndsEveryRun pins kan-1017's self-review: every list that
+// began its row ends it -- blocked with cause test-failure on a failure,
+// skipped when every command was skipped, completed otherwise -- and no end
+// carries -tokens.
+func TestRunVerifyListEndsEveryRun(t *testing.T) {
+	repo, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\necho \"flow $*\" >> "+log+"\n")
+	wt, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"), "PATH="+dir+":"+os.Getenv("PATH"))
+	getenv := func(k string) string {
+		for i := len(environ) - 1; i >= 0; i-- {
+			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
+				return v
+			}
+		}
+		return ""
+	}
+	rec := []string{"kan-1", "verify", "mf-k1", "opus", "low"}
+	run := func() (int, string) {
+		os.Remove(log)
+		var o, e bytes.Buffer
+		rc := runVerifyList(append([]string{wt, "test"}, rec...), Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+		calls, _ := os.ReadFile(log)
+		return rc, string(calls)
+	}
+	endWith := func(outcome string) string {
+		return "flow record dispatch end -C " + wt + " -change kan-1 -key verify -session-token mf-k1 " + outcome + "\n"
+	}
+	gitIn := func(t *testing.T, dir string, args ...string) {
+		t.Helper()
+		if out, err := exec.Command(fixtureGit, append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	commit := func(cmds, msg string) {
+		writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n"+cmds+"\n```\n")
+		gitIn(t, wt, "add", "-A")
+		gitIn(t, wt, "commit", "-q", "-m", msg)
+	}
+	gitIn(t, wt, "init", "-q")
+
+	commit("exit 1", "one")
+	if rc, calls := run(); rc != 1 || !strings.HasSuffix(calls, endWith("-outcome blocked -cause test-failure")) {
+		t.Errorf("a failing list: exit %d, calls:\n%s", rc, calls)
+	}
+	commit("true", "two")
+	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome completed")) {
+		t.Errorf("a green list: exit %d, calls:\n%s", rc, calls)
+	}
+	rc, calls := run()
+	if rc != 0 || !strings.HasSuffix(calls, endWith("-outcome skipped")) {
+		t.Errorf("an all-skipped list: exit %d, calls:\n%s", rc, calls)
+	}
+	if strings.Contains(calls, "-tokens") {
+		t.Errorf("an end carries -tokens:\n%s", calls)
 	}
 }

@@ -16,6 +16,10 @@
 #      auto-detects, as **Inline verify** says
 #   4  the store refused the recording begin (stderr names why): no command ran
 #
+# With the recording arguments the list ends the row it began with one of
+# three outcomes: blocked with cause test-failure when a command failed,
+# skipped when every command was skipped, and completed otherwise.
+#
 # The mechanism, and its full contract — the list, the green sha, the output
 # — is stats/internal/guard/runverifylist.go; its test is
 # stats/internal/guard/run_verify_list_test.go.
