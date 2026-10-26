@@ -26,8 +26,8 @@ bullet in `/flow-prompt-tuning` step 4, and `/flow-fast` section 5 pointing at t
 - Task 2: the replay bullet sends a verifier-target case to a verifier dispatch over `capture.png` and `mockup.png`, and step 2a names both files.
 - Task 3: `run-verify-list.sh` runs only the fenced lint commands; the `## test` scoping sentence is unchanged.
 
-- [ ] 1. Judge a visual-verify departure as an Important in angle 8
-  - [ ] **Step 1: Apply the fix:**
+- [x] 1. Judge a visual-verify departure as an Important in angle 8
+  - [x] **Step 1: Apply the fix:**
 
 ````diff verified:applied with git apply in this worktree at f9428445, Tasks 1-3 in order; check-verbatim-moves.sh then printed exactly the sentences verbatim-moves.txt lists
 diff --git a/skills/flow-self-review/SKILL.md b/skills/flow-self-review/SKILL.md
@@ -47,7 +47,7 @@ index 05a09a78..97ed1c4f 100644
  - **`implementer`** — a rule in the implementer instructions (`skills/flow/implement.md`,
 ````
 
-  - [ ] **Step 2: Verify:** run `scripts/check-verbatim-moves.sh` and `scripts/check-references.sh`; the sentence this task adds is reported `ok acknowledged new text`, and the two FAIL lines left are Tasks 2 and 3's until they land.
+  - [x] **Step 2: Verify:** run `scripts/check-verbatim-moves.sh` and `scripts/check-references.sh`; the sentence this task adds is reported `ok acknowledged new text`, and the two FAIL lines left are Tasks 2 and 3's until they land.
 
 **Files:** `skills/flow-self-review/SKILL.md`
 **Tests:** none — prose; `check-verbatim-moves.sh` checks the sentence.
@@ -56,8 +56,8 @@ index 05a09a78..97ed1c4f 100644
 **After:** none
 **Commit:** `fix(flow-self-review): grade a visual-verify departure as Important`
 
-- [ ] 2. Give a verifier case its capture and mockup, and replay it with a verifier
-  - [ ] **Step 1: Apply the fix:**
+- [x] 2. Give a verifier case its capture and mockup, and replay it with a verifier
+  - [x] **Step 1: Apply the fix:**
 
 ````diff verified:applied with git apply in this worktree at f9428445, Tasks 1-3 in order; check-verbatim-moves.sh then printed exactly the sentences verbatim-moves.txt lists
 diff --git a/skills/flow-self-review/SKILL.md b/skills/flow-self-review/SKILL.md
@@ -92,7 +92,7 @@ index c7dd9845..65e2268a 100644
  - **Grader** — a grader dispatch judges each run against the case's `finding.md`: was the defect
 ````
 
-  - [ ] **Step 2: Verify:** run `scripts/check-verbatim-moves.sh` and `scripts/check-references.sh`; this task's two sentences are reported `ok acknowledged new text`.
+  - [x] **Step 2: Verify:** run `scripts/check-verbatim-moves.sh` and `scripts/check-references.sh`; this task's two sentences are reported `ok acknowledged new text`.
 
 **Files:** `skills/flow-self-review/SKILL.md`, `skills/flow-prompt-tuning/SKILL.md`
 **Tests:** none — prose; `check-verbatim-moves.sh` checks the sentences.
@@ -101,8 +101,8 @@ index c7dd9845..65e2268a 100644
 **After:** Task 1
 **Commit:** `fix(flow-prompt-tuning): replay a verifier case over its capture and mockup`
 
-- [ ] 3. Run /flow-fast's lint list through run-verify-list.sh
-  - [ ] **Step 1: Apply the fix:**
+- [x] 3. Run /flow-fast's lint list through run-verify-list.sh
+  - [x] **Step 1: Apply the fix:**
 
 ````diff verified:applied with git apply in this worktree at f9428445, Tasks 1-3 in order; check-verbatim-moves.sh then printed exactly the sentences verbatim-moves.txt lists
 diff --git a/skills/flow-fast/SKILL.md b/skills/flow-fast/SKILL.md
@@ -118,7 +118,7 @@ index 3aafd793..f35af6df 100644
  runs — the change summary below states that empty-scope reason explicitly, the stated reason
 ````
 
-  - [ ] **Step 2: Verify:** run `scripts/check-verbatim-moves.sh` (exit 0) and `scripts/check-references.sh` (exit 0), then the absence sweep `git grep -n -F -e 'Run every command in' -- skills/flow-fast/SKILL.md`, which prints nothing.
+  - [x] **Step 2: Verify:** run `scripts/check-verbatim-moves.sh` (exit 0) and `scripts/check-references.sh` (exit 0), then the absence sweep `git grep -n -F -e 'Run every command in' -- skills/flow-fast/SKILL.md`, which prints nothing.
 
 **Files:** `skills/flow-fast/SKILL.md`
 **Tests:** none — prose; `run-verify-list.sh` is already covered by `stats/internal/guard/run_verify_list_test.go`.
