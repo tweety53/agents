@@ -127,6 +127,9 @@ func TestCheckPanelFindingsClosed(t *testing.T) {
 			writeFile(t, filepath.Join(sdd, "panel-report-"+r+"-"+id+".md"), "clean\n")
 		}
 	}
+	// Every fixed Critical/Important a case records names its regression
+	// test's none form, so no case trips the regression-test check.
+	writeFile(t, filepath.Join(sdd, "panel-fix-report-1.md"), "regression-test: F1 — none — fixture\nregression-test: F2 — none — fixture\n")
 	cases := []struct {
 		label  string
 		json   string
@@ -347,6 +350,7 @@ func TestCheckPanelFindingsClosedReportCounts(t *testing.T) {
 				"panel-report-11-primary.md":    "Critical: 0\nImportant: 1\n",
 				"panel-report-12-primary.md":    "clean\n",
 				"panel-report-12-principles.md": "clean\n",
+				"panel-fix-report-11.md":        "regression-test: F10 — none — fixture\n",
 			},
 			json: cfcJSON(cfcFinding{Ref: "F10", Severity: "Important", Status: "fixed", Round: 11, Slot: "primary+principles"}),
 			disp: cfcDispatchJSON(cfcDispatch{Key: "panel-12-primary+principles", Role: "reviewer", Slot: "primary+principles", Outcome: "completed"}),
@@ -428,6 +432,7 @@ func TestCheckPanelFindingsClosedRerunNeedsItsReportFile(t *testing.T) {
 			for n, body := range c.files {
 				writeFile(t, filepath.Join(sdd, n), body)
 			}
+			writeFile(t, filepath.Join(sdd, "panel-fix-report-1.md"), "regression-test: F1 — none — fixture\n")
 			rc, out, errs := cfcRun(t, cfcBinDispatches(t, c.json, c.disp, "", 0), wt, "demo")
 			if rc != c.want {
 				t.Fatalf("expected exit %d, got %d\nstdout: %s\nstderr: %s", c.want, rc, out, errs)
@@ -563,6 +568,50 @@ func TestCheckPanelFindingsClosedFixedReproducerExists(t *testing.T) {
 			}
 			if c.absent != "" && strings.Contains(errs, c.absent) {
 				t.Fatalf("expected stderr not to name %q, got:\n%s", c.absent, errs)
+			}
+		})
+	}
+}
+
+// A fixed Critical or Important finding names a git-tracked suite test on a
+// `regression-test:` line of a panel-fix report, or `none — <reason>`
+// (kan-1019: three fixed Importants left only untracked reproducers).
+func TestCheckPanelFindingsClosedFixedNeedsARegressionTest(t *testing.T) {
+	t.Parallel()
+	const line = "fixed Critical/Important finding(s) with no tracked regression test: "
+	important := cfcJSON(cfcFinding{Ref: "F1", Severity: "Important", Status: "fixed", Round: 1, Slot: "primary"})
+	minor := cfcJSON(cfcFinding{Ref: "F1", Severity: "Minor", Status: "fixed", Round: 1, Slot: "primary"})
+	rerun := cfcDispatchJSON(cfcDispatch{Key: "panel-2-primary", Role: "reviewer", Slot: "primary", Outcome: "completed"})
+	cases := []struct {
+		label, json, report string
+		want                int
+	}{
+		{label: "no line exits 1", json: important, want: 1},
+		{label: "an untracked path exits 1", json: important, report: "regression-test: F1 — untracked_test.go — TestX\n", want: 1},
+		{label: "a path under .superpowers exits 1", json: important, report: "regression-test: F1 — .superpowers/sdd/reproducers/r.sh — r\n", want: 1},
+		{label: "a committed test exits 0", json: important, report: "regression-test: F1 — foo_test.go — TestFoo\n", want: 0},
+		{label: "the none form exits 0", json: important, report: "regression-test: F1 — none — prose-only fix\n", want: 0},
+		{label: "a fixed Minor needs no line", json: minor, want: 0},
+	}
+	for _, c := range cases {
+		t.Run(c.label, func(t *testing.T) {
+			t.Parallel()
+			wt := t.TempDir()
+			gitRun(t, "", "init", "-q", wt)
+			writeFile(t, filepath.Join(wt, "foo_test.go"), "package foo\n")
+			writeFile(t, filepath.Join(wt, "untracked_test.go"), "package foo\n")
+			gitRun(t, wt, "add", "foo_test.go")
+			files := map[string]string{"panel-report-2-primary.md": "Critical: 0\nImportant: 0\n", "reproducers/r.sh": ""}
+			if c.report != "" {
+				files["panel-fix-report-1.md"] = c.report
+			}
+			cfcSDD(t, wt, files)
+			rc, out, errs := cfcRun(t, cfcBinDispatches(t, c.json, rerun, "", 0), wt, "demo")
+			if rc != c.want {
+				t.Fatalf("expected exit %d, got %d\nstdout: %s\nstderr: %s", c.want, rc, out, errs)
+			}
+			if c.want == 1 && !strings.Contains(errs, line+"F1 (") {
+				t.Fatalf("expected stderr to name %q, got:\n%s", line+"F1 (", errs)
 			}
 		})
 	}
