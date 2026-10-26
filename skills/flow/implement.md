@@ -405,7 +405,11 @@ flow stage begin -command '/flow' -stage flow.sdd-tdd -harness <harness> -sessio
 **At most one mutator — any Edit/Write-capable dispatch: an implementer, a panel-fix, a fix-round
 agent of any name — may be in flight against a given worktree at any moment** — a reviewer is not
 one: it reads an immutable commit range, and any number of them may run beside the one mutator.
-Dispatches into different worktrees remain free to run concurrently. This explicitly overrides
+Dispatches into different worktrees remain free to run concurrently. A visual verifier is a
+mutator here too — it builds the stack from the tree and writes `<changeRoot>/visual-verification/`
+— and `flow record dispatch begin` refuses a `visual-verify` row while an `implementer`,
+`panel-fix` or `red-partner` row of the change is open, and any of those while a `visual-verify`
+row is open. This explicitly overrides
 `superpowers:subagent-driven-development`'s parallel dispatch guidance and
 `superpowers:dispatching-parallel-agents` for same-worktree tasks. The invariant is the working
 tree, not the build tool, and it holds however file-disjoint two tasks look on paper. **A mutating dispatch's

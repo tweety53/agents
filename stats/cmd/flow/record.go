@@ -60,6 +60,10 @@ import (
 // design.md §1).
 var recordRoles = []string{"implementer", "reviewer", "panel-fix", "red-partner", "planner", "conductor", "verifier", "explorer"}
 
+// visualMutatorRoles are the roles whose open row a visual verifier never
+// begins beside, and that never begin beside an open visual verifier.
+var visualMutatorRoles = []string{"implementer", "panel-fix", "red-partner"}
+
 // locationLineRe is what a non-empty finding -location must carry: a line
 // number after a colon (path:12, path:12-20).
 var locationLineRe = regexp.MustCompile(`:[0-9]+`)
@@ -1155,6 +1159,29 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 			if top := highestRecordedRound(run); n < top {
 				fmt.Fprintf(stderr, "flow: -key %q opens panel round %d, below round %d the change's records already carry — a run's first round is what `flow record next-round` prints (skills/flow/review-panel.md)\n", *key, n, top)
 				return 2
+			}
+		}
+	}
+
+	// A visual verifier is a mutator: it builds the stack from the tree and
+	// writes <changeRoot>/visual-verification/, so it never runs beside an
+	// open implementer, panel-fix or red-partner row of the change, nor one
+	// of those beside an open visual verifier (decision sr5-change-wide). A
+	// read that fails skips the check.
+	if isVisual, isMutator := *role == "verifier" && strings.HasPrefix(*key, "visual-verify"), slices.Contains(visualMutatorRoles, *role); (isVisual || isMutator) && *startedAt == "" {
+		run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+			return cl.GetRunRecord(ctx, projectKey, f.change)
+		})
+		if err == nil {
+			for _, d := range run.Dispatches {
+				if d.EndedAt != nil {
+					continue
+				}
+				openVisual := d.Role == "verifier" && strings.HasPrefix(d.Key, "visual-verify")
+				if (isVisual && slices.Contains(visualMutatorRoles, d.Role)) || (isMutator && openVisual) {
+					fmt.Fprintf(stderr, "flow: -key %q cannot begin while %q (role %s) of the change is open: a visual verifier and an implementer, panel-fix or red-partner never run together (skills/flow/implement.md)\n", *key, d.Key, d.Role)
+					return 2
+				}
 			}
 		}
 	}

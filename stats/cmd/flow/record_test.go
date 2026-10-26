@@ -6385,3 +6385,65 @@ func TestRecordFindingRejectsAbsoluteReproducer(t *testing.T) {
 		}
 	}
 }
+
+// TestRecordDispatchBeginRefusesAVerifierBesideAnOpenMutator pins decision
+// sr5-change-wide: a visual verifier builds the stack from the tree and
+// writes into the change root, so it never runs beside an open implementer,
+// panel-fix or red-partner row of the change, nor one of those beside an
+// open visual verifier. A non-visual verifier and a reviewer are never
+// refused, and a failed run-record read skips the check.
+func TestRecordDispatchBeginRefusesAVerifierBesideAnOpenMutator(t *testing.T) {
+	const ended = `"endedAt":"2026-10-26T10:00:00Z"`
+	begin := func(t *testing.T, record string, readStatus int, role, key string) (int, string, int) {
+		t.Helper()
+		repo := recordRepo(t, "kan-258")
+		isolatedStateRoot(t)
+		posts := 0
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/decisions") {
+				_, _ = w.Write([]byte("[]"))
+				return
+			}
+			if r.Method == http.MethodGet {
+				w.WriteHeader(readStatus)
+				_, _ = w.Write([]byte(record))
+				return
+			}
+			posts++
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
+		}))
+		defer srv.Close()
+		args := []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", role, "-model", "opus", "-key", key, "-session-token", "mf-record-vv-mutator"}
+		if role == "verifier" {
+			args = append(args, "-diff-base", "0123456789abcdef0123456789abcdef01234567")
+		}
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String(), posts
+	}
+	cases := []struct {
+		name, record, role, key, names string
+		status, want                   int
+	}{
+		{"a visual verifier beside an open panel-fix", `{"dispatches":[{"key":"panel-fix-7","role":"panel-fix"}]}`, "verifier", "visual-verify-2", "panel-fix-7", 200, 2},
+		{"a panel-fix beside an open visual verifier", `{"dispatches":[{"key":"visual-verify-2","role":"verifier"}]}`, "panel-fix", "panel-fix-8", "visual-verify-2", 200, 2},
+		{"a visual verifier beside an open verify-* verifier", `{"dispatches":[{"key":"verify-test-fix-1","role":"verifier"}]}`, "verifier", "visual-verify-2", "", 200, 0},
+		{"a visual verifier beside an open reviewer", `{"dispatches":[{"key":"panel-3-primary","role":"reviewer"}]}`, "verifier", "visual-verify-2", "", 200, 0},
+		{"a visual verifier after the panel-fix ended", `{"dispatches":[{"key":"panel-fix-7","role":"panel-fix",` + ended + `}]}`, "verifier", "visual-verify-2", "", 200, 0},
+		{"a panel-fix after the visual verifier ended", `{"dispatches":[{"key":"visual-verify-2","role":"verifier",` + ended + `}]}`, "panel-fix", "panel-fix-8", "", 200, 0},
+		{"a failed read skips the check", `{"error":"boom"}`, "verifier", "visual-verify-2", "", 500, 0},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			code, stderr, posts := begin(t, c.record, c.status, c.role, c.key)
+			if code != c.want || (posts == 1) != (c.want == 0) {
+				t.Fatalf("exit %d, posts %d; want exit %d; stderr:\n%s", code, posts, c.want, stderr)
+			}
+			if c.names != "" && !strings.Contains(stderr, c.names) {
+				t.Errorf("stderr does not name %s:\n%s", c.names, stderr)
+			}
+		})
+	}
+}
