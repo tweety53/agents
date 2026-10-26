@@ -1,0 +1,7 @@
+# Sentences kan-1025-flow-improvement-require-a-suite-regression-test adds or rewords on purpose: the regression-test: report line, its close-guard
+# refusal, and the fix-round rule requiring a tracked suite test per fixed Critical/Important.
+It fires too when a completed reviewer dispatch left one of its roles' `panel-report-<round>-<id>.md` absent or empty, or when a `fixed` finding's runnable reproducer resolves in no worktree of the change.
+Each fixed Critical or Important finding also carries one line, `regression-test: F<n> — <repo-relative path> — <test name>`, naming the git-tracked suite test that fails at the pre-fix code — a reproducer promoted into the suite, never one left under `<project>/.superpowers/` — or `regression-test: F<n> — none — <reason>` where no suite test can exist.
+It fires too when a completed reviewer dispatch left one of its roles' `panel-report-<round>-<id>.md` absent or empty, or when a `fixed` finding's runnable reproducer resolves in no worktree of the change, or when a `fixed` Critical or Important finding has no `regression-test:` line in any `panel-fix-report-*.md`, or names a path that is untracked or under `<project>/.superpowers/`.
+Where the parent fixes inline, it writes those lines to `panel-fix-report-<round>.md` itself.
+`check-panel-findings-closed` refuses the close without them; a fixed Minor needs none.
