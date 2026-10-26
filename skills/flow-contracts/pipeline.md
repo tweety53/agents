@@ -126,6 +126,14 @@ shared-source fix (`skills/flow/verify-fix-loop.md`) is never offered as "a sepa
 still ahead, offering a seed-data flake, a shared heading departure and a mockup-frame config gap
 as open items, each of which had a recommended fix).
 
+**A turn ends only at a gate, a block, or the run's final handoff.** Between any two steps of a
+phase — findings recorded and the fix round not yet made, a fix committed and its re-review not
+yet launched, a dispatch returned and its result not yet acted on — the next step is taken in the
+same turn, never announced as "next". A turn whose last action is anything other than an operator
+prompt **What still stops** names, a blocked report, or the handoff the state's run ends on is
+this rule broken (kan-1018: the parent ended its turn with round-0 panel findings recorded and
+every fix still ahead).
+
 **No round count ends a re-review or a re-verification.** A review-panel fix round, a gated
 per-task re-review, a verify stage's fix loop and a verifier re-dispatch each repeat until their
 own clean close. **A round that makes no progress — the same defect identity, on the same
