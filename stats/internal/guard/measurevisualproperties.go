@@ -1283,7 +1283,14 @@ func mvpMatrix(env Env, a mvpArgs, scale float64) (pyObj, error) {
 			box := mvpKindProps["fill band"]
 			if ba, err := measure(a.images[0], ea[p.i], box); err == nil {
 				if bb, err := measure(a.images[1], eb[p.j], box); err == nil {
-					ma.out, mb.out, props = append(ma.out, ba.out[1:]...), append(mb.out, bb.out[1:]...), append(slices.Clone(props), box...)
+					// Skip the box's own background and clipped keys: ma/mb carry them.
+					rest := func(o pyObj) pyObj {
+						if len(o) > 1 && o[1].k == "clipped" {
+							return o[2:]
+						}
+						return o[1:]
+					}
+					ma.out, mb.out, props = append(ma.out, rest(ba.out)...), append(mb.out, rest(bb.out)...), append(slices.Clone(props), box...)
 				}
 			}
 		}

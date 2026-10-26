@@ -640,3 +640,23 @@ func TestMeasureVisualPropertiesBandColourFallsBackToModal(t *testing.T) {
 		t.Fatalf("colour %v, want #404040", got)
 	}
 }
+
+// A text/control element at the image's edge carries one `clipped` key, not
+// a second one from its fill-band box measurement.
+func TestMeasureVisualPropertiesMatrixClippedOnce(t *testing.T) {
+	t.Parallel()
+	page := func(x, y int) color.RGBA {
+		if x >= 20 && x < 80 && y >= 290 {
+			return color.RGBA{0x22, 0x22, 0x22, 0xff}
+		}
+		return color.RGBA{0xff, 0xff, 0xff, 0xff}
+	}
+	a := mvpPNG(t, 200, 300, page)
+	rc, stdout, stderr := mvpRun(t, "", a, a, "--scale", "1", "--props", "matrix")
+	if rc != 0 || !strings.Contains(stdout, `"text/control"`) {
+		t.Fatalf("exit %d, stdout %s, stderr %s", rc, stdout, stderr)
+	}
+	if n := strings.Count(stdout, `"clipped":`); n != 2 {
+		t.Fatalf("%d clipped keys, want one per image:\n%s", n, stdout)
+	}
+}
