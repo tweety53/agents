@@ -1718,3 +1718,54 @@ func TestStageBeginRefusesUnstampedSessionToken(t *testing.T) {
 		}
 	}
 }
+
+// TestStageEndReviewPanelRunsFindingsClosed pins that a completed /flow
+// flow.review-panel end runs check-panel-findings-closed in process and is
+// refused while a finding is open (kan-1017: rounds 2-7 closed unguarded),
+// and that a stopped end is never gated.
+func TestStageEndReviewPanelRunsFindingsClosed(t *testing.T) {
+	cases := []struct {
+		name, findings, outcome string
+		want                    int
+	}{
+		{"an open finding refuses a completed close", `[{"ref":"F1","status":"open","round":1}]`, "completed", 1},
+		{"every finding closed ends", `[{"ref":"F1","status":"withdrawn: duplicate","round":1}]`, "completed", 0},
+		{"a stopped close passes through an open finding", `[{"ref":"F1","status":"open","round":1}]`, "stopped", 0},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			repo := gitRepo(t)
+			isolatedStateRoot(t)
+			bin := t.TempDir()
+			if err := os.WriteFile(filepath.Join(bin, "findings.json"), []byte(c.findings), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			script := "#!/usr/bin/env bash\ndir=\"$(dirname -- \"$0\")\"\ncase \"$*\" in\n" +
+				"  *\"record dispatches\"*) echo '[]' ;;\n" +
+				"  *\"state get\"*) echo '{\"worktrees\":{}}' ;;\n" +
+				"  *) cat \"$dir/findings.json\" ;;\nesac\n"
+			if err := os.WriteFile(filepath.Join(bin, "flow"), []byte(script), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+			reached := false
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				reached = true
+				_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+			}))
+			defer srv.Close()
+
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+					"-command", "/flow", "-stage", "flow.review-panel", "-outcome", c.outcome, "kan-1"},
+				strings.NewReader(""), &stdout, &stderr)
+			if code != c.want || reached != (c.want == 0) {
+				t.Fatalf("exit=%d reached=%v, want exit %d; stderr:\n%s", code, reached, c.want, stderr.String())
+			}
+			if c.want == 1 && !strings.Contains(stderr.String(), "check-panel-findings-closed") {
+				t.Fatalf("stderr does not name check-panel-findings-closed:\n%s", stderr.String())
+			}
+		})
+	}
+}

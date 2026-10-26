@@ -1076,6 +1076,10 @@ flow record dispatch end -change <name> -key panel-fix-<round>[-<chunk>] \
 remote (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`), the fix commit itself, carrying
 the round's `Flow-Key:` trailer.
 
+`flow stage end -stage flow.review-panel -outcome completed` runs `check-panel-findings-closed` in
+process and refuses the close on its exit 1 or 2, so a round closed without the guard never reaches
+integrate (kan-1017: rounds 2–7 closed unguarded, and nine findings went unrecorded).
+
 **Before closing the stage**, the parent runs both close guards:
 
 ```bash

@@ -544,6 +544,9 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 	if code := gateLiveVerification(f, *outcome, stderr); code != 0 {
 		return code
 	}
+	if code := gatePanelFindingsClosed(f, *outcome, stderr); code != 0 {
+		return code
+	}
 
 	projectKey, _, err := fallback.ProjectKey(f.dir)
 	if err != nil {
@@ -604,6 +607,24 @@ func gateLiveVerification(f stageIdentityFlags, outcome string, stderr io.Writer
 	if code := guard.Registry["check-live-verification"]([]string{root}, guard.Env{Getenv: os.Getenv, Dir: f.dir}, stderr, stderr); code != 0 {
 		fmt.Fprintf(stderr, "flow: stage end refused: check-live-verification exited %d on %s -- "+
 			"run **Live check** and write its record, or pass -C the worktree holding the change\n", code, root)
+		return 1
+	}
+	return 0
+}
+
+// gatePanelFindingsClosed refuses a completed /flow flow.review-panel end
+// the findings-closed guard refuses, so a round closed without the guard
+// never reaches integrate (kan-1017). Every other end passes through.
+func gatePanelFindingsClosed(f stageIdentityFlags, outcome string, stderr io.Writer) int {
+	if f.command != "/flow" || f.stage != "flow.review-panel" || outcome != "completed" {
+		return 0
+	}
+	dir := f.dir
+	if dir == "" {
+		dir = "."
+	}
+	if code := guard.Registry["check-panel-findings-closed"]([]string{dir, f.name}, guard.Env{Getenv: os.Getenv, Dir: f.dir}, stderr, stderr); code != 0 {
+		fmt.Fprintf(stderr, "flow: stage end refused: check-panel-findings-closed exited %d\n", code)
 		return 1
 	}
 	return 0
