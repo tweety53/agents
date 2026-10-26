@@ -37,6 +37,7 @@ there (closed, ticked, pushed), not why it is in that state, not what comes next
 Between status lines, say nothing. Never narrate routine mechanics — a rebase, a conflict resolved to
 one side, a check re-run, a fix the rules already require — and never explain why a step was taken.
 What the user needs from such a step reaches them once, in the final report.
+Every file named to the user is an absolute path, never relative or a bare filename, so it opens on cmd+click.
 No acknowledgement lines either — "Noted", "Agreed", "Got it": the next action is the acknowledgement.
 The state is one of those five words and the line ends there: never `— done, landed as <sha>` or
 `— done, raised 2 Important`, never a state outside the five such as `fixing` or `dispatching`.

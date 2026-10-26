@@ -51,22 +51,22 @@ merged** (`skills/flow-contracts/finish-contract-run2.md`).
 ## Finished
 
 **Change:** <name>
-**Archived:** spectre/changes/archive/<name>/ (landed on <base> with the change)
+**Archived:** <project>/spectre/changes/archive/<name>/ as an absolute path (landed on <base> with the change)
 **Worktrees:** removed | left alone — <reason>
 **Remote branch:** deleted | already gone | not deleted — <reason>
 **Cleanup:** verified
-**Self-review:** docs/self-review/<name>-self-review.md
+**Self-review:** <project>/docs/self-review/<name>-self-review.md as an absolute path
 **Main checkout:** fast-forwarded | already current | <the REFRESH-REFUSED line>
 **Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 **Jira:** <KEY> → Done | none linked | ⚠ Jira: skipped — <reason>
-**Learning:** <the learning note's absolute path> | none — <reason>
-**Prompt tuning:** <each case's `index.html` absolute path in `<agents repo>`'s main checkout> | none — <reason>
+**Learning:** <the learning note's absolute path> | NONE — <reason>
+**Prompt-tuning:** <each case's `index.html` absolute path in `<agents repo>`'s main checkout> | NONE — <reason>
 ```
 
-**`Learning:` and `Prompt tuning:` are never omitted.** `Learning:` names the file **Learning**
+**`Learning:` and `Prompt-tuning:` are never omitted** — this block, and `/flow-fast`'s landing report, which carries the same two lines, are where they are canonical. `Learning:` names the file **Learning**
 (`skills/flow-contracts/learning.md`) places at `<project>-learning/<name>.md` when it exists; its <!-- citations-guard:allow -->
-`none` reason is the setting off or the store unreachable. `Prompt tuning:` names every case the
-self-review's step 2a wrote (`skills/flow-self-review/SKILL.md`); its `none` reason is angle 8's
+`NONE` reason is the setting off or the store unreachable. `Prompt-tuning:` names every case the
+self-review's step 2a wrote (`skills/flow-self-review/SKILL.md`); its `NONE` reason is angle 8's
 own empty-angle sentence.
 
 A run 2 that **completes step 5** is terminal and names **no** next command.

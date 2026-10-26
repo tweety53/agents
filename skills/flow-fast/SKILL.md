@@ -350,7 +350,8 @@ flow stage begin -command '/flow-fast' -stage flow.run-instructions -harness <ha
 
 Print the change summary: what changed and why, grouped by area, one or two sentences each;
 what was verified and how; anything deliberately left out; the self-review report path and
-its fixed shas when section 5 committed one. This is the one report the run prints.
+its fixed shas when section 5 committed one; and the `**Learning:**` and `**Prompt-tuning:**`
+lines of the Finished handoff (`skills/flow/cleanup.md`), never omitted. This is the one report the run prints.
 
 **Then the handoff, decided by `## handoff`** (**Project configuration**,
 `skills/flow-contracts/project-configuration.md`): `none` continues to section 6 in this same

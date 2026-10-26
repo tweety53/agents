@@ -9,6 +9,11 @@ This file is **canonical** for everything in it.
 
 ## Handoff blocks
 
+**Every file a flow command names to the operator is an absolute path** — in a handoff, a final
+report, a status line or a self-review report mention; never relative, never `<placeholder>`-relative,
+never a bare filename, so the operator can cmd+click it open. A template's `<project>/…` or
+`<agents repo>/…` placeholder is printed resolved to its absolute path.
+
 ### The block each state renders
 
 The block a state hands off is defined **here and nowhere else**, as one template per rendering. Two
