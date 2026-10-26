@@ -5,7 +5,7 @@
 > **Relocation:** no
 > **Design shape:** plan-mode
 
-- [ ] 1. Pipeline: a run's size is never a stop
+- [x] 1. Pipeline: a run's size is never a stop
   - [ ] **Step 1: In `skills/flow-contracts/pipeline.md`, section **Fewest operator actions**, add the paragraph opening **A run's size is never a stop.** with the two sentences recorded in `.superpowers/sdd/pipeline-fix-kan-1017-templates-step-3-admin-templates-queue-create-32/verbatim-moves.txt`: tokens, wall-clock time, context length, rounds or tasks ahead, a checkpoint, and open items each carrying a recommended option are never reasons to end a turn mid-run; a fix reaching a shared source is made there in the same run, never offered as "a separate change" (kan-1017).**
   - [ ] **Step 2: Verify: `scripts/check-installed-citations.sh` exits 0.**
 **Build:** green
@@ -17,7 +17,7 @@
 
 **Decision:** run-size-never-a-stop
 
-- [ ] 2. Cleanup: mark the learning-note path as an illustration
+- [x] 2. Cleanup: mark the learning-note path as an illustration
   - [ ] **Step 1: In `skills/flow/cleanup.md`, append ` <!-- citations-guard:allow -->` to the line citing the learning-note placeholder path in the `Learning:` paragraph.**
   - [ ] **Step 2: Verify: `scripts/check-installed-citations.sh` exits 0.**
   <!-- measured: `scripts/check-installed-citations.sh` @ origin/main exit 1, "INSTALLED-CITATIONS-INVALID … 1 violation(s)"; with the allow marker applied exit 0 -->
