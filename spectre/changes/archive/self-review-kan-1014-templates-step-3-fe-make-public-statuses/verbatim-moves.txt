@@ -1,0 +1,8 @@
+# run-verify-list gains an optional <canonical worktree> argument; its usage lines change on purpose.
+flow record dispatch end -change <name> -key verify[-<worktree basename>] \
+run-verify-list.sh <worktree> lint <name> verify[-<worktree basename>] mf-<literal-token> <parent model> <parent effort>
+run-verify-list.sh <worktree> test <name> verify[-<worktree basename>] mf-<literal-token> <parent model> <parent effort>
+`<canonical worktree>` is the worktree holding `<project>/spectre/changes/<name>`; pass it when verifying any other worktree of a multi-repo change.
+flow record dispatch end -C <canonical worktree> -change <name> -key verify[-<worktree basename>] \
+run-verify-list.sh <worktree> lint <name> verify[-<worktree basename>] mf-<literal-token> <parent model> <parent effort> [<canonical worktree>]
+run-verify-list.sh <worktree> test <name> verify[-<worktree basename>] mf-<literal-token> <parent model> <parent effort> [<canonical worktree>]
