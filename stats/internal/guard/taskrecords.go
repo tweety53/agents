@@ -239,6 +239,18 @@ func trCheck(args []string, env Env, archivedNames string) []string {
 		for _, task := range tcfIterTasks(lines) {
 			m := tcfTaskLineRE.FindStringSubmatch(lines[task.taskLine-1])
 			ticked := m != nil && m[1] == "x"
+			if ticked {
+				// A ticked task's steps are ticked with it (flow tasks tick
+				// does both); kan-1017 ticked six tasks by hand and left
+				// their 27 steps open.
+				tcfUnfenced(task.lines, func(_ int, line string) bool {
+					if strings.HasPrefix(line, "  - [ ] ") {
+						violations = append(violations, fmt.Sprintf("%s: task %s ticked but holds an unticked step: '%s'", rel, task.id, strings.TrimSpace(line)))
+						return true
+					}
+					return false
+				})
+			}
 
 			if tag := tcfSelectBuildTag(task.lines); tag == nil {
 				violations = append(violations, fmt.Sprintf("%s: task %s has no **Build:** tag", rel, task.id))

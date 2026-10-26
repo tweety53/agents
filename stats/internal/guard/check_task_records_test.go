@@ -399,3 +399,33 @@ func trResolve(p string) string {
 	}
 	return p
 }
+
+// TestCheckTaskRecordsRefusesATickedTaskWithAnUntickedStep pins decision
+// sr7-guard-and-repair: a ticked task whose body still holds an unticked
+// step line is a violation (kan-1017 ticked tasks 11-16 and none of their 27
+// steps); a ticked step, or an unticked one inside a fence, is not.
+func TestCheckTaskRecordsRefusesATickedTaskWithAnUntickedStep(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		label, step string
+		want        bool
+	}{
+		{"an unticked step", "  - [ ] **Step 1: a**", true},
+		{"a ticked step", "  - [x] **Step 1: a**", false},
+		{"an unticked step inside a fence", "```markdown\n  - [ ] **Step 1: a**\n```", false},
+	}
+	for _, c := range cases {
+		t.Run(c.label, func(t *testing.T) {
+			t.Parallel()
+			fx := trRepo(t)
+			fx.task(1, "x", "feat(a): one", "green", c.step)
+			fx.commitAll("docs(plan): fixture plan")
+			fx.commitFile("src/f1.go", "feat(a): one")
+			r := runGuard("check-task-records", []string{fx.root}, Env{Getenv: os.Getenv})
+			got := strings.Contains(r.out, "task 1") && strings.Contains(r.out, "unticked step")
+			if got != c.want || (r.rc == 1) != c.want {
+				t.Fatalf("rc=%d out=%q, want violation %v", r.rc, r.out, c.want)
+			}
+		})
+	}
+}
