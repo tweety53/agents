@@ -69,7 +69,17 @@ func checkLateFixTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 	switch checkPanelFindingsClosed([]string{canon, change}, env, &closedOut, &closedErr) {
 	case 0:
 	case 1:
-		why = append(why, "the change's findings are not all closed (check-panel-findings-closed.sh exited 1)")
+		reason := "the change's findings are not all closed (check-panel-findings-closed.sh exited 1)"
+		var lines []string
+		for _, l := range strings.Split(closedErr.String(), "\n") {
+			if l = strings.TrimSpace(l); l != "" {
+				lines = append(lines, l)
+			}
+		}
+		if len(lines) > 0 {
+			reason += ": " + strings.Join(lines, "; ")
+		}
+		why = append(why, reason)
 	default:
 		fmt.Fprint(stderr, closedErr.String())
 		return 2

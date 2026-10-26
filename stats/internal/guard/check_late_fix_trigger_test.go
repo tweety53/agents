@@ -147,3 +147,29 @@ func TestCheckLateFixTrigger(t *testing.T) {
 		})
 	}
 }
+
+// TestCheckLateFixTriggerNamesTheOpenFindings pins that condition 1's reason
+// carries the findings-closed guard's own lines, so the run sees which
+// finding is open instead of a bare exit code (kan-1017).
+func TestCheckLateFixTriggerNamesTheOpenFindings(t *testing.T) {
+	t.Parallel()
+	const open = `[{"ref":"F1","status":"open","severity":"Important","round":1,"slot":"primary"}]`
+	fx := lftNewFx(t, t.TempDir()+"/wt")
+	if fx.g.err != nil {
+		t.Fatal(fx.g.err)
+	}
+	var out, errb strings.Builder
+	code := checkLateFixTrigger([]string{"demo", fx.tasks, fx.wt, fx.since, "CLEAR:"}, lftEnv(fx.wt, open), &out, &errb)
+	if code != 1 {
+		t.Fatalf("exit %d, want 1; stdout:\n%s\nstderr:\n%s", code, out.String(), errb.String())
+	}
+	for _, line := range strings.Split(out.String(), "\n") {
+		if strings.HasPrefix(line, "full path: condition 1 — ") {
+			if !strings.Contains(line, "F1") {
+				t.Fatalf("condition 1 does not name F1: %q", line)
+			}
+			return
+		}
+	}
+	t.Fatalf("no condition 1 line:\n%s", out.String())
+}
