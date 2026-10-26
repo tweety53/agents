@@ -3540,38 +3540,44 @@ func tickedInRunFixes(plan []byte) []string {
 
 // inRunFixRefusal names why a visual-verify key may not begin after the
 // ticked in-run fixes ks, or returns "". A fix whose -fix-<k>-full verifier
-// row completed is closed.
+// row completed is closed; only the highest unclosed k is checked, since a
+// scoped re-run that finds a defect opens the next fix without closing its own.
 func inRunFixRefusal(ks []string, run records.Run, key, roundBase string) string {
 	completed := func(d records.Dispatch) bool {
 		return d.Role == "verifier" && strings.HasPrefix(d.Key, "visual-verify") && d.Outcome == "completed"
 	}
-	for _, k := range ks {
-		scoped := regexp.MustCompile(`-fix-` + k + `(-|$)`)
-		full := regexp.MustCompile(`-fix-` + k + `-full(-|$)`)
+	k, top := "", -1
+	for _, c := range ks {
+		full := regexp.MustCompile(`-fix-` + c + `-full(-|$)`)
 		closed := false
 		for _, d := range run.Dispatches {
 			if completed(d) && full.MatchString(d.Key) {
 				closed = true
 			}
 		}
-		if closed {
-			continue
+		if n, _ := strconv.Atoi(c); !closed && n > top {
+			k, top = c, n
 		}
-		loc := scoped.FindStringIndex(key)
-		if loc == nil {
-			return "is not scoped to In-run fix " + k + ": key it as visual-verify-fix-" + k + "[-full]-<repo> until the -fix-" + k + "-full run has completed"
-		}
-		if full.MatchString(key) || roundBase != "" {
-			continue
-		}
-		suffix := key[loc[1]:]
-		if suffix != "" {
-			suffix = "-" + strings.TrimPrefix(suffix, "-")
-		}
-		for _, d := range run.Dispatches {
-			if completed(d) && strings.HasSuffix(d.Key, suffix) {
-				return "is a scoped re-run of In-run fix " + k + " with no -round-base while " + strconv.Quote(d.Key) + " completed in its repository: pass -round-base <the fix round's base sha>"
-			}
+	}
+	if top < 0 {
+		return ""
+	}
+	scoped := regexp.MustCompile(`-fix-` + k + `(-|$)`)
+	full := regexp.MustCompile(`-fix-` + k + `-full(-|$)`)
+	loc := scoped.FindStringIndex(key)
+	if loc == nil {
+		return "is not scoped to In-run fix " + k + ": key it as visual-verify-fix-" + k + "[-full]-<repo> until the -fix-" + k + "-full run has completed"
+	}
+	if full.MatchString(key) || roundBase != "" {
+		return ""
+	}
+	suffix := key[loc[1]:]
+	if suffix != "" {
+		suffix = "-" + strings.TrimPrefix(suffix, "-")
+	}
+	for _, d := range run.Dispatches {
+		if completed(d) && strings.HasSuffix(d.Key, suffix) {
+			return "is a scoped re-run of In-run fix " + k + " with no -round-base while " + strconv.Quote(d.Key) + " completed in its repository: pass -round-base <the fix round's base sha>"
 		}
 	}
 	return ""

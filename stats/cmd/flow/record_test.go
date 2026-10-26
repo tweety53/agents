@@ -6498,6 +6498,8 @@ func TestRecordDispatchBeginRefusesAnUnscopedVisualVerifyAfterAnInRunFix(t *test
 		{"the full run", ticked, done, "visual-verify-fix-2-full-gymie", nil, 0},
 		{"a scoped run in a repository with no completed row", ticked, done, "visual-verify-fix-2-frontend", nil, 0},
 		{"an unscoped run once the full run completed", ticked, done + "," + full, "visual-verify-4-gymie", nil, 0},
+		{"a scoped run of the highest of two open fixes", ticked + "- [x] 4. In-run fix 3 — flow.visual-verify: the label\n", done, "visual-verify-fix-3-gymie", []string{"-round-base", "abc1234"}, 0},
+		{"a scoped run of the lower of two open fixes", ticked + "- [x] 4. In-run fix 3 — flow.visual-verify: the label\n", done, "visual-verify-fix-2-gymie", []string{"-round-base", "abc1234"}, 2},
 		{"no ticked in-run fix", "# plan\n\n- [x] 1. a task\n- [ ] 3. In-run fix 2 — flow.visual-verify: x\n", done, "visual-verify-2-gymie", nil, 0},
 		{"a ticked in-run fix inside a fence", "# plan\n\n```\n- [x] 3. In-run fix 2 — flow.visual-verify: x\n```\n", done, "visual-verify-2-gymie", nil, 0},
 	}
