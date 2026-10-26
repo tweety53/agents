@@ -66,7 +66,9 @@ declare is a hard failure of this stage, reported and stopping the run like a re
 project declares it. The write lands as a planning commit in the
 worktree holding the file, behind `check-planning-commit-location.sh <abs-worktree> <name>`
 (**Planning commits**, `skills/flow-contracts/git-boundaries.md`), and what it wrote is recorded
-in the working notes beside the merge bases. A change with one repository runs nothing here.
+in the working notes beside the merge bases. `kickoff-worktree.sh --from <canonical worktree>` makes
+this record itself once that worktree holds `<changeRoot>` — writing the `link.md` in the shape
+below, or appending its repository's peers name — and leaves the planning commit to its caller. A change with one repository runs nothing here.
 
 **Each `## Merge order` entry is a numbered line naming its repository in backticks** — `spectre
 validate` refuses a bare `1. .` — so a change spanning this repository and one peer writes, per

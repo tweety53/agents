@@ -2,10 +2,15 @@ package guard
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -104,6 +109,19 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 				fmt.Fprintf(stderr, "%s: the base branch name is invalid\n", self)
 				return 2
 			}
+		}
+	}
+	// sr15 (kan-1017): with --from and the change's directory in that
+	// worktree, the new repository's name in its spectre/peers is resolved
+	// before anything is cut — a repository the file does not declare stops
+	// here, nothing added or recorded.
+	link, peerName := "", ""
+	if from != "" && isDir(filepath.Join(from, "spectre/changes", name)) {
+		link = filepath.Join(from, "spectre/changes", name, "link.md")
+		var msg string
+		if peerName, msg = kwPeerName(env, git, from, project); msg != "" {
+			fmt.Fprintf(stderr, "%s: %s — cannot write %s's merge order, so no worktree is added\n", self, msg, link)
+			return 2
 		}
 	}
 	location, projectGet := env.Getenv("FLOW_GUARD_WORKTREE_LOCATION"), env.Getenv("FLOW_GUARD_PROJECT_GET")
@@ -223,7 +241,93 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 		return relay(1, out)
 	}
 	fmt.Fprintf(stdout, "worktree: %s\nmerge-base: %s\n", wt, mergeBase)
+	if link != "" {
+		wrote, err := kwMergeOrder(link, peerName)
+		if err != nil {
+			fmt.Fprintf(stderr, "%s: cannot write %s: %v\n", self, link, err)
+			return 1
+		}
+		if wrote {
+			fmt.Fprintf(stdout, "merge-order: %s\n", link)
+		}
+	}
 	return 0
+}
+
+// kwPeerName is project's name in from's spectre/peers: one `<name> <path>`
+// line per peer, the path relative to from's main checkout. A non-empty
+// message is why it cannot be named.
+func kwPeerName(env Env, git, from, project string) (string, string) {
+	peers := filepath.Join(from, "spectre/peers")
+	body, err := os.ReadFile(peers)
+	if err != nil {
+		return "", "cannot read " + peers
+	}
+	rc, out := kwRun(env, "", git, "-C", from, "rev-parse", "--path-format=absolute", "--git-common-dir")
+	if rc != 0 {
+		return "", "cannot resolve " + from + "'s main checkout"
+	}
+	main := filepath.Dir(strings.TrimSpace(out))
+	real := func(p string) string {
+		if r, err := filepath.EvalSymlinks(p); err == nil {
+			return r
+		}
+		return filepath.Clean(p)
+	}
+	want := real(project)
+	for _, line := range strings.Split(string(body), "\n") {
+		f := strings.Fields(line)
+		if len(f) != 2 {
+			continue
+		}
+		p := f[1]
+		if !filepath.IsAbs(p) {
+			p = filepath.Join(main, p)
+		}
+		if real(p) == want {
+			return f[0], ""
+		}
+	}
+	return "", peers + " declares no entry for " + project
+}
+
+// kwMergeOrder writes link with `## Merge order` naming `.` then peer, or
+// appends peer as the next numbered entry of an existing section that lacks
+// it; a file holding no such section is left alone. wrote is whether the
+// file changed.
+func kwMergeOrder(link, peer string) (bool, error) {
+	entry := "`" + peer + "`"
+	body, err := os.ReadFile(link)
+	if errors.Is(err, fs.ErrNotExist) {
+		return true, os.WriteFile(link, []byte("## Merge order\n\n1. `.`\n2. "+entry+"\n"), 0o644)
+	}
+	if err != nil {
+		return false, err
+	}
+	lines := strings.Split(string(body), "\n")
+	in, last, n := false, -1, 0
+	for i, l := range lines {
+		if strings.HasPrefix(l, "## ") {
+			if in {
+				break
+			}
+			in = strings.TrimSpace(l) == "## Merge order"
+			continue
+		}
+		if num, rest, ok := strings.Cut(l, ". "); in && ok {
+			if v, err := strconv.Atoi(num); err == nil {
+				if strings.TrimSpace(rest) == entry {
+					return false, nil
+				}
+				last, n = i, v
+			}
+		}
+	}
+	if last < 0 {
+		return false, nil
+	}
+	lines = slices.Insert(lines, last+1, fmt.Sprintf("%d. %s", n+1, entry))
+	return true, os.WriteFile(link, []byte(strings.Join(lines, "\n")), 0o644)
 }
 
 // kwSetup runs wt's `## worktree setup` fenced lines, in order, from wt:

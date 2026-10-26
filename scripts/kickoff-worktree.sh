@@ -22,6 +22,18 @@
 # the record is found under the change's own project. An empty or missing
 # <worktree> is exit 2.
 #
+# With --from and `<worktree>/spectre/changes/<name>/` present, the merge-order
+# record is written there too (kan-1017: a hand-written one failed `spectre
+# validate` twice): this repository's name is its entry in
+# `<worktree>/spectre/peers` — one `<name> <path>` line per peer, the path
+# relative to <worktree>'s main checkout — resolved before step 1, a
+# repository the file does not declare (or an unreadable file) exit 2 with
+# nothing added. After step 4, `link.md` there is written as `## Merge order`
+# then the entries `.` and `<peer>`, numbered, each name in backticks; an
+# existing one whose `## Merge order` lacks the name gets it as the next numbered entry, nothing reordered; one already
+# naming it, or holding no such section, is left as it is. The file is never
+# committed — that planning commit is the caller's.
+#
 #   0. `flow` must be on PATH, checked first: a worktree step 2 could not
 #      persist is never created.
 #   1. check-worktree-location.sh <project> — its exit 1 or 2 stops the run
@@ -47,6 +59,7 @@
 # On success stdout carries exactly:
 #   worktree: <project>-worktrees/<name>
 #   merge-base: <sha>
+# then `merge-order: <link.md>` when the record above was written.
 #
 # Exit codes: 0 all four steps done; 1 a step stopped the run — the location
 # guard's refusal, a failed git call (creating a missing origin/<base>

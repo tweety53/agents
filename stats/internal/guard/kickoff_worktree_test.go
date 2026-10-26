@@ -446,3 +446,65 @@ func TestKickoffWorktreeSymlinkedProject(t *testing.T) {
 		t.Errorf("location check after kickoff: %+v", loc)
 	}
 }
+
+// kan-1017 (sr15): the hand-written merge-order record failed `spectre
+// validate` twice, so kickoff --from writes it into the canonical worktree.
+func TestKickoffWorktreeFromWritesMergeOrder(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name        string
+		peers, link string // "" link: none written beforehand
+		changeDir   bool
+		rc          int
+		want        string // link.md afterwards; "" none
+	}{
+		{"no link.md: written", "peer", "", true, 0, "## Merge order\n\n1. `.`\n2. `peer`\n"},
+		{"appended after the entries found", "peer", "# link\n\n## Merge order\n\n1. `.`\n2. `other`\n\n## Notes\n\nx\n", true, 0,
+			"# link\n\n## Merge order\n\n1. `.`\n2. `other`\n3. `peer`\n\n## Notes\n\nx\n"},
+		{"already named: unchanged", "peer", "## Merge order\n\n1. `.`\n2. `peer`\n", true, 0, "## Merge order\n\n1. `.`\n2. `peer`\n"},
+		{"missing from peers: exit 2", "", "", true, 2, ""},
+		{"no change directory: nothing written", "peer", "", false, 0, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			canon, peer := kwNew(t, "", true), kwNew(t, "", true)
+			canon.started(t)
+			if r := canon.run(t, canon.project, kwName); r.rc != 0 {
+				t.Fatalf("kickoff rc=%d out=%s", r.rc, r.out)
+			}
+			from := canon.project + "-worktrees/" + kwName
+			rel, err := filepath.Rel(canon.project, peer.project)
+			if err != nil {
+				t.Fatal(err)
+			}
+			peers := "frontend ../frontend\n"
+			if tc.peers != "" {
+				peers += tc.peers + " " + rel + "\n"
+			}
+			writeFile(t, from+"/spectre/peers", peers)
+			link := from + "/spectre/changes/" + kwName + "/link.md"
+			if tc.changeDir {
+				mkdir(t, filepath.Dir(link))
+			}
+			if tc.link != "" {
+				writeFile(t, link, tc.link)
+			}
+			r := canon.run(t, "--from", from, peer.project, kwName)
+			if r.rc != tc.rc {
+				t.Fatalf("rc=%d out=%s", r.rc, r.out)
+			}
+			got, _ := os.ReadFile(link)
+			if string(got) != tc.want {
+				t.Errorf("link.md:\n%s\nwant:\n%s", got, tc.want)
+			}
+			if tc.rc == 2 {
+				if _, err := os.Stat(peer.project + "-worktrees/" + kwName); err == nil {
+					t.Errorf("a worktree was added")
+				}
+				if st := canon.flow(t, "", "state", "get", "-C", canon.project, kwName); strings.Contains(st, peer.project) {
+					t.Errorf("worktree recorded: %s", st)
+				}
+			}
+		})
+	}
+}
