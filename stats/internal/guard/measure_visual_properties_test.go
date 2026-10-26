@@ -540,3 +540,60 @@ func TestMeasureVisualPropertiesElements(t *testing.T) {
 		t.Fatalf("bands,elements: exit %d, stderr %q", rc, stderr)
 	}
 }
+
+// kan-1017 (sr11): `--props matrix` fills each paired element's columns in
+// one call, and a region running past the image's edge is clipped to it.
+func TestMeasureVisualPropertiesMatrix(t *testing.T) {
+	t.Parallel()
+	page := func(dy int) func(x, y int) color.RGBA {
+		return func(x, y int) color.RGBA {
+			y -= dy
+			switch {
+			case x >= 20 && x < 80 && y >= 20 && y < 30:
+				return color.RGBA{0x22, 0x22, 0x22, 0xff} // heading
+			case x >= 20 && x <= 180 && y >= 60 && y <= 100:
+				if x == 20 || x == 180 || y == 60 || y == 100 {
+					return color.RGBA{0x88, 0x88, 0x88, 0xff} // border
+				}
+				return color.RGBA{0xf0, 0xf0, 0xf0, 0xff} // fill
+			case x >= 10 && x < 190 && y == 140:
+				return color.RGBA{0xcc, 0xcc, 0xcc, 0xff} // rule
+			}
+			return color.RGBA{0xff, 0xff, 0xff, 0xff}
+		}
+	}
+	a, b := mvpPNG(t, 200, 300, page(0)), mvpPNG(t, 200, 300, page(2))
+	d := mvpJSON(t, "", a, b, "--scale", "1", "--props", "matrix")
+	var got []string
+	for _, row := range mvpList(mvpDig(d, "matrix")) {
+		kind := mvpDig(row, "kind")
+		var filled any
+		switch kind {
+		case "text/control":
+			filled = mvpDig(row, "measured", "a", "ink", "colour")
+		case "fill band":
+			filled = mvpDig(row, "measured", "a", "box", "width")
+		case "rule":
+			filled = mvpDig(row, "measured", "a", "runs", "row", 1, "colour")
+		}
+		got = append(got, mvpSp(mvpDig(row, "status"), kind, filled))
+	}
+	want := []string{"paired text/control #222222", "paired fill band 161", "paired rule #cccccc"}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+
+	edge := mvpPNG(t, 100, 800, func(x, y int) color.RGBA {
+		if y >= 795 && x >= 10 && x < 90 {
+			return color.RGBA{0x20, 0x20, 0x20, 0xff}
+		}
+		return color.RGBA{0xff, 0xff, 0xff, 0xff}
+	})
+	c := mvpJSON(t, "", edge, "--region-a", "0,795,100,7", "--props", "bands")
+	if got := mvpSp(mvpDig(c, "a", "clipped"), len(mvpList(mvpDig(c, "a", "bands")))); got != "bottom 1" {
+		t.Fatalf("edge band: clipped/bands %q, want %q", got, "bottom 1")
+	}
+	if rc, _, stderr := mvpRun(t, "", edge, "--region-a", "0,800,100,7", "--props", "bands"); rc != 2 || !strings.Contains(stderr, "exceeds") {
+		t.Fatalf("region starting outside: exit %d, stderr %q, want 2 naming exceeds", rc, stderr)
+	}
+}

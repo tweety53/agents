@@ -29,10 +29,10 @@ var mvpAllProps = []string{"box", "radius", "border", "fill", "shadow", "content
 
 // Properties that read the region as a whole page: background is the modal
 // colour and the corners need not be background.
-var mvpPageProps = []string{"bands", "seams", "elements"}
+var mvpPageProps = []string{"bands", "seams", "elements", "matrix"}
 
 // mvpOptIn are properties --props accepts that the default set leaves out.
-var mvpOptIn = []string{"elements"}
+var mvpOptIn = []string{"elements", "matrix"}
 
 // mvpFull is the share of a band's height a column must ink to be a seam, and
 // of a cell's width a row must ink to be a rule rather than a text line.
@@ -136,6 +136,18 @@ func measureVisualProperties(args []string, env Env, stdout, stderr io.Writer) i
 		}
 	} else if a.scale != nil || a.refA != nil || a.refB != nil || a.regionB != nil {
 		return refuse("--scale/--ref-*/--region-b need a second image")
+	}
+
+	if slices.Contains(props, "matrix") {
+		if len(props) > 1 || imageB == "" || a.regionA != nil || a.regionB != nil {
+			return refuse("--props matrix stands alone and reads two whole images: drop the other props and any --region-*")
+		}
+		out, err := mvpMatrix(env, a, scale)
+		if err != nil {
+			return refuse(err.Error())
+		}
+		fmt.Fprintln(stdout, pyDump(out))
+		return 0
 	}
 
 	page := true
@@ -345,6 +357,7 @@ type mvpRegion struct {
 	borderColour     [3]byte
 	haveBorderColour bool
 	clipped          [4]bool // left, right, top, bottom: the control runs off the image there
+	clamped          [4]bool // the given region ran past the image's edge there
 	cropped          bool    // the region was given, not the whole image
 }
 
@@ -365,7 +378,7 @@ func (r *mvpRegion) clip() {
 	onEdge := [4]bool{r.x0 == 0, r.x0+r.w == r.im.W, r.y0 == 0, r.y0+r.h == r.im.H}
 	ends := [4][2]int{{0, cy}, {r.w - 1, cy}, {cx, 0}, {cx, r.h - 1}}
 	for k := range r.clipped {
-		r.clipped[k] = onEdge[k] && !r.isBg(r.at(ends[k][0], ends[k][1]))
+		r.clipped[k] = r.clamped[k] || onEdge[k] && !r.isBg(r.at(ends[k][0], ends[k][1]))
 	}
 }
 
@@ -398,9 +411,18 @@ func mvpOpen(env Env, path string, box *[4]int, a mvpArgs, page bool) (*mvpRegio
 		b = *box
 	}
 	r := &mvpRegion{im: im, x0: b[0], y0: b[1], w: b[2], h: b[3], edge: a.edge, noise: a.noise, edgeText: a.edgeText, cropped: box != nil}
-	if r.w > im.W || r.x0 > im.W-r.w || r.h > im.H || r.y0 > im.H-r.h {
+	if r.x0 >= im.W || r.y0 >= im.H {
 		return nil, fmt.Errorf("region (%d, %d, %d, %d) exceeds %s (%dx%d)", b[0], b[1], b[2], b[3], path, im.W, im.H)
 	}
+	// sr11 (kan-1017): a region starting inside the image but running past
+	// its edge is clamped to the image and clipped on that side.
+	if r.x0+r.w > im.W {
+		r.w, r.clamped[1] = im.W-r.x0, true
+	}
+	if r.y0+r.h > im.H {
+		r.h, r.clamped[3] = im.H-r.y0, true
+	}
+	r.clipped = r.clamped
 	if page {
 		var c mvpCounter
 		for y := 0; y < r.h; y++ {
@@ -1025,11 +1047,11 @@ func (r *mvpRegion) measure(props []string) (mvpMeasured, error) {
 		return slices.ContainsFunc(names, func(n string) bool { return slices.Contains(props, n) })
 	}
 	m := mvpMeasured{out: pyObj{{"background", mvpHex(r.bg)}}}
+	if c := r.clippedText(); c != "" {
+		m.out = append(m.out, pyKV{"clipped", c})
+	}
 	needsBox := slices.ContainsFunc(props, func(p string) bool { return !slices.Contains([]string{"ink", "runs", "bands", "seams", "elements"}, p) })
 	if needsBox {
-		if c := r.clippedText(); c != "" {
-			m.out = append(m.out, pyKV{"clipped", c})
-		}
 		box, err := r.measureBox()
 		if err != nil {
 			return m, err
@@ -1179,6 +1201,69 @@ func (r *mvpRegion) measureElements() (int, [3]byte, []mvpElement) {
 		out = append(out, e)
 	}
 	return t, bg, out
+}
+
+// mvpKindProps is the matrix columns each element kind fills: text its ink
+// (and, for a control, its box columns when its region resolves), a fill band
+// its box columns, a rule its runs.
+var mvpKindProps = map[string][]string{
+	"text/control": {"ink"},
+	"fill band":    {"box", "radius", "border", "fill", "shadow", "content", "gap"},
+	"rule":         {"runs"},
+}
+
+// mvpMatrix is `--props matrix`: both whole images' elements, paired in
+// order, each pair measured on its own region — the element's box with a
+// 4px margin, clipped to the image — with its kind's columns.
+func mvpMatrix(env Env, a mvpArgs, scale float64) (pyObj, error) {
+	var sides [2]mvpMeasured
+	for i, path := range a.images {
+		r, err := mvpOpen(env, path, nil, a, true)
+		if err != nil {
+			return nil, err
+		}
+		_, _, sides[i].elements = r.measureElements()
+	}
+	ea, eb := sides[0].elements, sides[1].elements
+	measure := func(path string, e mvpElement, props []string) (mvpMeasured, error) {
+		const m = 4
+		x, y := max(e.left-m, 0), max(e.top-m, 0)
+		box := [4]int{x, y, e.left + e.width + m - x, e.top + e.height + m - y}
+		r, err := mvpOpen(env, path, &box, a, false)
+		if err != nil {
+			return mvpMeasured{}, err
+		}
+		return r.measure(props)
+	}
+	pairs := mvpPairInOrder(mvpElementRecs(ea), mvpElementRecs(eb), scale, "gap", "height", []string{"colour"})
+	rows := []pyObj{}
+	for _, p := range pairs {
+		if p.status != "paired" {
+			rows = append(rows, p.obj)
+			continue
+		}
+		kind := ea[p.i].kind
+		props := mvpKindProps[kind]
+		row := append(pyObj{{"kind", kind}}, p.obj...)
+		ma, errA := measure(a.images[0], ea[p.i], props)
+		mb, errB := measure(a.images[1], eb[p.j], props)
+		if errA != nil || errB != nil {
+			row = append(row, pyKV{"unresolved", errors.Join(errA, errB).Error()})
+			rows = append(rows, row)
+			continue
+		}
+		if kind == "text/control" {
+			box := mvpKindProps["fill band"]
+			if ba, err := measure(a.images[0], ea[p.i], box); err == nil {
+				if bb, err := measure(a.images[1], eb[p.j], box); err == nil {
+					ma.out, mb.out, props = append(ma.out, ba.out[1:]...), append(mb.out, bb.out[1:]...), append(slices.Clone(props), box...)
+				}
+			}
+		}
+		rows = append(rows, append(row, pyKV{"measured", pyObj{{"a", ma.out}, {"b", mb.out}, {"delta", mvpDelta(ma, mb, props, scale)}}}))
+	}
+	paired, missing, extra := mvpCountStatus(pairs)
+	return pyObj{{"scale", scale}, {"matrix", rows}, {"summary", pyObj{{"paired", paired}, {"missing", missing}, {"extra", extra}}}}, nil
 }
 
 func mvpElementRecs(elems []mvpElement) []mvpRec {

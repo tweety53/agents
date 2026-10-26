@@ -412,7 +412,9 @@ never an exit code the command did not return.
       image's app surface — a sheet's top edge on a scrim frame — and lists every ink run inside it,
       paired in order with its deltas; every element it merges or misses is added by hand
       (kan-1015: the band read took each scrim-dimmed frame as one band, and every matrix was
-      measured with a hand-written script).
+      measured with a hand-written script). `measure-visual-properties.sh <frame> <capture> --scale <f> --props matrix` then
+      fills every column below for every paired element in one call, each region clipped to its
+      image; a row it does not pair takes the per-element calls.
    2. **Fill every column for every row from the script's own output**, one call per element:
 
       | column | text run (`--props ink`, the crop spanning the run's container's full width) | control, row, card (`--props box,radius,border,fill,shadow,content,gap`) | rule, divider, fill band (`--props runs`, the region crossing it) |

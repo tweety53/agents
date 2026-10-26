@@ -17,7 +17,7 @@
 #                           (heights must agree with that factor within 5%)
 #     --props <list>        comma-separated subset of box,radius,border,fill,
 #                           shadow,content,gap,ink,runs,bands,seams (default: all),
-#                           or the opt-in elements
+#                           or the opt-in elements, or matrix alone
 #     --edge <n>            adjacent-pixel colour jump (RGB Euclidean, 0-441)
 #                           that counts as a hard edge (default 24)
 #     --noise <n>           colour distance to background below which a pixel
@@ -178,6 +178,21 @@
 #            colour, kind and gap above; paired in order across two images
 #            like `bands`. Not in the default set (kan-1015: scrim-dimmed
 #            sheet frames read as one band).
+#   matrix — opt-in, alone, two whole images (no `--region-*`): `elements`
+#            on both, paired in order, then each paired element measured on
+#            its own region (its box plus a 4px margin, clipped to the image)
+#            with its kind's columns — `text/control` `ink`, plus the box
+#            columns when its region resolves; `fill band` `box`, `radius`,
+#            `border`, `fill`, `shadow`, `content`, `gap`; `rule` `runs`.
+#            Output is `scale`, `matrix` (one row per pair: `kind`, the
+#            pairing, and `measured` with `a`, `b` and `delta`, or
+#            `unresolved` with the reason; an unpaired element is its
+#            `missing` or `extra` row) and `summary` (kan-1017: every matrix
+#            was filled one element per call).
+#
+# A given `--region-*` that starts inside the image but runs past its edge is
+# clamped to the image and reported `clipped` on that side; one starting
+# outside the image is refused (exit 2).
 #
 # Output (stdout): one JSON object — `a`, `b` (when given), `scale`, and
 # `delta`: for every numeric leaf, `a`, `a_scaled` (`a` × scale for lengths,
@@ -197,7 +212,8 @@
 #      straight side, or the region's centre outside the box. The reason is on
 #      stderr; nothing is guessed.
 #   2  cannot answer: usage error, two images with no calibration, `--ref-*`
-#      boxes whose aspect disagrees, or an unreadable image (anything but a PNG
+#      boxes whose aspect disagrees, a region starting outside its image, or
+#      an unreadable image (anything but a PNG
 #      included).
 #
 # The body is Go: stats/internal/guard/measurevisualproperties.go. Option names
