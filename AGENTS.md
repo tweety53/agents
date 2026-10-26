@@ -66,6 +66,22 @@ run, are the `## stop` section of `<project>/.flow/project.md` — canonical for
 restated here. Stopping the dev stack is an operator action; the commands live in that file's
 `## run` section and in `<project>/stats/README.md`.
 
+### Reinstall after a change to this repository is fully done
+
+Once a change to this repository has fully landed — on `/flow`, after run 2's cleanup; on
+`/flow-fast`, after its cleanup; on a pipeline-fix or self-review loop, after `pipeline-fix.sh
+land` — run, from the main checkout:
+
+```bash
+./setup.sh global
+make -C stats restart
+```
+
+`setup.sh global` reinstalls the rules, skills, hooks and guard symlinks every session reads, and
+`make restart` rebuilds the `flow` CLI and restarts `flowd`, so the next run acts on what just
+landed instead of the copies installed before it. This restart is the one stop of `flowd` the
+rule above allows: it brings the service straight back on the new build.
+
 ---
 
 ## Project Skills (spectre / /flow workflow)
