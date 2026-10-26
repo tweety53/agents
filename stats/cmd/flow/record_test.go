@@ -5210,6 +5210,24 @@ func TestRecordDispatchEndSendsCommitAt(t *testing.T) {
 	}
 }
 
+// TestRecordDispatchEndAcceptsSkipped pins `skipped` in recordOutcomes:
+// run-verify-list ends an all-skipped run with it, and a refusal would leave
+// that row open.
+func TestRecordDispatchEndAcceptsSkipped(t *testing.T) {
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	srv, bodies := postBodies(t)
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(), []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "kan-258", "-key", "verify-list-lint", "-session-token", "mf-record-skipped", "-outcome", "skipped"},
+		strings.NewReader(""), &stdout, &stderr); code != 0 {
+		t.Fatalf("exit %d; stderr:\n%s", code, stderr.String())
+	}
+	if len(*bodies) != 1 || (*bodies)[0]["outcome"] != "skipped" {
+		t.Fatalf("bodies = %v, want one with outcome skipped", *bodies)
+	}
+}
+
 // TestRecordDispatchBackfillDerivesInlineInstants pins kan-1003's derived
 // back-fill: an inline back-fill with -commit takes its end from that
 // commit and its start from the commit before it, and refuses either
