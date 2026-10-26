@@ -1,0 +1,41 @@
+diff --git a/src/app/template/src/test/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapterIntegrationTest.kt b/src/app/template/src/test/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapterIntegrationTest.kt
+index a19fd265..7d2212c4 100644
+--- a/src/app/template/src/test/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapterIntegrationTest.kt
++++ b/src/app/template/src/test/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapterIntegrationTest.kt
+@@ -190,6 +190,36 @@ class TemplateRepositoryAdapterIntegrationTest {
+         assertEquals(0L, memberProgram.totalElements)
+     }
+ 
++    @Test
++    fun `admin page names the first gymie program holding each workout and never a member's`() {
++        val database = uniqueDatabase()
++        migrate(target = "48", database = database)
++        val jdbc = jdbc(database)
++        val dana = UUID.randomUUID()
++        jdbc.update("insert into \"user\" (id, email, display_name, slug) values (?, ?, ?, ?)", dana, "dana@example.com", "Dana", "dana")
++        val repository = TemplateRepositoryAdapter(jdbc)
++        val empty = TemplatePlan(emptyList())
++        val (shared, memberOnly, loose) =
++            listOf("Zz shared", "Zz member only", "Zz loose").map {
++                repository.insert(null, TemplateState.PUBLIC, it, "PPL", null, empty)
++            }
++        repository.insertProgram(WeekProgramDraft("Zz Beta", "PPL", null, 1, 1, 1, listOf(shared)), TemplateState.PUBLIC)
++        repository.insertProgram(WeekProgramDraft("Zz Alpha", "PPL", null, 1, 1, 1, listOf(shared)), TemplateState.DRAFT)
++        val member =
++            repository.insertProgram(
++                WeekProgramDraft("Aa Dana", "PPL", null, 1, 1, 1, listOf(shared, memberOnly)),
++                TemplateState.PUBLIC,
++            )
++        jdbc.update("update week_program set owner_id = ? where id = ?", dana, member)
++
++        val rows = repository.adminPage(AdminTemplateQuery(null, "Zz", null), PageRequest(0, 50, "name", SortDirection.ASC)).items
++        assertEquals(
++            mapOf(shared to "Zz Alpha", memberOnly to null, loose to null),
++            rows.filter { it.kind == TemplateKind.WORKOUT }.associate { it.id to it.programName },
++        )
++        assertNull(rows.first { it.kind == TemplateKind.WEEK }.programName)
++    }
++
+     @Test
+     fun `admin page filters private templates by review outcome`() {
+         val database = uniqueDatabase()

@@ -1,0 +1,49 @@
+diff --git a/components/WeekProgramForm.tsx b/components/WeekProgramForm.tsx
+index 95541e7..c2b3bce 100644
+--- a/components/WeekProgramForm.tsx
++++ b/components/WeekProgramForm.tsx
+@@ -3,7 +3,6 @@ import { WeekProgramWorkoutsField } from '@/components/WeekProgramWorkoutsField'
+ import { Input } from '@/components/ui/input';
+ import { Label } from '@/components/ui/label';
+ import * as templatesApi from '@/lib/api/templates';
+-import * as weekProgramsApi from '@/lib/api/weekPrograms';
+ import { MAX_PAGE_SIZE } from '@/lib/searchParams';
+ import type { TemplateState, WeekProgram } from '@/lib/types';
+ import { FRAME_HEADING, FRAME_LINE, FRAME_RADIO, FRAME_RADIO_ROW } from '@/lib/frameGeometry';
+@@ -11,32 +10,23 @@ import { SELECT_CARET } from '@/lib/selectCaret';
+ 
+ /**
+  * Every public workout and every Gymie draft workout: what a program's days may hold. Each is labelled
+- * `<workout> — <routine>` as AD7 draws it, the routine being the Gymie program that holds it.
++ * `<workout> — <routine>` as AD7 draws it, the routine being the Gymie program the list names for it.
+  */
+ export async function loadProgramWorkouts(token: string): Promise<{ id: string; name: string; draft: boolean }[]> {
+   const workouts: { id: string; name: string; draft: boolean }[] = [];
+-  const programIds: string[] = [];
+   for (const state of ['PUBLIC', 'DRAFT'] as TemplateState[]) {
+     for (let page = 0; ; page++) {
+       const result = await templatesApi.listTemplates(token, { state, page, size: MAX_PAGE_SIZE, sort: 'name,asc' });
+       for (const row of result.content) {
+         if (row.kind === 'WORKOUT' && (state === 'PUBLIC' || row.ownerName === null)) {
+-          workouts.push({ id: row.id, name: row.name, draft: state === 'DRAFT' });
+-        } else if (row.kind === 'WEEK' && row.ownerName === null) {
+-          programIds.push(row.id);
++          const name = row.programName ? `${row.name} — ${row.programName}` : row.name;
++          workouts.push({ id: row.id, name, draft: state === 'DRAFT' });
+         }
+       }
+       if (page + 1 >= result.totalPages) break;
+     }
+   }
+-  const routine = new Map<string, string>();
+-  // A program that fails to load only loses its routine labels, never the page.
+-  for (const result of await Promise.allSettled(programIds.map((id) => weekProgramsApi.getWeekProgram(token, id)))) {
+-    if (result.status === 'rejected') continue;
+-    const program = result.value;
+-    for (const workout of program.workouts) if (!routine.has(workout.id)) routine.set(workout.id, program.name);
+-  }
+-  return workouts.map((w) => (routine.has(w.id) ? { ...w, name: `${w.name} — ${routine.get(w.id)}` } : w));
++  return workouts;
+ }
+ 
+ type Props = {

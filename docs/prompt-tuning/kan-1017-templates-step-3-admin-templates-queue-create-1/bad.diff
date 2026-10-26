@@ -1,0 +1,44 @@
+diff --git a/components/WeekProgramForm.tsx b/components/WeekProgramForm.tsx
+index 44a798b..908c6da 100644
+--- a/components/WeekProgramForm.tsx
++++ b/components/WeekProgramForm.tsx
+@@ -3,26 +3,37 @@ import { WeekProgramWorkoutsField } from '@/components/WeekProgramWorkoutsField'
+ import { Input } from '@/components/ui/input';
+ import { Label } from '@/components/ui/label';
+ import * as templatesApi from '@/lib/api/templates';
++import * as weekProgramsApi from '@/lib/api/weekPrograms';
+ import { MAX_PAGE_SIZE } from '@/lib/searchParams';
+ import type { TemplateState, WeekProgram } from '@/lib/types';
+ import { FRAME_HEADING, FRAME_LINE, FRAME_RADIO, FRAME_RADIO_ROW } from '@/lib/frameGeometry';
+ import { SELECT_CARET } from '@/lib/selectCaret';
+ 
+-/** Every public workout and every Gymie draft workout: what a program's days may hold. */
++/**
++ * Every public workout and every Gymie draft workout: what a program's days may hold. Each is labelled
++ * `<workout> — <routine>` as AD7 draws it, the routine being the Gymie program that holds it.
++ */
+ export async function loadProgramWorkouts(token: string): Promise<{ id: string; name: string; draft: boolean }[]> {
+   const workouts: { id: string; name: string; draft: boolean }[] = [];
++  const programIds: string[] = [];
+   for (const state of ['PUBLIC', 'DRAFT'] as TemplateState[]) {
+     for (let page = 0; ; page++) {
+       const result = await templatesApi.listTemplates(token, { state, page, size: MAX_PAGE_SIZE, sort: 'name,asc' });
+       for (const row of result.content) {
+         if (row.kind === 'WORKOUT' && (state === 'PUBLIC' || row.ownerName === null)) {
+           workouts.push({ id: row.id, name: row.name, draft: state === 'DRAFT' });
++        } else if (row.kind === 'WEEK' && row.ownerName === null) {
++          programIds.push(row.id);
+         }
+       }
+       if (page + 1 >= result.totalPages) break;
+     }
+   }
+-  return workouts;
++  const routine = new Map<string, string>();
++  for (const program of await Promise.all(programIds.map((id) => weekProgramsApi.getWeekProgram(token, id)))) {
++    for (const workout of program.workouts) if (!routine.has(workout.id)) routine.set(workout.id, program.name);
++  }
++  return workouts.map((w) => (routine.has(w.id) ? { ...w, name: `${w.name} — ${routine.get(w.id)}` } : w));
+ }
+ 
+ type Props = {

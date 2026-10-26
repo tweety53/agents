@@ -1,0 +1,22 @@
+{
+  "id": "kan-1017-templates-step-3-admin-templates-queue-create-1",
+  "type": "implementer",
+  "scope": "generic",
+  "source": {
+    "project": "gymie",
+    "change": "kan-1017-templates-step-3-admin-templates-queue-create",
+    "jira": "KAN-1017",
+    "repo": "gymie-admin-frontend",
+    "fix_sha": "7bed3d0e5bd9bce1a9cdbd9fc6f7858f6735b315",
+    "finding_ref": "F6",
+    "round": 3,
+    "slot": "call-efficiency",
+    "severity": "Critical"
+  },
+  "target": "skills/flow/engineering-principles.md",
+  "target_sha": "1d09afd8aae196e8c0e47697a53f835626ef5fd7",
+  "defect_class": "One request path issues the same kind of read once per item of a list it already fetched, so the number of calls grows with the data instead of staying constant.",
+  "why_picked": "1. Defect class: a request path fetches a list and then reads each item's detail (or the same row again) in a loop, an N+1 the caller pays on every load, where one query returning the needed field would do. 2. The implementer instructions name no rule about the number of reads a path issues: engineering-principles.md's KISS reads \"Choose the simplest construction that solves the problem actually in front of you.\" and a grep for N+1, round trip, once per and per item across engineering-principles.md, implement.md and sdd-dispatch.md finds nothing that applies; the per-item loop is the simplest construction, so KISS endorses it. 3. It generalises: the same run's panel raised F1 (one week_program row loaded up to three times in a single request) and F3 (a count call repeating the list's own total) besides this Critical, three call-efficiency findings on two layers and two languages, each costing a fix round. 4. It states a principle (a path's read count is constant in its data: fetch what a view needs in one read, never once per row), not a special case of this task.",
+  "before": "Choose the simplest construction that solves the problem actually in front of you.",
+  "after": "Choose the simplest construction that solves the problem actually in front of you.\nA request path's number of reads stays constant in the size of its data: a value shown per\nrow comes from the query that returns the rows, never from one call per row, and no path\nreads the same record twice."
+}

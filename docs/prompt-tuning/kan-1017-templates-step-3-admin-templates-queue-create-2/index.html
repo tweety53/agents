@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kan-1017-templates-step-3-admin-templates-queue-create-2</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0 auto;max-width:1100px;padding:16px;line-height:1.45}
+pre{background:#f4f4f4;padding:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.ab{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:700px){.ab{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>kan-1017-templates-step-3-admin-templates-queue-create-2</h1>
+<h2>Type</h2>
+<p>reviewer — miss · scope generic</p>
+<h2>Defect class</h2>
+<p>A test that pins an ordering builds fixture data whose order under a competing sort key matches the order under the key the code uses, so swapping or dropping that key leaves the test green.</p>
+<h2>Finding</h2>
+<pre>**Severity:** Important
+**Slot:** mutation (round 7)
+**Location:** src/app/template/src/main/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapter.kt:54
+
+first Gymie program by name unpinned: id order matched name order by chance
+</pre>
+<pre><code>diff --git a/src/app/template/src/test/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapterIntegrationTest.kt b/src/app/template/src/test/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapterIntegrationTest.kt
+index a19fd265..7d2212c4 100644
+--- a/src/app/template/src/test/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapterIntegrationTest.kt
+&#43;&#43;&#43; b/src/app/template/src/test/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapterIntegrationTest.kt
+@@ -190,6 &#43;190,36 @@ class TemplateRepositoryAdapterIntegrationTest {
+         assertEquals(0L, memberProgram.totalElements)
+     }
+ 
+&#43;    @Test
+&#43;    fun `admin page names the first gymie program holding each workout and never a member&#39;s`() {
+&#43;        val database = uniqueDatabase()
+&#43;        migrate(target = &#34;48&#34;, database = database)
+&#43;        val jdbc = jdbc(database)
+&#43;        val dana = UUID.randomUUID()
+&#43;        jdbc.update(&#34;insert into \&#34;user\&#34; (id, email, display_name, slug) values (?, ?, ?, ?)&#34;, dana, &#34;dana@example.com&#34;, &#34;Dana&#34;, &#34;dana&#34;)
+&#43;        val repository = TemplateRepositoryAdapter(jdbc)
+&#43;        val empty = TemplatePlan(emptyList())
+&#43;        val (shared, memberOnly, loose) =
+&#43;            listOf(&#34;Zz shared&#34;, &#34;Zz member only&#34;, &#34;Zz loose&#34;).map {
+&#43;                repository.insert(null, TemplateState.PUBLIC, it, &#34;PPL&#34;, null, empty)
+&#43;            }
+&#43;        repository.insertProgram(WeekProgramDraft(&#34;Zz Beta&#34;, &#34;PPL&#34;, null, 1, 1, 1, listOf(shared)), TemplateState.PUBLIC)
+&#43;        repository.insertProgram(WeekProgramDraft(&#34;Zz Alpha&#34;, &#34;PPL&#34;, null, 1, 1, 1, listOf(shared)), TemplateState.DRAFT)
+&#43;        val member =
+&#43;            repository.insertProgram(
+&#43;                WeekProgramDraft(&#34;Aa Dana&#34;, &#34;PPL&#34;, null, 1, 1, 1, listOf(shared, memberOnly)),
+&#43;                TemplateState.PUBLIC,
+&#43;            )
+&#43;        jdbc.update(&#34;update week_program set owner_id = ? where id = ?&#34;, dana, member)
+&#43;
+&#43;        val rows = repository.adminPage(AdminTemplateQuery(null, &#34;Zz&#34;, null), PageRequest(0, 50, &#34;name&#34;, SortDirection.ASC)).items
+&#43;        assertEquals(
+&#43;            mapOf(shared to &#34;Zz Alpha&#34;, memberOnly to null, loose to null),
+&#43;            rows.filter { it.kind == TemplateKind.WORKOUT }.associate { it.id to it.programName },
+&#43;        )
+&#43;        assertNull(rows.first { it.kind == TemplateKind.WEEK }.programName)
+&#43;    }
+&#43;
+     @Test
+     fun `admin page filters private templates by review outcome`() {
+         val database = uniqueDatabase()
+</code></pre>
+<h2>Fix</h2>
+<pre><code>diff --git a/src/app/template/src/test/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapterIntegrationTest.kt b/src/app/template/src/test/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapterIntegrationTest.kt
+index 480b2e2d..6f1badea 100644
+--- a/src/app/template/src/test/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapterIntegrationTest.kt
+&#43;&#43;&#43; b/src/app/template/src/test/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapterIntegrationTest.kt
+@@ -203,8 &#43;203,11 @@ class TemplateRepositoryAdapterIntegrationTest {
+             listOf(&#34;Zz shared&#34;, &#34;Zz member only&#34;, &#34;Zz loose&#34;).map {
+                 repository.insert(null, TemplateState.PUBLIC, it, &#34;PPL&#34;, null, empty)
+             }
+-        repository.insertProgram(WeekProgramDraft(&#34;Zz Beta&#34;, &#34;PPL&#34;, null, 1, 1, 1, listOf(shared)), TemplateState.PUBLIC)
+-        repository.insertProgram(WeekProgramDraft(&#34;Zz Alpha&#34;, &#34;PPL&#34;, null, 1, 1, 1, listOf(shared)), TemplateState.DRAFT)
+&#43;        // Name order runs opposite to id order, so a pick by id alone names the wrong program.
+&#43;        repeat(2) { repository.insertProgram(WeekProgramDraft(&#34;Zz&#34;, &#34;PPL&#34;, null, 1, 1, 1, listOf(shared)), TemplateState.PUBLIC) }
+&#43;        val (lowId, highId) = jdbc.queryForList(&#34;select id from week_program where name = &#39;Zz&#39; order by id&#34;, UUID::class.java)
+&#43;        jdbc.update(&#34;update week_program set name = &#39;Zz Beta&#39; where id = ?&#34;, lowId)
+&#43;        jdbc.update(&#34;update week_program set name = &#39;Zz Alpha&#39;, state = &#39;DRAFT&#39; where id = ?&#34;, highId)
+         val member =
+             repository.insertProgram(
+                 WeekProgramDraft(&#34;Aa Dana&#34;, &#34;PPL&#34;, null, 1, 1, 1, listOf(shared, memberOnly)),
+</code></pre>
+<h2>Why picked</h2>
+<pre>1. Defect class: an ordering or first-pick test whose fixture rows sort the same under the tested key and under a competing one (an id tie-break, insertion order), so it cannot tell the two apart and passes by chance. 2. The test-sanity slot&#39;s &#34;Can it fail?&#34; lens lists tautologies, configured mocks, assertions on the fixture, empty tests and dead paths, but nothing about fixture data that does not discriminate between keys: the before quote is that whole lens. 3. It generalises to every sorted list, first-by, latest-by or tie-break test in any language and layer; the test landed in round 3&#39;s fix (f5ff3bce, panel-fix-3), and the test-sanity slot reviewed it in rounds 5 and 6 and the mutation slot in rounds 4 to 6 without raising it, until round 7&#39;s mutation slot found `order by p.id` survived (the random UUIDs happened to sort as the names did), and the fix (bfadad68) had to read the ids back in Postgres order to build data where the keys disagree. 4. It states a principle (an ordering test&#39;s data must order differently under every competing key), not a special case of this task.</pre>
+<h2>Prompt update</h2>
+<p>Target: <code>skills/flow/test-sanity-reviewer-prompt.md</code> at <code>1d09afd8aae196e8c0e47697a53f835626ef5fd7</code></p>
+<div class="ab">
+<div><h3>Before</h3><pre>    - **Can it fail?** Would the test fail if the behaviour it names broke? A tautology
+      (asserting a value against itself, or against the same expression the code computes),
+      an assertion on a mock or stub the test itself configured, an assertion on the fixture
+      or the test&#39;s own input, a test that asserts nothing, and a test whose assertions sit
+      on a path that never runs (a swallowed panic, an early return, a skipped table row,
+      an unawaited promise) all fail this lens.</pre></div>
+<div><h3>After</h3><pre>    - **Can it fail?** Would the test fail if the behaviour it names broke? A tautology
+      (asserting a value against itself, or against the same expression the code computes),
+      an assertion on a mock or stub the test itself configured, an assertion on the fixture
+      or the test&#39;s own input, a test that asserts nothing, and a test whose assertions sit
+      on a path that never runs (a swallowed panic, an early return, a skipped table row,
+      an unawaited promise) all fail this lens.
+      An ordering, first-by or tie-break test whose fixture rows sort the same under a
+      competing key — the id, insertion order, another column — fails it too: the test
+      cannot tell the key under test from the competing one, so a swap passes by chance.</pre></div>
+</div>
+</body>
+</html>

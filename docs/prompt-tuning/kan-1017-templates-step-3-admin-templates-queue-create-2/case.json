@@ -1,0 +1,23 @@
+{
+  "id": "kan-1017-templates-step-3-admin-templates-queue-create-2",
+  "type": "reviewer",
+  "reviewer_kind": "miss",
+  "scope": "generic",
+  "source": {
+    "project": "gymie",
+    "change": "kan-1017-templates-step-3-admin-templates-queue-create",
+    "jira": "KAN-1017",
+    "repo": "gymie",
+    "fix_sha": "bfadad686abcf672fcd2c4d05ef898617185d6c3",
+    "finding_ref": "F14",
+    "round": 7,
+    "slot": "mutation",
+    "severity": "Important"
+  },
+  "target": "skills/flow/test-sanity-reviewer-prompt.md",
+  "target_sha": "1d09afd8aae196e8c0e47697a53f835626ef5fd7",
+  "defect_class": "A test that pins an ordering builds fixture data whose order under a competing sort key matches the order under the key the code uses, so swapping or dropping that key leaves the test green.",
+  "why_picked": "1. Defect class: an ordering or first-pick test whose fixture rows sort the same under the tested key and under a competing one (an id tie-break, insertion order), so it cannot tell the two apart and passes by chance. 2. The test-sanity slot's \"Can it fail?\" lens lists tautologies, configured mocks, assertions on the fixture, empty tests and dead paths, but nothing about fixture data that does not discriminate between keys: the before quote is that whole lens. 3. It generalises to every sorted list, first-by, latest-by or tie-break test in any language and layer; the test landed in round 3's fix (f5ff3bce, panel-fix-3), and the test-sanity slot reviewed it in rounds 5 and 6 and the mutation slot in rounds 4 to 6 without raising it, until round 7's mutation slot found `order by p.id` survived (the random UUIDs happened to sort as the names did), and the fix (bfadad68) had to read the ids back in Postgres order to build data where the keys disagree. 4. It states a principle (an ordering test's data must order differently under every competing key), not a special case of this task.",
+  "before": "    - **Can it fail?** Would the test fail if the behaviour it names broke? A tautology\n      (asserting a value against itself, or against the same expression the code computes),\n      an assertion on a mock or stub the test itself configured, an assertion on the fixture\n      or the test's own input, a test that asserts nothing, and a test whose assertions sit\n      on a path that never runs (a swallowed panic, an early return, a skipped table row,\n      an unawaited promise) all fail this lens.",
+  "after": "    - **Can it fail?** Would the test fail if the behaviour it names broke? A tautology\n      (asserting a value against itself, or against the same expression the code computes),\n      an assertion on a mock or stub the test itself configured, an assertion on the fixture\n      or the test's own input, a test that asserts nothing, and a test whose assertions sit\n      on a path that never runs (a swallowed panic, an early return, a skipped table row,\n      an unawaited promise) all fail this lens.\n      An ordering, first-by or tie-break test whose fixture rows sort the same under a\n      competing key — the id, insertion order, another column — fails it too: the test\n      cannot tell the key under test from the competing one, so a swap passes by chance."
+}

@@ -1,0 +1,18 @@
+diff --git a/src/app/template/src/test/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapterIntegrationTest.kt b/src/app/template/src/test/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapterIntegrationTest.kt
+index 480b2e2d..6f1badea 100644
+--- a/src/app/template/src/test/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapterIntegrationTest.kt
++++ b/src/app/template/src/test/kotlin/com/gymie/template/infrastructure/persistence/TemplateRepositoryAdapterIntegrationTest.kt
+@@ -203,8 +203,11 @@ class TemplateRepositoryAdapterIntegrationTest {
+             listOf("Zz shared", "Zz member only", "Zz loose").map {
+                 repository.insert(null, TemplateState.PUBLIC, it, "PPL", null, empty)
+             }
+-        repository.insertProgram(WeekProgramDraft("Zz Beta", "PPL", null, 1, 1, 1, listOf(shared)), TemplateState.PUBLIC)
+-        repository.insertProgram(WeekProgramDraft("Zz Alpha", "PPL", null, 1, 1, 1, listOf(shared)), TemplateState.DRAFT)
++        // Name order runs opposite to id order, so a pick by id alone names the wrong program.
++        repeat(2) { repository.insertProgram(WeekProgramDraft("Zz", "PPL", null, 1, 1, 1, listOf(shared)), TemplateState.PUBLIC) }
++        val (lowId, highId) = jdbc.queryForList("select id from week_program where name = 'Zz' order by id", UUID::class.java)
++        jdbc.update("update week_program set name = 'Zz Beta' where id = ?", lowId)
++        jdbc.update("update week_program set name = 'Zz Alpha', state = 'DRAFT' where id = ?", highId)
+         val member =
+             repository.insertProgram(
+                 WeekProgramDraft("Aa Dana", "PPL", null, 1, 1, 1, listOf(shared, memberOnly)),
