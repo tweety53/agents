@@ -34,7 +34,7 @@
 #      saying "not traced" or "untraced", and one LAND-DEFERRED-FINDING
 #      line per "— noted" finding line leaving its action to the operator
 #      ("for the operator", "operator decision", "operator's call",
-#      "operator's choice", "your call", "if you want"), and one
+#      "operator's choice", "your call", "if you want", "spot-check"), and one
 #      LAND-CASE-MISSING line per `[flow-prompt-tuning]` line calling itself a
 #      prompt-tuning case without naming its docs/prompt-tuning/<case-id>/
 #      folder, or naming one absent from this agents checkout's origin/main;

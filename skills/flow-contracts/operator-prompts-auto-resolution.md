@@ -20,6 +20,12 @@ option be taken even when it reopens an earlier choice of theirs. Frame it with 
 pipeline's own rules favour marked recommended (for a mockup departure, matching the mockup, per `rules/design-mockups-are-specs.mdc`),
 and take that option.
 
+**A child's hand-back never reaches the operator as an ask.** A fixer's or implementer's "please
+spot-check", "your call" or any decision its report leaves open is resolved inside the run: a check
+it asks for — a regenerated golden or snapshot among them — is made by the loop's reviewer, its
+dispatch naming each regenerated file and the one change each may carry; a decision left over is
+taken by its recommended option by the parent and recorded as below, never listed as open.
+
 **The `## decisions: recommended` mode widens the scope to planning.** When the project's
 `## decisions` key resolves to `recommended` (**Project configuration**,
 `skills/flow-contracts/project-configuration.md`), the paragraph above holds for the whole run:

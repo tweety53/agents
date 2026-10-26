@@ -52,6 +52,12 @@ rather than reporting it missing. Reporting a run-only field as *missing* would 
 something is wrong when nothing is, which is the opposite of what the rule above buys. The marker
 annotates the template and is never text a command prints.
 
+**No block, and no run's final report, carries an open item for the operator** — a spot-check, a
+"your call", a deferred defect, an unreproduced failure, an unwritten case: each is resolved in the
+run before it hands off. The one exception is a decision only the operator can make — outward-facing
+or irreversible with no recommended option (**What still stops**,
+`skills/flow-contracts/operator-prompts-auto-resolution.md`) — carried on the `**Decisions:**` line.
+
 Only the form carrying a change name regenerates a block. `/flow-status` with no argument stays
 the table it is today. Regenerating performs no action named in the block it prints — the command is
 read-only in both forms.

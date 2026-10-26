@@ -600,7 +600,8 @@ func TestLandSelfReviewReportRefusesDeferredFinding(t *testing.T) {
 	const rep = "docs/self-review/kan-d-self-review.md"
 	const line = "- **[flow-fix]** `feature/cardio` lacks develop's devRestart isolation fix 98da4aad; a branch decision for the operator — noted"
 	const tail = "- **[flow-fix]** merging it is your call — noted (left open)"
-	g.write(repo+"/"+rep, "## 1. Problems — `flow-fix`\n\n"+line+"\n"+tail+"\n")
+	const spot = "- **[flow-fix]** 14 goldens regenerated; please spot-check them — noted"
+	g.write(repo+"/"+rep, "## 1. Problems — `flow-fix`\n\n"+line+"\n"+tail+"\n"+spot+"\n")
 	if g.err != nil {
 		t.Fatal(g.err)
 	}
@@ -609,7 +610,8 @@ func TestLandSelfReviewReportRefusesDeferredFinding(t *testing.T) {
 	var o, e bytes.Buffer
 	rc := Registry["land-self-review-report"]([]string{repo, "main", "docs(self-review): kan-d self-review report", rep}, env, &o, &e)
 	want := "LAND-DEFERRED-FINDING: " + rep + ":3: " + line + " — fix it in the run, never leave it to the operator; nothing added, committed, pulled or pushed\n" +
-		"LAND-DEFERRED-FINDING: " + rep + ":4: " + tail + " — fix it in the run, never leave it to the operator; nothing added, committed, pulled or pushed\n"
+		"LAND-DEFERRED-FINDING: " + rep + ":4: " + tail + " — fix it in the run, never leave it to the operator; nothing added, committed, pulled or pushed\n" +
+		"LAND-DEFERRED-FINDING: " + rep + ":5: " + spot + " — fix it in the run, never leave it to the operator; nothing added, committed, pulled or pushed\n"
 	if rc != 4 || e.String() != want || o.String() != "" {
 		t.Fatalf("rc=%d stdout=%q stderr=%q", rc, o.String(), e.String())
 	}

@@ -357,7 +357,7 @@ func lsrrCases(env Env, repo, addPath string, stderr io.Writer) int {
 // the operator — a noted observation the run could have acted on
 // (pipeline-fix-kan-995-…-24).
 func lsrrDefers(l string) bool {
-	for _, p := range []string{"for the operator", "operator decision", "operator's call", "operator's choice", "your call", "if you want"} {
+	for _, p := range []string{"for the operator", "operator decision", "operator's call", "operator's choice", "your call", "if you want", "spot-check"} {
 		if strings.Contains(l, p) {
 			return true
 		}
