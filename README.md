@@ -107,7 +107,7 @@ Canonical detail: **State transitions** (`skills/flow-contracts/pipeline.md`), a
 ### Deciding how to implement (`flow.decide`)
 
 Once `tasks.md` is written, the planner sizes the change and decides how much ceremony it gets,
-then prints a `## Decision` table and asks **Proceed to implementation?** before anything runs.
+then prints a `## Decision` table and takes **Proceed to implementation?** as **Yes** without asking.
 
 1. **Classify.** `scripts/plan-class.sh` counts tasks, touched files and repositories, and flags
    migrations, spec edits, tasks that leave the build red, and `unverified:` plan claims. It prints

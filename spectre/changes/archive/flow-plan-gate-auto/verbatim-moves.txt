@@ -1,0 +1,6 @@
+# Operator instruction 2026-10-26: /flow takes the plan gate as Yes without asking.
+**`/flow` never asks its gate question: it takes **Yes** at once**, at the operator's instruction (2026-10-26).
+An operator who wants the plan changed says so before running the handoff's `/flow <name>` — that message re-plans as **No** below.
+The summary and the `## Decision` block still print, the high-raise question below is not asked and takes **No**, and the run continues to the plan-gate commit and the `STARTED` handoff.
+`/flow-plan`'s **Push artifacts?
+is still asked.
