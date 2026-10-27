@@ -23,6 +23,7 @@ import { SelfReview } from "./views/SelfReview";
 import { StageLeaderboard } from "./views/StageLeaderboard";
 import { StateBoard } from "./views/StateBoard";
 import { Trend } from "./views/Trend";
+import { WeeklyCosts } from "./views/WeeklyCosts";
 
 const DEFAULT_VIEW: ViewName = "state-board";
 
@@ -30,6 +31,7 @@ const VIEW_LABELS: Record<ViewName, string> = {
   "state-board": "Live state board",
   "stage-leaderboard": "Stage leaderboard",
   trend: "Trend over time",
+  "weekly-costs": "Weekly costs",
   reviewers: "Reviewers",
   decisions: "Decisions",
   "flow-health": "Flow health",
@@ -40,6 +42,7 @@ const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
   "state-board": StateBoard,
   "stage-leaderboard": StageLeaderboard,
   trend: Trend,
+  "weekly-costs": WeeklyCosts,
   reviewers: Reviewers,
   decisions: Decisions,
   "flow-health": FlowHealth,

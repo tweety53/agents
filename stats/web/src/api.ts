@@ -41,6 +41,7 @@ export type ViewName =
   | "state-board"
   | "stage-leaderboard"
   | "trend"
+  | "weekly-costs"
   | "reviewers"
   | "decisions"
   | "flow-health"
@@ -50,6 +51,7 @@ export const VIEW_NAMES: readonly ViewName[] = [
   "state-board",
   "stage-leaderboard",
   "trend",
+  "weekly-costs",
   "reviewers",
   "decisions",
   "flow-health",
@@ -324,6 +326,17 @@ export interface TrendPoint {
   day: string;
   runCount: number;
   totalCostUsd: number | null;
+}
+
+/** Mirrors weeklyCostPointDTO: one Wednesday-to-Wednesday week, null
+ * where the week carries no costed run in that category. */
+export interface WeeklyCostPoint {
+  week: string;
+  overallUsd: number | null;
+  planningUsd: number | null;
+  implementationUsd: number | null;
+  reviewUsd: number | null;
+  selfReviewUsd: number | null;
 }
 
 /** Mirrors reviewerRowDTO. */

@@ -15,6 +15,7 @@ import { SelfReview } from "./SelfReview";
 import { StageLeaderboard } from "./StageLeaderboard";
 import { StateBoard } from "./StateBoard";
 import { Trend } from "./Trend";
+import { WeeklyCosts } from "./WeeklyCosts";
 
 const { fetchStatsViewMock } = vi.hoisted(() => ({ fetchStatsViewMock: vi.fn() }));
 
@@ -106,6 +107,10 @@ const fixtures: Record<Exclude<ViewName, "flow-health"> | HealthViewSlug, StatsR
     },
   ]),
   trend: envelope("trend", [{ day: "2026-01-05", runCount: 2, totalCostUsd: 5.25 }]),
+  "weekly-costs": envelope("weekly-costs", [
+    { week: "2026-06-03", overallUsd: 5, planningUsd: null, implementationUsd: 5, reviewUsd: null, selfReviewUsd: null },
+    { week: "2026-06-10", overallUsd: 110, planningUsd: 10, implementationUsd: 20, reviewUsd: 30, selfReviewUsd: 43 },
+  ]),
   reviewers: envelope("reviewers", [
     {
       slot: "primary",
@@ -289,6 +294,34 @@ describe("views render their fixture response's actual values", () => {
     expect(screen.getByTestId("time-series-point")).toBeInTheDocument();
     within(screen.getByRole("region", { name: "Days" })).getByText("1");
     within(screen.getByRole("region", { name: "Total cost" })).getByText("$5.25");
+  });
+
+  it("weekly costs shows all five totals per week and a five-line chart", async () => {
+    render(<WeeklyCosts period={period} project={undefined} />);
+    expect((await screen.findAllByText("2026-06-10")).length).toBeGreaterThan(0);
+    for (const header of ["Overall", "Planning", "Implementation", "Review", "Self-review"]) {
+      expect(screen.getByRole("columnheader", { name: new RegExp(`^${header}`) })).toBeInTheDocument();
+    }
+    expect(screen.getAllByRole("cell", { name: "$110.00" }).length).toBeGreaterThan(0);
+    const legends = screen.getAllByTestId("time-series-legend");
+    expect(within(legends[0]).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      "Overall",
+      "Planning",
+      "Implementation",
+      "Review",
+      "Self-review",
+    ]);
+    expect(screen.getAllByTestId("time-series-line").length).toBeGreaterThanOrEqual(5);
+    // The table's own fetch is the last 8 Wed->Wed weeks, whatever the picker
+    // says: from a Wednesday 00:00 UTC, 7 to 8 weeks before now.
+    const tableFrom = fetchStatsViewMock.mock.calls
+      .map(([, params]) => params.from as Date)
+      .find((from) => from.getTime() !== period.from.getTime())!;
+    expect(tableFrom.getUTCDay()).toBe(3);
+    expect(tableFrom.getTime() % (24 * 60 * 60 * 1000)).toBe(0);
+    const weeksBack = (Date.now() - tableFrom.getTime()) / (7 * 24 * 60 * 60 * 1000);
+    expect(weeksBack).toBeGreaterThanOrEqual(7);
+    expect(weeksBack).toBeLessThan(8);
   });
 
   it("reviewers shows severity counts and badges an exp- slot with its description", async () => {

@@ -11,6 +11,10 @@
 // than being coerced to 0 or interpolated across -- the same
 // absence-is-never-zero rule this app's metrics already follow, applied
 // here to "was this day measured at all".
+//
+// `series`, when given, draws one line per named point list over a shared
+// x axis (the union of days, in order) and a shared y range, each in its
+// own `--series-<n>` stroke, with a legend of the names.
 import type { ReactElement } from "react";
 
 export interface TimeSeriesPoint {
@@ -18,8 +22,14 @@ export interface TimeSeriesPoint {
   value: number | null | undefined;
 }
 
-export interface TimeSeriesPanelProps {
+export interface TimeSeries {
+  name: string;
   points: TimeSeriesPoint[];
+}
+
+export interface TimeSeriesPanelProps {
+  points?: TimeSeriesPoint[];
+  series?: TimeSeries[];
   format?: (value: number) => string;
 }
 
@@ -33,14 +43,19 @@ interface Measured {
   value: number;
 }
 
-function measuredPoints(points: TimeSeriesPoint[]): Measured[] {
+function measuredPoints(points: TimeSeriesPoint[], days: string[]): Measured[] {
   return points
-    .map((point, index) => (point.value === null || point.value === undefined ? null : { index, point, value: point.value }))
+    .map((point) =>
+      point.value === null || point.value === undefined ? null : { index: days.indexOf(point.day), point, value: point.value },
+    )
     .filter((m): m is Measured => m !== null);
 }
 
-export function TimeSeriesPanel({ points, format }: TimeSeriesPanelProps) {
-  const measured = measuredPoints(points);
+export function TimeSeriesPanel({ points, series, format }: TimeSeriesPanelProps) {
+  const lines = series ?? [{ name: "", points: points ?? [] }];
+  const days = [...new Set(lines.flatMap((s) => s.points.map((p) => p.day)))].sort();
+  const measuredLines = lines.map((s) => measuredPoints(s.points, days));
+  const measured = measuredLines.flat();
 
   if (measured.length === 0) {
     return (
@@ -55,7 +70,7 @@ export function TimeSeriesPanel({ points, format }: TimeSeriesPanelProps) {
   const maxValue = Math.max(0, ...measured.map((m) => m.value));
   const minValue = Math.min(0, ...measured.map((m) => m.value));
   const range = maxValue - minValue || 1;
-  const lastIndex = Math.max(1, points.length - 1);
+  const lastIndex = Math.max(1, days.length - 1);
 
   function x(index: number): number {
     return PADDING + (index / lastIndex) * plotWidth;
@@ -65,22 +80,35 @@ export function TimeSeriesPanel({ points, format }: TimeSeriesPanelProps) {
   }
 
   const zeroY = y(0);
-  const linePoints = measured.map((m) => `${x(m.index)},${y(m.value)}`).join(" ");
+  // The single-series path keeps the stylesheet's own stroke; only a
+  // multi-series chart colours each line inline.
+  const stroke = (n: number) => (series ? `var(--series-${n + 1})` : undefined);
 
-  const circles: ReactElement[] = measured.map((m) => (
-    <circle
-      key={m.point.day}
-      cx={x(m.index)}
-      cy={y(m.value)}
-      r={2.5}
-      className="time-series-point"
-      data-testid="time-series-point"
-    >
-      <title>{`${m.point.day}: ${format ? format(m.value) : String(m.value)}`}</title>
-    </circle>
-  ));
+  const drawn: ReactElement[] = measuredLines.flatMap((line, n) => [
+    <polyline
+      key={`line-${n}`}
+      points={line.map((m) => `${x(m.index)},${y(m.value)}`).join(" ")}
+      fill="none"
+      className="time-series-line"
+      style={{ stroke: stroke(n) }}
+      data-testid="time-series-line"
+    />,
+    ...line.map((m) => (
+      <circle
+        key={`${n}-${m.point.day}`}
+        cx={x(m.index)}
+        cy={y(m.value)}
+        r={2.5}
+        className="time-series-point"
+        style={{ fill: stroke(n) }}
+        data-testid="time-series-point"
+      >
+        <title>{`${lines[n].name ? `${lines[n].name} ` : ""}${m.point.day}: ${format ? format(m.value) : String(m.value)}`}</title>
+      </circle>
+    )),
+  ]);
 
-  return (
+  const chart = (
     <svg
       className="time-series-panel"
       role="img"
@@ -91,8 +119,27 @@ export function TimeSeriesPanel({ points, format }: TimeSeriesPanelProps) {
     >
       <line x1={PADDING} y1={zeroY} x2={WIDTH - PADDING} y2={zeroY} className="time-series-axis" />
       <line x1={PADDING} y1={PADDING} x2={PADDING} y2={HEIGHT - PADDING} className="time-series-axis" />
-      <polyline points={linePoints} fill="none" className="time-series-line" data-testid="time-series-line" />
-      {circles}
+      {drawn}
     </svg>
+  );
+
+  if (!series) {
+    return chart;
+  }
+  return (
+    <div>
+      {chart}
+      <ul
+        className="time-series-legend"
+        data-testid="time-series-legend"
+        style={{ display: "flex", gap: "var(--space-4)", listStyle: "none", margin: 0, padding: 0 }}
+      >
+        {series.map((s, n) => (
+          <li key={s.name} style={{ color: stroke(n) }}>
+            {s.name}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
