@@ -1,0 +1,20 @@
+# kan-1038: new plan-visual-prototype checklist item, intended new text
+**A visible change is prototyped before its design is approved** (`plan-visual-prototype`, kan-1038).
+A change with nothing visible builds none.
+On a harness without the Artifact tool, write the file and give the operator its absolute path.
+Save the approved file under `<project>-worktrees/<name>/.superpowers/sdd/` and cite it, with its Artifact URL, from `design.md`'s `## Context` as the spec the implementation and `flow.visual-verify` compare against.
+When the change can alter what a user sees — a page, a view, a chart, a dialog — and no mockup frame already specifies it, build a clickable prototype of the proposed result with sample data as a single HTML file, publish it with the Artifact tool, and iterate it on the operator's feedback each round until they approve; that approval is the convergence confirm's **approve the design and move on** (**Convergence**, below).
+Where the confirm is not asked — the `## decisions: recommended` mode, and the self-review and in-run fix planners, which take the recommendation (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`) — the published prototype is the spec without an approval round.
+
+# kan-1038 fix run: Learning/Prompt tuning lines only in the Finished handoff; approved prototype is the source of truth — intended
+**Learning:** (run-only) <the learning note's absolute path, when composed — **Learning**, `skills/flow-contracts/learning.md`>
+**Learning:** <the learning note's absolute path, when this run composed one>
+**Prompt tuning:** <each case's `index.html` absolute path in `<agents repo>`'s main checkout> | NONE (`skills/flow/cleanup.md`)
+**The `**Learning:**` line** is printed by the run only, after `Decisions:`, naming the file **Learning** (`skills/flow-contracts/learning.md`) states.
+**The `Prompt tuning:` line is present in every `/flow` and `/flow-fast` run's final message.
+It is written as soon as the note is composed, at the start of implementation, and the run prints `Learning: <absolute path>` at once; the handoff carries `**Learning:** <absolute path>` in place of the note itself (kan-1028).
+The Finished handoff, integrate run 1's `## Handoff` block (`skills/flow/integrate.md`) and the `IN_PROGRESS` handoff (`skills/flow/verify-and-handoff.md`) each carry it as printed, and a final report written beside it or instead of it still carries the line.
+The `**Prompt tuning:**` line follows it, as `skills/flow/cleanup.md` defines it.
+The `**Prompt tuning:**` line is the one `skills/flow/cleanup.md` defines.
+**The `Learning:` and `Prompt tuning:` lines are shown only once the change is fully done** — in this Finished handoff and `/flow-fast`'s final report — and a final report written beside it or instead of it still carries them.
+**The approved prototype is the source of truth** (kan-1038): any departure from it found later in the run — by a reviewer, verify or `flow.visual-verify` — is fixed to match it, auto-resolved and never asked; a UI change the operator wants after using it is a later change, not this one.
