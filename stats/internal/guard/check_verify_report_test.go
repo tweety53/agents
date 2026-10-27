@@ -187,3 +187,28 @@ func TestCheckVerifyReportNoMockupSourceWithCitedSource(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckVerifyReportMatrixLinePerFrame pins kan-1016's self-review: one
+// `matrix:` line covered nine frames, and the warm-up sheet's frame had no
+// matrix until round 8. A `done` step 10 needs a matrix line per composed frame.
+func TestCheckVerifyReportMatrixLinePerFrame(t *testing.T) {
+	const frames = "- templates-W1: /tmp/w1.composite.png diff=0.1\n- templates-A4b: /tmp/a4b.composite.png diff=0.2\n- templates-W1 matrix: 12 rows\n"
+	for _, tc := range []struct {
+		name, body string
+		rc         int
+		want       string
+	}{
+		{"missing", "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n" + frames, 1, "templates-A4b has no matrix: line"},
+		{"present", "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n" + frames + "- templates-A4b matrix: 9 rows\n", 0, "COMPLETE"},
+		{"not done", "- steps: 4 done | 7 done | 8 done | 9 done | 10 n/a — no mockups declared | 11 done | motion n/a — none\n" + frames, 0, "COMPLETE"},
+	} {
+		path := filepath.Join(t.TempDir(), "verify-report-visual-verify.md")
+		if err := os.WriteFile(path, []byte("## Report\n"+tc.body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
+		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) || (tc.rc == 1 && strings.Contains(r.out, "templates-W1 has")) {
+			t.Fatalf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
+		}
+	}
+}

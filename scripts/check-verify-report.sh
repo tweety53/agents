@@ -51,6 +51,11 @@
 # specs printed <n>` or `names no mapped-spec count` (kan-1015: a re-run under
 # a round base where `specs` printed 2 ran 95).
 #
+# With step 10 `done`, every frame id a `- <frame id>: <composite> diff=`
+# line names needs its own `- <frame id> matrix:` line; each that has none is
+# undone as `<frame id> has no matrix: line — step 10 is done only with every
+# frame's matrix` (kan-1016: one matrix line covered nine frames).
+#
 # Prints ONE verdict line to stdout:
 #   VERIFY-REPORT-COMPLETE: <report file>
 #   VERIFY-REPORT-INCOMPLETE: <report file> — <each undone step and its status, `; `-separated>

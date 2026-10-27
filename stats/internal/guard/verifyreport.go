@@ -45,6 +45,10 @@ var (
 	vrWireContract = regexp.MustCompile(`^\s*- wire contract:\s*(.*)$`)
 	// A backticked HTML or CSS path design.md cites (kan-1017).
 	vrMockupSource = regexp.MustCompile("`([^`\\s]+\\.(?:html|htm|css))`")
+	// A composed frame's `- <frame id>: <composite> diff=` line, and its own
+	// `- <frame id> matrix:` line (kan-1016: one matrix line covered nine frames).
+	vrFrameLine  = regexp.MustCompile(`^\s*- (\S+): \S+ diff=`)
+	vrMatrixLine = regexp.MustCompile(`^\s*- (\S+) matrix:`)
 )
 
 func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
@@ -84,6 +88,8 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	motionLine, bareFingerprint := false, false
 	inReport, unevidenced, verify := false, "", ""
 	noView := false
+	var frames []string
+	matrix := map[string]bool{}
 	for _, line := range strings.Split(string(data), "\n") {
 		if m := vrVerifyLine.FindStringSubmatch(line); m != nil && verify == "" {
 			verify = strings.TrimSpace(m[1])
@@ -106,6 +112,12 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		if m := vrMotion.FindStringSubmatch(line); m != nil && m[1] == m[2] && m[2] == strconv.Itoa(motions) {
 			motionLine = true
+		}
+		if m := vrFrameLine.FindStringSubmatch(line); m != nil {
+			frames = append(frames, m[1])
+		}
+		if m := vrMatrixLine.FindStringSubmatch(line); m != nil {
+			matrix[m[1]] = true
 		}
 		bareFingerprint = bareFingerprint || vrBareFingerprint.MatchString(line)
 		if m := vrWireContract.FindStringSubmatch(line); m != nil && !strings.HasPrefix(strings.TrimSpace(m[1]), "n/a") {
@@ -168,6 +180,13 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		case isBlocked && vrCitedExit.MatchString(cause):
 		default:
 			undone = append(undone, strings.TrimSpace(id+" "+s))
+		}
+	}
+	if status["10"] == "done" {
+		for _, f := range frames {
+			if !matrix[f] {
+				undone = append(undone, f+" has no matrix: line — step 10 is done only with every frame's matrix")
+			}
 		}
 	}
 	if len(undone) > 0 {

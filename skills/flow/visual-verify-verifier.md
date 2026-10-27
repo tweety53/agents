@@ -171,7 +171,7 @@ never an exit code the command did not return.
    > beside the other frame-bound readings.
 
    **The difference panel cannot show a structural departure, so the first read of every pair
-   is the script's band pairing, never the panel.** The panel is white wherever any channel
+   is the script's band pairing, never the panel.** The composite's panels are the capture left, the frame middle and the difference right, unlabelled; a radius, a stroke width, a glyph size or a colour is read from `<stem>.frame.png` and the capture PNG themselves, never off the composite (kan-1016: a stepper radius read off the composite was raised in two rounds and withdrawn). The panel is white wherever any channel
    differs, and on a real pair 20–50% of it is white from seed data, font rasterisation and the
    frame's own annotations alone. A 1px rule the capture omits, a row padding it lacks, a surface fill
    swapped for the page colour, a button border in the wrong colour: each moves the ratio by
@@ -219,7 +219,7 @@ never an exit code the command did not return.
    measured twice more before the report is written: the same element on the frame at 2x, and the
    same element on the view's own rendering at the merge base — the committed baseline PNG the
    merge base carries for that spec, read out with `git show <merge-base>:<baseline png path>`
-   into a temporary file and measured like any other image. The comparison decides which of the
+   into a temporary file and measured like any other image. A recorded decision is a named cause only for the deltas it names, by element and property: any other delta on the same band or element is unexplained until measured (kan-1016: a band's `colour` delta was put down to decision `warmup-sublines-w4b` for four rounds, and was the checkbox's size). The comparison decides which of the
    three the departure is, every time: **present at the merge base** — pre-existing, blocking and
    fixed in this run per **the sweep** (`skills/flow-contracts/known-bugs.md`); **absent at the merge base** — this change's own defect, blocking and taking
    **The loop** (`skills/flow/verify-fix-loop.md`) per **Steps 3–13**
@@ -293,7 +293,7 @@ never an exit code the command did not return.
    itself when no such citation exists, plus every frame the prompt names under `moved:` — one a
    shared fix's recapture moved (**The loop**, `skills/flow/verify-fix-loop.md`); a frame reached only by inference from another (already
    covered by the composite diff, "shipped" and pre-existing, blocked by a real environment limit)
-   still gets named, with the reason. **The list is the change's, never the round's**: a fix run
+   still gets named, with the reason. The list also carries every frame the `<spec>.mockups` sidecar of each capture spec this change edits maps, whether or not its baseline has moved yet, and two frame ids are never read as one (kan-1016: the warm-up sheet's frame `templates-A4b`, mapped by the edited `templates.spec.ts`'s sidecar, joined the list only in round 7, once its baseline moved). **The list is the change's, never the round's**: a fix run
    re-verifies the same list, not the views its fix touched, and the specs `capture` runs are
    chosen to reach every frame on it, never the other way round — a denominator the verifier
    derives from the specs it happened to run is the partial pass wearing a fraction. The report's
@@ -619,6 +619,7 @@ dispatches cost 19 and 10 minutes).
 frame draws, every cell filled as step 10 states, and every sweep on each `sweeps:` and `added
 sweep` line `done` or `n/a — <why it does not apply>` — a sweep or a cell left for time, context
 or a measurement the pixels could not give is step 10 undone.
+Each composed frame carries its own `- <frame id> matrix:` line, never one line for a range of frames: `check-verify-report.sh` refuses a `done` step 10 while a frame with a `- <frame id>: <composite path> diff=` line has none (kan-1016: one line covered nine frames, and the warm-up sheet's frame had no matrix until round 8).
 
 ```text
 ## Report
