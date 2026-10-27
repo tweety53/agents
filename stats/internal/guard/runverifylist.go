@@ -28,8 +28,11 @@
 // THE LIST is every non-blank, non-`#` line inside a ```bash fence of
 // `project-get.sh <worktree> <list>`'s output, in the order printed; `lint`
 // appends `check-spec-reach.sh <worktree>`. A `# inputs: <pathspec>...`
-// line of the `test` list declares what the one command below it reads; every
-// other `#` line is a comment. A line holding a `<word>`
+// line of the `test` list declares what the one command below it reads, and a
+// `# suite: <name>` line names the one command below it as that suite: it runs
+// under `flow suite record -C <worktree> -suite <name> --`, so its runtime
+// reaches the store `flow suite list` reads, and runs bare when no `flow` is
+// on PATH; every other `#` line is a comment. A line holding a `<word>`
 // placeholder — `./gradlew verifyChange :<module>:test --tests '<selectors>'`
 // — is a template, not a command: the shell reads `<module>` as a redirect,
 // so the list is refused before anything runs (kan-983 self-review). Each command runs from
@@ -154,6 +157,7 @@ func init() { Registry["run-verify-list"] = runVerifyList }
 var (
 	rvlFenceOpen = regexp.MustCompile("^```bash[[:space:]]*$")
 	rvlInputs    = regexp.MustCompile(`^[[:space:]]*# inputs:(.*)$`)
+	rvlSuite     = regexp.MustCompile(`^[[:space:]]*# suite:[[:space:]]*([A-Za-z0-9._-]+)[[:space:]]*$`)
 	rvlTemplate  = regexp.MustCompile(`<[A-Za-z][A-Za-z0-9_-]*>`)
 )
 
@@ -231,9 +235,10 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	// inputs[i] is the pathspec list the `# inputs:` line above cmds[i] named.
-	var cmds, inputs []string
-	pending, fenced := "", false
+	// inputs[i] is the pathspec list the `# inputs:` line above cmds[i] named,
+	// suites[i] the `# suite:` line's name.
+	var cmds, inputs, suites []string
+	pending, suite, fenced := "", "", false
 	for _, line := range strings.Split(strings.TrimRight(string(body), "\n"), "\n") {
 		switch {
 		case rvlFenceOpen.MatchString(line):
@@ -251,12 +256,17 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			pending = m[1]
 			continue
 		}
+		if m := rvlSuite.FindStringSubmatch(line); m != nil {
+			suite = m[1]
+			continue
+		}
 		if strings.HasPrefix(fields[0], "#") {
 			continue
 		}
 		cmds = append(cmds, line)
 		inputs = append(inputs, pending)
-		pending = ""
+		suites = append(suites, suite)
+		pending, suite = "", ""
 	}
 	for _, c := range cmds {
 		if rvlTemplate.MatchString(c) {
@@ -368,7 +378,11 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		case unchanged(inputs[i]):
 			skip[i] = true
 		case list == "test":
-			argvs = append(argvs, []string{"bash", "-c", c})
+			if flow, ok := lookPath(env, "flow"); ok && suites[i] != "" {
+				argvs = append(argvs, []string{flow, "suite", "record", "-C", abs(wt), "-suite", suites[i], "--", "bash", "-c", c})
+			} else {
+				argvs = append(argvs, []string{"bash", "-c", c})
+			}
 		default:
 			run(c, c, fmt.Sprint(i))
 		}

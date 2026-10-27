@@ -68,8 +68,11 @@ forbids any agent action touching it at all.
 ## test
 
 ```bash
+# suite: guard-tests
 scripts/run-guard-tests.sh
+# suite: stats-go
 cd stats && make -s web-dist && go test -race -count=1 $(go list ./... | grep -v '/internal/guard$')
+# suite: stats-spa
 # inputs: stats/web/ stats/Makefile
 cd stats && make -s web-dist && cd web && npm test
 ```
@@ -99,8 +102,9 @@ canonical suites are `guard-tests` (`scripts/run-guard-tests.sh`), `stats-go`
 (`go test -race -count=1 $(go list ./... | grep -v '/internal/guard$')`) and `stats-spa` (`stats/web` `npm test`); each row carries the
 machine that ran it, and the per-(suite, host) summary line is the median of the last 10 passing
 runs. Whether the whole `## test` list still fits inside this harness's default tool timeout in one
-invocation is answered by those recorded figures, not by a number pasted here. Record a run with
-`flow suite record -suite <name> -- <command>`; a store that cannot be reached costs one warning
+invocation is answered by those recorded figures, not by a number pasted here. Each command a `# suite:` line names is
+recorded so on every `run-verify-list.sh <worktree> test`; record any other run with
+`flow suite record -suite <name> -- <command>` — a store that cannot be reached costs one warning
 line and never changes the suite's own exit code.
 
 **`check-installed-citations.sh` (named in `## lint` below) is unlike every other guard in that

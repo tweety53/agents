@@ -361,6 +361,48 @@ func TestRunVerifyListRecordsTheVerifyRow(t *testing.T) {
 	}
 }
 
+// A `# suite:` line runs the command below it under `flow suite record`, so
+// its runtime reaches the store; no `flow` on PATH runs it bare.
+func TestRunVerifyListRecordsSuiteRuntimes(t *testing.T) {
+	repo, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/usr/bin/env bash\necho \"$*\" >> "+log+"\nif [ \"$1 $2\" = \"suite record\" ]; then\n  while [ \"$1\" != -- ]; do shift; done\n  shift\n  exec \"$@\"\nfi\n")
+	wt, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n# suite: demo-suite\necho one\necho two\n```\n")
+	run := func(path string) (int, string) {
+		environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"), "PATH="+path)
+		getenv := func(k string) string {
+			for i := len(environ) - 1; i >= 0; i-- {
+				if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
+					return v
+				}
+			}
+			return ""
+		}
+		var o, e bytes.Buffer
+		rc := runVerifyList([]string{wt, "test"}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+		return rc, o.String()
+	}
+	rc, out := run(dir + ":" + os.Getenv("PATH"))
+	calls, _ := os.ReadFile(log)
+	if rc != 0 || !strings.Contains(out, "- `echo one` — exit 0\n  one\n") || !strings.Contains(out, "- `echo two` — exit 0\n  two\n") {
+		t.Errorf("with flow: exit %d, output:\n%s", rc, out)
+	}
+	if want := "suite record -C " + wt + " -suite demo-suite -- bash -c echo one\n"; string(calls) != want {
+		t.Errorf("flow calls %q, want %q", calls, want)
+	}
+	if rc, out := run("/usr/bin:/bin"); rc != 0 || !strings.Contains(out, "  one\n") {
+		t.Errorf("without flow: exit %d, output:\n%s", rc, out)
+	}
+}
+
 // TestRunVerifyListStopsOnARefusedBegin pins kan-1032's self-review: a begin
 // the store refuses stops the list, exit 4, before any command; a failed end
 // never changes the exit code.

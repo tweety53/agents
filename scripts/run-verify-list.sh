@@ -22,6 +22,11 @@
 # otherwise — a lint list always runs check-spec-reach.sh, so it never ends
 # skipped.
 #
+# A `# suite: <name>` line in the `test` list names the one command below it
+# as that suite: it runs under `flow suite record -C <worktree> -suite <name>
+# --`, so its runtime reaches the store `flow suite list` reads; with no flow
+# on PATH it runs bare.
+#
 # The mechanism, and its full contract — the list, the green sha, the output
 # — is stats/internal/guard/runverifylist.go; its test is
 # stats/internal/guard/run_verify_list_test.go.
