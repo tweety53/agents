@@ -387,6 +387,80 @@ func TestTrendOverTimeBucketsByDay(t *testing.T) {
 	}
 }
 
+// TestWeeklyCostsBucketsByWednesdayAndCategory seeds runs either side of
+// a Wednesday 00:00 UTC boundary, across every category plus one stage in
+// none, and checks each week's overall and per-category totals -- a loop
+// change's run counting as self-review whatever its stage.
+func TestWeeklyCostsBucketsByWednesdayAndCategory(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-weekly-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedChange(t, st, projectKey, "self-review-kan-1")
+
+	runs := []struct {
+		change string
+		stage  string
+		at     time.Time
+		cost   float64
+	}{
+		{"kan-1", "flow.sdd-tdd", time.Date(2026, 6, 9, 23, 0, 0, 0, time.UTC), 5}, // Tue: week of Wed 06-03
+		{"kan-1", "flow.brainstorm", time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC), 10},
+		{"kan-1", "flow.sdd-tdd", time.Date(2026, 6, 10, 1, 0, 0, 0, time.UTC), 20},
+		{"kan-1", "flow.review-panel", time.Date(2026, 6, 11, 0, 0, 0, 0, time.UTC), 30},
+		{"kan-1", "flow.verify", time.Date(2026, 6, 12, 0, 0, 0, 0, time.UTC), 7}, // overall only
+		{"self-review-kan-1", "flow.sdd-tdd", time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC), 40},
+		{"kan-1", "flow.self-review", time.Date(2026, 6, 14, 0, 0, 0, 0, time.UTC), 3},
+	}
+	for i, r := range runs {
+		in := baseBeginInput(projectKey, r.change, "/flow", r.stage)
+		in.SessionID = ptr(fmt.Sprintf("weekly-%d", i))
+		in.StartedAt = r.at
+		costRun(t, st, in, r.cost)
+	}
+
+	period := store.Period{
+		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+	}
+	points, err := st.WeeklyCosts(ctx, period, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("WeeklyCosts: %v", err)
+	}
+	if len(points) != 2 {
+		t.Fatalf("WeeklyCosts returned %d points, want 2", len(points))
+	}
+
+	const eps = 1e-9
+	check := func(label string, got, want *float64) {
+		t.Helper()
+		switch {
+		case want == nil && got != nil:
+			t.Errorf("%s = %v, want nil", label, *got)
+		case want != nil && (got == nil || *got < *want-eps || *got > *want+eps):
+			t.Errorf("%s = %v, want %v", label, got, *want)
+		}
+	}
+
+	if want := time.Date(2026, 6, 3, 0, 0, 0, 0, time.UTC); !points[0].Week.Equal(want) {
+		t.Errorf("points[0].Week = %v, want %v", points[0].Week, want)
+	}
+	check("points[0].OverallUSD", points[0].OverallUSD, ptr(5.0))
+	check("points[0].PlanningUSD", points[0].PlanningUSD, nil)
+	check("points[0].ImplementUSD", points[0].ImplementUSD, ptr(5.0))
+	check("points[0].ReviewUSD", points[0].ReviewUSD, nil)
+	check("points[0].SelfReviewUSD", points[0].SelfReviewUSD, nil)
+
+	if want := time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC); !points[1].Week.Equal(want) {
+		t.Errorf("points[1].Week = %v, want %v", points[1].Week, want)
+	}
+	check("points[1].OverallUSD", points[1].OverallUSD, ptr(110.0))
+	check("points[1].PlanningUSD", points[1].PlanningUSD, ptr(10.0))
+	check("points[1].ImplementUSD", points[1].ImplementUSD, ptr(20.0))
+	check("points[1].ReviewUSD", points[1].ReviewUSD, ptr(30.0))
+	check("points[1].SelfReviewUSD", points[1].SelfReviewUSD, ptr(43.0))
+}
+
 // TestPanelEconomicsComputesTokensAndFindingsPerMTok seeds one stage run
 // with a known token total and a known findings-by-severity bag, and
 // checks TokensTotal and FindingsPerMTok against values hand-computed from

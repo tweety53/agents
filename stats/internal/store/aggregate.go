@@ -371,6 +371,71 @@ func (s *Store) TrendOverTime(ctx context.Context, period Period, project, model
 	return out, nil
 }
 
+// WeeklyCostPoint is one Wednesday-to-Wednesday week's cost totals: overall,
+// and the four pipeline categories. A category with no costed run that week
+// is nil, never 0.
+type WeeklyCostPoint struct {
+	Week          time.Time
+	OverallUSD    *float64
+	PlanningUSD   *float64
+	ImplementUSD  *float64
+	ReviewUSD     *float64
+	SelfReviewUSD *float64
+}
+
+// WeeklyCosts buckets cost by week starting Wednesday 00:00 UTC, split by
+// category from the run's stage. A self-review or pipeline-fix loop change
+// is classified first, so its stages never count as planning or
+// implementation; a stage outside every category counts in overall only.
+// project and model filter as TrendOverTime's do.
+func (s *Store) WeeklyCosts(ctx context.Context, period Period, project, model *string) ([]WeeklyCostPoint, error) {
+	rows, err := s.pool.Query(ctx, `
+		WITH r AS (
+			SELECT
+				date_trunc('week', sr.started_at - interval '2 days', 'UTC') + interval '2 days' AS week,
+				CASE WHEN $4::text IS NULL THEN (sr.metrics->>'cost_usd')::numeric
+				     ELSE (sr.metrics->'models'->$4::text->>'cost_usd')::numeric END AS cost,
+				CASE
+					WHEN c.name LIKE 'self-review-%' OR c.name LIKE 'pipeline-fix-%' OR sr.stage = 'flow.self-review' THEN 'self-review'
+					WHEN sr.stage IN ('plan.session', 'flow.brainstorm', 'flow.design-approval', 'flow.create-artifacts', 'flow.writing-plans', 'flow.decide') THEN 'planning'
+					WHEN sr.stage = 'flow.sdd-tdd' THEN 'implementation'
+					WHEN sr.stage = 'flow.review-panel' THEN 'review'
+				END AS category
+			FROM stage_runs sr
+			JOIN changes c ON c.id = sr.change_id
+			WHERE sr.started_at >= $1 AND sr.started_at < $2
+			  AND ($3::text IS NULL OR c.project_key = $3)
+			  AND ($4::text IS NULL OR sr.metrics->'models' ? $4)
+		)
+		SELECT week,
+			SUM(cost),
+			SUM(cost) FILTER (WHERE category = 'planning'),
+			SUM(cost) FILTER (WHERE category = 'implementation'),
+			SUM(cost) FILTER (WHERE category = 'review'),
+			SUM(cost) FILTER (WHERE category = 'self-review')
+		FROM r
+		GROUP BY week
+		ORDER BY week
+	`, period.From, period.To, project, model)
+	if err != nil {
+		return nil, fmt.Errorf("store: weekly costs: %w", err)
+	}
+	defer rows.Close()
+
+	var out []WeeklyCostPoint
+	for rows.Next() {
+		var p WeeklyCostPoint
+		if err := rows.Scan(&p.Week, &p.OverallUSD, &p.PlanningUSD, &p.ImplementUSD, &p.ReviewUSD, &p.SelfReviewUSD); err != nil {
+			return nil, fmt.Errorf("store: weekly costs: scan: %w", err)
+		}
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: weekly costs: %w", err)
+	}
+	return out, nil
+}
+
 // CountRunsWithoutModel returns how many stage runs starting within period
 // (and, when project is non-nil, belonging to that project) recorded no
 // model at all -- their metrics bag carries no "models" key, or carries it

@@ -47,6 +47,7 @@ type StatsStore interface {
 	CostPerChange(ctx context.Context, period store.Period, project, model *string) ([]store.CostPerChangeRow, error)
 	StageLeaderboard(ctx context.Context, period store.Period, project, model *string) ([]store.StageLeaderboardRow, error)
 	TrendOverTime(ctx context.Context, period store.Period, project, model *string) ([]store.TrendPoint, error)
+	WeeklyCosts(ctx context.Context, period store.Period, project, model *string) ([]store.WeeklyCostPoint, error)
 	// Reviewers backs the "reviewers" view (design.md's "Stats views ›
 	// reviewers", task 16): one row per review-panel slot's dispatch and
 	// finding record within period.
@@ -107,6 +108,7 @@ const (
 	viewCostPerChange    viewName = "cost-per-change"
 	viewStageLeaderboard viewName = "stage-leaderboard"
 	viewTrend            viewName = "trend"
+	viewWeeklyCosts      viewName = "weekly-costs"
 	viewReviewers        viewName = "reviewers"
 	viewDecisions        viewName = "decisions"
 	viewFlowSummary      viewName = "flow-summary"
@@ -118,7 +120,7 @@ const (
 // "name the field and the accepted alternatives" posture query.go's
 // allowlist already takes for filter and sort fields.
 var knownViews = []viewName{
-	viewStateBoard, viewCostPerChange, viewStageLeaderboard, viewTrend,
+	viewStateBoard, viewCostPerChange, viewStageLeaderboard, viewTrend, viewWeeklyCosts,
 	viewReviewers, viewDecisions,
 	viewFlowSummary, viewSelfReview,
 }
@@ -512,6 +514,14 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 		}
 		return toTrendDTOs(trend), 0, ""
 
+	case viewWeeklyCosts:
+		weekly, err := h.store.WeeklyCosts(ctx, period, project, model)
+		if err != nil {
+			s, m := mapStoreError(h.logger, "weekly costs", err)
+			return nil, s, m
+		}
+		return toWeeklyCostDTOs(weekly), 0, ""
+
 	case viewReviewers:
 		reviewers, err := h.store.Reviewers(ctx, period, project, model)
 		if err != nil {
@@ -729,6 +739,30 @@ func toTrendDTOs(points []store.TrendPoint) []trendPointDTO {
 			Day:          p.Day.UTC().Format("2006-01-02"),
 			RunCount:     p.RunCount,
 			TotalCostUSD: p.TotalCostUSD,
+		}
+	}
+	return out
+}
+
+type weeklyCostPointDTO struct {
+	Week              string   `json:"week"`
+	OverallUSD        *float64 `json:"overallUsd"`
+	PlanningUSD       *float64 `json:"planningUsd"`
+	ImplementationUSD *float64 `json:"implementationUsd"`
+	ReviewUSD         *float64 `json:"reviewUsd"`
+	SelfReviewUSD     *float64 `json:"selfReviewUsd"`
+}
+
+func toWeeklyCostDTOs(points []store.WeeklyCostPoint) []weeklyCostPointDTO {
+	out := make([]weeklyCostPointDTO, len(points))
+	for i, p := range points {
+		out[i] = weeklyCostPointDTO{
+			Week:              p.Week.UTC().Format("2006-01-02"),
+			OverallUSD:        p.OverallUSD,
+			PlanningUSD:       p.PlanningUSD,
+			ImplementationUSD: p.ImplementUSD,
+			ReviewUSD:         p.ReviewUSD,
+			SelfReviewUSD:     p.SelfReviewUSD,
 		}
 	}
 	return out

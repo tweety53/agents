@@ -46,6 +46,10 @@ func (f *fakeStore) TrendOverTime(_ context.Context, _ store.Period, project, _ 
 	f.lastStatsProject = project
 	return f.trendOverTime, f.trendOverTimeErr
 }
+func (f *fakeStore) WeeklyCosts(_ context.Context, _ store.Period, project, _ *string) ([]store.WeeklyCostPoint, error) {
+	f.lastStatsProject = project
+	return nil, nil
+}
 func (f *fakeStore) Reviewers(_ context.Context, _ store.Period, project, _ *string) ([]store.ReviewerRow, error) {
 	f.lastStatsProject = project
 	return f.reviewers, f.reviewersErr
@@ -100,6 +104,7 @@ type statsFake struct {
 	costPerChange    []store.CostPerChangeRow
 	stageLeaderboard []store.StageLeaderboardRow
 	trendOverTime    []store.TrendPoint
+	weeklyCosts      []store.WeeklyCostPoint
 	reviewers        []store.ReviewerRow
 	decisions        []store.DecisionRow
 	flowSummary      store.FlowSummaryRow
@@ -161,6 +166,10 @@ func (f *statsFake) StageLeaderboard(_ context.Context, _ store.Period, p, m *st
 func (f *statsFake) TrendOverTime(_ context.Context, _ store.Period, p, m *string) ([]store.TrendPoint, error) {
 	f.lastProject, f.lastModel = p, m
 	return f.trendOverTime, f.aggErr
+}
+func (f *statsFake) WeeklyCosts(_ context.Context, _ store.Period, p, m *string) ([]store.WeeklyCostPoint, error) {
+	f.lastProject, f.lastModel = p, m
+	return f.weeklyCosts, f.aggErr
 }
 func (f *statsFake) Reviewers(_ context.Context, _ store.Period, p, m *string) ([]store.ReviewerRow, error) {
 	f.lastProject, f.lastModel = p, m
@@ -364,7 +373,7 @@ func periodPath(view string) string {
 
 func TestEveryViewAcceptsAPeriod(t *testing.T) {
 	views := []string{
-		"state-board", "cost-per-change", "stage-leaderboard", "trend",
+		"state-board", "cost-per-change", "stage-leaderboard", "trend", "weekly-costs",
 	}
 	for _, view := range views {
 		t.Run(view, func(t *testing.T) {
@@ -472,6 +481,35 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 		got := rows[0]
 		if got.Day != "2026-08-12" || got.RunCount != 8 || got.TotalCostUSD == nil || *got.TotalCostUSD != 42.5 {
 			t.Errorf("got %+v, want Day=2026-08-12 RunCount=8 TotalCostUSD=42.5", got)
+		}
+	})
+
+	t.Run("weekly-costs", func(t *testing.T) {
+		week := time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC)
+		overall, review := 110.0, 30.0
+		sts := &statsFake{weeklyCosts: []store.WeeklyCostPoint{{Week: week, OverallUSD: &overall, ReviewUSD: &review}}}
+		ts := newStatsTestServer(t, sts)
+		status, env, body := getStats(t, ts, periodPath("weekly-costs"))
+		if status != http.StatusOK {
+			t.Fatalf("status %d, body %s", status, body)
+		}
+		var rows []struct {
+			Week              string   `json:"week"`
+			OverallUSD        *float64 `json:"overallUsd"`
+			PlanningUSD       *float64 `json:"planningUsd"`
+			ImplementationUSD *float64 `json:"implementationUsd"`
+			ReviewUSD         *float64 `json:"reviewUsd"`
+			SelfReviewUSD     *float64 `json:"selfReviewUsd"`
+		}
+		mustDecodeRows(t, env, body, &rows)
+		if len(rows) != 1 {
+			t.Fatalf("rows = %d, want 1", len(rows))
+		}
+		got := rows[0]
+		if got.Week != "2026-08-12" || got.OverallUSD == nil || *got.OverallUSD != 110 ||
+			got.ReviewUSD == nil || *got.ReviewUSD != 30 ||
+			got.PlanningUSD != nil || got.ImplementationUSD != nil || got.SelfReviewUSD != nil {
+			t.Errorf("got %+v, want Week=2026-08-12 OverallUSD=110 ReviewUSD=30 and the rest null", got)
 		}
 	})
 
@@ -656,7 +694,7 @@ func TestBoundaryConventionIsConsistentAcrossViews(t *testing.T) {
 	// The live state board is not in this loop -- see the doc comment above
 	// for why it is a genuinely different case, not an omission.
 	views := []string{
-		"cost-per-change", "stage-leaderboard", "trend",
+		"cost-per-change", "stage-leaderboard", "trend", "weekly-costs",
 	}
 	for _, view := range views {
 		t.Run(view, func(t *testing.T) {
@@ -1517,7 +1555,7 @@ func TestModelRestrictionRejectedOnStateBoard(t *testing.T) {
 // every one of the three, iterated.
 func TestModelParamAcceptedAndPassedThroughOnEveryStageRunView(t *testing.T) {
 	views := []string{
-		"cost-per-change", "stage-leaderboard", "trend",
+		"cost-per-change", "stage-leaderboard", "trend", "weekly-costs",
 	}
 	for _, view := range views {
 		t.Run(view, func(t *testing.T) {
