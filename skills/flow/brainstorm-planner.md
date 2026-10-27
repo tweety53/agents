@@ -43,7 +43,10 @@ runs them as **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline
   `<project>-worktrees/<name>/.superpowers/sdd/` and cite it, with its Artifact URL, from
   `design.md`'s `## Context` as the spec the implementation and `flow.visual-verify` compare
   against. A change with nothing visible builds none. On a harness without the Artifact tool,
-  write the file and give the operator its absolute path.
+  write the file and give the operator its absolute path. Where the confirm is not asked — the
+  `## decisions: recommended` mode, and the self-review and in-run fix planners, which take the
+  recommendation (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`)
+  — the published prototype is the spec without an approval round.
 
 **Load `skills/flow/seeded-note.md`** only when the ask arrives as a seeded research note — a
 fully-worked issue description, a `/flow-plan` capture or a handoff package that already carries

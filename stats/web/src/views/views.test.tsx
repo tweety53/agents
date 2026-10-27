@@ -381,6 +381,58 @@ describe("views render their fixture response's actual values", () => {
     expect(screen.queryByRole("tooltip")).toBeNull();
   });
 
+  it("weekly costs breaks a line at an unmeasured week", async () => {
+    vi.useFakeTimers({ now: new Date("2026-06-19T12:00:00Z"), toFake: ["Date"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    render(<WeeklyCosts period={period} project={undefined} />);
+    await screen.findByText("Cost (USD)");
+    const d = (name: string) =>
+      screen
+        .getAllByTestId("weekly-line")
+        .find((l) => l.getAttribute("data-series") === name)!
+        .getAttribute("d")!;
+    // Implementation is Unavailable on 2026-06-10: two runs, never one line across it.
+    expect(d("Implementation").match(/M/g)).toHaveLength(2);
+    expect(d("Overall").match(/M/g)).toHaveLength(1);
+    const point = screen
+      .getAllByTestId("time-series-point")
+      .find((c) => c.getAttribute("data-series") === "Overall" && c.getAttribute("data-week") === "2026-06-10")!;
+    expect(point).toHaveAttribute("aria-label", "Overall 2026-06-10: $110.00");
+  });
+
+  it("weekly costs labels zero changes, skips a zero previous week and stacks close labels apart", async () => {
+    vi.useFakeTimers({ now: new Date("2026-06-19T12:00:00Z"), toFake: ["Date"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    fetchStatsViewMock.mockResolvedValueOnce(
+      envelope("weekly-costs", [
+        { week: "2026-04-29", overallUsd: 10, planningUsd: 0, implementationUsd: 5, reviewUsd: 4, selfReviewUsd: 3 },
+        { week: "2026-05-06", overallUsd: 12, planningUsd: 2, implementationUsd: 5, reviewUsd: 4, selfReviewUsd: 3 },
+        { week: "2026-05-13", overallUsd: 1, planningUsd: 1, implementationUsd: 1, reviewUsd: 1, selfReviewUsd: 1 },
+      ]),
+    );
+    render(<WeeklyCosts period={period} project={undefined} />);
+    await screen.findByText("Cost (USD)");
+    const label = (series: string, week: string) =>
+      document.querySelector(`[data-testid="delta-label"][data-series="${series}"][data-week="${week}"]`);
+    // The window's second week reads its change from the first.
+    expect(label("Overall", "2026-05-06")).toHaveTextContent("▲20%");
+    // A previous week that cost nothing carries no percentage.
+    expect(label("Planning", "2026-05-06")).toBeNull();
+    // An unchanged week is a neutral 0%, no arrow.
+    expect(label("Implementation", "2026-05-06")).toHaveTextContent(/^0%$/);
+    expect(label("Implementation", "2026-05-06")).toHaveClass("delta-flat");
+    // Five labels on one dot height: pushed 17 apart and lifted back inside the plot.
+    const ys = ["Overall", "Planning", "Implementation", "Review", "Self-review"]
+      .map((s) => Number(label(s, "2026-05-13")!.getAttribute("y")))
+      .sort((a, b) => a - b);
+    ys.slice(1).forEach((y, i) => expect(y - ys[i]).toBeGreaterThanOrEqual(17));
+    expect(Math.max(...ys)).toBeLessThanOrEqual(392 + 3.5);
+  });
+
   it("reviewers shows severity counts and badges an exp- slot with its description", async () => {
     render(<Reviewers period={period} project={undefined} />);
     expect(await screen.findByRole("cell", { name: /primary/ })).toBeInTheDocument();

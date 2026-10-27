@@ -182,7 +182,20 @@ function WeeklyCostChart({ rows }: { rows: WeeklyCostPoint[] }) {
           {drawn.map((line, n) => {
             // A null week lifts the pen, so the line breaks there.
             const d = line.map((p, week) => (p ? `${week && line[week - 1] ? "L" : "M"}${x(p.week)} ${p.y}` : "")).join("");
-            return d && <path key={n} d={d} fill="none" className="weekly-line" style={{ stroke: color(line.find((p) => p)!.series) }} />;
+            const series = line.find((p) => p)!.series;
+            return (
+              d && (
+                <path
+                  key={n}
+                  d={d}
+                  fill="none"
+                  className="weekly-line"
+                  style={{ stroke: color(series) }}
+                  data-testid="weekly-line"
+                  data-series={categories[series].name}
+                />
+              )
+            );
           })}
           {labels.map((l) => {
             const lx = x(l.week) + 8;
@@ -218,6 +231,7 @@ function WeeklyCostChart({ rows }: { rows: WeeklyCostPoint[] }) {
               data-testid="time-series-point"
               data-series={categories[p.series].name}
               data-week={rows[p.week].week}
+              aria-label={`${categories[p.series].name} ${rows[p.week].week}: ${formatUsd(p.value)}`}
               onMouseEnter={() => setHovered(p)}
               onMouseLeave={() => setHovered(null)}
               onFocus={() => setHovered(p)}
@@ -248,7 +262,9 @@ function WeeklyCostChart({ rows }: { rows: WeeklyCostPoint[] }) {
 }
 
 export function WeeklyCosts(_props: ViewProps) {
-  const eightWeeks = useMemo(() => lastEightWeeks(new Date()), []);
+  // Keyed on the UTC day, so a render after midnight moves the window with it.
+  const today = new Date().toISOString().slice(0, 10);
+  const eightWeeks = useMemo(() => lastEightWeeks(new Date()), [today]);
   const state = useStatsView<WeeklyCostPoint[]>("weekly-costs", { ...eightWeeks, project: undefined, model: undefined });
 
   return (
