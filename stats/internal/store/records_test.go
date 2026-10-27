@@ -2846,6 +2846,46 @@ func TestRecordPanelPassAndMutation(t *testing.T) {
 	}
 }
 
+// TestRecordPassDropsAnIdenticalNote pins kan-1040's doubled pass line: a
+// note recorded twice for one round keeps one row, while a different note or
+// round is still added.
+func TestRecordPassDropsAnIdenticalNote(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-passdedup-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	first, err := st.RecordPass(ctx, projectKey, "kan-1", records.Pass{Round: 0, Note: "n"})
+	if err != nil {
+		t.Fatalf("RecordPass: %v", err)
+	}
+	again, err := st.RecordPass(ctx, projectKey, "kan-1", records.Pass{Round: 0, Note: "n"})
+	if err != nil {
+		t.Fatalf("second RecordPass: %v", err)
+	}
+	if again.ID != first.ID {
+		t.Errorf("identical pass ID = %d, want the first row's %d", again.ID, first.ID)
+	}
+	for _, p := range []records.Pass{{Round: 0, Note: "m"}, {Round: 1, Note: "n"}} {
+		if _, err := st.RecordPass(ctx, projectKey, "kan-1", p); err != nil {
+			t.Fatalf("RecordPass %+v: %v", p, err)
+		}
+	}
+	run, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	if len(run.Passes) != 3 {
+		t.Fatalf("passes = %+v, want 3", run.Passes)
+	}
+	if err := st.DropPass(ctx, first.ID); err != nil {
+		t.Fatalf("DropPass: %v", err)
+	}
+	if err := st.DropPass(ctx, first.ID); err == nil {
+		t.Errorf("DropPass of an unknown id = nil, want an error")
+	}
+}
+
 // TestRunRecordCarriesPassLog pins that the whole-record read returns the
 // pass-log rows beside the dispatches and findings, ordered by round then
 // id, inside the same REPEATABLE READ snapshot.

@@ -1789,19 +1789,29 @@ func (s *Store) RunRecord(ctx context.Context, projectKey, change string) (recor
 // RecordPass records one pass-log entry -- a pass-by-pass metadata line of
 // the review panel's record -- against a change. Append-only, exactly the
 // guard-log writes' shape: the parent records each fact once as it
-// arises, and a replayed write can at worst duplicate a line, the same
-// cosmetic risk guard_verdicts already carries -- no dedup key exists for
-// "the same fact phrased identically". An unknown (projectKey, change)
+// arises. A note identical to one the change already holds for the same
+// round is not inserted again: that existing row is returned instead
+// (kan-1040, a replayed write doubled a line). An unknown (projectKey, change)
 // pair is ErrChangeNotFound, the same sentinel every change-scoped write
 // here returns.
 func (s *Store) RecordPass(ctx context.Context, projectKey, change string, in records.Pass) (records.Pass, error) {
 	var out records.Pass
 	err := s.pool.QueryRow(ctx, `
-		INSERT INTO panel_passes (change_id, round, note)
-		SELECT c.id, $3, $4
-		FROM changes c
-		WHERE c.project_key = $1 AND c.name = $2
-		RETURNING id, round, note
+		WITH c AS (
+			SELECT id FROM changes WHERE project_key = $1 AND name = $2
+		), existing AS (
+			SELECT p.id, p.round, p.note FROM panel_passes p JOIN c ON p.change_id = c.id
+			WHERE p.round = $3 AND p.note = $4
+			ORDER BY p.id LIMIT 1
+		), ins AS (
+			INSERT INTO panel_passes (change_id, round, note)
+			SELECT c.id, $3, $4 FROM c
+			WHERE NOT EXISTS (SELECT 1 FROM existing)
+			RETURNING id, round, note
+		)
+		SELECT id, round, note FROM existing
+		UNION ALL
+		SELECT id, round, note FROM ins
 	`, projectKey, change, in.Round, in.Note).Scan(&out.ID, &out.Round, &out.Note)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -1810,6 +1820,20 @@ func (s *Store) RecordPass(ctx context.Context, projectKey, change string, in re
 		return records.Pass{}, fmt.Errorf("store: record pass for %s/%s: %w", projectKey, change, err)
 	}
 	return out, nil
+}
+
+// DropPass deletes one panel_passes row by id -- the repair for a pass line
+// recorded twice before RecordPass dropped identical notes (kan-1040). An
+// unknown id is an error and changes nothing.
+func (s *Store) DropPass(ctx context.Context, id int64) error {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM panel_passes WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("store: drop pass %d: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("store: drop pass %d: no such pass", id)
+	}
+	return nil
 }
 
 // RecordMutation records one fix-mutation: line of the fix round's

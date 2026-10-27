@@ -117,6 +117,14 @@ func main() {
 		return
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == "drop-pass" {
+		if err := dropPass(os.Args[2:]); err != nil {
+			logger.Error("flowd drop-pass failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "fold-dispatch" {
 		if err := foldDispatch(os.Args[2:]); err != nil {
 			logger.Error("flowd fold-dispatch failed", "error", err)
@@ -753,6 +761,30 @@ func rekeyDispatch(args []string) error {
 	}
 	defer st.Close()
 	return st.RekeyDispatch(ctx, id, args[1])
+}
+
+// dropPass implements `flowd drop-pass <pass-id>` (store.Store.DropPass):
+// the repair for a pass-log line recorded twice (kan-1040). It talks to the
+// database directly, so it needs no running daemon.
+func dropPass(args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("usage: flowd drop-pass <pass-id>")
+	}
+	id, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("pass id %q: %w", args[0], err)
+	}
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	st, err := store.Open(ctx, cfg.DSN)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	return st.DropPass(ctx, id)
 }
 
 // reoutcomeDispatch implements `flowd reoutcome-dispatch <dispatch-id>
