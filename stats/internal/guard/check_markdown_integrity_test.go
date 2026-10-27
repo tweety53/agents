@@ -51,6 +51,14 @@ func TestCheckMarkdownIntegrity(t *testing.T) {
 
 	expect("case 1: escaped backtick orphans the real closer — exit 1", 1, "broken code span",
 		"This span is `foo\\`bar` and now the closing backtick is orphaned.")
+	expect("kan-1040: next command fenced in a four-backtick template — exit 0", 0, "",
+		"````\nNext:\n/clear\n```\n/flow <name>\n```\n````")
+	expect("kan-1040: template fence too short closes on the inner fence — exit 1", 1, "unfenced next command",
+		"```\nNext:\n```\n/flow <name>\n```")
+	expect("kan-1040: inner closing fence missing — exit 1", 1, "unfenced next command",
+		"````\nNext:\n```\n/flow <name>\n````")
+	expect("kan-1040: bare next command — exit 1", 1, "unfenced next command",
+		"```\nNext:\n/flow <name>\n```")
 	expect("case 2: double-backtick delimiter around a literal backtick — exit 0", 0, "",
 		"Use ``get `foo` done`` to run it.")
 	expect("case 3: odd backtick count outside a fence — exit 1", 1, "broken code span",

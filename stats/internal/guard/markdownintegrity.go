@@ -16,7 +16,7 @@ import (
 )
 
 // checkMarkdownIntegrity is scripts/check-markdown-integrity.sh's guard. The
-// shim's header states the contract — the six signals, the scope and the
+// shim's header states the contract — the seven signals, the scope and the
 // exit codes; this comment is the mechanism.
 //
 // # The block model
@@ -659,6 +659,29 @@ func mdiScan(text string) []mdiFinding {
 		if mdiStrip(lines[i]) == "" && mdiStrip(lines[i-1]) == "" && !inFence(i) && !inFence(i+1) {
 			out = append(out, mdiFinding{i + 1, "consecutive blank lines",
 				"two blank lines in a row; one separates blocks"})
+		}
+	}
+	// Signal 7 — a handoff template's next command not alone in its own fence
+	// (kan-1040): inside a fenced template, `Next:` (and an optional `/clear`)
+	// is followed by a three-backtick fence holding one `/flow` line. A template
+	// whose outer fence is too short closes on that inner fence, so its block
+	// ends before the command and fires here too.
+	for _, b := range blocks {
+		if b.kind != "fence" {
+			continue
+		}
+		for i, l := range b.lines {
+			if l != "Next:" {
+				continue
+			}
+			j := i + 1
+			if j < len(b.lines) && b.lines[j] == "/clear" {
+				j++
+			}
+			if j+2 >= len(b.lines) || b.lines[j] != "```" || !strings.HasPrefix(b.lines[j+1], "/flow") || b.lines[j+2] != "```" {
+				out = append(out, mdiFinding{b.start + i, "unfenced next command",
+					"a template's next command sits alone in a ``` fence inside a ```` template fence"})
+			}
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].line < out[j].line })
