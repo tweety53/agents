@@ -30,6 +30,10 @@ Against the prototype's `#tip` (`.superpowers/sdd/weekly-costs-preview.html` lin
 verify-2 read three departures — copy, `width`, shadow — all closed by in-run fix 3: the copy reads
 "vs prev week" on four lines, `.weekly-tooltip` declares `width: 150px`, and it carries
 `box-shadow: 0 2px 8px rgba(0,0,0,0.15)`, as the prototype does.
+Verify-3 measured the box at 172×68 px (150 content + 2×10 padding + 2×1 border, matching the
+prototype's `width:150px;padding:6px 10px;border:1px`) and read one remaining departure: corner
+radius 3px (`--panel-radius`, `stats/web/src/theme.css:40`; measured 4px) against the prototype's
+`border-radius:6px` (line 24) — this change's own, the view is new and has no merge-base rendering.
 
 ## full-app-suite weekly-costs — `visual-verification/evidence/full-weekly-costs-darwin.png`
 Recaptured: the committed baseline (1280×1091, the pre-change two-chart view) was stale and failed
