@@ -20,8 +20,8 @@ going after it files a requested Jira issue.
 - A template block whose fence now holds an inner triple-backtick fence opens and closes with four
   backticks (a four-backtick `text` fence), so the inner fence is part of the template.
 
-- [ ] 1. Fence the handoff's next command
-  - [ ] **Step 1: Rules** (`skills/flow-contracts/pipeline.md`, **Handoff output**). In the shape
+- [x] 1. Fence the handoff's next command
+  - [x] **Step 1: Rules** (`skills/flow-contracts/pipeline.md`, **Handoff output**). In the shape
     template, replace the bare `/flow <name>` under `Next:` with the command alone in its own
     triple-backtick fence and make the template's own fence four backticks. In the first bullet replace
     "The next command and `/clear` stay bare lines, per the next rule." with "`/clear` stays a bare
@@ -33,12 +33,12 @@ going after it files a requested Jira issue.
     for why." sentence. In the `/clear` bullet, "on the line above the next command" becomes "on the
     line above the next command's fence" and "the next command stays the last line" becomes "the
     next command's fence stays last".
-  - [ ] **Step 2: Rationale** (`skills/flow-contracts/pipeline-rationale.md`, **The block each state
+  - [x] **Step 2: Rationale** (`skills/flow-contracts/pipeline-rationale.md`, **The block each state
     renders**). The bullet's head becomes "**The next command is the last thing printed, alone in its
     own fence**"; append: "The fence is what the Claude mobile and desktop apps put a copy button on —
     a bare line has to be selected by hand (kan-1040); it holds the command alone so the copy is
     exactly what is pasted, and `/clear` stays outside it because the operator types it."
-  - [ ] **Step 3: Templates.** In every block below, the `/flow <name>` line under `Next:` moves into
+  - [x] **Step 3: Templates.** In every block below, the `/flow <name>` line under `Next:` moves into
     its own triple-backtick fence (a `/clear` line above it stays bare, outside the fence) and the
     template's outer fence becomes four backticks: `skills/flow-contracts/handoff-blocks.md` (three
     blocks, at the `Next:` lines), `skills/flow/brainstorm.md` (**The `STARTED` handoff block**),
@@ -48,7 +48,7 @@ going after it files a requested Jira issue.
     `skills/flow-contracts/pipeline.md`):". In `skills/flow-contracts/finish-contract-run1.md`
     "its handoff's last line is `/flow <name>` again" becomes "its handoff ends on `/flow <name>`
     again".
-  - [ ] **Step 4: Verify.** `scripts/check-references.sh && scripts/check-markdown-integrity.sh`
+  - [x] **Step 4: Verify.** `scripts/check-references.sh && scripts/check-markdown-integrity.sh`
     exit 0, then the absence sweep
     `git grep -n -F -e 'The next command is the last line' -e 'stay bare lines' -e 'The last line is the next command' -- skills`
     prints nothing.
@@ -63,8 +63,8 @@ going after it files a requested Jira issue.
 **Decision:** next-command-fenced
 **Decision:** blocks-still-rendered
 
-- [ ] 2. Continue planning after filing a requested issue
-  - [ ] **Step 1: Edit** `skills/flow-contracts/jira-integration.md` **Resolution**: after the
+- [x] 2. Continue planning after filing a requested issue
+  - [x] **Step 1: Edit** `skills/flow-contracts/jira-integration.md` **Resolution**: after the
     bullet "**Only a key passed literally in the command arguments is user-supplied.** …" add the
     bullet: "**An argument asking for a new issue** — \"create a jira task\" and the like — files one
     first (`createJiraIssue`, on the `twg` route `twg jira workitem create`) in the `## jira`
@@ -74,7 +74,7 @@ going after it files a requested Jira issue.
     request and never a stop: the run continues into the In Progress transition and planning
     (kan-1040: a run filed the issue and ended its turn). A failed create is one `⚠ Jira: skipped —
     <reason>` line and resolves as no hit."
-  - [ ] **Step 2: Verify.** `scripts/check-references.sh && scripts/check-markdown-integrity.sh`
+  - [x] **Step 2: Verify.** `scripts/check-references.sh && scripts/check-markdown-integrity.sh`
     exit 0.
 
 **Build:** green
