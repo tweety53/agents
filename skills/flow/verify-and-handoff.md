@@ -549,8 +549,9 @@ flow state get <name> | jq -r '.reviewBeforeLanding // false'
 
 `true` prints the block below and ends the run. **So does a run that leaves a `?` line for its
 `Decisions:`, whatever the record holds** — an open question the operator must answer is never
-landed past (kan-1030). Anything else prints no block but its 🤖 `Decisions:` lines, when it took
-any, under a `**Decisions:**` heading — integrate's handoffs carry no such field — and continues at **Deciding which run this is**
+landed past (kan-1030). Anything else prints no block but the block's `**Running:**` section,
+always, and its 🤖 `Decisions:` lines, when it took any, under a `**Decisions:**` heading —
+integrate's handoffs carry no such field — and continues at **Deciding which run this is**
 (`skills/flow/integrate.md`) in the same turn, as if a bare `/flow <name>` had started it; that
 run prints its own handoff or stop. This is the one chain into integrate **Every invocation is
 re-entrant** (`skills/flow-contracts/pipeline.md`) sanctions.
@@ -582,7 +583,9 @@ Next:
 live-stack line, before every handoff**, `skills/flow-contracts/pipeline.md`); bullets that changed after the guard — a visual-fix task, a re-verify — are recorded again as the block prints. A stop — a failure,
 a blocked step, a refused start, a `## Question` — prints as its own rule states, not this block.
 
-**The `Running:` section is never omitted.** Its URLs are the ones **Resolve the run
+**The `Running:` section is never omitted** — not from this block, and not from the chain into
+integrate above. It carries a URL for every application the run instructions name, the admin panel
+included, and a login for every account the operator needs to reach them. Its URLs are the ones **Resolve the run
 instructions** above resolved for the stack it started or left running, never the project's
 declared default port; its logins are every row `<project>/.flow/project.md`'s `## credentials`
 declares. Where nothing was started, its last line states why in place of the other two.
