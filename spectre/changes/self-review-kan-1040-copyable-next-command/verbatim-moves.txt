@@ -1,0 +1,2 @@
+# Sentences this change adds to the run-loaded corpus on purpose (check-verbatim-moves.sh).
+`<round>` is the fix round, one above the review round whose findings it fixes: the fix after `panel-0` is `panel-fix-1`, and `flow record dispatch` refuses `panel-fix-0` (kan-1040).
