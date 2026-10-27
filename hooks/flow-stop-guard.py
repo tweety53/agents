@@ -40,7 +40,7 @@ _fac = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_fac)
 
 TASK_RE = re.compile(r"^- \[([ xX])\] ")
-STOP_RE = re.compile(r"\bstop\b", re.IGNORECASE)
+STOP_RE = re.compile(r"^\s*(stop|pause|wait)\b", re.IGNORECASE)
 TRANSCRIPT_TAIL_BYTES = 1 << 20
 
 
@@ -91,7 +91,7 @@ def _texts(content) -> list:
 
 
 def transcript_allows(path) -> bool:
-    """True when the turn ends on an AskUserQuestion or the operator last said "stop"."""
+    """True when the turn ends on an AskUserQuestion or the operator's last message starts with stop/pause/wait."""
     if not isinstance(path, str) or not os.path.isfile(path):
         return False
     with open(path, "rb") as fh:
@@ -106,7 +106,7 @@ def transcript_allows(path) -> bool:
         if not isinstance(entry, dict):
             continue
         content = (entry.get("message") or {}).get("content")
-        if entry.get("type") == "user":
+        if entry.get("type") == "user" and not entry.get("isMeta"):  # isMeta: hook feedback, skill text, hand-backs
             texts = _texts(content)
             if texts:  # a tool_result-only entry is not an operator message
                 last_user, last_tool = " ".join(texts), None

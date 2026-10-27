@@ -27,6 +27,7 @@ type stopFixture struct {
 	status   int    // store status; 0 = 200
 	lastUser string // last operator message
 	lastTool string // last assistant tool use
+	metaUser string // isMeta user entry after the operator message (hook feedback, skill text)
 }
 
 func runStopGuard(t *testing.T, f stopFixture, home string, active bool) string {
@@ -80,6 +81,9 @@ func runStopGuard(t *testing.T, f stopFixture, home string, active bool) string 
 		user = "/flow " + stopChange
 	}
 	transcript := fmt.Sprintf(`{"type":"user","message":{"content":%q}}`+"\n", user)
+	if f.metaUser != "" {
+		transcript += fmt.Sprintf(`{"type":"user","isMeta":true,"message":{"content":%q}}`+"\n", f.metaUser)
+	}
 	if f.lastTool != "" {
 		transcript += fmt.Sprintf(`{"type":"assistant","message":{"content":[{"type":"tool_use","name":%q,"input":{}}]}}`+"\n", f.lastTool)
 	}
@@ -153,6 +157,26 @@ func TestFlowStopGuardHook(t *testing.T) {
 			home := t.TempDir()
 			block(t, runStopGuard(t, started(7, 7, true), home, false), "flow.implement")
 			block(t, runStopGuard(t, started(7, 7, false), home, true), "flow.write-in-progress")
+		}},
+		{"m: isMeta Stop hook feedback then tool use blocks", func(t *testing.T) {
+			f := started(3, 7, true)
+			f.metaUser = "Stop hook feedback:\nflow-stop-guard: stage flow.implement is still open"
+			f.lastTool = "Bash"
+			block(t, runStopGuard(t, f, t.TempDir(), false), "flow.implement")
+		}},
+		{"n: stop not leading the operator message blocks", func(t *testing.T) {
+			for _, msg := range []string{"don't stop until it's done", "set the instruction to stop for manual test after the implementation"} {
+				f := started(3, 7, true)
+				f.lastUser = msg
+				block(t, runStopGuard(t, f, t.TempDir(), false), "flow.implement")
+			}
+		}},
+		{"o: operator said pause or wait allows", func(t *testing.T) {
+			for _, msg := range []string{"  Pause.", "wait, let me check"} {
+				f := started(3, 7, true)
+				f.lastUser = msg
+				allow(t, runStopGuard(t, f, t.TempDir(), false))
+			}
 		}},
 		{"k: store 500 allows", func(t *testing.T) {
 			f := started(7, 7, true)
