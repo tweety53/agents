@@ -36,12 +36,12 @@ hook blocks a turn whose final handoff drops either line.
 - The handoff check runs before the store lookup, is skipped when `stop_hook_active` is true, and
   any fault still exits 0 with no output (`stop-hook-blocks-incomplete-handoff`).
 
-- [ ] 1. Name the Finished handoff's template in land's NEXT line
-  - [ ] **Step 1: Reproduce.** Save the diff below to `/tmp/pf38.diff`, apply its test hunk alone
+- [x] 1. Name the Finished handoff's template in land's NEXT line
+  - [x] **Step 1: Reproduce.** Save the diff below to `/tmp/pf38.diff`, apply its test hunk alone
     (`git apply --include='stats/internal/guard/integrate_change_test.go' /tmp/pf38.diff`), run
     `cd stats && make -s web-dist && go test ./internal/guard/ -run TestIntegrateChange`:
     `TestIntegrateChangeHappyPath/happy_path/the_NEXT_line_names_the_template_and_its_never-omitted_lines` fails.
-  - [ ] **Step 2: Implement.** Apply the rest
+  - [x] **Step 2: Implement.** Apply the rest
     (`git apply --exclude='stats/internal/guard/integrate_change_test.go' /tmp/pf38.diff`):
 
 ````diff verified:applied with git apply to this worktree at 71c7e91f; go test ./internal/guard/ -run TestIntegrateChange passes with it and fails the new check alone with integratechange_cleanup.go untouched; go vet and gofmt -l clean
@@ -74,9 +74,9 @@ index 95784f1a..aecd49ac 100644
  // bashIn is `(cd <dir> && bash -c <command>)`, both streams passed
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run TestIntegrateChange`
+  - [x] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./internal/guard/ -run TestIntegrateChange`
     passes; `go vet ./...` and `gofmt -l .` are clean; `scripts/check-references.sh` exits 0.
-  - [ ] **Step 4: Commit** the two files with the subject below.
+  - [x] **Step 4: Commit** the two files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/integratechange_cleanup.go`, `stats/internal/guard/integrate_change_test.go`
@@ -89,13 +89,13 @@ index 95784f1a..aecd49ac 100644
 
 **Decision:** next-line-names-template
 
-- [ ] 2. Block a turn whose handoff drops its Learning or Prompt tuning line
-  - [ ] **Step 1: Reproduce.** Save the diff below to `/tmp/pf38-2.diff`, apply its test hunk alone
+- [x] 2. Block a turn whose handoff drops its Learning or Prompt tuning line
+  - [x] **Step 1: Reproduce.** Save the diff below to `/tmp/pf38-2.diff`, apply its test hunk alone
     (`git apply --include='stats/*' /tmp/pf38-2.diff`), run
     `cd stats && make -s web-dist && go test -count=1 ./internal/repotest/ -run TestFlowStopGuardHook`:
     subtests `p:_Finished_handoff_without_Prompt_tuning_blocks_naming_it` and
     `q:_flow-fast_report_without_Learning_blocks_naming_it` fail.
-  - [ ] **Step 2: Implement.** Apply the rest
+  - [x] **Step 2: Implement.** Apply the rest
     (`git apply --exclude='stats/*' /tmp/pf38-2.diff`):
 
 ````diff verified:applied with git apply to this worktree at 0df205f5; go test -count=1 ./internal/repotest/ -run TestFlowStopGuardHook passes with it and fails subtests p and q with hooks/flow-stop-guard.py untouched; gofmt -l clean
@@ -233,9 +233,9 @@ index 382fbf99..2cd2553c 100644
  			f.status = 500
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && make -s web-dist && go test -count=1 ./internal/repotest/ -run TestFlowStopGuardHook`
+  - [x] **Step 3: Verify.** `cd stats && make -s web-dist && go test -count=1 ./internal/repotest/ -run TestFlowStopGuardHook`
     passes; `go vet ./...` and `gofmt -l .` are clean; `scripts/check-references.sh` exits 0.
-  - [ ] **Step 4: Commit** the two files with the subject below.
+  - [x] **Step 4: Commit** the two files with the subject below.
 
 **Build:** green
 **Files:** `hooks/flow-stop-guard.py`, `stats/internal/repotest/flow_stop_guard_hook_test.go`
