@@ -13,7 +13,7 @@ grep -qF '**Prompt tuning:** <each case'"'"'s `index.html` absolute path in `<ag
 for f in skills/flow/cleanup.md skills/flow/integrate.md skills/flow/verify-and-handoff.md skills/flow-contracts/handoff-blocks.md; do
   grep -qF '**Prompt tuning:** <each case'"'"'s `index.html` absolute path in `<agents repo>`'"'"'s main checkout> | NONE' "$f" \
     || fail "$f: handoff block lacks the '**Prompt tuning:** <path> | NONE' line"
-  grep -F 'Prompt tuning:' "$f" | grep -qF '| NONE —' \
+  grep -qF '| NONE —' <<<"$(grep -F 'Prompt tuning:' "$f")" \
     && fail "$f: Prompt tuning NONE carries a reason"
 done
 grep -qF "**The \`Prompt tuning:\` line is present in every \`/flow\` and \`/flow-fast\` run's final message.**" skills/flow/cleanup.md \
