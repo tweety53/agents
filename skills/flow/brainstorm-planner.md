@@ -34,6 +34,16 @@ runs them as **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline
   `skills/flow-contracts/project-configuration-visual.md`). A commit of the assets carries
   `-m "Flow-Key: flow.brainstorm"` (**Commits outside every task**,
   `skills/flow-contracts/git-boundaries.md`).
+- **A visible change is prototyped before its design is approved** (`plan-visual-prototype`,
+  kan-1038). When the change can alter what a user sees — a page, a view, a chart, a dialog — and
+  no mockup frame already specifies it, build a clickable prototype of the proposed result with
+  sample data as a single HTML file, publish it with the Artifact tool, and iterate it on the
+  operator's feedback each round until they approve; that approval is the convergence confirm's
+  **approve the design and move on** (**Convergence**, below). Save the approved file under
+  `<project>-worktrees/<name>/.superpowers/sdd/` and cite it, with its Artifact URL, from
+  `design.md`'s `## Context` as the spec the implementation and `flow.visual-verify` compare
+  against. A change with nothing visible builds none. On a harness without the Artifact tool,
+  write the file and give the operator its absolute path.
 
 **Load `skills/flow/seeded-note.md`** only when the ask arrives as a seeded research note — a
 fully-worked issue description, a `/flow-plan` capture or a handoff package that already carries
