@@ -15,3 +15,4 @@ The Weekly costs dashboard (KAN-1037) is hard to read: an 8-week table beside a 
 
 - In-run fix 1 (verify, 2026-10-27): `App.test.tsx`'s `weekly costs renders no filter bar` crashed the chart — a series with no measured week threw on `line.find(...)!.series`; such a series now draws no line.
 - In-run fix 2 (visual-verify, 2026-10-27): the toggled capture parks the pointer, and a new capture drives the hover tooltip.
+- In-run fix 3 (visual-verify, 2026-10-27): the tooltip takes the prototype's "vs prev week" copy, 150px width and shadow.

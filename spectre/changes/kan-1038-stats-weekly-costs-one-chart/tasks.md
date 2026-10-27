@@ -107,3 +107,14 @@ Correction (2026-10-27): the plan's spec ran against the UI-test fixture alone, 
 
 Correction (2026-10-27): the plan declared the toggled PNG and the toggled test; parking the pointer re-captured a byte-identical PNG and left the test's title line untouched, so the commit carries neither and both leave the record.
 
+- [ ] 7. In-run fix 3 — visual-verify: the tooltip departs from the prototype's copy, width and shadow
+  - [ ] **Step 1:** in `stats/web/tests/visual/weekly-costs.spec.ts`, `hovering a point shows its tooltip` asserts the tooltip reads `vs prev week`; run it — RED.
+  - [ ] **Step 2:** `stats/web/src/views/WeeklyCosts.tsx` says `vs prev week`; `.weekly-tooltip` in `stats/web/src/styles.css` is `width: 150px` with `box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15)`, as the prototype's `#tip`. Re-capture `weekly-costs-tooltip.png` (`--update-snapshots`), then run the spec clean.
+
+**Files:** `stats/web/src/views/WeeklyCosts.tsx`, `stats/web/src/styles.css`, `stats/web/tests/visual/weekly-costs.spec.ts`, `stats/web/tests/visual/weekly-costs.spec.ts-snapshots/weekly-costs-tooltip-darwin.png`
+**Tests:** `hovering a point shows its tooltip`
+**Regression:** `hovering a point shows its tooltip` fails, because the tooltip reads "vs previous week".
+**Build:** green
+**After:** Task 5, 6
+**Commit:** `fix(stats): Weekly costs tooltip copy, width and shadow as the prototype draws them`
+
