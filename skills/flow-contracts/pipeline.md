@@ -111,6 +111,17 @@ after a fix is their decision.
 
 ## Fewest operator actions
 
+**Planning is a change's one interactive phase; past the plan gate the run does not stop.**
+Brainstorming and the plan gate are the operator's (`skills/flow/brainstorm-planner.md`), and the
+plan gate's `/clear` handoff is the boundary. From the `/flow <name>` that resumes the planned
+change, implementation, review, verify, integrate and cleanup follow in one invocation until the
+landing route ends the run (`skills/flow-contracts/finish-contract-run1.md`). The one stop the
+operator chooses is review-before-landing (`reviewBeforeLanding`, `state-file.md`), for manual
+testing after implementation; beyond it only **What still stops** ends a turn early. No rule in
+another file licenses asking a question that carries a recommended option (kan-1037: the parent
+asked a visual verifier's three spec questions under `rules/design-mockups-are-specs.mdc`'s "Ask
+rather than invent", then stopped after an in-run fix task citing token cost).
+
 **The operator's actions and the run's stops are minimised: a run resolves everything it can
 itself and continues.** It stops only for a decision only the operator can make, or for an
 action that is irreversible or outward-facing — **What still stops**

@@ -17,9 +17,11 @@ named — empty input, zero results, hover/focus/disabled, loading, error, valid
 overflow. A picker must not offer what submit would reject; whether it filters is a spec question,
 not a style one. A scrollable value picker has both directions stated. A control its sibling
 already has elsewhere reuses that composable, not a rebuild. Batch the questions up front; ask
-mid-build the moment a real blocker appears. Verify by running the app and doing the thing —
-interact, screenshot, compare side by side; a green suite or a read diff misses a fill colour, a
-missing border, a picker that offers what submit rejects.
+mid-build the moment a real blocker appears. Inside a `/flow` run past its plan gate, a question
+carrying a recommended option is never asked: the run takes that option (**Auto-resolution**,
+`skills/flow-contracts/operator-prompts-auto-resolution.md`). Verify by running the app and doing
+the thing — interact, screenshot, compare side by side; a green suite or a read diff misses a fill
+colour, a missing border, a picker that offers what submit rejects.
 
 <!-- /core -->
 

@@ -94,7 +94,6 @@ var cicExpectedZero = [][2]string{
 	{"rules/build-the-simplest-thing.mdc", "always-on rule body — cites no .md/.mdc path at all, backticked or bare"},
 	{"rules/context7.mdc", "always-on rule body — cites no .md/.mdc path at all, backticked or bare"},
 	{"rules/dependency-versions.mdc", "always-on rule body — cites no .md/.mdc path at all, backticked or bare"},
-	{"rules/design-mockups-are-specs.mdc", "always-on rule body — cites no .md/.mdc path at all, backticked or bare"},
 	{"rules/fix-determinism-at-the-source.mdc", "always-on rule body — cites no .md/.mdc path at all, backticked or bare"},
 	{"rules/never-touch-production.mdc", "always-on rule body — cites no .md/.mdc path at all, backticked or bare"},
 	{"skills/flow/primary-reviewer-prompt.md", "reviewer template — every path it cited sat in its Placeholders list, which render-slot-prompt.sh now fills from review-panel.md's table"},

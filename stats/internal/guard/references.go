@@ -85,7 +85,6 @@ var crExpectedZero = []struct {
 			"rules/commit-scope-is-the-module.mdc",
 			"rules/context7.mdc",
 			"rules/dependency-versions.mdc",
-			"rules/design-mockups-are-specs.mdc",
 			"rules/dispatch-carries-the-baseline.mdc",
 			"rules/fix-determinism-at-the-source.mdc",
 			"rules/lint-fix-priority.mdc",
