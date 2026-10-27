@@ -8,8 +8,8 @@ was read for the drawn element list only.
 One "LAST 8 WEEKS" panel with caption "Overall includes stages outside the four phases.", five
 pressed legend chips (Overall, Planning, Implementation, Review, Self-review), y axis $0.00–$5.00 in
 $1.00 steps titled "Cost (USD)", x axis 2026-06-24 … 2026-08-12 (8 Wednesday ticks) titled "Week
-starting (Wed, UTC)". No filter bar. Isolated points at 2026-07-22; Overall line 1.50 → 3.36 with
-pill "▲124%" (red, delta-up; 3.36/1.50 = +124%), Review 0.60 → 0.41 with "▼32%" (green,
+starting (Wed, UTC)". No filter bar. Isolated points at 2026-07-22; Overall line 1.50 → 3.37 with
+pill "▲124%" (red, delta-up; (3.37 − 1.50)/1.50 = +124.5%), Review 0.60 → 0.41 with "▼32%" (green,
 delta-down; −31.7% → 32%). Pills sit inside the card's right edge. No raw float, NaN or placeholder.
 
 ## weekly-costs-light — `visual-verification/evidence/weekly-costs-light-darwin.png`
@@ -20,8 +20,12 @@ Panel heading and caption, then "No data was recorded for this period."; no chip
 
 ## weekly-costs-toggled — `visual-verification/evidence/weekly-costs-toggled-darwin.png`
 Overall chip dimmed (aria-pressed false), Overall points gone, y axis rescaled to $0.00–$1.25 in
-$0.25 steps. The spec clicks the chip and does not park the pointer (`page.mouse.move(0, 0)`)
-before the capture — a spec departure against step 8.
+$0.25 steps. The spec clicks the chip and parks the pointer (`page.mouse.move(0, 0)`) before the
+capture (in-run fix 2); the re-captured PNG is byte-identical.
+
+## weekly-costs-tooltip — `visual-verification/evidence/weekly-costs-tooltip-darwin.png`
+Hovering Overall's 2026-08-12 point enlarges it and opens the tooltip: "Overall", "Week of
+2026-08-12", "$3.37", "▲ 124.5% vs previous week" in delta-up red, inside the plot (in-run fix 2).
 
 ## full-app-suite weekly-costs — `visual-verification/evidence/full-weekly-costs-darwin.png`
 Recaptured: the committed baseline (1280×1091, the pre-change two-chart view) was stale and failed
@@ -33,7 +37,7 @@ Recaptured: the committed baseline (1280×1091, the pre-change two-chart view) w
 - reach: done — page fits the 1024px viewport, nothing below the card.
 - derived: done — deltas re-derived by hand (above); toggle re-derives the y scale.
 - rows, ink: n/a — no frame.
-- Not exercised by any capture: the hover tooltip the design names — no spec drives a hover.
+- The hover tooltip is driven by `hovering a point shows its tooltip` (in-run fix 2).
 
 ## Motions
 None named.
