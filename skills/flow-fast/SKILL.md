@@ -354,11 +354,11 @@ its fixed shas when section 5 committed one; and the `**Learning:**` and `**Prom
 lines of the Finished handoff (`skills/flow/cleanup.md`), never omitted. This is the one report the run prints.
 
 **Then the handoff, decided by `## handoff`** (**Project configuration**,
-`skills/flow-contracts/project-configuration.md`): `none` continues to section 6 in this same
-invocation; `required`, or the key absent, ends the run here — worktree and branch kept, the
-summary naming the branch and `Re-run /flow-fast <name> to land it` — so the operator reviews
-the branch before anything is pushed. The remaining marks below are then made by that bare
-re-run, not by this one.
+`skills/flow-contracts/project-configuration.md`): `none`, or the key absent, continues to
+section 6 in this same invocation; `required` ends the run here — worktree and branch kept, the
+summary naming the branch and `Re-run /flow-fast <name> to land it` — so the operator, who asked
+to test by hand, reviews the branch before anything is pushed. The remaining marks below are then
+made by that bare re-run, not by this one.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.run-instructions -outcome completed <name>
@@ -383,7 +383,7 @@ flow stage begin -command '/flow-fast' -stage flow.landing-question -harness <ha
 The route is what section 4's `## default landing route` `--enum` call resolved, taken without
 asking. When it resolved none (exit 1 or 3): with `## handoff` `required`, ask once through
 **AskUserQuestion** with the options `pull request`, `merge and push` and `manual`, `pull request`
-recommended; with `## handoff` `none`, take `pull request` without asking.
+recommended; otherwise take `pull request` without asking.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.landing-question -outcome completed <name>
