@@ -1123,7 +1123,9 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	}
 	// An inline row begins before its work's first edit (implement.md's
 	// Records); a back-filled row (-started-at) records work already done.
-	if *agentID == "inline" && *startedAt == "" {
+	// A verifier row records a run, not an edit, and run-verify-list already
+	// writes no green sha over a dirty tree (kan-1016's self-review).
+	if *agentID == "inline" && *startedAt == "" && *role != "verifier" {
 		tree := f.dir
 		if main, carrying, err := changeCheckouts(f.dir, f.change); err == nil {
 			top, _ := exec.Command("git", "-C", f.dir, "rev-parse", "--show-toplevel").Output()

@@ -6587,3 +6587,42 @@ func TestRequireChangeCheckoutAcceptsTheChangeBranch(t *testing.T) {
 		t.Error("a change no worktree carries accepted")
 	}
 }
+
+// A verify row records a run, not an edit: an inline verifier begin over a
+// modified record is admitted, an inline implementer begin still refused
+// (design.md verifier-skips-inline-dirty).
+func TestRecordDispatchBeginInlineDirtyTree(t *testing.T) {
+	repo := recordRepo(t, "x")
+	isolatedStateRoot(t)
+	record := filepath.Join(repo, "spectre", "changes", "x", "visual-verification.md")
+	if err := os.WriteFile(record, []byte("# v\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"add", "-A"}, {"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "record"}} {
+		if out, err := exec.Command("git", append([]string{"-C", repo}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	if err := os.WriteFile(record, []byte("# v\nround 2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	begin := func(role, key string) (int, string) {
+		t.Helper()
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
+		}))
+		defer srv.Close()
+		argv := []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "inline", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "x", "-role", role, "-model", "opus", "-key", key, "-session-token", "mf-record-inline-verifier"}
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), argv, strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String()
+	}
+	if code, stderr := begin("verifier", "verify-x"); code != 0 {
+		t.Errorf("an inline verifier begin over a modified record: exit %d, want 0; stderr:\n%s", code, stderr)
+	}
+	if code, stderr := begin("implementer", "task-1-implementer"); code != 2 || !strings.Contains(stderr, "spectre/changes/x/visual-verification.md") {
+		t.Errorf("an inline implementer begin over the same tree: exit %d, want 2 naming the record; stderr:\n%s", code, stderr)
+	}
+}
