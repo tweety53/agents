@@ -866,7 +866,7 @@ func recordJournalPath(projectKey, name string) string {
 // recordJournalBody is what gets journalled for a record write that could
 // not reach the store: the write's own kind ("dispatch", "dispatch-end",
 // "finding", "status", "verdict", "verdict-false-positive", "incident",
-// "substitution", "decision", "pass" or "mutation") alongside the exact
+// "substitution", "decision", "pass", "mutation" or "suite") alongside the exact
 // wire request that would have been sent, so the reconciler has everything
 // it needs to replay it without this file needing a second encoding. It is
 // the same shape stageMarkJournalBody carries, for the same reason.

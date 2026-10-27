@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/fallback"
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
@@ -126,8 +127,46 @@ func TestSuiteRecordWarnsWithoutAlteringExitWhenStoreDown(t *testing.T) {
 	if code != 5 {
 		t.Fatalf("suite record exit = %d, want the child's 5 despite the store being down", code)
 	}
-	if !strings.Contains(stderr.String(), "not recorded") {
-		t.Errorf("stderr = %q, want the not-recorded warning", stderr.String())
+	if !strings.Contains(stderr.String(), "wrote local journal") {
+		t.Errorf("stderr = %q, want the journal warning", stderr.String())
+	}
+}
+
+// TestSuiteRecordJournalsWhenStoreDown pins kan-1040's lost suite row: a run
+// the store could not take is journalled for replay, stamped with its start.
+func TestSuiteRecordJournalsWhenStoreDown(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	dead := deadPortURL(t)
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"suite", "record", "-addr", dead, "-timeout", "500ms", "-C", repo,
+			"-suite", "probe", "--", "/bin/sh", "-c", "exit 5"},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 5 {
+		t.Fatalf("suite record exit = %d, want 5", code)
+	}
+	key, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatalf("ProjectKey: %v", err)
+	}
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(key, "_suite-runs") + ".record")
+	if err != nil {
+		t.Fatalf("ReadJournalEntries: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("journal entries = %d, want 1", len(entries))
+	}
+	var body struct {
+		Kind    string           `json:"kind"`
+		Request records.SuiteRun `json:"request"`
+	}
+	if err := json.Unmarshal(entries[0].Body, &body); err != nil {
+		t.Fatalf("decode entry: %v", err)
+	}
+	if body.Kind != "suite" || body.Request.Suite != "probe" || body.Request.ExitCode != 5 || body.Request.RanAt.IsZero() {
+		t.Errorf("entry = %+v, want kind suite, suite probe, exit 5, a ranAt", body)
 	}
 }
 

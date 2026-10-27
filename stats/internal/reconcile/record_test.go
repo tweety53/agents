@@ -168,12 +168,11 @@ func (nopRecordStore) ProjectRoots(context.Context) ([]store.ProjectRoot, error)
 
 var _ api.RecordStore = nopRecordStore{}
 
-// fakeRecordStore's own suite-run no-ops: replay never touches them -- a
-// journal entry records a dispatch, a finding, or a verdict, never a timed
-// suite run -- so they answer errRecordStoreNotExercised exactly like the
-// read methods above.
-func (f *fakeRecordStore) InsertSuiteRun(context.Context, string, records.SuiteRun) (records.SuiteRun, error) {
-	return records.SuiteRun{}, errRecordStoreNotExercised
+// InsertSuiteRun records a replayed suite run (kan-1040: a run the store
+// could not take is journalled); ListSuiteRuns is never exercised by replay.
+func (f *fakeRecordStore) InsertSuiteRun(_ context.Context, projectKey string, in records.SuiteRun) (records.SuiteRun, error) {
+	f.record(fmt.Sprintf("suite %s suite=%s exit=%d", projectKey, in.Suite, in.ExitCode))
+	return in, nil
 }
 
 func (f *fakeRecordStore) ListSuiteRuns(context.Context, string, string, int) ([]records.SuiteRun, error) {
@@ -558,6 +557,9 @@ func TestReplayAppliesVerdictAndIncidentEntries(t *testing.T) {
 		Recovery:    "flagged the verdict false positive",
 		MinutesLost: 15,
 	})
+	appendRecordWrite(t, root, project, change, "suite", records.SuiteRun{
+		Suite: "probe", Host: "h", DurationMs: 10, ExitCode: 5, RanAt: time.Now(),
+	})
 
 	rs := &fakeRecordStore{}
 	rec := reconcile.New(&fakeStore{}, nopStageStore{}, rs, root, nil)
@@ -566,14 +568,15 @@ func TestReplayAppliesVerdictAndIncidentEntries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if result.Journals != 1 || result.Applied != 3 || result.Refused != 0 {
-		t.Fatalf("Run result = %+v, want {Journals:1 Applied:3 Refused:0}", result)
+	if result.Journals != 1 || result.Applied != 4 || result.Refused != 0 {
+		t.Fatalf("Run result = %+v, want {Journals:1 Applied:4 Refused:0}", result)
 	}
 
 	assertAppliedCalls(t, rs.appliedCalls(), []string{
 		`verdict proj-record-guardlog/chg-record-guardlog guard=check-unfinished-work worktree=/wt/kan-451 verdict="OUTSTANDING: /wt/kan-451 -- one plan item unchecked"`,
 		`verdict-false-positive proj-record-guardlog/chg-record-guardlog guard=check-unfinished-work reason="verified structural"`,
 		"incident proj-record-guardlog guard=check-unfinished-work minutesLost=15",
+		"suite proj-record-guardlog suite=probe exit=5",
 	})
 
 	if n := pendingRecordCount(t, root, project, change); n != 0 {

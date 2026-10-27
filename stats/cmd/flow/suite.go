@@ -73,6 +73,10 @@ func runSuite(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	}
 }
 
+// suiteJournalName is the journal a suite run the store could not take is
+// written to; a suite run belongs to the project, not to one change.
+const suiteJournalName = "_suite-runs"
+
 // runSuiteRecord implements `flow suite record`: the child runs with
 // inherited stdio, is wall-timed, and its row is recorded. The store never
 // gates the child -- a record failure prints one warning line and changes
@@ -131,10 +135,16 @@ func runSuiteRecord(ctx context.Context, args []string, stdout, stderr io.Writer
 	_, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.SuiteRun, error) {
 		return cl.RecordSuiteRun(ctx, projectKey, in)
 	})
-	if callErr == nil {
+	switch {
+	case callErr == nil:
 		fmt.Fprintf(stderr, "recorded: suite %s %s exit %d\n", *suite, measured.Round(time.Millisecond), exitCode)
-	} else {
+	case errors.Is(callErr, client.ErrRecordRejected), errors.Is(callErr, client.ErrNotFound):
 		fmt.Fprintf(stderr, "⚠ flow: suite run not recorded (exit %d stands): %v\n", exitCode, callErr)
+	default:
+		// The store could not take it: journal the run for replay, stamped
+		// with its start so the replayed row keeps when it ran (kan-1040).
+		in.RanAt = start
+		journalRecordWrite(projectKey, suiteJournalName, "suite", in, stderr)
 	}
 	return exitCode
 }

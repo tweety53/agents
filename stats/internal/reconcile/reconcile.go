@@ -776,6 +776,13 @@ func (r *Reconciler) applyRecordEntry(ctx context.Context, e fallback.Entry) err
 		}
 		_, err := api.ApplyMutationRecord(ctx, r.recordStore, e.Project, e.Name, in)
 		return err
+	case "suite":
+		var in records.SuiteRun
+		if err := json.Unmarshal(body.Request, &in); err != nil {
+			return fmt.Errorf("%w: decode suite run: %v", errRecordEntryDecodeFailed, err)
+		}
+		_, err := api.ApplySuiteRunRecord(ctx, r.recordStore, e.Project, in)
+		return err
 	default:
 		return fmt.Errorf("%w: unknown record write kind %q", errRecordEntryDecodeFailed, body.Kind)
 	}
