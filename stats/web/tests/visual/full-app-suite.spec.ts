@@ -23,6 +23,11 @@ test.describe("full app suite", () => {
     test(`${view} screen`, async ({ page }) => {
       await page.goto(`/#/${view}?${query}`);
       await expect(page.getByRole("link", { name: label, exact: true })).toHaveAttribute("aria-current", "page");
+      // Every panel's "Loading…" status gone first: the nav link turns
+      // current before any fetch resolves, so without this wait the capture
+      // starts mid-load and, under verify's concurrent load, the page kept
+      // changing until toHaveScreenshot's stability wait ran out (kan-1038).
+      await expect(page.getByText("Loading…")).toHaveCount(0);
       await expect(page).toHaveScreenshot(`full-${view}.png`, { fullPage: true });
     });
   }
@@ -33,12 +38,14 @@ test.describe("full app suite", () => {
     await page.clock.install({ time: new Date("2026-08-16T12:00:00Z") });
     await page.goto(`/#/weekly-costs?${PINNED_QUERY}`);
     await expect(page.getByRole("link", { name: "Weekly costs", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByText("Loading…")).toHaveCount(0);
     await expect(page).toHaveScreenshot("full-weekly-costs.png", { fullPage: true });
   });
 
   test("run detail screen", async ({ page }) => {
     await page.goto(`/#/run/uitest-beta/kan-201-refactor-thing?${PINNED_QUERY}`);
     await expect(page.getByRole("heading", { name: "kan-201-refactor-thing" })).toBeVisible();
+    await expect(page.getByText("Loading…")).toHaveCount(0);
     await expect(page).toHaveScreenshot("full-run-detail.png", { fullPage: true });
   });
 });

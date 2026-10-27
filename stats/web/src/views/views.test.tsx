@@ -228,12 +228,19 @@ describe("views render their fixture response's actual values", () => {
     // The state also appears as a filter-dropdown <option>, which is not a
     // table cell -- scoping to role "cell" is what makes this assertion
     // about the rendered row rather than about either element.
-    expect(await screen.findByRole("cell", { name: "IN_PROGRESS" })).toBeInTheDocument();
-    expect(screen.queryByRole("columnheader", { name: /^By/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("columnheader", { name: /Next command/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("cell", { name: "alice" })).not.toBeInTheDocument();
+    //
+    // Every role query below is scoped to the board's table (or a row of
+    // it): a screen-wide role query walks the whole document and computes
+    // each element's accessible name, which under verify's concurrent load
+    // took this test past the default timeout (kan-1038). Scoping cuts that
+    // work at its source instead of raising the timeout.
+    const stateCell = await screen.findByRole("cell", { name: "IN_PROGRESS" });
+    const table = within(stateCell.closest("table")!);
+    expect(table.queryByRole("columnheader", { name: /^By/ })).not.toBeInTheDocument();
+    expect(table.queryByRole("columnheader", { name: /Next command/ })).not.toBeInTheDocument();
+    expect(table.queryByRole("cell", { name: "alice" })).not.toBeInTheDocument();
     // Whole-life run totals (design.md's board-run-totals).
-    const row = screen.getByRole("link", { name: "kan-16-stats-app" }).closest("tr")!;
+    const row = table.getByRole("link", { name: "kan-16-stats-app" }).closest("tr")!;
     within(row).getByRole("cell", { name: "7" });
     within(row).getByRole("cell", { name: "$12.50" });
     within(row).getByRole("cell", { name: "90.0 min" });
@@ -241,13 +248,13 @@ describe("views render their fixture response's actual values", () => {
     // Plan growth (KAN-415): the observed change shows planned -> current
     // with the appended figure; the never-observed one reads as the
     // absence dash, never as a count of zero.
-    expect(screen.getByRole("cell", { name: "22 → 46 (+24)" })).toBeInTheDocument();
+    expect(table.getByRole("cell", { name: "22 → 46 (+24)" })).toBeInTheDocument();
     // A shrinking series carries its own sign, never a malformed "+-24"
     // (panel round 0, F1).
-    expect(screen.getByRole("cell", { name: "46 → 22 (-24)" })).toBeInTheDocument();
+    expect(table.getByRole("cell", { name: "46 → 22 (-24)" })).toBeInTheDocument();
     // (Scoped to that row's Plan growth cell: its Cost and Wall clock also
     // read "—" now, design.md's no-runs-dash.)
-    const unobserved = screen.getByRole("link", { name: "kan-29-never-observed" }).closest("tr")!;
+    const unobserved = table.getByRole("link", { name: "kan-29-never-observed" }).closest("tr")!;
     expect(within(unobserved).getAllByRole("cell", { name: "—" })).toHaveLength(3);
     // Its own stat panel: a count of the rows shown, never a fabricated
     // total or mean for a categorical "state" column.
