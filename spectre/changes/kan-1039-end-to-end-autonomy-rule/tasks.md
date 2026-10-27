@@ -23,8 +23,8 @@ contracts aligned to it; `xhigh` agent definitions for later use, refused until 
   new rule runs from the main checkout after landing (`CLAUDE.md`, **Reinstall after a change to
   this repository is fully done**).
 
-- [ ] 1. Add the global rule and its agent-baseline row
-  - [ ] **Step 1: Create `rules/work-end-to-end.mdc`** with exactly this content:
+- [x] 1. Add the global rule and its agent-baseline row
+  - [x] **Step 1: Create `rules/work-end-to-end.mdc`** with exactly this content:
 
 ```markdown verified:applied to a detached origin/main 1be0e995 copy at plan time; check-references, check-markdown-integrity and check-ask-silence exited 0
 ---
@@ -72,18 +72,18 @@ its list of exceptions.
   fixes that follow, and that only when they explicitly asked to stop after implementation.
 ```
 
-  - [ ] **Step 2: Add the row to `rules/agent-baseline.md`**, directly after the row that opens
+  - [x] **Step 2: Add the row to `rules/agent-baseline.md`**, directly after the row that opens
     `| **Build the simplest thing that meets the requirement.**`, as its own table line:
 
 ```markdown verified:applied to a detached origin/main 1be0e995 copy at plan time; check-references exited 0
 | **Work end to end — stop only to plan or to test by hand.** Fix red checks, failing guards and broken tooling and keep going, however many rounds it takes; size is never a stop. Interactive only in planning and in manual testing the user explicitly asked to stop for — anywhere else take the recommended option, record it and continue. Stop only for a choice with no honest recommendation, an action another rule requires confirmed, or a cause out of your reach. A read-only role reports; its dispatcher fixes. | `~/.claude/rules/work-end-to-end.md` |
 ```
 
-  - [ ] **Step 3: Check the render** — the sandboxed install renders the new core:
+  - [x] **Step 3: Check the render** — the sandboxed install renders the new core:
     `H=$(mktemp -d) && HOME=$H ./setup.sh global >/dev/null 2>&1; grep -c 'rule: work-end-to-end.mdc' $H/.claude/CLAUDE.md`
     prints `1`, and `test -L $H/.claude/rules/work-end-to-end.md` succeeds.
     <!-- predicted: the Step 3 command after Step 1; the same command printed 1 for rule: be-brief.mdc on the worktree at origin/main 1be0e995 -->
-  - [ ] **Step 4: Verify:** `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
+  - [x] **Step 4: Verify:** `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `scripts/check-ask-silence.sh`, `scripts/check-markdown-integrity.sh` and
     `scripts/check-verbatim-moves.sh` exit 0.
 
@@ -96,8 +96,8 @@ its list of exceptions.
 
 **Decision:** new-rule-work-end-to-end
 
-- [ ] 2. Widen auto-resolution past planning and cure tooling failures in the run
-  - [ ] **Step 1: `skills/flow-contracts/operator-prompts-auto-resolution.md`** — four replacements.
+- [x] 2. Widen auto-resolution past planning and cure tooling failures in the run
+  - [x] **Step 1: `skills/flow-contracts/operator-prompts-auto-resolution.md`** — four replacements.
 
     Replace:
 
@@ -176,10 +176,10 @@ past planning is (**Work end to end — stop only to plan or to test by hand**,
 
     Delete the last bullet of the file, the two lines opening
     `- **Outside implementation and fix runs.** The wrong-state override, the plain-message ambiguity`.
-  - [ ] **Step 2: `skills/flow-contracts/operator-prompts.md`** — in the `## Auto-resolution`
+  - [x] **Step 2: `skills/flow-contracts/operator-prompts.md`** — in the `## Auto-resolution`
     load line, replace `only when a prompt arises during implementation or a fix run, or during planning when`
     with `only when a prompt arises past planning — implementation, review, verify, integrate, cleanup, the self-review pass or a fix run — or during planning when`.
-  - [ ] **Step 3: `skills/flow-contracts/pipeline.md`** — in `## Fewest operator actions`, after
+  - [x] **Step 3: `skills/flow-contracts/pipeline.md`** — in `## Fewest operator actions`, after
     the paragraph that ends `as open items, each of which had a recommended fix).`, insert a blank
     line and:
 
@@ -195,10 +195,10 @@ otherwise this paragraph wins, as **Work end to end — stop only to plan or to 
 (`rules/work-end-to-end.mdc`) requires.
 ```
 
-  - [ ] **Step 4: `skills/flow-contracts/project-configuration.md`** — in the `## decisions` row,
+  - [x] **Step 4: `skills/flow-contracts/project-configuration.md`** — in the `## decisions` row,
     replace `to the planning asks — never the pivot, an outward-facing or irreversible action, or an integrate or cleanup prompt (**Auto-resolution**`
     with `to the planning asks — never an outward-facing or irreversible action (**Auto-resolution**`.
-  - [ ] **Step 5: `skills/flow/SKILL-rationale.md`** — append at the end of the file, after a
+  - [x] **Step 5: `skills/flow/SKILL-rationale.md`** — append at the end of the file, after a
     blank line:
 
 ```markdown verified:applied to a detached origin/main 1be0e995 copy at plan time; check-references exited 0 once the rule was cited by its heading
@@ -226,7 +226,7 @@ rule is **Work end to end — stop only to plan or to test by hand** (`rules/wor
   causes out of the run's reach.
 ```
 
-  - [ ] **Step 6: Verify:** `scripts/check-references.sh`, `scripts/check-ask-silence.sh`,
+  - [x] **Step 6: Verify:** `scripts/check-references.sh`, `scripts/check-ask-silence.sh`,
     `scripts/check-markdown-integrity.sh` and `scripts/check-verbatim-moves.sh` exit 0.
 
 **Files:** `skills/flow-contracts/operator-prompts-auto-resolution.md`, `skills/flow-contracts/operator-prompts.md`, `skills/flow-contracts/pipeline.md`, `skills/flow-contracts/project-configuration.md`, `skills/flow/SKILL-rationale.md`
@@ -240,8 +240,8 @@ rule is **Work end to end — stop only to plan or to test by hand** (`rules/wor
 **Decision:** tooling-failure-precedence
 **Decision:** outward-facing-still-asked
 
-- [ ] 3. Make the review panel's stop-recommended prompts go on
-  - [ ] **Step 1: `skills/flow/review-panel.md`, the moved-base prompt.** Replace:
+- [x] 3. Make the review panel's stop-recommended prompts go on
+  - [x] **Step 1: `skills/flow/review-panel.md`, the moved-base prompt.** Replace:
 
 ```markdown verified:present once in skills/flow/review-panel.md at origin/main 1be0e995
 (`skills/flow-contracts/operator-prompts.md`), which that contract's **Auto-resolution** resolves on
@@ -272,7 +272,7 @@ operator instruction, and an unanswered ask takes **Continue** (**Unanswered mid
 > - **Stop — I'll rebase or reorder first**
 ```
 
-  - [ ] **Step 2: the context-bundle failure.** Replace:
+  - [x] **Step 2: the context-bundle failure.** Replace:
 
 ```markdown verified:present once in skills/flow/review-panel.md at origin/main 1be0e995
 > - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
@@ -288,7 +288,7 @@ operator instruction, and an unanswered ask takes **Continue** (**Unanswered mid
 >   `flow.review-panel` with `-outcome stopped`
 ```
 
-  - [ ] **Step 3: the second wall-clock breach.** Replace:
+  - [x] **Step 3: the second wall-clock breach.** Replace:
 
 ```markdown verified:present once in skills/flow/review-panel.md at origin/main 1be0e995
 (`skills/flow-contracts/operator-prompts.md`), resolved per that contract's **Auto-resolution** on
@@ -314,7 +314,7 @@ contract's never-repeats clause.
 > - **Stop the run** — ends at `IN_PROGRESS` with the implementation committed on the branch
 ```
 
-  - [ ] **Step 4: Verify:** `scripts/check-dispatch-paragraphs.sh`, `scripts/check-references.sh`,
+  - [x] **Step 4: Verify:** `scripts/check-dispatch-paragraphs.sh`, `scripts/check-references.sh`,
     `scripts/check-ask-silence.sh`, `scripts/check-markdown-integrity.sh` and
     `scripts/check-verbatim-moves.sh` exit 0.
 
@@ -329,8 +329,8 @@ contract's never-repeats clause.
 **Decision:** bundle-failure-fix-then-dispatch
 **Decision:** wall-clock-redispatch
 
-- [ ] 4. Continue a self-review product defect into its fix run
-  - [ ] **Step 1: `skills/flow-contracts/known-bugs.md`** — three replacements. Replace:
+- [x] 4. Continue a self-review product defect into its fix run
+  - [x] **Step 1: `skills/flow-contracts/known-bugs.md`** — three replacements. Replace:
 
 ```markdown verified:present once in skills/flow-contracts/known-bugs.md at origin/main 1be0e995
 fixed. The `flow.self-review` mark closes `-outcome stopped`, nothing lands, the change keeps its
@@ -371,7 +371,7 @@ never a handoff for the operator to start it (KAN-1039).
     `` `/flow-fast` prints `/flow-fast <name> <the defect, one line>` as the last line instead. ``
     — so `operator to start that fix run.` ends the file.
 
-  - [ ] **Step 2: `skills/flow/integrate.md`** — replace:
+  - [x] **Step 2: `skills/flow/integrate.md`** — replace:
 
 ```markdown verified:present once in skills/flow/integrate.md at origin/main 1be0e995
 `-outcome stopped` instead, and the run stops before step 5 on the handoff block **the sweep**
@@ -385,7 +385,7 @@ never a handoff for the operator to start it (KAN-1039).
 (`skills/flow-contracts/known-bugs.md`) names, in the same invocation, before step 5:
 ```
 
-  - [ ] **Step 3: `skills/flow-fast/SKILL.md`** — replace:
+  - [x] **Step 3: `skills/flow-fast/SKILL.md`** — replace:
 
 ```markdown verified:present once in skills/flow-fast/SKILL.md at origin/main 1be0e995
 `-outcome stopped` instead, and ends the run on the handoff block **the sweep**
@@ -399,7 +399,7 @@ never a handoff for the operator to start it (KAN-1039).
 (`skills/flow-contracts/known-bugs.md`) names, in the same invocation.
 ```
 
-  - [ ] **Step 4: Verify:** `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh`
+  - [x] **Step 4: Verify:** `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh`
     and `scripts/check-verbatim-moves.sh` exit 0, and
     `git grep -n -F -e 'Landing stopped' -e 'the run ends on the block below' -- skills` prints
     nothing.
@@ -413,8 +413,8 @@ never a handoff for the operator to start it (KAN-1039).
 
 **Decision:** product-defect-continues
 
-- [ ] 5. Land `/flow-fast` without a `## handoff` key
-  - [ ] **Step 1: `skills/flow-fast/SKILL.md`** — replace:
+- [x] 5. Land `/flow-fast` without a `## handoff` key
+  - [x] **Step 1: `skills/flow-fast/SKILL.md`** — replace:
 
 ```markdown verified:present once in skills/flow-fast/SKILL.md at origin/main 1be0e995
 `skills/flow-contracts/project-configuration.md`): `none` continues to section 6 in this same
@@ -437,15 +437,15 @@ made by that bare re-run, not by this one.
     and, in the landing-route paragraph, replace
     `recommended; with `## handoff` `none`, take `pull request` without asking.` with
     `recommended; otherwise take `pull request` without asking.`
-  - [ ] **Step 2: `commands-claude/flow-fast.md`** — replace
+  - [x] **Step 2: `commands-claude/flow-fast.md`** — replace
     `then — unless the project's `## handoff` is `none` — stop for the` with
     `then — when the project's `## handoff` is `required` — stop for the`.
-  - [ ] **Step 3: `skills/flow-contracts/project-configuration.md`** — in the `## handoff` row,
+  - [x] **Step 3: `skills/flow-contracts/project-configuration.md`** — in the `## handoff` row,
     replace
     `` `none` lands the change in the same invocation, straight after the change summary; `required`, or absent, stops after the summary so the operator reviews the branch first and re-runs `/flow-fast <name>` bare to land it. `/flow` always hands off at `IN_PROGRESS` and never reads this key. ``
     with
     `` `none`, or absent, lands the change in the same invocation, straight after the change summary; `required` stops after the summary so the operator, who asked to test by hand, reviews the branch first and re-runs `/flow-fast <name>` bare to land it. `/flow` never reads this key: its stop is the change record's `reviewBeforeLanding`. ``
-  - [ ] **Step 4: Verify:** `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
+  - [x] **Step 4: Verify:** `scripts/check-references.sh`, `scripts/check-installed-citations.sh`,
     `scripts/check-ask-silence.sh`, `scripts/check-markdown-integrity.sh` and
     `scripts/check-verbatim-moves.sh` exit 0.
 
@@ -458,8 +458,8 @@ made by that bare re-run, not by this one.
 
 **Decision:** flow-fast-handoff-absent-lands
 
-- [ ] 6. Point the unfinished-work stop at finishing the work
-  - [ ] **Step 1: `skills/flow/integrate.md`** — replace:
+- [x] 6. Point the unfinished-work stop at finishing the work
+  - [x] **Step 1: `skills/flow/integrate.md`** — replace:
 
 ```markdown verified:present once in skills/flow/integrate.md at origin/main 1be0e995
 - **`STOP: unfinished-work`** → **Load `skills/flow/unfinished-work-gate.md`** — the
@@ -476,11 +476,11 @@ made by that bare re-run, not by this one.
   **Finish it — never a prompt**.
 ```
 
-  - [ ] **Step 2: `skills/flow-contracts/finish-contract-run1.md`** — replace the table row
+  - [x] **Step 2: `skills/flow-contracts/finish-contract-run1.md`** — replace the table row
     `` | `OUTSTANDING` | show the breakdown and offer the three courses of **The three courses** (`skills/flow/unfinished-work-gate.md`) | ``
     with
     `` | `OUTSTANDING` | finish the outstanding work and re-run the guard, per **Finish it — never a prompt** (`skills/flow/unfinished-work-gate.md`) | ``.
-  - [ ] **Step 3: `stats/internal/guard/integratechange_prepare.go`** — replace the stop message:
+  - [x] **Step 3: `stats/internal/guard/integratechange_prepare.go`** — replace the stop message:
 
 ```go verified:present once in stats/internal/guard/integratechange_prepare.go at origin/main 1be0e995
 			c.stop("unfinished-work", "load skills/flow/unfinished-work-gate.md and offer its three courses; Continue or File-or-join re-runs prepare with --accept-outstanding")
@@ -492,7 +492,7 @@ made by that bare re-run, not by this one.
 			c.stop("unfinished-work", "load skills/flow/unfinished-work-gate.md: finish the unfinished work, asking nothing, then re-run prepare")
 ```
 
-  - [ ] **Step 4: Verify:** `cd stats && gofmt -l .` prints nothing;
+  - [x] **Step 4: Verify:** `cd stats && gofmt -l .` prints nothing;
     `cd stats && make -s web-dist && go vet ./...` and
     `cd stats && go test ./internal/guard -run 'TestIntegrateChangePrepare' -count=1` exit 0;
     `scripts/check-references.sh` and `scripts/check-verbatim-moves.sh` exit 0; and
@@ -507,8 +507,8 @@ made by that bare re-run, not by this one.
 
 **Decision:** stale-three-courses
 
-- [ ] 7. Drop the self-review's rating-only and xhigh asks
-  - [ ] **Step 1: `skills/flow-self-review/SKILL.md`** — replace:
+- [x] 7. Drop the self-review's rating-only and xhigh asks
+  - [x] **Step 1: `skills/flow-self-review/SKILL.md`** — replace:
 
 ```markdown verified:present once in skills/flow-self-review/SKILL.md at origin/main 1be0e995
 pair's `flow-planner-medium` or `flow-planner-low`. Where `high` still cannot produce a
@@ -540,7 +540,7 @@ With nothing to offer, no call
 is made: the rating is asked only beside a filing or mining ask.
 ```
 
-  - [ ] **Step 2: Verify:** `scripts/check-references.sh`, `scripts/check-ask-silence.sh`,
+  - [x] **Step 2: Verify:** `scripts/check-references.sh`, `scripts/check-ask-silence.sh`,
     `scripts/check-markdown-integrity.sh` and `scripts/check-verbatim-moves.sh` exit 0.
 
 **Files:** `skills/flow-self-review/SKILL.md`
@@ -553,8 +553,8 @@ is made: the rating is asked only beside a filing or mining ask.
 **Decision:** rating-only-beside-an-ask
 **Decision:** xhigh-replan-ask-struck
 
-- [ ] 8. Define the xhigh agents and refuse dispatches on them
-  - [ ] **Step 1: RED first.** In `stats/internal/repotest/enforce_agent_baseline_hook_test.go`,
+- [x] 8. Define the xhigh agents and refuse dispatches on them
+  - [x] **Step 1: RED first.** In `stats/internal/repotest/enforce_agent_baseline_hook_test.go`,
     in `TestEnforceAgentBaselineHook`'s case table, add after the row named
     `2e pipeline-fix loop escalation on flow-high`:
 
@@ -578,7 +578,7 @@ is made: the rating is asked only beside a filing or mining ask.
     Run `cd stats && go test ./internal/repotest -run 'TestEnforceAgentBaselineHook$' -count=1`
     and `cd stats && go test ./internal/setuptest -run 'TestSetupAgents$' -count=1`: both fail —
     rows 2f/2g are allowed, and `flow-xhigh.md` is missing.
-  - [ ] **Step 2: Create the definitions.** `agents/flow-xhigh.md`:
+  - [x] **Step 2: Create the definitions.** `agents/flow-xhigh.md`:
 
 ```markdown verified:shape of 43125acf^:agents/flow-xhigh.md, which carried effort: xhigh before 2026-09-30
 ---
@@ -610,7 +610,7 @@ Flow planner at xhigh effort; it may dispatch fresh Explore and Plan agents, nev
 	{"agents/flow-planner-xhigh.md", "generic dispatch-target agent definition — cites no .md/.mdc path at all"},
 ```
 
-  - [ ] **Step 3: The hook.** In `hooks/enforce-agent-baseline.py`, after the `FLOW_HIGH_MARKERS`
+  - [x] **Step 3: The hook.** In `hooks/enforce-agent-baseline.py`, after the `FLOW_HIGH_MARKERS`
     tuple, add:
 
 ```python verified:mirrors flow_high_reason in hooks/enforce-agent-baseline.py at origin/main 1be0e995
@@ -635,8 +635,8 @@ def flow_xhigh_reason(tool_input: dict) -> "str | None":
 
     and in `main()`, add `or flow_xhigh_reason(tool_input)` on its own line directly after
     `or flow_high_reason(prompt, tool_input)`.
-  - [ ] **Step 4: GREEN.** Re-run both tests from Step 1: they pass.
-  - [ ] **Step 5: Verify:** `cd stats && gofmt -l .` prints nothing;
+  - [x] **Step 4: GREEN.** Re-run both tests from Step 1: they pass.
+  - [x] **Step 5: Verify:** `cd stats && gofmt -l .` prints nothing;
     `cd stats && make -s web-dist && go vet ./...` exits 0; `scripts/check-installed-citations.sh`,
     `scripts/check-references.sh` and `scripts/check-python-suppressions.sh` exit 0.
 
