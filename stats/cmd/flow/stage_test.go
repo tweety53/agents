@@ -1953,3 +1953,30 @@ func TestStageEndVisualVerifyRefusesAnUntaskedCommit(t *testing.T) {
 		t.Fatalf("an archived re-run's self-review report: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
 	}
 }
+
+// TestStageResolvesTheRecordsAddress pins flow stage to the record family
+// (kan-1038): with FLOW_ADDR at a dead port and FLOW_RECORDS_ADDR at a fake
+// store, a stage begin reaches the records store, so a mark outlives the
+// worktree's daemon.
+func TestStageResolvesTheRecordsAddress(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	var reached bool
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		reached = true
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+	}))
+	defer srv.Close()
+	t.Setenv("FLOW_RECORDS_ADDR", srv.URL)
+	t.Setenv("FLOW_ADDR", deadPortURL(t))
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "begin", "-timeout", "500ms", "-C", repo,
+			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-default-harness-20261024T000000Z", "kan-16"},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 0 || !reached {
+		t.Fatalf("stage begin exit = %d, reached FLOW_RECORDS_ADDR = %v; stderr:\n%s", code, reached, stderr.String())
+	}
+}

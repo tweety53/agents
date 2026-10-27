@@ -129,7 +129,7 @@ type stageIdentityFlags struct {
 }
 
 func registerStageIdentityFlags(fset *flag.FlagSet, f *stageIdentityFlags) {
-	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
+	registerRecordsAddrFlag(fset, &f.addr)
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
 	fset.StringVar(&f.command, "command", "", "the flow command this stage belongs to, e.g. /flow")
@@ -1102,7 +1102,8 @@ func runStageMark(ctx context.Context, args []string, stderr io.Writer) int {
 func runStageSessions(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow stage sessions", flag.ContinueOnError)
 	fset.SetOutput(stderr)
-	addr := fset.String("addr", resolveDefaultAddr(), "flowd base URL")
+	var addr string
+	registerRecordsAddrFlag(fset, &addr)
 	timeout := fset.Duration("timeout", defaultTimeout, "store request timeout")
 	dir := fset.String("C", ".", "the change's repository")
 	stage := fset.String("stage", "", "a /flow stage key")
@@ -1137,7 +1138,7 @@ func runStageSessions(ctx context.Context, args []string, stdout, stderr io.Writ
 	}
 	reqCtx, cancel := context.WithTimeout(ctx, *timeout)
 	defer cancel()
-	rows, err := client.New(*addr, &http.Client{Timeout: *timeout}).ListStageRuns(reqCtx, projectKey, pos[0], "/flow", *stage)
+	rows, err := client.New(addr, &http.Client{Timeout: *timeout}).ListStageRuns(reqCtx, projectKey, pos[0], "/flow", *stage)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: stage sessions: %v\n", err)
 		return 1

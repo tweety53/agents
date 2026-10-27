@@ -28,9 +28,9 @@ import (
 // sharing a package.
 const defaultAddr = "http://127.0.0.1:4173"
 
-// resolveDefaultAddr returns the value the three -addr flag registrations
-// (two in state.go, one in stage.go) take as their default: FLOW_ADDR
-// when it is set to a non-empty value, defaultAddr otherwise -- mirroring
+// resolveDefaultAddr returns the value registerConnFlags's -addr
+// registration takes as its default, and resolveRecordsAddr's fallback:
+// FLOW_ADDR when it is set to a non-empty value, defaultAddr otherwise -- mirroring
 // how internal/config.FromEnv already treats an empty environment
 // variable as unset.
 //
@@ -274,7 +274,7 @@ func parseInterspersed(fset *flag.FlagSet, args []string) ([]string, error) {
 func parseStateFlagsN(fset *flag.FlagSet, args []string, stderr io.Writer, n int, wrong string) (stateFlags, error) {
 	fset.SetOutput(stderr)
 	f := stateFlags{}
-	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
+	registerRecordsAddrFlag(fset, &f.addr)
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	registerDirFlag(fset, &f.dir)
 	pos, err := parseInterspersed(fset, args)
@@ -568,7 +568,7 @@ type stateListFlags struct {
 func parseStateListFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (stateListFlags, error) {
 	fset.SetOutput(stderr)
 	f := stateListFlags{}
-	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
+	registerRecordsAddrFlag(fset, &f.addr)
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	registerDirFlag(fset, &f.dir)
 	if err := fset.Parse(args); err != nil {
@@ -713,7 +713,7 @@ type stateFindOutput struct {
 func parseStateFindFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (stateListFlags, string, error) {
 	fset.SetOutput(stderr)
 	f := stateListFlags{}
-	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
+	registerRecordsAddrFlag(fset, &f.addr)
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	registerDirFlag(fset, &f.dir)
 	if err := fset.Parse(args); err != nil {

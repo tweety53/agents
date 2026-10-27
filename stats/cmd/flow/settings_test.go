@@ -233,3 +233,25 @@ func TestSettingsSet_LearningRejectsBadValue(t *testing.T) {
 		t.Errorf("exit code = %d, want 2", code)
 	}
 }
+
+// TestSettingsResolvesTheRecordsAddress pins flow settings to the record
+// family (kan-1038): a settings get reads FLOW_RECORDS_ADDR, not FLOW_ADDR.
+func TestSettingsResolvesTheRecordsAddress(t *testing.T) {
+	var reached bool
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		reached = true
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"reviewers":["primary"]}`))
+	}))
+	defer srv.Close()
+	t.Setenv("FLOW_RECORDS_ADDR", srv.URL)
+	t.Setenv("FLOW_ADDR", deadPortURL(t))
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"settings", "get", "-timeout", "2s"},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 0 || !reached {
+		t.Fatalf("settings get exit = %d, reached FLOW_RECORDS_ADDR = %v; stderr:\n%s", code, reached, stderr.String())
+	}
+}

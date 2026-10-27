@@ -126,3 +126,20 @@ func TestRunJiraTransitionUsage(t *testing.T) {
 		t.Errorf("usage output %q does not describe the transition", stderr.String())
 	}
 }
+
+// TestJiraResolvesTheRecordsAddress pins flow jira to the record family
+// (kan-1038): a transition goes to FLOW_RECORDS_ADDR, not FLOW_ADDR.
+func TestJiraResolvesTheRecordsAddress(t *testing.T) {
+	fake := &jiraFlowdFake{t: t, wantStatus: http.StatusOK,
+		wantBody: `{"key":"KAN-571","status":"In Review","moved":true}`}
+	ts := httptest.NewServer(fake.handler())
+	defer ts.Close()
+	t.Setenv("FLOW_RECORDS_ADDR", ts.URL)
+	t.Setenv("FLOW_ADDR", deadPortURL(t))
+
+	var stdout, stderr strings.Builder
+	code := run(context.Background(), []string{"jira", "transition", "KAN-571", "In Review"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 || fake.lastBody == "" {
+		t.Fatalf("jira transition exit = %d, reached FLOW_RECORDS_ADDR = %v; stderr %s", code, fake.lastBody != "", stderr.String())
+	}
+}

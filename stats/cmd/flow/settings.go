@@ -60,7 +60,7 @@ type settingsConnFlags struct {
 }
 
 func registerSettingsConnFlags(fset *flag.FlagSet, f *settingsConnFlags) {
-	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
+	registerRecordsAddrFlag(fset, &f.addr)
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout")
 }
 

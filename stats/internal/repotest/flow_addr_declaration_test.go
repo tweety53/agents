@@ -15,8 +15,10 @@ package repotest
 //     carries the `FLOW_ADDR` and `FLOW_RECORDS_ADDR` rows the sentence
 //     speaks of.
 //  2. Exactly one `-addr` registration under stats/cmd/flow resolves
-//     FLOW_RECORDS_ADDR, and it is the one inside registerRecordConnFlags.
-//  3. The files holding registerRecordConnFlags call sites are exactly the
+//     FLOW_RECORDS_ADDR, and it is the one inside registerRecordsAddrFlag.
+//  3. The files holding registerRecordConnFlags or registerRecordsAddrFlag
+//     call sites (kan-1038: stage, state, settings and jira register their
+//     -addr alone through the latter) are exactly the
 //     files the declared commands map to — the CLI's own dispatch
 //     convention: the command's subcommand word, hyphens dropped, is the
 //     source file's stem (`flow record` -> record.go, `flow self-review
@@ -173,20 +175,22 @@ func assertFlowAddrRoot(root string) string {
 	})
 	recordGo := filepath.Join(cmd, "record.go")
 
-	// 2. exactly one FLOW_RECORDS_ADDR registration, inside registerRecordConnFlags
+	// 2. exactly one FLOW_RECORDS_ADDR registration, inside registerRecordsAddrFlag
 	const recReg, defReg = `"addr", resolveRecordsAddr()`, `"addr", resolveDefaultAddr()`
 	if n := countIn(srcs, recReg); n != 1 {
 		return fmt.Sprintf("expected exactly one FLOW_RECORDS_ADDR -addr registration under stats/cmd/flow, found %d", n)
 	}
-	if countLines(funcBody(recordGo, "registerRecordConnFlags"), recReg) != 1 {
-		return "the FLOW_RECORDS_ADDR -addr registration is not the one inside registerRecordConnFlags"
+	if countLines(funcBody(recordGo, "registerRecordsAddrFlag"), recReg) != 1 {
+		return "the FLOW_RECORDS_ADDR -addr registration is not the one inside registerRecordsAddrFlag"
 	}
 
-	// 3. record-seam call sites live in exactly the declared commands' files
+	// 3. record-seam call sites live in exactly the declared commands' files;
+	// a line holding either seam's name counts (record.go's definitions
+	// match too, and record.go is in the family already)
 	var siteFiles []string
 	for _, f := range srcs {
 		for _, l := range readLines(f) {
-			if strings.HasPrefix(l, "\tregisterRecordConnFlags(") {
+			if strings.Contains(l, "registerRecordConnFlags(") || strings.Contains(l, "registerRecordsAddrFlag(") {
 				siteFiles = append(siteFiles, filepath.Base(f))
 				break
 			}
@@ -195,7 +199,7 @@ func assertFlowAddrRoot(root string) string {
 	slices.Sort(siteFiles)
 	siteFiles = slices.Compact(siteFiles)
 	if !slices.Equal(siteFiles, declaredFiles) {
-		return fmt.Sprintf("registerRecordConnFlags call-site files (%s) are not exactly the declared record family's files (%s)",
+		return fmt.Sprintf("registerRecordConnFlags/registerRecordsAddrFlag call-site files (%s) are not exactly the declared record family's files (%s)",
 			strings.Join(siteFiles, " "), strings.Join(declaredFiles, " "))
 	}
 
@@ -307,7 +311,7 @@ func TestFlowAddrDeclaration(t *testing.T) {
 	cases := []struct{ name, file, old, repl, want string }{
 		// a verb outside the record family joins the record seam
 		{"mutate-record-seam-outside-family", "stats/cmd/flow/hazard.go", "registerConnFlags(", "registerRecordConnFlags(", "call-site files"},
-		// registerRecordConnFlags stops resolving FLOW_RECORDS_ADDR
+		// registerRecordsAddrFlag stops resolving FLOW_RECORDS_ADDR
 		{"mutate-record-seam-default", "stats/cmd/flow/record.go", `"addr", resolveRecordsAddr()`, `"addr", resolveDefaultAddr()`, "FLOW_RECORDS_ADDR -addr registration"},
 		// a record-family verb falls back to the FLOW_ADDR-only seam
 		{"mutate-family-verb-switches-seam", "stats/cmd/flow/selfreview.go", "registerRecordConnFlags(fset, &f)", "registerConnFlags(fset, &f)", "call-site files"},
@@ -319,7 +323,7 @@ func TestFlowAddrDeclaration(t *testing.T) {
 		// falls back to the FLOW_ADDR-only seam
 		{"mutate-family-suite-switches-seam", "stats/cmd/flow/suite.go", "registerRecordConnFlags(fset, &f)", "registerConnFlags(fset, &f)", "call-site files"},
 		// a registration takes a hardcoded default
-		{"mutate-literal-addr-registration", "stats/cmd/flow/jira.go", `"addr", resolveDefaultAddr()`, `"addr", "http://127.0.0.1:9999"`, "take a resolver default"},
+		{"mutate-literal-addr-registration", "stats/cmd/flow/record.go", `"addr", resolveDefaultAddr()`, `"addr", "http://127.0.0.1:9999"`, "take a resolver default"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

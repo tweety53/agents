@@ -73,7 +73,7 @@ type jiraConnFlags struct {
 }
 
 func registerJiraConnFlags(fset *flag.FlagSet, f *jiraConnFlags) {
-	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
+	registerRecordsAddrFlag(fset, &f.addr)
 	fset.DurationVar(&f.timeout, "timeout", jiraTransitionTimeout, "HTTP budget for the one call to flowd; the daemon's retry ladder runs on its own fixed budget")
 }
 

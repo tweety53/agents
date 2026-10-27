@@ -2268,3 +2268,27 @@ func TestStateGetAcceptsFlagsAfterTheName(t *testing.T) {
 		t.Errorf("stdout = %s, want the on-disk record %s", stdout.Bytes(), diskBody)
 	}
 }
+
+// TestStateResolvesTheRecordsAddress pins flow state to the record family
+// (kan-1038): a state get reads FLOW_RECORDS_ADDR, not FLOW_ADDR.
+func TestStateResolvesTheRecordsAddress(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	var reached bool
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		reached = true
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"state":"STARTED","updatedAt":"2026-10-27T09:00:00Z"}`))
+	}))
+	defer srv.Close()
+	t.Setenv("FLOW_RECORDS_ADDR", srv.URL)
+	t.Setenv("FLOW_ADDR", deadPortURL(t))
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "get", "-timeout", "500ms", "-C", repo, "kan-16"},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 0 || !reached {
+		t.Fatalf("state get exit = %d, reached FLOW_RECORDS_ADDR = %v; stderr:\n%s", code, reached, stderr.String())
+	}
+}

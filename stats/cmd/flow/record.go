@@ -730,13 +730,22 @@ type recordIdentityFlags struct {
 // FLOW_RECORDS_ADDR. `flow self-review bundle`, `flow lesson resolve` and
 // `flow suite record`/`list` register through here too, for the same reason:
 // suite runtimes are medianed across runs, so a worktree's rows must reach
-// the persistent store. Every verb outside the record family -- hazard,
-// spec, tasks -- registers registerConnFlags instead, whose address
-// follows FLOW_ADDR alone.
+// the persistent store. `flow stage`, `flow state`, `flow settings` and
+// `flow jira` are record-family members too (kan-1038): stage marks, state
+// rows, settings and Jira transitions must outlive the worktree's daemon,
+// so they register their -addr through registerRecordsAddrFlag. Every
+// verb outside the record family -- hazard, spec, tasks -- registers
+// registerConnFlags instead, whose address follows FLOW_ADDR alone.
 func registerRecordConnFlags(fset *flag.FlagSet, f *recordIdentityFlags) {
-	fset.StringVar(&f.addr, "addr", resolveRecordsAddr(), "flowd base URL")
+	registerRecordsAddrFlag(fset, &f.addr)
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
+}
+
+// registerRecordsAddrFlag holds the one registration of the records
+// resolver as an -addr default; every record-family flag set calls it.
+func registerRecordsAddrFlag(fset *flag.FlagSet, p *string) {
+	fset.StringVar(p, "addr", resolveRecordsAddr(), "flowd base URL")
 }
 
 // registerConnFlags is registerRecordConnFlags for every store-touching
