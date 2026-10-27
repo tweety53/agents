@@ -94,14 +94,16 @@ Correction (2026-10-27): the plan's spec ran against the UI-test fixture alone, 
 **After:** Task 1, 3
 **Commit:** `fix(stats): Weekly costs draws a series with no measured week as no line`
 
-- [ ] 6. In-run fix 2 — visual-verify: the toggled capture parks no pointer, and no capture drives the tooltip
-  - [ ] **Step 1:** in `stats/web/tests/visual/weekly-costs.spec.ts`, `a toggled-off series leaves the chart` parks the pointer (`page.mouse.move(0, 0)`) before its screenshot; add `hovering a point shows its tooltip`: with the added 2026-08-05 week, hover Overall's 2026-08-12 point, assert the tooltip names `Overall`, `$3.37` and `▲ 124.5%`, screenshot `weekly-costs-tooltip.png`.
-  - [ ] **Step 2:** capture per `.flow/project.md` `## visual verification` (`--update-snapshots`) for this spec, then run it without the flag clean; open the new PNGs.
+- [x] 6. In-run fix 2 — visual-verify: the toggled capture parks no pointer, and no capture drives the tooltip
+  - [x] **Step 1:** in `stats/web/tests/visual/weekly-costs.spec.ts`, `a toggled-off series leaves the chart` parks the pointer (`page.mouse.move(0, 0)`) before its screenshot; add `hovering a point shows its tooltip`: with the added 2026-08-05 week, hover Overall's 2026-08-12 point, assert the tooltip names `Overall`, `$3.37` and `▲ 124.5%`, screenshot `weekly-costs-tooltip.png`.
+  - [x] **Step 2:** capture per `.flow/project.md` `## visual verification` (`--update-snapshots`) for this spec, then run it without the flag clean; open the new PNGs.
 
-**Files:** `stats/web/tests/visual/weekly-costs.spec.ts`, `stats/web/tests/visual/weekly-costs.spec.ts-snapshots/weekly-costs-toggled-darwin.png`, `stats/web/tests/visual/weekly-costs.spec.ts-snapshots/weekly-costs-tooltip-darwin.png`
-**Tests:** `hovering a point shows its tooltip`, `a toggled-off series leaves the chart`
+**Files:** `stats/web/tests/visual/weekly-costs.spec.ts`, `stats/web/tests/visual/weekly-costs.spec.ts-snapshots/weekly-costs-tooltip-darwin.png`
+**Tests:** `hovering a point shows its tooltip`
 **Regression:** `hovering a point shows its tooltip` fails, because the tooltip never renders on hover.
 **Build:** green
 **After:** Task 3, 5
 **Commit:** `test(stats): capture the Weekly costs tooltip and park the pointer`
+
+Correction (2026-10-27): the plan declared the toggled PNG and the toggled test; parking the pointer re-captured a byte-identical PNG and left the test's title line untouched, so the commit carries neither and both leave the record.
 
