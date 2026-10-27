@@ -5329,6 +5329,60 @@ func TestRecordDispatchBackfillFloorsAPanelFixAtItsRoundsReviewers(t *testing.T)
 	}
 }
 
+// TestRecordDispatchBackfillFloorsAFullSuiteFixAtThePanelsReviewers pins
+// the kan-1039 self-review fix: an inline full-suite-fix-<n> back-fill never
+// starts before the newest reviewer end not after its fix commit, so it no
+// longer claims the whole panel wait; a record with no reviewer row, and a
+// key whose <n> is not a positive integer, keep the commit-derived start.
+func TestRecordDispatchBackfillFloorsAFullSuiteFixAtThePanelsReviewers(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	fixtureCommit(t, repo, "2026-10-23T09:19:34Z")
+	sha := fixtureCommit(t, repo, "2026-10-23T09:30:03Z")
+	reviewers := `{"change":"kan-258","dispatches":[` +
+		`{"key":"panel-0-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-23T09:20:01Z","endedAt":"2026-10-23T09:28:18Z"},` +
+		`{"key":"panel-0-tests","role":"reviewer","slot":"tests","startedAt":"2026-10-23T09:20:01Z","endedAt":"2026-10-23T09:20:39Z"},` +
+		`{"key":"panel-1-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-23T09:30:32Z","endedAt":"2026-10-23T09:30:56Z"},` +
+		`{"key":"panel-3-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-23T09:39:00Z","endedAt":"2026-10-23T09:40:00Z"}]}`
+	record := reviewers
+	var bodies []map[string]any
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
+			_, _ = w.Write([]byte(record))
+			return
+		}
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		raw, _ := readAll(r)
+		var b map[string]any
+		_ = json.Unmarshal(raw, &b)
+		bodies = append(bodies, b)
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"panel-fix","model":"opus"}`))
+	}))
+	t.Cleanup(srv.Close)
+	for _, tc := range []struct{ key, record, want string }{
+		{"full-suite-fix-1", reviewers, "2026-10-23T09:28:18Z"},
+		{"full-suite-fix-1", `{"change":"kan-258","dispatches":[]}`, "2026-10-23T09:19:34Z"},
+		{"full-suite-fix-x", reviewers, "2026-10-23T09:19:34Z"},
+	} {
+		bodies = nil
+		record = tc.record
+		args := []string{"record", "dispatch", "backfill", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "panel-fix", "-model", "opus", "-key", tc.key,
+			"-session-token", "mf-record-full-suite-fix-floor", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
+		var stdout, stderr bytes.Buffer
+		if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+			t.Fatalf("%s: exit %d; stderr:\n%s", tc.key, code, stderr.String())
+		}
+		if len(bodies) != 2 || bodies[0]["startedAt"] != tc.want {
+			t.Errorf("%s: bodies = %v, want begin startedAt %s", tc.key, bodies, tc.want)
+		}
+	}
+}
+
 // TestRecordDispatchBeginRequiresEffort pins that an omitted -effort is
 // refused before the store is contacted, never recorded as "default" --
 // an explicit -effort default is still accepted.

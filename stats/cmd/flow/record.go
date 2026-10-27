@@ -1481,7 +1481,9 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stder
 	// derive from the commits (kan-1003: a hand-written -started-at was a
 	// guess). ended is the commit's committer time, started the newest
 	// commit before it in any of the change's worktrees, floored for a
-	// panel-fix row at its round's reviewer ends (panelFixFloor).
+	// panel-fix row at its round's reviewer ends, or for a full-suite fix
+	// at the newest reviewer end not after its commit (panelFixFloor;
+	// kan-1039 self-review: full-suite-fix-1 claimed the whole panel wait).
 	var derived []string
 	if *v["agent-id"] == "inline" && *v["commit"] != "" {
 		if *v["started-at"] != "" || *v["ended-at"] != "" {
@@ -1507,7 +1509,7 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stder
 			fmt.Fprintf(stderr, "flow: cannot derive the instants of commit %s (or the commit before it) from any of the change's worktrees\n", *v["commit"])
 			return 2
 		}
-		if floor, ok := panelFixFloor(ctx, f, projectKey, *v["role"], *v["key"]); ok && floor.After(startT) && !floor.After(endT) {
+		if floor, ok := panelFixFloor(ctx, f, projectKey, *v["role"], *v["key"], endT); ok && floor.After(startT) && !floor.After(endT) {
 			startT = floor
 		}
 		*v["started-at"] = startT.UTC().Format(time.RFC3339)
@@ -3487,16 +3489,26 @@ func commitBefore(t time.Time, roots []string) (time.Time, bool) {
 // round a panel-fix-<r>[-<chunk>] key fixes, round r-1: an inline fix
 // cannot begin before the reports it fixes exist (kan-1027's self-review:
 // panel-fix-1's derived start was the pre-review planning commit, eight
-// minutes before panel-0's reviewers reported). Any other role or key, a
-// failed record read, or a round with no ended reviewer row has no floor.
-func panelFixFloor(ctx context.Context, f recordIdentityFlags, projectKey, role, key string) (time.Time, bool) {
-	rest, ok := strings.CutPrefix(key, "panel-fix-")
-	if role != "panel-fix" || !ok {
+// minutes before panel-0's reviewers reported). A full-suite-fix-<n> key,
+// <n> a positive integer, floors at the latest reviewer end of any round
+// not after endT, its fix commit's time (kan-1039's self-review:
+// full-suite-fix-1 claimed the whole panel wait). Any other role or key, a
+// failed record read, or no qualifying ended reviewer row has no floor.
+func panelFixFloor(ctx context.Context, f recordIdentityFlags, projectKey, role, key string, endT time.Time) (time.Time, bool) {
+	if role != "panel-fix" {
 		return time.Time{}, false
 	}
-	digits, _, _ := strings.Cut(rest, "-")
-	r, err := strconv.Atoi(digits)
-	if err != nil || r < 1 {
+	round := -1 // -1: a full-suite fix, any round up to endT
+	if rest, ok := strings.CutPrefix(key, "panel-fix-"); ok {
+		digits, _, _ := strings.Cut(rest, "-")
+		r, err := strconv.Atoi(digits)
+		if err != nil || r < 1 {
+			return time.Time{}, false
+		}
+		round = r - 1
+	} else if rest, ok := strings.CutPrefix(key, "full-suite-fix-"); !ok {
+		return time.Time{}, false
+	} else if n, err := strconv.Atoi(rest); err != nil || n < 1 {
 		return time.Time{}, false
 	}
 	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
@@ -3507,7 +3519,11 @@ func panelFixFloor(ctx context.Context, f recordIdentityFlags, projectKey, role,
 	}
 	var floor time.Time
 	for _, d := range run.Dispatches {
-		if n, ok := records.PanelDispatchRound(d); ok && n == r-1 && d.EndedAt != nil && d.EndedAt.After(floor) {
+		n, ok := records.PanelDispatchRound(d)
+		if !ok || d.EndedAt == nil || !d.EndedAt.After(floor) {
+			continue
+		}
+		if (round >= 0 && n == round) || (round < 0 && !d.EndedAt.After(endT)) {
 			floor = *d.EndedAt
 		}
 	}
