@@ -566,6 +566,10 @@ func vvdCompletedVerifiers(raw []byte) (rows []vvdVerifier, ok bool) {
 		if row["role"] != "verifier" {
 			continue
 		}
+		// a row the parent backfilled inline proves no verifier ran (kan-1038)
+		if row["agentId"] == "inline" {
+			continue
+		}
 		var key string
 		switch k := row["key"].(type) {
 		case nil:

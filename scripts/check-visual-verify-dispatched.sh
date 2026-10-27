@@ -15,10 +15,11 @@
 # fix round 4 did exactly that: the stage's marks were written, the operator
 # was told "no open finding", and a five-minute manual pass immediately
 # after found the shipped screens badly wrong. A stage mark is not evidence
-# the stage ran; only a recorded dispatch is. This guard makes the gap loud
-# rather than silent, the same way check-panel-fix-single-dispatch.sh did
-# for a different flavour of "the mark says one thing, the dispatches say
-# another."
+# the stage ran; only a recorded dispatch is. A row recorded `-agent-id
+# inline` is the parent's own, not a verifier's, and never counts
+# (kan-1038). This guard makes the gap loud rather than silent, the same
+# way check-panel-fix-single-dispatch.sh did for a different flavour of
+# "the mark says one thing, the dispatches say another."
 #
 # Prints ONE verdict line to stdout:
 #   VISUAL-VERIFY-OK: <reason>          nothing outstanding

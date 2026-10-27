@@ -802,3 +802,23 @@ func TestCheckVisualVerifyDispatchedRefusesARerunAcrossHeads(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckVisualVerifyDispatchedIgnoresAnInlineVerifier pins that a verifier
+// row recorded `-agent-id inline` is the parent's own and never counts: a UI
+// change whose only completed verifier row is inline reads MISSING; the same
+// row with a launched agent's id reads OK (kan-1038).
+func TestCheckVisualVerifyDispatchedIgnoresAnInlineVerifier(t *testing.T) {
+	t.Parallel()
+	row := func(agent string) []byte {
+		b, _ := json.Marshal([]map[string]string{{"key": "visual-verify-fix-run-1", "role": "verifier", "outcome": "completed", "diffBase": "@HEAD@", "agentId": agent}})
+		return b
+	}
+	r := vvdRun(t, vvdCase{dispatches: row("inline")})
+	if r.code != 1 || !strings.HasPrefix(r.out, "VISUAL-VERIFY-MISSING") {
+		t.Fatalf("inline row: got exit %d stdout %q stderr %q, want exit 1 VISUAL-VERIFY-MISSING", r.code, r.out, r.err)
+	}
+	r = vvdRun(t, vvdCase{dispatches: row("a1b2c3d4e5f6")})
+	if r.code != 0 || r.out != vvdOK {
+		t.Fatalf("launched row: got exit %d stdout %q stderr %q, want exit 0 %q", r.code, r.out, r.err, vvdOK)
+	}
+}
