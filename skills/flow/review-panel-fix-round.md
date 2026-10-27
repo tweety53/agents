@@ -344,6 +344,7 @@ test exists to catch — and the test confirmed to fail under the flip is that a
 test, not merely any test that happens to trip: the flip is what shows the fix's own test tests
 what it claims. The flip is recorded with the round's other `flow record mutation` rows before the
 round closes.
+`check-panel-findings-closed.sh` refuses the panel's close while a round with a fixed Critical or Important finding has no `flow record mutation` row, the predicate integrate's unfinished-work gate applies, so the omission surfaces while the fix round is still open (kan-1039: it surfaced only at the landing gate).
 
 **Every fixed Critical or Important finding leaves a tracked suite test behind** — the
 `regression-test:` line of the REPORT FILE paragraph (`skills/flow/review-panel.md`), so a

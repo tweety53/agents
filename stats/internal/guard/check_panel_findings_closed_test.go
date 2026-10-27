@@ -95,6 +95,7 @@ func cfcBinDispatches(t *testing.T, body, dispatches, stderrLine string, rc int)
 	}
 	script += "case \"$*\" in\n"
 	script += "  *\"record dispatches\"*) cat \"$dir/dispatches.json\" ;;\n"
+	script += "  *\"record mutations\"*) [ -f \"$dir/mutations.fail\" ] && exit 1; if [ -f \"$dir/mutations.json\" ]; then cat \"$dir/mutations.json\"; else cat \"$dir/findings.json\"; fi ;;\n"
 	script += "  *\"state get\"*) cat \"$dir/state.json\" ;;\n"
 	script += "  *) cat \"$dir/findings.json\" ;;\n"
 	script += "esac\nexit " + strconv.Itoa(rc) + "\n"
@@ -111,6 +112,36 @@ func cfcRun(t *testing.T, bin string, args ...string) (int, string, string) {
 	var out, errb bytes.Buffer
 	rc := fn(args, Env{Getenv: pathEnv(bin), Dir: t.TempDir()}, &out, &errb)
 	return rc, out.String(), errb.String()
+}
+
+// A fixed Critical or Important round with no fix-mutation row is refused
+// at the panel's close, not first at integrate's unfinished-work gate.
+func TestCheckPanelFindingsClosedNeedsAFixMutationRow(t *testing.T) {
+	t.Parallel()
+	const line = "no fix-mutation row"
+	important := cfcJSON(cfcFinding{Ref: "F1", Severity: "Important", Status: "fixed", Round: 1, Slot: "primary"})
+	run := func(findings, muts string, fail bool) (int, string) {
+		bin := cfcBinDispatches(t, findings, "[]", "", 0)
+		writeFile(t, filepath.Join(bin, "mutations.json"), muts)
+		if fail {
+			writeFile(t, filepath.Join(bin, "mutations.fail"), "")
+		}
+		rc, _, errOut := cfcRun(t, bin, t.TempDir(), "demo")
+		return rc, errOut
+	}
+	if rc, errOut := run(important, "[]", false); rc != 1 || !strings.Contains(errOut, line) || !strings.Contains(errOut, "round(s) 1 ") {
+		t.Fatalf("no row: rc %d, stderr %q", rc, errOut)
+	}
+	if _, errOut := run(important, `[{"round":2,"path":"a","mutated":"none","test":"doc-only"}]`, false); strings.Contains(errOut, line) {
+		t.Fatalf("a round-2 row proves round 1: stderr %q", errOut)
+	}
+	minor := cfcJSON(cfcFinding{Ref: "F1", Severity: "Minor", Status: "fixed", Round: 1, Slot: "primary"})
+	if _, errOut := run(minor, "[]", false); strings.Contains(errOut, line) {
+		t.Fatalf("a Minor fix needs no row: stderr %q", errOut)
+	}
+	if rc, errOut := run(important, "[]", true); rc != 2 {
+		t.Fatalf("a failed mutations read: rc %d, stderr %q", rc, errOut)
+	}
 }
 
 func TestCheckPanelFindingsClosed(t *testing.T) {

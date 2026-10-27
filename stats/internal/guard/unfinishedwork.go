@@ -287,51 +287,13 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	if open > 0 {
 		reasons = append(reasons, strconv.Itoa(open)+" open finding(s) in the review panel record")
 	}
-	// A fixed Critical or Important finding is proved by its fix round's
-	// fix-mutation: rows (skills/flow/review-panel-fix-round.md; a
-	// `none — <reason>` row counts, and a fix round that changed nothing
-	// executable still records one). A Minor-only round is exempt
-	// (review-panel.md). The store holds round N's rows under N or N+1, so
-	// either satisfies round N; a withdrawn finding needs none.
-	var fixedRows []struct {
-		Round    int    `json:"round"`
-		Status   string `json:"status"`
-		Severity string `json:"severity"`
-	}
-	if json.Unmarshal(findingsJSON, &fixedRows) != nil {
-		fmt.Fprintln(stderr, uwPrefix+"jq failed — cannot determine anything")
+	rounds, cause := uwUnprovedFixRounds(env, name, anchor, findingsJSON)
+	if cause != "" {
+		fmt.Fprintln(stderr, uwPrefix+cause)
 		return 2
 	}
-	fixedRounds := map[int]bool{}
-	for _, r := range fixedRows {
-		if sev := strings.ToLower(r.Severity); r.Status == "fixed" && (sev == "critical" || sev == "important") {
-			fixedRounds[r.Round] = true
-		}
-	}
-	if len(fixedRounds) > 0 {
-		mutOut, mutErr, mutRC := pcFlow(env, false, "record", "mutations", "-change", name, "-C", anchor)
-		var muts []struct {
-			Round int `json:"round"`
-		}
-		if mutRC != 0 {
-			fmt.Fprintf(stderr, "%scannot read fix-mutation rows for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(mutErr), "\n"))
-			return 2
-		}
-		if json.Unmarshal(mutOut, &muts) != nil || muts == nil {
-			fmt.Fprintf(stderr, "%sfix-mutation rows for '%s' are not one JSON array — cannot determine anything\n", uwPrefix, name)
-			return 2
-		}
-		for _, m := range muts {
-			delete(fixedRounds, m.Round)
-			delete(fixedRounds, m.Round-1)
-		}
-		if len(fixedRounds) > 0 {
-			var nums []string
-			for _, n := range slices.Sorted(maps.Keys(fixedRounds)) {
-				nums = append(nums, strconv.Itoa(n))
-			}
-			reasons = append(reasons, "fixed Critical/Important finding(s) in round(s) "+strings.Join(nums, ", ")+" and no fix-mutation row for that fix round — record each fix's fix-mutation: line, or one `-mutated none -test <reason>` row for a fix that changed nothing executable (skills/flow/review-panel-fix-round.md) before landing")
-		}
+	if len(rounds) > 0 {
+		reasons = append(reasons, "fixed Critical/Important finding(s) in round(s) "+uwJoinRounds(rounds)+" and no fix-mutation row for that fix round — record each fix's fix-mutation: line, or one `-mutated none -test <reason>` row for a fix that changed nothing executable (skills/flow/review-panel-fix-round.md) before landing")
 	}
 	// Signal two's report half (kan-1015): a slot's report counting more
 	// Critical and Important findings than the store holds is a finding that
@@ -1154,4 +1116,57 @@ func uwVerifyFailures(report string) []uwVerifyFailure {
 		}
 	}
 	return out
+}
+
+// uwUnprovedFixRounds is the rounds, sorted, holding a fixed Critical or
+// Important finding no fix-mutation row proves. A fixed Critical or
+// Important finding is proved by its fix round's fix-mutation: rows
+// (skills/flow/review-panel-fix-round.md; a `none — <reason>` row counts,
+// and a fix round that changed nothing executable still records one). A
+// Minor-only round is exempt (review-panel.md). The store holds round N's
+// rows under N or N+1, so either satisfies round N; a withdrawn finding
+// needs none. cause is non-empty when the findings or the mutation rows
+// cannot be read: the message, without its guard's prefix. Shared by
+// check-unfinished-work and check-panel-findings-closed.
+func uwUnprovedFixRounds(env Env, name, anchor string, findingsJSON []byte) (rounds []int, cause string) {
+	var fixedRows []struct {
+		Round    int    `json:"round"`
+		Status   string `json:"status"`
+		Severity string `json:"severity"`
+	}
+	if json.Unmarshal(findingsJSON, &fixedRows) != nil {
+		return nil, "jq failed — cannot determine anything"
+	}
+	fixedRounds := map[int]bool{}
+	for _, r := range fixedRows {
+		if sev := strings.ToLower(r.Severity); r.Status == "fixed" && (sev == "critical" || sev == "important") {
+			fixedRounds[r.Round] = true
+		}
+	}
+	if len(fixedRounds) == 0 {
+		return nil, ""
+	}
+	mutOut, mutErr, mutRC := pcFlow(env, false, "record", "mutations", "-change", name, "-C", anchor)
+	if mutRC != 0 {
+		return nil, fmt.Sprintf("cannot read fix-mutation rows for '%s' from the store — cannot determine anything: %s", name, strings.TrimRight(string(mutErr), "\n"))
+	}
+	var muts []struct {
+		Round int `json:"round"`
+	}
+	if json.Unmarshal(mutOut, &muts) != nil || muts == nil {
+		return nil, fmt.Sprintf("fix-mutation rows for '%s' are not one JSON array — cannot determine anything", name)
+	}
+	for _, m := range muts {
+		delete(fixedRounds, m.Round)
+		delete(fixedRounds, m.Round-1)
+	}
+	return slices.Sorted(maps.Keys(fixedRounds)), ""
+}
+
+func uwJoinRounds(rounds []int) string {
+	var nums []string
+	for _, n := range rounds {
+		nums = append(nums, strconv.Itoa(n))
+	}
+	return strings.Join(nums, ", ")
 }

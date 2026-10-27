@@ -399,6 +399,18 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		fmt.Fprintf(stderr, "%sfinding(s) a slot's report counts that the store does not hold: %s\n", cfcPrefix, strings.Join(uncounted, " "))
 		violated = true
 	}
+	// A fixed round with no fix-mutation row is check-unfinished-work's
+	// predicate, applied here so the omission surfaces while the fix round
+	// is still open (kan-1039: it surfaced only at the landing gate).
+	rounds, cause := uwUnprovedFixRounds(env, name, worktree, findingsJSON)
+	if cause != "" {
+		fmt.Fprintln(stderr, cfcPrefix+cause)
+		return 2
+	}
+	if len(rounds) > 0 {
+		fmt.Fprintf(stderr, "%sfixed Critical/Important finding(s) in round(s) %s and no fix-mutation row for that fix round — record each fix's fix-mutation: line, or one -mutated none -test <reason> row for a fix that changed nothing executable (skills/flow/review-panel-fix-round.md)\n", cfcPrefix, uwJoinRounds(rounds))
+		violated = true
+	}
 	if violated {
 		return 1
 	}
