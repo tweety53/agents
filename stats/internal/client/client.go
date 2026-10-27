@@ -454,10 +454,12 @@ func (c *Client) FindState(ctx context.Context, name string) ([]StateChange, err
 	return wire.Records, nil
 }
 
-// StageRunRow is the one field of a GET /api/v1/stage-runs row `flow stage
-// sessions` reads.
+// StageRunRow is the fields of a GET /api/v1/stage-runs row the CLI reads:
+// `flow stage sessions` the session, `flow state set`'s IN_PROGRESS gate the
+// outcome.
 type StageRunRow struct {
 	SessionID *string `json:"sessionId,omitempty"`
+	Outcome   *string `json:"outcome,omitempty"`
 }
 
 // ListStageRuns reads a change's stage runs of one command and stage

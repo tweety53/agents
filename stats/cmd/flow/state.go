@@ -432,8 +432,52 @@ func runStateSet(ctx context.Context, args []string, stdin io.Reader, _, stderr 
 		fmt.Fprintln(stderr, "flow: state on stdin must be a JSON object")
 		return 2
 	}
-
 	return writeState(ctx, f, body, stderr)
+}
+
+// gateInProgressHandoff refuses a STARTED -> IN_PROGRESS write the store
+// shows no handoff for: a completed /flow flow.run-instructions run and an
+// open flow.write-in-progress run (kan-1024: the parent flipped the state by
+// hand and handed off with no URL or run instructions). A store that cannot
+// answer passes -- the write then falls back as every other one does.
+func gateInProgressHandoff(ctx context.Context, f stateFlags, projectKey string, body []byte, stderr io.Writer) int {
+	var next struct {
+		State string `json:"state"`
+	}
+	if json.Unmarshal(body, &next) != nil || next.State != "IN_PROGRESS" {
+		return 0
+	}
+	stored, err := getChange(ctx, f.addr, f.timeout, projectKey, f.name)
+	var cur struct {
+		State string `json:"state"`
+	}
+	if err != nil || json.Unmarshal(stored, &cur) != nil || cur.State != "STARTED" {
+		return 0
+	}
+	reqCtx, cancel := context.WithTimeout(ctx, f.timeout)
+	defer cancel()
+	cl := client.New(f.addr, &http.Client{Timeout: f.timeout})
+	has := func(stage string, open bool) (bool, error) {
+		rows, err := cl.ListStageRuns(reqCtx, projectKey, f.name, "/flow", stage)
+		for _, r := range rows {
+			if open == (r.Outcome == nil) && (open || *r.Outcome == "completed") {
+				return true, nil
+			}
+		}
+		return false, err
+	}
+	instructions, err1 := has("flow.run-instructions", false)
+	writing, err2 := has("flow.write-in-progress", true)
+	if err1 != nil || err2 != nil {
+		return 0
+	}
+	if !instructions || !writing {
+		fmt.Fprintf(stderr, "flow: state set refused: %s goes IN_PROGRESS only through **Write `IN_PROGRESS`** "+
+			"(skills/flow/verify-and-handoff.md) -- complete flow.run-instructions and begin flow.write-in-progress first, "+
+			"so the handoff carries the run instructions and URLs\n", f.name)
+		return 1
+	}
+	return 0
 }
 
 // writeState is state set's write tail, shared with state add-worktree:
@@ -461,6 +505,9 @@ func writeState(ctx context.Context, f stateFlags, body []byte, stderr io.Writer
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
 		return 1
+	}
+	if code := gateInProgressHandoff(ctx, f, projectKey, body, stderr); code != 0 {
+		return code
 	}
 
 	putErr := putChange(ctx, f.addr, f.timeout, projectKey, f.name, mainCheckout, body)
