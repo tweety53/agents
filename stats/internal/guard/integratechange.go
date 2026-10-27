@@ -798,10 +798,27 @@ func (c *ic) baseOf(i int) {
 // commits when it ran, else the archive commit, else mb.
 func (c *ic) archBase(w, mb string) string {
 	log, _ := c.git("-C", w, "log", "--format=%H %s", mb+"..HEAD")
-	if s := c.selfReviewBase(log); s != "" {
+	return archivedBase(log, c.name, mb)
+}
+
+// ArchivedRerunBase is the base integrate's unfinished-work gate judges
+// worktree w from: archBase's answer when canon holds name archived, else
+// mb. The visual-verify stage end shares it, so it refuses nothing
+// integrate would admit.
+func ArchivedRerunBase(env Env, canon, w, name, mb string) string {
+	s := specRootLeaf(canon, io.Discard)
+	if !isDir(canon+"/"+s+"/changes/archive/"+name) || isDir(canon+"/"+s+"/changes/"+name) {
+		return mb
+	}
+	log, _ := capture(envGit(env)("-C", w, "log", "--format=%H %s", mb+"..HEAD"))
+	return archivedBase(log, name, mb)
+}
+
+func archivedBase(log, name, mb string) string {
+	if s := selfReviewBase(log, name); s != "" {
 		return s
 	}
-	if s := icFirstSubject(log, "chore(spectre): archive "+c.name); s != "" {
+	if s := icFirstSubject(log, "chore(spectre): archive "+name); s != "" {
 		return s
 	}
 	return mb
@@ -810,19 +827,19 @@ func (c *ic) archBase(w, mb string) string {
 // selfReviewBase: the newest commit of the self-review loop in log (newest
 // first) — its report or bundle, its archive, or, from its plan commit on,
 // every commit up to a fix run's own planning commit, which opens new work.
-func (c *ic) selfReviewBase(log string) string {
-	plan := "chore(spectre): plan " + c.name
+func selfReviewBase(log, name string) string {
+	plan := "chore(spectre): plan " + name
 	marks := []string{
-		"docs(self-review): " + c.name + " self-review report",
-		"docs(self-review): " + c.name + " self-review context bundle",
-		"chore(spectre): archive self-review-" + c.name,
+		"docs(self-review): " + name + " self-review report",
+		"docs(self-review): " + name + " self-review context bundle",
+		"chore(spectre): archive self-review-" + name,
 	}
 	base, loop := "", false
 	l := icLines(log)
 	for i := len(l) - 1; i >= 0; i-- {
 		h, s, _ := strings.Cut(l[i], " ")
 		switch {
-		case s == "chore(spectre): plan self-review-"+c.name:
+		case s == "chore(spectre): plan self-review-"+name:
 			base, loop = h, true
 		case icHas(marks, s):
 			base, loop = h, false

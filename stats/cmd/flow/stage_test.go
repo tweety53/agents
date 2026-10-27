@@ -1859,3 +1859,97 @@ func TestStageBeginAcceptsChangeFlag(t *testing.T) {
 		t.Errorf("-change demo demo: exit %d, want 2", code)
 	}
 }
+
+// TestStageEndVisualVerifyRefusesAnUntaskedCommit pins kan-1016's
+// self-review: a regression-checkout commit with no trailer was pushed
+// before integrate's gate saw it. A completed /flow flow.visual-verify end
+// runs check-untasked-commits over every worktree of the state map
+// (design.md visual-verify-end-trailer-gate).
+func TestStageEndVisualVerifyRefusesAnUntaskedCommit(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	root := t.TempDir()
+	peer, origin := filepath.Join(root, "peer"), filepath.Join(root, "origin.git")
+	git := func(dir string, args ...string) string {
+		t.Helper()
+		out, err := exec.Command("git", append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	git(root, "init", "-q", "--bare", "-b", "main", origin)
+	git(root, "init", "-q", "-b", "main", peer)
+	git(peer, "commit", "-q", "--allow-empty", "-m", "base")
+	git(peer, "remote", "add", "origin", origin)
+	git(peer, "push", "-q", "origin", "main")
+	git(peer, "remote", "set-head", "origin", "main")
+	git(peer, "checkout", "-q", "-b", "spectre/kan-1")
+	if err := os.WriteFile(filepath.Join(peer, "spec.ts"), []byte("x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	git(peer, "add", "spec.ts")
+	git(peer, "commit", "-q", "-m", "test: recapture")
+	sha := git(peer, "rev-parse", "--short=12", "HEAD")
+
+	mapStatus := http.StatusOK
+	dir := repo
+	end := func(outcome string) (int, string, bool) {
+		t.Helper()
+		reached := false
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet {
+				w.WriteHeader(mapStatus)
+				_, _ = fmt.Fprintf(w, `{"worktrees":{%q:"x"}}`, peer)
+				return
+			}
+			reached = true
+			_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+		}))
+		defer srv.Close()
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", dir,
+				"-command", "/flow", "-stage", "flow.visual-verify", "-outcome", outcome, "kan-1"},
+			strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String(), reached
+	}
+
+	if code, stderr, reached := end("completed"); code != 1 || reached || !strings.Contains(stderr, sha) || !strings.Contains(stderr, "Flow-Key: flow.visual-verify") {
+		t.Fatalf("a trailerless commit: exit=%d reached=%v, want 1 naming %s; stderr:\n%s", code, reached, sha, stderr)
+	}
+	if code, stderr, reached := end("stopped"); code != 0 || !reached {
+		t.Fatalf("a stopped end: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
+	}
+	git(peer, "commit", "-q", "--amend", "--no-edit", "-m", "test: recapture", "-m", "Flow-Key: flow.visual-verify")
+	if code, stderr, reached := end("completed"); code != 0 || !reached {
+		t.Fatalf("the amended commit: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
+	}
+
+	// A state map that cannot be read is a guard that cannot answer.
+	mapStatus = http.StatusInternalServerError
+	if code, stderr, reached := end("completed"); code != 1 || reached || !strings.Contains(stderr, "worktree map") {
+		t.Fatalf("an unreadable map: exit=%d reached=%v, want 1; stderr:\n%s", code, reached, stderr)
+	}
+	mapStatus = http.StatusOK
+
+	// An archived re-run judges from past the self-review loop, as integrate
+	// does: its trailerless report commit is not refused.
+	if err := os.MkdirAll(filepath.Join(peer, "spectre/changes/archive/kan-1"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(peer, "spectre/changes/archive/kan-1/tasks.md"), []byte("x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	git(peer, "add", "spectre")
+	git(peer, "commit", "-q", "-m", "chore(spectre): archive kan-1")
+	if err := os.WriteFile(filepath.Join(peer, "report.md"), []byte("r\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	git(peer, "add", "report.md")
+	git(peer, "commit", "-q", "-m", "docs(self-review): kan-1 self-review report")
+	dir = peer
+	if code, stderr, reached := end("completed"); code != 0 || !reached {
+		t.Fatalf("an archived re-run's self-review report: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
+	}
+}

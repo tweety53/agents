@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -556,6 +558,9 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 	if code := gatePanelFindingsClosed(f, *outcome, stderr); code != 0 {
 		return code
 	}
+	if code := gateVisualVerifyTrailers(ctx, f, *outcome, stderr); code != 0 {
+		return code
+	}
 
 	projectKey, _, err := fallback.ProjectKey(f.dir)
 	if err != nil {
@@ -646,6 +651,76 @@ func gatePanelFindingsClosed(f stageIdentityFlags, outcome string, stderr io.Wri
 	if code := guard.Registry["check-panel-findings-closed"]([]string{dir, f.name}, guard.Env{Getenv: os.Getenv, Dir: dir}, stderr, stderr); code != 0 {
 		fmt.Fprintf(stderr, "flow: stage end refused: check-panel-findings-closed exited %d\n", code)
 		return 1
+	}
+	return 0
+}
+
+// gateVisualVerifyTrailers refuses a completed /flow flow.visual-verify end
+// while a worktree of the change's state map carries a commit outside every
+// task with no Flow-Key: trailer, so the fix loop's own commits are amended
+// before anything is pushed (kan-1016's self-review: one was pushed before
+// integrate's gate saw it). Each worktree is judged from `git merge-base HEAD
+// origin/<base>`, <base> resolve-base-branch's answer, exactly as
+// integrate's unfinished-work gate judges it — past the self-review loop on an
+// archived re-run (guard.ArchivedRerunBase). A guard that cannot answer, a
+// state map that cannot be read among them, refuses.
+func gateVisualVerifyTrailers(ctx context.Context, f stageIdentityFlags, outcome string, stderr io.Writer) int {
+	if f.command != "/flow" || f.stage != "flow.visual-verify" || outcome != "completed" {
+		return 0
+	}
+	dir := f.dir
+	if !f.dirGiven {
+		if main, carrying, err := changeCheckouts(dir, f.name); err == nil {
+			for _, wt := range carrying {
+				dir = wt
+				if wt != main {
+					break
+				}
+			}
+		}
+	}
+	var worktrees []string
+	projectKey, _, err := fallback.ProjectKey(dir)
+	var body []byte
+	if err == nil {
+		body, err = getChange(ctx, f.addr, f.timeout, projectKey, f.name)
+	}
+	var rec struct {
+		Worktrees map[string]json.RawMessage `json:"worktrees"`
+	}
+	if err == nil {
+		err = json.Unmarshal(body, &rec)
+	}
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: stage end refused: cannot read %s's worktree map: %v\n", f.name, err)
+		return 1
+	}
+	for wt := range rec.Worktrees {
+		if wt != "" {
+			worktrees = append(worktrees, wt)
+		}
+	}
+	if len(worktrees) == 0 {
+		worktrees = []string{dir}
+	}
+	slices.Sort(worktrees)
+	env := guard.Env{Getenv: os.Getenv, Dir: dir}
+	for _, wt := range worktrees {
+		var base bytes.Buffer
+		if code := guard.Registry["resolve-base-branch"]([]string{wt}, env, &base, stderr); code != 0 {
+			fmt.Fprintf(stderr, "flow: stage end refused: resolve-base-branch exited %d on %s\n", code, wt)
+			return 1
+		}
+		mb, err := exec.Command("git", "-C", wt, "merge-base", "HEAD", "origin/"+strings.TrimSpace(base.String())).Output()
+		if err != nil {
+			fmt.Fprintf(stderr, "flow: stage end refused: no merge base with origin/%s in %s\n", strings.TrimSpace(base.String()), wt)
+			return 1
+		}
+		from := guard.ArchivedRerunBase(env, dir, wt, f.name, strings.TrimSpace(string(mb)))
+		if code := guard.Registry["check-untasked-commits"]([]string{wt, from}, env, stderr, stderr); code != 0 {
+			fmt.Fprintf(stderr, "flow: stage end refused: commits outside every task lack their Flow-Key: trailer in %s — amend each with -m \"Flow-Key: flow.visual-verify\" before anything is pushed\n", wt)
+			return 1
+		}
 	}
 	return 0
 }
