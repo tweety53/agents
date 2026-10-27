@@ -236,16 +236,19 @@ export function App() {
             ))}
           </ul>
         </nav>
-        <DashboardBar
-          period={period}
-          onPeriodChange={setPeriod}
-          project={project}
-          onProjectChange={setProject}
-          model={model}
-          onModelChange={setModel}
-          modelDisabled={modelDisabled}
-          modelDisabledReason={modelDisabledReason}
-        />
+        {/* Weekly costs always covers the last 8 weeks of every project and model (KAN-1038). */}
+        {!(route.kind === "view" && route.view === "weekly-costs") && (
+          <DashboardBar
+            period={period}
+            onPeriodChange={setPeriod}
+            project={project}
+            onProjectChange={setProject}
+            model={model}
+            onModelChange={setModel}
+            modelDisabled={modelDisabled}
+            modelDisabledReason={modelDisabledReason}
+          />
+        )}
       </header>
       <main>
         {route.kind === "run" ? (
