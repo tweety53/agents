@@ -1,0 +1,16 @@
+# Sentences kan-1040 adds or rewords on purpose: the fenced next command in Handoff output, its
+# rationale and templates, and the requested-issue bullet in Jira Resolution.
+**A handoff printed at `IN_PROGRESS`, or at `STARTED` once the plan gate answered Yes, puts `/clear` on the line above the next command.
+**The next command is the last line** — bare, copy-pasteable, with no prose after it.
+It is a recommendation the operator may skip, never a gate, and the next command stays the last line.
+Run 1 ends at `IN_PROGRESS`, and its handoff's last line is `/flow <name>` again.
+The last line is the next command, bare:
+The next command and `/clear` stay bare lines, per the next rule.
+**A handoff printed at `IN_PROGRESS`, or at `STARTED` once the plan gate answered Yes, puts `/clear` on the line above the next command's fence.
+**The next command is the last thing printed, alone in its own fenced code block** — a plain triple-backtick fence, no language tag, holding the command and nothing else, with no prose after it, so a client with a code-block copy button copies it in one tap (kan-1040).
+A failed create is one `⚠ Jira: skipped — <reason>` line and resolves as no hit.
+Filing it is part of resolving the issue — never the whole request and never a stop: the run continues into the In Progress transition and planning (kan-1040: a run filed the issue and ended its turn).
+It is a recommendation the operator may skip, never a gate, and the next command's fence stays last.
+Run 1 ends at `IN_PROGRESS`, and its handoff ends on `/flow <name>` again.
+The handoff ends on the next command, alone in its own fence (**Handoff output**, `skills/flow-contracts/pipeline.md`):
+`/clear` stays a bare line, and the next command is fenced, per the next rule.
