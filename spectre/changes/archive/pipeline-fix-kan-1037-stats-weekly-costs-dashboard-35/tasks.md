@@ -33,26 +33,26 @@ bash regression test `scripts/test-prompt-tuning-line.sh`.
 - The always-present rule is stated once, in cleanup.md (`always-in-final-message`).
 - No `Prompt-tuning:` spelling remains anywhere in skills, rules, scripts or stats.
 
-- [ ] 1. Rename the Prompt tuning line and make it always present
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Copy this change's `task1.diff` to
+- [x] 1. Rename the Prompt tuning line and make it always present
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Copy this change's `task1.diff` to
     `/tmp/pf35-task1.diff`, apply its test hunk alone
     (`git apply --include='scripts/test-*' /tmp/pf35-task1.diff`) and run
     `bash scripts/test-prompt-tuning-line.sh` (the file Step 2 completes): it exits 1 printing four `FAIL:` lines and the four
     `Prompt-tuning:` occurrences still in the skills.
-  - [ ] **Step 2: Implement.** Apply the rest
+  - [x] **Step 2: Implement.** Apply the rest
     (`git apply --exclude='scripts/test-*' /tmp/pf35-task1.diff`):
 
     The diff is this change's `task1.diff`, verified: applied with git apply to this worktree at
     980bf698; scripts/test-prompt-tuning-line.sh prints all cases passed with it; check-verbatim-moves
     exits 0 with this change's verbatim-moves.txt; check-references exits 0.
 
-  - [ ] **Step 3: Verify.** `bash scripts/test-prompt-tuning-line.sh` exits 0 printing
+  - [x] **Step 3: Verify.** `bash scripts/test-prompt-tuning-line.sh` exits 0 printing
     `all cases passed`; `scripts/check-verbatim-moves.sh` and `scripts/check-references.sh`
     exit 0.
-  - [ ] **Step 4: Commit** the three files with the subject below.
+  - [x] **Step 4: Commit** the three files with the subject below.
 
 **Build:** green
-**Files:** `scripts/test-prompt-tuning-line.sh`, `skills/flow-fast/SKILL.md`, `skills/flow/cleanup.md`
+**Files:** `scripts/test-prompt-tuning-line.sh`, `skills/flow-fast/SKILL.md`, `skills/flow/cleanup.md`, `skills/flow/integrate.md`, `skills/flow/verify-and-handoff.md`, `skills/flow-contracts/handoff-blocks.md`, `spectre/changes/pipeline-fix-kan-1037-stats-weekly-costs-dashboard-35/verbatim-moves.txt`
 **Tests:** `scripts/test-prompt-tuning-line.sh`
 **Regression:** scripts/test-prompt-tuning-line.sh — reverting the skills hunks prints `FAIL: skills/flow/cleanup.md: Finished block lacks the '**Prompt tuning:** <path> | NONE' line`.
 **Baseline:** before=0 after=5
