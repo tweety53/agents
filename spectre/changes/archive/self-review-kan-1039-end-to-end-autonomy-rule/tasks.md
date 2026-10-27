@@ -38,8 +38,8 @@ panel-close fix-mutation check, the verify list's suite recording); the back-fil
 - Task 6: a failed `flow record mutations` read is exit 2, never FINDINGS-CLOSED; a Minor-only or withdrawn finding needs no row.
 - Task 8: a `## test` command without a `# suite:` line, a skipped command, and a run with no `flow` on PATH run exactly as before.
 
-- [ ] 1. State the begin order the dispatch hook enforces
-  - [ ] **Step 1: Apply the edits** (decision `begins-before-launch`):
+- [x] 1. State the begin order the dispatch hook enforces
+  - [x] **Step 1: Apply the edits** (decision `begins-before-launch`):
 
 ````diff verified:applied with git apply in task order to this worktree's branch spectre/kan-1039-end-to-end-autonomy-rule before any fix commit; check-verbatim-moves, check-references, check-markdown-integrity green
 diff --git a/scripts/panel-round-begins.sh b/scripts/panel-round-begins.sh
@@ -100,7 +100,7 @@ index cb0059a8..8eedd155 100644
 +`hooks/enforce-agent-baseline.py` denies a launch whose `panel-<round>-<slot>` row is not open yet, so a round whose begins follow its launch message is refused whole and sent again (kan-1039: all three `panel-0-*` launches were denied).
  On claude-code each `end` passes no `-ended-at`: the daemon closes a stamped row at its own agent transcript's last write, so a slot that finished early is never stamped with the round's last finish (kan-1019: two slots of one round both read 15m31s). On any other harness the daemon reads no agent transcript, so each `end` passes its own slot's report-file modification time as `-ended-at`; a bundled dispatch's `<report-file>` is the newest of its slots' reports.
 ````
-  - [ ] **Step 2: Verify.** `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh` — green.
+  - [x] **Step 2: Verify.** `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh` — green.
 
 **Build:** green
 **Files:** `skills/flow/review-panel.md`, `skills/flow/implement.md`, `skills/flow/SKILL-rationale.md`, `scripts/panel-round-begins.sh`
@@ -109,9 +109,9 @@ index cb0059a8..8eedd155 100644
 **Commit:** docs(flow): record a round's begins before its launch message
 **After:** none
 
-- [ ] 2. Read a single-quoted backtick as a literal in the main-checkout hook
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `cd stats && go test ./internal/repotest/ -run '^TestProtectMainCheckout' -count=1` — green on the untouched tree.
-  - [ ] **Step 2: Apply the test and the fix** (decision `single-quotes-literal`). Apply the diff below. Save its `hooks/` part with `git diff -- hooks/` to a scratch file, `git apply -R` that file, run `cd stats && go test ./internal/repotest/ -run '^TestProtectMainCheckoutReadsASingleQuotedBacktickAsLiteral$' -count=1` and see it fail with `wanted allow, got deny`, then `git apply` the file again.
+- [x] 2. Read a single-quoted backtick as a literal in the main-checkout hook
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `cd stats && go test ./internal/repotest/ -run '^TestProtectMainCheckout' -count=1` — green on the untouched tree.
+  - [x] **Step 2: Apply the test and the fix** (decision `single-quotes-literal`). Apply the diff below. Save its `hooks/` part with `git diff -- hooks/` to a scratch file, `git apply -R` that file, run `cd stats && go test ./internal/repotest/ -run '^TestProtectMainCheckoutReadsASingleQuotedBacktickAsLiteral$' -count=1` and see it fail with `wanted allow, got deny`, then `git apply` the file again.
 
 ````diff verified:applied with git apply to this worktree's branch before any fix commit; go test ./internal/repotest/ -count=1 green with it, and the new test failed with "wanted allow, got deny" twice with the hooks/ part reverted
 diff --git a/hooks/protect-main-checkout.py b/hooks/protect-main-checkout.py
@@ -208,7 +208,7 @@ index 474fb185..6c104e36 100644
 +	f.bash("an unclosed quote reads as before", "deny", "{MAIN}", "cat >> {SIB}/x <<'EOF'\na > b\nEOF\necho '`")
 +}
 ````
-  - [ ] **Step 3: Verify.** `cd stats && go test ./internal/repotest/ -run '^TestProtectMainCheckout' -count=1 && go vet ./internal/repotest/ && gofmt -l internal/repotest`, then `scripts/check-python-suppressions.sh` — green, `gofmt -l` silent.
+  - [x] **Step 3: Verify.** `cd stats && go test ./internal/repotest/ -run '^TestProtectMainCheckout' -count=1 && go vet ./internal/repotest/ && gofmt -l internal/repotest`, then `scripts/check-python-suppressions.sh` — green, `gofmt -l` silent.
 
 **Build:** green
 **Files:** `hooks/protect-main-checkout.py`, `stats/internal/repotest/protect_main_checkout_test.go`
@@ -219,10 +219,10 @@ index 474fb185..6c104e36 100644
 **Commit:** fix(hooks): read a backtick inside single quotes as a plain character
 **After:** none
 
-- [ ] 3. Run the script scanners when pipeline-fix verify sees a touched script
-  - [ ] **Step 1: Write the failing test.** Add `TestPipelineFixChecksScriptScanners` to `stats/internal/guard/pipeline_fix_test.go`, on `TestPipelineFixChecksGoAudits`' fixture (`pfProject`, `tcfScriptsDir(t) + "/project-get.sh"`), with `stats/internal/guard/doc.go` and `stats/internal/repotest/doc.go` written into the worktree: for each of `scripts/pipeline-fix.sh`, `scripts/lib/flow-guard.sh` and `setup.sh`, `pfChecks` returns rc 0 and its commands contain both `cd stats && go test ./internal/guard/ -run '^Test(NoPipeIntoEarlyExitGrep|ShimMissingLibCannotAnswer)$' -count=1` and `cd stats && go test ./internal/repotest/ -run '^TestGitConfigPins$' -count=1`; for `skills/flow/implement.md` they contain neither; in a second worktree holding neither directory, `scripts/pipeline-fix.sh` selects neither. Run `cd stats && go test ./internal/guard/ -run '^TestPipelineFixChecksScriptScanners$' -count=1`: it fails.
-  - [ ] **Step 2: Fix.** In `stats/internal/guard/pipelinefix.go`, beside `pfGoAudits`, add the two commands as constants `pfScriptScans` and `pfScriptPins`, commented as the tests that read every shell script of the tree and are named after no script (kan-1039 self-review: a loop landed a script that turned `TestNoPipeIntoEarlyExitGrep` red on main). In `pfChecks`' loop over `touched`, before the `switch`, when `p == "setup.sh"` or `p` has the prefix `scripts/` and the suffix `.sh`, `add(pfScriptScans)` when `isDir(filepath.Join(wt, "stats/internal/guard"))` and `add(pfScriptPins)` when `repotest` (decision `pf-script-scanners`). Extend `pfChecks`' doc comment by the same clause. In `scripts/pipeline-fix.sh`'s header, the `verify` paragraph's list gains `the guard and repotest tests that scan every shell script, for a touched setup.sh or scripts/**/*.sh,` after `the setuptest package for setup.sh,`.
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l internal/guard && go vet ./internal/guard/ && go test ./internal/guard/ -run '^TestPipelineFix' -count=1`, then `scripts/check-references.sh` — green.
+- [x] 3. Run the script scanners when pipeline-fix verify sees a touched script
+  - [x] **Step 1: Write the failing test.** Add `TestPipelineFixChecksScriptScanners` to `stats/internal/guard/pipeline_fix_test.go`, on `TestPipelineFixChecksGoAudits`' fixture (`pfProject`, `tcfScriptsDir(t) + "/project-get.sh"`), with `stats/internal/guard/doc.go` and `stats/internal/repotest/doc.go` written into the worktree: for each of `scripts/pipeline-fix.sh`, `scripts/lib/flow-guard.sh` and `setup.sh`, `pfChecks` returns rc 0 and its commands contain both `cd stats && go test ./internal/guard/ -run '^Test(NoPipeIntoEarlyExitGrep|ShimMissingLibCannotAnswer)$' -count=1` and `cd stats && go test ./internal/repotest/ -run '^TestGitConfigPins$' -count=1`; for `skills/flow/implement.md` they contain neither; in a second worktree holding neither directory, `scripts/pipeline-fix.sh` selects neither. Run `cd stats && go test ./internal/guard/ -run '^TestPipelineFixChecksScriptScanners$' -count=1`: it fails.
+  - [x] **Step 2: Fix.** In `stats/internal/guard/pipelinefix.go`, beside `pfGoAudits`, add the two commands as constants `pfScriptScans` and `pfScriptPins`, commented as the tests that read every shell script of the tree and are named after no script (kan-1039 self-review: a loop landed a script that turned `TestNoPipeIntoEarlyExitGrep` red on main). In `pfChecks`' loop over `touched`, before the `switch`, when `p == "setup.sh"` or `p` has the prefix `scripts/` and the suffix `.sh`, `add(pfScriptScans)` when `isDir(filepath.Join(wt, "stats/internal/guard"))` and `add(pfScriptPins)` when `repotest` (decision `pf-script-scanners`). Extend `pfChecks`' doc comment by the same clause. In `scripts/pipeline-fix.sh`'s header, the `verify` paragraph's list gains `the guard and repotest tests that scan every shell script, for a touched setup.sh or scripts/**/*.sh,` after `the setuptest package for setup.sh,`.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l internal/guard && go vet ./internal/guard/ && go test ./internal/guard/ -run '^TestPipelineFix' -count=1`, then `scripts/check-references.sh` — green.
 
 **Build:** green
 **Files:** `stats/internal/guard/pipelinefix.go`, `stats/internal/guard/pipeline_fix_test.go`, `scripts/pipeline-fix.sh`
@@ -233,8 +233,8 @@ index 474fb185..6c104e36 100644
 **Commit:** fix(guard): run the script scanners when pipeline-fix verify sees a touched script
 **After:** none
 
-- [ ] 4. Launch the pass-1 mutation bundle once the suite has exited
-  - [ ] **Step 1: Apply the edits** (decision `mutation-after-suite`):
+- [x] 4. Launch the pass-1 mutation bundle once the suite has exited
+  - [x] **Step 1: Apply the edits** (decision `mutation-after-suite`):
 
 ````diff verified:applied with git apply in task order to this worktree's branch spectre/kan-1039-end-to-end-autonomy-rule before any fix commit; check-verbatim-moves, check-references, check-markdown-integrity green
 diff --git a/skills/flow/implement.md b/skills/flow/implement.md
@@ -270,19 +270,19 @@ index 8eedd155..de7dacb9 100644
  delta that commit adds, under **Panel re-runs** (`skills/flow/review-panel-fix-round.md`) — a
  role that raised nothing included; a suite that passes adds no commit and re-dispatches nothing.
 ````
-  - [ ] **Step 2: Verify.** `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh` — green.
+  - [x] **Step 2: Verify.** `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh` — green.
 
 **Build:** green
-**Files:** `skills/flow/review-panel.md`, `skills/flow/implement.md`
+**Files:** `skills/flow/review-panel.md`, `skills/flow/implement.md`, `scripts/panel-round-begins.sh`
 **Tests:** **none** — a prose rule; `check-verbatim-moves.sh` covers its acknowledged sentences.
 **Regression:** none — no test is declared.
 **Commit:** docs(flow): launch the pass-1 mutation bundle once the suite has exited
 **After:** Task 1
 
-- [ ] 5. Derive a missing in-run fix line from its store row at commit
-  - [ ] **Step 1: Write the failing test.** Add `TestIntegrateChangeDerivesInRunFixLine` to `stats/internal/guard/integrate_change_prepare_test.go`, beside `TestIntegrateChangeRequiresInRunFixLine` and on its `icRunCases` shape. Case `fix_line_derived` writes `[{"angle":"flow-fix","disposition":"fixed","ref":"1a2b3c4d5e6f","note":"the renderer could not render an exp- slot","blastRadius":2}]` to `$WORK/sr-findings.json`, runs `sut commit` as `fix_line_missing` does, and checks exit 0, that `$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md` holds the line `- In-run pipeline fix: 1a2b3c4 — the renderer could not render an exp- slot (blast radius 2 files)`, and that `$OUT` carries `narrative: appended`. Case `fix_line_multiline_note` gives the row a note holding a newline and checks exit 1 with a `STOP: narrative` line naming `1a2b3c4`. `TestIntegrateChangeRequiresInRunFixLine`, whose rows carry no note, stays unchanged and still stops. Run `cd stats && go test ./internal/guard/ -run '^TestIntegrateChangeDerivesInRunFixLine$' -count=1`: `fix_line_derived` fails.
+- [x] 5. Derive a missing in-run fix line from its store row at commit
+  - [x] **Step 1: Write the failing test.** Add `TestIntegrateChangeDerivesInRunFixLine` to `stats/internal/guard/integrate_change_prepare_test.go`, beside `TestIntegrateChangeRequiresInRunFixLine` and on its `icRunCases` shape. Case `fix_line_derived` writes `[{"angle":"flow-fix","disposition":"fixed","ref":"1a2b3c4d5e6f","note":"the renderer could not render an exp- slot","blastRadius":2}]` to `$WORK/sr-findings.json`, runs `sut commit` as `fix_line_missing` does, and checks exit 0, that `$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md` holds the line `- In-run pipeline fix: 1a2b3c4 — the renderer could not render an exp- slot (blast radius 2 files)`, and that `$OUT` carries `narrative: appended`. Case `fix_line_multiline_note` gives the row a note holding a newline and checks exit 1 with a `STOP: narrative` line naming `1a2b3c4`. `TestIntegrateChangeRequiresInRunFixLine`, whose rows carry no note, stays unchanged and still stops. Run `cd stats && go test ./internal/guard/ -run '^TestIntegrateChangeDerivesInRunFixLine$' -count=1`: `fix_line_derived` fails.
     <!-- predicted: the fixture's own literals; TestIntegrateChangeDerivesInRunFixLine's fix_line_derived check confirms them -->
-  - [ ] **Step 2: Fix.** In `stats/internal/guard/integratechange_commit.go`, compute `nf` (the live narrative, else the archived one) before the `requireFixLines` call and pass it in. `requireFixLines(named []string, nf string)` also decodes `Note string` and `BlastRadius *int` (JSON key `blastRadius`). For each missing row whose note is non-empty and holds no newline and whose `BlastRadius` is set, while `nf` is a file, it appends `- In-run pipeline fix: <ref, first 7> — <note> (blast radius <N> files)` on a line of its own (adding a newline first when the file does not end in one) and calls `c.say("narrative: appended " + line)`; every other missing row stops `narrative` as today (decision `derive-fix-line`). Rewrite the function's doc comment, and the matching clause of the header comment in `stats/internal/guard/integratechange.go` (the clause on a `flow-fix` row whose sha no in-format line names), to say the line is appended from the row and the stop is for a row lacking its note or blast radius. Then apply the contract's diff:
+  - [x] **Step 2: Fix.** In `stats/internal/guard/integratechange_commit.go`, compute `nf` (the live narrative, else the archived one) before the `requireFixLines` call and pass it in. `requireFixLines(named []string, nf string)` also decodes `Note string` and `BlastRadius *int` (JSON key `blastRadius`). For each missing row whose note is non-empty and holds no newline and whose `BlastRadius` is set, while `nf` is a file, it appends `- In-run pipeline fix: <ref, first 7> — <note> (blast radius <N> files)` on a line of its own (adding a newline first when the file does not end in one) and calls `c.say("narrative: appended " + line)`; every other missing row stops `narrative` as today (decision `derive-fix-line`). Rewrite the function's doc comment, and the matching clause of the header comment in `stats/internal/guard/integratechange.go` (the clause on a `flow-fix` row whose sha no in-format line names), to say the line is appended from the row and the stop is for a row lacking its note or blast radius. Then apply the contract's diff:
 
 ````diff verified:applied with git apply in task order to this worktree's branch spectre/kan-1039-end-to-end-autonomy-rule before any fix commit; check-verbatim-moves, check-references, check-markdown-integrity green
 diff --git a/skills/flow/integrate.md b/skills/flow/integrate.md
@@ -299,7 +299,7 @@ index be280592..31b306aa 100644
  **`STOP: narrative`** also stops on a fix or integrate run whose section `narrative.md` lacks (`check-narrative-runs.sh`, the check `flow.write-in-progress` runs): append the missing section and re-run `commit`.
  
 ````
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l internal/guard && go vet ./internal/guard/ && go test ./internal/guard/ -run '^TestIntegrateChange' -count=1`, then `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh` — green.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l internal/guard && go vet ./internal/guard/ && go test ./internal/guard/ -run '^TestIntegrateChange' -count=1`, then `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh` — green.
 
 **Build:** green
 **Files:** `stats/internal/guard/integratechange_commit.go`, `stats/internal/guard/integratechange.go`, `stats/internal/guard/integrate_change_prepare_test.go`, `skills/flow/integrate.md`
@@ -310,9 +310,9 @@ index be280592..31b306aa 100644
 **Commit:** fix(guard): derive a missing in-run fix line from its store row at commit
 **After:** Task 3
 
-- [ ] 6. Refuse the panel's close while a fixed round has no fix-mutation row
-  - [ ] **Step 1: Write the failing test.** In `stats/internal/guard/check_panel_findings_closed_test.go`, give `cfcBinDispatches`' fake `flow` a `*"record mutations"*)` case answering `$dir/mutations.json` when that file exists and otherwise `$dir/findings.json` (a finding row carries `round`, so a test writing no mutations file proves every round, as today). Add `TestCheckPanelFindingsClosedNeedsAFixMutationRow`: findings `cfcJSON(cfcFinding{Ref: "F1", Severity: "Important", Status: "fixed", Round: 1, Slot: "primary"})` with `mutations.json` holding `[]` — stderr names `no fix-mutation row` and round 1, rc 1; the same with `[{"round":2,"path":"a","mutated":"none","test":"doc-only"}]` — stderr lacks that line; a `Minor` fixed finding with `[]` — stderr lacks it; a fake whose `record mutations` exits 1 — rc 2. Run `cd stats && go test ./internal/guard/ -run '^TestCheckPanelFindingsClosedNeedsAFixMutationRow$' -count=1`: it fails.
-  - [ ] **Step 2: Fix.** In `stats/internal/guard/unfinishedwork.go`, move the fixed-round block into `func uwUnprovedFixRounds(env Env, name, anchor string, findingsJSON []byte) (rounds []int, cause string)`: the rounds, sorted, holding a fixed Critical/Important finding that no `flow record mutations -change <name> -C <anchor>` row of round N or N+1 proves; `cause` is non-empty when the findings or the mutation rows cannot be read, holding today's message after its prefix. `checkUnfinishedWork` calls it with its messages unchanged. In `stats/internal/guard/panelfindingsclosed.go`, after the uncounted-findings check, call it with the canonicalised worktree as `anchor`: a `cause` prints behind `cfcPrefix` and returns 2; rounds print `<cfcPrefix>fixed Critical/Important finding(s) in round(s) <n, …> and no fix-mutation row for that fix round — record each fix's fix-mutation: line, or one -mutated none -test <reason> row for a fix that changed nothing executable (skills/flow/review-panel-fix-round.md)` and set `violated` (decision `mutation-row-at-panel-close`). Add that violation to `scripts/check-panel-findings-closed.sh`'s header. Then apply the contract's diff:
+- [x] 6. Refuse the panel's close while a fixed round has no fix-mutation row
+  - [x] **Step 1: Write the failing test.** In `stats/internal/guard/check_panel_findings_closed_test.go`, give `cfcBinDispatches`' fake `flow` a `*"record mutations"*)` case answering `$dir/mutations.json` when that file exists and otherwise `$dir/findings.json` (a finding row carries `round`, so a test writing no mutations file proves every round, as today). Add `TestCheckPanelFindingsClosedNeedsAFixMutationRow`: findings `cfcJSON(cfcFinding{Ref: "F1", Severity: "Important", Status: "fixed", Round: 1, Slot: "primary"})` with `mutations.json` holding `[]` — stderr names `no fix-mutation row` and round 1, rc 1; the same with `[{"round":2,"path":"a","mutated":"none","test":"doc-only"}]` — stderr lacks that line; a `Minor` fixed finding with `[]` — stderr lacks it; a fake whose `record mutations` exits 1 — rc 2. Run `cd stats && go test ./internal/guard/ -run '^TestCheckPanelFindingsClosedNeedsAFixMutationRow$' -count=1`: it fails.
+  - [x] **Step 2: Fix.** In `stats/internal/guard/unfinishedwork.go`, move the fixed-round block into `func uwUnprovedFixRounds(env Env, name, anchor string, findingsJSON []byte) (rounds []int, cause string)`: the rounds, sorted, holding a fixed Critical/Important finding that no `flow record mutations -change <name> -C <anchor>` row of round N or N+1 proves; `cause` is non-empty when the findings or the mutation rows cannot be read, holding today's message after its prefix. `checkUnfinishedWork` calls it with its messages unchanged. In `stats/internal/guard/panelfindingsclosed.go`, after the uncounted-findings check, call it with the canonicalised worktree as `anchor`: a `cause` prints behind `cfcPrefix` and returns 2; rounds print `<cfcPrefix>fixed Critical/Important finding(s) in round(s) <n, …> and no fix-mutation row for that fix round — record each fix's fix-mutation: line, or one -mutated none -test <reason> row for a fix that changed nothing executable (skills/flow/review-panel-fix-round.md)` and set `violated` (decision `mutation-row-at-panel-close`). Add that violation to `scripts/check-panel-findings-closed.sh`'s header. Then apply the contract's diff:
 
 ````diff verified:applied with git apply in task order to this worktree's branch spectre/kan-1039-end-to-end-autonomy-rule before any fix commit; check-verbatim-moves, check-references, check-markdown-integrity green
 diff --git a/skills/flow/review-panel-fix-round.md b/skills/flow/review-panel-fix-round.md
@@ -328,7 +328,7 @@ index 8ace34f6..4a60f94e 100644
  **Every fixed Critical or Important finding leaves a tracked suite test behind** — the
  `regression-test:` line of the REPORT FILE paragraph (`skills/flow/review-panel.md`), so a
 ````
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l internal/guard && go vet ./internal/guard/ && go test ./internal/guard/ -run '^Test(CheckPanelFindingsClosed|CheckUnfinishedWork)' -count=1`, then `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh` — green.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l internal/guard && go vet ./internal/guard/ && go test ./internal/guard/ -run '^Test(CheckPanelFindingsClosed|CheckUnfinishedWork)' -count=1`, then `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh` — green.
 
 **Build:** green
 **Files:** `stats/internal/guard/unfinishedwork.go`, `stats/internal/guard/panelfindingsclosed.go`, `stats/internal/guard/check_panel_findings_closed_test.go`, `scripts/check-panel-findings-closed.sh`, `skills/flow/review-panel-fix-round.md`
@@ -339,11 +339,11 @@ index 8ace34f6..4a60f94e 100644
 **Commit:** fix(guard): refuse the panel's close while a fixed round has no fix-mutation row
 **After:** Task 5
 
-- [ ] 7. Floor a full-suite fix back-fill at the panel's reviewer ends
-  - [ ] **Step 1: Write the failing test.** Add `TestRecordDispatchBackfillFloorsAFullSuiteFixAtThePanelsReviewers` to `stats/cmd/flow/record_test.go`, on `TestRecordDispatchBackfillFloorsAPanelFixAtItsRoundsReviewers`' fixture (commits at `2026-10-23T09:19:34Z` and `2026-10-23T09:30:03Z`, the same four reviewer rows): an inline `-role panel-fix -key full-suite-fix-1` back-fill with `-commit` the second commit begins at `2026-10-23T09:28:18Z`, the newest reviewer end not after the commit (`panel-1-primary` ended after it); with a record holding no reviewer row it begins at `2026-10-23T09:19:34Z`; `-key full-suite-fix-x` keeps `2026-10-23T09:19:34Z`. Run `cd stats && make -s web-dist && go test ./cmd/flow/ -run '^TestRecordDispatchBackfillFloors' -count=1`: the new test fails.
-  - [ ] **Step 2: Fix.** In `stats/cmd/flow/record.go`, `panelFixFloor` takes the fix commit's time `endT` as its last argument, its one caller passing `endT`. For `role == "panel-fix"` and a key `full-suite-fix-<n>`, `<n>` a positive integer, the floor is the latest `EndedAt` among the dispatches `records.PanelDispatchRound` accepts whose `EndedAt` is not after `endT`; the `panel-fix-<r>` case is unchanged (decision `full-suite-fix-floor`). Extend its doc comment and the back-fill comment above its call (kan-1039 self-review: `full-suite-fix-1` claimed the whole panel wait).
-  - [ ] **Step 3: Repair row 8196.** Read it with `flow record dispatches -change kan-1039-end-to-end-autonomy-rule -C /Users/tweety53/Projects/agents-worktrees/kan-1039-end-to-end-autonomy-rule`: confirm `id` 8196 is `full-suite-fix-1` starting `2026-10-27T16:44:08+02:00`, and take its `commitSha` and `endedAt`. Then, from `stats/`, run `FLOWD_DSN='postgres://flow:flow@localhost:5433/flow?sslmode=disable' go run ./cmd/flowd retime-dispatch 8196 2026-10-27T15:14:22Z <its endedAt, in UTC> <its commitSha>` and `FLOWD_DSN='postgres://flow:flow@localhost:5433/flow?sslmode=disable' go run ./cmd/flowd restamp-dispatch 8196 /Users/tweety53/.claude/projects/-Users-tweety53-Projects-agents/f562af9f-7080-469d-b4aa-ede280788cf8.jsonl`; each exits 0. Re-read the row: it starts at `2026-10-27T17:14:22+02:00`; report its cache-read figure before and after. unverified:confirm restamp-dispatch re-attributes an already-inline row over its new window; if it refuses, report its output and leave the retimed row.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l cmd/flow && make -s web-dist && go vet ./cmd/flow/ && go test ./cmd/flow/ -run '^TestRecordDispatch' -count=1` — green.
+- [x] 7. Floor a full-suite fix back-fill at the panel's reviewer ends
+  - [x] **Step 1: Write the failing test.** Add `TestRecordDispatchBackfillFloorsAFullSuiteFixAtThePanelsReviewers` to `stats/cmd/flow/record_test.go`, on `TestRecordDispatchBackfillFloorsAPanelFixAtItsRoundsReviewers`' fixture (commits at `2026-10-23T09:19:34Z` and `2026-10-23T09:30:03Z`, the same four reviewer rows): an inline `-role panel-fix -key full-suite-fix-1` back-fill with `-commit` the second commit begins at `2026-10-23T09:28:18Z`, the newest reviewer end not after the commit (`panel-1-primary` ended after it); with a record holding no reviewer row it begins at `2026-10-23T09:19:34Z`; `-key full-suite-fix-x` keeps `2026-10-23T09:19:34Z`. Run `cd stats && make -s web-dist && go test ./cmd/flow/ -run '^TestRecordDispatchBackfillFloors' -count=1`: the new test fails.
+  - [x] **Step 2: Fix.** In `stats/cmd/flow/record.go`, `panelFixFloor` takes the fix commit's time `endT` as its last argument, its one caller passing `endT`. For `role == "panel-fix"` and a key `full-suite-fix-<n>`, `<n>` a positive integer, the floor is the latest `EndedAt` among the dispatches `records.PanelDispatchRound` accepts whose `EndedAt` is not after `endT`; the `panel-fix-<r>` case is unchanged (decision `full-suite-fix-floor`). Extend its doc comment and the back-fill comment above its call (kan-1039 self-review: `full-suite-fix-1` claimed the whole panel wait).
+  - [x] **Step 3: Repair row 8196.** Read it with `flow record dispatches -change kan-1039-end-to-end-autonomy-rule -C /Users/tweety53/Projects/agents-worktrees/kan-1039-end-to-end-autonomy-rule`: confirm `id` 8196 is `full-suite-fix-1` starting `2026-10-27T16:44:08+02:00`, and take its `commitSha` and `endedAt`. Then, from `stats/`, run `FLOWD_DSN='postgres://flow:flow@localhost:5433/flow?sslmode=disable' go run ./cmd/flowd retime-dispatch 8196 2026-10-27T15:14:22Z <its endedAt, in UTC> <its commitSha>` and `FLOWD_DSN='postgres://flow:flow@localhost:5433/flow?sslmode=disable' go run ./cmd/flowd restamp-dispatch 8196 /Users/tweety53/.claude/projects/-Users-tweety53-Projects-agents/f562af9f-7080-469d-b4aa-ede280788cf8.jsonl`; each exits 0. Re-read the row: it starts at `2026-10-27T17:14:22+02:00`; report its cache-read figure before and after. unverified:confirm restamp-dispatch re-attributes an already-inline row over its new window; if it refuses, report its output and leave the retimed row.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l cmd/flow && make -s web-dist && go vet ./cmd/flow/ && go test ./cmd/flow/ -run '^TestRecordDispatch' -count=1` — green.
 
 **Build:** green
 **Files:** `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`
@@ -354,9 +354,9 @@ index 8ace34f6..4a60f94e 100644
 **Commit:** fix(flow): floor a full-suite fix back-fill at the panel's reviewer ends
 **After:** none
 
-- [ ] 8. Record each declared suite's runtime from the verify list
-  - [ ] **Step 1: Write the failing test.** Add `TestRunVerifyListRecordsSuiteRuntimes` to `stats/internal/guard/run_verify_list_test.go`, on `TestRunVerifyList`'s fixture: a `## test` fence holding `# suite: demo-suite`, `echo one`, then `echo two`, and a fake `flow` on PATH that appends `$*` to a log file and, when its first two words are `suite record`, runs the words after `--`. The list exits 0 and prints both commands' report lines, and the log holds exactly one line, `suite record -C <worktree> -suite demo-suite -- bash -c echo one`; with no `flow` on PATH the list still exits 0. Run `cd stats && go test ./internal/guard/ -run '^TestRunVerifyListRecordsSuiteRuntimes$' -count=1`: it fails.
-  - [ ] **Step 2: Fix.** In `stats/internal/guard/runverifylist.go`, compile `rvlSuite` beside `rvlInputs` from the pattern `^[[:space:]]*# suite:[[:space:]]*([A-Za-z0-9._-]+)[[:space:]]*$`, and parse a `suites` slice beside `inputs` (pending, then cleared at the command it applies to). In the `test` branch, a command whose suite is set runs as `{flow, "suite", "record", "-C", abs(wt), "-suite", <suite>, "--", "bash", "-c", c}` when `lookPath(env, "flow")` finds one, else as today (decision `suite-line-in-test-list`). Add the `# suite:` line's meaning to the header comment's THE LIST paragraph and to `scripts/run-verify-list.sh`'s header. In `.flow/project.md` `## test`, put `# suite: guard-tests` above `scripts/run-guard-tests.sh`, `# suite: stats-go` above the Go test line and `# suite: stats-spa` above the SPA command's `# inputs:` line; then replace the sentence that opens `Record a run with` with: Each command a `# suite:` line names is recorded so on every `run-verify-list.sh <worktree> test`; record any other run with `flow suite record -suite <name> -- <command>` — a store that cannot be reached costs one warning line and never changes the suite's own exit code. Then apply the contract's diff:
+- [x] 8. Record each declared suite's runtime from the verify list
+  - [x] **Step 1: Write the failing test.** Add `TestRunVerifyListRecordsSuiteRuntimes` to `stats/internal/guard/run_verify_list_test.go`, on `TestRunVerifyList`'s fixture: a `## test` fence holding `# suite: demo-suite`, `echo one`, then `echo two`, and a fake `flow` on PATH that appends `$*` to a log file and, when its first two words are `suite record`, runs the words after `--`. The list exits 0 and prints both commands' report lines, and the log holds exactly one line, `suite record -C <worktree> -suite demo-suite -- bash -c echo one`; with no `flow` on PATH the list still exits 0. Run `cd stats && go test ./internal/guard/ -run '^TestRunVerifyListRecordsSuiteRuntimes$' -count=1`: it fails.
+  - [x] **Step 2: Fix.** In `stats/internal/guard/runverifylist.go`, compile `rvlSuite` beside `rvlInputs` from the pattern `^[[:space:]]*# suite:[[:space:]]*([A-Za-z0-9._-]+)[[:space:]]*$`, and parse a `suites` slice beside `inputs` (pending, then cleared at the command it applies to). In the `test` branch, a command whose suite is set runs as `{flow, "suite", "record", "-C", abs(wt), "-suite", <suite>, "--", "bash", "-c", c}` when `lookPath(env, "flow")` finds one, else as today (decision `suite-line-in-test-list`). Add the `# suite:` line's meaning to the header comment's THE LIST paragraph and to `scripts/run-verify-list.sh`'s header. In `.flow/project.md` `## test`, put `# suite: guard-tests` above `scripts/run-guard-tests.sh`, `# suite: stats-go` above the Go test line and `# suite: stats-spa` above the SPA command's `# inputs:` line; then replace the sentence that opens `Record a run with` with: Each command a `# suite:` line names is recorded so on every `run-verify-list.sh <worktree> test`; record any other run with `flow suite record -suite <name> -- <command>` — a store that cannot be reached costs one warning line and never changes the suite's own exit code. Then apply the contract's diff:
 
 ````diff verified:applied with git apply in task order to this worktree's branch spectre/kan-1039-end-to-end-autonomy-rule before any fix commit; check-verbatim-moves, check-references, check-markdown-integrity green
 diff --git a/skills/flow-contracts/project-configuration.md b/skills/flow-contracts/project-configuration.md
@@ -373,7 +373,7 @@ index 25037f84..7460bf10 100644
  | `## lint` | The command(s) that verify lint, and the auto-fix command to run first. |
  | `## standards` | The project's own written standards: the files the principles reviewer receives, plus any opt-in shared rule the project has adopted. This same list is both the opt-in list and the reviewer's standards list. Absent, no standards resolve: the reviewer gets an empty list, never auto-detected files. |
 ````
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l internal/guard && go vet ./internal/guard/ && go test ./internal/guard/ -run '^TestRunVerifyList' -count=1`, then `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh` — green.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l internal/guard && go vet ./internal/guard/ && go test ./internal/guard/ -run '^TestRunVerifyList' -count=1`, then `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh` — green.
 
 **Build:** green
 **Files:** `stats/internal/guard/runverifylist.go`, `stats/internal/guard/run_verify_list_test.go`, `scripts/run-verify-list.sh`, `.flow/project.md`, `skills/flow-contracts/project-configuration.md`
@@ -384,8 +384,8 @@ index 25037f84..7460bf10 100644
 **Commit:** fix(guard): record each declared suite's runtime from the verify list
 **After:** Task 6
 
-- [ ] 9. Require the no-cache flag on every mutant's test run
-  - [ ] **Step 1: Apply the sentence** (decision `mutation-no-cache`):
+- [x] 9. Require the no-cache flag on every mutant's test run
+  - [x] **Step 1: Apply the sentence** (decision `mutation-no-cache`):
 
 ````diff verified:applied with git apply in task order to this worktree's branch spectre/kan-1039-end-to-end-autonomy-rule before any fix commit; check-verbatim-moves, check-references, check-markdown-integrity green
 diff --git a/skills/flow/review-panel.md b/skills/flow/review-panel.md
@@ -401,7 +401,7 @@ index de7dacb9..fe55cced 100644
  ### Principles
  
 ````
-  - [ ] **Step 2: Verify.** `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh` — green.
+  - [x] **Step 2: Verify.** `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh` — green.
 
 **Build:** green
 **Files:** `skills/flow/review-panel.md`
