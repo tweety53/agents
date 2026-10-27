@@ -4763,3 +4763,61 @@ func TestWatcherSettleStampsOnlyTheCheckedRow(t *testing.T) {
 		t.Errorf("older row sharing the key was stamped %q", older.agentID)
 	}
 }
+
+// runVerifyListSettleFixture writes a parent transcript whose only begin for
+// key verify is a run-verify-list.sh call -- the script begins its row
+// inline itself, so no `flow record dispatch begin` reaches the transcript
+// -- followed by the given main-thread turns, and runs one batch against a
+// closed inline row ending at 00:05:00 (kan-1038).
+func runVerifyListSettleFixture(t *testing.T, call string, turns ...string) *settleDeps {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	c, err := json.Marshal(call)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := append([]string{
+		`{"type":"assistant","timestamp":"2026-01-01T00:01:00Z","sessionId":"s","message":{"model":"m","content":[{"type":"tool_use","name":"Bash","input":{"command":` + string(c) + `}}]}}`,
+	}, turns...)
+	lines = append(lines, mainThreadLine("00:09:00", 1))
+	if err := os.WriteFile(path, stampFixtureLines(lines...), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	start, end := time.Date(2026, 1, 1, 0, 1, 0, 0, time.UTC), time.Date(2026, 1, 1, 0, 5, 0, 0, time.UTC)
+	deps := &settleDeps{
+		rows:     map[string]*settleRow{"verify": {id: 7, endedAt: end, agentID: harvest.InlineAgentID}},
+		windows:  []harvest.DispatchWindow{{DispatchID: 7, AgentID: harvest.InlineAgentID, StartedAt: start, EndedAt: &end}},
+		restamps: map[int64]json.RawMessage{},
+	}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	return deps
+}
+
+// TestSettleClosedRowsMeasuresARunVerifyListRow: every parent turn inside a
+// script-begun row's window is summed into its restamp.
+func TestSettleClosedRowsMeasuresARunVerifyListRow(t *testing.T) {
+	for _, call := range []string{
+		"scripts/run-verify-list.sh /wt test c verify mf-s opus medium",
+		"scripts/run-verify-list.sh /wt test c verify mf-s opus medium > /tmp/x 2>&1",
+		"scripts/run-verify-list.sh /wt test c verify mf-s opus medium 2>&1|grep -E 'exit [1-9]'",
+	} {
+		deps := runVerifyListSettleFixture(t, call, mainThreadLine("00:02:00", 3), mainThreadLine("00:03:00", 4), mainThreadLine("00:04:00", 5))
+		if p, ok := deps.restamps[7]; !ok || mainOutput(t, p) != 12 {
+			t.Errorf("%s: verify restamp = %s (%v), want output 12", call, p, ok)
+		}
+	}
+}
+
+// TestSettleClosedRowsZeroesAnEmptyRunVerifyListRow: a script-begun row
+// with no turn inside its window is restamped zero.
+func TestSettleClosedRowsZeroesAnEmptyRunVerifyListRow(t *testing.T) {
+	deps := runVerifyListSettleFixture(t, "scripts/run-verify-list.sh /wt test c verify mf-s opus medium")
+	var zero map[string]json.RawMessage
+	if p, ok := deps.restamps[7]; !ok || json.Unmarshal(p, &zero) != nil || zero["tokens"] == nil || mainOutput(t, p) != 0 {
+		t.Errorf("verify restamp = %s (%v), want a zero patch carrying tokens", p, ok)
+	}
+}

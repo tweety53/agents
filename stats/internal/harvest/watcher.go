@@ -1183,9 +1183,11 @@ func (w *Watcher) settleClosedRows(ctx context.Context, path string, records []R
 			ev.StartedAt = c.Timestamp
 			cands = append(cands, settleCandidate{dispatchBeginEvent: ev})
 		}
-		for _, ev := range judgeInvocations(c.Command, inlineBeginFromInvocation) {
-			ev.StartedAt = c.Timestamp
-			cands = append(cands, settleCandidate{dispatchBeginEvent: ev, Inline: true})
+		for _, judge := range []func(string, map[string]string) (dispatchBeginEvent, bool){inlineBeginFromInvocation, runVerifyListBeginFromInvocation} {
+			for _, ev := range judgeInvocations(c.Command, judge) {
+				ev.StartedAt = c.Timestamp
+				cands = append(cands, settleCandidate{dispatchBeginEvent: ev, Inline: true})
+			}
 		}
 	}
 	if len(cands) > maxSettleCandidates {
@@ -1259,6 +1261,44 @@ func inlineBeginFromInvocation(invocation string, vars map[string]string) (dispa
 	}
 	key, ok := resolvedFlagValue(invocation, "-key", vars)
 	if !ok || strings.ContainsAny(key, "$`") {
+		return dispatchBeginEvent{}, false
+	}
+	return dispatchBeginEvent{SessionToken: token, Key: key}, true
+}
+
+// runVerifyListBeginFromInvocation reads one invocation as a
+// `run-verify-list.sh <worktree> lint|test <change> <key> <session-token>
+// <model> <effort> [<canonical-worktree>]` call: the script begins its row
+// `-agent-id inline` itself, so the begin never appears in the transcript
+// and only this call names the row (kan-1038). A `$NAME` argument resolves
+// against vars as resolvedFlagValue does; a `$` or backtick left in the
+// token or key refuses the invocation, as inlineBeginFromInvocation does.
+func runVerifyListBeginFromInvocation(invocation string, vars map[string]string) (dispatchBeginEvent, bool) {
+	fields := strings.Fields(invocation)
+	i := slices.IndexFunc(fields, func(f string) bool { return strings.HasSuffix(f, "run-verify-list.sh") })
+	if i < 0 {
+		return dispatchBeginEvent{}, false
+	}
+	args := fields[i+1:]
+	// A shell operator ends the call: `> /tmp/v.txt 2>&1`, `2>&1|grep …`.
+	if j := slices.IndexFunc(args, func(f string) bool { return strings.ContainsAny(f, "|<>&;") }); j >= 0 {
+		args = args[:j]
+	}
+	if (len(args) != 7 && len(args) != 8) || (args[1] != "lint" && args[1] != "test") {
+		return dispatchBeginEvent{}, false
+	}
+	resolve := func(v string) string {
+		v = strings.Trim(v, `'"`)
+		if !strings.HasPrefix(v, "$") {
+			return v
+		}
+		if r, ok := vars[strings.TrimSuffix(strings.TrimPrefix(v[1:], "{"), "}")]; ok {
+			return r
+		}
+		return v
+	}
+	key, token := resolve(args[3]), resolve(args[4])
+	if key == "" || token == "" || strings.ContainsAny(key+token, "$`") {
 		return dispatchBeginEvent{}, false
 	}
 	return dispatchBeginEvent{SessionToken: token, Key: key}, true
