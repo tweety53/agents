@@ -82,10 +82,10 @@ Correction (2026-10-27): the plan's spec ran against the UI-test fixture alone, 
 
 **Decision:** plan-visual-prototype
 
-- [ ] 5. In-run fix 1 — verify: Weekly costs chart crashes when a visible series has no measured week
-  - [ ] **Step 1: Write the failing test** `weekly costs draws a series with no measured week as no line` in `stats/web/src/views/views.test.tsx`: a `weekly-costs` response whose Review is null every week renders the chart, the Review toggle and no Review line or point. Run `cd stats/web && npx vitest run src/views/views.test.tsx -t 'weekly costs'` — RED (`TypeError: Cannot read properties of undefined (reading 'series')`).
-  - [ ] **Step 2: Fix** in `stats/web/src/views/WeeklyCosts.tsx`: a line with no measured point draws nothing, before its series is read.
-  - [ ] **Step 3: Verify:** `cd stats/web && npx tsc -b && npx vitest run src/views/views.test.tsx -t 'weekly costs'`.
+- [x] 5. In-run fix 1 — verify: Weekly costs chart crashes when a visible series has no measured week
+  - [x] **Step 1: Write the failing test** `weekly costs draws a series with no measured week as no line` in `stats/web/src/views/views.test.tsx`: a `weekly-costs` response whose Review is null every week renders the chart, the Review toggle and no Review line or point. Run `cd stats/web && npx vitest run src/views/views.test.tsx -t 'weekly costs'` — RED (`TypeError: Cannot read properties of undefined (reading 'series')`).
+  - [x] **Step 2: Fix** in `stats/web/src/views/WeeklyCosts.tsx`: a line with no measured point draws nothing, before its series is read.
+  - [x] **Step 3: Verify:** `cd stats/web && npx tsc -b && npx vitest run src/views/views.test.tsx -t 'weekly costs'`.
 
 **Files:** `stats/web/src/views/WeeklyCosts.tsx`, `stats/web/src/views/views.test.tsx`
 **Tests:** `weekly costs draws a series with no measured week as no line`
