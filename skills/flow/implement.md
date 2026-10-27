@@ -748,9 +748,10 @@ of `skills/flow/visual-verify.md`.
 **The pass-1 panel reads while the suite runs.** On a run whose `skills/flow/review-panel.md`
 opens a pass 1, the full-suite run above waits for that pass: the parent closes `flow.sdd-tdd`,
 enters the panel, and runs the list there, between recording the pass-1 begins and the round's
-wait, as that file's **Bundled dispatch** states. The slots are read-only, so their verdict and the
+wait, as that file's **Bundled dispatch** states. The reading slots are read-only, so their verdict and the
 suite's arrive together rather than one after the other (kan-920: the panel waited six and a half
-minutes for a suite it did not read). A full-suite fix is applied only after the round's wait ends, never
+minutes for a suite it did not read).
+The mutation slot is not read-only: it runs the tests once per mutant on the same CPUs, so the `mutation+failure-modes` dispatch is begun and launched only once the suite has exited (kan-1039: the guard package hit `go test`'s 10-minute timeout under the mutation slot's runs, and passed alone in 332 s). A full-suite fix is applied only after the round's wait ends, never
 while the slots are reading the tree.
 
 **The next implementer overlaps the guard.** The unit is the group — the decision's `groups`

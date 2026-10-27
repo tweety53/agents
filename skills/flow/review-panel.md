@@ -441,7 +441,8 @@ flow record dispatch end -change <name> -key panel-<round>-<slot|slot+slot+slot>
 ```
 
 Every `begin` of a round is recorded in the Bash call immediately before the one message that
-launches every dispatch of the round, one call for all, as `panel-round-begins.sh <worktree> <name> <round> mf-<literal-token>
+launches every dispatch of the round — on pass 1, every dispatch but `mutation+failure-modes`
+(below) — one call for all, as `panel-round-begins.sh <worktree> <name> <round> mf-<literal-token>
 <slot>:<model>:<effort>[:<diff-base>]...` — the begin above once per slot, under the literal key
 `panel-<round>-<slot>`, `<round>` written as the number itself, never a shell substitution, and then
 the round's own pass row naming each slot's pair, so no round it began lacks one; the round's wait is one call whose condition is `test -s` on every
@@ -453,7 +454,9 @@ ceiling takes the breach path under **No forking, and a wall-clock ceiling on ev
 
 **On pass 1 the full suite runs between the begins and the wait.** The parent runs it there, in
 the foreground, while the read-only slots review (**The pass-1 panel reads while the suite
-runs.**, `skills/flow/implement.md`). A full-suite fix is applied only once the round's wait
+runs.**, `skills/flow/implement.md`).
+The `mutation+failure-modes` dispatch stays out of pass 1's launch message: once the suite has exited, a second `panel-round-begins.sh` call records that dispatch's begin alone and the next message launches it, before the round's wait.
+A full-suite fix is applied only once the round's wait
 ends, never under the reading slots, so once the round's reports exist, every pass-1 role re-runs in the next round over the
 delta that commit adds, under **Panel re-runs** (`skills/flow/review-panel-fix-round.md`) — a
 role that raised nothing included; a suite that passes adds no commit and re-dispatches nothing.
