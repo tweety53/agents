@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"time"
-
-	"github.com/tweety53/agents/stats/internal/stages"
 )
 
 // Period bounds an aggregation by a stage run's start instant:
@@ -374,8 +372,9 @@ func (s *Store) TrendOverTime(ctx context.Context, period Period, project, model
 }
 
 // weeklyCostStages are the stage keys each WeeklyCosts category counts,
-// drawn from the stages vocabulary; init refuses a key it does not declare,
-// so a rename there cannot silently move cost into overall-only.
+// drawn from the stages vocabulary; TestWeeklyCostStagesAreDeclared fails on
+// a key it does not declare, so a rename there cannot silently move cost
+// into overall-only.
 var weeklyCostStages = struct {
 	selfReview, implementation, review string
 	planning                           []string
@@ -384,15 +383,6 @@ var weeklyCostStages = struct {
 	implementation: "flow.sdd-tdd",
 	review:         "flow.review-panel",
 	planning:       []string{"plan.session", "flow.brainstorm", "flow.design-approval", "flow.create-artifacts", "flow.writing-plans", "flow.decide"},
-}
-
-func init() {
-	c := weeklyCostStages
-	for _, k := range append([]string{c.selfReview, c.implementation, c.review}, c.planning...) {
-		if _, ok := stages.Name(k); !ok {
-			panic(fmt.Sprintf("store: weekly costs: stage key %q is not in the stages vocabulary", k))
-		}
-	}
 }
 
 // WeeklyCostPoint is one Wednesday-to-Wednesday week's cost totals: overall,

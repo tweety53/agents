@@ -502,24 +502,29 @@ func TestWeeklyCostsHonoursProjectModelAndPeriod(t *testing.T) {
 	run(projectKey, 1, period.From.Add(time.Hour), `{"cost_usd": 3, "models": {"m-b": {"cost_usd": 3}}}`)
 	run(projectKey, 2, period.To, `{"cost_usd": 100, "models": {"m-a": {"cost_usd": 100}}}`)
 	run(otherKey, 3, period.From, `{"cost_usd": 1000, "models": {"m-a": {"cost_usd": 1000}}}`)
+	// A week whose only run lacks m-a: no point under the m-a filter.
+	run(projectKey, 4, period.From.Add(-24*time.Hour), `{"cost_usd": 2, "models": {"m-b": {"cost_usd": 2}}}`)
+	period.From = period.From.Add(-7 * 24 * time.Hour)
 
 	for _, tc := range []struct {
-		name  string
-		model *string
-		want  float64
+		name   string
+		model  *string
+		points int
+		want   float64
 	}{
-		{"all models", nil, 13},
-		{"model m-a", ptr("m-a"), 4},
+		{"all models", nil, 2, 13},
+		{"model m-a", ptr("m-a"), 1, 4},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			points, err := st.WeeklyCosts(ctx, period, &projectKey, tc.model)
 			if err != nil {
 				t.Fatalf("WeeklyCosts: %v", err)
 			}
-			if len(points) != 1 {
-				t.Fatalf("WeeklyCosts returned %d points, want 1", len(points))
+			if len(points) != tc.points {
+				t.Fatalf("WeeklyCosts returned %d points, want %d", len(points), tc.points)
 			}
-			for label, got := range map[string]*float64{"OverallUSD": points[0].OverallUSD, "ReviewUSD": points[0].ReviewUSD} {
+			last := points[len(points)-1]
+			for label, got := range map[string]*float64{"OverallUSD": last.OverallUSD, "ReviewUSD": last.ReviewUSD} {
 				if got == nil || *got != tc.want {
 					t.Errorf("%s = %v, want %v", label, got, tc.want)
 				}
