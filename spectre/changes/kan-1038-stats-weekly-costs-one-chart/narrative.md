@@ -23,3 +23,13 @@
   that then runs stage marks sends them to a daemon that is not up, and they fall to the journal.
   Stage marks run without that export.
 - One `npm test` run hit a 5s timeout under load; its one allowed re-run passed.
+
+## 2026-10-27 — fix run
+
+- Operator asked for Overall alone shown by default, the prototype's 6px tooltip radius, the approved
+  prototype as the source of truth (departures auto-resolved, never asked), and the Learning and
+  Prompt tuning lines shown only at the very end. Operator waived review and asked for minimal tests.
+- The UI-test stack on 4174 kept serving the pre-fix build after `make web-dist`; captures taken
+  against it looked like failures of the new default until `make ui-test-down && make ui-test-up`.
+- One full visual run failed two screenshots while other suites ran beside it; the re-run alone
+  passed 58/58.
