@@ -387,7 +387,9 @@ type WeeklyCostPoint struct {
 // category from the run's stage. A self-review or pipeline-fix loop change
 // is classified first, so its stages never count as planning or
 // implementation; a stage outside every category counts in overall only.
-// project and model filter as TrendOverTime's do.
+// project and model filter as TrendOverTime's do. The stage keys below are
+// stats/internal/stages/names.go's, written as SQL literals as health.go's
+// are.
 func (s *Store) WeeklyCosts(ctx context.Context, period Period, project, model *string) ([]WeeklyCostPoint, error) {
 	rows, err := s.pool.Query(ctx, `
 		WITH r AS (

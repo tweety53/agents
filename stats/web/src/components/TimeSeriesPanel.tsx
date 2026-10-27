@@ -43,6 +43,18 @@ interface Measured {
   value: number;
 }
 
+/** Splits one line's measured points into runs of consecutive days, so a
+ * day the line does not measure breaks it instead of being drawn across. */
+function segments(line: Measured[]): Measured[][] {
+  const out: Measured[][] = [];
+  for (const m of line) {
+    const last = out[out.length - 1];
+    if (last && last[last.length - 1].index === m.index - 1) last.push(m);
+    else out.push([m]);
+  }
+  return out;
+}
+
 function measuredPoints(points: TimeSeriesPoint[], days: string[]): Measured[] {
   return points
     .map((point) =>
@@ -85,14 +97,17 @@ export function TimeSeriesPanel({ points, series, format }: TimeSeriesPanelProps
   const stroke = (n: number) => (series ? `var(--series-${n + 1})` : undefined);
 
   const drawn: ReactElement[] = measuredLines.flatMap((line, n) => [
-    <polyline
-      key={`line-${n}`}
-      points={line.map((m) => `${x(m.index)},${y(m.value)}`).join(" ")}
-      fill="none"
-      className="time-series-line"
-      style={{ stroke: stroke(n) }}
-      data-testid="time-series-line"
-    />,
+    ...segments(line).map((segment) => (
+      <polyline
+        key={`line-${n}-${segment[0].index}`}
+        points={segment.map((m) => `${x(m.index)},${y(m.value)}`).join(" ")}
+        fill="none"
+        className="time-series-line"
+        style={{ stroke: stroke(n) }}
+        data-series={lines[n].name || undefined}
+        data-testid="time-series-line"
+      />
+    )),
     ...line.map((m) => (
       <circle
         key={`${n}-${m.point.day}`}
@@ -101,6 +116,7 @@ export function TimeSeriesPanel({ points, series, format }: TimeSeriesPanelProps
         r={2.5}
         className="time-series-point"
         style={{ fill: stroke(n) }}
+        data-series={lines[n].name || undefined}
         data-testid="time-series-point"
       >
         <title>{`${lines[n].name ? `${lines[n].name} ` : ""}${m.point.day}: ${format ? format(m.value) : String(m.value)}`}</title>

@@ -63,7 +63,7 @@ export function WeeklyCosts({ period, project, model }: ViewProps) {
           />
         )}
       </Panel>
-      <Panel title="Weekly cost" description="Each week's cost by phase over the selected period." state={chart}>
+      <Panel title="Weekly cost" description="Each week's cost by phase over the selected period -- a week the period cuts counts only its days inside it." state={chart}>
         {(data) => (
           <TimeSeriesPanel
             series={categories.map(({ key, name }) => ({

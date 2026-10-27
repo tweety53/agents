@@ -364,6 +364,9 @@ func (fakeStore) StageLeaderboard(context.Context, store.Period, *string, *strin
 	return nil, nil
 }
 
+func (fakeStore) WeeklyCosts(context.Context, store.Period, *string, *string) ([]store.WeeklyCostPoint, error) {
+	return nil, nil
+}
 func (fakeStore) TrendOverTime(context.Context, store.Period, *string, *string) ([]store.TrendPoint, error) {
 	return nil, nil
 }

@@ -486,8 +486,10 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 
 	t.Run("weekly-costs", func(t *testing.T) {
 		week := time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC)
-		overall, review := 110.0, 30.0
-		sts := &statsFake{weeklyCosts: []store.WeeklyCostPoint{{Week: week, OverallUSD: &overall, ReviewUSD: &review}}}
+		overall, planning, implement, review := 110.0, 10.0, 20.0, 30.0
+		sts := &statsFake{weeklyCosts: []store.WeeklyCostPoint{
+			{Week: week, OverallUSD: &overall, PlanningUSD: &planning, ImplementUSD: &implement, ReviewUSD: &review},
+		}}
 		ts := newStatsTestServer(t, sts)
 		status, env, body := getStats(t, ts, periodPath("weekly-costs"))
 		if status != http.StatusOK {
@@ -506,10 +508,10 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 			t.Fatalf("rows = %d, want 1", len(rows))
 		}
 		got := rows[0]
-		if got.Week != "2026-08-12" || got.OverallUSD == nil || *got.OverallUSD != 110 ||
-			got.ReviewUSD == nil || *got.ReviewUSD != 30 ||
-			got.PlanningUSD != nil || got.ImplementationUSD != nil || got.SelfReviewUSD != nil {
-			t.Errorf("got %+v, want Week=2026-08-12 OverallUSD=110 ReviewUSD=30 and the rest null", got)
+		is := func(p *float64, want float64) bool { return p != nil && *p == want }
+		if got.Week != "2026-08-12" || !is(got.OverallUSD, 110) || !is(got.PlanningUSD, 10) ||
+			!is(got.ImplementationUSD, 20) || !is(got.ReviewUSD, 30) || got.SelfReviewUSD != nil {
+			t.Errorf("got %+v, want Week=2026-08-12 Overall=110 Planning=10 Implementation=20 Review=30 SelfReview=null", got)
 		}
 	})
 
