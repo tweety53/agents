@@ -7,6 +7,8 @@ services:
   flow-postgres:
     image: postgres:18-alpine
     container_name: flow-postgres
+    # Docker Desktop's quit left the store down until a manual `docker start` (kan-1040).
+    restart: unless-stopped
     environment:
       POSTGRES_USER: flow
       POSTGRES_PASSWORD: flow
