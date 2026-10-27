@@ -86,3 +86,5 @@ kan-1037 (2026-10-27): the user spent about 380k uncached tokens answering mid-r
 kan-1038 (2026-10-27): asked whether to fix all eleven self-review findings or only the blocker, the user answered "recommended — don't ask such things again".
 | **Work end to end — stop only to plan or to test by hand.
 | `~/.claude/rules/work-end-to-end.md` |
+Make every judgment call yourself and name it in the summary, each with its rejected alternative and the one-line reason it lost, however small the call — size never exempts one (**Decisions**, `skills/spectre-planning/SKILL.md`); a `/flow-fast` run with `## handoff` `none` is one command from the operator, `/flow-fast <key>`, and asks nothing after it.
+Make every judgment call yourself and name it in the summary, each with its rejected alternative and the one-line reason it lost, however small the call — size never exempts one (**Decisions**, `skills/spectre-planning/SKILL.md`); a `/flow-fast` run with `## handoff` `none`, or the key absent, is one command from the operator, `/flow-fast <key>`, and asks nothing after it.
