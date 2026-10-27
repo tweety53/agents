@@ -86,7 +86,22 @@ test.describe("weekly costs", () => {
     await page.getByRole("button", { name: "Overall", exact: true }).click();
     await expect(page.getByRole("button", { name: "Overall", exact: true })).toHaveAttribute("aria-pressed", "false");
     await expect(overall).toHaveCount(0);
+    // Park the pointer so no hover styling rides the baseline.
+    await page.mouse.move(0, 0);
 
     await expect(page).toHaveScreenshot("weekly-costs-toggled.png", { fullPage: true });
+  });
+
+  test("hovering a point shows its tooltip", async ({ page }) => {
+    await withPreviousWeek(page);
+    await open(page, AFTER_FIXTURE);
+    await expect(page.getByRole("tooltip")).toHaveCount(0);
+    await page.locator('[data-testid="time-series-point"][data-series="Overall"][data-week="2026-08-12"]').hover();
+    const tip = page.getByRole("tooltip");
+    await expect(tip).toContainText("Overall");
+    await expect(tip).toContainText("$3.37");
+    await expect(tip).toContainText("▲ 124.5%");
+
+    await expect(page).toHaveScreenshot("weekly-costs-tooltip.png", { fullPage: true });
   });
 });
