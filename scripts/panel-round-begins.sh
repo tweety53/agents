@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # panel-round-begins.sh <worktree> <change> <round> <session-token> <slot>:<model>:<effort>[:<diff-base>]...
 # — records every slot's begin of one review-panel round, each under the
-# literal key panel-<round>-<slot>, in the one Bash call after the round's
-# launch message (skills/flow/review-panel.md, "Every slot's dispatch is
-# recorded"). <round> is the number itself, never a substitution.
+# literal key panel-<round>-<slot>, in the one Bash call just before the
+# round's launch message — hooks/enforce-agent-baseline.py denies a launch
+# whose row is not open yet (skills/flow/review-panel.md, "Every slot's
+# dispatch is recorded"). <round> is the number itself, never a substitution.
 #
 # stdout: one `<key>: <flow's answer>` line per slot, in slot order.
 #
