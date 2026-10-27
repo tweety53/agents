@@ -780,6 +780,7 @@ the slot ran 55 minutes, and the parent narrowed the reproducer to one test's na
 `# reproducer-bound:` is that measured run's seconds, doubled. Its exits follow the
 mutation-reproducer convention, never the generic one: it exits 0 when every test passes with the
 mutation in place — the mutant survived, the defect present — and non-zero when a test kills it.
+Every test run of a mutant passes the test runner's no-cache flag — `-count=1` for `go test` — because a cached result never sees a mutated file a test reads through a subprocess (kan-1039: the slot discarded a whole cached sweep whose survivals were false).
 
 ### Principles
 
