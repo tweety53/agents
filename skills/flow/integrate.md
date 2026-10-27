@@ -57,10 +57,9 @@ the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
 
 - **`STOP: archive-undo`** → ask, per **Run 1 — the branch is not merged**
   (`skills/flow-contracts/finish-contract-run1.md`).
-- **`STOP: unfinished-work`** → **Load `skills/flow/unfinished-work-gate.md`** — the
-  breakdown, the three-course prompt and what each course does are there. **Continue** and
-  **File or join…** re-run `prepare` with `--accept-outstanding`; **Stop** leaves the mark the
-  script closed `stopped`.
+- **`STOP: unfinished-work`** → **Load `skills/flow/unfinished-work-gate.md`** — the run
+  finishes the unfinished work itself, asks nothing, and re-runs `prepare`, per its
+  **Finish it — never a prompt**.
   A breakdown naming `no change summary recorded` is closed by recording the summary first — the
   `**Summary:**` bullets the last run printed, or, where this session never saw them, bullets
   written from the change's `tasks.md` and `narrative.md` — with the command the breakdown names,

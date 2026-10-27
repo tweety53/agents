@@ -171,7 +171,7 @@ is canonical for the visual-verify and inline-verify signals it folds in.
 | Verdict | Meaning |
 |---------|---------|
 | `CLEAR` | nothing outstanding — go straight to the landing question, with no extra prompt |
-| `OUTSTANDING` | show the breakdown and offer the three courses of **The three courses** (`skills/flow/unfinished-work-gate.md`) |
+| `OUTSTANDING` | finish the outstanding work and re-run the guard, per **Finish it — never a prompt** (`skills/flow/unfinished-work-gate.md`) |
 
 A missing verdict line is not a verdict. Treat it exactly as the preflight script's fourth outcome
 above: stop and ask the operator. The exit code is checked as well as the line, because a caller
