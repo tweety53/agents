@@ -169,10 +169,10 @@ Correction (2026-10-27): the test also asserts the table's own fetch starts on a
 **Decision:** multi-series-timeseriespanel
 **Decision:** absent-category-null
 
-- [ ] 3. In-run fix 1 — flow.visual-verify: 8-week table omits empty weeks; one-week chart draws no line; seed shows 2 of 5 lines
-  - [ ] **Step 1: Write the failing tests:** in `stats/web/src/views/views.test.tsx`, `weekly costs table always lists the last 8 weeks` — the table renders 8 Wednesday rows, a week with no fixture row reading Unavailable; in `stats/web/src/components/Panel.test.tsx`, `centres a single day on the x axis` — one point at x = 240.
-  - [ ] **Step 2: Implement:** `WeeklyCosts.tsx` builds the 8 Wednesday keys from `lastEightWeeks` and fills each week the response lacks with nulls; `TimeSeriesPanel.tsx` places a lone day at the plot's centre; `stats/cmd/uitest-seed/seed.go` gives `kan-201-refactor-thing` a `flow.brainstorm` run, a `flow.self-review` run, and keys its SDD run `flow.sdd-tdd`, so the capture shows all five lines.
-  - [ ] **Step 3: Verify:** `cd stats/web && npx tsc -b && npx vitest run src/views/views.test.tsx src/components/Panel.test.tsx`; `cd stats && go test ./cmd/uitest-seed`; then re-baseline the visual suite.
+- [x] 3. In-run fix 1 — flow.visual-verify: 8-week table omits empty weeks; one-week chart draws no line; seed shows 2 of 5 lines
+  - [x] **Step 1: Write the failing tests:** in `stats/web/src/views/views.test.tsx`, `weekly costs table always lists the last 8 weeks` — the table renders 8 Wednesday rows, a week with no fixture row reading Unavailable; in `stats/web/src/components/Panel.test.tsx`, `centres a single day on the x axis` — one point at x = 240.
+  - [x] **Step 2: Implement:** `WeeklyCosts.tsx` builds the 8 Wednesday keys from `lastEightWeeks` and fills each week the response lacks with nulls; `TimeSeriesPanel.tsx` places a lone day at the plot's centre; `stats/cmd/uitest-seed/seed.go` gives `kan-201-refactor-thing` a `flow.brainstorm` run, a `flow.self-review` run, and keys its SDD run `flow.sdd-tdd`, so the capture shows all five lines.
+  - [x] **Step 3: Verify:** `cd stats/web && npx tsc -b && npx vitest run src/views/views.test.tsx src/components/Panel.test.tsx`; `cd stats && go test ./cmd/uitest-seed`; then re-baseline the visual suite.
 
 Operator's answers, 2026-10-27: always 8 rows; centre a single point; extend the seed.
 
