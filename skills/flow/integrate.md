@@ -174,8 +174,8 @@ index holding anything beyond the chain's own path refuses the commit the same w
 A `LAND-UNTRACED-FINDING`, `LAND-DEFERRED-FINDING` or `LAND-REPORT-INVALID` refusal is not a stop: resolve it per step 7 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`) and land again.
 
 A product defect the pass met stops it at the end of step 2 of `/flow-self-review`, closes that mark
-`-outcome stopped` instead, and the run stops before step 5 on the handoff block **the sweep**
-(`skills/flow-contracts/known-bugs.md`) defines:
+`-outcome stopped` instead, and the run continues straight into the fix run **the sweep**
+(`skills/flow-contracts/known-bugs.md`) names, in the same invocation, before step 5:
 
 ```bash
 flow stage end -command '/flow' -stage flow.self-review -outcome stopped <name>

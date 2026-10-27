@@ -339,8 +339,8 @@ from a clean checkout, never around it.
 A `LAND-UNTRACED-FINDING`, `LAND-DEFERRED-FINDING` or `LAND-REPORT-INVALID` refusal is not a stop: resolve it per step 7 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`) and land again.
 
 A product defect the pass met stops it at the end of step 2 of `/flow-self-review`, closes the mark below
-`-outcome stopped` instead, and ends the run on the handoff block **the sweep**
-(`skills/flow-contracts/known-bugs.md`) defines.
+`-outcome stopped` instead, and continues straight into the fix re-run **the sweep**
+(`skills/flow-contracts/known-bugs.md`) names, in the same invocation.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.self-review -outcome completed <name>
