@@ -118,7 +118,11 @@
 #   5  the run left the worktree changed — `git status --porcelain
 #      --untracked-files=normal` differs from the listing taken before the
 #      start; both listings go to stderr, and the exit status is no verdict
-#      (kan-1038).
+#      (kan-1038). Before the start the runner also snapshots every tracked
+#      path that differs from `HEAD`, and after the run it writes back any the
+#      run changed, naming each on stderr as `run-reproducer: restored <path>`
+#      (kan-1040: a reviewer's `git checkout -q -- skills` reverted an
+#      uncommitted edit).
 
 # Header corrected for the Go port (KAN-760): the tests, the setsid mechanism
 # and the metacharacter checks are named as they now are. The body's

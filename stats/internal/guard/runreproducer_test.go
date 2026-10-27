@@ -574,3 +574,28 @@ func TestRunReproducerRefusesAChangedTree(t *testing.T) {
 	got, out = rrRun(t, rrEnv(t), wt, "scripts/restore.sh")
 	rrExpect(t, got, out, 0, "defect demonstrated")
 }
+
+func TestRunReproducerRestoresAnUncommittedEdit(t *testing.T) {
+	t.Parallel()
+	wt := rrWorktree(t)
+	for _, args := range [][]string{{"init", "-q"}, {"add", "f.txt", ".gitignore"}, {"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "f"}} {
+		if args[0] == "add" {
+			writeFile(t, filepath.Join(wt, "f.txt"), "x\n")
+			writeFile(t, filepath.Join(wt, ".gitignore"), "RAN\ngroups\nscripts/\n")
+		}
+		if out, err := exec.Command("git", append([]string{"-C", wt}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	writeFile(t, filepath.Join(wt, "f.txt"), "x\nlocal\n")
+	rrFixture(t, wt, "scripts/revert.sh", "git checkout -q -- f.txt; exit 1")
+	got, out := rrRun(t, rrEnv(t), wt, "scripts/revert.sh")
+	rrExpect(t, got, out, 5, "run-reproducer: restored f.txt")
+	b, err := os.ReadFile(filepath.Join(wt, "f.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(b) != "x\nlocal\n" {
+		t.Fatalf("f.txt = %q, want the uncommitted edit back", b)
+	}
+}

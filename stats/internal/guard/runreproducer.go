@@ -344,6 +344,9 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	// deleted sentinel was never read as a pass — but it defeated the purpose
 	// on exactly the finding it was protecting.
 	before, snapped := rrGitStatus(worktree)
+	// The bytes of every tracked path that differs from HEAD, so an uncommitted
+	// edit the run overwrites can be put back (reproducer-restores-dirty-bytes).
+	dirty := rrSnapshotDirty(worktree)
 	if err := cmd.Start(); err != nil {
 		// The child never reached exec because it could not enter the worktree —
 		// almost certainly because the worktree vanished between this guard's own
@@ -372,6 +375,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	res := rrSupervise(cmd, bound, grace, boundFile, table)
 	rc := res.rc
+	restored := rrRestoreDirty(worktree, dirty, stderr)
 
 	// A reproducer killed at the bound, or one whose child survived the retry,
 	// may already have written to the worktree before it was killed, so the
@@ -409,7 +413,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	// A reproducer that leaves the worktree changed answered over a tree that
 	// is no longer the one under review, so its exit is no verdict (kan-1038).
 	if snapped {
-		if after, ok := rrGitStatus(worktree); ok && after != before {
+		if after, ok := rrGitStatus(worktree); ok && (after != before || len(restored) > 0) {
 			emit(stderr)
 			fmt.Fprintf(stderr, "run-reproducer: the run left the worktree changed — before:\n%s\nafter:\n%s\n", before, after)
 			return 5
@@ -960,4 +964,70 @@ func emitCaptured(w io.Writer, outPath, errPath string) {
 		fmt.Fprintln(w, errS)
 	}
 	fmt.Fprintln(w, "run-reproducer: --- captured reproducer output end ---")
+}
+
+// rrSnap is one dirty path's state before the run: its bytes and mode, or
+// that it was absent (deleted from the worktree but tracked at HEAD).
+type rrSnap struct {
+	data   []byte
+	mode   os.FileMode
+	absent bool
+}
+
+// rrSnapshotDirty records every tracked path that differs from HEAD. A failed
+// git call yields an empty map: nothing to restore, every verdict unchanged.
+func rrSnapshotDirty(worktree string) map[string]rrSnap {
+	snap := map[string]rrSnap{}
+	out, err := exec.Command("git", "-C", worktree, "diff", "--no-renames", "--name-only", "-z", "HEAD", "--relative").Output()
+	if err != nil {
+		return snap
+	}
+	for _, p := range strings.Split(string(out), "\x00") {
+		if p == "" {
+			continue
+		}
+		fi, err := os.Stat(filepath.Join(worktree, p))
+		if err != nil {
+			snap[p] = rrSnap{absent: true}
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(worktree, p))
+		if err != nil {
+			continue
+		}
+		snap[p] = rrSnap{data: data, mode: fi.Mode().Perm()}
+	}
+	return snap
+}
+
+// rrRestoreDirty writes back every snapshotted path the run changed -- its
+// bytes, or its absence -- names each on stderr, and returns them sorted.
+func rrRestoreDirty(worktree string, snap map[string]rrSnap, stderr io.Writer) []string {
+	var restored []string
+	for p, s := range snap {
+		full := filepath.Join(worktree, p)
+		cur, err := os.ReadFile(full)
+		exists := err == nil
+		if _, serr := os.Lstat(full); serr == nil {
+			exists = true
+		}
+		if s.absent {
+			if !exists || os.RemoveAll(full) != nil {
+				continue
+			}
+		} else {
+			if err == nil && string(cur) == string(s.data) {
+				continue
+			}
+			if os.MkdirAll(filepath.Dir(full), 0o755) != nil || os.WriteFile(full, s.data, s.mode) != nil || os.Chmod(full, s.mode) != nil {
+				continue
+			}
+		}
+		restored = append(restored, p)
+	}
+	sort.Strings(restored)
+	for _, p := range restored {
+		fmt.Fprintf(stderr, "run-reproducer: restored %s\n", p)
+	}
+	return restored
 }
