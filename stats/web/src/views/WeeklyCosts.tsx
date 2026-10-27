@@ -67,6 +67,14 @@ function deltaText(pct: number, digits: number, gap: string): string {
   return pct === 0 ? size : `${pct > 0 ? "▲" : "▼"}${gap}${size}`;
 }
 
+/** The Y axis' tick step: the smallest 1, 2, 2.5 or 5 times a power of ten
+ * whose five steps reach `max`, so a $3 week fills the plot as a $300 one does. */
+function tickStep(max: number): number {
+  const raw = max / 5 || 1;
+  const magnitude = 10 ** Math.floor(Math.log10(raw));
+  return [1, 2, 2.5, 5, 10].find((m) => m * magnitude >= raw)! * magnitude;
+}
+
 const WIDTH = 960;
 const HEIGHT = 440;
 const LEFT = 64;
@@ -116,7 +124,7 @@ function WeeklyCostChart({ rows }: { rows: WeeklyCostPoint[] }) {
   const visible = categories
     .flatMap((c, n) => (shown[n] ? rows.map((r) => r[c.key]) : []))
     .filter((v): v is number => v !== null);
-  const step = Math.ceil(Math.max(10, ...visible) / 5 / 10) * 10;
+  const step = tickStep(Math.max(0, ...visible));
   const x = (week: number) => LEFT + (PLOT_W * week) / (WEEKS - 1);
   const y = (value: number) => TOP + PLOT_H - (PLOT_H * value) / (step * 5);
 
@@ -154,7 +162,7 @@ function WeeklyCostChart({ rows }: { rows: WeeklyCostPoint[] }) {
             {Array.from({ length: 6 }, (_, k) => (
               <g key={k}>
                 <line x1={LEFT} x2={WIDTH - RIGHT} y1={y(k * step)} y2={y(k * step)} />
-                <text x={LEFT - 8} y={y(k * step) + 4} textAnchor="end">
+                <text x={LEFT - 8} y={y(k * step) + 4} textAnchor="end" data-testid="cost-tick">
                   {formatUsd(k * step)}
                 </text>
               </g>

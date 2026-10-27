@@ -1,85 +1,92 @@
-import { expect, test } from "@playwright/test";
-import { bodyBackground, DARK_SURFACE_1, EMPTY_QUERY, PINNED_QUERY } from "./support";
+import { expect, test, type Page } from "@playwright/test";
+import { bodyBackground, DARK_SURFACE_1 } from "./support";
 
-// Weekly costs (KAN-1037). The "Last 8 weeks" table ignores the period
-// picker and is computed from the browser's own clock (WeeklyCosts.tsx's
-// lastEightWeeks(new Date())), so the clock is pinned before the first
-// navigation to an instant just after the UI-test fixture's own data
-// (cmd/uitest-seed/seed.go's fixtureNow, 2026-08-15T09:00:00Z): the table's
-// window is then 2026-06-24..2026-08-16 on every run. The chart follows the
-// period, pinned by PINNED_QUERY for the reason support.ts gives.
+// Weekly costs (KAN-1037, KAN-1038). The view is one chart of the last 8
+// weeks, computed from the browser's own clock (WeeklyCosts.tsx's
+// lastEightWeeks(new Date())), over every project and model, with no filter
+// bar -- so the clock is pinned before the first navigation to an instant
+// just after the UI-test fixture's own data (cmd/uitest-seed/seed.go's
+// fixtureNow, 2026-08-15T09:00:00Z): the window is then 2026-06-24..2026-08-16
+// on every run.
 //
-// The fixture's main runs fall in the week of 2026-08-12 (Overall and
-// Review only -- its sdd stage is the prose "SDD + TDD per task"), and
-// kan-101 carries one flow.brainstorm, flow.sdd-tdd and flow.self-review run
-// in the week of 2026-07-22, before the pinned period: the table shows
-// both weeks, the chart the pinned period's two points.
-// The empty path pins the clock and the period years before the fixture,
-// so neither panel has a recorded run: both read Panel's not-recorded
-// banner, the table included -- its 8 rows fill only a recorded window.
+// The fixture's runs fall in the weeks of 2026-07-22 (Overall, Planning,
+// Implementation, Self-review) and 2026-08-12 (Overall and Review), never in
+// two consecutive weeks, so on its own it draws no week-over-week delta.
+// withPreviousWeek adds one week, 2026-08-05, to the stack's real response:
+// 2026-08-12's Overall then reads up on it and its Review down.
+// The empty path pins the clock years before the fixture, so the panel has
+// no recorded run and reads Panel's not-recorded banner.
 const AFTER_FIXTURE = new Date("2026-08-16T12:00:00Z");
 const BEFORE_FIXTURE = new Date("2020-01-01T12:00:00Z");
+const SERIES = ["Overall", "Planning", "Implementation", "Review", "Self-review"];
 
 test.use({ viewport: { width: 1280, height: 1024 } });
 
-test.describe("weekly costs", () => {
-  test("renders the 8-week table and the five-line chart in the dark palette", async ({ page }) => {
-    await page.clock.install({ time: AFTER_FIXTURE });
-    await page.goto(`/#/weekly-costs?${PINNED_QUERY}`);
-    await expect(page.getByRole("heading", { name: "Weekly costs" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Weekly costs", exact: true })).toHaveAttribute("aria-current", "page");
+async function withPreviousWeek(page: Page) {
+  await page.route("**/api/v1/stats/weekly-costs?*", async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.rows = [
+      ...body.rows,
+      { week: "2026-08-05", overallUsd: 1.5, planningUsd: 0.3, implementationUsd: 0.6, reviewUsd: 0.6, selfReviewUsd: null },
+    ].sort((a: { week: string }, b: { week: string }) => a.week.localeCompare(b.week));
+    await route.fulfill({ response, json: body });
+  });
+}
 
-    const table = page.locator('section.panel[aria-label="Last 8 weeks"]');
-    const row = (week: string) => table.getByRole("row").filter({ has: page.getByRole("cell", { name: week, exact: true }) });
-    // Each seeded stage lands in its own column: Overall, Planning, Implementation, Self-review.
-    for (const usd of ["$2.07", "$0.62", "$1.10", "$0.35"]) {
-      await expect(row("2026-07-22").getByRole("cell", { name: usd, exact: true })).toBeVisible();
+async function open(page: Page, time: Date) {
+  await page.clock.install({ time });
+  await page.goto("/#/weekly-costs");
+  await expect(page.getByRole("heading", { name: "Weekly costs" })).toBeVisible();
+}
+
+test.describe("weekly costs", () => {
+  test("draws one chart with delta labels in the dark palette", async ({ page }) => {
+    await withPreviousWeek(page);
+    await open(page, AFTER_FIXTURE);
+    await expect(page.getByRole("link", { name: "Weekly costs", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("toolbar", { name: "Dashboard controls" })).toHaveCount(0);
+    for (const name of SERIES) {
+      await expect(page.getByRole("button", { name, exact: true })).toHaveAttribute("aria-pressed", "true");
     }
-    for (const usd of ["$3.37", "$0.41"]) {
-      await expect(row("2026-08-12").getByRole("cell", { name: usd, exact: true })).toBeVisible();
-    }
-    await expect(table.getByRole("row")).toHaveCount(9);
-    const chart = page.locator('section.panel[aria-label="Weekly cost"]');
-    await expect(chart.getByTestId("time-series-point")).toHaveCount(2);
-    for (const name of ["Overall", "Planning", "Implementation", "Review", "Self-review"]) {
-      await expect(chart.getByText(name, { exact: true })).toBeVisible();
-    }
+    await expect(page.getByText("Week starting (Wed, UTC)")).toBeVisible();
+    await expect(page.getByText("Cost (USD)")).toBeVisible();
+    const delta = (series: string) => page.locator(`[data-testid="delta-label"][data-series="${series}"][data-week="2026-08-12"]`);
+    await expect(delta("Overall")).toHaveClass("delta-up");
+    await expect(delta("Review")).toHaveClass("delta-down");
     expect(await bodyBackground(page)).toBe(DARK_SURFACE_1);
 
     await expect(page).toHaveScreenshot("weekly-costs.png", { fullPage: true });
   });
 
-  test("draws the series tokens in the light palette", async ({ page }) => {
+  test("draws the series and delta tokens in the light palette", async ({ page }) => {
     await page.emulateMedia({ colorScheme: "light" });
-    await page.clock.install({ time: AFTER_FIXTURE });
-    await page.goto(`/#/weekly-costs?${PINNED_QUERY}`);
-    await expect(page.getByRole("heading", { name: "Weekly costs" })).toBeVisible();
-    const chart = page.locator('section.panel[aria-label="Weekly cost"]');
-    await expect(chart.getByTestId("time-series-point")).toHaveCount(2);
+    await withPreviousWeek(page);
+    await open(page, AFTER_FIXTURE);
+    await expect(page.locator(".delta-up, .delta-down")).not.toHaveCount(0);
     expect(await bodyBackground(page)).not.toBe(DARK_SURFACE_1);
 
     await expect(page).toHaveScreenshot("weekly-costs-light.png", { fullPage: true });
   });
 
-  test("renders both empty states before any recorded run", async ({ page }) => {
-    await page.clock.install({ time: BEFORE_FIXTURE });
-    await page.goto(`/#/weekly-costs?${EMPTY_QUERY}`);
-    await expect(page.getByRole("heading", { name: "Weekly costs" })).toBeVisible();
-    await expect(page.getByTestId("not-recorded")).toHaveCount(2);
+  test("renders the empty state before any recorded run", async ({ page }) => {
+    await open(page, BEFORE_FIXTURE);
+    await expect(page.getByTestId("not-recorded")).toHaveCount(1);
     await expect(page.getByTestId("time-series-point")).toHaveCount(0);
 
     await expect(page).toHaveScreenshot("weekly-costs-empty.png", { fullPage: true });
   });
 
-  test("the table keeps its 8 weeks when the period empties the chart", async ({ page }) => {
-    await page.clock.install({ time: AFTER_FIXTURE });
-    await page.goto(`/#/weekly-costs?${PINNED_QUERY}`);
-    const chart = page.locator('section.panel[aria-label="Weekly cost"]');
-    await expect(chart.getByTestId("time-series-point")).toHaveCount(2);
-    await page.goto(`/#/weekly-costs?${EMPTY_QUERY}`);
-    await expect(chart.getByText("No data was recorded for this period.")).toBeVisible();
-    await expect(chart.getByTestId("time-series-point")).toHaveCount(0);
-    const table = page.locator('section.panel[aria-label="Last 8 weeks"]');
-    await expect(table.getByRole("cell", { name: "$3.37", exact: true })).toBeVisible();
+  test("a toggled-off series leaves the chart", async ({ page }) => {
+    await open(page, AFTER_FIXTURE);
+    const overall = page.locator('[data-testid="time-series-point"][data-series="Overall"]');
+    // The stack's own response: Overall in its two weeks, six points in all.
+    await expect(overall).toHaveCount(2);
+    await expect(page.getByTestId("time-series-point")).toHaveCount(6);
+    await page.getByRole("button", { name: "Overall", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Overall", exact: true })).toHaveAttribute("aria-pressed", "false");
+    await expect(overall).toHaveCount(0);
+
+    await expect(page).toHaveScreenshot("weekly-costs-toggled.png", { fullPage: true });
   });
 });

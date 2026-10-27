@@ -329,6 +329,15 @@ describe("views render their fixture response's actual values", () => {
       "2026-06-10",
       "2026-06-17",
     ]);
+    // Five even steps from $0 reach the fixture's $110 peak.
+    expect(screen.getAllByTestId("cost-tick").map((t) => t.textContent)).toEqual([
+      "$0.00",
+      "$25.00",
+      "$50.00",
+      "$75.00",
+      "$100.00",
+      "$125.00",
+    ]);
     const toggles = screen.getAllByRole("button", { pressed: true });
     expect(toggles.map((b) => b.textContent)).toEqual(["Overall", "Planning", "Implementation", "Review", "Self-review"]);
     const points = (name: string) =>
