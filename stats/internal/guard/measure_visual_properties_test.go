@@ -660,3 +660,23 @@ func TestMeasureVisualPropertiesMatrixClippedOnce(t *testing.T) {
 		t.Fatalf("%d clipped keys, want one per image:\n%s", n, stdout)
 	}
 }
+
+// TestPyJSONEscapesStrings pins pyDump's string escaping: the two-sided
+// unresolved row joins two errors with a newline, and the document must
+// still parse (design.md pyjson-escape).
+func TestPyJSONEscapesStrings(t *testing.T) {
+	s := "region corner (0,9) is not background\nregion \"b\" \\ \t\x01 — end"
+	out := pyDump(pyObj{{"unresolved", s}})
+	if !json.Valid([]byte(out)) {
+		t.Fatalf("pyDump wrote invalid JSON:\n%s", out)
+	}
+	var got map[string]string
+	if err := json.Unmarshal([]byte(out), &got); err != nil || got["unresolved"] != s {
+		t.Fatalf("round trip = %q, %v; want %q", got["unresolved"], err, s)
+	}
+	for _, want := range []string{`\n`, `\"`, `\\`, `\t`, `\u0001`, "—"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output lacks %q:\n%s", want, out)
+		}
+	}
+}

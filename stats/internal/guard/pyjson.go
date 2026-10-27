@@ -81,9 +81,9 @@ func pyWrite(b *strings.Builder, v any, indent string) {
 			b.WriteString(pyFloat(v))
 		}
 	case string:
-		// Every string this package dumps is a fixed key or a #rrggbb colour,
-		// so nothing needs json's escaping.
-		b.WriteString(`"` + v + `"`)
+		// The two-sided `unresolved` row (measurevisualproperties.go) joins
+		// two errors with a newline, so strings are escaped.
+		pyString(b, v)
 	case pyObj:
 		if len(v) == 0 {
 			b.WriteString("{}")
@@ -94,7 +94,9 @@ func pyWrite(b *strings.Builder, v any, indent string) {
 			if i > 0 {
 				b.WriteString(",")
 			}
-			b.WriteString("\n" + indent + `  "` + kv.k + `": `)
+			b.WriteString("\n" + indent + "  ")
+			pyString(b, kv.k)
+			b.WriteString(": ")
 			pyWrite(b, kv.v, indent+"  ")
 		}
 		b.WriteString("\n" + indent + "}")
@@ -115,4 +117,35 @@ func pyWrite(b *strings.Builder, v any, indent string) {
 	default:
 		panic(fmt.Sprintf("pyDump: %T is not a JSON value", v))
 	}
+}
+
+// pyString writes s as json.dumps(s, ensure_ascii=False) does: `"` and `\`
+// backslashed, \n \r \t \b \f by their short forms, every other rune below
+// U+0020 as \u00xx, everything else raw.
+func pyString(b *strings.Builder, s string) {
+	b.WriteByte('"')
+	for _, r := range s {
+		switch r {
+		case '"', '\\':
+			b.WriteByte('\\')
+			b.WriteRune(r)
+		case '\n':
+			b.WriteString(`\n`)
+		case '\r':
+			b.WriteString(`\r`)
+		case '\t':
+			b.WriteString(`\t`)
+		case '\b':
+			b.WriteString(`\b`)
+		case '\f':
+			b.WriteString(`\f`)
+		default:
+			if r < 0x20 {
+				fmt.Fprintf(b, `\u%04x`, r)
+			} else {
+				b.WriteRune(r)
+			}
+		}
+	}
+	b.WriteByte('"')
 }
