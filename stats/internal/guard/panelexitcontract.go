@@ -345,6 +345,9 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 		case 3:
 			cannot(ref + "'s reproducer could not be verdicted — the runner reported a timeout or a surviving process, which is no verdict at all")
 			said()
+		case 5:
+			cannot(ref + "'s reproducer could not be verdicted — the reproducer left the tree it ran in changed, which is no verdict")
+			said()
 		default:
 			cannot(ref + "'s reproducer could not be verdicted — the runner cannot answer")
 			said()

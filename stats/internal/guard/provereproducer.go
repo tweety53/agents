@@ -171,7 +171,7 @@ func proveReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	// (4) spends the proof: nothing is claimed about the defect either way.
 	for _, leg := range []int{leg1, leg2} {
 		if leg != 0 && leg != 1 {
-			fmt.Fprintf(stderr, "%scannot spend the proof — run-reproducer exited %d on a leg (2 refused, 3 unverifiable, 4 cannot answer)\n", prPrefix, leg)
+			fmt.Fprintf(stderr, "%scannot spend the proof — run-reproducer exited %d on a leg (2 refused, 3 unverifiable, 4 cannot answer, 5 tree changed)\n", prPrefix, leg)
 			return 2
 		}
 	}

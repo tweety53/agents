@@ -548,3 +548,29 @@ func TestRunReproducerRenamedPremiseRefuses(t *testing.T) {
 	got, out = rrRun(t, rrEnv(t), wt, "scripts/checks.sh", "--pre-fix-verdict", "demonstrated")
 	rrExpect(t, got, out, 2, "ambiguous")
 }
+
+// TestRunReproducerRefusesAChangedTree pins that a reproducer which leaves the
+// worktree's git status changed gets no verdict: exit 5, both listings on
+// stderr; one that restores what it changed keeps its verdict (kan-1038).
+func TestRunReproducerRefusesAChangedTree(t *testing.T) {
+	t.Parallel()
+	wt := rrWorktree(t)
+	for _, args := range [][]string{{"init", "-q"}, {"add", "f.txt", ".gitignore"}, {"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "f"}} {
+		if args[0] == "add" {
+			writeFile(t, filepath.Join(wt, "f.txt"), "x\n")
+			writeFile(t, filepath.Join(wt, ".gitignore"), "RAN\ngroups\nscripts/\n")
+		}
+		if out, err := exec.Command("git", append([]string{"-C", wt}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	rrFixture(t, wt, "scripts/dirty.sh", "echo y >> f.txt; exit 1")
+	got, out := rrRun(t, rrEnv(t), wt, "scripts/dirty.sh")
+	rrExpect(t, got, out, 5, "the run left the worktree changed — before:\n\nafter:\n M f.txt")
+	if err := exec.Command("git", "-C", wt, "checkout", "-q", "f.txt").Run(); err != nil {
+		t.Fatal(err)
+	}
+	rrFixture(t, wt, "scripts/restore.sh", "echo y >> f.txt; git checkout -q f.txt; exit 1")
+	got, out = rrRun(t, rrEnv(t), wt, "scripts/restore.sh")
+	rrExpect(t, got, out, 0, "defect demonstrated")
+}

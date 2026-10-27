@@ -241,7 +241,7 @@ func TestProveReproducer(t *testing.T) {
 				t.Fatal(err)
 			}
 			r := prRun(t, repo, Env{}, repo, pre, prRel)
-			prWant(t, r, 2, "prove-reproducer: cannot spend the proof — run-reproducer exited 4 on a leg (2 refused, 3 unverifiable, 4 cannot answer)\n")
+			prWant(t, r, 2, "prove-reproducer: cannot spend the proof — run-reproducer exited 4 on a leg (2 refused, 3 unverifiable, 4 cannot answer, 5 tree changed)\n")
 			if !strings.Contains(r.out, "== pre-fix leg exit: 4\n") || !strings.Contains(r.out, "== post-fix leg exit: 4\n") {
 				t.Fatalf("legs not printed:\n%s", r.out)
 			}

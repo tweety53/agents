@@ -343,6 +343,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	// tool exists to produce. It never forged the opposite direction — a
 	// deleted sentinel was never read as a pass — but it defeated the purpose
 	// on exactly the finding it was protecting.
+	before, snapped := rrGitStatus(worktree)
 	if err := cmd.Start(); err != nil {
 		// The child never reached exec because it could not enter the worktree —
 		// almost certainly because the worktree vanished between this guard's own
@@ -404,6 +405,15 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 		emit(stderr)
 		fmt.Fprintf(stderr, "run-reproducer: cannot answer — the process table could not be read (%v), so a detached child of '%s' could not be ruled out; its exit status is read as neither a pass nor a fail\n", res.tableErr, cmdText)
 		return 4
+	}
+	// A reproducer that leaves the worktree changed answered over a tree that
+	// is no longer the one under review, so its exit is no verdict (kan-1038).
+	if snapped {
+		if after, ok := rrGitStatus(worktree); ok && after != before {
+			emit(stderr)
+			fmt.Fprintf(stderr, "run-reproducer: the run left the worktree changed — before:\n%s\nafter:\n%s\n", before, after)
+			return 5
+		}
 	}
 	// The child did reach exec, but exit codes 126 and 127 are the shell's own
 	// conventional reports of "found but not executable" and "not found" for a
@@ -899,15 +909,26 @@ func rrDescendants(procs []rrProc, root int) map[int]int {
 // rrGitStatusNote is git_status_note: the worktree's status after a kill,
 // silent when git cannot answer.
 func rrGitStatusNote(worktree string, stderr io.Writer) {
-	out, err := exec.Command("git", "-C", worktree, "status", "--porcelain", "--untracked-files=normal").Output()
-	if err != nil {
+	s, ok := rrGitStatus(worktree)
+	if !ok {
 		return
 	}
-	if s := strings.TrimRight(string(out), "\n"); s != "" {
+	if s != "" {
 		fmt.Fprintf(stderr, "run-reproducer: worktree status after the kill:\n%s\n", s)
 	} else {
 		fmt.Fprintln(stderr, "run-reproducer: worktree status after the kill: clean")
 	}
+}
+
+// rrGitStatus is the worktree's `git status --porcelain
+// --untracked-files=normal` listing, its trailing newlines dropped; false when
+// git cannot answer.
+func rrGitStatus(worktree string) (string, bool) {
+	out, err := exec.Command("git", "-C", worktree, "status", "--porcelain", "--untracked-files=normal").Output()
+	if err != nil {
+		return "", false
+	}
+	return strings.TrimRight(string(out), "\n"), true
 }
 
 // emitCaptured is emit_captured_output: the reproducer's own output between

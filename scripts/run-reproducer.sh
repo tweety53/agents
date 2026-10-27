@@ -115,6 +115,10 @@
 #      before it could be entered, or exec could not run the resolved path), or
 #      a process-table read that failed, which may have missed a detached
 #      child — never the reproducer's own exit status
+#   5  the run left the worktree changed — `git status --porcelain
+#      --untracked-files=normal` differs from the listing taken before the
+#      start; both listings go to stderr, and the exit status is no verdict
+#      (kan-1038).
 
 # Header corrected for the Go port (KAN-760): the tests, the setsid mechanism
 # and the metacharacter checks are named as they now are. The body's
