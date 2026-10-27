@@ -1,0 +1,90 @@
+# kan-1039: every sentence tasks 1-7 add, reword or delete — generated at plan time by applying the plan's literal blocks to a detached origin/main 1be0e995 copy and running check-verbatim-moves.sh.
+\## Landing stopped — a product defect to fix first
+**Continue — review as is**
+**Defect:** <the defect, one line>
+**During implementation and every fix run, a prompt with a recommended option is never asked: the run takes the recommended option itself, at once.
+**Load `skills/flow-contracts/operator-prompts-auto-resolution.md`** only when a prompt arises during implementation or a fix run, or during planning when `## decisions` resolves to `recommended`.
+**Nothing to choose.
+**Outside implementation and fix runs.
+**Re-dispatch it again**
+**Stop the run** *(default, recommended)* — ends at `IN_PROGRESS` with the implementation committed on the branch
+**Stop — I'll rebase or reorder first** *(recommended)*
+**Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* — closes `flow.review-panel` with `-outcome stopped`
+**Then the handoff, decided by `## handoff`** (**Project configuration**, `skills/flow-contracts/project-configuration.md`): `none` continues to section 6 in this same invocation; `required`, or the key absent, ends the run here — worktree and branch kept, the summary naming the branch and `Re-run /flow-fast <name> to land it` — so the operator reviews the branch before anything is pushed.
+**`/flow-fast`'s verify** stops before `flow.stage-diff`; the fix re-run lands normally.
+**`/flow`'s integrate run 1** stops before step 5's route.
+**`STOP: unfinished-work`** → **Load `skills/flow/unfinished-work-gate.md`** — the breakdown, the three-course prompt and what each course does are there.
+/flow <name> <the defect, one line>
+A guard's exit 2 (it cannot answer), a command that failed twice on an environment cause the run cannot cure itself, and every other `## Question` handback that carries no options.
+A product defect the pass met stops it at the end of step 2 of `/flow-self-review`, closes that mark `-outcome stopped` instead, and the run stops before step 5 on the handoff block **the sweep** (`skills/flow-contracts/known-bugs.md`) defines:
+A product defect the pass met stops it at the end of step 2 of `/flow-self-review`, closes the mark below `-outcome stopped` instead, and ends the run on the handoff block **the sweep** (`skills/flow-contracts/known-bugs.md`) defines.
+A second breach of the same slot is a prompt, shape per Operator prompts (`skills/flow-contracts/operator-prompts.md`), resolved per that contract's **Auto-resolution** on its recommended **Stop the run**:
+An exit 3 from any worktree is one prompt for the whole change, shape per Operator prompts (`skills/flow-contracts/operator-prompts.md`), which that contract's **Auto-resolution** resolves on its recommended **Stop**; **Rebase** and **Continue** run only on an explicit operator instruction — silence is not one, and an unanswered ask takes **Stop** (**Unanswered mid-run asks**, `skills/flow-contracts/pipeline.md`):
+One invocation runs from the Jira key to the landed change: resolve the issue and name per **Resolution (how `jiraIssue` is decided)** and **Change naming** (`skills/flow-contracts/jira-integration.md`), move it to In Progress per **Transitions** there, create a git worktree on a branch named after the change (git isolation only — no database or bucket), write `tasks.md` and decide how to implement it per the plan's class — inline, or implementer subagents per group, with the review panel the class calls for — run the project's `## lint` and the tests the change touches, run the self-review pass and commit its report on the branch, print the change summary, then — unless the project's `## handoff` is `none` — stop for the operator to review the branch; land by the project's `## default landing route` (asking only when none is declared), move the issue to In Review, and — on merge and push — remove the worktree and branch and move the issue to Done.
+Read by `/flow-fast` alone (`skills/flow-fast/SKILL.md`): `none` lands the change in the same invocation, straight after the change summary; `required`, or absent, stops after the summary so the operator reviews the branch first and re-runs `/flow-fast <name>` bare to land it.
+The `flow.self-review` mark closes `-outcome stopped`, nothing lands, the change keeps its state, and the run ends on the block below.
+The fix run writes its plan above the archive commit, so the next bare `/flow <name>` is an archived re-run with new work, which runs the pass (**Run 1 — the branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`).
+The operator asked for this once, for every flow run: a mid-run question they would answer with the recommended option costs them a stop for nothing.
+The phases are everything from `flow.implement` to the `IN_PROGRESS` handoff of a creating run — `skills/flow/implement.md`, `skills/flow/review-panel.md`, `skills/flow/visual-verify.md`, `skills/flow/verify-and-handoff.md` — and every fix run (`/flow <fix instructions>`, or a plain message run as a fix).
+The remaining **What still stops** bullets are the mode's limits: a prompt with no recommended option, nothing to choose, anything outward-facing or irreversible, and every prompt outside the run's own phases are asked under the mode exactly as off it.
+The wrong-state override, the plain-message ambiguity prompt that decides whether a fix run starts at all, and every integrate and cleanup prompt.
+These are asked, or stop with `## Question`, exactly as their call sites state:
+When it resolved none (exit 1 or 3): with `## handoff` `required`, ask once through **AskUserQuestion** with the options `pull request`, `merge and push` and `manual`, `pull request` recommended; with `## handoff` `none`, take `pull request` without asking.
+When the project's `## decisions` key resolves to `recommended` (**Project configuration**, `skills/flow-contracts/project-configuration.md`), the paragraph above holds for the whole run: the planning asks the Planning bullet of **What still stops** below names are auto-resolved exactly as the implementation phases are.
+Where `high` still cannot produce a design that holds, the next step is effort `xhigh` — and an `xhigh` dispatch is never made without the operator's approval, asked first with the finding, the objection and what `high` returned; a refusal leaves the finding offered for filing in step 4.
+With nothing to offer, the call carries the rating alone.
+`/flow-fast` prints `/flow-fast <name> <the defect, one line>` as the last line instead.
+`/flow` always hands off at `IN_PROGRESS` and never reads this key.
+`recommended` widens the run's recommended-defaults mode to the planning asks — never the pivot, an outward-facing or irreversible action, or an integrate or cleanup prompt (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`, canonical for what the mode covers and how a taken default is recorded); absent, the key is dormant and every prompt behaves exactly as its call site states.
+| `OUTSTANDING` | show the breakdown and offer the three courses of **The three courses** (`skills/flow/unfinished-work-gate.md`) |
+\# Work end to end — stop only to plan or to test by hand
+\## How `/flow` applies it
+\## The incidents behind it
+**A failing tool, guard or environment is cured in the run, never handed off.
+**Continue — review as is** *(recommended)*
+**Fix the build, then dispatch** *(recommended; silence defaults here)* — the run cures the cause itself (**Fewest operator actions**, `skills/flow-contracts/pipeline.md`), re-runs the gather and dispatches with the bundle; only a cause out of its reach closes `flow.review-panel` with `-outcome stopped`
+**Manual testing the operator asked for.
+**Only two parts are interactive: planning, and manual testing of the implementation with the fixes it finds — the latter only when the user explicitly asked to stop after implementation.
+**Out of the run's reach.
+**Past planning, a prompt with a recommended option is never asked: the run takes the recommended option itself, at once.
+**Re-dispatch it again** *(default, recommended)*
+**Rebase** and **Stop** run only on an explicit operator instruction, and an unanswered ask takes **Continue** (**Unanswered mid-run asks**, `skills/flow-contracts/pipeline.md`).
+**Stop the run** — ends at `IN_PROGRESS` with the implementation committed on the branch
+**Stop — I'll rebase or reorder first**
+**Then the handoff, decided by `## handoff`** (**Project configuration**, `skills/flow-contracts/project-configuration.md`): `none`, or the key absent, continues to section 6 in this same invocation; `required` ends the run here — worktree and branch kept, the summary naming the branch and `Re-run /flow-fast <name> to land it` — so the operator, who asked to test by hand, reviews the branch before anything is pushed.
+**`/flow-fast`'s verify** stops before `flow.stage-diff` and continues as `/flow-fast <name> <the defect, one line>` would; the fix re-run lands normally.
+**`/flow`'s integrate run 1** stops before step 5's route and continues as `/flow <name> <the defect, one line>` would: the fix run writes its plan above the archive commit and, once it writes its state, continues into integrate as an archived re-run with new work, which runs the pass again (**Run 1 — the branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`).
+<!-- core --> **The one thing that matters is apps and tooling that work end to end.
+A `/flow` record whose `reviewBeforeLanding` is `true` stops at its `IN_PROGRESS` handoff (**Review-before-landing instruction**, `skills/flow/SKILL.md`), and `/flow-fast` with `## handoff` `required` stops after its change summary; the fixes that testing finds are the operator's fix runs.
+A failure whose cure lies outside the run — production, a credential or account only the operator holds, a repository the run was not given — and a `## Question` handback that carries no options.
+A guard's exit 2, a failing command or tool, a stack that will not start and an environment fault the run's own commands can repair are not this bullet: they are cured in the run (**Fewest operator actions**, `skills/flow-contracts/pipeline.md`).
+A guard's exit 2, a script that errors, a stack that will not start, a stale environment and an out-of-date tool are defects to fix, in the project's dev tooling or in `<agents repo>` (**Pipeline defects found mid-run**, below), and the step runs again, however many rounds that takes.
+A read-only role reports; its dispatcher fixes.
+Everywhere else a question with a recommended option is never asked: take that option, record it, and continue (**What still stops**, `skills/flow-contracts/operator-prompts-auto-resolution.md`).
+Fix red checks, failing guards and broken tooling and keep going, however many rounds it takes; size is never a stop.
+However many fix rounds, re-runs, tooling updates or tooling fixes it takes, keep going: a red check, a failing guard, a broken script or a stale environment is the next thing to fix, never a report or a question.
+Interactive only in planning and in manual testing the user explicitly asked to stop for — anywhere else take the recommended option, record it and continue.
+KAN-1039 (2026-10-27), the user's own statement: the only thing they care about is well-working apps and tooling end to end, no matter how many fix rounds or tooling updates and fixes are needed; the only interactive parts are planning and manual testing of the implementation with the fixes that follow, and that only when they explicitly asked to stop after implementation.
+Neither stops unless the operator set it.
+Stay inside your dispatch's remit: a read-only role reports, and its dispatcher fixes.
+Still stop for a choice no option can honestly be recommended for, an outward-facing or irreversible action another rule requires confirmed, and a cause outside your reach — production, a credential only the user holds, a repository you were not given.
+Stop only for a choice with no honest recommendation, an action another rule requires confirmed, or a cause out of your reach.
+The `flow.self-review` mark closes `-outcome stopped`, nothing lands, the change keeps its state, and the run continues straight into the fix run that defect names, in the same invocation — never a handoff for the operator to start it (KAN-1039).
+The operator asked for this for every flow run (**Work end to end — stop only to plan or to test by hand**, `rules/work-end-to-end.mdc`): a question they would answer with the recommended option costs them a stop for nothing.
+The remaining **What still stops** bullets are the mode's limits: the manual testing the operator asked for, a prompt with no recommended option, a cause out of the run's reach and anything outward-facing or irreversible stop under the mode exactly as off it.
+The user's stop after implementation is the change record's `reviewBeforeLanding` on `/flow` and `## handoff` `required` on `/flow-fast`; with neither set, nothing stops for testing.
+These are asked, or stop with `## Question`, exactly as their call sites state — and nothing else past planning is (**Work end to end — stop only to plan or to test by hand**, `rules/work-end-to-end.mdc`):
+Tokens, time, round count and context length are never a reason to stop.
+When it resolved none (exit 1 or 3): with `## handoff` `required`, ask once through **AskUserQuestion** with the options `pull request`, `merge and push` and `manual`, `pull request` recommended; otherwise take `pull request` without asking.
+When the project's `## decisions` key resolves to `recommended` (**Project configuration**, `skills/flow-contracts/project-configuration.md`), the paragraph above holds for the whole run: the planning asks the Planning bullet of **What still stops** below names are auto-resolved exactly as the phases past planning are.
+Where a phase file says such a failure stops the run, asks, or ends its turn — and where a prompt's recommended option is itself a stop — the stop holds only for a cause out of the run's reach (**What still stops**, `skills/flow-contracts/operator-prompts-auto-resolution.md`); otherwise this paragraph wins, as **Work end to end — stop only to plan or to test by hand** (`rules/work-end-to-end.mdc`) requires.
+With nothing to offer, no call is made: the rating is asked only beside a filing or mining ask.
+`/flow` never reads this key: its stop is the change record's `reviewBeforeLanding`.
+`recommended` widens the run's recommended-defaults mode to the planning asks — never an outward-facing or irreversible action (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`, canonical for what the mode covers and how a taken default is recorded); absent, the key is dormant and every prompt behaves exactly as its call site states.
+description: The goal is apps and tooling that work end to end — fix and re-run as often as it takes; interactive only for planning and for manual testing the user asked to stop for alwaysApply: true
+kan-1037 (2026-10-27): the user spent about 380k uncached tokens answering mid-run questions with the option already marked recommended.
+kan-1038 (2026-10-27): asked whether to fix all eleven self-review findings or only the blocker, the user answered "recommended — don't ask such things again".
+| **Work end to end — stop only to plan or to test by hand.
+| `~/.claude/rules/work-end-to-end.md` |
+Make every judgment call yourself and name it in the summary, each with its rejected alternative and the one-line reason it lost, however small the call — size never exempts one (**Decisions**, `skills/spectre-planning/SKILL.md`); a `/flow-fast` run with `## handoff` `none` is one command from the operator, `/flow-fast <key>`, and asks nothing after it.
+Make every judgment call yourself and name it in the summary, each with its rejected alternative and the one-line reason it lost, however small the call — size never exempts one (**Decisions**, `skills/spectre-planning/SKILL.md`); a `/flow-fast` run with `## handoff` `none`, or the key absent, is one command from the operator, `/flow-fast <key>`, and asks nothing after it.
