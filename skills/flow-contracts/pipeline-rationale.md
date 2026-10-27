@@ -170,9 +170,12 @@ it on every turn.
 
 ### The block each state renders
 
-- **The next command is the last line** — bare, copy-pasteable, with no prose after it. An agent
-  cannot drive a harness's autocomplete; nothing lets a running session prefill the operator's
-  input box. The last-line convention plus a four-command surface is the whole mechanism.
+- **The next command is the last thing printed, alone in its own fence** — copy-pasteable, with no
+  prose after it. An agent cannot drive a harness's autocomplete; nothing lets a running session
+  prefill the operator's input box. The last-line convention plus a four-command surface is the
+  whole mechanism. The fence is what the Claude mobile and desktop apps put a copy button on — a
+  bare line has to be selected by hand (kan-1040); it holds the command alone so the copy is
+  exactly what is pasted, and `/clear` stays outside it because the operator types it.
 
 - **`/flow`'s implement phase never stages `<project>/spectre/changes/` or `<project>/docs/superpowers/` into
   its own commits.** The plan was read at `STARTED`; presenting it again as code to review hides the

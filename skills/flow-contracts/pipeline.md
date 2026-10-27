@@ -455,30 +455,34 @@ still exits 0, so there is nothing to react to.
 
 Every run ends in the same shape, and prints **nothing** after it:
 
-```
+````
 <1–3 lines: what actually happened>
 
 <absolute paths to anything the operator needs to open>
 
 Next:
+```
 /flow <name>
 ```
+````
 
 - **A block is printed as rendered Markdown, never inside a code fence.** The fence around every
   block shape in a skill or contract file — this one, `## Finished`, `## Branch integrated`, the
   wrong-state block and every other — delimits the template, not the output: printed fenced, its
   `**Field:**` markup reaches the operator as literal asterisks. Each `**Field:** value` line is
   printed as a list item (`- **Field:** value`), since consecutive plain lines fold into one
-  paragraph, and a path, branch or change name inside a value is inline code. The next command
-  and `/clear` stay bare lines, per the next rule.
+  paragraph, and a path, branch or change name inside a value is inline code. `/clear` stays
+  a bare line, and the next command is fenced, per the next rule.
 - **No HTML in anything printed to the terminal** — no `<details>`, `<summary>`, `<br>` or any
   other tag. The terminal renders GitHub-flavoured Markdown without HTML, so a tag prints
   literally and whatever it was meant to fold spills into the output.
-- **The next command is the last line** — bare, copy-pasteable, with no prose after it. See
+- **The next command is the last thing printed, alone in its own fenced code block** — a plain
+  triple-backtick fence, no language tag, holding the command and nothing else, with no prose after
+  it, so a client with a code-block copy button copies it in one tap (kan-1040). See
   **Handoff output** (`skills/flow-contracts/pipeline-rationale.md`) for why.
 - **A handoff printed at `IN_PROGRESS`, or at `STARTED` once the plan gate answered
-  Yes, puts `/clear` on the line above the next command.** It is a recommendation the operator may skip, never a gate, and the next
-  command stays the last line.
+  Yes, puts `/clear` on the line above the next command's fence.** It is a recommendation the operator may skip, never a gate, and the next
+  command's fence stays last.
 - **A bare invocation at `IN_PROGRESS` that opened a PR or handed off manually names itself** as the
   next command, because that is what the operator runs once the branch is merged. Only a run that
   **completed** archive — or completed a withdrawal (**The withdrawal route**,

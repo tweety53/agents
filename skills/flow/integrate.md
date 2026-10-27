@@ -225,7 +225,7 @@ blocking.
 
 ## Handoff
 
-```
+````
 ## Branch integrated — waiting on the merge | merged and waiting on run 2
 
 **Change:** <name>
@@ -238,8 +238,10 @@ blocking.
 
 Next:
 /clear
+```
 /flow <name>
 ```
+````
 
 The `**Learning:**` and `**Prompt tuning:**` lines are not printed here — only the Finished handoff (`skills/flow/cleanup.md`) carries them.
 
