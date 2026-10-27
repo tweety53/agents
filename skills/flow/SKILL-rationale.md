@@ -1090,3 +1090,26 @@ feature — end-to-end specs, fidelity captures against design frames.
 A gymie run had decided such a group (Tasks 23–25) `opus`/`medium`. The group writes tests and records against a fixed target, not production code, so it is pinned at
 `low` whatever `effort_roll` says. It stays `opus` because judging a capture or a live walk is
 judgement the `sonnet` allowance does not cover. KAN-876 folded the live-verification record into `flow.verify`; the pin now covers spec and capture groups.
+
+### Work end to end — stops only for planning and asked-for testing (KAN-1039, 2026-10-27)
+
+The operator, after kan-1037 and kan-1038 spent their stops on recommended picks: the only thing
+that matters is apps and tooling that work end to end, however many fix rounds or tooling fixes it
+takes, and the only interactive parts are planning and the manual testing they ask to stop for. The
+rule is **Work end to end — stop only to plan or to test by hand** (`rules/work-end-to-end.mdc`);
+**Fewest operator actions** (`skills/flow-contracts/pipeline.md`) and **What still stops** (`skills/flow-contracts/operator-prompts-auto-resolution.md`) carry it into
+`/flow`.
+
+- **Auto-resolution covers everything past planning** — integrate, cleanup, the self-review pass
+  and the prompts that open a run, not only implementation and fix runs.
+- **A tooling failure is cured in the run**, by one precedence paragraph in
+  **Fewest operator actions**. **Rejected — rewording each call site:** about sixty sentences
+  reworded for one rule.
+- **A prompt whose recommended option was a stop now recommends going on** — the review panel's
+  moved-base, bundle-failure and wall-clock prompts; a self-review product defect continues into
+  its fix run; `/flow-fast` with no `## handoff` key lands. **Rejected — keeping the
+  product-defect handoff as the fix run's planning boundary:** the fix run's own planning asks
+  still reach the operator where the project asks them, so the handoff added a `/clear` and a
+  retyped command and nothing else.
+- **Kept as stops:** asks with no recommended option, outward-facing or irreversible actions, and
+  causes out of the run's reach.

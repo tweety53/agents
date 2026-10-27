@@ -42,5 +42,5 @@ and options — never the shape itself.
 
 ## Auto-resolution
 
-**Load `skills/flow-contracts/operator-prompts-auto-resolution.md`** only when a prompt arises during implementation or a fix run, or during planning when `## decisions` resolves to `recommended`.
+**Load `skills/flow-contracts/operator-prompts-auto-resolution.md`** only when a prompt arises past planning — implementation, review, verify, integrate, cleanup, the self-review pass or a fix run — or during planning when `## decisions` resolves to `recommended`.
 The rules are **Auto-resolution** (`skills/flow-contracts/operator-prompts-auto-resolution.md`).

@@ -137,6 +137,16 @@ shared-source fix (`skills/flow/verify-fix-loop.md`) is never offered as "a sepa
 still ahead, offering a seed-data flake, a shared heading departure and a mockup-frame config gap
 as open items, each of which had a recommended fix).
 
+**A failing tool, guard or environment is cured in the run, never handed off.** A guard's exit 2,
+a script that errors, a stack that will not start, a stale environment and an out-of-date tool are
+defects to fix, in the project's dev tooling or in `<agents repo>`
+(**Pipeline defects found mid-run**, below), and the step runs again, however many rounds that
+takes. Where a phase file says such a failure stops the run, asks, or ends its turn — and where a
+prompt's recommended option is itself a stop — the stop holds only for a cause out of the run's
+reach (**What still stops**, `skills/flow-contracts/operator-prompts-auto-resolution.md`);
+otherwise this paragraph wins, as **Work end to end — stop only to plan or to test by hand**
+(`rules/work-end-to-end.mdc`) requires.
+
 **A turn ends only at a gate, a block, or the run's final handoff.** Between any two steps of a
 phase — findings recorded and the fix round not yet made, a fix committed and its re-review not
 yet launched, a dispatch returned and its result not yet acted on — the next step is taken in the
