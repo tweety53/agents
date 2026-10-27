@@ -16,9 +16,9 @@ option, or for its size; the run's shape is stated once.
   `spectre/changes/`.
 - Insert the paragraphs below verbatim; cut, never paraphrase.
 
-- [ ] 1. State the non-stop run shape; make the mockup ask yield to auto-resolution
+- [x] 1. State the non-stop run shape; make the mockup ask yield to auto-resolution
 
-**Files:** `skills/flow-contracts/pipeline.md`, `rules/design-mockups-are-specs.mdc`
+**Files:** `skills/flow-contracts/pipeline.md`, `rules/design-mockups-are-specs.mdc`, `stats/internal/guard/installedcitations.go`, `stats/internal/guard/references.go`
 **Tests:** none — prose; the lint guards in the verify step are the check
 **Regression:** reverting this commit drops the run's shape statement and lets "Ask rather than invent" read as licence to ask a recommended-option question mid-run (kan-1037).
 **Baseline:** before=0 after=0 tests added
@@ -31,7 +31,7 @@ option, or for its size; the run's shape is stated once.
 **Decision:** plan-gate-clear-is-the-boundary
 **Decision:** mockup-ask-yields-in-flow
 
-  - [ ] **Step 1: `skills/flow-contracts/pipeline.md`.** Directly under `## Fewest operator actions`,
+  - [x] **Step 1: `skills/flow-contracts/pipeline.md`.** Directly under `## Fewest operator actions`,
     before the paragraph opening "**The operator's actions and the run's stops are minimised", insert
     this paragraph and a blank line:
 
@@ -48,7 +48,7 @@ asked a visual verifier's three spec questions under `rules/design-mockups-are-s
 rather than invent", then stopped after an in-run fix task citing token cost).
 ```
 
-  - [ ] **Step 2: `rules/design-mockups-are-specs.mdc`.** In the `<!-- core -->` paragraph opening
+  - [x] **Step 2: `rules/design-mockups-are-specs.mdc`.** In the `<!-- core -->` paragraph opening
     "**Ask rather than invent.**", after the sentence "Batch the questions up front; ask mid-build the
     moment a real blocker appears." insert:
 
@@ -59,6 +59,6 @@ the run takes that option (**Auto-resolution**,
 ```
 
     Rewrap the paragraph to the file's width; change no other word.
-  - [ ] **Step 3: Verify.** `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh`
+  - [x] **Step 3: Verify.** `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh`
     and `scripts/check-installed-citations.sh` exit 0.
-  - [ ] **Step 4: Commit** the two files with the subject above.
+  - [x] **Step 4: Commit** the two files with the subject above.

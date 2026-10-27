@@ -1,0 +1,5 @@
+# kan-1037: the non-stop run shape, added on purpose
+**Planning is a change's one interactive phase; past the plan gate the run does not stop.
+Inside a `/flow` run past its plan gate, a question carrying a recommended option is never asked: the run takes that option (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`).
+No rule in another file licenses asking a question that carries a recommended option (kan-1037: the parent asked a visual verifier's three spec questions under `rules/design-mockups-are-specs.mdc`'s "Ask rather than invent", then stopped after an in-run fix task citing token cost).
+The one stop the operator chooses is review-before-landing (`reviewBeforeLanding`, `state-file.md`), for manual testing after implementation; beyond it only **What still stops** ends a turn early.
