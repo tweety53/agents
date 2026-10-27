@@ -332,6 +332,8 @@ build` in front makes the comparison mean "the worktree's source", not "whatever
 held"; `make ui-test-up` rebuilds too, so a stack this stage started matches first time and only a
 reused stack pays the restart.
 
+**`capture` and `verify` check the stack first.** Each opens on `check-dev-stack-fresh.sh`, the declared `fingerprint` run, and restarts the disposable UI-test stack with `make ui-test-up` when it is stale, so an implementer's or fixer's capture never reads a pre-fix build as a failure (kan-1038); `make ui-test-up` touches only that stack, never the `flowd` on 4173.
+
 | Setting | Value |
 |---------|-------|
 | `ui paths` | `stats/web/src/**` |
@@ -340,8 +342,8 @@ reused stack pays the restart.
 | Command | Runs |
 |---------|------|
 | `setup` | `cd stats/web && npm install && npx playwright install chromium` |
-| `verify` | `cd stats/web && npm run test:visual` |
-| `capture` | `cd stats/web && npx playwright test <spec> --update-snapshots` |
+| `verify` | `cd stats/web && { ../../scripts/check-dev-stack-fresh.sh ../.. \|\| make -C .. ui-test-up; } && npm run test:visual` |
+| `capture` | `cd stats/web && { ../../scripts/check-dev-stack-fresh.sh ../.. \|\| make -C .. ui-test-up; } && npx playwright test <spec> --update-snapshots` |
 | `fingerprint` | `cd stats/web && npm run build && curl -sf http://127.0.0.1:4174/ \| cmp -s - ../internal/web/dist/index.html` |
 
 ## progress
