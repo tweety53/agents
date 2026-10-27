@@ -9,12 +9,14 @@ import { bodyBackground, DARK_SURFACE_1, EMPTY_QUERY, PINNED_QUERY } from "./sup
 // window is then 2026-06-24..2026-08-16 on every run. The chart follows the
 // period, pinned by PINNED_QUERY for the reason support.ts gives.
 //
-// The fixture's costed runs all fall in the week of 2026-08-12, so the
-// populated path draws one week, measured for Overall and Review only
-// (the fixture has no flow.* planning, sdd-tdd or self-review stage), so
-// the chart shows two points and the table three Unavailable cells; the empty path pins the
-// clock and the period years before the fixture so both panels render
-// their empty states.
+// The fixture's main runs fall in the week of 2026-08-12 (Overall and
+// Review only -- its sdd stage is the prose "SDD + TDD per task"), and
+// kan-101 carries one flow.brainstorm, flow.sdd-tdd and flow.self-review run
+// in the week of 2026-07-22, before the pinned period: the table shows
+// both weeks, the chart the pinned period's two points.
+// The empty path pins the clock and the period years before the fixture,
+// so the chart renders its empty state and the table eight Unavailable
+// weeks.
 const AFTER_FIXTURE = new Date("2026-08-16T12:00:00Z");
 const BEFORE_FIXTURE = new Date("2020-01-01T12:00:00Z");
 
@@ -28,7 +30,15 @@ test.describe("weekly costs", () => {
     await expect(page.getByRole("link", { name: "Weekly costs", exact: true })).toHaveAttribute("aria-current", "page");
 
     const table = page.locator('section.panel[aria-label="Last 8 weeks"]');
-    await expect(table.getByRole("cell", { name: "2026-08-12", exact: true })).toBeVisible();
+    const row = (week: string) => table.getByRole("row").filter({ has: page.getByRole("cell", { name: week, exact: true }) });
+    // Each seeded stage lands in its own column: Overall, Planning, Implementation, Self-review.
+    for (const usd of ["$2.07", "$0.62", "$1.10", "$0.35"]) {
+      await expect(row("2026-07-22").getByRole("cell", { name: usd, exact: true })).toBeVisible();
+    }
+    for (const usd of ["$3.37", "$0.41"]) {
+      await expect(row("2026-08-12").getByRole("cell", { name: usd, exact: true })).toBeVisible();
+    }
+    await expect(table.getByRole("row")).toHaveCount(9);
     const chart = page.locator('section.panel[aria-label="Weekly cost"]');
     await expect(chart.getByTestId("time-series-point")).toHaveCount(2);
     for (const name of ["Overall", "Planning", "Implementation", "Review", "Self-review"]) {

@@ -16,6 +16,7 @@ import { formatUsd } from "../format";
 import type { ViewProps } from "../viewTypes";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const WEEKS = 8;
 
 const categories: { key: keyof Omit<WeeklyCostPoint, "week">; name: string }[] = [
   { key: "overallUsd", name: "Overall" },
@@ -43,14 +44,14 @@ const columns: Column<WeeklyCostPoint>[] = [
 export function lastEightWeeks(now: Date): { from: Date; to: Date } {
   const midnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   const sinceWednesday = (now.getUTCDay() + 4) % 7;
-  return { from: new Date(midnight - (sinceWednesday + 49) * DAY_MS), to: now };
+  return { from: new Date(midnight - (sinceWednesday + (WEEKS - 1) * 7) * DAY_MS), to: now };
 }
 
 /** Every week of `from`'s 8-week window, in order: the response's row where
  * it carries one, an all-null row where no costed run fell in that week. */
 function everyWeek(from: Date, rows: WeeklyCostPoint[]): WeeklyCostPoint[] {
   const byWeek = new Map(rows.map((r) => [r.week, r]));
-  return Array.from({ length: 8 }, (_, i) => {
+  return Array.from({ length: WEEKS }, (_, i) => {
     const week = new Date(from.getTime() + i * 7 * DAY_MS).toISOString().slice(0, 10);
     return (
       byWeek.get(week) ?? {
@@ -78,7 +79,6 @@ export function WeeklyCosts({ period, project, model }: ViewProps) {
             columns={columns}
             rows={everyWeek(eightWeeks.from, data.rows)}
             rowKey={(r) => r.week}
-            emptyMessage="No stage runs in the last 8 weeks."
           />
         )}
       </Panel>

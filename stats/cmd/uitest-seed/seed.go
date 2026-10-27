@@ -17,6 +17,9 @@ import (
 // sees the same thing every time.
 var fixtureNow = time.Date(2026, 8, 15, 9, 0, 0, 0, time.UTC)
 
+// weeklyFixtureAt is Thursday 2026-07-23, in the Wednesday week of 2026-07-22.
+var weeklyFixtureAt = time.Date(2026, 7, 23, 9, 0, 0, 0, time.UTC)
+
 // stageFixture is one stage run to write against a change, expressed at
 // the level seedFixture's callers think in: which model recorded which
 // token usage, and what it cost. cost_usd is written directly, alongside
@@ -109,6 +112,16 @@ func fixtureData() []projectFixture {
 				{
 					Name:  "kan-101-add-widget",
 					State: store.StateStarted,
+					// One run per weekly-costs category the other changes do
+					// not carry, in the week of 2026-07-22 -- inside the
+					// Weekly costs table's 8 weeks, before every spec's
+					// pinned period, so no other view's capture moves
+					// (KAN-1037).
+					Stage: []stageFixture{
+						{Command: "/flow", Stage: "flow.brainstorm", Model: "claude-opus-5", InputTokens: 60000, OutputTokens: 9000, CostUSD: 0.62, StartedAt: weeklyFixtureAt, Outcome: "completed"},
+						{Command: "/flow", Stage: "flow.sdd-tdd", Model: "claude-opus-5", InputTokens: 120000, OutputTokens: 20000, CostUSD: 1.1, StartedAt: weeklyFixtureAt.Add(time.Hour), Outcome: "completed"},
+						{Command: "/flow", Stage: "flow.self-review", Model: "claude-opus-5", InputTokens: 40000, OutputTokens: 6000, CostUSD: 0.35, StartedAt: weeklyFixtureAt.Add(2 * time.Hour), Outcome: "completed"},
+					},
 				},
 				{
 					Name:  "kan-102-fix-widget-bug",
@@ -183,18 +196,7 @@ func fixtureData() []projectFixture {
 					Stage: []stageFixture{
 						{
 							Command:      "/flow",
-							Stage:        "flow.brainstorm",
-							Model:        "claude-opus-5",
-							InputTokens:  60000,
-							OutputTokens: 9000,
-							CostUSD:      0.62,
-							StartedAt:    fixtureNow.Add(-27 * time.Hour),
-							Outcome:      "completed",
-							SessionToken: "uitest-kan-201",
-						},
-						{
-							Command:      "/flow",
-							Stage:        "flow.sdd-tdd",
+							Stage:        "SDD + TDD per task",
 							Model:        "claude-opus-5",
 							InputTokens:  310000,
 							OutputTokens: 48000,
@@ -212,17 +214,6 @@ func fixtureData() []projectFixture {
 							CostUSD:      0.028,
 							StartedAt:    fixtureNow.Add(-time.Hour),
 							Outcome:      "completed",
-						},
-						{
-							Command:      "/flow",
-							Stage:        "flow.self-review",
-							Model:        "claude-opus-5",
-							InputTokens:  40000,
-							OutputTokens: 6000,
-							CostUSD:      0.35,
-							StartedAt:    fixtureNow.Add(-30 * time.Minute),
-							Outcome:      "completed",
-							SessionToken: "uitest-kan-201",
 						},
 					},
 					SessionToken: "uitest-kan-201",
