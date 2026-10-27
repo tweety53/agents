@@ -54,7 +54,11 @@ One round runs these steps in order:
    made at the human gate. The appended task carries the field family the verification-change
    paragraph of **D. Basic Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`)
    states for a found defect, and its title reads `In-run fix <k> — <stage>: <the defects>`, `<k>`
-   this stage's round in this run. Its planning commit and the re-decide run as that file states.
+   this stage's round in this run. On a `flow.visual-verify` round its `**Files:**` lists the
+   change's `<changeRoot>/visual-verification.md` beside the fix's own paths, and the task rewrites
+   the record's sections its fix changes in the same commit, as DRIFT CHECK
+   (`skills/flow/implement.md`) requires (kan-1038). Its planning commit and the re-decide run as
+   that file states.
    **One round appends one task**, carrying every defect the report names — never a task or a
    round per defect. Before the append, the stage's failing row is closed with `flow record dispatch
    end` at `-outcome blocked -cause test-failure`, so no row of the stage stays open while this
