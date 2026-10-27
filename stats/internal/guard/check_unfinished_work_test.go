@@ -1348,3 +1348,13 @@ func TestCheckUnfinishedWorkSkippedVerifyRowCovers(t *testing.T) {
 		})
 	}
 }
+
+// TestCheckUnfinishedWorkReasonNamesFreshVerifyKey pins decision
+// f2-fresh-verify-key (kan-1037): the reason tells a re-run to take a fresh key.
+func TestCheckUnfinishedWorkReasonNamesFreshVerifyKey(t *testing.T) {
+	t.Parallel()
+	r := uwVerifyCase(t, "completed", "2026-01-01T10:00:00Z")
+	if want := "a re-run after a new commit takes a fresh `verify-<k>` key"; !strings.Contains(r.out+r.err, want) {
+		t.Fatalf("exit %d stdout %q stderr %q, want %q", r.rc, r.out, r.err, want)
+	}
+}

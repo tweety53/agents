@@ -511,7 +511,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 				}
 			}
 			if newest != "" && newestAt > lastVerify {
-				reasons = append(reasons, "no completed inline verify row since "+newest+" — run Inline verify (skills/flow/verify-and-handoff.md) and record its row before landing")
+				reasons = append(reasons, "no completed inline verify row since "+newest+" — run Inline verify (skills/flow/verify-and-handoff.md) and record its row before landing — a re-run after a new commit takes a fresh `verify-<k>` key (the store keeps a reused key's first start)")
 			}
 			// SIGNAL EIGHT — a code commit and no review-panel pass at all
 			// (kan-970 self-review: four implementer groups and the panel ran

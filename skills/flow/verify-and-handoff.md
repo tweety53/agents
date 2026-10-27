@@ -145,7 +145,9 @@ group was cache-skipped, `-outcome blocked -cause test-failure` when its list ex
 `begin` the store refuses stops the list before its first command, exit 4, its stderr line naming the
 refusal: clear the cause — a tracked modification, most often — and run the list again; a failed
 `end` is a warning line that never changes the exit code. The first `begin` stamps the start and the
-later group's `end` the finish. Once the one inline re-run is decided, a passing re-run ends a fresh
+later group's `end` the finish. A verify re-run after a new code commit passes a key no earlier verify row of the change
+used — `verify-<k>`, `<k>` counting from 2, suffixed as above — because the store keeps a reused
+key's first `startedAt`, and a row started before the commit never covers it (kan-1037). Once the one inline re-run is decided, a passing re-run ends a fresh
 row `-outcome completed`, and a command that failed twice for a missing build prerequisite is ended
 `-outcome blocked -cause environment` by the parent.
 
