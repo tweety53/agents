@@ -70,6 +70,13 @@ lists the failures and stops, or ends on a "Decision for you" whose recommended 
 could have taken, is the stop this file exists to prevent (kan-1007: the run stopped after
 visual-verify to ask whether a requested rise could start visible).
 
+**A scope or cost question with a recommended option is never asked during integrate or the
+self-review either** (operator, kan-1038). "Fix every finding (recommended), or only the
+blocker?", whether to run one more fix or review round, whether a fix is worth its cost: the run
+takes the recommended option, records it as below and goes on. A question written as prose in a
+message, a final message's included, is an ask exactly as an `AskUserQuestion` call is. The
+outward-facing and irreversible actions of **What still stops** below are still asked.
+
 Every auto-resolution:
 
 - is recorded in the pass log when the mode is on — a `flow
@@ -109,4 +116,5 @@ These are asked, or stop with `## Question`, exactly as their call sites state:
   tracks (gymie KAN-1015: the run stopped mid-verify to ask it, and the operator said to answer it
   automatically).
 - **Outside implementation and fix runs.** The wrong-state override, the plain-message ambiguity
-  prompt that decides whether a fix run starts at all, and every integrate and cleanup prompt.
+  prompt that decides whether a fix run starts at all, and every integrate and cleanup prompt but
+  the scope and cost questions above.

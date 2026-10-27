@@ -236,7 +236,10 @@ reach outside `<agents repo>`, whose fix goes where that section places it. An
 `In-run pipeline fix:` line naming a sha is already fixed and is not classified again.
 
 **Every finding that is not `big` is fixed and landed without asking**, on one branch for the
-whole pass. A pass with none creates no worktree and dispatches nothing. **The planner never drops a
+whole pass. A pass with none creates no worktree and dispatches nothing. No scope or cost question
+with a recommended option is put to the operator anywhere in this pass, as a prompt or as prose in
+a message (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`).
+**The planner never drops a
 non-`big` finding because its first design would misfire** — a guard that would flag the
 pipeline's own commits, a check that would refuse legitimate history. That objection is a design
 constraint: the planner designs within it, measures the result against the history it named, and
