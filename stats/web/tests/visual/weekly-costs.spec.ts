@@ -15,8 +15,8 @@ import { bodyBackground, DARK_SURFACE_1, EMPTY_QUERY, PINNED_QUERY } from "./sup
 // in the week of 2026-07-22, before the pinned period: the table shows
 // both weeks, the chart the pinned period's two points.
 // The empty path pins the clock and the period years before the fixture,
-// so the chart renders its empty state and the table eight Unavailable
-// weeks.
+// so neither panel has a recorded run: both read Panel's not-recorded
+// banner, the table included -- its 8 rows fill only a recorded window.
 const AFTER_FIXTURE = new Date("2026-08-16T12:00:00Z");
 const BEFORE_FIXTURE = new Date("2020-01-01T12:00:00Z");
 
@@ -65,7 +65,7 @@ test.describe("weekly costs", () => {
     await page.clock.install({ time: BEFORE_FIXTURE });
     await page.goto(`/#/weekly-costs?${EMPTY_QUERY}`);
     await expect(page.getByRole("heading", { name: "Weekly costs" })).toBeVisible();
-    await expect(page.locator('section.panel[aria-label="Last 8 weeks"]')).toBeVisible();
+    await expect(page.getByTestId("not-recorded")).toHaveCount(2);
     await expect(page.getByTestId("time-series-point")).toHaveCount(0);
 
     await expect(page).toHaveScreenshot("weekly-costs-empty.png", { fullPage: true });
