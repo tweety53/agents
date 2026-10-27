@@ -10,6 +10,7 @@ import (
 	"sync"
 	"syscall"
 	"testing"
+	"time"
 )
 
 // Every case_N of scripts/test-prove-reproducer.sh at d71a2327, one subtest
@@ -583,15 +584,26 @@ func TestProveReproducerSignals(t *testing.T) {
 			// fails the moment one is handled.
 			done := make(chan struct{})
 			go func() { _ = cmd.Wait(); close(done) }()
+			// The release never blocks (decision f3-nonblocking-release,
+			// kan-1037): the ignored case retries until the leg's reader is
+			// open or the run is gone; the killed case releases a leg that
+			// may already be dead.
 			if c.ignore {
-				if f, err := os.OpenFile(release, os.O_WRONLY, 0); err == nil {
-					f.Close()
+			release:
+				for !prReleaseFIFO(release) {
+					select {
+					case <-done:
+						break release
+					case <-time.After(10 * time.Millisecond):
+					}
 				}
 				<-done
 			} else {
 				<-done
-				if f, err := os.OpenFile(release, os.O_WRONLY, 0); err == nil { // unblock the orphaned leg
-					f.Close()
+				// Unblock the orphaned leg, retrying briefly: it may have
+				// written ready but not yet opened release for reading.
+				for deadline := time.Now().Add(time.Second); !prReleaseFIFO(release) && time.Now().Before(deadline); {
+					time.Sleep(10 * time.Millisecond)
 				}
 			}
 			ws, _ := cmd.ProcessState.Sys().(syscall.WaitStatus)
@@ -611,5 +623,36 @@ func TestProveReproducerSignals(t *testing.T) {
 				t.Fatalf("temporary files survived: %v", ents)
 			}
 		})
+	}
+}
+
+// prReleaseFIFO opens the FIFO at path for writing and closes it at once,
+// releasing a leg blocked in `read -r _ < path`, and reports whether it
+// opened. The open is non-blocking (decision f3-nonblocking-release,
+// kan-1037): with no reader -- the leg already killed -- a blocking open
+// waits forever, where this one fails with ENXIO, which is ignored.
+func prReleaseFIFO(path string) bool {
+	f, err := os.OpenFile(path, os.O_WRONLY|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return false
+	}
+	f.Close()
+	return true
+}
+
+func TestPRReleaseFIFOWithNoReaderReturns(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "release")
+	if err := syscall.Mkfifo(p, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan bool, 1)
+	go func() { done <- prReleaseFIFO(p) }()
+	select {
+	case opened := <-done:
+		if opened {
+			t.Fatal("opened a FIFO with no reader")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("prReleaseFIFO blocked past 5s on a FIFO with no reader")
 	}
 }
