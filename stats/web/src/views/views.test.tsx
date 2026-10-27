@@ -396,6 +396,14 @@ describe("views render their fixture response's actual values", () => {
     // Implementation is Unavailable on 2026-06-10: two runs, never one line across it.
     expect(d("Implementation").match(/M/g)).toHaveLength(2);
     expect(d("Overall").match(/M/g)).toHaveLength(1);
+    // Every series with a measured week draws its line.
+    expect(screen.getAllByTestId("weekly-line").map((l) => l.getAttribute("data-series"))).toEqual([
+      "Overall",
+      "Planning",
+      "Implementation",
+      "Review",
+      "Self-review",
+    ]);
     const point = screen
       .getAllByTestId("time-series-point")
       .find((c) => c.getAttribute("data-series") === "Overall" && c.getAttribute("data-week") === "2026-06-10")!;
