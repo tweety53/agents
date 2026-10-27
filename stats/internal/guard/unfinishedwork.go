@@ -479,11 +479,13 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		// completed `verify`/`verify-…` verifier row, or with none at all —
 		// run 1's reshaped `Flow-Key: flow.commit-two` commit excepted. An
 		// archived change's re-run is not asked: its verification ran before
-		// the archive.
+		// the archive. A `skipped` row counts as completed: it only ends a test
+		// group whose every command was unchanged since a green clean run
+		// (decision f1-skipped-is-verified, kan-1037).
 		if len(ranges) > 0 && !strings.Contains(planDir+"/", "/changes/archive/") {
 			var lastVerify int64 = -1
 			for _, d := range dispatches {
-				if d.Role == "verifier" && d.Outcome == "completed" && (d.Key == "verify" || strings.HasPrefix(d.Key, "verify-")) {
+				if d.Role == "verifier" && (d.Outcome == "completed" || d.Outcome == "skipped") && (d.Key == "verify" || strings.HasPrefix(d.Key, "verify-")) {
 					lastVerify = max(lastVerify, d.StartedAt.Unix())
 				}
 			}

@@ -139,16 +139,15 @@ model> -effort <parent effort> -agent-id inline`, suffixed `-<repository name>` 
 run's resolved set holds more than one worktree — the same convention
 **The verifier dispatch** (`skills/flow/visual-verify.md`) uses for the verifier's rows.
 `run-verify-list.sh` records the row itself, never the parent by hand: both groups are run with the
-same five trailing arguments, and each records `begin` before its first command and `end -outcome
-completed` after its last when its list exited 0. A `begin` the store refuses stops the list before
-its first command, exit 4, its stderr line naming the refusal: clear the cause — a tracked
-modification, most often — and run the list again; a failed `end` is a warning line that never
-changes the exit code. The first `begin` stamps the start and the later
-group's `end` the finish. A group that exited non-zero records no `end`; once its one inline re-run
-is decided, the parent ends the row itself, `-outcome completed` when the re-run passed, or
-`-outcome blocked -cause <cause>` when a command failed twice — `test-failure` for a command of the
-branch that failed twice, `environment` where the environment itself failed twice (a missing build
-prerequisite).
+same five trailing arguments, and each group records `begin` before its first command and ends the row
+itself — `-outcome completed` when its list exited 0, `-outcome skipped` when every command of a test
+group was cache-skipped, `-outcome blocked -cause test-failure` when its list exited non-zero. A
+`begin` the store refuses stops the list before its first command, exit 4, its stderr line naming the
+refusal: clear the cause — a tracked modification, most often — and run the list again; a failed
+`end` is a warning line that never changes the exit code. The first `begin` stamps the start and the
+later group's `end` the finish. Once the one inline re-run is decided, a passing re-run ends a fresh
+row `-outcome completed`, and a command that failed twice for a missing build prerequisite is ended
+`-outcome blocked -cause environment` by the parent.
 
 ```bash
 run-verify-list.sh <worktree> lint <name> verify[-<worktree basename>] mf-<literal-token> <parent model> <parent effort> [<canonical worktree>]

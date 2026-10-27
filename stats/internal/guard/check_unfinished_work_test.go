@@ -1318,3 +1318,33 @@ func TestUnfinishedWorkRefusesAFixedRoundWithNoMutationRow(t *testing.T) {
 		}
 	})
 }
+
+// uwVerifyCase runs signal seven on one code commit at 11:00 and one verify
+// row started at 12:00 with outcome, a recorded panel pass beside it.
+func uwVerifyCase(t *testing.T, outcome, startedAt string) uwResult {
+	f := newUW(t)
+	gitRun(t, "", "init", "-q", f.wt)
+	gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "base")
+	base := tcfGit(t, f.wt, "rev-parse", "HEAD")
+	writeFile(t, f.wt+"/src/a.go", "x\n")
+	gitRun(t, f.wt, "add", "src/a.go")
+	gitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T11:00:00Z", "-m", "fix: code")
+	f.setFile(t, "dispatches.json", `[{"seq":9,"key":"verify","role":"verifier","outcome":"`+outcome+`","startedAt":"`+startedAt+`"}]`+"\n")
+	f.setFile(t, "passes.json", `[{"id":1,"round":0,"note":"roster: full"}]`+"\n")
+	return f.run(t, f.wt, "demo", "", f.wt+"="+base)
+}
+
+// TestCheckUnfinishedWorkSkippedVerifyRowCovers pins decision
+// f1-skipped-is-verified (kan-1037): a cache-skipped verify row covers the
+// code commits before it; a blocked one does not.
+func TestCheckUnfinishedWorkSkippedVerifyRowCovers(t *testing.T) {
+	t.Parallel()
+	for outcome, want := range map[string]string{"skipped": "CLEAR:", "blocked": "OUTSTANDING:"} {
+		t.Run(outcome, func(t *testing.T) {
+			t.Parallel()
+			if r := uwVerifyCase(t, outcome, "2026-01-01T12:00:00Z"); !strings.Contains(r.out, want) {
+				t.Fatalf("exit %d stdout %q stderr %q, want %q", r.rc, r.out, r.err, want)
+			}
+		})
+	}
+}
