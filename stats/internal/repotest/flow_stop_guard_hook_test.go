@@ -28,6 +28,8 @@ type stopFixture struct {
 	lastUser string // last operator message
 	lastTool string // last assistant tool use
 	metaUser string // isMeta user entry after the operator message (hook feedback, skill text)
+	lastText string // last assistant text
+	oldText  string // assistant text from an earlier turn, before the operator message
 }
 
 func runStopGuard(t *testing.T, f stopFixture, home string, active bool) string {
@@ -80,12 +82,19 @@ func runStopGuard(t *testing.T, f stopFixture, home string, active bool) string 
 	if user == "" {
 		user = "/flow " + stopChange
 	}
-	transcript := fmt.Sprintf(`{"type":"user","message":{"content":%q}}`+"\n", user)
+	transcript := ""
+	if f.oldText != "" {
+		transcript += fmt.Sprintf(`{"type":"assistant","message":{"content":[{"type":"text","text":%q}]}}`+"\n", f.oldText)
+	}
+	transcript += fmt.Sprintf(`{"type":"user","message":{"content":%q}}`+"\n", user)
 	if f.metaUser != "" {
 		transcript += fmt.Sprintf(`{"type":"user","isMeta":true,"message":{"content":%q}}`+"\n", f.metaUser)
 	}
 	if f.lastTool != "" {
 		transcript += fmt.Sprintf(`{"type":"assistant","message":{"content":[{"type":"tool_use","name":%q,"input":{}}]}}`+"\n", f.lastTool)
+	}
+	if f.lastText != "" {
+		transcript += fmt.Sprintf(`{"type":"assistant","message":{"content":[{"type":"text","text":%q}]}}`+"\n", f.lastText)
 	}
 	tp := filepath.Join(t.TempDir(), "sess-1.jsonl")
 	if err := os.WriteFile(tp, []byte(transcript), 0o644); err != nil {
@@ -177,6 +186,30 @@ func TestFlowStopGuardHook(t *testing.T) {
 				f.lastUser = msg
 				allow(t, runStopGuard(t, f, t.TempDir(), false))
 			}
+		}},
+		{"p: Finished handoff without Prompt tuning blocks naming it", func(t *testing.T) {
+			f := stopFixture{state: "FINISHED", lastText: "## Finished\n\n**Change:** x\n**Learning:** /a/n.md\n"}
+			block(t, runStopGuard(t, f, t.TempDir(), false), "**Prompt tuning:**")
+		}},
+		{"q: flow-fast report without Learning blocks naming it", func(t *testing.T) {
+			f := stopFixture{state: "FINISHED", lastText: "Landed.\n**Prompt tuning:** NONE\n"}
+			block(t, runStopGuard(t, f, t.TempDir(), false), "**Learning:**")
+		}},
+		{"r: complete Finished handoff allows", func(t *testing.T) {
+			f := stopFixture{state: "FINISHED", lastText: "## Finished\n**Learning:** NONE — off\n**Prompt tuning:** NONE\n"}
+			allow(t, runStopGuard(t, f, t.TempDir(), false))
+		}},
+		{"s: incomplete handoff with stop_hook_active allows", func(t *testing.T) {
+			f := stopFixture{state: "FINISHED", lastText: "## Finished\n**Learning:** NONE — off\n"}
+			allow(t, runStopGuard(t, f, t.TempDir(), true))
+		}},
+		{"t: earlier turn's incomplete handoff, then operator message, then tool_use only allows", func(t *testing.T) {
+			f := stopFixture{state: "FINISHED", oldText: "## Finished\n**Learning:** NONE — off\n", lastUser: "thanks", lastTool: "Bash"}
+			allow(t, runStopGuard(t, f, t.TempDir(), false))
+		}},
+		{"u: Learning label mid-sentence allows", func(t *testing.T) {
+			f := stopFixture{state: "FINISHED", lastText: "The template carries a **Learning:** line and more."}
+			allow(t, runStopGuard(t, f, t.TempDir(), false))
 		}},
 		{"k: store 500 allows", func(t *testing.T) {
 			f := started(7, 7, true)
