@@ -91,5 +91,5 @@ Correction (2026-10-27): the plan's spec ran against the UI-test fixture alone, 
 **Tests:** `weekly costs draws a series with no measured week as no line`
 **Regression:** `weekly costs draws a series with no measured week as no line` fails, because the round-1 fix read `line.find(...)!.series` on an all-null line and threw.
 **Build:** green
-**After:** Task 1
+**After:** Task 1, 3
 **Commit:** `fix(stats): Weekly costs draws a series with no measured week as no line`
