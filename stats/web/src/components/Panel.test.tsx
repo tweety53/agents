@@ -145,3 +145,28 @@ describe("TimeSeriesPanel", () => {
     expect(screen.queryByTestId("time-series-point")).not.toBeInTheDocument();
   });
 });
+
+describe("TimeSeriesPanel series", () => {
+  it("places every series on the shared, sorted day axis", () => {
+    render(
+      <TimeSeriesPanel
+        series={[
+          { name: "A", points: [{ day: "2026-06-17", value: 2 }, { day: "2026-06-10", value: 1 }] },
+          { name: "B", points: [{ day: "2026-06-03", value: 3 }] },
+        ]}
+      />,
+    );
+    const cx = (name: string) =>
+      screen
+        .getAllByTestId("time-series-point")
+        .filter((c) => c.getAttribute("data-series") === name)
+        .map((c) => c.getAttribute("cx"));
+    expect(cx("A")).toEqual(["448", "240"]);
+    expect(cx("B")).toEqual(["32"]);
+  });
+
+  it("centres a single day on the x axis", () => {
+    render(<TimeSeriesPanel series={[{ name: "A", points: [{ day: "2026-06-10", value: 1 }] }]} />);
+    expect(screen.getByTestId("time-series-point").getAttribute("cx")).toBe("240");
+  });
+});

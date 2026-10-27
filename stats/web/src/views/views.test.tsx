@@ -5,7 +5,7 @@
 // requirement.
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import type { DecisionRow, HealthViewSlug, StatsResponse, StatsViewSlug, ViewName } from "../api";
 import { App } from "../App";
 import { Decisions } from "./Decisions";
@@ -15,6 +15,7 @@ import { SelfReview } from "./SelfReview";
 import { StageLeaderboard } from "./StageLeaderboard";
 import { StateBoard } from "./StateBoard";
 import { Trend } from "./Trend";
+import { WeeklyCosts } from "./WeeklyCosts";
 
 const { fetchStatsViewMock } = vi.hoisted(() => ({ fetchStatsViewMock: vi.fn() }));
 
@@ -106,6 +107,11 @@ const fixtures: Record<Exclude<ViewName, "flow-health"> | HealthViewSlug, StatsR
     },
   ]),
   trend: envelope("trend", [{ day: "2026-01-05", runCount: 2, totalCostUsd: 5.25 }]),
+  "weekly-costs": envelope("weekly-costs", [
+    { week: "2026-06-03", overallUsd: 5, planningUsd: null, implementationUsd: 5, reviewUsd: null, selfReviewUsd: null },
+    { week: "2026-06-10", overallUsd: 110, planningUsd: 10, implementationUsd: null, reviewUsd: 30, selfReviewUsd: 43 },
+    { week: "2026-06-17", overallUsd: 11, planningUsd: 4, implementationUsd: 7, reviewUsd: null, selfReviewUsd: null },
+  ]),
   reviewers: envelope("reviewers", [
     {
       slot: "primary",
@@ -289,6 +295,89 @@ describe("views render their fixture response's actual values", () => {
     expect(screen.getByTestId("time-series-point")).toBeInTheDocument();
     within(screen.getByRole("region", { name: "Days" })).getByText("1");
     within(screen.getByRole("region", { name: "Total cost" })).getByText("$5.25");
+  });
+
+  it("weekly costs shows all five totals per week and a five-line chart", async () => {
+    // The table's window ends at "now"; pin it to the fixture's weeks.
+    vi.useFakeTimers({ now: new Date("2026-06-19T12:00:00Z"), toFake: ["Date"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    render(<WeeklyCosts period={period} project={undefined} model="m-a" />);
+    expect((await screen.findAllByText("2026-06-10")).length).toBeGreaterThan(0);
+    for (const header of ["Overall", "Planning", "Implementation", "Review", "Self-review"]) {
+      expect(screen.getByRole("columnheader", { name: new RegExp(`^${header}`) })).toBeInTheDocument();
+    }
+    expect(screen.getAllByRole("cell", { name: "$110.00" }).length).toBeGreaterThan(0);
+    const legends = screen.getAllByTestId("time-series-legend");
+    expect(within(legends[0]).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      "Overall",
+      "Planning",
+      "Implementation",
+      "Review",
+      "Self-review",
+    ]);
+    // Each line plots its own category: one point per measured week, titled
+    // with that week's value, at the shared week's x position (3 weeks:
+    // x = 32, 240, 448), in its own --series-<n> stroke.
+    const points = (name: string) =>
+      screen.getAllByTestId("time-series-point").filter((c) => c.getAttribute("data-series") === name);
+    const plotted = (name: string) =>
+      points(name).map((c) => `${c.getAttribute("cx")} ${c.querySelector("title")!.textContent}`);
+    expect(plotted("Overall")).toEqual(["32 Overall 2026-06-03: $5.00", "240 Overall 2026-06-10: $110.00", "448 Overall 2026-06-17: $11.00"]);
+    expect(plotted("Planning")).toEqual(["240 Planning 2026-06-10: $10.00", "448 Planning 2026-06-17: $4.00"]);
+    expect(plotted("Implementation")).toEqual(["32 Implementation 2026-06-03: $5.00", "448 Implementation 2026-06-17: $7.00"]);
+    expect(plotted("Review")).toEqual(["240 Review 2026-06-10: $30.00"]);
+    expect(plotted("Self-review")).toEqual(["240 Self-review 2026-06-10: $43.00"]);
+    const lines = (name: string) =>
+      screen.getAllByTestId("time-series-line").filter((l) => l.getAttribute("data-series") === name);
+    // Implementation's null week breaks its line in two; Overall's is one.
+    expect(lines("Implementation")).toHaveLength(2);
+    expect(lines("Overall")).toHaveLength(1);
+    ["Overall", "Planning", "Implementation", "Review", "Self-review"].forEach((name, n) => {
+      expect(lines(name)[0].style.stroke).toBe(`var(--series-${n + 1})`);
+    });
+    // The chart fetches the picker's own period; both fetches carry the model.
+    const calls = fetchStatsViewMock.mock.calls.map(([, params]) => params);
+    expect(calls.some((p) => p.from.getTime() === period.from.getTime() && p.to.getTime() === period.to.getTime())).toBe(true);
+    expect(calls.every((p) => p.model === "m-a")).toBe(true);
+    // The table's own fetch is the last 8 Wed->Wed weeks, whatever the picker
+    // says: from a Wednesday 00:00 UTC, 7 to 8 weeks before now.
+    const tableFrom = fetchStatsViewMock.mock.calls
+      .map(([, params]) => params.from as Date)
+      .find((from) => from.getTime() !== period.from.getTime())!;
+    expect(tableFrom.getUTCDay()).toBe(3);
+    expect(tableFrom.getTime() % (24 * 60 * 60 * 1000)).toBe(0);
+    const weeksBack = (Date.now() - tableFrom.getTime()) / (7 * 24 * 60 * 60 * 1000);
+    expect(weeksBack).toBeGreaterThanOrEqual(7);
+    expect(weeksBack).toBeLessThan(8);
+  });
+
+  it("weekly costs table always lists the last 8 weeks", async () => {
+    vi.useFakeTimers({ now: new Date("2026-06-19T12:00:00Z"), toFake: ["Date"] });
+    try {
+      render(<WeeklyCosts period={period} project={undefined} />);
+      const table = (await screen.findAllByRole("table"))[0];
+      const weeks = within(table)
+        .getAllByRole("row")
+        .slice(1)
+        .map((r) => within(r).getAllByRole("cell")[0].textContent);
+      // Wed 2026-06-17 is this week; the window starts 7 weeks before it.
+      expect(weeks).toEqual([
+        "2026-04-29",
+        "2026-05-06",
+        "2026-05-13",
+        "2026-05-20",
+        "2026-05-27",
+        "2026-06-03",
+        "2026-06-10",
+        "2026-06-17",
+      ]);
+      const empty = within(table).getAllByRole("row")[1];
+      expect(within(empty).getAllByTestId("unavailable")).toHaveLength(5);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("reviewers shows severity counts and badges an exp- slot with its description", async () => {

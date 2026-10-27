@@ -27,6 +27,15 @@ test.describe("full app suite", () => {
     });
   }
 
+  // Weekly costs' 8-week table reads the browser clock, so it is pinned
+  // the way weekly-costs.spec.ts pins it.
+  test("weekly-costs screen", async ({ page }) => {
+    await page.clock.install({ time: new Date("2026-08-16T12:00:00Z") });
+    await page.goto(`/#/weekly-costs?${PINNED_QUERY}`);
+    await expect(page.getByRole("link", { name: "Weekly costs", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(page).toHaveScreenshot("full-weekly-costs.png", { fullPage: true });
+  });
+
   test("run detail screen", async ({ page }) => {
     await page.goto(`/#/run/uitest-beta/kan-201-refactor-thing?${PINNED_QUERY}`);
     await expect(page.getByRole("heading", { name: "kan-201-refactor-thing" })).toBeVisible();
