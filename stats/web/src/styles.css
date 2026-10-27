@@ -449,7 +449,7 @@ th button {
   width: 150px;
   padding: 6px 10px;
   border: var(--panel-border-width) solid var(--border-strong);
-  border-radius: var(--panel-radius);
+  border-radius: 6px;
   background: var(--surface-panel);
   color: var(--text-primary);
   font-size: 12px;

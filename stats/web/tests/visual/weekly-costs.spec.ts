@@ -40,6 +40,12 @@ async function open(page: Page, time: Date) {
   await expect(page.getByRole("heading", { name: "Weekly costs" })).toBeVisible();
 }
 
+// Overall alone is shown at first; this shows the four phases too.
+async function showPhases(page: Page) {
+  for (const name of SERIES.slice(1)) await page.getByRole("button", { name, exact: true }).click();
+  await page.mouse.move(0, 0);
+}
+
 test.describe("weekly costs", () => {
   test("draws one chart with delta labels in the dark palette", async ({ page }) => {
     await withPreviousWeek(page);
@@ -47,8 +53,9 @@ test.describe("weekly costs", () => {
     await expect(page.getByRole("link", { name: "Weekly costs", exact: true })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("toolbar", { name: "Dashboard controls" })).toHaveCount(0);
     for (const name of SERIES) {
-      await expect(page.getByRole("button", { name, exact: true })).toHaveAttribute("aria-pressed", "true");
+      await expect(page.getByRole("button", { name, exact: true })).toHaveAttribute("aria-pressed", String(name === "Overall"));
     }
+    await showPhases(page);
     await expect(page.getByText("Week starting (Wed, UTC)")).toBeVisible();
     await expect(page.getByText("Cost (USD)")).toBeVisible();
     const delta = (series: string) => page.locator(`[data-testid="delta-label"][data-series="${series}"][data-week="2026-08-12"]`);
@@ -63,6 +70,7 @@ test.describe("weekly costs", () => {
     await page.emulateMedia({ colorScheme: "light" });
     await withPreviousWeek(page);
     await open(page, AFTER_FIXTURE);
+    await showPhases(page);
     await expect(page.locator(".delta-up, .delta-down")).not.toHaveCount(0);
     expect(await bodyBackground(page)).not.toBe(DARK_SURFACE_1);
 
@@ -79,6 +87,7 @@ test.describe("weekly costs", () => {
 
   test("a toggled-off series leaves the chart", async ({ page }) => {
     await open(page, AFTER_FIXTURE);
+    await showPhases(page);
     const overall = page.locator('[data-testid="time-series-point"][data-series="Overall"]');
     // The stack's own response: Overall in its two weeks, six points in all.
     await expect(overall).toHaveCount(2);

@@ -118,7 +118,7 @@ function stackLabels(points: Point[]): Label[] {
 }
 
 function WeeklyCostChart({ rows }: { rows: WeeklyCostPoint[] }) {
-  const [shown, setShown] = useState(() => categories.map(() => true));
+  const [shown, setShown] = useState(() => categories.map((_, i) => i === 0));
   const [hovered, setHovered] = useState<{ series: number; week: number } | null>(null);
 
   const visible = categories

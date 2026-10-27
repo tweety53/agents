@@ -297,6 +297,12 @@ describe("views render their fixture response's actual values", () => {
     within(screen.getByRole("region", { name: "Total cost" })).getByText("$5.25");
   });
 
+  // Shows the four phase series, which start hidden.
+  const showPhases = async () => {
+    for (const name of ["Planning", "Implementation", "Review", "Self-review"])
+      await userEvent.click(screen.getByRole("button", { name }));
+  };
+
   it("weekly costs draws one 8-week chart with five toggleable series", async () => {
     // The window ends at "now"; pin it to the fixture's weeks.
     vi.useFakeTimers({ now: new Date("2026-06-19T12:00:00Z"), toFake: ["Date"] });
@@ -338,19 +344,20 @@ describe("views render their fixture response's actual values", () => {
       "$100.00",
       "$125.00",
     ]);
+    // Overall alone is shown at first.
     const toggles = screen.getAllByRole("button", { pressed: true });
-    expect(toggles.map((b) => b.textContent)).toEqual(["Overall", "Planning", "Implementation", "Review", "Self-review"]);
+    expect(toggles.map((b) => b.textContent)).toEqual(["Overall"]);
     const points = (name: string) =>
       screen.queryAllByTestId("time-series-point").filter((c) => c.getAttribute("data-series") === name);
-    expect(points("Review")).toHaveLength(1);
-    const review = screen.getByRole("button", { name: "Review" });
-    await userEvent.click(review);
-    expect(review).toHaveAttribute("aria-pressed", "false");
     expect(points("Review")).toHaveLength(0);
-    expect(points("Overall")).toHaveLength(3);
+    const review = screen.getByRole("button", { name: "Review" });
     await userEvent.click(review);
     expect(review).toHaveAttribute("aria-pressed", "true");
     expect(points("Review")).toHaveLength(1);
+    expect(points("Overall")).toHaveLength(3);
+    await userEvent.click(review);
+    expect(review).toHaveAttribute("aria-pressed", "false");
+    expect(points("Review")).toHaveLength(0);
   });
 
   it("weekly costs labels each point with its change from the previous week", async () => {
@@ -388,6 +395,7 @@ describe("views render their fixture response's actual values", () => {
     });
     render(<WeeklyCosts period={period} project={undefined} />);
     await screen.findByText("Cost (USD)");
+    await showPhases();
     const d = (name: string) =>
       screen
         .getAllByTestId("weekly-line")
@@ -422,8 +430,8 @@ describe("views render their fixture response's actual values", () => {
     );
     render(<WeeklyCosts period={period} project={undefined} />);
     await screen.findByText("Cost (USD)");
-    expect(screen.getByRole("button", { name: "Review" })).toHaveAttribute("aria-pressed", "true");
-    const series = (testId: string) => screen.queryAllByTestId(testId).map((e) => e.getAttribute("data-series"));
+    await showPhases();
+        const series = (testId: string) => screen.queryAllByTestId(testId).map((e) => e.getAttribute("data-series"));
     expect(series("weekly-line")).not.toContain("Review");
     expect(series("time-series-point")).toEqual(["Overall", "Planning", "Implementation"]);
   });
@@ -442,6 +450,7 @@ describe("views render their fixture response's actual values", () => {
     );
     render(<WeeklyCosts period={period} project={undefined} />);
     await screen.findByText("Cost (USD)");
+    await showPhases();
     const label = (series: string, week: string) =>
       document.querySelector(`[data-testid="delta-label"][data-series="${series}"][data-week="${week}"]`);
     // The window's second week reads its change from the first.
