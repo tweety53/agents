@@ -138,6 +138,11 @@ type Reconciler struct {
 	// same journal file. Run's own doc comment explains what a second,
 	// blocked caller observes.
 	mu sync.Mutex
+
+	// stuck maps a journal path to the error text last warned for its
+	// unresolved entry, so a Watch tick re-hitting the same stall does not
+	// re-log it (kan-1040); guarded by mu.
+	stuck map[string]string
 }
 
 // New builds a Reconciler that replays journal files found under root
@@ -484,6 +489,7 @@ func (r *Reconciler) replayJournalFile(
 	entries, parseErr := parseCompleteEntries(complete)
 
 	consumed := 0
+	stopped := false
 entryLoop:
 	for _, pe := range entries {
 		if ctx.Err() != nil {
@@ -513,14 +519,22 @@ entryLoop:
 		default:
 			// Outcome unknown -- stop here so this entry, and everything
 			// after it, stays in the journal for the next Run.
-			if r.logger != nil {
+			if r.logger != nil && r.stuck[path] != applyErr.Error() {
 				r.logger.Warn("reconcile: "+kind+" journal replay stopped on an unresolved entry",
 					"path", path, "project", pe.Project, "name", pe.Name, "error", applyErr)
 			}
+			if r.stuck == nil {
+				r.stuck = map[string]string{}
+			}
+			r.stuck[path] = applyErr.Error()
+			stopped = true
 			break entryLoop
 		}
 	}
 
+	if !stopped {
+		delete(r.stuck, path)
+	}
 	if consumed > 0 {
 		if retireErr := retirePrefix(path, raw, consumed); retireErr != nil {
 			return applied, refused, fmt.Errorf("retire %s: %w", path, retireErr)

@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -1374,5 +1376,28 @@ func TestReplayClosesAJournalledEndAtTheAgentsLastWrite(t *testing.T) {
 				t.Fatalf("row ended at %v, want %v", rs.ended, tc.want)
 			}
 		})
+	}
+}
+
+// TestReplayWarnsOnceForAStuckEntry pins kan-1040's log flood: an entry that
+// stays unresolved across passes warns once, not on every Watch tick, and
+// stays queued.
+func TestReplayWarnsOnceForAStuckEntry(t *testing.T) {
+	root := t.TempDir()
+	const project, change = "proj-record-stuck", "chg-record-stuck"
+	appendRecordWrite(t, root, project, change, "dispatch-end", testDispatchEnd())
+
+	var buf bytes.Buffer
+	rec := reconcile.New(&fakeStore{}, nopStageStore{}, notFoundRecordStore{}, root, slog.New(slog.NewTextHandler(&buf, nil)))
+	for i := 0; i < 3; i++ {
+		if _, err := rec.Run(context.Background()); err != nil {
+			t.Fatalf("Run %d: %v", i, err)
+		}
+	}
+	if n := strings.Count(buf.String(), "journal replay stopped on an unresolved entry"); n != 1 {
+		t.Fatalf("stuck warnings = %d, want 1:\n%s", n, buf.String())
+	}
+	if n := pendingRecordCount(t, root, project, change); n != 1 {
+		t.Fatalf("pending record entries = %d, want 1", n)
 	}
 }

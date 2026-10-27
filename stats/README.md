@@ -235,6 +235,8 @@ exit is never restarted, only a crash or failure is), and logs to
 `~/Library/Logs/flowd.log`. It binds loopback only, the same guarantee
 `flowd` itself enforces at startup regardless of how it is launched.
 
+`make restart` runs `flowd` outside launchd instead, appending its log to `/tmp/flow-live.log` (`LIVE_LOG`, `stats/Makefile`); while it does, `~/Library/Logs/flowd.log` is not written. Postgres logs lock waits and statements slower than one second (`ALTER SYSTEM`, kan-1040), so a store stall leaves evidence in `docker logs flow-postgres`.
+
 **Loading this agent is a manual operator step.** No skill or command in
 this repository loads it — an agent left running unattended during this
 change's development harvested 2,961 transcript offsets into the database
