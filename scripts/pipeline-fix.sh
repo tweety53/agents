@@ -36,8 +36,10 @@
 #       touched Go, the `cd stats/web` lines for a touched SPA file; go test
 #       of each touched stats package, scripts/test-<n>.sh or
 #       scripts/test-<n>-hook.sh of a touched script or hook, the setuptest
-#       package for setup.sh, vitest of a touched SPA test or the test beside
-#       a touched source. One `green:` or `red:` line per command, a red one
+#       package for setup.sh, the internal/guard tests that audit every
+#       script (TestNoPipeIntoEarlyExitGrep and its kin) for a touched script
+#       or setup.sh, vitest of a touched SPA test or the test beside a touched
+#       source. One `green:` or `red:` line per command, a red one
 #       followed by its last 40 output lines.
 #   pipeline-fix.sh land <worktree>
 #       the merge-and-push route: refuses any other `## default landing

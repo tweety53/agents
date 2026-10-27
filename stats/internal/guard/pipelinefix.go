@@ -314,6 +314,12 @@ func pfTouched(env Env, pe pfEnv, wt, base string) ([]string, bool) {
 // stats/internal/guard.
 const pfGoAudits = "cd stats && go test ./internal/repotest/ -run '^Test(GitConfigPins|FlowAddrDeclaration)$' -count=1"
 
+// pfScriptAudits runs the stats/internal/guard tests auditing every script as
+// a whole — TestNoPipeIntoEarlyExitGrep, TestShimMissingLibCannotAnswer,
+// TestEveryFlowGuardShimRequiresLib and TestShimSiblingsDeclared — named after
+// no script, so a touched script alone never ran them (kan-1038).
+const pfScriptAudits = "cd stats && go test ./internal/guard/ -run '^Test(NoPipeIntoEarlyExitGrep|ShimMissingLibCannotAnswer|EveryFlowGuardShimRequiresLib|ShimSiblingsDeclared)$' -count=1"
+
 // pfChecks is the lint lines and tests the touched paths need: every guard
 // line of `## lint`, its `cd stats` lines only for touched Go and its
 // `cd stats/web` lines only for a touched SPA file; `go test` of each
@@ -321,7 +327,9 @@ const pfGoAudits = "cd stats && go test ./internal/repotest/ -run '^Test(GitConf
 // stats/internal/repotest package for a touched hook, and vitest of a touched
 // SPA test file or the test beside a touched source file. A touched Go file
 // also selects pfGoAudits: tests that audit the whole Go tree, named after no
-// Go file, which main landed red without twice (KAN-887's self-review).
+// Go file, which main landed red without twice (KAN-887's self-review). A
+// touched script or setup.sh selects pfScriptAudits where the worktree has
+// stats/internal/guard.
 func pfChecks(env Env, pe pfEnv, wt string, touched []string) ([]string, int) {
 	get := exec.Command(pe.projectGet, wt, "lint")
 	var body bytes.Buffer
@@ -357,6 +365,9 @@ func pfChecks(env Env, pe pfEnv, wt string, touched []string) ([]string, int) {
 	repotest := isDir(filepath.Join(wt, "stats/internal/repotest"))
 	if goTouched && repotest {
 		add(pfGoAudits)
+	}
+	if isDir(filepath.Join(wt, "stats/internal/guard")) && has(func(p string) bool { return p == "setup.sh" || strings.HasPrefix(p, "scripts/") }) {
+		add(pfScriptAudits)
 	}
 	for _, p := range touched {
 		base := filepath.Base(p)

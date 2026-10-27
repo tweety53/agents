@@ -219,6 +219,28 @@ func TestPipelineFixChecksGoAudits(t *testing.T) {
 	}
 }
 
+// A touched script or setup.sh selects the guard package's script audits
+// where the worktree has stats/internal/guard (kan-1038).
+func TestPipelineFixChecksScriptAudits(t *testing.T) {
+	t.Parallel()
+	wt := t.TempDir()
+	writeFile(t, wt+"/.flow/project.md", pfProject)
+	pe := pfEnv{projectGet: tcfScriptsDir(t) + "/project-get.sh"}
+	env := Env{Getenv: os.Getenv}
+	if cmds, _ := pfChecks(env, pe, wt, []string{"scripts/pipeline-fix.sh"}); slices.Contains(cmds, pfScriptAudits) {
+		t.Fatalf("a worktree without stats/internal/guard: %q selects %s", cmds, pfScriptAudits)
+	}
+	writeFile(t, wt+"/stats/internal/guard/doc.go", "package guard\n")
+	for _, p := range []string{"scripts/pipeline-fix.sh", "scripts/lib/flow-guard.sh", "setup.sh"} {
+		if cmds, rc := pfChecks(env, pe, wt, []string{p}); rc != 0 || !slices.Contains(cmds, pfScriptAudits) {
+			t.Fatalf("touched %s: rc %d, %q lacks %s", p, rc, cmds, pfScriptAudits)
+		}
+	}
+	if cmds, _ := pfChecks(env, pe, wt, []string{"stats/internal/guard/x.go"}); slices.Contains(cmds, pfScriptAudits) {
+		t.Fatalf("a touched Go file alone: %q selects %s", cmds, pfScriptAudits)
+	}
+}
+
 // A touched hook selects the whole repotest package, where its test lives.
 func TestPipelineFixChecksHooks(t *testing.T) {
 	t.Parallel()
