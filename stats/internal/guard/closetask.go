@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -119,6 +120,7 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	for _, t := range tasks {
 		worst = max(worst, Registry["check-task-commit-fields"]([]string{canonical, t.id, t.commit, "", canonical, name}, env, stdout, stderr))
 		worst = max(worst, ctCheckTrailer(env, stdout, stderr, canonical, name, t.id, t.commit))
+		worst = max(worst, ctCheckSuiteZips(env, stderr, canonical, t.id, t.commit))
 	}
 	worst = max(worst, Registry["check-task-commit-planning-paths"]([]string{canonical, mergeBase}, env, stdout, stderr))
 	// The push below sends every commit origin lacks: one outside every task
@@ -389,4 +391,79 @@ func ctUndispatched(env Env, canonical, name string, closed []string) []string {
 		}
 	}
 	return missing
+}
+
+// ctCheckSuiteZips refuses a task commit — every map pair's — whose
+// full-app-suite.zip is not rebuild-full-app-suite-zip.sh's output: it
+// rebuilds the zip in that worktree, compares the bytes with the committed
+// ones and writes the on-disk bytes back (kan-1016's self-review: a zip
+// hand-built with archive/zip was committed). The rebuild's <worktree> is the
+// canonical worktree, whose .flow/project.md declares where screenshots live
+// — the zip may sit in another repository, the regression checkout. A commit
+// deleting the zip is not judged. 1 a difference; 2 a screenshots root that
+// differs from the commit's or a rebuild that did not answer 0.
+func ctCheckSuiteZips(env Env, stderr io.Writer, canonical, id, commit string) int {
+	pairs := []string{canonical + "=" + commit}
+	if strings.Contains(commit, "=") {
+		pairs = strings.Split(commit, ",")
+	}
+	absOf := func(p string) string {
+		if filepath.IsAbs(p) {
+			return p
+		}
+		return filepath.Join(env.Dir, p)
+	}
+	absCanonical := absOf(canonical)
+	git := envGit(env)
+	worst := 0
+	for _, p := range pairs {
+		wt, sha, _ := strings.Cut(strings.TrimSpace(p), "=")
+		out, ok := capture(git("-C", wt, "diff-tree", "--no-renames", "--no-commit-id", "--name-only", "--diff-filter=d", "-r", sha))
+		if !ok {
+			continue // the fields guard already answers for an unreadable commit
+		}
+		for _, path := range strings.Split(out, "\n") {
+			if filepath.Base(path) != "full-app-suite.zip" {
+				continue
+			}
+			abs := filepath.Join(absOf(wt), path)
+			root := filepath.Dir(abs)
+			untracked, ok := capture(git("-C", wt, "ls-files", "--others", "--exclude-standard", "--", root))
+			if !ok || untracked != "" || git("-C", wt, "diff", "--quiet", sha, "--", root).Run() != nil {
+				fmt.Fprintf(stderr, "close-task: task %s: %s is not the commit's — cannot rebuild %s to compare\n", id, root, path)
+				worst = max(worst, 2)
+				continue
+			}
+			committed, err := git("-C", wt, "show", sha+":"+path).Output()
+			if err != nil {
+				fmt.Fprintf(stderr, "close-task: task %s: cannot read %s at %s\n", id, path, sha)
+				worst = max(worst, 2)
+				continue
+			}
+			onDisk, err := os.ReadFile(abs)
+			if err != nil {
+				fmt.Fprintf(stderr, "close-task: task %s: cannot read %s: %v\n", id, path, err)
+				worst = max(worst, 2)
+				continue
+			}
+			rbEnv := env
+			rbEnv.Dir = absCanonical
+			rc := Registry["rebuild-full-app-suite-zip"]([]string{absCanonical, root}, rbEnv, io.Discard, stderr)
+			rebuilt, _ := os.ReadFile(abs)
+			if err := os.WriteFile(abs, onDisk, 0o644); err != nil {
+				fmt.Fprintf(stderr, "close-task: task %s: cannot restore %s: %v\n", id, path, err)
+				worst = max(worst, 2)
+				continue
+			}
+			switch {
+			case rc != 0:
+				fmt.Fprintf(stderr, "close-task: task %s: rebuild-full-app-suite-zip exited %d — cannot judge %s\n", id, rc, path)
+				worst = max(worst, 2)
+			case !bytes.Equal(rebuilt, committed):
+				fmt.Fprintf(stderr, "close-task: task %s: %s is not rebuild-full-app-suite-zip.sh's output — rebuild it with that script and re-commit\n", id, path)
+				worst = max(worst, 1)
+			}
+		}
+	}
+	return worst
 }

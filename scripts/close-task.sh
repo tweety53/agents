@@ -30,6 +30,14 @@
 #      <name> for every task, and its commit's — every map pair's — Task-Id:
 #      trailer must name the task or a task its Build: red fold joins (exit 1
 #      otherwise): the trailer is how a task's commit is found again.
+#      A commit — any map pair's — whose diff-tree lists a path named
+#      full-app-suite.zip has that zip rebuilt in its worktree by
+#      rebuild-full-app-suite-zip.sh, the zip's directory as <screenshots
+#      root>, and the committed bytes written back: a difference prints
+#      `close-task: task <id>: <path> is not rebuild-full-app-suite-zip.sh's
+#      output — rebuild it with that script and re-commit` (exit 1); a
+#      screenshots root git status reports dirty, or a rebuild exit other
+#      than 0, is exit 2 (kan-1016's self-review: a hand-built zip).
 #   3. check-task-commit-planning-paths.sh <canonical> <merge-base>, then
 #      check-untasked-commits.sh <worktree> refs/remotes/origin/spectre/<name>
 #      once per distinct worktree whose branch origin already holds: the push

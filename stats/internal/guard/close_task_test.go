@@ -1,7 +1,11 @@
 package guard
 
 import (
+	"archive/zip"
+	"bytes"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -511,5 +515,136 @@ func TestCloseTaskJoinsARecordedWorktreeTheMapLeftOut(t *testing.T) {
 				t.Errorf("want the refusal to name z.txt\n%s", r.out)
 			}
 		})
+	}
+}
+
+// A task commit carrying a full-app-suite.zip the rebuild script did not
+// build is refused, and the committed bytes are left on disk; the script's
+// own zip closes (design.md suite-zip-at-close-task).
+func TestCloseTaskRefusesAHandBuiltSuiteZip(t *testing.T) {
+	t.Parallel()
+	if _, err := exec.LookPath("zip"); err != nil {
+		t.Skip("zip is not on PATH")
+	}
+	repo, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fx := ctFixture(t, true, "0", "0")
+	base := fx.env.Getenv
+	fx.env.Getenv = func(k string) string {
+		switch k {
+		case "FLOW_GUARD_SCRIPT_DIR":
+			return filepath.Join(repo, "scripts")
+		case "FLOW_GUARD_CACHE_DIR":
+			return guardCache(t)
+		}
+		return base(k)
+	}
+	writeFile(t, fx.wt+"/.flow/project.md", "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `screenshots` | `shots` |\n")
+	writeFile(t, fx.wt+"/shots/full-app-suite.spec.ts-snapshots/a.png", "a")
+	gitRun(t, fx.wt, "add", "-f", ".flow", "shots")
+	gitRun(t, fx.wt, "commit", "-q", "-m", "shots")
+	fx.base = tcfGit(t, fx.wt, "rev-parse", "HEAD")
+	plan := strings.Replace(ctPlan, "**Files:** `a.txt`", "**Files:** `a.txt`, `shots/full-app-suite.zip`", 1)
+	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", plan)
+	zipPath := fx.wt + "/shots/full-app-suite.zip"
+
+	// Hand-built with archive/zip.
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	w, _ := zw.Create("a.png")
+	w.Write([]byte("a"))
+	zw.Close()
+	writeFile(t, fx.wt+"/a.txt", "a\n")
+	if err := os.WriteFile(zipPath, buf.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, fx.wt, "add", "-f", "a.txt", "shots/full-app-suite.zip")
+	gitRun(t, fx.wt, "commit", "-q", "-m", "one", "-m", "Task-Id: 1")
+	s1 := tcfGit(t, fx.wt, "rev-parse", "HEAD")
+	r := fx.run(fx.wt, "demo", fx.base, "1:"+s1)
+	if r.rc != 1 || !strings.Contains(r.out, "close-task: task 1: shots/full-app-suite.zip is not rebuild-full-app-suite-zip.sh's output") {
+		t.Fatalf("hand-built zip: exit %d, want 1\n%s", r.rc, r.out)
+	}
+	if got, _ := os.ReadFile(zipPath); !bytes.Equal(got, buf.Bytes()) {
+		t.Errorf("the committed zip's bytes were not written back")
+	}
+
+	// The script's own zip closes.
+	gitRun(t, fx.wt, "reset", "-q", "--hard", fx.base)
+	if rc := Registry["rebuild-full-app-suite-zip"]([]string{fx.wt, fx.wt + "/shots"}, fx.env, io.Discard, os.Stderr); rc != 0 {
+		t.Fatalf("rebuild exit %d", rc)
+	}
+	writeFile(t, fx.wt+"/a.txt", "a\n")
+	gitRun(t, fx.wt, "add", "-f", "a.txt", "shots/full-app-suite.zip")
+	gitRun(t, fx.wt, "commit", "-q", "-m", "one", "-m", "Task-Id: 1")
+	s1 = tcfGit(t, fx.wt, "rev-parse", "HEAD")
+	if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1); r.rc != 0 {
+		t.Fatalf("script-built zip: exit %d, want 0\n%s", r.rc, r.out)
+	}
+}
+
+// The zip lives in the regression checkout, a second repository whose own
+// tree has no .flow/project.md: the rebuild reads the canonical worktree's
+// config, which names that checkout (kan-1016's self-review, C1).
+func TestCloseTaskRebuildsASuiteZipInTheRegressionCheckout(t *testing.T) {
+	t.Parallel()
+	if _, err := exec.LookPath("zip"); err != nil {
+		t.Skip("zip is not on PATH")
+	}
+	repo, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fx := ctFixture(t, true, "0", "0")
+	// The resolver answers with git's real paths; the temp dir sits under a symlink on macOS.
+	if fx.peer, err = filepath.EvalSymlinks(fx.peer); err != nil {
+		t.Fatal(err)
+	}
+	base := fx.env.Getenv
+	fx.env.Getenv = func(k string) string {
+		switch k {
+		case "FLOW_GUARD_SCRIPT_DIR":
+			return filepath.Join(repo, "scripts")
+		case "FLOW_GUARD_CACHE_DIR":
+			return guardCache(t)
+		}
+		return base(k)
+	}
+	writeFile(t, fx.wt+"/.flow/project.md", "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `screenshots` | `shots` |\n| `regression checkout` | `"+fx.peer+"` |\n")
+	gitRun(t, fx.wt, "add", "-f", ".flow")
+	gitRun(t, fx.wt, "commit", "-q", "-m", "config")
+	fx.base = tcfGit(t, fx.wt, "rev-parse", "HEAD")
+	writeFile(t, fx.peer+"/shots/full-app-suite.spec.ts-snapshots/a.png", "a")
+	if rc := Registry["rebuild-full-app-suite-zip"]([]string{fx.wt, fx.peer + "/shots"}, fx.env, io.Discard, os.Stderr); rc != 0 {
+		t.Fatalf("rebuild exit %d", rc)
+	}
+	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", strings.Replace(ctPlan, "**Files:** `c.txt`, `d.txt`", "**Files:** `c.txt`, `shots/full-app-suite.zip`, `shots/full-app-suite.spec.ts-snapshots/a.png`", 1))
+	s3 := fx.commit(t, fx.wt, "three", "3", "c.txt", "c\n")
+	gitRun(t, fx.peer, "add", "-f", "shots")
+	gitRun(t, fx.peer, "commit", "-q", "-m", "three", "-m", "Task-Id: 3")
+	p3 := tcfGit(t, fx.peer, "rev-parse", "HEAD")
+	if r := fx.run(fx.wt, "demo", fx.base, "3:"+fx.wt+"="+s3+","+fx.peer+"="+p3); r.rc != 0 {
+		t.Fatalf("script-built zip in the regression checkout: exit %d, want 0\n%s", r.rc, r.out)
+	}
+}
+
+// A zip deleted by the task commit is not judged (kan-1016's self-review, M1).
+func TestCloseTaskSuiteZipAgainstTheTaskCommit(t *testing.T) {
+	t.Parallel()
+	fx := ctFixture(t, true, "0", "0")
+	writeFile(t, fx.wt+"/shots/full-app-suite.zip", "z")
+	gitRun(t, fx.wt, "add", "-f", "shots")
+	gitRun(t, fx.wt, "commit", "-q", "-m", "zip")
+	fx.base = tcfGit(t, fx.wt, "rev-parse", "HEAD")
+	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", strings.Replace(ctPlan, "**Files:** `a.txt`", "**Files:** `a.txt`, `shots/full-app-suite.zip`", 1))
+	writeFile(t, fx.wt+"/a.txt", "a\n")
+	gitRun(t, fx.wt, "rm", "-q", "shots/full-app-suite.zip")
+	gitRun(t, fx.wt, "add", "-f", "a.txt")
+	gitRun(t, fx.wt, "commit", "-q", "-m", "one", "-m", "Task-Id: 1")
+	s1 := tcfGit(t, fx.wt, "rev-parse", "HEAD")
+	if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1); r.rc != 0 {
+		t.Fatalf("deleted zip: exit %d, want 0\n%s", r.rc, r.out)
 	}
 }
