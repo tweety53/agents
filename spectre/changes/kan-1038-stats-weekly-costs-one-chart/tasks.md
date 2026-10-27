@@ -81,3 +81,15 @@ Correction (2026-10-27): the plan's spec ran against the UI-test fixture alone, 
 **Commit:** `feat(flow): prototype visible changes during planning`
 
 **Decision:** plan-visual-prototype
+
+- [ ] 5. In-run fix 1 — verify: Weekly costs chart crashes when a visible series has no measured week
+  - [ ] **Step 1: Write the failing test** `weekly costs draws a series with no measured week as no line` in `stats/web/src/views/views.test.tsx`: a `weekly-costs` response whose Review is null every week renders the chart, the Review toggle and no Review line or point. Run `cd stats/web && npx vitest run src/views/views.test.tsx -t 'weekly costs'` — RED (`TypeError: Cannot read properties of undefined (reading 'series')`).
+  - [ ] **Step 2: Fix** in `stats/web/src/views/WeeklyCosts.tsx`: a line with no measured point draws nothing, before its series is read.
+  - [ ] **Step 3: Verify:** `cd stats/web && npx tsc -b && npx vitest run src/views/views.test.tsx -t 'weekly costs'`.
+
+**Files:** `stats/web/src/views/WeeklyCosts.tsx`, `stats/web/src/views/views.test.tsx`
+**Tests:** `weekly costs draws a series with no measured week as no line`
+**Regression:** `weekly costs draws a series with no measured week as no line` fails, because the round-1 fix read `line.find(...)!.series` on an all-null line and threw.
+**Build:** green
+**After:** Task 1
+**Commit:** `fix(stats): Weekly costs draws a series with no measured week as no line`

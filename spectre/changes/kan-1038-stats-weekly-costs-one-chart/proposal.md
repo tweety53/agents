@@ -12,3 +12,5 @@ The Weekly costs dashboard (KAN-1037) is hard to read: an 8-week table beside a 
 - X axis (week start, Wed UTC) and Y axis (Cost, USD) are labelled with tick values.
 - The filter bar (period, project, model) is not rendered on Weekly costs; the dashboard always covers every project and model.
 - `/flow` planning builds and publishes a clickable visual prototype whenever the change alters something a user sees, and iterates it with the operator before design approval.
+
+- In-run fix 1 (verify, 2026-10-27): `App.test.tsx`'s `weekly costs renders no filter bar` crashed the chart — a series with no measured week threw on `line.find(...)!.series`; such a series now draws no line.
