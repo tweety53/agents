@@ -11,8 +11,10 @@
 // RECORDING (kan-1033 self-review: the parent hand-recorded the verify row and
 // back-filled a forgotten begin with a guessed start). Given the five trailing
 // arguments, the list records its own `verifier` row through `flow record
-// dispatch`: `begin` (`-agent-id inline`) before its first command, and `end
-// -outcome completed` after its last only when the list exited 0. No `flow`
+// dispatch`: `begin` (`-agent-id inline`) before its first command, and `end`
+// after its last: `-outcome completed` when the list exited 0, `-outcome
+// blocked -cause test-failure` when a command failed, `-outcome skipped` when
+// every command of a `test` list was skipped. No `flow`
 // on PATH exits 2 before any command runs. The optional sixth recording
 // argument, <canonical-worktree>, is the `-C` of both calls — the worktree
 // holding spectre/changes/<change> when <worktree> is another checkout of a
@@ -100,10 +102,12 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -154,6 +158,13 @@ var (
 )
 
 func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
+	// A closed reader (`| head`) must not kill the list before its row's
+	// `end`: writes return EPIPE instead (decision f6-ignore-sigpipe, kan-1037).
+	// Notify, not Ignore: an ignored SIGPIPE is inherited by every list
+	// command, where Go resets a handled one to the default in each child.
+	sigpipe := make(chan os.Signal, 1)
+	signal.Notify(sigpipe, syscall.SIGPIPE)
+	defer signal.Stop(sigpipe)
 	abs := func(p string) string {
 		if env.Dir != "" && !filepath.IsAbs(p) {
 			return filepath.Join(env.Dir, p)

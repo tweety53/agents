@@ -105,8 +105,13 @@ detached `<name>-mutation-1` worktree reporting it.
 
 **ID:** f6-ignore-sigpipe
 **Status:** active
-**Chosen:** `signal.Ignore(syscall.SIGPIPE)` as the first statement of `runVerifyList`; writes then
-return EPIPE and the list runs to its `end`. Test `TestRunVerifyListSurvivesAClosedStdout` runs the
+**Chosen:** `signal.Notify(make(chan os.Signal, 1), syscall.SIGPIPE)` as the first statement of
+`runVerifyList`, stopped on return; writes to fd 1 and 2 then return EPIPE and the list runs to its
+`end`. Not `signal.Ignore(syscall.SIGPIPE)` (self-review review 1, Important 1): an ignored SIGPIPE
+survives `execve`, so every list command would start with it ignored — `yes | head -1` never ends
+and `PIPESTATUS` changes from 141 to 0 — where Go resets a signal it handles to the default in each
+child. Test `TestRunVerifyListKeepsSIGPIPEForCommands` asserts a list command's producer still exits
+141. Test `TestRunVerifyListSurvivesAClosedStdout` runs the
 built flow-guard `run-verify-list` subprocess with stdout a pipe whose read end is closed, and
 asserts the row's `end` was recorded (the fake store's log) and the process did not die of SIGPIPE.
 

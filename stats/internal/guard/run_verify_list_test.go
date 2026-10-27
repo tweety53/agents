@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -583,5 +584,76 @@ func TestRunVerifyListKeepsResultFiles(t *testing.T) {
 	}
 	if dirs[0] == dirs[1] {
 		t.Errorf("both runs kept into %s", dirs[0])
+	}
+}
+
+// TestRunVerifyListSurvivesAClosedStdout pins decision f6-ignore-sigpipe
+// (kan-1037): with stdout a pipe whose reader is gone (`| head`), the list is
+// not killed by SIGPIPE and still records its row's end. The guard runs in a
+// child copy of this test binary, since SIGPIPE ends its process.
+func TestRunVerifyListSurvivesAClosedStdout(t *testing.T) {
+	if wt := os.Getenv("RVL_SIGPIPE_WT"); wt != "" {
+		os.Exit(runVerifyList([]string{wt, "test", "kan-1", "verify", "mf-k1", "opus", "low"},
+			Env{Getenv: os.Getenv, Environ: os.Environ, Dir: wt}, os.Stdout, os.Stderr))
+	}
+	repo, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\necho \"flow $*\" >> "+log+"\n")
+	wt, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\nseq 1 200000\ntrue\n```\n")
+	for _, args := range [][]string{{"init", "-q"}, {"add", "-A"}, {"commit", "-q", "-m", "one"}} {
+		if out, err := exec.Command(fixtureGit, append([]string{"-C", wt, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Close()
+	cmd := exec.Command(os.Args[0], "-test.run=^TestRunVerifyListSurvivesAClosedStdout$")
+	cmd.Env = append(os.Environ(), "RVL_SIGPIPE_WT="+wt, "FLOW_GUARD_CACHE_DIR="+guardCache(t),
+		"FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"), "PATH="+dir+":"+os.Getenv("PATH"))
+	var stderr bytes.Buffer
+	cmd.Stdout, cmd.Stderr = w, &stderr
+	err = cmd.Run()
+	w.Close()
+	var exit *exec.ExitError
+	if errors.As(err, &exit) {
+		if ws := exit.Sys().(syscall.WaitStatus); ws.Signaled() {
+			t.Fatalf("run-verify-list died of %v; stderr %q", ws.Signal(), stderr.String())
+		}
+	}
+	calls, _ := os.ReadFile(log)
+	if want := "flow record dispatch end -C " + wt + " -change kan-1 -key verify -session-token mf-k1 -outcome completed\n"; !strings.HasSuffix(string(calls), want) {
+		t.Errorf("err %v, calls:\n%s\nwant the row's end %q; stderr %q", err, calls, want, stderr.String())
+	}
+}
+
+// TestRunVerifyListKeepsSIGPIPEForCommands pins decision f6-ignore-sigpipe's
+// Notify form: a list command's pipeline producer still dies of SIGPIPE (141),
+// which an inherited signal.Ignore would turn into an EPIPE write error.
+func TestRunVerifyListKeepsSIGPIPEForCommands(t *testing.T) {
+	repo, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("FLOW_GUARD_CACHE_DIR", guardCache(t))
+	t.Setenv("FLOW_GUARD_SCRIPT_DIR", filepath.Join(repo, "scripts"))
+	wt, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\nbash -c 'yes | head -1 >/dev/null; test ${PIPESTATUS[0]} = 141'\n```\n")
+	var out, errb bytes.Buffer
+	if rc := runVerifyList([]string{wt, "test"}, Env{Getenv: os.Getenv, Environ: os.Environ, Dir: wt}, &out, &errb); rc != 0 {
+		t.Fatalf("rc %d, want 0: the producer did not die of SIGPIPE\nstdout:\n%s\nstderr:\n%s", rc, out.String(), errb.String())
 	}
 }
