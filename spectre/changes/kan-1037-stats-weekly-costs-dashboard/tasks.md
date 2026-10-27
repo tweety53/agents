@@ -19,8 +19,8 @@
 - Work in `/Users/tweety53/Projects/agents-worktrees/kan-1037-stats-weekly-costs-dashboard`. Every `**Files:**` path is relative to its root. Never touch the main checkout.
 - Never stop the dev workspace's `flowd` or `flow-postgres`.
 
-- [ ] 1. Store and API: the `weekly-costs` view
-  - [ ] **Step 1: Write the failing store test** `TestWeeklyCostsBucketsByWednesdayAndCategory` in `stats/internal/store/aggregate_test.go`, after `TestTrendOverTimeBucketsByDay`. Seed with `seedChange`, `baseBeginInput` and `costRun`, as that test does, setting each input's stage key to the category's key (read `store.BeginStageInput` for the field name). Seed:
+- [x] 1. Store and API: the `weekly-costs` view
+  - [x] **Step 1: Write the failing store test** `TestWeeklyCostsBucketsByWednesdayAndCategory` in `stats/internal/store/aggregate_test.go`, after `TestTrendOverTimeBucketsByDay`. Seed with `seedChange`, `baseBeginInput` and `costRun`, as that test does, setting each input's stage key to the category's key (read `store.BeginStageInput` for the field name). Seed:
     - change `kan-1`:
       - Tue 2026-06-09 23:00Z, `flow.sdd-tdd`, $5. Lands in week Wed 06-03.
       - Wed 2026-06-10 00:00Z, `flow.brainstorm`, $10.
@@ -35,7 +35,7 @@
     - point 1: `Week` = 2026-06-10 00:00Z, overall 110, planning 10, implementation 20, review 30, self-review 43.
 
     Run `cd stats && go test ./internal/store -run TestWeeklyCosts`. It fails to compile, which is the expected RED.
-  - [ ] **Step 2: Implement** in `stats/internal/store/aggregate.go`, after `TrendOverTime`:
+  - [x] **Step 2: Implement** in `stats/internal/store/aggregate.go`, after `TrendOverTime`:
 
 ```go unverified:compiles-against-store
 // WeeklyCostPoint is one Wednesday-to-Wednesday week's cost totals: overall,
@@ -105,13 +105,13 @@ func (s *Store) WeeklyCosts(ctx context.Context, period Period, project, model *
 ```
 
     Match the column names (`c.name`, `sr.stage_key`) to the schema; read `stats/internal/store/migrations/` if either differs. `date_trunc` on a `timestamptz` uses the session timezone, so confirm the pool's session runs in UTC, or write `date_trunc('week', (sr.started_at AT TIME ZONE 'UTC') - interval '2 days') AT TIME ZONE 'UTC' + interval '2 days'`. The store test's boundary rows decide which is right.
-  - [ ] **Step 3: Wire the API** in `stats/internal/api/stats.go`, following `viewTrend` exactly:
+  - [x] **Step 3: Wire the API** in `stats/internal/api/stats.go`, following `viewTrend` exactly:
     - Add `WeeklyCosts(ctx, period, project, model *string) ([]store.WeeklyCostPoint, error)` to the store interface (near line 49).
     - Add `viewWeeklyCosts viewName = "weekly-costs"` and its place in the view list (near lines 109–121).
     - Add a `case viewWeeklyCosts:` returning `toWeeklyCostDTOs(points)`.
     - Add `weeklyCostPointDTO{Week string \`json:"week"\`, OverallUsd, PlanningUsd, ImplementationUsd, ReviewUsd, SelfReviewUsd *float64}`, with JSON keys `overallUsd`, `planningUsd`, `implementationUsd`, `reviewUsd` and `selfReviewUsd`. `week` is formatted as `trendPointDTO` formats `day`.
     - Add `WeeklyCosts` to both fakes in `stats/internal/api/stats_test.go` (`fakeStore`, `statsFake`), mirroring their `TrendOverTime`. Extend any every-view fixture table that lists views per name (`TestEveryViewCarriesItsRealNumbersThrough` and its siblings) with a `weekly-costs` entry carrying a real number.
-  - [ ] **Step 4: Verify:** `cd stats && gofmt -w . && go vet ./... && go test ./internal/store -run 'TestWeeklyCosts' && go test ./internal/api`.
+  - [x] **Step 4: Verify:** `cd stats && gofmt -w . && go vet ./... && go test ./internal/store -run 'TestWeeklyCosts' && go test ./internal/api`.
 
 **Files:** `stats/internal/store/aggregate.go`, `stats/internal/store/aggregate_test.go`, `stats/internal/api/stats.go`, `stats/internal/api/stats_test.go`
 **Tests:** `TestWeeklyCostsBucketsByWednesdayAndCategory`
@@ -121,13 +121,15 @@ func (s *Store) WeeklyCosts(ctx context.Context, period Period, project, model *
 **After:** none
 **Commit:** `feat(stats): weekly Wed-to-Wed cost totals by category`
 
+Correction (2026-10-27): the plan classified on `sr.stage_key`; that column is never written (NULL on every dev-store row), and the stage key lives in `sr.stage`, so the query and the test seed classify on `stage`. The week bucket uses `date_trunc('week', …, 'UTC')`, the time-zone argument, rather than relying on the session timezone. `fakeStore`'s `WeeklyCosts` returns no rows and carries no field, so `stats/internal/api/changes_test.go`, where `fakeStore`'s fields live, is untouched.
+
 **Decision:** classify-by-stage
 **Decision:** other-stages-overall-only
 **Decision:** wednesday-utc-bucket
 **Decision:** absent-category-null
 
-- [ ] 2. SPA: Weekly costs view, multi-series chart
-  - [ ] **Step 1: Write the failing tests** in `stats/web/src/views/views.test.tsx`:
+- [x] 2. SPA: Weekly costs view, multi-series chart
+  - [x] **Step 1: Write the failing tests** in `stats/web/src/views/views.test.tsx`:
     - Add a `"weekly-costs"` fixture to the fixtures keyed by view slug, alongside the `trend` one: two rows with `week` set to `2026-06-03` and `2026-06-10`. The first row is `overallUsd` 5, `implementationUsd` 5 and the other three `null`; the second is 110, 10, 20, 30, 43.
     - Add `it("weekly costs shows all five totals per week and a five-line chart")`. Render `WeeklyCosts` as the `trend` test renders `Trend`, then assert:
       - the five column headers `Overall`, `Planning`, `Implementation`, `Review` and `Self-review`;
@@ -135,21 +137,21 @@ func (s *Store) WeeklyCosts(ctx context.Context, period Period, project, model *
       - the chart legend lists the five series.
 
     Run `cd stats/web && npx vitest run src/views/views.test.tsx -t 'weekly costs'`. It fails, which is the expected RED.
-  - [ ] **Step 2: Extend `stats/web/src/components/TimeSeriesPanel.tsx`** with an optional `series?: { name: string; points: TimeSeriesPoint[] }[]` prop. When `series` is given:
+  - [x] **Step 2: Extend `stats/web/src/components/TimeSeriesPanel.tsx`** with an optional `series?: { name: string; points: TimeSeriesPoint[] }[]` prop. When `series` is given:
     - draw one `<polyline>` per series over a shared x axis (the union of days, in order) and a shared y range;
     - use the same null-breaks-the-line rule;
     - give each series a distinct stroke from CSS variables already defined in `stats/web/src/theme.css`, adding `--series-1`…`--series-5` there if none fit;
     - render a legend `<ul data-testid="time-series-legend">` of the names.
 
     With only `points` it renders exactly as before. Keep the empty state when every series is empty.
-  - [ ] **Step 3: Add `stats/web/src/views/WeeklyCosts.tsx`**, using `Trend.tsx`'s structure:
+  - [x] **Step 3: Add `stats/web/src/views/WeeklyCosts.tsx`**, using `Trend.tsx`'s structure:
     - `lastEightWeeks(now)`: `from` is the UTC Wednesday 00:00 of the current week (`(now.getUTCDay() + 4) % 7` days back) minus 49 days, and `to` is `now`.
     - The table makes `useStatsView<WeeklyCostPoint[]>("weekly-costs", { ...lastEightWeeks(new Date()), project, model })`. It renders a `DataTable` with columns Week, Overall, Planning, Implementation, Review and Self-review, and each cost cell renders `<Unavailable value=… format={formatUsd} />`. It ignores `period`.
     - The chart makes `useStatsView<WeeklyCostPoint[]>("weekly-costs", { from: period.from, to: period.to, project, model })` and renders `<TimeSeriesPanel series={…five series named as the columns…} format={formatUsd} />`.
     - The `ViewFrame` title is "Weekly costs" and the description is "Wednesday-to-Wednesday cost by pipeline phase."
     - Compute the 8-week period once per mount (`useMemo`), so a re-render does not refetch.
-  - [ ] **Step 4: Register** `"weekly-costs"` in `stats/web/src/api.ts`: add it to `ViewName` and `VIEW_NAMES`, and add an exported `WeeklyCostPoint` interface mirroring `weeklyCostPointDTO`. In `stats/web/src/App.tsx`, add `VIEW_LABELS["weekly-costs"] = "Weekly costs"` and `VIEW_COMPONENTS["weekly-costs"] = WeeklyCosts`.
-  - [ ] **Step 5: Verify:** `cd stats/web && npx tsc -b && npx vitest run src/views/views.test.tsx -t 'weekly costs'`.
+  - [x] **Step 4: Register** `"weekly-costs"` in `stats/web/src/api.ts`: add it to `ViewName` and `VIEW_NAMES`, and add an exported `WeeklyCostPoint` interface mirroring `weeklyCostPointDTO`. In `stats/web/src/App.tsx`, add `VIEW_LABELS["weekly-costs"] = "Weekly costs"` and `VIEW_COMPONENTS["weekly-costs"] = WeeklyCosts`.
+  - [x] **Step 5: Verify:** `cd stats/web && npx tsc -b && npx vitest run src/views/views.test.tsx -t 'weekly costs'`.
 
 **Files:** `stats/web/src/components/TimeSeriesPanel.tsx`, `stats/web/src/views/WeeklyCosts.tsx`, `stats/web/src/views/views.test.tsx`, `stats/web/src/api.ts`, `stats/web/src/App.tsx`
 **Allowed-collateral:** `stats/web/src/theme.css`
@@ -159,6 +161,8 @@ func (s *Store) WeeklyCosts(ctx context.Context, period Period, project, model *
 **Build:** green
 **After:** Task 1
 **Commit:** `feat(stats): Weekly costs dashboard with five-line chart`
+
+Correction (2026-10-27): the test also asserts the table's own fetch starts on a Wednesday 00:00 UTC, 7 to 8 weeks back, so `lastEightWeeks` carries a check that fails when the anchor is wrong. The 8-week table is given no `period`/`onPeriodChange`, since it ignores the picker and its empty state must not blame the picker. Series strokes and the legend layout are inline styles, so `stats/web/src/styles.css` is untouched.
 
 **Decision:** table-fixed-graph-on-picker
 **Decision:** partial-current-week
