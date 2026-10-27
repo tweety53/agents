@@ -1,0 +1,70 @@
+diff --git a/scripts/test-prompt-tuning-line.sh b/scripts/test-prompt-tuning-line.sh
+new file mode 100755
+index 00000000..975b251e
+--- /dev/null
++++ b/scripts/test-prompt-tuning-line.sh
+@@ -0,0 +1,23 @@
++#!/usr/bin/env bash
++# test-prompt-tuning-line.sh — the Finished handoff's `**Prompt tuning:**`
++# line keeps its operator-requested shape (pipeline-fix 35): the value is an
++# `index.html` path or the literal NONE with no reason, and the line is stated
++# as present in every /flow and /flow-fast run's final message.
++# Exit codes: 0 pass, 1 fail.
++set -u
++cd "$(dirname "$0")/.." || exit 1
++rc=0
++fail() { printf 'FAIL: %s\n' "$1"; rc=1; }
++grep -qF '**Prompt tuning:** <each case'"'"'s `index.html` absolute path in `<agents repo>`'"'"'s main checkout> | NONE' skills/flow/cleanup.md \
++  || fail "skills/flow/cleanup.md: Finished block lacks the '**Prompt tuning:** <path> | NONE' line"
++grep -qF '| NONE — <reason>' <(grep -F 'Prompt tuning:' skills/flow/cleanup.md) \
++  && fail "skills/flow/cleanup.md: Prompt tuning NONE carries a reason"
++grep -qF "**The \`Prompt tuning:\` line is present in every \`/flow\` and \`/flow-fast\` run's final message.**" skills/flow/cleanup.md \
++  || fail "skills/flow/cleanup.md: no always-present sentence for the Prompt tuning line"
++grep -qF '`**Prompt tuning:**`' skills/flow-fast/SKILL.md \
++  || fail "skills/flow-fast/SKILL.md: does not cite the '**Prompt tuning:**' line"
++if grep -rnF 'Prompt-tuning:' skills rules scripts stats --include='*.md' --include='*.mdc' --include='*.sh' --include='*.go' | grep -v 'scripts/test-prompt-tuning-line.sh'; then
++  fail "a 'Prompt-tuning:' spelling remains"
++fi
++[ "$rc" -eq 0 ] && printf 'all cases passed\n'
++exit "$rc"
+diff --git a/skills/flow-fast/SKILL.md b/skills/flow-fast/SKILL.md
+index 720ba2ff..bcb73d47 100644
+--- a/skills/flow-fast/SKILL.md
++++ b/skills/flow-fast/SKILL.md
+@@ -350,7 +350,7 @@ flow stage begin -command '/flow-fast' -stage flow.run-instructions -harness <ha
+ 
+ Print the change summary: what changed and why, grouped by area, one or two sentences each;
+ what was verified and how; anything deliberately left out; the self-review report path and
+-its fixed shas when section 5 committed one; and the `**Learning:**` and `**Prompt-tuning:**`
++its fixed shas when section 5 committed one; and the `**Learning:**` and `**Prompt tuning:**`
+ lines of the Finished handoff (`skills/flow/cleanup.md`), never omitted. This is the one report the run prints.
+ 
+ **Then the handoff, decided by `## handoff`** (**Project configuration**,
+diff --git a/skills/flow/cleanup.md b/skills/flow/cleanup.md
+index 31800cf7..38612a64 100644
+--- a/skills/flow/cleanup.md
++++ b/skills/flow/cleanup.md
+@@ -60,14 +60,18 @@ merged** (`skills/flow-contracts/finish-contract-run2.md`).
+ **Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
+ **Jira:** <KEY> → Done | none linked | ⚠ Jira: skipped — <reason>
+ **Learning:** <the learning note's absolute path> | NONE — <reason>
+-**Prompt-tuning:** <each case's `index.html` absolute path in `<agents repo>`'s main checkout> | NONE — <reason>
++**Prompt tuning:** <each case's `index.html` absolute path in `<agents repo>`'s main checkout> | NONE
+ ```
+ 
+-**`Learning:` and `Prompt-tuning:` are never omitted** — this block, and `/flow-fast`'s landing report, which carries the same two lines, are where they are canonical. `Learning:` names the file **Learning**
++**`Learning:` and `Prompt tuning:` are never omitted** — this block, and `/flow-fast`'s landing report, which carries the same two lines, are where they are canonical. `Learning:` names the file **Learning**
+ (`skills/flow-contracts/learning.md`) places at `<project>-learning/<name>.md` when it exists; its <!-- citations-guard:allow -->
+-`NONE` reason is the setting off or the store unreachable. `Prompt-tuning:` names every case the
+-self-review's step 2a wrote (`skills/flow-self-review/SKILL.md`); its `NONE` reason is angle 8's
+-own empty-angle sentence.
++`NONE` reason is the setting off or the store unreachable. `Prompt tuning:` names every case the
++self-review's step 2a wrote (`skills/flow-self-review/SKILL.md`), and is the literal `NONE`, with no
++reason after it, when that step wrote none.
++
++**The `Prompt tuning:` line is present in every `/flow` and `/flow-fast` run's final message.** The
++Finished handoff is printed as that message, and a final report written beside it or instead of it
++still carries the line.
+ 
+ A run 2 that **completes step 5** is terminal and names **no** next command.
+ 
