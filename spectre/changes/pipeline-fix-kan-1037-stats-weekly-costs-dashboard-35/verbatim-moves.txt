@@ -6,4 +6,7 @@ Print the change summary: what changed and why, grouped by area, one or two sent
 **Prompt tuning:** <each case's `index.html` absolute path in `<agents repo>`'s main checkout> | NONE
 **The `Prompt tuning:` line is present in every `/flow` and `/flow-fast` run's final message.
 **`Learning:` and `Prompt tuning:` are never omitted** — this block, and `/flow-fast`'s landing report, which carries the same two lines, are where they are canonical.
-The Finished handoff is printed as that message, and a final report written beside it or instead of it still carries the line.
+The Finished handoff, integrate run 1's `## Handoff` block (`skills/flow/integrate.md`) and the `IN_PROGRESS` handoff (`skills/flow/verify-and-handoff.md`) each carry it as printed, and a final report written beside it or instead of it still carries the line.
+**Prompt tuning:** <each case's `index.html` absolute path in `<agents repo>`'s main checkout> | NONE (`skills/flow/cleanup.md`)
+The `**Prompt tuning:**` line follows it, as `skills/flow/cleanup.md` defines it.
+The `**Prompt tuning:**` line is the one `skills/flow/cleanup.md` defines.

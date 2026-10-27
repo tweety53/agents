@@ -60,14 +60,19 @@ merged** (`skills/flow-contracts/finish-contract-run2.md`).
 **Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 **Jira:** <KEY> → Done | none linked | ⚠ Jira: skipped — <reason>
 **Learning:** <the learning note's absolute path> | NONE — <reason>
-**Prompt-tuning:** <each case's `index.html` absolute path in `<agents repo>`'s main checkout> | NONE — <reason>
+**Prompt tuning:** <each case's `index.html` absolute path in `<agents repo>`'s main checkout> | NONE
 ```
 
-**`Learning:` and `Prompt-tuning:` are never omitted** — this block, and `/flow-fast`'s landing report, which carries the same two lines, are where they are canonical. `Learning:` names the file **Learning**
+**`Learning:` and `Prompt tuning:` are never omitted** — this block, and `/flow-fast`'s landing report, which carries the same two lines, are where they are canonical. `Learning:` names the file **Learning**
 (`skills/flow-contracts/learning.md`) places at `<project>-learning/<name>.md` when it exists; its <!-- citations-guard:allow -->
-`NONE` reason is the setting off or the store unreachable. `Prompt-tuning:` names every case the
-self-review's step 2a wrote (`skills/flow-self-review/SKILL.md`); its `NONE` reason is angle 8's
-own empty-angle sentence.
+`NONE` reason is the setting off or the store unreachable. `Prompt tuning:` names every case the
+self-review's step 2a wrote (`skills/flow-self-review/SKILL.md`), and is the literal `NONE`, with no
+reason after it, when that step wrote none.
+
+**The `Prompt tuning:` line is present in every `/flow` and `/flow-fast` run's final message.** The
+Finished handoff, integrate run 1's `## Handoff` block (`skills/flow/integrate.md`) and the
+`IN_PROGRESS` handoff (`skills/flow/verify-and-handoff.md`) each carry it as printed, and a final report written beside it or instead of it
+still carries the line.
 
 A run 2 that **completes step 5** is terminal and names **no** next command.
 

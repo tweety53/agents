@@ -98,6 +98,7 @@ dropped rather than reported missing otherwise. The open-questions entry shape i
 **Summary:** (run-only) <what this round changed for a user of the app, then one bullet per line another contract requires in the handoff>
 **Decisions:** (run-only) <one line per open question the operator must answer and per prompt the run took on its recommended option, 🤖-marked, question and option taken, or "none">
 **Learning:** (run-only) <the learning note's absolute path, when composed — **Learning**, `skills/flow-contracts/learning.md`>
+**Prompt tuning:** <each case's `index.html` absolute path in `<agents repo>`'s main checkout> | NONE (`skills/flow/cleanup.md`)
 **Staged:** <completed>/<total> tasks · <staged and uncommitted, committed and pushed to the PR branch, or committed and pushed with no PR — run 1 merged it or handed it over>
 **Records:** <all writes reached the store, "N write(s) journalled — the store was unreachable", or "unknown — the journal could not be counted">
 
