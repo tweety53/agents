@@ -6,13 +6,13 @@ The pass covers what the bundle holds plus the commits, store rows, transcripts 
 
 ## Problems encountered, and what pipeline change would avoid them — `flow-fix`
 
-- **[flow-fix]** `flow-postgres` had restart policy `no`, so quitting Docker Desktop left the flow store down until a manual `docker start` — fixed: 03041a84
-- **[flow-fix]** A reviewer reproducer run in the canonical worktree reverted an uncommitted edit; `run-reproducer` only detected it afterwards — fixed: a6810e34
-- **[flow-fix]** `panel-fix-<round>` was ambiguous and `panel-fix-0` was admitted, so an inline back-fill took no reviewer floor; three rows rekeyed and one retimed — fixed: 89ebbdcf
-- **[flow-fix]** A journalled `dispatch end` froze the caller's clock and skipped the transcript end correction; three panel-0 rows retimed — fixed: 2a0ec40b
-- **[flow-fix]** The 18:07Z store stall left no evidence: the live flowd log was undocumented and swollen by per-tick stuck-journal warnings, and postgres logged no lock waits; lock-holder hypothesis disproved — fixed: a88bd220
-- **[flow-fix]** Re-running `panel-round-begins.sh` after a journalled begin duplicated a pass-log note; duplicate row 2504 dropped — fixed: f62ed148
-- **[flow-fix]** The inline verify row was harvested as 0 tokens: two verify groups shared key `verify` and the settle pass zeroed the row against the lint run's end; session-mismatch hypothesis disproved; row 8235 restamped — fixed: 4fd1ac79
+- **[flow-fix]** `flow-postgres` had restart policy `no`, so quitting Docker Desktop left the flow store down until a manual `docker start` — fixed: df9afca1
+- **[flow-fix]** A reviewer reproducer run in the canonical worktree reverted an uncommitted edit; `run-reproducer` only detected it afterwards — fixed: e25ef772
+- **[flow-fix]** `panel-fix-<round>` was ambiguous and `panel-fix-0` was admitted, so an inline back-fill took no reviewer floor; three rows rekeyed and one retimed — fixed: b03e5a14
+- **[flow-fix]** A journalled `dispatch end` froze the caller's clock and skipped the transcript end correction; three panel-0 rows retimed — fixed: 8c97d640
+- **[flow-fix]** The 18:07Z store stall left no evidence: the live flowd log was undocumented and swollen by per-tick stuck-journal warnings, and postgres logged no lock waits; lock-holder hypothesis disproved — fixed: 07d4b6cb
+- **[flow-fix]** Re-running `panel-round-begins.sh` after a journalled begin duplicated a pass-log note; duplicate row 2504 dropped — fixed: 60a30324
+- **[flow-fix]** The inline verify row was harvested as 0 tokens: two verify groups shared key `verify` and the settle pass zeroed the row against the lint run's end; session-mismatch hypothesis disproved; row 8235 restamped — fixed: 948f2a75
 - **[flow-fix]** The `internal/store` suite hit the 10-minute timeout during the outage; storetest rejects fixed deadlines by design and the package passed alone in 94.7 s — noted
 - **[flow-fix]** The store refused the late inline `panel-fix-0` begin, correctly — noted
 
@@ -35,7 +35,7 @@ _none — this angle produced no findings._
 
 ## What can be sped up — `flow-speed`
 
-- **[flow-speed]** `flow suite record` did not journal, so the outage lost suite records and prompted a 477 s guard-suite re-run — fixed: 627ca9cd
+- **[flow-speed]** `flow suite record` did not journal, so the outage lost suite records and prompted a 477 s guard-suite re-run — fixed: ebb95e80
 
 ## What would make a good flow-eval case — `flow-eval`
 
