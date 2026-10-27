@@ -103,7 +103,9 @@ index cb0059a8..8eedd155 100644
   - [x] **Step 2: Verify.** `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh` — green.
 
 **Build:** green
-**Files:** `skills/flow/review-panel.md`, `skills/flow/implement.md`, `skills/flow/SKILL-rationale.md`, `scripts/panel-round-begins.sh`
+**Files:** `scripts/panel-round-begins.sh`
+
+Correction (2026-10-27): the plan declared the three skill files too; origin/main landed the same begins-before-launch wording while this branch waited, so the rebase kept main's text and this task's commit now carries only the `panel-round-begins.sh` header. Task 3 likewise collapsed into main's 21c3ea70, which already runs the script audits for a touched script.
 **Tests:** **none** — prose and a script header; `check-verbatim-moves.sh` covers the acknowledged sentences.
 **Regression:** none — no test is declared.
 **Commit:** docs(flow): record a round's begins before its launch message
