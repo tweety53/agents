@@ -112,7 +112,7 @@ Correction (2026-10-27): the plan declared the toggled PNG and the toggled test;
   - [x] **Step 2:** `stats/web/src/views/WeeklyCosts.tsx` says `vs prev week`; `.weekly-tooltip` in `stats/web/src/styles.css` is `width: 150px` with `box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15)`, as the prototype's `#tip`. Re-capture `weekly-costs-tooltip.png` (`--update-snapshots`), then run the spec clean.
 
 **Files:** `stats/web/src/views/WeeklyCosts.tsx`, `stats/web/src/styles.css`, `stats/web/tests/visual/weekly-costs.spec.ts`, `stats/web/tests/visual/weekly-costs.spec.ts-snapshots/weekly-costs-tooltip-darwin.png`
-**Tests:** **none**
+**Tests:** none — repairs existing tests: `hovering a point shows its tooltip`
 **Regression:** `hovering a point shows its tooltip` fails, because the tooltip reads "vs previous week".
 **Build:** green
 **After:** Task 5, 6
