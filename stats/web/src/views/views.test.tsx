@@ -3,7 +3,7 @@
 // highest-risk vacuous shape this task's own instructions name), plus the
 // absence-vs-zero distinction and the state-board-is-default-route
 // requirement.
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import type { DecisionRow, HealthViewSlug, StatsResponse, StatsViewSlug, ViewName } from "../api";
@@ -297,87 +297,175 @@ describe("views render their fixture response's actual values", () => {
     within(screen.getByRole("region", { name: "Total cost" })).getByText("$5.25");
   });
 
-  it("weekly costs shows all five totals per week and a five-line chart", async () => {
-    // The table's window ends at "now"; pin it to the fixture's weeks.
+  // Shows the four phase series, which start hidden.
+  const showPhases = async () => {
+    for (const name of ["Planning", "Implementation", "Review", "Self-review"])
+      await userEvent.click(screen.getByRole("button", { name }));
+  };
+
+  it("weekly costs draws one 8-week chart with five toggleable series", async () => {
+    // The window ends at "now"; pin it to the fixture's weeks.
     vi.useFakeTimers({ now: new Date("2026-06-19T12:00:00Z"), toFake: ["Date"] });
     onTestFinished(() => {
       vi.useRealTimers();
     });
-    render(<WeeklyCosts period={period} project={undefined} model="m-a" />);
-    expect((await screen.findAllByText("2026-06-10")).length).toBeGreaterThan(0);
-    for (const header of ["Overall", "Planning", "Implementation", "Review", "Self-review"]) {
-      expect(screen.getByRole("columnheader", { name: new RegExp(`^${header}`) })).toBeInTheDocument();
-    }
-    expect(screen.getAllByRole("cell", { name: "$110.00" }).length).toBeGreaterThan(0);
-    const legends = screen.getAllByTestId("time-series-legend");
-    expect(within(legends[0]).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+    render(<WeeklyCosts period={period} project="p-a" model="m-a" />);
+    expect(await screen.findByText("Cost (USD)")).toBeInTheDocument();
+    expect(screen.getByText("Week starting (Wed, UTC)")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).toBeNull();
+    // One fetch: the last 8 Wed->Wed weeks over every project and model,
+    // whatever the props say -- from a Wednesday 00:00 UTC, 7 to 8 weeks back.
+    expect(fetchStatsViewMock).toHaveBeenCalledTimes(1);
+    const [, params] = fetchStatsViewMock.mock.calls[0];
+    expect(params.project).toBeUndefined();
+    expect(params.model).toBeUndefined();
+    const from = params.from as Date;
+    expect(from.getUTCDay()).toBe(3);
+    expect(from.getTime() % (24 * 60 * 60 * 1000)).toBe(0);
+    const weeksBack = (Date.now() - from.getTime()) / (7 * 24 * 60 * 60 * 1000);
+    expect(weeksBack).toBeGreaterThanOrEqual(7);
+    expect(weeksBack).toBeLessThan(8);
+    expect(screen.getAllByTestId("week-tick").map((t) => t.textContent)).toEqual([
+      "2026-04-29",
+      "2026-05-06",
+      "2026-05-13",
+      "2026-05-20",
+      "2026-05-27",
+      "2026-06-03",
+      "2026-06-10",
+      "2026-06-17",
+    ]);
+    // Five even steps from $0 reach the fixture's $110 peak.
+    expect(screen.getAllByTestId("cost-tick").map((t) => t.textContent)).toEqual([
+      "$0.00",
+      "$25.00",
+      "$50.00",
+      "$75.00",
+      "$100.00",
+      "$125.00",
+    ]);
+    // Overall alone is shown at first.
+    const toggles = screen.getAllByRole("button", { pressed: true });
+    expect(toggles.map((b) => b.textContent)).toEqual(["Overall"]);
+    const points = (name: string) =>
+      screen.queryAllByTestId("time-series-point").filter((c) => c.getAttribute("data-series") === name);
+    expect(points("Review")).toHaveLength(0);
+    const review = screen.getByRole("button", { name: "Review" });
+    await userEvent.click(review);
+    expect(review).toHaveAttribute("aria-pressed", "true");
+    expect(points("Review")).toHaveLength(1);
+    expect(points("Overall")).toHaveLength(3);
+    await userEvent.click(review);
+    expect(review).toHaveAttribute("aria-pressed", "false");
+    expect(points("Review")).toHaveLength(0);
+  });
+
+  it("weekly costs labels each point with its change from the previous week", async () => {
+    vi.useFakeTimers({ now: new Date("2026-06-19T12:00:00Z"), toFake: ["Date"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    render(<WeeklyCosts period={period} project={undefined} />);
+    await screen.findByText("Cost (USD)");
+    const label = (series: string, week: string) =>
+      document.querySelector(`[data-testid="delta-label"][data-series="${series}"][data-week="${week}"]`);
+    expect(label("Overall", "2026-06-10")).toHaveTextContent("▲2100%");
+    expect(label("Overall", "2026-06-10")).toHaveClass("delta-up");
+    expect(label("Overall", "2026-06-17")).toHaveTextContent("▼90%");
+    expect(label("Overall", "2026-06-17")).toHaveClass("delta-down");
+    // Implementation's previous week is Unavailable; the first week has no previous.
+    expect(label("Implementation", "2026-06-17")).toBeNull();
+    expect(label("Overall", "2026-06-03")).toBeNull();
+    const point = screen
+      .getAllByTestId("time-series-point")
+      .find((c) => c.getAttribute("data-series") === "Overall" && c.getAttribute("data-week") === "2026-06-17")!;
+    fireEvent.mouseEnter(point);
+    const tip = screen.getByRole("tooltip");
+    expect(tip).toHaveTextContent("Overall");
+    expect(tip).toHaveTextContent("$11.00");
+    expect(tip).toHaveTextContent("▼ 90.0%");
+    fireEvent.mouseLeave(point);
+    expect(screen.queryByRole("tooltip")).toBeNull();
+  });
+
+  it("weekly costs breaks a line at an unmeasured week", async () => {
+    vi.useFakeTimers({ now: new Date("2026-06-19T12:00:00Z"), toFake: ["Date"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    render(<WeeklyCosts period={period} project={undefined} />);
+    await screen.findByText("Cost (USD)");
+    await showPhases();
+    const d = (name: string) =>
+      screen
+        .getAllByTestId("weekly-line")
+        .find((l) => l.getAttribute("data-series") === name)!
+        .getAttribute("d")!;
+    // Implementation is Unavailable on 2026-06-10: two runs, never one line across it.
+    expect(d("Implementation").match(/M/g)).toHaveLength(2);
+    expect(d("Overall").match(/M/g)).toHaveLength(1);
+    // Every series with a measured week draws its line.
+    expect(screen.getAllByTestId("weekly-line").map((l) => l.getAttribute("data-series"))).toEqual([
       "Overall",
       "Planning",
       "Implementation",
       "Review",
       "Self-review",
     ]);
-    // Each line plots its own category: one point per measured week, titled
-    // with that week's value, at the shared week's x position (3 weeks:
-    // x = 32, 240, 448), in its own --series-<n> stroke.
-    const points = (name: string) =>
-      screen.getAllByTestId("time-series-point").filter((c) => c.getAttribute("data-series") === name);
-    const plotted = (name: string) =>
-      points(name).map((c) => `${c.getAttribute("cx")} ${c.querySelector("title")!.textContent}`);
-    expect(plotted("Overall")).toEqual(["32 Overall 2026-06-03: $5.00", "240 Overall 2026-06-10: $110.00", "448 Overall 2026-06-17: $11.00"]);
-    expect(plotted("Planning")).toEqual(["240 Planning 2026-06-10: $10.00", "448 Planning 2026-06-17: $4.00"]);
-    expect(plotted("Implementation")).toEqual(["32 Implementation 2026-06-03: $5.00", "448 Implementation 2026-06-17: $7.00"]);
-    expect(plotted("Review")).toEqual(["240 Review 2026-06-10: $30.00"]);
-    expect(plotted("Self-review")).toEqual(["240 Self-review 2026-06-10: $43.00"]);
-    const lines = (name: string) =>
-      screen.getAllByTestId("time-series-line").filter((l) => l.getAttribute("data-series") === name);
-    // Implementation's null week breaks its line in two; Overall's is one.
-    expect(lines("Implementation")).toHaveLength(2);
-    expect(lines("Overall")).toHaveLength(1);
-    ["Overall", "Planning", "Implementation", "Review", "Self-review"].forEach((name, n) => {
-      expect(lines(name)[0].style.stroke).toBe(`var(--series-${n + 1})`);
-    });
-    // The chart fetches the picker's own period; both fetches carry the model.
-    const calls = fetchStatsViewMock.mock.calls.map(([, params]) => params);
-    expect(calls.some((p) => p.from.getTime() === period.from.getTime() && p.to.getTime() === period.to.getTime())).toBe(true);
-    expect(calls.every((p) => p.model === "m-a")).toBe(true);
-    // The table's own fetch is the last 8 Wed->Wed weeks, whatever the picker
-    // says: from a Wednesday 00:00 UTC, 7 to 8 weeks before now.
-    const tableFrom = fetchStatsViewMock.mock.calls
-      .map(([, params]) => params.from as Date)
-      .find((from) => from.getTime() !== period.from.getTime())!;
-    expect(tableFrom.getUTCDay()).toBe(3);
-    expect(tableFrom.getTime() % (24 * 60 * 60 * 1000)).toBe(0);
-    const weeksBack = (Date.now() - tableFrom.getTime()) / (7 * 24 * 60 * 60 * 1000);
-    expect(weeksBack).toBeGreaterThanOrEqual(7);
-    expect(weeksBack).toBeLessThan(8);
+    const point = screen
+      .getAllByTestId("time-series-point")
+      .find((c) => c.getAttribute("data-series") === "Overall" && c.getAttribute("data-week") === "2026-06-10")!;
+    expect(point).toHaveAttribute("aria-label", "Overall 2026-06-10: $110.00");
   });
 
-  it("weekly costs table always lists the last 8 weeks", async () => {
+  it("weekly costs draws a series with no measured week as no line", async () => {
     vi.useFakeTimers({ now: new Date("2026-06-19T12:00:00Z"), toFake: ["Date"] });
-    try {
-      render(<WeeklyCosts period={period} project={undefined} />);
-      const table = (await screen.findAllByRole("table"))[0];
-      const weeks = within(table)
-        .getAllByRole("row")
-        .slice(1)
-        .map((r) => within(r).getAllByRole("cell")[0].textContent);
-      // Wed 2026-06-17 is this week; the window starts 7 weeks before it.
-      expect(weeks).toEqual([
-        "2026-04-29",
-        "2026-05-06",
-        "2026-05-13",
-        "2026-05-20",
-        "2026-05-27",
-        "2026-06-03",
-        "2026-06-10",
-        "2026-06-17",
-      ]);
-      const empty = within(table).getAllByRole("row")[1];
-      expect(within(empty).getAllByTestId("unavailable")).toHaveLength(5);
-    } finally {
+    onTestFinished(() => {
       vi.useRealTimers();
-    }
+    });
+    fetchStatsViewMock.mockResolvedValueOnce(
+      envelope("weekly-costs", [
+        { week: "2026-06-10", overallUsd: 3, planningUsd: 1, implementationUsd: 2, reviewUsd: null, selfReviewUsd: null },
+      ]),
+    );
+    render(<WeeklyCosts period={period} project={undefined} />);
+    await screen.findByText("Cost (USD)");
+    await showPhases();
+        const series = (testId: string) => screen.queryAllByTestId(testId).map((e) => e.getAttribute("data-series"));
+    expect(series("weekly-line")).not.toContain("Review");
+    expect(series("time-series-point")).toEqual(["Overall", "Planning", "Implementation"]);
+  });
+
+  it("weekly costs labels zero changes, skips a zero previous week and stacks close labels apart", async () => {
+    vi.useFakeTimers({ now: new Date("2026-06-19T12:00:00Z"), toFake: ["Date"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    fetchStatsViewMock.mockResolvedValueOnce(
+      envelope("weekly-costs", [
+        { week: "2026-04-29", overallUsd: 10, planningUsd: 0, implementationUsd: 5, reviewUsd: 4, selfReviewUsd: 3 },
+        { week: "2026-05-06", overallUsd: 12, planningUsd: 2, implementationUsd: 5, reviewUsd: 4, selfReviewUsd: 3 },
+        { week: "2026-05-13", overallUsd: 1, planningUsd: 1, implementationUsd: 1, reviewUsd: 1, selfReviewUsd: 1 },
+      ]),
+    );
+    render(<WeeklyCosts period={period} project={undefined} />);
+    await screen.findByText("Cost (USD)");
+    await showPhases();
+    const label = (series: string, week: string) =>
+      document.querySelector(`[data-testid="delta-label"][data-series="${series}"][data-week="${week}"]`);
+    // The window's second week reads its change from the first.
+    expect(label("Overall", "2026-05-06")).toHaveTextContent("▲20%");
+    // A previous week that cost nothing carries no percentage.
+    expect(label("Planning", "2026-05-06")).toBeNull();
+    // An unchanged week is a neutral 0%, no arrow.
+    expect(label("Implementation", "2026-05-06")).toHaveTextContent(/^0%$/);
+    expect(label("Implementation", "2026-05-06")).toHaveClass("delta-flat");
+    // Five labels on one dot height: pushed 17 apart and lifted back inside the plot.
+    const ys = ["Overall", "Planning", "Implementation", "Review", "Self-review"]
+      .map((s) => Number(label(s, "2026-05-13")!.getAttribute("y")))
+      .sort((a, b) => a - b);
+    ys.slice(1).forEach((y, i) => expect(y - ys[i]).toBeGreaterThanOrEqual(17));
+    expect(Math.max(...ys)).toBeLessThanOrEqual(392 + 3.5);
   });
 
   it("reviewers shows severity counts and badges an exp- slot with its description", async () => {

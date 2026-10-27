@@ -69,10 +69,11 @@ merged** (`skills/flow-contracts/finish-contract-run2.md`).
 self-review's step 2a wrote (`skills/flow-self-review/SKILL.md`), and is the literal `NONE`, with no
 reason after it, when that step wrote none.
 
-**The `Prompt tuning:` line is present in every `/flow` and `/flow-fast` run's final message.** The
-Finished handoff, integrate run 1's `## Handoff` block (`skills/flow/integrate.md`) and the
-`IN_PROGRESS` handoff (`skills/flow/verify-and-handoff.md`) each carry it as printed, and a final report written beside it or instead of it
-still carries the line.
+**The `Learning:` and `Prompt tuning:` lines are shown only once the change is fully done** — in
+this Finished handoff and `/flow-fast`'s final report — and a final report written beside it or
+instead of it still carries them. No earlier handoff carries either: not the `IN_PROGRESS` handoff
+(`skills/flow/verify-and-handoff.md`) and not integrate run 1's `## Handoff` block
+(`skills/flow/integrate.md`) (kan-1038).
 
 A run 2 that **completes step 5** is terminal and names **no** next command.
 

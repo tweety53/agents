@@ -355,6 +355,120 @@ th button {
   fill: var(--series-1);
 }
 
+/* Weekly costs' own chart (KAN-1038): a pill row of series toggles over
+   one labelled SVG plot, with week-over-week delta pills and a tooltip. */
+.weekly-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.weekly-toggles button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: var(--panel-border-width) solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.weekly-toggles button[aria-pressed="false"] {
+  opacity: 0.4;
+}
+
+.weekly-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.weekly-plot {
+  position: relative;
+}
+
+.weekly-plot svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.weekly-axis line {
+  stroke: var(--border);
+}
+
+.weekly-axis text {
+  fill: var(--text-muted);
+  font-size: 11px;
+}
+
+.weekly-line {
+  stroke-width: 2.5;
+}
+
+.weekly-point {
+  stroke: transparent;
+  stroke-width: 10;
+  cursor: pointer;
+}
+
+.weekly-delta {
+  font-size: 10px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.weekly-delta rect {
+  fill: var(--surface-panel);
+}
+
+.weekly-delta line {
+  stroke-width: 1;
+}
+
+.weekly-delta .delta-up {
+  fill: var(--delta-up);
+}
+
+.weekly-delta .delta-down {
+  fill: var(--delta-down);
+}
+
+.weekly-delta .delta-flat {
+  fill: var(--text-muted);
+}
+
+.weekly-tooltip {
+  position: absolute;
+  transform: translate(12px, -110%);
+  box-sizing: content-box;
+  width: 150px;
+  padding: 6px 10px;
+  border: var(--panel-border-width) solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface-panel);
+  color: var(--text-primary);
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+}
+
+.weekly-tooltip-left {
+  transform: translate(calc(-100% - 12px), -110%);
+}
+
+.weekly-tooltip .delta-up {
+  color: var(--delta-up);
+}
+
+.weekly-tooltip .delta-down {
+  color: var(--delta-down);
+}
+
 /* Dashboard recomposition (task 20) -- every one of the nine dashboards
    is now ViewFrame's page chrome (title, description) wrapping a row of
    stat panels above a table or chart panel, following the layout

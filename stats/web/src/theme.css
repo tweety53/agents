@@ -27,6 +27,8 @@
   --series-5: #b877d9;
   --status-critical: #e0226e;
   --status-ok: #73bf69;
+  --delta-up: #f2495c;
+  --delta-down: #73bf69;
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -65,6 +67,8 @@
     --series-5: #8f3bb8;
     --status-critical: #e34948;
     --status-ok: #3d8b3d;
+    --delta-up: #c62828;
+    --delta-down: #2e7d32;
   }
 }
 
@@ -85,4 +89,6 @@
   --series-5: #8f3bb8;
   --status-critical: #e34948;
   --status-ok: #3d8b3d;
+  --delta-up: #c62828;
+  --delta-down: #2e7d32;
 }

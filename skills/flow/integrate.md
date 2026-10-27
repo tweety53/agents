@@ -234,7 +234,6 @@ blocking.
 **PR:** <prUrl> | none — merged directly | none — you are handling it
 **Outstanding:** <what step 1 reported and the operator integrated over> | none
 **Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
-**Prompt tuning:** <each case's `index.html` absolute path in `<agents repo>`'s main checkout> | NONE
 
 <what the operator must do before the next run>
 
@@ -243,7 +242,7 @@ Next:
 /flow <name>
 ```
 
-The `**Prompt tuning:**` line is the one `skills/flow/cleanup.md` defines.
+The `**Learning:**` and `**Prompt tuning:**` lines are not printed here — only the Finished handoff (`skills/flow/cleanup.md`) carries them.
 
 | Route taken in step 5 | Heading |
 |--------------------|---------|

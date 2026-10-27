@@ -570,9 +570,6 @@ re-entrant** (`skills/flow-contracts/pipeline.md`) sanctions.
 - ? <an open question the operator must answer>
 - 🤖 <question> → <the recommended option taken>
 
-**Learning:** <the learning note's absolute path, when this run composed one>
-**Prompt tuning:** <each case's `index.html` absolute path in `<agents repo>`'s main checkout> | NONE
-
 Next:
 /clear
 /flow <name>
@@ -593,9 +590,8 @@ option (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`), so th
 overrule any of them with a fix run; it reads `none` when the run took none and left no open
 question. Planning answers the `## decisions: recommended` mode took are named here the same way.
 
-**The `**Learning:**` line** is printed by the run only, after `Decisions:`, naming the file
-**Learning** (`skills/flow-contracts/learning.md`) states. The `**Prompt tuning:**` line follows it, as
-`skills/flow/cleanup.md` defines it.
+**No `**Learning:**` or `**Prompt tuning:**` line** — both are shown only once the change is fully
+done, in the Finished handoff (`skills/flow/cleanup.md`).
 
 **The parent prints this block directly, as this stage's own output** — no return, no relay: the
 running session assembles it here and shows it to the operator in the same turn (**The parent

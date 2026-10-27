@@ -194,3 +194,22 @@ describe("the period is read from the URL, falling back to the default (task 2)"
     expect(to.getTime() - from.getTime()).toBe(30 * 24 * 60 * 60 * 1000);
   });
 });
+
+describe("the filter bar (KAN-1038)", () => {
+  it("weekly costs renders no filter bar", async () => {
+    window.location.hash = "#/weekly-costs";
+    const { unmount } = render(<App />);
+    expect(await screen.findByRole("heading", { name: "Weekly costs" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Statistics views" })).toBeInTheDocument();
+    expect(screen.queryByRole("toolbar", { name: "Dashboard controls" })).toBeNull();
+    for (const label of ["Period start", "Period end", "Project filter", "Model"]) {
+      expect(screen.queryByLabelText(label)).toBeNull();
+    }
+    unmount();
+    window.location.hash = "#/trend";
+    render(<App />);
+    expect(await screen.findByRole("toolbar", { name: "Dashboard controls" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Period start")).toBeInTheDocument();
+    window.location.hash = "";
+  });
+});
