@@ -32,8 +32,8 @@ last block.
 - `stop_hook_active` with an unchanged fingerprint allows (`stop-hook-active-needs-progress`).
 - Store unreachable allows.
 
-- [ ] 1. Refuse a mid-phase /flow turn end with a Stop hook
-  - [ ] **Step 1: Write the failing test.** Add
+- [x] 1. Refuse a mid-phase /flow turn end with a Stop hook
+  - [x] **Step 1: Write the failing test.** Add
     `stats/internal/repotest/flow_stop_guard_hook_test.go`, modelled on
     `flow_active_change_hook_test.go` (stub store via `FLOW_ADDR`, stub `flow` first on PATH
     printing ticked/total, fixture transcript JSONL, `HOME` in `t.TempDir()`). Cases:
@@ -46,17 +46,17 @@ last block.
     (j) `stop_hook_active` true, a stage ended since → block; (k) store 500 → allow;
     (l) no `/flow` row for the session → allow. Run
     `cd stats && go test ./internal/repotest -run TestFlowStopGuardHook`: fails (hook missing).
-  - [ ] **Step 2: Implement** `hooks/flow-stop-guard.py` per `design.md` decisions
+  - [x] **Step 2: Implement** `hooks/flow-stop-guard.py` per `design.md` decisions
     `stop-hook-blocks-mid-phase`, `block-on-open-stage-or-all-ticked`,
     `allow-at-gates-asks-and-explicit-stop`, `stop-hook-active-needs-progress`,
     `import-flow-active-change-helpers`.
-  - [ ] **Step 3: Register.** In `setup.sh` `install_hooks`, add a `warn_unregistered_hook` for
+  - [x] **Step 3: Register.** In `setup.sh` `install_hooks`, add a `warn_unregistered_hook` for
     `flow-stop-guard` with a `"Stop"` snippet; add the hook to `README.md`'s hook list; in
     `skills/flow-contracts/pipeline.md` append to the "A turn ends only at a gate…" paragraph one
     sentence: the `Stop` hook `hooks/flow-stop-guard.py` refuses such a turn end (kan-1024).
-  - [ ] **Step 4: Verify.** The repotest passes; `cd stats && go test ./internal/setuptest -run TestLoopHookTimeoutsFailClosed`
+  - [x] **Step 4: Verify.** The repotest passes; `cd stats && go test ./internal/setuptest -run TestLoopHookTimeoutsFailClosed`
     passes; with the block branch removed, case (a) fails.
-  - [ ] **Step 5: Commit** the five files with the subject below.
+  - [x] **Step 5: Commit** the five files with the subject below.
 
 **Build:** green
 **Files:** `hooks/flow-stop-guard.py`, `stats/internal/repotest/flow_stop_guard_hook_test.go`, `setup.sh`, `README.md`, `skills/flow-contracts/pipeline.md`
