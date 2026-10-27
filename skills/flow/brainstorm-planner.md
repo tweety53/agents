@@ -46,7 +46,10 @@ runs them as **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline
   write the file and give the operator its absolute path. Where the confirm is not asked — the
   `## decisions: recommended` mode, and the self-review and in-run fix planners, which take the
   recommendation (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`)
-  — the published prototype is the spec without an approval round.
+  — the published prototype is the spec without an approval round. **The approved prototype is
+  the source of truth** (kan-1038): any departure from it found later in the run — by a reviewer,
+  verify or `flow.visual-verify` — is fixed to match it, auto-resolved and never asked; a UI
+  change the operator wants after using it is a later change, not this one.
 
 **Load `skills/flow/seeded-note.md`** only when the ask arrives as a seeded research note — a
 fully-worked issue description, a `/flow-plan` capture or a handoff package that already carries

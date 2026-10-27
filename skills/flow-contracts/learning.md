@@ -12,8 +12,9 @@ Never a fix run, an integrate run, or a creating run that stops at the plan gate
 **The note is a Markdown file named after the change, in the folder `<project>-learning`** — `<project>` the main checkout's absolute
 path, so the folder sits beside it as `<project>-worktrees` does, outside every git repository —
 created with `mkdir -p` on first use. It is written as soon as the note is composed, at the start
-of implementation, and the run prints `Learning: <absolute path>` at once; the handoff carries
-`**Learning:** <absolute path>` in place of the note itself (kan-1028).
+of implementation, and only the Finished handoff (`skills/flow/cleanup.md`) carries
+`**Learning:** <absolute path>`, in place of the note itself (kan-1028) — no earlier handoff or
+progress line prints it (kan-1038).
 
 ### Reading the setting
 
