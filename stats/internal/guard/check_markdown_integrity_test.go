@@ -57,8 +57,14 @@ func TestCheckMarkdownIntegrity(t *testing.T) {
 		"```\nNext:\n```\n/flow <name>\n```")
 	expect("kan-1040: inner closing fence missing — exit 1", 1, "unfenced next command",
 		"````\nNext:\n```\n/flow <name>\n````")
-	expect("kan-1040: bare next command — exit 1", 1, "unfenced next command",
+	expect("kan-1040: bare next command — exit 1, reported at Next:", 1, "SKILL.md:2: unfenced next command",
 		"```\nNext:\n/flow <name>\n```")
+	expect("kan-1040: inner opening fence missing — exit 1", 1, "unfenced next command",
+		"````\nNext:\n~~~\n/flow <name>\n```\n````")
+	expect("kan-1040: fence holds something other than /flow — exit 1", 1, "unfenced next command",
+		"````\nNext:\n```\necho hi\n```\n````")
+	expect("kan-1040: Next: in prose outside a fence is not a template — exit 0", 0, "",
+		"The handoff reads as follows.\n\nNext:\n/flow <name> runs it.")
 	expect("case 2: double-backtick delimiter around a literal backtick — exit 0", 0, "",
 		"Use ``get `foo` done`` to run it.")
 	expect("case 3: odd backtick count outside a fence — exit 1", 1, "broken code span",
