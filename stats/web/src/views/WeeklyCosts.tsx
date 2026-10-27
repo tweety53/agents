@@ -182,7 +182,10 @@ function WeeklyCostChart({ rows }: { rows: WeeklyCostPoint[] }) {
           {drawn.map((line, n) => {
             // A null week lifts the pen, so the line breaks there.
             const d = line.map((p, week) => (p ? `${week && line[week - 1] ? "L" : "M"}${x(p.week)} ${p.y}` : "")).join("");
-            const series = line.find((p) => p)!.series;
+            const first = line.find((p) => p);
+            // A series with no measured week in the window draws no line.
+            if (!first) return null;
+            const series = first.series;
             return (
               d && (
                 <path

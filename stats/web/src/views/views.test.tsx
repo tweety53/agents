@@ -402,6 +402,24 @@ describe("views render their fixture response's actual values", () => {
     expect(point).toHaveAttribute("aria-label", "Overall 2026-06-10: $110.00");
   });
 
+  it("weekly costs draws a series with no measured week as no line", async () => {
+    vi.useFakeTimers({ now: new Date("2026-06-19T12:00:00Z"), toFake: ["Date"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    fetchStatsViewMock.mockResolvedValueOnce(
+      envelope("weekly-costs", [
+        { week: "2026-06-10", overallUsd: 3, planningUsd: 1, implementationUsd: 2, reviewUsd: null, selfReviewUsd: null },
+      ]),
+    );
+    render(<WeeklyCosts period={period} project={undefined} />);
+    await screen.findByText("Cost (USD)");
+    expect(screen.getByRole("button", { name: "Review" })).toHaveAttribute("aria-pressed", "true");
+    const series = (testId: string) => screen.queryAllByTestId(testId).map((e) => e.getAttribute("data-series"));
+    expect(series("weekly-line")).not.toContain("Review");
+    expect(series("time-series-point")).toEqual(["Overall", "Planning", "Implementation"]);
+  });
+
   it("weekly costs labels zero changes, skips a zero previous week and stacks close labels apart", async () => {
     vi.useFakeTimers({ now: new Date("2026-06-19T12:00:00Z"), toFake: ["Date"] });
     onTestFinished(() => {
