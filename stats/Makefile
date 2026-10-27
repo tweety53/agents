@@ -29,13 +29,13 @@ check-uitest-overrides:
 
 # Runs the SPA's own test suite (vitest).
 web-test:
-	cd web && npm ci && npm test
+	cd web && { test ! -L node_modules || { echo "refusing npm ci over a symlinked web/node_modules -- it empties the shared directory (kan-1037)" >&2; exit 1; }; } && npm ci && npm test
 
 # Builds the SPA with Vite, into internal/web/dist -- see
 # web/vite.config.ts's own comment for why that directory, not web/dist,
 # is the build's outDir.
 web-build:
-	cd web && npm ci && npm run build
+	cd web && { test ! -L node_modules || { echo "refusing npm ci over a symlinked web/node_modules -- it empties the shared directory (kan-1037)" >&2; exit 1; }; } && npm ci && npm run build
 
 # Builds the SPA only when internal/web/dist holds no index.html. The
 # .flow/project.md `## test` and `## lint` lines that compile internal/web

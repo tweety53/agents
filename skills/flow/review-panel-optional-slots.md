@@ -36,6 +36,8 @@ worktree in the resolved set per slot, producing one `<worktree>-<slot>-<round>`
 slot — `<slot>` is the id (`mutation`). Exit 2 means a step failed, named on stderr: that slot is
 not dispatched against that copy.
 
+Never symlink a shared `node_modules` into a copy: the copy's own `npm ci` installs one, and over a symlink it empties the shared directory (kan-1037) — `<agents repo>/stats/Makefile` refuses to run it there.
+
 Dispatch each slot present in this round's roster **once**, its prompt listing every copy made for
 that slot as the repository paths to mutate and test in, in place of `<worktree>`.
 Remove every copy unconditionally once that slot's dispatch closes — completed, timed out

@@ -195,3 +195,55 @@ func TestMakeBuild(t *testing.T) {
 		}
 	})
 }
+
+// TestMakeWebBuildRefusesSymlinkedNodeModules pins kan-1037's finding: a
+// throwaway copy that symlinked the shared web/node_modules had `npm ci` empty
+// the shared directory through the link. web-build and web-test must refuse
+// before npm runs. A stub npm on PATH records any invocation.
+func TestMakeWebBuildRefusesSymlinkedNodeModules(t *testing.T) {
+	t.Parallel()
+	src, err := os.ReadFile(filepath.Join(repoRoot(t), "stats", "Makefile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, target := range []string{"web-build", "web-test"} {
+		t.Run(target, func(t *testing.T) {
+			t.Parallel()
+			dir, shared, bin := t.TempDir(), t.TempDir(), t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, "Makefile"), src, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Mkdir(filepath.Join(dir, "web"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(shared, filepath.Join(dir, "web", "node_modules")); err != nil {
+				t.Fatal(err)
+			}
+			marker := filepath.Join(shared, "marker")
+			if err := os.WriteFile(marker, nil, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			called := filepath.Join(bin, "called")
+			stub := "#!/bin/sh\ntouch " + called + "\nexit 0\n"
+			if err := os.WriteFile(filepath.Join(bin, "npm"), []byte(stub), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			cmd := exec.Command("make", "-s", "-C", dir, target)
+			cmd.Env = append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH"))
+			var stderr strings.Builder
+			cmd.Stderr = &stderr
+			if err := cmd.Run(); err == nil {
+				t.Error("make exited 0 over a symlinked web/node_modules")
+			}
+			if !strings.Contains(stderr.String(), "symlinked web/node_modules") {
+				t.Errorf("stderr lacks the refusal:\n%s", stderr.String())
+			}
+			if _, err := os.Stat(called); err == nil {
+				t.Error("npm was invoked")
+			}
+			if _, err := os.Stat(marker); err != nil {
+				t.Errorf("marker gone: %v", err)
+			}
+		})
+	}
+}
