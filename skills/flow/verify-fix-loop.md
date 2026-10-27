@@ -58,7 +58,7 @@ One round runs these steps in order:
    **One round appends one task**, carrying every defect the report names — never a task or a
    round per defect. Before the append, the stage's failing row is closed with `flow record dispatch
    end` at `-outcome blocked -cause test-failure`, so no row of the stage stays open while this
-   round's rows open.
+   round's rows open. A failing `flow.visual-verify` also has its stage mark closed beside that row, `flow stage end -command '/flow' -stage flow.visual-verify -outcome stopped <name>`, and a run that re-enters this loop while `flow.write-in-progress` is open closes that mark the same way first, so the round's next `flow stage begin` supersedes no open run (kan-1016: `flow.visual-verify` attempts 1–9 and 11 closed `superseded`).
 2. **Implement it.** **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) executes the appended
    task exactly as a plan-time task: the decision's implementer pair, `close-task.sh` with its
    guard and its review gate. The task closes through `close-task.sh` — an inline-committed one included — before step 3 opens any `panel-<round>-*` dispatch; `flow record dispatch begin` refuses a panel key while `tasks.md` holds an unticked task (kan-1007: panel round 4 began 16 seconds after task 8's inline commit, before its close). The implementer's dispatch also carries the MUTATION PROOF
