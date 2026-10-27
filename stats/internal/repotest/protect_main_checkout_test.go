@@ -652,3 +652,36 @@ func TestProtectMainCheckoutReadsADataHeredocBodyAsData(t *testing.T) {
 	f.bash("continued flow opener", "deny", "{ROOT}", "flow x <<'EOF' \\\n  | sh\nrm {MAIN}/f.txt\nEOF")
 	f.bash("unbalanced ) in body", "deny", "{ROOT}", "flow x <<EOF\n$(case a in a) rm {MAIN}/f.txt;; esac)\nEOF")
 }
+
+// TestProtectMainCheckoutReadsASingleQuotedBacktickAsLiteral pins the
+// kan-1039 self-review: a backtick inside single quotes after a data
+// heredoc is a plain character, so the heredoc body stays data; an
+// unquoted or double-quoted backtick still keeps the body scanned.
+func TestProtectMainCheckoutReadsASingleQuotedBacktickAsLiteral(t *testing.T) {
+	t.Parallel()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &pmFixture{t: t, home: t.TempDir(), vars: map[string]string{"ROOT": root}}
+	main := root + "/main"
+	f.vars["MAIN"], f.vars["SIB"] = main, root+"/sib"
+	f.git("init", "-q", "--bare", root+"/origin.git")
+	f.git("clone", "-q", root+"/origin.git", main)
+	f.write(main+"/f.txt", "a\n")
+	f.git("-C", main, "add", "f.txt")
+	f.git("-C", main, "commit", "-q", "-m", "init")
+	f.git("-C", main, "branch", "-M", "main")
+	f.git("-C", main, "push", "-q", "-u", "origin", "main")
+	f.git("-C", main, "remote", "set-head", "origin", "main")
+
+	f.bash("single-quoted backtick after a data heredoc", "allow", "{MAIN}", "cat >> {SIB}/x <<'EOF'\na > b\nEOF\necho '`'")
+	f.bash("ANSI-quoted backtick after a data heredoc", "allow", "{MAIN}", "cat >> {SIB}/x <<'EOF'\na > b\nEOF\necho $'\\'`'")
+	f.bash("unquoted backtick keeps the body scanned", "deny", "{MAIN}", "cat >> {SIB}/x <<'EOF'\na > b\nEOF\necho `true`")
+	f.bash("double-quoted backtick keeps the body scanned", "deny", "{MAIN}", "cat >> {SIB}/x <<'EOF'\na > b\nEOF\necho \"`true`\"")
+	f.bash("an apostrophe in double quotes opens no span", "deny", "{MAIN}", "cat >> {SIB}/x <<'EOF'\na > b\nEOF\necho \"it's `true`\"")
+	f.bash("an unclosed quote reads as before", "deny", "{MAIN}", "cat >> {SIB}/x <<'EOF'\na > b\nEOF\necho '`")
+	f.bash("an apostrophe in a comment opens no span", "deny", "{MAIN}", "cat > {SIB}/x.sh <<'EOF'\nrm {MAIN}/f.txt\nEOF\n: # it's\necho `bash {SIB}/x.sh` # '")
+	f.bash("an apostrophe in another heredoc body opens no span", "deny", "{MAIN}", "cat > {SIB}/x.sh <<'EOF'\nrm {MAIN}/f.txt\nEOF\ncat > {SIB}/n <<'EOF2'\nit's\nEOF2\necho `bash {SIB}/x.sh` > {SIB}/o # '")
+	f.bash("a quote span crossing a newline reads as before", "deny", "{MAIN}", "cat >> {SIB}/x <<'EOF'\na > b\nEOF\n# don't\necho `true` '")
+}

@@ -368,6 +368,43 @@ def reads_only(words, target):
     return False
 
 
+def outside_single_quotes(text):
+    """text with every single-quoted span — `'…'`, and `$'…'` with its backslash escapes —
+    blanked, since bash reads a backtick or `$(` inside one as a plain character; a `'` inside
+    `"…"` or behind a backslash is literal. None when a quote never closes, or when a
+    single-quoted span crosses a newline — an apostrophe in a `#` comment or another heredoc's
+    body opens no quote in bash — so the caller reads the text as before."""
+    out, i, quote = [], 0, None
+    while i < len(text):
+        c = text[i]
+        if quote in ("'", "$'"):
+            if quote == "$'" and c == "\\":
+                i += 2
+                continue
+            if c == "\n":
+                return None
+            if c == "'":
+                quote = None
+            i += 1
+            continue
+        if c == "\\":
+            out.append(text[i:i + 2])
+            i += 2
+            continue
+        if quote == '"':
+            quote = None if c == '"' else quote
+        elif c == '"':
+            quote = '"'
+        elif c == "'":
+            quote = "$'" if text[i - 1:i] == "$" else "'"
+            out.append(" ")
+            i += 1
+            continue
+        out.append(c)
+        i += 1
+    return None if quote else "".join(out)
+
+
 def command_segments(text):
     """(words, assigned) per command of text — quotes stripped, a leading `do`/`then`/`!`
     dropped, `assigned` when NAME=value words led it — or None when text holds a substitution
@@ -376,7 +413,8 @@ def command_segments(text):
     D names; a name no literal assigns stays an expansion `names_target` reads as hiding any."""
     spans = re.findall(r"\$\(([^()]*)\)", text)
     flat = re.sub(r"\$\([^()]*\)", " ", text)
-    if SUBST_RE.search(flat):
+    bare = outside_single_quotes(flat)
+    if SUBST_RE.search(flat if bare is None else bare):
         return None
     env, out = {}, []
     for seg in COMMAND_CUT_RE.split(flat + "\n" + "\n".join(spans)):
