@@ -191,7 +191,7 @@ func TestCheckPanelFixSingleDispatch(t *testing.T) {
 	t.Run("canonical key regexp matches bash", func(t *testing.T) {
 		t.Parallel()
 		for key, ok := range map[string]bool{
-			"panel-fix-1": true, "panel-fix-01": true, "panel-fix-1-2": true, "panel-fix-1-2-retry": true,
+			"panel-fix-1": true, "panel-fix-01": false, "panel-fix-0": false, "panel-fix-1-2": true, "panel-fix-1-2-retry": true,
 			"panel-fix-1-retry-retry": false, "panel-fix-f1": false, "panel-fix-": false, "panel-fix-1\nx": false,
 			"panel-fix-1-2-3": false, "PANEL-FIX-1": false, "xpanel-fix-1": false, "panel-fix-١": false,
 		} {
@@ -268,7 +268,7 @@ func TestCheckPanelFixSingleDispatch(t *testing.T) {
 		for _, fx := range []struct{ label, dispatches, findings string }{
 			{"a NUL in a key is dropped", "[" + row(`"panel-fix-1\u0000"`) + "]", "[]"},
 			{"a key's trailing newlines are stripped", "[" + row(`"panel-fix-1\n\n"`) + "]", "[]"},
-			{"a true round sorts below every number", "[" + row(`"panel-fix-0"`) + "," + row(`"panel-fix-0-2"`) + "," + row(`"panel-fix-0-3"`) + "]", `[{"round":true},{"round":false}]`},
+			{"a true round sorts below every number", "[" + row(`"panel-fix-1"`) + "," + row(`"panel-fix-1-2"`) + "," + row(`"panel-fix-1-3"`) + "]", `[{"round":true},{"round":false}]`},
 			{"an empty findings read is an empty count", chunked, ""},
 			{"a round number wraps at 64 bits", "[" + row(`"panel-fix-99999999999999999999-2"`) + "]", "[]"},
 			{"a null dispatch row selects nothing", "[null," + row(`"panel-fix-1"`) + "]", "[]"},
@@ -351,16 +351,16 @@ func TestCheckPanelFixSingleDispatchCommitIsATaskCommit(t *testing.T) {
 	}
 	plan := head("chore(spectre): plan demo")
 	task := head("feat(alpha): add alpha")
-	fix := head("fix(alpha): review findings", "Flow-Key: panel-fix-0")
-	other := head("fix(alpha): another round", "Flow-Key: panel-fix-1")
+	fix := head("fix(alpha): review findings", "Flow-Key: panel-fix-1")
+	other := head("fix(alpha): another round", "Flow-Key: panel-fix-2")
 	row := func(sha string) []byte {
-		return []byte(`[{"key":"panel-fix-0","role":"panel-fix","sessionToken":"mf-tok","commitSha":"` + sha + `"}]`)
+		return []byte(`[{"key":"panel-fix-1","role":"panel-fix","sessionToken":"mf-tok","commitSha":"` + sha + `"}]`)
 	}
 	args := []string{wt, "demo", "mf-tok"}
 	pfdExpect(t, pfdCase{dispatches: row(task), args: args}, 0, "OK")
 	pfdExpect(t, pfdCase{dispatches: row(fix), args: args}, 0, "OK")
-	pfdExpect(t, pfdCase{dispatches: row(other), args: args}, 1, "carries no Flow-Key: panel-fix-0 trailer")
-	pfdExpect(t, pfdCase{dispatches: row(plan), args: args}, 1, "panel-fix-0 records commit "+plan)
+	pfdExpect(t, pfdCase{dispatches: row(other), args: args}, 1, "carries no Flow-Key: panel-fix-1 trailer")
+	pfdExpect(t, pfdCase{dispatches: row(plan), args: args}, 1, "panel-fix-1 records commit "+plan)
 	pfdExpect(t, pfdCase{dispatches: row("0123456789abcdef0123456789abcdef01234567"), args: args}, 1, "no repository of the change holds")
 }
 

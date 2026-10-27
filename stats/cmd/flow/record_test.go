@@ -6728,3 +6728,44 @@ func TestRecordDispatchBeginInlineDirtyTree(t *testing.T) {
 		t.Errorf("an inline implementer begin over the same tree: exit %d, want 2 naming the record; stderr:\n%s", code, stderr)
 	}
 }
+
+// TestRecordDispatchRefusesPanelFixZero is kan-1040's self-review: the fix
+// after panel-0 is panel-fix-1, so begin and backfill refuse a panel-fix
+// key whose round is 0 (or carries a leading zero) before any store call,
+// and journal nothing; panel-fix-1 and full-suite-fix-1 pass this check.
+func TestRecordDispatchRefusesPanelFixZero(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	repo := recordRepo(t, "kan-1040")
+	addr := deadPortAddr(t)
+	const refusal = "counts fix rounds from 1"
+	args := func(verb, key string) []string {
+		a := []string{"record", "dispatch", verb, "-addr", addr, "-timeout", "200ms", "-C", repo,
+			"-change", "kan-1040", "-role", "panel-fix", "-model", "opus", "-effort", "high", "-agent-id", "none",
+			"-key", key, "-session-token", "mf-panel-fix-zero"}
+		if verb == "backfill" {
+			a = append(a, "-started-at", "2026-10-27T12:00:00Z", "-ended-at", "2026-10-27T12:10:00Z", "-outcome", "completed")
+		}
+		return a
+	}
+	for _, verb := range []string{"begin", "backfill"} {
+		for _, key := range []string{"panel-fix-0", "panel-fix-01"} {
+			root := isolatedStateRoot(t)
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(), args(verb, key), strings.NewReader(""), &stdout, &stderr)
+			if code != 2 || !strings.Contains(stderr.String(), key) || !strings.Contains(stderr.String(), "panel-fix-1") {
+				t.Errorf("%s %s: exit %d, stderr %q; want 2 naming the key and panel-fix-1", verb, key, code, stderr.String())
+			}
+			if entries, _ := os.ReadDir(root); len(entries) != 0 {
+				t.Errorf("%s %s: state root holds %d entries, want nothing journalled", verb, key, len(entries))
+			}
+		}
+		for _, key := range []string{"panel-fix-1", "full-suite-fix-1"} {
+			isolatedStateRoot(t)
+			var stdout, stderr bytes.Buffer
+			run(context.Background(), args(verb, key), strings.NewReader(""), &stdout, &stderr)
+			if strings.Contains(stderr.String(), refusal) {
+				t.Errorf("%s %s: refused as a round-0 key: %q", verb, key, stderr.String())
+			}
+		}
+	}
+}

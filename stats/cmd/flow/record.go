@@ -1068,6 +1068,9 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	) {
 		return 2
 	}
+	if !panelFixKeyOK(*key, stderr) {
+		return 2
+	}
 	if !validAgentIDFlag(*agentID) {
 		fmt.Fprintf(stderr, "flow: -agent-id %q is not a harness id -- omit -agent-id and the daemon stamps the launch (skills/flow/implement.md)\n", *agentID)
 		return 2
@@ -1476,6 +1479,9 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stder
 		v[n] = fset.String(n, "", "as on `dispatch begin` or `dispatch end`")
 	}
 	if err := fset.Parse(args); err != nil || fset.NArg() != 0 {
+		return 2
+	}
+	if !panelFixKeyOK(*v["key"], stderr) {
 		return 2
 	}
 	// An inline back-fill carrying -commit takes neither instant: both
@@ -3642,4 +3648,19 @@ func inRunFixRefusal(ks []string, run records.Run, key, roundBase string) string
 		}
 	}
 	return ""
+}
+
+// panelFixKeyRE is a well-formed panel-fix key: the round counts fix rounds
+// from 1, so the fix after panel-0 is panel-fix-1 (kan-1040's self-review);
+// internal/guard's pfdKeyRE is the same expression.
+var panelFixKeyRE = regexp.MustCompile(`^panel-fix-[1-9][0-9]*(-[0-9]+)?(-retry)?$`)
+
+// panelFixKeyOK refuses, on stderr, a -key with the panel-fix- prefix that
+// panelFixKeyRE does not match; every other key passes.
+func panelFixKeyOK(key string, stderr io.Writer) bool {
+	if !strings.HasPrefix(key, "panel-fix-") || panelFixKeyRE.MatchString(key) {
+		return true
+	}
+	fmt.Fprintf(stderr, "flow: -key %q: panel-fix-<round> counts fix rounds from 1 — the fix after panel-0 is panel-fix-1 (skills/flow/review-panel-fix-round.md)\n", key)
+	return false
 }

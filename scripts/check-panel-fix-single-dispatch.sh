@@ -25,9 +25,10 @@
 # dispatches are this round's business. Within that token, every row whose
 # role is `panel-fix` must satisfy:
 #
-#   - its key matches `^panel-fix-[0-9]+(-[0-9]+)?(-retry)?$` -- the canonical
+#   - its key matches `^panel-fix-[1-9][0-9]*(-[0-9]+)?(-retry)?$` -- the canonical
 #     shape review-panel.md's fix step declares since kan-499: the bare
-#     `panel-fix-<round>` carries the round's first chunk, `panel-fix-<round>-<n>`
+#     `panel-fix-<round>` (`<round>` counts fix rounds from 1: the fix after
+#     panel-0 is panel-fix-1, kan-1040) carries the round's first chunk, `panel-fix-<round>-<n>`
 #     continues it for each further chunk of at most 10 findings, and `-retry`
 #     is the handshake's one allowed second dispatch of that same key; a
 #     conductor that invents keys (panel-fix-f1, one per finding) would

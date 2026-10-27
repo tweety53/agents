@@ -30,12 +30,13 @@ func init() {
 
 const pfdPrefix = "check-panel-fix-single-dispatch: "
 
-// pfdKeyRE is the bash's CANONICAL_KEY_RE. RE2 and bash's ERE agree on it:
+// pfdKeyRE is the bash's CANONICAL_KEY_RE; its round counts fix rounds
+// from 1, the fix after panel-0 being panel-fix-1 (kan-1040). RE2 and bash's ERE agree on it:
 // no backreference, no locale-dependent class ([0-9] is ASCII in both under
 // the bash's LC_ALL=C), and ^/$ anchor the whole string in both --
 // TestCheckPanelFixSingleDispatch's "canonical key regexp matches bash"
 // pins the verdicts measured from bash.
-var pfdKeyRE = regexp.MustCompile(`^panel-fix-[0-9]+(-[0-9]+)?(-retry)?$`)
+var pfdKeyRE = regexp.MustCompile(`^panel-fix-[1-9][0-9]*(-[0-9]+)?(-retry)?$`)
 
 // pfdShaRE is a recorded commit git may be handed: hex only, so a value
 // opening with `-` never reaches git as an option.
