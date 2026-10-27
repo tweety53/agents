@@ -609,3 +609,46 @@ func TestCommitThenPushWithUnreadableMessageIsDenied(t *testing.T) {
 	f.bash("-F alone", "allow", "{ROOT}", `git -C {SWT} commit -F msg.txt`)
 	f.bash("trailered message then push", "allow", "{ROOT}", `cd {SWT} && git commit -m "fix(x): y" -m "Flow-Key: k" && git push origin spectre/x`)
 }
+
+// TestProtectMainCheckoutReadsADataHeredocBodyAsData pins kan-1025: a heredoc
+// body fed to a command that runs no code (`flow record summary -file -`) is
+// data, not shell — while a body handed to a shell, a later runner word, a pipe
+// into `sh`, or an unquoted body's `$(…)` keeps being scanned.
+func TestProtectMainCheckoutReadsADataHeredocBodyAsData(t *testing.T) {
+	t.Parallel()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &pmFixture{t: t, home: t.TempDir(), vars: map[string]string{"ROOT": root}}
+	main := root + "/main"
+	f.vars["MAIN"], f.vars["SIB"] = main, root+"/sib"
+	f.git("init", "-q", "--bare", root+"/origin.git")
+	f.git("clone", "-q", root+"/origin.git", main)
+	f.write(main+"/f.txt", "a\n")
+	f.git("-C", main, "add", "f.txt")
+	f.git("-C", main, "commit", "-q", "-m", "init")
+	f.git("-C", main, "branch", "-M", "main")
+	f.git("-C", main, "push", "-q", "-u", "origin", "main")
+	f.git("-C", main, "remote", "set-head", "origin", "main")
+
+	f.bash("data body from main", "allow", "{MAIN}", "flow record summary -change x -file - <<'EOF'\nstep 1 -> step 2; rm {MAIN}/f.txt > {MAIN}/g.txt\nEOF")
+	f.bash("flow opener names a shell", "deny", "{MAIN}", "flow run csh <<'EOF'\nrm {MAIN}/f.txt\nEOF")
+	f.bash("bash body", "deny", "{ROOT}", "bash <<'EOF'\nrm {MAIN}/f.txt\nEOF")
+	f.bash("sudo sh body", "deny", "{ROOT}", "sudo sh <<'EOF'\nrm {MAIN}/f.txt\nEOF")
+	f.bash("substituted sh body", "deny", "{ROOT}", "x=$(sh <<'EOF'\nrm {MAIN}/f.txt\nEOF\n)")
+	f.bash("unquoted body substitution", "deny", "{ROOT}", "flow record summary -change x -file - <<EOF\n$(rm {MAIN}/f.txt)\nEOF")
+	f.bash("data opener then bash script", "deny", "{ROOT}", "flow record summary -change x -file - <<'EOF'\nrm {MAIN}/f.txt\nEOF\nbash {SIB}/x.sh")
+	f.bash("quoted << opens no heredoc", "deny", "{ROOT}", "echo '<<EOF'\nrm {MAIN}/f.txt\nEOF")
+	f.bash("data opener piped to sh", "deny", "{ROOT}", "flow record summary -change x -file - <<'EOF' | sh\nrm {MAIN}/f.txt\nEOF")
+	f.bash("expanded shell opener", "deny", "{ROOT}", "$SHELL <<'EOF'\nrm {MAIN}/f.txt\nEOF")
+	f.bash("commented << opens no heredoc", "deny", "{ROOT}", "x=1 # <<EOF\nrm {MAIN}/f.txt\nEOF")
+	f.bash("<< inside ${} opens no heredoc", "deny", "{ROOT}", "echo \"${x:-<<EOF}\"\nrm {MAIN}/f.txt\nEOF")
+	f.bash("escaped bash opener", "deny", "{ROOT}", "\\bash <<'EOF'\nrm {MAIN}/f.txt\nEOF")
+	f.bash("csh opener", "deny", "{ROOT}", "csh <<'EOF'\nrm {MAIN}/f.txt\nEOF")
+	f.bash("written then run by path", "deny", "{ROOT}", "envsubst <<'EOF' > /tmp/zz.sh && /tmp/zz.sh\nrm {MAIN}/f.txt\nEOF")
+	f.bash("flow output run by path", "deny", "{ROOT}", "flow x <<'EOF' > /tmp/zz.sh && /tmp/zz.sh\nrm {MAIN}/f.txt\nEOF")
+	f.bash("lines run as commands", "deny", "{ROOT}", "while read l; do $l; done <<'EOF'\nrm {MAIN}/f.txt\nEOF")
+	f.bash("continued flow opener", "deny", "{ROOT}", "flow x <<'EOF' \\\n  | sh\nrm {MAIN}/f.txt\nEOF")
+	f.bash("unbalanced ) in body", "deny", "{ROOT}", "flow x <<EOF\n$(case a in a) rm {MAIN}/f.txt;; esac)\nEOF")
+}

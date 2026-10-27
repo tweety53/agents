@@ -16,7 +16,8 @@ landing as staged changes. This hook denies the tools that create such residue:
     `cat > ABS <<EOF`, `cat >> ABS <<EOF` or `tee [-a] ABS <<EOF` to a literal absolute path,
     its body and closing line, nothing after — where only ABS is judged — and except the body of
     any `cat`/`tee` heredoc inside a longer command, which is that writer's data, never commands.
-    A body no shell runs — a `python`/`python3`/`node` program on stdin, or a file the rest of
+    A `flow` heredoc body (`flow record summary -file - <<'EOF'`) is data when its opener writes
+    no file and nothing else in the command runs code (kan-1025). A body no shell runs — a `python`/`python3`/`node` program on stdin, or a file the rest of
     the command runs only through one of those or `npx playwright test` — is that language's
     text: only the git invocations its lines name are judged (kan-1026: `d>0` read as a write).
 
@@ -305,6 +306,16 @@ SEGMENT_SPLIT_RE = re.compile(r"&&|\|\||[;|]")
 CAT_TARGET_RE = re.compile(r">>?[ \t]*([^\s;&|<>]+)")
 SUBST_RE = re.compile(r"[<>]\(|\$\(|`")
 COMMAND_CUT_RE = re.compile(r"&&|\|\||[\n;|&(){}]")
+SHELL_KEYWORDS = {"do", "then", "else", "elif", "if", "while", "until", "!"}
+# A `flow` opener's later words must be plain tokens and none a shell or interpreter name
+# (`flow run csh <<EOF`), or its heredoc body stays scanned.
+FLOW_PLAIN_WORD_RE = re.compile(r"^[A-Za-z0-9_.,=-]+$")
+FLOW_SHELL_WORDS = {
+    "sh", "bash", "zsh", "dash", "ksh", "csh", "tcsh", "mksh", "yash", "fish", "ash", "busybox",
+    "su", "ssh", "doas", "sudo", "env", "script", "parallel", "xargs", "python", "python3", "perl",
+    "ruby", "node",
+}
+
 RUNNER_WORDS = {
     "sh", "bash", "zsh", "dash", "ksh", "fish", "source", ".", "eval", "exec", "xargs", "env",
     "command", "builtin", "nohup", "timeout", "nice", "time", "sudo", "python", "python3",
@@ -394,7 +405,8 @@ def may_run_code(text, target):
     one `reads_only` allows. A command naming another file (`check-plan-shape.sh /x/o.md`,
     `./gradlew`) leaves the body as data; `php $T`, `setsid $T`, `find . -exec`, `ssh h $T`
     keep it scanned, as does any command behind a leading `NAME=value` or run under
-    `env`/`export`. Over-matching only keeps the body scanned."""
+    `env`/`export`. With target None no command names it, so substitutions, runner words, env
+    assignments and a command word holding `/` or `$` count. Over-matching only keeps the body scanned."""
     segments = command_segments(text)
     if segments is None:
         return True
@@ -405,7 +417,14 @@ def may_run_code(text, target):
         # LD_PRELOAD, …): a command carrying one, or run under `env`/`export`, is never a reader.
         if words and (assigned or words[0].rsplit("/", 1)[-1] in {"env", "export"}):
             return True
-        if words and any(names_target(w, target) for w in words) and not reads_only(words, target):
+        # With no target, a command word holding `/` or `$` may run what the opener wrote or
+        # read (`/tmp/zz.sh`, `$l`).
+        lead = words[:]
+        while lead and lead[0] in SHELL_KEYWORDS:
+            lead.pop(0)
+        if target is None and lead and ("/" in lead[0] or "$" in lead[0]):
+            return True
+        if target and words and any(names_target(w, target) for w in words) and not reads_only(words, target):
             return True
     return False
 
@@ -461,6 +480,24 @@ REDIRECT_OPS = (">", ">>", ">|", "&>", "&>>")
 ATTACHED_REDIRECT_RE = re.compile(r"^\d*(&>>|&>|>>|>\||>)([^&].*)$")
 
 
+def subst_spans(body):
+    """The `$(...)` and backtick spans an unquoted heredoc body runs, a backtick span rewritten as
+    `$(...)`, or None when a span cannot be closed. body has its escaped backticks removed."""
+    spans = SUBST_SPAN_RE.findall(body)
+    if (
+        body.count("$(") != sum(sp.startswith("$(") for sp in spans)
+        or body.count("`") % 2
+        # `$(case a in a) rm …;; esac)`: the span closes early and drops the rest.
+        or body.count(")") != sum(sp.count(")") for sp in spans if sp.startswith("$("))
+    ):
+        return None
+    return ["$(" + sp[1:-1] + ")" if sp.startswith("`") else sp for sp in spans]
+
+
+# A heredoc opener's segment cut into words so `x=$(bash` yields `bash`.
+OPENER_WORD_SPLIT_RE = re.compile(r"[\s=$()`'\"]+")
+
+
 def _split_redirect(word):
     m = ATTACHED_REDIRECT_RE.match(word)
     return [m.group(1), m.group(2)] if m else [word]
@@ -477,7 +514,10 @@ def strip_data_heredocs(command):
     run; the target named again only as an argument is data), the opener is not a plain `cat`/`tee`
     (`python3 - <<EOF`, `x=$(cat <<EOF`). An unquoted-delimiter body that runs `$(...)` or
     backticks keeps only those spans scanned, a backtick span as `$(...)` — bash runs them and
-    nothing else of the body — or the whole body when a span cannot be closed."""
+    nothing else of the body — or the whole body when a span cannot be closed. Any other opener's
+    body is data only when the opener is `flow` (an allowlist), its line is not continued, it
+    redirects no output, and the rest of the command runs no code (`may_run_code`) — kan-1025: `flow record summary -file - <<'EOF'` bodies were denied over
+    their prose."""
     lines = command.split("\n")
     out = []
     k = 0
@@ -506,6 +546,32 @@ def strip_data_heredocs(command):
             out.extend(program_git_lines(body))
             k = end + 1
             continue
+        pre = line[: m.start()]
+        if (
+            end is not None
+            # A `<<` in quotes, a `${…}` or a comment opens no heredoc: its "body" is shell.
+            and pre.count("'") % 2 == 0
+            and pre.count('"') % 2 == 0
+            and pre.count("${") <= pre.count("}")
+            and "#" not in pre
+            and words
+            # An allowlist, not a denylist: any other opener may be a stdin interpreter
+            # (`csh`, `ssh h`, `sqlite3`), so only `flow` reads its body as data.
+            and words[0].lstrip("\\") == "flow"
+            and all(FLOW_PLAIN_WORD_RE.match(w) and w not in FLOW_SHELL_WORDS for w in words[1:])
+            and not line.rstrip().endswith("\\")  # a continued opener line hides the rest
+            and ">" not in seg  # output written to a file may be run later
+            and not any(w.rsplit("/", 1)[-1] in RUNNER_WORDS for w in OPENER_WORD_SPLIT_RE.split(seg))
+            and not may_run_code("\n".join(lines[:k] + lines[end + 1 :]), None)
+        ):
+            body = "\n".join(lines[k:end]).replace("\\`", "")
+            if m.group(3) and any(c in body for c in ("$(", "`")):
+                spans = subst_spans(body)
+                if spans is None:
+                    continue
+                out.extend(spans)
+            k = end + 1
+            continue
         if not words or words[0] not in ("cat", "tee"):
             continue
         if words[0] == "cat":
@@ -528,10 +594,10 @@ def strip_data_heredocs(command):
         if m.group(3) and any(c in body for c in ("$(", "`")):
             # Only the substitutions of an unquoted body run; its other text is data, so the
             # spans alone are kept scanned. A span this cannot close keeps the whole body.
-            spans = SUBST_SPAN_RE.findall(body)
-            if body.count("$(") != sum(sp.startswith("$(") for sp in spans) or body.count("`") % 2:
+            spans = subst_spans(body)
+            if spans is None:
                 continue
-            out.extend("$(" + sp[1:-1] + ")" if sp.startswith("`") else sp for sp in spans)
+            out.extend(spans)
         k = end + 1
     return "\n".join(out)
 
