@@ -75,7 +75,7 @@ var dpEntries = map[string]dpEntry{
 	"readonly": {"**READ-ONLY REVIEW:**",
 		[]string{"never mutate it", "no file edit outside your own report file", "a claim nobody can check"}, nil},
 	"fixround": {"**FIX-ROUND SCOPE:**",
-		[]string{"this is a fix-round re-review", "and nothing else on the branch", "never the module, repository or live-spec suite"}, nil},
+		[]string{"this is a fix-round re-review", "and nothing else on the branch", "never the module, repository or live-spec suite", "for a defect the fix itself introduces"}, nil},
 	"subskill": {"**REQUIRED SUB-SKILL:**",
 		[]string{"from its file", "on Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/"},
 		map[string]string{"tdd": "skills/test-driven-development/SKILL.md`", "debugging": "skills/systematic-debugging/SKILL.md`"}},

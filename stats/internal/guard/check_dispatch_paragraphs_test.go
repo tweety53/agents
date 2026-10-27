@@ -1698,7 +1698,9 @@ const (
 		"> `<fix report>` carries each fixed finding's proof: the test run before the fix and after it,\n" +
 		"> and the failure with the fix reverted. Check that proof against the diff; reproduce it\n" +
 		"> yourself only where it is missing, does not match the diff, or does not show the failure it\n" +
-		"> claims — and say which of those it was."
+		"> claims — and say which of those it was. Read every hunk of the fix diff, a fix made for another\n" +
+		"> slot's finding included, for a defect the fix itself introduces — an evaluation moved out of the\n" +
+		"> guard that kept it safe, a branch the fix changed — and report it as a new finding at its line."
 	dpFixRoundScopeBlockNoReReview = "> **FIX-ROUND SCOPE:** a fix-round re-review with a narrowed scope. Its scope is the fix diff you were given\n" +
 		"> and the sites of the findings it fixes, plus at most the code neighbouring those hunks — the\n" +
 		"> enclosing function or section — and nothing else on the branch. Run only the tests and\n" +
@@ -1706,7 +1708,9 @@ const (
 		"> `<fix report>` carries each fixed finding's proof: the test run before the fix and after it,\n" +
 		"> and the failure with the fix reverted. Check that proof against the diff; reproduce it\n" +
 		"> yourself only where it is missing, does not match the diff, or does not show the failure it\n" +
-		"> claims — and say which of those it was."
+		"> claims — and say which of those it was. Read every hunk of the fix diff, a fix made for another\n" +
+		"> slot's finding included, for a defect the fix itself introduces — an evaluation moved out of the\n" +
+		"> guard that kept it safe, a branch the fix changed — and report it as a new finding at its line."
 	dpFixRoundScopeBlockNoNothingElse = "> **FIX-ROUND SCOPE:** this is a fix-round re-review. Its scope is the fix diff you were given\n" +
 		"> and the sites of the findings it fixes, plus at most the code neighbouring those hunks — the\n" +
 		"> enclosing function or section — and nothing beyond it. Run only the tests and\n" +
@@ -1714,7 +1718,9 @@ const (
 		"> `<fix report>` carries each fixed finding's proof: the test run before the fix and after it,\n" +
 		"> and the failure with the fix reverted. Check that proof against the diff; reproduce it\n" +
 		"> yourself only where it is missing, does not match the diff, or does not show the failure it\n" +
-		"> claims — and say which of those it was."
+		"> claims — and say which of those it was. Read every hunk of the fix diff, a fix made for another\n" +
+		"> slot's finding included, for a defect the fix itself introduces — an evaluation moved out of the\n" +
+		"> guard that kept it safe, a branch the fix changed — and report it as a new finding at its line."
 	dpFixRoundScopeBlockNoSuite = "> **FIX-ROUND SCOPE:** this is a fix-round re-review. Its scope is the fix diff you were given\n" +
 		"> and the sites of the findings it fixes, plus at most the code neighbouring those hunks — the\n" +
 		"> enclosing function or section — and nothing else on the branch. Run only the tests and\n" +
@@ -1722,7 +1728,9 @@ const (
 		"> `<fix report>` carries each fixed finding's proof: the test run before the fix and after it,\n" +
 		"> and the failure with the fix reverted. Check that proof against the diff; reproduce it\n" +
 		"> yourself only where it is missing, does not match the diff, or does not show the failure it\n" +
-		"> claims — and say which of those it was."
+		"> claims — and say which of those it was. Read every hunk of the fix diff, a fix made for another\n" +
+		"> slot's finding included, for a defect the fix itself introduces — an evaluation moved out of the\n" +
+		"> guard that kept it safe, a branch the fix changed — and report it as a new finding at its line."
 	dpProofRunsBlock = "> **PROOF RUNS:** When a check has to be run repeatedly to prove a flake reproduced or fixed, size\n" +
 		"> the run count to the flake rate you measured, 10–15 runs by default, never a fixed count per\n" +
 		"> step. Your report states the measured rate and the run count. Sizing the runs never replaces\n" +
@@ -1787,5 +1795,23 @@ func TestCheckDispatchParagraphsPlanningPhrases(t *testing.T) {
 				t.Fatalf("rc=%d out:\n%s", rc, out)
 			}
 		})
+	}
+}
+
+// TestCheckDispatchParagraphsFixRoundNamesIntroducedDefects pins that the
+// FIX-ROUND SCOPE block asks every re-run for defects the fix itself
+// introduces: the block without the clause fails naming it (kan-1038).
+func TestCheckDispatchParagraphsFixRoundNamesIntroducedDefects(t *testing.T) {
+	t.Parallel()
+	phrase := "for a defect the fix itself introduces"
+	for _, tc := range []struct {
+		block string
+		rc    int
+	}{{dpFixRoundScopeBlock, 0}, {strings.Replace(dpFixRoundScopeBlock, phrase, "", 1), 1}} {
+		root := dpFixture(t, map[string]string{"review-panel.md": dpCleanReviewPanel, "implement.md": dpCleanImplement, "review-panel-fix-round.md": dpDoc(tc.block)})
+		rc, out, _, _ := dpRun(t, crEnv(t.TempDir(), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": root}))
+		if rc != tc.rc || (tc.rc == 1 && !strings.Contains(out, "missing the required phrase: \""+phrase+"\"")) {
+			t.Fatalf("want rc %d: rc=%d out:\n%s", tc.rc, rc, out)
+		}
 	}
 }
