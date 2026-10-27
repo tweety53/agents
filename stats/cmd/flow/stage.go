@@ -37,17 +37,17 @@ import (
 const defaultHarness = "unknown"
 
 const stageUsage = `usage: flow stage begin [-addr url] [-timeout dur] [-C dir] [-harness name] [-session id]
-                          -command cmd -stage key -session-token token (<change> | -jira-key KEY)
+                          -command cmd -stage key -session-token token (<change> | -change name | -jira-key KEY)
        flow stage end [-addr url] [-timeout dur] [-C dir]
                         -command cmd -stage key -outcome outcome
-                        [-fix-rounds n] [-panel-rounds n] [-findings json] (<change> | -jira-key KEY)
+                        [-fix-rounds n] [-panel-rounds n] [-findings json] (<change> | -change name | -jira-key KEY)
        flow stage wrap [-addr url] [-timeout dur] [-C dir] [-harness name] [-session id]
-                        -command cmd -stage key -session-token token (<change> | -jira-key KEY)
+                        -command cmd -stage key -session-token token (<change> | -change name | -jira-key KEY)
                         -- <work command and args...>
        flow stage mark [-addr url] [-timeout dur] [-C dir] [-harness name] [-session id]
-                        -command cmd -stages key,key,... -session-token token (<change> | -jira-key KEY)
+                        -command cmd -stages key,key,... -session-token token (<change> | -change name | -jira-key KEY)
        flow stage keys
-       flow stage sessions [-addr url] [-timeout dur] [-C dir] -stage key <change>
+       flow stage sessions [-addr url] [-timeout dur] [-C dir] -stage key (<change> | -change name)
 
 -stage takes a stage KEY, not its prose name -- one of README.md's Level 1
 -- the stages of each command table's Key column; an undocumented key is
@@ -119,6 +119,7 @@ type stageIdentityFlags struct {
 	stage   string
 	name    string
 	jiraKey string
+	change  string
 	// dirGiven records an explicit -C; finishStageIdentityFlags fills an
 	// absent one with the cwd, which gatePanelFindingsClosed must not take
 	// for the change's checkout (kan-1025).
@@ -131,17 +132,20 @@ func registerStageIdentityFlags(fset *flag.FlagSet, f *stageIdentityFlags) {
 	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
 	fset.StringVar(&f.command, "command", "", "the flow command this stage belongs to, e.g. /flow")
 	fset.StringVar(&f.stage, "stage", "", "the stage key, exactly as README.md's Level 1 table's Key column documents it -- never its prose name")
+	fset.StringVar(&f.change, "change", "", "the change name, in place of the <change> argument (kan-1037)")
 	fset.StringVar(&f.jiraKey, "jira-key", "", "record against this Jira key instead of a change name -- /flow-plan's plan.session only")
 }
 
 func finishStageIdentityFlags(fset *flag.FlagSet, pos []string, f *stageIdentityFlags) error {
 	switch {
-	case f.jiraKey != "" && len(pos) == 0:
+	case f.jiraKey != "" && f.change == "" && len(pos) == 0:
 		f.name = ""
-	case f.jiraKey == "" && len(pos) == 1:
+	case f.jiraKey == "" && f.change != "" && len(pos) == 0:
+		f.name = f.change
+	case f.jiraKey == "" && f.change == "" && len(pos) == 1:
 		f.name = pos[0]
 	default:
-		return fmt.Errorf("expected exactly one argument, the change name, or -jira-key with no argument")
+		return fmt.Errorf("expected exactly one argument, the change name, or -change or -jira-key with no argument")
 	}
 	if f.command == "" || f.stage == "" {
 		return fmt.Errorf("-command and -stage are both required")
@@ -1027,6 +1031,7 @@ func runStageSessions(ctx context.Context, args []string, stdout, stderr io.Writ
 	timeout := fset.Duration("timeout", defaultTimeout, "store request timeout")
 	dir := fset.String("C", ".", "the change's repository")
 	stage := fset.String("stage", "", "a /flow stage key")
+	change := fset.String("change", "", "the change name, in place of the <change> argument (kan-1037)")
 	pos, err := parseInterspersed(fset, args)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -1036,8 +1041,13 @@ func runStageSessions(ctx context.Context, args []string, stdout, stderr io.Writ
 		fmt.Fprint(stderr, stageUsage)
 		return 2
 	}
+	if *change != "" && len(pos) == 0 {
+		pos = []string{*change}
+	} else if *change != "" {
+		pos = nil
+	}
 	if len(pos) != 1 || *stage == "" {
-		fmt.Fprintln(stderr, "flow: stage sessions takes -stage and one <change>")
+		fmt.Fprintln(stderr, "flow: stage sessions takes -stage and one <change> or -change")
 		fmt.Fprint(stderr, stageUsage)
 		return 2
 	}

@@ -1816,3 +1816,46 @@ func TestStageEndReviewPanelResolvesWorktreeWithoutC(t *testing.T) {
 		t.Fatalf("exit=%d reached=%v, want 0 and the daemon reached; stderr:\n%s", code, reached, stderr.String())
 	}
 }
+
+// TestStageBeginAcceptsChangeFlag: `flow record` takes -change, so `flow
+// stage` accepts it too (kan-1037); -change with a positional is a usage error.
+func TestStageBeginAcceptsChangeFlag(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		if gotBody, err = readAll(r); err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":42,"attempt":1}`))
+	}))
+	defer srv.Close()
+
+	begin := func(tail ...string) (int, string) {
+		var stdout, stderr bytes.Buffer
+		args := append([]string{
+			"stage", "begin",
+			"-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", "/flow", "-stage", "flow.brainstorm",
+			"-session-token", "mf-x-20261024T000000Z",
+		}, tail...)
+		return run(context.Background(), args, strings.NewReader(""), &stdout, &stderr), stderr.String()
+	}
+
+	if code, stderr := begin("-change", "demo"); code != 0 {
+		t.Fatalf("-change demo: exit %d; stderr:\n%s", code, stderr)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(gotBody, &got); err != nil {
+		t.Fatalf("decode body: %v\n%s", err, gotBody)
+	}
+	if got["changeName"] != "demo" {
+		t.Errorf("changeName = %v, want demo", got["changeName"])
+	}
+	if code, _ := begin("-change", "demo", "demo"); code != 2 {
+		t.Errorf("-change demo demo: exit %d, want 2", code)
+	}
+}
