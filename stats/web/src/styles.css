@@ -445,13 +445,15 @@ th button {
 .weekly-tooltip {
   position: absolute;
   transform: translate(12px, -110%);
-  width: 160px;
-  padding: var(--space-2) var(--space-3);
+  box-sizing: content-box;
+  width: 150px;
+  padding: 6px 10px;
   border: var(--panel-border-width) solid var(--border-strong);
   border-radius: var(--panel-radius);
   background: var(--surface-panel);
   color: var(--text-primary);
   font-size: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   pointer-events: none;
 }
 

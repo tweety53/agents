@@ -254,7 +254,7 @@ function WeeklyCostChart({ rows }: { rows: WeeklyCostPoint[] }) {
             <strong>{formatUsd(tip.value)}</strong>
             {tip.pct !== null && (
               <div>
-                <span className={deltaClass(tip.pct)}>{deltaText(tip.pct, 1, " ")}</span> vs previous week
+                <span className={deltaClass(tip.pct)}>{deltaText(tip.pct, 1, " ")}</span> vs prev week
               </div>
             )}
           </div>

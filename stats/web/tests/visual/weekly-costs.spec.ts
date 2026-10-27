@@ -101,6 +101,7 @@ test.describe("weekly costs", () => {
     await expect(tip).toContainText("Overall");
     await expect(tip).toContainText("$3.37");
     await expect(tip).toContainText("▲ 124.5%");
+    await expect(tip).toContainText("vs prev week");
 
     await expect(page).toHaveScreenshot("weekly-costs-tooltip.png", { fullPage: true });
   });
