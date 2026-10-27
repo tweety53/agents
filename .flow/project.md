@@ -69,7 +69,7 @@ forbids any agent action touching it at all.
 
 ```bash
 scripts/run-guard-tests.sh
-cd stats && make -s web-dist && go test ./... -race -count=1
+cd stats && make -s web-dist && go test -race -count=1 $(go list ./... | grep -v '/internal/guard$')
 # inputs: stats/web/ stats/Makefile
 cd stats && make -s web-dist && cd web && npm test
 ```
@@ -87,14 +87,16 @@ open `skills/`, `scripts/` and `setup.sh` through `../../../` — so both always
 in `flow-guard` (`stats/internal/guard/runguardtests.go`); a new harness added to `scripts/` is picked up automatically, with
 no edit needed here. It points `FLOW_GUARD_CACHE_DIR` at its own temp directory, so a ported
 guard's shim builds `flow-guard` from this tree there rather than in the operator's cache;
-`scripts/test-go-guards.sh` runs the Go guard tests (`stats/internal/guard/`) as one harness. A
+`scripts/test-go-guards.sh` runs the Go guard tests (`stats/internal/guard/`) as one harness; the
+Go line above excludes `internal/guard`, which that harness runs under `-race`, so the package runs
+once per verify (kan-1038). A
 new `check-*.sh` lands with its `test-check-*.sh` companion in the same change — plans declare the
 companion task and review panels look for it, and the runner refuses the suite before anything
 runs while the companion is missing (kan-903).
 
 **Measured runtime: recorded per run in the flow store — query it with `flow suite list`.** The
 canonical suites are `guard-tests` (`scripts/run-guard-tests.sh`), `stats-go`
-(`go test ./... -race -count=1`) and `stats-spa` (`stats/web` `npm test`); each row carries the
+(`go test -race -count=1 $(go list ./... | grep -v '/internal/guard$')`) and `stats-spa` (`stats/web` `npm test`); each row carries the
 machine that ran it, and the per-(suite, host) summary line is the median of the last 10 passing
 runs. Whether the whole `## test` list still fits inside this harness's default tool timeout in one
 invocation is answered by those recorded figures, not by a number pasted here. Record a run with

@@ -5,10 +5,12 @@
 # stats/internal/guard/<name, - replaced by _>_test.go, and run-guard-tests.sh
 # accepts that file as the guard's companion in place of a
 # test-<name>.sh. This harness runs the whole package once, so the suite
-# runs every ported guard's cases as one harness.
+# runs every ported guard's cases as one harness. The `## test` Go line in
+# .flow/project.md excludes this package so it runs once, here, under -race
+# (kan-1038).
 #
 # Exit codes are `go test`'s: 0 every case passed, non-zero otherwise.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR/../stats" && go test ./internal/guard/... -count=1
+cd "$SCRIPT_DIR/../stats" && go test ./internal/guard/... -race -count=1
