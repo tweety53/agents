@@ -1062,3 +1062,19 @@ func TestCCSurvivorsTimeoutParsesEnvKnob(t *testing.T) {
 		}
 	}
 }
+
+// kan-1037: the review panel's mutation copy, `<worktree>-mutation-<round>`,
+// is a throwaway copy too.
+func TestCCThrowawayCopyMatchesMutation(t *testing.T) {
+	for path, want := range map[string]bool{
+		"/x/demo-mutation-1":   true,
+		"/x/demo-wave-group-2": true,
+		"/x/demo-mutation-":    false,
+		"/x/demo-mutation-1a":  false,
+		"/x/other-mutation-1":  false,
+	} {
+		if got := ccWaveGroupCopy(path, "demo"); got != want {
+			t.Errorf("ccWaveGroupCopy(%q, demo) = %v, want %v", path, got, want)
+		}
+	}
+}

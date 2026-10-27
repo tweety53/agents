@@ -806,15 +806,21 @@ func changeWorktrees(porcelain []byte, name string) (wts, copies []string) {
 	return wts, copies
 }
 
-// ccWaveGroupCopy reports whether path is a wave-group throwaway copy of
-// change name's apply worktree: implement.md's `<worktree>-wave-group-<g>`,
-// matched on the path's last element as `<name>-wave-group-` followed by
-// digits and nothing else. The caller only asks for a DETACHED entry -- the
-// copy is created with --detach -- so a change actually named
-// `<name>-wave-group-3`, whose apply worktree carries a branch, is never
-// read as this change's copy. The path is read from git's own worktree
-// list, never guessed from a layout.
+// ccWaveGroupCopy reports whether path is a throwaway copy of change name's
+// apply worktree: implement.md's `<worktree>-wave-group-<g>` or
+// review-panel-optional-slots.md's `<worktree>-mutation-<round>` (kan-1037),
+// matched on the path's last element as `<name>-wave-group-` or
+// `<name>-mutation-` followed by digits and nothing else. The caller only
+// asks for a DETACHED entry -- each copy is created with --detach -- so a
+// change actually named `<name>-wave-group-3`, whose apply worktree carries a
+// branch, is never read as this change's copy. The path is read from git's
+// own worktree list, never guessed from a layout.
 func ccWaveGroupCopy(path, name string) bool {
-	g, ok := strings.CutPrefix(path[strings.LastIndex(path, "/")+1:], name+"-wave-group-")
-	return ok && g != "" && strings.Trim(g, "0123456789") == ""
+	base := path[strings.LastIndex(path, "/")+1:]
+	for _, suffix := range []string{"-wave-group-", "-mutation-"} {
+		if g, ok := strings.CutPrefix(base, name+suffix); ok && g != "" && strings.Trim(g, "0123456789") == "" {
+			return true
+		}
+	}
+	return false
 }
