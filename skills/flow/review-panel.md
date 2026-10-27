@@ -437,8 +437,8 @@ flow record dispatch end -change <name> -key panel-<round>-<slot|slot+slot+slot>
   [-ended-at "$(date -u -r <report-file> +%Y-%m-%dT%H:%M:%SZ)"]
 ```
 
-Every dispatch of a round launches in one message; every `begin` is recorded in the next Bash
-call, one call for all, as `panel-round-begins.sh <worktree> <name> <round> mf-<literal-token>
+Every `begin` of a round is recorded in the Bash call immediately before the one message that
+launches every dispatch of the round, one call for all, as `panel-round-begins.sh <worktree> <name> <round> mf-<literal-token>
 <slot>:<model>:<effort>[:<diff-base>]...` — the begin above once per slot, under the literal key
 `panel-<round>-<slot>`, `<round>` written as the number itself, never a shell substitution, and then
 the round's own pass row naming each slot's pair, so no round it began lacks one; the round's wait is one call whose condition is `test -s` on every
@@ -493,7 +493,7 @@ the session's own (**Harness mapping**, `skills/flow-contracts/model-policy.md`;
 
 **`-agent-id` is never typed on a slot's row, never invented** — the daemon captures the launch identifier,
 stamping each launch onto the row its Agent-tool `description`'s first word names in the launching session — each slot's description opens with its row's `-key` (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`) — and pairing a launch whose description names no row with the begin nearest it in time;
-record the round's `begin`s in the one Bash call after its launch message, as above, and never reuse a `-key`.
+record the round's `begin`s in the one Bash call before its launch message, as above, and never reuse a `-key`.
 
 **Record a slot's dispatch before recording that slot's findings**, and carry the seq the command
 printed — `recorded: dispatch <seq>` — into each of that slot's `flow record finding` calls as

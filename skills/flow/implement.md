@@ -437,10 +437,12 @@ flow record dispatch end -change <name> -key task-<n>-implementer \
 
 `-commit` takes the task commit's full sha; an abbreviated one is refused.
 
-Both calls are required. `begin` is recorded immediately before the dispatch — or, when several
-launches go out together in one message, in the next Bash call, one call for all (step 3 of **The
-next implementer overlaps the guard**, below) — carrying no
-`-agent-id`: the daemon captures the agent's identifier. `-agent-id` is accepted on both
+Both calls are required. `begin` is recorded immediately before the dispatch — when several
+launches go out together in one message, in the one Bash call immediately before that message, one
+call for all (step 3 of **The next implementer overlaps the guard**, below) — carrying no
+`-agent-id`: the daemon captures the agent's identifier. A launch whose row is not yet open is
+refused by `hooks/enforce-agent-baseline.py` (kan-1038), and the harvester fills the row's empty
+`agent_id` from the launch result afterwards. `-agent-id` is accepted on both
 calls as recorded intent the daemon never overwrites, for a caller that knows the id — the
 literal `inline` on a row the parent's own inline work records included. A row whose work runs
 in a launched agent never carries `-agent-id inline` — the daemon stamps no id onto such a row, so
@@ -807,8 +809,8 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    make, or a stash entry the parent did not push means the tree is not the one the run
    left — end the turn with `## Question` carrying both outputs verbatim; never re-run the
    guard on top of it.
-3. **One message launches group N+2's implementer and, on `big` when any gate fired in group N+1,
-   that group's one reviewer bundle (below). The next Bash call records every launch's `begin`**.
+3. **One Bash call records the `begin` of group N+2's implementer and, on `big` when any gate fired
+   in group N+1, of that group's one reviewer bundle (below). The next message launches them all**.
 
 **When the script cannot be located**, apply its task-commit field rules by hand: check the
 commit's `Files:` against `git diff --name-only <task-sha>^..<task-sha>`, its `Tests:` against the
