@@ -46,15 +46,16 @@ is not confirmed conflict-free, so the run never takes that risk on itself; 1 is
 `REFUSE`, or anything it cannot answer — and an empty resolved set stop and ask. An exit 3 from any
 worktree is one prompt for the whole change, shape per Operator prompts
 (`skills/flow-contracts/operator-prompts.md`), which that contract's **Auto-resolution** resolves on
-its recommended **Stop**; **Rebase** and **Continue** run only on an explicit operator instruction —
-silence is not one, and an unanswered ask takes **Stop** (**Unanswered mid-run asks**,
-`skills/flow-contracts/pipeline.md`):
+its recommended **Continue**: integrate's sync onto the moved base settles the overlap before
+anything lands (`skills/flow/sync-onto-base.md`). **Rebase** and **Stop** run only on an explicit
+operator instruction, and an unanswered ask takes **Continue** (**Unanswered mid-run asks**,
+`skills/flow-contracts/pipeline.md`).
 
 > **The base branch has moved and touches paths this change also touched — how should the
 > panel proceed?**
-> - **Stop — I'll rebase or reorder first** *(recommended)*
+> - **Continue — review as is** *(recommended)*
 > - **Rebase onto `<base>` now, then continue**
-> - **Continue — review as is**
+> - **Stop — I'll rebase or reorder first**
 
 **Stop** closes `flow.review-panel` with `-outcome stopped` and leaves the change at its current
 state with nothing committed by this stage. **Continue** carries the reported movement into the
@@ -141,8 +142,10 @@ of this stage's own reporting.
 > build. Record the cause with `flow record pass -round <round> -note 'context bundle: build
 > failed — <the script's stderr>'`, then resolve it, never asked, per **Auto-resolution**
 > (`skills/flow-contracts/operator-prompts.md`):
-> - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
->   closes `flow.review-panel` with `-outcome stopped`
+> - **Fix the build, then dispatch** *(recommended; silence defaults here)* — the run cures the
+>   cause itself (**Fewest operator actions**, `skills/flow-contracts/pipeline.md`), re-runs the
+>   gather and dispatches with the bundle; only a cause out of its reach closes
+>   `flow.review-panel` with `-outcome stopped`
 > - **Continue — dispatch every slot without the bundle** — recorded with `flow record pass
 >   -round <round> -note 'context bundle: dispatched without it — operator override'`, every
 >   slot's prompt dropping the CONTEXT BUNDLE paragraph and naming the bundle's absence in its
@@ -734,13 +737,13 @@ time; re-dispatch that one slot once.
 
 A second breach of the same slot is a prompt, shape per Operator prompts
 (`skills/flow-contracts/operator-prompts.md`), resolved per that contract's **Auto-resolution** on
-its recommended **Stop the run**:
+its recommended **Re-dispatch it again**; a third breach of the same slot is asked, under that
+contract's never-repeats clause.
 
 > **Slot `<slot>` breached the wall-clock ceiling a second time. How should this proceed?**
-> - **Re-dispatch it again**
+> - **Re-dispatch it again** *(default, recommended)*
 > - **Proceed without the slot**
-> - **Stop the run** *(default, recommended)* — ends at `IN_PROGRESS` with the implementation
->   committed on the branch
+> - **Stop the run** — ends at `IN_PROGRESS` with the implementation committed on the branch
 
 A timed-out slot raises no finding, consumes no fix round, and is not a clean result for the final
 pass.

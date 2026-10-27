@@ -70,6 +70,7 @@ printf 'stray\n' >"$WORK/b-worktrees/demo/stray.txt"
 g -C "$WORK/b-worktrees/demo" add stray.txt && g -C "$WORK/b-worktrees/demo" commit -qm "test(b): a stray edit"
 sut prepare "$WORK/a" demo
 check "untasked: prepare stops at STOP: unfinished-work" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: unfinished-work"'
+check "untasked: the stop says to finish the work, asking nothing" 'printf "%s" "$OUT" | tail -1 | grep -qF "finish the unfinished work, asking nothing, then re-run prepare"'
 check "untasked: the stray commit is listed" 'printf "%s" "$OUT" | grep -q "^  [0-9a-f]\{12\} test(b): a stray edit$"'
 sut prepare "$WORK/a" demo --accept-outstanding
 check "untasked: --accept-outstanding passes the gate" '[ "$RC" -eq 0 ]'`},

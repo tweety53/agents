@@ -2,13 +2,15 @@
 
 The auto-resolution rules of **Operator prompts** (`skills/flow-contracts/operator-prompts.md`).
 
-**During implementation and every fix run, a prompt with a recommended option is never asked: the
-run takes the recommended option itself, at once.** The phases are everything from `flow.implement`
-to the `IN_PROGRESS` handoff of a creating run — `skills/flow/implement.md`,
-`skills/flow/review-panel.md`, `skills/flow/visual-verify.md`, `skills/flow/verify-and-handoff.md`
-— and every fix run (`/flow <fix instructions>`, or a plain message run as a fix). The operator
-asked for this once, for every flow run: a mid-run question they would answer with the recommended
-option costs them a stop for nothing.
+**Past planning, a prompt with a recommended option is never asked: the run takes the recommended
+option itself, at once.** Past planning is everything from `flow.implement` to the run's final
+handoff — `skills/flow/implement.md`, `skills/flow/review-panel.md`,
+`skills/flow/visual-verify.md`, `skills/flow/verify-and-handoff.md`, `skills/flow/integrate.md`,
+`skills/flow/cleanup.md` and the self-review pass (`skills/flow-self-review/SKILL.md`) — every fix
+run (`/flow <fix instructions>`, or a plain message run as a fix), `/flow-fast` from its
+implementation on, and the prompts that open a run. The operator asked for this for every flow run
+(**Work end to end — stop only to plan or to test by hand**, `rules/work-end-to-end.mdc`): a
+question they would answer with the recommended option costs them a stop for nothing.
 
 It holds for a call site's own prompt and for any question the run frames itself in those phases —
 a finding that seems to need a product decision, a departure from a mockup — one whose root
@@ -30,11 +32,11 @@ taken by its recommended option by the parent and recorded as below, never liste
 `## decisions` key resolves to `recommended` (**Project configuration**,
 `skills/flow-contracts/project-configuration.md`), the paragraph above holds for the whole run:
 the planning asks the Planning bullet of **What still stops** below names
-are auto-resolved exactly as the implementation phases are. The key absent, or a head that
+are auto-resolved exactly as the phases past planning are. The key absent, or a head that
 resolves to nothing, leaves the scope exactly as the paragraph above states it. The remaining
-**What still stops** bullets are the mode's limits: a prompt with no recommended option, nothing
-to choose, anything outward-facing or irreversible, and every prompt outside the run's own phases
-are asked under the mode exactly as off it.
+**What still stops** bullets are the mode's limits: the manual testing the operator asked for, a
+prompt with no recommended option, a cause out of the run's reach and anything outward-facing or
+irreversible stop under the mode exactly as off it.
 
 **A blocked verify or visual-verify is never turned into questions.** Each class below has one
 answer the pipeline's own rules already give, so the run takes it and goes on to **The loop**
@@ -93,7 +95,9 @@ Every auto-resolution:
 
 ### What still stops
 
-These are asked, or stop with `## Question`, exactly as their call sites state:
+These are asked, or stop with `## Question`, exactly as their call sites state — and nothing else
+past planning is (**Work end to end — stop only to plan or to test by hand**,
+`rules/work-end-to-end.mdc`):
 
 - **Planning.** Brainstorm and design questions, the convergence-and-approval confirm, the
   third-round offer, the plan
@@ -102,10 +106,17 @@ These are asked, or stop with `## Question`, exactly as their call sites state:
   auto-resolution to implementation and fix options, not planning. The `## decisions: recommended` mode lifts the planning asks in this bullet and lifts no
   other bullet here; the withdrawal offers in `skills/flow/withdrawal.md` stay asked under the
   mode too, deleting a change being irreversible and the bullet below governing.
+- **Manual testing the operator asked for.** A `/flow` record whose `reviewBeforeLanding` is `true`
+  stops at its `IN_PROGRESS` handoff (**Review-before-landing instruction**, `skills/flow/SKILL.md`),
+  and `/flow-fast` with `## handoff` `required` stops after its change summary; the fixes that
+  testing finds are the operator's fix runs. Neither stops unless the operator set it.
 - **No recommended option.** The second model-handshake mismatch, a multiple-match pick, a finding
   recorded unverifiable, and a question the run cannot honestly give one recommended option.
-- **Nothing to choose.** A guard's exit 2 (it cannot answer), a command that failed twice on an
-  environment cause the run cannot cure itself, and every other `## Question` handback that carries no options.
+- **Out of the run's reach.** A failure whose cure lies outside the run — production, a credential
+  or account only the operator holds, a repository the run was not given — and a `## Question`
+  handback that carries no options. A guard's exit 2, a failing command or tool, a stack that will
+  not start and an environment fault the run's own commands can repair are not this bullet: they
+  are cured in the run (**Fewest operator actions**, `skills/flow-contracts/pipeline.md`).
 - **Outward-facing or irreversible actions.** Push, merge, opening a PR, archiving, deleting, and
   every Jira write — the follow-up filing and the self-review filing included — and the
   self-review's flow-eval mining.
@@ -115,6 +126,3 @@ These are asked, or stop with `## Question`, exactly as their call sites state:
   `--base`, pushed fast-forward — it rewrites no history and only brings the base up to what it
   tracks (gymie KAN-1015: the run stopped mid-verify to ask it, and the operator said to answer it
   automatically).
-- **Outside implementation and fix runs.** The wrong-state override, the plain-message ambiguity
-  prompt that decides whether a fix run starts at all, and every integrate and cleanup prompt but
-  the scope and cost questions above.

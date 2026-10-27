@@ -57,10 +57,9 @@ the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
 
 - **`STOP: archive-undo`** → ask, per **Run 1 — the branch is not merged**
   (`skills/flow-contracts/finish-contract-run1.md`).
-- **`STOP: unfinished-work`** → **Load `skills/flow/unfinished-work-gate.md`** — the
-  breakdown, the three-course prompt and what each course does are there. **Continue** and
-  **File or join…** re-run `prepare` with `--accept-outstanding`; **Stop** leaves the mark the
-  script closed `stopped`.
+- **`STOP: unfinished-work`** → **Load `skills/flow/unfinished-work-gate.md`** — the run
+  finishes the unfinished work itself, asks nothing, and re-runs `prepare`, per its
+  **Finish it — never a prompt**.
   A breakdown naming `no change summary recorded` is closed by recording the summary first — the
   `**Summary:**` bullets the last run printed, or, where this session never saw them, bullets
   written from the change's `tasks.md` and `narrative.md` — with the command the breakdown names,
@@ -174,8 +173,8 @@ index holding anything beyond the chain's own path refuses the commit the same w
 A `LAND-UNTRACED-FINDING`, `LAND-DEFERRED-FINDING` or `LAND-REPORT-INVALID` refusal is not a stop: resolve it per step 7 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`) and land again.
 
 A product defect the pass met stops it at the end of step 2 of `/flow-self-review`, closes that mark
-`-outcome stopped` instead, and the run stops before step 5 on the handoff block **the sweep**
-(`skills/flow-contracts/known-bugs.md`) defines:
+`-outcome stopped` instead, and the run continues straight into the fix run **the sweep**
+(`skills/flow-contracts/known-bugs.md`) names, in the same invocation, before step 5:
 
 ```bash
 flow stage end -command '/flow' -stage flow.self-review -outcome stopped <name>

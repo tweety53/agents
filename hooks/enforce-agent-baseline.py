@@ -129,6 +129,10 @@ FLOW_HIGH_MARKERS = (
     "Operator-approved high",
 )
 
+# flow-xhigh and flow-planner-xhigh are defined for later use (KAN-1039): no contract dispatches
+# them yet, so a dispatch on either was hand-picked.
+FLOW_XHIGH_TYPES = ("flow-xhigh", "flow-planner-xhigh")
+
 
 # A description naming its row: plan tasks by id over the plan's count, any other row by a first
 # word of a Key shape the closed list names (**Dispatch sites -- the parent's closed list**,
@@ -324,6 +328,17 @@ def flow_high_reason(prompt: str, tool_input: dict) -> "str | None":
     )
 
 
+def flow_xhigh_reason(tool_input: dict) -> "str | None":
+    subagent_type = tool_input.get("subagent_type")
+    if subagent_type not in FLOW_XHIGH_TYPES or "/.zcode/" in __file__:
+        return None
+    return (
+        f"Dispatch blocked: {subagent_type} is defined for later use and no contract "
+        "dispatches it yet (KAN-1039). Dispatch on the pair the recorded decision or the "
+        "loop's pairs table names."
+    )
+
+
 def pinned_role_reason(prompt: str, tool_input: dict) -> "str | None":
     lines = {line.strip() for line in prompt.splitlines()}
     for marker, subagent_type, model, contract in PINNED_ROLES:
@@ -414,6 +429,7 @@ def main() -> int:
     reason = (
         pinned_role_reason(prompt, tool_input)
         or flow_high_reason(prompt, tool_input)
+        or flow_xhigh_reason(tool_input)
         or description_reason(payload, tool_input, prompt)
         or loop_key_line_reason(payload, tool_input, prompt)
         or begin_row_reason(payload, tool_input, prompt)

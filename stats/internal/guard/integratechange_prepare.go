@@ -230,7 +230,7 @@ func (c *ic) prepare() {
 		// operator's false-positive flag on that worktree's row for that HEAD.
 		c.visualGate()
 		if ask && !c.acceptOutstanding {
-			c.stop("unfinished-work", "load skills/flow/unfinished-work-gate.md and offer its three courses; Continue or File-or-join re-runs prepare with --accept-outstanding")
+			c.stop("unfinished-work", "load skills/flow/unfinished-work-gate.md: finish the unfinished work, asking nothing, then re-run prepare")
 		}
 		c.markEnd("flow.unfinished-work-gate", "completed")
 	}

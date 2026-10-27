@@ -111,6 +111,8 @@ var cicExpectedZero = [][2]string{
 	{"agents/flow-planner-low.md", "generic dispatch-target agent definition — cites no .md/.mdc path at all"},
 	{"agents/flow-planner-medium.md", "generic dispatch-target agent definition — cites no .md/.mdc path at all"},
 	{"agents/flow-planner-high.md", "generic dispatch-target agent definition — cites no .md/.mdc path at all"},
+	{"agents/flow-xhigh.md", "generic dispatch-target agent definition — cites no .md/.mdc path at all"},
+	{"agents/flow-planner-xhigh.md", "generic dispatch-target agent definition — cites no .md/.mdc path at all"},
 }
 
 func checkInstalledCitations(_ []string, env Env, stdout, stderr io.Writer) int {

@@ -1,0 +1,43 @@
+---
+description: The goal is apps and tooling that work end to end — fix and re-run as often as it takes; interactive only for planning and for manual testing the user asked to stop for
+alwaysApply: true
+---
+
+# Work end to end — stop only to plan or to test by hand
+
+<!-- core -->
+**The one thing that matters is apps and tooling that work end to end.** However many fix rounds,
+re-runs, tooling updates or tooling fixes it takes, keep going: a red check, a failing guard, a
+broken script or a stale environment is the next thing to fix, never a report or a question.
+Tokens, time, round count and context length are never a reason to stop. Always on, every project
+and every subagent.
+
+**Only two parts are interactive: planning, and manual testing of the implementation with the fixes
+it finds — the latter only when the user explicitly asked to stop after implementation.** Everywhere
+else a question with a recommended option is never asked: take that option, record it, and continue
+(**What still stops**, `skills/flow-contracts/operator-prompts-auto-resolution.md`). Still stop for
+a choice no option can honestly be recommended for, an outward-facing or irreversible action another
+rule requires confirmed, and a cause outside your reach — production, a credential only the user
+holds, a repository you were not given. Stay inside your dispatch's remit: a read-only role reports,
+and its dispatcher fixes.
+
+<!-- /core -->
+
+## How `/flow` applies it
+
+The user's stop after implementation is the change record's `reviewBeforeLanding` on `/flow` and
+`## handoff` `required` on `/flow-fast`; with neither set, nothing stops for testing.
+**Fewest operator actions** (`skills/flow-contracts/pipeline.md`) is this rule's `/flow`
+statement, and **What still stops** (`skills/flow-contracts/operator-prompts-auto-resolution.md`)
+its list of exceptions.
+
+## The incidents behind it
+
+- kan-1037 (2026-10-27): the user spent about 380k uncached tokens answering mid-run questions with
+  the option already marked recommended.
+- kan-1038 (2026-10-27): asked whether to fix all eleven self-review findings or only the blocker,
+  the user answered "recommended — don't ask such things again".
+- KAN-1039 (2026-10-27), the user's own statement: the only thing they care about is well-working
+  apps and tooling end to end, no matter how many fix rounds or tooling updates and fixes are
+  needed; the only interactive parts are planning and manual testing of the implementation with the
+  fixes that follow, and that only when they explicitly asked to stop after implementation.

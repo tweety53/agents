@@ -7,9 +7,9 @@ import (
 	"testing"
 )
 
-// TestSetupAgents asserts setup.sh installs the three flow-<effort> agent definitions on
-// `./setup.sh global`, run against a sandboxed HOME so it never touches the real ~/.claude.
-// Three symlinks must exist under $HOME/.claude/agents/ and each resolve; each flow-<effort>
+// TestSetupAgents asserts setup.sh installs the flow-<effort> and flow-planner-<effort> agent
+// definitions on `./setup.sh global`, run against a sandboxed HOME so it never touches the real
+// ~/.claude. Every symlink must exist under $HOME/.claude/agents/ and resolve; each flow-<effort>
 // frontmatter carries its own `effort:` line and no `model:` line — the Agent tool's
 // dispatch-time `model` parameter overrides a definition's `model`, so the model axis needs no
 // definition of its own while the effort axis does. Each `tools:` allowlist must omit `Agent`
@@ -25,7 +25,7 @@ func TestSetupAgents(t *testing.T) {
 	hasModel := regexp.MustCompile(`(?m)^model: `)
 	hasTools := regexp.MustCompile(`(?m)^tools: `)
 	toolsFork := regexp.MustCompile(`(?m)^tools: .*(Agent|Task)`)
-	for _, effort := range []string{"low", "medium", "high"} {
+	for _, effort := range []string{"low", "medium", "high", "xhigh"} {
 		t.Run("flow-"+effort, func(t *testing.T) {
 			link := filepath.Join(agentsDir, "flow-"+effort+".md")
 			if !isSymlink(link) {
@@ -50,13 +50,16 @@ func TestSetupAgents(t *testing.T) {
 	}
 
 	found, _ := filepath.Glob(filepath.Join(agentsDir, "flow-*.md"))
-	g.assertEq("six flow-* symlinks present under "+agentsDir, 6, len(found))
+	g.assertEq("eight flow-* symlinks present under "+agentsDir, 8, len(found))
 	// The flow-planner-<effort> definitions alone carry Agent: the self-review
 	// and in-run fix planners dispatch Explore and Plan agents (kan-1033).
-	for _, e := range []string{"low", "medium", "high"} {
+	for _, e := range []string{"low", "medium", "high", "xhigh"} {
 		b, err := os.ReadFile(filepath.Join(agentsDir, "flow-planner-"+e+".md"))
 		if err != nil || !toolsFork.Match(b) {
 			t.Errorf("flow-planner-%s.md missing or its 'tools:' allowlist lacks Agent (err %v)", e, err)
+		}
+		if !regexp.MustCompile(`(?m)^effort: ` + e + `$`).Match(b) {
+			t.Errorf("flow-planner-%s.md frontmatter missing 'effort: %s'", e, e)
 		}
 	}
 }
