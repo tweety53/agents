@@ -50,11 +50,11 @@ func (c *ic) commit() {
 			c.stop("narrative", nf+" holds in-run fix line(s) off the format 'In-run pipeline fix: <agents sha | deferred> — <the defect> (blast radius <N> files)': "+strings.Join(bad, "; ")+" — rewrite each to it, then re-run commit")
 		}
 	}
-	c.requireFixLines(named)
 	nf := live + "/narrative.md"
 	if !isFile(nf) && isFile(arch+"/narrative.md") {
 		nf = arch + "/narrative.md"
 	}
+	c.requireFixLines(named, nf)
 	// stderr too: its exit-2 message is the stop's cause.
 	runs := c.cmd("/", c.sibling("check-narrative-runs"), c.canon, c.name, nf)
 	var b bytes.Buffer
@@ -168,15 +168,22 @@ func (c *ic) commit() {
 	}
 }
 
-// requireFixLines stops `narrative` on each `flow-fix` row the store lists
-// as `fixed` whose ref no in-run fix line's sha (named) prefixes and the
-// self-review report does not carry (kan-1032 self-review: a landed in-run
-// fix was narrated without its line). An unreadable store skips the check.
-func (c *ic) requireFixLines(named []string) {
+// requireFixLines appends to the narrative nf an in-run fix line for each
+// `flow-fix` row the store lists as `fixed` whose ref no in-run fix line's
+// sha (named) prefixes and the self-review report does not carry, derived
+// from the row's ref, note and blast radius (kan-1039: a fix the planning
+// session landed had no narrative to be recorded in). Such a row lacking a
+// one-line note or a blast radius, or with no narrative file, stops
+// `narrative` (kan-1032 self-review: a landed in-run fix was narrated
+// without its line). An unreadable store skips the check.
+func (c *ic) requireFixLines(named []string, nf string) {
 	read := c.cmd("/", "flow", "self-review", "findings", "-C", c.main, "-change", c.name)
 	read.Stderr = nil
 	out, rc := c.capture(read)
-	var rows []struct{ Angle, Disposition, Ref string }
+	var rows []struct {
+		Angle, Disposition, Ref, Note string
+		BlastRadius                   *int `json:"blastRadius"`
+	}
 	if rc != 0 || json.Unmarshal([]byte(out), &rows) != nil {
 		fmt.Fprintln(c.stderr, "integrate-change: warning: flow self-review findings unreadable — the in-run fix line check is skipped")
 		return
@@ -194,12 +201,39 @@ func (c *ic) requireFixLines(named []string) {
 				break
 			}
 		}
-		if !found {
-			missing = append(missing, r.Ref[:min(7, len(r.Ref))])
+		if found {
+			continue
 		}
+		short := r.Ref[:min(7, len(r.Ref))]
+		if r.Note == "" || strings.ContainsAny(r.Note, "\r\n") || r.BlastRadius == nil || !isFile(nf) {
+			missing = append(missing, short)
+			continue
+		}
+		line := fmt.Sprintf("- In-run pipeline fix: %s — %s (blast radius %d files)", short, r.Note, *r.BlastRadius)
+		b, err := os.ReadFile(nf)
+		if err != nil {
+			missing = append(missing, short)
+			continue
+		}
+		add := line + "\n"
+		if len(b) > 0 && b[len(b)-1] != '\n' {
+			add = "\n" + add
+		}
+		f, err := os.OpenFile(nf, os.O_APPEND|os.O_WRONLY, 0)
+		if err == nil {
+			_, err = f.WriteString(add)
+			if cerr := f.Close(); err == nil {
+				err = cerr
+			}
+		}
+		if err != nil {
+			missing = append(missing, short)
+			continue
+		}
+		c.say("narrative: appended " + line)
 	}
 	if len(missing) > 0 {
-		c.stop("narrative", "no in-run fix line names the fixed flow-fix row(s) "+strings.Join(missing, ", ")+" — append 'In-run pipeline fix: <agents sha> — <the defect> (blast radius <N> files)' for each, then re-run commit")
+		c.stop("narrative", "no in-run fix line names the fixed flow-fix row(s) "+strings.Join(missing, ", ")+", and the row carries no one-line note or blast radius to derive it from — append 'In-run pipeline fix: <agents sha> — <the defect> (blast radius <N> files)' for each, then re-run commit")
 	}
 }
 

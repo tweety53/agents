@@ -151,7 +151,7 @@ archives the change on its branch, commits the archive and pushes each reshaped 
 
 **`STOP: narrative`** → an `In-run pipeline fix:` line in the narrative is off the format **Pipeline defects found mid-run** fixes for it (`skills/flow-contracts/pipeline.md`): rewrite that line to that format and re-run `commit`.
 
-**`STOP: narrative`** also stops on a `flow-fix` row `flow self-review findings -change <name>` lists as `fixed` whose sha no `In-run pipeline fix:` line names: append that line, in that format, and re-run `commit`.
+A `flow-fix` row `flow self-review findings -change <name>` lists as `fixed` whose sha no `In-run pipeline fix:` line names has that line appended to `narrative.md` by `commit` itself, from the row's ref, note and blast radius, and printed as `narrative: appended <the line>` (kan-1039: a fix the planning session landed had no narrative to be recorded in). **`STOP: narrative`** stops on such a row only when it carries no note or no blast radius: append that line by hand, in that format, and re-run `commit`.
 
 **`STOP: narrative`** also stops on a fix or integrate run whose section `narrative.md` lacks (`check-narrative-runs.sh`, the check `flow.write-in-progress` runs): append the missing section and re-run `commit`.
 

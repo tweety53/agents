@@ -432,6 +432,34 @@ const icRerunPinCase = `rerun_pin_case() {
 
 // TestIntegrateChangeRequiresInRunFixLine pins kan-1032's self-review: a
 // fixed flow-fix row the store lists needs an in-run fix line naming its sha.
+func TestIntegrateChangeDerivesInRunFixLine(t *testing.T) {
+	icRunCases(t, []icCaseDef{
+		{"fix_line_derived", `# --- fix_line_derived ---
+fixture
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+echo '[{"angle":"flow-fix","disposition":"fixed","ref":"1a2b3c4d5e6f","note":"the renderer could not render an exp- slot","blastRadius":2}]' >"$WORK/sr-findings.json"
+printf '\n## integrate run\n\nnarrative' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
+check "fix_line_derived: a row with its note and blast radius passes commit" '[ "$RC" -eq 0 ]'
+check "fix_line_derived: the line is appended to the narrative" \
+  'grep -qxF -- "- In-run pipeline fix: 1a2b3c4 — the renderer could not render an exp- slot (blast radius 2 files)" "$WORK/a-worktrees/demo/spectre/changes/archive/demo/narrative.md"'
+check "fix_line_derived: the append is reported" \
+  'printf "%s" "$OUT" | grep -q "^narrative: appended "'
+rm -f "$WORK/sr-findings.json"`},
+		{"fix_line_multiline_note", `# --- fix_line_multiline_note ---
+fixture
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+printf '%s\n' '[{"angle":"flow-fix","disposition":"fixed","ref":"1a2b3c4d5e6f","note":"two\nlines","blastRadius":2}]' >"$WORK/sr-findings.json"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
+check "fix_line_multiline_note: a multi-line note stops commit with exit 1" '[ "$RC" -eq 1 ]'
+check "fix_line_multiline_note: the stop names the sha" \
+  'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: narrative — .*1a2b3c4"'
+rm -f "$WORK/sr-findings.json"`},
+	})
+}
+
 func TestIntegrateChangeRequiresInRunFixLine(t *testing.T) {
 	icRunCases(t, []icCaseDef{
 		{"fix_line_missing", `# --- fix_line_missing ---
