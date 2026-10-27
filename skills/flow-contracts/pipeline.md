@@ -153,7 +153,7 @@ yet launched, a dispatch returned and its result not yet acted on — the next s
 same turn, never announced as "next". A turn whose last action is anything other than an operator
 prompt **What still stops** names, a blocked report, or the handoff the state's run ends on is
 this rule broken (kan-1018: the parent ended its turn with round-0 panel findings recorded and
-every fix still ahead).
+every fix still ahead). The `Stop` hook `hooks/flow-stop-guard.py` refuses such a turn end (kan-1024).
 
 **No round count ends a re-review or a re-verification.** A review-panel fix round, a gated
 per-task re-review, a verify stage's fix loop and a verifier re-dispatch each repeat until their

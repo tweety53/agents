@@ -606,6 +606,18 @@ SNIPPET
       }
     ]
 SNIPPET
+  warn_unregistered_hook "$settings" flow-stop-guard flow-stop-guard \
+    "  ⚠ The flow-stop-guard hook is installed but NOT registered, so nothing yet refuses a" \
+    "    /flow turn ending mid-phase. Add this to \"hooks\" in $settings:" <<'SNIPPET'
+
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python3 \"$HOME/.claude/hooks/flow-stop-guard.py\"" }
+        ]
+      }
+    ]
+SNIPPET
   warn_unregistered_hook "$settings" protect-main-checkout protect-main-checkout \
     "  ⚠ The protect-main-checkout hook is installed but NOT registered, so nothing yet stops" \
     "    an agent editing, staging or committing in a main checkout on its default branch." \
