@@ -46,6 +46,25 @@ export function lastEightWeeks(now: Date): { from: Date; to: Date } {
   return { from: new Date(midnight - (sinceWednesday + 49) * DAY_MS), to: now };
 }
 
+/** Every week of `from`'s 8-week window, in order: the response's row where
+ * it carries one, an all-null row where no costed run fell in that week. */
+function everyWeek(from: Date, rows: WeeklyCostPoint[]): WeeklyCostPoint[] {
+  const byWeek = new Map(rows.map((r) => [r.week, r]));
+  return Array.from({ length: 8 }, (_, i) => {
+    const week = new Date(from.getTime() + i * 7 * DAY_MS).toISOString().slice(0, 10);
+    return (
+      byWeek.get(week) ?? {
+        week,
+        overallUsd: null,
+        planningUsd: null,
+        implementationUsd: null,
+        reviewUsd: null,
+        selfReviewUsd: null,
+      }
+    );
+  });
+}
+
 export function WeeklyCosts({ period, project, model }: ViewProps) {
   const eightWeeks = useMemo(() => lastEightWeeks(new Date()), []);
   const table = useStatsView<WeeklyCostPoint[]>("weekly-costs", { ...eightWeeks, project, model });
@@ -57,7 +76,7 @@ export function WeeklyCosts({ period, project, model }: ViewProps) {
         {(data) => (
           <DataTable
             columns={columns}
-            rows={data.rows}
+            rows={everyWeek(eightWeeks.from, data.rows)}
             rowKey={(r) => r.week}
             emptyMessage="No stage runs in the last 8 weeks."
           />

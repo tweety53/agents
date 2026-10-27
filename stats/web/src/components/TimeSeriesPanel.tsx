@@ -85,6 +85,8 @@ export function TimeSeriesPanel({ points, series, format }: TimeSeriesPanelProps
   const lastIndex = Math.max(1, days.length - 1);
 
   function x(index: number): number {
+    // A lone day has no span to spread over: it sits at the plot's centre.
+    if (days.length === 1) return PADDING + plotWidth / 2;
     return PADDING + (index / lastIndex) * plotWidth;
   }
   function y(value: number): number {

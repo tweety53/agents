@@ -5,7 +5,7 @@
 // requirement.
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import type { DecisionRow, HealthViewSlug, StatsResponse, StatsViewSlug, ViewName } from "../api";
 import { App } from "../App";
 import { Decisions } from "./Decisions";
@@ -298,6 +298,11 @@ describe("views render their fixture response's actual values", () => {
   });
 
   it("weekly costs shows all five totals per week and a five-line chart", async () => {
+    // The table's window ends at "now"; pin it to the fixture's weeks.
+    vi.useFakeTimers({ now: new Date("2026-06-19T12:00:00Z"), toFake: ["Date"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     render(<WeeklyCosts period={period} project={undefined} model="m-a" />);
     expect((await screen.findAllByText("2026-06-10")).length).toBeGreaterThan(0);
     for (const header of ["Overall", "Planning", "Implementation", "Review", "Self-review"]) {
@@ -346,6 +351,33 @@ describe("views render their fixture response's actual values", () => {
     const weeksBack = (Date.now() - tableFrom.getTime()) / (7 * 24 * 60 * 60 * 1000);
     expect(weeksBack).toBeGreaterThanOrEqual(7);
     expect(weeksBack).toBeLessThan(8);
+  });
+
+  it("weekly costs table always lists the last 8 weeks", async () => {
+    vi.useFakeTimers({ now: new Date("2026-06-19T12:00:00Z"), toFake: ["Date"] });
+    try {
+      render(<WeeklyCosts period={period} project={undefined} />);
+      const table = (await screen.findAllByRole("table"))[0];
+      const weeks = within(table)
+        .getAllByRole("row")
+        .slice(1)
+        .map((r) => within(r).getAllByRole("cell")[0].textContent);
+      // Wed 2026-06-17 is this week; the window starts 7 weeks before it.
+      expect(weeks).toEqual([
+        "2026-04-29",
+        "2026-05-06",
+        "2026-05-13",
+        "2026-05-20",
+        "2026-05-27",
+        "2026-06-03",
+        "2026-06-10",
+        "2026-06-17",
+      ]);
+      const empty = within(table).getAllByRole("row")[1];
+      expect(within(empty).getAllByTestId("unavailable")).toHaveLength(5);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("reviewers shows severity counts and badges an exp- slot with its description", async () => {

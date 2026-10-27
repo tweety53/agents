@@ -164,4 +164,9 @@ describe("TimeSeriesPanel series", () => {
     expect(cx("A")).toEqual(["448", "240"]);
     expect(cx("B")).toEqual(["32"]);
   });
+
+  it("centres a single day on the x axis", () => {
+    render(<TimeSeriesPanel series={[{ name: "A", points: [{ day: "2026-06-10", value: 1 }] }]} />);
+    expect(screen.getByTestId("time-series-point").getAttribute("cx")).toBe("240");
+  });
 });
