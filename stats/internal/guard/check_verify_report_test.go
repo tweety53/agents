@@ -212,3 +212,40 @@ func TestCheckVerifyReportMatrixLinePerFrame(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckVerifyReportStep10WithACitedPrototype pins that step 10 reported
+// n/a beside an approved prototype design.md cites is undone: the prototype is
+// rendered as each capture's frame (kan-1038).
+func TestCheckVerifyReportStep10WithACitedPrototype(t *testing.T) {
+	const na = "- steps: 4 done | 7 done | 8 done | 9 done | 10 n/a — mockups not declared | 11 done | motion n/a — none\n"
+	const wire = "- wire contract: GET /api/x — shape matched\n- steps: 4 done | 7 done | 8 n/a — wire contract, no view drawn | 9 n/a — wire contract, no view drawn | 10 n/a — wire contract, no view drawn | 11 done | motion n/a — none\n"
+	for _, tc := range []struct {
+		name, cite, report string
+		exists, design     bool
+		rc                 int
+		want               string
+	}{
+		{"cited prototype", "proto.html", na, true, true, 1, "10 n/a while design.md cites the prototype .superpowers/sdd/proto.html"},
+		{"cited file absent", "proto.html", na, false, true, 0, "COMPLETE"},
+		{"no --design", "proto.html", na, true, false, 0, "COMPLETE"},
+		{"css only", "proto.css", na, true, true, 0, "COMPLETE"},
+		{"wire contract", "proto.html", wire, true, true, 0, "COMPLETE"},
+	} {
+		wt := t.TempDir()
+		root := filepath.Join(wt, "spectre/changes/x")
+		writeFile(t, filepath.Join(root, "design.md"), "## Context\n\nPrototype: `.superpowers/sdd/"+tc.cite+"`.\n")
+		if tc.exists {
+			writeFile(t, filepath.Join(wt, ".superpowers/sdd", tc.cite), "<html>")
+		}
+		path := filepath.Join(wt, ".superpowers/sdd/verify-report-visual-verify.md")
+		writeFile(t, path, "## Report\n"+tc.report)
+		args := []string{path, "0"}
+		if tc.design {
+			args = append(args, "--design", filepath.Join(root, "design.md"))
+		}
+		r := runGuard("check-verify-report", args, Env{Getenv: os.Getenv})
+		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
+			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
+		}
+	}
+}

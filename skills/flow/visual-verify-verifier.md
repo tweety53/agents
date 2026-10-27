@@ -146,7 +146,7 @@ never an exit code the command did not return.
    `<spec>.mockups` sidecar beside the capture spec, run
 
    ```bash
-   resolve-visual-screenshots.sh <worktree> <spec's basename> | compose-mockup-frames.sh <spec>.mockups <worktree>/<mockups> <changeRoot>/visual-verification '<mockup frame value>'
+   resolve-visual-screenshots.sh <worktree> <spec's basename> | compose-mockup-frames.sh <spec>.mockups <abs-worktree>/<mockups> <changeRoot>/visual-verification '<mockup frame value>'
    ```
 
    The fourth argument is this project's resolved `mockup frame` value, quoted; omit it entirely
@@ -159,10 +159,27 @@ never an exit code the command did not return.
    matched, a frame file absent, a malformed line, a capture whose size differs from the cropped
    frame) or 2 (cannot answer — a malformed `mockup frame` value included) blocks.
 
+   **An approved prototype is the frame where no mockup is** (kan-1038). When no sidecar maps a
+   capture — `mockups` undeclared included — and `design.md`'s `## Context` cites an approved
+   prototype HTML file that exists in the worktree (**The checklist**,
+   `skills/flow/brainstorm-planner.md`), render that file as each capture test's frame first. With
+   the project's own installed Playwright, a Node script you write under
+   `<changeRoot>/visual-verification/prototype/` opens `file://<prototype>` at the capture test's
+   own viewport, device scale factor and colour scheme, drives the state that test captures —
+   every hover, focus or pressed state the prototype draws included — and writes
+   `<changeRoot>/visual-verification/prototype/<screenshot stem>.png`. Then write
+   `<changeRoot>/visual-verification/prototype.mockups`, its first line `frame none` and one
+   `<screenshot name> <screenshot stem>` line per capture, and run the compose command above with
+   that map in place of `<spec>.mockups` and `<changeRoot>/visual-verification/prototype` in place
+   of `<abs-worktree>/<mockups>`. Every frame-bound reading below then runs on those pairs as on a
+   mockup's. A state the prototype draws that no capture test drives is a missing capture, and
+   blocks.
+
    > **The `mockups` declaration gates the frame comparison, never the sweeps.** The compose
    > step, the band pairing, the seam pairing, the ink inventory (sweep 10), the bounded-row
    > sweep (sweep 9) and the element × property matrix read a frame against the capture, and a
-   > project declaring no `mockups` root composes nothing and reports each of them
+   > project declaring no `mockups` root, with no approved prototype to render (above), composes
+   > nothing and reports each of them
    > n/a — no frame. The state sweeps run on the captures alone and are the default on every
    > `flow.visual-verify` run, composed or not. Where a sweep's wording names the frame for something
    > the capture answers without one — sweep 7's last element reached by name, sweep 5's

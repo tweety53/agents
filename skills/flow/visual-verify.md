@@ -202,6 +202,9 @@ for k,v in g("manifest").items():
 The verifier runs `check-verify-report.sh` with `--design <changeRoot>/design.md`, which refuses a
 report, or the `visual-verification.md` beside `design.md`, reading `no mockup source` while
 `design.md` cites a source that exists (kan-1017: every verifier left 7 of 11 matrix columns n/a).
+It also refuses step 10 reported n/a while `design.md` cites an HTML source that exists: an
+approved prototype is rendered as each capture's frame (step 10,
+`skills/flow/visual-verify-verifier.md`; kan-1038).
 
 **The parent names the change's motions in the prompt** — `motions:`, then one `<motion id>:
 <trigger> → <end state>` line per motion, or `motions: none`. A motion is every animation,

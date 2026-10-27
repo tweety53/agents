@@ -11,8 +11,11 @@
 # <design.md>, reading `no mockup source` while <design.md> cites a
 # backticked `.html`, `.htm` or `.css` path that exists relative to the
 # worktree (three directories above <report file>) leaves step 10 undone
-# (kan-1017: every verifier left 7 of 11 matrix columns n/a). An unreadable
-# <design.md> cannot be answered (exit 2).
+# (kan-1017: every verifier left 7 of 11 matrix columns n/a). Step 10
+# reported n/a while <design.md> cites a backticked `.html` or `.htm` path
+# that exists is likewise undone, unless a wire contract names no view: an
+# approved prototype is rendered as each capture's frame (kan-1038). An
+# unreadable <design.md> cannot be answered (exit 2).
 #
 # <report file> is the relay contract's
 # <abs-worktree>/.superpowers/sdd/verify-report-<key>.md

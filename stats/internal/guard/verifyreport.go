@@ -147,6 +147,17 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 				}
 			}
 		}
+		// An approved prototype is the frame where no mockup is (kan-1038): step 10
+		// n/a beside a cited HTML file that exists is undone, unless a wire
+		// contract names no view to compose.
+		if strings.HasPrefix(status["10"], "n/a") && !noView {
+			for _, m := range vrMockupSource.FindAllStringSubmatch(string(body), -1) {
+				if !strings.HasSuffix(m[1], ".css") && isFile(filepath.Join(wt, m[1])) {
+					status["10"] = "n/a while design.md cites the prototype " + m[1] + " — render it as each capture's frame (visual-verify-verifier.md step 10)"
+					break
+				}
+			}
+		}
 	}
 	if unevidenced != "" {
 		status["10"] = "pre-existing attribution with no merge-base evidence: " + unevidenced
