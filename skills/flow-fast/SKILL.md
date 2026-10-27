@@ -166,8 +166,8 @@ flow stage begin -command '/flow-fast' -stage flow.brainstorm -harness <harness>
 Make every judgment call yourself and name it in the summary, each with its rejected
 alternative and the one-line reason it lost, however small the call — size never exempts one
 (**Decisions**, `skills/spectre-planning/SKILL.md`);
-a `/flow-fast` run with `## handoff` `none` is one command from the operator, `/flow-fast
-<key>`, and asks nothing after it. Only with `## handoff` `required`, and only where two
+a `/flow-fast` run with `## handoff` `none`, or the key absent, is one command from the operator,
+`/flow-fast <key>`, and asks nothing after it. Only with `## handoff` `required`, and only where two
 readings would lead to materially different work, ask once, batched, through
 **AskUserQuestion**; a question there whose options include a recommended one takes it under
 the `## decisions: recommended` mode (**Auto-resolution**,

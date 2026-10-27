@@ -58,5 +58,8 @@ func TestSetupAgents(t *testing.T) {
 		if err != nil || !toolsFork.Match(b) {
 			t.Errorf("flow-planner-%s.md missing or its 'tools:' allowlist lacks Agent (err %v)", e, err)
 		}
+		if !regexp.MustCompile(`(?m)^effort: ` + e + `$`).Match(b) {
+			t.Errorf("flow-planner-%s.md frontmatter missing 'effort: %s'", e, e)
+		}
 	}
 }

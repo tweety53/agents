@@ -108,6 +108,7 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 		{"2e pipeline-fix loop escalation on flow-high", hook, payload("Key: pipeline-fix-x-plan-2\n"+baseline+" re-plan", "flow-high", "opus", ""), nil},
 		{"2f hand-picked flow-xhigh", hook, payload(baseline+" implement task 3", "flow-xhigh", "opus", ""), []string{"defined for later use"}},
 		{"2g hand-picked flow-planner-xhigh", hook, payload(baseline+" re-plan", "flow-planner-xhigh", "opus", ""), []string{"defined for later use"}},
+		{"2h zcode flow-xhigh is not refused as defined for later use", zhook, payload(baseline+" implement task 3", "flow-xhigh", "glm-5.3-flash", ""), nil},
 		{"3 verifier on flow-low/opus", hook, payload(verifier, "flow-low", "opus", ""), nil},
 		{"4 verifier on flow-high", hook, payload(verifier, "flow-high", "opus", ""), []string{`subagent_type: \"flow-low\"`, `model: \"opus\"`}},
 		{"5 verifier with no model", hook, payload(verifier, "flow-low", "", ""), []string{`model: \"opus\"`}},
