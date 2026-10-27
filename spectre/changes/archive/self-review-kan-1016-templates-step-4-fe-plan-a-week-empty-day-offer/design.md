@@ -103,7 +103,8 @@ Two findings arrived untraced, and the plan opened on their traces:
 ### Archived evidence left as committed
 
 **ID:** archived-evidence-unrepaired
-**Status:** active
+**Status:** superseded — the dispatcher lifted the constraint; gymie `4f38ea96` rewrote the 27 files to valid JSON with the same content (fix repairs what its defect wrote, `/flow-self-review` step 3)
+<!-- measured: python3 json.load over gymie 4f38ea96's archived matrix/*.json @ 2026-10-27 — 27 of 45 failed before, 0 after -->
 **Chosen:** the 27 invalid matrix JSON files and their duplicate copies under gymie's `spectre/changes/archive/kan-1016-templates-step-4-fe-plan-a-week-empty-day-offer/visual-verification/matrix/` are not rewritten: the dispatcher's constraint forbids `spectre/` edits in that archived change, and no reader parses them. The fixed writer serves every later run.
 **Considered:** rewriting them in place — the constraint above.
 

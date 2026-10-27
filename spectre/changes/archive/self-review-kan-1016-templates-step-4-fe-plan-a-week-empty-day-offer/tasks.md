@@ -38,10 +38,10 @@ and in gymie a log rotation on dev-stack start and a trace flag on the `verify` 
 - Task 4: the gate runs only on `/flow` `flow.visual-verify` `-outcome completed`, over every worktree of the state map, exempting exactly what `check-untasked-commits` exempts.
 - Task 8: every reader of `<service>.log` still reads the running service's output.
 
-- [ ] 1. Escape the strings the JSON writer prints
-  - [ ] **Step 1: Write the failing test.** Add `TestPyJSONEscapesStrings` to `stats/internal/guard/measure_visual_properties_test.go`: `pyDump(pyObj{{"unresolved", "region corner (0,9) is not background\nregion \"b\" \\ \t\x01 — end"}})` passes `json.Valid`, unmarshals back to the same string, and its bytes carry `\n`, `\"`, `\\`, `\t` and `\u0001` escapes with the `—` raw. Run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestPyJSON' -count=1`: the new test fails (an invalid control character).
-  - [ ] **Step 2: Fix.** In `pyWrite`'s `case string` (`stats/internal/guard/pyjson.go`) write the string through one helper that escapes `"` and `\` with a backslash, `\n` `\r` `\t` `\b` `\f` by their short forms, every other rune below U+0020 as `\u00XX` (lower-case hex, as Python's `json.dumps`), and every other rune raw (decision `pyjson-escape`); route object keys (`kv.k`) through the same helper. Replace the comment claiming nothing needs escaping with one naming the two-sided `unresolved` row (`measurevisualproperties.go`) as the string that does.
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestPyJSON|TestMeasureVisualProperties' -count=1` — green, and `TestMeasureVisualProperties`' golden outputs unchanged.
+- [x] 1. Escape the strings the JSON writer prints
+  - [x] **Step 1: Write the failing test.** Add `TestPyJSONEscapesStrings` to `stats/internal/guard/measure_visual_properties_test.go`: `pyDump(pyObj{{"unresolved", "region corner (0,9) is not background\nregion \"b\" \\ \t\x01 — end"}})` passes `json.Valid`, unmarshals back to the same string, and its bytes carry `\n`, `\"`, `\\`, `\t` and `\u0001` escapes with the `—` raw. Run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestPyJSON' -count=1`: the new test fails (an invalid control character).
+  - [x] **Step 2: Fix.** In `pyWrite`'s `case string` (`stats/internal/guard/pyjson.go`) write the string through one helper that escapes `"` and `\` with a backslash, `\n` `\r` `\t` `\b` `\f` by their short forms, every other rune below U+0020 as `\u00XX` (lower-case hex, as Python's `json.dumps`), and every other rune raw (decision `pyjson-escape`); route object keys (`kv.k`) through the same helper. Replace the comment claiming nothing needs escaping with one naming the two-sided `unresolved` row (`measurevisualproperties.go`) as the string that does.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestPyJSON|TestMeasureVisualProperties' -count=1` — green, and `TestMeasureVisualProperties`' golden outputs unchanged.
 
 **Build:** green
 **Files:** `stats/internal/guard/pyjson.go`, `stats/internal/guard/measure_visual_properties_test.go`
@@ -52,10 +52,10 @@ and in gymie a log rotation on dev-stack start and a trace flag on the `verify` 
 **Commit:** fix(guard): JSON-escape every string the matrix writer prints
 **After:** none
 
-- [ ] 2. Refuse a hand-built full app suite zip at close-task
-  - [ ] **Step 1: Write the failing test.** Add `TestCloseTaskRefusesAHandBuiltSuiteZip` to `stats/internal/guard/close_task_test.go`, built on the fixtures `stats/internal/guard/rebuild_full_app_suite_zip_test.go` uses for a screenshots root the resolver reads: a task commit whose `full-app-suite.zip` was written with `archive/zip` (not the script) is refused with exit 1 and the `is not rebuild-full-app-suite-zip.sh's output` line, the file's bytes after the run equal the committed ones, and the same commit carrying the zip the script builds closes. Run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCloseTaskRefusesAHandBuiltSuiteZip' -count=1`: it fails.
-  - [ ] **Step 2: Fix.** In `closeTask` step 2 (`stats/internal/guard/closetask.go`), per task commit and per map pair, when `git diff-tree --no-commit-id --name-only -r <sha>` lists a path whose base name is `full-app-suite.zip`, run `Registry["rebuild-full-app-suite-zip"]` in-process on that worktree with the zip's absolute directory as `<screenshots root>` (with `FLOW_GUARD_SCRIPT_DIR` set as the shim sets it), compare the rebuilt file's bytes with `git show <sha>:<path>`, write the committed bytes back, and fold the result into `worst`: a difference is exit 1, printed as `close-task: task <id>: <path> is not rebuild-full-app-suite-zip.sh's output — rebuild it with that script and re-commit`; a dirty screenshots root (`git status --porcelain -- <root>` non-empty) or a rebuild exit other than 0 is exit 2 (decision `suite-zip-at-close-task`). Add the step to `scripts/close-task.sh`'s header, step 2.
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCloseTask|TestRebuildFullAppSuiteZip' -count=1`, then `scripts/check-guard-symlinks.sh` — green.
+- [x] 2. Refuse a hand-built full app suite zip at close-task
+  - [x] **Step 1: Write the failing test.** Add `TestCloseTaskRefusesAHandBuiltSuiteZip` to `stats/internal/guard/close_task_test.go`, built on the fixtures `stats/internal/guard/rebuild_full_app_suite_zip_test.go` uses for a screenshots root the resolver reads: a task commit whose `full-app-suite.zip` was written with `archive/zip` (not the script) is refused with exit 1 and the `is not rebuild-full-app-suite-zip.sh's output` line, the file's bytes after the run equal the committed ones, and the same commit carrying the zip the script builds closes. Run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCloseTaskRefusesAHandBuiltSuiteZip' -count=1`: it fails.
+  - [x] **Step 2: Fix.** In `closeTask` step 2 (`stats/internal/guard/closetask.go`), per task commit and per map pair, when `git diff-tree --no-commit-id --name-only -r <sha>` lists a path whose base name is `full-app-suite.zip`, run `Registry["rebuild-full-app-suite-zip"]` in-process on that worktree with the zip's absolute directory as `<screenshots root>` (with `FLOW_GUARD_SCRIPT_DIR` set as the shim sets it), compare the rebuilt file's bytes with `git show <sha>:<path>`, write the committed bytes back, and fold the result into `worst`: a difference is exit 1, printed as `close-task: task <id>: <path> is not rebuild-full-app-suite-zip.sh's output — rebuild it with that script and re-commit`; a dirty screenshots root (`git status --porcelain -- <root>` non-empty) or a rebuild exit other than 0 is exit 2 (decision `suite-zip-at-close-task`). Add the step to `scripts/close-task.sh`'s header, step 2.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCloseTask|TestRebuildFullAppSuiteZip' -count=1`, then `scripts/check-guard-symlinks.sh` — green.
 
 **Build:** green
 **Files:** `stats/internal/guard/closetask.go`, `stats/internal/guard/close_task_test.go`, `scripts/close-task.sh`
@@ -66,10 +66,10 @@ and in gymie a log rotation on dev-stack start and a trace flag on the `verify` 
 **Commit:** fix(guard): refuse a full app suite zip the rebuild script did not build
 **After:** Task 1
 
-- [ ] 3. Admit an inline verifier row over a dirty tree
-  - [ ] **Step 1: Write the failing test.** Add `TestRecordDispatchBeginInlineDirtyTree` to `stats/cmd/flow/record_test.go`: in a scratch repository whose `spectre/changes/x/visual-verification.md` is committed then modified, `flow record dispatch begin -change x -role verifier -agent-id inline -key verify-x …` is not refused for the dirty tree, and the same begin with `-role implementer` (a key its role admits) still is, its stderr naming the path. Run `cd stats && make -s web-dist && go test ./cmd/flow/ -run 'TestRecordDispatchBeginInlineDirtyTree' -count=1`: the verifier case fails.
-  - [ ] **Step 2: Fix.** In `stats/cmd/flow/record.go`, guard the `inlineDirtyPaths` block with `*role != "verifier"` as well, its comment naming why: a verify row records a run, not an edit, and `run-verify-list` already writes no green sha over a dirty tree (decision `verifier-skips-inline-dirty`).
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./cmd/flow/ && go test ./cmd/flow/ -run 'TestRecordDispatch' -count=1` — green.
+- [x] 3. Admit an inline verifier row over a dirty tree
+  - [x] **Step 1: Write the failing test.** Add `TestRecordDispatchBeginInlineDirtyTree` to `stats/cmd/flow/record_test.go`: in a scratch repository whose `spectre/changes/x/visual-verification.md` is committed then modified, `flow record dispatch begin -change x -role verifier -agent-id inline -key verify-x …` is not refused for the dirty tree, and the same begin with `-role implementer` (a key its role admits) still is, its stderr naming the path. Run `cd stats && make -s web-dist && go test ./cmd/flow/ -run 'TestRecordDispatchBeginInlineDirtyTree' -count=1`: the verifier case fails.
+  - [x] **Step 2: Fix.** In `stats/cmd/flow/record.go`, guard the `inlineDirtyPaths` block with `*role != "verifier"` as well, its comment naming why: a verify row records a run, not an edit, and `run-verify-list` already writes no green sha over a dirty tree (decision `verifier-skips-inline-dirty`).
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./cmd/flow/ && go test ./cmd/flow/ -run 'TestRecordDispatch' -count=1` — green.
 
 **Build:** green
 **Files:** `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`
@@ -80,13 +80,13 @@ and in gymie a log rotation on dev-stack start and a trace flag on the `verify` 
 **Commit:** fix(flow): admit an inline verifier row over tracked modifications
 **After:** none
 
-- [ ] 4. Refuse the visual-verify stage end over a commit without its trailer
-  - [ ] **Step 1: Write the failing test.** Add `TestStageEndVisualVerifyRefusesAnUntaskedCommit` to `stats/cmd/flow/stage_test.go`, in the shape of the existing `gateLiveVerification` tests: a change whose state `worktrees` map names a second repository carrying a commit with neither `Task-Id:` nor `Flow-Key:` trailer is refused by `flow stage end -command '/flow' -stage flow.visual-verify -outcome completed <name>` with exit 1 naming the commit; after the commit is amended with `Flow-Key: flow.visual-verify` the gate passes; `-outcome stopped` is never gated. Run `cd stats && make -s web-dist && go test ./cmd/flow/ -run 'TestStageEndVisualVerifyRefusesAnUntaskedCommit' -count=1`: it fails.
-  - [ ] **Step 2: Fix.** Add `gateVisualVerifyTrailers(f, outcome, stderr)` to `stats/cmd/flow/stage.go`, called in `runStageEnd` beside the other two gates, for `/flow` `flow.visual-verify` `completed` only: resolve the change's checkout as `gatePanelFindingsClosed` does with no `-C`, read the `worktrees` map from the change's state, and for each worktree run `guard.Registry["check-untasked-commits"]` in-process from `git merge-base HEAD origin/<base>`, `<base>` resolved as integrate's unfinished-work gate resolves it for that worktree (`stats/internal/guard/integratechange.go`). Any listing or a guard exit 2 refuses with exit 1 and `flow: stage end refused: commits outside every task lack their Flow-Key: trailer in <worktree> — amend each with -m "Flow-Key: flow.visual-verify" before anything is pushed` (decision `visual-verify-end-trailer-gate`). unverified:confirm which helper in `stats/cmd/flow/state.go` reads the `worktrees` map and how integratechange.go resolves `<base>` per worktree; reuse both rather than re-deriving.
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./cmd/flow/ && go test ./cmd/flow/ -run 'TestStageEnd|TestStage' -count=1` — green.
+- [x] 4. Refuse the visual-verify stage end over a commit without its trailer
+  - [x] **Step 1: Write the failing test.** Add `TestStageEndVisualVerifyRefusesAnUntaskedCommit` to `stats/cmd/flow/stage_test.go`, in the shape of the existing `gateLiveVerification` tests: a change whose state `worktrees` map names a second repository carrying a commit with neither `Task-Id:` nor `Flow-Key:` trailer is refused by `flow stage end -command '/flow' -stage flow.visual-verify -outcome completed <name>` with exit 1 naming the commit; after the commit is amended with `Flow-Key: flow.visual-verify` the gate passes; `-outcome stopped` is never gated. Run `cd stats && make -s web-dist && go test ./cmd/flow/ -run 'TestStageEndVisualVerifyRefusesAnUntaskedCommit' -count=1`: it fails.
+  - [x] **Step 2: Fix.** Add `gateVisualVerifyTrailers(f, outcome, stderr)` to `stats/cmd/flow/stage.go`, called in `runStageEnd` beside the other two gates, for `/flow` `flow.visual-verify` `completed` only: resolve the change's checkout as `gatePanelFindingsClosed` does with no `-C`, read the `worktrees` map from the change's state, and for each worktree run `guard.Registry["check-untasked-commits"]` in-process from `git merge-base HEAD origin/<base>`, `<base>` resolved as integrate's unfinished-work gate resolves it for that worktree (`stats/internal/guard/integratechange.go`). Any listing or a guard exit 2 refuses with exit 1 and `flow: stage end refused: commits outside every task lack their Flow-Key: trailer in <worktree> — amend each with -m "Flow-Key: flow.visual-verify" before anything is pushed` (decision `visual-verify-end-trailer-gate`). unverified:confirm which helper in `stats/cmd/flow/state.go` reads the `worktrees` map and how integratechange.go resolves `<base>` per worktree; reuse both rather than re-deriving.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./cmd/flow/ && go test ./cmd/flow/ -run 'TestStageEnd|TestStage' -count=1` — green.
 
 **Build:** green
-**Files:** `stats/cmd/flow/stage.go`, `stats/cmd/flow/stage_test.go`
+**Files:** `stats/cmd/flow/stage.go`, `stats/cmd/flow/stage_test.go`, `stats/internal/guard/integratechange.go`
 **Tests:** `TestStageEndVisualVerifyRefusesAnUntaskedCommit`
 **Regression:** `TestStageEndVisualVerifyRefusesAnUntaskedCommit` — reverting the commit ends the stage over the trailerless commit with exit 0.
 **Baseline:** before=337 after=338
@@ -94,8 +94,8 @@ and in gymie a log rotation on dev-stack start and a trace flag on the `verify` 
 **Commit:** fix(flow): refuse the visual-verify stage end over a commit lacking its Flow-Key trailer
 **After:** Task 3
 
-- [ ] 5. Close the failing visual-verify stage mark in the loop
-  - [ ] **Step 1: Apply the sentence** (decision `loop-closes-stage-mark`):
+- [x] 5. Close the failing visual-verify stage mark in the loop
+  - [x] **Step 1: Apply the sentence** (decision `loop-closes-stage-mark`):
 
 ````diff verified:applied with git apply to this worktree at 1be0e995; check-verbatim-moves, check-references, check-markdown-integrity, check-stage-mark-calls green
 diff --git a/skills/flow/verify-fix-loop.md b/skills/flow/verify-fix-loop.md
@@ -112,7 +112,7 @@ index 3079286a..12deb336 100644
     task exactly as a plan-time task: the decision's implementer pair, `close-task.sh` with its
     guard and its review gate. The task closes through `close-task.sh` — an inline-committed one included — before step 3 opens any `panel-<round>-*` dispatch; `flow record dispatch begin` refuses a panel key while `tasks.md` holds an unticked task (kan-1007: panel round 4 began 16 seconds after task 8's inline commit, before its close). The implementer's dispatch also carries the MUTATION PROOF
 ````
-  - [ ] **Step 2: Verify.** `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh && scripts/check-stage-mark-calls.sh` — green.
+  - [x] **Step 2: Verify.** `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh && scripts/check-stage-mark-calls.sh` — green.
 
 **Build:** green
 **Files:** `skills/flow/verify-fix-loop.md`
@@ -121,8 +121,8 @@ index 3079286a..12deb336 100644
 **Commit:** docs(flow): close the failing visual-verify stage mark in the fix loop
 **After:** none
 
-- [ ] 6. Name the one matrix file per frame
-  - [ ] **Step 1: Apply the sentence** (decision `matrix-one-file`):
+- [x] 6. Name the one matrix file per frame
+  - [x] **Step 1: Apply the sentence** (decision `matrix-one-file`):
 
 ````diff verified:applied with git apply to this worktree at 1be0e995; check-verbatim-moves green
 diff --git a/skills/flow/visual-verify-verifier.md b/skills/flow/visual-verify-verifier.md
@@ -139,7 +139,7 @@ index c634edf1..120231e8 100644
  
        | column | text run (`--props ink`, the crop spanning the run's container's full width) | control, row, card (`--props box,radius,border,fill,shadow,content,gap`) | rule, divider, fill band (`--props runs`, the region crossing it) |
 ````
-  - [ ] **Step 2: Verify.** `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh` — green.
+  - [x] **Step 2: Verify.** `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh` — green.
 
 **Build:** green
 **Files:** `skills/flow/visual-verify-verifier.md`
@@ -148,10 +148,10 @@ index c634edf1..120231e8 100644
 **Commit:** docs(flow): name the one file a verifier saves a frame's matrix to
 **After:** none
 
-- [ ] 7. Keep every edited spec's frames on the list and one matrix line per frame
-  - [ ] **Step 1: Write the failing test.** Add `TestCheckVerifyReportMatrixLinePerFrame` to `stats/internal/guard/check_verify_report_test.go`: a report whose `- steps:` line has `10 done`, with `- templates-W1: <path> diff=0.1` and `- templates-A4b: <path> diff=0.2` lines and only `- templates-W1 matrix: …`, exits 1 naming `templates-A4b`; adding `- templates-A4b matrix: …` exits 0; a report with step 10 not `done` is not judged on it. Run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckVerifyReportMatrixLinePerFrame' -count=1`: it fails.
-  - [ ] **Step 2: Fix the guard.** In `stats/internal/guard/verifyreport.go`, when step 10's status is `done`, collect every frame id from lines matching `^\s*- (\S+): \S+ diff=` and refuse (exit 1, one line per id: `<frame id> has no matrix: line — step 10 is done only with every frame's matrix`) each with no `^\s*- <frame id> matrix:` line. Add the rule to `scripts/check-verify-report.sh`'s header.
-  - [ ] **Step 3: Apply the four sentences** (decision `verifier-frame-list-and-matrix-lines`), on top of Task 6's:
+- [x] 7. Keep every edited spec's frames on the list and one matrix line per frame
+  - [x] **Step 1: Write the failing test.** Add `TestCheckVerifyReportMatrixLinePerFrame` to `stats/internal/guard/check_verify_report_test.go`: a report whose `- steps:` line has `10 done`, with `- templates-W1: <path> diff=0.1` and `- templates-A4b: <path> diff=0.2` lines and only `- templates-W1 matrix: …`, exits 1 naming `templates-A4b`; adding `- templates-A4b matrix: …` exits 0; a report with step 10 not `done` is not judged on it. Run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckVerifyReportMatrixLinePerFrame' -count=1`: it fails.
+  - [x] **Step 2: Fix the guard.** In `stats/internal/guard/verifyreport.go`, when step 10's status is `done`, collect every frame id from lines matching `^\s*- (\S+): \S+ diff=` and refuse (exit 1, one line per id: `<frame id> has no matrix: line — step 10 is done only with every frame's matrix`) each with no `^\s*- <frame id> matrix:` line. Add the rule to `scripts/check-verify-report.sh`'s header.
+  - [x] **Step 3: Apply the four sentences** (decision `verifier-frame-list-and-matrix-lines`), on top of Task 6's:
 
 ````diff verified:applied with git apply on top of Task 6's diff at 1be0e995 (one line of context); check-verbatim-moves, check-references, check-markdown-integrity green
 diff --git a/skills/flow/visual-verify-verifier.md b/skills/flow/visual-verify-verifier.md
@@ -178,7 +178,7 @@ index 120231e8..388dd605 100644
 +Each composed frame carries its own `- <frame id> matrix:` line, never one line for a range of frames: `check-verify-report.sh` refuses a `done` step 10 while a frame with a `- <frame id>: <composite path> diff=` line has none (kan-1016: one line covered nine frames, and the warm-up sheet's frame had no matrix until round 8).
  
 ````
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckVerifyReport' -count=1`, then `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh && scripts/check-guard-symlinks.sh` — green.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l . && make -s web-dist && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckVerifyReport' -count=1`, then `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh && scripts/check-guard-symlinks.sh` — green.
 
 **Build:** green
 **Files:** `stats/internal/guard/verifyreport.go`, `stats/internal/guard/check_verify_report_test.go`, `scripts/check-verify-report.sh`, `skills/flow/visual-verify-verifier.md`
@@ -189,10 +189,10 @@ index 120231e8..388dd605 100644
 **Commit:** fix(flow): keep an edited spec's frames on the verifier's list, one matrix line each
 **After:** Task 2, 6
 
-- [ ] 8. Rotate a dev-stack service log on start (gymie)
-  - [ ] **Step 1: Write the failing test.** Create `buildSrc/src/test/kotlin/com/gymie/gradle/DevLogsTest.kt` with `rotatesAnExistingLogToDotOne`: in a temp directory, `rotateDevLog(File(dir, "backend.log"))` over a non-empty `backend.log` and an older `backend.log.1` leaves `backend.log.1` holding the former `backend.log`'s bytes and no `backend.log` (or an empty one); over an absent or empty log it changes nothing. Run `./gradlew -p buildSrc test --tests 'com.gymie.gradle.DevLogsTest'`: it fails to compile.
-  - [ ] **Step 2: Fix.** Add `fun rotateDevLog(file: File)` to `buildSrc/src/main/kotlin/com/gymie/gradle/DevLogs.kt` (move a non-empty file to `<name>.1`, replacing an older one, with `Files.move(…, REPLACE_EXISTING)`), and call it on `logFile` in `gradle/dev-lifecycle.gradle.kts` just before the `ProcessBuilder` whose output is `Redirect.appendTo(logFile)` (decision `dev-log-rotate-on-start`). Every reader named in that decision keeps reading `<service>.log`.
-  - [ ] **Step 3: Verify.** `./gradlew -p buildSrc test --tests 'com.gymie.gradle.DevLogsTest'`, then `./gradlew ktlintFormat`, then `./gradlew verifyChange` — green. Commit with `-m "Flow-Key: flow.self-review"`.
+- [x] 8. Rotate a dev-stack service log on start (gymie)
+  - [x] **Step 1: Write the failing test.** Create `buildSrc/src/test/kotlin/com/gymie/gradle/DevLogsTest.kt` with `rotatesAnExistingLogToDotOne`: in a temp directory, `rotateDevLog(File(dir, "backend.log"))` over a non-empty `backend.log` and an older `backend.log.1` leaves `backend.log.1` holding the former `backend.log`'s bytes and no `backend.log` (or an empty one); over an absent or empty log it changes nothing. Run `./gradlew -p buildSrc test --tests 'com.gymie.gradle.DevLogsTest'`: it fails to compile.
+  - [x] **Step 2: Fix.** Add `fun rotateDevLog(file: File)` to `buildSrc/src/main/kotlin/com/gymie/gradle/DevLogs.kt` (move a non-empty file to `<name>.1`, replacing an older one, with `Files.move(…, REPLACE_EXISTING)`), and call it on `logFile` in `gradle/dev-lifecycle.gradle.kts` just before the `ProcessBuilder` whose output is `Redirect.appendTo(logFile)` (decision `dev-log-rotate-on-start`). Every reader named in that decision keeps reading `<service>.log`.
+  - [x] **Step 3: Verify.** `./gradlew -p buildSrc test --tests 'com.gymie.gradle.DevLogsTest'`, then `./gradlew ktlintFormat`, then `./gradlew verifyChange` — green. Commit with `-m "Flow-Key: flow.self-review"`.
 
 **Build:** green
 **Files:** `buildSrc/src/main/kotlin/com/gymie/gradle/DevLogs.kt`, `buildSrc/src/test/kotlin/com/gymie/gradle/DevLogsTest.kt`, `gradle/dev-lifecycle.gradle.kts`
@@ -203,9 +203,9 @@ index 120231e8..388dd605 100644
 **Commit:** fix(dev-lifecycle): rotate a service's log on each start
 **After:** none
 
-- [ ] 9. Keep a Playwright trace for every failing verify-run test (gymie)
-  - [ ] **Step 1: Fix.** In gymie `.flow/project.md`'s `## visual verification` command table, the `verify` row's `npx playwright test <specs> --output test-results/$(date -u +%Y%m%dT%H%M%SZ)` becomes `npx playwright test <specs> --trace retain-on-failure --output test-results/$(date -u +%Y%m%dT%H%M%SZ)`; nothing else in the row or the `capture` row changes (decision `verify-row-trace-on-failure`).
-  - [ ] **Step 2: Verify.** `git diff --word-diff` shows the one inserted flag; `/Users/tweety53/Projects/agents/scripts/project-get.sh /Users/tweety53/Projects/gymie-worktrees/kan-1016-templates-step-4-fe-plan-a-week-empty-day-offer 'visual verification'` still prints the table with the flag in the `verify` row. Commit with `-m "Flow-Key: flow.self-review"`.
+- [x] 9. Keep a Playwright trace for every failing verify-run test (gymie)
+  - [x] **Step 1: Fix.** In gymie `.flow/project.md`'s `## visual verification` command table, the `verify` row's `npx playwright test <specs> --output test-results/$(date -u +%Y%m%dT%H%M%SZ)` becomes `npx playwright test <specs> --trace retain-on-failure --output test-results/$(date -u +%Y%m%dT%H%M%SZ)`; nothing else in the row or the `capture` row changes (decision `verify-row-trace-on-failure`).
+  - [x] **Step 2: Verify.** `git diff --word-diff` shows the one inserted flag; `/Users/tweety53/Projects/agents/scripts/project-get.sh /Users/tweety53/Projects/gymie-worktrees/kan-1016-templates-step-4-fe-plan-a-week-empty-day-offer 'visual verification'` still prints the table with the flag in the `verify` row. Commit with `-m "Flow-Key: flow.self-review"`.
 
 **Build:** green
 **Files:** `.flow/project.md`
