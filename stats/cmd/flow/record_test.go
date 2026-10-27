@@ -6566,3 +6566,24 @@ func TestRequireChangeCheckoutAcceptsAnArchiveOnAnotherBranch(t *testing.T) {
 		t.Error("a change no branch carries accepted")
 	}
 }
+
+// A creating /flow run records its brainstorming dispatches before spectre new
+// has made spectre/changes/<change>: its worktree on branch spectre/<change>
+// already carries the change.
+func TestRequireChangeCheckoutAcceptsTheChangeBranch(t *testing.T) {
+	repo := gitRepo(t)
+	for _, args := range [][]string{
+		{"-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "commit", "-q", "--allow-empty", "-m", "base"},
+		{"worktree", "add", "-q", "-b", "spectre/kan-9", filepath.Join(t.TempDir(), "wt")},
+	} {
+		if out, err := exec.Command("git", append([]string{"-C", repo}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	if !requireChangeCheckout(repo, "kan-9", io.Discard) {
+		t.Error("a worktree on spectre/kan-9 refused")
+	}
+	if requireChangeCheckout(repo, "kan-10", io.Discard) {
+		t.Error("a change no worktree carries accepted")
+	}
+}

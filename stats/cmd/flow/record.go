@@ -3342,7 +3342,9 @@ func resolveRenderKinds(kind string) ([]string, error) {
 // finding, a finding's status, a pass -- for a change no checkout of the
 // repository holding dir carries: none of its worktrees, the main checkout
 // among them, holds spectre/changes/<change>, spectre/changes/archive/<change>
-// or a /flow-fast run's .superpowers/sdd/<change>. The project key derives
+// or a /flow-fast run's .superpowers/sdd/<change>, and none is on branch
+// spectre/<change> -- a creating /flow run records its brainstorming
+// dispatches before spectre new has made the directory. The project key derives
 // from dir, so a write run from the wrong repository -- the agents checkout,
 // a second repo's worktree, a call that dropped -C -- would otherwise file
 // the row under a project the change's own reads never look at. Every
@@ -3368,24 +3370,32 @@ func requireChangeCheckout(dir, change string, stderr io.Writer) bool {
 	if out, err := exec.Command("git", "-C", dir, "rev-list", "--all", "-n1", "--", "spectre/changes/archive/"+change).Output(); err == nil && len(bytes.TrimSpace(out)) > 0 {
 		return true
 	}
-	fmt.Fprintf(stderr, "flow: no checkout of the repository holding %s carries change %q (spectre/changes/, spectre/changes/archive/ or .superpowers/sdd/) -- refused, so the row is not filed under the wrong project; pass -C <the change's canonical worktree>\n", dir, change)
+	fmt.Fprintf(stderr, "flow: no checkout of the repository holding %s carries change %q (spectre/changes/, spectre/changes/archive/, .superpowers/sdd/ or branch spectre/%s) -- refused, so the row is not filed under the wrong project; pass -C <the change's canonical worktree>\n", dir, change, change)
 	return false
 }
 
 // changeCheckouts scans dir's repository's worktrees: main is the first
 // `worktree` entry of `git worktree list --porcelain`, carrying every entry
 // holding change under spectre/changes/, spectre/changes/archive/ or
-// .superpowers/sdd/, in list order.
+// .superpowers/sdd/ or checked out on branch refs/heads/spectre/<change>, in
+// list order, each once.
 func changeCheckouts(dir, change string) (main string, carrying []string, err error) {
 	out, err := exec.Command("git", "-C", dir, "worktree", "list", "--porcelain").Output()
 	if err != nil {
 		return "", nil, err
 	}
+	var wt string
 	for line := range strings.Lines(string(out)) {
-		wt, ok := strings.CutPrefix(strings.TrimRight(line, "\n"), "worktree ")
+		line = strings.TrimRight(line, "\n")
+		if line == "branch refs/heads/spectre/"+change && wt != "" && !slices.Contains(carrying, wt) {
+			carrying = append(carrying, wt)
+			continue
+		}
+		next, ok := strings.CutPrefix(line, "worktree ")
 		if !ok {
 			continue
 		}
+		wt = next
 		if main == "" {
 			main = wt
 		}
