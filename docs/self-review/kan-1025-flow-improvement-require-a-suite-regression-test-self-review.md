@@ -7,8 +7,8 @@ The pass covers what the bundle holds plus the commits and files it names, and n
 ## Problems encountered, and what pipeline change would avoid them — `flow-fix`
 
 - **[flow-fix]** `flow stage end` for `flow.review-panel` without `-C` ran its findings-closed gate against the cwd (the main checkout) and falsely refused (in-run pipeline fix) — fixed: 21127f9f
-- **[flow-fix]** The mutation brief demanded a whole-package test run with no rule for a package whose run eats the slot ceiling (guard package 332 tests, 165 s idle / ~455 s contended; the slot ran 55 min), and stated the `# mutation-reproducer` exit convention only indirectly; the brief now allows a test-family prefix filter past a third of the ceiling, sizes the bound from a measured run and states the convention — fixed: 90e377d3
-- **[flow-fix]** `hooks/protect-main-checkout.py` scanned a non-`cat`/`tee` heredoc body as shell, denying `flow record summary -file - <<'EOF'` with prose containing `->`, `rm` or `>` from the main checkout; a body is now data only for a `flow` opener whose command runs nothing (fail-closed allowlist after review found the first denylist design bypassable) — fixed: ecf0672d
+- **[flow-fix]** The mutation brief demanded a whole-package test run with no rule for a package whose run eats the slot ceiling (guard package 332 tests, 165 s idle / ~455 s contended; the slot ran 55 min), and stated the `# mutation-reproducer` exit convention only indirectly; the brief now allows a test-family prefix filter past a third of the ceiling, sizes the bound from a measured run and states the convention — fixed: 6a058a5f
+- **[flow-fix]** `hooks/protect-main-checkout.py` scanned a non-`cat`/`tee` heredoc body as shell, denying `flow record summary -file - <<'EOF'` with prose containing `->`, `rm` or `>` from the main checkout; a body is now data only for a `flow` opener whose command runs nothing (fail-closed allowlist after review found the first denylist design bypassable) — fixed: bf971fa8
 - **[flow-fix]** Task 2's planned prose tripped `check-installed-citations` and `check-verbatim-moves`; the guards caught it before commit, as designed — noted
 - **[flow-fix]** Round-0 primary reproducers' premise lines were off by one with verbatim content; the exit-contract audit caught it and the parent corrected the line number, as the contract allows — noted
 
@@ -23,7 +23,7 @@ The pass covers what the bundle holds plus the commits and files it names, and n
 
 ## What could be automated or moved to a script — `flow-automation`
 
-- **[flow-automation]** The slot-ceiling wake-up, now named as the bounded wait loop's elapsed check before every re-wait — fixed: f1a9ad24
+- **[flow-automation]** The slot-ceiling wake-up, now named as the bounded wait loop's elapsed check before every re-wait — fixed: 2163b94c
 
 ## What could move to the Go app or its persistent storage — `flow-stats-app`
 
