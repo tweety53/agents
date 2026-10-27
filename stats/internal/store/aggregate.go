@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/stages"
 )
 
 // Period bounds an aggregation by a stage run's start instant:
@@ -371,6 +373,28 @@ func (s *Store) TrendOverTime(ctx context.Context, period Period, project, model
 	return out, nil
 }
 
+// weeklyCostStages are the stage keys each WeeklyCosts category counts,
+// drawn from the stages vocabulary; init refuses a key it does not declare,
+// so a rename there cannot silently move cost into overall-only.
+var weeklyCostStages = struct {
+	selfReview, implementation, review string
+	planning                           []string
+}{
+	selfReview:     "flow.self-review",
+	implementation: "flow.sdd-tdd",
+	review:         "flow.review-panel",
+	planning:       []string{"plan.session", "flow.brainstorm", "flow.design-approval", "flow.create-artifacts", "flow.writing-plans", "flow.decide"},
+}
+
+func init() {
+	c := weeklyCostStages
+	for _, k := range append([]string{c.selfReview, c.implementation, c.review}, c.planning...) {
+		if _, ok := stages.Name(k); !ok {
+			panic(fmt.Sprintf("store: weekly costs: stage key %q is not in the stages vocabulary", k))
+		}
+	}
+}
+
 // WeeklyCostPoint is one Wednesday-to-Wednesday week's cost totals: overall,
 // and the four pipeline categories. A category with no costed run that week
 // is nil, never 0.
@@ -387,9 +411,7 @@ type WeeklyCostPoint struct {
 // category from the run's stage. A self-review or pipeline-fix loop change
 // is classified first, so its stages never count as planning or
 // implementation; a stage outside every category counts in overall only.
-// project and model filter as TrendOverTime's do. The stage keys below are
-// stats/internal/stages/names.go's, written as SQL literals as health.go's
-// are.
+// project and model filter as TrendOverTime's do.
 func (s *Store) WeeklyCosts(ctx context.Context, period Period, project, model *string) ([]WeeklyCostPoint, error) {
 	rows, err := s.pool.Query(ctx, `
 		WITH r AS (
@@ -398,10 +420,10 @@ func (s *Store) WeeklyCosts(ctx context.Context, period Period, project, model *
 				CASE WHEN $4::text IS NULL THEN (sr.metrics->>'cost_usd')::numeric
 				     ELSE (sr.metrics->'models'->$4::text->>'cost_usd')::numeric END AS cost,
 				CASE
-					WHEN c.name LIKE 'self-review-%' OR c.name LIKE 'pipeline-fix-%' OR sr.stage = 'flow.self-review' THEN 'self-review'
-					WHEN sr.stage IN ('plan.session', 'flow.brainstorm', 'flow.design-approval', 'flow.create-artifacts', 'flow.writing-plans', 'flow.decide') THEN 'planning'
-					WHEN sr.stage = 'flow.sdd-tdd' THEN 'implementation'
-					WHEN sr.stage = 'flow.review-panel' THEN 'review'
+					WHEN c.name LIKE 'self-review-%' OR c.name LIKE 'pipeline-fix-%' OR sr.stage = $5 THEN 'self-review'
+					WHEN sr.stage = ANY($8::text[]) THEN 'planning'
+					WHEN sr.stage = $6 THEN 'implementation'
+					WHEN sr.stage = $7 THEN 'review'
 				END AS category
 			FROM stage_runs sr
 			JOIN changes c ON c.id = sr.change_id
@@ -418,7 +440,8 @@ func (s *Store) WeeklyCosts(ctx context.Context, period Period, project, model *
 		FROM r
 		GROUP BY week
 		ORDER BY week
-	`, period.From, period.To, project, model)
+	`, period.From, period.To, project, model,
+		weeklyCostStages.selfReview, weeklyCostStages.implementation, weeklyCostStages.review, weeklyCostStages.planning)
 	if err != nil {
 		return nil, fmt.Errorf("store: weekly costs: %w", err)
 	}
