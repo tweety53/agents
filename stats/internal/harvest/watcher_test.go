@@ -4821,3 +4821,51 @@ func TestSettleClosedRowsZeroesAnEmptyRunVerifyListRow(t *testing.T) {
 		t.Errorf("verify restamp = %s (%v), want a zero patch carrying tokens", p, ok)
 	}
 }
+
+// TestSettleClosedRowsWaitsOutAStaleEnd is kan-1040's verify row: a second
+// run-verify-list.sh run under the row's key, begun after the first run's
+// end, first reads that stale end -- before its own begin -- and must wait
+// for the second run's end rather than settle a zero patch against it.
+func TestSettleClosedRowsWaitsOutAStaleEnd(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	call := func(at string) string {
+		c, err := json.Marshal("scripts/run-verify-list.sh /wt test c verify mf-s opus medium")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return `{"type":"assistant","timestamp":"2026-01-01T` + at + `Z","sessionId":"s","message":{"model":"m","content":[{"type":"tool_use","name":"Bash","input":{"command":` + string(c) + `}}]}}`
+	}
+	if err := os.WriteFile(path, stampFixtureLines(call("00:01:00"), mainThreadLine("00:02:00", 3), call("00:03:00")), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	start, staleEnd := time.Date(2026, 1, 1, 0, 1, 0, 0, time.UTC), time.Date(2026, 1, 1, 0, 1, 30, 0, time.UTC)
+	row := &settleRow{id: 7, endedAt: staleEnd, agentID: harvest.InlineAgentID}
+	deps := &settleDeps{
+		rows:     map[string]*settleRow{"verify": row},
+		windows:  []harvest.DispatchWindow{{DispatchID: 7, AgentID: harvest.InlineAgentID, StartedAt: start, EndedAt: &staleEnd}},
+		restamps: map[int64]json.RawMessage{},
+	}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+
+	end := time.Date(2026, 1, 1, 0, 6, 0, 0, time.UTC)
+	row.endedAt = end
+	deps.windows[0].EndedAt = &end
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.Write(stampFixtureLines(mainThreadLine("00:04:00", 4), mainThreadLine("00:09:00", 1))); err != nil {
+		t.Fatal(err)
+	}
+	_ = f.Close()
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	if p, ok := deps.restamps[7]; !ok || mainOutput(t, p) != 7 {
+		t.Errorf("verify restamp = %s (%v), want output 7", p, ok)
+	}
+}

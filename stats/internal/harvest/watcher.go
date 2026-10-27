@@ -1197,7 +1197,11 @@ func (w *Watcher) settleClosedRows(ctx context.Context, path string, records []R
 	kept := cands[:0:0]
 	for _, c := range cands {
 		rowID, endedAt, agentID, found, err := w.deps.DispatchEndedAt(ctx, c.SessionToken, c.Key)
-		if err != nil || !found || endedAt.IsZero() || endedAt.After(newest) {
+		// An end before this begin is an earlier run's under the same key
+		// (kan-1040's verify row: a second run-verify-list.sh run read the
+		// first run's end and settled a zero patch), so the row waits for
+		// its own end.
+		if err != nil || !found || endedAt.IsZero() || endedAt.After(newest) || endedAt.Before(c.StartedAt) {
 			if err != nil {
 				w.warn("harvest: settle lookup failed, the row waits", "path", path, "key", c.Key, "error", err)
 			}
