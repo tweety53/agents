@@ -1,0 +1,5 @@
+# Sentences the self-review fixes reword on purpose: the mutation brief's prefix filter and exit convention (F-A) and the slot ceiling's wake-up (F-B).
+The dispatcher tracks each in-flight slot's elapsed time itself rather than blocking indefinitely on a completion notification.
+Its `# reproducer-bound:` is that measured run's seconds, doubled.
+Its exits follow the mutation-reproducer convention, never the generic one: it exits 0 when every test passes with the mutation in place — the mutant survived, the defect present — and non-zero when a test kills it.
+When one run of that whole package takes more than a third of the slot's ceiling — measured once in the slot, before the first mutation — the command may instead filter by the name prefix the mutated code's test family shares (`-run '^TestCheckPanel'`), never a full test name, so a fix's new test under that prefix still kills the mutant (kan-1025: the guard package's 332 tests ran 165 s idle and about 455 s contended, the slot ran 55 minutes, and the parent narrowed the reproducer to one test's name).

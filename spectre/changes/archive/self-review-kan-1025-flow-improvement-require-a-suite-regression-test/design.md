@@ -69,7 +69,7 @@ ledger — detects a breach after the fact, which the run already did.
 ### Heredoc bodies are data unless something runs them
 
 **ID:** fc-heredoc-body-is-data
-**Status:** active
+**Status:** superseded by fc-flow-opener-allowlist
 **Chosen:** in `strip_data_heredocs`, after the `PROGRAM_RUNNERS` branch and before the `cat`/`tee`
 branch, a heredoc whose opener is neither `cat` nor `tee` and whose delimiter closes has its body
 dropped from the scan when (a) no word of the opener's segment — the text before the `<<` from the
@@ -86,6 +86,14 @@ only openers that keep a body scanned — misses `sudo bash`, `env sh`, `xargs`,
 `RUNNER_WORDS` already lists and fails closed on; scanning only the body's git invocations
 (`program_git_lines`) for every opener — a commit message or report naming `git commit` would be
 denied, the same misfire one layer down; adding `flow` to an allow-list — fixes one opener of many.
+**Superseded because:** review-1 (I1, I2) reproduced openers that run their body yet hold no `RUNNER_WORDS` word — `csh`, `\bash`, `su`, `ssh` (not in `RUNNER_WORDS`, contrary to the reason above) — and rests that run it without one (`envsubst … > f && f`, `while read l; do $l; done`); a denylist cannot close that set.
+
+### Heredoc body exemption is a flow-opener allowlist
+
+**ID:** fc-flow-opener-allowlist
+**Status:** active
+**Chosen:** a body is data only when the opener's first word, a leading `\` stripped, is exactly `flow`; the opener line does not end in `\`; the opener redirects no output (`>`); and `may_run_code(rest, None)` is false, where a command word containing `/` or `$` (after leading shell keywords) counts as running. Every other opener keeps its body scanned. `subst_spans` returns `None` on an unbalanced `)`.
+**Considered:** the denylist with review-1's additions (`csh tcsh mksh … parallel`) — narrows the gap but leaves any unlisted interpreter (`psql`, `sqlite3 .shell`) through.
 
 ### First review effort
 
