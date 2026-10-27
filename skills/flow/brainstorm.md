@@ -164,7 +164,7 @@ the plan ready (**Resuming at `STARTED`**, `skills/flow/resume.md`) and implemen
 
 Defined by **The block each state renders** (`skills/flow-contracts/handoff-blocks.md`), cited here and never loaded by this run.
 
-```text
+````text
 ## Plan ready
 
 <2–4 lines: what the plan implements, in product terms, from `proposal.md`'s `## What changes`>
@@ -176,8 +176,10 @@ Defined by **The block each state renders** (`skills/flow-contracts/handoff-bloc
 
 Next:
 /clear
+```
 /flow <name>
 ```
+````
 
 **Only what the operator acts on** — on a clean run the block is the summary, the decision and
 the next commands; a conditional line prints only when its condition holds.

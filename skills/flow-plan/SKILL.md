@@ -239,12 +239,15 @@ the session's mark:
 flow stage end -command '/flow-plan' -stage plan.session -jira-key <KEY> -outcome started
 ```
 
-The last line is the next command, bare:
+The handoff ends on the next command, alone in its own fence (**Handoff output**,
+`skills/flow-contracts/pipeline.md`):
 
-```text
+````text
 Next:
+```
 /flow <name>
 ```
+````
 
 ---
 

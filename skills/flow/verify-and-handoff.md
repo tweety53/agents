@@ -555,7 +555,7 @@ any, under a `**Decisions:**` heading — integrate's handoffs carry no such fie
 run prints its own handoff or stop. This is the one chain into integrate **Every invocation is
 re-entrant** (`skills/flow-contracts/pipeline.md`) sanctions.
 
-```
+````
 **Summary:**
 - <what this round changed for a user of the app, in product terms — a few bullets at most>
 - <a line another contract requires in the handoff — a caveat, a manual check, a push command, an open defect — one bullet each>
@@ -572,8 +572,10 @@ re-entrant** (`skills/flow-contracts/pipeline.md`) sanctions.
 
 Next:
 /clear
+```
 /flow <name>
 ```
+````
 
 **This block is the whole handoff of a creating, resuming or fix run that stops at `IN_PROGRESS`**
 — no heading, no other field, and no summary or live-stack line before it (**Summary and

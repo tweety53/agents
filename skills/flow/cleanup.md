@@ -84,7 +84,7 @@ disproved with its evidence, or a `big` finding filed or declined at step 4's pr
 
 On a leftover — or on no verdict at all — the run stops at step 4 instead:
 
-```
+````
 ## Cleanup incomplete — not finished
 
 **Change:** <name>
@@ -94,8 +94,10 @@ On a leftover — or on no verdict at all — the run stops at step 4 instead:
 <what the operator must clear>
 
 Next:
+```
 /flow <name>
 ```
+````
 
 ## Worktree cleanup
 

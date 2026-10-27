@@ -388,7 +388,8 @@ Every route runs from the apply worktree; none touches the main checkout or any 
 | **Merge and push** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`), then `git -C <apply-worktree> push origin HEAD:<base>`, `HEAD` being `spectre/<name>` there — a fast-forward, since the branch already sits on `origin/<base>`: the base had not moved, or **Sync the branch onto the base** rebased it there. A rejected push means the base moved after the sync: re-resolve the base with `resolve-base-branch.sh`, which fetches, re-run **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) — the archive, the self-review fixes and the report, already committed, ride the rebase — and push both once more; a second rejection stops and reports, leaving the change at `IN_PROGRESS`. Run 2 then continues in the same invocation |
 | **Handle it manually** | push the branch `--force-with-lease` only; say plainly what is left to do |
 
-Run 1 ends at `IN_PROGRESS`, and its handoff's last line is `/flow <name>` again.
+Run 1 ends at `IN_PROGRESS`, and its handoff ends on `/flow <name>`
+again.
 
 **Resolve the base branch; never assume it, and never derive it from the current branch.**
 
