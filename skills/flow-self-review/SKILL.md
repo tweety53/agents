@@ -254,9 +254,9 @@ A finding a re-plan
 did not solve — the same finding back on the same evidence — escalates the planner rather than leaving the loop: that re-plan, key
 `self-review-<name>-plan-<n>`, is the no-progress escalation and may run on `flow-planner-high` (effort `high`) in place of the planner
 pair's `flow-planner-medium` or `flow-planner-low`. Where `high` still cannot produce a
-design that holds, the next step is effort `xhigh` — and an `xhigh` dispatch is never made
-without the operator's approval, asked first with the finding, the objection and what `high`
-returned; a refusal leaves the finding offered for filing in step 4. **This session plans,
+design that holds, the next re-plan changes approach again under **Fewest operator actions**
+(`skills/flow-contracts/pipeline.md`) — never a stop and never an ask; `flow-planner-xhigh` is
+defined for later and no step dispatches it yet. **This session plans,
 changes and reviews nothing itself** (`design.md`, `one-shot-subagent-fix-loop`), save item 4's
 ticks and archive commit and **The base sync** below: each numbered step below that does is a fresh dispatch on the pair it names, never a fork of this session (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), its prompt carrying the MODEL HANDSHAKE,
 TOOLS, FOREGROUND BUILDS and NO DELEGATION paragraphs of **4. Execute (SDD + TDD)**
@@ -452,8 +452,8 @@ three offered items each — findings to file or angle-7 candidates to mine, nev
 question — every option prefixed with its angle's label, plus **None — file nothing** or
 **None — mine nothing** as the default; the rating last, `5 — excellent` / `4 — good` / `3 — fine` / `2 — rough`, a `1`
 typed through the tool's free-text "Other". More than nine offered items roll the overflow into one
-further call of the same shape, without the rating. With nothing to offer, the call
-carries the rating alone. A candidate is mined only when the operator selects it: silence, a
+further call of the same shape, without the rating. With nothing to offer, no call
+is made: the rating is asked only beside a filing or mining ask. A candidate is mined only when the operator selects it: silence, a
 stalled prompt and **Auto-resolution** (`skills/flow-contracts/operator-prompts-auto-resolution.md`)
 mine nothing. An angle-7 candidate's explanation in the message body is its template.
 
