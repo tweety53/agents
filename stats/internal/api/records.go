@@ -226,6 +226,22 @@ func ApplyDispatchEnd(ctx context.Context, rw RecordWriter, projectKey, change s
 	return rw.EndDispatch(ctx, projectKey, change, in)
 }
 
+// ApplyDispatchEndAt closes a row as ApplyDispatchEnd does, then, when the
+// end instant was the daemon's or the CLI's own stamp (no -ended-at, or one
+// the CLI journalled as its attempt instant), re-closes it at its agent's
+// last transcript write (agentEndOf). The live handler and journal replay
+// both call it, so a journalled end lands where a live one would
+// (kan-1040's self-review).
+func ApplyDispatchEndAt(ctx context.Context, rs RecordStore, project, change string, in records.DispatchEnd, agentEnd func(agentID string) (time.Time, bool)) (records.Dispatch, error) {
+	stamped := in.EndedAt.IsZero() || in.EndedAtJournalled
+	out, err := ApplyDispatchEnd(ctx, rs, project, change, in)
+	if at, ok := agentEndOf(out, err, stamped, agentEnd); ok {
+		in.EndedAt = at
+		out, err = ApplyDispatchEnd(ctx, rs, project, change, in)
+	}
+	return out, err
+}
+
 // ApplyFindingRecord upserts one finding against rw, refusing a record
 // whose required fields are empty before the store is touched. It reports
 // whether the write inserted a row, exactly as UpsertFinding does. See
@@ -575,12 +591,7 @@ func (h *recordHandler) endDispatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stamped := in.EndedAt.IsZero()
-	out, err := ApplyDispatchEnd(r.Context(), h.store, project, change, in)
-	if at, ok := h.agentEndOf(out, err, stamped); ok {
-		in.EndedAt = at
-		out, err = ApplyDispatchEnd(r.Context(), h.store, project, change, in)
-	}
+	out, err := ApplyDispatchEndAt(r.Context(), h.store, project, change, in, h.agentEnd)
 	if err != nil {
 		if errors.Is(err, ErrInvalidRecord) {
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -601,11 +612,11 @@ func (h *recordHandler) endDispatch(w http.ResponseWriter, r *http.Request) {
 // the round's last finish (kan-1019); the agent's own last record is its
 // finish (kan-1026's self-review: the parent derived it from report-file
 // mtimes in Bash).
-func (h *recordHandler) agentEndOf(out records.Dispatch, err error, stamped bool) (time.Time, bool) {
-	if err != nil || !stamped || h.agentEnd == nil || out.AgentID == "" || out.AgentID == "inline" || out.EndedAt == nil {
+func agentEndOf(out records.Dispatch, err error, stamped bool, agentEnd func(agentID string) (time.Time, bool)) (time.Time, bool) {
+	if err != nil || !stamped || agentEnd == nil || out.AgentID == "" || out.AgentID == "inline" || out.EndedAt == nil {
 		return time.Time{}, false
 	}
-	at, ok := h.agentEnd(out.AgentID)
+	at, ok := agentEnd(out.AgentID)
 	if !ok || !at.Before(*out.EndedAt) || at.Before(out.StartedAt) {
 		return time.Time{}, false
 	}

@@ -215,7 +215,7 @@ func WithBuild(build string) Option {
 
 // WithAgentEnds closes a dispatch row whose end names no instant at the
 // instant its own agent's transcript last wrote, where end answers one
-// (recordHandler.agentEndOf) -- harvest.AgentTranscriptEnd over the
+// (agentEndOf) -- harvest.AgentTranscriptEnd over the
 // daemon's transcripts root in production. Passing none leaves every such
 // end at the daemon's clock.
 func WithAgentEnds(end func(agentID string) (time.Time, bool)) Option {

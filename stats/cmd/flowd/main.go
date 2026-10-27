@@ -239,15 +239,16 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	agentEnd := func(agentID string) (time.Time, bool) {
+		at, found, err := harvest.AgentTranscriptEnd(transcriptsRoot, agentID)
+		if err != nil {
+			logger.Warn("flowd: read agent transcript end failed, the row ends at the daemon's clock", "agent_id", agentID, "error", err)
+		}
+		return at, found
+	}
 	srv, err := api.New(cfg, st, st, st, st, st, logger, api.WithSPA(spaHandler), api.WithGuardRuns(st),
 		api.WithCommitBase(commitBaseFromRemote(originRemote())), api.WithBuild(buildIdentity()),
-		api.WithAgentEnds(func(agentID string) (time.Time, bool) {
-			at, found, err := harvest.AgentTranscriptEnd(transcriptsRoot, agentID)
-			if err != nil {
-				logger.Warn("flowd: read agent transcript end failed, the row ends at the daemon's clock", "agent_id", agentID, "error", err)
-			}
-			return at, found
-		}))
+		api.WithAgentEnds(agentEnd))
 	if err != nil {
 		// api.New calls config.Config.Validate itself, which keeps
 		// internal/api correct for any other caller, but the loopback
@@ -269,6 +270,7 @@ func run(logger *slog.Logger) error {
 	defer stopWatch()
 	if replaysSharedJournal(cfg.DSN) {
 		reconciler := reconcile.New(st, st, st, fallback.StateRoot(), logger)
+		reconciler.AgentEnd = agentEnd
 		startupResult, startupErr := reconciler.Run(ctx)
 		logReconcileResult(logger, "startup", startupResult, startupErr)
 		go reconciler.Watch(watchCtx, st.Ping, reconnectPingInterval, func(result reconcile.Result, err error) {

@@ -126,6 +126,11 @@ type Reconciler struct {
 	root        string
 	logger      *slog.Logger
 
+	// AgentEnd answers an agent's last transcript write, so a journalled
+	// dispatch end replays at that instant as the live handler would
+	// (api.ApplyDispatchEndAt); nil means no agent-end lookup.
+	AgentEnd func(agentID string) (time.Time, bool)
+
 	// mu serializes Run: a startup replay and a Watch-triggered replay
 	// can fire at (or near) the same instant, and retirePrefix's
 	// read-current/write-temp/rename sequence is not itself safe against a
@@ -686,7 +691,7 @@ func (r *Reconciler) applyRecordEntry(ctx context.Context, e fallback.Entry) err
 		if err := json.Unmarshal(body.Request, &in); err != nil {
 			return fmt.Errorf("%w: decode dispatch end: %v", errRecordEntryDecodeFailed, err)
 		}
-		_, err := api.ApplyDispatchEnd(ctx, r.recordStore, e.Project, e.Name, in)
+		_, err := api.ApplyDispatchEndAt(ctx, r.recordStore, e.Project, e.Name, in, r.AgentEnd)
 		return err
 	case "finding":
 		var in records.Finding

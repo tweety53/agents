@@ -1325,3 +1325,54 @@ func TestReplaySummaryKind(t *testing.T) {
 		t.Fatalf("pending record entries after replay = %d, want 0 (applied entry retired)", n)
 	}
 }
+
+// endTimesStore is a record store whose EndDispatch closes one open row
+// with an agent id begun at its start, keeping the last end it received.
+type endTimesStore struct {
+	nopRecordStore
+	start time.Time
+	ended time.Time
+}
+
+func (s *endTimesStore) EndDispatch(_ context.Context, _, _ string, in records.DispatchEnd) (records.Dispatch, error) {
+	s.ended = in.EndedAt
+	at := in.EndedAt
+	return records.Dispatch{AgentID: "agent-1", StartedAt: s.start, EndedAt: &at}, nil
+}
+
+// TestReplayClosesAJournalledEndAtTheAgentsLastWrite is kan-1040's
+// self-review: an end the CLI journalled carries the CLI's attempt instant
+// as EndedAt, so replay treats it as its own stamp and takes the agent's
+// last transcript write, exactly as the live handler does; a caller-supplied
+// -ended-at is kept.
+func TestReplayClosesAJournalledEndAtTheAgentsLastWrite(t *testing.T) {
+	t0 := time.Date(2026, 10, 27, 17, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name       string
+		journalled bool
+		want       time.Time
+	}{
+		{"journalled", true, t0.Add(2 * time.Minute)},
+		{"caller-supplied", false, t0.Add(10 * time.Minute)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			end := testDispatchEnd()
+			end.EndedAt = t0.Add(10 * time.Minute)
+			end.EndedAtJournalled = tc.journalled
+			appendRecordWrite(t, root, "proj-end", "chg-end", "dispatch-end", end)
+
+			rs := &endTimesStore{start: t0}
+			rec := reconcile.New(&fakeStore{}, nopStageStore{}, rs, root, nil)
+			rec.AgentEnd = func(agentID string) (time.Time, bool) {
+				return t0.Add(2 * time.Minute), agentID == "agent-1"
+			}
+			if _, err := rec.Run(context.Background()); err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			if !rs.ended.Equal(tc.want) {
+				t.Fatalf("row ended at %v, want %v", rs.ended, tc.want)
+			}
+		})
+	}
+}

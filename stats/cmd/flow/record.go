@@ -1436,6 +1436,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 	})
 	if callErr != nil && in.EndedAt.IsZero() {
 		in.EndedAt = attemptAt
+		in.EndedAtJournalled = true
 	}
 	if callErr == nil {
 		fmt.Fprintf(stdout, "updated: dispatch %d\n", out.Seq)

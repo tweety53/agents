@@ -364,6 +364,54 @@ func TestRecordWriteFallsBackToJournalAndExitsZero(t *testing.T) {
 
 // --- caller mistakes exit 2 and journal nothing ---
 
+// TestRecordDispatchEndJournalMarksTheAttemptInstant pins the CLI side of
+// the replay fix: an end the store could not reach, with no -ended-at, marks
+// its journalled request endedAtJournalled so the replay closes the row at
+// the attempt instant; an explicit -ended-at is a real end and carries no
+// mark.
+func TestRecordDispatchEndJournalMarksTheAttemptInstant(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		extra []string
+		want  bool
+	}{
+		{"no ended-at", nil, true},
+		{"ended-at", []string{"-ended-at", "2026-01-02T03:04:05Z"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := recordRepo(t, "kan-258")
+			isolatedStateRoot(t)
+			args := []string{"record", "dispatch", "end", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+				"-change", "kan-258", "-key", "task-6-implementer", "-session-token", "mf-record-journal-mark",
+				"-commit", "abc1234000000000000000000000000000000000", "-outcome", "completed"}
+			args = append(args, tc.extra...)
+			var stdout, stderr bytes.Buffer
+			if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+				t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+			}
+			entries, exists := recordJournalEntries(t, repo, "kan-258")
+			if !exists || len(entries) != 1 {
+				t.Fatalf("record journal entries = %v (exists=%v), want 1", entries, exists)
+			}
+			var body struct {
+				Kind    string `json:"kind"`
+				Request struct {
+					EndedAtJournalled bool `json:"endedAtJournalled"`
+				} `json:"request"`
+			}
+			if err := json.Unmarshal(entries[0].Body, &body); err != nil {
+				t.Fatalf("decode journalled body: %v", err)
+			}
+			if body.Kind != "dispatch-end" {
+				t.Fatalf("journalled kind = %q, want dispatch-end", body.Kind)
+			}
+			if body.Request.EndedAtJournalled != tc.want {
+				t.Errorf("journalled endedAtJournalled = %v, want %v", body.Request.EndedAtJournalled, tc.want)
+			}
+		})
+	}
+}
+
 // TestRecordDispatchJournalCarriesTheAttemptInstant pins the replay
 // override's source: a begin or end the store could not reach stamps the
 // instant its attempt was made into the journalled request, so the replay

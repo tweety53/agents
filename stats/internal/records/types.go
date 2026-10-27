@@ -189,6 +189,11 @@ type DispatchEnd struct {
 	DiffBase string `json:"diffBase,omitempty"`
 	// CommitAt is the commit's committer time, as the CLI read it.
 	CommitAt *time.Time `json:"commitAt,omitempty"`
+	// EndedAtJournalled says the CLI stamped EndedAt with its attempt
+	// instant because the store was unreachable, so the daemon treats it
+	// as its own stamp and may take the agent's last write instead
+	// (kan-1040's self-review).
+	EndedAtJournalled bool `json:"endedAtJournalled,omitempty"`
 }
 
 // TokenReport is the token usage a caller reports for a same-session
