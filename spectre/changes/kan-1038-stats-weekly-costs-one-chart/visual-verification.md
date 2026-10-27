@@ -25,12 +25,11 @@ capture (in-run fix 2); the re-captured PNG is byte-identical.
 
 ## weekly-costs-tooltip — `visual-verification/evidence/weekly-costs-tooltip-darwin.png`
 Hovering Overall's 2026-08-12 point enlarges it and opens the tooltip: "Overall", "Week of
-2026-08-12", "$3.37", "▲ 124.5% vs previous week" in delta-up red, inside the plot (in-run fix 2).
+2026-08-12", "$3.37", "▲ 124.5% vs prev week" in delta-up red, inside the plot (in-run fix 2).
 Against the prototype's `#tip` (`.superpowers/sdd/weekly-costs-preview.html` lines 24 and 53),
-verify-2 read three departures, each this change's (the view is new — no merge-base rendering):
-copy "vs previous week" where the prototype writes "vs prev week" (the app's text wraps "week"
-onto a fifth line); `width: 160px` (`styles.css` `.weekly-tooltip`) where the prototype declares
-`width:150px`; and no shadow where the prototype declares `box-shadow:0 2px 8px rgba(0,0,0,.15)`.
+verify-2 read three departures — copy, `width`, shadow — all closed by in-run fix 3: the copy reads
+"vs prev week" on four lines, `.weekly-tooltip` declares `width: 150px`, and it carries
+`box-shadow: 0 2px 8px rgba(0,0,0,0.15)`, as the prototype does.
 
 ## full-app-suite weekly-costs — `visual-verification/evidence/full-weekly-costs-darwin.png`
 Recaptured: the committed baseline (1280×1091, the pre-change two-chart view) was stale and failed
