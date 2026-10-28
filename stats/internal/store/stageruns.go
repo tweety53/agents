@@ -640,7 +640,7 @@ func (s *Store) GetStageRun(ctx context.Context, id int64) (StageRun, error) {
 		sessionToken *string
 	)
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, change_id, repo_root, harness, session_id, session_token, command, stage, attempt,
+		SELECT id, COALESCE(change_id, 0), repo_root, harness, session_id, session_token, command, stage, attempt,
 		       started_at, ended_at, outcome, metrics
 		FROM stage_runs
 		WHERE id = $1

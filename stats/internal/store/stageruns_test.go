@@ -2836,13 +2836,24 @@ func TestRepriceSinceCountsPricedAndSkipped(t *testing.T) {
 	run(2, since.Add(2*time.Hour), `{"tokens": {}}`)
 	// A model with no rate in effect: ErrPricingNotFound, skipped.
 	run(3, since.Add(3*time.Hour), `{"models": {"claude-unrated": {"tokens": {"sidechain": {"output": 1000}}}}}`)
+	// An unattached plan session (no change, NULL change_id) prices too.
+	plan, err := st.BeginStage(ctx, store.BeginStageInput{
+		ProjectKey: projectKey, MainCheckoutPath: "/tmp/" + projectKey, JiraKey: "KAN-900",
+		Harness: "claude-code", Command: "/flow-plan", Stage: "plan.session", StartedAt: since.Add(4 * time.Hour),
+	})
+	if err != nil {
+		t.Fatalf("BeginStage plan session: %v", err)
+	}
+	if err := st.MergeMetrics(ctx, plan.ID, json.RawMessage(priceable)); err != nil {
+		t.Fatalf("MergeMetrics: %v", err)
+	}
 
 	priced, skipped, err := st.RepriceSince(ctx, since)
 	if err != nil {
 		t.Fatalf("RepriceSince: %v", err)
 	}
-	if priced != 1 || skipped != 2 {
-		t.Errorf("RepriceSince = priced %d, skipped %d, want 1, 2", priced, skipped)
+	if priced != 2 || skipped != 2 {
+		t.Errorf("RepriceSince = priced %d, skipped %d, want 2, 2", priced, skipped)
 	}
 	costOf := func(id int64) *float64 {
 		t.Helper()

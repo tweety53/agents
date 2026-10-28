@@ -477,7 +477,8 @@ type WeeklyModelEffortPoint struct {
 // priced model bucket, less the dispatch costs served by that model and
 // floored at 0, counts as that model's "session" (session-line). Ties in
 // most-turns break by key name. Rows summing to 0 are dropped; rows are
-// ordered by week, model, effort.
+// ordered by week, model, effort. Only runs attached to a change count,
+// as in WeeklyCosts.
 func (s *Store) WeeklyModelEffortCosts(ctx context.Context, period Period) ([]WeeklyModelEffortPoint, error) {
 	rows, err := s.pool.Query(ctx, `
 		WITH sr AS (
@@ -485,7 +486,9 @@ func (s *Store) WeeklyModelEffortCosts(ctx context.Context, period Period) ([]We
 				CASE WHEN jsonb_typeof(metrics->'dispatches') = 'object' THEN metrics->'dispatches' END AS dispatches,
 				CASE WHEN jsonb_typeof(metrics->'models') = 'object' THEN metrics->'models' END AS models
 			FROM stage_runs
-			WHERE started_at >= $1 AND started_at < $2
+			-- Runs attached to a change only, as WeeklyCosts' JOIN counts them,
+			-- so the lines add up to Overall.
+			WHERE started_at >= $1 AND started_at < $2 AND change_id IS NOT NULL
 		), d AS (
 			SELECT sr.id, sr.started_at, (b.value->>'cost_usd')::numeric AS cost,
 				COALESCE(

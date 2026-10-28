@@ -639,6 +639,19 @@ func TestWeeklyModelEffortCostsSplitsDispatchAndSession(t *testing.T) {
 		}
 	}`)
 
+	// An unattached plan session: Overall excludes it, so no line counts it.
+	plan, err := st.BeginStage(ctx, store.BeginStageInput{
+		ProjectKey: projectKey, MainCheckoutPath: "/tmp/" + projectKey, JiraKey: "KAN-900",
+		Harness: "claude-code", Command: "/flow-plan", Stage: "plan.session",
+		StartedAt: time.Date(2026, 6, 11, 1, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("BeginStage plan session: %v", err)
+	}
+	if err := st.MergeMetrics(ctx, plan.ID, json.RawMessage(`{"models": {"claude-haiku-5-5": {"cost_usd": 9}}}`)); err != nil {
+		t.Fatalf("MergeMetrics: %v", err)
+	}
+
 	period := store.Period{
 		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
 		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
