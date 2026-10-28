@@ -71,14 +71,18 @@ func (h *statsHandler) postPromptChange(w http.ResponseWriter, r *http.Request) 
 // reviewDynamicsDTO is the review-dynamics view's rows: one object, not an
 // array (KAN-1046).
 type reviewDynamicsDTO struct {
-	Bucket             string             `json:"bucket"`
-	Series             []dynamicsPointDTO `json:"series"`
-	Heat               []heatCellDTO      `json:"heat"`
-	PreviousHeat       []heatCellDTO      `json:"previousHeat"`
-	Summary            dynamicsSummaryDTO `json:"summary"`
-	PreviousSummary    dynamicsSummaryDTO `json:"previousSummary"`
-	Markers            []promptChangeDTO  `json:"markers"`
-	LastPromptChangeAt *time.Time         `json:"lastPromptChangeAt"`
+	Bucket       string             `json:"bucket"`
+	Series       []dynamicsPointDTO `json:"series"`
+	Heat         []heatCellDTO      `json:"heat"`
+	PreviousHeat []heatCellDTO      `json:"previousHeat"`
+	// HeatVersion and PreviousHeatVersion key the heatmap by model version
+	// instead of family (model-version-split).
+	HeatVersion         []heatCellDTO      `json:"heatVersion"`
+	PreviousHeatVersion []heatCellDTO      `json:"previousHeatVersion"`
+	Summary             dynamicsSummaryDTO `json:"summary"`
+	PreviousSummary     dynamicsSummaryDTO `json:"previousSummary"`
+	Markers             []promptChangeDTO  `json:"markers"`
+	LastPromptChangeAt  *time.Time         `json:"lastPromptChangeAt"`
 }
 
 type dynamicsPointDTO struct {
@@ -129,6 +133,7 @@ func toReviewDynamicsDTO(d store.ReviewDynamics) reviewDynamicsDTO {
 	}
 	return reviewDynamicsDTO{
 		Bucket: d.Bucket, Series: series, Heat: heat(d.Heat), PreviousHeat: heat(d.PreviousHeat),
+		HeatVersion: heat(d.HeatVersion), PreviousHeatVersion: heat(d.PreviousHeatVersion),
 		Summary: summary(d.Summary), PreviousSummary: summary(d.PreviousSummary),
 		Markers: toPromptChangeDTOs(d.Markers), LastPromptChangeAt: last,
 	}

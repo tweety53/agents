@@ -16,10 +16,13 @@ type ReviewDynamics struct {
 	Bucket             string
 	Series             []DynamicsPoint
 	Heat, PreviousHeat []HeatCell
-	Summary            DynamicsSummary
-	PreviousSummary    DynamicsSummary
-	Markers            []PromptChange
-	LastPromptChangeAt *time.Time
+	// HeatVersion and PreviousHeatVersion are Heat and PreviousHeat keyed
+	// by model version instead of family (model-version-split).
+	HeatVersion, PreviousHeatVersion []HeatCell
+	Summary                          DynamicsSummary
+	PreviousSummary                  DynamicsSummary
+	Markers                          []PromptChange
+	LastPromptChangeAt               *time.Time
 }
 
 // DynamicsPoint is one value of one series in one bucket. Basis is what
@@ -58,6 +61,13 @@ type DynamicsSummary struct {
 	Changes                    int
 }
 
+// modelVersionSQL is a dispatch d's model version: the harvested
+// modelVersion, else its recorded model when that is a full ID, else
+// "<family> (version unrecorded)" (model-version-split).
+const modelVersionSQL = `COALESCE(d.metrics->>'modelVersion',
+	CASE WHEN d.model ~* '^(claude|glm)-' THEN d.model END,
+	model_family(d.model) || ' (version unrecorded)')`
+
 // implBadOutcomes are the implementer dispatch outcomes counted as blocked
 // (impl-vv-metrics).
 var implBadOutcomes = []string{"blocked", "aborted", "failed", "stopped", "cancelled"}
@@ -79,7 +89,8 @@ var implBadOutcomes = []string{"blocked", "aborted", "failed", "stopped", "cance
 //   - impl-findings-per-task (<model · effort>): the cohort's findings ÷
 //     its implementer dispatches, pooled; cohort = first implementer
 //     dispatch, series = the change's most frequent implementer
-//     model · effort, ties by name (impl-vv-metrics).
+//     family · effort, ties by name (impl-vv-metrics);
+//     impl-findings-per-task-version keys the same by version · effort.
 //   - vv-rounds (mean, max): the highest n of a visual-verify-fix-<n> key,
 //     0 when none; cohort = first verifier dispatch keyed visual-verify%.
 //   - vv-first-pass (first-pass): share of those changes with 0 rounds.
@@ -89,8 +100,10 @@ var implBadOutcomes = []string{"blocked", "aborted", "failed", "stopped", "cance
 // bundle's slots as Reviewers does:
 //
 //   - per-dispatch-slot (<slot>): findings ÷ dispatches carrying the slot.
-//   - per-dispatch-model (<model>), per-dispatch-effort (<effort>):
-//     findings ÷ dispatch rows, never unnested slots.
+//   - per-dispatch-model (<family>), per-dispatch-model-version
+//     (<version>), per-dispatch-effort (<effort>): findings ÷ dispatch
+//     rows, never unnested slots. Family is model_family(model), version
+//     modelVersionSQL (model-version-split).
 //   - impl-blocked-share (blocked): implementer dispatches started in the
 //     bucket with an implBadOutcomes outcome ÷ all of them.
 //
@@ -110,8 +123,8 @@ func (s *Store) ReviewDynamics(ctx context.Context, period Period, project *stri
 	if err != nil {
 		return ReviewDynamics{}, err
 	}
-	out.Series, out.Heat, out.Summary = cur.series, cur.heat, cur.summary
-	out.PreviousHeat, out.PreviousSummary = prev.heat, prev.summary
+	out.Series, out.Heat, out.HeatVersion, out.Summary = cur.series, cur.heat, cur.heatVersion, cur.summary
+	out.PreviousHeat, out.PreviousHeatVersion, out.PreviousSummary = prev.heat, prev.heatVersion, prev.summary
 
 	if out.Markers, err = s.ListPromptChanges(ctx, period.From, period.To); err != nil {
 		return ReviewDynamics{}, err
@@ -123,9 +136,9 @@ func (s *Store) ReviewDynamics(ctx context.Context, period Period, project *stri
 }
 
 type dynamicsPeriod struct {
-	series  []DynamicsPoint
-	heat    []HeatCell
-	summary DynamicsSummary
+	series            []DynamicsPoint
+	heat, heatVersion []HeatCell
+	summary           DynamicsSummary
 }
 
 func (s *Store) dynamicsFor(ctx context.Context, period Period, project *string, unit string) (dynamicsPeriod, error) {
@@ -196,7 +209,7 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project *string,
 		metric, name string
 	}
 	groups := map[groupKey]*group{}
-	heat := map[[3]string]*HeatCell{}
+	heat, heatVersion := map[[3]string]*HeatCell{}, map[[3]string]*HeatCell{}
 	bump := func(k groupKey, id int64, n int) {
 		g := groups[k]
 		if g == nil {
@@ -208,38 +221,34 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project *string,
 	}
 	err = s.scanRows(ctx, "review per dispatch", `
 		WITH d AS (
-			SELECT d.id, d.started_at, d.model, d.effort, unnest(string_to_array(d.slot, '+')) AS slot
+			SELECT d.id, d.started_at, model_family(d.model) AS model, `+modelVersionSQL+` AS version, d.effort,
+				unnest(string_to_array(d.slot, '+')) AS slot
 			FROM dispatches d JOIN changes c ON c.id = d.change_id
 			WHERE d.role = 'reviewer' AND d.slot IS NOT NULL
 			  AND d.started_at >= $1 AND d.started_at < $2
 			  AND ($3::text IS NULL OR c.project_key = $3)
 		)
-		SELECT d.id, date_trunc($4::text, d.started_at AT TIME ZONE 'UTC'), d.slot, d.model, d.effort,
+		SELECT d.id, date_trunc($4::text, d.started_at AT TIME ZONE 'UTC'), d.slot, d.model, d.version, d.effort,
 			count(f.id) FILTER (WHERE canonical_severity(f.severity) = 'critical'),
 			count(f.id) FILTER (WHERE canonical_severity(f.severity) = 'important'),
 			count(f.id) FILTER (WHERE canonical_severity(f.severity) = 'minor')
 		FROM d LEFT JOIN findings f ON f.dispatch_id = d.id AND f.slot = d.slot
-		GROUP BY d.id, d.started_at, d.slot, d.model, d.effort
+		GROUP BY d.id, d.started_at, d.slot, d.model, d.version, d.effort
 	`, args, func(scan func(...any) error) error {
 		var id int64
 		var b time.Time
-		var slot, model, effort string
+		var slot, model, version, effort string
 		var cr, im, mi int
-		if err := scan(&id, &b, &slot, &model, &effort, &cr, &im, &mi); err != nil {
+		if err := scan(&id, &b, &slot, &model, &version, &effort, &cr, &im, &mi); err != nil {
 			return err
 		}
 		n := cr + im + mi
 		bump(groupKey{b, "per-dispatch-slot", slot}, id, n)
 		bump(groupKey{b, "per-dispatch-model", model}, id, n)
+		bump(groupKey{b, "per-dispatch-model-version", version}, id, n)
 		bump(groupKey{b, "per-dispatch-effort", effort}, id, n)
-		k := [3]string{slot, model, effort}
-		c := heat[k]
-		if c == nil {
-			c = &HeatCell{Slot: slot, Model: model, Effort: effort}
-			heat[k] = c
-		}
-		c.Dispatches++
-		c.Critical, c.Important, c.Minor = c.Critical+cr, c.Important+im, c.Minor+mi
+		addHeat(heat, slot, model, effort, cr, im, mi)
+		addHeat(heatVersion, slot, version, effort, cr, im, mi)
 		return nil
 	})
 	if err != nil {
@@ -248,27 +257,19 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project *string,
 	for k, g := range groups {
 		add(k.bucket, k.metric, k.name, ratio(g.findings, len(g.dispatches)), len(g.dispatches))
 	}
-	out.heat = []HeatCell{}
-	for _, c := range heat {
-		out.heat = append(out.heat, *c)
-	}
-	sort.Slice(out.heat, func(i, j int) bool {
-		a, b := out.heat[i], out.heat[j]
-		if a.Slot != b.Slot {
-			return a.Slot < b.Slot
-		}
-		if a.Model != b.Model {
-			return a.Model < b.Model
-		}
-		return a.Effort < b.Effort
-	})
+	out.heat, out.heatVersion = sortedHeat(heat), sortedHeat(heatVersion)
 
-	// Implementer, per change.
+	// Implementer, per change: by family · effort, then by version · effort.
 	var implFindings, implDispatches int
-	err = s.scanRows(ctx, "implementer per change", `
+	for _, keyed := range []struct{ metric, model string }{
+		{"impl-findings-per-task", "model_family(d.model)"},
+		{"impl-findings-per-task-version", modelVersionSQL},
+	} {
+		family := keyed.metric == "impl-findings-per-task"
+		err = s.scanRows(ctx, "implementer per change", `
 		WITH cohort AS (
 			SELECT d.change_id, min(d.started_at) AS first_at, count(*) AS dispatches,
-				mode() WITHIN GROUP (ORDER BY d.model || ' · ' || d.effort) AS series
+				mode() WITHIN GROUP (ORDER BY `+keyed.model+` || ' · ' || d.effort) AS series
 			FROM dispatches d JOIN changes c ON c.id = d.change_id
 			WHERE d.role = 'implementer'
 			  AND ($3::text IS NULL OR c.project_key = $3)
@@ -280,18 +281,21 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project *string,
 			sum(co.dispatches)::int
 		FROM cohort co GROUP BY bucket, co.series ORDER BY bucket, co.series
 	`, args, func(scan func(...any) error) error {
-		var b time.Time
-		var series string
-		var n, f, d int
-		if err := scan(&b, &series, &n, &f, &d); err != nil {
-			return err
+			var b time.Time
+			var series string
+			var n, f, d int
+			if err := scan(&b, &series, &n, &f, &d); err != nil {
+				return err
+			}
+			add(b, keyed.metric, series, ratio(f, d), d)
+			if family {
+				implFindings, implDispatches = implFindings+f, implDispatches+d
+			}
+			return nil
+		})
+		if err != nil {
+			return out, err
 		}
-		add(b, "impl-findings-per-task", series, ratio(f, d), d)
-		implFindings, implDispatches = implFindings+f, implDispatches+d
-		return nil
-	})
-	if err != nil {
-		return out, err
 	}
 	if implDispatches > 0 {
 		v := ratio(implFindings, implDispatches)
@@ -383,4 +387,36 @@ func (s *Store) scanRows(ctx context.Context, what, query string, args []any, ea
 		return fmt.Errorf("store: review dynamics: %s: %w", what, err)
 	}
 	return nil
+}
+
+// addHeat adds one (dispatch, slot) row's findings to the heat cell of
+// slot × model · effort.
+func addHeat(cells map[[3]string]*HeatCell, slot, model, effort string, cr, im, mi int) {
+	k := [3]string{slot, model, effort}
+	c := cells[k]
+	if c == nil {
+		c = &HeatCell{Slot: slot, Model: model, Effort: effort}
+		cells[k] = c
+	}
+	c.Dispatches++
+	c.Critical, c.Important, c.Minor = c.Critical+cr, c.Important+im, c.Minor+mi
+}
+
+// sortedHeat returns cells ordered by slot, model, effort.
+func sortedHeat(cells map[[3]string]*HeatCell) []HeatCell {
+	out := []HeatCell{}
+	for _, c := range cells {
+		out = append(out, *c)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		a, b := out[i], out[j]
+		if a.Slot != b.Slot {
+			return a.Slot < b.Slot
+		}
+		if a.Model != b.Model {
+			return a.Model < b.Model
+		}
+		return a.Effort < b.Effort
+	})
+	return out
 }

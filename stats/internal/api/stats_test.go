@@ -1936,6 +1936,7 @@ func TestStatsReviewDynamics(t *testing.T) {
 		Series:       []store.DynamicsPoint{{Bucket: week, Metric: "findings-per-change", Series: "minor", Value: 0.5, Basis: 2}},
 		Heat:         []store.HeatCell{{Slot: "primary", Model: "opus", Effort: "low", Dispatches: 2, Critical: 1}},
 		PreviousHeat: []store.HeatCell{},
+		HeatVersion:  []store.HeatCell{{Slot: "primary", Model: "claude-opus-5-5", Effort: "low", Dispatches: 2, Critical: 1}},
 		Summary:      store.DynamicsSummary{FindingsPerChange: 0.5, ImplFindingsPerTask: &impl, Changes: 2},
 		Markers: []store.PromptChange{{SHA: "abc:skills/flow/primary-reviewer-prompt.md", At: week.Add(time.Hour),
 			Kind: "edit", Area: "review", Slot: &slot, Target: "skills/flow/primary-reviewer-prompt.md", Summary: "tighten"}},
@@ -1954,19 +1955,21 @@ func TestStatsReviewDynamics(t *testing.T) {
 	if err := json.Unmarshal(env.Rows, &rows); err != nil {
 		t.Fatalf("rows is not one object: %v (body %s)", err, body)
 	}
-	for _, k := range []string{"bucket", "series", "heat", "previousHeat", "summary", "previousSummary", "markers", "lastPromptChangeAt"} {
+	for _, k := range []string{"bucket", "series", "heat", "previousHeat", "heatVersion", "previousHeatVersion", "summary", "previousSummary", "markers", "lastPromptChangeAt"} {
 		if _, ok := rows[k]; !ok {
 			t.Errorf("rows lacks %q: %s", k, env.Rows)
 		}
 	}
 	for k, want := range map[string]string{
-		"bucket":             `"week"`,
-		"series":             `[{"bucket":"2026-08-03","metric":"findings-per-change","series":"minor","value":0.5,"basis":2}]`,
-		"heat":               `[{"slot":"primary","model":"opus","effort":"low","dispatches":2,"critical":1,"important":0,"minor":0}]`,
-		"previousHeat":       `[]`,
-		"summary":            `{"findingsPerChange":0.5,"criticalImportantPerChange":0,"meanFixRounds":0,"implFindingsPerTask":1.5,"vvFirstPassShare":null,"changes":2}`,
-		"markers":            `[{"sha":"abc:skills/flow/primary-reviewer-prompt.md","at":"2026-08-03T01:00:00Z","kind":"edit","area":"review","slot":"primary","target":"skills/flow/primary-reviewer-prompt.md","summary":"tighten","caseId":null}]`,
-		"lastPromptChangeAt": `"2026-08-05T02:00:00Z"`,
+		"bucket":              `"week"`,
+		"series":              `[{"bucket":"2026-08-03","metric":"findings-per-change","series":"minor","value":0.5,"basis":2}]`,
+		"heat":                `[{"slot":"primary","model":"opus","effort":"low","dispatches":2,"critical":1,"important":0,"minor":0}]`,
+		"previousHeat":        `[]`,
+		"heatVersion":         `[{"slot":"primary","model":"claude-opus-5-5","effort":"low","dispatches":2,"critical":1,"important":0,"minor":0}]`,
+		"previousHeatVersion": `[]`,
+		"summary":             `{"findingsPerChange":0.5,"criticalImportantPerChange":0,"meanFixRounds":0,"implFindingsPerTask":1.5,"vvFirstPassShare":null,"changes":2}`,
+		"markers":             `[{"sha":"abc:skills/flow/primary-reviewer-prompt.md","at":"2026-08-03T01:00:00Z","kind":"edit","area":"review","slot":"primary","target":"skills/flow/primary-reviewer-prompt.md","summary":"tighten","caseId":null}]`,
+		"lastPromptChangeAt":  `"2026-08-05T02:00:00Z"`,
 	} {
 		if got := string(rows[k]); got != want {
 			t.Errorf("rows.%s = %s, want %s", k, got, want)

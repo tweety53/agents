@@ -156,3 +156,52 @@ func (s *Store) CommitHarvestBatch(ctx context.Context, transcriptPath string, e
 	}
 	return true, nil
 }
+
+// BackfillModelVersions stamps metrics.modelVersion on every dispatch that
+// carries an agent id and none yet, from lookup(agentID) -- the exact model
+// its agent transcript names (model-version-split). A lookup that finds
+// nothing leaves the row alone; a stamped row is never overwritten. It
+// returns how many rows it stamped.
+func (s *Store) BackfillModelVersions(ctx context.Context, lookup func(agentID string) (string, bool)) (int, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, agent_id FROM dispatches
+		WHERE agent_id IS NOT NULL AND agent_id <> 'inline' AND NOT metrics ? 'modelVersion'
+		ORDER BY id
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("store: backfill model versions: %w", err)
+	}
+	type pending struct {
+		id      int64
+		version string
+	}
+	var todo []pending
+	for rows.Next() {
+		var id int64
+		var agentID string
+		if err := rows.Scan(&id, &agentID); err != nil {
+			rows.Close()
+			return 0, fmt.Errorf("store: backfill model versions: scan: %w", err)
+		}
+		if v, ok := lookup(agentID); ok && v != "" {
+			todo = append(todo, pending{id, v})
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, fmt.Errorf("store: backfill model versions: %w", err)
+	}
+
+	stamped := 0
+	for _, p := range todo {
+		tag, err := s.pool.Exec(ctx, `
+			UPDATE dispatches SET metrics = metrics || jsonb_build_object('modelVersion', $2::text)
+			WHERE id = $1 AND NOT metrics ? 'modelVersion'
+		`, p.id, p.version)
+		if err != nil {
+			return stamped, fmt.Errorf("store: backfill model version for dispatch %d: %w", p.id, err)
+		}
+		stamped += int(tag.RowsAffected())
+	}
+	return stamped, nil
+}

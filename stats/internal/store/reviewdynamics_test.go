@@ -229,3 +229,66 @@ func TestReviewDynamicsHeatSummaryMarkers(t *testing.T) {
 		t.Errorf("LastPromptChangeAt = %v, want the newest change whatever the range", got.LastPromptChangeAt)
 	}
 }
+
+// TestReviewDynamicsModelVersions pins model-version-split: per-model
+// series and the heatmap exist keyed by family (versions merged) and by
+// version, a dispatch's version read from its harvested modelVersion, its
+// full model ID, or "<family> (version unrecorded)".
+func TestReviewDynamicsModelVersions(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	fx := dynamicsFixture{t: t, st: st, project: fmt.Sprintf("proj-versions-%d", time.Now().UnixNano())}
+	seedChange(t, st, fx.project, "v")
+	at := week1.Add(9 * time.Hour)
+
+	fx.dispatch("v", "reviewer", "primary", "opus", "low", "panel-0-a", "completed", at)
+	fx.dispatch("v", "reviewer", "primary", "claude-opus-5", "low", "panel-0-b", "completed", at.Add(time.Hour))
+	fx.dispatch("v", "reviewer", "primary", "opus", "low", "panel-0-c", "completed", at.Add(2*time.Hour))
+	fx.dispatch("v", "implementer", "", "opus", "low", "task-1-implementer", "completed", at.Add(-time.Hour))
+	for _, key := range []string{"panel-0-a", "task-1-implementer"} {
+		if _, err := pool.Exec(ctx, `UPDATE dispatches SET metrics = metrics || '{"modelVersion":"claude-opus-5-5"}'
+			WHERE dispatch_key = $1 AND change_id = (SELECT id FROM changes WHERE name = 'v' AND project_key = $2)`, key, fx.project); err != nil {
+			t.Fatalf("stamp %s: %v", key, err)
+		}
+	}
+
+	got, err := st.ReviewDynamics(ctx, store.Period{From: week1, To: week1.Add(7 * 24 * time.Hour)}, &fx.project)
+	if err != nil {
+		t.Fatalf("ReviewDynamics: %v", err)
+	}
+	series := map[string]map[string]int{}
+	for _, p := range got.Series {
+		if series[p.Metric] == nil {
+			series[p.Metric] = map[string]int{}
+		}
+		series[p.Metric][p.Series] += p.Basis
+	}
+	if fmt.Sprint(series["per-dispatch-model"]) != "map[opus:3]" {
+		t.Errorf("per-dispatch-model = %v, want one opus series over all three dispatches", series["per-dispatch-model"])
+	}
+	if fmt.Sprint(series["per-dispatch-model-version"]) != "map[claude-opus-5:1 claude-opus-5-5:1 opus (version unrecorded):1]" {
+		t.Errorf("per-dispatch-model-version = %v", series["per-dispatch-model-version"])
+	}
+	if _, ok := series["impl-findings-per-task"]["opus · low"]; !ok {
+		t.Errorf("impl-findings-per-task = %v, want opus · low", series["impl-findings-per-task"])
+	}
+	if _, ok := series["impl-findings-per-task-version"]["claude-opus-5-5 · low"]; !ok {
+		t.Errorf("impl-findings-per-task-version = %v, want claude-opus-5-5 · low", series["impl-findings-per-task-version"])
+	}
+	if len(got.Heat) != 1 || got.Heat[0].Model != "opus" || got.Heat[0].Dispatches != 3 {
+		t.Errorf("Heat = %+v, want one opus cell of 3 dispatches", got.Heat)
+	}
+	if len(got.HeatVersion) != 3 {
+		t.Errorf("HeatVersion = %+v, want three version cells", got.HeatVersion)
+	}
+
+	for in, want := range map[string]string{
+		"opus": "opus", "claude-opus-5-5": "opus", "Opus": "opus", "claude-sonnet-5": "sonnet",
+		"glm-5.3-flash": "glm", "GLM-5.3-Flash (inline session)": "glm", "builtin:zai-coding-plan/GLM-5.3-Flash": "glm",
+	} {
+		var got string
+		if err := pool.QueryRow(ctx, "SELECT model_family($1)", in).Scan(&got); err != nil || got != want {
+			t.Errorf("model_family(%q) = %q, %v; want %q", in, got, err, want)
+		}
+	}
+}
