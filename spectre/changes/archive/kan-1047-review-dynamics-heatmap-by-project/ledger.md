@@ -379,3 +379,104 @@ Rendered from the store. Do not edit: every dispatch is a row, and the next rend
 - Ended: 2026-10-28T18:31:28Z (1m47s)
 - Tokens: input 30, output 7092, cache read 664775, cache creation 60706
 
+## Dispatch 30 — planner
+
+- Task: no task
+- Role: planner
+- Key: self-review-kan-1047-review-dynamics-heatmap-by-project-plan
+- Model: opus effort=medium
+- Commit: no commit
+- Outcome: aborted
+- Started: 2026-10-28T18:44:06Z
+- Ended: 2026-10-28T19:29:17Z (45m10s)
+- Tokens: input 10, output 1111, cache read 135485, cache creation 46232
+
+## Dispatch 31 — implementer
+
+- Task: 7
+- Role: implementer
+- Key: task-7-implementer
+- Model: opus effort=default
+- Commit: 81b70cca415747a91aa8f566f34fe4cc2ff49c1e
+- Outcome: completed
+- Started: 2026-10-28T19:05:22Z
+- Ended: 2026-10-28T19:07:46Z (2m25s)
+- Tokens: input 39, output 10390, cache read 3657192, cache creation 25347
+
+## Dispatch 32 — reviewer
+
+- Task: no task
+- Role: reviewer
+- Slot: primary
+- Key: panel-6-primary
+- Model: opus effort=low
+- Commit: no commit
+- Outcome: completed
+- Started: 2026-10-28T19:08:17Z
+- Ended: 2026-10-28T19:09:49Z (1m31s)
+- Tokens: input 22, output 6095, cache read 337708, cache creation 36667
+
+## Dispatch 33 — reviewer
+
+- Task: no task
+- Role: reviewer
+- Slot: test-sanity+call-efficiency
+- Key: panel-6-test-sanity+call-efficiency
+- Model: opus effort=low
+- Commit: no commit
+- Outcome: completed
+- Started: 2026-10-28T19:08:18Z
+- Ended: 2026-10-28T19:09:00Z (42s)
+- Tokens: input 10, output 2477, cache read 122129, cache creation 32239
+
+## Dispatch 34 — reviewer
+
+- Task: no task
+- Role: reviewer
+- Slot: mutation+failure-modes
+- Key: panel-6-mutation+failure-modes
+- Model: sonnet effort=low
+- Commit: no commit
+- Outcome: completed
+- Started: 2026-10-28T19:08:18Z
+- Ended: 2026-10-28T19:10:52Z (2m34s)
+- Tokens: input 18, output 6895, cache read 273799, cache creation 41752
+
+## Dispatch 35 — panel-fix
+
+- Task: no task
+- Role: panel-fix
+- Key: panel-fix-7
+- Model: opus effort=default
+- Commit: 5e2207f749b41cd070f79312a16015788be3d556
+- Outcome: completed
+- Started: 2026-10-28T19:11:19Z
+- Ended: 2026-10-28T19:14:32Z (3m13s)
+- Tokens: input 15, output 5370, cache read 1867953, cache creation 7350
+
+## Dispatch 36 — reviewer
+
+- Task: no task
+- Role: reviewer
+- Slot: primary+mutation
+- Key: panel-7-primary+mutation
+- Model: sonnet effort=low
+- Commit: no commit
+- Outcome: completed
+- Started: 2026-10-28T19:14:44Z
+- Ended: 2026-10-28T19:22:56Z (8m12s)
+- Tokens: input 40, output 10265, cache read 738384, cache creation 44309
+
+## Dispatch 37 — verifier
+
+- Task: no task
+- Role: verifier
+- Key: visual-verify-fix-4-full
+- Model: opus effort=low
+- Commit: no commit
+- Diff base: 83059f8595430f5c9d167fbd9ca6c1aa45e8f4a7
+- Outcome: completed
+- Started: 2026-10-28T19:26:59Z
+- Ended: 2026-10-28T19:28:40Z (1m41s)
+- Tokens: input 26, output 6109, cache read 534645, cache creation 56210
+
