@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatRelative, formatSpan, formatUsd } from "./format";
+import { formatModel, formatRelative, formatSpan, formatUsd } from "./format";
 
 describe("formatUsd", () => {
   it("formatUsd always renders two decimals", () => {
@@ -26,5 +26,14 @@ describe("formatRelative", () => {
     expect(formatSpan(23 * 60000)).toBe("23m");
     expect(formatSpan(88 * 60000)).toBe("1h 28m");
     expect(formatSpan(5 * 3600e3 + 5 * 60000)).toBe("5h 05m");
+  });
+});
+
+describe("formatModel", () => {
+  it("formatModel shortens a model id to family and version", () => {
+    expect(formatModel("claude-opus-4-7")).toBe("opus-4.7");
+    expect(formatModel("claude-sonnet-5")).toBe("sonnet-5");
+    expect(formatModel("claude-haiku-4-5-20251001")).toBe("haiku-4-5-20251001");
+    expect(formatModel("opus")).toBe("opus");
   });
 });

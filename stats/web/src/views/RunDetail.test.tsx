@@ -9,7 +9,7 @@
 // page of stage runs the interface holds.
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   VIEW_NAMES,
   type CostPerChangeRow,
@@ -90,7 +90,8 @@ describe("a change with runs across several commands", () => {
 
     render(<RunDetail project={PROJECT} change={CHANGE} />);
 
-    expect(await screen.findAllByRole("cell", { name: "/flow" })).toHaveLength(2);
+    // No sessionId: both runs group under their command, as one session.
+    expect(await screen.findByRole("row", { name: /^Session 1 · other/ })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "1. Brainstorming" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "SDD + TDD per task" })).toBeInTheDocument();
   });
@@ -118,9 +119,9 @@ describe("a stage run that recorded no token metrics", () => {
     render(<RunDetail project={PROJECT} change={CHANGE} />);
 
     const row = (await screen.findByRole("cell", { name: "SDD + TDD per task" })).closest("tr") as HTMLElement;
-    expect(within(row).getByText("5.0 min")).toBeInTheDocument();
-    // Cost, input tokens and output tokens are all unmeasured on this run.
-    expect(within(row).getAllByTestId("unavailable").length).toBeGreaterThanOrEqual(3);
+    expect(within(row).getByText("5m")).toBeInTheDocument();
+    // Cost and input tokens are both unmeasured on this run.
+    expect(within(row).getAllByTestId("unavailable").length).toBeGreaterThanOrEqual(2);
     expect(within(row).queryByText("0")).not.toBeInTheDocument();
     expect(within(row).queryByText("$0.0000")).not.toBeInTheDocument();
   });
@@ -147,8 +148,8 @@ describe("an open stage run", () => {
     render(<RunDetail project={PROJECT} change={CHANGE} />);
 
     const row = (await screen.findByRole("cell", { name: "SDD + TDD per task" })).closest("tr") as HTMLElement;
-    expect(within(row).getByTestId("run-open")).toHaveTextContent(/still running/i);
-    expect(within(row).queryByText("0 ms")).not.toBeInTheDocument();
+    expect(within(row).getByTestId("run-open")).toHaveTextContent(/^running$/);
+    expect(within(row).queryByText("0m")).not.toBeInTheDocument();
   });
 });
 
@@ -208,8 +209,9 @@ describe("a change with more stage runs than one page holds", () => {
 
     render(<RunDetail project={PROJECT} change={CHANGE} />);
 
-    expect(await screen.findByText("$99.99")).toBeInTheDocument();
-    expect(screen.queryByText("$2.00")).not.toBeInTheDocument();
+    const totalCost = await screen.findByRole("group", { name: "Total cost" });
+    expect(within(totalCost).getByText("$99.99")).toBeInTheDocument();
+    expect(within(totalCost).queryByText("$2.00")).not.toBeInTheDocument();
   });
 
   it("sums the aggregate across every command/stage row of the change", async () => {
@@ -306,7 +308,7 @@ describe("a change with more stage runs than one page holds", () => {
 
     render(<RunDetail project={PROJECT} change={CHANGE} />);
 
-    const totalCostPanel = await screen.findByRole("region", { name: "Total cost" });
+    const totalCostPanel = await screen.findByRole("group", { name: "Total cost" });
     expect(await within(totalCostPanel).findByText("$99.99")).toBeInTheDocument();
     expect(within(totalCostPanel).queryByText("$1.00")).not.toBeInTheDocument();
   });
@@ -383,79 +385,8 @@ describe("the header names the project by its display name (kan-183)", () => {
     render(<RunDetail project={HASHED_PROJECT} change={CHANGE} />);
 
     await screen.findByRole("heading", { name: CHANGE });
-    expect(screen.getByText("Project agents")).toBeInTheDocument();
-    expect(screen.queryByText(`Project ${HASHED_PROJECT}`)).not.toBeInTheDocument();
-  });
-});
-
-describe("the run-detail dashboard's model variable (task 20's own decision: honoured, not disabled)", () => {
-  const runOnSonnet: StageRunDTO = {
-    stageRunId: 10,
-    harness: "claude-code",
-    command: "/flow",
-    stage: "SDD + TDD per task",
-    attempt: 1,
-    startedAt: "2026-01-01T00:00:00Z",
-    endedAt: "2026-01-01T00:05:00Z",
-    outcome: "committed",
-    metrics: { cost_usd: 1, models: { "claude-sonnet-5": { tokens: { input: 100 } } } },
-  };
-  const runOnOpus: StageRunDTO = {
-    stageRunId: 11,
-    harness: "claude-code",
-    command: "/flow",
-    stage: "5. The review panel",
-    attempt: 1,
-    startedAt: "2026-01-01T00:10:00Z",
-    endedAt: "2026-01-01T00:15:00Z",
-    outcome: "committed",
-    metrics: { cost_usd: 2, models: { "claude-opus-5": { tokens: { input: 200 } } } },
-  };
-  const runWithNoModel: StageRunDTO = {
-    stageRunId: 12,
-    harness: "claude-code",
-    command: "/flow",
-    stage: "1. Brainstorming",
-    attempt: 1,
-    startedAt: "2026-01-01T00:20:00Z",
-    endedAt: "2026-01-01T00:25:00Z",
-    outcome: "committed",
-    metrics: {},
-  };
-
-  it("filters the stage-run table to runs whose metrics bag recorded the selected model", async () => {
-    listStageRunsMock.mockResolvedValue(stageRunsResponse([runOnSonnet, runOnOpus, runWithNoModel]));
-    fetchStatsViewMock.mockResolvedValue(aggregateEnvelope([]));
-
-    render(<RunDetail project={PROJECT} change={CHANGE} model="claude-sonnet-5" />);
-
-    expect(await screen.findByRole("cell", { name: "SDD + TDD per task" })).toBeInTheDocument();
-    expect(screen.queryByRole("cell", { name: "5. The review panel" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("cell", { name: "1. Brainstorming" })).not.toBeInTheDocument();
-  });
-
-  it("scopes the header to that model by sending it to the cost-per-change aggregate", async () => {
-    listStageRunsMock.mockResolvedValue(stageRunsResponse([runOnSonnet]));
-    fetchStatsViewMock.mockResolvedValue(aggregateEnvelope([]));
-
-    render(<RunDetail project={PROJECT} change={CHANGE} model="claude-sonnet-5" />);
-
-    await screen.findByRole("region", { name: "Runs" });
-    expect(fetchStatsViewMock).toHaveBeenCalledWith(
-      "cost-per-change",
-      expect.objectContaining({ project: PROJECT, change: CHANGE, model: "claude-sonnet-5" }),
-    );
-  });
-
-  it("shows every run, unfiltered, when no model is selected", async () => {
-    listStageRunsMock.mockResolvedValue(stageRunsResponse([runOnSonnet, runOnOpus, runWithNoModel]));
-    fetchStatsViewMock.mockResolvedValue(aggregateEnvelope([]));
-
-    render(<RunDetail project={PROJECT} change={CHANGE} />);
-
-    expect(await screen.findByRole("cell", { name: "SDD + TDD per task" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "5. The review panel" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "1. Brainstorming" })).toBeInTheDocument();
+    expect(screen.getByText(/^Project agents/)).toBeInTheDocument();
+    expect(screen.queryByText(new RegExp(`Project ${HASHED_PROJECT}`))).not.toBeInTheDocument();
   });
 });
 
@@ -545,7 +476,7 @@ describe("a stage run that dispatched three subagents (kan-201)", () => {
     // dispatch-specific affordance -- see that file's own header comment
     // (F3, pass 1 of this change's own review panel). The row is found by
     // its stage cell, and its toggle by scoping to that row.
-    const row = (await screen.findByRole("cell", { name: "5. The review panel" })).closest("tr") as HTMLElement;
+    const row = within(await screen.findByRole("table")).getByText("5. The review panel").closest("tr") as HTMLElement;
     await user.click(within(row).getByRole("button"));
     return screen.getAllByTestId("dispatch-row");
   }
@@ -576,8 +507,8 @@ describe("a stage run that dispatched three subagents (kan-201)", () => {
     const rows = await renderExpanded();
     const noTokensRow = rows.find((row) => within(row).queryByText("Review slot C"));
     expect(noTokensRow).toBeDefined();
-    // Tokens and cost are both unmeasured for this dispatch.
-    expect(within(noTokensRow as HTMLElement).getAllByTestId("unavailable").length).toBeGreaterThanOrEqual(2);
+    // Its cost is unmeasured.
+    expect(within(noTokensRow as HTMLElement).getAllByTestId("unavailable").length).toBeGreaterThanOrEqual(1);
     expect(within(noTokensRow as HTMLElement).queryByText("0")).not.toBeInTheDocument();
     expect(within(noTokensRow as HTMLElement).queryByText("$0.0000")).not.toBeInTheDocument();
   });
@@ -588,7 +519,7 @@ describe("a stage run that dispatched three subagents (kan-201)", () => {
 
     render(<RunDetail project={PROJECT} change={CHANGE} />);
 
-    await screen.findByRole("cell", { name: "5. The review panel" });
+    within(await screen.findByRole("table")).getByText("5. The review panel");
     // The three surviving statistics views from design.md's `stats-ui-cut`
     // (cache efficiency and runs cut by KAN-989) plus `weekly-costs`,
     // `reviewers`, `decisions`, `flow-health`, `self-review` and
@@ -659,12 +590,11 @@ describe("two stage runs sharing both stage and attempt (kan-201)", () => {
 
     render(<RunDetail project={PROJECT} change={CHANGE} />);
 
-    // No sort is applied, so the table rows come back in fetch order:
-    // header row first, then sharedRunA, then sharedRunB -- both sharing
-    // the same visible stage/attempt text, so only row position (backed by
-    // each row's own `stageRunId` as DataTable's rowKey) tells them apart.
-    const rows = await screen.findAllByRole("row");
-    const [rowA, rowB] = [rows[1], rows[2]];
+    // Stage runs come back in start order under their session: both share
+    // the same visible stage text, so only row position (backed by each
+    // row's own `stageRunId` as its key) tells them apart.
+    await screen.findByRole("table");
+    const [rowA, rowB] = screen.getAllByRole("row").filter((r) => r.classList.contains("lb-row"));
 
     const user = userEvent.setup();
     await user.click(within(rowA).getByRole("button"));
@@ -674,5 +604,156 @@ describe("two stage runs sharing both stage and attempt (kan-201)", () => {
     expect(within(dispatchRows[0]).getByText("Task A dispatch")).toBeInTheDocument();
     expect(screen.queryByText("Task B dispatch")).not.toBeInTheDocument();
     expect(within(rowB).queryByTestId("dispatch-row")).not.toBeInTheDocument();
+  });
+});
+
+// The opened run as the approved prototype draws it (kan-1048).
+describe("the reworked run view (kan-1048)", () => {
+  const NOW = new Date("2026-01-01T03:00:00Z");
+  const run = (id: number, stage: string, start: string, end: string | undefined, extra: Partial<StageRunDTO> = {}): StageRunDTO => ({
+    stageRunId: id,
+    harness: "claude-code",
+    command: "/flow",
+    stage,
+    attempt: 1,
+    startedAt: start,
+    endedAt: end,
+    outcome: end ? "completed" : undefined,
+    metrics: {},
+    ...extra,
+  });
+  const planning = [
+    run(1, "flow.kickoff", "2026-01-01T00:00:00Z", "2026-01-01T00:10:00Z", { sessionId: "s-a", metrics: { cost_usd: 1, effort: "medium", models: { "claude-opus-4-7": {} } } }),
+    run(2, "flow.brainstorm", "2026-01-01T00:10:00Z", "2026-01-01T00:40:00Z", { sessionId: "s-a", metrics: { cost_usd: 2, models: { "claude-opus-4-7": {} } } }),
+  ];
+  const implementation = [
+    run(3, "flow.sdd-tdd", "2026-01-01T01:00:00Z", "2026-01-01T01:30:00Z", { sessionId: "s-b", outcome: "failed", metrics: { cost_usd: 3, effort: "high", models: { "claude-opus-4-7": {} } } }),
+    run(4, "flow.sdd-tdd", "2026-01-01T02:00:00Z", undefined, {
+      sessionId: "s-b",
+      metrics: {
+        cost_usd: 0.5,
+        effort: "high",
+        models: { "claude-opus-4-7": {}, "claude-sonnet-4-6": {} },
+        dispatches: { "agent-1": { description: "Task 4/11", model: "claude-sonnet-4-6", cost_usd: 0.25, signals: { served_efforts: { low: 1, medium: 3 } } } },
+      },
+    }),
+  ];
+  const boardRow = {
+    projectKey: PROJECT,
+    name: CHANGE,
+    state: "IN_PROGRESS",
+    updatedAt: "2026-01-01T02:59:00Z",
+    updatedBy: "alice",
+    nextCommand: "/flow",
+    currentTasks: 11,
+    doneTasks: 3,
+    runCount: 2,
+    costUsd: 6.5,
+    wallClockMs: 0,
+    errors: 0,
+    currentStage: "flow.sdd-tdd",
+    currentStageStartedAt: "2026-01-01T02:00:00Z",
+    activity: "question",
+    activityDetail: "Proceed?",
+    activitySince: "2026-01-01T02:58:00Z",
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"], now: NOW });
+    listStageRunsMock.mockResolvedValue(stageRunsResponse([...planning, ...implementation]));
+    fetchStatsViewMock.mockImplementation((view: string) =>
+      Promise.resolve(
+        view === "state-board"
+          ? { ...aggregateEnvelope([]), view, rows: [boardRow] }
+          : aggregateEnvelope([
+              {
+                projectKey: PROJECT,
+                changeName: CHANGE,
+                command: "/flow",
+                stage: "flow.sdd-tdd",
+                runCount: 4,
+                measuredRuns: 3,
+                totalTokensInput: 1250000,
+                meanTokensInput: 1,
+                totalCostUsd: 6.5,
+                totalDurationMs: 1,
+                mainTokens: 1,
+                sidechainTokens: 1,
+              },
+            ]),
+      ),
+    );
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("run detail groups stage runs by session and phase", async () => {
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const groups = (await screen.findAllByRole("row")).filter((r) => r.classList.contains("lb-group"));
+    expect(groups.map((g) => g.textContent)).toEqual([
+      "Session 1 · planning00:00–00:40 · 40m · $3.00",
+      "Session 2 · implementation01:00–now · 2h 00m · $3.50",
+    ]);
+  });
+
+  it("run detail shows model version and effort", async () => {
+    const user = userEvent.setup();
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const kickoff = (await screen.findByRole("cell", { name: "flow.kickoff" })).closest("tr")!;
+    expect(kickoff).toHaveTextContent("opus-4.7 · medium");
+    // No effort recorded: the model alone.
+    const brainstorm = screen.getByRole("cell", { name: "flow.brainstorm" }).closest("tr")!;
+    expect(within(brainstorm).getByText("opus-4.7")).toBeInTheDocument();
+    const open = screen.getByRole("button", { name: "Show dispatches" });
+    expect(open.closest("tr")).toHaveTextContent("opus-4.7, sonnet-4.6 · high");
+    // A dispatch row: its bucket's model and its most-served effort.
+    await user.click(open);
+    const dispatch = screen.getByTestId("dispatch-row");
+    expect(dispatch).toHaveTextContent("Task 4/11");
+    expect(dispatch).toHaveTextContent("sonnet-4.6 · medium");
+    expect(dispatch).toHaveTextContent("$0.25");
+  });
+
+  it("run detail has no filter controls", async () => {
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    await screen.findByRole("cell", { name: "flow.kickoff" });
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("toolbar")).not.toBeInTheDocument();
+  });
+
+  it("run detail header and kpis", async () => {
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    expect(await screen.findByRole("link", { name: "← Live state board" })).toHaveAttribute("href", "#/state-board");
+    await screen.findByText("Proceed?");
+    expect(screen.getByText(/^Project kan-16-stats-app · KAN-16 · updated 1m ago$/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: CHANGE }).parentElement).toHaveTextContent("IN_PROGRESS");
+    const kpi = (name: string) => screen.getByRole("group", { name });
+    expect(kpi("Now running")).toHaveTextContent("flow.sdd-tdd");
+    expect(kpi("Now running")).toHaveTextContent("for 1h 00m · tasks 3/11");
+    expect(kpi("Now running")).toHaveTextContent("Awaiting your answer");
+    expect(kpi("Total cost")).toHaveTextContent("$6.50");
+    expect(kpi("Total cost")).toHaveTextContent("4 stage runs, 3 measured");
+    expect(kpi("Wall clock")).toHaveTextContent("3h 00m");
+    expect(kpi("Wall clock")).toHaveTextContent("active 2h 10m");
+    expect(kpi("Input tokens")).toHaveTextContent("1.25M");
+    expect(kpi("Failed runs")).toHaveTextContent("1");
+    expect(kpi("Failed runs")).toHaveTextContent("1 retried");
+    // Cost by stage: summed per stage, largest first, "flow." dropped.
+    const rail = screen.getByRole("region", { name: "Cost by stage" });
+    expect(within(rail).getAllByText(/^(sdd-tdd|brainstorm|kickoff)$/).map((e) => e.textContent)).toEqual(["sdd-tdd", "brainstorm", "kickoff"]);
+    expect(rail).toHaveTextContent("$3.50");
+  });
+
+  it("stage timeline draws a lane per stage coloured by outcome", async () => {
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const svg = await screen.findByRole("img", { name: "Stage runs over time" });
+    expect([...svg.querySelectorAll("text.lb-lane")].map((t) => t.textContent)).toEqual(["flow.kickoff", "flow.brainstorm", "flow.sdd-tdd"]);
+    const fills = [...svg.querySelectorAll("rect.lb-bar")].map((r) => r.getAttribute("fill"));
+    expect(fills).toEqual(["var(--status-ok)", "var(--status-ok)", "var(--status-critical)", "url(#lb-hatch)"]);
+    expect(svg.querySelector("line.lb-now")).not.toBeNull();
+    expect(svg).toHaveAttribute("width", "100%");
   });
 });

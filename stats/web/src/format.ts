@@ -67,3 +67,15 @@ export function formatSpan(ms: number): string {
   if (minutes < 60) return `${minutes}m`;
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
 }
+
+/** A model id as the run view reads it: `claude-opus-4-7` → `opus-4.7`, `claude-sonnet-5` → `sonnet-5`. */
+export function formatModel(id: string): string {
+  const m = /^(?:claude-)?([a-z]+)-(\d+)(?:-(\d+))?$/.exec(id);
+  if (!m) return id.replace(/^claude-/, "");
+  return m[3] === undefined ? `${m[1]}-${m[2]}` : `${m[1]}-${m[2]}.${m[3]}`;
+}
+
+/** `HH:MM` of an instant, in UTC as the prototype draws it. */
+export function formatClock(ms: number): string {
+  return new Date(ms).toISOString().slice(11, 16);
+}

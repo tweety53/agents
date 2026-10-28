@@ -236,8 +236,9 @@ export function App() {
           </ul>
         </nav>
         {/* Weekly costs always covers the last 8 weeks of every project and model (KAN-1038);
-            the live state board carries its own chip filters (decision hide-dashboard-bar). */}
-        {!(route.kind === "view" && (route.view === "weekly-costs" || route.view === "state-board")) && (
+            the live state board carries its own chip filters and an opened run none
+            (decision hide-dashboard-bar). */}
+        {route.kind === "view" && route.view !== "weekly-costs" && route.view !== "state-board" && (
           <DashboardBar
             period={period}
             onPeriodChange={setPeriod}
@@ -253,13 +254,7 @@ export function App() {
       </header>
       <main>
         {route.kind === "run" ? (
-          // The run-detail route honours the model variable rather than
-          // leaving it rendering and inert (task 20's own decision): it is
-          // never disabled here (modelDisabled is computed only for the
-          // static ViewName routes, false by construction for "run"), and
-          // RunDetail.tsx's own header comment explains why honouring is
-          // cheap on this route specifically.
-          <RunDetail project={route.project} change={route.change} model={model} />
+          <RunDetail project={route.project} change={route.change} />
         ) : (
           ActiveView && (
             <ActiveView
