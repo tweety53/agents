@@ -52,9 +52,9 @@ export function DynamicsChart({
   // Ticks 0, s, 2s: s the smallest 1·2·5 step covering half the peak whose three labels the format
   // tells apart, so no label rounds onto another tick's value.
   const half = Math.max(0, ...all) / 2;
-  let s = half > 0 ? 10 ** Math.floor(Math.log10(half)) : 1;
+  let s = half > 0 ? 10 ** Math.floor(Math.log10(half)) : 0.5;
   while (s < half || new Set([format(0), format(s), format(2 * s)]).size < 3) {
-    const p = 10 ** Math.floor(Math.log10(s) + 1e-9);
+    const p = 10 ** Math.floor(Math.log10(s));
     s = ({ 1: 2, 2: 5 }[Math.round(s / p)] ?? 10) * p;
   }
   const ticks = [0, s, 2 * s];

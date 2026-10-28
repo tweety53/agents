@@ -1202,7 +1202,9 @@ describe("review dynamics", () => {
       [0, whole, ["0", "1", "2"]],
       [1, whole, ["0", "1", "2"]],
       [2, whole, ["0", "1", "2"]],
-      [0, tenths, ["0.0", "1.0", "2.0"]],
+      [0, tenths, ["0.0", "0.5", "1.0"]],
+      // An empty share chart tops at 100%, never 200%.
+      [0, percent, ["0%", "50%", "100%"]],
       // A 0.05 step would label 0.0, 0.1, 0.1.
       [0.06, tenths, ["0.0", "0.1", "0.2"]],
       [3, whole, ["0", "2", "4"]],
