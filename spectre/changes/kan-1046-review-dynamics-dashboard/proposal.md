@@ -20,4 +20,4 @@ Nothing on the stats dashboard shows whether the review panel is getting better 
 - Severity spellings fold to Critical / Important / Minor in one SQL function.
 - Model versions are never merged silently: every model chart, the implementer chart and the heatmap carry a **Family / Version** toggle — `model · effort` (versions merged) or `model-version · effort` (each version its own series).
   - The harvester stamps each dispatch's exact model ID (`claude-opus-5-5`) from its transcript's `message.model`; today ~7,300 of ~8,300 rows hold only the alias `opus`/`sonnet`.
-  - `flow harvest backfill-models` re-reads the transcripts still on disk and stamps past dispatches; a row whose transcript is gone reads `<family> (version unrecorded)`.
+  - `flowd backfill-models` re-reads the transcripts still on disk and stamps past dispatches; a row whose transcript is gone reads `<family> (version unrecorded)`.

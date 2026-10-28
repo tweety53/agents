@@ -79,16 +79,16 @@
 
 **Decision:** bucket-from-range
 
-- [ ] 4. CLI: flow prompt-tuning record and import
-  - [ ] **Step 1: Write the failing tests:**
+- [x] 4. CLI: flow prompt-tuning record and import
+  - [x] **Step 1: Write the failing tests:**
     - `stats/internal/prompttuning/prompttuning_test.go`: `TestAreaFor` — each mapped path of `prompt-area-map` returns its area and slot; an unmapped path returns not-found.
     - `stats/internal/client/promptchanges_test.go`: `TestRecordPromptChange` — posts the row as JSON to `/api/v1/prompt-changes` on an `httptest` server and surfaces a 400 body as an error.
     - `stats/cmd/flow/prompttuning_test.go`: `TestPromptTuningRecord` — `flow prompt-tuning record <case-dir> -sha <sha> -at 2026-10-27T10:00:00Z` with a `case.json` targeting `skills/flow/test-sanity-reviewer-prompt.md` posts kind `tuning`, area `review`, slot `test-sanity`, `case_id` the case id, summary the defect class, `sha` `<sha>:<target>`; a case targeting `rules/x.mdc` of type `implementer` posts area `impl`, slot from `source.slot` empty; a missing `-sha` exits 2. `TestPromptTuningImport` — in a temp git repo with two commits on `skills/flow/primary-reviewer-prompt.md` (one also touching `skills/flow/visual-verify-verifier.md`) and one on an unmapped file, `flow prompt-tuning import -C <repo>` posts three `edit` rows keyed `<sha>:<target>` with the commit time and subject; `-since` drops older commits; prints `imported: 3`.
     Run `cd stats && go test ./internal/prompttuning/ ./internal/client/ ./cmd/flow/ -run 'TestAreaFor|TestRecordPromptChange|TestPromptTuning'` — RED.
-  - [ ] **Step 2: Implement:** `AreaFor(target string) (area, slot string, ok bool)` and the map in `stats/internal/prompttuning/prompttuning.go`, plus `MappedTargets()` for import; `func (c *Client) RecordPromptChange(ctx, row) error` in `stats/internal/client/promptchanges.go`; in `stats/cmd/flow/prompttuning.go`, `record` and `import` subcommands beside `render` (usage text updated), `record` reading `case.json` through `prompttuning.Load` and defaulting `-at` to the sha's commit time from `git show -s --format=%cI <sha>` run in the case dir's repository, `import` per `git-import-backfill`.
-  - [ ] **Step 3: Verify:** Go lint, then `cd stats && go test ./internal/prompttuning/ ./internal/client/ ./cmd/flow/ -run 'TestAreaFor|TestRecordPromptChange|TestPromptTuning'`.
+  - [x] **Step 2: Implement:** `AreaFor(target string) (area, slot string, ok bool)` and the map in `stats/internal/prompttuning/prompttuning.go`, plus `MappedTargets()` for import; `func (c *Client) RecordPromptChange(ctx, row) error` in `stats/internal/client/promptchanges.go`; in `stats/cmd/flow/prompttuning.go`, `record` and `import` subcommands beside `render` (usage text updated), `record` reading `case.json` through `prompttuning.Load` and defaulting `-at` to the sha's commit time from `git show -s --format=%cI <sha>` run in the case dir's repository, `import` per `git-import-backfill`.
+  - [x] **Step 3: Verify:** Go lint, then `cd stats && go test ./internal/prompttuning/ ./internal/client/ ./cmd/flow/ -run 'TestAreaFor|TestRecordPromptChange|TestPromptTuning'`.
 
-**Files:** `stats/internal/prompttuning/prompttuning.go`, `stats/internal/prompttuning/prompttuning_test.go`, `stats/internal/client/promptchanges.go`, `stats/internal/client/promptchanges_test.go`, `stats/cmd/flow/prompttuning.go`, `stats/cmd/flow/prompttuning_test.go`
+**Files:** `stats/internal/prompttuning/prompttuning.go`, `stats/internal/prompttuning/prompttuning_test.go`, `stats/internal/client/promptchanges.go`, `stats/internal/client/promptchanges_test.go`, `stats/cmd/flow/prompttuning.go`, `stats/cmd/flow/prompttuning_test.go`, `stats/cmd/flow/main.go`, `stats/internal/client/client_test.go`, `stats/internal/web/embed_test.go`
 **Tests:** `TestAreaFor`, `TestRecordPromptChange`, `TestPromptTuningRecord`, `TestPromptTuningImport`
 **Regression:** `TestPromptTuningRecord` fails, because `record` is an unknown subcommand and exits 2; `TestPromptTuningImport` fails likewise; `TestAreaFor` and `TestRecordPromptChange` fail to compile.
 **Baseline:** before=354 after=356 <!-- measured: grep -rhE '^func Test' stats/cmd/flow | wc -l @ c4202f60 -->
@@ -99,9 +99,9 @@
 **Decision:** prompt-area-map
 **Decision:** git-import-backfill
 
-- [ ] 5. Skill: /flow-prompt-tuning records each applied case
-  - [ ] **Step 1:** in `skills/flow-prompt-tuning/SKILL.md` step **6. Ledger and cleanup**, before the case folder's `git rm`: for every applied case, `flow prompt-tuning record <case-dir> -sha <the applying commit's sha>`; a non-zero exit is reported with its stderr and the step continues (the store is never a gate). State that the record feeds the Review dynamics view's markers. Keep every existing sentence.
-  - [ ] **Step 2: Verify:** `scripts/check-references.sh` and every other `scripts/check-*.sh` guard `.flow/project.md` `## lint` names for skill files.
+- [x] 5. Skill: /flow-prompt-tuning records each applied case
+  - [x] **Step 1:** in `skills/flow-prompt-tuning/SKILL.md` step **6. Ledger and cleanup**, before the case folder's `git rm`: for every applied case, `flow prompt-tuning record <case-dir> -sha <the applying commit's sha>`; a non-zero exit is reported with its stderr and the step continues (the store is never a gate). State that the record feeds the Review dynamics view's markers. Keep every existing sentence.
+  - [x] **Step 2: Verify:** `scripts/check-references.sh` and every other `scripts/check-*.sh` guard `.flow/project.md` `## lint` names for skill files.
 
 **Files:** `skills/flow-prompt-tuning/SKILL.md`
 **Tests:** **none** — a skill text change; the guards cover it.
@@ -156,12 +156,12 @@
 
 Correction (2026-10-28): after Task 3 landed the operator asked that model versions never be merged silently (decision `model-version-split`). Tasks 8–10 are appended and run before Task 6; Task 6 gains the Family / Version toggle and its test, and runs after Task 9.
 
-- [ ] 8. Harvest: stamp each dispatch's exact model version
-  - [ ] **Step 1: Write the failing test** in `stats/internal/harvest/attribute_test.go`: `TestAttributeStampsModelVersion` — a sidechain transcript whose assistant lines carry `message.model` `claude-opus-5-5`, attributed to one dispatch, yields a delta whose metrics JSON carries `"modelVersion":"claude-opus-5-5"`; a line with an empty model leaves no key. Run `cd stats && go test ./internal/harvest/ -run TestAttributeStampsModelVersion` — RED.
-  - [ ] **Step 2: Implement:** carry `message.model` on the parsed usage line and set `ModelVersion` (JSON `modelVersion`, omitempty) on `DispatchDelta` from the newest attributed line's model wherever `attribute.go` builds a dispatch delta; `CommitHarvestBatch`'s jsonb merge stores it unchanged.
-  - [ ] **Step 3: Verify:** Go lint, then `cd stats && go test ./internal/harvest/ ./internal/store/ -run 'TestAttribute|TestCommitHarvest'`.
+- [x] 8. Harvest: stamp each dispatch's exact model version
+  - [x] **Step 1: Write the failing test** in `stats/internal/harvest/attribute_test.go`: `TestAttributeStampsModelVersion` — a sidechain transcript whose assistant lines carry `message.model` `claude-opus-5-5`, attributed to one dispatch, yields a delta whose metrics JSON carries `"modelVersion":"claude-opus-5-5"`; a line with an empty model leaves no key. Run `cd stats && go test ./internal/harvest/ -run TestAttributeStampsModelVersion` — RED.
+  - [x] **Step 2: Implement:** carry `message.model` on the parsed usage line and set `ModelVersion` (JSON `modelVersion`, omitempty) on `DispatchDelta` from the newest attributed line's model wherever `attribute.go` builds a dispatch delta; `CommitHarvestBatch`'s jsonb merge stores it unchanged.
+  - [x] **Step 3: Verify:** Go lint, then `cd stats && go test ./internal/harvest/ ./internal/store/ -run 'TestAttribute|TestCommitHarvest'`.
 
-**Files:** `stats/internal/harvest/attribute.go`, `stats/internal/harvest/transcript.go`, `stats/internal/harvest/attribute_test.go`
+**Files:** `stats/internal/harvest/attribute.go`, `stats/internal/harvest/attribute_test.go`, `stats/internal/harvest/watcher.go`
 **Allowed-collateral:** `stats/internal/harvest/*_test.go`
 **Tests:** `TestAttributeStampsModelVersion`
 **Regression:** `TestAttributeStampsModelVersion` fails, because no delta carries a model.
@@ -170,14 +170,16 @@ Correction (2026-10-28): after Task 3 landed the operator asked that model versi
 **After:** Task 3
 **Commit:** `feat(harvest): stamp each dispatch's model version`
 
+Correction (2026-10-28): the plan named `transcript.go` for carrying `message.model`; `Record.Model` already carries it, so the commit leaves `transcript.go` untouched and folds the four dispatch patch constructions in `watcher.go` into one `DispatchDelta.patch`.
+
 **Decision:** model-version-split
 
-- [ ] 9. Store: model_family and the version-keyed series
-  - [ ] **Step 1: Write the failing tests:** in `stats/internal/store/reviewdynamics_test.go`, `TestReviewDynamicsModelVersions` — dispatches recorded as `opus` with `metrics.modelVersion` `claude-opus-5-5`, as `claude-opus-5` with none, and as `opus` with none: `per-dispatch-model` has one `opus` series over all three; `per-dispatch-model-version` has `claude-opus-5-5`, `claude-opus-5` and `opus (version unrecorded)`; `impl-findings-per-task-version` keys `claude-opus-5-5 · low`; `heatVersion` cells carry versions while `heat` carries `opus`; `SELECT model_family(x)` folds `opus`, `claude-opus-5-5`, `Opus` → `opus`, `glm-5.3-flash`, `GLM-5.3-Flash (inline session)` → `glm`. In `stats/internal/store/harvest_test.go`, `TestBackfillModelVersions` — `BackfillModelVersions(ctx, lookup)` stamps `modelVersion` on each dispatch with an `agent_id` and none yet, from `lookup(agentID)`, skips a not-found lookup, never overwrites, and reports the count. In `stats/internal/api/stats_test.go`, `TestStatsReviewDynamics` gains `heatVersion` and `previousHeatVersion`. Run them — RED.
-  - [ ] **Step 2: Implement:** migration `stats/internal/store/migrations/0050_model_family.sql` — `model_family(text) RETURNS text IMMUTABLE STRICT`; in `reviewdynamics.go` the version expression `COALESCE(d.metrics->>'modelVersion', CASE WHEN d.model ~* '^(claude|glm)-' THEN d.model END, model_family(d.model) || ' (version unrecorded)')`, `per-dispatch-model` keyed by `model_family`, new `per-dispatch-model-version` and `impl-findings-per-task-version`, `HeatVersion`/`PreviousHeatVersion`; `BackfillModelVersions` in `stats/internal/store/harvest.go`; the API DTO fields; `POST /api/v1/harvest/backfill-models` in `stats/internal/api/` calling it with flowd's transcript lookup (first `message.model` of `agent-<id>.jsonl` under the harvester's root), answering `{"stamped": N}`.
-  - [ ] **Step 3: Verify:** Go lint, then `cd stats && go test ./internal/store/ ./internal/api/ -run 'TestReviewDynamics|TestBackfillModelVersions|TestStatsReviewDynamics'`.
+- [x] 9. Store: model_family and the version-keyed series
+  - [x] **Step 1: Write the failing tests:** in `stats/internal/store/reviewdynamics_test.go`, `TestReviewDynamicsModelVersions` — dispatches recorded as `opus` with `metrics.modelVersion` `claude-opus-5-5`, as `claude-opus-5` with none, and as `opus` with none: `per-dispatch-model` has one `opus` series over all three; `per-dispatch-model-version` has `claude-opus-5-5`, `claude-opus-5` and `opus (version unrecorded)`; `impl-findings-per-task-version` keys `claude-opus-5-5 · low`; `heatVersion` cells carry versions while `heat` carries `opus`; `SELECT model_family(x)` folds `opus`, `claude-opus-5-5`, `Opus` → `opus`, `glm-5.3-flash`, `GLM-5.3-Flash (inline session)` → `glm`. In `stats/internal/store/harvest_test.go`, `TestBackfillModelVersions` — `BackfillModelVersions(ctx, lookup)` stamps `modelVersion` on each dispatch with an `agent_id` and none yet, from `lookup(agentID)`, skips a not-found lookup, never overwrites, and reports the count. In `stats/internal/api/stats_test.go`, `TestStatsReviewDynamics` gains `heatVersion` and `previousHeatVersion`. Run them — RED.
+  - [x] **Step 2: Implement:** migration `stats/internal/store/migrations/0050_model_family.sql` — `model_family(text) RETURNS text IMMUTABLE STRICT`; in `reviewdynamics.go` the version expression `COALESCE(d.metrics->>'modelVersion', CASE WHEN d.model ~* '^(claude|glm)-' THEN d.model END, model_family(d.model) || ' (version unrecorded)')`, `per-dispatch-model` keyed by `model_family`, new `per-dispatch-model-version` and `impl-findings-per-task-version`, `HeatVersion`/`PreviousHeatVersion`; `BackfillModelVersions` in `stats/internal/store/harvest.go`; the API DTO fields; `POST /api/v1/harvest/backfill-models` in `stats/internal/api/` calling it with flowd's transcript lookup (first `message.model` of `agent-<id>.jsonl` under the harvester's root), answering `{"stamped": N}`.
+  - [x] **Step 3: Verify:** Go lint, then `cd stats && go test ./internal/store/ ./internal/api/ -run 'TestReviewDynamics|TestBackfillModelVersions|TestStatsReviewDynamics'`.
 
-**Files:** `stats/internal/store/migrations/0050_model_family.sql`, `stats/internal/store/reviewdynamics.go`, `stats/internal/store/reviewdynamics_test.go`, `stats/internal/store/harvest.go`, `stats/internal/store/harvest_test.go`, `stats/internal/api/promptchanges.go`, `stats/internal/api/stats.go`, `stats/internal/api/stats_test.go`, `stats/internal/api/server.go`
+**Files:** `stats/internal/store/migrations/0050_model_family.sql`, `stats/internal/store/reviewdynamics.go`, `stats/internal/store/reviewdynamics_test.go`, `stats/internal/store/harvest.go`, `stats/internal/store/harvest_test.go`, `stats/internal/api/promptchanges.go`, `stats/internal/api/stats_test.go`
 **Allowed-collateral:** `stats/internal/api/*.go`, `stats/internal/harvest/*.go`, `stats/cmd/flowd/*.go`
 **Tests:** `TestReviewDynamicsModelVersions`, `TestBackfillModelVersions`
 **Regression:** `TestReviewDynamicsModelVersions` fails, because no series is keyed by version.
@@ -186,21 +188,23 @@ Correction (2026-10-28): after Task 3 landed the operator asked that model versi
 **After:** Task 8
 **Commit:** `feat(store): review dynamics by model family and model version`
 
+Correction (2026-10-28): the plan routed the backfill through `POST /api/v1/harvest/backfill-models` and a client call; `flowd` already repairs dispatch rows by direct-database subcommands (`flowd restamp-dispatch`), so the backfill is `flowd backfill-models` (Task 10) calling `Store.BackfillModelVersions`, and no endpoint, route or client method is added. `stats.go` and `server.go` are untouched.
+
 **Decision:** model-version-split
 
-- [ ] 10. CLI: flow harvest backfill-models
-  - [ ] **Step 1: Write the failing test** in `stats/cmd/flow/harvest_test.go`: `TestHarvestBackfillModels` — against an `httptest` server, `flow harvest backfill-models` POSTs `/api/v1/harvest/backfill-models` and prints `stamped: 7`; a 500 exits 1 with the body. Run — RED.
-  - [ ] **Step 2: Implement** the subcommand in `stats/cmd/flow/` and `func (c *Client) BackfillModelVersions(ctx) (int, error)` in `stats/internal/client/`; usage text updated.
-  - [ ] **Step 3: Verify:** Go lint, then `cd stats && go test ./cmd/flow/ ./internal/client/ -run 'TestHarvestBackfillModels'`.
+- [ ] 10. flowd backfill-models
+  - [ ] **Step 1: Write the failing test** in `stats/internal/harvest/attribute_test.go`: `TestAgentModelVersions` — a temp transcripts root holding `<project>/<session>/subagents/agent-abc.jsonl` whose assistant lines name `claude-opus-5-5`, and one agent file naming no model: `harvest.AgentModelVersions(root)` maps `abc` to `claude-opus-5-5` and leaves the other out. Run — RED.
+  - [ ] **Step 2: Implement** `AgentModelVersions(root string) (map[string]string, error)` in `stats/internal/harvest/watcher.go` (walk the root for agent transcripts, `AgentFileDispatchPatch`'s `modelVersion` per file), and `flowd backfill-models` in `stats/cmd/flowd/main.go` beside `restamp-dispatch`: open the store from `config.FromEnv`, call `Store.BackfillModelVersions` with that map, print `stamped: <n>`.
+  - [ ] **Step 3: Verify:** Go lint, then `cd stats && go test ./internal/harvest/ -run TestAgentModelVersions`.
 
-**Files:** `stats/cmd/flow/harvest.go`, `stats/cmd/flow/harvest_test.go`, `stats/internal/client/harvest.go`
-**Allowed-collateral:** `stats/cmd/flow/*.go`, `stats/internal/client/*.go`
-**Tests:** `TestHarvestBackfillModels`
-**Regression:** `TestHarvestBackfillModels` fails, because `harvest` is an unknown subcommand.
-**Baseline:** before=356 after=357 <!-- predicted: grep -rhE '^func Test' stats/cmd/flow | wc -l after Task 4 -->
+**Files:** `stats/internal/harvest/watcher.go`, `stats/internal/harvest/attribute_test.go`, `stats/cmd/flowd/main.go`
+**Allowed-collateral:** `stats/cmd/flowd/*.go`
+**Tests:** `TestAgentModelVersions`
+**Regression:** `TestAgentModelVersions` fails to compile, because no function maps agents to model versions.
+**Baseline:** before=1 after=2 <!-- predicted: count of TestAttributeStampsModelVersion and TestAgentModelVersions in stats/internal/harvest -->
 **Build:** green
 **After:** Task 9
-**Commit:** `feat(stats): flow harvest backfill-models`
+**Commit:** `feat(flowd): backfill dispatch model versions`
 
 **Decision:** model-version-split
 
