@@ -7,11 +7,11 @@ The pass covers what the bundle holds plus the commits and files it names, and n
 ## Problems encountered, and what pipeline change would avoid them — `flow-fix`
 
 - **[flow-fix]** A missed fix-mutation row could never be recorded once its round's re-review began, deadlocking the panel close — fixed in-run as pipeline-fix 40 — fixed: 69938fe7
-- **[flow-fix]** The whole-suite visual `verify` before handoff was unenforced, so a base spec asserting the old 8-week default surfaced only at a visual-verify dispatch. `run-verify-list.sh`'s `test` list now ends with the visual `verify` on a UI change, run from the change's own worktree of a regression checkout — fixed: c7f727c7
-- **[flow-fix]** The plan had no capture task for the new bar states a prototype drew, which cost visual rounds 1 and 2. `check-plan-shape.sh` F22 now refuses a prototype-specified UI plan with no capture task — fixed: 94576977
-- **[flow-fix]** The prototype file was a caption over a JPEG of the live page, so the frame comparison never paired. The prototype rule now says the file draws the page alone — fixed: 32f7e76d
-- **[flow-fix]** Panel reproducers were broken as written (an EXIT trap restoring a relative path after `cd`, nested quotes in `sed`). The mutation-testing brief now forbids `cd` and nested quoting — fixed: a92007b1
-- **[flow-fix]** Round 6's mutation reproducer left a live mutant in the canonical worktree: `runReproducer` restored only paths already dirty before the run, so a reproducer whose own restore failed left a clean file mutated. Every tracked path a run changed is now restored from HEAD — fixed: b9d0c28e
+- **[flow-fix]** The whole-suite visual `verify` before handoff was unenforced, so a base spec asserting the old 8-week default surfaced only at a visual-verify dispatch. `run-verify-list.sh`'s `test` list now ends with the visual `verify` on a UI change, run from the change's own worktree of a regression checkout — fixed: a4f3e724
+- **[flow-fix]** The plan had no capture task for the new bar states a prototype drew, which cost visual rounds 1 and 2. `check-plan-shape.sh` F22 now refuses a prototype-specified UI plan with no capture task — fixed: 316e3594
+- **[flow-fix]** The prototype file was a caption over a JPEG of the live page, so the frame comparison never paired. The prototype rule now says the file draws the page alone — fixed: 36913447
+- **[flow-fix]** Panel reproducers were broken as written (an EXIT trap restoring a relative path after `cd`, nested quotes in `sed`). The mutation-testing brief now forbids `cd` and nested quoting — fixed: 38b88362
+- **[flow-fix]** Round 6's mutation reproducer left a live mutant in the canonical worktree: `runReproducer` restored only paths already dirty before the run, so a reproducer whose own restore failed left a clean file mutated. Every tracked path a run changed is now restored from HEAD — fixed: 70a6ab39
 - **[flow-fix]** A re-review slot cited absolute paths and was sent back once with `-cite` — the guard worked — noted
 - **[flow-fix]** `live-store-copy.sh` refused while an earlier copy's directory existed; its refusal names the cure (`down` first) — noted
 
