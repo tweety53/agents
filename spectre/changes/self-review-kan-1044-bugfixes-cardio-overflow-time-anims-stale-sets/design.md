@@ -175,9 +175,10 @@ end.
    c.id = d.change_id where c.name = 'kan-1044-bugfixes-cardio-overflow-time-anims-stale-sets' and
    dispatch_key like 'panel-fix-%'` — before `panel-fix-1`, `-2`; after also `-4`, `-7`, `-11` on the
    three commits.
-4. **Gate.** `scripts/check-unfinished-work.sh` on the kan-1044 frontend worktree flags `3b9a3985`,
-   `ae761ec7` and `25394c9a`, whose trailers name `panel-fix-3`, `-6` and `-10`, keys no row carries.
-   Not working looks like no panel-fix line.
+4. **Gate.** kan-1044 is archived, so signal eleven skips it; the check is instead that the store's
+   `panel-fix-4`, `-7` and `-11` rows carry commits `3b9a3985`, `ae761ec7` and `25394c9a`, which
+   the commit-sha match clears although their trailers name `panel-fix-3`, `-6` and `-10`. Not
+   working looks like a row missing one of those shas.
 5. **Scrim.** `scripts/measure-visual-properties.sh --props bands` on a kan-938 scrim capture from
    `/Users/tweety53/Projects/gymie` reports more than one band. Not working looks like one 1632px band.
 
