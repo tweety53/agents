@@ -73,7 +73,11 @@ kill_tree() {
   for _ in 1 2 3 4; do [ -n "$(tree)" ] || return 0; sleep 0.5; done
   pids=$(tree | awk '{ print $1 }')
   kill -KILL -- "-$pg" $pids 2>/dev/null
-  while [ -n "$(tree)" ]; do sleep 0.1; done
+  # Re-signal each pass: a child forked after the snapshot above is killed too.
+  while pids=$(tree | awk '{ print $1 }') && [ -n "$pids" ]; do
+    kill -KILL $pids 2>/dev/null
+    sleep 0.1
+  done
 }
 trap 'kill_tree; exit 130' INT
 trap 'kill_tree; exit 143' TERM
