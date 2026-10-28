@@ -3,6 +3,7 @@
 > **Execution:** `/flow` implements this plan. Mark a task's own checkbox when
 > `check-task-commit-fields.sh` passes on that task's commit.
 > **Relocation:** no
+> **Tasks appended:** 1
 > **Baseline convention:** every `**Baseline:** before=N after=M` is chain-position absolutes —
 > `before` is the count at this task's commit's parent and `after` at the commit, split by source
 > set, counted by a word-boundary-safe counter, with any `measured:` command naming no ref of its own.
@@ -94,3 +95,15 @@ Correction (2026-10-28): the plan declared `stats/web/tests/visual/full-app-suit
 **Regression:** the vitest fails — an integer axis peaking at 1 labels two ticks `1`.
 **Commit:** fix(stats): drop a repeated axis label on small integer review dynamics charts
 **After:** Task 5
+
+- [ ] 7. Fix run 1 — y-axis tick labels name values other than the ones they sit at
+  - [ ] **Step 1: Test.** vitest `dynamics chart labels each tick with the value it sits at` renders `DynamicsChart` with an integer format over values peaking at 0, 1, 3 and 5 and asserts the y labels read `0, 1, 2`, `0, 1, 2`, `0, 2, 4` and `0, 5, 10` bottom to top; it replaces Task 6's vitest `dynamics chart drops a tick whose label repeats the one above` (no design decision covers the blank tick; that test locked in the mislabel).
+  - [ ] **Step 2: Chart.** `DynamicsChart` draws three ticks `0, s, 2s`, `s` the smallest 1·2·5×10^k step with `2s >= peak`, at least 1 when every value is an integer; the y scale tops at `2s × 1.12`; the repeated-label blanking is removed.
+  - [ ] **Step 3: Capture.** `capture` for `review-dynamics.spec.ts` and the full app suite with `--update-snapshots=all`, every changed PNG read, zip rebuilt when it moves, `visual-verification.md` updated; `npm run test:visual` and the vitest exit 0. Commit.
+
+**Build:** green
+**Files:** `stats/web/src/components/DynamicsChart.tsx`, `stats/web/src/views/views.test.tsx`, `stats/web/tests/visual/review-dynamics.spec.ts-snapshots/review-dynamics-darwin.png`, `stats/web/tests/visual/review-dynamics.spec.ts-snapshots/review-dynamics-default-preset-darwin.png`, `stats/web/tests/visual/review-dynamics.spec.ts-snapshots/review-dynamics-filters-darwin.png`, `stats/web/tests/visual/review-dynamics.spec.ts-snapshots/review-dynamics-heat-hover-darwin.png`, `stats/web/tests/visual/review-dynamics.spec.ts-snapshots/review-dynamics-hover-darwin.png`, `stats/web/tests/visual/review-dynamics.spec.ts-snapshots/review-dynamics-light-darwin.png`, `stats/web/tests/visual/review-dynamics.spec.ts-snapshots/review-dynamics-picked-darwin.png`, `stats/web/tests/visual/review-dynamics.spec.ts-snapshots/review-dynamics-version-darwin.png`, `stats/web/tests/visual/full-app-suite.spec.ts-snapshots/full-review-dynamics-darwin.png`, `stats/web/tests/visual/full-app-suite.zip`, `spectre/changes/archive/kan-1047-review-dynamics-heatmap-by-project/visual-verification.md`
+**Tests:** `dynamics chart labels each tick with the value it sits at`
+**Regression:** the vitest fails — a tick labelled `2` sits at 1.5, or a peak of 0 leaves its axis line unlabelled.
+**Commit:** fix(stats): label review dynamics y ticks with the values they sit at
+**After:** Task 6
