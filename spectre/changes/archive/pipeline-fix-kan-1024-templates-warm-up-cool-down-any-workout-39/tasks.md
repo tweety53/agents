@@ -32,12 +32,12 @@ rebuild can run.
   (`shim-exports-script-dir`).
 - The rebuild's `<worktree>` stays `absCanonical` (`rebuild-worktree-stays-canonical`).
 
-- [ ] 1. Export FLOW_GUARD_SCRIPT_DIR from close-task.sh
-  - [ ] **Step 1: Reproduce.** Save the diff below to `/tmp/pf39.diff`, apply its test hunk alone
+- [x] 1. Export FLOW_GUARD_SCRIPT_DIR from close-task.sh
+  - [x] **Step 1: Reproduce.** Save the diff below to `/tmp/pf39.diff`, apply its test hunk alone
     (`git apply --include='stats/*' /tmp/pf39.diff`), run
     `cd stats && make -s web-dist && go test -count=1 ./internal/guard/ -run TestCloseTaskShimExportsTheRebuildsScriptDir`:
     it fails with exit 2 and `FLOW_GUARD_SCRIPT_DIR is unset`.
-  - [ ] **Step 2: Implement.** Apply the rest
+  - [x] **Step 2: Implement.** Apply the rest
     (`git apply --exclude='stats/*' /tmp/pf39.diff`):
 
 ````diff verified:applied with git apply to this worktree at a9f37e89; go test -count=1 ./internal/guard/ -run TestCloseTask passes with it and TestCloseTaskShimExportsTheRebuildsScriptDir fails (exit 2, FLOW_GUARD_SCRIPT_DIR is unset) with scripts/close-task.sh untouched; go vet and gofmt -l clean; scripts/check-references.sh exits 0
@@ -98,9 +98,9 @@ index b0547264..e94b1c11 100644
 +}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && make -s web-dist && go test -count=1 ./internal/guard/ -run TestCloseTask`
+  - [x] **Step 3: Verify.** `cd stats && make -s web-dist && go test -count=1 ./internal/guard/ -run TestCloseTask`
     passes; `go vet ./...` and `gofmt -l .` are clean; `scripts/check-references.sh` exits 0.
-  - [ ] **Step 4: Commit** the two files with the subject below.
+  - [x] **Step 4: Commit** the two files with the subject below.
 
 **Build:** green
 **Files:** `scripts/close-task.sh`, `stats/internal/guard/close_task_test.go`
