@@ -648,3 +648,37 @@ func TestCloseTaskSuiteZipAgainstTheTaskCommit(t *testing.T) {
 		t.Fatalf("deleted zip: exit %d, want 0\n%s", r.rc, r.out)
 	}
 }
+
+// scripts/close-task.sh is close-task's only caller, and it runs the zip
+// rebuild in-process: the shim exports FLOW_GUARD_SCRIPT_DIR, which the
+// rebuild needs to find resolve-visual-screenshots.sh (kan-1024 Task 14:
+// unset, close-task stopped on exit 2 for every committed zip).
+func TestCloseTaskShimExportsTheRebuildsScriptDir(t *testing.T) {
+	t.Parallel()
+	if _, err := exec.LookPath("zip"); err != nil {
+		t.Skip("zip is not on PATH")
+	}
+	repo, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fx := ctFixture(t, true, "0", "0")
+	writeFile(t, fx.wt+"/.flow/project.md", "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `screenshots` | `shots` |\n")
+	writeFile(t, fx.wt+"/shots/full-app-suite.spec.ts-snapshots/a.png", "a")
+	gitRun(t, fx.wt, "add", "-f", ".flow", "shots")
+	gitRun(t, fx.wt, "commit", "-q", "-m", "shots")
+	fx.base = tcfGit(t, fx.wt, "rev-parse", "HEAD")
+	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", strings.Replace(ctPlan, "**Files:** `a.txt`", "**Files:** `a.txt`, `shots/full-app-suite.zip`", 1))
+	writeFile(t, fx.wt+"/a.txt", "a\n")
+	writeFile(t, fx.wt+"/shots/full-app-suite.zip", "hand-built")
+	gitRun(t, fx.wt, "add", "-f", "a.txt", "shots/full-app-suite.zip")
+	gitRun(t, fx.wt, "commit", "-q", "-m", "one", "-m", "Task-Id: 1")
+	s1 := tcfGit(t, fx.wt, "rev-parse", "HEAD")
+	cmd := exec.Command(filepath.Join(repo, "scripts", "close-task.sh"), fx.wt, "demo", fx.base, "1:"+s1)
+	cmd.Dir = fx.wt
+	cmd.Env = []string{"PATH=" + fx.env.Getenv("PATH"), "HOME=" + os.Getenv("HOME"), "FLOW_GUARD_TELEMETRY=off", "FLOW_GUARD_CACHE_DIR=" + guardCache(t)}
+	out, err := cmd.CombinedOutput()
+	if code := exitCode(err); code != 1 || !strings.Contains(string(out), "is not rebuild-full-app-suite-zip.sh's output") {
+		t.Fatalf("close-task.sh on a hand-built zip: exit %d, want 1 (the rebuild ran and differed)\n%s", code, out)
+	}
+}

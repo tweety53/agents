@@ -81,4 +81,8 @@ SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
   echo "close-task: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }
+# The zip rebuild runs in-process and finds resolve-visual-screenshots.sh here.
+: "$SCRIPT_DIR/resolve-visual-screenshots.sh"
+FLOW_GUARD_SCRIPT_DIR="$SCRIPT_DIR"
+export FLOW_GUARD_SCRIPT_DIR
 flow_guard_exec close-task 2 "close-task:" "$@"
