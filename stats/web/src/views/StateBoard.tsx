@@ -12,7 +12,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import type { StateBoardRow } from "../api";
 import { useStatsView } from "../hooks/useStatsView";
-import { formatInt, formatRelative, formatSpan, formatUsd } from "../format";
+import { DAY_MS, formatInt, formatRelative, formatSpan, formatUsd } from "../format";
 import { projectLabel } from "../lib/projectLabel";
 
 const REFRESH_MS = 5000;
@@ -203,7 +203,9 @@ export function StateBoard() {
     return () => clearInterval(id);
   }, []);
 
-  const fetched = useStatsView<StateBoardRow[]>("state-board", { from: EPOCH, to: new Date(now), project: undefined });
+  // The period is half-open, so it ends a day past now: a change updated at
+  // this very instant is still in it. `now` moving is what refetches.
+  const fetched = useStatsView<StateBoardRow[]>("state-board", { from: EPOCH, to: new Date(now + DAY_MS), project: undefined });
   // A refresh keeps showing the last answer while the next one loads.
   const last = useRef<StateBoardRow[] | null>(null);
   if (fetched.status === "ready") last.current = fetched.data.rows.filter((r) => !isPipelineFix(r));

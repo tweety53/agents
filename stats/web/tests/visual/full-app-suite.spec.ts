@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { PINNED_QUERY } from "./support";
+import { FIXTURE_NOW, PINNED_QUERY } from "./support";
 
 // The full app suite (skills/flow-contracts/project-configuration-visual.md):
 // one full-page capture per screen the app has, enumerated from App.tsx's
@@ -23,6 +23,8 @@ const VIEWS: { view: string; label: string; query: string }[] = [
 test.describe("full app suite", () => {
   for (const { view, label, query } of VIEWS) {
     test(`${view} screen`, async ({ page }) => {
+      // The live state board reads the browser clock (kan-1048).
+      await page.clock.setFixedTime(FIXTURE_NOW);
       await page.goto(`/#/${view}?${query}`);
       await expect(page.getByRole("link", { name: label, exact: true })).toHaveAttribute("aria-current", "page");
       // Every panel's "Loading…" status gone first: the nav link turns
@@ -45,6 +47,7 @@ test.describe("full app suite", () => {
   });
 
   test("run detail screen", async ({ page }) => {
+    await page.clock.setFixedTime(FIXTURE_NOW);
     await page.goto(`/#/run/uitest-beta/kan-201-refactor-thing?${PINNED_QUERY}`);
     await expect(page.getByRole("heading", { name: "kan-201-refactor-thing" })).toBeVisible();
     await expect(page.getByText("Loading…")).toHaveCount(0);

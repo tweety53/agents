@@ -347,6 +347,8 @@ describe("views render their fixture response's actual values", () => {
     const clear = () => user.click(screen.getByRole("button", { name: "Clear filters" }));
     // The board fetches the whole history once and filters here.
     expect(fetchStatsViewMock.mock.calls[0][1].from.getTime()).toBe(0);
+    // ...through past now: a change updated this instant is inside the half-open period.
+    expect(fetchStatsViewMock.mock.calls[0][1].to.getTime()).toBeGreaterThan(BOARD_NOW.getTime());
     // Updated defaults to 7d: the fortnight-old change is hidden, and the
     // tiles count only what the other filters leave.
     expect(visible("kan-5-old")).toBe(false);

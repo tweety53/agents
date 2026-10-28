@@ -11,6 +11,7 @@
 // complete answer for the period requested, whatever the change's stage
 // runs list is paged to.
 import { useEffect, useState } from "react";
+import { DAY_MS } from "../format";
 import {
   fetchStatsView,
   listStageRuns,
@@ -137,7 +138,9 @@ export function useRunDetail(project: string, change: string): RunDetailState {
         // this response carries are taken as-is, below.
         change,
       }),
-      fetchStatsView<StateBoardRow[]>("state-board", { from: WIDE_FROM, to: new Date(), project }),
+      // The period is half-open: ending a day past now keeps a change
+      // updated at this very instant in it.
+      fetchStatsView<StateBoardRow[]>("state-board", { from: WIDE_FROM, to: new Date(Date.now() + DAY_MS), project }),
     ])
       .then(([stageRunsResp, aggregateResp, boardResp]) => {
         if (cancelled) return;

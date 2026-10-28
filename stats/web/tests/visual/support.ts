@@ -54,3 +54,8 @@ export const DARK_SURFACE_1 = "rgb(17, 18, 23)";
 export async function bodyBackground(page: import("@playwright/test").Page): Promise<string> {
   return page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 }
+
+// cmd/uitest-seed's fixtureNow. The live state board filters by Updated
+// relative to the browser clock and the run view measures open runs to it,
+// so specs over either pin the clock here (kan-1048).
+export const FIXTURE_NOW = new Date("2026-08-15T09:00:00Z");

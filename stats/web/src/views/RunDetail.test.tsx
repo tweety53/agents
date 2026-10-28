@@ -729,6 +729,9 @@ describe("the reworked run view (kan-1048)", () => {
     expect(await screen.findByRole("link", { name: "← Live state board" })).toHaveAttribute("href", "#/state-board");
     await screen.findByText("Proceed?");
     expect(screen.getByText(/^Project kan-16-stats-app · KAN-16 · updated 1m ago$/)).toBeInTheDocument();
+    // The board row is read through past now, so a change updated this instant is found.
+    const board = fetchStatsViewMock.mock.calls.find(([view]) => view === "state-board")!;
+    expect(board[1].to.getTime()).toBeGreaterThan(NOW.getTime());
     expect(screen.getByRole("heading", { name: CHANGE }).parentElement).toHaveTextContent("IN_PROGRESS");
     const kpi = (name: string) => screen.getByRole("group", { name });
     expect(kpi("Now running")).toHaveTextContent("flow.sdd-tdd");

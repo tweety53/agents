@@ -51,6 +51,18 @@ type stageFixture struct {
 	// Dispatches are the run's priced dispatch buckets, keyed by agent id
 	// -- what the Weekly costs model·effort chart reads (KAN-1041).
 	Dispatches map[string]pricedDispatch
+
+	// SessionID is the harness session that ran the stage -- what the run
+	// view groups stage runs by; Effort is the bag's top-level effort.
+	SessionID string
+	Effort    string
+
+	// Open leaves the run open, with no metrics -- the live state board's
+	// Running now card -- and Activity/ActivityDetail are its session's
+	// activity (store.SetSessionActivity) when set.
+	Open           bool
+	Activity       string
+	ActivityDetail string
 }
 
 // pricedDispatch is one dispatch bucket as the harvester and Store.Price
@@ -80,6 +92,11 @@ type changeFixture struct {
 	Decision     string
 	DecisionAt   time.Time
 	Dispatches   []dispatchFixture
+
+	// TaskCounts are the plan's task-count observations, first to last;
+	// DoneTasks are the task ids an implementer dispatch committed.
+	TaskCounts []int
+	DoneTasks  []string
 }
 
 // dispatchFixture is one review-panel slot's dispatch and the findings it
@@ -143,6 +160,9 @@ func fixtureData() []projectFixture {
 								"agent-w2-b": {Model: "claude-opus-5", Effort: "medium", CostUSD: 0.2},
 							}},
 						{Command: "/flow", Stage: "flow.self-review", Model: "claude-opus-5", InputTokens: 40000, OutputTokens: 6000, CostUSD: 0.35, StartedAt: weeklyFixtureAt.Add(2 * time.Hour), Outcome: "completed"},
+						// The Running now strip's working card (kan-1048).
+						{Command: "/flow", Stage: "flow.brainstorm", StartedAt: fixtureNow.Add(-12 * time.Minute), Open: true,
+							SessionID: "uitest-session-101", Activity: "working", ActivityDetail: "2 subagents running"},
 					},
 				},
 				{
@@ -193,7 +213,12 @@ func fixtureData() []projectFixture {
 							Outcome:      "completed",
 							SessionToken: "uitest-kan-102",
 						},
+						// The Running now strip's card awaiting an answer (kan-1048).
+						{Command: "/flow", Stage: "flow.sdd-tdd", StartedAt: fixtureNow.Add(-20 * time.Minute), Open: true,
+							SessionID: "uitest-session-102", Activity: "question", ActivityDetail: "Proceed with the panel-fix round on 2 findings?"},
 					},
+					TaskCounts:   []int{4, 5},
+					DoneTasks:    []string{"1", "2", "3"},
 					SessionToken: "uitest-kan-102",
 					DecisionAt:   fixtureNow.Add(-2*time.Hour - 5*time.Minute),
 					Decision: `{
@@ -247,6 +272,8 @@ func fixtureData() []projectFixture {
 							StartedAt:    fixtureNow.Add(-26 * time.Hour),
 							Outcome:      "completed",
 							SessionToken: "uitest-kan-201",
+							SessionID:    "uitest-session-201a",
+							Effort:       "high",
 						},
 						{
 							Command:      "/flow-fast",
@@ -257,6 +284,8 @@ func fixtureData() []projectFixture {
 							CostUSD:      0.028,
 							StartedAt:    fixtureNow.Add(-time.Hour),
 							Outcome:      "completed",
+							SessionID:    "uitest-session-201b",
+							Effort:       "low",
 						},
 					},
 					SessionToken: "uitest-kan-201",
@@ -326,10 +355,15 @@ func seedFixture(ctx context.Context, st *store.Store) error {
 				if stage.SessionToken != "" {
 					sessionToken = strPtr(stage.SessionToken)
 				}
+				var sessionID *string
+				if stage.SessionID != "" {
+					sessionID = strPtr(stage.SessionID)
+				}
 				run, err := st.BeginStage(ctx, store.BeginStageInput{
 					ProjectKey:   project.Key,
 					ChangeName:   change.Name,
 					Harness:      "claude-code",
+					SessionID:    sessionID,
 					Command:      stage.Command,
 					Stage:        stage.Stage,
 					StartedAt:    stage.StartedAt,
@@ -337,6 +371,14 @@ func seedFixture(ctx context.Context, st *store.Store) error {
 				})
 				if err != nil {
 					return fmt.Errorf("uitest-seed: begin stage %s/%s %s: %w", project.Key, change.Name, stage.Stage, err)
+				}
+				if stage.Activity != "" {
+					if err := st.SetSessionActivity(ctx, stage.SessionID, stage.Activity, stage.ActivityDetail); err != nil {
+						return fmt.Errorf("uitest-seed: set activity for %s/%s: %w", project.Key, change.Name, err)
+					}
+				}
+				if stage.Open {
+					continue
 				}
 
 				metrics := map[string]any{
@@ -363,6 +405,9 @@ func seedFixture(ctx context.Context, st *store.Store) error {
 					}
 					metrics["dispatches"] = dispatches
 				}
+				if stage.Effort != "" {
+					metrics["effort"] = stage.Effort
+				}
 				if stage.ToolErrors > 0 {
 					metrics["signals"] = map[string]any{"main": map[string]any{"tool_errors": stage.ToolErrors}}
 				}
@@ -381,6 +426,9 @@ func seedFixture(ctx context.Context, st *store.Store) error {
 			}
 
 			if err := seedRunRecords(ctx, st, project.Key, change); err != nil {
+				return err
+			}
+			if err := seedTaskProgress(ctx, st, project.Key, change); err != nil {
 				return err
 			}
 		}
@@ -443,6 +491,34 @@ func seedRunRecords(ctx context.Context, st *store.Store, projectKey string, cha
 			}); err != nil {
 				return fmt.Errorf("uitest-seed: upsert finding %s for %s/%s: %w", f.Ref, projectKey, change.Name, err)
 			}
+		}
+	}
+	return nil
+}
+
+// seedTaskProgress writes a change's task-count observations and one
+// committed implementer dispatch per done task -- the board's task
+// progress (kan-1048).
+func seedTaskProgress(ctx context.Context, st *store.Store, projectKey string, change changeFixture) error {
+	for _, n := range change.TaskCounts {
+		if _, err := st.RecordTaskCount(ctx, projectKey, change.Name, records.TaskCount{TotalTasks: n}); err != nil {
+			return fmt.Errorf("uitest-seed: record task count for %s/%s: %w", projectKey, change.Name, err)
+		}
+	}
+	for i, task := range change.DoneTasks {
+		start := fixtureNow.Add(-time.Duration(60-10*i) * time.Minute)
+		if _, err := st.RecordDispatch(ctx, projectKey, change.Name, records.Dispatch{
+			Key:          "task-" + task + "-implementer",
+			TaskID:       task,
+			Role:         "implementer",
+			Model:        "opus",
+			CommitSHA:    fmt.Sprintf("%040d", i+1),
+			Outcome:      "completed",
+			SessionToken: change.SessionToken,
+			StartedAt:    start,
+			EndedAt:      timePtr(start.Add(8 * time.Minute)),
+		}); err != nil {
+			return fmt.Errorf("uitest-seed: record implementer dispatch for %s/%s: %w", projectKey, change.Name, err)
 		}
 	}
 	return nil

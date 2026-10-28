@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { FIXTURE_NOW } from "./support";
 
 // The visual baseline KAN-171 exists to make automatic: KAN-16 shipped
 // three defects that were invisible in a diff and obvious the moment the
@@ -45,6 +46,12 @@ async function bodyBackground(page: import("@playwright/test").Page): Promise<st
   return page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 }
 
+// The board and the run view read the browser clock (Updated chips,
+// relative times, open runs), so it is pinned to the fixture's own instant.
+test.beforeEach(async ({ page }) => {
+  await page.clock.setFixedTime(FIXTURE_NOW);
+});
+
 test.describe("dashboard", () => {
   test("renders the live state board with data loaded and the dark palette applied", async ({ page }) => {
     await page.goto(DASHBOARD_URL);
@@ -52,24 +59,23 @@ test.describe("dashboard", () => {
 
     // Guards the 400 defect: the table must actually hold the fixture's
     // rows, not fail silently and render an empty table.
-    await expect(page.getByRole("cell", { name: "kan-101-add-widget" })).toBeVisible();
-    await expect(page.getByRole("cell", { name: "kan-102-fix-widget-bug" })).toBeVisible();
-    await expect(page.getByRole("cell", { name: "kan-201-refactor-thing" })).toBeVisible();
+    const table = page.getByRole("region", { name: "Changes" }).getByRole("table");
+    await expect(table.getByRole("link", { name: "kan-101-add-widget" })).toBeVisible();
+    await expect(table.getByRole("link", { name: "kan-102-fix-widget-bug" })).toBeVisible();
+    // The two running changes draw a card each, the one awaiting an
+    // answer first.
+    await expect(page.getByTestId("running-card")).toHaveCount(2);
+    await expect(page.getByTestId("running-card").first()).toContainText("Awaiting your answer");
 
     // Guards the white-page defect: the body's rendered background must be
     // the dark token, not the browser's default white document a
-    // prefers-color-scheme-gated dark theme would leave behind. This alone
-    // does not cover the whole defect class -- see the "dark palette
-    // forced via data-theme" describe block below for the combination this
-    // assertion, run under playwright.config.ts's colorScheme: "dark", is
-    // structurally unable to catch.
+    // prefers-color-scheme-gated dark theme would leave behind. See the
+    // "dark palette forced via data-theme" describe block below for the
+    // combination this assertion cannot catch.
     expect(await bodyBackground(page)).toBe(DARK_SURFACE_1);
 
-    // Guards the duplicate-label defect: the "Changes" stat panel's own
-    // label is owned by the panel heading; StatPanel must not render it a
-    // second time inside the panel body.
-    const changesPanel = page.locator('section.panel[aria-label="Changes"]');
-    await expect(changesPanel.getByText("Changes", { exact: true })).toHaveCount(1);
+    // Guards the duplicate-label defect: the Changes panel names itself once.
+    await expect(page.getByRole("region", { name: "Changes" }).getByText("Changes", { exact: true })).toHaveCount(1);
 
     await expect(page).toHaveScreenshot("dashboard.png", { fullPage: true });
   });
@@ -81,26 +87,27 @@ test.describe("run detail", () => {
     await expect(page.getByRole("heading", { name: "kan-201-refactor-thing" })).toBeVisible();
 
     // Guards the 400 defect directly: task 26's own regression (sorting by
-    // "startedAt", a DTO field name, instead of "started_at", the server's
-    // allowlisted column) leaves this route on "Loading…" forever with an
-    // error banner never shown either -- the request just never resolves.
-    // Both the "still loading" and "errored" cases are excluded, and the
-    // two stage runs the fixture recorded must actually be visible.
+    // "startedAt" instead of the allowlisted "started_at") leaves this
+    // route on "Loading…" forever. Both the "still loading" and "errored"
+    // cases are excluded, and the fixture's two stage runs must be visible.
     await expect(page.getByRole("status")).toHaveCount(0);
     await expect(page.getByRole("alert")).toHaveCount(0);
-    // Scoped to the stage-run table specifically: "/flow" alone is
-    // ambiguous -- the same fixture value also appears in the timeline's
-    // own SVG label and in the table's command filter dropdown.
-    const stageRunsPanel = page.locator('section.panel[aria-label="Stage runs"]');
-    await expect(stageRunsPanel.getByRole("cell", { name: "/flow", exact: true })).toBeVisible();
-    await expect(stageRunsPanel.getByRole("cell", { name: "/flow-fast", exact: true })).toBeVisible();
+    const table = page.getByRole("region", { name: "Stage runs" }).getByRole("table");
+    await expect(table.getByRole("cell", { name: "SDD + TDD per task", exact: true })).toBeVisible();
+    await expect(table.getByRole("cell", { name: "integrate", exact: true })).toBeVisible();
 
     expect(await bodyBackground(page)).toBe(DARK_SURFACE_1);
 
-    const runsPanel = page.locator('section.panel[aria-label="Runs"]');
-    await expect(runsPanel.getByText("Runs", { exact: true })).toHaveCount(1);
+    await expect(page.getByRole("group", { name: "Total cost" }).getByText("Total cost", { exact: true })).toHaveCount(1);
 
     await expect(page).toHaveScreenshot("run-detail.png", { fullPage: true });
+  });
+
+  test("a timeline bar's tooltip names its stage, session, outcome, duration and cost", async ({ page }) => {
+    await page.goto(RUN_DETAIL_URL);
+    await page.getByRole("img", { name: "Stage runs over time" }).getByTestId("timeline-bar").first().hover();
+    await expect(page.getByRole("tooltip")).toBeVisible();
+    await expect(page).toHaveScreenshot("run-detail-hover.png", { fullPage: true });
   });
 });
 

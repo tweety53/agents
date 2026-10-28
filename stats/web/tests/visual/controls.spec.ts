@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { EMPTY_QUERY, PINNED_FROM_INPUT, PINNED_QUERY, PINNED_TO_INPUT } from "./support";
+import { EMPTY_QUERY, FIXTURE_NOW, PINNED_FROM_INPUT, PINNED_QUERY, PINNED_TO_INPUT } from "./support";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -55,39 +55,43 @@ async function expectOnlyPressed(page: Page, pressedName: string) {
 // header comment and views.spec.ts's for the endpoints queried), not
 // assumed.
 //
-// The state-board table is the shared target for most of these: its
-// DataTable is the one in this app with the richest column set (five
-// sortable columns, two filterable ones), and PINNED_QUERY/EMPTY_QUERY
-// give a deterministic "populated" and "empty" starting point without
-// depending on real wall-clock time the way clicking most of
-// PeriodPicker's own presets would (all-time is the one exception below,
-// and is timezone/now-agnostic by construction: it always spans the
-// fixture's fixed 2026-08-15 data no matter when this spec runs).
+// The stage leaderboard's table is the shared target for the dashboard
+// bar's controls and DataTable's: the live state board carries its own chip
+// filters instead (kan-1048, exercised under "Live state board chips"
+// below). PINNED_QUERY/EMPTY_QUERY give a deterministic "populated" and
+// "empty" starting point; All time is the one PeriodPicker preset safe to
+// assert fixture rows against, since it always spans the fixture's fixed
+// 2026-08-15 data.
+//
+// Leaderboard rows in PINNED_QUERY's window: /flow "SDD + TDD per task",
+// /flow "flow.review-panel" (uitest-alpha) and /flow-fast "integrate"
+// (uitest-beta).
+const LEADERBOARD = 'section.panel[aria-label="Every costed stage"]';
 
 test.describe("PeriodPicker", () => {
   test("the All time preset broadens the table from empty to the fixture's own rows", async ({ page }) => {
-    await page.goto(`/#/state-board?${EMPTY_QUERY}`);
-    const tablePanel = page.locator('section.panel[aria-label="Every open change"]');
+    await page.goto(`/#/stage-leaderboard?${EMPTY_QUERY}`);
+    const tablePanel = page.locator(LEADERBOARD);
     await expect(tablePanel.getByTestId("not-recorded")).toBeVisible();
 
     const allTime = page.getByRole("button", { name: "All time" });
     await allTime.click();
     await expect(allTime).toHaveAttribute("aria-pressed", "true");
 
-    await expect(tablePanel.getByRole("cell", { name: "kan-101-add-widget" })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "kan-201-refactor-thing" })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "flow.review-panel", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "integrate", exact: true })).toBeVisible();
   });
 
   test("typing explicit From/To values reloads the table to that window", async ({ page }) => {
-    await page.goto(`/#/state-board?${EMPTY_QUERY}`);
-    const tablePanel = page.locator('section.panel[aria-label="Every open change"]');
+    await page.goto(`/#/stage-leaderboard?${EMPTY_QUERY}`);
+    const tablePanel = page.locator(LEADERBOARD);
     await expect(tablePanel.getByTestId("not-recorded")).toBeVisible();
 
     await page.getByLabel("Period start").fill(PINNED_FROM_INPUT);
     await page.getByLabel("Period end").fill(PINNED_TO_INPUT);
 
-    await expect(tablePanel.getByRole("cell", { name: "kan-101-add-widget" })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "kan-201-refactor-thing" })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "flow.review-panel", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "integrate", exact: true })).toBeVisible();
   });
 
   // The remaining four presets, plus the conditional Reset button --
@@ -99,7 +103,7 @@ test.describe("PeriodPicker", () => {
   // include -- the same reason this file's own header comment gives for
   // why `All time` is the one preset safe to assert fixture rows against.
   test("Today sets the range to midnight through now, and presses only itself", async ({ page }) => {
-    await page.goto(`/#/state-board?${EMPTY_QUERY}`);
+    await page.goto(`/#/stage-leaderboard?${EMPTY_QUERY}`);
     await page.getByRole("button", { name: "Today", exact: true }).click();
     await expectOnlyPressed(page, "Today");
 
@@ -111,28 +115,28 @@ test.describe("PeriodPicker", () => {
   });
 
   test("7 days sets a seven-day range ending now, and presses only itself", async ({ page }) => {
-    await page.goto(`/#/state-board?${EMPTY_QUERY}`);
+    await page.goto(`/#/stage-leaderboard?${EMPTY_QUERY}`);
     await page.getByRole("button", { name: "7 days", exact: true }).click();
     await expectOnlyPressed(page, "7 days");
     await expectRangeSpan(page, 7 * DAY_MS);
   });
 
   test("30 days sets the default thirty-day range, and presses only itself", async ({ page }) => {
-    await page.goto(`/#/state-board?${EMPTY_QUERY}`);
+    await page.goto(`/#/stage-leaderboard?${EMPTY_QUERY}`);
     await page.getByRole("button", { name: "30 days", exact: true }).click();
     await expectOnlyPressed(page, "30 days");
     await expectRangeSpan(page, 30 * DAY_MS);
   });
 
   test("90 days sets a ninety-day range ending now, and presses only itself", async ({ page }) => {
-    await page.goto(`/#/state-board?${EMPTY_QUERY}`);
+    await page.goto(`/#/stage-leaderboard?${EMPTY_QUERY}`);
     await page.getByRole("button", { name: "90 days", exact: true }).click();
     await expectOnlyPressed(page, "90 days");
     await expectRangeSpan(page, 90 * DAY_MS);
   });
 
   test("Reset to default only renders when the period differs from default, and resets it", async ({ page }) => {
-    await page.goto(`/#/state-board?${EMPTY_QUERY}`);
+    await page.goto(`/#/stage-leaderboard?${EMPTY_QUERY}`);
     const reset = page.getByRole("button", { name: "Reset to default" });
     // EMPTY_QUERY (2020) is nowhere near the last 30 days, so the button
     // PeriodPicker.tsx only renders when `!sameRange(period,
@@ -151,86 +155,64 @@ test.describe("PeriodPicker", () => {
 
 test.describe("SearchBox", () => {
   test("typing a term narrows the table to matching rows only", async ({ page }) => {
-    await page.goto(`/#/state-board?${PINNED_QUERY}`);
-    const tablePanel = page.locator('section.panel[aria-label="Every open change"]');
-    await expect(tablePanel.getByRole("cell", { name: "kan-201-refactor-thing" })).toBeVisible();
+    await page.goto(`/#/stage-leaderboard?${PINNED_QUERY}`);
+    const tablePanel = page.locator(LEADERBOARD);
+    await expect(tablePanel.getByRole("cell", { name: "integrate", exact: true })).toBeVisible();
 
-    await page.getByLabel("Search").fill("widget");
+    await page.getByLabel("Search").fill("integ");
 
-    await expect(tablePanel.getByRole("cell", { name: "kan-101-add-widget" })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "kan-102-fix-widget-bug" })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "kan-201-refactor-thing" })).toHaveCount(0);
+    await expect(tablePanel.getByRole("cell", { name: "integrate", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "flow.review-panel", exact: true })).toHaveCount(0);
   });
 });
 
 test.describe("ProjectFilter", () => {
   test("typing a project scopes the dashboard bar's own project variable", async ({ page }) => {
-    await page.goto(`/#/state-board?${PINNED_QUERY}`);
-    const tablePanel = page.locator('section.panel[aria-label="Every open change"]');
-    await expect(tablePanel.getByRole("cell", { name: "kan-101-add-widget" })).toBeVisible();
+    await page.goto(`/#/stage-leaderboard?${PINNED_QUERY}`);
+    const tablePanel = page.locator(LEADERBOARD);
+    await expect(tablePanel.getByRole("cell", { name: "flow.review-panel", exact: true })).toBeVisible();
 
     await page.getByLabel("Project filter").fill("uitest-beta");
 
-    await expect(tablePanel.getByRole("cell", { name: "kan-201-refactor-thing" })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "kan-101-add-widget" })).toHaveCount(0);
-    await expect(tablePanel.getByRole("cell", { name: "kan-102-fix-widget-bug" })).toHaveCount(0);
+    await expect(tablePanel.getByRole("cell", { name: "integrate", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "flow.review-panel", exact: true })).toHaveCount(0);
   });
 });
 
 test.describe("FilterBar", () => {
   test("choosing an exact-match column filter narrows the table to matching rows", async ({ page }) => {
-    await page.goto(`/#/state-board?${PINNED_QUERY}`);
-    const tablePanel = page.locator('section.panel[aria-label="Every open change"]');
-    await expect(tablePanel.getByRole("cell", { name: "kan-101-add-widget" })).toBeVisible();
+    await page.goto(`/#/stage-leaderboard?${PINNED_QUERY}`);
+    const tablePanel = page.locator(LEADERBOARD);
+    await expect(tablePanel.getByRole("cell", { name: "flow.review-panel", exact: true })).toBeVisible();
 
-    await page.getByLabel("Filter by State").selectOption("FINISHED");
+    await page.getByLabel("Filter by Command").selectOption("/flow-fast");
 
-    await expect(tablePanel.getByRole("cell", { name: "kan-201-refactor-thing" })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "kan-101-add-widget" })).toHaveCount(0);
-    await expect(tablePanel.getByRole("cell", { name: "kan-102-fix-widget-bug" })).toHaveCount(0);
-  });
-
-  // StateBoard.tsx declares two filterable columns -- Project and State
-  // (columns.ts:60-63) -- and the spec above only ever exercised State.
-  // This is a distinct select from the dashboard bar's top-level
-  // "Project filter" input (the ProjectFilter describe block, above):
-  // that one scopes the server request itself, this one is an in-memory
-  // exact-match filter over the page DataTable already holds
-  // (FilterBar.tsx's own header comment).
-  test("choosing the Project column filter narrows the table to matching rows", async ({ page }) => {
-    await page.goto(`/#/state-board?${PINNED_QUERY}`);
-    const tablePanel = page.locator('section.panel[aria-label="Every open change"]');
-    await expect(tablePanel.getByRole("cell", { name: "kan-201-refactor-thing" })).toBeVisible();
-
-    await page.getByLabel("Filter by Project").selectOption("uitest-alpha");
-
-    await expect(tablePanel.getByRole("cell", { name: "kan-101-add-widget" })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "kan-102-fix-widget-bug" })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "kan-201-refactor-thing" })).toHaveCount(0);
+    await expect(tablePanel.getByRole("cell", { name: "integrate", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "flow.review-panel", exact: true })).toHaveCount(0);
   });
 });
 
 test.describe("DataTable sort buttons", () => {
   test("clicking a sortable header toggles ascending/descending order and its own arrow", async ({ page }) => {
-    await page.goto(`/#/state-board?${PINNED_QUERY}`);
-    const tablePanel = page.locator('section.panel[aria-label="Every open change"]');
-    const changeHeader = tablePanel.getByRole("button", { name: /^Change/ });
-    const changeCells = tablePanel.locator("tbody tr td:nth-child(2) a");
-    await expect(changeCells).toHaveCount(3);
+    await page.goto(`/#/stage-leaderboard?${PINNED_QUERY}`);
+    const tablePanel = page.locator(LEADERBOARD);
+    const stageHeader = tablePanel.getByRole("button", { name: /^Stage/ });
+    const stageCells = tablePanel.locator("tbody tr td:nth-child(2)");
+    await expect(stageCells).toHaveCount(3);
 
-    await changeHeader.click();
-    await expect(changeHeader).toHaveText("Change ▲");
-    await expect(changeCells).toHaveText(["kan-101-add-widget", "kan-102-fix-widget-bug", "kan-201-refactor-thing"]);
+    await stageHeader.click();
+    await expect(stageHeader).toHaveText("Stage ▲");
+    await expect(stageCells).toHaveText(["flow.review-panel", "integrate", "SDD + TDD per task"]);
 
-    await changeHeader.click();
-    await expect(changeHeader).toHaveText("Change ▼");
-    await expect(changeCells).toHaveText(["kan-201-refactor-thing", "kan-102-fix-widget-bug", "kan-101-add-widget"]);
+    await stageHeader.click();
+    await expect(stageHeader).toHaveText("Stage ▼");
+    await expect(stageCells).toHaveText(["SDD + TDD per task", "integrate", "flow.review-panel"]);
   });
 });
 
 test.describe("ChangeVariable", () => {
   test("selecting a change navigates to that change's own run-detail page", async ({ page }) => {
-    await page.goto(`/#/state-board?${PINNED_QUERY}`);
+    await page.goto(`/#/stage-leaderboard?${PINNED_QUERY}`);
 
     await page.getByLabel("Go to change").selectOption({ label: "uitest-beta/kan-201-refactor-thing" });
 
@@ -240,14 +222,14 @@ test.describe("ChangeVariable", () => {
 });
 
 test.describe("ModelVariable", () => {
-  test("is disabled on the live state board, with its reason stated", async ({ page }) => {
-    await page.goto(`/#/state-board?${PINNED_QUERY}`);
+  test("is disabled on flow health, with its reason stated", async ({ page }) => {
+    await page.goto(`/#/flow-health?${PINNED_QUERY}`);
     const model = page.getByLabel("Model");
     await expect(model).toBeDisabled();
     const label = page.locator("label.model-variable");
     await expect(label).toHaveAttribute(
       "title",
-      "The live state board's rows are changes, not stage runs, so a model restriction cannot apply here.",
+      "Flow health totals changes, panel rounds and guard fires across every model, so a model restriction cannot apply here.",
     );
     await expect(label.locator(".dashboard-variable-hint")).toBeVisible();
   });
@@ -257,5 +239,50 @@ test.describe("ModelVariable", () => {
     const model = page.getByLabel("Model");
     await expect(model).toBeEnabled();
     await expect(model.locator("option")).toHaveText(["All models", "claude-opus-5", "claude-sonnet-5"]);
+  });
+});
+
+// The live state board's own filters (kan-1048): fixture rows inside the
+// default 7d at FIXTURE_NOW are kan-101-add-widget (STARTED, running),
+// kan-102-fix-widget-bug (IN_PROGRESS, running) and kan-201-refactor-thing
+// (FINISHED, its group collapsed).
+test.describe("Live state board chips", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(FIXTURE_NOW);
+    await page.goto("/#/state-board");
+  });
+
+  const table = (page: Page) => page.getByRole("region", { name: "Changes" }).getByRole("table");
+  const tile = (page: Page, name: RegExp) => page.getByRole("button", { name });
+
+  test("a Project chip narrows the rows and the state tiles", async ({ page }) => {
+    await expect(tile(page, /^In progress/)).toContainText("1");
+    await page.getByRole("group", { name: "Project" }).getByRole("button", { name: /^uitest-beta/ }).click();
+    await expect(tile(page, /^In progress/)).toContainText("0");
+    await expect(tile(page, /^Finished/)).toContainText("1");
+    await expect(table(page).getByRole("link", { name: "kan-101-add-widget" })).toHaveCount(0);
+  });
+
+  test("a state tile filters by its state and opens its collapsed group", async ({ page }) => {
+    await expect(table(page).getByRole("link", { name: "kan-201-refactor-thing" })).toHaveCount(0);
+    await tile(page, /^Finished/).click();
+    await expect(tile(page, /^Finished/)).toHaveAttribute("aria-pressed", "true");
+    await expect(table(page).getByRole("link", { name: "kan-201-refactor-thing" })).toBeVisible();
+    await expect(table(page).getByRole("link", { name: "kan-101-add-widget" })).toHaveCount(0);
+  });
+
+  test("search narrows the rows by change name", async ({ page }) => {
+    await page.getByRole("searchbox", { name: "Search changes" }).fill("fix-widget");
+    await expect(table(page).getByRole("link", { name: "kan-102-fix-widget-bug" })).toBeVisible();
+    await expect(table(page).getByRole("link", { name: "kan-101-add-widget" })).toHaveCount(0);
+  });
+
+  test("Updated All widens past seven days, and Clear filters restores the default", async ({ page }) => {
+    const finished = await tile(page, /^Finished/).textContent();
+    await page.getByRole("group", { name: "Updated" }).getByRole("button", { name: "All" }).click();
+    await expect(tile(page, /^Finished/)).not.toHaveText(finished!);
+    await page.getByRole("button", { name: "Clear filters" }).click();
+    await expect(tile(page, /^Finished/)).toHaveText(finished!);
+    await expect(page.getByRole("button", { name: "Clear filters" })).toHaveCount(0);
   });
 });

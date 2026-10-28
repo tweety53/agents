@@ -601,9 +601,10 @@ th button {
 .lb-act.working .lb-actb { color: var(--status-ok); background: color-mix(in srgb, var(--status-ok) 14%, transparent); }
 .lb-act.question .lb-actb, .lb-act.permission .lb-actb { color: var(--series-3); background: color-mix(in srgb, var(--series-3) 16%, transparent); }
 .lb-act.idle .lb-actb { color: var(--text-secondary); background: var(--surface-tip); }
+.lb-act > .lb-muted { flex: none; white-space: nowrap; }
 .lb-actd { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); min-width: 0; }
 
-.lb-table { width: 100%; border-collapse: collapse; }
+.lb-table { width: 100%; border-collapse: collapse; font-size: inherit; }
 .lb-table th { text-align: left; font-size: 11px; font-weight: 600; color: var(--text-secondary); padding: 6px 10px; border-bottom: 1px solid var(--border-strong); white-space: nowrap; }
 .lb-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 .lb-table th.r, .lb-table td.r { text-align: right; }
