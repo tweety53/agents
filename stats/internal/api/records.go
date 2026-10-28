@@ -183,9 +183,27 @@ var ErrInvalidRecord = errors.New("api: invalid record")
 // preference: migration 0010 makes these columns NOT NULL, and an empty
 // string satisfies NOT NULL, so a replay that skipped these checks would
 // insert a row with an empty role and report success.
+// panelSlots is every slot a reviewer dispatch row may name, besides an
+// experimental "exp-<name>" slot: the roster's primary and principles and
+// the always-on extra dispatches' slots. A gated per-task reviewer
+// (task-<n>-reviewer) or a self-review pass is a reviewer row with no slot;
+// a slot outside this set lands as its own row in the Review dynamics
+// heatmap.
+var panelSlots = map[string]bool{
+	"primary": true, "principles": true, "test-sanity": true,
+	"call-efficiency": true, "failure-modes": true, "mutation": true,
+}
+
 func ApplyDispatchRecord(ctx context.Context, rw RecordWriter, projectKey, change string, in records.Dispatch) (records.Dispatch, error) {
 	if in.Role == "" || in.Model == "" {
 		return records.Dispatch{}, fmt.Errorf("%w: role and model are both required: a dispatch row records what ran and on what", ErrInvalidRecord)
+	}
+	if in.Role == "reviewer" && in.Slot != "" {
+		for _, slot := range strings.Split(strings.ToLower(strings.TrimSpace(in.Slot)), "+") {
+			if !panelSlots[slot] && !(strings.HasPrefix(slot, "exp-") && len(slot) > len("exp-")) {
+				return records.Dispatch{}, fmt.Errorf("%w: slot %q is not a review-panel slot: name only panel slots (skills/flow/review-panel.md), and record a gated per-task or self-review reviewer without -slot", ErrInvalidRecord, slot)
+			}
+		}
 	}
 	if in.StartedAt.IsZero() {
 		// The caller-typed instant was an agent's approximation of the

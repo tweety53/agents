@@ -815,6 +815,30 @@ func TestRecordDispatchRouteAnswers400ForAnInvalidAgentID(t *testing.T) {
 	}
 }
 
+// TestRecordDispatchRouteAnswers400ForANonPanelSlot pins that a reviewer
+// row names panel slots only: a gated per-task reviewer's key as its slot
+// is refused before the store, a panel bundle and an experimental slot pass.
+func TestRecordDispatchRouteAnswers400ForANonPanelSlot(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	for slot, want := range map[string]int{
+		"task-27+28-reviewer":      http.StatusBadRequest,
+		"primary+self-review-pass": http.StatusBadRequest,
+		"primary+principles":       http.StatusCreated,
+		"mutation+exp-test-sanity": http.StatusCreated,
+	} {
+		body := dispatchBody("reviewer", "opus")
+		body["slot"] = slot
+		body["key"] = "panel-1-" + slot
+		resp, respBody := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches", body)
+		if resp.StatusCode != want {
+			t.Errorf("POST dispatches with slot %q = %d (%s), want %d", slot, resp.StatusCode, respBody, want)
+		}
+	}
+	if fs.recordCalls != 2 {
+		t.Errorf("store saw %d writes, want 2", fs.recordCalls)
+	}
+}
+
 // TestRecordDispatchRouteAnswers400ForAnUnmappablePair pins the
 // mapStoreError case KAN-610 adds: the store having refused a model/effort
 // pair the harness mapping cannot produce is the caller's mistake, so the
