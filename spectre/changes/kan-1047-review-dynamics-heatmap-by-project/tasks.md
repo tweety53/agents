@@ -31,11 +31,11 @@
 **Commit:** feat(stats): filter review dynamics by project, task size and current reviewers
 **After:** none
 
-- [ ] 2. Two charts per row and a Prompt changes marker filter
-  - [ ] **Step 1: Layout.** `.dynamics-grid` is always two columns (`repeat(2, minmax(0, 1fr))`).
-  - [ ] **Step 2: Prompt changes bar.** `flow-prompt-tuning` (default, markers of kind `tuning`) · `All` · `auto prompt tuning` (markers of kind `edit`); filtered client side in `markersFor`.
-  - [ ] **Step 3: Test.** vitest `review dynamics filters prompt-change markers by kind`.
-  - [ ] **Step 4: Verify.** `cd stats/web && npx vitest run -t 'review dynamics'`; `npx tsc -b`. Commit.
+- [x] 2. Two charts per row and a Prompt changes marker filter
+  - [x] **Step 1: Layout.** `.dynamics-grid` is always two columns (`repeat(2, minmax(0, 1fr))`).
+  - [x] **Step 2: Prompt changes bar.** `flow-prompt-tuning` (default, markers of kind `tuning`) · `All` · `auto prompt tuning` (markers of kind `edit`); filtered client side in `markersFor`.
+  - [x] **Step 3: Test.** vitest `review dynamics filters prompt-change markers by kind`.
+  - [x] **Step 4: Verify.** `cd stats/web && npx vitest run -t 'review dynamics'`; `npx tsc -b`. Commit.
 
 **Build:** green
 **Files:** `stats/web/src/styles.css`, `stats/web/src/views/ReviewDynamics.tsx`, `stats/web/src/views/views.test.tsx`
