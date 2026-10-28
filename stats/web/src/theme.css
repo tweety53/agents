@@ -14,6 +14,7 @@
   color-scheme: dark;
   --surface-1: #111217;
   --surface-2: #181b1f;
+  --surface-tip: #22252b;
   --surface-panel: #181b1f;
   --text-primary: #d8d9da;
   --text-secondary: #9fa7b3;
@@ -58,6 +59,7 @@
     color-scheme: light;
     --surface-1: #fcfcfb;
     --surface-2: #f1f0ec;
+    --surface-tip: #ffffff;
     --surface-panel: #ffffff;
     --text-primary: #0b0b0b;
     --text-secondary: #52514e;
@@ -86,6 +88,7 @@
   color-scheme: light;
   --surface-1: #fcfcfb;
   --surface-2: #f1f0ec;
+  --surface-tip: #ffffff;
   --surface-panel: #ffffff;
   --text-primary: #0b0b0b;
   --text-secondary: #52514e;

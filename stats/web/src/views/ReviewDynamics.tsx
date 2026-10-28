@@ -109,11 +109,28 @@ function tiles(s: DynamicsSummary, p: DynamicsSummary) {
   );
 }
 
+// byEffort orders effort names low → medium → high (then anything else by
+// name), and any other names alphabetically.
+const EFFORTS = ["low", "medium", "high"];
+export function byEffort(a: string, b: string): number {
+  const rank = (n: string) => {
+    const i = EFFORTS.indexOf(n.split(" ").pop()!);
+    return i < 0 ? EFFORTS.length : i;
+  };
+  return rank(a) - rank(b) || a.localeCompare(b);
+}
+
 function Heatmap({ cells, previous, byVersion }: { cells: HeatCell[]; previous: HeatCell[]; byVersion: boolean }) {
   const rate = (c: HeatCell) => (c.dispatches === 0 ? 0 : (c.critical + c.important + c.minor) / c.dispatches);
   const key = (c: { slot: string; model: string; effort: string }) => `${c.slot}|${c.model}|${c.effort}`;
-  const slots = [...new Set(cells.map((c) => c.slot))].sort();
-  const cols = [...new Set(cells.map((c) => `${c.model}|${c.effort}`))].sort().map((k) => k.split("|"));
+  // Rows run busiest slot first, as the panel roster does; columns run by
+  // model, then effort low → high (heatmap-order).
+  const dispatches = new Map<string, number>();
+  for (const c of cells) dispatches.set(c.slot, (dispatches.get(c.slot) ?? 0) + c.dispatches);
+  const slots = [...dispatches.keys()].sort((a, b) => dispatches.get(b)! - dispatches.get(a)! || a.localeCompare(b));
+  const cols = [...new Set(cells.map((c) => `${c.model}|${c.effort}`))]
+    .map((k) => k.split("|"))
+    .sort(([am, ae], [bm, be]) => am.localeCompare(bm) || byEffort(ae, be));
   const byKey = new Map(cells.map((c) => [key(c), c]));
   const prevByKey = new Map(previous.map((c) => [key(c), c]));
   const max = Math.max(0, ...cells.map(rate)) || 1;
@@ -216,7 +233,7 @@ export function ReviewDynamics({ period, onPeriodChange, project }: ViewProps) {
   return (
     <section aria-label="Review dynamics" className="dashboard">
       <h2>Review dynamics</h2>
-      <p className="view-description">
+      <p className="dynamics-sub">
         Every rate is per change or per dispatch, so a busy week doesn't look worse than a quiet one. Lower is better
         unless a tile says otherwise. Hover a chart for the values at that point; hover a purple marker for the prompt
         change it stands for.
@@ -301,7 +318,7 @@ function Dynamics({ rows, byVersion, period }: { rows: ReviewDynamicsRows; byVer
       s.values[index.get(p.bucket)!] = p.value;
       s.basis[index.get(p.bucket)!] = p.basis;
     }
-    const order = names ? Object.values(names) : [...byName.keys()].sort();
+    const order = names ? Object.values(names) : [...byName.keys()].sort(byEffort);
     return order.flatMap((n) => byName.get(n) ?? []);
   };
 

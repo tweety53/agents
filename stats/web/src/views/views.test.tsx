@@ -1042,6 +1042,26 @@ describe("flow health", () => {
 describe("review dynamics", () => {
   const noRangeInUrl = () => window.history.replaceState(null, "", "#/review-dynamics");
 
+  it("review dynamics orders the heatmap busiest slot first and effort low to high", async () => {
+    noRangeInUrl();
+    const rows = reviewDynamicsRows();
+    const cell = (slot: string, effort: string, dispatches: number) => ({ slot, model: "opus", effort, dispatches, critical: 0, important: 1, minor: 1 });
+    const pt = (series: string) => ({ bucket: "2026-01-05", metric: "per-dispatch-effort", series, value: 1, basis: 2 });
+    fetchStatsViewMock.mockResolvedValue(
+      envelope("review-dynamics", {
+        ...rows,
+        series: [...rows.series.filter((p) => p.metric !== "per-dispatch-effort"), pt("high"), pt("low"), pt("medium")],
+        heat: [cell("principles", "high", 2), cell("primary", "low", 3), cell("primary", "medium", 3)],
+      }),
+    );
+    render(<ReviewDynamics period={period} onPeriodChange={() => {}} project={undefined} />);
+    const heat = (await screen.findByText(/Findings per dispatch: slot/)).closest(".dynamics-panel") as HTMLElement;
+    expect(within(heat).getAllByRole("rowheader").map((h) => h.textContent)).toEqual(["primary", "principles"]);
+    expect(within(heat).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["", "opuslow", "opusmedium", "opushigh"]);
+    const effort = screen.getByRole("region", { name: "Findings per dispatch by reviewer effort" });
+    expect([...effort.querySelectorAll(".dynamics-legend > *")].map((e) => e.textContent?.trim())).toEqual(["low", "medium", "high", "prompt change"]);
+  });
+
   it("review dynamics draws every section with tiles against the previous range", async () => {
     noRangeInUrl();
     render(<ReviewDynamics period={period} onPeriodChange={() => {}} project={undefined} />);
