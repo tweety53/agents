@@ -3029,3 +3029,30 @@ func discoverTranscripts(root string) ([]string, error) {
 	sort.Strings(out)
 	return out, nil
 }
+
+// AgentModelVersions walks root for agent transcripts and maps each agent
+// id to the model version its patch carries -- the lookup `flowd
+// backfill-models` stamps past dispatches from (model-version-split). An
+// agent whose transcript names no model, or cannot be read, is left out.
+func AgentModelVersions(root string) (map[string]string, error) {
+	out := map[string]string{}
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		id, ok := AgentIDFromTranscriptPath(path)
+		if !ok {
+			return nil
+		}
+		raw, err := AgentFileDispatchPatch(path)
+		if err != nil {
+			return nil
+		}
+		var mp MetricsPatch
+		if json.Unmarshal(raw, &mp) == nil && mp.ModelVersion != "" {
+			out[id] = mp.ModelVersion
+		}
+		return nil
+	})
+	return out, err
+}

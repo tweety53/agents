@@ -85,6 +85,13 @@ const sweepSilenceTimeout = 6 * time.Hour
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
+	if len(os.Args) > 1 && os.Args[1] == "backfill-models" {
+		if err := backfillModels(os.Args[2:]); err != nil {
+			logger.Error("flowd backfill-models failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "restamp-dispatch" {
 		if err := restampDispatch(os.Args[2:]); err != nil {
 			logger.Error("flowd restamp-dispatch failed", "error", err)
@@ -690,6 +697,44 @@ func restampDispatch(args []string) error {
 		return err
 	}
 	return st.RestampDispatch(ctx, id, agentID, patch)
+}
+
+// backfillModels implements `flowd backfill-models`: it stamps every
+// dispatch that carries an agent id and no modelVersion with the model its
+// agent transcript names (model-version-split), printing how many rows it
+// stamped. Like restamp-dispatch it talks to the database directly, so it
+// needs no running daemon.
+func backfillModels(args []string) error {
+	if len(args) != 0 {
+		return fmt.Errorf("usage: flowd backfill-models")
+	}
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return err
+	}
+	root, err := harvest.DefaultTranscriptsRoot()
+	if err != nil {
+		return err
+	}
+	versions, err := harvest.AgentModelVersions(root)
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	st, err := store.Open(ctx, cfg.DSN)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	n, err := st.BackfillModelVersions(ctx, func(agentID string) (string, bool) {
+		v, ok := versions[agentID]
+		return v, ok
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("stamped: %d\n", n)
+	return nil
 }
 
 // foldDispatch implements `flowd fold-dispatch <keep-id> <drop-id>`

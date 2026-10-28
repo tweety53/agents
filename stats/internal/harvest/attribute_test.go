@@ -2077,3 +2077,34 @@ func TestAttributeStampsModelVersion(t *testing.T) {
 		t.Errorf("modelVersion = %v, want no key when no line names a model", m["modelVersion"])
 	}
 }
+
+// TestAgentModelVersions pins the backfill's lookup (model-version-split):
+// every agent transcript under the root maps its agent id to the model it
+// names; one naming no model is left out.
+func TestAgentModelVersions(t *testing.T) {
+	root := t.TempDir()
+	write := func(id, model string) {
+		t.Helper()
+		dir := filepath.Join(root, "-proj", "session-1", "subagents")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		body := `{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"s1","agentId":"` + id + `","isSidechain":true,"message":{"model":"` + model + `","usage":{"input_tokens":1,"output_tokens":1}}}` + "\n"
+		if err := os.WriteFile(filepath.Join(dir, "agent-"+id+".jsonl"), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("abc", "claude-opus-5-5")
+	write("def", "")
+	if err := os.WriteFile(filepath.Join(root, "-proj", "session-1.jsonl"), []byte("{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := harvest.AgentModelVersions(root)
+	if err != nil {
+		t.Fatalf("AgentModelVersions: %v", err)
+	}
+	if fmt.Sprint(got) != "map[abc:claude-opus-5-5]" {
+		t.Errorf("AgentModelVersions = %v, want map[abc:claude-opus-5-5]", got)
+	}
+}
