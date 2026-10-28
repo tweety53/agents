@@ -34,11 +34,23 @@ export default defineConfig({
     // intentionally-supported theme, not a way to observe an absent
     // preference.)
     colorScheme: "dark",
+    // Pinned to software rasterisation: unpinned, Chromium's GPU and
+    // partial raster paths antialias a few edge pixels (select corners)
+    // differently from run to run, so three captures of an unchanged tree
+    // differed pixelwise; with these flags they are byte-identical
+    // (kan-1046 self-review, 8d).
+    launchOptions: {
+      args: [
+        "--disable-gpu-rasterization",
+        "--disable-partial-raster",
+        "--disable-gpu",
+      ],
+    },
   },
   reporter: [["list"]],
   timeout: 60_000,
   // No `expect` tolerance: screenshots compare at Playwright's default of
-  // zero differing pixels. Three runs on an unchanged tree all passed at
-  // zero, so no rendering pin is needed; a future flake is fixed at its
-  // source, never by widening a tolerance.
+  // zero differing pixels. The rasterisation pin above removes the edge
+  // antialiasing noise at its source rather than tolerating it; a future
+  // flake is fixed the same way, never by widening a tolerance.
 });
