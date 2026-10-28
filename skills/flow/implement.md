@@ -671,11 +671,15 @@ and applies **The handshake** stated above, unchanged.
 > line in this same commit. Every refusal or exit path the diff adds gets a test case of its
 > own.
 
-> **PROOF RUNS:** When a check has to be run repeatedly to prove a flake reproduced or fixed, size
-> the run count to the flake rate you measured, 10–15 runs by default, never a fixed count per
-> step. Your report states the measured rate and the run count. Sizing the runs never replaces
-> the proof `~/.claude/rules/fix-determinism-at-the-source.md` requires: a determinism fix still
-> shows the check failing with the mechanism removed.
+> **PROOF RUNS:** A flake fix is proven by forcing its cause in one isolated run — a delay or fault
+> injected at the seam, single worker, the test alone — never a load reproduction: no multi-worker
+> suite repeats, no `--repeat-each` or loop of a suite, no concurrent browser or app-boot probes, no
+> "reproduce under full-suite load". Where a repeat is still needed it runs the test alone on a
+> single worker, at most 5 runs. A flake seen only under parallel load is diagnosed from the code and
+> the failing run's saved artifacts; where its cause cannot be forced, the fix lands on that
+> code-reading evidence and the commit body says so. Your report states the forced condition and the
+> run count. This never replaces the proof `~/.claude/rules/fix-determinism-at-the-source.md`
+> requires: a determinism fix still shows the check failing with the mechanism removed.
 
 > **OUTPUT BUDGET:** Every tool result stays in your context, and every later turn re-reads your
 > whole context — a large output is paid for again on every turn after it. Read a file over 200

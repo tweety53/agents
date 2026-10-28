@@ -24,15 +24,16 @@ clock replaces, and show the test failing with the mechanism removed.
 
 ## Read the flake before touching anything
 
-Run the test until you have seen it fail, and name what actually varied — time, identity, ordering,
-leftover state, a live network, machine load. A flake you have not reproduced is a guess, and a
+Read the failing run's saved artifacts and the code, and name what actually varied — time, identity, ordering,
+leftover state, a live network, machine load. A cause you have not forced is a guess, and a
 guess routes straight to the tolerance.
 
-When it will not fail at its natural rate, make it fail: throttle what the nondeterminism runs on —
-the CPU (a parallel load, a CPU cap), the network (a throttled connection), or a delay injected at
-the suspected seam — until it does. Then measure the rate under that condition, failures over runs.
-That rate, not one observed failure, sizes the proof runs, and the same condition is the one the
-fix and the mechanism-removed run below are proven under.
+Make it fail by forcing that cause in one isolated, single-worker run — a delay or fault injected at
+the suspected seam, a pinned clock moved, a throttled connection — never by a load reproduction: no
+parallel load, no CPU cap, no multi-worker or looped suite repeats, no concurrent app or browser
+boots; they exhaust the operator's machine (kan-1044). The same forced condition is the one the fix
+and the mechanism-removed run below are proven under. Where the cause cannot be forced, fix it on
+the code-reading evidence and say so.
 
 ## Fix at the source
 

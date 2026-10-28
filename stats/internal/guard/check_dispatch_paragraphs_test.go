@@ -1095,11 +1095,11 @@ var dpCases = []dpCase{
 		}},
 	{files: map[string]string{
 		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlockNoFlakeRate),
+		"implement.md":    dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlockNoSingleWorker),
 	},
 		checks: []dpCheck{
 			dpRC("case 97: exits 1", 1),
-			dpHas("case 97: names the dropped phrase", "missing the required phrase: \"size the run count to the flake rate you measured\""),
+			dpHas("case 97: names the dropped phrase", "missing the required phrase: \"single worker\""),
 		}},
 	{files: map[string]string{
 		"review-panel.md": dpCleanReviewPanel,
@@ -1107,7 +1107,7 @@ var dpCases = []dpCase{
 	},
 		checks: []dpCheck{
 			dpRC("case 98: exits 1", 1),
-			dpHas("case 98: names the dropped phrase", "missing the required phrase: \"never a fixed count per step\""),
+			dpHas("case 98: names the dropped phrase", "missing the required phrase: \"at most 5 runs\""),
 		}},
 	{files: map[string]string{
 		"review-panel.md": dpCleanReviewPanel,
@@ -1155,6 +1155,14 @@ var dpCases = []dpCase{
 		checks: []dpCheck{
 			dpRC("case 104: the TDD block twice and no debugging block exits 1", 1),
 			dpHas("case 104: names the unsatisfied variant", "missing a block that satisfies the debugging variant"),
+		}},
+	{files: map[string]string{
+		"review-panel.md": dpCleanReviewPanel,
+		"implement.md":    dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlockLoadRepro),
+	},
+		checks: []dpCheck{
+			dpRC("case 105: a PROOF RUNS block sizing load-reproduction repeats exits 1", 1),
+			dpHas("case 105: names the dropped phrase", "missing the required phrase: \"never a load reproduction\""),
 		}},
 }
 
@@ -1731,7 +1739,16 @@ const (
 		"> claims — and say which of those it was. Read every hunk of the fix diff, a fix made for another\n" +
 		"> slot's finding included, for a defect the fix itself introduces — an evaluation moved out of the\n" +
 		"> guard that kept it safe, a branch the fix changed — and report it as a new finding at its line."
-	dpProofRunsBlock = "> **PROOF RUNS:** When a check has to be run repeatedly to prove a flake reproduced or fixed, size\n" +
+	dpProofRunsBlock = "> **PROOF RUNS:** A flake fix is proven by forcing its cause in one isolated run — a delay or fault\n" +
+		"> injected at the seam, single worker, the test alone — never a load reproduction: no multi-worker\n" +
+		"> suite repeats, no `--repeat-each` or loop of a suite, no concurrent browser or app-boot probes, no\n" +
+		"> \"reproduce under full-suite load\". Where a repeat is still needed it runs the test alone on a\n" +
+		"> single worker, at most 5 runs. A flake seen only under parallel load is diagnosed from the code and\n" +
+		"> the failing run's saved artifacts; where its cause cannot be forced, the fix lands on that\n" +
+		"> code-reading evidence and the commit body says so. Your report states the forced condition and the\n" +
+		"> run count. This never replaces the proof `~/.claude/rules/fix-determinism-at-the-source.md`\n" +
+		"> requires: a determinism fix still shows the check failing with the mechanism removed."
+	dpProofRunsBlockLoadRepro = "> **PROOF RUNS:** When a check has to be run repeatedly to prove a flake reproduced or fixed, size\n" +
 		"> the run count to the flake rate you measured, 10–15 runs by default, never a fixed count per\n" +
 		"> step. Your report states the measured rate and the run count. Sizing the runs never replaces\n" +
 		"> the proof `~/.claude/rules/fix-determinism-at-the-source.md` requires: a determinism fix still\n" +
@@ -1742,21 +1759,33 @@ const (
 	dpSubSkillDebuggingBlock = "> **REQUIRED SUB-SKILL:** When a test fails for a reason RED-GREEN-REFACTOR did not plan, read and\n" +
 		"> follow superpowers:systematic-debugging from its file — on Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/systematic-debugging/SKILL.md`\n" +
 		"> — before writing a fix. An expected RED step needs no such read."
-	dpProofRunsBlockNoFlakeRate = "> **PROOF RUNS:** When a check has to be run repeatedly to prove a flake reproduced or fixed, size\n" +
-		"> the run count to the step count, 10–15 runs by default, never a fixed count per\n" +
-		"> step. Your report states the measured rate and the run count. Sizing the runs never replaces\n" +
-		"> the proof `~/.claude/rules/fix-determinism-at-the-source.md` requires: a determinism fix still\n" +
-		"> shows the check failing with the mechanism removed."
-	dpProofRunsBlockNoFixedCount = "> **PROOF RUNS:** When a check has to be run repeatedly to prove a flake reproduced or fixed, size\n" +
-		"> the run count to the flake rate you measured, 10–15 runs by default, never an arbitrary count per\n" +
-		"> step. Your report states the measured rate and the run count. Sizing the runs never replaces\n" +
-		"> the proof `~/.claude/rules/fix-determinism-at-the-source.md` requires: a determinism fix still\n" +
-		"> shows the check failing with the mechanism removed."
-	dpProofRunsBlockNoMechanismRemoved = "> **PROOF RUNS:** When a check has to be run repeatedly to prove a flake reproduced or fixed, size\n" +
-		"> the run count to the flake rate you measured, 10–15 runs by default, never a fixed count per\n" +
-		"> step. Your report states the measured rate and the run count. Sizing the runs never replaces\n" +
-		"> the proof `~/.claude/rules/fix-determinism-at-the-source.md` requires: a determinism fix still\n" +
-		"> shows the check failing with the mechanism reverted."
+	dpProofRunsBlockNoSingleWorker = "> **PROOF RUNS:** A flake fix is proven by forcing its cause in one isolated run — a delay or fault\n" +
+		"> injected at the seam, one process, the test alone — never a load reproduction: no multi-worker\n" +
+		"> suite repeats, no `--repeat-each` or loop of a suite, no concurrent browser or app-boot probes, no\n" +
+		"> \"reproduce under full-suite load\". Where a repeat is still needed it runs the test alone on a\n" +
+		"> lone process, at most 5 runs. A flake seen only under parallel load is diagnosed from the code and\n" +
+		"> the failing run's saved artifacts; where its cause cannot be forced, the fix lands on that\n" +
+		"> code-reading evidence and the commit body says so. Your report states the forced condition and the\n" +
+		"> run count. This never replaces the proof `~/.claude/rules/fix-determinism-at-the-source.md`\n" +
+		"> requires: a determinism fix still shows the check failing with the mechanism removed."
+	dpProofRunsBlockNoFixedCount = "> **PROOF RUNS:** A flake fix is proven by forcing its cause in one isolated run — a delay or fault\n" +
+		"> injected at the seam, single worker, the test alone — never a load reproduction: no multi-worker\n" +
+		"> suite repeats, no `--repeat-each` or loop of a suite, no concurrent browser or app-boot probes, no\n" +
+		"> \"reproduce under full-suite load\". Where a repeat is still needed it runs the test alone on a\n" +
+		"> single worker, five runs at most. A flake seen only under parallel load is diagnosed from the code and\n" +
+		"> the failing run's saved artifacts; where its cause cannot be forced, the fix lands on that\n" +
+		"> code-reading evidence and the commit body says so. Your report states the forced condition and the\n" +
+		"> run count. This never replaces the proof `~/.claude/rules/fix-determinism-at-the-source.md`\n" +
+		"> requires: a determinism fix still shows the check failing with the mechanism removed."
+	dpProofRunsBlockNoMechanismRemoved = "> **PROOF RUNS:** A flake fix is proven by forcing its cause in one isolated run — a delay or fault\n" +
+		"> injected at the seam, single worker, the test alone — never a load reproduction: no multi-worker\n" +
+		"> suite repeats, no `--repeat-each` or loop of a suite, no concurrent browser or app-boot probes, no\n" +
+		"> \"reproduce under full-suite load\". Where a repeat is still needed it runs the test alone on a\n" +
+		"> single worker, at most 5 runs. A flake seen only under parallel load is diagnosed from the code and\n" +
+		"> the failing run's saved artifacts; where its cause cannot be forced, the fix lands on that\n" +
+		"> code-reading evidence and the commit body says so. Your report states the forced condition and the\n" +
+		"> run count. This never replaces the proof `~/.claude/rules/fix-determinism-at-the-source.md`\n" +
+		"> requires: a determinism fix still shows the check failing with the mechanism reverted."
 )
 
 // CLEAN_REVIEW_PANEL, CLEAN_IMPLEMENT_NO_READONLY and CLEAN_IMPLEMENT: case

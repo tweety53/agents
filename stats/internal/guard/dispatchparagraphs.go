@@ -82,7 +82,7 @@ var dpEntries = map[string]dpEntry{
 	"planning": {"**PLANNING DELEGATION:**",
 		[]string{"fresh `Explore` and `Plan` subagents", "never a `fork`", "never an agent that edits files", "plan-agent-pair.sh"}, nil},
 	"proofruns": {"**PROOF RUNS:**",
-		[]string{"size the run count to the flake rate you measured", "never a fixed count per step", "shows the check failing with the mechanism removed"}, nil},
+		[]string{"never a load reproduction", "single worker", "at most 5 runs", "shows the check failing with the mechanism removed"}, nil},
 }
 
 // dpSite is one row of SITE_ENTRY/SITE_PATHS/SITE_MIN_BLOCKS/SITE_VARIANTS:

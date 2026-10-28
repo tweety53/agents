@@ -101,26 +101,20 @@ One round runs these steps in order:
    `rebuild-full-app-suite-zip.sh <worktree> <screenshots root>` in the checkout the recapture
    wrote to, the rebuilt `full-app-suite.zip` committed with the task's PNGs — so the zip never
    trails the baselines it archives (kan-1003: two rounds left it stale).
-   **A task fixing a test that passes alone and fails only in the full suite closes after two
-   more full runs.** Such load flakes surface one per full-suite round, so after the task's commit
-   and before `close-task.sh` the parent runs the worktree's whole `## test` list twice more, and
-   every further failure those runs show is fixed in this same task and folded into its one
-   commit (`git commit --amend`, nothing is pushed yet) — never a further commit, since
-   `close-task.sh` takes one sha per task per repository — never left to the next round.
    **An observed failure is never closed as "not reproduced".** This rule is canonical for every
    fixer of a test failure a run saw — this loop's, a full-suite fix's, a self-review loop's. The
-   fixer reproduces it under the conditions of the run that failed — the same concurrent load and
-   the full-suite ordering, never the test alone or classes run one after another — and keeps every
+   fixer traces it from the code and the failing run's saved artifacts, never by a load reproduction (PROOF RUNS,
+   `skills/flow/implement.md`), and keeps every
    failing run's result files (the `result files:` and `full output:` paths `run-verify-list.sh`
    prints, or the JUnit XMLs and logs copied out by hand) before the next run overwrites them. A
    failure that reproduces gets its determinism fix, held to the PROOF RUNS paragraph
-   (`skills/flow/implement.md`). One still unreproduced after runs sized as that paragraph sizes them
+   (`skills/flow/implement.md`). One whose cause cannot be forced
    is fixed anyway: every source of nondeterminism the trace names as a candidate — a container
    readiness wait, a shared port, an unpinned clock or order — is fixed at its source, each with a
    forced reproduction as its evidence (the candidate made to fail on purpose, a delay or a fault
    injected, failing the test without the fix and passing with it). The task's one commit carries
-   those fixes and its body states the measured rate — runs and failures — and each forced
-   reproduction; a fixer that names no candidate has not finished the trace, and is sent back to it.
+   those fixes and its body states each forced reproduction, or that the fix
+   rests on code-reading evidence; a fixer that names no candidate has not finished the trace, and is sent back to it.
    The task ticks through `close-task.sh <canonical-worktree> <name> <merge-base> <n>:<that commit's sha>`
    as any task.
 3. **Re-review the delta.** Open `flow.review-panel` again and run `primary` beside **The always-on
