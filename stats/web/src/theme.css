@@ -34,6 +34,9 @@
   --status-ok: #73bf69;
   --delta-up: #f2495c;
   --delta-down: #73bf69;
+  --st-started: #5794f2;
+  --st-progress: #ff9830;
+  --st-finished: #6e7681;
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -81,6 +84,9 @@
     --status-ok: #3d8b3d;
     --delta-up: #c62828;
     --delta-down: #2e7d32;
+    --st-started: #2a78d6;
+    --st-progress: #e0752d;
+    --st-finished: #7a7972;
   }
 }
 
@@ -106,4 +112,7 @@
   --status-ok: #3d8b3d;
   --delta-up: #c62828;
   --delta-down: #2e7d32;
+  --st-started: #2a78d6;
+  --st-progress: #e0752d;
+  --st-finished: #7a7972;
 }

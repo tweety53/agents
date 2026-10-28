@@ -104,20 +104,20 @@ describe("the period is read from the URL, falling back to the default (task 2)"
   }
 
   it("only `from` is present: falls back to the default period", async () => {
-    const { from, to } = await renderAndReadPeriod("#/cost-per-change?from=2026-01-01T00:00:00Z");
+    const { from, to } = await renderAndReadPeriod("#/trend?from=2026-01-01T00:00:00Z");
     expect(from).toEqual(DEFAULT_FROM);
     expect(to).toEqual(NOW);
   });
 
   it("only `to` is present: falls back to the default period", async () => {
-    const { from, to } = await renderAndReadPeriod("#/cost-per-change?to=2026-01-01T00:00:00Z");
+    const { from, to } = await renderAndReadPeriod("#/trend?to=2026-01-01T00:00:00Z");
     expect(from).toEqual(DEFAULT_FROM);
     expect(to).toEqual(NOW);
   });
 
   it("an unparsable bound: falls back to the default period", async () => {
     const { from, to } = await renderAndReadPeriod(
-      "#/cost-per-change?from=not-a-date&to=2026-01-01T00:00:00Z",
+      "#/trend?from=not-a-date&to=2026-01-01T00:00:00Z",
     );
     expect(from).toEqual(DEFAULT_FROM);
     expect(to).toEqual(NOW);
@@ -125,21 +125,21 @@ describe("the period is read from the URL, falling back to the default (task 2)"
 
   it("`to` earlier than `from`: falls back to the default period", async () => {
     const { from, to } = await renderAndReadPeriod(
-      "#/cost-per-change?from=2026-02-01T00:00:00Z&to=2026-01-01T00:00:00Z",
+      "#/trend?from=2026-02-01T00:00:00Z&to=2026-01-01T00:00:00Z",
     );
     expect(from).toEqual(DEFAULT_FROM);
     expect(to).toEqual(NOW);
   });
 
   it("no query at all: falls back to the default period", async () => {
-    const { from, to } = await renderAndReadPeriod("#/cost-per-change");
+    const { from, to } = await renderAndReadPeriod("#/trend");
     expect(from).toEqual(DEFAULT_FROM);
     expect(to).toEqual(NOW);
   });
 
   it("a valid pair is applied as given", async () => {
     const { from, to } = await renderAndReadPeriod(
-      "#/cost-per-change?from=2026-01-05T00:00:00Z&to=2026-01-10T00:00:00Z",
+      "#/trend?from=2026-01-05T00:00:00Z&to=2026-01-10T00:00:00Z",
     );
     expect(from).toEqual(new Date("2026-01-05T00:00:00Z"));
     expect(to).toEqual(new Date("2026-01-10T00:00:00Z"));
@@ -149,7 +149,7 @@ describe("the period is read from the URL, falling back to the default (task 2)"
     const replaceStateSpy = vi.spyOn(window.history, "replaceState");
     const pushStateSpy = vi.spyOn(window.history, "pushState");
 
-    window.location.hash = "#/cost-per-change";
+    window.location.hash = "#/trend";
     render(<App />);
     await vi.waitFor(() => expect(fetchStatsViewMock).toHaveBeenCalled());
 
@@ -173,7 +173,7 @@ describe("the period is read from the URL, falling back to the default (task 2)"
     await vi.waitFor(() => expect(fetchStatsViewMock).toHaveBeenCalled());
     fetchStatsViewMock.mockClear();
 
-    window.location.hash = "#/cost-per-change?from=2026-01-05T00:00:00Z&to=2026-01-10T00:00:00Z";
+    window.location.hash = "#/trend?from=2026-01-05T00:00:00Z&to=2026-01-10T00:00:00Z";
     window.dispatchEvent(new HashChangeEvent("hashchange"));
 
     await vi.waitFor(() => expect(fetchStatsViewMock).toHaveBeenCalled());
@@ -188,7 +188,7 @@ describe("the period is read from the URL, falling back to the default (task 2)"
   // second `new Date()` at assertion time, which would be flaky by
   // construction.
   it("the default period is the preceding 30 days ending now", async () => {
-    const { from, to } = await renderAndReadPeriod("#/cost-per-change");
+    const { from, to } = await renderAndReadPeriod("#/trend");
     expect(to).toEqual(NOW);
     expect(from).toEqual(DEFAULT_FROM);
     expect(to.getTime() - from.getTime()).toBe(30 * 24 * 60 * 60 * 1000);
@@ -210,6 +210,17 @@ describe("the filter bar (KAN-1038)", () => {
     render(<App />);
     expect(await screen.findByRole("toolbar", { name: "Dashboard controls" })).toBeInTheDocument();
     expect(screen.getByLabelText("Period start")).toBeInTheDocument();
+    window.location.hash = "";
+  });
+});
+
+describe("the live state board carries its own filters", () => {
+  it("renders no dashboard bar on #/state-board", async () => {
+    window.location.hash = "#/state-board";
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Live state board" })).toBeInTheDocument();
+    expect(screen.queryByRole("toolbar", { name: "Dashboard controls" })).toBeNull();
+    expect(screen.queryByLabelText("Period start")).toBeNull();
     window.location.hash = "";
   });
 });

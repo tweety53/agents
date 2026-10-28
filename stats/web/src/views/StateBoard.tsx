@@ -1,161 +1,384 @@
-// The live state board -- the default route (skills/flow/SKILL.md's
-// three-state pipeline, surfaced here instead of a `jq` read of the state
-// file). Spec: "it lists every non-archived change with its state, its
-// last update, and its whole-life run totals" -- pipeline-fix-* changes
-// are hidden here, never on the wire (design.md's board-filter-in-spa).
+// The live state board -- the default route, laid out as the approved
+// prototype (spectre/changes/kan-1048-rework-live-board-and-run-view/design.md):
+// a chip filter bar, state tiles that filter by state, a Running now strip of
+// one card per change with an open stage run, and the changes grouped by
+// state. pipeline-fix-* changes are hidden here, never on the wire.
 //
-// Recomposed onto the panel primitives (task 20): a single "Changes" stat
-// panel above the table. A count is the only single number this view's own
-// question ("what is the current state of every open change") actually
-// has -- "state" is categorical, not something a total or a mean could
-// summarise, so no second or third stat panel is invented for it (this
-// task's own instruction: "no meaningful single number" gets no panel
-// rather than a fabricated one).
-import { DataTable, type Column } from "../components/DataTable";
-import { Panel } from "../components/Panel";
-import { StatPanel } from "../components/StatPanel";
-import { ViewFrame } from "../components/ViewFrame";
+// The board fetches every change ever recorded and applies every filter
+// here (design.md's board-client-side-filters): the list holds tens of rows,
+// and each chip count must reflect the other filters without a request per
+// click. It refetches every five seconds so a session's activity badge
+// follows what the session is doing.
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import type { StateBoardRow } from "../api";
 import { useStatsView } from "../hooks/useStatsView";
-import { formatDateTime, formatInt, formatMs, formatUsd } from "../format";
+import { formatInt, formatRelative, formatSpan, formatUsd } from "../format";
 import { projectLabel } from "../lib/projectLabel";
-import type { ViewProps } from "../viewTypes";
+
+const REFRESH_MS = 5000;
+const EPOCH = new Date(0);
+
+const STATES = ["IN_PROGRESS", "STARTED", "FINISHED"] as const;
+const STATE_LABEL: Record<string, string> = { IN_PROGRESS: "In progress", STARTED: "Started", FINISHED: "Finished" };
+
+export const ACTIVITY_LABEL: Record<string, string> = {
+  working: "Working",
+  question: "Awaiting your answer",
+  permission: "Awaiting permission",
+  idle: "Turn ended",
+};
+
+const PERIOD_MINUTES = { "24h": 1440, "7d": 10080, "30d": 43200, All: Infinity } as const;
+type PeriodChip = keyof typeof PERIOD_MINUTES;
+
+interface Filters {
+  project: string | null;
+  states: Set<string>;
+  period: PeriodChip;
+  errors: boolean;
+  query: string;
+}
+
+const NO_FILTERS: Filters = { project: null, states: new Set(), period: "7d", errors: false, query: "" };
 
 /**
- * The board's only navigation path into a single change's own dashboard
- * (task 18, "Make it reachable from the board"). Each segment is
- * percent-encoded independently -- App.tsx's parseRunRoute decodes them
- * the same way -- so a project key or change name containing a
- * URL-significant character (a literal "/", "#" or "?") survives the
- * round trip instead of being read as an extra route segment.
+ * The board's only navigation path into a single change's own dashboard.
+ * Each segment is percent-encoded independently -- App.tsx's parseRunRoute
+ * decodes them the same way -- so a URL-significant character in a project
+ * key or change name survives the round trip.
  */
 function runDetailHref(row: StateBoardRow): string {
   return `#/run/${encodeURIComponent(row.projectKey)}/${encodeURIComponent(row.name)}`;
 }
 
-/**
- * One row's Plan growth cell (KAN-415): `planned → current (+n)` once the
- * change has been observed, the bare current figure while growth is zero,
- * and `—` when it never was -- an unobserved change reads as no figure,
- * never as a count of zero. The appended figure is the derivation the
- * store states -- latest minus first -- never a stored column.
- */
-function planGrowth(row: StateBoardRow): string {
-  const { plannedTasks, currentTasks } = row;
-  if (plannedTasks === undefined || currentTasks === undefined) {
-    return "—";
-  }
-  if (currentTasks === plannedTasks) {
-    return formatInt(plannedTasks);
-  }
-  // The delta carries its own sign: a re-plan fold can leave the plan
-  // smaller than it started, and a naive `(+${delta})` would render that
-  // as `+-24` (panel round 0, F1).
-  const delta = currentTasks - plannedTasks;
-  const growth = delta > 0 ? `+${delta}` : `${delta}`;
-  return `${plannedTasks} → ${currentTasks} (${growth})`;
+function openRun(row: StateBoardRow) {
+  window.location.hash = runDetailHref(row);
 }
-
-// The Project column names the project, it does not key it (kan-183): the
-// hash suffix identifies a checkout, not something a reader benefits from
-// parsing. `render` shows the display name; the full key survives as the
-// cell's `title`, one hover away.
-//
-// `accessor` deliberately disagrees with `render` (panel round 1, F3): it
-// stays the full key, not the display name. DataTable's exact-match filter
-// and free-text search both key off `accessor` (DataTable.tsx), and two
-// projects whose keys differ only in the disambiguating hash suffix share
-// one display name -- resolveProjectParam (stats/internal/api/stats.go)
-// refuses that exact ambiguity server-side with a 400 naming the
-// candidates. An accessor keyed to the display name would silently merge
-// those two projects into one filter entry client-side, the very
-// ambiguity the server refuses to guess through. Keeping accessor at the
-// full key means sorting, search and the filter dropdown all key on
-// identity -- the dropdown now lists full keys, not display names, since
-// FilterBar renders an option's visible text from the same accessor value
-// it filters on (there is no way to shorten one without the other). Do
-// not "fix" this back to `projectLabel` to match `render`: that
-// reintroduces the merge this comment describes.
-const columns: Column<StateBoardRow>[] = [
-  {
-    key: "projectKey",
-    header: "Project",
-    sortable: true,
-    accessor: (r) => r.projectKey,
-    render: (r) => <span title={r.projectKey}>{projectLabel(r.projectKey)}</span>,
-    filterable: true,
-  },
-  {
-    key: "name",
-    header: "Change",
-    sortable: true,
-    accessor: (r) => r.name,
-    render: (r) => <a href={runDetailHref(r)}>{r.name}</a>,
-  },
-  { key: "state", header: "State", sortable: true, accessor: (r) => r.state, filterable: true },
-  {
-    key: "planGrowth",
-    header: "Plan growth",
-    sortable: true,
-    accessor: (r) => r.currentTasks ?? null,
-    render: planGrowth,
-  },
-  {
-    key: "updatedAt",
-    header: "Updated",
-    sortable: true,
-    accessor: (r) => r.updatedAt,
-    render: (r) => formatDateTime(r.updatedAt),
-  },
-  { key: "runCount", header: "Runs", sortable: true, accessor: (r) => r.runCount, render: (r) => formatInt(r.runCount) },
-  { key: "costUsd", header: "Cost", sortable: true, accessor: (r) => r.costUsd, render: (r) => (r.runCount === 0 ? "—" : formatUsd(r.costUsd)) },
-  {
-    key: "wallClockMs",
-    header: "Wall clock",
-    sortable: true,
-    accessor: (r) => r.wallClockMs,
-    render: (r) => (r.runCount === 0 ? "—" : formatMs(r.wallClockMs)),
-  },
-  { key: "errors", header: "Errors", sortable: true, accessor: (r) => r.errors, render: (r) => formatInt(r.errors) },
-];
 
 function isPipelineFix(row: StateBoardRow): boolean {
   return row.name.startsWith("pipeline-fix-");
 }
 
-// The live state board's rows are changes, not stage runs -- the server
-// rejects a "model" restriction here with 400 (spec: "A model restriction
-// on the live state board"), and App.tsx already disables the dashboard
-// bar's model variable on this route for exactly that reason. This view
-// therefore never forwards `model` to useStatsView, even if App.tsx ever
-// stopped disabling it -- the same defence-in-depth useRunDetail.ts's own
-// client-side change filter documents for a different restriction.
-export function StateBoard({ period, onPeriodChange, project }: ViewProps) {
-  const fetched = useStatsView<StateBoardRow[]>("state-board", { from: period.from, to: period.to, project });
-  const state =
-    fetched.status === "ready"
-      ? { ...fetched, data: { ...fetched.data, rows: fetched.data.rows.filter((r) => !isPipelineFix(r)) } }
-      : fetched;
+function needsOperator(row: StateBoardRow): boolean {
+  return row.activity !== undefined && row.activity !== "working";
+}
+
+export function StatePill({ state }: { state: string }) {
+  return <span className={`lb-pill ${state}`}>{state}</span>;
+}
+
+/** A session's activity badge, how long it has been in that state, and what it waits on. */
+export function ActivityBadge({ row, now }: { row: StateBoardRow; now: number }) {
+  if (!row.activity) return null;
+  return (
+    <div className={`lb-act ${row.activity}`}>
+      <span className="lb-actb">{ACTIVITY_LABEL[row.activity]}</span>
+      {row.activitySince && <span className="lb-muted">{formatRelative(row.activitySince, now).replace(" ago", "")}</span>}
+      {row.activityDetail && (
+        <span className="lb-actd" title={row.activityDetail}>
+          {row.activityDetail}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function Chip({ on, onClick, title, children }: { on: boolean; onClick: () => void; title?: string; children: ReactNode }) {
+  return (
+    <button type="button" className="lb-fchip" aria-pressed={on} onClick={onClick} title={title}>
+      {children}
+    </button>
+  );
+}
+
+function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
+  const total = row.currentTasks;
+  const done = row.doneTasks ?? 0;
+  return (
+    <div
+      className={`lb-card${needsOperator(row) ? " needs" : ""}`}
+      data-testid="running-card"
+      role="button"
+      tabIndex={0}
+      aria-label={row.name}
+      onClick={() => openRun(row)}
+      onKeyDown={(e) => e.key === "Enter" && openRun(row)}
+    >
+      <div className="lb-top">
+        <span className="lb-name">{row.name}</span>
+        <StatePill state={row.state} />
+      </div>
+      <div className="lb-stage">
+        <span className="lb-live-dot" />
+        <span>{row.currentStage}</span>
+        {row.currentStageStartedAt && <span className="lb-muted">· {formatSpan(now - Date.parse(row.currentStageStartedAt))}</span>}
+      </div>
+      <ActivityBadge row={row} now={now} />
+      <div className="lb-prog">
+        <span style={{ width: total ? `${(done / total) * 100}%` : "0%" }} />
+      </div>
+      <div className="lb-meta">
+        <span title={row.projectKey}>{projectLabel(row.projectKey)}</span>
+        <span className="lb-num">
+          tasks {total === undefined ? "—" : `${done}/${total}`} · {formatUsd(row.costUsd)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** The latest task count, with its growth over the first when the plan grew or shrank. */
+function TasksCell({ row }: { row: StateBoardRow }) {
+  const { plannedTasks, currentTasks } = row;
+  if (plannedTasks === undefined || currentTasks === undefined) return <span className="lb-muted">—</span>;
+  const delta = currentTasks - plannedTasks;
+  return (
+    <>
+      {formatInt(currentTasks)}
+      {delta !== 0 && <span className="lb-growth">{delta > 0 ? `+${delta}` : `${delta}`}</span>}
+    </>
+  );
+}
+
+function ChangeRow({ row, now, maxCost }: { row: StateBoardRow; now: number; maxCost: number }) {
+  return (
+    <tr className="lb-row" onClick={() => openRun(row)}>
+      <td>
+        {row.currentStage !== undefined && (
+          <>
+            <span className="lb-live-dot" title="A stage is running" />{" "}
+          </>
+        )}
+        <a href={runDetailHref(row)} onClick={(e) => e.stopPropagation()}>
+          {row.name}
+        </a>
+      </td>
+      <td className="lb-proj">
+        <span title={row.projectKey}>{projectLabel(row.projectKey)}</span>
+      </td>
+      <td>
+        <StatePill state={row.state} />
+      </td>
+      <td>
+        {row.currentStage === undefined ? (
+          <span className="lb-muted">—</span>
+        ) : (
+          <>
+            <span className="lb-muted">{row.currentStage}</span>
+            {needsOperator(row) && (
+              <>
+                {" "}
+                <span className={`lb-act ${row.activity} inline`}>
+                  <span className="lb-actb">{ACTIVITY_LABEL[row.activity!]}</span>
+                </span>
+              </>
+            )}
+          </>
+        )}
+      </td>
+      <td className="r lb-num">
+        <TasksCell row={row} />
+      </td>
+      <td className="r" title={new Date(row.updatedAt).toISOString()}>
+        {formatRelative(row.updatedAt, now)}
+      </td>
+      <td className="r lb-num">{formatInt(row.runCount)}</td>
+      <td className="r">
+        <span className="lb-costcell">
+          <span className="lb-num">{formatUsd(row.costUsd)}</span>
+          <span className="lb-costbar">
+            <span style={{ width: `${maxCost ? ((row.costUsd / maxCost) * 100).toFixed(0) : 0}%` }} />
+          </span>
+        </span>
+      </td>
+      <td className="r lb-num">{row.errors ? <span className="lb-err">{formatInt(row.errors)}</span> : <span className="lb-muted">0</span>}</td>
+    </tr>
+  );
+}
+
+export function StateBoard() {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), REFRESH_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  const fetched = useStatsView<StateBoardRow[]>("state-board", { from: EPOCH, to: new Date(now), project: undefined });
+  // A refresh keeps showing the last answer while the next one loads.
+  const last = useRef<StateBoardRow[] | null>(null);
+  if (fetched.status === "ready") last.current = fetched.data.rows.filter((r) => !isPipelineFix(r));
+
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ FINISHED: true });
+
+  const rows = last.current;
+  const heading = (
+    <div>
+      <h2>Live state board</h2>
+      <p className="lb-sub">Every open change across every project. Click a state tile to filter by state; click a row to open the run.</p>
+    </div>
+  );
+  if (rows === null) {
+    return (
+      <section aria-label="Live state board" className="dashboard lb">
+        {heading}
+        <p className="lb-sub">{fetched.status === "error" ? `Could not load the board: ${fetched.message}` : "Loading…"}</p>
+      </section>
+    );
+  }
+
+  const set = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }));
+  const toggleState = (s: string) => {
+    const states = new Set(filters.states);
+    if (states.has(s)) {
+      states.delete(s);
+    } else {
+      states.add(s);
+      setCollapsed((c) => ({ ...c, [s]: false }));
+    }
+    set({ states });
+  };
+
+  const query = filters.query.trim().toLowerCase();
+  const base = rows.filter(
+    (r) =>
+      (!filters.project || r.projectKey === filters.project) &&
+      (now - Date.parse(r.updatedAt)) / 60000 <= PERIOD_MINUTES[filters.period] &&
+      (!filters.errors || r.errors > 0) &&
+      (!query || r.name.toLowerCase().includes(query)),
+  );
+  const shown = base.filter((r) => filters.states.size === 0 || filters.states.has(r.state));
+  const running = rows
+    .filter((r) => r.currentStage !== undefined)
+    .sort((a, b) => Number(!needsOperator(a)) - Number(!needsOperator(b)));
+  const maxCost = Math.max(0, ...rows.map((r) => r.costUsd));
+  const projects = [...new Set(rows.map((r) => r.projectKey))];
+  const dirty = filters.project || filters.states.size > 0 || filters.period !== "7d" || filters.errors || filters.query;
 
   return (
-    <ViewFrame title="Live state board" description="Every open change across every project, with its state and its run totals.">
-      <div className="dashboard-stat-row">
-        <Panel title="Changes" state={state}>
-          {(data) => <StatPanel label="Changes" value={data.rows.length} format={formatInt} />}
-        </Panel>
-      </div>
-      <Panel title="Every open change" state={state}>
-        {(data) => (
-          <DataTable
-            columns={columns}
-            rows={data.rows}
-            rowKey={(r) => `${r.projectKey}/${r.name}`}
-            emptyMessage="No changes updated in this period."
-            period={period}
-            onPeriodChange={onPeriodChange}
-          />
+    <section aria-label="Live state board" className="dashboard lb">
+      {heading}
+      <div className="lb-fbar" role="toolbar" aria-label="Filters">
+        <span className="lb-fgroup" role="group" aria-label="Project">
+          <span className="lb-fl">Project</span>
+          <Chip on={!filters.project} onClick={() => set({ project: null })}>
+            All
+          </Chip>
+          {projects.map((p) => (
+            <Chip key={p} on={filters.project === p} onClick={() => set({ project: p })} title={p}>
+              {projectLabel(p)}
+              <span className="lb-c">{rows.filter((r) => r.projectKey === p).length}</span>
+            </Chip>
+          ))}
+        </span>
+        <span className="lb-fgroup" role="group" aria-label="Updated">
+          <span className="lb-fl">Updated</span>
+          {(Object.keys(PERIOD_MINUTES) as PeriodChip[]).map((p) => (
+            <Chip key={p} on={filters.period === p} onClick={() => set({ period: p })}>
+              {p}
+            </Chip>
+          ))}
+        </span>
+        <span className="lb-fgroup">
+          <Chip on={filters.errors} onClick={() => set({ errors: !filters.errors })}>
+            With errors only
+          </Chip>
+        </span>
+        {dirty && (
+          <button type="button" className="lb-fclear" onClick={() => setFilters(NO_FILTERS)}>
+            Clear filters
+          </button>
         )}
-      </Panel>
-    </ViewFrame>
+        <input
+          type="search"
+          placeholder="Search changes"
+          aria-label="Search changes"
+          value={filters.query}
+          onChange={(e) => set({ query: e.target.value })}
+        />
+      </div>
+      <div className="lb-strip">
+        {STATES.map((s) => (
+          <button key={s} type="button" className={`lb-tile ${s}`} aria-pressed={filters.states.has(s)} onClick={() => toggleState(s)}>
+            <span className="lb-lbl">{STATE_LABEL[s]}</span>
+            <span className="lb-val lb-num">{base.filter((r) => r.state === s).length}</span>
+          </button>
+        ))}
+        <div className="lb-tile static">
+          <span className="lb-lbl">Running now</span>
+          <span className="lb-val lb-num">{running.length}</span>
+        </div>
+        <div className="lb-tile static">
+          <span className="lb-lbl">Cost in period</span>
+          <span className="lb-val lb-num">{formatUsd(base.reduce((a, r) => a + r.costUsd, 0))}</span>
+        </div>
+      </div>
+      <section className="lb-panel" aria-label="Running now">
+        <div className="lb-panel-h">
+          <span>Running now</span>
+          <span className="lb-panel-note">auto-refreshes every 5s</span>
+        </div>
+        <div className="lb-panel-b lb-cards">
+          {running.map((r) => (
+            <RunningCard key={`${r.projectKey}/${r.name}`} row={r} now={now} />
+          ))}
+        </div>
+      </section>
+      <section className="lb-panel" aria-label="Changes">
+        <div className="lb-panel-h">
+          <span>Changes</span>
+        </div>
+        <div className="lb-scroll">
+          <table className="lb-table">
+            <thead>
+              <tr>
+                <th>Change</th>
+                <th>Project</th>
+                <th>State</th>
+                <th>Current stage</th>
+                <th className="r">Tasks</th>
+                <th className="r">Updated</th>
+                <th className="r">Runs</th>
+                <th className="r">Cost</th>
+                <th className="r">Errors</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="lb-muted">
+                    No changes match.
+                  </td>
+                </tr>
+              )}
+              {STATES.map((s) => {
+                const group = shown.filter((r) => r.state === s).sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+                if (group.length === 0) return null;
+                const isCollapsed = collapsed[s] ?? false;
+                const toggle = () => setCollapsed((c) => ({ ...c, [s]: !isCollapsed }));
+                return (
+                  <Fragment key={s}>
+                    <tr
+                      className={`lb-group${isCollapsed ? " collapsed" : ""}`}
+                      tabIndex={0}
+                      aria-expanded={!isCollapsed}
+                      onClick={toggle}
+                      onKeyDown={(e) => e.key === "Enter" && toggle()}
+                    >
+                      <td colSpan={9}>
+                        <span className="lb-caret">▾</span>
+                        {STATE_LABEL[s]}
+                        <span className="lb-cnt">{group.length}</span>
+                      </td>
+                    </tr>
+                    {!isCollapsed && group.map((r) => <ChangeRow key={`${r.projectKey}/${r.name}`} row={r} now={now} maxCost={maxCost} />)}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
   );
 }
