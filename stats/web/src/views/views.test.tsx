@@ -1068,6 +1068,7 @@ describe("review dynamics", () => {
     const heat = (await screen.findByText(/Findings per dispatch: slot/)).closest(".dynamics-panel") as HTMLElement;
     expect(within(heat).getAllByRole("rowheader").map((h) => h.textContent)).toEqual(["test-sanity", "mutation"]);
     expect(within(heat).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["", "opuslow", "opusmedium", "opushigh", "sonnetlow"]);
+    await userEvent.click(within(screen.getByRole("group", { name: "Prompt changes" })).getByRole("button", { name: "All" }));
     const effort = screen.getByRole("region", { name: "Findings per dispatch by reviewer effort" });
     expect([...effort.querySelectorAll(".dynamics-legend > *")].map((e) => e.textContent?.trim())).toEqual(["low", "medium", "high", "default", "xhigh", "prompt change"]);
     const impl = screen.getByRole("region", { name: "Panel findings per implementer task" });
@@ -1179,10 +1180,33 @@ describe("review dynamics", () => {
     expect(screen.getByText("Findings per dispatch: slot × model version · effort")).toBeInTheDocument();
   });
 
+  it("review dynamics filters prompt-change markers by kind", async () => {
+    noRangeInUrl();
+    render(<ReviewDynamics period={period} onPeriodChange={() => {}} project={undefined} />);
+    const severity = await screen.findByRole("region", { name: "Findings per change by severity" });
+    const kinds = screen.getByRole("group", { name: "Prompt changes" });
+    expect(within(kinds).getAllByRole("button").map((b) => b.textContent)).toEqual([
+      "flow-prompt-tuning",
+      "All",
+      "auto prompt tuning",
+    ]);
+    expect(within(kinds).getByRole("button", { name: "flow-prompt-tuning" })).toHaveAttribute("aria-pressed", "true");
+    const tip = () => {
+      fireEvent.mouseEnter(severity.querySelector('[data-bucket="2026-01-12"]')!);
+      return within(severity).getByRole("tooltip");
+    };
+    expect(tip()).not.toHaveTextContent("Prompt edit");
+    await userEvent.click(within(kinds).getByRole("button", { name: "auto prompt tuning" }));
+    expect(tip()).toHaveTextContent("Prompt edit · primary");
+    await userEvent.click(within(kinds).getByRole("button", { name: "All" }));
+    expect(tip()).toHaveTextContent("Prompt edit · primary");
+  });
+
   it("review dynamics tooltip lists values, basis and marker", async () => {
     noRangeInUrl();
     render(<ReviewDynamics period={period} onPeriodChange={() => {}} project={undefined} />);
     const severity = await screen.findByRole("region", { name: "Findings per change by severity" });
+    await userEvent.click(within(screen.getByRole("group", { name: "Prompt changes" })).getByRole("button", { name: "All" }));
     fireEvent.mouseEnter(severity.querySelector('[data-bucket="2026-01-12"]')!);
     const tip = within(severity).getByRole("tooltip");
     expect(tip).toHaveTextContent("Week of 01-12");

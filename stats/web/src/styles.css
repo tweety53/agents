@@ -517,7 +517,7 @@ th button {
 .dynamics-good { color: var(--delta-down); }
 .dynamics-bad { color: var(--delta-up); }
 .dynamics-flat { color: var(--text-muted); }
-.dynamics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 10px; }
+.dynamics-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .dynamics-section { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin: 18px 0 8px; }
 .dynamics-panel svg { width: 100%; height: auto; display: block; }
 .dynamics-axis { stroke: var(--border); }

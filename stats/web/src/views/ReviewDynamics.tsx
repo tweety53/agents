@@ -122,6 +122,14 @@ export function byEffort(a: string, b: string): number {
 
 // CURRENT_SLOTS is every slot the review panel dispatches today -- the
 // panelSlots internal/api records against; any other slot is retired.
+// MARKER_KINDS is the Prompt changes bar: a null kind marks both
+// (marker-kind-filter).
+const MARKER_KINDS: [string, PromptChange["kind"] | null][] = [
+  ["flow-prompt-tuning", "tuning"],
+  ["All", null],
+  ["auto prompt tuning", "edit"],
+];
+
 const CURRENT_SLOTS = new Set(["primary", "principles", "test-sanity", "call-efficiency", "failure-modes", "mutation"]);
 
 function Heatmap({ cells, previous, byVersion }: { cells: HeatCell[]; previous: HeatCell[]; byVersion: boolean }) {
@@ -210,6 +218,7 @@ export function ReviewDynamics({ period, onPeriodChange, project, onProjectChang
   const [preset, setPreset] = useState<Preset | null>(() => (/[?&]from=/.test(window.location.hash) ? null : "4"));
   const [byVersion, setByVersion] = useState(false);
   const [showRetired, setShowRetired] = useState(false);
+  const [markerKind, setMarkerKind] = useState<PromptChange["kind"] | null>("tuning");
   const [planClass, setPlanClass] = useState<StatsViewParams["class"]>(undefined);
   // A URL naming no range opens on Last 4 weeks (view-owned-range), and
   // the first fetch already asks for it, so App's default period is never
@@ -309,9 +318,21 @@ export function ReviewDynamics({ period, onPeriodChange, project, onProjectChang
         </button>
         <span className="dynamics-sub dynamics-inline">Current hides retired reviewer slots; All shows them too.</span>
       </div>
+      <div className="dynamics-bar" role="group" aria-label="Prompt changes">
+        <span className="dynamics-lbl">Prompt changes</span>
+        {MARKER_KINDS.map(([label, kind]) => (
+          <button key={label} type="button" aria-pressed={markerKind === kind} onClick={() => setMarkerKind(kind)}>
+            {label}
+          </button>
+        ))}
+        <span className="dynamics-sub dynamics-inline">
+          Which prompt changes the charts mark: applied by /flow-prompt-tuning, recorded automatically from commits, or
+          both.
+        </span>
+      </div>
       {state.status === "loading" && <p role="status">Loading…</p>}
       {state.status === "error" && <p role="alert">Failed to load: {state.message}</p>}
-      {rows && <Dynamics rows={rows} byVersion={byVersion} showRetired={showRetired} period={shown} />}
+      {rows && <Dynamics rows={rows} byVersion={byVersion} showRetired={showRetired} markerKind={markerKind} period={shown} />}
     </section>
   );
 }
@@ -332,11 +353,13 @@ function Dynamics({
   rows,
   byVersion,
   showRetired,
+  markerKind,
   period,
 }: {
   rows: ReviewDynamicsRows;
   byVersion: boolean;
   showRetired: boolean;
+  markerKind: PromptChange["kind"] | null;
   period: Period;
 }) {
   const shownSlot = (slot: string) => showRetired || CURRENT_SLOTS.has(slot);
@@ -346,7 +369,7 @@ function Dynamics({
   const markersFor = (area: PromptChange["area"] | null): DynamicsMarker[] => {
     if (!area) return [];
     return rows.markers.flatMap((m) => {
-      if (m.area !== area) return [];
+      if (m.area !== area || (markerKind && m.kind !== markerKind)) return [];
       // A marker belongs to the last bucket starting on or before it.
       const day = m.at.slice(0, 10);
       let i = -1;
