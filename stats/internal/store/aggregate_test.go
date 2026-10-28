@@ -533,6 +533,124 @@ func TestWeeklyCostsHonoursProjectModelAndPeriod(t *testing.T) {
 	}
 }
 
+// TestWeeklyCostsCountsVisualVerify pins visual-verify-category and
+// other-category: a flow.visual-verify run counts in its own column (a
+// loop change's still as self-review), and a run in no named phase counts
+// in Other, nil in a week whose runs all fall in named phases.
+func TestWeeklyCostsCountsVisualVerify(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-weekly-vv-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedChange(t, st, projectKey, "self-review-kan-1")
+
+	runs := []struct {
+		change string
+		stage  string
+		at     time.Time
+		cost   float64
+	}{
+		{"kan-1", "flow.sdd-tdd", time.Date(2026, 6, 4, 0, 0, 0, 0, time.UTC), 5}, // week of 06-03: named phases only
+		{"kan-1", "flow.visual-verify", time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC), 2},
+		{"self-review-kan-1", "flow.visual-verify", time.Date(2026, 6, 11, 0, 0, 0, 0, time.UTC), 4},
+		{"kan-1", "flow.verify", time.Date(2026, 6, 12, 0, 0, 0, 0, time.UTC), 1},
+	}
+	for i, r := range runs {
+		in := baseBeginInput(projectKey, r.change, "/flow", r.stage)
+		in.SessionID = ptr(fmt.Sprintf("weekly-vv-%d", i))
+		in.StartedAt = r.at
+		costRun(t, st, in, r.cost)
+	}
+
+	period := store.Period{
+		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+	}
+	points, err := st.WeeklyCosts(ctx, period, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("WeeklyCosts: %v", err)
+	}
+	if len(points) != 2 {
+		t.Fatalf("WeeklyCosts returned %d points, want 2", len(points))
+	}
+	check := func(label string, got, want *float64) {
+		t.Helper()
+		switch {
+		case want == nil && got != nil:
+			t.Errorf("%s = %v, want nil", label, *got)
+		case want != nil && (got == nil || *got != *want):
+			t.Errorf("%s = %v, want %v", label, got, *want)
+		}
+	}
+	check("points[0].VisualVerifyUSD", points[0].VisualVerifyUSD, nil)
+	check("points[0].OtherUSD", points[0].OtherUSD, nil)
+	check("points[1].VisualVerifyUSD", points[1].VisualVerifyUSD, ptr(2.0))
+	check("points[1].SelfReviewUSD", points[1].SelfReviewUSD, ptr(4.0))
+	check("points[1].OtherUSD", points[1].OtherUSD, ptr(1.0))
+	check("points[1].OverallUSD", points[1].OverallUSD, ptr(7.0))
+}
+
+// TestWeeklyModelEffortCostsSplitsDispatchAndSession pins
+// dispatch-served-effort and session-line: priced dispatches chart by
+// served model and effort (default when none was served), and each model
+// bucket's remainder after its dispatches charts as that model's session.
+func TestWeeklyModelEffortCostsSplitsDispatchAndSession(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-weekly-me-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	run := func(i int, at time.Time, metrics string) {
+		t.Helper()
+		in := baseBeginInput(projectKey, "kan-1", "/flow", "flow.sdd-tdd")
+		in.SessionID = ptr(fmt.Sprintf("weekly-me-%d", i))
+		in.StartedAt = at
+		r, err := st.BeginStage(ctx, in)
+		if err != nil {
+			t.Fatalf("BeginStage: %v", err)
+		}
+		if err := st.MergeMetrics(ctx, r.ID, json.RawMessage(metrics)); err != nil {
+			t.Fatalf("MergeMetrics: %v", err)
+		}
+	}
+	run(0, time.Date(2026, 6, 11, 0, 0, 0, 0, time.UTC), `{
+		"models": {"claude-opus-5-5": {"cost_usd": 10}, "claude-sonnet-5-5": {"cost_usd": 2}},
+		"dispatches": {
+			"a1": {"model": "opus", "cost_usd": 3, "signals": {"served_models": {"claude-opus-5-5": 2}, "served_efforts": {"low": 2}}},
+			"a2": {"model": "sonnet", "cost_usd": 2, "signals": {"served_models": {"claude-sonnet-5-5": 2}, "served_efforts": {"medium": 2}}},
+			"a3": {"model": "opus", "cost_usd": 1, "signals": {"served_models": {"claude-opus-5-5": 1}}},
+			"a4": {"model": "opus"}
+		}
+	}`)
+	// Outside the period: contributes nothing.
+	run(1, time.Date(2026, 7, 2, 0, 0, 0, 0, time.UTC), `{"models": {"claude-opus-5-5": {"cost_usd": 50}}}`)
+
+	period := store.Period{
+		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+	}
+	points, err := st.WeeklyModelEffortCosts(ctx, period)
+	if err != nil {
+		t.Fatalf("WeeklyModelEffortCosts: %v", err)
+	}
+	week := time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
+	want := []store.WeeklyModelEffortPoint{
+		{Week: week, Model: "claude-opus-5-5", Effort: "default", CostUSD: 1},
+		{Week: week, Model: "claude-opus-5-5", Effort: "low", CostUSD: 3},
+		{Week: week, Model: "claude-opus-5-5", Effort: "session", CostUSD: 6},
+		{Week: week, Model: "claude-sonnet-5-5", Effort: "medium", CostUSD: 2},
+	}
+	if len(points) != len(want) {
+		t.Fatalf("WeeklyModelEffortCosts returned %d rows %+v, want %d", len(points), points, len(want))
+	}
+	for i, w := range want {
+		g := points[i]
+		if !g.Week.Equal(w.Week) || g.Model != w.Model || g.Effort != w.Effort || g.CostUSD != w.CostUSD {
+			t.Errorf("row %d = %+v, want %+v", i, g, w)
+		}
+	}
+}
+
 // TestPanelEconomicsComputesTokensAndFindingsPerMTok seeds one stage run
 // with a known token total and a known findings-by-severity bag, and
 // checks TokensTotal and FindingsPerMTok against values hand-computed from

@@ -10,7 +10,7 @@ import (
 // stage key the stages vocabulary does not declare.
 func TestWeeklyCostStagesAreDeclared(t *testing.T) {
 	c := weeklyCostStages
-	for _, k := range append([]string{c.selfReview, c.implementation, c.review}, c.planning...) {
+	for _, k := range append([]string{c.selfReview, c.visualVerify, c.implementation, c.review}, c.planning...) {
 		if _, ok := stages.Name(k); !ok {
 			t.Errorf("weekly-cost stage key %q is not in the stages vocabulary", k)
 		}
