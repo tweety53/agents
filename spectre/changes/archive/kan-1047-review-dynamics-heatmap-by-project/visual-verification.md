@@ -53,3 +53,9 @@ none named.
 
 ## Fix run 1 (Task 7)
 - Every Review dynamics y axis now draws ticks `0, s, 2s` on a 1·2·5 step, whole when the format cannot show a half, each label at the height of the value it names (vitest `dynamics chart labels each tick with the value it sits at`). Picked state: "Changes reviewed" reads `0`, `1`, `2` with the line on `1`; "Visual verify passed first time" tops at `100%`; findings charts read e.g. `0.0`, `5.0`, `10.0`. Every `review-dynamics-*` baseline, `full-review-dynamics-darwin.png` and the full-app-suite zip were recaptured and read; `npm run test:visual`: 67 passed.
+
+## Round visual-verify-fix-4-full (HEAD 83059f85)
+
+- review-dynamics-picked: `visual-verification/evidence/review-dynamics-picked-darwin.png` — every DynamicsChart y axis labels the value its gridline sits at: "Changes reviewed" 0/1/2 with the series on the 1 gridline; "Visual verify passed first time" 0%/50%/100%; "Implementer dispatches blocked or aborted" 0%/50%/100%; count charts on 1·2·5 steps (0/5/10, 0/2/4, 0/1/2). No duplicate or blank tick. Pointer parked, no hover ink.
+- Composite `visual-verification/review-dynamics-picked.png` against prototype frame `review-dynamics`, diff=n/a (frame 1280x2802 with annotation wrapper vs capture 1280x2647). Bands 1/1 paired, height −155px, colour distance 6.9 — cause: the prototype's annotation wrapper, outside the app's ink. Seams, rows, ink and matrix n/a as in round fix-3 for the same cause; matrix `visual-verification/matrix/review-dynamics-picked.json`.
+- Departures: none.

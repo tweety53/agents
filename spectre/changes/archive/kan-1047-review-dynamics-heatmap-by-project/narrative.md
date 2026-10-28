@@ -16,3 +16,15 @@
 - Chained from the implementation run (no review-before-landing). `prepare` passed the unfinished-work and visual gates first time; the base had not moved since the round-3 rebase onto the landed pipeline fix.
 
 In-run pipeline fix: 69938fe7946f3b09fb96e63d15f2fb4fe293eec1 — a missed fix-mutation row could never be recorded once its round re-review began, deadlocking the panel close (blast radius 3 files)
+
+## 2026-10-28 — fix run 1
+
+- The self-review pass of the second integrate run found a product defect (the sweep): Review dynamics y-axis labels named rounded values other than the ones their ticks sat at — peak 3 drew `2` at 1.5, an empty chart left its axis line unlabelled, and Task 6's blank-label fix had locked the mislabel into a test. Appended as Task 7 (archived change, append taken); re-decided `small`→`regular`, same roster.
+- Implemented inline: ticks `0, s, 2s` on a 1·2·5 step. A first rule (whole steps for whole-number data) put a 200% tick on a 0/1 share chart and was replaced, before review, by a floor read off the format.
+- Panel round 6 (small append: primary + the two extras): primary F20 (Important) — the half-only floor still let `toFixed(1)` at peak 0.06 read `0.0, 0.1, 0.1`; mutation F21–F24 — four surviving mutants. Fixed by picking the smallest step whose three labels the format tells apart; four flips mutation-proved, rows recorded `-late` (proved before the re-review, recorded after it). Round-6's mutation slot left a live mutant (`2 * s * 1.12` → `2 * s`) in the canonical worktree instead of a throwaway copy; the parent restored it before fixing.
+- Round 7 re-review (sonnet): clean of Critical/Important; Minors F25 (an all-zero share chart topped at 200%) and F26 (dead `+ 1e-9`) fixed inline.
+- Visual verify `visual-verify-fix-4-full` at 83059f85: no departures; every y label sits on its gridline.
+
+## 2026-10-28 — integrate run
+
+- Second integrate run (bare `/flow kan-1047`): `prepare` found the change archived without new work, gates green, base unmoved, route merge and push from the project default. The self-review pass stopped on the product defect above and the run went into fix run 1.
