@@ -1,41 +1,36 @@
 # Visual verification — kan-1046 review dynamics
 
-Frame: the approved prototype `.superpowers/sdd/review-dynamics-prototype.html` (no `mockups` root), rendered per capture by `visual-verification/prototype/render.mjs` at 1280x1024, dpr 1, the capture's colour scheme; map `visual-verification/prototype.mockups`. Composites carry `diff=n/a`: the capture (2486px, with the app's nav header) and the frame (2459px, no header) differ in height, so no difference panel is drawn. Matrices: `visual-verification/matrix/<frame>.json` (bands/seams in `<frame>.bands.json`). The view is new: no merge-base rendering, so every departure below is this change's unless stated.
+Frame: the approved prototype `.superpowers/sdd/review-dynamics-prototype.html` (no `mockups` root), rendered per capture by `visual-verification/prototype/render.mjs` full page at 1280x1024, dpr 1, the capture's colour scheme, driving each capture's state (Version pressed, chart hover at bucket 2, first heat cell hovered); map `visual-verification/prototype.mockups`. Composites carry `diff=n/a`: capture and frame heights differ (the capture carries the app's nav header, the frame none), so no difference panel is drawn. Bands/seams: `visual-verification/matrix/<frame>.bands.json`; matrices: `visual-verification/matrix/<frame>.json`. The view is new: no merge-base rendering, so any departure is this change's unless stated. Re-run at HEAD 2553edea as fix round 1's closing unscoped run (whole suite, no round base): every capture re-taken, every frame re-rendered, re-composed and re-measured; bands, seams and matrix counts unchanged from the scoped run. The seam pairing's one page cell lists 21 text lines (22 on Version); the ~10 with an `offset` delta over 2px are the in-order pairing shifted by the app nav header's three lines the prototype lacks — the rest have `left` delta 0, left-anchored runs whose seed text differs.
 
 ## review-dynamics (dark, full page)
-- Capture: `visual-verification/evidence/review-dynamics-darwin.png`; composite `visual-verification/review-dynamics.png`.
-- Seen: nav header with "Review dynamics" current, disabled Model filter with its reason, h1, intro, Range row (no preset pressed — range pinned by query), Family pressed, six tiles, 10 charts in four sections with markers, heatmap of 3 slots x 5 model·effort columns, footnote. All numbers are display values; no NaN/null/undefined.
-- Bands 1/1 paired (whole page one band in both — dark page has no full-width rule the scanner splits on); seams paired at page edges. Matrix: 5 paired, 27 missing, 35 extra elements — layout offset by the app header (extra, expected app chrome) and different seed data unpairs the rest.
-- Departures (this change's):
-  1. Intro paragraph uses the app's `.view-description` (~14px, primary-ish colour); prototype `.sub{font-size:12px;color:var(--text-secondary)}`.
-  2. Heatmap table stretches the panel's full width with a wide row-label column and hairlines between rows; prototype `.heat{border-collapse:separate;border-spacing:3px}` with `td{width:92px}` and no row rules, table left-packed. Global table styles cascade into `.dynamics-heat`.
-  3. Heatmap columns and rows sorted alphabetically (`ReviewDynamics.tsx:115-116`): efforts read high, low, medium; prototype orders low, medium, high and slots primary, principles, failure-modes, test-sanity, mutation, call-efficiency.
-  4. "Findings per dispatch by reviewer effort" legend/series order high, low, medium (`ReviewDynamics.tsx:304` sorts by name); prototype low, medium, high.
-  5. No "Last 8 weeks" pressed state captured: the prototype draws the default preset pressed (`.bar button[aria-pressed="true"]{border-color:var(--s1)}`); the spec pins the range by query so no preset is ever pressed in any capture.
-- Not data-caused: seed data differs from prototype sample data (values, tick labels, marker positions) — named cause for every text/value difference.
+- Capture `visual-verification/evidence/review-dynamics-darwin.png`; composite `visual-verification/review-dynamics.png`.
+- Seen: intro at 12px (`.sub{font-size:12px}`), heatmap packed 92px cells with no row rules (`.heat td{width:92px}`), columns opus low/medium/high then sonnet low/medium, effort series low/medium/high, as the prototype orders them. Previous dark departures 1–5 confirmed fixed.
+- Bands 1/1 paired (page band; height delta 16px = app nav header plus seed-data page length). Seams 4/4 paired, 0 over tolerance.
+- Matrix 67 rows × 11 columns, 0 n/a: 5 paired, 27 missing, 35 extra — the app header shifts every element ~170px and seed data differs (tile values, series counts, heat rows), so the pairing desyncs; no structural departure read on the composite.
 
-## review-dynamics-hover (dark, severity panel)
-- Capture: `visual-verification/evidence/review-dynamics-hover-darwin.png`; composite `visual-verification/review-dynamics-hover.png`.
-- Seen: crosshair on week 05-18, tooltip "Week of 05-18", Critical 1.0, Important 0.5, Minor 4.0, "based on 2 changes", marker line "◆ Prompt edit · primary: primary reviewer re-reads every writer of state the diff reuses (2e053aa)".
-- Bands 1/1, seams paired at the panel border. Matrix: 5 paired, 3 missing, 1 extra.
-- Departures:
-  1. Tooltip background `var(--surface-2)` (#181b1f dark, same as the panel); prototype `.tip{background:var(--surface-tip)}` = #22252b.
-  2. The capture is an element clip (`severity.toHaveScreenshot`), not full page/viewport — step 8 forbids a clipped capture.
-- Frame artefact: the prototype render's tooltip sits below the panel (its `svg.offsetTop+8` positioning on the frame's data), not a capture defect.
+## review-dynamics-version (dark, Version pressed)
+- Capture `visual-verification/evidence/review-dynamics-version-darwin.png`; composite `visual-verification/review-dynamics-version.png`.
+- Seen: Version pressed in the `.bar button[aria-pressed="true"]` accent; reviewer-model chart and heatmap split by version (claude-opus-5, claude-opus-5-5, claude-sonnet-5-5, opus (version unrecorded)). Bands 1/1, seams 4/4. Matrix 67 rows, 5 paired / 27 missing / 35 extra, same cause.
+- Spec note: the click capture parks no pointer (no `page.mouse.move(0, 0)` after the click), against step 8's click rule; no hover ink is visible on this capture.
+
+## review-dynamics-default-preset (dark, Last 8 weeks pressed)
+- Capture `visual-verification/evidence/review-dynamics-default-preset-darwin.png`; composite `visual-verification/review-dynamics-default-preset.png`.
+- Seen: Last 8 weeks and Family pressed — the prototype's opening state. Bands 1/1, seams 4/4. Matrix 67 rows, 3 paired / 29 missing / 35 extra, same cause.
+
+## review-dynamics-hover (dark, chart hover)
+- Capture `visual-verification/evidence/review-dynamics-hover-darwin.png`; composite `visual-verification/review-dynamics-hover.png`.
+- Seen: full page; tooltip "Week of 05-18", severity rows, "based on 2 changes", marker line in `--marker`, on #22252b (`.tip{background:var(--surface-tip)}`). Previous hover departures confirmed fixed. Bands 1/1, seams 4/4. Matrix 64 rows, 5 paired / 24 missing / 35 extra.
+
+## review-dynamics-heat-hover (dark, heat cell hover)
+- Capture `visual-verification/evidence/review-dynamics-heat-hover-darwin.png`; composite `visual-verification/review-dynamics-heat-hover.png`.
+- Byte-identical to `review-dynamics-darwin.png`: the prototype declares no `.heat td:hover` style and its tooltip is the native `title`, which no screenshot draws; the spec asserts the title text. Bands 1/1, seams 4/4. Matrix 67 rows as the resting frame.
 
 ## review-dynamics-light (light, full page)
-- Capture: `visual-verification/evidence/review-dynamics-light-darwin.png`; composite `visual-verification/review-dynamics-light.png`.
-- Seen: same content as dark in the light palette; all values display values.
-- Bands: frame 1 band (missing), capture 24 extra; seams 1 missing, 3 extra. Cause: the app's light palette (`--surface-1:#fcfcfb`, `--border:#d8d6cf`, warm greys) versus the prototype's (`--surface-1:#f4f5f7`, `--border:#d0d7de`) — present at the merge base (theme.css light block, merge-base baseline: c4202f60:stats/web/tests/visual/weekly-costs.spec.ts-snapshots/weekly-costs-light-darwin.png). Matrix: 4 paired, 14 missing, 20 extra.
-- Departures 1-5 of the dark frame repeat here.
+- Capture `visual-verification/evidence/review-dynamics-light-darwin.png`; composite `visual-verification/review-dynamics-light.png`.
+- Bands 0/1 paired, 1 missing, 23 extra; seams likewise: the app's light theme tokens split bands the prototype's palette does not — known and accepted, present at the merge base (merge-base baseline: c4202f60:stats/web/tests/visual/weekly-costs.spec.ts-snapshots/weekly-costs-light-darwin.png). Matrix 39 rows, 3 paired / 15 missing / 21 extra.
 
-## Missing captures (prototype states no test drives)
-- Heatmap cell hover (design.md `## Context` names it; prototype draws it via `title`).
-- Version toggle pressed (chart titles/heatmap header switch to "model version").
-- Default "Last 8 weeks" pressed preset (see departure 5).
-
-## Sweeps (per frame)
-- text: done (every run transcribed; display values). order: done (prototype order h1, sub, ranges, models, tiles, review panel, implementer, visual verify, heatmap, note — capture matches, plus app header extra). reach: done (footnote, last element, reached in full-page capture). derived: done — tile deltas follow range; not re-driven by input (no editable input other than presets/toggle, which no capture drives). rows: done — Range/Models bars gap 12/16px per `.dynamics-bar` = prototype `.bar`. ink: done — heatmap row hairlines extra (departure 2), all panel borders present.
+## Sweeps (every frame)
+text, order, reach, derived, rows, ink done on each frame: every label a display value (no NaN/null/raw float); element order matches the prototype top to bottom below the app header; the page scrolls to the footnote; delta arrows follow the previous range; bounded panel rows within tolerance; no frame ink run missing (heatmap row hairlines gone).
 
 ## In-run fix 1 (task 11)
 - Dark frame departures 1–5 and hover departures 1–2 are fixed:
