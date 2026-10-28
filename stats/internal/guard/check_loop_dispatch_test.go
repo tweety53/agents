@@ -172,7 +172,7 @@ func TestCheckLoopDispatch(t *testing.T) {
 // TestLoopDispatchPlannerTypes pins the plan row's planner definitions
 // (kan-1033, decision planner-carries-agent): flow-planner-medium and
 // flow-planner-low are admitted, a leaf flow-medium is refused, and
-// flow-planner-high only on a recorded escalation after an earlier plan.
+// flow-planner-high is refused even on a recorded escalation.
 func TestLoopDispatchPlannerTypes(t *testing.T) {
 	t.Parallel()
 	const plan2 = `[{"seq":1,"key":"self-review-x-plan","outcome":"completed","sessionToken":"self-review-x","endedAt":"2026-10-16T10:00:00Z"}]`
@@ -185,8 +185,8 @@ func TestLoopDispatchPlannerTypes(t *testing.T) {
 		{"medium planner", `[]`, "self-review-x-plan", "flow-planner-medium", false, 0, "-effort medium"},
 		{"low planner", `[]`, "self-review-x-plan", "flow-planner-low", false, 0, "-effort low"},
 		{"leaf flow-medium", `[]`, "self-review-x-plan", "flow-medium", false, 1, "PAIR — self-review-x-plan runs on subagent_type flow-planner-medium or flow-planner-low"},
-		{"high planner unescalated", plan2, "self-review-x-plan-2", "flow-planner-high", false, 1, "ESCALATION —"},
-		{"high planner escalated", plan2, "self-review-x-plan-2", "flow-planner-high", true, 0, "-effort high"},
+		{"high planner unescalated", plan2, "self-review-x-plan-2", "flow-planner-high", false, 1, "PAIR —"},
+		{"high planner escalated", plan2, "self-review-x-plan-2", "flow-planner-high", true, 1, "PAIR —"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

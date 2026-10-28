@@ -4,9 +4,8 @@
 #
 # Usage: plan-agent-pair.sh <seed> <n>
 #
-# Prints one line, `sonnet low` when sha256("<seed>plan<n>") mod 100 < 40,
-# else `opus low` (decision low-effort-40-60, kan-1033 design.md §5), rolled
-# exactly as plan-class.sh rolls. <seed> is the change name — in /flow-plan
+# Prints one line, always `opus low` — planning runs on opus only, at effort
+# low to medium. <seed> is the change name — in /flow-plan
 # before capture, the session token; <n> counts the session's planning
 # dispatches from 1. Exit 0 on the printed line, exit 2 on a usage error
 # (<n> not a positive integer, or an argument count other than 2).

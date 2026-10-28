@@ -254,12 +254,11 @@ as a forward-only fix with the repair an operator's option (kan-995: decision `k
 left three mis-stamped ledger rows wrong, and `flowd restamp-dispatch`, `b2555b98`, repaired them
 once the operator asked).
 A finding a re-plan
-did not solve — the same finding back on the same evidence — escalates the planner rather than leaving the loop: that re-plan, key
-`self-review-<name>-plan-<n>`, is the no-progress escalation and may run on `flow-planner-high` (effort `high`) in place of the planner
-pair's `flow-planner-medium` or `flow-planner-low`. Where `high` still cannot produce a
-design that holds, the next re-plan changes approach again under **Fewest operator actions**
-(`skills/flow-contracts/pipeline.md`) — never a stop and never an ask; `flow-planner-xhigh` is
-defined for later and no step dispatches it yet. **This session plans,
+did not solve — the same finding back on the same evidence — never leaves the loop: the next re-plan, key
+`self-review-<name>-plan-<n>`, stays on the planner pair and changes approach under **Fewest operator actions**
+(`skills/flow-contracts/pipeline.md`) — never a stop and never an ask. Every planning dispatch runs on
+`opus` at effort `low` or `medium` only: no planner escalates to `flow-planner-high`, and
+`flow-planner-xhigh` is defined for later and no step dispatches it yet. **This session plans,
 changes and reviews nothing itself** (`design.md`, `one-shot-subagent-fix-loop`), save item 4's
 ticks and archive commit and **The base sync** below: each numbered step below that does is a fresh dispatch on the pair it names, never a fork of this session (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), its prompt carrying the MODEL HANDSHAKE,
 TOOLS, FOREGROUND BUILDS and NO DELEGATION paragraphs of **4. Execute (SDD + TDD)**
@@ -275,7 +274,7 @@ key suffix, the table `check-loop-dispatch.sh` reads and refuses a loop dispatch
 | Key suffix | `subagent_type` | Model | On a recorded escalation |
 |---|---|---|---|
 | `pass` | `flow-medium` | `opus` | — |
-| `plan`, `plan-<n>` | `flow-planner-medium`, `flow-planner-low` | `opus` | `flow-planner-high` |
+| `plan`, `plan-<n>` | `flow-planner-medium`, `flow-planner-low` | `opus` | — |
 | `fix`, `fix-<r>`, `fix-g<g>`, `fix-v<v>` | `flow-low` | `opus` | `flow-high` |
 | `review-1` | `flow-medium`, `flow-low` | `opus` | — |
 | `review-<r>` | `flow-low` | `sonnet` | — |

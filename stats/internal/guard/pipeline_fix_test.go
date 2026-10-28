@@ -165,15 +165,8 @@ func TestPipelineFixEndAndEscalate(t *testing.T) {
 	if rc, out := fx.pf(t, "escalate", "pipeline-fix-6-review-2"); rc != 1 || !strings.Contains(out, "admits no escalation") {
 		t.Fatalf("a review escalation: rc %d: %s", rc, out)
 	}
-	if rc, out := fx.pf(t, "escalate", "pipeline-fix-6-plan-2"); rc != 0 {
+	if rc, out := fx.pf(t, "escalate", "pipeline-fix-6-plan-2"); rc != 1 || !strings.Contains(out, "admits no escalation") {
 		t.Fatalf("a re-plan escalation: rc %d: %s", rc, out)
-	}
-	lp, _ := lpFromBranch(lpBranch)
-	if !lpEscalated(fx.env, fixtureGit, fx.repo, lp, "pipeline-fix-6-plan-2") {
-		t.Fatal("the escalation was not recorded where check-loop-dispatch reads it")
-	}
-	if other, _ := lpFromBranch("pipeline-fix-other-6"); lpEscalated(fx.env, fixtureGit, fx.repo, other, "pipeline-fix-6-plan-2") {
-		t.Fatal("another loop inherits the escalation")
 	}
 }
 
