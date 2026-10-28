@@ -13,7 +13,7 @@
 - The full guard suite failed once under `-race`. `runGuard`'s merged buffer was written by both of a child process's stream-copy goroutines (`workspace`'s `docker exec`). It did not reproduce under load in two full-package runs. A forced reproduction (a guard whose child floods both streams) failed reliably without the lock (In-run fix 4).
 - Tooling friction:
   - `close-task.sh` cannot rebuild the full-app-suite zip unless `FLOW_GUARD_SCRIPT_DIR` is set: the Go `close-task` execs `rebuild-full-app-suite-zip` without exporting it. The workaround was to set it by hand.
-  - A sonnet mutation slot wrote its reports into the throwaway copy and lost them on removal, and had to be re-asked.
+  - A sonnet mutation slot wrote both its reports in one Bash call through two heredocs, and `protect-main-checkout.py` denied it: each body's rest still carried the other body, whose lone `.` and unpaired backtick failed closed. The slot handed back claiming both written; the parent's `test -s` caught the gap and re-asked.
   - The verifier hook needs the dispatch `description` to open with the row key.
 
 ## 2026-10-28 — fix run
