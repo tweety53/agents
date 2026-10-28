@@ -1194,22 +1194,46 @@ describe("review dynamics", () => {
     expect(tip()).toHaveTextContent("Prompt edit · primary");
   });
 
-  it("dynamics chart drops a tick whose label repeats the one above", () => {
-    render(
-      <DynamicsChart
-        title="Changes"
-        description=""
-        buckets={["2026-05-04", "2026-05-11"]}
-        bucketKind="week"
-        series={[{ name: "changes", values: [1, 1], basis: [1, 1] }]}
-        markers={[]}
-        basisLabel="changes"
-        format={(v) => v.toFixed(0)}
-      />,
-    );
-    const labels = [...document.querySelectorAll(".dynamics-tick")].map((e) => e.textContent).filter((l) => !l?.includes("-"));
-    // Ticks run bottom to top: the middle 0.5 would read "1" as well.
-    expect(labels).toEqual(["0", "", "1"]);
+  it("dynamics chart labels each tick with the value it sits at", () => {
+    const whole = (v: number) => v.toFixed(0);
+    const percent = (v: number) => `${Math.round(v * 100)}%`;
+    const tenths = (v: number) => v.toFixed(1);
+    const cases: [number, (v: number) => string, string[]][] = [
+      [0, whole, ["0", "1", "2"]],
+      [1, whole, ["0", "1", "2"]],
+      [2, whole, ["0", "1", "2"]],
+      [0, tenths, ["0.0", "0.5", "1.0"]],
+      // An empty share chart tops at 100%, never 200%.
+      [0, percent, ["0%", "50%", "100%"]],
+      // A 0.05 step would label 0.0, 0.1, 0.1.
+      [0.06, tenths, ["0.0", "0.1", "0.2"]],
+      [3, whole, ["0", "2", "4"]],
+      [5, whole, ["0", "5", "10"]],
+      // A share of 1 is 100%, never a 200% tick.
+      [1, percent, ["0%", "50%", "100%"]],
+    ];
+    for (const [peak, format, want] of cases) {
+      const { unmount } = render(
+        <DynamicsChart
+          title="Changes"
+          description=""
+          buckets={["2026-05-04", "2026-05-11"]}
+          bucketKind="week"
+          series={[{ name: "changes", values: [peak, 0], basis: [1, 1] }]}
+          markers={[]}
+          basisLabel="changes"
+          format={format}
+        />,
+      );
+      const ticks = [...document.querySelectorAll(".dynamics-tick")].filter((e) => !e.textContent?.includes("-"));
+      // Ticks run bottom to top, each label at the height of the value it names.
+      expect(ticks.map((e) => e.textContent)).toEqual(want);
+      const ys = ticks.map((e) => Number(e.getAttribute("y")));
+      expect(ys[0] - ys[1]).toBeCloseTo((ys[0] - ys[2]) / 2);
+      // The top tick leaves 12% headroom in the 136px plot.
+      expect(ys[0] - ys[2]).toBeCloseTo(136 / 1.12);
+      unmount();
+    }
   });
 
   it("review dynamics tooltip lists values, basis and marker", async () => {
