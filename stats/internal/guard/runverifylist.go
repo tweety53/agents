@@ -437,9 +437,12 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	// Each command runs as `(cd "$WT" && bash -c …)` did: from the worktree,
 	// PWD its logical path, so `pwd` prints the path the caller named.
 	cmdEnv := append(childEnv[:len(childEnv):len(childEnv)], "PWD="+abs(wt))
+	// Every command runs under run-capped.sh, which kills its process group
+	// past the project's `## resource cap` (kan-1044).
+	capped := filepath.Join(scriptDir, "run-capped.sh")
 	// run runs one command in the foreground.
 	run := func(shown, cmd, key string) {
-		results := rgtRun(context.Background(), [][]string{{"bash", "-c", cmd}}, 1, outDir, abs(wt), cmdEnv)
+		results := rgtRun(context.Background(), [][]string{{capped, "--", "bash", "-c", cmd}}, 1, outDir, abs(wt), cmdEnv)
 		report(shown, results[0].rc, results[0].out, key)
 	}
 
@@ -454,9 +457,9 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			skip[i] = true
 		case list == "test":
 			if flow, ok := lookPath(env, "flow"); ok && suites[i] != "" {
-				argvs = append(argvs, []string{flow, "suite", "record", "-C", abs(wt), "-suite", suites[i], "--", "bash", "-c", c})
+				argvs = append(argvs, []string{flow, "suite", "record", "-C", abs(wt), "-suite", suites[i], "--", capped, "--", "bash", "-c", c})
 			} else {
-				argvs = append(argvs, []string{"bash", "-c", c})
+				argvs = append(argvs, []string{capped, "--", "bash", "-c", c})
 			}
 		default:
 			run(c, c, fmt.Sprint(i))

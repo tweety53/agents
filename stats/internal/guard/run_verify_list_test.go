@@ -395,7 +395,7 @@ func TestRunVerifyListRecordsSuiteRuntimes(t *testing.T) {
 	if rc != 0 || !strings.Contains(out, "- `echo one` — exit 0\n  one\n") || !strings.Contains(out, "- `echo two` — exit 0\n  two\n") {
 		t.Errorf("with flow: exit %d, output:\n%s", rc, out)
 	}
-	if want := "suite record -C " + wt + " -suite demo-suite -- bash -c echo one\n"; string(calls) != want {
+	if want := "suite record -C " + wt + " -suite demo-suite -- " + filepath.Join(repo, "scripts", "run-capped.sh") + " -- bash -c echo one\n"; string(calls) != want {
 		t.Errorf("flow calls %q, want %q", calls, want)
 	}
 	if rc, out := run("/usr/bin:/bin"); rc != 0 || !strings.Contains(out, "  one\n") {
@@ -809,5 +809,36 @@ func TestRunVerifyListRunsTheVisualVerify(t *testing.T) {
 				t.Fatalf("the visual verify ran before the list\n%s", out)
 			}
 		})
+	}
+}
+
+// TestRunVerifyListCapsMemory pins kan-1044's cap: every listed command runs
+// under run-capped.sh, so one allocating past `## resource cap` (64 MB here,
+// the child ~128 MB) is killed and the list fails naming CAPPED:.
+func TestRunVerifyListCapsMemory(t *testing.T) {
+	wt, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command(fixtureGit, "-C", wt, "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## resource cap\n\n64\n\n## test\n\n```bash\npython3 -c 'b=bytearray(128*1024*1024); import time; time.sleep(10)'\n```\n")
+	repo, _ := filepath.Abs("../../..")
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"))
+	getenv := func(k string) string {
+		for i := len(environ) - 1; i >= 0; i-- {
+			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
+				return v
+			}
+		}
+		return ""
+	}
+	var o, e bytes.Buffer
+	if rc := runVerifyList([]string{wt, "test"}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e); rc != 1 {
+		t.Fatalf("exit %d: %s %s", rc, o.String(), e.String())
+	}
+	if !strings.Contains(o.String()+e.String(), "CAPPED:") {
+		t.Errorf("no CAPPED: line:\n%s\n%s", o.String(), e.String())
 	}
 }
