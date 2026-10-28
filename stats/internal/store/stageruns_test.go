@@ -2780,3 +2780,72 @@ func TestPriceDispatchUsesServedModel(t *testing.T) {
 		t.Errorf("dispatches.a3.cost_usd = %v, want 2 (the most-turns claude-sonnet-5-5 rate)", c)
 	}
 }
+
+// TestRepriceSinceCountsPricedAndSkipped pins reprice-command: every stage
+// run started since the date is priced again, a run Price refuses counts
+// as skipped, and a run before the date is left untouched.
+func TestRepriceSinceCountsPricedAndSkipped(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-reprice-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	if err := st.PutPricing(ctx, store.PricingRate{
+		Model: "claude-opus-5-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		InputPerMTok: 1, OutputPerMTok: 10, CacheReadPerMTok: 0.1,
+	}); err != nil {
+		t.Fatalf("PutPricing: %v", err)
+	}
+	const priceable = `{
+		"models": {"claude-opus-5-5": {"tokens": {"sidechain": {"output": 1000000}}}},
+		"dispatches": {"a1": {"model": "opus", "tokens": {"sidechain": {"output": 1000000}},
+			"signals": {"served_models": {"claude-opus-5-5": 1}}}}
+	}`
+	run := func(i int, at time.Time, metrics string) int64 {
+		t.Helper()
+		in := baseBeginInput(projectKey, "kan-1", "/flow", "flow.sdd-tdd")
+		in.SessionID = ptr(fmt.Sprintf("reprice-%d", i))
+		in.StartedAt = at
+		r, err := st.BeginStage(ctx, in)
+		if err != nil {
+			t.Fatalf("BeginStage: %v", err)
+		}
+		if err := st.MergeMetrics(ctx, r.ID, json.RawMessage(metrics)); err != nil {
+			t.Fatalf("MergeMetrics: %v", err)
+		}
+		return r.ID
+	}
+	before := run(0, since.Add(-time.Hour), priceable)
+	after := run(1, since.Add(time.Hour), priceable)
+	run(2, since.Add(2*time.Hour), `{"tokens": {}}`)
+
+	priced, skipped, err := st.RepriceSince(ctx, since)
+	if err != nil {
+		t.Fatalf("RepriceSince: %v", err)
+	}
+	if priced != 1 || skipped != 1 {
+		t.Errorf("RepriceSince = priced %d, skipped %d, want 1, 1", priced, skipped)
+	}
+	costOf := func(id int64) *float64 {
+		t.Helper()
+		r, err := st.GetStageRun(ctx, id)
+		if err != nil {
+			t.Fatalf("GetStageRun: %v", err)
+		}
+		var bag struct {
+			Dispatches map[string]struct {
+				CostUSD *float64 `json:"cost_usd"`
+			} `json:"dispatches"`
+		}
+		if err := json.Unmarshal(r.Metrics, &bag); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		return bag.Dispatches["a1"].CostUSD
+	}
+	if c := costOf(after); c == nil || *c != 10 {
+		t.Errorf("run after since: dispatches.a1.cost_usd = %v, want 10", c)
+	}
+	if c := costOf(before); c != nil {
+		t.Errorf("run before since: dispatches.a1.cost_usd = %v, want untouched", *c)
+	}
+}

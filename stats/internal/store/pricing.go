@@ -680,3 +680,30 @@ func (s *Store) pricingRateInEffect(ctx context.Context, model string, at time.T
 	}
 	return r, nil
 }
+
+// RepriceSince runs Price over every stage run started at or after since
+// (decision reprice-command), so dispatches harvested before Price could
+// resolve their served model get their cost. A run Price refuses with
+// ErrTokensUnavailable or ErrPricingNotFound counts as skipped; any other
+// error stops and returns.
+func (s *Store) RepriceSince(ctx context.Context, since time.Time) (priced, skipped int, err error) {
+	rows, err := s.pool.Query(ctx, `SELECT id FROM stage_runs WHERE started_at >= $1 ORDER BY id`, since)
+	if err != nil {
+		return 0, 0, fmt.Errorf("store: reprice since %s: %w", since, err)
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[int64])
+	if err != nil {
+		return 0, 0, fmt.Errorf("store: reprice since %s: %w", since, err)
+	}
+	for _, id := range ids {
+		switch err := s.Price(ctx, id); {
+		case err == nil:
+			priced++
+		case errors.Is(err, ErrTokensUnavailable), errors.Is(err, ErrPricingNotFound):
+			skipped++
+		default:
+			return priced, skipped, err
+		}
+	}
+	return priced, skipped, nil
+}
