@@ -176,14 +176,10 @@ function routePath(route: Route): string {
 }
 
 /**
- * Stated on the dashboard bar's model variable when it is disabled, and
- * echoing the server's own reason for rejecting the parameter there
- * (internal/api/stats.go's viewStateBoard branch) so a reader sees the
- * same explanation whichever side told them.
+ * Stated on the dashboard bar's model variable when it is disabled on a
+ * view whose rows a model restriction cannot apply to.
  */
 const MODEL_DISABLED_REASONS: Partial<Record<ViewName, string>> = {
-  "state-board":
-    "The live state board's rows are changes, not stage runs, so a model restriction cannot apply here.",
   "flow-health":
     "Flow health totals changes, panel rounds and guard fires across every model, so a model restriction cannot apply here.",
   "review-dynamics": "Review dynamics compares models itself, so a model restriction cannot apply here.",
@@ -218,8 +214,7 @@ export function App() {
   }, [route, period]);
 
   const ActiveView = route.kind === "view" ? VIEW_COMPONENTS[route.view] : null;
-  // The state board's rows are changes rather than stage runs
-  // (proposal.md's Fix round 1), and flow health counts across models --
+  // Flow health counts across models and review dynamics compares them --
   // every other static view aggregates stage runs and accepts the
   // restriction.
   const modelDisabledReason = route.kind === "view" ? MODEL_DISABLED_REASONS[route.view] : undefined;
@@ -240,8 +235,10 @@ export function App() {
             ))}
           </ul>
         </nav>
-        {/* Weekly costs always covers the last 8 weeks of every project and model (KAN-1038). */}
-        {!(route.kind === "view" && route.view === "weekly-costs") && (
+        {/* Weekly costs always covers the last 8 weeks of every project and model (KAN-1038);
+            the live state board carries its own chip filters and an opened run none
+            (decision hide-dashboard-bar). */}
+        {route.kind === "view" && route.view !== "weekly-costs" && route.view !== "state-board" && (
           <DashboardBar
             period={period}
             onPeriodChange={setPeriod}
@@ -257,13 +254,7 @@ export function App() {
       </header>
       <main>
         {route.kind === "run" ? (
-          // The run-detail route honours the model variable rather than
-          // leaving it rendering and inert (task 20's own decision): it is
-          // never disabled here (modelDisabled is computed only for the
-          // static ViewName routes, false by construction for "run"), and
-          // RunDetail.tsx's own header comment explains why honouring is
-          // cheap on this route specifically.
-          <RunDetail project={route.project} change={route.change} model={model} />
+          <RunDetail project={route.project} change={route.change} />
         ) : (
           ActiveView && (
             <ActiveView

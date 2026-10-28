@@ -11,11 +11,13 @@
 // complete answer for the period requested, whatever the change's stage
 // runs list is paged to.
 import { useEffect, useState } from "react";
+import { DAY_MS } from "../format";
 import {
   fetchStatsView,
   listStageRuns,
   type CostPerChangeRow,
   type StageRunDTO,
+  type StateBoardRow,
 } from "../api";
 
 export interface RunSummary {
@@ -35,18 +37,19 @@ export type RunDetailState =
       status: "ready";
       stageRuns: StageRunDTO[];
       summary: RunSummary;
+      /** The change's live state board row -- state, last update, open
+       * stage and session activity -- or undefined when the board does
+       * not carry it. */
+      board: StateBoardRow | undefined;
       /** True when the change has more stage runs than the fetched page
-       * held (totalStageRuns > stageRuns.length, before any model
-       * filtering below). Task 25, step 4: a model-filtered table built
-       * only from the fetched page can silently show far fewer rows than
-       * the change actually has, with the header numbers (from the
-       * unpaged aggregate) disagreeing with what is visible -- a count
-       * that looks complete and is not. This flag is what the panel uses
-       * to say so rather than leave it unstated. */
+       * held (totalStageRuns > stageRuns.length). Task 25, step 4: a table
+       * built only from the fetched page can show far fewer rows than the
+       * change actually has, with the header numbers (from the unpaged
+       * aggregate) disagreeing with what is visible -- a count that looks
+       * complete and is not. This flag is what the panel uses to say so. */
       truncated: boolean;
-      /** The server's own total matching (project, change), independent
-       * of any model filter -- what "showing N of totalStageRuns" reports
-       * alongside `truncated`. */
+      /** The server's own total matching (project, change) -- what
+       * "showing N of totalStageRuns" reports alongside `truncated`. */
       totalStageRuns: number;
     };
 
@@ -104,28 +107,7 @@ function summarize(rows: CostPerChangeRow[]): RunSummary {
 // stage run and is revisited is still covered.
 const WIDE_FROM = new Date(0);
 
-/**
- * True when the stage run's metrics bag recorded the given model among the
- * models it used. Reads the metrics bag's "models" object directly --
- * `metrics.models.<model>` (task 22's per-model bucket shape) -- rather
- * than going through metrics.ts's `readModel`, which still reads the
- * retired top-level scalar "model" key and is out of this task's file
- * list to fix (that reader's own repair belongs to whichever later task
- * owns metrics.ts). A run whose bag carries no "models" object, or whose
- * "models" object does not carry this key, never matches -- the same
- * absence-is-never-a-match rule the server's own model restriction
- * applies (the stats-views requirement "Runs that recorded no
- * model": such a run is excluded, never coerced into matching every
- * filter by default).
- */
-function stageRunUsedModel(run: StageRunDTO, model: string): boolean {
-  if (run.metrics === null || typeof run.metrics !== "object") return false;
-  const models = (run.metrics as Record<string, unknown>).models;
-  if (models === null || typeof models !== "object" || Array.isArray(models)) return false;
-  return Object.prototype.hasOwnProperty.call(models, model);
-}
-
-export function useRunDetail(project: string, change: string, model?: string): RunDetailState {
+export function useRunDetail(project: string, change: string): RunDetailState {
   const [state, setState] = useState<RunDetailState>({ status: "loading" });
 
   useEffect(() => {
@@ -155,50 +137,25 @@ export function useRunDetail(project: string, change: string, model?: string): R
         // looks load-bearing invites the next reader to keep it. The rows
         // this response carries are taken as-is, below.
         change,
-        // Task 20, step 4: the run-detail dashboard honours the model
-        // template variable rather than leaving it rendering and inert.
-        // cost-per-change already accepts "model" (task 21) and restricts
-        // server-side against the per-model buckets, so the header's
-        // totals become that model's own totals for this change, the same
-        // way they already are the server's aggregate rather than a sum
-        // of the page below.
-        model,
       }),
+      // The period is half-open: ending a day past now keeps a change
+      // updated at this very instant in it.
+      // Scoped to this one change server-side; a failed board fetch leaves
+      // the header without its state rather than failing the whole view.
+      fetchStatsView<StateBoardRow[]>("state-board", { from: WIDE_FROM, to: new Date(Date.now() + DAY_MS), project, change }).catch(() => undefined),
     ])
-      .then(([stageRunsResp, aggregateResp]) => {
+      .then(([stageRunsResp, aggregateResp, boardResp]) => {
         if (cancelled) return;
         // No client-side changeName filter here (task 25, step 2): the
         // request above already sends "change" and "project", so the
-        // server's own scoping is this response's only source of rows --
-        // a mock that returns rows for a change other than this one is
-        // returning something the real server cannot, and is a defect in
-        // the mock, not a reason to keep filtering here.
+        // server's own scoping is this response's only source of rows.
         const rowsForChange = aggregateResp.recorded ? aggregateResp.rows : [];
-        // The stage-run table's own filter: unlike the header (scoped
-        // server-side, above), the list endpoint this hook calls has no
-        // per-model restriction to send -- a model name is not a fixed
-        // field the query allowlist can name (internal/store/query.go's
-        // own fixed-identifier requirement) -- so this hook filters the
-        // page it already fetched. That page is this one change's own
-        // stage runs, bounded to STAGE_RUN_PAGE_SIZE, not the paginated
-        // aggregate views DataTable.tsx's own header comment forbids
-        // client-side filtering on.
-        const stageRuns = model
-          ? stageRunsResp.stageRuns.filter((r) => stageRunUsedModel(r, model))
-          : stageRunsResp.stageRuns;
-        // Task 25, step 4: stageRunsResp.total is the server's own count
-        // of every stage run matching (project, change) -- unaffected by
-        // the model filter above, which never reaches the server. When it
-        // exceeds the page actually fetched, the table below (whichever
-        // of stageRuns' rows a model filter left) cannot be a complete
-        // picture, and must say so rather than render a count that looks
-        // complete and is not.
-        const truncated = stageRunsResp.total > stageRunsResp.stageRuns.length;
         setState({
           status: "ready",
-          stageRuns,
+          stageRuns: stageRunsResp.stageRuns,
           summary: summarize(rowsForChange),
-          truncated,
+          board: boardResp?.rows.find((r) => r.name === change),
+          truncated: stageRunsResp.total > stageRunsResp.stageRuns.length,
           totalStageRuns: stageRunsResp.total,
         });
       })
@@ -209,7 +166,7 @@ export function useRunDetail(project: string, change: string, model?: string): R
     return () => {
       cancelled = true;
     };
-  }, [project, change, model]);
+  }, [project, change]);
 
   return state;
 }

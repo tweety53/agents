@@ -839,7 +839,11 @@ var _ api.StageStore = stubStageStore{}
 // 11's statistics endpoints, like the stage endpoints above, are not what
 // TestClientAgreesWithRealDaemonOverDaemonHeader exercises -- it only needs
 // a real *api.Server to exist, never a stats route to answer correctly.
-func (stubStageStore) LiveStateBoard(context.Context, store.Period, *string) ([]store.LiveStateRow, error) {
+func (stubStageStore) SetSessionActivity(context.Context, string, string, string) error {
+	return nil
+}
+
+func (stubStageStore) LiveStateBoard(context.Context, store.Period, *string, *string) ([]store.LiveStateRow, error) {
 	return nil, errStageStoreNotImplemented
 }
 

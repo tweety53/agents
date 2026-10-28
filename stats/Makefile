@@ -419,6 +419,7 @@ ui-test-up: web-build check-uitest-overrides
 	FLOWD_PORT=$(UITEST_PORT) FLOWD_DSN="$(UITEST_DSN)" \
 		FLOW_TRANSCRIPTS_DIR=$(UITEST_TRANSCRIPTS_DIR) \
 		FLOW_STATE_DIR=$(UITEST_STATE_DIR) \
+		FLOW_SWEEP_OFF=1 \
 		TMPDIR=/tmp \
 		$(UITEST_BIN) > $(UITEST_LOG) 2>&1 &
 	@echo "ui-test-up: waiting for flowd to answer on :$(UITEST_PORT)"

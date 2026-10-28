@@ -94,7 +94,7 @@ func TestAggregateEmptyPeriodReturnsEmptyNotError(t *testing.T) {
 		t.Errorf("CostPerChange(empty period) returned %d rows, want 0", len(rows))
 	}
 
-	board, err := st.LiveStateBoard(ctx, emptyPeriod, &projectKey)
+	board, err := st.LiveStateBoard(ctx, emptyPeriod, &projectKey, nil)
 	if err != nil {
 		t.Fatalf("LiveStateBoard(empty period): %v", err)
 	}
@@ -720,7 +720,7 @@ func TestAggregateOtherViewsRunWithoutError(t *testing.T) {
 		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
 	}
 
-	if _, err := st.LiveStateBoard(ctx, period, nil); err != nil {
+	if _, err := st.LiveStateBoard(ctx, period, nil, nil); err != nil {
 		t.Errorf("LiveStateBoard: %v", err)
 	}
 }
@@ -1753,7 +1753,7 @@ func TestLiveStateBoardCarriesPlannedAndCurrentTasks(t *testing.T) {
 		From: time.Date(2026, 8, 13, 0, 0, 0, 0, time.UTC),
 		To:   time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC),
 	}
-	rows, err := st.LiveStateBoard(ctx, period, &projectKey)
+	rows, err := st.LiveStateBoard(ctx, period, &projectKey, nil)
 	if err != nil {
 		t.Fatalf("LiveStateBoard: %v", err)
 	}
@@ -1881,7 +1881,7 @@ func TestLiveStateBoardCarriesWholeLifeRunTotals(t *testing.T) {
 	rows, err := st.LiveStateBoard(ctx, store.Period{
 		From: time.Date(2026, 8, 13, 0, 0, 0, 0, time.UTC),
 		To:   time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC),
-	}, &projectKey)
+	}, &projectKey, nil)
 	if err != nil {
 		t.Fatalf("LiveStateBoard: %v", err)
 	}
@@ -1900,5 +1900,170 @@ func TestLiveStateBoardCarriesWholeLifeRunTotals(t *testing.T) {
 	}
 	if got.Errors != 4 {
 		t.Errorf("Errors = %d, want 4 (tool and API errors, main and sidechain)", got.Errors)
+	}
+}
+
+// TestLiveStateBoardCarriesOpenStageDoneTasksAndActivity pins the three
+// live facts the board's Running now cards read: the change's open stage
+// run, how many tasks carry a committed implementer dispatch, and what the
+// open run's session is doing. A change with no open run and no
+// implementer dispatch carries none of them.
+func TestLiveStateBoardCarriesOpenStageDoneTasksAndActivity(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-board-live-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedChange(t, st, projectKey, "kan-2")
+
+	day := time.Date(2026, 8, 13, 10, 0, 0, 0, time.UTC)
+	closed := baseBeginInput(projectKey, "kan-1", "/flow", "flow.load-context")
+	closed.StartedAt = day
+	run, err := st.BeginStage(ctx, closed)
+	if err != nil {
+		t.Fatalf("BeginStage(closed): %v", err)
+	}
+	if err := st.EndStage(ctx, run.ID, day.Add(time.Minute), "completed"); err != nil {
+		t.Fatalf("EndStage: %v", err)
+	}
+	open := baseBeginInput(projectKey, "kan-1", "/flow", "flow.sdd-tdd")
+	open.SessionID = ptr("s-1")
+	open.StartedAt = day.Add(2 * time.Minute)
+	if _, err := st.BeginStage(ctx, open); err != nil {
+		t.Fatalf("BeginStage(open): %v", err)
+	}
+
+	dispatch := func(task, commit string) {
+		t.Helper()
+		d := baseDispatch("implementer", "opus")
+		d.TaskID = task
+		d.CommitSHA = commit
+		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", d); err != nil {
+			t.Fatalf("RecordDispatch: %v", err)
+		}
+	}
+	dispatch("1", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	dispatch("2", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+	dispatch("3", "")
+
+	if err := st.SetSessionActivity(ctx, "s-1", "question", "Proceed?"); err != nil {
+		t.Fatalf("SetSessionActivity: %v", err)
+	}
+
+	rows, err := st.LiveStateBoard(ctx, store.Period{
+		From: time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC),
+	}, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("LiveStateBoard: %v", err)
+	}
+	byName := map[string]store.LiveStateRow{}
+	for _, row := range rows {
+		byName[row.Name] = row
+	}
+
+	live := byName["kan-1"]
+	if live.CurrentStage == nil || *live.CurrentStage != "flow.sdd-tdd" {
+		t.Errorf("CurrentStage = %v, want flow.sdd-tdd", live.CurrentStage)
+	}
+	if live.CurrentStageStartedAt == nil || !live.CurrentStageStartedAt.Equal(day.Add(2*time.Minute)) {
+		t.Errorf("CurrentStageStartedAt = %v, want %v", live.CurrentStageStartedAt, day.Add(2*time.Minute))
+	}
+	if live.DoneTasks == nil || *live.DoneTasks != 2 {
+		t.Errorf("DoneTasks = %v, want 2", live.DoneTasks)
+	}
+	if live.Activity == nil || *live.Activity != "question" {
+		t.Errorf("Activity = %v, want question", live.Activity)
+	}
+	if live.ActivityDetail == nil || *live.ActivityDetail != "Proceed?" {
+		t.Errorf("ActivityDetail = %v, want Proceed?", live.ActivityDetail)
+	}
+	if live.ActivitySince == nil {
+		t.Errorf("ActivitySince = nil, want the activity's time")
+	}
+
+	idle := byName["kan-2"]
+	if idle.CurrentStage != nil || idle.CurrentStageStartedAt != nil || idle.DoneTasks != nil ||
+		idle.Activity != nil || idle.ActivityDetail != nil || idle.ActivitySince != nil {
+		t.Errorf("kan-2 = %+v, want every live field nil", idle)
+	}
+}
+
+// TestLiveStateBoardLiveFieldEdges pins the edges the board's live fields
+// turn on: the newest of two open runs is the one shown, a repeated report of
+// the same activity keeps its since while a new state moves it, the period's
+// end is exclusive, and "change" scopes the board to one change.
+func TestLiveStateBoardLiveFieldEdges(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-board-edges-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedChange(t, st, projectKey, "kan-2")
+
+	day := time.Date(2026, 8, 13, 10, 0, 0, 0, time.UTC)
+	for i, stage := range []string{"flow.sdd-tdd", "flow.review-panel"} {
+		in := baseBeginInput(projectKey, "kan-1", "/flow", stage)
+		in.SessionID = ptr(fmt.Sprintf("edge-%s-%d", projectKey, i))
+		in.StartedAt = day.Add(time.Duration(i) * time.Minute)
+		if _, err := st.BeginStage(ctx, in); err != nil {
+			t.Fatalf("BeginStage(%s): %v", stage, err)
+		}
+	}
+	session := fmt.Sprintf("edge-%s-1", projectKey)
+	all := store.Period{From: time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC), To: time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)}
+	board := func(period store.Period, change *string) map[string]store.LiveStateRow {
+		t.Helper()
+		rows, err := st.LiveStateBoard(ctx, period, &projectKey, change)
+		if err != nil {
+			t.Fatalf("LiveStateBoard: %v", err)
+		}
+		out := map[string]store.LiveStateRow{}
+		for _, r := range rows {
+			out[r.Name] = r
+		}
+		return out
+	}
+	since := func() time.Time {
+		t.Helper()
+		r := board(all, nil)["kan-1"]
+		if r.ActivitySince == nil {
+			t.Fatalf("ActivitySince = nil")
+		}
+		return *r.ActivitySince
+	}
+
+	if got := board(all, nil)["kan-1"].CurrentStage; got == nil || *got != "flow.review-panel" {
+		t.Errorf("CurrentStage = %v, want the newer open run flow.review-panel", got)
+	}
+
+	if err := st.SetSessionActivity(ctx, session, "working", "Bash"); err != nil {
+		t.Fatalf("SetSessionActivity: %v", err)
+	}
+	first := since()
+	time.Sleep(20 * time.Millisecond)
+	if err := st.SetSessionActivity(ctx, session, "working", "Edit"); err != nil {
+		t.Fatalf("SetSessionActivity: %v", err)
+	}
+	if got := since(); !got.Equal(first) {
+		t.Errorf("ActivitySince after a repeated working = %v, want unchanged %v", got, first)
+	}
+	time.Sleep(20 * time.Millisecond)
+	if err := st.SetSessionActivity(ctx, session, "question", "Proceed?"); err != nil {
+		t.Fatalf("SetSessionActivity: %v", err)
+	}
+	if got := since(); !got.After(first) {
+		t.Errorf("ActivitySince after a new state = %v, want after %v", got, first)
+	}
+
+	updated := board(all, nil)["kan-1"].UpdatedAt
+	if _, ok := board(store.Period{From: all.From, To: updated}, nil)["kan-1"]; ok {
+		t.Errorf("a change updated exactly at the period's end is on the board; the end is exclusive")
+	}
+	if _, ok := board(store.Period{From: all.From, To: updated.Add(time.Microsecond)}, nil)["kan-1"]; !ok {
+		t.Errorf("a change updated just before the period's end is missing")
+	}
+
+	one := board(all, ptr("kan-1"))
+	if _, ok := one["kan-1"]; !ok || len(one) != 1 {
+		t.Errorf("board scoped to kan-1 = %d rows, want kan-1 alone", len(one))
 	}
 }

@@ -270,6 +270,14 @@ export interface StateBoardRow {
   costUsd: number;
   wallClockMs: number;
   errors: number;
+  /** The open stage run, the done-task count and the open run's session
+   * activity; each absent when the store has none. */
+  currentStage?: string;
+  currentStageStartedAt?: string;
+  doneTasks?: number;
+  activity?: 'working' | 'question' | 'permission' | 'idle';
+  activityDetail?: string;
+  activitySince?: string;
 }
 
 /** Mirrors costPerChangeRowDTO. */

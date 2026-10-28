@@ -3,7 +3,7 @@
 // highest-risk vacuous shape this task's own instructions name), plus the
 // absence-vs-zero distinction and the state-board-is-default-route
 // requirement.
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import type {
@@ -121,6 +121,12 @@ const fixtures: Record<
       costUsd: 12.5,
       wallClockMs: 5400000,
       errors: 3,
+      currentStage: "flow.sdd-tdd",
+      currentStageStartedAt: "2026-01-15T11:30:00Z",
+      doneTasks: 20,
+      activity: "working",
+      activityDetail: "2 subagents running",
+      activitySince: "2026-01-15T11:59:00Z",
     },
     {
       projectKey: "kan-16-stats-app",
@@ -132,6 +138,23 @@ const fixtures: Record<
       runCount: 0,
       costUsd: 0,
       wallClockMs: 0,
+      errors: 0,
+      currentStage: "flow.brainstorm",
+      currentStageStartedAt: "2026-01-15T11:50:00Z",
+      activity: "question",
+      activityDetail: "Which layout?",
+      activitySince: "2026-01-15T11:57:00Z",
+    },
+    {
+      projectKey: "gymie-7c1f238a",
+      name: "kan-5-old",
+      state: "STARTED",
+      updatedAt: "2026-01-01T10:00:00Z",
+      updatedBy: "erin",
+      nextCommand: "/flow",
+      runCount: 1,
+      costUsd: 2,
+      wallClockMs: 1000,
       errors: 0,
     },
     {
@@ -301,69 +324,151 @@ const fixtures: Record<
   "review-dynamics": envelope("review-dynamics", reviewDynamicsRows()),
 };
 
+// The board filters by Updated relative to now; every case runs at one
+// pinned instant so which fixture rows fall inside 24h/7d is fixed.
+const BOARD_NOW = new Date("2026-01-15T12:00:00Z");
+
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"], now: BOARD_NOW });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
   fetchStatsViewMock.mockReset();
   fetchStatsViewMock.mockImplementation((view: keyof typeof fixtures) => Promise.resolve(fixtures[view]));
 });
 
 describe("views render their fixture response's actual values", () => {
-  it("state board shows the change's state and run totals", async () => {
-    render(<StateBoard period={period} project={undefined} />);
-    // The state also appears as a filter-dropdown <option>, which is not a
-    // table cell -- scoping to role "cell" is what makes this assertion
-    // about the rendered row rather than about either element.
-    //
-    // Every role query below is scoped to the board's table (or a row of
-    // it): a screen-wide role query walks the whole document and computes
-    // each element's accessible name, which under verify's concurrent load
-    // took this test past the default timeout (kan-1038). Scoping cuts that
-    // work at its source instead of raising the timeout.
-    const stateCell = await screen.findByRole("cell", { name: "IN_PROGRESS" });
-    const table = within(stateCell.closest("table")!);
-    expect(table.queryByRole("columnheader", { name: /^By/ })).not.toBeInTheDocument();
-    expect(table.queryByRole("columnheader", { name: /Next command/ })).not.toBeInTheDocument();
-    expect(table.queryByRole("cell", { name: "alice" })).not.toBeInTheDocument();
-    // Whole-life run totals (design.md's board-run-totals).
-    const row = table.getByRole("link", { name: "kan-16-stats-app" }).closest("tr")!;
-    within(row).getByRole("cell", { name: "7" });
-    within(row).getByRole("cell", { name: "$12.50" });
-    within(row).getByRole("cell", { name: "90.0 min" });
-    within(row).getByRole("cell", { name: "3" });
-    // Plan growth (KAN-415): the observed change shows planned -> current
-    // with the appended figure; the never-observed one reads as the
-    // absence dash, never as a count of zero.
-    expect(table.getByRole("cell", { name: "22 → 46 (+24)" })).toBeInTheDocument();
-    // A shrinking series carries its own sign, never a malformed "+-24"
-    // (panel round 0, F1).
-    expect(table.getByRole("cell", { name: "46 → 22 (-24)" })).toBeInTheDocument();
-    // (Scoped to that row's Plan growth cell: its Cost and Wall clock also
-    // read "—" now, design.md's no-runs-dash.)
-    const unobserved = table.getByRole("link", { name: "kan-29-never-observed" }).closest("tr")!;
-    expect(within(unobserved).getAllByRole("cell", { name: "—" })).toHaveLength(3);
-    // Its own stat panel: a count of the rows shown, never a fabricated
-    // total or mean for a categorical "state" column.
-    expect(screen.getByRole("heading", { name: "Changes" })).toBeInTheDocument();
-    within(screen.getByRole("region", { name: "Changes" })).getByText("3");
+  it("state board filters by chips and state tiles", async () => {
+    const user = userEvent.setup();
+    render(<StateBoard />);
+    const table = await screen.findByRole("table");
+    const tile = (name: RegExp) => screen.getByRole("button", { name });
+    const visible = (name: string) => within(table).queryByRole("link", { name }) !== null;
+    const clear = () => user.click(screen.getByRole("button", { name: "Clear filters" }));
+    // The board fetches the whole history once and filters here.
+    expect(fetchStatsViewMock.mock.calls[0][1].from.getTime()).toBe(0);
+    // ...through past now: a change updated this instant is inside the half-open period.
+    expect(fetchStatsViewMock.mock.calls[0][1].to.getTime()).toBeGreaterThan(BOARD_NOW.getTime());
+    // Updated defaults to 7d: the fortnight-old change is hidden, and the
+    // tiles count only what the other filters leave.
+    expect(visible("kan-5-old")).toBe(false);
+    expect(tile(/^Started/)).toHaveTextContent("1");
+    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
+    await user.click(within(screen.getByRole("group", { name: "Updated" })).getByRole("button", { name: "All" }));
+    expect(tile(/^Started/)).toHaveTextContent("2");
+    expect(visible("kan-5-old")).toBe(true);
+    // A Project chip carries its count and narrows rows and tiles.
+    const gymie = within(screen.getByRole("group", { name: "Project" })).getByRole("button", { name: /^gymie/ });
+    expect(gymie).toHaveTextContent("gymie1");
+    await user.click(gymie);
+    expect(tile(/^Started/)).toHaveTextContent("1");
+    expect(tile(/^In progress/)).toHaveTextContent("0");
+    expect(visible("kan-16-stats-app")).toBe(false);
+    // Clear filters resets every filter, Updated back to 7d.
+    await clear();
+    expect(visible("kan-5-old")).toBe(false);
+    expect(visible("kan-16-stats-app")).toBe(true);
+    await user.click(screen.getByRole("button", { name: "With errors only" }));
+    expect(visible("kan-16-stats-app")).toBe(true);
+    expect(visible("kan-29-never-observed")).toBe(false);
+    await clear();
+    await user.type(screen.getByRole("searchbox", { name: "Search changes" }), "KAN-29");
+    expect(visible("kan-29-never-observed")).toBe(true);
+    expect(visible("kan-16-stats-app")).toBe(false);
+    await clear();
+    // A state tile filters by its state and opens its collapsed group.
+    await user.click(tile(/^Finished/));
+    expect(tile(/^Finished/)).toHaveAttribute("aria-pressed", "true");
+    expect(visible("kan-31-replan-fold")).toBe(true);
+    expect(visible("kan-16-stats-app")).toBe(false);
   });
 
-  it("state board shows a dash for cost and wall clock of a change with no runs", async () => {
-    render(<StateBoard period={period} project={undefined} />);
-    // design.md's no-runs-dash: a change never measured reads as absent for
-    // its cost and wall clock, while its run and error counts stay a measured 0.
-    const row = (await screen.findByRole("link", { name: "kan-29-never-observed" })).closest("tr")!;
-    const headers = screen.getAllByRole("columnheader").map((h) => h.textContent ?? "");
-    const cells = within(row).getAllByRole("cell");
-    const cellUnder = (header: RegExp) => cells[headers.findIndex((h) => header.test(h))];
-    expect(cellUnder(/^Cost/)).toHaveTextContent(/^—$/);
-    expect(cellUnder(/^Wall clock/)).toHaveTextContent(/^—$/);
-    expect(cellUnder(/^Runs/)).toHaveTextContent(/^0$/);
-    expect(cellUnder(/^Errors/)).toHaveTextContent(/^0$/);
+  it("state board running now cards", async () => {
+    render(<StateBoard />);
+    const cards = await screen.findAllByTestId("running-card");
+    // One card per change with an open stage; the one awaiting an answer
+    // comes first and is marked as needing the operator.
+    expect(cards).toHaveLength(2);
+    expect(cards[0]).toHaveTextContent("kan-29-never-observed");
+    expect(cards[0]).toHaveClass("needs");
+    expect(cards[0]).toHaveTextContent("Awaiting your answer");
+    expect(cards[0]).toHaveTextContent("Which layout?");
+    expect(cards[0]).toHaveTextContent("flow.brainstorm");
+    expect(cards[1]).toHaveTextContent("kan-16-stats-app");
+    expect(cards[1]).not.toHaveClass("needs");
+    expect(cards[1]).toHaveTextContent("Working");
+    expect(cards[1]).toHaveTextContent("flow.sdd-tdd· 30m");
+    expect(cards[1]).toHaveTextContent("tasks 20/46 · $12.50");
+    expect(screen.getByText("Running now", { selector: ".lb-lbl" }).nextSibling).toHaveTextContent("2");
+  });
+
+  it("state board groups by state", async () => {
+    const user = userEvent.setup();
+    render(<StateBoard />);
+    const table = within(await screen.findByRole("table"));
+    const groups = table.getAllByRole("row").filter((r) => r.classList.contains("lb-group"));
+    expect(groups.map((g) => g.textContent)).toEqual(["▾In progress1", "▾Started1", "▾Finished1"]);
+    // Finished starts collapsed; its row shows once the group is opened.
+    expect(table.queryByRole("link", { name: "kan-31-replan-fold" })).not.toBeInTheDocument();
+    await user.click(groups[2]);
+    expect(table.getByRole("link", { name: "kan-31-replan-fold" })).toBeInTheDocument();
+    // A row: state pill, current stage, tasks with growth, relative update
+    // with the ISO time as its title, cost, errors in red.
+    const row = table.getByRole("link", { name: "kan-16-stats-app" }).closest("tr")!;
+    expect(row).toHaveTextContent("IN_PROGRESS");
+    expect(row).toHaveTextContent("flow.sdd-tdd");
+    expect(within(row).getByText("+24")).toBeInTheDocument();
+    expect(within(row).getByTitle("2026-01-15T10:00:00.000Z")).toHaveTextContent("2h ago");
+    expect(row).toHaveTextContent("$12.50");
+    expect(within(row).getByText("3")).toHaveClass("lb-err");
+    // A session that is not working says so beside its stage.
+    const asking = table.getByRole("link", { name: "kan-29-never-observed" }).closest("tr")!;
+    expect(asking).toHaveTextContent("Awaiting your answer");
+    expect(row).not.toHaveTextContent("Working");
+    expect(table.queryByRole("columnheader", { name: /Next command/ })).not.toBeInTheDocument();
+  });
+
+  it("state board cost in period ignores the filters", async () => {
+    const user = userEvent.setup();
+    render(<StateBoard />);
+    await screen.findByRole("table");
+    // The prototype's tile sums every change whatever chip, tile or search is set.
+    const cost = () => screen.getByText("Cost in period", { selector: ".lb-lbl" }).nextSibling!.textContent;
+    const all = cost();
+    await user.click(within(screen.getByRole("group", { name: "Project" })).getByRole("button", { name: /^gymie/ }));
+    expect(cost()).toBe(all);
+    await user.click(screen.getByRole("button", { name: /^Finished/ }));
+    expect(cost()).toBe(all);
+  });
+
+  it("state board stops refetching while the tab is hidden", async () => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"], now: BOARD_NOW });
+    const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+    const { unmount } = render(<StateBoard />);
+    await act(async () => {});
+    const before = fetchStatsViewMock.mock.calls.length;
+    await act(async () => vi.advanceTimersByTime(15000));
+    expect(fetchStatsViewMock.mock.calls.length).toBe(before);
+    // Showing the tab again refetches at once.
+    hidden.mockReturnValue(false);
+    vi.setSystemTime(BOARD_NOW.getTime() + 15000);
+    await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+    expect(fetchStatsViewMock.mock.calls.length).toBe(before + 1);
+    // Unmounted, the board no longer listens for the tab coming back.
+    const removed = vi.spyOn(document, "removeEventListener");
+    unmount();
+    expect(removed).toHaveBeenCalledWith("visibilitychange", expect.any(Function));
+    removed.mockRestore();
+    hidden.mockRestore();
   });
 
   it("state board hides pipeline-fix changes", async () => {
-    render(<StateBoard period={period} project={undefined} />);
-    expect(await screen.findByRole("link", { name: "kan-16-stats-app" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "pipeline-fix-x-14" })).not.toBeInTheDocument();
+    const user = userEvent.setup();
+    render(<StateBoard />);
+    const table = within(await screen.findByRole("table"));
+    await user.click(table.getByRole("row", { name: /^▾Finished/ }));
+    expect(table.getByRole("link", { name: "kan-31-replan-fold" })).toBeInTheDocument();
+    expect(table.queryByRole("link", { name: "pipeline-fix-x-14" })).not.toBeInTheDocument();
   });
 
   it("stage leaderboard shows total, mean, median and p90 cost, and its own stat panels", async () => {
@@ -847,7 +952,7 @@ describe("the state board is the only navigation path into a change's own dashbo
       ),
     );
 
-    render(<StateBoard period={period} project={undefined} />);
+    render(<StateBoard />);
 
     const link = await screen.findByRole("link", { name: "kan-16 stats-app?v2" });
     expect(link).toHaveAttribute(
@@ -882,7 +987,7 @@ describe("the Project column names a project instead of keying it", () => {
       ),
     );
 
-    render(<StateBoard period={period} project={undefined} />);
+    render(<StateBoard />);
 
     const cell = await screen.findByRole("cell", { name: "agents" });
     expect(cell).toHaveTextContent(/^agents$/);
@@ -894,38 +999,6 @@ describe("the Project column names a project instead of keying it", () => {
     expect(link).toHaveAttribute("href", `#/run/${encodeURIComponent(PROJECT_KEY)}/${encodeURIComponent("kan-1")}`);
   });
 
-  // Reversed from task 2's original assertion (F3, panel round 1): the
-  // dropdown now lists the full key, not the display name -- FilterBar
-  // renders an option's value and its visible text from the same source
-  // (DataTable's own `accessor`), so there is no way to keep the cell's
-  // short label on the dropdown without also keying the filter itself on
-  // it, which is exactly the ambiguity this fix closes. See the "two
-  // projects whose keys share a basename" describe block below for why:
-  // a control whose job is disambiguating two same-named projects cannot
-  // itself compare on the name that fails to disambiguate them.
-  it("the Project filter dropdown now lists the full key, not the display name", async () => {
-    fetchStatsViewMock.mockImplementation((view: ViewName) =>
-      Promise.resolve(
-        envelope(view, [
-          {
-            projectKey: PROJECT_KEY,
-            name: "kan-1",
-            state: "IN_PROGRESS",
-            updatedAt: "2026-01-15T10:00:00Z",
-            updatedBy: "alice",
-            nextCommand: "/flow-fast",
-          },
-        ]),
-      ),
-    );
-
-    render(<StateBoard period={period} project={undefined} />);
-
-    await screen.findByRole("cell", { name: "agents" });
-    const option = screen.getByRole("option", { name: PROJECT_KEY }) as HTMLOptionElement;
-    expect(option.value).toBe(PROJECT_KEY);
-    expect(screen.queryByRole("option", { name: "agents" })).not.toBeInTheDocument();
-  });
 });
 
 // F3 (panel round 1, Major): DataTable's exact-match filter and free-text
@@ -968,33 +1041,26 @@ describe("the Project filter narrows by key identity, not by display name", () =
     );
   }
 
-  it("offers one filter option per project key, not one per display name", async () => {
-    twoProjectsSharingABasename();
-    render(<StateBoard period={period} project={undefined} />);
-
-    await screen.findByRole("link", { name: "kan-1" });
-    const select = screen.getByRole("combobox", { name: "Filter by Project" });
-    // Pre-fix, both rows' accessor collapsed to "agents": the dropdown's
-    // deduplicated option list held exactly one entry, and selecting it
-    // could never narrow the table to either project alone.
-    expect(within(select).getAllByRole("option")).toHaveLength(3); // "All" plus one per key
-  });
-
-  it("filtering by one key's value selects only that project's row", async () => {
+  it("offers one Project chip per project key, each narrowing to its own project", async () => {
     twoProjectsSharingABasename();
     const user = userEvent.setup();
-    render(<StateBoard period={period} project={undefined} />);
+    render(<StateBoard />);
 
-    await screen.findByRole("link", { name: "kan-1" });
-    const select = screen.getByRole("combobox", { name: "Filter by Project" });
+    const table = within(await screen.findByRole("table"));
+    const chips = within(screen.getByRole("group", { name: "Project" })).getAllByRole("button");
+    // "All" plus one chip per key, each titled with its full key: two keys
+    // sharing a display name never merge into one filter.
+    expect(chips).toHaveLength(3);
+    const one = chips.find((c) => c.title === KEY_ONE)!;
+    const two = chips.find((c) => c.title === KEY_TWO)!;
 
-    await user.selectOptions(select, KEY_ONE);
-    expect(screen.getByRole("link", { name: "kan-1" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "kan-2" })).not.toBeInTheDocument();
+    await user.click(one);
+    expect(table.getByRole("link", { name: "kan-1" })).toBeInTheDocument();
+    expect(table.queryByRole("link", { name: "kan-2" })).not.toBeInTheDocument();
 
-    await user.selectOptions(select, KEY_TWO);
-    expect(screen.getByRole("link", { name: "kan-2" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "kan-1" })).not.toBeInTheDocument();
+    await user.click(two);
+    expect(table.getByRole("link", { name: "kan-2" })).toBeInTheDocument();
+    expect(table.queryByRole("link", { name: "kan-1" })).not.toBeInTheDocument();
   });
 });
 

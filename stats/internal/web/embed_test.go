@@ -352,7 +352,11 @@ func (fakeStore) QueryStageRuns(context.Context, store.Query) ([]store.StageRun,
 	return nil, 0, nil
 }
 
-func (fakeStore) LiveStateBoard(context.Context, store.Period, *string) ([]store.LiveStateRow, error) {
+func (fakeStore) SetSessionActivity(context.Context, string, string, string) error {
+	return nil
+}
+
+func (fakeStore) LiveStateBoard(context.Context, store.Period, *string, *string) ([]store.LiveStateRow, error) {
 	return nil, nil
 }
 

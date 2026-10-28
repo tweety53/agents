@@ -45,6 +45,18 @@ type LiveStateRow struct {
 	CostUsd     float64
 	WallClockMs int64
 	Errors      int
+
+	// CurrentStage and CurrentStageStartedAt are the change's latest open
+	// stage run; DoneTasks counts the distinct tasks an implementer
+	// dispatch committed, nil when the change has no implementer dispatch;
+	// Activity, ActivityDetail and ActivitySince are the open run's session
+	// activity (store.SetSessionActivity). Each is nil when absent.
+	CurrentStage          *string
+	CurrentStageStartedAt *time.Time
+	DoneTasks             *int
+	Activity              *string
+	ActivityDetail        *string
+	ActivitySince         *time.Time
 }
 
 // signalErrorsExpr is one stage run's tool and API errors, main and
@@ -59,11 +71,13 @@ const signalErrorsExpr = `(CASE WHEN jsonb_typeof(sr.metrics #> '{signals,main,t
 // LiveStateBoard lists every change updated within period, optionally
 // restricted to one project. A period containing no changes returns an
 // empty slice, never an error.
-func (s *Store) LiveStateBoard(ctx context.Context, period Period, project *string) ([]LiveStateRow, error) {
+func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, change *string) ([]LiveStateRow, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT c.project_key, c.name, c.state, c.updated_at, c.updated_by,
 		       first_obs.total_tasks, latest_obs.total_tasks,
-		       totals.runs, totals.cost, totals.wall_ms, totals.errors
+		       totals.runs, totals.cost, totals.wall_ms, totals.errors,
+		       open_run.stage, open_run.started_at, done.tasks,
+		       sa.state, sa.detail, sa.updated_at
 		FROM changes c
 		LEFT JOIN LATERAL (
 			SELECT t.total_tasks
@@ -95,10 +109,26 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project *stri
 				GROUP BY COALESCE(sr.session_token, 'stage-' || sr.id)
 			) r
 		) totals ON true
+		LEFT JOIN LATERAL (
+			SELECT sr.stage, sr.started_at, sr.session_id
+			FROM stage_runs sr
+			WHERE sr.change_id = c.id AND sr.ended_at IS NULL
+			ORDER BY sr.started_at DESC, sr.id DESC
+			LIMIT 1
+		) open_run ON true
+		LEFT JOIN session_activity sa ON sa.session_id = open_run.session_id
+		LEFT JOIN LATERAL (
+			SELECT CASE WHEN COUNT(*) = 0 THEN NULL
+			            ELSE (COUNT(DISTINCT d.task_id) FILTER (WHERE d.commit_sha IS NOT NULL AND d.task_id IS NOT NULL))::int
+			       END AS tasks
+			FROM dispatches d
+			WHERE d.change_id = c.id AND d.role = 'implementer'
+		) done ON true
 		WHERE c.updated_at >= $1 AND c.updated_at < $2
 		  AND ($3::text IS NULL OR c.project_key = $3)
+		  AND ($4::text IS NULL OR c.name = $4)
 		ORDER BY c.updated_at DESC, c.project_key, c.name
-	`, period.From, period.To, project)
+	`, period.From, period.To, project, change)
 	if err != nil {
 		return nil, fmt.Errorf("store: live state board: %w", err)
 	}
@@ -112,7 +142,9 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project *stri
 		)
 		if err := rows.Scan(&row.ProjectKey, &row.Name, &state, &row.UpdatedAt, &row.UpdatedBy,
 			&row.PlannedTasks, &row.CurrentTasks,
-			&row.RunCount, &row.CostUsd, &row.WallClockMs, &row.Errors); err != nil {
+			&row.RunCount, &row.CostUsd, &row.WallClockMs, &row.Errors,
+			&row.CurrentStage, &row.CurrentStageStartedAt, &row.DoneTasks,
+			&row.Activity, &row.ActivityDetail, &row.ActivitySince); err != nil {
 			return nil, fmt.Errorf("store: live state board: scan: %w", err)
 		}
 		row.State = State(state)

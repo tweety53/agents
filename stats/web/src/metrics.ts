@@ -157,6 +157,22 @@ export function readEffort(bag: unknown): string | null {
   return readStringKey(asObject(bag), "effort");
 }
 
+/** A dispatch bucket's most-served effort, from its `signals.served_efforts` counts; ties go to the first name. */
+export function readServedEffort(bucket: unknown): string | null {
+  const signals = asObject(asObject(bucket)?.signals);
+  const served = asObject(signals?.served_efforts);
+  if (!served) return null;
+  let best: string | null = null;
+  let bestCount = -Infinity;
+  for (const [effort, count] of Object.entries(served).sort(([a], [b]) => a.localeCompare(b))) {
+    if (typeof count === "number" && count > bestCount) {
+      best = effort;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
 /** `fast_mode`, from the CLI invocation's environment. */
 export function readFastMode(bag: unknown): boolean | null {
   return readBooleanKey(asObject(bag), "fast_mode");
