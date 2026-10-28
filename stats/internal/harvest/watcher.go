@@ -1006,11 +1006,7 @@ func (w *Watcher) attributeDispatches(ctx context.Context, records []Record, pat
 	}
 
 	for dispatchID, dd := range deltas {
-		mp := MetricsPatch{Tokens: dd.Tokens, Signals: &SignalsDelta{Sidechain: dd.Signals}}
-		if dd.ApportionedRecords > 0 {
-			mp.Apportioned = &ApportionedDelta{Records: dd.ApportionedRecords}
-		}
-		patch, err := json.Marshal(mp)
+		patch, err := json.Marshal(dd.patch())
 		if err != nil {
 			w.warn("harvest: encode dispatch metrics failed", "path", path, "dispatch_id", dispatchID, "error", err)
 			continue
@@ -1062,7 +1058,7 @@ func (w *Watcher) attributeAgentFile(ctx context.Context, records []Record, path
 	}
 
 	for dispatchID, dd := range attributeAgentFileRecords(windows, records) {
-		patch, err := json.Marshal(MetricsPatch{Tokens: dd.Tokens, Signals: &SignalsDelta{Sidechain: dd.Signals}})
+		patch, err := json.Marshal(dd.patch())
 		if err != nil {
 			w.warn("harvest: encode dispatch metrics failed", "path", path, "dispatch_id", dispatchID, "error", err)
 			continue
@@ -1083,7 +1079,7 @@ func AgentFileDispatchPatch(path string) (json.RawMessage, error) {
 		return nil, err
 	}
 	dd := attributeAgentFileRecords([]DispatchWindow{{}}, batch.Records)[0]
-	return json.Marshal(MetricsPatch{Tokens: dd.Tokens, Signals: &SignalsDelta{Sidechain: dd.Signals}})
+	return json.Marshal(dd.patch())
 }
 
 // ErrNoInlineShare is InlineDispatchPatch's answer for a row the parent
@@ -1109,11 +1105,7 @@ func InlineDispatchPatch(ctx context.Context, windows DispatchWindowSource, comp
 	if !ok {
 		return nil, fmt.Errorf("%w: dispatch %d", ErrNoInlineShare, dispatchID)
 	}
-	mp := MetricsPatch{Tokens: dd.Tokens, Signals: &SignalsDelta{Sidechain: dd.Signals}}
-	if dd.ApportionedRecords > 0 {
-		mp.Apportioned = &ApportionedDelta{Records: dd.ApportionedRecords}
-	}
-	return json.Marshal(mp)
+	return json.Marshal(dd.patch())
 }
 
 // ClosedInlinePatch is InlineDispatchPatch for a closed inline row: any row

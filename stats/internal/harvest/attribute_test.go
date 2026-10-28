@@ -2043,3 +2043,37 @@ func TestAttributeDispatchesRoutesAgentFileBatchesDirectly(t *testing.T) {
 		t.Fatalf("merged = %v, want exactly one merge on row 7 — the file's own agentId resolution", dispatchSink.merged)
 	}
 }
+
+// TestAttributeStampsModelVersion pins model-version-split: a dispatch's
+// metrics patch carries the exact model its transcript's assistant lines
+// name, the newest line's model winning, and no key at all when no line
+// names one.
+func TestAttributeStampsModelVersion(t *testing.T) {
+	line := func(ts, model string) string {
+		return `{"type":"assistant","timestamp":"` + ts + `","sessionId":"s1","agentId":"abc","isSidechain":true,"message":{"model":"` + model + `","usage":{"input_tokens":1,"output_tokens":1}}}` + "\n"
+	}
+	patchFor := func(body string) map[string]any {
+		t.Helper()
+		p := filepath.Join(t.TempDir(), "agent-abc.jsonl")
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		raw, err := harvest.AgentFileDispatchPatch(p)
+		if err != nil {
+			t.Fatalf("AgentFileDispatchPatch: %v", err)
+		}
+		var m map[string]any
+		if err := json.Unmarshal(raw, &m); err != nil {
+			t.Fatal(err)
+		}
+		return m
+	}
+
+	m := patchFor(line("2026-01-01T00:00:00Z", "claude-opus-5") + line("2026-01-01T00:00:01Z", "claude-opus-5-5"))
+	if m["modelVersion"] != "claude-opus-5-5" {
+		t.Errorf("modelVersion = %v, want claude-opus-5-5 (the newest line's)", m["modelVersion"])
+	}
+	if m := patchFor(line("2026-01-01T00:00:00Z", "")); m["modelVersion"] != nil {
+		t.Errorf("modelVersion = %v, want no key when no line names a model", m["modelVersion"])
+	}
+}
