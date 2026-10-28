@@ -653,6 +653,35 @@ func TestProtectMainCheckoutReadsADataHeredocBodyAsData(t *testing.T) {
 	f.bash("unbalanced ) in body", "deny", "{ROOT}", "flow x <<EOF\n$(case a in a) rm {MAIN}/f.txt;; esac)\nEOF")
 }
 
+// TestProtectMainCheckoutReadsTwoDataHeredocsAsData pins the kan-1041
+// self-review: each data heredoc's rest is judged without the other's body,
+// so a lone `.` in one and an unpaired backtick in the other no longer keep
+// both scanned; an unquoted body that runs code still counts.
+func TestProtectMainCheckoutReadsTwoDataHeredocsAsData(t *testing.T) {
+	t.Parallel()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &pmFixture{t: t, home: t.TempDir(), vars: map[string]string{"ROOT": root}}
+	main := root + "/main"
+	f.vars["MAIN"], f.vars["SIB"] = main, root+"/sib"
+	f.git("init", "-q", "--bare", root+"/origin.git")
+	f.git("clone", "-q", root+"/origin.git", main)
+	f.write(main+"/f.txt", "a\n")
+	f.git("-C", main, "add", "f.txt")
+	f.git("-C", main, "commit", "-q", "-m", "init")
+	f.git("-C", main, "branch", "-M", "main")
+	f.git("-C", main, "push", "-q", "-u", "origin", "main")
+	f.git("-C", main, "remote", "set-head", "origin", "main")
+
+	f.bash("two report heredocs, a lone dot and an unpaired backtick", "allow", "{MAIN}", "cat > {SIB}/a.md <<'E'\n.\nE\ncat > {SIB}/b.md <<'E'\n`> .\nE")
+	f.bash("a second body that runs the first's file keeps it scanned", "deny", "{MAIN}", "cat > {SIB}/x.sh <<'A'\nrm {MAIN}/f.txt\nA\ncat > {SIB}/y <<B\n$(bash {SIB}/x.sh)\nB")
+	f.bash("a second heredoc fed to a shell keeps the first scanned", "deny", "{MAIN}", "cat > {SIB}/x.sh <<'A'\nrm {MAIN}/f.txt\nA\nbash <<'B'\n{SIB}/x.sh\nB")
+	f.bash("a second quoted body running the first's file keeps it scanned", "deny", "{MAIN}", "cat > {SIB}/a.sh <<'A'\nrm {MAIN}/f.txt\nA\ncat > {SIB}/b.sh <<'B'\n{SIB}/a.sh\nB\nchmod +x {SIB}/*.sh; {SIB}/b.sh")
+	f.bash("a second quoted body substituted back keeps the first scanned", "deny", "{MAIN}", "cat > {SIB}/x.sh <<'A'\nrm {MAIN}/f.txt\nA\ncat > {SIB}/y <<'B'\n{SIB}/x.sh\nB\n$(cat {SIB}/y)")
+}
+
 // TestProtectMainCheckoutReadsASingleQuotedBacktickAsLiteral pins the
 // kan-1039 self-review: a backtick inside single quotes after a data
 // heredoc is a plain character, so the heredoc body stays data; an

@@ -541,6 +541,36 @@ def _split_redirect(word):
     return [m.group(1), m.group(2)] if m else [word]
 
 
+def drop_data_bodies(lines, target):
+    """lines with the body of every heredoc whose text the shell runs nothing of removed — a
+    quoted delimiter's, or an unquoted one holding no `$(` or backtick — keeping its opener and
+    delimiter lines, so a `bash <<'E'` opener still reads as a runner. strip_data_heredocs judges
+    one body's rest through this: another heredoc's prose (a lone `.`, an unpaired backtick) is
+    no command of the rest (kan-1041 self-review: two report heredocs in one call were denied).
+    A body naming `target` is kept: it may be a script, or a list, that runs the target."""
+    out = []
+    k = 0
+    while k < len(lines):
+        line = lines[k]
+        out.append(line)
+        k += 1
+        m = HEREDOC_OPEN_RE.search(line)
+        if not m:
+            continue
+        delim = m.group(1) or m.group(2) or m.group(3)
+        tabs = line[m.start() : m.start() + 3] == "<<-"
+        end = next(
+            (j for j in range(k, len(lines)) if (lines[j].lstrip("\t") if tabs else lines[j]).rstrip("\r") == delim),
+            None,
+        )
+        body = "\n".join(lines[k:end])
+        if end is None or (target and target in body) or (m.group(3) and any(c in body for c in ("$(", "`"))):
+            continue
+        out.append(lines[end])
+        k = end + 1
+    return out
+
+
 def strip_data_heredocs(command):
     """command with the body of a `cat`/`tee` heredoc to a named file removed — that body is
     data for a writer whose target the opening line already names, so a report line such as
@@ -600,7 +630,7 @@ def strip_data_heredocs(command):
             and not line.rstrip().endswith("\\")  # a continued opener line hides the rest
             and ">" not in seg  # output written to a file may be run later
             and not any(w.rsplit("/", 1)[-1] in RUNNER_WORDS for w in OPENER_WORD_SPLIT_RE.split(seg))
-            and not may_run_code("\n".join(lines[:k] + lines[end + 1 :]), None)
+            and not may_run_code("\n".join(drop_data_bodies(lines[:k], None) + drop_data_bodies(lines[end + 1 :], None)), None)
         ):
             body = "\n".join(lines[k:end]).replace("\\`", "")
             if m.group(3) and any(c in body for c in ("$(", "`")):
@@ -621,7 +651,7 @@ def strip_data_heredocs(command):
             continue
         if target.startswith("/dev/") or "(" in target:
             continue
-        rest = "\n".join(lines[:k] + lines[end + 1 :])
+        rest = "\n".join(drop_data_bodies(lines[:k], target) + drop_data_bodies(lines[end + 1 :], target))
         if may_run_code(rest, target):
             if runs_as_program(rest, target) and not (m.group(3) and any(c in "\n".join(lines[k:end]) for c in ("$(", "`"))):
                 out.extend(program_git_lines("\n".join(lines[k:end])))
