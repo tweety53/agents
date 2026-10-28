@@ -17,6 +17,11 @@
 # Important (KAN-503). The exemption stays legal at Minor and at Critical,
 # which already goes to the fix unconditionally.
 #
+# A runnable reproducer path under .superpowers/sdd/reproducers/ that
+# findings of two different rounds record is refused, naming both refs, for
+# every status: the later round's script replaced the earlier one's. Findings
+# of one round sharing a path (a joined slot's re-record) pass.
+#
 # Reads ONLY the decoded JSON array `flow record findings` prints. It
 # never parses a findings table, a Markdown file, or a marker block — for
 # the same reason check-unfinished-work.sh does not: a hand-rolled parser

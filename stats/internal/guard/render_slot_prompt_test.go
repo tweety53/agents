@@ -388,7 +388,21 @@ func TestRenderSlotPromptCarriesReproducer(t *testing.T) {
 	if r.rc != 0 {
 		t.Fatalf("exit %d\n%s", r.rc, r.out)
 	}
-	if b := rspTestBlock(t, skill+"/review-panel.md", "REPRODUCER"); strings.Count(got, b) != 1 {
-		t.Errorf("the REPRODUCER block is not carried exactly once, verbatim")
+	b := strings.Replace(rspTestBlock(t, skill+"/review-panel.md", "REPRODUCER"), "`R` this round's number", "`R` this round's number — `0` here", 1)
+	if strings.Count(got, b) != 1 {
+		t.Errorf("the REPRODUCER block is not carried exactly once, verbatim save the round")
+	}
+}
+
+func TestRenderSlotPromptStatesTheRound(t *testing.T) {
+	t.Parallel()
+	skill := rspSkillDir(t)
+	fx := rspNewFx(t)
+	r, got := fx.run(t, skill, skill, "3", fx.canon, fx.plan, "primary", "-diff", "final", "--", fx.canon)
+	if r.rc != 0 {
+		t.Fatalf("exit %d\n%s", r.rc, r.out)
+	}
+	if !strings.Contains(got, "`R` this round's number — `3` here") {
+		t.Errorf("the REPRODUCER paragraph does not state round 3:\n%s", got)
 	}
 }

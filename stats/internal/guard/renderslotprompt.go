@@ -162,6 +162,16 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		if !ok {
 			return 2
 		}
+		// A slot is told its round, not left to guess it: kan-1024's round-0
+		// reproducers took round 1's names and were overwritten.
+		if label == "REPRODUCER" {
+			const phrase = "`R` this round's number"
+			if !strings.Contains(b, phrase) {
+				fmt.Fprintf(stderr, "render-slot-prompt: review-panel.md's REPRODUCER block no longer carries %q — cannot state the round\n", phrase)
+				return 2
+			}
+			b = strings.Replace(b, phrase, phrase+" — `"+round+"` here", 1)
+		}
 		if label == "WORKTREES" {
 			b = strings.Replace(b, "`<abs-worktree-1>`, `<abs-worktree-2>`, …", "`"+strings.Join(wts, "`, `")+"`", 1)
 		}

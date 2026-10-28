@@ -274,3 +274,21 @@ func TestCheckPanelReproducersRefusesAnOffShapeName(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckPanelReproducersRefusesCrossRoundPath(t *testing.T) {
+	t.Parallel()
+	wt := t.TempDir()
+	okBin := cprBin(t, `cat "$(dirname -- "$0")/state.json"; exit 0`, `exit 1`)
+	const path = ".superpowers/sdd/reproducers/1-mutation-1.sh"
+	pair := func(r1, r2 int) []byte {
+		b, _ := json.Marshal([]map[string]any{
+			{"ref": "F5", "round": r1, "slot": "mutation", "status": "fixed", "severity": "Important", "reproducer": path},
+			{"ref": "F8", "round": r2, "slot": "mutation", "status": "fixed", "severity": "Important", "reproducer": path},
+		})
+		return b
+	}
+	got, out := cprRun(t, okBin, wt, "demo", pair(1, 0))
+	cprExpect(t, got, out, 1, "F5 (round 1) and F8 (round 0)")
+	got, out = cprRun(t, okBin, wt, "demo", pair(1, 1))
+	cprExpect(t, got, out, 0, "REPRODUCERS-OK")
+}

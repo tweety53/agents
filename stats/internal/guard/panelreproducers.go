@@ -269,6 +269,36 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 		}
 	}
 
+	// ONE PATH, TWO ROUNDS: a later round's script written under an earlier
+	// round's path replaced it, so the earlier finding's recorded check now
+	// runs the later one's (kan-1024's F8 and F11). Any status -- the
+	// collision is in the record, not in whether the script still runs. Two
+	// findings of one round sharing a path is a joined slot's re-record of
+	// one defect (**A finding recorded under a joined slot**,
+	// skills/flow/review-panel.md) and passes.
+	type cprFirst struct {
+		round int
+		ref   string
+	}
+	firstAt := map[string]cprFirst{}
+	for fi, f := range findings {
+		if strings.HasPrefix(f.reproducer, "none") {
+			continue
+		}
+		path, _, _ := strings.Cut(f.reproducer, " ")
+		if !strings.HasPrefix(path, cprReproducersDir) {
+			continue
+		}
+		first, seen := firstAt[path]
+		if !seen {
+			firstAt[path] = cprFirst{rounds[fi], f.refText}
+			continue
+		}
+		if first.round != rounds[fi] {
+			add(fmt.Sprintf("%s (round %d) and %s (round %d) record one reproducer path '%s' — the later round's script replaced the earlier one's; name each by its own round", first.ref, first.round, f.refText, rounds[fi], path))
+		}
+	}
+
 	if len(violations) > 0 {
 		for _, v := range violations {
 			fmt.Fprintf(stderr, "%s%s\n", cprPrefix, v)
