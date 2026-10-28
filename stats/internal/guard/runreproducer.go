@@ -345,7 +345,9 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	// on exactly the finding it was protecting.
 	before, snapped := rrGitStatus(worktree)
 	// The bytes of every tracked path that differs from HEAD, so an uncommitted
-	// edit the run overwrites can be put back (reproducer-restores-dirty-bytes).
+	// edit the run overwrites can be put back (reproducer-restores-dirty-bytes);
+	// a path clean before the run that the run changed is put back from HEAD
+	// (reproducer-restores-clean-paths).
 	dirty := rrSnapshotDirty(worktree)
 	if err := cmd.Start(); err != nil {
 		// The child never reached exec because it could not enter the worktree —
@@ -1001,7 +1003,9 @@ func rrSnapshotDirty(worktree string) map[string]rrSnap {
 }
 
 // rrRestoreDirty writes back every snapshotted path the run changed -- its
-// bytes, or its absence -- names each on stderr, and returns them sorted.
+// bytes, or its absence -- then checks out from HEAD every tracked path the
+// run changed that was clean before it (reproducer-restores-clean-paths),
+// names each on stderr, and returns them sorted.
 func rrRestoreDirty(worktree string, snap map[string]rrSnap, stderr io.Writer) []string {
 	var restored []string
 	for p, s := range snap {
@@ -1024,6 +1028,16 @@ func rrRestoreDirty(worktree string, snap map[string]rrSnap, stderr io.Writer) [
 			}
 		}
 		restored = append(restored, p)
+	}
+	if out, err := exec.Command("git", "-C", worktree, "diff", "--no-renames", "--name-only", "-z", "HEAD", "--relative").Output(); err == nil {
+		for _, p := range strings.Split(string(out), "\x00") {
+			if _, was := snap[p]; p == "" || was {
+				continue
+			}
+			if exec.Command("git", "-C", worktree, "checkout", "-q", "HEAD", "--", p).Run() == nil {
+				restored = append(restored, p)
+			}
+		}
 	}
 	sort.Strings(restored)
 	for _, p := range restored {

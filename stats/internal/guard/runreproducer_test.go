@@ -566,10 +566,9 @@ func TestRunReproducerRefusesAChangedTree(t *testing.T) {
 	}
 	rrFixture(t, wt, "scripts/dirty.sh", "echo y >> f.txt; exit 1")
 	got, out := rrRun(t, rrEnv(t), wt, "scripts/dirty.sh")
-	rrExpect(t, got, out, 5, "the run left the worktree changed — before:\n\nafter:\n M f.txt")
-	if err := exec.Command("git", "-C", wt, "checkout", "-q", "f.txt").Run(); err != nil {
-		t.Fatal(err)
-	}
+	// The changed clean path is put back from HEAD and named
+	// (reproducer-restores-clean-paths); the run still gets no verdict.
+	rrExpect(t, got, out, 5, "run-reproducer: restored f.txt\nrun-reproducer: the run left the worktree changed")
 	rrFixture(t, wt, "scripts/restore.sh", "echo y >> f.txt; git checkout -q f.txt; exit 1")
 	got, out = rrRun(t, rrEnv(t), wt, "scripts/restore.sh")
 	rrExpect(t, got, out, 0, "defect demonstrated")
@@ -597,5 +596,49 @@ func TestRunReproducerRestoresAnUncommittedEdit(t *testing.T) {
 	}
 	if string(b) != "x\nlocal\n" {
 		t.Fatalf("f.txt = %q, want the uncommitted edit back", b)
+	}
+}
+
+// A path clean before the run that the reproducer changes is put back from
+// HEAD, whether the run completes or is killed at the bound
+// (reproducer-restores-clean-paths).
+func TestRunReproducerRestoresACleanPathTheRunChanged(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, body string
+		bound      bool
+		want       int
+	}{
+		{"completed run", "printf 'mutant\\n' > f.txt; exit 0", false, 5},
+		{"run killed at the bound", "printf 'mutant\\n' > f.txt; touch bound; sleep 30", true, 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			wt := rrWorktree(t)
+			writeFile(t, filepath.Join(wt, "f.txt"), "x\n")
+			writeFile(t, filepath.Join(wt, ".gitignore"), "RAN\ngroups\nscripts/\nbound\n")
+			for _, args := range [][]string{{"init", "-q"}, {"add", "f.txt", ".gitignore"}, {"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "f"}} {
+				if out, err := exec.Command("git", append([]string{"-C", wt}, args...)...).CombinedOutput(); err != nil {
+					t.Fatalf("git %v: %v\n%s", args, err, out)
+				}
+			}
+			rrFixture(t, wt, "scripts/mutate.sh", tc.body)
+			env := rrEnv(t)
+			if tc.bound {
+				env = rrEnv(t, "RUN_REPRODUCER_BOUND_FILE", filepath.Join(wt, "bound"))
+			}
+			got, out := rrRun(t, env, wt, "scripts/mutate.sh")
+			rrExpect(t, got, out, tc.want, "")
+			if tc.want == 5 && !strings.Contains(out, "run-reproducer: restored f.txt") {
+				t.Fatalf("output lacks the restore line:\n%s", out)
+			}
+			b, err := os.ReadFile(filepath.Join(wt, "f.txt"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(b) != "x\n" {
+				t.Fatalf("f.txt = %q, want HEAD's bytes back", b)
+			}
+		})
 	}
 }

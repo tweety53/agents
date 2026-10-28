@@ -122,7 +122,10 @@
 #      path that differs from `HEAD`, and after the run it writes back any the
 #      run changed, naming each on stderr as `run-reproducer: restored <path>`
 #      (kan-1040: a reviewer's `git checkout -q -- skills` reverted an
-#      uncommitted edit).
+#      uncommitted edit); a tracked path clean before the run that the run
+#      changed is put back from `HEAD` and named the same way, whether the run
+#      completed or was killed at the bound (kan-1047: a reproducer's mutant
+#      was left in a clean source file).
 
 # Header corrected for the Go port (KAN-760): the tests, the setsid mechanism
 # and the metacharacter checks are named as they now are. The body's
