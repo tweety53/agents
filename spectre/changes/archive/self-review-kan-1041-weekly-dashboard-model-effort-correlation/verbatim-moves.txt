@@ -1,5 +1,5 @@
 # Sentences this change rewords on purpose — the kan-1041-weekly-dashboard-model-effort-correlation self-review pass: PIPESTATUS is empty in zsh (review-panel.md), the plan guards' invocation (document-fix.md).
 Run `check-plan-shape.sh` and `check-plan-provenance.sh` over the appended `tasks.md` and handle each exit as **D.
 after, use `set -o pipefail`/`PIPESTATUS`, or run the guard bare — so a red verdict cannot be laundered into green by the reader command.
-Run `check-plan-shape.sh <changeRoot>/tasks.md`, a shipped guard among this skill's scripts, and the project's configured plan-provenance guard, at the path the project's `.flow/project.md` `## lint` section names — the project's own script, never one under this skill's scripts — and handle each exit as **D.
+Run `check-plan-shape.sh <changeRoot>/tasks.md`, a shipped guard among this skill's scripts, and the project's configured plan-provenance guard, at the path the project's `<project>/.flow/project.md` `## lint` section names — the project's own script, never one under this skill's scripts — and handle each exit as **D.
 after, use `set -o pipefail`, or run the guard bare — so a red verdict cannot be laundered into green by the reader command.

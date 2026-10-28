@@ -37,10 +37,10 @@ in the matrix's surface walk; and a new bash tool for the live store copy.
 - Task 2: a back-filled `begin` never runs the live round check; every existing `TestRecordDispatch*` case, the `panel-fix-1` floor cases included, still passes.
 - Task 7: `down` signals only a pid whose pidfile names its own binary, and drops only `flow_<name>_live`; 4173 and 4174 are refused before any side effect.
 
-- [ ] 1. Judge a data heredoc's rest without the other heredocs' bodies
-  - [ ] **Step 1: Reproduce.** Save the diff below, apply its test hunk alone (`git apply --include='stats/internal/repotest/protect_main_checkout_test.go' <the saved diff>`) and run `cd stats && go test ./internal/repotest/ -run '^TestProtectMainCheckoutReadsTwoDataHeredocsAsData$' -count=1`: it fails, `wanted allow, got deny` on the two-report case.
+- [x] 1. Judge a data heredoc's rest without the other heredocs' bodies
+  - [x] **Step 1: Reproduce.** Save the diff below, apply its test hunk alone (`git apply --include='stats/internal/repotest/protect_main_checkout_test.go' <the saved diff>`) and run `cd stats && go test ./internal/repotest/ -run '^TestProtectMainCheckoutReadsTwoDataHeredocsAsData$' -count=1`: it fails, `wanted allow, got deny` on the two-report case.
     <!-- measured: the test with hooks/protect-main-checkout.py at HEAD, go test -run TestProtectMainCheckoutReadsTwoDataHeredocsAsData @ branch spectre/kan-1041-weekly-dashboard-model-effort-correlation → FAIL wanted allow, got deny -->
-  - [ ] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/internal/repotest/protect_main_checkout_test.go' <the saved diff>`):
+  - [x] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/internal/repotest/protect_main_checkout_test.go' <the saved diff>`):
 
 ````diff verified:applied with git apply at 52eee152; go test ./internal/repotest -run TestProtectMainCheckout passes, the new test fails with the hook reverted, and the pass report's minimal reproduction then reads allow
 diff --git a/hooks/protect-main-checkout.py b/hooks/protect-main-checkout.py
@@ -140,8 +140,8 @@ index 5fa199ce..a93a1760 100644
  // heredoc is a plain character, so the heredoc body stays data; an
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l internal/repotest && go vet ./internal/repotest && go test ./internal/repotest/ -run '^TestProtectMainCheckout' -count=1` — green; `scripts/check-python-suppressions.sh` exits 0.
-  - [ ] **Step 4: Commit.** The archived narrative's corrected cause (`spectre/changes/archive/kan-1041-weekly-dashboard-model-effort-correlation/narrative.md` line 16) is already in the plan commit.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l internal/repotest && go vet ./internal/repotest && go test ./internal/repotest/ -run '^TestProtectMainCheckout' -count=1` — green; `scripts/check-python-suppressions.sh` exits 0.
+  - [x] **Step 4: Commit.** The archived narrative's corrected cause (`spectre/changes/archive/kan-1041-weekly-dashboard-model-effort-correlation/narrative.md` line 16) is already in the plan commit.
 
 **Build:** green
 **Files:** `hooks/protect-main-checkout.py`, `stats/internal/repotest/protect_main_checkout_test.go`
@@ -152,10 +152,10 @@ index 5fa199ce..a93a1760 100644
 **Commit:** fix(hooks): judge a data heredoc's rest without the other heredocs' bodies
 **After:** none
 
-- [ ] 2. Refuse a panel-fix key one round low and re-key the two rows
-  - [ ] **Step 1: Reproduce.** Save the diff below, apply its test hunk alone (`git apply --include='stats/cmd/flow/record_test.go' <the saved diff>`) and run `cd stats && go test ./cmd/flow/ -run '^TestRecordDispatchRefusesAPanelFixKeyedARoundLow$' -count=1`: the four round-low cases fail `want 2`.
+- [x] 2. Refuse a panel-fix key one round low and re-key the two rows
+  - [x] **Step 1: Reproduce.** Save the diff below, apply its test hunk alone (`git apply --include='stats/cmd/flow/record_test.go' <the saved diff>`) and run `cd stats && go test ./cmd/flow/ -run '^TestRecordDispatchRefusesAPanelFixKeyedARoundLow$' -count=1`: the four round-low cases fail `want 2`.
     <!-- measured: the test with record.go at HEAD @ branch spectre/kan-1041-weekly-dashboard-model-effort-correlation → 4 cases FAIL want 2 -->
-  - [ ] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/cmd/flow/record_test.go' <the saved diff>`), decision `panel-fix-round-refusal`:
+  - [x] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/cmd/flow/record_test.go' <the saved diff>`), decision `panel-fix-round-refusal`:
 
 ````diff verified:applied with git apply at 52eee152; go vet ./cmd/flow and go test ./cmd/flow -count=1 pass, the new test fails with record.go reverted
 diff --git a/stats/cmd/flow/record.go b/stats/cmd/flow/record.go
@@ -334,8 +334,8 @@ index 737d4153..3495ec24 100644
 +}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l cmd/flow && go vet ./cmd/flow && go test ./cmd/flow/ -run '^TestRecordDispatch' -count=1` — green.
-  - [ ] **Step 4: Repair the rows**, in this order, from `stats/` with `FLOWD_DSN='postgres://flow:flow@localhost:5433/flow?sslmode=disable'` (decision `repair-existing-commands`):
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l cmd/flow && go vet ./cmd/flow && go test ./cmd/flow/ -run '^TestRecordDispatch' -count=1` — green.
+  - [x] **Step 4: Repair the rows**, in this order, from `stats/` with `FLOWD_DSN='postgres://flow:flow@localhost:5433/flow?sslmode=disable'` (decision `repair-existing-commands`):
     - `go run ./cmd/flowd rekey-dispatch 8334 panel-fix-6`
     - `go run ./cmd/flowd retime-dispatch 8334 2026-10-28T02:47:03Z 2026-10-28T02:48:46Z 21b73d9460c7912a9866b4b8f187adcb1aff45e0`
     - `go run ./cmd/flowd rekey-dispatch 8344 panel-fix-8`
@@ -343,7 +343,7 @@ index 737d4153..3495ec24 100644
     - `docker exec flow-postgres psql -U flow -d flow -c "update panel_passes set note = 'fix round re-run of mutation over panel-fix-6' where id = 2535 and note = 'fix round re-run of mutation over panel-fix-5'"` — it prints `UPDATE 1`.
     <!-- measured: docker exec flow-postgres psql -U flow -d flow -tAc "select id, dispatch_key, started_at, ended_at, commit_sha from dispatches where id in (8334,8344)" and "select id, note from panel_passes where id = 2535" @ branch spectre/kan-1041-weekly-dashboard-model-effort-correlation (live dev store, read-only) -->
     Then `docker exec flow-postgres psql -U flow -d flow -tAc "select id, dispatch_key, started_at from dispatches where id in (8334,8344) order by id"` shows `panel-fix-6` from 02:47:03 and `panel-fix-8` from 03:04:14. Task 3 re-renders the archived records after its own repair.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 5: Commit.**
 
 **Build:** green
 **Files:** `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`
@@ -354,10 +354,10 @@ index 737d4153..3495ec24 100644
 **Commit:** fix(flow): refuse a panel-fix key one round below the round it fixes
 **After:** none
 
-- [ ] 3. Floor an inline back-fill at the change's other inline rows and re-render the records
-  - [ ] **Step 1: Reproduce.** Save the diff below, apply its test hunk alone (`git apply --include='stats/cmd/flow/record_test.go' <the saved diff>`) and run `cd stats && go test ./cmd/flow/ -run '^TestRecordDispatchBackfillFloorsAnInlineRowAtTheOtherInlineRows$' -count=1`: it fails, the begin's `startedAt` the commit-derived `2026-10-28T02:48:46Z`.
+- [x] 3. Floor an inline back-fill at the change's other inline rows and re-render the records
+  - [x] **Step 1: Reproduce.** Save the diff below, apply its test hunk alone (`git apply --include='stats/cmd/flow/record_test.go' <the saved diff>`) and run `cd stats && go test ./cmd/flow/ -run '^TestRecordDispatchBackfillFloorsAnInlineRowAtTheOtherInlineRows$' -count=1`: it fails, the begin's `startedAt` the commit-derived `2026-10-28T02:48:46Z`.
     <!-- measured: the test with Task 2's record.go @ branch spectre/kan-1041-weekly-dashboard-model-effort-correlation → FAIL startedAt 2026-10-28T02:48:46Z -->
-  - [ ] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/cmd/flow/record_test.go' <the saved diff>`), decision `inline-floor`:
+  - [x] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/cmd/flow/record_test.go' <the saved diff>`), decision `inline-floor`:
 
 ````diff verified:applied with git apply after Task 2's diff at 52eee152; go vet ./cmd/flow and go test ./cmd/flow -count=1 pass, the new test fails with the record.go hunks reverted
 diff --git a/stats/cmd/flow/record.go b/stats/cmd/flow/record.go
@@ -473,11 +473,11 @@ index 3495ec24..2269e079 100644
 +}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l cmd/flow && go vet ./cmd/flow && go test ./cmd/flow/ -run '^TestRecordDispatch' -count=1` — green.
-  - [ ] **Step 4: Repair the row**, from `stats/` with `FLOWD_DSN='postgres://flow:flow@localhost:5433/flow?sslmode=disable'`, after Task 2's repair: `go run ./cmd/flowd retime-dispatch 8340 2026-10-28T03:02:17Z 2026-10-28T03:02:22Z 8808872e6ba830208f2b21603036e673cd408195`.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l cmd/flow && go vet ./cmd/flow && go test ./cmd/flow/ -run '^TestRecordDispatch' -count=1` — green.
+  - [x] **Step 4: Repair the row**, from `stats/` with `FLOWD_DSN='postgres://flow:flow@localhost:5433/flow?sslmode=disable'`, after Task 2's repair: `go run ./cmd/flowd retime-dispatch 8340 2026-10-28T03:02:17Z 2026-10-28T03:02:22Z 8808872e6ba830208f2b21603036e673cd408195`.
     <!-- measured: docker exec flow-postgres psql -U flow -d flow -tAc "select id, dispatch_key, started_at, ended_at, commit_sha from dispatches where id in (8336,8340)" @ branch spectre/kan-1041-weekly-dashboard-model-effort-correlation (live dev store, read-only) -->
-  - [ ] **Step 5: Re-render the archived records** (decision `archived-records-in-fix`): `flow record render -kind all -repo /Users/tweety53/Projects/agents-worktrees/kan-1041-weekly-dashboard-model-effort-correlation -change kan-1041-weekly-dashboard-model-effort-correlation`, then `cp .superpowers/sdd/ledgers/kan-1041-weekly-dashboard-model-effort-correlation.md spectre/changes/archive/kan-1041-weekly-dashboard-model-effort-correlation/ledger.md` and `cp .superpowers/sdd/reviews/kan-1041-weekly-dashboard-model-effort-correlation-panel.md spectre/changes/archive/kan-1041-weekly-dashboard-model-effort-correlation/panel.md`. `grep -n 'panel-fix-[57]' spectre/changes/archive/kan-1041-weekly-dashboard-model-effort-correlation/ledger.md spectre/changes/archive/kan-1041-weekly-dashboard-model-effort-correlation/panel.md` prints nothing, and the ledger carries `Key: panel-fix-6` and `Key: panel-fix-8`.
-  - [ ] **Step 6: Commit.**
+  - [x] **Step 5: Re-render the archived records** (decision `archived-records-in-fix`): `flow record render -kind all -repo /Users/tweety53/Projects/agents-worktrees/kan-1041-weekly-dashboard-model-effort-correlation -change kan-1041-weekly-dashboard-model-effort-correlation`, then `cp .superpowers/sdd/ledgers/kan-1041-weekly-dashboard-model-effort-correlation.md spectre/changes/archive/kan-1041-weekly-dashboard-model-effort-correlation/ledger.md` and `cp .superpowers/sdd/reviews/kan-1041-weekly-dashboard-model-effort-correlation-panel.md spectre/changes/archive/kan-1041-weekly-dashboard-model-effort-correlation/panel.md`. `grep -n 'panel-fix-[57]' spectre/changes/archive/kan-1041-weekly-dashboard-model-effort-correlation/ledger.md spectre/changes/archive/kan-1041-weekly-dashboard-model-effort-correlation/panel.md` prints nothing, and the ledger carries `Key: panel-fix-6` and `Key: panel-fix-8`.
+  - [x] **Step 6: Commit.**
 
 **Build:** green
 **Files:** `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`, `spectre/changes/archive/kan-1041-weekly-dashboard-model-effort-correlation/ledger.md`, `spectre/changes/archive/kan-1041-weekly-dashboard-model-effort-correlation/panel.md`
@@ -488,8 +488,8 @@ index 3495ec24..2269e079 100644
 **Commit:** fix(flow): floor an inline back-fill at the change's other inline rows
 **After:** Task 2
 
-- [ ] 4. Drop the PIPESTATUS advice zsh cannot honour
-  - [ ] **Step 1: Apply** with `git apply`:
+- [x] 4. Drop the PIPESTATUS advice zsh cannot honour
+  - [x] **Step 1: Apply** with `git apply`:
 
 ````diff verified:applied at 52eee152; check-verbatim-moves.sh 52eee152 then printed its two FAIL lines, which this change's verbatim-moves.txt acknowledges
 diff --git a/skills/flow/review-panel.md b/skills/flow/review-panel.md
@@ -507,8 +507,8 @@ index b1d0be9f..5be11de3 100644
  **Run the citation pre-check before rebuilding the dispatch context bundle below**:
 ````
 
-  - [ ] **Step 2: Verify.** `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh` — all exit 0.
-  - [ ] **Step 3: Commit.**
+  - [x] **Step 2: Verify.** `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh` — all exit 0.
+  - [x] **Step 3: Commit.**
 
 **Build:** green
 **Files:** `skills/flow/review-panel.md`
@@ -517,8 +517,8 @@ index b1d0be9f..5be11de3 100644
 **Commit:** fix(flow): drop the PIPESTATUS advice zsh leaves empty
 **After:** none
 
-- [ ] 5. State the plan guards' invocation in document-fix
-  - [ ] **Step 1: Apply** with `git apply`:
+- [x] 5. State the plan guards' invocation in document-fix
+  - [x] **Step 1: Apply** with `git apply`:
 
 ````diff verified:applied at 52eee152; check-verbatim-moves.sh 52eee152 then printed its two FAIL lines, which this change's verbatim-moves.txt acknowledges; check-references.sh exits 0
 diff --git a/skills/flow/document-fix.md b/skills/flow/document-fix.md
@@ -540,8 +540,8 @@ index b61a0934..4ed62d1f 100644
  
 ````
 
-  - [ ] **Step 2: Verify.** `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh` — all exit 0.
-  - [ ] **Step 3: Commit.**
+  - [x] **Step 2: Verify.** `scripts/check-verbatim-moves.sh && scripts/check-references.sh && scripts/check-markdown-integrity.sh` — all exit 0.
+  - [x] **Step 3: Commit.**
 
 **Build:** green
 **Files:** `skills/flow/document-fix.md`
@@ -550,10 +550,10 @@ index b61a0934..4ed62d1f 100644
 **Commit:** fix(flow): state the plan guards' invocation in document-fix
 **After:** none
 
-- [ ] 6. Take a dark page's whole image as the matrix surface
-  - [ ] **Step 1: Reproduce.** Save the diff below, apply its test hunk alone (`git apply --include='stats/internal/guard/measure_visual_properties_test.go' <the saved diff>`) and run `cd stats && go test ./internal/guard/ -run '^TestMeasureVisualPropertiesElementsDarkPage$' -count=1`: it fails, `surface_top 200, want 0`.
+- [x] 6. Take a dark page's whole image as the matrix surface
+  - [x] **Step 1: Reproduce.** Save the diff below, apply its test hunk alone (`git apply --include='stats/internal/guard/measure_visual_properties_test.go' <the saved diff>`) and run `cd stats && go test ./internal/guard/ -run '^TestMeasureVisualPropertiesElementsDarkPage$' -count=1`: it fails, `surface_top 200, want 0`.
     <!-- measured: the test with measurevisualproperties.go at HEAD @ branch spectre/kan-1041-weekly-dashboard-model-effort-correlation → FAIL surface_top 200, want 0 -->
-  - [ ] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/internal/guard/measure_visual_properties_test.go' <the saved diff>`), decision `dark-page-surface`:
+  - [x] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/internal/guard/measure_visual_properties_test.go' <the saved diff>`), decision `dark-page-surface`:
 
 ````diff verified:applied with git apply at 52eee152; go test ./internal/guard -run TestMeasureVisualProperties passes, the new test fails with the fix reverted
 diff --git a/stats/internal/guard/measure_visual_properties_test.go b/stats/internal/guard/measure_visual_properties_test.go
@@ -612,8 +612,8 @@ index 8c934b61..eba6c662 100644
  	x0, x1 := 8, r.w-8
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l internal/guard && go vet ./internal/guard && go test ./internal/guard/ -run '^TestMeasureVisualProperties' -count=1` — green.
-  - [ ] **Step 4: Commit.**
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l internal/guard && go vet ./internal/guard && go test ./internal/guard/ -run '^TestMeasureVisualProperties' -count=1` — green.
+  - [x] **Step 4: Commit.**
 
 **Build:** green
 **Files:** `stats/internal/guard/measurevisualproperties.go`, `stats/internal/guard/measure_visual_properties_test.go`
@@ -624,8 +624,8 @@ index 8c934b61..eba6c662 100644
 **Commit:** fix(guard): take a dark page's whole image as the matrix surface
 **After:** none
 
-- [ ] 7. Script the live check's copy of the dev store
-  - [ ] **Step 1: Apply** with `git apply` (it creates both scripts executable), decision `live-copy-bash`:
+- [x] 7. Script the live check's copy of the dev store
+  - [x] **Step 1: Apply** with `git apply` (it creates both scripts executable), decision `live-copy-bash`:
 
 ````diff verified:applied with git apply at 52eee152; scripts/test-live-store-copy.sh printed all cases passed, and failed with down's drop target set to flow or with the 4173 refusal removed; check-references.sh and check-workspace-isolation.sh exit 0
 diff --git a/.flow/project.md b/.flow/project.md
@@ -820,8 +820,8 @@ index 00000000..56094b66
 +exit "$rc"
 ````
 
-  - [ ] **Step 2: Verify.** `scripts/test-live-store-copy.sh` prints `all cases passed`; `bash -n scripts/live-store-copy.sh`, `scripts/check-references.sh` and `scripts/check-workspace-isolation.sh` exit 0. Never run `up` or `down` against the real store here.
-  - [ ] **Step 3: Commit.**
+  - [x] **Step 2: Verify.** `scripts/test-live-store-copy.sh` prints `all cases passed`; `bash -n scripts/live-store-copy.sh`, `scripts/check-references.sh` and `scripts/check-workspace-isolation.sh` exit 0. Never run `up` or `down` against the real store here.
+  - [x] **Step 3: Commit.**
 
 **Build:** green
 **Files:** `scripts/live-store-copy.sh`, `scripts/test-live-store-copy.sh`, `.flow/project.md`
