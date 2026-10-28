@@ -768,3 +768,51 @@ func TestCommitHarvestBatchStaleExpectedOffsetAppliesNothing(t *testing.T) {
 		t.Errorf("tokens.main.input = %v, want 3 (1 + 2 from the two real commits; the stale caller's 999 must not have been added)", bag.Tokens.Main.Input)
 	}
 }
+
+// TestBackfillModelVersions pins model-version-split's backfill: every
+// dispatch with an agent id and no modelVersion is stamped from the
+// lookup; a not-found lookup and an already stamped row are left alone.
+func TestBackfillModelVersions(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	project := fmt.Sprintf("proj-backfill-%d", time.Now().UnixNano())
+	seedChange(t, st, project, "b")
+	for _, key := range []string{"k1", "k2", "k3"} {
+		d := baseDispatch("reviewer", "opus")
+		d.Key, d.AgentID = key, "agent-"+key
+		if _, err := st.RecordDispatch(ctx, project, "b", d); err != nil {
+			t.Fatalf("RecordDispatch %s: %v", key, err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `UPDATE dispatches SET metrics = metrics || '{"modelVersion":"claude-opus-5"}' WHERE agent_id = 'agent-k3'`); err != nil {
+		t.Fatal(err)
+	}
+	lookup := func(agentID string) (string, bool) {
+		switch agentID {
+		case "agent-k1", "agent-k3":
+			return "claude-opus-5-5", true
+		}
+		return "", false
+	}
+	n, err := st.BackfillModelVersions(ctx, lookup)
+	if err != nil || n != 1 {
+		t.Fatalf("BackfillModelVersions = %d, %v; want 1 stamped", n, err)
+	}
+	rows, err := pool.Query(ctx, `SELECT agent_id, COALESCE(metrics->>'modelVersion', '') FROM dispatches WHERE agent_id LIKE 'agent-k%' ORDER BY agent_id`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	got := map[string]string{}
+	for rows.Next() {
+		var a, v string
+		if err := rows.Scan(&a, &v); err != nil {
+			t.Fatal(err)
+		}
+		got[a] = v
+	}
+	want := map[string]string{"agent-k1": "claude-opus-5-5", "agent-k2": "", "agent-k3": "claude-opus-5"}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("modelVersion by agent = %v, want %v", got, want)
+	}
+}

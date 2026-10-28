@@ -498,3 +498,47 @@ th button {
   color: var(--status-critical);
   font-weight: 600;
 }
+
+/* Review dynamics (KAN-1046): the approved prototype's bar, tiles, trend
+   panels, tooltip and heatmap, on the theme's tokens. */
+.dynamics-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0 16px; }
+.dynamics-bar button { background: var(--surface-panel); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px; padding: 5px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+.dynamics-bar button[aria-pressed="true"] { border-color: var(--series-1); color: var(--series-1); font-weight: 600; }
+.dynamics-bar button:disabled { opacity: 0.5; cursor: default; }
+.dynamics-lbl { color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; margin-left: 8px; }
+.dynamics-sub { color: var(--text-secondary); font-size: 12px; margin: 0 0 8px; }
+.dynamics-inline { margin: 0; }
+.dynamics-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.dynamics-tile, .dynamics-panel { background: var(--surface-panel); border: 1px solid var(--border); border-radius: 4px; padding: 12px; min-width: 0; position: relative; }
+.dynamics-panel h2 { font-size: 13px; margin: 0 0 2px; font-weight: 600; }
+.dynamics-tile-k { color: var(--text-secondary); font-size: 12px; }
+.dynamics-tile-v { font-size: 26px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.dynamics-tile-d { font-size: 12px; font-variant-numeric: tabular-nums; }
+.dynamics-good { color: var(--delta-down); }
+.dynamics-bad { color: var(--delta-up); }
+.dynamics-flat { color: var(--text-muted); }
+.dynamics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 10px; }
+.dynamics-section { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin: 18px 0 8px; }
+.dynamics-panel svg { width: 100%; height: auto; display: block; }
+.dynamics-axis { stroke: var(--border); }
+.dynamics-tick { fill: var(--text-muted); font-size: 10px; font-family: var(--font-mono); }
+.dynamics-marker { stroke: var(--marker); stroke-dasharray: 3 3; stroke-width: 1; }
+.dynamics-marker-dot { fill: var(--marker); }
+.dynamics-cross { stroke: var(--text-muted); stroke-width: 1; }
+.dynamics-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+.dynamics-legend i { display: inline-block; width: 10px; height: 3px; margin-right: 4px; vertical-align: middle; }
+.dynamics-tip { position: absolute; top: 40px; pointer-events: none; background: var(--surface-tip); border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; font-size: 11px; line-height: 1.5; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); z-index: 5; white-space: nowrap; font-variant-numeric: tabular-nums; transform: translateX(12px); }
+.dynamics-tip b { display: block; margin-bottom: 2px; }
+.dynamics-tip i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
+.dynamics-tip-basis { color: var(--text-muted); }
+.dynamics-tip-marker { color: var(--marker); margin-top: 3px; white-space: normal; max-width: 260px; }
+.dynamics-heat { width: auto; border-collapse: separate; border-spacing: 3px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.dynamics-heat th { color: var(--text-secondary); font-weight: 500; padding: 2px 6px; text-align: center; }
+.dynamics-heat th.dynamics-heat-row { text-align: left; }
+.dynamics-heat th, .dynamics-heat td { border-bottom: none; }
+.dynamics-heat td { padding: 0; width: 92px; height: 44px; text-align: center; border-radius: 3px; cursor: default; }
+.dynamics-heat-r { font-size: 14px; font-weight: 600; }
+.dynamics-heat-c { font-size: 10px; }
+.dynamics-heat-empty { color: var(--text-muted); }
+.dynamics-scroll { overflow-x: auto; }
+.dynamics-note { color: var(--text-muted); font-size: 11px; margin-top: 10px; }

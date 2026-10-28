@@ -103,6 +103,15 @@ cases are recorded too, so the same case is never re-mined:
 - <date> · `<case-id>` · <type> · `<target>` · <defect class> — <one-line summary of the update> — rejected: <reason>
 ```
 
+Before a folder's `git rm`, every applied case is recorded in the stats store, which feeds the
+Review dynamics view's prompt-change markers:
+
+```bash
+flow prompt-tuning record <case-dir> -sha <the applying commit's sha>
+```
+
+A non-zero exit is reported with its stderr and the step continues: the store is never a gate.
+
 For an applied case, `<sha>` is the commit that applied it. The ledger entries and the folder
 removals go in one commit, `docs(prompt-tuning): ledger <date>`, after the update commits.
 Before it is committed, `check-prompt-tuning-cases.sh` over the same root prints no line for `LEDGER.md` and none for a folder this run replayed; a line for a red case step 1 left untouched is expected and stays.

@@ -405,9 +405,13 @@ type DispatchBucket struct {
 // expects -- Attribute itself returns Delta values, not encoded patches,
 // since it no longer talks to any sink at all.
 type MetricsPatch struct {
-	Tokens     TokenDelta                `json:"tokens"`
-	Models     map[string]ModelBucket    `json:"models,omitempty"`
-	Dispatches map[string]DispatchBucket `json:"dispatches,omitempty"`
+	Tokens TokenDelta `json:"tokens"`
+	// ModelVersion is a dispatch's exact model ID, from its newest
+	// attributed line's message.model (model-version-split): a string leaf,
+	// so jsonb_deep_add keeps the last write.
+	ModelVersion string                    `json:"modelVersion,omitempty"`
+	Models       map[string]ModelBucket    `json:"models,omitempty"`
+	Dispatches   map[string]DispatchBucket `json:"dispatches,omitempty"`
 	// Signals is a stage run's or a dispatch's own observability counters
 	// (task 5), nested under "signals" alongside "tokens" -- Delta.Signals'
 	// own doc comment says where this comes from and how it splits.
@@ -747,6 +751,27 @@ type DispatchDelta struct {
 	Tokens             TokenDelta
 	Signals            Signals
 	ApportionedRecords int64
+	// ModelVersion is the newest attributed record's model, "" when no
+	// record named one (model-version-split).
+	ModelVersion string
+	modelAt      time.Time
+}
+
+// noteModel keeps the newest non-empty model among the records credited
+// to d.
+func (d *DispatchDelta) noteModel(r Record) {
+	if r.Model != "" && !r.Timestamp.Before(d.modelAt) {
+		d.ModelVersion, d.modelAt = r.Model, r.Timestamp
+	}
+}
+
+// patch is d's metrics patch, the one shape every dispatch merge writes.
+func (d DispatchDelta) patch() MetricsPatch {
+	mp := MetricsPatch{Tokens: d.Tokens, Signals: &SignalsDelta{Sidechain: d.Signals}, ModelVersion: d.ModelVersion}
+	if d.ApportionedRecords > 0 {
+		mp.Apportioned = &ApportionedDelta{Records: d.ApportionedRecords}
+	}
+	return mp
 }
 
 // Attribute assigns every *sidechain* record in records to the dispatch
@@ -853,6 +878,7 @@ func (a *DispatchAttributor) Attribute(ctx context.Context, records []Record) (m
 			}
 			if r.Signal == nil {
 				d.Tokens.bucket(r.IsSidechain).add(r.Usage)
+				d.noteModel(r)
 			}
 			deltas[w.DispatchID] = d
 		}
@@ -1193,6 +1219,7 @@ func attributeAgentFileRecords(windows []DispatchWindow, records []Record) map[i
 		d.Signals.add(r)
 		if r.Signal == nil {
 			d.Tokens.Sidechain.add(r.Usage)
+			d.noteModel(r)
 		}
 		deltas[row.DispatchID] = d
 	}

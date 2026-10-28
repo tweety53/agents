@@ -14,6 +14,7 @@
   color-scheme: dark;
   --surface-1: #111217;
   --surface-2: #181b1f;
+  --surface-tip: #22252b;
   --surface-panel: #181b1f;
   --text-primary: #d8d9da;
   --text-secondary: #9fa7b3;
@@ -27,6 +28,8 @@
   --series-5: #b877d9;
   --series-6: #f472b6;
   --series-7: #a3e635;
+  --marker: #b877d9;
+  --heat: 255, 152, 48;
   --status-critical: #e0226e;
   --status-ok: #73bf69;
   --delta-up: #f2495c;
@@ -56,6 +59,7 @@
     color-scheme: light;
     --surface-1: #fcfcfb;
     --surface-2: #f1f0ec;
+    --surface-tip: #ffffff;
     --surface-panel: #ffffff;
     --text-primary: #0b0b0b;
     --text-secondary: #52514e;
@@ -69,6 +73,10 @@
     --series-5: #8f3bb8;
     --series-6: #db2777;
     --series-7: #65a30d;
+  --marker: #8250df;
+  --heat: 31, 111, 235;
+    --marker: #8250df;
+    --heat: 31, 111, 235;
     --status-critical: #e34948;
     --status-ok: #3d8b3d;
     --delta-up: #c62828;
@@ -80,6 +88,7 @@
   color-scheme: light;
   --surface-1: #fcfcfb;
   --surface-2: #f1f0ec;
+  --surface-tip: #ffffff;
   --surface-panel: #ffffff;
   --text-primary: #0b0b0b;
   --text-secondary: #52514e;

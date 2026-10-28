@@ -2043,3 +2043,99 @@ func TestAttributeDispatchesRoutesAgentFileBatchesDirectly(t *testing.T) {
 		t.Fatalf("merged = %v, want exactly one merge on row 7 — the file's own agentId resolution", dispatchSink.merged)
 	}
 }
+
+// TestAttributeStampsModelVersion pins model-version-split: a dispatch's
+// metrics patch carries the exact model its transcript's assistant lines
+// name, the newest line's model winning, and no key at all when no line
+// names one.
+func TestAttributeStampsModelVersion(t *testing.T) {
+	line := func(ts, model string) string {
+		return `{"type":"assistant","timestamp":"` + ts + `","sessionId":"s1","agentId":"abc","isSidechain":true,"message":{"model":"` + model + `","usage":{"input_tokens":1,"output_tokens":1}}}` + "\n"
+	}
+	patchFor := func(body string) map[string]any {
+		t.Helper()
+		p := filepath.Join(t.TempDir(), "agent-abc.jsonl")
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		raw, err := harvest.AgentFileDispatchPatch(p)
+		if err != nil {
+			t.Fatalf("AgentFileDispatchPatch: %v", err)
+		}
+		var m map[string]any
+		if err := json.Unmarshal(raw, &m); err != nil {
+			t.Fatal(err)
+		}
+		return m
+	}
+
+	m := patchFor(line("2026-01-01T00:00:00Z", "claude-opus-5") + line("2026-01-01T00:00:01Z", "claude-opus-5-5"))
+	if m["modelVersion"] != "claude-opus-5-5" {
+		t.Errorf("modelVersion = %v, want claude-opus-5-5 (the newest line's)", m["modelVersion"])
+	}
+	if m := patchFor(line("2026-01-01T00:00:00Z", "")); m["modelVersion"] != nil {
+		t.Errorf("modelVersion = %v, want no key when no line names a model", m["modelVersion"])
+	}
+
+	// The session-file path: a batch out of time order still keeps the
+	// newest record's model.
+	windows := &fakeDispatchWindowSource{bySession: map[string][]harvest.DispatchWindow{
+		mainSessionID: {{DispatchID: 5, StartedAt: mustParse(t, "2026-01-01T00:00:00Z"),
+			EndedAt: ptrTime(mustParse(t, "2026-01-01T00:00:09Z"))}},
+	}}
+	deltas, err := harvest.NewDispatchAttributor(windows).Attribute(context.Background(), []harvest.Record{
+		{Timestamp: mustParse(t, "2026-01-01T00:00:05Z"), SessionID: mainSessionID, IsSidechain: true, Model: "claude-opus-5-5", Usage: harvest.Usage{InputTokens: 1}},
+		{Timestamp: mustParse(t, "2026-01-01T00:00:02Z"), SessionID: mainSessionID, IsSidechain: true, Model: "claude-opus-5", Usage: harvest.Usage{InputTokens: 1}},
+	})
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	if got := deltas[5].ModelVersion; got != "claude-opus-5-5" {
+		t.Errorf("Attribute ModelVersion = %q, want claude-opus-5-5 (the newest record's)", got)
+	}
+}
+
+// TestAgentModelVersions pins the backfill's lookup (model-version-split):
+// every agent transcript under the root maps its agent id to the model it
+// names; one naming no model is left out.
+func TestAgentModelVersions(t *testing.T) {
+	root := t.TempDir()
+	write := func(id, model string) {
+		t.Helper()
+		dir := filepath.Join(root, "-proj", "session-1", "subagents")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		body := `{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"s1","agentId":"` + id + `","isSidechain":true,"message":{"model":"` + model + `","usage":{"input_tokens":1,"output_tokens":1}}}` + "\n"
+		if err := os.WriteFile(filepath.Join(dir, "agent-"+id+".jsonl"), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("abc", "claude-opus-5-5")
+	write("def", "")
+	if err := os.WriteFile(filepath.Join(root, "-proj", "session-1.jsonl"), []byte("{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := harvest.AgentModelVersions(root)
+	if err != nil {
+		t.Fatalf("AgentModelVersions: %v", err)
+	}
+	if fmt.Sprint(got) != "map[abc:claude-opus-5-5]" {
+		t.Errorf("AgentModelVersions = %v, want map[abc:claude-opus-5-5]", got)
+	}
+
+	// An unreadable subdirectory is skipped, never aborting the walk; a
+	// missing root is an error.
+	locked := filepath.Join(root, "-locked")
+	if err := os.Mkdir(locked, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o755) })
+	if got, err := harvest.AgentModelVersions(root); err != nil || fmt.Sprint(got) != "map[abc:claude-opus-5-5]" {
+		t.Errorf("AgentModelVersions with an unreadable subdirectory = %v, %v; want map[abc:claude-opus-5-5], nil", got, err)
+	}
+	if _, err := harvest.AgentModelVersions(filepath.Join(root, "missing")); err == nil {
+		t.Error("AgentModelVersions(missing root) = nil error, want one")
+	}
+}

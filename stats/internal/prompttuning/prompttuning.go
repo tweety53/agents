@@ -15,6 +15,8 @@ import (
 	"html/template"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
 )
 
 // RequiredFiles is every file a case folder carries.
@@ -134,4 +136,47 @@ func Render(c Case, f Files) ([]byte, error) {
 		H []string
 	}{c, f, sectionHeadings})
 	return buf.Bytes(), err
+}
+
+// promptAreas maps each tunable prompt file to the chart area its changes
+// mark and, for a reviewer prompt, the slot (prompt-area-map). Planner
+// prompts are left out: nothing measures plan quality yet.
+var promptAreas = map[string][2]string{
+	"skills/flow/primary-reviewer-prompt.md":         {"review", "primary"},
+	"skills/flow/principles-reviewer-prompt.md":      {"review", "principles"},
+	"skills/flow/failure-modes-reviewer-prompt.md":   {"review", "failure-modes"},
+	"skills/flow/test-sanity-reviewer-prompt.md":     {"review", "test-sanity"},
+	"skills/flow/call-efficiency-reviewer-prompt.md": {"review", "call-efficiency"},
+	"skills/flow/engineering-principles.md":          {"impl", ""},
+	"skills/flow/sdd-dispatch.md":                    {"impl", ""},
+	"skills/flow/visual-verify-verifier.md":          {"vv", ""},
+	"skills/flow/review-panel-fix-round.md":          {"fix", ""},
+}
+
+// reviewerPrompt matches any reviewer slot's prompt file, so a slot added
+// later is mapped without editing promptAreas.
+var reviewerPrompt = regexp.MustCompile(`^skills/flow/([a-z0-9-]+)-reviewer-prompt\.md$`)
+
+// AreaFor returns the area and slot a change to target marks; ok is false
+// for a file off the map. Every skills/flow/<slot>-reviewer-prompt.md is
+// a review prompt for <slot>, mapped or not.
+func AreaFor(target string) (area, slot string, ok bool) {
+	if a, ok := promptAreas[target]; ok {
+		return a[0], a[1], true
+	}
+	if m := reviewerPrompt.FindStringSubmatch(target); m != nil {
+		return "review", m[1], true
+	}
+	return "", "", false
+}
+
+// MappedTargets returns every mapped prompt file, sorted -- the files
+// `flow prompt-tuning import` reads the history of.
+func MappedTargets() []string {
+	out := make([]string, 0, len(promptAreas))
+	for t := range promptAreas {
+		out = append(out, t)
+	}
+	sort.Strings(out)
+	return out
 }

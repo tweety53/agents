@@ -122,7 +122,7 @@ func fixtureData() []projectFixture {
 	return []projectFixture{
 		{
 			Key:              "uitest-alpha",
-			MainCheckoutPath: "/tmp/uitest-alpha",
+			MainCheckoutPath: "/tmp/uitest-dynamics",
 			Changes: []changeFixture{
 				{
 					Name:  "kan-101-add-widget",
@@ -386,6 +386,10 @@ func seedFixture(ctx context.Context, st *store.Store) error {
 		}
 	}
 
+	if err := seedReviewDynamics(ctx, st); err != nil {
+		return err
+	}
+
 	for _, g := range guardFires() {
 		if _, err := st.RecordGuardRun(ctx, g.ProjectKey, records.GuardRun{
 			Guard:      g.Guard,
@@ -450,6 +454,99 @@ func timePtr(t time.Time) *time.Time { return &t }
 func mergeJSON(ctx context.Context, st *store.Store, id int64, patch string) error {
 	if err := st.MergeMetrics(ctx, id, json.RawMessage(patch)); err != nil {
 		return fmt.Errorf("uitest-seed: merge metrics for stage run %d: %w", id, err)
+	}
+	return nil
+}
+
+// dynamicsFrom is the first Monday of the Review dynamics fixture's eight
+// weeks, 2026-05-04 .. 2026-06-29 -- before every other view's pinned
+// window, so no other view's baseline moves (review-dynamics.spec.ts).
+var dynamicsFrom = time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC)
+
+// seedReviewDynamics writes the Review dynamics view's fixture: two changes
+// a week for the eight weeks from dynamicsFrom plus two in the previous
+// range, each with a bundled panel dispatch and a test-sanity one on
+// alternating models, versions and efforts, findings over rounds and
+// severities, implementer dispatches (some blocked), visual-verify runs
+// with fix re-runs, and one prompt change per area.
+func seedReviewDynamics(ctx context.Context, st *store.Store) error {
+	const project = "uitest-dynamics"
+	type pick struct{ model, version, effort string }
+	models := []pick{{"opus", "claude-opus-5-5", "medium"}, {"claude-opus-5", "", "low"}, {"sonnet", "claude-sonnet-5-5", "medium"}, {"opus", "", "high"}}
+	severities := []string{"Critical", "major", "Important", "Minor", "minor", "Minor", "low", "Minor"}
+	weeks := []int{-8, -5, 0, 1, 2, 3, 4, 5, 6, 7}
+	for wi, w := range weeks {
+		for c := 0; c < 2; c++ {
+			name := fmt.Sprintf("kan-3%02d-dynamics-%d", wi, c)
+			at := dynamicsFrom.Add(time.Duration(w*7+c*2)*24*time.Hour + 10*time.Hour)
+			if err := st.PutChange(ctx, store.Change{ProjectKey: project, MainCheckoutPath: "/tmp/uitest-dynamics",
+				Name: name, State: "FINISHED", UpdatedAt: at.Add(48 * time.Hour), UpdatedBy: "uitest-seed"}); err != nil {
+				return fmt.Errorf("uitest-seed: put change %s: %w", name, err)
+			}
+			dispatch := func(key, role, slot, model, effort, outcome string, start time.Time, version string) (records.Dispatch, error) {
+				d, err := st.RecordDispatch(ctx, project, name, records.Dispatch{Key: key, Role: role, Slot: slot, Model: model,
+					Effort: effort, Outcome: outcome, StartedAt: start, EndedAt: timePtr(start.Add(3 * time.Minute))})
+				if err != nil {
+					return d, fmt.Errorf("uitest-seed: record dispatch %s for %s: %w", key, name, err)
+				}
+				if version != "" {
+					if err := st.MergeDispatchMetrics(ctx, d.ID, json.RawMessage(`{"modelVersion":"`+version+`"}`)); err != nil {
+						return d, fmt.Errorf("uitest-seed: stamp %s for %s: %w", key, name, err)
+					}
+				}
+				return d, nil
+			}
+			m := models[(wi+c)%len(models)]
+			for t := 0; t < 2+(wi+c)%2; t++ {
+				outcome := "completed"
+				if t == 1 && (wi+c)%3 == 0 {
+					outcome = "blocked"
+				}
+				if _, err := dispatch(fmt.Sprintf("task-%d-implementer", t+1), "implementer", "", m.model, "low", outcome, at.Add(-time.Duration(3-t)*time.Hour), m.version); err != nil {
+					return err
+				}
+			}
+			panel, err := dispatch("panel-0-primary+principles", "reviewer", "primary+principles", m.model, m.effort, "completed", at, m.version)
+			if err != nil {
+				return err
+			}
+			if _, err := dispatch("panel-0-test-sanity", "reviewer", "test-sanity", "sonnet", "low", "completed", at.Add(time.Minute), "claude-sonnet-5-5"); err != nil {
+				return err
+			}
+			// Fewer findings as the weeks go by, so the trend reads.
+			n := 8 - wi/2 - c
+			rounds := 1 + (wi+c)%3
+			for i := 0; i < n; i++ {
+				slot := []string{"primary", "principles"}[i%2]
+				if _, _, err := st.UpsertFinding(ctx, project, name, records.Finding{Ref: fmt.Sprintf("D%d", i+1),
+					DispatchSeq: &panel.Seq, Round: i % (rounds + 1), Slot: slot, Severity: severities[(i+wi)%len(severities)],
+					Note: "seeded review dynamics finding", Status: "fixed"}); err != nil {
+					return fmt.Errorf("uitest-seed: upsert finding for %s: %w", name, err)
+				}
+			}
+			fixes := (wi + c) % 3
+			for f := 0; f <= fixes; f++ {
+				key := "visual-verify"
+				if f > 0 {
+					key = fmt.Sprintf("visual-verify-fix-%d", f)
+				}
+				if _, err := dispatch(key, "verifier", "", "opus", "low", "completed", at.Add(time.Duration(2+f)*time.Hour), ""); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	slot := "primary"
+	for _, pc := range []store.PromptChange{
+		{SHA: "2e053aa:skills/flow/primary-reviewer-prompt.md", At: dynamicsFrom.Add(17*24*time.Hour + 9*time.Hour), Kind: "edit", Area: "review",
+			Slot: &slot, Target: "skills/flow/primary-reviewer-prompt.md", Summary: "primary reviewer re-reads every writer of state the diff reuses"},
+		{SHA: "b1c09e2:skills/flow/visual-verify-verifier.md", At: dynamicsFrom.Add(31*24*time.Hour + 9*time.Hour), Kind: "edit", Area: "vv",
+			Target: "skills/flow/visual-verify-verifier.md", Summary: "visual-verify-verifier: compare hover states"},
+	} {
+		if err := st.UpsertPromptChange(ctx, pc); err != nil {
+			return fmt.Errorf("uitest-seed: prompt change %s: %w", pc.SHA, err)
+		}
 	}
 	return nil
 }
