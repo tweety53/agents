@@ -111,20 +111,20 @@
 
 **Decision:** prompt-changes-table
 
-- [ ] 6. SPA: the Review dynamics view
-  - [ ] **Step 1: Write the failing tests** in `stats/web/src/views/views.test.tsx` (fixture for the new slug, as the other views have):
+- [x] 6. SPA: the Review dynamics view
+  - [x] **Step 1: Write the failing tests** in `stats/web/src/views/views.test.tsx` (fixture for the new slug, as the other views have):
     - `review dynamics draws every section with tiles against the previous range` — headings `Review panel`, `Implementer`, `Visual verify`, `Where findings come from`; the ten chart panels by their prototype titles; tile `Findings per change` reads the summary value and `▼ 25% · better` for a 0.75 vs 1.0 fixture; `Visual verify passed first time` with a higher value reads `better`; `Changes reviewed` carries no better/worse word; a ±2 % change reads `≈ unchanged`.
     - `review dynamics range presets set the period` — clicking `Last 2 weeks` calls `onPeriodChange` with a 14-day range ending now; `Since last prompt change` uses `lastPromptChangeAt` and is disabled when it is null; with no `from`/`to` in the URL the active preset is `Last 8 weeks`.
     - `review dynamics family and version toggle` — with Family active the model chart draws `opus` from `per-dispatch-model`; clicking `Version` draws `claude-opus-5-5` and `opus (version unrecorded)` from `per-dispatch-model-version`, and the heatmap columns switch to `model-version · effort`.
     - `review dynamics tooltip lists values, basis and marker` — hovering the severity chart's overlay at a marker bucket shows each series' value, `based on N changes` and the marker text; hovering a heatmap cell's `title` carries dispatches and counts.
     Run `cd stats/web && npx vitest run -t 'review dynamics'` — RED.
-  - [ ] **Step 2: Implement:**
+  - [x] **Step 2: Implement:**
     - `stats/web/src/api.ts`: `review-dynamics` in `VIEW_NAMES` and the response types.
     - `stats/web/src/components/DynamicsChart.tsx`: per `dynamics-chart-component`, drawn exactly as the prototype's `chart()` (480×170 viewBox, padding l34 r10 t12 b22, three y ticks, ≤6 date labels, dashed marker line + dot, crosshair, tooltip `Week of MM-DD` or `MM-DD`, `based on N <basis>`, `◆ <what>: <text>` marker lines), series colours `--series-n`, marker colour a new `--marker` token in `stats/web/src/theme.css` (dark `#b877d9`, light `#8250df`).
     - `stats/web/src/views/ReviewDynamics.tsx`: a **Family / Version** toggle (default Family) beside the range row choosing between each `…-model`/`…-model-version` metric pair and `heat`/`heatVersion` (`model-version-split`); the prototype's range row, tiles, three sections, heatmap (rows = slots, columns = model · effort seen in range, cell = findings per dispatch shaded by `--heat` alpha `0.12 + 0.78 × rate/max`, arrow vs `previousHeat`, `title` with dispatches and counts, `—` for an empty cell), the footnote copy. Copy and section order exactly as the prototype; the header line drops the prototype's "Prototype with sample data." sentence only.
     - `stats/web/src/App.tsx`: label `Review dynamics`, component, model filter disabled with a reason; `stats/web/src/components/DashboardBar.tsx`: no `PeriodPicker` on this view per `view-owned-range`.
     - `stats/web/src/styles.css`: the prototype's panel, tile, tooltip and heatmap rules on existing tokens.
-  - [ ] **Step 3: Verify:** SPA lint, `cd stats/web && npx vitest run -t 'review dynamics'`.
+  - [x] **Step 3: Verify:** SPA lint, `cd stats/web && npx vitest run -t 'review dynamics'`.
 
 **Files:** `stats/web/src/api.ts`, `stats/web/src/App.tsx`, `stats/web/src/components/DashboardBar.tsx`, `stats/web/src/components/DynamicsChart.tsx`, `stats/web/src/views/ReviewDynamics.tsx`, `stats/web/src/views/views.test.tsx`, `stats/web/src/styles.css`, `stats/web/src/theme.css`
 **Allowed-collateral:** `stats/web/src/**/*.test.tsx`, `stats/web/src/api.test.ts`
@@ -141,9 +141,9 @@
 **Decision:** markers-by-area
 **Decision:** previous-range
 
-- [ ] 7. Seed and baseline the Review dynamics visual spec
-  - [ ] **Step 1:** in `stats/cmd/uitest-seed/seed.go`, seed inside `PINNED_QUERY`'s window (2026-08-01..08-16) three or more changes with reviewer dispatches on two models and efforts, findings across rounds and severities, implementer dispatches (one blocked), verifier `visual-verify`/`visual-verify-fix-1` dispatches, and two `prompt_changes` rows (one `review`, one `vv`), so every chart and the heatmap draw.
-  - [ ] **Step 2:** `stats/web/tests/visual/review-dynamics.spec.ts`: `review dynamics full page` (goto `/#/review-dynamics?${PINNED_QUERY}`, heading, `bodyBackground` dark, full-page screenshot `review-dynamics.png`), `review dynamics chart hover` (hover the severity chart overlay at a marker bucket, screenshot `review-dynamics-hover.png`), `review dynamics light` (light scheme). Add the view to `full-app-suite.spec.ts`'s list if it enumerates views. Capture per `.flow/project.md` `## visual verification` (`--update-snapshots`), then run the verify row clean; open each PNG and compare with the prototype; fix overlap or clipping before committing. Rebuild `stats/web/tests/visual/full-app-suite.zip` if the suite's snapshots changed.
+- [x] 7. Seed and baseline the Review dynamics visual spec
+  - [x] **Step 1:** in `stats/cmd/uitest-seed/seed.go`, seed inside `PINNED_QUERY`'s window (2026-08-01..08-16) three or more changes with reviewer dispatches on two models and efforts, findings across rounds and severities, implementer dispatches (one blocked), verifier `visual-verify`/`visual-verify-fix-1` dispatches, and two `prompt_changes` rows (one `review`, one `vv`), so every chart and the heatmap draw.
+  - [x] **Step 2:** `stats/web/tests/visual/review-dynamics.spec.ts`: `review dynamics full page` (goto `/#/review-dynamics?${PINNED_QUERY}`, heading, `bodyBackground` dark, full-page screenshot `review-dynamics.png`), `review dynamics chart hover` (hover the severity chart overlay at a marker bucket, screenshot `review-dynamics-hover.png`), `review dynamics light` (light scheme). Add the view to `full-app-suite.spec.ts`'s list if it enumerates views. Capture per `.flow/project.md` `## visual verification` (`--update-snapshots`), then run the verify row clean; open each PNG and compare with the prototype; fix overlap or clipping before committing. Rebuild `stats/web/tests/visual/full-app-suite.zip` if the suite's snapshots changed.
 
 **Files:** `stats/cmd/uitest-seed/seed.go`, `stats/web/tests/visual/review-dynamics.spec.ts`, `stats/web/tests/visual/review-dynamics.spec.ts-snapshots/review-dynamics-darwin.png`, `stats/web/tests/visual/review-dynamics.spec.ts-snapshots/review-dynamics-hover-darwin.png`, `stats/web/tests/visual/review-dynamics.spec.ts-snapshots/review-dynamics-light-darwin.png`
 **Allowed-collateral:** `stats/web/tests/visual/*.spec.ts`, `stats/web/tests/visual/*.spec.ts-snapshots/*.png`, `stats/web/tests/visual/full-app-suite.zip`
@@ -153,6 +153,8 @@
 **Build:** green
 **After:** Task 6
 **Commit:** `test(stats): baseline the Review dynamics visual spec`
+
+Correction (2026-10-28): the plan seeded inside `PINNED_QUERY`'s window; the fixture instead fills 2026-05-04 .. 2026-06-29 under its own project `uitest-dynamics`, so no other view's data moves and the spec pins that range. The new nav link moves every full-page baseline's header only (pixel-diff bounding boxes inside the header band, re-captured here), and the full-app suite gains a `review-dynamics` screen.
 
 Correction (2026-10-28): after Task 3 landed the operator asked that model versions never be merged silently (decision `model-version-split`). Tasks 8–10 are appended and run before Task 6; Task 6 gains the Family / Version toggle and its test, and runs after Task 9.
 
@@ -192,10 +194,10 @@ Correction (2026-10-28): the plan routed the backfill through `POST /api/v1/harv
 
 **Decision:** model-version-split
 
-- [ ] 10. flowd backfill-models
-  - [ ] **Step 1: Write the failing test** in `stats/internal/harvest/attribute_test.go`: `TestAgentModelVersions` — a temp transcripts root holding `<project>/<session>/subagents/agent-abc.jsonl` whose assistant lines name `claude-opus-5-5`, and one agent file naming no model: `harvest.AgentModelVersions(root)` maps `abc` to `claude-opus-5-5` and leaves the other out. Run — RED.
-  - [ ] **Step 2: Implement** `AgentModelVersions(root string) (map[string]string, error)` in `stats/internal/harvest/watcher.go` (walk the root for agent transcripts, `AgentFileDispatchPatch`'s `modelVersion` per file), and `flowd backfill-models` in `stats/cmd/flowd/main.go` beside `restamp-dispatch`: open the store from `config.FromEnv`, call `Store.BackfillModelVersions` with that map, print `stamped: <n>`.
-  - [ ] **Step 3: Verify:** Go lint, then `cd stats && go test ./internal/harvest/ -run TestAgentModelVersions`.
+- [x] 10. flowd backfill-models
+  - [x] **Step 1: Write the failing test** in `stats/internal/harvest/attribute_test.go`: `TestAgentModelVersions` — a temp transcripts root holding `<project>/<session>/subagents/agent-abc.jsonl` whose assistant lines name `claude-opus-5-5`, and one agent file naming no model: `harvest.AgentModelVersions(root)` maps `abc` to `claude-opus-5-5` and leaves the other out. Run — RED.
+  - [x] **Step 2: Implement** `AgentModelVersions(root string) (map[string]string, error)` in `stats/internal/harvest/watcher.go` (walk the root for agent transcripts, `AgentFileDispatchPatch`'s `modelVersion` per file), and `flowd backfill-models` in `stats/cmd/flowd/main.go` beside `restamp-dispatch`: open the store from `config.FromEnv`, call `Store.BackfillModelVersions` with that map, print `stamped: <n>`.
+  - [x] **Step 3: Verify:** Go lint, then `cd stats && go test ./internal/harvest/ -run TestAgentModelVersions`.
 
 **Files:** `stats/internal/harvest/watcher.go`, `stats/internal/harvest/attribute_test.go`, `stats/cmd/flowd/main.go`
 **Allowed-collateral:** `stats/cmd/flowd/*.go`
