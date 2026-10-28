@@ -190,6 +190,12 @@ else. See `internal/store/pricing.go` and `internal/store/pricing_seed.go`
 for the mechanism, and `internal/harvest/attribute.go`'s `Bucket` for how
 the cache-creation split reaches the metrics bag in the first place.
 
+A dispatch is priced at the rate of the model its transcript says served
+it (`signals.served_models`, the key with the most turns), never the alias
+it was given. To price stage runs harvested before a pricing change again,
+run `flow pricing reprice -since <YYYY-MM-DD>`: it prints how many runs
+priced and how many were skipped for want of tokens or a rate.
+
 ## Checking attribution by hand
 
 KAN-16 shipped a measurement system that could not measure: every stage run

@@ -49,6 +49,7 @@ commands:
   settings set         write the harness-wide settings record
   learning add <topic> record one learning note's topic (see: flow learning)
   learning list        print every learning topic with its count as a JSON array
+  pricing reprice      price every stage run since a date again (see: flow pricing)
   tasks tick <change> <task-id>  flip a task's checkbox and its steps' checkboxes
   tasks count <change> record one observation of a plan's task count
   hazard add/remove    record, or retire, one per-project hazard (see: flow hazard)
@@ -107,6 +108,8 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runSettings(ctx, args[1:], stdout, stderr)
 	case "learning":
 		return runLearning(ctx, args[1:], stdout, stderr)
+	case "pricing":
+		return runPricing(ctx, args[1:], stdout, stderr)
 	case "tasks":
 		return runTasks(ctx, args[1:], stdout, stderr)
 	case "self-review":
