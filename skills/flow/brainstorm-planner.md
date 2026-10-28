@@ -78,7 +78,9 @@ planners, their own `Key:`), `<n>` counting the session's planning dispatches fr
 printed model as the Agent tool's `model` and the effort as its `effort`. Its prompt carries the
 two agent-baseline sentences and the report-tersely line (`~/.claude/rules/dispatch-carries-the-baseline.md`)
 and a narrow, explicit scope: what to look at, what is already known, what to return. Never a
-`fork`, and never an agent that edits files. The agents investigate and propose; you decide.
+`fork`, and never an agent that edits files. The agents investigate and propose; you decide. Each
+planning dispatch's row is ended when its agent hands back, and `flow stage end` of
+`flow.brainstorm` refuses while one is open (kan-1046 self-review, 1e).
 
 In `/flow` and `/flow-plan` the recommendation goes to the operator as part of the design, its
 alternatives shown only when they help the operator decide. The self-review and in-run fix planners

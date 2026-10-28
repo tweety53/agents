@@ -22,6 +22,7 @@ import (
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/fallback"
 	"github.com/tweety53/agents/stats/internal/guard"
+	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/stages"
 )
 
@@ -555,6 +556,9 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 	if code := gateLiveVerification(f, *outcome, stderr); code != 0 {
 		return code
 	}
+	if code := gateBrainstormDispatchesClosed(ctx, f, stderr); code != 0 {
+		return code
+	}
 	if code := gatePanelFindingsClosed(f, *outcome, stderr); code != 0 {
 		return code
 	}
@@ -624,6 +628,38 @@ func gateLiveVerification(f stageIdentityFlags, outcome string, stderr io.Writer
 		return 1
 	}
 	return 0
+}
+
+// gateBrainstormDispatchesClosed refuses a /flow flow.brainstorm end, of any
+// outcome, while a dispatch row of the change has no end: brainstorm hands
+// over to a different session, which can only close the row with a guessed
+// end (kan-1046 self-review, 1e: explore-1 ended 21 minutes after its agent
+// handed back). A failed record read refuses nothing.
+func gateBrainstormDispatchesClosed(ctx context.Context, f stageIdentityFlags, stderr io.Writer) int {
+	if f.command != "/flow" || f.stage != "flow.brainstorm" {
+		return 0
+	}
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		return 0
+	}
+	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+		return cl.GetRunRecord(ctx, projectKey, f.name)
+	})
+	if err != nil {
+		return 0
+	}
+	var open []string
+	for _, d := range run.Dispatches {
+		if d.EndedAt == nil {
+			open = append(open, fmt.Sprintf("%s (session %s: `flow record dispatch end -key %s -session-token %s -outcome completed|aborted`)", d.Key, d.SessionToken, d.Key, d.SessionToken))
+		}
+	}
+	if len(open) == 0 {
+		return 0
+	}
+	fmt.Fprintf(stderr, "flow: stage end refused: flow.brainstorm ends with dispatch rows still open: %s -- end each when its agent hands back\n", strings.Join(open, "; "))
+	return 1
 }
 
 // gatePanelFindingsClosed refuses a completed /flow flow.review-panel end

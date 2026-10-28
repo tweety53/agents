@@ -1980,3 +1980,42 @@ func TestStageResolvesTheRecordsAddress(t *testing.T) {
 		t.Fatalf("stage begin exit = %d, reached FLOW_RECORDS_ADDR = %v; stderr:\n%s", code, reached, stderr.String())
 	}
 }
+
+// TestStageEndBrainstormRefusesOpenDispatch pins the kan-1046 self-review fix
+// (1e): /flow's flow.brainstorm end is refused, exit 1 with no end mark sent,
+// while a dispatch row of the change is open, naming its key; with the row
+// ended it passes, and another stage over the same open row passes.
+func TestStageEndBrainstormRefusesOpenDispatch(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	open := `{"change":"kan-1","dispatches":[{"key":"explore-1","agentId":"a1","role":"planner","sessionToken":"tok-9","startedAt":"2026-10-28T12:35:02Z"}]}`
+	closed := `{"change":"kan-1","dispatches":[{"key":"explore-1","agentId":"a1","role":"planner","startedAt":"2026-10-28T12:35:02Z","endedAt":"2026-10-28T12:36:38Z"}]}`
+	end := func(record, stage string) (int, string, bool) {
+		t.Helper()
+		reached := false
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet {
+				_, _ = w.Write([]byte(record))
+				return
+			}
+			reached = true
+			_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+		}))
+		defer srv.Close()
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
+				"-command", "/flow", "-stage", stage, "-outcome", "completed", "kan-1"},
+			strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String(), reached
+	}
+	if code, stderr, reached := end(open, "flow.brainstorm"); code != 1 || reached || !strings.Contains(stderr, "explore-1") || !strings.Contains(stderr, "-session-token tok-9") {
+		t.Fatalf("open row: exit=%d reached=%v, want 1 naming explore-1 and its token; stderr:\n%s", code, reached, stderr)
+	}
+	if code, stderr, reached := end(closed, "flow.brainstorm"); code != 0 || !reached {
+		t.Fatalf("closed row: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
+	}
+	if code, stderr, reached := end(open, "flow.create-artifacts"); code != 0 || !reached {
+		t.Fatalf("another stage: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
+	}
+}
