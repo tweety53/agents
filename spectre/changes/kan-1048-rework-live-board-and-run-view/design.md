@@ -38,9 +38,17 @@ command) and `StageRunTable` (filterable by command, stage and model). `App.tsx`
 ### Table filters switch off through one DataTable prop
 
 **ID:** datatable-controls-prop
-**Status:** active
+**Status:** superseded by grouped-tables-own-markup
 **Chosen:** `DataTable` gains `controls?: boolean` (default `true`); `false` renders no `FilterBar` and no search box. The board and the stage-run table pass `false`, and drop every `filterable` flag.
 **Considered:** an empty `searchableKeys` — still renders the search box.
+**Superseded because:** both tables the prop was for are grouped (one table with state group rows on the board, session group rows on the run, a single header row each, as the prototype draws them), which `DataTable` cannot render; neither keeps `DataTable`, so the prop would have no caller.
+
+### Grouped tables render their own markup
+
+**ID:** grouped-tables-own-markup
+**Status:** active
+**Chosen:** the board's state-grouped table and the run's session-grouped stage-run table are plain `<table>`s in their own components, with the prototype's group rows and one header row; `DataTable` is unchanged and keeps serving the other views.
+**Considered:** one `DataTable` per group under its own heading — repeats the header row per group, which the prototype does not draw; a grouping prop on `DataTable` — an abstraction for two callers whose rows, columns and group labels share nothing.
 
 ### Open stage and done tasks come from the store
 
