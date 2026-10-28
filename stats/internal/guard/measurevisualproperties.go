@@ -1165,7 +1165,9 @@ func (e mvpElement) obj() pyObj {
 // measureElements is kan-1015's verifier matrix script (elems.py): the app
 // surface's top — the first row, walking column 3 up from the bottom, whose
 // mean channel is not above 200, plus one; 0 when that row is above row 60,
-// the whole image then the surface — and every ink run below it against the
+// the whole image then the surface, as it is when the bottom row itself is
+// dark and the walk moves no row (a dark-theme page; kan-1041 self-review:
+// every dark frame paired 0) — and every ink run below it against the
 // surface's modal colour (distance over 30), 8px in from each side.
 func (r *mvpRegion) measureElements() (int, [3]byte, []mvpElement) {
 	y := r.h - 1
@@ -1177,7 +1179,7 @@ func (r *mvpRegion) measureElements() (int, [3]byte, []mvpElement) {
 		y--
 	}
 	t := y + 1
-	if t < 60 {
+	if t < 60 || y == r.h-1 {
 		t = 0
 	}
 	x0, x1 := 8, r.w-8

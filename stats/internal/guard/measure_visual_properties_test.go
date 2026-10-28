@@ -541,6 +541,25 @@ func TestMeasureVisualPropertiesElements(t *testing.T) {
 	}
 }
 
+// kan-1041 self-review: on a dark-theme page the bottom row already stops
+// the surface walk, so the whole image is the surface and its elements pair.
+func TestMeasureVisualPropertiesElementsDarkPage(t *testing.T) {
+	t.Parallel()
+	page := mvpPNG(t, 120, 200, func(x, y int) color.RGBA {
+		if x >= 20 && x < 60 && y >= 120 && y < 130 {
+			return color.RGBA{0xee, 0xee, 0xee, 0xff}
+		}
+		return color.RGBA{0x12, 0x12, 0x12, 0xff}
+	})
+	d := mvpJSON(t, "", page, page, "--scale", "1", "--props", "elements")
+	if top := mvpDig(d, "a", "elements", "surface_top"); top != float64(0) {
+		t.Fatalf("dark page: surface_top %v, want 0", top)
+	}
+	if paired := mvpDig(d, "delta", "elements_summary", "paired"); paired != float64(1) {
+		t.Fatalf("dark page: paired %v, want 1", paired)
+	}
+}
+
 // kan-1017 (sr11): `--props matrix` fills each paired element's columns in
 // one call, and a region running past the image's edge is clipped to it.
 func TestMeasureVisualPropertiesMatrix(t *testing.T) {
