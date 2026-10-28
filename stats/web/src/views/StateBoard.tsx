@@ -318,7 +318,7 @@ export function StateBoard() {
         </div>
         <div className="lb-tile static">
           <span className="lb-lbl">Cost in period</span>
-          <span className="lb-val lb-num">{formatUsd(base.reduce((a, r) => a + r.costUsd, 0))}</span>
+          <span className="lb-val lb-num">{formatUsd(rows.reduce((a, r) => a + r.costUsd, 0))}</span>
         </div>
       </div>
       <section className="lb-panel" aria-label="Running now">

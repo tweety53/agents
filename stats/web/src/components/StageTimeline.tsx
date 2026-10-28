@@ -10,6 +10,7 @@
 // fabricated end -- the same absence-is-never-zero rule the table applies to
 // its own metrics, applied here to "when did this run finish".
 import { useState } from "react";
+import { flushSync } from "react-dom";
 import type { StageRunDTO } from "../api";
 import { formatClock, formatSpan, formatUsd } from "../format";
 import { readCostUsd } from "../metrics";
@@ -84,7 +85,9 @@ export function StageTimeline({ stageRuns, sessionOf }: { stageRuns: StageRunDTO
               rx={2}
               fill={FILL[outcomeClass(r)]}
               onMouseMove={(e) => setTip({ run: r, x: e.clientX, y: e.clientY })}
-              onMouseLeave={() => setTip(null)}
+              // Hidden in the same paint the pointer leaves, as the prototype's
+              // handler hides it; a deferred render left it one frame behind.
+              onMouseLeave={() => flushSync(() => setTip(null))}
             />
           );
         })}

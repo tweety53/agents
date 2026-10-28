@@ -55,4 +55,30 @@ test.describe("timeline", () => {
     await bars.last().hover();
     await expect(page.getByRole("tooltip")).toHaveText("integrateSession 2completed · 5m · $0.03");
   });
+
+  // The visual verifier's timeline-tooltip strip caught the tooltip one paint
+  // behind the pointer (kan-1048 in-run fix 1); the prototype hides it in the
+  // same handler. Read on the running clock: the next animation frame after
+  // the pointer leaves the bar has no tooltip.
+  test("the tooltip is gone in the paint the pointer leaves the bar", async ({ page }) => {
+    await page.goto(RUN_DETAIL_URL);
+    const bar = page.getByRole("img", { name: "Stage runs over time" }).getByTestId("timeline-bar").last();
+    await bar.hover();
+    await expect(page.getByRole("tooltip")).toBeVisible();
+    const box = (await bar.boundingBox())!;
+    // Arm a probe that reads the DOM in the first animation frame after the
+    // pointer leaves, then move the real pointer off the bar.
+    await page.evaluate(() => {
+      const w = window as unknown as { tipAfterLeave?: boolean };
+      document.addEventListener(
+        "mouseout",
+        () => requestAnimationFrame(() => (w.tipAfterLeave = document.querySelector('[role="tooltip"]') !== null)),
+        { once: true },
+      );
+    });
+    await page.mouse.move(box.x + box.width / 2, box.y - 40);
+    await page.waitForFunction(() => (window as unknown as { tipAfterLeave?: boolean }).tipAfterLeave !== undefined);
+    const shown = await page.evaluate(() => (window as unknown as { tipAfterLeave?: boolean }).tipAfterLeave);
+    expect(shown).toBe(false);
+  });
 });

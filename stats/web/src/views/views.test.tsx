@@ -428,6 +428,19 @@ describe("views render their fixture response's actual values", () => {
     expect(table.queryByRole("columnheader", { name: /Next command/ })).not.toBeInTheDocument();
   });
 
+  it("state board cost in period ignores the filters", async () => {
+    const user = userEvent.setup();
+    render(<StateBoard />);
+    await screen.findByRole("table");
+    // The prototype's tile sums every change whatever chip, tile or search is set.
+    const cost = () => screen.getByText("Cost in period", { selector: ".lb-lbl" }).nextSibling!.textContent;
+    const all = cost();
+    await user.click(within(screen.getByRole("group", { name: "Project" })).getByRole("button", { name: /^gymie/ }));
+    expect(cost()).toBe(all);
+    await user.click(screen.getByRole("button", { name: /^Finished/ }));
+    expect(cost()).toBe(all);
+  });
+
   it("state board stops refetching while the tab is hidden", async () => {
     vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"], now: BOARD_NOW });
     const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
