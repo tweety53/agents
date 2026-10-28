@@ -98,7 +98,7 @@ Correction (2026-10-28): the plan declared `stats/web/tests/visual/full-app-suit
 
 - [x] 7. Fix run 1 — y-axis tick labels name values other than the ones they sit at
   - [x] **Step 1: Test.** vitest `dynamics chart labels each tick with the value it sits at` renders `DynamicsChart` with an integer format over values peaking at 0, 1, 3 and 5 and asserts the y labels read `0, 1, 2`, `0, 1, 2`, `0, 2, 4` and `0, 5, 10` bottom to top; it replaces Task 6's vitest `dynamics chart drops a tick whose label repeats the one above` (no design decision covers the blank tick; that test locked in the mislabel).
-  - [x] **Step 2: Chart.** `DynamicsChart` draws three ticks `0, s, 2s`, `s` the smallest 1·2·5×10^k step with `2s >= peak`, at least 1 when the chart's format cannot show a half (`format(0.5)` equals `format(0)` or `format(1)`; whole-valued shares stay at 0%·50%·100%); the y scale tops at `2s × 1.12`; the repeated-label blanking is removed.
+  - [x] **Step 2: Chart.** `DynamicsChart` draws three ticks `0, s, 2s`, `s` the smallest 1·2·5×10^k step with `2s >= peak` whose three labels `format(0)`, `format(s)`, `format(2s)` are distinct (panel round 6 F20: a half-only floor let `toFixed(1)` at peak 0.06 read `0.0, 0.1, 0.1`; whole-valued shares stay at 0%·50%·100%), 1 when the peak is 0; the y scale tops at `2s × 1.12`; the repeated-label blanking is removed.
   - [x] **Step 3: Capture.** `capture` for `review-dynamics.spec.ts` and the full app suite with `--update-snapshots=all`, every changed PNG read, zip rebuilt when it moves, `visual-verification.md` updated; `npm run test:visual` and the vitest exit 0. Commit.
 
 **Build:** green
