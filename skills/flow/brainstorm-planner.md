@@ -47,7 +47,9 @@ runs them as **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline
   `design.md`'s `## Context` as the spec the implementation and `flow.visual-verify` compare
   against, and every capture test of a view it draws drives each interactive state it shows —
   hover, focus, pressed — so `flow.visual-verify` renders and compares that state too
-  (kan-1038). A change with nothing visible builds none. On a harness without the Artifact tool,
+  (kan-1038). `check-plan-shape.sh` F22 refuses a plan whose design cites the prototype and whose
+  tasks touch a `ui paths` glob while no task's `**Files:**` names a file under `screenshots`
+  (kan-1047). A change with nothing visible builds none. On a harness without the Artifact tool,
   write the file and give the operator its absolute path. Where the confirm is not asked — the
   `## decisions: recommended` mode, and the self-review and in-run fix planners, which take the
   recommendation (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`)

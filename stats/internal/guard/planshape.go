@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"math/big"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -17,10 +18,10 @@ import (
 )
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
-// judges its commits (check-task-commit-fields) can actually read it. Twenty-one
-// findings, F1-F21 (F1-F6's canonical definitions, decisions and rationale:
+// judges its commits (check-task-commit-fields) can actually read it. Twenty-two
+// findings, F1-F22 (F1-F6's canonical definitions, decisions and rationale:
 // spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-md-at-plan/
-// design.md -- not restated here; F7-F21's are the rows below).
+// design.md -- not restated here; F7-F22's are the rows below).
 //
 // The guard reads the plan with the very grammar the commit guard reads it
 // with -- tcfParseTask, tcfTaskIDs, tcfIterTasks, tcfSelectTask,
@@ -177,6 +178,14 @@ import (
 //	    record of what it changed is part of its commit (**The loop**,
 //	    skills/flow/verify-fix-loop.md; kan-1024's Task 14). Reported at the
 //	    task's title line.
+//	F22 A plan whose sibling design.md cites a `.superpowers/sdd/*.html`
+//	    prototype, in a repository whose `.flow/project.md` declares a
+//	    `## visual verification` section with `screenshots` and no
+//	    `regression checkout`, where some task's **Files:** path matches a
+//	    `ui paths` glob and no task's **Files:** path lies under
+//	    `screenshots`: the capture spec is planned with the UI change
+//	    (skills/flow/brainstorm-planner.md; kan-1047). Reported at the first
+//	    such task's title line.
 //
 // A duplicate task id is check-task-build-green's violation, not this
 // guard's: tcfTaskIDs keeps the first occurrence, and every per-task read
@@ -385,6 +394,7 @@ func (p *psPlan) check() []string {
 	v = append(v, p.baselineChain()...)
 	v = append(v, p.baseDeclared(ids)...)
 	v = append(v, p.sweepScope()...)
+	v = append(v, p.prototypeCapture()...)
 	return append(v, p.designSections()...)
 }
 
@@ -429,6 +439,57 @@ func (p *psPlan) designSections() []string {
 		}
 	}
 	return v
+}
+
+// psPrototypeRE is F22's prototype citation in design.md.
+var psPrototypeRE = regexp.MustCompile("\\.superpowers/sdd/[^\\s`)]+\\.html")
+
+// prototypeCapture is F22: a prototype-specified UI change plans its capture.
+func (p *psPlan) prototypeCapture() []string {
+	if !p.on("F22") {
+		return nil
+	}
+	design, err := os.ReadFile(psAbs(p.env, filepath.Join(filepath.Dir(p.path), "design.md")))
+	if err != nil || !psPrototypeRE.Match(design) {
+		return nil
+	}
+	top, err := exec.Command("git", "-C", psAbs(p.env, filepath.Dir(p.path)), "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return nil
+	}
+	root := strings.TrimSpace(string(top))
+	cfg, err := os.ReadFile(filepath.Join(root, ".flow", "project.md"))
+	if err != nil {
+		return nil
+	}
+	cells := map[string]string{}
+	for _, l := range vvSectionLines(string(cfg)) {
+		if c := vtSplitCells(l.Text); len(c) == 2 {
+			if k := vtFoldCell(c[0]); cells[k] == "" {
+				cells[k] = vtTrimCell(c[1])
+			}
+		}
+	}
+	shots := strings.TrimSuffix(cells["screenshots"], "/")
+	if shots == "" || cells["regression checkout"] != "" {
+		return nil
+	}
+	var first tcfTaskBody
+	uiPath := ""
+	for _, id := range tcfTaskIDs(p.lines) {
+		for _, f := range p.parse(id).files {
+			if strings.HasPrefix(f, shots+"/") {
+				return nil
+			}
+			if uiPath == "" && visualTrigger(p.env, root, func() ([]string, error) { return []string{f}, nil }, io.Discard, io.Discard) == 0 {
+				uiPath, first = f, *tcfSelectTask(p.lines, id)
+			}
+		}
+	}
+	if uiPath == "" {
+		return nil
+	}
+	return []string{p.at(first.taskLine, "F22 design.md cites a prototype and this task touches `ui paths` (`"+uiPath+"`), but no task's **Files:** names a capture under `"+shots+"/` — plan the capture spec driving every interactive state the prototype draws (skills/flow/brainstorm-planner.md)")}
 }
 
 // psVisualFixRE is F21's title: an in-run fix task of the visual-verify loop.

@@ -730,3 +730,39 @@ func TestCheckPlanShapeVisualVerifyFixNamesTheRecord(t *testing.T) {
 		t.Errorf("a verify fix was refused: rc=%d out=%q", r.rc, r.out)
 	}
 }
+
+// TestCheckPlanShapePrototypeNeedsACapture pins F22: a plan whose design.md
+// cites a prototype and whose tasks touch `ui paths` names a capture under
+// `screenshots` (plan-shape-prototype-capture).
+func TestCheckPlanShapePrototypeNeedsACapture(t *testing.T) {
+	t.Parallel()
+	task := func(n int, file string) string {
+		return fmt.Sprintf("- [ ] %d. Task %d\n\n**Files:** `%s`\n**Tests:** `test_%d`\n**Commit:** add %d\n**After:** none\n\n", n, n, file, n, n)
+	}
+	section := "## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/src/**` |\n| `screenshots` | `web/tests/visual` |\n%s\n| Command | Runs |\n|---------|------|\n| `verify` | `true` |\n| `capture` | `true <spec>` |\n"
+	for _, tc := range []struct {
+		name, design, checkout, tasks string
+		want                          int
+	}{
+		{"ui task, no capture", "see `.superpowers/sdd/x-prototype.html`", "", task(1, "web/src/App.tsx"), 1},
+		{"ui task with a capture", "see `.superpowers/sdd/x-prototype.html`", "", task(1, "web/src/App.tsx") + task(2, "web/tests/visual/x.spec.ts"), 0},
+		{"no prototype cited", "no prototype", "", task(1, "web/src/App.tsx"), 0},
+		{"regression checkout declared", "see `.superpowers/sdd/x-prototype.html`", "| `regression checkout` | `/elsewhere` |", task(1, "web/src/App.tsx"), 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			root := t.TempDir()
+			if out, err := exec.Command("git", "init", "-q", root).CombinedOutput(); err != nil {
+				t.Fatalf("git init: %v\n%s", err, out)
+			}
+			writeFile(t, root+"/.flow/project.md", "# p\n\n"+fmt.Sprintf(section, tc.checkout))
+			writeFile(t, root+"/spectre/changes/x/design.md", "## Context\n\n"+tc.design+"\n")
+			p := root + "/spectre/changes/x/tasks.md"
+			writeFile(t, p, tc.tasks)
+			r := runGuard("check-plan-shape", []string{p}, Env{Getenv: os.Getenv})
+			if r.rc != tc.want || (tc.want == 1 && !strings.Contains(r.out, "F22")) {
+				t.Errorf("rc=%d want %d out=%s", r.rc, tc.want, r.out)
+			}
+		})
+	}
+}
