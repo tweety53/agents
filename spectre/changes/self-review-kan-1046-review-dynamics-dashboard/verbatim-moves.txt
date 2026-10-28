@@ -6,3 +6,7 @@ The flip is recorded with the round's other `flow record mutation` rows before t
 Each planning dispatch's row is ended when its agent hands back, and `flow stage end` of `flow.brainstorm` refuses while one is open (kan-1046 self-review, 1e).
 # Task 6 (1f), new text: the visual record joins the in-run fix task's commit, and close-task runs the plan guard.
 `<changeRoot>/visual-verification.md` is untracked until that task's commit, which `git add`s it, and `close-task` runs the plan guard on the task before ticking it (kan-1046 self-review, 1f).
+# Task 7 (4a), new text: a live check invokes a project-declared stand-in tool by name.
+When `<project>/.flow/project.md` names a tool for the check's stand-in — this repository's `<agents repo>/scripts/live-store-copy.sh` — the section invokes that tool by name and never re-specifies what it does (kan-1046 self-review, 4a).
+# Task 8 (8c), new text: a prototype-specified capture measures before it commits.
+The same compose-and-measure steps apply when the view's specification is an approved prototype, rendered as each capture's frame per step 10 of `skills/flow/visual-verify-verifier.md`, with no declared `mockups` root (kan-1046 self-review, 8c).
