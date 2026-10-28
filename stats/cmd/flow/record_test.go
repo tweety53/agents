@@ -7124,6 +7124,7 @@ func TestRecordMutationRefusesAfterReReviewBegan(t *testing.T) {
 	record := `{"change":"kan-258","dispatches":[` +
 		`{"key":"panel-1-primary","agentId":"a1","role":"reviewer","slot":"primary","startedAt":"2026-10-28T14:38:10Z"}]}`
 	posts := 0
+	lastBody := ""
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
 			_, _ = w.Write([]byte(record))
@@ -7134,6 +7135,8 @@ func TestRecordMutationRefusesAfterReReviewBegan(t *testing.T) {
 			return
 		}
 		posts++
+		body, _ := io.ReadAll(r.Body)
+		lastBody = string(body)
 		w.WriteHeader(http.StatusCreated)
 		_, _ = w.Write([]byte(`{"id":12,"round":2,"path":"render.go","mutated":"x","test":"y"}`))
 	}))
@@ -7155,5 +7158,76 @@ func TestRecordMutationRefusesAfterReReviewBegan(t *testing.T) {
 	stderr.Reset()
 	if code := run(context.Background(), args("2"), strings.NewReader(""), &stdout, &stderr); code != 0 || posts != 1 {
 		t.Fatalf("round 2: exit %d, posts %d; want 0 and one (stderr %q)", code, posts, stderr.String())
+	}
+	// The late form admits round 1 and records its reason as a pass note
+	// (kan-1047 pipeline fix).
+	stderr.Reset()
+	if code := run(context.Background(), append(args("1"), "-late", "missed before re-review"), strings.NewReader(""), &stdout, &stderr); code != 0 || posts != 3 {
+		t.Fatalf("late round 1: exit %d, posts %d; want 0 and three (stderr %q)", code, posts, stderr.String())
+	}
+	if !strings.Contains(lastBody, "late mutation proof for render.go: missed before re-review") {
+		t.Errorf("late round 1: pass body %q carries no late note", lastBody)
+	}
+}
+
+// TestRecordMutationLateEdges pins the kan-1047 pipeline-fix review's
+// Minors: a failed mutation write writes no pass row; -late on a round whose
+// re-review has not begun writes no late note; a -late retry whose mutation
+// row already landed writes only the pass note.
+func TestRecordMutationLateEdges(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	if err := os.WriteFile(filepath.Join(repo, "render.go"), []byte("package x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dispatch := `{"key":"panel-1-primary","agentId":"a1","role":"reviewer","slot":"primary","startedAt":"2026-10-28T14:38:10Z"}`
+	record, failMutation := "", false
+	var posts []string
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
+			_, _ = w.Write([]byte(record))
+			return
+		}
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		posts = append(posts, r.URL.Path)
+		if failMutation && strings.Contains(r.URL.Path, "mutation") {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"bad"}`))
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":12}`))
+	}))
+	defer srv.Close()
+	args := func(round string) []string {
+		return []string{"record", "mutation", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-round", round, "-path", "render.go", "-mutated", "x", "-test", "y", "-late", "missed"}
+	}
+	var stdout, stderr bytes.Buffer
+	cases := []struct {
+		name, record string
+		fail         bool
+		wantZero     bool
+		want         []string
+	}{
+		{"failed mutation write", `{"change":"kan-258","dispatches":[` + dispatch + `]}`, true, false, []string{"mutation"}},
+		{"re-review not begun", `{"change":"kan-258"}`, false, true, []string{"mutation"}},
+		{"retry after landed row", `{"change":"kan-258","dispatches":[` + dispatch + `],"mutations":[{"round":1,"path":"render.go","mutated":"x","test":"y"}]}`, false, true, []string{"pass"}},
+	}
+	for _, c := range cases {
+		record, failMutation, posts = c.record, c.fail, nil
+		stderr.Reset()
+		code := run(context.Background(), args("1"), strings.NewReader(""), &stdout, &stderr)
+		if (code == 0) != c.wantZero || len(posts) != len(c.want) {
+			t.Fatalf("%s: exit %d, posts %v; want zero=%v and %v (stderr %q)", c.name, code, posts, c.wantZero, c.want, stderr.String())
+		}
+		for i, w := range c.want {
+			if !strings.Contains(posts[i], w) {
+				t.Errorf("%s: post %d = %q, want %s", c.name, i, posts[i], w)
+			}
+		}
 	}
 }

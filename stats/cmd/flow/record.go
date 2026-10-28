@@ -3332,6 +3332,7 @@ func runRecordMutation(ctx context.Context, args []string, stdout, stderr io.Wri
 	path := fset.String("path", "", "the path that was mutated (required)")
 	mutated := fset.String("mutated", "", "what was mutated -- the literal \"none\" on the exemption form (required)")
 	test := fset.String("test", "", "the test that failed -- the reason, where -mutated is none (required)")
+	late := fset.String("late", "", "admit a row for a round whose re-review already began, with the reason it was missed; recorded beside it as a pass note")
 
 	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
 		return code
@@ -3364,26 +3365,51 @@ func runRecordMutation(ctx context.Context, args []string, stdout, stderr io.Wri
 	// round -round has begun, a proof recorded now could contradict what
 	// that re-review saw (kan-1046 self-review, 1d). A failed read refuses
 	// nothing.
+	// -late on a round whose re-review has not begun writes no late note;
+	// a -late retry whose mutation row already landed skips that write.
+	began, landed := false, false
+	in := records.Mutation{Round: *round, Path: *path, Mutated: *mutated, Test: *test}
 	if run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
 		return cl.GetRunRecord(ctx, projectKey, f.change)
 	}); err == nil {
+		for _, m := range run.Mutations {
+			landed = landed || (m.Round == in.Round && m.Path == in.Path && m.Mutated == in.Mutated && m.Test == in.Test)
+		}
 		now := time.Now()
 		for _, d := range run.Dispatches {
 			if n, ok := records.PanelDispatchRound(d); ok && n == *round && !d.StartedAt.After(now) {
-				fmt.Fprintf(stderr, "flow: record mutation: panel round %d's re-review began %s -- a mutation proof is recorded before the re-review it precedes (skills/flow/review-panel-fix-round.md)\n", *round, d.StartedAt.UTC().Format(time.RFC3339))
+				began = true
+			}
+			if began && *late == "" {
+				fmt.Fprintf(stderr, "flow: record mutation: panel round %d's re-review began %s -- a mutation proof is recorded before the re-review it precedes, or with -late '<reason>' when it was missed (skills/flow/review-panel-fix-round.md)\n", *round, d.StartedAt.UTC().Format(time.RFC3339))
 				return 2
 			}
 		}
 	}
 
-	in := records.Mutation{Round: *round, Path: *path, Mutated: *mutated, Test: *test}
-	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Mutation, error) {
-		return cl.RecordMutation(ctx, projectKey, f.change, in)
-	})
-	if callErr == nil {
-		fmt.Fprintf(stdout, "recorded: mutation %d\n", out.ID)
+	if !(landed && *late != "") {
+		out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Mutation, error) {
+			return cl.RecordMutation(ctx, projectKey, f.change, in)
+		})
+		if callErr == nil {
+			fmt.Fprintf(stdout, "recorded: mutation %d\n", out.ID)
+		}
+		if code := classifyRecordWrite(callErr, projectKey, f.change, "mutation", in, stderr); code != 0 || *late == "" || !began {
+			return code
+		}
+	} else if !began {
+		return 0
 	}
-	return classifyRecordWrite(callErr, projectKey, f.change, "mutation", in, stderr)
+	// A late row says so in the pass log: the proof came after the
+	// re-review began, and why (kan-1047 pipeline fix).
+	note := records.Pass{Round: *round, Note: fmt.Sprintf("late mutation proof for %s: %s", *path, *late)}
+	pout, passErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Pass, error) {
+		return cl.RecordPass(ctx, projectKey, f.change, note)
+	})
+	if passErr == nil {
+		fmt.Fprintf(stdout, "recorded: pass %d\n", pout.ID)
+	}
+	return classifyRecordWrite(passErr, projectKey, f.change, "pass", note, stderr)
 }
 
 // resolveRenderKinds turns -kind into the kinds to render. "all" renders

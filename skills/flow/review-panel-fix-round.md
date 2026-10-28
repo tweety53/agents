@@ -369,7 +369,9 @@ fix-mutations-total: <n>
 ```
 
 Each row is recorded before the round's re-review begins, and `flow record mutation` refuses one
-after (kan-1046 self-review, 1d).
+after (kan-1046 self-review, 1d). A row missed before the re-review is recorded with
+`flow record mutation -late '<reason>'`, which admits it at its own round and records the reason as
+a pass note of that round, `late mutation proof for <path>: <reason>` (kan-1047 pipeline fix).
 
 **The rendered record carries these lines in its pass-log section, one round's count after that
 round's lines, and never inside the marker block.**
