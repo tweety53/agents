@@ -131,6 +131,12 @@ func TestCheckTaskCommitPlanningPaths(t *testing.T) {
 			gitRun(t, repo, "commit", "-qm", "feat(app): do the thing", "-m", "Task-Id: 4")
 			return []string{repo, base}, result{1, swept(repo, tcppSha(t, repo, "HEAD"), "4", "spectre/changes/kan-1/design.md"), ""}
 		}},
+		{"visual-verification.md task commit: exit 0, the in-run fix's own record", func(t *testing.T) ([]string, result) {
+			repo := tcppRepo(t, "spectre")
+			base := tcppSha(t, repo, "HEAD")
+			tcppCommit(t, repo, "fix(app): in-run fix", "5", "spectre/changes/kan-1/visual-verification.md")
+			return []string{repo, base}, result{0, clean(repo, "1"), ""}
+		}},
 		{"trailer-less commit: exit 0, zero task commits checked", func(t *testing.T) ([]string, result) {
 			repo := tcppRepo(t, "spectre")
 			base := tcppSha(t, repo, "HEAD")

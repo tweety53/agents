@@ -14,7 +14,9 @@
 # The planning paths are the spec tree's changes directory — the leaf
 # resolved per project through spec-root.sh's Go twin
 # (stats/internal/guard/specroot.go), `spectre` or `openspec`, never
-# hardcoded — and `docs/superpowers/`. Anything else
+# hardcoded — and `docs/superpowers/`, less a change's `visual-verification.md`,
+# the record an in-run visual-verify fix task rewrites in its own commit
+# (check-plan-shape F21). Anything else
 # under the spec tree is implementation: a capability spec under
 # `<leaf>/specs/` is exactly what a task commit SHOULD carry, and
 # `docs/superpowers/` is named in full rather than as `docs/` for the same

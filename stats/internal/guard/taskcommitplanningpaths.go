@@ -98,7 +98,10 @@ func checkTaskCommitPlanningPaths(args []string, env Env, stdout, stderr io.Writ
 		// Newline-separated, deliberately without -z, as the bash read it.
 		commitSwept := false
 		for _, path := range strings.Split(paths, "\n") {
-			if strings.HasPrefix(path, leaf+"/changes/") || strings.HasPrefix(path, "docs/superpowers/") {
+			// A change's visual-verification.md is the record an in-run visual-verify fix task rewrites in
+			// its own commit (check-plan-shape F21, skills/flow/verify-fix-loop.md), not a planning artifact.
+			planning := strings.HasPrefix(path, leaf+"/changes/") && !strings.HasSuffix(path, "/visual-verification.md")
+			if planning || strings.HasPrefix(path, "docs/superpowers/") {
 				fmt.Fprintf(&sweepLines, "TASK-COMMIT-SWEEP: %.12s %s %s\n", sha, tid, path)
 				commitSwept = true
 			}
