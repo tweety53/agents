@@ -4,7 +4,7 @@ Per `design.md` `## Live check`. Both figures were measured on scratch copies of
 
 ## Before
 
-Measured at merge base 6a53dd04f89c7eefe9712dde4987b445a6f44bef. The daemon was built from the main checkout at that sha, against copy `flow_k1048b_live`.
+Measured at merge base 6a53dd04f89c7eefe9712dde4987b445a6f44bef. The branch was later rebased onto 7b10e5691e3eb1e419a5b7cb0f3b65fd434bcf65, whose only `stats/` changes from 6a53dd04 are in `stats/internal/guard`, so flowd's state-board path is the same source and the figure stands. The daemon was built from the main checkout at that sha, against copy `flow_k1048b_live`.
 
 - rows: 720
 - rows carrying `currentStage`: 0
