@@ -225,7 +225,8 @@ Correction (2026-10-28): the plan routed the backfill through `POST /api/v1/harv
     - New captures: `review dynamics by version` (Version pressed), `review dynamics default preset` (clock pinned to 2026-06-29, Last 8 weeks pressed), and `review dynamics heatmap cell hover`. The cell hover is the native title, so its text is asserted and the hovered page captured.
   - [ ] **Step 3: Verify:** `cd stats/web && npx tsc -b && npx vitest run`, then `npx playwright test tests/visual/review-dynamics.spec.ts` and the full suite. Recapture `full-review-dynamics` and rebuild `full-app-suite.zip`.
 
-**Files:** `stats/web/src/views/ReviewDynamics.tsx`, `stats/web/src/styles.css`, `stats/web/src/theme.css`, `stats/web/src/views/views.test.tsx`, `stats/web/tests/visual/review-dynamics.spec.ts`, `stats/web/tests/visual/review-dynamics.spec.ts-snapshots/*`, `stats/web/tests/visual/full-app-suite.spec.ts-snapshots/full-review-dynamics-darwin.png`, `stats/web/tests/visual/full-app-suite.zip`
+**Files:** `stats/web/src/views/ReviewDynamics.tsx`, `stats/web/src/styles.css`, `stats/web/src/theme.css`, `stats/web/src/views/views.test.tsx`, `stats/web/tests/visual/review-dynamics.spec.ts`, `stats/web/tests/visual/full-app-suite.spec.ts-snapshots/full-review-dynamics-darwin.png`, `stats/web/tests/visual/full-app-suite.zip`
+**Allowed-collateral:** `stats/web/tests/visual/review-dynamics.spec.ts-snapshots/*.png`
 **Tests:** `review dynamics orders the heatmap busiest slot first and effort low to high`, `review dynamics by version`, `review dynamics default preset`, `review dynamics heatmap cell hover`
 **Regression:** `review dynamics orders the heatmap busiest slot first and effort low to high` fails under alphabetical sorting. The spec's CSS assertions fail on the old `.view-description` intro, the stretched heatmap and the `--surface-2` tooltip.
 **Baseline:** before=3 after=6 <!-- predicted: test( count in stats/web/tests/visual/review-dynamics.spec.ts -->
