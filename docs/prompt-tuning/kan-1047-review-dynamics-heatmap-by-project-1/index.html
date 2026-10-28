@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kan-1047-review-dynamics-heatmap-by-project-1</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0 auto;max-width:1100px;padding:16px;line-height:1.45}
+pre{background:#f4f4f4;padding:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.ab{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:700px){.ab{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>kan-1047-review-dynamics-heatmap-by-project-1</h1>
+<h2>Type</h2>
+<p>implementer · scope generic</p>
+<h2>Defect class</h2>
+<p>A screenshot capture written by an implementer is not taken in the state it names: interactions that produce the state run after the screenshot, or the pointer is left on the last clicked control so hover ink enters the baseline.</p>
+<h2>Finding</h2>
+<pre>**Visual-verify departure — Important (judged; the verifier grades none) — `stats/web/tests/visual/review-dynamics.spec.ts:72`** (round `visual-verify-fix-2-full`, slot visual-verify)
+
+&gt; The `review-dynamics-picked` capture is taken with the pointer still on the `Big` button, so its hover ink is baked into the baseline; and Task 4&#39;s filters capture screenshotted before the Projects and Task size picks it was written to show.
+</pre>
+<pre><code>commit bde84fe01e374f532f7fae5fce584785b2a68b2d
+Author: Yuriy Aleksandrov &lt;yatweety@gmail.com&gt;
+Date:   Wed Oct 28 20:12:05 2026 &#43;0200
+
+    test(stats): seed plan classes and capture a project and task-size pick
+    
+    Task-Id: 5
+
+diff --git a/stats/web/tests/visual/review-dynamics.spec.ts b/stats/web/tests/visual/review-dynamics.spec.ts
+index afcea9d6..6923af8c 100644
+--- a/stats/web/tests/visual/review-dynamics.spec.ts
+&#43;&#43;&#43; b/stats/web/tests/visual/review-dynamics.spec.ts
+@@ -71,11 &#43;71,11 @@ test.describe(&#34;review dynamics&#34;, () =&gt; {
+     await pick(&#34;Prompt changes&#34;, &#34;auto prompt tuning&#34;);
+     await expect(page).toHaveScreenshot(&#34;review-dynamics-filters.png&#34;, { fullPage: true });
+     // Projects and Task size refetch: each pick presses its own button.
+&#43;    await pick(&#34;Projects&#34;, &#34;uitest-dynamics&#34;);
+     await pick(&#34;Task size&#34;, &#34;Big&#34;);
+-    const projects = page.getByRole(&#34;group&#34;, { name: &#34;Projects&#34; }).getByRole(&#34;button&#34;);
+-    await projects.nth(1).click();
+-    await expect(projects.nth(1)).toHaveAttribute(&#34;aria-pressed&#34;, &#34;true&#34;);
+-    await expect(projects.first()).toHaveAttribute(&#34;aria-pressed&#34;, &#34;false&#34;);
+&#43;    await expect(page.getByText(&#34;Loading…&#34;)).toHaveCount(0);
+&#43;    await expect(page.getByRole(&#34;group&#34;, { name: &#34;Projects&#34; }).getByRole(&#34;button&#34;, { name: &#34;All&#34; })).toHaveAttribute(&#34;aria-pressed&#34;, &#34;false&#34;);
+&#43;    await expect(page).toHaveScreenshot(&#34;review-dynamics-picked.png&#34;, { fullPage: true });
+   });
+ 
+   test(&#34;review dynamics heatmap cell hover&#34;, async ({ page }) =&gt; {
+</code></pre>
+<h2>Fix</h2>
+<pre><code>commit 9671c5148999b4b77fa66053b98e567df84111f8
+Author: Yuriy Aleksandrov &lt;yatweety@gmail.com&gt;
+Date:   Wed Oct 28 20:23:36 2026 &#43;0200
+
+    fix(stats): drop a repeated axis label on small integer review dynamics charts
+    
+    Task-Id: 6
+
+diff --git a/stats/web/tests/visual/review-dynamics.spec.ts b/stats/web/tests/visual/review-dynamics.spec.ts
+index 6923af8c..54174b76 100644
+--- a/stats/web/tests/visual/review-dynamics.spec.ts
+&#43;&#43;&#43; b/stats/web/tests/visual/review-dynamics.spec.ts
+@@ -69,12 &#43;69,14 @@ test.describe(&#34;review dynamics&#34;, () =&gt; {
+     };
+     await pick(&#34;Reviewers&#34;, &#34;All&#34;);
+     await pick(&#34;Prompt changes&#34;, &#34;auto prompt tuning&#34;);
+&#43;    await page.mouse.move(0, 0);
+     await expect(page).toHaveScreenshot(&#34;review-dynamics-filters.png&#34;, { fullPage: true });
+     // Projects and Task size refetch: each pick presses its own button.
+     await pick(&#34;Projects&#34;, &#34;uitest-dynamics&#34;);
+     await pick(&#34;Task size&#34;, &#34;Big&#34;);
+     await expect(page.getByText(&#34;Loading…&#34;)).toHaveCount(0);
+     await expect(page.getByRole(&#34;group&#34;, { name: &#34;Projects&#34; }).getByRole(&#34;button&#34;, { name: &#34;All&#34; })).toHaveAttribute(&#34;aria-pressed&#34;, &#34;false&#34;);
+&#43;    await page.mouse.move(0, 0);
+     await expect(page).toHaveScreenshot(&#34;review-dynamics-picked.png&#34;, { fullPage: true });
+   });
+ 
+</code></pre>
+<h2>Why picked</h2>
+<pre>1. Defect class: a capture test records a state other than the one it names — the state&#39;s interactions run after its screenshot, or transient pointer state is left on the page. 2. No rule covers it for implementers: the capture rules (&#39;A capture reached through a click also asserts the state it clicked into, and parks the pointer before it is taken&#39;, visual-verify-verifier.md:49) reach only the verifier; the implementer instructions for capture tasks say only how to get a stack (the quoted One stack for the verification tasks paragraph), and a grep of implement.md, sdd-dispatch.md and engineering-principles.md for pointer, mouse.move, hover ink and park finds nothing. 3. It generalises: two separate implementer dispatches in this run hit it — Task 4 (0470e14b) picked Projects and Task size after its last screenshot, costing visual round 2; Task 5 (bde84fe0) left the pointer on Big, costing round 3 — and every planned capture task and in-run visual fix task is written by an implementer, not the verifier. 4. It is not patch accretion: one set of capture rules for whoever writes a capture, a pointer to the verifier&#39;s existing rules rather than a copy.</pre>
+<h2>Prompt update</h2>
+<p>Target: <code>skills/flow/implement.md</code> at <code>edf8e4e84a78c58882f59cf2854c927cbf4f63de</code></p>
+<div class="ab">
+<div><h3>Before</h3><pre>**Before the first task whose `**Files:**` only add end-to-end specs, fidelity captures or their
+baselines goes out** — dispatched under `sdd`, or started by the parent on an `inline` run — the
+parent starts the canonical worktree&#39;s stack once, by the start rule of **Resolve the run
+instructions** (`skills/flow/verify-and-handoff.md`) — its failure, refused-start and
+protected-service handling included — then runs any build the plan&#39;s Global Constraints name
+for those tasks, then `check-dev-stack-fresh.sh &lt;canonical-worktree&gt;`: exit 1 is a failed start,
+and exit 2 puts `Freshness: unverified — &lt;the guard&#39;s reason&gt;` in every such task&#39;s prompt.
+Every such task, and every wave copy it runs in, runs against that stack&#39;s worktree-resolved
+URLs, which its prompt names, and starts, stops and rebuilds nothing. The stack stays up for
+`flow.verify`.</pre></div>
+<div><h3>After</h3><pre>**Before the first task whose `**Files:**` only add end-to-end specs, fidelity captures or their
+baselines goes out** — dispatched under `sdd`, or started by the parent on an `inline` run — the
+parent starts the canonical worktree&#39;s stack once, by the start rule of **Resolve the run
+instructions** (`skills/flow/verify-and-handoff.md`) — its failure, refused-start and
+protected-service handling included — then runs any build the plan&#39;s Global Constraints name
+for those tasks, then `check-dev-stack-fresh.sh &lt;canonical-worktree&gt;`: exit 1 is a failed start,
+and exit 2 puts `Freshness: unverified — &lt;the guard&#39;s reason&gt;` in every such task&#39;s prompt.
+Every such task, and every wave copy it runs in, runs against that stack&#39;s worktree-resolved
+URLs, which its prompt names, and starts, stops and rebuilds nothing. The stack stays up for
+`flow.verify`.
+Every such task&#39;s prompt, and every task whose `**Files:**` add or change a capture spec, carries the capture rules of step 8 of `skills/flow/visual-verify-verifier.md` by absolute path: a capture is taken in the state it names — every interaction producing that state first, each asserted, and the pointer parked clear of every control after the last click.</pre></div>
+</div>
+</body>
+</html>

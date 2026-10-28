@@ -1,0 +1,27 @@
+commit 9671c5148999b4b77fa66053b98e567df84111f8
+Author: Yuriy Aleksandrov <yatweety@gmail.com>
+Date:   Wed Oct 28 20:23:36 2026 +0200
+
+    fix(stats): drop a repeated axis label on small integer review dynamics charts
+    
+    Task-Id: 6
+
+diff --git a/stats/web/tests/visual/review-dynamics.spec.ts b/stats/web/tests/visual/review-dynamics.spec.ts
+index 6923af8c..54174b76 100644
+--- a/stats/web/tests/visual/review-dynamics.spec.ts
++++ b/stats/web/tests/visual/review-dynamics.spec.ts
+@@ -69,12 +69,14 @@ test.describe("review dynamics", () => {
+     };
+     await pick("Reviewers", "All");
+     await pick("Prompt changes", "auto prompt tuning");
++    await page.mouse.move(0, 0);
+     await expect(page).toHaveScreenshot("review-dynamics-filters.png", { fullPage: true });
+     // Projects and Task size refetch: each pick presses its own button.
+     await pick("Projects", "uitest-dynamics");
+     await pick("Task size", "Big");
+     await expect(page.getByText("Loading…")).toHaveCount(0);
+     await expect(page.getByRole("group", { name: "Projects" }).getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "false");
++    await page.mouse.move(0, 0);
+     await expect(page).toHaveScreenshot("review-dynamics-picked.png", { fullPage: true });
+   });
+ 
