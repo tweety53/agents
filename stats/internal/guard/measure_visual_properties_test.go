@@ -699,3 +699,32 @@ func TestPyJSONEscapesStrings(t *testing.T) {
 		}
 	}
 }
+
+// kan-1044 self-review (F1-e): a modal sheet under a flat scrim measures its
+// bands inside the sheet, not as one scrim-plus-sheet band.
+func TestMeasureVisualPropertiesBandsUnderScrim(t *testing.T) {
+	t.Parallel()
+	dimmed := mvpPNG(t, 400, 800, func(x, y int) color.RGBA {
+		switch {
+		case x < 40 || x >= 360 || y < 300:
+			return color.RGBA{0x7f, 0x7f, 0x7f, 0xff} // scrim
+		case x >= 80 && x < 320 && (y >= 350 && y < 370 || y >= 420 && y < 440):
+			return color.RGBA{0x02, 0x08, 0x17, 0xff}
+		}
+		return color.RGBA{0xff, 0xff, 0xff, 0xff}
+	})
+	d := mvpJSON(t, "", dimmed, "--props", "bands")
+	bands, _ := mvpDig(d, "a", "bands").([]any)
+	if len(bands) != 2 {
+		t.Fatalf("bands %v, want two text rows", mvpDig(d, "a", "bands"))
+	}
+	plain := mvpPNG(t, 320, 500, func(x, y int) color.RGBA { // the same sheet, alone
+		if x >= 40 && x < 280 && (y >= 50 && y < 70 || y >= 120 && y < 140) {
+			return color.RGBA{0x02, 0x08, 0x17, 0xff}
+		}
+		return color.RGBA{0xff, 0xff, 0xff, 0xff}
+	})
+	if got := mvpDig(mvpJSON(t, "", dimmed, plain, "--scale", "1", "--props", "bands"), "delta", "bands_summary", "paired"); got != float64(2) {
+		t.Fatalf("paired %v, want 2", got)
+	}
+}

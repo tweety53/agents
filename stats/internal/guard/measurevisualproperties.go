@@ -161,6 +161,9 @@ func measureVisualProperties(args []string, env Env, stdout, stderr io.Writer) i
 		if err != nil {
 			return mvpMeasured{}, err
 		}
+		if page && !slices.Contains(props, "elements") { // elements finds its own surface below a scrim
+			r.cropScrim()
+		}
 		return r.measure(props)
 	}
 	ma, err := measure(a.images[0], a.regionA)
@@ -470,6 +473,51 @@ func (r *mvpRegion) clippedText() string {
 }
 
 func (r *mvpRegion) at(x, y int) [3]byte { return r.im.at(r.x0+x, r.y0+y) }
+
+// cropScrim crops a page region dimmed by a modal's scrim to the sheet: when
+// the top-left colour and the largest colour unlike it each cover 20% of the
+// region and the corner is the darker, the corner is the scrim, and the region
+// shrinks to the bounding box of the pixels unlike it, its background
+// recounted there (kan-1044 self-review, F1-e).
+// ponytail: a flat scrim reaching the corner only; a gradient scrim, or a dark
+// page under a light card, needs a layer detector.
+func (r *mvpRegion) cropScrim() {
+	var c mvpCounter
+	for y := 0; y < r.h; y++ {
+		for x := 0; x < r.w; x++ {
+			c.add(r.at(x, y))
+		}
+	}
+	scrim := r.at(0, 0)
+	total, ns, other, no := r.w*r.h, 0, [3]byte{}, 0
+	for _, x := range c.order {
+		if mvpDist(x, scrim) <= r.noise {
+			ns += c.n[x]
+		} else if c.n[x] > no {
+			other, no = x, c.n[x]
+		}
+	}
+	lum := func(x [3]byte) int { return int(x[0]) + int(x[1]) + int(x[2]) }
+	if ns*5 < total || no*5 < total || lum(scrim) >= lum(other) {
+		return
+	}
+	x0, y0, x1, y1 := r.w, r.h, -1, -1
+	for y := 0; y < r.h; y++ {
+		for x := 0; x < r.w; x++ {
+			if mvpDist(r.at(x, y), scrim) > r.noise {
+				x0, y0, x1, y1 = min(x0, x), min(y0, y), max(x1, x), max(y1, y)
+			}
+		}
+	}
+	r.x0, r.y0, r.w, r.h = r.x0+x0, r.y0+y0, x1-x0+1, y1-y0+1
+	var in mvpCounter
+	for y := 0; y < r.h; y++ {
+		for x := 0; x < r.w; x++ {
+			in.add(r.at(x, y))
+		}
+	}
+	r.bg, _ = in.top()
+}
 
 func (r *mvpRegion) isBg(c [3]byte) bool { return mvpDist(c, r.bg) <= r.noise }
 

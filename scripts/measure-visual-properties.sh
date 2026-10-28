@@ -179,8 +179,8 @@
 #            image is the surface) and every ink run below it against the
 #            surface's modal colour (distance over 30), each run's box, modal
 #            colour, kind and gap above; paired in order across two images
-#            like `bands`. Not in the default set (kan-1015: scrim-dimmed
-#            sheet frames read as one band).
+#            like `bands`. Not in the default set. A flat scrim reaching the
+#            top-left corner is cropped to its sheet before `bands` and `seams`.
 #   matrix — opt-in, alone, two whole images (no `--region-*`): `elements`
 #            on both, paired in order, then each paired element measured on
 #            its own region (its box plus a 4px margin, clipped to the image)
