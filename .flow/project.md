@@ -77,13 +77,18 @@ forbids any agent action touching it at all.
 
 ```bash
 # suite: guard-tests
-scripts/run-guard-tests.sh
+scripts/unchanged.sh . ':!docs/' ':!spectre/' ':!stats/web/' || scripts/run-guard-tests.sh
 # suite: stats-go
-cd stats && make -s web-dist && go test -race -count=1 $(go list ./... | grep -v '/internal/guard$')
+scripts/unchanged.sh . ':!docs/' ':!spectre/' ':!stats/web/' || { cd stats && make -s web-dist && go test -race -count=1 $(go list ./... | grep -v '/internal/guard$'); }
 # suite: stats-spa
 # inputs: stats/web/ stats/Makefile
-cd stats && make -s web-dist && cd web && npm test
+scripts/unchanged.sh stats/web/ stats/Makefile || { cd stats && make -s web-dist && cd web && npm test; }
 ```
+
+Each suite runs only when the branch changed, since its merge-base on `origin/main`, a path it
+reads (`scripts/unchanged.sh`): a change to `docs/` or `spectre/` alone runs no suite, and one to
+`stats/web/` alone runs only the SPA's. The full suite — the three suite commands without the
+`unchanged.sh` guard — runs only when the operator asks for it, never as part of a `/flow` run.
 
 `stats/internal/web/dist/` is gitignored and `stats/internal/web/embed.go`'s `//go:embed all:dist`
 refuses to compile without it, so `make -s web-dist` (`stats/Makefile`) opens every line here and in
