@@ -1,0 +1,104 @@
+package repotest
+
+// TestFlowSessionActivityHook drives hooks/flow-session-activity.py against a
+// stub store (an httptest server logging every request's method, path and
+// body), pointed at through FLOW_ADDR, for each hook event it maps, and
+// asserts the PUT it sends -- or that it sends none and stays silent.
+
+import (
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
+	"testing"
+)
+
+// activityStore is a stub flow store; requests holds "METHOD path body".
+type activityStore struct {
+	addr     string
+	mu       sync.Mutex
+	requests []string
+}
+
+func newActivityStore(t *testing.T) *activityStore {
+	t.Helper()
+	s := &activityStore{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		s.mu.Lock()
+		s.requests = append(s.requests, r.Method+" "+r.URL.Path+" "+string(body))
+		s.mu.Unlock()
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(srv.Close)
+	s.addr = srv.URL
+	return s
+}
+
+func (s *activityStore) all() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.requests...)
+}
+
+func TestFlowSessionActivityHook(t *testing.T) {
+	t.Parallel()
+
+	run := func(t *testing.T, addr, stdin string) (string, int) {
+		t.Helper()
+		out, errOut, rc := runHook(t, "flow-session-activity.py", []byte(stdin), "FLOW_ADDR="+addr)
+		return out + errOut, rc
+	}
+
+	const path = "PUT /api/v1/sessions/s-1/activity "
+	long := strings.Repeat("é", 300) // 600 bytes
+	cases := []struct {
+		name, stdin, want string
+	}{
+		{"ask user question", `{"session_id":"s-1","hook_event_name":"PreToolUse","tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"Proceed?"},{"question":"Second?"}]}}`,
+			path + `{"state": "question", "detail": "Proceed?"}`},
+		{"permission notification", `{"session_id":"s-1","hook_event_name":"Notification","message":"Claude needs your permission to use Bash"}`,
+			path + `{"state": "permission", "detail": "Claude needs your permission to use Bash"}`},
+		{"other notification", `{"session_id":"s-1","hook_event_name":"Notification","message":"Claude is waiting for your input"}`, ""},
+		{"prompt submit", `{"session_id":"s-1","hook_event_name":"UserPromptSubmit","prompt":"go"}`,
+			path + `{"state": "working", "detail": ""}`},
+		{"post tool use", `{"session_id":"s-1","hook_event_name":"PostToolUse","tool_name":"Bash"}`,
+			path + `{"state": "working", "detail": ""}`},
+		{"stop", `{"session_id":"s-1","hook_event_name":"Stop"}`,
+			path + `{"state": "idle", "detail": ""}`},
+		{"other pre tool use", `{"session_id":"s-1","hook_event_name":"PreToolUse","tool_name":"Bash"}`, ""},
+		{"no session id", `{"hook_event_name":"Stop"}`, ""},
+		{"malformed json", `{not json`, ""},
+		{"detail truncated to 500 bytes", `{"session_id":"s-1","hook_event_name":"PreToolUse","tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"` + long + `"}]}}`,
+			path + `{"state": "question", "detail": "` + strings.Repeat(`\u00e9`, 250) + `"}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			s := newActivityStore(t)
+			out, rc := run(t, s.addr, tc.stdin)
+			if rc != 0 || out != "" {
+				t.Fatalf("rc=%d out=%q, want 0 and no output", rc, out)
+			}
+			got := s.all()
+			if tc.want == "" {
+				if len(got) != 0 {
+					t.Errorf("requests = %q, want none", got)
+				}
+				return
+			}
+			if len(got) != 1 || got[0] != tc.want {
+				t.Errorf("requests = %q, want [%q]", got, tc.want)
+			}
+		})
+	}
+
+	t.Run("unreachable store", func(t *testing.T) {
+		t.Parallel()
+		out, rc := run(t, "http://127.0.0.1:1", `{"session_id":"s-1","hook_event_name":"Stop"}`)
+		if rc != 0 || out != "" {
+			t.Errorf("rc=%d out=%q, want 0 and no output", rc, out)
+		}
+	})
+}
