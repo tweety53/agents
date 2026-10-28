@@ -1,0 +1,22 @@
+{
+  "id": "kan-1046-review-dynamics-dashboard-1",
+  "type": "implementer",
+  "scope": "generic",
+  "source": {
+    "project": "agents",
+    "change": "kan-1046-review-dynamics-dashboard",
+    "jira": "KAN-1046",
+    "repo": "/Users/tweety53/Projects/agents",
+    "fix_sha": "0acfc59094f51a01bd1b59232f6cee0a3d4eb9e4",
+    "finding_ref": "F18",
+    "round": 3,
+    "slot": "mutation",
+    "severity": "Important"
+  },
+  "target": "skills/flow/engineering-principles.md",
+  "target_sha": "c4202f609b117c26c8f5f0b69c002cb958069733",
+  "defect_class": "A test meant to pin which of several plausible rules the code applies (an order, a precedence, which source wins) is fed inputs on which the rejected rules produce the same observable, so it passes against the mutants it exists to kill.",
+  "why_picked": "1. Defect class: a test of a choice uses inputs on which the alternative choices give the same result, so the choice is unpinned. 2. No rule covers it: the Testing principles section reads \"Tests are written first, assert observable behavior rather than implementation, run fast and deterministically, and fail for exactly one reason.\" and its violation list names mocks, sleeps, order dependence, weakened assertions, deleted tests and measured geometry bounds, but nothing about choosing inputs that tell alternatives apart. 3. It generalises: this one run produced five mutation survivors of the class across Go and TypeScript in three rounds: F11 (an upsert precedence test with equal areas), F12 (an author-versus-committer date choice tested with equal dates), F17 (a btrim tested with no padded input), F18 (busiest-first tested with a busiest item also first by name) and F20 (model-first grouping tested with one model). The same shape applies to any sort, merge, fallback, COALESCE or precedence code. 4. It is not patch accretion: it states one principle about test input selection, discriminating inputs, rather than a rule about heatmaps or git dates.",
+  "before": "### Testing principles\n\nTests are written first, assert observable behavior rather than implementation, run fast\nand deterministically, and fail for exactly one reason.\n\n**Violation looks like:** a test asserting that a mock was called rather than what\nchanged, a sleep used for synchronisation, a test whose result depends on execution order\nor the wall clock, an assertion weakened rather than a bug fixed, a test deleted or\n`@Ignore`d in the same diff that changed the behavior it covered, or a geometry assertion\non a measured or reported bound (Compose's semantics bounds, coerced to the parent's) where\nthe property under test is what is drawn — an overflow is visible only in the rendered\npixels, so the assertion passes on the unfixed code.",
+  "after": "### Testing principles\n\nTests are written first, assert observable behavior rather than implementation, run fast\nand deterministically, and fail for exactly one reason.\n\n**Violation looks like:** a test asserting that a mock was called rather than what\nchanged, a sleep used for synchronisation, a test whose result depends on execution order\nor the wall clock, an assertion weakened rather than a bug fixed, a test deleted or\n`@Ignore`d in the same diff that changed the behavior it covered, or a geometry assertion\non a measured or reported bound (Compose's semantics bounds, coerced to the parent's) where\nthe property under test is what is drawn — an overflow is visible only in the rendered\npixels, so the assertion passes on the unfixed code.\n\n**A test of a choice is fed inputs that separate the alternatives.** When a test pins which\nrule the code applies (an order, a precedence, a grouping, which of two sources wins), its\ninputs make every plausible alternative rule produce a different result. Inputs on which the\nalternatives agree leave the choice unpinned and the test green against its mutants: the\nbusiest item also first by name, a single group where the rule groups, two sources holding\none value."
+}

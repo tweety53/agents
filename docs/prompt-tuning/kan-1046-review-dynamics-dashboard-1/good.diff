@@ -1,0 +1,49 @@
+commit 0acfc59094f51a01bd1b59232f6cee0a3d4eb9e4
+Author: Yuriy Aleksandrov <yatweety@gmail.com>
+Date:   Wed Oct 28 16:41:35 2026 +0200
+
+    test(stats): pin review dynamics ordering with a two-model fixture
+    
+    Flow-Key: panel-fix-4
+
+diff --git a/stats/web/src/views/views.test.tsx b/stats/web/src/views/views.test.tsx
+index acd99c20..2f5cc782 100644
+--- a/stats/web/src/views/views.test.tsx
++++ b/stats/web/src/views/views.test.tsx
+@@ -1045,21 +1045,29 @@ describe("review dynamics", () => {
+   it("review dynamics orders the heatmap busiest slot first and effort low to high", async () => {
+     noRangeInUrl();
+     const rows = reviewDynamicsRows();
+-    const cell = (slot: string, effort: string, dispatches: number) => ({ slot, model: "opus", effort, dispatches, critical: 0, important: 1, minor: 1 });
+-    const pt = (series: string) => ({ bucket: "2026-01-05", metric: "per-dispatch-effort", series, value: 1, basis: 2 });
++    const cell = (slot: string, model: string, effort: string, dispatches: number) => ({ slot, model, effort, dispatches, critical: 0, important: 1, minor: 1 });
++    const pt = (series: string, metric = "per-dispatch-effort") => ({ bucket: "2026-01-05", metric, series, value: 1, basis: 2 });
+     fetchStatsViewMock.mockResolvedValue(
+       envelope("review-dynamics", {
+         ...rows,
+-        series: [...rows.series.filter((p) => p.metric !== "per-dispatch-effort"), pt("high"), pt("low"), pt("medium")],
+-        heat: [cell("principles", "high", 2), cell("primary", "low", 3), cell("primary", "medium", 3)],
++        series: [
++          ...rows.series.filter((p) => p.metric !== "per-dispatch-effort" && p.metric !== "impl-findings-per-task"),
++          ...["xhigh", "high", "default", "low", "medium"].map((e) => pt(e)),
++          pt("opus · high", "impl-findings-per-task"),
++          pt("opus · low", "impl-findings-per-task"),
++        ],
++        // zeta is busiest and sorts last by name; sonnet's low sorts before opus's high by effort alone.
++        heat: [cell("alpha", "sonnet", "low", 2), cell("zeta", "opus", "high", 3), cell("zeta", "opus", "low", 3), cell("zeta", "opus", "medium", 1)],
+       }),
+     );
+     render(<ReviewDynamics period={period} onPeriodChange={() => {}} project={undefined} />);
+     const heat = (await screen.findByText(/Findings per dispatch: slot/)).closest(".dynamics-panel") as HTMLElement;
+-    expect(within(heat).getAllByRole("rowheader").map((h) => h.textContent)).toEqual(["primary", "principles"]);
+-    expect(within(heat).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["", "opuslow", "opusmedium", "opushigh"]);
++    expect(within(heat).getAllByRole("rowheader").map((h) => h.textContent)).toEqual(["zeta", "alpha"]);
++    expect(within(heat).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["", "opuslow", "opusmedium", "opushigh", "sonnetlow"]);
+     const effort = screen.getByRole("region", { name: "Findings per dispatch by reviewer effort" });
+-    expect([...effort.querySelectorAll(".dynamics-legend > *")].map((e) => e.textContent?.trim())).toEqual(["low", "medium", "high", "prompt change"]);
++    expect([...effort.querySelectorAll(".dynamics-legend > *")].map((e) => e.textContent?.trim())).toEqual(["low", "medium", "high", "default", "xhigh", "prompt change"]);
++    const impl = screen.getByRole("region", { name: "Panel findings per implementer task" });
++    expect([...impl.querySelectorAll(".dynamics-legend > *")].map((e) => e.textContent?.trim())).toEqual(["opus · low", "opus · high"]);
+   });
+ 
+   it("review dynamics draws every section with tiles against the previous range", async () => {

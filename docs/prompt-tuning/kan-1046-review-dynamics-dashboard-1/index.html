@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kan-1046-review-dynamics-dashboard-1</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0 auto;max-width:1100px;padding:16px;line-height:1.45}
+pre{background:#f4f4f4;padding:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.ab{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:700px){.ab{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>kan-1046-review-dynamics-dashboard-1</h1>
+<h2>Type</h2>
+<p>implementer · scope generic</p>
+<h2>Defect class</h2>
+<p>A test meant to pin which of several plausible rules the code applies (an order, a precedence, which source wins) is fed inputs on which the rejected rules produce the same observable, so it passes against the mutants it exists to kill.</p>
+<h2>Finding</h2>
+<pre>**F18 — Important — `stats/web/src/views/ReviewDynamics.tsx:129`** (panel round 3, mutation slot)
+
+&gt; slot totals replaced by a constant (`(get ?? 0) &#43; c.dispatches` → `1`): busiest-first collapses to alphabetical, and the fixture&#39;s busiest slot (`primary`, 6) is also alphabetically first. The test cannot tell busiest-first from alphabetical.
+</pre>
+<pre><code>commit 6a8a6faed865bf293d23fd9602e7f2ee3569a8c6
+Author: Yuriy Aleksandrov &lt;yatweety@gmail.com&gt;
+Date:   Wed Oct 28 16:37:26 2026 &#43;0200
+
+    fix(stats): review dynamics matches its prototype
+    
+    Task-Id: 11
+
+diff --git a/stats/web/src/views/views.test.tsx b/stats/web/src/views/views.test.tsx
+index aca4a8e9..acd99c20 100644
+--- a/stats/web/src/views/views.test.tsx
+&#43;&#43;&#43; b/stats/web/src/views/views.test.tsx
+@@ -1042,6 &#43;1042,26 @@ describe(&#34;flow health&#34;, () =&gt; {
+ describe(&#34;review dynamics&#34;, () =&gt; {
+   const noRangeInUrl = () =&gt; window.history.replaceState(null, &#34;&#34;, &#34;#/review-dynamics&#34;);
+ 
+&#43;  it(&#34;review dynamics orders the heatmap busiest slot first and effort low to high&#34;, async () =&gt; {
+&#43;    noRangeInUrl();
+&#43;    const rows = reviewDynamicsRows();
+&#43;    const cell = (slot: string, effort: string, dispatches: number) =&gt; ({ slot, model: &#34;opus&#34;, effort, dispatches, critical: 0, important: 1, minor: 1 });
+&#43;    const pt = (series: string) =&gt; ({ bucket: &#34;2026-01-05&#34;, metric: &#34;per-dispatch-effort&#34;, series, value: 1, basis: 2 });
+&#43;    fetchStatsViewMock.mockResolvedValue(
+&#43;      envelope(&#34;review-dynamics&#34;, {
+&#43;        ...rows,
+&#43;        series: [...rows.series.filter((p) =&gt; p.metric !== &#34;per-dispatch-effort&#34;), pt(&#34;high&#34;), pt(&#34;low&#34;), pt(&#34;medium&#34;)],
+&#43;        heat: [cell(&#34;principles&#34;, &#34;high&#34;, 2), cell(&#34;primary&#34;, &#34;low&#34;, 3), cell(&#34;primary&#34;, &#34;medium&#34;, 3)],
+&#43;      }),
+&#43;    );
+&#43;    render(&lt;ReviewDynamics period={period} onPeriodChange={() =&gt; {}} project={undefined} /&gt;);
+&#43;    const heat = (await screen.findByText(/Findings per dispatch: slot/)).closest(&#34;.dynamics-panel&#34;) as HTMLElement;
+&#43;    expect(within(heat).getAllByRole(&#34;rowheader&#34;).map((h) =&gt; h.textContent)).toEqual([&#34;primary&#34;, &#34;principles&#34;]);
+&#43;    expect(within(heat).getAllByRole(&#34;columnheader&#34;).map((h) =&gt; h.textContent)).toEqual([&#34;&#34;, &#34;opuslow&#34;, &#34;opusmedium&#34;, &#34;opushigh&#34;]);
+&#43;    const effort = screen.getByRole(&#34;region&#34;, { name: &#34;Findings per dispatch by reviewer effort&#34; });
+&#43;    expect([...effort.querySelectorAll(&#34;.dynamics-legend &gt; *&#34;)].map((e) =&gt; e.textContent?.trim())).toEqual([&#34;low&#34;, &#34;medium&#34;, &#34;high&#34;, &#34;prompt change&#34;]);
+&#43;  });
+&#43;
+   it(&#34;review dynamics draws every section with tiles against the previous range&#34;, async () =&gt; {
+     noRangeInUrl();
+     render(&lt;ReviewDynamics period={period} onPeriodChange={() =&gt; {}} project={undefined} /&gt;);
+</code></pre>
+<h2>Fix</h2>
+<pre><code>commit 0acfc59094f51a01bd1b59232f6cee0a3d4eb9e4
+Author: Yuriy Aleksandrov &lt;yatweety@gmail.com&gt;
+Date:   Wed Oct 28 16:41:35 2026 &#43;0200
+
+    test(stats): pin review dynamics ordering with a two-model fixture
+    
+    Flow-Key: panel-fix-4
+
+diff --git a/stats/web/src/views/views.test.tsx b/stats/web/src/views/views.test.tsx
+index acd99c20..2f5cc782 100644
+--- a/stats/web/src/views/views.test.tsx
+&#43;&#43;&#43; b/stats/web/src/views/views.test.tsx
+@@ -1045,21 &#43;1045,29 @@ describe(&#34;review dynamics&#34;, () =&gt; {
+   it(&#34;review dynamics orders the heatmap busiest slot first and effort low to high&#34;, async () =&gt; {
+     noRangeInUrl();
+     const rows = reviewDynamicsRows();
+-    const cell = (slot: string, effort: string, dispatches: number) =&gt; ({ slot, model: &#34;opus&#34;, effort, dispatches, critical: 0, important: 1, minor: 1 });
+-    const pt = (series: string) =&gt; ({ bucket: &#34;2026-01-05&#34;, metric: &#34;per-dispatch-effort&#34;, series, value: 1, basis: 2 });
+&#43;    const cell = (slot: string, model: string, effort: string, dispatches: number) =&gt; ({ slot, model, effort, dispatches, critical: 0, important: 1, minor: 1 });
+&#43;    const pt = (series: string, metric = &#34;per-dispatch-effort&#34;) =&gt; ({ bucket: &#34;2026-01-05&#34;, metric, series, value: 1, basis: 2 });
+     fetchStatsViewMock.mockResolvedValue(
+       envelope(&#34;review-dynamics&#34;, {
+         ...rows,
+-        series: [...rows.series.filter((p) =&gt; p.metric !== &#34;per-dispatch-effort&#34;), pt(&#34;high&#34;), pt(&#34;low&#34;), pt(&#34;medium&#34;)],
+-        heat: [cell(&#34;principles&#34;, &#34;high&#34;, 2), cell(&#34;primary&#34;, &#34;low&#34;, 3), cell(&#34;primary&#34;, &#34;medium&#34;, 3)],
+&#43;        series: [
+&#43;          ...rows.series.filter((p) =&gt; p.metric !== &#34;per-dispatch-effort&#34; &amp;&amp; p.metric !== &#34;impl-findings-per-task&#34;),
+&#43;          ...[&#34;xhigh&#34;, &#34;high&#34;, &#34;default&#34;, &#34;low&#34;, &#34;medium&#34;].map((e) =&gt; pt(e)),
+&#43;          pt(&#34;opus · high&#34;, &#34;impl-findings-per-task&#34;),
+&#43;          pt(&#34;opus · low&#34;, &#34;impl-findings-per-task&#34;),
+&#43;        ],
+&#43;        // zeta is busiest and sorts last by name; sonnet&#39;s low sorts before opus&#39;s high by effort alone.
+&#43;        heat: [cell(&#34;alpha&#34;, &#34;sonnet&#34;, &#34;low&#34;, 2), cell(&#34;zeta&#34;, &#34;opus&#34;, &#34;high&#34;, 3), cell(&#34;zeta&#34;, &#34;opus&#34;, &#34;low&#34;, 3), cell(&#34;zeta&#34;, &#34;opus&#34;, &#34;medium&#34;, 1)],
+       }),
+     );
+     render(&lt;ReviewDynamics period={period} onPeriodChange={() =&gt; {}} project={undefined} /&gt;);
+     const heat = (await screen.findByText(/Findings per dispatch: slot/)).closest(&#34;.dynamics-panel&#34;) as HTMLElement;
+-    expect(within(heat).getAllByRole(&#34;rowheader&#34;).map((h) =&gt; h.textContent)).toEqual([&#34;primary&#34;, &#34;principles&#34;]);
+-    expect(within(heat).getAllByRole(&#34;columnheader&#34;).map((h) =&gt; h.textContent)).toEqual([&#34;&#34;, &#34;opuslow&#34;, &#34;opusmedium&#34;, &#34;opushigh&#34;]);
+&#43;    expect(within(heat).getAllByRole(&#34;rowheader&#34;).map((h) =&gt; h.textContent)).toEqual([&#34;zeta&#34;, &#34;alpha&#34;]);
+&#43;    expect(within(heat).getAllByRole(&#34;columnheader&#34;).map((h) =&gt; h.textContent)).toEqual([&#34;&#34;, &#34;opuslow&#34;, &#34;opusmedium&#34;, &#34;opushigh&#34;, &#34;sonnetlow&#34;]);
+     const effort = screen.getByRole(&#34;region&#34;, { name: &#34;Findings per dispatch by reviewer effort&#34; });
+-    expect([...effort.querySelectorAll(&#34;.dynamics-legend &gt; *&#34;)].map((e) =&gt; e.textContent?.trim())).toEqual([&#34;low&#34;, &#34;medium&#34;, &#34;high&#34;, &#34;prompt change&#34;]);
+&#43;    expect([...effort.querySelectorAll(&#34;.dynamics-legend &gt; *&#34;)].map((e) =&gt; e.textContent?.trim())).toEqual([&#34;low&#34;, &#34;medium&#34;, &#34;high&#34;, &#34;default&#34;, &#34;xhigh&#34;, &#34;prompt change&#34;]);
+&#43;    const impl = screen.getByRole(&#34;region&#34;, { name: &#34;Panel findings per implementer task&#34; });
+&#43;    expect([...impl.querySelectorAll(&#34;.dynamics-legend &gt; *&#34;)].map((e) =&gt; e.textContent?.trim())).toEqual([&#34;opus · low&#34;, &#34;opus · high&#34;]);
+   });
+ 
+   it(&#34;review dynamics draws every section with tiles against the previous range&#34;, async () =&gt; {
+</code></pre>
+<h2>Why picked</h2>
+<pre>1. Defect class: a test of a choice uses inputs on which the alternative choices give the same result, so the choice is unpinned. 2. No rule covers it: the Testing principles section reads &#34;Tests are written first, assert observable behavior rather than implementation, run fast and deterministically, and fail for exactly one reason.&#34; and its violation list names mocks, sleeps, order dependence, weakened assertions, deleted tests and measured geometry bounds, but nothing about choosing inputs that tell alternatives apart. 3. It generalises: this one run produced five mutation survivors of the class across Go and TypeScript in three rounds: F11 (an upsert precedence test with equal areas), F12 (an author-versus-committer date choice tested with equal dates), F17 (a btrim tested with no padded input), F18 (busiest-first tested with a busiest item also first by name) and F20 (model-first grouping tested with one model). The same shape applies to any sort, merge, fallback, COALESCE or precedence code. 4. It is not patch accretion: it states one principle about test input selection, discriminating inputs, rather than a rule about heatmaps or git dates.</pre>
+<h2>Prompt update</h2>
+<p>Target: <code>skills/flow/engineering-principles.md</code> at <code>c4202f609b117c26c8f5f0b69c002cb958069733</code></p>
+<div class="ab">
+<div><h3>Before</h3><pre>### Testing principles
+
+Tests are written first, assert observable behavior rather than implementation, run fast
+and deterministically, and fail for exactly one reason.
+
+**Violation looks like:** a test asserting that a mock was called rather than what
+changed, a sleep used for synchronisation, a test whose result depends on execution order
+or the wall clock, an assertion weakened rather than a bug fixed, a test deleted or
+`@Ignore`d in the same diff that changed the behavior it covered, or a geometry assertion
+on a measured or reported bound (Compose&#39;s semantics bounds, coerced to the parent&#39;s) where
+the property under test is what is drawn — an overflow is visible only in the rendered
+pixels, so the assertion passes on the unfixed code.</pre></div>
+<div><h3>After</h3><pre>### Testing principles
+
+Tests are written first, assert observable behavior rather than implementation, run fast
+and deterministically, and fail for exactly one reason.
+
+**Violation looks like:** a test asserting that a mock was called rather than what
+changed, a sleep used for synchronisation, a test whose result depends on execution order
+or the wall clock, an assertion weakened rather than a bug fixed, a test deleted or
+`@Ignore`d in the same diff that changed the behavior it covered, or a geometry assertion
+on a measured or reported bound (Compose&#39;s semantics bounds, coerced to the parent&#39;s) where
+the property under test is what is drawn — an overflow is visible only in the rendered
+pixels, so the assertion passes on the unfixed code.
+
+**A test of a choice is fed inputs that separate the alternatives.** When a test pins which
+rule the code applies (an order, a precedence, a grouping, which of two sources wins), its
+inputs make every plausible alternative rule produce a different result. Inputs on which the
+alternatives agree leave the choice unpinned and the test green against its mutants: the
+busiest item also first by name, a single group where the rule groups, two sources holding
+one value.</pre></div>
+</div>
+</body>
+</html>
