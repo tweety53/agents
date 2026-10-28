@@ -4,6 +4,7 @@
 > `check-task-commit-fields.sh` passes on that task's commit.
 > **Relocation:** no
 > **Design shape:** plan-mode
+> **Tasks appended:** 1
 > **Baseline convention:** every `**Baseline:** before=N after=M` is chain-position absolutes —
 > `before` is the count at this task's commit's parent and `after` at the commit, each task
 > measured at its own position, never a plan-wide pair — split by source set, counted by a
@@ -168,3 +169,18 @@
 **Build:** green
 **After:** Task 8
 **Commit:** `test(stats): re-baseline Weekly costs visual spec with the model·effort chart`
+
+- [ ] 10. In-run fix 1 — flow.verify: reprice fails on an unattached plan session
+  - [ ] **Step 1: Write the failing tests:** in `stats/internal/store/stageruns_test.go`, `TestRepriceSinceCountsPricedAndSkipped` gains an unattached `plan.session` run (`JiraKey`, no change) after `since` with priceable tokens, and expects it priced; in `stats/internal/store/aggregate_test.go`, `TestWeeklyModelEffortCostsSplitsDispatchAndSession` gains an unattached plan session with a priced model bucket in the period and expects no row from it. Run `cd stats && go test ./internal/store/ -run 'TestRepriceSince|TestWeeklyModelEffort'` — RED.
+  - [ ] **Step 2: Implement:** `GetStageRun` scans `COALESCE(change_id, 0)`, as `StageRun.ChangeID`'s doc and the other two scans already do; `WeeklyModelEffortCosts` counts only runs joined to a change, as `WeeklyCosts` does, so its lines add up to Overall.
+  - [ ] **Step 3: Verify:** Go lint, then `cd stats && go test ./internal/store/ -run 'TestRepriceSince|TestWeekly|TestPrice|TestBeginStage'`.
+
+**Files:** `stats/internal/store/stageruns.go`, `stats/internal/store/aggregate.go`, `stats/internal/store/stageruns_test.go`, `stats/internal/store/aggregate_test.go`
+**Tests:** `TestRepriceSinceCountsPricedAndSkipped`, `TestWeeklyModelEffortCostsSplitsDispatchAndSession`
+**Regression:** `TestRepriceSinceCountsPricedAndSkipped` fails, because `GetStageRun` cannot scan a NULL `change_id` and RepriceSince aborts with a store error; `TestWeeklyModelEffortCostsSplitsDispatchAndSession` fails, because an unattached run's cost is charted though Overall excludes it.
+**Build:** green
+**After:** Task 4
+**Commit:** `fix(store): price and chart unattached plan sessions consistently`
+
+**Decision:** reprice-command
+

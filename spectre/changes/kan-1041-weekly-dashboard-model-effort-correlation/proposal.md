@@ -11,3 +11,8 @@ The Weekly costs view shows where spend goes by pipeline phase, but not why a ph
 - Every dot on both charts permanently shows its USD cost beside its week-over-week change; the first week shows the cost alone.
 - Dispatch pricing resolves its rate from the model the transcript says served the dispatch, so dispatches get a `cost_usd`.
 - `flow pricing reprice -since <YYYY-MM-DD>` re-runs pricing over every stage run started since that date, so the existing 8 weeks fill in.
+
+## In-run fix 1 — flow.verify
+
+- The live check's reprice failed with a store error: `GetStageRun` cannot read an unattached plan session (NULL `change_id`). It reads it as change 0, as `StageRun` documents, and the model·effort series counts only runs attached to a change, as Overall does.
+
