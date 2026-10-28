@@ -7002,3 +7002,55 @@ func TestPanelFixBeginRefusalReusedKeyNamesTheAbortedRemedy(t *testing.T) {
 		t.Errorf("reused key with a blocking round 1: %q", msg)
 	}
 }
+
+// TestRecordDispatchBackfillInlineFloorsAtVisualVerify pins the kan-1046
+// self-review fix (1b): an inline back-fill never starts before a
+// visual-verify verifier row's end not after its commit, since an in-run
+// visual fix answers that verdict; a verdict ending after the commit is no
+// floor.
+func TestRecordDispatchBackfillInlineFloorsAtVisualVerify(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	fixtureCommit(t, repo, "2026-10-28T14:26:41Z")
+	sha := fixtureCommit(t, repo, "2026-10-28T14:37:26Z")
+	verdict := func(end string) string {
+		return `{"change":"kan-258","dispatches":[` +
+			`{"key":"visual-verify","agentId":"a1","role":"verifier","startedAt":"2026-10-28T14:31:14Z","endedAt":"` + end + `"}]}`
+	}
+	var record string
+	var bodies []map[string]any
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
+			_, _ = w.Write([]byte(record))
+			return
+		}
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		raw, _ := readAll(r)
+		var b map[string]any
+		_ = json.Unmarshal(raw, &b)
+		bodies = append(bodies, b)
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"implementer","model":"opus"}`))
+	}))
+	t.Cleanup(srv.Close)
+	for _, tc := range []struct{ name, record, want string }{
+		{"floored at the verdict", verdict("2026-10-28T14:34:31Z"), "2026-10-28T14:34:31Z"},
+		{"a verdict after the commit", verdict("2026-10-28T14:40:00Z"), "2026-10-28T14:26:41Z"},
+	} {
+		bodies = nil
+		record = tc.record
+		args := []string{"record", "dispatch", "backfill", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-key", "task-3-implementer", "-task", "3",
+			"-session-token", "mf-record-visual-floor", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
+		var stdout, stderr bytes.Buffer
+		if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+			t.Fatalf("%s: exit %d; stderr:\n%s", tc.name, code, stderr.String())
+		}
+		if len(bodies) != 2 || bodies[0]["startedAt"] != tc.want {
+			t.Errorf("%s: bodies = %v, want begin startedAt %s", tc.name, bodies, tc.want)
+		}
+	}
+}

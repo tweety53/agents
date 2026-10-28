@@ -3601,7 +3601,10 @@ func panelFixKeyedARoundLow(ctx context.Context, f recordIdentityFlags, projectK
 // inline rows: an inline back-fill's derived window never contains another
 // inline row of the run, since the parent's main thread belongs to one row
 // at a time (kan-1041 self-review: task-13-implementer's window held all of
-// verify-fix-3). A failed record read, or no such row, has no floor.
+// verify-fix-3). A visual-verify verifier row's end is a floor too: an
+// in-run visual fix cannot begin before the verdict it answers (kan-1046
+// self-review, 1b: task-11-implementer began 8 minutes before visual-verify
+// reported). A failed record read, or no such row, has no floor.
 func inlineFloor(ctx context.Context, f recordIdentityFlags, projectKey, key string, endT time.Time) (time.Time, bool) {
 	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
 		return cl.GetRunRecord(ctx, projectKey, f.change)
@@ -3611,7 +3614,8 @@ func inlineFloor(ctx context.Context, f recordIdentityFlags, projectKey, key str
 	}
 	var floor time.Time
 	for _, d := range run.Dispatches {
-		if d.AgentID == "inline" && d.Key != key && d.EndedAt != nil && !d.EndedAt.After(endT) && d.EndedAt.After(floor) {
+		verdict := d.Role == "verifier" && strings.HasPrefix(d.Key, "visual-verify")
+		if (d.AgentID == "inline" || verdict) && d.Key != key && d.EndedAt != nil && !d.EndedAt.After(endT) && d.EndedAt.After(floor) {
 			floor = *d.EndedAt
 		}
 	}
