@@ -11,3 +11,4 @@
 - **Task size** bar: `All · Big · Regular · Small · Micro`. Filters the whole page to changes whose latest recorded decision has that plan class (`class` query parameter, review-dynamics only).
 - **Reviewers** bar: `Current` (default) hides retired slots from the per-slot chart and the heatmap; `All` shows them.
 - The page opens on **Last 4 weeks** (was Last 8 weeks). Defaults: Last 4 weeks, Family, All, All, Current.
+- Fix run 1: every Review dynamics y-axis label names the value its tick sits at — ticks run `0, s, 2s` on a 1·2·5 step, whole numbers only for whole-number data (peak 3 drew `2` at 1.5; an empty chart left its axis line unlabelled).
