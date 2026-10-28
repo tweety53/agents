@@ -158,7 +158,7 @@ func runPromptTuningImport(ctx context.Context, args []string, stdout, stderr io
 	}
 	targets := prompttuning.MappedTargets()
 	for _, t := range strings.Fields(listed) {
-		if !slices.Contains(targets, t) {
+		if _, _, ok := prompttuning.AreaFor(t); ok && !slices.Contains(targets, t) {
 			targets = append(targets, t)
 		}
 	}

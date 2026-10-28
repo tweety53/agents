@@ -149,7 +149,7 @@ func TestPromptTuningRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 	cmd := exec.Command("git", "-C", repo, "-c", "user.name=t", "-c", "user.email=t@e", "commit", "-q", "--allow-empty", "-m", "apply")
-	cmd.Env = append(os.Environ(), "GIT_COMMITTER_DATE=2026-10-20T08:30:00Z", "GIT_AUTHOR_DATE=2026-10-20T08:30:00Z")
+	cmd.Env = append(os.Environ(), "GIT_COMMITTER_DATE=2026-10-20T08:30:00Z", "GIT_AUTHOR_DATE=2026-10-19T07:00:00Z")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("commit: %v\n%s", err, out)
 	}
@@ -200,6 +200,7 @@ func TestPromptTuningImport(t *testing.T) {
 	both := commit("2026-09-01T10:00:00Z", "primary and verifier", "skills/flow/primary-reviewer-prompt.md", "skills/flow/visual-verify-verifier.md")
 	commit("2026-09-02T10:00:00Z", "unmapped", "README.md")
 	added := commit("2026-09-03T10:00:00Z", "a slot added later", "skills/flow/new-slot-reviewer-prompt.md")
+	commit("2026-09-04T10:00:00Z", "nested, not a slot", "skills/flow/sub/x-reviewer-prompt.md")
 
 	srv, rows := promptChangeSink(t)
 	var stdout, stderr bytes.Buffer

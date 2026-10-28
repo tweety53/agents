@@ -283,7 +283,7 @@ func TestReviewDynamicsModelVersions(t *testing.T) {
 	}
 
 	for in, want := range map[string]string{
-		"opus": "opus", "claude-opus-5-5": "opus", "Opus": "opus", " Opus ": "opus", "claude-haiku-5-5": "haiku", "fable": "fable", "claude-sonnet-5": "sonnet",
+		"opus": "opus", "claude-opus-5-5": "opus", "Opus": "opus", " Opus ": "opus", " Mystery ": "mystery", "claude-haiku-5-5": "haiku", "fable": "fable", "claude-sonnet-5": "sonnet",
 		"glm-5.3-flash": "glm", "GLM-5.3-Flash (inline session)": "glm", "builtin:zai-coding-plan/GLM-5.3-Flash": "glm",
 	} {
 		var got string

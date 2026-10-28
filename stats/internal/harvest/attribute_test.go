@@ -2124,4 +2124,18 @@ func TestAgentModelVersions(t *testing.T) {
 	if fmt.Sprint(got) != "map[abc:claude-opus-5-5]" {
 		t.Errorf("AgentModelVersions = %v, want map[abc:claude-opus-5-5]", got)
 	}
+
+	// An unreadable subdirectory is skipped, never aborting the walk; a
+	// missing root is an error.
+	locked := filepath.Join(root, "-locked")
+	if err := os.Mkdir(locked, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o755) })
+	if got, err := harvest.AgentModelVersions(root); err != nil || fmt.Sprint(got) != "map[abc:claude-opus-5-5]" {
+		t.Errorf("AgentModelVersions with an unreadable subdirectory = %v, %v; want map[abc:claude-opus-5-5], nil", got, err)
+	}
+	if _, err := harvest.AgentModelVersions(filepath.Join(root, "missing")); err == nil {
+		t.Error("AgentModelVersions(missing root) = nil error, want one")
+	}
 }
