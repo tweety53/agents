@@ -1,0 +1,4 @@
+# Task 5, new text: /flow-prompt-tuning records each applied case for the Review dynamics markers.
+Before a folder's `git rm`, every applied case is recorded in the stats store, which feeds the Review dynamics view's prompt-change markers:
+flow prompt-tuning record <case-dir> -sha <the applying commit's sha>
+A non-zero exit is reported with its stderr and the step continues: the store is never a gate.
