@@ -22,6 +22,11 @@ export default defineConfig({
   // real DOM via @testing-library/react, which needs a DOM to render into
   // -- task 12's api.test.ts needed none of this, being pure functions.
   test: {
+    // The default `forks` pool spawns one process per CPU; a killed parent
+    // (Bash timeout, stopped agent) orphans them to PID 1, ~2.5 GB held.
+    // Threads die with the parent; two cap the footprint.
+    pool: "threads",
+    maxWorkers: 2,
     environment: "jsdom",
     setupFiles: ["./src/setupTests.ts"],
     // tests/visual/baseline.spec.ts (KAN-171) is a Playwright suite, run
