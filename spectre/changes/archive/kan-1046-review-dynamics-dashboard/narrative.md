@@ -29,3 +29,5 @@
 ## 2026-10-28 — integrate run
 
 The preflight and the unfinished-work gate were clear, and origin/main had not moved since the merge base, so no rebase was needed. The branch lands by the configured default route, merge and push.
+
+In-run pipeline fix: 2f5f3d50 — land-self-review-report refused a prompt-tuning case committed on the change's own branch, which step 2a puts there, because it looked on origin/main alone (blast radius 2 files)
