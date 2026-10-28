@@ -95,6 +95,14 @@ What the dev store holds, measured on 2026-10-28:
 **Chosen:** `stats/web/src/components/DynamicsChart.tsx`: one shared y-scale per chart with three ticks, date labels, markers, a hover crosshair and tooltip, as the prototype draws. `TimeSeriesPanel` stays as it is.
 **Considered:** extend `TimeSeriesPanel` — it scales each series separately, spaces points by index without labels, and Trend's snapshots would change.
 
+### Model family and model version, both
+
+**ID:** model-version-split
+**Status:** active
+**Chosen:** (operator, 2026-10-28, mid-implementation) two versions of one model family are never merged without saying so. Every per-model series — `per-dispatch-model`, `impl-findings-per-task` — and the heatmap exist twice: keyed by family (`opus`, `sonnet`, `haiku`, `fable`, `glm`; versions merged) and keyed by version (`claude-opus-5-5`, …). The view's **Family / Version** toggle picks one; Family is the default. Effort pairs with either: `model · effort` and `model-version · effort`. A dispatch's version is `metrics->>'modelVersion'`, else `dispatches.model` when it is a full ID (`claude-…`, `glm-…`), else `<family> (version unrecorded)`. Family is a SQL function `model_family(text)` folding both spellings. The harvester writes `modelVersion` into a dispatch's metrics delta from the newest attributed assistant message's `message.model`; `flow harvest backfill-models` (POST `/api/v1/harvest/backfill-models`, run inside flowd, which owns the transcript root) stamps every dispatch with an `agent_id` and no `modelVersion` from its `agent-<id>.jsonl`, idempotently.
+**Considered:** version only, no toggle — operator chose both views; record from now on without backfill — operator chose the backfill (AskUserQuestion, 2026-10-28); a new `dispatches.model_version` column — `metrics` already takes harvested facts through `CommitHarvestBatch`, so no migration or second write path.
+**Measured:** <!-- measured: docker exec flow-postgres psql -U flow -d flow -Atc "select model, count(*) from dispatches group by 1" @ 2026-10-28 dev store --> `opus` 3815, `sonnet` 3525, `claude-opus-5-5` 327, `claude-sonnet-5-5` 20; no `metrics` key carries a model.
+
 ## Open questions
 
 ## Recommended approach
