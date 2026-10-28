@@ -2,7 +2,7 @@
 
 KAN-1041 extends the Weekly costs view KAN-1037 built and KAN-1038 reduced to one chart (`stats/web/src/views/WeeklyCosts.tsx`, `stats/internal/store/aggregate.go` `WeeklyCosts`).
 
-**The approved prototype is the spec** (`plan-visual-prototype`): `/Users/tweety53/Projects/agents-worktrees/kan-1041-weekly-dashboard-model-effort-correlation/.superpowers/sdd/weekly-model-effort-preview.html`, published at https://claude.ai/artifact/7TZTUL4b6gJqu1nHzX7i5j (version 2). The implementation and `flow.visual-verify` compare against it.
+**The approved prototype is the spec** (`plan-visual-prototype`): `/Users/tweety53/Projects/agents-worktrees/kan-1041-weekly-dashboard-model-effort-correlation/.superpowers/sdd/weekly-model-effort-preview.html`, published at https://claude.ai/artifact/7TZTUL4b6gJqu1nHzX7i5j (version 3). The implementation and `flow.visual-verify` compare against it.
 
 What the store holds, measured against the dev store on 2026-10-28 over the last 56 days:
 
@@ -53,6 +53,13 @@ What the store holds, measured against the dev store on 2026-10-28 over the last
 **Status:** active
 **Chosen:** `flow.visual-verify` counts as category `visual-verify` in `WeeklyCosts`, a `visualVerifyUsd` field, and a `Visual verify` series after Self-review. It is classified after self-review, like the other phases. Operator's request mid-planning, 2026-10-28.
 **Considered:** none — a direct request.
+
+### Other is everything outside the named phases
+
+**ID:** other-category
+**Status:** active
+**Chosen:** an `Other` series, last in the phase chart: the week's cost of runs that fall in no category (`category IS NULL`), so Planning + Implementation + Review + Self-review + Visual verify + Other = Overall. A week where that sum is 0 is a gap, like every other series. Operator's request at planning, 2026-10-28.
+**Considered:** derive it in the SPA as Overall minus the named phases — a null phase week makes the subtraction ambiguous, where the SQL filter is exact.
 
 ### Every dot carries a permanent cost label
 

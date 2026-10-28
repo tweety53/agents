@@ -10,7 +10,7 @@
 > word-boundary-safe counter (`@Test` never matches `@Testcontainers`), with any `measured:`
 > command naming no ref of its own.
 
-**Goal:** Weekly costs gains a Visual verify phase line, a second chart of cost by model · effort (dispatches by served model and effort, plus the parent session per model), and permanent `$cost ▲n%` labels on every dot; dispatch buckets get priced, and `flow pricing reprice` backfills the window.
+**Goal:** Weekly costs gains Visual verify and Other phase lines, a second chart of cost by model · effort (dispatches by served model and effort, plus the parent session per model), and permanent `$cost ▲n%` labels on every dot; dispatch buckets get priced, and `flow pricing reprice` backfills the window.
 
 **Spec:** `design.md` beside this file; the approved prototype `/Users/tweety53/Projects/agents-worktrees/kan-1041-weekly-dashboard-model-effort-correlation/.superpowers/sdd/weekly-model-effort-preview.html` (https://claude.ai/artifact/7TZTUL4b6gJqu1nHzX7i5j, version 2) is the layout and behaviour reference.
 
@@ -38,15 +38,15 @@
 
 - [ ] 2. Store: Visual verify category and the model·effort weekly series
   - [ ] **Step 1: Write the failing tests** in `stats/internal/store/aggregate_test.go`, on the fixtures `TestWeeklyCostsBucketsByWednesdayAndCategory` uses:
-    - `TestWeeklyCostsCountsVisualVerify` — a `flow.visual-verify` run of $2 in one week yields `VisualVerifyUSD` $2 that week and nil in a week without one; a `self-review-*` change's `flow.visual-verify` run counts as self-review.
+    - `TestWeeklyCostsCountsVisualVerify` — a `flow.visual-verify` run of $2 in one week yields `VisualVerifyUSD` $2 that week and nil in a week without one; a `self-review-*` change's `flow.visual-verify` run counts as self-review. A `flow.verify` run of \$1 yields `OtherUSD` \$1 and is not in any named phase; a week whose runs all fall in named phases has nil `OtherUSD`.
     - `TestWeeklyModelEffortCostsSplitsDispatchAndSession` — one week, one stage run whose `models.claude-opus-5-5.cost_usd` is $10 with two priced dispatches ($3 served `claude-opus-5-5`/`low`, $2 served `claude-sonnet-5-5`/`medium`) and one priced dispatch with no `served_efforts` ($1, `claude-opus-5-5`), plus a `models.claude-sonnet-5-5.cost_usd` of $2: rows (raw model ids) are `claude-opus-5-5/low $3`, `claude-opus-5-5/default $1`, `claude-opus-5-5/session $6`, `claude-sonnet-5-5/medium $2`; the zero `claude-sonnet-5-5/session` row is not returned; ordered by week, model, effort; a run outside the period contributes nothing.
     Run `cd stats && go test ./internal/store/ -run 'TestWeeklyCostsCountsVisualVerify|TestWeeklyModelEffortCostsSplitsDispatchAndSession'` — RED.
-  - [ ] **Step 2: Implement** in `stats/internal/store/aggregate.go`: `weeklyCostStages.visualVerify = "flow.visual-verify"`, a `visual-verify` CASE arm after self-review and the matching `SUM ... FILTER` column, `WeeklyCostPoint.VisualVerifyUSD`; and `func (s *Store) WeeklyModelEffortCosts(ctx context.Context, period Period) ([]WeeklyModelEffortPoint, error)` with `WeeklyModelEffortPoint{Week time.Time; Model, Effort string; CostUSD float64}` — one SQL statement: dispatch rows from `jsonb_each(metrics->'dispatches')` where the bucket has `cost_usd`, model the most-turns `served_models` key else the bucket `model`, effort the most-turns `served_efforts` key else `default`; session rows per stage run and `models` key with `cost_usd`, that cost minus the dispatch costs of the same model in the run, `GREATEST(0, …)`, effort `session`; summed per week, model, effort, rows with a zero sum dropped. Ties in most-turns by key name, as `dispatch-served-model`. Doc comments cite the decisions. Extend `TestWeeklyCostStagesAreDeclared` (`stats/internal/store/weeklycosts_internal_test.go`) to cover `visualVerify`.
+  - [ ] **Step 2: Implement** in `stats/internal/store/aggregate.go`: `weeklyCostStages.visualVerify = "flow.visual-verify"`, a `visual-verify` CASE arm after self-review and the matching `SUM ... FILTER` column, `WeeklyCostPoint.VisualVerifyUSD`, and `OtherUSD` as `SUM(cost) FILTER (WHERE category IS NULL)`; and `func (s *Store) WeeklyModelEffortCosts(ctx context.Context, period Period) ([]WeeklyModelEffortPoint, error)` with `WeeklyModelEffortPoint{Week time.Time; Model, Effort string; CostUSD float64}` — one SQL statement: dispatch rows from `jsonb_each(metrics->'dispatches')` where the bucket has `cost_usd`, model the most-turns `served_models` key else the bucket `model`, effort the most-turns `served_efforts` key else `default`; session rows per stage run and `models` key with `cost_usd`, that cost minus the dispatch costs of the same model in the run, `GREATEST(0, …)`, effort `session`; summed per week, model, effort, rows with a zero sum dropped. Ties in most-turns by key name, as `dispatch-served-model`. Doc comments cite the decisions. Extend `TestWeeklyCostStagesAreDeclared` (`stats/internal/store/weeklycosts_internal_test.go`) to cover `visualVerify`.
   - [ ] **Step 3: Verify:** Go lint, then `cd stats && go test ./internal/store/ -run 'TestWeekly'`.
 
 **Files:** `stats/internal/store/aggregate.go`, `stats/internal/store/aggregate_test.go`, `stats/internal/store/weeklycosts_internal_test.go`
 **Tests:** `TestWeeklyCostsCountsVisualVerify`, `TestWeeklyModelEffortCostsSplitsDispatchAndSession`
-**Regression:** `TestWeeklyCostsCountsVisualVerify` fails, because visual-verify cost lands in overall only; `TestWeeklyModelEffortCostsSplitsDispatchAndSession` fails, because no model·effort series exists.
+**Regression:** `TestWeeklyCostsCountsVisualVerify` fails, because visual-verify cost lands in overall only and no Other column exists; `TestWeeklyModelEffortCostsSplitsDispatchAndSession` fails, because no model·effort series exists.
 **Baseline:** before=325 after=327 <!-- measured: grep -rhE '^func Test' stats/internal/store | wc -l @ a9f37e89 -->
 **Build:** green
 **After:** Task 1
@@ -54,11 +54,12 @@
 
 **Decision:** visual-verify-category
 **Decision:** dispatch-served-effort
+**Decision:** other-category
 **Decision:** session-line
 
 - [ ] 3. API: visualVerifyUsd and the weekly-model-effort-costs view
-  - [ ] **Step 1: Write the failing tests** in `stats/internal/api/stats_test.go`, on the fake store the existing weekly-costs view test uses: `TestStatsWeeklyCostsCarriesVisualVerify` — the `weekly-costs` row carries `visualVerifyUsd`; `TestStatsWeeklyModelEffortCosts` — `GET /api/v1/stats/weekly-model-effort-costs?from=…&to=…` answers rows `{week: "YYYY-MM-DD", model, effort, costUsd}` from `WeeklyModelEffortCosts`, and ignores `project`/`model` query parameters. Run `cd stats && go test ./internal/api/ -run 'TestStatsWeekly'` — RED.
-  - [ ] **Step 2: Implement** in `stats/internal/api/stats.go`: `VisualVerifyUSD` on `weeklyCostPointDTO` (`json:"visualVerifyUsd"`); `WeeklyModelEffortCosts` on the store interface; `viewWeeklyModelEffortCosts viewName = "weekly-model-effort-costs"` in the view list and switch, with `weeklyModelEffortPointDTO` and its converter. Add the method to every fake store the package's tests use.
+  - [ ] **Step 1: Write the failing tests** in `stats/internal/api/stats_test.go`, on the fake store the existing weekly-costs view test uses: `TestStatsWeeklyCostsCarriesVisualVerify` — the `weekly-costs` row carries `visualVerifyUsd` and `otherUsd`; `TestStatsWeeklyModelEffortCosts` — `GET /api/v1/stats/weekly-model-effort-costs?from=…&to=…` answers rows `{week: "YYYY-MM-DD", model, effort, costUsd}` from `WeeklyModelEffortCosts`, and ignores `project`/`model` query parameters. Run `cd stats && go test ./internal/api/ -run 'TestStatsWeekly'` — RED.
+  - [ ] **Step 2: Implement** in `stats/internal/api/stats.go`: `VisualVerifyUSD` and `OtherUSD` on `weeklyCostPointDTO` (`json:"visualVerifyUsd"`, `json:"otherUsd"`); `WeeklyModelEffortCosts` on the store interface; `viewWeeklyModelEffortCosts viewName = "weekly-model-effort-costs"` in the view list and switch, with `weeklyModelEffortPointDTO` and its converter. Add the method to every fake store the package's tests use.
   - [ ] **Step 3: Verify:** Go lint, then `cd stats && go test ./internal/api/ -run 'TestStats'`.
 
 **Files:** `stats/internal/api/stats.go`, `stats/internal/api/stats_test.go`
@@ -68,7 +69,7 @@
 **Baseline:** before=179 after=181 <!-- measured: grep -rhE '^func Test' stats/internal/api | wc -l @ a9f37e89 -->
 **Build:** green
 **After:** Task 2
-**Commit:** `feat(api): weekly-model-effort-costs view and visualVerifyUsd`
+**Commit:** `feat(api): weekly-model-effort-costs view, visualVerifyUsd and otherUsd`
 
 **Decision:** model-effort-view
 
@@ -134,12 +135,12 @@
 **Decision:** reprice-command
 
 - [ ] 8. SPA: Visual verify line, model·effort chart, permanent cost labels
-  - [ ] **Step 1: Write the failing tests** in `stats/web/src/views/views.test.tsx`, time pinned as the existing weekly tests pin it, adding a `weekly-model-effort-costs` fixture (rows across weeks 2026-06-03, 06-10, 06-17 for `claude-opus-5-5/low`, `claude-opus-5-5/session`, `claude-sonnet-5-5/medium`) and `visualVerifyUsd` to the `weekly-costs` fixture rows:
-    - `weekly costs draws a Visual verify series` — a sixth toggle `Visual verify` and its points.
+  - [ ] **Step 1: Write the failing tests** in `stats/web/src/views/views.test.tsx`, time pinned as the existing weekly tests pin it, adding a `weekly-model-effort-costs` fixture (rows across weeks 2026-06-03, 06-10, 06-17 for `claude-opus-5-5/low`, `claude-opus-5-5/session`, `claude-sonnet-5-5/medium`) and `visualVerifyUsd` and `otherUsd` to the `weekly-costs` fixture rows:
+    - `weekly costs draws a Visual verify series` — toggles `Visual verify` then `Other`, last, seven in all, and their points.
     - `weekly costs labels every dot with its cost` — Overall 06-03 (first week) label reads `$5.00` alone; Overall 06-10 reads `$110.00` and `▲2100%`; the week after a gap reads its cost alone.
     - `weekly costs draws a model·effort chart from the second view` — exactly two fetches (`weekly-costs`, `weekly-model-effort-costs`) over the same 8-week window; a second chart titled `Cost by model · effort` with toggles `opus-5-5 · low`, `opus-5-5 · session`, `sonnet-5-5 · medium`; toggling one removes its points from that chart only; its dots carry the same cost labels.
     Update `weekly costs labels each point with its change from the previous week` to the new label text. Run `cd stats/web && npx vitest run src/views/views.test.tsx -t 'weekly costs'` — RED.
-  - [ ] **Step 2: Implement** per the prototype: in `stats/web/src/api.ts` add `visualVerifyUsd` to `WeeklyCostPoint`, a `WeeklyModelEffortPoint` type and the `weekly-model-effort-costs` view name; in `stats/web/src/views/WeeklyCosts.tsx` add the `Visual verify` category, make `WeeklyCostChart` take its series (`{name, values: (number|null)[]}[]`) and an aria label so both charts reuse it, pivot the long rows into one series per model·effort (label per `model-label`, series ordered by total cost descending), extend `stackLabels` to week 0, and render each pill as `$cost` plus the delta `tspan` coloured by `deltaClass`, its rect width from the text (the prototype's 40/84 px); the second `Panel` titled `Cost by model · effort` with its own `useStatsView`. Colours: add `--series-6` (and `--series-7` if the palette lacks it) to `stats/web/src/theme.css` in the dark default and both light blocks, from the prototype's `--c5`; pill styles in `stats/web/src/styles.css`. Update the file's header comment.
+  - [ ] **Step 2: Implement** per the prototype: in `stats/web/src/api.ts` add `visualVerifyUsd` and `otherUsd` to `WeeklyCostPoint`, a `WeeklyModelEffortPoint` type and the `weekly-model-effort-costs` view name; in `stats/web/src/views/WeeklyCosts.tsx` add the `Visual verify` and `Other` categories, make `WeeklyCostChart` take its series (`{name, values: (number|null)[]}[]`) and an aria label so both charts reuse it, pivot the long rows into one series per model·effort (label per `model-label`, series ordered by total cost descending), extend `stackLabels` to week 0, and render each pill as `$cost` plus the delta `tspan` coloured by `deltaClass`, its rect width from the text (the prototype's 40/84 px); the second `Panel` titled `Cost by model · effort` with its own `useStatsView`. Colours: add `--series-6` and `--series-7` (whichever the palette lacks) to `stats/web/src/theme.css` in the dark default and both light blocks, from the prototype's `--c5` and `--c6`; pill styles in `stats/web/src/styles.css`. Update the file's header comment.
   - [ ] **Step 3: Verify:** `cd stats/web && npx tsc -b && npx vitest run src/views/views.test.tsx -t 'weekly costs'`.
 
 **Files:** `stats/web/src/api.ts`, `stats/web/src/views/WeeklyCosts.tsx`, `stats/web/src/views/views.test.tsx`, `stats/web/src/theme.css`, `stats/web/src/styles.css`
@@ -148,15 +149,16 @@
 **Baseline:** before=170 after=173 <!-- measured: grep -rhE '^\s*(it|test)\(' stats/web/src | wc -l @ a9f37e89 -->
 **Build:** green
 **After:** Task 3
-**Commit:** `feat(stats): Weekly costs model·effort chart, Visual verify line and permanent cost labels`
+**Commit:** `feat(stats): Weekly costs model·effort chart, Visual verify and Other lines, permanent cost labels`
 
 **Decision:** permanent-cost-label
 **Decision:** model-label
 **Decision:** visual-verify-category
+**Decision:** other-category
 
 - [ ] 9. Seed and re-baseline the Weekly costs visual spec
-  - [ ] **Step 1:** in `stats/cmd/uitest-seed/seed.go`, give the seeded stage runs a `flow.visual-verify` run and priced `dispatches` buckets (served model and effort, `cost_usd`) in two consecutive weeks, so both charts draw lines and labels against the UI-test stack.
-  - [ ] **Step 2:** in `stats/web/tests/visual/weekly-costs.spec.ts`, keep the existing tests (their assertions updated to six phase toggles) and add `draws the model·effort chart with cost labels` (second chart visible, its toggles, at least one pill reading `$`, screenshot `weekly-costs-model-effort.png`). Capture per `.flow/project.md` `## visual verification` (`--update-snapshots`), then run the verify row clean; open each PNG and compare with the prototype; fix overlap or clipping before committing.
+  - [ ] **Step 1:** in `stats/cmd/uitest-seed/seed.go`, give the seeded stage runs a `flow.visual-verify` run, a run outside every phase (`flow.verify`) and priced `dispatches` buckets (served model and effort, `cost_usd`) in two consecutive weeks, so both charts draw lines and labels against the UI-test stack.
+  - [ ] **Step 2:** in `stats/web/tests/visual/weekly-costs.spec.ts`, keep the existing tests (their assertions updated to seven phase toggles) and add `draws the model·effort chart with cost labels` (second chart visible, its toggles, at least one pill reading `$`, screenshot `weekly-costs-model-effort.png`). Capture per `.flow/project.md` `## visual verification` (`--update-snapshots`), then run the verify row clean; open each PNG and compare with the prototype; fix overlap or clipping before committing.
 
 **Files:** `stats/cmd/uitest-seed/seed.go`, `stats/web/tests/visual/weekly-costs.spec.ts`, `stats/web/tests/visual/weekly-costs.spec.ts-snapshots/weekly-costs-darwin.png`, `stats/web/tests/visual/weekly-costs.spec.ts-snapshots/weekly-costs-light-darwin.png`, `stats/web/tests/visual/weekly-costs.spec.ts-snapshots/weekly-costs-empty-darwin.png`, `stats/web/tests/visual/weekly-costs.spec.ts-snapshots/weekly-costs-toggled-darwin.png`, `stats/web/tests/visual/weekly-costs.spec.ts-snapshots/weekly-costs-tooltip-darwin.png`, `stats/web/tests/visual/weekly-costs.spec.ts-snapshots/weekly-costs-model-effort-darwin.png`
 **Allowed-collateral:** `stats/web/tests/visual/*.spec.ts-snapshots/*.png`
