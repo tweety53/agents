@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 	"testing"
@@ -855,7 +856,10 @@ func TestRunVerifyListCapsMemory(t *testing.T) {
 	}
 	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## resource cap\n\n64\n\n## test\n\n```bash\npython3 -c 'b=bytearray(128*1024*1024); import time; time.sleep(10)'\n```\n")
 	repo, _ := filepath.Abs("../../..")
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"))
+	// An outer run-capped.sh's RUN_CAPPED_PGID would make the inner one run
+	// in place under the outer cap, never this fixture's 64 MB.
+	environ := slices.DeleteFunc(os.Environ(), func(kv string) bool { return strings.HasPrefix(kv, "RUN_CAPPED_PGID=") })
+	environ = append(environ, "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"))
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
