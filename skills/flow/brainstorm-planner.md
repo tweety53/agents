@@ -175,7 +175,10 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > before the change lands: a step that needs the change landed, a restarted shared service, or a
 > write to the change's own integrate state is written as the stand-in that runs in its place — a
 > scratch fixture, a workspace's own service, a scratch copy of the record — named in the section
-> (kan-1019: a check deferred to integrate was never run). The no-runtime line opens with `None`.
+> (kan-1019: a check deferred to integrate was never run). When `<project>/.flow/project.md` names
+> a tool for the check's stand-in — this repository's `<agents repo>/scripts/live-store-copy.sh` — the section
+> invokes that tool by name and never re-specifies what it does (kan-1046 self-review, 4a). The
+> no-runtime line opens with `None`.
 
 > **Write a verification change so its found defects become their own tasks.** When a plan's task
 > exists to exercise a surface and report what it finds — a final-verification pass over a feature
