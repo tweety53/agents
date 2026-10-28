@@ -60,7 +60,7 @@ commands:
   lesson resolve       print the process-lesson answer for a topic across every registered project (see: flow lesson)
   jira transition      move an issue to a pipeline position via flowd (see: flow jira)
   workspace-id <name>  print a change's workspace id, derived from its name
-  prompt-tuning render <case-dir>  render a prompt-tuning case folder's index.html (see: flow prompt-tuning)
+  prompt-tuning render|record|import  render a case page, or record prompt changes (see: flow prompt-tuning)
 `
 
 // handledSignals is the one list of signals this CLI treats as termination

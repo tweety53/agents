@@ -98,3 +98,30 @@ func TestLoadNamesMissingFile(t *testing.T) {
 		t.Errorf("Load error = %v, want one naming good.diff", err)
 	}
 }
+
+// TestAreaFor pins prompt-area-map: each mapped prompt file names its
+// chart area and, for a reviewer prompt, its slot.
+func TestAreaFor(t *testing.T) {
+	for target, want := range map[string][2]string{
+		"skills/flow/primary-reviewer-prompt.md":         {"review", "primary"},
+		"skills/flow/principles-reviewer-prompt.md":      {"review", "principles"},
+		"skills/flow/failure-modes-reviewer-prompt.md":   {"review", "failure-modes"},
+		"skills/flow/test-sanity-reviewer-prompt.md":     {"review", "test-sanity"},
+		"skills/flow/call-efficiency-reviewer-prompt.md": {"review", "call-efficiency"},
+		"skills/flow/engineering-principles.md":          {"impl", ""},
+		"skills/flow/sdd-dispatch.md":                    {"impl", ""},
+		"skills/flow/visual-verify-verifier.md":          {"vv", ""},
+		"skills/flow/review-panel-fix-round.md":          {"fix", ""},
+	} {
+		area, slot, ok := AreaFor(target)
+		if !ok || area != want[0] || slot != want[1] {
+			t.Errorf("AreaFor(%q) = %q, %q, %v; want %q, %q, true", target, area, slot, ok, want[0], want[1])
+		}
+	}
+	if _, _, ok := AreaFor("skills/flow/implement.md"); ok {
+		t.Error("AreaFor(implement.md) found an area; want not-found")
+	}
+	if got := len(MappedTargets()); got != 9 {
+		t.Errorf("MappedTargets() = %d paths, want 9", got)
+	}
+}

@@ -872,6 +872,10 @@ func (stubStageStore) Decisions(context.Context, store.Period, *string) ([]store
 func (stubStageStore) SelfReviewFindingsInPeriod(context.Context, store.Period, *string) ([]store.SelfReviewFindingRow, error) {
 	return nil, nil
 }
+func (stubStageStore) ReviewDynamics(context.Context, store.Period, *string) (store.ReviewDynamics, error) {
+	return store.ReviewDynamics{}, nil
+}
+func (stubStageStore) UpsertPromptChange(context.Context, store.PromptChange) error { return nil }
 
 func (stubStageStore) FlowSummary(context.Context, store.Period, *string) (store.FlowSummaryRow, error) {
 	return store.FlowSummaryRow{}, errStageStoreNotImplemented
