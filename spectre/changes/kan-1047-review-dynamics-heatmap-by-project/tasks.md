@@ -56,10 +56,10 @@
 **Commit:** feat(stats): drop the since-last-prompt-change range preset
 **After:** Task 2
 
-- [ ] 4. In-run fix 1 — flow.visual-verify: stale default-preset and chart-hover assertions; new bar states uncaptured
-  - [ ] **Step 1: Spec.** `review dynamics default preset` asserts `Last 4 weeks`; `review dynamics chart hover` picks Prompt changes `All` before hovering; a new `review dynamics filters` capture picks the fixture project, Reviewers `All` and Prompt changes `auto prompt tuning`, and a Task size button, asserting each pressed.
-  - [ ] **Step 2: Capture.** The project's `capture` with `review-dynamics.spec.ts` and `--update-snapshots=all`; every changed PNG read; `rebuild-full-app-suite-zip.sh`; `visual-verification.md` rewritten.
-  - [ ] **Step 3: Verify.** `capture` exits 0. Commit.
+- [x] 4. In-run fix 1 — flow.visual-verify: stale default-preset and chart-hover assertions; new bar states uncaptured
+  - [x] **Step 1: Spec.** `review dynamics default preset` asserts `Last 4 weeks`; `review dynamics chart hover` picks Prompt changes `All` before hovering; a new `review dynamics filters` capture picks the fixture project, Reviewers `All` and Prompt changes `auto prompt tuning`, and a Task size button, asserting each pressed.
+  - [x] **Step 2: Capture.** The project's `capture` with `review-dynamics.spec.ts` and `--update-snapshots=all`; every changed PNG read; `rebuild-full-app-suite-zip.sh`; `visual-verification.md` rewritten.
+  - [x] **Step 3: Verify.** `capture` exits 0. Commit.
 
 **Build:** green
 **Files:** `stats/web/tests/visual/review-dynamics.spec.ts`, `stats/web/tests/visual/review-dynamics.spec.ts-snapshots/review-dynamics-darwin.png`, `stats/web/tests/visual/review-dynamics.spec.ts-snapshots/review-dynamics-version-darwin.png`, `stats/web/tests/visual/review-dynamics.spec.ts-snapshots/review-dynamics-default-preset-darwin.png`, `stats/web/tests/visual/review-dynamics.spec.ts-snapshots/review-dynamics-hover-darwin.png`, `stats/web/tests/visual/review-dynamics.spec.ts-snapshots/review-dynamics-heat-hover-darwin.png`, `stats/web/tests/visual/review-dynamics.spec.ts-snapshots/review-dynamics-light-darwin.png`, `stats/web/tests/visual/review-dynamics.spec.ts-snapshots/review-dynamics-filters-darwin.png`, `stats/web/tests/visual/full-app-suite.spec.ts-snapshots/full-review-dynamics-darwin.png`, `stats/web/tests/visual/full-app-suite.zip`, `spectre/changes/kan-1047-review-dynamics-heatmap-by-project/visual-verification.md`
