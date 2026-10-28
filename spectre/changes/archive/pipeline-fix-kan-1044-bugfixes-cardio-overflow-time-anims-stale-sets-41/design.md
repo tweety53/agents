@@ -13,6 +13,7 @@ Defect: operator instruction 2026-10-28 after kan-1044 Task 11 OOM'd the laptop.
   ("size the run count to the flake rate you measured", …) — must change with the paragraph.
 
 Blast radius: 20 files (`grep -rlE "PROOF RUNS|fix-determinism-at-the-source|twice more|full-suite ordering"`
+<!-- measured: git grep -lE "PROOF RUNS|fix-determinism-at-the-source|twice more|full-suite ordering" 435bae51 -- . ':!spectre/changes/archive' | wc -l → 19 -->
 outside archive = 19, plus the gymie memory file). Not `big`. Files actually edited: 5 in agents + 1 memory.
 Citing files (pipeline.md, agent-baseline.md, visual-verify*.md, primary-reviewer-prompt.md,
 unfinished-work-gate.md, verify-and-handoff.md, known-bugs.md, references.go, installedcitations.go,
