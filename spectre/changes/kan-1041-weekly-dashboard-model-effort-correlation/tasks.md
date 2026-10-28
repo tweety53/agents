@@ -209,10 +209,10 @@
 **After:** Task 8,9,11
 **Commit:** `fix(stats): match the Weekly costs header and pill widths to the prototype`
 
-- [ ] 13. In-run fix 4 — flow.verify: guard tests report a data race in runGuard's merged buffer
-  - [ ] **Step 1: Write the failing test:** in `stats/internal/guard/check_base_moved_test.go`, `TestRunGuardMergesAChildsTwoStreams` registers a guard whose child process writes 200 lines to each stream, and runs it through `runGuard`. Run `cd stats && go test -race ./internal/guard/ -run TestRunGuardMergesAChildsTwoStreams` — RED under the race detector.
-  - [ ] **Step 2: Implement:** `runGuard`'s merged buffer, which both `io.MultiWriter`s write into, takes a mutex, since a guard that hands both writers to a child process (`workspace`'s `docker exec`) gets one copying goroutine per stream.
-  - [ ] **Step 3: Verify:** Go lint, then `cd stats && go test -race ./internal/guard/ -run 'TestRunGuardMergesAChildsTwoStreams|TestWorkspace'`.
+- [x] 13. In-run fix 4 — flow.verify: guard tests report a data race in runGuard's merged buffer
+  - [x] **Step 1: Write the failing test:** in `stats/internal/guard/check_base_moved_test.go`, `TestRunGuardMergesAChildsTwoStreams` registers a guard whose child process writes a burst of lines to each stream, and runs it through `runGuard`. Run `cd stats && go test -race ./internal/guard/ -run TestRunGuardMergesAChildsTwoStreams` — RED under the race detector.
+  - [x] **Step 2: Implement:** `runGuard`'s merged buffer, which both `io.MultiWriter`s write into, takes a mutex, since a guard that hands both writers to a child process (`workspace`'s `docker exec`) gets one copying goroutine per stream.
+  - [x] **Step 3: Verify:** Go lint, then `cd stats && go test -race ./internal/guard/ -run 'TestRunGuardMergesAChildsTwoStreams|TestWorkspace'`.
 
 **Files:** `stats/internal/guard/check_base_moved_test.go`
 **Tests:** `TestRunGuardMergesAChildsTwoStreams`
