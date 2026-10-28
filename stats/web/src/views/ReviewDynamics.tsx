@@ -8,7 +8,7 @@
 // chart and the heatmap by model family or by exact model version
 // (model-version-split). Layout and copy are the approved prototype's.
 import { useEffect, useRef, useState } from "react";
-import type { DynamicsSummary, HeatCell, PromptChange, ReviewDynamicsRows } from "../api";
+import type { DynamicsSummary, HeatCell, PromptChange, ReviewDynamicsRows, StatsViewParams } from "../api";
 import { DynamicsChart, type DynamicsMarker, type DynamicsSeries } from "../components/DynamicsChart";
 import type { Period } from "../components/PeriodPicker";
 import { useStatsView } from "../hooks/useStatsView";
@@ -16,7 +16,7 @@ import type { ViewProps } from "../viewTypes";
 
 const DAY_MS = 86400000;
 
-type Preset = "1" | "2" | "4" | "8" | "12" | "tune" | "all";
+type Preset = "1" | "2" | "4" | "8" | "12" | "all";
 
 const PRESETS: { id: Preset; label: string }[] = [
   { id: "1", label: "Last week" },
@@ -24,17 +24,15 @@ const PRESETS: { id: Preset; label: string }[] = [
   { id: "4", label: "Last 4 weeks" },
   { id: "8", label: "Last 8 weeks" },
   { id: "12", label: "Last 12 weeks" },
-  { id: "tune", label: "Since last prompt change" },
   { id: "all", label: "All time" },
 ];
 
 // "All time" starts at the epoch: the store holds nothing older.
 const ALL_TIME_FROM = new Date("2020-01-01T00:00:00Z");
 
-function presetPeriod(id: Preset, lastPromptChangeAt: string | null): Period | null {
+function presetPeriod(id: Preset): Period {
   const to = new Date();
   if (id === "all") return { from: ALL_TIME_FROM, to };
-  if (id === "tune") return lastPromptChangeAt ? { from: new Date(lastPromptChangeAt), to } : null;
   return { from: new Date(to.getTime() - Number(id) * 7 * DAY_MS), to };
 }
 
@@ -120,6 +118,18 @@ export function byEffort(a: string, b: string): number {
   return rank(a) - rank(b) || a.localeCompare(b);
 }
 
+// CURRENT_SLOTS is every slot the review panel dispatches today -- the
+// panelSlots internal/api records against; any other slot is retired.
+// MARKER_KINDS is the Prompt changes bar: a null kind marks both
+// (marker-kind-filter).
+const MARKER_KINDS: [string, PromptChange["kind"] | null][] = [
+  ["flow-prompt-tuning", "tuning"],
+  ["All", null],
+  ["auto prompt tuning", "edit"],
+];
+
+const CURRENT_SLOTS = new Set(["primary", "principles", "test-sanity", "call-efficiency", "failure-modes", "mutation"]);
+
 function Heatmap({ cells, previous, byVersion }: { cells: HeatCell[]; previous: HeatCell[]; byVersion: boolean }) {
   const rate = (c: HeatCell) => (c.dispatches === 0 ? 0 : (c.critical + c.important + c.minor) / c.dispatches);
   const key = (c: { slot: string; model: string; effort: string }) => `${c.slot}|${c.model}|${c.effort}`;
@@ -202,28 +212,38 @@ function Heatmap({ cells, previous, byVersion }: { cells: HeatCell[]; previous: 
   );
 }
 
-export function ReviewDynamics({ period, onPeriodChange, project }: ViewProps) {
-  const [preset, setPreset] = useState<Preset | null>(() => (/[?&]from=/.test(window.location.hash) ? null : "8"));
+export function ReviewDynamics({ period, onPeriodChange, project, onProjectChange }: ViewProps) {
+  const [preset, setPreset] = useState<Preset | null>(() => (/[?&]from=/.test(window.location.hash) ? null : "4"));
   const [byVersion, setByVersion] = useState(false);
-  // A URL naming no range opens on Last 8 weeks (view-owned-range), and
+  const [showRetired, setShowRetired] = useState(false);
+  const [markerKind, setMarkerKind] = useState<PromptChange["kind"] | null>("tuning");
+  const [planClass, setPlanClass] = useState<StatsViewParams["class"]>(undefined);
+  // A URL naming no range opens on Last 4 weeks (view-owned-range), and
   // the first fetch already asks for it, so App's default period is never
   // fetched. The child's effect runs before App's, so the hash still shows
   // whether the URL carried a range.
-  const [shown, setShown] = useState<Period>(() => (preset === "8" ? presetPeriod("8", null)! : period));
+  const [shown, setShown] = useState<Period>(() => (preset === "4" ? presetPeriod("4") : period));
   const mounted = useRef(false);
   useEffect(() => {
-    if (preset === "8") onPeriodChange?.(shown);
+    if (preset === "4") onPeriodChange?.(shown);
   }, []); // Mount only: a later preset click sets the period itself.
   useEffect(() => {
     if (mounted.current) setShown(period);
     mounted.current = true;
   }, [period.from.getTime(), period.to.getTime()]);
-  const state = useStatsView<ReviewDynamicsRows>("review-dynamics", { from: shown.from, to: shown.to, project });
+  const state = useStatsView<ReviewDynamicsRows>("review-dynamics", {
+    from: shown.from,
+    to: shown.to,
+    project,
+    class: planClass,
+  });
 
   const rows = state.status === "ready" ? state.data.rows : null;
+  // The last answer's projects keep the buttons in place while a click refetches.
+  const projects = useRef<string[]>([]);
+  if (rows) projects.current = rows.projects;
   const choose = (id: Preset) => {
-    const next = presetPeriod(id, rows?.lastPromptChangeAt ?? null);
-    if (!next) return;
+    const next = presetPeriod(id);
     setPreset(id);
     onPeriodChange?.(next);
   };
@@ -245,7 +265,6 @@ export function ReviewDynamics({ period, onPeriodChange, project }: ViewProps) {
             key={p.id}
             type="button"
             aria-pressed={preset === p.id}
-            disabled={p.id === "tune" && !rows?.lastPromptChangeAt}
             onClick={() => choose(p.id)}
           >
             {p.label}
@@ -268,9 +287,48 @@ export function ReviewDynamics({ period, onPeriodChange, project }: ViewProps) {
           Family merges every version of a model; Version keeps each one apart.
         </span>
       </div>
+      <div className="dynamics-bar" role="group" aria-label="Projects">
+        <span className="dynamics-lbl">Projects</span>
+        {[undefined, ...projects.current].map((p) => (
+          <button key={p ?? ""} type="button" aria-pressed={project === p} onClick={() => onProjectChange?.(p)}>
+            {p === undefined ? "All" : p.replace(/-[0-9a-f]{8}$/, "")}
+          </button>
+        ))}
+      </div>
+      <div className="dynamics-bar" role="group" aria-label="Task size">
+        <span className="dynamics-lbl">Task size</span>
+        {([undefined, "big", "regular", "small", "micro"] as const).map((c) => (
+          <button key={c ?? ""} type="button" aria-pressed={planClass === c} onClick={() => setPlanClass(c)}>
+            {c === undefined ? "All" : c[0].toUpperCase() + c.slice(1)}
+          </button>
+        ))}
+        <span className="dynamics-sub dynamics-inline">The plan class of each change's latest decision.</span>
+      </div>
+      <div className="dynamics-bar" role="group" aria-label="Reviewers">
+        <span className="dynamics-lbl">Reviewers</span>
+        <button type="button" aria-pressed={!showRetired} onClick={() => setShowRetired(false)}>
+          Current
+        </button>
+        <button type="button" aria-pressed={showRetired} onClick={() => setShowRetired(true)}>
+          All
+        </button>
+        <span className="dynamics-sub dynamics-inline">Current hides retired reviewer slots; All shows them too.</span>
+      </div>
+      <div className="dynamics-bar" role="group" aria-label="Prompt changes">
+        <span className="dynamics-lbl">Prompt changes</span>
+        {MARKER_KINDS.map(([label, kind]) => (
+          <button key={label} type="button" aria-pressed={markerKind === kind} onClick={() => setMarkerKind(kind)}>
+            {label}
+          </button>
+        ))}
+        <span className="dynamics-sub dynamics-inline">
+          Which prompt changes the charts mark: applied by /flow-prompt-tuning, recorded automatically from commits, or
+          both.
+        </span>
+      </div>
       {state.status === "loading" && <p role="status">Loading…</p>}
       {state.status === "error" && <p role="alert">Failed to load: {state.message}</p>}
-      {rows && <Dynamics rows={rows} byVersion={byVersion} period={shown} />}
+      {rows && <Dynamics rows={rows} byVersion={byVersion} showRetired={showRetired} markerKind={markerKind} period={shown} />}
     </section>
   );
 }
@@ -287,14 +345,27 @@ function rangeBuckets(period: Period, kind: "day" | "week"): string[] {
   return out;
 }
 
-function Dynamics({ rows, byVersion, period }: { rows: ReviewDynamicsRows; byVersion: boolean; period: Period }) {
+function Dynamics({
+  rows,
+  byVersion,
+  showRetired,
+  markerKind,
+  period,
+}: {
+  rows: ReviewDynamicsRows;
+  byVersion: boolean;
+  showRetired: boolean;
+  markerKind: PromptChange["kind"] | null;
+  period: Period;
+}) {
+  const shownSlot = (slot: string) => showRetired || CURRENT_SLOTS.has(slot);
   const buckets = [...new Set([...rangeBuckets(period, rows.bucket), ...rows.series.map((p) => p.bucket)])].sort();
   const index = new Map(buckets.map((b, i) => [b, i]));
 
   const markersFor = (area: PromptChange["area"] | null): DynamicsMarker[] => {
     if (!area) return [];
     return rows.markers.flatMap((m) => {
-      if (m.area !== area) return [];
+      if (m.area !== area || (markerKind && m.kind !== markerKind)) return [];
       // A marker belongs to the last bucket starting on or before it.
       const day = m.at.slice(0, 10);
       let i = -1;
@@ -357,7 +428,7 @@ function Dynamics({ rows, byVersion, period }: { rows: ReviewDynamicsRows; byVer
         {chart(
           "Findings per dispatch by slot",
           "A bundled dispatch counts once for each slot it names.",
-          seriesOf("per-dispatch-slot"),
+          seriesOf("per-dispatch-slot").filter((s) => shownSlot(s.name)),
           "review",
           "dispatches",
         )}
@@ -414,7 +485,7 @@ function Dynamics({ rows, byVersion, period }: { rows: ReviewDynamicsRows; byVer
       </div>
       <div className="dynamics-section">Where findings come from</div>
       <Heatmap
-        cells={byVersion ? rows.heatVersion : rows.heat}
+        cells={(byVersion ? rows.heatVersion : rows.heat).filter((c) => shownSlot(c.slot))}
         previous={byVersion ? rows.previousHeatVersion : rows.previousHeat}
         byVersion={byVersion}
       />

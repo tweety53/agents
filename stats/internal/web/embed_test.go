@@ -385,7 +385,7 @@ func (fakeStore) Decisions(context.Context, store.Period, *string) ([]store.Deci
 func (fakeStore) SelfReviewFindingsInPeriod(context.Context, store.Period, *string) ([]store.SelfReviewFindingRow, error) {
 	return nil, nil
 }
-func (fakeStore) ReviewDynamics(context.Context, store.Period, *string) (store.ReviewDynamics, error) {
+func (fakeStore) ReviewDynamics(context.Context, store.Period, *string, *string) (store.ReviewDynamics, error) {
 	return store.ReviewDynamics{}, nil
 }
 func (fakeStore) UpsertPromptChange(context.Context, store.PromptChange) error { return nil }
