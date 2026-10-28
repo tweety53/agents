@@ -18,8 +18,12 @@ else a question with a recommended option is never asked: take that option, reco
 (**What still stops**, `skills/flow-contracts/operator-prompts-auto-resolution.md`). Still stop for
 a choice no option can honestly be recommended for, an outward-facing or irreversible action another
 rule requires confirmed, and a cause outside your reach — production, a credential only the user
-holds, a repository you were not given. Stay inside your dispatch's remit: a read-only role reports,
-and its dispatcher fixes.
+holds, a repository you were not given. **The flow tooling is never outside your reach:** a guard,
+script, skill or contract of the `agents` repository that blocks the run — two guards that
+contradict, a check that refuses correct work — is fixed by the run itself in an `agents` worktree,
+proved by a test that fails without it, pushed to `main` and the run continued, never handed back
+as a question; the user's opt-in to this run is the confirmation that push needs. Stay inside your
+dispatch's remit: a read-only role reports, and its dispatcher fixes.
 
 <!-- /core -->
 
@@ -41,3 +45,6 @@ its list of exceptions.
   apps and tooling end to end, no matter how many fix rounds or tooling updates and fixes are
   needed; the only interactive parts are planning and manual testing of the implementation with the
   fixes that follow, and that only when they explicitly asked to stop after implementation.
+- kan-1044 (2026-10-28): the run stopped on two contradicting guards (`check-plan-shape` F21 against
+  `check-task-commit-planning-paths`) to ask whether to fix the `agents` repo; the user answered
+  "resolve the conflict yourself" and asked that such stops never happen again.

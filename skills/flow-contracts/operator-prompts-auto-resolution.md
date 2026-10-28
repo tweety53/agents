@@ -116,7 +116,11 @@ past planning is (**Work end to end — stop only to plan or to test by hand**,
   or account only the operator holds, a repository the run was not given — and a `## Question`
   handback that carries no options. A guard's exit 2, a failing command or tool, a stack that will
   not start and an environment fault the run's own commands can repair are not this bullet: they
-  are cured in the run (**Fewest operator actions**, `skills/flow-contracts/pipeline.md`).
+  are cured in the run (**Fewest operator actions**, `skills/flow-contracts/pipeline.md`). Nor is
+  the flow tooling itself: a guard, script, skill or contract of the `agents` repository that blocks
+  the run — two guards that contradict, a check that refuses correct work — is fixed in an `agents`
+  worktree with a test that fails without the fix, pushed to `main`, and the run continues; that push
+  is not asked (kan-1044, `rules/work-end-to-end.mdc`).
 - **Outward-facing or irreversible actions.** Push, merge, opening a PR, archiving, deleting, and
   every Jira write — the follow-up filing and the self-review filing included — and the
   self-review's flow-eval mining.
