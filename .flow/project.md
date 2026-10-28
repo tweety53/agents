@@ -56,6 +56,14 @@ protected daemon. Neither target is isolated by the
 `## workspace isolation` section below — that section covers apply worktrees, and this stack is a
 single, main-checkout-only fixture instead.
 
+**A live check against real data runs on a copy of the dev store**, never on the store itself:
+`scripts/live-store-copy.sh up <name> [<port>]` copies the dev `flow` database into
+`flow_<name>_live`, builds `flowd` from the checkout it runs from and starts it on `<port>`
+(default 4175) against the copy, printing the `FLOW_ADDR`/`FLOW_RECORDS_ADDR` exports that point a
+session at it; `scripts/live-store-copy.sh down <name>` stops that daemon and drops only that copy.
+It refuses ports 4173 and 4174, and its header carries its exit codes. A design's `## Live check`
+names it rather than re-specifying the copy.
+
 **This is the stack `flow.visual-verify` (`skills/flow/visual-verify.md`) starts and stops.**
 That stage's step 5 probes a URL and, if nothing answers, "starts the stack from `## run`" — a
 project with more than one candidate stack has to say which one that means, so this paragraph is
