@@ -16,3 +16,7 @@ The Weekly costs view shows where spend goes by pipeline phase, but not why a ph
 
 - The live check's reprice failed with a store error: `GetStageRun` cannot read an unattached plan session (NULL `change_id`). It reads it as change 0, as `StageRun` documents, and the model·effort series counts only runs attached to a change, as Overall does.
 
+
+## In-run fix 2 — flow.verify
+
+- The live check's per-week model·effort sums exceeded Overall (2026-09-30: $1551.51 against $939.78). Runs priced before a model with no rate in effect (`claude-sonnet-5-5`) joined them kept their earlier top-level `cost_usd`, now short of their buckets. Price drops that total whenever a bucket cannot be priced, and the model·effort series counts only runs carrying a total, as Overall does.

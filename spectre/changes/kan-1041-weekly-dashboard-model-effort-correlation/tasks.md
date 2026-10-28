@@ -170,10 +170,10 @@
 **After:** Task 8
 **Commit:** `test(stats): re-baseline Weekly costs visual spec with the model·effort chart`
 
-- [ ] 10. In-run fix 1 — flow.verify: reprice fails on an unattached plan session
-  - [ ] **Step 1: Write the failing tests:** in `stats/internal/store/stageruns_test.go`, `TestRepriceSinceCountsPricedAndSkipped` gains an unattached `plan.session` run (`JiraKey`, no change) after `since` with priceable tokens, and expects it priced; in `stats/internal/store/aggregate_test.go`, `TestWeeklyModelEffortCostsSplitsDispatchAndSession` gains an unattached plan session with a priced model bucket in the period and expects no row from it. Run `cd stats && go test ./internal/store/ -run 'TestRepriceSince|TestWeeklyModelEffort'` — RED.
-  - [ ] **Step 2: Implement:** `GetStageRun` scans `COALESCE(change_id, 0)`, as `StageRun.ChangeID`'s doc and the other two scans already do; `WeeklyModelEffortCosts` counts only runs joined to a change, as `WeeklyCosts` does, so its lines add up to Overall.
-  - [ ] **Step 3: Verify:** Go lint, then `cd stats && go test ./internal/store/ -run 'TestRepriceSince|TestWeekly|TestPrice|TestBeginStage'`.
+- [x] 10. In-run fix 1 — flow.verify: reprice fails on an unattached plan session
+  - [x] **Step 1: Write the failing tests:** in `stats/internal/store/stageruns_test.go`, `TestRepriceSinceCountsPricedAndSkipped` gains an unattached `plan.session` run (`JiraKey`, no change) after `since` with priceable tokens, and expects it priced; in `stats/internal/store/aggregate_test.go`, `TestWeeklyModelEffortCostsSplitsDispatchAndSession` gains an unattached plan session with a priced model bucket in the period and expects no row from it. Run `cd stats && go test ./internal/store/ -run 'TestRepriceSince|TestWeeklyModelEffort'` — RED.
+  - [x] **Step 2: Implement:** `GetStageRun` scans `COALESCE(change_id, 0)`, as `StageRun.ChangeID`'s doc and the other two scans already do; `WeeklyModelEffortCosts` counts only runs joined to a change, as `WeeklyCosts` does, so its lines add up to Overall.
+  - [x] **Step 3: Verify:** Go lint, then `cd stats && go test ./internal/store/ -run 'TestRepriceSince|TestWeekly|TestPrice|TestBeginStage'`.
 
 **Files:** `stats/internal/store/stageruns.go`, `stats/internal/store/aggregate.go`, `stats/internal/store/stageruns_test.go`, `stats/internal/store/aggregate_test.go`
 **Tests:** `TestRepriceSinceCountsPricedAndSkipped`, `TestWeeklyModelEffortCostsSplitsDispatchAndSession`
@@ -184,3 +184,15 @@
 
 **Decision:** reprice-command
 
+
+- [ ] 11. In-run fix 2 — flow.verify: per-week model·effort sums exceed Overall on runs with a stale total
+  - [ ] **Step 1: Write the failing tests:** in `stats/internal/store/stageruns_test.go`, `TestPriceOneUnpriceableBucketOmitsTopLevelTotal` first prices the run while only the `claude-opus-5` bucket exists (top-level `cost_usd` written), then merges the `no-such-model` bucket and prices again, and still expects no top-level `cost_usd`; in `stats/internal/store/aggregate_test.go`, `TestWeeklyModelEffortCostsSplitsDispatchAndSession` gains an attached run in the period whose model bucket carries `cost_usd` but whose metrics carry no top-level `cost_usd`, and expects no row from it. Run `cd stats && go test ./internal/store/ -run 'TestPriceOneUnpriceable|TestWeeklyModelEffort'` — RED.
+  - [ ] **Step 2: Implement:** `Price` removes the top-level `cost_usd` when any model bucket could not be priced, as its unmeasured branch already does, so a total written before a later unpriceable bucket arrived never stays reading as complete; `WeeklyModelEffortCosts` counts only runs carrying a top-level `cost_usd`, the runs Overall sums, so its lines add up to Overall.
+  - [ ] **Step 3: Verify:** Go lint, then `cd stats && go test ./internal/store/ -run 'TestPrice|TestRepriceSince|TestWeekly'`.
+
+**Files:** `stats/internal/store/pricing.go`, `stats/internal/store/aggregate.go`, `stats/internal/store/stageruns_test.go`, `stats/internal/store/aggregate_test.go`
+**Tests:** `TestPriceOneUnpriceableBucketOmitsTopLevelTotal`, `TestWeeklyModelEffortCostsSplitsDispatchAndSession`
+**Regression:** `TestPriceOneUnpriceableBucketOmitsTopLevelTotal` fails, because the first pass's top-level `cost_usd` survives the second pass that found an unpriceable bucket; `TestWeeklyModelEffortCostsSplitsDispatchAndSession` fails, because a run Overall excludes is charted.
+**Build:** green
+**After:** Task 10
+**Commit:** `fix(store): drop a stale run total and chart only the runs Overall sums`
