@@ -5,7 +5,7 @@ set -u
 here=$(cd "$(dirname "$0")" && pwd)
 rc="$here/run-capped.sh"
 fail=0
-alloc='import os, time; b=os.urandom(128*1024*1024); time.sleep(10)'
+alloc='b=bytearray(128*1024*1024); import time; time.sleep(10)'
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 unset RUN_CAPPED_PGID
 
