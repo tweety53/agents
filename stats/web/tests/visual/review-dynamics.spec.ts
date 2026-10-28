@@ -40,7 +40,7 @@ test.describe("review dynamics", () => {
   test("review dynamics default preset", async ({ page }) => {
     await page.clock.setFixedTime(new Date("2026-06-29T00:00:00Z"));
     await page.goto("/#/review-dynamics");
-    await expect(page.getByRole("button", { name: "Last 8 weeks" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Last 4 weeks" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByText("Loading…")).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Findings per change by severity" })).toBeVisible();
     await expect(page).toHaveScreenshot("review-dynamics-default-preset.png", { fullPage: true });
@@ -49,12 +49,33 @@ test.describe("review dynamics", () => {
   test("review dynamics chart hover", async ({ page }) => {
     await open(page);
     const severity = page.getByRole("region", { name: "Findings per change by severity" });
+    // The fixture's markers are prompt edits, which the default
+    // flow-prompt-tuning filter hides.
+    await page.getByRole("group", { name: "Prompt changes" }).getByRole("button", { name: "All" }).click();
     // The week of 05-18 carries the primary reviewer prompt edit's marker.
     await severity.locator('[data-bucket="2026-05-18"]').hover();
     const tip = severity.getByRole("tooltip");
     await expect(tip).toContainText("◆ Prompt edit · primary");
     await expect(tip).toHaveCSS("background-color", "rgb(34, 37, 43)");
     await expect(page).toHaveScreenshot("review-dynamics-hover.png", { fullPage: true });
+  });
+
+  test("review dynamics filters", async ({ page }) => {
+    await open(page);
+    const pick = async (group: string, name: string) => {
+      const button = page.getByRole("group", { name: group }).getByRole("button", { name, exact: true });
+      await button.click();
+      await expect(button).toHaveAttribute("aria-pressed", "true");
+    };
+    await pick("Reviewers", "All");
+    await pick("Prompt changes", "auto prompt tuning");
+    await expect(page).toHaveScreenshot("review-dynamics-filters.png", { fullPage: true });
+    // Projects and Task size refetch: each pick presses its own button.
+    await pick("Task size", "Big");
+    const projects = page.getByRole("group", { name: "Projects" }).getByRole("button");
+    await projects.nth(1).click();
+    await expect(projects.nth(1)).toHaveAttribute("aria-pressed", "true");
+    await expect(projects.first()).toHaveAttribute("aria-pressed", "false");
   });
 
   test("review dynamics heatmap cell hover", async ({ page }) => {
