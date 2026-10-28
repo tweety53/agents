@@ -1173,3 +1173,15 @@ func TestRenderPanelPassLogVerdictFromFindings(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderPanelVerdictSkipsSupersededRows(t *testing.T) {
+	r := records.Run{Change: "kan-1", Passes: []records.Pass{{ID: 1, Round: 1, Note: "r1"}, {ID: 2, Round: 2, Note: "r2"}}, Findings: []records.Finding{
+		{Ref: "F1", Round: 1, Slot: "primary", Severity: "Important", Note: "a", Status: "fixed"},
+		{Ref: "F2", Round: 1, Slot: "primary", Severity: "Important", Note: "b", Status: "fixed", Supersedes: "F1"},
+		{Ref: "F3", Round: 2, Slot: "primary", Severity: "Important", Note: "c", Status: "fixed", Supersedes: "F2"},
+	}}
+	out := records.RenderPanel(r)
+	if !strings.Contains(out, "### Round 1\n\n- r1\n- verdict: fix (0 Critical, 1 Important)") {
+		t.Errorf("round 1 verdict counts a superseded row or drops one a later round superseded:\n%s", out)
+	}
+}

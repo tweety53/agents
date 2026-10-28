@@ -230,9 +230,20 @@ func RenderPanel(r Run) string {
 					fmt.Fprintf(&b, "- no pass row recorded — dispatched: %s\n", strings.Join(keys, ", "))
 				}
 			}
+			// A finding another finding of the same round supersedes is the
+			// same defect counted twice; a later round's supersession leaves
+			// this round's verdict as it was.
+			superseded := map[string]bool{}
+			for _, f := range r.Findings {
+				if f.Round == round {
+					for _, ref := range strings.FieldsFunc(f.Supersedes, func(c rune) bool { return c == ',' || c == ' ' }) {
+						superseded[ref] = true
+					}
+				}
+			}
 			critical, important := 0, 0
 			for _, f := range r.Findings {
-				if f.Round != round {
+				if f.Round != round || superseded[f.Ref] {
 					continue
 				}
 				switch strings.ToLower(f.Severity) {
