@@ -489,12 +489,12 @@ func (s *Store) WeeklyModelEffortCosts(ctx context.Context, period Period) ([]We
 		), d AS (
 			SELECT sr.id, sr.started_at, (b.value->>'cost_usd')::numeric AS cost,
 				COALESCE(
-					(SELECT k FROM jsonb_each_text(CASE WHEN jsonb_typeof(b.value->'signals'->'served_models') = 'object'
-						THEN b.value->'signals'->'served_models' END) AS e(k, v) ORDER BY v::numeric DESC, k LIMIT 1),
+					(SELECT k FROM jsonb_each(CASE WHEN jsonb_typeof(b.value->'signals'->'served_models') = 'object'
+						THEN b.value->'signals'->'served_models' END) AS e(k, v) ORDER BY v DESC, k LIMIT 1),
 					b.value->>'model') AS model,
 				COALESCE(
-					(SELECT k FROM jsonb_each_text(CASE WHEN jsonb_typeof(b.value->'signals'->'served_efforts') = 'object'
-						THEN b.value->'signals'->'served_efforts' END) AS e(k, v) ORDER BY v::numeric DESC, k LIMIT 1),
+					(SELECT k FROM jsonb_each(CASE WHEN jsonb_typeof(b.value->'signals'->'served_efforts') = 'object'
+						THEN b.value->'signals'->'served_efforts' END) AS e(k, v) ORDER BY v DESC, k LIMIT 1),
 					'default') AS effort
 			FROM sr, jsonb_each(sr.dispatches) AS b
 			WHERE b.value ? 'cost_usd'

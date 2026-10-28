@@ -624,6 +624,17 @@ func TestWeeklyModelEffortCostsSplitsDispatchAndSession(t *testing.T) {
 	}`)
 	// Outside the period: contributes nothing.
 	run(1, time.Date(2026, 7, 2, 0, 0, 0, 0, time.UTC), `{"models": {"claude-opus-5-5": {"cost_usd": 50}}}`)
+	// The week after: dispatches costing more than their model bucket floor
+	// the session at 0, which is dropped; the most-turns served model and
+	// effort win, a turns tie breaking by name.
+	run(2, time.Date(2026, 6, 18, 0, 0, 0, 0, time.UTC), `{
+		"models": {"claude-opus-5-5": {"cost_usd": 1}},
+		"dispatches": {
+			"b1": {"model": "opus", "cost_usd": 3, "signals": {
+				"served_models": {"claude-sonnet-5-5": 1, "claude-opus-5-5": 4},
+				"served_efforts": {"medium": 2, "high": 2}}}
+		}
+	}`)
 
 	period := store.Period{
 		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
@@ -639,6 +650,7 @@ func TestWeeklyModelEffortCostsSplitsDispatchAndSession(t *testing.T) {
 		{Week: week, Model: "claude-opus-5-5", Effort: "low", CostUSD: 3},
 		{Week: week, Model: "claude-opus-5-5", Effort: "session", CostUSD: 6},
 		{Week: week, Model: "claude-sonnet-5-5", Effort: "medium", CostUSD: 2},
+		{Week: week.AddDate(0, 0, 7), Model: "claude-opus-5-5", Effort: "high", CostUSD: 3},
 	}
 	if len(points) != len(want) {
 		t.Fatalf("WeeklyModelEffortCosts returned %d rows %+v, want %d", len(points), points, len(want))

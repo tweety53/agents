@@ -2739,6 +2739,15 @@ func TestPriceDispatchUsesServedModel(t *testing.T) {
 				"model": "opus",
 				"tokens": {"sidechain": {"output": 1000000}},
 				"signals": {"served_models": {"claude-opus-5-5": 1, "claude-sonnet-5-5": 4}}
+			},
+			"a4": {
+				"model": "opus",
+				"tokens": {"sidechain": {"output": 1000000}},
+				"signals": {"served_models": {"claude-sonnet-5-5": 2, "claude-opus-5-5": 2}}
+			},
+			"a5": {
+				"tokens": {"sidechain": {"output": 1000000}},
+				"signals": {"served_models": {"claude-sonnet-5-5": 1}}
 			}
 		}
 	}`)); err != nil {
@@ -2779,6 +2788,12 @@ func TestPriceDispatchUsesServedModel(t *testing.T) {
 	if c := bag.Dispatches["a3"].CostUSD; c == nil || *c != 2 {
 		t.Errorf("dispatches.a3.cost_usd = %v, want 2 (the most-turns claude-sonnet-5-5 rate)", c)
 	}
+	if c := bag.Dispatches["a4"].CostUSD; c == nil || *c != 10 {
+		t.Errorf("dispatches.a4.cost_usd = %v, want 10 (a turns tie breaks by name: claude-opus-5-5)", c)
+	}
+	if c := bag.Dispatches["a5"].CostUSD; c == nil || *c != 2 {
+		t.Errorf("dispatches.a5.cost_usd = %v, want 2 (served model priced though no model was recorded)", c)
+	}
 }
 
 // TestRepriceSinceCountsPricedAndSkipped pins reprice-command: every stage
@@ -2816,15 +2831,18 @@ func TestRepriceSinceCountsPricedAndSkipped(t *testing.T) {
 		return r.ID
 	}
 	before := run(0, since.Add(-time.Hour), priceable)
-	after := run(1, since.Add(time.Hour), priceable)
+	// Exactly at since: the window is inclusive.
+	after := run(1, since, priceable)
 	run(2, since.Add(2*time.Hour), `{"tokens": {}}`)
+	// A model with no rate in effect: ErrPricingNotFound, skipped.
+	run(3, since.Add(3*time.Hour), `{"models": {"claude-unrated": {"tokens": {"sidechain": {"output": 1000}}}}}`)
 
 	priced, skipped, err := st.RepriceSince(ctx, since)
 	if err != nil {
 		t.Fatalf("RepriceSince: %v", err)
 	}
-	if priced != 1 || skipped != 1 {
-		t.Errorf("RepriceSince = priced %d, skipped %d, want 1, 1", priced, skipped)
+	if priced != 1 || skipped != 2 {
+		t.Errorf("RepriceSince = priced %d, skipped %d, want 1, 2", priced, skipped)
 	}
 	costOf := func(id int64) *float64 {
 		t.Helper()

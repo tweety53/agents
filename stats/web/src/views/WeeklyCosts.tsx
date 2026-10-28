@@ -326,14 +326,20 @@ export function WeeklyCosts(_props: ViewProps) {
         description="Each subagent dispatch by the model and effort that served it, plus the parent session per model."
         state={modelEffort}
       >
-        {(data) => (
-          <WeeklyCostChart
-            weeks={weeks}
-            series={modelEffortSeries(weeks, data.rows)}
-            ariaLabel="Weekly cost by model and effort over the last 8 weeks"
-            allShown
-          />
-        )}
+        {(data) => {
+          const series = modelEffortSeries(weeks, data.rows);
+          // Keyed on the line names, so a refetch with another set of lines
+          // starts its toggles afresh rather than reusing stale positions.
+          return (
+            <WeeklyCostChart
+              key={series.map((s) => s.name).join("|")}
+              weeks={weeks}
+              series={series}
+              ariaLabel="Weekly cost by model and effort over the last 8 weeks"
+              allShown
+            />
+          );
+        }}
       </Panel>
     </ViewFrame>
   );

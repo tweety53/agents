@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestPricingRepricePrintsCounts pins `flow pricing reprice` (decision
@@ -20,6 +21,11 @@ func TestPricingRepricePrintsCounts(t *testing.T) {
 		_, _ = w.Write([]byte(`{"priced":3,"skipped":2}`))
 	}))
 	defer srv.Close()
+	slow := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(2500 * time.Millisecond)
+		_, _ = w.Write([]byte(`{"priced":1,"skipped":0}`))
+	}))
+	defer slow.Close()
 	dead := httptest.NewServer(http.NotFoundHandler())
 	dead.Close()
 
@@ -33,6 +39,9 @@ func TestPricingRepricePrintsCounts(t *testing.T) {
 		{"counts", []string{"-addr", srv.URL, "-since", "2026-09-01"}, 0, "priced 3, skipped 2\n", ""},
 		{"missing since", []string{"-addr", srv.URL}, 2, "", "usage:"},
 		{"malformed since", []string{"-addr", srv.URL, "-since", "09/01/2026"}, 2, "", "usage:"},
+		{"stray argument", []string{"-addr", srv.URL, "-since", "2026-09-01", "extra"}, 2, "", "usage:"},
+		// Reprice outlives the 2s default every other command uses.
+		{"slow store", []string{"-addr", slow.URL, "-since", "2026-09-01"}, 0, "priced 1, skipped 0\n", ""},
 		{"unreachable", []string{"-addr", dead.URL, "-since", "2026-09-01", "-timeout", "2s"}, 1, "", "flow: pricing reprice:"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

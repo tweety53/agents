@@ -12,6 +12,11 @@ import (
 	"github.com/tweety53/agents/stats/internal/client"
 )
 
+// repriceTimeout is reprice's own default request timeout: Price runs once
+// per stage run in the window, serially, and the 56-day window holds about
+// 15,000 runs -- far past defaultTimeout's 2s.
+const repriceTimeout = 30 * time.Minute
+
 const pricingUsage = `usage: flow pricing reprice -since YYYY-MM-DD [-addr url] [-timeout dur]
 
 pricing reprice prices every stage run started on or after -since (UTC)
@@ -32,8 +37,11 @@ func runPricing(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	fset := flag.NewFlagSet("flow pricing reprice", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var since string
-	var f settingsConnFlags
-	registerSettingsConnFlags(fset, &f)
+	var f storeConnFlags
+	registerStoreConnFlags(fset, &f)
+	// Overrides the -timeout default registerStoreConnFlags set.
+	fset.Lookup("timeout").DefValue = repriceTimeout.String()
+	f.timeout = repriceTimeout
 	fset.StringVar(&since, "since", "", "reprice stage runs started on or after this date (YYYY-MM-DD)")
 	if err := fset.Parse(args[1:]); err != nil {
 		if errors.Is(err, flag.ErrHelp) {

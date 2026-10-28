@@ -59,8 +59,8 @@ func runLearningAdd(ctx context.Context, args []string, stderr io.Writer) int {
 
 	fset := flag.NewFlagSet("flow learning add", flag.ContinueOnError)
 	fset.SetOutput(stderr)
-	var f settingsConnFlags
-	registerSettingsConnFlags(fset, &f)
+	var f storeConnFlags
+	registerStoreConnFlags(fset, &f)
 	note := fset.String("note", "", "the note's topic in one line (required)")
 	change := fset.String("change", "", "the change the note was shown in (required)")
 	dir := fset.String("C", "", "directory the project key resolves from (default: the working directory)")
@@ -107,8 +107,8 @@ func runLearningAdd(ctx context.Context, args []string, stderr io.Writer) int {
 func runLearningList(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow learning list", flag.ContinueOnError)
 	fset.SetOutput(stderr)
-	var f settingsConnFlags
-	registerSettingsConnFlags(fset, &f)
+	var f storeConnFlags
+	registerStoreConnFlags(fset, &f)
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0

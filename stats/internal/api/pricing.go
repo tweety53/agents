@@ -30,8 +30,14 @@ type pricingHandler struct {
 
 // reprice serves POST /api/v1/pricing/reprice: Store.RepriceSince over
 // every stage run started on or after {"since": "YYYY-MM-DD"} (UTC),
-// answering {"priced": N, "skipped": M} (decision reprice-command).
+// answering {"priced": N, "skipped": M} (decision reprice-command). It
+// lifts the server's writeTimeout for this response alone: a window of
+// thousands of runs prices for minutes, and the caller's own timeout
+// bounds the request instead.
 func (h *pricingHandler) reprice(w http.ResponseWriter, r *http.Request) {
+	if err := http.NewResponseController(w).SetWriteDeadline(time.Time{}); err != nil {
+		h.logger.Warn("reprice: clear write deadline", "err", err)
+	}
 	var in struct {
 		Since string `json:"since"`
 	}
