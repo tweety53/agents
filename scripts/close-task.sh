@@ -38,6 +38,10 @@
 #      output — rebuild it with that script and re-commit` (exit 1); a
 #      screenshots root git status reports dirty, or a rebuild exit other
 #      than 0, is exit 2 (kan-1016's self-review: a hand-built zip).
+#      When a task it closes is one step 1 counts as appended or in-run,
+#      check-plan-shape.sh <the change's tasks.md> runs too, its exit
+#      folded in at step 4 (kan-1046 self-review, 1f: an in-run fix closed
+#      with a **Files:** the plan guard refuses).
 #   3. check-task-commit-planning-paths.sh <canonical> <merge-base>, then
 #      check-untasked-commits.sh <worktree> refs/remotes/origin/spectre/<name>
 #      once per distinct worktree whose branch origin already holds: the push

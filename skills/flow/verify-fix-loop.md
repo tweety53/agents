@@ -57,7 +57,9 @@ One round runs these steps in order:
    this stage's round in this run. On a `flow.visual-verify` round its `**Files:**` lists the
    change's `<changeRoot>/visual-verification.md` beside the fix's own paths, and the task rewrites
    the record's sections its fix changes in the same commit, as DRIFT CHECK
-   (`skills/flow/implement.md`) requires (kan-1038). Its planning commit and the re-decide run as
+   (`skills/flow/implement.md`) requires (kan-1038). `<changeRoot>/visual-verification.md` is
+   untracked until that task's commit, which `git add`s it, and `close-task` runs the plan guard on
+   the task before ticking it (kan-1046 self-review, 1f). Its planning commit and the re-decide run as
    that file states.
    **One round appends one task**, carrying every defect the report names — never a task or a
    round per defect. Before the append, the stage's failing row is closed with `flow record dispatch

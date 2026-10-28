@@ -682,3 +682,52 @@ func TestCloseTaskShimExportsTheRebuildsScriptDir(t *testing.T) {
 		t.Fatalf("close-task.sh on a hand-built zip: exit %d, want 1 (the rebuild ran and differed)\n%s", code, out)
 	}
 }
+
+// TestCloseTaskRunsPlanShapeOnInRunFix pins the kan-1046 self-review fix
+// (1f): closing an in-run visual-verify fix task runs the plan guard first,
+// so one whose **Files:** omits visual-verification.md is refused with F21's
+// line and nothing ticked; with the record listed it closes; a planned task
+// over the same bad plan never runs the guard.
+func TestCloseTaskRunsPlanShapeOnInRunFix(t *testing.T) {
+	t.Parallel()
+	fix := func(files string) string {
+		return ctPlan + "\n- [ ] 4. In-run fix 1 — visual-verify: x\n\n**Files:** " + files + "\n**Tests:** none\n**Commit:** four\n**Build:** green\n"
+	}
+	const f21 = "is an in-run visual-verify fix whose **Files:** omits"
+	for _, c := range []struct {
+		name, plan, task, subject string
+		files                     []string
+		refused                   bool
+	}{
+		{"an in-run fix omitting the record is refused", fix("¤e.txt¤"), "4", "four", []string{"e.txt", "x\n"}, true},
+		{"an in-run fix listing the record closes", fix("¤e.txt¤, ¤docs/visual-verification.md¤"), "4", "four",
+			[]string{"e.txt", "x\n", "docs/visual-verification.md", "r\n"}, false},
+		{"a planned task never runs the guard", fix("¤e.txt¤"), "2", "two", []string{"b.txt", "x\n"}, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			fx := ctFixture(t, true, "0", "0")
+			writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", bt(c.plan))
+			writeFile(t, fx.dispatches, `[{"key":"verify-fix-1","taskId":"4"}]`)
+			sha := fx.commit(t, fx.wt, c.subject, c.task, c.files...)
+			r := fx.run(fx.wt, "demo", fx.base, c.task+":"+sha)
+			if got := strings.Contains(r.out+r.err, f21); got != c.refused {
+				t.Errorf("F21 line present %v, want %v\n%s\n%s", got, c.refused, r.out, r.err)
+			}
+			if c.refused {
+				if r.rc != 1 {
+					t.Fatalf("exit %d, want 1\n%s\n%s", r.rc, r.out, r.err)
+				}
+				for _, call := range fx.calls(t) {
+					if strings.HasPrefix(call, "flow tasks tick") {
+						t.Errorf("ticked after a refusal: %s", call)
+					}
+				}
+				return
+			}
+			if r.rc != 0 {
+				t.Fatalf("exit %d, want 0\n%s\n%s", r.rc, r.out, r.err)
+			}
+		})
+	}
+}

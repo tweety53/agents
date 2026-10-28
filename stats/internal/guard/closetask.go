@@ -117,6 +117,15 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	// Both commit guards run before anything is ticked or pushed, so a
 	// refused commit is never pushed (design.md: close-task-push-after-guards).
 	worst := 0
+	// An appended or in-run fix task was written after the plan guard last
+	// ran, so it runs here on the plan before that task is ticked (kan-1046
+	// self-review, 1f: an in-run fix closed omitting visual-verification.md
+	// from **Files:**, found only at verify).
+	if tasksMD, _ := tcfResolveTasksMD(env, io.Discard, "close-task", canonical, name, canonical); tasksMD != "" {
+		if appended, ok := uwAppended(tasksMD, false); ok && slices.ContainsFunc(closed, func(id string) bool { return slices.Contains(appended, id) }) {
+			worst = max(worst, Registry["check-plan-shape"]([]string{tasksMD}, env, stdout, stderr))
+		}
+	}
 	for _, t := range tasks {
 		worst = max(worst, Registry["check-task-commit-fields"]([]string{canonical, t.id, t.commit, "", canonical, name}, env, stdout, stderr))
 		worst = max(worst, ctCheckTrailer(env, stdout, stderr, canonical, name, t.id, t.commit))
