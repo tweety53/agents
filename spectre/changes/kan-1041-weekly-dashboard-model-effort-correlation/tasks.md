@@ -198,13 +198,13 @@
 **Commit:** `fix(store): drop a stale run total and chart only the runs Overall sums`
 
 - [ ] 12. In-run fix 3 — flow.visual-verify: header copy and pill width depart from the prototype
-  - [ ] **Step 1: Write the failing tests:** in `stats/web/src/views/views.test.tsx`, the Weekly costs view test asserts the header description reads exactly `Wednesday-to-Wednesday cost, last 8 weeks.`, and that a first-week pill (cost alone) is 40 wide and a pill with a delta is 84 wide when its text fits, as the prototype's `wd=o.p==null?40:84` draws them. Run `cd stats/web && npx vitest run src/views/views.test.tsx` — RED.
+  - [ ] **Step 1: Write the failing tests:** in `stats/web/src/views/views.test.tsx`, a new test `weekly costs matches the prototype header and pill widths` asserts the header description reads exactly `Wednesday-to-Wednesday cost, last 8 weeks.`, and that a first-week pill (cost alone) is 40 wide and a pill with a delta is 84 wide when its text fits, as the prototype's `wd=o.p==null?40:84` draws them. Run it — RED.
   - [ ] **Step 2: Implement:** in `stats/web/src/views/WeeklyCosts.tsx`, the `ViewFrame` description becomes the prototype's copy, and a pill's width is the prototype's fixed 40 (cost alone) or 84 (with a delta), widened to its text only when the text is longer, so a real figure such as `$2253.34 ▲12%` never overflows its pill.
-  - [ ] **Step 3: Verify:** SPA lint (`npx tsc -b`), the vitest file, then re-capture `stats/web/tests/visual/weekly-costs.spec.ts` and `full-app-suite.spec.ts` with the project's `capture` command, read every changed PNG, and rebuild `stats/web/tests/visual/full-app-suite.zip`.
+  - [ ] **Step 3: Verify:** SPA lint (`npx tsc -b`), the task's **Tests:**, then re-capture `stats/web/tests/visual/weekly-costs.spec.ts` and `full-app-suite.spec.ts` with the project's `capture` command, read every changed PNG, and rebuild `stats/web/tests/visual/full-app-suite.zip`.
 
 **Files:** `stats/web/src/views/WeeklyCosts.tsx`, `stats/web/src/views/views.test.tsx`, `stats/web/tests/visual/weekly-costs.spec.ts-snapshots/*.png`, `stats/web/tests/visual/full-app-suite.spec.ts-snapshots/full-weekly-costs-darwin.png`, `stats/web/tests/visual/full-app-suite.zip`, `spectre/changes/kan-1041-weekly-dashboard-model-effort-correlation/visual-verification.md`
-**Tests:** the Weekly costs view test in `stats/web/src/views/views.test.tsx`
-**Regression:** the view test fails, because the description carries `, every project and model` and every pill is sized `12 + chars × 6` instead of the prototype's 40/84.
+**Tests:** `weekly costs matches the prototype header and pill widths`
+**Regression:** `weekly costs matches the prototype header and pill widths` fails, because the description carries `, every project and model` and every pill is sized `12 + chars × 6` instead of the prototype's 40/84.
 **Build:** green
-**After:** Task 11
+**After:** Task 8,11
 **Commit:** `fix(stats): match the Weekly costs header and pill widths to the prototype`
