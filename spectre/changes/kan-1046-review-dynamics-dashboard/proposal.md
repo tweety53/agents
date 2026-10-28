@@ -21,3 +21,11 @@ Nothing on the stats dashboard shows whether the review panel is getting better 
 - Model versions are never merged silently: every model chart, the implementer chart and the heatmap carry a **Family / Version** toggle — `model · effort` (versions merged) or `model-version · effort` (each version its own series).
   - The harvester stamps each dispatch's exact model ID (`claude-opus-5-5`) from its transcript's `message.model`; today ~7,300 of ~8,300 rows hold only the alias `opus`/`sonnet`.
   - `flowd backfill-models` re-reads the transcripts still on disk and stamps past dispatches; a row whose transcript is gone reads `<family> (version unrecorded)`.
+
+**In-run fix 1 (flow.visual-verify, 2026-10-28):** the view now follows the approved prototype:
+- The intro is 12px.
+- The heatmap is packed into 92px cells with no row rules. Its rows run busiest slot first and its efforts run low → high, in both the heatmap and the effort chart.
+- The tooltip sits on its own `--surface-tip` surface.
+- The Version toggle, the default preset and the heatmap cell hover are captured.
+
+The light palette's departure from the prototype predates this change (the app's theme tokens), so it is left as is.
