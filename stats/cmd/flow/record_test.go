@@ -6548,11 +6548,11 @@ func TestRecordDispatchBeginRefusesAVerifierBesideAnOpenMutator(t *testing.T) {
 		status, want                   int
 	}{
 		{"a visual verifier beside an open panel-fix", `{"dispatches":[{"key":"panel-fix-7","role":"panel-fix"}]}`, "verifier", "visual-verify-2", "panel-fix-7", 200, 2},
-		{"a panel-fix beside an open visual verifier", `{"dispatches":[{"key":"visual-verify-2","role":"verifier"}]}`, "panel-fix", "panel-fix-8", "visual-verify-2", 200, 2},
+		{"a panel-fix beside an open visual verifier", `{"findings":[{"ref":"F1","round":7,"slot":"primary","severity":"Important","note":"n","status":"open"}],"dispatches":[{"key":"visual-verify-2","role":"verifier"}]}`, "panel-fix", "panel-fix-8", "visual-verify-2", 200, 2},
 		{"a visual verifier beside an open verify-* verifier", `{"dispatches":[{"key":"verify-test-fix-1","role":"verifier"}]}`, "verifier", "visual-verify-2", "", 200, 0},
 		{"a visual verifier beside an open reviewer", `{"dispatches":[{"key":"panel-3-primary","role":"reviewer"}]}`, "verifier", "visual-verify-2", "", 200, 0},
 		{"a visual verifier after the panel-fix ended", `{"dispatches":[{"key":"panel-fix-7","role":"panel-fix",` + ended + `}]}`, "verifier", "visual-verify-2", "", 200, 0},
-		{"a panel-fix after the visual verifier ended", `{"dispatches":[{"key":"visual-verify-2","role":"verifier",` + ended + `}]}`, "panel-fix", "panel-fix-8", "", 200, 0},
+		{"a panel-fix after the visual verifier ended", `{"findings":[{"ref":"F1","round":7,"slot":"primary","severity":"Important","note":"n","status":"open"}],"dispatches":[{"key":"visual-verify-2","role":"verifier",` + ended + `}]}`, "panel-fix", "panel-fix-8", "", 200, 0},
 		{"a failed read skips the check", `{"error":"boom"}`, "verifier", "visual-verify-2", "", 500, 0},
 	}
 	for _, c := range cases {
@@ -6781,7 +6781,7 @@ func TestRecordDispatchRefusesAPanelFixKeyedARoundLow(t *testing.T) {
 	isolatedStateRoot(t)
 	fixtureCommit(t, repo, "2026-10-28T02:40:00Z")
 	sha := fixtureCommit(t, repo, "2026-10-28T02:48:46Z")
-	record := `{"change":"kan-258","dispatches":[` +
+	record := `{"change":"kan-258","findings":[{"ref":"F1","round":5,"slot":"primary","severity":"Important","note":"n","status":"open"}],"dispatches":[` +
 		`{"key":"panel-5-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-28T02:45:33Z","endedAt":"2026-10-28T02:47:03Z"}]}`
 	var posts int
 	recordFails := false
@@ -6897,5 +6897,108 @@ func TestRecordDispatchBackfillFloorsAnInlineRowAtTheOtherInlineRows(t *testing.
 		if len(bodies) != 2 || bodies[0]["startedAt"] != tc.want {
 			t.Errorf("%s: bodies = %v, want begin startedAt %s", tc.name, bodies, tc.want)
 		}
+	}
+}
+
+// panelFixBegin begins key as a panel-fix of kan-258 under token against a
+// daemon serving record, returning the exit code, stderr and the posts made.
+func panelFixBegin(t *testing.T, record, key, token string, extra ...string) (int, string, int) {
+	t.Helper()
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	posts := 0
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/decisions") {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("[]"))
+			return
+		}
+		if r.Method == http.MethodGet {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(record))
+			return
+		}
+		posts++
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
+	}))
+	defer srv.Close()
+	verb := "begin"
+	if len(extra) > 0 {
+		verb = "backfill"
+	}
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		append([]string{"record", "dispatch", verb, "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "panel-fix", "-model", "opus", "-key", key, "-session-token", token}, extra...),
+		strings.NewReader(""), &stdout, &stderr)
+	return code, stderr.String(), posts
+}
+
+func TestRecordDispatchRefusesPanelFixWithoutFindings(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	minor := `{"change":"kan-258","findings":[{"ref":"F1","round":1,"slot":"primary","severity":"Minor","note":"n","status":"open"}]}`
+	important := `{"change":"kan-258","findings":[{"ref":"F1","round":1,"slot":"primary","severity":"important","note":"n","status":"open"}]}`
+	t.Run("a Minor-only round is refused", func(t *testing.T) {
+		code, stderr, posts := panelFixBegin(t, minor, "panel-fix-2", "mf-pf-a")
+		if code != 2 || posts != 0 || !strings.Contains(stderr, "round 1") || !strings.Contains(stderr, "flow record finding -from") {
+			t.Fatalf("exit %d, posts %d; want 2, 0 naming round 1; stderr:\n%s", code, posts, stderr)
+		}
+	})
+	t.Run("an important row admits it", func(t *testing.T) {
+		if code, stderr, posts := panelFixBegin(t, important, "panel-fix-2", "mf-pf-a"); code != 0 || posts != 1 {
+			t.Fatalf("exit %d, posts %d; want 0, 1; stderr:\n%s", code, posts, stderr)
+		}
+	})
+	t.Run("a backfill is admitted", func(t *testing.T) {
+		if code, stderr, posts := panelFixBegin(t, minor, "panel-fix-2", "mf-pf-a",
+			"-started-at", "2026-10-27T12:00:00Z", "-ended-at", "2026-10-27T12:10:00Z", "-outcome", "completed"); code != 0 || posts == 0 {
+			t.Fatalf("exit %d, posts %d; want 0 and a post; stderr:\n%s", code, posts, stderr)
+		}
+	})
+}
+
+func TestRecordDispatchRefusesReusedPanelFixKey(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	rec := func(outcome string) string {
+		return `{"change":"kan-258","findings":[{"ref":"F1","round":0,"slot":"primary","severity":"Important","note":"n","status":"open"}],` +
+			`"dispatches":[{"key":"panel-fix-1","role":"panel-fix","model":"opus","sessionToken":"mf-pf-other","outcome":"` + outcome + `","startedAt":"2026-10-27T12:00:00Z"}]}`
+	}
+	t.Run("another session's key is refused", func(t *testing.T) {
+		code, stderr, posts := panelFixBegin(t, rec("completed"), "panel-fix-1", "mf-pf-mine")
+		if code != 2 || posts != 0 || !strings.Contains(stderr, "mf-pf-other") {
+			t.Fatalf("exit %d, posts %d; want 2, 0 naming mf-pf-other; stderr:\n%s", code, posts, stderr)
+		}
+	})
+	t.Run("an aborted reuse is admitted", func(t *testing.T) {
+		if code, stderr, posts := panelFixBegin(t, rec("aborted"), "panel-fix-1", "mf-pf-mine"); code != 0 || posts != 1 {
+			t.Fatalf("exit %d, posts %d; want 0, 1; stderr:\n%s", code, posts, stderr)
+		}
+	})
+	t.Run("the same token is admitted", func(t *testing.T) {
+		if code, stderr, posts := panelFixBegin(t, rec("completed"), "panel-fix-1", "mf-pf-other"); code != 0 || posts != 1 {
+			t.Fatalf("exit %d, posts %d; want 0, 1; stderr:\n%s", code, posts, stderr)
+		}
+	})
+}
+
+// TestPanelFixBeginRefusalReusedKeyNamesTheAbortedRemedy pins the kan-1024
+// self-review fix: a reused panel-fix-1 whose round 1 holds no blocking
+// finding is pointed at ending the other row aborted, never at a
+// panel-fix-2 the first check would refuse; a later round is suggested only
+// when round <next> holds a Critical or Important finding.
+func TestPanelFixBeginRefusalReusedKeyNamesTheAbortedRemedy(t *testing.T) {
+	t.Parallel()
+	run := records.Run{
+		Findings:   []records.Finding{{Round: 0, Severity: "Critical"}},
+		Dispatches: []records.Dispatch{{Key: "panel-fix-1", SessionToken: "other", Outcome: "blocked"}},
+	}
+	msg := panelFixBeginRefusal(run, "panel-fix-1", "1", "mine")
+	if !strings.Contains(msg, "-session-token other -outcome aborted") || strings.Contains(msg, "panel-fix-2") {
+		t.Errorf("reused key with an empty round 1: %q", msg)
+	}
+	run.Findings = append(run.Findings, records.Finding{Round: 1, Severity: "Important"})
+	if msg := panelFixBeginRefusal(run, "panel-fix-1", "1", "mine"); !strings.Contains(msg, "a later fix round is panel-fix-2") {
+		t.Errorf("reused key with a blocking round 1: %q", msg)
 	}
 }

@@ -1186,6 +1186,22 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	if *startedAt == "" && !panelFixKeyedARoundLow(ctx, f, projectKey, *role, *key, time.Now(), stderr) {
 		return 2
 	}
+	// A panel-fix fixes review round <r>-1 (skills/flow/review-panel-fix-round.md),
+	// so it begins only once that round holds a Critical or Important row,
+	// and never under a key another session of the change already used
+	// (decision panel-fix-begin-needs-findings). As above, a failed read
+	// skips both checks and a back-filled row is admitted.
+	if m := panelFixRoundRE.FindStringSubmatch(*key); m != nil && panelFixKeyRE.MatchString(*key) && *startedAt == "" {
+		run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+			return cl.GetRunRecord(ctx, projectKey, f.change)
+		})
+		if err == nil {
+			if msg := panelFixBeginRefusal(run, *key, m[1], *sessionToken); msg != "" {
+				fmt.Fprintf(stderr, "flow: -key %q %s\n", *key, msg)
+				return 2
+			}
+		}
+	}
 
 	// A visual verifier is a mutator: it builds the stack from the tree and
 	// writes <changeRoot>/visual-verification/, so it never runs beside an
@@ -3719,6 +3735,44 @@ func inRunFixRefusal(ks []string, run records.Run, key, roundBase string) string
 // from 1, so the fix after panel-0 is panel-fix-1 (kan-1040's self-review);
 // internal/guard's pfdKeyRE is the same expression.
 var panelFixKeyRE = regexp.MustCompile(`^panel-fix-[1-9][0-9]*(-[0-9]+)?(-retry)?$`)
+
+// panelFixRoundRE captures a panel-fix key's round.
+var panelFixRoundRE = regexp.MustCompile(`^panel-fix-([0-9]+)`)
+
+// panelFixBeginRefusal is why run refuses a panel-fix begin under key, whose
+// round is round, from session token — "" when it is admitted: review round
+// <round>-1 must hold a Critical or Important finding, and no dispatch of
+// another session may carry key with an outcome other than aborted.
+func panelFixBeginRefusal(run records.Run, key, round, token string) string {
+	r, _ := strconv.Atoi(round)
+	blocking := func(round int) bool {
+		return slices.ContainsFunc(run.Findings, func(f records.Finding) bool {
+			sev := strings.ToLower(f.Severity)
+			return f.Round == round && (sev == "critical" || sev == "important")
+		})
+	}
+	if !blocking(r - 1) {
+		return fmt.Sprintf("fixes review round %d, which holds no Critical or Important finding — record that round's findings with `flow record finding -from` first (skills/flow/review-panel-fix-round.md)", r-1)
+	}
+	next := r
+	for _, d := range run.Dispatches {
+		if m := panelFixRoundRE.FindStringSubmatch(d.Key); m != nil {
+			if n, _ := strconv.Atoi(m[1]); n > next {
+				next = n
+			}
+		}
+	}
+	for _, d := range run.Dispatches {
+		if d.Key == key && d.SessionToken != token && d.Outcome != "aborted" {
+			msg := fmt.Sprintf("is already used by session %s — if that attempt did not land, end its row aborted (`flow record dispatch end -key %s -session-token %s -outcome aborted`), then begin", d.SessionToken, key, d.SessionToken)
+			if blocking(next) {
+				msg += fmt.Sprintf("; a later fix round is panel-fix-%d", next+1)
+			}
+			return msg
+		}
+	}
+	return ""
+}
 
 // panelFixKeyOK refuses, on stderr, a -key with the panel-fix- prefix that
 // panelFixKeyRE does not match; every other key passes.
