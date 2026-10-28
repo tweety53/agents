@@ -106,6 +106,11 @@ var ErrAgentIDInvalid = errors.New("store: invalid agent id")
 // cost unmeasured.
 var ErrInlineWindowTooShort = errors.New("store: inline dispatch window too short")
 
+// ErrDispatchEndsBeforeStart is returned by EndDispatch when the end
+// precedes the row's start by more than the start's own second -- a
+// same-second end is stored as the start instead.
+var ErrDispatchEndsBeforeStart = errors.New("store: dispatch ends before its start")
+
 // ErrDispatchWindowTooShort is returned by EndDispatch when a subagent row
 // (any agent id but "inline") with no token report, begun on a session whose
 // harness is harvested, would close completed under minInlineWindow after
@@ -589,15 +594,26 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 			return records.Dispatch{}, fmt.Errorf("%w: %s/%s key %q -- session token %q runs on a harness whose transcript the harvester reads; drop -tokens, and record a begin and commit made in one call with flow record dispatch backfill -agent-id inline -commit <sha>", ErrTokensOnHarvestedSession, projectKey, change, in.Key, in.SessionToken)
 		}
 	}
+	var agentID *string
+	var startedAt time.Time
+	readErr := s.pool.QueryRow(ctx, `
+		SELECT d.agent_id, d.started_at
+		FROM dispatches d JOIN changes c ON c.id = d.change_id
+		WHERE c.project_key = $1 AND c.name = $2
+		  AND d.session_token = $3 AND d.dispatch_key = $4`,
+		projectKey, change, in.SessionToken, in.Key).Scan(&agentID, &startedAt)
+	// An end before the start: within the start's own second it is the
+	// CLI's whole-second -ended-at truncating a fast end, stored as the
+	// start; earlier is refused, whatever the outcome (kan-1024's
+	// self-review: row 8281 ended 0.8 s before it began).
+	if readErr == nil && in.EndedAt.Before(startedAt) {
+		if in.EndedAt.Before(startedAt.Truncate(time.Second)) {
+			return records.Dispatch{}, fmt.Errorf("%w: %s/%s key %q begun %s, ended %s", ErrDispatchEndsBeforeStart, projectKey, change, in.Key, startedAt.UTC().Format(time.RFC3339Nano), in.EndedAt.UTC().Format(time.RFC3339Nano))
+		}
+		in.EndedAt = startedAt
+	}
 	if in.Outcome == "completed" {
-		var agentID *string
-		var startedAt time.Time
-		err := s.pool.QueryRow(ctx, `
-			SELECT d.agent_id, d.started_at
-			FROM dispatches d JOIN changes c ON c.id = d.change_id
-			WHERE c.project_key = $1 AND c.name = $2
-			  AND d.session_token = $3 AND d.dispatch_key = $4`,
-			projectKey, change, in.SessionToken, in.Key).Scan(&agentID, &startedAt)
+		err := readErr
 		inline := in.AgentID == "inline" || (in.AgentID == "" && agentID != nil && *agentID == "inline")
 		if err == nil && !inline && in.Tokens == nil && in.EndedAt.Sub(startedAt) < minInlineWindow {
 			var harvested bool

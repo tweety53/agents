@@ -615,7 +615,11 @@ func RenderLedger(r Run) string {
 		}
 		fmt.Fprintf(&b, "- Started: %s\n", started)
 		if d.EndedAt != nil && !d.StartedAt.IsZero() {
-			fmt.Fprintf(&b, "- Ended: %s (%s)\n", d.EndedAt.UTC().Format(time.RFC3339), d.EndedAt.Sub(d.StartedAt).Round(time.Second))
+			span := d.EndedAt.Sub(d.StartedAt).Round(time.Second).String()
+			if d.EndedAt.Before(d.StartedAt) {
+				span = "ends before its start"
+			}
+			fmt.Fprintf(&b, "- Ended: %s (%s)\n", d.EndedAt.UTC().Format(time.RFC3339), span)
 		}
 		fmt.Fprintf(&b, "- Tokens: %s\n", tokenLine(d.Metrics))
 		if strings.TrimSpace(d.Notes) != "" {

@@ -1185,3 +1185,14 @@ func TestRenderPanelVerdictSkipsSupersededRows(t *testing.T) {
 		t.Errorf("round 1 verdict counts a superseded row or drops one a later round superseded:\n%s", out)
 	}
 }
+
+func TestRenderDispatchEndingBeforeStart(t *testing.T) {
+	start := time.Date(2026, 10, 28, 0, 11, 25, 800000000, time.UTC)
+	end := start.Add(-816 * time.Millisecond)
+	out := records.RenderLedger(records.Run{Change: "kan-1", Dispatches: []records.Dispatch{
+		{Key: "k", Role: "implementer", Model: "opus", Outcome: "completed", StartedAt: start, EndedAt: &end},
+	}})
+	if !strings.Contains(out, "(ends before its start)") || strings.Contains(out, "(-") {
+		t.Errorf("ledger prints a negative duration or no flag:\n%s", out)
+	}
+}

@@ -5289,3 +5289,68 @@ func TestBeginDispatchMovesAnOpenRowsBeginEarlier(t *testing.T) {
 		t.Errorf("K2 started_at = %v, want %v", got2.StartedAt, t0)
 	}
 }
+
+// endBeforeStartFixture begins one dispatch per key at …:25.8 and returns
+// the store, project key and start instant.
+func endBeforeStartFixture(t *testing.T, keys ...string) (*store.Store, string, time.Time) {
+	t.Helper()
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-end-before-start-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	begin := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
+	begin.SessionToken = ptr("mf-end-before-start")
+	if _, err := st.BeginStage(ctx, begin); err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	start := time.Date(2026, 10, 28, 0, 11, 25, 800000000, time.UTC)
+	for _, key := range keys {
+		d := baseDispatch("implementer", "opus")
+		d.SessionToken = "mf-end-before-start"
+		d.Key = key
+		d.StartedAt = start
+		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", d); err != nil {
+			t.Fatalf("RecordDispatch(%s): %v", key, err)
+		}
+	}
+	return st, projectKey, start
+}
+
+func TestEndDispatchClampsSameSecondEnd(t *testing.T) {
+	st, projectKey, start := endBeforeStartFixture(t, "task-1-implementer")
+	got, err := st.EndDispatch(context.Background(), projectKey, "kan-1", records.DispatchEnd{
+		SessionToken: "mf-end-before-start", Key: "task-1-implementer", Outcome: "aborted",
+		EndedAt: start.Truncate(time.Second),
+	})
+	if err != nil {
+		t.Fatalf("EndDispatch: %v", err)
+	}
+	if got.EndedAt == nil || !got.EndedAt.Equal(start) {
+		t.Errorf("same-second end stored as %v, want the start %v", got.EndedAt, start)
+	}
+}
+
+func TestEndDispatchRefusesEndBeforeStart(t *testing.T) {
+	outcomes := []string{"completed", "aborted", "blocked"}
+	st, projectKey, start := endBeforeStartFixture(t, outcomes...)
+	ctx := context.Background()
+	for _, outcome := range outcomes {
+		end := records.DispatchEnd{SessionToken: "mf-end-before-start", Key: outcome, Outcome: outcome,
+			EndedAt: start.Truncate(time.Second).Add(-time.Second)}
+		if outcome == "blocked" {
+			end.Cause = "environment"
+		}
+		if _, err := st.EndDispatch(ctx, projectKey, "kan-1", end); !errors.Is(err, store.ErrDispatchEndsBeforeStart) {
+			t.Errorf("%s: err = %v, want ErrDispatchEndsBeforeStart", outcome, err)
+		}
+	}
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	for _, d := range rec.Dispatches {
+		if d.EndedAt != nil {
+			t.Errorf("%s: row closed at %v, want it open", d.Key, d.EndedAt)
+		}
+	}
+}
