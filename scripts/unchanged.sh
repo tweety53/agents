@@ -12,15 +12,15 @@
 # Exit codes:
 #   0  nothing matching changed: the suite is skipped, and one line says so
 #   1  a matching path changed: the suite runs
-#   2  usage: no pathspec
+#   2  usage: no pathspec, or a git call failed
+#
+# The logic is the Go port in stats/internal/guard/unchanged.go.
+# flow-guard is built from this checkout, never taken from PATH:
+# scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
+# cannot-answer code) with the cause when it cannot.
 set -euo pipefail
-if [ $# = 0 ]; then
-  echo "usage: unchanged.sh <pathspec>..." >&2
+[ -r "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" || {
+  echo "unchanged: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
-fi
-base="$(git merge-base HEAD origin/main)"
-if git diff --quiet "$base" -- "$@" && [ -z "$(git ls-files --others --exclude-standard -- "$@")" ]; then
-  echo "unchanged: nothing under $* changed since $base — suite skipped"
-  exit 0
-fi
-exit 1
+}
+flow_guard_exec unchanged 2 "unchanged:" "$@"
