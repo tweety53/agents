@@ -843,7 +843,7 @@ func (stubStageStore) SetSessionActivity(context.Context, string, string, string
 	return nil
 }
 
-func (stubStageStore) LiveStateBoard(context.Context, store.Period, *string) ([]store.LiveStateRow, error) {
+func (stubStageStore) LiveStateBoard(context.Context, store.Period, *string, *string) ([]store.LiveStateRow, error) {
 	return nil, errStageStoreNotImplemented
 }
 

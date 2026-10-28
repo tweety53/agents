@@ -431,7 +431,7 @@ describe("views render their fixture response's actual values", () => {
   it("state board stops refetching while the tab is hidden", async () => {
     vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"], now: BOARD_NOW });
     const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
-    render(<StateBoard />);
+    const { unmount } = render(<StateBoard />);
     await act(async () => {});
     const before = fetchStatsViewMock.mock.calls.length;
     await act(async () => vi.advanceTimersByTime(15000));
@@ -441,6 +441,11 @@ describe("views render their fixture response's actual values", () => {
     vi.setSystemTime(BOARD_NOW.getTime() + 15000);
     await act(async () => document.dispatchEvent(new Event("visibilitychange")));
     expect(fetchStatsViewMock.mock.calls.length).toBe(before + 1);
+    // Unmounted, the board no longer listens for the tab coming back.
+    const removed = vi.spyOn(document, "removeEventListener");
+    unmount();
+    expect(removed).toHaveBeenCalledWith("visibilitychange", expect.any(Function));
+    removed.mockRestore();
     hidden.mockRestore();
   });
 
