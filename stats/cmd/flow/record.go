@@ -1529,6 +1529,9 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stder
 			fmt.Fprintln(stderr, "flow: an inline back-fill with -commit takes neither -started-at nor -ended-at -- both derive from the commit")
 			return 2
 		}
+		if !panelFixRoundClosed(ctx, f, projectKey, *v["role"], *v["key"], stderr) {
+			return 2
+		}
 		roots := mutationRoots(ctx, f, projectKey)
 		endT, ok := commitTime(*v["commit"], roots)
 		var startT time.Time
@@ -3591,6 +3594,37 @@ func panelFixKeyedARoundLow(ctx context.Context, f recordIdentityFlags, projectK
 	for _, d := range run.Dispatches {
 		if n, ok := records.PanelDispatchRound(d); ok && n == r && d.StartedAt.Before(before) {
 			fmt.Fprintf(stderr, "flow: -key %q: panel round %d's reviewers began before this fix ended, so it fixes round %d's findings and is panel-fix-%d (skills/flow/review-panel-fix-round.md)\n", key, r, r, r+1)
+			return false
+		}
+	}
+	return true
+}
+
+// panelFixRoundClosed refuses, reporting false, an inline back-fill of a
+// panel-fix-<r>[-<chunk>] key while a reviewer row of round r-1 has no end:
+// the fix cannot begin before the reports it fixes, and an open row has no
+// report to floor at yet (kan-1046 self-review, 1c: panel-fix-4 began
+// before panel-3's reviewers did). Any other role or key, a
+// full-suite-fix-<n> key, and a failed record read pass.
+func panelFixRoundClosed(ctx context.Context, f recordIdentityFlags, projectKey, role, key string, stderr io.Writer) bool {
+	rest, ok := strings.CutPrefix(key, "panel-fix-")
+	if role != "panel-fix" || !ok {
+		return true
+	}
+	digits, _, _ := strings.Cut(rest, "-")
+	r, err := strconv.Atoi(digits)
+	if err != nil || r < 1 {
+		return true
+	}
+	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+		return cl.GetRunRecord(ctx, projectKey, f.change)
+	})
+	if err != nil {
+		return true
+	}
+	for _, d := range run.Dispatches {
+		if n, ok := records.PanelDispatchRound(d); ok && n == r-1 && d.EndedAt == nil {
+			fmt.Fprintf(stderr, "flow: -key %q: close panel round %d's reviewer rows first -- the fix cannot begin before the reports it fixes\n", key, r-1)
 			return false
 		}
 	}

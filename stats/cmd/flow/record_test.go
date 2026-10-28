@@ -7054,3 +7054,59 @@ func TestRecordDispatchBackfillInlineFloorsAtVisualVerify(t *testing.T) {
 		}
 	}
 }
+
+// TestRecordDispatchBackfillRefusesPanelFixOverOpenRound pins the kan-1046
+// self-review fix (1c): an inline panel-fix-<r> back-fill is refused, exit 2
+// with no store call, while a reviewer row of round r-1 is open; with that
+// row ended it passes and floors at its end.
+func TestRecordDispatchBackfillRefusesPanelFixOverOpenRound(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	fixtureCommit(t, repo, "2026-10-28T14:37:39Z")
+	sha := fixtureCommit(t, repo, "2026-10-28T14:41:35Z")
+	open := `{"change":"kan-258","dispatches":[` +
+		`{"key":"panel-1-primary","agentId":"a1","role":"reviewer","slot":"primary","startedAt":"2026-10-28T14:38:10Z"}]}`
+	closed := `{"change":"kan-258","dispatches":[` +
+		`{"key":"panel-1-primary","agentId":"a1","role":"reviewer","slot":"primary","startedAt":"2026-10-28T14:38:10Z","endedAt":"2026-10-28T14:40:55Z"}]}`
+	var record string
+	var bodies []map[string]any
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
+			_, _ = w.Write([]byte(record))
+			return
+		}
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		raw, _ := readAll(r)
+		var b map[string]any
+		_ = json.Unmarshal(raw, &b)
+		bodies = append(bodies, b)
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"panel-fix","model":"opus"}`))
+	}))
+	t.Cleanup(srv.Close)
+	args := []string{"record", "dispatch", "backfill", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "kan-258", "-role", "panel-fix", "-model", "opus", "-key", "panel-fix-2",
+		"-session-token", "mf-record-open-round", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
+	record = open
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 2 || len(bodies) != 0 {
+		t.Fatalf("open round: exit %d, store calls %d; want 2 and none (stderr %q)", code, len(bodies), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "close panel round 1's reviewer rows first") {
+		t.Errorf("open round: stderr %q does not name the open round", stderr.String())
+	}
+	if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+		t.Errorf("open round: wrote a record journal")
+	}
+	record = closed
+	stderr.Reset()
+	if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		t.Fatalf("closed round: exit %d; stderr:\n%s", code, stderr.String())
+	}
+	if len(bodies) != 2 || bodies[0]["startedAt"] != "2026-10-28T14:40:55Z" {
+		t.Errorf("closed round: bodies = %v, want begin startedAt 14:40:55Z", bodies)
+	}
+}
