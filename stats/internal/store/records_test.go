@@ -5354,3 +5354,28 @@ func TestEndDispatchRefusesEndBeforeStart(t *testing.T) {
 		}
 	}
 }
+
+func TestEndDispatchKeepsClosedRowEnd(t *testing.T) {
+	st, projectKey, start := endBeforeStartFixture(t, "panel-fix-4")
+	ctx := context.Background()
+	t1 := start.Add(10 * time.Minute)
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{
+		SessionToken: "mf-end-before-start", Key: "panel-fix-4", Outcome: "completed",
+		CommitSHA: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", EndedAt: t1,
+	}); err != nil {
+		t.Fatalf("first EndDispatch: %v", err)
+	}
+	got, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{
+		SessionToken: "mf-end-before-start", Key: "panel-fix-4", Outcome: "completed",
+		CommitSHA: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", EndedAt: t1.Add(15 * time.Minute),
+	})
+	if err != nil {
+		t.Fatalf("re-end EndDispatch: %v", err)
+	}
+	if got.EndedAt == nil || !got.EndedAt.Equal(t1) {
+		t.Errorf("re-end moved ended_at to %v, want the first end %v", got.EndedAt, t1)
+	}
+	if got.CommitSHA != "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" {
+		t.Errorf("re-end commit = %v, want the re-pointed commit", got.CommitSHA)
+	}
+}

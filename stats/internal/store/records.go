@@ -560,6 +560,10 @@ func (s *Store) insertDispatch(ctx context.Context, projectKey, change string, i
 // its begin with outcome completed is refused with ErrInlineWindowTooShort
 // (a blocked or aborted row legitimately ends early): begin and end recorded
 // together after the work leave the harvester a zero-width window to credit.
+//
+// A closed row keeps its end: a second end -- the run's re-point after an
+// autosquash -- updates its commit and outcome only, and a closed row's end
+// moves only through flowd retime-dispatch (kan-1046 self-review, 1a).
 func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in records.DispatchEnd) (records.Dispatch, error) {
 	// Held as a string, never a []byte: pgx binds a []byte as bytea, and a
 	// bytea reaching the statement's tokens cast reads as NULL -- the
@@ -640,7 +644,7 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 	}
 	out, err := scanDispatchRow(s.pool.QueryRow(ctx, `
 		UPDATE dispatches d
-		SET commit_sha = $5, outcome = $6, ended_at = $7, agent_id = COALESCE($8, d.agent_id),
+		SET commit_sha = $5, outcome = $6, ended_at = COALESCE(d.ended_at, $7), agent_id = COALESCE($8, d.agent_id),
 		    cause = $9, diff_base = COALESCE($11, d.diff_base),
 		    metrics = CASE WHEN $10::text IS NULL THEN d.metrics
 		               ELSE jsonb_set(
