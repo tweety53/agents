@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/tweety53/agents/stats/internal/api"
 	"github.com/tweety53/agents/stats/internal/harvest"
 	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
@@ -5404,5 +5405,97 @@ func TestDropMutation(t *testing.T) {
 	}
 	if err := st.DropMutation(ctx, m.ID); err == nil || !strings.Contains(err.Error(), "no such mutation") {
 		t.Errorf("second DropMutation = %v, want no such mutation", err)
+	}
+}
+
+// TestApplyDispatchEndAtRestampsOnTheStore pins the transcript restamp
+// against the real store (kan-1044 self-review, F1-a): an end the daemon
+// stamped is moved to the agent's last transcript write, though the first
+// call already closed the row.
+func TestApplyDispatchEndAtRestampsOnTheStore(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-restamp-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	d := baseDispatch("reviewer", "opus")
+	d.Key = "panel-10-primary"
+	d.SessionToken = "mf-restamp"
+	d.AgentID = "agent-restamp"
+	d.StartedAt = time.Now().Add(-time.Hour).UTC().Truncate(time.Millisecond)
+	row, err := st.RecordDispatch(ctx, projectKey, "kan-1", d)
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	last := d.StartedAt.Add(20 * time.Minute)
+	if _, err := api.ApplyDispatchEndAt(ctx, st, projectKey, "kan-1", records.DispatchEnd{
+		SessionToken: "mf-restamp", Key: d.Key, Outcome: "clean",
+	}, func(string) (time.Time, bool) { return last, true }); err != nil {
+		t.Fatalf("ApplyDispatchEndAt: %v", err)
+	}
+	var ended time.Time
+	if err := pool.QueryRow(ctx, `SELECT ended_at FROM dispatches WHERE id = $1`, row.ID).Scan(&ended); err != nil {
+		t.Fatalf("read row: %v", err)
+	}
+	if !ended.Equal(last) {
+		t.Errorf("ended_at = %v, want the agent's last write %v", ended, last)
+	}
+}
+
+// TestRestampStampedEnds pins flowd restamp-ends' store half (kan-1044
+// self-review, F1-a): only a non-inline row whose end carries
+// sub-millisecond digits, whose agent end falls inside its window, moves.
+func TestRestampStampedEnds(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-restamp-ends-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	start := time.Date(2026, 10, 28, 16, 0, 0, 0, time.UTC)
+	agentEnds := map[string]time.Time{}
+	ids := map[string]int64{}
+	for _, c := range []struct {
+		agent string
+		end   time.Time
+		agEnd time.Time
+	}{
+		{"micro", start.Add(30*time.Minute + 123456*time.Microsecond), start.Add(10 * time.Minute)},
+		{"milli", start.Add(30*time.Minute + 123*time.Millisecond), start.Add(10 * time.Minute)},
+		{"second", start.Add(30 * time.Minute), start.Add(10 * time.Minute)},
+		{"inline", start.Add(30*time.Minute + 123456*time.Microsecond), start.Add(10 * time.Minute)},
+		{"early", start.Add(30*time.Minute + 123456*time.Microsecond), start.Add(-time.Minute)},
+	} {
+		d := baseDispatch("reviewer", "opus")
+		d.Key = "panel-1-" + c.agent
+		d.SessionToken = "mf-restamp-ends"
+		d.AgentID = c.agent
+		d.StartedAt = start
+		row, err := st.RecordDispatch(ctx, projectKey, "kan-1", d)
+		if err != nil {
+			t.Fatalf("RecordDispatch(%s): %v", c.agent, err)
+		}
+		if err := st.RetimeDispatch(ctx, row.ID, start, c.end, ""); err != nil {
+			t.Fatalf("RetimeDispatch(%s): %v", c.agent, err)
+		}
+		agentEnds[c.agent] = c.agEnd
+		ids[c.agent] = row.ID
+	}
+	n, err := st.RestampStampedEnds(ctx, start, func(id string) (time.Time, bool) {
+		at, ok := agentEnds[id]
+		return at, ok
+	})
+	if err != nil {
+		t.Fatalf("RestampStampedEnds: %v", err)
+	}
+	if n != 1 {
+		t.Errorf("restamped %d, want 1", n)
+	}
+	for agent, id := range ids {
+		var ended time.Time
+		if err := pool.QueryRow(ctx, `SELECT ended_at FROM dispatches WHERE id = $1`, id).Scan(&ended); err != nil {
+			t.Fatalf("read %s: %v", agent, err)
+		}
+		moved := ended.Equal(agentEnds[agent])
+		if moved != (agent == "micro") {
+			t.Errorf("%s: ended_at = %v, moved = %v", agent, ended, moved)
+		}
 	}
 }

@@ -644,7 +644,7 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 	}
 	out, err := scanDispatchRow(s.pool.QueryRow(ctx, `
 		UPDATE dispatches d
-		SET commit_sha = $5, outcome = $6, ended_at = COALESCE(d.ended_at, $7), agent_id = COALESCE($8, d.agent_id),
+		SET commit_sha = $5, outcome = $6, ended_at = CASE WHEN $12 THEN $7 ELSE COALESCE(d.ended_at, $7) END, agent_id = COALESCE($8, d.agent_id),
 		    cause = $9, diff_base = COALESCE($11, d.diff_base),
 		    metrics = CASE WHEN $10::text IS NULL THEN d.metrics
 		               ELSE jsonb_set(
@@ -662,7 +662,7 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 		projectKey, change, in.SessionToken, in.Key,
 		nullIfEmpty(in.CommitSHA), nullIfEmpty(in.Outcome), in.EndedAt, nullIfEmpty(in.AgentID),
 		nullIfEmpty(in.Cause),
-		reportParam, nullIfEmpty(in.DiffBase),
+		reportParam, nullIfEmpty(in.DiffBase), in.ReEnd,
 	))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -1299,6 +1299,52 @@ func (s *Store) RetimeDispatch(ctx context.Context, id int64, started, ended tim
 		return fmt.Errorf("%w: %d", ErrDispatchNotFound, id)
 	}
 	return nil
+}
+
+// RestampStampedEnds moves every non-inline agent row ended at or after since
+// whose end carries sub-millisecond digits -- the daemon's own stamp;
+// transcript ends are millisecond and CLI ends whole-second -- to its agent's
+// last transcript write, when that write is before the end and not before
+// the start, as api's agentEndOf judges a live end (kan-1044 self-review,
+// F1-a). It returns the number of rows moved.
+func (s *Store) RestampStampedEnds(ctx context.Context, since time.Time, agentEnd func(agentID string) (time.Time, bool)) (int, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, agent_id, started_at, ended_at FROM dispatches
+		WHERE ended_at >= $1 AND agent_id IS NOT NULL AND agent_id <> 'inline'
+		  AND ended_at <> date_trunc('milliseconds', ended_at)`, since)
+	if err != nil {
+		return 0, fmt.Errorf("store: restamp stamped ends: %w", err)
+	}
+	type cand struct {
+		id           int64
+		agent        string
+		started, end time.Time
+	}
+	var cands []cand
+	for rows.Next() {
+		var c cand
+		if err := rows.Scan(&c.id, &c.agent, &c.started, &c.end); err != nil {
+			rows.Close()
+			return 0, fmt.Errorf("store: restamp stamped ends: %w", err)
+		}
+		cands = append(cands, c)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, fmt.Errorf("store: restamp stamped ends: %w", err)
+	}
+	n := 0
+	for _, c := range cands {
+		at, ok := agentEnd(c.agent)
+		if !ok || !at.Before(c.end) || at.Before(c.started) {
+			continue
+		}
+		if _, err := s.pool.Exec(ctx, `UPDATE dispatches SET ended_at = $2 WHERE id = $1`, c.id, at); err != nil {
+			return n, fmt.Errorf("store: restamp dispatch %d: %w", c.id, err)
+		}
+		n++
+	}
+	return n, nil
 }
 
 // SetDispatchOutcome sets dispatch id's outcome and cause outright -- the

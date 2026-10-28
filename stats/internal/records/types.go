@@ -194,6 +194,10 @@ type DispatchEnd struct {
 	// as its own stamp and may take the agent's last write instead
 	// (kan-1040's self-review).
 	EndedAtJournalled bool `json:"endedAtJournalled,omitempty"`
+	// ReEnd lets EndDispatch overwrite a closed row's ended_at. Only
+	// api.ApplyDispatchEndAt sets it, on its transcript restamp; no HTTP
+	// body or journal line can (kan-1044 self-review, F1-a).
+	ReEnd bool `json:"-"`
 }
 
 // TokenReport is the token usage a caller reports for a same-session

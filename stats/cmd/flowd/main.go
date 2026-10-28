@@ -100,6 +100,14 @@ func main() {
 		return
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == "restamp-ends" {
+		if err := restampEnds(os.Args[2:]); err != nil {
+			logger.Error("flowd restamp-ends failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "retime-dispatch" {
 		if err := retimeDispatch(os.Args[2:]); err != nil {
 			logger.Error("flowd retime-dispatch failed", "error", err)
@@ -933,6 +941,40 @@ func reoutcomeDispatch(args []string) error {
 	}
 	defer st.Close()
 	return st.SetDispatchOutcome(ctx, id, outcome, cause)
+}
+
+// restampEnds implements `flowd restamp-ends <since>`
+// (store.Store.RestampStampedEnds): the repair for agent rows whose daemon
+// stamp a closed row kept instead of the agent's last transcript write
+// (kan-1044 self-review, F1-a). It talks to the database directly.
+func restampEnds(args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("usage: flowd restamp-ends <since RFC3339>")
+	}
+	since, err := time.Parse(time.RFC3339, args[0])
+	if err != nil {
+		return fmt.Errorf("since %q: %w", args[0], err)
+	}
+	root, err := harvest.DefaultTranscriptsRoot()
+	if err != nil {
+		return err
+	}
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	st, err := store.Open(ctx, cfg.DSN)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	n, err := st.RestampStampedEnds(ctx, since, func(agentID string) (time.Time, bool) {
+		at, found, err := harvest.AgentTranscriptEnd(root, agentID)
+		return at, err == nil && found
+	})
+	fmt.Printf("restamped: %d\n", n)
+	return err
 }
 
 // retimeDispatch implements `flowd retime-dispatch <dispatch-id>

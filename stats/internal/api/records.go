@@ -255,6 +255,7 @@ func ApplyDispatchEndAt(ctx context.Context, rs RecordStore, project, change str
 	out, err := ApplyDispatchEnd(ctx, rs, project, change, in)
 	if at, ok := agentEndOf(out, err, stamped, agentEnd); ok {
 		in.EndedAt = at
+		in.ReEnd = true
 		out, err = ApplyDispatchEnd(ctx, rs, project, change, in)
 	}
 	return out, err
