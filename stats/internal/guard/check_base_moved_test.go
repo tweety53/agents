@@ -100,23 +100,12 @@ func runGuard(name string, args []string, env Env) guardResult {
 	if fn == nil {
 		return guardResult{rc: -1, out: name + " is not registered"}
 	}
+	var mu sync.Mutex
 	var all, o, e bytes.Buffer
 	// A guard that hands both writers to a child process gets two copying
 	// goroutines, so the merged buffer they share takes a lock.
-	merged := &lockedWriter{w: &all}
-	rc := fn(args, env, io.MultiWriter(&o, merged), io.MultiWriter(&e, merged))
+	rc := fn(args, env, lsrrLocked{&mu, io.MultiWriter(&o, &all)}, lsrrLocked{&mu, io.MultiWriter(&e, &all)})
 	return guardResult{rc, strings.TrimRight(all.String(), "\n"), o.String(), e.String()}
-}
-
-type lockedWriter struct {
-	mu sync.Mutex
-	w  io.Writer
-}
-
-func (l *lockedWriter) Write(p []byte) (int, error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.w.Write(p)
 }
 
 // baseRefUsageWant is base_ref_usage_message from scripts/lib/base-ref-usage.sh at d71a2327
@@ -619,6 +608,6 @@ func TestRunGuardMergesAChildsTwoStreams(t *testing.T) {
 	t.Cleanup(func() { delete(Registry, "test-two-streams") })
 	r := runGuard("test-two-streams", nil, Env{})
 	if r.rc != 0 || strings.Count(r.out, "out")+strings.Count(r.out, "err") != 400 {
-		t.Fatalf("runGuard = rc %d, %d lines merged; want rc 0 and 400", r.rc, strings.Count(r.out, "\n")+1)
+		t.Fatalf("runGuard = rc %d, %d lines merged; want rc 0 and 400", r.rc, strings.Count(r.out, "out")+strings.Count(r.out, "err"))
 	}
 }
