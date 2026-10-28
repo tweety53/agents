@@ -1,4 +1,0 @@
-# Sentences this change adds on purpose — the kan-1047 in-run pipeline fix: the late form of flow record mutation (review-panel-fix-round.md).
-after (kan-1046 self-review, 1d). A row missed before the re-review is recorded with
-`flow record mutation -late '<reason>'`, which admits it at its own round and records the reason as
-a pass note of that round, `late mutation proof for <path>: <reason>` (kan-1047 pipeline fix).

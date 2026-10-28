@@ -29,13 +29,13 @@ writes the reason as a pass note of the same round; guards unchanged; one senten
 
 - Task 1: without `-late` the refusal is unchanged (exit 2, no write); with it, exactly the mutation row and one pass row are written, and a failed mutation write writes no pass row.
 
-- [ ] 1. Admit a late fix-mutation row with its reason
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
+- [x] 1. Admit a late fix-mutation row with its reason
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save Step 2's diff, apply its
     test hunk alone (`git apply --include='stats/cmd/flow/record_test.go' <the saved diff>`) and run
     `cd stats && make -s web-dist && go test ./cmd/flow -run TestRecordMutationRefusesAfterReReviewBegan -count=1`:
     it fails with `flag provided but not defined: -late`.
     <!-- measured: the test hunk alone, go test -run TestRecordMutationRefusesAfterReReviewBegan @ edf8e4e8 → FAIL, -late undefined -->
-  - [ ] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/cmd/flow/record_test.go' <the saved diff>`):
+  - [x] **Step 2: Apply the fix** — the rest (`git apply --exclude='stats/cmd/flow/record_test.go' <the saved diff>`):
 
 ````diff verified:applied with git apply to this worktree at edf8e4e8; go test ./cmd/flow -count=1 passes, the extended test fails with record.go reverted, go vet and gofmt -l clean
 diff --git a/stats/cmd/flow/record.go b/stats/cmd/flow/record.go
@@ -130,8 +130,8 @@ index d208d8ae..b7536d35 100644
  
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./cmd/flow -run TestRecordMutationRefusesAfterReReviewBegan -count=1` passes; `go vet ./cmd/flow` and `gofmt -l ./cmd/flow` are clean; `scripts/check-verbatim-moves.sh` and `scripts/check-references.sh` exit 0.
-  - [ ] **Step 4: Commit** the three files with the subject below.
+  - [x] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./cmd/flow -run TestRecordMutationRefusesAfterReReviewBegan -count=1` passes; `go vet ./cmd/flow` and `gofmt -l ./cmd/flow` are clean; `scripts/check-verbatim-moves.sh` and `scripts/check-references.sh` exit 0.
+  - [x] **Step 4: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`, `skills/flow/review-panel-fix-round.md`
