@@ -68,8 +68,12 @@ type CostPerChangeViewSlug = "cost-per-change";
  * (internal/api/health.go) -- not a navigable view of its own. */
 export type HealthViewSlug = "flow-summary";
 
+/** The statistics endpoint the Weekly costs view's model·effort chart reads
+ * (decision model-effort-view) -- not a navigable view of its own. */
+export type WeeklyModelEffortViewSlug = "weekly-model-effort-costs";
+
 /** Every slug GET /api/v1/stats/{view} is called with from this client. */
-export type StatsViewSlug = ViewName | CostPerChangeViewSlug | HealthViewSlug;
+export type StatsViewSlug = ViewName | CostPerChangeViewSlug | HealthViewSlug | WeeklyModelEffortViewSlug;
 
 /**
  * Parameters every statistics view accepts. "from" and "to" are both
@@ -337,6 +341,17 @@ export interface WeeklyCostPoint {
   implementationUsd: number | null;
   reviewUsd: number | null;
   selfReviewUsd: number | null;
+  visualVerifyUsd: number | null;
+  otherUsd: number | null;
+}
+
+/** Mirrors weeklyModelEffortPointDTO: one week's cost for one model and
+ * effort -- a dispatch effort, "default", or "session". */
+export interface WeeklyModelEffortPoint {
+  week: string;
+  model: string;
+  effort: string;
+  costUsd: number;
 }
 
 /** Mirrors reviewerRowDTO. */

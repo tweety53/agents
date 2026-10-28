@@ -426,6 +426,10 @@ th button {
   fill: var(--surface-panel);
 }
 
+.weekly-delta text {
+  fill: var(--text-primary);
+}
+
 .weekly-delta line {
   stroke-width: 1;
 }
