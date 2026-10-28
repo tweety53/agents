@@ -31,3 +31,13 @@
 ## Live check
 
 - `scripts/live-store-copy.sh up k1047 4175` from this worktree; open `/#/review-dynamics`: Projects lists agents, flow-eval, gymie, gymie-frontend, spectre; gymie + Big shows 43 changes reviewed and no retired rows; failure looks like the header field not following a click, the counts not changing with Task size, or bugbot rows under Current.
+
+### marker-kind-filter
+**ID:** marker-kind-filter
+**Status:** decided
+- Operator mid-run request (2026-10-28): a Prompt changes bar `flow-prompt-tuning` · `All` · `auto prompt tuning`, default `flow-prompt-tuning`. `flow-prompt-tuning` shows markers of kind `tuning` (what `/flow-prompt-tuning` applied); `auto prompt tuning` shows kind `edit` (prompt edits recorded automatically from commits); `All` both. Client side: the markers are already in the answer.
+
+### two-column-grid
+**ID:** two-column-grid
+**Status:** decided
+- Operator mid-run request (2026-10-28): every chart row holds exactly two charts.
