@@ -1,14 +1,17 @@
 // Weekly costs -- where does flow spend go, week by week? Weeks run
-// Wednesday 00:00 UTC to the next Wednesday. One chart covers the last 8
+// Wednesday 00:00 UTC to the next Wednesday. Two charts cover the last 8
 // weeks, the current partial week included, over every project and model:
 // the view takes no filter (KAN-1038), so App renders no filter bar for it.
-// Each phase is a toggleable line; every point carries its change from the
-// same series' previous week. A category with no costed run that week is a
-// gap in its line, never $0, and the week after a gap carries no change.
+// The first draws each phase, plus Other, as a toggleable line; the second
+// (KAN-1041) one line per model · effort pair, the parent session per model
+// as its own line. Every point carries a permanent pill with its cost and
+// its change from the same series' previous week. A series with no costed
+// run that week is a gap in its line, never $0, and the week after a gap,
+// like the window's first week, shows its cost alone.
 import { useMemo, useState } from "react";
 import { Panel } from "../components/Panel";
 import { ViewFrame } from "../components/ViewFrame";
-import type { WeeklyCostPoint } from "../api";
+import type { WeeklyCostPoint, WeeklyModelEffortPoint } from "../api";
 import { useStatsView } from "../hooks/useStatsView";
 import { formatUsd } from "../format";
 import type { ViewProps } from "../viewTypes";
@@ -22,7 +25,16 @@ const categories: { key: keyof Omit<WeeklyCostPoint, "week">; name: string }[] =
   { key: "implementationUsd", name: "Implementation" },
   { key: "reviewUsd", name: "Review" },
   { key: "selfReviewUsd", name: "Self-review" },
+  { key: "visualVerifyUsd", name: "Visual verify" },
+  { key: "otherUsd", name: "Other" },
 ];
+
+/** One chart line: a name and its cost per week of the window, null where
+ * the week carries none. */
+interface Series {
+  name: string;
+  values: (number | null)[];
+}
 
 /** The last 8 Wednesday-to-Wednesday weeks: from this week's UTC
  * Wednesday 00:00 minus 7 weeks, to now. */
@@ -32,23 +44,40 @@ export function lastEightWeeks(now: Date): { from: Date; to: Date } {
   return { from: new Date(midnight - (sinceWednesday + (WEEKS - 1) * 7) * DAY_MS), to: now };
 }
 
-/** Every week of `from`'s 8-week window, in order: the response's row where
- * it carries one, an all-null row where no costed run fell in that week. */
-function everyWeek(from: Date, rows: WeeklyCostPoint[]): WeeklyCostPoint[] {
+/** Every week of `from`'s 8-week window, in order, as YYYY-MM-DD. */
+function everyWeek(from: Date): string[] {
+  return Array.from({ length: WEEKS }, (_, i) => new Date(from.getTime() + i * 7 * DAY_MS).toISOString().slice(0, 10));
+}
+
+/** One series per phase category, null in a week the response carries no
+ * row for. */
+function phaseSeries(weeks: string[], rows: WeeklyCostPoint[]): Series[] {
   const byWeek = new Map(rows.map((r) => [r.week, r]));
-  return Array.from({ length: WEEKS }, (_, i) => {
-    const week = new Date(from.getTime() + i * 7 * DAY_MS).toISOString().slice(0, 10);
-    return (
-      byWeek.get(week) ?? {
-        week,
-        overallUsd: null,
-        planningUsd: null,
-        implementationUsd: null,
-        reviewUsd: null,
-        selfReviewUsd: null,
-      }
-    );
-  });
+  return categories.map(({ key, name }) => ({ name, values: weeks.map((w) => byWeek.get(w)?.[key] ?? null) }));
+}
+
+/** A model · effort line's label: the model id without its "claude-"
+ * prefix, then the effort or "session" (decision model-label). */
+function modelEffortName(model: string, effort: string): string {
+  return `${model.replace(/^claude-/, "")} · ${effort}`;
+}
+
+/** The long model·effort rows pivoted into one series per pair, ordered by
+ * total cost, highest first. */
+function modelEffortSeries(weeks: string[], rows: WeeklyModelEffortPoint[]): Series[] {
+  const byName = new Map<string, (number | null)[]>();
+  for (const r of rows) {
+    const week = weeks.indexOf(r.week);
+    if (week < 0) continue;
+    const name = modelEffortName(r.model, r.effort);
+    const values = byName.get(name) ?? weeks.map(() => null);
+    values[week] = (values[week] ?? 0) + r.costUsd;
+    byName.set(name, values);
+  }
+  const total = (v: (number | null)[]) => v.reduce<number>((sum, c) => sum + (c ?? 0), 0);
+  return [...byName]
+    .map(([name, values]) => ({ name, values }))
+    .sort((a, b) => total(b.values) - total(a.values));
 }
 
 /** The change from `previous` to `value` in percent, or null where either
@@ -76,9 +105,9 @@ function tickStep(max: number): number {
 }
 
 const WIDTH = 960;
-const HEIGHT = 440;
-const LEFT = 64;
-const RIGHT = 60;
+const HEIGHT = 460;
+const LEFT = 56;
+const RIGHT = 110;
 const TOP = 16;
 const BOTTOM = 48;
 const PLOT_W = WIDTH - LEFT - RIGHT;
@@ -94,18 +123,15 @@ interface Point {
 }
 
 interface Label extends Point {
-  pct: number;
   labelY: number;
 }
 
-/** Per week column, the delta labels sorted by y and pushed apart to
+/** Per week column, the cost labels sorted by y and pushed apart to
  * LABEL_GAP, then shifted up together where the stack overruns the plot. */
 function stackLabels(points: Point[]): Label[] {
   const out: Label[] = [];
-  for (let week = 1; week < WEEKS; week++) {
-    const column = points
-      .filter((p): p is Point & { pct: number } => p.week === week && p.pct !== null)
-      .sort((a, b) => a.y - b.y);
+  for (let week = 0; week < WEEKS; week++) {
+    const column = points.filter((p) => p.week === week).sort((a, b) => a.y - b.y);
     let last = -Infinity;
     const stacked = column.map((p) => {
       last = Math.max(p.y, last + LABEL_GAP);
@@ -117,34 +143,42 @@ function stackLabels(points: Point[]): Label[] {
   return out;
 }
 
-function WeeklyCostChart({ rows }: { rows: WeeklyCostPoint[] }) {
-  const [shown, setShown] = useState(() => categories.map((_, i) => i === 0));
+interface ChartProps {
+  weeks: string[];
+  series: Series[];
+  ariaLabel: string;
+  /** Whether every line starts shown; otherwise the first alone does. */
+  allShown?: boolean;
+}
+
+function WeeklyCostChart({ weeks, series: lineSeries, ariaLabel, allShown = false }: ChartProps) {
+  const [shown, setShown] = useState(() => lineSeries.map((_, i) => allShown || i === 0));
   const [hovered, setHovered] = useState<{ series: number; week: number } | null>(null);
 
-  const visible = categories
-    .flatMap((c, n) => (shown[n] ? rows.map((r) => r[c.key]) : []))
+  const visible = lineSeries
+    .flatMap((s, n) => (shown[n] ? s.values : []))
     .filter((v): v is number => v !== null);
   const step = tickStep(Math.max(0, ...visible));
   const x = (week: number) => LEFT + (PLOT_W * week) / (WEEKS - 1);
   const y = (value: number) => TOP + PLOT_H - (PLOT_H * value) / (step * 5);
 
-  const lines = categories.map(({ key }, series) =>
-    rows.map((r, week): Point | null => {
-      const value = r[key];
+  const lines = lineSeries.map(({ values }, series) =>
+    values.map((value, week): Point | null => {
       if (value === null) return null;
-      return { series, week, value, y: y(value), pct: week ? change(value, rows[week - 1][key]) : null };
+      return { series, week, value, y: y(value), pct: week ? change(value, values[week - 1]) : null };
     }),
   );
   const drawn = lines.filter((_, n) => shown[n]);
   const points = drawn.flat().filter((p): p is Point => p !== null);
   const labels = stackLabels(points);
   const tip = hovered && points.find((p) => p.series === hovered.series && p.week === hovered.week);
-  const color = (series: number) => `var(--series-${series + 1})`;
+  const color = (series: number) => `var(--series-${(series % 7) + 1})`;
+  const name = (series: number) => lineSeries[series].name;
 
   return (
     <div className="weekly-chart">
       <div className="weekly-toggles">
-        {categories.map(({ name }, n) => (
+        {lineSeries.map(({ name }, n) => (
           <button
             key={name}
             type="button"
@@ -157,7 +191,7 @@ function WeeklyCostChart({ rows }: { rows: WeeklyCostPoint[] }) {
         ))}
       </div>
       <div className="weekly-plot">
-        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label="Weekly cost by phase over the last 8 weeks">
+        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label={ariaLabel}>
           <g className="weekly-axis">
             {Array.from({ length: 6 }, (_, k) => (
               <g key={k}>
@@ -167,9 +201,9 @@ function WeeklyCostChart({ rows }: { rows: WeeklyCostPoint[] }) {
                 </text>
               </g>
             ))}
-            {rows.map((r, week) => (
-              <text key={r.week} x={x(week)} y={HEIGHT - BOTTOM + 18} textAnchor="middle" data-testid="week-tick">
-                {r.week}
+            {weeks.map((week, n) => (
+              <text key={week} x={x(n)} y={HEIGHT - BOTTOM + 18} textAnchor="middle" data-testid="week-tick">
+                {week}
               </text>
             ))}
             <text x={LEFT + PLOT_W / 2} y={HEIGHT - 6} textAnchor="middle">
@@ -195,29 +229,31 @@ function WeeklyCostChart({ rows }: { rows: WeeklyCostPoint[] }) {
                   className="weekly-line"
                   style={{ stroke: color(series) }}
                   data-testid="weekly-line"
-                  data-series={categories[series].name}
+                  data-series={name(series)}
                 />
               )
             );
           })}
           {labels.map((l) => {
             const lx = x(l.week) + 8;
+            const cost = formatUsd(l.value);
+            const delta = l.pct === null ? "" : ` ${deltaText(l.pct, 0, "")}`;
+            const width = pillWidth(cost + delta, l.pct !== null);
             return (
               <g key={`${l.series}-${l.week}`} className="weekly-delta">
                 {Math.abs(l.labelY - l.y) > 2 && (
                   <line x1={x(l.week) + 4} y1={l.y} x2={lx} y2={l.labelY} style={{ stroke: color(l.series) }} />
                 )}
-                <rect x={lx} y={l.labelY - 7.5} width={44} height={15} rx={7.5} style={{ stroke: color(l.series) }} />
+                <rect x={lx} y={l.labelY - 7.5} width={width} height={15} rx={7.5} style={{ stroke: color(l.series) }} />
                 <text
-                  x={lx + 22}
+                  x={lx + 6}
                   y={l.labelY + 3.5}
-                  textAnchor="middle"
-                  className={deltaClass(l.pct)}
                   data-testid="delta-label"
-                  data-series={categories[l.series].name}
-                  data-week={rows[l.week].week}
+                  data-series={name(l.series)}
+                  data-week={weeks[l.week]}
                 >
-                  {deltaText(l.pct, 0, "")}
+                  {cost}
+                  {l.pct !== null && <tspan className={deltaClass(l.pct)}>{delta}</tspan>}
                 </text>
               </g>
             );
@@ -232,9 +268,9 @@ function WeeklyCostChart({ rows }: { rows: WeeklyCostPoint[] }) {
               style={{ fill: color(p.series) }}
               tabIndex={0}
               data-testid="time-series-point"
-              data-series={categories[p.series].name}
-              data-week={rows[p.week].week}
-              aria-label={`${categories[p.series].name} ${rows[p.week].week}: ${formatUsd(p.value)}`}
+              data-series={name(p.series)}
+              data-week={weeks[p.week]}
+              aria-label={`${name(p.series)} ${weeks[p.week]}: ${formatUsd(p.value)}`}
               onMouseEnter={() => setHovered(p)}
               onMouseLeave={() => setHovered(null)}
               onFocus={() => setHovered(p)}
@@ -249,8 +285,8 @@ function WeeklyCostChart({ rows }: { rows: WeeklyCostPoint[] }) {
             className={tip.week >= WEEKS - 2 ? "weekly-tooltip weekly-tooltip-left" : "weekly-tooltip"}
             style={{ left: `${(x(tip.week) / WIDTH) * 100}%`, top: `${(tip.y / HEIGHT) * 100}%` }}
           >
-            <strong style={{ color: color(tip.series) }}>{categories[tip.series].name}</strong>
-            <div>Week of {rows[tip.week].week}</div>
+            <strong style={{ color: color(tip.series) }}>{name(tip.series)}</strong>
+            <div>Week of {weeks[tip.week]}</div>
             <strong>{formatUsd(tip.value)}</strong>
             {tip.pct !== null && (
               <div>
@@ -264,16 +300,52 @@ function WeeklyCostChart({ rows }: { rows: WeeklyCostPoint[] }) {
   );
 }
 
+// The prototype's fixed pill, 40 for a cost alone and 84 with a delta,
+// widened to its text (6px in, about 5.5px a character at 10px) when a real
+// figure would overflow it.
+function pillWidth(text: string, hasDelta: boolean): number {
+  return Math.max(hasDelta ? 84 : 40, Math.ceil(6 + text.length * 5.5));
+}
+
 export function WeeklyCosts(_props: ViewProps) {
   // Keyed on the UTC day, so a render after midnight moves the window with it.
   const today = new Date().toISOString().slice(0, 10);
   const eightWeeks = useMemo(() => lastEightWeeks(new Date()), [today]);
-  const state = useStatsView<WeeklyCostPoint[]>("weekly-costs", { ...eightWeeks, project: undefined, model: undefined });
+  const params = { ...eightWeeks, project: undefined, model: undefined };
+  const state = useStatsView<WeeklyCostPoint[]>("weekly-costs", params);
+  const modelEffort = useStatsView<WeeklyModelEffortPoint[]>("weekly-model-effort-costs", params);
+  const weeks = everyWeek(eightWeeks.from);
 
   return (
-    <ViewFrame title="Weekly costs" description="Wednesday-to-Wednesday cost by pipeline phase, every project and model.">
-      <Panel title="Last 8 weeks" description="Overall includes stages outside the four phases." state={state}>
-        {(data) => <WeeklyCostChart rows={everyWeek(eightWeeks.from, data.rows)} />}
+    <ViewFrame title="Weekly costs" description="Wednesday-to-Wednesday cost, last 8 weeks.">
+      <Panel title="Cost by phase" description="The phases and Other add up to Overall." state={state}>
+        {(data) => (
+          <WeeklyCostChart
+            weeks={weeks}
+            series={phaseSeries(weeks, data.rows)}
+            ariaLabel="Weekly cost by phase over the last 8 weeks"
+          />
+        )}
+      </Panel>
+      <Panel
+        title="Cost by model · effort"
+        description="Each subagent dispatch by the model and effort that served it, plus the parent session per model."
+        state={modelEffort}
+      >
+        {(data) => {
+          const series = modelEffortSeries(weeks, data.rows);
+          // Keyed on the line names, so a refetch with another set of lines
+          // starts its toggles afresh rather than reusing stale positions.
+          return (
+            <WeeklyCostChart
+              key={series.map((s) => s.name).join("|")}
+              weeks={weeks}
+              series={series}
+              ariaLabel="Weekly cost by model and effort over the last 8 weeks"
+              allShown
+            />
+          );
+        }}
       </Panel>
     </ViewFrame>
   );

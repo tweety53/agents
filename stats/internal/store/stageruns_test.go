@@ -1257,10 +1257,7 @@ func TestPriceOneUnpriceableBucketOmitsTopLevelTotal(t *testing.T) {
 	}
 
 	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{
-		"models": {
-			"claude-opus-5": {"tokens": {"main": {"input": 1000000}}},
-			"no-such-model": {"tokens": {"sidechain": {"input": 500000}}}
-		}
+		"models": {"claude-opus-5": {"tokens": {"main": {"input": 1000000}}}}
 	}`)); err != nil {
 		t.Fatalf("MergeMetrics: %v", err)
 	}
@@ -1269,6 +1266,16 @@ func TestPriceOneUnpriceableBucketOmitsTopLevelTotal(t *testing.T) {
 		InputPerMTok: 3, OutputPerMTok: 15, CacheReadPerMTok: 0.3,
 	}); err != nil {
 		t.Fatalf("PutPricing: %v", err)
+	}
+	// A first pass, before the unpriceable bucket arrived, writes a total
+	// the second pass must not leave behind reading as complete.
+	if err := st.Price(ctx, run.ID); err != nil {
+		t.Fatalf("Price(every bucket priceable): %v", err)
+	}
+	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{
+		"models": {"no-such-model": {"tokens": {"sidechain": {"input": 500000}}}}
+	}`)); err != nil {
+		t.Fatalf("MergeMetrics: %v", err)
 	}
 
 	err = st.Price(ctx, run.ID)
@@ -2704,5 +2711,177 @@ func TestRetokenStageRunSetsTheToken(t *testing.T) {
 	}
 	if err := st.RetokenStageRun(ctx, 1<<62, "x"); !errors.Is(err, store.ErrStageRunNotFound) {
 		t.Fatalf("RetokenStageRun unknown id: err = %v, want store.ErrStageRunNotFound", err)
+	}
+}
+
+// TestPriceDispatchUsesServedModel pins dispatch-served-model: a dispatch
+// bucket records the alias it was given ("opus"), which no pricing row
+// matches, so Price resolves its rate from the served_models key with
+// the most turns, falling back to the bucket's own model.
+func TestPriceDispatchUsesServedModel(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-price-served-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "5. The review panel"))
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{
+		"models": {
+			"claude-opus-5-5": {"tokens": {"sidechain": {"output": 3000000}}}
+		},
+		"dispatches": {
+			"a1": {
+				"model": "opus",
+				"tokens": {"sidechain": {"output": 1000000}},
+				"signals": {"served_models": {"claude-opus-5-5": 3}, "served_efforts": {"low": 3}}
+			},
+			"a2": {
+				"model": "opus",
+				"tokens": {"sidechain": {"output": 1000000}}
+			},
+			"a3": {
+				"model": "opus",
+				"tokens": {"sidechain": {"output": 1000000}},
+				"signals": {"served_models": {"claude-opus-5-5": 1, "claude-sonnet-5-5": 4}}
+			},
+			"a4": {
+				"model": "opus",
+				"tokens": {"sidechain": {"output": 1000000}},
+				"signals": {"served_models": {"claude-sonnet-5-5": 2, "claude-opus-5-5": 2}}
+			},
+			"a5": {
+				"tokens": {"sidechain": {"output": 1000000}},
+				"signals": {"served_models": {"claude-sonnet-5-5": 1}}
+			}
+		}
+	}`)); err != nil {
+		t.Fatalf("MergeMetrics: %v", err)
+	}
+	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	for _, r := range []store.PricingRate{
+		{Model: "claude-opus-5-5", EffectiveFrom: from, InputPerMTok: 1, OutputPerMTok: 10, CacheReadPerMTok: 0.1},
+		{Model: "claude-sonnet-5-5", EffectiveFrom: from, InputPerMTok: 1, OutputPerMTok: 2, CacheReadPerMTok: 0.1},
+	} {
+		if err := st.PutPricing(ctx, r); err != nil {
+			t.Fatalf("PutPricing: %v", err)
+		}
+	}
+
+	if err := st.Price(ctx, run.ID); err != nil {
+		t.Fatalf("Price: %v", err)
+	}
+
+	priced, err := st.GetStageRun(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun: %v", err)
+	}
+	var bag struct {
+		Dispatches map[string]struct {
+			CostUSD *float64 `json:"cost_usd"`
+		} `json:"dispatches"`
+	}
+	if err := json.Unmarshal(priced.Metrics, &bag); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if c := bag.Dispatches["a1"].CostUSD; c == nil || *c != 10 {
+		t.Errorf("dispatches.a1.cost_usd = %v, want 10 (the claude-opus-5-5 rate)", c)
+	}
+	if c := bag.Dispatches["a2"].CostUSD; c != nil {
+		t.Errorf("dispatches.a2.cost_usd = %v, want none (no served model, alias unpriced)", *c)
+	}
+	if c := bag.Dispatches["a3"].CostUSD; c == nil || *c != 2 {
+		t.Errorf("dispatches.a3.cost_usd = %v, want 2 (the most-turns claude-sonnet-5-5 rate)", c)
+	}
+	if c := bag.Dispatches["a4"].CostUSD; c == nil || *c != 10 {
+		t.Errorf("dispatches.a4.cost_usd = %v, want 10 (a turns tie breaks by name: claude-opus-5-5)", c)
+	}
+	if c := bag.Dispatches["a5"].CostUSD; c == nil || *c != 2 {
+		t.Errorf("dispatches.a5.cost_usd = %v, want 2 (served model priced though no model was recorded)", c)
+	}
+}
+
+// TestRepriceSinceCountsPricedAndSkipped pins reprice-command: every stage
+// run started since the date is priced again, a run Price refuses counts
+// as skipped, and a run before the date is left untouched.
+func TestRepriceSinceCountsPricedAndSkipped(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-reprice-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	if err := st.PutPricing(ctx, store.PricingRate{
+		Model: "claude-opus-5-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		InputPerMTok: 1, OutputPerMTok: 10, CacheReadPerMTok: 0.1,
+	}); err != nil {
+		t.Fatalf("PutPricing: %v", err)
+	}
+	const priceable = `{
+		"models": {"claude-opus-5-5": {"tokens": {"sidechain": {"output": 1000000}}}},
+		"dispatches": {"a1": {"model": "opus", "tokens": {"sidechain": {"output": 1000000}},
+			"signals": {"served_models": {"claude-opus-5-5": 1}}}}
+	}`
+	run := func(i int, at time.Time, metrics string) int64 {
+		t.Helper()
+		in := baseBeginInput(projectKey, "kan-1", "/flow", "flow.sdd-tdd")
+		in.SessionID = ptr(fmt.Sprintf("reprice-%d", i))
+		in.StartedAt = at
+		r, err := st.BeginStage(ctx, in)
+		if err != nil {
+			t.Fatalf("BeginStage: %v", err)
+		}
+		if err := st.MergeMetrics(ctx, r.ID, json.RawMessage(metrics)); err != nil {
+			t.Fatalf("MergeMetrics: %v", err)
+		}
+		return r.ID
+	}
+	before := run(0, since.Add(-time.Hour), priceable)
+	// Exactly at since: the window is inclusive.
+	after := run(1, since, priceable)
+	run(2, since.Add(2*time.Hour), `{"tokens": {}}`)
+	// A model with no rate in effect: ErrPricingNotFound, skipped.
+	run(3, since.Add(3*time.Hour), `{"models": {"claude-unrated": {"tokens": {"sidechain": {"output": 1000}}}}}`)
+	// An unattached plan session (no change, NULL change_id) prices too.
+	plan, err := st.BeginStage(ctx, store.BeginStageInput{
+		ProjectKey: projectKey, MainCheckoutPath: "/tmp/" + projectKey, JiraKey: "KAN-900",
+		Harness: "claude-code", Command: "/flow-plan", Stage: "plan.session", StartedAt: since.Add(4 * time.Hour),
+	})
+	if err != nil {
+		t.Fatalf("BeginStage plan session: %v", err)
+	}
+	if err := st.MergeMetrics(ctx, plan.ID, json.RawMessage(priceable)); err != nil {
+		t.Fatalf("MergeMetrics: %v", err)
+	}
+
+	priced, skipped, err := st.RepriceSince(ctx, since)
+	if err != nil {
+		t.Fatalf("RepriceSince: %v", err)
+	}
+	if priced != 2 || skipped != 2 {
+		t.Errorf("RepriceSince = priced %d, skipped %d, want 2, 2", priced, skipped)
+	}
+	costOf := func(id int64) *float64 {
+		t.Helper()
+		r, err := st.GetStageRun(ctx, id)
+		if err != nil {
+			t.Fatalf("GetStageRun: %v", err)
+		}
+		var bag struct {
+			Dispatches map[string]struct {
+				CostUSD *float64 `json:"cost_usd"`
+			} `json:"dispatches"`
+		}
+		if err := json.Unmarshal(r.Metrics, &bag); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		return bag.Dispatches["a1"].CostUSD
+	}
+	if c := costOf(after); c == nil || *c != 10 {
+		t.Errorf("run after since: dispatches.a1.cost_usd = %v, want 10", c)
+	}
+	if c := costOf(before); c != nil {
+		t.Errorf("run before since: dispatches.a1.cost_usd = %v, want untouched", *c)
 	}
 }

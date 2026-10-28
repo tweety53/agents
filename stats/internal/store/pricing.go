@@ -258,9 +258,31 @@ type modelBucket struct {
 // a plain string, empty when the dispatch's meta sidecar was never
 // found (DispatchBucket's own doc comment, attribute.go) -- absence
 // Price treats exactly like any other unpriceable dispatch, below.
+// Signals.ServedModels maps each model id the transcript says served the
+// dispatch to its turn count; servedModel reads it (dispatch-served-model).
 type dispatchBucket struct {
-	Tokens modelBucketTokens `json:"tokens"`
-	Model  string            `json:"model"`
+	Tokens  modelBucketTokens `json:"tokens"`
+	Model   string            `json:"model"`
+	Signals struct {
+		ServedModels map[string]int `json:"served_models"`
+	} `json:"signals"`
+}
+
+// servedModel is the model a dispatch's rate resolves against: the
+// served_models key with the most turns, ties broken by name, else the
+// bucket's own recorded model -- an alias such as "opus", which no
+// pricing row matches (decision dispatch-served-model).
+func (db dispatchBucket) servedModel() string {
+	best, turns := "", 0
+	for m, n := range db.Signals.ServedModels {
+		if n > turns || (n == turns && m < best) {
+			best, turns = m, n
+		}
+	}
+	if best != "" {
+		return best
+	}
+	return db.Model
 }
 
 // Price resolves the pricing row in effect, at the stage run's start
@@ -329,6 +351,13 @@ type dispatchBucket struct {
 // "models" whenever there is at least one, and the top-level "cost_usd"
 // is still written only when every model bucket in "models" priced --
 // both unchanged by whether any dispatch also priced.
+//
+// The model a dispatch resolves its rate against is the one that served
+// it -- the signals.served_models key with the most turns, ties broken by
+// name -- falling back to the bucket's own recorded model only when that
+// map is absent or empty (dispatchBucket.servedModel, decision
+// dispatch-served-model): the recorded model is the alias the dispatch was
+// given, which no pricing row matches.
 func (s *Store) Price(ctx context.Context, stageRunID int64) error {
 	run, err := s.GetStageRun(ctx, stageRunID)
 	if err != nil {
@@ -486,7 +515,8 @@ func (s *Store) Price(ctx context.Context, stageRunID int64) error {
 		sort.Strings(agentIDs)
 		for _, id := range agentIDs {
 			db := dispatches[id]
-			if db.Model == "" {
+			model := db.servedModel()
+			if model == "" {
 				// No sidecar was ever found for this dispatch's transcript
 				// (DispatchBucket's own doc comment) -- absence is never a
 				// value, so this dispatch is left unpriced rather than
@@ -514,7 +544,7 @@ func (s *Store) Price(ctx context.Context, stageRunID int64) error {
 			// malformed dispatches value, just reached through a different
 			// trigger.
 			var dispatchMissing []string
-			_, cost, ok, _ := priceCandidate(resolveRate, db.Model, combined, fast, &dispatchMissing)
+			_, cost, ok, _ := priceCandidate(resolveRate, model, combined, fast, &dispatchMissing)
 			if !ok {
 				continue
 			}
@@ -562,6 +592,15 @@ func (s *Store) Price(ctx context.Context, stageRunID int64) error {
 			WHERE id = $1
 		`, stageRunID, m); err != nil {
 			return fmt.Errorf("store: price stage run %d: clear unmeasured cost of %s: %w", stageRunID, m, err)
+		}
+	}
+
+	// Likewise a total an earlier pass wrote, before a bucket with no
+	// rate joined the run, stays short of that bucket while reading as
+	// complete: drop it whenever this pass could not price every bucket.
+	if len(missing) > 0 {
+		if _, err := s.pool.Exec(ctx, `UPDATE stage_runs SET metrics = metrics - 'cost_usd' WHERE id = $1`, stageRunID); err != nil {
+			return fmt.Errorf("store: price stage run %d: clear partial total: %w", stageRunID, err)
 		}
 	}
 
@@ -649,4 +688,31 @@ func (s *Store) pricingRateInEffect(ctx context.Context, model string, at time.T
 		return PricingRate{}, fmt.Errorf("store: resolve pricing for %s at %s: %w", model, at, err)
 	}
 	return r, nil
+}
+
+// RepriceSince runs Price over every stage run started at or after since
+// (decision reprice-command), so dispatches harvested before Price could
+// resolve their served model get their cost. A run Price refuses with
+// ErrTokensUnavailable or ErrPricingNotFound counts as skipped; any other
+// error stops and returns.
+func (s *Store) RepriceSince(ctx context.Context, since time.Time) (priced, skipped int, err error) {
+	rows, err := s.pool.Query(ctx, `SELECT id FROM stage_runs WHERE started_at >= $1 ORDER BY id`, since)
+	if err != nil {
+		return 0, 0, fmt.Errorf("store: reprice since %s: %w", since, err)
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[int64])
+	if err != nil {
+		return 0, 0, fmt.Errorf("store: reprice since %s: %w", since, err)
+	}
+	for _, id := range ids {
+		switch err := s.Price(ctx, id); {
+		case err == nil:
+			priced++
+		case errors.Is(err, ErrTokensUnavailable), errors.Is(err, ErrPricingNotFound):
+			skipped++
+		default:
+			return priced, skipped, err
+		}
+	}
+	return priced, skipped, nil
 }

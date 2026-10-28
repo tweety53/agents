@@ -50,16 +50,16 @@ func runSettings(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	}
 }
 
-// settingsConnFlags is the flag.FlagSet common to `settings get` and
-// `settings set`: just the store connection, since flow_settings holds
+// storeConnFlags is the flag.FlagSet common to `settings get`,
+// `settings set` and `pricing reprice`: just the store connection, since flow_settings holds
 // one harness-wide row -- neither subcommand resolves a project key the
 // way `state`/`stage` do.
-type settingsConnFlags struct {
+type storeConnFlags struct {
 	addr    string
 	timeout time.Duration
 }
 
-func registerSettingsConnFlags(fset *flag.FlagSet, f *settingsConnFlags) {
+func registerStoreConnFlags(fset *flag.FlagSet, f *storeConnFlags) {
 	registerRecordsAddrFlag(fset, &f.addr)
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout")
 }
@@ -71,8 +71,8 @@ func registerSettingsConnFlags(fset *flag.FlagSet, f *settingsConnFlags) {
 func runSettingsGet(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow settings get", flag.ContinueOnError)
 	fset.SetOutput(stderr)
-	var f settingsConnFlags
-	registerSettingsConnFlags(fset, &f)
+	var f storeConnFlags
+	registerStoreConnFlags(fset, &f)
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -110,8 +110,8 @@ func runSettingsGet(ctx context.Context, args []string, stdout, stderr io.Writer
 func runSettingsSet(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow settings set", flag.ContinueOnError)
 	fset.SetOutput(stderr)
-	var f settingsConnFlags
-	registerSettingsConnFlags(fset, &f)
+	var f storeConnFlags
+	registerStoreConnFlags(fset, &f)
 	reviewers := fset.String("reviewers", "", "comma-separated reviewer slots, from "+strings.Join(slices.Sorted(maps.Keys(store.ValidReviewers)), ","))
 	learning := fset.String("learning", "", "print a learning note on implementation runs: on or off")
 	if err := fset.Parse(args); err != nil {

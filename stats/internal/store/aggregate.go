@@ -376,31 +376,36 @@ func (s *Store) TrendOverTime(ctx context.Context, period Period, project, model
 // a key it does not declare, so a rename there cannot silently move cost
 // into overall-only.
 var weeklyCostStages = struct {
-	selfReview, implementation, review string
-	planning                           []string
+	selfReview, visualVerify, implementation, review string
+	planning                                         []string
 }{
 	selfReview:     "flow.self-review",
+	visualVerify:   "flow.visual-verify",
 	implementation: "flow.sdd-tdd",
 	review:         "flow.review-panel",
 	planning:       []string{"plan.session", "flow.brainstorm", "flow.design-approval", "flow.create-artifacts", "flow.writing-plans", "flow.decide"},
 }
 
 // WeeklyCostPoint is one Wednesday-to-Wednesday week's cost totals: overall,
-// and the four pipeline categories. A category with no costed run that week
-// is nil, never 0.
+// the five pipeline categories, and Other -- every run in none of them, so
+// the categories and Other add up to overall (decision other-category). A
+// category with no costed run that week is nil, never 0.
 type WeeklyCostPoint struct {
-	Week          time.Time
-	OverallUSD    *float64
-	PlanningUSD   *float64
-	ImplementUSD  *float64
-	ReviewUSD     *float64
-	SelfReviewUSD *float64
+	Week            time.Time
+	OverallUSD      *float64
+	PlanningUSD     *float64
+	ImplementUSD    *float64
+	ReviewUSD       *float64
+	SelfReviewUSD   *float64
+	VisualVerifyUSD *float64
+	OtherUSD        *float64
 }
 
 // WeeklyCosts buckets cost by week starting Wednesday 00:00 UTC, split by
 // category from the run's stage. A self-review or pipeline-fix loop change
 // is classified first, so its stages never count as planning or
-// implementation; a stage outside every category counts in overall only.
+// implementation; flow.visual-verify is classified after it (decision
+// visual-verify-category); a stage outside every category counts in Other.
 // project and model filter as TrendOverTime's do.
 func (s *Store) WeeklyCosts(ctx context.Context, period Period, project, model *string) ([]WeeklyCostPoint, error) {
 	rows, err := s.pool.Query(ctx, `
@@ -414,6 +419,7 @@ func (s *Store) WeeklyCosts(ctx context.Context, period Period, project, model *
 					WHEN sr.stage = ANY($8::text[]) THEN 'planning'
 					WHEN sr.stage = $6 THEN 'implementation'
 					WHEN sr.stage = $7 THEN 'review'
+					WHEN sr.stage = $9 THEN 'visual-verify'
 				END AS category
 			FROM stage_runs sr
 			JOIN changes c ON c.id = sr.change_id
@@ -426,12 +432,15 @@ func (s *Store) WeeklyCosts(ctx context.Context, period Period, project, model *
 			SUM(cost) FILTER (WHERE category = 'planning'),
 			SUM(cost) FILTER (WHERE category = 'implementation'),
 			SUM(cost) FILTER (WHERE category = 'review'),
-			SUM(cost) FILTER (WHERE category = 'self-review')
+			SUM(cost) FILTER (WHERE category = 'self-review'),
+			SUM(cost) FILTER (WHERE category = 'visual-verify'),
+			SUM(cost) FILTER (WHERE category IS NULL)
 		FROM r
 		GROUP BY week
 		ORDER BY week
 	`, period.From, period.To, project, model,
-		weeklyCostStages.selfReview, weeklyCostStages.implementation, weeklyCostStages.review, weeklyCostStages.planning)
+		weeklyCostStages.selfReview, weeklyCostStages.implementation, weeklyCostStages.review, weeklyCostStages.planning,
+		weeklyCostStages.visualVerify)
 	if err != nil {
 		return nil, fmt.Errorf("store: weekly costs: %w", err)
 	}
@@ -440,13 +449,91 @@ func (s *Store) WeeklyCosts(ctx context.Context, period Period, project, model *
 	var out []WeeklyCostPoint
 	for rows.Next() {
 		var p WeeklyCostPoint
-		if err := rows.Scan(&p.Week, &p.OverallUSD, &p.PlanningUSD, &p.ImplementUSD, &p.ReviewUSD, &p.SelfReviewUSD); err != nil {
+		if err := rows.Scan(&p.Week, &p.OverallUSD, &p.PlanningUSD, &p.ImplementUSD, &p.ReviewUSD, &p.SelfReviewUSD, &p.VisualVerifyUSD, &p.OtherUSD); err != nil {
 			return nil, fmt.Errorf("store: weekly costs: scan: %w", err)
 		}
 		out = append(out, p)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("store: weekly costs: %w", err)
+	}
+	return out, nil
+}
+
+// WeeklyModelEffortPoint is one week's cost for one model and effort: a
+// dispatch effort, "default" for a dispatch with none served, or
+// "session" for the parent session's own share of that model's cost.
+type WeeklyModelEffortPoint struct {
+	Week    time.Time
+	Model   string
+	Effort  string
+	CostUSD float64
+}
+
+// WeeklyModelEffortCosts buckets cost by week (WeeklyCosts' Wednesday
+// weeks) and model·effort across every project. A priced dispatch counts
+// under its most-turns served model (dispatch-served-model) and most-turns
+// served effort, else "default" (dispatch-served-effort); each stage run's
+// priced model bucket, less the dispatch costs served by that model and
+// floored at 0, counts as that model's "session" (session-line). Ties in
+// most-turns break by key name. Rows summing to 0 are dropped; rows are
+// ordered by week, model, effort. Only runs attached to a change count,
+// as in WeeklyCosts.
+func (s *Store) WeeklyModelEffortCosts(ctx context.Context, period Period) ([]WeeklyModelEffortPoint, error) {
+	rows, err := s.pool.Query(ctx, `
+		WITH sr AS (
+			SELECT id, started_at,
+				CASE WHEN jsonb_typeof(metrics->'dispatches') = 'object' THEN metrics->'dispatches' END AS dispatches,
+				CASE WHEN jsonb_typeof(metrics->'models') = 'object' THEN metrics->'models' END AS models
+			FROM stage_runs
+			-- Runs attached to a change and carrying a total only, the runs
+			-- WeeklyCosts' Overall sums, so the lines add up to Overall.
+			WHERE started_at >= $1 AND started_at < $2 AND change_id IS NOT NULL AND metrics ? 'cost_usd'
+		), d AS (
+			SELECT sr.id, sr.started_at, (b.value->>'cost_usd')::numeric AS cost,
+				COALESCE(
+					(SELECT k FROM jsonb_each(CASE WHEN jsonb_typeof(b.value->'signals'->'served_models') = 'object'
+						THEN b.value->'signals'->'served_models' END) AS e(k, v) ORDER BY v DESC, k LIMIT 1),
+					b.value->>'model') AS model,
+				COALESCE(
+					(SELECT k FROM jsonb_each(CASE WHEN jsonb_typeof(b.value->'signals'->'served_efforts') = 'object'
+						THEN b.value->'signals'->'served_efforts' END) AS e(k, v) ORDER BY v DESC, k LIMIT 1),
+					'default') AS effort
+			FROM sr, jsonb_each(sr.dispatches) AS b
+			WHERE b.value ? 'cost_usd'
+		), s AS (
+			SELECT sr.started_at, m.key AS model, 'session' AS effort,
+				GREATEST(0, (m.value->>'cost_usd')::numeric
+					- COALESCE((SELECT SUM(d.cost) FROM d WHERE d.id = sr.id AND d.model = m.key), 0)) AS cost
+			FROM sr, jsonb_each(sr.models) AS m
+			WHERE m.value ? 'cost_usd'
+		), all_rows AS (
+			SELECT started_at, model, effort, cost FROM d
+			UNION ALL
+			SELECT started_at, model, effort, cost FROM s
+		)
+		SELECT date_trunc('week', started_at - interval '2 days', 'UTC') + interval '2 days' AS week,
+			model, effort, SUM(cost)
+		FROM all_rows
+		GROUP BY week, model, effort
+		HAVING SUM(cost) <> 0
+		ORDER BY week, model, effort
+	`, period.From, period.To)
+	if err != nil {
+		return nil, fmt.Errorf("store: weekly model-effort costs: %w", err)
+	}
+	defer rows.Close()
+
+	var out []WeeklyModelEffortPoint
+	for rows.Next() {
+		var p WeeklyModelEffortPoint
+		if err := rows.Scan(&p.Week, &p.Model, &p.Effort, &p.CostUSD); err != nil {
+			return nil, fmt.Errorf("store: weekly model-effort costs: scan: %w", err)
+		}
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: weekly model-effort costs: %w", err)
 	}
 	return out, nil
 }

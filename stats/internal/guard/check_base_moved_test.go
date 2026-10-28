@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -99,8 +100,11 @@ func runGuard(name string, args []string, env Env) guardResult {
 	if fn == nil {
 		return guardResult{rc: -1, out: name + " is not registered"}
 	}
+	var mu sync.Mutex
 	var all, o, e bytes.Buffer
-	rc := fn(args, env, io.MultiWriter(&o, &all), io.MultiWriter(&e, &all))
+	// A guard that hands both writers to a child process gets two copying
+	// goroutines, so the merged buffer they share takes a lock.
+	rc := fn(args, env, lsrrLocked{&mu, io.MultiWriter(&o, &all)}, lsrrLocked{&mu, io.MultiWriter(&e, &all)})
 	return guardResult{rc, strings.TrimRight(all.String(), "\n"), o.String(), e.String()}
 }
 
@@ -586,5 +590,24 @@ func TestBaseMovedFullOverlap(t *testing.T) {
 				t.Fatalf("verdict %+v, want code %d line %q kind %q ref %q overlap %v", v, c.code, line, c.kind, c.ref, c.overlap)
 			}
 		})
+	}
+}
+
+// TestRunGuardMergesAChildsTwoStreams pins the lock on runGuard's merged
+// buffer: a child process given both writers copies each on its own
+// goroutine, which the race detector reports without the lock.
+func TestRunGuardMergesAChildsTwoStreams(t *testing.T) {
+	Registry["test-two-streams"] = func(_ []string, _ Env, stdout, stderr io.Writer) int {
+		c := exec.Command("sh", "-c", "i=0; while [ $i -lt 200 ]; do echo out; echo err >&2; i=$((i+1)); done")
+		c.Stdout, c.Stderr = stdout, stderr
+		if c.Run() != nil {
+			return 1
+		}
+		return 0
+	}
+	t.Cleanup(func() { delete(Registry, "test-two-streams") })
+	r := runGuard("test-two-streams", nil, Env{})
+	if r.rc != 0 || strings.Count(r.out, "out")+strings.Count(r.out, "err") != 400 {
+		t.Fatalf("runGuard = rc %d, %d lines merged; want rc 0 and 400", r.rc, strings.Count(r.out, "out")+strings.Count(r.out, "err"))
 	}
 }

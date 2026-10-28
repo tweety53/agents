@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -850,6 +851,9 @@ func (stubStageStore) StageLeaderboard(context.Context, store.Period, *string, *
 	return nil, errStageStoreNotImplemented
 }
 
+func (stubStageStore) WeeklyModelEffortCosts(context.Context, store.Period) ([]store.WeeklyModelEffortPoint, error) {
+	return nil, nil
+}
 func (stubStageStore) WeeklyCosts(context.Context, store.Period, *string, *string) ([]store.WeeklyCostPoint, error) {
 	return nil, nil
 }
@@ -1264,5 +1268,40 @@ func TestFindStateDecodesRecords(t *testing.T) {
 	c2 := client.New(lookalike.URL, lookalike.Client())
 	if _, err := c2.FindState(context.Background(), "kan-1"); !errors.Is(err, client.ErrUnavailable) {
 		t.Fatalf("err = %v, want ErrUnavailable for a response missing the daemon header", err)
+	}
+}
+
+// TestClientRepricePostsSince pins the reprice call (decision
+// reprice-command): it posts the date and decodes the counts, and a
+// non-200 answer is an error carrying the body.
+func TestClientRepricePostsSince(t *testing.T) {
+	var gotPath, gotBody string
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.Method + " " + r.URL.Path
+		b, _ := io.ReadAll(r.Body)
+		gotBody = string(b)
+		_, _ = w.Write([]byte(`{"priced":3,"skipped":2}`))
+	}))
+	defer srv.Close()
+
+	got, err := client.New(srv.URL, srv.Client()).Reprice(context.Background(), "2026-09-01")
+	if err != nil {
+		t.Fatalf("Reprice: %v", err)
+	}
+	if gotPath != "POST /api/v1/pricing/reprice" || gotBody != `{"since":"2026-09-01"}` {
+		t.Errorf("request = %s %s, want POST /api/v1/pricing/reprice {\"since\":\"2026-09-01\"}", gotPath, gotBody)
+	}
+	if got != (client.RepriceResult{Priced: 3, Skipped: 2}) {
+		t.Errorf("Reprice = %+v, want {3 2}", got)
+	}
+
+	bad := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"since is not YYYY-MM-DD"}`))
+	}))
+	defer bad.Close()
+	if _, err := client.New(bad.URL, bad.Client()).Reprice(context.Background(), "x"); err == nil ||
+		!strings.Contains(err.Error(), "since is not YYYY-MM-DD") {
+		t.Errorf("Reprice on 400: err = %v, want one carrying the body", err)
 	}
 }

@@ -175,6 +175,7 @@ type Option func(*serverOptions)
 type serverOptions struct {
 	spa        http.Handler
 	guardRuns  GuardRunStore
+	repricer   Repricer
 	commitBase string
 	build      string
 	agentEnd   func(agentID string) (time.Time, bool)
@@ -405,6 +406,10 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	if so.guardRuns != nil {
 		grh := &guardRunHandler{store: so.guardRuns, logger: logger}
 		mux.HandleFunc("POST /api/v1/guard-runs/{project}", grh.record)
+	}
+	if so.repricer != nil {
+		ph := &pricingHandler{store: so.repricer, logger: logger}
+		mux.HandleFunc("POST /api/v1/pricing/reprice", ph.reprice)
 	}
 	if so.spa != nil {
 		mux.Handle("/", so.spa)

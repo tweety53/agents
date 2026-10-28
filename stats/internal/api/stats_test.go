@@ -50,6 +50,9 @@ func (f *fakeStore) WeeklyCosts(_ context.Context, _ store.Period, project, _ *s
 	f.lastStatsProject = project
 	return nil, nil
 }
+func (f *fakeStore) WeeklyModelEffortCosts(_ context.Context, _ store.Period) ([]store.WeeklyModelEffortPoint, error) {
+	return nil, nil
+}
 func (f *fakeStore) Reviewers(_ context.Context, _ store.Period, project, _ *string) ([]store.ReviewerRow, error) {
 	f.lastStatsProject = project
 	return f.reviewers, f.reviewersErr
@@ -106,10 +109,12 @@ type statsFake struct {
 	trendOverTime    []store.TrendPoint
 	weeklyCosts      []store.WeeklyCostPoint
 	reviewers        []store.ReviewerRow
-	decisions        []store.DecisionRow
-	flowSummary      store.FlowSummaryRow
-	selfReview       []store.SelfReviewFindingRow
-	aggErr           error
+	// weeklyModelEffortCosts backs the weekly-model-effort-costs view.
+	weeklyModelEffortCosts []store.WeeklyModelEffortPoint
+	decisions              []store.DecisionRow
+	flowSummary            store.FlowSummaryRow
+	selfReview             []store.SelfReviewFindingRow
+	aggErr                 error
 
 	countRunsWithoutModel    int
 	countRunsWithoutModelErr error
@@ -170,6 +175,9 @@ func (f *statsFake) TrendOverTime(_ context.Context, _ store.Period, p, m *strin
 func (f *statsFake) WeeklyCosts(_ context.Context, _ store.Period, p, m *string) ([]store.WeeklyCostPoint, error) {
 	f.lastProject, f.lastModel = p, m
 	return f.weeklyCosts, f.aggErr
+}
+func (f *statsFake) WeeklyModelEffortCosts(_ context.Context, _ store.Period) ([]store.WeeklyModelEffortPoint, error) {
+	return f.weeklyModelEffortCosts, f.aggErr
 }
 func (f *statsFake) Reviewers(_ context.Context, _ store.Period, p, m *string) ([]store.ReviewerRow, error) {
 	f.lastProject, f.lastModel = p, m
@@ -1841,5 +1849,60 @@ func TestStatsSelfReviewView(t *testing.T) {
 	}
 	if sts.lastProject == nil || *sts.lastProject != "agents-a740d89c" {
 		t.Errorf("store saw project %v, want agents-a740d89c", sts.lastProject)
+	}
+}
+
+// TestStatsWeeklyCostsCarriesVisualVerify pins visualVerifyUsd and otherUsd
+// on the weekly-costs row (visual-verify-category, other-category).
+func TestStatsWeeklyCostsCarriesVisualVerify(t *testing.T) {
+	vv, other := 2.0, 1.0
+	sts := &statsFake{weeklyCosts: []store.WeeklyCostPoint{
+		{Week: time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC), VisualVerifyUSD: &vv, OtherUSD: &other},
+	}}
+	ts := newStatsTestServer(t, sts)
+	status, env, body := getStats(t, ts, periodPath("weekly-costs"))
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	var rows []struct {
+		VisualVerifyUSD *float64 `json:"visualVerifyUsd"`
+		OtherUSD        *float64 `json:"otherUsd"`
+	}
+	mustDecodeRows(t, env, body, &rows)
+	if len(rows) != 1 || rows[0].VisualVerifyUSD == nil || *rows[0].VisualVerifyUSD != 2 ||
+		rows[0].OtherUSD == nil || *rows[0].OtherUSD != 1 {
+		t.Fatalf("rows = %s, want one row with visualVerifyUsd 2 and otherUsd 1", env.Rows)
+	}
+}
+
+// TestStatsWeeklyModelEffortCosts pins the weekly-model-effort-costs view
+// (model-effort-view): long rows from WeeklyModelEffortCosts, with project
+// and model query parameters ignored.
+func TestStatsWeeklyModelEffortCosts(t *testing.T) {
+	week := time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC)
+	sts := &statsFake{weeklyModelEffortCosts: []store.WeeklyModelEffortPoint{
+		{Week: week, Model: "claude-opus-5-5", Effort: "low", CostUSD: 3},
+		{Week: week, Model: "claude-opus-5-5", Effort: "session", CostUSD: 6},
+	}}
+	ts := newStatsTestServer(t, sts)
+	status, env, body := getStats(t, ts, periodPath("weekly-model-effort-costs")+"&project=p&model=m")
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	var rows []struct {
+		Week    string  `json:"week"`
+		Model   string  `json:"model"`
+		Effort  string  `json:"effort"`
+		CostUSD float64 `json:"costUsd"`
+	}
+	mustDecodeRows(t, env, body, &rows)
+	if len(rows) != 2 {
+		t.Fatalf("rows = %d, want 2: %s", len(rows), env.Rows)
+	}
+	if got := rows[0]; got.Week != "2026-08-12" || got.Model != "claude-opus-5-5" || got.Effort != "low" || got.CostUSD != 3 {
+		t.Errorf("rows[0] = %+v, want 2026-08-12 claude-opus-5-5 low 3", got)
+	}
+	if got := rows[1]; got.Effort != "session" || got.CostUSD != 6 {
+		t.Errorf("rows[1] = %+v, want session 6", got)
 	}
 }

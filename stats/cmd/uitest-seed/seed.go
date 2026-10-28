@@ -47,6 +47,18 @@ type stageFixture struct {
 	// SessionToken is the run correlator this stage was recorded under;
 	// empty records none, so the stage counts as a run of its own.
 	SessionToken string
+
+	// Dispatches are the run's priced dispatch buckets, keyed by agent id
+	// -- what the Weekly costs model·effort chart reads (KAN-1041).
+	Dispatches map[string]pricedDispatch
+}
+
+// pricedDispatch is one dispatch bucket as the harvester and Store.Price
+// leave it: the model and effort that served it, and its cost.
+type pricedDispatch struct {
+	Model   string
+	Effort  string
+	CostUSD float64
 }
 
 // changeFixture is one change and the stage runs recorded against it.
@@ -56,10 +68,13 @@ type stageFixture struct {
 // joins a run's totals on, so the stages of that run carry the same token.
 // Decision is the planner's recorded JSON, written at DecisionAt;
 // Dispatches are review-panel dispatches, each with the findings it raised.
+//
+// UpdatedAt is the change record's last update, fixtureNow when zero.
 type changeFixture struct {
-	Name  string
-	State store.State
-	Stage []stageFixture
+	Name      string
+	State     store.State
+	UpdatedAt time.Time
+	Stage     []stageFixture
 
 	SessionToken string
 	Decision     string
@@ -117,10 +132,38 @@ func fixtureData() []projectFixture {
 					// Weekly costs table's 8 weeks, before every spec's
 					// pinned period, so no other view's capture moves
 					// (KAN-1037).
+					// The 2026-07-22 implementation run carries priced
+					// dispatches for the Weekly costs model·effort chart
+					// (KAN-1041); their cost sits inside the run's own.
 					Stage: []stageFixture{
 						{Command: "/flow", Stage: "flow.brainstorm", Model: "claude-opus-5", InputTokens: 60000, OutputTokens: 9000, CostUSD: 0.62, StartedAt: weeklyFixtureAt, Outcome: "completed"},
-						{Command: "/flow", Stage: "flow.sdd-tdd", Model: "claude-opus-5", InputTokens: 120000, OutputTokens: 20000, CostUSD: 1.1, StartedAt: weeklyFixtureAt.Add(time.Hour), Outcome: "completed"},
+						{Command: "/flow", Stage: "flow.sdd-tdd", Model: "claude-opus-5", InputTokens: 120000, OutputTokens: 20000, CostUSD: 1.1, StartedAt: weeklyFixtureAt.Add(time.Hour), Outcome: "completed",
+							Dispatches: map[string]pricedDispatch{
+								"agent-w2-a": {Model: "claude-opus-5", Effort: "low", CostUSD: 0.3},
+								"agent-w2-b": {Model: "claude-opus-5", Effort: "medium", CostUSD: 0.2},
+							}},
 						{Command: "/flow", Stage: "flow.self-review", Model: "claude-opus-5", InputTokens: 40000, OutputTokens: 6000, CostUSD: 0.35, StartedAt: weeklyFixtureAt.Add(2 * time.Hour), Outcome: "completed"},
+					},
+				},
+				{
+					// A finished change last updated before every spec's
+					// pinned period, so the state board never lists it: a
+					// visual-verify run and a run outside every phase
+					// (flow.verify) in the week of 2026-07-22, and a run with
+					// priced dispatches the week before, so both Weekly costs
+					// charts draw lines and labels across two consecutive
+					// weeks (KAN-1041).
+					Name:      "kan-103-weekly-fixture",
+					State:     store.StateFinished,
+					UpdatedAt: weeklyFixtureAt,
+					Stage: []stageFixture{
+						{Command: "/flow", Stage: "flow.sdd-tdd", Model: "claude-opus-5", InputTokens: 100000, OutputTokens: 16000, CostUSD: 0.9, StartedAt: weeklyFixtureAt.Add(-7 * 24 * time.Hour), Outcome: "completed",
+							Dispatches: map[string]pricedDispatch{
+								"agent-w1-a": {Model: "claude-opus-5", Effort: "low", CostUSD: 0.25},
+								"agent-w1-b": {Model: "claude-opus-5", Effort: "medium", CostUSD: 0.3},
+							}},
+						{Command: "/flow", Stage: "flow.visual-verify", Model: "claude-opus-5", InputTokens: 30000, OutputTokens: 5000, CostUSD: 0.4, StartedAt: weeklyFixtureAt.Add(3 * time.Hour), Outcome: "completed"},
+						{Command: "/flow", Stage: "flow.verify", Model: "claude-opus-5", InputTokens: 20000, OutputTokens: 3000, CostUSD: 0.2, StartedAt: weeklyFixtureAt.Add(4 * time.Hour), Outcome: "completed"},
 					},
 				},
 				{
@@ -262,12 +305,16 @@ func mainTokens(input, output float64) map[string]any {
 func seedFixture(ctx context.Context, st *store.Store) error {
 	for _, project := range fixtureData() {
 		for _, change := range project.Changes {
+			updatedAt := change.UpdatedAt
+			if updatedAt.IsZero() {
+				updatedAt = fixtureNow
+			}
 			c := store.Change{
 				ProjectKey:       project.Key,
 				MainCheckoutPath: project.MainCheckoutPath,
 				Name:             change.Name,
 				State:            change.State,
-				UpdatedAt:        fixtureNow,
+				UpdatedAt:        updatedAt,
 				UpdatedBy:        "uitest-seed",
 			}
 			if err := st.PutChange(ctx, c); err != nil {
@@ -301,6 +348,20 @@ func seedFixture(ctx context.Context, st *store.Store) error {
 							"tokens":   mainTokens(stage.InputTokens, stage.OutputTokens),
 						},
 					},
+				}
+				if len(stage.Dispatches) > 0 {
+					dispatches := map[string]any{}
+					for id, d := range stage.Dispatches {
+						dispatches[id] = map[string]any{
+							"model":    d.Model,
+							"cost_usd": d.CostUSD,
+							"signals": map[string]any{
+								"served_models":  map[string]int{d.Model: 1},
+								"served_efforts": map[string]int{d.Effort: 1},
+							},
+						}
+					}
+					metrics["dispatches"] = dispatches
 				}
 				if stage.ToolErrors > 0 {
 					metrics["signals"] = map[string]any{"main": map[string]any{"tool_errors": stage.ToolErrors}}
