@@ -23,6 +23,10 @@ type ReviewDynamics struct {
 	PreviousSummary                  DynamicsSummary
 	Markers                          []PromptChange
 	LastPromptChangeAt               *time.Time
+	// Projects is every project with a reviewer dispatch in the period,
+	// whatever the project filter: the page's project buttons
+	// (project-buttons).
+	Projects []string
 }
 
 // DynamicsPoint is one value of one series in one bucket. Basis is what
@@ -68,6 +72,13 @@ const modelVersionSQL = `COALESCE(d.metrics->>'modelVersion',
 	CASE WHEN d.model ~* '^(claude|glm)-' THEN d.model END,
 	model_family(d.model) || ' (version unrecorded)')`
 
+// classFilterSQL restricts a query's change c to the plan class $5 names,
+// read from the change's latest recorded decision; a NULL $5 keeps every
+// change (class-buttons).
+const classFilterSQL = `
+			  AND ($5::text IS NULL OR (SELECT dc.decision->>'class' FROM decisions dc
+				WHERE dc.change_id = c.id ORDER BY dc.recorded_at DESC, dc.id DESC LIMIT 1) = $5)`
+
 // implBadOutcomes are the implementer dispatch outcomes counted as blocked
 // (impl-vv-metrics).
 var implBadOutcomes = []string{"blocked", "aborted", "failed", "stopped", "cancelled"}
@@ -75,7 +86,9 @@ var implBadOutcomes = []string{"blocked", "aborted", "failed", "stopped", "cance
 // ReviewDynamics trends review-panel, implementer and visual-verify
 // outcomes over period, bucketed by UTC day when the period is 14 days or
 // shorter and by ISO week otherwise (bucket-from-range). project, when
-// set, restricts every series to that project.
+// set, restricts every series to that project, and class, when set, to the
+// changes whose latest recorded decision has that plan class
+// (class-buttons).
 //
 // Per-change metrics put a change in the bucket of its cohort dispatch's
 // started_at and count every finding of the change (cohort-by-change);
@@ -108,18 +121,18 @@ var implBadOutcomes = []string{"blocked", "aborted", "failed", "stopped", "cance
 //     bucket with an implBadOutcomes outcome ÷ all of them.
 //
 // The summary applies the same formulas to the whole period.
-func (s *Store) ReviewDynamics(ctx context.Context, period Period, project *string) (ReviewDynamics, error) {
+func (s *Store) ReviewDynamics(ctx context.Context, period Period, project, class *string) (ReviewDynamics, error) {
 	unit := "week"
 	if period.To.Sub(period.From) <= 14*24*time.Hour {
 		unit = "day"
 	}
 	out := ReviewDynamics{Bucket: unit}
 
-	cur, err := s.dynamicsFor(ctx, period, project, unit)
+	cur, err := s.dynamicsFor(ctx, period, project, class, unit)
 	if err != nil {
 		return ReviewDynamics{}, err
 	}
-	prev, err := s.dynamicsFor(ctx, Period{From: period.From.Add(-period.To.Sub(period.From)), To: period.From}, project, unit)
+	prev, err := s.dynamicsFor(ctx, Period{From: period.From.Add(-period.To.Sub(period.From)), To: period.From}, project, class, unit)
 	if err != nil {
 		return ReviewDynamics{}, err
 	}
@@ -132,6 +145,23 @@ func (s *Store) ReviewDynamics(ctx context.Context, period Period, project *stri
 	if out.LastPromptChangeAt, err = s.LastPromptChangeAt(ctx); err != nil {
 		return ReviewDynamics{}, err
 	}
+	out.Projects = []string{}
+	err = s.scanRows(ctx, "projects", `
+		SELECT DISTINCT c.project_key
+		FROM dispatches d JOIN changes c ON c.id = d.change_id
+		WHERE d.role = 'reviewer' AND d.started_at >= $1 AND d.started_at < $2
+		ORDER BY 1
+	`, []any{period.From, period.To}, func(scan func(...any) error) error {
+		var p string
+		if err := scan(&p); err != nil {
+			return err
+		}
+		out.Projects = append(out.Projects, p)
+		return nil
+	})
+	if err != nil {
+		return ReviewDynamics{}, err
+	}
 	return out, nil
 }
 
@@ -141,7 +171,7 @@ type dynamicsPeriod struct {
 	summary           DynamicsSummary
 }
 
-func (s *Store) dynamicsFor(ctx context.Context, period Period, project *string, unit string) (dynamicsPeriod, error) {
+func (s *Store) dynamicsFor(ctx context.Context, period Period, project, class *string, unit string) (dynamicsPeriod, error) {
 	var out dynamicsPeriod
 	add := func(b time.Time, metric, series string, value float64, basis int) {
 		out.series = append(out.series, DynamicsPoint{Bucket: b, Metric: metric, Series: series, Value: value, Basis: basis})
@@ -152,7 +182,7 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project *string,
 		}
 		return float64(n) / float64(d)
 	}
-	args := []any{period.From, period.To, project, unit}
+	args := []any{period.From, period.To, project, unit, class}
 
 	// Review panel, per change.
 	var changes, findings, critImp, rounds int
@@ -161,7 +191,7 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project *string,
 			SELECT d.change_id, min(d.started_at) AS first_at
 			FROM dispatches d JOIN changes c ON c.id = d.change_id
 			WHERE d.role = 'reviewer' AND d.slot IS NOT NULL
-			  AND ($3::text IS NULL OR c.project_key = $3)
+			  AND ($3::text IS NULL OR c.project_key = $3)`+classFilterSQL+`
 			GROUP BY d.change_id
 			HAVING min(d.started_at) >= $1 AND min(d.started_at) < $2
 		),
@@ -226,7 +256,7 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project *string,
 			FROM dispatches d JOIN changes c ON c.id = d.change_id
 			WHERE d.role = 'reviewer' AND d.slot IS NOT NULL
 			  AND d.started_at >= $1 AND d.started_at < $2
-			  AND ($3::text IS NULL OR c.project_key = $3)
+			  AND ($3::text IS NULL OR c.project_key = $3)`+classFilterSQL+`
 		)
 		SELECT d.id, date_trunc($4::text, d.started_at AT TIME ZONE 'UTC'), d.slot, d.model, d.version, d.effort,
 			count(f.id) FILTER (WHERE canonical_severity(f.severity) = 'critical'),
@@ -272,7 +302,7 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project *string,
 				mode() WITHIN GROUP (ORDER BY `+keyed.model+` || ' · ' || d.effort) AS series
 			FROM dispatches d JOIN changes c ON c.id = d.change_id
 			WHERE d.role = 'implementer'
-			  AND ($3::text IS NULL OR c.project_key = $3)
+			  AND ($3::text IS NULL OR c.project_key = $3)`+classFilterSQL+`
 			GROUP BY d.change_id
 			HAVING min(d.started_at) >= $1 AND min(d.started_at) < $2
 		)
@@ -304,10 +334,10 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project *string,
 
 	err = s.scanRows(ctx, "implementer blocked share", `
 		SELECT date_trunc($4::text, d.started_at AT TIME ZONE 'UTC') AS bucket,
-			count(*) FILTER (WHERE d.outcome = ANY($5)), count(*)
+			count(*) FILTER (WHERE d.outcome = ANY($6)), count(*)
 		FROM dispatches d JOIN changes c ON c.id = d.change_id
 		WHERE d.role = 'implementer' AND d.started_at >= $1 AND d.started_at < $2
-		  AND ($3::text IS NULL OR c.project_key = $3)
+		  AND ($3::text IS NULL OR c.project_key = $3)`+classFilterSQL+`
 		GROUP BY bucket ORDER BY bucket
 	`, append(args, implBadOutcomes), func(scan func(...any) error) error {
 		var b time.Time
@@ -330,7 +360,7 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project *string,
 				COALESCE(max(substring(d.dispatch_key FROM '^visual-verify-fix-([0-9]+)')::int), 0) AS rounds
 			FROM dispatches d JOIN changes c ON c.id = d.change_id
 			WHERE d.role = 'verifier' AND d.dispatch_key LIKE 'visual-verify%'
-			  AND ($3::text IS NULL OR c.project_key = $3)
+			  AND ($3::text IS NULL OR c.project_key = $3)`+classFilterSQL+`
 			GROUP BY d.change_id
 			HAVING min(d.started_at) >= $1 AND min(d.started_at) < $2
 		)

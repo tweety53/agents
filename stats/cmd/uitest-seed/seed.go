@@ -483,6 +483,13 @@ func seedReviewDynamics(ctx context.Context, st *store.Store) error {
 				Name: name, State: "FINISHED", UpdatedAt: at.Add(48 * time.Hour), UpdatedBy: "uitest-seed"}); err != nil {
 				return fmt.Errorf("uitest-seed: put change %s: %w", name, err)
 			}
+			// The first change of each week is big, the second small, so the
+			// page's Task size bar has data to draw (class-buttons).
+			class := []string{"big", "small"}[c]
+			if _, _, err := st.RecordDecision(ctx, project, name, records.Decision{SessionToken: "mf-" + name,
+				RecordedAt: at.Add(-4 * time.Hour), Decision: json.RawMessage(`{"class":"` + class + `"}`)}); err != nil {
+				return fmt.Errorf("uitest-seed: record decision for %s: %w", name, err)
+			}
 			dispatch := func(key, role, slot, model, effort, outcome string, start time.Time, version string) (records.Dispatch, error) {
 				d, err := st.RecordDispatch(ctx, project, name, records.Dispatch{Key: key, Role: role, Slot: slot, Model: model,
 					Effort: effort, Outcome: outcome, StartedAt: start, EndedAt: timePtr(start.Add(3 * time.Minute))})
