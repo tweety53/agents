@@ -26,11 +26,18 @@ import (
 // the prior-false-positive read are always the `flow` CLI on Env's PATH. The
 // reasoning for each branch, moved here from the bash body it replaced
 // (3e48ecac), sits beside the code it explains.
+//
+// Signal eleven (kan-1044 self-review, F1-c) flags a range commit whose
+// `Flow-Key: panel-fix-<r>[-<n>]` trailer no dispatch row carries by key or
+// by commit, reading HEAD and the pre-reshape pin when it resolves.
 func init() {
 	Registry["check-unfinished-work"] = checkUnfinishedWork
 }
 
 const uwPrefix = "check-unfinished-work: "
+
+// uwPanelFixKey is a panel-fix dispatch key, panel-fix-<r>[-<n>] (signal eleven).
+var uwPanelFixKey = regexp.MustCompile(`^panel-fix-[0-9]+(-[0-9]+)?$`)
 
 // unsplitListHint names the cause of an argument that cannot hold
 // whitespace and does (kan-970 self-review): a list built in a variable and
@@ -336,6 +343,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 			Role         string    `json:"role"`
 			Outcome      string    `json:"outcome"`
 			SessionToken string    `json:"sessionToken"`
+			CommitSha    string    `json:"commitSha"`
 			StartedAt    time.Time `json:"startedAt"`
 		}
 		if json.Unmarshal(dispOut, &dispatches) != nil || dispatches == nil {
@@ -497,6 +505,47 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 				if len(passes) == 0 {
 					reasons = append(reasons, "no review-panel pass recorded for code commit "+newest+" — run the review panel (skills/flow/review-panel.md) and record its pass rows with `flow record pass -change "+name+" -round <round>` before landing")
 				}
+			}
+		}
+		// SIGNAL ELEVEN — a panel-fix commit with no dispatch row (kan-1044
+		// self-review, F1-c: three panel fixes landed under trailers keyed a
+		// round low, and no row carried them). Each `Flow-Key: panel-fix-<r>[-<n>]`
+		// trailer in a range needs a row of the same key or one carrying its
+		// commit -- a trailer one round low is carried by the row its repair
+		// back-fills under the real round's key on that commit. HEAD and the
+		// pre-reshape pin are both read, since after the reshape the change's
+		// earlier commits are reachable from the pin alone.
+		if len(ranges) > 0 && !strings.Contains(planDir+"/", "/changes/archive/") {
+			keys := map[string]bool{}
+			for _, d := range dispatches {
+				keys[d.Key] = true
+				if d.CommitSha != "" {
+					keys[d.CommitSha] = true
+				}
+			}
+			var missing []string
+			for _, r := range ranges {
+				tips := []string{"HEAD"}
+				if _, ok := capture(envGit(env)("-C", r[0], "rev-parse", "-q", "--verify", "refs/flow/pre-reshape/"+name)); ok {
+					tips = append(tips, "refs/flow/pre-reshape/"+name)
+				}
+				out, ok := capture(envGit(env)(append([]string{"-C", r[0], "log", "--no-merges", "--format=%H %h %(trailers:key=Flow-Key,valueonly,separator=%x20)", "^" + r[1]}, tips...)...))
+				if !ok {
+					fmt.Fprintf(stderr, "%scannot read the commits of %s..%s in %s — cannot determine anything\n", uwPrefix, r[1], strings.Join(tips, " "), r[0])
+					return 2
+				}
+				for _, l := range strings.Split(strings.TrimSpace(out), "\n") {
+					full, rest, _ := strings.Cut(l, " ")
+					sha, rest, _ := strings.Cut(rest, " ")
+					for _, k := range strings.Fields(rest) {
+						if uwPanelFixKey.MatchString(k) && !keys[k] && !keys[full] {
+							missing = append(missing, sha+" ("+k+")")
+						}
+					}
+				}
+			}
+			if len(missing) > 0 {
+				reasons = append(reasons, strconv.Itoa(len(missing))+" panel-fix commit(s) whose Flow-Key no dispatch row carries ("+strings.Join(missing, ", ")+") — record each with `flow record dispatch backfill -change "+name+" -role panel-fix -agent-id inline -commit <sha>` under its real round's key before landing")
 			}
 		}
 		// SIGNAL NINE — a verify-report failure no later commit addressed

@@ -1358,3 +1358,65 @@ func TestCheckUnfinishedWorkReasonNamesFreshVerifyKey(t *testing.T) {
 		t.Fatalf("exit %d stdout %q stderr %q, want %q", r.rc, r.out, r.err, want)
 	}
 }
+
+// TestUnfinishedWorkFlagsAPanelFixCommitWithNoRow pins decision
+// gate-panel-fix-trailer-row (kan-1044 self-review, F1-c): a range commit
+// whose Flow-Key trailer names a panel-fix key no dispatch row carries is
+// OUTSTANDING, whether HEAD or only the pre-reshape pin reaches it.
+func TestUnfinishedWorkFlagsAPanelFixCommitWithNoRow(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		name, rows string
+		pinOnly    bool
+		flagged    bool
+	}{
+		{"a trailer with no row on HEAD", `{"key":"panel-fix-1","role":"panel-fix","outcome":"completed"}`, false, true},
+		{"a trailer with no row behind the pin", `{"key":"panel-fix-1","role":"panel-fix","outcome":"completed"}`, true, true},
+		{"a trailer with its row", `{"key":"panel-fix-3","role":"panel-fix","outcome":"completed"}`, false, false},
+		{"a round-low trailer with a row on its commit", `{"key":"panel-fix-4","role":"panel-fix","outcome":"completed","commitSha":"FULL"}`, false, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			f := newUW(t)
+			gitRun(t, "", "init", "-q", f.wt)
+			gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "base")
+			base := tcfGit(t, f.wt, "rev-parse", "HEAD")
+			writeFile(t, f.wt+"/src/a.go", "x\n")
+			gitRun(t, f.wt, "add", "src/a.go")
+			gitRun(t, f.wt, "commit", "-q", "-m", "fix: round 3\n\nFlow-Key: panel-fix-3")
+			sha := tcfGit(t, f.wt, "rev-parse", "--short", "HEAD")
+			full := tcfGit(t, f.wt, "rev-parse", "HEAD")
+			if c.pinOnly {
+				gitRun(t, f.wt, "update-ref", "refs/flow/pre-reshape/demo", "HEAD")
+				gitRun(t, f.wt, "reset", "-q", "--hard", base)
+			}
+			f.setFile(t, "dispatches.json", `[{"seq":9,"key":"verify","role":"verifier","outcome":"completed","startedAt":"2099-01-01T12:00:00Z"},`+strings.ReplaceAll(c.rows, "FULL", full)+`]`+"\n")
+			r := f.run(t, f.wt, "demo", "", f.wt+"="+base)
+			got := strings.Contains(r.out, sha) && strings.Contains(r.out, "panel-fix-3")
+			if got != c.flagged {
+				t.Fatalf("flagged = %v, want %v; exit %d stdout %q stderr %q", got, c.flagged, r.rc, r.out, r.err)
+			}
+		})
+	}
+}
+
+// TestUnfinishedWorkReadsHeadBesideThePin pins signal eleven reading HEAD and
+// the pre-reshape pin together: a trailer committed on HEAD after the pin is
+// still flagged.
+func TestUnfinishedWorkReadsHeadBesideThePin(t *testing.T) {
+	t.Parallel()
+	f := newUW(t)
+	gitRun(t, "", "init", "-q", f.wt)
+	gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "base")
+	base := tcfGit(t, f.wt, "rev-parse", "HEAD")
+	gitRun(t, f.wt, "update-ref", "refs/flow/pre-reshape/demo", "HEAD")
+	writeFile(t, f.wt+"/src/a.go", "x\n")
+	gitRun(t, f.wt, "add", "src/a.go")
+	gitRun(t, f.wt, "commit", "-q", "-m", "fix: round 5\n\nFlow-Key: panel-fix-5")
+	sha := tcfGit(t, f.wt, "rev-parse", "--short", "HEAD")
+	f.setFile(t, "dispatches.json", `[{"seq":9,"key":"verify","role":"verifier","outcome":"completed","startedAt":"2099-01-01T12:00:00Z"}]`+"\n")
+	r := f.run(t, f.wt, "demo", "", f.wt+"="+base)
+	if !strings.Contains(r.out, sha) || !strings.Contains(r.out, "panel-fix-5") {
+		t.Fatalf("HEAD commit not flagged; exit %d stdout %q stderr %q", r.rc, r.out, r.err)
+	}
+}
