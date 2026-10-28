@@ -1,0 +1,8 @@
+# Task 4 (1d), new text: a fix-mutation row is recorded before the round's re-review.
+Each row is recorded before the round's re-review begins, and `flow record mutation` refuses one after (kan-1046 self-review, 1d).
+The flip is recorded with the round's other `flow record mutation` rows before the round closes.
+The flip is recorded with the round's other `flow record mutation` rows before the round's re-review begins.
+# Task 5 (1e), new text: a planning dispatch's row is ended before the brainstorm stage ends.
+Each planning dispatch's row is ended when its agent hands back, and `flow stage end` of `flow.brainstorm` refuses while one is open (kan-1046 self-review, 1e).
+# Task 6 (1f), new text: the visual record joins the in-run fix task's commit, and close-task runs the plan guard.
+`<changeRoot>/visual-verification.md` is untracked until that task's commit, which `git add`s it, and `close-task` runs the plan guard on the task before ticking it (kan-1046 self-review, 1f).
