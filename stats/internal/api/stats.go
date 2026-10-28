@@ -44,6 +44,9 @@ const boundaryConvention = "a stage run is attributed to the period containing i
 // database.
 type StatsStore interface {
 	LiveStateBoard(ctx context.Context, period store.Period, project *string) ([]store.LiveStateRow, error)
+	// SetSessionActivity backs PUT /api/v1/sessions/{session}/activity
+	// (decision session-activity-hooks); the board reads it back.
+	SetSessionActivity(ctx context.Context, sessionID, state, detail string) error
 	CostPerChange(ctx context.Context, period store.Period, project, model *string) ([]store.CostPerChangeRow, error)
 	StageLeaderboard(ctx context.Context, period store.Period, project, model *string) ([]store.StageLeaderboardRow, error)
 	TrendOverTime(ctx context.Context, period store.Period, project, model *string) ([]store.TrendPoint, error)
@@ -665,6 +668,15 @@ type stateBoardRowDTO struct {
 	CostUsd     float64 `json:"costUsd"`
 	WallClockMs int64   `json:"wallClockMs"`
 	Errors      int     `json:"errors"`
+
+	// The open stage run, the done-task count and the open run's session
+	// activity (store.LiveStateRow), each omitted when absent.
+	CurrentStage          *string `json:"currentStage,omitempty"`
+	CurrentStageStartedAt *string `json:"currentStageStartedAt,omitempty"`
+	DoneTasks             *int    `json:"doneTasks,omitempty"`
+	Activity              *string `json:"activity,omitempty"`
+	ActivityDetail        *string `json:"activityDetail,omitempty"`
+	ActivitySince         *string `json:"activitySince,omitempty"`
 }
 
 // nextCommandFor maps a change's current pipeline state to the command that
@@ -711,9 +723,25 @@ func toStateBoardDTOs(rows []store.LiveStateRow) []stateBoardRowDTO {
 			CostUsd:      r.CostUsd,
 			WallClockMs:  r.WallClockMs,
 			Errors:       r.Errors,
+
+			CurrentStage:          r.CurrentStage,
+			CurrentStageStartedAt: rfc3339OrNil(r.CurrentStageStartedAt),
+			DoneTasks:             r.DoneTasks,
+			Activity:              r.Activity,
+			ActivityDetail:        r.ActivityDetail,
+			ActivitySince:         rfc3339OrNil(r.ActivitySince),
 		}
 	}
 	return out
+}
+
+// rfc3339OrNil formats t as the board's other timestamps are, nil when t is.
+func rfc3339OrNil(t *time.Time) *string {
+	if t == nil {
+		return nil
+	}
+	s := t.UTC().Format(time.RFC3339Nano)
+	return &s
 }
 
 type costPerChangeRowDTO struct {

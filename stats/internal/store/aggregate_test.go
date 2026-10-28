@@ -1902,3 +1902,88 @@ func TestLiveStateBoardCarriesWholeLifeRunTotals(t *testing.T) {
 		t.Errorf("Errors = %d, want 4 (tool and API errors, main and sidechain)", got.Errors)
 	}
 }
+
+// TestLiveStateBoardCarriesOpenStageDoneTasksAndActivity pins the three
+// live facts the board's Running now cards read: the change's open stage
+// run, how many tasks carry a committed implementer dispatch, and what the
+// open run's session is doing. A change with no open run and no
+// implementer dispatch carries none of them.
+func TestLiveStateBoardCarriesOpenStageDoneTasksAndActivity(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-board-live-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedChange(t, st, projectKey, "kan-2")
+
+	day := time.Date(2026, 8, 13, 10, 0, 0, 0, time.UTC)
+	closed := baseBeginInput(projectKey, "kan-1", "/flow", "flow.load-context")
+	closed.StartedAt = day
+	run, err := st.BeginStage(ctx, closed)
+	if err != nil {
+		t.Fatalf("BeginStage(closed): %v", err)
+	}
+	if err := st.EndStage(ctx, run.ID, day.Add(time.Minute), "completed"); err != nil {
+		t.Fatalf("EndStage: %v", err)
+	}
+	open := baseBeginInput(projectKey, "kan-1", "/flow", "flow.sdd-tdd")
+	open.SessionID = ptr("s-1")
+	open.StartedAt = day.Add(2 * time.Minute)
+	if _, err := st.BeginStage(ctx, open); err != nil {
+		t.Fatalf("BeginStage(open): %v", err)
+	}
+
+	dispatch := func(task, commit string) {
+		t.Helper()
+		d := baseDispatch("implementer", "opus")
+		d.TaskID = task
+		d.CommitSHA = commit
+		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", d); err != nil {
+			t.Fatalf("RecordDispatch: %v", err)
+		}
+	}
+	dispatch("1", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	dispatch("2", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+	dispatch("3", "")
+
+	if err := st.SetSessionActivity(ctx, "s-1", "question", "Proceed?"); err != nil {
+		t.Fatalf("SetSessionActivity: %v", err)
+	}
+
+	rows, err := st.LiveStateBoard(ctx, store.Period{
+		From: time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC),
+	}, &projectKey)
+	if err != nil {
+		t.Fatalf("LiveStateBoard: %v", err)
+	}
+	byName := map[string]store.LiveStateRow{}
+	for _, row := range rows {
+		byName[row.Name] = row
+	}
+
+	live := byName["kan-1"]
+	if live.CurrentStage == nil || *live.CurrentStage != "flow.sdd-tdd" {
+		t.Errorf("CurrentStage = %v, want flow.sdd-tdd", live.CurrentStage)
+	}
+	if live.CurrentStageStartedAt == nil || !live.CurrentStageStartedAt.Equal(day.Add(2*time.Minute)) {
+		t.Errorf("CurrentStageStartedAt = %v, want %v", live.CurrentStageStartedAt, day.Add(2*time.Minute))
+	}
+	if live.DoneTasks == nil || *live.DoneTasks != 2 {
+		t.Errorf("DoneTasks = %v, want 2", live.DoneTasks)
+	}
+	if live.Activity == nil || *live.Activity != "question" {
+		t.Errorf("Activity = %v, want question", live.Activity)
+	}
+	if live.ActivityDetail == nil || *live.ActivityDetail != "Proceed?" {
+		t.Errorf("ActivityDetail = %v, want Proceed?", live.ActivityDetail)
+	}
+	if live.ActivitySince == nil {
+		t.Errorf("ActivitySince = nil, want the activity's time")
+	}
+
+	idle := byName["kan-2"]
+	if idle.CurrentStage != nil || idle.CurrentStageStartedAt != nil || idle.DoneTasks != nil ||
+		idle.Activity != nil || idle.ActivityDetail != nil || idle.ActivitySince != nil {
+		t.Errorf("kan-2 = %+v, want every live field nil", idle)
+	}
+}

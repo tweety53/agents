@@ -30,6 +30,10 @@ import (
 // below that actually asserts on aggregation output uses statsFake
 // instead (see below), which gives each test full, independent control
 // over exactly the rows and errors it needs.
+func (f *fakeStore) SetSessionActivity(context.Context, string, string, string) error {
+	return nil
+}
+
 func (f *fakeStore) LiveStateBoard(_ context.Context, _ store.Period, project *string) ([]store.LiveStateRow, error) {
 	f.lastStatsProject = project
 	return f.liveStateBoard, f.liveStateBoardErr
@@ -110,6 +114,7 @@ type statsRun struct {
 
 type statsFake struct {
 	liveStateBoard   []store.LiveStateRow
+	activity         map[string][2]string
 	costPerChange    []store.CostPerChangeRow
 	stageLeaderboard []store.StageLeaderboardRow
 	trendOverTime    []store.TrendPoint
