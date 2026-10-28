@@ -371,7 +371,10 @@ prescribed course, never accepting the plan while it stands.
 > sidecar and the band, seam and matrix reads of `measure-visual-properties.sh` on every pair, and
 > fix until they come back clean or each leftover is named with its cause — the rule
 > **The implementer measures before it hands back** in **The loop** (`skills/flow/verify-fix-loop.md`) states for a fix
-> round, applied at plan time (kan-1007: a plan-time capture was judged by eye).
+> round, applied at plan time (kan-1007: a plan-time capture was judged by eye). The same
+> compose-and-measure steps apply when the view's specification is an approved prototype, rendered
+> as each capture's frame per step 10 of `skills/flow/visual-verify-verifier.md`, with no declared
+> `mockups` root (kan-1046 self-review, 8c).
 
 > **Write a frame a sibling ticket finishes as this change's parts only.** When sibling tickets
 > share a mockup frame family and a frame on this change's list also draws parts a sibling ticket
