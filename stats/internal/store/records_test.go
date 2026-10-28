@@ -5379,3 +5379,30 @@ func TestEndDispatchKeepsClosedRowEnd(t *testing.T) {
 		t.Errorf("re-end commit = %v, want the re-pointed commit", got.CommitSHA)
 	}
 }
+
+// TestDropMutation pins flowd drop-mutation's store half (kan-1046
+// self-review, 1d): a recorded mutation is gone after DropMutation, and a
+// second drop of the same id is an error.
+func TestDropMutation(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-dropmutation-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	m, err := st.RecordMutation(ctx, projectKey, "kan-1", records.Mutation{Round: 1, Path: "p", Mutated: "x", Test: "y"})
+	if err != nil {
+		t.Fatalf("RecordMutation: %v", err)
+	}
+	if err := st.DropMutation(ctx, m.ID); err != nil {
+		t.Fatalf("DropMutation: %v", err)
+	}
+	run, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	if len(run.Mutations) != 0 {
+		t.Errorf("mutations = %+v, want none", run.Mutations)
+	}
+	if err := st.DropMutation(ctx, m.ID); err == nil || !strings.Contains(err.Error(), "no such mutation") {
+		t.Errorf("second DropMutation = %v, want no such mutation", err)
+	}
+}

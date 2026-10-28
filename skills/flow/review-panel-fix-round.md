@@ -343,7 +343,7 @@ fixed finding.** The mutation flips the line the fix changed — the code the ad
 test exists to catch — and the test confirmed to fail under the flip is that added or strengthened
 test, not merely any test that happens to trip: the flip is what shows the fix's own test tests
 what it claims. The flip is recorded with the round's other `flow record mutation` rows before the
-round closes.
+round's re-review begins.
 `check-panel-findings-closed.sh` refuses the panel's close while a round with a fixed Critical or Important finding has no `flow record mutation` row, the predicate integrate's unfinished-work gate applies, so the omission surfaces while the fix round is still open (kan-1039: it surfaced only at the landing gate).
 
 **Every fixed Critical or Important finding leaves a tracked suite test behind** — the
@@ -367,6 +367,9 @@ fix-mutation: <path> — <what was mutated> — <the test that failed>
 fix-mutation: <path> — none — <reason>
 fix-mutations-total: <n>
 ```
+
+Each row is recorded before the round's re-review begins, and `flow record mutation` refuses one
+after (kan-1046 self-review, 1d).
 
 **The rendered record carries these lines in its pass-log section, one round's count after that
 round's lines, and never inside the marker block.**

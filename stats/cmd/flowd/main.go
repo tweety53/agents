@@ -132,6 +132,14 @@ func main() {
 		return
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == "drop-mutation" {
+		if err := dropMutation(os.Args[2:]); err != nil {
+			logger.Error("flowd drop-mutation failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "fold-dispatch" {
 		if err := foldDispatch(os.Args[2:]); err != nil {
 			logger.Error("flowd fold-dispatch failed", "error", err)
@@ -861,6 +869,31 @@ func dropPass(args []string) error {
 	}
 	defer st.Close()
 	return st.DropPass(ctx, id)
+}
+
+// dropMutation implements `flowd drop-mutation <mutation-id>`
+// (store.Store.DropMutation): the repair for a mutation proof recorded for
+// a fix that never ran (kan-1046 self-review, 1d). It talks to the database
+// directly, so it needs no running daemon.
+func dropMutation(args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("usage: flowd drop-mutation <mutation-id>")
+	}
+	id, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("mutation id %q: %w", args[0], err)
+	}
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	st, err := store.Open(ctx, cfg.DSN)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	return st.DropMutation(ctx, id)
 }
 
 // reoutcomeDispatch implements `flowd reoutcome-dispatch <dispatch-id>

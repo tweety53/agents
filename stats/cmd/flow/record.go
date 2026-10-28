@@ -3360,6 +3360,22 @@ func runRecordMutation(ctx context.Context, args []string, stdout, stderr io.Wri
 		return 2
 	}
 
+	// A proof precedes the re-review it feeds: once a reviewer row of panel
+	// round -round has begun, a proof recorded now could contradict what
+	// that re-review saw (kan-1046 self-review, 1d). A failed read refuses
+	// nothing.
+	if run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+		return cl.GetRunRecord(ctx, projectKey, f.change)
+	}); err == nil {
+		now := time.Now()
+		for _, d := range run.Dispatches {
+			if n, ok := records.PanelDispatchRound(d); ok && n == *round && !d.StartedAt.After(now) {
+				fmt.Fprintf(stderr, "flow: record mutation: panel round %d's re-review began %s -- a mutation proof is recorded before the re-review it precedes (skills/flow/review-panel-fix-round.md)\n", *round, d.StartedAt.UTC().Format(time.RFC3339))
+				return 2
+			}
+		}
+	}
+
 	in := records.Mutation{Round: *round, Path: *path, Mutated: *mutated, Test: *test}
 	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Mutation, error) {
 		return cl.RecordMutation(ctx, projectKey, f.change, in)

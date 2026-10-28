@@ -1856,6 +1856,20 @@ func (s *Store) DropPass(ctx context.Context, id int64) error {
 	return nil
 }
 
+// DropMutation deletes one panel_mutations row by id -- the repair for a
+// proof recorded for a fix that never ran (kan-1046 self-review, 1d). An
+// unknown id is an error and changes nothing.
+func (s *Store) DropMutation(ctx context.Context, id int64) error {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM panel_mutations WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("store: drop mutation %d: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("store: drop mutation %d: no such mutation", id)
+	}
+	return nil
+}
+
 // RecordMutation records one fix-mutation: line of the fix round's
 // mutation proof -- the path, what was mutated, and the test that failed
 // (or, on the contract's exemption form, mutated "none" and test carrying

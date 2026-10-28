@@ -7110,3 +7110,50 @@ func TestRecordDispatchBackfillRefusesPanelFixOverOpenRound(t *testing.T) {
 		t.Errorf("closed round: bodies = %v, want begin startedAt 14:40:55Z", bodies)
 	}
 }
+
+// TestRecordMutationRefusesAfterReReviewBegan pins the kan-1046 self-review
+// fix (1d): a mutation proof for round r is refused, exit 2 with no store
+// write, once a reviewer row of panel round r has begun; a round with no
+// reviewer row yet passes.
+func TestRecordMutationRefusesAfterReReviewBegan(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	if err := os.WriteFile(filepath.Join(repo, "render.go"), []byte("package x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	record := `{"change":"kan-258","dispatches":[` +
+		`{"key":"panel-1-primary","agentId":"a1","role":"reviewer","slot":"primary","startedAt":"2026-10-28T14:38:10Z"}]}`
+	posts := 0
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
+			_, _ = w.Write([]byte(record))
+			return
+		}
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		posts++
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":12,"round":2,"path":"render.go","mutated":"x","test":"y"}`))
+	}))
+	defer srv.Close()
+	args := func(round string) []string {
+		return []string{"record", "mutation", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-round", round, "-path", "render.go", "-mutated", "x", "-test", "y"}
+	}
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(), args("1"), strings.NewReader(""), &stdout, &stderr); code != 2 || posts != 0 {
+		t.Fatalf("round 1: exit %d, posts %d; want 2 and none (stderr %q)", code, posts, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "panel round 1's re-review began") {
+		t.Errorf("round 1: stderr %q does not name panel round 1", stderr.String())
+	}
+	if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+		t.Errorf("round 1: wrote a record journal")
+	}
+	stderr.Reset()
+	if code := run(context.Background(), args("2"), strings.NewReader(""), &stdout, &stderr); code != 0 || posts != 1 {
+		t.Fatalf("round 2: exit %d, posts %d; want 0 and one (stderr %q)", code, posts, stderr.String())
+	}
+}
