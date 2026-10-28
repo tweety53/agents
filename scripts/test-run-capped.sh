@@ -5,7 +5,10 @@ set -u
 here=$(cd "$(dirname "$0")" && pwd)
 rc="$here/run-capped.sh"
 fail=0
-alloc='b=bytearray(128*1024*1024); import time; time.sleep(10)'
+# Random bytes, re-touched every 0.2s for 10s: zero-filled pages left idle are
+# compressed out of RSS within ~5s on macOS, so a sample run-capped.sh takes
+# late under load read under the cap and the probe flaked (kan-1048 verify).
+alloc='import os, time; b = bytearray(os.urandom(128 << 20)); [(b.__setitem__(slice(None, None, 4096), os.urandom(len(b) // 4096)), time.sleep(0.2)) for _ in range(50)]'
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 unset RUN_CAPPED_PGID
 

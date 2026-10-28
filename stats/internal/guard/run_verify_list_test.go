@@ -854,7 +854,7 @@ func TestRunVerifyListCapsMemory(t *testing.T) {
 	if out, err := exec.Command(fixtureGit, "-C", wt, "init", "-q").CombinedOutput(); err != nil {
 		t.Fatalf("git init: %v\n%s", err, out)
 	}
-	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## resource cap\n\n64\n\n## test\n\n```bash\npython3 -c 'b=bytearray(128*1024*1024); import time; time.sleep(10)'\n```\n")
+	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## resource cap\n\n64\n\n## test\n\n```bash\npython3 -c 'import os, time; b = bytearray(os.urandom(128 << 20)); [(b.__setitem__(slice(None, None, 4096), os.urandom(len(b) // 4096)), time.sleep(0.2)) for _ in range(50)]'\n```\n")
 	repo, _ := filepath.Abs("../../..")
 	// An outer run-capped.sh's RUN_CAPPED_PGID would make the inner one run
 	// in place under the outer cap, never this fixture's 64 MB.
