@@ -39,7 +39,10 @@ runs them as **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline
   no mockup frame already specifies it, build a clickable prototype of the proposed result with
   sample data as a single HTML file, publish it with the Artifact tool, and iterate it on the
   operator's feedback each round until they approve; that approval is the convergence confirm's
-  **approve the design and move on** (**Convergence**, below). Save the approved file under
+  **approve the design and move on** (**Convergence**, below). The file draws the proposed page
+  alone — no caption, note or screenshot beside it — since `flow.visual-verify` renders the whole
+  file as the capture's frame; a note to the operator goes in the message (kan-1047: a caption
+  over a JPEG of the live page never paired with a capture). Save the approved file under
   `<project>-worktrees/<name>/.superpowers/sdd/` and cite it, with its Artifact URL, from
   `design.md`'s `## Context` as the spec the implementation and `flow.visual-verify` compare
   against, and every capture test of a view it draws drives each interactive state it shows —
