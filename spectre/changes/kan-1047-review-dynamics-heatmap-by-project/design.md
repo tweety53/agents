@@ -41,3 +41,8 @@
 **ID:** two-column-grid
 **Status:** decided
 - Operator mid-run request (2026-10-28): every chart row holds exactly two charts.
+
+### drop-tune-preset
+**ID:** drop-tune-preset
+**Status:** decided
+- Operator mid-run request (2026-10-28): remove the "Since last prompt change" range button, judged useless. The API keeps `lastPromptChangeAt`; only the SPA preset goes.

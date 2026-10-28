@@ -43,3 +43,15 @@
 **Regression:** the vitest fails — an `edit` marker draws under `flow-prompt-tuning`.
 **Commit:** feat(stats): two-column review dynamics and a prompt-change marker filter
 **After:** Task 1
+
+- [ ] 3. Drop the "Since last prompt change" range preset
+  - [ ] **Step 1: Test.** vitest `review dynamics range presets set the period` asserts the Range bar has no "Since last prompt change" button.
+  - [ ] **Step 2: SPA.** Remove the `tune` preset from `PRESETS`, `Preset` and `presetPeriod`.
+  - [ ] **Step 3: Verify.** `cd stats/web && npx vitest run -t 'review dynamics'`; `npx tsc -b`. Commit.
+
+**Build:** green
+**Files:** `stats/web/src/views/ReviewDynamics.tsx`, `stats/web/src/views/views.test.tsx`
+**Tests:** `review dynamics range presets set the period`
+**Regression:** the vitest fails — the Range bar still offers "Since last prompt change".
+**Commit:** feat(stats): drop the since-last-prompt-change range preset
+**After:** Task 2
