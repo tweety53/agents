@@ -67,6 +67,10 @@ type StatsStore interface {
 	// SelfReviewFindingsInPeriod backs the "self-review" view: every
 	// self-review finding recorded in the period, newest first.
 	SelfReviewFindingsInPeriod(ctx context.Context, period store.Period, project *string) ([]store.SelfReviewFindingRow, error)
+	// ReviewDynamics backs the "review-dynamics" view and
+	// UpsertPromptChange POST /api/v1/prompt-changes (KAN-1046).
+	ReviewDynamics(ctx context.Context, period store.Period, project *string) (store.ReviewDynamics, error)
+	UpsertPromptChange(ctx context.Context, c store.PromptChange) error
 	// CountRunsWithoutModel and ListModels back task 21's model filter:
 	// the former only called when a model filter is set (statsResponse's
 	// ExcludedNoModel), the latter GET /api/v1/models's only source.
@@ -117,6 +121,7 @@ const (
 	viewDecisions         viewName = "decisions"
 	viewFlowSummary       viewName = "flow-summary"
 	viewSelfReview        viewName = "self-review"
+	viewReviewDynamics    viewName = "review-dynamics"
 )
 
 // knownViews is every accepted {view} path value, used both to dispatch and
@@ -126,7 +131,7 @@ const (
 var knownViews = []viewName{
 	viewStateBoard, viewCostPerChange, viewStageLeaderboard, viewTrend, viewWeeklyCosts,
 	viewWeeklyModelEffort, viewReviewers, viewDecisions,
-	viewFlowSummary, viewSelfReview,
+	viewFlowSummary, viewSelfReview, viewReviewDynamics,
 }
 
 func acceptedViewNames() string {
@@ -402,6 +407,13 @@ func (h *statsHandler) view(w http.ResponseWriter, r *http.Request) {
 			"view %q does not accept a model restriction: its rows are changes, not stage runs", name))
 		return
 	}
+	// Review dynamics splits its own series by model, so a restriction
+	// would hide the comparison the view exists to draw.
+	if model != nil && name == viewReviewDynamics {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf(
+			"view %q does not accept a model restriction: it compares models itself", name))
+		return
+	}
 
 	recorded, err := h.recorded(r.Context(), period, project)
 	if err != nil {
@@ -552,6 +564,14 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 
 	case viewFlowSummary, viewSelfReview:
 		return h.healthRows(ctx, name, period, project, model)
+
+	case viewReviewDynamics:
+		d, err := h.store.ReviewDynamics(ctx, period, project)
+		if err != nil {
+			s, m := mapStoreError(h.logger, "review dynamics", err)
+			return nil, s, m
+		}
+		return toReviewDynamicsDTO(d), 0, ""
 
 	default:
 		return nil, http.StatusBadRequest, fmt.Sprintf("unrecognised view %q; accepted: %s", name, acceptedViewNames())

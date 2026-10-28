@@ -361,6 +361,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("GET /api/v1/stage-runs", sth.listStageRuns)
 	mux.Handle("GET /api/v1/stats/{view}", http.TimeoutHandler(http.HandlerFunc(sth.view), statsWriteTimeout, statsTimeoutMessage))
 	mux.HandleFunc("GET /api/v1/models", sth.listModels)
+	mux.HandleFunc("POST /api/v1/prompt-changes", sth.postPromptChange)
 	mux.HandleFunc("GET /api/v1/records/{project}/{change}", rh.runRecord)
 	mux.HandleFunc("GET /api/v1/records/{project}/{change}/cost-status", rh.costStatus)
 	mux.HandleFunc("GET /api/v1/records/{project}/{change}/render/{kind}", rh.renderRecord)

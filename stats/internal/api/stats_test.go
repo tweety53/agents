@@ -73,6 +73,12 @@ func (f *fakeStore) FlowSummary(_ context.Context, _ store.Period, _ *string) (s
 func (f *fakeStore) SelfReviewFindingsInPeriod(_ context.Context, _ store.Period, _ *string) ([]store.SelfReviewFindingRow, error) {
 	return nil, nil
 }
+func (f *fakeStore) ReviewDynamics(_ context.Context, _ store.Period, _ *string) (store.ReviewDynamics, error) {
+	return store.ReviewDynamics{}, nil
+}
+func (f *fakeStore) UpsertPromptChange(_ context.Context, _ store.PromptChange) error {
+	return nil
+}
 func (f *fakeStore) CountRunsWithoutModel(_ context.Context, _ store.Period, _ *string) (int, error) {
 	return 0, nil
 }
@@ -114,6 +120,8 @@ type statsFake struct {
 	decisions              []store.DecisionRow
 	flowSummary            store.FlowSummaryRow
 	selfReview             []store.SelfReviewFindingRow
+	reviewDynamics         store.ReviewDynamics
+	promptChanges          []store.PromptChange
 	aggErr                 error
 
 	countRunsWithoutModel    int
@@ -190,6 +198,14 @@ func (f *statsFake) Decisions(_ context.Context, _ store.Period, p *string) ([]s
 func (f *statsFake) SelfReviewFindingsInPeriod(_ context.Context, _ store.Period, p *string) ([]store.SelfReviewFindingRow, error) {
 	f.lastProject = p
 	return f.selfReview, f.aggErr
+}
+func (f *statsFake) ReviewDynamics(_ context.Context, _ store.Period, p *string) (store.ReviewDynamics, error) {
+	f.lastProject = p
+	return f.reviewDynamics, f.aggErr
+}
+func (f *statsFake) UpsertPromptChange(_ context.Context, c store.PromptChange) error {
+	f.promptChanges = append(f.promptChanges, c)
+	return f.aggErr
 }
 func (f *statsFake) FlowSummary(_ context.Context, _ store.Period, p *string) (store.FlowSummaryRow, error) {
 	f.lastProject = p
@@ -1904,5 +1920,61 @@ func TestStatsWeeklyModelEffortCosts(t *testing.T) {
 	}
 	if got := rows[1]; got.Effort != "session" || got.CostUSD != 6 {
 		t.Errorf("rows[1] = %+v, want session 6", got)
+	}
+}
+
+// TestStatsReviewDynamics pins the review-dynamics view's wire shape: one
+// object carrying the series with day-dated buckets, both heatmaps and
+// summaries, the markers and lastPromptChangeAt; the project passes
+// through, and a model restriction is refused as the state board's is.
+func TestStatsReviewDynamics(t *testing.T) {
+	week := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	last := week.Add(50 * time.Hour)
+	slot, impl := "primary", 1.5
+	sts := &statsFake{reviewDynamics: store.ReviewDynamics{
+		Bucket:       "week",
+		Series:       []store.DynamicsPoint{{Bucket: week, Metric: "findings-per-change", Series: "minor", Value: 0.5, Basis: 2}},
+		Heat:         []store.HeatCell{{Slot: "primary", Model: "opus", Effort: "low", Dispatches: 2, Critical: 1}},
+		PreviousHeat: []store.HeatCell{},
+		Summary:      store.DynamicsSummary{FindingsPerChange: 0.5, ImplFindingsPerTask: &impl, Changes: 2},
+		Markers: []store.PromptChange{{SHA: "abc:skills/flow/primary-reviewer-prompt.md", At: week.Add(time.Hour),
+			Kind: "edit", Area: "review", Slot: &slot, Target: "skills/flow/primary-reviewer-prompt.md", Summary: "tighten"}},
+		LastPromptChangeAt: &last,
+	}}
+	ts := newStatsTestServer(t, sts)
+
+	status, env, body := getStats(t, ts, periodPath("review-dynamics")+"&project=p")
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	if sts.lastProject == nil || *sts.lastProject != "p" {
+		t.Errorf("project passed = %v, want p", sts.lastProject)
+	}
+	var rows map[string]json.RawMessage
+	if err := json.Unmarshal(env.Rows, &rows); err != nil {
+		t.Fatalf("rows is not one object: %v (body %s)", err, body)
+	}
+	for _, k := range []string{"bucket", "series", "heat", "previousHeat", "summary", "previousSummary", "markers", "lastPromptChangeAt"} {
+		if _, ok := rows[k]; !ok {
+			t.Errorf("rows lacks %q: %s", k, env.Rows)
+		}
+	}
+	for k, want := range map[string]string{
+		"bucket":             `"week"`,
+		"series":             `[{"bucket":"2026-08-03","metric":"findings-per-change","series":"minor","value":0.5,"basis":2}]`,
+		"heat":               `[{"slot":"primary","model":"opus","effort":"low","dispatches":2,"critical":1,"important":0,"minor":0}]`,
+		"previousHeat":       `[]`,
+		"summary":            `{"findingsPerChange":0.5,"criticalImportantPerChange":0,"meanFixRounds":0,"implFindingsPerTask":1.5,"vvFirstPassShare":null,"changes":2}`,
+		"markers":            `[{"sha":"abc:skills/flow/primary-reviewer-prompt.md","at":"2026-08-03T01:00:00Z","kind":"edit","area":"review","slot":"primary","target":"skills/flow/primary-reviewer-prompt.md","summary":"tighten","caseId":null}]`,
+		"lastPromptChangeAt": `"2026-08-05T02:00:00Z"`,
+	} {
+		if got := string(rows[k]); got != want {
+			t.Errorf("rows.%s = %s, want %s", k, got, want)
+		}
+	}
+
+	status, raw := doGetRaw(t, ts, periodPath("review-dynamics")+"&model=opus")
+	if status != http.StatusBadRequest || !strings.Contains(string(raw), "model restriction") {
+		t.Errorf("model restriction = %d %s, want 400 naming the model restriction", status, raw)
 	}
 }
