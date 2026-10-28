@@ -632,7 +632,10 @@ func TestWeeklyModelEffortCostsSplitsDispatchAndSession(t *testing.T) {
 		"dispatches": {
 			"b1": {"model": "opus", "cost_usd": 3, "signals": {
 				"served_models": {"claude-sonnet-5-5": 1, "claude-opus-5-5": 4},
-				"served_efforts": {"medium": 2, "high": 2}}}
+				"served_efforts": {"medium": 2, "high": 2}}},
+			"b2": {"model": "opus", "cost_usd": 4, "signals": {
+				"served_models": {"claude-sonnet-5-5": 3, "claude-opus-5-5": 3},
+				"served_efforts": {"low": 1, "xhigh": 5}}}
 		}
 	}`)
 
@@ -651,6 +654,7 @@ func TestWeeklyModelEffortCostsSplitsDispatchAndSession(t *testing.T) {
 		{Week: week, Model: "claude-opus-5-5", Effort: "session", CostUSD: 6},
 		{Week: week, Model: "claude-sonnet-5-5", Effort: "medium", CostUSD: 2},
 		{Week: week.AddDate(0, 0, 7), Model: "claude-opus-5-5", Effort: "high", CostUSD: 3},
+		{Week: week.AddDate(0, 0, 7), Model: "claude-opus-5-5", Effort: "xhigh", CostUSD: 4},
 	}
 	if len(points) != len(want) {
 		t.Fatalf("WeeklyModelEffortCosts returned %d rows %+v, want %d", len(points), points, len(want))
