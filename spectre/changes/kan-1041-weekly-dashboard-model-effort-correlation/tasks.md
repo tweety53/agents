@@ -185,10 +185,10 @@
 **Decision:** reprice-command
 
 
-- [ ] 11. In-run fix 2 — flow.verify: per-week model·effort sums exceed Overall on runs with a stale total
-  - [ ] **Step 1: Write the failing tests:** in `stats/internal/store/stageruns_test.go`, `TestPriceOneUnpriceableBucketOmitsTopLevelTotal` first prices the run while only the `claude-opus-5` bucket exists (top-level `cost_usd` written), then merges the `no-such-model` bucket and prices again, and still expects no top-level `cost_usd`; in `stats/internal/store/aggregate_test.go`, `TestWeeklyModelEffortCostsSplitsDispatchAndSession` gains an attached run in the period whose model bucket carries `cost_usd` but whose metrics carry no top-level `cost_usd`, and expects no row from it. Run `cd stats && go test ./internal/store/ -run 'TestPriceOneUnpriceable|TestWeeklyModelEffort'` — RED.
-  - [ ] **Step 2: Implement:** `Price` removes the top-level `cost_usd` when any model bucket could not be priced, as its unmeasured branch already does, so a total written before a later unpriceable bucket arrived never stays reading as complete; `WeeklyModelEffortCosts` counts only runs carrying a top-level `cost_usd`, the runs Overall sums, so its lines add up to Overall.
-  - [ ] **Step 3: Verify:** Go lint, then `cd stats && go test ./internal/store/ -run 'TestPrice|TestRepriceSince|TestWeekly'`.
+- [x] 11. In-run fix 2 — flow.verify: per-week model·effort sums exceed Overall on runs with a stale total
+  - [x] **Step 1: Write the failing tests:** in `stats/internal/store/stageruns_test.go`, `TestPriceOneUnpriceableBucketOmitsTopLevelTotal` first prices the run while only the `claude-opus-5` bucket exists (top-level `cost_usd` written), then merges the `no-such-model` bucket and prices again, and still expects no top-level `cost_usd`; in `stats/internal/store/aggregate_test.go`, `TestWeeklyModelEffortCostsSplitsDispatchAndSession` gains an attached run in the period whose model bucket carries `cost_usd` but whose metrics carry no top-level `cost_usd`, and expects no row from it. Run `cd stats && go test ./internal/store/ -run 'TestPriceOneUnpriceable|TestWeeklyModelEffort'` — RED.
+  - [x] **Step 2: Implement:** `Price` removes the top-level `cost_usd` when any model bucket could not be priced, as its unmeasured branch already does, so a total written before a later unpriceable bucket arrived never stays reading as complete; `WeeklyModelEffortCosts` counts only runs carrying a top-level `cost_usd`, the runs Overall sums, so its lines add up to Overall.
+  - [x] **Step 3: Verify:** Go lint, then `cd stats && go test ./internal/store/ -run 'TestPrice|TestRepriceSince|TestWeekly'`.
 
 **Files:** `stats/internal/store/pricing.go`, `stats/internal/store/aggregate.go`, `stats/internal/store/stageruns_test.go`, `stats/internal/store/aggregate_test.go`
 **Tests:** `TestPriceOneUnpriceableBucketOmitsTopLevelTotal`, `TestWeeklyModelEffortCostsSplitsDispatchAndSession`
@@ -196,3 +196,15 @@
 **Build:** green
 **After:** Task 10
 **Commit:** `fix(store): drop a stale run total and chart only the runs Overall sums`
+
+- [ ] 12. In-run fix 3 — flow.visual-verify: header copy and pill width depart from the prototype
+  - [ ] **Step 1: Write the failing tests:** in `stats/web/src/views/views.test.tsx`, the Weekly costs view test asserts the header description reads exactly `Wednesday-to-Wednesday cost, last 8 weeks.`, and that a first-week pill (cost alone) is 40 wide and a pill with a delta is 84 wide when its text fits, as the prototype's `wd=o.p==null?40:84` draws them. Run `cd stats/web && npx vitest run src/views/views.test.tsx` — RED.
+  - [ ] **Step 2: Implement:** in `stats/web/src/views/WeeklyCosts.tsx`, the `ViewFrame` description becomes the prototype's copy, and a pill's width is the prototype's fixed 40 (cost alone) or 84 (with a delta), widened to its text only when the text is longer, so a real figure such as `$2253.34 ▲12%` never overflows its pill.
+  - [ ] **Step 3: Verify:** SPA lint (`npx tsc -b`), the vitest file, then re-capture `stats/web/tests/visual/weekly-costs.spec.ts` and `full-app-suite.spec.ts` with the project's `capture` command, read every changed PNG, and rebuild `stats/web/tests/visual/full-app-suite.zip`.
+
+**Files:** `stats/web/src/views/WeeklyCosts.tsx`, `stats/web/src/views/views.test.tsx`, `stats/web/tests/visual/weekly-costs.spec.ts-snapshots/*.png`, `stats/web/tests/visual/full-app-suite.spec.ts-snapshots/full-weekly-costs-darwin.png`, `stats/web/tests/visual/full-app-suite.zip`, `spectre/changes/kan-1041-weekly-dashboard-model-effort-correlation/visual-verification.md`
+**Tests:** the Weekly costs view test in `stats/web/src/views/views.test.tsx`
+**Regression:** the view test fails, because the description carries `, every project and model` and every pill is sized `12 + chars × 6` instead of the prototype's 40/84.
+**Build:** green
+**After:** Task 11
+**Commit:** `fix(stats): match the Weekly costs header and pill widths to the prototype`

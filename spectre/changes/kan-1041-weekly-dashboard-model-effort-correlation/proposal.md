@@ -20,3 +20,7 @@ The Weekly costs view shows where spend goes by pipeline phase, but not why a ph
 ## In-run fix 2 — flow.verify
 
 - The live check's per-week model·effort sums exceeded Overall (2026-09-30: $1551.51 against $939.78). Runs priced before a model with no rate in effect (`claude-sonnet-5-5`) joined them kept their earlier top-level `cost_usd`, now short of their buckets. Price drops that total whenever a bucket cannot be priced, and the model·effort series counts only runs carrying a total, as Overall does.
+
+## In-run fix 3 — flow.visual-verify
+
+- The visual verifier found the header copy and the pill width departing from the approved prototype. The header reads `Wednesday-to-Wednesday cost, last 8 weeks.`, and each pill is the prototype's 40 (cost alone) or 84 (with a delta) wide, widened only when its text is longer.
