@@ -24,3 +24,7 @@ The Weekly costs view shows where spend goes by pipeline phase, but not why a ph
 ## In-run fix 3 — flow.visual-verify
 
 - The visual verifier found the header copy and the pill width departing from the approved prototype. The header reads `Wednesday-to-Wednesday cost, last 8 weeks.`, and each pill is the prototype's 40 (cost alone) or 84 (with a delta) wide, widened only when its text is longer.
+
+## In-run fix 4 — flow.verify
+
+- The full guard suite failed under `-race` (`TestWorkspace` and the tests running beside it): `runGuard`'s merged buffer was written by both of a child process's stream-copy goroutines. It now takes a lock.

@@ -197,10 +197,10 @@
 **After:** Task 10
 **Commit:** `fix(store): drop a stale run total and chart only the runs Overall sums`
 
-- [ ] 12. In-run fix 3 — flow.visual-verify: header copy and pill width depart from the prototype
-  - [ ] **Step 1: Write the failing tests:** in `stats/web/src/views/views.test.tsx`, a new test `weekly costs matches the prototype header and pill widths` asserts the header description reads exactly `Wednesday-to-Wednesday cost, last 8 weeks.`, and that a first-week pill (cost alone) is 40 wide and a pill with a delta is 84 wide when its text fits, as the prototype's `wd=o.p==null?40:84` draws them. Run it — RED.
-  - [ ] **Step 2: Implement:** in `stats/web/src/views/WeeklyCosts.tsx`, the `ViewFrame` description becomes the prototype's copy, and a pill's width is the prototype's fixed 40 (cost alone) or 84 (with a delta), widened to its text only when the text is longer, so a real figure such as `$2253.34 ▲12%` never overflows its pill.
-  - [ ] **Step 3: Verify:** SPA lint (`npx tsc -b`), the task's **Tests:**, then re-capture `stats/web/tests/visual/weekly-costs.spec.ts` and `full-app-suite.spec.ts` with the project's `capture` command, read every changed PNG, and rebuild `stats/web/tests/visual/full-app-suite.zip`.
+- [x] 12. In-run fix 3 — flow.visual-verify: header copy and pill width depart from the prototype
+  - [x] **Step 1: Write the failing tests:** in `stats/web/src/views/views.test.tsx`, a new test `weekly costs matches the prototype header and pill widths` asserts the header description reads exactly `Wednesday-to-Wednesday cost, last 8 weeks.`, and that a first-week pill (cost alone) is 40 wide and a pill with a delta is 84 wide when its text fits, as the prototype's `wd=o.p==null?40:84` draws them. Run it — RED.
+  - [x] **Step 2: Implement:** in `stats/web/src/views/WeeklyCosts.tsx`, the `ViewFrame` description becomes the prototype's copy, and a pill's width is the prototype's fixed 40 (cost alone) or 84 (with a delta), widened to its text only when the text is longer, so a real figure such as `$2253.34 ▲12%` never overflows its pill.
+  - [x] **Step 3: Verify:** SPA lint (`npx tsc -b`), the task's **Tests:**, then re-capture `stats/web/tests/visual/weekly-costs.spec.ts` and `full-app-suite.spec.ts` with the project's `capture` command, read every changed PNG, and rebuild `stats/web/tests/visual/full-app-suite.zip`.
 
 **Files:** `stats/web/src/views/WeeklyCosts.tsx`, `stats/web/src/views/views.test.tsx`, `stats/web/tests/visual/weekly-costs.spec.ts-snapshots/weekly-costs-darwin.png`, `stats/web/tests/visual/weekly-costs.spec.ts-snapshots/weekly-costs-empty-darwin.png`, `stats/web/tests/visual/weekly-costs.spec.ts-snapshots/weekly-costs-light-darwin.png`, `stats/web/tests/visual/weekly-costs.spec.ts-snapshots/weekly-costs-model-effort-darwin.png`, `stats/web/tests/visual/weekly-costs.spec.ts-snapshots/weekly-costs-toggled-darwin.png`, `stats/web/tests/visual/weekly-costs.spec.ts-snapshots/weekly-costs-tooltip-darwin.png`, `stats/web/tests/visual/full-app-suite.spec.ts-snapshots/full-weekly-costs-darwin.png`, `stats/web/tests/visual/full-app-suite.zip`
 **Tests:** `weekly costs matches the prototype header and pill widths`
@@ -208,3 +208,15 @@
 **Build:** green
 **After:** Task 8,9,11
 **Commit:** `fix(stats): match the Weekly costs header and pill widths to the prototype`
+
+- [ ] 13. In-run fix 4 — flow.verify: guard tests report a data race in runGuard's merged buffer
+  - [ ] **Step 1: Write the failing test:** in `stats/internal/guard/check_base_moved_test.go`, `TestRunGuardMergesAChildsTwoStreams` registers a guard whose child process writes 200 lines to each stream, and runs it through `runGuard`. Run `cd stats && go test -race ./internal/guard/ -run TestRunGuardMergesAChildsTwoStreams` — RED under the race detector.
+  - [ ] **Step 2: Implement:** `runGuard`'s merged buffer, which both `io.MultiWriter`s write into, takes a mutex, since a guard that hands both writers to a child process (`workspace`'s `docker exec`) gets one copying goroutine per stream.
+  - [ ] **Step 3: Verify:** Go lint, then `cd stats && go test -race ./internal/guard/ -run 'TestRunGuardMergesAChildsTwoStreams|TestWorkspace'`.
+
+**Files:** `stats/internal/guard/check_base_moved_test.go`
+**Tests:** `TestRunGuardMergesAChildsTwoStreams`
+**Regression:** `TestRunGuardMergesAChildsTwoStreams` fails under `-race`, because two exec copy goroutines write the shared merged buffer unlocked.
+**Build:** green
+**After:** none
+**Commit:** `fix(guard): lock runGuard's merged test buffer against a child's two streams`
