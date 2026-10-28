@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kan-1024-templates-warm-up-cool-down-any-workout-1</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0 auto;max-width:1100px;padding:16px;line-height:1.45}
+pre{background:#f4f4f4;padding:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.ab{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:700px){.ab{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>kan-1024-templates-warm-up-cool-down-any-workout-1</h1>
+<h2>Type</h2>
+<p>reviewer — false-positive · scope generic</p>
+<h2>Defect class</h2>
+<p>A departure on a new state or new view is attributed to the change without checking whether the element&#39;s styling ships unchanged in a component the change did not touch.</p>
+<h2>Finding</h2>
+<pre>&#34;departures, this change&#39;s: block teal highlight border &#43; teal `Text` kicker vs plain card &#43; magenta kicker&#34;
+
+- Severity: Important (visual-verify departure)
+- Location: templates-E4 (`verify-report-visual-verify-gymie.md:40`)
+</pre>
+<pre><code>none
+</code></pre>
+<h2>Fix</h2>
+<pre><code>none
+</code></pre>
+<h2>Why picked</h2>
+<pre>1. Defect class: provenance is judged by view novelty, not per element. 2. The quoted rule makes every departure on a new view the change&#39;s own, with no per-element check. 3. It generalises: every menu, sheet or state added to a shipped screen reuses shipped components (rings, kickers, cards); KAN-942 shows the same misattribution class for views without a baseline. 4. It states a principle (attribute per element by provenance), not a special case. Cost: the verifier recorded the E4 teal ring and kicker as this change&#39;s; the fix round spent time hunting them, and both were af16eec4&#39;s blockMenuRing and the KAN-175 kicker at the merge base.</pre>
+<h2>Prompt update</h2>
+<p>Target: <code>skills/flow/visual-verify-verifier.md</code> at <code>21b5d0155fc9aca9a0205290fb53009da9adbf06</code></p>
+<div class="ab">
+<div><h3>Before</h3><pre>   view this change creates has no rendering at the merge base: every departure on it is this
+   change&#39;s.</pre></div>
+<div><h3>After</h3><pre>   view this change creates has no rendering at the merge base, but its elements may: an element
+   drawn by a component or style the change did not touch is attributed by measuring that
+   component where the merge base draws it — another view&#39;s baseline, or a merge-base capture —
+   before any departure on it is counted as this change&#39;s.</pre></div>
+</div>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "id": "kan-1024-templates-warm-up-cool-down-any-workout-1",
+  "type": "reviewer",
+  "reviewer_kind": "false-positive",
+  "scope": "generic",
+  "source": {
+    "project": "gymie",
+    "change": "kan-1024-templates-warm-up-cool-down-any-workout",
+    "jira": "KAN-1024",
+    "repo": "gymie",
+    "fix_sha": "5f0d213c",
+    "finding_ref": ".superpowers/sdd/verify-report-visual-verify-gymie.md:40",
+    "round": 1,
+    "slot": "visual-verify",
+    "severity": "Important"
+  },
+  "target": "skills/flow/visual-verify-verifier.md",
+  "target_sha": "21b5d0155fc9aca9a0205290fb53009da9adbf06",
+  "defect_class": "A departure on a new state or new view is attributed to the change without checking whether the element's styling ships unchanged in a component the change did not touch.",
+  "why_picked": "1. Defect class: provenance is judged by view novelty, not per element. 2. The quoted rule makes every departure on a new view the change's own, with no per-element check. 3. It generalises: every menu, sheet or state added to a shipped screen reuses shipped components (rings, kickers, cards); KAN-942 shows the same misattribution class for views without a baseline. 4. It states a principle (attribute per element by provenance), not a special case. Cost: the verifier recorded the E4 teal ring and kicker as this change's; the fix round spent time hunting them, and both were af16eec4's blockMenuRing and the KAN-175 kicker at the merge base.",
+  "before": "   view this change creates has no rendering at the merge base: every departure on it is this\n   change's.",
+  "after": "   view this change creates has no rendering at the merge base, but its elements may: an element\n   drawn by a component or style the change did not touch is attributed by measuring that\n   component where the merge base draws it — another view's baseline, or a merge-base capture —\n   before any departure on it is counted as this change's."
+}
