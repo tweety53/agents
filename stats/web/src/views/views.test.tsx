@@ -22,7 +22,7 @@ import { SelfReview } from "./SelfReview";
 import { StageLeaderboard } from "./StageLeaderboard";
 import { StateBoard } from "./StateBoard";
 import { Trend } from "./Trend";
-import { WeeklyCosts } from "./WeeklyCosts";
+import { WeeklyCosts, pillWidth } from "./WeeklyCosts";
 
 const { fetchStatsViewMock } = vi.hoisted(() => ({ fetchStatsViewMock: vi.fn() }));
 
@@ -560,6 +560,30 @@ describe("views render their fixture response's actual values", () => {
     expect(label("Overall", "2026-06-10")).toHaveTextContent("▲2100%");
     // Implementation's 2026-06-10 is a gap: the week after reads its cost alone.
     expect(label("Implementation", "2026-06-17")).toHaveTextContent(/^\$7\.00$/);
+  });
+
+  it("weekly costs matches the prototype header and pill widths", async () => {
+    vi.useFakeTimers({ now: new Date("2026-06-19T12:00:00Z"), toFake: ["Date"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    render(<WeeklyCosts period={period} project={undefined} />);
+    await screen.findAllByText("Cost (USD)");
+    await showPhases();
+    expect(screen.getByText("Wednesday-to-Wednesday cost, last 8 weeks.")).toBeInTheDocument();
+    const width = (el: Element | null) => Number(el?.parentElement?.querySelector("rect")?.getAttribute("width"));
+    // The prototype's fixed widths, 40 for a cost alone and 84 with a delta,
+    // wherever the text fits; a longer text widens its pill to fit.
+    const pills = [...document.querySelectorAll('[data-testid="delta-label"]')];
+    const fits = (p: Element) => Math.ceil(6 + (p.textContent ?? "").length * 5.5);
+    for (const p of pills) {
+      const base = p.querySelector("tspan") ? 84 : 40;
+      expect(width(p)).toBe(Math.max(base, fits(p)));
+    }
+    expect(width(label("Overall", "2026-06-03"))).toBe(40);
+    expect(pills.some((p) => p.querySelector("tspan") && width(p) === 84)).toBe(true);
+    expect(pillWidth("$12253.34 ▲1120%", true)).toBe(Math.ceil(6 + 16 * 5.5));
+    expect(pillWidth("$12345.67", false)).toBe(Math.ceil(6 + 9 * 5.5));
   });
 
   it("weekly costs draws a model·effort chart from the second view", async () => {

@@ -238,8 +238,7 @@ function WeeklyCostChart({ weeks, series: lineSeries, ariaLabel, allShown = fals
             const lx = x(l.week) + 8;
             const cost = formatUsd(l.value);
             const delta = l.pct === null ? "" : ` ${deltaText(l.pct, 0, "")}`;
-            // The pill fits its text: about 6px a character at 10px, 6px padding each side.
-            const width = 12 + (cost.length + delta.length) * 6;
+            const width = pillWidth(cost + delta, l.pct !== null);
             return (
               <g key={`${l.series}-${l.week}`} className="weekly-delta">
                 {Math.abs(l.labelY - l.y) > 2 && (
@@ -301,6 +300,13 @@ function WeeklyCostChart({ weeks, series: lineSeries, ariaLabel, allShown = fals
   );
 }
 
+// The prototype's fixed pill, 40 for a cost alone and 84 with a delta,
+// widened to its text (6px in, about 5.5px a character at 10px) when a real
+// figure would overflow it.
+export function pillWidth(text: string, hasDelta: boolean): number {
+  return Math.max(hasDelta ? 84 : 40, Math.ceil(6 + text.length * 5.5));
+}
+
 export function WeeklyCosts(_props: ViewProps) {
   // Keyed on the UTC day, so a render after midnight moves the window with it.
   const today = new Date().toISOString().slice(0, 10);
@@ -311,7 +317,7 @@ export function WeeklyCosts(_props: ViewProps) {
   const weeks = everyWeek(eightWeeks.from);
 
   return (
-    <ViewFrame title="Weekly costs" description="Wednesday-to-Wednesday cost, last 8 weeks, every project and model.">
+    <ViewFrame title="Weekly costs" description="Wednesday-to-Wednesday cost, last 8 weeks.">
       <Panel title="Cost by phase" description="The phases and Other add up to Overall." state={state}>
         {(data) => (
           <WeeklyCostChart
