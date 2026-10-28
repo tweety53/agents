@@ -270,6 +270,7 @@ export function App() {
               period={period}
               onPeriodChange={setPeriod}
               project={project}
+              onProjectChange={setProject}
               model={modelDisabled ? undefined : model}
             />
           )

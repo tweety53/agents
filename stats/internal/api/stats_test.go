@@ -73,7 +73,7 @@ func (f *fakeStore) FlowSummary(_ context.Context, _ store.Period, _ *string) (s
 func (f *fakeStore) SelfReviewFindingsInPeriod(_ context.Context, _ store.Period, _ *string) ([]store.SelfReviewFindingRow, error) {
 	return nil, nil
 }
-func (f *fakeStore) ReviewDynamics(_ context.Context, _ store.Period, _ *string) (store.ReviewDynamics, error) {
+func (f *fakeStore) ReviewDynamics(_ context.Context, _ store.Period, _, _ *string) (store.ReviewDynamics, error) {
 	return store.ReviewDynamics{}, nil
 }
 func (f *fakeStore) UpsertPromptChange(_ context.Context, _ store.PromptChange) error {
@@ -199,7 +199,7 @@ func (f *statsFake) SelfReviewFindingsInPeriod(_ context.Context, _ store.Period
 	f.lastProject = p
 	return f.selfReview, f.aggErr
 }
-func (f *statsFake) ReviewDynamics(_ context.Context, _ store.Period, p *string) (store.ReviewDynamics, error) {
+func (f *statsFake) ReviewDynamics(_ context.Context, _ store.Period, p, _ *string) (store.ReviewDynamics, error) {
 	f.lastProject = p
 	return f.reviewDynamics, f.aggErr
 }
@@ -1979,5 +1979,13 @@ func TestStatsReviewDynamics(t *testing.T) {
 	status, raw := doGetRaw(t, ts, periodPath("review-dynamics")+"&model=opus")
 	if status != http.StatusBadRequest || !strings.Contains(string(raw), "model restriction") {
 		t.Errorf("model restriction = %d %s, want 400 naming the model restriction", status, raw)
+	}
+	for _, path := range []string{periodPath("review-dynamics") + "&class=huge", periodPath("reviewers") + "&class=big"} {
+		if status, raw := doGetRaw(t, ts, path); status != http.StatusBadRequest || !strings.Contains(string(raw), "class") {
+			t.Errorf("GET %s = %d %s, want 400 naming the class", path, status, raw)
+		}
+	}
+	if status, raw := doGetRaw(t, ts, periodPath("review-dynamics")+"&class=big"); status != http.StatusOK {
+		t.Errorf("class=big = %d %s, want 200", status, raw)
 	}
 }

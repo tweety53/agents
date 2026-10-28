@@ -23,5 +23,7 @@ export interface ViewProps {
    */
   onPeriodChange?: (period: Period) => void;
   project: string | undefined;
+  /** Sets the shared project filter; the Review dynamics view's project buttons call it. */
+  onProjectChange?: (project: string | undefined) => void;
   model?: string | undefined;
 }

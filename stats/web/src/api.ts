@@ -89,6 +89,8 @@ export interface StatsViewParams {
   to: Date;
   /** Restrict to one project; omitted aggregates across every project. */
   project?: string;
+  /** Restrict review dynamics to changes of one plan class. */
+  class?: "micro" | "small" | "regular" | "big";
   /**
    * Per-repository breakdown. The server honours this only on
    * "cost-per-change", and only together with "change", "command" and
@@ -411,6 +413,7 @@ export interface ReviewDynamicsRows {
   previousSummary: DynamicsSummary;
   markers: PromptChange[];
   lastPromptChangeAt: string | null;
+  projects: string[];
 }
 
 /** Mirrors reviewerRowDTO. */
@@ -510,6 +513,9 @@ export function buildStatsViewQuery(params: StatsViewParams): URLSearchParams {
   }
   if (params.model) {
     qs.set("model", params.model);
+  }
+  if (params.class) {
+    qs.set("class", params.class);
   }
   return qs;
 }

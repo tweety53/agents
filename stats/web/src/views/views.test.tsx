@@ -81,7 +81,10 @@ function reviewDynamicsRows() {
     pt(w, "vv-rounds", "max", 2, 2),
     pt(w, "vv-first-pass", "first-pass", 0.5, 2),
   ]);
-  const heat = (model: string) => [{ slot: "primary", model, effort: "low", dispatches: 4, critical: 1, important: 2, minor: 5 }];
+  const heat = (model: string) => [
+    { slot: "primary", model, effort: "low", dispatches: 4, critical: 1, important: 2, minor: 5 },
+    { slot: "bugbot", model, effort: "low", dispatches: 2, critical: 0, important: 1, minor: 0 },
+  ];
   return {
     bucket: "week",
     series,
@@ -95,6 +98,7 @@ function reviewDynamicsRows() {
       { sha: "abc1234def:skills/flow/primary-reviewer-prompt.md", at: "2026-01-13T10:00:00Z", kind: "edit", area: "review", slot: "primary", target: "skills/flow/primary-reviewer-prompt.md", summary: "re-read every writer", caseId: null },
     ],
     lastPromptChangeAt: "2026-01-13T10:00:00Z",
+    projects: ["agents-a740d89c", "gymie-7c1f238a"],
   };
 }
 
@@ -1056,13 +1060,13 @@ describe("review dynamics", () => {
           pt("opus · high", "impl-findings-per-task"),
           pt("opus · low", "impl-findings-per-task"),
         ],
-        // zeta is busiest and sorts last by name; sonnet's low sorts before opus's high by effort alone.
-        heat: [cell("alpha", "sonnet", "low", 2), cell("zeta", "opus", "high", 3), cell("zeta", "opus", "low", 3), cell("zeta", "opus", "medium", 1)],
+        // test-sanity is busiest and sorts last by name; sonnet's low sorts before opus's high by effort alone.
+        heat: [cell("mutation", "sonnet", "low", 2), cell("test-sanity", "opus", "high", 3), cell("test-sanity", "opus", "low", 3), cell("test-sanity", "opus", "medium", 1)],
       }),
     );
     render(<ReviewDynamics period={period} onPeriodChange={() => {}} project={undefined} />);
     const heat = (await screen.findByText(/Findings per dispatch: slot/)).closest(".dynamics-panel") as HTMLElement;
-    expect(within(heat).getAllByRole("rowheader").map((h) => h.textContent)).toEqual(["zeta", "alpha"]);
+    expect(within(heat).getAllByRole("rowheader").map((h) => h.textContent)).toEqual(["test-sanity", "mutation"]);
     expect(within(heat).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["", "opuslow", "opusmedium", "opushigh", "sonnetlow"]);
     const effort = screen.getByRole("region", { name: "Findings per dispatch by reviewer effort" });
     expect([...effort.querySelectorAll(".dynamics-legend > *")].map((e) => e.textContent?.trim())).toEqual(["low", "medium", "high", "default", "xhigh", "prompt change"]);
@@ -1106,17 +1110,41 @@ describe("review dynamics", () => {
     expect(screen.getByTestId("tile-Mean fix rounds")).toHaveTextContent("▲ from 0 · worse");
   });
 
+  it("review dynamics filters by project, task size and retired reviewers", async () => {
+    fetchStatsViewMock.mockResolvedValue(envelope("review-dynamics", reviewDynamicsRows()));
+    const onProjectChange = vi.fn();
+    render(
+      <ReviewDynamics period={period} onPeriodChange={() => {}} project={undefined} onProjectChange={onProjectChange} />,
+    );
+    await screen.findByText("Review panel");
+
+    const projects = screen.getByRole("group", { name: "Projects" });
+    expect(within(projects).getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(within(projects).getByRole("button", { name: "gymie" }));
+    expect(onProjectChange).toHaveBeenLastCalledWith("gymie-7c1f238a");
+
+    const size = screen.getByRole("group", { name: "Task size" });
+    expect(within(size).getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(within(size).getByRole("button", { name: "Big" }));
+    expect(fetchStatsViewMock.mock.calls.at(-1)![1]).toMatchObject({ class: "big" });
+
+    const heat = (await screen.findByText(/Findings per dispatch: slot/)).closest(".dynamics-panel") as HTMLElement;
+    expect(within(heat).queryByRole("rowheader", { name: "bugbot" })).toBeNull();
+    await userEvent.click(within(screen.getByRole("group", { name: "Reviewers" })).getByRole("button", { name: "All" }));
+    expect(within(heat).getByRole("rowheader", { name: "bugbot" })).toBeInTheDocument();
+  });
+
   it("review dynamics range presets set the period", async () => {
     noRangeInUrl();
     const onPeriodChange = vi.fn();
     const { unmount } = render(<ReviewDynamics period={period} onPeriodChange={onPeriodChange} project={undefined} />);
     await screen.findByText("Review panel");
-    expect(screen.getByRole("button", { name: "Last 8 weeks" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Last 4 weeks" })).toHaveAttribute("aria-pressed", "true");
     const span = (p: { from: Date; to: Date }) => Math.round((p.to.getTime() - p.from.getTime()) / 86400000);
-    expect(span(onPeriodChange.mock.calls[0][0])).toBe(56);
-    // The first fetch already asks for the 8 weeks: App's default period is never fetched.
+    expect(span(onPeriodChange.mock.calls[0][0])).toBe(28);
+    // The first fetch already asks for the 4 weeks: App's default period is never fetched.
     expect(fetchStatsViewMock).toHaveBeenCalledTimes(1);
-    expect(span(fetchStatsViewMock.mock.calls[0][1])).toBe(56);
+    expect(span(fetchStatsViewMock.mock.calls[0][1])).toBe(28);
 
     await userEvent.click(screen.getByRole("button", { name: "Last 2 weeks" }));
     const last = onPeriodChange.mock.calls.at(-1)![0];

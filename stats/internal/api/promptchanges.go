@@ -83,6 +83,7 @@ type reviewDynamicsDTO struct {
 	PreviousSummary     dynamicsSummaryDTO `json:"previousSummary"`
 	Markers             []promptChangeDTO  `json:"markers"`
 	LastPromptChangeAt  *time.Time         `json:"lastPromptChangeAt"`
+	Projects            []string           `json:"projects"`
 }
 
 type dynamicsPointDTO struct {
@@ -135,6 +136,6 @@ func toReviewDynamicsDTO(d store.ReviewDynamics) reviewDynamicsDTO {
 		Bucket: d.Bucket, Series: series, Heat: heat(d.Heat), PreviousHeat: heat(d.PreviousHeat),
 		HeatVersion: heat(d.HeatVersion), PreviousHeatVersion: heat(d.PreviousHeatVersion),
 		Summary: summary(d.Summary), PreviousSummary: summary(d.PreviousSummary),
-		Markers: toPromptChangeDTOs(d.Markers), LastPromptChangeAt: last,
+		Markers: toPromptChangeDTOs(d.Markers), LastPromptChangeAt: last, Projects: d.Projects,
 	}
 }
