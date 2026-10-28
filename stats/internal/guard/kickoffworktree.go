@@ -2,6 +2,7 @@ package guard
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -242,39 +243,92 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "worktree: %s\nmerge-base: %s\n", wt, mergeBase)
 	if link != "" {
-		wrote, err := kwMergeOrder(link, peerName)
-		if err != nil {
-			fmt.Fprintf(stderr, "%s: cannot write %s: %v\n", self, link, err)
-			return 1
+		// Every repository the state record holds is listed, not only the
+		// one added now: a worktree added before the change directory
+		// existed would otherwise be left out of the merge order.
+		names := kwRecordedPeers(env, git, flow, from, name)
+		if !slices.Contains(names, peerName) {
+			names = append(names, peerName)
 		}
-		if wrote {
+		changed := false
+		for _, n := range names {
+			wrote, err := kwMergeOrder(link, n)
+			if err != nil {
+				fmt.Fprintf(stderr, "%s: cannot write %s: %v\n", self, link, err)
+				return 1
+			}
+			changed = changed || wrote
+		}
+		if changed {
 			fmt.Fprintf(stdout, "merge-order: %s\n", link)
 		}
 	}
 	return 0
 }
 
-// kwPeerName is project's name in from's spectre/peers: one `<name> <path>`
-// line per peer, the path relative to from's main checkout. A non-empty
-// message is why it cannot be named.
-func kwPeerName(env Env, git, from, project string) (string, string) {
-	peers := filepath.Join(from, "spectre/peers")
-	body, err := os.ReadFile(peers)
+// kwRecordedPeers is the spectre/peers name of every worktree from's state
+// record holds for name, in spectre/peers order; from's own repository and a
+// worktree no peer names are skipped. A record that cannot be read yields
+// none.
+func kwRecordedPeers(env Env, git, flow, from, name string) []string {
+	// stdout alone: a fallback warning on stderr is not part of the record.
+	get := exec.Command(flow, "state", "get", "-C", from, name)
+	get.Dir = env.Dir
+	out, err := get.Output()
 	if err != nil {
-		return "", "cannot read " + peers
+		return nil
+	}
+	var rec struct {
+		Worktrees map[string]json.RawMessage `json:"worktrees"`
+	}
+	if json.Unmarshal(out, &rec) != nil {
+		return nil
+	}
+	peers, own, msg := kwPeers(env, git, from)
+	if msg != "" {
+		return nil
+	}
+	held := map[string]bool{}
+	for wt := range rec.Worktrees {
+		rc, out := kwRun(env, "", git, "-C", wt, "rev-parse", "--path-format=absolute", "--git-common-dir")
+		if rc != 0 {
+			continue
+		}
+		if m := kwReal(filepath.Dir(strings.TrimSpace(out))); m != own {
+			held[m] = true
+		}
+	}
+	var names []string
+	for _, p := range peers {
+		if held[p[1]] {
+			names = append(names, p[0])
+		}
+	}
+	return names
+}
+
+// kwReal is p with symlinks resolved, or cleaned when it cannot be.
+func kwReal(p string) string {
+	if r, err := filepath.EvalSymlinks(p); err == nil {
+		return r
+	}
+	return filepath.Clean(p)
+}
+
+// kwPeers is from's spectre/peers as {name, resolved path} pairs in file
+// order, and from's own main checkout, resolved. A non-empty message is why
+// they cannot be read.
+func kwPeers(env Env, git, from string) ([][2]string, string, string) {
+	body, err := os.ReadFile(filepath.Join(from, "spectre/peers"))
+	if err != nil {
+		return nil, "", "cannot read " + filepath.Join(from, "spectre/peers")
 	}
 	rc, out := kwRun(env, "", git, "-C", from, "rev-parse", "--path-format=absolute", "--git-common-dir")
 	if rc != 0 {
-		return "", "cannot resolve " + from + "'s main checkout"
+		return nil, "", "cannot resolve " + from + "'s main checkout"
 	}
 	main := filepath.Dir(strings.TrimSpace(out))
-	real := func(p string) string {
-		if r, err := filepath.EvalSymlinks(p); err == nil {
-			return r
-		}
-		return filepath.Clean(p)
-	}
-	want := real(project)
+	var peers [][2]string
 	for _, line := range strings.Split(string(body), "\n") {
 		f := strings.Fields(line)
 		if len(f) != 2 {
@@ -284,11 +338,26 @@ func kwPeerName(env Env, git, from, project string) (string, string) {
 		if !filepath.IsAbs(p) {
 			p = filepath.Join(main, p)
 		}
-		if real(p) == want {
-			return f[0], ""
+		peers = append(peers, [2]string{f[0], kwReal(p)})
+	}
+	return peers, kwReal(main), ""
+}
+
+// kwPeerName is project's name in from's spectre/peers: one `<name> <path>`
+// line per peer, the path relative to from's main checkout. A non-empty
+// message is why it cannot be named.
+func kwPeerName(env Env, git, from, project string) (string, string) {
+	peers, _, msg := kwPeers(env, git, from)
+	if msg != "" {
+		return "", msg
+	}
+	want := kwReal(project)
+	for _, p := range peers {
+		if p[1] == want {
+			return p[0], ""
 		}
 	}
-	return "", peers + " declares no entry for " + project
+	return "", filepath.Join(from, "spectre/peers") + " declares no entry for " + project
 }
 
 // kwMergeOrder writes link with `## Merge order` naming `.` then peer, or

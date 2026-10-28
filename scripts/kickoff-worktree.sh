@@ -28,10 +28,15 @@
 # `<worktree>/spectre/peers` — one `<name> <path>` line per peer, the path
 # relative to <worktree>'s main checkout — resolved before step 1, a
 # repository the file does not declare (or an unreadable file) exit 2 with
-# nothing added. After step 4, `link.md` there is written as `## Merge order`
-# then the entries `.` and `<peer>`, numbered, each name in backticks; an
-# existing one whose `## Merge order` lacks the name gets it as the next numbered entry, nothing reordered; one already
-# naming it, or holding no such section, is left as it is. The file is never
+# nothing added. After step 4, `link.md` there names every repository the
+# change's state record holds (`flow state get -C <worktree> <name>`), each
+# worktree resolved to its `spectre/peers` name through its main checkout,
+# <worktree>'s own repository and a worktree no peer names skipped, in
+# `spectre/peers` order: a new file is written as `## Merge order` then the
+# entries `.` and the first name, numbered, each name in backticks; an
+# existing one whose `## Merge order` lacks a name gets it as the next
+# numbered entry, nothing reordered; one already naming it, or holding no
+# such section, is left as it is. The file is never
 # committed — that planning commit is the caller's.
 #
 #   0. `flow` must be on PATH, checked first: a worktree step 2 could not

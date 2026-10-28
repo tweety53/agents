@@ -508,3 +508,58 @@ func TestKickoffWorktreeFromWritesMergeOrder(t *testing.T) {
 		})
 	}
 }
+
+// TestKickoffWorktreeFromListsEveryRecordedWorktree: a peer added with
+// --from before the change directory existed is still listed when a later
+// peer's kickoff writes link.md, in spectre/peers order.
+func TestKickoffWorktreeFromListsEveryRecordedWorktree(t *testing.T) {
+	t.Parallel()
+	canon, a, b := kwNew(t, "", true), kwNew(t, "", true), kwNew(t, "", true)
+	canon.started(t)
+	if r := canon.run(t, canon.project, kwName); r.rc != 0 {
+		t.Fatalf("kickoff rc=%d out=%s", r.rc, r.out)
+	}
+	from := canon.project + "-worktrees/" + kwName
+	peers := ""
+	for _, p := range []struct{ name, dir string }{{"alpha", a.project}, {"beta", b.project}} {
+		rel, err := filepath.Rel(canon.project, p.dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		peers += p.name + " " + rel + "\n"
+	}
+	writeFile(t, from+"/spectre/peers", peers)
+	if r := canon.run(t, "--from", from, a.project, kwName); r.rc != 0 {
+		t.Fatalf("alpha rc=%d out=%s", r.rc, r.out)
+	}
+	link := from + "/spectre/changes/" + kwName + "/link.md"
+	mkdir(t, filepath.Dir(link))
+	if r := canon.run(t, "--from", from, b.project, kwName); r.rc != 0 {
+		t.Fatalf("beta rc=%d out=%s", r.rc, r.out)
+	}
+	got, _ := os.ReadFile(link)
+	if want := "## Merge order\n\n1. `.`\n2. `alpha`\n3. `beta`\n"; string(got) != want {
+		t.Errorf("link.md:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// TestKwPeerNameNamesWhichReadFailed pins the kan-1024 self-review fix: a
+// missing spectre/peers and an unresolvable main checkout are reported as
+// the two distinct causes they are.
+func TestKwPeerNameNamesWhichReadFailed(t *testing.T) {
+	t.Parallel()
+	env := Env{Getenv: os.Getenv}
+	from := t.TempDir()
+	if _, msg := kwPeerName(env, "git", from, "/p"); !strings.HasPrefix(msg, "cannot read ") {
+		t.Errorf("no peers file: %q", msg)
+	}
+	if err := os.MkdirAll(filepath.Join(from, "spectre"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(from, "spectre/peers"), []byte("p ../p\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, msg := kwPeerName(env, "git", from, "/p"); !strings.HasPrefix(msg, "cannot resolve ") {
+		t.Errorf("no main checkout: %q", msg)
+	}
+}
