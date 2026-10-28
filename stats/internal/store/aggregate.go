@@ -486,9 +486,9 @@ func (s *Store) WeeklyModelEffortCosts(ctx context.Context, period Period) ([]We
 				CASE WHEN jsonb_typeof(metrics->'dispatches') = 'object' THEN metrics->'dispatches' END AS dispatches,
 				CASE WHEN jsonb_typeof(metrics->'models') = 'object' THEN metrics->'models' END AS models
 			FROM stage_runs
-			-- Runs attached to a change only, as WeeklyCosts' JOIN counts them,
-			-- so the lines add up to Overall.
-			WHERE started_at >= $1 AND started_at < $2 AND change_id IS NOT NULL
+			-- Runs attached to a change and carrying a total only, the runs
+			-- WeeklyCosts' Overall sums, so the lines add up to Overall.
+			WHERE started_at >= $1 AND started_at < $2 AND change_id IS NOT NULL AND metrics ? 'cost_usd'
 		), d AS (
 			SELECT sr.id, sr.started_at, (b.value->>'cost_usd')::numeric AS cost,
 				COALESCE(

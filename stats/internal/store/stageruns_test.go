@@ -1257,10 +1257,7 @@ func TestPriceOneUnpriceableBucketOmitsTopLevelTotal(t *testing.T) {
 	}
 
 	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{
-		"models": {
-			"claude-opus-5": {"tokens": {"main": {"input": 1000000}}},
-			"no-such-model": {"tokens": {"sidechain": {"input": 500000}}}
-		}
+		"models": {"claude-opus-5": {"tokens": {"main": {"input": 1000000}}}}
 	}`)); err != nil {
 		t.Fatalf("MergeMetrics: %v", err)
 	}
@@ -1269,6 +1266,16 @@ func TestPriceOneUnpriceableBucketOmitsTopLevelTotal(t *testing.T) {
 		InputPerMTok: 3, OutputPerMTok: 15, CacheReadPerMTok: 0.3,
 	}); err != nil {
 		t.Fatalf("PutPricing: %v", err)
+	}
+	// A first pass, before the unpriceable bucket arrived, writes a total
+	// the second pass must not leave behind reading as complete.
+	if err := st.Price(ctx, run.ID); err != nil {
+		t.Fatalf("Price(every bucket priceable): %v", err)
+	}
+	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{
+		"models": {"no-such-model": {"tokens": {"sidechain": {"input": 500000}}}}
+	}`)); err != nil {
+		t.Fatalf("MergeMetrics: %v", err)
 	}
 
 	err = st.Price(ctx, run.ID)

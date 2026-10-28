@@ -614,6 +614,7 @@ func TestWeeklyModelEffortCostsSplitsDispatchAndSession(t *testing.T) {
 		}
 	}
 	run(0, time.Date(2026, 6, 11, 0, 0, 0, 0, time.UTC), `{
+		"cost_usd": 12,
 		"models": {"claude-opus-5-5": {"cost_usd": 10}, "claude-sonnet-5-5": {"cost_usd": 2}},
 		"dispatches": {
 			"a1": {"model": "opus", "cost_usd": 3, "signals": {"served_models": {"claude-opus-5-5": 2}, "served_efforts": {"low": 2}}},
@@ -623,11 +624,17 @@ func TestWeeklyModelEffortCostsSplitsDispatchAndSession(t *testing.T) {
 		}
 	}`)
 	// Outside the period: contributes nothing.
-	run(1, time.Date(2026, 7, 2, 0, 0, 0, 0, time.UTC), `{"models": {"claude-opus-5-5": {"cost_usd": 50}}}`)
+	run(1, time.Date(2026, 7, 2, 0, 0, 0, 0, time.UTC), `{"cost_usd": 50, "models": {"claude-opus-5-5": {"cost_usd": 50}}}`)
+	// A run with an unpriceable bucket carries no total: Overall excludes
+	// it, so no line counts its priced bucket either.
+	run(3, time.Date(2026, 6, 12, 0, 0, 0, 0, time.UTC), `{
+		"models": {"claude-opus-5-5": {"cost_usd": 7}, "no-such-model": {"tokens": {"main": {"input": 1}}}}
+	}`)
 	// The week after: dispatches costing more than their model bucket floor
 	// the session at 0, which is dropped; the most-turns served model and
 	// effort win, a turns tie breaking by name.
 	run(2, time.Date(2026, 6, 18, 0, 0, 0, 0, time.UTC), `{
+		"cost_usd": 1,
 		"models": {"claude-opus-5-5": {"cost_usd": 1}},
 		"dispatches": {
 			"b1": {"model": "opus", "cost_usd": 3, "signals": {
@@ -648,7 +655,7 @@ func TestWeeklyModelEffortCostsSplitsDispatchAndSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BeginStage plan session: %v", err)
 	}
-	if err := st.MergeMetrics(ctx, plan.ID, json.RawMessage(`{"models": {"claude-haiku-5-5": {"cost_usd": 9}}}`)); err != nil {
+	if err := st.MergeMetrics(ctx, plan.ID, json.RawMessage(`{"cost_usd": 9, "models": {"claude-haiku-5-5": {"cost_usd": 9}}}`)); err != nil {
 		t.Fatalf("MergeMetrics: %v", err)
 	}
 

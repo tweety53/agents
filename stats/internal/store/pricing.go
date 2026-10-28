@@ -595,6 +595,15 @@ func (s *Store) Price(ctx context.Context, stageRunID int64) error {
 		}
 	}
 
+	// Likewise a total an earlier pass wrote, before a bucket with no
+	// rate joined the run, stays short of that bucket while reading as
+	// complete: drop it whenever this pass could not price every bucket.
+	if len(missing) > 0 {
+		if _, err := s.pool.Exec(ctx, `UPDATE stage_runs SET metrics = metrics - 'cost_usd' WHERE id = $1`, stageRunID); err != nil {
+			return fmt.Errorf("store: price stage run %d: clear partial total: %w", stageRunID, err)
+		}
+	}
+
 	if len(missing) > 0 {
 		// At least one candidate model bucket had no rate in effect, or
 		// carried a component its rate could not charge -- reported here
