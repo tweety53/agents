@@ -17,10 +17,10 @@ import (
 )
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
-// judges its commits (check-task-commit-fields) can actually read it. Twenty
-// findings, F1-F20 (F1-F6's canonical definitions, decisions and rationale:
+// judges its commits (check-task-commit-fields) can actually read it. Twenty-one
+// findings, F1-F21 (F1-F6's canonical definitions, decisions and rationale:
 // spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-md-at-plan/
-// design.md -- not restated here; F7-F20's are the rows below).
+// design.md -- not restated here; F7-F21's are the rows below).
 //
 // The guard reads the plan with the very grammar the commit guard reads it
 // with -- tcfParseTask, tcfTaskIDs, tcfIterTasks, tcfSelectTask,
@@ -172,6 +172,11 @@ import (
 //	    is one such line naming the file. A plan without the line is not
 //	    checked, so changes planned before the four sections existed keep
 //	    passing (kan-1033 design.md §4, decision design-shape-line).
+//	F21 A task titled `In-run fix <k> — visual-verify…` whose **Files:**
+//	    holds no path ending `visual-verification.md`: the fix round's
+//	    record of what it changed is part of its commit (**The loop**,
+//	    skills/flow/verify-fix-loop.md; kan-1024's Task 14). Reported at the
+//	    task's title line.
 //
 // A duplicate task id is check-task-build-green's violation, not this
 // guard's: tcfTaskIDs keeps the first occurrence, and every per-task read
@@ -426,6 +431,9 @@ func (p *psPlan) designSections() []string {
 	return v
 }
 
+// psVisualFixRE is F21's title: an in-run fix task of the visual-verify loop.
+var psVisualFixRE = regexp.MustCompile(`^\s*- \[.\] \S+\s+In-run fix [0-9]+ — (flow\.)?visual-verify`)
+
 func (p *psPlan) checkTask(found tcfTaskBody) []string {
 	id, body, start := found.id, found.lines, found.taskLine
 	fields := p.parse(id)
@@ -480,6 +488,9 @@ func (p *psPlan) checkTask(found tcfTaskBody) []string {
 	// the first rewrite is informed (KAN-605).
 	if a := tcfSelectAfter(body); a != nil && !a.gates && p.on("F8") {
 		v = append(v, p.at(start+a.offset+1, "task "+id+" has a malformed **After:** value: "+a.value+" — an **After:** value is `Task <ids>` or `none`"))
+	}
+	if psVisualFixRE.MatchString(p.lines[found.taskLine-1]) && !slices.ContainsFunc(fields.files, func(f string) bool { return strings.HasSuffix(f, "visual-verification.md") }) && p.on("F21") {
+		v = append(v, p.at(found.taskLine, "task "+id+" is an in-run visual-verify fix whose **Files:** omits the change's `visual-verification.md` — the round records what it changed there (**The loop**, skills/flow/verify-fix-loop.md)"))
 	}
 	if len(fields.files) == 0 && p.on("F2") {
 		v = append(v, p.at(found.taskLine, "task "+id+" has no **Files:** line, or one naming no file at all"))

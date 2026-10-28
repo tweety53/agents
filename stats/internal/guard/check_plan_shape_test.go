@@ -704,3 +704,29 @@ func TestPlanShapeDesignSections(t *testing.T) {
 		}
 	})
 }
+
+// TestCheckPlanShapeVisualVerifyFixNamesTheRecord pins F21: an in-run
+// visual-verify fix task names the change's visual-verification.md.
+func TestCheckPlanShapeVisualVerifyFixNamesTheRecord(t *testing.T) {
+	t.Parallel()
+	env := Env{Getenv: os.Getenv}
+	task := func(title, files string) string {
+		return "- [ ] 1. " + title + "\n\n**Files:** " + files + "\n**Tests:** `scripts/test-1.sh`\n**Commit:** `fix: task 1`\n**After:** none\n\n"
+	}
+	r := runGuard("check-plan-shape", []string{psFixture(t, task("In-run fix 1 — visual-verify: x", "`a.kt`"))}, env)
+	if r.rc != 1 || !strings.Contains(r.out, "task 1") || !strings.Contains(r.out, "visual-verification.md") {
+		t.Errorf("a visual-verify fix without the record passed: rc=%d out=%q", r.rc, r.out)
+	}
+	r = runGuard("check-plan-shape", []string{psFixture(t, task("In-run fix 1 — flow.visual-verify: x", "`a.kt`"))}, env)
+	if r.rc != 1 || !strings.Contains(r.out, "visual-verification.md") {
+		t.Errorf("a flow.visual-verify fix without the record passed: rc=%d out=%q", r.rc, r.out)
+	}
+	r = runGuard("check-plan-shape", []string{psFixture(t, task("In-run fix 1 — visual-verify: x", "`a.kt`, `spectre/changes/x/visual-verification.md`"))}, env)
+	if r.rc != 0 {
+		t.Errorf("a visual-verify fix naming the record was refused: rc=%d out=%q", r.rc, r.out)
+	}
+	r = runGuard("check-plan-shape", []string{psFixture(t, task("In-run fix 1 — verify: x", "`a.kt`"))}, env)
+	if r.rc != 0 {
+		t.Errorf("a verify fix was refused: rc=%d out=%q", r.rc, r.out)
+	}
+}
