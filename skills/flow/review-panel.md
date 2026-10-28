@@ -96,7 +96,7 @@ its rebase branch changes what every later step reads, so it runs and is read fi
 **A guard's exit status is captured bare — a reader command's is not the guard's.** A guard's
 exit status read through a pipe is the pipe's, not the guard's: `check-panel-docs-only.sh
 <worktree> <merge-base> | tail` exits with `tail`'s 0 whatever verdict the guard reached. Capture
-the output to a file and read `$?` after, use `set -o pipefail`/`PIPESTATUS`, or run the guard
+the output to a file and read `$?` after, use `set -o pipefail`, or run the guard
 bare — so a red verdict cannot be laundered into green by the reader command.
 
 **Run the citation pre-check before rebuilding the dispatch context bundle below**:
