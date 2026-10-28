@@ -54,7 +54,7 @@
     single-worker run and that run failing with the fix's mechanism removed — or state that the
     cause could not be forced and the fix rests on code-reading evidence
     (`~/.claude/rules/fix-determinism-at-the-source.md`). Report a fix that states neither, one
-    proven by a load reproduction, and one that widens a tolerance, timeout, retry count or sleep.
+    proven by a load reproduction not run under run-capped.sh with a bounded worker count, and one that widens a tolerance, timeout, retry count or sleep.
 
     **Shared state the diff reuses — a required step, done before anything else:**
     1. List every pre-existing field, flag or variable that the diff's new code reads or

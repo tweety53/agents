@@ -359,7 +359,7 @@ flow stage begin -command '/flow' -stage flow.run-instructions -harness <harness
 Resolve the run instructions the start below uses, the handoff's `**Running:**` section prints (**Write `IN_PROGRESS`**, below) and `/flow-status` prints as its `Running:` section. It writes no file.
 
 - **Every start command comes from `<project>/.flow/project.md`'s `## run`**, with every path
-  made absolute.
+  made absolute, each started as `<agents repo>/scripts/run-capped.sh -- <command>`.
 - **Every URL is the one this worktree resolved**, never the project's declared base. Resolve each
   URL from this worktree's workspace id. A project that declares no isolation resolves nothing.
   An application whose port is fixed outside that project's own repository keeps its default,

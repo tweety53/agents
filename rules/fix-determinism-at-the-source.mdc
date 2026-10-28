@@ -31,12 +31,12 @@ guess routes straight to the tolerance.
 
 Make it fail by forcing that cause in one isolated, single-worker run — the test alone, or with the
 one test whose leftover state it reads — a delay or fault injected at
-the suspected seam, a pinned clock moved, a throttled connection — never by a load reproduction: no
-parallel load, no CPU cap, no multi-worker or looped suite repeats, no concurrent app or browser
-boots; they exhaust the operator's machine (kan-1044). The same forced condition is the one the fix
-and the mechanism-removed run below are proven under. Where the cause cannot be forced, fix it on
-the code-reading evidence and say so in the commit body; that, and only that, waives the
-mechanism-removed run.
+the suspected seam, a pinned clock moved, a throttled connection. A load reproduction is allowed
+only under run-capped.sh (`<agents repo>/scripts/run-capped.sh`) with a bounded worker count sized
+under the project's `## resource cap`, so the operator's machine is never overloaded (kan-1044). The
+same forced condition is the one the fix and the mechanism-removed run below are proven under. Where
+the cause does not show within the cap, go straight to code — fix it on deeper code analysis and say
+so in the commit body; that, and only that, waives the mechanism-removed run.
 
 ## Fix at the source
 

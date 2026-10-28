@@ -1101,7 +1101,7 @@ var dpCases = []dpCase{
 	},
 		checks: []dpCheck{
 			dpRC("case 97: exits 1", 1),
-			dpHas("case 97: names the dropped phrase", "missing the required phrase: \"single worker\""),
+			dpHas("case 97: names the dropped phrase", "missing the required phrase: \"bounded worker count\""),
 		}},
 	{files: map[string]string{
 		"review-panel.md": dpCleanReviewPanel,
@@ -1109,7 +1109,7 @@ var dpCases = []dpCase{
 	},
 		checks: []dpCheck{
 			dpRC("case 98: exits 1", 1),
-			dpHas("case 98: names the dropped phrase", "missing the required phrase: \"at most 5 runs\""),
+			dpHas("case 98: names the dropped phrase", "missing the required phrase: \"straight to code\""),
 		}},
 	{files: map[string]string{
 		"review-panel.md": dpCleanReviewPanel,
@@ -1164,7 +1164,15 @@ var dpCases = []dpCase{
 	},
 		checks: []dpCheck{
 			dpRC("case 105: a PROOF RUNS block sizing load-reproduction repeats exits 1", 1),
-			dpHas("case 105: names the dropped phrase", "missing the required phrase: \"never a load reproduction\""),
+			dpHas("case 105: names the dropped phrase", "missing the required phrase: \"run-capped.sh\""),
+		}},
+	{files: map[string]string{
+		"review-panel.md": dpCleanReviewPanel,
+		"implement.md":    dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlockLoop41),
+	},
+		checks: []dpCheck{
+			dpRC("case 106: loop 41's uncapped PROOF RUNS block exits 1", 1),
+			dpHas("case 106: names the missing cap", "missing the required phrase: \"run-capped.sh\""),
 		}},
 }
 
@@ -1741,7 +1749,18 @@ const (
 		"> claims — and say which of those it was. Read every hunk of the fix diff, a fix made for another\n" +
 		"> slot's finding included, for a defect the fix itself introduces — an evaluation moved out of the\n" +
 		"> guard that kept it safe, a branch the fix changed — and report it as a new finding at its line."
-	dpProofRunsBlock = "> **PROOF RUNS:** A flake fix is proven by forcing its cause in one isolated run — a delay or fault\n" +
+	dpProofRunsBlock = "> **PROOF RUNS:** Every process you start — build, test suite, dev stack, probe — runs under\n" +
+		"> `<agents repo>/scripts/run-capped.sh --`, which kills it past the project's `## resource cap`\n" +
+		"> (default 4096 MB). A flake fix is proven by forcing its cause, preferably in one isolated run — a\n" +
+		"> delay or fault injected at the seam, the test alone. A load reproduction (backend or frontend) is allowed only under\n" +
+		"> run-capped.sh with an explicit bounded worker count sized under the cap: Gradle\n" +
+		"> `--max-workers`/`maxParallelForks` and `-Xmx`, Playwright `--workers`, vitest `--maxWorkers`. If the\n" +
+		"> flake does not reproduce within the cap, go straight to code: no further reproduction loops; fix it\n" +
+		"> on deeper analysis of the code and the failing run's saved artifacts, and the commit body says so.\n" +
+		"> Your report states the forced condition, the cap, the worker count and the run count. A determinism\n" +
+		"> fix that was reproduced still shows the check failing with the mechanism removed\n" +
+		"> (`~/.claude/rules/fix-determinism-at-the-source.md`); only one fixed straight to code waives it, stated."
+	dpProofRunsBlockLoop41 = "> **PROOF RUNS:** A flake fix is proven by forcing its cause in one isolated run — a delay or fault\n" +
 		"> injected at the seam, single worker, the test alone — never a load reproduction: no multi-worker\n" +
 		"> suite repeats, no `--repeat-each` or loop of a suite, no concurrent browser or app-boot probes, no\n" +
 		"> \"reproduce under full-suite load\". Where a repeat is still needed it runs the test alone on a\n" +
@@ -1750,7 +1769,7 @@ const (
 		"> code-reading evidence and the commit body says so. Your report states the forced condition and the\n" +
 		"> run count. This never replaces the proof `~/.claude/rules/fix-determinism-at-the-source.md`\n" +
 		"> requires: a determinism fix still shows the check failing with the mechanism removed."
-	dpNoLoadRepro             = "Force the cause in one isolated run, never by a load reproduction."
+	dpNoLoadRepro             = "A load reproduction runs only under run-capped.sh."
 	dpProofRunsBlockLoadRepro = "> **PROOF RUNS:** When a check has to be run repeatedly to prove a flake reproduced or fixed, size\n" +
 		"> the run count to the flake rate you measured, 10–15 runs by default, never a fixed count per\n" +
 		"> step. Your report states the measured rate and the run count. Sizing the runs never replaces\n" +
@@ -1762,33 +1781,39 @@ const (
 	dpSubSkillDebuggingBlock = "> **REQUIRED SUB-SKILL:** When a test fails for a reason RED-GREEN-REFACTOR did not plan, read and\n" +
 		"> follow superpowers:systematic-debugging from its file — on Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/systematic-debugging/SKILL.md`\n" +
 		"> — before writing a fix. An expected RED step needs no such read."
-	dpProofRunsBlockNoSingleWorker = "> **PROOF RUNS:** A flake fix is proven by forcing its cause in one isolated run — a delay or fault\n" +
-		"> injected at the seam, one process, the test alone — never a load reproduction: no multi-worker\n" +
-		"> suite repeats, no `--repeat-each` or loop of a suite, no concurrent browser or app-boot probes, no\n" +
-		"> \"reproduce under full-suite load\". Where a repeat is still needed it runs the test alone on a\n" +
-		"> lone process, at most 5 runs. A flake seen only under parallel load is diagnosed from the code and\n" +
-		"> the failing run's saved artifacts; where its cause cannot be forced, the fix lands on that\n" +
-		"> code-reading evidence and the commit body says so. Your report states the forced condition and the\n" +
-		"> run count. This never replaces the proof `~/.claude/rules/fix-determinism-at-the-source.md`\n" +
-		"> requires: a determinism fix still shows the check failing with the mechanism removed."
-	dpProofRunsBlockNoFixedCount = "> **PROOF RUNS:** A flake fix is proven by forcing its cause in one isolated run — a delay or fault\n" +
-		"> injected at the seam, single worker, the test alone — never a load reproduction: no multi-worker\n" +
-		"> suite repeats, no `--repeat-each` or loop of a suite, no concurrent browser or app-boot probes, no\n" +
-		"> \"reproduce under full-suite load\". Where a repeat is still needed it runs the test alone on a\n" +
-		"> single worker, five runs at most. A flake seen only under parallel load is diagnosed from the code and\n" +
-		"> the failing run's saved artifacts; where its cause cannot be forced, the fix lands on that\n" +
-		"> code-reading evidence and the commit body says so. Your report states the forced condition and the\n" +
-		"> run count. This never replaces the proof `~/.claude/rules/fix-determinism-at-the-source.md`\n" +
-		"> requires: a determinism fix still shows the check failing with the mechanism removed."
-	dpProofRunsBlockNoMechanismRemoved = "> **PROOF RUNS:** A flake fix is proven by forcing its cause in one isolated run — a delay or fault\n" +
-		"> injected at the seam, single worker, the test alone — never a load reproduction: no multi-worker\n" +
-		"> suite repeats, no `--repeat-each` or loop of a suite, no concurrent browser or app-boot probes, no\n" +
-		"> \"reproduce under full-suite load\". Where a repeat is still needed it runs the test alone on a\n" +
-		"> single worker, at most 5 runs. A flake seen only under parallel load is diagnosed from the code and\n" +
-		"> the failing run's saved artifacts; where its cause cannot be forced, the fix lands on that\n" +
-		"> code-reading evidence and the commit body says so. Your report states the forced condition and the\n" +
-		"> run count. This never replaces the proof `~/.claude/rules/fix-determinism-at-the-source.md`\n" +
-		"> requires: a determinism fix still shows the check failing with the mechanism reverted."
+	dpProofRunsBlockNoSingleWorker = "> **PROOF RUNS:** Every process you start — build, test suite, dev stack, probe — runs under\n" +
+		"> `<agents repo>/scripts/run-capped.sh --`, which kills it past the project's `## resource cap`\n" +
+		"> (default 4096 MB). A flake fix is proven by forcing its cause, preferably in one isolated run — a\n" +
+		"> delay or fault injected at the seam, the test alone. A load reproduction (backend or frontend) is allowed only under\n" +
+		"> run-capped.sh with an explicit worker count sized under the cap: Gradle\n" +
+		"> `--max-workers`/`maxParallelForks` and `-Xmx`, Playwright `--workers`, vitest `--maxWorkers`. If the\n" +
+		"> flake does not reproduce within the cap, go straight to code: no further reproduction loops; fix it\n" +
+		"> on deeper analysis of the code and the failing run's saved artifacts, and the commit body says so.\n" +
+		"> Your report states the forced condition, the cap, the worker count and the run count. A determinism\n" +
+		"> fix that was reproduced still shows the check failing with the mechanism removed\n" +
+		"> (`~/.claude/rules/fix-determinism-at-the-source.md`); only one fixed straight to code waives it, stated."
+	dpProofRunsBlockNoFixedCount = "> **PROOF RUNS:** Every process you start — build, test suite, dev stack, probe — runs under\n" +
+		"> `<agents repo>/scripts/run-capped.sh --`, which kills it past the project's `## resource cap`\n" +
+		"> (default 4096 MB). A flake fix is proven by forcing its cause, preferably in one isolated run — a\n" +
+		"> delay or fault injected at the seam, the test alone. A load reproduction (backend or frontend) is allowed only under\n" +
+		"> run-capped.sh with an explicit bounded worker count sized under the cap: Gradle\n" +
+		"> `--max-workers`/`maxParallelForks` and `-Xmx`, Playwright `--workers`, vitest `--maxWorkers`. If the\n" +
+		"> flake does not reproduce within the cap, go directly to code: no further reproduction loops; fix it\n" +
+		"> on deeper analysis of the code and the failing run's saved artifacts, and the commit body says so.\n" +
+		"> Your report states the forced condition, the cap, the worker count and the run count. A determinism\n" +
+		"> fix that was reproduced still shows the check failing with the mechanism removed\n" +
+		"> (`~/.claude/rules/fix-determinism-at-the-source.md`); only one fixed directly to code waives it, stated."
+	dpProofRunsBlockNoMechanismRemoved = "> **PROOF RUNS:** Every process you start — build, test suite, dev stack, probe — runs under\n" +
+		"> `<agents repo>/scripts/run-capped.sh --`, which kills it past the project's `## resource cap`\n" +
+		"> (default 4096 MB). A flake fix is proven by forcing its cause, preferably in one isolated run — a\n" +
+		"> delay or fault injected at the seam, the test alone. A load reproduction (backend or frontend) is allowed only under\n" +
+		"> run-capped.sh with an explicit bounded worker count sized under the cap: Gradle\n" +
+		"> `--max-workers`/`maxParallelForks` and `-Xmx`, Playwright `--workers`, vitest `--maxWorkers`. If the\n" +
+		"> flake does not reproduce within the cap, go straight to code: no further reproduction loops; fix it\n" +
+		"> on deeper analysis of the code and the failing run's saved artifacts, and the commit body says so.\n" +
+		"> Your report states the forced condition, the cap, the worker count and the run count. A determinism\n" +
+		"> fix that was reproduced still fails with the mechanism removed\n" +
+		"> (`~/.claude/rules/fix-determinism-at-the-source.md`); only one fixed straight to code waives it, stated."
 )
 
 // CLEAN_REVIEW_PANEL, CLEAN_IMPLEMENT_NO_READONLY and CLEAN_IMPLEMENT: case
@@ -1848,15 +1873,15 @@ func TestCheckDispatchParagraphsFixRoundNamesIntroducedDefects(t *testing.T) {
 	}
 }
 
-// TestCheckDispatchParagraphsNoLoadRepro pins "never by a load reproduction"
-// in the rule and the verify fix loop: either file without it fails (kan-1044).
-func TestCheckDispatchParagraphsNoLoadRepro(t *testing.T) {
+// TestCheckDispatchParagraphsCappedRepro pins "under run-capped.sh" in the
+// rule and the verify fix loop: either file without it fails (kan-1044).
+func TestCheckDispatchParagraphsCappedRepro(t *testing.T) {
 	t.Parallel()
 	for _, rel := range []string{"rules/fix-determinism-at-the-source.mdc", "skills/flow/verify-fix-loop.md"} {
 		root := dpFixture(t, map[string]string{"review-panel.md": dpCleanReviewPanel, "implement.md": dpCleanImplement})
 		writeFile(t, filepath.Join(root, rel), "Reproduce it under parallel load.\n")
 		rc, out, _, _ := dpRun(t, crEnv(t.TempDir(), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": root}))
-		if rc != 1 || !strings.Contains(out, "never by a load reproduction") {
+		if rc != 1 || !strings.Contains(out, "under run-capped.sh") {
 			t.Fatalf("%s: rc=%d out:\n%s", rel, rc, out)
 		}
 	}

@@ -103,14 +103,14 @@ One round runs these steps in order:
    trails the baselines it archives (kan-1003: two rounds left it stale).
    **An observed failure is never closed as "not reproduced".** This rule is canonical for every
    fixer of a test failure a run saw — this loop's, a full-suite fix's, a self-review loop's. The
-   fixer traces it from the code and the failing run's saved artifacts, never by a load reproduction (PROOF RUNS,
+   fixer traces it from the code and the failing run's saved artifacts, a load reproduction only under run-capped.sh (PROOF RUNS,
    `skills/flow/implement.md`), and keeps every
    failing run's result files (the `result files:` and `full output:` paths `run-verify-list.sh`
    prints, or the JUnit XMLs and logs copied out by hand) before the next run overwrites them. A
    failure that reproduces gets its determinism fix, held to the PROOF RUNS paragraph
    (`skills/flow/implement.md`). A forced cause also shows the test failing with the mechanism
-   removed; only a cause that cannot be forced waives that run. One whose cause cannot be forced
-   is fixed anyway: every source of nondeterminism the trace names as a candidate — a container
+   removed; only one that does not reproduce within the cap waives that run, and it goes straight
+   to code. One whose cause cannot be forced is fixed anyway: every source of nondeterminism the trace names as a candidate — a container
    readiness wait, a shared port, an unpinned clock or order — is fixed at its source, each with a
    forced reproduction as its evidence (the candidate made to fail on purpose, a delay or a fault
    injected, failing the test without the fix and passing with it) where the candidate can be forced. The task's one commit carries
