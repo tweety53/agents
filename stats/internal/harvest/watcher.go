@@ -3037,8 +3037,14 @@ func discoverTranscripts(root string) ([]string, error) {
 func AgentModelVersions(root string) (map[string]string, error) {
 	out := map[string]string{}
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+		if err != nil && path == root {
 			return err
+		}
+		if err != nil && d != nil && d.IsDir() {
+			return fs.SkipDir
+		}
+		if err != nil || d.IsDir() {
+			return nil
 		}
 		id, ok := AgentIDFromTranscriptPath(path)
 		if !ok {

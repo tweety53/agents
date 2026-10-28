@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -148,8 +149,22 @@ func runPromptTuningImport(ctx context.Context, args []string, stdout, stderr io
 		return code
 	}
 
+	// Reviewer prompts present in the repository but off the fixed map --
+	// a slot added later -- are imported too (prompttuning.AreaFor).
+	listed, err := gitOutput(*repo, "ls-files", "--", "skills/flow/*-reviewer-prompt.md")
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: prompt-tuning import: %v\n", err)
+		return 1
+	}
+	targets := prompttuning.MappedTargets()
+	for _, t := range strings.Fields(listed) {
+		if !slices.Contains(targets, t) {
+			targets = append(targets, t)
+		}
+	}
+
 	var rows []client.PromptChange
-	for _, target := range prompttuning.MappedTargets() {
+	for _, target := range targets {
 		gitArgs := []string{"log", "--format=%H%x09%cI%x09%s"}
 		if *since != "" {
 			gitArgs = append(gitArgs, "--since="+*since)

@@ -30,9 +30,11 @@ func TestPostPromptChange(t *testing.T) {
 	}
 
 	for name, mutate := range map[string]func(map[string]any){
-		"unknown area": func(m map[string]any) { m["area"] = "planner" },
-		"missing sha":  func(m map[string]any) { delete(m, "sha") },
-		"unknown kind": func(m map[string]any) { m["kind"] = "guess" },
+		"unknown area":   func(m map[string]any) { m["area"] = "planner" },
+		"missing sha":    func(m map[string]any) { delete(m, "sha") },
+		"unknown kind":   func(m map[string]any) { m["kind"] = "guess" },
+		"missing target": func(m map[string]any) { delete(m, "target") },
+		"missing at":     func(m map[string]any) { delete(m, "at") },
 	} {
 		bad := map[string]any{}
 		for k, v := range row {

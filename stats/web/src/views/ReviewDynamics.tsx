@@ -7,7 +7,7 @@
 // (view-owned-range), and a Family / Version toggle keys every per-model
 // chart and the heatmap by model family or by exact model version
 // (model-version-split). Layout and copy are the approved prototype's.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DynamicsSummary, HeatCell, PromptChange, ReviewDynamicsRows } from "../api";
 import { DynamicsChart, type DynamicsMarker, type DynamicsSeries } from "../components/DynamicsChart";
 import type { Period } from "../components/PeriodPicker";
@@ -77,9 +77,10 @@ function Tile({
   format?: (v: number) => string;
 }) {
   let delta = <span className="dynamics-flat">no earlier range</span>;
-  if (previousChanges > 0 && value !== null && previous !== null && previous !== 0) {
-    const pct = ((value - previous) / previous) * 100;
-    const arrow = `${pct < 0 ? "▼" : "▲"} ${Math.abs(pct).toFixed(0)}%`;
+  if (previousChanges > 0 && value !== null && previous !== null) {
+    // From a previous 0 the change has no percentage: any rise reads "from 0".
+    const pct = previous === 0 ? (value === 0 ? 0 : Infinity) : ((value - previous) / previous) * 100;
+    const arrow = Number.isFinite(pct) ? `${pct < 0 ? "▼" : "▲"} ${Math.abs(pct).toFixed(0)}%` : "▲ from 0";
     const good = better === "lower" ? pct < 0 : pct > 0;
     if (better === "none") delta = <span className="dynamics-flat">{arrow} vs before</span>;
     else if (Math.abs(pct) < 3) delta = <span className="dynamics-flat">≈ unchanged</span>;
@@ -187,14 +188,20 @@ function Heatmap({ cells, previous, byVersion }: { cells: HeatCell[]; previous: 
 export function ReviewDynamics({ period, onPeriodChange, project }: ViewProps) {
   const [preset, setPreset] = useState<Preset | null>(() => (/[?&]from=/.test(window.location.hash) ? null : "8"));
   const [byVersion, setByVersion] = useState(false);
-  const state = useStatsView<ReviewDynamicsRows>("review-dynamics", { from: period.from, to: period.to, project });
-
-  // A URL naming no range opens on Last 8 weeks (view-owned-range). The
-  // child's effect runs before App's, so the hash still shows whether the
-  // URL carried a range.
+  // A URL naming no range opens on Last 8 weeks (view-owned-range), and
+  // the first fetch already asks for it, so App's default period is never
+  // fetched. The child's effect runs before App's, so the hash still shows
+  // whether the URL carried a range.
+  const [shown, setShown] = useState<Period>(() => (preset === "8" ? presetPeriod("8", null)! : period));
+  const mounted = useRef(false);
   useEffect(() => {
-    if (preset === "8") onPeriodChange?.(presetPeriod("8", null)!);
+    if (preset === "8") onPeriodChange?.(shown);
   }, []); // Mount only: a later preset click sets the period itself.
+  useEffect(() => {
+    if (mounted.current) setShown(period);
+    mounted.current = true;
+  }, [period.from.getTime(), period.to.getTime()]);
+  const state = useStatsView<ReviewDynamicsRows>("review-dynamics", { from: shown.from, to: shown.to, project });
 
   const rows = state.status === "ready" ? state.data.rows : null;
   const choose = (id: Preset) => {
@@ -203,8 +210,8 @@ export function ReviewDynamics({ period, onPeriodChange, project }: ViewProps) {
     setPreset(id);
     onPeriodChange?.(next);
   };
-  const span = period.to.getTime() - period.from.getTime();
-  const prevFrom = new Date(period.from.getTime() - span);
+  const span = shown.to.getTime() - shown.from.getTime();
+  const prevFrom = new Date(shown.from.getTime() - span);
 
   return (
     <section aria-label="Review dynamics" className="dashboard">
@@ -229,7 +236,7 @@ export function ReviewDynamics({ period, onPeriodChange, project }: ViewProps) {
         ))}
         <span className="dynamics-lbl">vs</span>
         <span className="dynamics-sub dynamics-inline">
-          {`${mmdd(prevFrom.toISOString())} – ${mmdd(new Date(period.from.getTime() - DAY_MS).toISOString())}`}
+          {`${mmdd(prevFrom.toISOString())} – ${mmdd(new Date(shown.from.getTime() - DAY_MS).toISOString())}`}
         </span>
       </div>
       <div className="dynamics-bar" role="group" aria-label="Models">
@@ -246,13 +253,25 @@ export function ReviewDynamics({ period, onPeriodChange, project }: ViewProps) {
       </div>
       {state.status === "loading" && <p role="status">Loading…</p>}
       {state.status === "error" && <p role="alert">Failed to load: {state.message}</p>}
-      {rows && <Dynamics rows={rows} byVersion={byVersion} />}
+      {rows && <Dynamics rows={rows} byVersion={byVersion} period={shown} />}
     </section>
   );
 }
 
-function Dynamics({ rows, byVersion }: { rows: ReviewDynamicsRows; byVersion: boolean }) {
-  const buckets = [...new Set(rows.series.map((p) => p.bucket))].sort();
+// rangeBuckets is every bucket the period spans -- UTC days, or ISO weeks
+// from the Monday on or before from -- so a bucket with no data still
+// holds its place on the x axis.
+function rangeBuckets(period: Period, kind: "day" | "week"): string[] {
+  const start = new Date(Date.UTC(period.from.getUTCFullYear(), period.from.getUTCMonth(), period.from.getUTCDate()));
+  if (kind === "week") start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
+  const step = kind === "week" ? 7 : 1;
+  const out: string[] = [];
+  for (const d = start; d < period.to; d.setUTCDate(d.getUTCDate() + step)) out.push(d.toISOString().slice(0, 10));
+  return out;
+}
+
+function Dynamics({ rows, byVersion, period }: { rows: ReviewDynamicsRows; byVersion: boolean; period: Period }) {
+  const buckets = [...new Set([...rangeBuckets(period, rows.bucket), ...rows.series.map((p) => p.bucket)])].sort();
   const index = new Map(buckets.map((b, i) => [b, i]));
 
   const markersFor = (area: PromptChange["area"] | null): DynamicsMarker[] => {

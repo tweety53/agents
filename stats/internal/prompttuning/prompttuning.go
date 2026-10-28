@@ -15,6 +15,7 @@ import (
 	"html/template"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 )
 
@@ -152,11 +153,21 @@ var promptAreas = map[string][2]string{
 	"skills/flow/review-panel-fix-round.md":          {"fix", ""},
 }
 
+// reviewerPrompt matches any reviewer slot's prompt file, so a slot added
+// later is mapped without editing promptAreas.
+var reviewerPrompt = regexp.MustCompile(`^skills/flow/([a-z0-9-]+)-reviewer-prompt\.md$`)
+
 // AreaFor returns the area and slot a change to target marks; ok is false
-// for a file off the map.
+// for a file off the map. Every skills/flow/<slot>-reviewer-prompt.md is
+// a review prompt for <slot>, mapped or not.
 func AreaFor(target string) (area, slot string, ok bool) {
-	a, ok := promptAreas[target]
-	return a[0], a[1], ok
+	if a, ok := promptAreas[target]; ok {
+		return a[0], a[1], true
+	}
+	if m := reviewerPrompt.FindStringSubmatch(target); m != nil {
+		return "review", m[1], true
+	}
+	return "", "", false
 }
 
 // MappedTargets returns every mapped prompt file, sorted -- the files

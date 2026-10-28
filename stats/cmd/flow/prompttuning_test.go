@@ -137,6 +137,32 @@ func TestPromptTuningRecord(t *testing.T) {
 	if code := run(context.Background(), []string{"prompt-tuning", "record", reviewer, "-addr", srv.URL}, nil, &stdout, &stderr); code != 2 {
 		t.Errorf("missing -sha: code %d, want 2", code)
 	}
+
+	// With no -at, the time is the applying commit's, read in the case
+	// dir's repository.
+	repo := gitRepo(t)
+	caseDir := filepath.Join(repo, "docs", "prompt-tuning", "kan-1-x-1")
+	if err := os.MkdirAll(filepath.Dir(caseDir), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(reviewer, caseDir); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("git", "-C", repo, "-c", "user.name=t", "-c", "user.email=t@e", "commit", "-q", "--allow-empty", "-m", "apply")
+	cmd.Env = append(os.Environ(), "GIT_COMMITTER_DATE=2026-10-20T08:30:00Z", "GIT_AUTHOR_DATE=2026-10-20T08:30:00Z")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("commit: %v\n%s", err, out)
+	}
+	head, err := exec.Command("git", "-C", repo, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code := run(context.Background(), []string{"prompt-tuning", "record", caseDir, "-sha", strings.TrimSpace(string(head)), "-addr", srv.URL}, nil, &stdout, &stderr); code != 0 {
+		t.Fatalf("record without -at: code %d, stderr %s", code, stderr.String())
+	}
+	if got := (*rows)[len(*rows)-1]["at"]; got != "2026-10-20T08:30:00Z" {
+		t.Errorf("record without -at: at = %v, want the commit time 2026-10-20T08:30:00Z", got)
+	}
 }
 
 // TestPromptTuningImport pins `flow prompt-tuning import`: one edit row per
@@ -173,18 +199,22 @@ func TestPromptTuningImport(t *testing.T) {
 	old := commit("2026-07-01T10:00:00Z", "old primary edit", "skills/flow/primary-reviewer-prompt.md")
 	both := commit("2026-09-01T10:00:00Z", "primary and verifier", "skills/flow/primary-reviewer-prompt.md", "skills/flow/visual-verify-verifier.md")
 	commit("2026-09-02T10:00:00Z", "unmapped", "README.md")
+	added := commit("2026-09-03T10:00:00Z", "a slot added later", "skills/flow/new-slot-reviewer-prompt.md")
 
 	srv, rows := promptChangeSink(t)
 	var stdout, stderr bytes.Buffer
 	if code := run(context.Background(), []string{"prompt-tuning", "import", "-C", repo, "-addr", srv.URL}, nil, &stdout, &stderr); code != 0 {
 		t.Fatalf("import: code %d, stderr %s", code, stderr.String())
 	}
-	if got := strings.TrimSpace(stdout.String()); got != "imported: 3" {
-		t.Errorf("stdout = %q, want imported: 3", got)
+	if got := strings.TrimSpace(stdout.String()); got != "imported: 4" {
+		t.Errorf("stdout = %q, want imported: 4", got)
 	}
 	keys := map[string]map[string]any{}
 	for _, r := range *rows {
 		keys[r["sha"].(string)] = r
+	}
+	if r := keys[added+":skills/flow/new-slot-reviewer-prompt.md"]; r == nil || r["slot"] != "new-slot" || r["area"] != "review" {
+		t.Errorf("a reviewer prompt off the fixed map = %v, want area review, slot new-slot", r)
 	}
 	for _, k := range []string{old + ":skills/flow/primary-reviewer-prompt.md", both + ":skills/flow/primary-reviewer-prompt.md", both + ":skills/flow/visual-verify-verifier.md"} {
 		if _, ok := keys[k]; !ok {
@@ -200,7 +230,7 @@ func TestPromptTuningImport(t *testing.T) {
 	if code := run(context.Background(), []string{"prompt-tuning", "import", "-C", repo, "-since", "2026-08-15", "-addr", srv.URL}, nil, &stdout, &stderr); code != 0 {
 		t.Fatalf("import -since: code %d, stderr %s", code, stderr.String())
 	}
-	if len(*rows) != 2 || strings.TrimSpace(stdout.String()) != "imported: 2" {
-		t.Errorf("-since 2026-08-15 posted %d rows, stdout %q; want 2", len(*rows), stdout.String())
+	if len(*rows) != 3 || strings.TrimSpace(stdout.String()) != "imported: 3" {
+		t.Errorf("-since 2026-08-15 posted %d rows, stdout %q; want 3", len(*rows), stdout.String())
 	}
 }

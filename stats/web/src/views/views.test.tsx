@@ -1063,6 +1063,19 @@ describe("review dynamics", () => {
     expect(tile("Visual verify passed first time")).toHaveTextContent("better");
     expect(tile("Changes reviewed")).not.toHaveTextContent(/better|worse/);
     expect(tile("Critical + Important per change")).toHaveTextContent("≈ unchanged");
+    // A previous range with changes but a zero value is an earlier range.
+    expect(tile("Implementer findings per task")).toHaveTextContent("▼ 25% · better");
+  });
+
+  it("review dynamics tile rises from a previous zero", async () => {
+    noRangeInUrl();
+    const rows = reviewDynamicsRows();
+    fetchStatsViewMock.mockResolvedValue(
+      envelope("review-dynamics", { ...rows, previousSummary: { ...rows.previousSummary, meanFixRounds: 0 } }),
+    );
+    render(<ReviewDynamics period={period} onPeriodChange={() => {}} project={undefined} />);
+    await screen.findByText("Review panel");
+    expect(screen.getByTestId("tile-Mean fix rounds")).toHaveTextContent("▲ from 0 · worse");
   });
 
   it("review dynamics range presets set the period", async () => {
@@ -1073,6 +1086,9 @@ describe("review dynamics", () => {
     expect(screen.getByRole("button", { name: "Last 8 weeks" })).toHaveAttribute("aria-pressed", "true");
     const span = (p: { from: Date; to: Date }) => Math.round((p.to.getTime() - p.from.getTime()) / 86400000);
     expect(span(onPeriodChange.mock.calls[0][0])).toBe(56);
+    // The first fetch already asks for the 8 weeks: App's default period is never fetched.
+    expect(fetchStatsViewMock).toHaveBeenCalledTimes(1);
+    expect(span(fetchStatsViewMock.mock.calls[0][1])).toBe(56);
 
     await userEvent.click(screen.getByRole("button", { name: "Last 2 weeks" }));
     const last = onPeriodChange.mock.calls.at(-1)![0];

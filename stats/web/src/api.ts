@@ -356,7 +356,6 @@ export interface WeeklyModelEffortPoint {
   costUsd: number;
 }
 
-/** Mirrors reviewerRowDTO. */
 /** One value of one Review dynamics series in one bucket (YYYY-MM-DD). */
 export interface DynamicsPoint {
   bucket: string;
@@ -414,6 +413,7 @@ export interface ReviewDynamicsRows {
   lastPromptChangeAt: string | null;
 }
 
+/** Mirrors reviewerRowDTO. */
 export interface ReviewerRow {
   slot: string;
   experimental: boolean;

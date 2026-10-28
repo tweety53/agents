@@ -118,6 +118,9 @@ func TestAreaFor(t *testing.T) {
 			t.Errorf("AreaFor(%q) = %q, %q, %v; want %q, %q, true", target, area, slot, ok, want[0], want[1])
 		}
 	}
+	if area, slot, ok := AreaFor("skills/flow/new-slot-reviewer-prompt.md"); !ok || area != "review" || slot != "new-slot" {
+		t.Errorf("AreaFor(a reviewer prompt added later) = %q, %q, %v; want review, new-slot, true", area, slot, ok)
+	}
 	if _, _, ok := AreaFor("skills/flow/implement.md"); ok {
 		t.Error("AreaFor(implement.md) found an area; want not-found")
 	}

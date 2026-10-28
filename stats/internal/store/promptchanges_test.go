@@ -50,7 +50,9 @@ func TestUpsertPromptChangeTuningOverEdit(t *testing.T) {
 	}
 	caseID := "kan-1-x-1"
 	tuning := edit
+	tuningSlot := "test-sanity"
 	tuning.Kind, tuning.Summary, tuning.CaseID = "tuning", "missed nil check", &caseID
+	tuning.At, tuning.Slot, tuning.Target = at.Add(30*time.Minute), &tuningSlot, "skills/flow/test-sanity-reviewer-prompt.md"
 	if err := st.UpsertPromptChange(ctx, tuning); err != nil {
 		t.Fatalf("upsert tuning: %v", err)
 	}
@@ -70,7 +72,8 @@ func TestUpsertPromptChangeTuningOverEdit(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("ListPromptChanges = %d rows, want 2: %+v", len(got), got)
 	}
-	if got[0].SHA != sha || got[0].Kind != "tuning" || got[0].CaseID == nil || *got[0].CaseID != caseID || got[0].Summary != "missed nil check" {
+	if got[0].SHA != sha || got[0].Kind != "tuning" || got[0].CaseID == nil || *got[0].CaseID != caseID || got[0].Summary != "missed nil check" ||
+		!got[0].At.Equal(tuning.At) || got[0].Slot == nil || *got[0].Slot != tuningSlot || got[0].Target != tuning.Target {
 		t.Errorf("first row = %+v, want the tuning kept over the edit", got[0])
 	}
 	if got[1].SHA != later.SHA || got[1].Slot != nil {

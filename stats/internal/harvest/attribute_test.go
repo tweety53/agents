@@ -2076,6 +2076,23 @@ func TestAttributeStampsModelVersion(t *testing.T) {
 	if m := patchFor(line("2026-01-01T00:00:00Z", "")); m["modelVersion"] != nil {
 		t.Errorf("modelVersion = %v, want no key when no line names a model", m["modelVersion"])
 	}
+
+	// The session-file path: a batch out of time order still keeps the
+	// newest record's model.
+	windows := &fakeDispatchWindowSource{bySession: map[string][]harvest.DispatchWindow{
+		mainSessionID: {{DispatchID: 5, StartedAt: mustParse(t, "2026-01-01T00:00:00Z"),
+			EndedAt: ptrTime(mustParse(t, "2026-01-01T00:00:09Z"))}},
+	}}
+	deltas, err := harvest.NewDispatchAttributor(windows).Attribute(context.Background(), []harvest.Record{
+		{Timestamp: mustParse(t, "2026-01-01T00:00:05Z"), SessionID: mainSessionID, IsSidechain: true, Model: "claude-opus-5-5", Usage: harvest.Usage{InputTokens: 1}},
+		{Timestamp: mustParse(t, "2026-01-01T00:00:02Z"), SessionID: mainSessionID, IsSidechain: true, Model: "claude-opus-5", Usage: harvest.Usage{InputTokens: 1}},
+	})
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	if got := deltas[5].ModelVersion; got != "claude-opus-5-5" {
+		t.Errorf("Attribute ModelVersion = %q, want claude-opus-5-5 (the newest record's)", got)
+	}
 }
 
 // TestAgentModelVersions pins the backfill's lookup (model-version-split):
