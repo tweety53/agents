@@ -132,7 +132,7 @@ fix-mutations-total: 2
 ### Round 6
 
 - dispatched: panel-6-mutation on sonnet/low
-- fix round re-run of mutation over panel-fix-5
+- fix round re-run of mutation over panel-fix-6
 - verdict: clean
 
 ### Round 7

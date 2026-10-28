@@ -1526,6 +1526,9 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stder
 		if floor, ok := panelFixFloor(ctx, f, projectKey, *v["role"], *v["key"], endT); ok && floor.After(startT) && !floor.After(endT) {
 			startT = floor
 		}
+		if floor, ok := inlineFloor(ctx, f, projectKey, *v["key"], endT); ok && floor.After(startT) {
+			startT = floor
+		}
 		*v["started-at"] = startT.UTC().Format(time.RFC3339)
 		*v["ended-at"] = endT.UTC().Format(time.RFC3339)
 		derived = []string{"-started-at", *v["started-at"], "-ended-at", *v["ended-at"]}
@@ -3576,6 +3579,27 @@ func panelFixKeyedARoundLow(ctx context.Context, f recordIdentityFlags, projectK
 		}
 	}
 	return true
+}
+
+// inlineFloor is the latest end, not after endT, among the change's other
+// inline rows: an inline back-fill's derived window never contains another
+// inline row of the run, since the parent's main thread belongs to one row
+// at a time (kan-1041 self-review: task-13-implementer's window held all of
+// verify-fix-3). A failed record read, or no such row, has no floor.
+func inlineFloor(ctx context.Context, f recordIdentityFlags, projectKey, key string, endT time.Time) (time.Time, bool) {
+	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+		return cl.GetRunRecord(ctx, projectKey, f.change)
+	})
+	if err != nil {
+		return time.Time{}, false
+	}
+	var floor time.Time
+	for _, d := range run.Dispatches {
+		if d.AgentID == "inline" && d.Key != key && d.EndedAt != nil && !d.EndedAt.After(endT) && d.EndedAt.After(floor) {
+			floor = *d.EndedAt
+		}
+	}
+	return floor, !floor.IsZero()
 }
 
 // mutationRoots is the -C repository's top level plus every key of the

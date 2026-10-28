@@ -6838,3 +6838,64 @@ func TestRecordDispatchRefusesAPanelFixKeyedARoundLow(t *testing.T) {
 		}
 	}
 }
+
+// TestRecordDispatchBackfillFloorsAnInlineRowAtTheOtherInlineRows pins the
+// kan-1041 self-review fix: an inline back-fill's derived start never comes
+// before the latest end, not after its commit, among the change's other
+// inline rows, so its window holds no other inline row; a non-inline row,
+// one ending after the commit and a failed record read set no floor.
+func TestRecordDispatchBackfillFloorsAnInlineRowAtTheOtherInlineRows(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	fixtureCommit(t, repo, "2026-10-28T02:48:46Z")
+	sha := fixtureCommit(t, repo, "2026-10-28T03:02:22Z")
+	withInline := `{"change":"kan-258","dispatches":[` +
+		`{"key":"verify-fix-3","agentId":"inline","role":"verifier","startedAt":"2026-10-28T02:51:19Z","endedAt":"2026-10-28T03:02:17Z"},` +
+		`{"key":"panel-6-mutation","agentId":"a1","role":"reviewer","slot":"mutation","startedAt":"2026-10-28T02:52:00Z","endedAt":"2026-10-28T03:02:20Z"},` +
+		`{"key":"verify-fix-4","agentId":"inline","role":"verifier","startedAt":"2026-10-28T03:02:30Z","endedAt":"2026-10-28T03:08:00Z"}]}`
+	record := withInline
+	recordFails := false
+	var bodies []map[string]any
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
+			if recordFails {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			_, _ = w.Write([]byte(record))
+			return
+		}
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		raw, _ := readAll(r)
+		var b map[string]any
+		_ = json.Unmarshal(raw, &b)
+		bodies = append(bodies, b)
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"implementer","model":"opus"}`))
+	}))
+	t.Cleanup(srv.Close)
+	for _, tc := range []struct {
+		name, record, want string
+		recordFails        bool
+	}{
+		{"floored at the other inline row's end", withInline, "2026-10-28T03:02:17Z", false},
+		{"no other inline row", `{"change":"kan-258","dispatches":[]}`, "2026-10-28T02:48:46Z", false},
+		{"a failed record read", withInline, "2026-10-28T02:48:46Z", true},
+	} {
+		bodies = nil
+		record, recordFails = tc.record, tc.recordFails
+		args := []string{"record", "dispatch", "backfill", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-key", "task-13-implementer", "-task", "13",
+			"-session-token", "mf-record-inline-floor", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
+		var stdout, stderr bytes.Buffer
+		if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+			t.Fatalf("%s: exit %d; stderr:\n%s", tc.name, code, stderr.String())
+		}
+		if len(bodies) != 2 || bodies[0]["startedAt"] != tc.want {
+			t.Errorf("%s: bodies = %v, want begin startedAt %s", tc.name, bodies, tc.want)
+		}
+	}
+}
