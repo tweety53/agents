@@ -48,6 +48,9 @@ type StatsStore interface {
 	StageLeaderboard(ctx context.Context, period store.Period, project, model *string) ([]store.StageLeaderboardRow, error)
 	TrendOverTime(ctx context.Context, period store.Period, project, model *string) ([]store.TrendPoint, error)
 	WeeklyCosts(ctx context.Context, period store.Period, project, model *string) ([]store.WeeklyCostPoint, error)
+	// WeeklyModelEffortCosts backs the "weekly-model-effort-costs" view
+	// (decision model-effort-view): every project, no model filter.
+	WeeklyModelEffortCosts(ctx context.Context, period store.Period) ([]store.WeeklyModelEffortPoint, error)
 	// Reviewers backs the "reviewers" view (design.md's "Stats views ›
 	// reviewers", task 16): one row per review-panel slot's dispatch and
 	// finding record within period.
@@ -104,15 +107,16 @@ type statsHandler struct {
 type viewName string
 
 const (
-	viewStateBoard       viewName = "state-board"
-	viewCostPerChange    viewName = "cost-per-change"
-	viewStageLeaderboard viewName = "stage-leaderboard"
-	viewTrend            viewName = "trend"
-	viewWeeklyCosts      viewName = "weekly-costs"
-	viewReviewers        viewName = "reviewers"
-	viewDecisions        viewName = "decisions"
-	viewFlowSummary      viewName = "flow-summary"
-	viewSelfReview       viewName = "self-review"
+	viewStateBoard        viewName = "state-board"
+	viewCostPerChange     viewName = "cost-per-change"
+	viewStageLeaderboard  viewName = "stage-leaderboard"
+	viewTrend             viewName = "trend"
+	viewWeeklyCosts       viewName = "weekly-costs"
+	viewWeeklyModelEffort viewName = "weekly-model-effort-costs"
+	viewReviewers         viewName = "reviewers"
+	viewDecisions         viewName = "decisions"
+	viewFlowSummary       viewName = "flow-summary"
+	viewSelfReview        viewName = "self-review"
 )
 
 // knownViews is every accepted {view} path value, used both to dispatch and
@@ -121,7 +125,7 @@ const (
 // allowlist already takes for filter and sort fields.
 var knownViews = []viewName{
 	viewStateBoard, viewCostPerChange, viewStageLeaderboard, viewTrend, viewWeeklyCosts,
-	viewReviewers, viewDecisions,
+	viewWeeklyModelEffort, viewReviewers, viewDecisions,
 	viewFlowSummary, viewSelfReview,
 }
 
@@ -522,6 +526,14 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 		}
 		return toWeeklyCostDTOs(weekly), 0, ""
 
+	case viewWeeklyModelEffort:
+		points, err := h.store.WeeklyModelEffortCosts(ctx, period)
+		if err != nil {
+			s, m := mapStoreError(h.logger, "weekly model-effort costs", err)
+			return nil, s, m
+		}
+		return toWeeklyModelEffortDTOs(points), 0, ""
+
 	case viewReviewers:
 		reviewers, err := h.store.Reviewers(ctx, period, project, model)
 		if err != nil {
@@ -751,6 +763,8 @@ type weeklyCostPointDTO struct {
 	ImplementationUSD *float64 `json:"implementationUsd"`
 	ReviewUSD         *float64 `json:"reviewUsd"`
 	SelfReviewUSD     *float64 `json:"selfReviewUsd"`
+	VisualVerifyUSD   *float64 `json:"visualVerifyUsd"`
+	OtherUSD          *float64 `json:"otherUsd"`
 }
 
 func toWeeklyCostDTOs(points []store.WeeklyCostPoint) []weeklyCostPointDTO {
@@ -763,6 +777,28 @@ func toWeeklyCostDTOs(points []store.WeeklyCostPoint) []weeklyCostPointDTO {
 			ImplementationUSD: p.ImplementUSD,
 			ReviewUSD:         p.ReviewUSD,
 			SelfReviewUSD:     p.SelfReviewUSD,
+			VisualVerifyUSD:   p.VisualVerifyUSD,
+			OtherUSD:          p.OtherUSD,
+		}
+	}
+	return out
+}
+
+type weeklyModelEffortPointDTO struct {
+	Week    string  `json:"week"`
+	Model   string  `json:"model"`
+	Effort  string  `json:"effort"`
+	CostUSD float64 `json:"costUsd"`
+}
+
+func toWeeklyModelEffortDTOs(points []store.WeeklyModelEffortPoint) []weeklyModelEffortPointDTO {
+	out := make([]weeklyModelEffortPointDTO, len(points))
+	for i, p := range points {
+		out[i] = weeklyModelEffortPointDTO{
+			Week:    p.Week.UTC().Format("2006-01-02"),
+			Model:   p.Model,
+			Effort:  p.Effort,
+			CostUSD: p.CostUSD,
 		}
 	}
 	return out
