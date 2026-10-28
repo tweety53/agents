@@ -97,6 +97,15 @@ One round runs these steps in order:
    stack rebuilt from its fix, and the task closes through `close-task.sh` only on that run's exit
    0 — a red capture is fixed in the same task and folded into its one commit (kan-1015: Tasks 21–24
    closed on desktop geometry tests, and each departure surfaced only at the next verifier).
+   **A departure observed on a running clock closes on repeated running-clock passes.** When the
+   departure was observed on a running clock — a live walk, a recorded frame sequence, any read the
+   capture spec's pinned clock (`skills/flow/visual-verify-verifier.md`, step 8) does not
+   reproduce — the task first adds a capture test that runs under the observer's conditions (clock
+   running, same viewport and data) and fails without the fix, and closes only once that test
+   passes five times over in one run under `run-capped.sh` with one worker (Playwright
+   `--repeat-each 5 --workers 1`), beside the capture spec's own exit 0 (kan-1044 self-review A8-a:
+   Tasks 7 and 8 closed green on the pinned-clock capture, and Task 9 on one running-clock pass
+   against a four-in-five failure rate, three extra visual-verify rounds following).
    **Every recapture the round runs rebuilds the full app suite's zip after it** —
    `rebuild-full-app-suite-zip.sh <worktree> <screenshots root>` in the checkout the recapture
    wrote to, the rebuilt `full-app-suite.zip` committed with the task's PNGs — so the zip never
