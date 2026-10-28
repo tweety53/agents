@@ -37,7 +37,7 @@ A dev stack detaches and is bounded by its own config instead.
 A dev stack detaches, so it is bounded by its own config — worker counts and heap — not by run-capped.sh.
 A dev stack detaches, so run-capped.sh cannot hold it: it is bounded by its own config — worker counts and heap.
 A flake fix carries one of two proofs.
-A load reproduction is allowed only under run-capped.sh (`<agents repo>/scripts/run-capped.sh`) with a bounded worker count sized under the project's `## resource cap`, at most 5 capped runs, so the operator's machine is never overloaded (kan-1044).
+A load reproduction is allowed only under run-capped.sh with a bounded worker count sized under the project's `## resource cap`, at most 5 capped runs, so the operator's machine is never overloaded (kan-1044).
 Either its cause is reproduced — preferably in one isolated run, a delay or fault injected at the seam, the test alone or with the one test whose leftover state it reads; a load reproduction (backend or frontend) is allowed only under run-capped.sh with an explicit bounded worker count sized under the cap: Gradle `--max-workers`/`maxParallelForks` and `-Xmx`, Playwright `--workers`, vitest `--maxWorkers`, at most 5 capped runs — and the fix then shows the check failing with the mechanism removed (`~/.claude/rules/fix-determinism-at-the-source.md`).
 Gradle runs with `--no-daemon` (run-capped.sh sets it), since a daemon reparents out of the tree, and with bounded `--max-workers` and `-Xmx`.
 Make it fail by forcing that cause, preferably in one isolated, single-worker run — the test alone, or with the one test whose leftover state it reads — a delay or fault injected at the suspected seam, a pinned clock moved, a throttled connection.
