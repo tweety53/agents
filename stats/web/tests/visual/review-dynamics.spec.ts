@@ -71,11 +71,11 @@ test.describe("review dynamics", () => {
     await pick("Prompt changes", "auto prompt tuning");
     await expect(page).toHaveScreenshot("review-dynamics-filters.png", { fullPage: true });
     // Projects and Task size refetch: each pick presses its own button.
+    await pick("Projects", "uitest-dynamics");
     await pick("Task size", "Big");
-    const projects = page.getByRole("group", { name: "Projects" }).getByRole("button");
-    await projects.nth(1).click();
-    await expect(projects.nth(1)).toHaveAttribute("aria-pressed", "true");
-    await expect(projects.first()).toHaveAttribute("aria-pressed", "false");
+    await expect(page.getByText("Loading…")).toHaveCount(0);
+    await expect(page.getByRole("group", { name: "Projects" }).getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "false");
+    await expect(page).toHaveScreenshot("review-dynamics-picked.png", { fullPage: true });
   });
 
   test("review dynamics heatmap cell hover", async ({ page }) => {
