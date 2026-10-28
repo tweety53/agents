@@ -209,7 +209,7 @@ func rvlVisualVerify(env Env, wt string, covered bool) (cmd, dir string, ok bool
 		if !ok {
 			return nil, fmt.Errorf("no merge base")
 		}
-		names, ok := capture(git("-C", wt, "diff", "--name-only", strings.TrimSpace(mb)+"..HEAD"))
+		names, ok := capture(git("-C", wt, "diff", "--no-renames", "--name-only", strings.TrimSpace(mb)+"..HEAD"))
 		if !ok {
 			return nil, fmt.Errorf("no diff")
 		}
