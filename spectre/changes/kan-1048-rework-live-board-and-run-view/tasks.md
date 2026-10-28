@@ -81,21 +81,23 @@ Correction (2026-10-28): the plan declared Step 2's `DataTable` `controls` prop 
 **Decision:** hide-dashboard-bar
 **Decision:** grouped-tables-own-markup
 
-- [ ] 4. Opened run view
-  - [ ] **Step 1: Test first.** `RunDetail.test.tsx`: `run detail groups stage runs by session and phase` (two sessions → `Session 1 · planning` and `Session 2 · implementation` with span, duration, cost; missing `sessionId` falls back to command), `run detail shows model version and effort` (`claude-opus-4-7` + effort `high` → `opus-4.7 · high`; no effort → model alone; dispatch row uses its bucket model and most-served effort), `run detail has no filter controls` (no select, no search box, no dashboard bar), `run detail header and kpis` (state pill, Jira key from the name prefix, Now running with activity, Total cost, Wall clock, Input tokens with cached share, Failed runs), `stage timeline draws a lane per stage coloured by outcome`. Delete the model-variable cases (`:391-450`). Run red.
-  - [ ] **Step 2: Data.** `useRunDetail.ts` drops the `model` parameter; the run view also reads its row from the state board (`project`, whole history) for state, activity and `updatedAt`.
-  - [ ] **Step 3: View.** `RunDetail.tsx` per the prototype's `#run` view: back link, header, KPI strip in one panel, timeline panel with legend, then stage runs and the Cost by stage rail side by side (one column under 900 px). `App.tsx` hides `DashboardBar` on the run route and stops passing `model`.
-  - [ ] **Step 4: Timeline.** `StageTimeline.tsx`: lane per stage, fill by outcome, hatched open bar, hour ticks, now marker, full width (`viewBox` with `width="100%"`), hover tooltip.
-  - [ ] **Step 5: Table.** `StageRunTable.tsx`: its own `<table>` (grouped-tables-own-markup), no filter controls; session group rows; columns Stage, Outcome, Started, Duration, Tokens in, Model · effort, Cost; dispatch rows under the existing toggle.
-  - [ ] **Step 6: Verify.** `cd stats/web && npx vitest run -t 'run detail|stage timeline'`; `npx tsc -b`. Commit.
+- [x] 4. Opened run view
+  - [x] **Step 1: Test first.** `RunDetail.test.tsx`: `run detail groups stage runs by session and phase` (two sessions → `Session 1 · planning` and `Session 2 · implementation` with span, duration, cost; missing `sessionId` falls back to command), `run detail shows model version and effort` (`claude-opus-4-7` + effort `high` → `opus-4.7 · high`; no effort → model alone; dispatch row uses its bucket model and most-served effort), `run detail has no filter controls` (no select, no search box, no dashboard bar), `run detail header and kpis` (state pill, Jira key from the name prefix, Now running with activity, Total cost, Wall clock, Input tokens with cached share, Failed runs), `stage timeline draws a lane per stage coloured by outcome`. Delete the model-variable cases (`:391-450`). Run red.
+  - [x] **Step 2: Data.** `useRunDetail.ts` drops the `model` parameter; the run view also reads its row from the state board (`project`, whole history) for state, activity and `updatedAt`.
+  - [x] **Step 3: View.** `RunDetail.tsx` per the prototype's `#run` view: back link, header, KPI strip in one panel, timeline panel with legend, then stage runs and the Cost by stage rail side by side (one column under 900 px). `App.tsx` hides `DashboardBar` on the run route and stops passing `model`.
+  - [x] **Step 4: Timeline.** `StageTimeline.tsx`: lane per stage, fill by outcome, hatched open bar, hour ticks, now marker, full width (`viewBox` with `width="100%"`), hover tooltip.
+  - [x] **Step 5: Table.** `StageRunTable.tsx`: its own `<table>` (grouped-tables-own-markup), no filter controls; session group rows; columns Stage, Outcome, Started, Duration, Tokens in, Model · effort, Cost; dispatch rows under the existing toggle.
+  - [x] **Step 6: Verify.** `cd stats/web && npx vitest run -t 'run detail|stage timeline'`; `npx tsc -b`. Commit.
 
 **Build:** green
-**Files:** `stats/web/src/views/RunDetail.tsx`, `stats/web/src/views/RunDetail.test.tsx`, `stats/web/src/hooks/useRunDetail.ts`, `stats/web/src/components/StageTimeline.tsx`, `stats/web/src/components/StageRunTable.tsx`, `stats/web/src/metrics.ts`, `stats/web/src/App.tsx`, `stats/web/src/styles.css`
+**Files:** `stats/web/src/views/RunDetail.tsx`, `stats/web/src/views/RunDetail.test.tsx`, `stats/web/src/hooks/useRunDetail.ts`, `stats/web/src/components/StageTimeline.tsx`, `stats/web/src/components/StageRunTable.tsx`, `stats/web/src/metrics.ts`, `stats/web/src/App.tsx`, `stats/web/src/styles.css`, `stats/web/src/format.test.ts`
 **Allowed-collateral:** `stats/web/src/App.test.tsx`, `stats/web/src/format.ts`
 **Tests:** `run detail groups stage runs by session and phase`, `run detail shows model version and effort`, `run detail has no filter controls`, `run detail header and kpis`, `stage timeline draws a lane per stage coloured by outcome`
 **Regression:** the run vitests fail — groups fall back to command text, the model loses version or effort, a filter returns, or the timeline loses its stage lanes.
 **Commit:** feat(stats): rework the opened run view
 **After:** Task 3
+
+Correction (2026-10-28): the phase map covers the stage keys `/flow` actually marks (`skills/flow/stage-keys.md` — `load-context`, `sdd-tdd`, `write-in-progress` and the integrate/cleanup keys among them), not only the prototype's sample names, so a real run reads `planning`, `implementation` or `landing` rather than `other`. A row's expansion shows its dispatches only, as the prototype draws it; the old raw-metrics detail (effort, fast mode, main/sidechain tokens, other recorded keys) is gone with `DataTable`'s detail row. Clock times read in UTC, as the prototype's do. `formatModel`'s case went into `format.test.ts`, which `**Files:**` now carries.
 
 **Decision:** board-chip-filters-run-none
 **Decision:** hide-dashboard-bar
