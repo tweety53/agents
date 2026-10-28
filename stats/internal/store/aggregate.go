@@ -71,7 +71,7 @@ const signalErrorsExpr = `(CASE WHEN jsonb_typeof(sr.metrics #> '{signals,main,t
 // LiveStateBoard lists every change updated within period, optionally
 // restricted to one project. A period containing no changes returns an
 // empty slice, never an error.
-func (s *Store) LiveStateBoard(ctx context.Context, period Period, project *string) ([]LiveStateRow, error) {
+func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, change *string) ([]LiveStateRow, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT c.project_key, c.name, c.state, c.updated_at, c.updated_by,
 		       first_obs.total_tasks, latest_obs.total_tasks,
@@ -126,8 +126,9 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project *stri
 		) done ON true
 		WHERE c.updated_at >= $1 AND c.updated_at < $2
 		  AND ($3::text IS NULL OR c.project_key = $3)
+		  AND ($4::text IS NULL OR c.name = $4)
 		ORDER BY c.updated_at DESC, c.project_key, c.name
-	`, period.From, period.To, project)
+	`, period.From, period.To, project, change)
 	if err != nil {
 		return nil, fmt.Errorf("store: live state board: %w", err)
 	}

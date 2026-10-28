@@ -46,6 +46,8 @@ def activity(payload: dict) -> Optional[Tuple[str, str]]:
 
 
 def truncate(text: str) -> str:
+    # Postgres text refuses U+0000, so a NUL would make the store reject the row.
+    text = text.replace("\x00", "")
     return text.encode("utf-8")[:MAX_DETAIL_BYTES].decode("utf-8", errors="ignore")
 
 

@@ -21,7 +21,9 @@ describe("formatRelative", () => {
     expect(formatRelative(ago(1500), now)).toBe("1d ago");
     expect(formatRelative(ago(2900), now)).toBe("2d ago");
   });
+});
 
+describe("formatSpan", () => {
   it("formatSpan reads minutes under an hour and hours with padded minutes above", () => {
     expect(formatSpan(23 * 60000)).toBe("23m");
     expect(formatSpan(88 * 60000)).toBe("1h 28m");
@@ -33,7 +35,7 @@ describe("formatModel", () => {
   it("formatModel shortens a model id to family and version", () => {
     expect(formatModel("claude-opus-4-7")).toBe("opus-4.7");
     expect(formatModel("claude-sonnet-5")).toBe("sonnet-5");
-    expect(formatModel("claude-haiku-4-5-20251001")).toBe("haiku-4-5-20251001");
+    expect(formatModel("claude-haiku-4-5-20251001")).toBe("haiku-4.5");
     expect(formatModel("opus")).toBe("opus");
   });
 });

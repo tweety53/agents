@@ -199,8 +199,14 @@ function ChangeRow({ row, now, maxCost }: { row: StateBoardRow; now: number; max
 export function StateBoard() {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), REFRESH_MS);
-    return () => clearInterval(id);
+    // A hidden tab stops refetching; showing it again refetches at once.
+    const tick = () => document.hidden || setNow(Date.now());
+    const id = setInterval(tick, REFRESH_MS);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+    };
   }, []);
 
   // The period is half-open, so it ends a day past now: a change updated at

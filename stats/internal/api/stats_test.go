@@ -34,7 +34,7 @@ func (f *fakeStore) SetSessionActivity(context.Context, string, string, string) 
 	return nil
 }
 
-func (f *fakeStore) LiveStateBoard(_ context.Context, _ store.Period, project *string) ([]store.LiveStateRow, error) {
+func (f *fakeStore) LiveStateBoard(_ context.Context, _ store.Period, project, _ *string) ([]store.LiveStateRow, error) {
 	f.lastStatsProject = project
 	return f.liveStateBoard, f.liveStateBoardErr
 }
@@ -115,6 +115,7 @@ type statsRun struct {
 type statsFake struct {
 	liveStateBoard   []store.LiveStateRow
 	activity         map[string][2]string
+	lastChange       *string
 	costPerChange    []store.CostPerChangeRow
 	stageLeaderboard []store.StageLeaderboardRow
 	trendOverTime    []store.TrendPoint
@@ -169,8 +170,8 @@ func (f *statsFake) ProjectKeysByDisplayName(_ context.Context, displayName stri
 	return f.projectKeysByDisplayName[displayName], nil
 }
 
-func (f *statsFake) LiveStateBoard(_ context.Context, _ store.Period, p *string) ([]store.LiveStateRow, error) {
-	f.lastProject = p
+func (f *statsFake) LiveStateBoard(_ context.Context, _ store.Period, p, c *string) ([]store.LiveStateRow, error) {
+	f.lastProject, f.lastChange = p, c
 	return f.liveStateBoard, f.aggErr
 }
 func (f *statsFake) CostPerChange(_ context.Context, _ store.Period, p, m *string) ([]store.CostPerChangeRow, error) {

@@ -46,9 +46,12 @@ func putActivity(t *testing.T, url, session, body string) int {
 // the store is touched, and the board carries the stored value back.
 func TestSessionActivityPut(t *testing.T) {
 	stage := "flow.sdd-tdd"
+	started := time.Date(2026, 8, 10, 8, 0, 0, 0, time.UTC)
+	since := time.Date(2026, 8, 10, 8, 30, 0, 0, time.UTC)
 	sts := &statsFake{liveStateBoard: []store.LiveStateRow{{
 		ProjectKey: "agents", Name: "kan-1", State: store.StateInProgress,
 		UpdatedAt: time.Date(2026, 8, 10, 9, 0, 0, 0, time.UTC), CurrentStage: &stage,
+		CurrentStageStartedAt: &started, ActivitySince: &since,
 	}}}
 	ts := newStatsTestServer(t, sts)
 
@@ -69,7 +72,7 @@ func TestSessionActivityPut(t *testing.T) {
 		t.Errorf("stored %v, want question/Proceed?", got)
 	}
 
-	status, env, body := getStats(t, ts, periodPath("state-board"))
+	status, env, body := getStats(t, ts, periodPath("state-board")+"&change=kan-1")
 	if status != http.StatusOK {
 		t.Fatalf("board status %d, body %s", status, body)
 	}
@@ -78,6 +81,8 @@ func TestSessionActivityPut(t *testing.T) {
 		Activity       *string `json:"activity"`
 		ActivityDetail *string `json:"activityDetail"`
 		DoneTasks      *int    `json:"doneTasks"`
+		StartedAt      *string `json:"currentStageStartedAt"`
+		Since          *string `json:"activitySince"`
 	}
 	if err := json.Unmarshal(env.Rows, &rows); err != nil {
 		t.Fatalf("decode rows: %v", err)
@@ -86,5 +91,13 @@ func TestSessionActivityPut(t *testing.T) {
 		rows[0].Activity == nil || *rows[0].Activity != "question" ||
 		rows[0].ActivityDetail == nil || *rows[0].ActivityDetail != "Proceed?" || rows[0].DoneTasks != nil {
 		t.Errorf("board rows = %s, want currentStage, activity question, detail Proceed?, no doneTasks", env.Rows)
+	}
+	// The live instants reach the DTO as RFC 3339, and "change" reaches the store.
+	if rows[0].StartedAt == nil || *rows[0].StartedAt != "2026-08-10T08:00:00Z" ||
+		rows[0].Since == nil || *rows[0].Since != "2026-08-10T08:30:00Z" {
+		t.Errorf("board rows = %s, want currentStageStartedAt 08:00 and activitySince 08:30", env.Rows)
+	}
+	if sts.lastChange == nil || *sts.lastChange != "kan-1" {
+		t.Errorf("store got change %v, want kan-1", sts.lastChange)
 	}
 }

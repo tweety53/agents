@@ -43,7 +43,7 @@ const boundaryConvention = "a stage run is attributed to the period containing i
 // stage run (see recorded, below). A fake satisfying this needs no
 // database.
 type StatsStore interface {
-	LiveStateBoard(ctx context.Context, period store.Period, project *string) ([]store.LiveStateRow, error)
+	LiveStateBoard(ctx context.Context, period store.Period, project, change *string) ([]store.LiveStateRow, error)
 	// SetSessionActivity backs PUT /api/v1/sessions/{session}/activity
 	// (decision session-activity-hooks); the board reads it back.
 	SetSessionActivity(ctx context.Context, sessionID, state, detail string) error
@@ -506,7 +506,13 @@ func (h *statsHandler) view(w http.ResponseWriter, r *http.Request) {
 func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.Period, project, model *string, values map[string][]string) (rows any, status int, msg string) {
 	switch name {
 	case viewStateBoard:
-		board, err := h.store.LiveStateBoard(ctx, period, project)
+		// "change" scopes the board to one change, server-side: the run
+		// view reads its own row and nothing else.
+		var change *string
+		if c := firstValue(values, "change"); c != "" {
+			change = &c
+		}
+		board, err := h.store.LiveStateBoard(ctx, period, project, change)
 		if err != nil {
 			s, m := mapStoreError(h.logger, "state board", err)
 			return nil, s, m

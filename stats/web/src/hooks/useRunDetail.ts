@@ -140,7 +140,9 @@ export function useRunDetail(project: string, change: string): RunDetailState {
       }),
       // The period is half-open: ending a day past now keeps a change
       // updated at this very instant in it.
-      fetchStatsView<StateBoardRow[]>("state-board", { from: WIDE_FROM, to: new Date(Date.now() + DAY_MS), project }),
+      // Scoped to this one change server-side; a failed board fetch leaves
+      // the header without its state rather than failing the whole view.
+      fetchStatsView<StateBoardRow[]>("state-board", { from: WIDE_FROM, to: new Date(Date.now() + DAY_MS), project, change }).catch(() => undefined),
     ])
       .then(([stageRunsResp, aggregateResp, boardResp]) => {
         if (cancelled) return;
@@ -152,7 +154,7 @@ export function useRunDetail(project: string, change: string): RunDetailState {
           status: "ready",
           stageRuns: stageRunsResp.stageRuns,
           summary: summarize(rowsForChange),
-          board: boardResp.rows.find((r) => r.name === change),
+          board: boardResp?.rows.find((r) => r.name === change),
           truncated: stageRunsResp.total > stageRunsResp.stageRuns.length,
           totalStageRuns: stageRunsResp.total,
         });

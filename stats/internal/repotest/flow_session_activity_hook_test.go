@@ -27,7 +27,7 @@ func newActivityStore(t *testing.T) *activityStore {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		s.mu.Lock()
-		s.requests = append(s.requests, r.Method+" "+r.URL.Path+" "+string(body))
+		s.requests = append(s.requests, r.Method+" "+r.URL.EscapedPath()+" "+string(body))
 		s.mu.Unlock()
 		w.WriteHeader(http.StatusNoContent)
 	}))
@@ -72,6 +72,12 @@ func TestFlowSessionActivityHook(t *testing.T) {
 		{"malformed json", `{not json`, ""},
 		{"detail truncated to 500 bytes", `{"session_id":"s-1","hook_event_name":"PreToolUse","tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"` + long + `"}]}}`,
 			path + `{"state": "question", "detail": "` + strings.Repeat(`\u00e9`, 250) + `"}`},
+		{"ascii detail cut at exactly 500 bytes", `{"session_id":"s-1","hook_event_name":"PreToolUse","tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"` + strings.Repeat("x", 600) + `"}]}}`,
+			path + `{"state": "question", "detail": "` + strings.Repeat("x", 500) + `"}`},
+		{"NUL stripped from detail", `{"session_id":"s-1","hook_event_name":"PreToolUse","tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"a\u0000b"}]}}`,
+			path + `{"state": "question", "detail": "ab"}`},
+		{"session id escaped into one path segment", `{"session_id":"a/b c","hook_event_name":"Stop"}`,
+			`PUT /api/v1/sessions/a%2Fb%20c/activity {"state": "idle", "detail": ""}`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

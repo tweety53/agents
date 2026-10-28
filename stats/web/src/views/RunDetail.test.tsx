@@ -732,6 +732,8 @@ describe("the reworked run view (kan-1048)", () => {
     // The board row is read through past now, so a change updated this instant is found.
     const board = fetchStatsViewMock.mock.calls.find(([view]) => view === "state-board")!;
     expect(board[1].to.getTime()).toBeGreaterThan(NOW.getTime());
+    // ...scoped to this one change server-side, never the project's whole board.
+    expect(board[1].change).toBe(CHANGE);
     expect(screen.getByRole("heading", { name: CHANGE }).parentElement).toHaveTextContent("IN_PROGRESS");
     const kpi = (name: string) => screen.getByRole("group", { name });
     expect(kpi("Now running")).toHaveTextContent("flow.sdd-tdd");
@@ -748,6 +750,15 @@ describe("the reworked run view (kan-1048)", () => {
     const rail = screen.getByRole("region", { name: "Cost by stage" });
     expect(within(rail).getAllByText(/^(sdd-tdd|brainstorm|kickoff)$/).map((e) => e.textContent)).toEqual(["sdd-tdd", "brainstorm", "kickoff"]);
     expect(rail).toHaveTextContent("$3.50");
+  });
+
+  it("run detail still shows its stage runs when the board row fails to load", async () => {
+    fetchStatsViewMock.mockImplementation((view: string) =>
+      view === "state-board" ? Promise.reject(new Error("board down")) : Promise.resolve(aggregateEnvelope([])),
+    );
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    expect(await screen.findByRole("cell", { name: "flow.kickoff" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("stage timeline draws a lane per stage coloured by outcome", async () => {

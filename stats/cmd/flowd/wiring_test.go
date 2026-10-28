@@ -285,3 +285,22 @@ func TestFormatBuild(t *testing.T) {
 		}
 	}
 }
+
+// TestSweepEnabled pins the switch the UI-test stack turns the sweeper off
+// with, and that stats/Makefile's ui-test-up sets it: the fixture's open runs
+// are dated in the past and would otherwise be closed as abandoned.
+func TestSweepEnabled(t *testing.T) {
+	if !sweepEnabled(func(string) string { return "" }) {
+		t.Error("sweepEnabled with FLOW_SWEEP_OFF unset = false, want true")
+	}
+	if sweepEnabled(func(k string) string { return map[string]string{"FLOW_SWEEP_OFF": "1"}[k] }) {
+		t.Error("sweepEnabled with FLOW_SWEEP_OFF=1 = true, want false")
+	}
+	mk, err := os.ReadFile("../../Makefile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(mk), "FLOW_SWEEP_OFF=1 \\") {
+		t.Error("stats/Makefile's ui-test-up does not start flowd with FLOW_SWEEP_OFF=1")
+	}
+}

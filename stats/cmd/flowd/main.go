@@ -82,6 +82,13 @@ const sweepInterval = 1 * time.Minute
 // send an end mark, never one still genuinely working.
 const sweepSilenceTimeout = 6 * time.Hour
 
+// sweepEnabled is false when FLOW_SWEEP_OFF is set: the UI-test stack's
+// fixture holds open stage runs dated in the past (cmd/uitest-seed), which
+// the sweeper would close as abandoned a minute after the daemon starts.
+func sweepEnabled(getenv func(string) string) bool {
+	return getenv("FLOW_SWEEP_OFF") == ""
+}
+
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
@@ -360,8 +367,10 @@ func run(logger *slog.Logger) error {
 	// may still receive a late harvest batch afterwards for messages inside
 	// its now-fixed window -- see harvest.WindowSource's own doc comment
 	// (attribute.go) for why that is deliberate, not a race left unhandled.
-	sweeper := sweep.New(st, sweepSilenceTimeout, logger)
-	go sweeper.Run(watchCtx, sweepInterval)
+	if sweepEnabled(os.Getenv) {
+		sweeper := sweep.New(st, sweepSilenceTimeout, logger)
+		go sweeper.Run(watchCtx, sweepInterval)
+	}
 
 	serveErr := make(chan error, 1)
 	go func() {

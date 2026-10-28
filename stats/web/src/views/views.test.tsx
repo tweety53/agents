@@ -3,7 +3,7 @@
 // highest-risk vacuous shape this task's own instructions name), plus the
 // absence-vs-zero distinction and the state-board-is-default-route
 // requirement.
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import type {
@@ -426,6 +426,22 @@ describe("views render their fixture response's actual values", () => {
     expect(asking).toHaveTextContent("Awaiting your answer");
     expect(row).not.toHaveTextContent("Working");
     expect(table.queryByRole("columnheader", { name: /Next command/ })).not.toBeInTheDocument();
+  });
+
+  it("state board stops refetching while the tab is hidden", async () => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"], now: BOARD_NOW });
+    const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+    render(<StateBoard />);
+    await act(async () => {});
+    const before = fetchStatsViewMock.mock.calls.length;
+    await act(async () => vi.advanceTimersByTime(15000));
+    expect(fetchStatsViewMock.mock.calls.length).toBe(before);
+    // Showing the tab again refetches at once.
+    hidden.mockReturnValue(false);
+    vi.setSystemTime(BOARD_NOW.getTime() + 15000);
+    await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+    expect(fetchStatsViewMock.mock.calls.length).toBe(before + 1);
+    hidden.mockRestore();
   });
 
   it("state board hides pipeline-fix changes", async () => {
