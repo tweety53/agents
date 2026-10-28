@@ -83,6 +83,7 @@ var dpEntries = map[string]dpEntry{
 		[]string{"fresh `Explore` and `Plan` subagents", "never a `fork`", "never an agent that edits files", "plan-agent-pair.sh"}, nil},
 	"proofruns": {"**PROOF RUNS:**",
 		[]string{"never a load reproduction", "single worker", "at most 5 runs", "shows the check failing with the mechanism removed"}, nil},
+	"noloadrepro": {"never by a load reproduction", nil, nil},
 }
 
 // dpSite is one row of SITE_ENTRY/SITE_PATHS/SITE_MIN_BLOCKS/SITE_VARIANTS:
@@ -133,6 +134,8 @@ var dpSites = []dpSite{
 	{"readonly", "skills/flow/implement.md", 1, nil},
 	{"fixround", "skills/flow/review-panel-fix-round.md", 1, nil},
 	{"proofruns", "skills/flow/implement.md", 1, nil},
+	{"noloadrepro", "rules/fix-determinism-at-the-source.mdc", 1, nil},
+	{"noloadrepro", "skills/flow/verify-fix-loop.md", 1, nil},
 	{"subskill", "skills/flow/implement.md", 2, []string{"tdd", "debugging"}},
 	{"planning", "skills/flow-self-review/SKILL.md", 1, nil},
 }

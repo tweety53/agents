@@ -68,6 +68,8 @@ func dpFixture(t *testing.T, files map[string]string) string {
 	writeFile(t, filepath.Join(flow, "visual-verify-tooling-analysis.md"), dpCleanVisualVerify+"\n")
 	writeFile(t, filepath.Join(flow, "review-panel-fix-round.md"), dpCleanFixRound+"\n")
 	writeFile(t, filepath.Join(root, "skills", "flow-self-review", "SKILL.md"), dpCleanPlanning)
+	writeFile(t, filepath.Join(root, "rules", "fix-determinism-at-the-source.mdc"), dpNoLoadRepro+"\n")
+	writeFile(t, filepath.Join(flow, "verify-fix-loop.md"), dpNoLoadRepro+"\n")
 	// The self-review SKILL.md carries the PLANNING DELEGATION block; a case
 	// may overwrite it.
 	for name, body := range files {
@@ -157,7 +159,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 		stderr func(root string) string
 	}{
 		{label: "a clean run prints the OK line on stdout alone", files: clean, rc: 0,
-			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 35 site(s) validated\n" }},
+			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 37 site(s) validated\n" }},
 		{label: "a relative root prints its findings and the INVALID line as given, on stdout alone", files: noRange,
 			env: func(root string) Env {
 				return crEnv(filepath.Dir(root), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": filepath.Base(root)})
@@ -198,7 +200,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 			}},
 		{label: "with no override the root is FLOW_GUARD_REPO_ROOT", files: clean,
 			env: func(root string) Env { return crEnv(root, map[string]string{"FLOW_GUARD_REPO_ROOT": root}) },
-			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 35 site(s) validated\n" }},
+			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 37 site(s) validated\n" }},
 		{label: "with no override and no FLOW_GUARD_REPO_ROOT it exits 2", files: clean,
 			env: func(root string) Env { return crEnv(root, nil) },
 			rc:  2, stderr: func(string) string {
@@ -1748,6 +1750,7 @@ const (
 		"> code-reading evidence and the commit body says so. Your report states the forced condition and the\n" +
 		"> run count. This never replaces the proof `~/.claude/rules/fix-determinism-at-the-source.md`\n" +
 		"> requires: a determinism fix still shows the check failing with the mechanism removed."
+	dpNoLoadRepro             = "Force the cause in one isolated run, never by a load reproduction."
 	dpProofRunsBlockLoadRepro = "> **PROOF RUNS:** When a check has to be run repeatedly to prove a flake reproduced or fixed, size\n" +
 		"> the run count to the flake rate you measured, 10–15 runs by default, never a fixed count per\n" +
 		"> step. Your report states the measured rate and the run count. Sizing the runs never replaces\n" +
@@ -1841,6 +1844,20 @@ func TestCheckDispatchParagraphsFixRoundNamesIntroducedDefects(t *testing.T) {
 		rc, out, _, _ := dpRun(t, crEnv(t.TempDir(), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": root}))
 		if rc != tc.rc || (tc.rc == 1 && !strings.Contains(out, "missing the required phrase: \""+phrase+"\"")) {
 			t.Fatalf("want rc %d: rc=%d out:\n%s", tc.rc, rc, out)
+		}
+	}
+}
+
+// TestCheckDispatchParagraphsNoLoadRepro pins "never by a load reproduction"
+// in the rule and the verify fix loop: either file without it fails (kan-1044).
+func TestCheckDispatchParagraphsNoLoadRepro(t *testing.T) {
+	t.Parallel()
+	for _, rel := range []string{"rules/fix-determinism-at-the-source.mdc", "skills/flow/verify-fix-loop.md"} {
+		root := dpFixture(t, map[string]string{"review-panel.md": dpCleanReviewPanel, "implement.md": dpCleanImplement})
+		writeFile(t, filepath.Join(root, rel), "Reproduce it under parallel load.\n")
+		rc, out, _, _ := dpRun(t, crEnv(t.TempDir(), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": root}))
+		if rc != 1 || !strings.Contains(out, "never by a load reproduction") {
+			t.Fatalf("%s: rc=%d out:\n%s", rel, rc, out)
 		}
 	}
 }
