@@ -67,7 +67,7 @@ func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, g := range groups {
 		r := rows[latest[g]]
 		switch r.Outcome {
-		case "completed":
+		case "completed", "skipped":
 		case "":
 			open = append(open, r.Key+" (running)")
 		default:
@@ -82,6 +82,6 @@ func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "VERIFY-NOT-GREEN: %s — %s\n", name, strings.Join(open, ", "))
 		return 1
 	}
-	fmt.Fprintf(stdout, "VERIFY-GREEN: %s — %d inline verify row(s) completed\n", name, seen)
+	fmt.Fprintf(stdout, "VERIFY-GREEN: %s — %d inline verify row(s) green\n", name, seen)
 	return 0
 }

@@ -597,6 +597,36 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome completed")) {
 		t.Errorf("an all-skipped lint list: exit %d, calls:\n%s", rc, calls)
 	}
+	// A blocked lint group is never masked by the test group ending the same
+	// row later, whether that test group ends skipped or completed.
+	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\nexit 1\n```\n\n## test\n\n```bash\ntrue\n```\n")
+	gitIn(t, wt, "add", "-A")
+	gitIn(t, wt, "commit", "-q", "-m", "four")
+	list = "test"
+	run()
+	list = "lint"
+	if rc, calls := run(); rc != 1 || !strings.HasSuffix(calls, endWith("-outcome blocked -cause test-failure")) {
+		t.Errorf("a failing lint list: exit %d, calls:\n%s", rc, calls)
+	}
+	list = "test"
+	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome blocked -cause test-failure")) {
+		t.Errorf("a skipped test list after a blocked lint: exit %d, calls:\n%s", rc, calls)
+	}
+	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\nexit 1\n```\n\n## test\n\n```bash\necho changed\n```\n")
+	gitIn(t, wt, "add", "-A")
+	gitIn(t, wt, "commit", "-q", "-m", "five")
+	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome blocked -cause test-failure")) {
+		t.Errorf("a completed test list after a blocked lint: exit %d, calls:\n%s", rc, calls)
+	}
+	list = "lint"
+	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\ntrue\n```\n\n## test\n\n```bash\ntrue\n```\n")
+	gitIn(t, wt, "add", "-A")
+	gitIn(t, wt, "commit", "-q", "-m", "six")
+	run()
+	list = "test"
+	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome completed")) {
+		t.Errorf("a test list after a lint list re-run green: exit %d, calls:\n%s", rc, calls)
+	}
 }
 
 // TestRunVerifyListKeepsResultFiles pins kan-1017's self-review: a failing

@@ -14,10 +14,13 @@
 # judged: rows group by key with a `-fix-<k>` suffix removed
 # (skills/flow/verify-fix-loop.md step 4), and the last row of each group in
 # record order stands. Prints one verdict line:
-#   VERIFY-GREEN:     <change> — <n> inline verify row(s) completed
+#   VERIFY-GREEN:     <change> — <n> inline verify row(s) green
 #   VERIFY-NOT-GREEN: <change> — this run recorded no inline verify
 #   VERIFY-NOT-GREEN: <change> — <key> (running|<outcome>)[, …]
-# Exit 0 every judged row carries outcome `completed` and at least one exists;
+# Exit 0 every judged row carries outcome `completed` or `skipped` and at
+# least one exists — run-verify-list.sh records `skipped` when every test
+# command's `# inputs:` (and `.flow/project.md`) are unchanged since the
+# list's last green run on a clean tree;
 # 1 VERIFY-NOT-GREEN; 2 cannot answer (usage, a missing worktree, a change
 # name that is not plain, a failed or malformed store read, a read that
 # returns no row of the change at all — <worktree> is not the canonical

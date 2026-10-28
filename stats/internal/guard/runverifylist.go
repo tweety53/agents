@@ -260,6 +260,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	record := func(string, ...string) bool { return true }
+	blockedMark := ""
 	if len(args) >= 7 {
 		flow, ok := lookPath(env, "flow")
 		if !ok {
@@ -271,6 +272,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			wt = args[7]
 		}
 		key, token, model, effort := args[3], args[4], args[5], args[6]
+		blockedMark = "flow-verify-blocked-" + key + "-" + token
 		record = func(verb string, flags ...string) bool {
 			argv := []string{"record", "dispatch", verb, "-C", wt, "-change", change}
 			if verb == "begin" {
@@ -491,8 +493,25 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	if list == "lint" {
 		run("check-spec-reach.sh "+wt, `"`+scriptDir+`/check-spec-reach.sh" "`+wt+`"`, "spec-reach")
 	}
+	// Lint and test share one dispatch key, and the later group's end
+	// overwrites the row (skills/flow/verify-and-handoff.md, Recording): a
+	// blocked lint group is carried into the test group's end, never masked.
+	lintBlocked := false
+	if blockedMark != "" {
+		if mark, ok := gitOut("rev-parse", "--path-format=absolute", "--git-path", blockedMark); ok {
+			switch {
+			case list != "lint":
+				_, err := os.Stat(mark)
+				lintBlocked = err == nil
+			case failed != 0:
+				os.WriteFile(mark, nil, 0o666)
+			default:
+				os.Remove(mark)
+			}
+		}
+	}
 	switch {
-	case failed != 0:
+	case failed != 0 || lintBlocked:
 		record("end", "-outcome", "blocked", "-cause", "test-failure")
 	case list != "lint" && !visualRan && len(cmds) > 0 && !slices.Contains(skip, false):
 		// A lint list always ran check-spec-reach.sh, so it never ends skipped.
