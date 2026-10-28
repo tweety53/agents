@@ -50,3 +50,6 @@ none named.
 
 ### Other views
 - `review-dynamics`, `-filters`, `-hover` captures (evidence/) byte-identical to HEAD's baselines; `review-dynamics-darwin.png` and `review-dynamics-heat-hover-darwin.png` are byte-identical — the heat-cell hover is a native `title` tooltip with no page ink.
+
+## Fix run 1 (Task 7)
+- Every Review dynamics y axis now draws ticks `0, s, 2s` on a 1·2·5 step, whole when the format cannot show a half, each label at the height of the value it names (vitest `dynamics chart labels each tick with the value it sits at`). Picked state: "Changes reviewed" reads `0`, `1`, `2` with the line on `1`; "Visual verify passed first time" tops at `100%`; findings charts read e.g. `0.0`, `5.0`, `10.0`. Every `review-dynamics-*` baseline, `full-review-dynamics-darwin.png` and the full-app-suite zip were recaptured and read; `npm run test:visual`: 67 passed.

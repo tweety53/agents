@@ -49,7 +49,13 @@ export function DynamicsChart({
   const [hover, setHover] = useState<number | null>(null);
   const n = buckets.length;
   const all = series.flatMap((s) => s.values.filter((v): v is number => v !== null));
-  const max = Math.max(0, ...all) * 1.12 || 1;
+  // Ticks 0, s, 2s on a 1·2·5 step, whole when the format cannot show a half, so each label names its height.
+  const half = Math.max(0, ...all) / 2;
+  const mag = half > 0 ? 10 ** Math.floor(Math.log10(half)) : 0.5;
+  const whole = format(0.5) === format(0) || format(0.5) === format(1);
+  const s = Math.max(whole ? 1 : 0, [1, 2, 5, 10].map((m) => m * mag).find((v) => v >= half)!);
+  const ticks = [0, s, 2 * s];
+  const max = 2 * s * 1.12;
   const x = (i: number) => P.l + (n < 2 ? (W - P.l - P.r) / 2 : (i * (W - P.l - P.r)) / (n - 1));
   const y = (v: number) => H - P.b - (v * (H - P.t - P.b)) / max;
   const step = Math.max(1, Math.ceil(n / 6));
@@ -86,11 +92,10 @@ export function DynamicsChart({
       <p className="dynamics-sub">{description}</p>
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title} onMouseLeave={() => setHover(null)}>
         <line className="dynamics-axis" x1={P.l} y1={H - P.b} x2={W - P.r} y2={H - P.b} />
-        {[0, max / 2.24, max / 1.12].map((t, i, ticks) => (
+        {ticks.map((t) => (
           <g key={t}>
-            {/* A label repeating the one above (0.5 rounded to 1) is left blank. */}
             <text className="dynamics-tick" x={P.l - 4} y={y(t) + 3} textAnchor="end">
-              {i < ticks.length - 1 && format(t) === format(ticks[i + 1]) ? "" : format(t)}
+              {format(t)}
             </text>
             <line className="dynamics-axis" x1={P.l} x2={W - P.r} y1={y(t)} y2={y(t)} strokeOpacity={0.35} />
           </g>
