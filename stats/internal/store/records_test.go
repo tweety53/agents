@@ -5499,3 +5499,85 @@ func TestRestampStampedEnds(t *testing.T) {
 		}
 	}
 }
+
+// TestEndDispatchTakesAnEarlierStart pins kan-1044 self-review F1-b's store
+// half: an inline end carrying a start before the row's moves it there, one
+// after leaves it.
+func TestEndDispatchTakesAnEarlierStart(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-earlier-start-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	start := time.Date(2026, 10, 28, 16, 9, 21, 0, time.UTC)
+	commit := start.Add(5 * time.Second)
+	for _, tc := range []struct {
+		key        string
+		sent, want time.Time
+	}{
+		{"task-9-implementer", start.Add(-12 * time.Minute), start.Add(-12 * time.Minute)},
+		{"task-10-implementer", start.Add(time.Minute), start},
+	} {
+		d := baseDispatch("implementer", "opus")
+		d.Key = tc.key
+		d.SessionToken = "mf-earlier-start"
+		d.AgentID = "inline"
+		d.StartedAt = start
+		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", d); err != nil {
+			t.Fatalf("RecordDispatch(%s): %v", tc.key, err)
+		}
+		sent := tc.sent
+		got, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{
+			SessionToken: "mf-earlier-start", Key: tc.key, Outcome: "completed",
+			CommitSHA: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", EndedAt: commit.Add(time.Second),
+			CommitAt: &commit, StartedAt: &sent,
+		})
+		if err != nil {
+			t.Fatalf("EndDispatch(%s): %v", tc.key, err)
+		}
+		if !got.StartedAt.Equal(tc.want) {
+			t.Errorf("%s: started_at = %v, want %v", tc.key, got.StartedAt, tc.want)
+		}
+	}
+}
+
+// TestDropDispatchMovesTokensToTheKeptRow pins flowd drop-dispatch's store
+// half (kan-1044 self-review, F1-b).
+func TestDropDispatchMovesTokensToTheKeptRow(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-drop-dispatch-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedChange(t, st, projectKey, "kan-2")
+	rec := func(change, key string) int64 {
+		d := baseDispatch("implementer", "opus")
+		d.Key = key
+		d.SessionToken = "mf-drop-dispatch"
+		d.AgentID = "inline"
+		row, err := st.RecordDispatch(ctx, projectKey, change, d)
+		if err != nil {
+			t.Fatalf("RecordDispatch(%s): %v", key, err)
+		}
+		return row.ID
+	}
+	drop, keep, other := rec("kan-1", "task-7-implementer"), rec("kan-1", "task-7-implementer-retry"), rec("kan-2", "task-7-implementer")
+	if _, err := pool.Exec(ctx, `UPDATE dispatches SET metrics = '{"tokens":{"main":{"input":5}}}' WHERE id = $1`, drop); err != nil {
+		t.Fatalf("seed tokens: %v", err)
+	}
+	if err := st.DropDispatch(ctx, other, keep); err == nil {
+		t.Fatal("DropDispatch across changes: err = nil")
+	}
+	if err := st.DropDispatch(ctx, drop, keep); err != nil {
+		t.Fatalf("DropDispatch: %v", err)
+	}
+	var n int
+	var tokens *string
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM dispatches WHERE id = $1`, drop).Scan(&n); err != nil || n != 0 {
+		t.Errorf("drop row count = %d (%v), want 0", n, err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT metrics->'tokens'->'main'->>'input' FROM dispatches WHERE id = $1`, keep).Scan(&tokens); err != nil || tokens == nil || *tokens != "5" {
+		t.Errorf("keep tokens = %v (%v), want 5", tokens, err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM dispatches WHERE id = $1`, other).Scan(&n); err != nil || n != 1 {
+		t.Errorf("other change's row count = %d (%v), want 1", n, err)
+	}
+}

@@ -7231,3 +7231,125 @@ func TestRecordMutationLateEdges(t *testing.T) {
 		}
 	}
 }
+
+// recordServer serves *record on GET, records each POST body and answers it
+// as a written dispatch (kan-1044 self-review, F1-b).
+func recordServer(t *testing.T, record *string) (*httptest.Server, *[]map[string]any) {
+	t.Helper()
+	var bodies []map[string]any
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/decisions") {
+			_, _ = w.Write([]byte("[]"))
+			return
+		}
+		if r.Method == http.MethodGet {
+			if *record == "" {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			_, _ = w.Write([]byte(*record))
+			return
+		}
+		raw, _ := readAll(r)
+		var b map[string]any
+		_ = json.Unmarshal(raw, &b)
+		bodies = append(bodies, b)
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"implementer","model":"opus"}`))
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &bodies
+}
+
+// TestRecordDispatchEndInlineDerivesItsStart pins kan-1044 self-review F1-b:
+// a completed end of an inline task implementer row with -commit sends the
+// start the back-fill would derive; a subagent row sends none.
+func TestRecordDispatchEndInlineDerivesItsStart(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	fixtureCommit(t, repo, "2026-10-21T11:02:00Z")
+	sha := fixtureCommit(t, repo, "2026-10-21T11:10:31Z")
+	reviewer := `,{"key":"task-8-reviewer","agentId":"a2","role":"reviewer","outcome":"completed","startedAt":"2026-10-21T11:02:00Z","endedAt":"2026-10-21T11:06:00Z"}`
+	for _, tc := range []struct{ name, agent, other, want string }{
+		{"inline", "inline", "", "2026-10-21T11:02:00Z"},
+		{"subagent", "a1", "", ""},
+		{"inline after a reviewer", "inline", reviewer, "2026-10-21T11:06:00Z"},
+	} {
+		record := `{"change":"kan-258","dispatches":[{"key":"task-9-implementer","agentId":"` + tc.agent +
+			`","role":"implementer","sessionToken":"mf-end-derive","startedAt":"2026-10-21T11:10:25Z"}` + tc.other + `]}`
+		srv, bodies := recordServer(t, &record)
+		args := []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-key", "task-9-implementer", "-session-token", "mf-end-derive",
+			"-outcome", "completed", "-commit", sha}
+		var stdout, stderr bytes.Buffer
+		if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+			t.Fatalf("%s: exit %d; stderr:\n%s", tc.name, code, stderr.String())
+		}
+		got, _ := (*bodies)[0]["startedAt"].(string)
+		if len(*bodies) != 1 || got != tc.want {
+			t.Errorf("%s: bodies = %v, want startedAt %q", tc.name, *bodies, tc.want)
+		}
+	}
+}
+
+// TestRecordDispatchBackfillRefusesADuplicateTaskCommit pins kan-1044
+// self-review F1-b: a task implementer back-fill on the commit a completed
+// row of the same task carries exits 2 before any store call; another
+// commit, and a failed record read, are admitted.
+func TestRecordDispatchBackfillRefusesADuplicateTaskCommit(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	fixtureCommit(t, repo, "2026-10-28T15:10:00Z")
+	sha := fixtureCommit(t, repo, "2026-10-28T15:25:48Z")
+	same := `{"change":"kan-258","dispatches":[{"key":"task-8-implementer","agentId":"inline","role":"implementer","outcome":"completed","commitSha":"` + sha + `","startedAt":"2026-10-28T15:20:08Z"}]}`
+	for _, tc := range []struct {
+		name, record, key string
+		want              int
+	}{
+		{"same task, same commit", same, "task-8-implementer-retry", 2},
+		{"same task, other commit", `{"change":"kan-258","dispatches":[{"key":"task-8-implementer","agentId":"inline","role":"implementer","outcome":"completed","commitSha":"0123456789abcdef0123456789abcdef01234567","startedAt":"2026-10-28T15:20:08Z"}]}`, "task-8-implementer-retry", 0},
+		{"a failed record read", "", "task-8-implementer-retry", 0},
+		{"a folded fix round", same, "task-8-implementer-fix-1", 0},
+	} {
+		record := tc.record
+		srv, bodies := recordServer(t, &record)
+		args := []string{"record", "dispatch", "backfill", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-key", tc.key, "-task", "8",
+			"-session-token", "mf-record-dup", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		if code != tc.want || (tc.want == 2 && len(*bodies) != 0) {
+			t.Errorf("%s: exit %d, posts %d; want %d (stderr %q)", tc.name, code, len(*bodies), tc.want, stderr.String())
+		}
+	}
+}
+
+// TestRecordDispatchBeginRefusesACompletedTask pins kan-1044 self-review
+// F1-b: an inline begin of a task implementer key is refused while the task
+// already holds a completed implementer row.
+func TestRecordDispatchBeginRefusesACompletedTask(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	for _, tc := range []struct {
+		name, outcome, key string
+		want               int
+	}{
+		{"completed", "completed", "task-7-implementer", 2},
+		{"aborted", "aborted", "task-7-implementer", 0},
+		{"a gated-review fix round", "completed", "task-7-implementer-fix-1", 0},
+	} {
+		record := `{"change":"kan-258","dispatches":[{"key":"task-7-implementer-retry","agentId":"inline","role":"implementer","outcome":"` +
+			tc.outcome + `","commitSha":"37c868ea2100fe869ff241bada9e7d122a93d352","startedAt":"2026-10-28T14:22:58Z"}]}`
+		srv, bodies := recordServer(t, &record)
+		args := []string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-effort", "default", "-key", tc.key, "-task", "7",
+			"-session-token", "mf-record-done", "-agent-id", "inline"}
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		if code != tc.want || (tc.want == 2 && len(*bodies) != 0) {
+			t.Errorf("%s: exit %d, posts %d; want %d (stderr %q)", tc.name, code, len(*bodies), tc.want, stderr.String())
+		}
+	}
+}

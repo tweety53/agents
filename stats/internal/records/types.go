@@ -198,6 +198,10 @@ type DispatchEnd struct {
 	// api.ApplyDispatchEndAt sets it, on its transcript restamp; no HTTP
 	// body or journal line can (kan-1044 self-review, F1-a).
 	ReEnd bool `json:"-"`
+	// StartedAt is an inline row's start the CLI derived from the commits,
+	// as the back-fill does; the store moves an inline row's start to it
+	// when it is earlier, never later (kan-1044 self-review, F1-b).
+	StartedAt *time.Time `json:"startedAt,omitempty"`
 }
 
 // TokenReport is the token usage a caller reports for a same-session

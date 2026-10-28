@@ -1203,6 +1203,23 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		}
 	}
 
+	// A task already holding a completed implementer row is not begun again
+	// inline (kan-1044 self-review, F1-b); a back-fill carries its own
+	// commit check, and a failed read refuses nothing.
+	if task := taskWorkKey(*key); task != "" && *agentID == "inline" && *startedAt == "" {
+		run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+			return cl.GetRunRecord(ctx, projectKey, f.change)
+		})
+		if err == nil {
+			for _, d := range run.Dispatches {
+				if d.Outcome == "completed" && taskWorkKey(d.Key) == task {
+					fmt.Fprintf(stderr, "flow: -key %q begins task %s again, but completed row %q already records it -- a task's work is recorded once (skills/flow/implement.md)\n", *key, task, d.Key)
+					return 2
+				}
+			}
+		}
+	}
+
 	// A visual verifier is a mutator: it builds the stack from the tree and
 	// writes <changeRoot>/visual-verification/, so it never runs beside an
 	// open implementer, panel-fix or red-partner row of the change, nor one
@@ -1348,6 +1365,48 @@ func highestRecordedRound(run records.Run) int {
 // ids +-joined (skills/flow/implement.md's dispatch table).
 var implementerKey = regexp.MustCompile(`^task-[0-9]+(\+[0-9]+)*-implementer(-fix-[0-9]+)?(-retry)?$`)
 
+// implementerTask returns the "task-<ids>" part of a task implementer key,
+// "" for any other key.
+func implementerTask(key string) string {
+	if !implementerKey.MatchString(key) {
+		return ""
+	}
+	return key[:strings.Index(key, "-implementer")]
+}
+
+// taskWorkKey is implementerTask for a task's own work, "" for a fix
+// round's key: a gated-review fix is separate work recorded after the
+// task's row completes (skills/flow/gated-review-fix.md).
+func taskWorkKey(key string) string {
+	if strings.Contains(key, "-implementer-fix-") {
+		return ""
+	}
+	return implementerTask(key)
+}
+
+// inlineDerivedWindow is an inline row's window derived from its commit:
+// the end is the commit's committer time, the start the newest commit
+// before it in any of the change's worktrees, raised to panelFixFloor and
+// inlineFloor (kan-1003, kan-1039, kan-1046). The back-fill and a live
+// inline end both call it.
+func inlineDerivedWindow(ctx context.Context, f recordIdentityFlags, projectKey, role, key, commit string) (start, end time.Time, ok bool) {
+	roots := mutationRoots(ctx, f, projectKey)
+	end, ok = commitTime(commit, roots)
+	if ok {
+		start, ok = commitBefore(end, roots)
+	}
+	if !ok {
+		return time.Time{}, time.Time{}, false
+	}
+	if floor, ok := panelFixFloor(ctx, f, projectKey, role, key, end); ok && floor.After(start) && !floor.After(end) {
+		start = floor
+	}
+	if floor, ok := inlineFloor(ctx, f, projectKey, key, end); ok && floor.After(start) {
+		start = floor
+	}
+	return start, end, true
+}
+
 // runRecordDispatchEnd implements `flow record dispatch end`: the closing
 // call, sent as the dispatch finishes, carrying the two facts knowable
 // only then -- the commit it produced and how it ended. The end instant is
@@ -1445,7 +1504,30 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 			commitAt = &t
 		}
 	}
+	// A live inline task implementer end derives its start as the back-fill
+	// does, so a row begun at its commit records the work before it; the
+	// store moves the start earlier only (kan-1044 self-review, F1-b).
+	var derivedStart *time.Time
+	if *outcome == "completed" && *commit != "" && ended.IsZero() && implementerTask(*key) != "" {
+		run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+			return cl.GetRunRecord(ctx, projectKey, f.change)
+		})
+		if err == nil && (*agentID == "inline" || slices.ContainsFunc(run.Dispatches, func(d records.Dispatch) bool {
+			return d.Key == *key && d.SessionToken == *sessionToken && d.AgentID == "inline"
+		})) {
+			if start, end, ok := inlineDerivedWindow(ctx, f, projectKey, "implementer", *key, *commit); ok {
+				// Work any other row ended by the commit was not this row's.
+				for _, d := range run.Dispatches {
+					if d.Key != *key && d.EndedAt != nil && !d.EndedAt.After(end) && d.EndedAt.After(start) {
+						start = *d.EndedAt
+					}
+				}
+				derivedStart = &start
+			}
+		}
+	}
 	in := records.DispatchEnd{
+		StartedAt:    derivedStart,
 		SessionToken: *sessionToken,
 		Key:          *key,
 		CommitSHA:    *commit,
@@ -1532,21 +1614,10 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stder
 		if !panelFixRoundClosed(ctx, f, projectKey, *v["role"], *v["key"], stderr) {
 			return 2
 		}
-		roots := mutationRoots(ctx, f, projectKey)
-		endT, ok := commitTime(*v["commit"], roots)
-		var startT time.Time
-		if ok {
-			startT, ok = commitBefore(endT, roots)
-		}
+		startT, endT, ok := inlineDerivedWindow(ctx, f, projectKey, *v["role"], *v["key"], *v["commit"])
 		if !ok {
 			fmt.Fprintf(stderr, "flow: cannot derive the instants of commit %s (or the commit before it) from any of the change's worktrees\n", *v["commit"])
 			return 2
-		}
-		if floor, ok := panelFixFloor(ctx, f, projectKey, *v["role"], *v["key"], endT); ok && floor.After(startT) && !floor.After(endT) {
-			startT = floor
-		}
-		if floor, ok := inlineFloor(ctx, f, projectKey, *v["key"], endT); ok && floor.After(startT) {
-			startT = floor
 		}
 		*v["started-at"] = startT.UTC().Format(time.RFC3339)
 		*v["ended-at"] = endT.UTC().Format(time.RFC3339)
@@ -1580,6 +1651,23 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stder
 	if err := validateCommitSHA("-commit", *v["commit"]); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
+	}
+	// A task's completed commit is recorded once (kan-1044 self-review,
+	// F1-b: task 8's commit carried two completed rows). A failed record
+	// read refuses nothing.
+	if task := taskWorkKey(*v["key"]); task != "" && *v["commit"] != "" {
+		run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+			return cl.GetRunRecord(ctx, projectKey, f.change)
+		})
+		if err == nil {
+			for _, d := range run.Dispatches {
+				if d.Outcome == "completed" && taskWorkKey(d.Key) == task && d.CommitSHA != "" &&
+					(strings.HasPrefix(d.CommitSHA, *v["commit"]) || strings.HasPrefix(*v["commit"], d.CommitSHA)) {
+					fmt.Fprintf(stderr, "flow: -key %q -commit %s is already recorded by completed row %q -- a task's commit is recorded once\n", *v["key"], *v["commit"], d.Key)
+					return 2
+				}
+			}
+		}
 	}
 	var begin, end []string
 	fset.Visit(func(fl *flag.Flag) {

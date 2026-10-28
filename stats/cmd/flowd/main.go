@@ -132,6 +132,14 @@ func main() {
 		return
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == "drop-dispatch" {
+		if err := dropDispatch(os.Args[2:]); err != nil {
+			logger.Error("flowd drop-dispatch failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "drop-pass" {
 		if err := dropPass(os.Args[2:]); err != nil {
 			logger.Error("flowd drop-pass failed", "error", err)
@@ -877,6 +885,34 @@ func dropPass(args []string) error {
 	}
 	defer st.Close()
 	return st.DropPass(ctx, id)
+}
+
+// dropDispatch implements `flowd drop-dispatch <drop-id> <keep-id>`
+// (store.Store.DropDispatch): the repair for a task's work recorded on two
+// rows (kan-1044 self-review, F1-b). It talks to the database directly.
+func dropDispatch(args []string) error {
+	if len(args) != 2 {
+		return fmt.Errorf("usage: flowd drop-dispatch <drop-id> <keep-id>")
+	}
+	var ids [2]int64
+	for i, a := range args {
+		id, err := strconv.ParseInt(a, 10, 64)
+		if err != nil {
+			return fmt.Errorf("dispatch id %q: %w", a, err)
+		}
+		ids[i] = id
+	}
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	st, err := store.Open(ctx, cfg.DSN)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	return st.DropDispatch(ctx, ids[0], ids[1])
 }
 
 // dropMutation implements `flowd drop-mutation <mutation-id>`

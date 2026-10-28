@@ -606,6 +606,15 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 		WHERE c.project_key = $1 AND c.name = $2
 		  AND d.session_token = $3 AND d.dispatch_key = $4`,
 		projectKey, change, in.SessionToken, in.Key).Scan(&agentID, &startedAt)
+	// An inline end carrying a derived start moves an inline row begun
+	// late back to it, before any window check reads the start (kan-1044
+	// self-review, F1-b).
+	inline := in.AgentID == "inline" || (in.AgentID == "" && agentID != nil && *agentID == "inline")
+	var movedStart *time.Time
+	if readErr == nil && inline && in.StartedAt != nil && in.StartedAt.Before(startedAt) {
+		startedAt = *in.StartedAt
+		movedStart = &startedAt
+	}
 	// An end before the start: within the start's own second it is the
 	// CLI's whole-second -ended-at truncating a fast end, stored as the
 	// start; earlier is refused, whatever the outcome (kan-1024's
@@ -618,7 +627,6 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 	}
 	if in.Outcome == "completed" {
 		err := readErr
-		inline := in.AgentID == "inline" || (in.AgentID == "" && agentID != nil && *agentID == "inline")
 		if err == nil && !inline && in.Tokens == nil && in.EndedAt.Sub(startedAt) < minInlineWindow {
 			var harvested bool
 			if err := s.pool.QueryRow(ctx, `
@@ -644,7 +652,7 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 	}
 	out, err := scanDispatchRow(s.pool.QueryRow(ctx, `
 		UPDATE dispatches d
-		SET commit_sha = $5, outcome = $6, ended_at = CASE WHEN $12 THEN $7 ELSE COALESCE(d.ended_at, $7) END, agent_id = COALESCE($8, d.agent_id),
+		SET commit_sha = $5, outcome = $6, ended_at = CASE WHEN $12 THEN $7 ELSE COALESCE(d.ended_at, $7) END, started_at = COALESCE($13, d.started_at), agent_id = COALESCE($8, d.agent_id),
 		    cause = $9, diff_base = COALESCE($11, d.diff_base),
 		    metrics = CASE WHEN $10::text IS NULL THEN d.metrics
 		               ELSE jsonb_set(
@@ -662,7 +670,7 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 		projectKey, change, in.SessionToken, in.Key,
 		nullIfEmpty(in.CommitSHA), nullIfEmpty(in.Outcome), in.EndedAt, nullIfEmpty(in.AgentID),
 		nullIfEmpty(in.Cause),
-		reportParam, nullIfEmpty(in.DiffBase), in.ReEnd,
+		reportParam, nullIfEmpty(in.DiffBase), in.ReEnd, movedStart,
 	))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -1345,6 +1353,43 @@ func (s *Store) RestampStampedEnds(ctx context.Context, since time.Time, agentEn
 		n++
 	}
 	return n, nil
+}
+
+// DropDispatch deletes dispatch dropID, first moving its metrics.tokens onto
+// keepID when keepID carries none and re-pointing any finding at keepID --
+// the repair for a task's work recorded on two rows (kan-1044 self-review,
+// F1-b). Two rows of different changes are refused and change nothing.
+func (s *Store) DropDispatch(ctx context.Context, dropID, keepID int64) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("store: drop dispatch %d: %w", dropID, err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var same bool
+	if err := tx.QueryRow(ctx, `
+		SELECT d.change_id = k.change_id FROM dispatches d, dispatches k
+		WHERE d.id = $1 AND k.id = $2`, dropID, keepID).Scan(&same); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("%w: %d or %d", ErrDispatchNotFound, dropID, keepID)
+		}
+		return fmt.Errorf("store: drop dispatch %d: %w", dropID, err)
+	}
+	if !same || dropID == keepID {
+		return fmt.Errorf("store: drop dispatch %d: keep row %d is the same row or another change's", dropID, keepID)
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE dispatches k SET metrics = k.metrics || jsonb_build_object('tokens', d.metrics->'tokens')
+		FROM dispatches d
+		WHERE k.id = $2 AND d.id = $1 AND k.metrics->'tokens' IS NULL AND d.metrics->'tokens' IS NOT NULL`, dropID, keepID); err != nil {
+		return fmt.Errorf("store: drop dispatch %d: move tokens: %w", dropID, err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE findings SET dispatch_id = $2 WHERE dispatch_id = $1`, dropID, keepID); err != nil {
+		return fmt.Errorf("store: drop dispatch %d: re-point findings: %w", dropID, err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM dispatches WHERE id = $1`, dropID); err != nil {
+		return fmt.Errorf("store: drop dispatch %d: %w", dropID, err)
+	}
+	return tx.Commit(ctx)
 }
 
 // SetDispatchOutcome sets dispatch id's outcome and cause outright -- the
