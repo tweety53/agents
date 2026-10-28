@@ -20,3 +20,18 @@ none named.
 
 ## In-run fix 2 (Task 5)
 - The fix-1-full run's departure — no capture picks a project or a task size — is fixed: `seedReviewDynamics` now records a plan class per `uitest-dynamics` change (big, small), and `review dynamics filters` captures `review-dynamics-picked-darwin.png` with project `uitest-dynamics` and Task size `Big` pressed; the header Project field follows the pick (reads `uitest-dynamics`), and the counts narrow (Changes reviewed 16 → 8). No other baseline moved with the seed (`npm run test:visual`: 67 passed).
+
+## Round: visual-verify-fix-2-full (HEAD db381140)
+
+### review-dynamics-picked
+- Screenshot: `visual-verification/evidence/review-dynamics-picked-darwin.png` — dark scheme; Projects `uitest-dynamics` and Task size `Big` pressed, Reviewers All, Prompt changes auto prompt tuning; KPIs 5.50 / 2.50 / 2.00 / 2.20 / 38% / 8 (▲ 300% vs before); all eight charts and the heatmap (primary, principles, test-sanity rows) drawn; no NaN/null/placeholder.
+- Composite: `visual-verification/review-dynamics-picked.png`, frame `review-dynamics` (approved prototype), diff=n/a — sizes differ (frame 1280x2802 with annotation header and inset light panel; capture 1280x2647 dark).
+- Bands: 1/1 paired as one whole-page band (frame wrapper `#15161b` vs page `#111217`, distance 6.9; height −155px — the frame's annotation header). Seams: outer edges only. Cause: prototype's annotation wrapper, outside the app's ink.
+- Matrix: `visual-verification/matrix/review-dynamics-picked.json` — frame elements unpaired (wrapper), every column n/a — frame annotation wrapper.
+- Departures (this change's; merge-base capture failed — Projects/Task size bars absent at the merge base):
+  - "Changes reviewed" y-axis prints ticks `1, 1, 0`: with every week at 1 change the integer formatter rounds the 0.5 tick to `1` — a duplicated, wrong axis label.
+  - The `review dynamics filters` test clicks Projects/Task size buttons and captures without `page.mouse.move(0, 0)`: the pointer is left on `Big`, so hover ink can reach the baseline.
+- Prototype differences superseded by design.md: no "Since last prompt change" preset (`drop-tune-preset`), extra Prompt changes bar (`marker-kind-filter`), two-column grid (`two-column-grid`). Data values differ by seed.
+
+## In-run fix 3 (Task 6)
+- The fix-2-full departures are fixed: `DynamicsChart` blanks a y label that repeats the tick above it, so the picked state's "Changes reviewed" axis reads `0`, (blank), `1` with `1` on the line at value 1 (vitest `dynamics chart drops a tick whose label repeats the one above`); `review dynamics filters` moves the pointer to (0, 0) before each screenshot. Only `review-dynamics-picked-darwin.png` moved; `npm run test:visual`: 67 passed.

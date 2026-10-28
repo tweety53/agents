@@ -86,10 +86,11 @@ export function DynamicsChart({
       <p className="dynamics-sub">{description}</p>
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title} onMouseLeave={() => setHover(null)}>
         <line className="dynamics-axis" x1={P.l} y1={H - P.b} x2={W - P.r} y2={H - P.b} />
-        {[0, max / 2.24, max / 1.12].map((t) => (
+        {[0, max / 2.24, max / 1.12].map((t, i, ticks) => (
           <g key={t}>
+            {/* A label repeating the one above (0.5 rounded to 1) is left blank. */}
             <text className="dynamics-tick" x={P.l - 4} y={y(t) + 3} textAnchor="end">
-              {format(t)}
+              {i < ticks.length - 1 && format(t) === format(ticks[i + 1]) ? "" : format(t)}
             </text>
             <line className="dynamics-axis" x1={P.l} x2={W - P.r} y1={y(t)} y2={y(t)} strokeOpacity={0.35} />
           </g>

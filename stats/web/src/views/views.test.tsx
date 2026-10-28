@@ -15,6 +15,7 @@ import type {
   WeeklyModelEffortViewSlug,
 } from "../api";
 import { App } from "../App";
+import { DynamicsChart } from "../components/DynamicsChart";
 import { Decisions } from "./Decisions";
 import { FlowHealth } from "./FlowHealth";
 import { ReviewDynamics } from "./ReviewDynamics";
@@ -1191,6 +1192,24 @@ describe("review dynamics", () => {
     expect(tip()).toHaveTextContent("Prompt edit · primary");
     await userEvent.click(within(kinds).getByRole("button", { name: "All" }));
     expect(tip()).toHaveTextContent("Prompt edit · primary");
+  });
+
+  it("dynamics chart drops a tick whose label repeats the one above", () => {
+    render(
+      <DynamicsChart
+        title="Changes"
+        description=""
+        buckets={["2026-05-04", "2026-05-11"]}
+        bucketKind="week"
+        series={[{ name: "changes", values: [1, 1], basis: [1, 1] }]}
+        markers={[]}
+        basisLabel="changes"
+        format={(v) => v.toFixed(0)}
+      />,
+    );
+    const labels = [...document.querySelectorAll(".dynamics-tick")].map((e) => e.textContent).filter((l) => !l?.includes("-"));
+    // Ticks run bottom to top: the middle 0.5 would read "1" as well.
+    expect(labels).toEqual(["0", "", "1"]);
   });
 
   it("review dynamics tooltip lists values, basis and marker", async () => {
