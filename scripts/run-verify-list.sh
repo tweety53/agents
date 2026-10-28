@@ -27,6 +27,12 @@
 # --`, so its runtime reaches the store `flow suite list` reads; with no flow
 # on PATH it runs bare.
 #
+# A `test` list ends with the `## visual verification` `verify` row, run once
+# after every other command, `<specs>` empty, when the worktree's diff from its
+# base branch touches a `ui paths` glob and decision.json does not record
+# `visual.verify` `skipped`; a base that does not resolve runs it, and it fails
+# the list like any other command (kan-1047).
+#
 # The mechanism, and its full contract — the list, the green sha, the output
 # — is stats/internal/guard/runverifylist.go; its test is
 # stats/internal/guard/run_verify_list_test.go.

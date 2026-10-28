@@ -192,3 +192,17 @@ func vvSectionLines(text string) []vvLine {
 	}
 	return out
 }
+
+// vvCells maps each two-cell row's folded name inside the `## visual
+// verification` section to its trimmed value, the first row of a name winning.
+func vvCells(text string) map[string]string {
+	cells := map[string]string{}
+	for _, l := range vvSectionLines(text) {
+		if c := vtSplitCells(l.Text); len(c) == 2 {
+			if k := vtFoldCell(c[0]); cells[k] == "" {
+				cells[k] = vtTrimCell(c[1])
+			}
+		}
+	}
+	return cells
+}

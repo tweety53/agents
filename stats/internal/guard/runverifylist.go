@@ -43,6 +43,17 @@
 // guard harnesses and `go test -race` ran one after the other, 6½ minutes; run
 // together they took 307 s, each slowed by the other's CPU). A `lint` list
 // runs in order, one command at a time.
+// A `test` list then ends with the `## visual verification` `verify` row,
+// run once in the foreground after every other command has exited, `<specs>`
+// replaced by nothing, from the section's `regression checkout` when declared
+// and <worktree> otherwise (verify-list-runs-visual, kan-1047: the run never
+// ran the visual verify by hand) -- when the row is declared,
+// `<worktree>/.superpowers/sdd/decision.json` does not record
+// `visual.verify` `skipped`, HEAD is not the green sha, and `git diff
+// --name-only <merge-base>..HEAD` touches a `ui paths` glob, the merge base
+// that of HEAD and resolve-base-branch's base (its `origin/` ref when
+// fetched). A base that does not resolve runs it. It reports and fails the
+// list like any other command; a `lint` list never runs it.
 // The caller exports the KEY=value lines prepare-workspace.sh printed for
 // <worktree> first; every command inherits them. This script retries
 // nothing — the one inline re-run of a failing command stays the caller's,
@@ -79,6 +90,8 @@
 //     files under the worktree: each copied into a per-run
 //     `<git-path flow-verify-failed>/<list>-<n>-results-<ns>/` no later run
 //     removes, so a flake's first failing run stays traceable
+//   - the visual verify, when it ran, last, as `- `<verify row>` — exit <n>`,
+//     its kept output `test-visual.log`
 //
 // Exit codes:
 //   0  every command exited 0
@@ -101,6 +114,7 @@ package guard
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -160,6 +174,67 @@ var (
 	rvlSuite     = regexp.MustCompile(`^[[:space:]]*# suite:[[:space:]]*([A-Za-z0-9._-]+)[[:space:]]*$`)
 	rvlTemplate  = regexp.MustCompile(`<[A-Za-z][A-Za-z0-9_-]*>`)
 )
+
+// rvlVisualVerify is the `## visual verification` `verify` row a `test` list
+// ends with, `<specs>` empty, and the directory it runs from -- ok false when
+// the row is not declared, decision.json records `visual.verify` `skipped`,
+// the green sha covers the tree, or the diff from the base branch touches no
+// `ui paths` glob (verify-list-runs-visual). A base that does not resolve
+// runs it: running more is the safe side.
+func rvlVisualVerify(env Env, wt string, covered bool) (cmd, dir string, ok bool) {
+	b, err := os.ReadFile(filepath.Join(wt, ".flow", "project.md"))
+	if err != nil {
+		return "", "", false
+	}
+	cells := vvCells(string(b))
+	if cells["verify"] == "" || covered {
+		return "", "", false
+	}
+	var d struct {
+		Visual struct {
+			Verify string `json:"verify"`
+		} `json:"visual"`
+	}
+	if raw, err := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "decision.json")); err == nil && json.Unmarshal(raw, &d) == nil && d.Visual.Verify == "skipped" {
+		return "", "", false
+	}
+	changed := func() ([]string, error) {
+		var base bytes.Buffer
+		if Registry["resolve-base-branch"]([]string{wt}, env, &base, io.Discard) != 0 {
+			return nil, fmt.Errorf("no base branch")
+		}
+		git := envGit(env)
+		ref := resolveRemoteBase(git, wt, strings.TrimSpace(base.String()))
+		mb, ok := capture(git("-C", wt, "merge-base", "HEAD", ref))
+		if !ok {
+			return nil, fmt.Errorf("no merge base")
+		}
+		names, ok := capture(git("-C", wt, "diff", "--name-only", strings.TrimSpace(mb)+"..HEAD"))
+		if !ok {
+			return nil, fmt.Errorf("no diff")
+		}
+		return strings.Split(names, "\n"), nil
+	}
+	if visualTrigger(env, wt, changed, io.Discard, io.Discard) == 1 {
+		return "", "", false
+	}
+	dir = wt
+	if c := cells["regression checkout"]; c != "" {
+		dir = c
+		if !filepath.IsAbs(c) {
+			dir = filepath.Join(wt, c)
+		}
+		// The cell names a main checkout; the change's worktree of it, on
+		// wt's branch, is where the change's code and captures live.
+		git := envGit(env)
+		if branch, _ := capture(git("-C", wt, "branch", "--show-current")); branch != "" {
+			if w := rvsWorktreeOn(git("-C", dir, "worktree", "list", "--porcelain"), branch); w != "" {
+				dir = w
+			}
+		}
+	}
+	return strings.ReplaceAll(cells["verify"], "<specs>", ""), dir, true
+}
 
 func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	// A closed reader (`| head`) must not kill the list before its row's
@@ -399,6 +474,14 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			report(c, r.rc, r.out, fmt.Sprint(i))
 		}
 	}
+	visualRan := false
+	if list == "test" {
+		if cmd, dir, ok := rvlVisualVerify(env, abs(wt), unchanged("")); ok {
+			visualRan = true
+			results := rgtRun(context.Background(), [][]string{{"bash", "-c", cmd}}, 1, outDir, dir, cmdEnv)
+			report(cmd, results[0].rc, results[0].out, "visual")
+		}
+	}
 	if headSHA != "" && failed == 0 && clean() {
 		os.WriteFile(greenFile, []byte(headSHA+"\n"), 0o666)
 	}
@@ -408,7 +491,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	switch {
 	case failed != 0:
 		record("end", "-outcome", "blocked", "-cause", "test-failure")
-	case list != "lint" && len(cmds) > 0 && !slices.Contains(skip, false):
+	case list != "lint" && !visualRan && len(cmds) > 0 && !slices.Contains(skip, false):
 		// A lint list always ran check-spec-reach.sh, so it never ends skipped.
 		record("end", "-outcome", "skipped")
 	default:

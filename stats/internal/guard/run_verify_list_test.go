@@ -571,6 +571,20 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome skipped")) {
 		t.Errorf("an all-skipped list: exit %d, calls:\n%s", rc, calls)
 	}
+	// Every test command skipped but the visual verify ran: a check ran, so the
+	// row ends completed.
+	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n# inputs: go/\ntrue\n```\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/src/**` |\n| `screenshots` | `web/tests/visual` |\n\n| Command | Runs |\n|---------|------|\n| `verify` | `echo VISUAL-RAN <specs>` |\n| `capture` | `true <spec>` |\n")
+	gitIn(t, wt, "add", "-A")
+	gitIn(t, wt, "commit", "-q", "-m", "visual")
+	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome completed")) {
+		t.Errorf("a green list with a visual verify: exit %d, calls:\n%s", rc, calls)
+	}
+	writeFile(t, filepath.Join(wt, "web/src/a.tsx"), "x\n")
+	gitIn(t, wt, "add", "-A")
+	gitIn(t, wt, "commit", "-q", "-m", "ui")
+	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome completed")) {
+		t.Errorf("an all-skipped list whose visual verify ran: exit %d, calls:\n%s", rc, calls)
+	}
 	// A lint list whose every command is skipped still runs check-spec-reach.sh,
 	// so a check ran and the row ends completed.
 	list = "lint"
@@ -697,5 +711,103 @@ func TestRunVerifyListKeepsSIGPIPEForCommands(t *testing.T) {
 	var out, errb bytes.Buffer
 	if rc := runVerifyList([]string{wt, "test"}, Env{Getenv: os.Getenv, Environ: os.Environ, Dir: wt}, &out, &errb); rc != 0 {
 		t.Fatalf("rc %d, want 0: the producer did not die of SIGPIPE\nstdout:\n%s\nstderr:\n%s", rc, out.String(), errb.String())
+	}
+}
+
+// TestRunVerifyListRunsTheVisualVerify pins verify-list-runs-visual: a `test`
+// list ends with the `## visual verification` `verify` row when the branch's
+// diff from its base touches `ui paths`, unless decision.json records the
+// visual verify skipped; a `lint` list never runs it.
+func TestRunVerifyListRunsTheVisualVerify(t *testing.T) {
+	t.Parallel()
+	repo, _ := filepath.Abs("../../..")
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"))
+	getenv := func(k string) string {
+		for i := len(environ) - 1; i >= 0; i-- {
+			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
+				return v
+			}
+		}
+		return ""
+	}
+	git := func(t *testing.T, dir string, args ...string) {
+		t.Helper()
+		if out, err := exec.Command(fixtureGit, append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	project := func(verify, checkout string) string {
+		row := ""
+		if checkout != "" {
+			row = "| `regression checkout` | `" + checkout + "` |\n"
+		}
+		return "## lint\n\n```bash\necho LIST-RAN\n```\n\n## test\n\n```bash\necho LIST-RAN\n```\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/src/**` |\n| `screenshots` | `web/tests/visual` |\n" + row + "\n| Command | Runs |\n|---------|------|\n| `verify` | `" + verify + "` |\n| `capture` | `true <spec>` |\n"
+	}
+	for _, tc := range []struct {
+		name, verify, file, decision, list string
+		noOrigin                           bool
+		want                               int
+		ran, checkout                      bool
+	}{
+		{"a ui change runs it", "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", "test", false, 0, true, false},
+		{"a failing visual verify fails the list", "exit 1", "web/src/a.tsx", "", "test", false, 1, false, false},
+		{"a skipped visual verify", "echo VISUAL-RAN <specs>", "web/src/a.tsx", `{"visual":{"verify":"skipped","reason":"r"}}`, "test", false, 0, false, false},
+		{"a change outside ui paths", "echo VISUAL-RAN <specs>", "docs/a.md", "", "test", false, 0, false, false},
+		{"an unresolved base runs it", "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", "test", true, 0, true, false},
+		{"a lint list never runs it", "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", "lint", false, 0, false, false},
+		{"a regression checkout runs it from the change's worktree of that repo", "echo VISUAL-RAN in $PWD <specs>", "web/src/a.tsx", "", "test", false, 0, true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			base, err := filepath.EvalSymlinks(t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			seed, wt := filepath.Join(base, "seed"), filepath.Join(base, "wt")
+			app, appWT := filepath.Join(base, "app"), filepath.Join(base, "app-wt")
+			checkout := ""
+			if tc.checkout {
+				checkout = app
+				writeFile(t, filepath.Join(app, "a"), "x\n")
+				git(t, base, "init", "-q", "-b", "main", app)
+				git(t, app, "add", "-A")
+				git(t, app, "commit", "-q", "-m", "base")
+				git(t, app, "worktree", "add", "-q", "-b", "work", appWT)
+			}
+			writeFile(t, filepath.Join(seed, ".flow/project.md"), project(tc.verify, checkout))
+			writeFile(t, filepath.Join(seed, ".gitignore"), ".superpowers/\n")
+			git(t, base, "init", "-q", "-b", "main", seed)
+			git(t, seed, "add", "-A")
+			git(t, seed, "commit", "-q", "-m", "base")
+			if tc.noOrigin {
+				git(t, base, "clone", "-q", seed, wt)
+				git(t, wt, "remote", "remove", "origin")
+			} else {
+				git(t, base, "clone", "-q", "--bare", seed, filepath.Join(base, "origin.git"))
+				git(t, base, "clone", "-q", filepath.Join(base, "origin.git"), wt)
+			}
+			git(t, wt, "checkout", "-q", "-b", "work")
+			writeFile(t, filepath.Join(wt, tc.file), "x\n")
+			git(t, wt, "add", "-A")
+			git(t, wt, "commit", "-q", "-m", "change")
+			if tc.decision != "" {
+				writeFile(t, filepath.Join(wt, ".superpowers/sdd/decision.json"), tc.decision)
+			}
+			var o, e bytes.Buffer
+			rc := runVerifyList([]string{wt, tc.list}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+			out := o.String() + e.String()
+			if rc != tc.want {
+				t.Fatalf("exit %d, want %d\n%s", rc, tc.want, out)
+			}
+			if strings.Contains(out, "VISUAL-RAN") != tc.ran {
+				t.Fatalf("VISUAL-RAN printed = %v, want %v\n%s", !tc.ran, tc.ran, out)
+			}
+			if tc.checkout && !strings.Contains(out, "VISUAL-RAN in "+appWT+"\n") {
+				t.Fatalf("the visual verify did not run from %s\n%s", appWT, out)
+			}
+			if tc.ran && strings.Index(out, "VISUAL-RAN") < strings.Index(out, "LIST-RAN") {
+				t.Fatalf("the visual verify ran before the list\n%s", out)
+			}
+		})
 	}
 }

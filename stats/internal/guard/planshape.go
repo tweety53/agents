@@ -462,14 +462,7 @@ func (p *psPlan) prototypeCapture() []string {
 	if err != nil {
 		return nil
 	}
-	cells := map[string]string{}
-	for _, l := range vvSectionLines(string(cfg)) {
-		if c := vtSplitCells(l.Text); len(c) == 2 {
-			if k := vtFoldCell(c[0]); cells[k] == "" {
-				cells[k] = vtTrimCell(c[1])
-			}
-		}
-	}
+	cells := vvCells(string(cfg))
 	shots := strings.TrimSuffix(cells["screenshots"], "/")
 	if shots == "" || cells["regression checkout"] != "" {
 		return nil

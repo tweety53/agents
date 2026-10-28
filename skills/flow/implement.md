@@ -733,19 +733,18 @@ The commit carries `-m "Flow-Key: full-suite-fix-<n>"` (**Commits outside every 
 Before it is pushed, the untasked-commit check of **Commits outside every task** (`skills/flow-contracts/git-boundaries.md`) runs.
 The pair's `end` carries `-commit` with the sha `git -C <worktree> rev-parse HEAD` prints once that commit is made, never a task's commit.
 A fix for a failure that does not recur on every run is a determinism fix, held to the PROOF RUNS paragraph above: the failure is shown returning with the fix reverted before the fix is committed; one that never returns is handled as **The loop** (`skills/flow/verify-fix-loop.md`) states for an observed failure that does not reproduce.
-When the change's diff touches a `## visual verification` `ui paths` glob
-(`git -C <worktree> diff --name-only <merge-base>..HEAD | check-visual-trigger.sh <worktree>` exits 0
-for any worktree in the resolved set, or the `--repo` run step 2 of **Visual verification**
-(`skills/flow/verify-and-handoff.md`) adds exits 0 for any other worktree, its merge base from this
-run's working notes; no exit 0 from either skips this run) and `decision.json` does not record `visual.verify` `skipped`, the list
-ends with that section's `verify` run whole — `<specs>` empty, every capture — against the
-canonical worktree's stack, under the stack rules of **One stack for the verification tasks**
-below, so a capture a shared-component change moved fails here rather than at `flow.verify`.
-Before `verify`, `check-dev-stack-fresh.sh <canonical-worktree>` exit 1 restarts the stack by
+`run-verify-list.sh`'s `test` list ends with that section's `verify` run whole — `<specs>` empty,
+every capture — when its own worktree's diff from its base branch touches a `ui paths` glob and
+`decision.json` does not record `visual.verify` `skipped`, its header canonical for the rest, so a
+capture a shared-component change moved fails here rather than at `flow.verify`. When only the
+`--repo` run step 2 of **Visual verification** (`skills/flow/verify-and-handoff.md`) adds exits 0,
+for another worktree of the resolved set, its merge base from this run's working notes, the parent
+runs that `verify` itself after the list, against the canonical worktree's stack, under the stack
+rules of **One stack for the verification tasks** below.
+Before the list, on a change whose diff touches a `ui paths` glob, `check-dev-stack-fresh.sh <canonical-worktree>` exit 1 restarts the stack by
 that section's start rule, and a failed restart is reported and stops the step; exit 0 or 2
 proceeds.
-`verify` runs from the resolved regression checkout (the project root when none is declared),
-after the section's `setup` row when the toolchain is missing. A failure a product defect caused
+The section's `setup` row runs before the list when the toolchain is missing. A failure a product defect caused
 is fixed in this step's fix round; a capture the change moved on purpose — one whose difference
 the diff makes as design.md or the task's `**Files:**` intend — is re-recorded in it: its
 committed PNGs are deleted and `capture` runs with `<spec>` substituted for its spec, writing them
