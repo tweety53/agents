@@ -3,7 +3,7 @@
 // highest-risk vacuous shape this task's own instructions name), plus the
 // absence-vs-zero distinction and the state-board-is-default-route
 // requirement.
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import type {
@@ -22,7 +22,7 @@ import { SelfReview } from "./SelfReview";
 import { StageLeaderboard } from "./StageLeaderboard";
 import { StateBoard } from "./StateBoard";
 import { Trend } from "./Trend";
-import { WeeklyCosts, pillWidth } from "./WeeklyCosts";
+import { WeeklyCosts } from "./WeeklyCosts";
 
 const { fetchStatsViewMock } = vi.hoisted(() => ({ fetchStatsViewMock: vi.fn() }));
 
@@ -582,8 +582,27 @@ describe("views render their fixture response's actual values", () => {
     }
     expect(width(label("Overall", "2026-06-03"))).toBe(40);
     expect(pills.some((p) => p.querySelector("tspan") && width(p) === 84)).toBe(true);
-    expect(pillWidth("$12253.34 ▲1120%", true)).toBe(Math.ceil(6 + 16 * 5.5));
-    expect(pillWidth("$12345.67", false)).toBe(Math.ceil(6 + 9 * 5.5));
+  });
+
+  it("weekly costs widens a pill whose figure overflows the prototype's width", async () => {
+    vi.useFakeTimers({ now: new Date("2026-06-19T12:00:00Z"), toFake: ["Date"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    fetchStatsViewMock.mockResolvedValueOnce(
+      envelope("weekly-costs", [
+        { ...noPhase, week: "2026-06-03", overallUsd: 1000 },
+        { ...noPhase, week: "2026-06-10", overallUsd: 12345.67 },
+      ]),
+    );
+    render(<WeeklyCosts period={period} project={undefined} />);
+    await screen.findAllByText("Cost (USD)");
+    const width = (el: Element | null) => Number(el?.parentElement?.querySelector("rect")?.getAttribute("width"));
+    // "$1,000.00" (9 characters) and "$12,345.67 ▲1135%" (17): 6px in, 5.5px a character.
+    await waitFor(() => expect(label("Overall", "2026-06-03")).toHaveTextContent(/^\$1,000\.00$/));
+    expect(width(label("Overall", "2026-06-03"))).toBe(56);
+    expect(label("Overall", "2026-06-10")).toHaveTextContent("$12,345.67 ▲1135%");
+    expect(width(label("Overall", "2026-06-10"))).toBe(100);
   });
 
   it("weekly costs draws a model·effort chart from the second view", async () => {

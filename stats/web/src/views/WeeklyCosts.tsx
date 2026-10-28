@@ -303,7 +303,7 @@ function WeeklyCostChart({ weeks, series: lineSeries, ariaLabel, allShown = fals
 // The prototype's fixed pill, 40 for a cost alone and 84 with a delta,
 // widened to its text (6px in, about 5.5px a character at 10px) when a real
 // figure would overflow it.
-export function pillWidth(text: string, hasDelta: boolean): number {
+function pillWidth(text: string, hasDelta: boolean): number {
   return Math.max(hasDelta ? 84 : 40, Math.ceil(6 + text.length * 5.5));
 }
 
