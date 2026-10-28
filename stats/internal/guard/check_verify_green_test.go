@@ -24,6 +24,8 @@ func TestCheckVerifyGreen(t *testing.T) {
 		{"a blocked verify", "[" + row("verify", "mf-tok", "blocked") + "]", nil, 1, "verify (blocked)"},
 		{"a blocked verify re-run green by a fix round", "[" + row("verify", "mf-tok", "blocked") + "," + row("verify-fix-1", "mf-tok", "completed") + "]", nil, 0, "1 inline verify row(s) green"},
 		{"a fix round's verify judged per worktree", "[" + row("verify-fe", "mf-tok", "blocked") + "," + row("verify-be", "mf-tok", "completed") + "," + row("verify-fix-1-fe", "mf-tok", "completed") + "]", nil, 0, "2 inline verify row(s) green"},
+		{"a blocked verify re-run green after a new commit", "[" + row("verify", "mf-tok", "blocked") + "," + row("verify-2", "mf-tok", "completed") + "]", nil, 0, "1 inline verify row(s) green"},
+		{"a re-run judged per worktree", "[" + row("verify-fe", "mf-tok", "blocked") + "," + row("verify-2-fe", "mf-tok", "completed") + "]", nil, 0, "1 inline verify row(s) green"},
 		{"a fix round's blocked verify after a green one", "[" + row("verify", "mf-tok", "completed") + "," + row("verify-fix-1", "mf-tok", "blocked") + "]", nil, 1, "verify-fix-1 (blocked)"},
 		{"another run's green and a visual verifier do not count", "[" + row("verify", "mf-old", "completed") + "," + row("visual-verify", "mf-tok", "completed") + "]", nil, 1, "no inline verify"},
 		{"an unreadable store cannot answer", "", errors.New("down"), 2, "cannot answer"},

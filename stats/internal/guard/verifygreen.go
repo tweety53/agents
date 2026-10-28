@@ -15,7 +15,10 @@ func init() { Registry["check-verify-green"] = checkVerifyGreen }
 
 const vgPrefix = "check-verify-green: "
 
-var vgFixSuffix = regexp.MustCompile(`^verify-fix-[0-9]+`)
+// A fix round's `verify-fix-<k>` and a re-run's `verify-<k>` (a verify re-run
+// after a new code commit, skills/flow/verify-and-handoff.md's **Recording.**)
+// both supersede the `verify[-<basename>]` row before them.
+var vgFixSuffix = regexp.MustCompile(`^verify-(fix-)?[0-9]+`)
 
 func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 3 || args[1] == "" || args[2] == "" {
@@ -48,8 +51,9 @@ func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	// Rows come back in seq order; only the latest row per worktree is
-	// judged, a fix round's `verify-fix-<k>[-<basename>]` superseding the
-	// `verify[-<basename>]` row it re-ran.
+	// judged, a fix round's `verify-fix-<k>[-<basename>]` or a re-run's
+	// `verify-<k>[-<basename>]` superseding the `verify[-<basename>]` row
+	// it re-ran.
 	latest := map[string]int{}
 	var groups []string
 	for i, r := range rows {
