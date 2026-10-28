@@ -679,8 +679,8 @@ and applies **The handshake** stated above, unchanged.
 > it is bounded by its own config — worker counts and heap — not by run-capped.sh. A flake fix
 > carries one of two proofs. Either its cause is reproduced — preferably in one isolated run, a delay
 > or fault injected at the seam, the test alone or with the one test whose leftover state it reads;
-> a load reproduction (backend or frontend) is allowed only under run-capped.sh with an explicit
-> bounded worker count sized under the cap: Gradle `--max-workers`/`maxParallelForks` and `-Xmx`,
+> a load reproduction (backend or frontend) is allowed only
+> under run-capped.sh with an explicit bounded worker count sized under the cap: Gradle `--max-workers`/`maxParallelForks` and `-Xmx`,
 > Playwright `--workers`, vitest `--maxWorkers`, at most 5 capped runs — and the fix then shows the
 > check failing with the mechanism removed (`~/.claude/rules/fix-determinism-at-the-source.md`). Or
 > the flake does not reproduce within the cap and goes straight to code: no further reproduction
