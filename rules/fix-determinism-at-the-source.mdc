@@ -29,13 +29,14 @@ Read the failing run's saved artifacts and the code, and name what actually vari
 leftover state, a live network, machine load. A cause you have not forced is a guess, and a
 guess routes straight to the tolerance.
 
-Make it fail by forcing that cause in one isolated, single-worker run — the test alone, or with the
+Make it fail by forcing that cause, preferably in one isolated, single-worker run — the test alone, or with the
 one test whose leftover state it reads — a delay or fault injected at
 the suspected seam, a pinned clock moved, a throttled connection. A load reproduction is allowed
 only under run-capped.sh (`<agents repo>/scripts/run-capped.sh`) with a bounded worker count sized
-under the project's `## resource cap`, so the operator's machine is never overloaded (kan-1044). The
+under the project's `## resource cap`, at most 5 capped runs, so the operator's machine is never
+overloaded (kan-1044). The
 same forced condition is the one the fix and the mechanism-removed run below are proven under. Where
-the cause does not show within the cap, go straight to code — fix it on deeper code analysis and say
+the cause does not reproduce within the cap, go straight to code — fix it on deeper code analysis and say
 so in the commit body; that, and only that, waives the mechanism-removed run.
 
 ## Fix at the source

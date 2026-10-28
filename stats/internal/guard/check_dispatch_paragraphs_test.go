@@ -1754,7 +1754,7 @@ const (
 		"> (default 4096 MB). A flake fix is proven by forcing its cause, preferably in one isolated run — a\n" +
 		"> delay or fault injected at the seam, the test alone. A load reproduction (backend or frontend) is allowed only under\n" +
 		"> run-capped.sh with an explicit bounded worker count sized under the cap: Gradle\n" +
-		"> `--max-workers`/`maxParallelForks` and `-Xmx`, Playwright `--workers`, vitest `--maxWorkers`. If the\n" +
+		"> `--max-workers`/`maxParallelForks` and `-Xmx`, Playwright `--workers`, vitest `--maxWorkers`, at most 5 capped runs. If the\n" +
 		"> flake does not reproduce within the cap, go straight to code: no further reproduction loops; fix it\n" +
 		"> on deeper analysis of the code and the failing run's saved artifacts, and the commit body says so.\n" +
 		"> Your report states the forced condition, the cap, the worker count and the run count. A determinism\n" +
@@ -1769,7 +1769,7 @@ const (
 		"> code-reading evidence and the commit body says so. Your report states the forced condition and the\n" +
 		"> run count. This never replaces the proof `~/.claude/rules/fix-determinism-at-the-source.md`\n" +
 		"> requires: a determinism fix still shows the check failing with the mechanism removed."
-	dpNoLoadRepro             = "A load reproduction runs only under run-capped.sh."
+	dpNoLoadRepro             = "A load reproduction is allowed only under run-capped.sh with a bounded worker count."
 	dpProofRunsBlockLoadRepro = "> **PROOF RUNS:** When a check has to be run repeatedly to prove a flake reproduced or fixed, size\n" +
 		"> the run count to the flake rate you measured, 10–15 runs by default, never a fixed count per\n" +
 		"> step. Your report states the measured rate and the run count. Sizing the runs never replaces\n" +
@@ -1786,7 +1786,7 @@ const (
 		"> (default 4096 MB). A flake fix is proven by forcing its cause, preferably in one isolated run — a\n" +
 		"> delay or fault injected at the seam, the test alone. A load reproduction (backend or frontend) is allowed only under\n" +
 		"> run-capped.sh with an explicit worker count sized under the cap: Gradle\n" +
-		"> `--max-workers`/`maxParallelForks` and `-Xmx`, Playwright `--workers`, vitest `--maxWorkers`. If the\n" +
+		"> `--max-workers`/`maxParallelForks` and `-Xmx`, Playwright `--workers`, vitest `--maxWorkers`, at most 5 capped runs. If the\n" +
 		"> flake does not reproduce within the cap, go straight to code: no further reproduction loops; fix it\n" +
 		"> on deeper analysis of the code and the failing run's saved artifacts, and the commit body says so.\n" +
 		"> Your report states the forced condition, the cap, the worker count and the run count. A determinism\n" +
@@ -1797,7 +1797,7 @@ const (
 		"> (default 4096 MB). A flake fix is proven by forcing its cause, preferably in one isolated run — a\n" +
 		"> delay or fault injected at the seam, the test alone. A load reproduction (backend or frontend) is allowed only under\n" +
 		"> run-capped.sh with an explicit bounded worker count sized under the cap: Gradle\n" +
-		"> `--max-workers`/`maxParallelForks` and `-Xmx`, Playwright `--workers`, vitest `--maxWorkers`. If the\n" +
+		"> `--max-workers`/`maxParallelForks` and `-Xmx`, Playwright `--workers`, vitest `--maxWorkers`, at most 5 capped runs. If the\n" +
 		"> flake does not reproduce within the cap, go directly to code: no further reproduction loops; fix it\n" +
 		"> on deeper analysis of the code and the failing run's saved artifacts, and the commit body says so.\n" +
 		"> Your report states the forced condition, the cap, the worker count and the run count. A determinism\n" +
@@ -1808,7 +1808,7 @@ const (
 		"> (default 4096 MB). A flake fix is proven by forcing its cause, preferably in one isolated run — a\n" +
 		"> delay or fault injected at the seam, the test alone. A load reproduction (backend or frontend) is allowed only under\n" +
 		"> run-capped.sh with an explicit bounded worker count sized under the cap: Gradle\n" +
-		"> `--max-workers`/`maxParallelForks` and `-Xmx`, Playwright `--workers`, vitest `--maxWorkers`. If the\n" +
+		"> `--max-workers`/`maxParallelForks` and `-Xmx`, Playwright `--workers`, vitest `--maxWorkers`, at most 5 capped runs. If the\n" +
 		"> flake does not reproduce within the cap, go straight to code: no further reproduction loops; fix it\n" +
 		"> on deeper analysis of the code and the failing run's saved artifacts, and the commit body says so.\n" +
 		"> Your report states the forced condition, the cap, the worker count and the run count. A determinism\n" +
@@ -1873,16 +1873,23 @@ func TestCheckDispatchParagraphsFixRoundNamesIntroducedDefects(t *testing.T) {
 	}
 }
 
-// TestCheckDispatchParagraphsCappedRepro pins "under run-capped.sh" in the
-// rule and the verify fix loop: either file without it fails (kan-1044).
+// TestCheckDispatchParagraphsCappedRepro pins "is allowed only under
+// run-capped.sh" and "bounded worker count" in the rule and the verify fix
+// loop: either file without either fails, and the negated "never under
+// run-capped.sh" no longer passes (kan-1044).
 func TestCheckDispatchParagraphsCappedRepro(t *testing.T) {
 	t.Parallel()
 	for _, rel := range []string{"rules/fix-determinism-at-the-source.mdc", "skills/flow/verify-fix-loop.md"} {
 		root := dpFixture(t, map[string]string{"review-panel.md": dpCleanReviewPanel, "implement.md": dpCleanImplement})
-		writeFile(t, filepath.Join(root, rel), "Reproduce it under parallel load.\n")
-		rc, out, _, _ := dpRun(t, crEnv(t.TempDir(), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": root}))
-		if rc != 1 || !strings.Contains(out, "under run-capped.sh") {
-			t.Fatalf("%s: rc=%d out:\n%s", rel, rc, out)
+		for _, tc := range []struct{ body, want string }{
+			{"Reproduce it never under run-capped.sh, under parallel load.\n", "is allowed only under run-capped.sh"},
+			{"A load reproduction is allowed only under run-capped.sh.\n", "bounded worker count"},
+		} {
+			writeFile(t, filepath.Join(root, rel), tc.body)
+			rc, out, _, _ := dpRun(t, crEnv(t.TempDir(), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": root}))
+			if rc != 1 || !strings.Contains(out, tc.want) {
+				t.Fatalf("%s %q: rc=%d out:\n%s", rel, tc.body, rc, out)
+			}
 		}
 	}
 }

@@ -35,3 +35,14 @@ Not `big`.
 - **Unreproducible → straight to code.** One capped reproduction attempt series; if the cause does not
   show within the cap, no further reproduction loops: fix on deeper code analysis, commit body says so,
   mechanism-removed run waived and stated.
+- **Fix round 1 (review 1).** The cap measures and kills the whole descendant tree (ppid walk plus the
+  command's pgid), so a setsid child such as a Playwright browser stays inside it while its ancestor
+  lives. A Gradle daemon reparents to PID 1 and would escape, so run-capped.sh exports
+  `GRADLE_OPTS=… -Dorg.gradle.daemon=false` and the wording requires `--no-daemon` with bounded
+  `--max-workers`/`-Xmx`. A dev stack detaches, so `## run` is no longer wrapped: it is bounded by its
+  own config (worker counts, heap). The child's stdin is `/dev/null` (a tty read would stop the
+  background group and hang the wrapper). The cap is per command; a nested run-capped.sh sees
+  `RUN_CAPPED_PGID` and execs in place under the outer cap. SIGINT/TERM/HUP exit 130/143/129. A
+  `## resource cap` that is not a plain MB integer, or that project-get.sh refuses, exits 2. A load
+  reproduction is bounded to at most 5 capped runs; the waiver has one name everywhere: "does not
+  reproduce within the cap" → "straight to code".

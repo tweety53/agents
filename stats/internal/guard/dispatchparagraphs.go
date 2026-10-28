@@ -82,8 +82,8 @@ var dpEntries = map[string]dpEntry{
 	"planning": {"**PLANNING DELEGATION:**",
 		[]string{"fresh `Explore` and `Plan` subagents", "never a `fork`", "never an agent that edits files", "plan-agent-pair.sh"}, nil},
 	"proofruns": {"**PROOF RUNS:**",
-		[]string{"run-capped.sh", "bounded worker count", "straight to code", "shows the check failing with the mechanism removed"}, nil},
-	"cappedrepro": {"under run-capped.sh", nil, nil},
+		[]string{"run-capped.sh", "bounded worker count", "at most 5 capped runs", "straight to code", "shows the check failing with the mechanism removed"}, nil},
+	"cappedrepro": {"is allowed only under run-capped.sh", []string{"bounded worker count"}, nil},
 }
 
 // dpSite is one row of SITE_ENTRY/SITE_PATHS/SITE_MIN_BLOCKS/SITE_VARIANTS:

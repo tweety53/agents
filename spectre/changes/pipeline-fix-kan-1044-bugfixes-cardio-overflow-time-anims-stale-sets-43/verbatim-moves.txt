@@ -29,3 +29,33 @@ Where the cause does not show within the cap, go straight to code — fix it on 
 Your report states the forced condition, the cap, the worker count and the run count.
 proven by a load reproduction not run under run-capped.sh with a bounded worker count, and one that widens a tolerance, timeout, retry count or sleep.
 | `## resource cap` | Optional.
+# loop 43 fix round 1: process-tree cap, dev stack bounded by its own config, one waiver name (straight to code), at most 5 capped runs
+every run, its commits or the change's records state the cause forced in one isolated,
+single-worker run and that run failing with the fix's mechanism removed — or state that the
+**PROOF RUNS:** Every build, test suite or probe you start runs under `<agents repo>/scripts/run-capped.sh --`, which kills its whole process tree past the project's `## resource cap` (default 4096 MB).
+A dev stack detaches and is bounded by its own config instead.
+A dev stack detaches, so it is bounded by its own config — worker counts and heap — not by run-capped.sh.
+A dev stack detaches, so run-capped.sh cannot hold it: it is bounded by its own config — worker counts and heap.
+A flake fix carries one of two proofs.
+A load reproduction is allowed only under run-capped.sh (`<agents repo>/scripts/run-capped.sh`) with a bounded worker count sized under the project's `## resource cap`, at most 5 capped runs, so the operator's machine is never overloaded (kan-1044).
+Either its cause is reproduced — preferably in one isolated run, a delay or fault injected at the seam, the test alone or with the one test whose leftover state it reads; a load reproduction (backend or frontend) is allowed only under run-capped.sh with an explicit bounded worker count sized under the cap: Gradle `--max-workers`/`maxParallelForks` and `-Xmx`, Playwright `--workers`, vitest `--maxWorkers`, at most 5 capped runs — and the fix then shows the check failing with the mechanism removed (`~/.claude/rules/fix-determinism-at-the-source.md`).
+Gradle runs with `--no-daemon` (run-capped.sh sets it), since a daemon reparents out of the tree, and with bounded `--max-workers` and `-Xmx`.
+Make it fail by forcing that cause, preferably in one isolated, single-worker run — the test alone, or with the one test whose leftover state it reads — a delay or fault injected at the suspected seam, a pinned clock moved, a throttled connection.
+One that does not reproduce within the cap is fixed anyway: every source of nondeterminism the trace names as a candidate — a container readiness wait, a shared port, an unpinned clock or order — is fixed at its source, each with a forced reproduction as its evidence (the candidate made to fail on purpose, a delay or a fault injected, failing the test without the fix and passing with it) where the candidate can be forced.
+Or the flake does not reproduce within the cap and goes straight to code: no further reproduction loops; fix it on deeper analysis of the code and the failing run's saved artifacts, and the commit body says so — that alone waives the mechanism-removed run.
+The body is a plain integer: the memory cap in MB, per command, for every build, test suite and probe a flow run starts, enforced by `<agents repo>/scripts/run-capped.sh`, which kills the command's process tree past it; a unit or any other text is refused (exit 2).
+The cap is per command; a run-capped.sh started under another joins the outer cap.
+The fixer traces it from the code and the failing run's saved artifacts (a load reproduction is allowed only under run-capped.sh with a bounded worker count — PROOF RUNS, `skills/flow/implement.md`), and keeps every failing run's result files (the `result files:` and `full output:` paths `run-verify-list.sh` prints, or the JUnit XMLs and logs copied out by hand) before the next run overwrites them.
+The task's one commit carries those fixes and its body states each forced reproduction, or that the fix went straight to code; a fixer that names no candidate has not finished the trace, and is sent back to it.
+Where the cause does not reproduce within the cap, go straight to code — fix it on deeper code analysis and say so in the commit body; that, and only that, waives the mechanism-removed run.
+Your report states which, with the forced condition, the cap, the worker count and the run count.
+and the fix went straight to code on deeper analysis
+every run, its commits or the change's records state either the cause reproduced — in an isolated run, or
+in a load run under run-capped.sh with a bounded worker count, at most 5 capped runs — and that
+proven by a load reproduction not run under run-capped.sh with a bounded worker count, and one
+run failing with the fix's mechanism removed, or that the flake did not reproduce within the cap
+that widens a tolerance, timeout, retry count or sleep.
+An observed test failure is fixed as **The loop** (`skills/flow/verify-fix-loop.md`) states for one whose cause cannot be forced, and a plan that allows closing it unreproduced is sent back.
+One whose cause cannot be forced is fixed anyway: every source of nondeterminism the trace names as a candidate — a container readiness wait, a shared port, an unpinned clock or order — is fixed at its source, each with a forced reproduction as its evidence (the candidate made to fail on purpose, a delay or a fault injected, failing the test without the fix and passing with it) where the candidate can be forced.
+The task's one commit carries those fixes and its body states each forced reproduction, or that the fix rests on code-reading evidence; a fixer that names no candidate has not finished the trace, and is sent back to it.
+cause could not be forced and the fix rests on code-reading evidence

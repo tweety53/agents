@@ -437,7 +437,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	// Each command runs as `(cd "$WT" && bash -c …)` did: from the worktree,
 	// PWD its logical path, so `pwd` prints the path the caller named.
 	cmdEnv := append(childEnv[:len(childEnv):len(childEnv)], "PWD="+abs(wt))
-	// Every command runs under run-capped.sh, which kills its process group
+	// Every command runs under run-capped.sh, which kills its process tree
 	// past the project's `## resource cap` (kan-1044).
 	capped := filepath.Join(scriptDir, "run-capped.sh")
 	// run runs one command in the foreground.

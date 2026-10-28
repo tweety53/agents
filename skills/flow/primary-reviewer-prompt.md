@@ -50,11 +50,13 @@
     schema or public interface carries its migration and backward-compatibility story.
 
     **A flake fix carries its proof.** When the diff fixes a failure that does not recur on
-    every run, its commits or the change's records state the cause forced in one isolated,
-    single-worker run and that run failing with the fix's mechanism removed — or state that the
-    cause could not be forced and the fix rests on code-reading evidence
+    every run, its commits or the change's records state either the cause reproduced — in an isolated run, or
+    in a load run under run-capped.sh with a bounded worker count, at most 5 capped runs — and that
+    run failing with the fix's mechanism removed, or that the flake did not reproduce within the cap
+    and the fix went straight to code on deeper analysis
     (`~/.claude/rules/fix-determinism-at-the-source.md`). Report a fix that states neither, one
-    proven by a load reproduction not run under run-capped.sh with a bounded worker count, and one that widens a tolerance, timeout, retry count or sleep.
+    proven by a load reproduction not run under run-capped.sh with a bounded worker count, and one
+    that widens a tolerance, timeout, retry count or sleep.
 
     **Shared state the diff reuses — a required step, done before anything else:**
     1. List every pre-existing field, flag or variable that the diff's new code reads or

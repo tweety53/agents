@@ -618,8 +618,7 @@ own; `check-task-commit-fields.sh` resolves the pair from either id against that
 > plus your group's own task(s) only, gathered for you. You **must** still read the
 > actual diff and the actual code — the bundle is shared *input*, never a substitute for the source.
 > It also carries this project's `## lint`/`## test`/`## run` commands, already resolved — you do
-> not need to open `<project>/.flow/project.md` yourself for them; start each under
-> `<agents repo>/scripts/run-capped.sh --`.
+> not need to open `<project>/.flow/project.md` yourself for them.
 
 > **PROJECT HAZARDS:** the bundle's `## hazards` section carries this project's recorded
 > warnings, filtered to this change's shape — each one names a way this project specifically
@@ -672,18 +671,22 @@ and applies **The handshake** stated above, unchanged.
 > line in this same commit. Every refusal or exit path the diff adds gets a test case of its
 > own.
 
-> **PROOF RUNS:** Every process you start — build, test suite, dev stack, probe — runs under
-> `<agents repo>/scripts/run-capped.sh --`, which kills it past the project's `## resource cap`
-> (default 4096 MB). A flake fix is proven by forcing its cause, preferably in one isolated run — a
-> delay or fault injected at the seam, the test alone or with the one test whose leftover state it
-> reads. A load reproduction (backend or frontend) is allowed only under
-> run-capped.sh with an explicit bounded worker count sized under the cap: Gradle
-> `--max-workers`/`maxParallelForks` and `-Xmx`, Playwright `--workers`, vitest `--maxWorkers`. If the
-> flake does not reproduce within the cap, go straight to code: no further reproduction loops; fix it
-> on deeper analysis of the code and the failing run's saved artifacts, and the commit body says so.
-> Your report states the forced condition, the cap, the worker count and the run count. A determinism
-> fix that was reproduced still shows the check failing with the mechanism removed
-> (`~/.claude/rules/fix-determinism-at-the-source.md`); only one fixed straight to code waives it, stated.
+> **PROOF RUNS:** Every build, test suite or probe you start runs under
+> `<agents repo>/scripts/run-capped.sh --`, which kills its whole process tree past the project's
+> `## resource cap` (default 4096 MB). The cap is per command; a run-capped.sh started under another
+> joins the outer cap. Gradle runs with `--no-daemon` (run-capped.sh sets it), since a daemon
+> reparents out of the tree, and with bounded `--max-workers` and `-Xmx`. A dev stack detaches, so
+> it is bounded by its own config — worker counts and heap — not by run-capped.sh. A flake fix
+> carries one of two proofs. Either its cause is reproduced — preferably in one isolated run, a delay
+> or fault injected at the seam, the test alone or with the one test whose leftover state it reads;
+> a load reproduction (backend or frontend) is allowed only under run-capped.sh with an explicit
+> bounded worker count sized under the cap: Gradle `--max-workers`/`maxParallelForks` and `-Xmx`,
+> Playwright `--workers`, vitest `--maxWorkers`, at most 5 capped runs — and the fix then shows the
+> check failing with the mechanism removed (`~/.claude/rules/fix-determinism-at-the-source.md`). Or
+> the flake does not reproduce within the cap and goes straight to code: no further reproduction
+> loops; fix it on deeper analysis of the code and the failing run's saved artifacts, and the commit
+> body says so — that alone waives the mechanism-removed run. Your report states which, with the
+> forced condition, the cap, the worker count and the run count.
 
 > **OUTPUT BUDGET:** Every tool result stays in your context, and every later turn re-reads your
 > whole context — a large output is paid for again on every turn after it. Read a file over 200
