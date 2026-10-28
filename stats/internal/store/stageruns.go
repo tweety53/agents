@@ -276,8 +276,8 @@ func (s *Store) BeginStage(ctx context.Context, in BeginStageInput) (StageRun, e
 // ended_at is set to this run's own started_at, not now(): it is the
 // truthful boundary (the superseded stage ended no later than the moment
 // this one began) and it leaves the two windows non-overlapping, unlike
-// SweepAbandoned's now(), which is the sweeper's best guess at a stale
-// run's end rather than a known instant.
+// SweepAbandoned's now() fallback, which is the sweeper's best guess at a
+// stale run's end rather than a known instant.
 //
 // The started_at <= guard exists for a journalled begin mark replayed
 // later than it was first issued: a replay carries its original, older
@@ -859,8 +859,11 @@ func (s *Store) BindSession(ctx context.Context, sessionToken string, sessionID 
 
 // SweepAbandoned closes every stage run that is still open (no end mark)
 // and whose session has gone silent: started before silentBefore, with no
-// activity to indicate otherwise. It sets ended_at to now and outcome to
-// "abandoned", and returns how many rows it closed.
+// activity to indicate otherwise. It sets outcome to "abandoned" and
+// ended_at to the earliest start of another stage run of the same change
+// that began after this one -- the stage ended no later than that -- or,
+// when none did, to now; it returns how many rows it closed. Ending at now
+// regardless overlapped the change's later stages (kan-1024's self-review).
 //
 // An abandoned stage is a statistic worth having, not an error to
 // suppress: the outcome column records it exactly like any other outcome,
@@ -868,11 +871,33 @@ func (s *Store) BindSession(ctx context.Context, sessionToken string, sessionID 
 func (s *Store) SweepAbandoned(ctx context.Context, silentBefore time.Time) (int64, error) {
 	tag, err := s.pool.Exec(ctx, `
 		UPDATE stage_runs
-		SET ended_at = now(), outcome = 'abandoned'
+		SET ended_at = COALESCE(`+nextStageStart+`, now()), outcome = 'abandoned'
 		WHERE ended_at IS NULL AND started_at < $1
 	`, silentBefore)
 	if err != nil {
 		return 0, fmt.Errorf("store: sweep abandoned stages: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+// nextStageStart is the earliest started_at of another stage run of the
+// same change that began after the stage_runs row in scope; NULL when none
+// did, or when the row has no change.
+const nextStageStart = `(SELECT min(s2.started_at) FROM stage_runs s2
+		WHERE s2.change_id = stage_runs.change_id AND s2.id <> stage_runs.id
+		AND s2.started_at > stage_runs.started_at)`
+
+// ClipAbandonedStageRuns applies SweepAbandoned's bound to rows already
+// abandoned: an ended_at past the next stage's start is moved back to it.
+// It returns how many rows it changed -- the repair for rows the sweep
+// wrote before the bound existed.
+func (s *Store) ClipAbandonedStageRuns(ctx context.Context) (int64, error) {
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE stage_runs SET ended_at = `+nextStageStart+`
+		WHERE outcome = 'abandoned' AND `+nextStageStart+` < ended_at
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("store: clip abandoned stages: %w", err)
 	}
 	return tag.RowsAffected(), nil
 }

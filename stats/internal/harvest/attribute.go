@@ -92,8 +92,8 @@ func (w Window) contains(ts time.Time) bool {
 // "abandoned" is exactly as eligible a target for a late-arriving harvest
 // batch as one closed by a genuine `stage end`, because closing either
 // way sets the same EndedAt this interface's contains() check reads --
-// SweepAbandoned (internal/store) sets ended_at to the sweep's own
-// instant, so any message truly written inside [StartedAt, ended_at)
+// SweepAbandoned (internal/store) sets ended_at to the next stage of the
+// change's start, or the sweep's own instant when none began, so any message truly written inside [StartedAt, ended_at)
 // really was spent during that stage's window regardless of how the
 // window came to close. Excluding abandoned runs here would mean a
 // session that crashed after doing real, chargeable work loses that

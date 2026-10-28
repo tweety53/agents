@@ -133,6 +133,14 @@ func main() {
 		return
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == "clip-abandoned" {
+		if err := clipAbandoned(); err != nil {
+			logger.Error("flowd clip-abandoned failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "retoken-stage-run" {
 		if err := retokenStageRun(os.Args[2:]); err != nil {
 			logger.Error("flowd retoken-stage-run failed", "error", err)
@@ -711,6 +719,29 @@ func foldDispatch(args []string) error {
 	}
 	defer st.Close()
 	return st.FoldDispatch(ctx, ids[0], ids[1])
+}
+
+// clipAbandoned implements `flowd clip-abandoned`
+// (store.Store.ClipAbandonedStageRuns): the repair for abandoned stage runs
+// the sweep ended past the change's next stage (kan-1024's self-review). It
+// talks to the database directly, so it needs no running daemon.
+func clipAbandoned() error {
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	st, err := store.Open(ctx, cfg.DSN)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	n, err := st.ClipAbandonedStageRuns(ctx)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("clipped: %d\n", n)
+	return nil
 }
 
 // retokenStageRun implements `flowd retoken-stage-run <stage-run-id>

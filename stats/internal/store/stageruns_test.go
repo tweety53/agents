@@ -2885,3 +2885,101 @@ func TestRepriceSinceCountsPricedAndSkipped(t *testing.T) {
 		t.Errorf("run before since: dispatches.a1.cost_usd = %v, want untouched", *c)
 	}
 }
+
+func TestSweepAbandonedEndsAtTheNextStageStart(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-sweep-next-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedChange(t, st, projectKey, "kan-2")
+
+	early := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
+	early.StartedAt = time.Now().Add(-3 * time.Hour).UTC().Truncate(time.Microsecond)
+	earlyRun, err := st.BeginStage(ctx, early)
+	if err != nil {
+		t.Fatalf("BeginStage(early): %v", err)
+	}
+	later := baseBeginInput(projectKey, "kan-1", "/flow", "review panel")
+	later.StartedAt = time.Now().Add(-2 * time.Hour).UTC().Truncate(time.Microsecond)
+	laterRun, err := st.BeginStage(ctx, later)
+	if err != nil {
+		t.Fatalf("BeginStage(later): %v", err)
+	}
+	if err := st.EndStage(ctx, laterRun.ID, later.StartedAt.Add(time.Minute), "completed"); err != nil {
+		t.Fatalf("EndStage(later): %v", err)
+	}
+	alone := baseBeginInput(projectKey, "kan-2", "/flow", "SDD + TDD per task")
+	alone.StartedAt = time.Now().Add(-3 * time.Hour)
+	aloneRun, err := st.BeginStage(ctx, alone)
+	if err != nil {
+		t.Fatalf("BeginStage(alone): %v", err)
+	}
+
+	before := time.Now()
+	if _, err := st.SweepAbandoned(ctx, time.Now().Add(-1*time.Hour)); err != nil {
+		t.Fatalf("SweepAbandoned: %v", err)
+	}
+	got, err := st.GetStageRun(ctx, earlyRun.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun(early): %v", err)
+	}
+	if got.EndedAt == nil || !got.EndedAt.Equal(later.StartedAt) {
+		t.Errorf("early run ended at %v, want the later stage's start %v", got.EndedAt, later.StartedAt)
+	}
+	gotAlone, err := st.GetStageRun(ctx, aloneRun.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun(alone): %v", err)
+	}
+	if gotAlone.EndedAt == nil || gotAlone.EndedAt.Before(before.Add(-time.Minute)) {
+		t.Errorf("a run with no later stage ended at %v, want the sweep's instant", gotAlone.EndedAt)
+	}
+}
+
+func TestClipAbandonedStageRunsBoundsWrittenRows(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-clip-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedChange(t, st, projectKey, "kan-2")
+	base := time.Now().Add(-5 * time.Hour).UTC().Truncate(time.Microsecond)
+	begin := func(change, stage string, at time.Time) int64 {
+		in := baseBeginInput(projectKey, change, "/flow", stage)
+		in.StartedAt = at
+		r, err := st.BeginStage(ctx, in)
+		if err != nil {
+			t.Fatalf("BeginStage(%s): %v", stage, err)
+		}
+		return r.ID
+	}
+	overlapping := begin("kan-1", "SDD + TDD per task", base)
+	completed := begin("kan-1", "brainstorm", base.Add(time.Minute))
+	next := base.Add(time.Hour)
+	begin("kan-1", "review panel", next)
+	alone := begin("kan-2", "SDD + TDD per task", base)
+	late := base.Add(4 * time.Hour)
+	if err := st.EndStage(ctx, completed, late, "completed"); err != nil {
+		t.Fatalf("EndStage(completed): %v", err)
+	}
+	for _, id := range []int64{overlapping, alone} {
+		if err := st.EndStage(ctx, id, late, "abandoned"); err != nil {
+			t.Fatalf("EndStage(%d): %v", id, err)
+		}
+	}
+
+	n, err := st.ClipAbandonedStageRuns(ctx)
+	if err != nil {
+		t.Fatalf("ClipAbandonedStageRuns: %v", err)
+	}
+	if n != 1 {
+		t.Errorf("clipped %d rows, want 1", n)
+	}
+	for id, want := range map[int64]time.Time{overlapping: base.Add(time.Minute), completed: late, alone: late} {
+		got, err := st.GetStageRun(ctx, id)
+		if err != nil {
+			t.Fatalf("GetStageRun(%d): %v", id, err)
+		}
+		if got.EndedAt == nil || !got.EndedAt.Equal(want) {
+			t.Errorf("run %d ended at %v, want %v", id, got.EndedAt, want)
+		}
+	}
+}
