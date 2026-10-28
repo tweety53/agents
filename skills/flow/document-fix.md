@@ -121,10 +121,12 @@ plan-growth series:
 flow tasks count -C <worktree> <name>
 ```
 
-**The appended plan passes the plan guards before it is committed.** Run `check-plan-shape.sh`
-and `check-plan-provenance.sh` over the appended `tasks.md` and handle each exit as **D. Basic
-Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`) handles it, before the
-planning commit below.
+**The appended plan passes the plan guards before it is committed.** Run
+`check-plan-shape.sh <changeRoot>/tasks.md`, a shipped guard among this skill's scripts, and the
+project's configured plan-provenance guard, at the path the project's `<project>/.flow/project.md` `## lint`
+section names — the project's own script, never one under this skill's scripts — and handle each
+exit as **D. Basic Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`) handles it,
+before the planning commit below.
 
 Then make the fix-run planning commit over the appended plan (**Planning commits**,
 `skills/flow-contracts/git-boundaries.md`), before any implementer is dispatched.
