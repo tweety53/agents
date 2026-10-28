@@ -1180,6 +1180,13 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		}
 	}
 
+	// A live panel-fix begin after round r's reviewers began fixes round r,
+	// so its key is panel-fix-<r+1> (panelFixRoundTaken). A back-fill runs
+	// the same check against its end before it calls begin.
+	if *startedAt == "" && !panelFixKeyedARoundLow(ctx, f, projectKey, *role, *key, time.Now(), stderr) {
+		return 2
+	}
+
 	// A visual verifier is a mutator: it builds the stack from the tree and
 	// writes <changeRoot>/visual-verification/, so it never runs beside an
 	// open implementer, panel-fix or red-partner row of the change, nor one
@@ -1491,20 +1498,20 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stder
 	// panel-fix row at its round's reviewer ends, or for a full-suite fix
 	// at the newest reviewer end not after its commit (panelFixFloor;
 	// kan-1039 self-review: full-suite-fix-1 claimed the whole panel wait).
+	if err := finishRecordConnFlags(fset, &f); err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		return 2
+	}
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
 	var derived []string
 	if *v["agent-id"] == "inline" && *v["commit"] != "" {
 		if *v["started-at"] != "" || *v["ended-at"] != "" {
 			fmt.Fprintln(stderr, "flow: an inline back-fill with -commit takes neither -started-at nor -ended-at -- both derive from the commit")
 			return 2
-		}
-		if err := finishRecordConnFlags(fset, &f); err != nil {
-			fmt.Fprintf(stderr, "flow: %v\n", err)
-			return 2
-		}
-		projectKey, _, err := fallback.ProjectKey(f.dir)
-		if err != nil {
-			fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
-			return 1
 		}
 		roots := mutationRoots(ctx, f, projectKey)
 		endT, ok := commitTime(*v["commit"], roots)
@@ -1540,6 +1547,9 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stder
 	}
 	if started.After(ended) {
 		fmt.Fprintf(stderr, "flow: -started-at %s is later than -ended-at %s\n", *v["started-at"], *v["ended-at"])
+		return 2
+	}
+	if !panelFixKeyedARoundLow(ctx, f, projectKey, *v["role"], *v["key"], ended, stderr) {
 		return 2
 	}
 	if _, ok := checkDispatchEndFields(*v["outcome"], *v["cause"], *v["tokens"], stderr); !ok {
@@ -3535,6 +3545,37 @@ func panelFixFloor(ctx context.Context, f recordIdentityFlags, projectKey, role,
 		}
 	}
 	return floor, !floor.IsZero()
+}
+
+// panelFixKeyedARoundLow refuses, reporting false, a panel-fix-<r>[-<n>]
+// key once a reviewer row of round r began before `before` -- the fix's
+// end, or now on a live begin: that fix answers round r's findings, so its
+// round is r+1 (skills/flow/review-panel-fix-round.md; kan-1041
+// self-review: panel-fix-5 and panel-fix-7 fixed rounds 5 and 7). Any other
+// role or key, and a failed record read, pass.
+func panelFixKeyedARoundLow(ctx context.Context, f recordIdentityFlags, projectKey, role, key string, before time.Time, stderr io.Writer) bool {
+	rest, ok := strings.CutPrefix(key, "panel-fix-")
+	if role != "panel-fix" || !ok {
+		return true
+	}
+	digits, _, _ := strings.Cut(rest, "-")
+	r, err := strconv.Atoi(digits)
+	if err != nil || r < 1 {
+		return true
+	}
+	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+		return cl.GetRunRecord(ctx, projectKey, f.change)
+	})
+	if err != nil {
+		return true
+	}
+	for _, d := range run.Dispatches {
+		if n, ok := records.PanelDispatchRound(d); ok && n == r && d.StartedAt.Before(before) {
+			fmt.Fprintf(stderr, "flow: -key %q: panel round %d's reviewers began before this fix ended, so it fixes round %d's findings and is panel-fix-%d (skills/flow/review-panel-fix-round.md)\n", key, r, r, r+1)
+			return false
+		}
+	}
+	return true
 }
 
 // mutationRoots is the -C repository's top level plus every key of the

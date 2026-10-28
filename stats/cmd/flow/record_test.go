@@ -6769,3 +6769,72 @@ func TestRecordDispatchRefusesPanelFixZero(t *testing.T) {
 		}
 	}
 }
+
+// TestRecordDispatchRefusesAPanelFixKeyedARoundLow pins the kan-1041
+// self-review fix: a panel-fix-<r> row is refused once round r's reviewers
+// began before the fix ended -- it fixes round r and is panel-fix-<r+1> --
+// on an inline back-fill, an explicit back-fill and a live begin alike; the
+// right key, a back-filled begin and a failed record read pass.
+func TestRecordDispatchRefusesAPanelFixKeyedARoundLow(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	fixtureCommit(t, repo, "2026-10-28T02:40:00Z")
+	sha := fixtureCommit(t, repo, "2026-10-28T02:48:46Z")
+	record := `{"change":"kan-258","dispatches":[` +
+		`{"key":"panel-5-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-28T02:45:33Z","endedAt":"2026-10-28T02:47:03Z"}]}`
+	var posts int
+	recordFails := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
+			if recordFails {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			_, _ = w.Write([]byte(record))
+			return
+		}
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		posts++
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"panel-fix","model":"opus"}`))
+	}))
+	t.Cleanup(srv.Close)
+	conn := []string{"-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-258", "-role", "panel-fix", "-model", "opus"}
+	backfill := func(key string, extra ...string) []string {
+		return append(append(append([]string{"record", "dispatch", "backfill"}, conn...), "-key", key,
+			"-session-token", "mf-record-panel-fix-round", "-outcome", "completed"), extra...)
+	}
+	begin := func(key string, extra ...string) []string {
+		return append(append(append([]string{"record", "dispatch", "begin"}, conn...), "-key", key,
+			"-session-token", "mf-record-panel-fix-round", "-effort", "default"), extra...)
+	}
+	for _, tc := range []struct {
+		name        string
+		args        []string
+		recordFails bool
+		want        int
+	}{
+		{"inline back-fill a round low", backfill("panel-fix-5", "-agent-id", "inline", "-commit", sha), false, 2},
+		{"inline back-fill chunk a round low", backfill("panel-fix-5-2", "-agent-id", "inline", "-commit", sha), false, 2},
+		{"explicit back-fill a round low", backfill("panel-fix-5", "-started-at", "2026-10-28T02:47:03Z", "-ended-at", "2026-10-28T02:48:46Z"), false, 2},
+		{"live begin a round low", begin("panel-fix-5"), false, 2},
+		{"inline back-fill on the fix round", backfill("panel-fix-6", "-agent-id", "inline", "-commit", sha), false, 0},
+		{"live begin on the fix round", begin("panel-fix-6"), false, 0},
+		{"back-fill ending before the round began", backfill("panel-fix-5", "-started-at", "2026-10-28T02:40:00Z", "-ended-at", "2026-10-28T02:45:00Z"), false, 0},
+		{"a failed record read", backfill("panel-fix-5", "-agent-id", "inline", "-commit", sha), true, 0},
+	} {
+		posts = 0
+		recordFails = tc.recordFails
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), tc.args, strings.NewReader(""), &stdout, &stderr)
+		if code != tc.want {
+			t.Errorf("%s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.want, stderr.String())
+		}
+		if tc.want == 2 && (posts != 0 || !strings.Contains(stderr.String(), "panel-fix-6")) {
+			t.Errorf("%s: posts %d, stderr %q; want none and a message naming panel-fix-6", tc.name, posts, stderr.String())
+		}
+	}
+}
