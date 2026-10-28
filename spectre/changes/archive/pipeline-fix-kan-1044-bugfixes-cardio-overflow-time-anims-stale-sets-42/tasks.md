@@ -29,8 +29,8 @@ parent is killed.
 
 - Task 1: the test fails with `pool` back on its default or `maxWorkers` removed.
 
-- [ ] 1. Run stats/web's vitest on two worker threads
-  - [ ] **Step 1: Write the failing test** `stats/web/src/viteConfig.test.ts`:
+- [x] 1. Run stats/web's vitest on two worker threads
+  - [x] **Step 1: Write the failing test** `stats/web/src/viteConfig.test.ts`:
 
 ```ts verified:vite.config.ts default-exports defineConfig({...}) with a test block at plan time
 // @vitest-environment node
@@ -47,7 +47,7 @@ describe("vite.config test pool", () => {
 });
 ```
     Run `cd stats/web && npx vitest run -t "runs on two worker threads"`; it fails.
-  - [ ] **Step 2: Fix** `stats/web/vite.config.ts`: in the `test` block, before `environment`, add
+  - [x] **Step 2: Fix** `stats/web/vite.config.ts`: in the `test` block, before `environment`, add
 
 ```ts verified:test block keys environment, setupFiles, exclude read at plan time
     // The default `forks` pool spawns one process per CPU; a killed parent
@@ -58,8 +58,8 @@ describe("vite.config test pool", () => {
 ```
     If `tsc` rejects the test's `config.test` access on the `UserConfig` type, add
     `/// <reference types="vitest/config" />` as the config's first line; nothing else.
-  - [ ] **Step 3: Verify.** `cd stats/web && npx tsc --noEmit -p .` clean; the Step 1 command passes.
-  - [ ] **Step 4: Commit** the two files.
+  - [x] **Step 3: Verify.** `cd stats/web && npx tsc --noEmit -p .` clean; the Step 1 command passes.
+  - [x] **Step 4: Commit** the two files.
 
 **Build:** green
 **Files:** `stats/web/vite.config.ts`, `stats/web/src/viteConfig.test.ts`
