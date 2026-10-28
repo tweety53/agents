@@ -16,7 +16,7 @@ import type { ViewProps } from "../viewTypes";
 
 const DAY_MS = 86400000;
 
-type Preset = "1" | "2" | "4" | "8" | "12" | "tune" | "all";
+type Preset = "1" | "2" | "4" | "8" | "12" | "all";
 
 const PRESETS: { id: Preset; label: string }[] = [
   { id: "1", label: "Last week" },
@@ -24,17 +24,15 @@ const PRESETS: { id: Preset; label: string }[] = [
   { id: "4", label: "Last 4 weeks" },
   { id: "8", label: "Last 8 weeks" },
   { id: "12", label: "Last 12 weeks" },
-  { id: "tune", label: "Since last prompt change" },
   { id: "all", label: "All time" },
 ];
 
 // "All time" starts at the epoch: the store holds nothing older.
 const ALL_TIME_FROM = new Date("2020-01-01T00:00:00Z");
 
-function presetPeriod(id: Preset, lastPromptChangeAt: string | null): Period | null {
+function presetPeriod(id: Preset): Period {
   const to = new Date();
   if (id === "all") return { from: ALL_TIME_FROM, to };
-  if (id === "tune") return lastPromptChangeAt ? { from: new Date(lastPromptChangeAt), to } : null;
   return { from: new Date(to.getTime() - Number(id) * 7 * DAY_MS), to };
 }
 
@@ -224,7 +222,7 @@ export function ReviewDynamics({ period, onPeriodChange, project, onProjectChang
   // the first fetch already asks for it, so App's default period is never
   // fetched. The child's effect runs before App's, so the hash still shows
   // whether the URL carried a range.
-  const [shown, setShown] = useState<Period>(() => (preset === "4" ? presetPeriod("4", null)! : period));
+  const [shown, setShown] = useState<Period>(() => (preset === "4" ? presetPeriod("4") : period));
   const mounted = useRef(false);
   useEffect(() => {
     if (preset === "4") onPeriodChange?.(shown);
@@ -245,8 +243,7 @@ export function ReviewDynamics({ period, onPeriodChange, project, onProjectChang
   const projects = useRef<string[]>([]);
   if (rows) projects.current = rows.projects;
   const choose = (id: Preset) => {
-    const next = presetPeriod(id, rows?.lastPromptChangeAt ?? null);
-    if (!next) return;
+    const next = presetPeriod(id);
     setPreset(id);
     onPeriodChange?.(next);
   };
@@ -268,7 +265,6 @@ export function ReviewDynamics({ period, onPeriodChange, project, onProjectChang
             key={p.id}
             type="button"
             aria-pressed={preset === p.id}
-            disabled={p.id === "tune" && !rows?.lastPromptChangeAt}
             onClick={() => choose(p.id)}
           >
             {p.label}

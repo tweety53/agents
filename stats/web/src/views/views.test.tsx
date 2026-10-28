@@ -1138,7 +1138,7 @@ describe("review dynamics", () => {
   it("review dynamics range presets set the period", async () => {
     noRangeInUrl();
     const onPeriodChange = vi.fn();
-    const { unmount } = render(<ReviewDynamics period={period} onPeriodChange={onPeriodChange} project={undefined} />);
+    render(<ReviewDynamics period={period} onPeriodChange={onPeriodChange} project={undefined} />);
     await screen.findByText("Review panel");
     expect(screen.getByRole("button", { name: "Last 4 weeks" })).toHaveAttribute("aria-pressed", "true");
     const span = (p: { from: Date; to: Date }) => Math.round((p.to.getTime() - p.from.getTime()) / 86400000);
@@ -1153,16 +1153,7 @@ describe("review dynamics", () => {
     expect(Math.abs(last.to.getTime() - Date.now())).toBeLessThan(60000);
     expect(screen.getByRole("button", { name: "Last 2 weeks" })).toHaveAttribute("aria-pressed", "true");
 
-    await userEvent.click(screen.getByRole("button", { name: "Since last prompt change" }));
-    expect(onPeriodChange.mock.calls.at(-1)![0].from.toISOString()).toBe("2026-01-13T10:00:00.000Z");
-    unmount();
-
-    fetchStatsViewMock.mockResolvedValue(
-      envelope("review-dynamics", { ...reviewDynamicsRows(), lastPromptChangeAt: null }),
-    );
-    render(<ReviewDynamics period={period} onPeriodChange={() => {}} project={undefined} />);
-    await screen.findByText("Review panel");
-    expect(screen.getByRole("button", { name: "Since last prompt change" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Since last prompt change" })).toBeNull();
   });
 
   it("review dynamics family and version toggle", async () => {
