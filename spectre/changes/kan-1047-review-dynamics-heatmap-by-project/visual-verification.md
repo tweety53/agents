@@ -35,3 +35,18 @@ none named.
 
 ## In-run fix 3 (Task 6)
 - The fix-2-full departures are fixed: `DynamicsChart` blanks a y label that repeats the tick above it, so the picked state's "Changes reviewed" axis reads `0`, (blank), `1` with `1` on the line at value 1 (vitest `dynamics chart drops a tick whose label repeats the one above`); `review dynamics filters` moves the pointer to (0, 0) before each screenshot. Only `review-dynamics-picked-darwin.png` moved; `npm run test:visual`: 67 passed.
+
+## Round: visual-verify-fix-3-full (HEAD fce43ca0)
+
+### review-dynamics-picked
+- Screenshot: `visual-verification/evidence/review-dynamics-picked-darwin.png` — dark scheme; Projects `uitest-dynamics` and Task size `Big` pressed; KPIs 5.50 / 2.50 / 2.00 / 2.20 / 38% / 8 (▲ 300% vs before); all eight charts and the heatmap drawn; no NaN/null/placeholder. "Changes reviewed" y-axis now reads `0`, (blank), `1` — the duplicated `1` is gone. No hover ink on any control (pointer parked at (0, 0), spec lines 72 and 79).
+- Composite: `visual-verification/review-dynamics-picked.png`, frame `review-dynamics` (approved prototype), diff=n/a — sizes differ (frame 1280x2802 with annotation wrapper; capture 1280x2647).
+- Bands: 1/1 paired, whole page (wrapper `#15161b` vs page `#111217`, distance 6.9; height −155px). Seams: outer edges only. Cause: the prototype's annotation wrapper, outside the app's ink.
+- Matrix: `visual-verification/matrix/review-dynamics-picked.json` — frame elements unpaired (wrapper), every column n/a — frame annotation wrapper.
+- Departures: none. Prior rounds' two departures verified fixed.
+
+### review-dynamics-light
+- Screenshot: `visual-verification/evidence/review-dynamics-light-darwin.png`; composite `visual-verification/review-dynamics-light.png` diff=n/a; same wrapper-only band pairing. Baseline unchanged this round.
+
+### Other views
+- `review-dynamics`, `-filters`, `-hover` captures (evidence/) byte-identical to HEAD's baselines; `review-dynamics-darwin.png` and `review-dynamics-heat-hover-darwin.png` are byte-identical — the heat-cell hover is a native `title` tooltip with no page ink.
