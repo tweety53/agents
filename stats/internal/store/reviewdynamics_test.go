@@ -298,7 +298,7 @@ func TestReviewDynamicsModelVersions(t *testing.T) {
 // TestReviewDynamicsClassAndProjects pins class-buttons and
 // project-buttons: a class keeps only the changes whose latest decision
 // carries it, and Projects lists the period's reviewed projects whatever
-// the filters.
+// the filters -- reviewer dispatches only, period.To excluded.
 func TestReviewDynamicsClassAndProjects(t *testing.T) {
 	st, project := seedDynamics(t)
 	ctx := context.Background()
@@ -314,6 +314,18 @@ func TestReviewDynamicsClassAndProjects(t *testing.T) {
 	decide("b", "mf-b-1", "small")
 	period := store.Period{From: week1, To: week1.Add(15 * 24 * time.Hour)}
 
+	// Projects ignores the project and class filters, keeps reviewer
+	// dispatches only, and ends before period.To.
+	other, idle, edge := project+"-other", project+"-idle", project+"-edge"
+	for p, d := range map[string]struct {
+		role string
+		at   time.Time
+	}{other: {"reviewer", week1.Add(time.Hour)}, idle: {"implementer", week1.Add(time.Hour)}, edge: {"reviewer", period.To}} {
+		seedChange(t, st, p, "x")
+		fx := dynamicsFixture{t: t, st: st, project: p}
+		fx.dispatch("x", d.role, "primary", "opus", "low", "panel-0-primary", "completed", d.at)
+	}
+
 	big := "big"
 	got, err := st.ReviewDynamics(ctx, period, &project, &big)
 	if err != nil {
@@ -327,12 +339,14 @@ func TestReviewDynamicsClassAndProjects(t *testing.T) {
 			t.Errorf("big heat carries change b's test-sanity cell: %+v", c)
 		}
 	}
-	found := false
+	listed := map[string]bool{}
 	for _, p := range got.Projects {
-		found = found || p == project
+		listed[p] = true
 	}
-	if !found {
-		t.Errorf("Projects = %v, want it to carry %q", got.Projects, project)
+	for p, want := range map[string]bool{project: true, other: true, idle: false, edge: false} {
+		if listed[p] != want {
+			t.Errorf("Projects lists %q = %v, want %v (Projects = %v)", p, listed[p], want, got.Projects)
+		}
 	}
 
 	micro := "micro"
