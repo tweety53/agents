@@ -741,4 +741,20 @@ func TestLandSelfReviewReportRefusesAnUnlandedCase(t *testing.T) {
 	if rc := Registry["land-self-review-report"]([]string{repo, "main", "docs(self-review): kan-c self-review report", rep}, env, &o, &e); rc != 0 {
 		t.Fatalf("a landed case did not land: rc=%d stderr=%q", rc, e.String())
 	}
+
+	// A case committed on the report's own branch, not yet on origin/main,
+	// lands with it.
+	mkdir(t, repo+"/docs/prompt-tuning/kan-c-3")
+	g.write(repo+"/docs/prompt-tuning/kan-c-3/case.json", "{}\n")
+	g.git(repo, "add", "docs/prompt-tuning")
+	g.git(repo, "commit", "-q", "-m", "case on the branch")
+	g.write(repo+"/"+rep, "## 8. Prompt tuning — `flow-prompt-tuning`\n\n- **[flow-prompt-tuning]** reads per item — implementer — docs/prompt-tuning/kan-c-3/ — noted\n")
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	o.Reset()
+	e.Reset()
+	if rc := Registry["land-self-review-report"]([]string{repo, "main", "docs(self-review): kan-c self-review report", rep}, env, &o, &e); rc != 0 {
+		t.Fatalf("a case on the report's branch did not land: rc=%d stderr=%q", rc, e.String())
+	}
 }

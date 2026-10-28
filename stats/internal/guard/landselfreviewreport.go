@@ -345,7 +345,10 @@ func lsrrCases(env Env, repo, addPath string, stderr io.Writer) int {
 		case m == nil && strings.Contains(strings.ToLower(line), "prompt-tuning case"):
 			fmt.Fprintf(stderr, "LAND-CASE-MISSING: %s:%d: %s — names no docs/prompt-tuning/<case-id>/ folder; write the case (flow-self-review step 2a) and land it first; nothing added, committed, pulled or pushed\n", addPath, i+1, strings.TrimSpace(line))
 			rc = 4
-		case m != nil && envGit(env)("-C", agents, "cat-file", "-e", "origin/main:docs/prompt-tuning/"+m[1]+"/case.json").Run() != nil:
+		// A case on the report's own branch rides the same landing push
+		// (flow-self-review step 2a, a run on the change's own branch).
+		case m != nil && envGit(env)("-C", agents, "cat-file", "-e", "origin/main:docs/prompt-tuning/"+m[1]+"/case.json").Run() != nil &&
+			envGit(env)("-C", repo, "cat-file", "-e", "HEAD:docs/prompt-tuning/"+m[1]+"/case.json").Run() != nil:
 			fmt.Fprintf(stderr, "LAND-CASE-MISSING: %s:%d: docs/prompt-tuning/%s/ is not on %s origin/main — land the case first; nothing added, committed, pulled or pushed\n", addPath, i+1, m[1], agents)
 			rc = 4
 		}
