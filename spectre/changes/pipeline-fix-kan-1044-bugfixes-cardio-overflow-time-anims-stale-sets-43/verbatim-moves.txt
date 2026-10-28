@@ -1,0 +1,31 @@
+# loop 43: load reproductions allowed only under run-capped.sh's memory cap — rewordings of loop 41's paragraphs in fix-determinism-at-the-source.mdc, implement.md PROOF RUNS, verify-fix-loop.md item 2, primary-reviewer-prompt.md, unfinished-work-gate.md.
+**An item no change to the tree can finish** — a verify failure that does not recur in at most 5 single-worker, isolated re-runs of the test alone (or with the one test whose leftover state it reads), the run count stated — never a load re-run (`skills/flow/verify-fix-loop.md`); a verdict the guard reaches over a report line that names a passing spec — is recorded as a guard false positive per **A verdict the operator calls structural** below, its `-reason` carrying that run count, and the run continues to the landing route.
+**Every start command comes from `<project>/.flow/project.md`'s `## run`**, with every path made absolute.
+**PROOF RUNS:** A flake fix is proven by forcing its cause in one isolated run — a delay or fault injected at the seam, single worker, the test alone or with the one test whose leftover state it reads — never a load reproduction: no multi-worker suite repeats, no `--repeat-each` or loop of a suite, no concurrent browser or app-boot probes, no "reproduce under full-suite load".
+A flake seen only under parallel load is diagnosed from the code and the failing run's saved artifacts; where its cause cannot be forced, the fix lands on that code-reading evidence and the commit body says so.
+A forced cause also shows the test failing with the mechanism removed; only a cause that cannot be forced waives that run.
+It also carries this project's `## lint`/`## test`/`## run` commands, already resolved — you do not need to open `<project>/.flow/project.md` yourself for them.
+Make it fail by forcing that cause in one isolated, single-worker run — the test alone, or with the one test whose leftover state it reads — a delay or fault injected at the suspected seam, a pinned clock moved, a throttled connection — never by a load reproduction: no parallel load, no CPU cap, no multi-worker or looped suite repeats, no concurrent app or browser boots; they exhaust the operator's machine (kan-1044).
+The fixer traces it from the code and the failing run's saved artifacts, never by a load reproduction (PROOF RUNS, `skills/flow/implement.md`), and keeps every failing run's result files (the `result files:` and `full output:` paths `run-verify-list.sh` prints, or the JUnit XMLs and logs copied out by hand) before the next run overwrites them.
+Where a repeat is still needed it runs the test alone on a single worker, at most 5 runs.
+Where the cause cannot be forced, fix it on the code-reading evidence and say so in the commit body; that, and only that, waives the mechanism-removed run.
+Wherever the cause can be forced, this never replaces the proof `~/.claude/rules/fix-determinism-at-the-source.md` requires: a determinism fix still shows the check failing with the mechanism removed; only a cause that cannot be forced waives it, the commit body saying so.
+Your report states the forced condition and the run count.
+proven by a load reproduction, and one that widens a tolerance, timeout, retry count or sleep.
+**Every start command comes from `<project>/.flow/project.md`'s `## run`**, with every path made absolute, each started as `<agents repo>/scripts/run-capped.sh -- <command>`.
+**PROOF RUNS:** Every process you start — build, test suite, dev stack, probe — runs under `<agents repo>/scripts/run-capped.sh --`, which kills it past the project's `## resource cap` (default 4096 MB).
+A determinism fix that was reproduced still shows the check failing with the mechanism removed (`~/.claude/rules/fix-determinism-at-the-source.md`); only one fixed straight to code waives it, stated.
+A flake fix is proven by forcing its cause, preferably in one isolated run — a delay or fault injected at the seam, the test alone or with the one test whose leftover state it reads.
+A forced cause also shows the test failing with the mechanism removed; only one that does not reproduce within the cap waives that run, and it goes straight to code.
+A load reproduction (backend or frontend) is allowed only under run-capped.sh with an explicit bounded worker count sized under the cap: Gradle `--max-workers`/`maxParallelForks` and `-Xmx`, Playwright `--workers`, vitest `--maxWorkers`.
+A load reproduction is allowed only under run-capped.sh (`<agents repo>/scripts/run-capped.sh`) with a bounded worker count sized under the project's `## resource cap`, so the operator's machine is never overloaded (kan-1044).
+Absent means 4096.
+If the flake does not reproduce within the cap, go straight to code: no further reproduction loops; fix it on deeper analysis of the code and the failing run's saved artifacts, and the commit body says so.
+It also carries this project's `## lint`/`## test`/`## run` commands, already resolved — you do not need to open `<project>/.flow/project.md` yourself for them; start each under `<agents repo>/scripts/run-capped.sh --`.
+Make it fail by forcing that cause in one isolated, single-worker run — the test alone, or with the one test whose leftover state it reads — a delay or fault injected at the suspected seam, a pinned clock moved, a throttled connection.
+The first integer of the body is the memory cap in MB for every process a flow run starts, enforced by `<agents repo>/scripts/run-capped.sh`, which kills the process group past it.
+The fixer traces it from the code and the failing run's saved artifacts, a load reproduction only under run-capped.sh (PROOF RUNS, `skills/flow/implement.md`), and keeps every failing run's result files (the `result files:` and `full output:` paths `run-verify-list.sh` prints, or the JUnit XMLs and logs copied out by hand) before the next run overwrites them.
+Where the cause does not show within the cap, go straight to code — fix it on deeper code analysis and say so in the commit body; that, and only that, waives the mechanism-removed run.
+Your report states the forced condition, the cap, the worker count and the run count.
+proven by a load reproduction not run under run-capped.sh with a bounded worker count, and one that widens a tolerance, timeout, retry count or sleep.
+| `## resource cap` | Optional.
