@@ -39,6 +39,8 @@ export interface DashboardBarProps {
    */
   modelDisabled: boolean;
   modelDisabledReason?: string;
+  /** False on Review dynamics, which renders its own range presets (view-owned-range). */
+  showPeriod?: boolean;
 }
 
 export function DashboardBar({
@@ -50,6 +52,7 @@ export function DashboardBar({
   onModelChange,
   modelDisabled,
   modelDisabledReason,
+  showPeriod = true,
 }: DashboardBarProps) {
   return (
     <div className="dashboard-bar" role="toolbar" aria-label="Dashboard controls">
@@ -65,7 +68,7 @@ export function DashboardBar({
         />
         <ChangeVariable project={project} />
       </div>
-      <PeriodPicker period={period} onChange={onPeriodChange} />
+      {showPeriod && <PeriodPicker period={period} onChange={onPeriodChange} />}
     </div>
   );
 }

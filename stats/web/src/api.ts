@@ -45,7 +45,8 @@ export type ViewName =
   | "reviewers"
   | "decisions"
   | "flow-health"
-  | "self-review";
+  | "self-review"
+  | "review-dynamics";
 
 export const VIEW_NAMES: readonly ViewName[] = [
   "state-board",
@@ -56,6 +57,7 @@ export const VIEW_NAMES: readonly ViewName[] = [
   "decisions",
   "flow-health",
   "self-review",
+  "review-dynamics",
 ];
 
 /** The "cost-per-change" statistics endpoint slug -- not a navigable
@@ -355,6 +357,63 @@ export interface WeeklyModelEffortPoint {
 }
 
 /** Mirrors reviewerRowDTO. */
+/** One value of one Review dynamics series in one bucket (YYYY-MM-DD). */
+export interface DynamicsPoint {
+  bucket: string;
+  metric: string;
+  series: string;
+  value: number;
+  /** The changes or dispatches the value is normalised by. */
+  basis: number;
+}
+
+/** One slot × model · effort heatmap cell's dispatches and findings. */
+export interface HeatCell {
+  slot: string;
+  model: string;
+  effort: string;
+  dispatches: number;
+  critical: number;
+  important: number;
+  minor: number;
+}
+
+/** The verdict tiles' values over a whole range. */
+export interface DynamicsSummary {
+  findingsPerChange: number;
+  criticalImportantPerChange: number;
+  meanFixRounds: number;
+  implFindingsPerTask: number | null;
+  vvFirstPassShare: number | null;
+  changes: number;
+}
+
+/** One change to a tunable prompt, drawn as a chart marker. */
+export interface PromptChange {
+  sha: string;
+  at: string;
+  kind: "tuning" | "edit";
+  area: "review" | "impl" | "vv" | "fix";
+  slot: string | null;
+  target: string;
+  summary: string;
+  caseId: string | null;
+}
+
+/** The "review-dynamics" view's rows: one object, not an array (KAN-1046). */
+export interface ReviewDynamicsRows {
+  bucket: "day" | "week";
+  series: DynamicsPoint[];
+  heat: HeatCell[];
+  previousHeat: HeatCell[];
+  heatVersion: HeatCell[];
+  previousHeatVersion: HeatCell[];
+  summary: DynamicsSummary;
+  previousSummary: DynamicsSummary;
+  markers: PromptChange[];
+  lastPromptChangeAt: string | null;
+}
+
 export interface ReviewerRow {
   slot: string;
   experimental: boolean;

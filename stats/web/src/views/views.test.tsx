@@ -17,6 +17,7 @@ import type {
 import { App } from "../App";
 import { Decisions } from "./Decisions";
 import { FlowHealth } from "./FlowHealth";
+import { ReviewDynamics } from "./ReviewDynamics";
 import { Reviewers } from "./Reviewers";
 import { SelfReview } from "./SelfReview";
 import { StageLeaderboard } from "./StageLeaderboard";
@@ -58,6 +59,45 @@ const noPhase = {
 
 // Every slug a view fetches: the navigable views, less "flow-health", which
 // fetches the three health slugs instead of one of its own.
+function reviewDynamicsRows() {
+  const pt = (bucket: string, metric: string, series: string, value: number, basis: number) => ({ bucket, metric, series, value, basis });
+  const weeks = ["2026-01-05", "2026-01-12"];
+  const series = weeks.flatMap((w, i) => [
+    pt(w, "findings-per-change", "critical", 0.5 - i * 0.25, 4),
+    pt(w, "findings-per-change", "important", 1, 4),
+    pt(w, "findings-per-change", "minor", 2 + i, 4),
+    pt(w, "per-dispatch-slot", "primary", 2, 3),
+    pt(w, "fix-rounds", "mean", 1.5, 4),
+    pt(w, "fix-rounds", "max", 3, 4),
+    pt(w, "per-dispatch-model", "opus", 2.5, 5),
+    pt(w, "per-dispatch-model-version", "claude-opus-5-5", 2, 3),
+    pt(w, "per-dispatch-model-version", "opus (version unrecorded)", 3, 2),
+    pt(w, "per-dispatch-effort", "low", 1, 5),
+    pt(w, "changes", "changes", 4, 4),
+    pt(w, "impl-findings-per-task", "opus · low", 1.5, 6),
+    pt(w, "impl-findings-per-task-version", "claude-opus-5-5 · low", 1.5, 6),
+    pt(w, "impl-blocked-share", "blocked", 0.1, 10),
+    pt(w, "vv-rounds", "mean", 1, 2),
+    pt(w, "vv-rounds", "max", 2, 2),
+    pt(w, "vv-first-pass", "first-pass", 0.5, 2),
+  ]);
+  const heat = (model: string) => [{ slot: "primary", model, effort: "low", dispatches: 4, critical: 1, important: 2, minor: 5 }];
+  return {
+    bucket: "week",
+    series,
+    heat: heat("opus"),
+    previousHeat: [{ slot: "primary", model: "opus", effort: "low", dispatches: 4, critical: 2, important: 4, minor: 6 }],
+    heatVersion: heat("claude-opus-5-5"),
+    previousHeatVersion: [],
+    summary: { findingsPerChange: 0.75, criticalImportantPerChange: 0.98, meanFixRounds: 1.5, implFindingsPerTask: 1.5, vvFirstPassShare: 0.6, changes: 8 },
+    previousSummary: { findingsPerChange: 1, criticalImportantPerChange: 1, meanFixRounds: 2, implFindingsPerTask: 2, vvFirstPassShare: 0.5, changes: 6 },
+    markers: [
+      { sha: "abc1234def:skills/flow/primary-reviewer-prompt.md", at: "2026-01-13T10:00:00Z", kind: "edit", area: "review", slot: "primary", target: "skills/flow/primary-reviewer-prompt.md", summary: "re-read every writer", caseId: null },
+    ],
+    lastPromptChangeAt: "2026-01-13T10:00:00Z",
+  };
+}
+
 const fixtures: Record<
   Exclude<ViewName, "flow-health"> | HealthViewSlug | WeeklyModelEffortViewSlug,
   StatsResponse<unknown>
@@ -253,6 +293,7 @@ const fixtures: Record<
     { recordedAt: "2026-01-09T10:00:00Z", project: "agents", change: "kan-2", angle: "flow-improvement", note: "not worth it", disposition: "declined", ref: "", blastRadius: null, commitUrl: "" },
     { recordedAt: "2026-01-08T10:00:00Z", project: "agents", change: "kan-2", angle: "flow-improvement", note: "panel caught it early", disposition: "noted", ref: "", blastRadius: null, commitUrl: "" },
   ]),
+  "review-dynamics": envelope("review-dynamics", reviewDynamicsRows()),
 };
 
 beforeEach(() => {
@@ -998,3 +1039,87 @@ describe("flow health", () => {
   });
 });
 
+describe("review dynamics", () => {
+  const noRangeInUrl = () => window.history.replaceState(null, "", "#/review-dynamics");
+
+  it("review dynamics draws every section with tiles against the previous range", async () => {
+    noRangeInUrl();
+    render(<ReviewDynamics period={period} onPeriodChange={() => {}} project={undefined} />);
+    for (const heading of ["Review panel", "Implementer", "Visual verify", "Where findings come from"]) {
+      expect(await screen.findByText(heading)).toBeInTheDocument();
+    }
+    for (const title of [
+      "Findings per change by severity", "Findings per dispatch by slot", "Fix rounds per change",
+      "Findings per dispatch by reviewer model", "Findings per dispatch by reviewer effort", "Changes reviewed",
+      "Panel findings per implementer task", "Implementer dispatches blocked or aborted",
+      "Visual verify rounds per change", "Visual verify passed first time",
+    ]) {
+      expect(screen.getByRole("region", { name: title })).toBeInTheDocument();
+    }
+    const tile = (k: string) => screen.getByTestId(`tile-${k}`);
+    expect(tile("Findings per change")).toHaveTextContent("0.75");
+    expect(tile("Findings per change")).toHaveTextContent("▼ 25% · better");
+    expect(tile("Visual verify passed first time")).toHaveTextContent("60%");
+    expect(tile("Visual verify passed first time")).toHaveTextContent("better");
+    expect(tile("Changes reviewed")).not.toHaveTextContent(/better|worse/);
+    expect(tile("Critical + Important per change")).toHaveTextContent("≈ unchanged");
+  });
+
+  it("review dynamics range presets set the period", async () => {
+    noRangeInUrl();
+    const onPeriodChange = vi.fn();
+    const { unmount } = render(<ReviewDynamics period={period} onPeriodChange={onPeriodChange} project={undefined} />);
+    await screen.findByText("Review panel");
+    expect(screen.getByRole("button", { name: "Last 8 weeks" })).toHaveAttribute("aria-pressed", "true");
+    const span = (p: { from: Date; to: Date }) => Math.round((p.to.getTime() - p.from.getTime()) / 86400000);
+    expect(span(onPeriodChange.mock.calls[0][0])).toBe(56);
+
+    await userEvent.click(screen.getByRole("button", { name: "Last 2 weeks" }));
+    const last = onPeriodChange.mock.calls.at(-1)![0];
+    expect(span(last)).toBe(14);
+    expect(Math.abs(last.to.getTime() - Date.now())).toBeLessThan(60000);
+    expect(screen.getByRole("button", { name: "Last 2 weeks" })).toHaveAttribute("aria-pressed", "true");
+
+    await userEvent.click(screen.getByRole("button", { name: "Since last prompt change" }));
+    expect(onPeriodChange.mock.calls.at(-1)![0].from.toISOString()).toBe("2026-01-13T10:00:00.000Z");
+    unmount();
+
+    fetchStatsViewMock.mockResolvedValue(
+      envelope("review-dynamics", { ...reviewDynamicsRows(), lastPromptChangeAt: null }),
+    );
+    render(<ReviewDynamics period={period} onPeriodChange={() => {}} project={undefined} />);
+    await screen.findByText("Review panel");
+    expect(screen.getByRole("button", { name: "Since last prompt change" })).toBeDisabled();
+  });
+
+  it("review dynamics family and version toggle", async () => {
+    noRangeInUrl();
+    render(<ReviewDynamics period={period} onPeriodChange={() => {}} project={undefined} />);
+    const model = await screen.findByRole("region", { name: "Findings per dispatch by reviewer model" });
+    expect(within(model).getByText("opus")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /opus/ })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Version" }));
+    const byVersion = screen.getByRole("region", { name: "Findings per dispatch by reviewer model version" });
+    expect(within(byVersion).getByText("claude-opus-5-5")).toBeInTheDocument();
+    expect(within(byVersion).getByText("opus (version unrecorded)")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /claude-opus-5-5/ })).toBeInTheDocument();
+    expect(screen.getByText("Findings per dispatch: slot × model version · effort")).toBeInTheDocument();
+  });
+
+  it("review dynamics tooltip lists values, basis and marker", async () => {
+    noRangeInUrl();
+    render(<ReviewDynamics period={period} onPeriodChange={() => {}} project={undefined} />);
+    const severity = await screen.findByRole("region", { name: "Findings per change by severity" });
+    fireEvent.mouseEnter(severity.querySelector('[data-bucket="2026-01-12"]')!);
+    const tip = within(severity).getByRole("tooltip");
+    expect(tip).toHaveTextContent("Week of 01-12");
+    expect(tip).toHaveTextContent("Critical: 0.3");
+    expect(tip).toHaveTextContent("Minor: 3.0");
+    expect(tip).toHaveTextContent("based on 4 changes");
+    expect(tip).toHaveTextContent("◆ Prompt edit · primary: re-read every writer (abc1234)");
+
+    const cell = screen.getByTitle(/primary · opus low/);
+    expect(cell.getAttribute("title")).toBe("primary · opus low\n4 dispatches\n1 critical · 2 important · 5 minor");
+  });
+});

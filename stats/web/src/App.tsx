@@ -18,6 +18,7 @@ import type { ViewProps } from "./viewTypes";
 import { Decisions } from "./views/Decisions";
 import { FlowHealth } from "./views/FlowHealth";
 import { RunDetail } from "./views/RunDetail";
+import { ReviewDynamics } from "./views/ReviewDynamics";
 import { Reviewers } from "./views/Reviewers";
 import { SelfReview } from "./views/SelfReview";
 import { StageLeaderboard } from "./views/StageLeaderboard";
@@ -36,6 +37,7 @@ const VIEW_LABELS: Record<ViewName, string> = {
   decisions: "Decisions",
   "flow-health": "Flow health",
   "self-review": "Self-review fixes",
+  "review-dynamics": "Review dynamics",
 };
 
 const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
@@ -47,6 +49,7 @@ const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
   decisions: Decisions,
   "flow-health": FlowHealth,
   "self-review": SelfReview,
+  "review-dynamics": ReviewDynamics,
 };
 
 function isViewName(v: string): v is ViewName {
@@ -183,6 +186,7 @@ const MODEL_DISABLED_REASONS: Partial<Record<ViewName, string>> = {
     "The live state board's rows are changes, not stage runs, so a model restriction cannot apply here.",
   "flow-health":
     "Flow health totals changes, panel rounds and guard fires across every model, so a model restriction cannot apply here.",
+  "review-dynamics": "Review dynamics compares models itself, so a model restriction cannot apply here.",
 };
 
 export function App() {
@@ -247,6 +251,7 @@ export function App() {
             onModelChange={setModel}
             modelDisabled={modelDisabled}
             modelDisabledReason={modelDisabledReason}
+            showPeriod={!(route.kind === "view" && route.view === "review-dynamics")}
           />
         )}
       </header>
