@@ -82,15 +82,15 @@
 
 Correction (2026-10-28): the plan declared `stats/web/tests/visual/full-app-suite.zip`; the rebuilt zip came out byte-identical (the review-dynamics screen of the full app suite did not move), so the commit does not carry it.
 
-- [ ] 6. In-run fix 3 — flow.visual-verify: duplicate `1` tick on a small integer axis; pointer left on a button in the filters captures
-  - [ ] **Step 1: Test.** vitest `dynamics chart drops a tick whose label repeats the one below` renders `DynamicsChart` with an integer format over values peaking at 1 and asserts the y labels read `0`, `1`.
-  - [ ] **Step 2: Chart.** `DynamicsChart` skips a y tick whose formatted label equals the previous tick's (the shared source: every chart with an integer format).
-  - [ ] **Step 3: Spec.** `review dynamics filters` moves the pointer to (0, 0) before each screenshot.
-  - [ ] **Step 4: Capture.** `capture` for `review-dynamics.spec.ts` and the full app suite with `--update-snapshots=all`, changed PNGs read, zip rebuilt when it moves, `visual-verification.md` updated; `npm run test:visual` and the vitest exit 0. Commit.
+- [x] 6. In-run fix 3 — flow.visual-verify: duplicate `1` tick on a small integer axis; pointer left on a button in the filters captures
+  - [x] **Step 1: Test.** vitest `dynamics chart drops a tick whose label repeats the one above` renders `DynamicsChart` with an integer format over values peaking at 1 and asserts the y labels read `0`, blank, `1` bottom to top.
+  - [x] **Step 2: Chart.** `DynamicsChart` blanks a y tick label that equals the next tick's above it (the shared source: every chart with an integer format).
+  - [x] **Step 3: Spec.** `review dynamics filters` moves the pointer to (0, 0) before each screenshot.
+  - [x] **Step 4: Capture.** `capture` for `review-dynamics.spec.ts` and the full app suite with `--update-snapshots=all`, changed PNGs read, zip rebuilt when it moves, `visual-verification.md` updated; `npm run test:visual` and the vitest exit 0. Commit.
 
 **Build:** green
 **Files:** `stats/web/src/components/DynamicsChart.tsx`, `stats/web/src/views/views.test.tsx`, `stats/web/tests/visual/review-dynamics.spec.ts`, `stats/web/tests/visual/review-dynamics.spec.ts-snapshots/review-dynamics-picked-darwin.png`, `spectre/changes/kan-1047-review-dynamics-heatmap-by-project/visual-verification.md`
-**Tests:** `dynamics chart drops a tick whose label repeats the one below`, `review dynamics filters`
+**Tests:** `dynamics chart drops a tick whose label repeats the one above`, `review dynamics filters`
 **Regression:** the vitest fails — an integer axis peaking at 1 labels two ticks `1`.
 **Commit:** fix(stats): drop a repeated axis label on small integer review dynamics charts
 **After:** Task 5
