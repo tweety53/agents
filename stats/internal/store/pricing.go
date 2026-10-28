@@ -258,9 +258,31 @@ type modelBucket struct {
 // a plain string, empty when the dispatch's meta sidecar was never
 // found (DispatchBucket's own doc comment, attribute.go) -- absence
 // Price treats exactly like any other unpriceable dispatch, below.
+// Signals.ServedModels maps each model id the transcript says served the
+// dispatch to its turn count; servedModel reads it (dispatch-served-model).
 type dispatchBucket struct {
-	Tokens modelBucketTokens `json:"tokens"`
-	Model  string            `json:"model"`
+	Tokens  modelBucketTokens `json:"tokens"`
+	Model   string            `json:"model"`
+	Signals struct {
+		ServedModels map[string]int `json:"served_models"`
+	} `json:"signals"`
+}
+
+// servedModel is the model a dispatch's rate resolves against: the
+// served_models key with the most turns, ties broken by name, else the
+// bucket's own recorded model -- an alias such as "opus", which no
+// pricing row matches (decision dispatch-served-model).
+func (db dispatchBucket) servedModel() string {
+	best, turns := "", 0
+	for m, n := range db.Signals.ServedModels {
+		if n > turns || (n == turns && m < best) {
+			best, turns = m, n
+		}
+	}
+	if best != "" {
+		return best
+	}
+	return db.Model
 }
 
 // Price resolves the pricing row in effect, at the stage run's start
@@ -329,6 +351,13 @@ type dispatchBucket struct {
 // "models" whenever there is at least one, and the top-level "cost_usd"
 // is still written only when every model bucket in "models" priced --
 // both unchanged by whether any dispatch also priced.
+//
+// The model a dispatch resolves its rate against is the one that served
+// it -- the signals.served_models key with the most turns, ties broken by
+// name -- falling back to the bucket's own recorded model only when that
+// map is absent or empty (dispatchBucket.servedModel, decision
+// dispatch-served-model): the recorded model is the alias the dispatch was
+// given, which no pricing row matches.
 func (s *Store) Price(ctx context.Context, stageRunID int64) error {
 	run, err := s.GetStageRun(ctx, stageRunID)
 	if err != nil {
@@ -486,7 +515,8 @@ func (s *Store) Price(ctx context.Context, stageRunID int64) error {
 		sort.Strings(agentIDs)
 		for _, id := range agentIDs {
 			db := dispatches[id]
-			if db.Model == "" {
+			model := db.servedModel()
+			if model == "" {
 				// No sidecar was ever found for this dispatch's transcript
 				// (DispatchBucket's own doc comment) -- absence is never a
 				// value, so this dispatch is left unpriced rather than
@@ -514,7 +544,7 @@ func (s *Store) Price(ctx context.Context, stageRunID int64) error {
 			// malformed dispatches value, just reached through a different
 			// trigger.
 			var dispatchMissing []string
-			_, cost, ok, _ := priceCandidate(resolveRate, db.Model, combined, fast, &dispatchMissing)
+			_, cost, ok, _ := priceCandidate(resolveRate, model, combined, fast, &dispatchMissing)
 			if !ok {
 				continue
 			}

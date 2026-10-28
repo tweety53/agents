@@ -2706,3 +2706,77 @@ func TestRetokenStageRunSetsTheToken(t *testing.T) {
 		t.Fatalf("RetokenStageRun unknown id: err = %v, want store.ErrStageRunNotFound", err)
 	}
 }
+
+// TestPriceDispatchUsesServedModel pins dispatch-served-model: a dispatch
+// bucket records the alias it was given ("opus"), which no pricing row
+// matches, so Price resolves its rate from the served_models key with
+// the most turns, falling back to the bucket's own model.
+func TestPriceDispatchUsesServedModel(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-price-served-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "5. The review panel"))
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{
+		"models": {
+			"claude-opus-5-5": {"tokens": {"sidechain": {"output": 3000000}}}
+		},
+		"dispatches": {
+			"a1": {
+				"model": "opus",
+				"tokens": {"sidechain": {"output": 1000000}},
+				"signals": {"served_models": {"claude-opus-5-5": 3}, "served_efforts": {"low": 3}}
+			},
+			"a2": {
+				"model": "opus",
+				"tokens": {"sidechain": {"output": 1000000}}
+			},
+			"a3": {
+				"model": "opus",
+				"tokens": {"sidechain": {"output": 1000000}},
+				"signals": {"served_models": {"claude-opus-5-5": 1, "claude-sonnet-5-5": 4}}
+			}
+		}
+	}`)); err != nil {
+		t.Fatalf("MergeMetrics: %v", err)
+	}
+	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	for _, r := range []store.PricingRate{
+		{Model: "claude-opus-5-5", EffectiveFrom: from, InputPerMTok: 1, OutputPerMTok: 10, CacheReadPerMTok: 0.1},
+		{Model: "claude-sonnet-5-5", EffectiveFrom: from, InputPerMTok: 1, OutputPerMTok: 2, CacheReadPerMTok: 0.1},
+	} {
+		if err := st.PutPricing(ctx, r); err != nil {
+			t.Fatalf("PutPricing: %v", err)
+		}
+	}
+
+	if err := st.Price(ctx, run.ID); err != nil {
+		t.Fatalf("Price: %v", err)
+	}
+
+	priced, err := st.GetStageRun(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun: %v", err)
+	}
+	var bag struct {
+		Dispatches map[string]struct {
+			CostUSD *float64 `json:"cost_usd"`
+		} `json:"dispatches"`
+	}
+	if err := json.Unmarshal(priced.Metrics, &bag); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if c := bag.Dispatches["a1"].CostUSD; c == nil || *c != 10 {
+		t.Errorf("dispatches.a1.cost_usd = %v, want 10 (the claude-opus-5-5 rate)", c)
+	}
+	if c := bag.Dispatches["a2"].CostUSD; c != nil {
+		t.Errorf("dispatches.a2.cost_usd = %v, want none (no served model, alias unpriced)", *c)
+	}
+	if c := bag.Dispatches["a3"].CostUSD; c == nil || *c != 2 {
+		t.Errorf("dispatches.a3.cost_usd = %v, want 2 (the most-turns claude-sonnet-5-5 rate)", c)
+	}
+}
