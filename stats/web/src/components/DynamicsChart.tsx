@@ -49,11 +49,14 @@ export function DynamicsChart({
   const [hover, setHover] = useState<number | null>(null);
   const n = buckets.length;
   const all = series.flatMap((s) => s.values.filter((v): v is number => v !== null));
-  // Ticks 0, s, 2s on a 1·2·5 step, whole when the format cannot show a half, so each label names its height.
+  // Ticks 0, s, 2s: s the smallest 1·2·5 step covering half the peak whose three labels the format
+  // tells apart, so no label rounds onto another tick's value.
   const half = Math.max(0, ...all) / 2;
-  const mag = half > 0 ? 10 ** Math.floor(Math.log10(half)) : 0.5;
-  const whole = format(0.5) === format(0) || format(0.5) === format(1);
-  const s = Math.max(whole ? 1 : 0, [1, 2, 5, 10].map((m) => m * mag).find((v) => v >= half)!);
+  let s = half > 0 ? 10 ** Math.floor(Math.log10(half)) : 1;
+  while (s < half || new Set([format(0), format(s), format(2 * s)]).size < 3) {
+    const p = 10 ** Math.floor(Math.log10(s) + 1e-9);
+    s = ({ 1: 2, 2: 5 }[Math.round(s / p)] ?? 10) * p;
+  }
   const ticks = [0, s, 2 * s];
   const max = 2 * s * 1.12;
   const x = (i: number) => P.l + (n < 2 ? (W - P.l - P.r) / 2 : (i * (W - P.l - P.r)) / (n - 1));

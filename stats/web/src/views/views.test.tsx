@@ -1197,9 +1197,14 @@ describe("review dynamics", () => {
   it("dynamics chart labels each tick with the value it sits at", () => {
     const whole = (v: number) => v.toFixed(0);
     const percent = (v: number) => `${Math.round(v * 100)}%`;
+    const tenths = (v: number) => v.toFixed(1);
     const cases: [number, (v: number) => string, string[]][] = [
       [0, whole, ["0", "1", "2"]],
       [1, whole, ["0", "1", "2"]],
+      [2, whole, ["0", "1", "2"]],
+      [0, tenths, ["0.0", "1.0", "2.0"]],
+      // A 0.05 step would label 0.0, 0.1, 0.1.
+      [0.06, tenths, ["0.0", "0.1", "0.2"]],
       [3, whole, ["0", "2", "4"]],
       [5, whole, ["0", "5", "10"]],
       // A share of 1 is 100%, never a 200% tick.
@@ -1223,6 +1228,8 @@ describe("review dynamics", () => {
       expect(ticks.map((e) => e.textContent)).toEqual(want);
       const ys = ticks.map((e) => Number(e.getAttribute("y")));
       expect(ys[0] - ys[1]).toBeCloseTo((ys[0] - ys[2]) / 2);
+      // The top tick leaves 12% headroom in the 136px plot.
+      expect(ys[0] - ys[2]).toBeCloseTo(136 / 1.12);
       unmount();
     }
   });
