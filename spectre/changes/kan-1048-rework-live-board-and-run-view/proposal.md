@@ -30,3 +30,10 @@ a separate ticket.
 - **Session activity** — a Claude Code hook tells flowd when a session is working, awaiting an
   answer to a question, awaiting a permission, or has ended its turn; the Running now cards show
   it, and a card that needs the operator is bordered amber and sorted first.
+
+## Fix 1 — 2026-10-29, in-run fix after `flow.visual-verify`
+
+The visual verifier compared the board and run view against the approved prototype and reported two departures:
+
+- **Cost in period follows the filters.** The board's tile sums only the filtered rows: `$2.66` under the uitest-alpha chip, `$5.44` unfiltered. The prototype sums every change whatever the filter (`changes.reduce((a, c) => a + c.cost, 0)`). No design decision covers it, so the prototype wins and the tile sums every row.
+- **The timeline tooltip lingers one paint.** In the timeline-tooltip strip, frame 003 (424ms) still shows the tooltip after the pointer has left the bar. The prototype hides it in the same handler. The tooltip now hides in the same frame the pointer leaves.
