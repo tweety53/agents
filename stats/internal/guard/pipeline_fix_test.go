@@ -10,8 +10,8 @@ import (
 )
 
 // pfFx is one pipeline-fix fixture: a bare origin, the agents main checkout
-// cloned from it (the pairs table, a .flow/project.md, a script and its
-// harness), a second clone that moves origin, and a `flow` stub logging every
+// cloned from it (model-policy.md's **Allowed pairs**, a .flow/project.md, a
+// script and its harness), a second clone that moves origin, and a `flow` stub logging every
 // call, its stdin included, and answering `record dispatches` from rows.
 type pfFx struct {
 	lpFx

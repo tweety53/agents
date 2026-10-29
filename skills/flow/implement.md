@@ -119,7 +119,7 @@ Every row's own prompt carries the NO DELEGATION paragraph (section **4** below,
 `skills/flow/review-panel.md`, `skills/flow/visual-verify.md`, `skills/flow-contracts/pipeline.md`) — a leaf never dispatches, so
 nothing exists below these rows — save the in-run pipeline fix planner, which carries PLANNING
 DELEGATION in its place on a `flow-planner-<effort>` definition and may dispatch fresh Explore and
-Plan agents, never one that edits (the pairs table, `skills/flow-self-review/SKILL.md`; kan-1033).
+Plan agents, never one that edits (**Allowed pairs**, `skills/flow-contracts/model-policy.md`; kan-1033).
 **The `flow-<effort>` family (`agents/flow-low.md`, `agents/flow-medium.md`, `agents/flow-high.md`
 — three definitions, one per effort, each carrying `effort:` and no
 `model:`) carries a `tools:` allowlist that omits

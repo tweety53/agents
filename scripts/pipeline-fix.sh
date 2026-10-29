@@ -27,9 +27,12 @@
 #       key may be dispatched again.
 #   pipeline-fix.sh escalate <key>
 #       records <key>'s no-progress escalation (git config flow.escalation,
-#       value `<loop branch>:<key>`; land and drop clear the loop's), which check-loop-dispatch.sh requires before admitting <key> on its
-#       pairs row's escalation type; refused unless the pairs table admits an
-#       escalation for <key> and an earlier round of its kind completed.
+#       value `<loop branch>:<key>`; land and drop clear the loop's), which
+#       check-loop-dispatch.sh requires before admitting <key> on its role's
+#       marked `No-progress escalation` row of **Allowed pairs**
+#       (skills/flow-contracts/model-policy.md); refused unless that table
+#       gives <key>'s role such a row and an earlier round of its kind
+#       completed.
 #   pipeline-fix.sh verify <worktree>
 #       runs the ## lint lines and tests the branch's touched paths need,
 #       against <worktree>'s own origin/HEAD: every guard line, the `cd stats` lines for

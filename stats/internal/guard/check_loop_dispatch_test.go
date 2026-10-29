@@ -8,9 +8,9 @@ import (
 	"testing"
 )
 
-// lpFx is one loop fixture: an agents repo carrying the real pairs table, a
-// `flow` stub on PATH that answers `record dispatches` from rows and logs
-// every call, and the guard's Env.
+// lpFx is one loop fixture: an agents repo carrying the real model-policy.md
+// (**Allowed pairs**), a `flow` stub on PATH that answers `record
+// dispatches` from rows and logs every call, and the guard's Env.
 type lpFx struct {
 	repo, log, rows string
 	prompt          string // the prompt the hook hands in on stdin
