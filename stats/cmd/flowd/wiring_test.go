@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -13,11 +14,14 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tweety53/agents/stats/internal/config"
 	"github.com/tweety53/agents/stats/internal/harvest"
 	"github.com/tweety53/agents/stats/internal/pidfile"
+	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
+	"github.com/tweety53/agents/stats/internal/storetest"
 )
 
 // The four TestAcquireStartup* tests below cover KAN-170 task 3 the same
@@ -302,5 +306,45 @@ func TestSweepEnabled(t *testing.T) {
 	}
 	if !strings.Contains(string(mk), "FLOW_SWEEP_OFF=1 \\") {
 		t.Error("stats/Makefile's ui-test-up does not start flowd with FLOW_SWEEP_OFF=1")
+	}
+}
+
+func TestMain(m *testing.M) { os.Exit(storetest.Main(m)) }
+
+// TestStartupRestampsRecentStampedEnds pins kan-1048 self-review 1-F: at
+// startup flowd restamps a stamped agent end inside startupRestampWindow of
+// now and leaves one older than the window.
+func TestStartupRestampsRecentStampedEnds(t *testing.T) {
+	st := storetest.NewStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 10, 29, 12, 0, 0, 0, time.UTC)
+	if err := st.PutChange(ctx, store.Change{
+		ProjectKey: "proj-startup-restamp", MainCheckoutPath: "/tmp/proj-startup-restamp",
+		Name: "kan-1", State: store.StateStarted, UpdatedAt: now, UpdatedBy: "test",
+	}); err != nil {
+		t.Fatalf("PutChange: %v", err)
+	}
+	agentEnds := map[string]time.Time{}
+	for agent, age := range map[string]time.Duration{"recent": time.Hour, "old": 8 * 24 * time.Hour} {
+		start := now.Add(-age - 30*time.Minute)
+		row, err := st.RecordDispatch(ctx, "proj-startup-restamp", "kan-1", records.Dispatch{
+			Key: "panel-0-" + agent, Role: "reviewer", Model: "opus", AgentID: agent, StartedAt: start,
+		})
+		if err != nil {
+			t.Fatalf("RecordDispatch(%s): %v", agent, err)
+		}
+		if err := st.RetimeDispatch(ctx, row.ID, start, now.Add(-age+123456*time.Microsecond), ""); err != nil {
+			t.Fatalf("RetimeDispatch(%s): %v", agent, err)
+		}
+		agentEnds[agent] = start.Add(10 * time.Minute)
+	}
+	lookup := func(id string) (time.Time, bool) { at, ok := agentEnds[id]; return at, ok }
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	if n := restampRecentEnds(ctx, st, now, lookup, logger); n != 1 {
+		t.Errorf("restampRecentEnds moved %d rows, want 1", n)
+	}
+	// The old row is still a stamped candidate: a whole-table restamp moves it.
+	if n, err := st.RestampStampedEnds(ctx, time.Time{}, lookup); err != nil || n != 1 {
+		t.Errorf("whole-table restamp after startup = %d, %v; want 1 (the old row left alone)", n, err)
 	}
 }

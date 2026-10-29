@@ -300,6 +300,7 @@ func run(logger *slog.Logger) error {
 		}
 		return at, found
 	}
+	restampRecentEnds(ctx, st, time.Now(), agentEnd, logger)
 	srv, err := api.New(cfg, st, st, st, st, st, logger, api.WithSPA(spaHandler), api.WithGuardRuns(st), api.WithRepricer(st),
 		api.WithCommitBase(commitBaseFromRemote(originRemote())), api.WithBuild(buildIdentity()),
 		api.WithAgentEnds(agentEnd))
@@ -986,6 +987,25 @@ func reoutcomeDispatch(args []string) error {
 	}
 	defer st.Close()
 	return st.SetDispatchOutcome(ctx, id, outcome, cause)
+}
+
+// startupRestampWindow is how far back restampRecentEnds looks: long enough
+// to cover a daemon left running on an older build between `make restart`s.
+const startupRestampWindow = 7 * 24 * time.Hour
+
+// restampRecentEnds moves every agent row ended within startupRestampWindow
+// of now whose end the daemon stamped back to its agent transcript's end
+// (kan-1048 self-review, 1-F: a daemon older than kan-1044's fix stamped
+// round-0 panel ends at its own close time). An error is logged and never
+// stops startup. It returns the number of rows moved.
+func restampRecentEnds(ctx context.Context, st *store.Store, now time.Time, agentEnd func(string) (time.Time, bool), logger *slog.Logger) int {
+	since := now.Add(-startupRestampWindow)
+	n, err := st.RestampStampedEnds(ctx, since, agentEnd)
+	if err != nil {
+		logger.Warn("flowd restamp of stamped dispatch ends failed", "since", since, "error", err)
+	}
+	logger.Info("flowd restamped stamped dispatch ends", "count", n, "since", since)
+	return n
 }
 
 // restampEnds implements `flowd restamp-ends <since>`
