@@ -748,7 +748,8 @@ th button {
 .lb-runs col.c-dur { width: 72px; }
 .lb-runs col.c-tok { width: 80px; }
 .lb-runs col.c-cost { width: 72px; }
-.lb-runs td { overflow: hidden; text-overflow: ellipsis; }
+/* clip, not hidden: a hidden cell is a scroll container, which focusing its expander scrolls sideways by its padding. */
+.lb-runs td { overflow: clip; text-overflow: ellipsis; }
 /* Work panels stacked left, their plans stacked right, each card its own height; one stack in panel, plan order when narrow. */
 .lb-work { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); gap: 10px; align-items: start; }
 .lb-work-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
