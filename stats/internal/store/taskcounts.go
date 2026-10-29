@@ -19,7 +19,7 @@ import (
 // integer counts no plan, and the CHECK constraint in the migration would
 // refuse it anyway -- refused here first, before the store is touched, so
 // the route answers 400 rather than 500.
-var ErrInvalidTaskCount = errors.New("store: task count needs a positive total")
+var ErrInvalidTaskCount = errors.New("store: task count needs a positive total and non-negative corrections")
 
 // RecordTaskCount records one observation of a change plan's total task
 // count. An unknown (projectKey, change) pair is ErrChangeNotFound, the
@@ -27,6 +27,9 @@ var ErrInvalidTaskCount = errors.New("store: task count needs a positive total")
 func (s *Store) RecordTaskCount(ctx context.Context, projectKey, change string, in records.TaskCount) (records.TaskCount, error) {
 	if in.TotalTasks <= 0 {
 		return records.TaskCount{}, fmt.Errorf("%w: got total %d", ErrInvalidTaskCount, in.TotalTasks)
+	}
+	if in.Corrections < 0 {
+		return records.TaskCount{}, fmt.Errorf("%w: got corrections %d", ErrInvalidTaskCount, in.Corrections)
 	}
 
 	var out records.TaskCount
