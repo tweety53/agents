@@ -92,6 +92,7 @@ by `/`, an Explore or Plan pair adding `@<effort>`.
 |---|---|---|
 | `explorer` | `opus/Explore@low`, `opus/Explore@medium` | — |
 | `plan-designer` | `opus/Plan@low`, `opus/Plan@medium` | — |
+| `planner` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — |
 | `implementer` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
 | `panel-fix` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
 | `implementer` | `opus/flow-high` | `No-progress escalation` |

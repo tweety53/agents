@@ -202,3 +202,25 @@ func TestCheckDispatchPairAdmitsOverride(t *testing.T) {
 		t.Fatalf("without the override: rc=%d out=%q, want refused", r.rc, r.out)
 	}
 }
+
+// TestCheckDispatchPairAdmitsPlanner: the real table's `planner` row admits
+// opus on flow-planner-medium and -low, nothing else (KAN-1067). No `flow` on
+// PATH, so an open experiment in the dev store cannot change the answer.
+func TestCheckDispatchPairAdmitsPlanner(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		agent, model string
+		rc           int
+	}{
+		{"flow-planner-medium", "opus", 0},
+		{"flow-planner-low", "opus", 0},
+		{"flow-planner-high", "opus", 1},
+		{"flow-planner-medium", "sonnet", 1},
+	} {
+		e := noFlowEnv(t)
+		e.Stdin = strings.NewReader("Role: planner\n")
+		if r := runGuard("check-dispatch-pair", []string{mpRepo, c.agent, c.model}, e); r.rc != c.rc {
+			t.Errorf("%s/%s: rc=%d out=%q, want %d", c.model, c.agent, r.rc, r.out, c.rc)
+		}
+	}
+}
