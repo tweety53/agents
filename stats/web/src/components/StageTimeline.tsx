@@ -9,19 +9,21 @@
 // An open run (no endedAt) draws to now and is hatched rather than given a
 // fabricated end -- the same absence-is-never-zero rule the table applies to
 // its own metrics, applied here to "when did this run finish".
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import type { StageRunDTO } from "../api";
 import { formatClock, formatSpan, formatUsd } from "../format";
 import { readCostUsd } from "../metrics";
 
 const L = 150;
-const W = 900;
 const RH = 24;
 const TOP = 22;
 const HOUR = 3600e3;
 const TICK_STEPS = [1, 2, 3, 6, 12, 24].map((h) => h * HOUR);
 const MAX_TICKS = 12;
+// Bars in one lane closer than this many pixels are drawn joined, so a burst
+// of short runs reads as one stretch rather than a row of slivers.
+const JOIN_GAP = 8;
 
 /** A run's outcome as the run view colours it: open while running, failed, or completed. */
 export function outcomeClass(run: StageRunDTO): "open" | "failed" | "completed" {
@@ -33,6 +35,16 @@ const FILL = { completed: "var(--status-ok)", failed: "var(--status-critical)", 
 
 export function StageTimeline({ stageRuns, sessionOf }: { stageRuns: StageRunDTO[]; sessionOf: (run: StageRunDTO) => string }) {
   const [tip, setTip] = useState<{ run: StageRunDTO; x: number; y: number } | null>(null);
+  // Drawn at the container's real pixel width, so text and bar heights keep
+  // their size whatever the page width.
+  const ref = useRef<SVGSVGElement>(null);
+  const [W, setW] = useState(900);
+  useEffect(() => {
+    const measure = () => ref.current && ref.current.clientWidth > 0 && setW(ref.current.clientWidth);
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
   if (stageRuns.length === 0) return null;
 
   const now = Date.now();
@@ -51,7 +63,7 @@ export function StageTimeline({ stageRuns, sessionOf }: { stageRuns: StageRunDTO
 
   return (
     <>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" className="lb-timeline" role="img" aria-label="Stage runs over time">
+      <svg ref={ref} viewBox={`0 0 ${W} ${H}`} width="100%" height={H} className="lb-timeline" role="img" aria-label="Stage runs over time">
         <defs>
           <pattern id="lb-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <rect width="6" height="6" fill="var(--st-progress)" opacity=".35" />
@@ -73,6 +85,10 @@ export function StageTimeline({ stageRuns, sessionOf }: { stageRuns: StageRunDTO
         ))}
         {stageRuns.map((r) => {
           const x0 = x(Date.parse(r.startedAt));
+          const next = Math.min(
+            ...stageRuns.filter((o) => o.stage === r.stage && Date.parse(o.startedAt) > Date.parse(r.startedAt)).map((o) => x(Date.parse(o.startedAt))),
+          );
+          const x1 = Math.max(x0 + 3, x(end(r)));
           return (
             <rect
               key={r.stageRunId}
@@ -80,7 +96,7 @@ export function StageTimeline({ stageRuns, sessionOf }: { stageRuns: StageRunDTO
               data-testid="timeline-bar"
               x={x0}
               y={TOP + lanes.indexOf(r.stage) * RH + 4}
-              width={Math.max(3, x(end(r)) - x0)}
+              width={(next > x1 && next - x1 <= JOIN_GAP ? next : x1) - x0}
               height={14}
               rx={2}
               fill={FILL[outcomeClass(r)]}
