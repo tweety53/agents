@@ -835,7 +835,7 @@ describe("the reworked run view (kan-1048)", () => {
     expect(within(panel).getByTestId("self-review-summary")).toHaveTextContent(/^plan 1\/2 · findings 1 · fixes round 2$/);
     // What it does now, unmistakably: the running red-verify fixer, its time and model, and where that sits.
     expect(within(panel).getByTestId("self-review-now")).toHaveTextContent(/^Now: Verifying — red verify fix round 2 · for 10m · opus 5\.5$/);
-    expect(within(panel).getByTestId("self-review-progress")).toHaveTextContent("review ✓ → plan ✓ → fix 1/2 ✓ → re-review ✓ → verify ● → land → file");
+    expect(within(panel).getByTestId("self-review-progress")).toHaveTextContent("analyze ✓ → plan ✓ → fix 1/2 ✓ → re-review ✓ → verify ● → land → file");
     // Main: everything else -- its header, Now line, progress over the main phases, summary, plan and roles.
     const main = screen.getByRole("region", { name: "Main" });
     // The summary rides the header.
@@ -1074,12 +1074,12 @@ describe("the reworked run view (kan-1048)", () => {
     expect(findChangesMock).toHaveBeenCalledWith(CHANGE);
     await waitFor(() => expect(within(main).getByTestId("main-summary")).toHaveTextContent(/^plan 1\/1 · findings 2 · fixes round 1$/));
     expect(within(main).getByTestId("main-now")).toHaveTextContent(/^Now: Done$/);
-    expect(within(main).getByTestId("main-progress")).toHaveTextContent("review ✓ → plan ✓ → fix 1/1 ✓ → re-review ✓ → verify ✓ → land ✓ → file ✓");
+    expect(within(main).getByTestId("main-progress")).toHaveTextContent("analyze ✓ → plan ✓ → fix 1/1 ✓ → re-review ✓ → verify ✓ → land ✓ → file ✓");
     expect(screen.getByRole("region", { name: "Tasks" })).toHaveTextContent("✔ 1. Fix the guard");
     const rail = screen.getByRole("region", { name: "Cost by stage" });
     await waitFor(() => expect(rail).toHaveTextContent("Fix rounds"));
     const bars = [...rail.querySelectorAll(".lb-hbar")].map((b) => b.textContent);
-    expect(bars).toEqual(["Review pass$3.00", "Fix rounds$2.00", "Planning fixes$1.00", "Review rounds$0.40", "Landing and filing$0.20"]);
+    expect(bars).toEqual(["Analysis pass$3.00", "Fix rounds$2.00", "Planning fixes$1.00", "Review rounds$0.40", "Landing and filing$0.20"]);
     expect(rail).not.toHaveTextContent(/^Self-review/);
     runRecordMock.mockImplementation(() => Promise.resolve({ dispatches: [] }));
     findChangesMock.mockResolvedValue({ records: [] });

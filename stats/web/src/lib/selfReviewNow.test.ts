@@ -12,7 +12,7 @@ const tasks: PlanTask[] = [
 
 describe("srStep", () => {
   it.each([
-    [`${N}-pass`, { step: "review" }],
+    [`${N}-pass`, { step: "analyze" }],
     [`${N}-plan`, { step: "plan" }],
     [`${N}-plan-2`, { step: "plan" }],
     [`${N}-fix`, { step: "fix" }],

@@ -6,7 +6,7 @@
 import type { PlanTask } from "../api";
 import { formatModel, formatSpan } from "../format";
 
-export const SR_STEPS = ["review", "plan", "fix", "re-review", "verify", "land", "file"] as const;
+export const SR_STEPS = ["analyze", "plan", "fix", "re-review", "verify", "land", "file"] as const;
 export type SrStep = (typeof SR_STEPS)[number];
 
 export interface SrDispatch {
@@ -23,7 +23,7 @@ export interface SrDispatch {
 export function srStep(key: string | undefined): { step: SrStep; round?: number } | null {
   if (!key?.startsWith("self-review-")) return null;
   let m: RegExpExecArray | null;
-  if (/-pass$/.test(key)) return { step: "review" };
+  if (/-pass$/.test(key)) return { step: "analyze" };
   if (/-plan(?:-\d+)?$/.test(key)) return { step: "plan" };
   if ((m = /-fix-v(\d+)$/.exec(key))) return { step: "verify", round: Number(m[1]) };
   if ((m = /-review-(\d+)$/.exec(key))) return { step: "re-review", round: Number(m[1]) };
@@ -57,8 +57,8 @@ export function selfReviewNow(dispatches: SrDispatch[], tasks: PlanTask[] | unde
       : undefined;
   const task = taskN === undefined ? undefined : tasks?.find((t) => t.n === taskN);
   const label =
-    info.step === "review"
-      ? "Reviewing the change"
+    info.step === "analyze"
+      ? "Analyzing the change"
       : info.step === "plan"
         ? "Planning fixes"
         : info.step === "fix"

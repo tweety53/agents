@@ -408,7 +408,7 @@ function selfReviewView(steps: Step[], tasks: PlanTask[] | undefined, findings: 
 
 /** What a self-review step's dispatches cost under, in Cost by stage. */
 const SR_COST_GROUP: Record<SrStep, string> = {
-  review: "Review pass",
+  analyze: "Analysis pass",
   plan: "Planning fixes",
   fix: "Fixing the plan",
   "re-review": "Review rounds",
