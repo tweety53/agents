@@ -148,3 +148,26 @@ func TestListTaskCountsChangeWithNone(t *testing.T) {
 		t.Errorf("ListTaskCounts returned %d rows, want 0", len(counts))
 	}
 }
+
+// TestListTaskCountsLegacyNullCorrections covers a row recorded before
+// 0055: its corrections column is NULL, and listing it must still succeed,
+// reading Corrections as 0 rather than failing the scan.
+func TestListTaskCountsLegacyNullCorrections(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-task-counts-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-415")
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO change_task_counts (change_id, total_tasks, corrections)
+		SELECT id, 7, NULL FROM changes WHERE project_key = $1 AND name = 'kan-415'`, projectKey); err != nil {
+		t.Fatalf("insert legacy row: %v", err)
+	}
+
+	counts, err := st.ListTaskCounts(ctx, projectKey, "kan-415")
+	if err != nil {
+		t.Fatalf("ListTaskCounts: %v", err)
+	}
+	if len(counts) != 1 || counts[0].TotalTasks != 7 || counts[0].Corrections != 0 {
+		t.Errorf("counts = %+v, want one row with TotalTasks 7, Corrections 0", counts)
+	}
+}
