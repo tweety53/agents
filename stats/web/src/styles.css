@@ -721,9 +721,8 @@ th button {
 .lb-sr-prog .current { color: var(--status-ok); font-weight: 600; }
 .lb-tasks .current { color: var(--text-primary); font-weight: 600; }
 .lb-tasks .current .lb-task-mark { color: var(--status-ok); }
-/* Sized to its columns (their widths summed: an auto width would drop the fixed layout), so a short label leaves no gap before its outcome. */
-.lb-runs { table-layout: fixed; width: 950px; }
-.lb-runs col.c-stage { width: 520px; }
+/* Fills its panel: the label column takes what the fixed-width columns leave, and the table scrolls below its minimum. */
+.lb-runs { table-layout: fixed; min-width: 760px; }
 .lb-runs col.c-out { width: 110px; }
 .lb-runs col.c-start { width: 96px; }
 .lb-runs col.c-dur { width: 72px; }

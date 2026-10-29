@@ -7,7 +7,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { StageRunTable } from "./StageRunTable";
+import { StageRunTable, foldPrefixes } from "./StageRunTable";
 import type { RecordDispatch, StageRunDTO } from "../api";
 
 const KEY = "self-review-kan-9-x";
@@ -81,6 +81,15 @@ describe("StageRunTable", () => {
     expect(within(row).getAllByRole("cell")[0]).toHaveTextContent(/^Review round 2 \(sonnet 5\.5\)$/);
     expect(row).toHaveTextContent("clean");
     expect(screen.getByTestId("run-cost").title).toBe("agents $2.15 + main session $0.85");
+  });
+
+  it("says a shared action prefix once", () => {
+    expect(foldPrefixes(["Code review round 2: primary", "Code review round 2: test sanity", "Running lint and tests", "Code review round 3: primary"])).toEqual([
+      "Code review round 2: primary",
+      "test sanity",
+      "Running lint and tests",
+      "Code review round 3: primary",
+    ]);
   });
 
   it("names a dispatch with no record by the key its description leads with", () => {

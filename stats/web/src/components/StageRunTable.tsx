@@ -166,6 +166,15 @@ function actionName(run: StageRunDTO, d: DispatchRow, rec: RecordDispatch | unde
   return capitalize(dispatchName(d, rec).replace(`${stageLabel(run.stage)}: `, ""));
 }
 
+/** Each action's "<prefix>: " left out where the one before it carries the same: "Code review round 2: primary", "Code review round 2: test sanity" read "Code review round 2: primary", "test sanity". */
+export function foldPrefixes(names: string[]): string[] {
+  const prefix = (n: string) => /^(.+?): /.exec(n)?.[1];
+  return names.map((n, i) => {
+    const p = prefix(n);
+    return i > 0 && p !== undefined && p === prefix(names[i - 1]) ? n.slice(p.length + 2) : n;
+  });
+}
+
 /** A dispatch that began before its run did: the tail of an earlier run's dispatch, whose last turns landed here -- its cost stays in this run, its row does not. */
 function isTail(run: StageRunDTO, rec: RecordDispatch | undefined): boolean {
   return rec !== undefined && Date.parse(rec.startedAt) < Date.parse(run.startedAt) - 1000;
@@ -196,7 +205,9 @@ function StageRunRow({ run, now, records, showStage }: { run: StageRunDTO; now: 
   const at = (d: DispatchRow) => Date.parse(records.get(d.agentId)?.startedAt ?? run.startedAt);
   const own = all.filter((d) => !isTail(run, records.get(d.agentId))).sort((a, b) => at(a) - at(b));
   const stage = stageLabel(run.stage);
-  const actions = own.map((d) => `${actionName(run, d, records.get(d.agentId))}${d.model ? ` (${modelEffortText([d.model], d.effort)})` : ""}`).join(" → ");
+  const actions = foldPrefixes(own.map((d) => actionName(run, d, records.get(d.agentId))))
+    .map((what, i) => `${what}${own[i].model ? ` (${modelEffortText([own[i].model!], own[i].effort)})` : ""}`)
+    .join(" → ");
   // No stage lead where the session runs this stage alone, or where the first action already names it.
   const name = !actions ? stage : showStage && !actions.startsWith(stage) ? `${stage} · ${actions}` : actions;
   const expandable = own.length > 1;
@@ -304,7 +315,7 @@ export function StageRunTable({ stageRuns, truncated, totalStageRuns, records = 
       <div className="lb-scroll">
         <table className="lb-table lb-runs">
           <colgroup>
-            <col className="c-stage" />
+            <col />
             <col className="c-out" />
             <col className="c-start" />
             <col className="c-dur" />
