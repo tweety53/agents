@@ -446,7 +446,10 @@ fragments one diff into competing fixups against the same worktree. Chunks run i
 dispatch awaited in the foreground before the next chunk begins and before the round's reproducer
 re-runs begin, and no fix subagent is left in flight when the turn ends. `<round>` is the fix
 round, one above the review round whose findings it fixes: the fix after `panel-0` is
-`panel-fix-1`, and `flow record dispatch` refuses `panel-fix-0` (kan-1040). The round's first
+`panel-fix-1`, and `flow record dispatch` refuses `panel-fix-0` (kan-1040). A fix commit's
+`Flow-Key:` trailer names that same fix round, and `flow record dispatch begin` refuses the
+re-review's reviewer rows while a commit authored since the reviewed round began carries a
+`Flow-Key: panel-fix-<k>` trailer of any other round (kan-1059 self-review, 1a). The round's first
 chunk's `-key` is exactly `panel-fix-<round>`; each further chunk appends `-<n>`
 (`panel-fix-<round>-2`, `-3`, …), contiguous from 2; the handshake retry suffixes `-retry` onto
 its own chunk's key (`panel-fix-<round>[|-<n>]-retry`), and any other key shape is a violation

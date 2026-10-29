@@ -1183,6 +1183,16 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		}
 	}
 
+	// A live re-review of round r reads the fix round's commits, so it
+	// begins only once every fix commit names that fix round (decision
+	// rereview-refuses-offround-trailer).
+	if n, ok := records.PanelDispatchRound(records.Dispatch{Key: *key, Role: *role}); ok && *role == "reviewer" && *startedAt == "" && n >= 1 {
+		if msg := reReviewBlocked(ctx, f, projectKey, n); msg != "" {
+			fmt.Fprintf(stderr, "flow: -key %q: %s\n", *key, msg)
+			return 2
+		}
+	}
+
 	// A live panel-fix begin after round r's reviewers began fixes round r,
 	// so its key is panel-fix-<r+1> (panelFixRoundTaken). A back-fill runs
 	// the same check against its end before it calls begin.
@@ -3731,6 +3741,54 @@ func panelFixKeyedARoundLow(ctx context.Context, f recordIdentityFlags, projectK
 		}
 	}
 	return true
+}
+
+// reReviewBlocked names why a live reviewer begin of panel round r (r >= 1)
+// is refused, "" when it is not: a commit authored since round r-1's
+// reviewers began carries a Flow-Key: panel-fix-<k> trailer with k != r --
+// amendable while it is still the newest (kan-1059 self-review, 1a). Author
+// time, not committer time: a fixup fold rewrites the committer dates of
+// every later commit. A failed record or git read refuses nothing.
+func reReviewBlocked(ctx context.Context, f recordIdentityFlags, projectKey string, r int) string {
+	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+		return cl.GetRunRecord(ctx, projectKey, f.change)
+	})
+	if err != nil {
+		return ""
+	}
+	var since time.Time
+	for _, d := range run.Dispatches {
+		if n, ok := records.PanelDispatchRound(d); ok && n == r-1 && (since.IsZero() || d.StartedAt.Before(since)) {
+			since = d.StartedAt
+		}
+	}
+	if since.IsZero() {
+		return ""
+	}
+	want := "panel-fix-" + strconv.Itoa(r)
+	for _, root := range mutationRoots(ctx, f, projectKey) {
+		out, err := exec.Command("git", "-C", root, "log", "--since="+since.Format(time.RFC3339),
+			"--format=%H %at %(trailers:key=Flow-Key,valueonly,separator=%x20)", "HEAD").Output()
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			fields := strings.Fields(line)
+			if len(fields) < 3 {
+				continue
+			}
+			at, err := strconv.ParseInt(fields[1], 10, 64)
+			if err != nil || time.Unix(at, 0).Before(since) {
+				continue
+			}
+			for _, trailer := range fields[2:] {
+				if m := panelFixRoundRE.FindStringSubmatch(trailer); panelFixKeyRE.MatchString(trailer) && "panel-fix-"+m[1] != want {
+					return fmt.Sprintf("commit %s in %s carries Flow-Key: %s, but the fix round this re-review reads is %s -- amend the trailer to Flow-Key: %s before the re-review (skills/flow/review-panel-fix-round.md)", fields[0], root, trailer, want, want)
+				}
+			}
+		}
+	}
+	return ""
 }
 
 // panelFixRoundClosed refuses, reporting false, an inline back-fill of a

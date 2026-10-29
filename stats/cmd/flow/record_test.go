@@ -7383,3 +7383,71 @@ func TestRecordDispatchBeginRefusesACompletedTask(t *testing.T) {
 		}
 	}
 }
+
+// trailerCommit commits on repo, authored and committed at, carrying the
+// Flow-Key: trailer.
+func trailerCommit(t *testing.T, repo, at, trailer string) {
+	t.Helper()
+	cmd := exec.Command("git", "-C", repo, "commit", "--allow-empty", "-q", "-m", "fix: review findings", "-m", "Flow-Key: "+trailer)
+	cmd.Env = append(os.Environ(),
+		"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
+		"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com",
+		"GIT_AUTHOR_DATE="+at, "GIT_COMMITTER_DATE="+at)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git commit: %v\n%s", err, out)
+	}
+}
+
+// TestRecordDispatchRefusesAReReviewOverAnOffRoundPanelFixTrailer pins the
+// kan-1059 self-review fix, 1a: a live re-review of round 5 is refused while
+// a commit authored since round 4's reviewers began, in a worktree the
+// change's state names, carries Flow-Key: panel-fix-4; the fix round's own
+// trailer, a back-fill and a commit authored before the round pass.
+func TestRecordDispatchRefusesAReReviewOverAnOffRoundPanelFixTrailer(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	record := `{"change":"kan-258","dispatches":[` +
+		`{"key":"panel-4-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-28T02:45:33Z","endedAt":"2026-10-28T02:47:03Z"}]}`
+	var peer string
+	posts := 0
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
+			_, _ = w.Write([]byte(record))
+			return
+		}
+		if r.Method == http.MethodGet {
+			body, _ := json.Marshal(map[string]any{"worktrees": map[string]string{peer: "abc123"}})
+			_, _ = w.Write(body)
+			return
+		}
+		posts++
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"reviewer","model":"opus"}`))
+	}))
+	t.Cleanup(srv.Close)
+	for _, tc := range []struct {
+		name, at, trailer string
+		extra             []string
+		want              int
+	}{
+		{"a trailer a round low", "2026-10-28T02:50:00Z", "panel-fix-4", nil, 2},
+		{"the fix round's trailer", "2026-10-28T02:50:00Z", "panel-fix-5", nil, 0},
+		{"a back-fill", "2026-10-28T02:50:00Z", "panel-fix-4", []string{"-started-at", "2026-10-28T02:55:00Z"}, 0},
+		{"a commit authored before the round", "2026-10-28T02:40:00Z", "panel-fix-4", nil, 0},
+	} {
+		peer = gitRepo(t)
+		trailerCommit(t, peer, tc.at, tc.trailer)
+		posts = 0
+		args := append([]string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", "panel-5-primary", "-slot", "primary",
+			"-session-token", "mf-record-rereview", "-effort", "default"}, tc.extra...)
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		if code != tc.want {
+			t.Errorf("%s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.want, stderr.String())
+		}
+		if tc.want == 2 && (posts != 0 || !strings.Contains(stderr.String(), "panel-fix-5") || !strings.Contains(stderr.String(), "commit ")) {
+			t.Errorf("%s: posts %d, stderr %q; want none and a message naming the commit and panel-fix-5", tc.name, posts, stderr.String())
+		}
+	}
+}

@@ -386,3 +386,34 @@ func TestCheckPanelFixSingleDispatchNonPanelFixShapes(t *testing.T) {
 		})
 	}
 }
+
+// TestCheckPanelFixSingleDispatchAcceptsATrailerOneRoundLow pins the row
+// signal eleven of check-unfinished-work back-fills: a fix commit keyed one
+// round low, recorded under the real round's key, passes; any other round
+// is still refused (kan-1059 self-review, 1a).
+func TestCheckPanelFixSingleDispatchAcceptsATrailerOneRoundLow(t *testing.T) {
+	t.Parallel()
+	wt := t.TempDir()
+	gitRun(t, wt, "init", "-q")
+	writeFile(t, filepath.Join(wt, "spectre/changes/demo/tasks.md"),
+		"# demo\n\n- [ ] 1. Add alpha\n\n**Commit:** feat(alpha): add alpha\n")
+	head := func(trailer string) string {
+		gitRun(t, wt, "commit", "-q", "--allow-empty", "-m", "fix(alpha): review findings", "-m", "Flow-Key: "+trailer)
+		out, err := exec.Command(fixtureGit, "-C", wt, "rev-parse", "HEAD").Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	row := func(key, sha string) []byte {
+		return []byte(`[{"key":"` + key + `","role":"panel-fix","sessionToken":"mf-tok","commitSha":"` + sha + `"}]`)
+	}
+	args := []string{wt, "demo", "mf-tok"}
+	pfdExpect(t, pfdCase{dispatches: row("panel-fix-5", head("panel-fix-4")), args: args}, 0, "OK")
+	chunked := []byte(`[{"key":"panel-fix-5","role":"panel-fix","sessionToken":"mf-tok","commitSha":"` + head("panel-fix-5") +
+		`"},{"key":"panel-fix-5-2","role":"panel-fix","sessionToken":"mf-tok","commitSha":"` + head("panel-fix-4-2") + `"}]`)
+	pfdExpect(t, pfdCase{dispatches: chunked, findings: pfdFindings(11, 4), args: args}, 0, "OK")
+	retried := []byte(`[{"key":"panel-fix-5","role":"panel-fix","sessionToken":"mf-tok"},{"key":"panel-fix-5-retry","role":"panel-fix","sessionToken":"mf-tok","commitSha":"` + head("panel-fix-4") + `"}]`)
+	pfdExpect(t, pfdCase{dispatches: retried, args: args}, 0, "OK")
+	pfdExpect(t, pfdCase{dispatches: row("panel-fix-5", head("panel-fix-3")), args: args}, 1, "carries no Flow-Key: panel-fix-5 trailer")
+}

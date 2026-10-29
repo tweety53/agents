@@ -339,8 +339,11 @@ func pfdPanelFixRows(raw []byte, token string) (keys, foreign []pfdRow, ok bool)
 
 // pfdCheckCommits names each row whose recorded commit carries neither a
 // task's Commit: subject nor a Flow-Key: trailer naming the row's key (its
-// -retry stripped), looked up in the worktree and then in each peer its
-// spec root's peers file names. Rows that recorded no commit are not judged;
+// -retry stripped) or that key one round low, looked up in the worktree and
+// then in each peer its spec root's peers file names. The one-round-low
+// trailer is the row signal eleven of check-unfinished-work back-fills under
+// the real round's key for a commit keyed a round low (kan-1059 self-review,
+// 1a). Rows that recorded no commit are not judged;
 // false is cannot answer -- a tasks.md that does not resolve or read.
 func pfdCheckCommits(env Env, worktree, name string, fixRows []pfdRow, stderr io.Writer) ([]string, bool) {
 	var judged []pfdRow
@@ -386,11 +389,31 @@ func pfdCheckCommits(env Env, worktree, name string, fixRows []pfdRow, stderr io
 			continue
 		}
 		base, _ := strings.CutSuffix(r.key, "-retry")
-		if !subjects[meta[0]] && !slices.Contains(meta[1:], base) && !slices.Contains(meta[1:], r.key) {
+		low := pfdOneRoundLow(base)
+		if !subjects[meta[0]] && !slices.Contains(meta[1:], base) && !slices.Contains(meta[1:], r.key) && (low == "" || !slices.Contains(meta[1:], low)) {
 			violations = append(violations, fmt.Sprintf("%s records commit %s (%q), which is no task's Commit: subject and carries no Flow-Key: %s trailer -- -commit is the task commit the fixup was folded into, or the fix commit itself", r.key, r.commit, meta[0], base))
 		}
 	}
 	return violations, true
+}
+
+// pfdOneRoundLow maps panel-fix-<r>[-<n>] to panel-fix-<r-1>[-<n>]; "" when
+// the key is not that shape or r is 0.
+func pfdOneRoundLow(key string) string {
+	rest, ok := strings.CutPrefix(key, "panel-fix-")
+	if !ok {
+		return ""
+	}
+	round, chunk, _ := strings.Cut(rest, "-")
+	r, err := strconv.Atoi(round)
+	if err != nil || r < 1 {
+		return ""
+	}
+	low := "panel-fix-" + strconv.Itoa(r-1)
+	if chunk != "" {
+		low += "-" + chunk
+	}
+	return low
 }
 
 // pfdPeerRoots is every peer checkout <worktree>/<spec root>/peers names,
