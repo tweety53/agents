@@ -83,3 +83,7 @@ This table is canonical for which `{model, effort}` every flow dispatch may run 
 | tooling analyst, one per worktree whose fix run reports a miss an earlier round passed | `planner` | `tooling-analyst` | `tooling-analysis-<n>` | `skills/flow/visual-verify.md`, **A missed defect — the tooling analysis** |
 | verifier, one per worktree | `verifier` | `visual-verifier` | `visual-verify` (`-2`, `-retry`, `-rest`, `-rest-<n>`, `-fix-<k>`, `-fix-<k>-full`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
 |---|---|---|---|---|
+Each dispatch's model and effort come from `plan-agent-pair.sh <your Key> <n>`, `<n>` counting your planning dispatches from 1, and every dispatch prompt carries the two sentences of **Propagate this** (`~/.claude/rules/agent-baseline.md`) verbatim.
+A no-progress escalation carries its fixer's own Role line — `panel-fix`, or `implementer` for a verify fix (or its loop's `Key:` line) — with its `No-progress escalation` line, and a panel dispatch the operator approved at `high` `Role: panel-reviewer` with its `Operator-approved high` line.
+Each dispatch's model and effort come from `plan-agent-pair.sh <your Key> <n>`, `<n>` counting your planning dispatches from 1, and every dispatch prompt carries the line `Role: explorer` (an Explore agent) or `Role: plan-designer` (a Plan agent) and the two sentences of **Propagate this** (`~/.claude/rules/agent-baseline.md`) verbatim.
+| `implementer` | `opus/flow-high` | `No-progress escalation` |
