@@ -23,7 +23,7 @@ import { effectiveActivity, sessionAlive } from "../lib/sessionAlive";
 import { stageLabel } from "../lib/stageLabel";
 import { ActivityBadge, StatePill } from "./StateBoard";
 import { taskCount } from "../lib/taskCount";
-import { SR_STEPS, selfReviewNow } from "../lib/selfReviewNow";
+import { SR_STEPS, selfReviewNow, srStep, type SrStep } from "../lib/selfReviewNow";
 import { STAGE_PHASE, type Phase } from "../lib/phase";
 import { mainNow, mainProgress, mainSummary, type ProgressState } from "../lib/mainNow";
 import { findChanges, getRunRecord, listSelfReviewFindings, listStageRuns, listStages, type ActiveSubagent, type PlanTask, type RecordDispatch, type SelfReviewFinding, type StageRunDTO } from "../api";
@@ -136,19 +136,25 @@ function measuredSum(values: (number | null | undefined)[]): number | null {
   return known.length ? known.reduce((a, v) => a + v, 0) : null;
 }
 
-/** One line per role of a phase's dispatches: how many, the distinct model · effort pairs, their summed cost, failures and whether any still runs -- costliest first, an unpriced role last. */
+/** One line per role of a phase's dispatches: how many, how many ran on each model · effort (most first), their summed cost, failures and whether any still runs -- costliest first, an unpriced role last. */
 function roleSummary(steps: Step[], costs: Map<string, number>) {
   const byRole = new Map<string, Step[]>();
   for (const d of steps) byRole.set(d.role, [...(byRole.get(d.role) ?? []), d]);
-  return [...byRole].map(([role, ds]) => ({
+  const costOf = (ds: Step[]) => measuredSum(ds.map((d) => (d.agentId ? costs.get(d.agentId) : undefined)));
+  return [...byRole].map(([role, ds]) => {
+    const byModel = new Map<string, Step[]>();
+    for (const d of ds) byModel.set(modelEffortLabel(d), [...(byModel.get(modelEffortLabel(d)) ?? []), d]);
+    const models = [...byModel].sort((a, b) => b[1].length - a[1].length);
+    return {
       role,
       count: ds.length,
-      models: [...new Set(ds.map(modelEffortLabel))].join(", "),
+      models: models.map(([m, xs]) => `${m} ×${xs.length} (${((c) => (c === null ? "—" : formatUsd(c)))(costOf(xs))})`).join(", "),
       effortUnknown: ds.some((d) => !knownEffort(d.effort)),
-      cost: measuredSum(ds.map((d) => (d.agentId ? costs.get(d.agentId) : undefined))),
+      cost: costOf(ds),
       failed: ds.filter((d) => d.endedAt && d.outcome && FAILED_OUTCOMES.has(d.outcome)).length,
       running: ds.some((d) => !d.endedAt),
-    }))
+    };
+  })
     .sort((a, b) => (b.cost ?? -1) - (a.cost ?? -1));
 }
 
@@ -157,8 +163,10 @@ const knownEffort = (e: string | undefined) => (e && e !== "default" ? e : undef
 
 /** A dispatch's model as family and version, with its effort when one is known ("opus 5.5 · low"). */
 function modelEffortLabel(d: Step): string {
+  const model = d.modelVersion || d.model;
+  if (!model) return "unknown";
   const e = knownEffort(d.effort);
-  return `${formatModel(d.modelVersion ?? d.model)}${e ? ` · ${e}` : ""}`;
+  return `${formatModel(model)}${e ? ` · ${e}` : ""}`;
 }
 
 /**
@@ -203,9 +211,10 @@ type Progress = { label: string; state: ProgressState }[];
 
 /**
  * One of the run view's two work panels, Main or Self-review: a header with
- * its status, active time and cost; a Now line, a progress line and a
- * summary; a line per role of its dispatches; then its plan, the task being
- * worked on marked.
+ * its status, active time, cost and summary; a Now line and its progress on
+ * one line; a line per role of its dispatches; then its plan, the task being
+ * worked on marked. A collapsible panel shows its header alone until opened,
+ * open by default while it runs.
  */
 function WorkPanel({
   title,
@@ -218,6 +227,9 @@ function WorkPanel({
   summary,
   tasks,
   currentTask,
+  note,
+  collapsible,
+  defaultOpen,
 }: {
   title: string;
   runs: StageRunDTO[];
@@ -229,8 +241,16 @@ function WorkPanel({
   summary: string;
   tasks?: PlanTask[];
   currentTask?: number;
+  /** A line under the Now line: Main's view of the self-review. */
+  note?: ReactNode;
+  collapsible?: boolean;
+  /** Whether a collapsible panel starts open; it opens while it runs by default. */
+  defaultOpen?: boolean;
 }) {
   const status = workStatus(runs);
+  // Null follows the default -- open while running -- until the operator toggles it.
+  const [toggled, setToggled] = useState<boolean | null>(null);
+  const open = !collapsible || (toggled ?? defaultOpen ?? status === "running");
   const active = runs.reduce((a, r) => a + runEnd(r, now) - Date.parse(r.startedAt), 0);
   const cost = measuredSum(runs.map((r) => readCostUsd(r.metrics)));
   // Costs are this panel's own runs' priced buckets, so its lines add up to its header.
@@ -255,17 +275,32 @@ function WorkPanel({
                 <span className="lb-num lb-phase-cost">{cost === null ? "—" : formatUsd(cost)}</span>
               </>
             )}
+            {summary && (
+              <>
+                {" · "}
+                <span data-testid={`${slug}-summary`}>{summary}</span>
+              </>
+            )}
           </span>
         </span>
-        {extra && <span className="lb-panel-note lb-phase-meta">{extra}</span>}
+        <span className="lb-panel-note lb-phase-meta">
+          {extra}
+          {collapsible && (
+            <button type="button" className="lb-fchip" aria-expanded={open} onClick={() => setToggled(!open)}>
+              {open ? "Hide" : "Show"}
+            </button>
+          )}
+        </span>
       </div>
+      {open && (
       <div className="lb-phase-body">
         <div className="lb-phase-main">
           <div className="lb-phase-sum">
-            <div className="lb-sr-now" data-testid={`${slug}-now`}>
+            <div className="lb-sr-line">
+            <span className="lb-sr-now" data-testid={`${slug}-now`}>
               <strong>Now:</strong> {nowText}
-            </div>
-            <div className="lb-sr-prog" data-testid={`${slug}-progress`}>
+            </span>
+            <span className="lb-sr-prog" data-testid={`${slug}-progress`}>
               {progress.map((p, i) => (
                 <span key={p.label} className={p.state}>
                   {i > 0 && <span className="lb-muted"> → </span>}
@@ -273,8 +308,9 @@ function WorkPanel({
                   {p.state === "done" ? " ✓" : p.state === "current" ? " ●" : ""}
                 </span>
               ))}
+            </span>
             </div>
-            {summary && <div data-testid={`${slug}-summary`}>{summary}</div>}
+            {note}
           </div>
           {status !== "idle" && (
             <ul className="lb-roles">
@@ -328,6 +364,7 @@ function WorkPanel({
           </div>
         )}
       </div>
+      )}
     </section>
   );
 }
@@ -358,6 +395,62 @@ function TaskList({ tasks, current }: { tasks: PlanTask[]; current?: number }) {
 
 const doneOf = (tasks: PlanTask[]) => `${tasks.filter((t) => t.state === "done").length}/${tasks.length} done`;
 
+/** A self-review's Now line, progress over its steps, summary and current task, from its dispatches, plan and findings. */
+function selfReviewView(steps: Step[], tasks: PlanTask[] | undefined, findings: number, stageOpen: boolean, started: boolean, now: number) {
+  const sr = selfReviewNow(steps, tasks, stageOpen, now);
+  const at = sr.current ? SR_STEPS.indexOf(sr.current) : -1;
+  return {
+    nowText: started ? sr.text : "Not started",
+    progress: SR_STEPS.map((st, i) => ({
+      label: st === "fix" && tasks ? `fix ${tasks.filter((t) => t.state === "done").length}/${tasks.length}` : st,
+      state: (!started ? "todo" : sr.done || i < at ? "done" : i === at ? "current" : "todo") as ProgressState,
+    })),
+    summary: selfReviewSummary(tasks, findings, steps),
+    currentTask: sr.taskN,
+  };
+}
+
+/** What a self-review step's dispatches cost under, in Cost by stage. */
+const SR_COST_GROUP: Record<SrStep, string> = {
+  review: "Review pass",
+  plan: "Planning fixes",
+  fix: "Fixing the plan",
+  "re-review": "Re-reviews",
+  verify: "Verify fixes",
+  land: "Landing and filing",
+  file: "Landing and filing",
+};
+
+/**
+ * A self-review run's cost split by what its stage runs did: each recorded
+ * dispatch's cost under its step (a numbered fix round under "Fix rounds"),
+ * the rest of a run -- its main session's turns and any earlier dispatch's
+ * tail -- under the run's first own dispatch's step, a run with none under
+ * landing and filing.
+ */
+function selfReviewCosts(runs: StageRunDTO[], records: RecordDispatch[]): Map<string, number> {
+  const byAgent = new Map(records.filter((d) => d.agentId).map((d) => [d.agentId!, d]));
+  const group = (rec: RecordDispatch) => {
+    const st = srStep(rec.key);
+    return !st ? "Other" : st.step === "fix" && st.round !== undefined ? "Fix rounds" : SR_COST_GROUP[st.step];
+  };
+  const out = new Map<string, number>();
+  const add = (g: string, v: number) => out.set(g, (out.get(g) ?? 0) + v);
+  for (const r of runs) {
+    let left = readCostUsd(r.metrics) ?? 0;
+    const own = Object.entries(asObject(asObject(r.metrics)?.dispatches) ?? {})
+      .map(([id, b]) => ({ rec: byAgent.get(id), cost: readCostUsd(b) ?? 0 }))
+      .filter((d): d is { rec: RecordDispatch; cost: number } => !!d.rec && Date.parse(d.rec.startedAt) >= Date.parse(r.startedAt) - 1000)
+      .sort((a, b) => Date.parse(a.rec.startedAt) - Date.parse(b.rec.startedAt));
+    for (const d of own) {
+      add(group(d.rec), d.cost);
+      left -= d.cost;
+    }
+    add(own.length ? group(own[0].rec) : "Landing and filing", left);
+  }
+  return out;
+}
+
 function jiraKey(change: string): string | null {
   const m = /^([a-z]+-\d+)/i.exec(change);
   return m ? m[1].toUpperCase() : null;
@@ -374,6 +467,8 @@ export function RunDetail({ project, change }: RunDetailProps) {
   const sessions = useMemo(() => (state.status === "ready" ? groupSessions(state.stageRuns) : []), [state]);
 
   const key = jiraKey(change);
+  // A self-review sub-run's own page: its work is one panel, Main, with no sub-run of its own.
+  const isSub = change.startsWith("self-review-");
   const board = state.status === "ready" ? state.board : undefined;
 
   // The stages an unfinished change has still to run: its command's stages after the furthest one it ran.
@@ -421,6 +516,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
   // stage runs, dispatches and findings belong to this change's Self-review phase.
   const [sub, setSub] = useState<{ project: string; name: string; runs: StageRunDTO[]; dispatches: RecordDispatch[]; findings: SelfReviewFinding[] } | null>(null);
   useEffect(() => {
+    if (isSub) return setSub(null);
     let live = true;
     const load = () =>
       findChanges(`self-review-${change}`)
@@ -441,7 +537,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
       live = false;
       clearInterval(id);
     };
-  }, [change]);
+  }, [change, isSub]);
   const phaseRuns = useMemo(() => [...runs0, ...(sub?.runs ?? [])], [runs0, sub]);
   const steps = useMemo(
     () => [...phaseSteps(runs0, dispatches), ...phaseSteps(sub?.runs ?? [], sub?.dispatches ?? [])].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt)),
@@ -454,15 +550,13 @@ export function RunDetail({ project, change }: RunDetailProps) {
   const mainRuns = runs0.filter((r) => STAGE_PHASE[r.stage] !== "Self-review");
   const srStatus = workStatus(srRuns);
   const srStarted = srRuns.length > 0 || board?.currentStage === "flow.self-review";
-  const mainStatus2 = workStatus(mainRuns);
   // The task Main works on: a running dispatch's, else the plan's in-progress one.
   const mainCurrentTask = Number(mainSteps.filter((d) => !d.endedAt && d.taskId).pop()?.taskId ?? board?.tasks?.find((t) => t.state === "in progress")?.n) || undefined;
-  const srNow = selfReviewNow(
-    srSteps,
-    board?.selfReviewTasks,
-    board?.currentStage === "flow.self-review" || phaseRuns.some((r) => STAGE_PHASE[r.stage] === "Self-review" && !r.endedAt),
-    now,
-  );
+  const srOpen = board?.currentStage === "flow.self-review" || srRuns.some((r) => !r.endedAt);
+  const srView = isSub
+    ? selfReviewView(steps, board?.tasks, findings.length, srOpen, runs0.length > 0, now)
+    : selfReviewView(srSteps, board?.selfReviewTasks, allFindings.length, srOpen, srStarted, now);
+  const srCost = measuredSum(srRuns.map((r) => readCostUsd(r.metrics)));
 
   return (
     <section aria-label={`Run detail: ${project}/${change}`} className="dashboard lb">
@@ -532,8 +626,9 @@ export function RunDetail({ project, change }: RunDetailProps) {
           // The self-review sub-run is this change's work, recorded under its own change: Total carries it once.
           const subCost = measuredSum((sub?.runs ?? []).map((r) => readCostUsd(r.metrics)));
           const totalCost = measuredSum([summary.totalCostUsd, subCost]);
-          const byStage = new Map<string, number>();
-          for (const r of runs) byStage.set(r.stage, (byStage.get(r.stage) ?? 0) + (readCostUsd(r.metrics) ?? 0));
+          // A sub-run's every run is Self-review, so its rail splits by what each run did.
+          const byStage = isSub ? selfReviewCosts(runs, dispatches) : new Map<string, number>();
+          if (!isSub) for (const r of runs) byStage.set(r.stage, (byStage.get(r.stage) ?? 0) + (readCostUsd(r.metrics) ?? 0));
           // A stage that cost nothing, or was never measured, is neither listed nor counted in "N more".
           const allStageCost = [...byStage].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
           const stageCost = allStageCost.slice(0, TOP_STAGES);
@@ -653,10 +748,11 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   </section>
               )}
 
-              {(srStatus === "running" && mainStatus2 !== "running" ? ["Self-review", "Main"] : ["Main", "Self-review"]).map((p) =>
-                p === "Main" ? (
+              {isSub ? (
+                <WorkPanel title="Main" runs={runs0} steps={steps} now={now} tasks={board?.tasks} {...srView} />
+              ) : (
+                <>
                   <WorkPanel
-                    key={p}
                     title="Main"
                     runs={mainRuns}
                     steps={mainSteps}
@@ -666,29 +762,27 @@ export function RunDetail({ project, change }: RunDetailProps) {
                     summary={mainSummary(board?.tasks, mainSteps)}
                     tasks={board?.tasks}
                     currentTask={mainCurrentTask}
+                    note={
+                      srStarted && (
+                        <div data-testid="main-self-review">
+                          <strong>Self-review:</strong> {PHASE_STATUS_LABEL[srStatus]} · {srView.summary}
+                          {srCost !== null && ` · ${formatUsd(srCost)}`}
+                        </div>
+                      )
+                    }
                   />
-                ) : (
                   <WorkPanel
-                    key={p}
                     title="Self-review"
                     runs={srRuns}
                     steps={srSteps}
                     now={now}
+                    collapsible
+                    defaultOpen={srOpen}
                     extra={sub && <a href={`#/run/${encodeURIComponent(sub.project)}/${encodeURIComponent(sub.name)}`}>sub-run</a>}
-                    nowText={srStarted ? srNow.text : "Not started"}
-                    progress={SR_STEPS.map((st, i) => {
-                      const at = srNow.current ? SR_STEPS.indexOf(srNow.current) : -1;
-                      const tasks = board?.selfReviewTasks;
-                      return {
-                        label: st === "fix" && tasks ? `fix ${tasks.filter((t) => t.state === "done").length}/${tasks.length}` : st,
-                        state: !srStarted ? "todo" : srNow.done || i < at ? "done" : i === at ? "current" : "todo",
-                      };
-                    })}
-                    summary={selfReviewSummary(board?.selfReviewTasks, allFindings.length, srSteps)}
                     tasks={board?.selfReviewTasks}
-                    currentTask={srNow.taskN}
+                    {...srView}
                   />
-                ),
+                </>
               )}
 
               <section className="lb-panel" aria-label="Timeline">

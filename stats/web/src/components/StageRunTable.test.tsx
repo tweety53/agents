@@ -1,8 +1,9 @@
-// A stage run's row names what its dispatches did; its dispatch rows read the
-// dispatch's plain words, real outcome and timing, never a raw key or agent
-// id, and the exact model as family and version; a main-session row carries
-// the stage's own share so the rows add up to the stage's cost; the stage key
-// and the auto-recorded note live in the row's tooltip only.
+// A stage run's row names what its own dispatches did, each with its model and
+// effort, and leads with its stage only when its session runs more than one;
+// its outcome is the last dispatch's in plain words; its cost splits agents +
+// main session on hover; two or more own dispatches open beneath it in time
+// order, one is the row itself, and a dispatch's tail from an earlier run is
+// never a row of its own.
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
@@ -35,33 +36,61 @@ const records: RecordDispatch[] = [
   { id: 2, agentId: "aeb9c995f7b6dd74f", key: `${KEY}-review-2`, role: "reviewer", model: "sonnet", startedAt: "2026-01-01T00:12:00Z" },
 ];
 
+const other: StageRunDTO = { ...run, stageRunId: 2, stage: "flow.verify", metrics: undefined, startedAt: "2026-01-01T01:00:00Z", endedAt: "2026-01-01T01:01:00Z" };
+
 describe("StageRunTable", () => {
-  it("names a collapsed run by what its dispatches did, keeping the stage key and auto-recorded note to the tooltip", () => {
+  it("names a run by its dispatches' actions with their models, no stage lead when its session runs that stage alone, and no jargon tooltip", () => {
     render(<StageRunTable stageRuns={[run]} records={records} />);
     const cell = screen.getByRole("cell", { name: /^▸/ });
-    expect(cell).toHaveTextContent(/^▸Self-review · fixing, round 2 \(opus\) \+ reviewing fixes, round 2 \(sonnet\)$/);
-    expect(cell.title).toContain("flow.self-review");
-    expect(cell.title).toContain("auto-recorded");
-    expect(screen.queryByText(/auto-recorded/)).not.toBeInTheDocument();
-    expect(screen.queryByText("flow.self-review")).not.toBeInTheDocument();
+    expect(cell).toHaveTextContent(/^▸Fix round 2 \(opus 5\.5\) → Re-review round 2 \(sonnet 5\.5\)$/);
+    expect(cell.title).not.toContain("auto-recorded");
+    expect(cell.closest("tr")).toHaveTextContent(/running/);
   });
 
-  it("reads dispatch rows in plain words with their real outcome and timing, agent id only in a tooltip", async () => {
+  it("leads with the stage when its session runs more than one", () => {
+    render(<StageRunTable stageRuns={[run, other]} records={records} />);
+    expect(screen.getByRole("cell", { name: /^▸/ })).toHaveTextContent(/^▸Self-review · Fix round 2 \(opus 5\.5\) → Re-review round 2/);
+  });
+
+  it("splits the run's cost into agents and main session on hover", () => {
+    render(<StageRunTable stageRuns={[run]} records={records} />);
+    const cost = screen.getByTestId("run-cost");
+    expect(cost).toHaveTextContent(/^\$3\.00$/);
+    expect(cost.title).toBe("agents $2.15 + main session $0.85");
+  });
+
+  it("lists dispatch rows in time order, in plain words with their real outcome and timing, agent id only in a tooltip, and no main-session row", async () => {
     render(<StageRunTable stageRuns={[run]} records={records} />);
     await userEvent.click(screen.getByRole("button", { name: "Show dispatches" }));
     const rows = screen.getAllByTestId("dispatch-row");
-    expect(rows[0]).toHaveTextContent(/^Self-review: fixing, round 2completed00:0110m4kopus 5\.5\$2\.00$/);
-    expect(rows[1]).toHaveTextContent(/^Self-review: reviewing fixes, round 2running00:12/);
+    expect(rows[0]).toHaveTextContent(/^Fix round 2fixed00:0110m4kopus 5\.5\$2\.00$/);
+    expect(rows[1]).toHaveTextContent(/^Re-review round 2running00:12/);
     expect(screen.queryByText(/a548eaf33f9b0cb85/)).not.toBeInTheDocument();
-    expect(screen.queryByText(new RegExp(`${KEY}-fix-2`))).not.toBeInTheDocument();
-    expect(within(rows[0]).getByRole("cell", { name: "Self-review: fixing, round 2" }).title).toContain("a548eaf33f9b0cb85");
-    // main's share: the stage's cost less its dispatches', as a muted one-liner.
-    const main = screen.getByTestId("main-share-row");
-    expect(main).toHaveTextContent(/^main sessionopus 5\.5 · low\$0\.85$/);
+    expect(within(rows[0]).getByRole("cell", { name: "Fix round 2" }).title).toContain("a548eaf33f9b0cb85");
+    expect(screen.queryByText("main session")).not.toBeInTheDocument();
   });
 
-  it("names a dispatch with no record by the key its description leads with", async () => {
+  it("shows a single own dispatch in the row itself, an earlier run's tail neither named nor listed, and the review's clean as the outcome", () => {
+    const tailed: RecordDispatch[] = [
+      { ...records[0], startedAt: "2025-12-31T23:50:00Z", outcome: "completed" },
+      { ...records[1], outcome: "clean", endedAt: "2026-01-01T00:20:00Z" },
+    ];
+    render(<StageRunTable stageRuns={[run]} records={tailed} />);
+    expect(screen.queryByRole("button", { name: "Show dispatches" })).not.toBeInTheDocument();
+    const row = screen.getByRole("row", { name: /Re-review round 2/ });
+    expect(within(row).getAllByRole("cell")[0]).toHaveTextContent(/^Re-review round 2 \(sonnet 5\.5\)$/);
+    expect(row).toHaveTextContent("clean");
+    expect(screen.getByTestId("run-cost").title).toBe("agents $2.15 + main session $0.85");
+  });
+
+  it("names a dispatch with no record by the key its description leads with", () => {
     render(<StageRunTable stageRuns={[run]} />);
-    expect(screen.getByRole("cell", { name: /^▸/ })).toHaveTextContent("Self-review · fixing, round 2 (opus) + reviewing fixes, round 2 (sonnet)");
+    expect(screen.getByRole("cell", { name: /^▸/ })).toHaveTextContent("Fix round 2 (opus 5.5) → Re-review round 2 (sonnet 5.5)");
+  });
+
+  it("shows a run's main session models compactly", () => {
+    const both = { ...run, metrics: { ...(run.metrics as object), models: { "claude-opus-5-5": { tokens: { main: { input: 5 } } }, "claude-sonnet-5-5": { tokens: { main: { input: 5 } } } } } };
+    render(<StageRunTable stageRuns={[both]} records={records} />);
+    expect(screen.getByText("opus+sonnet 5.5 · low")).toBeInTheDocument();
   });
 });

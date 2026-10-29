@@ -20,9 +20,9 @@ import {
   readCostUsd,
   readEffort,
   readMainModels,
+  readModels,
   readTotalInputTokens,
   readMainTokens,
-  readModels,
   readServedEffort,
   readSidechainTokens,
 } from "../metrics";
@@ -82,15 +82,24 @@ function SessionRow({ session, now }: { session: Session; now: number }) {
 
 // --- model, version and effort (design.md's model-version-effort) ---
 
+/** Distinct models compactly, families sharing a version joined: ["claude-opus-5-5", "claude-sonnet-5-5"] reads "opus+sonnet 5.5". */
+export function compactModels(models: string[]): string {
+  const byVersion = new Map<string, string[]>();
+  for (const label of new Set(models.map(formatModel))) {
+    const [fam, ver = ""] = label.split(" ");
+    byVersion.set(ver, [...(byVersion.get(ver) ?? []), fam]);
+  }
+  return [...byVersion].map(([ver, fams]) => `${fams.join("+")}${ver ? ` ${ver}` : ""}`).join(", ");
+}
+
+function modelEffortText(models: string[], effort: string | null): string {
+  const label = compactModels(models);
+  return effort === null ? label : `${label} · ${effort}`;
+}
+
 function modelEffort(models: string[] | null, effort: string | null) {
-  if (models === null) return <Unavailable value={null} />;
-  const label = models.map(formatModel).join(", ");
-  const text = effort === null ? label : `${label} · ${effort}`;
-  return (
-    <span data-testid="measured" title={text}>
-      {text}
-    </span>
-  );
+  if (models === null || models.length === 0) return <Unavailable value={null} />;
+  return <span data-testid="measured">{modelEffortText(models, effort)}</span>;
 }
 
 // --- per-dispatch cost (KAN-201) ---
@@ -157,40 +166,58 @@ function dispatchName(d: DispatchRow, rec: RecordDispatch | undefined): string {
   return named && named !== key ? named : (descriptionWords(d) ?? d.agentType ?? "dispatch");
 }
 
-/** A row's name: its stage, then what its dispatches did and on which model family -- "Self-review · fixing, round 2 (opus) + reviewing fixes, round 2 (sonnet)" -- so a collapsed row already tells one run from the next. */
-function runName(run: StageRunDTO, dispatches: DispatchRow[], records: Map<string, RecordDispatch>): string {
-  const stage = stageLabel(run.stage);
-  const parts = [...dispatches]
-    .sort((a, b) => Date.parse(records.get(a.agentId)?.startedAt ?? "") - Date.parse(records.get(b.agentId)?.startedAt ?? ""))
-    .map((d) => {
-      const what = dispatchName(d, records.get(d.agentId)).replace(new RegExp(`^${stage}: `), "");
-      const family = d.model ? /(opus|sonnet|haiku|fable)/.exec(d.model)?.[1] : undefined;
-      return family ? `${what} (${family})` : what;
-    });
-  return parts.length ? `${stage} · ${parts.join(" + ")}` : stage;
+const capitalize = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+
+/** A dispatch's plain words with its stage's own prefix dropped ("Self-review: fix round 2" reads "Fix round 2" in a Self-review run). */
+function actionName(run: StageRunDTO, d: DispatchRow, rec: RecordDispatch | undefined): string {
+  return capitalize(dispatchName(d, rec).replace(`${stageLabel(run.stage)}: `, ""));
 }
 
-function runTitle(run: StageRunDTO): string {
-  return `${run.stage}${run.autoOpened ? " · auto-recorded: the run started this work without marking a stage, so the store recorded one for it" : ""}`;
+/** A dispatch that began before its run did: the tail of an earlier run's dispatch, whose last turns landed here -- its cost stays in this run, its row does not. */
+function isTail(run: StageRunDTO, rec: RecordDispatch | undefined): boolean {
+  return rec !== undefined && Date.parse(rec.startedAt) < Date.parse(run.startedAt) - 1000;
 }
 
-function StageRunRow({ run, now, records }: { run: StageRunDTO; now: number; records: Map<string, RecordDispatch> }) {
+/** A dispatch's outcome in the words its work earns: a review's clean or findings, a fix's fixed, else its recorded outcome. */
+function dispatchOutcome(rec: RecordDispatch | undefined): string | undefined {
+  if (!rec) return undefined;
+  if (!rec.endedAt) return "running";
+  if (rec.outcome === "fix") return "findings";
+  if ((rec.outcome ?? "completed") === "completed" && /fix/.test(rec.key ?? "")) return "fixed";
+  return rec.outcome ?? "completed";
+}
+
+const outcomeLook = (o: string) => (o === "running" ? "open" : o === "failed" || o === "aborted" ? "failed" : "completed");
+
+/**
+ * One stage run: named by what its own dispatches did, each with its model and
+ * effort ("Fix round 2 (opus 5.5 · low) → Re-review round 2 (sonnet 5.5 · low)"),
+ * led by its stage unless its session runs that stage alone; its outcome the
+ * last dispatch's; its cost the run's whole, split agents + main session on
+ * hover. Two or more own dispatches open beneath it in time order; one is the
+ * row itself.
+ */
+function StageRunRow({ run, now, records, showStage }: { run: StageRunDTO; now: number; records: Map<string, RecordDispatch>; showStage: boolean }) {
   const [open, setOpen] = useState(false);
-  const dispatches = readDispatchRows(run.metrics);
-  // The stage's own main-thread share: its cost less every dispatch's, shown so the rows add up;
-  // null when the stage has no dispatch or any one of them is unpriced.
+  const all = readDispatchRows(run.metrics);
+  const at = (d: DispatchRow) => Date.parse(records.get(d.agentId)?.startedAt ?? run.startedAt);
+  const own = all.filter((d) => !isTail(run, records.get(d.agentId))).sort((a, b) => at(a) - at(b));
+  const stage = stageLabel(run.stage);
+  const actions = own.map((d) => `${actionName(run, d, records.get(d.agentId))}${d.model ? ` (${modelEffortText([d.model], d.effort)})` : ""}`).join(" → ");
+  const name = !actions ? stage : showStage ? `${stage} · ${actions}` : actions;
+  const expandable = own.length > 1;
   const stageCost = readCostUsd(run.metrics);
-  const mainShare =
-    dispatches.length > 0 && stageCost !== null && dispatches.every((d) => d.costUsd !== undefined)
-      ? Math.max(0, stageCost - dispatches.reduce((a, d) => a + (d.costUsd ?? 0), 0))
-      : null;
+  // The agents' share is every dispatch bucket the run carries, tails included; the rest is the main session's own turns.
+  const agents = all.length > 0 && all.every((d) => d.costUsd !== undefined) ? all.reduce((a, d) => a + (d.costUsd ?? 0), 0) : null;
+  const split = stageCost !== null && agents !== null ? `agents ${formatUsd(agents)} + main session ${formatUsd(Math.max(0, stageCost - agents))}` : undefined;
   const outcome = outcomeClass(run);
-  const name = runName(run, dispatches, records);
+  const last = own.length ? dispatchOutcome(records.get(own[own.length - 1].agentId)) : undefined;
+  const word = run.outcome === "failed" ? "failed" : (last ?? run.outcome ?? "completed");
   return (
     <>
-      <tr className="lb-row" onClick={() => dispatches.length > 0 && setOpen(!open)}>
-        <td title={`${name}\n${runTitle(run)}`}>
-          {dispatches.length > 0 ? (
+      <tr className="lb-row" onClick={() => expandable && setOpen(!open)}>
+        <td title={name}>
+          {expandable ? (
             <button
               type="button"
               className="lb-expander"
@@ -214,7 +241,7 @@ function StageRunRow({ run, now, records }: { run: StageRunDTO; now: number; rec
               running
             </span>
           ) : (
-            <span className={`lb-out ${outcome}`}>{run.outcome ?? "completed"}</span>
+            <span className={`lb-out ${outcome === "failed" ? "failed" : outcomeLook(word)}`}>{word}</span>
           )}
         </td>
         <td className="r lb-num">{formatClock(Date.parse(run.startedAt))}</td>
@@ -222,31 +249,22 @@ function StageRunRow({ run, now, records }: { run: StageRunDTO; now: number; rec
         <td className="r lb-num">
           <Unavailable value={readTotalInputTokens(run.metrics)} format={formatKTokens} />
         </td>
-        <td>{modelEffort(readModels(run.metrics), readEffort(run.metrics))}</td>
-        <td className="r lb-num">
-          <Unavailable value={readCostUsd(run.metrics)} format={formatUsd} />
+        {/* With no dispatch, every model the run used is the main session's. */}
+        <td>{modelEffort(readMainModels(run.metrics) ?? (all.length === 0 ? readModels(run.metrics) : null), readEffort(run.metrics))}</td>
+        <td className="r lb-num" title={split} data-testid="run-cost">
+          <Unavailable value={stageCost} format={formatUsd} />
         </td>
       </tr>
-      {open && mainShare !== null && mainShare > 0 && (
-        <tr className="lb-dispatch" data-testid="main-share-row">
-          <td className="lb-dispatch-name lb-muted" title="main's own turns in this stage: dispatching the subagents, reading their reports, acting on them">
-            main session
-          </td>
-          <td colSpan={4} />
-          <td>{modelEffort(readMainModels(run.metrics), readEffort(run.metrics))}</td>
-          <td className="r lb-num">{formatUsd(mainShare)}</td>
-        </tr>
-      )}
       {open &&
-        dispatches.map((d) => {
+        own.map((d) => {
           const rec = records.get(d.agentId);
-          const status = !rec ? undefined : !rec.endedAt ? "running" : (rec.outcome ?? "completed");
+          const status = dispatchOutcome(rec);
           return (
             <tr key={d.agentId} className="lb-dispatch" data-testid="dispatch-row">
               <td className="lb-dispatch-name" title={`${d.description ?? ""}${d.description ? " · " : ""}agent ${d.agentId}`}>
-                {dispatchName(d, rec)}
+                {actionName(run, d, rec)}
               </td>
-              <td>{status ? <span className={`lb-out ${status === "running" ? "open" : status === "failed" || status === "aborted" ? "failed" : "completed"}`}>{status}</span> : <Unavailable value={null} />}</td>
+              <td>{status ? <span className={`lb-out ${outcomeLook(status)}`}>{status}</span> : <Unavailable value={null} />}</td>
               <td className="r lb-num">{rec ? formatClock(Date.parse(rec.startedAt)) : <Unavailable value={null} />}</td>
               <td className="r lb-num">{rec ? formatSpan((rec.endedAt ? Date.parse(rec.endedAt) : now) - Date.parse(rec.startedAt)) : <Unavailable value={null} />}</td>
               <td className="r lb-num">
@@ -306,7 +324,7 @@ export function StageRunTable({ stageRuns, truncated, totalStageRuns, records = 
               <th className="r">Started</th>
               <th className="r">Duration</th>
               <th className="r">Tokens in</th>
-              <th>Model · effort</th>
+              <th title="the main session's own model; each dispatch's is in its name">Main model</th>
               <th className="r">Cost</th>
             </tr>
           </thead>
@@ -322,7 +340,7 @@ export function StageRunTable({ stageRuns, truncated, totalStageRuns, records = 
               <Fragment key={s.label}>
                 <SessionRow session={s} now={now} />
                 {s.runs.map((r) => (
-                  <StageRunRow key={r.stageRunId} run={r} now={now} records={byAgent} />
+                  <StageRunRow key={r.stageRunId} run={r} now={now} records={byAgent} showStage={new Set(s.runs.map((x) => x.stage)).size > 1} />
                 ))}
               </Fragment>
             ))}

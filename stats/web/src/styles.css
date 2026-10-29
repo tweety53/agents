@@ -672,7 +672,7 @@ th button {
 .lb-dispatch td { background: var(--surface-1); color: var(--text-secondary); font-size: 12px; }
 .lb-dispatch .lb-dispatch-name { padding-left: 34px; }
 .lb-expander { color: var(--text-muted); width: 14px; display: inline-block; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
-.lb-tasks { list-style: none; margin: 0; padding: 8px 12px; display: grid; gap: 4px; }
+.lb-tasks { list-style: none; margin: 0; padding: 6px 12px; display: grid; gap: 2px; font-size: 12px; line-height: 1.35; }
 .lb-tasks .done { color: var(--text-muted); }
 .lb-tasks .done .lb-task-mark { color: var(--status-ok); }
 .lb-tasks .in-progress .lb-task-mark { color: var(--st-progress); }
@@ -703,16 +703,17 @@ th button {
 .lb-phase-meta { display: inline-flex; align-items: center; gap: 14px; }
 .lb-phase-cost { color: var(--text-primary); font-weight: 600; }
 .lb-dot.done { background: var(--status-ok); }
-.lb-phase-sum { padding: 8px 12px 0; color: var(--text-secondary); font-size: 12px; display: grid; gap: 2px; }
-.lb-roles { list-style: none; margin: 0; padding: 6px 12px 10px; display: grid; gap: 2px; }
-.lb-roles > li { display: grid; grid-template-columns: 170px minmax(0, 1fr) 80px 150px; gap: 12px; align-items: center; padding: 3px 0; }
+.lb-phase-sum { padding: 6px 12px 0; color: var(--text-secondary); font-size: 12px; line-height: 1.4; display: grid; gap: 2px; }
+.lb-sr-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; }
+.lb-roles { list-style: none; margin: 0; padding: 4px 12px 6px; display: grid; gap: 0; font-size: 12px; line-height: 1.35; }
+.lb-roles > li { display: grid; grid-template-columns: 150px minmax(0, 1fr) 70px auto; gap: 12px; align-items: center; padding: 1px 0; }
 .lb-role { font-weight: 600; white-space: nowrap; }
 .lb-role-models { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lb-roles .r { text-align: right; }
 .lb-role-flags { display: inline-flex; gap: 10px; justify-content: flex-end; white-space: nowrap; }
-.lb-sr-now { font-size: 13px; color: var(--text-primary); padding-bottom: 4px; }
+.lb-sr-now { font-size: 13px; color: var(--text-primary); }
 .lb-sr-now strong { color: var(--status-ok); margin-right: 4px; }
-.lb-sr-prog { font-size: 12px; padding-bottom: 4px; }
+.lb-sr-prog { font-size: 12px; }
 .lb-sr-prog .done { color: var(--text-secondary); }
 .lb-sr-prog .todo { color: var(--text-muted); }
 .lb-sr-prog .current { color: var(--status-ok); font-weight: 600; }
