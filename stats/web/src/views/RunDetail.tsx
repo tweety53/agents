@@ -46,6 +46,24 @@ function taskTitle(tasks: PlanTask[] | undefined, id: string): string {
   return t ? ` (${t.title})` : "";
 }
 
+type AgentStatus = "running" | "waiting" | "needs-you" | "idle";
+const STATUS_LABEL: Record<AgentStatus, string> = {
+  running: "running",
+  waiting: "waiting for subagents",
+  "needs-you": "needs you",
+  idle: "turn ended",
+};
+
+/** An agent's status as a dot whose look names it -- pulsing green running, breathing amber waiting, blinking orange needs you, hollow grey idle -- and its word. */
+function StatusDot({ status }: { status: AgentStatus }) {
+  return (
+    <span className="lb-status">
+      <span className={`lb-dot ${status}`} />
+      {STATUS_LABEL[status]}
+    </span>
+  );
+}
+
 /** What the main session's inline dispatch does: its task with title, else its key, else its role. */
 function inlineWhat(d: ActiveSubagent, tasks: PlanTask[] | undefined): string {
   return d.taskId ? `task ${d.taskId}${taskTitle(tasks, d.taskId)}` : (d.key ?? d.role);
@@ -111,7 +129,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
           const subagents = (board?.subagents ?? []).filter((d) => !d.inline);
           const inline = board?.subagents?.find((d) => d.inline);
           const mainAgent = openRun && {
-            what: inline ? inlineWhat(inline, board?.tasks) : subagents.length > 0 ? "waiting for agents" : stageLabel(openRun.stage),
+            what: inline ? inlineWhat(inline, board?.tasks) : stageLabel(openRun.stage),
             model: inline
               ? formatModel(inline.modelVersion ?? inline.model)
               : (readModels(openRun.metrics)?.map(formatModel).join(", ") ?? "—"),
@@ -119,6 +137,14 @@ export function RunDetail({ project, change }: RunDetailProps) {
             since: inline?.startedAt ?? openRun.startedAt,
           };
           const agentCount = subagents.length + (mainAgent ? 1 : 0);
+          const mainStatus: AgentStatus =
+            board?.activity === "question" || board?.activity === "permission"
+              ? "needs-you"
+              : board?.activity === "idle"
+                ? "idle"
+                : !inline && subagents.length > 0
+                  ? "waiting"
+                  : "running";
           const failed = runs.filter((r) => r.outcome === "failed");
           const byStage = new Map<string, number>();
           for (const r of runs) byStage.set(r.stage, (byStage.get(r.stage) ?? 0) + (readCostUsd(r.metrics) ?? 0));
@@ -178,6 +204,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                       <thead>
                         <tr>
                           <th>Agent</th>
+                          <th>Status</th>
                           <th>Doing</th>
                           <th>Model · effort</th>
                           <th className="r">For</th>
@@ -187,7 +214,10 @@ export function RunDetail({ project, change }: RunDetailProps) {
                         {mainAgent && (
                           <tr className="main">
                             <td>
-                              <span className="lb-live-dot" /> Main
+                              Main
+                            </td>
+                            <td>
+                              <StatusDot status={mainStatus} />
                             </td>
                             <td>{mainAgent.what}</td>
                             <td>
@@ -203,6 +233,9 @@ export function RunDetail({ project, change }: RunDetailProps) {
                               <span className="lb-agent-branch">⎿</span> {d.role}
                             </td>
                             <td>
+                              <StatusDot status="running" />
+                            </td>
+                            <td>
                               {d.taskId ? `task ${d.taskId}${taskTitle(board?.tasks, d.taskId)}` : (d.key ?? "—")}
                             </td>
                             <td>
@@ -214,7 +247,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                         ))}
                         {agentCount === 0 && (
                           <tr>
-                            <td colSpan={4} className="lb-muted">
+                            <td colSpan={5} className="lb-muted">
                               None right now.
                             </td>
                           </tr>

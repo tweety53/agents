@@ -679,3 +679,12 @@ th button {
 .lb-agents tr.main td:first-child { font-weight: 600; }
 .lb-agents tr.sub td:first-child { padding-left: 24px; color: var(--text-secondary); }
 .lb-agent-branch { color: var(--text-muted); }
+.lb-status { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.lb-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+.lb-dot.running { background: var(--status-ok); animation: lb-pulse 1.6s infinite; }
+.lb-dot.waiting { background: var(--series-3); animation: lb-breathe 2.4s ease-in-out infinite; }
+.lb-dot.needs-you { background: var(--status-critical); animation: lb-blink 1s steps(2, start) infinite; }
+.lb-dot.idle { border: 1.5px solid var(--text-muted); }
+@keyframes lb-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+@keyframes lb-blink { to { visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { .lb-dot { animation: none; } }

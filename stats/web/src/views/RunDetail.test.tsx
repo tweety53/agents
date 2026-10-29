@@ -764,8 +764,8 @@ describe("the reworked run view (kan-1048)", () => {
     // The main session leads, marked Main, on its inline task; each subagent is marked Subagent.
     const agentRows = [...subs.querySelectorAll("tbody tr")];
     expect(agentRows).toHaveLength(2);
-    expect(agentRows[0]).toHaveTextContent("Maintask 3 (Run view)");
-    expect(agentRows[1]).toHaveTextContent("⎿ implementertask 2 (Board card)opus-5.5 · high10m");
+    expect(agentRows[0]).toHaveTextContent("Mainneeds youtask 3 (Run view)");
+    expect(agentRows[1]).toHaveTextContent("⎿ implementerrunningtask 2 (Board card)opus-5.5 · high10m");
     expect(subs.querySelector(".lb-panel-note")).toHaveTextContent("2");
     const tasks = screen.getByRole("region", { name: "Tasks" });
     expect(tasks).toHaveTextContent("1/3 done");
@@ -782,6 +782,17 @@ describe("the reworked run view (kan-1048)", () => {
       "Starting up",
     ]);
     expect(rail).toHaveTextContent("$3.50");
+  });
+
+  it("run detail marks main as waiting while only its subagents work", async () => {
+    const waiting = { ...boardRow, activity: "working", subagents: boardRow.subagents.filter((d) => !d.inline) };
+    fetchStatsViewMock.mockImplementation((view: string) =>
+      Promise.resolve(view === "state-board" ? { ...aggregateEnvelope([]), view, rows: [waiting] } : aggregateEnvelope([])),
+    );
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const main = (await screen.findByRole("cell", { name: "Main" })).closest("tr")!;
+    expect(main).toHaveTextContent("Mainwaiting for subagentsImplementing tasks");
+    expect(main.querySelector(".lb-dot.waiting")).not.toBeNull();
   });
 
   it("run detail still shows its stage runs when the board row fails to load", async () => {
