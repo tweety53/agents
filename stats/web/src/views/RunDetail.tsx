@@ -239,7 +239,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                     {stageCost.map(([stage, cost]) => (
                       <div key={stage} className="lb-hbar">
                         <span className="lb-n" title={stage}>
-                          {stage.replace(/^flow\./, "")}
+                          <span title={stage}>{stageLabel(stage)}</span>
                         </span>
                         <span className="lb-t">
                           <span style={{ width: `${maxStage ? (cost / maxStage) * 100 : 0}%` }} />

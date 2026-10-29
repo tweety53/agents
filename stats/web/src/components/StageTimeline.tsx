@@ -14,8 +14,9 @@ import { flushSync } from "react-dom";
 import type { StageRunDTO } from "../api";
 import { formatClock, formatSpan, formatUsd } from "../format";
 import { readCostUsd } from "../metrics";
+import { stageLabel } from "../lib/stageLabel";
 
-const L = 150;
+const L = 210;
 const RH = 18;
 const TOP = 22;
 const HOUR = 3600e3;
@@ -80,7 +81,8 @@ export function StageTimeline({ stageRuns, sessionOf }: { stageRuns: StageRunDTO
         ))}
         {lanes.map((s, i) => (
           <text key={s} className="lb-lane" x={0} y={TOP + i * RH + 12}>
-            {s}
+            <title>{s}</title>
+            {stageLabel(s)}
           </text>
         ))}
         <polyline
@@ -129,7 +131,7 @@ export function StageTimeline({ stageRuns, sessionOf }: { stageRuns: StageRunDTO
       </svg>
       {tip && (
         <div className="lb-tip" role="tooltip" style={{ left: Math.min(tip.x + 12, window.innerWidth - 290), top: tip.y + 12 }}>
-          <b>{tip.run.stage}</b>
+          <b>{stageLabel(tip.run.stage)}</b> <span className="lb-muted">{tip.run.stage}</span>
           <br />
           {sessionOf(tip.run)}
           <br />

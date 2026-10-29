@@ -26,6 +26,7 @@ import {
   readSidechainTokens,
 } from "../metrics";
 import { formatClock, formatModel, formatSpan, formatUsd } from "../format";
+import { stageLabel } from "../lib/stageLabel";
 
 // --- sessions and phases (design.md's session-phase-groups) ---
 
@@ -182,7 +183,8 @@ function StageRunRow({ run, now }: { run: StageRunDTO; now: number }) {
           ) : (
             <span className="lb-expander" />
           )}
-          {run.stage}
+          {stageLabel(run.stage)}
+          {stageLabel(run.stage) !== run.stage && <div className="lb-muted lb-stage-id">{run.stage}</div>}
         </td>
         <td>
           {outcome === "open" ? (

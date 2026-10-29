@@ -709,10 +709,10 @@ describe("the reworked run view (kan-1048)", () => {
   it("run detail shows model version and effort", async () => {
     const user = userEvent.setup();
     render(<RunDetail project={PROJECT} change={CHANGE} />);
-    const kickoff = (await screen.findByRole("cell", { name: "flow.kickoff" })).closest("tr")!;
+    const kickoff = (await screen.findByRole("cell", { name: "Starting up flow.kickoff" })).closest("tr")!;
     expect(kickoff).toHaveTextContent("opus-4.7 · medium");
     // No effort recorded: the model alone.
-    const brainstorm = screen.getByRole("cell", { name: "flow.brainstorm" }).closest("tr")!;
+    const brainstorm = screen.getByRole("cell", { name: "Designing the change flow.brainstorm" }).closest("tr")!;
     expect(within(brainstorm).getByText("opus-4.7")).toBeInTheDocument();
     const open = screen.getByRole("button", { name: "Show dispatches" });
     expect(open.closest("tr")).toHaveTextContent("opus-4.7, sonnet-4.6 · high");
@@ -726,7 +726,7 @@ describe("the reworked run view (kan-1048)", () => {
 
   it("run detail has no filter controls", async () => {
     render(<RunDetail project={PROJECT} change={CHANGE} />);
-    await screen.findByRole("cell", { name: "flow.kickoff" });
+    await screen.findByRole("cell", { name: "Starting up flow.kickoff" });
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
@@ -770,9 +770,13 @@ describe("the reworked run view (kan-1048)", () => {
     expect(tasks).toHaveTextContent("◻ 3. Run view");
     expect(kpi("Failed runs")).toHaveTextContent("1");
     expect(kpi("Failed runs")).toHaveTextContent("1 retried");
-    // Cost by stage: summed per stage, largest first, "flow." dropped.
+    // Cost by stage: summed per stage, largest first, in plain words.
     const rail = screen.getByRole("region", { name: "Cost by stage" });
-    expect(within(rail).getAllByText(/^(sdd-tdd|brainstorm|kickoff)$/).map((e) => e.textContent)).toEqual(["sdd-tdd", "brainstorm", "kickoff"]);
+    expect(within(rail).getAllByText(/^(Implementing tasks|Designing the change|Starting up)$/).map((e) => e.textContent)).toEqual([
+      "Implementing tasks",
+      "Designing the change",
+      "Starting up",
+    ]);
     expect(rail).toHaveTextContent("$3.50");
   });
 
@@ -781,14 +785,17 @@ describe("the reworked run view (kan-1048)", () => {
       view === "state-board" ? Promise.reject(new Error("board down")) : Promise.resolve(aggregateEnvelope([])),
     );
     render(<RunDetail project={PROJECT} change={CHANGE} />);
-    expect(await screen.findByRole("cell", { name: "flow.kickoff" })).toBeInTheDocument();
+    expect(await screen.findByRole("cell", { name: "Starting up flow.kickoff" })).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("stage timeline draws a lane per stage coloured by outcome", async () => {
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const svg = await screen.findByRole("img", { name: "Stage runs over time" });
-    expect([...svg.querySelectorAll("text.lb-lane")].map((t) => t.textContent)).toEqual(["flow.kickoff", "flow.brainstorm", "flow.sdd-tdd"]);
+    // Each lane reads in plain words, its stage id on hover.
+    const lanes = [...svg.querySelectorAll("text.lb-lane")];
+    expect(lanes.map((t) => t.lastChild?.textContent)).toEqual(["Starting up", "Designing the change", "Implementing tasks"]);
+    expect(lanes.map((t) => t.querySelector("title")?.textContent)).toEqual(["flow.kickoff", "flow.brainstorm", "flow.sdd-tdd"]);
     const fills = [...svg.querySelectorAll("rect.lb-bar")].map((r) => r.getAttribute("fill"));
     expect(fills).toEqual(["var(--status-ok)", "var(--status-ok)", "var(--status-critical)", "url(#lb-hatch)"]);
     expect(svg.querySelector("line.lb-now")).not.toBeNull();

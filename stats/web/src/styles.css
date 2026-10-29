@@ -675,3 +675,4 @@ th button {
 .lb-tasks .done { color: var(--text-muted); }
 .lb-tasks .done .lb-task-mark { color: var(--status-ok); }
 .lb-tasks .in-progress .lb-task-mark { color: var(--st-progress); }
+.lb-stage-id { font-size: 11px; }

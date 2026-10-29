@@ -1,5 +1,5 @@
 // Plain-words names for the pipeline's stage ids, for the board's cards and
-// stage column; an id not listed falls back to itself without its "flow." prefix.
+// stage column; an id not listed falls back to itself.
 const LABELS: Record<string, string> = {
   "plan.session": "Planning session",
   "flow.kickoff": "Starting up",
@@ -36,5 +36,5 @@ const LABELS: Record<string, string> = {
 };
 
 export function stageLabel(stage: string): string {
-  return LABELS[stage] ?? stage.replace(/^flow\./, "");
+  return LABELS[stage] ?? stage;
 }
