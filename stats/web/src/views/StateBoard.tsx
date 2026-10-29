@@ -14,6 +14,7 @@ import type { StateBoardRow } from "../api";
 import { useStatsView } from "../hooks/useStatsView";
 import { DAY_MS, formatInt, formatRelative, formatSpan, formatUsd } from "../format";
 import { projectLabel } from "../lib/projectLabel";
+import { runningTask } from "../lib/runningTask";
 import { stageLabel } from "../lib/stageLabel";
 
 const REFRESH_MS = 5000;
@@ -44,11 +45,10 @@ interface Filters {
   project: string | null;
   states: Set<string>;
   period: PeriodChip;
-  errors: boolean;
   query: string;
 }
 
-const NO_FILTERS: Filters = { project: null, states: new Set(), period: "7d", errors: false, query: "" };
+const NO_FILTERS: Filters = { project: null, states: new Set(), period: "7d", query: "" };
 
 /**
  * The board's only navigation path into a single change's own dashboard.
@@ -105,8 +105,9 @@ function Chip({ on, onClick, title, children }: { on: boolean; onClick: () => vo
 function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
   const total = row.currentTasks;
   const done = row.doneTasks ?? 0;
+  const task = runningTask(row);
   // The main session while a stage is open or it works between stages, plus its subagents.
-  const agentCount = (row.subagents ?? []).filter((d) => !d.inline).length + (row.currentStage !== undefined || (row.activity !== undefined && row.activity !== "idle") ? 1 : 0);
+  const agentCount = (row.subagents ?? []).filter((d) => !d.inline).length + (row.currentStage !== undefined || row.subagents?.some((d) => d.inline) || (row.activity !== undefined && row.activity !== "idle") ? 1 : 0);
   return (
     <div
       className={`lb-card${needsOperator(row) ? " needs" : ""}`}
@@ -127,10 +128,20 @@ function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
           <span title={row.currentStage}>{stageLabel(row.currentStage)}</span>
           {row.currentStageStartedAt && <span className="lb-muted">· {formatSpan(now - Date.parse(row.currentStageStartedAt))}</span>}
         </div>
+      ) : task ? (
+        <div className="lb-stage">
+          <span className="lb-live-dot" />
+          <span>Working between stages</span>
+        </div>
       ) : (
         <div className="lb-stage">
           <span title={row.lastStage}>{row.lastStage === undefined ? "No stage yet" : `Paused after: ${stageLabel(row.lastStage)}`}</span>
           {row.lastStageEndedAt && <span className="lb-muted">· {formatSpan(now - Date.parse(row.lastStageEndedAt))} ago</span>}
+        </div>
+      )}
+      {task && (
+        <div className="lb-task-now" data-testid="running-task" title={task}>
+          {task}
         </div>
       )}
       <ActivityBadge row={row} now={now} />
@@ -216,7 +227,6 @@ function ChangeRow({ row, now, maxCost }: { row: StateBoardRow; now: number; max
           </span>
         </span>
       </td>
-      <td className="r lb-num">{row.errors ? <span className="lb-err">{formatInt(row.errors)}</span> : <span className="lb-muted">0</span>}</td>
     </tr>
   );
 }
@@ -277,7 +287,6 @@ export function StateBoard() {
   const base = inPeriod.filter(
     (r) =>
       (!filters.project || r.projectKey === filters.project) &&
-      (!filters.errors || r.errors > 0) &&
       (!query || r.name.toLowerCase().includes(query)),
   );
   const shown = base.filter((r) => filters.states.size === 0 || filters.states.has(r.state));
@@ -286,7 +295,7 @@ export function StateBoard() {
     .sort((a, b) => Number(!needsOperator(a)) - Number(!needsOperator(b)));
   const maxCost = Math.max(0, ...rows.map((r) => r.costUsd));
   const projects = [...new Set(inPeriod.map((r) => r.projectKey).concat(filters.project ?? []))];
-  const dirty = filters.project || filters.states.size > 0 || filters.period !== "7d" || filters.errors || filters.query;
+  const dirty = filters.project || filters.states.size > 0 || filters.period !== "7d" || filters.query;
 
   return (
     <section aria-label="Live state board" className="dashboard lb">
@@ -311,11 +320,6 @@ export function StateBoard() {
               {p}
             </Chip>
           ))}
-        </span>
-        <span className="lb-fgroup">
-          <Chip on={filters.errors} onClick={() => set({ errors: !filters.errors })}>
-            With errors only
-          </Chip>
         </span>
         {dirty && (
           <button type="button" className="lb-fclear" onClick={() => setFilters(NO_FILTERS)}>
@@ -373,13 +377,12 @@ export function StateBoard() {
                 <th className="r">Updated</th>
                 <th className="r">Runs</th>
                 <th className="r">Cost</th>
-                <th className="r" title="Failed tool calls and API requests">Tool errors</th>
               </tr>
             </thead>
             <tbody>
               {shown.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="lb-muted">
+                  <td colSpan={8} className="lb-muted">
                     No changes match.
                   </td>
                 </tr>
@@ -398,7 +401,7 @@ export function StateBoard() {
                       onClick={toggle}
                       onKeyDown={(e) => e.key === "Enter" && toggle()}
                     >
-                      <td colSpan={9}>
+                      <td colSpan={8}>
                         <span className="lb-caret">▾</span>
                         {STATE_LABEL[s]}
                         <span className="lb-cnt">{group.length}</span>

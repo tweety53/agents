@@ -796,14 +796,24 @@ describe("the reworked run view (kan-1048)", () => {
   });
 
   it("run detail lists main while it works between stages", async () => {
-    const between = { ...boardRow, currentStage: undefined, activity: "working", subagents: [] };
+    const between = {
+      ...boardRow,
+      currentStage: undefined,
+      activity: "working",
+      tasks: [{ n: 4, title: "In-run fix 1 — visual-verify: divider", state: "in progress" }],
+      subagents: [{ role: "implementer", taskId: "4", model: "opus", startedAt: "2026-01-01T02:58:00Z", inline: true }],
+    };
     listStageRunsMock.mockResolvedValue(stageRunsResponse(planning));
     fetchStatsViewMock.mockImplementation((view: string) =>
       Promise.resolve(view === "state-board" ? { ...aggregateEnvelope([]), view, rows: [between] } : aggregateEnvelope([])),
     );
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const main = (await screen.findByRole("cell", { name: "Main" })).closest("tr")!;
-    expect(main).toHaveTextContent("Mainrunningafter Designing the change");
+    expect(main).toHaveTextContent("Mainrunningtask 4 (In-run fix 1 — visual-verify: divider)");
+    // Now running names the in-run fix even with no stage open.
+    const kpi = screen.getByRole("group", { name: "Now running" });
+    expect(kpi).toHaveTextContent("Working between stages");
+    expect(kpi).toHaveTextContent("Task 4: In-run fix 1 — visual-verify: divider");
   });
 
   it("run detail still shows its stage runs when the board row fails to load", async () => {

@@ -160,6 +160,8 @@ const fixtures: Record<
       projectKey: "gymie-7c1f238a",
       name: "kan-5-old",
       state: "STARTED",
+      tasks: [{ n: 6, title: "In-run fix 1 — visual-verify: divider missing", state: "in progress" }],
+      subagents: [{ role: "implementer", taskId: "6", model: "opus", startedAt: "2026-01-15T11:58:00Z", inline: true }],
       lastStage: "flow.writing-plans",
       lastStageEndedAt: "2026-01-15T11:55:00Z",
       updatedAt: "2026-01-01T10:00:00Z",
@@ -405,10 +407,6 @@ describe("views render their fixture response's actual values", () => {
     await clear();
     expect(visible("kan-5-old")).toBe(false);
     expect(visible("kan-16-stats-app")).toBe(true);
-    await user.click(screen.getByRole("button", { name: "With errors only" }));
-    expect(visible("kan-16-stats-app")).toBe(true);
-    expect(visible("kan-29-never-observed")).toBe(false);
-    await clear();
     await user.type(screen.getByRole("searchbox", { name: "Search changes" }), "KAN-29");
     expect(visible("kan-29-never-observed")).toBe(true);
     expect(visible("kan-16-stats-app")).toBe(false);
@@ -440,10 +438,12 @@ describe("views render their fixture response's actual values", () => {
     expect(within(cards[1]).getByTestId("agent-count")).toHaveTextContent("3 agents running");
     // An open stage alone is the main session, one agent; a change between stages has none.
     expect(within(cards[0]).getByTestId("agent-count")).toHaveTextContent("1 agent running");
-    expect(within(cards[2]).queryByTestId("agent-count")).toBeNull();
+    expect(within(cards[2]).getByTestId("agent-count")).toHaveTextContent("1 agent running");
     // A change between stages still names its latest stage and what runs next.
     expect(cards[2]).toHaveTextContent("kan-5-old");
-    expect(cards[2]).toHaveTextContent("Paused after: Writing the task plan· 5m ago");
+    // ...unless a dispatch works a task between stages, which the card names.
+    expect(cards[2]).toHaveTextContent("Working between stages");
+    expect(within(cards[2]).getByTestId("running-task")).toHaveTextContent("Task 6: In-run fix 1 — visual-verify: divider missing");
     expect(screen.getByText("Active runs", { selector: ".lb-lbl" }).nextSibling).toHaveTextContent("3");
   });
 
@@ -458,14 +458,14 @@ describe("views render their fixture response's actual values", () => {
     await user.click(groups[2]);
     expect(table.getByRole("link", { name: "kan-31-replan-fold" })).toBeInTheDocument();
     // A row: state pill, current stage, tasks with growth, relative update
-    // with the ISO time as its title, cost, errors in red.
+    // with the ISO time as its title, cost; no errors column.
     const row = table.getByRole("link", { name: "kan-16-stats-app" }).closest("tr")!;
     expect(row).toHaveTextContent("IN_PROGRESS");
     expect(row).toHaveTextContent("Implementing tasks");
     expect(within(row).getByText("+24")).toBeInTheDocument();
     expect(within(row).getByTitle("2026-01-15T10:00:00.000Z")).toHaveTextContent("2h ago");
     expect(row).toHaveTextContent("$12.50");
-    expect(within(row).getByText("3")).toHaveClass("lb-err");
+    expect(table.queryByRole("columnheader", { name: /errors/i })).not.toBeInTheDocument();
     // A session that is not working says so beside its stage.
     const asking = table.getByRole("link", { name: "kan-29-never-observed" }).closest("tr")!;
     expect(asking).toHaveTextContent("Awaiting your answer");

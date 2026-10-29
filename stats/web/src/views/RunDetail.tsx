@@ -17,6 +17,7 @@ import { useRunDetail } from "../hooks/useRunDetail";
 import { formatModel, formatRelative, formatSpan, formatUsd } from "../format";
 import { readCacheReadTokens, readCostUsd, readEffort, readModels, readTotalInputTokens } from "../metrics";
 import { projectLabel } from "../lib/projectLabel";
+import { runningTask } from "../lib/runningTask";
 import { stageLabel } from "../lib/stageLabel";
 import { ActivityBadge, StatePill } from "./StateBoard";
 import type { ActiveSubagent, PlanTask, StageRunDTO } from "../api";
@@ -130,7 +131,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
           const inline = board?.subagents?.find((d) => d.inline);
           // Between stages the main session still counts while it works or waits on you.
           const lastRun = [...runs].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt))[0];
-          const betweenStages = !openRun && lastRun && board?.activity !== undefined && board.activity !== "idle";
+          const betweenStages = !openRun && lastRun && (inline !== undefined || (board?.activity !== undefined && board.activity !== "idle"));
           const mainRun = openRun ?? (betweenStages ? lastRun : undefined);
           const mainAgent = mainRun && {
             what: inline ? inlineWhat(inline, board?.tasks) : openRun ? stageLabel(openRun.stage) : `after ${stageLabel(mainRun.stage)}`,
@@ -140,6 +141,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
             effort: readEffort(mainRun.metrics) ?? undefined,
             since: inline?.startedAt ?? (openRun ? openRun.startedAt : (board?.activitySince ?? mainRun.endedAt ?? mainRun.startedAt)),
           };
+          const nowTask = board ? runningTask(board) : null;
           const agentCount = subagents.length + (mainAgent ? 1 : 0);
           const mainStatus: AgentStatus =
             board?.activity === "question" || board?.activity === "permission"
@@ -166,18 +168,25 @@ export function RunDetail({ project, change }: RunDetailProps) {
                       <>
                         <span className="lb-live-dot" /> <span title={openRun.stage}>{stageLabel(openRun.stage)}</span>
                       </>
+                    ) : nowTask ? (
+                      <>
+                        <span className="lb-live-dot" /> Working between stages
+                      </>
                     ) : (
                       <span className="lb-muted">—</span>
                     )
                   }
                   hint={
-                    openRun &&
-                    `for ${formatSpan(now - Date.parse(openRun.startedAt))}${
-                      board?.currentTasks !== undefined ? ` · tasks ${board.doneTasks ?? 0}/${board.currentTasks}` : ""
-                    }`
+                    <>
+                      {openRun &&
+                        `for ${formatSpan(now - Date.parse(openRun.startedAt))}${
+                          board?.currentTasks !== undefined ? ` · tasks ${board.doneTasks ?? 0}/${board.currentTasks}` : ""
+                        }`}
+                      {nowTask && <div className="lb-task-now">{nowTask}</div>}
+                    </>
                   }
                 >
-                  {openRun && board && <ActivityBadge row={board} now={now} />}
+                  {(openRun || nowTask) && board && <ActivityBadge row={board} now={now} />}
                 </Kpi>
                 <Kpi
                   label="Total cost"
