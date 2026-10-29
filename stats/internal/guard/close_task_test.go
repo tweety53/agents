@@ -412,8 +412,8 @@ func TestCloseTaskRefusesAnUndispatchedAppendedTask(t *testing.T) {
 		warn       bool
 	}{
 		{"an appended task no row names is refused", `[{"key":"task-1-implementer","taskId":""}]`, true},
-		{"an appended task its key names is silent", `[{"key":"task-2-implementer","taskId":""}]`, false},
-		{"an appended task its taskId names is silent", `[{"key":"impl","taskId":"2"}]`, false},
+		{"an appended task its key names is silent", `[{"key":"task-2-implementer","taskId":"","commitSha":"abc"}]`, false},
+		{"an appended task its taskId names is silent", `[{"key":"impl","taskId":"2","commitSha":"abc"}]`, false},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
@@ -708,7 +708,7 @@ func TestCloseTaskRunsPlanShapeOnInRunFix(t *testing.T) {
 			t.Parallel()
 			fx := ctFixture(t, true, "0", "0")
 			writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", bt(c.plan))
-			writeFile(t, fx.dispatches, `[{"key":"verify-fix-1","taskId":"4"}]`)
+			writeFile(t, fx.dispatches, `[{"key":"verify-fix-1","taskId":"4","commitSha":"abc"}]`)
 			sha := fx.commit(t, fx.wt, c.subject, c.task, c.files...)
 			r := fx.run(fx.wt, "demo", fx.base, c.task+":"+sha)
 			if got := strings.Contains(r.out+r.err, f21); got != c.refused {
@@ -728,6 +728,42 @@ func TestCloseTaskRunsPlanShapeOnInRunFix(t *testing.T) {
 			if r.rc != 0 {
 				t.Fatalf("exit %d, want 0\n%s\n%s", r.rc, r.out, r.err)
 			}
+		})
+	}
+}
+
+// TestCloseTaskRefusesAnAppendedTaskRowWithNoCommit pins the kan-1059
+// self-review fix, 5a: an appended task none of whose naming rows carries a
+// commit is refused, exit 1, nothing ticked, naming the row and the repair;
+// one naming row with a commit closes it, and a non-appended task is never
+// judged.
+func TestCloseTaskRefusesAnAppendedTaskRowWithNoCommit(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		name, header, rows string
+		refused            bool
+	}{
+		{"an appended task whose row carries no commit is refused", "> **Tasks appended:** 2\n\n", `[{"id":8623,"key":"task-2-implementer","taskId":""}]`, true},
+		{"an appended task with one row carrying a commit closes", "> **Tasks appended:** 2\n\n", `[{"id":8623,"key":"task-2-implementer","taskId":""},{"id":8624,"key":"task-2-implementer-retry","taskId":"2","commitSha":"abc"}]`, false},
+		{"a non-appended task with a commit-less row closes", "", `[{"id":8623,"key":"task-2-implementer","taskId":""}]`, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			fx := ctFixture(t, true, "0", "0")
+			writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", c.header+ctPlan)
+			writeFile(t, fx.dispatches, c.rows)
+			s2 := fx.commit(t, fx.wt, "two", "2", "b.txt", "b\n")
+			r := fx.run(fx.wt, "demo", fx.base, "2:"+s2)
+			if !c.refused {
+				if r.rc != 0 {
+					t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
+				}
+				return
+			}
+			if r.rc != 1 || !strings.Contains(r.err, "dispatch row 8623 carries no commit") || !strings.Contains(r.err, "flowd retime-dispatch 8623") {
+				t.Fatalf("exit %d, want 1 naming row 8623 and flowd retime-dispatch\n%s", r.rc, r.out)
+			}
+			ctEqual(t, fx.calls(t), []string{"flow record dispatches -change demo -C " + fx.wt})
 		})
 	}
 }

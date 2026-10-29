@@ -110,8 +110,8 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 		closed = append(closed, t.id)
 	}
 	undispatched := ctUndispatched(env, canonical, name, closed)
-	for _, id := range undispatched {
-		fmt.Fprintf(stderr, "close-task: appended task %s has no dispatch row naming it — record its dispatch (`flow record dispatch backfill … -task %s -started-at <instant> -ended-at <instant> -outcome <outcome>`), then re-run without the -end-* flags\n", id, id)
+	for _, line := range undispatched {
+		fmt.Fprintln(stderr, line)
 	}
 
 	// Both commit guards run before anything is ticked or pushed, so a
@@ -152,7 +152,7 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 		return 2
 	}
 	if len(undispatched) > 0 {
-		fmt.Fprintln(stderr, "close-task: RECORD — an appended task has no dispatch row; nothing was ticked or pushed")
+		fmt.Fprintln(stderr, "close-task: RECORD — an appended task has no dispatch row carrying its commit; nothing was ticked or pushed")
 		return 1
 	}
 
@@ -357,8 +357,10 @@ func ctCheckTrailer(env Env, stdout, stderr io.Writer, canonical, name, id, comm
 }
 
 // ctUndispatched is signal four's predicate (uwAppended, uwRowTasks) at
-// close time: the closed tasks the plan's **Tasks appended:** line marks as
-// appended that no dispatch row of the change names. Nil when no closed task
+// close time, one refusal line per closed task the plan's **Tasks
+// appended:** line marks as appended that no dispatch row of the change
+// names -- or whose naming rows all carry no commit, which the ledger then
+// reads as "no commit" (kan-1059 self-review, 5a). Nil when no closed task
 // is appended -- the store is then never read -- or when the plan or the
 // store cannot be read: a warning that cannot judge stays silent.
 func ctUndispatched(env Env, canonical, name string, closed []string) []string {
@@ -381,25 +383,34 @@ func ctUndispatched(env Env, canonical, name string, closed []string) []string {
 	}
 	out, _, rc := pcFlow(env, false, "record", "dispatches", "-change", name, "-C", canonical)
 	var rows []struct {
-		Key    string `json:"key"`
-		TaskID string `json:"taskId"`
+		ID        int64  `json:"id"`
+		Key       string `json:"key"`
+		TaskID    string `json:"taskId"`
+		CommitSha string `json:"commitSha"`
 	}
 	if rc != 0 || json.Unmarshal(out, &rows) != nil {
 		return nil
 	}
-	named := map[string]bool{}
+	named := map[string][]int64{}
+	committed := map[string]bool{}
 	for _, d := range rows {
 		for _, id := range uwRowTasks(d.Key, d.TaskID) {
-			named[id] = true
+			named[id] = append(named[id], d.ID)
+			committed[id] = committed[id] || d.CommitSha != ""
 		}
 	}
-	var missing []string
+	var lines []string
 	for _, id := range judged {
-		if !named[id] {
-			missing = append(missing, id)
+		switch {
+		case named[id] == nil:
+			lines = append(lines, fmt.Sprintf("close-task: appended task %s has no dispatch row naming it — record its dispatch (`flow record dispatch backfill … -task %s -started-at <instant> -ended-at <instant> -outcome <outcome>`), then re-run without the -end-* flags", id, id))
+		case !committed[id]:
+			for _, row := range named[id] {
+				lines = append(lines, fmt.Sprintf("close-task: appended task %s: dispatch row %d carries no commit — stamp it (`flowd retime-dispatch %d <started-at> <ended-at> <the task's sha>`, or `-commit` on the back-fill), then re-run without the -end-* flags", id, row, row))
+			}
 		}
 	}
-	return missing
+	return lines
 }
 
 // ctCheckSuiteZips refuses a task commit — every map pair's — whose

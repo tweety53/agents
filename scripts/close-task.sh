@@ -17,8 +17,9 @@
 #      Then, for every task it closes that the plan's `**Tasks appended:**`
 #      line counts or whose title opens `In-run fix <k> — `,
 #      `flow record dispatches -change <name> -C <canonical>`:
-#      an appended task no row names is refused at step 4 (exit 1); a
-#      store that cannot be read refuses nothing.
+#      an appended task no row names, or whose naming rows all carry no
+#      commit, is refused at step 4 (exit 1); a store that cannot be read
+#      refuses nothing.
 #   2. Each task's commit first gains one <worktree>=<sha> pair per worktree
 #      of `flow state get -C <canonical> <name>`'s worktrees map the argument
 #      left out whose newest commit since its base carries the task's
