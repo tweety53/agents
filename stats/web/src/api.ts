@@ -260,7 +260,7 @@ export interface PlanTask {
   state: "done" | "in progress" | "pending";
 }
 
-/** Mirrors store.ActiveDispatch: a dispatch begun and, unless endedAt is set, not yet ended. */
+/** Mirrors store.ActiveDispatch: a dispatch begun and not yet ended. */
 export interface ActiveSubagent {
   role: string;
   taskId?: string;
@@ -271,9 +271,6 @@ export interface ActiveSubagent {
   startedAt: string;
   /** Run by the main session itself, not a subagent. */
   inline?: boolean;
-  /** Set only on a stageDispatches entry that ended. */
-  endedAt?: string;
-  outcome?: string;
 }
 
 export interface StateBoardRow {
@@ -313,8 +310,6 @@ export interface StateBoardRow {
   sessionSeenAt?: string;
   /** Dispatches begun since the open stage started, ended or not. */
   openStageDispatches?: number;
-  /** Those dispatches, oldest first. */
-  stageDispatches?: ActiveSubagent[];
   activity?: 'working' | 'question' | 'permission' | 'idle';
   activityDetail?: string;
   activitySince?: string;
@@ -753,6 +748,25 @@ export function buildModelsQuery(params: ModelsParams): URLSearchParams {
     qs.set("project", params.project);
   }
   return qs;
+}
+
+/** The fields the run view reads of a records.Dispatch, the run record's dispatch row. */
+export interface RecordDispatch {
+  id: number;
+  key?: string;
+  taskId?: string;
+  role: string;
+  model: string;
+  effort?: string;
+  outcome?: string;
+  startedAt: string;
+  endedAt?: string;
+  metrics?: { modelVersion?: string };
+}
+
+/** GET /api/v1/records/{project}/{change} -- the change's run record; the run view reads its dispatches. */
+export function getRunRecord(project: string, change: string, init?: RequestInit): Promise<{ dispatches: RecordDispatch[] }> {
+  return getJSON<{ dispatches: RecordDispatch[] }>(`/api/v1/records/${encodeURIComponent(project)}/${encodeURIComponent(change)}`, init);
 }
 
 /** Mirrors records.SelfReviewFinding. */

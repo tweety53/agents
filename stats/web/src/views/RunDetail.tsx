@@ -23,7 +23,8 @@ import { effectiveActivity, sessionAlive } from "../lib/sessionAlive";
 import { stageLabel } from "../lib/stageLabel";
 import { ActivityBadge, StatePill } from "./StateBoard";
 import { taskCount } from "../lib/taskCount";
-import { listSelfReviewFindings, listStages, type ActiveSubagent, type PlanTask, type SelfReviewFinding, type StageRunDTO } from "../api";
+import { phaseOrder, STAGE_PHASE, type Phase } from "../lib/phase";
+import { getRunRecord, listSelfReviewFindings, listStages, type ActiveSubagent, type PlanTask, type RecordDispatch, type SelfReviewFinding, type StageRunDTO } from "../api";
 
 export interface RunDetailProps {
   project: string;
@@ -77,9 +78,101 @@ function inlineWhat(d: ActiveSubagent, tasks: PlanTask[] | undefined): string {
 /** The outcomes a dispatch ends on without finishing its work. */
 const FAILED_OUTCOMES = new Set(["failed", "blocked", "aborted", "timed-out", "cancelled", "stopped"]);
 
-function stepStatus(d: ActiveSubagent): "running" | "done" | "failed" {
+type Step = ActiveSubagent & { phase: Phase; endedAt?: string; outcome?: string };
+
+function stepStatus(d: Step): "running" | "done" | "failed" {
   if (!d.endedAt) return "running";
   return d.outcome && FAILED_OUTCOMES.has(d.outcome) ? "failed" : "done";
+}
+
+/** Each dispatch as a step of the phase whose stage run was the latest to start at or before it (production dispatches carry no stage run id). */
+function phaseSteps(runs: StageRunDTO[], dispatches: RecordDispatch[]): Step[] {
+  const byStart = [...runs].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt));
+  const out: Step[] = [];
+  for (const d of [...dispatches].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt))) {
+    const t = Date.parse(d.startedAt);
+    const run = byStart.filter((r) => Date.parse(r.startedAt) <= t).pop();
+    const phase = run && STAGE_PHASE[run.stage];
+    if (!phase) continue;
+    out.push({
+      phase,
+      role: d.role,
+      key: d.key || undefined,
+      taskId: d.taskId || undefined,
+      model: d.model,
+      modelVersion: d.metrics?.modelVersion,
+      effort: d.effort || undefined,
+      startedAt: d.startedAt,
+      endedAt: d.endedAt,
+      outcome: d.outcome,
+    });
+  }
+  return out;
+}
+
+/** One phase of the run: the dispatches begun in its stage runs, then whatever the phase adds. */
+function PhasePanel({
+  phase,
+  started,
+  steps,
+  tasks,
+  now,
+  note,
+  children,
+}: {
+  phase: Phase;
+  started: boolean;
+  steps: Step[];
+  tasks: PlanTask[] | undefined;
+  now: number;
+  note?: string;
+  children?: ReactNode;
+}) {
+  return (
+    <section className="lb-panel" aria-label={phase}>
+      <div className="lb-panel-h">
+        <span>{phase}</span>
+        <span className="lb-panel-note">{note ?? (started ? `${steps.length} steps` : "")}</span>
+      </div>
+      {started ? (
+        <table className="lb-table lb-agents">
+          <thead>
+            <tr>
+              <th>Step</th>
+              <th>Status</th>
+              <th>Doing</th>
+              <th>Model · effort</th>
+              <th className="r">For</th>
+            </tr>
+          </thead>
+          <tbody>
+            {steps.map((d, i) => (
+              <tr key={`${d.key ?? d.role}-${i}`} data-testid="phase-step">
+                <td>{d.role}</td>
+                <td>{stepStatus(d)}</td>
+                <td>{inlineWhat(d, tasks)}</td>
+                <td>
+                  {formatModel(d.modelVersion ?? d.model)}
+                  {d.effort && ` · ${d.effort}`}
+                </td>
+                <td className="r lb-num">{formatSpan((d.endedAt ? Date.parse(d.endedAt) : now) - Date.parse(d.startedAt))}</td>
+              </tr>
+            ))}
+            {steps.length === 0 && (
+              <tr>
+                <td colSpan={5} className="lb-muted">
+                  No steps yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      ) : (
+        <div className="lb-panel-b lb-muted">Not started.</div>
+      )}
+      {children}
+    </section>
+  );
 }
 
 /** A plan's tasks, each marked done, in progress or pending. */
@@ -134,23 +227,27 @@ export function RunDetail({ project, change }: RunDetailProps) {
   const furthest = Math.max(-1, ...order.map((s, i) => (ran.has(s) ? i : -1)));
   const upcoming = command ? order.slice(furthest + 1).filter((s) => !ran.has(s)) : [];
 
-  // While the self-review stage is open, its findings, refetched on the board's cadence.
-  const inSelfReview = board?.currentStage === "flow.self-review";
+  // The phase panels' dispatches and the self-review findings, refetched on the board's cadence.
+  const [dispatches, setDispatches] = useState<RecordDispatch[]>([]);
   const [findings, setFindings] = useState<SelfReviewFinding[]>([]);
   useEffect(() => {
-    if (!inSelfReview) return;
     let live = true;
-    const load = () =>
+    const load = () => {
+      getRunRecord(project, change)
+        .then((r) => live && setDispatches(r?.dispatches ?? []))
+        .catch(() => live && setDispatches([]));
       listSelfReviewFindings(project, change)
         .then((r) => live && setFindings(r ?? []))
         .catch(() => live && setFindings([]));
+    };
     load();
     const id = setInterval(load, 5000);
     return () => {
       live = false;
       clearInterval(id);
     };
-  }, [inSelfReview, project, change]);
+  }, [project, change]);
+  const steps = useMemo(() => phaseSteps(runs0, dispatches), [runs0, dispatches]);
 
   return (
     <section aria-label={`Run detail: ${project}/${change}`} className="dashboard lb">
@@ -344,77 +441,53 @@ export function RunDetail({ project, change }: RunDetailProps) {
                 </div>
               )}
 
-              {inSelfReview && (
-                <section className="lb-panel" aria-label="Self-review">
-                  <div className="lb-panel-h">
-                    <span>Self-review</span>
-                    <span className="lb-panel-note">{board?.selfReviewTasks ? `tasks ${doneOf(board.selfReviewTasks)}` : "no plan yet"}</span>
-                  </div>
-                  <table className="lb-table lb-agents">
-                    <thead>
-                      <tr>
-                        <th>Step</th>
-                        <th>Status</th>
-                        <th>Doing</th>
-                        <th>Model · effort</th>
-                        <th className="r">For</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(board?.stageDispatches ?? []).map((d, i) => (
-                        <tr key={`${d.key ?? d.role}-${i}`} data-testid="self-review-step">
-                          <td>{d.role}</td>
-                          <td>{stepStatus(d)}</td>
-                          <td>{inlineWhat(d, board?.selfReviewTasks)}</td>
-                          <td>
-                            {formatModel(d.modelVersion ?? d.model)}
-                            {d.effort && ` · ${d.effort}`}
-                          </td>
-                          <td className="r lb-num">{formatSpan((d.endedAt ? Date.parse(d.endedAt) : now) - Date.parse(d.startedAt))}</td>
-                        </tr>
-                      ))}
-                      {!board?.stageDispatches?.length && (
-                        <tr>
-                          <td colSpan={5} className="lb-muted">
-                            No steps yet.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                  {board?.selfReviewTasks && (
+              {phaseOrder(openRun?.stage).map((p) => (
+                <PhasePanel
+                  key={p}
+                  phase={p}
+                  started={runs.some((r) => STAGE_PHASE[r.stage] === p)}
+                  steps={steps.filter((x) => x.phase === p)}
+                  tasks={p === "Self-review" ? board?.selfReviewTasks : board?.tasks}
+                  now={now}
+                  note={p === "Self-review" ? (board?.selfReviewTasks ? `tasks ${doneOf(board.selfReviewTasks)}` : "no plan yet") : undefined}
+                >
+                  {p === "Self-review" && (
                     <>
+                      {board?.selfReviewTasks && (
+                        <>
+                          <div className="lb-panel-h">
+                            <span>Tasks</span>
+                          </div>
+                          <TaskList tasks={board.selfReviewTasks} />
+                        </>
+                      )}
                       <div className="lb-panel-h">
-                        <span>Tasks</span>
+                        <span>Findings</span>
+                        <span className="lb-panel-note">{findings.length}</span>
                       </div>
-                      <TaskList tasks={board.selfReviewTasks} />
+                      <table className="lb-table">
+                        <tbody>
+                          {findings.map((f) => (
+                            <tr key={f.id} data-testid="self-review-finding">
+                              <td>{f.angle}</td>
+                              <td>{f.note}</td>
+                              <td>{f.disposition}</td>
+                              <td>{f.ref ?? ""}</td>
+                            </tr>
+                          ))}
+                          {findings.length === 0 && (
+                            <tr>
+                              <td colSpan={4} className="lb-muted">
+                                No findings recorded yet.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
                     </>
                   )}
-                  <div className="lb-panel-h">
-                    <span>Findings</span>
-                    <span className="lb-panel-note">{findings.length}</span>
-                  </div>
-                  <table className="lb-table">
-                    <tbody>
-                      {findings.map((f) => (
-                        <tr key={f.id} data-testid="self-review-finding">
-                          <td>{f.angle}</td>
-                          <td>{f.note}</td>
-                          <td>{f.disposition}</td>
-                          <td>{f.ref ?? ""}</td>
-                        </tr>
-                      ))}
-                      {findings.length === 0 && (
-                        <tr>
-                          <td colSpan={4} className="lb-muted">
-                            No findings recorded yet.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </section>
-              )}
+                </PhasePanel>
+              ))}
 
               <section className="lb-panel" aria-label="Timeline">
                 <div className="lb-panel-h">
@@ -441,11 +514,13 @@ export function RunDetail({ project, change }: RunDetailProps) {
 
               <div className="lb-split">
                 <section className="lb-panel" aria-label="Stage runs">
-                  <div className="lb-panel-h">
-                    <span>Stage runs</span>
-                    <span className="lb-panel-note">click a row for its dispatches</span>
-                  </div>
-                  <StageRunTable stageRuns={runs} truncated={state.truncated} totalStageRuns={state.totalStageRuns} />
+                  <details>
+                    <summary className="lb-panel-h">
+                      <span>Stage runs</span>
+                      <span className="lb-panel-note">{runs.length} · click a row for its dispatches</span>
+                    </summary>
+                    <StageRunTable stageRuns={runs} truncated={state.truncated} totalStageRuns={state.totalStageRuns} />
+                  </details>
                 </section>
                 <section className="lb-panel" aria-label="Cost by stage">
                   <div className="lb-panel-h">

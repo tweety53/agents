@@ -19,8 +19,9 @@ import {
 } from "../api";
 import { RunDetail } from "./RunDetail";
 
-const { listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock } = vi.hoisted(() => ({
+const { listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock, runRecordMock } = vi.hoisted(() => ({
   listStageRunsMock: vi.fn(),
+  runRecordMock: vi.fn(() => Promise.resolve({ dispatches: [] as unknown[] })),
   listFindingsMock: vi.fn(() => Promise.resolve([] as unknown[])),
   fetchStatsViewMock: vi.fn(),
   listStagesMock: vi.fn(() => Promise.resolve({ stages: ["flow.kickoff", "flow.brainstorm", "flow.decide", "flow.sdd-tdd", "flow.review-panel", "flow.verify"] })),
@@ -28,7 +29,7 @@ const { listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock 
 
 vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
-  return { ...actual, listStageRuns: listStageRunsMock, fetchStatsView: fetchStatsViewMock, listStages: listStagesMock, listSelfReviewFindings: listFindingsMock };
+  return { ...actual, listStageRuns: listStageRunsMock, fetchStatsView: fetchStatsViewMock, listStages: listStagesMock, listSelfReviewFindings: listFindingsMock, getRunRecord: runRecordMock };
 });
 
 function stageRunsResponse(stageRuns: StageRunDTO[], total?: number): ListStageRunsResponse {
@@ -50,6 +51,14 @@ function aggregateEnvelope(rows: CostPerChangeRow[]): StatsResponse<CostPerChang
     unmeasured: false,
     rows,
   };
+}
+
+/** The collapsed Stage runs panel's table, opened by its summary toggle. */
+async function stageRunsTable(): Promise<HTMLElement> {
+  const panel = await screen.findByRole("region", { name: "Stage runs" });
+  const details = panel.querySelector("details")!;
+  if (!details.open) await userEvent.click(panel.querySelector("summary")!);
+  return within(panel).getByRole("table");
 }
 
 const PROJECT = "kan-16-stats-app";
@@ -479,7 +488,7 @@ describe("a stage run that dispatched three subagents (kan-201)", () => {
     // dispatch-specific affordance -- see that file's own header comment
     // (F3, pass 1 of this change's own review panel). The row is found by
     // its stage cell, and its toggle by scoping to that row.
-    const row = within(await screen.findByRole("table")).getByText("5. The review panel").closest("tr") as HTMLElement;
+    const row = within(await stageRunsTable()).getByText("5. The review panel").closest("tr") as HTMLElement;
     await user.click(within(row).getByRole("button"));
     return screen.getAllByTestId("dispatch-row");
   }
@@ -522,7 +531,7 @@ describe("a stage run that dispatched three subagents (kan-201)", () => {
 
     render(<RunDetail project={PROJECT} change={CHANGE} />);
 
-    within(await screen.findByRole("table")).getByText("5. The review panel");
+    within(await stageRunsTable()).getByText("5. The review panel");
     // The three surviving statistics views from design.md's `stats-ui-cut`
     // (cache efficiency and runs cut by KAN-989) plus `weekly-costs`,
     // `reviewers`, `decisions`, `flow-health`, `self-review` and
@@ -596,7 +605,7 @@ describe("two stage runs sharing both stage and attempt (kan-201)", () => {
     // Stage runs come back in start order under their session: both share
     // the same visible stage text, so only row position (backed by each
     // row's own `stageRunId` as its key) tells them apart.
-    await screen.findByRole("table");
+    await stageRunsTable();
     const [rowA, rowB] = screen.getAllByRole("row").filter((r) => r.classList.contains("lb-row"));
 
     const user = userEvent.setup();
@@ -787,18 +796,22 @@ describe("the reworked run view (kan-1048)", () => {
     expect(rail).toHaveTextContent("$3.50");
   });
 
-  it("run detail shows the self-review panel beside Tasks while self-review is open", async () => {
+  it("run detail shows a panel per phase, the open phase first, Self-review with its plan and findings", async () => {
+    listStageRunsMock.mockResolvedValue(stageRunsResponse([...planning, implementation[0], run(5, "flow.self-review", "2026-01-01T02:00:00Z", undefined)]));
+    runRecordMock.mockResolvedValueOnce({
+      dispatches: [
+        { id: 1, role: "implementer", taskId: "1", key: "task-1-implementer", model: "opus", startedAt: "2026-01-01T01:05:00Z", endedAt: "2026-01-01T01:20:00Z", outcome: "completed" },
+        { id: 2, role: "self-review", key: "self-review", model: "opus", effort: "medium", startedAt: "2026-01-01T02:00:00Z", endedAt: "2026-01-01T02:20:00Z", outcome: "completed" },
+        { id: 3, role: "implementer", taskId: "2", key: "task-2-implementer", model: "opus", startedAt: "2026-01-01T02:30:00Z", endedAt: "2026-01-01T02:40:00Z", outcome: "blocked" },
+        { id: 4, role: "implementer", taskId: "2", key: "task-2-implementer-r2", model: "opus", metrics: { modelVersion: "claude-opus-5-5" }, startedAt: "2026-01-01T02:50:00Z" },
+      ],
+    });
     const reviewing = {
       ...boardRow,
       currentStage: "flow.self-review",
       selfReviewTasks: [
         { n: 1, title: "Fix the divider", state: "done" },
         { n: 2, title: "Fix the count", state: "pending" },
-      ],
-      stageDispatches: [
-        { role: "self-review", key: "self-review", model: "opus", effort: "medium", startedAt: "2026-01-01T02:00:00Z", endedAt: "2026-01-01T02:20:00Z", outcome: "completed" },
-        { role: "implementer", taskId: "2", key: "task-2-implementer", model: "opus", startedAt: "2026-01-01T02:30:00Z", endedAt: "2026-01-01T02:40:00Z", outcome: "blocked" },
-        { role: "implementer", taskId: "2", key: "task-2-implementer-r2", model: "opus", startedAt: "2026-01-01T02:50:00Z" },
       ],
     };
     fetchStatsViewMock.mockImplementation((view: string) =>
@@ -815,11 +828,23 @@ describe("the reworked run view (kan-1048)", () => {
     expect(tasks).toHaveTextContent("◻ 3. Run view");
     expect(screen.getByRole("region", { name: "Agents" })).toBeInTheDocument();
     expect(panel.querySelector(".lb-panel-note")).toHaveTextContent("tasks 1/2 done");
-    const steps = within(panel).getAllByTestId("self-review-step");
+    const steps = await within(panel).findAllByTestId("phase-step");
     expect(steps.map((s) => s.children[1].textContent)).toEqual(["done", "failed", "running"]);
     expect(steps[0]).toHaveTextContent("opus · medium");
     expect(steps[0]).toHaveTextContent("20m");
     expect(steps[2]).toHaveTextContent("Fix the count");
+    expect(steps[2]).toHaveTextContent("opus-5.5");
+    // The open phase leads; the rest follow in pipeline order, each present.
+    const phases = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"));
+    const first = phases.indexOf("Planning") - 1;
+    expect(phases.slice(first, first + 11)).toEqual([
+      "Self-review", "Planning", "Decisions", "Implementation", "Fixes", "Review", "Verification", "Handoff", "Integrate", "Landing", "Cleanup",
+    ]);
+    // A dispatch lands in the phase of the stage run it began in.
+    const impl = screen.getByRole("region", { name: "Implementation" });
+    expect(within(impl).getAllByTestId("phase-step")).toHaveLength(1);
+    expect(impl).toHaveTextContent("Implementing task 1 (Schema)");
+    expect(screen.getByRole("region", { name: "Review" })).toHaveTextContent("Not started.");
     expect(panel).toHaveTextContent("✔ 1. Fix the divider");
     expect(panel).toHaveTextContent("◻ 2. Fix the count");
     const finding = await within(panel).findByTestId("self-review-finding");
@@ -835,6 +860,16 @@ describe("the reworked run view (kan-1048)", () => {
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const panel = await screen.findByRole("region", { name: "Self-review" });
     expect(panel).toHaveTextContent("No findings recorded yet.");
+  });
+
+  it("run detail keeps the Stage runs table collapsed until its toggle opens it", async () => {
+    const user = userEvent.setup();
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const panel = await screen.findByRole("region", { name: "Stage runs" });
+    const details = panel.querySelector("details")!;
+    expect(details.open).toBe(false);
+    await user.click(within(panel).getByText("Stage runs"));
+    expect(details.open).toBe(true);
   });
 
   it("run detail marks main as waiting while only its subagents work", async () => {

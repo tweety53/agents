@@ -1988,9 +1988,6 @@ func TestLiveStateBoardCarriesOpenStageDoneTasksAndActivity(t *testing.T) {
 	if live.OpenStageDispatches != 3 {
 		t.Errorf("OpenStageDispatches = %d, want the 3 dispatches begun in the open stage", live.OpenStageDispatches)
 	}
-	if len(live.StageDispatches) != 3 || live.StageDispatches[2].TaskID == nil || *live.StageDispatches[2].TaskID != "3" || live.StageDispatches[2].EndedAt != nil {
-		t.Errorf("StageDispatches = %+v, want the open stage's 3 dispatches oldest first, task 3 last and not ended", live.StageDispatches)
-	}
 	if live.DoneTasks == nil || *live.DoneTasks != 2 {
 		t.Errorf("DoneTasks = %v, want 2", live.DoneTasks)
 	}
