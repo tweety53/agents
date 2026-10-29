@@ -18,7 +18,7 @@ import (
 )
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
-// judges its commits (check-task-commit-fields) can actually read it. Twenty-two
+// judges its commits (check-task-commit-fields) can actually read it. Twenty-three
 // findings, F1-F23 (F1-F6's canonical definitions, decisions and rationale:
 // spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-md-at-plan/
 // design.md -- not restated here; F7-F23's are the rows below).

@@ -518,6 +518,10 @@ func headLines(path string, n int) []string {
 	return out
 }
 
+// rrErrexit is a `set` line turning errexit on: `set -e`, `set -euo pipefail`,
+// `set -o errexit`.
+var rrErrexit = regexp.MustCompile(`(?m)^\s*set\s+(-[A-Za-z]*e[A-Za-z]*|-o\s+errexit)\b`)
+
 // declaresMutation is `head -n 10 -- <path> | grep -qx '# mutation-reproducer'`:
 // the KAN-568 declaration is that exact line within the first 10. Exact line,
 // within that window. A line that opens with the marker (leading whitespace
@@ -528,10 +532,6 @@ func headLines(path string, n int) []string {
 // call below are the canonical declaration
 // scripts/check-mutation-reproducer-pin.sh pins against review-panel.md and
 // run-reproducer.sh's header.
-// rrErrexit is a `set` line turning errexit on: `set -e`, `set -euo pipefail`,
-// `set -o errexit`.
-var rrErrexit = regexp.MustCompile(`(?m)^\s*set\s+(-[A-Za-z]*e[A-Za-z]*|-o\s+errexit)\b`)
-
 func declaresMutation(path string) bool {
 	for _, l := range headLines(path, 10) {
 		if l == rrMarker {
