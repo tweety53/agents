@@ -146,6 +146,16 @@ func Keys() []string {
 	return out
 }
 
+// ForCommand returns command's stage keys in Table order -- the order a run
+// of that command marks them -- or nil for an unknown command.
+func ForCommand(command Command) []string {
+	out := make([]string, 0, len(byCommand[command]))
+	for _, s := range byCommand[command] {
+		out = append(out, s.Key)
+	}
+	return out
+}
+
 // Valid reports whether key is a documented stage key of command.
 func Valid(command Command, key string) bool {
 	s, ok := byKey[key]

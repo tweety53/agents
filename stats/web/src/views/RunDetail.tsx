@@ -10,7 +10,7 @@
 // component renders -- see hooks/useRunDetail.ts's own header comment for
 // why that matters. State, last update and session activity come from the
 // change's state board row.
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { StageRunTable, groupSessions, runEnd } from "../components/StageRunTable";
 import { StageTimeline } from "../components/StageTimeline";
 import { useRunDetail } from "../hooks/useRunDetail";
@@ -22,7 +22,7 @@ import { agentsDone, runningTask } from "../lib/runningTask";
 import { effectiveActivity, sessionAlive } from "../lib/sessionAlive";
 import { stageLabel } from "../lib/stageLabel";
 import { ActivityBadge, StatePill } from "./StateBoard";
-import type { ActiveSubagent, PlanTask, StageRunDTO } from "../api";
+import { listStages, type ActiveSubagent, type PlanTask, type StageRunDTO } from "../api";
 
 export interface RunDetailProps {
   project: string;
@@ -90,6 +90,25 @@ export function RunDetail({ project, change }: RunDetailProps) {
 
   const key = jiraKey(change);
   const board = state.status === "ready" ? state.board : undefined;
+
+  // The stages an unfinished change has still to run: its command's stages after the furthest one it ran.
+  const runs0 = state.status === "ready" ? state.stageRuns : [];
+  const latest = [...runs0].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt))[0];
+  const command = latest && board?.state !== "FINISHED" ? latest.command : undefined;
+  const [order, setOrder] = useState<string[]>([]);
+  useEffect(() => {
+    if (!command) return;
+    let live = true;
+    listStages(command)
+      .then((r) => live && setOrder(r.stages))
+      .catch(() => live && setOrder([]));
+    return () => {
+      live = false;
+    };
+  }, [command]);
+  const ran = new Set(runs0.map((r) => r.stage));
+  const furthest = Math.max(-1, ...order.map((s, i) => (ran.has(s) ? i : -1)));
+  const upcoming = command ? order.slice(furthest + 1).filter((s) => !ran.has(s)) : [];
 
   return (
     <section aria-label={`Run detail: ${project}/${change}`} className="dashboard lb">
@@ -309,7 +328,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   </span>
                 </div>
                 <div className="lb-panel-b lb-scroll">
-                  <StageTimeline stageRuns={runs} sessionOf={sessionOf} />
+                  <StageTimeline stageRuns={runs} sessionOf={sessionOf} upcoming={upcoming} />
                 </div>
               </section>
 

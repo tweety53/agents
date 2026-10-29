@@ -748,6 +748,11 @@ export function buildModelsQuery(params: ModelsParams): URLSearchParams {
   return qs;
 }
 
+/** GET /api/v1/stages?command= -- the command's stage keys in the order a run marks them. */
+export function listStages(command: string, init?: RequestInit): Promise<{ stages: string[] }> {
+  return getJSON<{ stages: string[] }>(`/api/v1/stages?command=${encodeURIComponent(command)}`, init);
+}
+
 /** GET /api/v1/models?from=&to=&project= */
 export async function fetchModels(params: ModelsParams, init?: RequestInit): Promise<ModelsResponse> {
   const qs = buildModelsQuery(params);

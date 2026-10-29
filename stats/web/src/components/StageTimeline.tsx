@@ -34,7 +34,16 @@ export function outcomeClass(run: StageRunDTO): "open" | "failed" | "completed" 
 
 const FILL = { completed: "var(--status-ok)", failed: "var(--status-critical)", open: "url(#lb-hatch)" };
 
-export function StageTimeline({ stageRuns, sessionOf }: { stageRuns: StageRunDTO[]; sessionOf: (run: StageRunDTO) => string }) {
+/** Draws each stage run as a bar on its stage's lane; `upcoming` adds a muted lane, with no bar, for every stage the change has still to run. */
+export function StageTimeline({
+  stageRuns,
+  sessionOf,
+  upcoming = [],
+}: {
+  stageRuns: StageRunDTO[];
+  sessionOf: (run: StageRunDTO) => string;
+  upcoming?: string[];
+}) {
   const [tip, setTip] = useState<{ run: StageRunDTO; x: number; y: number } | null>(null);
   // Drawn at the container's real pixel width, so text and bar heights keep
   // their size whatever the page width.
@@ -56,7 +65,8 @@ export function StageTimeline({ stageRuns, sessionOf }: { stageRuns: StageRunDTO
   const x = (t: number) => L + ((t - t0) / (t1 - t0)) * (W - L - 10);
 
   const lanes = [...new Set(stageRuns.map((r) => r.stage))];
-  const H = TOP + lanes.length * RH + 6;
+  const pending = upcoming.filter((s) => !lanes.includes(s));
+  const H = TOP + (lanes.length + pending.length) * RH + 6;
   // ponytail: hour ticks widen to 2/3/6/12/24h so a days-long change keeps at most 12 labels.
   const step = TICK_STEPS.find((s) => (t1 - t0) / s <= MAX_TICKS) ?? TICK_STEPS[TICK_STEPS.length - 1];
   const ticks: number[] = [];
@@ -82,6 +92,12 @@ export function StageTimeline({ stageRuns, sessionOf }: { stageRuns: StageRunDTO
         {lanes.map((s, i) => (
           <text key={s} className="lb-lane" x={0} y={TOP + i * RH + 12}>
             <title>{s}</title>
+            {stageLabel(s)}
+          </text>
+        ))}
+        {pending.map((s, i) => (
+          <text key={s} className="lb-lane upcoming" data-testid="upcoming-lane" x={0} y={TOP + (lanes.length + i) * RH + 12}>
+            <title>{`${s} — not run yet`}</title>
             {stageLabel(s)}
           </text>
         ))}

@@ -690,3 +690,4 @@ th button {
 @keyframes lb-blink { to { visibility: hidden; } }
 @media (prefers-reduced-motion: reduce) { .lb-dot { animation: none; } }
 .lb-task-now { font-size: 12px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-timeline text.lb-lane.upcoming { fill: var(--text-muted); font-style: italic; }

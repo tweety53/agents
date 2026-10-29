@@ -7,7 +7,7 @@
 // zero-length, and the header totals come from the server's own
 // cost-per-change aggregate -- never from summing the (possibly partial)
 // page of stage runs the interface holds.
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -19,14 +19,15 @@ import {
 } from "../api";
 import { RunDetail } from "./RunDetail";
 
-const { listStageRunsMock, fetchStatsViewMock } = vi.hoisted(() => ({
+const { listStageRunsMock, fetchStatsViewMock, listStagesMock } = vi.hoisted(() => ({
   listStageRunsMock: vi.fn(),
   fetchStatsViewMock: vi.fn(),
+  listStagesMock: vi.fn(() => Promise.resolve({ stages: ["flow.kickoff", "flow.brainstorm", "flow.decide", "flow.sdd-tdd", "flow.review-panel", "flow.verify"] })),
 }));
 
 vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
-  return { ...actual, listStageRuns: listStageRunsMock, fetchStatsView: fetchStatsViewMock };
+  return { ...actual, listStageRuns: listStageRunsMock, fetchStatsView: fetchStatsViewMock, listStages: listStagesMock };
 });
 
 function stageRunsResponse(stageRuns: StageRunDTO[], total?: number): ListStageRunsResponse {
@@ -848,8 +849,11 @@ describe("the reworked run view (kan-1048)", () => {
   it("stage timeline draws a lane per stage coloured by outcome", async () => {
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const svg = await screen.findByRole("img", { name: "Stage runs over time" });
+    // The stages still to run follow as muted lanes, in the command's order; a skipped one (decide) is not "upcoming".
+    await waitFor(() => expect(svg.querySelectorAll("[data-testid=upcoming-lane]").length).toBe(2));
+    expect([...svg.querySelectorAll("[data-testid=upcoming-lane]")].map((t) => t.lastChild?.textContent)).toEqual(["Code review", "Running lint and tests"]);
     // Each lane reads in plain words, its stage id on hover.
-    const lanes = [...svg.querySelectorAll("text.lb-lane")];
+    const lanes = [...svg.querySelectorAll("text.lb-lane:not(.upcoming)")];
     expect(lanes.map((t) => t.lastChild?.textContent)).toEqual(["Starting up", "Designing the change", "Implementing tasks"]);
     expect(lanes.map((t) => t.querySelector("title")?.textContent)).toEqual(["flow.kickoff", "flow.brainstorm", "flow.sdd-tdd"]);
     const fills = [...svg.querySelectorAll("rect.lb-bar")].map((r) => r.getAttribute("fill"));
