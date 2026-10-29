@@ -6,17 +6,17 @@ The pass covers what the bundle holds plus the commits and files it names, and n
 
 ## Problems encountered, and what pipeline change would avoid them — `flow-fix`
 
-- **[flow-fix]** 499b813a's re-run grouping regex `^verify-(fix-)?[0-9]+` also matched a plain `verify-<repo>` key whose repository name starts with a digit, so a blocked `verify-3d-viewer` was never superseded. The number now ends at a dash or the key's end — fixed: 3d5ec9c3
-- **[flow-fix]** 6557ccc1's pin covered only `run-verify-list`'s shim; every guard shim is now checked to name each sibling script its Go source execs — fixed: c8f1093b
+- **[flow-fix]** 499b813a's re-run grouping regex `^verify-(fix-)?[0-9]+` also matched a plain `verify-<repo>` key whose repository name starts with a digit, so a blocked `verify-3d-viewer` was never superseded. The number now ends at a dash or the key's end — fixed: c84304c4
+- **[flow-fix]** 6557ccc1's pin covered only `run-verify-list`'s shim; every guard shim is now checked to name each sibling script its Go source execs — fixed: f6061886
 - **[flow-fix]** 90a1f2ff waived the break-it proof as "cannot be forced in one isolated run"; it was reverted and 7b10e569 proved the flake does reproduce alone (1 in 8) — noted
-- **[flow-fix]** Panel mutation reproducers never checked their edit landed: a failed edit carried on and read as a surviving mutant (F11). The runner now refuses a mutation reproducer that does not run under `set -e` — fixed: c073ad8a
-- **[flow-fix]** check-plan-shape passed task 6's `Allowed-collateral` entry under `spectre/changes/<name>/visual-verification/**`, which task-commit-planning-paths then refused. F23 now refuses any Files or Allowed-collateral entry under a planning path other than `visual-verification.md`, and verify-fix-loop step 1 says where evidence is committed — fixed: d3f8a818. The archived kan-1048 plan's offending entry was dropped so the tree scan passes — fixed: 1f9d40cd
-- **[flow-fix]** Panel round 0's end times were daemon stamps from before kan-1044's fix was running; the dev store was repaired with `flowd restamp-ends 2026-10-28T00:00:00Z` (`restamped: 14`), and flowd now restamps the last 7 days of stamped ends at startup — fixed: 43ce8d81
+- **[flow-fix]** Panel mutation reproducers never checked their edit landed: a failed edit carried on and read as a surviving mutant (F11). The runner now refuses a mutation reproducer that does not run under `set -e` — fixed: b68f53b6
+- **[flow-fix]** check-plan-shape passed task 6's `Allowed-collateral` entry under `spectre/changes/<name>/visual-verification/**`, which task-commit-planning-paths then refused. F23 now refuses any Files or Allowed-collateral entry under a planning path other than `visual-verification.md`, and verify-fix-loop step 1 says where evidence is committed — fixed: f5334e15. The archived kan-1048 plan's offending entry was dropped so the tree scan passes — fixed: 2602c53b
+- **[flow-fix]** Panel round 0's end times were daemon stamps from before kan-1044's fix was running; the dev store was repaired with `flowd restamp-ends 2026-10-28T00:00:00Z` (`restamped: 14`), and flowd now restamps the last 7 days of stamped ends at startup — fixed: 917a971a
 - **[flow-fix]** The panel slot named its reproducers `R-0-mutation-<n>.sh` and the parent renamed them; slot variance, caught by the guard — noted
 - **[flow-fix]** The plan named a non-existent `FLOW_STORE_ADDR` (the hook reads `FLOW_ADDR`), alongside two other planning-accuracy Corrections; the implementer caught each — noted
 - **[flow-fix]** The UI-test sweeper abandoned the seed's past-dated open runs; the change itself sets `FLOW_SWEEP_OFF=1` in `ui-test-up` — noted
-- **[flow-fix]** A subagent's PreToolUse/PostToolUse under the parent's `session_id` could overwrite an open `question` activity. The session-activity hook now ignores tool events carrying `agent_id` — fixed: 3bcb5bb1
-- **[flow-fix]** Self-review fix review Minors: `rrErrexit` sat inside `declaresMutation`'s doc comment, and planshape.go's finding count was stale — fixed: 9c8679b9
+- **[flow-fix]** A subagent's PreToolUse/PostToolUse under the parent's `session_id` could overwrite an open `question` activity. The session-activity hook now ignores tool events carrying `agent_id` — fixed: a4fd4863
+- **[flow-fix]** Self-review fix review Minors: `rrErrexit` sat inside `declaresMutation`'s doc comment, and planshape.go's finding count was stale — fixed: 72d66040
 
 ## Token/time cost, and what would reduce it without quality loss — `flow-cost`
 
@@ -53,4 +53,4 @@ The pass covers what the bundle holds plus the commits and files it names, and n
 ## Instruction gaps that cost review-panel or visual-verify fix rounds — `flow-prompt-tuning`
 
 - **[flow-prompt-tuning]** No case: F1 and F2 fail condition 3, the Cost-tile departure is covered by the mockup rule, and there were no late-round misses — noted
-- **[flow-prompt-tuning]** Round 1 reported a one-frame tooltip lag from a single screencast frame that never reproduced under a real pointer; the verifier now confirms a one-frame motion departure with a next-frame DOM read or a second recording before reporting it — fixed: cef3cc2f
+- **[flow-prompt-tuning]** Round 1 reported a one-frame tooltip lag from a single screencast frame that never reproduced under a real pointer; the verifier now confirms a one-frame motion departure with a next-frame DOM read or a second recording before reporting it — fixed: ece9cb0c
