@@ -65,7 +65,7 @@ dispatch's last sibling.
 `REVIEWERS` resolves per **Model resolution** (`skills/flow/SKILL.md`) before section 2; every
 dispatch's model is the recorded decision's pair, per **Model and effort**
 (`skills/flow/brainstorm-planner.md`).
-Every dispatch's `description` follows **Dispatch sites — the parent's closed list** (`skills/flow/implement.md`).
+Every dispatch's `description` and `Role:` line follow **Dispatch sites — the parent's closed list** (`skills/flow/implement.md`).
 
 `<changeRoot>` is `<abs-worktree>/.superpowers/sdd/<name>/` — its
 basename is what keys the rolls — and `<project>/.superpowers/` is listed in
