@@ -737,7 +737,7 @@ th button {
 .lb-tasks-panel .lb-tasks li { overflow-wrap: anywhere; }
 .lb-tasks-panel.collapsed > .lb-panel-h { border-bottom: 0; }
 @media (max-width: 900px) {
-  .lb-work { display: flex; flex-direction: column; }
+  .lb-work { display: flex; flex-direction: column; align-items: stretch; }
   .lb-work-col { display: contents; }
 }
 @media (max-width: 600px) {
