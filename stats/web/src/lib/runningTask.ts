@@ -16,6 +16,11 @@ export function agentsDone(row: StateBoardRow): boolean {
   return row.currentStage !== undefined && (row.openStageDispatches ?? 0) > 0 && (row.subagents ?? []).length === 0;
 }
 
+/** What the main thread is doing right now -- "Bash: Run the linters" -- from its working activity's detail; null when it reported none. */
+export function mainAction(row: StateBoardRow): string | null {
+  return row.activity === "working" && row.activityDetail ? row.activityDetail : null;
+}
+
 /** The main thread's last action between stages -- "Last: Bash: Run the linters" -- from its working activity's detail; null while a stage or a dispatch says more, or when none was reported. */
 export function lastAction(row: StateBoardRow): string | null {
   if (row.currentStage !== undefined || (row.subagents?.length ?? 0) > 0) return null;

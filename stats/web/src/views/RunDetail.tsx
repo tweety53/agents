@@ -18,7 +18,7 @@ import { formatModel, formatRelative, formatSpan, formatUsd } from "../format";
 import { asObject, readCacheReadTokens, readCostUsd, readEffort, readMainModels, readTotalInputTokens } from "../metrics";
 import { projectLabel } from "../lib/projectLabel";
 import { describeDispatch } from "../lib/describeDispatch";
-import { agentsDone, runningTask } from "../lib/runningTask";
+import { agentsDone, mainAction, runningTask } from "../lib/runningTask";
 import { effectiveActivity, sessionAlive } from "../lib/sessionAlive";
 import { stageLabel } from "../lib/stageLabel";
 import { ActivityBadge, StatePill } from "./StateBoard";
@@ -619,7 +619,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
           const betweenStages = !openRun && lastRun && board !== undefined && (sessionAlive(board, now) || board.activity === "question" || board.activity === "permission");
           const mainRun = openRun ?? (betweenStages ? lastRun : undefined);
           const mainAgent = mainRun && {
-            what: inline ? inlineWhat(inline, board?.tasks) : openRun ? `${stageLabel(openRun.stage)}${board && agentsDone(board) ? ", wrapping up after its agents" : ""}` : (board?.activity === "working" && board.activityDetail ? board.activityDetail : `between stages, after ${stageLabel(mainRun.stage)}`),
+            what: inline ? inlineWhat(inline, board?.tasks) : openRun ? `${stageLabel(openRun.stage)}${board && mainAction(board) ? ` · ${mainAction(board)}` : board && agentsDone(board) ? ", wrapping up after its agents" : ""}` : (board?.activity === "working" && board.activityDetail ? board.activityDetail : `between stages, after ${stageLabel(mainRun.stage)}`),
             model: inline
               ? formatModel(inline.modelVersion ?? inline.model)
               : (readMainModels(mainRun.metrics)?.map(formatModel).join(", ") ?? "—"),
@@ -676,7 +676,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                           count?.total !== undefined ? ` · tasks ${count.done}/${count.total}` : ""
                         }`}
                       {nowTask && <div className="lb-task-now">{nowTask}</div>}
-                      {board && agentsDone(board) && <div className="lb-task-now">Agents done, main is wrapping up the stage</div>}
+                      {board && (mainAction(board) ? <div className="lb-task-now">{mainAction(board)}</div> : agentsDone(board) && <div className="lb-task-now">Agents done, main is wrapping up the stage</div>)}
                     </>
                   }
                 >

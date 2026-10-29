@@ -16,7 +16,7 @@ import { DAY_MS, formatInt, formatRelative, formatSpan, formatUsd } from "../for
 import { phase } from "../lib/phase";
 import { taskCount } from "../lib/taskCount";
 import { projectLabel } from "../lib/projectLabel";
-import { agentsDone, lastAction, runningTask } from "../lib/runningTask";
+import { agentsDone, lastAction, mainAction, runningTask } from "../lib/runningTask";
 import { effectiveActivity, sessionAlive } from "../lib/sessionAlive";
 import { stageLabel } from "../lib/stageLabel";
 
@@ -143,7 +143,7 @@ function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
           <span>
             <span title={row.currentStage}>{stageLabel(row.currentStage)}</span>
             {row.currentStageStartedAt && <span className="lb-muted"> · {formatSpan(now - Date.parse(row.currentStageStartedAt))}</span>}
-            {agentsDone(row) && <span className="lb-muted"> · agents done, main wrapping up</span>}
+            {mainAction(row) ? <span className="lb-muted"> · {mainAction(row)}</span> : agentsDone(row) && <span className="lb-muted"> · agents done, main wrapping up</span>}
           </span>
         </div>
       ) : task || alive ? (

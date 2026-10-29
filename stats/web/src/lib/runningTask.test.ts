@@ -2,7 +2,7 @@
 // between stages, where no stage name already says what is happening.
 import { describe, expect, it } from "vitest";
 import type { StateBoardRow } from "../api";
-import { agentsDone, lastAction, runningTask } from "./runningTask";
+import { agentsDone, lastAction, mainAction, runningTask } from "./runningTask";
 
 const base = { projectKey: "p", name: "c", state: "IN_PROGRESS", updatedAt: "", updatedBy: "", nextCommand: "", runCount: 0, costUsd: 0, cost24h: 0, cost7d: 0, cost30d: 0, wallClockMs: 0, errors: 0 } as StateBoardRow;
 const reviewer = { role: "reviewer", key: "panel-2-primary", model: "opus", startedAt: "" };
@@ -34,4 +34,10 @@ describe("lastAction", () => {
   it("defers to a running dispatch", () =>
     expect(lastAction({ ...base, subagents: [reviewer], activity: "working", activityDetail: "Edit a.ts" })).toBeNull());
   it("is null with no detail", () => expect(lastAction({ ...base, activity: "working" })).toBeNull());
+});
+
+describe("mainAction", () => {
+  it("names what main is doing inside an open stage", () =>
+    expect(mainAction({ ...base, currentStage: "flow.review-panel", activity: "working", activityDetail: "Bash: Add exit-2 hook test" })).toBe("Bash: Add exit-2 hook test"));
+  it("is null while main is not working", () => expect(mainAction({ ...base, activity: "idle", activityDetail: "x" })).toBeNull());
 });
