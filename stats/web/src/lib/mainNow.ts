@@ -38,11 +38,11 @@ export function mainNow(runs: StageRunDTO[], dispatches: SrDispatch[], tasks: Pl
   return last ? `Main session is between steps (last: ${last.what}, ${formatSpan(now - last.at)} ago)` : "Main session is between steps (nothing run yet)";
 }
 
-/** The main pipeline's phases in order -- Fixes only when one ran -- each done once it ran and closed, current while it holds the open stage. */
+/** The main pipeline's phases in order -- Fixes only when one ran, Self-review included -- each done once it ran and closed, current while it holds the open stage. */
 export function mainProgress(runs: StageRunDTO[]): { phase: Phase; state: ProgressState }[] {
   const ran = new Set(runs.map((r) => STAGE_PHASE[r.stage]));
   const open = new Set(runs.filter((r) => !r.endedAt).map((r) => STAGE_PHASE[r.stage]));
-  return PHASES.filter((p) => p !== "Self-review" && (p !== "Fixes" || ran.has(p))).map((phase) => ({
+  return PHASES.filter((p) => p !== "Fixes" || ran.has(p)).map((phase) => ({
     phase,
     state: open.has(phase) ? "current" : ran.has(phase) ? "done" : "todo",
   }));

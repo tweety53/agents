@@ -37,7 +37,7 @@ describe("mainNow", () => {
 });
 
 describe("mainProgress", () => {
-  it("marks ran phases done, the open one current, the rest pending; Fixes only when one ran", () => {
+  it("marks ran phases done, the open one current, the rest pending; Fixes only when one ran; Self-review between integrate and landing", () => {
     const p = mainProgress([run("flow.kickoff", 0, 1), run("flow.sdd-tdd", 2, 3), run("flow.review-panel", 4)]);
     expect(p.map((x) => `${x.phase}:${x.state}`)).toEqual([
       "Planning:done",
@@ -47,6 +47,7 @@ describe("mainProgress", () => {
       "Verification:todo",
       "Handoff:todo",
       "Integrate:todo",
+      "Self-review:todo",
       "Landing:todo",
       "Cleanup:todo",
     ]);
