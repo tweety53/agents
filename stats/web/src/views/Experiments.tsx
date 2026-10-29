@@ -281,6 +281,7 @@ export function Experiments() {
   const [error, setError] = useState<string | null>(null);
   const [sel, setSel] = useState<number | null>(null);
   const [stats, setStats] = useState<ExperimentStats | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -301,9 +302,10 @@ export function Experiments() {
     if (sel === null) return;
     let live = true;
     setStats(null);
+    setStatsError(null);
     fetchExperimentStats(sel)
       .then((s) => live && setStats(s))
-      .catch((err: Error) => live && setError(err.message));
+      .catch((err: Error) => live && setStatsError(err.message));
     return () => {
       live = false;
     };
@@ -351,6 +353,11 @@ export function Experiments() {
           ))}
         </div>
       </section>
+      {statsError && (
+        <p role="alert" className="panel-error">
+          Failed to load stats: {statsError}
+        </p>
+      )}
       {e && <Detail e={e} stats={stats?.experiment.id === e.id ? stats : null} roles={roles} />}
     </div>
   );
