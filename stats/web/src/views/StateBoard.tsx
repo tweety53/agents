@@ -81,7 +81,8 @@ export function StatePill({ state }: { state: string }) {
 
 /** A session's activity badge, how long it has been in that state, and what it waits on. */
 export function ActivityBadge({ row, now }: { row: StateBoardRow; now: number }) {
-  if (!row.activity) return null;
+  // "Working" only repeats the live dot beside it; the badge speaks for the other states.
+  if (!row.activity || row.activity === "working") return null;
   return (
     <div className={`lb-act ${row.activity}`}>
       <span className="lb-actb">{ACTIVITY_LABEL[row.activity]}</span>

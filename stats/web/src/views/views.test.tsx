@@ -431,7 +431,7 @@ describe("views render their fixture response's actual values", () => {
     expect(cards[0]).toHaveTextContent("Designing the change");
     expect(cards[1]).toHaveTextContent("kan-16-stats-app");
     expect(cards[1]).not.toHaveClass("needs");
-    expect(cards[1]).toHaveTextContent("Working");
+    expect(cards[1]).not.toHaveTextContent("Working"); // the live dot already says it
     expect(cards[1]).toHaveTextContent("Implementing tasks· 30m");
     expect(cards[1]).toHaveTextContent("tasks 20/46 · $12.50");
     // The card keeps agents, main's inline work included, to a count; the run view lists them.
