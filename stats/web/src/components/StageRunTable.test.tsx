@@ -42,14 +42,14 @@ describe("StageRunTable", () => {
   it("names a run by its dispatches' actions with their models, no stage lead when its session runs that stage alone, and no jargon tooltip", () => {
     render(<StageRunTable stageRuns={[run]} records={records} />);
     const cell = screen.getByRole("cell", { name: /^▸/ });
-    expect(cell).toHaveTextContent(/^▸Fix round 2 \(opus 5\.5\) → Re-review round 2 \(sonnet 5\.5\)$/);
+    expect(cell).toHaveTextContent(/^▸Fix round 2 \(opus 5\.5\) → Review round 2 \(sonnet 5\.5\)$/);
     expect(cell.title).not.toContain("auto-recorded");
     expect(cell.closest("tr")).toHaveTextContent(/running/);
   });
 
   it("leads with the stage when its session runs more than one", () => {
     render(<StageRunTable stageRuns={[run, other]} records={records} />);
-    expect(screen.getByRole("cell", { name: /^▸/ })).toHaveTextContent(/^▸Self-review · Fix round 2 \(opus 5\.5\) → Re-review round 2/);
+    expect(screen.getByRole("cell", { name: /^▸/ })).toHaveTextContent(/^▸Self-review · Fix round 2 \(opus 5\.5\) → Review round 2/);
   });
 
   it("splits the run's cost into agents and main session on hover", () => {
@@ -63,8 +63,8 @@ describe("StageRunTable", () => {
     render(<StageRunTable stageRuns={[run]} records={records} />);
     await userEvent.click(screen.getByRole("button", { name: "Show dispatches" }));
     const rows = screen.getAllByTestId("dispatch-row");
-    expect(rows[0]).toHaveTextContent(/^Fix round 2fixed00:0110m4kopus 5\.5\$2\.00$/);
-    expect(rows[1]).toHaveTextContent(/^Re-review round 2running00:12/);
+    expect(rows[0]).toHaveTextContent(/^Fix round 2fixed00:0110m4k\$2\.00$/);
+    expect(rows[1]).toHaveTextContent(/^Review round 2running00:12/);
     expect(screen.queryByText(/a548eaf33f9b0cb85/)).not.toBeInTheDocument();
     expect(within(rows[0]).getByRole("cell", { name: "Fix round 2" }).title).toContain("a548eaf33f9b0cb85");
     expect(screen.queryByText("main session")).not.toBeInTheDocument();
@@ -77,20 +77,23 @@ describe("StageRunTable", () => {
     ];
     render(<StageRunTable stageRuns={[run]} records={tailed} />);
     expect(screen.queryByRole("button", { name: "Show dispatches" })).not.toBeInTheDocument();
-    const row = screen.getByRole("row", { name: /Re-review round 2/ });
-    expect(within(row).getAllByRole("cell")[0]).toHaveTextContent(/^Re-review round 2 \(sonnet 5\.5\)$/);
+    const row = screen.getByRole("row", { name: /Review round 2/ });
+    expect(within(row).getAllByRole("cell")[0]).toHaveTextContent(/^Review round 2 \(sonnet 5\.5\)$/);
     expect(row).toHaveTextContent("clean");
     expect(screen.getByTestId("run-cost").title).toBe("agents $2.15 + main session $0.85");
   });
 
   it("names a dispatch with no record by the key its description leads with", () => {
     render(<StageRunTable stageRuns={[run]} />);
-    expect(screen.getByRole("cell", { name: /^▸/ })).toHaveTextContent("Fix round 2 (opus 5.5) → Re-review round 2 (sonnet 5.5)");
+    expect(screen.getByRole("cell", { name: /^▸/ })).toHaveTextContent("Fix round 2 (opus 5.5) → Review round 2 (sonnet 5.5)");
   });
 
-  it("shows a run's main session models compactly", () => {
-    const both = { ...run, metrics: { ...(run.metrics as object), models: { "claude-opus-5-5": { tokens: { main: { input: 5 } } }, "claude-sonnet-5-5": { tokens: { main: { input: 5 } } } } } };
-    render(<StageRunTable stageRuns={[both]} records={records} />);
-    expect(screen.getByText("opus+sonnet 5.5 · low")).toBeInTheDocument();
+  it("shows the row's total tokens in, split agents + main session on hover, and no model column", () => {
+    const counted = { ...run, metrics: { ...(run.metrics as object), tokens: { main: { input: 1000, cache_read: 9000 }, sidechain: { input: 4000 } } } };
+    render(<StageRunTable stageRuns={[counted]} records={records} />);
+    const tokens = screen.getByTestId("run-tokens");
+    expect(tokens).toHaveTextContent(/^14k$/);
+    expect(tokens.title).toBe("agents 4k + main session 10k");
+    expect(screen.queryByRole("columnheader", { name: /model/i })).not.toBeInTheDocument();
   });
 });

@@ -711,13 +711,10 @@ describe("the reworked run view (kan-1048)", () => {
     ]);
   });
 
-  it("run detail shows model version and effort", async () => {
+  it("run detail names each dispatch's model and effort in its row, with no separate model column", async () => {
     render(<RunDetail project={PROJECT} change={CHANGE} />);
-    const kickoff = (await screen.findByRole("cell", { name: "Starting up" })).closest("tr")!;
-    expect(kickoff).toHaveTextContent("opus 4.7 · medium");
-    // No effort recorded: the model alone.
-    const brainstorm = screen.getByRole("cell", { name: "Designing the change" }).closest("tr")!;
-    expect(within(brainstorm).getByText("opus 4.7")).toBeInTheDocument();
+    await screen.findByRole("cell", { name: "Starting up" });
+    expect(within(await stageRunsTable()).queryByRole("columnheader", { name: /model/i })).not.toBeInTheDocument();
     // A single dispatch is the row itself, named with its bucket's model and its most-served effort.
     const one = screen.getByRole("cell", { name: "Task 4/11 (sonnet 4.6 · medium)" }).closest("tr")!;
     expect(within(one).getByTestId("run-cost").title).toBe("agents $0.25 + main session $0.25");
@@ -771,6 +768,8 @@ describe("the reworked run view (kan-1048)", () => {
     expect(tasks.closest(".lb-work-row")).toContainElement(screen.getByRole("region", { name: "Main" }));
     expect(within(tasks).getByText("Tasks").parentElement).toHaveTextContent(/^Tasks1\/3$/);
     expect(tasks).toHaveTextContent("✔ 1. Schema");
+    // One line per task; the full title rides its tooltip.
+    expect(within(tasks).getByText(/Schema/).closest("li")).toHaveAttribute("title", "1. Schema");
     expect(tasks).toHaveTextContent("● 2. Board card");
     expect(tasks).toHaveTextContent("◻ 3. Run view");
     expect(kpi("Failed runs")).toHaveTextContent("1");
@@ -1062,7 +1061,7 @@ describe("the reworked run view (kan-1048)", () => {
     const rail = screen.getByRole("region", { name: "Cost by stage" });
     await waitFor(() => expect(rail).toHaveTextContent("Fix rounds"));
     const bars = [...rail.querySelectorAll(".lb-hbar")].map((b) => b.textContent);
-    expect(bars).toEqual(["Review pass$3.00", "Fix rounds$2.00", "Planning fixes$1.00", "Re-reviews$0.40", "Landing and filing$0.20"]);
+    expect(bars).toEqual(["Review pass$3.00", "Fix rounds$2.00", "Planning fixes$1.00", "Review rounds$0.40", "Landing and filing$0.20"]);
     expect(rail).not.toHaveTextContent(/^Self-review/);
     runRecordMock.mockImplementation(() => Promise.resolve({ dispatches: [] }));
   });

@@ -17,7 +17,7 @@ export function describeDispatch(key: string | undefined, role: string): string 
   if ((m = /^self-review-.+-fix-g(\d+)$/.exec(key))) return `Self-review: fixing the plan, group ${m[1]}`;
   if ((m = /^self-review-.+-fix-v(\d+)$/.exec(key))) return `Self-review: verify fix round ${m[1]}`;
   if ((m = /^self-review-.+-fix(?:-(\d+))?$/.exec(key))) return m[1] ? `Self-review: fix round ${m[1]}` : "Self-review: fixing the plan";
-  if ((m = /^self-review-.+-review-(\d+)$/.exec(key))) return `Self-review: re-review round ${m[1]}`;
+  if ((m = /^self-review-.+-review-(\d+)$/.exec(key))) return `Self-review: review round ${m[1]}`;
   if ((m = /^pipeline-fix-(\d+)-(plan|fix|review)(?:-(\d+))?$/.exec(key)))
     return `Pipeline fix ${m[1]}: ${{ plan: "planning", fix: "fixing", review: "reviewing" }[m[2] as "plan"]}${m[3] ? `, round ${m[3]}` : ""}`;
   if ((m = /^visual-verify(?:-fix-(\d+))?(-full)?(?:-(.+))?$/.exec(key)))

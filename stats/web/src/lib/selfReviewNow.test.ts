@@ -40,7 +40,7 @@ describe("selfReviewNow", () => {
   it("reads a red verify fix with its round", () => expect(selfReviewNow([d(`${N}-fix-v2`, 0)], tasks, true, T0).text).toMatch(/^Verifying — red verify fix round 2 · for/));
   it("reads main between steps after the latest dispatch ended", () =>
     expect(selfReviewNow([d(`${N}-review-1`, 0, 5)], tasks, true, T0 + 8 * 60000)).toEqual({
-      text: "Main session is between steps (last: Re-reviewing the fixes, round 1, 3m ago)",
+      text: "Main session is between steps (last: Reviewing the fixes, round 1, 3m ago)",
       current: "re-review",
       done: false,
     }));

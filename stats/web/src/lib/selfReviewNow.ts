@@ -68,7 +68,7 @@ export function selfReviewNow(dispatches: SrDispatch[], tasks: PlanTask[] | unde
               ? `Fixing the review's findings, round ${info.round}`
               : "Fixing"
           : info.step === "re-review"
-            ? `Re-reviewing the fixes, round ${info.round}`
+            ? `Reviewing the fixes, round ${info.round}`
             : `Verifying — red verify fix round ${info.round}`;
   if (running) {
     return { text: `${label} · for ${formatSpan(now - Date.parse(d.startedAt))} · ${formatModel(d.modelVersion ?? d.model)}`, current: info.step, done: false, taskN };

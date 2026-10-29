@@ -18,9 +18,6 @@ import type { DispatchRow, RecordDispatch, StageRunDTO } from "../api";
 import {
   asObject,
   readCostUsd,
-  readEffort,
-  readMainModels,
-  readModels,
   readTotalInputTokens,
   readMainTokens,
   readServedEffort,
@@ -70,7 +67,7 @@ function SessionRow({ session, now }: { session: Session; now: number }) {
   const phases = [...new Set(runs.map((r) => phaseOf(r.stage)))].join(" + ");
   return (
     <tr className="lb-group">
-      <td colSpan={7}>
+      <td colSpan={6}>
         {session.label} · {phases}
         <span className="lb-cnt">
           {formatClock(t0)}–{open ? "now" : formatClock(t1)} · {formatSpan(t1 - t0)} · {formatUsd(sumCost(runs))}
@@ -97,14 +94,9 @@ function modelEffortText(models: string[], effort: string | null): string {
   return effort === null ? label : `${label} · ${effort}`;
 }
 
-function modelEffort(models: string[] | null, effort: string | null) {
-  if (models === null || models.length === 0) return <Unavailable value={null} />;
-  return <span data-testid="measured">{modelEffortText(models, effort)}</span>;
-}
-
 // --- per-dispatch cost (KAN-201) ---
 
-type DispatchLine = DispatchRow & { effort: string | null };
+type DispatchLine = DispatchRow & { effort: string | null; inputTokens: number | null };
 
 /** A bucket's own token grand total (main + sidechain), or undefined when neither bucket carried a chargeable field. */
 function tokenTotal(bag: unknown): number | undefined {
@@ -137,6 +129,7 @@ function readDispatchRows(bag: unknown): DispatchLine[] {
       tokens: tokenTotal(d),
       costUsd: (d ? readCostUsd(d) : null) ?? undefined,
       effort: readServedEffort(d),
+      inputTokens: readTotalInputTokens(d),
     };
   });
 
@@ -191,7 +184,7 @@ const outcomeLook = (o: string) => (o === "running" ? "open" : o === "failed" ||
 
 /**
  * One stage run: named by what its own dispatches did, each with its model and
- * effort ("Fix round 2 (opus 5.5 · low) → Re-review round 2 (sonnet 5.5 · low)"),
+ * effort ("Fix round 2 (opus 5.5 · low) → Review round 2 (sonnet 5.5 · low)"),
  * led by its stage unless its session runs that stage alone; its outcome the
  * last dispatch's; its cost the run's whole, split agents + main session on
  * hover. Two or more own dispatches open beneath it in time order; one is the
@@ -204,12 +197,17 @@ function StageRunRow({ run, now, records, showStage }: { run: StageRunDTO; now: 
   const own = all.filter((d) => !isTail(run, records.get(d.agentId))).sort((a, b) => at(a) - at(b));
   const stage = stageLabel(run.stage);
   const actions = own.map((d) => `${actionName(run, d, records.get(d.agentId))}${d.model ? ` (${modelEffortText([d.model], d.effort)})` : ""}`).join(" → ");
-  const name = !actions ? stage : showStage ? `${stage} · ${actions}` : actions;
+  // No stage lead where the session runs this stage alone, or where the first action already names it.
+  const name = !actions ? stage : showStage && !actions.startsWith(stage) ? `${stage} · ${actions}` : actions;
   const expandable = own.length > 1;
   const stageCost = readCostUsd(run.metrics);
   // The agents' share is every dispatch bucket the run carries, tails included; the rest is the main session's own turns.
   const agents = all.length > 0 && all.every((d) => d.costUsd !== undefined) ? all.reduce((a, d) => a + (d.costUsd ?? 0), 0) : null;
   const split = stageCost !== null && agents !== null ? `agents ${formatUsd(agents)} + main session ${formatUsd(Math.max(0, stageCost - agents))}` : undefined;
+  const tokensIn = readTotalInputTokens(run.metrics);
+  const agentTokens = all.length > 0 ? all.reduce((a, d) => a + (d.inputTokens ?? 0), 0) : null;
+  const tokenSplit =
+    tokensIn !== null && agentTokens !== null ? `agents ${formatKTokens(agentTokens)} + main session ${formatKTokens(Math.max(0, tokensIn - agentTokens))}` : undefined;
   const outcome = outcomeClass(run);
   const last = own.length ? dispatchOutcome(records.get(own[own.length - 1].agentId)) : undefined;
   const word = run.outcome === "failed" ? "failed" : (last ?? run.outcome ?? "completed");
@@ -246,11 +244,9 @@ function StageRunRow({ run, now, records, showStage }: { run: StageRunDTO; now: 
         </td>
         <td className="r lb-num">{formatClock(Date.parse(run.startedAt))}</td>
         <td className="r lb-num">{formatSpan(runEnd(run, now) - Date.parse(run.startedAt))}</td>
-        <td className="r lb-num">
-          <Unavailable value={readTotalInputTokens(run.metrics)} format={formatKTokens} />
+        <td className="r lb-num" title={tokenSplit} data-testid="run-tokens">
+          <Unavailable value={tokensIn} format={formatKTokens} />
         </td>
-        {/* With no dispatch, every model the run used is the main session's. */}
-        <td>{modelEffort(readMainModels(run.metrics) ?? (all.length === 0 ? readModels(run.metrics) : null), readEffort(run.metrics))}</td>
         <td className="r lb-num" title={split} data-testid="run-cost">
           <Unavailable value={stageCost} format={formatUsd} />
         </td>
@@ -268,9 +264,8 @@ function StageRunRow({ run, now, records, showStage }: { run: StageRunDTO; now: 
               <td className="r lb-num">{rec ? formatClock(Date.parse(rec.startedAt)) : <Unavailable value={null} />}</td>
               <td className="r lb-num">{rec ? formatSpan((rec.endedAt ? Date.parse(rec.endedAt) : now) - Date.parse(rec.startedAt)) : <Unavailable value={null} />}</td>
               <td className="r lb-num">
-                <Unavailable value={d.tokens ?? null} format={formatKTokens} />
+                <Unavailable value={d.inputTokens} format={formatKTokens} />
               </td>
-              <td>{modelEffort(d.model === undefined ? null : [d.model], d.effort)}</td>
               <td className="r lb-num">
                 <Unavailable value={d.costUsd ?? null} format={formatUsd} />
               </td>
@@ -309,12 +304,11 @@ export function StageRunTable({ stageRuns, truncated, totalStageRuns, records = 
       <div className="lb-scroll">
         <table className="lb-table lb-runs">
           <colgroup>
-            <col />
+            <col className="c-stage" />
             <col className="c-out" />
             <col className="c-start" />
             <col className="c-dur" />
             <col className="c-tok" />
-            <col className="c-model" />
             <col className="c-cost" />
           </colgroup>
           <thead>
@@ -324,14 +318,13 @@ export function StageRunTable({ stageRuns, truncated, totalStageRuns, records = 
               <th className="r">Started</th>
               <th className="r">Duration</th>
               <th className="r">Tokens in</th>
-              <th title="the main session's own model; each dispatch's is in its name">Main model</th>
               <th className="r">Cost</th>
             </tr>
           </thead>
           <tbody>
             {stageRuns.length === 0 && (
               <tr>
-                <td colSpan={7} className="lb-muted">
+                <td colSpan={6} className="lb-muted">
                   No stage runs recorded for this change.
                 </td>
               </tr>

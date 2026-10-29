@@ -364,7 +364,11 @@ function WorkPanel({
           <span>{tasksTitle}</span>
           <span className="lb-panel-note">{doneOf(tasks)}</span>
         </div>
-        {open && <TaskList tasks={tasks} current={currentTask} />}
+        {open && (
+          <div className="lb-tasks-scroll">
+            <TaskList tasks={tasks} current={currentTask} />
+          </div>
+        )}
       </section>
     )}
     </div>
@@ -382,11 +386,11 @@ function TaskList({ tasks, current }: { tasks: PlanTask[]; current?: number }) {
     <ul className="lb-tasks">
       {tasks.map((t) =>
         t.n === current ? (
-          <li key={t.n} className="current" aria-current="step">
+          <li key={t.n} className="current" aria-current="step" title={`${t.n}. ${t.title}`}>
             <span className="lb-task-mark">●</span> {t.n}. {t.title}
           </li>
         ) : (
-          <li key={t.n} className={t.state.replace(" ", "-")}>
+          <li key={t.n} className={t.state.replace(" ", "-")} title={`${t.n}. ${t.title}`}>
             <span className="lb-task-mark">{TASK_MARK[t.state]}</span> {t.n}. {t.title}
           </li>
         ),
@@ -417,7 +421,7 @@ const SR_COST_GROUP: Record<SrStep, string> = {
   review: "Review pass",
   plan: "Planning fixes",
   fix: "Fixing the plan",
-  "re-review": "Re-reviews",
+  "re-review": "Review rounds",
   verify: "Verify fixes",
   land: "Landing and filing",
   file: "Landing and filing",
@@ -561,7 +565,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
   const srCost = measuredSum(srRuns.map((r) => readCostUsd(r.metrics)));
 
   return (
-    <section aria-label={`Run detail: ${project}/${change}`} className="dashboard lb">
+    <section aria-label={`Run detail: ${project}/${change}`} className="dashboard lb lb-run">
       <div className="lb-crumb">
         <a href="#/state-board">← Live state board</a>
       </div>
