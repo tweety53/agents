@@ -152,6 +152,17 @@ export function readModels(bag: unknown): string[] | null {
   return keys.sort();
 }
 
+/** The models the main thread itself ran on -- the `models` keys whose `tokens.main` holds any token -- sorted; null when none did. A subagent's model is left out: it is its own row. */
+export function readMainModels(bag: unknown): string[] | null {
+  const models = asObject(asObject(bag)?.models);
+  if (!models) return null;
+  const keys = Object.keys(models).filter((k) => {
+    const main = asObject(asObject(asObject(models[k])?.tokens)?.main);
+    return main !== null && main !== undefined && Object.values(main).some((v) => typeof v === "number" && v > 0);
+  });
+  return keys.length ? keys.sort() : null;
+}
+
 /** `effort`, from the transcript's `effort`. */
 export function readEffort(bag: unknown): string | null {
   return readStringKey(asObject(bag), "effort");

@@ -13,6 +13,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import type { StateBoardRow } from "../api";
 import { useStatsView } from "../hooks/useStatsView";
 import { DAY_MS, formatInt, formatRelative, formatSpan, formatUsd } from "../format";
+import { phase } from "../lib/phase";
 import { projectLabel } from "../lib/projectLabel";
 import { agentsDone, runningTask } from "../lib/runningTask";
 import { sessionAlive } from "../lib/sessionAlive";
@@ -22,7 +23,7 @@ const REFRESH_MS = 5000;
 const EPOCH = new Date(0);
 
 const STATES = ["IN_PROGRESS", "STARTED", "FINISHED"] as const;
-const STATE_LABEL: Record<string, string> = { IN_PROGRESS: "In progress", STARTED: "Started", FINISHED: "Finished" };
+const STATE_LABEL: Record<string, string> = { IN_PROGRESS: "Ready for review", STARTED: "Planning & implementing", FINISHED: "Finished" };
 
 export const ACTIVITY_LABEL: Record<string, string> = {
   working: "Working",
@@ -75,8 +76,13 @@ function needsOperator(row: StateBoardRow): boolean {
   return row.activity !== undefined && row.activity !== "working";
 }
 
-export function StatePill({ state }: { state: string }) {
-  return <span className={`lb-pill ${state}`}>{state}</span>;
+/** The change's phase, coloured by its stored state, which the title names. */
+export function StatePill({ row }: { row: Parameters<typeof phase>[0] }) {
+  return (
+    <span className={`lb-pill ${row.state}`} title={`state ${row.state}`}>
+      {phase(row)}
+    </span>
+  );
 }
 
 /** A session's activity badge, how long it has been in that state, and what it waits on. */
@@ -123,7 +129,7 @@ function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
     >
       <div className="lb-top">
         <span className="lb-name">{row.name}</span>
-        <StatePill state={row.state} />
+        <StatePill row={row} />
       </div>
       {row.currentStage !== undefined ? (
         <div className="lb-stage">
@@ -197,7 +203,7 @@ function ChangeRow({ row, now, maxCost }: { row: StateBoardRow; now: number; max
         <span title={row.projectKey}>{projectLabel(row.projectKey)}</span>
       </td>
       <td>
-        <StatePill state={row.state} />
+        <StatePill row={row} />
       </td>
       <td>
         {row.currentStage === undefined ? (

@@ -744,7 +744,7 @@ describe("the reworked run view (kan-1048)", () => {
     expect(board[1].to.getTime()).toBeGreaterThan(NOW.getTime());
     // ...scoped to this one change server-side, never the project's whole board.
     expect(board[1].change).toBe(CHANGE);
-    expect(screen.getByRole("heading", { name: CHANGE }).parentElement).toHaveTextContent("IN_PROGRESS");
+    expect(screen.getByRole("heading", { name: CHANGE }).parentElement).toHaveTextContent("Ready for review");
     const kpi = (name: string) => screen.getByRole("group", { name });
     expect(kpi("Now running")).toHaveTextContent("Implementing tasks");
     expect(kpi("Now running")).toHaveTextContent("for 1h 00m · tasks 3/11");

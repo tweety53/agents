@@ -15,7 +15,7 @@ import { StageRunTable, groupSessions, runEnd } from "../components/StageRunTabl
 import { StageTimeline } from "../components/StageTimeline";
 import { useRunDetail } from "../hooks/useRunDetail";
 import { formatModel, formatRelative, formatSpan, formatUsd } from "../format";
-import { readCacheReadTokens, readCostUsd, readEffort, readModels, readTotalInputTokens } from "../metrics";
+import { readCacheReadTokens, readCostUsd, readEffort, readMainModels, readTotalInputTokens } from "../metrics";
 import { projectLabel } from "../lib/projectLabel";
 import { describeDispatch } from "../lib/describeDispatch";
 import { agentsDone, runningTask } from "../lib/runningTask";
@@ -99,7 +99,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
       <div className="lb-runhead">
         <div className="lb-title">
           <h2>{change}</h2>
-          {board && <StatePill state={board.state} />}
+          {board && <StatePill row={board} />}
         </div>
         {/* The header names the project (kan-183), it does not key it -- the
             section's own aria-label and useRunDetail's request keep the full
@@ -140,7 +140,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
             what: inline ? inlineWhat(inline, board?.tasks) : openRun ? `${stageLabel(openRun.stage)}${board && agentsDone(board) ? ", wrapping up after its agents" : ""}` : `after ${stageLabel(mainRun.stage)}`,
             model: inline
               ? formatModel(inline.modelVersion ?? inline.model)
-              : (readModels(mainRun.metrics)?.map(formatModel).join(", ") ?? "—"),
+              : (readMainModels(mainRun.metrics)?.map(formatModel).join(", ") ?? "—"),
             effort: readEffort(mainRun.metrics) ?? undefined,
             since: inline?.startedAt ?? (openRun ? openRun.startedAt : (board?.activitySince ?? mainRun.endedAt ?? mainRun.startedAt)),
           };

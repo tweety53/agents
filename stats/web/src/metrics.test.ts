@@ -5,6 +5,7 @@
 // absence-is-never-zero rule at the last layer that can still break it.
 import { describe, expect, it } from "vitest";
 import {
+  readMainModels,
   readCacheCreationTokens,
   readCacheReadTokens,
   readCostUsd,
@@ -226,5 +227,20 @@ describe("readOtherMetrics", () => {
     expect(readOtherMetrics(null)).toEqual({});
     expect(readOtherMetrics(undefined)).toEqual({});
     expect(readOtherMetrics("not-an-object")).toEqual({});
+  });
+});
+
+describe("readMainModels", () => {
+  it("keeps only the models the main thread ran on", () => {
+    const bag = {
+      models: {
+        "claude-opus-5-5": { tokens: { main: { input: 3, output: 0 }, sidechain: { input: 9 } } },
+        "claude-sonnet-5-5": { tokens: { main: { input: 0, output: 0 }, sidechain: { input: 18 } } },
+      },
+    };
+    expect(readMainModels(bag)).toEqual(["claude-opus-5-5"]);
+  });
+  it("is null when no model ran on the main thread", () => {
+    expect(readMainModels({ models: { "claude-sonnet-5-5": { tokens: { sidechain: { input: 1 } } } } })).toBeNull();
   });
 });

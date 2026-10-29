@@ -391,17 +391,17 @@ describe("views render their fixture response's actual values", () => {
     // Updated defaults to 7d: the fortnight-old change is hidden, and the
     // tiles count only what the other filters leave.
     expect(visible("kan-5-old")).toBe(false);
-    expect(tile(/^Started/)).toHaveTextContent("1");
+    expect(tile(/^Planning/)).toHaveTextContent("1");
     expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
     await user.click(within(screen.getByRole("group", { name: "Updated" })).getByRole("button", { name: "All" }));
-    expect(tile(/^Started/)).toHaveTextContent("2");
+    expect(tile(/^Planning/)).toHaveTextContent("2");
     expect(visible("kan-5-old")).toBe(true);
     // A Project chip carries its count and narrows rows and tiles.
     const gymie = within(screen.getByRole("group", { name: "Project" })).getByRole("button", { name: /^gymie/ });
     expect(gymie).toHaveTextContent("gymie1");
     await user.click(gymie);
-    expect(tile(/^Started/)).toHaveTextContent("1");
-    expect(tile(/^In progress/)).toHaveTextContent("0");
+    expect(tile(/^Planning/)).toHaveTextContent("1");
+    expect(tile(/^Ready for review/)).toHaveTextContent("0");
     expect(visible("kan-16-stats-app")).toBe(false);
     // Clear filters resets every filter, Updated back to 7d.
     await clear();
@@ -452,7 +452,7 @@ describe("views render their fixture response's actual values", () => {
     render(<StateBoard />);
     const table = within(await screen.findByRole("table"));
     const groups = table.getAllByRole("row").filter((r) => r.classList.contains("lb-group"));
-    expect(groups.map((g) => g.textContent)).toEqual(["▾In progress1", "▾Started1", "▾Finished1"]);
+    expect(groups.map((g) => g.textContent)).toEqual(["▾Ready for review1", "▾Planning & implementing1", "▾Finished1"]);
     // Finished starts collapsed; its row shows once the group is opened.
     expect(table.queryByRole("link", { name: "kan-31-replan-fold" })).not.toBeInTheDocument();
     await user.click(groups[2]);
@@ -460,7 +460,7 @@ describe("views render their fixture response's actual values", () => {
     // A row: state pill, current stage, tasks with growth, relative update
     // with the ISO time as its title, cost; no errors column.
     const row = table.getByRole("link", { name: "kan-16-stats-app" }).closest("tr")!;
-    expect(row).toHaveTextContent("IN_PROGRESS");
+    expect(row).toHaveTextContent("Ready for review");
     expect(row).toHaveTextContent("Implementing tasks");
     expect(within(row).getByText("+24")).toBeInTheDocument();
     expect(within(row).getByTitle("2026-01-15T10:00:00.000Z")).toHaveTextContent("2h ago");
@@ -1120,14 +1120,14 @@ describe("routing", () => {
   it("the live state board is the default route", async () => {
     window.location.hash = "";
     render(<App />);
-    expect(await screen.findByRole("cell", { name: "IN_PROGRESS" })).toBeInTheDocument();
+    expect(await screen.findByRole("cell", { name: "Ready for review" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Live state board" })).toBeInTheDocument();
   });
 
   it("an unrecognised route also falls back to the state board", async () => {
     window.location.hash = "#/not-a-real-view";
     render(<App />);
-    expect(await screen.findByRole("cell", { name: "IN_PROGRESS" })).toBeInTheDocument();
+    expect(await screen.findByRole("cell", { name: "Ready for review" })).toBeInTheDocument();
     window.location.hash = "";
   });
 });
