@@ -1027,6 +1027,34 @@ func TestAttributeCapturesSpeedLastWriteWins(t *testing.T) {
 	}
 }
 
+// TestAttributeCapturesMainSessionEffort covers Delta.Effort: the last
+// non-empty effort among a stage run's main-session records wins, and a
+// sidechain record's effort -- a dispatch's own, shown on its dispatch
+// row -- never overwrites the session's.
+func TestAttributeCapturesMainSessionEffort(t *testing.T) {
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
+		"s-effort": {{
+			StageRunID: 7,
+			SessionID:  "s-effort",
+			StartedAt:  mustParse(t, "2025-12-01T00:00:00Z"),
+		}},
+	}}
+	a := harvest.NewAttributor(windows)
+
+	records := []harvest.Record{
+		{Timestamp: mustParse(t, "2025-12-01T00:00:01Z"), SessionID: "s-effort", Model: "claude-opus-5", Effort: "medium", Usage: harvest.Usage{InputTokens: 1}},
+		{Timestamp: mustParse(t, "2025-12-01T00:00:02Z"), SessionID: "s-effort", Model: "claude-opus-5", Effort: "low", Usage: harvest.Usage{InputTokens: 1}},
+		{Timestamp: mustParse(t, "2025-12-01T00:00:03Z"), SessionID: "s-effort", Model: "claude-opus-5", Effort: "high", IsSidechain: true, AgentID: "a1", Usage: harvest.Usage{InputTokens: 1}},
+	}
+	deltas, err := a.Attribute(context.Background(), records)
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	if got := deltas[7].Effort; got != "low" {
+		t.Errorf("Delta.Effort = %q, want %q (the last main-session record's effort)", got, "low")
+	}
+}
+
 // Compile-time sanity: fakeWindowSource must actually satisfy the
 // interface it stands in for, so a signature drift in attribute.go fails
 // the build rather than silently changing what these tests exercise.

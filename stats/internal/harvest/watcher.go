@@ -2916,7 +2916,7 @@ func encodePatches(deltas map[int64]Delta, meta DispatchMeta, hasMeta bool) (map
 	patches := make(map[int64]json.RawMessage, len(deltas))
 	for stageRunID, delta := range deltas {
 		sig := delta.Signals
-		mp := MetricsPatch{Tokens: delta.Total, Speed: delta.Speed, Signals: &sig}
+		mp := MetricsPatch{Tokens: delta.Total, Speed: delta.Speed, Effort: delta.Effort, Signals: &sig}
 		if len(delta.Models) > 0 {
 			// A plain nil-check-and-assign, not upsertBucket (F35, pass 7
 			// of this change's own review panel): mp.Models starts nil for

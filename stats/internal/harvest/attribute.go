@@ -289,6 +289,11 @@ type Delta struct {
 	// a record of it as any, and never worse than leaving it unset. Empty
 	// when no record in this batch carried a speed at all.
 	Speed string
+	// Effort is the last non-empty Record.Effort among this stage run's
+	// main-session records in this batch, last-write-wins like Speed.
+	// Sidechain records are skipped: a dispatch's effort is its own, read
+	// from its served_efforts signal, never the session's.
+	Effort string
 }
 
 // ModelBucket is one model's contribution to a stage run's metrics bag,
@@ -516,6 +521,9 @@ func (a *Attributor) Attribute(ctx context.Context, records []Record) (map[int64
 			d.Total.bucket(r.IsSidechain).add(r.Usage)
 			if r.Usage.Speed != "" {
 				d.Speed = r.Usage.Speed
+			}
+			if r.Effort != "" && !r.IsSidechain {
+				d.Effort = r.Effort
 			}
 			if r.Model != "" {
 				// The bucket key is canonical lowercase, never the
