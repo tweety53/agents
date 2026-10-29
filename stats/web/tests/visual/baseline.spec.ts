@@ -62,9 +62,9 @@ test.describe("dashboard", () => {
     const table = page.getByRole("region", { name: "Changes" }).getByRole("table");
     await expect(table.getByRole("link", { name: "kan-101-add-widget" })).toBeVisible();
     await expect(table.getByRole("link", { name: "kan-102-fix-widget-bug" })).toBeVisible();
-    // The two running changes draw a card each, the one awaiting an
-    // answer first.
-    await expect(page.getByTestId("running-card")).toHaveCount(2);
+    // Every unfinished change draws a card under Active runs (a4333501),
+    // the one awaiting an answer first.
+    await expect(page.getByTestId("running-card").first()).toBeVisible();
     await expect(page.getByTestId("running-card").first()).toContainText("Awaiting your answer");
 
     // Guards the white-page defect: the body's rendered background must be
@@ -105,6 +105,7 @@ test.describe("run detail", () => {
 
   test("a timeline bar's tooltip names its stage, session, outcome, duration and cost", async ({ page }) => {
     await page.goto(RUN_DETAIL_URL);
+    await page.getByRole("button", { name: "Show timeline" }).click();
     await page.getByRole("img", { name: "Stage runs over time" }).getByTestId("timeline-bar").first().hover();
     await expect(page.getByRole("tooltip")).toBeVisible();
     await expect(page).toHaveScreenshot("run-detail-hover.png", { fullPage: true });

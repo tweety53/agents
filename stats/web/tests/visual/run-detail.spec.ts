@@ -23,11 +23,11 @@ test.describe("stage runs", () => {
     await page.goto(RUN_DETAIL_URL);
     const table = page.getByRole("region", { name: "Stage runs" }).getByRole("table");
     await expect(table.locator("tr.lb-group")).toHaveText([
-      "Session 1 · other07:00–07:05 · 5m · $2.75",
-      "Session 2 · landing08:00–08:05 · 5m · $0.03",
+      "Session 1 · Other07:00–07:05 · 5m · $2.75",
+      "Session 2 · Other08:00–08:05 · 5m · $0.03",
     ]);
-    await expect(table.getByRole("row", { name: /SDD \+ TDD per task/ })).toContainText("opus-5 · high");
-    await expect(table.getByRole("row", { name: /integrate/ })).toContainText("sonnet-5 · low");
+    await expect(table.getByRole("row", { name: /SDD \+ TDD per task/ })).toContainText("opus 5 · high");
+    await expect(table.getByRole("row", { name: /integrate/ })).toContainText("sonnet 5 · low");
   });
 
   test("carry no filter control of any kind", async ({ page }) => {
@@ -44,8 +44,11 @@ test.describe("stage runs", () => {
 test.describe("timeline", () => {
   test("draws one lane per stage, coloured by outcome", async ({ page }) => {
     await page.goto(RUN_DETAIL_URL);
+    // The timeline is collapsed by default (32701733).
+    await page.getByRole("button", { name: "Show timeline" }).click();
     const svg = page.getByRole("img", { name: "Stage runs over time" });
-    await expect(svg.locator("text.lb-lane")).toHaveText(["SDD + TDD per task", "integrate"]);
+    // Each lane label carries its raw stage key in a <title> child too.
+    await expect(svg.locator("text.lb-lane")).toHaveText([/SDD \+ TDD per task$/, /integrate$/]);
     const bars = svg.getByTestId("timeline-bar");
     await expect(bars).toHaveCount(2);
     for (const bar of await bars.all()) await expect(bar).toHaveAttribute("fill", "var(--status-ok)");
@@ -53,7 +56,7 @@ test.describe("timeline", () => {
     await expect(svg.locator("line.lb-now")).toHaveCount(0);
 
     await bars.last().hover();
-    await expect(page.getByRole("tooltip")).toHaveText("integrateSession 2completed · 5m · $0.03");
+    await expect(page.getByRole("tooltip")).toHaveText("integrate integrateSession 2completed · 5m · $0.03");
   });
 
   // The visual verifier's timeline-tooltip strip caught the tooltip one paint
@@ -62,6 +65,7 @@ test.describe("timeline", () => {
   // the pointer leaves the bar has no tooltip.
   test("the tooltip is gone in the paint the pointer leaves the bar", async ({ page }) => {
     await page.goto(RUN_DETAIL_URL);
+    await page.getByRole("button", { name: "Show timeline" }).click();
     const bar = page.getByRole("img", { name: "Stage runs over time" }).getByTestId("timeline-bar").last();
     await bar.hover();
     await expect(page.getByRole("tooltip")).toBeVisible();

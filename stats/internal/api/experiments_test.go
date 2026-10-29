@@ -226,10 +226,26 @@ func TestRolesRoute(t *testing.T) {
 		!reflect.DeepEqual(*got[2].Override, override{Pairs: []string{"opus/Plan@xhigh"}, ExperimentID: 5}) {
 		t.Errorf("entry 2 = %+v, want plan-designer carrying experiment 5's override", got[2])
 	}
-	if got[3].Role != "implementer" || got[3].Marker != "" || got[3].Override == nil {
-		t.Errorf("entry 3 = %+v, want implementer's unmarked row carrying the override", got[3])
+	// Look the implementer rows up by role and marker, so a row added to the
+	// table elsewhere never shifts what this asserts; table order still holds
+	// (the unmarked row, then panel-fix, then the marked escalation row).
+	at := func(role, marker string) int {
+		for i, e := range got {
+			if e.Role == role && e.Marker == marker {
+				return i
+			}
+		}
+		t.Fatalf("GET roles = %s, want a %s row marked %q", body, role, marker)
+		return -1
 	}
-	if got[5].Role != "implementer" || got[5].Marker != "No-progress escalation" || got[5].Override != nil {
-		t.Errorf("entry 5 = %+v, want implementer's marked row (table order) without an override", got[5])
+	unmarked, fix, marked := at("implementer", ""), at("panel-fix", ""), at("implementer", "No-progress escalation")
+	if got[unmarked].Override == nil {
+		t.Errorf("entry %d = %+v, want implementer's unmarked row carrying the override", unmarked, got[unmarked])
+	}
+	if got[marked].Override != nil {
+		t.Errorf("entry %d = %+v, want implementer's marked row without an override", marked, got[marked])
+	}
+	if !(unmarked < fix && fix < marked) {
+		t.Errorf("implementer %d, panel-fix %d, marked implementer %d: want table order", unmarked, fix, marked)
 	}
 }
