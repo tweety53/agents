@@ -50,13 +50,15 @@ them:
 | **2. Brainstorm** | `flow.brainstorm` |
 | **3. Worktree** | `flow.create-artifacts`, `flow.writing-plans`, `flow.decide` |
 | **4. Implement** | `flow.load-context`, `flow.isolate-workspace`, `flow.document-fix`, `flow.sdd-tdd` |
-| **5. Verify** | `flow.review-panel`, `flow.verify`, `flow.self-review`, `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
+| **5. Verify** | `flow.review-panel`, `flow.verify`, `flow.pipeline-fix`, `flow.self-review`, `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
 | **6. Preflight** | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two` |
 | **7. Land** | `flow.landing-routes` |
 | **8. Clean up** | `flow.verify-merge`, `flow.sync-archive`, `flow.commit-archive`, `flow.cleanup`, `flow.write-finished`, `flow.refresh-main-checkout` |
 
 `flow.visual-verify` is deliberately absent: `/flow-fast` never runs it. `flow.self-review` marks
-section 5's in-run self-review pass.
+section 5's in-run self-review pass. `flow.pipeline-fix` is never marked by hand: the store opens it
+on its own when a `pipeline-fix-*` dispatch begins with no stage open, and closes it with that
+dispatch's last sibling.
 
 ## Dynamic decisions
 

@@ -181,12 +181,14 @@ restart: build
 	else \
 		echo "restart: nothing was listening on :$(LIVE_PORT) -- starting a daemon that was not previously running"; \
 	fi
-	# Both, and in this order, on purpose: `up -d` is what creates the
-	# container when it is absent (`restart` alone errors there), and
-	# `restart` is what guarantees a fresh process when it was already up
-	# (`up -d` alone is a no-op there). Neither covers both cases.
+	# `up -d` alone: it creates or starts the store's container when it is
+	# absent or stopped and leaves a running one untouched. `restart` is
+	# rebuilding flowd and the CLI, never the store -- a `docker compose
+	# restart` here bounced flow-postgres on every landing, killing every
+	# live run's in-flight writes and every concurrent store test run
+	# (57P01) mid-session, which CLAUDE.md's "Never stop the dev workspace's
+	# stats service or its storage" forbids.
 	docker compose up -d
-	docker compose restart
 	# The CLI is installed here, unlike the daemon, because half of this
 	# repository's behaviour lives in `cmd/flow` rather than in `flowd`
 	# -- `state set`'s own validation and the instant it stamps are the
