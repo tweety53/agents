@@ -493,6 +493,22 @@ func ApplyBeginStageMark(ctx context.Context, ss StageStore, logger *slog.Logger
 	if err != nil {
 		return StageMarkResult{}, err
 	}
+	// /flow-fast keeps no state file, so its change row is the synthetic
+	// STARTED one bootstrapped above; its flow.write-finished mark is the
+	// only signal that the change landed, and moves that row to FINISHED.
+	if mark.Command == string(stages.FlowFast) && mark.Stage == "flow.write-finished" && mark.ChangeName != "" {
+		finished := store.Change{
+			ProjectKey:       mark.ProjectKey,
+			MainCheckoutPath: mark.MainCheckoutPath,
+			Name:             mark.ChangeName,
+			State:            store.StateFinished,
+			UpdatedAt:        time.Now().UTC(),
+			UpdatedBy:        stages.SyntheticChangeUpdatedBy,
+		}
+		if err := ss.PutChange(ctx, finished); err != nil && !errors.Is(err, store.ErrMonotonicViolation) {
+			return StageMarkResult{}, err
+		}
+	}
 	if len(run.SupersededRuns) > 0 && logger != nil {
 		// KAN-618: a supersession is a marking slip -- this session opened
 		// a stage while an earlier one of its own was still open. Warn at

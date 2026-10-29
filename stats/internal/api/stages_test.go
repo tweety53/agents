@@ -1125,3 +1125,21 @@ func TestStageBeginResponseCarriesSupersededRuns(t *testing.T) {
 		t.Errorf("superseded entry = %+v, want id 41 /flow flow.review-panel attempt 1", got)
 	}
 }
+
+// TestApplyBeginStageMarkFinishesAFlowFastChange pins that /flow-fast's
+// flow.write-finished mark moves its synthetic change row to FINISHED.
+func TestApplyBeginStageMarkFinishesAFlowFastChange(t *testing.T) {
+	fs := newFakeStore()
+	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
+
+	if _, err := api.ApplyBeginStageMark(context.Background(), fs, nil, api.BeginStageMark{
+		ProjectKey: "proj", ChangeName: "chg", Harness: "claude-code",
+		SessionToken: "ff-session-token-finish", Command: "/flow-fast", Stage: "flow.write-finished",
+		StartedAt: time.Date(2026, 10, 29, 12, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("ApplyBeginStageMark: %v", err)
+	}
+	if got := fs.changes[changeKey("proj", "chg")].State; got != store.StateFinished {
+		t.Errorf("state = %q, want FINISHED", got)
+	}
+}
