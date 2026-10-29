@@ -1,0 +1,32 @@
+commit da6bcf90cb23b90c91f4b5c84d8565f8b4c07c1f
+Author: Yuriy Aleksandrov <yatweety@gmail.com>
+Date:   Thu Oct 29 14:25:33 2026 +0200
+
+    fix(home): keep the day's hover and test its held press
+    
+    Flow-Key: panel-fix-4
+
+diff --git a/shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/HomeCalendarGrid.kt b/shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/HomeCalendarGrid.kt
+index 0f68e8f3..303c90aa 100644
+--- a/shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/HomeCalendarGrid.kt
++++ b/shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/HomeCalendarGrid.kt
+@@ -509,6 +509,11 @@ private fun rememberHeldBackPresses(presses: MutableInteractionSource): MutableI
+                     pending?.cancel()
+                     drawn.remove(interaction.press)?.let { shown.emit(PressInteraction.Cancel(it)) }
+                 }
++
++                // Hover and focus draw as they come: only the press is held back.
++                else -> {
++                    shown.emit(interaction)
++                }
+             }
+         }
+     }
+@@ -531,7 +536,6 @@ private fun rememberHeldBackPresses(presses: MutableInteractionSource): MutableI
+  * A [disabled] day is a day this grid does not offer at all: it keeps its numeral, muted to the
+  * same [BroadsheetColors.neutral500] an out-of-month day already draws in, and takes no tap.
+  */
+-
+ @Composable
+ private fun CalendarDayCell(
+     modifier: Modifier,

@@ -1,0 +1,22 @@
+{
+  "id": "kan-1059-repeat-row-keep-awake-calendar-swipe-1",
+  "type": "implementer",
+  "scope": "generic",
+  "source": {
+    "project": "gymie",
+    "change": "kan-1059-repeat-row-keep-awake-calendar-swipe",
+    "jira": "KAN-1059",
+    "repo": "gymie-playwright",
+    "fix_sha": "7d220d488844cf827b669f83ee924d230684cf8b",
+    "finding_ref": "calendar-swipe-month-grid",
+    "round": 2,
+    "slot": "visual-verify",
+    "severity": "Important"
+  },
+  "target": "skills/flow/verify-fix-loop.md",
+  "target_sha": "b4c7007ba2219688fc5e8b32f272eb350d268e40",
+  "defect_class": "A regression probe for a defect that depends on timing is driven with idealised input — instantaneous steps, a settle wait longer than the window the defect was seen in — so it passes while the defect is still present.",
+  "why_picked": "1. Defect class: a probe whose input conditions differ from those the defect was observed under passes over the defect. 2. The quoted rule fixes what the probe asserts (the measured value, the real component) but not the input it drives or when it samples; no rule in implement.md, sdd-dispatch.md, engineering-principles.md or verify-fix-loop.md covers input fidelity. 3. It generalises to every motion, gesture, debounce, animation and race defect, and to backend races probed single-threaded; gymie's own frontend rules record the class twice (KAN-575 \"A green suite is not evidence of a frame\"; the Compose test clock that cannot see the frame before a LaunchedEffect runs). 4. It states a principle (reproduce the observed conditions, sample inside the observed window), not a special case for calendars or presses.",
+  "before": "   **Every mockup departure the round fixes lands a permanent probe in the task's one commit** —\n   a test that drives the real composable or component, never a hand-copied constant, and asserts\n   the value the verifier measured against the frame — so a later change that moves it again fails\n   a test instead of waiting for the next visual verification",
+  "after": "   **Every mockup departure the round fixes lands a permanent probe in the task's one commit** —\n   a test that drives the real composable or component, never a hand-copied constant, and asserts\n   the value the verifier measured against the frame — so a later change that moves it again fails\n   a test instead of waiting for the next visual verification.\n   A departure seen in motion or over time — a frame range, a gesture, a delay — is probed\n   under the input the verifier recorded, its pace, distance and step timing, and sampled inside\n   the window the verifier saw it in, never with instantaneous steps or a settle wait that outlasts\n   that window; where the harness cannot reproduce those conditions, the commit body names the\n   difference."
+}

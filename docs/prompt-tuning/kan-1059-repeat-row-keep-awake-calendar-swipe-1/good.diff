@@ -1,0 +1,24 @@
+diff --git a/tests/kan-1059-repeat-keep-awake-swipe.spec.ts b/tests/kan-1059-repeat-keep-awake-swipe.spec.ts
+index 7cc3d7e..992140b 100644
+--- a/tests/kan-1059-repeat-keep-awake-swipe.spec.ts
++++ b/tests/kan-1059-repeat-keep-awake-swipe.spec.ts
+@@ -198,11 +198,15 @@ test.describe('KAN-1059', () => {
+     const y = box.y + box.height / 2;
+     await page.mouse.move(x0, y);
+     await page.mouse.down();
+-    for (let i = 1; i <= 12; i++) await page.mouse.move(x0 - (40 * i) / 12, y);
+-    await page.waitForTimeout(300);
+-    const mid = await page.screenshot({ clip });
++    // A finger's pace: 30 moves 16ms apart, sampled while the finger is still down.
++    const pressed: number[] = [];
++    for (let i = 1; i <= 30; i++) {
++      await page.mouse.move(x0 - (150 * i) / 30, y);
++      await page.waitForTimeout(16);
++      if (i % 6 === 0 && !(await page.screenshot({ clip })).equals(rest)) pressed.push(i);
++    }
+     await page.mouse.up();
+-    expect(mid.equals(rest), 'the day cell mid-swipe draws as it did at rest').toBe(true);
++    expect(pressed, 'moves at which the day cell mid-swipe drew other than at rest').toEqual([]);
+   });
+ });
+ 

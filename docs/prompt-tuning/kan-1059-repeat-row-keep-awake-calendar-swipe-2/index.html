@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kan-1059-repeat-row-keep-awake-calendar-swipe-2</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0 auto;max-width:1100px;padding:16px;line-height:1.45}
+pre{background:#f4f4f4;padding:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.ab{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:700px){.ab{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>kan-1059-repeat-row-keep-awake-calendar-swipe-2</h1>
+<h2>Type</h2>
+<p>implementer · scope generic</p>
+<h2>Defect class</h2>
+<p>Code that intercepts a stream, callback or channel to change how one kind of event is handled forwards only the kinds it handles, silently dropping every other kind the original consumer relied on.</p>
+<h2>Finding</h2>
+<pre>Held-back interaction source drops Hover/Focus, so the day cell lost its hover and focus layers: `clickable(interactionSource = presses, indication = null)` routes every interaction into `rememberHeldBackPresses`, whose `when` forwards only Press, Release and Cancel.
+
+Severity: Important
+Location: gymie-frontend:shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/HomeCalendarGrid.kt:559
+</pre>
+<pre><code>diff --git a/shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/HomeCalendarGrid.kt b/shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/HomeCalendarGrid.kt
+index baa0d09a..0f68e8f3 100644
+--- a/shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/HomeCalendarGrid.kt
+&#43;&#43;&#43; b/shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/HomeCalendarGrid.kt
+@@ -1,9 &#43;1,13 @@
+ package com.gymie.shared.ui.workout
+ 
+ import androidx.compose.foundation.Canvas
+&#43;import androidx.compose.foundation.LocalIndication
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.border
+ import androidx.compose.foundation.clickable
+&#43;import androidx.compose.foundation.indication
+&#43;import androidx.compose.foundation.interaction.MutableInteractionSource
+&#43;import androidx.compose.foundation.interaction.PressInteraction
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
+@@ -18,6 &#43;22,7 @@ import androidx.compose.foundation.layout.wrapContentHeight
+ import androidx.compose.foundation.shape.CircleShape
+ import androidx.compose.material3.Text
+ import androidx.compose.runtime.Composable
+&#43;import androidx.compose.runtime.LaunchedEffect
+ import androidx.compose.runtime.key
+ import androidx.compose.runtime.remember
+ import androidx.compose.ui.Alignment
+@@ -43,6 &#43;48,9 @@ import com.gymie.shared.ui.theme.BroadsheetIconButton
+ import com.gymie.shared.ui.theme.BroadsheetTheme
+ import com.gymie.shared.ui.theme.MIN_TOUCH_TARGET
+ import com.gymie.shared.ui.theme.icons.BroadsheetIcons
+&#43;import kotlinx.coroutines.Job
+&#43;import kotlinx.coroutines.delay
+&#43;import kotlinx.coroutines.launch
+ import kotlinx.datetime.DatePeriod
+ import kotlinx.datetime.LocalDate
+ import kotlinx.datetime.minus
+@@ -462,6 &#43;470,51 @@ internal fun CalendarWeekRow(
+     }
+ }
+ 
+&#43;/** How long a day&#39;s press waits before it draws — Android&#39;s tap timeout, which web Compose does not apply (KAN-1059). */
+&#43;private const val PRESS_HOLD_BACK_MS = 100L
+&#43;
+&#43;/**
+&#43; * [presses] as the day cell&#39;s indication sees them (KAN-1059, `swipe-equals-arrows`): a press draws only
+&#43; * once held [PRESS_HOLD_BACK_MS], so a calendar swipe — which cancels the press once it passes touch slop —
+&#43; * never draws the day under the finger pressed. A tap released sooner still flashes, press and release at
+&#43; * once; a press cancelled sooner draws nothing. This is what Compose does under a scrollable container on
+&#43; * Android, where the delay is the tap timeout; on web it is zero.
+&#43; */
+&#43;@Composable
+&#43;private fun rememberHeldBackPresses(presses: MutableInteractionSource): MutableInteractionSource {
+&#43;    val shown = remember { MutableInteractionSource() }
+&#43;    LaunchedEffect(presses) {
+&#43;        var pending: Job? = null
+&#43;        val drawn = mutableMapOf&lt;PressInteraction.Press, PressInteraction.Press&gt;()
+&#43;        presses.interactions.collect { interaction -&gt;
+&#43;            when (interaction) {
+&#43;                is PressInteraction.Press -&gt; {
+&#43;                    pending =
+&#43;                        launch {
+&#43;                            delay(PRESS_HOLD_BACK_MS)
+&#43;                            val press = PressInteraction.Press(interaction.pressPosition)
+&#43;                            drawn[interaction] = press
+&#43;                            shown.emit(press)
+&#43;                        }
+&#43;                }
+&#43;
+&#43;                is PressInteraction.Release -&gt; {
+&#43;                    pending?.cancel()
+&#43;                    val press =
+&#43;                        drawn.remove(interaction.press) ?: PressInteraction.Press(interaction.press.pressPosition).also { shown.emit(it) }
+&#43;                    shown.emit(PressInteraction.Release(press))
+&#43;                }
+&#43;
+&#43;                is PressInteraction.Cancel -&gt; {
+&#43;                    pending?.cancel()
+&#43;                    drawn.remove(interaction.press)?.let { shown.emit(PressInteraction.Cancel(it)) }
+&#43;                }
+&#43;            }
+&#43;        }
+&#43;    }
+&#43;    return shown
+&#43;}
+&#43;
+ /**
+  * A single day cell: its number inside a disc or ring, and beneath that shape — outside it — this
+  * day&#39;s marks, if it has any.
+@@ -478,6 &#43;531,7 @@ internal fun CalendarWeekRow(
+  * A [disabled] day is a day this grid does not offer at all: it keeps its numeral, muted to the
+  * same [BroadsheetColors.neutral500] an out-of-month day already draws in, and takes no tap.
+  */
+&#43;
+ @Composable
+ private fun CalendarDayCell(
+     modifier: Modifier,
+@@ -490,11 &#43;544,23 @@ private fun CalendarDayCell(
+     onSelect: (LocalDate) -&gt; Unit,
+ ) {
+     val colors = BroadsheetTheme.colors
+&#43;    val presses = remember { MutableInteractionSource() }
+&#43;    val shownPresses = rememberHeldBackPresses(presses)
+     Box(
+         modifier =
+             modifier
+-                .then(if (disabled) Modifier else Modifier.clickable(onClick = { onSelect(date) }))
+-                .testTag(&#34;cal_day_$date&#34;)
+&#43;                .then(
+&#43;                    if (disabled) {
+&#43;                        Modifier
+&#43;                    } else {
+&#43;                        Modifier
+&#43;                            .clickable(
+&#43;                                interactionSource = presses,
+&#43;                                indication = null,
+&#43;                                onClick = { onSelect(date) },
+&#43;                            ).indication(shownPresses, LocalIndication.current)
+&#43;                    },
+&#43;                ).testTag(&#34;cal_day_$date&#34;)
+                 .height(CALENDAR_CELL_HEIGHT)
+                 // A neighbouring-month day is still tappable and still drawn in full — this tells a
+                 // test (or any other semantics reader) apart from a colour sample, which the filled
+</code></pre>
+<h2>Fix</h2>
+<pre><code>commit da6bcf90cb23b90c91f4b5c84d8565f8b4c07c1f
+Author: Yuriy Aleksandrov &lt;yatweety@gmail.com&gt;
+Date:   Thu Oct 29 14:25:33 2026 &#43;0200
+
+    fix(home): keep the day&#39;s hover and test its held press
+    
+    Flow-Key: panel-fix-4
+
+diff --git a/shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/HomeCalendarGrid.kt b/shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/HomeCalendarGrid.kt
+index 0f68e8f3..303c90aa 100644
+--- a/shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/HomeCalendarGrid.kt
+&#43;&#43;&#43; b/shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/HomeCalendarGrid.kt
+@@ -509,6 &#43;509,11 @@ private fun rememberHeldBackPresses(presses: MutableInteractionSource): MutableI
+                     pending?.cancel()
+                     drawn.remove(interaction.press)?.let { shown.emit(PressInteraction.Cancel(it)) }
+                 }
+&#43;
+&#43;                // Hover and focus draw as they come: only the press is held back.
+&#43;                else -&gt; {
+&#43;                    shown.emit(interaction)
+&#43;                }
+             }
+         }
+     }
+@@ -531,7 &#43;536,6 @@ private fun rememberHeldBackPresses(presses: MutableInteractionSource): MutableI
+  * A [disabled] day is a day this grid does not offer at all: it keeps its numeral, muted to the
+  * same [BroadsheetColors.neutral500] an out-of-month day already draws in, and takes no tap.
+  */
+-
+ @Composable
+ private fun CalendarDayCell(
+     modifier: Modifier,
+</code></pre>
+<h2>Why picked</h2>
+<pre>1. Defect class: an interposed handler written for one event kind swallows the others. 2. The quoted Least Astonishment violation list is the nearest rule and names no interposition case; nothing in implement.md or sdd-dispatch.md covers pass-through. 3. It applies to every middleware, interceptor, event filter, decorator, proxy and when/switch over a sealed event type without a forwarding branch, in any language and layer. 4. It states a principle (pass through what you do not mean to change), not a rule about Compose interactions.</pre>
+<h2>Prompt update</h2>
+<p>Target: <code>skills/flow/engineering-principles.md</code> at <code>b4c7007ba2219688fc5e8b32f272eb350d268e40</code></p>
+<div class="ab">
+<div><h3>Before</h3><pre>**Violation looks like:** a `get…` that performs network I/O, a `delete` that soft-deletes
+while its siblings hard-delete, a parameter whose meaning inverts an established
+convention, or a function whose behavior contradicts its own KDoc.</pre></div>
+<div><h3>After</h3><pre>**Violation looks like:** a `get…` that performs network I/O, a `delete` that soft-deletes
+while its siblings hard-delete, a parameter whose meaning inverts an established
+convention, a function whose behavior contradicts its own KDoc, or an interceptor, decorator or
+stream filter added to change one kind of event that forwards only the kinds it handles — a
+wrapper changes what it means to change and passes every other event through unchanged.</pre></div>
+</div>
+</body>
+</html>

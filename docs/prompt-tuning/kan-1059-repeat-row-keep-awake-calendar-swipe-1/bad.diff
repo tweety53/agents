@@ -1,0 +1,222 @@
+commit 0438153236cea6989f39a8a43b8502ccd6c693d6
+Author: Yuriy Aleksandrov <yatweety@gmail.com>
+Date:   Thu Oct 29 13:09:05 2026 +0200
+
+    test(kan-1059): capture the repeat offer, Keep screen on and calendar swipe; re-baseline Settings
+    
+    Flow-Key: flow.visual-verify
+
+diff --git a/tests/kan-1059-repeat-keep-awake-swipe.spec.ts b/tests/kan-1059-repeat-keep-awake-swipe.spec.ts
+new file mode 100644
+index 0000000..7cc3d7e
+--- /dev/null
++++ b/tests/kan-1059-repeat-keep-awake-swipe.spec.ts
+@@ -0,0 +1,208 @@
++/**
++ * KAN-1059 visual verification: the empty day's repeat offer under the last-week-or-shifted rule, the
++ * Settings `Keep screen on` row and the wake lock it drives, and the Home calendar's horizontal swipe.
++ *
++ * Clock and server day pinned to [PINNED_TODAY] (Wednesday 2026-09-02) before the first navigation; every
++ * seeded date derives from it. Viewport is the `functional` project's 1200x1164 at dsf 1.
++ *
++ * `navigator.wakeLock` is replaced by an init script with a recorder (headless Chromium may refuse a real
++ * screen lock), so `window.__locks` counts the sentinels the app holds right now.
++ */
++import { type Page } from '@playwright/test';
++import { createWorkout, finishWorkout, isoDay, registerVerifiedUserViaApi, type RegisteredUser } from '../api';
++import { test, expect, clickTag, expectRoom, openSettings, PINNED_TODAY, pinClock, signIn, startTodaysWorkout, tagBox, waitForTag, waitForTagGone, waitForStableCanvas, leaveActiveWorkout, listTags, loadHome, waitForTags } from '../fixtures';
++
++const API_BASE = process.env.BACKEND_URL ?? 'http://localhost:8080';
++
++async function finishedOn(request: any, user: RegisteredUser, name: string, day: string): Promise<void> {
++  const id = await createWorkout(request, user, name, day);
++  await request.post(`${API_BASE}/api/workouts/${id}/start`, { headers: { Authorization: `Bearer ${user.accessToken}` } });
++  await finishWorkout(request, user, id);
++}
++
++async function recordWakeLocks(page: Page): Promise<void> {
++  await page.addInitScript(() => {
++    const w = window as any;
++    w.__locks = 0;
++    w.__lockRequests = 0;
++    Object.defineProperty(navigator, 'wakeLock', {
++      configurable: true,
++      value: {
++        request: async () => {
++          w.__lockRequests++;
++          w.__locks++;
++          let released = false;
++          const s: any = new EventTarget();
++          s.type = 'screen';
++          Object.defineProperty(s, 'released', { get: () => released });
++          s.release = async () => {
++            if (!released) {
++              released = true;
++              w.__locks--;
++              s.dispatchEvent(new Event('release'));
++            }
++          };
++          return s;
++        },
++      },
++    });
++  });
++}
++
++const locks = (page: Page) => page.evaluate(() => (window as any).__locks as number);
++
++async function park(page: Page): Promise<void> {
++  await page.mouse.move(0, 0);
++  await waitForStableCanvas(page);
++}
++
++async function drag(page: Page, dx: number, tag = 'home_calendar_swipe'): Promise<void> {
++  const box = (await tagBox(page, tag))!;
++  const y = box.y + box.height / 2;
++  const x0 = box.x + box.width / 2;
++  await page.mouse.move(x0, y);
++  await page.mouse.down();
++  const steps = 12;
++  for (let i = 1; i <= steps; i++) await page.mouse.move(x0 + (dx * i) / steps, y);
++  await page.mouse.up();
++}
++
++test.describe('KAN-1059', () => {
++  test.beforeEach(async ({ page }) => {
++    await pinClock(page);
++    await recordWakeLocks(page);
++  });
++
++  test('repeat offer: last week same weekday', async ({ page, request }) => {
++    const user = await registerVerifiedUserViaApi(request);
++    await finishedOn(request, user, 'Older Wednesday', isoDay(-14, PINNED_TODAY));
++    await finishedOn(request, user, 'Last Wednesday', isoDay(-7, PINNED_TODAY));
++    await signIn(page, user);
++    await waitForTag(page, 'home_repeat_offer');
++    await park(page);
++    await expectRoom(page, 'home');
++    await expect(page).toHaveScreenshot('repeat-last-week.png');
++  });
++
++  test('repeat offer: the day it moved to', async ({ page, request }) => {
++    const user = await registerVerifiedUserViaApi(request);
++    await finishedOn(request, user, 'Usual Wednesday', isoDay(-14, PINNED_TODAY));
++    await finishedOn(request, user, 'Moved to Friday', isoDay(-5, PINNED_TODAY));
++    await signIn(page, user);
++    await waitForTag(page, 'home_repeat_offer');
++    await park(page);
++    await expectRoom(page, 'home');
++    await expect(page).toHaveScreenshot('repeat-shifted.png');
++  });
++
++  test('repeat offer: none beyond last two weeks', async ({ page, request }) => {
++    const user = await registerVerifiedUserViaApi(request);
++    await finishedOn(request, user, 'Three Weeks Ago', isoDay(-21, PINNED_TODAY));
++    await signIn(page, user);
++    await expectRoom(page, 'home');
++    await page.waitForTimeout(1500);
++    expect(await listTags(page)).not.toContain('home_repeat_offer');
++    await park(page);
++    await expect(page).toHaveScreenshot('repeat-none.png');
++  });
++
++  test('settings keep screen on, and the wake lock it drives', async ({ page, request }) => {
++    const user = await registerVerifiedUserViaApi(request);
++    const wakeId = await createWorkout(request, user, 'Wake Day', PINNED_TODAY);
++    await signIn(page, user);
++    await openSettings(page);
++    await expectRoom(page, 'settings');
++    await waitForTag(page, 'settings_keep_screen_on');
++    await park(page);
++    await expect(page).toHaveScreenshot('settings-keep-screen-on-default.png');
++
++    // Planned: Home holds no lock.
++    expect(await locks(page)).toBe(0);
++    await loadHome(page);
++    await startTodaysWorkout(page);
++    await expectRoom(page, 'active_workout');
++    await expect.poll(() => locks(page)).toBe(1);
++    await leaveActiveWorkout(page);
++    await expect.poll(() => locks(page)).toBe(0);
++
++    // Off: the active screen holds none.
++    await openSettings(page);
++    await clickTag(page, 'settings_keep_screen_on');
++    await park(page);
++    await expect(page).toHaveScreenshot('settings-keep-screen-on-off.png');
++    await loadHome(page);
++    await startTodaysWorkout(page);
++    await expectRoom(page, 'active_workout');
++    await page.waitForTimeout(1000);
++    expect(await locks(page)).toBe(0);
++
++    // On again, but the workout finished: the active screen holds none.
++    await leaveActiveWorkout(page);
++    await openSettings(page);
++    await clickTag(page, 'settings_keep_screen_on');
++    await finishWorkout(request, user, wakeId);
++    await loadHome(page);
++    await expectRoom(page, 'home');
++    await clickTag(page, 'completed_fold_mine'); // finished workouts sit in the fold
++    await waitForTag(page, `workout_panel_${wakeId}`);
++    await clickTag(page, `workout_panel_${wakeId}`);
++    await expectRoom(page, 'active_workout');
++    await page.waitForTimeout(1000);
++    expect(await locks(page)).toBe(0);
++    expect(await page.evaluate(() => (window as any).__lockRequests)).toBe(0);
++  });
++
++  test('calendar swipe: week strip and month grid', async ({ page, request }) => {
++    const user = await registerVerifiedUserViaApi(request);
++    await signIn(page, user);
++    await waitForTag(page, `cal_day_${PINNED_TODAY}`);
++    await drag(page, 30); // short drag: no week change
++    await park(page);
++    await waitForTag(page, `cal_day_${PINNED_TODAY}`);
++    await drag(page, -150); // leftward: next week
++    await waitForTag(page, `cal_day_${isoDay(7, PINNED_TODAY)}`);
++    await waitForTagGone(page, `cal_day_${PINNED_TODAY}`);
++    await park(page);
++    await expect(page).toHaveScreenshot('swipe-week-next.png');
++    await drag(page, 150);
++    await drag(page, 150); // rightward twice: previous week
++    await waitForTag(page, `cal_day_${isoDay(-7, PINNED_TODAY)}`);
++    await park(page);
++    await expect(page).toHaveScreenshot('swipe-week-previous.png');
++
++    await clickTag(page, 'cal_month_toggle');
++    await waitForTag(page, 'cal_month_grid');
++    const shown = await waitForTags(page, 'the grid\'s 15th', (ids) => ids.find((id) => /^cal_day_\d{4}-\d{2}-15$/.test(id)));
++    await waitForStableCanvas(page);
++    const m = Number(shown.slice(13, 15));
++    const next = `cal_day_2026-${String(m + 1).padStart(2, '0')}-15`;
++    expect(await listTags(page)).not.toContain(next);
++    await drag(page, -150); // next month
++    await waitForTag(page, next);
++    await park(page);
++    await expect(page).toHaveScreenshot('swipe-month-next.png');
++  });
++
++  test('calendar swipe: the day under the finger draws no press mid-drag', async ({ page, request }) => {
++    const user = await registerVerifiedUserViaApi(request);
++    await signIn(page, user);
++    await waitForTag(page, `cal_day_${PINNED_TODAY}`);
++    await clickTag(page, 'cal_month_toggle');
++    await waitForTag(page, 'cal_month_grid');
++    const day = await waitForTags(page, 'the grid\'s 15th', (ids) => ids.find((id) => /^cal_day_\d{4}-\d{2}-15$/.test(id)));
++    await park(page);
++    const box = (await tagBox(page, day))!;
++    const clip = { x: box.x, y: box.y, width: box.width, height: box.height };
++    const rest = await page.screenshot({ clip });
++    const x0 = box.x + box.width / 2;
++    const y = box.y + box.height / 2;
++    await page.mouse.move(x0, y);
++    await page.mouse.down();
++    for (let i = 1; i <= 12; i++) await page.mouse.move(x0 - (40 * i) / 12, y);
++    await page.waitForTimeout(300);
++    const mid = await page.screenshot({ clip });
++    await page.mouse.up();
++    expect(mid.equals(rest), 'the day cell mid-swipe draws as it did at rest').toBe(true);
++  });
++});
++

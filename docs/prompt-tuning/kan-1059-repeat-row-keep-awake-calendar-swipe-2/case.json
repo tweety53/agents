@@ -1,0 +1,22 @@
+{
+  "id": "kan-1059-repeat-row-keep-awake-calendar-swipe-2",
+  "type": "implementer",
+  "scope": "generic",
+  "source": {
+    "project": "gymie",
+    "change": "kan-1059-repeat-row-keep-awake-calendar-swipe",
+    "jira": "KAN-1059",
+    "repo": "gymie-frontend",
+    "fix_sha": "da6bcf90cb23b90c91f4b5c84d8565f8b4c07c1f",
+    "finding_ref": "F7",
+    "round": 4,
+    "slot": "primary",
+    "severity": "Important"
+  },
+  "target": "skills/flow/engineering-principles.md",
+  "target_sha": "b4c7007ba2219688fc5e8b32f272eb350d268e40",
+  "defect_class": "Code that intercepts a stream, callback or channel to change how one kind of event is handled forwards only the kinds it handles, silently dropping every other kind the original consumer relied on.",
+  "why_picked": "1. Defect class: an interposed handler written for one event kind swallows the others. 2. The quoted Least Astonishment violation list is the nearest rule and names no interposition case; nothing in implement.md or sdd-dispatch.md covers pass-through. 3. It applies to every middleware, interceptor, event filter, decorator, proxy and when/switch over a sealed event type without a forwarding branch, in any language and layer. 4. It states a principle (pass through what you do not mean to change), not a rule about Compose interactions.",
+  "before": "**Violation looks like:** a `get…` that performs network I/O, a `delete` that soft-deletes\nwhile its siblings hard-delete, a parameter whose meaning inverts an established\nconvention, or a function whose behavior contradicts its own KDoc.",
+  "after": "**Violation looks like:** a `get…` that performs network I/O, a `delete` that soft-deletes\nwhile its siblings hard-delete, a parameter whose meaning inverts an established\nconvention, a function whose behavior contradicts its own KDoc, or an interceptor, decorator or\nstream filter added to change one kind of event that forwards only the kinds it handles — a\nwrapper changes what it means to change and passes every other event through unchanged."
+}

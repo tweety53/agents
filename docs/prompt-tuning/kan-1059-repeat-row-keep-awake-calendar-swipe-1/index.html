@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kan-1059-repeat-row-keep-awake-calendar-swipe-1</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0 auto;max-width:1100px;padding:16px;line-height:1.45}
+pre{background:#f4f4f4;padding:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.ab{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:700px){.ab{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>kan-1059-repeat-row-keep-awake-calendar-swipe-1</h1>
+<h2>Type</h2>
+<p>implementer · scope generic</p>
+<h2>Defect class</h2>
+<p>A regression probe for a defect that depends on timing is driven with idealised input — instantaneous steps, a settle wait longer than the window the defect was seen in — so it passes while the defect is still present.</p>
+<h2>Finding</h2>
+<pre>calendar-swipe-month-grid: DEPARTURE — month-grid press NOT fixed. Under a finger-speed drag (30 moves 16ms apart, 150px left, from day 10) frames 002–019 draw the pressed grey fill on day 10 while the pointer has moved away. The delivered probe (12 instantaneous moves, 300ms wait) passes over the defect.
+
+Severity: Important (visual-verify departure)
+Location: gymie-playwright:tests/kan-1059-repeat-keep-awake-swipe.spec.ts — &#34;the day under the finger draws no press mid-drag&#34;
+</pre>
+<pre><code>commit 0438153236cea6989f39a8a43b8502ccd6c693d6
+Author: Yuriy Aleksandrov &lt;yatweety@gmail.com&gt;
+Date:   Thu Oct 29 13:09:05 2026 &#43;0200
+
+    test(kan-1059): capture the repeat offer, Keep screen on and calendar swipe; re-baseline Settings
+    
+    Flow-Key: flow.visual-verify
+
+diff --git a/tests/kan-1059-repeat-keep-awake-swipe.spec.ts b/tests/kan-1059-repeat-keep-awake-swipe.spec.ts
+new file mode 100644
+index 0000000..7cc3d7e
+--- /dev/null
+&#43;&#43;&#43; b/tests/kan-1059-repeat-keep-awake-swipe.spec.ts
+@@ -0,0 &#43;1,208 @@
+&#43;/**
+&#43; * KAN-1059 visual verification: the empty day&#39;s repeat offer under the last-week-or-shifted rule, the
+&#43; * Settings `Keep screen on` row and the wake lock it drives, and the Home calendar&#39;s horizontal swipe.
+&#43; *
+&#43; * Clock and server day pinned to [PINNED_TODAY] (Wednesday 2026-09-02) before the first navigation; every
+&#43; * seeded date derives from it. Viewport is the `functional` project&#39;s 1200x1164 at dsf 1.
+&#43; *
+&#43; * `navigator.wakeLock` is replaced by an init script with a recorder (headless Chromium may refuse a real
+&#43; * screen lock), so `window.__locks` counts the sentinels the app holds right now.
+&#43; */
+&#43;import { type Page } from &#39;@playwright/test&#39;;
+&#43;import { createWorkout, finishWorkout, isoDay, registerVerifiedUserViaApi, type RegisteredUser } from &#39;../api&#39;;
+&#43;import { test, expect, clickTag, expectRoom, openSettings, PINNED_TODAY, pinClock, signIn, startTodaysWorkout, tagBox, waitForTag, waitForTagGone, waitForStableCanvas, leaveActiveWorkout, listTags, loadHome, waitForTags } from &#39;../fixtures&#39;;
+&#43;
+&#43;const API_BASE = process.env.BACKEND_URL ?? &#39;http://localhost:8080&#39;;
+&#43;
+&#43;async function finishedOn(request: any, user: RegisteredUser, name: string, day: string): Promise&lt;void&gt; {
+&#43;  const id = await createWorkout(request, user, name, day);
+&#43;  await request.post(`${API_BASE}/api/workouts/${id}/start`, { headers: { Authorization: `Bearer ${user.accessToken}` } });
+&#43;  await finishWorkout(request, user, id);
+&#43;}
+&#43;
+&#43;async function recordWakeLocks(page: Page): Promise&lt;void&gt; {
+&#43;  await page.addInitScript(() =&gt; {
+&#43;    const w = window as any;
+&#43;    w.__locks = 0;
+&#43;    w.__lockRequests = 0;
+&#43;    Object.defineProperty(navigator, &#39;wakeLock&#39;, {
+&#43;      configurable: true,
+&#43;      value: {
+&#43;        request: async () =&gt; {
+&#43;          w.__lockRequests&#43;&#43;;
+&#43;          w.__locks&#43;&#43;;
+&#43;          let released = false;
+&#43;          const s: any = new EventTarget();
+&#43;          s.type = &#39;screen&#39;;
+&#43;          Object.defineProperty(s, &#39;released&#39;, { get: () =&gt; released });
+&#43;          s.release = async () =&gt; {
+&#43;            if (!released) {
+&#43;              released = true;
+&#43;              w.__locks--;
+&#43;              s.dispatchEvent(new Event(&#39;release&#39;));
+&#43;            }
+&#43;          };
+&#43;          return s;
+&#43;        },
+&#43;      },
+&#43;    });
+&#43;  });
+&#43;}
+&#43;
+&#43;const locks = (page: Page) =&gt; page.evaluate(() =&gt; (window as any).__locks as number);
+&#43;
+&#43;async function park(page: Page): Promise&lt;void&gt; {
+&#43;  await page.mouse.move(0, 0);
+&#43;  await waitForStableCanvas(page);
+&#43;}
+&#43;
+&#43;async function drag(page: Page, dx: number, tag = &#39;home_calendar_swipe&#39;): Promise&lt;void&gt; {
+&#43;  const box = (await tagBox(page, tag))!;
+&#43;  const y = box.y &#43; box.height / 2;
+&#43;  const x0 = box.x &#43; box.width / 2;
+&#43;  await page.mouse.move(x0, y);
+&#43;  await page.mouse.down();
+&#43;  const steps = 12;
+&#43;  for (let i = 1; i &lt;= steps; i&#43;&#43;) await page.mouse.move(x0 &#43; (dx * i) / steps, y);
+&#43;  await page.mouse.up();
+&#43;}
+&#43;
+&#43;test.describe(&#39;KAN-1059&#39;, () =&gt; {
+&#43;  test.beforeEach(async ({ page }) =&gt; {
+&#43;    await pinClock(page);
+&#43;    await recordWakeLocks(page);
+&#43;  });
+&#43;
+&#43;  test(&#39;repeat offer: last week same weekday&#39;, async ({ page, request }) =&gt; {
+&#43;    const user = await registerVerifiedUserViaApi(request);
+&#43;    await finishedOn(request, user, &#39;Older Wednesday&#39;, isoDay(-14, PINNED_TODAY));
+&#43;    await finishedOn(request, user, &#39;Last Wednesday&#39;, isoDay(-7, PINNED_TODAY));
+&#43;    await signIn(page, user);
+&#43;    await waitForTag(page, &#39;home_repeat_offer&#39;);
+&#43;    await park(page);
+&#43;    await expectRoom(page, &#39;home&#39;);
+&#43;    await expect(page).toHaveScreenshot(&#39;repeat-last-week.png&#39;);
+&#43;  });
+&#43;
+&#43;  test(&#39;repeat offer: the day it moved to&#39;, async ({ page, request }) =&gt; {
+&#43;    const user = await registerVerifiedUserViaApi(request);
+&#43;    await finishedOn(request, user, &#39;Usual Wednesday&#39;, isoDay(-14, PINNED_TODAY));
+&#43;    await finishedOn(request, user, &#39;Moved to Friday&#39;, isoDay(-5, PINNED_TODAY));
+&#43;    await signIn(page, user);
+&#43;    await waitForTag(page, &#39;home_repeat_offer&#39;);
+&#43;    await park(page);
+&#43;    await expectRoom(page, &#39;home&#39;);
+&#43;    await expect(page).toHaveScreenshot(&#39;repeat-shifted.png&#39;);
+&#43;  });
+&#43;
+&#43;  test(&#39;repeat offer: none beyond last two weeks&#39;, async ({ page, request }) =&gt; {
+&#43;    const user = await registerVerifiedUserViaApi(request);
+&#43;    await finishedOn(request, user, &#39;Three Weeks Ago&#39;, isoDay(-21, PINNED_TODAY));
+&#43;    await signIn(page, user);
+&#43;    await expectRoom(page, &#39;home&#39;);
+&#43;    await page.waitForTimeout(1500);
+&#43;    expect(await listTags(page)).not.toContain(&#39;home_repeat_offer&#39;);
+&#43;    await park(page);
+&#43;    await expect(page).toHaveScreenshot(&#39;repeat-none.png&#39;);
+&#43;  });
+&#43;
+&#43;  test(&#39;settings keep screen on, and the wake lock it drives&#39;, async ({ page, request }) =&gt; {
+&#43;    const user = await registerVerifiedUserViaApi(request);
+&#43;    const wakeId = await createWorkout(request, user, &#39;Wake Day&#39;, PINNED_TODAY);
+&#43;    await signIn(page, user);
+&#43;    await openSettings(page);
+&#43;    await expectRoom(page, &#39;settings&#39;);
+&#43;    await waitForTag(page, &#39;settings_keep_screen_on&#39;);
+&#43;    await park(page);
+&#43;    await expect(page).toHaveScreenshot(&#39;settings-keep-screen-on-default.png&#39;);
+&#43;
+&#43;    // Planned: Home holds no lock.
+&#43;    expect(await locks(page)).toBe(0);
+&#43;    await loadHome(page);
+&#43;    await startTodaysWorkout(page);
+&#43;    await expectRoom(page, &#39;active_workout&#39;);
+&#43;    await expect.poll(() =&gt; locks(page)).toBe(1);
+&#43;    await leaveActiveWorkout(page);
+&#43;    await expect.poll(() =&gt; locks(page)).toBe(0);
+&#43;
+&#43;    // Off: the active screen holds none.
+&#43;    await openSettings(page);
+&#43;    await clickTag(page, &#39;settings_keep_screen_on&#39;);
+&#43;    await park(page);
+&#43;    await expect(page).toHaveScreenshot(&#39;settings-keep-screen-on-off.png&#39;);
+&#43;    await loadHome(page);
+&#43;    await startTodaysWorkout(page);
+&#43;    await expectRoom(page, &#39;active_workout&#39;);
+&#43;    await page.waitForTimeout(1000);
+&#43;    expect(await locks(page)).toBe(0);
+&#43;
+&#43;    // On again, but the workout finished: the active screen holds none.
+&#43;    await leaveActiveWorkout(page);
+&#43;    await openSettings(page);
+&#43;    await clickTag(page, &#39;settings_keep_screen_on&#39;);
+&#43;    await finishWorkout(request, user, wakeId);
+&#43;    await loadHome(page);
+&#43;    await expectRoom(page, &#39;home&#39;);
+&#43;    await clickTag(page, &#39;completed_fold_mine&#39;); // finished workouts sit in the fold
+&#43;    await waitForTag(page, `workout_panel_${wakeId}`);
+&#43;    await clickTag(page, `workout_panel_${wakeId}`);
+&#43;    await expectRoom(page, &#39;active_workout&#39;);
+&#43;    await page.waitForTimeout(1000);
+&#43;    expect(await locks(page)).toBe(0);
+&#43;    expect(await page.evaluate(() =&gt; (window as any).__lockRequests)).toBe(0);
+&#43;  });
+&#43;
+&#43;  test(&#39;calendar swipe: week strip and month grid&#39;, async ({ page, request }) =&gt; {
+&#43;    const user = await registerVerifiedUserViaApi(request);
+&#43;    await signIn(page, user);
+&#43;    await waitForTag(page, `cal_day_${PINNED_TODAY}`);
+&#43;    await drag(page, 30); // short drag: no week change
+&#43;    await park(page);
+&#43;    await waitForTag(page, `cal_day_${PINNED_TODAY}`);
+&#43;    await drag(page, -150); // leftward: next week
+&#43;    await waitForTag(page, `cal_day_${isoDay(7, PINNED_TODAY)}`);
+&#43;    await waitForTagGone(page, `cal_day_${PINNED_TODAY}`);
+&#43;    await park(page);
+&#43;    await expect(page).toHaveScreenshot(&#39;swipe-week-next.png&#39;);
+&#43;    await drag(page, 150);
+&#43;    await drag(page, 150); // rightward twice: previous week
+&#43;    await waitForTag(page, `cal_day_${isoDay(-7, PINNED_TODAY)}`);
+&#43;    await park(page);
+&#43;    await expect(page).toHaveScreenshot(&#39;swipe-week-previous.png&#39;);
+&#43;
+&#43;    await clickTag(page, &#39;cal_month_toggle&#39;);
+&#43;    await waitForTag(page, &#39;cal_month_grid&#39;);
+&#43;    const shown = await waitForTags(page, &#39;the grid\&#39;s 15th&#39;, (ids) =&gt; ids.find((id) =&gt; /^cal_day_\d{4}-\d{2}-15$/.test(id)));
+&#43;    await waitForStableCanvas(page);
+&#43;    const m = Number(shown.slice(13, 15));
+&#43;    const next = `cal_day_2026-${String(m &#43; 1).padStart(2, &#39;0&#39;)}-15`;
+&#43;    expect(await listTags(page)).not.toContain(next);
+&#43;    await drag(page, -150); // next month
+&#43;    await waitForTag(page, next);
+&#43;    await park(page);
+&#43;    await expect(page).toHaveScreenshot(&#39;swipe-month-next.png&#39;);
+&#43;  });
+&#43;
+&#43;  test(&#39;calendar swipe: the day under the finger draws no press mid-drag&#39;, async ({ page, request }) =&gt; {
+&#43;    const user = await registerVerifiedUserViaApi(request);
+&#43;    await signIn(page, user);
+&#43;    await waitForTag(page, `cal_day_${PINNED_TODAY}`);
+&#43;    await clickTag(page, &#39;cal_month_toggle&#39;);
+&#43;    await waitForTag(page, &#39;cal_month_grid&#39;);
+&#43;    const day = await waitForTags(page, &#39;the grid\&#39;s 15th&#39;, (ids) =&gt; ids.find((id) =&gt; /^cal_day_\d{4}-\d{2}-15$/.test(id)));
+&#43;    await park(page);
+&#43;    const box = (await tagBox(page, day))!;
+&#43;    const clip = { x: box.x, y: box.y, width: box.width, height: box.height };
+&#43;    const rest = await page.screenshot({ clip });
+&#43;    const x0 = box.x &#43; box.width / 2;
+&#43;    const y = box.y &#43; box.height / 2;
+&#43;    await page.mouse.move(x0, y);
+&#43;    await page.mouse.down();
+&#43;    for (let i = 1; i &lt;= 12; i&#43;&#43;) await page.mouse.move(x0 - (40 * i) / 12, y);
+&#43;    await page.waitForTimeout(300);
+&#43;    const mid = await page.screenshot({ clip });
+&#43;    await page.mouse.up();
+&#43;    expect(mid.equals(rest), &#39;the day cell mid-swipe draws as it did at rest&#39;).toBe(true);
+&#43;  });
+&#43;});
+&#43;
+</code></pre>
+<h2>Fix</h2>
+<pre><code>diff --git a/tests/kan-1059-repeat-keep-awake-swipe.spec.ts b/tests/kan-1059-repeat-keep-awake-swipe.spec.ts
+index 7cc3d7e..992140b 100644
+--- a/tests/kan-1059-repeat-keep-awake-swipe.spec.ts
+&#43;&#43;&#43; b/tests/kan-1059-repeat-keep-awake-swipe.spec.ts
+@@ -198,11 &#43;198,15 @@ test.describe(&#39;KAN-1059&#39;, () =&gt; {
+     const y = box.y &#43; box.height / 2;
+     await page.mouse.move(x0, y);
+     await page.mouse.down();
+-    for (let i = 1; i &lt;= 12; i&#43;&#43;) await page.mouse.move(x0 - (40 * i) / 12, y);
+-    await page.waitForTimeout(300);
+-    const mid = await page.screenshot({ clip });
+&#43;    // A finger&#39;s pace: 30 moves 16ms apart, sampled while the finger is still down.
+&#43;    const pressed: number[] = [];
+&#43;    for (let i = 1; i &lt;= 30; i&#43;&#43;) {
+&#43;      await page.mouse.move(x0 - (150 * i) / 30, y);
+&#43;      await page.waitForTimeout(16);
+&#43;      if (i % 6 === 0 &amp;&amp; !(await page.screenshot({ clip })).equals(rest)) pressed.push(i);
+&#43;    }
+     await page.mouse.up();
+-    expect(mid.equals(rest), &#39;the day cell mid-swipe draws as it did at rest&#39;).toBe(true);
+&#43;    expect(pressed, &#39;moves at which the day cell mid-swipe drew other than at rest&#39;).toEqual([]);
+   });
+ });
+ 
+</code></pre>
+<h2>Why picked</h2>
+<pre>1. Defect class: a probe whose input conditions differ from those the defect was observed under passes over the defect. 2. The quoted rule fixes what the probe asserts (the measured value, the real component) but not the input it drives or when it samples; no rule in implement.md, sdd-dispatch.md, engineering-principles.md or verify-fix-loop.md covers input fidelity. 3. It generalises to every motion, gesture, debounce, animation and race defect, and to backend races probed single-threaded; gymie&#39;s own frontend rules record the class twice (KAN-575 &#34;A green suite is not evidence of a frame&#34;; the Compose test clock that cannot see the frame before a LaunchedEffect runs). 4. It states a principle (reproduce the observed conditions, sample inside the observed window), not a special case for calendars or presses.</pre>
+<h2>Prompt update</h2>
+<p>Target: <code>skills/flow/verify-fix-loop.md</code> at <code>b4c7007ba2219688fc5e8b32f272eb350d268e40</code></p>
+<div class="ab">
+<div><h3>Before</h3><pre>   **Every mockup departure the round fixes lands a permanent probe in the task&#39;s one commit** —
+   a test that drives the real composable or component, never a hand-copied constant, and asserts
+   the value the verifier measured against the frame — so a later change that moves it again fails
+   a test instead of waiting for the next visual verification</pre></div>
+<div><h3>After</h3><pre>   **Every mockup departure the round fixes lands a permanent probe in the task&#39;s one commit** —
+   a test that drives the real composable or component, never a hand-copied constant, and asserts
+   the value the verifier measured against the frame — so a later change that moves it again fails
+   a test instead of waiting for the next visual verification.
+   A departure seen in motion or over time — a frame range, a gesture, a delay — is probed
+   under the input the verifier recorded, its pace, distance and step timing, and sampled inside
+   the window the verifier saw it in, never with instantaneous steps or a settle wait that outlasts
+   that window; where the harness cannot reproduce those conditions, the commit body names the
+   difference.</pre></div>
+</div>
+</body>
+</html>
