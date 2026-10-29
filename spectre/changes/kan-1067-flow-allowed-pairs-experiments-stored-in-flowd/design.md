@@ -60,7 +60,7 @@
 
 **ID:** roles-table-embedded
 **Status:** active
-**Chosen:** the table parser moves to `stats/internal/modelpolicy` (`Parse([]byte)`), shared by the guard and flowd; `make web-dist` copies `skills/flow-contracts/model-policy.md` into `stats/internal/modelpolicy/model-policy.md` (gitignored, like `dist`) and flowd embeds it, so the table is the one `make restart` built after the last landing.
+**Chosen:** the table parser moves to `stats/internal/modelpolicy` (`Parse([]byte)`), shared by the guard and flowd; `make web-dist` copies `skills/flow-contracts/model-policy.md` into `stats/internal/modelpolicy/embedded/model-policy.md` (a subpackage the guard never imports, so a plain `go build ./cmd/flow-guard` needs no make) (gitignored, like `dist`) and flowd embeds it, so the table is the one `make restart` built after the last landing.
 **Considered:** flowd reading the repo file at runtime from its executable's path — breaks for any binary not under `stats/bin`.
 
 ### Metric families per role

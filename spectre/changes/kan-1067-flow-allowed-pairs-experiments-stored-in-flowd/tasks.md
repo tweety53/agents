@@ -73,6 +73,8 @@
 **Commit:** feat(guard): overlay open experiment overrides on the allowed-pairs table
 **After:** Task 2
 
+Correction (2026-10-30): Step 3 planned widening `papPair`'s regex to admit `xhigh` and `max`; its effort group is already `[a-z]+`, so no change shipped. The guard tests' `TestMain` also pins `FLOW_RECORDS_ADDR` to a dead port so no guard test reads the dev store's open experiments.
+
 **Decision:** overrides-via-flow-cli
 **Decision:** override-whole-cells
 
@@ -82,11 +84,13 @@
   - [ ] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./internal/modelpolicy ./internal/api -run 'Roles|Embedded' -count=1` passes; `git status --short stats/internal/modelpolicy` lists no `model-policy.md`; lint. Commit.
 
 **Build:** green
-**Files:** `stats/internal/modelpolicy/embed.go`, `stats/internal/modelpolicy/modelpolicy_test.go`, `stats/internal/api/experiments.go`, `stats/internal/api/experiments_test.go`, `stats/internal/api/server.go`, `stats/Makefile`, `.gitignore`
+**Files:** `stats/internal/modelpolicy/modelpolicy_test.go`, `stats/internal/api/experiments.go`, `stats/internal/api/experiments_test.go`, `stats/internal/api/server.go`, `stats/Makefile`, `.gitignore`, `stats/internal/modelpolicy/embedded/embed.go`, `stats/internal/modelpolicy/embedded/embedded_test.go`
 **Tests:** `TestRolesRoute`, `TestEmbeddedTableParses`
 **Regression:** `TestRolesRoute` fails — the stats UI has no roles table to draw.
 **Commit:** feat(stats): serve the allowed-pairs roles table with open overrides applied
 **After:** Task 3
+
+Correction (2026-10-30): the plan put `//go:embed model-policy.md` in `stats/internal/modelpolicy`, which `internal/guard` imports after Task 3; the file is gitignored and only make writes it, so plain `go build ./cmd/flow-guard` (`scripts/lib/flow-guard.sh`) would fail. The embed moves to `stats/internal/modelpolicy/embedded/` (`embed.go`, `embedded_test.go` holding `TestEmbeddedTableParses`); the copy target and the `.gitignore` entry become `stats/internal/modelpolicy/embedded/model-policy.md`.
 
 **Decision:** roles-table-embedded
 
@@ -97,7 +101,7 @@
   - [ ] **Step 4: Verify.** Tests pass; `scripts/check-references.sh` and `scripts/check-markdown-integrity.sh` exit 0; lint. Commit.
 
 **Build:** green
-**Files:** `stats/internal/store/migrations/0055_task_count_corrections.sql`, `stats/internal/store/taskcounts.go`, `stats/internal/store/taskcounts_test.go`, `stats/cmd/flow/tasks.go`, `stats/cmd/flow/tasks_test.go`, `skills/flow/implement.md`
+**Files:** `stats/internal/store/migrations/0055_task_count_corrections.sql`, `stats/internal/store/taskcounts.go`, `stats/internal/store/taskcounts_test.go`, `stats/cmd/flow/tasks.go`, `stats/cmd/flow/tasks_test.go`, `skills/flow/implement.md`, `stats/internal/records/types.go`, `stats/cmd/flow/tick.go`
 **Allowed-collateral:** `stats/internal/api/*.go`, `stats/internal/client/client.go`
 **Tests:** `TestTasksCountPostsCorrections`, `TestRecordTaskCountCorrections`
 **Regression:** `TestTasksCountPostsCorrections` fails — plan corrections are never stored and the planner trend reads zero.
