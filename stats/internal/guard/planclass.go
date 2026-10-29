@@ -76,14 +76,23 @@ type pcExp struct{ name, desc string }
 
 // pcExtra is an always-on extra dispatch's line — test-sanity+call-efficiency
 // (kan-959) or mutation+failure-modes (kan-1028): its bundle, its roll and
-// the pair it picks — sonnet below 50, opus otherwise, always at low.
-// Printed on every class, micro included.
-func pcExtra(bundle string, roll uint64) string {
-	model := "opus"
+// the pair it picks from pairs, the panel-extra row of the allowed-pairs
+// table — its sonnet pair below 50, its opus pair otherwise, either one when
+// the row names only the other. Printed on every class, micro included.
+func pcExtra(bundle string, roll uint64, pairs []string) string {
+	want := "opus/"
 	if roll < 50 {
-		model = "sonnet"
+		want = "sonnet/"
 	}
-	return fmt.Sprintf("extra: %s · roll %d · %s low\n", bundle, roll, model)
+	pick := pairs[0]
+	for _, p := range pairs {
+		if strings.HasPrefix(p, want) {
+			pick = p
+			break
+		}
+	}
+	model, typ, _ := strings.Cut(pick, "/")
+	return fmt.Sprintf("extra: %s · roll %d · %s %s\n", bundle, roll, model, lpEffort(typ))
 }
 
 // pcTree is the decision tree brainstorm-planner.md's Decide reads, for the
@@ -330,6 +339,12 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "plan-class.sh: %v\n", err)
 		return 2
 	}
+	policy, err := policyTable(root)
+	if err != nil || len(policy["panel-extra"]) == 0 {
+		fmt.Fprintf(stderr, "plan-class.sh: the allowed-pairs table names no panel-extra row (%v)\n", err)
+		return 2
+	}
+	extra := policy["panel-extra"][0].pairs
 
 	// Rolls are reproducible per change name (the directory holding
 	// <tasks.md>): each the first 8 hex digits of a SHA-256, mod 100.
@@ -346,7 +361,7 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "class: %s\n", class)
 	fmt.Fprintf(stdout, "rolls: compact %d · experimental %d · bundle %d · effort %d\n", roll(name), roll(name+"exp"), roll(name+"bundle"), roll(name+"effort"))
 	fmt.Fprint(stdout, pcTree(effective, roll(name), roll(name+"exp"), roll(name+"bundle"), cands))
-	fmt.Fprint(stdout, pcExtra("test-sanity+call-efficiency", roll(name+"extra")))
-	fmt.Fprint(stdout, pcExtra("mutation+failure-modes", roll(name+"extramf")))
+	fmt.Fprint(stdout, pcExtra("test-sanity+call-efficiency", roll(name+"extra"), extra))
+	fmt.Fprint(stdout, pcExtra("mutation+failure-modes", roll(name+"extramf"), extra))
 	return 0
 }
