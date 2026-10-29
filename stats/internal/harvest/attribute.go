@@ -281,6 +281,11 @@ type Delta struct {
 	// subset of the sidechain figures Signals.Sidechain accounts for,
 	// since every agentId-carrying record is a sidechain record.
 	DispatchSignals map[string]Signals
+	// DispatchModels is each dispatch's exact model ID in this batch, by
+	// agentId -- its newest record's message.model, last-write-wins like
+	// Speed -- so a dispatch row reads "opus-5.5", not the recorded intent
+	// "opus" alone.
+	DispatchModels map[string]string
 	// Speed is the last non-empty Usage.Speed seen among this stage run's
 	// records in this batch -- last-write-wins, the same rule Effort
 	// already documents for MetricsPatch, and correct for the same
@@ -376,7 +381,10 @@ type DispatchBucket struct {
 	AgentType   string     `json:"agent_type,omitempty"`
 	Description string     `json:"description,omitempty"`
 	Model       string     `json:"model,omitempty"`
-	SpawnDepth  *string    `json:"spawn_depth,omitempty"`
+	// ModelVersion is the exact model ID the dispatch's records carried
+	// (Delta.DispatchModels): a string leaf, last-write-wins.
+	ModelVersion string  `json:"modelVersion,omitempty"`
+	SpawnDepth   *string `json:"spawn_depth,omitempty"`
 	// Signals is a dispatch's own observability counters (task 5),
 	// mirroring Tokens one field over -- Delta.DispatchSignals' own doc
 	// comment says where this comes from.
@@ -544,6 +552,9 @@ func (a *Attributor) Attribute(ctx context.Context, records []Record) (map[int64
 					td.bucket(r.IsSidechain).add(r.Usage)
 					return td
 				})
+				if r.Model != "" {
+					upsertBucket(&d.DispatchModels, r.AgentID, func(string) string { return strings.ToLower(r.Model) })
+				}
 			}
 			deltas[w.StageRunID] = d
 		}

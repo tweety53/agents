@@ -2934,7 +2934,7 @@ func encodePatches(deltas map[int64]Delta, meta DispatchMeta, hasMeta bool) (map
 		if len(delta.Dispatches) > 0 {
 			mp.Dispatches = make(map[string]DispatchBucket, len(delta.Dispatches))
 			for agentID, td := range delta.Dispatches {
-				db := DispatchBucket{Tokens: td}
+				db := DispatchBucket{Tokens: td, ModelVersion: delta.DispatchModels[agentID]}
 				if s, ok := delta.DispatchSignals[agentID]; ok {
 					s := s
 					db.Signals = &s

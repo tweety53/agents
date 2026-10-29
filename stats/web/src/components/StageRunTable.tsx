@@ -19,6 +19,7 @@ import {
   asObject,
   readCostUsd,
   readEffort,
+  readMainModels,
   readTotalInputTokens,
   readMainTokens,
   readModels,
@@ -140,7 +141,7 @@ function readDispatchRows(bag: unknown): DispatchLine[] {
       agentId,
       agentType: d && typeof d.agent_type === "string" ? d.agent_type : undefined,
       description: d && typeof d.description === "string" ? d.description : undefined,
-      model: d && typeof d.model === "string" ? d.model : undefined,
+      model: d && typeof d.modelVersion === "string" ? d.modelVersion : d && typeof d.model === "string" ? d.model : undefined,
       tokens: tokenTotal(d),
       costUsd: (d ? readCostUsd(d) : null) ?? undefined,
       effort: readServedEffort(d),
@@ -162,6 +163,13 @@ function formatKTokens(v: number): string {
 function StageRunRow({ run, now }: { run: StageRunDTO; now: number }) {
   const [open, setOpen] = useState(false);
   const dispatches = readDispatchRows(run.metrics);
+  // The stage's own main-thread share: its cost less every dispatch's, shown so the rows add up;
+  // null when the stage has no dispatch or any one of them is unpriced.
+  const stageCost = readCostUsd(run.metrics);
+  const mainShare =
+    dispatches.length > 0 && stageCost !== null && dispatches.every((d) => d.costUsd !== undefined)
+      ? Math.max(0, stageCost - dispatches.reduce((a, d) => a + (d.costUsd ?? 0), 0))
+      : null;
   const outcome = outcomeClass(run);
   return (
     <>
@@ -185,9 +193,9 @@ function StageRunRow({ run, now }: { run: StageRunDTO; now: number }) {
           )}
           {stageLabel(run.stage)}
           {run.autoOpened && (
-            <span className="lb-muted" title="opened automatically: the run marked no stage">
+            <span className="lb-muted" title="The run started this work without marking a stage, so the store recorded one for it">
               {" "}
-              (unmarked)
+              (auto-recorded)
             </span>
           )}
           {stageLabel(run.stage) !== run.stage && <div className="lb-muted lb-stage-id">{run.stage}</div>}
@@ -211,6 +219,16 @@ function StageRunRow({ run, now }: { run: StageRunDTO; now: number }) {
           <Unavailable value={readCostUsd(run.metrics)} format={formatUsd} />
         </td>
       </tr>
+      {open && mainShare !== null && (
+        <tr className="lb-dispatch" data-testid="main-share-row">
+          <td className="lb-dispatch-name">main session</td>
+          <td colSpan={4} className="lb-muted">
+            the stage's own work, outside its subagents
+          </td>
+          <td>{modelEffort(readMainModels(run.metrics), readEffort(run.metrics))}</td>
+          <td className="r lb-num">{formatUsd(mainShare)}</td>
+        </tr>
+      )}
       {open &&
         dispatches.map((d) => (
           <tr key={d.agentId} className="lb-dispatch" data-testid="dispatch-row">

@@ -446,6 +446,26 @@ func TestAttributeNoAgentIDCreatesNoDispatch(t *testing.T) {
 	}
 }
 
+// TestAttributeRecordsDispatchModelVersion pins Delta.DispatchModels: a
+// dispatch's exact model ID, canonical lowercase, from its newest record.
+func TestAttributeRecordsDispatchModelVersion(t *testing.T) {
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
+		mainSessionID: {{StageRunID: 13, SessionID: mainSessionID, StartedAt: mustParse(t, "2025-12-01T00:00:00Z")}},
+	}}
+	a := harvest.NewAttributor(windows)
+	recs := []harvest.Record{
+		{Timestamp: mustParse(t, "2026-01-01T00:00:00Z"), SessionID: mainSessionID, Model: "claude-opus-5", AgentID: "a1", IsSidechain: true, Usage: harvest.Usage{InputTokens: 1}},
+		{Timestamp: mustParse(t, "2026-01-01T00:00:01Z"), SessionID: mainSessionID, Model: "Claude-Opus-5-5", AgentID: "a1", IsSidechain: true, Usage: harvest.Usage{InputTokens: 1}},
+	}
+	deltas, err := a.Attribute(context.Background(), recs)
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	if got := deltas[13].DispatchModels["a1"]; got != "claude-opus-5-5" {
+		t.Errorf("DispatchModels[a1] = %q, want claude-opus-5-5", got)
+	}
+}
+
 // TestExistingTokenKeysUnchanged pins the strictly-additive constraint
 // task 4's own instructions state as a hard requirement: for a batch
 // mixing main-thread and sidechain fixture records, Total.Main,
