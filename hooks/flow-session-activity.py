@@ -30,6 +30,12 @@ MAX_DETAIL_BYTES = 500
 
 def activity(payload: dict) -> Optional[Tuple[str, str]]:
     event = payload.get("hook_event_name")
+    # A subagent's tool events fire under the parent's session_id and carry
+    # agent_id (https://code.claude.com/docs/en/hooks); they must not overwrite
+    # the main thread's state, e.g. turn an open question back to working
+    # (kan-1048 self-review, 1-J). Its Notification still reaches the board.
+    if event in ("PreToolUse", "PostToolUse") and payload.get("agent_id"):
+        return None
     if event == "PreToolUse" and payload.get("tool_name") == "AskUserQuestion":
         questions = (payload.get("tool_input") or {}).get("questions") or [{}]
         return "question", str(questions[0].get("question") or "")
