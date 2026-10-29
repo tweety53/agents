@@ -150,6 +150,53 @@ const filesLinePrefix = "**Files:** "
 // becomes the paths alone. Only that task's first unfenced **Files:** line
 // changes; every other byte of plan is kept.
 func filesAdd(plan []byte, id string, paths []string) ([]byte, error) {
+	return editFilesField(plan, id, func(field string) (string, error) {
+		if strings.HasPrefix(field, "none") {
+			field = ""
+		}
+		for _, p := range paths {
+			entry := "`" + p + "`"
+			if strings.Contains(field, entry) {
+				continue
+			}
+			if field != "" {
+				field += ", "
+			}
+			field += entry
+		}
+		return field, nil
+	})
+}
+
+// filesRemove drops every path in paths from task id's **Files:** line --
+// a field left empty becomes `none` -- and refuses a path the field does
+// not name, the plan left unchanged.
+func filesRemove(plan []byte, id string, paths []string) ([]byte, error) {
+	return editFilesField(plan, id, func(field string) (string, error) {
+		entries := strings.Split(field, ", ")
+		for _, p := range paths {
+			entry := "`" + p + "`"
+			kept := entries[:0:0]
+			for _, e := range entries {
+				if e != entry {
+					kept = append(kept, e)
+				}
+			}
+			if len(kept) == len(entries) {
+				return "", fmt.Errorf("task %s's **Files:** field does not name %s", id, entry)
+			}
+			entries = kept
+		}
+		if len(entries) == 0 {
+			return "none", nil
+		}
+		return strings.Join(entries, ", "), nil
+	})
+}
+
+// editFilesField replaces task id's first unfenced **Files:** field with
+// edit's result; every other byte of plan is kept.
+func editFilesField(plan []byte, id string, edit func(field string) (string, error)) ([]byte, error) {
 	if !taskIDPattern.MatchString(id) {
 		return nil, fmt.Errorf("%w: %q", ErrTaskIDInvalid, id)
 	}
@@ -168,19 +215,9 @@ func filesAdd(plan []byte, id string, paths []string) ([]byte, error) {
 		if inFence || !strings.HasPrefix(line, filesLinePrefix) {
 			continue
 		}
-		field := strings.TrimPrefix(line, filesLinePrefix)
-		if strings.HasPrefix(field, "none") {
-			field = ""
-		}
-		for _, p := range paths {
-			entry := "`" + p + "`"
-			if strings.Contains(field, entry) {
-				continue
-			}
-			if field != "" {
-				field += ", "
-			}
-			field += entry
+		field, err := edit(strings.TrimPrefix(line, filesLinePrefix))
+		if err != nil {
+			return nil, err
 		}
 		lines[i] = []byte(filesLinePrefix + field)
 		return bytes.Join(lines, []byte("\n")), nil

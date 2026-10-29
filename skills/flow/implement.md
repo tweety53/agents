@@ -877,7 +877,9 @@ one correction whose disclosure has a mechanical record: `check-task-commit-fiel
 against the record as it stood, refuses the commit, and names every undeclared path; the parent
 judges the deviation legitimate or not on exactly that refusal, and only a legitimate one is
 transcribed and the guard re-run green. The parent transcribes a widening with
-`flow tasks files -C <worktree> <change> <id> add <path>…`, which edits that one task's
+`flow tasks files -C <worktree> <change> <id> add <path>…`, and a narrowing — a declared path
+the commit legitimately leaves untouched — with
+`flow tasks files -C <worktree> <change> <id> remove <path>…`, each editing that one task's
 `**Files:**` field, never with a hand `sed` over `tasks.md`. The review gate's undeclared-path arm reads the paths the
 refusal named, so the disclosure cannot disarm the gate. This is expected practice
 on every task, not one implementer's habit.

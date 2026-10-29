@@ -387,3 +387,46 @@ func TestTasksFilesAddWidensOneTask(t *testing.T) {
 		t.Fatalf("an unknown task: exit %d, want 1", code)
 	}
 }
+
+func TestTasksFilesRemoveNarrowsOneTask(t *testing.T) {
+	const plan = "# p\n\n" +
+		"- [ ] 1. One\n  - [ ] **Step 1: a**\n\n```markdown\n**Files:** `x.go`, `a.go`, `b.go`\n```\n\n**Files:** `x.go`, `a.go`, `b.go`\n**Commit:** one\n\n" +
+		"- [ ] 3. Three\n\n**Files:** `x.go`, `a.go`, `b.go`\n"
+	dir := t.TempDir()
+	writePlan(t, dir, "spectre", "c", plan)
+	path := filepath.Join(dir, "spectre", "changes", "c", "tasks.md")
+	files := func(args ...string) int {
+		var stdout, stderr bytes.Buffer
+		return run(context.Background(), append([]string{"tasks", "files", "-C", dir, "c"}, args...), nil, &stdout, &stderr)
+	}
+	read := func() string {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+	if code := files("1", "remove", "a.go"); code != 0 {
+		t.Fatalf("remove: exit %d", code)
+	}
+	want := strings.Replace(plan, "**Files:** `x.go`, `a.go`, `b.go`\n**Commit:** one", "**Files:** `x.go`, `b.go`\n**Commit:** one", 1)
+	if got := read(); got != want {
+		t.Fatalf("after remove:\n%s\nwant:\n%s", got, want)
+	}
+	if code := files("1", "remove", "x.go", "b.go"); code != 0 {
+		t.Fatalf("remove the rest: exit %d", code)
+	}
+	want = strings.Replace(want, "**Files:** `x.go`, `b.go`\n**Commit:** one", "**Files:** none\n**Commit:** one", 1)
+	if got := read(); got != want {
+		t.Fatalf("after removing the rest:\n%s\nwant:\n%s", got, want)
+	}
+	if code := files("1", "remove", "q.go"); code != 1 || read() != want {
+		t.Fatalf("an unnamed path: exit %d, want 1, plan:\n%s", code, read())
+	}
+	if code := files("9", "remove", "a.go"); code != 1 {
+		t.Fatalf("an unknown task: exit %d, want 1", code)
+	}
+	if code := files("1", "remove"); code != 2 {
+		t.Fatalf("no path: exit %d, want 2", code)
+	}
+}

@@ -28,7 +28,7 @@ import (
 
 const tasksUsage = `usage: flow tasks tick [-C dir] <change> <task-id>
        flow tasks count [-C dir] [-addr url] [-timeout dur] <change>
-       flow tasks files [-C dir] <change> <task-id> add <path>...
+       flow tasks files [-C dir] <change> <task-id> add|remove <path>...
 
 tasks tick flips one task's own checkbox and every step checkbox in its
 body from "[ ]" to "[x]" in <dir>/<spec-root>/changes/<change>/tasks.md
@@ -44,6 +44,10 @@ it does not already name, as a backticked entry -- a "none" field becomes
 the paths alone -- leaving every other task, every fenced line and every
 other byte unchanged. It refuses (exit 1) an unknown task or one with no
 **Files:** line.
+
+tasks files ... remove narrows it, dropping each backticked <path> entry
+-- a field left empty becomes "none" -- and refuses (exit 1), leaving the
+plan unchanged, a <path> the field does not name.
 
 tasks count counts the plan's column-0 task checkbox lines and records
 the figure as one observation of the change's plan-growth series
@@ -178,9 +182,10 @@ func runTasksTick(_ context.Context, args []string, stdout, stderr io.Writer) in
 	return 0
 }
 
-// runTasksFiles implements `flow tasks files <change> <id> add <path>...`
-// (decision sr16-files-verb): the parent's transcription of a legitimate
-// widening, in place of a hand sed over tasks.md.
+// runTasksFiles implements `flow tasks files <change> <id> add|remove
+// <path>...` (decisions sr16-files-verb, tasks-files-remove): the parent's
+// transcription of a legitimate widening or narrowing, in place of a hand
+// sed over tasks.md.
 func runTasksFiles(args []string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow tasks files", flag.ContinueOnError)
 	fset.SetOutput(stderr)
@@ -193,8 +198,8 @@ func runTasksFiles(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprint(stderr, tasksUsage)
 		return 2
 	}
-	if len(pos) < 4 || pos[2] != "add" {
-		fmt.Fprintln(stderr, "flow: expected <change> <task-id> add <path>...")
+	if len(pos) < 4 || (pos[2] != "add" && pos[2] != "remove") {
+		fmt.Fprintln(stderr, "flow: expected <change> <task-id> add|remove <path>...")
 		fmt.Fprint(stderr, tasksUsage)
 		return 2
 	}
@@ -215,7 +220,11 @@ func runTasksFiles(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "flow: read %s: %v\n", path, err)
 		return 1
 	}
-	out, err := filesAdd(plan, pos[1], pos[3:])
+	edit := filesAdd
+	if pos[2] == "remove" {
+		edit = filesRemove
+	}
+	out, err := edit(plan, pos[1], pos[3:])
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		if errors.Is(err, ErrTaskIDInvalid) {
