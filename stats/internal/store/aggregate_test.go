@@ -2043,6 +2043,20 @@ func TestLiveStateBoardActivityBetweenStages(t *testing.T) {
 	if rows[0].CurrentStage != nil || rows[0].Activity == nil || *rows[0].Activity != "working" {
 		t.Errorf("CurrentStage = %v Activity = %v, want no open stage and working", rows[0].CurrentStage, rows[0].Activity)
 	}
+	if rows[0].SessionSeenAt != nil {
+		t.Errorf("SessionSeenAt = %v before any transcript was harvested, want nil", rows[0].SessionSeenAt)
+	}
+	// A harvested subagent transcript of the session marks it seen.
+	if _, err := st.CommitHarvestBatch(ctx, "/p/s-between/subagents/agent-1.jsonl", 0, false, 10, nil); err != nil {
+		t.Fatalf("CommitHarvestBatch: %v", err)
+	}
+	rows, err = st.LiveStateBoard(ctx, store.Period{
+		From: time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC),
+	}, &projectKey, nil)
+	if err != nil || len(rows) != 1 || rows[0].SessionSeenAt == nil {
+		t.Fatalf("after harvest: rows = %+v err = %v, want SessionSeenAt set", rows, err)
+	}
 }
 
 // TestLiveStateBoardLiveFieldEdges pins the edges the board's live fields

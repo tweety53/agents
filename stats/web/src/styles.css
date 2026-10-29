@@ -635,7 +635,8 @@ th button {
 .lb-title { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .lb-title h2 { overflow-wrap: anywhere; }
 .lb-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
-.lb-kpi { padding: 10px 14px; border-right: 1px solid var(--border); display: grid; gap: 2px; align-content: start; }
+.lb-kpi { padding: 10px 14px; border-right: 1px solid var(--border); display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; align-content: start; min-width: 0; }
+.lb-kpi > * { min-width: 0; }
 .lb-kpi:last-child { border-right: 0; }
 .lb-kpi-val { font-size: 22px; font-weight: 600; }
 .lb-kpi:first-child .lb-kpi-val { font-size: 15px; padding-top: 6px; }

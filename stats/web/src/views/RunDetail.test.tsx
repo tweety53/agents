@@ -764,8 +764,8 @@ describe("the reworked run view (kan-1048)", () => {
     // The main session leads, marked Main, on its inline task; each subagent is marked Subagent.
     const agentRows = [...subs.querySelectorAll("tbody tr")];
     expect(agentRows).toHaveLength(2);
-    expect(agentRows[0]).toHaveTextContent("Mainneeds youtask 3 (Run view)");
-    expect(agentRows[1]).toHaveTextContent("⎿ implementerrunningtask 2 (Board card)opus-5.5 · high10m");
+    expect(agentRows[0]).toHaveTextContent("Mainneeds youImplementing task 3 (Run view)");
+    expect(agentRows[1]).toHaveTextContent("⎿ implementerrunningImplementing task 2 (Board card)opus-5.5 · high10m");
     expect(subs.querySelector(".lb-panel-note")).toHaveTextContent("2");
     const tasks = screen.getByRole("region", { name: "Tasks" });
     expect(tasks).toHaveTextContent("1/3 done");

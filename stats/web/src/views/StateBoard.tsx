@@ -15,6 +15,7 @@ import { useStatsView } from "../hooks/useStatsView";
 import { DAY_MS, formatInt, formatRelative, formatSpan, formatUsd } from "../format";
 import { projectLabel } from "../lib/projectLabel";
 import { runningTask } from "../lib/runningTask";
+import { sessionAlive } from "../lib/sessionAlive";
 import { stageLabel } from "../lib/stageLabel";
 
 const REFRESH_MS = 5000;
@@ -106,8 +107,9 @@ function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
   const total = row.currentTasks;
   const done = row.doneTasks ?? 0;
   const task = runningTask(row);
+  const alive = sessionAlive(row, now);
   // The main session while a stage is open or it works between stages, plus its subagents.
-  const agentCount = (row.subagents ?? []).filter((d) => !d.inline).length + (row.currentStage !== undefined || row.subagents?.some((d) => d.inline) || (row.activity !== undefined && row.activity !== "idle") ? 1 : 0);
+  const agentCount = (row.subagents ?? []).filter((d) => !d.inline).length + (alive ? 1 : 0);
   return (
     <div
       className={`lb-card${needsOperator(row) ? " needs" : ""}`}
@@ -128,7 +130,7 @@ function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
           <span title={row.currentStage}>{stageLabel(row.currentStage)}</span>
           {row.currentStageStartedAt && <span className="lb-muted">· {formatSpan(now - Date.parse(row.currentStageStartedAt))}</span>}
         </div>
-      ) : task ? (
+      ) : task || alive ? (
         <div className="lb-stage">
           <span className="lb-live-dot" />
           <span>Working between stages</span>

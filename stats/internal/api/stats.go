@@ -690,11 +690,13 @@ type stateBoardRowDTO struct {
 	DoneTasks             *int    `json:"doneTasks,omitempty"`
 	// Tasks is an unfinished change's plan, read from its tasks.md;
 	// Subagents its running dispatches. Both omitted when empty.
-	Tasks          []taskDTO              `json:"tasks,omitempty"`
-	Subagents      []store.ActiveDispatch `json:"subagents,omitempty"`
-	Activity       *string                `json:"activity,omitempty"`
-	ActivityDetail *string                `json:"activityDetail,omitempty"`
-	ActivitySince  *string                `json:"activitySince,omitempty"`
+	Tasks     []taskDTO              `json:"tasks,omitempty"`
+	Subagents []store.ActiveDispatch `json:"subagents,omitempty"`
+	// SessionSeenAt is when the session last wrote to its transcript.
+	SessionSeenAt  *string `json:"sessionSeenAt,omitempty"`
+	Activity       *string `json:"activity,omitempty"`
+	ActivityDetail *string `json:"activityDetail,omitempty"`
+	ActivitySince  *string `json:"activitySince,omitempty"`
 }
 
 // nextCommandFor maps a change's current pipeline state to the command that
@@ -793,6 +795,7 @@ func toStateBoardDTOs(rows []store.LiveStateRow) []stateBoardRowDTO {
 			DoneTasks:             r.DoneTasks,
 			Tasks:                 planTasks(r),
 			Subagents:             r.Subagents,
+			SessionSeenAt:         rfc3339OrNil(r.SessionSeenAt),
 			Activity:              r.Activity,
 			ActivityDetail:        r.ActivityDetail,
 			ActivitySince:         rfc3339OrNil(r.ActivitySince),

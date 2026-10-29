@@ -304,6 +304,8 @@ export interface StateBoardRow {
   /** An unfinished change's plan tasks, and its running subagents; each absent when empty. */
   tasks?: PlanTask[];
   subagents?: ActiveSubagent[];
+  /** When the session last wrote to its transcript; absent for a finished change. */
+  sessionSeenAt?: string;
   activity?: 'working' | 'question' | 'permission' | 'idle';
   activityDetail?: string;
   activitySince?: string;

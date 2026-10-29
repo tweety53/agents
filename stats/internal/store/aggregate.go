@@ -70,6 +70,11 @@ type LiveStateRow struct {
 	RepoRoots []string
 	// CommittedTasks are the task ids an implementer dispatch committed.
 	CommittedTasks []string
+	// SessionSeenAt is when the harvester last read new transcript lines of
+	// the open or latest run's session -- main thread or subagent -- so a
+	// session working with no stage or dispatch open still reads as alive.
+	// Nil for a finished change, which the board never shows as live.
+	SessionSeenAt  *time.Time
 	DoneTasks      *int
 	Activity       *string
 	ActivityDetail *string
@@ -109,7 +114,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 		       first_obs.total_tasks, latest_obs.total_tasks,
 		       totals.runs, totals.cost, totals.wall_ms, totals.errors,
 		       win.d1, win.d7, win.d30,
-		       open_run.stage, open_run.started_at, last_run.stage, last_run.ended_at, done.tasks, subs.list, roots.list, committed.list,
+		       open_run.stage, open_run.started_at, last_run.stage, last_run.ended_at, done.tasks, subs.list, roots.list, committed.list, seen.at,
 		       sa.state, sa.detail, sa.updated_at
 		FROM changes c
 		LEFT JOIN LATERAL (
@@ -182,6 +187,13 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			FROM dispatches d
 			WHERE d.change_id = c.id AND d.role = 'implementer' AND d.commit_sha IS NOT NULL AND d.task_id IS NOT NULL
 		) committed ON true
+		LEFT JOIN LATERAL (
+			SELECT MAX(h.updated_at) AS at
+			FROM harvest_offsets h
+			WHERE c.state <> 'FINISHED'
+			  AND COALESCE(open_run.session_id, last_run.session_id) IS NOT NULL
+			  AND h.transcript_path LIKE '%' || COALESCE(open_run.session_id, last_run.session_id) || '%'
+		) seen ON true
 		LEFT JOIN session_activity sa ON sa.session_id = COALESCE(open_run.session_id, last_run.session_id)
 		LEFT JOIN LATERAL (
 			SELECT CASE WHEN COUNT(*) = 0 THEN NULL
@@ -211,7 +223,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			&row.PlannedTasks, &row.CurrentTasks,
 			&row.RunCount, &row.CostUsd, &row.WallClockMs, &row.Errors,
 			&row.Cost24h, &row.Cost7d, &row.Cost30d,
-			&row.CurrentStage, &row.CurrentStageStartedAt, &row.LastStage, &row.LastStageEndedAt, &row.DoneTasks, &subs, &row.RepoRoots, &row.CommittedTasks,
+			&row.CurrentStage, &row.CurrentStageStartedAt, &row.LastStage, &row.LastStageEndedAt, &row.DoneTasks, &subs, &row.RepoRoots, &row.CommittedTasks, &row.SessionSeenAt,
 			&row.Activity, &row.ActivityDetail, &row.ActivitySince); err != nil {
 			return nil, fmt.Errorf("store: live state board: scan: %w", err)
 		}

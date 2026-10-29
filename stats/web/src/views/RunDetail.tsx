@@ -17,7 +17,9 @@ import { useRunDetail } from "../hooks/useRunDetail";
 import { formatModel, formatRelative, formatSpan, formatUsd } from "../format";
 import { readCacheReadTokens, readCostUsd, readEffort, readModels, readTotalInputTokens } from "../metrics";
 import { projectLabel } from "../lib/projectLabel";
+import { describeDispatch } from "../lib/describeDispatch";
 import { runningTask } from "../lib/runningTask";
+import { sessionAlive } from "../lib/sessionAlive";
 import { stageLabel } from "../lib/stageLabel";
 import { ActivityBadge, StatePill } from "./StateBoard";
 import type { ActiveSubagent, PlanTask, StageRunDTO } from "../api";
@@ -65,9 +67,10 @@ function StatusDot({ status }: { status: AgentStatus }) {
   );
 }
 
-/** What the main session's inline dispatch does: its task with title, else its key, else its role. */
+/** What a dispatch does, in plain words from its key, with its plan task's title when it has one. */
 function inlineWhat(d: ActiveSubagent, tasks: PlanTask[] | undefined): string {
-  return d.taskId ? `task ${d.taskId}${taskTitle(tasks, d.taskId)}` : (d.key ?? d.role);
+  const what = d.key === undefined && d.taskId ? `task ${d.taskId}` : describeDispatch(d.key, d.role);
+  return `${what}${d.taskId ? taskTitle(tasks, d.taskId) : ""}`;
 }
 
 function jiraKey(change: string): string | null {
@@ -131,7 +134,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
           const inline = board?.subagents?.find((d) => d.inline);
           // Between stages the main session still counts while it works or waits on you.
           const lastRun = [...runs].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt))[0];
-          const betweenStages = !openRun && lastRun && (inline !== undefined || (board?.activity !== undefined && board.activity !== "idle"));
+          const betweenStages = !openRun && lastRun && board !== undefined && (sessionAlive(board, now) || board.activity === "question" || board.activity === "permission");
           const mainRun = openRun ?? (betweenStages ? lastRun : undefined);
           const mainAgent = mainRun && {
             what: inline ? inlineWhat(inline, board?.tasks) : openRun ? stageLabel(openRun.stage) : `after ${stageLabel(mainRun.stage)}`,
@@ -168,7 +171,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                       <>
                         <span className="lb-live-dot" /> <span title={openRun.stage}>{stageLabel(openRun.stage)}</span>
                       </>
-                    ) : nowTask ? (
+                    ) : betweenStages ? (
                       <>
                         <span className="lb-live-dot" /> Working between stages
                       </>
@@ -186,7 +189,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                     </>
                   }
                 >
-                  {(openRun || nowTask) && board && <ActivityBadge row={board} now={now} />}
+                  {(openRun || betweenStages) && board && <ActivityBadge row={board} now={now} />}
                 </Kpi>
                 <Kpi
                   label="Total cost"
@@ -249,7 +252,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                               <StatusDot status="running" />
                             </td>
                             <td>
-                              {d.taskId ? `task ${d.taskId}${taskTitle(board?.tasks, d.taskId)}` : (d.key ?? "—")}
+                              {inlineWhat(d, board?.tasks)}
                             </td>
                             <td>
                               {formatModel(d.modelVersion ?? d.model)}
