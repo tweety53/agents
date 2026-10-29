@@ -10,12 +10,14 @@ The PreToolUse contract has no way to rewrite tool input, so this hook cannot in
 line itself. It denies the call instead and returns the exact text to add; the model then
 re-dispatches with it.
 
-It also pins the agent type and model of the /flow roles whose contracts fix them
-(PINNED_ROLES): a dispatch whose prompt carries a role's marker as a line of its own on
-any other subagent_type/model is denied with the values it must carry. A prompt that
-merely cites the role's contract file -- an implementer, a self-review planner, an
-escalation carrying verifier reports -- is not that role. Prose in
-skills/flow/visual-verify.md did not stop a hand-written verifier dispatch on flow-high.
+It denies, in a flow run, a dispatch off the **Allowed pairs** table of
+skills/flow-contracts/model-policy.md (KAN-1045): scripts/check-dispatch-pair.sh reads the
+prompt's `Role: <role id>` line and refuses no Role line, an unknown role, a pair off the
+role's rows, or a marked row (`No-progress escalation`, `Operator-approved high`) whose
+marker is not a line of the prompt -- and a guard that cannot answer (exit 2) denies too. A
+loop dispatch, whose `Key:` line hooks/enforce-loop-dispatch.py checks against the same
+table, is exempt. On ZCode the Role line must still name a role of the table, and the pair is
+the harness mapping's alone.
 
 It denies every fork in a flow session -- one whose transcript records a /flow, /flow-fast,
 /flow-plan or /flow-self-review command, or whose prompt names a flow skill: a flow dispatch is a
@@ -46,7 +48,7 @@ None of those row checks applies once the session's change is FINISHED in the st
 over, and a later dispatch in the same session is no flow dispatch.
 
 A planning agent (PLANNING_AGENT_TYPES: Explore, Plan) records no row, so none of those row checks
-applies to it; the baseline-pointer, pinned-role and flow-high checks still do.
+applies to it; the baseline-pointer and allowed-pairs checks still do.
 
 Fails open: any unexpected input, parse error, or internal fault exits 0 and lets the
 dispatch through. A guardrail on a convention must never be the reason work stops.
@@ -68,7 +70,7 @@ DISPATCH_TOOLS = {"Agent", "Task"}
 EXEMPT_SUBAGENT_TYPES = {"fork"}
 
 # A planner's own read-only agents record no ledger row, so the row checks (description, loop key
-# line, begun row) pass them; the baseline-pointer, pinned-role and flow-high checks still apply
+# line, begun row) pass them; the baseline-pointer and allowed-pairs checks still apply
 # (kan-1032's self-review: a planner's Explore dispatch was denied mid-plan).
 PLANNING_AGENT_TYPES = {"Explore", "Plan"}
 
@@ -105,36 +107,17 @@ DENY_REASON = (
     "context already."
 )
 
-# (marker line, subagent_type, model, the contract that fixes the pair). The marker is
-# the line the contract's prompt opens with, matched as a whole line.
-PINNED_ROLES = (
-    ("Role: visual-verify tooling analyst", "flow-medium", "opus", "skills/flow/visual-verify-tooling-analysis.md"),
-    ("Role: visual-verify verifier", "flow-low", "opus", "skills/flow/visual-verify.md"),
-    ("Role: panel findings merger", "flow-low", "sonnet", "skills/flow/review-panel.md"),
-    ("Role: gated per-task reviewer", "flow-medium", "opus", "skills/flow/implement.md"),
-    ("Role: gated per-task re-reviewer", "flow-low", "opus", "skills/flow/gated-review-fix.md"),
-)
-
-# Harness mapping (skills/flow-contracts/model-policy.md): on zcode every pinned pair
-# is dispatched as general-purpose / glm-5.3-flash -- ZCode's Agent tool offers no
-# flow-<effort> type (KAN-609). The zcode registration runs the hook from
-# ~/.zcode/hooks, which is how the hook tells the harness.
+# Harness mapping (skills/flow-contracts/model-policy.md): on zcode every pair is dispatched as
+# general-purpose / glm-5.3-flash -- ZCode's Agent tool offers no flow-<effort> type (KAN-609).
+# The zcode registration runs the hook from ~/.zcode/hooks, which is how the hook tells the
+# harness.
 ZCODE_PAIR = ("general-purpose", "glm-5.3-flash")
 
-# flow-high is dispatched in exactly two cases (skills/flow/implement.md): the no-progress
-# escalation -- marked by its opening line, or a self-review or pipeline-fix loop key whose
-# rows scripts/check-loop-dispatch.sh pins -- and a panel dispatch the operator approved at high. Anything else on flow-high was
-# hand-picked: a parent ran scoped in-run fixes on flow-high where the decision said inline.
-FLOW_HIGH_MARKERS = (
-    "No-progress escalation",
-    "Key: self-review-",
-    "Key: pipeline-fix-",
-    "Operator-approved high",
-)
-
-# flow-xhigh and flow-planner-xhigh are defined for later use (KAN-1039): no contract dispatches
-# them yet, so a dispatch on either was hand-picked.
-FLOW_XHIGH_TYPES = ("flow-xhigh", "flow-planner-xhigh")
+REPO = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+PAIR_CHECK = os.path.join(REPO, "scripts", "check-dispatch-pair.sh")
+POLICY = os.path.join(REPO, "skills", "flow-contracts", "model-policy.md")
+ROLE_LINE = re.compile(r"^Role: (\S+)$", re.M)
+POLICY_ROLE = re.compile(r"^\| `([a-z0-9-]+)` \| `", re.M)
 
 
 # A description naming its row: plan tasks by id over the plan's count, any other row by a first
@@ -316,49 +299,43 @@ def in_flow_session(payload: dict) -> bool:
         return False
 
 
-def flow_high_reason(prompt: str, tool_input: dict) -> "str | None":
-    if tool_input.get("subagent_type") != "flow-high" or "/.zcode/" in __file__:
+def dispatch_pair_reason(payload: dict, prompt: str, tool_input: dict) -> "str | None":
+    if LOOP_KEY_LINE.search(prompt) or not in_flow_run(payload):
         return None
-    if any(marker in prompt for marker in FLOW_HIGH_MARKERS):
-        return None
-    return (
-        "Dispatch blocked: flow-high is reserved for the no-progress escalation and a panel "
-        "dispatch the operator approved at high (skills/flow/implement.md).\n\n"
-        "Read the recorded decision (`flow record decisions -change <name>`) and dispatch on "
-        "the pair it names -- or, when its execution is `inline`, make the change yourself "
-        "with no dispatch. A no-progress escalation opens its prompt with the line "
-        "`No-progress escalation`; an approved panel dispatch with `Operator-approved high`."
-    )
-
-
-def flow_xhigh_reason(tool_input: dict) -> "str | None":
-    subagent_type = tool_input.get("subagent_type")
-    if subagent_type not in FLOW_XHIGH_TYPES or "/.zcode/" in __file__:
-        return None
-    return (
-        f"Dispatch blocked: {subagent_type} is defined for later use and no contract "
-        "dispatches it yet (KAN-1039). Dispatch on the pair the recorded decision or the "
-        "loop's pairs table names."
-    )
-
-
-def pinned_role_reason(prompt: str, tool_input: dict) -> "str | None":
-    lines = {line.strip() for line in prompt.splitlines()}
-    for marker, subagent_type, model, contract in PINNED_ROLES:
-        if marker not in lines:
-            continue
-        if "/.zcode/" in __file__:
-            subagent_type, model = ZCODE_PAIR
-        got = (tool_input.get("subagent_type"), tool_input.get("model"))
-        if got == (subagent_type, model):
+    typ, model = tool_input.get("subagent_type"), tool_input.get("model")
+    if "/.zcode/" in __file__:
+        role = ROLE_LINE.search(prompt)
+        try:
+            with open(POLICY, encoding="utf-8") as f:
+                known = set(POLICY_ROLE.findall(f.read()))
+        except OSError as e:
+            return f"Dispatch blocked: the allowed-pairs table cannot be read ({e})."
+        if not role or role.group(1) not in known:
+            return (
+                "Dispatch blocked: a flow dispatch's prompt names its role as a line "
+                "`Role: <role id>` of the Allowed pairs table (skills/flow-contracts/model-policy.md)."
+            )
+        if (typ, model) == ZCODE_PAIR:
             return None
         return (
-            f"Dispatch blocked: a prompt carrying the line `{marker}` is a role {contract} pins.\n\n"
-            f"Got subagent_type={got[0]!r}, model={got[1]!r}.\n"
-            f"Re-send this call with subagent_type: \"{subagent_type}\" and "
-            f"model: \"{model}\", nothing else changed. No rule or instruction overrides it."
+            f"Dispatch blocked: on ZCode every flow dispatch runs on subagent_type: \"{ZCODE_PAIR[0]}\" "
+            f"and model: \"{ZCODE_PAIR[1]}\" (Harness mapping, skills/flow-contracts/model-policy.md); "
+            f"got subagent_type={typ!r}, model={model!r}."
         )
-    return None
+    args = [PAIR_CHECK, REPO, str(typ or ""), str(model or "")]
+    if typ in PLANNING_AGENT_TYPES:
+        args.append(str(tool_input.get("effort") or ""))
+    try:
+        done = subprocess.run(args, input=prompt, capture_output=True, text=True, timeout=bound(240), check=False)
+    except (OSError, subprocess.SubprocessError) as e:
+        return f"Dispatch blocked: check-dispatch-pair.sh could not run ({e})."
+    if done.returncode == 0:
+        return None
+    return (
+        f"Dispatch blocked (check-dispatch-pair.sh exit {done.returncode}):\n{done.stdout}{done.stderr}\n"
+        "Re-send this call on a pair its role's rows of Allowed pairs (skills/flow-contracts/model-policy.md) "
+        "admit, its prompt carrying the `Role: <role id>` line."
+    )
 
 
 def fork_reason(payload: dict, tool_input: dict) -> "str | None":
@@ -430,12 +407,10 @@ def main() -> int:
         return 0
 
     reason = (
-        pinned_role_reason(prompt, tool_input)
-        or flow_high_reason(prompt, tool_input)
-        or flow_xhigh_reason(tool_input)
-        or description_reason(payload, tool_input, prompt)
+        description_reason(payload, tool_input, prompt)
         or loop_key_line_reason(payload, tool_input, prompt)
         or begin_row_reason(payload, tool_input, prompt)
+        or dispatch_pair_reason(payload, prompt, tool_input)
     )
     if reason:
         deny(reason)
