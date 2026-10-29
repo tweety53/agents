@@ -12,6 +12,7 @@ export function describeDispatch(key: string | undefined, role: string): string 
   if ((m = /^panel-fix-(\d+)$/.exec(key))) return `Fixing code review findings, round ${m[1]}`;
   if ((m = /^panel-(\d+)-(.+)$/.exec(key))) return `Code review round ${m[1]}: ${m[2].replace(/\+/g, ", ").replace(/-/g, " ")}`;
   if ((m = /^full-suite-fix-(\d+)$/.exec(key))) return `Fixing the full test suite, round ${m[1]}`;
+  if (/^self-review-.+-pass$/.test(key)) return "Self-review: reviewing the change";
   if ((m = /^self-review-.+-plan$/.exec(key))) return "Self-review: planning fixes";
   if ((m = /^self-review-.+-fix-g(\d+)$/.exec(key))) return `Self-review: fixing group ${m[1]}`;
   if ((m = /^self-review-.+-fix-v(\d+)$/.exec(key))) return `Self-review: fixing a red verify, round ${m[1]}`;

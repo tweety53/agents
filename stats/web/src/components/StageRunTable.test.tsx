@@ -59,4 +59,9 @@ describe("StageRunTable", () => {
     const main = screen.getByTestId("main-share-row");
     expect(main).toHaveTextContent(/^main sessionopus 5\.5 · low\$0\.85$/);
   });
+
+  it("names a dispatch with no record by the key its description leads with", async () => {
+    render(<StageRunTable stageRuns={[run]} />);
+    expect(screen.getByRole("cell", { name: /^▸/ })).toHaveTextContent("Self-review · fixing, round 2 (opus) + reviewing fixes, round 2 (sonnet)");
+  });
 });

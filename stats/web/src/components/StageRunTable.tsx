@@ -152,10 +152,12 @@ function descriptionWords(d: DispatchRow): string | undefined {
   return m ? m[1] : d.description;
 }
 
-/** A dispatch's plain words: its recorded key through describeDispatch, else its description's own words. */
+/** A dispatch's plain words: its recorded key -- else the key its harness description leads with -- through describeDispatch, else the description's own words. */
 function dispatchName(d: DispatchRow, rec: RecordDispatch | undefined): string {
   if (rec) return describeDispatch(rec.key || undefined, rec.role);
-  return descriptionWords(d) ?? d.agentType ?? "dispatch";
+  const key = d.description?.split(/\s/)[0];
+  const named = key ? describeDispatch(key, d.agentType ?? "") : key;
+  return named && named !== key ? named : (descriptionWords(d) ?? d.agentType ?? "dispatch");
 }
 
 /** A row's name: its stage, then what its dispatches did and on which model family -- "Self-review · fixing, round 2 (opus) + reviewing fixes, round 2 (sonnet)" -- so a collapsed row already tells one run from the next. */

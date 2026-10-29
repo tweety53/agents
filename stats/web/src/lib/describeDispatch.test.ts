@@ -13,6 +13,7 @@ describe("describeDispatch", () => {
     ["panel-2-test-sanity+call-efficiency", "Code review round 2: test sanity, call efficiency"],
     ["panel-fix-1", "Fixing code review findings, round 1"],
     ["full-suite-fix-2", "Fixing the full test suite, round 2"],
+    ["self-review-kan-1048-rework-pass", "Self-review: reviewing the change"],
     ["self-review-kan-1048-rework-plan", "Self-review: planning fixes"],
     ["self-review-kan-1048-rework-fix-g2", "Self-review: fixing group 2"],
     ["self-review-kan-1048-rework-fix-v1", "Self-review: fixing a red verify, round 1"],
