@@ -148,3 +148,54 @@ func TestExperimentsRoutes(t *testing.T) {
 		t.Fatalf("POST close not open = %d, want 404", status)
 	}
 }
+
+// TestRolesRoute reads GET /api/v1/roles over the real embedded table: a
+// leading main entry, then one entry per table row in table order, an open
+// experiment's cell on its role's unmarked row and on main, never on a
+// marked row, and never read off a closed experiment.
+func TestRolesRoute(t *testing.T) {
+	type override struct {
+		Pairs        []string `json:"pairs"`
+		ExperimentID int64    `json:"experimentId"`
+	}
+	type entry struct {
+		Role     string    `json:"role"`
+		Pairs    []string  `json:"pairs"`
+		Marker   string    `json:"marker"`
+		Override *override `json:"override"`
+	}
+	fe := &fakeExperiments{list: []store.Experiment{{ID: 5, Name: "x", Status: "open", Cells: map[string][]string{
+		"plan-designer": {"opus/Plan@xhigh"},
+		"implementer":   {"opus/flow-medium"},
+		"main":          {"opus@xhigh"},
+	}}}}
+	ts := newExperimentsTestServer(t, fe)
+
+	status, body := doJSON(t, http.MethodGet, ts.URL+"/api/v1/roles", "")
+	var got []entry
+	if status != http.StatusOK || json.Unmarshal([]byte(body), &got) != nil {
+		t.Fatalf("GET roles = %d %s, want 200 with a JSON list", status, body)
+	}
+	if !fe.openOnly {
+		t.Fatal("roles read every experiment, want open ones only")
+	}
+	if len(got) < 6 {
+		t.Fatalf("GET roles = %s, want main plus the table's rows", body)
+	}
+	if !reflect.DeepEqual(got[0], entry{Role: "main", Pairs: []string{}, Override: &override{Pairs: []string{"opus@xhigh"}, ExperimentID: 5}}) {
+		t.Errorf("entry 0 = %+v, want main carrying experiment 5's override", got[0])
+	}
+	if got[1].Role != "explorer" || got[1].Override != nil {
+		t.Errorf("entry 1 = %+v, want explorer, no override", got[1])
+	}
+	if got[2].Role != "plan-designer" || got[2].Override == nil ||
+		!reflect.DeepEqual(*got[2].Override, override{Pairs: []string{"opus/Plan@xhigh"}, ExperimentID: 5}) {
+		t.Errorf("entry 2 = %+v, want plan-designer carrying experiment 5's override", got[2])
+	}
+	if got[3].Role != "implementer" || got[3].Marker != "" || got[3].Override == nil {
+		t.Errorf("entry 3 = %+v, want implementer's unmarked row carrying the override", got[3])
+	}
+	if got[5].Role != "implementer" || got[5].Marker != "No-progress escalation" || got[5].Override != nil {
+		t.Errorf("entry 5 = %+v, want implementer's marked row (table order) without an override", got[5])
+	}
+}

@@ -19,6 +19,11 @@ stats/web/dist/
 # build with no dist/ present must fail loudly at compile time, not build
 # against a stale, committed copy.
 stats/internal/web/dist/
+# The Allowed pairs table stats/Makefile's policy-copy target copies for
+# internal/modelpolicy/embedded/embed.go's //go:embed (KAN-1067) -- a build
+# copy of skills/flow-contracts/model-policy.md, never a second source; the
+# trailing * covers the temp file it is renamed from.
+stats/internal/modelpolicy/embedded/model-policy.md*
 stats/web/tsconfig.tsbuildinfo
 
 # Playwright's own run artifacts (stats/web/tests/visual, KAN-171) --

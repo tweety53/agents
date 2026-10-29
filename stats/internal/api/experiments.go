@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/tweety53/agents/stats/internal/modelpolicy"
+	"github.com/tweety53/agents/stats/internal/modelpolicy/embedded"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -114,4 +116,50 @@ func (h *experimentsHandler) close(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, struct{}{})
+}
+
+// roleOverride is the open experiment cell replacing a role's unmarked row.
+type roleOverride struct {
+	Pairs        []string `json:"pairs"`
+	ExperimentID int64    `json:"experimentId"`
+}
+
+// roleEntry is one row of the roles table GET /api/v1/roles serves.
+type roleEntry struct {
+	Role     string        `json:"role"`
+	Pairs    []string      `json:"pairs"`
+	Marker   string        `json:"marker"`
+	Override *roleOverride `json:"override,omitempty"`
+}
+
+// roles serves GET /api/v1/roles: a leading `main` entry (no table row of
+// its own), then the embedded Allowed pairs table one entry per row in
+// table order, each unmarked row -- and main -- carrying the open
+// experiment cell that replaces it. Marked rows (escalations) never do.
+func (h *experimentsHandler) roles(w http.ResponseWriter, r *http.Request) {
+	rows, err := modelpolicy.Rows(embedded.Table)
+	if err != nil {
+		h.experimentError(w, "parse embedded roles table", err)
+		return
+	}
+	open, err := h.store.ListExperiments(r.Context(), true)
+	if err != nil {
+		h.experimentError(w, "list roles", err)
+		return
+	}
+	cell := map[string]*roleOverride{}
+	for _, e := range open {
+		for role, pairs := range e.Cells {
+			cell[role] = &roleOverride{Pairs: pairs, ExperimentID: e.ID}
+		}
+	}
+	out := []roleEntry{{Role: "main", Pairs: []string{}, Override: cell["main"]}}
+	for _, row := range rows {
+		e := roleEntry{Role: row.Role, Pairs: row.Pairs, Marker: row.Marker}
+		if row.Marker == "" {
+			e.Override = cell[row.Role]
+		}
+		out = append(out, e)
+	}
+	writeJSON(w, http.StatusOK, out)
 }

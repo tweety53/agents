@@ -421,6 +421,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 		mux.HandleFunc("GET /api/v1/experiments", eh.list)
 		mux.HandleFunc("GET /api/v1/experiments/overrides", eh.overrides)
 		mux.HandleFunc("POST /api/v1/experiments/{id}/close", eh.close)
+		mux.HandleFunc("GET /api/v1/roles", eh.roles)
 	}
 	if so.spa != nil {
 		mux.Handle("/", so.spa)

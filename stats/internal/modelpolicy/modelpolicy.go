@@ -23,12 +23,32 @@ type Row struct {
 
 var tick = regexp.MustCompile("`([^`]+)`")
 
+// Entry is one table row with its role id, as Rows returns it.
+type Entry struct {
+	Role string
+	Row
+}
+
 // Parse reads the `| Role | Allowed pairs | Requires marker |` table out of
 // b, keyed by role id with each role's rows in table order. A file with no
 // such table, or a row missing a cell, is an error: a dispatch is never
 // admitted off a table that cannot be read.
 func Parse(b []byte) (map[string][]Row, error) {
+	entries, err := Rows(b)
+	if err != nil {
+		return nil, err
+	}
 	rows := map[string][]Row{}
+	for _, e := range entries {
+		rows[e.Role] = append(rows[e.Role], e.Row)
+	}
+	return rows, nil
+}
+
+// Rows is Parse's table as one entry per row in table order -- the order
+// flowd's roles table is drawn in, which Parse's map does not keep.
+func Rows(b []byte) ([]Entry, error) {
+	var out []Entry
 	in := false
 	for _, line := range strings.Split(string(b), "\n") {
 		t := strings.TrimSpace(line)
@@ -53,16 +73,16 @@ func Parse(b []byte) (map[string][]Row, error) {
 		if len(role) != 1 || len(pairs) == 0 || len(marker) > 1 {
 			return nil, fmt.Errorf("%s: allowed-pairs row %q names no single role, no pair, or more than one marker", File, t)
 		}
-		r := Row{Pairs: pairs}
+		e := Entry{Role: role[0], Row: Row{Pairs: pairs}}
 		if len(marker) == 1 {
-			r.Marker = marker[0]
+			e.Marker = marker[0]
 		}
-		rows[role[0]] = append(rows[role[0]], r)
+		out = append(out, e)
 	}
-	if len(rows) == 0 {
+	if len(out) == 0 {
 		return nil, fmt.Errorf("%s carries no `| Role | Allowed pairs | Requires marker |` table", File)
 	}
-	return rows, nil
+	return out, nil
 }
 
 // ticks is a cell's backticked tokens.

@@ -1,4 +1,4 @@
-.PHONY: test web-test web-build web-dist build up down restart ui-test-up ui-test-down check-uitest-overrides
+.PHONY: test web-test web-build web-dist policy-copy build up down restart ui-test-up ui-test-down check-uitest-overrides
 
 # Runs the Go test suite. Tests that need the compose stack's PostgreSQL
 # skip themselves with a clear message when it is not running.
@@ -21,7 +21,7 @@
 # not `make test`, are the documented entry point that actually runs the
 # destructive commands a dropped `override` would expose, so catching the
 # defect only when someone happens to run `make test` first is not enough.
-test: web-build check-uitest-overrides
+test: web-build policy-copy check-uitest-overrides
 	go test ./... -race -count=1
 
 check-uitest-overrides:
@@ -42,7 +42,18 @@ web-build:
 # or need web/node_modules run it first, so a worktree builds the SPA the
 # first time one of them runs and a change that runs none never does
 # (KAN-987).
-web-dist: internal/web/dist/index.html
+web-dist: internal/web/dist/index.html policy-copy
+
+# Copies the Allowed pairs table beside internal/modelpolicy/embedded/embed.go,
+# which //go:embeds it into flowd (KAN-1067) -- fresh on every web-dist, build
+# and test line, so flowd serves the table of the checkout it was built from.
+# The copy is gitignored, like internal/web/dist. It lands through a temp file
+# and a rename because the `## test` list's lines run concurrently (see the
+# lock below): a plain cp truncates the file a sibling's compile may be
+# embedding at that moment.
+policy-copy:
+	@dst=internal/modelpolicy/embedded/model-policy.md; \
+	cp ../skills/flow-contracts/model-policy.md "$$dst.tmp.$$$$" && mv -f "$$dst.tmp.$$$$" "$$dst"
 
 # The `## test` list's commands run concurrently (scripts/run-verify-list.sh),
 # and each opens with `make -s web-dist`, so the build takes a lock in the
@@ -84,7 +95,7 @@ internal/web/dist/index.html:
 # built here so `make build` compiles every binary; stats/internal/repotest/make_build_test.go
 # asserts its line too. No shim runs this copy: a ported scripts/<name>.sh
 # builds its own from the checkout (scripts/lib/flow-guard.sh).
-build: web-build
+build: web-build policy-copy
 	go build ./...
 	go build -o bin/flowd ./cmd/flowd
 	go build -o bin/flow  ./cmd/flow

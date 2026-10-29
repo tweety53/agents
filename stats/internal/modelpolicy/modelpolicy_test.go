@@ -27,6 +27,21 @@ func TestParse(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Parse = %#v, want %#v", got, want)
 	}
+	entries, err := Rows([]byte(header +
+		"| `a` | `opus/flow-low` | — |\n" +
+		"| `b` | `opus/Plan@low` | — |\n" +
+		"| `a` | `opus/flow-high` | `No-progress escalation` |\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantEntries := []Entry{
+		{Role: "a", Row: Row{Pairs: []string{"opus/flow-low"}}},
+		{Role: "b", Row: Row{Pairs: []string{"opus/Plan@low"}}},
+		{Role: "a", Row: Row{Pairs: []string{"opus/flow-high"}, Marker: "No-progress escalation"}},
+	}
+	if !reflect.DeepEqual(entries, wantEntries) {
+		t.Fatalf("Rows = %#v, want %#v -- table order, interleaved roles kept apart", entries, wantEntries)
+	}
 
 	for name, table := range map[string]string{
 		"missing table": "no table here\n",
