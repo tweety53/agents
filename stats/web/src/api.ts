@@ -306,6 +306,8 @@ export interface StateBoardRow {
   subagents?: ActiveSubagent[];
   /** When the session last wrote to its transcript; absent for a finished change. */
   sessionSeenAt?: string;
+  /** Dispatches begun since the open stage started, ended or not. */
+  openStageDispatches?: number;
   activity?: 'working' | 'question' | 'permission' | 'idle';
   activityDetail?: string;
   activitySince?: string;

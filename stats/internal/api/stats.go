@@ -693,10 +693,12 @@ type stateBoardRowDTO struct {
 	Tasks     []taskDTO              `json:"tasks,omitempty"`
 	Subagents []store.ActiveDispatch `json:"subagents,omitempty"`
 	// SessionSeenAt is when the session last wrote to its transcript.
-	SessionSeenAt  *string `json:"sessionSeenAt,omitempty"`
-	Activity       *string `json:"activity,omitempty"`
-	ActivityDetail *string `json:"activityDetail,omitempty"`
-	ActivitySince  *string `json:"activitySince,omitempty"`
+	SessionSeenAt *string `json:"sessionSeenAt,omitempty"`
+	// OpenStageDispatches counts the dispatches begun in the open stage.
+	OpenStageDispatches int     `json:"openStageDispatches,omitempty"`
+	Activity            *string `json:"activity,omitempty"`
+	ActivityDetail      *string `json:"activityDetail,omitempty"`
+	ActivitySince       *string `json:"activitySince,omitempty"`
 }
 
 // nextCommandFor maps a change's current pipeline state to the command that
@@ -796,6 +798,7 @@ func toStateBoardDTOs(rows []store.LiveStateRow) []stateBoardRowDTO {
 			Tasks:                 planTasks(r),
 			Subagents:             r.Subagents,
 			SessionSeenAt:         rfc3339OrNil(r.SessionSeenAt),
+			OpenStageDispatches:   r.OpenStageDispatches,
 			Activity:              r.Activity,
 			ActivityDetail:        r.ActivityDetail,
 			ActivitySince:         rfc3339OrNil(r.ActivitySince),

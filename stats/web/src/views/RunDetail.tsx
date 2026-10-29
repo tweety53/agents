@@ -18,7 +18,7 @@ import { formatModel, formatRelative, formatSpan, formatUsd } from "../format";
 import { readCacheReadTokens, readCostUsd, readEffort, readModels, readTotalInputTokens } from "../metrics";
 import { projectLabel } from "../lib/projectLabel";
 import { describeDispatch } from "../lib/describeDispatch";
-import { runningTask } from "../lib/runningTask";
+import { agentsDone, runningTask } from "../lib/runningTask";
 import { sessionAlive } from "../lib/sessionAlive";
 import { stageLabel } from "../lib/stageLabel";
 import { ActivityBadge, StatePill } from "./StateBoard";
@@ -137,7 +137,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
           const betweenStages = !openRun && lastRun && board !== undefined && (sessionAlive(board, now) || board.activity === "question" || board.activity === "permission");
           const mainRun = openRun ?? (betweenStages ? lastRun : undefined);
           const mainAgent = mainRun && {
-            what: inline ? inlineWhat(inline, board?.tasks) : openRun ? stageLabel(openRun.stage) : `after ${stageLabel(mainRun.stage)}`,
+            what: inline ? inlineWhat(inline, board?.tasks) : openRun ? `${stageLabel(openRun.stage)}${board && agentsDone(board) ? ", wrapping up after its agents" : ""}` : `after ${stageLabel(mainRun.stage)}`,
             model: inline
               ? formatModel(inline.modelVersion ?? inline.model)
               : (readModels(mainRun.metrics)?.map(formatModel).join(", ") ?? "—"),
@@ -186,6 +186,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                           board?.currentTasks !== undefined ? ` · tasks ${board.doneTasks ?? 0}/${board.currentTasks}` : ""
                         }`}
                       {nowTask && <div className="lb-task-now">{nowTask}</div>}
+                      {board && agentsDone(board) && <div className="lb-task-now">Agents done, main is wrapping up the stage</div>}
                     </>
                   }
                 >

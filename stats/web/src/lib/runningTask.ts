@@ -10,3 +10,8 @@ export function runningTask(row: StateBoardRow): string | null {
   }
   return ds[0] && row.currentStage === undefined ? describeDispatch(ds[0].key, ds[0].role) : null;
 }
+
+/** Whether the open stage's agents have all finished, leaving main to wrap the stage up. */
+export function agentsDone(row: StateBoardRow): boolean {
+  return row.currentStage !== undefined && (row.openStageDispatches ?? 0) > 0 && (row.subagents ?? []).length === 0;
+}

@@ -1985,6 +1985,9 @@ func TestLiveStateBoardCarriesOpenStageDoneTasksAndActivity(t *testing.T) {
 	if len(live.Subagents) == 3 && (live.Subagents[0].Inline || !live.Subagents[2].Inline) {
 		t.Errorf("Subagents inline = %v/%v, want only task 3's main-session dispatch inline", live.Subagents[0].Inline, live.Subagents[2].Inline)
 	}
+	if live.OpenStageDispatches != 3 {
+		t.Errorf("OpenStageDispatches = %d, want the 3 dispatches begun in the open stage", live.OpenStageDispatches)
+	}
 	if live.DoneTasks == nil || *live.DoneTasks != 2 {
 		t.Errorf("DoneTasks = %v, want 2", live.DoneTasks)
 	}

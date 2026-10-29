@@ -2,7 +2,7 @@
 // between stages, where no stage name already says what is happening.
 import { describe, expect, it } from "vitest";
 import type { StateBoardRow } from "../api";
-import { runningTask } from "./runningTask";
+import { agentsDone, runningTask } from "./runningTask";
 
 const base = { projectKey: "p", name: "c", state: "IN_PROGRESS", updatedAt: "", updatedBy: "", nextCommand: "", runCount: 0, costUsd: 0, cost24h: 0, cost7d: 0, cost30d: 0, wallClockMs: 0, errors: 0 } as StateBoardRow;
 const reviewer = { role: "reviewer", key: "panel-2-primary", model: "opus", startedAt: "" };
@@ -16,4 +16,12 @@ describe("runningTask", () => {
     expect(runningTask({ ...base, currentStage: "flow.review-panel", subagents: [reviewer] })).toBeNull());
   it("describes a non-task dispatch between stages", () =>
     expect(runningTask({ ...base, subagents: [reviewer] })).toBe("Code review round 2: primary"));
+});
+
+describe("agentsDone", () => {
+  it("is true once every dispatch the open stage began has ended", () =>
+    expect(agentsDone({ ...base, currentStage: "flow.review-panel", openStageDispatches: 3 })).toBe(true));
+  it("is false while one still runs", () =>
+    expect(agentsDone({ ...base, currentStage: "flow.review-panel", openStageDispatches: 3, subagents: [reviewer] })).toBe(false));
+  it("is false for a stage that dispatched nothing", () => expect(agentsDone({ ...base, currentStage: "flow.verify" })).toBe(false));
 });

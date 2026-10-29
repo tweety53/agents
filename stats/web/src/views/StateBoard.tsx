@@ -14,7 +14,7 @@ import type { StateBoardRow } from "../api";
 import { useStatsView } from "../hooks/useStatsView";
 import { DAY_MS, formatInt, formatRelative, formatSpan, formatUsd } from "../format";
 import { projectLabel } from "../lib/projectLabel";
-import { runningTask } from "../lib/runningTask";
+import { agentsDone, runningTask } from "../lib/runningTask";
 import { sessionAlive } from "../lib/sessionAlive";
 import { stageLabel } from "../lib/stageLabel";
 
@@ -129,6 +129,7 @@ function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
           <span className="lb-live-dot" />
           <span title={row.currentStage}>{stageLabel(row.currentStage)}</span>
           {row.currentStageStartedAt && <span className="lb-muted">· {formatSpan(now - Date.parse(row.currentStageStartedAt))}</span>}
+          {agentsDone(row) && <span className="lb-muted">· agents done, main wrapping up</span>}
         </div>
       ) : task || alive ? (
         <div className="lb-stage">
