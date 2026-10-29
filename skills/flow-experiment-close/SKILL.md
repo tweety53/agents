@@ -24,7 +24,7 @@ experiment is open and stop.
 
 Run `flow experiment stats <id>`. It prints JSON: `runs` (`before`, `after` — changes counted in
 each window), `excluded` (after-window changes a `main` cell left out because their harvested main
-thread ran another pair), and `metrics`, each with `before` and `after` means (`null` where no
+thread ran another pair or no run of theirs is harvested yet), and `metrics`, each with `before` and `after` means (`null` where no
 counted change carries one) and a weekly `series`.
 
 **With fewer than 5 changes in `after`, ask before closing** — options **Wait** (recommended: the
@@ -48,8 +48,13 @@ Write the summary — at most 8 lines: the verdict, the runs before/after, each 
 `before → after`, and the cells recommended — and run:
 
 ```bash
-flow experiment close <id> -verdict <positive|negative|inconclusive> -summary '<summary>'
+flow experiment close <id> -verdict <positive|negative|inconclusive> -summary "$(cat <<'SUMMARY'
+<summary>
+SUMMARY
+)"
 ```
+
+The quoted heredoc passes the summary verbatim, apostrophes included.
 
 ## 5. On a positive verdict, make the winners permanent
 
