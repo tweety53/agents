@@ -4,6 +4,7 @@
 > `check-task-commit-fields.sh` passes on that task's commit.
 > **Relocation:** no
 > **Design shape:** plan-mode
+> **Tasks appended:** 0
 
 **Goal:** Allowed-pairs experiments stored in flowd — overrides read by every table reader, main-agent and combined experiments, per-role trends and the roles table on an Experiments view, and an agent that closes them (KAN-1067).
 
@@ -84,7 +85,7 @@ Correction (2026-10-30): Step 3 planned widening `papPair`'s regex to admit `xhi
   - [x] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./internal/modelpolicy ./internal/api -run 'Roles|Embedded' -count=1` passes; `git status --short stats/internal/modelpolicy` lists no `model-policy.md`; lint. Commit.
 
 **Build:** green
-**Files:** `stats/internal/modelpolicy/modelpolicy_test.go`, `stats/internal/api/experiments.go`, `stats/internal/api/experiments_test.go`, `stats/internal/api/server.go`, `stats/Makefile`, `.gitignore`, `stats/internal/modelpolicy/embedded/embed.go`, `stats/internal/modelpolicy/embedded/embedded_test.go`, `stats/internal/modelpolicy/modelpolicy.go`, `stats/cmd/flowd/main.go`, `stats/cmd/flow/embed_deps_test.go`
+**Files:** `stats/internal/modelpolicy/modelpolicy_test.go`, `stats/internal/api/experiments.go`, `stats/internal/api/experiments_test.go`, `stats/internal/api/server.go`, `stats/Makefile`, `.gitignore`, `stats/internal/modelpolicy/embedded/embed.go`, `stats/internal/modelpolicy/embedded/embedded_test.go`, `stats/internal/modelpolicy/modelpolicy.go`
 **Tests:** `TestRolesRoute`, `TestEmbeddedTableParses`
 **Regression:** `TestRolesRoute` fails — the stats UI has no roles table to draw.
 **Commit:** feat(stats): serve the allowed-pairs roles table with open overrides applied
@@ -93,6 +94,8 @@ Correction (2026-10-30): Step 3 planned widening `papPair`'s regex to admit `xhi
 Correction (2026-10-30): the plan put `//go:embed model-policy.md` in `stats/internal/modelpolicy`, which `internal/guard` imports after Task 3; the file is gitignored and only make writes it, so plain `go build ./cmd/flow-guard` (`scripts/lib/flow-guard.sh`) would fail. The embed moves to `stats/internal/modelpolicy/embedded/` (`embed.go`, `embedded_test.go` holding `TestEmbeddedTableParses`); the copy target and the `.gitignore` entry become `stats/internal/modelpolicy/embedded/model-policy.md`.
 
 Correction (2026-10-30): `Parse` returns a map, so table order needs `modelpolicy.Rows` (table order kept; `Parse` groups it) in `stats/internal/modelpolicy/modelpolicy.go`; the embedded variable is `embedded.Table`, not `Embedded`; `policy-copy` copies through a temp file and rename so concurrent `make` runs never embed a half-written file, so the `.gitignore` entry is `stats/internal/modelpolicy/embedded/model-policy.md*`.
+
+Correction (2026-10-30): `stats/cmd/flowd/main.go` and `stats/cmd/flow/embed_deps_test.go` shipped in the review fix `b806cb57` (`api.WithExperiments(st, embedded.Table)`, `TestFlowCLIDoesNotImportEmbeddedPolicy`), not in this task's commit, so they are not this task's files.
 
 **Decision:** roles-table-embedded
 
@@ -180,7 +183,7 @@ Correction (2026-10-30): the open combined experiment starts `2026-07-01T09:00:0
 **Build:** green
 **Files:** `skills/flow-experiment-close/SKILL.md`, `CLAUDE.md`, `stats/internal/guard/guardsymlinks.go`, `stats/internal/guard/check_guard_symlinks_test.go`
 **Allowed-collateral:** `setup.sh`, `AGENTS.md`
-**Tests:** **none** — a skill file; the guards in Step 3 are the check.
+**Tests:** `TestCheckGuardSymlinks/F13b` — `check-guard-symlinks` declares the new skill expected-zero.
 **Regression:** none — prose.
 **Commit:** feat(flow-experiment-close): close an experiment with a verdict and summary
 **After:** Task 6
@@ -228,7 +231,7 @@ Correction (2026-10-30): `stats/README.md` has no h3 headings, so the section sh
   - [x] **Step 4: Verify.** `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh`, `scripts/check-stage-mark-calls.sh`, `scripts/check-dispatch-paragraphs.sh` and `scripts/check-guard-symlinks.sh` exit 0; `git grep -n -F -e 'Run brainstorming and planning directly' -e 'the thinking stays in this session' -- skills` prints nothing. Commit.
 
 **Build:** green
-**Files:** `skills/flow/brainstorm.md`, `skills/flow/brainstorm-planner.md`, `skills/flow/resume.md`, `hooks/enforce-agent-baseline.py`, `stats/internal/repotest/enforce_agent_baseline_hook_test.go`
+**Files:** `skills/flow/brainstorm.md`, `skills/flow/brainstorm-planner.md`, `skills/flow/resume.md`
 **Allowed-collateral:** `skills/flow/*-rationale.md`, `skills/flow-contracts/pipeline.md`, `skills/flow/stage-keys.md`
 **Tests:** **none** — contract prose; Step 4's guards are the check.
 **Regression:** none — prose.
@@ -236,3 +239,16 @@ Correction (2026-10-30): `stats/README.md` has no h3 headings, so the section sh
 **After:** Task 12
 
 **Decision:** planner-role
+
+Correction (2026-10-30): `hooks/enforce-agent-baseline.py` and `stats/internal/repotest/enforce_agent_baseline_hook_test.go` shipped in the review fix `874f0b93` (the hook admits planner dispatches), not in this task's commit, so they are not this task's files.
+
+- [ ] 14. In-run fix 1 — flow.verify: check-plan-shape, check-task-records, check-ask-silence
+  - [ ] **Step 1: Edit.** The verify lint group reported, verbatim: `check-plan-shape.sh` — task 10's and task 13's **Tests:** open with `none` while **Files:** name a test-shaped path; `check-task-records.sh` — task 4's declared `stats/cmd/flowd/main.go` and `stats/cmd/flow/embed_deps_test.go` are not touched by `2f06ff9482d9`, task 13's declared `hooks/enforce-agent-baseline.py` and `stats/internal/repotest/enforce_agent_baseline_hook_test.go` are not touched by `aa0a3bac13b5`; `check-ask-silence.sh` — `skills/flow-experiment-close/SKILL.md` section "## 1. Pick the experiment" and `skills/flow/brainstorm-planner.md` section "# Brainstorm and plan — sections B, C, D" mention AskUserQuestion and state no silence outcome. The plan-record defects are corrected in this round's planning commit (tasks 4, 10, 13 above). In `skills/flow-experiment-close/SKILL.md`, the several-experiments ask gains "silence closes nothing: the skill stops and reports the open experiments"; in `skills/flow/brainstorm-planner.md`, the planner-dispatch sentence gains ", with the silence outcome the naming section states".
+  - [ ] **Step 2: Verify.** `scripts/check-ask-silence.sh`, `scripts/check-plan-shape.sh`, `scripts/check-task-records.sh`, `scripts/check-references.sh` and `scripts/check-markdown-integrity.sh` exit 0. Commit.
+
+**Build:** green
+**Files:** `skills/flow-experiment-close/SKILL.md`, `skills/flow/brainstorm-planner.md`
+**Tests:** **none** — prose; Step 2's guards are the check.
+**Regression:** none — prose.
+**Commit:** fix(flow): state the silence outcome of the planner and experiment-close asks
+**After:** Task 13

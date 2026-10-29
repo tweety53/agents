@@ -16,3 +16,7 @@
 - The stats SPA gains an **Experiments** view: the current roles table with open overrides applied, the experiment list, override table, per-metric before/after stat panels, one weekly chart per metric with the experiment window and before/after means, and the closing summary.
 - `/flow`'s brainstorming, artifacts and writing-plans run in a dispatched `planner` role, the parent relaying its questions, so planning has its own pair to experiment on.
 - `/flow-experiment-close` analyses an experiment, closes it with a summary and verdict, and on a positive verdict starts a `/flow` change writing the winning pairs into `model-policy.md`.
+
+## In-run fix 1 — flow.verify
+
+- The verify lint group failed `check-plan-shape`, `check-task-records` and `check-ask-silence`: tasks 4, 10 and 13 declared files their commits did not touch or opted out of tests they added, and two new AskUserQuestion sites stated no silence outcome. The plan records are corrected and Task 14 states both silence outcomes.
