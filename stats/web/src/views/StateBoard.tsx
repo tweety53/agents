@@ -63,8 +63,10 @@ function openRun(row: StateBoardRow) {
   window.location.hash = runDetailHref(row);
 }
 
+// Pipeline-fix and self-review fix changes carry no stage runs of their own
+// on the board, so they are hidden.
 function isPipelineFix(row: StateBoardRow): boolean {
-  return row.name.startsWith("pipeline-fix-");
+  return row.name.startsWith("pipeline-fix-") || row.name.startsWith("self-review-");
 }
 
 function needsOperator(row: StateBoardRow): boolean {

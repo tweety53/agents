@@ -198,6 +198,21 @@ const fixtures: Record<
       wallClockMs: 1000,
       errors: 0,
     },
+    {
+      projectKey: "kan-16-stats-app",
+      name: "self-review-kan-31-replan-fold",
+      state: "FINISHED",
+      updatedAt: "2026-01-15T07:00:00Z",
+      updatedBy: "dave",
+      nextCommand: "",
+      runCount: 0,
+      costUsd: 0,
+      cost24h: 0,
+      cost7d: 0,
+      cost30d: 0,
+      wallClockMs: 0,
+      errors: 0,
+    },
   ]),
   "stage-leaderboard": envelope("stage-leaderboard", [
     {
@@ -483,13 +498,14 @@ describe("views render their fixture response's actual values", () => {
     hidden.mockRestore();
   });
 
-  it("state board hides pipeline-fix changes", async () => {
+  it("state board hides pipeline-fix and self-review changes", async () => {
     const user = userEvent.setup();
     render(<StateBoard />);
     const table = within(await screen.findByRole("table"));
     await user.click(table.getByRole("row", { name: /^▾Finished/ }));
     expect(table.getByRole("link", { name: "kan-31-replan-fold" })).toBeInTheDocument();
     expect(table.queryByRole("link", { name: "pipeline-fix-x-14" })).not.toBeInTheDocument();
+    expect(table.queryByRole("link", { name: "self-review-kan-31-replan-fold" })).not.toBeInTheDocument();
   });
 
   it("stage leaderboard shows total, mean, median and p90 cost, and its own stat panels", async () => {
