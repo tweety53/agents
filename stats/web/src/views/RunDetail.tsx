@@ -15,11 +15,11 @@ import { StageRunTable, groupSessions, runEnd } from "../components/StageRunTabl
 import { StageTimeline } from "../components/StageTimeline";
 import { useRunDetail } from "../hooks/useRunDetail";
 import { formatModel, formatRelative, formatSpan, formatUsd } from "../format";
-import { readCacheReadTokens, readCostUsd, readTotalInputTokens } from "../metrics";
+import { readCacheReadTokens, readCostUsd, readEffort, readModels, readTotalInputTokens } from "../metrics";
 import { projectLabel } from "../lib/projectLabel";
 import { stageLabel } from "../lib/stageLabel";
 import { ActivityBadge, StatePill } from "./StateBoard";
-import type { PlanTask, StageRunDTO } from "../api";
+import type { ActiveSubagent, PlanTask, StageRunDTO } from "../api";
 
 export interface RunDetailProps {
   project: string;
@@ -44,6 +44,11 @@ const TASK_MARK: Record<PlanTask["state"], string> = { done: "✔", "in progress
 function taskTitle(tasks: PlanTask[] | undefined, id: string): string {
   const t = tasks?.find((t) => String(t.n) === id);
   return t ? ` (${t.title})` : "";
+}
+
+/** What the main session's inline dispatch does: its task with title, else its key, else its role. */
+function inlineWhat(d: ActiveSubagent, tasks: PlanTask[] | undefined): string {
+  return d.taskId ? `task ${d.taskId}${taskTitle(tasks, d.taskId)}` : (d.key ?? d.role);
 }
 
 function jiraKey(change: string): string | null {
@@ -101,8 +106,19 @@ export function RunDetail({ project, change }: RunDetailProps) {
           const measured = runs.filter((r) => readTotalInputTokens(r.metrics) !== null);
           const input = measured.reduce((a, r) => a + (readTotalInputTokens(r.metrics) ?? 0), 0);
           const cached = runs.reduce((a, r) => a + (readCacheReadTokens(r.metrics) ?? 0), 0);
-          // The main session's own inline work leads, as "main".
-          const agents = [...(board?.subagents ?? [])].sort((a, b) => Number(!a.inline) - Number(!b.inline));
+          // Subagents are the non-inline dispatches; the main session leads as
+          // "main" while a stage is open, on its inline dispatch when it runs one.
+          const subagents = (board?.subagents ?? []).filter((d) => !d.inline);
+          const inline = board?.subagents?.find((d) => d.inline);
+          const mainAgent = openRun && {
+            what: inline ? inlineWhat(inline, board?.tasks) : subagents.length > 0 ? "waiting for agents" : stageLabel(openRun.stage),
+            model: inline
+              ? formatModel(inline.modelVersion ?? inline.model)
+              : (readModels(openRun.metrics)?.map(formatModel).join(", ") ?? "—"),
+            effort: readEffort(openRun.metrics) ?? undefined,
+            since: inline?.startedAt ?? openRun.startedAt,
+          };
+          const agentCount = subagents.length + (mainAgent ? 1 : 0);
           const failed = runs.filter((r) => r.outcome === "failed");
           const byStage = new Map<string, number>();
           for (const r of runs) byStage.set(r.stage, (byStage.get(r.stage) ?? 0) + (readCostUsd(r.metrics) ?? 0));
@@ -151,19 +167,31 @@ export function RunDetail({ project, change }: RunDetailProps) {
                 />
               </section>
 
-              {(board?.tasks || agents.length > 0) && (
+              {(board?.tasks || agentCount > 0) && (
                 <div className="lb-split">
                   <section className="lb-panel" aria-label="Agents">
                     <div className="lb-panel-h">
                       <span>Agents running</span>
-                      <span className="lb-panel-note">{agents.length}</span>
+                      <span className="lb-panel-note">{agentCount}</span>
                     </div>
                     <table className="lb-table">
                       <tbody>
-                        {agents.map((d, i) => (
+                        {mainAgent && (
+                          <tr>
+                            <td>
+                              <span className="lb-agent-kind main">Main</span> {mainAgent.what}
+                            </td>
+                            <td>
+                              {mainAgent.model}
+                              {mainAgent.effort && ` · ${mainAgent.effort}`}
+                            </td>
+                            <td className="r lb-num">{formatSpan(now - Date.parse(mainAgent.since))}</td>
+                          </tr>
+                        )}
+                        {subagents.map((d, i) => (
                           <tr key={`${d.key ?? d.role}-${i}`}>
                             <td>
-                              <span className="lb-live-dot" /> {d.inline ? "main" : d.role}
+                              <span className="lb-agent-kind sub">Subagent</span> {d.role}
                               {d.taskId && ` · task ${d.taskId}${taskTitle(board?.tasks, d.taskId)}`}
                               {d.key && <div className="lb-muted">{d.key}</div>}
                             </td>
@@ -174,7 +202,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                             <td className="r lb-num">{formatSpan(now - Date.parse(d.startedAt))}</td>
                           </tr>
                         ))}
-                        {agents.length === 0 && (
+                        {agentCount === 0 && (
                           <tr>
                             <td className="lb-muted">None right now.</td>
                           </tr>
