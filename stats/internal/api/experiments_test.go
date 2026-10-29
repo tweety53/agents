@@ -120,6 +120,9 @@ func TestExperimentsRoutes(t *testing.T) {
 	if status, body = doJSON(t, http.MethodPost, base, `{"name":"","cells":{"explorer":["sonnet/Explore@low"]}}`); status != http.StatusBadRequest {
 		t.Fatalf("POST invalid = %d %s, want 400", status, body)
 	}
+	if status, body = doJSON(t, http.MethodPost, base, `{"name":"t","cells":{"plan-desginer":["opus/Plan@xhigh"]}}`); status != http.StatusBadRequest || !strings.Contains(body, "plan-desginer") {
+		t.Fatalf("POST unknown role = %d %s, want 400 naming the role", status, body)
+	}
 	if status, body = doJSON(t, http.MethodPost, base, `{"name":"t","cells":{},"bogus":1}`); status != http.StatusBadRequest {
 		t.Fatalf("POST unknown field = %d %s, want 400", status, body)
 	}

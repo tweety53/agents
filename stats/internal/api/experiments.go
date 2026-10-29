@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -75,12 +76,36 @@ func (h *experimentsHandler) open(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if role, ok := h.unknownRole(dto.Cells); !ok {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("role %q is not in the Allowed pairs table", role))
+		return
+	}
 	e, err := h.store.OpenExperiment(r.Context(), store.Experiment{Name: dto.Name, Cells: dto.Cells})
 	if err != nil {
 		h.experimentError(w, "open experiment", err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, e)
+}
+
+// unknownRole names the first cell role that is neither `main` nor a row of
+// the Allowed pairs table: such a cell would claim the role yet govern no
+// dispatch, since the guards' overlay ignores roles the table lacks. With no
+// table wired, every role passes.
+func (h *experimentsHandler) unknownRole(cells map[string][]string) (string, bool) {
+	if h.table == nil {
+		return "", true
+	}
+	rows, err := modelpolicy.Parse(h.table)
+	if err != nil {
+		return "", true
+	}
+	for role := range cells {
+		if _, ok := rows[role]; !ok && role != "main" {
+			return role, false
+		}
+	}
+	return "", true
 }
 
 // list serves GET /api/v1/experiments[?open=1], newest first.

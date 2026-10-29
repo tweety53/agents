@@ -86,8 +86,8 @@ func (c cellFlags) Set(v string) error {
 }
 
 // parseExperimentFlags parses args into fset, registering the store
-// connection flags first; it returns 0 to go on, or the exit code to stop
-// with.
+// connection flags first; it returns (_, true) to go on, or (code, false)
+// to stop with exit code code.
 func parseExperimentFlags(fset *flag.FlagSet, f *storeConnFlags, args []string, stderr io.Writer) (int, bool) {
 	fset.SetOutput(stderr)
 	if err := fset.Parse(args); err != nil {
