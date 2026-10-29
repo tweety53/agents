@@ -16,10 +16,10 @@ import { formatClock, formatSpan, formatUsd } from "../format";
 import { readCostUsd } from "../metrics";
 
 const L = 150;
-const RH = 24;
+const RH = 18;
 const TOP = 22;
 const HOUR = 3600e3;
-const TICK_STEPS = [1, 2, 3, 6, 12, 24].map((h) => h * HOUR);
+const TICK_STEPS = [1 / 12, 1 / 4, 1 / 2, 1, 2, 3, 6, 12, 24].map((h) => h * HOUR);
 const MAX_TICKS = 12;
 // Bars in one lane closer than this many pixels are drawn joined, so a burst
 // of short runs reads as one stretch rather than a row of slivers.
@@ -79,25 +79,36 @@ export function StageTimeline({ stageRuns, sessionOf }: { stageRuns: StageRunDTO
           </g>
         ))}
         {lanes.map((s, i) => (
-          <text key={s} className="lb-lane" x={0} y={TOP + i * RH + 15}>
+          <text key={s} className="lb-lane" x={0} y={TOP + i * RH + 12}>
             {s}
           </text>
         ))}
+        <polyline
+          className="lb-path"
+          fill="none"
+          points={[...stageRuns]
+            .sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt))
+            .map((r) => {
+              const y = TOP + lanes.indexOf(r.stage) * RH + 8;
+              return `${x(Date.parse(r.startedAt))},${y} ${Math.max(x(Date.parse(r.startedAt)) + 6, x(end(r)))},${y}`;
+            })
+            .join(" ")}
+        />
         {stageRuns.map((r) => {
           const x0 = x(Date.parse(r.startedAt));
           const next = Math.min(
             ...stageRuns.filter((o) => o.stage === r.stage && Date.parse(o.startedAt) > Date.parse(r.startedAt)).map((o) => x(Date.parse(o.startedAt))),
           );
-          const x1 = Math.max(x0 + 3, x(end(r)));
+          const x1 = Math.max(x0 + 6, x(end(r)));
           return (
             <rect
               key={r.stageRunId}
               className="lb-bar"
               data-testid="timeline-bar"
               x={x0}
-              y={TOP + lanes.indexOf(r.stage) * RH + 4}
+              y={TOP + lanes.indexOf(r.stage) * RH + 3}
               width={(next > x1 && next - x1 <= JOIN_GAP ? next : x1) - x0}
-              height={14}
+              height={10}
               rx={2}
               fill={FILL[outcomeClass(r)]}
               onMouseMove={(e) => setTip({ run: r, x: e.clientX, y: e.clientY })}
