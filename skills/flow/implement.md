@@ -447,6 +447,12 @@ flow record dispatch end -change <name> -key task-<n>-implementer \
 
 `-commit` takes the task commit's full sha; an abbreviated one is refused.
 
+**An implementer that reports back while another is still running is ended at once.** When
+several implementers run in parallel, the one that finishes first has its `flow record dispatch
+end` run as soon as it reports, not deferred to its `close-task.sh` at the group boundary — an
+unended row reads as a running agent on the stats dashboard for as long as the boundary waits.
+Its later `close-task.sh` then runs without the `-end-*` flags.
+
 Both calls are required. `begin` is recorded immediately before the dispatch — when several
 launches go out together in one message, in the one Bash call immediately before that message, one
 call for all (step 3 of **The next implementer overlaps the guard**, below) — carrying no
