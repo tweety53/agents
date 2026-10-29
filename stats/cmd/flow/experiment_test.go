@@ -124,3 +124,39 @@ func TestFlowExperiment(t *testing.T) {
 		}
 	}
 }
+
+// TestFlowExperimentStats drives `flow experiment stats <id>`: it prints
+// the daemon's JSON as-is, exits 1 on an unknown id or an unreachable
+// store and 2 on a malformed id.
+func TestFlowExperimentStats(t *testing.T) {
+	const body = `{"experiment":{"id":5},"runs":{"before":3,"after":1},"metrics":[]}`
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/experiments/5/stats":
+			_, _ = w.Write([]byte(body))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/experiments/9/stats":
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":"store: experiment not found: 9"}`))
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL)
+			w.WriteHeader(http.StatusTeapot)
+		}
+	}))
+	defer srv.Close()
+	addr := []string{"-addr", srv.URL, "-timeout", "2s"}
+
+	if code, out, errOut := runExperimentArgs(append([]string{"stats", "5"}, addr...)...); code != 0 || out != body+"\n" {
+		t.Fatalf("stats = %d %q %q, want 0 printing the daemon's JSON", code, out, errOut)
+	}
+	if code, _, errOut := runExperimentArgs(append([]string{"stats", "9"}, addr...)...); code != 1 || !strings.Contains(errOut, "experiment not found: 9") {
+		t.Fatalf("stats unknown = %d %q, want 1 naming the id", code, errOut)
+	}
+	for _, args := range [][]string{{"stats"}, append([]string{"stats", "x"}, addr...), append([]string{"stats", "5", "extra"}, addr...)} {
+		if code, _, _ := runExperimentArgs(args...); code != 2 {
+			t.Errorf("%v = %d, want 2", args, code)
+		}
+	}
+	if code, _, errOut := runExperimentArgs("stats", "5", "-addr", "http://127.0.0.1:1", "-timeout", "500ms"); code != 1 || errOut == "" {
+		t.Errorf("stats on an unreachable store = %d %q, want 1 with a message", code, errOut)
+	}
+}

@@ -19,6 +19,7 @@ import (
 const experimentUsage = `usage: flow experiment open      [-addr url] [-timeout dur] -name <name> -cell <role>=<pair>[,<pair>...] [-cell ...]
        flow experiment list      [-addr url] [-timeout dur] [-open]
        flow experiment overrides [-addr url] [-timeout dur]
+       flow experiment stats <id> [-addr url] [-timeout dur]
        flow experiment close <id> [-addr url] [-timeout dur] -verdict positive|negative|inconclusive [-summary text]
 
 An allowed-pairs experiment (KAN-1067) replaces whole unmarked rows of
@@ -29,6 +30,9 @@ open prints "experiment <id> open". list prints one line per experiment,
 newest first: <id> <status> <started yyyy-mm-dd> <name> <role>=<pairs>;...
 overrides prints every open experiment's cells as one compact JSON object,
 {} when none is open -- the allowed-pairs readers overlay it on the table.
+stats prints the experiment's before/after figures per metric as the
+daemon's JSON: runs per window, excluded main-cell mismatches, and each
+metric's before and after means with its weekly series.
 
 Exit codes: 0 done; 1 the store refused (a role an open experiment holds,
 a malformed experiment, an unknown or closed id) or could not be reached;
@@ -49,6 +53,8 @@ func runExperiment(ctx context.Context, args []string, stdout, stderr io.Writer)
 		return runExperimentOverrides(ctx, args[1:], stdout, stderr)
 	case "close":
 		return runExperimentClose(ctx, args[1:], stdout, stderr)
+	case "stats":
+		return runExperimentStats(ctx, args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown experiment command %q\n", args[0])
 		fmt.Fprint(stderr, experimentUsage)
@@ -180,16 +186,47 @@ func runExperimentOverrides(ctx context.Context, args []string, stdout, stderr i
 	return 0
 }
 
-func runExperimentClose(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+// experimentIDArg reads the leading <id> argument of `flow experiment
+// <cmd>`; ok false means usage was printed and the exit is 2.
+func experimentIDArg(cmd string, args []string, stderr io.Writer) (int64, bool) {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "flow: experiment close needs an experiment id")
+		fmt.Fprintf(stderr, "flow: experiment %s needs an experiment id\n", cmd)
 		fmt.Fprint(stderr, experimentUsage)
-		return 2
+		return 0, false
 	}
 	id, err := strconv.ParseInt(args[0], 10, 64)
 	if err != nil || id <= 0 {
-		fmt.Fprintf(stderr, "flow: experiment close: id must be a positive integer, got %q\n", args[0])
+		fmt.Fprintf(stderr, "flow: experiment %s: id must be a positive integer, got %q\n", cmd, args[0])
 		fmt.Fprint(stderr, experimentUsage)
+		return 0, false
+	}
+	return id, true
+}
+
+func runExperimentStats(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	id, ok := experimentIDArg("stats", args, stderr)
+	if !ok {
+		return 2
+	}
+	var f storeConnFlags
+	fset := newExperimentFlagSet("flow experiment stats", &f)
+	if code, ok := parseExperimentFlags(fset, &f, args[1:], stderr); !ok {
+		return code
+	}
+	body, err := withExperimentClient(ctx, f, func(ctx context.Context, cl *client.Client) (json.RawMessage, error) {
+		return cl.ExperimentStats(ctx, id)
+	})
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: experiment stats: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "%s\n", body)
+	return 0
+}
+
+func runExperimentClose(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	id, ok := experimentIDArg("close", args, stderr)
+	if !ok {
 		return 2
 	}
 	var f storeConnFlags
@@ -204,7 +241,7 @@ func runExperimentClose(ctx context.Context, args []string, stdout, stderr io.Wr
 		fmt.Fprint(stderr, experimentUsage)
 		return 2
 	}
-	_, err = withExperimentClient(ctx, f, func(ctx context.Context, cl *client.Client) (struct{}, error) {
+	_, err := withExperimentClient(ctx, f, func(ctx context.Context, cl *client.Client) (struct{}, error) {
 		return struct{}{}, cl.CloseExperiment(ctx, id, *verdict, *summary)
 	})
 	if err != nil {

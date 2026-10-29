@@ -427,6 +427,27 @@ func (c *Client) CloseExperiment(ctx context.Context, id int64, verdict, summary
 	return experimentAnswer(body, status, http.StatusOK)
 }
 
+// ExperimentStats fetches experiment id's before/after figures via GET
+// /api/v1/experiments/{id}/stats, returned as the daemon's JSON: its one
+// reader prints it whole. An unknown id is ErrExperimentRejected.
+func (c *Client) ExperimentStats(ctx context.Context, id int64) (json.RawMessage, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/%d/stats", c.experimentsURL(), id), nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+	body, status, err := c.send(req)
+	if err != nil {
+		return nil, err
+	}
+	if err := experimentAnswer(body, status, http.StatusOK); err != nil {
+		return nil, err
+	}
+	if !json.Valid(body) {
+		return nil, fmt.Errorf("%w: response body is not valid JSON", ErrUnavailable)
+	}
+	return json.RawMessage(body), nil
+}
+
 // stateBoardEpoch is the "from" instant ListStateBoard's underlying query
 // asks for -- before any change this store could ever hold, since the
 // store starts empty (state-file.md, "The on-disk file is written, never

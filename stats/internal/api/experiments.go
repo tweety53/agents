@@ -20,6 +20,7 @@ type ExperimentStore interface {
 	ListExperiments(ctx context.Context, openOnly bool) ([]store.Experiment, error)
 	OpenOverrides(ctx context.Context) (map[string][]string, error)
 	CloseExperiment(ctx context.Context, id int64, verdict, summary string) error
+	ExperimentStats(ctx context.Context, id int64) (store.ExperimentStatsResult, error)
 }
 
 var _ ExperimentStore = (*store.Store)(nil)
@@ -55,7 +56,7 @@ func (h *experimentsHandler) experimentError(w http.ResponseWriter, action strin
 		writeError(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, store.ErrExperimentConflict):
 		writeError(w, http.StatusConflict, err.Error())
-	case errors.Is(err, store.ErrExperimentNotOpen):
+	case errors.Is(err, store.ErrExperimentNotOpen), errors.Is(err, store.ErrExperimentNotFound):
 		writeError(w, http.StatusNotFound, err.Error())
 	default:
 		status, msg := mapStoreError(h.logger, action, err)
@@ -99,11 +100,36 @@ func (h *experimentsHandler) overrides(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, o)
 }
 
-// close serves POST /api/v1/experiments/{id}/close.
-func (h *experimentsHandler) close(w http.ResponseWriter, r *http.Request) {
+// experimentID reads the {id} path value, writing 400 when it is not an
+// integer.
+func experimentID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "experiment id must be an integer, got "+strconv.Quote(r.PathValue("id")))
+		return 0, false
+	}
+	return id, true
+}
+
+// stats serves GET /api/v1/experiments/{id}/stats: the experiment's
+// before/after figures (store.ExperimentStats).
+func (h *experimentsHandler) stats(w http.ResponseWriter, r *http.Request) {
+	id, ok := experimentID(w, r)
+	if !ok {
+		return
+	}
+	out, err := h.store.ExperimentStats(r.Context(), id)
+	if err != nil {
+		h.experimentError(w, "experiment stats", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// close serves POST /api/v1/experiments/{id}/close.
+func (h *experimentsHandler) close(w http.ResponseWriter, r *http.Request) {
+	id, ok := experimentID(w, r)
+	if !ok {
 		return
 	}
 	var dto closeExperimentDTO

@@ -26,6 +26,7 @@ type fakeExperiments struct {
 	openOnly  bool
 	closedID  int64
 	closedArg [2]string
+	statsID   int64
 }
 
 func (f *fakeExperiments) OpenExperiment(_ context.Context, e store.Experiment) (store.Experiment, error) {
@@ -65,6 +66,15 @@ func (f *fakeExperiments) CloseExperiment(_ context.Context, id int64, verdict, 
 	}
 	f.closedID, f.closedArg = id, [2]string{verdict, summary}
 	return nil
+}
+
+func (f *fakeExperiments) ExperimentStats(_ context.Context, id int64) (store.ExperimentStatsResult, error) {
+	if id != 3 {
+		return store.ExperimentStatsResult{}, fmt.Errorf("%w: %d", store.ErrExperimentNotFound, id)
+	}
+	f.statsID = id
+	return store.ExperimentStatsResult{Experiment: store.Experiment{ID: 3}, Runs: store.ExperimentRuns{Before: 4, After: 2},
+		Metrics: []store.ExperimentMetric{{Name: "tokens", Series: []store.ExperimentWeek{}}}}, nil
 }
 
 func newExperimentsTestServer(t *testing.T, fe *fakeExperiments) *httptest.Server {
@@ -146,6 +156,26 @@ func TestExperimentsRoutes(t *testing.T) {
 	fe.closeErr = fmt.Errorf("%w: 9", store.ErrExperimentNotOpen)
 	if status, _ = doJSON(t, http.MethodPost, base+"/9/close", `{"verdict":"negative","summary":"s"}`); status != http.StatusNotFound {
 		t.Fatalf("POST close not open = %d, want 404", status)
+	}
+}
+
+// TestExperimentStatsRoute serves GET /api/v1/experiments/{id}/stats:
+// 200 with the store's figures, 404 for an unknown id, 400 for a
+// non-integer one.
+func TestExperimentStatsRoute(t *testing.T) {
+	fe := &fakeExperiments{}
+	ts := newExperimentsTestServer(t, fe)
+	base := ts.URL + "/api/v1/experiments"
+
+	status, body := doJSON(t, http.MethodGet, base+"/3/stats", "")
+	if status != http.StatusOK || fe.statsID != 3 || !strings.Contains(body, `"runs":{"before":4,"after":2}`) || !strings.Contains(body, `"name":"tokens"`) {
+		t.Fatalf("GET stats = %d %s, want 200 with experiment 3's figures", status, body)
+	}
+	if status, _ = doJSON(t, http.MethodGet, base+"/9/stats", ""); status != http.StatusNotFound {
+		t.Fatalf("GET stats unknown = %d, want 404", status)
+	}
+	if status, _ = doJSON(t, http.MethodGet, base+"/x/stats", ""); status != http.StatusBadRequest {
+		t.Fatalf("GET stats bad id = %d, want 400", status)
 	}
 }
 
