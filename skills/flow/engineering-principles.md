@@ -90,6 +90,19 @@ it", or a data class whose invariants are enforced by its callers rather than it
 
 ## Simplicity & state
 
+### Add the missing record, never infer around it
+
+When a feature needs data, a stage, a column, an endpoint or a record the system does not keep yet,
+add it — a migration, a stage key, a store field, a recorded event — in the same change, without
+waiting to be asked. What matters is software that works and enough recorded data to analyse how
+it is built and run and to decide from it; a feature that guesses because the record is missing
+fails both.
+
+**Violation looks like:** a view or report guessing a fact from a proxy the system happens to hold
+(a status inferred from a timestamp, an id parsed out of a path or a label the row never recorded),
+a feature cut down or reported as "not possible" because a field is missing, or a "would need a
+schema change" left for someone else to approve.
+
 ### DRY — Don't Repeat Yourself
 
 Every piece of knowledge has one authoritative representation; duplicated *knowledge*

@@ -147,6 +147,11 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > group (`skills/flow/implement.md`) and to `flow.verify`. A task whose `**Tests:**` is `none` names
 > lint alone and no test command.
 
+> **Plan the record a feature needs as its own task.** A field, a column, an endpoint, a stage or a
+> recorded event the feature reads and the system does not keep yet is a task of the plan, never a
+> question for the operator — **Add the missing record, never infer around it**
+> (`skills/flow/engineering-principles.md`).
+
 > **Write a feature's UI tests as their own follow-on task.** When a feature's tests live in a
 > UI-test source set of their own — Compose Multiplatform's `desktopTest`, and the like — the plan
 > carries two tasks: the feature task, whose `**Files:**` names the source files and the unit-test
