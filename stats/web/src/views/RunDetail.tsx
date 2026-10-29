@@ -24,7 +24,8 @@ import { stageLabel } from "../lib/stageLabel";
 import { ActivityBadge, StatePill } from "./StateBoard";
 import { taskCount } from "../lib/taskCount";
 import { SR_STEPS, selfReviewNow } from "../lib/selfReviewNow";
-import { phaseOrder, STAGE_PHASE, type Phase } from "../lib/phase";
+import { STAGE_PHASE, type Phase } from "../lib/phase";
+import { mainNow, mainProgress, mainSummary, type ProgressState } from "../lib/mainNow";
 import { findChanges, getRunRecord, listSelfReviewFindings, listStageRuns, listStages, type ActiveSubagent, type PlanTask, type RecordDispatch, type SelfReviewFinding, type StageRunDTO } from "../api";
 
 export interface RunDetailProps {
@@ -165,36 +166,51 @@ function fixRound(steps: Step[]): number | null {
   return rounds.length ? Math.max(...rounds) : null;
 }
 
-/** One phase of the run: a header with its status, active time and cost, a line per role of its dispatches, then whatever the phase adds. */
-function PhasePanel({
-  phase,
+/** One step of a progress line: its label and whether it is done, current or still to come. */
+type Progress = { label: string; state: ProgressState }[];
+
+/**
+ * One of the run view's two work panels, Main or Self-review: a header with
+ * its status, active time and cost; a Now line, a progress line and a
+ * summary; a line per role of its dispatches; then its plan, the task being
+ * worked on marked.
+ */
+function WorkPanel({
+  title,
   runs,
   steps,
   costs,
   now,
   extra,
+  nowText,
+  progress,
   summary,
-  children,
+  tasks,
+  currentTask,
 }: {
-  phase: Phase;
+  title: string;
   runs: StageRunDTO[];
   steps: Step[];
   costs: Map<string, number>;
   now: number;
   extra?: ReactNode;
-  summary?: ReactNode;
-  children?: ReactNode;
+  nowText: string;
+  progress: Progress;
+  summary: string;
+  tasks?: PlanTask[];
+  currentTask?: number;
 }) {
-  const status: PhaseStatus = runs.length === 0 ? "idle" : runs.some((r) => !r.endedAt) ? "running" : "done";
+  const status = workStatus(runs);
   const active = runs.reduce((a, r) => a + runEnd(r, now) - Date.parse(r.startedAt), 0);
   const cost = measuredSum(runs.map((r) => readCostUsd(r.metrics)));
   const roles = roleSummary(steps, costs);
+  const slug = title.toLowerCase();
   return (
-    <section className={`lb-panel lb-phase ${status}`} aria-label={phase}>
+    <section className={`lb-panel lb-phase ${status}`} aria-label={title}>
       <div className="lb-panel-h">
         <span className="lb-phase-name">
           <span className={`lb-dot ${status}`} />
-          {phase}
+          {title}
           <span className="lb-phase-st">
             {" · "}
             {PHASE_STATUS_LABEL[status]}
@@ -210,7 +226,21 @@ function PhasePanel({
         </span>
         {extra && <span className="lb-panel-note lb-phase-meta">{extra}</span>}
       </div>
-      {summary && <div className="lb-phase-sum">{summary}</div>}
+      <div className="lb-phase-sum">
+        <div className="lb-sr-now" data-testid={`${slug}-now`}>
+          <strong>Now:</strong> {nowText}
+        </div>
+        <div className="lb-sr-prog" data-testid={`${slug}-progress`}>
+          {progress.map((p, i) => (
+            <span key={p.label} className={p.state}>
+              {i > 0 && <span className="lb-muted"> → </span>}
+              {p.label}
+              {p.state === "done" ? " ✓" : p.state === "current" ? " ●" : ""}
+            </span>
+          ))}
+        </div>
+        {summary && <div data-testid={`${slug}-summary`}>{summary}</div>}
+      </div>
       {status !== "idle" && (
         <ul className="lb-roles">
           {roles.map((r) => (
@@ -234,9 +264,22 @@ function PhasePanel({
           {roles.length === 0 && <li className="lb-muted">No dispatches yet.</li>}
         </ul>
       )}
-      {children}
+      {tasks && (
+        <>
+          <div className="lb-panel-h">
+            <span>Tasks</span>
+            <span className="lb-panel-note">{doneOf(tasks)}</span>
+          </div>
+          <TaskList tasks={tasks} current={currentTask} />
+        </>
+      )}
     </section>
   );
+}
+
+/** A panel's status from its stage runs: idle with none, running while one is open, done after. */
+function workStatus(runs: StageRunDTO[]): PhaseStatus {
+  return runs.length === 0 ? "idle" : runs.some((r) => !r.endedAt) ? "running" : "done";
 }
 
 /** A plan's tasks, each marked done, in progress or pending. */
@@ -352,6 +395,14 @@ export function RunDetail({ project, change }: RunDetailProps) {
   const costs = useMemo(() => dispatchCosts(phaseRuns), [phaseRuns]);
   const allFindings = [...findings, ...(sub?.findings ?? [])];
   const srSteps = steps.filter((x) => x.phase === "Self-review");
+  const srRuns = phaseRuns.filter((r) => STAGE_PHASE[r.stage] === "Self-review");
+  const mainSteps = steps.filter((x) => x.phase !== "Self-review");
+  const mainRuns = runs0.filter((r) => STAGE_PHASE[r.stage] !== "Self-review");
+  const srStatus = workStatus(srRuns);
+  const srStarted = srRuns.length > 0 || board?.currentStage === "flow.self-review";
+  const mainStatus2 = workStatus(mainRuns);
+  // The task Main works on: a running dispatch's, else the plan's in-progress one.
+  const mainCurrentTask = Number(mainSteps.filter((d) => !d.endedAt && d.taskId).pop()?.taskId ?? board?.tasks?.find((t) => t.state === "in progress")?.n) || undefined;
   const srNow = selfReviewNow(
     srSteps,
     board?.selfReviewTasks,
@@ -479,8 +530,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                 />
               </section>
 
-              {(board?.tasks || agentCount > 0) && (
-                <div className="lb-split">
+              {agentCount > 0 && (
                   <section className="lb-panel" aria-label="Agents">
                     <div className="lb-panel-h">
                       <span>Agents running</span>
@@ -541,90 +591,47 @@ export function RunDetail({ project, change }: RunDetailProps) {
                       </tbody>
                     </table>
                   </section>
-                  <section className="lb-panel" aria-label="Tasks">
-                    <div className="lb-panel-h">
-                      <span>Tasks</span>
-                      <span className="lb-panel-note">{board?.tasks ? doneOf(board.tasks) : "no plan yet"}</span>
-                    </div>
-                    <TaskList tasks={board?.tasks ?? []} />
-                  </section>
-                </div>
               )}
 
-              {phaseOrder(openRun?.stage).map((p) => (
-                <PhasePanel
-                  key={p}
-                  phase={p}
-                  runs={phaseRuns.filter((r) => STAGE_PHASE[r.stage] === p)}
-                  steps={steps.filter((x) => x.phase === p)}
-                  costs={costs}
-                  now={now}
-                  extra={
-                    p === "Self-review" && sub && <a href={`#/run/${encodeURIComponent(sub.project)}/${encodeURIComponent(sub.name)}`}>sub-run</a>
-                  }
-                  summary={
-                    p === "Self-review" && (
-                      <>
-                        <div className="lb-sr-now" data-testid="self-review-now">
-                          <strong>Now:</strong> {srNow.text}
-                        </div>
-                        <div className="lb-sr-prog" data-testid="self-review-progress">
-                          {SR_STEPS.map((st, i) => {
-                            const at = srNow.current ? SR_STEPS.indexOf(srNow.current) : -1;
-                            const state = srNow.done || i < at ? "done" : i === at ? "current" : "todo";
-                            const tasks = board?.selfReviewTasks;
-                            const label = st === "fix" && tasks ? `fix ${tasks.filter((t) => t.state === "done").length}/${tasks.length}` : st;
-                            return (
-                              <span key={st} className={state}>
-                                {i > 0 && <span className="lb-muted"> → </span>}
-                                {label}
-                                {state === "done" ? " ✓" : state === "current" ? " ●" : ""}
-                              </span>
-                            );
-                          })}
-                        </div>
-                        <div>{selfReviewSummary(board?.selfReviewTasks, allFindings.length, srSteps)}</div>
-                      </>
-                    )
-                  }
-                >
-                  {p === "Self-review" && (
-                    <>
-                      {board?.selfReviewTasks && (
-                        <>
-                          <div className="lb-panel-h">
-                            <span>Tasks</span>
-                          </div>
-                          <TaskList tasks={board.selfReviewTasks} current={srNow.taskN} />
-                        </>
-                      )}
-                      <div className="lb-panel-h">
-                        <span>Findings</span>
-                        <span className="lb-panel-note">{allFindings.length}</span>
-                      </div>
-                      <table className="lb-table">
-                        <tbody>
-                          {allFindings.map((f) => (
-                            <tr key={f.id} data-testid="self-review-finding">
-                              <td>{f.angle}</td>
-                              <td>{f.note}</td>
-                              <td>{f.disposition}</td>
-                              <td>{f.ref ?? ""}</td>
-                            </tr>
-                          ))}
-                          {allFindings.length === 0 && (
-                            <tr>
-                              <td colSpan={4} className="lb-muted">
-                                No findings recorded yet.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </>
-                  )}
-                </PhasePanel>
-              ))}
+              {(srStatus === "running" && mainStatus2 !== "running" ? ["Self-review", "Main"] : ["Main", "Self-review"]).map((p) =>
+                p === "Main" ? (
+                  <WorkPanel
+                    key={p}
+                    title="Main"
+                    runs={mainRuns}
+                    steps={mainSteps}
+                    costs={costs}
+                    now={now}
+                    nowText={mainNow(mainRuns, mainSteps, board?.tasks, board?.state === "FINISHED", now)}
+                    progress={mainProgress(mainRuns).map((x) => ({ label: x.phase.toLowerCase(), state: x.state }))}
+                    summary={mainSummary(board?.tasks, mainSteps)}
+                    tasks={board?.tasks}
+                    currentTask={mainCurrentTask}
+                  />
+                ) : (
+                  <WorkPanel
+                    key={p}
+                    title="Self-review"
+                    runs={srRuns}
+                    steps={srSteps}
+                    costs={costs}
+                    now={now}
+                    extra={sub && <a href={`#/run/${encodeURIComponent(sub.project)}/${encodeURIComponent(sub.name)}`}>sub-run</a>}
+                    nowText={srStarted ? srNow.text : "Not started"}
+                    progress={SR_STEPS.map((st, i) => {
+                      const at = srNow.current ? SR_STEPS.indexOf(srNow.current) : -1;
+                      const tasks = board?.selfReviewTasks;
+                      return {
+                        label: st === "fix" && tasks ? `fix ${tasks.filter((t) => t.state === "done").length}/${tasks.length}` : st,
+                        state: !srStarted ? "todo" : srNow.done || i < at ? "done" : i === at ? "current" : "todo",
+                      };
+                    })}
+                    summary={selfReviewSummary(board?.selfReviewTasks, allFindings.length, srSteps)}
+                    tasks={board?.selfReviewTasks}
+                    currentTask={srNow.taskN}
+                  />
+                ),
+              )}
 
               <section className="lb-panel" aria-label="Timeline">
                 <div className="lb-panel-h">

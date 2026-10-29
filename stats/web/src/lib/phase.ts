@@ -53,12 +53,6 @@ export const STAGE_PHASE: Record<string, Phase> = {
   "flow.refresh-main-checkout": "Cleanup",
 };
 
-/** The phases in pipeline order, the one holding the open stage first. */
-export function phaseOrder(openStage: string | undefined): Phase[] {
-  const open = openStage === undefined ? undefined : STAGE_PHASE[openStage];
-  return open ? [open, ...PHASES.filter((p) => p !== open)] : [...PHASES];
-}
-
 // A STARTED change whose open or latest stage is planning or decisions, with
 // no implementer dispatch yet, is still planning.
 const PLANNING = new Set(Object.keys(STAGE_PHASE).filter((k) => STAGE_PHASE[k] === "Planning" || STAGE_PHASE[k] === "Decisions"));

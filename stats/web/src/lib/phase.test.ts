@@ -2,7 +2,7 @@
 // splits IN_PROGRESS into Integrating (a stage open) and Ready for review.
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { PHASES, STAGE_PHASE, phase, phaseOrder } from "./phase";
+import { STAGE_PHASE, phase } from "./phase";
 
 describe("phase", () => {
   it("reads a STARTED change in planning stages as Planning", () =>
@@ -24,11 +24,5 @@ describe("phases", () => {
     const keys = [...go.matchAll(/\{Key: "([^"]+)"/g)].map((m) => m[1]);
     expect(keys.length).toBeGreaterThan(30);
     expect(keys.filter((k) => !(k in STAGE_PHASE))).toEqual([]);
-  });
-  it("orders phases in pipeline order with nothing open", () => expect(phaseOrder(undefined)).toEqual([...PHASES]));
-  it("puts the open stage's phase first, the rest in pipeline order", () => {
-    const order = phaseOrder("flow.self-review");
-    expect(order[0]).toBe("Self-review");
-    expect(order.slice(1)).toEqual(PHASES.filter((p) => p !== "Self-review"));
   });
 });

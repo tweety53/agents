@@ -780,10 +780,12 @@ describe("the reworked run view (kan-1048)", () => {
     expect(agentRows[0]).toHaveTextContent("Mainneeds youImplementing task 3 (Run view)");
     expect(agentRows[1]).toHaveTextContent("⎿ implementerrunningImplementing task 2 (Board card)opus-5.5 · high10m");
     expect(subs.querySelector(".lb-panel-note")).toHaveTextContent("2");
-    const tasks = screen.getByRole("region", { name: "Tasks" });
+    // The plan lives in the Main panel now, the task being worked on marked ●.
+    expect(screen.queryByRole("region", { name: "Tasks" })).not.toBeInTheDocument();
+    const tasks = screen.getByRole("region", { name: "Main" });
     expect(tasks).toHaveTextContent("1/3 done");
     expect(tasks).toHaveTextContent("✔ 1. Schema");
-    expect(tasks).toHaveTextContent("◼ 2. Board card");
+    expect(tasks).toHaveTextContent("● 2. Board card");
     expect(tasks).toHaveTextContent("◻ 3. Run view");
     expect(kpi("Failed runs")).toHaveTextContent("1");
     expect(kpi("Failed runs")).toHaveTextContent("1 retried");
@@ -797,7 +799,7 @@ describe("the reworked run view (kan-1048)", () => {
     expect(rail).toHaveTextContent("$3.50");
   });
 
-  it("run detail shows a panel per phase, the open phase first, Self-review with its plan and findings", async () => {
+  it("run detail shows exactly a Main and a Self-review panel, the running one first", async () => {
     const impl3 = { ...implementation[0], metrics: { ...(implementation[0].metrics as object), dispatches: { "agent-impl": { cost_usd: 1 } } } };
     listStageRunsMock.mockResolvedValue(stageRunsResponse([...planning, impl3, run(5, "flow.self-review", "2026-01-01T02:00:00Z", undefined)]));
     runRecordMock.mockResolvedValueOnce({
@@ -824,37 +826,32 @@ describe("the reworked run view (kan-1048)", () => {
     ]);
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const panel = await screen.findByRole("region", { name: "Self-review" });
-    // The change's own plan stays listed beside Agents; Self-review is added, never in its place.
-    const tasks = screen.getByRole("region", { name: "Tasks" });
-    expect(tasks).toHaveTextContent("1/3 done");
-    expect(tasks).toHaveTextContent("◻ 3. Run view");
+    // Two work panels and no others; Self-review runs, so it leads.
+    const work = screen.getAllByRole("region").filter((r) => r.classList.contains("lb-phase")).map((r) => r.getAttribute("aria-label"));
+    expect(work).toEqual(["Self-review", "Main"]);
+    expect(screen.queryByRole("region", { name: "Implementation" })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Agents" })).toBeInTheDocument();
     // One line per role, never a row per dispatch: count, distinct model · effort, cost, failures, running.
     const roles = await within(panel).findAllByTestId("phase-role");
     expect(roles.map((r) => r.textContent)).toEqual(["self-review ×1opus · medium—", "implementer ×2opus, opus-5.5 · low—1 failedrunning"]);
-    expect(panel.querySelector(".lb-phase-sum")!.lastElementChild).toHaveTextContent(/^plan 1\/2 · findings 1 · fixes round 2$/);
+    expect(within(panel).getByTestId("self-review-summary")).toHaveTextContent(/^plan 1\/2 · findings 1 · fixes round 2$/);
     // What it does now, unmistakably: the running red-verify fixer, its time and model, and where that sits.
     expect(within(panel).getByTestId("self-review-now")).toHaveTextContent(/^Now: Verifying — red verify fix round 2 · for 10m · opus-5\.5$/);
     expect(within(panel).getByTestId("self-review-progress")).toHaveTextContent("review ✓ → plan ✓ → fix 1/2 ✓ → re-review ✓ → verify ● → land → file");
-    // The open phase leads; the rest follow in pipeline order, each present.
-    const phases = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"));
-    const first = phases.indexOf("Planning") - 1;
-    expect(phases.slice(first, first + 11)).toEqual([
-      "Self-review", "Planning", "Decisions", "Implementation", "Fixes", "Review", "Verification", "Handoff", "Integrate", "Landing", "Cleanup",
-    ]);
-    // A dispatch lands in the phase of the stage run it began in.
-    const impl = screen.getByRole("region", { name: "Implementation" });
-    expect(within(impl).getAllByTestId("phase-role")).toHaveLength(1);
-    // The header: status, the phase's active time and its stage runs' cost; the role line its dispatches' own cost.
-    expect(impl.querySelector(".lb-phase-name")).toHaveTextContent(/^Implementation · done · 30m · \$3\.00$/);
-    expect(within(impl).getByTestId("phase-role")).toHaveTextContent(/^implementer ×1opus\$1\.00$/);
-    const review = screen.getByRole("region", { name: "Review" });
-    expect(review).toHaveTextContent(/^Review · not started$/);
-    expect(within(review).queryByTestId("phase-role")).not.toBeInTheDocument();
+    // Main: everything else -- its header, Now line, progress over the main phases, summary, plan and roles.
+    const main = screen.getByRole("region", { name: "Main" });
+    expect(main.querySelector(".lb-phase-name")).toHaveTextContent(/^Main · done · 1h 10m · \$6\.00$/);
+    expect(within(main).getByTestId("main-now")).toHaveTextContent(/^Now: Main session is between steps \(last: Implementing tasks, 1h 30m ago\)$/);
+    expect(within(main).getByTestId("main-progress")).toHaveTextContent(
+      "planning ✓ → decisions → implementation ✓ → review → verification → handoff → integrate → landing → cleanup",
+    );
+    expect(within(main).getByTestId("main-summary")).toHaveTextContent(/^tasks 1\/3$/);
+    expect(within(main).getAllByTestId("phase-role").map((r) => r.textContent)).toEqual(["implementer ×1opus$1.00"]);
+    expect(main).toHaveTextContent("● 2. Board card");
     expect(panel).toHaveTextContent("✔ 1. Fix the divider");
     expect(panel).toHaveTextContent("◻ 2. Fix the count");
-    const finding = await within(panel).findByTestId("self-review-finding");
-    expect(finding).toHaveTextContent("correctnessCount is stalefixedabc1234");
+    // Findings are counted in the summary, never listed.
+    expect(within(panel).queryByTestId("self-review-finding")).not.toBeInTheDocument();
     expect(listFindingsMock).toHaveBeenCalledWith(PROJECT, CHANGE);
   });
 
@@ -900,7 +897,7 @@ describe("the reworked run view (kan-1048)", () => {
     // A group fixer runs: the first unticked task is the one in progress.
     expect(panel).toHaveTextContent("● 1. Fix the guard");
     expect(within(panel).getByTestId("self-review-now")).toHaveTextContent('Now: Fixing task 1 "Fix the guard"');
-    expect(await within(panel).findByTestId("self-review-finding")).toHaveTextContent("toolingGuard too strictfixeddef5678");
+    await waitFor(() => expect(within(panel).getByTestId("self-review-summary")).toHaveTextContent("findings 1"));
     expect(within(panel).getByRole("link", { name: "sub-run" })).toHaveAttribute("href", `#/run/agents-tooling/${SUB}`);
     expect(findChangesMock).toHaveBeenCalledWith(SUB);
     findChangesMock.mockResolvedValue({ records: [] });
@@ -908,16 +905,15 @@ describe("the reworked run view (kan-1048)", () => {
     listFindingsMock.mockImplementation(() => Promise.resolve([]));
   });
 
-  it("run detail's self-review panel says when no findings are recorded", async () => {
+  it("run detail's self-review panel says what it waits on before any dispatch", async () => {
     const reviewing = { ...boardRow, currentStage: "flow.self-review" };
     fetchStatsViewMock.mockImplementation((view: string) =>
       Promise.resolve(view === "state-board" ? { ...aggregateEnvelope([]), view, rows: [reviewing] } : aggregateEnvelope([])),
     );
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const panel = await screen.findByRole("region", { name: "Self-review" });
-    expect(panel).toHaveTextContent("No findings recorded yet.");
     // Without a plan or a fix round the summary names only what exists.
-    expect(panel.querySelector(".lb-phase-sum")!.lastElementChild).toHaveTextContent(/^findings 0$/);
+    expect(within(panel).getByTestId("self-review-summary")).toHaveTextContent(/^findings 0$/);
     expect(within(panel).getByTestId("self-review-now")).toHaveTextContent("Now: Main session is between steps (nothing dispatched yet)");
   });
 
@@ -945,6 +941,16 @@ describe("the reworked run view (kan-1048)", () => {
     const panel = await screen.findByRole("region", { name: "Stage runs" });
     await waitFor(() => expect(panel.querySelectorAll("tbody tr:not(.lb-group)")).toHaveLength(4));
     expect(within(panel).queryByRole("button", { name: /^Show (all|latest)/ })).not.toBeInTheDocument();
+  });
+
+  it("run detail puts Main first unless only Self-review is running, and says Not started for a self-review yet to run", async () => {
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    await screen.findByRole("region", { name: "Main" });
+    const work = screen.getAllByRole("region").filter((r) => r.classList.contains("lb-phase")).map((r) => r.getAttribute("aria-label"));
+    expect(work).toEqual(["Main", "Self-review"]);
+    const sr = screen.getByRole("region", { name: "Self-review" });
+    expect(within(sr).getByTestId("self-review-now")).toHaveTextContent(/^Now: Not started$/);
+    expect(within(screen.getByRole("region", { name: "Main" })).getByTestId("main-now")).toHaveTextContent(/^Now: Implementing tasks · 1h 00m$/);
   });
 
   it("run detail marks main as waiting while only its subagents work", async () => {
