@@ -83,6 +83,12 @@ describe("StageRunTable", () => {
     expect(screen.getByTestId("run-cost").title).toBe("agents $2.15 + main session $0.85");
   });
 
+  it("names a dispatch's exact model from its served models when the bucket records no version", () => {
+    const served = { ...run, metrics: { ...(run.metrics as object), dispatches: { aeb9c995f7b6dd74f: { model: "sonnet", cost_usd: 0.15, signals: { served_models: { "claude-sonnet-5-5": 6 } } } } } };
+    render(<StageRunTable stageRuns={[served]} records={records} />);
+    expect(screen.getByRole("cell", { name: "Review round 2 (sonnet 5.5)" })).toBeInTheDocument();
+  });
+
   it("says a shared action prefix once", () => {
     expect(foldPrefixes(["Code review round 2: primary", "Code review round 2: test sanity", "Running lint and tests", "Code review round 3: primary"])).toEqual([
       "Code review round 2: primary",

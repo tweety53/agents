@@ -21,6 +21,7 @@ import {
   readTotalInputTokens,
   readMainTokens,
   readServedEffort,
+  readServedModel,
   readSidechainTokens,
 } from "../metrics";
 import { formatClock, formatModel, formatSpan, formatUsd } from "../format";
@@ -125,7 +126,8 @@ function readDispatchRows(bag: unknown): DispatchLine[] {
       agentId,
       agentType: d && typeof d.agent_type === "string" ? d.agent_type : undefined,
       description: d && typeof d.description === "string" ? d.description : undefined,
-      model: d && typeof d.modelVersion === "string" ? d.modelVersion : d && typeof d.model === "string" ? d.model : undefined,
+      // The exact model -- its recorded version, else the one most served -- before the bare family.
+      model: d && typeof d.modelVersion === "string" ? d.modelVersion : (readServedModel(d) ?? (d && typeof d.model === "string" ? d.model : undefined)),
       tokens: tokenTotal(d),
       costUsd: (d ? readCostUsd(d) : null) ?? undefined,
       effort: readServedEffort(d),
