@@ -76,3 +76,5 @@ It prints JSON: `runs` (`before`, `after` — changes counted in each window), `
 The quoted heredoc passes the summary verbatim, apostrophes included.
 Where the session does not state one, `<parent model>` is `unknown (agent-defined)` and `<parent effort>` the literal `default`, the CLI accepting only `low|medium|high|xhigh|max|default`.
 flow experiment close <id> -verdict <positive|negative|inconclusive> -summary "$(cat <<'SUMMARY'
+In a `planner` dispatch, every **AskUserQuestion** these sections name is written as a question of the round file instead, and the parent asks it, with the silence outcome the naming section states.
+With none, run `flow experiment list -open`: one open experiment → that one; several → ask with AskUserQuestion, one option per experiment (its id, name and cells), and silence closes nothing: the skill stops and reports the open experiments; none → report that no experiment is open and stop.
