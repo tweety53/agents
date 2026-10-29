@@ -7,7 +7,7 @@ PUT /api/v1/sessions/<session_id>/activity {"state", "detail"}:
 
   PreToolUse on AskUserQuestion  -> question, the first question's text
   Notification naming permission -> permission, the notification's message
-  PostToolUse                    -> working, the tool and its short label
+  PreToolUse, PostToolUse        -> working, the tool and its short label
   UserPromptSubmit               -> working
   Stop                           -> idle
 
@@ -45,7 +45,10 @@ def activity(payload: dict) -> Optional[Tuple[str, str]]:
         if "permission" in message.lower():
             return "permission", message
         return None
-    if event == "PostToolUse":
+    # Every tool call reports working, before it runs and after: a Stop the
+    # stop guard refuses leaves "idle" behind, and a long call (a poll, a
+    # build) must not read as a turn that ended while it runs.
+    if event in ("PreToolUse", "PostToolUse"):
         return "working", action(payload)
     if event == "UserPromptSubmit":
         return "working", ""

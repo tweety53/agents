@@ -609,7 +609,7 @@ SNIPPET
   warn_unregistered_hook "$settings" flow-session-activity flow-session-activity \
     "  ⚠ The flow-session-activity hook is installed but NOT registered, so the Live state" \
     "    board never shows a session waiting on you. Add one entry per event to \"hooks\" in" \
-    "    $settings — PreToolUse with \"matcher\": \"AskUserQuestion\", and PostToolUse," \
+    "    $settings — PreToolUse, PostToolUse," \
     "    Notification, UserPromptSubmit and Stop without a matcher — each running:" <<'SNIPPET'
 
           { "type": "command", "command": "python3 \"$HOME/.claude/hooks/flow-session-activity.py\"" }

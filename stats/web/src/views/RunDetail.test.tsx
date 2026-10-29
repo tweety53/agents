@@ -816,6 +816,26 @@ describe("the reworked run view (kan-1048)", () => {
     expect(kpi).toHaveTextContent("Task 4: In-run fix 1 — visual-verify: divider");
   });
 
+  it("run detail reads main as waiting, not ended, when its turn ended while a subagent runs", async () => {
+    const ended = { ...boardRow, activity: "idle", subagents: boardRow.subagents.filter((d) => !d.inline) };
+    fetchStatsViewMock.mockImplementation((view: string) =>
+      Promise.resolve(view === "state-board" ? { ...aggregateEnvelope([]), view, rows: [ended] } : aggregateEnvelope([])),
+    );
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const main = (await screen.findByRole("cell", { name: "Main" })).closest("tr")!;
+    expect(main.querySelector(".lb-dot.waiting")).not.toBeNull();
+  });
+
+  it("run detail reads main as running when it wrote its transcript after a refused stop", async () => {
+    const refused = { ...boardRow, activity: "idle", activitySince: "2026-01-01T02:58:00Z", sessionSeenAt: "2026-01-01T02:59:30Z", subagents: [] };
+    fetchStatsViewMock.mockImplementation((view: string) =>
+      Promise.resolve(view === "state-board" ? { ...aggregateEnvelope([]), view, rows: [refused] } : aggregateEnvelope([])),
+    );
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const main = (await screen.findByRole("cell", { name: "Main" })).closest("tr")!;
+    expect(main.querySelector(".lb-dot.running")).not.toBeNull();
+  });
+
   it("run detail still shows its stage runs when the board row fails to load", async () => {
     fetchStatsViewMock.mockImplementation((view: string) =>
       view === "state-board" ? Promise.reject(new Error("board down")) : Promise.resolve(aggregateEnvelope([])),

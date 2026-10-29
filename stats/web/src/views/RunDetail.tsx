@@ -146,10 +146,14 @@ export function RunDetail({ project, change }: RunDetailProps) {
           };
           const nowTask = board ? runningTask(board) : null;
           const agentCount = subagents.length + (mainAgent ? 1 : 0);
+          // A turn reported ended but refused by a stop hook keeps writing its transcript; one that ended
+          // while its subagents run is waiting on them -- neither reads as ended.
+          const wroteSinceIdle =
+            board?.sessionSeenAt !== undefined && board.activitySince !== undefined && Date.parse(board.sessionSeenAt) > Date.parse(board.activitySince);
           const mainStatus: AgentStatus =
             board?.activity === "question" || board?.activity === "permission"
               ? "needs-you"
-              : board?.activity === "idle"
+              : board?.activity === "idle" && subagents.length === 0 && !wroteSinceIdle
                 ? "idle"
                 : !inline && subagents.length > 0
                   ? "waiting"
