@@ -843,6 +843,7 @@ describe("the reworked run view (kan-1048)", () => {
     // A dispatch lands in the phase of the stage run it began in.
     const impl = screen.getByRole("region", { name: "Implementation" });
     expect(within(impl).getAllByTestId("phase-step")).toHaveLength(1);
+    expect(impl.querySelector(".lb-panel-note")).toHaveTextContent(/^1 step$/);
     expect(impl).toHaveTextContent("Implementing task 1 (Schema)");
     expect(screen.getByRole("region", { name: "Review" })).toHaveTextContent("Not started.");
     expect(panel).toHaveTextContent("✔ 1. Fix the divider");

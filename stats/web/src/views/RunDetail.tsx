@@ -135,7 +135,7 @@ function PhasePanel({
     <section className="lb-panel" aria-label={phase}>
       <div className="lb-panel-h">
         <span>{phase}</span>
-        <span className="lb-panel-note">{note ?? (started ? `${steps.length} steps` : "")}</span>
+        <span className="lb-panel-note">{note ?? (started ? `${steps.length} step${steps.length === 1 ? "" : "s"}` : "")}</span>
       </div>
       {started ? (
         <table className="lb-table lb-agents">
