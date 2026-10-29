@@ -774,6 +774,15 @@ in a form the classifier above recognizes.
 			gsReports(t, r, "declared", "F13: the coverage breakdown marks the zero as declared")
 			gsPin(t, r, repo)
 		}},
+		// F13b. flow-experiment-close is a declared expected-zero member too.
+		{"F13b", func(t *testing.T) {
+			repo := gsNew(t)
+			gsSkill(t, repo, "flow-experiment-close", "# flow-experiment-close fixture, no citations — declared expected-zero in the guard's own source")
+			r := gsRun(t, repo)
+			gsSilent(t, r, "flow-experiment-close's declared zero does not fail the run (F13b)")
+			gsReports(t, r, "declared", "F13b: the coverage breakdown marks the zero as declared")
+			gsPin(t, r, repo)
+		}},
 		// 6a. An unreadable skills/ directory — no verdict line, ever.
 		{"6a", func(t *testing.T) {
 			const label = "an unreadable skills/ directory"
@@ -1114,6 +1123,7 @@ var gsPins = map[string]string{
 	"TestCheckGuardSymlinks/9f":                    "<repo>/skills/flow/scripts/check-undeclared.sh:0: carried but required by nothing — no citation in this skill's own text, no delegation and no sibling dependency names check-undeclared.sh, so this symlink is dead weight the next cleanup will prune (rule 6)\nflow:0: 0 checked, and not declared expected-zero (coverage)\nGUARD-SYMLINKS-INVALID: <repo> — 2 violation(s)\n--- stderr\n--- exit 1\n",
 	"TestCheckGuardSymlinks/F12":                   "<repo>/skills/flow-shadow/scripts/check-shadow.sh:0: carried but required by nothing — no citation in this skill's own text, no delegation and no sibling dependency names check-shadow.sh, so this symlink is dead weight the next cleanup will prune (rule 6)\nflow-shadow:0: 0 checked, and not declared expected-zero (coverage)\nGUARD-SYMLINKS-INVALID: <repo> — 2 violation(s)\n--- stderr\n--- exit 1\n",
 	"TestCheckGuardSymlinks/F13":                   "GUARD-SYMLINKS-OK: <repo> — 0 guard(s) across 1 skill(s) validated\n  flow-settings 0 (declared: invokes no guard — a standalone settings command that only calls the flow CLI, with no implementation or verification stage)\n--- stderr\n--- exit 0\n",
+	"TestCheckGuardSymlinks/F13b":                  "GUARD-SYMLINKS-OK: <repo> — 0 guard(s) across 1 skill(s) validated\n  flow-experiment-close 0 (declared: invokes no guard — a standalone closing skill that only calls the flow CLI, not a pipeline stage)\n--- stderr\n--- exit 0\n",
 	"TestCheckGuardSymlinks/F4a":                   "<repo>/skills/flow/SKILL.md:6: invokes check-deleg.sh here, and skill \"flow-deleg\" delegates to \"flow\"'s own guard presence check (task 4's convention), but carries no symlink at skills/flow-deleg/scripts/check-deleg.sh (rule 2)\nGUARD-SYMLINKS-INVALID: <repo> — 1 violation(s)\n--- stderr\n--- exit 1\n",
 	"TestCheckGuardSymlinks/F4b":                   "GUARD-SYMLINKS-OK: <repo> — 1 guard(s) across 2 skill(s) validated\n  flow 1 · flow-deleg 1\n--- stderr\n--- exit 0\n",
 	"TestCheckGuardSymlinks/F4c":                   "GUARD-SYMLINKS-OK: <repo> — 1 guard(s) across 2 skill(s) validated\n  flow 1 · flow-settings 0 (declared: invokes no guard — a standalone settings command that only calls the flow CLI, with no implementation or verification stage)\n--- stderr\n--- exit 0\n",
