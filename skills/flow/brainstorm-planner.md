@@ -9,7 +9,8 @@ not `big`** (`skills/flow-self-review/SKILL.md`) binds them, and the in-run fix 
 runs them as **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline.md`) binds them. Every "you" below addresses that session, or that planner, directly.
 
 In a `planner` dispatch, every **AskUserQuestion** these sections name is written as a question of
-the round file instead, and the parent asks it.
+the round file instead, and the parent asks it, with the silence outcome the naming section
+states.
 
 **Load `skills/spectre-planning/SKILL.md`** — the generic prompts of sections B, C and D; this file carries the flow-only parts.
 

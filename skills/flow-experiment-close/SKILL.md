@@ -17,7 +17,8 @@ its winning cells into the table, which stays the permanent source (decision `cl
 
 The argument is the experiment's id, `/flow-experiment-close <id>`. With none, run
 `flow experiment list -open`: one open experiment → that one; several → ask with
-AskUserQuestion, one option per experiment (its id, name and cells); none → report that no
+AskUserQuestion, one option per experiment (its id, name and cells), and silence closes nothing:
+the skill stops and reports the open experiments; none → report that no
 experiment is open and stop.
 
 ## 2. Read its figures
