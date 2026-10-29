@@ -734,3 +734,8 @@ th button {
   .lb-phase-body { grid-template-columns: minmax(0, 1fr); }
   .lb-phase-tasks { border-left: 0; border-top: 1px solid var(--border); }
 }
+@media (max-width: 600px) {
+  .lb-roles > li { grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; }
+  .lb-roles .lb-role-models { grid-column: 1 / -1; grid-row: 2; }
+  .lb-roles .lb-role-flags { grid-column: 1 / -1; justify-content: flex-start; }
+}
