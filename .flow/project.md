@@ -269,6 +269,14 @@ launchd agent.
 scripts/check-references.sh
 ```
 
+## scripts
+
+Every new script in this repository is written in Go: its logic goes in the `flow-guard` binary
+(`stats/internal/guard/<name>.go`, registered in `guard.Registry`, with its cases in a Go test
+beside it), and `scripts/<name>.sh` is only the `flow_guard_exec` wrapper onto it. New logic in a
+script that is still bash is a port first, never more bash. The bash still standing is tracked by
+KAN-1058; `setup.sh` and the archived patches under `spectre/changes/archive/` stay bash.
+
 ## standards
 
 - `CLAUDE.md`
