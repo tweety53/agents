@@ -17,8 +17,10 @@ const vgPrefix = "check-verify-green: "
 
 // A fix round's `verify-fix-<k>` and a re-run's `verify-<k>` (a verify re-run
 // after a new code commit, skills/flow/verify-and-handoff.md's **Recording.**)
-// both supersede the `verify[-<basename>]` row before them.
-var vgFixSuffix = regexp.MustCompile(`^verify-(fix-)?[0-9]+`)
+// both supersede the `verify[-<basename>]` row before them. The number ends at
+// a dash or the key's end, so a repository name starting with a digit
+// (`verify-3d-viewer`) is never read as a re-run number (kan-1048 self-review, 1-A).
+var vgFixSuffix = regexp.MustCompile(`^verify-(fix-)?[0-9]+(-|$)`)
 
 func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 3 || args[1] == "" || args[2] == "" {
@@ -60,7 +62,7 @@ func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 		if r.SessionToken != token || r.Role != "verifier" || (r.Key != "verify" && !strings.HasPrefix(r.Key, "verify-")) {
 			continue
 		}
-		g := vgFixSuffix.ReplaceAllString(r.Key, "verify")
+		g := vgFixSuffix.ReplaceAllString(r.Key, "verify$2")
 		if _, ok := latest[g]; !ok {
 			groups = append(groups, g)
 		}
