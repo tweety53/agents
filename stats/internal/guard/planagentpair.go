@@ -10,7 +10,8 @@ import (
 // planAgentPair is scripts/plan-agent-pair.sh: the model and effort of a
 // planning session's <n>th Explore or Plan dispatch -- the first pair of the
 // plan-designer row of the allowed-pairs table (skills/flow-contracts/
-// model-policy.md), read from FLOW_GUARD_REPO_ROOT, which the shim sets.
+// model-policy.md), read from FLOW_GUARD_REPO_ROOT, which the shim sets, with
+// an open experiment's plan-designer override applied (policyTable).
 // <seed> is the change name, or the session token in /flow-plan before
 // capture; <n> counts the session's planning dispatches from 1. Exit 0 on the
 // printed line, exit 2 on a usage error or an unreadable table.
@@ -29,14 +30,14 @@ func planAgentPair(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "plan-agent-pair.sh: <n> must be a positive integer, got %q\n", args[1])
 		return 2
 	}
-	rows, err := policyTable(env.Getenv("FLOW_GUARD_REPO_ROOT"))
+	rows, err := policyTable(env, env.Getenv("FLOW_GUARD_REPO_ROOT"))
 	if err != nil {
 		fmt.Fprintf(stderr, "plan-agent-pair.sh: %v\n", err)
 		return 2
 	}
 	var m []string
 	if rs := rows["plan-designer"]; len(rs) > 0 {
-		m = papPair.FindStringSubmatch(rs[0].pairs[0])
+		m = papPair.FindStringSubmatch(rs[0].Pairs[0])
 	}
 	if m == nil {
 		fmt.Fprintf(stderr, "plan-agent-pair.sh: %s names no `<model>/Plan@<effort>` plan-designer pair\n", mpFile)

@@ -203,7 +203,7 @@ func pfHighestK(env Env, pe pfEnv, base string) int {
 // role is the suffix's allowed-pairs role id, and escalatable whether the
 // table gives that role a marked escalation row.
 func pfLoop(env Env, pe pfEnv, key string, stderr io.Writer) (lp lpLoop, suffix string, escalatable bool, rc int) {
-	rows, err := policyTable(pe.main)
+	rows, err := policyTable(env, pe.main)
 	if err != nil {
 		fmt.Fprintf(stderr, "pipeline-fix: %v\n", err)
 		return lpLoop{}, "", false, 2
