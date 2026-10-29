@@ -521,6 +521,22 @@ export function RunDetail({ project, change }: RunDetailProps) {
   // The self-review sub-run, change self-review-<name> in whichever project hosts the tooling: its
   // stage runs, dispatches and findings belong to this change's Self-review phase.
   const [sub, setSub] = useState<{ project: string; name: string; runs: StageRunDTO[]; dispatches: RecordDispatch[]; findings: SelfReviewFinding[] } | null>(null);
+  // A sub-run's findings are recorded under the change it reviews, in whichever project hosts that.
+  const [parentFindings, setParentFindings] = useState<SelfReviewFinding[]>([]);
+  useEffect(() => {
+    if (!isSub) return;
+    let live = true;
+    findChanges(change.slice("self-review-".length))
+      .then((r) => {
+        const c = r?.records?.[0];
+        return c ? listSelfReviewFindings(c.projectKey, c.name) : [];
+      })
+      .then((f) => live && setParentFindings(f ?? []))
+      .catch(() => live && setParentFindings([]));
+    return () => {
+      live = false;
+    };
+  }, [change, isSub]);
   useEffect(() => {
     if (isSub) return setSub(null);
     let live = true;
@@ -560,7 +576,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
   const mainCurrentTask = Number(mainSteps.filter((d) => !d.endedAt && d.taskId).pop()?.taskId ?? board?.tasks?.find((t) => t.state === "in progress")?.n) || undefined;
   const srOpen = board?.currentStage === "flow.self-review" || srRuns.some((r) => !r.endedAt);
   const srView = isSub
-    ? selfReviewView(steps, board?.tasks, findings.length, srOpen, runs0.length > 0, now)
+    ? selfReviewView(steps, board?.tasks, findings.length + parentFindings.length, srOpen, runs0.length > 0, now)
     : selfReviewView(srSteps, board?.selfReviewTasks, allFindings.length, srOpen, srStarted, now);
   const srCost = measuredSum(srRuns.map((r) => readCostUsd(r.metrics)));
 

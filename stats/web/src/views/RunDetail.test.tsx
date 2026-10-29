@@ -21,7 +21,7 @@ import { RunDetail } from "./RunDetail";
 
 const { listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock, runRecordMock, findChangesMock } = vi.hoisted(() => ({
   listStageRunsMock: vi.fn(),
-  findChangesMock: vi.fn(() => Promise.resolve({ records: [] as unknown[] })),
+  findChangesMock: vi.fn((_name: string) => Promise.resolve({ records: [] as unknown[] })),
   runRecordMock: vi.fn((_project: string, _change: string) => Promise.resolve({ dispatches: [] as unknown[] })),
   listFindingsMock: vi.fn((_project: string, _change: string) => Promise.resolve([] as unknown[])),
   fetchStatsViewMock: vi.fn(),
@@ -1050,11 +1050,18 @@ describe("the reworked run view (kan-1048)", () => {
     );
     const subBoard = { ...boardRow, name: SUB, state: "FINISHED", currentStage: undefined, subagents: undefined, activity: undefined, tasks: [{ n: 1, title: "Fix the guard", state: "done" }] };
     fetchStatsViewMock.mockImplementation((view: string) => Promise.resolve(view === "state-board" ? { ...aggregateEnvelope([]), view, rows: [subBoard] } : aggregateEnvelope([])));
+    findChangesMock.mockImplementation((name: string) => Promise.resolve({ records: name === CHANGE ? [{ projectKey: PROJECT, name: CHANGE }] : [] }));
+    listFindingsMock.mockImplementation((_p: string, name: string) =>
+      Promise.resolve(name === CHANGE ? [1, 2].map((id) => ({ id, change: CHANGE, angle: "tooling", note: "n", disposition: "fixed", recordedAt: at(50) })) : []),
+    );
     render(<RunDetail project={PROJECT} change={SUB} />);
     const main = await screen.findByRole("region", { name: "Main" });
     const work = screen.getAllByRole("region").filter((r) => r.classList.contains("lb-phase")).map((r) => r.getAttribute("aria-label"));
     expect(work).toEqual(["Main"]);
     expect(findChangesMock).not.toHaveBeenCalledWith(`self-review-${SUB}`);
+    // Its findings are the reviewed change's.
+    expect(findChangesMock).toHaveBeenCalledWith(CHANGE);
+    await waitFor(() => expect(within(main).getByTestId("main-summary")).toHaveTextContent(/^plan 1\/1 · findings 2 · fixes round 1$/));
     expect(within(main).getByTestId("main-now")).toHaveTextContent(/^Now: Done$/);
     expect(within(main).getByTestId("main-progress")).toHaveTextContent("review ✓ → plan ✓ → fix 1/1 ✓ → re-review ✓ → verify ✓ → land ✓ → file ✓");
     expect(screen.getByRole("region", { name: "Tasks" })).toHaveTextContent("✔ 1. Fix the guard");
@@ -1064,6 +1071,8 @@ describe("the reworked run view (kan-1048)", () => {
     expect(bars).toEqual(["Review pass$3.00", "Fix rounds$2.00", "Planning fixes$1.00", "Review rounds$0.40", "Landing and filing$0.20"]);
     expect(rail).not.toHaveTextContent(/^Self-review/);
     runRecordMock.mockImplementation(() => Promise.resolve({ dispatches: [] }));
+    findChangesMock.mockResolvedValue({ records: [] });
+    listFindingsMock.mockImplementation(() => Promise.resolve([]));
   });
 
   it("run detail marks main as waiting while only its subagents work", async () => {
