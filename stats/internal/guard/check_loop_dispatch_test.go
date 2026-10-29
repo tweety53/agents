@@ -137,7 +137,10 @@ func TestCheckLoopDispatch(t *testing.T) {
 			out: "LOOP-DISPATCH-OK", begin: "-change kan-1-demo -role planner"},
 		{name: "self-review loop files under its branch", rows: `[]`, key: "self-review-kan-1-demo-plan", typ: "flow-planner-medium", model: "opus", branches: []string{"self-review-kan-1-demo"},
 			out: "LOOP-DISPATCH-OK", begin: "-change self-review-kan-1-demo -role planner -model opus -effort medium -key self-review-kan-1-demo-plan -session-token self-review-kan-1-demo"},
-		{name: "the pass is checked, never recorded", rows: `[]`, key: "self-review-kan-1-demo-pass", typ: "flow-medium", model: "opus", out: "LOOP-DISPATCH-OK"},
+		{name: "the pass is recorded under the change itself", rows: `[]`, key: "self-review-kan-1-demo-pass", typ: "flow-medium", model: "opus",
+			out: "LOOP-DISPATCH-OK", begin: "-change kan-1-demo -role reviewer -model opus -effort medium -key self-review-kan-1-demo-pass -session-token self-review-kan-1-demo"},
+		{name: "the pass stays under the change while its loop branch exists", rows: `[]`, key: "self-review-kan-1-demo-pass", typ: "flow-medium", model: "opus", branches: []string{"self-review-kan-1-demo"},
+			out: "LOOP-DISPATCH-OK", begin: "-change kan-1-demo -role reviewer"},
 		{name: "the pass off its pair", rows: `[]`, key: "self-review-kan-1-demo-pass", typ: "flow-low", model: "opus", rc: 1, out: "PAIR —"},
 		{name: "flowd unreadable", rows: "", key: "pipeline-fix-6-fix", typ: "flow-low", model: "opus", branches: []string{lpBranch}, rc: 2, out: "cannot answer"},
 	} {

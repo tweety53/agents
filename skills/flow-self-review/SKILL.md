@@ -44,7 +44,10 @@ standalone, the bundle held in memory in-run), this step's rules and step 3's cl
 dispatch paragraphs step 3 names and READ-ONLY REVIEW. It returns every finding with its angle, its
 evidence and its classification — `noted` or fixable, in or out of scope, and for a fixable one its
 counted blast radius and whether it is `big`. This session keeps the filing-and-rating prompt, the
-store rows and the report.
+store rows and the report. The pass's dispatch row is opened under `<name>` by the hook that admits it;
+when the pass hands back, this session closes it, `flow record dispatch end -change <name> -key
+self-review-<name>-pass -session-token self-review-<name> -outcome completed` — `flow stage end`
+refuses a `flow.self-review` end while it is open.
 
 **Every suspected defect is traced to a verdict before the pass returns it.** Reproduced, it is
 fixable, `big` or not; disproved, it is `noted`, the evidence that disproved it in its line. "Not

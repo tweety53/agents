@@ -634,9 +634,15 @@ func gateLiveVerification(f stageIdentityFlags, outcome string, stderr io.Writer
 // outcome, while a dispatch row of the change has no end: brainstorm hands
 // over to a different session, which can only close the row with a guessed
 // end (kan-1046 self-review, 1e: explore-1 ended 21 minutes after its agent
-// handed back). A failed record read refuses nothing.
+// handed back). It refuses a /flow or /flow-fast flow.self-review end the
+// same way: the self-review pass's row, which enforce-loop-dispatch.py opens
+// under the change, is closed by this session when the pass hands back, and
+// a stage ended over it would leave it running on the board for good. A
+// failed record read refuses nothing.
 func gateBrainstormDispatchesClosed(ctx context.Context, f stageIdentityFlags, stderr io.Writer) int {
-	if f.command != "/flow" || f.stage != "flow.brainstorm" {
+	brainstorm := f.command == "/flow" && f.stage == "flow.brainstorm"
+	selfReview := (f.command == "/flow" || f.command == "/flow-fast") && f.stage == "flow.self-review"
+	if !brainstorm && !selfReview {
 		return 0
 	}
 	projectKey, _, err := fallback.ProjectKey(f.dir)
@@ -658,7 +664,7 @@ func gateBrainstormDispatchesClosed(ctx context.Context, f stageIdentityFlags, s
 	if len(open) == 0 {
 		return 0
 	}
-	fmt.Fprintf(stderr, "flow: stage end refused: flow.brainstorm ends with dispatch rows still open: %s -- end each when its agent hands back\n", strings.Join(open, "; "))
+	fmt.Fprintf(stderr, "flow: stage end refused: %s ends with dispatch rows still open: %s -- end each when its agent hands back\n", f.stage, strings.Join(open, "; "))
 	return 1
 }
 

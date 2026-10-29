@@ -1,0 +1,2 @@
+# New text: the pass row is now recorded under the change and closed by the parent (fix(guard), record the self-review pass).
+The pass's dispatch row is opened under `<name>` by the hook that admits it; when the pass hands back, this session closes it, `flow record dispatch end -change <name> -key self-review-<name>-pass -session-token self-review-<name> -outcome completed` — `flow stage end` refuses a `flow.self-review` end while it is open.

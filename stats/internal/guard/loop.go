@@ -113,6 +113,15 @@ type lpLoop struct {
 	change, token, prefix, main string
 }
 
+// lpEffort is the effort a subagent_type names (flow-low, flow-planner-medium), "default" for any other.
+func lpEffort(typ string) string {
+	effort := strings.TrimPrefix(strings.TrimPrefix(typ, "flow-"), "planner-")
+	if !slices.Contains([]string{"low", "medium", "high"}, effort) {
+		return "default"
+	}
+	return effort
+}
+
 // lpMain is <repo>'s main checkout, the -C every flow call runs with.
 func lpMain(env Env, git, repo string) (string, bool) {
 	rc, out := kwRun(env, "", git, "-C", repo, "rev-parse", "--path-format=absolute", "--git-common-dir")
@@ -374,6 +383,19 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 	if family == "pass" {
+		// The pass belongs to the change's own self-review stage, never to the
+		// fix loop it may start: it runs in the change's session, before any
+		// self-review-<name> change exists, so it is recorded under <name> in
+		// the caller's project -- the row the run view reads it from.
+		change, main := strings.TrimSuffix(strings.TrimPrefix(lp.prefix, "self-review-"), "-"), lp.main
+		if m, ok := lpMain(env, git, env.Dir); env.Dir != "" && ok {
+			main = m
+		}
+		if out, _, rc := pcFlow(env, true, "record", "dispatch", "begin", "-C", main, "-change", change,
+			"-role", "reviewer", "-model", model, "-effort", lpEffort(typ), "-key", key, "-session-token", lp.token); rc != 0 {
+			fmt.Fprintf(stderr, "%s: flow record dispatch begin failed (exit %d) -- cannot answer:\n%s", self, rc, out)
+			return 2
+		}
 		fmt.Fprintf(stdout, "LOOP-DISPATCH-OK %s\n", key)
 		return 0
 	}
@@ -393,12 +415,8 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 		return refuse(fmt.Sprintf("PLAN — %s needs a completed %splan dispatch first", key, lp.prefix))
 	}
 	role := map[string]string{"plan": "planner", "fix": "implementer", "fix-r": "implementer", "fix-v": "implementer", "review": "reviewer"}[family]
-	effort := strings.TrimPrefix(strings.TrimPrefix(typ, "flow-"), "planner-")
-	if !slices.Contains([]string{"low", "medium", "high"}, effort) {
-		effort = "default"
-	}
 	out, _, rc := pcFlow(env, true, "record", "dispatch", "begin", "-C", lp.main, "-change", lp.change,
-		"-role", role, "-model", model, "-effort", effort, "-key", key, "-session-token", lp.token)
+		"-role", role, "-model", model, "-effort", lpEffort(typ), "-key", key, "-session-token", lp.token)
 	if rc != 0 {
 		fmt.Fprintf(stderr, "%s: flow record dispatch begin failed (exit %d) -- cannot answer:\n%s", self, rc, out)
 		fmt.Fprintf(stderr, "%s: a loop's rows need its change: scripts/pipeline-fix.sh start creates it\n", self)
