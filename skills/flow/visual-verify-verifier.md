@@ -582,6 +582,13 @@ between them; chrome (a title, a bar) and content change in the same frame; a re
 strip shows no intermediate frame; a gesture's content follows the pointer in every frame and
 settles where the motion's end state says** — plus any frame rule the project's own instructions
 state. A frame that breaks one is a departure, named by its index and what it shows.
+**A one-frame departure is confirmed before it is reported.** A departure lasting one frame or
+less is reported only once confirmed — by a DOM read at the next animation frame after the trigger
+(`page.evaluate` resolving inside a `requestAnimationFrame` callback, reading the departing
+element's presence or computed style) or by a second recording showing the same frame; an
+unconfirmed one is not a departure (kan-1048 self-review, 8-A: a single screencast frame showed a
+tooltip lingering after `mouseleave`, yet React flushes that discrete event before paint and a
+`requestAnimationFrame` DOM read showed no lag — the report cost a whole fix round).
 **A re-record replaces the strip.** A later round's recording of a motion first deletes `<changeRoot>/visual-verification/motion/<motion
 id>/` and writes its frames there, never into a suffixed sibling such as `<changeRoot>/visual-verification/motion/<motion
 id>-r2/`, and `visual-verification.md` cites an earlier round's strip by its round number,
