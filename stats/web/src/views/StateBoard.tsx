@@ -14,6 +14,7 @@ import type { StateBoardRow } from "../api";
 import { useStatsView } from "../hooks/useStatsView";
 import { DAY_MS, formatInt, formatRelative, formatSpan, formatUsd } from "../format";
 import { phase } from "../lib/phase";
+import { taskCount } from "../lib/taskCount";
 import { projectLabel } from "../lib/projectLabel";
 import { agentsDone, lastAction, runningTask } from "../lib/runningTask";
 import { effectiveActivity, sessionAlive } from "../lib/sessionAlive";
@@ -23,7 +24,7 @@ const REFRESH_MS = 5000;
 const EPOCH = new Date(0);
 
 const STATES = ["IN_PROGRESS", "STARTED", "FINISHED"] as const;
-const STATE_LABEL: Record<string, string> = { IN_PROGRESS: "Ready for review", STARTED: "Planning & implementing", FINISHED: "Finished" };
+const STATE_LABEL: Record<string, string> = { IN_PROGRESS: "Integrating & review", STARTED: "Planning & implementing", FINISHED: "Finished" };
 
 export const ACTIVITY_LABEL: Record<string, string> = {
   working: "Working",
@@ -114,8 +115,8 @@ function Chip({ on, onClick, title, children }: { on: boolean; onClick: () => vo
 }
 
 function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
-  const total = row.currentTasks;
-  const done = row.doneTasks ?? 0;
+  const { done, total } = taskCount(row);
+  const review = row.selfReviewTasks;
   const task = runningTask(row);
   const alive = sessionAlive(row, now);
   // The main session while a stage is open or it works between stages, plus its subagents.
@@ -172,7 +173,8 @@ function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
       <div className="lb-meta">
         <span title={row.projectKey}>{projectLabel(row.projectKey)}</span>
         <span className="lb-num">
-          tasks {total === undefined ? "—" : `${done}/${total}`} · {formatUsd(row.costUsd)}
+          tasks {total === undefined ? "—" : `${done}/${total}`}
+          {review && ` · self-review tasks ${review.filter((t) => t.state === "done").length}/${review.length}`} · {formatUsd(row.costUsd)}
         </span>
       </div>
     </div>

@@ -260,7 +260,7 @@ export interface PlanTask {
   state: "done" | "in progress" | "pending";
 }
 
-/** Mirrors store.ActiveDispatch: a dispatch begun and not yet ended. */
+/** Mirrors store.ActiveDispatch: a dispatch begun and, unless endedAt is set, not yet ended. */
 export interface ActiveSubagent {
   role: string;
   taskId?: string;
@@ -271,6 +271,9 @@ export interface ActiveSubagent {
   startedAt: string;
   /** Run by the main session itself, not a subagent. */
   inline?: boolean;
+  /** Set only on a stageDispatches entry that ended. */
+  endedAt?: string;
+  outcome?: string;
 }
 
 export interface StateBoardRow {
@@ -303,11 +306,15 @@ export interface StateBoardRow {
   doneTasks?: number;
   /** An unfinished change's plan tasks, and its running subagents; each absent when empty. */
   tasks?: PlanTask[];
+  /** The self-review planner's own plan (self-review-<name>), absent when it has none. */
+  selfReviewTasks?: PlanTask[];
   subagents?: ActiveSubagent[];
   /** When the session last wrote to its transcript; absent for a finished change. */
   sessionSeenAt?: string;
   /** Dispatches begun since the open stage started, ended or not. */
   openStageDispatches?: number;
+  /** Those dispatches, oldest first. */
+  stageDispatches?: ActiveSubagent[];
   activity?: 'working' | 'question' | 'permission' | 'idle';
   activityDetail?: string;
   activitySince?: string;
@@ -746,6 +753,23 @@ export function buildModelsQuery(params: ModelsParams): URLSearchParams {
     qs.set("project", params.project);
   }
   return qs;
+}
+
+/** Mirrors records.SelfReviewFinding. */
+export interface SelfReviewFinding {
+  id: number;
+  change: string;
+  angle: string;
+  note: string;
+  disposition: SelfReviewRow["disposition"];
+  ref?: string;
+  blastRadius?: number;
+  recordedAt: string;
+}
+
+/** GET /api/v1/self-review/{project}/{change}/findings -- the change's findings in recorded order. */
+export function listSelfReviewFindings(project: string, change: string, init?: RequestInit): Promise<SelfReviewFinding[]> {
+  return getJSON<SelfReviewFinding[]>(`/api/v1/self-review/${encodeURIComponent(project)}/${encodeURIComponent(change)}/findings`, init);
 }
 
 /** GET /api/v1/stages?command= -- the command's stage keys in the order a run marks them. */

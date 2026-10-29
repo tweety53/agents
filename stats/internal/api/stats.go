@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/guard"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -690,15 +691,19 @@ type stateBoardRowDTO struct {
 	DoneTasks             *int    `json:"doneTasks,omitempty"`
 	// Tasks is an unfinished change's plan, read from its tasks.md;
 	// Subagents its running dispatches. Both omitted when empty.
-	Tasks     []taskDTO              `json:"tasks,omitempty"`
-	Subagents []store.ActiveDispatch `json:"subagents,omitempty"`
+	Tasks []taskDTO `json:"tasks,omitempty"`
+	// SelfReviewTasks is the self-review planner's plan, self-review-<name>'s tasks.md.
+	SelfReviewTasks []taskDTO              `json:"selfReviewTasks,omitempty"`
+	Subagents       []store.ActiveDispatch `json:"subagents,omitempty"`
 	// SessionSeenAt is when the session last wrote to its transcript.
 	SessionSeenAt *string `json:"sessionSeenAt,omitempty"`
 	// OpenStageDispatches counts the dispatches begun in the open stage.
-	OpenStageDispatches int     `json:"openStageDispatches,omitempty"`
-	Activity            *string `json:"activity,omitempty"`
-	ActivityDetail      *string `json:"activityDetail,omitempty"`
-	ActivitySince       *string `json:"activitySince,omitempty"`
+	OpenStageDispatches int `json:"openStageDispatches,omitempty"`
+	// StageDispatches are the dispatches begun in the open stage, oldest first.
+	StageDispatches []store.ActiveDispatch `json:"stageDispatches,omitempty"`
+	Activity        *string                `json:"activity,omitempty"`
+	ActivityDetail  *string                `json:"activityDetail,omitempty"`
+	ActivitySince   *string                `json:"activitySince,omitempty"`
 }
 
 // nextCommandFor maps a change's current pipeline state to the command that
@@ -741,27 +746,48 @@ type taskDTO struct {
 var planTask = regexp.MustCompile(`(?m)^- \[([ x])\] (\d+)\. (.*)$`)
 
 // planTasks reads an unfinished change's tasks.md from the first of its
-// worktrees that has one. A task is done when ticked or committed by an
+// worktrees that has one -- the archived copy once integrate's run 1 moved it
+// (guard.ChangeDir). A task is done when ticked or committed by an
 // implementer (a gated task's tick waits on its reviewer), in progress when a
 // running subagent works on it, pending otherwise. Nil when no tasks.md is found.
 func planTasks(r store.LiveStateRow) []taskDTO {
+	return readPlan(r, r.Name, func(n string) string {
+		switch {
+		case slices.Contains(r.CommittedTasks, n):
+			return "done"
+		case slices.ContainsFunc(r.Subagents, func(d store.ActiveDispatch) bool { return d.TaskID != nil && *d.TaskID == n }):
+			return "in progress"
+		}
+		return "pending"
+	})
+}
+
+// selfReviewTasks reads the self-review planner's own plan, the spectre
+// change self-review-<name> in the same worktrees. A task is done when
+// ticked, pending otherwise: a running dispatch's task id does not say which
+// of the two plans it belongs to.
+func selfReviewTasks(r store.LiveStateRow) []taskDTO {
+	return readPlan(r, "self-review-"+r.Name, func(string) string { return "pending" })
+}
+
+// readPlan parses change name's tasks.md for row r, nil for a finished change
+// or when no worktree holds one. A ticked task is done; untick names an
+// unticked one's state.
+func readPlan(r store.LiveStateRow, name string, untick func(n string) string) []taskDTO {
 	if r.State == store.StateFinished {
 		return nil
 	}
 	for _, root := range r.RepoRoots {
-		b, err := os.ReadFile(filepath.Join(root, "spectre", "changes", r.Name, "tasks.md"))
+		b, err := os.ReadFile(filepath.Join(guard.ChangeDir(filepath.Join(root, "spectre", "changes"), name), "tasks.md"))
 		if err != nil {
 			continue
 		}
 		var out []taskDTO
 		for _, m := range planTask.FindAllStringSubmatch(string(b), -1) {
 			n, _ := strconv.Atoi(m[2])
-			state := "pending"
-			switch {
-			case m[1] == "x" || slices.Contains(r.CommittedTasks, m[2]):
-				state = "done"
-			case slices.ContainsFunc(r.Subagents, func(d store.ActiveDispatch) bool { return d.TaskID != nil && *d.TaskID == m[2] }):
-				state = "in progress"
+			state := "done"
+			if m[1] != "x" {
+				state = untick(m[2])
 			}
 			out = append(out, taskDTO{N: n, Title: m[3], State: state})
 		}
@@ -796,9 +822,11 @@ func toStateBoardDTOs(rows []store.LiveStateRow) []stateBoardRowDTO {
 			LastStageEndedAt:      rfc3339OrNil(r.LastStageEndedAt),
 			DoneTasks:             r.DoneTasks,
 			Tasks:                 planTasks(r),
+			SelfReviewTasks:       selfReviewTasks(r),
 			Subagents:             r.Subagents,
 			SessionSeenAt:         rfc3339OrNil(r.SessionSeenAt),
 			OpenStageDispatches:   r.OpenStageDispatches,
+			StageDispatches:       r.StageDispatches,
 			Activity:              r.Activity,
 			ActivityDetail:        r.ActivityDetail,
 			ActivitySince:         rfc3339OrNil(r.ActivitySince),

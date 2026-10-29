@@ -13,11 +13,11 @@ const PLANNING = new Set([
   "flow.decide",
 ]);
 
-/** A change's phase in plain words, derived from its stored state and the stages it ran: STARTED splits into Planning and Implementing, since IN_PROGRESS only begins once the work is staged for review. */
+/** A change's phase in plain words, derived from its stored state and the stages it ran: STARTED splits into Planning and Implementing; IN_PROGRESS is Integrating while a stage is open (it runs straight on into self-review and landing), Ready for review once none is. */
 export function phase(row: Pick<StateBoardRow, "state" | "currentStage" | "lastStage" | "doneTasks">): string {
   switch (row.state) {
     case "IN_PROGRESS":
-      return "Ready for review";
+      return row.currentStage === undefined ? "Ready for review" : "Integrating";
     case "FINISHED":
       return "Finished";
     case "STARTED": {

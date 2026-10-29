@@ -22,7 +22,8 @@ import { agentsDone, runningTask } from "../lib/runningTask";
 import { effectiveActivity, sessionAlive } from "../lib/sessionAlive";
 import { stageLabel } from "../lib/stageLabel";
 import { ActivityBadge, StatePill } from "./StateBoard";
-import { listStages, type ActiveSubagent, type PlanTask, type StageRunDTO } from "../api";
+import { taskCount } from "../lib/taskCount";
+import { listSelfReviewFindings, listStages, type ActiveSubagent, type PlanTask, type SelfReviewFinding, type StageRunDTO } from "../api";
 
 export interface RunDetailProps {
   project: string;
@@ -73,6 +74,29 @@ function inlineWhat(d: ActiveSubagent, tasks: PlanTask[] | undefined): string {
   return `${what}${d.taskId ? taskTitle(tasks, d.taskId) : ""}`;
 }
 
+/** The outcomes a dispatch ends on without finishing its work. */
+const FAILED_OUTCOMES = new Set(["failed", "blocked", "aborted", "timed-out", "cancelled", "stopped"]);
+
+function stepStatus(d: ActiveSubagent): "running" | "done" | "failed" {
+  if (!d.endedAt) return "running";
+  return d.outcome && FAILED_OUTCOMES.has(d.outcome) ? "failed" : "done";
+}
+
+/** A plan's tasks, each marked done, in progress or pending. */
+function TaskList({ tasks }: { tasks: PlanTask[] }) {
+  return (
+    <ul className="lb-tasks">
+      {tasks.map((t) => (
+        <li key={t.n} className={t.state.replace(" ", "-")}>
+          <span className="lb-task-mark">{TASK_MARK[t.state]}</span> {t.n}. {t.title}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const doneOf = (tasks: PlanTask[]) => `${tasks.filter((t) => t.state === "done").length}/${tasks.length} done`;
+
 function jiraKey(change: string): string | null {
   const m = /^([a-z]+-\d+)/i.exec(change);
   return m ? m[1].toUpperCase() : null;
@@ -109,6 +133,24 @@ export function RunDetail({ project, change }: RunDetailProps) {
   const ran = new Set(runs0.map((r) => r.stage));
   const furthest = Math.max(-1, ...order.map((s, i) => (ran.has(s) ? i : -1)));
   const upcoming = command ? order.slice(furthest + 1).filter((s) => !ran.has(s)) : [];
+
+  // While the self-review stage is open, its findings, refetched on the board's cadence.
+  const inSelfReview = board?.currentStage === "flow.self-review";
+  const [findings, setFindings] = useState<SelfReviewFinding[]>([]);
+  useEffect(() => {
+    if (!inSelfReview) return;
+    let live = true;
+    const load = () =>
+      listSelfReviewFindings(project, change)
+        .then((r) => live && setFindings(r ?? []))
+        .catch(() => live && setFindings([]));
+    load();
+    const id = setInterval(load, 5000);
+    return () => {
+      live = false;
+      clearInterval(id);
+    };
+  }, [inSelfReview, project, change]);
 
   return (
     <section aria-label={`Run detail: ${project}/${change}`} className="dashboard lb">
@@ -164,6 +206,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
             since: inline?.startedAt ?? (openRun ? openRun.startedAt : (mainRun.endedAt ?? mainRun.startedAt)),
           };
           const nowTask = board ? runningTask(board) : null;
+          const count = board && taskCount(board);
           const agentCount = subagents.length + (mainAgent ? 1 : 0);
           const mainStatus: AgentStatus =
             board?.activity === "question" || board?.activity === "permission"
@@ -202,7 +245,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                     <>
                       {openRun &&
                         `for ${formatSpan(now - Date.parse(openRun.startedAt))}${
-                          board?.currentTasks !== undefined ? ` · tasks ${board.doneTasks ?? 0}/${board.currentTasks}` : ""
+                          count?.total !== undefined ? ` · tasks ${count.done}/${count.total}` : ""
                         }`}
                       {nowTask && <div className="lb-task-now">{nowTask}</div>}
                       {board && agentsDone(board) && <div className="lb-task-now">Agents done, main is wrapping up the stage</div>}
@@ -229,7 +272,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                 />
               </section>
 
-              {(board?.tasks || agentCount > 0) && (
+              {(board?.tasks || agentCount > 0 || inSelfReview) && (
                 <div className="lb-split">
                   <section className="lb-panel" aria-label="Agents">
                     <div className="lb-panel-h">
@@ -291,21 +334,85 @@ export function RunDetail({ project, change }: RunDetailProps) {
                       </tbody>
                     </table>
                   </section>
-                  <section className="lb-panel" aria-label="Tasks">
-                    <div className="lb-panel-h">
-                      <span>Tasks</span>
-                      <span className="lb-panel-note">
-                        {board?.tasks ? `${board.tasks.filter((t) => t.state === "done").length}/${board.tasks.length} done` : "no plan yet"}
-                      </span>
-                    </div>
-                    <ul className="lb-tasks">
-                      {(board?.tasks ?? []).map((t) => (
-                        <li key={t.n} className={t.state.replace(" ", "-")}>
-                          <span className="lb-task-mark">{TASK_MARK[t.state]}</span> {t.n}. {t.title}
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
+                  {inSelfReview ? (
+                    <section className="lb-panel" aria-label="Self-review">
+                      <div className="lb-panel-h">
+                        <span>Self-review</span>
+                        <span className="lb-panel-note">{board?.selfReviewTasks ? `tasks ${doneOf(board.selfReviewTasks)}` : "no plan yet"}</span>
+                      </div>
+                      <table className="lb-table lb-agents">
+                        <thead>
+                          <tr>
+                            <th>Step</th>
+                            <th>Status</th>
+                            <th>Doing</th>
+                            <th>Model · effort</th>
+                            <th className="r">For</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(board?.stageDispatches ?? []).map((d, i) => (
+                            <tr key={`${d.key ?? d.role}-${i}`} data-testid="self-review-step">
+                              <td>{d.role}</td>
+                              <td>{stepStatus(d)}</td>
+                              <td>{inlineWhat(d, board?.selfReviewTasks)}</td>
+                              <td>
+                                {formatModel(d.modelVersion ?? d.model)}
+                                {d.effort && ` · ${d.effort}`}
+                              </td>
+                              <td className="r lb-num">{formatSpan((d.endedAt ? Date.parse(d.endedAt) : now) - Date.parse(d.startedAt))}</td>
+                            </tr>
+                          ))}
+                          {!board?.stageDispatches?.length && (
+                            <tr>
+                              <td colSpan={5} className="lb-muted">
+                                No steps yet.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                      {board?.selfReviewTasks && (
+                        <>
+                          <div className="lb-panel-h">
+                            <span>Tasks</span>
+                          </div>
+                          <TaskList tasks={board.selfReviewTasks} />
+                        </>
+                      )}
+                      <div className="lb-panel-h">
+                        <span>Findings</span>
+                        <span className="lb-panel-note">{findings.length}</span>
+                      </div>
+                      <table className="lb-table">
+                        <tbody>
+                          {findings.map((f) => (
+                            <tr key={f.id} data-testid="self-review-finding">
+                              <td>{f.angle}</td>
+                              <td>{f.note}</td>
+                              <td>{f.disposition}</td>
+                              <td>{f.ref ?? ""}</td>
+                            </tr>
+                          ))}
+                          {findings.length === 0 && (
+                            <tr>
+                              <td colSpan={4} className="lb-muted">
+                                No findings recorded yet.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </section>
+                  ) : (
+                    <section className="lb-panel" aria-label="Tasks">
+                      <div className="lb-panel-h">
+                        <span>Tasks</span>
+                        <span className="lb-panel-note">{board?.tasks ? doneOf(board.tasks) : "no plan yet"}</span>
+                      </div>
+                      <TaskList tasks={board?.tasks ?? []} />
+                    </section>
+                  )}
                 </div>
               )}
 

@@ -75,9 +75,11 @@ type LiveStateRow struct {
 	// session working with no stage or dispatch open still reads as alive.
 	// Nil for a finished change, which the board never shows as live.
 	SessionSeenAt *time.Time
-	// OpenStageDispatches counts the dispatches begun since the open stage
-	// run started, ended or not; zero without an open stage. With none of
-	// them still running, the stage's agents are done and main is wrapping up.
+	// StageDispatches are the dispatches begun since the open stage run
+	// started, ended or not, oldest first; none without an open stage.
+	// OpenStageDispatches is their count: with none of them still running,
+	// the stage's agents are done and main is wrapping up.
+	StageDispatches     []ActiveDispatch
 	OpenStageDispatches int
 	DoneTasks           *int
 	Activity            *string
@@ -98,6 +100,9 @@ type ActiveDispatch struct {
 	// Inline is a dispatch the main session runs itself (agent_id
 	// "inline"), not a subagent.
 	Inline bool `json:"inline,omitempty"`
+	// EndedAt and Outcome are set only on a StageDispatches entry that ended.
+	EndedAt *time.Time `json:"endedAt,omitempty"`
+	Outcome *string    `json:"outcome,omitempty"`
 }
 
 // signalErrorsExpr is one stage run's tool and API errors, main and
@@ -118,7 +123,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 		       first_obs.total_tasks, latest_obs.total_tasks,
 		       totals.runs, totals.cost, totals.wall_ms, totals.errors,
 		       win.d1, win.d7, win.d30,
-		       open_run.stage, open_run.started_at, last_run.stage, last_run.ended_at, done.tasks, subs.list, roots.list, committed.list, seen.at, staged.n,
+		       open_run.stage, open_run.started_at, last_run.stage, last_run.ended_at, done.tasks, subs.list, roots.list, committed.list, seen.at, staged.list,
 		       sa.state, sa.detail, sa.updated_at
 		FROM changes c
 		LEFT JOIN LATERAL (
@@ -199,7 +204,11 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			  AND h.transcript_path LIKE '%' || COALESCE(open_run.session_id, last_run.session_id) || '%'
 		) seen ON true
 		LEFT JOIN LATERAL (
-			SELECT COUNT(*)::int AS n
+			SELECT COALESCE(jsonb_agg(jsonb_build_object(
+			         'role', d.role, 'taskId', d.task_id, 'key', d.dispatch_key, 'model', d.model,
+			         'modelVersion', d.metrics->>'modelVersion', 'effort', d.effort, 'startedAt', d.started_at,
+			         'inline', d.agent_id IS NOT DISTINCT FROM 'inline', 'endedAt', d.ended_at, 'outcome', NULLIF(d.outcome, '')
+			       ) ORDER BY d.started_at, d.id), '[]'::jsonb) AS list
 			FROM dispatches d
 			WHERE d.change_id = c.id AND open_run.started_at IS NOT NULL AND d.started_at >= open_run.started_at
 		) staged ON true
@@ -224,21 +233,26 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 	var out []LiveStateRow
 	for rows.Next() {
 		var (
-			row   LiveStateRow
-			state string
-			subs  []byte
+			row    LiveStateRow
+			state  string
+			subs   []byte
+			staged []byte
 		)
 		if err := rows.Scan(&row.ProjectKey, &row.Name, &state, &row.UpdatedAt, &row.UpdatedBy,
 			&row.PlannedTasks, &row.CurrentTasks,
 			&row.RunCount, &row.CostUsd, &row.WallClockMs, &row.Errors,
 			&row.Cost24h, &row.Cost7d, &row.Cost30d,
-			&row.CurrentStage, &row.CurrentStageStartedAt, &row.LastStage, &row.LastStageEndedAt, &row.DoneTasks, &subs, &row.RepoRoots, &row.CommittedTasks, &row.SessionSeenAt, &row.OpenStageDispatches,
+			&row.CurrentStage, &row.CurrentStageStartedAt, &row.LastStage, &row.LastStageEndedAt, &row.DoneTasks, &subs, &row.RepoRoots, &row.CommittedTasks, &row.SessionSeenAt, &staged,
 			&row.Activity, &row.ActivityDetail, &row.ActivitySince); err != nil {
 			return nil, fmt.Errorf("store: live state board: scan: %w", err)
 		}
 		if err := json.Unmarshal(subs, &row.Subagents); err != nil {
 			return nil, fmt.Errorf("store: live state board: subagents: %w", err)
 		}
+		if err := json.Unmarshal(staged, &row.StageDispatches); err != nil {
+			return nil, fmt.Errorf("store: live state board: stage dispatches: %w", err)
+		}
+		row.OpenStageDispatches = len(row.StageDispatches)
 		row.State = State(state)
 		out = append(out, row)
 	}

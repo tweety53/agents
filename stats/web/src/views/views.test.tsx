@@ -127,6 +127,10 @@ const fixtures: Record<
       currentStage: "flow.sdd-tdd",
       currentStageStartedAt: "2026-01-15T11:30:00Z",
       doneTasks: 20,
+      selfReviewTasks: [
+        { n: 1, title: "Fix A", state: "done" },
+        { n: 2, title: "Fix B", state: "pending" },
+      ],
       subagents: [
         { role: "implementer", model: "opus", startedAt: "2026-01-15T11:50:00Z" },
         { role: "reviewer", model: "opus", startedAt: "2026-01-15T11:55:00Z" },
@@ -401,7 +405,7 @@ describe("views render their fixture response's actual values", () => {
     expect(gymie).toHaveTextContent("gymie1");
     await user.click(gymie);
     expect(tile(/^Planning/)).toHaveTextContent("1");
-    expect(tile(/^Ready for review/)).toHaveTextContent("0");
+    expect(tile(/^Integrating & review/)).toHaveTextContent("0");
     expect(visible("kan-16-stats-app")).toBe(false);
     // Clear filters resets every filter, Updated back to 7d.
     await clear();
@@ -433,7 +437,7 @@ describe("views render their fixture response's actual values", () => {
     expect(cards[1]).not.toHaveClass("needs");
     expect(cards[1]).not.toHaveTextContent("Working"); // the live dot already says it
     expect(cards[1]).toHaveTextContent("Implementing tasks · 30m");
-    expect(cards[1]).toHaveTextContent("tasks 20/46 · $12.50");
+    expect(cards[1]).toHaveTextContent("tasks 20/46 · self-review tasks 1/2 · $12.50");
     // The card keeps agents, main's inline work included, to a count; the run view lists them.
     expect(within(cards[1]).getByTestId("agent-count")).toHaveTextContent("main + 2 subagents running");
     // An open stage alone is the main session, one agent; a change between stages has none.
@@ -452,7 +456,7 @@ describe("views render their fixture response's actual values", () => {
     render(<StateBoard />);
     const table = within(await screen.findByRole("table"));
     const groups = table.getAllByRole("row").filter((r) => r.classList.contains("lb-group"));
-    expect(groups.map((g) => g.textContent)).toEqual(["▾Ready for review1", "▾Planning & implementing1", "▾Finished1"]);
+    expect(groups.map((g) => g.textContent)).toEqual(["▾Integrating & review1", "▾Planning & implementing1", "▾Finished1"]);
     // Finished starts collapsed; its row shows once the group is opened.
     expect(table.queryByRole("link", { name: "kan-31-replan-fold" })).not.toBeInTheDocument();
     await user.click(groups[2]);
@@ -460,7 +464,7 @@ describe("views render their fixture response's actual values", () => {
     // A row: state pill, current stage, tasks with growth, relative update
     // with the ISO time as its title, cost; no errors column.
     const row = table.getByRole("link", { name: "kan-16-stats-app" }).closest("tr")!;
-    expect(row).toHaveTextContent("Ready for review");
+    expect(row).toHaveTextContent("Integrating");
     expect(row).toHaveTextContent("Implementing tasks");
     expect(within(row).getByText("+24")).toBeInTheDocument();
     expect(within(row).getByTitle("2026-01-15T10:00:00.000Z")).toHaveTextContent("2h ago");
@@ -1120,14 +1124,14 @@ describe("routing", () => {
   it("the live state board is the default route", async () => {
     window.location.hash = "";
     render(<App />);
-    expect(await screen.findByRole("cell", { name: "Ready for review" })).toBeInTheDocument();
+    expect(await screen.findByRole("cell", { name: "Integrating" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Live state board" })).toBeInTheDocument();
   });
 
   it("an unrecognised route also falls back to the state board", async () => {
     window.location.hash = "#/not-a-real-view";
     render(<App />);
-    expect(await screen.findByRole("cell", { name: "Ready for review" })).toBeInTheDocument();
+    expect(await screen.findByRole("cell", { name: "Integrating" })).toBeInTheDocument();
     window.location.hash = "";
   });
 });

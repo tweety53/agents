@@ -19,15 +19,16 @@ import {
 } from "../api";
 import { RunDetail } from "./RunDetail";
 
-const { listStageRunsMock, fetchStatsViewMock, listStagesMock } = vi.hoisted(() => ({
+const { listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock } = vi.hoisted(() => ({
   listStageRunsMock: vi.fn(),
+  listFindingsMock: vi.fn(() => Promise.resolve([] as unknown[])),
   fetchStatsViewMock: vi.fn(),
   listStagesMock: vi.fn(() => Promise.resolve({ stages: ["flow.kickoff", "flow.brainstorm", "flow.decide", "flow.sdd-tdd", "flow.review-panel", "flow.verify"] })),
 }));
 
 vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
-  return { ...actual, listStageRuns: listStageRunsMock, fetchStatsView: fetchStatsViewMock, listStages: listStagesMock };
+  return { ...actual, listStageRuns: listStageRunsMock, fetchStatsView: fetchStatsViewMock, listStages: listStagesMock, listSelfReviewFindings: listFindingsMock };
 });
 
 function stageRunsResponse(stageRuns: StageRunDTO[], total?: number): ListStageRunsResponse {
@@ -745,10 +746,11 @@ describe("the reworked run view (kan-1048)", () => {
     expect(board[1].to.getTime()).toBeGreaterThan(NOW.getTime());
     // ...scoped to this one change server-side, never the project's whole board.
     expect(board[1].change).toBe(CHANGE);
-    expect(screen.getByRole("heading", { name: CHANGE }).parentElement).toHaveTextContent("Ready for review");
+    expect(screen.getByRole("heading", { name: CHANGE }).parentElement).toHaveTextContent("Integrating");
     const kpi = (name: string) => screen.getByRole("group", { name });
     expect(kpi("Now running")).toHaveTextContent("Implementing tasks");
-    expect(kpi("Now running")).toHaveTextContent("for 1h 00m · tasks 3/11");
+    // Both counts come from the plan it lists, never the stale stored 3/11.
+    expect(kpi("Now running")).toHaveTextContent("for 1h 00m · tasks 1/3");
     expect(kpi("Now running")).toHaveTextContent("Awaiting your answer");
     expect(kpi("Total cost")).toHaveTextContent("$6.50");
     expect(kpi("Total cost")).toHaveTextContent("4 stage runs, 3 measured");
@@ -783,6 +785,53 @@ describe("the reworked run view (kan-1048)", () => {
       "Starting up",
     ]);
     expect(rail).toHaveTextContent("$3.50");
+  });
+
+  it("run detail shows the self-review panel in place of Tasks while self-review is open", async () => {
+    const reviewing = {
+      ...boardRow,
+      currentStage: "flow.self-review",
+      selfReviewTasks: [
+        { n: 1, title: "Fix the divider", state: "done" },
+        { n: 2, title: "Fix the count", state: "pending" },
+      ],
+      stageDispatches: [
+        { role: "self-review", key: "self-review", model: "opus", effort: "medium", startedAt: "2026-01-01T02:00:00Z", endedAt: "2026-01-01T02:20:00Z", outcome: "completed" },
+        { role: "implementer", taskId: "2", key: "task-2-implementer", model: "opus", startedAt: "2026-01-01T02:30:00Z", endedAt: "2026-01-01T02:40:00Z", outcome: "blocked" },
+        { role: "implementer", taskId: "2", key: "task-2-implementer-r2", model: "opus", startedAt: "2026-01-01T02:50:00Z" },
+      ],
+    };
+    fetchStatsViewMock.mockImplementation((view: string) =>
+      Promise.resolve(view === "state-board" ? { ...aggregateEnvelope([]), view, rows: [reviewing] } : aggregateEnvelope([])),
+    );
+    listFindingsMock.mockResolvedValueOnce([
+      { id: 1, change: CHANGE, angle: "correctness", note: "Count is stale", disposition: "fixed", ref: "abc1234", recordedAt: "2026-01-01T02:21:00Z" },
+    ]);
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const panel = await screen.findByRole("region", { name: "Self-review" });
+    expect(screen.queryByRole("region", { name: "Tasks" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Agents" })).toBeInTheDocument();
+    expect(panel.querySelector(".lb-panel-note")).toHaveTextContent("tasks 1/2 done");
+    const steps = within(panel).getAllByTestId("self-review-step");
+    expect(steps.map((s) => s.children[1].textContent)).toEqual(["done", "failed", "running"]);
+    expect(steps[0]).toHaveTextContent("opus · medium");
+    expect(steps[0]).toHaveTextContent("20m");
+    expect(steps[2]).toHaveTextContent("Fix the count");
+    expect(panel).toHaveTextContent("✔ 1. Fix the divider");
+    expect(panel).toHaveTextContent("◻ 2. Fix the count");
+    const finding = await within(panel).findByTestId("self-review-finding");
+    expect(finding).toHaveTextContent("correctnessCount is stalefixedabc1234");
+    expect(listFindingsMock).toHaveBeenCalledWith(PROJECT, CHANGE);
+  });
+
+  it("run detail's self-review panel says when no findings are recorded", async () => {
+    const reviewing = { ...boardRow, currentStage: "flow.self-review" };
+    fetchStatsViewMock.mockImplementation((view: string) =>
+      Promise.resolve(view === "state-board" ? { ...aggregateEnvelope([]), view, rows: [reviewing] } : aggregateEnvelope([])),
+    );
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const panel = await screen.findByRole("region", { name: "Self-review" });
+    expect(panel).toHaveTextContent("No findings recorded yet.");
   });
 
   it("run detail marks main as waiting while only its subagents work", async () => {

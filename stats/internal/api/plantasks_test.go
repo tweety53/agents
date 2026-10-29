@@ -43,3 +43,46 @@ func TestPlanTasks(t *testing.T) {
 		t.Errorf("finished planTasks = %+v, want nil", got)
 	}
 }
+
+// TestPlanTasksArchived pins that the plan still reads once integrate's run 1
+// archived it to changes/archive/<name>/tasks.md.
+func TestPlanTasksArchived(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "spectre", "changes", "archive", "kan-1")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "tasks.md"), []byte("- [x] 1. One\n- [ ] 2. Two\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := planTasks(store.LiveStateRow{Name: "kan-1", State: store.StateInProgress, RepoRoots: []string{root}})
+	if len(got) != 2 || got[0] != (taskDTO{1, "One", "done"}) || got[1] != (taskDTO{2, "Two", "pending"}) {
+		t.Fatalf("archived planTasks = %+v", got)
+	}
+}
+
+// TestSelfReviewTasks pins the self-review plan's read: self-review-<name>'s
+// tasks.md, archived or not, done only when ticked.
+func TestSelfReviewTasks(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "spectre", "changes", "archive", "self-review-kan-1")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "tasks.md"), []byte("- [x] 1. Fix A\n- [ ] 2. Fix B\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	two := "2"
+	row := store.LiveStateRow{
+		Name: "kan-1", State: store.StateInProgress, RepoRoots: []string{root},
+		CommittedTasks: []string{"2"},
+		Subagents:      []store.ActiveDispatch{{Role: "implementer", TaskID: &two}},
+	}
+	got := selfReviewTasks(row)
+	if len(got) != 2 || got[0] != (taskDTO{1, "Fix A", "done"}) || got[1] != (taskDTO{2, "Fix B", "pending"}) {
+		t.Fatalf("selfReviewTasks = %+v", got)
+	}
+	if planTasks(row) != nil {
+		t.Errorf("planTasks read the self-review plan as the change's own")
+	}
+}
