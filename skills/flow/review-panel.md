@@ -737,7 +737,9 @@ deliver.
 On a breach, in order: stop the slot where the harness offers a handle on the in-flight dispatch,
 and where it does not, let the dispatch return and record the breach then; close its dispatch row
 (`-outcome timed-out`); record the breach in the panel record, naming the slot and its elapsed
-time; re-dispatch that one slot once.
+time; re-dispatch that one slot once, under `-key panel-<round>-<slot>-retry` — each further
+re-dispatch of the same slot after another breach under `-retry-2`, `-retry-3` and so on, the
+count of its re-dispatches so far.
 
 A second breach of the same slot is a prompt, shape per Operator prompts
 (`skills/flow-contracts/operator-prompts.md`), resolved per that contract's **Auto-resolution** on
@@ -777,7 +779,8 @@ flow record dispatch end -change <name> -key panel-<round>-merger \
 ```
 
 It is launched with `run_in_background: true`, its `description` opening with its key, and a
-prompt of the baseline pointer, the TOOLS, NO DELEGATION and MODEL HANDSHAKE paragraphs above, the
+prompt opening with the line `Role: panel findings merger` — the marker
+`hooks/enforce-agent-baseline.py` pins this pair on — followed by the baseline pointer, the TOOLS, NO DELEGATION and MODEL HANDSHAKE paragraphs above, the
 MERGER BRIEF paragraph below, every role's report path, and one line per dispatch of the round —
 its `-key`, the `-outcome` its row was closed with, and its elapsed seconds. The parent applies
 **The handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**) to its

@@ -110,6 +110,7 @@ DENY_REASON = (
 PINNED_ROLES = (
     ("Role: visual-verify tooling analyst", "flow-medium", "opus", "skills/flow/visual-verify-tooling-analysis.md"),
     ("Role: visual-verify verifier", "flow-low", "opus", "skills/flow/visual-verify.md"),
+    ("Role: panel findings merger", "flow-low", "sonnet", "skills/flow/review-panel.md"),
 )
 
 # Harness mapping (skills/flow-contracts/model-policy.md): on zcode every pinned pair

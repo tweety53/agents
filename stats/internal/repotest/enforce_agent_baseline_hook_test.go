@@ -16,6 +16,8 @@ package repotest
 //	 6. tooling-analyst prompt (also names the verifier
 //	    file) on flow-medium / opus                         -> allow
 //	 7. tooling-analyst prompt on flow-high / opus          -> deny, names flow-medium
+//	7b. merger prompt on flow-low / sonnet                  -> allow
+//	7c-7e. merger prompt on any other pair, or no model    -> deny, names flow-low and sonnet
 //	 8. verifier prompt run from a ~/.zcode/hooks path on
 //	    general-purpose / glm-5.3-flash                     -> allow
 //	8b. the same from ~/.zcode/hooks on flow-high /
@@ -50,6 +52,7 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 	t.Parallel()
 	const baseline = "Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task. Include this instruction verbatim in any prompt you write for another agent."
 	const verifier = "Role: visual-verify verifier\n" + baseline + " Read /x/skills/flow/visual-verify-verifier.md and run its steps."
+	const merger = "Role: panel findings merger\n" + baseline + " MERGER BRIEF: read each report file listed below."
 	const analyst = "Role: visual-verify tooling analyst\n" + baseline + " Name the sweep in /x/skills/flow/visual-verify-verifier.md; write .superpowers/sdd/tooling-analysis-1.md."
 
 	sandbox := t.TempDir()
@@ -114,6 +117,10 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 		{"5 verifier with no model", hook, payload(verifier, "flow-low", "", ""), []string{`model: \"opus\"`}},
 		{"6 analyst on flow-medium/opus", hook, payload(analyst, "flow-medium", "opus", ""), nil},
 		{"7 analyst on flow-high", hook, payload(analyst, "flow-high", "opus", ""), []string{`subagent_type: \"flow-medium\"`}},
+		{"7b merger on flow-low/sonnet", hook, payload(merger, "flow-low", "sonnet", ""), nil},
+		{"7c merger on flow-low/opus", hook, payload(merger, "flow-low", "opus", ""), []string{`subagent_type: \"flow-low\"`, `model: \"sonnet\"`}},
+		{"7d merger on flow-medium/sonnet", hook, payload(merger, "flow-medium", "sonnet", ""), []string{`subagent_type: \"flow-low\"`, `model: \"sonnet\"`}},
+		{"7e merger with no model", hook, payload(merger, "flow-low", "", ""), []string{`model: \"sonnet\"`}},
 		{"8 zcode verifier on its mapped pair", zhook, payload(verifier, "general-purpose", "glm-5.3-flash", ""), nil},
 		{"8b zcode verifier on a type ZCode does not offer", zhook, payload(verifier, "flow-high", "glm-5.3-flash", ""), []string{`subagent_type: \"general-purpose\"`}},
 		{"9 zcode verifier on the claude pair", zhook, payload(verifier, "flow-low", "opus", ""), []string{`model: \"glm-5.3-flash\"`}},
@@ -135,6 +142,7 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 		{"13i a /flow dispatch whose first word is off the closed list", hook, described("verify-fix-1 m3 m4 departures", baseline+" fix the departures", "flow-low", "opus", flowT), []string{"opens with the row it records"}},
 		{"13j a /flow dispatch opening with an inline key", hook, described("verify live check kan-1029", baseline+" run the live check", "flow-low", "opus", flowT), []string{"opens with the row it records"}},
 		{"13k a /flow verifier opening with its repository-suffixed key", hook, described("visual-verify-fix-11-gymie re-verify", baseline+" verify", "flow-low", "opus", flowT), nil},
+		{"13n a /flow slot's second ceiling-breach re-dispatch", hook, described("panel-3-primary-retry-2 correctness review", baseline+" review the diff", "flow-low", "opus", flowT), nil},
 		{"13l a /flow panel-fix chunk", hook, described("panel-fix-2-3 chunk three", baseline+" fix", "flow-low", "opus", flowT), nil},
 		{"13m a /flow tooling analyst opening with its repository-suffixed key", hook, described("tooling-analysis-1-gymie-frontend sweeps", baseline+" sweep", "flow-low", "opus", flowT), nil},
 		{"13h a loop key line with trailing words does not exempt", hook, described("Round-11 primary review", "Key: self-review-x more words\n"+baseline+" plan", "flow-medium", "opus", flowT), []string{"opens with the row it records"}},
