@@ -19,9 +19,9 @@ import (
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
 // judges its commits (check-task-commit-fields) can actually read it. Twenty-two
-// findings, F1-F22 (F1-F6's canonical definitions, decisions and rationale:
+// findings, F1-F23 (F1-F6's canonical definitions, decisions and rationale:
 // spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-md-at-plan/
-// design.md -- not restated here; F7-F22's are the rows below).
+// design.md -- not restated here; F7-F23's are the rows below).
 //
 // The guard reads the plan with the very grammar the commit guard reads it
 // with -- tcfParseTask, tcfTaskIDs, tcfIterTasks, tcfSelectTask,
@@ -186,6 +186,12 @@ import (
 //	    `screenshots`: the capture spec is planned with the UI change
 //	    (skills/flow/brainstorm-planner.md; kan-1047). Reported at the first
 //	    such task's title line.
+//	F23 A Files or Allowed-collateral entry under the planning paths
+//	    (psPlanning) not ending `visual-verification.md`: such a path rides a
+//	    planning or `Flow-Key: flow.visual-verify` commit, never a task
+//	    commit -- check-task-commit-planning-paths' exemption (kan-1048
+//	    self-review, 1-E). F14 still names the all-planning case. Reported
+//	    at the field's line, once per entry.
 //
 // A duplicate task id is check-task-build-green's violation, not this
 // guard's: tcfTaskIDs keeps the first occurrence, and every per-task read
@@ -564,6 +570,11 @@ func (p *psPlan) checkTask(found tcfTaskBody) []string {
 				line = found.taskLine
 			}
 			v = append(v, p.at(line, "task "+id+"'s **"+name+":** value names no backticked path but carries a comma or whitespace — the commit guard reads it as one path; backtick each path"))
+		}
+		for _, f := range tcfBacktickTokens(value) {
+			if planning(f) && !strings.HasSuffix(f, "visual-verification.md") && p.on("F23") {
+				v = append(v, p.at(psFieldLine(body, start, name), "task "+id+"'s **"+name+":** names the planning path `"+f+"` — it rides a planning or `Flow-Key: flow.visual-verify` commit, never a task commit (check-task-commit-planning-paths); drop it from the task's fields (F23)"))
+			}
 		}
 	}
 

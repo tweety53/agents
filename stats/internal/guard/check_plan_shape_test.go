@@ -340,7 +340,8 @@ func TestCheckPlanShape(t *testing.T) {
 	want("case 38 (F14): a planning-paths-only task fails", r.rc == 1 && has(r, "task 1's **Files:** all lie under the planning paths"), r)
 	mutation("F14", md, md, "all lie under the planning paths", "case 38 (F14) mutation")
 	r = one(f14("docs/visual-sweep.md"))
-	want("case 38 (F14): one implementation path passes", r.rc == 0, r)
+	// The planning entry itself is F23's (kan-1048 self-review, 1-E); F14 clears.
+	want("case 38 (F14): one implementation path clears F14", !has(r, "all lie under the planning paths"), r)
 
 	// Case 39 (F15): a Tests name the base already declares outside Files.
 	f15 := func(files, tests string, more bool) string {
@@ -764,5 +765,32 @@ func TestCheckPlanShapePrototypeNeedsACapture(t *testing.T) {
 				t.Errorf("rc=%d want %d out=%s", r.rc, tc.want, r.out)
 			}
 		})
+	}
+}
+
+// TestCheckPlanShapeRefusesAPlanningPathEntry pins F23 (kan-1048 self-review,
+// 1-E): a planning path in a task's Files or Allowed-collateral fails the task
+// commit, so the plan gate refuses it — save visual-verification.md.
+func TestCheckPlanShapeRefusesAPlanningPathEntry(t *testing.T) {
+	t.Parallel()
+	env := Env{Getenv: os.Getenv}
+	task := func(fields string) string {
+		return psFixture(t, "- [ ] 1. A task\n\n"+fields+"**Tests:** `test_a`\n**Commit:** add a\n")
+	}
+	collateral := task("**Files:** `a.go`\n**Allowed-collateral:** `spectre/changes/x/visual-verification/**`\n")
+	r := runGuard("check-plan-shape", []string{collateral}, env)
+	if r.rc != 1 || !strings.Contains(r.out, "F23") || !strings.Contains(r.out, "spectre/changes/x/visual-verification/**") {
+		t.Errorf("Allowed-collateral planning entry: rc=%d out=%q", r.rc, r.out)
+	}
+	r = runGuard("check-plan-shape", []string{task("**Files:** `a.go`, `docs/superpowers/notes.md`\n")}, env)
+	if r.rc != 1 || !strings.Contains(r.out, "docs/superpowers/notes.md") {
+		t.Errorf("Files planning entry: rc=%d out=%q", r.rc, r.out)
+	}
+	r = runGuard("check-plan-shape", []string{task("**Files:** `a.go`, `spectre/changes/x/visual-verification.md`\n")}, env)
+	if r.rc != 0 {
+		t.Errorf("visual-verification.md: rc=%d out=%q", r.rc, r.out)
+	}
+	if m := psMutant(collateral, "F23"); m.rc != 0 {
+		t.Errorf("F23 disabled still refuses: rc=%d out=%q", m.rc, m.out)
 	}
 }
