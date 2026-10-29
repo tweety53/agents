@@ -1274,7 +1274,7 @@ func tcfCheckDeclaredFiles(task tcfTask, changed []string) []string {
 // must not arrive under a rule under which it was never declared.
 //
 // tcfTestsParseRule is TESTS_PARSE_RULE.
-const tcfTestsParseRule = "a **Tests:** field is parsed, not read: a `Case <N>` label, `<N>` a number with an optional letter suffix (`Case 13b`), is checked by that label alone and backticks beside it parse as nothing, any other backticked token is a declared test name, the tree check also treats a bare camelCase identifier as one, and a task adding no tests opens the field with `none`; coverage prose belongs outside the field"
+const tcfTestsParseRule = "a **Tests:** field is parsed, not read: a `Case <N>` label, `<N>` a number with an optional letter suffix (`Case 13b`), is checked by that label alone and backticks beside it parse as nothing, any other backticked token is a declared test name, the tree check also treats a bare camelCase identifier as one, a `Class.method` token is found when both its segments are, and a task adding no tests opens the field with `none`; coverage prose belongs outside the field"
 
 // Moved from check-task-commit-fields.py's DIFF_LEADING_MARKER_RE (KAN-760 deleted the
 // Python copy once this port replaced it; panel round 0, F9):
@@ -1287,12 +1287,27 @@ const tcfTestsParseRule = "a **Tests:** field is parsed, not read: a `Case <N>` 
 // bullet, say) keeps it.
 var tcfDiffMarkerRE = regexp.MustCompile(`(?m)^[+-]`)
 
+// tcfClassDotMethodRE is a `Class.method` token, as the pipeline's
+// fix-mutation: lines name a test.
+var tcfClassDotMethodRE = regexp.MustCompile(`^[A-Z][A-Za-z0-9_]*\.[a-z][A-Za-z0-9_]*$`)
+
+// tcfClassDotMethodFound reports whether token is a `Class.method` token
+// both of whose segments found reports present (kan-1059 self-review, 1f).
+func tcfClassDotMethodFound(token string, found func(string) bool) bool {
+	if !tcfClassDotMethodRE.MatchString(token) {
+		return false
+	}
+	class, method, _ := strings.Cut(token, ".")
+	return found(class) && found(method)
+}
+
 // tcfCheckTests is check_tests.
 func tcfCheckTests(task tcfTask, diff string) []string {
 	rendered := tcfDiffMarkerRE.ReplaceAllString(diff, "")
 	var v []string
 	for _, spec := range task.tests {
-		if !spec.pattern.MatchString(rendered) {
+		found := func(seg string) bool { return tcfFoldedPattern(seg).MatchString(rendered) }
+		if !spec.pattern.MatchString(rendered) && !tcfClassDotMethodFound(spec.label, found) {
 			v = append(v, fmt.Sprintf("task %s: declared test %s not found in the diff — %s", task.id, spec.label, tcfTestsParseRule))
 		}
 	}
@@ -1665,7 +1680,8 @@ func tcfMissingTreeNames(env Env, task tcfTask, worktree, commit, tasksAbs strin
 	}
 	var missing []string
 	for _, name := range tcfTreeNames(task.testsValue) {
-		if bytes.Contains(tree, tcfFoldWS([]byte(name))) {
+		found := func(seg string) bool { return bytes.Contains(tree, tcfFoldWS([]byte(seg))) }
+		if found(name) || tcfClassDotMethodFound(name, found) {
 			continue
 		}
 		out, errOut, code, err := tcfExec(env.Dir, nil, "git", "-C", worktree, "cat-file", "-e", commit+":"+name)

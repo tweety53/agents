@@ -264,7 +264,9 @@ with `**Build:**` per **The build-green tag**
   that label alone and backticks beside it parse as nothing;
   otherwise every backticked token becomes a declared test name the commit's diff and the tree
   are searched for; any other prose in it is invisible to the check — write what covers the task
-  outside the field, never inside it. A task adding none writes a field opening with the literal
+  outside the field, never inside it. A token written `Class.method` is found when both its
+  segments are, so a test may be named as the pipeline's `fix-mutation:` lines name it (kan-1059
+  self-review, 1f). A task adding none writes a field opening with the literal
   `none`, and `check-task-commit-fields.sh` then never reads that field's backticks as test names
   it must find in the commit's diff. **Bold `**none**` opens such a field; italic `_none_` does
   not** — the recognition ends on a word boundary, and `_` is a word character, so the trailing

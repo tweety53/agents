@@ -3149,3 +3149,31 @@ func TestTcfBodyFieldsFirstOccurrenceWins(t *testing.T) {
 		t.Fatalf("files = %q, want [\"a.go\"]", task.files)
 	}
 }
+
+// TestCheckTaskCommitFieldsFindsAClassDotMethodTest pins the kan-1059
+// self-review fix, 1f: a `Class.method` token is found, in the diff and in
+// the tree, when both its segments are; a commit adding the class without
+// the method is refused naming the token.
+func TestCheckTaskCommitFieldsFindsAClassDotMethodTest(t *testing.T) {
+	t.Parallel()
+	fx := tcfNewFixture(t)
+	plan := bt(`- [ ] 1. Class dot method
+
+**Files:** ¤FooUiTest.kt¤
+**Tests:** ¤FooUiTest.barKeepsBaz¤
+**Commit:** add foo test
+**Build:** green
+`)
+	r := fx.repo(t, "change-a")
+	r.plan(plan)
+	sha := r.commit("add foo test", "FooUiTest.kt", "class FooUiTest {\n    @Test\n    fun barKeepsBaz() {}\n}\n")
+	res := r.run("1", sha)
+	ok(t, "both segments present passes", res.rc == 0, res)
+
+	r = fx.repo(t, "change-a")
+	r.plan(plan)
+	sha = r.commit("add foo test", "FooUiTest.kt", "class FooUiTest {\n    @Test\n    fun other() {}\n}\n")
+	res = r.run("1", sha)
+	ok(t, "a missing method segment fails", res.rc == 1, res)
+	ok(t, "names the token", has(res.out, "FooUiTest.barKeepsBaz", "not found"), res)
+}
