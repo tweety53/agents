@@ -1,12 +1,15 @@
 # Brainstorm and plan — sections B, C, D
 
-Sections **B**, **C** and **D** of the brainstorming phase, run by whichever session is executing
-`/flow`'s brainstorming stage — or, for **C**, **D** and **Decide**, a `/flow-plan` capture
+Sections **B**, **C** and **D** of the brainstorming phase, run by `/flow`'s `planner` dispatch
+(**Run brainstorming and planning through the planner role**, `skills/flow/brainstorm.md`) — or, for **C**, **D** and **Decide**, a `/flow-plan` capture
 (**Capturing a new change**, `skills/flow-plan/SKILL.md`) — no one relays these sections, though
 the session may dispatch the fresh subagents **Explore and design agents** below allows, and
 neither does the self-review planner, which runs B, C and D as item 1 of **3. Fix every finding that is
 not `big`** (`skills/flow-self-review/SKILL.md`) binds them, and the in-run fix planner, which
 runs them as **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline.md`) binds them. Every "you" below addresses that session, or that planner, directly.
+
+In a `planner` dispatch, every **AskUserQuestion** these sections name is written as a question of
+the round file instead, and the parent asks it.
 
 **Load `skills/spectre-planning/SKILL.md`** — the generic prompts of sections B, C and D; this file carries the flow-only parts.
 
@@ -591,7 +594,7 @@ flow stage end -command '/flow' -stage flow.writing-plans -outcome completed <na
 print the plan summary (**Plan review gate**, `skills/spectre-planning/SKILL.md`), then ask the gate question in one **AskUserQuestion** call. The
 gate is mandatory: no answer, no commit and no implementation. It runs at the end of every
 `/flow-plan` capture (**Capturing a new change**, `skills/flow-plan/SKILL.md`) and in `/flow`
-after the `flow.decide` record sequence (**Run brainstorming and planning directly**,
+after the `flow.decide` record sequence (**Run brainstorming and planning through the planner role**,
 `skills/flow/brainstorm.md`).
 
 Then the question — `/flow-plan`'s wording is **Push artifacts?**, `/flow`'s is **Proceed to
