@@ -61,14 +61,14 @@ describe("StageRunTable", () => {
     expect(cost.title).toBe("agents $2.15 + main session $0.85");
   });
 
-  it("lists dispatch rows in time order, in plain words with their real outcome and timing, agent id only in a tooltip, and no main-session row", async () => {
+  it("lists dispatch rows in time order, by their description with their real outcome and timing, agent id only in a tooltip, and no main-session row", async () => {
     render(<StageRunTable stageRuns={[run]} records={records} />);
     await userEvent.click(screen.getByRole("button", { name: "Show dispatches" }));
     const rows = screen.getAllByTestId("dispatch-row");
-    expect(rows[0]).toHaveTextContent(/^⎿ Fix round 2fixed00:0110m4kopus 5\.5\$2\.00$/);
-    expect(rows[1]).toHaveTextContent(/^⎿ Review round 2running00:12/);
+    expect(rows[0]).toHaveTextContent(/^⎿ self-review-kan-9-x-fix-2 minor fixesfixed00:0110m4kopus 5\.5\$2\.00$/);
+    expect(rows[1]).toHaveTextContent(/^⎿ self-review-kan-9-x-review-2 re-reviewrunning00:12/);
     expect(screen.queryByText(/a548eaf33f9b0cb85/)).not.toBeInTheDocument();
-    expect(within(rows[0]).getByRole("cell", { name: "Fix round 2" }).title).toContain("a548eaf33f9b0cb85");
+    expect(within(rows[0]).getByRole("cell", { name: "self-review-kan-9-x-fix-2 minor fixes" }).title).toBe("agent a548eaf33f9b0cb85");
     expect(screen.queryByText("main session")).not.toBeInTheDocument();
   });
 
@@ -115,7 +115,8 @@ describe("StageRunTable", () => {
   });
 
   it("opens a run's dispatches as one attached group, says their shared prefix once, and keeps them until their closing animation ends", async () => {
-    const shared = { ...run, stage: "flow.review-panel", metrics: { ...(run.metrics as object) } };
+    // No description: the row falls back to its action name.
+    const shared = { ...run, stage: "flow.review-panel", metrics: { dispatches: { a548eaf33f9b0cb85: {}, aeb9c995f7b6dd74f: {} } } };
     const recs: RecordDispatch[] = [
       { ...records[0], key: "panel-2-primary" },
       { ...records[1], key: "panel-2-mutation" },

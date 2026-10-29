@@ -312,13 +312,13 @@ function StageRunRow({ run, now, records, showStage }: { run: StageRunDTO; now: 
               data-testid={open ? "dispatch-row" : undefined}
               onAnimationEnd={() => setClosing(false)}
             >
-              <td className="lb-dispatch-name" title={`${d.description ?? ""}${d.description ? " · " : ""}agent ${d.agentId}`}>
+              <td className="lb-dispatch-name" title={`agent ${d.agentId}`}>
                 {cell(
                   <>
                     <span className="lb-agent-branch" aria-hidden="true">
                       ⎿{" "}
                     </span>
-                    {names[i]}
+                    {d.description ?? names[i]}
                   </>,
                 )}
               </td>
