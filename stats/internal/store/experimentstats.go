@@ -103,7 +103,7 @@ var roleDispatchSQL = map[string]string{
 	"gated-reviewer":        `d.role = 'reviewer' AND d.dispatch_key ~ '^task-[0-9+]+-reviewer(-retry)?$'`,
 	"gated-re-reviewer":     `d.role = 'reviewer' AND d.dispatch_key ~ '^task-[0-9+]+-reviewer-fix-'`,
 	"visual-verifier":       `d.role = 'verifier' AND d.dispatch_key LIKE 'visual-verify%'`,
-	"self-review-plan":      `d.dispatch_key ~ '^self-review-.*-plan$'`,
+	"self-review-plan":      `d.dispatch_key ~ '^self-review-.*-plan(-[0-9]+)?$'`,
 	"self-review-fix":       `d.role = 'implementer' AND d.dispatch_key ~ '^self-review-.*-fix(-[gv]?[0-9]+)?$'`,
 	"self-review-review-1":  `d.dispatch_key ~ '^self-review-.*-review-1$'`,
 	"self-review-review-r":  `d.dispatch_key ~ '^self-review-.*-review-([2-9]|[1-9][0-9]+)$'`,
@@ -253,7 +253,7 @@ func (s *Store) ExperimentStats(ctx context.Context, id int64) (ExperimentStatsR
 			SELECT count(*) AS n, sum(`+mainTokensSQL+`) AS tokens,
 				sum(EXTRACT(EPOCH FROM sr.ended_at - sr.started_at)) AS secs,
 				bool_or(sr.metrics ? 'models') AND bool_and(NOT (sr.metrics ? 'models') OR (
-					sr.metrics->>'effort' = $4
+					COALESCE(sr.metrics->>'effort' = $4, false)
 					AND jsonb_typeof(sr.metrics->'models') = 'object'
 					AND EXISTS (SELECT 1 FROM jsonb_each(sr.metrics->'models') m(k, v)
 						WHERE COALESCE((v->'tokens'->'main'->>'output')::numeric, 0) > 0 AND model_family(k) = $3)
