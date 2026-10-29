@@ -281,6 +281,44 @@ func TestTasksCountRecordsThePlanTaskCount(t *testing.T) {
 	}
 }
 
+// TestTasksCountPostsCorrections: the plan's `Correction (YYYY-MM-DD):`
+// paragraphs are counted beside its tasks and posted in the same
+// observation -- the plan-corrections metric experiments compare
+// (KAN-1067). A Correction line shown inside a fenced example is
+// documentation, never counted, the same fence rule the task count keeps.
+func TestTasksCountPostsCorrections(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	writePlan(t, repo, "spectre", "c",
+		"- [ ] 1. First\n\n  Correction (2026-10-29): the path was wrong.\n\n"+
+			"- [ ] 2. Second\n\nCorrection (2026-10-30): the test name was wrong.\n\n"+
+			"```text\nCorrection (YYYY-MM-DD): template\nCorrection (2026-01-01): fenced example\n```\n")
+
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		gotBody, _ = readAll(r)
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":7,"totalTasks":2,"corrections":2,"observedAt":"2026-09-15T12:00:00Z"}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"tasks", "count", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "c"},
+		nil, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("tasks count exit = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+
+	var sent map[string]any
+	if err := json.Unmarshal(gotBody, &sent); err != nil {
+		t.Fatalf("decode record body %s: %v", gotBody, err)
+	}
+	if sent["totalTasks"] != float64(2) || sent["corrections"] != float64(2) {
+		t.Errorf("record body = %s, want totalTasks 2 and corrections 2 -- never the fenced lines", gotBody)
+	}
+}
+
 // TestTasksCountUnreachableStoreExitsZero: an observation the store cannot
 // take costs one warning line and changes no exit code, the `flow suite
 // record` rule -- a plan-counting stage must not fail because flowd is

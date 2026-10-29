@@ -226,7 +226,7 @@ func editFilesField(plan []byte, id string, edit func(field string) (string, err
 }
 
 // untickedTasks returns the ids of the plan's unticked task lines, fenced
-// lines skipped as countTasks skips them.
+// lines skipped as countPlanLines skips them.
 func untickedTasks(plan []byte) []string {
 	var ids []string
 	inFence := false
@@ -242,12 +242,13 @@ func untickedTasks(plan []byte) []string {
 	return ids
 }
 
-// countTasks returns the number of column-0 task checkbox lines in plan.
-// Fence state is tracked across the whole scan exactly as tickTask tracks
-// it, so a task line shown inside a fenced example is documentation, not
-// structure -- the same rule planparse.go's task iteration applies to the
-// same file.
-func countTasks(plan []byte) int {
+// countPlanLines returns the number of plan lines pattern matches outside
+// fenced blocks -- taskLinePattern for the task count, correctionPattern
+// for the plan-correction count. Fence state is tracked across the whole
+// scan exactly as tickTask tracks it, so a line shown inside a fenced
+// example is documentation, not structure -- the same rule planparse.go's
+// task iteration applies to the same file.
+func countPlanLines(plan []byte, pattern *regexp.Regexp) int {
 	count := 0
 	inFence := false
 	for _, line := range bytes.Split(plan, []byte("\n")) {
@@ -258,7 +259,7 @@ func countTasks(plan []byte) int {
 		if inFence {
 			continue
 		}
-		if taskLinePattern.Match(line) {
+		if pattern.Match(line) {
 			count++
 		}
 	}

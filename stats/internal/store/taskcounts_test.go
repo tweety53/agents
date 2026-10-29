@@ -60,6 +60,35 @@ func TestRecordTaskCountReturnsRecordedRow(t *testing.T) {
 	}
 }
 
+// TestRecordTaskCountCorrections: the plan-corrections count is stored
+// beside the total and read back by ListTaskCounts (KAN-1067); an old
+// client that posts no corrections stores 0, the column's default.
+func TestRecordTaskCountCorrections(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-task-counts-corrections-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1067")
+
+	got, err := st.RecordTaskCount(ctx, projectKey, "kan-1067", records.TaskCount{TotalTasks: 13, Corrections: 2})
+	if err != nil {
+		t.Fatalf("RecordTaskCount: %v", err)
+	}
+	if got.Corrections != 2 {
+		t.Errorf("returned Corrections = %d, want 2", got.Corrections)
+	}
+	if _, err := st.RecordTaskCount(ctx, projectKey, "kan-1067", records.TaskCount{TotalTasks: 13}); err != nil {
+		t.Fatalf("RecordTaskCount without corrections: %v", err)
+	}
+
+	counts, err := st.ListTaskCounts(ctx, projectKey, "kan-1067")
+	if err != nil {
+		t.Fatalf("ListTaskCounts: %v", err)
+	}
+	if len(counts) != 2 || counts[0].Corrections != 2 || counts[1].Corrections != 0 {
+		t.Errorf("counts = %+v, want corrections [2, 0]", counts)
+	}
+}
+
 // TestRecordTaskCountRefusesNonPositiveTotal: a total that counts no plan
 // is refused before the store is touched, so the route answers 400, not
 // 500 -- the CHECK constraint is the backstop, this check is the message.
