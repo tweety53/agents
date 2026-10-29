@@ -22,7 +22,7 @@ const tasks: PlanTask[] = [
 describe("mainNow", () => {
   it("names a running implementer by its task title, time and model", () =>
     expect(mainNow([run("flow.sdd-tdd", 0)], [d("task-3-implementer", 5, undefined, { taskId: "3", modelVersion: "claude-opus-5-5" })], tasks, false, T0 + 17 * 60000)).toBe(
-      'Implementing task 3 "Run view" · 12m · opus-5.5',
+      'Implementing task 3 "Run view" · 12m · opus 5.5',
     ));
   it("names a running review round", () =>
     expect(mainNow([run("flow.review-panel", 0)], [d("panel-2-primary", 1, undefined, { role: "reviewer" })], tasks, false, T0 + 3 * 60000)).toBe(

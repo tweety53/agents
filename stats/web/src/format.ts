@@ -68,11 +68,11 @@ export function formatSpan(ms: number): string {
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
 }
 
-/** A model id as the run view reads it: `claude-opus-4-7` → `opus-4.7`, `claude-sonnet-5` → `sonnet-5`, `claude-haiku-4-5-20251001` → `haiku-4.5`. */
+/** A model id as the run view reads it: family and version, `claude-opus-4-7` → `opus 4.7`, `claude-sonnet-5` → `sonnet 5`, `claude-haiku-4-5-20251001` → `haiku 4.5`. */
 export function formatModel(id: string): string {
   const m = /^(?:claude-)?([a-z]+)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?$/.exec(id);
   if (!m) return id.replace(/^claude-/, "");
-  return m[3] === undefined ? `${m[1]}-${m[2]}` : `${m[1]}-${m[2]}.${m[3]}`;
+  return m[3] === undefined ? `${m[1]} ${m[2]}` : `${m[1]} ${m[2]}.${m[3]}`;
 }
 
 /** `HH:MM` of an instant, in UTC as the prototype draws it. */

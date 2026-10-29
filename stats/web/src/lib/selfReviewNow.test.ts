@@ -31,7 +31,7 @@ describe("selfReviewNow", () => {
   const d = (key: string, start: number, end?: number, extra = {}) => ({ key, role: "implementer", model: "opus", startedAt: at(start), endedAt: end === undefined ? undefined : at(end), ...extra });
   it("names a running group fixer by the first unticked task, with its time and model", () =>
     expect(selfReviewNow([d(`${N}-plan`, 0, 10), d(`${N}-fix-g1`, 11, undefined, { modelVersion: "claude-opus-5-5" })], tasks, true, T0 + 20 * 60000)).toEqual({
-      text: 'Fixing task 2 "Fix B" · for 9m · opus-5.5',
+      text: 'Fixing task 2 "Fix B" · for 9m · opus 5.5',
       current: "fix",
       done: false,
       taskN: 2,

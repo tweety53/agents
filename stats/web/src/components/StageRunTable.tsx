@@ -82,12 +82,9 @@ function SessionRow({ session, now }: { session: Session; now: number }) {
 
 // --- model, version and effort (design.md's model-version-effort) ---
 
-/** A model as its family and version, "opus 5.5". */
-const shortModel = (m: string) => formatModel(m).replace(/-(?=\d)/, " ");
-
 function modelEffort(models: string[] | null, effort: string | null) {
   if (models === null) return <Unavailable value={null} />;
-  const label = models.map(shortModel).join(", ");
+  const label = models.map(formatModel).join(", ");
   const text = effort === null ? label : `${label} · ${effort}`;
   return (
     <span data-testid="measured" title={text}>

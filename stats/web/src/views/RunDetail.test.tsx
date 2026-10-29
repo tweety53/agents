@@ -772,13 +772,13 @@ describe("the reworked run view (kan-1048)", () => {
     // Running subagents name what they do and their model, version and effort; the plan lists every task.
     const subs = screen.getByRole("region", { name: "Agents" });
     expect(subs).toHaveTextContent("implementer");
-    expect(subs).toHaveTextContent("opus-5.5 · high");
+    expect(subs).toHaveTextContent("opus 5.5 · high");
     expect(subs).toHaveTextContent("10m");
     // The main session leads, marked Main, on its inline task; each subagent is marked Subagent.
     const agentRows = [...subs.querySelectorAll("tbody tr")];
     expect(agentRows).toHaveLength(2);
     expect(agentRows[0]).toHaveTextContent("Mainneeds youImplementing task 3 (Run view)");
-    expect(agentRows[1]).toHaveTextContent("⎿ implementerrunningImplementing task 2 (Board card)opus-5.5 · high10m");
+    expect(agentRows[1]).toHaveTextContent("⎿ implementerrunningImplementing task 2 (Board card)opus 5.5 · high10m");
     expect(subs.querySelector(".lb-panel-note")).toHaveTextContent("2");
     // The plan lives in the Main panel now, the task being worked on marked ●.
     expect(screen.queryByRole("region", { name: "Tasks" })).not.toBeInTheDocument();
@@ -833,10 +833,10 @@ describe("the reworked run view (kan-1048)", () => {
     expect(screen.getByRole("region", { name: "Agents" })).toBeInTheDocument();
     // One line per role, never a row per dispatch: count, distinct model · effort, cost, failures, running.
     const roles = await within(panel).findAllByTestId("phase-role");
-    expect(roles.map((r) => r.textContent)).toEqual(["self-review ×1opus · medium—", "implementer ×2opus, opus-5.5 · low—1 failedrunning"]);
+    expect(roles.map((r) => r.textContent)).toEqual(["self-review ×1opus · medium—", "implementer ×2opus, opus 5.5 · low—1 failedrunning"]);
     expect(within(panel).getByTestId("self-review-summary")).toHaveTextContent(/^plan 1\/2 · findings 1 · fixes round 2$/);
     // What it does now, unmistakably: the running red-verify fixer, its time and model, and where that sits.
-    expect(within(panel).getByTestId("self-review-now")).toHaveTextContent(/^Now: Verifying — red verify fix round 2 · for 10m · opus-5\.5$/);
+    expect(within(panel).getByTestId("self-review-now")).toHaveTextContent(/^Now: Verifying — red verify fix round 2 · for 10m · opus 5\.5$/);
     expect(within(panel).getByTestId("self-review-progress")).toHaveTextContent("review ✓ → plan ✓ → fix 1/2 ✓ → re-review ✓ → verify ● → land → file");
     // Main: everything else -- its header, Now line, progress over the main phases, summary, plan and roles.
     const main = screen.getByRole("region", { name: "Main" });
@@ -846,7 +846,8 @@ describe("the reworked run view (kan-1048)", () => {
       "planning ✓ → decisions → implementation ✓ → review → verification → handoff → integrate → landing → cleanup",
     );
     expect(within(main).getByTestId("main-summary")).toHaveTextContent(/^tasks 1\/3$/);
-    expect(within(main).getAllByTestId("phase-role").map((r) => r.textContent)).toEqual(["implementer ×1opus$1.00"]);
+    // The lines add up to the header: the priced dispatch, then the main session's own share.
+    expect(within(main).getAllByTestId("phase-role").map((r) => r.textContent)).toEqual(["implementer ×1opus$1.00", "main session$5.00"]);
     expect(main).toHaveTextContent("● 2. Board card");
     expect(panel).toHaveTextContent("✔ 1. Fix the divider");
     expect(panel).toHaveTextContent("◻ 2. Fix the count");
@@ -886,12 +887,28 @@ describe("the reworked run view (kan-1048)", () => {
     );
     const reviewing = { ...boardRow, currentStage: "flow.self-review", selfReviewTasks: [{ n: 1, title: "Fix the guard", state: "pending" }] };
     fetchStatsViewMock.mockImplementation((view: string) =>
-      Promise.resolve(view === "state-board" ? { ...aggregateEnvelope([]), view, rows: [reviewing] } : aggregateEnvelope([])),
+      Promise.resolve(
+        view === "state-board"
+          ? { ...aggregateEnvelope([]), view, rows: [reviewing] }
+          : aggregateEnvelope([
+              { projectKey: PROJECT, changeName: CHANGE, command: "/flow", stage: "flow.kickoff", runCount: 3, measuredRuns: 2, totalTokensInput: 1, meanTokensInput: 1, totalCostUsd: 3, totalDurationMs: 1, mainTokens: 1, sidechainTokens: 1 },
+            ]),
+      ),
     );
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const panel = await screen.findByRole("region", { name: "Self-review" });
     const roles = await within(panel).findAllByTestId("phase-role");
-    expect(roles.map((r) => r.textContent)).toEqual(["planner ×1opus$1.50", "implementer ×1opus—running"]);
+    expect(roles.map((r) => r.textContent)).toEqual(["planner ×1opus$1.50", "implementer ×1opus—running", "main session$1.00"]);
+    // Every cost counted once: Total = Main + Self-review, and each panel's lines add up to its header.
+    const usd = (el: Element | null) => Number((el?.textContent ?? "").replace(/[^\d.]/g, ""));
+    const main = screen.getByRole("region", { name: "Main" });
+    const lines = (p: HTMLElement) => within(p).getAllByTestId("phase-role").reduce((a, r) => a + usd(r.querySelector(".lb-num")), 0);
+    expect(usd(main.querySelector(".lb-phase-cost"))).toBe(3);
+    expect(lines(main)).toBeCloseTo(3, 9);
+    expect(lines(panel)).toBeCloseTo(usd(panel.querySelector(".lb-phase-cost")), 9);
+    const total = screen.getByRole("group", { name: "Total cost" });
+    expect(usd(total.querySelector(".lb-kpi-val"))).toBeCloseTo(usd(main.querySelector(".lb-phase-cost")) + usd(panel.querySelector(".lb-phase-cost")), 9);
+    expect(total).toHaveTextContent("incl. self-review sub-run $2.50");
     // The phase sums the change's own self-review run (unmeasured) with the sub-run's two.
     expect(panel.querySelector(".lb-phase-cost")).toHaveTextContent("$2.50");
     // A group fixer runs: the first unticked task is the one in progress.
@@ -951,6 +968,24 @@ describe("the reworked run view (kan-1048)", () => {
     const sr = screen.getByRole("region", { name: "Self-review" });
     expect(within(sr).getByTestId("self-review-now")).toHaveTextContent(/^Now: Not started$/);
     expect(within(screen.getByRole("region", { name: "Main" })).getByTestId("main-now")).toHaveTextContent(/^Now: Implementing tasks · 1h 00m$/);
+  });
+
+  it("run detail labels models as family and version, never with a placeholder default effort", async () => {
+    runRecordMock.mockResolvedValueOnce({
+      dispatches: [
+        { id: 1, agentId: "inline", role: "implementer", key: "task-1-implementer", model: "opus", effort: "default", metrics: { modelVersion: "claude-opus-5-5", effort: "medium" }, startedAt: "2026-01-01T01:05:00Z", endedAt: "2026-01-01T01:10:00Z" },
+        { id: 2, agentId: "inline", role: "verifier", key: "verify", model: "opus", effort: "default", startedAt: "2026-01-01T01:11:00Z", endedAt: "2026-01-01T01:12:00Z" },
+      ],
+    });
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const main = await screen.findByRole("region", { name: "Main" });
+    await waitFor(() => expect(within(main).getAllByTestId("phase-role").length).toBeGreaterThan(1));
+    const text = within(main).getAllByTestId("phase-role").map((r) => r.textContent).join(" | ");
+    expect(text).toContain("implementer ×1opus 5.5 · medium");
+    expect(text).toContain("verifier ×1opus");
+    expect(text).not.toContain("default");
+    const verifier = within(main).getAllByTestId("phase-role").find((r) => r.textContent?.startsWith("verifier"))!;
+    expect(verifier.querySelector(".lb-role-models")!.getAttribute("title")).toContain("effort unknown");
   });
 
   it("run detail marks main as waiting while only its subagents work", async () => {

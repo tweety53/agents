@@ -773,7 +773,12 @@ type DispatchDelta struct {
 	// ModelVersion is the newest attributed record's model, "" when no
 	// record named one (model-version-split).
 	ModelVersion string
-	modelAt      time.Time
+	// Effort is the newest attributed main-thread record's effort: an
+	// inline row's real effort, which its begin can only record as
+	// "default" -- the main session never names its own. A launched
+	// dispatch's effort is its subagent type's, and stays "".
+	Effort  string
+	modelAt time.Time
 }
 
 // noteModel keeps the newest non-empty model among the records credited
@@ -781,12 +786,15 @@ type DispatchDelta struct {
 func (d *DispatchDelta) noteModel(r Record) {
 	if r.Model != "" && !r.Timestamp.Before(d.modelAt) {
 		d.ModelVersion, d.modelAt = r.Model, r.Timestamp
+		if !r.IsSidechain && r.Effort != "" {
+			d.Effort = r.Effort
+		}
 	}
 }
 
 // patch is d's metrics patch, the one shape every dispatch merge writes.
 func (d DispatchDelta) patch() MetricsPatch {
-	mp := MetricsPatch{Tokens: d.Tokens, Signals: &SignalsDelta{Sidechain: d.Signals}, ModelVersion: d.ModelVersion}
+	mp := MetricsPatch{Tokens: d.Tokens, Signals: &SignalsDelta{Sidechain: d.Signals}, ModelVersion: d.ModelVersion, Effort: d.Effort}
 	if d.ApportionedRecords > 0 {
 		mp.Apportioned = &ApportionedDelta{Records: d.ApportionedRecords}
 	}
@@ -921,7 +929,17 @@ func (a *DispatchAttributor) Attribute(ctx context.Context, records []Record) (m
 		}
 		for _, w := range inline {
 			if _, ok := deltas[w.DispatchID]; !ok && !w.Measured && w.EndedAt != nil && !first.IsZero() && !first.After(w.StartedAt) && !w.EndedAt.After(last) {
-				deltas[w.DispatchID] = DispatchDelta{}
+				// No turn inside, but the session's model and effort at the
+				// window's start are still the row's: the latest main-thread
+				// record at or before it names them.
+				var z DispatchDelta
+				var at time.Time
+				for _, r := range bySession[sessionID] {
+					if !r.IsSidechain && r.Model != "" && !r.Timestamp.After(w.StartedAt) && !r.Timestamp.Before(at) {
+						z.ModelVersion, z.Effort, at = r.Model, r.Effort, r.Timestamp
+					}
+				}
+				deltas[w.DispatchID] = z
 			}
 		}
 	}

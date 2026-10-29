@@ -102,7 +102,7 @@ function phaseSteps(runs: StageRunDTO[], dispatches: RecordDispatch[]): Step[] {
       taskId: d.taskId || undefined,
       model: d.model,
       modelVersion: d.metrics?.modelVersion,
-      effort: d.effort || undefined,
+      effort: (d.effort && d.effort !== "default" ? d.effort : undefined) ?? d.metrics?.effort,
       startedAt: d.startedAt,
       endedAt: d.endedAt,
       outcome: d.outcome,
@@ -140,12 +140,41 @@ function roleSummary(steps: Step[], costs: Map<string, number>) {
   return [...byRole].map(([role, ds]) => ({
       role,
       count: ds.length,
-      models: [...new Set(ds.map((d) => `${formatModel(d.modelVersion ?? d.model)}${d.effort ? ` · ${d.effort}` : ""}`))].join(", "),
+      models: [...new Set(ds.map(modelEffortLabel))].join(", "),
+      effortUnknown: ds.some((d) => !knownEffort(d.effort)),
       cost: measuredSum(ds.map((d) => (d.agentId ? costs.get(d.agentId) : undefined))),
       failed: ds.filter((d) => d.endedAt && d.outcome && FAILED_OUTCOMES.has(d.outcome)).length,
       running: ds.some((d) => !d.endedAt),
     }))
     .sort((a, b) => (b.cost ?? -1) - (a.cost ?? -1));
+}
+
+/** An effort a dispatch row really records -- "default" is the recorder's placeholder, never an effort. */
+const knownEffort = (e: string | undefined) => (e && e !== "default" ? e : undefined);
+
+/** A dispatch's model as family and version, with its effort when one is known ("opus 5.5 · low"). */
+function modelEffortLabel(d: Step): string {
+  const e = knownEffort(d.effort);
+  return `${formatModel(d.modelVersion ?? d.model)}${e ? ` · ${e}` : ""}`;
+}
+
+/**
+ * The cost lines under a panel's roles, so the lines add up to its header:
+ * "unattributed" for priced dispatch buckets no recorded dispatch of the
+ * panel claims, then "main session" for the runs' cost no bucket carries --
+ * the main session's own turns. Null where nothing is left.
+ */
+function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<string, number>): { unattributed: number | null; main: number | null } {
+  const header = measuredSum(runs.map((r) => readCostUsd(r.metrics)));
+  const claimed = new Set(steps.map((d) => d.agentId).filter((a): a is string => !!a));
+  let buckets = 0;
+  let unattributed = 0;
+  for (const [id, c] of costs) {
+    buckets += c;
+    if (!claimed.has(id)) unattributed += c;
+  }
+  const keep = (v: number) => (Math.abs(v) >= 0.005 ? v : null);
+  return { unattributed: keep(unattributed), main: header === null ? null : keep(header - buckets) };
 }
 
 /** Self-review's one-line summary: its plan's done/total, its findings, and its highest fix round when one ran. */
@@ -179,7 +208,6 @@ function WorkPanel({
   title,
   runs,
   steps,
-  costs,
   now,
   extra,
   nowText,
@@ -191,7 +219,6 @@ function WorkPanel({
   title: string;
   runs: StageRunDTO[];
   steps: Step[];
-  costs: Map<string, number>;
   now: number;
   extra?: ReactNode;
   nowText: string;
@@ -203,7 +230,10 @@ function WorkPanel({
   const status = workStatus(runs);
   const active = runs.reduce((a, r) => a + runEnd(r, now) - Date.parse(r.startedAt), 0);
   const cost = measuredSum(runs.map((r) => readCostUsd(r.metrics)));
+  // Costs are this panel's own runs' priced buckets, so its lines add up to its header.
+  const costs = dispatchCosts(runs);
   const roles = roleSummary(steps, costs);
+  const rest = residualCosts(runs, steps, costs);
   const slug = title.toLowerCase();
   return (
     <section className={`lb-panel lb-phase ${status}`} aria-label={title}>
@@ -248,7 +278,9 @@ function WorkPanel({
               <span className="lb-role">
                 {r.role} <span className="lb-muted">×{r.count}</span>
               </span>
-              <span className="lb-role-models">{r.models}</span>
+              <span className="lb-role-models" title={r.effortUnknown ? `${r.models} -- effort unknown for some dispatches` : r.models}>
+                {r.models}
+              </span>
               <span className="lb-num r">{r.cost === null ? <span className="lb-muted">—</span> : formatUsd(r.cost)}</span>
               <span className="lb-role-flags">
                 {r.failed > 0 && <span className="lb-err">{r.failed} failed</span>}
@@ -262,6 +294,22 @@ function WorkPanel({
             </li>
           ))}
           {roles.length === 0 && <li className="lb-muted">No dispatches yet.</li>}
+          {rest.unattributed !== null && (
+            <li data-testid="phase-role" className="lb-muted" title="priced dispatches with no recorded dispatch row">
+              <span className="lb-role">unattributed</span>
+              <span />
+              <span className="lb-num r">{formatUsd(rest.unattributed)}</span>
+              <span />
+            </li>
+          )}
+          {rest.main !== null && (
+            <li data-testid="phase-role" className="lb-muted" title="the main session's own turns: dispatching, reading reports, acting on them">
+              <span className="lb-role">main session</span>
+              <span />
+              <span className="lb-num r">{formatUsd(rest.main)}</span>
+              <span />
+            </li>
+          )}
         </ul>
       )}
       {tasks && (
@@ -392,7 +440,6 @@ export function RunDetail({ project, change }: RunDetailProps) {
     () => [...phaseSteps(runs0, dispatches), ...phaseSteps(sub?.runs ?? [], sub?.dispatches ?? [])].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt)),
     [runs0, dispatches, sub],
   );
-  const costs = useMemo(() => dispatchCosts(phaseRuns), [phaseRuns]);
   const allFindings = [...findings, ...(sub?.findings ?? [])];
   const srSteps = steps.filter((x) => x.phase === "Self-review");
   const srRuns = phaseRuns.filter((r) => STAGE_PHASE[r.stage] === "Self-review");
@@ -475,6 +522,9 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   ? "waiting"
                   : "running";
           const failed = runs.filter((r) => r.outcome === "failed");
+          // The self-review sub-run is this change's work, recorded under its own change: Total carries it once.
+          const subCost = measuredSum((sub?.runs ?? []).map((r) => readCostUsd(r.metrics)));
+          const totalCost = measuredSum([summary.totalCostUsd, subCost]);
           const byStage = new Map<string, number>();
           for (const r of runs) byStage.set(r.stage, (byStage.get(r.stage) ?? 0) + (readCostUsd(r.metrics) ?? 0));
           const stageCost = [...byStage].sort((a, b) => b[1] - a[1]);
@@ -514,8 +564,8 @@ export function RunDetail({ project, change }: RunDetailProps) {
                 </Kpi>
                 <Kpi
                   label="Total cost"
-                  value={<span className="lb-num">{summary.totalCostUsd === null ? "—" : formatUsd(summary.totalCostUsd)}</span>}
-                  hint={`${summary.runCount} stage runs, ${summary.measuredRuns} measured`}
+                  value={<span className="lb-num">{totalCost === null ? "—" : formatUsd(totalCost)}</span>}
+                  hint={`${summary.runCount} stage runs, ${summary.measuredRuns} measured${subCost !== null ? ` · incl. self-review sub-run ${formatUsd(subCost)}` : ""}`}
                 />
                 <Kpi label="Wall clock" value={<span className="lb-num">{formatSpan(t1 - t0)}</span>} hint={`active ${formatSpan(active)}`} />
                 <Kpi
@@ -576,7 +626,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                             </td>
                             <td>
                               {formatModel(d.modelVersion ?? d.model)}
-                              {d.effort && ` · ${d.effort}`}
+                              {knownEffort(d.effort) && ` · ${d.effort}`}
                             </td>
                             <td className="r lb-num">{formatSpan(now - Date.parse(d.startedAt))}</td>
                           </tr>
@@ -600,7 +650,6 @@ export function RunDetail({ project, change }: RunDetailProps) {
                     title="Main"
                     runs={mainRuns}
                     steps={mainSteps}
-                    costs={costs}
                     now={now}
                     nowText={mainNow(mainRuns, mainSteps, board?.tasks, board?.state === "FINISHED", now)}
                     progress={mainProgress(mainRuns).map((x) => ({ label: x.phase.toLowerCase(), state: x.state }))}
@@ -614,7 +663,6 @@ export function RunDetail({ project, change }: RunDetailProps) {
                     title="Self-review"
                     runs={srRuns}
                     steps={srSteps}
-                    costs={costs}
                     now={now}
                     extra={sub && <a href={`#/run/${encodeURIComponent(sub.project)}/${encodeURIComponent(sub.name)}`}>sub-run</a>}
                     nowText={srStarted ? srNow.text : "Not started"}

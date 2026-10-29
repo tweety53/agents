@@ -1248,8 +1248,8 @@ func TestInlineDispatchTakesMainThreadUsage(t *testing.T) {
 // record, an open one and a launched one get none.
 func TestInlineWindowWithNoTurnInsideMeasuresZero(t *testing.T) {
 	records := []harvest.Record{
-		{SessionID: mainSessionID, Timestamp: mustParse(t, "2026-10-26T13:31:25.743Z"), Usage: harvest.Usage{InputTokens: 3, OutputTokens: 40}},
-		{SessionID: mainSessionID, Timestamp: mustParse(t, "2026-10-26T13:37:28.709Z"), Usage: harvest.Usage{InputTokens: 5, OutputTokens: 70}},
+		{SessionID: mainSessionID, Timestamp: mustParse(t, "2026-10-26T13:31:25.743Z"), Model: "claude-opus-5-5", Effort: "low", Usage: harvest.Usage{InputTokens: 3, OutputTokens: 40}},
+		{SessionID: mainSessionID, Timestamp: mustParse(t, "2026-10-26T13:37:28.709Z"), Model: "claude-opus-5-5", Effort: "high", Usage: harvest.Usage{InputTokens: 5, OutputTokens: 70}},
 	}
 	start, end := mustParse(t, "2026-10-26T13:31:27.823Z"), mustParse(t, "2026-10-26T13:37:25.519Z")
 	// 7 and 8 start after the last record, so no record falls inside them
@@ -1268,8 +1268,9 @@ func TestInlineWindowWithNoTurnInsideMeasuresZero(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Attribute: %v", err)
 	}
-	if d, ok := deltas[6]; !ok || !reflect.DeepEqual(d, harvest.DispatchDelta{}) {
-		t.Errorf("dispatch 6 delta = %+v (present %v), want a zero entry", d, ok)
+	// Zero tokens, but the session's model and effort as of the window's start.
+	if d, ok := deltas[6]; !ok || !reflect.DeepEqual(d, harvest.DispatchDelta{ModelVersion: "claude-opus-5-5", Effort: "low"}) {
+		t.Errorf("dispatch 6 delta = %+v (present %v), want a zero entry carrying opus-5-5 at low", d, ok)
 	}
 	for _, id := range []int64{5, 7, 8, 9} {
 		if d, ok := deltas[id]; ok {
@@ -2185,5 +2186,33 @@ func TestAgentModelVersions(t *testing.T) {
 	}
 	if _, err := harvest.AgentModelVersions(filepath.Join(root, "missing")); err == nil {
 		t.Error("AgentModelVersions(missing root) = nil error, want one")
+	}
+}
+
+// TestInlineWindowCarriesTheSessionsEffort pins that an inline row -- whose
+// begin records effort "default", the main session never naming its own --
+// takes the effort and model of the main-thread turns inside it, and that a
+// launched dispatch's sidechain turns leave its effort alone.
+func TestInlineWindowCarriesTheSessionsEffort(t *testing.T) {
+	start, end := mustParse(t, "2026-10-26T13:00:00Z"), mustParse(t, "2026-10-26T13:10:00Z")
+	records := []harvest.Record{
+		{SessionID: mainSessionID, Timestamp: mustParse(t, "2026-10-26T13:05:00Z"), Model: "claude-opus-5-5", Effort: "medium", Usage: harvest.Usage{OutputTokens: 9}},
+		{SessionID: mainSessionID, Timestamp: mustParse(t, "2026-10-26T13:06:00Z"), Model: "claude-sonnet-5-5", Effort: "high", IsSidechain: true, AgentID: "agent-x", Usage: harvest.Usage{OutputTokens: 4}},
+	}
+	windows := &fakeDispatchWindowSource{bySession: map[string][]harvest.DispatchWindow{
+		mainSessionID: {
+			{DispatchID: 1, AgentID: harvest.InlineAgentID, StartedAt: start, EndedAt: ptrTime(end)},
+			{DispatchID: 2, AgentID: "agent-x", StartedAt: start, EndedAt: ptrTime(end)},
+		},
+	}}
+	deltas, err := harvest.NewDispatchAttributor(windows).Attribute(context.Background(), records)
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	if d := deltas[1]; d.Effort != "medium" || d.ModelVersion != "claude-opus-5-5" {
+		t.Errorf("inline delta = %+v, want opus-5-5 at medium", d)
+	}
+	if d := deltas[2]; d.Effort != "" || d.ModelVersion != "claude-sonnet-5-5" {
+		t.Errorf("launched delta = %+v, want its model and no effort", d)
 	}
 }
