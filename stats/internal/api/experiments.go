@@ -8,7 +8,6 @@ import (
 	"strconv"
 
 	"github.com/tweety53/agents/stats/internal/modelpolicy"
-	"github.com/tweety53/agents/stats/internal/modelpolicy/embedded"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -25,15 +24,20 @@ type ExperimentStore interface {
 
 var _ ExperimentStore = (*store.Store)(nil)
 
-// WithExperiments registers the /api/v1/experiments routes against s.
-func WithExperiments(s ExperimentStore) Option {
-	return func(o *serverOptions) { o.experiments = s }
+// WithExperiments registers the /api/v1/experiments routes against s, and
+// /api/v1/roles over table -- the Allowed pairs markdown. The caller passes
+// the table (flowd: modelpolicy/embedded.Table) so this package never
+// imports the make-copied embed: internal/reconcile imports internal/api,
+// and cmd/flow must build without make.
+func WithExperiments(s ExperimentStore, table []byte) Option {
+	return func(o *serverOptions) { o.experiments, o.rolesTable = s, table }
 }
 
 // experimentsHandler serves the experiment endpoints on settingsHandler's
 // thin shape: decode, call the store, map its typed errors.
 type experimentsHandler struct {
 	store  ExperimentStore
+	table  []byte
 	logger *slog.Logger
 }
 
@@ -159,13 +163,13 @@ type roleEntry struct {
 }
 
 // roles serves GET /api/v1/roles: a leading `main` entry (no table row of
-// its own), then the embedded Allowed pairs table one entry per row in
+// its own), then the Allowed pairs table one entry per row in
 // table order, each unmarked row -- and main -- carrying the open
 // experiment cell that replaces it. Marked rows (escalations) never do.
 func (h *experimentsHandler) roles(w http.ResponseWriter, r *http.Request) {
-	rows, err := modelpolicy.Rows(embedded.Table)
+	rows, err := modelpolicy.Rows(h.table)
 	if err != nil {
-		h.experimentError(w, "parse embedded roles table", err)
+		h.experimentError(w, "parse roles table", err)
 		return
 	}
 	open, err := h.store.ListExperiments(r.Context(), true)

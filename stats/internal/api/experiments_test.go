@@ -14,6 +14,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/api"
 	"github.com/tweety53/agents/stats/internal/config"
+	"github.com/tweety53/agents/stats/internal/modelpolicy/embedded"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -81,7 +82,7 @@ func newExperimentsTestServer(t *testing.T, fe *fakeExperiments) *httptest.Serve
 	t.Helper()
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
 	fs := newFakeStore()
-	srv, err := api.New(cfg, fs, fs, fs, fs, fs, nil, api.WithExperiments(fe))
+	srv, err := api.New(cfg, fs, fs, fs, fs, fs, nil, api.WithExperiments(fe, embedded.Table))
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}

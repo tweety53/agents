@@ -177,6 +177,7 @@ type serverOptions struct {
 	guardRuns   GuardRunStore
 	repricer    Repricer
 	experiments ExperimentStore
+	rolesTable  []byte
 	commitBase  string
 	build       string
 	agentEnd    func(agentID string) (time.Time, bool)
@@ -416,7 +417,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 		mux.HandleFunc("POST /api/v1/pricing/reprice", ph.reprice)
 	}
 	if so.experiments != nil {
-		eh := &experimentsHandler{store: so.experiments, logger: logger}
+		eh := &experimentsHandler{store: so.experiments, table: so.rolesTable, logger: logger}
 		mux.HandleFunc("POST /api/v1/experiments", eh.open)
 		mux.HandleFunc("GET /api/v1/experiments", eh.list)
 		mux.HandleFunc("GET /api/v1/experiments/overrides", eh.overrides)
