@@ -223,7 +223,7 @@ function StageRunRow({ run, now }: { run: StageRunDTO; now: number }) {
         <tr className="lb-dispatch" data-testid="main-share-row">
           <td className="lb-dispatch-name">main session</td>
           <td colSpan={4} className="lb-muted">
-            the stage's own work, outside its subagents
+            main's own turns in this stage: dispatching the subagents, reading their reports, acting on them
           </td>
           <td>{modelEffort(readMainModels(run.metrics), readEffort(run.metrics))}</td>
           <td className="r lb-num">{formatUsd(mainShare)}</td>

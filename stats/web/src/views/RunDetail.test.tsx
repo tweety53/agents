@@ -862,3 +862,30 @@ describe("the reworked run view (kan-1048)", () => {
     expect(svg).toHaveAttribute("width", "100%");
   });
 });
+
+describe("the run view stays live", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("refetches every five seconds and shows a stage run that appears", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const run = (id: number, stage: string): StageRunDTO => ({
+      stageRunId: id,
+      harness: "claude-code",
+      command: "/flow",
+      stage,
+      attempt: 1,
+      startedAt: "2026-01-01T00:00:00Z",
+      metrics: {},
+    });
+    listStageRunsMock.mockResolvedValue(stageRunsResponse([run(1, "SDD + TDD per task")]));
+    fetchStatsViewMock.mockResolvedValue(aggregateEnvelope([]));
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    await screen.findAllByRole("cell", { name: "SDD + TDD per task" });
+
+    listStageRunsMock.mockResolvedValue(stageRunsResponse([run(1, "SDD + TDD per task"), run(2, "Review panel")]));
+    await vi.advanceTimersByTimeAsync(5000);
+
+    await screen.findAllByRole("cell", { name: "Review panel" });
+    expect(screen.getAllByRole("cell", { name: "SDD + TDD per task" }).length).toBeGreaterThan(0);
+  });
+});

@@ -106,13 +106,29 @@ function summarize(rows: CostPerChangeRow[]): RunSummary {
 // per fetch (not memoised across renders) so a change that gains a new
 // stage run and is revisited is still covered.
 const WIDE_FROM = new Date(0);
+const REFRESH_MS = 5000;
 
 export function useRunDetail(project: string, change: string): RunDetailState {
   const [state, setState] = useState<RunDetailState>({ status: "loading" });
+  const [tick, setTick] = useState(0);
+
+  // Live like the state board: refetch every REFRESH_MS while the tab is
+  // shown, at once when it is shown again.
+  useEffect(() => {
+    const refresh = () => document.hidden || setTick((t) => t + 1);
+    const id = setInterval(refresh, REFRESH_MS);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, []);
+
+  // A new change starts from loading; a refresh keeps the shown data.
+  useEffect(() => setState({ status: "loading" }), [project, change]);
 
   useEffect(() => {
     let cancelled = false;
-    setState({ status: "loading" });
 
     Promise.all([
       listStageRuns({
@@ -160,13 +176,14 @@ export function useRunDetail(project: string, change: string): RunDetailState {
         });
       })
       .catch((err: unknown) => {
-        if (!cancelled) setState({ status: "error", message: err instanceof Error ? err.message : String(err) });
+        // A failed refresh keeps the shown data; the next tick retries.
+        if (!cancelled) setState((prev) => (prev.status === "ready" ? prev : { status: "error", message: err instanceof Error ? err.message : String(err) }));
       });
 
     return () => {
       cancelled = true;
     };
-  }, [project, change]);
+  }, [project, change, tick]);
 
   return state;
 }
