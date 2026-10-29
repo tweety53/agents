@@ -84,7 +84,7 @@ Correction (2026-10-30): Step 3 planned widening `papPair`'s regex to admit `xhi
   - [ ] **Step 3: Verify.** `cd stats && make -s web-dist && go test ./internal/modelpolicy ./internal/api -run 'Roles|Embedded' -count=1` passes; `git status --short stats/internal/modelpolicy` lists no `model-policy.md`; lint. Commit.
 
 **Build:** green
-**Files:** `stats/internal/modelpolicy/modelpolicy_test.go`, `stats/internal/api/experiments.go`, `stats/internal/api/experiments_test.go`, `stats/internal/api/server.go`, `stats/Makefile`, `.gitignore`, `stats/internal/modelpolicy/embedded/embed.go`, `stats/internal/modelpolicy/embedded/embedded_test.go`
+**Files:** `stats/internal/modelpolicy/modelpolicy_test.go`, `stats/internal/api/experiments.go`, `stats/internal/api/experiments_test.go`, `stats/internal/api/server.go`, `stats/Makefile`, `.gitignore`, `stats/internal/modelpolicy/embedded/embed.go`, `stats/internal/modelpolicy/embedded/embedded_test.go`, `stats/internal/modelpolicy/modelpolicy.go`
 **Tests:** `TestRolesRoute`, `TestEmbeddedTableParses`
 **Regression:** `TestRolesRoute` fails — the stats UI has no roles table to draw.
 **Commit:** feat(stats): serve the allowed-pairs roles table with open overrides applied
@@ -92,13 +92,15 @@ Correction (2026-10-30): Step 3 planned widening `papPair`'s regex to admit `xhi
 
 Correction (2026-10-30): the plan put `//go:embed model-policy.md` in `stats/internal/modelpolicy`, which `internal/guard` imports after Task 3; the file is gitignored and only make writes it, so plain `go build ./cmd/flow-guard` (`scripts/lib/flow-guard.sh`) would fail. The embed moves to `stats/internal/modelpolicy/embedded/` (`embed.go`, `embedded_test.go` holding `TestEmbeddedTableParses`); the copy target and the `.gitignore` entry become `stats/internal/modelpolicy/embedded/model-policy.md`.
 
+Correction (2026-10-30): `Parse` returns a map, so table order needs `modelpolicy.Rows` (table order kept; `Parse` groups it) in `stats/internal/modelpolicy/modelpolicy.go`; the embedded variable is `embedded.Table`, not `Embedded`; `policy-copy` copies through a temp file and rename so concurrent `make` runs never embed a half-written file, so the `.gitignore` entry is `stats/internal/modelpolicy/embedded/model-policy.md*`.
+
 **Decision:** roles-table-embedded
 
-- [ ] 5. Record plan corrections with `flow tasks count`
-  - [ ] **Step 1: Write the tests.** `stats/cmd/flow/tasks_test.go`: `TestTasksCountPostsCorrections` — a plan whose task entries carry two `Correction (2026-10-29):` paragraphs (plus a fenced example line `Correction (YYYY-MM-DD):`, not counted) posts `{"totalTasks":N,"corrections":2}`. `stats/internal/store/taskcounts_test.go`: `TestRecordTaskCountCorrections` stores and reads the column; an old client posting no `corrections` stores 0. Run — fails.
-  - [ ] **Step 2: Implement.** `stats/internal/store/migrations/0055_task_count_corrections.sql`: `ALTER TABLE change_task_counts ADD COLUMN IF NOT EXISTS corrections INT NOT NULL DEFAULT 0`, header comment citing KAN-1067. `stats/internal/store/taskcounts.go`, its API handler and client type, and `stats/cmd/flow/tasks.go` carry `corrections` — counted as lines matching `^\s*Correction \(\d{4}-\d{2}-\d{2}\):` outside fences.
-  - [ ] **Step 3: Edit the contract.** In `skills/flow/implement.md`, after the sentence ending "(kan-1020: a bare count in a Correction was refused only at verify).", add: "Once a `Correction:` paragraph is transcribed, the parent runs `flow tasks count -C <worktree> <change>`, which records the plan's correction count beside its task count — the plan-corrections metric experiments compare (KAN-1067)." Wrap at the file's width.
-  - [ ] **Step 4: Verify.** Tests pass; `scripts/check-references.sh` and `scripts/check-markdown-integrity.sh` exit 0; lint. Commit.
+- [x] 5. Record plan corrections with `flow tasks count`
+  - [x] **Step 1: Write the tests.** `stats/cmd/flow/tasks_test.go`: `TestTasksCountPostsCorrections` — a plan whose task entries carry two `Correction (2026-10-29):` paragraphs (plus a fenced example line `Correction (YYYY-MM-DD):`, not counted) posts `{"totalTasks":N,"corrections":2}`. `stats/internal/store/taskcounts_test.go`: `TestRecordTaskCountCorrections` stores and reads the column; an old client posting no `corrections` stores 0. Run — fails.
+  - [x] **Step 2: Implement.** `stats/internal/store/migrations/0055_task_count_corrections.sql`: `ALTER TABLE change_task_counts ADD COLUMN IF NOT EXISTS corrections INT NOT NULL DEFAULT 0`, header comment citing KAN-1067. `stats/internal/store/taskcounts.go`, its API handler and client type, and `stats/cmd/flow/tasks.go` carry `corrections` — counted as lines matching `^\s*Correction \(\d{4}-\d{2}-\d{2}\):` outside fences.
+  - [x] **Step 3: Edit the contract.** In `skills/flow/implement.md`, after the sentence ending "(kan-1020: a bare count in a Correction was refused only at verify).", add: "Once a `Correction:` paragraph is transcribed, the parent runs `flow tasks count -C <worktree> <change>`, which records the plan's correction count beside its task count — the plan-corrections metric experiments compare (KAN-1067)." Wrap at the file's width.
+  - [x] **Step 4: Verify.** Tests pass; `scripts/check-references.sh` and `scripts/check-markdown-integrity.sh` exit 0; lint. Commit.
 
 **Build:** green
 **Files:** `stats/internal/store/migrations/0055_task_count_corrections.sql`, `stats/internal/store/taskcounts.go`, `stats/internal/store/taskcounts_test.go`, `stats/cmd/flow/tasks.go`, `stats/cmd/flow/tasks_test.go`, `skills/flow/implement.md`, `stats/internal/records/types.go`, `stats/cmd/flow/tick.go`
