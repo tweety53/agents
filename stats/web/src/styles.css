@@ -786,3 +786,178 @@ th button {
 /* min-width lets a flex item shrink below its text; max-width lets a table cell. */
 .lb-clip { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 td.lb-clip { max-width: 0; width: 100%; }
+
+/* The Experiments view (views/Experiments.tsx), drawn exactly as the
+   approved prototype .superpowers/sdd/experiments-prototype.html: its
+   rules, scoped under .experiments, every colour a theme.css token. */
+.experiments {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  font: 14px/1.4 system-ui, -apple-system, sans-serif;
+}
+@media (max-width: 760px) {
+  .experiments {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.experiments .panel {
+  background: var(--surface-panel);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 12px;
+  margin: 0;
+  min-width: 0;
+}
+.experiments .ttl {
+  font-size: 0.7rem;
+  font-weight: normal;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin: 0 0 8px;
+}
+.experiments .list button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: inherit;
+  padding: 8px;
+  cursor: pointer;
+  font: inherit;
+}
+.experiments .list button:hover {
+  background: var(--surface-tip);
+}
+.experiments .list button:focus-visible {
+  outline: 2px solid var(--series-1);
+}
+.experiments .list button.on {
+  border-color: var(--series-1);
+  background: var(--surface-tip);
+}
+.experiments .pill {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  border: 1px solid currentColor;
+  margin-left: 6px;
+}
+.experiments .open {
+  color: var(--st-progress);
+}
+.experiments .closed {
+  color: var(--st-finished);
+}
+.experiments .sub {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.experiments code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.experiments .right {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.experiments .cells {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.experiments .stat .v {
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+}
+.experiments .stat .d {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.experiments .up {
+  color: var(--delta-up);
+}
+.experiments .down {
+  color: var(--delta-down);
+}
+.experiments table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.experiments th,
+.experiments td {
+  text-align: left;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+}
+.experiments th {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.experiments .wrap {
+  overflow-x: auto;
+}
+.experiments svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.experiments .charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+.experiments figure {
+  margin: 0;
+  min-width: 0;
+}
+.experiments figcaption {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.experiments .legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.experiments .legend i {
+  display: inline-block;
+  width: 14px;
+  height: 8px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.experiments .legend i.dash {
+  height: 0;
+  border-top: 2px dashed;
+}
+.experiments .pt {
+  cursor: default;
+}
+.experiments .pt:hover,
+.experiments .pt:focus {
+  r: 5;
+  outline: none;
+}
+.experiments .roles {
+  grid-column: 1 / -1;
+}
+.experiments .roles s {
+  color: var(--text-muted);
+}
+.experiments .roles .exp {
+  color: var(--st-progress);
+}
+.experiments .summary {
+  white-space: pre-wrap;
+  color: var(--text-secondary);
+}
