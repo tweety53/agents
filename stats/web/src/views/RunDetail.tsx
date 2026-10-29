@@ -137,12 +137,12 @@ export function RunDetail({ project, change }: RunDetailProps) {
           const betweenStages = !openRun && lastRun && board !== undefined && (sessionAlive(board, now) || board.activity === "question" || board.activity === "permission");
           const mainRun = openRun ?? (betweenStages ? lastRun : undefined);
           const mainAgent = mainRun && {
-            what: inline ? inlineWhat(inline, board?.tasks) : openRun ? `${stageLabel(openRun.stage)}${board && agentsDone(board) ? ", wrapping up after its agents" : ""}` : `after ${stageLabel(mainRun.stage)}`,
+            what: inline ? inlineWhat(inline, board?.tasks) : openRun ? `${stageLabel(openRun.stage)}${board && agentsDone(board) ? ", wrapping up after its agents" : ""}` : (board?.activity === "working" && board.activityDetail ? board.activityDetail : `between stages, after ${stageLabel(mainRun.stage)}`),
             model: inline
               ? formatModel(inline.modelVersion ?? inline.model)
               : (readMainModels(mainRun.metrics)?.map(formatModel).join(", ") ?? "—"),
             effort: readEffort(mainRun.metrics) ?? undefined,
-            since: inline?.startedAt ?? (openRun ? openRun.startedAt : (board?.activitySince ?? mainRun.endedAt ?? mainRun.startedAt)),
+            since: inline?.startedAt ?? (openRun ? openRun.startedAt : (mainRun.endedAt ?? mainRun.startedAt)),
           };
           const nowTask = board ? runningTask(board) : null;
           const agentCount = subagents.length + (mainAgent ? 1 : 0);

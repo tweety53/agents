@@ -7,7 +7,8 @@ PUT /api/v1/sessions/<session_id>/activity {"state", "detail"}:
 
   PreToolUse on AskUserQuestion  -> question, the first question's text
   Notification naming permission -> permission, the notification's message
-  UserPromptSubmit, PostToolUse  -> working
+  PostToolUse                    -> working, the tool and its short label
+  UserPromptSubmit               -> working
   Stop                           -> idle
 
 Any other event sends nothing. detail is cut to 500 bytes, the most flowd accepts.
@@ -44,11 +45,38 @@ def activity(payload: dict) -> Optional[Tuple[str, str]]:
         if "permission" in message.lower():
             return "permission", message
         return None
-    if event in ("UserPromptSubmit", "PostToolUse"):
+    if event == "PostToolUse":
+        return "working", action(payload)
+    if event == "UserPromptSubmit":
         return "working", ""
     if event == "Stop":
         return "idle", ""
     return None
+
+
+def action(payload: dict) -> str:
+    """What the main thread just did, in a few words, for the board: the tool and
+    its own short label -- a Bash call's description (else its first command
+    line), an edited or read file's name, a dispatched agent's or skill's name."""
+    tool = str(payload.get("tool_name") or "")
+    inp = payload.get("tool_input") or {}
+    if not isinstance(inp, dict):
+        return tool
+    if tool == "Bash":
+        label = str(inp.get("description") or "")
+        if not label:
+            lines = str(inp.get("command") or "").splitlines()
+            label = lines[0] if lines else ""
+        return f"Bash: {label}" if label else tool
+    if tool in ("Edit", "Write", "Read", "NotebookEdit"):
+        path = str(inp.get("file_path") or inp.get("notebook_path") or "")
+        return f"{tool} {os.path.basename(path)}" if path else tool
+    if tool in ("Agent", "Task"):
+        label = str(inp.get("description") or inp.get("subagent_type") or "")
+        return f"Agent: {label}" if label else tool
+    if tool == "Skill":
+        return f"Skill {inp.get('skill')}" if inp.get("skill") else tool
+    return tool
 
 
 def truncate(text: str) -> str:

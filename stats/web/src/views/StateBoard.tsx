@@ -15,7 +15,7 @@ import { useStatsView } from "../hooks/useStatsView";
 import { DAY_MS, formatInt, formatRelative, formatSpan, formatUsd } from "../format";
 import { phase } from "../lib/phase";
 import { projectLabel } from "../lib/projectLabel";
-import { agentsDone, runningTask } from "../lib/runningTask";
+import { agentsDone, lastAction, runningTask } from "../lib/runningTask";
 import { sessionAlive } from "../lib/sessionAlive";
 import { stageLabel } from "../lib/stageLabel";
 
@@ -149,9 +149,9 @@ function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
           {row.lastStageEndedAt && <span className="lb-muted">· {formatSpan(now - Date.parse(row.lastStageEndedAt))} ago</span>}
         </div>
       )}
-      {task && (
-        <div className="lb-task-now" data-testid="running-task" title={task}>
-          {task}
+      {(task ?? lastAction(row)) && (
+        <div className="lb-task-now" data-testid="running-task" title={task ?? lastAction(row) ?? ""}>
+          {task ?? lastAction(row)}
         </div>
       )}
       <ActivityBadge row={row} now={now} />
