@@ -19,17 +19,18 @@ import {
 } from "../api";
 import { RunDetail } from "./RunDetail";
 
-const { listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock, runRecordMock } = vi.hoisted(() => ({
+const { listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock, runRecordMock, findChangesMock } = vi.hoisted(() => ({
   listStageRunsMock: vi.fn(),
-  runRecordMock: vi.fn(() => Promise.resolve({ dispatches: [] as unknown[] })),
-  listFindingsMock: vi.fn(() => Promise.resolve([] as unknown[])),
+  findChangesMock: vi.fn(() => Promise.resolve({ records: [] as unknown[] })),
+  runRecordMock: vi.fn((_project: string, _change: string) => Promise.resolve({ dispatches: [] as unknown[] })),
+  listFindingsMock: vi.fn((_project: string, _change: string) => Promise.resolve([] as unknown[])),
   fetchStatsViewMock: vi.fn(),
   listStagesMock: vi.fn(() => Promise.resolve({ stages: ["flow.kickoff", "flow.brainstorm", "flow.decide", "flow.sdd-tdd", "flow.review-panel", "flow.verify"] })),
 }));
 
 vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
-  return { ...actual, listStageRuns: listStageRunsMock, fetchStatsView: fetchStatsViewMock, listStages: listStagesMock, listSelfReviewFindings: listFindingsMock, getRunRecord: runRecordMock };
+  return { ...actual, listStageRuns: listStageRunsMock, fetchStatsView: fetchStatsViewMock, listStages: listStagesMock, listSelfReviewFindings: listFindingsMock, getRunRecord: runRecordMock, findChanges: findChangesMock };
 });
 
 function stageRunsResponse(stageRuns: StageRunDTO[], total?: number): ListStageRunsResponse {
@@ -797,10 +798,11 @@ describe("the reworked run view (kan-1048)", () => {
   });
 
   it("run detail shows a panel per phase, the open phase first, Self-review with its plan and findings", async () => {
-    listStageRunsMock.mockResolvedValue(stageRunsResponse([...planning, implementation[0], run(5, "flow.self-review", "2026-01-01T02:00:00Z", undefined)]));
+    const impl3 = { ...implementation[0], metrics: { ...(implementation[0].metrics as object), dispatches: { "agent-impl": { cost_usd: 1 } } } };
+    listStageRunsMock.mockResolvedValue(stageRunsResponse([...planning, impl3, run(5, "flow.self-review", "2026-01-01T02:00:00Z", undefined)]));
     runRecordMock.mockResolvedValueOnce({
       dispatches: [
-        { id: 1, role: "implementer", taskId: "1", key: "task-1-implementer", model: "opus", startedAt: "2026-01-01T01:05:00Z", endedAt: "2026-01-01T01:20:00Z", outcome: "completed" },
+        { id: 1, agentId: "agent-impl", role: "implementer", taskId: "1", key: "task-1-implementer", model: "opus", startedAt: "2026-01-01T01:05:00Z", endedAt: "2026-01-01T01:20:00Z", outcome: "completed" },
         { id: 2, role: "self-review", key: "self-review", model: "opus", effort: "medium", startedAt: "2026-01-01T02:00:00Z", endedAt: "2026-01-01T02:20:00Z", outcome: "completed" },
         { id: 3, role: "implementer", taskId: "2", key: "task-2-implementer", model: "opus", startedAt: "2026-01-01T02:30:00Z", endedAt: "2026-01-01T02:40:00Z", outcome: "blocked" },
         { id: 4, role: "implementer", taskId: "2", key: "task-2-implementer-r2", model: "opus", metrics: { modelVersion: "claude-opus-5-5" }, startedAt: "2026-01-01T02:50:00Z" },
@@ -843,7 +845,10 @@ describe("the reworked run view (kan-1048)", () => {
     // A dispatch lands in the phase of the stage run it began in.
     const impl = screen.getByRole("region", { name: "Implementation" });
     expect(within(impl).getAllByTestId("phase-step")).toHaveLength(1);
-    expect(impl.querySelector(".lb-panel-note")).toHaveTextContent(/^1 step$/);
+    // The header: one step, the phase's active time and its stage runs' cost; the step its own cost, "—" unpriced.
+    expect(impl.querySelector(".lb-panel-note")).toHaveTextContent(/^1 step30m\$3\.00$/);
+    expect(within(impl).getByTestId("phase-step")).toHaveTextContent(/1\.00$/);
+    expect(steps[0].lastElementChild).toHaveTextContent("—");
     expect(impl).toHaveTextContent("Implementing task 1 (Schema)");
     expect(screen.getByRole("region", { name: "Review" })).toHaveTextContent("Not started.");
     expect(panel).toHaveTextContent("✔ 1. Fix the divider");
@@ -851,6 +856,56 @@ describe("the reworked run view (kan-1048)", () => {
     const finding = await within(panel).findByTestId("self-review-finding");
     expect(finding).toHaveTextContent("correctnessCount is stalefixedabc1234");
     expect(listFindingsMock).toHaveBeenCalledWith(PROJECT, CHANGE);
+  });
+
+  it("run detail merges the self-review sub-run into the Self-review phase, with its costs and findings", async () => {
+    const SUB = `self-review-${CHANGE}`;
+    findChangesMock.mockResolvedValue({ records: [{ projectKey: "agents-tooling", name: SUB }] });
+    listStageRunsMock.mockImplementation((q: { filters?: { name?: string } }) =>
+      Promise.resolve(
+        stageRunsResponse(
+          q.filters?.name === SUB
+            ? [
+                run(20, "flow.self-review", "2026-01-01T02:10:00Z", "2026-01-01T02:30:00Z", { metrics: { cost_usd: 2, dispatches: { "agent-plan": { cost_usd: 1.5 } } } }),
+                run(21, "flow.self-review", "2026-01-01T02:31:00Z", undefined, { metrics: { cost_usd: 0.5 } }),
+              ]
+            : [...planning, run(5, "flow.self-review", "2026-01-01T02:00:00Z", undefined)],
+        ),
+      ),
+    );
+    runRecordMock.mockImplementation((_p: string, name: string) =>
+      Promise.resolve({
+        dispatches:
+          name === SUB
+            ? [
+                { id: 7, agentId: "agent-plan", role: "planner", key: `${SUB}-plan`, model: "opus", startedAt: "2026-01-01T02:10:00Z", endedAt: "2026-01-01T02:29:00Z", outcome: "completed" },
+                { id: 8, agentId: "agent-fix", role: "implementer", key: `${SUB}-fix-g1`, model: "opus", startedAt: "2026-01-01T02:31:00Z" },
+              ]
+            : [],
+      }),
+    );
+    listFindingsMock.mockImplementation((_p: string, name: string) =>
+      Promise.resolve(name === SUB ? [{ id: 9, change: SUB, angle: "tooling", note: "Guard too strict", disposition: "fixed", ref: "def5678", recordedAt: "2026-01-01T02:40:00Z" }] : []),
+    );
+    const reviewing = { ...boardRow, currentStage: "flow.self-review", selfReviewTasks: [{ n: 1, title: "Fix the guard", state: "pending" }] };
+    fetchStatsViewMock.mockImplementation((view: string) =>
+      Promise.resolve(view === "state-board" ? { ...aggregateEnvelope([]), view, rows: [reviewing] } : aggregateEnvelope([])),
+    );
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const panel = await screen.findByRole("region", { name: "Self-review" });
+    const steps = await within(panel).findAllByTestId("phase-step");
+    expect(steps.map((s) => s.children[0].textContent)).toEqual(["planner", "implementer"]);
+    expect(steps[0]).toHaveTextContent(/\$1\.50$/);
+    expect(steps[1].children[1]).toHaveTextContent("running");
+    // The phase sums the change's own self-review run (unmeasured) with the sub-run's two.
+    expect(panel.querySelector(".lb-phase-cost")).toHaveTextContent("$2.50");
+    expect(panel).toHaveTextContent("◻ 1. Fix the guard");
+    expect(await within(panel).findByTestId("self-review-finding")).toHaveTextContent("toolingGuard too strictfixeddef5678");
+    expect(within(panel).getByRole("link", { name: "sub-run" })).toHaveAttribute("href", `#/run/agents-tooling/${SUB}`);
+    expect(findChangesMock).toHaveBeenCalledWith(SUB);
+    findChangesMock.mockResolvedValue({ records: [] });
+    runRecordMock.mockImplementation(() => Promise.resolve({ dispatches: [] }));
+    listFindingsMock.mockImplementation(() => Promise.resolve([]));
   });
 
   it("run detail's self-review panel says when no findings are recorded", async () => {

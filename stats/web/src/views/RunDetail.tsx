@@ -15,7 +15,7 @@ import { StageRunTable, groupSessions, runEnd } from "../components/StageRunTabl
 import { StageTimeline } from "../components/StageTimeline";
 import { useRunDetail } from "../hooks/useRunDetail";
 import { formatModel, formatRelative, formatSpan, formatUsd } from "../format";
-import { readCacheReadTokens, readCostUsd, readEffort, readMainModels, readTotalInputTokens } from "../metrics";
+import { asObject, readCacheReadTokens, readCostUsd, readEffort, readMainModels, readTotalInputTokens } from "../metrics";
 import { projectLabel } from "../lib/projectLabel";
 import { describeDispatch } from "../lib/describeDispatch";
 import { agentsDone, runningTask } from "../lib/runningTask";
@@ -24,7 +24,7 @@ import { stageLabel } from "../lib/stageLabel";
 import { ActivityBadge, StatePill } from "./StateBoard";
 import { taskCount } from "../lib/taskCount";
 import { phaseOrder, STAGE_PHASE, type Phase } from "../lib/phase";
-import { getRunRecord, listSelfReviewFindings, listStages, type ActiveSubagent, type PlanTask, type RecordDispatch, type SelfReviewFinding, type StageRunDTO } from "../api";
+import { findChanges, getRunRecord, listSelfReviewFindings, listStageRuns, listStages, type ActiveSubagent, type PlanTask, type RecordDispatch, type SelfReviewFinding, type StageRunDTO } from "../api";
 
 export interface RunDetailProps {
   project: string;
@@ -81,7 +81,7 @@ const LATEST_RUNS = 5;
 /** The outcomes a dispatch ends on without finishing its work. */
 const FAILED_OUTCOMES = new Set(["failed", "blocked", "aborted", "timed-out", "cancelled", "stopped"]);
 
-type Step = ActiveSubagent & { phase: Phase; endedAt?: string; outcome?: string };
+type Step = ActiveSubagent & { phase: Phase; agentId?: string; endedAt?: string; outcome?: string };
 
 function stepStatus(d: Step): "running" | "done" | "failed" {
   if (!d.endedAt) return "running";
@@ -99,6 +99,7 @@ function phaseSteps(runs: StageRunDTO[], dispatches: RecordDispatch[]): Step[] {
     if (!phase) continue;
     out.push({
       phase,
+      agentId: d.agentId,
       role: d.role,
       key: d.key || undefined,
       taskId: d.taskId || undefined,
@@ -113,32 +114,84 @@ function phaseSteps(runs: StageRunDTO[], dispatches: RecordDispatch[]): Step[] {
   return out;
 }
 
-/** One phase of the run: the dispatches begun in its stage runs, then whatever the phase adds. */
+type PhaseStatus = "running" | "done" | "idle";
+const PHASE_STATUS_LABEL: Record<PhaseStatus, string> = { running: "running", done: "done", idle: "not started" };
+
+/** Each priced dispatch's own cost, keyed by agent id, from its stage run's `dispatches.<agentId>.cost_usd` (KAN-212). */
+function dispatchCosts(runs: StageRunDTO[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const r of runs) {
+    const buckets = asObject(asObject(r.metrics)?.dispatches);
+    for (const [id, b] of Object.entries(buckets ?? {})) {
+      const c = readCostUsd(b);
+      if (c !== null) out.set(id, c);
+    }
+  }
+  return out;
+}
+
+/** Cost of whatever was measured, null when nothing was -- never a fabricated 0. */
+function measuredSum(values: (number | null | undefined)[]): number | null {
+  const known = values.filter((v): v is number => typeof v === "number");
+  return known.length ? known.reduce((a, v) => a + v, 0) : null;
+}
+
+/** One phase of the run: a header with its status, steps, active time and cost, the dispatches begun in its stage runs, then whatever the phase adds. */
 function PhasePanel({
   phase,
-  started,
+  runs,
   steps,
   tasks,
+  costs,
   now,
-  note,
+  extra,
   children,
 }: {
   phase: Phase;
-  started: boolean;
+  runs: StageRunDTO[];
   steps: Step[];
   tasks: PlanTask[] | undefined;
+  costs: Map<string, number>;
   now: number;
-  note?: string;
+  extra?: ReactNode;
   children?: ReactNode;
 }) {
+  const status: PhaseStatus = runs.length === 0 ? "idle" : runs.some((r) => !r.endedAt) ? "running" : "done";
+  const active = runs.reduce((a, r) => a + runEnd(r, now) - Date.parse(r.startedAt), 0);
+  const cost = measuredSum(runs.map((r) => readCostUsd(r.metrics)));
   return (
-    <section className="lb-panel" aria-label={phase}>
+    <section className={`lb-panel lb-phase ${status}`} aria-label={phase}>
       <div className="lb-panel-h">
-        <span>{phase}</span>
-        <span className="lb-panel-note">{note ?? (started ? `${steps.length} step${steps.length === 1 ? "" : "s"}` : "")}</span>
+        <span className="lb-phase-name">
+          {phase}
+          <span className="lb-status lb-phase-st">
+            <span className={`lb-dot ${status}`} />
+            {PHASE_STATUS_LABEL[status]}
+          </span>
+        </span>
+        <span className="lb-panel-note lb-phase-meta">
+          {extra}
+          {status === "idle" ? (
+            "Not started."
+          ) : (
+            <>
+              <span>{`${steps.length} step${steps.length === 1 ? "" : "s"}`}</span>
+              <span className="lb-num">{formatSpan(active)}</span>
+              <span className="lb-num lb-phase-cost">{cost === null ? "—" : formatUsd(cost)}</span>
+            </>
+          )}
+        </span>
       </div>
-      {started ? (
-        <table className="lb-table lb-agents">
+      {status !== "idle" && (
+        <table className="lb-table lb-steps">
+          <colgroup>
+            <col className="c-step" />
+            <col className="c-status" />
+            <col />
+            <col className="c-model" />
+            <col className="c-for" />
+            <col className="c-cost" />
+          </colgroup>
           <thead>
             <tr>
               <th>Step</th>
@@ -146,32 +199,43 @@ function PhasePanel({
               <th>Doing</th>
               <th>Model · effort</th>
               <th className="r">For</th>
+              <th className="r">Cost</th>
             </tr>
           </thead>
           <tbody>
-            {steps.map((d, i) => (
-              <tr key={`${d.key ?? d.role}-${i}`} data-testid="phase-step">
-                <td>{d.role}</td>
-                <td>{stepStatus(d)}</td>
-                <td>{inlineWhat(d, tasks)}</td>
-                <td>
-                  {formatModel(d.modelVersion ?? d.model)}
-                  {d.effort && ` · ${d.effort}`}
-                </td>
-                <td className="r lb-num">{formatSpan((d.endedAt ? Date.parse(d.endedAt) : now) - Date.parse(d.startedAt))}</td>
-              </tr>
-            ))}
+            {steps.map((d, i) => {
+              const st = stepStatus(d);
+              const c = d.agentId ? costs.get(d.agentId) : undefined;
+              return (
+                <tr key={`${d.key ?? d.role}-${i}`} data-testid="phase-step">
+                  <td>{d.role}</td>
+                  <td>
+                    <span className="lb-status">
+                      <span className={`lb-dot ${st}`} />
+                      {st}
+                    </span>
+                  </td>
+                  <td className="lb-ellip" title={inlineWhat(d, tasks)}>
+                    {inlineWhat(d, tasks)}
+                  </td>
+                  <td>
+                    {formatModel(d.modelVersion ?? d.model)}
+                    {d.effort && ` · ${d.effort}`}
+                  </td>
+                  <td className="r lb-num">{formatSpan((d.endedAt ? Date.parse(d.endedAt) : now) - Date.parse(d.startedAt))}</td>
+                  <td className="r lb-num">{c === undefined ? <span className="lb-muted">—</span> : formatUsd(c)}</td>
+                </tr>
+              );
+            })}
             {steps.length === 0 && (
               <tr>
-                <td colSpan={5} className="lb-muted">
+                <td colSpan={6} className="lb-muted">
                   No steps yet.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-      ) : (
-        <div className="lb-panel-b lb-muted">Not started.</div>
       )}
       {children}
     </section>
@@ -251,7 +315,38 @@ export function RunDetail({ project, change }: RunDetailProps) {
     };
   }, [project, change]);
   const [allRuns, setAllRuns] = useState(false);
-  const steps = useMemo(() => phaseSteps(runs0, dispatches), [runs0, dispatches]);
+  // The self-review sub-run, change self-review-<name> in whichever project hosts the tooling: its
+  // stage runs, dispatches and findings belong to this change's Self-review phase.
+  const [sub, setSub] = useState<{ project: string; name: string; runs: StageRunDTO[]; dispatches: RecordDispatch[]; findings: SelfReviewFinding[] } | null>(null);
+  useEffect(() => {
+    let live = true;
+    const load = () =>
+      findChanges(`self-review-${change}`)
+        .then(async (r) => {
+          const c = r?.records?.[0];
+          if (!c) return live && setSub(null);
+          const [rec, runs, found] = await Promise.all([
+            getRunRecord(c.projectKey, c.name).catch(() => ({ dispatches: [] })),
+            listStageRuns({ filters: { project: c.projectKey, name: c.name }, limit: 500 }).catch(() => ({ total: 0, stageRuns: [] })),
+            listSelfReviewFindings(c.projectKey, c.name).catch(() => []),
+          ]);
+          if (live) setSub({ project: c.projectKey, name: c.name, runs: runs.stageRuns, dispatches: rec.dispatches ?? [], findings: found ?? [] });
+        })
+        .catch(() => live && setSub(null));
+    load();
+    const id = setInterval(load, 5000);
+    return () => {
+      live = false;
+      clearInterval(id);
+    };
+  }, [change]);
+  const phaseRuns = useMemo(() => [...runs0, ...(sub?.runs ?? [])], [runs0, sub]);
+  const steps = useMemo(
+    () => [...phaseSteps(runs0, dispatches), ...phaseSteps(sub?.runs ?? [], sub?.dispatches ?? [])].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt)),
+    [runs0, dispatches, sub],
+  );
+  const costs = useMemo(() => dispatchCosts(phaseRuns), [phaseRuns]);
+  const allFindings = [...findings, ...(sub?.findings ?? [])];
 
   return (
     <section aria-label={`Run detail: ${project}/${change}`} className="dashboard lb">
@@ -449,11 +544,19 @@ export function RunDetail({ project, change }: RunDetailProps) {
                 <PhasePanel
                   key={p}
                   phase={p}
-                  started={runs.some((r) => STAGE_PHASE[r.stage] === p)}
+                  runs={phaseRuns.filter((r) => STAGE_PHASE[r.stage] === p)}
                   steps={steps.filter((x) => x.phase === p)}
                   tasks={p === "Self-review" ? board?.selfReviewTasks : board?.tasks}
+                  costs={costs}
                   now={now}
-                  note={p === "Self-review" && board?.selfReviewTasks ? `tasks ${doneOf(board.selfReviewTasks)}` : undefined}
+                  extra={
+                    p === "Self-review" && (
+                      <>
+                        {board?.selfReviewTasks && <span>{`tasks ${doneOf(board.selfReviewTasks)}`}</span>}
+                        {sub && <a href={`#/run/${encodeURIComponent(sub.project)}/${encodeURIComponent(sub.name)}`}>sub-run</a>}
+                      </>
+                    )
+                  }
                 >
                   {p === "Self-review" && (
                     <>
@@ -467,11 +570,11 @@ export function RunDetail({ project, change }: RunDetailProps) {
                       )}
                       <div className="lb-panel-h">
                         <span>Findings</span>
-                        <span className="lb-panel-note">{findings.length}</span>
+                        <span className="lb-panel-note">{allFindings.length}</span>
                       </div>
                       <table className="lb-table">
                         <tbody>
-                          {findings.map((f) => (
+                          {allFindings.map((f) => (
                             <tr key={f.id} data-testid="self-review-finding">
                               <td>{f.angle}</td>
                               <td>{f.note}</td>
@@ -479,7 +582,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                               <td>{f.ref ?? ""}</td>
                             </tr>
                           ))}
-                          {findings.length === 0 && (
+                          {allFindings.length === 0 && (
                             <tr>
                               <td colSpan={4} className="lb-muted">
                                 No findings recorded yet.

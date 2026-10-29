@@ -2141,3 +2141,29 @@ func TestLiveStateBoardLiveFieldEdges(t *testing.T) {
 		t.Errorf("board scoped to kan-1 = %d rows, want kan-1 alone", len(one))
 	}
 }
+
+// TestLiveStateBoardCarriesSelfReviewRoots pins that a change's board row
+// names the worktrees of its self-review sub-run, self-review-<name>, even
+// when that sub-run lives in another project.
+func TestLiveStateBoardCarriesSelfReviewRoots(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-board-srroots-%d", time.Now().UnixNano())
+	name := fmt.Sprintf("kan-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, name)
+	sub := baseChange(projectKey+"-tooling", "self-review-"+name)
+	sub.Repos = []store.Repo{{RepoRoot: "/tmp/sr-wt"}}
+	if err := st.PutChange(ctx, sub); err != nil {
+		t.Fatalf("PutChange(sub): %v", err)
+	}
+	rows, err := st.LiveStateBoard(ctx, store.Period{
+		From: time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC),
+	}, &projectKey, &name)
+	if err != nil {
+		t.Fatalf("LiveStateBoard: %v", err)
+	}
+	if len(rows) != 1 || !slices.Equal(rows[0].SelfReviewRoots, []string{"/tmp/sr-wt"}) {
+		t.Fatalf("rows = %+v, want one row with SelfReviewRoots [/tmp/sr-wt]", rows)
+	}
+}

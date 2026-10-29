@@ -68,6 +68,10 @@ type LiveStateRow struct {
 	// first; RepoRoots are its recorded worktrees, where its tasks.md lives.
 	Subagents []ActiveDispatch
 	RepoRoots []string
+	// SelfReviewRoots are the recorded worktrees of the change's self-review
+	// sub-run, the change self-review-<name> /flow-self-review starts in
+	// whichever project hosts the tooling -- where its own plan lives.
+	SelfReviewRoots []string
 	// CommittedTasks are the task ids an implementer dispatch committed.
 	CommittedTasks []string
 	// SessionSeenAt is when the harvester last read new transcript lines of
@@ -118,7 +122,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 		       first_obs.total_tasks, latest_obs.total_tasks,
 		       totals.runs, totals.cost, totals.wall_ms, totals.errors,
 		       win.d1, win.d7, win.d30,
-		       open_run.stage, open_run.started_at, last_run.stage, last_run.ended_at, done.tasks, subs.list, roots.list, committed.list, seen.at, staged.n,
+		       open_run.stage, open_run.started_at, last_run.stage, last_run.ended_at, done.tasks, subs.list, roots.list, sr_roots.list, committed.list, seen.at, staged.n,
 		       sa.state, sa.detail, sa.updated_at
 		FROM changes c
 		LEFT JOIN LATERAL (
@@ -187,6 +191,12 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			WHERE cr.change_id = c.id
 		) roots ON true
 		LEFT JOIN LATERAL (
+			SELECT COALESCE(array_agg(cr.repo_root ORDER BY cr.repo_root), '{}') AS list
+			FROM changes sr
+			JOIN change_repos cr ON cr.change_id = sr.id
+			WHERE sr.name = 'self-review-' || c.name
+		) sr_roots ON true
+		LEFT JOIN LATERAL (
 			SELECT COALESCE(array_agg(DISTINCT d.task_id), '{}') AS list
 			FROM dispatches d
 			WHERE d.change_id = c.id AND d.role = 'implementer' AND d.commit_sha IS NOT NULL AND d.task_id IS NOT NULL
@@ -232,7 +242,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			&row.PlannedTasks, &row.CurrentTasks,
 			&row.RunCount, &row.CostUsd, &row.WallClockMs, &row.Errors,
 			&row.Cost24h, &row.Cost7d, &row.Cost30d,
-			&row.CurrentStage, &row.CurrentStageStartedAt, &row.LastStage, &row.LastStageEndedAt, &row.DoneTasks, &subs, &row.RepoRoots, &row.CommittedTasks, &row.SessionSeenAt, &row.OpenStageDispatches,
+			&row.CurrentStage, &row.CurrentStageStartedAt, &row.LastStage, &row.LastStageEndedAt, &row.DoneTasks, &subs, &row.RepoRoots, &row.SelfReviewRoots, &row.CommittedTasks, &row.SessionSeenAt, &row.OpenStageDispatches,
 			&row.Activity, &row.ActivityDetail, &row.ActivitySince); err != nil {
 			return nil, fmt.Errorf("store: live state board: scan: %w", err)
 		}

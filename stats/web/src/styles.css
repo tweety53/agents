@@ -691,3 +691,26 @@ th button {
 @media (prefers-reduced-motion: reduce) { .lb-dot { animation: none; } }
 .lb-task-now { font-size: 12px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lb-timeline text.lb-lane.upcoming { fill: var(--text-muted); font-style: italic; }
+
+/* Run view phase panels: one header row (name, status chip, steps, active time, cost), fixed
+   step columns so every phase's table lines up, an inset accent on the running phase (a
+   shadow, not a border, so nothing shifts), and a single muted row for a phase not started. */
+.lb-phase.running { box-shadow: inset 3px 0 0 var(--status-ok); }
+.lb-phase.running > .lb-panel-h { background: color-mix(in srgb, var(--status-ok) 7%, transparent); }
+.lb-phase.idle > .lb-panel-h { border-bottom: 0; color: var(--text-muted); }
+.lb-phase-name { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.lb-phase-st { font-size: 11px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-secondary); }
+.lb-phase.idle .lb-phase-st { color: var(--text-muted); }
+.lb-phase-meta { display: inline-flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
+.lb-phase-cost { color: var(--text-primary); font-weight: 600; min-width: 56px; text-align: right; }
+.lb-dot.done { background: var(--status-ok); }
+.lb-dot.failed { background: var(--status-critical); }
+.lb-steps { table-layout: fixed; }
+.lb-steps col.c-step { width: 130px; }
+.lb-steps col.c-status { width: 100px; }
+.lb-steps col.c-model { width: 170px; }
+.lb-steps col.c-for { width: 64px; }
+.lb-steps col.c-cost { width: 76px; }
+.lb-steps td { overflow: hidden; text-overflow: ellipsis; }
+.lb-steps tbody tr:last-child td { border-bottom: 0; }
+.lb-ellip { overflow: hidden; text-overflow: ellipsis; }

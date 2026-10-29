@@ -67,8 +67,9 @@ function openRun(row: StateBoardRow) {
   window.location.hash = runDetailHref(row);
 }
 
-// Pipeline-fix and self-review fix changes carry no stage runs of their own
-// on the board, so they are hidden.
+// Pipeline-fix and self-review sub-runs are not changes of their own: they are
+// hidden here, and a self-review-<name> run shows inside <name>'s run view, in
+// its Self-review phase, which links to it.
 function isPipelineFix(row: StateBoardRow): boolean {
   return row.name.startsWith("pipeline-fix-") || row.name.startsWith("self-review-");
 }

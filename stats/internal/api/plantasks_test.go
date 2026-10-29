@@ -86,3 +86,20 @@ func TestSelfReviewTasks(t *testing.T) {
 		t.Errorf("planTasks read the self-review plan as the change's own")
 	}
 }
+
+// TestSelfReviewTasksFromSubRun pins that the plan is read from the
+// self-review sub-run's own worktree, which is not one of the change's.
+func TestSelfReviewTasksFromSubRun(t *testing.T) {
+	sub := t.TempDir()
+	dir := filepath.Join(sub, "spectre", "changes", "self-review-kan-1")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "tasks.md"), []byte("- [ ] 1. Fix A\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	row := store.LiveStateRow{Name: "kan-1", State: store.StateInProgress, RepoRoots: []string{t.TempDir()}, SelfReviewRoots: []string{sub}}
+	if got := selfReviewTasks(row); len(got) != 1 || got[0] != (taskDTO{1, "Fix A", "pending"}) {
+		t.Fatalf("selfReviewTasks = %+v", got)
+	}
+}

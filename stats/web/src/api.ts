@@ -753,6 +753,8 @@ export function buildModelsQuery(params: ModelsParams): URLSearchParams {
 /** The fields the run view reads of a records.Dispatch, the run record's dispatch row. */
 export interface RecordDispatch {
   id: number;
+  /** The harness's subagent id, which keys the dispatch's priced bucket in its stage run's metrics. */
+  agentId?: string;
   key?: string;
   taskId?: string;
   role: string;
@@ -767,6 +769,11 @@ export interface RecordDispatch {
 /** GET /api/v1/records/{project}/{change} -- the change's run record; the run view reads its dispatches. */
 export function getRunRecord(project: string, change: string, init?: RequestInit): Promise<{ dispatches: RecordDispatch[] }> {
   return getJSON<{ dispatches: RecordDispatch[] }>(`/api/v1/records/${encodeURIComponent(project)}/${encodeURIComponent(change)}`, init);
+}
+
+/** GET /api/v1/changes/find?name= -- every project's record for one change name. */
+export function findChanges(name: string, init?: RequestInit): Promise<{ records: ChangeDTO[] }> {
+  return getJSON<{ records: ChangeDTO[] }>(`/api/v1/changes/find?name=${encodeURIComponent(name)}`, init);
 }
 
 /** Mirrors records.SelfReviewFinding. */

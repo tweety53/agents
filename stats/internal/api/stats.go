@@ -761,11 +761,14 @@ func planTasks(r store.LiveStateRow) []taskDTO {
 }
 
 // selfReviewTasks reads the self-review planner's own plan, the spectre
-// change self-review-<name> in the same worktrees. A task is done when
+// change self-review-<name>, from that sub-run's own worktrees first, then
+// the change's. A task is done when
 // ticked, pending otherwise: a running dispatch's task id does not say which
 // of the two plans it belongs to.
 func selfReviewTasks(r store.LiveStateRow) []taskDTO {
-	return readPlan(r, "self-review-"+r.Name, func(string) string { return "pending" })
+	sub := r
+	sub.RepoRoots = append(slices.Clone(r.SelfReviewRoots), r.RepoRoots...)
+	return readPlan(sub, "self-review-"+r.Name, func(string) string { return "pending" })
 }
 
 // readPlan parses change name's tasks.md for row r, nil for a finished change
