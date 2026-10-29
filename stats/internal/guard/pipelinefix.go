@@ -200,21 +200,23 @@ func pfHighestK(env Env, pe pfEnv, base string) int {
 }
 
 // pfLoop resolves key's loop for end and escalate.
-func pfLoop(env Env, pe pfEnv, key string, stderr io.Writer) (lpLoop, string, lpRow, int) {
-	rows, err := lpTable(pe.main)
+// role is the suffix's allowed-pairs role id, and escalatable whether the
+// table gives that role a marked escalation row.
+func pfLoop(env Env, pe pfEnv, key string, stderr io.Writer) (lp lpLoop, suffix string, escalatable bool, rc int) {
+	rows, err := policyTable(pe.main)
 	if err != nil {
 		fmt.Fprintf(stderr, "pipeline-fix: %v\n", err)
-		return lpLoop{}, "", lpRow{}, 2
+		return lpLoop{}, "", false, 2
 	}
-	lp, suffix, row, msg, ok := lpFromKey(env, pe.git, pe.main, key, rows)
+	lp, suffix, role, msg, ok := lpFromKey(env, pe.git, pe.main, key)
 	if !ok {
 		if msg == "" {
 			msg = key + " is no loop key"
 		}
 		fmt.Fprintf(stderr, "pipeline-fix: %s\n", msg)
-		return lpLoop{}, "", lpRow{}, 1
+		return lpLoop{}, "", false, 1
 	}
-	return lp, suffix, row, 0
+	return lp, suffix, lpEscalatable(rows, role), 0
 }
 
 var (
@@ -277,12 +279,12 @@ func pfEnd(env Env, pe pfEnv, key, outcome string, stdout, stderr io.Writer) int
 }
 
 func pfEscalate(env Env, pe pfEnv, key string, stdout, stderr io.Writer) int {
-	lp, suffix, row, rc := pfLoop(env, pe, key, stderr)
+	lp, suffix, escalatable, rc := pfLoop(env, pe, key, stderr)
 	if rc != 0 {
 		return rc
 	}
-	if len(row.escal) == 0 {
-		fmt.Fprintf(stderr, "pipeline-fix escalate: the pairs table admits no escalation for %s\n", key)
+	if !escalatable {
+		fmt.Fprintf(stderr, "pipeline-fix escalate: the allowed-pairs table admits no escalation for %s\n", key)
 		return 1
 	}
 	rows, ok := lpRows(env, lp.main, lp)

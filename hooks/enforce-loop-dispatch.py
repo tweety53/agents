@@ -137,7 +137,7 @@ def main():
         return deny(f"Loop dispatch {key} blocked: the prompt carries no {BASELINE} pointer.")
     args = [CHECK, REPO, key, str(tool_input.get("subagent_type") or ""), str(tool_input.get("model") or "")]
     try:
-        r = subprocess.run(args, capture_output=True, text=True, timeout=CHECK_TIMEOUT, cwd=cwd)
+        r = subprocess.run(args, input=prompt, capture_output=True, text=True, timeout=CHECK_TIMEOUT, cwd=cwd)
     except (OSError, subprocess.SubprocessError) as e:
         return deny(f"Loop dispatch {key} blocked: check-loop-dispatch.sh could not run ({e}).")
     if r.returncode == 0:

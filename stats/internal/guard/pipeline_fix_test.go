@@ -29,13 +29,13 @@ func pfNew(t *testing.T, rows string) pfFx {
 	}
 	fx := pfFx{lpFx: lpFx{repo: tmp + "/agents", log: tmp + "/flow.log", rows: tmp + "/rows.json"},
 		origin: tmp + "/origin.git", other: tmp + "/other"}
-	skill, err := os.ReadFile("../../../" + lpSkill)
+	table, err := os.ReadFile("../../../" + mpFile)
 	if err != nil {
 		t.Fatal(err)
 	}
 	gitRun(t, "", "init", "-q", "--bare", "-b", "main", fx.origin)
 	gitRun(t, "", "clone", "-q", fx.origin, fx.repo)
-	writeFile(t, fx.repo+"/"+lpSkill, string(skill))
+	writeFile(t, fx.repo+"/"+mpFile, string(table))
 	writeFile(t, fx.repo+"/.flow/project.md", pfProject)
 	writeFile(t, fx.repo+"/.gitignore", ".setup-ran\n.superpowers/\n")
 	writeFile(t, fx.repo+"/spectre/changes/archive/pipeline-fix-old-5/proposal.md", "old\n")
@@ -407,11 +407,7 @@ func TestPipelineFixOwnBranchInAnotherProject(t *testing.T) {
 	if _, out := kwRun(fx.env, "", fixtureGit, "-C", proj, "config", "--get-all", "flow.escalation"); !strings.Contains(out, token+":"+token+"-fix-2") {
 		t.Fatalf("the escalation was not recorded in the caller's project: %q", out)
 	}
-	rows, err := lpTable(fx.repo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	lp, _, _, msg, ok := lpFromKey(fx.env, fixtureGit, proj, token+"-fix-2", rows)
+	lp, _, _, msg, ok := lpFromKey(fx.env, fixtureGit, proj, token+"-fix-2")
 	if !ok || !lpEscalated(fx.env, fixtureGit, lp.main, lp, token+"-fix-2") {
 		t.Fatalf("check-loop-dispatch does not read the escalation in the caller's project: %s", msg)
 	}
