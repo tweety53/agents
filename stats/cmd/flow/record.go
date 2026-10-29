@@ -3748,13 +3748,21 @@ func panelFixKeyedARoundLow(ctx context.Context, f recordIdentityFlags, projectK
 // reviewers began carries a Flow-Key: panel-fix-<k> trailer with k != r --
 // amendable while it is still the newest (kan-1059 self-review, 1a). Author
 // time, not committer time: a fixup fold rewrites the committer dates of
-// every later commit. A failed record or git read refuses nothing.
+// every later commit. Or round r-1 holds a fixed Critical or Important
+// finding and the run holds no fix-mutation row at the fix round (round r,
+// as reviewedRoundUnproved requires): the proof is recorded before the
+// re-review, not found as a late row after it
+// (kan-1059 self-review, 1b; uwUnprovedFixRounds's predicate). A failed
+// record or git read refuses nothing.
 func reReviewBlocked(ctx context.Context, f recordIdentityFlags, projectKey string, r int) string {
 	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
 		return cl.GetRunRecord(ctx, projectKey, f.change)
 	})
 	if err != nil {
 		return ""
+	}
+	if reviewedRoundUnproved(run, r-1) {
+		return fmt.Sprintf("round %d holds a fixed Critical or Important finding and no fix-mutation row -- record one `flow record mutation -round %d` per fix-mutation line, or one `-mutated none -test <reason>` row, before the re-review (skills/flow/review-panel-fix-round.md)", r-1, r)
 	}
 	var since time.Time
 	for _, d := range run.Dispatches {
@@ -3789,6 +3797,22 @@ func reReviewBlocked(ctx context.Context, f recordIdentityFlags, projectKey stri
 		}
 	}
 	return ""
+}
+
+// reviewedRoundUnproved reports whether round holds a fixed Critical or
+// Important finding while run holds no mutation row at round+1, the fix round that proves it.
+func reviewedRoundUnproved(run records.Run, round int) bool {
+	for _, m := range run.Mutations {
+		if m.Round == round+1 {
+			return false
+		}
+	}
+	for _, fd := range run.Findings {
+		if sev := strings.ToLower(fd.Severity); fd.Round == round && fd.Status == "fixed" && (sev == "critical" || sev == "important") {
+			return true
+		}
+	}
+	return false
 }
 
 // panelFixRoundClosed refuses, reporting false, an inline back-fill of a

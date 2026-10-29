@@ -7451,3 +7451,59 @@ func TestRecordDispatchRefusesAReReviewOverAnOffRoundPanelFixTrailer(t *testing.
 		}
 	}
 }
+
+// TestRecordDispatchRefusesAReReviewBeforeItsMutationRows pins the kan-1059
+// self-review fix, 1b: a live re-review of round 5 is refused while round 4
+// holds a fixed Important finding and no fix-mutation row at round 5;
+// a row at round 5, a -mutated none row, a Minor-only round and a
+// back-fill pass.
+func TestRecordDispatchRefusesAReReviewBeforeItsMutationRows(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	const reviewer = `{"key":"panel-4-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-28T02:45:33Z","endedAt":"2026-10-28T02:47:03Z"}`
+	var record string
+	posts := 0
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
+			_, _ = w.Write([]byte(record))
+			return
+		}
+		if r.Method == http.MethodGet {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		posts++
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"reviewer","model":"opus"}`))
+	}))
+	t.Cleanup(srv.Close)
+	finding := func(sev string) string {
+		return `{"ref":"F1","round":4,"slot":"primary","severity":"` + sev + `","note":"n","status":"fixed"}`
+	}
+	for _, tc := range []struct {
+		name, finding, mutations string
+		extra                    []string
+		want                     int
+	}{
+		{"no mutation row", finding("Important"), ``, nil, 2},
+		{"a row at round 5", finding("Important"), `{"id":1,"round":5,"path":"a.go","mutated":"m","test":"t"}`, nil, 0},
+		{"only a row at round 4", finding("Important"), `{"id":1,"round":4,"path":"a.go","mutated":"m","test":"t"}`, nil, 2},
+		{"a -mutated none row at round 5", finding("Important"), `{"id":1,"round":5,"path":"","mutated":"none","test":"prose only"}`, nil, 0},
+		{"only a Minor fixed finding", finding("Minor"), ``, nil, 0},
+		{"a back-fill", finding("Important"), ``, []string{"-started-at", "2026-10-28T02:55:00Z"}, 0},
+	} {
+		record = `{"change":"kan-258","findings":[` + tc.finding + `],"mutations":[` + tc.mutations + `],"dispatches":[` + reviewer + `]}`
+		posts = 0
+		args := append([]string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", "panel-5-primary", "-slot", "primary",
+			"-session-token", "mf-record-rereview", "-effort", "default"}, tc.extra...)
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		if code != tc.want {
+			t.Errorf("%s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.want, stderr.String())
+		}
+		if tc.want == 2 && (posts != 0 || !strings.Contains(stderr.String(), "round 4") || !strings.Contains(stderr.String(), "flow record mutation -round 5")) {
+			t.Errorf("%s: posts %d, stderr %q; want none and a message naming round 4 and the remedy", tc.name, posts, stderr.String())
+		}
+	}
+}
