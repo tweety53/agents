@@ -127,7 +127,7 @@ Correction (2026-10-28): the captures caught a defect tasks 3 and 4 shipped: the
 
 **Build:** green
 **Files:** `stats/web/src/views/StateBoard.tsx`, `stats/web/src/views/views.test.tsx`, `stats/web/src/components/StageTimeline.tsx`, `stats/web/tests/visual/run-detail.spec.ts`, `spectre/changes/kan-1048-rework-live-board-and-run-view/visual-verification.md`
-**Allowed-collateral:** `stats/web/tests/visual/**/*-darwin.png`, `stats/web/tests/visual/full-app-suite.zip`, `spectre/changes/kan-1048-rework-live-board-and-run-view/visual-verification/**`
+**Allowed-collateral:** `stats/web/tests/visual/**/*-darwin.png`, `stats/web/tests/visual/full-app-suite.zip`
 **Tests:** `state board cost in period ignores the filters`, `the tooltip is gone in the paint the pointer leaves the bar`
 **Regression:** `state board cost in period ignores the filters` fails when the tile sums the filtered rows; `the tooltip is gone in the paint the pointer leaves the bar` fails when the tooltip outlives the pointer by a paint.
 **Commit:** fix(stats): sum every change in Cost in period and drop the tooltip with the pointer
