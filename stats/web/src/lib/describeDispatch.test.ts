@@ -15,6 +15,7 @@ describe("describeDispatch", () => {
     ["full-suite-fix-2", "Fixing the full test suite, round 2"],
     ["self-review-kan-1048-rework-plan", "Self-review: planning fixes"],
     ["self-review-kan-1048-rework-fix-g2", "Self-review: fixing group 2"],
+    ["self-review-kan-1048-rework-fix-v1", "Self-review: fixing a red verify, round 1"],
     ["self-review-kan-1048-rework-fix", "Self-review: fixing"],
     ["self-review-kan-1048-rework-review-1", "Self-review: reviewing fixes, round 1"],
     ["pipeline-fix-3-review-2", "Pipeline fix 3: reviewing, round 2"],

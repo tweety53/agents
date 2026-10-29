@@ -14,6 +14,7 @@ export function describeDispatch(key: string | undefined, role: string): string 
   if ((m = /^full-suite-fix-(\d+)$/.exec(key))) return `Fixing the full test suite, round ${m[1]}`;
   if ((m = /^self-review-.+-plan$/.exec(key))) return "Self-review: planning fixes";
   if ((m = /^self-review-.+-fix-g(\d+)$/.exec(key))) return `Self-review: fixing group ${m[1]}`;
+  if ((m = /^self-review-.+-fix-v(\d+)$/.exec(key))) return `Self-review: fixing a red verify, round ${m[1]}`;
   if ((m = /^self-review-.+-fix(?:-(\d+))?$/.exec(key))) return m[1] ? `Self-review: fixing, round ${m[1]}` : "Self-review: fixing";
   if ((m = /^self-review-.+-review-(\d+)$/.exec(key))) return `Self-review: reviewing fixes, round ${m[1]}`;
   if ((m = /^pipeline-fix-(\d+)-(plan|fix|review)(?:-(\d+))?$/.exec(key)))
