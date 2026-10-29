@@ -112,6 +112,7 @@ PINNED_ROLES = (
     ("Role: visual-verify verifier", "flow-low", "opus", "skills/flow/visual-verify.md"),
     ("Role: panel findings merger", "flow-low", "sonnet", "skills/flow/review-panel.md"),
     ("Role: gated per-task reviewer", "flow-medium", "opus", "skills/flow/implement.md"),
+    ("Role: gated per-task re-reviewer", "flow-low", "opus", "skills/flow/gated-review-fix.md"),
 )
 
 # Harness mapping (skills/flow-contracts/model-policy.md): on zcode every pinned pair

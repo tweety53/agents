@@ -20,6 +20,8 @@ package repotest
 //	7c-7e. merger prompt on any other pair, or no model    -> deny, names flow-low and sonnet
 //	7f. gated-reviewer prompt on flow-medium / opus        -> allow
 //	7g-7i. gated-reviewer prompt on any other pair, or no model -> deny, names flow-medium and opus
+//	7j. gated re-reviewer prompt on flow-low / opus        -> allow
+//	7k-7m. gated re-reviewer prompt on any other pair, or no model -> deny, names flow-low and opus
 //	 8. verifier prompt run from a ~/.zcode/hooks path on
 //	    general-purpose / glm-5.3-flash                     -> allow
 //	8b. the same from ~/.zcode/hooks on flow-high /
@@ -56,6 +58,7 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 	const verifier = "Role: visual-verify verifier\n" + baseline + " Read /x/skills/flow/visual-verify-verifier.md and run its steps."
 	const merger = "Role: panel findings merger\n" + baseline + " MERGER BRIEF: read each report file listed below."
 	const gated = "Role: gated per-task reviewer\n" + baseline + " PASS task-3: read /x/.superpowers/sdd/task-3.diff."
+	const regated = "Role: gated per-task re-reviewer\n" + baseline + " PASS task-3: read /x/.superpowers/sdd/task-3-fix-1.diff."
 	const analyst = "Role: visual-verify tooling analyst\n" + baseline + " Name the sweep in /x/skills/flow/visual-verify-verifier.md; write .superpowers/sdd/tooling-analysis-1.md."
 
 	sandbox := t.TempDir()
@@ -128,10 +131,15 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 		{"7g gated reviewer on flow-low/opus", hook, payload(gated, "flow-low", "opus", ""), []string{`subagent_type: \"flow-medium\"`, `model: \"opus\"`}},
 		{"7h gated reviewer on flow-medium/sonnet", hook, payload(gated, "flow-medium", "sonnet", ""), []string{`subagent_type: \"flow-medium\"`, `model: \"opus\"`}},
 		{"7i gated reviewer with no model", hook, payload(gated, "flow-medium", "", ""), []string{`model: \"opus\"`}},
+		{"7j gated re-reviewer on flow-low/opus", hook, payload(regated, "flow-low", "opus", ""), nil},
+		{"7k gated re-reviewer on flow-medium/opus", hook, payload(regated, "flow-medium", "opus", ""), []string{`subagent_type: \"flow-low\"`, `model: \"opus\"`}},
+		{"7l gated re-reviewer on flow-low/sonnet", hook, payload(regated, "flow-low", "sonnet", ""), []string{`subagent_type: \"flow-low\"`, `model: \"opus\"`}},
+		{"7m gated re-reviewer with no model", hook, payload(regated, "flow-low", "", ""), []string{`model: \"opus\"`}},
 		{"8 zcode verifier on its mapped pair", zhook, payload(verifier, "general-purpose", "glm-5.3-flash", ""), nil},
 		{"8b zcode verifier on a type ZCode does not offer", zhook, payload(verifier, "flow-high", "glm-5.3-flash", ""), []string{`subagent_type: \"general-purpose\"`}},
 		{"9 zcode verifier on the claude pair", zhook, payload(verifier, "flow-low", "opus", ""), []string{`model: \"glm-5.3-flash\"`}},
 		{"9b zcode gated reviewer on the claude pair", zhook, payload(gated, "flow-medium", "opus", ""), []string{`model: \"glm-5.3-flash\"`}},
+		{"9c zcode gated re-reviewer on the claude pair", zhook, payload(regated, "flow-low", "opus", ""), []string{`model: \"glm-5.3-flash\"`}},
 		{"10 fork naming a flow skill", hook, payload(verifier, "fork", "", ""), []string{`subagent_type \"fork\"`}},
 		{"10b fork outside a flow session", hook, payload("summarise the thread above", "fork", "", ""), nil},
 		{"10c fork in a /flow session", hook, payload("run the loop above", "fork", "", flowT), []string{"KAN-1000"}},

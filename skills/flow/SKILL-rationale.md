@@ -1029,7 +1029,10 @@ bundle runs on `opus` at `medium` always, pinned by its `Role: gated per-task re
 `hooks/enforce-agent-baseline.py`, and each pass is a primary pass scoped to its own task's
 commit diff and `tasks.md` entry with the sections it cites. **Rejected — keeping the roll's
 effort:** a `low` reviewer on a big change's riskiest tasks bought little, and a pair the decision
-never records was unenforceable.
+never records was unenforceable. **gated-rereview-opus-low** (operator-chosen, 2026-10-29): a fix
+re-review bundle runs on `opus` at `low`, pinned by its own `Role: gated per-task re-reviewer`
+marker, because a re-review reads only a small fix diff; the first pass stays at `medium`, and a
+handshake retry keeps its original bundle's pair.
 
 ## brainstorm-planner.md — Decide, step 6 visual verification (visual-verify-decided-at-decide)
 

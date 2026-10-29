@@ -511,7 +511,7 @@ assigns — the implementer, the fixer, each panel dispatch, the rerun pair, eac
   performance-sensitive code — `opus`, always;
 - **every other pass-1 panel dispatch** — `opus`, always;
 - **the extra dispatches** — `test-sanity+call-efficiency` and `mutation+failure-modes`, each its own rolled pair, `sonnet` or `opus` at `low`: the only pass-1 panel dispatches that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`, kan-959; kan-1028);
-- **every gated per-task reviewer bundle** — `opus` at `medium`, always, whatever the roll, since no decision pair records it (`skills/flow/implement.md`);
+- **every gated per-task reviewer bundle** — `opus` at `medium`, always, whatever the roll, since no decision pair records it; a fix re-review bundle `opus` at `low` (`skills/flow/implement.md`);
 - **the rerun pair** — `opus` or `sonnet`; nothing requires it to differ from a pass-1 dispatch.
 
 A micro decision records no pair, and a dispatch with no recorded pair — a micro panel,

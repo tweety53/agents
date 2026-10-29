@@ -923,8 +923,10 @@ dispatches: every gate-fired task goes to the whole-branch panel as review focus
 goes out in one reviewer Agent call beside group N+2's implementer, on `opus` at `medium`, always
 — fixed whatever the roll, per **Model and effort** (`skills/flow/brainstorm-planner.md`) — its
 prompt opening with the line `Role: gated per-task reviewer`, the marker
-`hooks/enforce-agent-baseline.py` pins this pair on; an original, fix re-review and handshake
-retry bundle alike. On harnesses `zcode` and `muse`, **Harness mapping**
+`hooks/enforce-agent-baseline.py` pins this pair on. A fix re-review bundle runs on `opus` at
+`low` instead, its prompt opening with `Role: gated per-task re-reviewer`
+(`skills/flow/gated-review-fix.md`); a handshake retry bundle keeps its original bundle's pair and
+marker. On harnesses `zcode` and `muse`, **Harness mapping**
 (`skills/flow-contracts/model-policy.md`) replaces it, as it does every pair. Each task inside the bundle keeps its own pass: its own
 commit-range diff `git diff <task-sha>^..<task-sha>` — a real commit diff, never a snapshot of
 the working tree, which the next implementer is editing — its own verdict and its own report

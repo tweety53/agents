@@ -18,6 +18,9 @@ bundle carrying every fixed task of the group, under `task-<n+n>-reviewer-fix-<k
 convention as the implementer's fix key — each pass on its own range: the on-top route reads its
 fix commit's own diff `git diff <fix-commit>^..<fix-commit>`, the fold its rewritten
 `git diff <task-sha>^..<new-task-sha>`.
+The re-dispatched bundle runs on `opus` at `low`, its prompt opening with the line
+`Role: gated per-task re-reviewer` in place of the original bundle's marker — the line
+`hooks/enforce-agent-baseline.py` pins that pair on.
 The re-dispatched bundle's Agent-tool `description` is `Tasks <ids>/<N> (re-review)` — `Task <x>/<N> (re-review)` <!-- citations-guard:allow -->
 for one task — so the `flow-task-list` mod shows its row as a re-review.
 
