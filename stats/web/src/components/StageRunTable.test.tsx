@@ -4,7 +4,7 @@
 // main session on hover; two or more own dispatches open beneath it in time
 // order, one is the row itself, and a dispatch's tail from an earlier run is
 // never a row of its own.
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { StageRunTable, foldPrefixes } from "./StageRunTable";
@@ -41,8 +41,8 @@ const other: StageRunDTO = { ...run, stageRunId: 2, stage: "flow.verify", metric
 describe("StageRunTable", () => {
   it("names a run by its dispatches' actions, its agents' models in their own column, no stage lead when its session runs that stage alone, and no jargon tooltip", () => {
     render(<StageRunTable stageRuns={[run]} records={records} />);
-    const cell = screen.getByRole("cell", { name: /^▸/ });
-    expect(cell).toHaveTextContent(/^▸Fix round 2 → Review round 2$/);
+    const cell = screen.getByRole("button", { name: "Show dispatches" }).closest("td")!;
+    expect(cell).toHaveTextContent(/^Fix round 2 → Review round 2$/);
     expect(screen.getByRole("columnheader", { name: "Model · effort" })).toBeInTheDocument();
     expect(screen.getByTestId("run-model")).toHaveTextContent(/^opus 5\.5, sonnet 5\.5$/);
     expect(cell.title).not.toContain("auto-recorded");
@@ -51,7 +51,7 @@ describe("StageRunTable", () => {
 
   it("leads with the stage when its session runs more than one", () => {
     render(<StageRunTable stageRuns={[run, other]} records={records} />);
-    expect(screen.getByRole("cell", { name: /^▸/ })).toHaveTextContent(/^▸Self-review · Fix round 2 → Review round 2$/);
+    expect(screen.getByRole("button", { name: "Show dispatches" }).closest("td")!).toHaveTextContent(/^Self-review · Fix round 2 → Review round 2$/);
   });
 
   it("splits the run's cost into agents and main session on hover", () => {
@@ -65,8 +65,8 @@ describe("StageRunTable", () => {
     render(<StageRunTable stageRuns={[run]} records={records} />);
     await userEvent.click(screen.getByRole("button", { name: "Show dispatches" }));
     const rows = screen.getAllByTestId("dispatch-row");
-    expect(rows[0]).toHaveTextContent(/^Fix round 2fixed00:0110m4kopus 5\.5\$2\.00$/);
-    expect(rows[1]).toHaveTextContent(/^Review round 2running00:12/);
+    expect(rows[0]).toHaveTextContent(/^⎿ Fix round 2fixed00:0110m4kopus 5\.5\$2\.00$/);
+    expect(rows[1]).toHaveTextContent(/^⎿ Review round 2running00:12/);
     expect(screen.queryByText(/a548eaf33f9b0cb85/)).not.toBeInTheDocument();
     expect(within(rows[0]).getByRole("cell", { name: "Fix round 2" }).title).toContain("a548eaf33f9b0cb85");
     expect(screen.queryByText("main session")).not.toBeInTheDocument();
@@ -114,6 +114,29 @@ describe("StageRunTable", () => {
     expect(muted).toHaveAttribute("title", "main session");
   });
 
+  it("opens a run's dispatches as one attached group, says their shared prefix once, and keeps them until their closing animation ends", async () => {
+    const shared = { ...run, stage: "flow.review-panel", metrics: { ...(run.metrics as object) } };
+    const recs: RecordDispatch[] = [
+      { ...records[0], key: "panel-2-primary" },
+      { ...records[1], key: "panel-2-mutation" },
+    ];
+    render(<StageRunTable stageRuns={[shared]} records={recs} />);
+    const toggle = screen.getByRole("button", { name: "Show dispatches" });
+    await userEvent.click(toggle);
+    expect(toggle.closest("tr")).toHaveClass("open");
+    const rows = screen.getAllByTestId("dispatch-row");
+    expect(rows.map((r) => r.querySelector("td")!.textContent)).toEqual(["⎿ Code review round 2: primary", "⎿ mutation"]);
+    expect(rows[1]).toHaveClass("last");
+    await userEvent.click(screen.getByRole("button", { name: "Hide dispatches" }));
+    // Closing: still mounted, sliding out, until the animation ends.
+    const closing = document.querySelectorAll("tr.lb-dispatch.out");
+    expect(closing).toHaveLength(2);
+    expect(screen.queryByTestId("dispatch-row")).not.toBeInTheDocument();
+    // jsdom's styles carry no "animation" property, so React listens for the prefixed name there; browsers fire animationend.
+    fireEvent(closing[0].querySelector(".lb-cell")!, new Event("webkitAnimationEnd", { bubbles: true }));
+    expect(document.querySelectorAll("tr.lb-dispatch")).toHaveLength(0);
+  });
+
   it("says a shared action prefix once", () => {
     expect(foldPrefixes(["Code review round 2: primary", "Code review round 2: test sanity", "Running lint and tests", "Code review round 3: primary"])).toEqual([
       "Code review round 2: primary",
@@ -125,7 +148,7 @@ describe("StageRunTable", () => {
 
   it("names a dispatch with no record by the key its description leads with", () => {
     render(<StageRunTable stageRuns={[run]} />);
-    expect(screen.getByRole("cell", { name: /^▸/ })).toHaveTextContent(/^▸Fix round 2 → Review round 2$/);
+    expect(screen.getByRole("button", { name: "Show dispatches" }).closest("td")!).toHaveTextContent(/^Fix round 2 → Review round 2$/);
   });
 
   it("shows the row's total tokens in, split agents + main session on hover", () => {

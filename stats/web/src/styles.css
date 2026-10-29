@@ -608,8 +608,8 @@ th button {
 .lb-table th { text-align: left; font-size: 11px; font-weight: 600; color: var(--text-secondary); padding: 6px 10px; border-bottom: 1px solid var(--border-strong); white-space: nowrap; }
 .lb-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 .lb-table th.r, .lb-table td.r { text-align: right; }
-.lb-row { cursor: pointer; }
-.lb-row:hover td { background: var(--surface-tip); }
+.lb-row.expandable { cursor: pointer; }
+.lb-row.expandable:hover td { background: var(--surface-tip); }
 .lb-group td { background: var(--surface-2); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-secondary); font-weight: 600; cursor: pointer; }
 .lb-cnt { color: var(--text-muted); margin-left: 6px; }
 .lb-caret { display: inline-block; width: 12px; transition: transform .15s; }
@@ -669,9 +669,28 @@ th button {
 .lb-t { height: 10px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
 .lb-t > span { display: block; height: 100%; background: var(--series-1); }
 .lb-n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
-.lb-dispatch td { background: var(--surface-1); color: var(--text-secondary); font-size: 12px; }
-.lb-dispatch .lb-dispatch-name { padding-left: 34px; }
-.lb-expander { color: var(--text-muted); width: 14px; display: inline-block; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+.lb-expander { color: var(--text-muted); width: 16px; display: inline-flex; align-items: center; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; vertical-align: middle; }
+.lb-row.expandable:hover .lb-expander { color: var(--text-primary); }
+/* A chevron drawn from two borders, pointing right and turning down as its run opens. */
+.lb-chev { width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform .16s ease; margin-left: 2px; }
+.lb-expander[aria-expanded="true"] .lb-chev { transform: rotate(45deg) translate(-1px, -1px); }
+/* An opened run and its dispatches read as one tinted group with a left accent, separated from the table only around it. */
+.lb-row.open td { background: color-mix(in srgb, var(--series-1) 7%, var(--surface-panel)); border-bottom-color: transparent; }
+.lb-row.open td:first-child, .lb-dispatch td:first-child { box-shadow: inset 2px 0 0 var(--series-1); }
+.lb-dispatch td { background: color-mix(in srgb, var(--series-1) 4%, var(--surface-panel)); color: var(--text-secondary); font-size: 12px; border-bottom: 0; }
+.lb-dispatch.last td { border-bottom: 1px solid var(--border); }
+.lb-run .lb-table .lb-dispatch td { padding-top: 2px; padding-bottom: 2px; }
+.lb-run .lb-table .lb-dispatch .lb-dispatch-name { padding-left: 26px; }
+.lb-dispatch .lb-cell { overflow: hidden; text-overflow: ellipsis; max-height: 22px; }
+.lb-dispatch.in .lb-cell { animation: lb-row-in .16s ease-out; }
+.lb-dispatch.out .lb-cell { animation: lb-row-out .16s ease-in forwards; }
+@keyframes lb-row-in { from { max-height: 0; opacity: 0; } to { max-height: 22px; opacity: 1; } }
+@keyframes lb-row-out { from { max-height: 22px; opacity: 1; } to { max-height: 0; opacity: 0; } }
+/* Reduced motion: the rows still open and close, at once. */
+@media (prefers-reduced-motion: reduce) {
+  .lb-chev { transition: none; }
+  .lb-dispatch.in .lb-cell, .lb-dispatch.out .lb-cell { animation-duration: 1ms; }
+}
 .lb-tasks { list-style: none; margin: 0; padding: 6px 12px; display: grid; gap: 2px; font-size: 12px; line-height: 1.35; }
 .lb-tasks .done { color: var(--text-muted); }
 .lb-tasks .done .lb-task-mark { color: var(--status-ok); }
@@ -722,8 +741,8 @@ th button {
 .lb-tasks .current { color: var(--text-primary); font-weight: 600; }
 .lb-tasks .current .lb-task-mark { color: var(--status-ok); }
 /* Fills its panel: the label column takes what the fixed-width columns leave, and the table scrolls below its minimum. */
-.lb-runs { table-layout: fixed; min-width: 960px; }
-.lb-runs col.c-model { width: 200px; }
+.lb-runs { table-layout: fixed; min-width: 1010px; }
+.lb-runs col.c-model { width: 250px; }
 .lb-runs col.c-out { width: 110px; }
 .lb-runs col.c-start { width: 96px; }
 .lb-runs col.c-dur { width: 72px; }

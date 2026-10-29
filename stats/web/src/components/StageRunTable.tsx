@@ -11,7 +11,7 @@
 // unmeasured metric on an otherwise-measured run reads as unavailable, not
 // zero. Duration is computed from startedAt/endedAt directly; an open run
 // runs to now and reads as running, never as zero-length.
-import { Fragment, useState } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { Unavailable } from "./Unavailable";
 import { outcomeClass } from "./StageTimeline";
 import type { DispatchRow, RecordDispatch, StageRunDTO } from "../api";
@@ -211,11 +211,17 @@ const outcomeLook = (o: string) => (o === "running" ? "open" : o === "failed" ||
  * effort ("Fix round 2 (opus 5.5 · low) → Review round 2 (sonnet 5.5 · low)"),
  * led by its stage unless its session runs that stage alone; its outcome the
  * last dispatch's; its cost the run's whole, split agents + main session on
- * hover. Two or more own dispatches open beneath it in time order; one is the
- * row itself.
+ * hover. Two or more own dispatches open beneath it in time order, attached
+ * to it as one tinted group, sliding in and out in CSS (closing keeps them
+ * mounted until their closing animation ends); one dispatch is the row itself.
  */
 function StageRunRow({ run, now, records, showStage }: { run: StageRunDTO; now: number; records: Map<string, RecordDispatch>; showStage: boolean }) {
   const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const toggle = () => {
+    setClosing(open);
+    setOpen(!open);
+  };
   const all = readDispatchRows(run.metrics);
   const at = (d: DispatchRow) => Date.parse(records.get(d.agentId)?.startedAt ?? run.startedAt);
   const own = all.filter((d) => !isTail(run, records.get(d.agentId))).sort((a, b) => at(a) - at(b));
@@ -237,7 +243,7 @@ function StageRunRow({ run, now, records, showStage }: { run: StageRunDTO; now: 
   const word = run.outcome === "failed" ? "failed" : (last ?? run.outcome ?? "completed");
   return (
     <>
-      <tr className="lb-row" onClick={() => expandable && setOpen(!open)}>
+      <tr className={`lb-row${expandable ? " expandable" : ""}${open ? " open" : ""}`} onClick={() => expandable && toggle()}>
         <td title={name}>
           {expandable ? (
             <button
@@ -247,10 +253,10 @@ function StageRunRow({ run, now, records, showStage }: { run: StageRunDTO; now: 
               aria-label={`${open ? "Hide" : "Show"} dispatches`}
               onClick={(e) => {
                 e.stopPropagation();
-                setOpen(!open);
+                toggle();
               }}
             >
-              {open ? "▾" : "▸"}
+              <span className="lb-chev" aria-hidden="true" />
             </button>
           ) : (
             <span className="lb-expander" />
@@ -292,25 +298,36 @@ function StageRunRow({ run, now, records, showStage }: { run: StageRunDTO; now: 
           <Unavailable value={stageCost} format={formatUsd} />
         </td>
       </tr>
-      {open &&
-        own.map((d) => {
+      {(open || closing) &&
+        own.map((d, i) => {
           const rec = records.get(d.agentId);
           const status = dispatchOutcome(rec);
+          const names = foldPrefixes(own.map((x) => actionName(run, x, records.get(x.agentId))));
+          // Each cell's content sits in a div the open/close animation sizes; a td's own height cannot animate.
+          const cell = (content: ReactNode) => <div className="lb-cell">{content}</div>;
           return (
-            <tr key={d.agentId} className="lb-dispatch" data-testid="dispatch-row">
+            <tr
+              key={d.agentId}
+              className={`lb-dispatch ${open ? "in" : "out"}${i === own.length - 1 ? " last" : ""}`}
+              data-testid={open ? "dispatch-row" : undefined}
+              onAnimationEnd={() => setClosing(false)}
+            >
               <td className="lb-dispatch-name" title={`${d.description ?? ""}${d.description ? " · " : ""}agent ${d.agentId}`}>
-                {actionName(run, d, rec)}
+                {cell(
+                  <>
+                    <span className="lb-agent-branch" aria-hidden="true">
+                      ⎿{" "}
+                    </span>
+                    {names[i]}
+                  </>,
+                )}
               </td>
-              <td>{status ? <span className={`lb-out ${outcomeLook(status)}`}>{status}</span> : <Unavailable value={null} />}</td>
-              <td className="r lb-num">{rec ? formatClock(Date.parse(rec.startedAt)) : <Unavailable value={null} />}</td>
-              <td className="r lb-num">{rec ? formatSpan((rec.endedAt ? Date.parse(rec.endedAt) : now) - Date.parse(rec.startedAt)) : <Unavailable value={null} />}</td>
-              <td className="r lb-num">
-                <Unavailable value={d.inputTokens} format={formatKTokens} />
-              </td>
-              <td>{d.model ? modelEffortText([d.model], d.effort) : <Unavailable value={null} />}</td>
-              <td className="r lb-num">
-                <Unavailable value={d.costUsd ?? null} format={formatUsd} />
-              </td>
+              <td>{cell(status ? <span className={`lb-out ${outcomeLook(status)}`}>{status}</span> : <Unavailable value={null} />)}</td>
+              <td className="r lb-num">{cell(rec ? formatClock(Date.parse(rec.startedAt)) : <Unavailable value={null} />)}</td>
+              <td className="r lb-num">{cell(rec ? formatSpan((rec.endedAt ? Date.parse(rec.endedAt) : now) - Date.parse(rec.startedAt)) : <Unavailable value={null} />)}</td>
+              <td className="r lb-num">{cell(<Unavailable value={d.inputTokens} format={formatKTokens} />)}</td>
+              <td>{cell(d.model ? modelEffortText([d.model], d.effort) : <Unavailable value={null} />)}</td>
+              <td className="r lb-num">{cell(<Unavailable value={d.costUsd ?? null} format={formatUsd} />)}</td>
             </tr>
           );
         })}
