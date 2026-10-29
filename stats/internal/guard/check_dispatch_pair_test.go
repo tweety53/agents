@@ -15,8 +15,7 @@ func TestPolicyTableParsesRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, role := range []string{
-		"explorer", "plan-designer", "implementer", "implementer-group", "panel-fix", "gated-fix",
-		"visual-verify-fix", "panel-reviewer", "panel-extra", "panel-rerun", "gated-reviewer",
+		"explorer", "plan-designer", "implementer", "panel-fix", "panel-reviewer", "panel-extra", "panel-rerun", "gated-reviewer",
 		"gated-re-reviewer", "visual-verifier", "late-fix", "panel-merger", "tooling-analyst",
 		"self-review-pass", "self-review-plan", "pipeline-fix-plan", "self-review-fix", "pipeline-fix-fix",
 		"self-review-review-1", "pipeline-fix-review-1", "self-review-review-r", "pipeline-fix-review-r",
@@ -93,5 +92,44 @@ func TestCheckDispatchPairExitCodes(t *testing.T) {
 				t.Errorf("rc=%d out=%q, want %d and %q", r.rc, r.out, c.rc, c.out)
 			}
 		})
+	}
+}
+
+// TestPolicyTableRefusesMalformedRows: a row naming two roles, no pair or two
+// markers is an error and the guard exits 2 -- never a row loaded fail-open.
+func TestPolicyTableRefusesMalformedRows(t *testing.T) {
+	t.Parallel()
+	for name, row := range map[string]string{
+		"two roles":   "| `a`, `b` | `opus/flow-low` | — |",
+		"no pair":     "| `a` | — | — |",
+		"two markers": "| `a` | `opus/flow-high` | `X`, `Y` |",
+		"two cells":   "| `a` | `opus/flow-low` |",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			repo := t.TempDir()
+			writeFile(t, repo+"/"+mpFile, "| Role | Allowed pairs | Requires marker |\n|---|---|---|\n"+row+"\n")
+			if _, err := policyTable(repo); err == nil {
+				t.Fatalf("row %q parsed", row)
+			}
+			e := envWith(t, nil)
+			e.Stdin = strings.NewReader("Role: a\n")
+			if r := runGuard("check-dispatch-pair", []string{repo, "flow-high", "opus"}, e); r.rc != 2 {
+				t.Fatalf("rc=%d out=%q, want 2", r.rc, r.out)
+			}
+		})
+	}
+}
+
+// TestCheckDispatchPairRoleOnly: --role-only answers whether the Role line
+// names a role of the table, for a harness whose pair is a fixed mapping.
+func TestCheckDispatchPairRoleOnly(t *testing.T) {
+	t.Parallel()
+	for prompt, rc := range map[string]int{"Role: visual-verifier\n": 0, "Role: nobody\n": 1, "verify\n": 1} {
+		e := envWith(t, nil)
+		e.Stdin = strings.NewReader(prompt)
+		if r := runGuard("check-dispatch-pair", []string{mpRepo, "--role-only"}, e); r.rc != rc {
+			t.Errorf("%q: rc=%d out=%q, want %d", prompt, r.rc, r.out, rc)
+		}
 	}
 }

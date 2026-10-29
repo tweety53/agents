@@ -122,8 +122,9 @@ func policyAllows(rows map[string][]policyRow, role, typ, model, effort, prompt 
 
 func checkDispatchPair(args []string, env Env, stdout, stderr io.Writer) int {
 	const self = "check-dispatch-pair"
-	if len(args) < 3 || len(args) > 4 || args[0] == "" {
-		fmt.Fprint(stderr, "usage: check-dispatch-pair.sh <agents-repo> <subagent_type> <model> [<effort>] < prompt\n")
+	roleOnly := len(args) == 2 && args[1] == "--role-only"
+	if !roleOnly && (len(args) < 3 || len(args) > 4) || args[0] == "" {
+		fmt.Fprint(stderr, "usage: check-dispatch-pair.sh <agents-repo> (<subagent_type> <model> [<effort>] | --role-only) < prompt\n")
 		return 2
 	}
 	effort := ""
@@ -148,6 +149,14 @@ func checkDispatchPair(args []string, env Env, stdout, stderr io.Writer) int {
 		return 1
 	}
 	role := string(m[1])
+	if roleOnly {
+		if _, ok := rows[role]; !ok {
+			fmt.Fprintf(stdout, "DISPATCH-PAIR-REFUSED: unknown role %q — no row of the allowed-pairs table (%s)\n", role, mpFile)
+			return 1
+		}
+		fmt.Fprintf(stdout, "DISPATCH-PAIR-OK %s\n", role)
+		return 0
+	}
 	if err := policyAllows(rows, role, args[1], args[2], effort, string(prompt)); err != nil {
 		fmt.Fprintf(stdout, "DISPATCH-PAIR-REFUSED: %v\n", err)
 		return 1

@@ -93,13 +93,9 @@ by `/`, an Explore or Plan pair adding `@<effort>`.
 | `explorer` | `opus/Explore@low`, `opus/Explore@medium` | — |
 | `plan-designer` | `opus/Plan@low`, `opus/Plan@medium` | — |
 | `implementer` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
-| `implementer-group` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
 | `panel-fix` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
-| `gated-fix` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
-| `visual-verify-fix` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
+| `implementer` | `opus/flow-high` | `No-progress escalation` |
 | `panel-fix` | `opus/flow-high` | `No-progress escalation` |
-| `gated-fix` | `opus/flow-high` | `No-progress escalation` |
-| `visual-verify-fix` | `opus/flow-high` | `No-progress escalation` |
 | `panel-reviewer` | `opus/flow-low`, `opus/flow-medium` | — |
 | `panel-reviewer` | `opus/flow-high` | `Operator-approved high` |
 | `panel-extra` | `opus/flow-low`, `sonnet/flow-low` | — |

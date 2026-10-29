@@ -309,6 +309,11 @@ func TestPanelGuardsHonourProjectExcludes(t *testing.T) {
 	}
 	tasks := dir + "/tasks.md"
 	g.write(tasks, "- [ ] 1. Docs\n**Files:** `README.md`\n")
+	table, err := os.ReadFile("../../../" + mpFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, dir+"/"+mpFile, string(table))
 	if r := runGuard("plan-class", []string{tasks, "1", wt, mb}, Env{Dir: dir, Getenv: func(k string) string {
 		if k == "FLOW_GUARD_REPO_ROOT" {
 			return dir

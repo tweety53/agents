@@ -71,8 +71,8 @@ These eight rows are **every** Agent-tool dispatch the parent may make, across s
 the **Role line** column names — and runs on a pair that role's rows of **Allowed pairs**
 (`skills/flow-contracts/model-policy.md`) admit; `hooks/enforce-agent-baseline.py` refuses, in a
 flow run, a dispatch with no Role line, an unknown role, or a pair off its role's rows. A
-no-progress escalation of a fixer row carries `Role: panel-fix` (or its loop's `Key:` line) with
-its `No-progress escalation` line, and a panel dispatch the operator approved at `high`
+no-progress escalation carries its fixer's own Role line — `panel-fix`, or `implementer` for a
+verify fix (or its loop's `Key:` line) — with its `No-progress escalation` line, and a panel dispatch the operator approved at `high`
 `Role: panel-reviewer` with its `Operator-approved high` line.
 
 The in-run pipeline fix row's dispatches are recorded by `hooks/enforce-loop-dispatch.py` under

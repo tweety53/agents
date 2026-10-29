@@ -114,10 +114,8 @@ DENY_REASON = (
 ZCODE_PAIR = ("general-purpose", "glm-5.3-flash")
 
 REPO = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-PAIR_CHECK = os.path.join(REPO, "scripts", "check-dispatch-pair.sh")
-POLICY = os.path.join(REPO, "skills", "flow-contracts", "model-policy.md")
-ROLE_LINE = re.compile(r"^Role: (\S+)$", re.M)
-POLICY_ROLE = re.compile(r"^\| `([a-z0-9-]+)` \| `", re.M)
+# The checker the hook runs; overridable for the hook's own harness only.
+PAIR_CHECK = os.environ.get("DISPATCH_PAIR_CHECK") or os.path.join(REPO, "scripts", "check-dispatch-pair.sh")
 
 
 # A description naming its row: plan tasks by id over the plan's count, any other row by a first
@@ -283,9 +281,15 @@ def change_finished(payload: dict) -> bool:
         return False
 
 
+_FLOW_RUN: "dict[int, bool]" = {}
+
+
 def in_flow_run(payload: dict) -> bool:
-    """A flow session whose change is not yet FINISHED -- the scope of the row checks."""
-    return in_flow_session(payload) and not change_finished(payload)
+    """A flow session whose change is not yet FINISHED -- the scope of the row checks. Answered
+    once per payload: every check asks, and each answer reads the transcript and the store."""
+    if id(payload) not in _FLOW_RUN:
+        _FLOW_RUN[id(payload)] = in_flow_session(payload) and not change_finished(payload)
+    return _FLOW_RUN[id(payload)]
 
 
 def in_flow_session(payload: dict) -> bool:
@@ -303,39 +307,31 @@ def dispatch_pair_reason(payload: dict, prompt: str, tool_input: dict) -> "str |
     if LOOP_KEY_LINE.search(prompt) or not in_flow_run(payload):
         return None
     typ, model = tool_input.get("subagent_type"), tool_input.get("model")
-    if "/.zcode/" in __file__:
-        role = ROLE_LINE.search(prompt)
-        try:
-            with open(POLICY, encoding="utf-8") as f:
-                known = set(POLICY_ROLE.findall(f.read()))
-        except OSError as e:
-            return f"Dispatch blocked: the allowed-pairs table cannot be read ({e})."
-        if not role or role.group(1) not in known:
-            return (
-                "Dispatch blocked: a flow dispatch's prompt names its role as a line "
-                "`Role: <role id>` of the Allowed pairs table (skills/flow-contracts/model-policy.md)."
-            )
-        if (typ, model) == ZCODE_PAIR:
-            return None
+    zcode = "/.zcode/" in __file__
+    if zcode:
+        # The pair is the harness mapping's; the Go guard still judges the Role line.
+        args = [PAIR_CHECK, REPO, "--role-only"]
+    else:
+        args = [PAIR_CHECK, REPO, str(typ or ""), str(model or "")]
+        if typ in PLANNING_AGENT_TYPES:
+            args.append(str(tool_input.get("effort") or ""))
+    try:
+        done = subprocess.run(args, input=prompt, capture_output=True, text=True, timeout=bound(240), check=False)
+    except (OSError, subprocess.SubprocessError) as e:
+        return f"Dispatch blocked: check-dispatch-pair.sh could not run ({e})."
+    if done.returncode != 0:
+        return (
+            f"Dispatch blocked (check-dispatch-pair.sh exit {done.returncode}):\n{done.stdout}{done.stderr}\n"
+            "Re-send this call on a pair its role's rows of Allowed pairs (skills/flow-contracts/model-policy.md) "
+            "admit, its prompt carrying the `Role: <role id>` line."
+        )
+    if zcode and (typ, model) != ZCODE_PAIR:
         return (
             f"Dispatch blocked: on ZCode every flow dispatch runs on subagent_type: \"{ZCODE_PAIR[0]}\" "
             f"and model: \"{ZCODE_PAIR[1]}\" (Harness mapping, skills/flow-contracts/model-policy.md); "
             f"got subagent_type={typ!r}, model={model!r}."
         )
-    args = [PAIR_CHECK, REPO, str(typ or ""), str(model or "")]
-    if typ in PLANNING_AGENT_TYPES:
-        args.append(str(tool_input.get("effort") or ""))
-    try:
-        done = subprocess.run(args, input=prompt, capture_output=True, text=True, timeout=bound(240), check=False)
-    except (OSError, subprocess.SubprocessError) as e:
-        return f"Dispatch blocked: check-dispatch-pair.sh could not run ({e})."
-    if done.returncode == 0:
-        return None
-    return (
-        f"Dispatch blocked (check-dispatch-pair.sh exit {done.returncode}):\n{done.stdout}{done.stderr}\n"
-        "Re-send this call on a pair its role's rows of Allowed pairs (skills/flow-contracts/model-policy.md) "
-        "admit, its prompt carrying the `Role: <role id>` line."
-    )
+    return None
 
 
 def fork_reason(payload: dict, tool_input: dict) -> "str | None":

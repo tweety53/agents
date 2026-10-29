@@ -428,6 +428,15 @@ func TestEnforceAgentBaselineHookRefusesOffPolicyDispatch(t *testing.T) {
 			}
 		})
 	}
+	// A guard that cannot answer (exit 2) denies -- a broken table never disables enforcement.
+	stub := filepath.Join(t.TempDir(), "check-dispatch-pair.sh")
+	if err := os.WriteFile(stub, []byte("#!/bin/sh\necho 'check-dispatch-pair: table unreadable' >&2\nexit 2\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if out, _, rc := runHook(t, "enforce-agent-baseline.py", offPolicyPayload(t, "Role: panel-merger\nmerge", "flow-low", "sonnet", ""),
+		"DISPATCH_PAIR_CHECK="+stub, "FLOW_ADDR=http://127.0.0.1:1", "FLOW_HOOK_UNBOUNDED=1"); rc != 0 || !strings.Contains(out, "exit 2") {
+		t.Fatalf("a guard exit 2: rc=%d out=%s, want a deny naming exit 2", rc, out)
+	}
 	// Outside a flow session nothing is checked against the table.
 	b, err := json.Marshal(map[string]any{"tool_name": "Agent", "tool_input": map[string]string{
 		"prompt":        "review. Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task. Include this instruction verbatim in any prompt you write for another agent.",
@@ -458,8 +467,8 @@ func TestEnforceAgentBaselineHookZcodePairForKnownRole(t *testing.T) {
 		{"mapped pair", "Role: visual-verifier\nverify", "general-purpose", "glm-5.3-flash", ""},
 		{"the claude pair", "Role: visual-verifier\nverify", "flow-low", "opus", "glm-5.3-flash"},
 		{"a type ZCode does not offer", "Role: gated-reviewer\nreview", "flow-high", "glm-5.3-flash", "general-purpose"},
-		{"unknown role", "Role: nobody\nverify", "general-purpose", "glm-5.3-flash", "Role: <role id>"},
-		{"no Role line", "verify", "general-purpose", "glm-5.3-flash", "Role: <role id>"},
+		{"unknown role", "Role: nobody\nverify", "general-purpose", "glm-5.3-flash", "unknown role"},
+		{"no Role line", "verify", "general-purpose", "glm-5.3-flash", "no `Role:` line"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()

@@ -10,6 +10,8 @@
 # or a marked row lists it and the prompt carries its marker as a whole line.
 # Exit 1, one DISPATCH-PAIR-REFUSED line: no `Role:` line, an unknown role, a
 # pair off the role's rows, or a marked row's marker missing.
+# check-dispatch-pair.sh <agents-repo> --role-only checks the Role line alone,
+# for a harness whose pair is a fixed mapping (ZCode).
 # Exit 2: cannot answer — usage, or the table unreadable.
 #
 # Go, in flow-guard (stats/internal/guard/modelpolicy.go).
