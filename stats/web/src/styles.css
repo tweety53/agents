@@ -696,8 +696,8 @@ th button {
    step columns so every phase's table lines up, an inset accent on the running phase (a
    shadow, not a border, so nothing shifts), and a single muted row for a phase not started. */
 .lb-phase.running { box-shadow: inset 3px 0 0 var(--status-ok); }
-.lb-phase.running > .lb-panel-h { background: color-mix(in srgb, var(--status-ok) 7%, transparent); }
-.lb-phase.idle > .lb-panel-h { border-bottom: 0; color: var(--text-muted); }
+.lb-phase.running > .lb-panel-h:first-child { background: color-mix(in srgb, var(--status-ok) 7%, transparent); }
+.lb-phase.idle > .lb-panel-h:first-child { border-bottom: 0; color: var(--text-muted); }
 .lb-phase-name { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
 .lb-phase-st { font-size: 11px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-secondary); }
 .lb-phase.idle .lb-phase-st { color: var(--text-muted); }
