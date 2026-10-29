@@ -432,13 +432,13 @@ describe("views render their fixture response's actual values", () => {
     expect(cards[1]).toHaveTextContent("kan-16-stats-app");
     expect(cards[1]).not.toHaveClass("needs");
     expect(cards[1]).not.toHaveTextContent("Working"); // the live dot already says it
-    expect(cards[1]).toHaveTextContent("Implementing tasks· 30m");
+    expect(cards[1]).toHaveTextContent("Implementing tasks · 30m");
     expect(cards[1]).toHaveTextContent("tasks 20/46 · $12.50");
     // The card keeps agents, main's inline work included, to a count; the run view lists them.
-    expect(within(cards[1]).getByTestId("agent-count")).toHaveTextContent("3 agents running");
+    expect(within(cards[1]).getByTestId("agent-count")).toHaveTextContent("main + 2 subagents running");
     // An open stage alone is the main session, one agent; a change between stages has none.
-    expect(within(cards[0]).getByTestId("agent-count")).toHaveTextContent("1 agent running");
-    expect(within(cards[2]).getByTestId("agent-count")).toHaveTextContent("1 agent running");
+    expect(within(cards[0]).getByTestId("agent-count")).toHaveTextContent("main session running");
+    expect(within(cards[2]).getByTestId("agent-count")).toHaveTextContent("main session running");
     // A change between stages still names its latest stage and what runs next.
     expect(cards[2]).toHaveTextContent("kan-5-old");
     // ...unless a dispatch works a task between stages, which the card names.

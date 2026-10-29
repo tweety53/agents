@@ -119,7 +119,7 @@ function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
   const task = runningTask(row);
   const alive = sessionAlive(row, now);
   // The main session while a stage is open or it works between stages, plus its subagents.
-  const agentCount = (row.subagents ?? []).filter((d) => !d.inline).length + (alive ? 1 : 0);
+  const subagentCount = (row.subagents ?? []).filter((d) => !d.inline).length;
   return (
     <div
       className={`lb-card${needsOperator(row) ? " needs" : ""}`}
@@ -137,9 +137,12 @@ function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
       {row.currentStage !== undefined ? (
         <div className="lb-stage">
           <span className="lb-live-dot" />
-          <span title={row.currentStage}>{stageLabel(row.currentStage)}</span>
-          {row.currentStageStartedAt && <span className="lb-muted">· {formatSpan(now - Date.parse(row.currentStageStartedAt))}</span>}
-          {agentsDone(row) && <span className="lb-muted">· agents done, main wrapping up</span>}
+          {/* One text run, so a long label wraps as a sentence, not as columns. */}
+          <span>
+            <span title={row.currentStage}>{stageLabel(row.currentStage)}</span>
+            {row.currentStageStartedAt && <span className="lb-muted"> · {formatSpan(now - Date.parse(row.currentStageStartedAt))}</span>}
+            {agentsDone(row) && <span className="lb-muted"> · agents done, main wrapping up</span>}
+          </span>
         </div>
       ) : task || alive ? (
         <div className="lb-stage">
@@ -158,9 +161,9 @@ function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
         </div>
       )}
       <ActivityBadge row={row} now={now} />
-      {agentCount > 0 && (
+      {(subagentCount > 0 || alive) && (
         <div className="lb-muted" data-testid="agent-count">
-          {agentCount} agent{agentCount === 1 ? "" : "s"} running
+          {subagentCount > 0 ? `main + ${subagentCount} subagent${subagentCount === 1 ? "" : "s"} running` : "main session running"}
         </div>
       )}
       <div className="lb-prog">
