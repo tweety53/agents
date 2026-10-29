@@ -990,8 +990,14 @@ describe("the reworked run view (kan-1048)", () => {
 
   it("run detail's Cost by stage lists the ten costliest stages and folds the rest into one line", async () => {
     const stages = ["flow.kickoff", "flow.brainstorm", "flow.design-approval", "flow.create-artifacts", "flow.writing-plans", "flow.decide", "flow.load-context", "flow.isolate-workspace", "flow.sdd-tdd", "flow.review-panel", "flow.verify", "flow.visual-verify"];
+    const at = (i: number) => `2026-01-01T00:${String(i * 4).padStart(2, "0")}:00Z`;
     listStageRunsMock.mockResolvedValue(
-      stageRunsResponse(stages.map((st, i) => run(30 + i, st, `2026-01-01T00:${String(i * 4).padStart(2, "0")}:00Z`, `2026-01-01T00:${String(i * 4 + 2).padStart(2, "0")}:00Z`, { metrics: { cost_usd: 12 - i } }))),
+      stageRunsResponse([
+        ...stages.map((st, i) => run(30 + i, st, at(i), at(i), { metrics: { cost_usd: 12 - i } })),
+        // A zero-cost and an unmeasured stage: never listed, never in "N more".
+        run(50, "flow.stage-diff", at(12), at(12), { metrics: { cost_usd: 0 } }),
+        run(51, "flow.run-instructions", at(13), at(13), { metrics: {} }),
+      ]),
     );
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const rail = await screen.findByRole("region", { name: "Cost by stage" });
@@ -1001,6 +1007,8 @@ describe("the reworked run view (kan-1048)", () => {
     expect(within(rail).getByTestId("stage-cost-rest")).toHaveTextContent(/^2 more\$3\.00$/);
     const sum = [...rail.querySelectorAll(".lb-hbar .lb-num")].reduce((a, e) => a + Number(e.textContent!.replace(/[^\d.]/g, "")), 0);
     expect(sum).toBe(78);
+    expect(rail).not.toHaveTextContent("Staging the diff");
+    expect(rail).not.toHaveTextContent("Writing test instructions");
   });
 
   it("run detail marks main as waiting while only its subagents work", async () => {

@@ -534,7 +534,8 @@ export function RunDetail({ project, change }: RunDetailProps) {
           const totalCost = measuredSum([summary.totalCostUsd, subCost]);
           const byStage = new Map<string, number>();
           for (const r of runs) byStage.set(r.stage, (byStage.get(r.stage) ?? 0) + (readCostUsd(r.metrics) ?? 0));
-          const allStageCost = [...byStage].sort((a, b) => b[1] - a[1]);
+          // A stage that cost nothing, or was never measured, is neither listed nor counted in "N more".
+          const allStageCost = [...byStage].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
           const stageCost = allStageCost.slice(0, TOP_STAGES);
           const restStages = allStageCost.slice(TOP_STAGES);
           const maxStage = Math.max(0, ...stageCost.map(([, v]) => v));
