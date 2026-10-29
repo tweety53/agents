@@ -272,7 +272,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                 />
               </section>
 
-              {(board?.tasks || agentCount > 0 || inSelfReview) && (
+              {(board?.tasks || agentCount > 0) && (
                 <div className="lb-split">
                   <section className="lb-panel" aria-label="Agents">
                     <div className="lb-panel-h">
@@ -334,86 +334,86 @@ export function RunDetail({ project, change }: RunDetailProps) {
                       </tbody>
                     </table>
                   </section>
-                  {inSelfReview ? (
-                    <section className="lb-panel" aria-label="Self-review">
-                      <div className="lb-panel-h">
-                        <span>Self-review</span>
-                        <span className="lb-panel-note">{board?.selfReviewTasks ? `tasks ${doneOf(board.selfReviewTasks)}` : "no plan yet"}</span>
-                      </div>
-                      <table className="lb-table lb-agents">
-                        <thead>
-                          <tr>
-                            <th>Step</th>
-                            <th>Status</th>
-                            <th>Doing</th>
-                            <th>Model · effort</th>
-                            <th className="r">For</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(board?.stageDispatches ?? []).map((d, i) => (
-                            <tr key={`${d.key ?? d.role}-${i}`} data-testid="self-review-step">
-                              <td>{d.role}</td>
-                              <td>{stepStatus(d)}</td>
-                              <td>{inlineWhat(d, board?.selfReviewTasks)}</td>
-                              <td>
-                                {formatModel(d.modelVersion ?? d.model)}
-                                {d.effort && ` · ${d.effort}`}
-                              </td>
-                              <td className="r lb-num">{formatSpan((d.endedAt ? Date.parse(d.endedAt) : now) - Date.parse(d.startedAt))}</td>
-                            </tr>
-                          ))}
-                          {!board?.stageDispatches?.length && (
-                            <tr>
-                              <td colSpan={5} className="lb-muted">
-                                No steps yet.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                      {board?.selfReviewTasks && (
-                        <>
-                          <div className="lb-panel-h">
-                            <span>Tasks</span>
-                          </div>
-                          <TaskList tasks={board.selfReviewTasks} />
-                        </>
+                  <section className="lb-panel" aria-label="Tasks">
+                    <div className="lb-panel-h">
+                      <span>Tasks</span>
+                      <span className="lb-panel-note">{board?.tasks ? doneOf(board.tasks) : "no plan yet"}</span>
+                    </div>
+                    <TaskList tasks={board?.tasks ?? []} />
+                  </section>
+                </div>
+              )}
+
+              {inSelfReview && (
+                <section className="lb-panel" aria-label="Self-review">
+                  <div className="lb-panel-h">
+                    <span>Self-review</span>
+                    <span className="lb-panel-note">{board?.selfReviewTasks ? `tasks ${doneOf(board.selfReviewTasks)}` : "no plan yet"}</span>
+                  </div>
+                  <table className="lb-table lb-agents">
+                    <thead>
+                      <tr>
+                        <th>Step</th>
+                        <th>Status</th>
+                        <th>Doing</th>
+                        <th>Model · effort</th>
+                        <th className="r">For</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(board?.stageDispatches ?? []).map((d, i) => (
+                        <tr key={`${d.key ?? d.role}-${i}`} data-testid="self-review-step">
+                          <td>{d.role}</td>
+                          <td>{stepStatus(d)}</td>
+                          <td>{inlineWhat(d, board?.selfReviewTasks)}</td>
+                          <td>
+                            {formatModel(d.modelVersion ?? d.model)}
+                            {d.effort && ` · ${d.effort}`}
+                          </td>
+                          <td className="r lb-num">{formatSpan((d.endedAt ? Date.parse(d.endedAt) : now) - Date.parse(d.startedAt))}</td>
+                        </tr>
+                      ))}
+                      {!board?.stageDispatches?.length && (
+                        <tr>
+                          <td colSpan={5} className="lb-muted">
+                            No steps yet.
+                          </td>
+                        </tr>
                       )}
-                      <div className="lb-panel-h">
-                        <span>Findings</span>
-                        <span className="lb-panel-note">{findings.length}</span>
-                      </div>
-                      <table className="lb-table">
-                        <tbody>
-                          {findings.map((f) => (
-                            <tr key={f.id} data-testid="self-review-finding">
-                              <td>{f.angle}</td>
-                              <td>{f.note}</td>
-                              <td>{f.disposition}</td>
-                              <td>{f.ref ?? ""}</td>
-                            </tr>
-                          ))}
-                          {findings.length === 0 && (
-                            <tr>
-                              <td colSpan={4} className="lb-muted">
-                                No findings recorded yet.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </section>
-                  ) : (
-                    <section className="lb-panel" aria-label="Tasks">
+                    </tbody>
+                  </table>
+                  {board?.selfReviewTasks && (
+                    <>
                       <div className="lb-panel-h">
                         <span>Tasks</span>
-                        <span className="lb-panel-note">{board?.tasks ? doneOf(board.tasks) : "no plan yet"}</span>
                       </div>
-                      <TaskList tasks={board?.tasks ?? []} />
-                    </section>
+                      <TaskList tasks={board.selfReviewTasks} />
+                    </>
                   )}
-                </div>
+                  <div className="lb-panel-h">
+                    <span>Findings</span>
+                    <span className="lb-panel-note">{findings.length}</span>
+                  </div>
+                  <table className="lb-table">
+                    <tbody>
+                      {findings.map((f) => (
+                        <tr key={f.id} data-testid="self-review-finding">
+                          <td>{f.angle}</td>
+                          <td>{f.note}</td>
+                          <td>{f.disposition}</td>
+                          <td>{f.ref ?? ""}</td>
+                        </tr>
+                      ))}
+                      {findings.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="lb-muted">
+                            No findings recorded yet.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </section>
               )}
 
               <section className="lb-panel" aria-label="Timeline">

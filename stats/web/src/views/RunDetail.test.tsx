@@ -787,7 +787,7 @@ describe("the reworked run view (kan-1048)", () => {
     expect(rail).toHaveTextContent("$3.50");
   });
 
-  it("run detail shows the self-review panel in place of Tasks while self-review is open", async () => {
+  it("run detail shows the self-review panel beside Tasks while self-review is open", async () => {
     const reviewing = {
       ...boardRow,
       currentStage: "flow.self-review",
@@ -809,7 +809,10 @@ describe("the reworked run view (kan-1048)", () => {
     ]);
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const panel = await screen.findByRole("region", { name: "Self-review" });
-    expect(screen.queryByRole("region", { name: "Tasks" })).not.toBeInTheDocument();
+    // The change's own plan stays listed beside Agents; Self-review is added, never in its place.
+    const tasks = screen.getByRole("region", { name: "Tasks" });
+    expect(tasks).toHaveTextContent("1/3 done");
+    expect(tasks).toHaveTextContent("◻ 3. Run view");
     expect(screen.getByRole("region", { name: "Agents" })).toBeInTheDocument();
     expect(panel.querySelector(".lb-panel-note")).toHaveTextContent("tasks 1/2 done");
     const steps = within(panel).getAllByTestId("self-review-step");
