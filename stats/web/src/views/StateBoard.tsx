@@ -139,8 +139,8 @@ function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
       {row.currentStage !== undefined ? (
         <div className="lb-stage">
           <span className="lb-live-dot" />
-          {/* One text run, so a long label wraps as a sentence, not as columns. */}
-          <span>
+          {/* One text run, cut to one line -- main's action can be a whole Bash command -- and whole on hover. */}
+          <span className="lb-clip" title={mainAction(row) ?? undefined}>
             <span title={row.currentStage}>{stageLabel(row.currentStage)}</span>
             {row.currentStageStartedAt && <span className="lb-muted"> · {formatSpan(now - Date.parse(row.currentStageStartedAt))}</span>}
             {mainAction(row) ? <span className="lb-muted"> · {mainAction(row)}</span> : agentsDone(row) && <span className="lb-muted"> · agents done, main wrapping up</span>}

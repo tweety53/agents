@@ -730,7 +730,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                             <td>
                               <StatusDot status={mainStatus} />
                             </td>
-                            <td>{mainAgent.what}</td>
+                            <td className="lb-clip" title={mainAgent.what}>{mainAgent.what}</td>
                             <td>
                               {mainAgent.model}
                               {mainAgent.effort && ` · ${mainAgent.effort}`}
@@ -746,7 +746,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                             <td>
                               <StatusDot status="running" />
                             </td>
-                            <td>
+                            <td className="lb-clip" title={inlineWhat(d, board?.tasks)}>
                               {inlineWhat(d, board?.tasks)}
                             </td>
                             <td>

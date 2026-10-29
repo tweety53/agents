@@ -566,7 +566,7 @@ th button {
 .lb-pill.STARTED { color: var(--st-started); }
 .lb-pill.IN_PROGRESS { color: var(--st-progress); }
 .lb-pill.FINISHED { color: var(--st-finished); }
-.lb-live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--status-ok); display: inline-block; box-shadow: 0 0 0 0 var(--status-ok); animation: lb-pulse 1.6s infinite; }
+.lb-live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--status-ok); display: inline-block; flex-shrink: 0; box-shadow: 0 0 0 0 var(--status-ok); animation: lb-pulse 1.6s infinite; }
 @keyframes lb-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--status-ok) 60%, transparent); } 100% { box-shadow: 0 0 0 8px transparent; } }
 @media (prefers-reduced-motion: reduce) { .lb-live-dot { animation: none; } }
 
@@ -781,3 +781,8 @@ th button {
 .lb-run .lb-phase-sum { padding: 5px 10px 0; }
 .lb-run .lb-roles { padding: 3px 10px 5px; }
 .lb-run .lb-tasks { padding: 4px 10px; }
+
+/* A long free-text detail (a Bash command line) cut to one line, whole on hover. */
+/* min-width lets a flex item shrink below its text; max-width lets a table cell. */
+.lb-clip { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+td.lb-clip { max-width: 0; width: 100%; }
