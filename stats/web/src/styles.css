@@ -707,7 +707,7 @@ th button {
 .lb-sr-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; }
 .lb-roles { list-style: none; margin: 0; padding: 4px 12px 6px; display: grid; gap: 0; font-size: 12px; line-height: 1.35; }
 /* One grid across every role line, so each cost sits right after the widest model list rather than at the far edge. */
-.lb-roles { grid-template-columns: max-content minmax(0, max-content) max-content 1fr; column-gap: 16px; }
+.lb-roles { grid-template-columns: max-content minmax(0, max-content) max-content max-content; column-gap: 16px; }
 .lb-roles > li { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; padding: 1px 0; }
 .lb-role { font-weight: 600; white-space: nowrap; }
 .lb-role-models { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -721,8 +721,8 @@ th button {
 .lb-sr-prog .current { color: var(--status-ok); font-weight: 600; }
 .lb-tasks .current { color: var(--text-primary); font-weight: 600; }
 .lb-tasks .current .lb-task-mark { color: var(--status-ok); }
-/* Sized to its columns, so a short label leaves no gap before its outcome. */
-.lb-runs { table-layout: fixed; width: auto; }
+/* Sized to its columns (their widths summed: an auto width would drop the fixed layout), so a short label leaves no gap before its outcome. */
+.lb-runs { table-layout: fixed; width: 950px; }
 .lb-runs col.c-stage { width: 520px; }
 .lb-runs col.c-out { width: 110px; }
 .lb-runs col.c-start { width: 96px; }
