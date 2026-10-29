@@ -98,17 +98,25 @@ func TestCheckLoopLandingSatellite(t *testing.T) {
 	const sr = "self-review-kan-1-demo"
 	clean := lpRowsJSON(sr+"-", sr, "plan completed", "fix completed", "review-1 clean")
 	for _, tc := range []struct {
-		name, branch, agentsRows string
-		rc                       int
-		out                      string
+		name, branch, ownRows, agentsRows string
+		rc                                int
+		out                               string
 	}{
 		{name: "rows under the agents project", branch: sr, agentsRows: clean, out: "LOOP-LANDING-OK"},
 		{name: "rows nowhere", branch: sr, agentsRows: `[]`, rc: 1, out: "PLAN — no completed " + sr + "-plan"},
 		{name: "a change branch reads only its own project", branch: "spectre/kan-1-demo", agentsRows: clean, out: "LOOP-LANDING-NA"},
+		{name: "a change branch holding only the pass reads its agents loop", branch: "spectre/kan-1-demo", ownRows: lpRowsJSON(sr+"-", sr, "pass completed"), agentsRows: clean, out: "LOOP-LANDING-OK"},
+		{name: "a change branch holding only the pass refuses an unreviewed agents loop", branch: "spectre/kan-1-demo", ownRows: lpRowsJSON(sr+"-", sr, "pass completed"),
+			agentsRows: lpRowsJSON(sr+"-", sr, "plan completed", "fix completed"), rc: 1, out: "REVIEW — no " + sr + "-review-<r>"},
+		{name: "a change branch holding only the pass with no agents loop", branch: "spectre/kan-1-demo", ownRows: lpRowsJSON(sr+"-", sr, "pass completed"), agentsRows: `[]`, out: "LOOP-LANDING-NA"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			fx := lpNew(t, `[]`)
+			own := tc.ownRows
+			if own == "" {
+				own = `[]`
+			}
+			fx := lpNew(t, own)
 			sat := filepath.Dir(fx.repo) + "/gymie"
 			gitRun(t, "", "init", "-q", "-b", "main", sat)
 			gitRun(t, sat, "commit", "-q", "--allow-empty", "-m", "init")

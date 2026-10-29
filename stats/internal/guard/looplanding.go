@@ -168,6 +168,21 @@ func checkLoopLanding(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 		}
 	}
+	// A change's own branch holding only the pass row is no loop on it: the pass
+	// is filed under the change, while a loop run from the agents checkout on its
+	// own self-review-<name> branch files every other row there. Judge that loop,
+	// since its satellite commits ride this branch.
+	if lpOwnBranch(args[1]) && lpPassOnly(lp, rows) {
+		rows = nil
+		if root := env.Getenv("FLOW_GUARD_REPO_ROOT"); root != "" {
+			if agents, ok := lpMain(env, git, root); ok && agents != main {
+				sep := lpLoop{change: lp.token, token: lp.token, prefix: lp.prefix}
+				if r, ok := lpRows(env, agents, sep); ok {
+					rows = r
+				}
+			}
+		}
+	}
 	if lpOwnBranch(args[1]) && len(rows) == 0 {
 		fmt.Fprintf(stdout, "LOOP-LANDING-NA %s\n", args[1])
 		return 0
@@ -181,4 +196,14 @@ func checkLoopLanding(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "LOOP-LANDING-OK %s\n", args[1])
 	return 0
+}
+
+// lpPassOnly is whether every row is the pass, which no loop step follows.
+func lpPassOnly(lp lpLoop, rows []lpDispatch) bool {
+	for _, d := range rows {
+		if lpFamily(strings.TrimPrefix(d.Key, lp.prefix)) != "pass" {
+			return false
+		}
+	}
+	return len(rows) > 0
 }
