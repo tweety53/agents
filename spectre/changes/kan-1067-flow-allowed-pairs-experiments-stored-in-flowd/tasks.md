@@ -228,7 +228,7 @@ Correction (2026-10-30): `stats/README.md` has no h3 headings, so the section sh
   - [ ] **Step 4: Verify.** `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh`, `scripts/check-stage-mark-calls.sh`, `scripts/check-dispatch-paragraphs.sh` and `scripts/check-guard-symlinks.sh` exit 0; `git grep -n -F -e 'Run brainstorming and planning directly' -e 'the thinking stays in this session' -- skills` prints nothing. Commit.
 
 **Build:** green
-**Files:** `skills/flow/brainstorm.md`, `skills/flow/brainstorm-planner.md`, `skills/flow/resume.md`
+**Files:** `skills/flow/brainstorm.md`, `skills/flow/brainstorm-planner.md`, `skills/flow/resume.md`, `hooks/enforce-agent-baseline.py`, `stats/internal/repotest/enforce_agent_baseline_hook_test.go`
 **Allowed-collateral:** `skills/flow/*-rationale.md`, `skills/flow-contracts/pipeline.md`, `skills/flow/stage-keys.md`
 **Tests:** **none** — contract prose; Step 4's guards are the check.
 **Regression:** none — prose.
