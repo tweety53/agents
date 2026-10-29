@@ -18,7 +18,7 @@ import { formatModel, formatRelative, formatSpan, formatUsd } from "../format";
 import { asObject, readCacheReadTokens, readCostUsd, readEffort, readMainModels, readTotalInputTokens } from "../metrics";
 import { projectLabel } from "../lib/projectLabel";
 import { describeDispatch } from "../lib/describeDispatch";
-import { agentsDone, mainAction, runningTask } from "../lib/runningTask";
+import { agentsDone, dispatchTasks, mainAction, runningTask } from "../lib/runningTask";
 import { effectiveActivity, sessionAlive } from "../lib/sessionAlive";
 import { stageLabel } from "../lib/stageLabel";
 import { ActivityBadge, StatePill } from "./StateBoard";
@@ -73,7 +73,7 @@ function StatusDot({ status }: { status: AgentStatus }) {
 
 /** What a dispatch does, in plain words from its key, with its plan task's title when it has one. */
 function inlineWhat(d: ActiveSubagent, tasks: PlanTask[] | undefined): string {
-  const what = d.key === undefined && d.taskId ? `task ${d.taskId}` : describeDispatch(d.key, d.role);
+  const what = d.key === undefined && d.taskId ? `task ${d.taskId.replace(/\+/g, ", ")}` : describeDispatch(d.key, d.role);
   return `${what}${d.taskId ? taskTitle(tasks, d.taskId) : ""}`;
 }
 
@@ -354,7 +354,7 @@ function WorkPanel({
 }
 
 /** A work panel's plan as its own card, closed to its header while its panel is. */
-function TasksPanel({ title, tasks, current, open = true, order }: { title: string; tasks: PlanTask[]; current?: number; open?: boolean; order: number }) {
+function TasksPanel({ title, tasks, current, open = true, order }: { title: string; tasks: PlanTask[]; current: number[]; open?: boolean; order: number }) {
   return (
     <section className={`lb-panel lb-tasks-panel${open ? "" : " collapsed"}`} aria-label={title} style={{ order }}>
       <div className="lb-panel-h">
@@ -372,11 +372,11 @@ function workStatus(runs: StageRunDTO[]): PhaseStatus {
 }
 
 /** A plan's tasks, each marked done, in progress or pending. */
-function TaskList({ tasks, current }: { tasks: PlanTask[]; current?: number }) {
+function TaskList({ tasks, current }: { tasks: PlanTask[]; current: number[] }) {
   return (
     <ul className="lb-tasks">
       {tasks.map((t) =>
-        t.n === current ? (
+        current.includes(t.n) ? (
           <li key={t.n} className="current" aria-current="step">
             <span className="lb-task-mark">●</span> {t.n}. {t.title}
           </li>
@@ -563,8 +563,9 @@ export function RunDetail({ project, change }: RunDetailProps) {
   const mainRuns = runs0.filter((r) => STAGE_PHASE[r.stage] !== "Self-review");
   const srStatus = workStatus(srRuns);
   const srStarted = srRuns.length > 0 || board?.currentStage === "flow.self-review";
-  // The task Main works on: a running dispatch's, else the plan's in-progress one.
-  const mainCurrentTask = Number(mainSteps.filter((d) => !d.endedAt && d.taskId).pop()?.taskId ?? board?.tasks?.find((t) => t.state === "in progress")?.n) || undefined;
+  // The tasks Main works on: every running dispatch's, a task group's each, else the plan's in-progress one.
+  const running = mainSteps.flatMap((d) => (d.endedAt ? [] : dispatchTasks(d)));
+  const mainCurrentTasks = running.length ? running : (board?.tasks ?? []).filter((t) => t.state === "in progress").map((t) => t.n);
   const srOpen = board?.currentStage === "flow.self-review" || srRuns.some((r) => !r.endedAt);
   const srView = isSub
     ? selfReviewView(steps, board?.tasks, findings.length + parentFindings.length, srOpen, runs0.length > 0, now)
@@ -810,9 +811,9 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   )}
                 </div>
                 <div className="lb-work-col">
-                  {board?.tasks && <TasksPanel title="Tasks" tasks={board.tasks} current={isSub ? srView.currentTask : mainCurrentTask} order={2} />}
+                  {board?.tasks && <TasksPanel title="Tasks" tasks={board.tasks} current={isSub ? [srView.currentTask ?? 0] : mainCurrentTasks} order={2} />}
                   {!isSub && board?.selfReviewTasks && (
-                    <TasksPanel title="Self-review tasks" tasks={board.selfReviewTasks} current={srView.currentTask} open={srPanelOpen} order={4} />
+                    <TasksPanel title="Self-review tasks" tasks={board.selfReviewTasks} current={[srView.currentTask ?? 0]} open={srPanelOpen} order={4} />
                   )}
                 </div>
               </div>

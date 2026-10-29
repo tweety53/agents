@@ -26,3 +26,8 @@ export function lastAction(row: StateBoardRow): string | null {
   if (row.currentStage !== undefined || (row.subagents?.length ?? 0) > 0) return null;
   return row.activity === "working" && row.activityDetail ? `Last: ${row.activityDetail}` : null;
 }
+
+/** The plan task numbers a dispatch carries: its taskId, else its task-<ids> key's, each id of a `+`-joined task group apart. */
+export function dispatchTasks(d: { taskId?: string; key?: string }): number[] {
+  return (d.taskId || /^tasks?-([\d+]+)-/.exec(d.key ?? "")?.[1] || "").split("+").filter(Boolean).map(Number);
+}

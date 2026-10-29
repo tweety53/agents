@@ -7,8 +7,8 @@ export function describeDispatch(key: string | undefined, role: string): string 
   const after = (m: string | undefined) => (m ? ` after fix ${m}` : "");
   let m: RegExpExecArray | null;
   if ((m = /^tasks?-([\d+]+)-implementer(?:-fix-(\d+))?$/.exec(key)))
-    return m[2] ? `Fixing review findings on task ${m[1]}, round ${m[2]}` : `Implementing task ${m[1]}`;
-  if ((m = /^tasks?-([\d+]+)-reviewer(?:-fix-(\d+))?$/.exec(key))) return `Reviewing task ${m[1].replace(/\+/g, ", ")}${after(m[2])}`;
+    return m[2] ? `Fixing review findings on ${taskWord(m[1])}, round ${m[2]}` : `Implementing ${taskWord(m[1])}`;
+  if ((m = /^tasks?-([\d+]+)-reviewer(?:-fix-(\d+))?$/.exec(key))) return `Reviewing ${taskWord(m[1])}${after(m[2])}`;
   if ((m = /^panel-fix-(\d+)$/.exec(key))) return `Fixing code review findings, round ${m[1]}`;
   if ((m = /^panel-(\d+)-(.+)$/.exec(key))) return `Code review round ${m[1]}: ${m[2].replace(/\+/g, ", ").replace(/-/g, " ")}`;
   if ((m = /^full-suite-fix-(\d+)$/.exec(key))) return `Fixing the full test suite, round ${m[1]}`;
@@ -26,3 +26,6 @@ export function describeDispatch(key: string | undefined, role: string): string 
   if (/^explore-\d+$/.test(key)) return "Exploring the code";
   return key;
 }
+
+/** "task 3", or "tasks 1, 2, 3" for a `+`-joined task group. */
+const taskWord = (ids: string) => (ids.includes("+") ? `tasks ${ids.replace(/\+/g, ", ")}` : `task ${ids}`);

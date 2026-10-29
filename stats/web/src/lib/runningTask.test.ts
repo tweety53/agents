@@ -2,7 +2,7 @@
 // between stages, where no stage name already says what is happening.
 import { describe, expect, it } from "vitest";
 import type { StateBoardRow } from "../api";
-import { agentsDone, lastAction, mainAction, runningTask } from "./runningTask";
+import { agentsDone, dispatchTasks, lastAction, mainAction, runningTask } from "./runningTask";
 
 const base = { projectKey: "p", name: "c", state: "IN_PROGRESS", updatedAt: "", updatedBy: "", nextCommand: "", runCount: 0, costUsd: 0, cost24h: 0, cost7d: 0, cost30d: 0, wallClockMs: 0, errors: 0 } as StateBoardRow;
 const reviewer = { role: "reviewer", key: "panel-2-primary", model: "opus", startedAt: "" };
@@ -40,4 +40,10 @@ describe("mainAction", () => {
   it("names what main is doing inside an open stage", () =>
     expect(mainAction({ ...base, currentStage: "flow.review-panel", activity: "working", activityDetail: "Bash: Add exit-2 hook test" })).toBe("Bash: Add exit-2 hook test"));
   it("is null while main is not working", () => expect(mainAction({ ...base, activity: "idle", activityDetail: "x" })).toBeNull());
+});
+
+describe("dispatchTasks", () => {
+  it("splits a task group's id", () => expect(dispatchTasks({ taskId: "1+2+3+4" })).toEqual([1, 2, 3, 4]));
+  it("reads the ids off a task key without a taskId", () => expect(dispatchTasks({ key: "task-5+6-implementer" })).toEqual([5, 6]));
+  it("is empty for a non-task dispatch", () => expect(dispatchTasks({ key: "panel-1-correctness" })).toEqual([]));
 });
