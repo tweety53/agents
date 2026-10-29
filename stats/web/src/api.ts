@@ -254,6 +254,23 @@ export interface ListChangesResponse {
 // to the wire and now to the view layer.
 
 /** Mirrors stateBoardRowDTO. */
+export interface PlanTask {
+  n: number;
+  title: string;
+  state: "done" | "in progress" | "pending";
+}
+
+/** Mirrors store.ActiveDispatch: a dispatch begun and not yet ended. */
+export interface ActiveSubagent {
+  role: string;
+  taskId?: string;
+  key?: string;
+  model: string;
+  modelVersion?: string;
+  effort?: string;
+  startedAt: string;
+}
+
 export interface StateBoardRow {
   projectKey: string;
   name: string;
@@ -282,6 +299,9 @@ export interface StateBoardRow {
   lastStage?: string;
   lastStageEndedAt?: string;
   doneTasks?: number;
+  /** An unfinished change's plan tasks, and its running subagents; each absent when empty. */
+  tasks?: PlanTask[];
+  subagents?: ActiveSubagent[];
   activity?: 'working' | 'question' | 'permission' | 'idle';
   activityDetail?: string;
   activitySince?: string;

@@ -132,6 +132,11 @@ function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
         </div>
       )}
       <ActivityBadge row={row} now={now} />
+      {row.subagents && (
+        <div className="lb-muted" data-testid="subagent-count">
+          {row.subagents.length} subagent{row.subagents.length === 1 ? "" : "s"} running
+        </div>
+      )}
       <div className="lb-prog">
         <span style={{ width: total ? `${(done / total) * 100}%` : "0%" }} />
       </div>

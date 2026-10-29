@@ -656,6 +656,14 @@ describe("the reworked run view (kan-1048)", () => {
     activity: "question",
     activityDetail: "Proceed?",
     activitySince: "2026-01-01T02:58:00Z",
+    tasks: [
+      { n: 1, title: "Schema", state: "done" },
+      { n: 2, title: "Board card", state: "in progress" },
+      { n: 3, title: "Run view", state: "pending" },
+    ],
+    subagents: [
+      { role: "implementer", taskId: "2", key: "task-2-implementer", model: "opus", modelVersion: "claude-opus-5-5", effort: "high", startedAt: "2026-01-01T02:50:00Z" },
+    ],
   };
 
   beforeEach(() => {
@@ -746,6 +754,17 @@ describe("the reworked run view (kan-1048)", () => {
     // Input counts cache reads and writes too, never just the uncached sliver.
     expect(kpi("Input tokens")).toHaveTextContent("1.25M");
     expect(kpi("Input tokens")).toHaveTextContent("cache reads 80%");
+    // Running subagents name what they do and their model, version and effort; the plan lists every task.
+    const subs = screen.getByRole("region", { name: "Subagents" });
+    expect(subs).toHaveTextContent("implementer · task 2 (Board card)");
+    expect(subs).toHaveTextContent("task-2-implementer");
+    expect(subs).toHaveTextContent("opus-5.5 · high");
+    expect(subs).toHaveTextContent("10m");
+    const tasks = screen.getByRole("region", { name: "Tasks" });
+    expect(tasks).toHaveTextContent("1/3 done");
+    expect(tasks).toHaveTextContent("✔ 1. Schema");
+    expect(tasks).toHaveTextContent("◼ 2. Board card");
+    expect(tasks).toHaveTextContent("◻ 3. Run view");
     expect(kpi("Failed runs")).toHaveTextContent("1");
     expect(kpi("Failed runs")).toHaveTextContent("1 retried");
     // Cost by stage: summed per stage, largest first, "flow." dropped.

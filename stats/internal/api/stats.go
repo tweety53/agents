@@ -15,7 +15,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -685,9 +688,13 @@ type stateBoardRowDTO struct {
 	LastStage             *string `json:"lastStage,omitempty"`
 	LastStageEndedAt      *string `json:"lastStageEndedAt,omitempty"`
 	DoneTasks             *int    `json:"doneTasks,omitempty"`
-	Activity              *string `json:"activity,omitempty"`
-	ActivityDetail        *string `json:"activityDetail,omitempty"`
-	ActivitySince         *string `json:"activitySince,omitempty"`
+	// Tasks is an unfinished change's plan, read from its tasks.md;
+	// Subagents its running dispatches. Both omitted when empty.
+	Tasks          []taskDTO              `json:"tasks,omitempty"`
+	Subagents      []store.ActiveDispatch `json:"subagents,omitempty"`
+	Activity       *string                `json:"activity,omitempty"`
+	ActivityDetail *string                `json:"activityDetail,omitempty"`
+	ActivitySince  *string                `json:"activitySince,omitempty"`
 }
 
 // nextCommandFor maps a change's current pipeline state to the command that
@@ -718,6 +725,47 @@ func nextCommandFor(s store.State) string {
 	}
 }
 
+// taskDTO is one plan task: its number, title and done, in progress or
+// pending.
+type taskDTO struct {
+	N     int    `json:"n"`
+	Title string `json:"title"`
+	State string `json:"state"`
+}
+
+// planTask is a tasks.md column-0 task line, "- [ ] 3. Title" or "- [x] 3. Title".
+var planTask = regexp.MustCompile(`(?m)^- \[([ x])\] (\d+)\. (.*)$`)
+
+// planTasks reads an unfinished change's tasks.md from the first of its
+// worktrees that has one. A task is done when ticked or committed by an
+// implementer (a gated task's tick waits on its reviewer), in progress when a
+// running subagent works on it, pending otherwise. Nil when no tasks.md is found.
+func planTasks(r store.LiveStateRow) []taskDTO {
+	if r.State == store.StateFinished {
+		return nil
+	}
+	for _, root := range r.RepoRoots {
+		b, err := os.ReadFile(filepath.Join(root, "spectre", "changes", r.Name, "tasks.md"))
+		if err != nil {
+			continue
+		}
+		var out []taskDTO
+		for _, m := range planTask.FindAllStringSubmatch(string(b), -1) {
+			n, _ := strconv.Atoi(m[2])
+			state := "pending"
+			switch {
+			case m[1] == "x" || slices.Contains(r.CommittedTasks, m[2]):
+				state = "done"
+			case slices.ContainsFunc(r.Subagents, func(d store.ActiveDispatch) bool { return d.TaskID != nil && *d.TaskID == m[2] }):
+				state = "in progress"
+			}
+			out = append(out, taskDTO{N: n, Title: m[3], State: state})
+		}
+		return out
+	}
+	return nil
+}
+
 func toStateBoardDTOs(rows []store.LiveStateRow) []stateBoardRowDTO {
 	out := make([]stateBoardRowDTO, len(rows))
 	for i, r := range rows {
@@ -743,6 +791,8 @@ func toStateBoardDTOs(rows []store.LiveStateRow) []stateBoardRowDTO {
 			LastStage:             r.LastStage,
 			LastStageEndedAt:      rfc3339OrNil(r.LastStageEndedAt),
 			DoneTasks:             r.DoneTasks,
+			Tasks:                 planTasks(r),
+			Subagents:             r.Subagents,
 			Activity:              r.Activity,
 			ActivityDetail:        r.ActivityDetail,
 			ActivitySince:         rfc3339OrNil(r.ActivitySince),

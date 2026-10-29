@@ -14,11 +14,11 @@ import { useMemo, type ReactNode } from "react";
 import { StageRunTable, groupSessions, runEnd } from "../components/StageRunTable";
 import { StageTimeline } from "../components/StageTimeline";
 import { useRunDetail } from "../hooks/useRunDetail";
-import { formatRelative, formatSpan, formatUsd } from "../format";
+import { formatModel, formatRelative, formatSpan, formatUsd } from "../format";
 import { readCacheReadTokens, readCostUsd, readTotalInputTokens } from "../metrics";
 import { projectLabel } from "../lib/projectLabel";
 import { ActivityBadge, StatePill } from "./StateBoard";
-import type { StageRunDTO } from "../api";
+import type { PlanTask, StageRunDTO } from "../api";
 
 export interface RunDetailProps {
   project: string;
@@ -37,6 +37,14 @@ function Kpi({ label, value, hint, children }: { label: string; value: ReactNode
 }
 
 /** The Jira key a change name leads with (`kan-1048-…` → `KAN-1048`), if any. */
+const TASK_MARK: Record<PlanTask["state"], string> = { done: "✔", "in progress": "◼", pending: "◻" };
+
+/** " (title)" of plan task id, or empty when the plan does not list it. */
+function taskTitle(tasks: PlanTask[] | undefined, id: string): string {
+  const t = tasks?.find((t) => String(t.n) === id);
+  return t ? ` (${t.title})` : "";
+}
+
 function jiraKey(change: string): string | null {
   const m = /^([a-z]+-\d+)/i.exec(change);
   return m ? m[1].toUpperCase() : null;
@@ -139,6 +147,55 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   hint={`${failed.filter((f) => retried(runs, f)).length} retried`}
                 />
               </section>
+
+              {(board?.tasks || board?.subagents) && (
+                <div className="lb-split">
+                  <section className="lb-panel" aria-label="Subagents">
+                    <div className="lb-panel-h">
+                      <span>Subagents running</span>
+                      <span className="lb-panel-note">{board.subagents?.length ?? 0}</span>
+                    </div>
+                    <table className="lb-table">
+                      <tbody>
+                        {(board.subagents ?? []).map((d, i) => (
+                          <tr key={`${d.key ?? d.role}-${i}`}>
+                            <td>
+                              <span className="lb-live-dot" /> {d.role}
+                              {d.taskId && ` · task ${d.taskId}${taskTitle(board.tasks, d.taskId)}`}
+                              {d.key && <div className="lb-muted">{d.key}</div>}
+                            </td>
+                            <td>
+                              {formatModel(d.modelVersion ?? d.model)}
+                              {d.effort && ` · ${d.effort}`}
+                            </td>
+                            <td className="r lb-num">{formatSpan(now - Date.parse(d.startedAt))}</td>
+                          </tr>
+                        ))}
+                        {!board.subagents && (
+                          <tr>
+                            <td className="lb-muted">None right now.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </section>
+                  <section className="lb-panel" aria-label="Tasks">
+                    <div className="lb-panel-h">
+                      <span>Tasks</span>
+                      <span className="lb-panel-note">
+                        {board.tasks ? `${board.tasks.filter((t) => t.state === "done").length}/${board.tasks.length} done` : "no plan yet"}
+                      </span>
+                    </div>
+                    <ul className="lb-tasks">
+                      {(board.tasks ?? []).map((t) => (
+                        <li key={t.n} className={t.state.replace(" ", "-")}>
+                          <span className="lb-task-mark">{TASK_MARK[t.state]}</span> {t.n}. {t.title}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                </div>
+              )}
 
               <section className="lb-panel" aria-label="Timeline">
                 <div className="lb-panel-h">

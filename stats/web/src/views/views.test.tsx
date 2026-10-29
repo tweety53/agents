@@ -127,6 +127,10 @@ const fixtures: Record<
       currentStage: "flow.sdd-tdd",
       currentStageStartedAt: "2026-01-15T11:30:00Z",
       doneTasks: 20,
+      subagents: [
+        { role: "implementer", model: "opus", startedAt: "2026-01-15T11:50:00Z" },
+        { role: "reviewer", model: "opus", startedAt: "2026-01-15T11:55:00Z" },
+      ],
       activity: "working",
       activityDetail: "2 subagents running",
       activitySince: "2026-01-15T11:59:00Z",
@@ -431,6 +435,9 @@ describe("views render their fixture response's actual values", () => {
     expect(cards[1]).toHaveTextContent("Working");
     expect(cards[1]).toHaveTextContent("Implementing tasks· 30m");
     expect(cards[1]).toHaveTextContent("tasks 20/46 · $12.50");
+    // The card keeps subagents to a count; the run view lists them.
+    expect(within(cards[1]).getByTestId("subagent-count")).toHaveTextContent("2 subagents running");
+    expect(within(cards[0]).queryByTestId("subagent-count")).toBeNull();
     // A change between stages still names its latest stage and what runs next.
     expect(cards[2]).toHaveTextContent("kan-5-old");
     expect(cards[2]).toHaveTextContent("Paused after: Writing the task plan· 5m ago");

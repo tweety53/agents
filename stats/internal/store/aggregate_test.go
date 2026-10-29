@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -1971,6 +1972,13 @@ func TestLiveStateBoardCarriesOpenStageDoneTasksAndActivity(t *testing.T) {
 	if live.LastStage == nil || *live.LastStage != "flow.sdd-tdd" || live.LastStageEndedAt != nil {
 		t.Errorf("LastStage = %v ended %v, want the open flow.sdd-tdd, not ended", live.LastStage, live.LastStageEndedAt)
 	}
+	if !slices.Equal(live.CommittedTasks, []string{"1", "2"}) {
+		t.Errorf("CommittedTasks = %v, want [1 2]", live.CommittedTasks)
+	}
+	if len(live.Subagents) != 3 || live.Subagents[0].Role != "implementer" || live.Subagents[0].Model != "opus" ||
+		live.Subagents[2].TaskID == nil || *live.Subagents[2].TaskID != "3" {
+		t.Errorf("Subagents = %+v, want the three unended implementer dispatches, task 3 last", live.Subagents)
+	}
 	if live.DoneTasks == nil || *live.DoneTasks != 2 {
 		t.Errorf("DoneTasks = %v, want 2", live.DoneTasks)
 	}
@@ -1985,6 +1993,9 @@ func TestLiveStateBoardCarriesOpenStageDoneTasksAndActivity(t *testing.T) {
 	}
 
 	idle := byName["kan-2"]
+	if len(idle.Subagents) != 0 || len(idle.CommittedTasks) != 0 {
+		t.Errorf("kan-2 Subagents = %v CommittedTasks = %v, want none", idle.Subagents, idle.CommittedTasks)
+	}
 	if idle.LastStage != nil || idle.LastStageEndedAt != nil {
 		t.Errorf("kan-2 LastStage = %v, want nil (no stage run)", idle.LastStage)
 	}

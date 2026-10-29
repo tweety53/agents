@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -62,10 +63,28 @@ type LiveStateRow struct {
 	// LastStageEndedAt is nil while that run is open.
 	LastStage        *string
 	LastStageEndedAt *time.Time
-	DoneTasks        *int
-	Activity         *string
-	ActivityDetail   *string
-	ActivitySince    *time.Time
+	// Subagents are the change's dispatches begun and not yet ended, oldest
+	// first; RepoRoots are its recorded worktrees, where its tasks.md lives.
+	Subagents []ActiveDispatch
+	RepoRoots []string
+	// CommittedTasks are the task ids an implementer dispatch committed.
+	CommittedTasks []string
+	DoneTasks      *int
+	Activity       *string
+	ActivityDetail *string
+	ActivitySince  *time.Time
+}
+
+// ActiveDispatch is one running subagent: its role, the plan task it works
+// on, its dispatch key, and the model, exact version and effort it runs at.
+type ActiveDispatch struct {
+	Role         string    `json:"role"`
+	TaskID       *string   `json:"taskId,omitempty"`
+	Key          *string   `json:"key,omitempty"`
+	Model        string    `json:"model"`
+	ModelVersion *string   `json:"modelVersion,omitempty"`
+	Effort       *string   `json:"effort,omitempty"`
+	StartedAt    time.Time `json:"startedAt"`
 }
 
 // signalErrorsExpr is one stage run's tool and API errors, main and
@@ -86,7 +105,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 		       first_obs.total_tasks, latest_obs.total_tasks,
 		       totals.runs, totals.cost, totals.wall_ms, totals.errors,
 		       win.d1, win.d7, win.d30,
-		       open_run.stage, open_run.started_at, last_run.stage, last_run.ended_at, done.tasks,
+		       open_run.stage, open_run.started_at, last_run.stage, last_run.ended_at, done.tasks, subs.list, roots.list, committed.list,
 		       sa.state, sa.detail, sa.updated_at
 		FROM changes c
 		LEFT JOIN LATERAL (
@@ -140,6 +159,24 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			ORDER BY sr.started_at DESC, sr.id DESC
 			LIMIT 1
 		) last_run ON true
+		LEFT JOIN LATERAL (
+			SELECT COALESCE(jsonb_agg(jsonb_build_object(
+			         'role', d.role, 'taskId', d.task_id, 'key', d.dispatch_key, 'model', d.model,
+			         'modelVersion', d.metrics->>'modelVersion', 'effort', d.effort, 'startedAt', d.started_at
+			       ) ORDER BY d.started_at, d.id), '[]'::jsonb) AS list
+			FROM dispatches d
+			WHERE d.change_id = c.id AND d.ended_at IS NULL AND d.started_at IS NOT NULL
+		) subs ON true
+		LEFT JOIN LATERAL (
+			SELECT COALESCE(array_agg(cr.repo_root ORDER BY cr.repo_root), '{}') AS list
+			FROM change_repos cr
+			WHERE cr.change_id = c.id
+		) roots ON true
+		LEFT JOIN LATERAL (
+			SELECT COALESCE(array_agg(DISTINCT d.task_id), '{}') AS list
+			FROM dispatches d
+			WHERE d.change_id = c.id AND d.role = 'implementer' AND d.commit_sha IS NOT NULL AND d.task_id IS NOT NULL
+		) committed ON true
 		LEFT JOIN session_activity sa ON sa.session_id = open_run.session_id
 		LEFT JOIN LATERAL (
 			SELECT CASE WHEN COUNT(*) = 0 THEN NULL
@@ -163,14 +200,18 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 		var (
 			row   LiveStateRow
 			state string
+			subs  []byte
 		)
 		if err := rows.Scan(&row.ProjectKey, &row.Name, &state, &row.UpdatedAt, &row.UpdatedBy,
 			&row.PlannedTasks, &row.CurrentTasks,
 			&row.RunCount, &row.CostUsd, &row.WallClockMs, &row.Errors,
 			&row.Cost24h, &row.Cost7d, &row.Cost30d,
-			&row.CurrentStage, &row.CurrentStageStartedAt, &row.LastStage, &row.LastStageEndedAt, &row.DoneTasks,
+			&row.CurrentStage, &row.CurrentStageStartedAt, &row.LastStage, &row.LastStageEndedAt, &row.DoneTasks, &subs, &row.RepoRoots, &row.CommittedTasks,
 			&row.Activity, &row.ActivityDetail, &row.ActivitySince); err != nil {
 			return nil, fmt.Errorf("store: live state board: scan: %w", err)
+		}
+		if err := json.Unmarshal(subs, &row.Subagents); err != nil {
+			return nil, fmt.Errorf("store: live state board: subagents: %w", err)
 		}
 		row.State = State(state)
 		out = append(out, row)
