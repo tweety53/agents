@@ -1081,6 +1081,8 @@ describe("the reworked run view (kan-1048)", () => {
     const bars = [...rail.querySelectorAll(".lb-hbar")].map((b) => b.textContent);
     expect(bars).toEqual(["Analysis pass$3.00", "Fix rounds$2.00", "Planning fixes$1.00", "Review rounds$0.40", "Landing and filing$0.20"]);
     expect(rail).not.toHaveTextContent(/^Self-review/);
+    // The analysis pass is the analyzer; reviewer stays the re-review's.
+    expect(within(main).getAllByTestId("phase-role").map((r) => r.textContent?.split(" ")[0])).toEqual(expect.arrayContaining(["analyzer", "reviewer"]));
     runRecordMock.mockImplementation(() => Promise.resolve({ dispatches: [] }));
     findChangesMock.mockResolvedValue({ records: [] });
     listFindingsMock.mockImplementation(() => Promise.resolve([]));

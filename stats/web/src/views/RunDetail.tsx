@@ -100,7 +100,8 @@ function phaseSteps(runs: StageRunDTO[], dispatches: RecordDispatch[]): Step[] {
     out.push({
       phase,
       agentId: d.agentId,
-      role: d.role,
+      // The self-review's analysis pass records as a reviewer; "reviewer" names the code-review slots.
+      role: d.role === "reviewer" && /-pass$/.test(d.key ?? "") ? "analyzer" : d.role,
       key: d.key || undefined,
       taskId: d.taskId || undefined,
       model: d.model,
