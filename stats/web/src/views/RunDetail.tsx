@@ -318,6 +318,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
     };
   }, [project, change]);
   const [allRuns, setAllRuns] = useState(false);
+  const [timelineOpen, setTimelineOpen] = useState(false);
   // The self-review sub-run, change self-review-<name> in whichever project hosts the tooling: its
   // stage runs, dispatches and findings belong to this change's Self-review phase.
   const [sub, setSub] = useState<{ project: string; name: string; runs: StageRunDTO[]; dispatches: RecordDispatch[]; findings: SelfReviewFinding[] } | null>(null);
@@ -641,11 +642,16 @@ export function RunDetail({ project, change }: RunDetailProps) {
                       <i className="lb-sw open" />
                       running
                     </span>
+                    <button type="button" className="lb-fchip" aria-expanded={timelineOpen} onClick={() => setTimelineOpen(!timelineOpen)}>
+                      {timelineOpen ? "Hide timeline" : "Show timeline"}
+                    </button>
                   </span>
                 </div>
-                <div className="lb-panel-b lb-scroll">
-                  <StageTimeline stageRuns={runs} sessionOf={sessionOf} upcoming={upcoming} />
-                </div>
+                {timelineOpen && (
+                  <div className="lb-panel-b lb-scroll">
+                    <StageTimeline stageRuns={runs} sessionOf={sessionOf} upcoming={upcoming} />
+                  </div>
+                )}
               </section>
 
               <div className="lb-split">
@@ -668,6 +674,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                     stageRuns={allRuns ? runs : [...runs].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt)).slice(-LATEST_RUNS)}
                     truncated={state.truncated}
                     totalStageRuns={state.totalStageRuns}
+                    records={dispatches}
                   />
                 </section>
                 <section className="lb-panel" aria-label="Cost by stage">

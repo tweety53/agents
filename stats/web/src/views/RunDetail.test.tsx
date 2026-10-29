@@ -103,7 +103,7 @@ describe("a change with runs across several commands", () => {
     render(<RunDetail project={PROJECT} change={CHANGE} />);
 
     // No sessionId: both runs group under their command, as one session.
-    expect(await screen.findByRole("row", { name: /^Session 1 · other/ })).toBeInTheDocument();
+    expect(await screen.findByRole("row", { name: /^Session 1 · Other/ })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "1. Brainstorming" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "SDD + TDD per task" })).toBeInTheDocument();
   });
@@ -489,7 +489,7 @@ describe("a stage run that dispatched three subagents (kan-201)", () => {
     // dispatch-specific affordance -- see that file's own header comment
     // (F3, pass 1 of this change's own review panel). The row is found by
     // its stage cell, and its toggle by scoping to that row.
-    const row = within(await stageRunsTable()).getByText("5. The review panel").closest("tr") as HTMLElement;
+    const row = within(await stageRunsTable()).getByText(/^5\. The review panel/).closest("tr") as HTMLElement;
     await user.click(within(row).getByRole("button"));
     return screen.getAllByTestId("dispatch-row");
   }
@@ -532,7 +532,7 @@ describe("a stage run that dispatched three subagents (kan-201)", () => {
 
     render(<RunDetail project={PROJECT} change={CHANGE} />);
 
-    within(await stageRunsTable()).getByText("5. The review panel");
+    within(await stageRunsTable()).getByText(/^5\. The review panel/);
     // The three surviving statistics views from design.md's `stats-ui-cut`
     // (cache efficiency and runs cut by KAN-989) plus `weekly-costs`,
     // `reviewers`, `decisions`, `flow-health`, `self-review` and
@@ -714,32 +714,32 @@ describe("the reworked run view (kan-1048)", () => {
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const groups = (await screen.findAllByRole("row")).filter((r) => r.classList.contains("lb-group"));
     expect(groups.map((g) => g.textContent)).toEqual([
-      "Session 1 · planning00:00–00:40 · 40m · $3.00",
-      "Session 2 · implementation01:00–now · 2h 00m · $3.50",
+      "Session 1 · Planning00:00–00:40 · 40m · $3.00",
+      "Session 2 · Implementation01:00–now · 2h 00m · $3.50",
     ]);
   });
 
   it("run detail shows model version and effort", async () => {
     const user = userEvent.setup();
     render(<RunDetail project={PROJECT} change={CHANGE} />);
-    const kickoff = (await screen.findByRole("cell", { name: "Starting up flow.kickoff" })).closest("tr")!;
-    expect(kickoff).toHaveTextContent("opus-4.7 · medium");
+    const kickoff = (await screen.findByRole("cell", { name: "Starting up" })).closest("tr")!;
+    expect(kickoff).toHaveTextContent("opus 4.7 · medium");
     // No effort recorded: the model alone.
-    const brainstorm = screen.getByRole("cell", { name: "Designing the change flow.brainstorm" }).closest("tr")!;
-    expect(within(brainstorm).getByText("opus-4.7")).toBeInTheDocument();
+    const brainstorm = screen.getByRole("cell", { name: "Designing the change" }).closest("tr")!;
+    expect(within(brainstorm).getByText("opus 4.7")).toBeInTheDocument();
     const open = screen.getByRole("button", { name: "Show dispatches" });
-    expect(open.closest("tr")).toHaveTextContent("opus-4.7, sonnet-4.6 · high");
+    expect(open.closest("tr")).toHaveTextContent("opus 4.7, sonnet 4.6 · high");
     // A dispatch row: its bucket's model and its most-served effort.
     await user.click(open);
     const dispatch = screen.getByTestId("dispatch-row");
     expect(dispatch).toHaveTextContent("Task 4/11");
-    expect(dispatch).toHaveTextContent("sonnet-4.6 · medium");
+    expect(dispatch).toHaveTextContent("sonnet 4.6 · medium");
     expect(dispatch).toHaveTextContent("$0.25");
   });
 
   it("run detail has no filter controls", async () => {
     render(<RunDetail project={PROJECT} change={CHANGE} />);
-    await screen.findByRole("cell", { name: "Starting up flow.kickoff" });
+    await screen.findByRole("cell", { name: "Starting up" });
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
@@ -1004,12 +1004,24 @@ describe("the reworked run view (kan-1048)", () => {
       view === "state-board" ? Promise.reject(new Error("board down")) : Promise.resolve(aggregateEnvelope([])),
     );
     render(<RunDetail project={PROJECT} change={CHANGE} />);
-    expect(await screen.findByRole("cell", { name: "Starting up flow.kickoff" })).toBeInTheDocument();
+    expect(await screen.findByRole("cell", { name: "Starting up" })).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("stage timeline starts collapsed, its header toggle showing and hiding it", async () => {
+    const user = userEvent.setup();
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const panel = await screen.findByRole("region", { name: "Timeline" });
+    expect(within(panel).queryByRole("img", { name: "Stage runs over time" })).not.toBeInTheDocument();
+    await user.click(within(panel).getByRole("button", { name: "Show timeline" }));
+    expect(within(panel).getByRole("img", { name: "Stage runs over time" })).toBeInTheDocument();
+    await user.click(within(panel).getByRole("button", { name: "Hide timeline" }));
+    expect(within(panel).queryByRole("img", { name: "Stage runs over time" })).not.toBeInTheDocument();
   });
 
   it("stage timeline draws a lane per stage coloured by outcome", async () => {
     render(<RunDetail project={PROJECT} change={CHANGE} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Show timeline" }));
     const svg = await screen.findByRole("img", { name: "Stage runs over time" });
     // The stages still to run follow as muted lanes, in the command's order; a skipped one (decide) is not "upcoming".
     await waitFor(() => expect(svg.querySelectorAll("[data-testid=upcoming-lane]").length).toBe(2));
