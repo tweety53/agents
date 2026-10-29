@@ -52,7 +52,8 @@ exactly as above.
 ledger line, which remains the only evidence of the model a dispatch actually ran on. Every panel
 slot is a prompt-driven role
 (**The roster**, `skills/flow/review-panel.md`) and takes its dispatch's model the same way every
-other slot does.
+other slot does. The findings merger, which reviews nothing, runs on the fixed pair
+**The findings merger** (`skills/flow/review-panel.md`) names.
 
 **Every subagent dispatch records the model it used** in the SDD ledger, alongside the task it ran.
 See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`) for why, and for the history

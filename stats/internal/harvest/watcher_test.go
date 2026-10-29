@@ -4309,6 +4309,30 @@ func TestLateStampCreditsTheAgentFileAlreadyHarvested(t *testing.T) {
 	}
 }
 
+// TestLateStampCreditsANestedAgentsFile pins the same credit for a launch
+// a subagent made: Claude writes every agent of a session, a nested one
+// included, flat under the session's one subagents/ directory, so the
+// child's file sits beside its launcher's, never under a directory the
+// launcher's own path names (the panel orchestrator launches the panel's
+// reviewers, skills/flow/review-panel.md).
+func TestLateStampCreditsANestedAgentsFile(t *testing.T) {
+	dir := t.TempDir()
+	parent := writeLateStampFixture(t, dir)
+	launcher := filepath.Join(strings.TrimSuffix(parent, ".jsonl"), "subagents", "agent-a1f2e3d4c5b6a7980.jsonl")
+	deps := &lateStampDeps{}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	runCycles(t, w, 1)
+
+	if err := os.WriteFile(launcher, stampFixtureLines(stampBeginLine, stampLaunchLine), 0o644); err != nil {
+		t.Fatalf("write launcher: %v", err)
+	}
+	runCycles(t, w, 2)
+
+	if deps.merged[7] != 1 {
+		t.Fatalf("merged = %v, want exactly one merge on row 7 from the nested agent's already-harvested file", deps.merged)
+	}
+}
+
 // TestLateStampLeavesAResumedAgentsFileAlone pins the guard on that
 // credit: where the agent already held a row, the harvested batches were
 // credited to it, and crediting them again to the new row would count

@@ -155,6 +155,11 @@ prompt **What still stops** names, a blocked report, or the handoff the state's 
 this rule broken (kan-1018: the parent ended its turn with round-0 panel findings recorded and
 every fix still ahead). The `Stop` hook `hooks/flow-stop-guard.py` refuses such a turn end (kan-1024).
 
+**A wait on background subagents is the one turn end inside a phase.** The parent ends its turn on
+the one-shots it launched, and the harness's completion notifications resume it — never a poll;
+the `Stop` hook allows that turn end while any agent the transcript launched has not notified its
+end.
+
 **No round count ends a re-review or a re-verification.** A review-panel fix round, a gated
 per-task re-review, a verify stage's fix loop and a verifier re-dispatch each repeat until their
 own clean close. **A round that makes no progress — the same defect identity, on the same
@@ -206,6 +211,11 @@ contract says "this session" or "the parent" runs a loop, the parent runs it, ev
 is long. An orchestrator duplicates the parent's context, idles between its children's returns
 until its prompt cache expires and re-reads it all on every wake, and resuming it is the
 `SendMessage`-to-a-finished-child shape this pipeline bans.
+
+**Only the parent waits.** A subagent starts fresh, does one job, writes its result to disk and
+exits; work that follows it starts in a fresh one from that file (**Dispatch sites — the parent's closed list**,
+`skills/flow/implement.md`). The parent runs on the one-hour prompt cache and a subagent on the
+five-minute one, so a subagent that waits, or is resumed after a gap, pays a full cache rewrite.
 
 ## Pipeline defects found mid-run
 

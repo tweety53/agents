@@ -52,7 +52,7 @@ discipline**, below, states the one-foreground-wait-call shape this applies thro
 
 ### Dispatch sites — the parent's closed list
 
-These seven rows are **every** Agent-tool dispatch the parent may make, across sections **1**,
+These eight rows are **every** Agent-tool dispatch the parent may make, across sections **1**,
 **2** and **4** below, `skills/flow/review-panel.md`, `skills/flow/verify-and-handoff.md` and
 `skills/flow-contracts/pipeline.md`'s **Pipeline defects found mid-run**:
 
@@ -61,6 +61,7 @@ These seven rows are **every** Agent-tool dispatch the parent may make, across s
 | implementer, one per group | `implementer` | `task-<n>-implementer` | section **4** below |
 | gated reviewer bundle, one per implementer group the review gate fires in, on `big` alone | `reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
 | panel bundle, at most two per round, plus at most one citation send-back per re-run dispatch outside that cap | `reviewer` | `panel-<round>-<slot\|slot+slot+slot>` (`-cite` once per re-run dispatch) | `skills/flow/review-panel.md`, **Bundled dispatch** |
+| findings merger, one per round once its dispatches have ended | `merger` | `panel-<round>-merger` | `skills/flow/review-panel.md`, **The findings merger** |
 | panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix-<round>[-<chunk>]` (`-retry` once per chunk) | `skills/flow/review-panel.md`, the fix step |
 | verifier, one per worktree | `verifier` | `visual-verify` (`-2`, `-retry`, `-rest`, `-rest-<n>`, `-fix-<k>`, `-fix-<k>-full`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
 | tooling analyst, one per worktree whose fix run reports a miss an earlier round passed | `planner` | `tooling-analysis-<n>` | `skills/flow/visual-verify.md`, **A missed defect — the tooling analysis** |
@@ -75,7 +76,8 @@ delegated** — every `check-*.sh`, `run-reproducer.sh`, `gather-dispatch-contex
 `prepare-workspace.sh`, `## lint` and `## test`, every `flow record` and `flow stage` call,
 worktree add and remove, every report read and every diff walk. Not to a "verify" reader, a
 "re-verify" or "mutation re-verify" agent, a helper, a background task, or a subagent under any
-other name.
+other name. The findings merger's read of a round's reports (**The findings merger**,
+`skills/flow/review-panel.md`) is the one exception.
 
 **The self-check.** Before any Agent-tool call, the parent names which row above the call is. A
 call that names no row is not made.

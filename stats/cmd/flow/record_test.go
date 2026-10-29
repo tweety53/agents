@@ -629,6 +629,36 @@ func TestRecordAcceptsExplorerRole(t *testing.T) {
 	}
 }
 
+// TestRecordAcceptsMergerRole pins that "merger" is in the accepted-role
+// allowlist -- the role `/flow` records for the one-shot subagent that
+// folds a panel round's reports into one summary (review-panel.md).
+func TestRecordAcceptsMergerRole(t *testing.T) {
+	repo := recordRepo(t, "kan-1050")
+	isolatedStateRoot(t)
+
+	contacted := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		contacted = true
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":1,"seq":1,"role":"merger","model":"sonnet","startedAt":"2026-01-02T03:04:05Z"}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "dispatch", "begin", "-effort", "low", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-1050", "-role", "merger", "-model", "sonnet", "-key", "panel-0-merger",
+			"-session-token", "mf-record-merger-role"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if !contacted {
+		t.Error("the store was not contacted for the merger role")
+	}
+}
+
 // TestRecordAcceptsConductorRole pins that "conductor" is in the
 // accepted-role allowlist -- the role `/flow` records for the subagent
 // that runs implement.md, review-panel.md and verify-and-handoff.md as

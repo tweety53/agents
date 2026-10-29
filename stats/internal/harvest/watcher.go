@@ -2342,9 +2342,14 @@ func (w *Watcher) stampLoopLaunches(ctx context.Context, path string, launches [
 // run of the agent never got its id and the resume row is the first stamped,
 // that earlier run's batches are credited to the resume row.
 // The agent file is Claude's subagents/agent-<id>.jsonl beside the parent
-// transcript; a path that names none is silence, like an unpaired launch.
+// transcript -- or, for a launch a subagent made, beside the launcher's own
+// file, Claude keeping every agent of a session flat in one subagents/
+// directory; a path that names none is silence, like an unpaired launch.
 func (w *Watcher) creditStampedAgentFile(ctx context.Context, parentPath, agentID string) {
 	agentPath := filepath.Join(strings.TrimSuffix(parentPath, ".jsonl"), subagentsDirName, "agent-"+agentID+".jsonl")
+	if IsAgentTranscriptPath(parentPath) {
+		agentPath = filepath.Join(filepath.Dir(parentPath), "agent-"+agentID+".jsonl")
+	}
 	offset, found, err := w.sink.GetHarvestOffset(ctx, agentPath)
 	if err != nil || !found || offset == 0 {
 		return

@@ -445,8 +445,8 @@ launches every dispatch of the round — on pass 1, every dispatch but `mutation
 (below) — one call for all, as `panel-round-begins.sh <worktree> <name> <round> mf-<literal-token>
 <slot>:<model>:<effort>[:<diff-base>]...` — the begin above once per slot, under the literal key
 `panel-<round>-<slot>`, `<round>` written as the number itself, never a shell substitution, and then
-the round's own pass row naming each slot's pair, so no round it began lacks one; the round's wait is one call whose condition is `test -s` on every
-launched pass's report file; every `end` is recorded in one call once they all exist (the turn discipline of **4. Execute
+the round's own pass row naming each slot's pair, so no round it began lacks one; the round's wait is the harness's completion notifications, never a poll (see
+**No forking, and a wall-clock ceiling on every slot** below); every `end` is recorded in one call once they all exist (the turn discipline of **4. Execute
 (SDD + TDD)**, `skills/flow/implement.md`).
 On claude-code each `end` passes no `-ended-at`: the daemon closes a stamped row at its own agent transcript's last write, so a slot that finished early is never stamped with the round's last finish (kan-1019: two slots of one round both read 15m31s). On any other harness the daemon reads no agent transcript, so each `end` passes its own slot's report-file modification time as `-ended-at`; a bundled dispatch's `<report-file>` is the newest of its slots' reports.
 A dispatch whose report never appears within its
@@ -724,9 +724,10 @@ Every panel slot carries a 15-minute wall-clock ceiling from its dispatch — 5 
 fix-round re-run dispatch on a decided panel, which reads a delta at `low` effort
 and has no business running longer. The dispatcher tracks each in-flight slot's elapsed time
 itself rather than blocking indefinitely on a completion notification: it notes each slot's
-dispatch instant (`date +%s`) when it dispatches, waits on the slot only through
-**Turn discipline**'s bounded loop in **4. Execute (SDD + TDD)** (`skills/flow/implement.md`), and
-on every `still-running` compares the slot's elapsed time against its ceiling before re-issuing —
+dispatch instant (`date +%s`) when it dispatches, waits on the slot only through its completion
+notification and one background timer — `sleep <seconds to the earliest open ceiling>`, launched
+with `run_in_background: true`, its own notification the named wake-up — and on every notification
+compares each open slot's elapsed time against its ceiling, re-arming the timer for the next —
 a slot past its ceiling gets no further wait and takes the breach path below at once (kan-1025: with no named wake-up, a breach was caught
 at about three times the ceiling). **The ceiling is a record-and-review bound, not a stop**: it cannot halt
 an in-flight dispatch — a slot the harness runs as one blocking call pays the overrun in full
@@ -750,6 +751,60 @@ contract's never-repeats clause.
 
 A timed-out slot raises no finding, consumes no fix round, and is not a clean result for the final
 pass.
+
+### The findings merger
+
+**The parent reads a round's findings through one findings merger, never the reports one by one.**
+Once every dispatch of the round has ended — its `end` recorded, every role's report file
+confirmed under **Recording findings**, the plan-tree and content-marker `verify` passed, and on a
+re-run every `check-rerun-citations.sh` settled — the parent dispatches one merger: a one-shot that
+reads the round's report files from disk, writes one summary and exits.
+
+**The merger never judges, fixes or dispatches.** It decides no finding real, records nothing,
+runs no reproducer, and edits no file but its summary. Whether each finding stands, the fold of a
+defect raised by several roles, every `flow record finding`, `status` and `incident` call, the fix
+and every re-run decision stay the parent's.
+
+**The merger runs on `flow-low` with `model: "sonnet"`** — its work is mechanical, and every review
+stays on its slot's own pair. Its row, begun in the Bash call before its launch and ended once its
+summary is read:
+
+```bash
+flow record dispatch begin -change <name> -role merger -model sonnet -effort low \
+  -key panel-<round>-merger -session-token mf-<literal-token>
+flow record dispatch end -change <name> -key panel-<round>-merger \
+  -session-token mf-<literal-token> -outcome completed
+```
+
+It is launched with `run_in_background: true`, its `description` opening with its key, and a
+prompt of the baseline pointer, the TOOLS, NO DELEGATION and MODEL HANDSHAKE paragraphs above, the
+MERGER BRIEF paragraph below, every role's report path, and one line per dispatch of the round —
+its `-key`, the `-outcome` its row was closed with, and its elapsed seconds. The parent applies
+**The handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**) to its
+reply.
+
+> **MERGER BRIEF:** read each report file listed below — never the diff, never the code — and
+> write `<abs-worktree>/.superpowers/sdd/panel-summary-<round>.md`, then return its content and
+> stop. One line per fact, in exactly these shapes:
+> `dispatch: <key> — <outcome> — <elapsed>s` for each dispatch listed below, as given;
+> `slot: <id> — <report path> — Critical <n> — Important <n> — Minor <n>`, the counts its
+> report's `Critical:` and `Important:` lines give and its own Minor count, or `placeholder` in
+> place of the counts for a `no verbatim report captured` file;
+> `finding: <id>#<n> — <severity> — <file:line> — <task id|none> — <reproducer, as the report
+> gives it> — <the reviewer's own sentence naming the defect, quoted>`, `<n>` the finding's
+> 1-based index in its report;
+> `duplicate: <file:line> — <id>#<n>, <id>#<n>[, …]` grouping findings of different roles that
+> cite one `file:line`;
+> `missing-reproducer: <id>#<n> — <path>` for a runnable reproducer path that does not exist in
+> the worktree. You judge nothing: never decide a finding real, join findings at different
+> locations, drop one, re-word one, or fix anything.
+
+**The summary is what the parent reads**, not the reports: its `finding:` lines carry each
+finding's severity, location, task, reproducer and the reviewer's own sentence, the `-note` of
+**Recording findings**. A report is read only where a finding's judgement needs it. A `duplicate:`
+line is a candidate fold the parent confirms or rejects under **Bundled dispatch**'s
+several-roles rule; a `missing-reproducer:` line is the reproducer the parent writes itself under
+**Recording findings**.
 
 ### The mutation-testing brief
 

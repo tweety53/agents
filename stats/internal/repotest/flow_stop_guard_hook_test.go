@@ -30,6 +30,8 @@ type stopFixture struct {
 	metaUser string // isMeta user entry after the operator message (hook feedback, skill text)
 	lastText string // last assistant text
 	oldText  string // assistant text from an earlier turn, before the operator message
+	launched bool   // a background agent launch after the operator message
+	notified bool   // that agent's task-notification
 }
 
 func runStopGuard(t *testing.T, f stopFixture, home string, active bool) string {
@@ -93,6 +95,12 @@ func runStopGuard(t *testing.T, f stopFixture, home string, active bool) string 
 	if f.lastTool != "" {
 		transcript += fmt.Sprintf(`{"type":"assistant","message":{"content":[{"type":"tool_use","name":%q,"input":{}}]}}`+"\n", f.lastTool)
 	}
+	if f.launched {
+		transcript += `{"type":"user","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"a1b2c3d4e5f60718"}}` + "\n"
+	}
+	if f.notified {
+		transcript += `{"type":"user","message":{"content":"<task-notification>\n<task-id>a1b2c3d4e5f60718</task-id>\n<status>completed</status>\n</task-notification>"}}` + "\n"
+	}
 	if f.lastText != "" {
 		transcript += fmt.Sprintf(`{"type":"assistant","message":{"content":[{"type":"text","text":%q}]}}`+"\n", f.lastText)
 	}
@@ -146,6 +154,16 @@ func TestFlowStopGuardHook(t *testing.T) {
 		}},
 		{"f: FINISHED allows", func(t *testing.T) {
 			allow(t, runStopGuard(t, stopFixture{state: "FINISHED", ticked: 7, total: 7, open: true}, t.TempDir(), false))
+		}},
+		{"g2: a background agent still running allows", func(t *testing.T) {
+			f := started(3, 7, true)
+			f.launched = true
+			allow(t, runStopGuard(t, f, t.TempDir(), false))
+		}},
+		{"g3: a background agent that notified its end blocks", func(t *testing.T) {
+			f := started(3, 7, true)
+			f.launched, f.notified = true, true
+			block(t, runStopGuard(t, f, t.TempDir(), false), "flow.implement")
 		}},
 		{"g: AskUserQuestion allows", func(t *testing.T) {
 			f := started(7, 7, true)

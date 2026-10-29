@@ -12,7 +12,8 @@ STARTED and:
   implementation is done and flow.write-in-progress is not yet written.
 
 It allows (exit 0, no output) at an AskUserQuestion, after an operator message saying
-"stop", at IN_PROGRESS / FINISHED, at STARTED with no tasks or none ticked and no open
+"stop", while a background agent this transcript launched has not yet notified its end (the
+wait on one-shot subagents, skills/flow-contracts/pipeline.md), at IN_PROGRESS / FINISHED, at STARTED with no tasks or none ticked and no open
 stage, when the session has no /flow run, and when stop_hook_active is true with nothing
 advanced since its last block (a fingerprint under ~/.claude/flow-stop-guard/).
 
@@ -154,6 +155,19 @@ def transcript_allows(lines: list) -> bool:
     return last_tool == "AskUserQuestion" or bool(STOP_RE.search(last_user))
 
 
+LAUNCH_RE = re.compile(r'"status":\s*"async_launched",\s*"agentId":\s*"([^"]+)"')
+NOTIFIED_RE = re.compile(r"<task-notification>(?:\\n|\s)*<task-id>([^<]+)</task-id>")
+
+
+def agents_pending(lines: list) -> bool:
+    """True when a background agent launched in the transcript tail has not notified its end."""
+    launched, notified = set(), set()
+    for line in lines:
+        launched.update(LAUNCH_RE.findall(line))
+        notified.update(NOTIFIED_RE.findall(line))
+    return bool(launched - notified)
+
+
 def main() -> int:
     payload = json.load(sys.stdin)
     if not isinstance(payload, dict):
@@ -172,7 +186,7 @@ def main() -> int:
             sys.stdout,
         )
         return 0
-    if transcript_allows(lines):
+    if transcript_allows(lines) or agents_pending(lines):
         return 0
     session_id = _fac.resolve_session_id(payload)
     if not session_id:
