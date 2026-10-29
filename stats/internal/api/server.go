@@ -173,12 +173,13 @@ type Option func(*serverOptions)
 // It exists as its own type, rather than fields tacked onto Server, so a
 // caller reads what New optionally accepts in one place.
 type serverOptions struct {
-	spa        http.Handler
-	guardRuns  GuardRunStore
-	repricer   Repricer
-	commitBase string
-	build      string
-	agentEnd   func(agentID string) (time.Time, bool)
+	spa         http.Handler
+	guardRuns   GuardRunStore
+	repricer    Repricer
+	experiments ExperimentStore
+	commitBase  string
+	build       string
+	agentEnd    func(agentID string) (time.Time, bool)
 }
 
 // WithSPA mounts h at "/" as the daemon's user interface, task 12's
@@ -413,6 +414,13 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	if so.repricer != nil {
 		ph := &pricingHandler{store: so.repricer, logger: logger}
 		mux.HandleFunc("POST /api/v1/pricing/reprice", ph.reprice)
+	}
+	if so.experiments != nil {
+		eh := &experimentsHandler{store: so.experiments, logger: logger}
+		mux.HandleFunc("POST /api/v1/experiments", eh.open)
+		mux.HandleFunc("GET /api/v1/experiments", eh.list)
+		mux.HandleFunc("GET /api/v1/experiments/overrides", eh.overrides)
+		mux.HandleFunc("POST /api/v1/experiments/{id}/close", eh.close)
 	}
 	if so.spa != nil {
 		mux.Handle("/", so.spa)
