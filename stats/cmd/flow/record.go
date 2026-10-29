@@ -90,7 +90,7 @@ func validateCommitSHA(flagName, sha string) error {
 // the same reason recordRoles is: an unrecognised effort is a caller
 // mistake, and letting it fall through to the never-block fallback would
 // journal a write a replay could only ever be refused for a second time.
-var recordEfforts = []string{"low", "medium", "high", "default"}
+var recordEfforts = []string{"low", "medium", "high", "default", "xhigh", "max"}
 
 // recordCauses is the closed set `-cause` accepts on a dispatch end closed
 // `-outcome blocked`: environment (a stack or tool the environment would

@@ -234,7 +234,8 @@ func TestDecisionRenderSessionCap(t *testing.T) {
 		{"cap", withCap(`{"model":"opus","effort":"low","instruction":"x"}`), 0},
 		{"null", withCap(`null`), 0},
 		{"absent", good, 0},
-		{"effort max", withCap(`{"model":"opus","effort":"max","instruction":"x"}`), 2},
+		{"effort ultra", withCap(`{"model":"opus","effort":"ultra","instruction":"x"}`), 2},
+		{"effort xhigh", withCap(`{"model":"opus","effort":"xhigh","instruction":"x"}`), 0},
 		{"model haiku", withCap(`{"model":"haiku","effort":"low","instruction":"x"}`), 2},
 	}
 	for _, c := range cases {

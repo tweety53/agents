@@ -260,7 +260,7 @@ func runExperimentMainCheck(ctx context.Context, args []string, stdout, stderr i
 			continue
 		}
 		m, eff, _ := strings.Cut(cell[0], "@")
-		if eff != *effort || !strings.Contains(*model, m) {
+		if eff != *effort || !strings.Contains(strings.ToLower(*model), strings.ToLower(m)) {
 			fmt.Fprintf(stdout, "⚠ experiment %d: main agent should run %s; this session runs %s@%s\n", e.ID, cell[0], *model, *effort)
 		}
 	}

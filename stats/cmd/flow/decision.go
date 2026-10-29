@@ -166,12 +166,13 @@ type sessionCap struct {
 // capModelRank and capEffortRank order the values a session cap takes.
 var (
 	capModelRank  = map[string]int{"sonnet": 1, "opus": 2}
-	capEffortRank = map[string]int{"low": 1, "medium": 2, "high": 3}
+	capEffortRank = map[string]int{"low": 1, "medium": 2, "high": 3, "xhigh": 4, "max": 5}
 )
 
-// parentEfforts is the closed set parent.effort takes: recordEfforts plus
-// the xhigh and max a main-agent experiment's pair may name (KAN-1067).
-var parentEfforts = append(append([]string{}, recordEfforts...), "xhigh", "max")
+// parentEfforts is the closed set parent.effort takes: recordEfforts, which
+// carries the xhigh and max a main-agent experiment's pair may name, since
+// an inline row records the parent's effort (KAN-1067).
+var parentEfforts = recordEfforts
 
 // dVisualVerify is the closed set `visual.verify` takes.
 var dVisualVerify = map[string]bool{"required": true, "skipped": true, "not configured": true}

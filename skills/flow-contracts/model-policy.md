@@ -135,7 +135,7 @@ and, on a positive verdict, starts the change that writes its winning cells here
 
 **`<parent model>` and `<parent effort>` name the session's own pair, on every harness and in every
 inline row.** Where the session does not state one, `<parent model>` is `unknown (agent-defined)` and
-`<parent effort>` the literal `default`, the CLI accepting only `low|medium|high|default`.
+`<parent effort>` the literal `default`, the CLI accepting only `low|medium|high|xhigh|max|default`.
 
 **On harness `zcode`, every model a dispatch would be given is `glm-5.3-flash` at effort `high`.**
 `VERIFY_MODEL`, the literal `opus` of a dispatch with no recorded pair, a decision's implementer,

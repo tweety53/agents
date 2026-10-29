@@ -3462,7 +3462,7 @@ func TestRecordDispatchBeginSendsAnExplicitDefaultEffort(t *testing.T) {
 // TestRecordDispatchBeginAcceptsEffort pins -effort through to the request
 // body verbatim for each of the three accepted non-default words.
 func TestRecordDispatchBeginAcceptsEffort(t *testing.T) {
-	for _, effort := range []string{"low", "medium", "high"} {
+	for _, effort := range []string{"low", "medium", "high", "xhigh", "max"} {
 		t.Run(effort, func(t *testing.T) {
 			sent := dispatchBeginBody(t, "-effort", effort)
 
