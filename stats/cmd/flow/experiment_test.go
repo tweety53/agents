@@ -160,3 +160,39 @@ func TestFlowExperimentStats(t *testing.T) {
 		t.Errorf("stats on an unreachable store = %d %q, want 1 with a message", code, errOut)
 	}
 }
+
+// TestFlowExperimentMainCheck drives `flow experiment main-check`: one
+// warning line when an open main cell names another pair than the
+// session's, nothing when it matches, when no main cell is open or when
+// the store is unreachable -- always exit 0, since it never blocks a run.
+func TestFlowExperimentMainCheck(t *testing.T) {
+	open := `[{"id":7,"name":"m","cells":{"main":["opus@medium"],"explorer":["x/y"]},"startedAt":"2026-10-29T10:00:00Z","summary":"","status":"open"}]`
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/api/v1/experiments" || r.URL.Query().Get("open") != "1" {
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL)
+		}
+		_, _ = w.Write([]byte(open))
+	}))
+	defer srv.Close()
+	addr := []string{"-addr", srv.URL, "-timeout", "2s"}
+
+	code, out, errOut := runExperimentArgs(append([]string{"main-check", "-model", "opus", "-effort", "high"}, addr...)...)
+	if code != 0 || out != "⚠ experiment 7: main agent should run opus@medium; this session runs opus@high\n" {
+		t.Fatalf("mismatch = %d %q %q, want 0 and the warning line", code, out, errOut)
+	}
+	if code, out, _ = runExperimentArgs(append([]string{"main-check", "-model", "opus", "-effort", "medium"}, addr...)...); code != 0 || out != "" {
+		t.Fatalf("match = %d %q, want 0 and nothing", code, out)
+	}
+	open = `[{"id":8,"name":"e","cells":{"explorer":["x/y"]},"startedAt":"2026-10-29T10:00:00Z","summary":"","status":"open"}]`
+	if code, out, _ = runExperimentArgs(append([]string{"main-check", "-model", "opus", "-effort", "high"}, addr...)...); code != 0 || out != "" {
+		t.Fatalf("no main cell = %d %q, want 0 and nothing", code, out)
+	}
+	if code, out, _ = runExperimentArgs("main-check", "-model", "opus", "-effort", "high", "-addr", "http://127.0.0.1:1", "-timeout", "500ms"); code != 0 || out != "" {
+		t.Fatalf("unreachable = %d %q, want 0 and nothing", code, out)
+	}
+	for _, bad := range [][]string{{"-model", "opus"}, {"-effort", "high"}, {"-model", "opus", "-effort", "high", "extra"}} {
+		if code, _, _ = runExperimentArgs(append([]string{"main-check"}, append(addr, bad...)...)...); code != 2 {
+			t.Errorf("main-check %v = %d, want 2", bad, code)
+		}
+	}
+}

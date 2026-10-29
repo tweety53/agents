@@ -564,7 +564,7 @@ skipped for the cap is recorded as the string `"experimental": "skipped — bund
 `roster`), `groups` (objects `{bundles, model, effort, reason}`, `bundles` an array of bundle ids, plus
 sibling `groups_mechanical` (arrays of bundle ids), `groups_override` and
 `groups_reason` fields, or all four `null` when `execution` is inline), `visual` (an object
-`{verify, reason}`, `verify` one of `required`, `skipped` or `not configured`), `extra_dispatch` and `extra_dispatch_mutation` (each an object `{slots, model, effort, reason}`, recorded on every class), `parent` (the parent's own
+`{verify, reason}`, `verify` one of `required`, `skipped` or `not configured`), `extra_dispatch` and `extra_dispatch_mutation` (each an object `{slots, model, effort, reason}`, recorded on every class), `parent` (`{model, effort}`, the parent's own
 model/effort, per **Harness mapping** (`skills/flow-contracts/model-policy.md`): `unknown
 (agent-defined)` and `default` where the session does not state them), `overrides` (session-instruction
 overrides to a *result*, each replacing the pair(s) it names for this run; empty unless one was

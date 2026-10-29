@@ -20,6 +20,7 @@ const experimentUsage = `usage: flow experiment open      [-addr url] [-timeout 
        flow experiment list      [-addr url] [-timeout dur] [-open]
        flow experiment overrides [-addr url] [-timeout dur]
        flow experiment stats <id> [-addr url] [-timeout dur]
+       flow experiment main-check [-addr url] [-timeout dur] -model <model> -effort <effort>
        flow experiment close <id> [-addr url] [-timeout dur] -verdict positive|negative|inconclusive [-summary text]
 
 An allowed-pairs experiment (KAN-1067) replaces whole unmarked rows of
@@ -33,6 +34,9 @@ overrides prints every open experiment's cells as one compact JSON object,
 stats prints the experiment's before/after figures per metric as the
 daemon's JSON: runs per window, excluded main-cell mismatches, and each
 metric's before and after means with its weekly series.
+main-check prints one warning line when an open experiment's main cell names
+another <model>@<effort> than this session's; it never blocks a run, so it
+exits 0 on a match, with no main cell open and with the store unreachable.
 
 Exit codes: 0 done; 1 the store refused (a role an open experiment holds,
 a malformed experiment, an unknown or closed id) or could not be reached;
@@ -55,6 +59,8 @@ func runExperiment(ctx context.Context, args []string, stdout, stderr io.Writer)
 		return runExperimentClose(ctx, args[1:], stdout, stderr)
 	case "stats":
 		return runExperimentStats(ctx, args[1:], stdout, stderr)
+	case "main-check":
+		return runExperimentMainCheck(ctx, args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown experiment command %q\n", args[0])
 		fmt.Fprint(stderr, experimentUsage)
@@ -221,6 +227,43 @@ func runExperimentStats(ctx context.Context, args []string, stdout, stderr io.Wr
 		return 1
 	}
 	fmt.Fprintf(stdout, "%s\n", body)
+	return 0
+}
+
+// runExperimentMainCheck warns, once, when an open experiment's main cell
+// names another pair than this session's -model/-effort (decision
+// main-check-and-tag). A cell model names a family (opus), the session may
+// name a full id (claude-opus-5-5): the cell's model inside the session's
+// counts as a match.
+func runExperimentMainCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	var f storeConnFlags
+	fset := newExperimentFlagSet("flow experiment main-check", &f)
+	model := fset.String("model", "", "this session's model")
+	effort := fset.String("effort", "", "this session's effort")
+	if code, ok := parseExperimentFlags(fset, &f, args, stderr); !ok {
+		return code
+	}
+	if *model == "" || *effort == "" {
+		fmt.Fprintln(stderr, "flow: experiment main-check needs -model and -effort")
+		fmt.Fprint(stderr, experimentUsage)
+		return 2
+	}
+	open, err := withExperimentClient(ctx, f, func(ctx context.Context, cl *client.Client) ([]client.Experiment, error) {
+		return cl.ListExperiments(ctx, true)
+	})
+	if err != nil {
+		return 0 // unreachable store: the table's own pairs apply, nothing to warn about
+	}
+	for _, e := range open {
+		cell := e.Cells["main"]
+		if len(cell) != 1 {
+			continue
+		}
+		m, eff, _ := strings.Cut(cell[0], "@")
+		if eff != *effort || !strings.Contains(*model, m) {
+			fmt.Fprintf(stdout, "⚠ experiment %d: main agent should run %s; this session runs %s@%s\n", e.ID, cell[0], *model, *effort)
+		}
+	}
 	return 0
 }
 
