@@ -25,6 +25,7 @@
 
 - Task 3: a failed or unparsable `flow experiment overrides` leaves every reader on the table alone; marked rows are never overridden; `main` never enters the guard table.
 - Task 1: two concurrent opens sharing a role cannot both succeed (the check and insert are one transaction or a constraint).
+- Task 13: every planner dispatch is one-shot and fresh; the parent asks the round's questions verbatim and never answers one itself; stage marks stay in order.
 - Task 6: before/after windows are equal-length and a change counts once, in the window its first stage run started in; `main` cells count only matching runs.
 
 - [ ] 1. Store experiments in flowd
@@ -188,3 +189,40 @@
 **Regression:** none — prose.
 **Commit:** docs(model-policy): document allowed-pairs experiments
 **After:** Task 3, 9, 10
+
+- [ ] 12. Add the `planner` role to the Allowed pairs table
+  - [ ] **Step 1: Write the test.** In `stats/internal/guard/check_dispatch_pair_test.go`: `TestCheckDispatchPairAdmitsPlanner` — against the real `skills/flow-contracts/model-policy.md`, a prompt with `Role: planner` on `flow-planner-medium`/`opus` and on `flow-planner-low`/`opus` is admitted, on `flow-planner-high`/`opus` and on `flow-planner-medium`/`sonnet` refused. Run `cd stats && go test ./internal/guard -run 'TestCheckDispatchPairAdmitsPlanner' -count=1` — fails.
+  - [ ] **Step 2: Edit.** In `skills/flow-contracts/model-policy.md`'s **Allowed pairs** table, after the `plan-designer` row, add `| `planner` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — |`.
+  - [ ] **Step 3: Verify.** The test passes; `scripts/check-references.sh` and `scripts/check-markdown-integrity.sh` exit 0; lint. Commit.
+
+**Build:** green
+**Files:** `skills/flow-contracts/model-policy.md`, `stats/internal/guard/check_dispatch_pair_test.go`
+**Tests:** `TestCheckDispatchPairAdmitsPlanner`
+**Regression:** `TestCheckDispatchPairAdmitsPlanner` fails — a planner dispatch is refused by the agent-baseline hook.
+**Commit:** feat(model-policy): add the planner role to the allowed-pairs table
+**After:** Task 3, 11
+
+**Decision:** planner-role
+
+- [ ] 13. Run `/flow`'s brainstorming and plan writing through the planner role
+  - [ ] **Step 1: Edit `skills/flow/brainstorm.md`.** Replace the section `## Run brainstorming and planning directly` up to, not including, `**Prose preceding a question is shown too, not dropped.**` with a section `## Run brainstorming and planning through the planner role` stating, per decision `planner-role`:
+    - the `flow.brainstorm` begin fence, kept;
+    - "**The parent never brainstorms or writes the plan itself; a `planner` dispatch does** (decision `planner-role`, KAN-1067)." Every planner dispatch is fresh and one-shot, on `subagent_type: flow-planner-<effort>` with `model` and effort from the **Allowed pairs** row `planner` (`skills/flow-contracts/model-policy.md`) — its first pair unless an open experiment overrides it — its prompt carrying `Role: planner`, `Key: plan-<n>`, the two agent-baseline sentences, the report-tersely line, the PLANNING DELEGATION paragraph (`skills/flow-self-review/SKILL.md`), the change name, the absolute worktree, the session token and `REVIEWERS`; recorded with `flow record dispatch begin -change <name> -role planner -model <m> -effort <e> -key plan-<n> -session-token mf-<literal-token>` immediately before the Agent call and `end` once it returns, `<n>` counting this run's planner dispatches from 1;
+    - **1. Design round** — the planner runs section **B** of `skills/flow/brainstorm-planner.md` without plan mode, reading the ticket and every file under `<abs-worktree>/.superpowers/sdd/planner/`, dispatching its own Explore and Plan agents (it records their rows, `-role explorer|planner`, `-key explore-<n>|design-<n>`), publishing or updating the prototype a visible change needs, and writes `round-<r>.md`: the design draft, the settled prose the convergence confirm shows, then `## Questions` — each question with two to four options, one marked recommended, the convergence confirm last when nothing else is open. It asks the operator nothing;
+    - **2. Relay** — the parent prints the round's settled prose, asks its questions verbatim in one AskUserQuestion call, and writes the answers verbatim to `answers-<r>.md`; it never answers a question itself. An explicit approve of the convergence confirm closes brainstorming — `flow.brainstorm` end, `flow.design-approval` begin and end, as **Convergence** (`skills/flow/brainstorm-planner.md`) marks them; any other answer dispatches round `<r+1>`. An operator message mid-planning is written to the next `answers-<r>.md` and relayed the same way;
+    - **3. Artifacts and plan** — a final planner dispatch runs sections **C** and **D** of `skills/flow/brainstorm-planner.md` up to, not including, **Decide**: its `flow.create-artifacts` and `flow.writing-plans` begin marks under the run's session token, `spectre new`, the three artifacts from the approved design, writing-plans, `spectre validate`, `check-plan-shape.sh`, the configured guards and `flow tasks count`; it returns `PLAN-WRITTEN` or the guard output it could not clear, and the parent redispatches a fresh one with that output until `PLAN-WRITTEN`;
+    - the parent then closes `flow.writing-plans` and runs **Decide**, the record sequence and the gate, as the rest of the file states.
+    Keep the "Run each `begin` immediately before its Agent call…" paragraph. Drop the plan-mode paragraph and the `No fork … thinking stays in this session` paragraph — the planner role replaces both; keep their kan-941 reason as one sentence: "No `fork` from kickoff to the plan gate: a fork copies the whole conversation and doubles the token spend (kan-941)."
+  - [ ] **Step 2: Edit `skills/flow/brainstorm-planner.md`.** In the opening paragraph, replace "run by whichever session is executing `/flow`'s brainstorming stage" with "run by `/flow`'s `planner` dispatch (**Run brainstorming and planning through the planner role**, `skills/flow/brainstorm.md`)", and add after the paragraph: "In a `planner` dispatch, every **AskUserQuestion** these sections name is written as a question of the round file instead, and the parent asks it." Wrap at the file's width.
+  - [ ] **Step 3: Update `skills/flow/resume.md`** where it resumes planning at `STARTED`: a resumed run re-enters the planner loop at the next round, reading `.superpowers/sdd/planner/`. <!-- unverified: resume.md's planning-resume paragraph wording — read it before editing -->
+  - [ ] **Step 4: Verify.** `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh`, `scripts/check-stage-mark-calls.sh`, `scripts/check-dispatch-paragraphs.sh` and `scripts/check-guard-symlinks.sh` exit 0; `git grep -n -F -e 'Run brainstorming and planning directly' -e 'the thinking stays in this session' -- skills` prints nothing. Commit.
+
+**Build:** green
+**Files:** `skills/flow/brainstorm.md`, `skills/flow/brainstorm-planner.md`, `skills/flow/resume.md`
+**Allowed-collateral:** `skills/flow/*-rationale.md`, `skills/flow-contracts/pipeline.md`, `skills/flow/stage-keys.md`
+**Tests:** **none** — contract prose; Step 4's guards are the check.
+**Regression:** none — prose.
+**Commit:** feat(flow): run brainstorming and plan writing through the planner role
+**After:** Task 12
+
+**Decision:** planner-role

@@ -67,7 +67,7 @@
 
 **ID:** role-metric-families
 **Status:** active
-**Chosen:** planners (`plan-designer`, `explorer`, `self-review-plan`, `pipeline-fix-plan`): review rounds/change, round-0 Critical+Important/change, plan corrections/change, tokens/change, wall-clock/change. Implementers/fixers (`implementer`, `panel-fix`, `self-review-fix`, `pipeline-fix-fix`, `late-fix`): review rounds/change, findings/task, verify reds/change, tokens and wall-clock of the role's dispatches. Reviewers (`panel-reviewer`, `panel-extra`, `panel-rerun`, `gated-reviewer`, `gated-re-reviewer`, `self-review-review-1`, `self-review-review-r`, `pipeline-fix-review-1`, `pipeline-fix-review-r`): findings raised/dispatch, late-round findings (round ≥ 2)/change, review rounds/change, tokens and wall-clock. `visual-verifier`: mismatches caught (findings by visual verify), re-runs (`visual-verify-fix-*` keys)/change, tokens and wall-clock. `main`: the planner set plus verify reds. Any other role: tokens and wall-clock.
+**Chosen:** planners (`planner`, `plan-designer`, `explorer`, `self-review-plan`, `pipeline-fix-plan`): review rounds/change, round-0 Critical+Important/change, plan corrections/change, tokens/change, wall-clock/change. Implementers/fixers (`implementer`, `panel-fix`, `self-review-fix`, `pipeline-fix-fix`, `late-fix`): review rounds/change, findings/task, verify reds/change, tokens and wall-clock of the role's dispatches. Reviewers (`panel-reviewer`, `panel-extra`, `panel-rerun`, `gated-reviewer`, `gated-re-reviewer`, `self-review-review-1`, `self-review-review-r`, `pipeline-fix-review-1`, `pipeline-fix-review-r`): findings raised/dispatch, late-round findings (round ≥ 2)/change, review rounds/change, tokens and wall-clock. `visual-verifier`: mismatches caught (findings by visual verify), re-runs (`visual-verify-fix-*` keys)/change, tokens and wall-clock. `main`: the planner set plus verify reds. Any other role: tokens and wall-clock.
 **Considered:** one metric set for all roles — the ticket's decision 3 asks for per-family measures.
 
 ### Closing agent is a standalone skill
@@ -80,15 +80,30 @@
 ### First experiment is opened after landing
 
 **ID:** first-experiment-after-land
-**Status:** active
+**Status:** superseded by first-experiment-with-planner
 **Chosen:** one combined experiment — `plan-designer=opus/Plan@xhigh` and `explorer=sonnet/Explore@low` — opened with `flow experiment open` once the change lands and flowd restarts, named in the handoff; no task writes the dev store.
 **Considered:** a migration seeding it — a store row no command made, opening on every fresh database.
+**Superseded because:** the operator moved brainstorming and plan writing to a `planner` role (decision planner-role, 2026-10-29), so the xhigh-planning question now targets that role.
+
+### Brainstorming and plan writing run in a planner role
+
+**ID:** planner-role
+**Status:** active
+**Chosen:** `/flow`'s brainstorming, the three artifacts and writing-plans move off the parent into a dispatched `planner` role (Allowed pairs row `planner`: `opus/flow-planner-medium`, `opus/flow-planner-low`), so an experiment can target planning apart from the main agent. Each dispatch is one-shot: a design round writes `.superpowers/sdd/planner/round-<n>.md` (draft plus questions, each with a recommended option); the parent relays the questions verbatim, writes `answers-<n>.md` and dispatches the next round; after approval a final dispatch runs sections C and D and the plan guards. The parent keeps relaying, the stage marks around approval, Decide and the gate. `/flow-plan`, the self-review planner and the in-run fix planner are unchanged.
+**Considered:** two roles (brainstormer, plan-writer) — the operator chose one; only the artifacts and tasks off-session — the operator asked for all three; a long-lived planner resumed with SendMessage — the pipeline bans resuming a finished child.
+
+### First experiment, with the planner role
+
+**ID:** first-experiment-with-planner
+**Status:** active
+**Chosen:** one combined experiment opened by the operator after landing: `planner=opus/flow-planner-xhigh`, `plan-designer=opus/Plan@xhigh`, `explorer=sonnet/Explore@low`; named in the handoff, no task writes the dev store.
+**Considered:** `main=opus@xhigh` — writing-plans no longer runs on the main agent.
 
 ## Open questions
 
 ## Recommended approach
 
-Store first (migration, store, API, client, CLI), then the shared table parser and the `policyTable` overlay, then the main-agent check, the corrections record, the stats aggregate and view, the closing skill and the docs. Rejected alternatives: direct HTTP (overrides-via-flow-cli), launch wrapper (main-check-and-tag), review-dynamics markers (experiments-view), runtime file read (roles-table-embedded).
+Store first (migration, store, API, client, CLI), then the shared table parser and the `policyTable` overlay, then the main-agent check, the corrections record, the stats aggregate and view, the closing skill and the docs. Last, the planner role and its contract. Rejected alternatives: direct HTTP (overrides-via-flow-cli), launch wrapper (main-check-and-tag), review-dynamics markers (experiments-view), runtime file read (roles-table-embedded).
 
 ## Critical files
 
@@ -103,6 +118,7 @@ Store first (migration, store, API, client, CLI), then the shared table parser a
 - `stats/Makefile`, `stats/.gitignore` — the copy step.
 - `stats/web/src/views/Experiments.tsx`, `App.tsx`, `api.ts` — SPA.
 - `stats/cmd/uitest-seed/seed.go`, `stats/web/tests/visual/experiments.spec.ts` — fixture and capture.
+- `skills/flow/brainstorm.md` — the planner-role protocol.
 - `skills/flow-experiment-close/SKILL.md`, `skills/flow/SKILL.md`, `skills/flow/implement.md`, `skills/flow/brainstorm-planner.md`, `skills/flow-contracts/model-policy.md`, `CLAUDE.md`, `stats/README.md` — contracts and docs.
 
 ## Existing code to reuse
@@ -122,9 +138,9 @@ Store first (migration, store, API, client, CLI), then the shared table parser a
 ## Live check
 
 On `scripts/live-store-copy.sh up kan-1067` (a copy of the dev store, its own flowd):
-1. `flow experiment open -name t -cell 'plan-designer=opus/Plan@xhigh' -cell 'explorer=sonnet/Explore@low'` → id printed; a second open naming `explorer` → exit 1 naming the conflict.
+1. `flow experiment open -name t -cell 'planner=opus/flow-planner-xhigh' -cell 'plan-designer=opus/Plan@xhigh' -cell 'explorer=sonnet/Explore@low'` → id printed; a second open naming `explorer` → exit 1 naming the conflict.
 2. `scripts/plan-agent-pair.sh x 1` against the copy prints `opus xhigh`; before step 1 it printed a `low|medium` pair. Failure looks like the same pair before and after.
-3. check-dispatch-pair with `Role: explorer` on `sonnet/Explore@low` is admitted; with `FLOW_ADDR` at a dead port it is refused (table fallback).
+3. check-dispatch-pair with `Role: explorer` on `sonnet/Explore@low`, and with `Role: planner` on `opus/flow-planner-xhigh`, is admitted; with `FLOW_ADDR` at a dead port it is refused (table fallback).
 4. `flow experiment stats <id>` prints non-zero `before` figures from real history; all-zero before figures = failure.
 5. `flow experiment close <id> -verdict negative -summary s`; `flow experiment overrides` prints `{}`.
 6. The Experiments view at the copy's port shows the roles table, with the override struck through while open, and the experiment's before figures.
