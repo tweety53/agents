@@ -185,6 +185,12 @@ func TestExperimentStatsPlannerFamily(t *testing.T) {
 	fx.corrections("b1", 2)
 	fx.dispatch("b1", "planner", "design-1", "completed", "", fx.day(-3), 30, tok(2000))
 	fx.change("b2", `{}`, fx.day(-2))
+	// b2's only task-count row predates 0055: NULL corrections, skipped.
+	if _, err := fx.pool.Exec(context.Background(), `
+		INSERT INTO change_task_counts (change_id, total_tasks, corrections)
+		SELECT id, 4, NULL FROM changes WHERE project_key = $1 AND name = 'b2'`, fx.project); err != nil {
+		t.Fatalf("seed legacy task count: %v", err)
+	}
 	// After: a1 (corrections 3, a plan-designer dispatch of 4000 tokens
 	// over 60 min); a planner dispatch of another role never counts.
 	fx.change("a1", `{}`, fx.day(1))
@@ -209,7 +215,7 @@ func TestExperimentStatsPlannerFamily(t *testing.T) {
 	}
 	wantMeans(t, got, "reviewRounds", f64(0.5), f64(0))
 	wantMeans(t, got, "round0CritImp", f64(1), f64(0))
-	wantMeans(t, got, "planCorrections", f64(1), f64(3))
+	wantMeans(t, got, "planCorrections", f64(2), f64(3))
 	wantMeans(t, got, "tokens", f64(2000), f64(4000))
 	wantMeans(t, got, "wallClockMin", f64(30), f64(60))
 
@@ -219,7 +225,7 @@ func TestExperimentStatsPlannerFamily(t *testing.T) {
 	for _, c := range []struct {
 		at time.Time
 		v  float64
-	}{{fx.day(-3), 2}, {fx.day(-2), 0}, {fx.day(1), 3}} {
+	}{{fx.day(-3), 2}, {fx.day(1), 3}} {
 		perChange[weekOf(c.at)] = append(perChange[weekOf(c.at)], c.v)
 	}
 	want := []store.ExperimentWeek{}

@@ -150,12 +150,17 @@ func (s *Store) OpenExperiment(ctx context.Context, e Experiment) (Experiment, e
 // ListExperiments returns experiments newest first -- only the open ones
 // when openOnly is set.
 func (s *Store) ListExperiments(ctx context.Context, openOnly bool) ([]Experiment, error) {
+	return s.listExperiments(ctx, openOnly, nil)
+}
+
+// listExperiments is ListExperiments narrowed to one id when id is set.
+func (s *Store) listExperiments(ctx context.Context, openOnly bool, id *int64) ([]Experiment, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, name, cells, started_at, closed_at, COALESCE(verdict, ''), summary
 		FROM experiments
-		WHERE NOT $1 OR closed_at IS NULL
+		WHERE (NOT $1 OR closed_at IS NULL) AND ($2::bigint IS NULL OR id = $2)
 		ORDER BY started_at DESC, id DESC
-	`, openOnly)
+	`, openOnly, id)
 	if err != nil {
 		return nil, fmt.Errorf("store: list experiments: %w", err)
 	}

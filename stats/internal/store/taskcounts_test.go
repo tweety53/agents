@@ -105,6 +105,17 @@ func TestRecordTaskCountRefusesNonPositiveTotal(t *testing.T) {
 	}
 }
 
+func TestRecordTaskCountRefusesNegativeCorrections(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-task-counts-negcorr-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1067")
+
+	if _, err := st.RecordTaskCount(ctx, projectKey, "kan-1067", records.TaskCount{TotalTasks: 3, Corrections: -1}); !errors.Is(err, store.ErrInvalidTaskCount) {
+		t.Errorf("RecordTaskCount(corrections -1) error = %v, want ErrInvalidTaskCount", err)
+	}
+}
+
 // TestRecordTaskCountUnknownChange: recording against a change the store
 // never heard of is ErrChangeNotFound, the same answer RecordDecision
 // gives, so the CLI can distinguish a mistyped name from an unreachable

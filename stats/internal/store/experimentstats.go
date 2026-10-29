@@ -136,7 +136,8 @@ const mainTokensSQL = `COALESCE((sr.metrics->'tokens'->'main'->>'input')::numeri
 //
 //   - reviewRounds: the change's highest findings.round, 0 with none.
 //   - round0CritImp: its round-0 Critical and Important findings.
-//   - planCorrections: its latest recorded plan-correction count.
+//   - planCorrections: its latest recorded plan-correction count; a change
+//     with none recorded (or only pre-0055 NULL rows) is skipped.
 //   - verifyReds: its dispatches keyed verify% ended blocked by
 //     test-failure.
 //   - lateRoundFindings: its findings of round 2 or later.
@@ -153,19 +154,14 @@ const mainTokensSQL = `COALESCE((sr.metrics->'tokens'->'main'->>'input')::numeri
 // harvested stage run and every one ran its main thread on that model
 // family (alias or full id, through model_family) at that effort.
 func (s *Store) ExperimentStats(ctx context.Context, id int64) (ExperimentStatsResult, error) {
-	all, err := s.ListExperiments(ctx, false)
+	one, err := s.listExperiments(ctx, false, &id)
 	if err != nil {
 		return ExperimentStatsResult{}, err
 	}
-	var e *Experiment
-	for i := range all {
-		if all[i].ID == id {
-			e = &all[i]
-		}
-	}
-	if e == nil {
+	if len(one) == 0 {
 		return ExperimentStatsResult{}, fmt.Errorf("%w: %d", ErrExperimentNotFound, id)
 	}
+	e := &one[0]
 	end := time.Now().UTC()
 	if e.ClosedAt != nil {
 		end = *e.ClosedAt
@@ -228,8 +224,8 @@ func (s *Store) ExperimentStats(ctx context.Context, id int64) (ExperimentStatsR
 			(SELECT COALESCE(max(f.round), 0) FROM findings f WHERE f.change_id = co.change_id),
 			(SELECT count(*) FROM findings f WHERE f.change_id = co.change_id AND f.round = 0
 				AND canonical_severity(f.severity) IN ('critical', 'important')),
-			COALESCE((SELECT tc.corrections FROM change_task_counts tc WHERE tc.change_id = co.change_id
-				ORDER BY tc.observed_at DESC, tc.id DESC LIMIT 1), 0),
+			(SELECT tc.corrections FROM change_task_counts tc WHERE tc.change_id = co.change_id
+				AND tc.corrections IS NOT NULL ORDER BY tc.observed_at DESC, tc.id DESC LIMIT 1),
 			(SELECT count(*) FROM dispatches d WHERE d.change_id = co.change_id AND d.dispatch_key LIKE 'verify%'
 				AND d.outcome = 'blocked' AND d.cause = 'test-failure'),
 			(SELECT count(*) FROM findings f WHERE f.change_id = co.change_id AND f.round >= 2),
@@ -263,7 +259,8 @@ func (s *Store) ExperimentStats(ctx context.Context, id int64) (ExperimentStatsR
 		) sr
 	`, []any{out.BeforeFrom, end, mainModel, mainEffort}, func(scan func(...any) error) error {
 		var firstAt, week time.Time
-		var rounds, critImp, corrections, verifyReds, late, vvMis, vvRe, findings, implN, revN, revF, roleN, stageN int
+		var corrections *int
+		var rounds, critImp, verifyReds, late, vvMis, vvRe, findings, implN, revN, revF, roleN, stageN int
 		var roleTok, roleSecs, stageTok, stageSecs float64
 		var matches bool
 		if err := scan(&firstAt, &week, &rounds, &critImp, &corrections, &verifyReds, &late, &vvMis, &vvRe,
@@ -287,9 +284,12 @@ func (s *Store) ExperimentStats(ctx context.Context, id int64) (ExperimentStatsR
 		}
 		perChange := map[string][2]float64{
 			"reviewRounds": {float64(rounds), 1}, "round0CritImp": {float64(critImp), 1},
-			"planCorrections": {float64(corrections), 1}, "verifyReds": {float64(verifyReds), 1},
+			"verifyReds":        {float64(verifyReds), 1},
 			"lateRoundFindings": {float64(late), 1}, "vvMismatches": {float64(vvMis), 1}, "vvReruns": {float64(vvRe), 1},
 			"findingsPerTask": {float64(findings), float64(implN)}, "findingsPerDispatch": {float64(revF), float64(revN)},
+		}
+		if corrections != nil {
+			perChange["planCorrections"] = [2]float64{float64(*corrections), 1}
 		}
 		if has {
 			perChange["tokens"] = [2]float64{tokens, 1}

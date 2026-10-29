@@ -55,7 +55,7 @@ func (s *Store) RecordTaskCount(ctx context.Context, projectKey, change string, 
 // the state board's lateral joins both read the series in.
 func (s *Store) ListTaskCounts(ctx context.Context, projectKey, change string) ([]records.TaskCount, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT t.id, t.total_tasks, t.corrections, t.observed_at
+		SELECT t.id, t.total_tasks, COALESCE(t.corrections, 0), t.observed_at
 		FROM change_task_counts t
 		JOIN changes c ON c.id = t.change_id
 		WHERE c.project_key = $1 AND c.name = $2
