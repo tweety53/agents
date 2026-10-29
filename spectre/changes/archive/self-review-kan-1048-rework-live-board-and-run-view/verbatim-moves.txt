@@ -1,0 +1,6 @@
+# kan-1048 self-review: 1-D's set -e requirement and 8-A's one-frame confirmation rule are new requirements, not paraphrases.
+`# mutation-reproducer` line and exits 0 when the test passes with the behaviour broken.
+**A one-frame departure is confirmed before it is reported.
+A departure lasting one frame or less is reported only once confirmed — by a DOM read at the next animation frame after the trigger (`page.evaluate` resolving inside a `requestAnimationFrame` callback, reading the departing element's presence or computed style) or by a second recording showing the same frame; an unconfirmed one is not a departure (kan-1048 self-review, 8-A: a single screencast frame showed a tooltip lingering after `mouseleave`, yet React flushes that discrete event before paint and a `requestAnimationFrame` DOM read showed no lag — the report cost a whole fix round).
+A mutation reproducer runs under `set -e`, so an edit that fails exits non-zero, and `run-reproducer.sh` refuses one with no `set -e` line (kan-1048 self-review, 1-D: four of seven reproducers carried no landing check).
+`# mutation-reproducer` line, runs under `set -e`, and exits 0 when the test passes with the behaviour broken.
