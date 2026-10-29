@@ -20,14 +20,14 @@ unfinished-work verdict is work to do, never a stop and never a question.
 - An untasked commit is covered as **Commits outside every task**
   (`skills/flow-contracts/git-boundaries.md`) states.
 
-**An item no change to the tree can finish** — a verify failure that does not recur in at most 5
-single-worker, isolated re-runs of the test alone (or with the one test whose leftover state it reads), the run count stated — a load re-run only under run-capped.sh
-(`skills/flow/verify-fix-loop.md`); a verdict the guard reaches over a report line that
+**An item no change to the tree can finish** — a verdict the guard reaches over a report line that
 names a passing spec — is recorded as a guard false positive per **A verdict the operator calls
-structural** below, its `-reason` carrying that run count, and the run continues to the landing
-route. The outstanding items and their dispositions go into the message of the commit that carries
-the planning artifacts and into the handoff's `**Decisions:**` lines. The three courses below are
-never offered.
+structural** below, its `-reason` naming that spec's passing run, and the run continues to the
+landing route. A verify failure that does not recur is never such an item: it is fixed anyway, as
+**The loop** (`skills/flow/verify-fix-loop.md`) states for an observed failure that does not
+reproduce (kan-1059 self-review, 1c). The outstanding items and their dispositions go into the
+message of the commit that carries the planning artifacts and into the handoff's `**Decisions:**`
+lines. The three courses below are never offered.
 
 ## The three courses
 
