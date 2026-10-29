@@ -97,6 +97,7 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 		{"13i a /flow dispatch whose first word is off the closed list", hook, described("verify-fix-1 m3 m4 departures", baseline+" fix the departures", "flow-low", "opus", flowT), []string{"opens with the row it records"}},
 		{"13j a /flow dispatch opening with an inline key", hook, described("verify live check kan-1029", baseline+" run the live check", "flow-low", "opus", flowT), []string{"opens with the row it records"}},
 		{"13k a /flow verifier opening with its repository-suffixed key", hook, described("visual-verify-fix-11-gymie re-verify", verifier, "flow-low", "opus", flowT), nil},
+		{"13o a /flow planner dispatch opening with its plan-<n> key", hook, described("plan-2 design round", "Role: planner\nKey: plan-2\n"+baseline+" run section B", "flow-planner-medium", "opus", flowT), nil},
 		{"13n a /flow slot's second ceiling-breach re-dispatch", hook, described("panel-3-primary-retry-2 correctness review", reviewer+" review the diff", "flow-low", "opus", flowT), nil},
 		{"13l a /flow panel-fix chunk", hook, described("panel-fix-2-3 chunk three", "Role: panel-fix\n"+baseline+" fix", "flow-low", "opus", flowT), nil},
 		{"13m a /flow tooling analyst opening with its repository-suffixed key", hook, described("tooling-analysis-1-gymie-frontend sweeps", "Role: tooling-analyst\n"+baseline+" sweep", "flow-medium", "opus", flowT), nil},

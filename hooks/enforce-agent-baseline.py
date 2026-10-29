@@ -120,7 +120,7 @@ PAIR_CHECK = os.environ.get("DISPATCH_PAIR_CHECK") or os.path.join(REPO, "script
 
 # A description naming its row: plan tasks by id over the plan's count, any other row by a first
 # word of a Key shape the closed list names (**Dispatch sites -- the parent's closed list**,
-# skills/flow/implement.md) -- `panel-4-primary`, `visual-verify-fix-11-gymie`. A lowercase word off
+# skills/flow/implement.md) -- `panel-4-primary`, `visual-verify-fix-11-gymie`, a planner's `plan-2`. A lowercase word off
 # the list -- `verify-fix-1`, `verify` -- names no row (kan-1029: both launched with no row).
 ROW_KEY = (
     r"task-\d+(?:\+\d+)*-(?:implementer|reviewer)(?:-[a-z0-9-]+)?"
@@ -129,6 +129,7 @@ ROW_KEY = (
     r"|visual-verify(?:-[a-z0-9][a-z0-9-]*)?"
     r"|tooling-analysis-\d+(?:-[a-z0-9][a-z0-9-]*)?"
     r"|pipeline-fix-[a-z0-9][a-z0-9-]*"
+    r"|plan-\d+"
 )
 ROW_DESCRIPTION = re.compile(r"(?:Tasks? \d+(?:\+\d+)*/\d+|" + ROW_KEY + r")(?:\s|$)")
 # The loop key line exactly as the harvester reads it (loopKeyPattern, stats/internal/harvest/transcript.go).

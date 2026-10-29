@@ -113,7 +113,8 @@ report-tersely line, the PLANNING DELEGATION paragraph (`skills/flow-self-review
 auto-resolution sentence replaced by "every choice is written as a question of the round file" —
 the change name, the absolute worktree, the session token and `REVIEWERS` (**Model resolution**,
 `skills/flow/SKILL.md`), already in scope from this run's own earlier resolution. `<n>` counts
-this run's planner dispatches from 1:
+this run's planner dispatches from 1, and the Agent-tool `description` opens with `plan-<n>` —
+`plan-2 design round` — the row `hooks/enforce-agent-baseline.py` admits:
 
 ```bash
 flow record dispatch begin -change <name> -role planner -model <m> -effort <e> -key plan-<n> -session-token mf-<literal-token>
@@ -123,7 +124,9 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
 1. **Design round.** The planner runs section **B** of `skills/flow/brainstorm-planner.md` without <!-- refs-guard:allow -->
    plan mode, reading the ticket and every file under `<abs-worktree>/.superpowers/sdd/planner/`,
    dispatching its own Explore and Plan agents (it records their rows, `-role explorer|planner`,
-   `-key explore-<n>|design-<n>`, each pair from `plan-agent-pair.sh <name> <n>`), publishing or
+   `-key explore-<n>|design-<n>`, each pair from `plan-agent-pair.sh <name> <n>`, `<n>` continuing
+   the run's count across rounds — the parent names the next free `<n>` in each round's prompt, since
+   a reused key restarts the earlier round's row), publishing or
    updating the prototype a visible change needs, and writes `round-<r>.md`: the design draft, the
    settled prose the convergence confirm shows, then `## Questions` — each question with two to
    four options, one marked recommended, the convergence confirm last when nothing else is open.
@@ -137,9 +140,12 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
 3. **Artifacts and plan.** A final planner dispatch runs sections **C** and **D** of <!-- refs-guard:allow -->
    `skills/flow/brainstorm-planner.md` up to, not including, **Decide**: its `flow.create-artifacts`
    and `flow.writing-plans` begin marks under the run's session token, `spectre new`, the three
-   artifacts from the approved design, writing-plans, `spectre validate`, `check-plan-shape.sh`,
-   the configured guards and `flow tasks count`. It returns `PLAN-WRITTEN` or the guard output it
-   could not clear, and the parent redispatches a fresh one with that output until `PLAN-WRITTEN`.
+   artifacts from the approved design — read from every file under
+   `<abs-worktree>/.superpowers/sdd/planner/`, where the approved design lives — writing-plans,
+   `spectre validate`, `check-plan-shape.sh`, the configured guards and `flow tasks count`. It
+   returns `PLAN-WRITTEN` or the guard output it could not clear, and the parent redispatches a
+   fresh one with that output until `PLAN-WRITTEN`; a redispatch skips section **C** and the
+   `flow.writing-plans` begin, both already made, and resumes at the guard that failed.
 
 The parent then closes `flow.writing-plans` and runs **Decide**, the record sequence and the gate,
 as the rest of this file states.
