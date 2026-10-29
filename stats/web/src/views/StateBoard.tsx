@@ -16,7 +16,7 @@ import { DAY_MS, formatInt, formatRelative, formatSpan, formatUsd } from "../for
 import { phase } from "../lib/phase";
 import { projectLabel } from "../lib/projectLabel";
 import { agentsDone, lastAction, runningTask } from "../lib/runningTask";
-import { sessionAlive } from "../lib/sessionAlive";
+import { effectiveActivity, sessionAlive } from "../lib/sessionAlive";
 import { stageLabel } from "../lib/stageLabel";
 
 const REFRESH_MS = 5000;
@@ -73,7 +73,8 @@ function isPipelineFix(row: StateBoardRow): boolean {
 }
 
 function needsOperator(row: StateBoardRow): boolean {
-  return row.activity !== undefined && row.activity !== "working";
+  const activity = effectiveActivity(row);
+  return activity !== undefined && activity !== "working" && activity !== "waiting";
 }
 
 /** The change's phase, coloured by its stored state, which the title names. */
@@ -88,10 +89,12 @@ export function StatePill({ row }: { row: Parameters<typeof phase>[0] }) {
 /** A session's activity badge, how long it has been in that state, and what it waits on. */
 export function ActivityBadge({ row, now }: { row: StateBoardRow; now: number }) {
   // "Working" only repeats the live dot beside it; the badge speaks for the other states.
-  if (!row.activity || row.activity === "working") return null;
+  // So does a "turn ended" that is not one: a refused stop, or a turn waiting on its subagents.
+  const activity = effectiveActivity(row);
+  if (!activity || activity === "working" || activity === "waiting") return null;
   return (
-    <div className={`lb-act ${row.activity}`}>
-      <span className="lb-actb">{ACTIVITY_LABEL[row.activity]}</span>
+    <div className={`lb-act ${activity}`}>
+      <span className="lb-actb">{ACTIVITY_LABEL[activity]}</span>
       {row.activitySince && <span className="lb-muted">{formatRelative(row.activitySince, now).replace(" ago", "")}</span>}
       {row.activityDetail && (
         <span className="lb-actd" title={row.activityDetail}>
@@ -214,8 +217,8 @@ function ChangeRow({ row, now, maxCost }: { row: StateBoardRow; now: number; max
             {needsOperator(row) && (
               <>
                 {" "}
-                <span className={`lb-act ${row.activity} inline`}>
-                  <span className="lb-actb">{ACTIVITY_LABEL[row.activity!]}</span>
+                <span className={`lb-act ${effectiveActivity(row)} inline`}>
+                  <span className="lb-actb">{ACTIVITY_LABEL[effectiveActivity(row) ?? ""]}</span>
                 </span>
               </>
             )}

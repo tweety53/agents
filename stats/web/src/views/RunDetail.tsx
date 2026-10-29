@@ -19,7 +19,7 @@ import { readCacheReadTokens, readCostUsd, readEffort, readMainModels, readTotal
 import { projectLabel } from "../lib/projectLabel";
 import { describeDispatch } from "../lib/describeDispatch";
 import { agentsDone, runningTask } from "../lib/runningTask";
-import { sessionAlive } from "../lib/sessionAlive";
+import { effectiveActivity, sessionAlive } from "../lib/sessionAlive";
 import { stageLabel } from "../lib/stageLabel";
 import { ActivityBadge, StatePill } from "./StateBoard";
 import type { ActiveSubagent, PlanTask, StageRunDTO } from "../api";
@@ -146,14 +146,10 @@ export function RunDetail({ project, change }: RunDetailProps) {
           };
           const nowTask = board ? runningTask(board) : null;
           const agentCount = subagents.length + (mainAgent ? 1 : 0);
-          // A turn reported ended but refused by a stop hook keeps writing its transcript; one that ended
-          // while its subagents run is waiting on them -- neither reads as ended.
-          const wroteSinceIdle =
-            board?.sessionSeenAt !== undefined && board.activitySince !== undefined && Date.parse(board.sessionSeenAt) > Date.parse(board.activitySince);
           const mainStatus: AgentStatus =
             board?.activity === "question" || board?.activity === "permission"
               ? "needs-you"
-              : board?.activity === "idle" && subagents.length === 0 && !wroteSinceIdle
+              : board !== undefined && effectiveActivity(board) === "idle"
                 ? "idle"
                 : !inline && subagents.length > 0
                   ? "waiting"
