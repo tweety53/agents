@@ -119,6 +119,9 @@ const fixtures: Record<
       currentTasks: 46,
       runCount: 7,
       costUsd: 12.5,
+      cost24h: 0,
+      cost7d: 1,
+      cost30d: 2,
       wallClockMs: 5400000,
       errors: 3,
       currentStage: "flow.sdd-tdd",
@@ -137,6 +140,9 @@ const fixtures: Record<
       nextCommand: "/flow",
       runCount: 0,
       costUsd: 0,
+      cost24h: 0,
+      cost7d: 1,
+      cost30d: 2,
       wallClockMs: 0,
       errors: 0,
       currentStage: "flow.brainstorm",
@@ -154,6 +160,9 @@ const fixtures: Record<
       nextCommand: "/flow",
       runCount: 1,
       costUsd: 2,
+      cost24h: 0,
+      cost7d: 1,
+      cost30d: 2,
       wallClockMs: 1000,
       errors: 0,
     },
@@ -168,6 +177,9 @@ const fixtures: Record<
       currentTasks: 22,
       runCount: 2,
       costUsd: 1.25,
+      cost24h: 0,
+      cost7d: 1,
+      cost30d: 2,
       wallClockMs: 45000,
       errors: 11,
     },
@@ -180,6 +192,9 @@ const fixtures: Record<
       nextCommand: "",
       runCount: 1,
       costUsd: 0.5,
+      cost24h: 0,
+      cost7d: 1,
+      cost30d: 2,
       wallClockMs: 1000,
       errors: 0,
     },
@@ -428,17 +443,23 @@ describe("views render their fixture response's actual values", () => {
     expect(table.queryByRole("columnheader", { name: /Next command/ })).not.toBeInTheDocument();
   });
 
-  it("state board cost in period ignores the filters", async () => {
+  it("state board cost in period follows only the period", async () => {
     const user = userEvent.setup();
     render(<StateBoard />);
     await screen.findByRole("table");
     // The prototype's tile sums every change whatever chip, tile or search is set.
     const cost = () => screen.getByText("Cost in period", { selector: ".lb-lbl" }).nextSibling!.textContent;
+    const tile = within(screen.getByRole("group", { name: "Updated" }));
+    await user.click(tile.getByRole("button", { name: "All" }));
     const all = cost();
     await user.click(within(screen.getByRole("group", { name: "Project" })).getByRole("button", { name: /^gymie/ }));
     expect(cost()).toBe(all);
     await user.click(screen.getByRole("button", { name: /^Finished/ }));
-    expect(cost()).toBe(all);
+    expect(cost()).toBe(all);    // It counts only stage runs started within the chosen window.
+    await user.click(tile.getByRole("button", { name: "24h" }));
+    expect(cost()).toBe("$0.00");
+    await user.click(tile.getByRole("button", { name: "30d" }));
+    expect(cost()).not.toBe(all);
   });
 
   it("state board stops refetching while the tab is hidden", async () => {

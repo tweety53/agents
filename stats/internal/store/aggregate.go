@@ -44,7 +44,11 @@ type LiveStateRow struct {
 	RunCount    int
 	CostUsd     float64
 	WallClockMs int64
-	Errors      int
+
+	// Cost24h, Cost7d and Cost30d sum only the stage runs started within
+	// that window of now, so a period total never counts older spend.
+	Cost24h, Cost7d, Cost30d float64
+	Errors                   int
 
 	// CurrentStage and CurrentStageStartedAt are the change's latest open
 	// stage run; DoneTasks counts the distinct tasks an implementer
@@ -76,6 +80,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 		SELECT c.project_key, c.name, c.state, c.updated_at, c.updated_by,
 		       first_obs.total_tasks, latest_obs.total_tasks,
 		       totals.runs, totals.cost, totals.wall_ms, totals.errors,
+		       win.d1, win.d7, win.d30,
 		       open_run.stage, open_run.started_at, done.tasks,
 		       sa.state, sa.detail, sa.updated_at
 		FROM changes c
@@ -110,6 +115,13 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			) r
 		) totals ON true
 		LEFT JOIN LATERAL (
+			SELECT COALESCE(SUM(`+stageRunCostExpr+`) FILTER (WHERE sr.started_at >= now() - interval '1 day'), 0)::float8 AS d1,
+			       COALESCE(SUM(`+stageRunCostExpr+`) FILTER (WHERE sr.started_at >= now() - interval '7 days'), 0)::float8 AS d7,
+			       COALESCE(SUM(`+stageRunCostExpr+`) FILTER (WHERE sr.started_at >= now() - interval '30 days'), 0)::float8 AS d30
+			FROM stage_runs sr
+			WHERE sr.change_id = c.id
+		) win ON true
+		LEFT JOIN LATERAL (
 			SELECT sr.stage, sr.started_at, sr.session_id
 			FROM stage_runs sr
 			WHERE sr.change_id = c.id AND sr.ended_at IS NULL
@@ -143,6 +155,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 		if err := rows.Scan(&row.ProjectKey, &row.Name, &state, &row.UpdatedAt, &row.UpdatedBy,
 			&row.PlannedTasks, &row.CurrentTasks,
 			&row.RunCount, &row.CostUsd, &row.WallClockMs, &row.Errors,
+			&row.Cost24h, &row.Cost7d, &row.Cost30d,
 			&row.CurrentStage, &row.CurrentStageStartedAt, &row.DoneTasks,
 			&row.Activity, &row.ActivityDetail, &row.ActivitySince); err != nil {
 			return nil, fmt.Errorf("store: live state board: scan: %w", err)

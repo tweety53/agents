@@ -268,6 +268,10 @@ export interface StateBoardRow {
   /** Whole-life run totals (store.LiveStateRow). */
   runCount: number;
   costUsd: number;
+  /** Cost of the stage runs started within the last 24h, 7d and 30d. */
+  cost24h: number;
+  cost7d: number;
+  cost30d: number;
   wallClockMs: number;
   errors: number;
   /** The open stage run, the done-task count and the open run's session

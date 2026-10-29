@@ -17,7 +17,7 @@ export function Unavailable({ value, format, unit }: UnavailableProps) {
   if (value === null || value === undefined) {
     return (
       <span className="metric-unavailable" data-testid="unavailable" title="Not measured for this stage run">
-        unavailable
+        -
       </span>
     );
   }

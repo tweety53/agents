@@ -30,6 +30,14 @@ export const ACTIVITY_LABEL: Record<string, string> = {
 
 const PERIOD_MINUTES = { "24h": 1440, "7d": 10080, "30d": 43200, All: Infinity } as const;
 type PeriodChip = keyof typeof PERIOD_MINUTES;
+// The cost tile counts only stage runs started within the chosen window,
+// whatever change they belong to.
+const PERIOD_COST: Record<PeriodChip, (r: StateBoardRow) => number> = {
+  "24h": (r) => r.cost24h,
+  "7d": (r) => r.cost7d,
+  "30d": (r) => r.cost30d,
+  All: (r) => r.costUsd,
+};
 
 interface Filters {
   project: string | null;
@@ -248,10 +256,10 @@ export function StateBoard() {
   };
 
   const query = filters.query.trim().toLowerCase();
-  const base = rows.filter(
+  const inPeriod = rows.filter((r) => (now - Date.parse(r.updatedAt)) / 60000 <= PERIOD_MINUTES[filters.period]);
+  const base = inPeriod.filter(
     (r) =>
       (!filters.project || r.projectKey === filters.project) &&
-      (now - Date.parse(r.updatedAt)) / 60000 <= PERIOD_MINUTES[filters.period] &&
       (!filters.errors || r.errors > 0) &&
       (!query || r.name.toLowerCase().includes(query)),
   );
@@ -260,7 +268,7 @@ export function StateBoard() {
     .filter((r) => r.currentStage !== undefined)
     .sort((a, b) => Number(!needsOperator(a)) - Number(!needsOperator(b)));
   const maxCost = Math.max(0, ...rows.map((r) => r.costUsd));
-  const projects = [...new Set(rows.map((r) => r.projectKey))];
+  const projects = [...new Set(inPeriod.map((r) => r.projectKey).concat(filters.project ?? []))];
   const dirty = filters.project || filters.states.size > 0 || filters.period !== "7d" || filters.errors || filters.query;
 
   return (
@@ -275,7 +283,7 @@ export function StateBoard() {
           {projects.map((p) => (
             <Chip key={p} on={filters.project === p} onClick={() => set({ project: p })} title={p}>
               {projectLabel(p)}
-              <span className="lb-c">{rows.filter((r) => r.projectKey === p).length}</span>
+              <span className="lb-c">{inPeriod.filter((r) => r.projectKey === p).length}</span>
             </Chip>
           ))}
         </span>
@@ -318,7 +326,7 @@ export function StateBoard() {
         </div>
         <div className="lb-tile static">
           <span className="lb-lbl">Cost in period</span>
-          <span className="lb-val lb-num">{formatUsd(rows.reduce((a, r) => a + r.costUsd, 0))}</span>
+          <span className="lb-val lb-num">{formatUsd(rows.reduce((a, r) => a + PERIOD_COST[filters.period](r), 0))}</span>
         </div>
       </div>
       <section className="lb-panel" aria-label="Running now">

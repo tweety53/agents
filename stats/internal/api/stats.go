@@ -672,6 +672,9 @@ type stateBoardRowDTO struct {
 	// run totals (store.LiveStateRow).
 	RunCount    int     `json:"runCount"`
 	CostUsd     float64 `json:"costUsd"`
+	Cost24h     float64 `json:"cost24h"`
+	Cost7d      float64 `json:"cost7d"`
+	Cost30d     float64 `json:"cost30d"`
 	WallClockMs int64   `json:"wallClockMs"`
 	Errors      int     `json:"errors"`
 
@@ -727,6 +730,9 @@ func toStateBoardDTOs(rows []store.LiveStateRow) []stateBoardRowDTO {
 			CurrentTasks: r.CurrentTasks,
 			RunCount:     r.RunCount,
 			CostUsd:      r.CostUsd,
+			Cost24h:      r.Cost24h,
+			Cost7d:       r.Cost7d,
+			Cost30d:      r.Cost30d,
 			WallClockMs:  r.WallClockMs,
 			Errors:       r.Errors,
 

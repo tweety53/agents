@@ -90,15 +90,15 @@ describe("StatPanel", () => {
     expect(screen.queryByTestId("unavailable")).not.toBeInTheDocument();
   });
 
-  it("renders null as 'unavailable', never as 0", () => {
+  it("renders null as '-', never as 0", () => {
     render(<StatPanel label="Runs" value={null} />);
-    expect(screen.getByTestId("unavailable")).toHaveTextContent("unavailable");
+    expect(screen.getByTestId("unavailable")).toHaveTextContent("-");
     expect(screen.queryByTestId("measured")).not.toBeInTheDocument();
   });
 
-  it("renders undefined as 'unavailable', never as 0", () => {
+  it("renders undefined as '-', never as 0", () => {
     render(<StatPanel label="Runs" value={undefined} />);
-    expect(screen.getByTestId("unavailable")).toHaveTextContent("unavailable");
+    expect(screen.getByTestId("unavailable")).toHaveTextContent("-");
     expect(screen.queryByTestId("measured")).not.toBeInTheDocument();
   });
 
