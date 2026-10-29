@@ -53,11 +53,11 @@ function aggregateEnvelope(rows: CostPerChangeRow[]): StatsResponse<CostPerChang
   };
 }
 
-/** The collapsed Stage runs panel's table, opened by its summary toggle. */
+/** The Stage runs panel's table, every run shown. */
 async function stageRunsTable(): Promise<HTMLElement> {
   const panel = await screen.findByRole("region", { name: "Stage runs" });
-  const details = panel.querySelector("details")!;
-  if (!details.open) await userEvent.click(panel.querySelector("summary")!);
+  const all = within(panel).queryByRole("button", { name: /^Show all/ });
+  if (all) await userEvent.click(all);
   return within(panel).getByRole("table");
 }
 
@@ -860,16 +860,34 @@ describe("the reworked run view (kan-1048)", () => {
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const panel = await screen.findByRole("region", { name: "Self-review" });
     expect(panel).toHaveTextContent("No findings recorded yet.");
+    // Without a self-review plan the header counts steps, as every phase does, never promising a plan.
+    expect(panel.querySelector(".lb-panel-note")).not.toHaveTextContent("no plan yet");
   });
 
-  it("run detail keeps the Stage runs table collapsed until its toggle opens it", async () => {
+  it("run detail's collapsed Stage runs shows the latest 5 runs until its toggle shows all", async () => {
     const user = userEvent.setup();
+    const stages = ["flow.kickoff", "flow.brainstorm", "flow.decide", "flow.sdd-tdd", "flow.review-panel", "flow.verify", "flow.visual-verify"];
+    listStageRunsMock.mockResolvedValue(stageRunsResponse(stages.map((st, i) => run(10 + i, st, `2026-01-01T0${i}:00:00Z`, `2026-01-01T0${i}:30:00Z`))));
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const panel = await screen.findByRole("region", { name: "Stage runs" });
-    const details = panel.querySelector("details")!;
-    expect(details.open).toBe(false);
-    await user.click(within(panel).getByText("Stage runs"));
-    expect(details.open).toBe(true);
+    const rows = () => panel.querySelectorAll("tbody tr:not(.lb-group)");
+    await waitFor(() => expect(rows()).toHaveLength(5));
+    // The latest five: the two earliest runs are the ones left out.
+    expect(within(panel).queryByText("Starting up")).not.toBeInTheDocument();
+    expect(within(panel).queryByText("Designing the change")).not.toBeInTheDocument();
+    expect(within(panel).getByText("Checking the UI")).toBeInTheDocument();
+    await user.click(within(panel).getByRole("button", { name: "Show all 7" }));
+    expect(rows()).toHaveLength(7);
+    expect(within(panel).getByText("Starting up")).toBeInTheDocument();
+    await user.click(within(panel).getByRole("button", { name: "Show latest 5" }));
+    expect(rows()).toHaveLength(5);
+  });
+
+  it("run detail's Stage runs shows every run and no toggle with 5 or fewer", async () => {
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const panel = await screen.findByRole("region", { name: "Stage runs" });
+    await waitFor(() => expect(panel.querySelectorAll("tbody tr:not(.lb-group)")).toHaveLength(4));
+    expect(within(panel).queryByRole("button", { name: /^Show (all|latest)/ })).not.toBeInTheDocument();
   });
 
   it("run detail marks main as waiting while only its subagents work", async () => {

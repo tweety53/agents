@@ -75,6 +75,9 @@ function inlineWhat(d: ActiveSubagent, tasks: PlanTask[] | undefined): string {
   return `${what}${d.taskId ? taskTitle(tasks, d.taskId) : ""}`;
 }
 
+/** How many of the latest stage runs the collapsed Stage runs table shows. */
+const LATEST_RUNS = 5;
+
 /** The outcomes a dispatch ends on without finishing its work. */
 const FAILED_OUTCOMES = new Set(["failed", "blocked", "aborted", "timed-out", "cancelled", "stopped"]);
 
@@ -247,6 +250,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
       clearInterval(id);
     };
   }, [project, change]);
+  const [allRuns, setAllRuns] = useState(false);
   const steps = useMemo(() => phaseSteps(runs0, dispatches), [runs0, dispatches]);
 
   return (
@@ -449,7 +453,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   steps={steps.filter((x) => x.phase === p)}
                   tasks={p === "Self-review" ? board?.selfReviewTasks : board?.tasks}
                   now={now}
-                  note={p === "Self-review" ? (board?.selfReviewTasks ? `tasks ${doneOf(board.selfReviewTasks)}` : "no plan yet") : undefined}
+                  note={p === "Self-review" && board?.selfReviewTasks ? `tasks ${doneOf(board.selfReviewTasks)}` : undefined}
                 >
                   {p === "Self-review" && (
                     <>
@@ -514,13 +518,25 @@ export function RunDetail({ project, change }: RunDetailProps) {
 
               <div className="lb-split">
                 <section className="lb-panel" aria-label="Stage runs">
-                  <details>
-                    <summary className="lb-panel-h">
-                      <span>Stage runs</span>
-                      <span className="lb-panel-note">{runs.length} · click a row for its dispatches</span>
-                    </summary>
-                    <StageRunTable stageRuns={runs} truncated={state.truncated} totalStageRuns={state.totalStageRuns} />
-                  </details>
+                  <div className="lb-panel-h">
+                    <span>Stage runs</span>
+                    <span className="lb-panel-note">
+                      click a row for its dispatches
+                      {runs.length > LATEST_RUNS && (
+                        <>
+                          {" · "}
+                          <button type="button" className="lb-fchip" onClick={() => setAllRuns(!allRuns)}>
+                            {allRuns ? `Show latest ${LATEST_RUNS}` : `Show all ${runs.length}`}
+                          </button>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  <StageRunTable
+                    stageRuns={allRuns ? runs : [...runs].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt)).slice(-LATEST_RUNS)}
+                    truncated={state.truncated}
+                    totalStageRuns={state.totalStageRuns}
+                  />
                 </section>
                 <section className="lb-panel" aria-label="Cost by stage">
                   <div className="lb-panel-h">
