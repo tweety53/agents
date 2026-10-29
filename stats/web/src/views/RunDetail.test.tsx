@@ -766,10 +766,10 @@ describe("the reworked run view (kan-1048)", () => {
     expect(agentRows[0]).toHaveTextContent("Mainneeds youImplementing task 3 (Run view)");
     expect(agentRows[1]).toHaveTextContent("⎿ implementerrunningImplementing task 2 (Board card)opus 5.5 · high10m");
     expect(subs.querySelector(".lb-panel-note")).toHaveTextContent("2");
-    // The plan lives in the Main panel now, the task being worked on marked ●.
-    expect(screen.queryByRole("region", { name: "Tasks" })).not.toBeInTheDocument();
-    const tasks = screen.getByRole("region", { name: "Main" });
-    expect(tasks).toHaveTextContent("1/3 done");
+    // The plan is its own Tasks card beside Main, the task being worked on marked ●.
+    const tasks = screen.getByRole("region", { name: "Tasks" });
+    expect(tasks.closest(".lb-work-row")).toContainElement(screen.getByRole("region", { name: "Main" }));
+    expect(within(tasks).getByText("Tasks").parentElement).toHaveTextContent(/^Tasks1\/3$/);
     expect(tasks).toHaveTextContent("✔ 1. Schema");
     expect(tasks).toHaveTextContent("● 2. Board card");
     expect(tasks).toHaveTextContent("◻ 3. Run view");
@@ -839,9 +839,11 @@ describe("the reworked run view (kan-1048)", () => {
     expect(within(main).getByTestId("main-summary")).toHaveTextContent(/^tasks 1\/3$/);
     // The lines add up to the header: the priced dispatch, then the main session's own share.
     expect(within(main).getAllByTestId("phase-role").map((r) => r.textContent)).toEqual(["implementer ×1opus ×1 ($1.00)$1.00", "main session$5.00"]);
-    expect(main).toHaveTextContent("● 2. Board card");
-    expect(panel).toHaveTextContent("✔ 1. Fix the divider");
-    expect(panel).toHaveTextContent("◻ 2. Fix the count");
+    expect(screen.getByRole("region", { name: "Tasks" })).toHaveTextContent("● 2. Board card");
+    const srTasks = screen.getByRole("region", { name: "Self-review tasks" });
+    expect(srTasks).toHaveTextContent("Self-review tasks1/2");
+    expect(srTasks).toHaveTextContent("✔ 1. Fix the divider");
+    expect(srTasks).toHaveTextContent("◻ 2. Fix the count");
     // Findings are counted in the summary, never listed.
     expect(within(panel).queryByTestId("self-review-finding")).not.toBeInTheDocument();
     expect(listFindingsMock).toHaveBeenCalledWith(PROJECT, CHANGE);
@@ -903,7 +905,7 @@ describe("the reworked run view (kan-1048)", () => {
     // The phase sums the change's own self-review run (unmeasured) with the sub-run's two.
     expect(panel.querySelector(".lb-phase-cost")).toHaveTextContent("$2.50");
     // A group fixer runs: the first unticked task is the one in progress.
-    expect(panel).toHaveTextContent("● 1. Fix the guard");
+    expect(screen.getByRole("region", { name: "Self-review tasks" })).toHaveTextContent("● 1. Fix the guard");
     expect(within(panel).getByTestId("self-review-now")).toHaveTextContent('Now: Fixing task 1 "Fix the guard"');
     await waitFor(() => expect(within(panel).getByTestId("self-review-summary")).toHaveTextContent("findings 1"));
     expect(within(panel).getByRole("link", { name: "sub-run" })).toHaveAttribute("href", `#/run/agents-tooling/${SUB}`);
@@ -953,8 +955,10 @@ describe("the reworked run view (kan-1048)", () => {
     expect(within(panel).queryByRole("button", { name: /^Show (all|latest)/ })).not.toBeInTheDocument();
   });
 
-  it("run detail keeps a self-review that is not running collapsed to its header until opened, saying Not started for one yet to run", async () => {
+  it("run detail keeps a self-review that is not running collapsed to its header until opened, its tasks card with it, saying Not started for one yet to run", async () => {
     const user = userEvent.setup();
+    const planned = { ...boardRow, selfReviewTasks: [{ n: 1, title: "Fix the guard", state: "pending" }] };
+    fetchStatsViewMock.mockImplementation((view: string) => Promise.resolve(view === "state-board" ? { ...aggregateEnvelope([]), view, rows: [planned] } : aggregateEnvelope([])));
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     await screen.findByRole("region", { name: "Main" });
     const work = screen.getAllByRole("region").filter((r) => r.classList.contains("lb-phase")).map((r) => r.getAttribute("aria-label"));
@@ -963,8 +967,11 @@ describe("the reworked run view (kan-1048)", () => {
     expect(within(sr).getByTestId("self-review-summary")).toHaveTextContent("findings 0");
     expect(within(sr).queryByTestId("self-review-now")).not.toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "Main" })).queryByTestId("main-self-review")).not.toBeInTheDocument();
+    const srTasks = await screen.findByRole("region", { name: "Self-review tasks" });
+    expect(srTasks).toHaveTextContent(/^Self-review tasks0\/1$/);
     await user.click(within(sr).getByRole("button", { name: "Show" }));
     expect(within(sr).getByTestId("self-review-now")).toHaveTextContent(/^Now: Not started$/);
+    expect(srTasks).toHaveTextContent("◻ 1. Fix the guard");
     expect(within(screen.getByRole("region", { name: "Main" })).getByTestId("main-now")).toHaveTextContent(/^Now: Implementing tasks · 1h 00m$/);
   });
 
@@ -1051,7 +1058,7 @@ describe("the reworked run view (kan-1048)", () => {
     expect(findChangesMock).not.toHaveBeenCalledWith(`self-review-${SUB}`);
     expect(within(main).getByTestId("main-now")).toHaveTextContent(/^Now: Done$/);
     expect(within(main).getByTestId("main-progress")).toHaveTextContent("review ✓ → plan ✓ → fix 1/1 ✓ → re-review ✓ → verify ✓ → land ✓ → file ✓");
-    expect(main).toHaveTextContent("✔ 1. Fix the guard");
+    expect(screen.getByRole("region", { name: "Tasks" })).toHaveTextContent("✔ 1. Fix the guard");
     const rail = screen.getByRole("region", { name: "Cost by stage" });
     await waitFor(() => expect(rail).toHaveTextContent("Fix rounds"));
     const bars = [...rail.querySelectorAll(".lb-hbar")].map((b) => b.textContent);

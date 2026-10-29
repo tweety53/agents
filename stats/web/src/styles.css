@@ -727,13 +727,12 @@ th button {
 .lb-runs col.c-model { width: 150px; }
 .lb-runs col.c-cost { width: 72px; }
 .lb-runs td { overflow: hidden; text-overflow: ellipsis; }
-.lb-phase-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); }
+.lb-work-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); gap: 14px; align-items: start; }
 .lb-phase-main { min-width: 0; }
-.lb-phase-tasks { min-width: 0; border-left: 1px solid var(--border); }
-.lb-phase-tasks .lb-tasks li { overflow-wrap: anywhere; }
+.lb-tasks-panel .lb-tasks li { overflow-wrap: anywhere; }
+.lb-tasks-panel.collapsed > .lb-panel-h { border-bottom: 0; }
 @media (max-width: 900px) {
-  .lb-phase-body { grid-template-columns: minmax(0, 1fr); }
-  .lb-phase-tasks { border-left: 0; border-top: 1px solid var(--border); }
+  .lb-work-row { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 600px) {
   .lb-roles > li { grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; }

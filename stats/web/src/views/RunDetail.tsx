@@ -258,7 +258,9 @@ function WorkPanel({
   const roles = roleSummary(steps, costs);
   const rest = residualCosts(runs, steps, costs);
   const slug = title.toLowerCase();
+  const tasksTitle = title === "Main" ? "Tasks" : `${title} tasks`;
   return (
+    <div className="lb-work-row">
     <section className={`lb-panel lb-phase ${status}`} aria-label={title}>
       <div className="lb-panel-h">
         <span className="lb-phase-name">
@@ -293,7 +295,6 @@ function WorkPanel({
         </span>
       </div>
       {open && (
-      <div className="lb-phase-body">
         <div className="lb-phase-main">
           <div className="lb-phase-sum">
             <div className="lb-sr-line">
@@ -354,18 +355,19 @@ function WorkPanel({
             </ul>
           )}
         </div>
-        {tasks && (
-          <div className="lb-phase-tasks">
-            <div className="lb-panel-h">
-              <span>Tasks</span>
-              <span className="lb-panel-note">{doneOf(tasks)}</span>
-            </div>
-            <TaskList tasks={tasks} current={currentTask} />
-          </div>
-        )}
-      </div>
       )}
     </section>
+    {tasks && (
+      // Its own card beside the panel; collapsed with it to its header.
+      <section className={`lb-panel lb-tasks-panel${open ? "" : " collapsed"}`} aria-label={tasksTitle}>
+        <div className="lb-panel-h">
+          <span>{tasksTitle}</span>
+          <span className="lb-panel-note">{doneOf(tasks)}</span>
+        </div>
+        {open && <TaskList tasks={tasks} current={currentTask} />}
+      </section>
+    )}
+    </div>
   );
 }
 
@@ -393,7 +395,7 @@ function TaskList({ tasks, current }: { tasks: PlanTask[]; current?: number }) {
   );
 }
 
-const doneOf = (tasks: PlanTask[]) => `${tasks.filter((t) => t.state === "done").length}/${tasks.length} done`;
+const doneOf = (tasks: PlanTask[]) => `${tasks.filter((t) => t.state === "done").length}/${tasks.length}`;
 
 /** A self-review's Now line, progress over its steps, summary and current task, from its dispatches, plan and findings. */
 function selfReviewView(steps: Step[], tasks: PlanTask[] | undefined, findings: number, stageOpen: boolean, started: boolean, now: number) {
