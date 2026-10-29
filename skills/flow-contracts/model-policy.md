@@ -52,10 +52,8 @@ exactly as above.
 ledger line, which remains the only evidence of the model a dispatch actually ran on. Every panel
 slot is a prompt-driven role
 (**The roster**, `skills/flow/review-panel.md`) and takes its dispatch's model the same way every
-other slot does. The findings merger, which reviews nothing, runs on the fixed pair
-**The findings merger** (`skills/flow/review-panel.md`) names, and every gated per-task reviewer
-bundle on `opus` at `medium` — its fix re-review on `opus` at `low` — fixed, as
-`skills/flow/implement.md` states.
+other slot does. The findings merger, which reviews nothing, and every gated per-task reviewer
+bundle and its fix re-review run on their fixed **Allowed pairs** rows below.
 
 **Every subagent dispatch records the model it used** in the SDD ledger, alongside the task it ran.
 See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`) for why, and for the history
@@ -82,6 +80,43 @@ neither the write into the store nor the render out of it invents a model slug. 
   own model.
 - **ZCode**: one model, see **Harness mapping** below.
 - **Muse**: the session's own model, see **Harness mapping** below.
+
+## Allowed pairs
+
+This table is canonical for which `{model, effort}` every flow dispatch may run on: a dispatch
+names its role with a `Role: <role id>` line, and a row with a marker admits its pairs only when
+the prompt carries that marker as a whole line; a pair is `<model>` and `<subagent_type>` joined
+by `/`, an Explore or Plan pair adding `@<effort>`.
+
+| Role | Allowed pairs | Requires marker |
+|---|---|---|
+| `explorer` | `opus/Explore@low`, `opus/Explore@medium` | — |
+| `plan-designer` | `opus/Plan@low`, `opus/Plan@medium` | — |
+| `implementer` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
+| `panel-fix` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
+| `implementer` | `opus/flow-high` | `No-progress escalation` |
+| `panel-fix` | `opus/flow-high` | `No-progress escalation` |
+| `panel-reviewer` | `opus/flow-low`, `opus/flow-medium` | — |
+| `panel-reviewer` | `opus/flow-high` | `Operator-approved high` |
+| `panel-extra` | `opus/flow-low`, `sonnet/flow-low` | — |
+| `panel-rerun` | `opus/flow-low`, `sonnet/flow-low` | — |
+| `gated-reviewer` | `opus/flow-medium` | — |
+| `gated-re-reviewer` | `opus/flow-low` | — |
+| `visual-verifier` | `opus/flow-low` | — |
+| `late-fix` | `opus/flow-low` | — |
+| `panel-merger` | `sonnet/flow-low` | — |
+| `tooling-analyst` | `opus/flow-medium` | — |
+| `self-review-pass` | `opus/flow-medium` | — |
+| `self-review-plan` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — |
+| `pipeline-fix-plan` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — |
+| `self-review-fix` | `opus/flow-low` | — |
+| `pipeline-fix-fix` | `opus/flow-low` | — |
+| `self-review-fix` | `opus/flow-high` | `No-progress escalation` |
+| `pipeline-fix-fix` | `opus/flow-high` | `No-progress escalation` |
+| `self-review-review-1` | `opus/flow-medium`, `opus/flow-low` | — |
+| `pipeline-fix-review-1` | `opus/flow-medium`, `opus/flow-low` | — |
+| `self-review-review-r` | `sonnet/flow-low` | — |
+| `pipeline-fix-review-r` | `sonnet/flow-low` | — |
 
 ## Harness mapping
 

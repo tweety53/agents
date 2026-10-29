@@ -379,7 +379,8 @@ could not fill, and exit 2 means it cannot answer — either stops the round bef
 `mutation`'s pass is rendered from **The mutation-testing brief** below and names its throwaway
 copies, `<worktree>-mutation-<round>` per repository; its MUTATION ENTRY CONTEXT paragraph and
 tests stay typed beside the rendered path (kan-1029: an unrendered mutation pass, bundled with
-`failure-modes`, never ran). The Agent call's prompt carries only the baseline
+`failure-modes`, never ran). The Agent call's prompt carries only its Role line
+(**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), the baseline
 pointer, MODEL HANDSHAKE, CONTEXT BUNDLE, the relocation-comparison pointer where one exists, the
 reproducer rule, GATE FOCUS where it applies, `read <rendered path> in full first — it is your brief`, and each role's REPORT FILE path — so a slot that answers without reading its brief still owes its file (kan-918: round 1's `primary+principles` re-run read only the diff and handed back in 14 seconds, writing neither report). The return message carries one findings summary per role under a heading naming the
 role; the parent records each finding under that role.
@@ -779,8 +780,8 @@ flow record dispatch end -change <name> -key panel-<round>-merger \
 ```
 
 It is launched with `run_in_background: true`, its `description` opening with its key, and a
-prompt opening with the line `Role: panel findings merger` — the marker
-`hooks/enforce-agent-baseline.py` pins this pair on — followed by the baseline pointer, the TOOLS, NO DELEGATION and MODEL HANDSHAKE paragraphs above, the
+prompt opening with the line `Role: panel-merger`, its pair its **Allowed pairs** row
+(`skills/flow-contracts/model-policy.md`) — followed by the baseline pointer, the TOOLS, NO DELEGATION and MODEL HANDSHAKE paragraphs above, the
 MERGER BRIEF paragraph below, every role's report path, and one line per dispatch of the round —
 its `-key`, the `-outcome` its row was closed with, and its elapsed seconds. The parent applies
 **The handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**) to its

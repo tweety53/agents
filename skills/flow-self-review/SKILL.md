@@ -39,7 +39,7 @@ checkout on any other branch: print the branch and stop.
 ### 2. Read the bundle and run the eight angles
 
 Dispatch the pass, in-run and standalone alike: key `self-review-<name>-pass`, on the `pass` row
-of the pairs table (step 3), its prompt carrying the bundle in full (`<bundle>`
+of **Allowed pairs** (`skills/flow-contracts/model-policy.md`), its prompt carrying the bundle in full (`<bundle>`
 standalone, the bundle held in memory in-run), this step's rules and step 3's classification, the
 dispatch paragraphs step 3 names and READ-ONLY REVIEW. It returns every finding with its angle, its
 evidence and its classification — `noted` or fixable, in or out of scope, and for a fixable one its
@@ -271,16 +271,10 @@ handshake** there applying to each reply. Every dispatch is one-shot: no `SendMe
 it returns. The no-progress escalation of **Fewest operator actions**
 (`skills/flow-contracts/pipeline.md`) still runs on `flow-high`.
 
-**The pairs are this file's own**, and **Pipeline defects found mid-run** cites them — one row per
-key suffix, the table `check-loop-dispatch.sh` reads and refuses a loop dispatch off:
-
-| Key suffix | `subagent_type` | Model | On a recorded escalation |
-|---|---|---|---|
-| `pass` | `flow-medium` | `opus` | — |
-| `plan`, `plan-<n>` | `flow-planner-medium`, `flow-planner-low` | `opus` | — |
-| `fix`, `fix-<r>`, `fix-g<g>`, `fix-v<v>` | `flow-low` | `opus` | `flow-high` |
-| `review-1` | `flow-medium`, `flow-low` | `opus` | — |
-| `review-<r>` | `flow-low` | `sonnet` | — |
+**The pairs are the `self-review-*` and `pipeline-fix-*` rows** of **Allowed pairs**
+(`skills/flow-contracts/model-policy.md`), which `check-loop-dispatch.sh` reads and refuses a loop
+dispatch off, a key's suffix naming its row — `pass`, `plan`, `fix`, `review-1` and `review-r` for
+every re-review.
 
 **The planner pair** is the `plan` row — `flow-planner-medium` by default, `flow-planner-low` when
 every finding the plan carries is mechanical, this session recording the one-line reason with the
@@ -292,7 +286,7 @@ the two `review` rows: the first review on `flow-medium` or `flow-low` as the pl
 **Every loop dispatch is admitted and recorded mechanically.**
 `<agents repo>/hooks/enforce-loop-dispatch.py` hands each Agent call whose prompt carries a
 `Key: pipeline-fix-<k>-…` or `Key: self-review-<name>-…` line to
-`<agents repo>/scripts/check-loop-dispatch.sh`, which refuses it off its row of the table above,
+`<agents repo>/scripts/check-loop-dispatch.sh`, which refuses it off its row of **Allowed pairs**,
 while an earlier dispatch of the loop is still open, or — any dispatch but the plan and the pass —
 before a completed plan, and records the admitted one in flowd. The parent closes each dispatch
 once it returns with `<agents repo>/scripts/pipeline-fix.sh end <key> <outcome>`: `completed`, or
@@ -348,7 +342,8 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    > `Agent` tool while you plan, per **B. Basic Workflow #1 — Brainstorming** (`skills/flow/brainstorm-planner.md`) — never a
    > `fork`, and never an agent that edits files or commits. Each dispatch's model and effort come
    > from `plan-agent-pair.sh <your Key> <n>`, `<n>` counting your planning dispatches from 1, and
-   > every dispatch prompt carries the two sentences of **Propagate this**
+   > every dispatch prompt carries the line `Role: explorer` (an Explore agent) or
+   > `Role: plan-designer` (a Plan agent) and the two sentences of **Propagate this**
    > (`~/.claude/rules/agent-baseline.md`) verbatim. The agents investigate and propose; you
    > decide, and every choice is auto-resolved to its recommended option. Fixing, implementing and
    > reviewing are never delegated.

@@ -56,16 +56,24 @@ These eight rows are **every** Agent-tool dispatch the parent may make, across s
 **2** and **4** below, `skills/flow/review-panel.md`, `skills/flow/verify-and-handoff.md` and
 `skills/flow-contracts/pipeline.md`'s **Pipeline defects found mid-run**:
 
-| Site | Role | Key shape | Owning section |
-|---|---|---|---|
-| implementer, one per group | `implementer` | `task-<n>-implementer` | section **4** below |
-| gated reviewer bundle, one per implementer group the review gate fires in, on `big` alone | `reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
-| panel bundle, at most two per round, plus at most one citation send-back per re-run dispatch outside that cap | `reviewer` | `panel-<round>-<slot\|slot+slot+slot>` (`-cite` once per re-run dispatch) | `skills/flow/review-panel.md`, **Bundled dispatch** |
-| findings merger, one per round once its dispatches have ended | `merger` | `panel-<round>-merger` | `skills/flow/review-panel.md`, **The findings merger** |
-| panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix-<round>[-<chunk>]` (`-retry` once per chunk) | `skills/flow/review-panel.md`, the fix step |
-| verifier, one per worktree | `verifier` | `visual-verify` (`-2`, `-retry`, `-rest`, `-rest-<n>`, `-fix-<k>`, `-fix-<k>-full`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
-| tooling analyst, one per worktree whose fix run reports a miss an earlier round passed | `planner` | `tooling-analysis-<n>` | `skills/flow/visual-verify.md`, **A missed defect — the tooling analysis** |
-| in-run pipeline fix planner, fixer and review, one each per loop step | `planner` for the plan, `implementer` for every fixer, `reviewer` for the review | `pipeline-fix-<k>-plan`, `pipeline-fix-<k>-fix` (`-fix-g<g>`, `-fix-<r>`, `-fix-v<v>`), `pipeline-fix-<k>-review-<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
+| Site | Role | Role line | Key shape | Owning section |
+|---|---|---|---|---|
+| implementer, one per group | `implementer` | `implementer` | `task-<n>-implementer` | section **4** below |
+| gated reviewer bundle, one per implementer group the review gate fires in, on `big` alone | `reviewer` | `gated-reviewer`; a fix re-review `gated-re-reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
+| panel bundle, at most two per round, plus at most one citation send-back per re-run dispatch outside that cap | `reviewer` | `panel-reviewer` on pass 1; `panel-extra` for an always-on extra dispatch; `panel-rerun` for a re-run, its send-back and a decided panel's late-fix pass; `late-fix` for a `default` panel's late-fix pass | `panel-<round>-<slot\|slot+slot+slot>` (`-cite` once per re-run dispatch) | `skills/flow/review-panel.md`, **Bundled dispatch** |
+| findings merger, one per round once its dispatches have ended | `merger` | `panel-merger` | `panel-<round>-merger` | `skills/flow/review-panel.md`, **The findings merger** |
+| panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix` | `panel-fix-<round>[-<chunk>]` (`-retry` once per chunk) | `skills/flow/review-panel.md`, the fix step |
+| verifier, one per worktree | `verifier` | `visual-verifier` | `visual-verify` (`-2`, `-retry`, `-rest`, `-rest-<n>`, `-fix-<k>`, `-fix-<k>-full`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
+| tooling analyst, one per worktree whose fix run reports a miss an earlier round passed | `planner` | `tooling-analyst` | `tooling-analysis-<n>` | `skills/flow/visual-verify.md`, **A missed defect — the tooling analysis** |
+| in-run pipeline fix planner, fixer and review, one each per loop step | `planner` for the plan, `implementer` for every fixer, `reviewer` for the review | none — its `Key:` line names its role | `pipeline-fix-<k>-plan`, `pipeline-fix-<k>-fix` (`-fix-g<g>`, `-fix-<r>`, `-fix-v<v>`), `pipeline-fix-<k>-review-<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
+
+**Every dispatch's prompt carries its Role line** — `Role: <role id>`, a line of its own, the id
+the **Role line** column names — and runs on a pair that role's rows of **Allowed pairs**
+(`skills/flow-contracts/model-policy.md`) admit; `hooks/enforce-agent-baseline.py` refuses, in a
+flow run, a dispatch with no Role line, an unknown role, or a pair off its role's rows. A
+no-progress escalation carries its fixer's own Role line — `panel-fix`, or `implementer` for a
+verify fix (or its loop's `Key:` line) — with its `No-progress escalation` line, and a panel dispatch the operator approved at `high`
+`Role: panel-reviewer` with its `Operator-approved high` line.
 
 The in-run pipeline fix row's dispatches are recorded by `hooks/enforce-loop-dispatch.py` under
 the loop's own change, off each prompt's `Key:` line: the parent never begins or ends one under its
@@ -920,13 +928,11 @@ the discipline **Bundled dispatch** (`skills/flow/review-panel.md`) applies to p
 dispatches: every gate-fired task goes to the whole-branch panel as review focus instead
 (the GATE FOCUS paragraph of **Bundled dispatch**, `skills/flow/review-panel.md`).
 **The bundle is the implementer group**: at a boundary, every task of group N+1 whose gate fired
-goes out in one reviewer Agent call beside group N+2's implementer, on `opus` at `medium`, always
-— fixed whatever the roll, per **Model and effort** (`skills/flow/brainstorm-planner.md`) — its
-prompt opening with the line `Role: gated per-task reviewer`, the marker
-`hooks/enforce-agent-baseline.py` pins this pair on. A fix re-review bundle runs on `opus` at
-`low` instead, its prompt opening with `Role: gated per-task re-reviewer`
-(`skills/flow/gated-review-fix.md`); a handshake retry bundle keeps its original bundle's pair and
-marker. On harnesses `zcode` and `muse`, **Harness mapping**
+goes out in one reviewer Agent call beside group N+2's implementer, on its **Allowed pairs** row
+(`skills/flow-contracts/model-policy.md`), fixed whatever the roll, its prompt opening with the
+line `Role: gated-reviewer`. A fix re-review bundle runs on its own row instead, its prompt opening
+with `Role: gated-re-reviewer` (`skills/flow/gated-review-fix.md`); a handshake retry bundle keeps
+its original bundle's pair and Role line. On harnesses `zcode` and `muse`, **Harness mapping**
 (`skills/flow-contracts/model-policy.md`) replaces it, as it does every pair. Each task inside the bundle keeps its own pass: its own
 commit-range diff `git diff <task-sha>^..<task-sha>` — a real commit diff, never a snapshot of
 the working tree, which the next implementer is editing — its own verdict and its own report

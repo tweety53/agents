@@ -1025,13 +1025,13 @@ enforcing in `flow record decision`:** a Go change the ticket did not ask for; p
 a planner-written record. **gated-bundle-never-high** (kan-991's self-review): the gated per-task
 reviewer bundle runs at the panel roll's effort and never `high` — the decision JSON records no
 pair for it, so a raised effort had nowhere to be recorded and nothing that dispatches it reads one. **gated-reviewer-opus-medium** (operator-approved, 2026-10-29) supersedes its effort clause: the
-bundle runs on `opus` at `medium` always, pinned by its `Role: gated per-task reviewer` marker in
-`hooks/enforce-agent-baseline.py`, and each pass is a primary pass scoped to its own task's
+bundle runs on `opus` at `medium` always, pinned by the `gated-reviewer` row of **Allowed pairs**
+(`skills/flow-contracts/model-policy.md`), and each pass is a primary pass scoped to its own task's
 commit diff and `tasks.md` entry with the sections it cites. **Rejected — keeping the roll's
 effort:** a `low` reviewer on a big change's riskiest tasks bought little, and a pair the decision
 never records was unenforceable. **gated-rereview-opus-low** (operator-chosen, 2026-10-29): a fix
-re-review bundle runs on `opus` at `low`, pinned by its own `Role: gated per-task re-reviewer`
-marker, because a re-review reads only a small fix diff; the first pass stays at `medium`, and a
+re-review bundle runs on `opus` at `low`, pinned by its own `gated-re-reviewer`
+row, because a re-review reads only a small fix diff; the first pass stays at `medium`, and a
 handshake retry keeps its original bundle's pair.
 
 ## brainstorm-planner.md — Decide, step 6 visual verification (visual-verify-decided-at-decide)

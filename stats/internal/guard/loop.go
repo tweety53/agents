@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -27,82 +26,46 @@ func init() {
 	Registry["check-loop-dispatch"] = checkLoopDispatch
 }
 
-// lpRow is one row of the pairs table in skills/flow-self-review/SKILL.md:
-// the key suffixes it covers, the subagent types and model it runs on, and
-// the subagent types a recorded no-progress escalation also admits.
-type lpRow struct {
-	suffix *regexp.Regexp
-	types  []string
-	model  string
-	escal  []string
-}
-
-// lpSkill is the one canonical place the pairs are read from.
-const lpSkill = "skills/flow-self-review/SKILL.md"
-
 var (
 	lpTick        = regexp.MustCompile("`([^`]+)`")
-	lpPlaceholder = regexp.MustCompile(`<[a-z]+>`)
 	lpPipelineKey = regexp.MustCompile(`^pipeline-fix-([0-9]+)-(.+)$`)
 	lpDigits      = regexp.MustCompile(`^[0-9]+$`)
+	lpSuffix      = regexp.MustCompile(`^(?:pass|plan(?:-[0-9]+)?|fix(?:-[0-9]+|-g[0-9]+|-v[0-9]+)?|review-[0-9]+)$`)
 )
 
-// lpTable parses the table headed `| Key suffix |` out of <repo>/lpSkill.
-// Each cell's backticked tokens are its values; `<x>` in a suffix stands for
-// a number. A file with no such table, or a row missing a cell, is an error:
-// a loop dispatch is never admitted off a table that cannot be read.
-func lpTable(repo string) ([]lpRow, error) {
-	b, err := os.ReadFile(filepath.Join(repo, lpSkill))
-	if err != nil {
-		return nil, err
+// lpRole is the allowed-pairs role id (skills/flow-contracts/model-policy.md)
+// of a loop key's suffix under prefix (self-review or pipeline-fix), "" when
+// the suffix is no loop suffix.
+func lpRole(prefix, suffix string) string {
+	if !lpSuffix.MatchString(suffix) {
+		return ""
 	}
-	var rows []lpRow
-	in := false
-	for _, line := range strings.Split(string(b), "\n") {
-		t := strings.TrimSpace(line)
-		if strings.HasPrefix(t, "| Key suffix |") {
-			in = true
-			continue
-		}
-		if !in {
-			continue
-		}
-		if !strings.HasPrefix(t, "|") {
-			break
-		}
-		if strings.HasPrefix(t, "|---") {
-			continue
-		}
-		cells := strings.Split(strings.Trim(t, "|"), "|")
-		if len(cells) != 4 {
-			return nil, fmt.Errorf("%s: pairs row %q has %d cells, want 4", lpSkill, t, len(cells))
-		}
-		ticks := func(c string) []string {
-			var out []string
-			for _, m := range lpTick.FindAllStringSubmatch(c, -1) {
-				out = append(out, m[1])
-			}
-			return out
-		}
-		var alts []string
-		for _, s := range ticks(cells[0]) {
-			alts = append(alts, lpPlaceholder.ReplaceAllString(regexp.QuoteMeta(s), "[0-9]+"))
-		}
-		model := ticks(cells[2])
-		if len(alts) == 0 || len(ticks(cells[1])) == 0 || len(model) != 1 {
-			return nil, fmt.Errorf("%s: pairs row %q names no suffix, type or single model", lpSkill, t)
-		}
-		rows = append(rows, lpRow{
-			suffix: regexp.MustCompile("^(?:" + strings.Join(alts, "|") + ")$"),
-			types:  ticks(cells[1]),
-			model:  model[0],
-			escal:  ticks(cells[3]),
-		})
+	fam := lpFamily(suffix)
+	switch {
+	case strings.HasPrefix(fam, "fix"):
+		fam = "fix"
+	case suffix == "review-1":
+		fam = "review-1"
+	case fam == "review":
+		fam = "review-r"
 	}
-	if len(rows) == 0 {
-		return nil, fmt.Errorf("%s carries no `| Key suffix |` pairs table", lpSkill)
+	return prefix + "-" + fam
+}
+
+// lpEscalation is the marker of the marked row of role that lists pair, ""
+// when no marked row does -- the no-progress escalation's pair.
+func lpEscalation(rows map[string][]policyRow, role, pair string) string {
+	for _, r := range rows[role] {
+		if r.marker != "" && slices.Contains(r.pairs, pair) {
+			return r.marker
+		}
 	}
-	return rows, nil
+	return ""
+}
+
+// lpEscalatable is whether role has any marked row: a fix's, never a plan's or a review's.
+func lpEscalatable(rows map[string][]policyRow, role string) bool {
+	return slices.ContainsFunc(rows[role], func(r policyRow) bool { return r.marker != "" })
 }
 
 // lpLoop names one loop's records: the change they are filed under, the
@@ -137,23 +100,15 @@ func lpBranchExists(env Env, git, repo, b string) bool {
 	return rc == 0
 }
 
-// lpFromKey splits key into its loop and its suffix, and finds the suffix's
-// pairs row. ok false with a message is a refusal (exit 1); ok false with
-// msg "" means the key is no loop key at all.
-func lpFromKey(env Env, git, repo, key string, rows []lpRow) (lpLoop, string, lpRow, string, bool) {
-	rowOf := func(s string) (lpRow, bool) {
-		for _, r := range rows {
-			if r.suffix.MatchString(s) {
-				return r, true
-			}
-		}
-		return lpRow{}, false
-	}
+// lpFromKey splits key into its loop, its suffix and the suffix's role id.
+// ok false with a message is a refusal (exit 1); ok false with msg "" means
+// the key is no loop key at all.
+func lpFromKey(env Env, git, repo, key string) (lpLoop, string, string, string, bool) {
 	if m := lpPipelineKey.FindStringSubmatch(key); m != nil {
 		k, suffix := m[1], m[2]
-		row, ok := rowOf(suffix)
-		if !ok {
-			return lpLoop{}, "", lpRow{}, fmt.Sprintf("KEY — %s: no row of the pairs table (%s) covers suffix %q", key, lpSkill, suffix), false
+		role := lpRole("pipeline-fix", suffix)
+		if role == "" {
+			return lpLoop{}, "", "", fmt.Sprintf("KEY — %s: suffix %q is no loop suffix", key, suffix), false
 		}
 		_, out := kwRun(env, "", git, "-C", repo, "for-each-ref", "--format=%(refname:short)", "refs/heads/")
 		var hits []string
@@ -163,12 +118,12 @@ func lpFromKey(env Env, git, repo, key string, rows []lpRow) (lpLoop, string, lp
 			}
 		}
 		if len(hits) != 1 {
-			return lpLoop{}, "", lpRow{}, fmt.Sprintf("NOT-STARTED — %s: %d branches pipeline-fix-<name>-%s; start the loop with scripts/pipeline-fix.sh start <name> %s", key, len(hits), k, k), false
+			return lpLoop{}, "", "", fmt.Sprintf("NOT-STARTED — %s: %d branches pipeline-fix-<name>-%s; start the loop with scripts/pipeline-fix.sh start <name> %s", key, len(hits), k, k), false
 		}
-		return lpLoop{change: hits[0], token: hits[0], prefix: "pipeline-fix-" + k + "-", main: repo}, suffix, row, "", true
+		return lpLoop{change: hits[0], token: hits[0], prefix: "pipeline-fix-" + k + "-", main: repo}, suffix, role, "", true
 	}
 	if !strings.HasPrefix(key, "self-review-") {
-		return lpLoop{}, "", lpRow{}, "", false
+		return lpLoop{}, "", "", "", false
 	}
 	rest := strings.TrimPrefix(key, "self-review-")
 	// The longest name wins: a role suffix is the short tail.
@@ -177,8 +132,8 @@ func lpFromKey(env Env, git, repo, key string, rows []lpRow) (lpLoop, string, lp
 			continue
 		}
 		name, suffix := rest[:i], rest[i+1:]
-		row, ok := rowOf(suffix)
-		if !ok || !plainChangeName(name) {
+		role := lpRole("self-review", suffix)
+		if role == "" || !plainChangeName(name) {
 			continue
 		}
 		loop := lpLoop{token: "self-review-" + name, prefix: "self-review-" + name + "-", change: name, main: repo}
@@ -189,9 +144,9 @@ func lpFromKey(env Env, git, repo, key string, rows []lpRow) (lpLoop, string, lp
 			// project -- gymie's for a gymie run -- never necessarily <agents repo>.
 			loop.main = m
 		}
-		return loop, suffix, row, "", true
+		return loop, suffix, role, "", true
 	}
-	return lpLoop{}, "", lpRow{}, fmt.Sprintf("KEY — %s: no row of the pairs table (%s) covers its suffix", key, lpSkill), false
+	return lpLoop{}, "", "", fmt.Sprintf("KEY — %s: its suffix is no loop suffix", key), false
 }
 
 // lpDispatch is one `flow record dispatches` row, the fields the loop reads.
@@ -335,7 +290,7 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 	if !ok {
 		return 2
 	}
-	rows, err := lpTable(repo)
+	rows, err := policyTable(repo)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: %v\n", self, err)
 		return 2
@@ -349,7 +304,14 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "LOOP-DISPATCH-REFUSED: %s\n", msg)
 		return 1
 	}
-	lp, suffix, row, msg, ok := lpFromKey(env, git, main, key, rows)
+	var prompt []byte
+	if env.Stdin != nil {
+		if prompt, err = io.ReadAll(env.Stdin); err != nil {
+			fmt.Fprintf(stderr, "%s: reading the prompt: %v\n", self, err)
+			return 2
+		}
+	}
+	lp, suffix, role, msg, ok := lpFromKey(env, git, main, key)
 	if !ok {
 		if msg == "" {
 			fmt.Fprintf(stdout, "LOOP-DISPATCH-NA %s\n", key)
@@ -365,13 +327,16 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 			return 2
 		}
 	}
-	if model != row.model || !slices.Contains(row.types, typ) {
-		if model != row.model || !slices.Contains(row.escal, typ) {
-			return refuse(fmt.Sprintf("PAIR — %s runs on subagent_type %s, model %s (the pairs table, %s); this dispatch carries subagent_type %q, model %q",
-				key, strings.Join(row.types, " or "), row.model, lpSkill, typ, model))
+	if err := policyAllows(rows, role, typ, model, "", ""); err != nil {
+		// Off the unmarked rows: only the role's marked escalation row can admit it.
+		if lpEscalation(rows, role, policyPair(typ, model, "")) == "" {
+			return refuse("PAIR — " + err.Error())
 		}
 		if !lpEscalated(env, git, lp.main, lp, key) || !lpEarlierRound(lp, suffix, mine) {
 			return refuse(fmt.Sprintf("ESCALATION — %s on %s needs a completed earlier round and its no-progress escalation recorded first: scripts/pipeline-fix.sh escalate %s", key, typ, key))
+		}
+		if err := policyAllows(rows, role, typ, model, "", string(prompt)); err != nil {
+			return refuse("PAIR — " + err.Error())
 		}
 	} else if suffix == "review-1" {
 		want, ok := lpFirstReviewType(env, git, lp.main, lp)
@@ -414,9 +379,9 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 	if family != "plan" && !planDone {
 		return refuse(fmt.Sprintf("PLAN — %s needs a completed %splan dispatch first", key, lp.prefix))
 	}
-	role := map[string]string{"plan": "planner", "fix": "implementer", "fix-r": "implementer", "fix-v": "implementer", "review": "reviewer"}[family]
+	recordRole := map[string]string{"plan": "planner", "fix": "implementer", "fix-r": "implementer", "fix-v": "implementer", "review": "reviewer"}[family]
 	out, _, rc := pcFlow(env, true, "record", "dispatch", "begin", "-C", lp.main, "-change", lp.change,
-		"-role", role, "-model", model, "-effort", lpEffort(typ), "-key", key, "-session-token", lp.token)
+		"-role", recordRole, "-model", model, "-effort", lpEffort(typ), "-key", key, "-session-token", lp.token)
 	if rc != 0 {
 		fmt.Fprintf(stderr, "%s: flow record dispatch begin failed (exit %d) -- cannot answer:\n%s", self, rc, out)
 		fmt.Fprintf(stderr, "%s: a loop's rows need its change: scripts/pipeline-fix.sh start creates it\n", self)

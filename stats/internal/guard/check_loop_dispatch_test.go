@@ -13,6 +13,7 @@ import (
 // every call, and the guard's Env.
 type lpFx struct {
 	repo, log, rows string
+	prompt          string // the prompt the hook hands in on stdin
 	env             Env
 }
 
@@ -25,11 +26,11 @@ func lpNew(t *testing.T, rows string, branches ...string) lpFx {
 		t.Fatal(err)
 	}
 	fx := lpFx{repo: tmp + "/agents", log: tmp + "/flow.log", rows: tmp + "/rows.json"}
-	skill, err := os.ReadFile("../../../" + lpSkill)
+	table, err := os.ReadFile("../../../" + mpFile)
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, fx.repo+"/"+lpSkill, string(skill))
+	writeFile(t, fx.repo+"/"+mpFile, string(table))
 	gitRun(t, "", "init", "-q", "-b", "main", fx.repo)
 	gitRun(t, fx.repo, "add", "-A")
 	gitRun(t, fx.repo, "commit", "-q", "-m", "init")
@@ -54,7 +55,9 @@ esac
 func (fx lpFx) run(t *testing.T, args ...string) (int, string) {
 	t.Helper()
 	var o, e bytes.Buffer
-	rc := checkLoopDispatch(append([]string{fx.repo}, args...), fx.env, &o, &e)
+	env := fx.env
+	env.Stdin = strings.NewReader(fx.prompt)
+	rc := checkLoopDispatch(append([]string{fx.repo}, args...), env, &o, &e)
 	return rc, o.String() + e.String()
 }
 
@@ -74,25 +77,54 @@ const (
 	lpPlanOpen  = `[{"seq":1,"key":"pipeline-fix-6-plan","sessionToken":"pipeline-fix-kan-1-demo-6"}]`
 )
 
-func TestLoopTableIsTheSkillsOwn(t *testing.T) {
+// TestLoopSuffixRoles pins the key suffix -> role id map onto the real table:
+// every suffix lands on a role the allowed-pairs table carries.
+func TestLoopSuffixRoles(t *testing.T) {
 	t.Parallel()
-	rows, err := lpTable("../../..")
+	rows, err := policyTable("../../..")
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]string{"pass": "flow-medium opus", "plan-2": "flow-planner-medium flow-planner-low opus", "fix-g1": "flow-low opus",
-		"fix-v3": "flow-low opus", "review-1": "flow-medium flow-low opus", "review-2": "flow-low sonnet"}
-	for suffix, pair := range want {
-		got := ""
-		for _, r := range rows {
-			if r.suffix.MatchString(suffix) {
-				got = strings.Join(append(append([]string{}, r.types...), r.model), " ")
-				break
+	want := map[string]string{"pass": "-pass", "plan": "-plan", "plan-2": "-plan", "fix": "-fix", "fix-3": "-fix", "fix-g1": "-fix",
+		"fix-v3": "-fix", "review-1": "-review-1", "review-2": "-review-r"}
+	for _, prefix := range []string{"self-review", "pipeline-fix"} {
+		for suffix, role := range want {
+			got := lpRole(prefix, suffix)
+			if got != prefix+role {
+				t.Errorf("%s %s: role %q, want %q", prefix, suffix, got, prefix+role)
+			}
+			if prefix+role != "pipeline-fix-pass" && len(rows[got]) == 0 {
+				t.Errorf("role %q has no row of the allowed-pairs table", got)
 			}
 		}
-		if got != pair {
-			t.Errorf("suffix %s: pair %q, want %q", suffix, got, pair)
+	}
+	for _, bad := range []string{"fix-x", "review", "plan-a", "pass-1"} {
+		if got := lpRole("self-review", bad); got != "" {
+			t.Errorf("suffix %q: role %q, want none", bad, got)
 		}
+	}
+}
+
+// TestLoopDispatchReadsPolicyTable: the pair comes from the allowed-pairs
+// table, never a table of the loop's own.
+func TestLoopDispatchReadsPolicyTable(t *testing.T) {
+	t.Parallel()
+	rows := lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed", "review-1 fix")
+	fx := lpNew(t, rows, lpBranch)
+	b, err := os.ReadFile(fx.repo + "/" + mpFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	table := strings.Replace(string(b), "| `pipeline-fix-review-r` | `sonnet/flow-low` | — |", "| `pipeline-fix-review-r` | `opus/flow-low` | — |", 1)
+	if table == string(b) {
+		t.Fatal("the real table carries no pipeline-fix-review-r row to rewrite")
+	}
+	writeFile(t, fx.repo+"/"+mpFile, table)
+	if rc, out := fx.run(t, "pipeline-fix-6-review-2", "flow-low", "sonnet"); rc != 1 || !strings.Contains(out, "PAIR —") {
+		t.Fatalf("sonnet/flow-low off the fixture row: rc %d: %s", rc, out)
+	}
+	if rc, out := fx.run(t, "pipeline-fix-6-review-2", "flow-low", "opus"); rc != 0 {
+		t.Fatalf("opus/flow-low on the fixture row: rc %d: %s", rc, out)
 	}
 }
 
@@ -100,6 +132,7 @@ func TestCheckLoopDispatch(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
 		name, rows, key, typ, model string
+		prompt                      string // stdin; the escalated fix carries its marker
 		branches, escalated         []string
 		design                      string // the loop branch's design.md, committed when set
 		rc                          int
@@ -113,7 +146,9 @@ func TestCheckLoopDispatch(t *testing.T) {
 			out: "LOOP-DISPATCH-OK", begin: "-role implementer -model opus -effort low -key pipeline-fix-6-fix"},
 		{name: "fix on flow-high unescalated", rows: lpPlanDone, key: "pipeline-fix-6-fix", typ: "flow-high", model: "opus", branches: []string{lpBranch}, rc: 1, out: "ESCALATION —"},
 		{name: "fix on flow-high escalated", rows: lpFixRound, key: "pipeline-fix-6-fix-1", typ: "flow-high", model: "opus", branches: []string{lpBranch},
-			escalated: []string{lpBranch + ":pipeline-fix-6-fix-1"}, out: "LOOP-DISPATCH-OK", begin: "-effort high"},
+			escalated: []string{lpBranch + ":pipeline-fix-6-fix-1"}, prompt: "No-progress escalation\n", out: "LOOP-DISPATCH-OK", begin: "-effort high"},
+		{name: "fix on flow-high escalated without its marker", rows: lpFixRound, key: "pipeline-fix-6-fix-1", typ: "flow-high", model: "opus", branches: []string{lpBranch},
+			escalated: []string{lpBranch + ":pipeline-fix-6-fix-1"}, rc: 1, out: "PAIR —"},
 		{name: "a hand-set marker with no earlier round", rows: lpPlanDone, key: "pipeline-fix-6-fix", typ: "flow-high", model: "opus", branches: []string{lpBranch},
 			escalated: []string{lpBranch + ":pipeline-fix-6-fix"}, rc: 1, out: "ESCALATION —"},
 		{name: "another loop's marker for the same key", rows: lpFixRound, key: "pipeline-fix-6-fix-1", typ: "flow-high", model: "opus", branches: []string{lpBranch},
@@ -157,6 +192,7 @@ func TestCheckLoopDispatch(t *testing.T) {
 			for _, k := range tc.escalated {
 				gitRun(t, fx.repo, "config", "--add", "flow.escalation", k)
 			}
+			fx.prompt = tc.prompt
 			rc, out := fx.run(t, tc.key, tc.typ, tc.model)
 			if rc != tc.rc || !strings.Contains(out, tc.out) {
 				t.Fatalf("rc %d, want %d; output %q, want it to carry %q", rc, tc.rc, out, tc.out)
@@ -187,7 +223,7 @@ func TestLoopDispatchPlannerTypes(t *testing.T) {
 	}{
 		{"medium planner", `[]`, "self-review-x-plan", "flow-planner-medium", false, 0, "-effort medium"},
 		{"low planner", `[]`, "self-review-x-plan", "flow-planner-low", false, 0, "-effort low"},
-		{"leaf flow-medium", `[]`, "self-review-x-plan", "flow-medium", false, 1, "PAIR — self-review-x-plan runs on subagent_type flow-planner-medium or flow-planner-low"},
+		{"leaf flow-medium", `[]`, "self-review-x-plan", "flow-medium", false, 1, "PAIR — self-review-plan runs on opus/flow-planner-medium, opus/flow-planner-low"},
 		{"high planner unescalated", plan2, "self-review-x-plan-2", "flow-planner-high", false, 1, "PAIR —"},
 		{"high planner escalated", plan2, "self-review-x-plan-2", "flow-planner-high", true, 1, "PAIR —"},
 	} {
@@ -208,7 +244,7 @@ func TestLoopDispatchPlannerTypes(t *testing.T) {
 func TestCheckLoopDispatchUnreadableTable(t *testing.T) {
 	t.Parallel()
 	fx := lpNew(t, `[]`, lpBranch)
-	if err := os.Remove(fx.repo + "/" + lpSkill); err != nil {
+	if err := os.Remove(fx.repo + "/" + mpFile); err != nil {
 		t.Fatal(err)
 	}
 	if rc, out := fx.run(t, "pipeline-fix-6-plan", "flow-medium", "opus"); rc != 2 {

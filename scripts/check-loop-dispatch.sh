@@ -1,20 +1,21 @@
 #!/usr/bin/env bash
 # check-loop-dispatch.sh <agents-repo> <key> <subagent_type> <model> — admit
-# one dispatch of a pipeline-fix or self-review fix loop, or refuse it, and
-# record it (hooks/enforce-loop-dispatch.py runs it on every Agent/Task call
-# whose prompt carries a `Key: pipeline-fix-<k>-…` or `Key: self-review-…`
-# line).
+# one dispatch of a pipeline-fix or self-review fix loop, its prompt on stdin,
+# or refuse it, and record it (hooks/enforce-loop-dispatch.py runs it on every
+# Agent/Task call whose prompt carries a `Key: pipeline-fix-<k>-…` or
+# `Key: self-review-…` line). The key's suffix names its role id of the
+# **Allowed pairs** table in skills/flow-contracts/model-policy.md — the one
+# place the pairs are read from.
 #
 # Refused (exit 1, one LOOP-DISPATCH-REFUSED line):
-#   KEY          no row of the pairs table in
-#                skills/flow-self-review/SKILL.md — the one place the pairs
-#                are read from — covers the key's suffix;
+#   KEY          the key's suffix is no loop suffix;
 #   NOT-STARTED  a pipeline-fix key with no pipeline-fix-<name>-<k> branch
 #                (scripts/pipeline-fix.sh start makes it);
-#   PAIR         subagent_type or model off the suffix's row;
+#   PAIR         subagent_type or model off the role's rows, or a marked
+#                row's marker (`No-progress escalation`) not a prompt line;
 #   EFFORT       a review-1 whose loop plan records a first-review-effort
 #                decision naming no effort on its **Chosen:** line;
-#   ESCALATION   the row's escalation type with no recorded escalation
+#   ESCALATION   the role's marked escalation pair with no recorded escalation
 #                (scripts/pipeline-fix.sh escalate);
 #   KEY-REUSED   the key already has a row;
 #   OPEN         an earlier row of the loop is not closed

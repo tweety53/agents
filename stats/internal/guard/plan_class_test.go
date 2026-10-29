@@ -2,6 +2,7 @@ package guard
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -78,7 +79,7 @@ func TestPlanClass(t *testing.T) {
 	if g.err != nil {
 		t.Fatal(g.err)
 	}
-	env := envWith(t, []string{"FLOW_GUARD_REPO_ROOT=" + t.TempDir()})
+	env := envWith(t, []string{"FLOW_GUARD_REPO_ROOT=" + pcRoot(t)})
 	run := func(args ...string) guardResult { return runGuard("plan-class", args, env) }
 
 	// repo is a copy of the template; commit stages and commits everything
@@ -338,7 +339,7 @@ func TestPlanClass(t *testing.T) {
 				{"en_US.UTF-8", "-ish", "red=yes"}, {"C", "dish", "red=no"}, {"C", "_x", "red=no"}, {"C", "", "red=yes"},
 			} {
 				p := pcTasks(t, "red-locale", "**Build:** red"+c.tail+"\n")
-				e := envWith(t, []string{"LC_ALL=" + c.locale, "FLOW_GUARD_REPO_ROOT=" + t.TempDir()})
+				e := envWith(t, []string{"LC_ALL=" + c.locale, "FLOW_GUARD_REPO_ROOT=" + pcRoot(t)})
 				r := runGuard("plan-class", []string{p, "1"}, e)
 				if r.rc != 0 || !strings.Contains(r.out, " "+c.want+" ") {
 					t.Errorf("%s %q: rc=%d out=%s", c.locale, c.tail, r.rc, r.out)
@@ -465,7 +466,7 @@ func TestPlanClassTree(t *testing.T) {
 			"extra: mutation+failure-modes · roll 90 · opus low\n"
 	}
 	expDir := func(t *testing.T, files map[string]string) string {
-		root := t.TempDir()
+		root := pcRoot(t)
 		if files != nil {
 			mkdir(t, root+"/skills/flow/experimental")
 		}
@@ -542,7 +543,7 @@ func TestPlanClassOverrideFlag(t *testing.T) {
 	if g.err != nil {
 		t.Fatal(g.err)
 	}
-	env := envWith(t, []string{"FLOW_GUARD_REPO_ROOT=" + t.TempDir()})
+	env := envWith(t, []string{"FLOW_GUARD_REPO_ROOT=" + pcRoot(t)})
 	small := pcTasks(t, "override-small", pcMake(4, false))
 	micro := pcTasks(t, "override-micro", pcDocs)
 	for _, c := range []struct {
@@ -610,7 +611,7 @@ func TestPlanClassExtra(t *testing.T) {
 		50: "extra: test-sanity+call-efficiency · roll 50 · opus low\n",
 		99: "extra: test-sanity+call-efficiency · roll 99 · opus low\n",
 	} {
-		if got := pcExtra("test-sanity+call-efficiency", roll); got != want {
+		if got := pcExtra("test-sanity+call-efficiency", roll, pcExtraPairs(t)); got != want {
 			t.Errorf("pcExtra(%d) = %q, want %q", roll, got, want)
 		}
 	}
@@ -627,8 +628,57 @@ func TestPlanClassExtraBundles(t *testing.T) {
 			model = "sonnet"
 		}
 		want := fmt.Sprintf("extra: mutation+failure-modes · roll %d · %s low\n", roll, model)
-		if got := pcExtra("mutation+failure-modes", roll); got != want {
+		if got := pcExtra("mutation+failure-modes", roll, pcExtraPairs(t)); got != want {
 			t.Errorf("pcExtra(mutation+failure-modes, %d) = %q, want %q", roll, got, want)
 		}
+	}
+}
+
+// pcRoot is a FLOW_GUARD_REPO_ROOT carrying the real allowed-pairs table.
+func pcRoot(t *testing.T) string {
+	t.Helper()
+	b, err := os.ReadFile("../../../" + mpFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	writeFile(t, root+"/"+mpFile, string(b))
+	return root
+}
+
+// pcExtraPairs is the real table's panel-extra pairs.
+func pcExtraPairs(t *testing.T) []string {
+	t.Helper()
+	rows, err := policyTable("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return rows["panel-extra"][0].pairs
+}
+
+// TestPlanClassExtraFollowsPolicy: the extra dispatch's pair comes from the
+// panel-extra row; a row naming only opus/flow-low prints opus below 50 too,
+// and a table with no panel-extra row exits 2.
+func TestPlanClassExtraFollowsPolicy(t *testing.T) {
+	t.Parallel()
+	if got, want := pcExtra("test-sanity+call-efficiency", 10, []string{"opus/flow-low"}), "extra: test-sanity+call-efficiency · roll 10 · opus low\n"; got != want {
+		t.Errorf("pcExtra = %q, want %q", got, want)
+	}
+	root := pcRoot(t)
+	b, err := os.ReadFile(root + "/" + mpFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	table := strings.Replace(string(b), "| `panel-extra` | `opus/flow-low`, `sonnet/flow-low` |", "| `panel-extra` | `opus/flow-low` |", 1)
+	if table == string(b) {
+		t.Fatal("the real table carries no panel-extra row to rewrite")
+	}
+	writeFile(t, root+"/"+mpFile, table)
+	r := runGuard("plan-class", []string{pcTasks(t, "plan-class-pin", "# x\n\n- [ ] 1. a\n**Files:** `a.go`\n"), "1"}, envWith(t, []string{"FLOW_GUARD_REPO_ROOT=" + root}))
+	if r.rc != 0 || strings.Contains(r.stdout, "sonnet low") || !strings.Contains(r.stdout, "· opus low\n") {
+		t.Fatalf("rc=%d out=%q, want both extra lines on opus low", r.rc, r.out)
+	}
+	if r := runGuard("plan-class", []string{pcTasks(t, "plan-class-pin", "# x\n\n- [ ] 1. a\n**Files:** `a.go`\n"), "1"}, envWith(t, []string{"FLOW_GUARD_REPO_ROOT=" + t.TempDir()})); r.rc != 2 {
+		t.Fatalf("rc=%d out=%q, want 2 with no table", r.rc, r.out)
 	}
 }

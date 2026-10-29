@@ -732,6 +732,7 @@ var (
 	cicSpectreRef = regexp.MustCompile(`^spectre/<[^/<>]+>$`)
 	cicChoreRef   = regexp.MustCompile(`^chore/(?:archive|self-review)-<[^/<>]+>$`)
 	cicFraction   = regexp.MustCompile(`^(?:[0-9]+/[0-9]+|<[a-z]>/<[a-z]>)$`)
+	cicModelPair  = regexp.MustCompile(`^(?:opus|sonnet)/[A-Za-z]+(?:-[a-z]+)*(?:@[a-z]+)?$`)
 )
 
 // cicIsCitation is classify_token: true when token is a citation at all —
@@ -782,6 +783,13 @@ func cicIsCitation(token string, rootFiles map[string]bool) bool {
 	// lowercase letter in brackets, anchored at both ends: `<name>/<file>` and
 	// `22/22/x.md` stay reportable.
 	case cicFraction.MatchString(tok):
+		return false
+	// MODEL_PAIR_RE — a dispatch pair of the **Allowed pairs** table
+	// (skills/flow-contracts/model-policy.md), `opus/flow-low` or
+	// `opus/Explore@low`, names a model and a subagent type, not a path.
+	// Exactly two segments, the first a model, the second a bare type name
+	// with no extension, anchored at both ends: `opus/flow-low.md` stays reportable.
+	case cicModelPair.MatchString(tok):
 		return false
 	// FILE_LINE_RE — a token ending `:<digits>` names a line inside a file
 	// (a findings-table Location cell, taken verbatim from `git diff` output
