@@ -23,6 +23,7 @@ import { effectiveActivity, sessionAlive } from "../lib/sessionAlive";
 import { stageLabel } from "../lib/stageLabel";
 import { ActivityBadge, StatePill } from "./StateBoard";
 import { taskCount } from "../lib/taskCount";
+import { SR_STEPS, selfReviewNow } from "../lib/selfReviewNow";
 import { phaseOrder, STAGE_PHASE, type Phase } from "../lib/phase";
 import { findChanges, getRunRecord, listSelfReviewFindings, listStageRuns, listStages, type ActiveSubagent, type PlanTask, type RecordDispatch, type SelfReviewFinding, type StageRunDTO } from "../api";
 
@@ -83,11 +84,6 @@ const FAILED_OUTCOMES = new Set(["failed", "blocked", "aborted", "timed-out", "c
 
 type Step = ActiveSubagent & { phase: Phase; agentId?: string; endedAt?: string; outcome?: string };
 
-function stepStatus(d: Step): "running" | "done" | "failed" {
-  if (!d.endedAt) return "running";
-  return d.outcome && FAILED_OUTCOMES.has(d.outcome) ? "failed" : "done";
-}
-
 /** Each dispatch as a step of the phase whose stage run was the latest to start at or before it (production dispatches carry no stage run id). */
 function phaseSteps(runs: StageRunDTO[], dispatches: RecordDispatch[]): Step[] {
   const byStart = [...runs].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt));
@@ -136,106 +132,107 @@ function measuredSum(values: (number | null | undefined)[]): number | null {
   return known.length ? known.reduce((a, v) => a + v, 0) : null;
 }
 
-/** One phase of the run: a header with its status, steps, active time and cost, the dispatches begun in its stage runs, then whatever the phase adds. */
+/** One line per role of a phase's dispatches: how many, the distinct model · effort pairs, their summed cost, failures and whether any still runs -- costliest first, an unpriced role last. */
+function roleSummary(steps: Step[], costs: Map<string, number>) {
+  const byRole = new Map<string, Step[]>();
+  for (const d of steps) byRole.set(d.role, [...(byRole.get(d.role) ?? []), d]);
+  return [...byRole].map(([role, ds]) => ({
+      role,
+      count: ds.length,
+      models: [...new Set(ds.map((d) => `${formatModel(d.modelVersion ?? d.model)}${d.effort ? ` · ${d.effort}` : ""}`))].join(", "),
+      cost: measuredSum(ds.map((d) => (d.agentId ? costs.get(d.agentId) : undefined))),
+      failed: ds.filter((d) => d.endedAt && d.outcome && FAILED_OUTCOMES.has(d.outcome)).length,
+      running: ds.some((d) => !d.endedAt),
+    }))
+    .sort((a, b) => (b.cost ?? -1) - (a.cost ?? -1));
+}
+
+/** Self-review's one-line summary: its plan's done/total, its findings, and its highest fix round when one ran. */
+function selfReviewSummary(tasks: PlanTask[] | undefined, findings: number, steps: Step[]): string {
+  const round = fixRound(steps);
+  return [
+    tasks && `plan ${tasks.filter((t) => t.state === "done").length}/${tasks.length}`,
+    `findings ${findings}`,
+    round !== null && `fixes round ${round}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/** The highest fix round a self-review dispatch key names (-fix-<n> or -fix-v<n>), null when none does. */
+function fixRound(steps: Step[]): number | null {
+  const rounds = steps.map((d) => /-fix-v?(\d+)$/.exec(d.key ?? "")).filter((m) => m !== null).map((m) => Number(m[1]));
+  return rounds.length ? Math.max(...rounds) : null;
+}
+
+/** One phase of the run: a header with its status, active time and cost, a line per role of its dispatches, then whatever the phase adds. */
 function PhasePanel({
   phase,
   runs,
   steps,
-  tasks,
   costs,
   now,
   extra,
+  summary,
   children,
 }: {
   phase: Phase;
   runs: StageRunDTO[];
   steps: Step[];
-  tasks: PlanTask[] | undefined;
   costs: Map<string, number>;
   now: number;
   extra?: ReactNode;
+  summary?: ReactNode;
   children?: ReactNode;
 }) {
   const status: PhaseStatus = runs.length === 0 ? "idle" : runs.some((r) => !r.endedAt) ? "running" : "done";
   const active = runs.reduce((a, r) => a + runEnd(r, now) - Date.parse(r.startedAt), 0);
   const cost = measuredSum(runs.map((r) => readCostUsd(r.metrics)));
+  const roles = roleSummary(steps, costs);
   return (
     <section className={`lb-panel lb-phase ${status}`} aria-label={phase}>
       <div className="lb-panel-h">
         <span className="lb-phase-name">
+          <span className={`lb-dot ${status}`} />
           {phase}
-          <span className="lb-status lb-phase-st">
-            <span className={`lb-dot ${status}`} />
+          <span className="lb-phase-st">
+            {" · "}
             {PHASE_STATUS_LABEL[status]}
+            {status !== "idle" && (
+              <>
+                {" · "}
+                <span className="lb-num">{formatSpan(active)}</span>
+                {" · "}
+                <span className="lb-num lb-phase-cost">{cost === null ? "—" : formatUsd(cost)}</span>
+              </>
+            )}
           </span>
         </span>
-        <span className="lb-panel-note lb-phase-meta">
-          {extra}
-          {status === "idle" ? (
-            "Not started."
-          ) : (
-            <>
-              <span>{`${steps.length} step${steps.length === 1 ? "" : "s"}`}</span>
-              <span className="lb-num">{formatSpan(active)}</span>
-              <span className="lb-num lb-phase-cost">{cost === null ? "—" : formatUsd(cost)}</span>
-            </>
-          )}
-        </span>
+        {extra && <span className="lb-panel-note lb-phase-meta">{extra}</span>}
       </div>
+      {summary && <div className="lb-phase-sum">{summary}</div>}
       {status !== "idle" && (
-        <table className="lb-table lb-steps">
-          <colgroup>
-            <col className="c-step" />
-            <col className="c-status" />
-            <col />
-            <col className="c-model" />
-            <col className="c-for" />
-            <col className="c-cost" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>Step</th>
-              <th>Status</th>
-              <th>Doing</th>
-              <th>Model · effort</th>
-              <th className="r">For</th>
-              <th className="r">Cost</th>
-            </tr>
-          </thead>
-          <tbody>
-            {steps.map((d, i) => {
-              const st = stepStatus(d);
-              const c = d.agentId ? costs.get(d.agentId) : undefined;
-              return (
-                <tr key={`${d.key ?? d.role}-${i}`} data-testid="phase-step">
-                  <td>{d.role}</td>
-                  <td>
-                    <span className="lb-status">
-                      <span className={`lb-dot ${st}`} />
-                      {st}
-                    </span>
-                  </td>
-                  <td className="lb-ellip" title={inlineWhat(d, tasks)}>
-                    {inlineWhat(d, tasks)}
-                  </td>
-                  <td>
-                    {formatModel(d.modelVersion ?? d.model)}
-                    {d.effort && ` · ${d.effort}`}
-                  </td>
-                  <td className="r lb-num">{formatSpan((d.endedAt ? Date.parse(d.endedAt) : now) - Date.parse(d.startedAt))}</td>
-                  <td className="r lb-num">{c === undefined ? <span className="lb-muted">—</span> : formatUsd(c)}</td>
-                </tr>
-              );
-            })}
-            {steps.length === 0 && (
-              <tr>
-                <td colSpan={6} className="lb-muted">
-                  No steps yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        <ul className="lb-roles">
+          {roles.map((r) => (
+            <li key={r.role} data-testid="phase-role">
+              <span className="lb-role">
+                {r.role} <span className="lb-muted">×{r.count}</span>
+              </span>
+              <span className="lb-role-models">{r.models}</span>
+              <span className="lb-num r">{r.cost === null ? <span className="lb-muted">—</span> : formatUsd(r.cost)}</span>
+              <span className="lb-role-flags">
+                {r.failed > 0 && <span className="lb-err">{r.failed} failed</span>}
+                {r.running && (
+                  <span className="lb-status">
+                    <span className="lb-dot running" />
+                    running
+                  </span>
+                )}
+              </span>
+            </li>
+          ))}
+          {roles.length === 0 && <li className="lb-muted">No dispatches yet.</li>}
+        </ul>
       )}
       {children}
     </section>
@@ -243,14 +240,20 @@ function PhasePanel({
 }
 
 /** A plan's tasks, each marked done, in progress or pending. */
-function TaskList({ tasks }: { tasks: PlanTask[] }) {
+function TaskList({ tasks, current }: { tasks: PlanTask[]; current?: number }) {
   return (
     <ul className="lb-tasks">
-      {tasks.map((t) => (
-        <li key={t.n} className={t.state.replace(" ", "-")}>
-          <span className="lb-task-mark">{TASK_MARK[t.state]}</span> {t.n}. {t.title}
-        </li>
-      ))}
+      {tasks.map((t) =>
+        t.n === current ? (
+          <li key={t.n} className="current" aria-current="step">
+            <span className="lb-task-mark">●</span> {t.n}. {t.title}
+          </li>
+        ) : (
+          <li key={t.n} className={t.state.replace(" ", "-")}>
+            <span className="lb-task-mark">{TASK_MARK[t.state]}</span> {t.n}. {t.title}
+          </li>
+        ),
+      )}
     </ul>
   );
 }
@@ -347,6 +350,13 @@ export function RunDetail({ project, change }: RunDetailProps) {
   );
   const costs = useMemo(() => dispatchCosts(phaseRuns), [phaseRuns]);
   const allFindings = [...findings, ...(sub?.findings ?? [])];
+  const srSteps = steps.filter((x) => x.phase === "Self-review");
+  const srNow = selfReviewNow(
+    srSteps,
+    board?.selfReviewTasks,
+    board?.currentStage === "flow.self-review" || phaseRuns.some((r) => STAGE_PHASE[r.stage] === "Self-review" && !r.endedAt),
+    now,
+  );
 
   return (
     <section aria-label={`Run detail: ${project}/${change}`} className="dashboard lb">
@@ -546,14 +556,33 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   phase={p}
                   runs={phaseRuns.filter((r) => STAGE_PHASE[r.stage] === p)}
                   steps={steps.filter((x) => x.phase === p)}
-                  tasks={p === "Self-review" ? board?.selfReviewTasks : board?.tasks}
                   costs={costs}
                   now={now}
                   extra={
+                    p === "Self-review" && sub && <a href={`#/run/${encodeURIComponent(sub.project)}/${encodeURIComponent(sub.name)}`}>sub-run</a>
+                  }
+                  summary={
                     p === "Self-review" && (
                       <>
-                        {board?.selfReviewTasks && <span>{`tasks ${doneOf(board.selfReviewTasks)}`}</span>}
-                        {sub && <a href={`#/run/${encodeURIComponent(sub.project)}/${encodeURIComponent(sub.name)}`}>sub-run</a>}
+                        <div className="lb-sr-now" data-testid="self-review-now">
+                          <strong>Now:</strong> {srNow.text}
+                        </div>
+                        <div className="lb-sr-prog" data-testid="self-review-progress">
+                          {SR_STEPS.map((st, i) => {
+                            const at = srNow.current ? SR_STEPS.indexOf(srNow.current) : -1;
+                            const state = srNow.done || i < at ? "done" : i === at ? "current" : "todo";
+                            const tasks = board?.selfReviewTasks;
+                            const label = st === "fix" && tasks ? `fix ${tasks.filter((t) => t.state === "done").length}/${tasks.length}` : st;
+                            return (
+                              <span key={st} className={state}>
+                                {i > 0 && <span className="lb-muted"> → </span>}
+                                {label}
+                                {state === "done" ? " ✓" : state === "current" ? " ●" : ""}
+                              </span>
+                            );
+                          })}
+                        </div>
+                        <div>{selfReviewSummary(board?.selfReviewTasks, allFindings.length, srSteps)}</div>
                       </>
                     )
                   }
@@ -565,7 +594,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                           <div className="lb-panel-h">
                             <span>Tasks</span>
                           </div>
-                          <TaskList tasks={board.selfReviewTasks} />
+                          <TaskList tasks={board.selfReviewTasks} current={srNow.taskN} />
                         </>
                       )}
                       <div className="lb-panel-h">

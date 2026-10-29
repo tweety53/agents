@@ -804,8 +804,8 @@ describe("the reworked run view (kan-1048)", () => {
       dispatches: [
         { id: 1, agentId: "agent-impl", role: "implementer", taskId: "1", key: "task-1-implementer", model: "opus", startedAt: "2026-01-01T01:05:00Z", endedAt: "2026-01-01T01:20:00Z", outcome: "completed" },
         { id: 2, role: "self-review", key: "self-review", model: "opus", effort: "medium", startedAt: "2026-01-01T02:00:00Z", endedAt: "2026-01-01T02:20:00Z", outcome: "completed" },
-        { id: 3, role: "implementer", taskId: "2", key: "task-2-implementer", model: "opus", startedAt: "2026-01-01T02:30:00Z", endedAt: "2026-01-01T02:40:00Z", outcome: "blocked" },
-        { id: 4, role: "implementer", taskId: "2", key: "task-2-implementer-r2", model: "opus", metrics: { modelVersion: "claude-opus-5-5" }, startedAt: "2026-01-01T02:50:00Z" },
+        { id: 3, role: "implementer", key: "self-review-kan-16-fix-1", model: "opus", startedAt: "2026-01-01T02:30:00Z", endedAt: "2026-01-01T02:40:00Z", outcome: "blocked" },
+        { id: 4, role: "implementer", key: "self-review-kan-16-fix-v2", model: "opus", effort: "low", metrics: { modelVersion: "claude-opus-5-5" }, startedAt: "2026-01-01T02:50:00Z" },
       ],
     });
     const reviewing = {
@@ -829,13 +829,13 @@ describe("the reworked run view (kan-1048)", () => {
     expect(tasks).toHaveTextContent("1/3 done");
     expect(tasks).toHaveTextContent("◻ 3. Run view");
     expect(screen.getByRole("region", { name: "Agents" })).toBeInTheDocument();
-    expect(panel.querySelector(".lb-panel-note")).toHaveTextContent("tasks 1/2 done");
-    const steps = await within(panel).findAllByTestId("phase-step");
-    expect(steps.map((s) => s.children[1].textContent)).toEqual(["done", "failed", "running"]);
-    expect(steps[0]).toHaveTextContent("opus · medium");
-    expect(steps[0]).toHaveTextContent("20m");
-    expect(steps[2]).toHaveTextContent("Fix the count");
-    expect(steps[2]).toHaveTextContent("opus-5.5");
+    // One line per role, never a row per dispatch: count, distinct model · effort, cost, failures, running.
+    const roles = await within(panel).findAllByTestId("phase-role");
+    expect(roles.map((r) => r.textContent)).toEqual(["self-review ×1opus · medium—", "implementer ×2opus, opus-5.5 · low—1 failedrunning"]);
+    expect(panel.querySelector(".lb-phase-sum")!.lastElementChild).toHaveTextContent(/^plan 1\/2 · findings 1 · fixes round 2$/);
+    // What it does now, unmistakably: the running red-verify fixer, its time and model, and where that sits.
+    expect(within(panel).getByTestId("self-review-now")).toHaveTextContent(/^Now: Verifying — red verify fix round 2 · for 10m · opus-5\.5$/);
+    expect(within(panel).getByTestId("self-review-progress")).toHaveTextContent("review ✓ → plan ✓ → fix 1/2 ✓ → re-review ✓ → verify ● → land → file");
     // The open phase leads; the rest follow in pipeline order, each present.
     const phases = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"));
     const first = phases.indexOf("Planning") - 1;
@@ -844,13 +844,13 @@ describe("the reworked run view (kan-1048)", () => {
     ]);
     // A dispatch lands in the phase of the stage run it began in.
     const impl = screen.getByRole("region", { name: "Implementation" });
-    expect(within(impl).getAllByTestId("phase-step")).toHaveLength(1);
-    // The header: one step, the phase's active time and its stage runs' cost; the step its own cost, "—" unpriced.
-    expect(impl.querySelector(".lb-panel-note")).toHaveTextContent(/^1 step30m\$3\.00$/);
-    expect(within(impl).getByTestId("phase-step")).toHaveTextContent(/1\.00$/);
-    expect(steps[0].lastElementChild).toHaveTextContent("—");
-    expect(impl).toHaveTextContent("Implementing task 1 (Schema)");
-    expect(screen.getByRole("region", { name: "Review" })).toHaveTextContent("Not started.");
+    expect(within(impl).getAllByTestId("phase-role")).toHaveLength(1);
+    // The header: status, the phase's active time and its stage runs' cost; the role line its dispatches' own cost.
+    expect(impl.querySelector(".lb-phase-name")).toHaveTextContent(/^Implementation · done · 30m · \$3\.00$/);
+    expect(within(impl).getByTestId("phase-role")).toHaveTextContent(/^implementer ×1opus\$1\.00$/);
+    const review = screen.getByRole("region", { name: "Review" });
+    expect(review).toHaveTextContent(/^Review · not started$/);
+    expect(within(review).queryByTestId("phase-role")).not.toBeInTheDocument();
     expect(panel).toHaveTextContent("✔ 1. Fix the divider");
     expect(panel).toHaveTextContent("◻ 2. Fix the count");
     const finding = await within(panel).findByTestId("self-review-finding");
@@ -893,13 +893,13 @@ describe("the reworked run view (kan-1048)", () => {
     );
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const panel = await screen.findByRole("region", { name: "Self-review" });
-    const steps = await within(panel).findAllByTestId("phase-step");
-    expect(steps.map((s) => s.children[0].textContent)).toEqual(["planner", "implementer"]);
-    expect(steps[0]).toHaveTextContent(/\$1\.50$/);
-    expect(steps[1].children[1]).toHaveTextContent("running");
+    const roles = await within(panel).findAllByTestId("phase-role");
+    expect(roles.map((r) => r.textContent)).toEqual(["planner ×1opus$1.50", "implementer ×1opus—running"]);
     // The phase sums the change's own self-review run (unmeasured) with the sub-run's two.
     expect(panel.querySelector(".lb-phase-cost")).toHaveTextContent("$2.50");
-    expect(panel).toHaveTextContent("◻ 1. Fix the guard");
+    // A group fixer runs: the first unticked task is the one in progress.
+    expect(panel).toHaveTextContent("● 1. Fix the guard");
+    expect(within(panel).getByTestId("self-review-now")).toHaveTextContent('Now: Fixing task 1 "Fix the guard"');
     expect(await within(panel).findByTestId("self-review-finding")).toHaveTextContent("toolingGuard too strictfixeddef5678");
     expect(within(panel).getByRole("link", { name: "sub-run" })).toHaveAttribute("href", `#/run/agents-tooling/${SUB}`);
     expect(findChangesMock).toHaveBeenCalledWith(SUB);
@@ -916,8 +916,9 @@ describe("the reworked run view (kan-1048)", () => {
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const panel = await screen.findByRole("region", { name: "Self-review" });
     expect(panel).toHaveTextContent("No findings recorded yet.");
-    // Without a self-review plan the header counts steps, as every phase does, never promising a plan.
-    expect(panel.querySelector(".lb-panel-note")).not.toHaveTextContent("no plan yet");
+    // Without a plan or a fix round the summary names only what exists.
+    expect(panel.querySelector(".lb-phase-sum")!.lastElementChild).toHaveTextContent(/^findings 0$/);
+    expect(within(panel).getByTestId("self-review-now")).toHaveTextContent("Now: Main session is between steps (nothing dispatched yet)");
   });
 
   it("run detail's collapsed Stage runs shows the latest 5 runs until its toggle shows all", async () => {

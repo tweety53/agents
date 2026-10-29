@@ -698,19 +698,24 @@ th button {
 .lb-phase.running { box-shadow: inset 3px 0 0 var(--status-ok); }
 .lb-phase.running > .lb-panel-h:first-child { background: color-mix(in srgb, var(--status-ok) 7%, transparent); }
 .lb-phase.idle > .lb-panel-h:first-child { border-bottom: 0; color: var(--text-muted); }
-.lb-phase-name { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
-.lb-phase-st { font-size: 11px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-secondary); }
+.lb-phase-name { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.lb-phase-st { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-secondary); white-space: nowrap; }
 .lb-phase.idle .lb-phase-st { color: var(--text-muted); }
-.lb-phase-meta { display: inline-flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
-.lb-phase-cost { color: var(--text-primary); font-weight: 600; min-width: 56px; text-align: right; }
+.lb-phase-meta { display: inline-flex; align-items: center; gap: 14px; }
+.lb-phase-cost { color: var(--text-primary); font-weight: 600; }
 .lb-dot.done { background: var(--status-ok); }
-.lb-dot.failed { background: var(--status-critical); }
-.lb-steps { table-layout: fixed; }
-.lb-steps col.c-step { width: 130px; }
-.lb-steps col.c-status { width: 100px; }
-.lb-steps col.c-model { width: 170px; }
-.lb-steps col.c-for { width: 64px; }
-.lb-steps col.c-cost { width: 76px; }
-.lb-steps td { overflow: hidden; text-overflow: ellipsis; }
-.lb-steps tbody tr:last-child td { border-bottom: 0; }
-.lb-ellip { overflow: hidden; text-overflow: ellipsis; }
+.lb-phase-sum { padding: 8px 12px 0; color: var(--text-secondary); font-size: 12px; display: grid; gap: 2px; }
+.lb-roles { list-style: none; margin: 0; padding: 6px 12px 10px; display: grid; gap: 2px; }
+.lb-roles > li { display: grid; grid-template-columns: 170px minmax(0, 1fr) 80px 150px; gap: 12px; align-items: center; padding: 3px 0; }
+.lb-role { font-weight: 600; white-space: nowrap; }
+.lb-role-models { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-roles .r { text-align: right; }
+.lb-role-flags { display: inline-flex; gap: 10px; justify-content: flex-end; white-space: nowrap; }
+.lb-sr-now { font-size: 13px; color: var(--text-primary); padding-bottom: 4px; }
+.lb-sr-now strong { color: var(--status-ok); margin-right: 4px; }
+.lb-sr-prog { font-size: 12px; padding-bottom: 4px; }
+.lb-sr-prog .done { color: var(--text-secondary); }
+.lb-sr-prog .todo { color: var(--text-muted); }
+.lb-sr-prog .current { color: var(--status-ok); font-weight: 600; }
+.lb-tasks .current { color: var(--text-primary); font-weight: 600; }
+.lb-tasks .current .lb-task-mark { color: var(--status-ok); }
