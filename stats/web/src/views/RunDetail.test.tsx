@@ -795,6 +795,17 @@ describe("the reworked run view (kan-1048)", () => {
     expect(main.querySelector(".lb-dot.waiting")).not.toBeNull();
   });
 
+  it("run detail lists main while it works between stages", async () => {
+    const between = { ...boardRow, currentStage: undefined, activity: "working", subagents: [] };
+    listStageRunsMock.mockResolvedValue(stageRunsResponse(planning));
+    fetchStatsViewMock.mockImplementation((view: string) =>
+      Promise.resolve(view === "state-board" ? { ...aggregateEnvelope([]), view, rows: [between] } : aggregateEnvelope([])),
+    );
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const main = (await screen.findByRole("cell", { name: "Main" })).closest("tr")!;
+    expect(main).toHaveTextContent("Mainrunningafter Designing the change");
+  });
+
   it("run detail still shows its stage runs when the board row fails to load", async () => {
     fetchStatsViewMock.mockImplementation((view: string) =>
       view === "state-board" ? Promise.reject(new Error("board down")) : Promise.resolve(aggregateEnvelope([])),

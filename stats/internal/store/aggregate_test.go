@@ -2011,6 +2011,40 @@ func TestLiveStateBoardCarriesOpenStageDoneTasksAndActivity(t *testing.T) {
 	}
 }
 
+// TestLiveStateBoardActivityBetweenStages pins that a change with no open
+// stage run still carries its latest run's session activity, so a main
+// session working between stages reads as working.
+func TestLiveStateBoardActivityBetweenStages(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-board-between-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	day := time.Date(2026, 8, 13, 10, 0, 0, 0, time.UTC)
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "flow.visual-verify")
+	in.SessionID = ptr("s-between")
+	in.StartedAt = day
+	run, err := st.BeginStage(ctx, in)
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	if err := st.EndStage(ctx, run.ID, day.Add(time.Minute), "completed"); err != nil {
+		t.Fatalf("EndStage: %v", err)
+	}
+	if err := st.SetSessionActivity(ctx, "s-between", "working", ""); err != nil {
+		t.Fatalf("SetSessionActivity: %v", err)
+	}
+	rows, err := st.LiveStateBoard(ctx, store.Period{
+		From: time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC),
+	}, &projectKey, nil)
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("LiveStateBoard = %v, %v; want one row", rows, err)
+	}
+	if rows[0].CurrentStage != nil || rows[0].Activity == nil || *rows[0].Activity != "working" {
+		t.Errorf("CurrentStage = %v Activity = %v, want no open stage and working", rows[0].CurrentStage, rows[0].Activity)
+	}
+}
+
 // TestLiveStateBoardLiveFieldEdges pins the edges the board's live fields
 // turn on: the newest of two open runs is the one shown, a repeated report of
 // the same activity keeps its since while a new state moves it, the period's

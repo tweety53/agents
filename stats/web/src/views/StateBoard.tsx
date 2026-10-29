@@ -105,8 +105,8 @@ function Chip({ on, onClick, title, children }: { on: boolean; onClick: () => vo
 function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
   const total = row.currentTasks;
   const done = row.doneTasks ?? 0;
-  // The main session while a stage is open, plus its subagents.
-  const agentCount = (row.subagents ?? []).filter((d) => !d.inline).length + (row.currentStage !== undefined ? 1 : 0);
+  // The main session while a stage is open or it works between stages, plus its subagents.
+  const agentCount = (row.subagents ?? []).filter((d) => !d.inline).length + (row.currentStage !== undefined || (row.activity !== undefined && row.activity !== "idle") ? 1 : 0);
   return (
     <div
       className={`lb-card${needsOperator(row) ? " needs" : ""}`}

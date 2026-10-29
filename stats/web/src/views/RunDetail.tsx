@@ -128,13 +128,17 @@ export function RunDetail({ project, change }: RunDetailProps) {
           // "main" while a stage is open, on its inline dispatch when it runs one.
           const subagents = (board?.subagents ?? []).filter((d) => !d.inline);
           const inline = board?.subagents?.find((d) => d.inline);
-          const mainAgent = openRun && {
-            what: inline ? inlineWhat(inline, board?.tasks) : stageLabel(openRun.stage),
+          // Between stages the main session still counts while it works or waits on you.
+          const lastRun = [...runs].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt))[0];
+          const betweenStages = !openRun && lastRun && board?.activity !== undefined && board.activity !== "idle";
+          const mainRun = openRun ?? (betweenStages ? lastRun : undefined);
+          const mainAgent = mainRun && {
+            what: inline ? inlineWhat(inline, board?.tasks) : openRun ? stageLabel(openRun.stage) : `after ${stageLabel(mainRun.stage)}`,
             model: inline
               ? formatModel(inline.modelVersion ?? inline.model)
-              : (readModels(openRun.metrics)?.map(formatModel).join(", ") ?? "—"),
-            effort: readEffort(openRun.metrics) ?? undefined,
-            since: inline?.startedAt ?? openRun.startedAt,
+              : (readModels(mainRun.metrics)?.map(formatModel).join(", ") ?? "—"),
+            effort: readEffort(mainRun.metrics) ?? undefined,
+            since: inline?.startedAt ?? (openRun ? openRun.startedAt : (board?.activitySince ?? mainRun.endedAt ?? mainRun.startedAt)),
           };
           const agentCount = subagents.length + (mainAgent ? 1 : 0);
           const mainStatus: AgentStatus =

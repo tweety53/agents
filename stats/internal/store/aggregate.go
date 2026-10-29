@@ -54,7 +54,8 @@ type LiveStateRow struct {
 	// CurrentStage and CurrentStageStartedAt are the change's latest open
 	// stage run; DoneTasks counts the distinct tasks an implementer
 	// dispatch committed, nil when the change has no implementer dispatch;
-	// Activity, ActivityDetail and ActivitySince are the open run's session
+	// Activity, ActivityDetail and ActivitySince are the session activity of
+	// the open run, or of the latest run between stages, when its session
 	// activity (store.SetSessionActivity). Each is nil when absent.
 	CurrentStage          *string
 	CurrentStageStartedAt *time.Time
@@ -156,7 +157,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			LIMIT 1
 		) open_run ON true
 		LEFT JOIN LATERAL (
-			SELECT sr.stage, sr.ended_at
+			SELECT sr.stage, sr.ended_at, sr.session_id
 			FROM stage_runs sr
 			WHERE sr.change_id = c.id
 			ORDER BY sr.started_at DESC, sr.id DESC
@@ -181,7 +182,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			FROM dispatches d
 			WHERE d.change_id = c.id AND d.role = 'implementer' AND d.commit_sha IS NOT NULL AND d.task_id IS NOT NULL
 		) committed ON true
-		LEFT JOIN session_activity sa ON sa.session_id = open_run.session_id
+		LEFT JOIN session_activity sa ON sa.session_id = COALESCE(open_run.session_id, last_run.session_id)
 		LEFT JOIN LATERAL (
 			SELECT CASE WHEN COUNT(*) = 0 THEN NULL
 			            ELSE (COUNT(DISTINCT d.task_id) FILTER (WHERE d.commit_sha IS NOT NULL AND d.task_id IS NOT NULL))::int
