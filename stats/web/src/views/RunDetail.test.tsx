@@ -746,7 +746,7 @@ describe("the reworked run view (kan-1048)", () => {
     expect(screen.getByRole("heading", { name: CHANGE }).parentElement).toHaveTextContent("IN_PROGRESS");
     const kpi = (name: string) => screen.getByRole("group", { name });
     expect(kpi("Now running")).toHaveTextContent("Implementing tasks");
-    expect(kpi("Now running")).toHaveTextContent("for 1h 00m · tasks 3/11 · main session on task 3 (Run view)");
+    expect(kpi("Now running")).toHaveTextContent("for 1h 00m · tasks 3/11");
     expect(kpi("Now running")).toHaveTextContent("Awaiting your answer");
     expect(kpi("Total cost")).toHaveTextContent("$6.50");
     expect(kpi("Total cost")).toHaveTextContent("4 stage runs, 3 measured");
@@ -756,13 +756,13 @@ describe("the reworked run view (kan-1048)", () => {
     expect(kpi("Input tokens")).toHaveTextContent("1.25M");
     expect(kpi("Input tokens")).toHaveTextContent("cache reads 80%");
     // Running subagents name what they do and their model, version and effort; the plan lists every task.
-    const subs = screen.getByRole("region", { name: "Subagents" });
+    const subs = screen.getByRole("region", { name: "Agents" });
     expect(subs).toHaveTextContent("implementer · task 2 (Board card)");
     expect(subs).toHaveTextContent("task-2-implementer");
     expect(subs).toHaveTextContent("opus-5.5 · high");
     expect(subs).toHaveTextContent("10m");
-    // The main session's own inline work is no subagent.
-    expect(subs).not.toHaveTextContent("task 3");
+    // The main session's own inline work leads, named "main".
+    expect(subs.querySelector("tbody tr")).toHaveTextContent("main · task 3 (Run view)");
     const tasks = screen.getByRole("region", { name: "Tasks" });
     expect(tasks).toHaveTextContent("1/3 done");
     expect(tasks).toHaveTextContent("✔ 1. Schema");

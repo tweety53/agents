@@ -101,8 +101,8 @@ export function RunDetail({ project, change }: RunDetailProps) {
           const measured = runs.filter((r) => readTotalInputTokens(r.metrics) !== null);
           const input = measured.reduce((a, r) => a + (readTotalInputTokens(r.metrics) ?? 0), 0);
           const cached = runs.reduce((a, r) => a + (readCacheReadTokens(r.metrics) ?? 0), 0);
-          const subagents = (board?.subagents ?? []).filter((d) => !d.inline);
-          const inlineWork = board?.subagents?.find((d) => d.inline && d.taskId);
+          // The main session's own inline work leads, as "main".
+          const agents = [...(board?.subagents ?? [])].sort((a, b) => Number(!a.inline) - Number(!b.inline));
           const failed = runs.filter((r) => r.outcome === "failed");
           const byStage = new Map<string, number>();
           for (const r of runs) byStage.set(r.stage, (byStage.get(r.stage) ?? 0) + (readCostUsd(r.metrics) ?? 0));
@@ -128,7 +128,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                     openRun &&
                     `for ${formatSpan(now - Date.parse(openRun.startedAt))}${
                       board?.currentTasks !== undefined ? ` · tasks ${board.doneTasks ?? 0}/${board.currentTasks}` : ""
-                    }${inlineWork ? ` · main session on task ${inlineWork.taskId}${taskTitle(board?.tasks, inlineWork.taskId ?? "")}` : ""}`
+                    }`
                   }
                 >
                   {openRun && board && <ActivityBadge row={board} now={now} />}
@@ -151,19 +151,19 @@ export function RunDetail({ project, change }: RunDetailProps) {
                 />
               </section>
 
-              {(board?.tasks || subagents.length > 0) && (
+              {(board?.tasks || agents.length > 0) && (
                 <div className="lb-split">
-                  <section className="lb-panel" aria-label="Subagents">
+                  <section className="lb-panel" aria-label="Agents">
                     <div className="lb-panel-h">
-                      <span>Subagents running</span>
-                      <span className="lb-panel-note">{subagents.length}</span>
+                      <span>Agents running</span>
+                      <span className="lb-panel-note">{agents.length}</span>
                     </div>
                     <table className="lb-table">
                       <tbody>
-                        {subagents.map((d, i) => (
+                        {agents.map((d, i) => (
                           <tr key={`${d.key ?? d.role}-${i}`}>
                             <td>
-                              <span className="lb-live-dot" /> {d.role}
+                              <span className="lb-live-dot" /> {d.inline ? "main" : d.role}
                               {d.taskId && ` · task ${d.taskId}${taskTitle(board?.tasks, d.taskId)}`}
                               {d.key && <div className="lb-muted">{d.key}</div>}
                             </td>
@@ -174,7 +174,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                             <td className="r lb-num">{formatSpan(now - Date.parse(d.startedAt))}</td>
                           </tr>
                         ))}
-                        {subagents.length === 0 && (
+                        {agents.length === 0 && (
                           <tr>
                             <td className="lb-muted">None right now.</td>
                           </tr>
