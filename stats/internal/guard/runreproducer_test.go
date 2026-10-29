@@ -173,15 +173,15 @@ func TestRunReproducer(t *testing.T) {
 		{label: "case 22: a flipped verdict (not-demonstrated pre-fix, demonstrated post-fix) passes through", rel: "scripts/now-fails.sh", body: "exit 5", args: []string{"scripts/now-fails.sh", "--pre-fix-verdict", "not-demonstrated"}, want: 0},
 		{label: "case 23.stray: a stray third argument is a usage failure", rel: "scripts/never-runs.sh", body: "exit 0", args: []string{"scripts/never-runs.sh", "extra-arg"}, want: 4, needle: "usage", notRan: true},
 		{label: "case 23.: a missing --pre-fix-verdict value is a usage failure", rel: "scripts/never-runs.sh", body: "exit 0", args: []string{"scripts/never-runs.sh", "--pre-fix-verdict"}, want: 4, needle: "usage", notRan: true},
-		{label: "case 24: a mutation reproducer exiting 0 demonstrates the defect", rel: "scripts/mutation-survives.sh", body: "# mutation-reproducer\nexit 0", args: []string{"scripts/mutation-survives.sh"}, want: 0},
-		{label: "case 25: a mutation reproducer exiting non-zero is not demonstrated", rel: "scripts/mutation-caught.sh", body: "# mutation-reproducer\nexit 3", args: []string{"scripts/mutation-caught.sh"}, want: 1},
-		{label: "case 26: a mutation reproducer with verdict demonstrated both sides is refused as ambiguous", rel: "scripts/mutation-still-survives.sh", body: "# mutation-reproducer\nexit 0", args: []string{"scripts/mutation-still-survives.sh", "--pre-fix-verdict", "demonstrated"}, want: 2, needle: "convention", ran: true},
-		{label: "case 27: a mutation reproducer flipping demonstrated to not-demonstrated is the fix verified", rel: "scripts/mutation-now-caught.sh", body: "# mutation-reproducer\nexit 3", args: []string{"scripts/mutation-now-caught.sh", "--pre-fix-verdict", "demonstrated"}, want: 1},
+		{label: "case 24: a mutation reproducer exiting 0 demonstrates the defect", rel: "scripts/mutation-survives.sh", body: "# mutation-reproducer\nset -e\nexit 0", args: []string{"scripts/mutation-survives.sh"}, want: 0},
+		{label: "case 25: a mutation reproducer exiting non-zero is not demonstrated", rel: "scripts/mutation-caught.sh", body: "# mutation-reproducer\nset -e\nexit 3", args: []string{"scripts/mutation-caught.sh"}, want: 1},
+		{label: "case 26: a mutation reproducer with verdict demonstrated both sides is refused as ambiguous", rel: "scripts/mutation-still-survives.sh", body: "# mutation-reproducer\nset -e\nexit 0", args: []string{"scripts/mutation-still-survives.sh", "--pre-fix-verdict", "demonstrated"}, want: 2, needle: "convention", ran: true},
+		{label: "case 27: a mutation reproducer flipping demonstrated to not-demonstrated is the fix verified", rel: "scripts/mutation-now-caught.sh", body: "# mutation-reproducer\nset -e\nexit 3", args: []string{"scripts/mutation-now-caught.sh", "--pre-fix-verdict", "demonstrated"}, want: 1},
 		// fixture() prepends the shebang and RAN-marker lines, so N filler
 		// lines put the marker at line N+3 (KAN-623).
 		{label: "case 28.a: a marker beyond the first 10 lines declares nothing", rel: "scripts/late-marker.sh", body: strings.Repeat("# filler line\n", 12) + "# mutation-reproducer\nexit 0", args: []string{"scripts/late-marker.sh"}, want: 1},
 		{label: "case 28.b: a marker line carrying extra text is refused unrun", rel: "scripts/marker-with-suffix.sh", body: "# mutation-reproducer: because the build succeeded\nexit 0", args: []string{"scripts/marker-with-suffix.sh"}, want: 2, needle: "near-miss", notRan: true},
-		{label: "case 28.c: a marker at exactly line 10 declares", rel: "scripts/edge-marker-10.sh", body: strings.Repeat("# filler line\n", 7) + "# mutation-reproducer\nexit 0", args: []string{"scripts/edge-marker-10.sh"}, want: 0},
+		{label: "case 28.c: a marker at exactly line 10 declares", rel: "scripts/edge-marker-10.sh", body: strings.Repeat("# filler line\n", 7) + "# mutation-reproducer\nset -e\nexit 0", args: []string{"scripts/edge-marker-10.sh"}, want: 0},
 		{label: "case 28.d: a marker at line 11 declares nothing", rel: "scripts/edge-marker-11.sh", body: strings.Repeat("# filler line\n", 8) + "# mutation-reproducer\nexit 0", args: []string{"scripts/edge-marker-11.sh"}, want: 1},
 		{label: "case 28.e: a marker mid-line is prose and declares nothing", rel: "scripts/marker-mid-line.sh", body: ": see # mutation-reproducer\nexit 0", args: []string{"scripts/marker-mid-line.sh"}, want: 1},
 		{label: "case 28.f: an indented marker is a near-miss and is refused", rel: "scripts/marker-indented.sh", body: "  # mutation-reproducer\nexit 0", args: []string{"scripts/marker-indented.sh"}, want: 2, needle: "near-miss", notRan: true},
@@ -641,4 +641,33 @@ func TestRunReproducerRestoresACleanPathTheRunChanged(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestRunReproducerRefusesAMutationWithoutErrexit pins kan-1048 self-review
+// 1-D: a mutation reproducer whose edit fails must not exit 0 and read as a
+// surviving mutant, so one with no `set -e` line is refused before it runs.
+func TestRunReproducerRefusesAMutationWithoutErrexit(t *testing.T) {
+	t.Run("no set -e is refused unrun", func(t *testing.T) {
+		wt := rrWorktree(t)
+		rrFixture(t, wt, "scripts/m.sh", "# mutation-reproducer\nfalse\ntrue")
+		got, out := rrRun(t, rrEnv(t), wt, "scripts/m.sh")
+		rrExpect(t, got, out, 2, "set -e")
+		rrNotRan(t, wt)
+	})
+	for _, set := range []string{"set -e", "set -eu", "set -euo pipefail", "set -o errexit"} {
+		t.Run(set+" runs under the mutation convention", func(t *testing.T) {
+			wt := rrWorktree(t)
+			rrFixture(t, wt, "scripts/m.sh", "# mutation-reproducer\n"+set+"\nfalse\ntrue")
+			got, out := rrRun(t, rrEnv(t), wt, "scripts/m.sh")
+			rrExpect(t, got, out, 1, "")
+			rrRan(t, wt)
+		})
+	}
+	t.Run("no marker and no set -e is unaffected", func(t *testing.T) {
+		wt := rrWorktree(t)
+		rrFixture(t, wt, "scripts/m.sh", "false")
+		got, out := rrRun(t, rrEnv(t), wt, "scripts/m.sh")
+		rrExpect(t, got, out, 0, "")
+		rrRan(t, wt)
+	})
 }

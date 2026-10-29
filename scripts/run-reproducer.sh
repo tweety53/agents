@@ -96,7 +96,8 @@
 #      be verified as a fix
 #   2  refused — one of two classes. The shape class failed a lexical or
 #      resolved containment/shape check — or a --reproducer-sha pin, or a
-#      near-miss mutation-reproducer marker line — before
+#      near-miss mutation-reproducer marker line, or a mutation reproducer
+#      with no `set -e` line (kan-1048 self-review, 1-D) — before
 #      execution and was never run at all. The ambiguity class (KAN-524) ran
 #      to a verdict that is
 #      IDENTICAL to the pre-fix verdict the caller passed in

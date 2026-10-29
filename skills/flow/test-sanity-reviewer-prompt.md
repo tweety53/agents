@@ -115,7 +115,7 @@ The panel's `test-sanity` slot, one of the two roles of the always-on `test-sani
     command that demonstrates the defect, or the literal form `none — <reason>` when no
     such command exists. A vacuous test's reproducer builds the scratch copy, applies the
     mutation, runs the test and follows the mutation-reproducer convention: it carries the
-    `# mutation-reproducer` line and exits 0 when the test passes with the behaviour broken.
+    `# mutation-reproducer` line, runs under `set -e`, and exits 0 when the test passes with the behaviour broken.
     A command that merely passes against the diff is not a reproducer.
 
     ### Assessment

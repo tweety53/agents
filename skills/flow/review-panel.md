@@ -760,7 +760,9 @@ run the tests — and establish whether an existing test fails. A mutation only 
 landed: every mutation must confirm its edit landed before the tests run — the target changed
 where the slot intended, not nowhere and not somewhere else. An edit that never applied must be
 redone with a working mechanism: it is a refusal, never a **surviving mutant**, and it never buys
-a test. A mutation no test catches is a
+a test. A mutation reproducer runs under `set -e`, so an edit that fails exits non-zero, and
+`run-reproducer.sh` refuses one with no `set -e` line (kan-1048 self-review, 1-D: four of seven
+reproducers carried no landing check). A mutation no test catches is a
 **surviving mutant**, an ordinary finding that blocks the handoff exactly as any other, unless it is
 withdrawn with a reason under the fix round's handback. A surviving mutant's reproducer carries the exact line
 `# mutation-reproducer` within its first 10 lines — the declaration

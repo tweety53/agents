@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -208,6 +209,14 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	mutation := declaresMutation(resolved)
 	if near := nearMissMarker(resolved); !mutation && near != "" {
 		return refuse(fmt.Sprintf("the line '%s' within the first 10 lines is a near-miss of the mutation-reproducer marker — the declaration is the exact line '%s' alone; write it exactly, or drop the marker", near, rrMarker))
+	}
+	// A mutation reproducer whose edit fails must exit non-zero, never 0 —
+	// which the mutation convention reads as a surviving mutant (kan-1048
+	// self-review, 1-D: four of seven reproducers carried no landing check).
+	// ponytail: lexical — a later `set +e`, or an edit inside `if`/`||`,
+	// escapes it; a runner-side landing proof if that ever bites.
+	if body, _ := os.ReadFile(resolved); mutation && !rrErrexit.Match(body) {
+		return refuse("the mutation reproducer has no `set -e` line — add `set -e` so an edit that fails exits non-zero instead of reading as a surviving mutant")
 	}
 	// The reproducer's identity, taken from the same resolved file every
 	// containment check above passed, and taken before execution so a
@@ -519,6 +528,10 @@ func headLines(path string, n int) []string {
 // call below are the canonical declaration
 // scripts/check-mutation-reproducer-pin.sh pins against review-panel.md and
 // run-reproducer.sh's header.
+// rrErrexit is a `set` line turning errexit on: `set -e`, `set -euo pipefail`,
+// `set -o errexit`.
+var rrErrexit = regexp.MustCompile(`(?m)^\s*set\s+(-[A-Za-z]*e[A-Za-z]*|-o\s+errexit)\b`)
+
 func declaresMutation(path string) bool {
 	for _, l := range headLines(path, 10) {
 		if l == rrMarker {

@@ -356,7 +356,7 @@ func TestCheckPanelReproducerExitContract(t *testing.T) {
 	t.Run("case 26: a mutation-declared reproducer skips the audit", func(t *testing.T) {
 		t.Parallel()
 		s := newPCSandbox(t, pcFindings("F1", "open", "repro.sh"))
-		s.repro(t, "repro.sh", "# mutation-reproducer\nexit 0")
+		s.repro(t, "repro.sh", "# mutation-reproducer\nset -e\nexit 0")
 		got, out := s.run(t, "demo")
 		expect(t, got, out, 0, "")
 		t.Run("case 26b: the exempt reproducer still ran", func(t *testing.T) {
@@ -389,7 +389,7 @@ func TestCheckPanelReproducerExitContract(t *testing.T) {
 	t.Run("case 30: the not-demonstrated message names the mutation convention", func(t *testing.T) {
 		t.Parallel()
 		s := newPCSandbox(t, pcFindings("F1", "open", "repro.sh"))
-		s.repro(t, "repro.sh", "# mutation-reproducer\nexit 7")
+		s.repro(t, "repro.sh", "# mutation-reproducer\nset -e\nexit 7")
 		got, out := s.run(t, "demo")
 		expect(t, got, out, 1, "mutation-reproducer")
 	})
@@ -713,7 +713,7 @@ func TestPanelExitContractPremiseAudit(t *testing.T) {
 	t.Run("a mutation-declared reproducer skips the premise audit", func(t *testing.T) {
 		t.Parallel()
 		s := newPCSandbox(t, pcFindings("F1", "open", "repro.sh"))
-		s.repro(t, "repro.sh", "# mutation-reproducer\n# premise: absent.txt:1:no such line\nexit 0")
+		s.repro(t, "repro.sh", "# mutation-reproducer\n# premise: absent.txt:1:no such line\nset -e\nexit 0")
 		got, out := s.run(t, "premise-mutation-exempt")
 		rrExpect(t, got, out, 0, "REPRODUCER-EXIT-CONTRACT-OK")
 	})

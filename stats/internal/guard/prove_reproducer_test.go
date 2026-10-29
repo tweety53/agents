@@ -223,7 +223,7 @@ func TestProveReproducer(t *testing.T) {
 		{"case_6 the mutation-reproducer convention holds in both legs", func(t *testing.T) {
 			repo, pre := prRepo(t, "repo")
 			rel := ".superpowers/sdd/reproducers/0-mutation-1.sh"
-			prReproducer(t, repo, rel, "# mutation-reproducer\nexec grep -q old-behaviour check.txt")
+			prReproducer(t, repo, rel, "# mutation-reproducer\nset -e\nexec grep -q old-behaviour check.txt")
 			r := prRun(t, repo, Env{}, repo, pre, rel)
 			prWant(t, r, 0, "PROOF HELD")
 			prUnchanged(t, r)
