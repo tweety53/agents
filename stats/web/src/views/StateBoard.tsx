@@ -366,7 +366,7 @@ export function StateBoard() {
                 <th className="r">Updated</th>
                 <th className="r">Runs</th>
                 <th className="r">Cost</th>
-                <th className="r">Errors</th>
+                <th className="r" title="Failed tool calls and API requests">Tool errors</th>
               </tr>
             </thead>
             <tbody>
