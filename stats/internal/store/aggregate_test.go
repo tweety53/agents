@@ -2163,7 +2163,11 @@ func TestLiveStateBoardCarriesSelfReviewRoots(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LiveStateBoard: %v", err)
 	}
-	if len(rows) != 1 || !slices.Equal(rows[0].SelfReviewRoots, []string{"/tmp/sr-wt"}) {
-		t.Fatalf("rows = %+v, want one row with SelfReviewRoots [/tmp/sr-wt]", rows)
+	// The sub-run's worktree, then its project's main checkout, which keeps the archived plan.
+	if len(rows) != 1 || len(rows[0].SelfReviewRoots) != 2 || rows[0].SelfReviewRoots[0] != "/tmp/sr-wt" || !strings.HasSuffix(rows[0].SelfReviewRoots[1], projectKey+"-tooling") {
+		t.Fatalf("rows = %+v, want SelfReviewRoots [/tmp/sr-wt <tooling main checkout>]", rows)
+	}
+	if n := len(rows[0].RepoRoots); n == 0 || !strings.HasSuffix(rows[0].RepoRoots[n-1], projectKey) {
+		t.Errorf("RepoRoots = %v, want the project's main checkout last", rows[0].RepoRoots)
 	}
 }

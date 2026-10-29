@@ -65,12 +65,15 @@ type LiveStateRow struct {
 	LastStage        *string
 	LastStageEndedAt *time.Time
 	// Subagents are the change's dispatches begun and not yet ended, oldest
-	// first; RepoRoots are its recorded worktrees, where its tasks.md lives.
+	// first; RepoRoots are where its tasks.md lives: its recorded worktrees,
+	// then its project's main checkout, which keeps the archived plan once
+	// cleanup removed the worktrees.
 	Subagents []ActiveDispatch
 	RepoRoots []string
 	// SelfReviewRoots are the recorded worktrees of the change's self-review
 	// sub-run, the change self-review-<name> /flow-self-review starts in
-	// whichever project hosts the tooling -- where its own plan lives.
+	// whichever project hosts the tooling -- where its own plan lives --
+	// then that project's main checkout.
 	SelfReviewRoots []string
 	// CommittedTasks are the task ids an implementer dispatch committed.
 	CommittedTasks []string
@@ -186,15 +189,16 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			WHERE d.change_id = c.id AND d.ended_at IS NULL AND d.started_at IS NOT NULL
 		) subs ON true
 		LEFT JOIN LATERAL (
-			SELECT COALESCE(array_agg(cr.repo_root ORDER BY cr.repo_root), '{}') AS list
+			SELECT COALESCE(array_agg(cr.repo_root ORDER BY cr.repo_root), '{}')
+			       || ARRAY(SELECT p.main_checkout_path FROM projects p WHERE p.project_key = c.project_key) AS list
 			FROM change_repos cr
 			WHERE cr.change_id = c.id
 		) roots ON true
 		LEFT JOIN LATERAL (
-			SELECT COALESCE(array_agg(cr.repo_root ORDER BY cr.repo_root), '{}') AS list
-			FROM changes sr
-			JOIN change_repos cr ON cr.change_id = sr.id
-			WHERE sr.name = 'self-review-' || c.name
+			SELECT ARRAY(SELECT cr.repo_root FROM changes sr JOIN change_repos cr ON cr.change_id = sr.id
+			             WHERE sr.name = 'self-review-' || c.name ORDER BY cr.repo_root)
+			       || ARRAY(SELECT p.main_checkout_path FROM changes sr JOIN projects p ON p.project_key = sr.project_key
+			                WHERE sr.name = 'self-review-' || c.name ORDER BY p.project_key) AS list
 		) sr_roots ON true
 		LEFT JOIN LATERAL (
 			SELECT COALESCE(array_agg(DISTINCT d.task_id), '{}') AS list

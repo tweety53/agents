@@ -28,7 +28,7 @@ func TestPlanTasks(t *testing.T) {
 		CommittedTasks: []string{"2"},
 		Subagents:      []store.ActiveDispatch{{Role: "implementer", TaskID: &three}},
 	}
-	got := planTasks(row)
+	got := planTasks(row, false)
 	want := []taskDTO{{1, "Ticked", "done"}, {2, "Committed", "done"}, {3, "Running", "in progress"}, {4, "Waiting", "pending"}}
 	if len(got) != len(want) {
 		t.Fatalf("planTasks = %+v, want %+v", got, want)
@@ -39,7 +39,7 @@ func TestPlanTasks(t *testing.T) {
 		}
 	}
 	row.State = store.StateFinished
-	if got := planTasks(row); got != nil {
+	if got := planTasks(row, false); got != nil {
 		t.Errorf("finished planTasks = %+v, want nil", got)
 	}
 }
@@ -55,7 +55,7 @@ func TestPlanTasksArchived(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "tasks.md"), []byte("- [x] 1. One\n- [ ] 2. Two\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	got := planTasks(store.LiveStateRow{Name: "kan-1", State: store.StateInProgress, RepoRoots: []string{root}})
+	got := planTasks(store.LiveStateRow{Name: "kan-1", State: store.StateInProgress, RepoRoots: []string{root}}, false)
 	if len(got) != 2 || got[0] != (taskDTO{1, "One", "done"}) || got[1] != (taskDTO{2, "Two", "pending"}) {
 		t.Fatalf("archived planTasks = %+v", got)
 	}
@@ -78,11 +78,11 @@ func TestSelfReviewTasks(t *testing.T) {
 		CommittedTasks: []string{"2"},
 		Subagents:      []store.ActiveDispatch{{Role: "implementer", TaskID: &two}},
 	}
-	got := selfReviewTasks(row)
+	got := selfReviewTasks(row, false)
 	if len(got) != 2 || got[0] != (taskDTO{1, "Fix A", "done"}) || got[1] != (taskDTO{2, "Fix B", "pending"}) {
 		t.Fatalf("selfReviewTasks = %+v", got)
 	}
-	if planTasks(row) != nil {
+	if planTasks(row, false) != nil {
 		t.Errorf("planTasks read the self-review plan as the change's own")
 	}
 }
@@ -99,7 +99,40 @@ func TestSelfReviewTasksFromSubRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	row := store.LiveStateRow{Name: "kan-1", State: store.StateInProgress, RepoRoots: []string{t.TempDir()}, SelfReviewRoots: []string{sub}}
-	if got := selfReviewTasks(row); len(got) != 1 || got[0] != (taskDTO{1, "Fix A", "pending"}) {
+	if got := selfReviewTasks(row, false); len(got) != 1 || got[0] != (taskDTO{1, "Fix A", "pending"}) {
 		t.Fatalf("selfReviewTasks = %+v", got)
+	}
+}
+
+// TestFinishedPlanReadOnlyWhenScoped pins that a finished change's plan --
+// archived in its main checkout once cleanup removed the worktrees -- is read
+// for a board scoped to that change and never for the whole board.
+func TestFinishedPlanReadOnlyWhenScoped(t *testing.T) {
+	main := t.TempDir()
+	for _, name := range []string{"kan-1", "self-review-kan-1"} {
+		dir := filepath.Join(main, "spectre", "changes", "archive", name)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "tasks.md"), []byte("- [x] 1. One\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	row := store.LiveStateRow{Name: "kan-1", State: store.StateFinished, RepoRoots: []string{filepath.Join(main, "gone-worktree"), main}}
+	if got := planTasks(row, true); len(got) != 1 || got[0] != (taskDTO{1, "One", "done"}) {
+		t.Fatalf("scoped planTasks = %+v", got)
+	}
+	if got := selfReviewTasks(row, true); len(got) != 1 {
+		t.Fatalf("scoped selfReviewTasks = %+v", got)
+	}
+	if planTasks(row, false) != nil || selfReviewTasks(row, false) != nil {
+		t.Errorf("the whole board read a finished change's plan")
+	}
+	dtos := toStateBoardDTOs([]store.LiveStateRow{row}, true)
+	if len(dtos[0].Tasks) != 1 || len(dtos[0].SelfReviewTasks) != 1 {
+		t.Errorf("scoped board DTO = %+v", dtos[0])
+	}
+	if dtos := toStateBoardDTOs([]store.LiveStateRow{row}, false); dtos[0].Tasks != nil {
+		t.Errorf("whole board DTO carries a finished plan: %+v", dtos[0].Tasks)
 	}
 }

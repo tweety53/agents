@@ -521,7 +521,7 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 			s, m := mapStoreError(h.logger, "state board", err)
 			return nil, s, m
 		}
-		return toStateBoardDTOs(board), 0, ""
+		return toStateBoardDTOs(board, change != nil), 0, ""
 
 	case viewCostPerChange:
 		cost, err := h.store.CostPerChange(ctx, period, project, model)
@@ -743,13 +743,15 @@ type taskDTO struct {
 // planTask is a tasks.md column-0 task line, "- [ ] 3. Title" or "- [x] 3. Title".
 var planTask = regexp.MustCompile(`(?m)^- \[([ x])\] (\d+)\. (.*)$`)
 
-// planTasks reads an unfinished change's tasks.md from the first of its
-// worktrees that has one -- the archived copy once integrate's run 1 moved it
-// (guard.ChangeDir). A task is done when ticked or committed by an
+// planTasks reads a change's tasks.md from the first of its roots (its
+// worktrees, then its project's main checkout) that has one -- the archived
+// copy once integrate's run 1 moved it (guard.ChangeDir). A finished change's
+// plan is read only when finished is true, the board scoped to that one
+// change: the whole board lists every finished change it ever held. A task is done when ticked or committed by an
 // implementer (a gated task's tick waits on its reviewer), in progress when a
 // running subagent works on it, pending otherwise. Nil when no tasks.md is found.
-func planTasks(r store.LiveStateRow) []taskDTO {
-	return readPlan(r, r.Name, func(n string) string {
+func planTasks(r store.LiveStateRow, finished bool) []taskDTO {
+	return readPlan(r, r.Name, finished, func(n string) string {
 		switch {
 		case slices.Contains(r.CommittedTasks, n):
 			return "done"
@@ -765,17 +767,17 @@ func planTasks(r store.LiveStateRow) []taskDTO {
 // the change's. A task is done when
 // ticked, pending otherwise: a running dispatch's task id does not say which
 // of the two plans it belongs to.
-func selfReviewTasks(r store.LiveStateRow) []taskDTO {
+func selfReviewTasks(r store.LiveStateRow, finished bool) []taskDTO {
 	sub := r
 	sub.RepoRoots = append(slices.Clone(r.SelfReviewRoots), r.RepoRoots...)
-	return readPlan(sub, "self-review-"+r.Name, func(string) string { return "pending" })
+	return readPlan(sub, "self-review-"+r.Name, finished, func(string) string { return "pending" })
 }
 
-// readPlan parses change name's tasks.md for row r, nil for a finished change
-// or when no worktree holds one. A ticked task is done; untick names an
-// unticked one's state.
-func readPlan(r store.LiveStateRow, name string, untick func(n string) string) []taskDTO {
-	if r.State == store.StateFinished {
+// readPlan parses change name's tasks.md for row r, nil when no root holds
+// one, or for a finished change unless finished is true. A ticked task is
+// done; untick names an unticked one's state.
+func readPlan(r store.LiveStateRow, name string, finished bool, untick func(n string) string) []taskDTO {
+	if r.State == store.StateFinished && !finished {
 		return nil
 	}
 	for _, root := range r.RepoRoots {
@@ -797,7 +799,9 @@ func readPlan(r store.LiveStateRow, name string, untick func(n string) string) [
 	return nil
 }
 
-func toStateBoardDTOs(rows []store.LiveStateRow) []stateBoardRowDTO {
+// toStateBoardDTOs converts the board's rows; single is a board scoped to one
+// change, the only one whose finished rows read their plans from disk.
+func toStateBoardDTOs(rows []store.LiveStateRow, single bool) []stateBoardRowDTO {
 	out := make([]stateBoardRowDTO, len(rows))
 	for i, r := range rows {
 		out[i] = stateBoardRowDTO{
@@ -822,8 +826,8 @@ func toStateBoardDTOs(rows []store.LiveStateRow) []stateBoardRowDTO {
 			LastStage:             r.LastStage,
 			LastStageEndedAt:      rfc3339OrNil(r.LastStageEndedAt),
 			DoneTasks:             r.DoneTasks,
-			Tasks:                 planTasks(r),
-			SelfReviewTasks:       selfReviewTasks(r),
+			Tasks:                 planTasks(r, single),
+			SelfReviewTasks:       selfReviewTasks(r, single),
 			Subagents:             r.Subagents,
 			SessionSeenAt:         rfc3339OrNil(r.SessionSeenAt),
 			OpenStageDispatches:   r.OpenStageDispatches,
