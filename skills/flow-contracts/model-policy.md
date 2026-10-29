@@ -83,6 +83,47 @@ neither the write into the store nor the render out of it invents a model slug. 
 - **ZCode**: one model, see **Harness mapping** below.
 - **Muse**: the session's own model, see **Harness mapping** below.
 
+## Allowed pairs
+
+This table is canonical for which `{model, effort}` every flow dispatch may run on: a dispatch
+names its role with a `Role: <role id>` line, and a row with a marker admits its pairs only when
+the prompt carries that marker as a whole line; a pair is `` `<model>/<subagent_type>` `` or
+`` `<model>/<Explore|Plan>@<effort>` ``.
+
+| Role | Allowed pairs | Requires marker |
+|---|---|---|
+| `explorer` | `opus/Explore@low`, `opus/Explore@medium` | — |
+| `plan-designer` | `opus/Plan@low`, `opus/Plan@medium` | — |
+| `implementer` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
+| `implementer-group` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
+| `panel-fix` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
+| `gated-fix` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
+| `visual-verify-fix` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
+| `panel-fix` | `opus/flow-high` | `No-progress escalation` |
+| `gated-fix` | `opus/flow-high` | `No-progress escalation` |
+| `visual-verify-fix` | `opus/flow-high` | `No-progress escalation` |
+| `panel-reviewer` | `opus/flow-low`, `opus/flow-medium` | — |
+| `panel-reviewer` | `opus/flow-high` | `Operator-approved high` |
+| `panel-extra` | `opus/flow-low`, `sonnet/flow-low` | — |
+| `panel-rerun` | `opus/flow-low`, `sonnet/flow-low` | — |
+| `gated-reviewer` | `opus/flow-medium` | — |
+| `gated-re-reviewer` | `opus/flow-low` | — |
+| `visual-verifier` | `opus/flow-low` | — |
+| `late-fix` | `opus/flow-low` | — |
+| `panel-merger` | `sonnet/flow-low` | — |
+| `tooling-analyst` | `opus/flow-medium` | — |
+| `self-review-pass` | `opus/flow-medium` | — |
+| `self-review-plan` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — |
+| `pipeline-fix-plan` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — |
+| `self-review-fix` | `opus/flow-low` | — |
+| `pipeline-fix-fix` | `opus/flow-low` | — |
+| `self-review-fix` | `opus/flow-high` | `No-progress escalation` |
+| `pipeline-fix-fix` | `opus/flow-high` | `No-progress escalation` |
+| `self-review-review-1` | `opus/flow-medium`, `opus/flow-low` | — |
+| `pipeline-fix-review-1` | `opus/flow-medium`, `opus/flow-low` | — |
+| `self-review-review-r` | `sonnet/flow-low` | — |
+| `pipeline-fix-review-r` | `sonnet/flow-low` | — |
+
 ## Harness mapping
 
 **`<parent model>` and `<parent effort>` name the session's own pair, on every harness and in every
