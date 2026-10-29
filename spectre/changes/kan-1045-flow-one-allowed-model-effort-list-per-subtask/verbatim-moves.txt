@@ -1,0 +1,89 @@
+# KAN-1045: pair statements become citations of **Allowed pairs**, and the five Role markers are renamed to role ids — every sentence below is reworded or added on purpose.
+**A fix run whose late-fix check exits 4 — the append scope's verdict on a countable delta of at most 250 changed lines — runs pass 1 as one dispatch: `primary` alone**, beside **The always-on extra dispatches** (`skills/flow/review-panel.md`), which still run, plus every slot the operator named at this stage's start, on `opus` at `low` effort under the ordinary 15-minute ceiling, reading `late-fix.diff` written and rendered as **The append scope** writes and renders it.
+**The bundle is the implementer group**: at a boundary, every task of group N+1 whose gate fired goes out in one reviewer Agent call beside group N+2's implementer, on `opus` at `medium`, always — fixed whatever the roll, per **Model and effort** (`skills/flow/brainstorm-planner.md`) — its prompt opening with the line `Role: gated per-task reviewer`, the marker `hooks/enforce-agent-baseline.py` pins this pair on.
+**The pairs are this file's own**, and **Pipeline defects found mid-run** cites them — one row per key suffix, the table `check-loop-dispatch.sh` reads and refuses a loop dispatch off:
+**every gated per-task reviewer bundle** — `opus` at `medium`, always, whatever the roll, since no decision pair records it; a fix re-review bundle `opus` at `low` (`skills/flow/implement.md`);
+**the extra dispatches** — `test-sanity+call-efficiency` and `mutation+failure-modes`, each its own rolled pair, `sonnet` or `opus` at `low`: the only pass-1 panel dispatches that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`, kan-959; kan-1028);
+A fix re-review bundle runs on `opus` at `low` instead, its prompt opening with `Role: gated per-task re-reviewer` (`skills/flow/gated-review-fix.md`); a handshake retry bundle keeps its original bundle's pair and marker.
+Dispatch the pass, in-run and standalone alike: key `self-review-<name>-pass`, on the `pass` row of the pairs table (step 3), its prompt carrying the bundle in full (`<bundle>` standalone, the bundle held in memory in-run), this step's rules and step 3's classification, the dispatch paragraphs step 3 names and READ-ONLY REVIEW.
+It is launched with `run_in_background: true`, its `description` opening with its key, and a prompt opening with the line `Role: panel findings merger` — the marker `hooks/enforce-agent-baseline.py` pins this pair on — followed by the baseline pointer, the TOOLS, NO DELEGATION and MODEL HANDSHAKE paragraphs above, the MERGER BRIEF paragraph below, every role's report path, and one line per dispatch of the round — its `-key`, the `-outcome` its row was closed with, and its elapsed seconds.
+Its prompt carries the two agent-baseline sentences and the report-tersely line (`~/.claude/rules/dispatch-carries-the-baseline.md`) and a narrow, explicit scope: what to look at, what is already known, what to return.
+Its prompt opens with the line `Role: visual-verify tooling analyst` — the marker `hooks/enforce-agent-baseline.py` pins this pair on — and carries, verbatim:
+Its prompt opens with the line `Role: visual-verify verifier` — the marker `hooks/enforce-agent-baseline.py` pins this pair on — and carries, verbatim:
+On a decided panel the dispatch runs on the decision's `panel.rerun_dispatch` pair under the fix-round re-run's 5-minute ceiling; on a `default` panel, which carries no decision to read a pair from, on `opus` at `low` effort under the ordinary 15-minute ceiling.
+The Agent call's prompt carries only the baseline pointer, MODEL HANDSHAKE, CONTEXT BUNDLE, the relocation-comparison pointer where one exists, the reproducer rule, GATE FOCUS where it applies, `read <rendered path> in full first — it is your brief`, and each role's REPORT FILE path — so a slot that answers without reading its brief still owes its file (kan-918: round 1's `primary+principles` re-run read only the diff and handed back in 14 seconds, writing neither report).
+The findings merger, which reviews nothing, runs on the fixed pair **The findings merger** (`skills/flow/review-panel.md`) names, and every gated per-task reviewer bundle on `opus` at `medium` — its fix re-review on `opus` at `low` — fixed, as `skills/flow/implement.md` states.
+The next fix is a fresh dispatch of that loop's own fixer row on `opus` at effort `high` (`subagent_type: flow-high`, recorded with that pair, mapped on harnesses `zcode` and `muse` per **Harness mapping**, `skills/flow-contracts/model-policy.md`), its prompt opening with the line `No-progress escalation` and carrying every earlier round's report verbatim and naming the approach that failed; a loop whose fix the parent applies inline applies it from those same reports by a different approach.
+The re-dispatched bundle runs on `opus` at `low`, its prompt opening with the line `Role: gated per-task re-reviewer` in place of the original bundle's marker — the line `hooks/enforce-agent-baseline.py` pins that pair on.
+`<agents repo>/hooks/enforce-loop-dispatch.py` hands each Agent call whose prompt carries a `Key: pipeline-fix-<k>-…` or `Key: self-review-<name>-…` line to `<agents repo>/scripts/check-loop-dispatch.sh`, which refuses it off its row of the table above, while an earlier dispatch of the loop is still open, or — any dispatch but the plan and the pass — before a completed plan, and records the admitted one in flowd.
+`VERIFY_MODEL` is the fixed literal `opus`, dispatched at effort `low` through `subagent_type: flow-low`, read from neither the settings store nor `<project>/.flow/project.md`; a plain-language session instruction does not override it; and it never falls back, because it is never resolved — the point is a predictable model for mechanical verification runs regardless of what the decision chose for any other dispatch.
+`subagent_type: flow-medium` (`agents/flow-medium.md`, effort `medium`), the Agent tool's `model` parameter set to the literal `opus` (**Model and effort**, `skills/flow/brainstorm-planner.md`), mapped on harnesses `zcode` and `muse` per **Harness mapping** (`skills/flow-contracts/model-policy.md`).
+| Key suffix | `subagent_type` | Model | On a recorded escalation |
+| Site | Role | Key shape | Owning section |
+| `fix`, `fix-<r>`, `fix-g<g>`, `fix-v<v>` | `flow-low` | `opus` | `flow-high` |
+| `pass` | `flow-medium` | `opus` | — |
+| `plan`, `plan-<n>` | `flow-planner-medium`, `flow-planner-low` | `opus` | — |
+| `review-1` | `flow-medium`, `flow-low` | `opus` | — |
+| `review-<r>` | `flow-low` | `sonnet` | — |
+| findings merger, one per round once its dispatches have ended | `merger` | `panel-<round>-merger` | `skills/flow/review-panel.md`, **The findings merger** |
+| implementer, one per group | `implementer` | `task-<n>-implementer` | section **4** below |
+| in-run pipeline fix planner, fixer and review, one each per loop step | `planner` for the plan, `implementer` for every fixer, `reviewer` for the review | `pipeline-fix-<k>-plan`, `pipeline-fix-<k>-fix` (`-fix-g<g>`, `-fix-<r>`, `-fix-v<v>`), `pipeline-fix-<k>-review-<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
+| panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix-<round>[-<chunk>]` (`-retry` once per chunk) | `skills/flow/review-panel.md`, the fix step |
+| tooling analyst, one per worktree whose fix run reports a miss an earlier round passed | `planner` | `tooling-analysis-<n>` | `skills/flow/visual-verify.md`, **A missed defect — the tooling analysis** |
+| verifier, one per worktree | `verifier` | `visual-verify` (`-2`, `-retry`, `-rest`, `-rest-<n>`, `-fix-<k>`, `-fix-<k>-full`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
+\## Allowed pairs
+A no-progress escalation of a fixer row carries `Role: panel-fix` (or its loop's `Key:` line) with its `No-progress escalation` line, and a panel dispatch the operator approved at `high` `Role: panel-reviewer` with its `Operator-approved high` line.
+Its prompt carries the line `Role: explorer` for an Explore agent or `Role: plan-designer` for a Plan agent (**Allowed pairs**, `skills/flow-contracts/model-policy.md`), the two agent-baseline sentences and the report-tersely line (`~/.claude/rules/dispatch-carries-the-baseline.md`) and a narrow, explicit scope: what to look at, what is already known, what to return.
+Its prompt opens with the line `Role: tooling-analyst` and carries, verbatim:
+Its prompt opens with the line `Role: visual-verifier` and carries, verbatim:
+The Agent call's prompt carries only its Role line (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), the baseline pointer, MODEL HANDSHAKE, CONTEXT BUNDLE, the relocation-comparison pointer where one exists, the reproducer rule, GATE FOCUS where it applies, `read <rendered path> in full first — it is your brief`, and each role's REPORT FILE path — so a slot that answers without reading its brief still owes its file (kan-918: round 1's `primary+principles` re-run read only the diff and handed back in 14 seconds, writing neither report).
+The findings merger, which reviews nothing, and every gated per-task reviewer bundle and its fix re-review run on their fixed **Allowed pairs** rows below.
+The next fix is a fresh dispatch of that loop's own fixer row on the marked row of its fixer role (**Allowed pairs**, `skills/flow-contracts/model-policy.md`, recorded with that pair, mapped on harnesses `zcode` and `muse` per **Harness mapping**, `skills/flow-contracts/model-policy.md`), its prompt opening with the line `No-progress escalation` and carrying every earlier round's report verbatim and naming the approach that failed; a loop whose fix the parent applies inline applies it from those same reports by a different approach.
+This table is canonical for which `{model, effort}` every flow dispatch may run on: a dispatch names its role with a `Role: <role id>` line, and a row with a marker admits its pairs only when the prompt carries that marker as a whole line; a pair is `<model>` and `<subagent_type>` joined by `/`, an Explore or Plan pair adding `@<effort>`.
+`<agents repo>/hooks/enforce-loop-dispatch.py` hands each Agent call whose prompt carries a `Key: pipeline-fix-<k>-…` or `Key: self-review-<name>-…` line to `<agents repo>/scripts/check-loop-dispatch.sh`, which refuses it off its row of **Allowed pairs**, while an earlier dispatch of the loop is still open, or — any dispatch but the plan and the pass — before a completed plan, and records the admitted one in flowd.
+| Role | Allowed pairs | Requires marker |
+| Site | Role | Role line | Key shape | Owning section |
+| `explorer` | `opus/Explore@low`, `opus/Explore@medium` | — |
+| `gated-fix` | `opus/flow-high` | `No-progress escalation` |
+| `gated-fix` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
+| `gated-re-reviewer` | `opus/flow-low` | — |
+| `gated-reviewer` | `opus/flow-medium` | — |
+| `implementer-group` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
+| `implementer` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
+| `late-fix` | `opus/flow-low` | — |
+| `panel-extra` | `opus/flow-low`, `sonnet/flow-low` | — |
+| `panel-fix` | `opus/flow-high` | `No-progress escalation` |
+| `panel-fix` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
+| `panel-merger` | `sonnet/flow-low` | — |
+| `panel-rerun` | `opus/flow-low`, `sonnet/flow-low` | — |
+| `panel-reviewer` | `opus/flow-high` | `Operator-approved high` |
+| `panel-reviewer` | `opus/flow-low`, `opus/flow-medium` | — |
+| `pipeline-fix-fix` | `opus/flow-high` | `No-progress escalation` |
+| `pipeline-fix-fix` | `opus/flow-low` | — |
+| `pipeline-fix-plan` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — |
+| `pipeline-fix-review-1` | `opus/flow-medium`, `opus/flow-low` | — |
+| `pipeline-fix-review-r` | `sonnet/flow-low` | — |
+| `plan-designer` | `opus/Plan@low`, `opus/Plan@medium` | — |
+| `self-review-fix` | `opus/flow-high` | `No-progress escalation` |
+| `self-review-fix` | `opus/flow-low` | — |
+| `self-review-pass` | `opus/flow-medium` | — |
+| `self-review-plan` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — |
+| `self-review-review-1` | `opus/flow-medium`, `opus/flow-low` | — |
+| `self-review-review-r` | `sonnet/flow-low` | — |
+| `tooling-analyst` | `opus/flow-medium` | — |
+| `visual-verifier` | `opus/flow-low` | — |
+| `visual-verify-fix` | `opus/flow-high` | `No-progress escalation` |
+| `visual-verify-fix` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
+| findings merger, one per round once its dispatches have ended | `merger` | `panel-merger` | `panel-<round>-merger` | `skills/flow/review-panel.md`, **The findings merger** |
+| gated reviewer bundle, one per implementer group the review gate fires in, on `big` alone | `reviewer` | `gated-reviewer`; a fix re-review `gated-re-reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
+| implementer, one per group | `implementer` | `implementer` | `task-<n>-implementer` | section **4** below |
+| in-run pipeline fix planner, fixer and review, one each per loop step | `planner` for the plan, `implementer` for every fixer, `reviewer` for the review | none — its `Key:` line names its role | `pipeline-fix-<k>-plan`, `pipeline-fix-<k>-fix` (`-fix-g<g>`, `-fix-<r>`, `-fix-v<v>`), `pipeline-fix-<k>-review-<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
+| panel bundle, at most two per round, plus at most one citation send-back per re-run dispatch outside that cap | `reviewer` | `panel-reviewer` on pass 1; `panel-extra` for an always-on extra dispatch; `panel-rerun` for a re-run, its send-back and a decided panel's late-fix pass; `late-fix` for a `default` panel's late-fix pass | `panel-<round>-<slot\|slot+slot+slot>` (`-cite` once per re-run dispatch) | `skills/flow/review-panel.md`, **Bundled dispatch** |
+| panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix` | `panel-fix-<round>[-<chunk>]` (`-retry` once per chunk) | `skills/flow/review-panel.md`, the fix step |
+| tooling analyst, one per worktree whose fix run reports a miss an earlier round passed | `planner` | `tooling-analyst` | `tooling-analysis-<n>` | `skills/flow/visual-verify.md`, **A missed defect — the tooling analysis** |
+| verifier, one per worktree | `verifier` | `visual-verifier` | `visual-verify` (`-2`, `-retry`, `-rest`, `-rest-<n>`, `-fix-<k>`, `-fix-<k>-full`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
+|---|---|---|---|---|
+Each dispatch's model and effort come from `plan-agent-pair.sh <your Key> <n>`, `<n>` counting your planning dispatches from 1, and every dispatch prompt carries the two sentences of **Propagate this** (`~/.claude/rules/agent-baseline.md`) verbatim.
+A no-progress escalation carries its fixer's own Role line — `panel-fix`, or `implementer` for a verify fix (or its loop's `Key:` line) — with its `No-progress escalation` line, and a panel dispatch the operator approved at `high` `Role: panel-reviewer` with its `Operator-approved high` line.
+Each dispatch's model and effort come from `plan-agent-pair.sh <your Key> <n>`, `<n>` counting your planning dispatches from 1, and every dispatch prompt carries the line `Role: explorer` (an Explore agent) or `Role: plan-designer` (a Plan agent) and the two sentences of **Propagate this** (`~/.claude/rules/agent-baseline.md`) verbatim.
+| `implementer` | `opus/flow-high` | `No-progress escalation` |
