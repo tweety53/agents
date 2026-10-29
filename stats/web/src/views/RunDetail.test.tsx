@@ -147,7 +147,8 @@ describe("an open stage run", () => {
 
     render(<RunDetail project={PROJECT} change={CHANGE} />);
 
-    const row = (await screen.findByRole("cell", { name: "SDD + TDD per task" })).closest("tr") as HTMLElement;
+    const stageRuns = within(await screen.findByRole("region", { name: "Stage runs" }));
+    const row = (await stageRuns.findByRole("cell", { name: "SDD + TDD per task" })).closest("tr") as HTMLElement;
     expect(within(row).getByTestId("run-open")).toHaveTextContent(/^running$/);
     expect(within(row).queryByText("0m")).not.toBeInTheDocument();
   });
@@ -757,15 +758,14 @@ describe("the reworked run view (kan-1048)", () => {
     expect(kpi("Input tokens")).toHaveTextContent("cache reads 80%");
     // Running subagents name what they do and their model, version and effort; the plan lists every task.
     const subs = screen.getByRole("region", { name: "Agents" });
-    expect(subs).toHaveTextContent("implementer · task 2 (Board card)");
-    expect(subs).toHaveTextContent("task-2-implementer");
+    expect(subs).toHaveTextContent("implementer");
     expect(subs).toHaveTextContent("opus-5.5 · high");
     expect(subs).toHaveTextContent("10m");
     // The main session leads, marked Main, on its inline task; each subagent is marked Subagent.
     const agentRows = [...subs.querySelectorAll("tbody tr")];
     expect(agentRows).toHaveLength(2);
-    expect(agentRows[0]).toHaveTextContent("Main task 3 (Run view)");
-    expect(agentRows[1]).toHaveTextContent("Subagent implementer · task 2 (Board card)");
+    expect(agentRows[0]).toHaveTextContent("Maintask 3 (Run view)");
+    expect(agentRows[1]).toHaveTextContent("⎿ implementertask 2 (Board card)opus-5.5 · high10m");
     expect(subs.querySelector(".lb-panel-note")).toHaveTextContent("2");
     const tasks = screen.getByRole("region", { name: "Tasks" });
     expect(tasks).toHaveTextContent("1/3 done");

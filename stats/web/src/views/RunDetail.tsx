@@ -174,13 +174,22 @@ export function RunDetail({ project, change }: RunDetailProps) {
                       <span>Agents running</span>
                       <span className="lb-panel-note">{agentCount}</span>
                     </div>
-                    <table className="lb-table">
+                    <table className="lb-table lb-agents">
+                      <thead>
+                        <tr>
+                          <th>Agent</th>
+                          <th>Doing</th>
+                          <th>Model · effort</th>
+                          <th className="r">For</th>
+                        </tr>
+                      </thead>
                       <tbody>
                         {mainAgent && (
-                          <tr>
+                          <tr className="main">
                             <td>
-                              <span className="lb-agent-kind main">Main</span> {mainAgent.what}
+                              <span className="lb-live-dot" /> Main
                             </td>
+                            <td>{mainAgent.what}</td>
                             <td>
                               {mainAgent.model}
                               {mainAgent.effort && ` · ${mainAgent.effort}`}
@@ -189,11 +198,12 @@ export function RunDetail({ project, change }: RunDetailProps) {
                           </tr>
                         )}
                         {subagents.map((d, i) => (
-                          <tr key={`${d.key ?? d.role}-${i}`}>
+                          <tr key={`${d.key ?? d.role}-${i}`} className="sub">
                             <td>
-                              <span className="lb-agent-kind sub">Subagent</span> {d.role}
-                              {d.taskId && ` · task ${d.taskId}${taskTitle(board?.tasks, d.taskId)}`}
-                              {d.key && <div className="lb-muted">{d.key}</div>}
+                              <span className="lb-agent-branch">⎿</span> {d.role}
+                            </td>
+                            <td>
+                              {d.taskId ? `task ${d.taskId}${taskTitle(board?.tasks, d.taskId)}` : (d.key ?? "—")}
                             </td>
                             <td>
                               {formatModel(d.modelVersion ?? d.model)}
@@ -204,7 +214,9 @@ export function RunDetail({ project, change }: RunDetailProps) {
                         ))}
                         {agentCount === 0 && (
                           <tr>
-                            <td className="lb-muted">None right now.</td>
+                            <td colSpan={4} className="lb-muted">
+                              None right now.
+                            </td>
                           </tr>
                         )}
                       </tbody>
