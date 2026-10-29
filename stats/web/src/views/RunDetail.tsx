@@ -776,8 +776,12 @@ export function RunDetail({ project, change }: RunDetailProps) {
                         steps={mainSteps}
                         now={now}
                         order={1}
-                        nowText={mainNow(mainRuns, mainSteps, board?.tasks, board?.state === "FINISHED", now)}
-                        progress={mainProgress(mainRuns).map((x) => ({ label: x.phase.toLowerCase(), state: x.state }))}
+                        nowText={srOpen ? "Running the self-review" : mainNow(mainRuns, mainSteps, board?.tasks, board?.state === "FINISHED", now)}
+                        progress={mainProgress(mainRuns).map((x) => ({
+                          label: x.phase.toLowerCase(),
+                          // The self-review runs in its own sub-run, so Main's own stages never carry it.
+                          state: x.phase !== "Self-review" ? x.state : srOpen ? "current" : srStatus === "done" ? "done" : x.state,
+                        }))}
                         summary={mainSummary(board?.tasks, mainSteps)}
                         note={
                           srStarted && (

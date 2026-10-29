@@ -842,9 +842,9 @@ describe("the reworked run view (kan-1048)", () => {
     expect(main.querySelector(".lb-phase-name")).toHaveTextContent(/^Main · done · 1h 10m · \$6\.00 · tasks 1\/3$/);
     // Main alone tells the whole story: the self-review's status and summary in one line.
     expect(within(main).getByTestId("main-self-review")).toHaveTextContent(/^Self-review: running · plan 1\/2 · findings 1 · fixes round 2$/);
-    expect(within(main).getByTestId("main-now")).toHaveTextContent(/^Now: Main session is between steps \(last: Implementing tasks, 1h 30m ago\)$/);
+    expect(within(main).getByTestId("main-now")).toHaveTextContent(/^Now: Running the self-review$/);
     expect(within(main).getByTestId("main-progress")).toHaveTextContent(
-      "planning ✓ → decisions → implementation ✓ → review → verification → handoff → integrate → self-review → landing → cleanup",
+      "planning ✓ → decisions → implementation ✓ → review → verification → handoff → integrate → self-review ● → landing → cleanup",
     );
     expect(within(main).getByTestId("main-summary")).toHaveTextContent(/^tasks 1\/3$/);
     // The lines add up to the header: the priced dispatch, then the main session's own share.
