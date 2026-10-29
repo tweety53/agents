@@ -269,6 +269,8 @@ export interface ActiveSubagent {
   modelVersion?: string;
   effort?: string;
   startedAt: string;
+  /** Run by the main session itself, not a subagent. */
+  inline?: boolean;
 }
 
 export interface StateBoardRow {

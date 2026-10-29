@@ -85,6 +85,9 @@ type ActiveDispatch struct {
 	ModelVersion *string   `json:"modelVersion,omitempty"`
 	Effort       *string   `json:"effort,omitempty"`
 	StartedAt    time.Time `json:"startedAt"`
+	// Inline is a dispatch the main session runs itself (agent_id
+	// "inline"), not a subagent.
+	Inline bool `json:"inline,omitempty"`
 }
 
 // signalErrorsExpr is one stage run's tool and API errors, main and
@@ -162,7 +165,8 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 		LEFT JOIN LATERAL (
 			SELECT COALESCE(jsonb_agg(jsonb_build_object(
 			         'role', d.role, 'taskId', d.task_id, 'key', d.dispatch_key, 'model', d.model,
-			         'modelVersion', d.metrics->>'modelVersion', 'effort', d.effort, 'startedAt', d.started_at
+			         'modelVersion', d.metrics->>'modelVersion', 'effort', d.effort, 'startedAt', d.started_at,
+			         'inline', d.agent_id IS NOT DISTINCT FROM 'inline'
 			       ) ORDER BY d.started_at, d.id), '[]'::jsonb) AS list
 			FROM dispatches d
 			WHERE d.change_id = c.id AND d.ended_at IS NULL AND d.started_at IS NOT NULL

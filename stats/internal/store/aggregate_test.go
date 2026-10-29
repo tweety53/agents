@@ -1938,6 +1938,9 @@ func TestLiveStateBoardCarriesOpenStageDoneTasksAndActivity(t *testing.T) {
 		d := baseDispatch("implementer", "opus")
 		d.TaskID = task
 		d.CommitSHA = commit
+		if task == "3" {
+			d.AgentID = "inline"
+		}
 		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", d); err != nil {
 			t.Fatalf("RecordDispatch: %v", err)
 		}
@@ -1978,6 +1981,9 @@ func TestLiveStateBoardCarriesOpenStageDoneTasksAndActivity(t *testing.T) {
 	if len(live.Subagents) != 3 || live.Subagents[0].Role != "implementer" || live.Subagents[0].Model != "opus" ||
 		live.Subagents[2].TaskID == nil || *live.Subagents[2].TaskID != "3" {
 		t.Errorf("Subagents = %+v, want the three unended implementer dispatches, task 3 last", live.Subagents)
+	}
+	if len(live.Subagents) == 3 && (live.Subagents[0].Inline || !live.Subagents[2].Inline) {
+		t.Errorf("Subagents inline = %v/%v, want only task 3's main-session dispatch inline", live.Subagents[0].Inline, live.Subagents[2].Inline)
 	}
 	if live.DoneTasks == nil || *live.DoneTasks != 2 {
 		t.Errorf("DoneTasks = %v, want 2", live.DoneTasks)

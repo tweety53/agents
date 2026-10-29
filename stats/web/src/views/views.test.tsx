@@ -130,6 +130,7 @@ const fixtures: Record<
       subagents: [
         { role: "implementer", model: "opus", startedAt: "2026-01-15T11:50:00Z" },
         { role: "reviewer", model: "opus", startedAt: "2026-01-15T11:55:00Z" },
+        { role: "implementer", model: "opus", startedAt: "2026-01-15T11:56:00Z", inline: true },
       ],
       activity: "working",
       activityDetail: "2 subagents running",

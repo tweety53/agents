@@ -17,6 +17,7 @@ import { useRunDetail } from "../hooks/useRunDetail";
 import { formatModel, formatRelative, formatSpan, formatUsd } from "../format";
 import { readCacheReadTokens, readCostUsd, readTotalInputTokens } from "../metrics";
 import { projectLabel } from "../lib/projectLabel";
+import { stageLabel } from "../lib/stageLabel";
 import { ActivityBadge, StatePill } from "./StateBoard";
 import type { PlanTask, StageRunDTO } from "../api";
 
@@ -100,6 +101,8 @@ export function RunDetail({ project, change }: RunDetailProps) {
           const measured = runs.filter((r) => readTotalInputTokens(r.metrics) !== null);
           const input = measured.reduce((a, r) => a + (readTotalInputTokens(r.metrics) ?? 0), 0);
           const cached = runs.reduce((a, r) => a + (readCacheReadTokens(r.metrics) ?? 0), 0);
+          const subagents = (board?.subagents ?? []).filter((d) => !d.inline);
+          const inlineWork = board?.subagents?.find((d) => d.inline && d.taskId);
           const failed = runs.filter((r) => r.outcome === "failed");
           const byStage = new Map<string, number>();
           for (const r of runs) byStage.set(r.stage, (byStage.get(r.stage) ?? 0) + (readCostUsd(r.metrics) ?? 0));
@@ -115,7 +118,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   value={
                     openRun ? (
                       <>
-                        <span className="lb-live-dot" /> {openRun.stage}
+                        <span className="lb-live-dot" /> <span title={openRun.stage}>{stageLabel(openRun.stage)}</span>
                       </>
                     ) : (
                       <span className="lb-muted">—</span>
@@ -125,7 +128,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                     openRun &&
                     `for ${formatSpan(now - Date.parse(openRun.startedAt))}${
                       board?.currentTasks !== undefined ? ` · tasks ${board.doneTasks ?? 0}/${board.currentTasks}` : ""
-                    }`
+                    }${inlineWork ? ` · main session on task ${inlineWork.taskId}${taskTitle(board?.tasks, inlineWork.taskId ?? "")}` : ""}`
                   }
                 >
                   {openRun && board && <ActivityBadge row={board} now={now} />}
@@ -148,20 +151,20 @@ export function RunDetail({ project, change }: RunDetailProps) {
                 />
               </section>
 
-              {(board?.tasks || board?.subagents) && (
+              {(board?.tasks || subagents.length > 0) && (
                 <div className="lb-split">
                   <section className="lb-panel" aria-label="Subagents">
                     <div className="lb-panel-h">
                       <span>Subagents running</span>
-                      <span className="lb-panel-note">{board.subagents?.length ?? 0}</span>
+                      <span className="lb-panel-note">{subagents.length}</span>
                     </div>
                     <table className="lb-table">
                       <tbody>
-                        {(board.subagents ?? []).map((d, i) => (
+                        {subagents.map((d, i) => (
                           <tr key={`${d.key ?? d.role}-${i}`}>
                             <td>
                               <span className="lb-live-dot" /> {d.role}
-                              {d.taskId && ` · task ${d.taskId}${taskTitle(board.tasks, d.taskId)}`}
+                              {d.taskId && ` · task ${d.taskId}${taskTitle(board?.tasks, d.taskId)}`}
                               {d.key && <div className="lb-muted">{d.key}</div>}
                             </td>
                             <td>
@@ -171,7 +174,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                             <td className="r lb-num">{formatSpan(now - Date.parse(d.startedAt))}</td>
                           </tr>
                         ))}
-                        {!board.subagents && (
+                        {subagents.length === 0 && (
                           <tr>
                             <td className="lb-muted">None right now.</td>
                           </tr>
@@ -183,11 +186,11 @@ export function RunDetail({ project, change }: RunDetailProps) {
                     <div className="lb-panel-h">
                       <span>Tasks</span>
                       <span className="lb-panel-note">
-                        {board.tasks ? `${board.tasks.filter((t) => t.state === "done").length}/${board.tasks.length} done` : "no plan yet"}
+                        {board?.tasks ? `${board.tasks.filter((t) => t.state === "done").length}/${board.tasks.length} done` : "no plan yet"}
                       </span>
                     </div>
                     <ul className="lb-tasks">
-                      {(board.tasks ?? []).map((t) => (
+                      {(board?.tasks ?? []).map((t) => (
                         <li key={t.n} className={t.state.replace(" ", "-")}>
                           <span className="lb-task-mark">{TASK_MARK[t.state]}</span> {t.n}. {t.title}
                         </li>

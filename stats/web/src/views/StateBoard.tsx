@@ -105,6 +105,7 @@ function Chip({ on, onClick, title, children }: { on: boolean; onClick: () => vo
 function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
   const total = row.currentTasks;
   const done = row.doneTasks ?? 0;
+  const subagentCount = (row.subagents ?? []).filter((d) => !d.inline).length;
   return (
     <div
       className={`lb-card${needsOperator(row) ? " needs" : ""}`}
@@ -132,9 +133,9 @@ function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
         </div>
       )}
       <ActivityBadge row={row} now={now} />
-      {row.subagents && (
+      {subagentCount > 0 && (
         <div className="lb-muted" data-testid="subagent-count">
-          {row.subagents.length} subagent{row.subagents.length === 1 ? "" : "s"} running
+          {subagentCount} subagent{subagentCount === 1 ? "" : "s"} running
         </div>
       )}
       <div className="lb-prog">

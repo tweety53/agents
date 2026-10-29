@@ -663,6 +663,7 @@ describe("the reworked run view (kan-1048)", () => {
     ],
     subagents: [
       { role: "implementer", taskId: "2", key: "task-2-implementer", model: "opus", modelVersion: "claude-opus-5-5", effort: "high", startedAt: "2026-01-01T02:50:00Z" },
+      { role: "implementer", taskId: "3", key: "task-3-implementer", model: "opus", startedAt: "2026-01-01T02:55:00Z", inline: true },
     ],
   };
 
@@ -744,8 +745,8 @@ describe("the reworked run view (kan-1048)", () => {
     expect(board[1].change).toBe(CHANGE);
     expect(screen.getByRole("heading", { name: CHANGE }).parentElement).toHaveTextContent("IN_PROGRESS");
     const kpi = (name: string) => screen.getByRole("group", { name });
-    expect(kpi("Now running")).toHaveTextContent("flow.sdd-tdd");
-    expect(kpi("Now running")).toHaveTextContent("for 1h 00m · tasks 3/11");
+    expect(kpi("Now running")).toHaveTextContent("Implementing tasks");
+    expect(kpi("Now running")).toHaveTextContent("for 1h 00m · tasks 3/11 · main session on task 3 (Run view)");
     expect(kpi("Now running")).toHaveTextContent("Awaiting your answer");
     expect(kpi("Total cost")).toHaveTextContent("$6.50");
     expect(kpi("Total cost")).toHaveTextContent("4 stage runs, 3 measured");
@@ -760,6 +761,8 @@ describe("the reworked run view (kan-1048)", () => {
     expect(subs).toHaveTextContent("task-2-implementer");
     expect(subs).toHaveTextContent("opus-5.5 · high");
     expect(subs).toHaveTextContent("10m");
+    // The main session's own inline work is no subagent.
+    expect(subs).not.toHaveTextContent("task 3");
     const tasks = screen.getByRole("region", { name: "Tasks" });
     expect(tasks).toHaveTextContent("1/3 done");
     expect(tasks).toHaveTextContent("✔ 1. Schema");
