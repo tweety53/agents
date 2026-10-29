@@ -722,24 +722,23 @@ th button {
 .lb-tasks .current { color: var(--text-primary); font-weight: 600; }
 .lb-tasks .current .lb-task-mark { color: var(--status-ok); }
 /* Fills its panel: the label column takes what the fixed-width columns leave, and the table scrolls below its minimum. */
-.lb-runs { table-layout: fixed; min-width: 760px; }
+.lb-runs { table-layout: fixed; min-width: 960px; }
+.lb-runs col.c-model { width: 200px; }
 .lb-runs col.c-out { width: 110px; }
 .lb-runs col.c-start { width: 96px; }
 .lb-runs col.c-dur { width: 72px; }
 .lb-runs col.c-tok { width: 80px; }
 .lb-runs col.c-cost { width: 72px; }
 .lb-runs td { overflow: hidden; text-overflow: ellipsis; }
-/* The work panel's own content sets the row's height; its tasks card matches it, one line per task, scrolling inside. */
-.lb-work-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); gap: 14px; align-items: stretch; }
+/* Work panels stacked left, their plans stacked right, each card its own height; one stack in panel, plan order when narrow. */
+.lb-work { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); gap: 10px; align-items: start; }
+.lb-work-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .lb-phase-main { min-width: 0; }
-.lb-tasks-panel { display: flex; flex-direction: column; }
-.lb-tasks-scroll { flex: 1; position: relative; min-height: 0; }
-.lb-tasks-scroll > .lb-tasks { position: absolute; inset: 0; overflow-y: auto; align-content: start; }
-.lb-tasks-panel .lb-tasks li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lb-tasks-panel .lb-tasks li { overflow-wrap: anywhere; }
 .lb-tasks-panel.collapsed > .lb-panel-h { border-bottom: 0; }
 @media (max-width: 900px) {
-  .lb-work-row { grid-template-columns: minmax(0, 1fr); }
-  .lb-tasks-scroll > .lb-tasks { position: static; }
+  .lb-work { display: flex; flex-direction: column; }
+  .lb-work-col { display: contents; }
 }
 @media (max-width: 600px) {
   .lb-roles { grid-template-columns: minmax(0, 1fr); }

@@ -212,9 +212,8 @@ type Progress = { label: string; state: ProgressState }[];
 /**
  * One of the run view's two work panels, Main or Self-review: a header with
  * its status, active time, cost and summary; a Now line and its progress on
- * one line; a line per role of its dispatches; then its plan, the task being
- * worked on marked. A collapsible panel shows its header alone until opened,
- * open by default while it runs.
+ * one line; a line per role of its dispatches. A collapsible panel -- one
+ * given onToggle -- shows its header alone while closed.
  */
 function WorkPanel({
   title,
@@ -225,11 +224,10 @@ function WorkPanel({
   nowText,
   progress,
   summary,
-  tasks,
-  currentTask,
   note,
-  collapsible,
-  defaultOpen,
+  open = true,
+  onToggle,
+  order,
 }: {
   title: string;
   runs: StageRunDTO[];
@@ -239,18 +237,14 @@ function WorkPanel({
   nowText: string;
   progress: Progress;
   summary: string;
-  tasks?: PlanTask[];
-  currentTask?: number;
   /** A line under the Now line: Main's view of the self-review. */
   note?: ReactNode;
-  collapsible?: boolean;
-  /** Whether a collapsible panel starts open; it opens while it runs by default. */
-  defaultOpen?: boolean;
+  open?: boolean;
+  onToggle?: () => void;
+  /** Its place in the single stack narrow widths fall back to. */
+  order: number;
 }) {
   const status = workStatus(runs);
-  // Null follows the default -- open while running -- until the operator toggles it.
-  const [toggled, setToggled] = useState<boolean | null>(null);
-  const open = !collapsible || (toggled ?? defaultOpen ?? status === "running");
   const active = runs.reduce((a, r) => a + runEnd(r, now) - Date.parse(r.startedAt), 0);
   const cost = measuredSum(runs.map((r) => readCostUsd(r.metrics)));
   // Costs are this panel's own runs' priced buckets, so its lines add up to its header.
@@ -258,10 +252,8 @@ function WorkPanel({
   const roles = roleSummary(steps, costs);
   const rest = residualCosts(runs, steps, costs);
   const slug = title.toLowerCase();
-  const tasksTitle = title === "Main" ? "Tasks" : `${title} tasks`;
   return (
-    <div className="lb-work-row">
-    <section className={`lb-panel lb-phase ${status}`} aria-label={title}>
+    <section className={`lb-panel lb-phase ${status}`} aria-label={title} style={{ order }}>
       <div className="lb-panel-h">
         <span className="lb-phase-name">
           <span className={`lb-dot ${status}`} />
@@ -287,8 +279,8 @@ function WorkPanel({
         </span>
         <span className="lb-panel-note lb-phase-meta">
           {extra}
-          {collapsible && (
-            <button type="button" className="lb-fchip" aria-expanded={open} onClick={() => setToggled(!open)}>
+          {onToggle && (
+            <button type="button" className="lb-fchip" aria-expanded={open} onClick={onToggle}>
               {open ? "Hide" : "Show"}
             </button>
           )}
@@ -357,21 +349,19 @@ function WorkPanel({
         </div>
       )}
     </section>
-    {tasks && (
-      // Its own card beside the panel; collapsed with it to its header.
-      <section className={`lb-panel lb-tasks-panel${open ? "" : " collapsed"}`} aria-label={tasksTitle}>
-        <div className="lb-panel-h">
-          <span>{tasksTitle}</span>
-          <span className="lb-panel-note">{doneOf(tasks)}</span>
-        </div>
-        {open && (
-          <div className="lb-tasks-scroll">
-            <TaskList tasks={tasks} current={currentTask} />
-          </div>
-        )}
-      </section>
-    )}
-    </div>
+  );
+}
+
+/** A work panel's plan as its own card, closed to its header while its panel is. */
+function TasksPanel({ title, tasks, current, open = true, order }: { title: string; tasks: PlanTask[]; current?: number; open?: boolean; order: number }) {
+  return (
+    <section className={`lb-panel lb-tasks-panel${open ? "" : " collapsed"}`} aria-label={title} style={{ order }}>
+      <div className="lb-panel-h">
+        <span>{title}</span>
+        <span className="lb-panel-note">{doneOf(tasks)}</span>
+      </div>
+      {open && <TaskList tasks={tasks} current={current} />}
+    </section>
   );
 }
 
@@ -386,11 +376,11 @@ function TaskList({ tasks, current }: { tasks: PlanTask[]; current?: number }) {
     <ul className="lb-tasks">
       {tasks.map((t) =>
         t.n === current ? (
-          <li key={t.n} className="current" aria-current="step" title={`${t.n}. ${t.title}`}>
+          <li key={t.n} className="current" aria-current="step">
             <span className="lb-task-mark">●</span> {t.n}. {t.title}
           </li>
         ) : (
-          <li key={t.n} className={t.state.replace(" ", "-")} title={`${t.n}. ${t.title}`}>
+          <li key={t.n} className={t.state.replace(" ", "-")}>
             <span className="lb-task-mark">{TASK_MARK[t.state]}</span> {t.n}. {t.title}
           </li>
         ),
@@ -579,6 +569,9 @@ export function RunDetail({ project, change }: RunDetailProps) {
     ? selfReviewView(steps, board?.tasks, findings.length + parentFindings.length, srOpen, runs0.length > 0, now)
     : selfReviewView(srSteps, board?.selfReviewTasks, allFindings.length, srOpen, srStarted, now);
   const srCost = measuredSum(srRuns.map((r) => readCostUsd(r.metrics)));
+  // The self-review panel and its tasks open while it runs, until the operator toggles them.
+  const [srToggled, setSrToggled] = useState<boolean | null>(null);
+  const srPanelOpen = srToggled ?? srOpen;
 
   return (
     <section aria-label={`Run detail: ${project}/${change}`} className="dashboard lb lb-run">
@@ -707,8 +700,11 @@ export function RunDetail({ project, change }: RunDetailProps) {
                 />
               </section>
 
+              {/* Two independent stacks right under the KPI strip -- agents and work panels left, their plans right -- each card its own height. */}
+              <div className="lb-work">
+                <div className="lb-work-col">
               {agentCount > 0 && (
-                  <section className="lb-panel" aria-label="Agents">
+                  <section className="lb-panel" aria-label="Agents" style={{ order: 0 }}>
                     <div className="lb-panel-h">
                       <span>Agents running</span>
                       <span className="lb-panel-note">{agentCount}</span>
@@ -770,42 +766,51 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   </section>
               )}
 
-              {isSub ? (
-                <WorkPanel title="Main" runs={runs0} steps={steps} now={now} tasks={board?.tasks} {...srView} />
-              ) : (
-                <>
-                  <WorkPanel
-                    title="Main"
-                    runs={mainRuns}
-                    steps={mainSteps}
-                    now={now}
-                    nowText={mainNow(mainRuns, mainSteps, board?.tasks, board?.state === "FINISHED", now)}
-                    progress={mainProgress(mainRuns).map((x) => ({ label: x.phase.toLowerCase(), state: x.state }))}
-                    summary={mainSummary(board?.tasks, mainSteps)}
-                    tasks={board?.tasks}
-                    currentTask={mainCurrentTask}
-                    note={
-                      srStarted && (
-                        <div data-testid="main-self-review">
-                          <strong>Self-review:</strong> {PHASE_STATUS_LABEL[srStatus]} · {srView.summary}
-                          {srCost !== null && ` · ${formatUsd(srCost)}`}
-                        </div>
-                      )
-                    }
-                  />
-                  <WorkPanel
-                    title="Self-review"
-                    runs={srRuns}
-                    steps={srSteps}
-                    now={now}
-                    collapsible
-                    defaultOpen={srOpen}
-                    extra={sub && <a href={`#/run/${encodeURIComponent(sub.project)}/${encodeURIComponent(sub.name)}`}>sub-run</a>}
-                    tasks={board?.selfReviewTasks}
-                    {...srView}
-                  />
-                </>
-              )}
+                  {isSub ? (
+                    <WorkPanel title="Main" runs={runs0} steps={steps} now={now} nowText={srView.nowText} progress={srView.progress} summary={srView.summary} order={1} />
+                  ) : (
+                    <>
+                      <WorkPanel
+                        title="Main"
+                        runs={mainRuns}
+                        steps={mainSteps}
+                        now={now}
+                        order={1}
+                        nowText={mainNow(mainRuns, mainSteps, board?.tasks, board?.state === "FINISHED", now)}
+                        progress={mainProgress(mainRuns).map((x) => ({ label: x.phase.toLowerCase(), state: x.state }))}
+                        summary={mainSummary(board?.tasks, mainSteps)}
+                        note={
+                          srStarted && (
+                            <div data-testid="main-self-review">
+                              <strong>Self-review:</strong> {PHASE_STATUS_LABEL[srStatus]} · {srView.summary}
+                              {srCost !== null && ` · ${formatUsd(srCost)}`}
+                            </div>
+                          )
+                        }
+                      />
+                      <WorkPanel
+                        title="Self-review"
+                        runs={srRuns}
+                        steps={srSteps}
+                        now={now}
+                        order={3}
+                        open={srPanelOpen}
+                        onToggle={() => setSrToggled(!srPanelOpen)}
+                        extra={sub && <a href={`#/run/${encodeURIComponent(sub.project)}/${encodeURIComponent(sub.name)}`}>sub-run</a>}
+                        nowText={srView.nowText}
+                        progress={srView.progress}
+                        summary={srView.summary}
+                      />
+                    </>
+                  )}
+                </div>
+                <div className="lb-work-col">
+                  {board?.tasks && <TasksPanel title="Tasks" tasks={board.tasks} current={isSub ? srView.currentTask : mainCurrentTask} order={2} />}
+                  {!isSub && board?.selfReviewTasks && (
+                    <TasksPanel title="Self-review tasks" tasks={board.selfReviewTasks} current={srView.currentTask} open={srPanelOpen} order={4} />
+                  )}
+                </div>
+              </div>
 
               <section className="lb-panel" aria-label="Timeline">
                 <div className="lb-panel-h">

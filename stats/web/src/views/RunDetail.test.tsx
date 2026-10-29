@@ -605,8 +605,8 @@ describe("two stage runs sharing both stage and attempt (kan-201)", () => {
 
     await stageRunsTable();
     const [rowA, rowB] = screen.getAllByRole("row").filter((r) => r.classList.contains("lb-row"));
-    expect(within(rowA).getAllByRole("cell")[0]).toHaveTextContent(/^Task A dispatch \(sonnet 5\)$/);
-    expect(within(rowB).getAllByRole("cell")[0]).toHaveTextContent(/^Task B dispatch \(sonnet 5\)$/);
+    expect(within(rowA).getAllByRole("cell")[0]).toHaveTextContent(/^Task A dispatch$/);
+    expect(within(rowB).getAllByRole("cell")[0]).toHaveTextContent(/^Task B dispatch$/);
     expect(within(rowA).queryByRole("button")).not.toBeInTheDocument();
     expect(screen.queryByTestId("dispatch-row")).not.toBeInTheDocument();
   });
@@ -711,12 +711,13 @@ describe("the reworked run view (kan-1048)", () => {
     ]);
   });
 
-  it("run detail names each dispatch's model and effort in its row, with no separate model column", async () => {
+  it("run detail shows a row's agent model and effort, else its main session's, in the Model · effort column", async () => {
     render(<RunDetail project={PROJECT} change={CHANGE} />);
-    await screen.findByRole("cell", { name: "Starting up" });
-    expect(within(await stageRunsTable()).queryByRole("columnheader", { name: /model/i })).not.toBeInTheDocument();
-    // A single dispatch is the row itself, named with its bucket's model and its most-served effort.
-    const one = screen.getByRole("cell", { name: "Task 4/11 (sonnet 4.6 · medium)" }).closest("tr")!;
+    const kickoff = (await screen.findByRole("cell", { name: "Starting up" })).closest("tr")!;
+    expect(within(kickoff).getByTestId("run-model")).toHaveTextContent(/^opus 4\.7 · medium$/);
+    // A single dispatch is the row itself, with its bucket's model and its most-served effort.
+    const one = screen.getByRole("cell", { name: "Task 4/11" }).closest("tr")!;
+    expect(within(one).getByTestId("run-model")).toHaveTextContent(/^sonnet 4\.6 · medium$/);
     expect(within(one).getByTestId("run-cost").title).toBe("agents $0.25 + main session $0.25");
   });
 
@@ -765,11 +766,21 @@ describe("the reworked run view (kan-1048)", () => {
     expect(subs.querySelector(".lb-panel-note")).toHaveTextContent("2");
     // The plan is its own Tasks card beside Main, the task being worked on marked ●.
     const tasks = screen.getByRole("region", { name: "Tasks" });
-    expect(tasks.closest(".lb-work-row")).toContainElement(screen.getByRole("region", { name: "Main" }));
+    // Plans stack in their own column, beside the agents and work panels, right under the KPI strip.
+    const work = tasks.closest(".lb-work")!;
+    expect(work.previousElementSibling).toHaveAttribute("aria-label", "Run totals");
+    const [left, right] = [...work.children];
+    expect([...left.children].map((e) => e.getAttribute("aria-label"))).toEqual(["Agents", "Main", "Self-review"]);
+    expect(right).toContainElement(tasks);
+    // Narrow widths fall back to one stack: agents, Main, its tasks, Self-review, its tasks.
+    expect([...left.children, ...right.children].map((e) => [e.getAttribute("aria-label"), (e as HTMLElement).style.order])).toEqual([
+      ["Agents", "0"],
+      ["Main", "1"],
+      ["Self-review", "3"],
+      ["Tasks", "2"],
+    ]);
     expect(within(tasks).getByText("Tasks").parentElement).toHaveTextContent(/^Tasks1\/3$/);
     expect(tasks).toHaveTextContent("✔ 1. Schema");
-    // One line per task; the full title rides its tooltip.
-    expect(within(tasks).getByText(/Schema/).closest("li")).toHaveAttribute("title", "1. Schema");
     expect(tasks).toHaveTextContent("● 2. Board card");
     expect(tasks).toHaveTextContent("◻ 3. Run view");
     expect(kpi("Failed runs")).toHaveTextContent("1");

@@ -18,6 +18,9 @@ import type { DispatchRow, RecordDispatch, StageRunDTO } from "../api";
 import {
   asObject,
   readCostUsd,
+  readEffort,
+  readMainModels,
+  readModels,
   readTotalInputTokens,
   readMainTokens,
   readServedEffort,
@@ -68,7 +71,7 @@ function SessionRow({ session, now }: { session: Session; now: number }) {
   const phases = [...new Set(runs.map((r) => phaseOf(r.stage)))].join(" + ");
   return (
     <tr className="lb-group">
-      <td colSpan={6}>
+      <td colSpan={7}>
         {session.label} · {phases}
         <span className="lb-cnt">
           {formatClock(t0)}–{open ? "now" : formatClock(t1)} · {formatSpan(t1 - t0)} · {formatUsd(sumCost(runs))}
@@ -177,6 +180,16 @@ export function foldPrefixes(names: string[]): string[] {
   });
 }
 
+/** A row's agents' models, distinct in the order its actions ran, each counted past one: "opus 5.5 · low ×3, sonnet 5.5 · low". */
+function agentModels(own: DispatchLine[]): string {
+  const counts = new Map<string, number>();
+  for (const d of own) {
+    const m = d.model ? modelEffortText([d.model], d.effort) : "unknown";
+    counts.set(m, (counts.get(m) ?? 0) + 1);
+  }
+  return [...counts].map(([m, n]) => (n > 1 ? `${m} ×${n}` : m)).join(", ");
+}
+
 /** A dispatch that began before its run did: the tail of an earlier run's dispatch, whose last turns landed here -- its cost stays in this run, its row does not. */
 function isTail(run: StageRunDTO, rec: RecordDispatch | undefined): boolean {
   return rec !== undefined && Date.parse(rec.startedAt) < Date.parse(run.startedAt) - 1000;
@@ -207,9 +220,7 @@ function StageRunRow({ run, now, records, showStage }: { run: StageRunDTO; now: 
   const at = (d: DispatchRow) => Date.parse(records.get(d.agentId)?.startedAt ?? run.startedAt);
   const own = all.filter((d) => !isTail(run, records.get(d.agentId))).sort((a, b) => at(a) - at(b));
   const stage = stageLabel(run.stage);
-  const actions = foldPrefixes(own.map((d) => actionName(run, d, records.get(d.agentId))))
-    .map((what, i) => `${what}${own[i].model ? ` (${modelEffortText([own[i].model!], own[i].effort)})` : ""}`)
-    .join(" → ");
+  const actions = foldPrefixes(own.map((d) => actionName(run, d, records.get(d.agentId)))).join(" → ");
   // No stage lead where the session runs this stage alone, or where the first action already names it.
   const name = !actions ? stage : showStage && !actions.startsWith(stage) ? `${stage} · ${actions}` : actions;
   const expandable = own.length > 1;
@@ -260,6 +271,23 @@ function StageRunRow({ run, now, records, showStage }: { run: StageRunDTO; now: 
         <td className="r lb-num" title={tokenSplit} data-testid="run-tokens">
           <Unavailable value={tokensIn} format={formatKTokens} />
         </td>
+        <td data-testid="run-model">
+          {own.length > 0 ? (
+            <span title={agentModels(own)}>{agentModels(own)}</span>
+          ) : (
+            // No agent: the main session's own model.
+            (() => {
+              const models = readMainModels(run.metrics) ?? readModels(run.metrics);
+              return models ? (
+                <span className="lb-muted" title="main session">
+                  {modelEffortText(models, readEffort(run.metrics))}
+                </span>
+              ) : (
+                <Unavailable value={null} />
+              );
+            })()
+          )}
+        </td>
         <td className="r lb-num" title={split} data-testid="run-cost">
           <Unavailable value={stageCost} format={formatUsd} />
         </td>
@@ -279,6 +307,7 @@ function StageRunRow({ run, now, records, showStage }: { run: StageRunDTO; now: 
               <td className="r lb-num">
                 <Unavailable value={d.inputTokens} format={formatKTokens} />
               </td>
+              <td>{d.model ? modelEffortText([d.model], d.effort) : <Unavailable value={null} />}</td>
               <td className="r lb-num">
                 <Unavailable value={d.costUsd ?? null} format={formatUsd} />
               </td>
@@ -322,6 +351,7 @@ export function StageRunTable({ stageRuns, truncated, totalStageRuns, records = 
             <col className="c-start" />
             <col className="c-dur" />
             <col className="c-tok" />
+            <col className="c-model" />
             <col className="c-cost" />
           </colgroup>
           <thead>
@@ -331,13 +361,14 @@ export function StageRunTable({ stageRuns, truncated, totalStageRuns, records = 
               <th className="r">Started</th>
               <th className="r">Duration</th>
               <th className="r">Tokens in</th>
+              <th>Model · effort</th>
               <th className="r">Cost</th>
             </tr>
           </thead>
           <tbody>
             {stageRuns.length === 0 && (
               <tr>
-                <td colSpan={6} className="lb-muted">
+                <td colSpan={7} className="lb-muted">
                   No stage runs recorded for this change.
                 </td>
               </tr>
