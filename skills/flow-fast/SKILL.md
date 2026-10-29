@@ -113,7 +113,7 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
   and its planning-paths guard a planning tree, neither of which flow-fast writes. A group closes on the implementer's
   `flow record dispatch end` and `git -C <worktree> push origin <name>`, then section 5's lint and tests. On `inline`, section 4 as this file states it.
 - **review-panel**: when the decision's `panel` is an object, `skills/flow/review-panel.md` as
-  written, **Check base movement first** through **Panel re-runs**. A `default` panel (the `micro` class) runs **The always-on extra dispatches** (`skills/flow/review-panel.md`) alone.
+  written, **Check base movement first** through **Panel re-runs**. A `default` panel (the `micro` class) runs **The always-on extra dispatches** and **The findings merger** (`skills/flow/review-panel.md`) alone.
 
 The change summary in section 5 then also carries the `## Decision` block and, when a panel ran,
 each finding with its status — on every class, since `micro` runs the always-on extra dispatches.
