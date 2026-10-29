@@ -335,14 +335,14 @@ func (s *Store) RecordDispatch(ctx context.Context, projectKey, change string, i
 		return records.Dispatch{}, fmt.Errorf("store: record dispatch for %s/%s: %w", projectKey, change, err)
 	}
 	for range maxDispatchSeqRetries {
-		out, err := s.insertDispatch(ctx, projectKey, change, in)
+		out, err := s.recordDispatchTx(ctx, projectKey, change, in)
 		if err == nil {
 			return out, nil
 		}
 		if errors.Is(err, pgx.ErrNoRows) {
 			return records.Dispatch{}, fmt.Errorf("%w: %s/%s", ErrChangeNotFound, projectKey, change)
 		}
-		if isUniqueViolation(err, dispatchesSeqConstraint) {
+		if isUniqueViolation(err, dispatchesSeqConstraint) || isUniqueViolation(err, stageRunsAttemptConstraint) {
 			continue
 		}
 		return records.Dispatch{}, fmt.Errorf("store: record dispatch for %s/%s: %w", projectKey, change, err)
@@ -452,7 +452,112 @@ func scanDispatchRow(row dispatchRowScanner) (records.Dispatch, error) {
 // is replayed after it and sets the row back to the older pair.
 const reBegin = `(dispatches.outcome = 'aborted' AND EXCLUDED.ended_at IS NULL)`
 
-func (s *Store) insertDispatch(ctx context.Context, projectKey, change string, in records.Dispatch) (records.Dispatch, error) {
+// autoStageLockNamespace serialises openAutoStageRun per change, so two
+// dispatches begun together with no stage open share one auto run.
+const autoStageLockNamespace = 185_005
+
+// recordDispatchTx inserts the dispatch in one transaction with the auto
+// stage run openAutoStageRun opens for it, if any.
+func (s *Store) recordDispatchTx(ctx context.Context, projectKey, change string, in records.Dispatch) (records.Dispatch, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return records.Dispatch{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if in.StageRunID == nil {
+		if in.StageRunID, err = openAutoStageRun(ctx, tx, projectKey, change, in); err != nil {
+			return records.Dispatch{}, err
+		}
+	}
+	out, err := insertDispatch(ctx, tx, projectKey, change, in)
+	if err != nil {
+		return records.Dispatch{}, err
+	}
+	return out, tx.Commit(ctx)
+}
+
+// autoStageFor derives the stage an auto-opened run carries from the
+// dispatch key's shape.
+func autoStageFor(key string) string {
+	switch {
+	case strings.HasPrefix(key, "self-review-"):
+		return "flow.self-review"
+	case strings.HasPrefix(key, "pipeline-fix-"):
+		return "flow.pipeline-fix"
+	case strings.HasPrefix(key, "panel-"), strings.HasPrefix(key, "full-suite-fix-"):
+		return "flow.review-panel"
+	case strings.HasPrefix(key, "visual-verify"):
+		return "flow.visual-verify"
+	case strings.HasPrefix(key, "verify"):
+		return "flow.verify"
+	default: // task-* and anything unrecognised
+		return "flow.sdd-tdd"
+	}
+}
+
+// openAutoStageRun opens a stage run marked auto_opened when the change has
+// no open stage run, so every dispatch begin lands inside one: work a run
+// marked no stage for is otherwise invisible to every stage-run view. It
+// returns the new run's id, or nil when a run is open, the change is
+// unknown (insertDispatch reports that), or the begin replays a row already
+// recorded. The run takes the command, harness and repo root of the
+// change's latest run (/flow when there is none), and the dispatch's own
+// session token and id so harvesting attributes it as a marked stage.
+// EndDispatch closes it once its last open dispatch ends; an explicit stage
+// begin on the change supersedes it (insertStageRunAndSupersede).
+func openAutoStageRun(ctx context.Context, tx pgx.Tx, projectKey, change string, in records.Dispatch) (*int64, error) {
+	var changeID int64
+	err := tx.QueryRow(ctx, `SELECT id FROM changes WHERE project_key = $1 AND name = $2`, projectKey, change).Scan(&changeID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1, $2)`, int32(autoStageLockNamespace), int32(changeID)); err != nil {
+		return nil, err
+	}
+	var skip bool
+	if err := tx.QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM stage_runs WHERE change_id = $1 AND ended_at IS NULL)
+		    OR EXISTS (SELECT 1 FROM dispatches WHERE change_id = $1 AND session_token = $2 AND dispatch_key = $3)`,
+		changeID, nullIfEmpty(in.SessionToken), nullIfEmpty(in.Key)).Scan(&skip); err != nil {
+		return nil, err
+	}
+	if skip {
+		return nil, nil
+	}
+	var id int64
+	err = tx.QueryRow(ctx, `
+		WITH latest AS (
+			SELECT command, harness, repo_root FROM stage_runs
+			WHERE change_id = $1 ORDER BY started_at DESC, id DESC LIMIT 1
+		), cmd AS (
+			SELECT COALESCE((SELECT command FROM latest), '/flow') AS command
+		)
+		INSERT INTO stage_runs (
+			change_id, repo_root, harness, session_id, session_token, command, stage, attempt, started_at, metrics, auto_opened
+		)
+		SELECT $1, (SELECT repo_root FROM latest),
+			COALESCE(
+				(SELECT harness FROM stage_runs WHERE session_token = $3 ORDER BY id DESC LIMIT 1),
+				(SELECT harness FROM latest), 'claude-code'),
+			COALESCE($2, (SELECT session_id FROM stage_runs WHERE session_token = $3 AND session_id IS NOT NULL LIMIT 1)),
+			$3, cmd.command, $4::text,
+			COALESCE((SELECT MAX(attempt) FROM stage_runs WHERE change_id = $1 AND command = cmd.command AND stage = $4::text), 0) + 1,
+			$5, '{}'::jsonb, true
+		FROM cmd
+		RETURNING id`,
+		changeID, nullIfEmpty(in.SessionID), nullIfEmpty(in.SessionToken), autoStageFor(in.Key), in.StartedAt).Scan(&id)
+	if err != nil {
+		return nil, err
+	}
+	return &id, nil
+}
+
+func insertDispatch(ctx context.Context, q interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, projectKey, change string, in records.Dispatch) (records.Dispatch, error) {
 	metrics := in.Metrics
 	if len(metrics) == 0 {
 		metrics = json.RawMessage(`{}`)
@@ -468,7 +573,7 @@ func (s *Store) insertDispatch(ctx context.Context, projectKey, change string, i
 		effort = "default"
 	}
 
-	return scanDispatchRow(s.pool.QueryRow(ctx, `
+	return scanDispatchRow(q.QueryRow(ctx, `
 		INSERT INTO dispatches (
 			change_id, stage_run_id, seq, task_id, role, slot, model, commit_sha, outcome,
 			session_token, started_at, ended_at, metrics, notes, agent_id, dispatch_key,
@@ -677,6 +782,16 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 			return records.Dispatch{}, fmt.Errorf("%w: %s/%s key %q", ErrDispatchNotFound, projectKey, change, in.Key)
 		}
 		return records.Dispatch{}, fmt.Errorf("store: end dispatch %q for %s/%s: %w", in.Key, projectKey, change, err)
+	}
+	// An auto-opened run (openAutoStageRun) ends with its last open dispatch.
+	if out.StageRunID != nil && out.EndedAt != nil {
+		if _, err := s.pool.Exec(ctx, `
+			UPDATE stage_runs sr SET ended_at = GREATEST($2, sr.started_at), outcome = 'completed'
+			WHERE sr.id = $1 AND sr.auto_opened AND sr.ended_at IS NULL
+			  AND NOT EXISTS (SELECT 1 FROM dispatches d WHERE d.stage_run_id = sr.id AND d.ended_at IS NULL)`,
+			*out.StageRunID, *out.EndedAt); err != nil {
+			return records.Dispatch{}, fmt.Errorf("store: end dispatch %q for %s/%s: close auto stage run: %w", in.Key, projectKey, change, err)
+		}
 	}
 	return out, nil
 }
@@ -1604,7 +1719,7 @@ func (s *Store) DispatchWindowsForSession(ctx context.Context, sessionID string)
 	rows, err := s.pool.Query(ctx, `
 		SELECT d.id, d.started_at, COALESCE(d.ended_at, sr.ended_at, (
 			SELECT MIN(n.started_at) FROM dispatches n
-			WHERE d.stage_run_id IS NULL AND n.session_id = d.session_id
+			WHERE (d.stage_run_id IS NULL OR sr.auto_opened) AND n.session_id = d.session_id
 			  AND n.agent_id = 'inline' AND n.id <> d.id
 			  AND n.started_at >= d.started_at + $2::float8 * interval '1 second'
 		)), d.agent_id, (d.metrics -> 'tokens') IS NOT NULL

@@ -1074,6 +1074,9 @@ type stageRunDTO struct {
 	// the same COALESCE the allowlist's project_key filter entry maps.
 	ChangeName *string `json:"changeName,omitempty"`
 	ProjectKey *string `json:"projectKey,omitempty"`
+	// AutoOpened marks a run the store opened for a dispatch that began
+	// while the change had no open stage run.
+	AutoOpened bool `json:"autoOpened"`
 }
 
 func toStageRunDTO(r store.StageRun) stageRunDTO {
@@ -1090,6 +1093,7 @@ func toStageRunDTO(r store.StageRun) stageRunDTO {
 		Metrics:    r.Metrics,
 		ChangeName: r.ChangeName,
 		ProjectKey: r.ProjectKey,
+		AutoOpened: r.AutoOpened,
 	}
 	if r.EndedAt != nil {
 		endedAt := r.EndedAt.UTC().Format(time.RFC3339Nano)

@@ -657,6 +657,8 @@ export interface StageRunDTO {
   endedAt?: string;
   outcome?: string;
   metrics?: unknown;
+  /** True when the store opened the run for a dispatch begun with no stage open. */
+  autoOpened?: boolean;
 }
 
 /** Mirrors internal/api/stats.go's listStageRunsResponse. */

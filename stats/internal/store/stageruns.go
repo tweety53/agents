@@ -135,6 +135,9 @@ type StageRun struct {
 	EndedAt      *time.Time
 	Outcome      *string
 	Metrics      json.RawMessage
+	// AutoOpened marks a run the store opened itself: a dispatch began
+	// while the change had no open stage run (openAutoStageRun).
+	AutoOpened bool
 	// SupersededRuns is set only by BeginStage, naming the still-open runs
 	// its own begin closed as superseded; every read path leaves it nil.
 	// See SupersededRun.
@@ -405,12 +408,12 @@ func (s *Store) insertStageRunAndSupersede(ctx context.Context, in BeginStageInp
 	rows, err := tx.Query(ctx, `
 		UPDATE stage_runs
 		SET ended_at = $2, outcome = 'superseded'
-		WHERE session_token = $1
+		WHERE (session_token = $1 OR (auto_opened AND change_id = $4))
 		  AND ended_at IS NULL
 		  AND id <> $3
 		  AND started_at <= $2
 		RETURNING id, command, stage, attempt
-	`, in.SessionToken, run.StartedAt, run.ID)
+	`, in.SessionToken, run.StartedAt, run.ID, run.ChangeID)
 	if err != nil {
 		return StageRun{}, err
 	}
@@ -641,12 +644,12 @@ func (s *Store) GetStageRun(ctx context.Context, id int64) (StageRun, error) {
 	)
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, COALESCE(change_id, 0), repo_root, harness, session_id, session_token, command, stage, attempt,
-		       started_at, ended_at, outcome, metrics
+		       started_at, ended_at, outcome, metrics, auto_opened
 		FROM stage_runs
 		WHERE id = $1
 	`, id).Scan(
 		&run.ID, &run.ChangeID, &run.RepoRoot, &run.Harness, &sessionID, &sessionToken, &run.Command, &run.Stage,
-		&run.Attempt, &run.StartedAt, &run.EndedAt, &run.Outcome, &metrics,
+		&run.Attempt, &run.StartedAt, &run.EndedAt, &run.Outcome, &metrics, &run.AutoOpened,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -707,7 +710,7 @@ func (s *Store) QueryStageRuns(ctx context.Context, q Query) ([]StageRun, int, e
 
 	sqlText := fmt.Sprintf(`
 		SELECT sr.id, COALESCE(sr.change_id, 0), sr.repo_root, sr.harness, sr.session_id, sr.session_token, sr.command, sr.stage,
-		       sr.attempt, sr.started_at, sr.ended_at, sr.outcome, sr.metrics,
+		       sr.attempt, sr.started_at, sr.ended_at, sr.outcome, sr.metrics, sr.auto_opened,
 		       c.name, `+projectKeyExpr+`
 		FROM stage_runs sr
 		LEFT JOIN changes c ON c.id = sr.change_id
@@ -734,7 +737,7 @@ func (s *Store) QueryStageRuns(ctx context.Context, q Query) ([]StageRun, int, e
 		)
 		if err := rows.Scan(
 			&run.ID, &run.ChangeID, &run.RepoRoot, &run.Harness, &sessionID, &sessionToken, &run.Command, &run.Stage,
-			&run.Attempt, &run.StartedAt, &run.EndedAt, &run.Outcome, &metrics,
+			&run.Attempt, &run.StartedAt, &run.EndedAt, &run.Outcome, &metrics, &run.AutoOpened,
 			&changeName, &projectKey,
 		); err != nil {
 			return nil, 0, fmt.Errorf("store: query stage runs: scan: %w", err)

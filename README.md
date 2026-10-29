@@ -170,6 +170,7 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 | `flow.sync-archive` | Archive the change on its branch (run 1) | `/flow`, `/flow-fast` |
 | `flow.commit-archive` | Commit the archive (run 1) | `/flow`, `/flow-fast` |
 | `flow.self-review` | Run the self-review pass (run 1) | `/flow`, `/flow-fast` |
+| `flow.pipeline-fix` | Pipeline fix — a fix to the flow tooling a run makes | `/flow` |
 | `flow.landing-routes` | The landing routes, including moving the issue to In Review (run 1) ▸ | `/flow`, `/flow-fast` |
 | `flow.verify-merge` | Verify the merge (run 2) | `/flow`, `/flow-fast` |
 | `flow.cleanup` | Cleanup (run 2) ▸ | `/flow`, `/flow-fast` |

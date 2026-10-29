@@ -20,6 +20,7 @@ const LABELS: Record<string, string> = {
   "flow.write-in-progress": "Handing over for review",
   "flow.unfinished-work-gate": "Checking for unfinished work",
   "flow.self-review": "Self-review",
+  "flow.pipeline-fix": "Pipeline fix",
   "flow.document-fix": "Documenting a fix",
   "flow.landing-question": "Choosing how to land",
   "flow.landing-routes": "Choosing how to land",

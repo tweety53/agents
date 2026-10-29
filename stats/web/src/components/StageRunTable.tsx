@@ -184,6 +184,12 @@ function StageRunRow({ run, now }: { run: StageRunDTO; now: number }) {
             <span className="lb-expander" />
           )}
           {stageLabel(run.stage)}
+          {run.autoOpened && (
+            <span className="lb-muted" title="opened automatically: the run marked no stage">
+              {" "}
+              (unmarked)
+            </span>
+          )}
           {stageLabel(run.stage) !== run.stage && <div className="lb-muted lb-stage-id">{run.stage}</div>}
         </td>
         <td>
