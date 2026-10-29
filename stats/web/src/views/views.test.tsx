@@ -155,6 +155,8 @@ const fixtures: Record<
       projectKey: "gymie-7c1f238a",
       name: "kan-5-old",
       state: "STARTED",
+      lastStage: "flow.writing-plans",
+      lastStageEndedAt: "2026-01-15T11:55:00Z",
       updatedAt: "2026-01-01T10:00:00Z",
       updatedBy: "erin",
       nextCommand: "/flow",
@@ -416,9 +418,9 @@ describe("views render their fixture response's actual values", () => {
   it("state board running now cards", async () => {
     render(<StateBoard />);
     const cards = await screen.findAllByTestId("running-card");
-    // One card per change with an open stage; the one awaiting an answer
-    // comes first and is marked as needing the operator.
-    expect(cards).toHaveLength(2);
+    // One card per unfinished change or change with an open stage; the one
+    // awaiting an answer comes first and is marked as needing the operator.
+    expect(cards).toHaveLength(3);
     expect(cards[0]).toHaveTextContent("kan-29-never-observed");
     expect(cards[0]).toHaveClass("needs");
     expect(cards[0]).toHaveTextContent("Awaiting your answer");
@@ -429,7 +431,10 @@ describe("views render their fixture response's actual values", () => {
     expect(cards[1]).toHaveTextContent("Working");
     expect(cards[1]).toHaveTextContent("flow.sdd-tdd· 30m");
     expect(cards[1]).toHaveTextContent("tasks 20/46 · $12.50");
-    expect(screen.getByText("Running now", { selector: ".lb-lbl" }).nextSibling).toHaveTextContent("2");
+    // A change between stages still names its latest stage and what runs next.
+    expect(cards[2]).toHaveTextContent("kan-5-old");
+    expect(cards[2]).toHaveTextContent("flow.writing-plans· done 5m ago· next /flow");
+    expect(screen.getByText("Active runs", { selector: ".lb-lbl" }).nextSibling).toHaveTextContent("3");
   });
 
   it("state board groups by state", async () => {

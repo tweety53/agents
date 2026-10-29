@@ -1,7 +1,7 @@
 // The live state board -- the default route, laid out as the approved
 // prototype (spectre/changes/kan-1048-rework-live-board-and-run-view/design.md):
-// a chip filter bar, state tiles that filter by state, a Running now strip of
-// one card per change with an open stage run, and the changes grouped by
+// a chip filter bar, state tiles that filter by state, an Active runs strip of
+// one card per unfinished change or change with an open stage run, and the changes grouped by
 // state. pipeline-fix-* changes are hidden here, never on the wire.
 //
 // The board fetches every change ever recorded and applies every filter
@@ -118,11 +118,19 @@ function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
         <span className="lb-name">{row.name}</span>
         <StatePill state={row.state} />
       </div>
-      <div className="lb-stage">
-        <span className="lb-live-dot" />
-        <span>{row.currentStage}</span>
-        {row.currentStageStartedAt && <span className="lb-muted">· {formatSpan(now - Date.parse(row.currentStageStartedAt))}</span>}
-      </div>
+      {row.currentStage !== undefined ? (
+        <div className="lb-stage">
+          <span className="lb-live-dot" />
+          <span>{row.currentStage}</span>
+          {row.currentStageStartedAt && <span className="lb-muted">· {formatSpan(now - Date.parse(row.currentStageStartedAt))}</span>}
+        </div>
+      ) : (
+        <div className="lb-stage">
+          <span>{row.lastStage ?? "no stage yet"}</span>
+          {row.lastStageEndedAt && <span className="lb-muted">· done {formatSpan(now - Date.parse(row.lastStageEndedAt))} ago</span>}
+          {row.nextCommand && <span className="lb-muted">· next {row.nextCommand}</span>}
+        </div>
+      )}
       <ActivityBadge row={row} now={now} />
       <div className="lb-prog">
         <span style={{ width: total ? `${(done / total) * 100}%` : "0%" }} />
@@ -267,7 +275,7 @@ export function StateBoard() {
   );
   const shown = base.filter((r) => filters.states.size === 0 || filters.states.has(r.state));
   const running = rows
-    .filter((r) => r.currentStage !== undefined)
+    .filter((r) => r.currentStage !== undefined || r.state !== "FINISHED")
     .sort((a, b) => Number(!needsOperator(a)) - Number(!needsOperator(b)));
   const maxCost = Math.max(0, ...rows.map((r) => r.costUsd));
   const projects = [...new Set(inPeriod.map((r) => r.projectKey).concat(filters.project ?? []))];
@@ -323,7 +331,7 @@ export function StateBoard() {
           </button>
         ))}
         <div className="lb-tile static">
-          <span className="lb-lbl">Running now</span>
+          <span className="lb-lbl">Active runs</span>
           <span className="lb-val lb-num">{running.length}</span>
         </div>
         <div className="lb-tile static">
@@ -331,9 +339,9 @@ export function StateBoard() {
           <span className="lb-val lb-num">{formatUsd(rows.reduce((a, r) => a + PERIOD_COST[filters.period](r), 0))}</span>
         </div>
       </div>
-      <section className="lb-panel" aria-label="Running now">
+      <section className="lb-panel" aria-label="Active runs">
         <div className="lb-panel-h">
-          <span>Running now</span>
+          <span>Active runs</span>
           <span className="lb-panel-note">auto-refreshes every 5s</span>
         </div>
         <div className="lb-panel-b lb-cards">

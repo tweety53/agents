@@ -57,10 +57,15 @@ type LiveStateRow struct {
 	// activity (store.SetSessionActivity). Each is nil when absent.
 	CurrentStage          *string
 	CurrentStageStartedAt *time.Time
-	DoneTasks             *int
-	Activity              *string
-	ActivityDetail        *string
-	ActivitySince         *time.Time
+	// LastStage and LastStageEndedAt are the change's latest stage run,
+	// open or not, so a change between stages still names where it is;
+	// LastStageEndedAt is nil while that run is open.
+	LastStage        *string
+	LastStageEndedAt *time.Time
+	DoneTasks        *int
+	Activity         *string
+	ActivityDetail   *string
+	ActivitySince    *time.Time
 }
 
 // signalErrorsExpr is one stage run's tool and API errors, main and
@@ -81,7 +86,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 		       first_obs.total_tasks, latest_obs.total_tasks,
 		       totals.runs, totals.cost, totals.wall_ms, totals.errors,
 		       win.d1, win.d7, win.d30,
-		       open_run.stage, open_run.started_at, done.tasks,
+		       open_run.stage, open_run.started_at, last_run.stage, last_run.ended_at, done.tasks,
 		       sa.state, sa.detail, sa.updated_at
 		FROM changes c
 		LEFT JOIN LATERAL (
@@ -128,6 +133,13 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			ORDER BY sr.started_at DESC, sr.id DESC
 			LIMIT 1
 		) open_run ON true
+		LEFT JOIN LATERAL (
+			SELECT sr.stage, sr.ended_at
+			FROM stage_runs sr
+			WHERE sr.change_id = c.id
+			ORDER BY sr.started_at DESC, sr.id DESC
+			LIMIT 1
+		) last_run ON true
 		LEFT JOIN session_activity sa ON sa.session_id = open_run.session_id
 		LEFT JOIN LATERAL (
 			SELECT CASE WHEN COUNT(*) = 0 THEN NULL
@@ -156,7 +168,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			&row.PlannedTasks, &row.CurrentTasks,
 			&row.RunCount, &row.CostUsd, &row.WallClockMs, &row.Errors,
 			&row.Cost24h, &row.Cost7d, &row.Cost30d,
-			&row.CurrentStage, &row.CurrentStageStartedAt, &row.DoneTasks,
+			&row.CurrentStage, &row.CurrentStageStartedAt, &row.LastStage, &row.LastStageEndedAt, &row.DoneTasks,
 			&row.Activity, &row.ActivityDetail, &row.ActivitySince); err != nil {
 			return nil, fmt.Errorf("store: live state board: scan: %w", err)
 		}

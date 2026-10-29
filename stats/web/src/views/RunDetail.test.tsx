@@ -623,7 +623,7 @@ describe("the reworked run view (kan-1048)", () => {
     ...extra,
   });
   const planning = [
-    run(1, "flow.kickoff", "2026-01-01T00:00:00Z", "2026-01-01T00:10:00Z", { sessionId: "s-a", metrics: { cost_usd: 1, effort: "medium", models: { "claude-opus-4-7": {} } } }),
+    run(1, "flow.kickoff", "2026-01-01T00:00:00Z", "2026-01-01T00:10:00Z", { sessionId: "s-a", metrics: { cost_usd: 1, effort: "medium", models: { "claude-opus-4-7": {} }, tokens: { main: { input: 50000, cache_read: 1000000, cache_creation: 200000 } } } }),
     run(2, "flow.brainstorm", "2026-01-01T00:10:00Z", "2026-01-01T00:40:00Z", { sessionId: "s-a", metrics: { cost_usd: 2, models: { "claude-opus-4-7": {} } } }),
   ];
   const implementation = [
@@ -743,7 +743,9 @@ describe("the reworked run view (kan-1048)", () => {
     expect(kpi("Total cost")).toHaveTextContent("4 stage runs, 3 measured");
     expect(kpi("Wall clock")).toHaveTextContent("3h 00m");
     expect(kpi("Wall clock")).toHaveTextContent("active 2h 10m");
+    // Input counts cache reads and writes too, never just the uncached sliver.
     expect(kpi("Input tokens")).toHaveTextContent("1.25M");
+    expect(kpi("Input tokens")).toHaveTextContent("cache reads 80%");
     expect(kpi("Failed runs")).toHaveTextContent("1");
     expect(kpi("Failed runs")).toHaveTextContent("1 retried");
     // Cost by stage: summed per stage, largest first, "flow." dropped.

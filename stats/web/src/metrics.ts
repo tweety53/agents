@@ -199,6 +199,13 @@ export function readOutputTokens(bag: unknown): number | null {
   return readSummedBucketField(bag, "output");
 }
 
+/** Every input token the model read -- uncached, cache reads and cache writes -- or null when `input` is unmeasured. */
+export function readTotalInputTokens(bag: unknown): number | null {
+  const input = readInputTokens(bag);
+  if (input === null) return null;
+  return input + (readCacheReadTokens(bag) ?? 0) + (readCacheCreationTokens(bag) ?? 0);
+}
+
 /** `cache_read`, summed across `tokens.main` and `tokens.sidechain`. */
 export function readCacheReadTokens(bag: unknown): number | null {
   return readSummedBucketField(bag, "cache_read");

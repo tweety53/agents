@@ -15,7 +15,7 @@ import { StageRunTable, groupSessions, runEnd } from "../components/StageRunTabl
 import { StageTimeline } from "../components/StageTimeline";
 import { useRunDetail } from "../hooks/useRunDetail";
 import { formatRelative, formatSpan, formatUsd } from "../format";
-import { readCacheReadTokens, readCostUsd, readInputTokens } from "../metrics";
+import { readCacheReadTokens, readCostUsd, readTotalInputTokens } from "../metrics";
 import { projectLabel } from "../lib/projectLabel";
 import { ActivityBadge, StatePill } from "./StateBoard";
 import type { StageRunDTO } from "../api";
@@ -89,7 +89,8 @@ export function RunDetail({ project, change }: RunDetailProps) {
           const t0 = runs.length ? Math.min(...runs.map((r) => Date.parse(r.startedAt))) : now;
           const t1 = runs.length ? Math.max(...runs.map((r) => runEnd(r, now))) : now;
           const active = runs.reduce((a, r) => a + runEnd(r, now) - Date.parse(r.startedAt), 0);
-          const input = runs.reduce((a, r) => a + (readInputTokens(r.metrics) ?? 0), 0);
+          const measured = runs.filter((r) => readTotalInputTokens(r.metrics) !== null);
+          const input = measured.reduce((a, r) => a + (readTotalInputTokens(r.metrics) ?? 0), 0);
           const cached = runs.reduce((a, r) => a + (readCacheReadTokens(r.metrics) ?? 0), 0);
           const failed = runs.filter((r) => r.outcome === "failed");
           const byStage = new Map<string, number>();
@@ -129,8 +130,8 @@ export function RunDetail({ project, change }: RunDetailProps) {
                 <Kpi label="Wall clock" value={<span className="lb-num">{formatSpan(t1 - t0)}</span>} hint={`active ${formatSpan(active)}`} />
                 <Kpi
                   label="Input tokens"
-                  value={<span className="lb-num">{summary.totalTokensInput === null ? "—" : `${(summary.totalTokensInput / 1e6).toFixed(2)}M`}</span>}
-                  hint={input + cached > 0 ? `cached ${Math.round((cached / (input + cached)) * 100)}%` : undefined}
+                  value={<span className="lb-num">{measured.length === 0 ? "—" : `${(input / 1e6).toFixed(2)}M`}</span>}
+                  hint={input > 0 ? `cache reads ${Math.round((cached / input) * 100)}%` : undefined}
                 />
                 <Kpi
                   label="Failed runs"

@@ -19,7 +19,7 @@ import {
   asObject,
   readCostUsd,
   readEffort,
-  readInputTokens,
+  readTotalInputTokens,
   readMainTokens,
   readModels,
   readServedEffort,
@@ -196,7 +196,7 @@ function StageRunRow({ run, now }: { run: StageRunDTO; now: number }) {
         <td className="r lb-num">{formatClock(Date.parse(run.startedAt))}</td>
         <td className="r lb-num">{formatSpan(runEnd(run, now) - Date.parse(run.startedAt))}</td>
         <td className="r lb-num">
-          <Unavailable value={readInputTokens(run.metrics)} format={formatKTokens} />
+          <Unavailable value={readTotalInputTokens(run.metrics)} format={formatKTokens} />
         </td>
         <td>{modelEffort(readModels(run.metrics), readEffort(run.metrics))}</td>
         <td className="r lb-num">

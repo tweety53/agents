@@ -1968,6 +1968,9 @@ func TestLiveStateBoardCarriesOpenStageDoneTasksAndActivity(t *testing.T) {
 	if live.CurrentStageStartedAt == nil || !live.CurrentStageStartedAt.Equal(day.Add(2*time.Minute)) {
 		t.Errorf("CurrentStageStartedAt = %v, want %v", live.CurrentStageStartedAt, day.Add(2*time.Minute))
 	}
+	if live.LastStage == nil || *live.LastStage != "flow.sdd-tdd" || live.LastStageEndedAt != nil {
+		t.Errorf("LastStage = %v ended %v, want the open flow.sdd-tdd, not ended", live.LastStage, live.LastStageEndedAt)
+	}
 	if live.DoneTasks == nil || *live.DoneTasks != 2 {
 		t.Errorf("DoneTasks = %v, want 2", live.DoneTasks)
 	}
@@ -1982,6 +1985,9 @@ func TestLiveStateBoardCarriesOpenStageDoneTasksAndActivity(t *testing.T) {
 	}
 
 	idle := byName["kan-2"]
+	if idle.LastStage != nil || idle.LastStageEndedAt != nil {
+		t.Errorf("kan-2 LastStage = %v, want nil (no stage run)", idle.LastStage)
+	}
 	if idle.CurrentStage != nil || idle.CurrentStageStartedAt != nil || idle.DoneTasks != nil ||
 		idle.Activity != nil || idle.ActivityDetail != nil || idle.ActivitySince != nil {
 		t.Errorf("kan-2 = %+v, want every live field nil", idle)

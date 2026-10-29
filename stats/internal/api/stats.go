@@ -682,6 +682,8 @@ type stateBoardRowDTO struct {
 	// activity (store.LiveStateRow), each omitted when absent.
 	CurrentStage          *string `json:"currentStage,omitempty"`
 	CurrentStageStartedAt *string `json:"currentStageStartedAt,omitempty"`
+	LastStage             *string `json:"lastStage,omitempty"`
+	LastStageEndedAt      *string `json:"lastStageEndedAt,omitempty"`
 	DoneTasks             *int    `json:"doneTasks,omitempty"`
 	Activity              *string `json:"activity,omitempty"`
 	ActivityDetail        *string `json:"activityDetail,omitempty"`
@@ -738,6 +740,8 @@ func toStateBoardDTOs(rows []store.LiveStateRow) []stateBoardRowDTO {
 
 			CurrentStage:          r.CurrentStage,
 			CurrentStageStartedAt: rfc3339OrNil(r.CurrentStageStartedAt),
+			LastStage:             r.LastStage,
+			LastStageEndedAt:      rfc3339OrNil(r.LastStageEndedAt),
 			DoneTasks:             r.DoneTasks,
 			Activity:              r.Activity,
 			ActivityDetail:        r.ActivityDetail,

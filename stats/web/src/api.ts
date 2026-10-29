@@ -278,6 +278,9 @@ export interface StateBoardRow {
    * activity; each absent when the store has none. */
   currentStage?: string;
   currentStageStartedAt?: string;
+  /** The latest stage run, open or not; lastStageEndedAt is absent while it is open. */
+  lastStage?: string;
+  lastStageEndedAt?: string;
   doneTasks?: number;
   activity?: 'working' | 'question' | 'permission' | 'idle';
   activityDetail?: string;
