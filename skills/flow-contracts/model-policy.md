@@ -118,6 +118,18 @@ by `/`, an Explore or Plan pair adding `@<effort>`.
 | `self-review-review-r` | `sonnet/flow-low` | — |
 | `pipeline-fix-review-r` | `sonnet/flow-low` | — |
 
+## Experiments
+
+**An open experiment overrides whole cells of the table above.** `flow experiment open -name <n>
+-cell '<role>=<pair>[,<pair>…]'…` stores it in flowd; while it is open, every reader of the table
+(check-dispatch-pair, check-loop-dispatch, plan-agent-pair, plan-class, pipeline-fix) admits the
+experiment's pairs in place of that role's unmarked row, and a marked row is never overridden. One
+experiment may carry several roles; a role is in at most one open experiment. Role `main` names
+the parent session's `<model>@<effort>`: `/flow` warns on a mismatch (**Model resolution**,
+`skills/flow/SKILL.md`) and only matching runs count in its after figures. flowd unreachable → the
+table alone. The table stays the permanent source: `/flow-experiment-close` closes an experiment
+and, on a positive verdict, starts the change that writes its winning cells here (KAN-1067).
+
 ## Harness mapping
 
 **`<parent model>` and `<parent effort>` name the session's own pair, on every harness and in every

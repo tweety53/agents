@@ -132,6 +132,30 @@ make ui-test-down
 This stops the daemon and drops `flow_uitest`, both idempotently — a
 second `make ui-test-down` is not an error.
 
+## Experiments
+
+An allowed-pairs experiment (KAN-1067) overrides whole unmarked cells of
+`skills/flow-contracts/model-policy.md`'s **Allowed pairs** table while it is open; that file's
+`## Experiments` section is canonical for what it means. The `flow` CLI drives it:
+
+- `flow experiment open -name <n> -cell '<role>=<pair>[,<pair>…]'…` — opens one; refused (exit 1)
+  when a role is already in an open experiment or is absent from the table.
+- `flow experiment list [-open]` — one line per experiment, newest first.
+- `flow experiment overrides` — every open experiment's cells as one JSON object, `{}` when none;
+  the guards overlay it on the table.
+- `flow experiment stats <id>` — before/after figures per metric with weekly series.
+- `flow experiment main-check -model <m> -effort <e>` — one warning line when an open `main` cell
+  names another pair; always exits 0.
+- `flow experiment close <id> -verdict positive|negative|inconclusive [-summary text]`.
+
+flowd serves them on `POST`/`GET /api/v1/experiments`, `GET /api/v1/experiments/overrides`,
+`POST /api/v1/experiments/{id}/close`, `GET /api/v1/experiments/{id}/stats`, and the current roles
+table with open overrides applied on `GET /api/v1/roles` — the table embedded from
+`internal/modelpolicy/embedded/model-policy.md`, which `make policy-copy` (run by `make web-dist`)
+copies from the repository at build time. The stats SPA's **Experiments** view draws the roles
+table, the experiment list, each experiment's overrides, before/after panels, weekly charts and
+closing summary.
+
 ## Jira transitions
 
 The daemon can perform the pipeline's Jira status transitions itself: the
