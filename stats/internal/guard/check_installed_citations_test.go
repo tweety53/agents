@@ -164,6 +164,8 @@ func TestCheckInstalledCitations(t *testing.T) {
 		{"chore-archive-shape-with-trailing-path-is-still-reported", flow, "# flow fixture\n`chore/archive-<name>/spec.md`\n", true},
 		{"fraction-is-not-a-citation", flow, "# flow fixture\nStatus `Task 22/22` and `Task <x>/<n>`.\n", false},
 		{"fraction-shape-with-trailing-path-is-still-reported", flow, "# flow fixture\n`22/22/spec.md`\n", true},
+		{"model-pair-is-not-a-citation", flow, "# flow fixture\nPairs `opus/flow-low`, `sonnet/flow-planner-medium` and `opus/Explore@low`.\n", false},
+		{"model-pair-shape-with-a-path-is-still-reported", flow, "# flow fixture\n`opus/flow-low.md`\n", true},
 		{"multi-letter-placeholder-pair-is-still-reported", flow, "# flow fixture\n`<name>/<file>`\n", true},
 		{"chore-archive-bracket-cannot-smuggle-a-slash", flow, "# flow fixture\n`chore/archive-<a/b>`\n", true},
 		{"html-comment-is-not-a-citation", flow, "# flow fixture\n`<!-- measured: ./gradlew test @ c515c42 -->`\n", false},

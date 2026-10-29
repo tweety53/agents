@@ -81,6 +81,8 @@ the change branch** (`skills/flow-contracts/finish-contract-run1.md`).
 change name (in `/flow-plan` before capture, the session token; for the self-review and in-run fix
 planners, their own `Key:`), `<n>` counting the session's planning dispatches from 1 — passing the
 printed model as the Agent tool's `model` and the effort as its `effort`. Its prompt carries the
+line `Role: explorer` for an Explore agent or `Role: plan-designer` for a Plan agent (**Allowed
+pairs**, `skills/flow-contracts/model-policy.md`), the
 two agent-baseline sentences and the report-tersely line (`~/.claude/rules/dispatch-carries-the-baseline.md`)
 and a narrow, explicit scope: what to look at, what is already known, what to return. Never a
 `fork`, and never an agent that edits files. The agents investigate and propose; you decide. Each
@@ -512,8 +514,8 @@ assigns — the implementer, the fixer, each panel dispatch, the rerun pair, eac
 - **a pair carrying a hard seam** — concurrency, platform interop, a data-model change,
   performance-sensitive code — `opus`, always;
 - **every other pass-1 panel dispatch** — `opus`, always;
-- **the extra dispatches** — `test-sanity+call-efficiency` and `mutation+failure-modes`, each its own rolled pair, `sonnet` or `opus` at `low`: the only pass-1 panel dispatches that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`, kan-959; kan-1028);
-- **every gated per-task reviewer bundle** — `opus` at `medium`, always, whatever the roll, since no decision pair records it; a fix re-review bundle `opus` at `low` (`skills/flow/implement.md`);
+- **the extra dispatches** — `test-sanity+call-efficiency` and `mutation+failure-modes`, each its own rolled pair off the `panel-extra` row of **Allowed pairs** (`skills/flow-contracts/model-policy.md`): the only pass-1 panel dispatches that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`, kan-959; kan-1028);
+- **every gated per-task reviewer bundle** — its **Allowed pairs** row (`skills/flow-contracts/model-policy.md`), whatever the roll, since no decision pair records it, and a fix re-review bundle its own;
 - **the rerun pair** — `opus` or `sonnet`; nothing requires it to differ from a pass-1 dispatch.
 
 A micro decision records no pair, and a dispatch with no recorded pair — a micro panel,

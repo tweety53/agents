@@ -164,9 +164,10 @@ end.
 per-task re-review, a verify stage's fix loop and a verifier re-dispatch each repeat until their
 own clean close. **A round that makes no progress — the same defect identity, on the same
 evidence, after a fix — changes the run's approach instead of stopping or asking.** The next fix
-is a fresh dispatch of that loop's own fixer row on `opus` at effort `high` (`subagent_type:
-flow-high`, recorded with that pair, mapped on harnesses `zcode` and `muse` per **Harness mapping**,
-`skills/flow-contracts/model-policy.md`), its prompt opening with the line `No-progress escalation` and carrying every earlier round's report
+is a fresh dispatch of that loop's own fixer row on the marked row of its fixer role (**Allowed
+pairs**, `skills/flow-contracts/model-policy.md`, recorded with that pair, mapped on harnesses
+`zcode` and `muse` per **Harness mapping**, `skills/flow-contracts/model-policy.md`), its prompt
+opening with the line `No-progress escalation` and carrying every earlier round's report
 verbatim and naming the approach that failed; a loop whose fix the parent applies inline applies
 it from those same reports by a different approach. Where the evidence itself may be wrong, the
 defect is first reproduced another way — another reproducer, another capture route. A further
