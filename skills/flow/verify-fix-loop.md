@@ -18,8 +18,8 @@ report names it.
 **A defect whose root cause is a shared source — a style, a token, a component other screens draw
 too — is fixed at that source, whatever else the fix moves.** The round's task never patches the
 changed screen alone to spare the others, and its steps carry two more. Every baseline the fix
-moves is recaptured: every spec `specs` prints for the fix's own diff — the whole suite when
-`specs` is not declared or prints nothing — runs through `capture` with `--update-snapshots=all`
+moves is recaptured: every spec `specs` prints for the fix's own diff — none when it prints
+nothing, and the whole suite only when `specs` is not declared — runs through `capture` with `--update-snapshots=all`
 appended (step 8, `skills/flow/visual-verify-verifier.md`), and every PNG whose bytes changed is
 read first, per **The sweep** (`skills/flow-contracts/known-bugs.md`), and
 committed with the task, in the checkout step 12 of **Steps 3–13** (`skills/flow/visual-verify.md`)

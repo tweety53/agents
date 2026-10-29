@@ -176,19 +176,25 @@ var (
 )
 
 // rvlVisualVerify is the `## visual verification` `verify` row a `test` list
-// ends with, `<specs>` empty, and the directory it runs from -- ok false when
-// the row is not declared, decision.json records `visual.verify` `skipped`,
-// the green sha covers the tree, or the diff from the base branch touches no
+// ends with, the directory it runs from, and -- when the section declares a
+// `specs` row -- that row with `<frontend-root>` and `<merge-base>`
+// substituted, whose printed paths the caller puts in `<specs>`; with no
+// `specs` row, `<specs>` is emptied and the row runs whole. ok false when the
+// row is not declared, decision.json records `visual.verify` `skipped`, the
+// green sha covers the tree, or the diff from the base branch touches no
 // `ui paths` glob (verify-list-runs-visual). A base that does not resolve
-// runs it: running more is the safe side.
-func rvlVisualVerify(env Env, wt string, covered bool) (cmd, dir string, ok bool) {
+// runs it: running more is the safe side -- but a `specs` row then has no
+// merge base to scope to, and specs comes back "" with ok true and cmd ""
+// so the caller fails the list rather than run the whole suite
+// (verify-list-runs-targeted).
+func rvlVisualVerify(env Env, wt string, covered bool) (cmd, specs, dir string, ok bool) {
 	b, err := os.ReadFile(filepath.Join(wt, ".flow", "project.md"))
 	if err != nil {
-		return "", "", false
+		return "", "", "", false
 	}
 	cells := vvCells(string(b))
 	if cells["verify"] == "" || covered {
-		return "", "", false
+		return "", "", "", false
 	}
 	var d struct {
 		Visual struct {
@@ -196,8 +202,9 @@ func rvlVisualVerify(env Env, wt string, covered bool) (cmd, dir string, ok bool
 		} `json:"visual"`
 	}
 	if raw, err := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "decision.json")); err == nil && json.Unmarshal(raw, &d) == nil && d.Visual.Verify == "skipped" {
-		return "", "", false
+		return "", "", "", false
 	}
+	mb := ""
 	changed := func() ([]string, error) {
 		var base bytes.Buffer
 		if Registry["resolve-base-branch"]([]string{wt}, env, &base, io.Discard) != 0 {
@@ -205,18 +212,19 @@ func rvlVisualVerify(env Env, wt string, covered bool) (cmd, dir string, ok bool
 		}
 		git := envGit(env)
 		ref := resolveRemoteBase(git, wt, strings.TrimSpace(base.String()))
-		mb, ok := capture(git("-C", wt, "merge-base", "HEAD", ref))
+		m, ok := capture(git("-C", wt, "merge-base", "HEAD", ref))
 		if !ok {
 			return nil, fmt.Errorf("no merge base")
 		}
-		names, ok := capture(git("-C", wt, "diff", "--no-renames", "--name-only", strings.TrimSpace(mb)+"..HEAD"))
+		mb = strings.TrimSpace(m)
+		names, ok := capture(git("-C", wt, "diff", "--no-renames", "--name-only", mb+"..HEAD"))
 		if !ok {
 			return nil, fmt.Errorf("no diff")
 		}
 		return strings.Split(names, "\n"), nil
 	}
 	if visualTrigger(env, wt, changed, io.Discard, io.Discard) == 1 {
-		return "", "", false
+		return "", "", "", false
 	}
 	dir = wt
 	if c := cells["regression checkout"]; c != "" {
@@ -233,7 +241,13 @@ func rvlVisualVerify(env Env, wt string, covered bool) (cmd, dir string, ok bool
 			}
 		}
 	}
-	return strings.ReplaceAll(cells["verify"], "<specs>", ""), dir, true
+	if s := cells["specs"]; s != "" {
+		if mb == "" {
+			return "", "", dir, true
+		}
+		return cells["verify"], strings.NewReplacer("<frontend-root>", wt, "<merge-base>", mb).Replace(s), dir, true
+	}
+	return strings.ReplaceAll(cells["verify"], "<specs>", ""), "", dir, true
 }
 
 func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
@@ -481,10 +495,35 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	visualRan := false
 	if list == "test" {
-		if cmd, dir, ok := rvlVisualVerify(env, abs(wt), unchanged("")); ok {
+		if cmd, specs, dir, ok := rvlVisualVerify(env, abs(wt), unchanged("")); ok {
 			visualRan = true
-			results := rgtRun(context.Background(), [][]string{{"bash", "-c", cmd}}, 1, outDir, dir, cmdEnv)
-			report(cmd, results[0].rc, results[0].out, "visual")
+			// A `specs` row scopes the suite to the specs it maps; one that
+			// cannot run, or fails, blocks the list, and one that maps
+			// nothing runs no spec -- never the whole suite, which runs only
+			// when the operator asks (verify-list-runs-targeted).
+			switch {
+			case cmd == "":
+				failed = 1
+				fmt.Fprintln(stdout, "- `specs` — not run, no merge base to scope the visual verify to; the whole suite runs only when the operator asks")
+			case specs != "":
+				r := rgtRun(context.Background(), [][]string{{"bash", "-c", specs}}, 1, outDir, dir, cmdEnv)[0]
+				out, _ := os.ReadFile(r.out)
+				paths := strings.Fields(string(out))
+				switch {
+				case r.rc != 0:
+					report(specs, r.rc, r.out, "specs")
+					cmd = ""
+				case len(paths) == 0:
+					fmt.Fprintf(stdout, "- `%s` — exit 0, mapped no spec: the visual verify ran no spec\n", specs)
+					cmd = ""
+				default:
+					cmd = strings.ReplaceAll(cmd, "<specs>", strings.Join(paths, " "))
+				}
+			}
+			if cmd != "" {
+				results := rgtRun(context.Background(), [][]string{{"bash", "-c", cmd}}, 1, outDir, dir, cmdEnv)
+				report(cmd, results[0].rc, results[0].out, "visual")
+			}
 		}
 	}
 	if headSHA != "" && failed == 0 && clean() {

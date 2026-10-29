@@ -767,26 +767,36 @@ func TestRunVerifyListRunsTheVisualVerify(t *testing.T) {
 			t.Fatalf("git %v: %v\n%s", args, err, out)
 		}
 	}
-	project := func(verify, checkout string) string {
-		row := ""
+	project := func(verify, checkout, specs string) string {
+		row, specsRow := "", ""
 		if checkout != "" {
 			row = "| `regression checkout` | `" + checkout + "` |\n"
 		}
-		return "## lint\n\n```bash\necho LIST-RAN\n```\n\n## test\n\n```bash\necho LIST-RAN\n```\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/src/**` |\n| `screenshots` | `web/tests/visual` |\n" + row + "\n| Command | Runs |\n|---------|------|\n| `verify` | `" + verify + "` |\n| `capture` | `true <spec>` |\n"
+		if specs != "" {
+			specsRow = "| `specs` | `" + specs + "` |\n"
+		}
+		return "## lint\n\n```bash\necho LIST-RAN\n```\n\n## test\n\n```bash\necho LIST-RAN\n```\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/src/**` |\n| `screenshots` | `web/tests/visual` |\n" + row + "\n| Command | Runs |\n|---------|------|\n| `verify` | `" + verify + "` |\n| `capture` | `true <spec>` |\n" + specsRow
 	}
 	for _, tc := range []struct {
 		name, verify, file, decision, list string
+		specs, wantOut                     string
 		noOrigin                           bool
 		want                               int
 		ran, checkout                      bool
 	}{
-		{"a ui change runs it", "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", "test", false, 0, true, false},
-		{"a failing visual verify fails the list", "exit 1", "web/src/a.tsx", "", "test", false, 1, false, false},
-		{"a skipped visual verify", "echo VISUAL-RAN <specs>", "web/src/a.tsx", `{"visual":{"verify":"skipped","reason":"r"}}`, "test", false, 0, false, false},
-		{"a change outside ui paths", "echo VISUAL-RAN <specs>", "docs/a.md", "", "test", false, 0, false, false},
-		{"an unresolved base runs it", "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", "test", true, 0, true, false},
-		{"a lint list never runs it", "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", "lint", false, 0, false, false},
-		{"a regression checkout runs it from the change's worktree of that repo", "echo VISUAL-RAN in $PWD <specs>", "web/src/a.tsx", "", "test", false, 0, true, true},
+		{"a ui change runs it", "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", "test", "", "", false, 0, true, false},
+		{"a failing visual verify fails the list", "exit 1", "web/src/a.tsx", "", "test", "", "", false, 1, false, false},
+		{"a skipped visual verify", "echo VISUAL-RAN <specs>", "web/src/a.tsx", `{"visual":{"verify":"skipped","reason":"r"}}`, "test", "", "", false, 0, false, false},
+		{"a change outside ui paths", "echo VISUAL-RAN <specs>", "docs/a.md", "", "test", "", "", false, 0, false, false},
+		{"an unresolved base runs it", "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", "test", "", "", true, 0, true, false},
+		{"a lint list never runs it", "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", "lint", "", "", false, 0, false, false},
+		{"a regression checkout runs it from the change's worktree of that repo", "echo VISUAL-RAN in $PWD <specs>", "web/src/a.tsx", "", "test", "", "", false, 0, true, true},
+		// verify-list-runs-targeted: a `specs` row scopes the run, and never
+		// falls back to the whole suite.
+		{"specs scopes it to the mapped specs", "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "test", "test -d <frontend-root> && git rev-parse -q --verify <merge-base> >/dev/null && { echo a.spec.ts; echo b.spec.ts; }", "VISUAL-RAN [a.spec.ts b.spec.ts]", false, 0, true, false},
+		{"specs mapping nothing runs no spec", "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "test", "true <frontend-root> <merge-base>", "mapped no spec", false, 0, false, false},
+		{"a failing specs fails the list", "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "test", "exit 3", "exit 3", false, 1, false, false},
+		{"specs with an unresolved base fails the list", "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "test", "echo a.spec.ts <merge-base>", "no merge base", true, 1, false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -805,7 +815,7 @@ func TestRunVerifyListRunsTheVisualVerify(t *testing.T) {
 				git(t, app, "commit", "-q", "-m", "base")
 				git(t, app, "worktree", "add", "-q", "-b", "work", appWT)
 			}
-			writeFile(t, filepath.Join(seed, ".flow/project.md"), project(tc.verify, checkout))
+			writeFile(t, filepath.Join(seed, ".flow/project.md"), project(tc.verify, checkout, tc.specs))
 			writeFile(t, filepath.Join(seed, ".gitignore"), ".superpowers/\n")
 			git(t, base, "init", "-q", "-b", "main", seed)
 			git(t, seed, "add", "-A")
@@ -832,6 +842,9 @@ func TestRunVerifyListRunsTheVisualVerify(t *testing.T) {
 			}
 			if strings.Contains(out, "VISUAL-RAN") != tc.ran {
 				t.Fatalf("VISUAL-RAN printed = %v, want %v\n%s", !tc.ran, tc.ran, out)
+			}
+			if !strings.Contains(out, tc.wantOut) {
+				t.Fatalf("output lacks %q\n%s", tc.wantOut, out)
 			}
 			if tc.checkout && !strings.Contains(out, "VISUAL-RAN in "+appWT+"\n") {
 				t.Fatalf("the visual verify did not run from %s\n%s", appWT, out)

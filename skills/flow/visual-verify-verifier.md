@@ -13,16 +13,21 @@ never an exit code the command did not return.
    `<frontend-root>` substituted for the worktree and `<merge-base>` for its merge base — or for
    the `<frontend-root>` worktree's own round base, when the prompt names one, never another
    worktree's — and substitute the spec paths it prints, space-separated, for `verify`'s `<specs>`: the mapped specs
-   replace the checked-in suite, never extend it. An absent `specs`, an empty output or a non-zero
-   exit substitutes nothing, and `verify` runs its whole suite. A `verify` with no `<specs>` runs as
+   replace the checked-in suite, never extend it. An empty output runs no `verify` spec — the
+   report's `verify:` line reads `not run — specs mapped no spec` and step 7 reports `done`; a
+   non-zero exit blocks, printing the command and its exit, and never runs the whole suite. The
+   whole suite runs only when the operator asks for it in this run, or when `specs` is not
+   declared — then `<specs>` is emptied and `verify` runs as declared, the only run such a project
+   has. A `verify` with no `<specs>` runs as
    declared, and with `specs` declared the report names `specs: not passed — verify has no <specs>`.
    Under a round base the output feeds `verify` alone, and an empty one runs no `verify` spec — the
    report's `verify:` line reads `not run — no spec since the round base` and step 7 reports `done`; step 8 takes its capture
    spec from `specs` run against the merge base.
    **Under a round base `verify` never runs the whole suite**: a non-zero `specs` exit, or a
    `specs` with no `<merge-base>`, runs no `verify` spec, and the report's `verify:` line reads
-   `not run — specs cannot scope to the round base` and step 7 reports `done`; the whole suite runs
-   once, in the loop's closing unscoped run (**The loop**, `skills/flow/verify-fix-loop.md`).
+   `not run — specs cannot scope to the round base` and step 7 reports `done`; the specs `specs`
+   maps for the merge base run once, in the loop's closing unscoped run (**The loop**,
+   `skills/flow/verify-fix-loop.md`).
    Without a round base, a `specs` with no `<merge-base>` runs as declared, its full list,
    and the report names `specs: not scoped — specs has no <merge-base>`.
    Under a round base the `verify:` line names the count of paths `specs` printed as `<n> mapped

@@ -28,10 +28,13 @@
 # on PATH it runs bare.
 #
 # A `test` list ends with the `## visual verification` `verify` row, run once
-# after every other command, `<specs>` empty, when the worktree's diff from its
-# base branch touches a `ui paths` glob and decision.json does not record
-# `visual.verify` `skipped`; a base that does not resolve runs it, and it fails
-# the list like any other command (kan-1047).
+# after every other command, when the worktree's diff from its base branch
+# touches a `ui paths` glob and decision.json does not record `visual.verify`
+# `skipped`; a base that does not resolve runs it, and it fails the list like
+# any other command (kan-1047). A declared `specs` row runs first, its paths
+# put in `<specs>`: no path runs no spec, a non-zero exit or an unresolved
+# base fails the list, and the whole suite never runs in its place. With no
+# `specs` row, `<specs>` is emptied and the suite runs whole.
 #
 # The mechanism, and its full contract — the list, the green sha, the output
 # — is stats/internal/guard/runverifylist.go; its test is

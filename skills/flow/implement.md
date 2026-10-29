@@ -737,8 +737,10 @@ The commit carries `-m "Flow-Key: full-suite-fix-<n>"` (**Commits outside every 
 Before it is pushed, the untasked-commit check of **Commits outside every task** (`skills/flow-contracts/git-boundaries.md`) runs.
 The pair's `end` carries `-commit` with the sha `git -C <worktree> rev-parse HEAD` prints once that commit is made, never a task's commit.
 A fix for a failure that does not recur on every run is a determinism fix, held to the PROOF RUNS paragraph above: the failure is shown returning with the fix reverted before the fix is committed; one that never returns is handled as **The loop** (`skills/flow/verify-fix-loop.md`) states for an observed failure that does not reproduce.
-`run-verify-list.sh`'s `test` list ends with that section's `verify` run whole — `<specs>` empty,
-every capture — when its own worktree's diff from its base branch touches a `ui paths` glob and
+`run-verify-list.sh`'s `test` list ends with that section's `verify` run on the specs its `specs`
+row maps for the diff — none when it maps nothing, the list failing when it exits non-zero, and
+the whole suite, `<specs>` empty, only when no `specs` row is declared or the operator asks for it
+— when its own worktree's diff from its base branch touches a `ui paths` glob and
 `decision.json` does not record `visual.verify` `skipped`, its header canonical for the rest, so a
 capture a shared-component change moved fails here rather than at `flow.verify`. When only the
 `--repo` run step 2 of **Visual verification** (`skills/flow/verify-and-handoff.md`) adds exits 0,
