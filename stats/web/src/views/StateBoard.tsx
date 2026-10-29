@@ -14,6 +14,7 @@ import type { StateBoardRow } from "../api";
 import { useStatsView } from "../hooks/useStatsView";
 import { DAY_MS, formatInt, formatRelative, formatSpan, formatUsd } from "../format";
 import { projectLabel } from "../lib/projectLabel";
+import { stageLabel } from "../lib/stageLabel";
 
 const REFRESH_MS = 5000;
 const EPOCH = new Date(0);
@@ -121,14 +122,13 @@ function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
       {row.currentStage !== undefined ? (
         <div className="lb-stage">
           <span className="lb-live-dot" />
-          <span>{row.currentStage}</span>
+          <span title={row.currentStage}>{stageLabel(row.currentStage)}</span>
           {row.currentStageStartedAt && <span className="lb-muted">· {formatSpan(now - Date.parse(row.currentStageStartedAt))}</span>}
         </div>
       ) : (
         <div className="lb-stage">
-          <span>{row.lastStage ?? "no stage yet"}</span>
-          {row.lastStageEndedAt && <span className="lb-muted">· done {formatSpan(now - Date.parse(row.lastStageEndedAt))} ago</span>}
-          {row.nextCommand && <span className="lb-muted">· next {row.nextCommand}</span>}
+          <span title={row.lastStage}>{row.lastStage === undefined ? "No stage yet" : `Paused after: ${stageLabel(row.lastStage)}`}</span>
+          {row.lastStageEndedAt && <span className="lb-muted">· {formatSpan(now - Date.parse(row.lastStageEndedAt))} ago</span>}
         </div>
       )}
       <ActivityBadge row={row} now={now} />
@@ -182,7 +182,7 @@ function ChangeRow({ row, now, maxCost }: { row: StateBoardRow; now: number; max
           <span className="lb-muted">—</span>
         ) : (
           <>
-            <span className="lb-muted">{row.currentStage}</span>
+            <span className="lb-muted" title={row.currentStage}>{stageLabel(row.currentStage)}</span>
             {needsOperator(row) && (
               <>
                 {" "}

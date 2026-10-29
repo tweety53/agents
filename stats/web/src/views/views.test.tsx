@@ -425,15 +425,15 @@ describe("views render their fixture response's actual values", () => {
     expect(cards[0]).toHaveClass("needs");
     expect(cards[0]).toHaveTextContent("Awaiting your answer");
     expect(cards[0]).toHaveTextContent("Which layout?");
-    expect(cards[0]).toHaveTextContent("flow.brainstorm");
+    expect(cards[0]).toHaveTextContent("Designing the change");
     expect(cards[1]).toHaveTextContent("kan-16-stats-app");
     expect(cards[1]).not.toHaveClass("needs");
     expect(cards[1]).toHaveTextContent("Working");
-    expect(cards[1]).toHaveTextContent("flow.sdd-tdd· 30m");
+    expect(cards[1]).toHaveTextContent("Implementing tasks· 30m");
     expect(cards[1]).toHaveTextContent("tasks 20/46 · $12.50");
     // A change between stages still names its latest stage and what runs next.
     expect(cards[2]).toHaveTextContent("kan-5-old");
-    expect(cards[2]).toHaveTextContent("flow.writing-plans· done 5m ago· next /flow");
+    expect(cards[2]).toHaveTextContent("Paused after: Writing the task plan· 5m ago");
     expect(screen.getByText("Active runs", { selector: ".lb-lbl" }).nextSibling).toHaveTextContent("3");
   });
 
@@ -451,7 +451,7 @@ describe("views render their fixture response's actual values", () => {
     // with the ISO time as its title, cost, errors in red.
     const row = table.getByRole("link", { name: "kan-16-stats-app" }).closest("tr")!;
     expect(row).toHaveTextContent("IN_PROGRESS");
-    expect(row).toHaveTextContent("flow.sdd-tdd");
+    expect(row).toHaveTextContent("Implementing tasks");
     expect(within(row).getByText("+24")).toBeInTheDocument();
     expect(within(row).getByTitle("2026-01-15T10:00:00.000Z")).toHaveTextContent("2h ago");
     expect(row).toHaveTextContent("$12.50");
