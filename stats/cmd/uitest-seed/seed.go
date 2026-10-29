@@ -437,6 +437,9 @@ func seedFixture(ctx context.Context, st *store.Store) error {
 	if err := seedReviewDynamics(ctx, st); err != nil {
 		return err
 	}
+	if err := seedExperiments(ctx, st); err != nil {
+		return err
+	}
 
 	for _, g := range guardFires() {
 		if _, err := st.RecordGuardRun(ctx, g.ProjectKey, records.GuardRun{
@@ -630,6 +633,35 @@ func seedReviewDynamics(ctx context.Context, st *store.Store) error {
 		if err := st.UpsertPromptChange(ctx, pc); err != nil {
 			return fmt.Errorf("uitest-seed: prompt change %s: %w", pc.SHA, err)
 		}
+	}
+	return nil
+}
+
+// seedExperiments opens the Experiments view's two experiments (KAN-1067)
+// over the fixture's existing changes: a closed implementer experiment,
+// 2026-07-30 .. fixtureNow, whose before window [07-14, 07-30) holds the
+// changes first run in the weeks of weeklyFixtureAt and whose after window
+// holds the ones run near fixtureNow; and an open combined experiment
+// started 2026-07-01. An open experiment's windows end at the daemon's real
+// now, its before window reaching back as far as its after window reaches
+// forward, so the start sits where the before window already covers the
+// fixture's first stage run (2026-03-09, seedReviewDynamics' week -8) on
+// any day from 2026-10-23 on: the figures it draws never move again.
+func seedExperiments(ctx context.Context, st *store.Store) error {
+	closed, err := st.OpenExperiment(ctx, store.Experiment{Name: "implementer sonnet/flow-low",
+		Cells: map[string][]string{"implementer": {"sonnet/flow-low"}}, StartedAt: time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC)})
+	if err != nil {
+		return fmt.Errorf("uitest-seed: open the closed experiment: %w", err)
+	}
+	if err := st.CloseExperimentAt(ctx, closed.ID, "negative",
+		"Negative. Sonnet implementers cut tokens 22% but raised review rounds 2.2 → 3.1 and verify reds 0.6 → 1.3; wall-clock rose 26%. Table unchanged; experiment closed.",
+		fixtureNow); err != nil {
+		return fmt.Errorf("uitest-seed: close experiment %d: %w", closed.ID, err)
+	}
+	if _, err := st.OpenExperiment(ctx, store.Experiment{Name: "planning on xhigh",
+		Cells:     map[string][]string{"plan-designer": {"opus/Plan@xhigh"}, "explorer": {"sonnet/Explore@low"}},
+		StartedAt: time.Date(2026, 7, 1, 9, 0, 0, 0, time.UTC)}); err != nil {
+		return fmt.Errorf("uitest-seed: open the combined experiment: %w", err)
 	}
 	return nil
 }

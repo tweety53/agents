@@ -1,0 +1,9 @@
+# Each capture of experiments.spec.ts beside its frame of the approved
+# prototype .superpowers/sdd/experiments-prototype.html: <frame id>.png is
+# that file rendered at the capture's 1280px viewport, dark, in the same
+# state -- the open experiment selected, the closed one selected, the first
+# chart point hovered, then focused.
+experiments-open.png experiments-prototype-open
+experiments-closed.png experiments-prototype-closed
+experiments-hover.png experiments-prototype-hover
+experiments-focus.png experiments-prototype-focus

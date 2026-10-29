@@ -99,7 +99,9 @@ func sortedRoles(cells map[string][]string) []string {
 // OpenExperiment validates e and, in one transaction, inserts it and claims
 // each of its roles in experiment_roles. A role an open experiment already
 // holds refuses the whole open with ErrExperimentConflict naming the role
-// and the holder's id. It returns e with ID, StartedAt and Status set.
+// and the holder's id. It returns e with ID, StartedAt and Status set; a
+// zero e.StartedAt starts it now, a set one -- the UI-test fixture's pinned
+// instant -- at that instant.
 func (s *Store) OpenExperiment(ctx context.Context, e Experiment) (Experiment, error) {
 	if err := ValidateExperiment(e); err != nil {
 		return Experiment{}, err
@@ -108,11 +110,15 @@ func (s *Store) OpenExperiment(ctx context.Context, e Experiment) (Experiment, e
 	if err != nil {
 		return Experiment{}, fmt.Errorf("store: open experiment: marshal cells: %w", err)
 	}
+	var startedAt *time.Time
+	if !e.StartedAt.IsZero() {
+		startedAt = &e.StartedAt
+	}
 	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		if err := tx.QueryRow(ctx, `
-			INSERT INTO experiments (name, cells) VALUES ($1, $2)
+			INSERT INTO experiments (name, cells, started_at) VALUES ($1, $2, COALESCE($3, now()))
 			RETURNING id, started_at
-		`, e.Name, json.RawMessage(cells)).Scan(&e.ID, &e.StartedAt); err != nil {
+		`, e.Name, json.RawMessage(cells), startedAt).Scan(&e.ID, &e.StartedAt); err != nil {
 			return fmt.Errorf("store: open experiment: %w", err)
 		}
 		// Sorted, so two concurrent opens lock their shared roles in one order.
@@ -198,14 +204,24 @@ func (s *Store) OpenOverrides(ctx context.Context) (map[string][]string, error) 
 // id returns ErrExperimentNotOpen; a verdict outside ValidVerdicts returns
 // ErrInvalidVerdict without writing.
 func (s *Store) CloseExperiment(ctx context.Context, id int64, verdict, summary string) error {
+	return s.closeExperiment(ctx, id, verdict, summary, nil)
+}
+
+// CloseExperimentAt is CloseExperiment closing at the instant at rather
+// than now: the UI-test fixture's pinned close (cmd/uitest-seed).
+func (s *Store) CloseExperimentAt(ctx context.Context, id int64, verdict, summary string, at time.Time) error {
+	return s.closeExperiment(ctx, id, verdict, summary, &at)
+}
+
+func (s *Store) closeExperiment(ctx context.Context, id int64, verdict, summary string, at *time.Time) error {
 	if !ValidVerdicts[verdict] {
 		return fmt.Errorf("%w: %q (want positive, negative or inconclusive)", ErrInvalidVerdict, verdict)
 	}
 	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `
-			UPDATE experiments SET closed_at = now(), verdict = $2, summary = $3
+			UPDATE experiments SET closed_at = COALESCE($4, now()), verdict = $2, summary = $3
 			WHERE id = $1 AND closed_at IS NULL
-		`, id, verdict, summary)
+		`, id, verdict, summary, at)
 		if err != nil {
 			return fmt.Errorf("store: close experiment %d: %w", id, err)
 		}

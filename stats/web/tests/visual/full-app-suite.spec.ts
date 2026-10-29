@@ -18,6 +18,8 @@ const VIEWS: { view: string; label: string; query: string }[] = [
   { view: "self-review", label: "Self-review fixes", query: PINNED_QUERY },
   // The eight weeks cmd/uitest-seed's seedReviewDynamics fills.
   { view: "review-dynamics", label: "Review dynamics", query: "from=2026-05-04T00%3A00%3A00.000Z&to=2026-06-29T00%3A00%3A00.000Z" },
+  // cmd/uitest-seed's seedExperiments; the view reads no period.
+  { view: "experiments", label: "Experiments", query: PINNED_QUERY },
 ];
 
 test.describe("full app suite", () => {

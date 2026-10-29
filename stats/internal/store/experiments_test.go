@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tweety53/agents/stats/internal/store"
 )
@@ -155,5 +156,26 @@ func TestValidateExperiment(t *testing.T) {
 	}
 	if err := st.CloseExperiment(ctx, opened.ID, "great", "s"); !errors.Is(err, store.ErrInvalidVerdict) {
 		t.Errorf("CloseExperiment(verdict great) = %v, want ErrInvalidVerdict", err)
+	}
+}
+
+// TestExperimentPinnedInstants pins that a set StartedAt opens an
+// experiment at that instant and CloseExperimentAt closes it at its own --
+// the UI-test fixture's deterministic windows (cmd/uitest-seed).
+func TestExperimentPinnedInstants(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	start := time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC)
+	end := start.Add(16 * 24 * time.Hour)
+	e, err := st.OpenExperiment(ctx, store.Experiment{Name: "pinned", Cells: map[string][]string{"implementer": {"sonnet/flow-low"}}, StartedAt: start})
+	if err != nil || !e.StartedAt.Equal(start) {
+		t.Fatalf("OpenExperiment = %+v, %v; want started at %v", e, err, start)
+	}
+	if err := st.CloseExperimentAt(ctx, e.ID, "negative", "s", end); err != nil {
+		t.Fatalf("CloseExperimentAt: %v", err)
+	}
+	list, err := st.ListExperiments(ctx, false)
+	if err != nil || len(list) != 1 || !list[0].StartedAt.Equal(start) || list[0].ClosedAt == nil || !list[0].ClosedAt.Equal(end) {
+		t.Fatalf("ListExperiments = %+v, %v; want started %v closed %v", list, err, start, end)
 	}
 }

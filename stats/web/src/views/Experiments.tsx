@@ -37,7 +37,8 @@ const label = (name: string) => METRIC_LABELS[name] ?? name;
 const scale = (name: string, v: number) => (name === "tokens" ? v / 1000 : v);
 const fmt = (v: number) => (v < 10 ? v.toFixed(1) : String(Math.round(v)));
 const tipFmt = (v: number) => (v < 10 ? v.toFixed(2) : String(Math.round(v)));
-const day = (iso: string) => iso.slice(0, 10);
+// The daemon writes instants in its own zone; dates are read in UTC.
+const day = (iso: string) => new Date(iso).toISOString().slice(0, 10);
 
 function tablePairs(roles: RoleEntry[], role: string): string {
   if (role === "main") return MAIN_PAIR;
@@ -132,7 +133,7 @@ const B = 22;
 function Chart({ metric, startedAt }: { metric: ExperimentMetric; startedAt: string }) {
   const { name } = metric;
   const v = metric.series.map((p) => scale(name, p.value));
-  const lab = metric.series.map((p) => p.week.slice(5, 10));
+  const lab = metric.series.map((p) => day(p.week).slice(5));
   const n = v.length;
   const start = new Date(startedAt).getTime();
   // The first week that holds the start or follows it; n when none does.
