@@ -77,6 +77,9 @@ function inlineWhat(d: ActiveSubagent, tasks: PlanTask[] | undefined): string {
   return `${what}${d.taskId ? taskTitle(tasks, d.taskId) : ""}`;
 }
 
+/** How many of the costliest stages Cost by stage lists before folding the rest into one line. */
+const TOP_STAGES = 10;
+
 /** How many of the latest stage runs the collapsed Stage runs table shows. */
 const LATEST_RUNS = 5;
 
@@ -256,71 +259,75 @@ function WorkPanel({
         </span>
         {extra && <span className="lb-panel-note lb-phase-meta">{extra}</span>}
       </div>
-      <div className="lb-phase-sum">
-        <div className="lb-sr-now" data-testid={`${slug}-now`}>
-          <strong>Now:</strong> {nowText}
-        </div>
-        <div className="lb-sr-prog" data-testid={`${slug}-progress`}>
-          {progress.map((p, i) => (
-            <span key={p.label} className={p.state}>
-              {i > 0 && <span className="lb-muted"> → </span>}
-              {p.label}
-              {p.state === "done" ? " ✓" : p.state === "current" ? " ●" : ""}
-            </span>
-          ))}
-        </div>
-        {summary && <div data-testid={`${slug}-summary`}>{summary}</div>}
-      </div>
-      {status !== "idle" && (
-        <ul className="lb-roles">
-          {roles.map((r) => (
-            <li key={r.role} data-testid="phase-role">
-              <span className="lb-role">
-                {r.role} <span className="lb-muted">×{r.count}</span>
-              </span>
-              <span className="lb-role-models" title={r.effortUnknown ? `${r.models} -- effort unknown for some dispatches` : r.models}>
-                {r.models}
-              </span>
-              <span className="lb-num r">{r.cost === null ? <span className="lb-muted">—</span> : formatUsd(r.cost)}</span>
-              <span className="lb-role-flags">
-                {r.failed > 0 && <span className="lb-err">{r.failed} failed</span>}
-                {r.running && (
-                  <span className="lb-status">
-                    <span className="lb-dot running" />
-                    running
-                  </span>
-                )}
-              </span>
-            </li>
-          ))}
-          {roles.length === 0 && <li className="lb-muted">No dispatches yet.</li>}
-          {rest.unattributed !== null && (
-            <li data-testid="phase-role" className="lb-muted" title="priced dispatches with no recorded dispatch row">
-              <span className="lb-role">unattributed</span>
-              <span />
-              <span className="lb-num r">{formatUsd(rest.unattributed)}</span>
-              <span />
-            </li>
-          )}
-          {rest.main !== null && (
-            <li data-testid="phase-role" className="lb-muted" title="the main session's own turns: dispatching, reading reports, acting on them">
-              <span className="lb-role">main session</span>
-              <span />
-              <span className="lb-num r">{formatUsd(rest.main)}</span>
-              <span />
-            </li>
-          )}
-        </ul>
-      )}
-      {tasks && (
-        <>
-          <div className="lb-panel-h">
-            <span>Tasks</span>
-            <span className="lb-panel-note">{doneOf(tasks)}</span>
+      <div className="lb-phase-body">
+        <div className="lb-phase-main">
+          <div className="lb-phase-sum">
+            <div className="lb-sr-now" data-testid={`${slug}-now`}>
+              <strong>Now:</strong> {nowText}
+            </div>
+            <div className="lb-sr-prog" data-testid={`${slug}-progress`}>
+              {progress.map((p, i) => (
+                <span key={p.label} className={p.state}>
+                  {i > 0 && <span className="lb-muted"> → </span>}
+                  {p.label}
+                  {p.state === "done" ? " ✓" : p.state === "current" ? " ●" : ""}
+                </span>
+              ))}
+            </div>
+            {summary && <div data-testid={`${slug}-summary`}>{summary}</div>}
           </div>
-          <TaskList tasks={tasks} current={currentTask} />
-        </>
-      )}
+          {status !== "idle" && (
+            <ul className="lb-roles">
+              {roles.map((r) => (
+                <li key={r.role} data-testid="phase-role">
+                  <span className="lb-role">
+                    {r.role} <span className="lb-muted">×{r.count}</span>
+                  </span>
+                  <span className="lb-role-models" title={r.effortUnknown ? `${r.models} -- effort unknown for some dispatches` : r.models}>
+                    {r.models}
+                  </span>
+                  <span className="lb-num r">{r.cost === null ? <span className="lb-muted">—</span> : formatUsd(r.cost)}</span>
+                  <span className="lb-role-flags">
+                    {r.failed > 0 && <span className="lb-err">{r.failed} failed</span>}
+                    {r.running && (
+                      <span className="lb-status">
+                        <span className="lb-dot running" />
+                        running
+                      </span>
+                    )}
+                  </span>
+                </li>
+              ))}
+              {roles.length === 0 && <li className="lb-muted">No dispatches yet.</li>}
+              {rest.unattributed !== null && (
+                <li data-testid="phase-role" className="lb-muted" title="priced dispatches with no recorded dispatch row">
+                  <span className="lb-role">unattributed</span>
+                  <span />
+                  <span className="lb-num r">{formatUsd(rest.unattributed)}</span>
+                  <span />
+                </li>
+              )}
+              {rest.main !== null && (
+                <li data-testid="phase-role" className="lb-muted" title="the main session's own turns: dispatching, reading reports, acting on them">
+                  <span className="lb-role">main session</span>
+                  <span />
+                  <span className="lb-num r">{formatUsd(rest.main)}</span>
+                  <span />
+                </li>
+              )}
+            </ul>
+          )}
+        </div>
+        {tasks && (
+          <div className="lb-phase-tasks">
+            <div className="lb-panel-h">
+              <span>Tasks</span>
+              <span className="lb-panel-note">{doneOf(tasks)}</span>
+            </div>
+            <TaskList tasks={tasks} current={currentTask} />
+          </div>
+        )}
+      </div>
     </section>
   );
 }
@@ -527,7 +534,9 @@ export function RunDetail({ project, change }: RunDetailProps) {
           const totalCost = measuredSum([summary.totalCostUsd, subCost]);
           const byStage = new Map<string, number>();
           for (const r of runs) byStage.set(r.stage, (byStage.get(r.stage) ?? 0) + (readCostUsd(r.metrics) ?? 0));
-          const stageCost = [...byStage].sort((a, b) => b[1] - a[1]);
+          const allStageCost = [...byStage].sort((a, b) => b[1] - a[1]);
+          const stageCost = allStageCost.slice(0, TOP_STAGES);
+          const restStages = allStageCost.slice(TOP_STAGES);
           const maxStage = Math.max(0, ...stageCost.map(([, v]) => v));
           const sessionOf = (run: StageRunDTO) => sessions.find((s) => s.runs.includes(run))?.label ?? "";
 
@@ -748,6 +757,13 @@ export function RunDetail({ project, change }: RunDetailProps) {
                         <span className="r lb-num">{formatUsd(cost)}</span>
                       </div>
                     ))}
+                    {restStages.length > 0 && (
+                      <div className="lb-hbar lb-muted" data-testid="stage-cost-rest" title={restStages.map(([s]) => stageLabel(s)).join(", ")}>
+                        <span className="lb-n">{restStages.length} more</span>
+                        <span />
+                        <span className="r lb-num">{formatUsd(restStages.reduce((a, [, v]) => a + v, 0))}</span>
+                      </div>
+                    )}
                   </div>
                 </section>
               </div>

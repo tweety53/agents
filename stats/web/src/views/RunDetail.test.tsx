@@ -988,6 +988,21 @@ describe("the reworked run view (kan-1048)", () => {
     expect(verifier.querySelector(".lb-role-models")!.getAttribute("title")).toContain("effort unknown");
   });
 
+  it("run detail's Cost by stage lists the ten costliest stages and folds the rest into one line", async () => {
+    const stages = ["flow.kickoff", "flow.brainstorm", "flow.design-approval", "flow.create-artifacts", "flow.writing-plans", "flow.decide", "flow.load-context", "flow.isolate-workspace", "flow.sdd-tdd", "flow.review-panel", "flow.verify", "flow.visual-verify"];
+    listStageRunsMock.mockResolvedValue(
+      stageRunsResponse(stages.map((st, i) => run(30 + i, st, `2026-01-01T00:${String(i * 4).padStart(2, "0")}:00Z`, `2026-01-01T00:${String(i * 4 + 2).padStart(2, "0")}:00Z`, { metrics: { cost_usd: 12 - i } }))),
+    );
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const rail = await screen.findByRole("region", { name: "Cost by stage" });
+    await waitFor(() => expect(rail.querySelectorAll(".lb-hbar:not([data-testid])")).toHaveLength(10));
+    expect(rail.querySelector(".lb-hbar")).toHaveTextContent("Starting up$12.00");
+    // The two cheapest, $2 and $1, as one muted line, so the panel still sums to the stages' $78.
+    expect(within(rail).getByTestId("stage-cost-rest")).toHaveTextContent(/^2 more\$3\.00$/);
+    const sum = [...rail.querySelectorAll(".lb-hbar .lb-num")].reduce((a, e) => a + Number(e.textContent!.replace(/[^\d.]/g, "")), 0);
+    expect(sum).toBe(78);
+  });
+
   it("run detail marks main as waiting while only its subagents work", async () => {
     const waiting = { ...boardRow, activity: "working", subagents: boardRow.subagents.filter((d) => !d.inline) };
     fetchStatsViewMock.mockImplementation((view: string) =>
