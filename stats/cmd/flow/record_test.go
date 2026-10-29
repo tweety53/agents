@@ -5356,7 +5356,8 @@ func TestRecordDispatchBackfillFloorsAPanelFixAtItsRoundsReviewers(t *testing.T)
 		`{"key":"panel-0-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-23T09:20:01Z","endedAt":"2026-10-23T09:28:18Z"},` +
 		`{"key":"panel-0-tests","role":"reviewer","slot":"tests","startedAt":"2026-10-23T09:20:01Z","endedAt":"2026-10-23T09:20:39Z"},` +
 		`{"key":"panel-1-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-23T09:30:32Z","endedAt":"2026-10-23T09:30:56Z"},` +
-		`{"key":"panel-3-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-23T09:39:00Z","endedAt":"2026-10-23T09:40:00Z"}]}`
+		`{"key":"panel-3-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-23T09:39:00Z","endedAt":"2026-10-23T09:40:00Z"},` +
+		`{"key":"panel-0-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"},{"key":"panel-2-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"},{"key":"panel-3-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"}]}`
 	var bodies []map[string]any
 	recordFails := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -5792,7 +5793,7 @@ func TestRecordDispatchBeginRefusesAVisualVerifyVerifierWithoutDiffBase(t *testi
 // the change's records carry is refused, while a round at or above it, and
 // any begin whose record read fails, still records.
 func TestRecordDispatchBeginRefusesAPanelRoundBelowTheRecorded(t *testing.T) {
-	recorded := `{"change":"kan-258","passes":[{"id":1,"round":3,"note":"n"}],"dispatches":[{"key":"panel-2-primary","role":"reviewer","slot":"primary"}]}`
+	recorded := `{"change":"kan-258","passes":[{"id":1,"round":3,"note":"n"}],"dispatches":[{"key":"panel-2-primary","role":"reviewer","slot":"primary"},{"key":"panel-0-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"},{"key":"panel-2-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"},{"key":"panel-3-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"}]}`
 	begin := func(t *testing.T, record string, readStatus int, key string, extra ...string) (int, string, int) {
 		t.Helper()
 		repo := recordRepo(t, "kan-258")
@@ -6578,11 +6579,11 @@ func TestRecordDispatchBeginRefusesAVerifierBesideAnOpenMutator(t *testing.T) {
 		status, want                   int
 	}{
 		{"a visual verifier beside an open panel-fix", `{"dispatches":[{"key":"panel-fix-7","role":"panel-fix"}]}`, "verifier", "visual-verify-2", "panel-fix-7", 200, 2},
-		{"a panel-fix beside an open visual verifier", `{"findings":[{"ref":"F1","round":7,"slot":"primary","severity":"Important","note":"n","status":"open"}],"dispatches":[{"key":"visual-verify-2","role":"verifier"}]}`, "panel-fix", "panel-fix-8", "visual-verify-2", 200, 2},
+		{"a panel-fix beside an open visual verifier", `{"findings":[{"ref":"F1","round":7,"slot":"primary","severity":"Important","note":"n","status":"open"}],"dispatches":[{"key":"visual-verify-2","role":"verifier"},{"key":"panel-7-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"}]}`, "panel-fix", "panel-fix-8", "visual-verify-2", 200, 2},
 		{"a visual verifier beside an open verify-* verifier", `{"dispatches":[{"key":"verify-test-fix-1","role":"verifier"}]}`, "verifier", "visual-verify-2", "", 200, 0},
 		{"a visual verifier beside an open reviewer", `{"dispatches":[{"key":"panel-3-primary","role":"reviewer"}]}`, "verifier", "visual-verify-2", "", 200, 0},
 		{"a visual verifier after the panel-fix ended", `{"dispatches":[{"key":"panel-fix-7","role":"panel-fix",` + ended + `}]}`, "verifier", "visual-verify-2", "", 200, 0},
-		{"a panel-fix after the visual verifier ended", `{"findings":[{"ref":"F1","round":7,"slot":"primary","severity":"Important","note":"n","status":"open"}],"dispatches":[{"key":"visual-verify-2","role":"verifier",` + ended + `}]}`, "panel-fix", "panel-fix-8", "", 200, 0},
+		{"a panel-fix after the visual verifier ended", `{"findings":[{"ref":"F1","round":7,"slot":"primary","severity":"Important","note":"n","status":"open"}],"dispatches":[{"key":"visual-verify-2","role":"verifier",` + ended + `},{"key":"panel-7-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"}]}`, "panel-fix", "panel-fix-8", "", 200, 0},
 		{"a failed read skips the check", `{"error":"boom"}`, "verifier", "visual-verify-2", "", 500, 0},
 	}
 	for _, c := range cases {
@@ -6812,7 +6813,8 @@ func TestRecordDispatchRefusesAPanelFixKeyedARoundLow(t *testing.T) {
 	fixtureCommit(t, repo, "2026-10-28T02:40:00Z")
 	sha := fixtureCommit(t, repo, "2026-10-28T02:48:46Z")
 	record := `{"change":"kan-258","findings":[{"ref":"F1","round":5,"slot":"primary","severity":"Important","note":"n","status":"open"}],"dispatches":[` +
-		`{"key":"panel-5-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-28T02:45:33Z","endedAt":"2026-10-28T02:47:03Z"}]}`
+		`{"key":"panel-5-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-28T02:45:33Z","endedAt":"2026-10-28T02:47:03Z"},` +
+		`{"key":"panel-4-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"},{"key":"panel-5-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"}]}`
 	var posts int
 	recordFails := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -6967,8 +6969,8 @@ func panelFixBegin(t *testing.T, record, key, token string, extra ...string) (in
 
 func TestRecordDispatchRefusesPanelFixWithoutFindings(t *testing.T) {
 	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
-	minor := `{"change":"kan-258","findings":[{"ref":"F1","round":1,"slot":"primary","severity":"Minor","note":"n","status":"open"}]}`
-	important := `{"change":"kan-258","findings":[{"ref":"F1","round":1,"slot":"primary","severity":"important","note":"n","status":"open"}]}`
+	minor := `{"change":"kan-258","findings":[{"ref":"F1","round":1,"slot":"primary","severity":"Minor","note":"n","status":"open"}],"dispatches":[{"key":"panel-1-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"}]}`
+	important := `{"change":"kan-258","findings":[{"ref":"F1","round":1,"slot":"primary","severity":"important","note":"n","status":"open"}],"dispatches":[{"key":"panel-1-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"}]}`
 	t.Run("a Minor-only round is refused", func(t *testing.T) {
 		code, stderr, posts := panelFixBegin(t, minor, "panel-fix-2", "mf-pf-a")
 		if code != 2 || posts != 0 || !strings.Contains(stderr, "round 1") || !strings.Contains(stderr, "flow record finding -from") {
@@ -6992,7 +6994,7 @@ func TestRecordDispatchRefusesReusedPanelFixKey(t *testing.T) {
 	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
 	rec := func(outcome string) string {
 		return `{"change":"kan-258","findings":[{"ref":"F1","round":0,"slot":"primary","severity":"Important","note":"n","status":"open"}],` +
-			`"dispatches":[{"key":"panel-fix-1","role":"panel-fix","model":"opus","sessionToken":"mf-pf-other","outcome":"` + outcome + `","startedAt":"2026-10-27T12:00:00Z"}]}`
+			`"dispatches":[{"key":"panel-fix-1","role":"panel-fix","model":"opus","sessionToken":"mf-pf-other","outcome":"` + outcome + `","startedAt":"2026-10-27T12:00:00Z"},{"key":"panel-0-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"}]}`
 	}
 	t.Run("another session's key is refused", func(t *testing.T) {
 		code, stderr, posts := panelFixBegin(t, rec("completed"), "panel-fix-1", "mf-pf-mine")
@@ -7096,9 +7098,11 @@ func TestRecordDispatchBackfillRefusesPanelFixOverOpenRound(t *testing.T) {
 	fixtureCommit(t, repo, "2026-10-28T14:37:39Z")
 	sha := fixtureCommit(t, repo, "2026-10-28T14:41:35Z")
 	open := `{"change":"kan-258","dispatches":[` +
-		`{"key":"panel-1-primary","agentId":"a1","role":"reviewer","slot":"primary","startedAt":"2026-10-28T14:38:10Z"}]}`
+		`{"key":"panel-1-primary","agentId":"a1","role":"reviewer","slot":"primary","startedAt":"2026-10-28T14:38:10Z"},` +
+		`{"key":"panel-1-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"}]}`
 	closed := `{"change":"kan-258","dispatches":[` +
-		`{"key":"panel-1-primary","agentId":"a1","role":"reviewer","slot":"primary","startedAt":"2026-10-28T14:38:10Z","endedAt":"2026-10-28T14:40:55Z"}]}`
+		`{"key":"panel-1-primary","agentId":"a1","role":"reviewer","slot":"primary","startedAt":"2026-10-28T14:38:10Z","endedAt":"2026-10-28T14:40:55Z"},` +
+		`{"key":"panel-1-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"}]}`
 	var record string
 	var bodies []map[string]any
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -7408,7 +7412,8 @@ func TestRecordDispatchRefusesAReReviewOverAnOffRoundPanelFixTrailer(t *testing.
 	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
 	record := `{"change":"kan-258","dispatches":[` +
-		`{"key":"panel-4-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-28T02:45:33Z","endedAt":"2026-10-28T02:47:03Z"}]}`
+		`{"key":"panel-4-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-28T02:45:33Z","endedAt":"2026-10-28T02:47:03Z"},` +
+		`{"key":"panel-4-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"}]}`
 	var peer string
 	posts := 0
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -7492,7 +7497,7 @@ func TestRecordDispatchRefusesAReReviewBeforeItsMutationRows(t *testing.T) {
 		{"only a Minor fixed finding", finding("Minor"), ``, nil, 0},
 		{"a back-fill", finding("Important"), ``, []string{"-started-at", "2026-10-28T02:55:00Z"}, 0},
 	} {
-		record = `{"change":"kan-258","findings":[` + tc.finding + `],"mutations":[` + tc.mutations + `],"dispatches":[` + reviewer + `]}`
+		record = `{"change":"kan-258","findings":[` + tc.finding + `],"mutations":[` + tc.mutations + `],"dispatches":[` + reviewer + `,{"key":"panel-4-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"}]}`
 		posts = 0
 		args := append([]string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", "panel-5-primary", "-slot", "primary",
@@ -7504,6 +7509,83 @@ func TestRecordDispatchRefusesAReReviewBeforeItsMutationRows(t *testing.T) {
 		}
 		if tc.want == 2 && (posts != 0 || !strings.Contains(stderr.String(), "round 4") || !strings.Contains(stderr.String(), "flow record mutation -round 5")) {
 			t.Errorf("%s: posts %d, stderr %q; want none and a message naming round 4 and the remedy", tc.name, posts, stderr.String())
+		}
+	}
+}
+
+// TestRecordDispatchRefusesAFixOrReReviewBeforeItsRoundsMerger pins the
+// kan-1045 self-review fix, F-C (decision merger-enforced-at-begin): a
+// panel-fix-1, live or back-filled, and a live reviewer of round 1 are
+// refused while round 0 holds no completed panel-0-merger row.
+func TestRecordDispatchRefusesAFixOrReReviewBeforeItsRoundsMerger(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	const finding = `{"ref":"F1","round":0,"slot":"primary","severity":"Important","note":"n","status":"open"}`
+	const reviewer = `{"key":"panel-0-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-28T02:45:33Z","endedAt":"2026-10-28T02:47:03Z","outcome":"completed"}`
+	merger := func(tail string) string {
+		return `{"key":"panel-0-merger","role":"merger","startedAt":"2026-10-28T02:48:00Z"` + tail + `}`
+	}
+	completed := merger(`,"endedAt":"2026-10-28T02:49:00Z","outcome":"completed"`)
+	record := func(dispatches ...string) string {
+		return `{"change":"kan-258","findings":[` + finding + `],"dispatches":[` + strings.Join(dispatches, ",") + `]}`
+	}
+	backfill := []string{"-started-at", "2026-10-28T03:00:00Z", "-ended-at", "2026-10-28T03:10:00Z", "-outcome", "completed"}
+	for _, tc := range []struct {
+		name, record string
+		extra        []string
+		want         int
+	}{
+		{"no merger row", record(reviewer), nil, 2},
+		{"a completed merger row", record(reviewer, completed), nil, 0},
+		{"an open merger row", record(reviewer, merger(``)), nil, 2},
+		{"a failed merger row", record(reviewer, merger(`,"endedAt":"2026-10-28T02:49:00Z","outcome":"failed"`)), nil, 2},
+		{"a back-fill with no merger row", record(reviewer), backfill, 2},
+		{"a failed record read", `not json`, nil, 0},
+	} {
+		code, stderr, posts := panelFixBegin(t, tc.record, "panel-fix-1", "mf-pf-merger", tc.extra...)
+		if code != tc.want {
+			t.Errorf("panel-fix, %s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.want, stderr)
+		}
+		if tc.want == 2 && (posts != 0 || !strings.Contains(stderr, "panel-0-merger")) {
+			t.Errorf("panel-fix, %s: posts %d, stderr %q; want none and a message naming panel-0-merger", tc.name, posts, stderr)
+		}
+	}
+
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	var rec string
+	posts := 0
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
+			_, _ = w.Write([]byte(rec))
+			return
+		}
+		if r.Method == http.MethodGet {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		posts++
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"reviewer","model":"opus"}`))
+	}))
+	t.Cleanup(srv.Close)
+	for _, tc := range []struct {
+		name, key, record string
+		want              int
+	}{
+		{"a re-review with no merger row", "panel-1-primary", record(reviewer), 2},
+		{"a re-review after a completed merger", "panel-1-primary", record(reviewer, completed), 0},
+		{"round 0 is never checked", "panel-0-primary", record(), 0},
+	} {
+		rec = tc.record
+		posts = 0
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), []string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", tc.key, "-slot", "primary",
+			"-session-token", "mf-record-merger", "-effort", "default"}, strings.NewReader(""), &stdout, &stderr)
+		if code != tc.want {
+			t.Errorf("%s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.want, stderr.String())
+		}
+		if tc.want == 2 && (posts != 0 || !strings.Contains(stderr.String(), "panel-0-merger")) {
+			t.Errorf("%s: posts %d, stderr %q; want none and a message naming panel-0-merger", tc.name, posts, stderr.String())
 		}
 	}
 }

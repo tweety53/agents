@@ -758,6 +758,8 @@ pass.
 ### The findings merger
 
 **The parent reads a round's findings through one findings merger, never the reports one by one.**
+`flow record dispatch begin` refuses a `panel-fix-<r>` row, and a reviewer row of panel round `<r>`,
+while round `<r-1>` holds no completed `panel-<r-1>-merger` row (kan-1045 self-review, F-C).
 Once every dispatch of the round has ended — its `end` recorded, every role's report file
 confirmed under **Recording findings**, the plan-tree and content-marker `verify` passed, and on a
 re-run every `check-rerun-citations.sh` settled — the parent dispatches one merger: a one-shot that

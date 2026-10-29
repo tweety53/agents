@@ -1199,6 +1199,18 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	if *startedAt == "" && !panelFixKeyedARoundLow(ctx, f, projectKey, *role, *key, time.Now(), stderr) {
 		return 2
 	}
+	// A panel-fix, live or back-filled, begins only once its round's
+	// findings were read through one completed findings merger (decision
+	// merger-enforced-at-begin); a failed read refuses nothing.
+	if m := panelFixRoundRE.FindStringSubmatch(*key); m != nil && panelFixKeyRE.MatchString(*key) {
+		run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+			return cl.GetRunRecord(ctx, projectKey, f.change)
+		})
+		if r, _ := strconv.Atoi(m[1]); err == nil && mergerMissing(run, r-1) {
+			fmt.Fprintf(stderr, "flow: -key %q: %s\n", *key, mergerMissingMsg(r-1))
+			return 2
+		}
+	}
 	// A panel-fix fixes review round <r>-1 (skills/flow/review-panel-fix-round.md),
 	// so it begins only once that round holds a Critical or Important row,
 	// and never under a key another session of the change already used
@@ -3761,6 +3773,9 @@ func reReviewBlocked(ctx context.Context, f recordIdentityFlags, projectKey stri
 	if err != nil {
 		return ""
 	}
+	if mergerMissing(run, r-1) {
+		return mergerMissingMsg(r - 1)
+	}
 	if reviewedRoundUnproved(run, r-1) {
 		return fmt.Sprintf("round %d holds a fixed Critical or Important finding and no fix-mutation row -- record one `flow record mutation -round %d` per fix-mutation line, or one `-mutated none -test <reason>` row, before the re-review (skills/flow/review-panel-fix-round.md)", r-1, r)
 	}
@@ -3991,6 +4006,20 @@ var panelFixKeyRE = regexp.MustCompile(`^panel-fix-[1-9][0-9]*(-[0-9]+)?(-retry)
 
 // panelFixRoundRE captures a panel-fix key's round.
 var panelFixRoundRE = regexp.MustCompile(`^panel-fix-([0-9]+)`)
+
+// mergerMissing reports whether run holds no panel-<round>-merger dispatch
+// of role merger that ended completed (decision merger-enforced-at-begin).
+func mergerMissing(run records.Run, round int) bool {
+	key := fmt.Sprintf("panel-%d-merger", round)
+	return !slices.ContainsFunc(run.Dispatches, func(d records.Dispatch) bool {
+		return d.Key == key && d.Role == "merger" && d.EndedAt != nil && d.Outcome == "completed"
+	})
+}
+
+// mergerMissingMsg is mergerMissing's refusal for round.
+func mergerMissingMsg(round int) string {
+	return fmt.Sprintf("round %d holds no completed panel-%d-merger row -- the parent reads a round's findings through one findings merger before it fixes or re-reviews them (skills/flow/review-panel.md)", round, round)
+}
 
 // panelFixBeginRefusal is why run refuses a panel-fix begin under key, whose
 // round is round, from session token — "" when it is admitted: review round
