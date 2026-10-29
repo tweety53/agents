@@ -53,7 +53,8 @@ ledger line, which remains the only evidence of the model a dispatch actually ra
 slot is a prompt-driven role
 (**The roster**, `skills/flow/review-panel.md`) and takes its dispatch's model the same way every
 other slot does. The findings merger, which reviews nothing, runs on the fixed pair
-**The findings merger** (`skills/flow/review-panel.md`) names.
+**The findings merger** (`skills/flow/review-panel.md`) names, and every gated per-task reviewer
+bundle on `opus` at `medium`, fixed, as `skills/flow/implement.md` states.
 
 **Every subagent dispatch records the model it used** in the SDD ledger, alongside the task it ran.
 See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`) for why, and for the history

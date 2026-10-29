@@ -920,9 +920,11 @@ the discipline **Bundled dispatch** (`skills/flow/review-panel.md`) applies to p
 dispatches: every gate-fired task goes to the whole-branch panel as review focus instead
 (the GATE FOCUS paragraph of **Bundled dispatch**, `skills/flow/review-panel.md`).
 **The bundle is the implementer group**: at a boundary, every task of group N+1 whose gate fired
-goes out in one reviewer Agent call beside group N+2's implementer, on `opus` at the panel roll's
-effort, never `high` — a first-pass review, per **Model and effort**
-(`skills/flow/brainstorm-planner.md`). On harnesses `zcode` and `muse`, **Harness mapping**
+goes out in one reviewer Agent call beside group N+2's implementer, on `opus` at `medium`, always
+— fixed whatever the roll, per **Model and effort** (`skills/flow/brainstorm-planner.md`) — its
+prompt opening with the line `Role: gated per-task reviewer`, the marker
+`hooks/enforce-agent-baseline.py` pins this pair on; an original, fix re-review and handshake
+retry bundle alike. On harnesses `zcode` and `muse`, **Harness mapping**
 (`skills/flow-contracts/model-policy.md`) replaces it, as it does every pair. Each task inside the bundle keeps its own pass: its own
 commit-range diff `git diff <task-sha>^..<task-sha>` — a real commit diff, never a snapshot of
 the working tree, which the next implementer is editing — its own verdict and its own report
@@ -944,9 +946,25 @@ of its bundle-mates.
 **Load `skills/flow/gated-review-fix.md` only when** a gated reviewer pass closes `fix` — it
 carries that fix path.
 
+**Each pass is a primary pass, scoped to its task.** The bundle carries
+`skills/flow/primary-reviewer-prompt.md` once, every placeholder but the three per-task ones
+filled per the placeholder table of `skills/flow/review-panel.md`.
+Each **PASS task-`<n>`** section gives that pass's values for the three, which are its Scope
+fields:
+
+- `[DIFF_PATH]` — `<abs-worktree>/.superpowers/sdd/task-<n>.diff`, the parent's
+  `git diff <task-sha>^..<task-sha>` written there before the Agent call; on a fix re-review,
+  `task-<n>-fix-<k>.diff`, of the range `skills/flow/gated-review-fix.md` names;
+- `[CONTEXT_BUNDLE_PATHS]` — `<abs-worktree>/.superpowers/sdd/task-<n>-context.md`, which the
+  parent writes before the Agent call: that task's own `tasks.md` entry verbatim, then each
+  `design.md` and `proposal.md` section the entry cites, verbatim — never the change's context
+  bundle;
+- `[ARTIFACT_PATHS]` — the absolute paths of the change's `proposal.md`, `design.md` and
+  `tasks.md`, as the table states them.
+
 Every gated reviewer bundle dispatch **must** carry the shared paragraphs below once, then one
-**PASS task-`<n>`** section per gate-fired task in plan order, each carrying that task's record
-from `tasks.md`, its diff range `git diff <task-sha>^..<task-sha>` and its own REPORT FILE line:
+**PASS task-`<n>`** section per gate-fired task in plan order, each carrying its three Scope values
+and its own REPORT FILE line:
 
 > **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
 > system prompt>` and nothing else on that line. Answer it before any tool call.
