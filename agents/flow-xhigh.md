@@ -1,6 +1,6 @@
 ---
 name: flow-xhigh
-description: Flow role at xhigh effort — defined for later use; no contract dispatches it yet and the agent-baseline hook refuses a dispatch on it; pass `model` at dispatch time.
+description: Flow role at xhigh effort — defined for later use; no contract dispatches it — the agent-baseline hook admits it only on a pair an open allowed-pairs experiment names; pass `model` at dispatch time.
 effort: xhigh
 tools: Read, Glob, Grep, Bash, Write, Edit, ToolSearch
 ---
