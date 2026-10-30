@@ -691,7 +691,7 @@ func TestCloseTaskShimExportsTheRebuildsScriptDir(t *testing.T) {
 func TestCloseTaskRunsPlanShapeOnInRunFix(t *testing.T) {
 	t.Parallel()
 	fix := func(files string) string {
-		return ctPlan + "\n- [ ] 4. In-run fix 1 — visual-verify: x\n\n**Files:** " + files + "\n**Tests:** none\n**Commit:** four\n**Build:** green\n"
+		return ctPlan + "\n- [ ] 4. In-run fix 1 — visual-verify: x\n\n**Files:** " + files + "\n**Tests:** none\n**Commit:** four\n**Opener:** ¤visual-verify¤\n**Build:** green\n"
 	}
 	const f21 = "is an in-run visual-verify fix whose **Files:** omits"
 	for _, c := range []struct {

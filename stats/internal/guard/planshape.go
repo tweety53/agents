@@ -19,9 +19,9 @@ import (
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
 // judges its commits (check-task-commit-fields) can actually read it. Twenty-three
-// findings, F1-F23 (F1-F6's canonical definitions, decisions and rationale:
+// findings, F1-F24 (F1-F6's canonical definitions, decisions and rationale:
 // spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-md-at-plan/
-// design.md -- not restated here; F7-F23's are the rows below).
+// design.md -- not restated here; F7-F24's are the rows below).
 //
 // The guard reads the plan with the very grammar the commit guard reads it
 // with -- tcfParseTask, tcfTaskIDs, tcfIterTasks, tcfSelectTask,
@@ -192,6 +192,12 @@ import (
 //	    commit -- check-task-commit-planning-paths' exemption (kan-1048
 //	    self-review, 1-E). F14 still names the all-planning case. Reported
 //	    at the field's line, once per entry.
+//	F24 A task titled `In-run fix <k> — …`, any stage, with no **Opener:**
+//	    field, or whose **Opener:** value another such task before it names
+//	    too: one verifier report opens one round, every defect it names one
+//	    task of it (skills/flow/verify-fix-loop.md step 1; decision
+//	    one-report-one-round-opener). Reported at the task's title line --
+//	    for a shared opener, the second task's.
 //
 // A duplicate task id is check-task-build-green's violation, not this
 // guard's: tcfTaskIDs keeps the first occurrence, and every per-task read
@@ -401,6 +407,7 @@ func (p *psPlan) check() []string {
 	v = append(v, p.baseDeclared(ids)...)
 	v = append(v, p.sweepScope()...)
 	v = append(v, p.prototypeCapture()...)
+	v = append(v, p.inRunOpeners(ids)...)
 	return append(v, p.designSections()...)
 }
 
@@ -489,6 +496,35 @@ func (p *psPlan) prototypeCapture() []string {
 		return nil
 	}
 	return []string{p.at(first.taskLine, "F22 design.md cites a prototype and this task touches `ui paths` (`"+uiPath+"`), but no task's **Files:** names a capture under `"+shots+"/` — plan the capture spec driving every interactive state the prototype draws (skills/flow/brainstorm-planner.md)")}
+}
+
+// psInRunFixRE is F24's title: an in-run fix task of any stage.
+var psInRunFixRE = regexp.MustCompile(`^\s*- \[.\] \S+\s+In-run fix [0-9]+ — `)
+
+// inRunOpeners is F24: every in-run fix task names the report that opened
+// its round, and no two name the same one.
+func (p *psPlan) inRunOpeners(ids []string) []string {
+	if !p.on("F24") {
+		return nil
+	}
+	var v []string
+	seen := map[string]string{}
+	for _, id := range ids {
+		found := tcfSelectTask(p.lines, id)
+		if !psInRunFixRE.MatchString(p.lines[found.taskLine-1]) {
+			continue
+		}
+		opener := strings.TrimSpace(strings.Join(tcfBodyFields(found.lines)["Opener"], " "))
+		switch first, shared := seen[opener]; {
+		case opener == "":
+			v = append(v, p.at(found.taskLine, "task "+id+" is an in-run fix with no **Opener:** field — name the verifier report that opened its round (skills/flow/verify-fix-loop.md step 1) (F24)"))
+		case shared:
+			v = append(v, p.at(found.taskLine, "task "+id+"'s **Opener:** "+opener+" is task "+first+"'s too — one report opens one round, every defect it names a task of that round (skills/flow/verify-fix-loop.md step 1) (F24)"))
+		default:
+			seen[opener] = id
+		}
+	}
+	return v
 }
 
 // psVisualFixRE is F21's title: an in-run fix task of the visual-verify loop.
