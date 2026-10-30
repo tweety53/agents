@@ -5,6 +5,10 @@
 // stage runs beside a Cost by stage rail. It carries no filter of any kind
 // (board-chip-filters-run-none).
 //
+// A /flow-interactive session's view (KAN-1061) swaps the Tasks slot for its
+// Requests, Main's phases for the followed request's steps, and leads Stage
+// runs with a Request column.
+//
 // The KPI strip's cost and input-token figures come from useRunDetail's
 // cost-per-change aggregate, never from summing the stage runs this
 // component renders -- see hooks/useRunDetail.ts's own header comment for
@@ -26,6 +30,7 @@ import { taskCount } from "../lib/taskCount";
 import { SR_STEPS, selfReviewNow, srStep, type SrStep } from "../lib/selfReviewNow";
 import { STAGE_PHASE, type Phase } from "../lib/phase";
 import { mainNow, mainProgress, mainSummary, type ProgressState } from "../lib/mainNow";
+import { currentRequest, focusRequest, isInteractive, requestStart, requestSteps } from "../lib/interactive";
 import { findChanges, getRunRecord, listSelfReviewFindings, listStageRuns, listStages, type ActiveSubagent, type PlanTask, type RecordDispatch, type SelfReviewFinding, type StageRunDTO } from "../api";
 
 export interface RunDetailProps {
@@ -390,6 +395,70 @@ function TaskList({ tasks, current }: { tasks: PlanTask[]; current: number[] }) 
   );
 }
 
+/** A request's mark and the class its line takes, by its state and outcome. */
+function requestLook(t: PlanTask): { cls: string; mark: string } {
+  if (t.state === "in progress") return { cls: "current", mark: "●" };
+  if (t.state === "pending") return { cls: "queued", mark: "○" };
+  return t.outcome === "dropped" ? { cls: "dropped", mark: "–" } : { cls: t.outcome ?? "landed", mark: "✓" };
+}
+
+/** An interactive session's requests in the Tasks slot (KAN-1061): each with its mark, its short commit or outcome, and its brainstorm reason under it. */
+function RequestsPanel({ tasks, order }: { tasks: PlanTask[]; order: number }) {
+  return (
+    <section className="lb-panel lb-tasks-panel" aria-label="Requests" style={{ order }}>
+      <div className="lb-panel-h">
+        <span>Requests</span>
+        <span className="lb-panel-note">{doneOf(tasks)}</span>
+      </div>
+      <ul className="lb-reqs">
+        {tasks.map((t) => {
+          const { cls, mark } = requestLook(t);
+          return (
+            <li key={t.n} className={cls} aria-current={cls === "current" ? "step" : undefined}>
+              <span className="m">{mark}</span>
+              <span className="t">
+                {t.n}. {t.title}
+              </span>
+              {cls === "landed" ? (
+                <span className="lb-num">{t.commit}</span>
+              ) : cls === "queued" ? (
+                <span className="lb-muted">queued</span>
+              ) : (
+                <span>{cls === "current" ? "" : cls}</span>
+              )}
+              {t.reason && <span className="why">brainstormed — {t.reason}</span>}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+/** An interactive session's Main panel: the request it follows, how long since that request's first stage began, and that request's steps. */
+function RequestMainPanel({ runs, n, now, order }: { runs: StageRunDTO[]; n: number | undefined; now: number; order: number }) {
+  const start = n === undefined ? undefined : requestStart(runs, n);
+  return (
+    <section className="lb-panel" aria-label="Main" style={{ order }}>
+      <div className="lb-panel-h">
+        <span>Main</span>
+        {n !== undefined && <span className="lb-panel-note">{`Request ${n}${start === undefined ? "" : ` · ${formatSpan(now - start)}`}`}</span>}
+      </div>
+      {n !== undefined && (
+        <div className="lb-panel-b">
+          <ul className="lb-steps">
+            {requestSteps(runs, n).map((s) => (
+              <li key={s.stage} className={s.state === "done" ? "done" : s.state === "current" ? "cur" : undefined}>
+                {stageLabel(s.stage)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
 const doneOf = (tasks: PlanTask[]) => `${tasks.filter((t) => t.state === "done").length}/${tasks.length}`;
 
 /** A self-review's Now line, progress over its steps, summary and current task, from its dispatches, plan and findings. */
@@ -485,7 +554,16 @@ export function RunDetail({ project, change }: RunDetailProps) {
   }, [command]);
   const ran = new Set(runs0.map((r) => r.stage));
   const furthest = Math.max(-1, ...order.map((s, i) => (ran.has(s) ? i : -1)));
-  const upcoming = command ? order.slice(furthest + 1).filter((s) => !ran.has(s)) : [];
+  // An interactive session's upcoming lanes are its followed request's stages still to run.
+  const interactive = board !== undefined && isInteractive(board);
+  const focus = interactive ? focusRequest(board, runs0) : undefined;
+  const upcoming = interactive
+    ? board.state === "FINISHED" || focus === undefined
+      ? []
+      : requestSteps(runs0, focus).filter((s) => s.state === "todo").map((s) => s.stage)
+    : command
+      ? order.slice(furthest + 1).filter((s) => !ran.has(s))
+      : [];
 
   // The phase panels' dispatches and the self-review findings, refetched on the board's cadence.
   const [dispatches, setDispatches] = useState<RecordDispatch[]>([]);
@@ -628,7 +706,8 @@ export function RunDetail({ project, change }: RunDetailProps) {
             effort: readEffort(mainRun.metrics) ?? undefined,
             since: inline?.startedAt ?? (openRun ? openRun.startedAt : (mainRun.endedAt ?? mainRun.startedAt)),
           };
-          const nowTask = board ? runningTask(board) : null;
+          const request = interactive ? currentRequest(board) : undefined;
+          const nowTask = request ? `Request ${request.n}: ${request.title}` : board ? runningTask(board) : null;
           const count = board && taskCount(board);
           const agentCount = subagents.length + (mainAgent ? 1 : 0);
           const mainStatus: AgentStatus =
@@ -674,6 +753,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   hint={
                     <>
                       {openRun &&
+                        !interactive &&
                         `for ${formatSpan(now - Date.parse(openRun.startedAt))}${
                           count?.total !== undefined ? ` · tasks ${count.done}/${count.total}` : ""
                         }`}
@@ -770,6 +850,24 @@ export function RunDetail({ project, change }: RunDetailProps) {
 
                   {isSub ? (
                     <WorkPanel title="Main" runs={runs0} steps={steps} now={now} nowText={srView.nowText} progress={srView.progress} summary={srView.summary} order={1} />
+                  ) : interactive ? (
+                    <>
+                      <RequestMainPanel runs={runs0} n={focus} now={now} order={1} />
+                      {srStarted && (
+                        <WorkPanel
+                          title="Self-review"
+                          runs={srRuns}
+                          steps={srSteps}
+                          now={now}
+                          order={3}
+                          open={srPanelOpen}
+                          onToggle={() => setSrToggled(!srPanelOpen)}
+                          nowText={srView.nowText}
+                          progress={srView.progress}
+                          summary={srView.summary}
+                        />
+                      )}
+                    </>
                   ) : (
                     <>
                       <WorkPanel
@@ -811,7 +909,12 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   )}
                 </div>
                 <div className="lb-work-col">
-                  {board?.tasks && <TasksPanel title="Tasks" tasks={board.tasks} current={isSub ? [srView.currentTask ?? 0] : mainCurrentTasks} order={2} />}
+                  {board?.tasks &&
+                    (interactive ? (
+                      <RequestsPanel tasks={board.tasks} order={2} />
+                    ) : (
+                      <TasksPanel title="Tasks" tasks={board.tasks} current={isSub ? [srView.currentTask ?? 0] : mainCurrentTasks} order={2} />
+                    ))}
                   {!isSub && board?.selfReviewTasks && (
                     <TasksPanel title="Self-review tasks" tasks={board.selfReviewTasks} current={[srView.currentTask ?? 0]} open={srPanelOpen} order={4} />
                   )}
@@ -867,6 +970,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                     truncated={state.truncated}
                     totalStageRuns={state.totalStageRuns}
                     records={dispatches}
+                    requests={interactive}
                   />
                 </section>
                 <section className="lb-panel" aria-label="Cost by stage">

@@ -6,6 +6,8 @@
 // (model-version-effort), and a row's dispatches opening beneath it. It is a
 // plain table, not DataTable, because DataTable cannot draw group rows under
 // one header (grouped-tables-own-markup).
+// A /flow-interactive session's table instead leads with a Request column
+// and lists its runs newest first, ungrouped (the `requests` prop, KAN-1061).
 //
 // Every reader from metrics.ts is routed through Unavailable, so an
 // unmeasured metric on an otherwise-measured run reads as unavailable, not
@@ -215,7 +217,7 @@ const outcomeLook = (o: string) => (o === "running" ? "open" : o === "failed" ||
  * to it as one tinted group, sliding in and out in CSS (closing keeps them
  * mounted until their closing animation ends); one dispatch is the row itself.
  */
-function StageRunRow({ run, now, records, showStage }: { run: StageRunDTO; now: number; records: Map<string, RecordDispatch>; showStage: boolean }) {
+function StageRunRow({ run, now, records, showStage, requests }: { run: StageRunDTO; now: number; records: Map<string, RecordDispatch>; showStage: boolean; requests: boolean }) {
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const toggle = () => {
@@ -244,6 +246,7 @@ function StageRunRow({ run, now, records, showStage }: { run: StageRunDTO; now: 
   return (
     <>
       <tr className={`lb-row${expandable ? " expandable" : ""}${open ? " open" : ""}`} onClick={() => expandable && toggle()}>
+        {requests && <td className="lb-rq">{run.request === undefined ? "" : `R${run.request}`}</td>}
         <td title={name}>
           {expandable ? (
             <button
@@ -312,6 +315,7 @@ function StageRunRow({ run, now, records, showStage }: { run: StageRunDTO; now: 
               data-testid={open ? "dispatch-row" : undefined}
               onAnimationEnd={() => setClosing(false)}
             >
+              {requests && <td>{cell(null)}</td>}
               <td className="lb-dispatch-name" title={`agent ${d.agentId}`}>
                 {cell(
                   <>
@@ -347,10 +351,13 @@ export interface StageRunTableProps {
   totalStageRuns?: number;
   /** The change's recorded dispatches, which give a dispatch row its key, outcome and timing. */
   records?: RecordDispatch[];
+  /** A /flow-interactive session's table (KAN-1061): a leading Request column reading R<n>, rows newest first with no session group rows. */
+  requests?: boolean;
 }
 
-export function StageRunTable({ stageRuns, truncated, totalStageRuns, records = [] }: StageRunTableProps) {
+export function StageRunTable({ stageRuns, truncated, totalStageRuns, records = [], requests = false }: StageRunTableProps) {
   const now = Date.now();
+  const columns = requests ? 8 : 7;
   const byAgent = new Map(records.filter((d) => d.agentId).map((d) => [d.agentId!, d]));
   return (
     <>
@@ -363,6 +370,7 @@ export function StageRunTable({ stageRuns, truncated, totalStageRuns, records = 
       <div className="lb-scroll">
         <table className="lb-table lb-runs">
           <colgroup>
+            {requests && <col className="c-rq" />}
             <col />
             <col className="c-out" />
             <col className="c-start" />
@@ -373,6 +381,7 @@ export function StageRunTable({ stageRuns, truncated, totalStageRuns, records = 
           </colgroup>
           <thead>
             <tr>
+              {requests && <th>Request</th>}
               <th>Stage</th>
               <th>Outcome</th>
               <th className="r">Started</th>
@@ -385,19 +394,23 @@ export function StageRunTable({ stageRuns, truncated, totalStageRuns, records = 
           <tbody>
             {stageRuns.length === 0 && (
               <tr>
-                <td colSpan={7} className="lb-muted">
+                <td colSpan={columns} className="lb-muted">
                   No stage runs recorded for this change.
                 </td>
               </tr>
             )}
-            {groupSessions(stageRuns).map((s) => (
-              <Fragment key={s.label}>
-                <SessionRow session={s} now={now} />
-                {s.runs.map((r) => (
-                  <StageRunRow key={r.stageRunId} run={r} now={now} records={byAgent} showStage={new Set(s.runs.map((x) => x.stage)).size > 1} />
+            {requests
+              ? [...stageRuns]
+                  .sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt))
+                  .map((r) => <StageRunRow key={r.stageRunId} run={r} now={now} records={byAgent} showStage={false} requests />)
+              : groupSessions(stageRuns).map((s) => (
+                  <Fragment key={s.label}>
+                    <SessionRow session={s} now={now} />
+                    {s.runs.map((r) => (
+                      <StageRunRow key={r.stageRunId} run={r} now={now} records={byAgent} showStage={new Set(s.runs.map((x) => x.stage)).size > 1} requests={false} />
+                    ))}
+                  </Fragment>
                 ))}
-              </Fragment>
-            ))}
           </tbody>
         </table>
       </div>

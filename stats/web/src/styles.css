@@ -783,6 +783,21 @@ th button {
 .lb-run .lb-phase-sum { padding: 5px 10px 0; }
 .lb-run .lb-roles { padding: 3px 10px 5px; }
 .lb-run .lb-tasks { padding: 4px 10px; }
+/* An interactive session's run view (KAN-1061), from its approved prototype. */
+.lb-reqs { list-style: none; margin: 0; padding: 6px 12px; display: grid; gap: 3px; font-size: 12px; line-height: 1.35; }
+.lb-reqs li { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 6px; align-items: baseline; }
+.lb-reqs .t { overflow-wrap: anywhere; }
+.lb-reqs .landed { color: var(--text-muted); } .lb-reqs .landed .m { color: var(--status-ok); }
+.lb-reqs .answered { color: var(--text-muted); } .lb-reqs .answered .m { color: var(--series-1); }
+.lb-reqs .dropped { color: var(--text-muted); } .lb-reqs .dropped .t { text-decoration: line-through; }
+.lb-reqs .current { font-weight: 600; } .lb-reqs .current .m { color: var(--status-ok); }
+.lb-reqs .queued .m { color: var(--text-muted); }
+.lb-reqs .why { grid-column: 2 / 4; font-size: 11px; color: var(--series-3); font-weight: 400; }
+.lb-steps { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
+.lb-steps li { font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted); }
+.lb-steps li.done { color: var(--status-ok); border-color: var(--status-ok); }
+.lb-steps li.cur { color: var(--st-progress); border-color: var(--st-progress); font-weight: 600; }
+.lb-runs .lb-rq { color: var(--text-secondary); font-family: var(--font-mono); }
 
 /* A long free-text detail (a Bash command line) cut to one line, whole on hover. */
 /* min-width lets a flex item shrink below its text; max-width lets a table cell. */
