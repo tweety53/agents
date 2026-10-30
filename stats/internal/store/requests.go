@@ -21,14 +21,18 @@ import (
 // the store is touched, so the route answers 400 rather than 500.
 var ErrInvalidRequest = errors.New("store: invalid request record")
 
-// requestColumns is what every request read returns, in scanRequest's
-// order. Its last column is whether any stage run carries the request --
+// requestStarted is whether any stage run carries the request --
 // requestState's started input. It is written against the requests table
-// by name, so it serves a RETURNING clause and a SELECT alike.
+// by name, so it serves a RETURNING clause, a SELECT and the live-state
+// board's aggregate alike.
+const requestStarted = `EXISTS (SELECT 1 FROM stage_runs sr WHERE sr.change_id = requests.change_id AND sr.request_n = requests.n)`
+
+// requestColumns is what every request read returns, in scanRequest's
+// order, its last column requestStarted.
 const requestColumns = `
 	requests.n, requests.title, requests.brainstorm_reason, requests.received_at, requests.ended_at,
 	COALESCE(requests.outcome, ''), COALESCE(requests.commit_sha, ''), COALESCE(requests.base_sha, ''),
-	EXISTS (SELECT 1 FROM stage_runs sr WHERE sr.change_id = requests.change_id AND sr.request_n = requests.n)`
+	` + requestStarted
 
 func scanRequest(row rowScanner) (records.Request, error) {
 	var (

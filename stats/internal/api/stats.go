@@ -756,12 +756,12 @@ type taskDTO struct {
 func requestTasks(reqs []records.Request) []taskDTO {
 	var out []taskDTO
 	for _, r := range reqs {
-		t := taskDTO{N: r.N, Title: r.Title, State: "pending", Outcome: r.Outcome, Commit: r.CommitSHA, Reason: r.BrainstormReason}
-		switch {
-		case r.Outcome != "":
-			t.State = "done"
-		case r.State == "in progress":
+		t := taskDTO{N: r.N, Title: r.Title, State: "done", Outcome: r.Outcome, Commit: r.CommitSHA, Reason: r.BrainstormReason}
+		switch r.State {
+		case "in progress":
 			t.State = "in progress"
+		case "queued":
+			t.State = "pending"
 		}
 		if len(t.Commit) > 7 {
 			t.Commit = t.Commit[:7]

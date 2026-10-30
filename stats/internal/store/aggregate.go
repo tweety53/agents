@@ -226,13 +226,13 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 		) staged ON true
 		LEFT JOIN LATERAL (
 			SELECT COALESCE(jsonb_agg(jsonb_build_object(
-			         'n', rq.n, 'title', rq.title, 'brainstormReason', rq.brainstorm_reason,
-			         'receivedAt', rq.received_at, 'endedAt', rq.ended_at, 'outcome', COALESCE(rq.outcome, ''),
-			         'commitSha', COALESCE(rq.commit_sha, ''), 'baseSha', COALESCE(rq.base_sha, ''),
-			         'started', EXISTS (SELECT 1 FROM stage_runs sr WHERE sr.change_id = c.id AND sr.request_n = rq.n)
-			       ) ORDER BY rq.n), '[]'::jsonb) AS list
-			FROM requests rq
-			WHERE rq.change_id = c.id
+			         'n', requests.n, 'title', requests.title, 'brainstormReason', requests.brainstorm_reason,
+			         'receivedAt', requests.received_at, 'endedAt', requests.ended_at, 'outcome', COALESCE(requests.outcome, ''),
+			         'commitSha', COALESCE(requests.commit_sha, ''), 'baseSha', COALESCE(requests.base_sha, ''),
+			         'started', `+requestStarted+`
+			       ) ORDER BY requests.n), '[]'::jsonb) AS list
+			FROM requests
+			WHERE requests.change_id = c.id
 		) reqs ON true
 		LEFT JOIN session_activity sa ON sa.session_id = COALESCE(open_run.session_id, last_run.session_id)
 		LEFT JOIN LATERAL (
