@@ -7,7 +7,7 @@
 // zero-length, and the header totals come from the server's own
 // cost-per-change aggregate -- never from summing the (possibly partial)
 // page of stage runs the interface holds.
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -1123,6 +1123,22 @@ describe("the reworked run view (kan-1048)", () => {
     runRecordMock.mockImplementation(() => Promise.resolve({ dispatches: [] }));
     findChangesMock.mockResolvedValue({ records: [] });
     listFindingsMock.mockImplementation(() => Promise.resolve([]));
+  });
+
+  it("run detail stops refreshing a finished change", async () => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"], now: NOW });
+    const done = { ...boardRow, state: "FINISHED", subagents: [] };
+    fetchStatsViewMock.mockImplementation((view: string) =>
+      Promise.resolve(view === "state-board" ? { ...aggregateEnvelope([]), view, rows: [done] } : aggregateEnvelope([])),
+    );
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    await act(async () => {});
+    await act(async () => {});
+    const runs = listStageRunsMock.mock.calls.length;
+    const records = runRecordMock.mock.calls.length;
+    await act(async () => vi.advanceTimersByTime(15000));
+    expect(listStageRunsMock.mock.calls.length).toBe(runs);
+    expect(runRecordMock.mock.calls.length).toBe(records);
   });
 
   it("run detail shows the latest decision's roles under Cost by stage", async () => {

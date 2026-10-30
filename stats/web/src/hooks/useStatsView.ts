@@ -13,13 +13,15 @@ export type StatsViewState<Row> =
   | { status: "error"; message: string }
   | { status: "ready"; data: StatsResponse<Row> };
 
-export function useStatsView<Row>(view: StatsViewSlug, params: StatsViewParams): StatsViewState<Row> {
+/** `enabled` false holds the fetch -- the state stays loading -- until a caller needs the view. */
+export function useStatsView<Row>(view: StatsViewSlug, params: StatsViewParams, enabled = true): StatsViewState<Row> {
   const [state, setState] = useState<StatsViewState<Row>>({ status: "loading" });
 
   const fromMs = params.from.getTime();
   const toMs = params.to.getTime();
 
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
     setState({ status: "loading" });
     fetchStatsView<Row>(view, params)
@@ -41,7 +43,7 @@ export function useStatsView<Row>(view: StatsViewSlug, params: StatsViewParams):
     // the dashboard bar's model variable re-requests this view -- omitting
     // it here would leave the view showing the previous model's rows until
     // some other dependency happened to change too.
-  }, [view, fromMs, toMs, params.project, params.breakdown, params.change, params.model, params.class]);
+  }, [view, fromMs, toMs, params.project, params.breakdown, params.change, params.model, params.class, enabled]);
 
   return state;
 }

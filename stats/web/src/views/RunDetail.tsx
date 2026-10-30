@@ -602,6 +602,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
       : [];
 
   // The phase panels' dispatches and the self-review findings, refetched on the board's cadence.
+  const finished = board?.state === "FINISHED";
   const [dispatches, setDispatches] = useState<RecordDispatch[]>([]);
   const [findings, setFindings] = useState<SelfReviewFinding[]>([]);
   const [decision, setDecision] = useState<Decision | null>(null);
@@ -619,12 +620,13 @@ export function RunDetail({ project, change }: RunDetailProps) {
         .catch(() => live && setFindings([]));
     };
     load();
-    const id = setInterval(load, 5000);
+    // A finished change's record no longer moves: read it once.
+    const id = finished ? undefined : setInterval(load, 5000);
     return () => {
       live = false;
       clearInterval(id);
     };
-  }, [project, change]);
+  }, [project, change, finished]);
   const [allRuns, setAllRuns] = useState(false);
   const [timelineOpen, setTimelineOpen] = useState(false);
   // The self-review sub-run, change self-review-<name> in whichever project hosts the tooling: its

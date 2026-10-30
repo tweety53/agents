@@ -113,8 +113,11 @@ export function useRunDetail(project: string, change: string): RunDetailState {
   const [tick, setTick] = useState(0);
 
   // Live like the state board: refetch every REFRESH_MS while the tab is
-  // shown, at once when it is shown again.
+  // shown, at once when it is shown again -- until the change is finished,
+  // when nothing it shows moves any more.
+  const finished = state.status === "ready" && state.board?.state === "FINISHED";
   useEffect(() => {
+    if (finished) return;
     const refresh = () => document.hidden || setTick((t) => t + 1);
     const id = setInterval(refresh, REFRESH_MS);
     document.addEventListener("visibilitychange", refresh);
@@ -122,7 +125,7 @@ export function useRunDetail(project: string, change: string): RunDetailState {
       clearInterval(id);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, []);
+  }, [finished]);
 
   // A new change starts from loading; a refresh keeps the shown data.
   useEffect(() => setState({ status: "loading" }), [project, change]);

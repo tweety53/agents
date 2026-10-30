@@ -470,11 +470,12 @@ describe("views render their fixture response's actual values", () => {
     render(<StateBoard />);
     const table = within(await screen.findByRole("table"));
     const groups = table.getAllByRole("row").filter((r) => r.classList.contains("lb-group"));
-    expect(groups.map((g) => g.textContent)).toEqual(["▾Integrating & review1", "▾Planning & implementing1", "▾Finished1"]);
-    // Finished starts collapsed; its row shows once the group is opened.
+    // Finished starts collapsed and unloaded; opening it loads its rows.
+    expect(groups.map((g) => g.textContent)).toEqual(["▾Integrating & review1", "▾Planning & implementing1", "▾Finished—"]);
     expect(table.queryByRole("link", { name: "kan-31-replan-fold" })).not.toBeInTheDocument();
     await user.click(groups[2]);
-    expect(table.getByRole("link", { name: "kan-31-replan-fold" })).toBeInTheDocument();
+    expect(await table.findByRole("link", { name: "kan-31-replan-fold" })).toBeInTheDocument();
+    expect(table.getAllByRole("row").filter((r) => r.classList.contains("lb-group")).map((g) => g.textContent)[2]).toBe("▾Finished1");
     // A row: state pill, current stage, tasks with growth, relative update
     // with the ISO time as its title, cost; no errors column.
     const row = table.getByRole("link", { name: "kan-16-stats-app" }).closest("tr")!;
@@ -502,6 +503,10 @@ describe("views render their fixture response's actual values", () => {
     await screen.findByRole("table");
     // The prototype's tile sums every change whatever chip, tile or search is set.
     const cost = () => screen.getByText("Cost in period", { selector: ".lb-lbl" }).nextSibling!.textContent;
+    // It waits for the finished changes, which load on demand.
+    expect(cost()).toBe("—");
+    await user.click(screen.getByRole("row", { name: /^▾Finished/ }));
+    await waitFor(() => expect(cost()).not.toBe("—"));
     const tile = within(screen.getByRole("group", { name: "Updated" }));
     await user.click(tile.getByRole("button", { name: "All" }));
     const all = cost();
@@ -542,6 +547,10 @@ describe("views render their fixture response's actual values", () => {
     await act(async () => {});
     const periods = () => fetchStatsViewMock.mock.calls.map((c) => [(c[1] as { from: Date }).from.getTime(), (c[1] as { to: Date }).to.getTime()]);
     const DAY = 24 * 60 * 60 * 1000;
+    // Nothing finished loads until the Finished group opens.
+    expect(periods()).toEqual([[BOARD_NOW.getTime() + DAY, BOARD_NOW.getTime() + DAY]]);
+    fireEvent.click(screen.getByRole("row", { name: /^▾Finished/ }));
+    await act(async () => {});
     // The open poll asks for an empty period -- the store adds every unfinished change -- and finished ones come from the 30d window.
     expect(periods()).toEqual(expect.arrayContaining([[BOARD_NOW.getTime() + DAY, BOARD_NOW.getTime() + DAY], [BOARD_NOW.getTime() - 30 * DAY, BOARD_NOW.getTime() + DAY]]));
     const before = periods().length;
@@ -561,6 +570,8 @@ describe("views render their fixture response's actual values", () => {
       Promise.resolve({ ...fixtures["state-board"], rows: isPoll(p) ? open : rows }),
     );
     render(<StateBoard />);
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("row", { name: /^▾Finished/ }));
     await act(async () => {});
     const reads = () => fetchStatsViewMock.mock.calls.filter((c) => !isPoll(c[1])).length;
     const first = reads();

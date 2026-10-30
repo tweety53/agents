@@ -6,6 +6,7 @@
 package api
 
 import (
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -156,6 +157,32 @@ func withDaemonHeader(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+// withGzip gzips a GET response under /api/ for a client that accepts it:
+// the SPA's polls are repetitive JSON, the live state board's finished read
+// ~170 KB of it. Static assets are left alone, so range requests on them
+// keep working.
+func withGzip(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || !strings.HasPrefix(r.URL.Path, "/api/") || !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Add("Vary", "Accept-Encoding")
+		zw := gzip.NewWriter(w)
+		defer zw.Close()
+		next.ServeHTTP(gzipWriter{ResponseWriter: w, w: zw}, r)
+	})
+}
+
+// gzipWriter sends a response's body through its gzip writer.
+type gzipWriter struct {
+	http.ResponseWriter
+	w *gzip.Writer
+}
+
+func (g gzipWriter) Write(b []byte) (int, error) { return g.w.Write(b) }
 
 // Server is flowd's HTTP server.
 type Server struct {
@@ -441,7 +468,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 			// contract, and internal/client's fallback decision depends
 			// on that header being present on exactly that class of
 			// response -- a deliberate 400, not an unreachable store.
-			Handler:           withDaemonHeader(rejectEncodedSlash(mux)),
+			Handler:           withDaemonHeader(withGzip(rejectEncodedSlash(mux))),
 			ReadHeaderTimeout: readHeaderTimeout,
 			ReadTimeout:       readTimeout,
 			WriteTimeout:      writeTimeout,

@@ -324,16 +324,20 @@ export function StateBoard() {
 
   // Only open changes are polled: an empty period still lists every
   // unfinished change, which the store adds whatever the period. Finished
-  // ones are read once per Updated chip -- inside the widest bounded chip
-  // unless All is chosen -- and again whenever a polled change drops out of
-  // the open set, which is a change finishing. Each period is half-open, so
+  // ones load on demand -- the Finished group opened or its tile pressed --
+  // then once per Updated chip, inside the widest bounded chip unless All is
+  // chosen, and again whenever a polled change drops out of the open set,
+  // which is a change finishing. Each period is half-open, so
   // it ends a day past its instant: a change updated then is still in it.
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ FINISHED: true });
+  const wantFinished = useRef(false);
+  if (!(collapsed.FINISHED ?? false) || filters.states.has("FINISHED")) wantFinished.current = true;
   const live = new Date(now + DAY_MS);
   const polled = useStatsView<StateBoardRow[]>("state-board", { from: live, to: live, project: undefined });
   const [finishedAt, setFinishedAt] = useState(now);
   const from = filters.period === "All" ? EPOCH : new Date(finishedAt - PERIOD_MINUTES["30d"] * 60000);
-  const finished = useStatsView<StateBoardRow[]>("state-board", { from, to: new Date(finishedAt + DAY_MS), project: undefined });
+  const finished = useStatsView<StateBoardRow[]>("state-board", { from, to: new Date(finishedAt + DAY_MS), project: undefined }, wantFinished.current);
   // A refresh keeps showing the last answer while the next one loads.
   const lastOpen = useRef<StateBoardRow[] | null>(null);
   const lastFinished = useRef<StateBoardRow[] | null>(null);
@@ -353,8 +357,8 @@ export function StateBoard() {
     last.current = [...lastOpen.current, ...(lastFinished.current ?? []).filter((r) => !open.has(rowKey(r)))].filter((r) => !isPipelineFix(r));
   }
   const fetched = polled.status === "error" ? polled : finished;
-
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ FINISHED: true });
+  // Until the finished changes load, what counts them reads "—" rather than an open-only figure.
+  const finishedLoaded = lastFinished.current !== null;
 
   const rows = last.current;
   const heading = (
@@ -440,7 +444,7 @@ export function StateBoard() {
         {STATES.map((s) => (
           <button key={s} type="button" className={`lb-tile ${s}`} aria-pressed={filters.states.has(s)} onClick={() => toggleState(s)}>
             <span className="lb-lbl">{STATE_LABEL[s]}</span>
-            <span className="lb-val lb-num">{base.filter((r) => r.state === s).length}</span>
+            <span className="lb-val lb-num">{s === "FINISHED" && !finishedLoaded ? "—" : base.filter((r) => r.state === s).length}</span>
           </button>
         ))}
         <div className="lb-tile static">
@@ -449,7 +453,7 @@ export function StateBoard() {
         </div>
         <div className="lb-tile static">
           <span className="lb-lbl">Cost in period</span>
-          <span className="lb-val lb-num">{formatUsd(rows.reduce((a, r) => a + PERIOD_COST[filters.period](r), 0))}</span>
+          <span className="lb-val lb-num">{finishedLoaded ? formatUsd(rows.reduce((a, r) => a + PERIOD_COST[filters.period](r), 0)) : "—"}</span>
         </div>
       </div>
       <section className="lb-panel" aria-label="Active runs">
@@ -493,7 +497,8 @@ export function StateBoard() {
               )}
               {STATES.map((s) => {
                 const group = shown.filter((r) => r.state === s).sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
-                if (group.length === 0) return null;
+                const pending = s === "FINISHED" && !finishedLoaded;
+                if (group.length === 0 && !pending) return null;
                 const isCollapsed = collapsed[s] ?? false;
                 const toggle = () => setCollapsed((c) => ({ ...c, [s]: !isCollapsed }));
                 return (
@@ -508,7 +513,7 @@ export function StateBoard() {
                       <td colSpan={10}>
                         <span className="lb-caret">▾</span>
                         {STATE_LABEL[s]}
-                        <span className="lb-cnt">{group.length}</span>
+                        <span className="lb-cnt">{pending ? "—" : group.length}</span>
                       </td>
                     </tr>
                     {!isCollapsed && group.map((r) => <ChangeRow key={`${r.projectKey}/${r.name}`} row={r} now={now} maxCost={maxCost} />)}
