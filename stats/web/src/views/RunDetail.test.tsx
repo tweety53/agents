@@ -1281,6 +1281,23 @@ describe("interactive run view", () => {
     expect(screen.getByRole("group", { name: "Now running" })).toHaveTextContent("Request 7: Show the stage's model on the Agents row");
   });
 
+  it("interactive run view reads a session between requests as waiting for the next one", async () => {
+    const idle = {
+      ...board, currentStage: undefined, currentStageStartedAt: undefined, lastStage: "flow.visual-verify", lastStageEndedAt: at(11), sessionSeenAt: at(0),
+      tasks: board.tasks.slice(0, 6),
+    };
+    listStageRunsMock.mockResolvedValue(stageRunsResponse(r6));
+    fetchStatsViewMock.mockImplementation((view: string) => Promise.resolve(view === "state-board" ? { ...aggregateEnvelope([]), view, rows: [idle] } : aggregateEnvelope([])));
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const main = (await screen.findByRole("cell", { name: "Main" })).closest("tr")!;
+    expect(main).toHaveTextContent("waiting for the next request");
+    expect(main.querySelector(".lb-dot.idle")).not.toBeNull();
+    const kpi = screen.getByRole("group", { name: "Now running" });
+    expect(kpi).toHaveTextContent("Waiting for the next request");
+    expect(kpi).not.toHaveTextContent("Working between stages");
+    expect(kpi.querySelector(".lb-live-dot")).toBeNull();
+  });
+
   it("interactive run view lays Requests and Cost by stage in its right column", async () => {
     load([...r6, ...r7]);
     render(<RunDetail project={PROJECT} change={CHANGE} />);

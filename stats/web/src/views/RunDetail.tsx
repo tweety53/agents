@@ -32,7 +32,7 @@ import { taskCount } from "../lib/taskCount";
 import { SR_STEPS, selfReviewNow, srStep, type SrStep } from "../lib/selfReviewNow";
 import { STAGE_PHASE, type Phase } from "../lib/phase";
 import { mainNow, mainProgress, mainSummary, type ProgressState } from "../lib/mainNow";
-import { currentRequest, focusRequest, isInteractive, requestStart, requestSteps } from "../lib/interactive";
+import { currentRequest, focusRequest, interactiveWaiting, isInteractive, requestStart, requestSteps } from "../lib/interactive";
 import { findChanges, getRunRecord, listSelfReviewFindings, listStageRuns, listStages, type ActiveSubagent, type PlanTask, type RecordDispatch, type SelfReviewFinding, type StageRunDTO } from "../api";
 
 export interface RunDetailProps {
@@ -699,8 +699,10 @@ export function RunDetail({ project, change }: RunDetailProps) {
           const lastRun = [...runs].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt))[0];
           const betweenStages = !openRun && lastRun && board !== undefined && (sessionAlive(board, now) || board.activity === "question" || board.activity === "permission");
           const mainRun = openRun ?? (betweenStages ? lastRun : undefined);
+          // An interactive session with no request in progress and no stage open waits for the operator's next one.
+          const waitingNext = interactive && interactiveWaiting(board);
           const mainAgent = mainRun && {
-            what: inline ? inlineWhat(inline, board?.tasks) : openRun ? `${stageLabel(openRun.stage)}${board && mainAction(board) ? ` · ${mainAction(board)}` : board && agentsDone(board) ? ", wrapping up after its agents" : ""}` : (board?.activity === "working" && board.activityDetail ? board.activityDetail : `between stages, after ${stageLabel(mainRun.stage)}`),
+            what: waitingNext ? "waiting for the next request" : inline ? inlineWhat(inline, board?.tasks) : openRun ? `${stageLabel(openRun.stage)}${board && mainAction(board) ? ` · ${mainAction(board)}` : board && agentsDone(board) ? ", wrapping up after its agents" : ""}` : (board?.activity === "working" && board.activityDetail ? board.activityDetail : `between stages, after ${stageLabel(mainRun.stage)}`),
             model: inline
               ? formatModel(inline.modelVersion ?? inline.model)
               : (readMainModels(mainRun.metrics)?.map(formatModel).join(", ") ?? "—"),
@@ -711,8 +713,9 @@ export function RunDetail({ project, change }: RunDetailProps) {
           const nowTask = request ? `Request ${request.n}: ${request.title}` : board ? runningTask(board) : null;
           const count = board && taskCount(board);
           const agentCount = subagents.length + (mainAgent ? 1 : 0);
-          const mainStatus: AgentStatus =
-            board?.activity === "question" || board?.activity === "permission"
+          const mainStatus: AgentStatus = waitingNext
+            ? "idle"
+            : board?.activity === "question" || board?.activity === "permission"
               ? "needs-you"
               : board !== undefined && effectiveActivity(board) === "idle"
                 ? "idle"
@@ -823,6 +826,10 @@ export function RunDetail({ project, change }: RunDetailProps) {
                       <>
                         <span className="lb-live-dot" /> <span title={openRun.stage}>{stageLabel(openRun.stage)}</span>
                       </>
+                    ) : waitingNext ? (
+                      <>
+                        <span className="lb-ring" /> Waiting for the next request
+                      </>
                     ) : betweenStages ? (
                       <>
                         <span className="lb-live-dot" /> Working between stages
@@ -843,7 +850,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                     </>
                   }
                 >
-                  {(openRun || betweenStages) && board && <ActivityBadge row={board} now={now} />}
+                  {(openRun || betweenStages) && !waitingNext && board && <ActivityBadge row={board} now={now} />}
                 </Kpi>
                 <Kpi
                   label="Total cost"
