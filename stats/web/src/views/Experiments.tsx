@@ -185,7 +185,7 @@ function Chart({ metric, startedAt }: { metric: ExperimentMetric; startedAt: str
         </g>
       ))}
       {xl.map((i) => (
-        <text key={i} x={x(i)} y={H - 6} textAnchor="middle" fontSize="9" fill="var(--text-muted)">
+        <text key={i} x={x(i)} y={H - 6} textAnchor={n > 1 && i === n - 1 ? "end" : n > 1 && i === 0 ? "start" : "middle"} fontSize="9" fill="var(--text-muted)">
           {lab[i]}
         </text>
       ))}

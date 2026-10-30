@@ -1635,6 +1635,16 @@ describe("Experiments", () => {
     }
   });
 
+  it("Experiments anchors a chart's end x-axis labels inside the plot", async () => {
+    render(<Experiments />);
+    const trend = await screen.findByRole("region", { name: "Weekly trend — before vs after start" });
+    for (const chart of await within(trend).findAllByRole("img")) {
+      const labels = [...chart.querySelectorAll("text")].filter((t) => /^\d\d-\d\d$/.test(t.textContent ?? ""));
+      expect(labels[0]).toHaveAttribute("text-anchor", "start");
+      expect(labels[labels.length - 1]).toHaveAttribute("text-anchor", "end");
+    }
+  });
+
   it("Experiments draws a mean-after line with no before mean as neutral", async () => {
     fetchExperimentStatsMock.mockReset().mockResolvedValue(stats(3, [{ name: "tokens", before: null, after: 60000 }]));
     render(<Experiments />);
