@@ -52,7 +52,7 @@ func TestBundleAssemblyRendersStoreSources(t *testing.T) {
 		},
 	}
 
-	bundle, err := Bundle("demo", run, "", false, false, "", []string{"/repo"}, g)
+	bundle, err := Bundle("demo", run, "", false, false, "", []string{"/repo"}, nil, g)
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestBundleAssemblyRendersStoreSources(t *testing.T) {
 func TestBundleAssemblySkipsAbsentSources(t *testing.T) {
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", nil, g)
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", nil, nil, g)
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestBundleAssemblySkipsAbsentSources(t *testing.T) {
 func TestBundleAssemblyNotesUnreadableRepo(t *testing.T) {
 	bogus := filepath.Join(t.TempDir(), "not-a-repo")
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{bogus}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{bogus}, nil, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -150,7 +150,7 @@ func TestUnreadableRepoProbeIsGitDir(t *testing.T) {
 		},
 	}
 
-	if _, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, g); err != nil {
+	if _, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, nil, g); err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
 
@@ -169,7 +169,7 @@ func TestBundleAssemblyReadsArchivedFilesThroughGit(t *testing.T) {
 		"narrative.md": "# demo narrative\n",
 	})
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, nil, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -199,7 +199,7 @@ func TestBundleServesArchivedVisualVerification(t *testing.T) {
 		"visual-verification.md": "# Visual verification — demo\n",
 	})
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, nil, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -224,7 +224,7 @@ func TestBundleServesArchivedLiveVerification(t *testing.T) {
 		"live-verification.md": "# Live verification — demo\n",
 	})
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, nil, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -250,7 +250,7 @@ func TestBundleElidesMatrixRowsUnderAnyMatrixHeading(t *testing.T) {
 			"### Departures\n\n| element | departure |\n|---|---|\n| bar | colour |\n",
 	})
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, nil, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -278,7 +278,7 @@ func TestBundleElidesBandsSeamsAndInkSections(t *testing.T) {
 			"## Ink (runs through each band)\n\nINK-LINE\n\n## Motions\n\nMOTION-LINE\n\n### Q1 sweeps (rows, ink)\n\nSWEEP-LINE\n",
 	})
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, nil, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -313,7 +313,7 @@ func TestBundleElidesMatrixRowsAndPNGStatLines(t *testing.T) {
 			"### Notes\n\n```md\n#### FENCED-HEADING\n| FENCED-ROW | kept |\n```\n\n## Motions\n",
 	})
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, nil, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -345,7 +345,7 @@ func TestBundleAssemblyDerivesFinishCommits(t *testing.T) {
 		"chore(spectre): plan and session records")
 	archiveSHA := writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "# demo tasks\n"})
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, nil, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -379,7 +379,7 @@ func TestBundleAssemblyGitLogFallsBackToChangeBranch(t *testing.T) {
 	implSHA := commitAll(t, repo, "app.go", "package main\n", "feat(demo): do the thing")
 	runGit(t, repo, "checkout", "main")
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, nil, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -413,7 +413,7 @@ func TestBundleAssemblyGitLogHonoursRecordedBase(t *testing.T) {
 	runGit(t, repo, "config", "branch.demo.flowBase", "feature")
 	runGit(t, repo, "checkout", "main")
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, nil, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -435,7 +435,7 @@ func TestBundleAssemblyGitLogStaysAbsentWhenBranchMissing(t *testing.T) {
 	runGit(t, repo, "update-ref", "refs/remotes/origin/main", "main")
 	runGit(t, repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, nil, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -458,7 +458,7 @@ func TestBundleAssemblyFallsBackToCommittedRecords(t *testing.T) {
 		"panel.md":  "# Review panel — demo\n",
 	})
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, nil, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -510,7 +510,7 @@ func TestBundleAssemblyPrefersStoreRenderOverCommittedRecord(t *testing.T) {
 		}},
 	}
 
-	bundle, err := Bundle("demo", run, "", false, false, "", []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", run, "", false, false, "", []string{repo}, nil, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -536,7 +536,7 @@ func TestBundleAssemblySkipsCommittedRecordsWhenAbsent(t *testing.T) {
 	repo := gitRepo(t)
 	writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "# demo tasks\n"})
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, nil, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -683,7 +683,7 @@ func TestBundleAssemblyListsEveryCommitOfArchivedRerun(t *testing.T) {
 		"chore(spectre): plan demo")
 	runGit(t, repo, "checkout", "main")
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, nil, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -722,7 +722,7 @@ func TestBundleAssemblyReadsArchiveFromBaseAfterMerge(t *testing.T) {
 			runGit(t, repo, "branch", "-D", "spectre/demo")
 			runGit(t, repo, "update-ref", "refs/remotes/origin/main", tc.originAt)
 
-			bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, ExecRunner{})
+			bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, nil, ExecRunner{})
 			if err != nil {
 				t.Fatalf("Bundle: %v", err)
 			}
@@ -737,7 +737,7 @@ func TestBundleAssemblyReadsArchiveFromBaseAfterMerge(t *testing.T) {
 
 func TestBundleRefusesInvalidName(t *testing.T) {
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
-	if _, err := Bundle("../escape", records.Run{}, "", false, false, "", nil, g); err == nil {
+	if _, err := Bundle("../escape", records.Run{}, "", false, false, "", nil, nil, g); err == nil {
 		t.Fatal("an invalid change name must be refused, not assembled")
 	}
 }
@@ -876,7 +876,7 @@ func TestBundleGitBudgetCapsSlowRepository(t *testing.T) {
 	runner := ExecRunner{Bound: 300 * time.Millisecond, Deadline: time.Now().Add(500 * time.Millisecond)}
 
 	start := time.Now()
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", repos, runner)
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", repos, nil, runner)
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -897,7 +897,7 @@ func TestBundleServesRecordedSummaryFirst(t *testing.T) {
 	run := records.Run{Change: "demo"}
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
 
-	bundle, err := Bundle("demo", run, "# Change summary\n\nwhat changed and why", true, false, "", nil, g)
+	bundle, err := Bundle("demo", run, "# Change summary\n\nwhat changed and why", true, false, "", nil, nil, g)
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -927,7 +927,7 @@ func TestBundleServesRecordedSummaryFirst(t *testing.T) {
 func TestBundleSkipsAbsentSummary(t *testing.T) {
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", nil, g)
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", nil, nil, g)
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -946,7 +946,7 @@ func TestBundleSkipsAbsentSummary(t *testing.T) {
 func TestBundleNamesRecordsLossWhenPanelRanWithoutDispatches(t *testing.T) {
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, true, "", nil, g)
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, true, "", nil, nil, g)
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -970,7 +970,7 @@ func TestBundleNamesRecordsLossWhenPanelRanWithoutDispatches(t *testing.T) {
 func TestBundleNoRecordsLossNoteWhenPanelDidNotRun(t *testing.T) {
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", nil, g)
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", nil, nil, g)
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -987,7 +987,7 @@ func TestBundleNoRecordsLossNoteWhenDispatchesExist(t *testing.T) {
 	}
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
 
-	bundle, err := Bundle("demo", run, "", false, true, "", nil, g)
+	bundle, err := Bundle("demo", run, "", false, true, "", nil, nil, g)
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -1019,7 +1019,7 @@ func TestBundleAssemblyLogsEveryMergeOrderPeer(t *testing.T) {
 		"link.md":  "## Merge order\n\n1. `.`\n2. `front`\n",
 	})
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, nil, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -1032,7 +1032,7 @@ func TestBundleAssemblyLogsEveryMergeOrderPeer(t *testing.T) {
 func TestBundleNamesTheServingBuild(t *testing.T) {
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "build 02a3d012e12a (2026-10-18T20:46:11Z)", nil, g)
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "build 02a3d012e12a (2026-10-18T20:46:11Z)", nil, nil, g)
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -1040,11 +1040,83 @@ func TestBundleNamesTheServingBuild(t *testing.T) {
 		t.Errorf("no build note:\n%s", bundle)
 	}
 
-	bundle, err = Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", nil, g)
+	bundle, err = Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", nil, nil, g)
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
 	if strings.Contains(bundle, "served by flowd") {
 		t.Errorf("an empty build still rendered a note:\n%s", bundle)
+	}
+}
+
+// recordingRunner is ExecRunner recording every call's args, so a test can
+// assert a range was never read.
+type recordingRunner struct {
+	calls *[]string
+}
+
+func (r recordingRunner) Output(repo string, args ...string) ([]byte, error) {
+	*r.calls = append(*r.calls, strings.Join(args, " "))
+	return ExecRunner{}.Output(repo, args...)
+}
+
+// TestBundleRendersRequests pins a /flow-interactive session's git-log
+// source (KAN-1061, design.md's Explicit stop step 2): each request in n
+// order under `### Request <n>: <title> — <outcome>`, a landed one followed
+// by its base..commit range's `git log --stat`, in place of the session
+// branch's own log, which is empty by stop time; with no requests the
+// section is the change branch's log as before.
+func TestBundleRendersRequests(t *testing.T) {
+	repo := gitRepo(t)
+	base := commitAll(t, repo, "base.go", "package main\n", "chore: base")
+	runGit(t, repo, "update-ref", "refs/remotes/origin/main", "main")
+	runGit(t, repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
+	runGit(t, repo, "checkout", "-b", "demo")
+	first := commitAll(t, repo, "a.go", "package main\n", "feat(a): first landed")
+	landed := commitAll(t, repo, "b.go", "package main\n", "feat(b): second landed")
+	runGit(t, repo, "checkout", "main")
+	runGit(t, repo, "merge", "--ff-only", "demo")
+	runGit(t, repo, "update-ref", "refs/remotes/origin/main", "main")
+	unlanded := commitAll(t, repo, "c.go", "package main\n", "feat(c): never landed")
+
+	requests := []records.Request{
+		{N: 2, Title: "Answer why", Outcome: "answered", State: "answered"},
+		{N: 1, Title: "Fix the pill", Outcome: "landed", State: "landed", BaseSHA: base, CommitSHA: landed},
+	}
+	var calls []string
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, requests, recordingRunner{&calls})
+	if err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+	gitLog := bundle[strings.Index(bundle, "## git log --stat"):]
+	one := strings.Index(gitLog, "### Request 1: Fix the pill — landed")
+	two := strings.Index(gitLog, "### Request 2: Answer why — answered")
+	if one < 0 || two < 0 || one > two {
+		t.Fatalf("git log section lacks the two request headings in n order:\n%s", gitLog)
+	}
+	landedLog := gitLog[one:two]
+	for _, sha := range []string{first, landed} {
+		if !strings.Contains(landedLog, "commit "+sha) {
+			t.Errorf("request 1's log lacks commit %s:\n%s", sha, landedLog)
+		}
+	}
+	if strings.Contains(gitLog[two:], "commit ") {
+		t.Errorf("an answered request carries a log:\n%s", gitLog[two:])
+	}
+	if strings.Contains(gitLog, unlanded) {
+		t.Errorf("git log section carries a commit outside every request's range:\n%s", gitLog)
+	}
+	for _, c := range calls {
+		if strings.HasSuffix(c, "..demo") {
+			t.Errorf("Bundle read the change branch's range %q with requests present", c)
+		}
+	}
+
+	plain, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, nil, ExecRunner{})
+	if err != nil {
+		t.Fatalf("Bundle without requests: %v", err)
+	}
+	if strings.Contains(plain, "### Request") {
+		t.Errorf("a change without requests renders request headings:\n%s", plain)
 	}
 }

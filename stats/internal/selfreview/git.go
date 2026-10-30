@@ -18,6 +18,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -394,6 +395,27 @@ func changeBranchLog(g Runner, repo, change string) string {
 	return dropPNGStatLines(trimmedOutput(g.Output(repo, "log", "--stat", base+".."+change)))
 }
 
+// requestsLog renders a /flow-interactive session's requests in n order --
+// the git-log source for a change with requests (design.md's Explicit stop
+// step 2), whose session branch's own log is empty by stop time: each
+// request's `### Request <n>: <title> — <state>` heading, then for a landed
+// one its base..commit range's `git log --stat`. A range git cannot read
+// contributes its heading alone.
+func requestsLog(g Runner, repo string, requests []records.Request) string {
+	sorted := slices.Clone(requests)
+	slices.SortFunc(sorted, func(a, b records.Request) int { return a.N - b.N })
+	var b strings.Builder
+	for _, r := range sorted {
+		fmt.Fprintf(&b, "### Request %d: %s — %s\n\n", r.N, r.Title, r.State)
+		if r.Outcome == "landed" && r.BaseSHA != "" && r.CommitSHA != "" {
+			if log := dropPNGStatLines(trimmedOutput(g.Output(repo, "log", "--stat", r.BaseSHA+".."+r.CommitSHA))); log != "" {
+				b.WriteString(log + "\n\n")
+			}
+		}
+	}
+	return strings.TrimSpace(b.String())
+}
+
 // mergeOrderEntry is one `## Merge order` line of a link.md: a numbered
 // entry naming `.` or a peer in backticks — the syntax spectre validate
 // accepts.
@@ -597,7 +619,9 @@ var archivedFiles = []string{"tasks.md", "design.md", "narrative.md", "visual-ve
 // change, never archived by design — still gets its git-log source, read
 // off the change branch in the first readable supplied repository, the
 // main checkout the caller resolved (KAN-583); the archivedFiles sources
-// stay skipped for it. The git-log source also carries each merge-order
+// stay skipped for it. requests, when any, are a /flow-interactive
+// session's (KAN-1061): its git-log source is then requestsLog's, read in
+// that same repository, in place of every other git-log derivation. The git-log source also carries each merge-order
 // peer's change-branch log under `### <peer>`. A repository git cannot read at all is reported in
 // a `note:`
 // line — environmental failure keeps a different wording from legitimate
@@ -607,7 +631,7 @@ var archivedFiles = []string{"tasks.md", "design.md", "narrative.md", "visual-ve
 // bundle's notes when non-empty: a source reported skipped that the tree
 // holds then reads as a daemon older than the source, never as an absence
 // (KAN-771).
-func Bundle(change string, run records.Run, summary string, summaryFound bool, panelRan bool, build string, repos []string, g Runner) (string, error) {
+func Bundle(change string, run records.Run, summary string, summaryFound bool, panelRan bool, build string, repos []string, requests []records.Request, g Runner) (string, error) {
 	if !records.ValidChangeName(change) {
 		return "", fmt.Errorf("change name %q is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'", change)
 	}
@@ -694,7 +718,11 @@ func Bundle(change string, run records.Run, summary string, summaryFound bool, p
 	}
 
 	gitLog := ""
-	if repo != "" {
+	if len(requests) > 0 {
+		if mainRepo := firstReadableRepo(g, repos); mainRepo != "" {
+			gitLog = requestsLog(g, mainRepo, requests)
+		}
+	} else if repo != "" {
 		gitLog = gitLogSection(g, repo, deriveFinishCommits(g, repo, rev, change)) + peerLogs(g, repo, rev, change)
 	} else if mainRepo := firstReadableRepo(g, repos); mainRepo != "" {
 		gitLog = changeBranchLog(g, mainRepo, change)
