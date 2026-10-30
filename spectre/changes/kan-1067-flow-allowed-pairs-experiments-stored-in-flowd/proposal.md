@@ -24,3 +24,7 @@
 ## In-run fix 2 — flow.visual-verify
 
 - The verifier found the experiment list ordering closed experiments first and the Review rounds delta wrapping onto two lines, against the prototype, and empty Tokens/change and Wall-clock charts because the UI-test seed carried no such metrics. Task 15 fixes the order and the wrap and seeds the metrics. The clipped last x-axis label matches the prototype and is built as drawn.
+
+## In-run fix 3 — flow.visual-verify
+
+- The scoped re-run found an unchanged metric (before = after) drawn as an improvement in its stat panel and as a regression by its mean-after line. Task 16 draws it neutral; the prototype draws no equal case.

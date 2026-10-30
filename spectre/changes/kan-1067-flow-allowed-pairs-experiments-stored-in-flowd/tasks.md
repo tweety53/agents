@@ -268,3 +268,16 @@ Correction (2026-10-30): `hooks/enforce-agent-baseline.py` and `stats/internal/r
 **After:** Task 7, 8, 14
 
 Correction (2026-10-30): the snapshot globs named the PNGs the recapture moved — the four `experiments.spec.ts` captures and `full-experiments-darwin.png`; `experiments.spec.ts` asserted the old closed-first order and now asserts the open experiment leads, and `seed_test.go` asserts the seeded token figures.
+
+- [ ] 16. In-run fix 3 — flow.visual-verify: an unchanged metric drawn as better or worse
+  - [ ] **Step 1: Write the probes.** In `stats/web/src/views/views.test.tsx`'s `Experiments` cases: a metric whose after equals its before renders its stat panel's delta with no `▲`/`▼` arrow and neither the `up` nor the `down` class, and its chart's mean-after line is stroked `var(--text-muted)`, not `--delta-down` or `--delta-up`. Run `cd stats/web && npx vitest run src/views/views.test.tsx -t 'Experiments'` — fails.
+  - [ ] **Step 2: Fix.** `stats/web/src/views/Experiments.tsx`: `StatCell` draws an unchanged value (`d === 0`) as `= vs <before> before` with neither class; the chart's mean-after line takes `var(--text-muted)` when after equals before (the prototype draws no equal case; the neutral reading is the recommended one, decision recorded on the handoff).
+  - [ ] **Step 3: Recapture and verify.** Capture `tests/visual/experiments.spec.ts` and the full app suite, read each changed PNG, rebuild `full-app-suite.zip`, rewrite `visual-verification.md`'s departure A section. `npx tsc -b`, the vitest file and the capture exit 0. Commit.
+
+**Build:** green
+**Files:** `stats/web/src/views/Experiments.tsx`, `stats/web/src/views/views.test.tsx`, `stats/web/tests/visual/experiments.spec.ts-snapshots/experiments-closed-darwin.png`, `stats/web/tests/visual/full-app-suite.zip`, `spectre/changes/kan-1067-flow-allowed-pairs-experiments-stored-in-flowd/visual-verification.md`
+**Allowed-collateral:** `stats/web/tests/visual/experiments.spec.ts-snapshots/*.png`, `stats/web/tests/visual/full-app-suite.spec.ts-snapshots/*.png`
+**Tests:** the Step 1 probe in `stats/web/src/views/views.test.tsx`
+**Regression:** the probe fails when an unchanged metric draws an arrow or a delta colour.
+**Commit:** fix(web): draw an unchanged experiment metric as neutral
+**After:** Task 7, 8, 15
