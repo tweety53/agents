@@ -331,7 +331,8 @@ const pfScriptAudits = "cd stats && go test ./internal/guard/ -run '^Test(NoPipe
 // also selects pfGoAudits: tests that audit the whole Go tree, named after no
 // Go file, which main landed red without twice (KAN-887's self-review). A
 // touched script or setup.sh selects pfScriptAudits where the worktree has
-// stats/internal/guard.
+// stats/internal/guard. The `## visual verification` row is not among them:
+// pfVerify resolves it last through rvlVisualVerify.
 func pfChecks(env Env, pe pfEnv, wt string, touched []string) ([]string, int) {
 	get := exec.Command(pe.projectGet, wt, "lint")
 	var body bytes.Buffer
@@ -406,6 +407,9 @@ func pfChecks(env Env, pe pfEnv, wt string, touched []string) ([]string, int) {
 	return cmds, 0
 }
 
+// pfVerify runs pfChecks' commands in wt, then the `## visual verification`
+// `verify` row when the diff touches a `ui paths` glob, resolved as
+// run-verify-list.sh resolves it (decision loop-verify-reuses-visual-row).
 func pfVerify(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 	// wt's own origin/HEAD: an own-branch self-review verifies a worktree of
 	// the change's project, whose default branch need not be <agents repo>'s.
@@ -425,18 +429,43 @@ func pfVerify(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 		return 2
 	}
 	red := 0
-	for _, c := range cmds {
-		crc, out := kwRun(env, wt, "bash", "-c", c)
-		if crc == 0 {
-			fmt.Fprintf(stdout, "green: %s\n", c)
-			continue
-		}
+	fail := func(c string, crc int, out string) {
 		red++
 		lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
 		if len(lines) > 40 {
 			lines = lines[len(lines)-40:]
 		}
 		fmt.Fprintf(stdout, "red: %s (exit %d)\n%s\n", c, crc, strings.Join(lines, "\n"))
+	}
+	report := func(c, dir string) {
+		if crc, out := kwRun(env, dir, "bash", "-c", c); crc != 0 {
+			fail(c, crc, out)
+			return
+		}
+		fmt.Fprintf(stdout, "green: %s\n", c)
+	}
+	for _, c := range cmds {
+		report(c, wt)
+	}
+	if cmd, specs, dir, ok := rvlVisualVerify(env, wt, false); ok {
+		switch {
+		case cmd == "":
+			red++
+			fmt.Fprint(stdout, "red: visual verify — no merge base to scope the specs row to\n")
+		case specs != "":
+			src, out := kwRun(env, dir, "bash", "-c", specs)
+			paths := strings.Fields(out)
+			switch {
+			case src != 0:
+				fail(specs, src, out)
+			case len(paths) == 0:
+				fmt.Fprintf(stdout, "green: %s (mapped no spec)\n", specs)
+			default:
+				report(strings.ReplaceAll(cmd, "<specs>", strings.Join(paths, " ")), dir)
+			}
+		default:
+			report(cmd, dir)
+		}
 	}
 	if red > 0 {
 		return 1

@@ -43,7 +43,11 @@
 #       script (TestNoPipeIntoEarlyExitGrep and its kin) for a touched script
 #       or setup.sh, vitest of a touched SPA test or the test beside a touched
 #       source. One `green:` or `red:` line per command, a red one
-#       followed by its last 40 output lines.
+#       followed by its last 40 output lines. When the diff from the base
+#       branch touches a `ui paths` glob of `## visual verification`, the
+#       section's `verify` row runs last, resolved as run-verify-list.sh
+#       resolves it (from a declared `regression checkout`'s worktree, a
+#       `specs` row's paths in `<specs>`); a red one makes `land` refuse.
 #   pipeline-fix.sh land <worktree>
 #       the merge-and-push route: refuses any other `## default landing
 #       route`; git fetch origin; a branch whose base moved is rebased onto

@@ -461,3 +461,74 @@ func TestPipelineFixLandRestartsFlowdWhenStatsMoved(t *testing.T) {
 		})
 	}
 }
+
+func TestPipelineFixVerifyRunsVisualOnUIPath(t *testing.T) {
+	pfIdentity(t)
+	fx := pfNew(t, lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed", "review-1 clean"))
+	if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
+		t.Fatal(out)
+	}
+	wt := fx.wt(lpBranch)
+	b, err := os.ReadFile(wt + "/.flow/project.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, wt+"/.flow/project.md", string(b)+"\n## visual verification\n\n"+
+		"| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/src/**` |\n\n"+
+		"| Command | Runs |\n|---------|------|\n| `verify` | `test ! -e .visual-red` |\n")
+	writeFile(t, wt+"/docs/a.md", "a\n")
+	gitRun(t, wt, "add", "-A")
+	gitRun(t, wt, "commit", "-q", "-m", "docs: visual section")
+	const vis = "test ! -e .visual-red"
+	if rc, out := fx.pf(t, "verify", wt); rc != 0 || strings.Contains(out, vis) {
+		t.Fatalf("(a) rc %d, no ui path ran the visual row: %s", rc, out)
+	}
+	writeFile(t, wt+"/web/src/a.ts", "a\n")
+	gitRun(t, wt, "add", "-A")
+	gitRun(t, wt, "commit", "-q", "-m", "fix: ui")
+	if rc, out := fx.pf(t, "verify", wt); rc != 0 || !strings.Contains(out, "green: "+vis) {
+		t.Fatalf("(b) rc %d: %s", rc, out)
+	}
+	writeFile(t, wt+"/.visual-red", "x\n")
+	if rc, out := fx.pf(t, "verify", wt); rc != 1 || !strings.Contains(out, "red: "+vis+" (exit 1)") {
+		t.Fatalf("(c) rc %d: %s", rc, out)
+	}
+	gitRun(t, fx.repo, "config", "--add", "flow.escalation", lpBranch+":pipeline-fix-6-fix-1")
+	rc, out := fx.pf(t, "land", wt)
+	_, log := kwRun(fx.env, "", fixtureGit, "--git-dir", fx.origin, "log", "--format=%s", "main")
+	if rc != 1 || !strings.Contains(out, "red: "+vis) || strings.Contains(log, "fix: ui") {
+		t.Fatalf("(d) rc %d: %s\n%s", rc, out, log)
+	}
+}
+
+func TestPipelineFixVerifyFillsVisualSpecs(t *testing.T) {
+	pfIdentity(t)
+	fx := pfNew(t, lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed", "review-1 clean"))
+	if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
+		t.Fatal(out)
+	}
+	wt := fx.wt(lpBranch)
+	b, err := os.ReadFile(wt + "/.flow/project.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := string(b)
+	const vis = `test "<specs>" = web/a.spec.ts`
+	section := func(uiPaths string) string {
+		return base + "\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n" + uiPaths +
+			"\n| Command | Runs |\n|---------|------|\n| `specs` | `echo web/a.spec.ts` |\n| `verify` | `" + vis + "` |\n"
+	}
+	writeFile(t, wt+"/.flow/project.md", section("| `ui paths` | `web/src/**` |\n"))
+	writeFile(t, wt+"/web/src/a.ts", "a\n")
+	gitRun(t, wt, "add", "-A")
+	gitRun(t, wt, "commit", "-q", "-m", "fix: ui")
+	if rc, out := fx.pf(t, "verify", wt); rc != 0 || !strings.Contains(out, `green: test "web/a.spec.ts" = web/a.spec.ts`) {
+		t.Fatalf("(a) rc %d, specs paths not substituted: %s", rc, out)
+	}
+	// No `ui paths` row: the trigger cannot answer, no merge base is read,
+	// so a specs row has nothing to scope to and the visual line is red.
+	writeFile(t, wt+"/.flow/project.md", section(""))
+	if rc, out := fx.pf(t, "verify", wt); rc != 1 || !strings.Contains(out, "red: visual verify — no merge base to scope the specs row to") {
+		t.Fatalf("(b) rc %d: %s", rc, out)
+	}
+}
