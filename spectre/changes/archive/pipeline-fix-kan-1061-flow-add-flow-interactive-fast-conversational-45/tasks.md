@@ -38,15 +38,15 @@ header and the four contracts citing the usage name the role.
 - Every live caller passes the role: `git grep -n 'plan-agent-pair.sh <'` outside
   `spectre/changes/archive/` and `docs/self-review/` shows a third argument on each line.
 
-- [ ] 1. Print the planning pair of the dispatch's own role row
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** From this worktree run
+- [x] 1. Print the planning pair of the dispatch's own role row
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** From this worktree run
     `scripts/plan-agent-pair.sh x 1` with experiment 1 open in the live store: it prints
     `opus xhigh`, the plan-designer pair, which an Explore dispatch cannot use. Save the diff
     below to `/tmp/pf45-task1.diff`, apply its test hunk alone
     (`git apply --include='stats/internal/guard/plan_agent_pair_test.go' /tmp/pf45-task1.diff`) and
     run `cd stats && go test ./internal/guard -run TestPlanAgentPair`: `TestPlanAgentPairReadsOverride`
     fails with `plan-designer: rc=2 out="usage: plan-agent-pair.sh <seed> <n>"`.
-  - [ ] **Step 2: Implement.** Apply the rest
+  - [x] **Step 2: Implement.** Apply the rest
     (`git apply --exclude='stats/internal/guard/plan_agent_pair_test.go' /tmp/pf45-task1.diff`):
 
 ````diff verified:applied with git apply to this worktree at e6c5c19e; go test ./internal/guard passes with it and TestPlanAgentPairReadsOverride fails with planagentpair.go reverted; check-references, check-dispatch-paragraphs and check-guard-symlinks exit 0; plan-agent-pair.sh x 1 explorer prints sonnet low and x 1 plan-designer opus xhigh under experiment 1
@@ -261,12 +261,12 @@ index f88f065b..ee2edf7b 100644
  	fmt.Fprintln(stdout, m[1]+" "+m[2])
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && make -s web-dist && go vet ./... && gofmt -l .` exits clean and
+  - [x] **Step 3: Verify.** `cd stats && make -s web-dist && go vet ./... && gofmt -l .` exits clean and
     `go test ./internal/guard -run TestPlanAgentPair` passes; `scripts/check-references.sh`, `scripts/check-dispatch-paragraphs.sh`
     and `scripts/check-guard-symlinks.sh` exit 0; `scripts/plan-agent-pair.sh x 1 explorer` prints
     the explorer row's pair (`sonnet low` while experiment 1 is open), `x 1 plan-designer` the
     plan-designer row's, and `x 1` exits 2 with the new usage line.
-  - [ ] **Step 4: Commit** the seven files with the subject below.
+  - [x] **Step 4: Commit** the seven files with the subject below.
 
 **Build:** green
 **Files:** `scripts/plan-agent-pair.sh`, `skills/flow-plan/SKILL.md`, `skills/flow-self-review/SKILL.md`, `skills/flow/brainstorm-planner.md`, `skills/flow/brainstorm.md`, `stats/internal/guard/plan_agent_pair_test.go`, `stats/internal/guard/planagentpair.go`
