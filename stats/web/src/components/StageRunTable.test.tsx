@@ -56,6 +56,13 @@ describe("StageRunTable", () => {
     expect(cell).toHaveTextContent("failedthe Findings KPI wraps");
   });
 
+  it("says superseded for a superseded run, not its still-running dispatch's outcome", () => {
+    render(<StageRunTable stageRuns={[{ ...run, outcome: "superseded" }]} records={records} />);
+    const row = screen.getByRole("button", { name: "Show dispatches" }).closest("tr")!;
+    expect(row).toHaveTextContent(/superseded/);
+    expect(row).not.toHaveTextContent(/running/);
+  });
+
   it("leads with the stage when its session runs more than one", () => {
     render(<StageRunTable stageRuns={[run, other]} records={records} />);
     expect(screen.getByRole("button", { name: "Show dispatches" }).closest("td")!).toHaveTextContent(/^Self-review · Fix round 2 → Review round 2$/);

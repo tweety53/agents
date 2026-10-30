@@ -244,7 +244,7 @@ function StageRunRow({ run, now, records, showStage, requests }: { run: StageRun
   // Why the run ended as it did, from its end mark's -reason.
   const reason = ((r) => (typeof r === "string" ? r : undefined))(asObject(run.metrics)?.reason);
   const last = own.length ? dispatchOutcome(records.get(own[own.length - 1].agentId)) : undefined;
-  const word = run.outcome === "failed" ? "failed" : (last ?? run.outcome ?? "completed");
+  const word = run.outcome === "failed" || run.outcome === "superseded" ? run.outcome : (last ?? run.outcome ?? "completed");
   const expander = expandable && (
     <button
       type="button"
