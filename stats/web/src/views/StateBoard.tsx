@@ -10,7 +10,7 @@
 // click. It refetches every five seconds so a session's activity badge
 // follows what the session is doing.
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
-import type { StateBoardRow } from "../api";
+import { fetchProjects, type StateBoardRow } from "../api";
 import { useStatsView } from "../hooks/useStatsView";
 import { DAY_MS, formatInt, formatRelative, formatSpan, formatUsd } from "../format";
 import { phase } from "../lib/phase";
@@ -332,7 +332,13 @@ export function StateBoard() {
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ FINISHED: true });
   const wantFinished = useRef(false);
-  if (!(collapsed.FINISHED ?? false) || filters.states.has("FINISHED")) wantFinished.current = true;
+  if (!(collapsed.FINISHED ?? false) || filters.states.has("FINISHED") || filters.project) wantFinished.current = true;
+  // Every registered project names a chip before the finished changes load,
+  // so one whose changes are all finished is not missing; a failed read leaves the in-period keys.
+  const [registered, setRegistered] = useState<string[]>([]);
+  useEffect(() => {
+    fetchProjects().then(setRegistered, () => {});
+  }, []);
   const live = new Date(now + DAY_MS);
   const polled = useStatsView<StateBoardRow[]>("state-board", { from: live, to: live, project: undefined });
   const [finishedAt, setFinishedAt] = useState(now);
@@ -400,7 +406,7 @@ export function StateBoard() {
     .filter((r) => r.currentStage !== undefined || r.state !== "FINISHED")
     .sort((a, b) => Number(!needsOperator(a)) - Number(!needsOperator(b)));
   const maxCost = Math.max(0, ...rows.map((r) => r.costUsd));
-  const projects = [...new Set(inPeriod.map((r) => r.projectKey).concat(filters.project ?? []))];
+  const projects = [...new Set((finishedLoaded ? [] : registered).concat(inPeriod.map((r) => r.projectKey), filters.project ?? []))];
   const dirty = filters.project || filters.states.size > 0 || filters.period !== "7d" || filters.query;
 
   return (
@@ -415,7 +421,7 @@ export function StateBoard() {
           {projects.map((p) => (
             <Chip key={p} on={filters.project === p} onClick={() => set({ project: p })} title={p}>
               {projectLabel(p)}
-              <span className="lb-c">{inPeriod.filter((r) => r.projectKey === p).length}</span>
+              <span className="lb-c">{finishedLoaded ? inPeriod.filter((r) => r.projectKey === p).length : "—"}</span>
             </Chip>
           ))}
         </span>

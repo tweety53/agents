@@ -27,8 +27,9 @@ import { StateBoard } from "./StateBoard";
 import { Trend } from "./Trend";
 import { WeeklyCosts } from "./WeeklyCosts";
 
-const { fetchStatsViewMock, fetchRolesMock, fetchExperimentsMock, fetchExperimentStatsMock } = vi.hoisted(() => ({
+const { fetchStatsViewMock, fetchProjectsMock, fetchRolesMock, fetchExperimentsMock, fetchExperimentStatsMock } = vi.hoisted(() => ({
   fetchStatsViewMock: vi.fn(),
+  fetchProjectsMock: vi.fn(),
   fetchRolesMock: vi.fn(),
   fetchExperimentsMock: vi.fn(),
   fetchExperimentStatsMock: vi.fn(),
@@ -39,6 +40,7 @@ vi.mock("../api", async (importOriginal) => {
   return {
     ...actual,
     fetchStatsView: fetchStatsViewMock,
+    fetchProjects: fetchProjectsMock,
     fetchRoles: fetchRolesMock,
     fetchExperiments: fetchExperimentsMock,
     fetchExperimentStats: fetchExperimentStatsMock,
@@ -394,6 +396,8 @@ beforeEach(() => {
   });
   fetchStatsViewMock.mockReset();
   fetchStatsViewMock.mockImplementation((view: keyof typeof fixtures) => Promise.resolve(fixtures[view]));
+  fetchProjectsMock.mockReset();
+  fetchProjectsMock.mockResolvedValue([]);
 });
 
 describe("views render their fixture response's actual values", () => {
@@ -414,9 +418,9 @@ describe("views render their fixture response's actual values", () => {
     await user.click(within(screen.getByRole("group", { name: "Updated" })).getByRole("button", { name: "All" }));
     expect(tile(/^Planning/)).toHaveTextContent("2");
     expect(visible("kan-5-old")).toBe(true);
-    // A Project chip carries its count and narrows rows and tiles.
+    // A Project chip reads "—" until the finished changes load, and narrows rows and tiles.
     const gymie = within(screen.getByRole("group", { name: "Project" })).getByRole("button", { name: /^gymie/ });
-    expect(gymie).toHaveTextContent("gymie1");
+    expect(gymie).toHaveTextContent("gymie—");
     await user.click(gymie);
     expect(tile(/^Planning/)).toHaveTextContent("1");
     expect(tile(/^Integrating & review/)).toHaveTextContent("0");
@@ -589,6 +593,27 @@ describe("views render their fixture response's actual values", () => {
     render(<StateBoard />);
     expect(await screen.findAllByTestId("running-card")).not.toHaveLength(0);
     expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
+  });
+
+  it("names every project as a chip before finished changes load", async () => {
+    const rows = fixtures["state-board"].rows as { projectKey: string; name: string; state: string }[];
+    const open = rows.filter((r) => r.name === "kan-16-stats-app");
+    const finishedB = { ...rows.find((r) => r.name === "kan-31-replan-fold")!, projectKey: "beta" };
+    const isPoll = (p: { from: Date; to: Date }) => p.from.getTime() === p.to.getTime();
+    fetchStatsViewMock.mockImplementation((_v: string, p: { from: Date; to: Date }) =>
+      Promise.resolve({ ...fixtures["state-board"], rows: isPoll(p) ? open : [...open, finishedB] }),
+    );
+    fetchProjectsMock.mockResolvedValue(["kan-16-stats-app", "beta"]);
+    const user = userEvent.setup();
+    render(<StateBoard />);
+    await screen.findByRole("table");
+    const group = within(screen.getByRole("group", { name: "Project" }));
+    const beta = await group.findByRole("button", { name: /^beta/ });
+    expect(beta).toHaveTextContent("beta—");
+    expect(fetchStatsViewMock.mock.calls.filter((c) => !isPoll(c[1]))).toHaveLength(0);
+    await user.click(beta);
+    await waitFor(() => expect(group.getByRole("button", { name: /^beta/ })).toHaveTextContent("beta1"));
+    expect(fetchStatsViewMock.mock.calls.filter((c) => !isPoll(c[1]))).not.toHaveLength(0);
   });
 
   it("state board hides pipeline-fix and self-review changes", async () => {

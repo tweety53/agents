@@ -659,6 +659,11 @@ export async function fetchStatsView<Row = unknown>(
   return getJSON<StatsResponse<Row>>(`/api/v1/stats/${view}?${qs.toString()}`, init);
 }
 
+/** GET /api/v1/projects -- every registered project key, in key order. */
+export async function fetchProjects(init?: RequestInit): Promise<string[]> {
+  return (await getJSON<{ projects: string[] }>("/api/v1/projects", init)).projects;
+}
+
 /** GET /api/v1/changes?q=&sort=&limit=&offset=&<filters> */
 export async function listChanges(query: ListQuery = {}, init?: RequestInit): Promise<ListChangesResponse> {
   const qs = buildListQuery(query);

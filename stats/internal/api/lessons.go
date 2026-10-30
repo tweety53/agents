@@ -61,3 +61,23 @@ func (h *lessonsHandler) resolve(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(lessons.Render(res)))
 }
+
+// projects serves GET /api/v1/projects: every registered project key, in
+// key order. The state board names these as Project chips before its
+// finished changes load, so a project whose changes are all finished still
+// has a chip.
+func (h *lessonsHandler) projects(w http.ResponseWriter, r *http.Request) {
+	roots, err := h.store.ProjectRoots(r.Context())
+	if err != nil {
+		status, msg := mapStoreError(h.logger, "read the registered projects", err)
+		writeError(w, status, msg)
+		return
+	}
+	keys := make([]string, len(roots))
+	for i, root := range roots {
+		keys[i] = root.ProjectKey
+	}
+	writeJSON(w, http.StatusOK, struct {
+		Projects []string `json:"projects"`
+	}{keys})
+}
