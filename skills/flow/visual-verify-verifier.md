@@ -666,7 +666,7 @@ names, each then on a line of its own with its cause or attribution beside it.
 ```text
 ## Verdict
 - Model: <the model named in your own system prompt>
-- exits: setup <n | not declared>, capture <n>, full app suite <n>, spec reach <n>, measure <n>
+- exits: setup <n | not declared>, capture <n>, full app suite <n>, spec reach <n>
 - steps: <the ## Report's steps: line, after `steps: `>
 - cause: environment | test-failure | missing-fixture
 - departures: <n>

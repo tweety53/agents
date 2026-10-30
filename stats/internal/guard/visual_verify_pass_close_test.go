@@ -284,3 +284,18 @@ func TestVisualVerifyPassCloseUsage(t *testing.T) {
 		}
 	}
 }
+
+// TestVerifierExitsTemplateOmitsMeasure pins kan-1060's task-12 review: close
+// reads any non-zero `exits:` number as a failed command, and `measure` exits
+// 1 on findings step 10 explains, so its exit lives on the `- measure:` line.
+func TestVerifierExitsTemplateOmitsMeasure(t *testing.T) {
+	b, err := os.ReadFile("../../../skills/flow/visual-verify-verifier.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, l := range strings.Split(string(b), "\n") {
+		if strings.HasPrefix(l, "- exits: ") && strings.Contains(l, "measure") {
+			t.Errorf("the verdict's exits template names measure: %q", l)
+		}
+	}
+}
