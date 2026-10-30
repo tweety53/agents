@@ -844,6 +844,7 @@ the slot ran 55 minutes, and the parent narrowed the reproducer to one test's na
 mutation-reproducer convention, never the generic one: it exits 0 when every test passes with the
 mutation in place — the mutant survived, the defect present — and non-zero when a test kills it.
 Every test run of a mutant passes the test runner's no-cache flag — `-count=1` for `go test` — because a cached result never sees a mutated file a test reads through a subprocess (kan-1039: the slot discarded a whole cached sweep whose survivals were false).
+The slot's own mutant runs are scoped before the first mutation too: it measures one run of the mutated code's whole package, and when that run's seconds times the number of mutants it plans pass half the slot's ceiling, every mutant run filters by the name prefix the mutated code's test family shares (`-run '^TestCheckPanel'`), never a full test name (group-allowed-pairs-roles self-review: the slot ran the whole guard package per mutant and timed out at 15 minutes; the prefix-filtered retry finished in 88 s).
 
 ### Principles
 
