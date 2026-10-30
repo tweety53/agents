@@ -151,7 +151,10 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > '<class>'` for Gradle, `-run '<name>'` for `go test`, `-t '<name>'` for vitest), never the bare
 > module or repository suite: that run belongs to the parent's full-suite run after the last
 > group (`skills/flow/implement.md`) and to `flow.verify`. A task whose `**Tests:**` is `none` names
-> lint alone and no test command.
+> lint alone and no test command. A task whose `**Files:**` holds a Markdown file under `skills/` or
+> `rules/` is the exception: its verify step runs the whole list, `run-verify-list.sh <worktree>
+> lint`, because the prose guards that list carries are too many to hand-pick and the one a subset
+> leaves out fails only at `flow.verify` (kan-1067 self-review, 1-F).
 
 > **Plan the record a feature needs as its own task.** A field, a column, an endpoint, a stage or a
 > recorded event the feature reads and the system does not keep yet is a task of the plan, never a

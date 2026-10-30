@@ -152,10 +152,10 @@ row `-outcome completed`, and a command that failed twice for a missing build pr
 `-outcome blocked -cause environment` by the parent.
 
 ```bash
-run-verify-list.sh <worktree> lint <name> verify[-<worktree basename>] mf-<literal-token> <parent model> <parent effort> [<canonical worktree>]
-run-verify-list.sh <worktree> test <name> verify[-<worktree basename>] mf-<literal-token> <parent model> <parent effort> [<canonical worktree>]
+run-verify-list.sh <worktree> lint <name> verify[-<repository name>] mf-<literal-token> <parent model> <parent effort> [<canonical worktree>]
+run-verify-list.sh <worktree> test <name> verify[-<repository name>] mf-<literal-token> <parent model> <parent effort> [<canonical worktree>]
 # … only after a group exited non-zero and its re-run is decided:
-flow record dispatch end -C <canonical worktree> -change <name> -key verify[-<worktree basename>] \
+flow record dispatch end -C <canonical worktree> -change <name> -key verify[-<repository name>] \
   -session-token mf-<literal-token> -outcome completed|blocked [-cause <cause>]
 ```
 
