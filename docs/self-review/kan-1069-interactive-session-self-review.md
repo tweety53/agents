@@ -6,10 +6,10 @@ The pass covers what the bundle holds plus the commits and files it names, and n
 
 ## Problems encountered, and what pipeline change would avoid them — `flow-fix`
 
-- **[flow-fix]** `flow record request end -outcome landed` checked only the UI check, so requests 2–12 landed with no `flow.verify` mark and their work was charged to `flow.load-context`; landed now requires the request's latest verify run ended `completed` — fixed: 957d510d
-- **[flow-fix]** A UI check ended in the same breath as its begin (requests 3 and 9, 31 ms) satisfied the request-end guard; a completed UI check under one second is now refused — fixed: 5c17f12a
-- **[flow-fix]** The run page unmounted for any change whose latest decision stores `overrides` as an object (48 changes); DecisionsPanel now reads only an array — fixed: 3ca1621c
-- **[flow-fix]** A failed finished-changes read on the live state board showed no error once the open poll had answered; the board now shows it — fixed: 4d4b04a1
+- **[flow-fix]** `flow record request end -outcome landed` checked only the UI check, so requests 2–12 landed with no `flow.verify` mark and their work was charged to `flow.load-context`; landed now requires the request's latest verify run ended `completed` — fixed: 7f2b79fd
+- **[flow-fix]** A UI check ended in the same breath as its begin (requests 3 and 9, 31 ms) satisfied the request-end guard; a completed UI check under one second is now refused — fixed: 464e9c2f
+- **[flow-fix]** The run page unmounted for any change whose latest decision stores `overrides` as an object (48 changes); DecisionsPanel now reads only an array — fixed: ca10c06c
+- **[flow-fix]** A failed finished-changes read on the live state board showed no error once the open poll had answered; the board now shows it — fixed: f6d84081
 
 ## Token/time cost, and what would reduce it without quality loss — `flow-cost`
 
@@ -25,7 +25,7 @@ _none — this angle produced no findings._
 
 ## What could move to the Go app or its persistent storage — `flow-stats-app`
 
-- **[flow-stats-app]** Per-task gated reviewer findings never reached the findings store, so the Findings KPI could not count them; the parent now records them under slot `gated-reviewer`, the panel's guards and readers skip that slot, and the KPI hint is gone — fixed: 4514f936
+- **[flow-stats-app]** Per-task gated reviewer findings never reached the findings store, so the Findings KPI could not count them; the parent now records them under slot `gated-reviewer`, the panel's guards and readers skip that slot, and the KPI hint is gone — fixed: 084f060f
 
 ## What can be sped up — `flow-speed`
 
