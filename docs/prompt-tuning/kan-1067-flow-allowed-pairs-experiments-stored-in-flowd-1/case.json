@@ -1,0 +1,23 @@
+{
+  "id": "kan-1067-flow-allowed-pairs-experiments-stored-in-flowd-1",
+  "type": "reviewer",
+  "reviewer_kind": "miss",
+  "scope": "generic",
+  "source": {
+    "project": "agents",
+    "change": "kan-1067-flow-allowed-pairs-experiments-stored-in-flowd",
+    "jira": "KAN-1067",
+    "repo": "agents",
+    "fix_sha": "b1a69935ed2d47a503fadd721a0125ce58412028",
+    "finding_ref": "visual-verification.md In-run fix 2 re-verify, Departure A",
+    "round": 2,
+    "slot": "visual-verify",
+    "severity": "Important"
+  },
+  "target": "skills/flow/visual-verify-verifier.md",
+  "target_sha": "0ba7288e92168aba3d040cd0f880890bbd71c222",
+  "defect_class": "An element whose glyph or colour encodes the result of comparing two data values is judged only on the comparison branch the mockup draws, so its equal and missing-operand branches ship asserting a direction the data does not show.",
+  "why_picked": "1. Defect class: a data-comparison indicator (an arrow, a better/worse colour, a status badge) is verified only on the branch the frame draws. 2. No rule covers it: sweep 8 reads \"For each value the view computes from an input the operator can edit\" and the first full report recorded \"derived n/a — no operator-editable input\"; no other sweep compares an indicator's claim with the data it reads. 3. It generalises to every delta, KPI or status view; this run shows the class twice — departures A (equal values drawn as an improvement) and B (a missing before drawn as worse) were both in the first full capture, the first verifier missed both, the second found A and missed B, the third found B, and a brief sweeping every branch then came back clean. 4. It states a principle — an indicator is a claim about data, checked on every branch of its comparison — not a rule about arrows.",
+  "before": "8. **Every derived value re-derived after its input changes.** For each value the view\n      computes from an input the operator can edit — a delta, a total, a conversion, a preview —\n      type a new input, capture before and after, recompute the expected value by hand, and\n      state both. A value that does not follow its input, or that is absent on one entry path the\n      populated path shows (first-time versus returning), is a defect no single capture can\n      show.",
+  "after": "8. **Every derived value re-derived after its input changes.** For each value the view\n      computes from an input the operator can edit — a delta, a total, a conversion, a preview —\n      type a new input, capture before and after, recompute the expected value by hand, and\n      state both. A value that does not follow its input, or that is absent on one entry path the\n      populated path shows (first-time versus returning), is a defect no single capture can\n      show.\n      The same holds for every element the view picks from a comparison of data values,\n      operator-editable or not — an arrow, a better/worse colour, a status badge, a stroke: list its\n      comparison's branches (greater, equal, less, each operand absent), reach each one in a capture,\n      seeding the data where none reaches it, and state per capture the values compared and whether\n      the element's claim is true of them. An element that asserts a direction its values do not show\n      is a defect whatever the frame draws."
+}
