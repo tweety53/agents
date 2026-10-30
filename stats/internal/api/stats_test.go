@@ -456,6 +456,35 @@ func TestReviewersWireCarriesNoDeferredShare(t *testing.T) {
 	}
 }
 
+// TestStageLeaderboardMainFields: the route's rows carry mainCostUsd and
+// mainSharePct, null when absent (decision leaderboard-main-columns).
+func TestStageLeaderboardMainFields(t *testing.T) {
+	cost, share := 3.2, 45.6
+	sts := &statsFake{stageLeaderboard: []store.StageLeaderboardRow{
+		{Command: "/flow", Stage: "a", MainCostUSD: &cost, MainSharePct: &share},
+		{Command: "/flow", Stage: "b"},
+	}}
+	ts := newStatsTestServer(t, sts)
+	status, env, body := getStats(t, ts, periodPath("stage-leaderboard"))
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	var rows []map[string]any
+	mustDecodeRows(t, env, body, &rows)
+	if len(rows) != 2 {
+		t.Fatalf("rows = %d, want 2", len(rows))
+	}
+	if rows[0]["mainCostUsd"] != 3.2 || rows[0]["mainSharePct"] != 45.6 {
+		t.Errorf("row a = %v, want mainCostUsd 3.2 mainSharePct 45.6", rows[0])
+	}
+	for _, k := range []string{"mainCostUsd", "mainSharePct"} {
+		v, ok := rows[1][k]
+		if !ok || v != nil {
+			t.Errorf("row b %s = %v (present %v), want null", k, v, ok)
+		}
+	}
+}
+
 // --- TestEveryViewCarriesItsRealNumbersThrough (post-commit review F2) ---
 //
 // TestEveryViewAcceptsAPeriod, above, asserts only status and view name --
