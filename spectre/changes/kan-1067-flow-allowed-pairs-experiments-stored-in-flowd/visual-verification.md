@@ -23,3 +23,11 @@ Frames: the approved prototype `.superpowers/sdd/experiments-prototype.html`, re
 - The two captures are byte-identical, and so are the two prototype frames: the prototype styles `.pt:hover,.pt:focus{r:5;outline:none}` identically and draws no tooltip, so both states render the same pixels. Matrices: matrix/experiments-prototype-hover.json, matrix/experiments-prototype-focus.json.
 
 Motions: none named.
+
+## In-run fix 2 re-verify (round base 4a48720c)
+- Captures re-taken with `--update-snapshots=all` came back byte-identical to the committed baselines; departures 1 (list order) and 2 (delta wrap) are confirmed fixed and 3 (Tokens/Wall-clock seeded) confirmed on the open experiment. Matrices re-saved over the previous ones.
+- New departure, this change's (a view this change creates, no merge-base rendering): on the closed experiment, Review rounds / change and Verify reds read `▼ vs 0.0 before` in the green "better" colour while before and after are both 0.0. `StatCell` in `stats/web/src/views/Experiments.tsx` picks `d > 0 ? "▲" : "▼"`, so an unchanged value (d = 0) draws as an improvement. The prototype draws no equal case; expected value read from the data, not the pixels: no arrow claim of improvement when after equals before. The chart's mean-after line has the mirror problem: `after < before` is green, so equal draws red ("worse").
+
+## Departure A — fixed (in-run fix 3)
+- `StatCell` now draws an unchanged value (d = 0) as `= vs <before> before` with neither the `up` nor the `down` class, and the chart's mean-after line takes `var(--text-muted)` when after equals before. The prototype draws no equal case; the neutral reading is the recommended one, recorded on the handoff.
+- Recaptured `experiments-closed-darwin.png`: Review rounds / change and Verify reds read `= vs 0.0 before` in the neutral text colour; their mean-after lines are muted. Full app suite recaptured with no changed PNG; `full-app-suite.zip` rebuilt. Probe: `views.test.tsx` "Experiments draws an unchanged metric as neutral, with no arrow and no delta colour".

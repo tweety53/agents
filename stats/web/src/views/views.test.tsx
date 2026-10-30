@@ -1513,6 +1513,21 @@ describe("Experiments", () => {
     expect(fetchExperimentStatsMock).toHaveBeenLastCalledWith(1);
   });
 
+  it("Experiments draws an unchanged metric as neutral, with no arrow and no delta colour", async () => {
+    fetchExperimentStatsMock.mockReset().mockResolvedValue(stats(3, [{ name: "reviewRounds", before: 0, after: 0 }, { name: "verifyReds", before: 2, after: 2 }]));
+    render(<Experiments />);
+    for (const [name, text] of [["Review rounds / change", "= vs 0.0 before"], ["Verify reds", "= vs 2.0 before"]]) {
+      const panel = await screen.findByRole("region", { name });
+      const d = within(panel).getByText(text);
+      expect(d).toHaveClass("d");
+      expect(d).not.toHaveClass("up");
+      expect(d).not.toHaveClass("down");
+    }
+    for (const chart of within(screen.getByRole("region", { name: "Weekly trend — before vs after start" })).getAllByRole("img")) {
+      expect(chart.querySelector("[data-testid=mean-after]")).toHaveAttribute("stroke", "var(--text-muted)");
+    }
+  });
+
   it("Experiments reads — where no run follows the start, and invites an open when none exists", async () => {
     fetchExperimentStatsMock.mockReset().mockResolvedValue({ ...stats(3, [{ name: "reviewRounds", before: 2.6, after: null }]), runs: { before: 14, after: 0 } });
     const { unmount } = render(<Experiments />);
