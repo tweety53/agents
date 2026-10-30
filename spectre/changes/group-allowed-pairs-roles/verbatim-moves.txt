@@ -1,0 +1,71 @@
+# Sentences group-allowed-pairs-roles adds or rewords on purpose: the Allowed pairs table regrouped
+# into one ### table per pipeline area with a Does column, panel-extra split into
+# panel-sanity-efficiency and panel-mutation-failure, and the two skill lines naming them.
+**the extra dispatches** — `test-sanity+call-efficiency` and `mutation+failure-modes`, each its own rolled pair off the `panel-extra` row of **Allowed pairs** (`skills/flow-contracts/model-policy.md`): the only pass-1 panel dispatches that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`, kan-959; kan-1028);
+| Role | Allowed pairs | Requires marker |
+| `explorer` | `opus/Explore@low`, `opus/Explore@medium` | — |
+| `gated-re-reviewer` | `opus/flow-low` | — |
+| `gated-reviewer` | `opus/flow-medium` | — |
+| `implementer` | `opus/flow-high` | `No-progress escalation` |
+| `implementer` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
+| `late-fix` | `opus/flow-low` | — |
+| `panel-extra` | `opus/flow-low`, `sonnet/flow-low` | — |
+| `panel-fix` | `opus/flow-high` | `No-progress escalation` |
+| `panel-fix` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
+| `panel-merger` | `sonnet/flow-low` | — |
+| `panel-rerun` | `opus/flow-low`, `sonnet/flow-low` | — |
+| `panel-reviewer` | `opus/flow-high` | `Operator-approved high` |
+| `panel-reviewer` | `opus/flow-low`, `opus/flow-medium` | — |
+| `pipeline-fix-fix` | `opus/flow-high` | `No-progress escalation` |
+| `pipeline-fix-fix` | `opus/flow-low` | — |
+| `pipeline-fix-plan` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — |
+| `pipeline-fix-review-1` | `opus/flow-medium`, `opus/flow-low` | — |
+| `pipeline-fix-review-r` | `sonnet/flow-low` | — |
+| `plan-designer` | `opus/Plan@low`, `opus/Plan@medium` | — |
+| `planner` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — |
+| `self-review-fix` | `opus/flow-high` | `No-progress escalation` |
+| `self-review-fix` | `opus/flow-low` | — |
+| `self-review-pass` | `opus/flow-medium` | — |
+| `self-review-plan` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — |
+| `self-review-review-1` | `opus/flow-medium`, `opus/flow-low` | — |
+| `self-review-review-r` | `sonnet/flow-low` | — |
+| `tooling-analyst` | `opus/flow-medium` | — |
+| `visual-verifier` | `opus/flow-low` | — |
+| panel bundle, at most two per round, plus at most one citation send-back per re-run dispatch outside that cap | `reviewer` | `panel-reviewer` on pass 1; `panel-extra` for an always-on extra dispatch; `panel-rerun` for a re-run, its send-back and a decided panel's late-fix pass; `late-fix` for a `default` panel's late-fix pass | `panel-<round>-<slot\|slot+slot+slot>` (`-cite` once per re-run dispatch) | `skills/flow/review-panel.md`, **Bundled dispatch** |
+\### Implementation
+\### Pipeline fix
+\### Self-review
+\### Visual verification
+Each `###` heading below is one pipeline area, and a role sits under exactly one; a role's unmarked row carries its `Does` cell, a plain-English line on what the role does, and a marked row's `Does` is `—`.
+flowd serves both on `GET /api/v1/roles`, and the Experiments view groups its roles table by them.
+| Role | Allowed pairs | Requires marker | Does |
+| `explorer` | `opus/Explore@low`, `opus/Explore@medium` | — | Reads the codebase to answer a planner's question.
+| `gated-re-reviewer` | `opus/flow-low` | — | Re-checks a gated review's findings after their fix.
+| `gated-reviewer` | `opus/flow-medium` | — | Reviews risky tasks as they land, on big changes only.
+| `implementer` | `opus/flow-high` | `No-progress escalation` | — |
+| `implementer` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — | Writes the code for a group of tasks, tests first.
+| `late-fix` | `opus/flow-low` | — | Reviews just a small fix made after the branch already passed review.
+| `panel-fix` | `opus/flow-high` | `No-progress escalation` | — |
+| `panel-fix` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — | Fixes what the review panel found.
+| `panel-merger` | `sonnet/flow-low` | — | Merges the reviewers' findings into one list without duplicates.
+| `panel-mutation-failure` | `opus/flow-low`, `sonnet/flow-low` | — | Always-on extra bundle: breaks the code on purpose to prove the tests notice, and checks error, timeout and partial-write paths.
+| `panel-rerun` | `opus/flow-low`, `sonnet/flow-low` | — | Re-reviews the branch after a fix round.
+| `panel-reviewer` | `opus/flow-high` | `Operator-approved high` | — |
+| `panel-reviewer` | `opus/flow-low`, `opus/flow-medium` | — | Reviews the whole branch, first pass: the primary + principles bundle.
+| `panel-sanity-efficiency` | `opus/flow-low`, `sonnet/flow-low` | — | Always-on extra bundle: checks each new test would fail if its behaviour broke, and spots wasted calls.
+| `pipeline-fix-fix` | `opus/flow-high` | `No-progress escalation` | — |
+| `pipeline-fix-fix` | `opus/flow-low` | — | Makes that tooling fix.
+| `pipeline-fix-plan` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — | Plans the fix for a defect found in the flow tooling mid-run.
+| `pipeline-fix-review-1` | `opus/flow-medium`, `opus/flow-low` | — | First review of the tooling fix.
+| `pipeline-fix-review-r` | `sonnet/flow-low` | — | Re-review once that fix is corrected.
+| `plan-designer` | `opus/Plan@low`, `opus/Plan@medium` | — | Proposes a design or plan for the planner to choose from.
+| `planner` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — | Writes the design and the task plan.
+| `self-review-fix` | `opus/flow-high` | `No-progress escalation` | — |
+| `self-review-fix` | `opus/flow-low` | — | Makes one planned self-review fix.
+| `self-review-pass` | `opus/flow-medium` | — | Reviews a finished change and the run that built it.
+| `self-review-plan` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — | Plans the fixes for the self-review's findings.
+| `self-review-review-1` | `opus/flow-medium`, `opus/flow-low` | — | First review of a self-review fix.
+| `self-review-review-r` | `sonnet/flow-low` | — | Re-review once that fix is corrected.
+| `tooling-analyst` | `opus/flow-medium` | — | Works out why visual verification missed a defect.
+| `visual-verifier` | `opus/flow-low` | — | Screenshots the UI and compares it with the mockup.
+| panel bundle, at most two per round, plus at most one citation send-back per re-run dispatch outside that cap | `reviewer` | `panel-reviewer` on pass 1; `panel-sanity-efficiency` for the `test-sanity+call-efficiency` extra dispatch and `panel-mutation-failure` for the `mutation+failure-modes` one; `panel-rerun` for a re-run, its send-back and a decided panel's late-fix pass; `late-fix` for a `default` panel's late-fix pass | `panel-<round>-<slot\|slot+slot+slot>` (`-cite` once per re-run dispatch) | `skills/flow/review-panel.md`, **Bundled dispatch** |
