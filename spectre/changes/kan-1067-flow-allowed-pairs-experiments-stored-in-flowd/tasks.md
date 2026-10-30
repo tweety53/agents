@@ -260,9 +260,11 @@ Correction (2026-10-30): `hooks/enforce-agent-baseline.py` and `stats/internal/r
   - [ ] **Step 4: Recapture and verify.** Run the project's `capture` with `tests/visual/experiments.spec.ts` and every spec whose baseline the seed moves, read each changed PNG, rebuild `full-app-suite.zip` (`rebuild-full-app-suite-zip.sh`), and rewrite the sections of `visual-verification.md` the fix changes. `cd stats && make -s web-dist && cd web && npx tsc -b`, the vitest file and the capture exit 0. Commit.
 
 **Build:** green
-**Files:** `stats/web/src/views/Experiments.tsx`, `stats/web/src/views/views.test.tsx`, `stats/cmd/uitest-seed/seed.go`, `stats/web/tests/visual/experiments.spec.ts-snapshots/*`, `stats/web/tests/visual/full-app-suite.spec.ts-snapshots/*`, `stats/web/tests/visual/full-app-suite.zip`, `spectre/changes/kan-1067-flow-allowed-pairs-experiments-stored-in-flowd/visual-verification.md`
+**Files:** `stats/web/src/views/Experiments.tsx`, `stats/web/src/views/views.test.tsx`, `stats/cmd/uitest-seed/seed.go`, `stats/cmd/uitest-seed/seed_test.go`, `stats/web/tests/visual/experiments.spec.ts`, `stats/web/tests/visual/experiments.spec.ts-snapshots/experiments-open-darwin.png`, `stats/web/tests/visual/experiments.spec.ts-snapshots/experiments-closed-darwin.png`, `stats/web/tests/visual/experiments.spec.ts-snapshots/experiments-hover-darwin.png`, `stats/web/tests/visual/experiments.spec.ts-snapshots/experiments-focus-darwin.png`, `stats/web/tests/visual/full-app-suite.spec.ts-snapshots/full-experiments-darwin.png`, `stats/web/tests/visual/full-app-suite.zip`, `spectre/changes/kan-1067-flow-allowed-pairs-experiments-stored-in-flowd/visual-verification.md`
 **Allowed-collateral:** `stats/web/src/views/Experiments.css`, `stats/web/src/index.css`, `stats/web/tests/visual/*-snapshots/*`
 **Tests:** the two Step 1 probes in `stats/web/src/views/views.test.tsx`
 **Regression:** the list-order probe fails with closed experiments first; the nowrap probe fails when the delta line can wrap.
 **Commit:** fix(web): list open experiments first and keep the delta on one line
 **After:** Task 7, 8, 14
+
+Correction (2026-10-30): the snapshot globs named the PNGs the recapture moved — the four `experiments.spec.ts` captures and `full-experiments-darwin.png`; `experiments.spec.ts` asserted the old closed-first order and now asserts the open experiment leads, and `seed_test.go` asserts the seeded token figures.
