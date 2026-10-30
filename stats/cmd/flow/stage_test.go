@@ -2097,3 +2097,59 @@ func TestStageEndRefusesOpenSelfReviewPassInteractive(t *testing.T) {
 		})
 	}
 }
+
+// TestStageBeginRequestFlag pins `stage begin -request <n>` (KAN-1061):
+// with -command /flow-interactive it sends "request"; with any other
+// command, or a non-positive value, it exits 2 naming the flag and sends
+// nothing.
+func TestStageBeginRequestFlag(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var bodies [][]byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		b, err := readAll(r)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+		bodies = append(bodies, b)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":7,"attempt":1}`))
+	}))
+	defer srv.Close()
+
+	begin := func(command, request string) (int, string) {
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), []string{
+			"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", command, "-stage", "flow.sdd-tdd", "-request", request,
+			"-harness", "claude-code", "-session-token", "fi-request-flag-20261030T100000Z",
+			"kan-1061",
+		}, strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String()
+	}
+
+	if code, stderr := begin("/flow-interactive", "3"); code != 0 {
+		t.Fatalf("-request 3 on /flow-interactive exit = %d, want 0; stderr:\n%s", code, stderr)
+	}
+	if len(bodies) != 1 {
+		t.Fatalf("daemon got %d requests, want 1", len(bodies))
+	}
+	var got map[string]any
+	if err := json.Unmarshal(bodies[0], &got); err != nil {
+		t.Fatalf("decode %s: %v", bodies[0], err)
+	}
+	if got["request"] != float64(3) {
+		t.Errorf("request = %v, want 3; body %s", got["request"], bodies[0])
+	}
+
+	for _, tc := range []struct{ command, request string }{{"/flow", "3"}, {"/flow-interactive", "-1"}, {"/flow-interactive", "0"}} {
+		code, stderr := begin(tc.command, tc.request)
+		if code != 2 || !strings.Contains(stderr, "-request") {
+			t.Errorf("-command %s -request %s exit = %d, want 2 naming -request; stderr:\n%s", tc.command, tc.request, code, stderr)
+		}
+	}
+	if len(bodies) != 1 {
+		t.Errorf("daemon got %d requests, want only the accepted one", len(bodies))
+	}
+}

@@ -1995,3 +1995,39 @@ func TestStatsReviewDynamics(t *testing.T) {
 		t.Errorf("class=big = %d %s, want 200", status, raw)
 	}
 }
+
+// TestListStageRunsServesRequest pins the stage-run DTO's request field
+// (KAN-1061): a run tagged with a /flow-interactive request serves it as
+// "request", and a run of no request omits the key.
+func TestListStageRunsServesRequest(t *testing.T) {
+	base := time.Date(2026, 10, 30, 0, 0, 0, 0, time.UTC)
+	three := 3
+	sts := &statsFake{
+		stageRuns: []statsRun{
+			{run: store.StageRun{ID: 1, Command: "/flow-interactive", Stage: "flow.sdd-tdd", StartedAt: base, RequestN: &three}, projectKey: "p", changeName: "kan-1"},
+			{run: store.StageRun{ID: 2, Command: "/flow-interactive", Stage: "flow.self-review", StartedAt: base}, projectKey: "p", changeName: "kan-1"},
+		},
+	}
+	ts := newStatsTestServer(t, sts)
+
+	status, body := doGetRaw(t, ts, "/api/v1/stage-runs?sort=-started_at")
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	var resp struct {
+		StageRuns []map[string]any `json:"stageRuns"`
+	}
+	if err := json.Unmarshal([]byte(body), &resp); err != nil {
+		t.Fatalf("decode: %v (body %s)", err, body)
+	}
+	byID := map[float64]map[string]any{}
+	for _, r := range resp.StageRuns {
+		byID[r["stageRunId"].(float64)] = r
+	}
+	if got := byID[1]["request"]; got != float64(3) {
+		t.Errorf("run 1 request = %v, want 3", got)
+	}
+	if _, ok := byID[2]["request"]; ok {
+		t.Errorf("run 2 carries request %v, want the key omitted", byID[2]["request"])
+	}
+}

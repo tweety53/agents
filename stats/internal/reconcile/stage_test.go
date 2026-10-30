@@ -415,3 +415,34 @@ func TestStageReplayInterruptedResumesWithoutDuplicating(t *testing.T) {
 		t.Error("chg-b should have exactly one stage run after resuming, not a duplicate from the failed first attempt")
 	}
 }
+
+// TestReplayBeginMarkKeepsRequest pins that a /flow-interactive begin mark
+// journalled with its request (KAN-1061) replays carrying it, so the stage
+// run a dead store missed is still tagged with the request it worked.
+func TestReplayBeginMarkKeepsRequest(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	root := t.TempDir()
+	seedChange(t, st, "proj-stage-request", "chg-1")
+
+	three := 3
+	appendStageMark(t, root, "proj-stage-request", "chg-1", "begin", client.BeginStageRequest{
+		ProjectKey:   "proj-stage-request",
+		ChangeName:   "chg-1",
+		Harness:      "claude-code",
+		SessionToken: "fi-stage-request-20261030T100000Z",
+		Command:      "/flow-interactive",
+		Stage:        "flow.sdd-tdd",
+		StartedAt:    time.Date(2026, 10, 30, 10, 0, 0, 0, time.UTC),
+		Request:      &three,
+	})
+
+	rec := reconcile.New(st, st, st, root, nil)
+	if result, err := rec.Run(ctx); err != nil || result.Applied != 1 {
+		t.Fatalf("Run = %+v, %v; want one applied", result, err)
+	}
+	runs := allStageRuns(t, st, "proj-stage-request", "chg-1")
+	if len(runs) != 1 || runs[0].RequestN == nil || *runs[0].RequestN != 3 {
+		t.Fatalf("stage runs = %+v, want one carrying request 3", runs)
+	}
+}

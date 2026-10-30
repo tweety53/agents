@@ -1109,6 +1109,9 @@ type stageRunDTO struct {
 	// AutoOpened marks a run the store opened for a dispatch that began
 	// while the change had no open stage run.
 	AutoOpened bool `json:"autoOpened"`
+	// Request is the /flow-interactive request the run worked on
+	// (KAN-1061), omitted for a run of none.
+	Request *int `json:"request,omitempty"`
 }
 
 func toStageRunDTO(r store.StageRun) stageRunDTO {
@@ -1126,6 +1129,7 @@ func toStageRunDTO(r store.StageRun) stageRunDTO {
 		ChangeName: r.ChangeName,
 		ProjectKey: r.ProjectKey,
 		AutoOpened: r.AutoOpened,
+		Request:    r.RequestN,
 	}
 	if r.EndedAt != nil {
 		endedAt := r.EndedAt.UTC().Format(time.RFC3339Nano)

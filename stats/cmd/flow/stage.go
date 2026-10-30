@@ -39,7 +39,7 @@ import (
 // end mark supplies, rather than from this recorded value, was unsound.
 const defaultHarness = "unknown"
 
-const stageUsage = `usage: flow stage begin [-addr url] [-timeout dur] [-C dir] [-harness name] [-session id]
+const stageUsage = `usage: flow stage begin [-addr url] [-timeout dur] [-C dir] [-harness name] [-session id] [-request n]
                           -command cmd -stage key -session-token token (<change> | -change name | -jira-key KEY)
        flow stage end [-addr url] [-timeout dur] [-C dir]
                         -command cmd -stage key -outcome outcome
@@ -64,6 +64,9 @@ stage keys prints every documented stage key, one per line, from this
 checkout's own internal/stages table -- the vocabulary's one served source;
 the check-stage-mark-calls guard consumes this output rather than keeping a
 transcription of its own.
+
+-request tags a begin with the /flow-interactive request it works on: a
+positive integer, refused (exit 2) with any other -command.
 
 -jira-key records a /flow-plan session against its Jira key before the change
 exists; it replaces the <change> argument and is accepted for the plan.session
@@ -362,6 +365,7 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 	harnessFlag := fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, or \"unknown\")")
 	sessionFlag := fset.String("session", "", "the harness session id, if known; defaults to CLAUDE_CODE_SESSION_ID or MUSE_SESSION_ID when set")
 	sessionTokenFlag := fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes -- never a shell substitution -- so the daemon can later bind every stage run carrying it to the session that made it (required)")
+	requestFlag := fset.Int("request", 0, "the /flow-interactive request this run works on, a positive integer (only with -command /flow-interactive)")
 	pos, err := parseInterspersed(fset, args)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -376,6 +380,20 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, stageUsage)
 		return 2
+	}
+	var request *int
+	requestGiven := false
+	fset.Visit(func(fl *flag.Flag) { requestGiven = requestGiven || fl.Name == "request" })
+	if requestGiven {
+		if f.command != string(stages.FlowInteractive) {
+			fmt.Fprintf(stderr, "flow: -request is only valid with -command %s, not %s\n", stages.FlowInteractive, f.command)
+			return 2
+		}
+		if *requestFlag <= 0 {
+			fmt.Fprintf(stderr, "flow: -request must be a positive integer, got %d\n", *requestFlag)
+			return 2
+		}
+		request = requestFlag
 	}
 	if *sessionTokenFlag == "" {
 		// A missing -session-token is a caller mistake, not a stage outcome:
@@ -433,6 +451,7 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 		Stage:            f.stage,
 		StartedAt:        time.Now(),
 		JiraKey:          f.jiraKey,
+		Request:          request,
 	}
 
 	result, beginErr := beginStage(ctx, f.addr, f.timeout, req)

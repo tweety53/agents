@@ -1012,6 +1012,18 @@ func (stubStageStore) ListTaskCounts(context.Context, string, string) ([]records
 	return nil, errStageStoreNotImplemented
 }
 
+func (stubStageStore) BeginRequest(context.Context, string, string, records.RequestBegin) (records.Request, error) {
+	return records.Request{}, errStageStoreNotImplemented
+}
+
+func (stubStageStore) EndRequest(context.Context, string, string, records.RequestEnd) (records.Request, error) {
+	return records.Request{}, errStageStoreNotImplemented
+}
+
+func (stubStageStore) ListRequests(context.Context, string, string) ([]records.Request, error) {
+	return nil, errStageStoreNotImplemented
+}
+
 func (stubStageStore) RecordDecision(context.Context, string, string, records.Decision) (records.Decision, bool, error) {
 	return records.Decision{}, false, errStageStoreNotImplemented
 }
