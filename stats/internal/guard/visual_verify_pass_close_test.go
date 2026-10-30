@@ -212,13 +212,15 @@ func TestVisualVerifyPassCloseCommitsPathspec(t *testing.T) {
 	f := vvcFixture(t, "")
 	writeFile(t, filepath.Join(f.wt, "foreign.txt"), "x\n")
 	gitRun(t, f.wt, "add", "foreign.txt")
+	// A suite PNG the report counts but never names (kan-1060 gated review).
+	writeFile(t, filepath.Join(f.wt, "tests/visual/full-app-suite.spec.ts-snapshots/home-darwin.png"), "png\n")
 	f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n")
 	if rc, out, _ := f.close("visual-verify"); rc != 0 {
 		t.Fatalf("exit %d\n%s", rc, out)
 	}
 	out, _ := exec.Command("git", "-C", f.wt, "show", "--name-only", "--format=%B", "HEAD").Output()
 	files := string(out)
-	for _, want := range []string{"tests/visual/home.spec.ts\n", "tests/visual/home.spec.ts-home.png\n", "tests/visual/full-app-suite.spec.ts\n", "tests/visual/full-app-suite.zip\n",
+	for _, want := range []string{"tests/visual/home.spec.ts\n", "tests/visual/home.spec.ts-home.png\n", "tests/visual/full-app-suite.spec.ts\n", "tests/visual/full-app-suite.zip\n", "tests/visual/full-app-suite.spec.ts-snapshots/home-darwin.png\n",
 		"spectre/changes/demo/visual-verification/visual-verification.md\n", "Flow-Key: flow.visual-verify"} {
 		if !strings.Contains(files, want) {
 			t.Errorf("commit lacks %q:\n%s", want, files)

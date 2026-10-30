@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -269,7 +270,7 @@ func (v *vvp) endStage() {
 var vvcPath = regexp.MustCompile(`/[^\s,;]+`)
 
 // commit is step 12 (decision close-commits-final-reports): the report's
-// `spec:` path, every PNG, the full app suite's spec and zip it names, and
+// `spec:` path, every PNG, the full app suite's spec, zip and resolved PNGs, and
 // <changeRoot>/visual-verification/ — each in the checkout it lives in,
 // pathspec-scoped, under `test: record the <key> visual verification` with
 // trailer `Flow-Key: flow.visual-verify`. A checkout on a branch other than
@@ -301,6 +302,15 @@ func (v *vvp) commit(w string, report []byte, changeRoot string) {
 		for _, p := range vvcPath.FindAllString(l, -1) {
 			if isSpec || strings.HasSuffix(p, ".png") {
 				add(p)
+			}
+			// The report counts the suite's PNGs without naming them: resolve
+			// them as rebuild-full-app-suite-zip does.
+			if strings.HasSuffix(p, "/full-app-suite.spec.ts") {
+				var out bytes.Buffer
+				Registry["resolve-visual-screenshots"]([]string{w, "full-app-suite.spec.ts"}, v.env, &out, io.Discard)
+				for _, png := range strings.Fields(out.String()) {
+					add(png)
+				}
 			}
 		}
 	}
