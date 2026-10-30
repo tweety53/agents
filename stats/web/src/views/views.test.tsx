@@ -1624,8 +1624,7 @@ describe("Experiments", () => {
     fetchExperimentStatsMock.mockReset().mockResolvedValue(stats(3, [{ name: "tokens", before: null, after: 60000 }]));
     render(<Experiments />);
     const trend = await screen.findByRole("region", { name: "Weekly trend — before vs after start" });
-    const lines = within(trend)
-      .getAllByRole("img")
+    const lines = (await within(trend).findAllByRole("img"))
       .map((c) => c.querySelector("[data-testid=mean-after]"))
       .filter(Boolean);
     expect(lines.length).toBeGreaterThan(0);
