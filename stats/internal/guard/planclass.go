@@ -76,7 +76,7 @@ type pcExp struct{ name, desc string }
 
 // pcExtra is an always-on extra dispatch's line — test-sanity+call-efficiency
 // (kan-959) or mutation+failure-modes (kan-1028): its bundle, its roll and
-// the pair it picks from pairs, the panel-extra row of the allowed-pairs
+// the pair it picks from pairs, the bundle's own row of the allowed-pairs
 // table — its sonnet pair below 50, its opus pair otherwise, either one when
 // the row names only the other. Printed on every class, micro included.
 func pcExtra(bundle string, roll uint64, pairs []string) string {
@@ -340,11 +340,12 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	policy, err := policyTable(env, root)
-	if err != nil || len(policy["panel-extra"]) == 0 {
-		fmt.Fprintf(stderr, "plan-class.sh: the allowed-pairs table names no panel-extra row (%v)\n", err)
-		return 2
+	for _, role := range []string{"panel-sanity-efficiency", "panel-mutation-failure"} {
+		if err != nil || len(policy[role]) == 0 {
+			fmt.Fprintf(stderr, "plan-class.sh: the allowed-pairs table names no %s row (%v)\n", role, err)
+			return 2
+		}
 	}
-	extra := policy["panel-extra"][0].Pairs
 
 	// Rolls are reproducible per change name (the directory holding
 	// <tasks.md>): each the first 8 hex digits of a SHA-256, mod 100.
@@ -361,7 +362,7 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "class: %s\n", class)
 	fmt.Fprintf(stdout, "rolls: compact %d · experimental %d · bundle %d · effort %d\n", roll(name), roll(name+"exp"), roll(name+"bundle"), roll(name+"effort"))
 	fmt.Fprint(stdout, pcTree(effective, roll(name), roll(name+"exp"), roll(name+"bundle"), cands))
-	fmt.Fprint(stdout, pcExtra("test-sanity+call-efficiency", roll(name+"extra"), extra))
-	fmt.Fprint(stdout, pcExtra("mutation+failure-modes", roll(name+"extramf"), extra))
+	fmt.Fprint(stdout, pcExtra("test-sanity+call-efficiency", roll(name+"extra"), policy["panel-sanity-efficiency"][0].Pairs))
+	fmt.Fprint(stdout, pcExtra("mutation+failure-modes", roll(name+"extramf"), policy["panel-mutation-failure"][0].Pairs))
 	return 0
 }
