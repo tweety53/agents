@@ -94,6 +94,13 @@ and a narrow, explicit scope: what to look at, what is already known, what to re
 planning dispatch's row is ended when its agent hands back, and `flow stage end` of
 `flow.brainstorm` refuses while one is open (kan-1046 self-review, 1e).
 
+**Never end your turn while one of your agents runs.** A turn that ends to wait for a hand-back
+loses your 5-minute prompt cache when the agent runs longer, and the hand-back then rewrites your
+whole context. Once your own work is done, call
+`<agents repo>/scripts/await-sub-agents.sh <agent id>...` with the agent ids your launches returned:
+each call returns within two minutes — exit 0 once every agent finished, exit 1 naming those still
+running — so call it again on exit 1, and read each hand-back as it arrives.
+
 In `/flow` and `/flow-plan` the recommendation goes to the operator as part of the design, its
 alternatives shown only when they help the operator decide. The self-review and in-run fix planners
 take the recommendation without asking, per **Auto-resolution**
