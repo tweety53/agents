@@ -98,40 +98,64 @@ its output.
 flow stage end -command '/flow' -stage flow.kickoff -outcome completed <name>
 ```
 
-## Run brainstorming and planning directly
+## Run brainstorming and planning through the planner role
 
 ```bash
 flow stage begin -command '/flow' -stage flow.brainstorm -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-Read `skills/flow/brainstorm-planner.md`'s sections **B**, **C** and **D** and follow them <!-- refs-guard:allow -->
-directly — `REVIEWERS` (**Model resolution**, `skills/flow/SKILL.md`) is
-already in scope from this run's own earlier resolution.
-
-**No `fork` from kickoff to the plan gate.** A fork copies the whole conversation, so it saves no
-context and doubles the token spend, and the `/clear` after the gate discards this session's
-context anyway; on kan-941 one also closed `flow.writing-plans` out of order. **Fresh subagents
-through the Agent tool are allowed while planning** — the Explore and Plan agents of **Explore and
-design agents** (`skills/flow/brainstorm-planner.md`) — and the thinking stays in this session:
-the questions, convergence, the choice between designs, artifact creation, writing-plans, the
-guards and Decide all run in this session's own turns. `/flow` records each planning dispatch
-under `flow.brainstorm`, its pair from `plan-agent-pair.sh <name> <n>`, `<n>` counting this run's
-planning dispatches from 1 — role `explorer` for an Explore agent, `planner` for a Plan agent:
+**The parent never brainstorms or writes the plan itself; a `planner` dispatch does** (decision
+`planner-role`, KAN-1067). Every planner dispatch is fresh and one-shot, on `subagent_type:
+flow-planner-<effort>` with `model` and effort from the **Allowed pairs** row `planner`
+(`skills/flow-contracts/model-policy.md`) — its first pair unless an open experiment overrides
+it. Its prompt carries `Role: planner`, `Key: plan-<n>`, the two agent-baseline sentences, the
+report-tersely line, the PLANNING DELEGATION paragraph (`skills/flow-self-review/SKILL.md`) — its
+auto-resolution sentence replaced by "every choice is written as a question of the round file" —
+the change name, the absolute worktree, the session token and `REVIEWERS` (**Model resolution**,
+`skills/flow/SKILL.md`), already in scope from this run's own earlier resolution. `<n>` counts
+this run's planner dispatches from 1, and the Agent-tool `description` opens with `plan-<n>` —
+`plan-2 design round` — the row `hooks/enforce-agent-baseline.py` admits:
 
 ```bash
-flow record dispatch begin -change <name> -role explorer|planner -model <m> -effort low \
-  -key explore-<n>|design-<n> -session-token mf-<literal-token>
-flow record dispatch end -change <name> -key explore-<n>|design-<n> -session-token mf-<literal-token> -outcome completed
+flow record dispatch begin -change <name> -role planner -model <m> -effort <e> -key plan-<n> -session-token mf-<literal-token>
+flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal-token> -outcome completed
 ```
+
+1. **Design round.** The planner runs section **B** of `skills/flow/brainstorm-planner.md` without <!-- refs-guard:allow -->
+   plan mode, reading the ticket and every file under `<abs-worktree>/.superpowers/sdd/planner/`,
+   dispatching its own Explore and Plan agents (it records their rows, `-role explorer|planner`,
+   `-key explore-<n>|design-<n>`, each pair from `plan-agent-pair.sh <name> <n>`, `<n>` continuing
+   the run's count across rounds — the parent names the next free `<n>` in each round's prompt, since
+   a reused key restarts the earlier round's row), publishing or
+   updating the prototype a visible change needs, and writes `round-<r>.md`: the design draft, the
+   settled prose the convergence confirm shows, then `## Questions` — each question with two to
+   four options, one marked recommended, the convergence confirm last when nothing else is open.
+   It asks the operator nothing.
+2. **Relay.** The parent prints the round's settled prose, asks its questions verbatim in one
+   **AskUserQuestion** call, and writes the answers verbatim to `answers-<r>.md`; it never answers
+   a question itself. An explicit approve of the convergence confirm closes brainstorming —
+   `flow.brainstorm` end, `flow.design-approval` begin and end, as **Convergence**
+   (`skills/flow/brainstorm-planner.md`) marks them; any other answer dispatches round `<r+1>`. An
+   operator message mid-planning is written to the next `answers-<r>.md` and relayed the same way.
+3. **Artifacts and plan.** A final planner dispatch runs sections **C** and **D** of <!-- refs-guard:allow -->
+   `skills/flow/brainstorm-planner.md` up to, not including, **Decide**: its `flow.create-artifacts`
+   and `flow.writing-plans` begin marks under the run's session token, `spectre new`, the three
+   artifacts from the approved design — read from every file under
+   `<abs-worktree>/.superpowers/sdd/planner/`, where the approved design lives — writing-plans,
+   `spectre validate`, `check-plan-shape.sh`, the configured guards and `flow tasks count`. It
+   returns `PLAN-WRITTEN` or the guard output it could not clear, and the parent redispatches a
+   fresh one with that output until `PLAN-WRITTEN`; a redispatch skips section **C** and the
+   `flow.writing-plans` begin, both already made, and resumes at the guard that failed.
+
+The parent then closes `flow.writing-plans` and runs **Decide**, the record sequence and the gate,
+as the rest of this file states.
 
 Run each `begin` immediately before its Agent call and its `end` once that agent returns — never
 both after it returns, which records a window of zero seconds (kan-1034: both explorer rows read
 0s).
 
-Plan mode (**Plan mode**, `skills/spectre-planning/SKILL.md`) is entered right after
-`flow.brainstorm` begins — `STARTED` and the worktree already exist — and before the Explore phase.
-On **Approve**, save the design under `<project>-worktrees/<name>/.superpowers/sdd/` and continue
-into section **C**.
+No `fork` from kickoff to the plan gate: a fork copies the whole conversation and doubles the
+token spend (kan-941).
 
 **Prose preceding a question is shown too, not dropped.** When the checklist carries a summary
 before a question — most concretely the convergence confirm's "state what you believe settled"

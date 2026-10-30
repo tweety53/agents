@@ -34,6 +34,7 @@ import (
 	"github.com/tweety53/agents/stats/internal/config"
 	"github.com/tweety53/agents/stats/internal/fallback"
 	"github.com/tweety53/agents/stats/internal/harvest"
+	"github.com/tweety53/agents/stats/internal/modelpolicy/embedded"
 	"github.com/tweety53/agents/stats/internal/pidfile"
 	"github.com/tweety53/agents/stats/internal/reconcile"
 	"github.com/tweety53/agents/stats/internal/store"
@@ -301,7 +302,7 @@ func run(logger *slog.Logger) error {
 		return at, found
 	}
 	restampRecentEnds(ctx, st, time.Now(), agentEnd, logger)
-	srv, err := api.New(cfg, st, st, st, st, st, logger, api.WithSPA(spaHandler), api.WithGuardRuns(st), api.WithRepricer(st),
+	srv, err := api.New(cfg, st, st, st, st, st, logger, api.WithSPA(spaHandler), api.WithGuardRuns(st), api.WithRepricer(st), api.WithExperiments(st, embedded.Table),
 		api.WithCommitBase(commitBaseFromRemote(originRemote())), api.WithBuild(buildIdentity()),
 		api.WithAgentEnds(agentEnd))
 	if err != nil {

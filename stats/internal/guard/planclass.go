@@ -339,12 +339,12 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "plan-class.sh: %v\n", err)
 		return 2
 	}
-	policy, err := policyTable(root)
+	policy, err := policyTable(env, root)
 	if err != nil || len(policy["panel-extra"]) == 0 {
 		fmt.Fprintf(stderr, "plan-class.sh: the allowed-pairs table names no panel-extra row (%v)\n", err)
 		return 2
 	}
-	extra := policy["panel-extra"][0].pairs
+	extra := policy["panel-extra"][0].Pairs
 
 	// Rolls are reproducible per change name (the directory holding
 	// <tasks.md>): each the first 8 hex digits of a SHA-256, mod 100.

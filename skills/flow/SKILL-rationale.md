@@ -103,7 +103,7 @@ existed only to bridge the late creation went with it. **Considered:** writing p
 scratch directory and moving it in later — rejected the same way kan-488 rejected it, and now with
 no gap left for it to bridge.
 
-## brainstorm.md — Run brainstorming and planning directly (kan-1033)
+## brainstorm.md — Run brainstorming and planning through the planner role (kan-1033)
 
 The ban on every dispatch from kickoff to the plan gate narrowed to forks (decision
 `agent-tool-everywhere`). Its recorded reason was about forks alone: a fork copies the whole
@@ -697,7 +697,7 @@ behind an empty map — the stale `STARTED` record a resumed run reads as a fres
 ends your turn** naming the command and its output — a worktree that cannot be set up fails
 `flow.verify` later anyway, and the operator should see it here.
 
-### brainstorm.md — Run brainstorming and planning directly
+### brainstorm.md — Run brainstorming and planning through the planner role
 
 The operator approving or answering the question is
 approving against the summary they were actually shown.

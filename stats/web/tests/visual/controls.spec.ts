@@ -256,9 +256,9 @@ test.describe("Live state board chips", () => {
   const tile = (page: Page, name: RegExp) => page.getByRole("button", { name });
 
   test("a Project chip narrows the rows and the state tiles", async ({ page }) => {
-    await expect(tile(page, /^In progress/)).toContainText("1");
+    await expect(tile(page, /^Integrating & review/)).toContainText("1");
     await page.getByRole("group", { name: "Project" }).getByRole("button", { name: /^uitest-beta/ }).click();
-    await expect(tile(page, /^In progress/)).toContainText("0");
+    await expect(tile(page, /^Integrating & review/)).toContainText("0");
     await expect(tile(page, /^Finished/)).toContainText("1");
     await expect(table(page).getByRole("link", { name: "kan-101-add-widget" })).toHaveCount(0);
   });

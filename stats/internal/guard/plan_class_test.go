@@ -649,11 +649,11 @@ func pcRoot(t *testing.T) string {
 // pcExtraPairs is the real table's panel-extra pairs.
 func pcExtraPairs(t *testing.T) []string {
 	t.Helper()
-	rows, err := policyTable("../../..")
+	rows, err := policyTable(noFlowEnv(t), "../../..")
 	if err != nil {
 		t.Fatal(err)
 	}
-	return rows["panel-extra"][0].pairs
+	return rows["panel-extra"][0].Pairs
 }
 
 // TestPlanClassExtraFollowsPolicy: the extra dispatch's pair comes from the

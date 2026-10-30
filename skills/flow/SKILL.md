@@ -41,6 +41,10 @@ REVIEWERS="$(printf '%s' "$SETTINGS_JSON" | jq -r '.reviewers[]')"
 VERIFY_MODEL=opus
 ```
 
+**An open main-agent experiment is checked, never enforced.** Right after resolving the above, run
+`flow experiment main-check -model <this session's model> -effort <this session's effort>` and
+print any line it prints, once; it never blocks the run (decision `main-check-and-tag`, KAN-1067).
+
 A non-zero exit from `flow settings get` means the settings store could not be reached — there is
 no per-change fallback file for this record. The read leaves the CLI's stderr visible: report it
 verbatim as the cause, and resolve `REVIEWERS` by the table's Unreachable row below, never as the

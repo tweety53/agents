@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -8,81 +9,56 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/modelpolicy"
 )
 
 // The **Allowed pairs** table of skills/flow-contracts/model-policy.md as
 // mechanics: policyTable parses it, policyAllows judges one dispatch against
 // it, and check-dispatch-pair.sh wraps both for hooks/enforce-agent-baseline.py.
-// check-loop-dispatch, plan-agent-pair and plan-class read the same table.
+// check-loop-dispatch, plan-agent-pair, plan-class and pipeline-fix read the
+// same table, every one with open experiment overrides applied.
 func init() {
 	Registry["check-dispatch-pair"] = checkDispatchPair
 }
 
 // mpFile is the one canonical place the pairs are read from.
-const mpFile = "skills/flow-contracts/model-policy.md"
-
-// policyRow is one table row: the pairs it admits, and the whole prompt line
-// it requires ("" for none).
-type policyRow struct {
-	pairs  []string
-	marker string
-}
+const mpFile = modelpolicy.File
 
 var mpRole = regexp.MustCompile(`(?m)^Role: (\S+)$`)
 
-// policyTable parses the `| Role | Allowed pairs | Requires marker |` table out
-// of <repo>/mpFile, keyed by role id. A file with no such table, or a row
-// missing a cell, is an error: a dispatch is never admitted off a table that
-// cannot be read.
-func policyTable(repo string) (map[string][]policyRow, error) {
+// policyTable parses <repo>/mpFile (modelpolicy.Parse) and overlays every
+// open allowed-pairs experiment (KAN-1067): `flow experiment overrides`'
+// {role: [pairs]} replaces the pairs of each named role's first unmarked
+// row. Marked rows, roles the table lacks and `main` -- the parent agent,
+// never a dispatch -- are left alone, and a failed or unparsable read
+// leaves the table alone (decision overrides-via-flow-cli).
+func policyTable(env Env, repo string) (map[string][]modelpolicy.Row, error) {
 	b, err := os.ReadFile(filepath.Join(repo, mpFile))
 	if err != nil {
 		return nil, err
 	}
-	rows := map[string][]policyRow{}
-	in := false
-	for _, line := range strings.Split(string(b), "\n") {
-		t := strings.TrimSpace(line)
-		if strings.HasPrefix(t, "| Role | Allowed pairs | Requires marker |") {
-			in = true
-			continue
-		}
-		if !in {
-			continue
-		}
-		if !strings.HasPrefix(t, "|") {
-			break
-		}
-		if strings.HasPrefix(t, "|---") {
-			continue
-		}
-		cells := strings.Split(strings.Trim(t, "|"), "|")
-		if len(cells) != 3 {
-			return nil, fmt.Errorf("%s: allowed-pairs row %q has %d cells, want 3", mpFile, t, len(cells))
-		}
-		role, pairs, marker := ticks(cells[0]), ticks(cells[1]), ticks(cells[2])
-		if len(role) != 1 || len(pairs) == 0 || len(marker) > 1 {
-			return nil, fmt.Errorf("%s: allowed-pairs row %q names no single role, no pair, or more than one marker", mpFile, t)
-		}
-		r := policyRow{pairs: pairs}
-		if len(marker) == 1 {
-			r.marker = marker[0]
-		}
-		rows[role[0]] = append(rows[role[0]], r)
+	rows, err := modelpolicy.Parse(b)
+	if err != nil {
+		return nil, err
 	}
-	if len(rows) == 0 {
-		return nil, fmt.Errorf("%s carries no `| Role | Allowed pairs | Requires marker |` table", mpFile)
+	out, _, rc := pcFlow(env, false, "experiment", "overrides")
+	var overrides map[string][]string
+	if rc != 0 || json.Unmarshal(out, &overrides) != nil {
+		return rows, nil
+	}
+	for role, pairs := range overrides {
+		if role == "main" || len(pairs) == 0 {
+			continue
+		}
+		for i, r := range rows[role] {
+			if r.Marker == "" {
+				rows[role][i].Pairs = pairs
+				break
+			}
+		}
 	}
 	return rows, nil
-}
-
-// ticks is a cell's backticked tokens.
-func ticks(c string) []string {
-	var out []string
-	for _, m := range lpTick.FindAllStringSubmatch(c, -1) {
-		out = append(out, m[1])
-	}
-	return out
 }
 
 // policyPair spells a dispatch as the table does: `<model>/<type>`, or
@@ -97,7 +73,7 @@ func policyPair(typ, model, effort string) string {
 // policyAllows is nil when an unmarked row of role lists the pair, or a
 // marked row lists it and its marker is a whole line of prompt; otherwise an
 // error naming the role's allowed pairs.
-func policyAllows(rows map[string][]policyRow, role, typ, model, effort, prompt string) error {
+func policyAllows(rows map[string][]modelpolicy.Row, role, typ, model, effort, prompt string) error {
 	rs, ok := rows[role]
 	if !ok {
 		return fmt.Errorf("unknown role %q — no row of the allowed-pairs table (%s)", role, mpFile)
@@ -106,13 +82,13 @@ func policyAllows(rows map[string][]policyRow, role, typ, model, effort, prompt 
 	lines := strings.Split(prompt, "\n")
 	var allowed []string
 	for _, r := range rs {
-		has := slices.Contains(r.pairs, pair)
-		if has && (r.marker == "" || slices.ContainsFunc(lines, func(l string) bool { return strings.TrimSpace(l) == r.marker })) {
+		has := slices.Contains(r.Pairs, pair)
+		if has && (r.Marker == "" || slices.ContainsFunc(lines, func(l string) bool { return strings.TrimSpace(l) == r.Marker })) {
 			return nil
 		}
-		for _, p := range r.pairs {
-			if r.marker != "" {
-				p += " (with the line `" + r.marker + "`)"
+		for _, p := range r.Pairs {
+			if r.Marker != "" {
+				p += " (with the line `" + r.Marker + "`)"
 			}
 			allowed = append(allowed, p)
 		}
@@ -131,7 +107,7 @@ func checkDispatchPair(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) == 4 {
 		effort = args[3]
 	}
-	rows, err := policyTable(smcAbs(env, args[0]))
+	rows, err := policyTable(env, smcAbs(env, args[0]))
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: %v\n", self, err)
 		return 2

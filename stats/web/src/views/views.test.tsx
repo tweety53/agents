@@ -17,6 +17,7 @@ import type {
 import { App } from "../App";
 import { DynamicsChart } from "../components/DynamicsChart";
 import { Decisions } from "./Decisions";
+import { Experiments } from "./Experiments";
 import { FlowHealth } from "./FlowHealth";
 import { ReviewDynamics } from "./ReviewDynamics";
 import { Reviewers } from "./Reviewers";
@@ -26,11 +27,22 @@ import { StateBoard } from "./StateBoard";
 import { Trend } from "./Trend";
 import { WeeklyCosts } from "./WeeklyCosts";
 
-const { fetchStatsViewMock } = vi.hoisted(() => ({ fetchStatsViewMock: vi.fn() }));
+const { fetchStatsViewMock, fetchRolesMock, fetchExperimentsMock, fetchExperimentStatsMock } = vi.hoisted(() => ({
+  fetchStatsViewMock: vi.fn(),
+  fetchRolesMock: vi.fn(),
+  fetchExperimentsMock: vi.fn(),
+  fetchExperimentStatsMock: vi.fn(),
+}));
 
 vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
-  return { ...actual, fetchStatsView: fetchStatsViewMock };
+  return {
+    ...actual,
+    fetchStatsView: fetchStatsViewMock,
+    fetchRoles: fetchRolesMock,
+    fetchExperiments: fetchExperimentsMock,
+    fetchExperimentStats: fetchExperimentStatsMock,
+  };
 });
 
 const period = { from: new Date("2026-01-01T00:00:00Z"), to: new Date("2026-02-01T00:00:00Z") };
@@ -104,7 +116,7 @@ function reviewDynamicsRows() {
 }
 
 const fixtures: Record<
-  Exclude<ViewName, "flow-health"> | HealthViewSlug | WeeklyModelEffortViewSlug,
+  Exclude<ViewName, "flow-health" | "experiments"> | HealthViewSlug | WeeklyModelEffortViewSlug,
   StatsResponse<unknown>
 > = {
   "state-board": envelope("state-board", [
@@ -953,7 +965,7 @@ describe("views render their fixture response's actual values", () => {
 
 describe("absence is rendered distinctly from a recorded zero", () => {
   it("a period before the store held anything is stated, not rendered as an empty measured table", async () => {
-    fetchStatsViewMock.mockImplementation((view: ViewName) =>
+    fetchStatsViewMock.mockImplementation((view: StatsViewSlug) =>
       Promise.resolve(envelope(view, [], false)),
     );
     render(<Trend period={period} project={undefined} />);
@@ -976,7 +988,7 @@ describe("absence is rendered distinctly from a recorded zero", () => {
   // from both "no data was recorded" (the case immediately above) and
   // from an ordinary measured table -- never collapsing into either.
   it("a period whose runs were recorded but none attributed reports that plainly, not as 'no data was recorded'", async () => {
-    fetchStatsViewMock.mockImplementation((view: ViewName) =>
+    fetchStatsViewMock.mockImplementation((view: StatsViewSlug) =>
       Promise.resolve(envelope(view, [], true, true)),
     );
     render(<Trend period={period} project={undefined} />);
@@ -993,7 +1005,7 @@ describe("absence is rendered distinctly from a recorded zero", () => {
 
 describe("the state board is the only navigation path into a change's own dashboard", () => {
   it("links a row's change name to its run-detail route, round-tripping a URL-significant character in both segments", async () => {
-    fetchStatsViewMock.mockImplementation((view: ViewName) =>
+    fetchStatsViewMock.mockImplementation((view: StatsViewSlug) =>
       Promise.resolve(
         envelope(view, [
           {
@@ -1028,7 +1040,7 @@ describe("the Project column names a project instead of keying it", () => {
   const PROJECT_KEY = "agents-a740d89c";
 
   it("state board's Project cell shows the display name with the full key as its title", async () => {
-    fetchStatsViewMock.mockImplementation((view: ViewName) =>
+    fetchStatsViewMock.mockImplementation((view: StatsViewSlug) =>
       Promise.resolve(
         envelope(view, [
           {
@@ -1073,7 +1085,7 @@ describe("the Project filter narrows by key identity, not by display name", () =
   const KEY_TWO = `${BASENAME}-b851e9ad`;
 
   function twoProjectsSharingABasename(): void {
-    fetchStatsViewMock.mockImplementation((view: ViewName) =>
+    fetchStatsViewMock.mockImplementation((view: StatsViewSlug) =>
       Promise.resolve(
         envelope(view, [
           {
@@ -1373,5 +1385,179 @@ describe("review dynamics", () => {
 
     const cell = screen.getByTitle(/primary · opus low/);
     expect(cell.getAttribute("title")).toBe("primary · opus low\n4 dispatches\n1 critical · 2 important · 5 minor");
+  });
+});
+
+describe("Experiments", () => {
+  const roles = [
+    { role: "main", pairs: [], marker: "", override: { pairs: ["opus@medium"], experimentId: 2 } },
+    { role: "explorer", pairs: ["opus/Explore@low", "opus/Explore@medium"], marker: "" },
+    { role: "plan-designer", pairs: ["opus/Plan@low", "opus/Plan@medium"], marker: "", override: { pairs: ["opus/Plan@xhigh"], experimentId: 3 } },
+    { role: "implementer", pairs: ["opus/flow-high"], marker: "No-progress escalation" },
+  ];
+  const experiments = [
+    { id: 3, name: "plan-designer on xhigh", cells: { "plan-designer": ["opus/Plan@xhigh"] }, startedAt: "2026-10-30T09:00:00Z", summary: "", status: "open" },
+    { id: 2, name: "main agent opus@medium", cells: { main: ["opus@medium"] }, startedAt: "2026-10-28T09:00:00Z", summary: "", status: "open" },
+    {
+      id: 1, name: "implementer sonnet/flow-low", cells: { implementer: ["sonnet/flow-low"] }, startedAt: "2026-10-01T09:00:00Z",
+      closedAt: "2026-10-21T09:00:00Z", verdict: "negative", summary: "Negative. Table unchanged; experiment closed.", status: "closed",
+    },
+  ];
+  const week = (w: string, value: number) => ({ week: `${w}T00:00:00Z`, value });
+  const stats = (id: number, metrics: { name: string; before: number | null; after: number | null }[]) => ({
+    experiment: experiments.find((e) => e.id === id),
+    beforeFrom: "2026-10-23T09:00:00Z",
+    end: "2026-11-06T09:00:00Z",
+    runs: { before: 14, after: 4 },
+    excluded: 0,
+    metrics: metrics.map((m) => ({ ...m, series: [week("2026-10-19", 2.9), week("2026-10-26", 2.4), week("2026-11-02", 1.8)] })),
+  });
+
+  beforeEach(() => {
+    fetchRolesMock.mockReset().mockResolvedValue(roles);
+    fetchExperimentsMock.mockReset().mockResolvedValue(experiments);
+    fetchExperimentStatsMock.mockReset().mockImplementation((id: number) =>
+      Promise.resolve(
+        id === 3
+          ? stats(3, [
+              { name: "reviewRounds", before: 2.6, after: 1.9 },
+              { name: "tokens", before: 412000, after: 488000 },
+            ])
+          : stats(id, [{ name: "reviewRounds", before: 2.2, after: 3.1 }]),
+      ),
+    );
+  });
+
+  it("Experiments lists every roles row, striking an overridden cell through and linking its experiment", async () => {
+    render(<Experiments />);
+    const table = await screen.findByRole("region", { name: "Current roles" });
+    const rows = within(table).getAllByRole("row");
+    expect(rows.map((r) => within(r).getAllByRole(r.querySelector("th") ? "columnheader" : "cell")[0].textContent)).toEqual([
+      "Role", "main", "explorer", "plan-designer", "implementer",
+    ]);
+    const designer = rows[3];
+    expect(designer.querySelector("s")).toHaveTextContent("opus/Plan@low, opus/Plan@medium");
+    expect(within(designer).getByText("opus/Plan@xhigh")).toHaveClass("exp");
+    expect(within(designer).getByRole("link", { name: "#3" })).toBeInTheDocument();
+    expect(rows[1].querySelector("s")).toHaveTextContent("session's own pair");
+    expect(within(rows[2]).queryByRole("link")).toBeNull();
+    expect(rows[2].querySelector("s")).toBeNull();
+    expect(within(rows[4]).getByText("No-progress escalation")).toBeInTheDocument();
+
+    await userEvent.click(within(rows[1]).getByRole("link", { name: "#2" }));
+    expect(screen.getByRole("button", { name: /main agent opus@medium/ })).toHaveClass("on");
+  });
+
+  it("Experiments marks each experiment open or closed and selects the newest", async () => {
+    render(<Experiments />);
+    const list = await screen.findByRole("region", { name: "Experiments" });
+    const first = await within(list).findByRole("button", { name: /plan-designer on xhigh/ });
+    expect(first).toHaveClass("on");
+    expect(within(first).getByText("open")).toHaveClass("pill", "open");
+    expect(first).toHaveTextContent("since 2026-10-30");
+    const closed = within(list).getByRole("button", { name: /implementer sonnet\/flow-low/ });
+    expect(within(closed).getByText("closed")).toHaveClass("pill", "closed");
+    expect(closed).toHaveTextContent("since 2026-10-01 · closed 2026-10-21");
+  });
+
+  it("Experiments lists open experiments before closed ones, whatever order the API returns", async () => {
+    // The closed one started last, so only an open-first sort puts it last.
+    fetchExperimentsMock.mockReset().mockResolvedValue([{ ...experiments[2], startedAt: "2026-10-31T09:00:00Z" }, experiments[1], experiments[0]]);
+    render(<Experiments />);
+    const list = await screen.findByRole("region", { name: "Experiments" });
+    const names = (await within(list).findAllByRole("button")).map((b) => b.firstChild?.textContent);
+    expect(names).toEqual(["plan-designer on xhigh", "main agent opus@medium", "implementer sonnet/flow-low"]);
+  });
+
+  it("Experiments keeps the stat panel's delta line on one line", async () => {
+    render(<Experiments />);
+    const rounds = await screen.findByRole("region", { name: "Review rounds / change" });
+    expect(within(rounds).getByText("▼ 27% vs 2.6 before")).toHaveStyle({ whiteSpace: "nowrap" });
+  });
+
+  it("Experiments shows the selected experiment's override, stat panels, charts and summary", async () => {
+    render(<Experiments />);
+    const override = await screen.findByRole("region", { name: "Override" });
+    const row = within(override).getAllByRole("row")[1];
+    expect(within(row).getAllByRole("cell").map((c) => c.textContent)).toEqual(["plan-designer", "opus/Plan@low, opus/Plan@medium", "opus/Plan@xhigh"]);
+    expect(await within(override).findByText("Runs counted: 14 before · 4 after start")).toBeInTheDocument();
+
+    const rounds = screen.getByRole("region", { name: "Review rounds / change" });
+    expect(within(rounds).getByText("1.9")).toHaveClass("v");
+    expect(within(rounds).getByText("▼ 27% vs 2.6 before")).toHaveClass("d", "down");
+    const tokens = screen.getByRole("region", { name: "Tokens / change (k)" });
+    expect(within(tokens).getByText("488")).toBeInTheDocument();
+    expect(within(tokens).getByText("▲ 18% vs 412 before")).toHaveClass("d", "up");
+
+    const trend = screen.getByRole("region", { name: "Weekly trend — before vs after start" });
+    const charts = within(trend).getAllByRole("img");
+    expect(charts).toHaveLength(2);
+    expect(charts[0]).toHaveAttribute("aria-label", "Review rounds / change, weekly, before vs after 2026-10-30");
+    expect(charts[0].querySelector("[data-testid=start-marker]")).not.toBeNull();
+    // Lower is better: rounds fell, so its after mean is --delta-down;
+    // tokens rose, so theirs is --delta-up.
+    expect(charts[0].querySelector("[data-testid=mean-before]")).toHaveAttribute("stroke", "var(--text-muted)");
+    expect(charts[0].querySelector("[data-testid=mean-after]")).toHaveAttribute("stroke", "var(--delta-down)");
+    expect(charts[1].querySelector("[data-testid=mean-after]")).toHaveAttribute("stroke", "var(--delta-up)");
+    const points = charts[0].querySelectorAll("circle.pt");
+    expect(points).toHaveLength(3);
+    expect(points[0]).toHaveAttribute("tabindex", "0");
+    expect(points[0].querySelector("title")).toHaveTextContent("10-19: 2.90");
+    for (const legend of ["weekly value", "mean before", "mean after (better)", "mean after (worse)", "experiment window"]) {
+      expect(within(trend).getByText(legend)).toBeInTheDocument();
+    }
+
+    expect(within(screen.getByRole("region", { name: "Summary" })).getByText("Open — the closing agent writes the summary.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /implementer sonnet\/flow-low/ }));
+    expect(await within(screen.getByRole("region", { name: "Summary" })).findByText("Negative. Table unchanged; experiment closed.")).toBeInTheDocument();
+    expect(fetchExperimentStatsMock).toHaveBeenLastCalledWith(1);
+  });
+
+  it("Experiments draws an unchanged metric as neutral, with no arrow and no delta colour", async () => {
+    fetchExperimentStatsMock.mockReset().mockResolvedValue(stats(3, [{ name: "reviewRounds", before: 0, after: 0 }, { name: "verifyReds", before: 2, after: 2 }]));
+    render(<Experiments />);
+    for (const [name, text] of [["Review rounds / change", "= vs 0.0 before"], ["Verify reds", "= vs 2.0 before"]]) {
+      const panel = await screen.findByRole("region", { name });
+      const d = within(panel).getByText(text);
+      expect(d).toHaveClass("d");
+      expect(d).not.toHaveClass("up");
+      expect(d).not.toHaveClass("down");
+    }
+    for (const chart of within(screen.getByRole("region", { name: "Weekly trend — before vs after start" })).getAllByRole("img")) {
+      expect(chart.querySelector("[data-testid=mean-after]")).toHaveAttribute("stroke", "var(--text-muted)");
+    }
+  });
+
+  it("Experiments draws a mean-after line with no before mean as neutral", async () => {
+    fetchExperimentStatsMock.mockReset().mockResolvedValue(stats(3, [{ name: "tokens", before: null, after: 60000 }]));
+    render(<Experiments />);
+    const trend = await screen.findByRole("region", { name: "Weekly trend — before vs after start" });
+    const lines = within(trend)
+      .getAllByRole("img")
+      .map((c) => c.querySelector("[data-testid=mean-after]"))
+      .filter(Boolean);
+    expect(lines.length).toBeGreaterThan(0);
+    for (const l of lines) expect(l).toHaveAttribute("stroke", "var(--text-muted)");
+  });
+
+  it("Experiments reads — where no run follows the start, and invites an open when none exists", async () => {
+    fetchExperimentStatsMock.mockReset().mockResolvedValue({ ...stats(3, [{ name: "reviewRounds", before: 2.6, after: null }]), runs: { before: 14, after: 0 } });
+    const { unmount } = render(<Experiments />);
+    const rounds = await screen.findByRole("region", { name: "Review rounds / change" });
+    expect(within(rounds).getByText("—")).toHaveClass("v");
+    unmount();
+
+    fetchExperimentsMock.mockReset().mockResolvedValue([]);
+    render(<Experiments />);
+    const list = await screen.findByRole("region", { name: "Experiments" });
+    expect(await within(list).findByText(/No experiments yet — open one with/)).toHaveTextContent("No experiments yet — open one with flow experiment open.");
+    expect(within(list).getByText("flow experiment open").tagName).toBe("CODE");
+  });
+
+  it("Experiments is a nav route labelled Experiments", async () => {
+    window.history.replaceState(null, "", "#/experiments");
+    render(<App />);
+    expect(await screen.findByRole("link", { name: "Experiments" })).toHaveAttribute("aria-current", "page");
+    expect(await screen.findByRole("region", { name: "Current roles" })).toBeInTheDocument();
   });
 });

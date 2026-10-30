@@ -54,7 +54,8 @@ func TestDecisionRenderGolden(t *testing.T) {
 				"- **Class:** micro · tasks 1 · files 1 · repos 1\n" +
 				"- **Execution:** inline\n" +
 				"- **Panel:** default — primary=opus, principles=opus\n" +
-				"- **Visual verify:** required\n"},
+				"- **Visual verify:** required\n" +
+				"- **Parent:** claude-opus-5-5@default\n"},
 		{"small inline", `{"class":"small","classMechanical":"small","override":null,` + inputs(2, 3, "false") + `,
 			"rolls":{"compact":85,"experimental":84,"bundle":17,"effort":40},"execution":"inline",
 			"implementer":"skipped — inline","fixer":"skipped — inline",
@@ -148,7 +149,7 @@ func TestDecisionRenderRefusals(t *testing.T) {
 		{"missing groups", strings.Replace(good, `,"groups":null`, "", 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: missing required field \"groups\"\n"},
 		{"visual.verify outside the set", strings.Replace(good, `"groups":null`, `"groups":null,"visual":{"verify":"skip","reason":"x"}`, 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: visual.verify \"skip\" is not one of required, skipped, not configured\n"},
 		{"visual with a blank reason", strings.Replace(good, `"groups":null`, `"groups":null,"visual":{"verify":"skipped","reason":" "}`, 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: visual.reason is required\n"},
-		{"parent.effort outside the -effort set", strings.Replace(good, `"groups":null`, `"groups":null,"parent":{"model":"unknown (agent-defined)","effort":"unknown"}`, 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: parent.effort \"unknown\" is not one of: low, medium, high, default\n"},
+		{"parent.effort outside the -effort set", strings.Replace(good, `"groups":null`, `"groups":null,"parent":{"model":"unknown (agent-defined)","effort":"unknown"}`, 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: parent.effort \"unknown\" is not one of: low, medium, high, default, xhigh, max\n"},
 		{"missing panel.rerun_dispatch", strings.Replace(good, `"panel":"default"`, `"panel":{"compact":true,"rerun":"delta","grouping":"static","dispatches":[]}`, 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: missing required field \"panel.rerun_dispatch\"\n"},
 	}
 	for _, c := range cases {
@@ -233,7 +234,8 @@ func TestDecisionRenderSessionCap(t *testing.T) {
 		{"cap", withCap(`{"model":"opus","effort":"low","instruction":"x"}`), 0},
 		{"null", withCap(`null`), 0},
 		{"absent", good, 0},
-		{"effort max", withCap(`{"model":"opus","effort":"max","instruction":"x"}`), 2},
+		{"effort ultra", withCap(`{"model":"opus","effort":"ultra","instruction":"x"}`), 2},
+		{"effort xhigh", withCap(`{"model":"opus","effort":"xhigh","instruction":"x"}`), 0},
 		{"model haiku", withCap(`{"model":"haiku","effort":"low","instruction":"x"}`), 2},
 	}
 	for _, c := range cases {
@@ -246,5 +248,35 @@ func TestDecisionRenderSessionCap(t *testing.T) {
 				t.Errorf("stderr %q does not name session_cap", errs)
 			}
 		})
+	}
+}
+
+// TestDecisionParentModel pins the parent line: parent.model renders with
+// parent.effort as <model>@<effort>, an effort of xhigh or max is accepted
+// (a main-agent experiment's pair), and one outside the set is refused.
+func TestDecisionParentModel(t *testing.T) {
+	good := `{"class":"micro","classMechanical":"micro","override":null,
+		"inputs":{"tasks":1,"files":1,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},
+		"rolls":{"compact":65,"experimental":0,"bundle":43,"effort":50},"execution":"inline",
+		"implementer":"skipped — inline","fixer":"skipped — inline","panel":"default","groups":null}`
+	withParent := func(p string) string { return strings.Replace(good, `"groups":null`, `"groups":null,"parent":`+p, 1) }
+	for _, c := range []struct{ name, body, line string }{
+		{"opus xhigh", withParent(`{"model":"opus","effort":"xhigh"}`), "- **Parent:** opus@xhigh\n"},
+		{"max", withParent(`{"model":"claude-opus-5-5","effort":"max"}`), "- **Parent:** claude-opus-5-5@max\n"},
+		{"effort only", withParent(`{"effort":"default"}`), "- **Parent:** default\n"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			rc, out, errs := decisionRun(t, c.body, "render", "-file", "<file>", "-session-model", "m", "-reviewers", "r")
+			if rc != 0 || !strings.HasSuffix(out, c.line) {
+				t.Fatalf("rc=%d stderr=%q out=%q, want it to end with %q", rc, errs, out, c.line)
+			}
+		})
+	}
+	if rc, out, _ := decisionRun(t, good, "render", "-file", "<file>", "-session-model", "m", "-reviewers", "r"); rc != 0 || strings.Contains(out, "Parent") {
+		t.Fatalf("no parent: rc=%d out=%q, want no Parent line", rc, out)
+	}
+	rc, _, errs := decisionRun(t, withParent(`{"model":"opus","effort":"ultra"}`), "render", "-file", "<file>", "-session-model", "m", "-reviewers", "r")
+	if rc != 2 || !strings.Contains(errs, `parent.effort "ultra" is not one of: low, medium, high, default, xhigh, max`) {
+		t.Fatalf("effort ultra: rc=%d stderr=%q, want 2 naming the set", rc, errs)
 	}
 }

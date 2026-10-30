@@ -19,7 +19,7 @@ test.describe("project chip plus state tile", () => {
     await expect(table.getByRole("link", { name: "kan-102-fix-widget-bug" })).toBeVisible();
 
     // The tile narrows further within the chip's project.
-    await page.getByRole("button", { name: /^Started/ }).click();
+    await page.getByRole("button", { name: /^Planning & implementing/ }).click();
     await expect(table.getByRole("link", { name: "kan-101-add-widget" })).toBeVisible();
     await expect(table.getByRole("link", { name: "kan-102-fix-widget-bug" })).toHaveCount(0);
     await expect(table.getByRole("link", { name: "kan-201-refactor-thing" })).toHaveCount(0);

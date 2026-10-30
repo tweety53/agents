@@ -46,7 +46,8 @@ export type ViewName =
   | "decisions"
   | "flow-health"
   | "self-review"
-  | "review-dynamics";
+  | "review-dynamics"
+  | "experiments";
 
 export const VIEW_NAMES: readonly ViewName[] = [
   "state-board",
@@ -58,6 +59,7 @@ export const VIEW_NAMES: readonly ViewName[] = [
   "flow-health",
   "self-review",
   "review-dynamics",
+  "experiments",
 ];
 
 /** The "cost-per-change" statistics endpoint slug -- not a navigable
@@ -75,7 +77,9 @@ export type HealthViewSlug = "flow-summary";
 export type WeeklyModelEffortViewSlug = "weekly-model-effort-costs";
 
 /** Every slug GET /api/v1/stats/{view} is called with from this client. */
-export type StatsViewSlug = ViewName | CostPerChangeViewSlug | HealthViewSlug | WeeklyModelEffortViewSlug;
+/** Experiments reads its own endpoints (fetchRoles, fetchExperiments,
+ * fetchExperimentStats), never /api/v1/stats/{view}. */
+export type StatsViewSlug = Exclude<ViewName, "experiments"> | CostPerChangeViewSlug | HealthViewSlug | WeeklyModelEffortViewSlug;
 
 /**
  * Parameters every statistics view accepts. "from" and "to" are both
@@ -821,3 +825,59 @@ export async function putChange(
   return handleResponse<ChangeDTO>(res);
 }
 
+
+/** One row of GET /api/v1/roles: the Allowed pairs table in force, a
+ * leading `main` entry, and the open experiment cell replacing a role's
+ * unmarked row (KAN-1067). */
+export interface RoleEntry {
+  role: string;
+  pairs: string[];
+  marker: string;
+  override?: { pairs: string[]; experimentId: number };
+}
+
+/** One allowed-pairs experiment, as GET /api/v1/experiments lists it. */
+export interface ExperimentDTO {
+  id: number;
+  name: string;
+  cells: Record<string, string[]>;
+  startedAt: string;
+  closedAt?: string;
+  verdict?: string;
+  summary: string;
+  status: "open" | "closed";
+}
+
+/** One metric of GET /api/v1/experiments/{id}/stats: means before and
+ * after the start (null with no counted run) and its weekly series. Lower
+ * is better for every metric. */
+export interface ExperimentMetric {
+  name: string;
+  before: number | null;
+  after: number | null;
+  series: { week: string; value: number }[];
+}
+
+export interface ExperimentStats {
+  experiment: ExperimentDTO;
+  beforeFrom: string;
+  end: string;
+  runs: { before: number; after: number };
+  excluded: number;
+  metrics: ExperimentMetric[];
+}
+
+/** GET /api/v1/roles */
+export function fetchRoles(init?: RequestInit): Promise<RoleEntry[]> {
+  return getJSON<RoleEntry[]>("/api/v1/roles", init);
+}
+
+/** GET /api/v1/experiments -- newest first. */
+export function fetchExperiments(init?: RequestInit): Promise<ExperimentDTO[]> {
+  return getJSON<ExperimentDTO[]>("/api/v1/experiments", init);
+}
+
+/** GET /api/v1/experiments/{id}/stats */
+export function fetchExperimentStats(id: number, init?: RequestInit): Promise<ExperimentStats> {
+  return getJSON<ExperimentStats>(`/api/v1/experiments/${id}/stats`, init);
+}

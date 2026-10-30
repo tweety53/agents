@@ -92,6 +92,7 @@ by `/`, an Explore or Plan pair adding `@<effort>`.
 |---|---|---|
 | `explorer` | `opus/Explore@low`, `opus/Explore@medium` | — |
 | `plan-designer` | `opus/Plan@low`, `opus/Plan@medium` | — |
+| `planner` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — |
 | `implementer` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
 | `panel-fix` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
 | `implementer` | `opus/flow-high` | `No-progress escalation` |
@@ -118,11 +119,23 @@ by `/`, an Explore or Plan pair adding `@<effort>`.
 | `self-review-review-r` | `sonnet/flow-low` | — |
 | `pipeline-fix-review-r` | `sonnet/flow-low` | — |
 
+## Experiments
+
+**An open experiment overrides whole cells of the table above.** `flow experiment open -name <n>
+-cell '<role>=<pair>[,<pair>…]'…` stores it in flowd; while it is open, every reader of the table
+(check-dispatch-pair, check-loop-dispatch, plan-agent-pair, plan-class, pipeline-fix) admits the
+experiment's pairs in place of that role's unmarked row, and a marked row is never overridden. One
+experiment may carry several roles; a role is in at most one open experiment. Role `main` names
+the parent session's `<model>@<effort>`: `/flow` warns on a mismatch (**Model resolution**,
+`skills/flow/SKILL.md`) and only matching runs count in its after figures. flowd unreachable → the
+table alone. The table stays the permanent source: `/flow-experiment-close` closes an experiment
+and, on a positive verdict, starts the change that writes its winning cells here (KAN-1067).
+
 ## Harness mapping
 
 **`<parent model>` and `<parent effort>` name the session's own pair, on every harness and in every
 inline row.** Where the session does not state one, `<parent model>` is `unknown (agent-defined)` and
-`<parent effort>` the literal `default`, the CLI accepting only `low|medium|high|default`.
+`<parent effort>` the literal `default`, the CLI accepting only `low|medium|high|xhigh|max|default`.
 
 **On harness `zcode`, every model a dispatch would be given is `glm-5.3-flash` at effort `high`.**
 `VERIFY_MODEL`, the literal `opus` of a dispatch with no recorded pair, a decision's implementer,

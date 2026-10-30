@@ -16,6 +16,7 @@ import { DashboardBar } from "./components/DashboardBar";
 import { defaultPeriod, type Period } from "./components/PeriodPicker";
 import type { ViewProps } from "./viewTypes";
 import { Decisions } from "./views/Decisions";
+import { Experiments } from "./views/Experiments";
 import { FlowHealth } from "./views/FlowHealth";
 import { RunDetail } from "./views/RunDetail";
 import { ReviewDynamics } from "./views/ReviewDynamics";
@@ -38,6 +39,7 @@ const VIEW_LABELS: Record<ViewName, string> = {
   "flow-health": "Flow health",
   "self-review": "Self-review fixes",
   "review-dynamics": "Review dynamics",
+  experiments: "Experiments",
 };
 
 const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
@@ -50,6 +52,7 @@ const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
   "flow-health": FlowHealth,
   "self-review": SelfReview,
   "review-dynamics": ReviewDynamics,
+  experiments: Experiments,
 };
 
 function isViewName(v: string): v is ViewName {
@@ -237,8 +240,8 @@ export function App() {
         </nav>
         {/* Weekly costs always covers the last 8 weeks of every project and model (KAN-1038);
             the live state board carries its own chip filters and an opened run none
-            (decision hide-dashboard-bar). */}
-        {route.kind === "view" && route.view !== "weekly-costs" && route.view !== "state-board" && (
+            (decision hide-dashboard-bar); Experiments spans each experiment's own window. */}
+        {route.kind === "view" && route.view !== "weekly-costs" && route.view !== "state-board" && route.view !== "experiments" && (
           <DashboardBar
             period={period}
             onPeriodChange={setPeriod}

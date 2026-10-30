@@ -310,6 +310,144 @@ func (c *Client) ListLearningTopics(ctx context.Context) ([]LearningTopicCount, 
 	return out, nil
 }
 
+// --- allowed-pairs experiments (KAN-1067) ---------------------------------
+
+func (c *Client) experimentsURL() string { return c.baseURL + "/api/v1/experiments" }
+
+// Experiment is one element of GET /api/v1/experiments, copied from
+// internal/store's Experiment JSON shape for the boundary reason Settings is.
+type Experiment struct {
+	ID        int64               `json:"id"`
+	Name      string              `json:"name"`
+	Cells     map[string][]string `json:"cells"`
+	StartedAt time.Time           `json:"startedAt"`
+	ClosedAt  *time.Time          `json:"closedAt,omitempty"`
+	Verdict   string              `json:"verdict,omitempty"`
+	Summary   string              `json:"summary"`
+	Status    string              `json:"status"`
+}
+
+// ErrExperimentConflict means the store refused an open because one of its
+// roles is held by an open experiment (HTTP 409); the wrapped text is the
+// daemon's message, naming the role and the holder.
+var ErrExperimentConflict = errors.New("client: experiment conflicts with an open experiment")
+
+// ErrExperimentRejected means the store refused a malformed experiment or
+// verdict (HTTP 400), or a close of an unknown or closed id (HTTP 404); the
+// wrapped text is the daemon's message.
+var ErrExperimentRejected = errors.New("client: store rejected the experiment call")
+
+// experimentAnswer maps an experiment write's status onto this package's
+// errors: ok is success, 409 ErrExperimentConflict, 400/404
+// ErrExperimentRejected, anything else ErrUnavailable.
+func experimentAnswer(body []byte, status, ok int) error {
+	var wire errorWireResponse
+	_ = json.Unmarshal(body, &wire)
+	switch status {
+	case ok:
+		return nil
+	case http.StatusConflict:
+		return fmt.Errorf("%w: %s", ErrExperimentConflict, wire.Error)
+	case http.StatusBadRequest, http.StatusNotFound:
+		return fmt.Errorf("%w: %s", ErrExperimentRejected, wire.Error)
+	default:
+		return fmt.Errorf("%w: unexpected status %d", ErrUnavailable, status)
+	}
+}
+
+// OpenExperiment opens an experiment via POST /api/v1/experiments and
+// returns it as stored.
+func (c *Client) OpenExperiment(ctx context.Context, name string, cells map[string][]string) (Experiment, error) {
+	body, status, err := c.sendJSON(ctx, http.MethodPost, c.experimentsURL(), map[string]any{"name": name, "cells": cells})
+	if err != nil {
+		return Experiment{}, err
+	}
+	if err := experimentAnswer(body, status, http.StatusCreated); err != nil {
+		return Experiment{}, err
+	}
+	var out Experiment
+	if err := json.Unmarshal(body, &out); err != nil {
+		return Experiment{}, fmt.Errorf("%w: response body is not valid JSON", ErrUnavailable)
+	}
+	return out, nil
+}
+
+// getExperimentsJSON GETs url and decodes its 200 body into out; any other
+// outcome is ErrUnavailable.
+func (c *Client) getExperimentsJSON(ctx context.Context, url string, out any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+	body, status, err := c.send(req)
+	if err != nil {
+		return err
+	}
+	if status != http.StatusOK {
+		return fmt.Errorf("%w: unexpected status %d", ErrUnavailable, status)
+	}
+	if err := json.Unmarshal(body, out); err != nil {
+		return fmt.Errorf("%w: response body is not valid JSON", ErrUnavailable)
+	}
+	return nil
+}
+
+// ListExperiments fetches experiments newest first via GET
+// /api/v1/experiments, only the open ones when openOnly is set.
+func (c *Client) ListExperiments(ctx context.Context, openOnly bool) ([]Experiment, error) {
+	u := c.experimentsURL()
+	if openOnly {
+		u += "?open=1"
+	}
+	var out []Experiment
+	if err := c.getExperimentsJSON(ctx, u, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ExperimentOverrides fetches every open experiment's cells as {role:
+// [pairs]} via GET /api/v1/experiments/overrides.
+func (c *Client) ExperimentOverrides(ctx context.Context) (map[string][]string, error) {
+	var out map[string][]string
+	if err := c.getExperimentsJSON(ctx, c.experimentsURL()+"/overrides", &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// CloseExperiment closes experiment id with verdict and summary via POST
+// /api/v1/experiments/{id}/close.
+func (c *Client) CloseExperiment(ctx context.Context, id int64, verdict, summary string) error {
+	body, status, err := c.sendJSON(ctx, http.MethodPost, fmt.Sprintf("%s/%d/close", c.experimentsURL(), id),
+		map[string]string{"verdict": verdict, "summary": summary})
+	if err != nil {
+		return err
+	}
+	return experimentAnswer(body, status, http.StatusOK)
+}
+
+// ExperimentStats fetches experiment id's before/after figures via GET
+// /api/v1/experiments/{id}/stats, returned as the daemon's JSON: its one
+// reader prints it whole. An unknown id is ErrExperimentRejected.
+func (c *Client) ExperimentStats(ctx context.Context, id int64) (json.RawMessage, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/%d/stats", c.experimentsURL(), id), nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+	body, status, err := c.send(req)
+	if err != nil {
+		return nil, err
+	}
+	if err := experimentAnswer(body, status, http.StatusOK); err != nil {
+		return nil, err
+	}
+	if !json.Valid(body) {
+		return nil, fmt.Errorf("%w: response body is not valid JSON", ErrUnavailable)
+	}
+	return json.RawMessage(body), nil
+}
+
 // stateBoardEpoch is the "from" instant ListStateBoard's underlying query
 // asks for -- before any change this store could ever hold, since the
 // store starts empty (state-file.md, "The on-disk file is written, never

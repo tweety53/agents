@@ -41,6 +41,12 @@ var execFixtures struct {
 
 func TestMain(m *testing.M) {
 	os.Setenv("FLOW_GUARD_TELEMETRY", "off")
+	// Every allowed-pairs reader runs `flow experiment overrides`
+	// (policyTable). A real `flow` on PATH would read the dev store's open
+	// experiments, so a test's table would follow whatever the operator has
+	// open; a dead records address makes that read fail fast -- the table
+	// alone. A test wanting an override puts its own fake `flow` on PATH.
+	os.Setenv("FLOW_RECORDS_ADDR", "http://127.0.0.1:1")
 	// A test binary started with SIGINT or SIGHUP ignored -- a `&` job of a
 	// non-interactive shell, or nohup -- hands that ignore to every child it
 	// execs, so the signal tests watch a child that cannot die of the signal.

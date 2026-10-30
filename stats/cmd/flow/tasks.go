@@ -51,8 +51,11 @@ plan unchanged, a <path> the field does not name.
 
 tasks count counts the plan's column-0 task checkbox lines and records
 the figure as one observation of the change's plan-growth series
-(KAN-415). The store never gates the caller -- an unrecorded observation
-is one warning line and changes no exit code, exactly as ` + "`flow suite record`" + `
+(KAN-415), together with the plan's count of "Correction (YYYY-MM-DD):"
+paragraphs -- the plan-corrections metric experiments compare
+(KAN-1067). Lines inside fenced blocks count toward neither. The store
+never gates the caller -- an unrecorded observation is one warning line
+and changes no exit code, exactly as ` + "`flow suite record`" + `
 treats a runtime figure.
 `
 
@@ -240,10 +243,16 @@ func runTasksFiles(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
+// correctionPattern matches a plan-correction paragraph's opening line,
+// "Correction (2026-10-29): ...", at any indent -- a Correction sits
+// inside the task entry it amends (KAN-1067).
+var correctionPattern = regexp.MustCompile(`^\s*Correction \(\d{4}-\d{2}-\d{2}\):`)
+
 // runTasksCount implements `flow tasks count`: the plan's column-0 task
-// checkbox lines are counted and the figure recorded as one observation
-// against the change. The store never gates the caller -- an unreachable
-// store is one warning line and exit 0, the `flow suite record` rule --
+// checkbox lines and its Correction paragraphs are counted and both
+// figures recorded as one observation against the change. The store
+// never gates the caller -- an unreachable store is one warning line and
+// exit 0, the `flow suite record` rule --
 // so a /flow stage that counts its plan never fails because flowd is
 // down. The only non-zero exits are caller mistakes: usage (2), a change
 // name that fails the containment allowlist (2), and a plan that cannot
@@ -289,7 +298,8 @@ func runTasksCount(ctx context.Context, args []string, stdout, stderr io.Writer)
 		fmt.Fprintf(stderr, "flow: read %s: %v\n", path, err)
 		return 1
 	}
-	total := countTasks(plan)
+	total := countPlanLines(plan, taskLinePattern)
+	corrections := countPlanLines(plan, correctionPattern)
 
 	projectKey, _, err := fallback.ProjectKey(f.dir)
 	if err != nil {
@@ -298,7 +308,7 @@ func runTasksCount(ctx context.Context, args []string, stdout, stderr io.Writer)
 	}
 
 	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.TaskCount, error) {
-		return cl.RecordTaskCount(ctx, projectKey, change, records.TaskCount{TotalTasks: total})
+		return cl.RecordTaskCount(ctx, projectKey, change, records.TaskCount{TotalTasks: total, Corrections: corrections})
 	})
 	if callErr == nil {
 		fmt.Fprintf(stdout, "recorded: task-count %d (total %d)\n", out.ID, out.TotalTasks)

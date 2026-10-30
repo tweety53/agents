@@ -60,6 +60,35 @@ func TestRecordTaskCountReturnsRecordedRow(t *testing.T) {
 	}
 }
 
+// TestRecordTaskCountCorrections: the plan-corrections count is stored
+// beside the total and read back by ListTaskCounts (KAN-1067); an old
+// client that posts no corrections stores 0, the column's default.
+func TestRecordTaskCountCorrections(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-task-counts-corrections-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1067")
+
+	got, err := st.RecordTaskCount(ctx, projectKey, "kan-1067", records.TaskCount{TotalTasks: 13, Corrections: 2})
+	if err != nil {
+		t.Fatalf("RecordTaskCount: %v", err)
+	}
+	if got.Corrections != 2 {
+		t.Errorf("returned Corrections = %d, want 2", got.Corrections)
+	}
+	if _, err := st.RecordTaskCount(ctx, projectKey, "kan-1067", records.TaskCount{TotalTasks: 13}); err != nil {
+		t.Fatalf("RecordTaskCount without corrections: %v", err)
+	}
+
+	counts, err := st.ListTaskCounts(ctx, projectKey, "kan-1067")
+	if err != nil {
+		t.Fatalf("ListTaskCounts: %v", err)
+	}
+	if len(counts) != 2 || counts[0].Corrections != 2 || counts[1].Corrections != 0 {
+		t.Errorf("counts = %+v, want corrections [2, 0]", counts)
+	}
+}
+
 // TestRecordTaskCountRefusesNonPositiveTotal: a total that counts no plan
 // is refused before the store is touched, so the route answers 400, not
 // 500 -- the CHECK constraint is the backstop, this check is the message.
@@ -73,6 +102,17 @@ func TestRecordTaskCountRefusesNonPositiveTotal(t *testing.T) {
 		if _, err := st.RecordTaskCount(ctx, projectKey, "kan-415", records.TaskCount{TotalTasks: total}); !errors.Is(err, store.ErrInvalidTaskCount) {
 			t.Errorf("RecordTaskCount(total %d) error = %v, want ErrInvalidTaskCount", total, err)
 		}
+	}
+}
+
+func TestRecordTaskCountRefusesNegativeCorrections(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-task-counts-negcorr-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1067")
+
+	if _, err := st.RecordTaskCount(ctx, projectKey, "kan-1067", records.TaskCount{TotalTasks: 3, Corrections: -1}); !errors.Is(err, store.ErrInvalidTaskCount) {
+		t.Errorf("RecordTaskCount(corrections -1) error = %v, want ErrInvalidTaskCount", err)
 	}
 }
 
@@ -106,5 +146,28 @@ func TestListTaskCountsChangeWithNone(t *testing.T) {
 	}
 	if len(counts) != 0 {
 		t.Errorf("ListTaskCounts returned %d rows, want 0", len(counts))
+	}
+}
+
+// TestListTaskCountsLegacyNullCorrections covers a row recorded before
+// 0055: its corrections column is NULL, and listing it must still succeed,
+// reading Corrections as 0 rather than failing the scan.
+func TestListTaskCountsLegacyNullCorrections(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-task-counts-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-415")
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO change_task_counts (change_id, total_tasks, corrections)
+		SELECT id, 7, NULL FROM changes WHERE project_key = $1 AND name = 'kan-415'`, projectKey); err != nil {
+		t.Fatalf("insert legacy row: %v", err)
+	}
+
+	counts, err := st.ListTaskCounts(ctx, projectKey, "kan-415")
+	if err != nil {
+		t.Fatalf("ListTaskCounts: %v", err)
+	}
+	if len(counts) != 1 || counts[0].TotalTasks != 7 || counts[0].Corrections != 0 {
+		t.Errorf("counts = %+v, want one row with TotalTasks 7, Corrections 0", counts)
 	}
 }

@@ -81,7 +81,7 @@ const (
 // every suffix lands on a role the allowed-pairs table carries.
 func TestLoopSuffixRoles(t *testing.T) {
 	t.Parallel()
-	rows, err := policyTable("../../..")
+	rows, err := policyTable(noFlowEnv(t), "../../..")
 	if err != nil {
 		t.Fatal(err)
 	}

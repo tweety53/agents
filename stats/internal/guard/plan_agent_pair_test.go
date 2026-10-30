@@ -52,3 +52,16 @@ func TestPlanAgentPairFollowsPolicy(t *testing.T) {
 		t.Fatalf("rc=%d out=%q, want 2 on an unreadable table", r.rc, r.out)
 	}
 }
+
+// TestPlanAgentPairReadsOverride: an open plan-designer override decides the
+// planning pair, xhigh included.
+func TestPlanAgentPairReadsOverride(t *testing.T) {
+	root, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := fakeFlowEnv(t, overridesFlow, "FLOW_GUARD_REPO_ROOT="+root)
+	if r := runGuard("plan-agent-pair", []string{"demo", "1"}, env); r.rc != 0 || r.stdout != "opus xhigh\n" {
+		t.Fatalf("rc=%d out=%q, want opus xhigh", r.rc, r.out)
+	}
+}

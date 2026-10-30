@@ -130,6 +130,7 @@ type dDecision struct {
 	Visual           *dVisual            `json:"visual"`
 	SessionCap       *sessionCap         `json:"session_cap"`
 	Parent           *struct {
+		Model  string `json:"model"`
 		Effort string `json:"effort"`
 	} `json:"parent"`
 	ExtraDispatch *struct {
@@ -165,8 +166,13 @@ type sessionCap struct {
 // capModelRank and capEffortRank order the values a session cap takes.
 var (
 	capModelRank  = map[string]int{"sonnet": 1, "opus": 2}
-	capEffortRank = map[string]int{"low": 1, "medium": 2, "high": 3}
+	capEffortRank = map[string]int{"low": 1, "medium": 2, "high": 3, "xhigh": 4, "max": 5}
 )
+
+// parentEfforts is the closed set parent.effort takes: recordEfforts, which
+// carries the xhigh and max a main-agent experiment's pair may name, since
+// an inline row records the parent's effort (KAN-1067).
+var parentEfforts = recordEfforts
 
 // dVisualVerify is the closed set `visual.verify` takes.
 var dVisualVerify = map[string]bool{"required": true, "skipped": true, "not configured": true}
@@ -285,9 +291,10 @@ func renderDecision(body []byte, _, reviewers string) (string, error) {
 	}
 	// parent.effort is the -effort every inline dispatch row copies, so it
 	// takes that flag's closed set -- `default` where the session states none
-	// (kan-920 self-review: `unknown` was refused at task 1's begin).
-	if p := d.Parent; p != nil && !slices.Contains(recordEfforts, p.Effort) {
-		return "", fmt.Errorf("parent.effort %q is not one of: %s", p.Effort, strings.Join(recordEfforts, ", "))
+	// (kan-920 self-review: `unknown` was refused at task 1's begin) -- plus
+	// the xhigh and max a main-agent experiment's pair may name (KAN-1067).
+	if p := d.Parent; p != nil && !slices.Contains(parentEfforts, p.Effort) {
+		return "", fmt.Errorf("parent.effort %q is not one of: %s", p.Effort, strings.Join(parentEfforts, ", "))
 	}
 	var panelDefault string
 	var p dPanel
@@ -360,6 +367,13 @@ func renderDecision(body []byte, _, reviewers string) (string, error) {
 			visual += " — " + v.Reason
 		}
 		line("Visual verify", visual)
+	}
+	if p := d.Parent; p != nil {
+		parent := p.Effort
+		if p.Model != "" {
+			parent = p.Model + "@" + p.Effort
+		}
+		line("Parent", parent)
 	}
 	return b.String(), nil
 }

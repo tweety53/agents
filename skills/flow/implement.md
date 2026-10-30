@@ -898,7 +898,10 @@ are transcribed (before the guard runs on the commit), stating what the plan dec
 shipped instead, and why. The disclosure route is the same as any correction's: the implementer
 reports the deviation, the parent transcribes it; inline, the session is both halves. A `Correction:` paragraph is plan prose `check-plan-provenance.sh` reads: run that guard when
 transcribing it, and give each numeric claim its `measured:` comment or word it without a count
-(kan-1020: a bare count in a Correction was refused only at verify).
+(kan-1020: a bare count in a Correction was refused only at verify). Once a `Correction:`
+paragraph is transcribed, the parent runs `flow tasks count -C <worktree> <change>`, which
+records the plan's correction count beside its task count — the plan-corrections metric
+experiments compare (KAN-1067).
 
 **A pivot reconciles the three artifacts together.** When implementation pivots — a reality
 discovered mid-run (a route already taken on the base, a capability spec another change already

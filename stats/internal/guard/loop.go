@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/modelpolicy"
 )
 
 // The pipeline-fix and self-review fix loops (skills/flow-contracts/pipeline.md
@@ -27,7 +29,6 @@ func init() {
 }
 
 var (
-	lpTick        = regexp.MustCompile("`([^`]+)`")
 	lpPipelineKey = regexp.MustCompile(`^pipeline-fix-([0-9]+)-(.+)$`)
 	lpDigits      = regexp.MustCompile(`^[0-9]+$`)
 	lpSuffix      = regexp.MustCompile(`^(?:pass|plan(?:-[0-9]+)?|fix(?:-[0-9]+|-g[0-9]+|-v[0-9]+)?|review-[0-9]+)$`)
@@ -54,18 +55,18 @@ func lpRole(prefix, suffix string) string {
 
 // lpEscalation is the marker of the marked row of role that lists pair, ""
 // when no marked row does -- the no-progress escalation's pair.
-func lpEscalation(rows map[string][]policyRow, role, pair string) string {
+func lpEscalation(rows map[string][]modelpolicy.Row, role, pair string) string {
 	for _, r := range rows[role] {
-		if r.marker != "" && slices.Contains(r.pairs, pair) {
-			return r.marker
+		if r.Marker != "" && slices.Contains(r.Pairs, pair) {
+			return r.Marker
 		}
 	}
 	return ""
 }
 
 // lpEscalatable is whether role has any marked row: a fix's, never a plan's or a review's.
-func lpEscalatable(rows map[string][]policyRow, role string) bool {
-	return slices.ContainsFunc(rows[role], func(r policyRow) bool { return r.marker != "" })
+func lpEscalatable(rows map[string][]modelpolicy.Row, role string) bool {
+	return slices.ContainsFunc(rows[role], func(r modelpolicy.Row) bool { return r.Marker != "" })
 }
 
 // lpLoop names one loop's records: the change they are filed under, the
@@ -290,7 +291,7 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 	if !ok {
 		return 2
 	}
-	rows, err := policyTable(repo)
+	rows, err := policyTable(env, repo)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: %v\n", self, err)
 		return 2

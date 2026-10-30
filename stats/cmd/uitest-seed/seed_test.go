@@ -196,4 +196,33 @@ func TestSeedPopulatesFixture(t *testing.T) {
 	if stageRunsWithTokens == 0 {
 		t.Fatalf("no seeded stage run carries token usage")
 	}
+
+	// The open experiment's Tokens/change and Wall-clock panels draw figures
+	// on both sides of its start (KAN-1067 visual-verify fix 2).
+	list, err := st.ListExperiments(ctx, true)
+	if err != nil {
+		t.Fatalf("list experiments: %v", err)
+	}
+	found := 0
+	for _, e := range list {
+		if e.ClosedAt != nil {
+			continue
+		}
+		stats, err := st.ExperimentStats(ctx, e.ID)
+		if err != nil {
+			t.Fatalf("experiment stats %d: %v", e.ID, err)
+		}
+		for _, m := range stats.Metrics {
+			if m.Name != "tokens" && m.Name != "wallClockMin" {
+				continue
+			}
+			found++
+			if m.Before == nil || m.After == nil || *m.Before <= 0 || *m.After <= 0 {
+				t.Fatalf("open experiment %q: %s before=%v after=%v, want both positive", e.Name, m.Name, m.Before, m.After)
+			}
+		}
+	}
+	if found != 2 {
+		t.Fatalf("open experiments carry %d tokens/wallClockMin metrics, want 2", found)
+	}
 }
