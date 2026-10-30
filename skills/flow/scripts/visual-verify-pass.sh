@@ -1,0 +1,1 @@
+../../../scripts/visual-verify-pass.sh

@@ -1,53 +1,19 @@
 # Visual verification — the verifier's steps
 
 Read by the verifier **Steps 3–13** (`skills/flow/visual-verify.md`) dispatches, at the absolute
-path its prompt carries — the parent never loads it whole. It carries step 4, steps 7–11, the
-motion step and the `## Report` template, run as written.
+path its prompt carries — the parent never loads it whole. It carries step 4, steps 8–11, the
+motion step and the `## Verdict` and `## Report` templates, run as written.
 
 **A command the harness denies has no exit code.** Its report line reads `blocked — environment:
 <the denial text, verbatim>` where `exit <n>` would stand, and the step's status is `blocked` —
 never an exit code the command did not return.
 
 4. **Run `setup`, if declared.** A non-zero exit blocks, printing the command verbatim.
-7. **Run `verify`.** When `specs` is declared, run it first from the `regression checkout`, with
-   `<frontend-root>` substituted for the worktree and `<merge-base>` for its merge base — or for
-   the `<frontend-root>` worktree's own round base, when the prompt names one, never another
-   worktree's — and substitute the spec paths it prints, space-separated, for `verify`'s `<specs>`: the mapped specs
-   replace the checked-in suite, never extend it. An empty output runs no `verify` spec — the
-   report's `verify:` line reads `not run — specs mapped no spec` and step 7 reports `done`; a
-   non-zero exit blocks, printing the command and its exit, and never runs the whole suite. The
-   whole suite runs only when the operator asks for it in this run, or when `specs` is not
-   declared — then `<specs>` is emptied and `verify` runs as declared, the only run such a project
-   has. A `verify` with no `<specs>` runs as
-   declared, and with `specs` declared the report names `specs: not passed — verify has no <specs>`.
-   Under a round base the output feeds `verify` alone, and an empty one runs no `verify` spec — the
-   report's `verify:` line reads `not run — no spec since the round base` and step 7 reports `done`; step 8 takes its capture
-   spec from `specs` run against the merge base.
-   **Under a round base `verify` never runs the whole suite**: a non-zero `specs` exit, or a
-   `specs` with no `<merge-base>`, runs no `verify` spec, and the report's `verify:` line reads
-   `not run — specs cannot scope to the round base` and step 7 reports `done`; the specs `specs`
-   maps for the merge base run once, in the loop's closing unscoped run (**The loop**,
-   `skills/flow/verify-fix-loop.md`).
-   Without a round base, a `specs` with no `<merge-base>` runs as declared, its full list,
-   and the report names `specs: not scoped — specs has no <merge-base>`.
-   Under a round base the `verify:` line names the count of paths `specs` printed as `<n> mapped
-   specs` beside its exit.
-   **A prompt naming `rerun specs:` runs those specs alone** — substituted for `<specs>` in place
-   of `specs`' output, which is not run — and the report's `verify:` line reads `exit <n> — rerun
-   of <k> failed specs at unchanged HEAD` (**Steps 3–13**, `skills/flow/visual-verify.md`). A `verify`
-   with no `<specs>` runs as declared, and the report names `rerun specs: not passed — verify has no <specs>`.
-   A non-zero `verify` exit blocks, a failing test this change did not introduce included
-   (**the sweep**, `skills/flow-contracts/known-bugs.md`), save a stale snapshot baseline in a spec
-   this change never touched, which the sweep re-baselines and re-runs before the exit is read.
-   **A `verify` that can outrun the shell tool's time limit runs whole, in the background, polled
-   to completion** — one Bash call starts it detached,
-   `rm -f <exit-file>; nohup sh -c '<verify> > <log> 2>&1; echo $? > <exit-file>' > /dev/null 2>&1 < /dev/null &`
-   (`<verify>` sits inside single quotes, so it must contain none), then repeated foreground Bash calls at timeout 600000 each run
-   `until [ -f <exit-file> ] || [ $SECONDS -gt 540 ]; do sleep 10; done` until `<exit-file>` exists,
-   reading its exit code and output from those two files. Never split its
-   `<specs>` into hand-chosen chunks to fit the limit: a hand-made split can drop a spec, and each
-   chunk pays the suite's start-up again (kan-932's 78-spec suite, ~14 minutes, ran in two halves).
-8. **Capture** — the capture spec is the touched views' existing spec from `specs`' output,
+8. **Capture** — when `specs` is declared, run it first from the `regression checkout`, with
+   `<frontend-root>` substituted for the worktree and `<merge-base>` for the merge base the bundle
+   names; a non-zero exit blocks, printing the command and its exit. The verify `specs` maps for that
+   merge base already ran green in `flow.verify`, which the report's `verify:` line names as the
+   bundle does — this step runs no `verify`. The capture spec is the touched views' existing spec from `specs`' output,
    extended, when one covers the view; a new spec is authored only for a view none covers. Run
    `capture` with `<spec>` substituted for the spec's path. **Every capture asserts the view is on
    screen before it is taken** — gymie-playwright's `expectRoom` — so a missed navigation fails the
@@ -660,7 +626,7 @@ steps 8, 9 and 10 read n/a — wire contract, no view drawn — never `done` ove
 never ran (kan-1022's self-review).
 
 **No required step is left undone for want of time or context.** The report's `steps:` line gives
-each of steps 4, 7–11 and the motion step a status `check-verify-report.sh` admits — its header
+each of steps 4, 8–11 and the motion step a status `check-verify-report.sh` admits — its header
 is canonical for them — and the parent runs that guard on the report before reading it.
 Run it on your own report before handing back: an exit 1 names the steps still owed, so do them
 and run it again, and hand back an incomplete report only for a blocker you cannot cure, named.
@@ -674,13 +640,29 @@ sweep` line `done` or `n/a — <why it does not apply>` — a sweep or a cell le
 or a measurement the pixels could not give is step 10 undone.
 Each composed frame carries its own `- <frame id> matrix:` line, never one line for a range of frames: `check-verify-report.sh` refuses a `done` step 10 while a frame with a `- <frame id>: <composite path> diff=` line has none (kan-1016: one line covered nine frames, and the warm-up sheet's frame had no matrix until round 8).
 
+**Hand back the `## Verdict` alone.** Write the report file as a `## Verdict` block with the full
+`## Report` under it, and end your turn with the `## Verdict` block alone — the parent reads nothing
+else. `exits:` names every exit the `## Report` carries, `not declared` where a command is not;
+`cause:` appears only when a step is `blocked`, naming `environment`, `test-failure` or
+`missing-fixture` from the report's own facts; `departures:` counts every departure the `## Report`
+names, each then on a line of its own with its cause or attribution beside it.
+
+```text
+## Verdict
+- Model: <the model named in your own system prompt>
+- exits: setup <n | not declared>, capture <n>, full app suite <n>, spec reach <n>
+- steps: <the ## Report's steps: line, after `steps: `>
+- cause: environment | test-failure | missing-fixture
+- departures: <n>
+- <frame id or view>: <the departure, with its cause or attribution>
+```
+
 ```text
 ## Report
 - setup: <not declared | exit <n>>
 - stack: <already running | started and stopped | could not be started — <output>>
 - fingerprint: <not declared — <step 6's reason, from the prompt> | exit 0 | mismatch → restarted → exit <n>>
-- verify: exit <n> | exit <n> — rerun of <k> failed specs at unchanged HEAD | not run — no spec since the round base
-  <output, verbatim or last 40 lines>
+- verify: green — <the inline verify row the bundle names>
 - capture: exit <n>
   <output, verbatim or last 40 lines>
 - full app suite: <created | updated> — <absolute spec path>, <n> screens, capture exit <n>
@@ -705,5 +687,5 @@ Each composed frame carries its own `- <frame id> matrix:` line, never one line 
   - <a strip recorded beyond the named motions>
 - wire contract: <method> <path> — <the shape and wire names read, and the acceptance behaviour seen, or each departure> | n/a — no wire contract named
 - visual-verification.md: written | not written — <reason>
-- steps: 4 <status> | 7 <status> | 8 <status> | 9 <status> | 10 <status> | 11 <status> | motion <status>
+- steps: 4 <status> | 8 <status> | 9 <status> | 10 <status> | 11 <status> | motion <status>
 ```

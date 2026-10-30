@@ -1,1 +1,0 @@
-../../../scripts/check-visual-preflight.sh
