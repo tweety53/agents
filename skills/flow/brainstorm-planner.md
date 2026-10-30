@@ -396,7 +396,10 @@ prescribed course, never accepting the plan while it stands.
 > round, applied at plan time (kan-1007: a plan-time capture was judged by eye). The same
 > compose-and-measure steps apply when the view's specification is an approved prototype, rendered
 > as each capture's frame per step 10 of `skills/flow/visual-verify-verifier.md`, with no declared
-> `mockups` root (kan-1046 self-review, 8c).
+> `mockups` root (kan-1046 self-review, 8c). Every screenshot such a task's spec takes is the full
+> page or viewport, never an element or a clipped region, and each captures a state no sibling
+> capture shows — steps 8 and 9 of `skills/flow/visual-verify-verifier.md` refuse a clip and a
+> byte-identical pair (kan-1061 self-review).
 
 > **Write a frame a sibling ticket finishes as this change's parts only.** When sibling tickets
 > share a mockup frame family and a frame on this change's list also draws parts a sibling ticket
