@@ -347,9 +347,10 @@ export function StateBoard() {
     openNames.current = names;
   }, [polled, now]);
   const last = useRef<StateBoardRow[] | null>(null);
-  if (lastOpen.current && lastFinished.current) {
+  // The open changes render as soon as the quick poll answers; the slower finished read joins them when it lands.
+  if (lastOpen.current) {
     const open = new Set(lastOpen.current.map(rowKey));
-    last.current = [...lastOpen.current, ...lastFinished.current.filter((r) => !open.has(rowKey(r)))].filter((r) => !isPipelineFix(r));
+    last.current = [...lastOpen.current, ...(lastFinished.current ?? []).filter((r) => !open.has(rowKey(r)))].filter((r) => !isPipelineFix(r));
   }
   const fetched = polled.status === "error" ? polled : finished;
 

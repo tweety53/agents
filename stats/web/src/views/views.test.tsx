@@ -571,6 +571,15 @@ describe("views render their fixture response's actual values", () => {
     expect(reads()).toBe(first + 1);
   });
 
+  it("state board renders the open changes without waiting for the finished ones", async () => {
+    fetchStatsViewMock.mockImplementation((_v: string, p: { from: Date; to: Date }) =>
+      p.from.getTime() === p.to.getTime() ? Promise.resolve(fixtures["state-board"]) : new Promise(() => {}),
+    );
+    render(<StateBoard />);
+    expect(await screen.findAllByTestId("running-card")).not.toHaveLength(0);
+    expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
+  });
+
   it("state board hides pipeline-fix and self-review changes", async () => {
     const user = userEvent.setup();
     render(<StateBoard />);
