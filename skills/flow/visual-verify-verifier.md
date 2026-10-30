@@ -137,7 +137,13 @@ never an exit code the command did not return.
    the committed baseline PNGs already sitting under the same `screenshots` root, rather than joining
    `screenshots` with a guessed filename. Exit 1 (zero matches) blocks, indistinguishable from a view
    that never rendered; exit 2 (cannot answer) blocks the same way. **Read every printed path** — no
-   script can do that — and state, per view, what was seen. An unreadable PNG is reported and blocks
+   script can do that — and state, per view, what was seen.
+   Each printed PNG gets its own `- <view>: <absolute PNG path>` line, and each view no frame is
+   composed for its `per view, no frame composed: <view> sweeps:` line — `check-verify-report.sh`
+   refuses a report missing either (group-allowed-pairs-roles self-review: two round-1 verifiers
+   named only the prototype-framed captures, and a clipped chart label on an unnamed full-page
+   capture surfaced a round later).
+   An unreadable PNG is reported and blocks
    too.
 
    Then pipe the same resolver output into `check-identical-baselines.sh`; its header is canonical

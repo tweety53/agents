@@ -249,3 +249,54 @@ func TestCheckVerifyReportStep10WithACitedPrototype(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckVerifyReportAccountsForEveryCapture pins that every PNG the
+// resolver prints for the report's `- spec:` names its own view line, and
+// every view no frame is composed for its per-view sweeps line
+// (group-allowed-pairs-roles self-review).
+func TestCheckVerifyReportAccountsForEveryCapture(t *testing.T) {
+	const allDone = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n"
+	for _, tc := range []struct {
+		name, drop, shots string
+		rc                int
+		want              string
+	}{
+		{"every capture accounted", "", "tests/visual", 0, "VERIFY-REPORT-COMPLETE"},
+		{"a capture unnamed", "- a-open: ", "tests/visual", 1, "a-open-darwin.png is on no"},
+		{"no per-view sweeps line", "per view, no frame composed", "tests/visual", 1, "a-open has no frame and no"},
+		{"frame lines removed", "/vv/a-roles.png", "tests/visual", 1, "a-roles has no frame and no"},
+		{"no spec line", "- spec: ", "tests/visual", 0, "VERIFY-REPORT-COMPLETE"},
+		{"resolver finds nothing", "", "nowhere", 0, "VERIFY-REPORT-COMPLETE"},
+	} {
+		root := t.TempDir()
+		writeFile(t, filepath.Join(root, ".flow/project.md"), rvsSection(tc.shots))
+		snaps := filepath.Join(root, "tests/visual/a.spec.ts-snapshots")
+		writeFile(t, filepath.Join(snaps, "a-open-darwin.png"), "")
+		writeFile(t, filepath.Join(snaps, "a-roles-darwin.png"), "")
+		lines := []string{
+			allDone,
+			"- spec: <root>/tests/visual/a.spec.ts\n",
+			"- a-open: " + filepath.Join(snaps, "a-open-darwin.png") + " — header and table read\n",
+			"- a-roles: " + filepath.Join(snaps, "a-roles-darwin.png") + " — roles panel read\n",
+			"- mock-frame-03: <root>/vv/a-roles.png diff=n/a — prototype frame\n",
+			"- mock-frame-03 matrix: 4 rows\n",
+			"- per view, no frame composed: a-open sweeps: text done | overflow done\n",
+		}
+		var body strings.Builder
+		for _, l := range lines {
+			drop := tc.drop != "" && strings.Contains(l, tc.drop)
+			if tc.name == "frame lines removed" && strings.Contains(l, "mock-frame-03 matrix:") {
+				drop = true
+			}
+			if !drop {
+				body.WriteString(strings.ReplaceAll(l, "<root>", root))
+			}
+		}
+		path := filepath.Join(root, ".superpowers/sdd/verify-report-visual-verify.md")
+		writeFile(t, path, "## Report\n"+body.String())
+		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
+		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
+			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
+		}
+	}
+}

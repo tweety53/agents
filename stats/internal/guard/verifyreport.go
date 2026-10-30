@@ -47,8 +47,12 @@ var (
 	vrMockupSource = regexp.MustCompile("`([^`\\s]+\\.(?:html|htm|css))`")
 	// A composed frame's `- <frame id>: <composite> diff=` line, and its own
 	// `- <frame id> matrix:` line (kan-1016: one matrix line covered nine frames).
-	vrFrameLine  = regexp.MustCompile(`^\s*- (\S+): \S+ diff=`)
-	vrMatrixLine = regexp.MustCompile(`^\s*- (\S+) matrix:`)
+	vrPlatformSuffix = regexp.MustCompile(`-(darwin|linux|win32)$`)
+	vrFrameLine      = regexp.MustCompile(`^\s*- (\S+): (\S+) diff=`)
+	vrMatrixLine     = regexp.MustCompile(`^\s*- (\S+) matrix:`)
+	// The capture spec a `## Report` names: every PNG the resolver prints for
+	// it needs its own view line (group-allowed-pairs-roles self-review).
+	vrSpecLine = regexp.MustCompile(`^\s*- spec:\s*(\S+)`)
 )
 
 func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
@@ -88,14 +92,22 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	motionLine, bareFingerprint := false, false
 	inReport, unevidenced, verify := false, "", ""
 	noView := false
-	var frames []string
+	var frames, framed []string
 	matrix := map[string]bool{}
+	spec := ""
+	var reportLines []string
 	for _, line := range strings.Split(string(data), "\n") {
 		if m := vrVerifyLine.FindStringSubmatch(line); m != nil && verify == "" {
 			verify = strings.TrimSpace(m[1])
 		}
 		if strings.HasPrefix(line, "## ") {
 			inReport = strings.TrimSpace(line) == "## Report"
+		}
+		if inReport {
+			reportLines = append(reportLines, line)
+			if m := vrSpecLine.FindStringSubmatch(line); m != nil && spec == "" {
+				spec = m[1]
+			}
 		}
 		if inReport && unevidenced == "" && vrPreExisting.MatchString(line) && !vrNotPreExisting.MatchString(line) &&
 			!strings.Contains(line, "merge-base baseline: ") && !strings.Contains(line, "merge-base capture: ") {
@@ -115,6 +127,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		if m := vrFrameLine.FindStringSubmatch(line); m != nil {
 			frames = append(frames, m[1])
+			framed = append(framed, strings.TrimSuffix(filepath.Base(m[2]), ".png"))
 		}
 		if m := vrMatrixLine.FindStringSubmatch(line); m != nil {
 			matrix[m[1]] = true
@@ -200,10 +213,38 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 		}
 	}
+	if spec != "" && !noView {
+		undone = append(undone, vrUnaccounted(filepath.Dir(filepath.Dir(filepath.Dir(args[0]))), spec, env, framed, reportLines)...)
+	}
 	if len(undone) > 0 {
 		fmt.Fprintf(stdout, "VERIFY-REPORT-INCOMPLETE: %s — %s\n", args[0], strings.Join(undone, "; "))
 		return 1
 	}
 	fmt.Fprintf(stdout, "VERIFY-REPORT-COMPLETE: %s\n", args[0])
 	return 0
+}
+
+// vrUnaccounted resolves the spec's captures and names each one no
+// `- <view>: <path>` line states, and each stated view no frame is composed
+// for that carries no per-view sweeps line. A capture is framed when its
+// basename, less `.png` and any Playwright `-<platform>` suffix, is the stem
+// of a frame line's composite path — a frame id names the mockup, not the
+// view. A resolver exit other than 0 is not checked: step 9 blocks on it.
+func vrUnaccounted(wt, spec string, env Env, framed, lines []string) []string {
+	var buf strings.Builder
+	if resolveVisualScreenshots([]string{wt, filepath.Base(spec)}, env, &buf, io.Discard) != 0 {
+		return nil
+	}
+	report := strings.Join(lines, "\n")
+	var gaps []string
+	for _, png := range strings.Split(strings.TrimSpace(buf.String()), "\n") {
+		m := regexp.MustCompile(`(?m)^\s*- (\S+): ` + regexp.QuoteMeta(png) + `(\s|$)`).FindStringSubmatch(report)
+		switch {
+		case m == nil:
+			gaps = append(gaps, filepath.Base(png)+` is on no "- <view>: <path>" line — step 9 states every capture`)
+		case !slices.Contains(framed, vrPlatformSuffix.ReplaceAllString(strings.TrimSuffix(filepath.Base(png), ".png"), "")) && !strings.Contains(report, "per view, no frame composed: "+m[1]+" sweeps:"):
+			gaps = append(gaps, m[1]+` has no frame and no "per view, no frame composed: `+m[1]+` sweeps:" line`)
+		}
+	}
+	return gaps
 }

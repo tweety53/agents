@@ -59,6 +59,16 @@
 # undone as `<frame id> has no matrix: line — step 10 is done only with every
 # frame's matrix` (kan-1016: one matrix line covered nine frames).
 #
+# Given a `## Report` line `- spec: <path>`, the PNGs
+# `resolve-visual-screenshots.sh <worktree> <spec basename>` prints, the
+# worktree three directories above <report file>, each need a
+# `- <view>: <absolute PNG path>` line, and each such view that no
+# `- <view>: <composite> diff=` line names needs a
+# `per view, no frame composed: <view> sweeps:` line; each gap is undone. No
+# `- spec:` line, a wire contract naming an endpoint, or a resolver exit other
+# than 0 skips the check (group-allowed-pairs-roles self-review: two round-1
+# reports named only the prototype-framed captures).
+#
 # Prints ONE verdict line to stdout:
 #   VERIFY-REPORT-COMPLETE: <report file>
 #   VERIFY-REPORT-INCOMPLETE: <report file> — <each undone step and its status, `; `-separated>
