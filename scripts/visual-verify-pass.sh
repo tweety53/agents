@@ -11,6 +11,8 @@
 #     [--worktree <worktree>]... [--since <worktree>=<sha>]... \
 #     [--round-base <worktree>=<sha>]... [--app <worktree>:<app-root>=<url>]... \
 #     [--miss] [--continue [--started]]
+#   visual-verify-pass.sh close <canonical-worktree> <name> <key> <motions named> \
+#     --session-token mf-<t>
 #
 # Arguments:
 #   <canonical-worktree>  the change's canonical worktree, where its rows are
@@ -123,6 +125,59 @@
 # flags, then runs steps 8–11. A key ending in a survivor's
 # `-<repository name>` runs that worktree alone, its key unchanged.
 #
+# close reads the report <worktree>/.superpowers/sdd/verify-report-<key>.md,
+# <worktree> the one the stage file's `row <key>` line names (a key with no
+# row is exit 2), and acts on it once the verifier's turn has ended.
+# <motions named> is the count of motions the dispatch prompt named, 0 for
+# `motions: none`. In order:
+#   1. no report file: the row ends `-outcome aborted`, the stage ends
+#      `stopped`, and `STOP: no report — <path> was never written…`, exit 1.
+#   2. check-verify-report.sh <report> <motions named> --design
+#      <changeRoot>/design.md and, with `mockups` declared,
+#      check-frame-list.sh <changeRoot>/design.md <mockups root> <report>, in
+#      process (exit 2 from either is this call's exit 2). A
+#      check-verify-report exit 1, or a check-frame-list exit 1 naming any gap
+#      other than `no sidecar line`, ends the row `-outcome aborted`, appends
+#      each guard verdict line to the stage file as `verdict <key> <line>`
+#      (the remainder's bundle reads them), prints them and
+#        NEXT: rest <key>-rest[-<n>][-<repository name>]       exit 0
+#      — `-rest`, then `-rest-<n>` from 2, placed before any
+#      `-<repository name>` suffix. No commit; the stage stays open.
+#   3. the report's `## Verdict` block: `exits:` naming a non-zero exit is a
+#      block, its `cause:` (environment when absent). The stage's first such
+#      report of the worktree ends the row `blocked -cause <cause>` and prints
+#        NEXT: redispatch visual-verify-<n>[-<repository name>]   (<n> from 2)
+#      with no commit. From the second: cause `environment` ends the row the
+#      same way and prints `NEXT: cure-environment <next key>`, no commit;
+#      `test-failure` or `missing-fixture` ends the row `blocked`, commits
+#      (step 12), ends the stage and prints `NEXT: loop`.
+#   4. `departures:` above 0, or a `no sidecar line` frame-list gap alone:
+#      prints the `## Verdict` block (and the gap line), commits, and prints
+#      `NEXT: judge` — the row and the stage left open for **Blocking**.
+#   5. otherwise the row ends `-outcome completed`, commits, ends the stage,
+#      and prints `NEXT: done`.
+# Every commit is step 12 (decision close-commits-final-reports), never made
+# after `rest`, `redispatch` or `cure-environment`: the report's `- spec:`
+# path, every PNG it names, the full app suite's spec and zip its `- full app
+# suite` lines name, and <changeRoot>/visual-verification/ — each path that
+# exists committed in the checkout it lives in (a regression checkout's
+# worktree, or its main checkout, for the captures; the canonical worktree
+# for visual-verification/) by `git add -- <paths>` then `git commit -m
+# "test: record the <key> visual verification" -m "Flow-Key:
+# flow.visual-verify" -- <paths>`, so a file staged beforehand stays staged
+# and uncommitted. A checkout whose branch is not spectre/<name> prints
+#   PUSH: git -C <checkout> push
+# Nothing to commit makes no commit. Then, always:
+#   ROUND-BASE: <worktree>=<git -C <worktree> rev-parse HEAD>
+# The stage ends once every surviving worktree's newest row is closed —
+# `stopped` when any is `blocked`, else `completed` — through `flow stage end
+# -C <canonical-worktree> -command /flow -stage flow.visual-verify`, then
+# `flow record render -change <name> -kind ledger -repo <canonical-worktree>`
+# and `STAGE: <outcome>`. Rows end through `flow record dispatch end -C
+# <canonical-worktree> -change <name> -key <key> -session-token <t>
+# -outcome <outcome> [-cause <cause>]`; a failed end is exit 2. The parent
+# reads the `## Verdict` alone (decision verdict-only-handback).
+#
 # The stage file, <canonical-worktree>/.superpowers/sdd/visual-verify-stage.txt,
 # written once the stage has begun, is the only state a later call reads
 # (decision stage-file-names-its-rows):
@@ -131,12 +186,16 @@
 #   set <worktrees in the resolved set>
 #   worktree <path> <repository name> <merge base> <round base or ->[ <sibling>,…]
 #   row <key> <worktree>
+#   verdict <key> <guard verdict line>       close, on a remainder
+#   blocked <key>                            close, on a report with a non-zero exit
+#   closed <key> <outcome>                   close, on each row end
 #
 # Exit 0 on a NEXT: line; 1 on a STOP: line; 2 a usage error (a missing or
 # unknown subcommand or argument, a token not mf-<t>, no --harness, a
 # --merge-base, --since or --round-base not <worktree>=<sha>, an --app not
-# <worktree>:<app-root>=<url>, --started without --continue) or an unreadable
-# input — the cause on stderr, nothing recorded for a usage error.
+# <worktree>:<app-root>=<url>, --started without --continue, a <motions
+# named> that is not a count) or an unreadable input — the cause on stderr,
+# nothing recorded for a usage error.
 #
 # flow-guard is built from this checkout, never taken from PATH:
 # scripts/lib/flow-guard.sh derives it, and exits 2 with the cause when it

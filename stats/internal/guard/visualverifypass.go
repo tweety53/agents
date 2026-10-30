@@ -18,7 +18,8 @@ import (
 // line; exit 2 is a usage error or an unreadable input.
 func init() { Registry["visual-verify-pass"] = visualVerifyPass }
 
-const vvpUsage = "usage: visual-verify-pass.sh prepare <canonical-worktree> <name> <key> --harness <h> --session-token mf-<t> --merge-base <worktree>=<sha>... [--worktree <worktree>]... [--since <worktree>=<sha>]... [--round-base <worktree>=<sha>]... [--app <worktree>:<app-root>=<url>]... [--miss] [--continue [--started]]"
+const vvpUsage = "usage: visual-verify-pass.sh prepare <canonical-worktree> <name> <key> --harness <h> --session-token mf-<t> --merge-base <worktree>=<sha>... [--worktree <worktree>]... [--since <worktree>=<sha>]... [--round-base <worktree>=<sha>]... [--app <worktree>:<app-root>=<url>]... [--miss] [--continue [--started]]\n" +
+	"       visual-verify-pass.sh close <canonical-worktree> <name> <key> <motions named> --session-token mf-<t>"
 
 // vvpExit unwinds a step to visualVerifyPass with its exit code.
 type vvpExit int
@@ -59,6 +60,9 @@ func visualVerifyPass(args []string, env Env, stdout, stderr io.Writer) (code in
 	case "prepare":
 		v.parse(args[1:], true)
 		v.prepare()
+	case "close":
+		v.parse(args[1:], false)
+		v.close()
 	default:
 		v.usage("unknown subcommand '" + args[0] + "'")
 	}
@@ -237,6 +241,8 @@ func (v *vvp) repoName(w string) string {
 //	worktree <path> <repository name> <merge base> <round base or ->[ <sibling>,…]
 //	row <key> <worktree>
 //	verdict <key> <guard verdict line>
+//	blocked <key>
+//	closed <key> <outcome>
 func (v *vvp) stagePath() string {
 	return filepath.Join(v.canon, ".superpowers", "sdd", "visual-verify-stage.txt")
 }
