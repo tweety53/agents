@@ -1299,6 +1299,16 @@ describe("interactive run view", () => {
     expect(kpi).not.toHaveTextContent("Edit: stats/web/src/lib/phase.ts");
   });
 
+  it("interactive run view lists every request's cost above Cost by stage, costliest first", async () => {
+    load([...r6, ...r7]);
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const panel = await screen.findByRole("region", { name: "Cost by request" });
+    await waitFor(() => expect(panel.querySelectorAll(".lb-hbar")).toHaveLength(2));
+    expect([...panel.querySelectorAll(".lb-hbar")].map((r) => r.textContent)).toEqual(["Request 6$0.60", "Request 7$0.20"]);
+    expect(within(panel).getByTitle("Show the task list and the running agents")).toHaveTextContent("Request 6");
+    expect(panel.nextElementSibling).toHaveAttribute("aria-label", "Cost by stage");
+  });
+
   it("interactive run view lays Requests and Cost by stage in its right column", async () => {
     load([...r6, ...r7]);
     render(<RunDetail project={PROJECT} change={CHANGE} />);

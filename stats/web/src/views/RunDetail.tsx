@@ -789,6 +789,31 @@ export function RunDetail({ project, change }: RunDetailProps) {
             />
           </section>
           );
+          // An interactive session's every request by its stage runs' cost, costliest first -- never folded.
+          const byRequest = new Map<number, number>();
+          for (const r of runs) if (r.request !== undefined) byRequest.set(r.request, (byRequest.get(r.request) ?? 0) + (readCostUsd(r.metrics) ?? 0));
+          const requestCost = [...byRequest].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+          const maxRequest = Math.max(0, ...requestCost.map(([, v]) => v));
+          const requestCostPanel = (
+          <section className="lb-panel" aria-label="Cost by request" style={{ order: 7 }}>
+            <div className="lb-panel-h">
+              <span>Cost by request</span>
+            </div>
+            <div className="lb-panel-b">
+              {requestCost.map(([n, cost]) => (
+                <div key={n} className="lb-hbar">
+                  <span className="lb-n" title={board?.tasks?.find((t) => t.n === n)?.title}>
+                    Request {n}
+                  </span>
+                  <span className="lb-t">
+                    <span style={{ width: `${maxRequest ? (cost / maxRequest) * 100 : 0}%` }} />
+                  </span>
+                  <span className="r lb-num">{formatUsd(cost)}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+          );
           const costPanel = (
           <section className="lb-panel" aria-label="Cost by stage" style={interactive ? { order: 7 } : undefined}>
             <div className="lb-panel-h">
@@ -1014,6 +1039,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   {!isSub && board?.selfReviewTasks && (
                     <TasksPanel title="Self-review tasks" tasks={board.selfReviewTasks} current={[srView.currentTask ?? 0]} open={srPanelOpen} order={4} />
                   )}
+                  {interactive && requestCostPanel}
                   {interactive && costPanel}
                 </div>
               </div>
