@@ -394,7 +394,7 @@ endef
 #   and launch a second daemon that cannot bind. stats/internal/repotest/make_build_test.go
 #   pid-read case runs each of these reads against a real two-line file rather than
 #   asserting on how they are spelled.
-ui-test-up: web-build check-uitest-overrides
+ui-test-up: web-build policy-copy check-uitest-overrides
 	@if [ -f $(UITEST_PIDFILE) ] && kill -0 "$$(head -n1 $(UITEST_PIDFILE))" 2>/dev/null; then \
 		pid="$$(head -n1 $(UITEST_PIDFILE))"; \
 		echo "ui-test-up: stopping previous daemon $$pid"; \
