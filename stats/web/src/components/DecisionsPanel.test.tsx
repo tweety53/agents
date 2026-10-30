@@ -42,4 +42,9 @@ describe("DecisionsPanel", () => {
     render(<DecisionsPanel decision={{ implementer: { model: "opus", effort: "high", reason: "seam" } }} />);
     expect(screen.getAllByTestId("decision-row").map((r) => r.textContent)).toEqual(["Implementeropus · high"]);
   });
+
+  it("ignores an overrides object", () => {
+    render(<DecisionsPanel decision={{ implementer: { model: "opus", effort: "high", reason: "seam" }, overrides: {} }} />);
+    expect(screen.getAllByTestId("decision-row").map((r) => r.textContent)).toEqual(["Implementeropus · high"]);
+  });
 });

@@ -1,6 +1,8 @@
 // The run's latest recorded decision, one line per role: the model and
 // effort the run gave it, the decision's reason on hover.
 
+type Override = { to?: string; pairs?: string[]; instruction?: string };
+
 type Pick = { model?: string; effort?: string; reason?: string; slots?: string[]; bundles?: number[] };
 
 /** A recorded decision, as `flow record decision` stores it; only the fields this panel reads. */
@@ -13,7 +15,8 @@ export interface Decision {
   panel?: { dispatches?: Pick[]; rerun_dispatch?: Pick };
   extra_dispatch?: Pick;
   extra_dispatch_mutation?: Pick;
-  overrides?: { to?: string; pairs?: string[]; instruction?: string }[];
+  /** An array of Override; legacy rows hold an object, which this panel ignores. */
+  overrides?: unknown;
 }
 
 type Line = { role: string; model: string; reason?: string };
@@ -25,7 +28,7 @@ const review = (p: Pick | undefined): Line[] => pick(`Review: ${p?.slots?.join("
 
 function lines(d: Decision): Line[] {
   // An override names its pair as "<model>/<agent definition>", the definition ending in its effort.
-  const overrides = (d.overrides ?? []).flatMap((o) => {
+  const overrides = (Array.isArray(d.overrides) ? (d.overrides as Override[]) : []).flatMap((o) => {
     const [model, agent] = (o.to ?? "").split("/");
     const effort = agent?.split("-").at(-1);
     return (o.pairs ?? []).map((role) => ({ role: role[0].toUpperCase() + role.slice(1), model: `${model} · ${effort}`, reason: o.instruction }));
