@@ -152,6 +152,9 @@ function roleSummary(steps: Step[], costs: Map<string, number>) {
   const byRole = new Map<string, Step[]>();
   for (const d of steps) byRole.set(d.role, [...(byRole.get(d.role) ?? []), d]);
   const costOf = (ds: Step[]) => measuredSum(ds.map((d) => (d.agentId ? costs.get(d.agentId) : undefined)));
+  // The main session ran an inline dispatch itself: its cost is in the "main session" line, never a bucket of its own.
+  const allInline = (ds: Step[]) => ds.every((d) => d.agentId === "inline");
+  const costLabel = (ds: Step[]) => ((c) => (c !== null ? formatUsd(c) : allInline(ds) ? "inline" : "—"))(costOf(ds));
   return [...byRole].map(([role, ds]) => {
     const byModel = new Map<string, Step[]>();
     for (const d of ds) byModel.set(modelEffortLabel(d), [...(byModel.get(modelEffortLabel(d)) ?? []), d]);
@@ -159,7 +162,8 @@ function roleSummary(steps: Step[], costs: Map<string, number>) {
     return {
       role,
       count: ds.length,
-      models: models.map(([m, xs]) => `${m} ×${xs.length} (${((c) => (c === null ? "—" : formatUsd(c)))(costOf(xs))})`).join(", "),
+      models: models.map(([m, xs]) => `${m} ×${xs.length} (${costLabel(xs)})`).join(", "),
+      inline: allInline(ds),
       effortUnknown: ds.some((d) => !knownEffort(d.effort)),
       cost: costOf(ds),
       failed: ds.filter((d) => d.endedAt && d.outcome && FAILED_OUTCOMES.has(d.outcome)).length,
@@ -267,7 +271,6 @@ function WorkPanel({
     <section className={`lb-panel lb-phase ${status}`} aria-label={title} style={{ order }}>
       <div className="lb-panel-h">
         <span className="lb-phase-name">
-          <span className={`lb-dot ${status}`} />
           {title}
           <span className="lb-phase-st">
             {" · "}
@@ -326,7 +329,7 @@ function WorkPanel({
                   <span className="lb-role-models" title={r.effortUnknown ? `${r.models} -- effort unknown for some dispatches` : r.models}>
                     {r.models}
                   </span>
-                  <span className="lb-num r">{r.cost === null ? <span className="lb-muted">—</span> : formatUsd(r.cost)}</span>
+                  <span className="lb-num r">{r.cost !== null ? formatUsd(r.cost) : <span className="lb-muted">{r.inline ? "in main session" : "—"}</span>}</span>
                   <span className="lb-role-flags">
                     {r.failed > 0 && <span className="lb-err">{r.failed} failed</span>}
                     {r.running && (

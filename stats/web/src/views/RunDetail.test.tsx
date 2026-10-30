@@ -1007,6 +1007,11 @@ describe("the reworked run view (kan-1048)", () => {
     expect(text).not.toContain("default");
     const verifier = within(main).getAllByTestId("phase-role").find((r) => r.textContent?.startsWith("verifier"))!;
     expect(verifier.querySelector(".lb-role-models")!.getAttribute("title")).toContain("effort unknown");
+    // A dispatch the main session ran itself is priced in its main session line, and says so instead of a bare dash.
+    expect(text).toContain("implementer ×1opus 5.5 · medium ×1 (inline)in main session");
+    expect(text).not.toContain("—");
+    // The phase header names its status in words, with no dot that reads as the working one.
+    expect(main.querySelector(".lb-panel-h .lb-dot")).toBeNull();
   });
 
   it("run detail's Cost by stage lists the ten costliest stages and folds the rest into one line", async () => {
