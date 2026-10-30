@@ -3019,6 +3019,20 @@ func TestCheckTaskCommitFields(t *testing.T) {
 			res := r.run("1", fix)
 			ok(t, "case 159: an on-top fix commit is judged with its task's commit", res.rc == 0, res)
 		}},
+		{"case 159b", func(t *testing.T) {
+			// The gated fix contract runs this guard on the on-top fix
+			// commit: a path it adds outside Files: is refused.
+			r := fx.repo(t, "change-a")
+			r.plan(tcfPlans["159"])
+			r.git("branch", "-M", "main")
+			r.commit("old change\n\nTask-Id: 1", "gamma.txt", "g\n")
+			r.git("checkout", "-q", "-b", "spectre/change-a")
+			r.commit("add alpha\n\nTask-Id: 1+3", "alpha.txt", "def test_alpha(): pass\n")
+			r.commit("other task\n\nTask-Id: 2", "delta.txt", "d\n")
+			fix := r.commit("fix review finding\n\nTask-Id: 1", "beta.txt", "b\n", "gamma2.txt", "g2\n")
+			res := r.run("1", fix)
+			ok(t, "case 159b: an on-top fix commit's undeclared path is refused", res.rc == 1 && has(res.out, "file gamma2.txt is not declared in Files:"), res)
+		}},
 		{"case 158", func(t *testing.T) {
 			// KAN-972: each repository's commit names its own module.
 			commit := func(b1Subject, b2Subject string) tcfRes {

@@ -12,8 +12,10 @@ a fix that adds a file stages first) and commits on the route the branch's push 
 (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`) — one new commit on top for a branch the remote
 already holds, the guarded, set-aside fold onto `<task-sha>^` for unpushed history only, as that
 section states it for a fixup against `<task-sha>`. The
-parent re-runs the guard on every sha the fold's rebase rewrote — the on-top route rewrites none, so
-its re-run covers nothing — then re-dispatches the reviewer — one
+parent re-runs the guard on every sha the fold's rebase rewrote, and on the on-top route on its fix
+commit, `check-task-commit-fields.sh <canonical> <id> <fix-sha> "" <canonical> <name>`, which
+joins every commit carrying the task's `Task-Id:` trailer — a refusal handled as "The record
+carries its own corrections" (`skills/flow/implement.md`) states — then re-dispatches the reviewer — one
 bundle carrying every fixed task of the group, under `task-<n+n>-reviewer-fix-<k>`, the same
 convention as the implementer's fix key — each pass on its own range: the on-top route reads its
 fix commit's own diff `git diff <fix-commit>^..<fix-commit>`, the fold its rewritten
