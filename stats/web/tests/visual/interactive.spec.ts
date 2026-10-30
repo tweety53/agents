@@ -5,7 +5,8 @@ import { bodyBackground, DARK_SURFACE_1, FIXTURE_NOW, PINNED_QUERY } from "./sup
 // (KAN-1061) over cmd/uitest-seed's seedInteractive: the running session
 // kan-1072-… (request 7 in progress) and the waiting one kan-1073-….
 // interactive.spec.ts.mockups pairs each capture with its frame of the
-// approved prototype, .superpowers/sdd/planner/prototype-board.html.
+// approved prototype, .superpowers/sdd/planner/prototype-board.html. Every
+// capture is the viewport (the run view the full page), never a clipped element.
 const RUNNING = "kan-1072-interactive-session-2026-10-30";
 const WAITING = "kan-1073-interactive-session-2026-10-30";
 
@@ -26,7 +27,7 @@ test.describe("interactive session", () => {
     const card = page.getByRole("button", { name: RUNNING });
     await expect(card.getByTestId("running-task")).toHaveText("Request 7: Show the stage's model on the Agents row");
     await expect(card).toContainText("requests 6/8 · $4.12");
-    await expect(card).toHaveScreenshot("interactive-running-card.png");
+    await expect(page).toHaveScreenshot("interactive-running-card.png");
   });
 
   test("interactive waiting card", async ({ page }) => {
@@ -34,7 +35,7 @@ test.describe("interactive session", () => {
     const card = page.getByRole("button", { name: WAITING });
     await expect(card).toContainText("Waiting for the next request");
     await expect(card.getByTestId("running-task")).toHaveText("Last: Request 3 landed — Hide the empty streak row");
-    await expect(card).toHaveScreenshot("interactive-waiting-card.png");
+    await expect(page).toHaveScreenshot("interactive-waiting-card.png");
   });
 
   test("interactive running card hovered", async ({ page }) => {
@@ -42,7 +43,7 @@ test.describe("interactive session", () => {
     const card = page.getByRole("button", { name: RUNNING });
     await card.hover();
     await expect(card).toHaveCSS("border-top-color", "rgb(255, 152, 48)");
-    await expect(card).toHaveScreenshot("interactive-running-card-hover.png");
+    await expect(page).toHaveScreenshot("interactive-running-card-hover.png");
   });
 
   test("interactive running card focused from the keyboard", async ({ page }) => {
@@ -53,7 +54,7 @@ test.describe("interactive session", () => {
     await page.keyboard.press("Tab");
     await expect(card).toBeFocused();
     await expect(card).toHaveCSS("border-top-color", "rgb(255, 152, 48)");
-    await expect(card).toHaveScreenshot("interactive-running-card-focus.png");
+    await expect(page).toHaveScreenshot("interactive-running-card-focus.png");
   });
 
   test("interactive run view", async ({ page }) => {

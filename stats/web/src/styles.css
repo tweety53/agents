@@ -762,6 +762,8 @@ th button {
 /* Work panels stacked left, their plans stacked right, each card its own height; one stack in panel, plan order when narrow. */
 .lb-work { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); gap: 10px; align-items: start; }
 .lb-work-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+/* An interactive session's work area: the prototype's `.work` 3fr/2fr columns. */
+.lb-work.lb-work-interactive { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
 .lb-phase-main { min-width: 0; }
 .lb-tasks-panel .lb-tasks li { overflow-wrap: anywhere; }
 .lb-tasks-panel.collapsed > .lb-panel-h { border-bottom: 0; }

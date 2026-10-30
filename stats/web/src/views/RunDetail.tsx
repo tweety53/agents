@@ -7,7 +7,9 @@
 //
 // A /flow-interactive session's view (KAN-1061) swaps the Tasks slot for its
 // Requests, Main's phases for the followed request's steps, and leads Stage
-// runs with a Request column.
+// runs with a Request column. Its work area is the prototype's 3fr/2fr grid:
+// Agents, Main, the timeline and the latest six stage runs left, Requests and
+// Cost by stage right; each agent's status is its dot alone.
 //
 // The KPI strip's cost and input-token figures come from useRunDetail's
 // cost-per-change aggregate, never from summing the stage runs this
@@ -66,8 +68,9 @@ const STATUS_LABEL: Record<AgentStatus, string> = {
   idle: "turn ended",
 };
 
-/** An agent's status as a dot whose look names it -- pulsing green running, breathing amber waiting, blinking orange needs you, hollow grey idle -- and its word. */
-function StatusDot({ status }: { status: AgentStatus }) {
+/** An agent's status as a dot whose look names it -- pulsing green running, breathing amber waiting, blinking orange needs you, hollow grey idle -- and its word; bare, the dot alone with its word as its accessible name. */
+function StatusDot({ status, bare }: { status: AgentStatus; bare?: boolean }) {
+  if (bare) return <span className={`lb-dot ${status}`} role="img" aria-label={STATUS_LABEL[status]} />;
   return (
     <span className="lb-status">
       <span className={`lb-dot ${status}`} />
@@ -87,6 +90,8 @@ const TOP_STAGES = 10;
 
 /** How many of the latest stage runs the collapsed Stage runs table shows. */
 const LATEST_RUNS = 5;
+/** An interactive session's Stage runs: the prototype's six latest rows, with no "Show all". */
+const INTERACTIVE_RUNS = 6;
 
 /** The outcomes a dispatch ends on without finishing its work. */
 const FAILED_OUTCOMES = new Set(["failed", "blocked", "aborted", "timed-out", "cancelled", "stopped"]);
@@ -731,6 +736,87 @@ export function RunDetail({ project, change }: RunDetailProps) {
           const restStages = allStageCost.slice(TOP_STAGES);
           const maxStage = Math.max(0, ...stageCost.map(([, v]) => v));
           const sessionOf = (run: StageRunDTO) => sessions.find((s) => s.runs.includes(run))?.label ?? "";
+          const timelinePanel = (
+          <section className="lb-panel" aria-label="Timeline" style={interactive ? { order: 5 } : undefined}>
+            <div className="lb-panel-h">
+              <span>Timeline</span>
+              <span className="lb-legend">
+                <span>
+                  <i className="lb-sw completed" />
+                  completed
+                </span>
+                <span>
+                  <i className="lb-sw failed" />
+                  failed
+                </span>
+                <span>
+                  <i className="lb-sw open" />
+                  running
+                </span>
+                <button type="button" className="lb-fchip" aria-expanded={timelineOpen} onClick={() => setTimelineOpen(!timelineOpen)}>
+                  {timelineOpen ? "Hide timeline" : "Show timeline"}
+                </button>
+              </span>
+            </div>
+            {timelineOpen && (
+              <div className="lb-panel-b lb-scroll">
+                <StageTimeline stageRuns={runs} sessionOf={sessionOf} upcoming={upcoming} />
+              </div>
+            )}
+          </section>
+          );
+          const stageRunsPanel = (
+          <section className="lb-panel" aria-label="Stage runs" style={interactive ? { order: 6 } : undefined}>
+            <div className="lb-panel-h">
+              <span>Stage runs</span>
+              <span className="lb-panel-note">
+                click a row for its dispatches
+                {!interactive && runs.length > LATEST_RUNS && (
+                  <>
+                    {" · "}
+                    <button type="button" className="lb-fchip" onClick={() => setAllRuns(!allRuns)}>
+                      {allRuns ? `Show latest ${LATEST_RUNS}` : `Show all ${runs.length}`}
+                    </button>
+                  </>
+                )}
+              </span>
+            </div>
+            <StageRunTable
+              stageRuns={allRuns ? runs : [...runs].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt)).slice(-(interactive ? INTERACTIVE_RUNS : LATEST_RUNS))}
+              truncated={state.truncated}
+              totalStageRuns={state.totalStageRuns}
+              records={dispatches}
+              requests={interactive}
+            />
+          </section>
+          );
+          const costPanel = (
+          <section className="lb-panel" aria-label="Cost by stage" style={interactive ? { order: 7 } : undefined}>
+            <div className="lb-panel-h">
+              <span>Cost by stage</span>
+            </div>
+            <div className="lb-panel-b">
+              {stageCost.map(([stage, cost]) => (
+                <div key={stage} className="lb-hbar">
+                  <span className="lb-n" title={stage}>
+                    <span title={stage}>{stageLabel(stage)}</span>
+                  </span>
+                  <span className="lb-t">
+                    <span style={{ width: `${maxStage ? (cost / maxStage) * 100 : 0}%` }} />
+                  </span>
+                  <span className="r lb-num">{formatUsd(cost)}</span>
+                </div>
+              ))}
+              {restStages.length > 0 && (
+                <div className="lb-hbar lb-muted" data-testid="stage-cost-rest" title={restStages.map(([s]) => stageLabel(s)).join(", ")}>
+                  <span className="lb-n">{restStages.length} more</span>
+                  <span />
+                  <span className="r lb-num">{formatUsd(restStages.reduce((a, [, v]) => a + v, 0))}</span>
+                </div>
+              )}
+            </div>
+          </section>
+          );
 
           return (
             <>
@@ -782,8 +868,8 @@ export function RunDetail({ project, change }: RunDetailProps) {
                 />
               </section>
 
-              {/* Two independent stacks right under the KPI strip -- agents and work panels left, their plans right -- each card its own height. */}
-              <div className="lb-work">
+              {/* Two independent stacks right under the KPI strip -- agents and work panels left, their plans right -- each card its own height; an interactive session's stage runs and cost rail join them. */}
+              <div className={`lb-work${interactive ? " lb-work-interactive" : ""}`}>
                 <div className="lb-work-col">
               {agentCount > 0 && (
                   <section className="lb-panel" aria-label="Agents" style={{ order: 0 }}>
@@ -808,7 +894,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                               Main
                             </td>
                             <td>
-                              <StatusDot status={mainStatus} />
+                              <StatusDot status={mainStatus} bare={interactive} />
                             </td>
                             <td className="lb-clip" title={mainAgent.what}>{mainAgent.what}</td>
                             <td>
@@ -824,7 +910,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                               <span className="lb-agent-branch">⎿</span> {d.role}
                             </td>
                             <td>
-                              <StatusDot status="running" />
+                              <StatusDot status="running" bare={interactive} />
                             </td>
                             <td className="lb-clip" title={inlineWhat(d, board?.tasks)}>
                               {inlineWhat(d, board?.tasks)}
@@ -907,6 +993,8 @@ export function RunDetail({ project, change }: RunDetailProps) {
                       />
                     </>
                   )}
+                  {interactive && timelinePanel}
+                  {interactive && stageRunsPanel}
                 </div>
                 <div className="lb-work-col">
                   {board?.tasks &&
@@ -918,87 +1006,19 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   {!isSub && board?.selfReviewTasks && (
                     <TasksPanel title="Self-review tasks" tasks={board.selfReviewTasks} current={[srView.currentTask ?? 0]} open={srPanelOpen} order={4} />
                   )}
+                  {interactive && costPanel}
                 </div>
               </div>
 
-              <section className="lb-panel" aria-label="Timeline">
-                <div className="lb-panel-h">
-                  <span>Timeline</span>
-                  <span className="lb-legend">
-                    <span>
-                      <i className="lb-sw completed" />
-                      completed
-                    </span>
-                    <span>
-                      <i className="lb-sw failed" />
-                      failed
-                    </span>
-                    <span>
-                      <i className="lb-sw open" />
-                      running
-                    </span>
-                    <button type="button" className="lb-fchip" aria-expanded={timelineOpen} onClick={() => setTimelineOpen(!timelineOpen)}>
-                      {timelineOpen ? "Hide timeline" : "Show timeline"}
-                    </button>
-                  </span>
-                </div>
-                {timelineOpen && (
-                  <div className="lb-panel-b lb-scroll">
-                    <StageTimeline stageRuns={runs} sessionOf={sessionOf} upcoming={upcoming} />
+              {!interactive && (
+                <>
+                  {timelinePanel}
+                  <div className="lb-split">
+                    {stageRunsPanel}
+                    {costPanel}
                   </div>
-                )}
-              </section>
-
-              <div className="lb-split">
-                <section className="lb-panel" aria-label="Stage runs">
-                  <div className="lb-panel-h">
-                    <span>Stage runs</span>
-                    <span className="lb-panel-note">
-                      click a row for its dispatches
-                      {runs.length > LATEST_RUNS && (
-                        <>
-                          {" · "}
-                          <button type="button" className="lb-fchip" onClick={() => setAllRuns(!allRuns)}>
-                            {allRuns ? `Show latest ${LATEST_RUNS}` : `Show all ${runs.length}`}
-                          </button>
-                        </>
-                      )}
-                    </span>
-                  </div>
-                  <StageRunTable
-                    stageRuns={allRuns ? runs : [...runs].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt)).slice(-LATEST_RUNS)}
-                    truncated={state.truncated}
-                    totalStageRuns={state.totalStageRuns}
-                    records={dispatches}
-                    requests={interactive}
-                  />
-                </section>
-                <section className="lb-panel" aria-label="Cost by stage">
-                  <div className="lb-panel-h">
-                    <span>Cost by stage</span>
-                  </div>
-                  <div className="lb-panel-b">
-                    {stageCost.map(([stage, cost]) => (
-                      <div key={stage} className="lb-hbar">
-                        <span className="lb-n" title={stage}>
-                          <span title={stage}>{stageLabel(stage)}</span>
-                        </span>
-                        <span className="lb-t">
-                          <span style={{ width: `${maxStage ? (cost / maxStage) * 100 : 0}%` }} />
-                        </span>
-                        <span className="r lb-num">{formatUsd(cost)}</span>
-                      </div>
-                    ))}
-                    {restStages.length > 0 && (
-                      <div className="lb-hbar lb-muted" data-testid="stage-cost-rest" title={restStages.map(([s]) => stageLabel(s)).join(", ")}>
-                        <span className="lb-n">{restStages.length} more</span>
-                        <span />
-                        <span className="r lb-num">{formatUsd(restStages.reduce((a, [, v]) => a + v, 0))}</span>
-                      </div>
-                    )}
-                  </div>
-                </section>
-              </div>
+                </>
+              )}
             </>
           );
         })()}

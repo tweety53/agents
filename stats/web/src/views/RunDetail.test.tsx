@@ -1275,6 +1275,36 @@ describe("interactive run view", () => {
     expect(screen.getByRole("group", { name: "Now running" })).toHaveTextContent("Request 7: Show the stage's model on the Agents row");
   });
 
+  it("interactive run view lays Requests and Cost by stage in its right column", async () => {
+    load([...r6, ...r7]);
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const requests = await screen.findByRole("region", { name: "Requests" });
+    const col = (name: string) => screen.getByRole("region", { name }).closest(".lb-work-col");
+    const work = requests.closest(".lb-work");
+    expect(work).toHaveClass("lb-work-interactive");
+    const [left, right] = [...(work?.children ?? [])];
+    expect(col("Requests")).toBe(right);
+    expect(col("Cost by stage")).toBe(right);
+    for (const name of ["Agents", "Main", "Timeline", "Stage runs"]) expect(col(name)).toBe(left);
+  });
+
+  it("interactive run view draws the Agents status as the dot alone", async () => {
+    load([...r6, ...r7]);
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const agents = await screen.findByRole("region", { name: "Agents" });
+    const status = within(agents).getAllByRole("row")[1].children[1] as HTMLElement;
+    expect(status.textContent).toBe("");
+    expect(within(status).getByRole("img", { name: "running" })).toHaveClass("lb-dot", "running");
+  });
+
+  it("interactive run view lists the latest 6 stage runs and no Show all chip", async () => {
+    load([...r6, ...r7]);
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const panel = await screen.findByRole("region", { name: "Stage runs" });
+    await waitFor(() => expect(panel.querySelectorAll("tr.lb-row")).toHaveLength(6));
+    expect(within(panel).queryByRole("button", { name: /Show all/ })).toBeNull();
+  });
+
   it("interactive run view adds Designing the change only when the request brainstormed", async () => {
     load([...r6, run(7, "flow.load-context", 7, 4, 3), run(9, "flow.brainstorm", 7, 3, 2), run(8, "flow.sdd-tdd", 7, 2)]);
     render(<RunDetail project={PROJECT} change={CHANGE} />);
