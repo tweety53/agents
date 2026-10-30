@@ -323,8 +323,9 @@ export function StateBoard() {
   }, []);
 
   // Only open changes are polled: an empty period still lists every
-  // unfinished change, which the store adds whatever the period. Finished
-  // ones load on demand -- the Finished group opened or its tile pressed --
+  // unfinished change, or finished one still running a stage, which the
+  // store adds whatever the period. Finished
+  // ones load on demand -- the Finished group opened, its tile or a Project chip pressed --
   // then once per Updated chip, inside the widest bounded chip unless All is
   // chosen, and again whenever a polled change drops out of the open set,
   // which is a change finishing. Each period is half-open, so

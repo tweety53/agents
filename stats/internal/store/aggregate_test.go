@@ -1964,6 +1964,34 @@ func TestLiveStateBoardKeepsOpenChangesOutsideThePeriod(t *testing.T) {
 	}
 }
 
+// TestLiveStateBoardKeepsFinishedChangesWithAnOpenStage pins that a
+// finished change still running a stage -- cleanup after FINISHED -- is on
+// the board whenever it was last updated: the board's open poll asks for an
+// empty period and its Active runs must still list that run.
+func TestLiveStateBoardKeepsFinishedChangesWithAnOpenStage(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-board-finished-open-%d", time.Now().UnixNano())
+	for _, name := range []string{"kan-1", "kan-2"} {
+		c := baseChange(projectKey, name)
+		c.State = store.StateFinished
+		if err := st.PutChange(ctx, c); err != nil {
+			t.Fatalf("PutChange(%s): %v", name, err)
+		}
+	}
+	if _, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "flow.cleanup")); err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	far := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
+	rows, err := st.LiveStateBoard(ctx, store.Period{From: far, To: far}, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("LiveStateBoard: %v", err)
+	}
+	if len(rows) != 1 || rows[0].Name != "kan-1" {
+		t.Fatalf("LiveStateBoard = %+v, want only kan-1, finished with an open stage", rows)
+	}
+}
+
 // TestLiveStateBoardCarriesOpenStageDoneTasksAndActivity pins the three
 // live facts the board's Running now cards read: the change's open stage
 // run, how many tasks carry a committed implementer dispatch, and what the
