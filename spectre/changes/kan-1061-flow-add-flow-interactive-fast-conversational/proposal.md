@@ -56,3 +56,7 @@
 ## Fix 2 — in-run visual verify
 
 - `flow.visual-verify` found the interactive run view departing from the approved prototype (`.superpowers/sdd/planner/prototype-board.html`): the Requests panel sits narrow beside Agents/Main instead of in a right column with Cost by stage (`.work { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) }`); the Agents Status cell prints "running" beside the dot where the prototype draws the dot alone; Stage runs shows 5 rows and a "Show all" chip where the prototype shows 6 rows and no chip. The four card captures in `interactive.spec.ts` are clipped element shots where verification needs viewport captures.
+
+## Fix 3 — in-run visual verify
+
+- The scoped re-run after fix 2 found the interactive run view's Stage runs cells truncated with an ellipsis ("Implementing …", "Updating the main …"): the prototype draws Stage cells unclipped (`td { white-space: nowrap }`, "Updating the main checkout" in full) with no session-row indent. The waiting-card viewport capture is byte-identical to the running-card one, so it verifies nothing the other does not.

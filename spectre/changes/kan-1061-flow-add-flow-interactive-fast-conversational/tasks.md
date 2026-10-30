@@ -267,3 +267,16 @@ Correction (2026-10-30): the plan named only the two new tests; commit 9ad3fb14 
 **Regression:** the interactive run view renders Requests narrow, "● running" text and a "Show all" chip after 5 rows.
 **Commit:** fix(web): match the interactive run view to its prototype
 **After:** Task 7, 8, 9, 14
+
+- [ ] 16. In-run fix 3 — flow.visual-verify: unclip interactive Stage cells; make the waiting-card capture distinct
+  - [ ] **Step 1: Reproduce.** Read `<project>/.superpowers/sdd/verify-report-visual-verify-fix-2.md`; confirm the ellipsis on the interactive run view's Stage cells and the identical running/waiting card PNGs.
+  - [ ] **Step 2: Fix.** On the interactive run view only, draw Stage cells unclipped with no session-row indent, as the prototype does; `/flow` and `/flow-fast` views unchanged. Make the waiting-card capture show what the running-card one does not (e.g. its card focused or scrolled into view), and update the `.mockups` sidecar; recapture and rebuild the full-app-suite zip. Rewrite the record's affected section of `visual-verification.md`.
+  - [ ] **Step 3: Verify.** Its **Tests:** selectors and `npx tsc -b` green. Commit.
+
+**Build:** green
+**Files:** `stats/web/src/views/RunDetail.tsx`, `stats/web/src/views/RunDetail.test.tsx`, `stats/web/tests/visual/interactive.spec.ts`, `stats/web/tests/visual/interactive.spec.ts.mockups`, `spectre/changes/kan-1061-flow-add-flow-interactive-fast-conversational/visual-verification.md`
+**Allowed-collateral:** `stats/web/src/styles.css`, `stats/web/src/components/StageRunTable.tsx`, `stats/web/src/components/StageRunTable.test.tsx`, `stats/web/tests/visual/interactive.spec.ts-snapshots/*.png`, `stats/web/tests/visual/full-app-suite.zip`
+**Tests:** `interactive run view` in `stats/web/src/views/RunDetail.test.tsx`; `tests/visual/interactive.spec.ts`.
+**Regression:** interactive Stage cells end in an ellipsis; the waiting-card capture equals the running-card one.
+**Commit:** fix(web): unclip interactive stage cells and distinguish the waiting-card capture
+**After:** Task 7, 8, 9, 15
