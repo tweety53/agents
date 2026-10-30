@@ -1,3 +1,4 @@
+import type { Decision } from "./components/DecisionsPanel";
 // api.ts is the typed client for flowd's HTTP surface (stats/internal/api).
 // It carries exactly the parameters the server actually accepts --
 // "from"/"to"/"project"/"breakdown"/"change"/"command"/"stage"/"model" on
@@ -800,6 +801,11 @@ export interface RecordDispatch {
 /** GET /api/v1/records/{project}/{change} -- the change's run record; the run view reads its dispatches. */
 export function getRunRecord(project: string, change: string, init?: RequestInit): Promise<{ dispatches: RecordDispatch[] }> {
   return getJSON<{ dispatches: RecordDispatch[] }>(`/api/v1/records/${encodeURIComponent(project)}/${encodeURIComponent(change)}`, init);
+}
+
+/** GET /api/v1/records/{project}/{change}/decisions -- the change's recorded decisions, newest first. */
+export function getDecisions(project: string, change: string, init?: RequestInit): Promise<{ decision: Decision }[]> {
+  return getJSON<{ decision: Decision }[]>(`/api/v1/records/${encodeURIComponent(project)}/${encodeURIComponent(change)}/decisions`, init);
 }
 
 /** GET /api/v1/changes/find?name= -- every project's record for one change name. */

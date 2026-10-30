@@ -671,6 +671,7 @@ th button {
 .lb-out.open { color: var(--st-progress); }
 .lb-hbar { display: grid; grid-template-columns: 110px 1fr 56px; gap: 8px; align-items: center; font-size: 12px; padding: 3px 0; }
 .lb-hbar .r { text-align: right; }
+.lb-decision { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 3px 0; }
 .lb-t { height: 10px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
 .lb-t > span { display: block; height: 100%; background: var(--series-1); }
 .lb-n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }

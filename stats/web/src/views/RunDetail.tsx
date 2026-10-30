@@ -24,6 +24,7 @@ import { formatModel, formatRelative, formatSpan, formatUsd } from "../format";
 import { asObject, readCacheReadTokens, readCostUsd, readEffort, readMainModels, readTotalInputTokens } from "../metrics";
 import { projectLabel } from "../lib/projectLabel";
 import { describeDispatch } from "../lib/describeDispatch";
+import { DecisionsPanel, type Decision } from "../components/DecisionsPanel";
 import { agentsDone, dispatchTasks, mainAction, runningTask } from "../lib/runningTask";
 import { effectiveActivity, sessionAlive } from "../lib/sessionAlive";
 import { stageLabel } from "../lib/stageLabel";
@@ -33,7 +34,7 @@ import { SR_STEPS, selfReviewNow, srStep, type SrStep } from "../lib/selfReviewN
 import { STAGE_PHASE, type Phase } from "../lib/phase";
 import { mainNow, mainProgress, mainSummary, type ProgressState } from "../lib/mainNow";
 import { currentRequest, focusRequest, interactiveWaiting, isInteractive, requestStart, requestSteps } from "../lib/interactive";
-import { findChanges, getRunRecord, listSelfReviewFindings, listStageRuns, listStages, type ActiveSubagent, type PlanTask, type RecordDispatch, type SelfReviewFinding, type StageRunDTO } from "../api";
+import { findChanges, getDecisions, getRunRecord, listSelfReviewFindings, listStageRuns, listStages, type ActiveSubagent, type PlanTask, type RecordDispatch, type SelfReviewFinding, type StageRunDTO } from "../api";
 
 export interface RunDetailProps {
   project: string;
@@ -603,9 +604,13 @@ export function RunDetail({ project, change }: RunDetailProps) {
   // The phase panels' dispatches and the self-review findings, refetched on the board's cadence.
   const [dispatches, setDispatches] = useState<RecordDispatch[]>([]);
   const [findings, setFindings] = useState<SelfReviewFinding[]>([]);
+  const [decision, setDecision] = useState<Decision | null>(null);
   useEffect(() => {
     let live = true;
     const load = () => {
+      getDecisions(project, change)
+        .then((r) => live && setDecision(r?.[0]?.decision ?? null))
+        .catch(() => live && setDecision(null));
       getRunRecord(project, change)
         .then((r) => live && setDispatches(r?.dispatches ?? []))
         .catch(() => live && setDispatches([]));
@@ -1100,7 +1105,10 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   {timelinePanel}
                   <div className="lb-split">
                     {stageRunsPanel}
-                    {costPanel}
+                    <div className="lb-work-col">
+                      {costPanel}
+                      {decision && <DecisionsPanel decision={decision} />}
+                    </div>
                   </div>
                 </>
               )}

@@ -19,7 +19,8 @@ import {
 } from "../api";
 import { RunDetail } from "./RunDetail";
 
-const { listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock, runRecordMock, findChangesMock } = vi.hoisted(() => ({
+const { listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock, runRecordMock, findChangesMock, decisionsMock } = vi.hoisted(() => ({
+  decisionsMock: vi.fn((_project: string, _change: string) => Promise.resolve([] as unknown[])),
   listStageRunsMock: vi.fn(),
   findChangesMock: vi.fn((_name: string) => Promise.resolve({ records: [] as unknown[] })),
   runRecordMock: vi.fn((_project: string, _change: string) => Promise.resolve({ dispatches: [] as unknown[] })),
@@ -30,7 +31,7 @@ const { listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock,
 
 vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
-  return { ...actual, listStageRuns: listStageRunsMock, fetchStatsView: fetchStatsViewMock, listStages: listStagesMock, listSelfReviewFindings: listFindingsMock, getRunRecord: runRecordMock, findChanges: findChangesMock };
+  return { ...actual, listStageRuns: listStageRunsMock, fetchStatsView: fetchStatsViewMock, listStages: listStagesMock, listSelfReviewFindings: listFindingsMock, getRunRecord: runRecordMock, findChanges: findChangesMock, getDecisions: decisionsMock };
 });
 
 function stageRunsResponse(stageRuns: StageRunDTO[], total?: number): ListStageRunsResponse {
@@ -1122,6 +1123,15 @@ describe("the reworked run view (kan-1048)", () => {
     runRecordMock.mockImplementation(() => Promise.resolve({ dispatches: [] }));
     findChangesMock.mockResolvedValue({ records: [] });
     listFindingsMock.mockImplementation(() => Promise.resolve([]));
+  });
+
+  it("run detail shows the latest decision's roles under Cost by stage", async () => {
+    decisionsMock.mockResolvedValueOnce([{ decision: { class: "big", execution: "sdd", fixer: { model: "opus", effort: "low", reason: "r" } } }]);
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const panel = await screen.findByRole("region", { name: "Decisions" });
+    expect(decisionsMock).toHaveBeenCalledWith(PROJECT, CHANGE);
+    expect(panel).toHaveTextContent("Fixeropus · low");
+    expect(screen.getByRole("region", { name: "Cost by stage" }).nextElementSibling).toBe(panel);
   });
 
   it("run detail marks main as waiting while only its subagents work", async () => {
