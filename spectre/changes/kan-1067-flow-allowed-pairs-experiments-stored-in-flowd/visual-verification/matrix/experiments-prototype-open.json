@@ -225,12 +225,12 @@
       "a": null,
       "b": {
         "top": 1061,
-        "height": 801,
+        "height": 785,
         "left": 24,
         "width": 1232,
         "right": 24,
-        "colour": "#9fa7b3",
-        "kind": "text/control",
+        "colour": "#2c3235",
+        "kind": "fill band",
         "gap": 2
       }
     },
@@ -252,7 +252,7 @@
       "status": "extra",
       "a": null,
       "b": {
-        "top": 1864,
+        "top": 1848,
         "height": 1,
         "left": 27,
         "width": 1226,
