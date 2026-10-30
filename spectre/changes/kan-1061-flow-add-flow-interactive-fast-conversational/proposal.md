@@ -48,3 +48,7 @@
 - The command is registered everywhere the other commands are: its skill and command file, the
   skill indexes, the Jira contract's Resolution, Transitions and Description lines, the pipeline's
   Command surface, and the reinstall rule after each landed request.
+
+## Fix 1 — in-run verify
+
+- `flow.verify`'s lint list failed `scripts/check-installed-citations.sh`: `skills/flow-interactive/SKILL.md:275: citation `.superpowers/` names no root`. The resume clause added by the task-12 review Minor cites the gitignored directory without a root; it is rooted as `<project>/.superpowers/`.
