@@ -191,7 +191,17 @@
 #            pairing, and `measured` with `a`, `b` and `delta`, or
 #            `unresolved` with the reason; an unpaired element is its
 #            `missing` or `extra` row) and `summary` (kan-1017: every matrix
-#            was filled one element per call).
+#            was filled one element per call): `paired`, `missing`, `extra`
+#            and `over` (decision over-list) — one `{row, status, keys}`
+#            entry per matrix row, `row` its 1-based index in `matrix`, that
+#            is `missing` or `extra`, carries `unresolved`, or is paired with
+#            a scaled numeric leaf of its pairing or its `measured.delta`
+#            whose `abs` is over 2px (mvpOverLength) or a colour `distance`
+#            over 12 (mvpOverColour) — step 10's band and seam tolerances.
+#            A leaf under an unscaled key (`ratio`, `approx_opacity`,
+#            `peak_delta`, `share`) is never over. `keys` names the leaves
+#            over, `, `-separated (`unresolved` for an unresolved row, empty
+#            for a missing or extra one).
 #
 # A given `--region-*` that starts inside the image but runs past its edge is
 # clamped to the image and reported `clipped` on that side; one starting
