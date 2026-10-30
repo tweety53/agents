@@ -29,7 +29,7 @@ func TestPlanTasks(t *testing.T) {
 		Subagents:      []store.ActiveDispatch{{Role: "implementer", TaskID: &three}},
 	}
 	got := planTasks(row, false)
-	want := []taskDTO{{1, "Ticked", "done"}, {2, "Committed", "done"}, {3, "Running", "in progress"}, {4, "Waiting", "pending"}}
+	want := []taskDTO{{N: 1, Title: "Ticked", State: "done"}, {N: 2, Title: "Committed", State: "done"}, {N: 3, Title: "Running", State: "in progress"}, {N: 4, Title: "Waiting", State: "pending"}}
 	if len(got) != len(want) {
 		t.Fatalf("planTasks = %+v, want %+v", got, want)
 	}
@@ -56,7 +56,7 @@ func TestPlanTasksArchived(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := planTasks(store.LiveStateRow{Name: "kan-1", State: store.StateInProgress, RepoRoots: []string{root}}, false)
-	if len(got) != 2 || got[0] != (taskDTO{1, "One", "done"}) || got[1] != (taskDTO{2, "Two", "pending"}) {
+	if len(got) != 2 || got[0] != (taskDTO{N: 1, Title: "One", State: "done"}) || got[1] != (taskDTO{N: 2, Title: "Two", State: "pending"}) {
 		t.Fatalf("archived planTasks = %+v", got)
 	}
 }
@@ -79,7 +79,7 @@ func TestSelfReviewTasks(t *testing.T) {
 		Subagents:      []store.ActiveDispatch{{Role: "implementer", TaskID: &two}},
 	}
 	got := selfReviewTasks(row, false)
-	if len(got) != 2 || got[0] != (taskDTO{1, "Fix A", "done"}) || got[1] != (taskDTO{2, "Fix B", "pending"}) {
+	if len(got) != 2 || got[0] != (taskDTO{N: 1, Title: "Fix A", State: "done"}) || got[1] != (taskDTO{N: 2, Title: "Fix B", State: "pending"}) {
 		t.Fatalf("selfReviewTasks = %+v", got)
 	}
 	if planTasks(row, false) != nil {
@@ -99,7 +99,7 @@ func TestSelfReviewTasksFromSubRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	row := store.LiveStateRow{Name: "kan-1", State: store.StateInProgress, RepoRoots: []string{t.TempDir()}, SelfReviewRoots: []string{sub}}
-	if got := selfReviewTasks(row, false); len(got) != 1 || got[0] != (taskDTO{1, "Fix A", "pending"}) {
+	if got := selfReviewTasks(row, false); len(got) != 1 || got[0] != (taskDTO{N: 1, Title: "Fix A", State: "pending"}) {
 		t.Fatalf("selfReviewTasks = %+v", got)
 	}
 }
@@ -119,7 +119,7 @@ func TestFinishedPlanReadOnlyWhenScoped(t *testing.T) {
 		}
 	}
 	row := store.LiveStateRow{Name: "kan-1", State: store.StateFinished, RepoRoots: []string{filepath.Join(main, "gone-worktree"), main}}
-	if got := planTasks(row, true); len(got) != 1 || got[0] != (taskDTO{1, "One", "done"}) {
+	if got := planTasks(row, true); len(got) != 1 || got[0] != (taskDTO{N: 1, Title: "One", State: "done"}) {
 		t.Fatalf("scoped planTasks = %+v", got)
 	}
 	if got := selfReviewTasks(row, true); len(got) != 1 {

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -2029,5 +2030,67 @@ func TestListStageRunsServesRequest(t *testing.T) {
 	}
 	if _, ok := byID[2]["request"]; ok {
 		t.Errorf("run 2 carries request %v, want the key omitted", byID[2]["request"])
+	}
+}
+
+// TestStateBoardServesRequestsAsTasks pins the board row's interactive
+// fields (KAN-1061): a row with requests serves its command and its tasks
+// from them -- an ended request done with its outcome, a landed one's
+// commit cut to seven characters, a brainstorm reason when set, in progress
+// and pending for the others -- and a row without requests keeps reading
+// its tasks.md.
+func TestStateBoardServesRequestsAsTasks(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "spectre", "changes", "kan-2")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "tasks.md"), []byte("- [x] 1. Planned\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	updatedAt := time.Date(2026, 8, 10, 9, 0, 0, 0, time.UTC)
+	interactive, flow := "/flow-interactive", "/flow"
+	sts := &statsFake{
+		liveStateBoard: []store.LiveStateRow{
+			{ProjectKey: "agents", Name: "kan-1", State: store.StateStarted, UpdatedAt: updatedAt, Command: &interactive,
+				Requests: []records.Request{
+					{N: 1, Title: "Landed", Outcome: "landed", CommitSHA: "0123456789abcdef", State: "landed"},
+					{N: 2, Title: "Answered", Outcome: "answered", State: "answered", BrainstormReason: "two readings"},
+					{N: 3, Title: "Current", State: "in progress"},
+					{N: 4, Title: "Queued", State: "queued"},
+				}},
+			{ProjectKey: "agents", Name: "kan-2", State: store.StateInProgress, UpdatedAt: updatedAt, Command: &flow, RepoRoots: []string{root}},
+		},
+	}
+	ts := newStatsTestServer(t, sts)
+	status, env, body := getStats(t, ts, periodPath("state-board"))
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	var rows []struct {
+		Name    string           `json:"name"`
+		Command string           `json:"command"`
+		Tasks   []map[string]any `json:"tasks"`
+	}
+	if err := json.Unmarshal(env.Rows, &rows); err != nil {
+		t.Fatalf("decode rows: %v (body %s)", err, body)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("rows = %d, want 2", len(rows))
+	}
+	if rows[0].Command != "/flow-interactive" {
+		t.Errorf("kan-1 command = %q, want /flow-interactive", rows[0].Command)
+	}
+	want := []map[string]any{
+		{"n": float64(1), "title": "Landed", "state": "done", "outcome": "landed", "commit": "0123456"},
+		{"n": float64(2), "title": "Answered", "state": "done", "outcome": "answered", "reason": "two readings"},
+		{"n": float64(3), "title": "Current", "state": "in progress"},
+		{"n": float64(4), "title": "Queued", "state": "pending"},
+	}
+	if fmt.Sprint(rows[0].Tasks) != fmt.Sprint(want) {
+		t.Errorf("kan-1 tasks = %v, want %v", rows[0].Tasks, want)
+	}
+	if rows[1].Command != "/flow" || len(rows[1].Tasks) != 1 || rows[1].Tasks[0]["title"] != "Planned" {
+		t.Errorf("kan-2 = %+v, want /flow and its tasks.md's one task", rows[1])
 	}
 }

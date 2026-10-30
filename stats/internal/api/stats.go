@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard"
+	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -702,6 +703,9 @@ type stateBoardRowDTO struct {
 	Activity            *string `json:"activity,omitempty"`
 	ActivityDetail      *string `json:"activityDetail,omitempty"`
 	ActivitySince       *string `json:"activitySince,omitempty"`
+	// Command is the command of the change's latest stage run (KAN-1061),
+	// omitted without one.
+	Command string `json:"command,omitempty"`
 }
 
 // nextCommandFor maps a change's current pipeline state to the command that
@@ -738,6 +742,33 @@ type taskDTO struct {
 	N     int    `json:"n"`
 	Title string `json:"title"`
 	State string `json:"state"`
+	// Outcome, Commit and Reason are a /flow-interactive request's
+	// (requestTasks), each omitted when unset.
+	Outcome string `json:"outcome,omitempty"`
+	Commit  string `json:"commit,omitempty"`
+	Reason  string `json:"reason,omitempty"`
+}
+
+// requestTasks serves a change's requests as its board tasks (KAN-1061's
+// requests-served-as-tasks): an ended request is done with its outcome, a
+// started one in progress, a queued one pending; a landed request's commit
+// is cut to seven characters. Nil when the change has no requests.
+func requestTasks(reqs []records.Request) []taskDTO {
+	var out []taskDTO
+	for _, r := range reqs {
+		t := taskDTO{N: r.N, Title: r.Title, State: "pending", Outcome: r.Outcome, Commit: r.CommitSHA, Reason: r.BrainstormReason}
+		switch {
+		case r.Outcome != "":
+			t.State = "done"
+		case r.State == "in progress":
+			t.State = "in progress"
+		}
+		if len(t.Commit) > 7 {
+			t.Commit = t.Commit[:7]
+		}
+		out = append(out, t)
+	}
+	return out
 }
 
 // planTask is a tasks.md column-0 task line, "- [ ] 3. Title" or "- [x] 3. Title".
@@ -804,6 +835,14 @@ func readPlan(r store.LiveStateRow, name string, finished bool, untick func(n st
 func toStateBoardDTOs(rows []store.LiveStateRow, single bool) []stateBoardRowDTO {
 	out := make([]stateBoardRowDTO, len(rows))
 	for i, r := range rows {
+		tasks := requestTasks(r.Requests)
+		if tasks == nil {
+			tasks = planTasks(r, single)
+		}
+		command := ""
+		if r.Command != nil {
+			command = *r.Command
+		}
 		out[i] = stateBoardRowDTO{
 			ProjectKey:   r.ProjectKey,
 			Name:         r.Name,
@@ -826,7 +865,7 @@ func toStateBoardDTOs(rows []store.LiveStateRow, single bool) []stateBoardRowDTO
 			LastStage:             r.LastStage,
 			LastStageEndedAt:      rfc3339OrNil(r.LastStageEndedAt),
 			DoneTasks:             r.DoneTasks,
-			Tasks:                 planTasks(r, single),
+			Tasks:                 tasks,
 			SelfReviewTasks:       selfReviewTasks(r, single),
 			Subagents:             r.Subagents,
 			SessionSeenAt:         rfc3339OrNil(r.SessionSeenAt),
@@ -834,6 +873,7 @@ func toStateBoardDTOs(rows []store.LiveStateRow, single bool) []stateBoardRowDTO
 			Activity:              r.Activity,
 			ActivityDetail:        r.ActivityDetail,
 			ActivitySince:         rfc3339OrNil(r.ActivitySince),
+			Command:               command,
 		}
 	}
 	return out
