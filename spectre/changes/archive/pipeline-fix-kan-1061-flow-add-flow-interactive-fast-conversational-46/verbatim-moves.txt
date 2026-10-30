@@ -1,0 +1,4 @@
+# Correction-paragraph guidance reworded into two sentences (the change's meaning).
+A `Correction:` paragraph is plan prose `check-plan-provenance.sh` reads: run that guard when transcribing it, and give each numeric claim its `measured:` comment or word it without a count (kan-1020: a bare count in a Correction was refused only at verify).
+A `Correction:` paragraph is plan prose the plan-provenance guard reads.
+Run `check-plan-provenance.sh` when transcribing it, and give each numeric claim its `measured:` comment or word it without a count (kan-1020: a bare count in a Correction was refused only at verify).

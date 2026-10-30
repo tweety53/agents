@@ -35,12 +35,12 @@
 - `skills/flow/scripts/check-plan-provenance.sh` run from the worktree root scans the repository,
   not `skills/flow`.
 
-- [ ] 1. Ship check-plan-provenance.sh in the flow skill
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
+- [x] 1. Ship check-plan-provenance.sh in the flow skill
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
     `/tmp/pf46-task1.diff` and apply its `implement.md` hunk alone
     (`git apply --include='skills/flow/implement.md' /tmp/pf46-task1.diff`): `scripts/check-guard-symlinks.sh`
     exits 1 with `invokes check-plan-provenance.sh here, but skill "flow" carries no symlink (rule 2)`.
-  - [ ] **Step 2: Implement.** Apply the rest
+  - [x] **Step 2: Implement.** Apply the rest
     (`git apply --exclude='skills/flow/implement.md' /tmp/pf46-task1.diff`):
 
 ````diff verified:applied with git apply to this worktree at f3cf9bd9; check-guard-symlinks exits 0 with it and 1 with the symlink removed; skills/flow/scripts/check-plan-provenance.sh exits 0 with it and 2 with the shim hunk reverted; go test ./internal/guard passes; check-references and check-dispatch-paragraphs exit 0
@@ -93,12 +93,12 @@ index 00000000..1dfa6318
 \ No newline at end of file
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && make -s web-dist && go vet ./... && gofmt -l .` exits clean and
+  - [x] **Step 3: Verify.** `cd stats && make -s web-dist && go vet ./... && gofmt -l .` exits clean and
     `go test ./internal/guard -run 'TestCheckGuardSymlinks|TestCheckPlanProvenance'` passes;
     `scripts/check-guard-symlinks.sh`, `scripts/check-references.sh` and
     `scripts/check-dispatch-paragraphs.sh` exit 0; `skills/flow/scripts/check-plan-provenance.sh`
     run from the worktree root exits 0 with `all provenance stated`.
-  - [ ] **Step 4: Commit** the three files with the subject below.
+  - [x] **Step 4: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `scripts/check-plan-provenance.sh`, `skills/flow/implement.md`, `skills/flow/scripts/check-plan-provenance.sh`
