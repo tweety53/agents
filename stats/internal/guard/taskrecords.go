@@ -75,7 +75,13 @@ import (
 //     enforces at commit time, reached here from the subjects themselves
 //     without re-implementing bundle resolution. A merge commit yields no
 //     diff-tree file list and is accepted silently; a flow branch carries
-//     none.
+//     none. The files of every non-merge `<base-ref>..HEAD` commit whose
+//     `Task-Id:` trailer names one of the group's tasks are joined to the
+//     subject commit's (the rule check-task-commit-fields' tcfTaskIDCommits
+//     applies, KAN-976), so a gated review's fix commit is judged with its
+//     task (kan-1067 self-review, 1-A). Task-Id numbers belong to one plan:
+//     a fix commit whose number matches groups of several plans joins only
+//     the plans declaring one of its files.
 //  3. `**Build:**` tag format. First column-0 `**Build:**` line per task, via
 //     the shared grammar's tcfSelectBuildTag: absent is a violation, and a
 //     value opening with neither green nor red is a violation naming the
@@ -308,6 +314,19 @@ func trCheck(args []string, env Env, archivedNames string) []string {
 		}
 	}
 
+	// Task-Id numbers belong to one plan, so a fix commit whose number matches
+	// groups of several plans joins only the plans declaring one of its files
+	// (kan-1067 self-review review 1, 1-A); matching one plan, it always joins.
+	fixes := map[string][]string{}
+	fixPlans := map[string][]string{}
+	for _, subject := range order {
+		g := groups[subject]
+		fixes[subject] = trTaskIDCommits(git, g.repo, base, g.ids, g.sha)
+		for _, fix := range fixes[subject] {
+			fixPlans[fix] = trAppendNew(fixPlans[fix], g.rel)
+		}
+	}
+
 	for _, subject := range order {
 		g := groups[subject]
 		id := strings.Join(g.ids, "+")
@@ -321,6 +340,17 @@ func trCheck(args []string, env Env, archivedNames string) []string {
 			// header states. A flow branch carries none.
 			continue
 		}
+		for _, fix := range fixes[subject] {
+			files := trCommitFiles(git, g.repo, fix)
+			if len(fixPlans[fix]) > 1 && !slices.ContainsFunc(files, func(f string) bool {
+				return slices.Contains(g.files, f) || slices.Contains(g.collateral, f)
+			}) {
+				continue
+			}
+			for _, f := range files {
+				changed = trAppendNew(changed, f)
+			}
+		}
 		merged := tcfTask{id: id, files: g.files, allowedCollateral: g.collateral}
 		for _, v := range tcfCheckFiles(merged, changed) {
 			violations = append(violations, g.rel+": "+v)
@@ -332,6 +362,29 @@ func trCheck(args []string, env Env, archivedNames string) []string {
 		}
 	}
 	return violations
+}
+
+// trTaskIDCommits lists the non-merge base..HEAD commits other than self whose
+// Task-Id: trailer names one of ids, read as tcfTaskIDCommits reads it.
+func trTaskIDCommits(git func(...string) *exec.Cmd, repo, base string, ids []string, self string) []string {
+	out, ok := capture(git("-C", repo, "log", "--no-merges", "--format=%H %(trailers:key=Task-Id,valueonly,separator=%x2C)", base+"..HEAD"))
+	if !ok {
+		return nil
+	}
+	var shas []string
+	for _, line := range tcfSplitLines(out) {
+		sha, val, _ := strings.Cut(line, " ")
+		if sha == "" || sha == self {
+			continue
+		}
+		for _, n := range ctTaskNumberRE.FindAllString(val, -1) {
+			if slices.Contains(ids, n) {
+				shas = append(shas, sha)
+				break
+			}
+		}
+	}
+	return shas
 }
 
 func trAppendNew(list []string, s string) []string {

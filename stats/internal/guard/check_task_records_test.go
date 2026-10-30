@@ -429,3 +429,57 @@ func TestCheckTaskRecordsRefusesATickedTaskWithAnUntickedStep(t *testing.T) {
 		})
 	}
 }
+
+// TestCheckTaskRecordsJoinsTaskIdFixCommits: a non-merge commit whose
+// Task-Id: trailer names the task joins its files to the subject commit's
+// (kan-1067 self-review, 1-A).
+func TestCheckTaskRecordsJoinsTaskIdFixCommits(t *testing.T) {
+	cases := []struct {
+		name, path, ids string
+		rc              int
+		has             []string
+	}{
+		{"own fix commit joins", "src/f2.go", "1", 0, nil},
+		{"shared trailer joins", "src/f2.go", "1+2", 0, nil},
+		{"another task's fix adds nothing", "src/f2.go", "2", 1, []string{"src/f2.go is not touched"}},
+		{"undeclared fix path reported", "src/f9.go", "1", 1, []string{"src/f9.go is not declared", "src/f2.go is not touched"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fx := trRepo(t)
+			writeFile(t, fx.tasks, "- [x] 1. Task 1\n**Files:** `src/f1.go` `src/f2.go`\n**Tests:** none\n**Commit:** `feat(a): one`\n**Build:** green\n**After:** none\n")
+			fx.commitAll("docs(plan): fixture plan")
+			fx.commitFile("src/f1.go", "feat(a): one")
+			fx.commitFile(c.path, "fix(a): review fix\n\nTask-Id: "+c.ids)
+			r := runGuard("check-task-records", []string{fx.root}, Env{Getenv: os.Getenv})
+			if r.rc != c.rc {
+				t.Fatalf("rc=%d want %d out=%q", r.rc, c.rc, r.out)
+			}
+			if c.rc == 0 && r.out != "" {
+				t.Fatalf("want silent, out=%q", r.out)
+			}
+			for _, s := range c.has {
+				if !strings.Contains(r.out, s) {
+					t.Fatalf("out %q lacks %q", r.out, s)
+				}
+			}
+		})
+	}
+}
+
+// TestCheckTaskRecordsScopesTaskIdFixCommitsToTheirPlan: a Task-Id number
+// shared by two plans joins a fix commit only to the plan declaring its files
+// (kan-1067 self-review review 1, 1-A).
+func TestCheckTaskRecordsScopesTaskIdFixCommitsToTheirPlan(t *testing.T) {
+	fx := trRepo(t)
+	writeFile(t, fx.tasks, "- [x] 1. Task 1\n**Files:** `src/f1.go` `src/f2.go`\n**Tests:** none\n**Commit:** `feat(a): one`\n**Build:** green\n**After:** none\n")
+	writeFile(t, fx.root+"/spectre/changes/other-change/tasks.md", "- [x] 1. Task 1\n**Files:** `src/g1.go`\n**Tests:** none\n**Commit:** `feat(b): other`\n**Build:** green\n**After:** none\n")
+	fx.commitAll("docs(plan): fixture plans")
+	fx.commitFile("src/f1.go", "feat(a): one")
+	fx.commitFile("src/g1.go", "feat(b): other")
+	fx.commitFile("src/f2.go", "fix(a): review fix\n\nTask-Id: 1")
+	r := runGuard("check-task-records", []string{fx.root}, Env{Getenv: os.Getenv})
+	if r.rc != 0 || r.out != "" {
+		t.Fatalf("rc=%d out=%q, want silent", r.rc, r.out)
+	}
+}
