@@ -23,7 +23,7 @@
 # exactly as the FAIL line prints it after "::", one per line, in its
 # change's acknowledgement file — <spec-root>/changes/<change>/verbatim-moves.txt
 # on a /flow run, <worktree>/.superpowers/sdd/<change>/verbatim-moves.txt on a
-# /flow-fast run, whose guardrail forbids writing <project>/spectre/ — where
+# /flow-fast or /flow-interactive run, whose guardrail forbids writing <project>/spectre/ — where
 # `#` lines are comments and a leading `\` is dropped. The FAIL line already
 # prints a sentence opening with `#` or `\` behind one `\`, so a heading is
 # listed as `\## …`, exactly as printed.
