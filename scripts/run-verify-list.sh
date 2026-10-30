@@ -20,7 +20,10 @@
 # three outcomes: blocked with cause test-failure when a command failed,
 # skipped when every command of a test list was skipped, and completed
 # otherwise — a lint list always runs check-spec-reach.sh, so it never ends
-# skipped.
+# skipped. The begin carries `-diff-base <sha>`, the HEAD of <worktree> (the
+# verified worktree, never <canonical-worktree>), which check-verify-green.sh
+# judges the row by; a <worktree> git cannot resolve a HEAD in records none,
+# and that row is never green (decision verify-row-records-head).
 #
 # A `# suite: <name>` line in the `test` list names the one command below it
 # as that suite: it runs under `flow suite record -C <worktree> -suite <name>
