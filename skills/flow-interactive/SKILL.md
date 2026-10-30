@@ -123,7 +123,8 @@ flow record request begin -change <name> -n <n> -brainstorm-reason '<why>'
 flow stage end   -command '/flow-interactive' -stage flow.brainstorm -outcome completed <name>
 ```
 
-**3. Implement.** Rebase the worktree onto `origin/<base>` on a clean tree; a failing test first
+**3. Implement.** A run-loaded prose edit the verbatim-moves guard refuses is acknowledged in
+`<changeRoot>/verbatim-moves.txt`. Rebase the worktree onto `origin/<base>` on a clean tree; a failing test first
 for each behaviour change; edits through the Edit tool, or a script written to `<changeRoot>` and
 run by path that asserts each anchor matched exactly once; never a symlinked build input (`make -s
 web-dist` runs `npm ci` itself); commit with the module as scope, no trailer; push the branch —
@@ -174,7 +175,8 @@ flow stage end   -command '/flow-interactive' -stage flow.refresh-main-checkout 
 URL `## run` serves, by the app's own run-view route, keyed by the project key and `<name>`, never a display name —
 `location.reload()`, screenshot, and read the screenshot against the ask. A pass ends the stage
 run `-outcome completed`. A defect ends it `-outcome failed` with `-reason` naming the defect, and is a fix commit and steps 4–7
-again inside the same request.
+again inside the same request. The stage's end is its own call, made after the screenshot is read —
+never chained to its begin.
 
 ```bash
 flow stage begin -command '/flow-interactive' -stage flow.visual-verify -request <n> -harness <harness> -session-token fi-<literal-token> <name>

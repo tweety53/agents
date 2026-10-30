@@ -94,6 +94,9 @@ and a narrow, explicit scope: what to look at, what is already known, what to re
 planning dispatch's row is ended when its agent hands back, and `flow stage end` of
 `flow.brainstorm` refuses while one is open (kan-1046 self-review, 1e).
 
+Each Explore or Plan agent's `description` names its row's key, `explore-<n>` or `design-<n>` — the
+word the harvester stamps the launch's agent id onto.
+
 **Never end your turn while one of your agents runs.** A turn that ends to wait for a hand-back
 loses your 5-minute prompt cache when the agent runs longer, and the hand-back then rewrites your
 whole context. Once your own work is done, call
