@@ -87,8 +87,9 @@ func runHook(t *testing.T, hook string, payload []byte, env ...string) (stdout, 
 	cmd := exec.Command("python3", hook)
 	cmd.Stdin = bytes.NewReader(payload)
 	// FLOW_HOOK_INCIDENT_CMD=true keeps a deny's incident write off the dev store; a caller's
-	// env, appended after it, may point it at a stub.
-	cmd.Env = append(append(append(append(os.Environ(), "HOME="+t.TempDir()), goCacheEnv()...), "FLOW_GUARD_CACHE_DIR="+cache, "FLOW_HOOK_INCIDENT_CMD=true"), env...)
+	// env, appended after it, may point it at a stub. FLOW_HOOK_UNBOUNDED=1 lifts the hooks'
+	// wall-clock bounds: under the full -race suite a starved stub timed out silently (kan-1060).
+	cmd.Env = append(append(append(append(os.Environ(), "HOME="+t.TempDir()), goCacheEnv()...), "FLOW_GUARD_CACHE_DIR="+cache, "FLOW_HOOK_INCIDENT_CMD=true", "FLOW_HOOK_UNBOUNDED=1"), env...)
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	err = cmd.Run()

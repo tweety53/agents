@@ -61,6 +61,13 @@ REPO = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 # The checker the hook runs; overridable for the hook's own harness only.
 CHECK = os.environ.get("LOOP_DISPATCH_CHECK") or os.path.join(REPO, "scripts", "check-loop-dispatch.sh")
 
+def bound(seconds):
+    """A subprocess call's wall-clock bound. FLOW_HOOK_UNBOUNDED=1 lifts it: the hook's tests
+    inject that so the full -race suite starving a stub past the bound never fails a case
+    (kan-1060) -- the bound is production's fail-open, not under test."""
+    return None if os.environ.get("FLOW_HOOK_UNBOUNDED") == "1" else seconds
+
+
 # The payload's cwd, set by main for deny's incident row.
 PAYLOAD_CWD = None
 
@@ -92,7 +99,7 @@ def record_incident(guard, reason, cwd):
     if cwd:
         args += ["-C", cwd]
     try:
-        subprocess.run(args, capture_output=True, text=True, timeout=10, check=False)
+        subprocess.run(args, capture_output=True, text=True, timeout=bound(10), check=False)
     except (OSError, ValueError, subprocess.SubprocessError):
         pass
 
@@ -102,7 +109,7 @@ def has_ref(repo, *refs):
     try:
         r = subprocess.run(
             ["git", "-C", repo, "for-each-ref", "--count=1", "--format=x", *refs],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True, text=True, timeout=bound(10),
         )
     except (OSError, subprocess.SubprocessError):
         return False
@@ -161,7 +168,7 @@ def main():
         return deny(f"Loop dispatch {key} blocked: the prompt carries no {BASELINE} pointer.")
     args = [CHECK, REPO, key, str(tool_input.get("subagent_type") or ""), str(tool_input.get("model") or "")]
     try:
-        r = subprocess.run(args, input=prompt, capture_output=True, text=True, timeout=CHECK_TIMEOUT, cwd=cwd)
+        r = subprocess.run(args, input=prompt, capture_output=True, text=True, timeout=bound(CHECK_TIMEOUT), cwd=cwd)
     except (OSError, subprocess.SubprocessError) as e:
         return deny(f"Loop dispatch {key} blocked: check-loop-dispatch.sh could not run ({e}).")
     if r.returncode == 0:
