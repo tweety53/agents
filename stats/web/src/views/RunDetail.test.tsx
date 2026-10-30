@@ -840,7 +840,7 @@ describe("the reworked run view (kan-1048)", () => {
     expect(screen.getByRole("region", { name: "Agents" })).toBeInTheDocument();
     // One line per role, never a row per dispatch: count, each model · effort's count and cost, cost, failures, running.
     const roles = await within(panel).findAllByTestId("phase-role");
-    expect(roles.map((r) => r.textContent)).toEqual(["self-review ×1opus · medium ×1 (—)—", "implementer ×2opus ×1 (—), opus 5.5 · low ×1 (—)—1 failedrunning"]);
+    expect(roles.map((r) => r.textContent)).toEqual(["self-review ×1opus · medium ×1 (no agent id)unattributed", "implementer ×2opus ×1 (never ran), opus 5.5 · low ×1 (no agent id)unattributed1 failedrunning"]);
     // Each failure names its dispatch, outcome and recorded reason under its role.
     expect(within(panel).getAllByTestId("phase-fail").map((r) => r.textContent)).toEqual(["self-review-kan-16-fix-1 blocked (red-verify): tests never went green"]);
     expect(within(panel).getByTestId("self-review-summary")).toHaveTextContent(/^plan 1\/2 · findings 1 · fixes round 2$/);
@@ -1001,6 +1001,8 @@ describe("the reworked run view (kan-1048)", () => {
       dispatches: [
         { id: 1, agentId: "inline", role: "implementer", key: "task-1-implementer", model: "opus", effort: "default", metrics: { modelVersion: "claude-opus-5-5", effort: "medium" }, startedAt: "2026-01-01T01:05:00Z", endedAt: "2026-01-01T01:10:00Z" },
         { id: 2, agentId: "inline", role: "verifier", key: "verify", model: "opus", effort: "default", startedAt: "2026-01-01T01:11:00Z", endedAt: "2026-01-01T01:12:00Z" },
+        { id: 3, role: "planner", key: "plan-2", model: "opus", effort: "high", startedAt: "2026-01-01T01:13:00Z", endedAt: "2026-01-01T01:14:00Z", outcome: "aborted" },
+        { id: 4, role: "explorer", key: "explore-1", model: "sonnet", effort: "low", startedAt: "2026-01-01T01:13:00Z", endedAt: "2026-01-01T01:14:00Z", outcome: "completed" },
       ],
     });
     render(<RunDetail project={PROJECT} change={CHANGE} />);
@@ -1014,6 +1016,9 @@ describe("the reworked run view (kan-1048)", () => {
     expect(verifier.querySelector(".lb-role-models")!.getAttribute("title")).toContain("effort unknown");
     // A dispatch the main session ran itself is priced in its main session line, and says so instead of a bare dash.
     expect(text).toContain("implementer ×1opus 5.5 · medium ×1 (inline)in main session");
+    // One that failed before any agent ran never ran; one recorded with no agent id cannot be matched to a cost.
+    expect(text).toContain("planner ×1opus · high ×1 (never ran)never ran");
+    expect(text).toContain("explorer ×1sonnet · low ×1 (no agent id)unattributed");
     expect(text).not.toContain("—");
     // The phase header names its status in words, with no dot that reads as the working one.
     expect(main.querySelector(".lb-panel-h .lb-dot")).toBeNull();

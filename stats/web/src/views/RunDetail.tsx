@@ -155,8 +155,16 @@ function roleSummary(steps: Step[], costs: Map<string, number>) {
   for (const d of steps) byRole.set(d.role, [...(byRole.get(d.role) ?? []), d]);
   const costOf = (ds: Step[]) => measuredSum(ds.map((d) => (d.agentId ? costs.get(d.agentId) : undefined)));
   // The main session ran an inline dispatch itself: its cost is in the "main session" line, never a bucket of its own.
-  const allInline = (ds: Step[]) => ds.every((d) => d.agentId === "inline");
-  const costLabel = (ds: Step[]) => ((c) => (c !== null ? formatUsd(c) : allInline(ds) ? "inline" : "—"))(costOf(ds));
+  // An unpriced group says why: run inline, never run (failed before any agent id), or no agent id to match a bucket by.
+  const unpriced = (ds: Step[]) =>
+    ds.every((d) => d.agentId === "inline")
+      ? "inline"
+      : ds.every((d) => !d.agentId && d.outcome && FAILED_OUTCOMES.has(d.outcome))
+        ? "never ran"
+        : ds.every((d) => !d.agentId)
+          ? "no agent id"
+          : "—";
+  const costLabel = (ds: Step[]) => ((c) => (c !== null ? formatUsd(c) : unpriced(ds)))(costOf(ds));
   return [...byRole].map(([role, ds]) => {
     const byModel = new Map<string, Step[]>();
     for (const d of ds) byModel.set(modelEffortLabel(d), [...(byModel.get(modelEffortLabel(d)) ?? []), d]);
@@ -165,7 +173,7 @@ function roleSummary(steps: Step[], costs: Map<string, number>) {
       role,
       count: ds.length,
       models: models.map(([m, xs]) => `${m} ×${xs.length} (${costLabel(xs)})`).join(", "),
-      inline: allInline(ds),
+      unpriced: unpriced(ds),
       effortUnknown: ds.some((d) => !knownEffort(d.effort)),
       cost: costOf(ds),
       failures: ds.filter((d) => d.endedAt && d.outcome && FAILED_OUTCOMES.has(d.outcome)),
@@ -174,6 +182,9 @@ function roleSummary(steps: Step[], costs: Map<string, number>) {
   })
     .sort((a, b) => (b.cost ?? -1) - (a.cost ?? -1));
 }
+
+/** A role's cost cell when none of its dispatches is priced, by why. */
+const UNPRICED_COST: Record<string, string> = { inline: "in main session", "never ran": "never ran", "no agent id": "unattributed", "—": "—" };
 
 /** An effort a dispatch row really records -- "default" is the recorder's placeholder, never an effort. */
 const knownEffort = (e: string | undefined) => (e && e !== "default" ? e : undefined);
@@ -332,7 +343,7 @@ function WorkPanel({
                   <span className="lb-role-models" title={r.effortUnknown ? `${r.models} -- effort unknown for some dispatches` : r.models}>
                     {r.models}
                   </span>
-                  <span className="lb-num r">{r.cost !== null ? formatUsd(r.cost) : <span className="lb-muted">{r.inline ? "in main session" : "—"}</span>}</span>
+                  <span className="lb-num r">{r.cost !== null ? formatUsd(r.cost) : <span className="lb-muted">{UNPRICED_COST[r.unpriced]}</span>}</span>
                   <span className="lb-role-flags">
                     {r.failures.length > 0 && <span className="lb-err">{r.failures.length} failed</span>}
                     {r.running && (
