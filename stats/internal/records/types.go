@@ -686,3 +686,24 @@ type Request struct {
 	BaseSHA          string     `json:"baseSha"`
 	State            string     `json:"state"`
 }
+
+// GatedReviewerSlot is the slot a finding raised by /flow's per-task gated
+// reviewer is recorded under (skills/flow/implement.md's **The gated
+// per-task reviewer**). Such a row is closed by a clean task re-review, not a
+// panel re-run, carries no panel report file, reproducer script or
+// fix-mutation row, and opens no panel round -- so every panel-scoped reader
+// (the panel guards, `flow record render -kind panel`, `flow record
+// next-round`) skips it, while the Findings count and check-unfinished-work's
+// open-finding check still read it.
+const GatedReviewerSlot = "gated-reviewer"
+
+// PanelFindings is fs without the gated reviewer's rows.
+func PanelFindings(fs []Finding) []Finding {
+	var out []Finding
+	for _, f := range fs {
+		if f.Slot != GatedReviewerSlot {
+			out = append(out, f)
+		}
+	}
+	return out
+}

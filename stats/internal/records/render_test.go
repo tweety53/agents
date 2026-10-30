@@ -1196,3 +1196,13 @@ func TestRenderDispatchEndingBeforeStart(t *testing.T) {
 		t.Errorf("ledger prints a negative duration or no flag:\n%s", out)
 	}
 }
+
+func TestRenderPanelOmitsGatedRows(t *testing.T) {
+	out := records.RenderPanel(records.Run{Change: "demo", Findings: []records.Finding{
+		{Ref: "F1", Slot: "primary", Severity: "Minor", Status: "fixed"},
+		{Ref: "F2", Slot: records.GatedReviewerSlot, Severity: "Important", Status: "fixed"},
+	}})
+	if !strings.Contains(out, "findings-total: 1\n") || strings.Contains(out, "F2") {
+		t.Fatalf("gated row rendered:\n%s", out)
+	}
+}

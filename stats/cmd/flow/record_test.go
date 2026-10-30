@@ -7701,3 +7701,20 @@ func TestRecordDispatchBeginPrintsTheLaunchLines(t *testing.T) {
 		}
 	}
 }
+
+func TestRecordNextRoundSkipsGatedRows(t *testing.T) {
+	repo := recordRepo(t, "demo")
+	isolatedStateRoot(t)
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"change":"demo","dispatches":[],"passes":[],"mutations":[],
+		  "findings":[{"ref":"F1","round":0,"slot":"gated-reviewer","severity":"Important","note":"n","status":"open"}]}`))
+	}))
+	defer srv.Close()
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "next-round", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "demo"},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 0 || strings.TrimSpace(stdout.String()) != "0" {
+		t.Fatalf("exit %d stdout %q, want 0 and 0; stderr:\n%s", code, stdout.String(), stderr.String())
+	}
+}

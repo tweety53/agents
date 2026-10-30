@@ -35,6 +35,10 @@
 # journal still reads `open` here and reports exit 1. That is the honest
 # verdict; the existing handback is where the operator resolves it.
 #
+# A GATED PER-TASK REVIEWER'S ROW (slot `gated-reviewer`) IS NO PANEL
+# FINDING, and every check here skips it: a clean task re-review closes it,
+# not a panel re-run (records.GatedReviewerSlot).
+#
 # Exit codes:
 #   0  no finding is open or deferred, and every Critical or Important
 #      recorded `fixed` has a clean re-run dispatch of its slot in a later

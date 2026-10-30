@@ -944,7 +944,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                       <Kpi label="Fix rounds" value={<span className="lb-num">{board.fixRounds}</span>} />
                       <Kpi label="Full panel runs" value={<span className="lb-num">{board.fullPanelRuns}</span>} hint={`of ${board.panelRuns} panel rounds`} />
                       <Kpi label="Reviewer runs" value={<span className="lb-num">{board.reviewerRuns}</span>} />
-                      <Kpi label="Findings" value={<Cim c={board.critical} i={board.important} m={board.minor} />} hint="review panel only" />
+                      <Kpi label="Findings" value={<Cim c={board.critical} i={board.important} m={board.minor} />} />
                     </div>
                   </section>
                   <section className="lb-panel" aria-label="Self-review totals">

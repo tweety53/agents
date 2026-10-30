@@ -152,7 +152,11 @@ func lineageCell(f Finding) string {
 // check-panel-reproducers.sh defines, `none — <reason>`, rather than no
 // line at all: that guard requires exactly one reproducer line per
 // finding, and an omitted line would be reported as a missing one.
+//
+// A gated per-task reviewer's row (GatedReviewerSlot) is no panel finding
+// and is left out of the record and both totals.
 func RenderPanel(r Run) string {
+	r.Findings = PanelFindings(r.Findings)
 	var b strings.Builder
 
 	fmt.Fprintf(&b, "# Review panel — %s\n\n", neutraliseMarkers(r.Change))

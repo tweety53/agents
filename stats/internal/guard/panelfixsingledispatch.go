@@ -463,7 +463,8 @@ func pfdRawText(v any) string {
 }
 
 // pfdPriorFindings is `[.[] | select((.round // 0) < $r)] | length` over
-// the findings stream, printed as the bash captured it: "" for no input
+// the findings stream, gated-reviewer rows skipped, printed as the bash
+// captured it: "" for no input
 // value. A null or non-object finding counts as round 0 or fails as jq did;
 // a round compares in jq's order (null/false as 0, true below every
 // number, strings/arrays/objects above). A stream of several values or a
@@ -495,6 +496,9 @@ func pfdPriorFindings(vals []any, r int64) (string, bool) {
 		switch f := e.(type) {
 		case nil:
 		case map[string]any:
+			if f["slot"] == "gated-reviewer" {
+				continue // a gated per-task reviewer's row is no panel round's finding
+			}
 			round = f["round"]
 		default:
 			return "", false

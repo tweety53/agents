@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/records"
 )
 
 // checkPanelReproducers is scripts/check-panel-reproducers.sh: that script's
@@ -214,6 +216,11 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 	var violations []string
 	add := func(v string) { violations = append(violations, v) }
 	for fi, f := range findings {
+		// A gated per-task reviewer's row carries the `none — …` exemption
+		// at any severity and no script (records.GatedReviewerSlot).
+		if slots[fi] == records.GatedReviewerSlot {
+			continue
+		}
 		ref := f.refText
 		var repros, sevs []string
 		for i, g := range findings {
@@ -282,7 +289,7 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 	}
 	firstAt := map[string]cprFirst{}
 	for fi, f := range findings {
-		if strings.HasPrefix(f.reproducer, "none") {
+		if slots[fi] == records.GatedReviewerSlot || strings.HasPrefix(f.reproducer, "none") {
 			continue
 		}
 		path, _, _ := strings.Cut(f.reproducer, " ")

@@ -1176,19 +1176,21 @@ func uwVerifyFailures(report string) []uwVerifyFailure {
 // rows under N or N+1, so either satisfies round N; a withdrawn finding
 // needs none. cause is non-empty when the findings or the mutation rows
 // cannot be read: the message, without its guard's prefix. Shared by
-// check-unfinished-work and check-panel-findings-closed.
+// check-unfinished-work and check-panel-findings-closed. A gated reviewer's
+// row (records.GatedReviewerSlot) records no fix-mutation row and is skipped.
 func uwUnprovedFixRounds(env Env, name, anchor string, findingsJSON []byte) (rounds []int, cause string) {
 	var fixedRows []struct {
 		Round    int    `json:"round"`
 		Status   string `json:"status"`
 		Severity string `json:"severity"`
+		Slot     string `json:"slot"`
 	}
 	if json.Unmarshal(findingsJSON, &fixedRows) != nil {
 		return nil, "jq failed — cannot determine anything"
 	}
 	fixedRounds := map[int]bool{}
 	for _, r := range fixedRows {
-		if sev := strings.ToLower(r.Severity); r.Status == "fixed" && (sev == "critical" || sev == "important") {
+		if sev := strings.ToLower(r.Severity); r.Slot != records.GatedReviewerSlot && r.Status == "fixed" && (sev == "critical" || sev == "important") {
 			fixedRounds[r.Round] = true
 		}
 	}

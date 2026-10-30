@@ -417,3 +417,16 @@ func TestCheckPanelFixSingleDispatchAcceptsATrailerOneRoundLow(t *testing.T) {
 	pfdExpect(t, pfdCase{dispatches: retried, args: args}, 0, "OK")
 	pfdExpect(t, pfdCase{dispatches: row("panel-fix-5", head("panel-fix-3")), args: args}, 1, "carries no Flow-Key: panel-fix-5 trailer")
 }
+
+// TestPfdPriorFindingsSkipsGatedReviewerRows pins that a gated per-task
+// reviewer's round-0 rows do not raise a fix round's chunk bound.
+func TestPfdPriorFindingsSkipsGatedReviewerRows(t *testing.T) {
+	t.Parallel()
+	vals := []any{[]any{
+		map[string]any{"round": json.Number("0"), "slot": "gated-reviewer"},
+		map[string]any{"round": json.Number("0"), "slot": "correctness"},
+	}}
+	if got, ok := pfdPriorFindings(vals, 1); !ok || got != "1" {
+		t.Errorf("pfdPriorFindings = %q, %v; want \"1\", true", got, ok)
+	}
+}

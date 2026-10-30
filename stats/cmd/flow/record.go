@@ -1449,7 +1449,7 @@ func highestRecordedRound(run records.Run) int {
 	for _, p := range run.Passes {
 		top = max(top, p.Round)
 	}
-	for _, f := range run.Findings {
+	for _, f := range records.PanelFindings(run.Findings) {
 		top = max(top, f.Round)
 	}
 	for _, m := range run.Mutations {
@@ -2849,7 +2849,7 @@ func runRecordNextRound(ctx context.Context, args []string, stdout, stderr io.Wr
 	for _, r := range run.Passes {
 		next = max(next, r.Round+1)
 	}
-	for _, r := range run.Findings {
+	for _, r := range records.PanelFindings(run.Findings) {
 		next = max(next, r.Round+1)
 	}
 	for _, r := range run.Mutations {

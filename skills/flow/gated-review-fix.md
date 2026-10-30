@@ -23,6 +23,10 @@ its prompt opening with the line `Role: gated-re-reviewer` in place of the origi
 The re-dispatched bundle's Agent-tool `description` is `Tasks <ids>/<N> (re-review)` — `Task <x>/<N> (re-review)` <!-- citations-guard:allow -->
 for one task — so the `flow-task-list` mod shows its row as a re-review.
 
+A clean re-review pass closes each finding its task's earlier pass raised, `flow record status
+-change <name> -ref F<n> -status fixed`; a finding a re-review pass raises is recorded as **The
+gated per-task reviewer** (`skills/flow/implement.md`) records a first pass's.
+
 The fix the parent applies is mutation-proved before the reviewer re-dispatches: the parent is
 bound by the MUTATION PROOF paragraph (`skills/flow/review-panel.md`) in its exact words — the
 same binding **Inline — the parent implements** (`skills/flow/implement.md`) gives the parent on

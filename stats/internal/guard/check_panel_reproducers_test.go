@@ -292,3 +292,12 @@ func TestCheckPanelReproducersRefusesCrossRoundPath(t *testing.T) {
 	got, out = cprRun(t, okBin, wt, "demo", pair(1, 1))
 	cprExpect(t, got, out, 0, "REPRODUCERS-OK")
 }
+
+// A gated reviewer's Important carries the `none — …` exemption by design.
+func TestPanelReproducersSkipsGatedRows(t *testing.T) {
+	t.Parallel()
+	okBin := cprBin(t, `cat "$(dirname -- "$0")/state.json"; exit 0`, `exit 1`)
+	b, _ := json.Marshal([]map[string]any{{"ref": "F1", "round": 0, "slot": "gated-reviewer", "status": "open", "severity": "Important", "reproducer": "none — gated per-task review; its report file holds the evidence"}})
+	got, out := cprRun(t, okBin, t.TempDir(), "demo", b)
+	cprExpect(t, got, out, 0, "REPRODUCERS-OK")
+}

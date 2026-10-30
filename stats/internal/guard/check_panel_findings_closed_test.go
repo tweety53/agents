@@ -668,3 +668,26 @@ func TestCheckPanelFindingsClosedFixedNeedsARegressionTest(t *testing.T) {
 		})
 	}
 }
+
+// A gated per-task reviewer's rows (slot gated-reviewer, round 0) are no
+// panel finding: closed by a clean task re-review, never by a panel re-run.
+func TestCheckPanelFindingsClosedSkipsGatedRows(t *testing.T) {
+	t.Parallel()
+	const repro = "none — gated per-task review; its report file holds the evidence"
+	findings := cfcJSON(
+		cfcFinding{Ref: "F1", Severity: "Important", Status: "fixed", Slot: "gated-reviewer", Reproducer: repro},
+		cfcFinding{Ref: "F2", Severity: "Critical", Status: "fixed", Slot: "gated-reviewer", Reproducer: repro},
+	)
+	dispatches := cfcDispatchJSON(cfcDispatch{Key: "task-1-reviewer", Role: "reviewer", Outcome: "clean"})
+	fn := Registry["check-panel-findings-closed"]
+	var out, errb bytes.Buffer
+	env := Env{
+		Getenv:     pathEnv(t.TempDir()),
+		Dir:        t.TempDir(),
+		Findings:   func(string) ([]byte, error) { return []byte(findings), nil },
+		Dispatches: func(string) ([]byte, error) { return []byte(dispatches), nil },
+	}
+	if rc := fn([]string{t.TempDir(), "demo"}, env, &out, &errb); rc != 0 || !strings.Contains(out.String(), "FINDINGS-CLOSED") {
+		t.Fatalf("rc %d stdout %q stderr %q, want 0 FINDINGS-CLOSED", rc, out.String(), errb.String())
+	}
+}

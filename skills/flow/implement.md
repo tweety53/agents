@@ -956,12 +956,19 @@ with the task ids `+`-joined in plan order, the same convention as `panel-<round
 `-task <n>` only on a one-task bundle, omitted otherwise) and close it with **`-outcome clean`
 when every pass is clean, `-outcome fix` when any pass is `fix`**; each pass's own verdict is
 its report file's `## Verdict`, so per-task review yield stays measurable against the gate.
+The parent records every finding a pass raises as a findings row in one Bash call, `flow record
+finding -change <name> -from <abs-worktree>/.superpowers/sdd/findings-gated-<n+n+n>.jsonl`, each
+row under `-slot gated-reviewer -round 0 -task <n> -dispatch-seq <the bundle's seq> -status open
+-reproducer 'none — gated per-task review; its report file holds the evidence'`, its ref from
+`flow record next-ref`, so the run's Findings count holds what the gate caught; the panel's
+guards and its rendered record skip `gated-reviewer` rows.
 **A pass whose findings are all Minor is `clean`** — no fix round and no re-review; before
 ticking the task the parent fixes each such Minor itself, inline, exactly as **Panel re-runs**
 (`skills/flow/review-panel.md`) fixes a Minor-only round's Minors — one commit at the branch tip,
-pushed, no dispatch, no dispatch record and no `flow record status` — and only while no
+pushed, no dispatch and no dispatch record, then `flow record status -change <name> -ref F<n> -status fixed`
+for each — and only while no
 implementer dispatch is writing that worktree. A Minor no change to the tree can resolve is named,
-one clause, in the parent's output. A `fix` pass
+one clause, in the parent's output, and recorded `withdrawn <that clause>`. A `fix` pass
 sends its Minors to the same fix. **A mixed-verdict bundle is handled per task**: every clean task is ticked in the same call that
 closes the record, and every `fix` task takes the fix path below on its own sha, independently
 of its bundle-mates.

@@ -1420,3 +1420,25 @@ func TestUnfinishedWorkReadsHeadBesideThePin(t *testing.T) {
 		t.Fatalf("HEAD commit not flagged; exit %d stdout %q stderr %q", r.rc, r.out, r.err)
 	}
 }
+
+// A gated reviewer's fixed Important needs no fix-mutation row, yet an open
+// gated row still stops the gate.
+func TestUnfinishedWorkIgnoresGatedRowsForFixRoundProof(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct{ name, findings, want string }{
+		{"a fixed gated Important is CLEAR", `[{"ref":"F1","round":0,"slot":"gated-reviewer","status":"fixed","severity":"Important"}]`, "CLEAR:"},
+		{"an open gated row is OUTSTANDING", `[{"ref":"F1","round":0,"slot":"gated-reviewer","status":"open","severity":"Important"}]`, "1 open finding(s)"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			f := newUW(t)
+			f.findings = []byte(c.findings)
+			f.setFile(t, "findings.json", c.findings+"\n")
+			f.setFile(t, "mutations.json", "[]\n")
+			r := f.run(t, f.wt, "demo")
+			if r.rc != 0 || !strings.Contains(r.out, c.want) {
+				t.Fatalf("exit %d stdout %q stderr %q, want exit 0 and %q", r.rc, r.out, r.err, c.want)
+			}
+		})
+	}
+}

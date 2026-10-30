@@ -11,6 +11,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/records"
 )
 
 // checkPanelFindingsClosed is scripts/check-panel-findings-closed.sh: that
@@ -87,6 +89,9 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		fmt.Fprintln(stderr, cfcJQFailed)
 		return 2
 	}
+	// A gated per-task reviewer's row is no panel finding
+	// (records.GatedReviewerSlot): every check below skips it.
+	findings = slices.DeleteFunc(findings, func(f cfcFindingRow) bool { return f.slot == records.GatedReviewerSlot })
 
 	// THE DISPATCHES READ CARRIES THE FINDINGS READ'S POSTURE, unchanged:
 	// read unconditionally -- a store that cannot answer the correlation
