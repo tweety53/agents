@@ -808,7 +808,7 @@ describe("the reworked run view (kan-1048)", () => {
       dispatches: [
         { id: 1, agentId: "agent-impl", role: "implementer", taskId: "1", key: "task-1-implementer", model: "opus", startedAt: "2026-01-01T01:05:00Z", endedAt: "2026-01-01T01:20:00Z", outcome: "completed" },
         { id: 2, role: "self-review", key: "self-review", model: "opus", effort: "medium", startedAt: "2026-01-01T02:00:00Z", endedAt: "2026-01-01T02:20:00Z", outcome: "completed" },
-        { id: 3, role: "implementer", key: "self-review-kan-16-fix-1", model: "opus", startedAt: "2026-01-01T02:30:00Z", endedAt: "2026-01-01T02:40:00Z", outcome: "blocked" },
+        { id: 3, role: "implementer", key: "self-review-kan-16-fix-1", model: "opus", startedAt: "2026-01-01T02:30:00Z", endedAt: "2026-01-01T02:40:00Z", outcome: "blocked", cause: "red-verify", notes: "tests never went green" },
         { id: 4, role: "implementer", key: "self-review-kan-16-fix-v2", model: "opus", effort: "low", metrics: { modelVersion: "claude-opus-5-5" }, startedAt: "2026-01-01T02:50:00Z" },
       ],
     });
@@ -838,6 +838,8 @@ describe("the reworked run view (kan-1048)", () => {
     // One line per role, never a row per dispatch: count, each model · effort's count and cost, cost, failures, running.
     const roles = await within(panel).findAllByTestId("phase-role");
     expect(roles.map((r) => r.textContent)).toEqual(["self-review ×1opus · medium ×1 (—)—", "implementer ×2opus ×1 (—), opus 5.5 · low ×1 (—)—1 failedrunning"]);
+    // Each failure names its dispatch, outcome and recorded reason under its role.
+    expect(within(panel).getAllByTestId("phase-fail").map((r) => r.textContent)).toEqual(["self-review-kan-16-fix-1 blocked (red-verify): tests never went green"]);
     expect(within(panel).getByTestId("self-review-summary")).toHaveTextContent(/^plan 1\/2 · findings 1 · fixes round 2$/);
     // What it does now, unmistakably: the running red-verify fixer, its time and model, and where that sits.
     expect(within(panel).getByTestId("self-review-now")).toHaveTextContent(/^Now: Verifying — red verify fix round 2 · for 10m · opus 5\.5$/);

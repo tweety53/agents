@@ -733,6 +733,7 @@ th button {
 .lb-role { font-weight: 600; white-space: nowrap; }
 .lb-role-models { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lb-roles .r { text-align: right; }
+.lb-roles > li.lb-fail-why { display: block; padding-left: 16px; color: var(--text-muted); }
 .lb-role-flags { display: inline-flex; gap: 10px; justify-content: flex-end; white-space: nowrap; }
 .lb-sr-now { font-size: 13px; color: var(--text-primary); }
 .lb-sr-now strong { color: var(--status-ok); margin-right: 4px; }

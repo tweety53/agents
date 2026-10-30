@@ -778,6 +778,9 @@ export interface RecordDispatch {
   model: string;
   effort?: string;
   outcome?: string;
+  /** Why a blocked outcome happened, and the dispatcher's free-text notes. */
+  cause?: string;
+  notes?: string;
   startedAt: string;
   endedAt?: string;
   /** The harvester's figures: the exact model, and an inline row's real effort (its own column records "default"). */

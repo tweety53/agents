@@ -16,7 +16,7 @@
 // component renders -- see hooks/useRunDetail.ts's own header comment for
 // why that matters. State, last update and session activity come from the
 // change's state board row.
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { StageRunTable, groupSessions, runEnd } from "../components/StageRunTable";
 import { StageTimeline } from "../components/StageTimeline";
 import { useRunDetail } from "../hooks/useRunDetail";
@@ -96,7 +96,7 @@ const INTERACTIVE_RUNS = 6;
 /** The outcomes a dispatch ends on without finishing its work. */
 const FAILED_OUTCOMES = new Set(["failed", "blocked", "aborted", "timed-out", "cancelled", "stopped"]);
 
-type Step = ActiveSubagent & { phase: Phase; agentId?: string; endedAt?: string; outcome?: string };
+type Step = ActiveSubagent & { phase: Phase; agentId?: string; endedAt?: string; outcome?: string; cause?: string; notes?: string };
 
 /** Each dispatch as a step of the phase whose stage run was the latest to start at or before it (production dispatches carry no stage run id). */
 function phaseSteps(runs: StageRunDTO[], dispatches: RecordDispatch[]): Step[] {
@@ -120,6 +120,8 @@ function phaseSteps(runs: StageRunDTO[], dispatches: RecordDispatch[]): Step[] {
       startedAt: d.startedAt,
       endedAt: d.endedAt,
       outcome: d.outcome,
+      cause: d.cause,
+      notes: d.notes,
     });
   }
   return out;
@@ -166,7 +168,7 @@ function roleSummary(steps: Step[], costs: Map<string, number>) {
       inline: allInline(ds),
       effortUnknown: ds.some((d) => !knownEffort(d.effort)),
       cost: costOf(ds),
-      failed: ds.filter((d) => d.endedAt && d.outcome && FAILED_OUTCOMES.has(d.outcome)).length,
+      failures: ds.filter((d) => d.endedAt && d.outcome && FAILED_OUTCOMES.has(d.outcome)),
       running: ds.some((d) => !d.endedAt),
     };
   })
@@ -322,7 +324,8 @@ function WorkPanel({
           {status !== "idle" && (
             <ul className="lb-roles">
               {roles.map((r) => (
-                <li key={r.role} data-testid="phase-role">
+                <Fragment key={r.role}>
+                <li data-testid="phase-role">
                   <span className="lb-role">
                     {r.role} <span className="lb-muted">×{r.count}</span>
                   </span>
@@ -331,7 +334,7 @@ function WorkPanel({
                   </span>
                   <span className="lb-num r">{r.cost !== null ? formatUsd(r.cost) : <span className="lb-muted">{r.inline ? "in main session" : "—"}</span>}</span>
                   <span className="lb-role-flags">
-                    {r.failed > 0 && <span className="lb-err">{r.failed} failed</span>}
+                    {r.failures.length > 0 && <span className="lb-err">{r.failures.length} failed</span>}
                     {r.running && (
                       <span className="lb-status">
                         <span className="lb-dot running" />
@@ -340,6 +343,14 @@ function WorkPanel({
                     )}
                   </span>
                 </li>
+                {r.failures.map((d, i) => (
+                  <li key={`${d.key ?? d.agentId}-${i}`} data-testid="phase-fail" className="lb-fail-why">
+                    {d.key ?? d.role} <span className="lb-err">{d.outcome}</span>
+                    {d.cause && ` (${d.cause})`}
+                    {d.notes && `: ${d.notes}`}
+                  </li>
+                ))}
+                </Fragment>
               ))}
               {roles.length === 0 && <li className="lb-muted">No dispatches yet.</li>}
               {rest.unattributed !== null && (
