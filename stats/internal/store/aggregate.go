@@ -303,7 +303,8 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			FROM dispatches d
 			WHERE d.change_id = c.id AND d.role = 'implementer'
 		) done ON true
-		WHERE ((c.updated_at >= $1 AND c.updated_at < $2) OR c.state <> 'FINISHED' OR open_run.stage IS NOT NULL)
+		WHERE ((c.updated_at >= $1 AND c.updated_at < $2) OR c.state <> 'FINISHED'
+		       OR EXISTS (SELECT 1 FROM stage_runs sr WHERE sr.change_id = c.id AND sr.ended_at IS NULL))
 		  AND ($3::text IS NULL OR c.project_key = $3)
 		  AND ($4::text IS NULL OR c.name = $4)
 		ORDER BY c.updated_at DESC, c.project_key, c.name

@@ -80,6 +80,16 @@ func TestMakeBuild(t *testing.T) {
 
 	// flowd writes $TMPDIR/flowd-<port>.pid itself (internal/pidfile); ANY
 	// redirection into $(UITEST_PIDFILE) would be a second writer of one file.
+	// flowd embeds the model policy that policy-copy refreshes; without it as
+	// a prerequisite, the UI-test stack can build on a stale or missing copy.
+	t.Run("ui-test-up depends on policy-copy", func(t *testing.T) {
+		t.Parallel()
+		re := regexp.MustCompile(`(?m)^ui-test-up:[^\n]*\bpolicy-copy\b`)
+		if !re.MatchString(makefile) {
+			t.Errorf("stats/Makefile's ui-test-up rule does not match /%s/", re)
+		}
+	})
+
 	t.Run("ui-test-up does not write its own pidfile", func(t *testing.T) {
 		t.Parallel()
 		re := regexp.MustCompile(`>[[:space:]]*\$\(UITEST_PIDFILE\)`)

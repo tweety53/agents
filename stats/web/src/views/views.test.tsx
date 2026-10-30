@@ -603,7 +603,7 @@ describe("views render their fixture response's actual values", () => {
     fetchStatsViewMock.mockImplementation((_v: string, p: { from: Date; to: Date }) =>
       Promise.resolve({ ...fixtures["state-board"], rows: isPoll(p) ? open : [...open, finishedB] }),
     );
-    fetchProjectsMock.mockResolvedValue(["kan-16-stats-app", "beta"]);
+    fetchProjectsMock.mockResolvedValue([open[0].projectKey, "beta"]);
     const user = userEvent.setup();
     render(<StateBoard />);
     await screen.findByRole("table");
