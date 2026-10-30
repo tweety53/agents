@@ -1,0 +1,402 @@
+{
+  "scale": 1.0,
+  "matrix": [
+    {
+      "kind": "text/control",
+      "status": "paired",
+      "a": {
+        "top": 21,
+        "height": 15,
+        "left": 21,
+        "width": 133,
+        "right": 1126,
+        "colour": "#d8d9da",
+        "kind": "text/control",
+        "gap": 21
+      },
+      "b": {
+        "top": 20,
+        "height": 16,
+        "left": 24,
+        "width": 92,
+        "right": 1164,
+        "colour": "#d8d9da",
+        "kind": "text/control",
+        "gap": 20
+      },
+      "gap": {
+        "a": 21,
+        "a_scaled": 21.0,
+        "b": 20,
+        "abs": -1.0,
+        "pct": -4.8
+      },
+      "since_pair": {
+        "a": 21,
+        "a_scaled": 21.0,
+        "b": 20,
+        "abs": -1.0,
+        "pct": -4.8
+      },
+      "height": {
+        "a": 15,
+        "a_scaled": 15.0,
+        "b": 16,
+        "abs": 1.0,
+        "pct": 6.7
+      },
+      "colour": {
+        "a": "#d8d9da",
+        "b": "#d8d9da",
+        "distance": 0.0
+      },
+      "measured": {
+        "a": {
+          "background": "#111217",
+          "ink": {
+            "left": 4,
+            "top": 3,
+            "width": 133,
+            "height": 16,
+            "colour": "#d8d9da"
+          }
+        },
+        "b": {
+          "background": "#111217",
+          "ink": {
+            "left": 4,
+            "top": 3,
+            "width": 92,
+            "height": 17,
+            "colour": "#d8d9da"
+          }
+        },
+        "delta": {
+          "background": {
+            "a": "#111217",
+            "b": "#111217",
+            "distance": 0.0
+          },
+          "ink.left": {
+            "a": 4,
+            "a_scaled": 4.0,
+            "b": 4,
+            "abs": 0.0,
+            "pct": 0.0
+          },
+          "ink.top": {
+            "a": 3,
+            "a_scaled": 3.0,
+            "b": 3,
+            "abs": 0.0,
+            "pct": 0.0
+          },
+          "ink.width": {
+            "a": 133,
+            "a_scaled": 133.0,
+            "b": 92,
+            "abs": -41.0,
+            "pct": -30.8
+          },
+          "ink.height": {
+            "a": 16,
+            "a_scaled": 16.0,
+            "b": 17,
+            "abs": 1.0,
+            "pct": 6.2
+          },
+          "ink.colour": {
+            "a": "#d8d9da",
+            "b": "#d8d9da",
+            "distance": 0.0
+          }
+        }
+      }
+    },
+    {
+      "kind": "text/control",
+      "status": "paired",
+      "a": {
+        "top": 46,
+        "height": 10,
+        "left": 20,
+        "width": 68,
+        "right": 1192,
+        "colour": "#9fa7b3",
+        "kind": "text/control",
+        "gap": 10
+      },
+      "b": {
+        "top": 54,
+        "height": 15,
+        "left": 24,
+        "width": 1080,
+        "right": 176,
+        "colour": "#9fa7b3",
+        "kind": "text/control",
+        "gap": 18
+      },
+      "gap": {
+        "a": 10,
+        "a_scaled": 10.0,
+        "b": 18,
+        "abs": 8.0,
+        "pct": 80.0
+      },
+      "since_pair": {
+        "a": 10,
+        "a_scaled": 10.0,
+        "b": 18,
+        "abs": 8.0,
+        "pct": 80.0
+      },
+      "height": {
+        "a": 10,
+        "a_scaled": 10.0,
+        "b": 15,
+        "abs": 5.0,
+        "pct": 50.0
+      },
+      "colour": {
+        "a": "#9fa7b3",
+        "b": "#9fa7b3",
+        "distance": 0.0
+      },
+      "measured": {
+        "a": {
+          "background": "#111217",
+          "ink": {
+            "left": 4,
+            "top": 4,
+            "width": 68,
+            "height": 11,
+            "colour": "#9fa7b3"
+          }
+        },
+        "b": {
+          "background": "#111217",
+          "ink": {
+            "left": 4,
+            "top": 4,
+            "width": 1080,
+            "height": 15,
+            "colour": "#9fa7b3"
+          }
+        },
+        "delta": {
+          "background": {
+            "a": "#111217",
+            "b": "#111217",
+            "distance": 0.0
+          },
+          "ink.left": {
+            "a": 4,
+            "a_scaled": 4.0,
+            "b": 4,
+            "abs": 0.0,
+            "pct": 0.0
+          },
+          "ink.top": {
+            "a": 4,
+            "a_scaled": 4.0,
+            "b": 4,
+            "abs": 0.0,
+            "pct": 0.0
+          },
+          "ink.width": {
+            "a": 68,
+            "a_scaled": 68.0,
+            "b": 1080,
+            "abs": 1012.0,
+            "pct": 1488.2
+          },
+          "ink.height": {
+            "a": 11,
+            "a_scaled": 11.0,
+            "b": 15,
+            "abs": 4.0,
+            "pct": 36.4
+          },
+          "ink.colour": {
+            "a": "#9fa7b3",
+            "b": "#9fa7b3",
+            "distance": 0.0
+          }
+        }
+      }
+    },
+    {
+      "status": "missing",
+      "a": {
+        "top": 75,
+        "height": 146,
+        "left": 20,
+        "width": 1240,
+        "right": 20,
+        "colour": "#27292d",
+        "kind": "fill band",
+        "gap": 19
+      },
+      "b": null
+    },
+    {
+      "status": "extra",
+      "a": null,
+      "b": {
+        "top": 97,
+        "height": 1,
+        "left": 8,
+        "width": 1264,
+        "right": 8,
+        "colour": "#2c3235",
+        "kind": "rule",
+        "gap": 28
+      }
+    },
+    {
+      "status": "extra",
+      "a": null,
+      "b": {
+        "top": 127,
+        "height": 15,
+        "left": 25,
+        "width": 133,
+        "right": 1122,
+        "colour": "#d8d9da",
+        "kind": "text/control",
+        "gap": 29
+      }
+    },
+    {
+      "status": "extra",
+      "a": null,
+      "b": {
+        "top": 152,
+        "height": 13,
+        "left": 25,
+        "width": 615,
+        "right": 640,
+        "colour": "#9fa7b3",
+        "kind": "text/control",
+        "gap": 10
+      }
+    },
+    {
+      "status": "extra",
+      "a": null,
+      "b": {
+        "top": 181,
+        "height": 1,
+        "left": 27,
+        "width": 1226,
+        "right": 27,
+        "colour": "#2c3235",
+        "kind": "rule",
+        "gap": 16
+      }
+    },
+    {
+      "status": "extra",
+      "a": null,
+      "b": {
+        "top": 184,
+        "height": 37,
+        "left": 24,
+        "width": 1232,
+        "right": 24,
+        "colour": "#233145",
+        "kind": "text/control",
+        "gap": 2
+      }
+    },
+    {
+      "status": "extra",
+      "a": null,
+      "b": {
+        "top": 223,
+        "height": 1,
+        "left": 27,
+        "width": 1226,
+        "right": 27,
+        "colour": "#2c3235",
+        "kind": "rule",
+        "gap": 2
+      }
+    },
+    {
+      "status": "extra",
+      "a": null,
+      "b": {
+        "top": 238,
+        "height": 1,
+        "left": 27,
+        "width": 1226,
+        "right": 27,
+        "colour": "#2c3235",
+        "kind": "rule",
+        "gap": 14
+      }
+    },
+    {
+      "status": "extra",
+      "a": null,
+      "b": {
+        "top": 241,
+        "height": 63,
+        "left": 24,
+        "width": 1232,
+        "right": 24,
+        "colour": "#d8d9da",
+        "kind": "text/control",
+        "gap": 2
+      }
+    },
+    {
+      "status": "extra",
+      "a": null,
+      "b": {
+        "top": 306,
+        "height": 1,
+        "left": 27,
+        "width": 1226,
+        "right": 27,
+        "colour": "#2c3235",
+        "kind": "rule",
+        "gap": 2
+      }
+    },
+    {
+      "status": "extra",
+      "a": null,
+      "b": {
+        "top": 321,
+        "height": 1,
+        "left": 27,
+        "width": 1226,
+        "right": 27,
+        "colour": "#2c3235",
+        "kind": "rule",
+        "gap": 14
+      }
+    },
+    {
+      "status": "extra",
+      "a": null,
+      "b": {
+        "top": 324,
+        "height": 700,
+        "left": 24,
+        "width": 1232,
+        "right": 24,
+        "colour": "#d8d9da",
+        "kind": "fill band",
+        "gap": 2
+      }
+    }
+  ],
+  "summary": {
+    "paired": 2,
+    "missing": 1,
+    "extra": 11
+  }
+}
