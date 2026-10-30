@@ -31,12 +31,12 @@ dead port ahead of the caller's env.
 - Store-stub callers still override `FLOW_ADDR` (caller env appended last) (`pin-store-addrs-in-runhook`).
 - The forced proof fails without the pin and passes with it.
 
-- [ ] 1. Keep hook tests off the live flowd
-  - [ ] **Step 1: Force the cause before touching anything.** From `stats/` run
+- [x] 1. Keep hook tests off the live flowd
+  - [x] **Step 1: Force the cause before touching anything.** From `stats/` run
     `make -s web-dist && FLOW_RECORDS_ADDR=http://127.0.0.1:4173 go test -count=1 -run TestEnforceAgentBaselineHookRefusesOffPolicyDispatch ./internal/repotest/`:
     FAIL with `DISPATCH-PAIR-REFUSED: explorer runs on sonnet/Explore@low` while the live experiment
     is open. Without the variable: ok.
-  - [ ] **Step 2: Implement.** Save the diff below to `/tmp/pf1060-48.diff` and run
+  - [x] **Step 2: Implement.** Save the diff below to `/tmp/pf1060-48.diff` and run
     `git apply /tmp/pf1060-48.diff` from the repository root.
 
 ````diff verified:applied with git apply at 3deff9fa; FLOW_RECORDS_ADDR=FLOW_ADDR=http://127.0.0.1:4173 go test -count=1 ./internal/repotest/ ok
@@ -57,13 +57,13 @@ index 702ff5d3..43e80841 100644
  	err = cmd.Run()
 ````
 
-  - [ ] **Step 3: Prove the pin.** Rerun Step 1's forced command: ok. Remove only
+  - [x] **Step 3: Prove the pin.** Rerun Step 1's forced command: ok. Remove only
     `"FLOW_RECORDS_ADDR=http://127.0.0.1:1"` from `runHook` and rerun: FAIL. Restore it. Record both
     runs in the commit body: the pin replaces the inherited store address with a dead port.
-  - [ ] **Step 4: Verify.** From `stats/`: `make -s web-dist && go vet ./... && gofmt -l .` clean
+  - [x] **Step 4: Verify.** From `stats/`: `make -s web-dist && go vet ./... && gofmt -l .` clean
     and `FLOW_RECORDS_ADDR=http://127.0.0.1:4173 go test -count=1 ./internal/repotest/` ok; from the
     repository root every `scripts/check-*.sh` guard named in `.flow/project.md`'s `## lint` exits 0.
-  - [ ] **Step 5: Commit** with the subject below.
+  - [x] **Step 5: Commit** with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/repotest/helpers_test.go`
