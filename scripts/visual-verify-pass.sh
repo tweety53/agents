@@ -100,7 +100,7 @@
 #      exists, or `none`, and a
 #      `mockup decoded: <path> → <dir>` line per bundled page (one carrying
 #      `<script type="__bundler/template">`), decoded into
-#      <worktree>/.superpowers/sdd/verify-mockup-<key>/<page basename>/ (index.html plus each
+#      <worktree>/.superpowers/sdd/verify-mockup-<key>/<page path, extension dropped, `/` as `-`>/ (index.html plus each
 #      manifest entry, gzip-decompressed when `compressed`); and the
 #      paragraph of skills/flow/visual-verify.md opening `**The relay
 #      contract.**`, its report path resolved to

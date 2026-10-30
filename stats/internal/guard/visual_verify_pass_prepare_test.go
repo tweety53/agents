@@ -366,8 +366,8 @@ func TestVisualVerifyPassPrepareDecodesBundledPage(t *testing.T) {
 		t.Fatalf("exit %d\n%s", rc, out)
 	}
 	// Each bundled page decodes into its own directory (kan-1060 gated review).
-	dir := filepath.Join(f.wt, ".superpowers/sdd/verify-mockup-visual-verify/proto")
-	if b, _ := os.ReadFile(filepath.Join(f.wt, ".superpowers/sdd/verify-mockup-visual-verify/other/index.html")); string(b) != "<p>two</p>" {
+	dir := filepath.Join(f.wt, ".superpowers/sdd/verify-mockup-visual-verify/design-proto")
+	if b, _ := os.ReadFile(filepath.Join(f.wt, ".superpowers/sdd/verify-mockup-visual-verify/design-other/index.html")); string(b) != "<p>two</p>" {
 		t.Errorf("the second page's index.html = %q", b)
 	}
 	for name, want := range map[string]string{"index.html": "<p>hi</p>", "app.css": "body{color:red}", "a.txt": "plain"} {

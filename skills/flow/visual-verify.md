@@ -121,7 +121,7 @@ admissible statuses and the frame list, and `close`'s header for its outcomes. A
 - `NEXT: judge` — a complete report naming departures, or a `no sidecar line` frame-list gap:
   `close` printed the report's `## Verdict` and left the row and the stage open for **Blocking**
   below. What blocks takes **The loop**, whose step 1 closes both; when nothing does, end the row
-  with `flow record dispatch end … -outcome completed` and the stage with the `end` mark below.
+  with `flow record dispatch end … -outcome completed` and the stage, for every worktree of the set, with the `end` mark below, then render the ledger with `flow record render -change <name> -kind ledger`.
 - `NEXT: done` — every exit zero and no departure: `close` closed the row `-outcome completed`.
 
 **Except after `rest`, `redispatch` and `cure-environment`, `close` has run step 12** and printed
@@ -386,6 +386,9 @@ the frame with its measured value and that reason; and the handoff's `**Decision
 It is never the first answer, and colour, a missing or extra element, and copy get no tolerance
 (KAN-1000: the operator states this approximation as the requirement, the one widening
 `rules/fix-determinism-at-the-source.mdc` admits).
+
+**The parent runs the `end` mark below itself only on `NEXT: judge` and `NEXT: compose-only`**;
+on every other path `prepare` or `close` has already ended the stage, and a second end is never run.
 
 **Every blocking item but the pre-flight, a stack that could not be started and the fingerprint
 is the branch's own defect, never a `## Question`:** it takes **The loop**

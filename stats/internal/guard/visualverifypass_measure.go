@@ -159,6 +159,9 @@ func (v *vvp) measure(args []string) {
 		composite := filepath.Join(vvDir, stem+".png")
 		ratio, ok := composed[composite]
 		if !ok || p.Capture == "" {
+			// An earlier round's measurements would read as this round's.
+			os.Remove(filepath.Join(bandsDir, l.frame+".json"))
+			os.Remove(filepath.Join(matrixDir, l.frame+".json"))
 			p.Exits.Compose = ip(max(composeRC, 1))
 			failed = true
 			m.Pairs = append(m.Pairs, p)

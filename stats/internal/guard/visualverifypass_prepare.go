@@ -597,7 +597,7 @@ func (v *vvp) attempts(b *strings.Builder, key, w string, stage [][2]string) {
 // mockupSources is the absolute path of every HTML or CSS file design.md
 // cites that exists in the canonical worktree, and a `<src> → <dir>` line per
 // bundled page, each decoded into its own
-// <w>/.superpowers/sdd/verify-mockup-<key>/<page basename>/.
+// <w>/.superpowers/sdd/verify-mockup-<key>/<page path, extension dropped, `/` as `-`>/.
 func (v *vvp) mockupSources(key, w, changeRoot string) ([]string, []string) {
 	body, err := os.ReadFile(filepath.Join(changeRoot, "design.md"))
 	if err != nil {
@@ -616,7 +616,7 @@ func (v *vvp) mockupSources(key, w, changeRoot string) ([]string, []string) {
 		if err != nil || !bytes.Contains(page, []byte(`<script type="__bundler/template">`)) {
 			continue
 		}
-		dir := filepath.Join(w, ".superpowers", "sdd", "verify-mockup-"+key, strings.TrimSuffix(filepath.Base(p), filepath.Ext(p)))
+		dir := filepath.Join(w, ".superpowers", "sdd", "verify-mockup-"+key, strings.ReplaceAll(strings.TrimSuffix(m[1], filepath.Ext(m[1])), "/", "-"))
 		if err := vvpDecode(page, dir); err != nil {
 			v.die("cannot decode the bundled page %s: %v", p, err)
 		}

@@ -306,8 +306,10 @@ func (v *vvp) commit(w string, report []byte, changeRoot string) {
 			// The report counts the suite's PNGs without naming them: resolve
 			// them as rebuild-full-app-suite-zip does.
 			if strings.HasSuffix(p, "/full-app-suite.spec.ts") {
-				var out bytes.Buffer
-				Registry["resolve-visual-screenshots"]([]string{w, "full-app-suite.spec.ts"}, v.env, &out, io.Discard)
+				var out, serr bytes.Buffer
+				if rc := Registry["resolve-visual-screenshots"]([]string{w, "full-app-suite.spec.ts"}, v.env, &out, &serr); rc == 2 {
+					fmt.Fprintf(v.stderr, "visual-verify-pass: warning: the full app suite's PNGs could not be resolved, so none is committed: %s", serr.String())
+				}
 				for _, png := range strings.Fields(out.String()) {
 					add(png)
 				}
