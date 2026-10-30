@@ -64,7 +64,7 @@ test.describe("interactive session", () => {
     await page.goto(`/#/run/uitest-alpha/${RUNNING}`);
     await expect(page.getByRole("heading", { name: RUNNING })).toBeVisible();
     await expect(page.getByRole("region", { name: "Requests" })).toContainText("6/8");
-    await expect(page.getByRole("region", { name: "Main" })).toContainText("Request 7 · 4m");
+    await expect(page.getByRole("region", { name: "Main", exact: true })).toContainText("Request 7 · 4m");
     await expect(page.getByRole("region", { name: "Stage runs" }).getByRole("columnheader").first()).toHaveText("Request");
     await expect(page.getByText("Loading…")).toHaveCount(0);
     expect(await bodyBackground(page)).toBe(DARK_SURFACE_1);

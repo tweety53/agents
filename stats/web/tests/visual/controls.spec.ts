@@ -284,6 +284,9 @@ test.describe("Live state board chips", () => {
   });
 
   test("Updated All widens past seven days, and Clear filters restores the default", async ({ page }) => {
+    // Finished changes load on demand: open their group so the widening is measured on loaded rows.
+    await page.getByRole("row", { name: /^▾ ?Finished/ }).click();
+    await expect(page.getByRole("row", { name: /^▾ ?Finished/ })).not.toContainText("—");
     const finished = await tile(page, /^Finished/).textContent();
     await page.getByRole("group", { name: "Updated" }).getByRole("button", { name: "All" }).click();
     await expect(tile(page, /^Finished/)).not.toHaveText(finished!);
