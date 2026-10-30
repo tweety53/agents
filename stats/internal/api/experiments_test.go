@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/api"
 	"github.com/tweety53/agents/stats/internal/config"
-	"github.com/tweety53/agents/stats/internal/modelpolicy/embedded"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -82,7 +82,11 @@ func newExperimentsTestServer(t *testing.T, fe *fakeExperiments) *httptest.Serve
 	t.Helper()
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
 	fs := newFakeStore()
-	srv, err := api.New(cfg, fs, fs, fs, fs, fs, nil, api.WithExperiments(fe, embedded.Table))
+	table, err := os.ReadFile("../../../skills/flow-contracts/model-policy.md")
+	if err != nil {
+		t.Fatalf("read model-policy table: %v", err)
+	}
+	srv, err := api.New(cfg, fs, fs, fs, fs, fs, nil, api.WithExperiments(fe, table))
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}
@@ -183,7 +187,7 @@ func TestExperimentStatsRoute(t *testing.T) {
 	}
 }
 
-// TestRolesRoute reads GET /api/v1/roles over the real embedded table: a
+// TestRolesRoute reads GET /api/v1/roles over the real model-policy table: a
 // leading main entry, then one entry per table row in table order, an open
 // experiment's cell on its role's unmarked row and on main, never on a
 // marked row, and never read off a closed experiment.
