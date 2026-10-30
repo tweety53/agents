@@ -6,7 +6,8 @@ import { bodyBackground, DARK_SURFACE_1, PINNED_QUERY } from "./support";
 // "planning on xhigh" and the closed "implementer sonnet/flow-low". The
 // view reads no period; the query is pinned so the shell's URL is too.
 // experiments.spec.ts.mockups pairs each capture with its frame of the
-// approved prototype, .superpowers/sdd/experiments-prototype.html.
+// approved prototype, .superpowers/sdd/experiments-prototype.html; the
+// roles-panel captures are compared against .superpowers/sdd/roles-prototype.html.
 async function open(page: import("@playwright/test").Page) {
   await page.goto(`/#/experiments?${PINNED_QUERY}`);
   await expect(page.getByRole("link", { name: "Experiments", exact: true })).toHaveAttribute("aria-current", "page");
@@ -53,5 +54,22 @@ test.describe("experiments", () => {
     await expect(point).toBeFocused();
     await expect(point).toHaveCSS("r", "5px");
     await expect(page).toHaveScreenshot("experiments-focus.png", { fullPage: true });
+  });
+
+  test("experiments roles panel, row hover and link focus", async ({ page }) => {
+    await open(page);
+    const roles = page.getByRole("region", { name: "Current roles" });
+    // The prototype's measures: a 12px table, 2px 8px cells.
+    await expect(roles.getByRole("table")).toHaveCSS("font-size", "12px");
+    await expect(roles.getByRole("cell").first()).toHaveCSS("padding", "2px 8px");
+    await expect(roles).toHaveScreenshot("experiments-roles.png");
+    const designer = roles.getByRole("row", { name: /^plan-designer/ });
+    await designer.hover();
+    await expect(roles).toHaveScreenshot("experiments-roles-hover.png");
+    await page.mouse.move(0, 0);
+    const link = designer.getByRole("link", { name: /^#\d+$/ });
+    await link.focus();
+    await expect(link).toBeFocused();
+    await expect(roles).toHaveScreenshot("experiments-roles-focus.png");
   });
 });

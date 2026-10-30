@@ -200,6 +200,8 @@ func TestRolesRoute(t *testing.T) {
 		Role     string    `json:"role"`
 		Pairs    []string  `json:"pairs"`
 		Marker   string    `json:"marker"`
+		Group    string    `json:"group"`
+		Does     string    `json:"does"`
 		Override *override `json:"override"`
 	}
 	fe := &fakeExperiments{list: []store.Experiment{{ID: 5, Name: "x", Status: "open", Cells: map[string][]string{
@@ -220,11 +222,16 @@ func TestRolesRoute(t *testing.T) {
 	if len(got) < 6 {
 		t.Fatalf("GET roles = %s, want main plus the table's rows", body)
 	}
-	if !reflect.DeepEqual(got[0], entry{Role: "main", Pairs: []string{}, Override: &override{Pairs: []string{"opus@xhigh"}, ExperimentID: 5}}) {
+	if !reflect.DeepEqual(got[0], entry{Role: "main", Pairs: []string{}, Group: "Session", Does: "The session you talk to: runs the pipeline and sends out every other role.", Override: &override{Pairs: []string{"opus@xhigh"}, ExperimentID: 5}}) {
 		t.Errorf("entry 0 = %+v, want main carrying experiment 5's override", got[0])
 	}
-	if got[1].Role != "explorer" || got[1].Override != nil {
-		t.Errorf("entry 1 = %+v, want explorer, no override", got[1])
+	if got[1].Role != "explorer" || got[1].Override != nil || got[1].Group != "Planning" || got[1].Does != "Reads the codebase to answer a planner's question." {
+		t.Errorf("entry 1 = %+v, want explorer under Planning with its Does line, no override", got[1])
+	}
+	for i, e := range got {
+		if e.Group == "" {
+			t.Errorf("entry %d = %+v, want a group", i, e)
+		}
 	}
 	if got[2].Role != "plan-designer" || got[2].Override == nil ||
 		!reflect.DeepEqual(*got[2].Override, override{Pairs: []string{"opus/Plan@xhigh"}, ExperimentID: 5}) {
@@ -246,8 +253,8 @@ func TestRolesRoute(t *testing.T) {
 	if got[unmarked].Override == nil {
 		t.Errorf("entry %d = %+v, want implementer's unmarked row carrying the override", unmarked, got[unmarked])
 	}
-	if got[marked].Override != nil {
-		t.Errorf("entry %d = %+v, want implementer's marked row without an override", marked, got[marked])
+	if got[marked].Override != nil || got[marked].Group != "Implementation" || got[marked].Does != "" {
+		t.Errorf("entry %d = %+v, want implementer's marked row under Implementation, no Does, no override", marked, got[marked])
 	}
 	if !(unmarked < fix && fix < marked) {
 		t.Errorf("implementer %d, panel-fix %d, marked implementer %d: want table order", unmarked, fix, marked)

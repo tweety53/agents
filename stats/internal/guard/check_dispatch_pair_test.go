@@ -87,15 +87,15 @@ func TestCheckDispatchPairExitCodes(t *testing.T) {
 func TestPolicyTableRefusesMalformedRows(t *testing.T) {
 	t.Parallel()
 	for name, row := range map[string]string{
-		"two roles":   "| `a`, `b` | `opus/flow-low` | — |",
-		"no pair":     "| `a` | — | — |",
-		"two markers": "| `a` | `opus/flow-high` | `X`, `Y` |",
+		"two roles":   "| `a`, `b` | `opus/flow-low` | — | x |",
+		"no pair":     "| `a` | — | — | x |",
+		"two markers": "| `a` | `opus/flow-high` | `X`, `Y` | — |",
 		"two cells":   "| `a` | `opus/flow-low` |",
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			repo := t.TempDir()
-			writeFile(t, repo+"/"+mpFile, "| Role | Allowed pairs | Requires marker |\n|---|---|---|\n"+row+"\n")
+			writeFile(t, repo+"/"+mpFile, "| Role | Allowed pairs | Requires marker | Does |\n|---|---|---|---|\n"+row+"\n")
 			e := envWith(t, nil)
 			e.Stdin = strings.NewReader("Role: a\n")
 			if r := runGuard("check-dispatch-pair", []string{repo, "flow-high", "opus"}, e); r.rc != 2 {

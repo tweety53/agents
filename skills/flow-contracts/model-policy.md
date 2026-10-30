@@ -88,36 +88,69 @@ names its role with a `Role: <role id>` line, and a row with a marker admits its
 the prompt carries that marker as a whole line; a pair is `<model>` and `<subagent_type>` joined
 by `/`, an Explore or Plan pair adding `@<effort>`.
 
-| Role | Allowed pairs | Requires marker |
-|---|---|---|
-| `explorer` | `opus/Explore@low`, `opus/Explore@medium` | — |
-| `plan-designer` | `opus/Plan@low`, `opus/Plan@medium` | — |
-| `planner` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — |
-| `implementer` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
-| `panel-fix` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — |
-| `implementer` | `opus/flow-high` | `No-progress escalation` |
-| `panel-fix` | `opus/flow-high` | `No-progress escalation` |
-| `panel-reviewer` | `opus/flow-low`, `opus/flow-medium` | — |
-| `panel-reviewer` | `opus/flow-high` | `Operator-approved high` |
-| `panel-extra` | `opus/flow-low`, `sonnet/flow-low` | — |
-| `panel-rerun` | `opus/flow-low`, `sonnet/flow-low` | — |
-| `gated-reviewer` | `opus/flow-medium` | — |
-| `gated-re-reviewer` | `opus/flow-low` | — |
-| `visual-verifier` | `opus/flow-low` | — |
-| `late-fix` | `opus/flow-low` | — |
-| `panel-merger` | `sonnet/flow-low` | — |
-| `tooling-analyst` | `opus/flow-medium` | — |
-| `self-review-pass` | `opus/flow-medium` | — |
-| `self-review-plan` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — |
-| `pipeline-fix-plan` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — |
-| `self-review-fix` | `opus/flow-low` | — |
-| `pipeline-fix-fix` | `opus/flow-low` | — |
-| `self-review-fix` | `opus/flow-high` | `No-progress escalation` |
-| `pipeline-fix-fix` | `opus/flow-high` | `No-progress escalation` |
-| `self-review-review-1` | `opus/flow-medium`, `opus/flow-low` | — |
-| `pipeline-fix-review-1` | `opus/flow-medium`, `opus/flow-low` | — |
-| `self-review-review-r` | `sonnet/flow-low` | — |
-| `pipeline-fix-review-r` | `sonnet/flow-low` | — |
+Each `###` heading below is one pipeline area, and a role sits under exactly one; a role's
+unmarked row carries its `Does` cell, a plain-English line on what the role does, and a marked
+row's `Does` is `—`. flowd serves both on `GET /api/v1/roles`, and the Experiments view groups its
+roles table by them.
+
+### Planning
+
+| Role | Allowed pairs | Requires marker | Does |
+|---|---|---|---|
+| `explorer` | `opus/Explore@low`, `opus/Explore@medium` | — | Reads the codebase to answer a planner's question. |
+| `plan-designer` | `opus/Plan@low`, `opus/Plan@medium` | — | Proposes a design or plan for the planner to choose from. |
+| `planner` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — | Writes the design and the task plan. |
+
+### Implementation
+
+| Role | Allowed pairs | Requires marker | Does |
+|---|---|---|---|
+| `implementer` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — | Writes the code for a group of tasks, tests first. |
+| `panel-fix` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — | Fixes what the review panel found. |
+| `implementer` | `opus/flow-high` | `No-progress escalation` | — |
+| `panel-fix` | `opus/flow-high` | `No-progress escalation` | — |
+
+### Review
+
+| Role | Allowed pairs | Requires marker | Does |
+|---|---|---|---|
+| `gated-reviewer` | `opus/flow-medium` | — | Reviews risky tasks as they land, on big changes only. |
+| `gated-re-reviewer` | `opus/flow-low` | — | Re-checks a gated review's findings after their fix. |
+| `panel-reviewer` | `opus/flow-low`, `opus/flow-medium` | — | Reviews the whole branch, first pass: the primary + principles bundle. |
+| `panel-reviewer` | `opus/flow-high` | `Operator-approved high` | — |
+| `panel-sanity-efficiency` | `opus/flow-low`, `sonnet/flow-low` | — | Always-on extra bundle: checks each new test would fail if its behaviour broke, and spots wasted calls. |
+| `panel-mutation-failure` | `opus/flow-low`, `sonnet/flow-low` | — | Always-on extra bundle: breaks the code on purpose to prove the tests notice, and checks error, timeout and partial-write paths. |
+| `panel-rerun` | `opus/flow-low`, `sonnet/flow-low` | — | Re-reviews the branch after a fix round. |
+| `late-fix` | `opus/flow-low` | — | Reviews just a small fix made after the branch already passed review. |
+| `panel-merger` | `sonnet/flow-low` | — | Merges the reviewers' findings into one list without duplicates. |
+
+### Visual verification
+
+| Role | Allowed pairs | Requires marker | Does |
+|---|---|---|---|
+| `visual-verifier` | `opus/flow-low` | — | Screenshots the UI and compares it with the mockup. |
+| `tooling-analyst` | `opus/flow-medium` | — | Works out why visual verification missed a defect. |
+
+### Self-review
+
+| Role | Allowed pairs | Requires marker | Does |
+|---|---|---|---|
+| `self-review-pass` | `opus/flow-medium` | — | Reviews a finished change and the run that built it. |
+| `self-review-plan` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — | Plans the fixes for the self-review's findings. |
+| `self-review-fix` | `opus/flow-low` | — | Makes one planned self-review fix. |
+| `self-review-fix` | `opus/flow-high` | `No-progress escalation` | — |
+| `self-review-review-1` | `opus/flow-medium`, `opus/flow-low` | — | First review of a self-review fix. |
+| `self-review-review-r` | `sonnet/flow-low` | — | Re-review once that fix is corrected. |
+
+### Pipeline fix
+
+| Role | Allowed pairs | Requires marker | Does |
+|---|---|---|---|
+| `pipeline-fix-plan` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — | Plans the fix for a defect found in the flow tooling mid-run. |
+| `pipeline-fix-fix` | `opus/flow-low` | — | Makes that tooling fix. |
+| `pipeline-fix-fix` | `opus/flow-high` | `No-progress escalation` | — |
+| `pipeline-fix-review-1` | `opus/flow-medium`, `opus/flow-low` | — | First review of the tooling fix. |
+| `pipeline-fix-review-r` | `sonnet/flow-low` | — | Re-review once that fix is corrected. |
 
 ## Experiments
 

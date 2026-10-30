@@ -611,7 +611,7 @@ func TestPlanClassExtra(t *testing.T) {
 		50: "extra: test-sanity+call-efficiency · roll 50 · opus low\n",
 		99: "extra: test-sanity+call-efficiency · roll 99 · opus low\n",
 	} {
-		if got := pcExtra("test-sanity+call-efficiency", roll, pcExtraPairs(t)); got != want {
+		if got := pcExtra("test-sanity+call-efficiency", roll, pcExtraPairs(t, "panel-sanity-efficiency")); got != want {
 			t.Errorf("pcExtra(%d) = %q, want %q", roll, got, want)
 		}
 	}
@@ -628,7 +628,7 @@ func TestPlanClassExtraBundles(t *testing.T) {
 			model = "sonnet"
 		}
 		want := fmt.Sprintf("extra: mutation+failure-modes · roll %d · %s low\n", roll, model)
-		if got := pcExtra("mutation+failure-modes", roll, pcExtraPairs(t)); got != want {
+		if got := pcExtra("mutation+failure-modes", roll, pcExtraPairs(t, "panel-mutation-failure")); got != want {
 			t.Errorf("pcExtra(mutation+failure-modes, %d) = %q, want %q", roll, got, want)
 		}
 	}
@@ -646,19 +646,19 @@ func pcRoot(t *testing.T) string {
 	return root
 }
 
-// pcExtraPairs is the real table's panel-extra pairs.
-func pcExtraPairs(t *testing.T) []string {
+// pcExtraPairs is the real table's pairs for one extra bundle's role.
+func pcExtraPairs(t *testing.T, role string) []string {
 	t.Helper()
 	rows, err := policyTable(noFlowEnv(t), "../../..")
 	if err != nil {
 		t.Fatal(err)
 	}
-	return rows["panel-extra"][0].Pairs
+	return rows[role][0].Pairs
 }
 
-// TestPlanClassExtraFollowsPolicy: the extra dispatch's pair comes from the
-// panel-extra row; a row naming only opus/flow-low prints opus below 50 too,
-// and a table with no panel-extra row exits 2.
+// TestPlanClassExtraFollowsPolicy: each extra dispatch's pair comes from its
+// bundle's own row; rows naming only opus/flow-low print opus below 50 too,
+// and a table missing either row, or no table, exits 2.
 func TestPlanClassExtraFollowsPolicy(t *testing.T) {
 	t.Parallel()
 	if got, want := pcExtra("test-sanity+call-efficiency", 10, []string{"opus/flow-low"}), "extra: test-sanity+call-efficiency · roll 10 · opus low\n"; got != want {
@@ -669,9 +669,13 @@ func TestPlanClassExtraFollowsPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	table := strings.Replace(string(b), "| `panel-extra` | `opus/flow-low`, `sonnet/flow-low` |", "| `panel-extra` | `opus/flow-low` |", 1)
-	if table == string(b) {
-		t.Fatal("the real table carries no panel-extra row to rewrite")
+	table := string(b)
+	for _, role := range []string{"panel-sanity-efficiency", "panel-mutation-failure"} {
+		next := strings.Replace(table, "| `"+role+"` | `opus/flow-low`, `sonnet/flow-low` |", "| `"+role+"` | `opus/flow-low` |", 1)
+		if next == table {
+			t.Fatalf("the real table carries no %s row to rewrite", role)
+		}
+		table = next
 	}
 	writeFile(t, root+"/"+mpFile, table)
 	r := runGuard("plan-class", []string{pcTasks(t, "plan-class-pin", "# x\n\n- [ ] 1. a\n**Files:** `a.go`\n"), "1"}, envWith(t, []string{"FLOW_GUARD_REPO_ROOT=" + root}))
@@ -680,5 +684,16 @@ func TestPlanClassExtraFollowsPolicy(t *testing.T) {
 	}
 	if r := runGuard("plan-class", []string{pcTasks(t, "plan-class-pin", "# x\n\n- [ ] 1. a\n**Files:** `a.go`\n"), "1"}, envWith(t, []string{"FLOW_GUARD_REPO_ROOT=" + t.TempDir()})); r.rc != 2 {
 		t.Fatalf("rc=%d out=%q, want 2 with no table", r.rc, r.out)
+	}
+	var kept []string
+	for _, line := range strings.Split(string(b), "\n") {
+		if !strings.HasPrefix(line, "| `panel-mutation-failure` |") {
+			kept = append(kept, line)
+		}
+	}
+	noMF := pcRoot(t)
+	writeFile(t, noMF+"/"+mpFile, strings.Join(kept, "\n"))
+	if r := runGuard("plan-class", []string{pcTasks(t, "plan-class-pin", "# x\n\n- [ ] 1. a\n**Files:** `a.go`\n"), "1"}, envWith(t, []string{"FLOW_GUARD_REPO_ROOT=" + noMF})); r.rc != 2 || !strings.Contains(r.out, "panel-mutation-failure") {
+		t.Fatalf("rc=%d out=%q, want 2 naming panel-mutation-failure", r.rc, r.out)
 	}
 }

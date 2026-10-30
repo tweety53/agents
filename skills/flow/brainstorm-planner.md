@@ -525,7 +525,7 @@ assigns — the implementer, the fixer, each panel dispatch, the rerun pair, eac
 - **a pair carrying a hard seam** — concurrency, platform interop, a data-model change,
   performance-sensitive code — `opus`, always;
 - **every other pass-1 panel dispatch** — `opus`, always;
-- **the extra dispatches** — `test-sanity+call-efficiency` and `mutation+failure-modes`, each its own rolled pair off the `panel-extra` row of **Allowed pairs** (`skills/flow-contracts/model-policy.md`): the only pass-1 panel dispatches that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`, kan-959; kan-1028);
+- **the extra dispatches** — `test-sanity+call-efficiency` and `mutation+failure-modes`, each its own rolled pair off its own row of **Allowed pairs** — `panel-sanity-efficiency` and `panel-mutation-failure` (`skills/flow-contracts/model-policy.md`): the only pass-1 panel dispatches that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`, kan-959; kan-1028);
 - **every gated per-task reviewer bundle** — its **Allowed pairs** row (`skills/flow-contracts/model-policy.md`), whatever the roll, since no decision pair records it, and a fix re-review bundle its own;
 - **the rerun pair** — `opus` or `sonnet`; nothing requires it to differ from a pass-1 dispatch.
 

@@ -647,7 +647,9 @@ func seedReviewDynamics(ctx context.Context, st *store.Store) error {
 // 2026-07-30 .. fixtureNow, whose before window [07-14, 07-30) holds the
 // changes first run in the weeks of weeklyFixtureAt and whose after window
 // holds the ones run near fixtureNow; and an open combined experiment
-// started 2026-07-01. An open experiment's windows end at the daemon's real
+// started 2026-07-01, carrying experiment 4's three planning cells
+// (planning-opus-medium-to-xhigh) so the roles panel draws the prototype's
+// override text. An open experiment's windows end at the daemon's real
 // now, its before window reaching back as far as its after window reaches
 // forward, so the start sits where the before window already covers the
 // fixture's first stage run (2026-03-09, seedReviewDynamics' week -8) on
@@ -664,7 +666,11 @@ func seedExperiments(ctx context.Context, st *store.Store) error {
 		return fmt.Errorf("uitest-seed: close experiment %d: %w", closed.ID, err)
 	}
 	if _, err := st.OpenExperiment(ctx, store.Experiment{Name: "planning on xhigh",
-		Cells:     map[string][]string{"plan-designer": {"opus/Plan@xhigh"}, "explorer": {"sonnet/Explore@low"}},
+		Cells: map[string][]string{
+			"explorer":      {"sonnet/Explore@low"},
+			"plan-designer": {"opus/Plan@medium", "opus/Plan@high", "opus/Plan@xhigh"},
+			"planner":       {"opus/flow-planner-medium", "opus/flow-planner-high", "opus/flow-planner-xhigh"},
+		},
 		StartedAt: time.Date(2026, 7, 1, 9, 0, 0, 0, time.UTC)}); err != nil {
 		return fmt.Errorf("uitest-seed: open the combined experiment: %w", err)
 	}

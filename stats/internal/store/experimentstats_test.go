@@ -7,6 +7,7 @@ import (
 	"math"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -307,6 +308,42 @@ func TestExperimentStatsReviewerAndVisual(t *testing.T) {
 	wantMeans(t, got, "lateRoundFindings", f64(1), f64(0))
 	wantMeans(t, got, "vvMismatches", f64(1), f64(0))
 	wantMeans(t, got, "vvReruns", f64(2), f64(0))
+}
+
+// TestExperimentStatsExtraBundleRoles pins that each always-on extra
+// bundle's pass-1 dispatches count under its own role alone, and that every
+// later-round dispatch -- one keyed test-sanity+call-efficiency included --
+// counts under panel-rerun (decision extra-stats-pass-one).
+func TestExperimentStatsExtraBundleRoles(t *testing.T) {
+	for role, want := range map[string]float64{
+		"panel-reviewer": 3, "panel-sanity-efficiency": 1, "panel-mutation-failure": 2, "panel-rerun": 4,
+	} {
+		t.Run(role, func(t *testing.T) {
+			fx := newStatsFixture(t)
+			id := fx.open(map[string][]string{role: {"opus/flow-low"}})
+			fx.change("e1", `{}`, fx.day(-1))
+			for key, n := range map[string]int{
+				"panel-0-primary+principles":          3,
+				"panel-0-test-sanity+call-efficiency": 1,
+				"panel-0-mutation+failure-modes":      2,
+				"panel-1-test-sanity+call-efficiency": 4,
+			} {
+				seq := fx.dispatch("e1", "reviewer", key, "completed", "", fx.day(-1), 10, "")
+				round := 0
+				if strings.HasPrefix(key, "panel-1-") {
+					round = 1
+				}
+				for i := range n {
+					fx.finding("e1", fmt.Sprintf("%s-%d", key, i), "minor", round, &seq)
+				}
+			}
+			fx.change("e2", `{}`, fx.day(2))
+			for _, key := range []string{"panel-0-primary+principles", "panel-0-test-sanity+call-efficiency", "panel-0-mutation+failure-modes", "panel-1-test-sanity+call-efficiency"} {
+				fx.dispatch("e2", "reviewer", key, "completed", "", fx.day(2), 10, "")
+			}
+			wantMeans(t, fx.stats(id), "findingsPerDispatch", f64(want), f64(0))
+		})
+	}
 }
 
 // TestExperimentStatsMainCountsMatchingRunsOnly pins that a main cell's

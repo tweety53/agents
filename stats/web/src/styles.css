@@ -978,6 +978,58 @@ td.lb-clip { max-width: 0; width: 100%; }
 .experiments .roles .exp {
   color: var(--st-progress);
 }
+.experiments .roles table {
+  font-size: 12px;
+  line-height: 1.35;
+}
+.experiments .roles th,
+.experiments .roles td {
+  padding: 2px 8px;
+  vertical-align: top;
+}
+.experiments .roles td {
+  border-bottom: none;
+}
+.experiments .roles th {
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+.experiments .roles tr.grp th {
+  padding-top: 8px;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.experiments .roles tbody tr.role:hover td {
+  background: var(--surface-tip);
+}
+.experiments .roles td.role,
+.experiments .roles td.pairs {
+  white-space: nowrap;
+  width: 1%;
+}
+.experiments .roles td.does {
+  color: var(--text-secondary);
+}
+.experiments .roles code {
+  font-size: 11.5px;
+}
+.experiments .roles .esc {
+  display: block;
+  color: var(--text-muted);
+}
+.experiments .roles a {
+  color: var(--series-1);
+  text-decoration: none;
+  margin-left: 4px;
+}
+.experiments .roles a:hover,
+.experiments .roles a:focus {
+  text-decoration: underline;
+  outline: none;
+}
 .experiments .summary {
   white-space: pre-wrap;
   color: var(--text-secondary);

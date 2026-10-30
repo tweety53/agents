@@ -23,16 +23,22 @@ type Row struct {
 
 var tick = regexp.MustCompile("`([^`]+)`")
 
-// Entry is one table row with its role id, as Rows returns it.
+// Entry is one table row with its role id, its group -- the nearest `###`
+// heading above its table -- and its Does line ("" on a marked row), as Rows
+// returns it.
 type Entry struct {
-	Role string
+	Role, Group, Does string
 	Row
 }
 
-// Parse reads the `| Role | Allowed pairs | Requires marker |` table out of
-// b, keyed by role id with each role's rows in table order. A file with no
-// such table, or a row missing a cell, is an error: a dispatch is never
-// admitted off a table that cannot be read.
+// tableHeader opens every allowed-pairs table.
+const tableHeader = "| Role | Allowed pairs | Requires marker | Does |"
+
+// Parse reads the `| Role | Allowed pairs | Requires marker | Does |` tables
+// out of b, keyed by role id with each role's rows in table order. A file
+// with no such table, a row of the wrong width, an unmarked row with no Does
+// line, or a role under two groups is an error: a dispatch is never admitted
+// off a table that cannot be read.
 func Parse(b []byte) (map[string][]Row, error) {
 	entries, err := Rows(b)
 	if err != nil {
@@ -45,42 +51,61 @@ func Parse(b []byte) (map[string][]Row, error) {
 	return rows, nil
 }
 
-// Rows is Parse's table as one entry per row in table order -- the order
-// flowd's roles table is drawn in, which Parse's map does not keep.
+// Rows is Parse's tables as one entry per row in table order -- the order
+// flowd's roles table is drawn in, which Parse's map does not keep. Every
+// table is read until the first `## ` heading after a row.
 func Rows(b []byte) ([]Entry, error) {
 	var out []Entry
-	in := false
+	group, in := "", false
+	groupOf := map[string]string{}
 	for _, line := range strings.Split(string(b), "\n") {
 		t := strings.TrimSpace(line)
-		if strings.HasPrefix(t, "| Role | Allowed pairs | Requires marker |") {
+		switch {
+		case strings.HasPrefix(t, "### "):
+			group, in = strings.TrimSpace(t[4:]), false
+			continue
+		case strings.HasPrefix(t, "## "):
+			if len(out) > 0 {
+				return out, nil
+			}
+			continue
+		case strings.HasPrefix(t, tableHeader):
 			in = true
 			continue
-		}
-		if !in {
+		case !in:
 			continue
-		}
-		if !strings.HasPrefix(t, "|") {
-			break
-		}
-		if strings.HasPrefix(t, "|---") {
+		case !strings.HasPrefix(t, "|"):
+			in = false
+			continue
+		case strings.HasPrefix(t, "|---"):
 			continue
 		}
 		cells := strings.Split(strings.Trim(t, "|"), "|")
-		if len(cells) != 3 {
-			return nil, fmt.Errorf("%s: allowed-pairs row %q has %d cells, want 3", File, t, len(cells))
+		if len(cells) != 4 {
+			return nil, fmt.Errorf("%s: allowed-pairs row %q has %d cells, want 4", File, t, len(cells))
 		}
 		role, pairs, marker := ticks(cells[0]), ticks(cells[1]), ticks(cells[2])
 		if len(role) != 1 || len(pairs) == 0 || len(marker) > 1 {
 			return nil, fmt.Errorf("%s: allowed-pairs row %q names no single role, no pair, or more than one marker", File, t)
 		}
-		e := Entry{Role: role[0], Row: Row{Pairs: pairs}}
+		e := Entry{Role: role[0], Group: group, Row: Row{Pairs: pairs}}
 		if len(marker) == 1 {
 			e.Marker = marker[0]
 		}
+		if d := strings.TrimSpace(cells[3]); d != "—" {
+			e.Does = d
+		}
+		if e.Marker == "" && e.Does == "" {
+			return nil, fmt.Errorf("%s: allowed-pairs row %q is unmarked and carries no Does line", File, t)
+		}
+		if g, ok := groupOf[e.Role]; ok && g != group {
+			return nil, fmt.Errorf("%s: role %q sits under two groups, %q and %q", File, e.Role, g, group)
+		}
+		groupOf[e.Role] = group
 		out = append(out, e)
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("%s carries no `| Role | Allowed pairs | Requires marker |` table", File)
+		return nil, fmt.Errorf("%s carries no `%s` table", File, tableHeader)
 	}
 	return out, nil
 }

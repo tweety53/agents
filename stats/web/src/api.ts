@@ -841,6 +841,8 @@ export interface RoleEntry {
   role: string;
   pairs: string[];
   marker: string;
+  group: string;
+  does: string;
   override?: { pairs: string[]; experimentId: number };
 }
 
