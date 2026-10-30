@@ -889,3 +889,63 @@ func TestRunVerifyListCapsMemory(t *testing.T) {
 		t.Errorf("no CAPPED: line:\n%s\n%s", o.String(), e.String())
 	}
 }
+
+// TestRunVerifyListRefusesAnOffContractKey pins the kan-1067 self-review fix,
+// 1-C: a recording key that does not fold to verify or verify-<repository
+// name> is refused, exit 2, before the begin and before any command.
+func TestRunVerifyListRefusesAnOffContractKey(t *testing.T) {
+	repo, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\necho \"flow $*\" >> "+log+"\n")
+	tmp, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	wt := filepath.Join(tmp, "repo-x")
+	gitRun(t, tmp, "init", "-q", wt)
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"), "PATH="+dir+":"+os.Getenv("PATH"))
+	getenv := func(k string) string {
+		for i := len(environ) - 1; i >= 0; i-- {
+			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
+				return v
+			}
+		}
+		return ""
+	}
+	run := func(on, key string) (int, string, string) {
+		os.Remove(log)
+		var o, e bytes.Buffer
+		rc := runVerifyList([]string{on, "lint", "kan-1", key, "mf-k1", "opus", "low"}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: on}, &o, &e)
+		calls, _ := os.ReadFile(log)
+		return rc, string(calls), e.String()
+	}
+	project := func(on string) {
+		writeFile(t, filepath.Join(on, ".flow/project.md"), "## lint\n\n```bash\ntrue\n```\n")
+	}
+	project(wt)
+	base := filepath.Base(wt)
+	admitted := func(on, key string) {
+		rc, calls, errs := run(on, key)
+		if rc != 0 || !strings.HasPrefix(calls, "flow record dispatch begin ") || !strings.Contains(strings.SplitN(calls, "\n", 2)[0], "-key "+key+" ") {
+			t.Errorf("key %s on %s: exit %d, calls %q, stderr %q", key, on, rc, calls, errs)
+		}
+	}
+	for _, key := range []string{"verify", "verify-2", "verify-fix-1", "verify-" + base, "verify-fix-2-" + base} {
+		admitted(wt, key)
+	}
+	for _, key := range []string{"verify-fix-1b", "verify-2b", "verify-other"} {
+		rc, calls, errs := run(wt, key)
+		if rc != 2 || calls != "" || !strings.Contains(errs, key) || !strings.Contains(errs, "verify-and-handoff.md") {
+			t.Errorf("key %s: exit %d, calls %q, stderr %q", key, rc, calls, errs)
+		}
+	}
+	gitRun(t, wt, "commit", "-q", "--allow-empty", "-m", "init")
+	other := filepath.Join(tmp, "other")
+	gitRun(t, wt, "worktree", "add", "-q", other)
+	project(other)
+	admitted(other, "verify-"+base)
+}

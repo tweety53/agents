@@ -99,7 +99,11 @@
 //   2  usage (not `<worktree> lint|test` plus none, all five, or all six recording
 //      arguments, no flow binary on PATH for those, or <worktree> is not a
 //      directory), a list line holding a `<word>` placeholder — its stderr
-//      line names it — or project-get.sh exit 2 — its stderr line says why
+//      line names it — or project-get.sh exit 2 — its stderr line says why,
+//      or a recording <key> that does not fold, by check-verify-green's
+//      vgFixSuffix, to `verify` or `verify-<s>`, <s> the worktree's basename
+//      or its repository's name (kan-1067 self-review, 1-C: `verify-fix-1b`
+//      formed its own group and verify stayed NOT-GREEN)
 //   3  the list is not declared (project-get.sh exit 1): the caller
 //      auto-detects, as **Inline verify** says
 //   4  the store refused the recording begin (stderr names why): no command ran
@@ -286,6 +290,10 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			wt = args[7]
 		}
 		key, token, model, effort := args[3], args[4], args[5], args[6]
+		if !verifyKeyOK(env, abs(args[0]), key) {
+			fmt.Fprintf(stderr, "run-verify-list: key %q does not fold to verify or verify-<repository name> (skills/flow/verify-and-handoff.md, **Recording.**) — no command ran\n", key)
+			return 2
+		}
 		blockedMark = "flow-verify-blocked-" + key + "-" + token
 		record = func(verb string, flags ...string) bool {
 			argv := []string{"record", "dispatch", verb, "-C", wt, "-change", change}
@@ -559,4 +567,16 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		record("end", "-outcome", "completed")
 	}
 	return failed
+}
+
+// verifyKeyOK: key folds, by check-verify-green's vgFixSuffix, to `verify` or
+// `verify-<s>`, <s> wt's basename or its repository's name (the directory
+// holding its git common dir); a git failure admits only the basename.
+func verifyKeyOK(env Env, wt, key string) bool {
+	g := vgFixSuffix.ReplaceAllString(key, "verify$2")
+	if g == "verify" || g == "verify-"+filepath.Base(wt) {
+		return true
+	}
+	out, ok := capture(envGit(env)("-C", wt, "rev-parse", "--path-format=absolute", "--git-common-dir"))
+	return ok && g == "verify-"+filepath.Base(filepath.Dir(out))
 }
