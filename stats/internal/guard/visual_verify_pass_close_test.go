@@ -49,7 +49,7 @@ func (f *vvpFix) report(key, root, verdict, body string) string {
 		"- full app suite: created — " + shots + "/full-app-suite.spec.ts, 1 screens, capture exit 0\n" +
 		"- full app suite zip: " + shots + "/full-app-suite.zip, 1 PNGs\n" +
 		"- spec: " + shots + "/home.spec.ts\n- home: " + shots + "/home.spec.ts-home.png\n" +
-		"- per view, no frame composed: home sweeps: none\n" + body
+		"- per view, no frame composed: home sweeps: text done\n" + body
 	path := filepath.Join(f.wt, ".superpowers/sdd/verify-report-"+key+".md")
 	writeFile(f.t, path, r)
 	return path
