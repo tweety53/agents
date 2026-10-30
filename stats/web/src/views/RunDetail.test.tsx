@@ -1296,6 +1296,7 @@ describe("interactive run view", () => {
     expect(kpi).toHaveTextContent("Waiting for the next request");
     expect(kpi).not.toHaveTextContent("Working between stages");
     expect(kpi.querySelector(".lb-live-dot")).toBeNull();
+    expect(kpi).not.toHaveTextContent("Edit: stats/web/src/lib/phase.ts");
   });
 
   it("interactive run view lays Requests and Cost by stage in its right column", async () => {

@@ -846,7 +846,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                           count?.total !== undefined ? ` · tasks ${count.done}/${count.total}` : ""
                         }`}
                       {nowTask && <div className="lb-task-now">{nowTask}</div>}
-                      {board && (mainAction(board) ? <div className="lb-task-now">{mainAction(board)}</div> : agentsDone(board) && <div className="lb-task-now">Agents done, main is wrapping up the stage</div>)}
+                      {board && !waitingNext && (mainAction(board) ? <div className="lb-task-now">{mainAction(board)}</div> : agentsDone(board) && <div className="lb-task-now">Agents done, main is wrapping up the stage</div>)}
                     </>
                   }
                 >
