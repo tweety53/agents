@@ -52,6 +52,13 @@ const (
 // not even parse as JSON. It is the CLI's fallback trigger.
 var ErrUnavailable = errors.New("client: store unavailable")
 
+// ErrDaemonAnswered marks an ErrUnavailable that the genuine daemon itself
+// produced -- a non-200 status or an unparseable body carrying the daemon
+// header. It wraps alongside ErrUnavailable, so callers falling back on
+// ErrUnavailable are unchanged; a caller that may skip a read only when the
+// store cannot be reached (the request-end guard) refuses on it instead.
+var ErrDaemonAnswered = errors.New("client: the store answered")
+
 // ErrRefused means the store was reached and correctly refused the write
 // because it would move the record's state backwards (HTTP 409, mapping
 // store.ErrMonotonicViolation -- see internal/api/changes.go's put doc
@@ -620,13 +627,13 @@ func (c *Client) ListStageRuns(ctx context.Context, project, change, command, st
 		return nil, fmt.Errorf("%w: response missing %s header -- not trusted as a store answer", ErrUnavailable, daemonHeaderName)
 	}
 	if status != http.StatusOK {
-		return nil, fmt.Errorf("%w: unexpected status %d", ErrUnavailable, status)
+		return nil, fmt.Errorf("%w: %w: unexpected status %d", ErrUnavailable, ErrDaemonAnswered, status)
 	}
 	var wire struct {
 		StageRuns []StageRunRow `json:"stageRuns"`
 	}
 	if err := json.Unmarshal(body, &wire); err != nil {
-		return nil, fmt.Errorf("%w: response body is not valid JSON", ErrUnavailable)
+		return nil, fmt.Errorf("%w: %w: response body is not valid JSON", ErrUnavailable, ErrDaemonAnswered)
 	}
 	return wire.StageRuns, nil
 }

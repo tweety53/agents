@@ -298,6 +298,27 @@ func TestRecordRequestEndLandedGuard(t *testing.T) {
 			t.Errorf("stderr = %q, want one ⚠ line naming the skipped UI-check read", stderr)
 		}
 	})
+	t.Run("a reachable store failing the UI check read", func(t *testing.T) {
+		for _, answer := range []func(http.ResponseWriter){
+			func(w http.ResponseWriter) { w.WriteHeader(http.StatusInternalServerError) },
+			func(w http.ResponseWriter) { _, _ = w.Write([]byte("not json")) },
+		} {
+			writes := 0
+			bad := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodGet {
+					answer(w)
+					return
+				}
+				writes++
+				_, _ = w.Write([]byte(`{"n":3}`))
+			}))
+			code, _, stderr := runRequest(bad.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", ui, "-base", docs)
+			bad.Close()
+			if code != 1 || !strings.Contains(stderr, "UI check runs") || writes != 0 {
+				t.Errorf("exit=%d writes=%d stderr=%q, want 1 refusing with no write", code, writes, stderr)
+			}
+		}
+	})
 	t.Run("no visual verification section", func(t *testing.T) {
 		fx.writeProject(t, "## lint\n")
 		defer fx.writeProject(t, "## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/**` |\n")

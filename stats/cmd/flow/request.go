@@ -219,7 +219,7 @@ func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey st
 	runs, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]client.StageRunRow, error) {
 		return cl.ListStageRuns(ctx, projectKey, f.change, string(stages.FlowInteractive), "flow.visual-verify")
 	})
-	if errors.Is(err, client.ErrUnavailable) {
+	if errors.Is(err, client.ErrUnavailable) && !errors.Is(err, client.ErrDaemonAnswered) {
 		fmt.Fprintf(stderr, "⚠ flow: store unreachable — skipped request %d's UI check read; the git checks passed\n", n)
 		return 0
 	}
