@@ -54,7 +54,7 @@ function Kpi({ label, value, hint, children }: { label: string; value: ReactNode
 /** Findings by severity, Critical first and red while any is open to read. */
 function Cim({ c, i, m }: { c: number; i: number; m: number }) {
   return (
-    <span className="lb-num" title={`${c} critical · ${i} important · ${m} minor`}>
+    <span className="lb-num lb-cim" title={`${c} critical · ${i} important · ${m} minor`}>
       <span className={c ? "lb-err" : undefined}>C {c}</span> · I {i} · M {m}
     </span>
   );
