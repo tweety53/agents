@@ -359,6 +359,11 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
        flow record mutation [-addr url] [-timeout dur] [-C dir]
                              -change name [-round n] -path path
                              -mutated what -test test
+       flow record request begin [-addr url] [-timeout dur] [-C dir]
+                             -change name -n n [-title line] [-brainstorm-reason why]
+       flow record request end [-addr url] [-timeout dur] [-C dir]
+                             -change name -n n -outcome landed|answered|dropped
+                             [-commit sha -base sha]
 
 A record write never blocks: on any store failure the intent is journalled,
 one warning line is printed, and the command exits 0. A caller must never
@@ -380,6 +385,19 @@ the committed panel record, and the hand-written file is retired. -round is
 0 for the initial panel's entries and 1..n for a fix round's; mutation's
 three fields are the contract line's own -- on the exemption form, -mutated
 carries "none" and -test the reason.
+
+request begin and request end record one /flow-interactive request
+(KAN-1061), each an upsert by -change and -n: begin needs -title or
+-brainstorm-reason, and an omitted one leaves the stored value. end
+-outcome landed requires -commit and -base (answered and dropped take
+neither) and is refused (exit 1), before anything is written, unless the
+change's checkout -- the one carrying .superpowers/sdd/<change>/ -- has
+-commit on origin/<base> and -base an ancestor of -commit, and, when
+check-visual-trigger matches the files of -base..-commit, the request's
+latest flow.visual-verify run carrying it ended completed. With the store
+unreachable the git checks still run, the stage-run read is skipped with one
+warning line, and the write is journalled. Exit 0 written or journalled, 1
+refused, 2 usage.
 
 next-round prints the panel round a run opens next for a change: one more
 than the highest -round any pass, finding or mutation row of it carries, or
@@ -675,6 +693,8 @@ func runRecord(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 		return runRecordPass(ctx, args[1:], stdout, stderr)
 	case "mutation":
 		return runRecordMutation(ctx, args[1:], stdout, stderr)
+	case "request":
+		return runRecordRequest(ctx, args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown record command %q\n", args[0])
 		fmt.Fprint(stderr, recordUsage)
@@ -869,7 +889,8 @@ func recordJournalPath(projectKey, name string) string {
 // recordJournalBody is what gets journalled for a record write that could
 // not reach the store: the write's own kind ("dispatch", "dispatch-end",
 // "finding", "status", "verdict", "verdict-false-positive", "incident",
-// "substitution", "decision", "pass", "mutation" or "suite") alongside the exact
+// "substitution", "decision", "pass", "mutation", "suite", "request-begin" or
+// "request-end") alongside the exact
 // wire request that would have been sent, so the reconciler has everything
 // it needs to replay it without this file needing a second encoding. It is
 // the same shape stageMarkJournalBody carries, for the same reason.
