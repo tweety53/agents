@@ -87,7 +87,7 @@
   - [ ] **Step 4: Verify.** `cd stats && go test ./internal/guard -run 'VisualVerifyPass' -count=1` passes; `scripts/test-go-guards.sh` passes; lint. Commit.
 
 **Build:** green
-**Files:** `stats/internal/guard/visualverifypass_prepare.go`, `stats/internal/guard/visual_verify_pass_prepare_test.go`, `scripts/visual-verify-pass.sh`
+**Files:** `stats/internal/guard/visualverifypass_prepare.go`, `stats/internal/guard/visual_verify_pass_prepare_test.go`, `scripts/visual-verify-pass.sh`, `stats/internal/guard/visualverifypass.go`
 **Tests:** `TestVisualVerifyPassPrepareStartStack`, `TestVisualVerifyPassPrepareRestartStack`, `TestVisualVerifyPassPrepareBundle`, `TestVisualVerifyPassPrepareDecodesBundledPage`, `TestVisualVerifyPassPrepareBeginsRows`, `TestVisualVerifyPassPrepareContinue`
 **Regression:** `TestVisualVerifyPassPrepareBeginsRows` fails — a verifier runs with no row, or off its opus/low pair.
 **Commit:** feat(guard): resolve the verifier's bundle and begin its row in visual-verify-pass prepare
@@ -195,7 +195,7 @@
   - [ ] **Step 3: Verify.** `cd stats && go test ./internal/guard -run 'CheckPlanShape' -count=1` passes; `scripts/check-plan-shape.sh` exits 0 on the tree; lint. Commit.
 
 **Build:** green
-**Files:** `stats/internal/guard/planshape.go`, `stats/internal/guard/check_plan_shape_test.go`
+**Files:** `stats/internal/guard/planshape.go`, `stats/internal/guard/check_plan_shape_test.go`, `stats/internal/guard/planparse.go`, `stats/internal/guard/close_task_test.go`
 **Allowed-collateral:** `scripts/check-plan-shape.sh`
 **Tests:** `TestCheckPlanShapeF24`
 **Regression:** `TestCheckPlanShapeF24` fails — one verifier report splits into a round per defect again.
