@@ -146,8 +146,7 @@ function Chart({ metric, startedAt }: { metric: ExperimentMetric; startedAt: str
   const sx = Math.min(Math.max(x(s - 0.5), L), W - R);
   const before = metric.before === null ? null : scale(name, metric.before);
   const after = metric.after === null ? null : scale(name, metric.after);
-  const col =
-    after === null || before === null ? "var(--delta-up)" : after === before ? "var(--text-muted)" : after < before ? "var(--delta-down)" : "var(--delta-up)";
+  const col = after === null || before === null || after === before ? "var(--text-muted)" : after < before ? "var(--delta-down)" : "var(--delta-up)";
   const meanLine = (a: number, b: number, val: number, stroke: string, testId: string) => (
     <line data-testid={testId} x1={a} x2={b} y1={y(val)} y2={y(val)} stroke={stroke} strokeWidth="1.5" strokeDasharray="5 3" opacity=".8" />
   );

@@ -1528,6 +1528,18 @@ describe("Experiments", () => {
     }
   });
 
+  it("Experiments draws a mean-after line with no before mean as neutral", async () => {
+    fetchExperimentStatsMock.mockReset().mockResolvedValue(stats(3, [{ name: "tokens", before: null, after: 60000 }]));
+    render(<Experiments />);
+    const trend = await screen.findByRole("region", { name: "Weekly trend — before vs after start" });
+    const lines = within(trend)
+      .getAllByRole("img")
+      .map((c) => c.querySelector("[data-testid=mean-after]"))
+      .filter(Boolean);
+    expect(lines.length).toBeGreaterThan(0);
+    for (const l of lines) expect(l).toHaveAttribute("stroke", "var(--text-muted)");
+  });
+
   it("Experiments reads — where no run follows the start, and invites an open when none exists", async () => {
     fetchExperimentStatsMock.mockReset().mockResolvedValue({ ...stats(3, [{ name: "reviewRounds", before: 2.6, after: null }]), runs: { before: 14, after: 0 } });
     const { unmount } = render(<Experiments />);
