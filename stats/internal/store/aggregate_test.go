@@ -2289,3 +2289,42 @@ func TestLiveStateBoardCountsFixRoundsAndReviewerRuns(t *testing.T) {
 		t.Errorf("fix rounds %d/%d, reviewer runs %d/%d; want 3/3, 6/2", r.FixRounds, r.SelfReviewFixRounds, r.ReviewerRuns, r.SelfReviewReviewerRuns)
 	}
 }
+
+// TestLiveStateBoardCountsFindingsBySeverity pins the board's C/I/M counts:
+// main's from its panel findings, whatever case and synonym the severity was
+// recorded in, the self-review's from its findings recorded with a severity.
+func TestLiveStateBoardCountsFindingsBySeverity(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-board-cim-%d", time.Now().UnixNano())
+	name := fmt.Sprintf("kan-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, name)
+	for i, sev := range []string{"Critical", "blocking", "Important", "major", "Minor", "low", "Minor"} {
+		f := baseFinding(fmt.Sprintf("F%d", i+1), 0)
+		f.Severity = sev
+		if _, _, err := st.UpsertFinding(ctx, projectKey, name, f); err != nil {
+			t.Fatalf("UpsertFinding(%s): %v", sev, err)
+		}
+	}
+	for i, sev := range []string{"important", "minor", ""} {
+		if _, err := st.RecordSelfReviewFinding(ctx, projectKey, records.SelfReviewFinding{
+			Change: name, Angle: "review", Note: fmt.Sprintf("finding %d", i), Disposition: "noted", Severity: sev,
+		}); err != nil {
+			t.Fatalf("RecordSelfReviewFinding(%s): %v", sev, err)
+		}
+	}
+	rows, err := st.LiveStateBoard(ctx, store.Period{
+		From: time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC),
+	}, &projectKey, &name)
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("LiveStateBoard: %v, %d rows", err, len(rows))
+	}
+	r := rows[0]
+	if r.Critical != 2 || r.Important != 2 || r.Minor != 3 {
+		t.Errorf("main C/I/M = %d/%d/%d, want 2/2/3", r.Critical, r.Important, r.Minor)
+	}
+	if r.SelfReviewCritical != 0 || r.SelfReviewImportant != 1 || r.SelfReviewMinor != 1 {
+		t.Errorf("self-review C/I/M = %d/%d/%d, want 0/1/1", r.SelfReviewCritical, r.SelfReviewImportant, r.SelfReviewMinor)
+	}
+}

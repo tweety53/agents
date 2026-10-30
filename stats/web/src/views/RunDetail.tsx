@@ -27,7 +27,7 @@ import { describeDispatch } from "../lib/describeDispatch";
 import { agentsDone, dispatchTasks, mainAction, runningTask } from "../lib/runningTask";
 import { effectiveActivity, sessionAlive } from "../lib/sessionAlive";
 import { stageLabel } from "../lib/stageLabel";
-import { ActivityBadge, MainAndSelfReview, StatePill } from "./StateBoard";
+import { ActivityBadge, StatePill } from "./StateBoard";
 import { taskCount } from "../lib/taskCount";
 import { SR_STEPS, selfReviewNow, srStep, type SrStep } from "../lib/selfReviewNow";
 import { STAGE_PHASE, type Phase } from "../lib/phase";
@@ -48,6 +48,15 @@ function Kpi({ label, value, hint, children }: { label: string; value: ReactNode
       {hint && <span className="lb-hint">{hint}</span>}
       {children}
     </div>
+  );
+}
+
+/** Findings by severity, Critical first and red while any is open to read. */
+function Cim({ c, i, m }: { c: number; i: number; m: number }) {
+  return (
+    <span className="lb-num" title={`${c} critical · ${i} important · ${m} minor`}>
+      <span className={c ? "lb-err" : undefined}>C {c}</span> · I {i} · M {m}
+    </span>
   );
 }
 
@@ -914,22 +923,32 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   value={<span className="lb-num">{measured.length === 0 ? "—" : `${(input / 1e6).toFixed(2)}M`}</span>}
                   hint={input > 0 ? `cache reads ${Math.round((cached / input) * 100)}%` : undefined}
                 />
-                <Kpi
-                  label="Fix rounds"
-                  value={<span className="lb-num">{board ? <MainAndSelfReview main={board.fixRounds} selfReview={board.selfReviewFixRounds} /> : "—"}</span>}
-                  hint="main · self-review"
-                />
-                <Kpi
-                  label="Full panel runs"
-                  value={<span className="lb-num">{board ? board.fullPanelRuns : "—"}</span>}
-                  hint={board && `of ${board.panelRuns} panel rounds`}
-                />
-                <Kpi
-                  label="Reviewer runs"
-                  value={<span className="lb-num">{board ? <MainAndSelfReview main={board.reviewerRuns} selfReview={board.selfReviewReviewerRuns} /> : "—"}</span>}
-                  hint="main · self-review"
-                />
               </section>
+              {board && (
+                <div className="lb-kpi-groups">
+                  <section className="lb-panel" aria-label="Main totals">
+                    <div className="lb-panel-h">
+                      <span>Main</span>
+                    </div>
+                    <div className="lb-kpis">
+                      <Kpi label="Fix rounds" value={<span className="lb-num">{board.fixRounds}</span>} />
+                      <Kpi label="Full panel runs" value={<span className="lb-num">{board.fullPanelRuns}</span>} hint={`of ${board.panelRuns} panel rounds`} />
+                      <Kpi label="Reviewer runs" value={<span className="lb-num">{board.reviewerRuns}</span>} />
+                      <Kpi label="Findings" value={<Cim c={board.critical} i={board.important} m={board.minor} />} />
+                    </div>
+                  </section>
+                  <section className="lb-panel" aria-label="Self-review totals">
+                    <div className="lb-panel-h">
+                      <span>Self-review</span>
+                    </div>
+                    <div className="lb-kpis">
+                      <Kpi label="Fix rounds" value={<span className="lb-num">{board.selfReviewFixRounds}</span>} />
+                      <Kpi label="Reviewer runs" value={<span className="lb-num">{board.selfReviewReviewerRuns}</span>} />
+                      <Kpi label="Findings" value={<Cim c={board.selfReviewCritical} i={board.selfReviewImportant} m={board.selfReviewMinor} />} />
+                    </div>
+                  </section>
+                </div>
+              )}
 
               {/* Two independent stacks right under the KPI strip -- agents and work panels left, their plans right -- each card its own height; an interactive session's stage runs and cost rail join them. */}
               <div className={`lb-work${interactive ? " lb-work-interactive" : ""}`}>

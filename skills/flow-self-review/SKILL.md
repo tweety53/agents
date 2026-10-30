@@ -528,11 +528,11 @@ One call per finding, every disposition alike, before the report is written — 
 finding on the change's own branch, whose row step 5's landing push records:
 
 ```bash
-flow self-review finding -change <name> -angle <label> -disposition fixed|filed|declined|noted [-ref <sha|KEY>] [-blast-radius <N>] -note '<the finding, one line>'
+flow self-review finding -change <name> -angle <label> -disposition fixed|filed|declined|noted [-ref <sha|KEY>] [-blast-radius <N>] [-severity critical|important|minor] -note '<the finding, one line>'
 ```
 
 `-ref` is the landed sha for `fixed`, the issue key for `filed`, and omitted for `declined` and `noted`;
-`-blast-radius` is step 3's count. An `In-run pipeline fix:`
+`-blast-radius` is step 3's count; `-severity` is the grade the pass gave the finding, omitted when it gave none. An `In-run pipeline fix:`
 line naming a sha gets no second row when `flow self-review findings -change <name>` already
 lists that sha (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`). A store failure is one
 warning line and the pass continues — the report below is the durable record.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/tweety53/agents/stats/internal/records"
 )
@@ -20,6 +21,11 @@ var ErrSelfReviewFindingInvalid = errors.New("store: invalid self-review finding
 func validateSelfReviewFinding(f records.SelfReviewFinding) error {
 	if f.Change == "" || f.Angle == "" || f.Note == "" {
 		return fmt.Errorf("%w: change, angle and note are required", ErrSelfReviewFindingInvalid)
+	}
+	switch f.Severity {
+	case "", "critical", "important", "minor":
+	default:
+		return fmt.Errorf("%w: severity must be critical, important or minor, got %q", ErrSelfReviewFindingInvalid, f.Severity)
 	}
 	if f.BlastRadius != nil && *f.BlastRadius < 0 {
 		return fmt.Errorf("%w: blast radius must be 0 or more, got %d", ErrSelfReviewFindingInvalid, *f.BlastRadius)
@@ -49,18 +55,20 @@ func validateSelfReviewFinding(f records.SelfReviewFinding) error {
 // writes no second row and returns the recorded one, its missing blast
 // radius filled from the repeat.
 func (s *Store) RecordSelfReviewFinding(ctx context.Context, projectKey string, in records.SelfReviewFinding) (records.SelfReviewFinding, error) {
+	in.Severity = strings.ToLower(in.Severity)
 	if err := validateSelfReviewFinding(in); err != nil {
 		return records.SelfReviewFinding{}, err
 	}
 	out := in
 	if err := s.pool.QueryRow(ctx, `
-		INSERT INTO self_review_findings (project_key, change, angle, note, disposition, ref, blast_radius)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO self_review_findings (project_key, change, angle, note, disposition, ref, blast_radius, severity)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (project_key, change, angle, disposition, (COALESCE(ref, md5(note))))
-		DO UPDATE SET blast_radius = COALESCE(self_review_findings.blast_radius, EXCLUDED.blast_radius)
-		RETURNING id, note, blast_radius, recorded_at
-	`, projectKey, in.Change, in.Angle, in.Note, in.Disposition, nullIfEmpty(in.Ref), in.BlastRadius,
-	).Scan(&out.ID, &out.Note, &out.BlastRadius, &out.RecordedAt); err != nil {
+		DO UPDATE SET blast_radius = COALESCE(self_review_findings.blast_radius, EXCLUDED.blast_radius),
+		              severity = COALESCE(self_review_findings.severity, EXCLUDED.severity)
+		RETURNING id, note, blast_radius, COALESCE(severity, ''), recorded_at
+	`, projectKey, in.Change, in.Angle, in.Note, in.Disposition, nullIfEmpty(in.Ref), in.BlastRadius, nullIfEmpty(in.Severity),
+	).Scan(&out.ID, &out.Note, &out.BlastRadius, &out.Severity, &out.RecordedAt); err != nil {
 		return records.SelfReviewFinding{}, fmt.Errorf("store: record self-review finding for %s/%s: %w", projectKey, in.Change, err)
 	}
 	return out, nil
@@ -70,7 +78,7 @@ func (s *Store) RecordSelfReviewFinding(ctx context.Context, projectKey string, 
 // order they were recorded.
 func (s *Store) ListSelfReviewFindings(ctx context.Context, projectKey, change string) ([]records.SelfReviewFinding, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, change, angle, note, disposition, COALESCE(ref, ''), blast_radius, recorded_at
+		SELECT id, change, angle, note, disposition, COALESCE(ref, ''), blast_radius, COALESCE(severity, ''), recorded_at
 		FROM self_review_findings
 		WHERE project_key = $1 AND change = $2
 		ORDER BY id
@@ -83,7 +91,7 @@ func (s *Store) ListSelfReviewFindings(ctx context.Context, projectKey, change s
 	out := []records.SelfReviewFinding{}
 	for rows.Next() {
 		var f records.SelfReviewFinding
-		if err := rows.Scan(&f.ID, &f.Change, &f.Angle, &f.Note, &f.Disposition, &f.Ref, &f.BlastRadius, &f.RecordedAt); err != nil {
+		if err := rows.Scan(&f.ID, &f.Change, &f.Angle, &f.Note, &f.Disposition, &f.Ref, &f.BlastRadius, &f.Severity, &f.RecordedAt); err != nil {
 			return nil, fmt.Errorf("store: list self-review findings for %s/%s: scan: %w", projectKey, change, err)
 		}
 		out = append(out, f)

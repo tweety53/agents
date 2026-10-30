@@ -640,6 +640,8 @@ th button {
 .lb-kpi > * { min-width: 0; }
 .lb-kpi:last-child { border-right: 0; }
 .lb-kpi-val { font-size: 22px; font-weight: 600; }
+.lb-kpi-groups { display: grid; grid-template-columns: 4fr 3fr; gap: 12px; }
+@media (max-width: 720px) { .lb-kpi-groups { grid-template-columns: minmax(0, 1fr); } }
 .lb-kpi:first-child .lb-kpi-val { font-size: 15px; padding-top: 6px; }
 .lb-hint { font-size: 11.5px; color: var(--text-muted); }
 .lb-legend { display: flex; gap: 12px; text-transform: none; letter-spacing: 0; font-weight: 400; flex-wrap: wrap; }

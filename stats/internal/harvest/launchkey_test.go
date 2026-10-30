@@ -8,7 +8,7 @@ import "testing"
 // explore-1..3 kept no agent id, so their cost stayed unattributed).
 func TestLaunchKeyNamesAPlannersAgentRow(t *testing.T) {
 	for desc, want := range map[string]string{
-		"plan-1 design round — explore-1 store and CLI": "explore-1",
+		"plan-1 design round — explore-1 store and CLI":  "explore-1",
 		"plan-1 design round — design-4 simplest design": "design-4",
 		"explore-2 board SPA":                            "explore-2",
 		"plan-2 design round":                            "plan-2",

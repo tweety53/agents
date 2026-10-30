@@ -714,6 +714,14 @@ type stateBoardRowDTO struct {
 	SelfReviewReviewerRuns int `json:"selfReviewReviewerRuns"`
 	PanelRuns              int `json:"panelRuns"`
 	FullPanelRuns          int `json:"fullPanelRuns"`
+	// Critical, Important, Minor and their self-review twins count the
+	// change's findings by severity (store.LiveStateRow).
+	Critical            int `json:"critical"`
+	Important           int `json:"important"`
+	Minor               int `json:"minor"`
+	SelfReviewCritical  int `json:"selfReviewCritical"`
+	SelfReviewImportant int `json:"selfReviewImportant"`
+	SelfReviewMinor     int `json:"selfReviewMinor"`
 }
 
 // nextCommandFor maps a change's current pipeline state to the command that
@@ -889,6 +897,12 @@ func toStateBoardDTOs(rows []store.LiveStateRow, single bool) []stateBoardRowDTO
 			SelfReviewReviewerRuns: r.SelfReviewReviewerRuns,
 			PanelRuns:              r.PanelRuns,
 			FullPanelRuns:          r.FullPanelRuns,
+			Critical:               r.Critical,
+			Important:              r.Important,
+			Minor:                  r.Minor,
+			SelfReviewCritical:     r.SelfReviewCritical,
+			SelfReviewImportant:    r.SelfReviewImportant,
+			SelfReviewMinor:        r.SelfReviewMinor,
 		}
 	}
 	return out

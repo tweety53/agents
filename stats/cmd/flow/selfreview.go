@@ -33,11 +33,13 @@ usage: flow self-review finding [-addr url] [-timeout dur] [-C dir]
                               -change name -angle label
                               -disposition fixed|filed|declined|noted -note text
                               [-ref sha|KEY] [-blast-radius N]
+                              [-severity critical|important|minor]
 
 Records one self-review finding and its outcome (KAN-875): -ref is the
 landed sha for fixed, the issue key for filed and omitted for declined
 and noted;
--blast-radius is the finding's file count, omitted when none was counted.
+-blast-radius is the finding's file count, omitted when none was counted;
+-severity is the finding's grade, omitted when none was given.
 
 This is a write that never blocks: a store that cannot be reached, or
 that fails the write for any reason but a refusal, is one warning line on
@@ -154,6 +156,7 @@ func runSelfReviewFinding(ctx context.Context, args []string, stderr io.Writer) 
 	fset.StringVar(&in.Note, "note", "", "the finding, one line (required)")
 	fset.StringVar(&in.Ref, "ref", "", "the landed sha for fixed, the issue key for filed")
 	fset.IntVar(&blastRadius, "blast-radius", -1, "the finding's file count (optional)")
+	fset.StringVar(&in.Severity, "severity", "", "critical, important or minor (optional)")
 
 	projectKey, _, code := parseSelfReviewFlags(fset, &f, args, stderr)
 	if code >= 0 {

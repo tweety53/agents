@@ -3,6 +3,7 @@ package store_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -273,5 +274,31 @@ func TestSelfReviewFindingsMigrationCollapsesRepeats(t *testing.T) {
 	}
 	if got[0].BlastRadius == nil || *got[0].BlastRadius != 16 {
 		t.Errorf("kept row's blast radius = %v, want 16, the first non-null among its repeats", got[0].BlastRadius)
+	}
+}
+
+// TestRecordSelfReviewFindingSeverity pins the optional severity: recorded
+// and listed back lowercased, empty when omitted, and refused outside
+// critical, important and minor.
+func TestRecordSelfReviewFindingSeverity(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-sr-sev-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	in := records.SelfReviewFinding{Change: "kan-1", Angle: "review", Note: "n1", Disposition: "noted", Severity: "Important"}
+	if _, err := st.RecordSelfReviewFinding(ctx, projectKey, in); err != nil {
+		t.Fatalf("RecordSelfReviewFinding: %v", err)
+	}
+	in.Note, in.Severity = "n2", ""
+	if _, err := st.RecordSelfReviewFinding(ctx, projectKey, in); err != nil {
+		t.Fatalf("RecordSelfReviewFinding(no severity): %v", err)
+	}
+	in.Note, in.Severity = "n3", "major"
+	if _, err := st.RecordSelfReviewFinding(ctx, projectKey, in); !errors.Is(err, store.ErrSelfReviewFindingInvalid) {
+		t.Errorf("severity major: err = %v, want ErrSelfReviewFindingInvalid", err)
+	}
+	got, err := st.ListSelfReviewFindings(ctx, projectKey, "kan-1")
+	if err != nil || len(got) != 2 || got[0].Severity != "important" || got[1].Severity != "" {
+		t.Fatalf("ListSelfReviewFindings = %+v, %v; want severities important, empty", got, err)
 	}
 }

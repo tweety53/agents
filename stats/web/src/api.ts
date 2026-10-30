@@ -331,6 +331,13 @@ export interface StateBoardRow {
   /** Main's review-panel rounds, and those that ran every slot its widest round did. */
   panelRuns: number;
   fullPanelRuns: number;
+  /** Main's panel findings, then the self-review's graded findings, by severity. */
+  critical: number;
+  important: number;
+  minor: number;
+  selfReviewCritical: number;
+  selfReviewImportant: number;
+  selfReviewMinor: number;
 }
 
 /** Mirrors costPerChangeRowDTO. */

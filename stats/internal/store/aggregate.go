@@ -107,6 +107,11 @@ type LiveStateRow struct {
 	// PanelRuns counts main's review-panel rounds (panel-<N>), FullPanelRuns
 	// those whose reviewers covered as many slots as its widest round did.
 	PanelRuns, FullPanelRuns int
+	// Critical, Important and Minor count main's panel findings by severity,
+	// its recorded synonyms folded in (blocking/severe, major/high, the rest);
+	// the SelfReview twins count the change's self-review findings graded so.
+	Critical, Important, Minor                               int
+	SelfReviewCritical, SelfReviewImportant, SelfReviewMinor int
 }
 
 // ActiveDispatch is one running subagent: its role, the plan task it works
@@ -144,7 +149,8 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 		       win.d1, win.d7, win.d30,
 		       open_run.stage, open_run.started_at, last_run.stage, last_run.ended_at, done.tasks, subs.list, roots.list, sr_roots.list, committed.list, seen.at, staged.n,
 		       sa.state, sa.detail, sa.updated_at, last_run.command, reqs.list,
-		       rev.fix_rounds, rev.reviewer_runs, rev.sr_fix_rounds, rev.sr_reviewer_runs, panels.runs, panels.full
+		       rev.fix_rounds, rev.reviewer_runs, rev.sr_fix_rounds, rev.sr_reviewer_runs, panels.runs, panels.full,
+		       cim.c, cim.i, cim.m, sr_cim.c, sr_cim.i, sr_cim.m
 		FROM changes c
 		LEFT JOIN LATERAL (
 			SELECT t.total_tasks
@@ -269,6 +275,20 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 				GROUP BY substring(d.dispatch_key FROM '^panel-(\d+)-')
 			) p
 		) panels ON true
+		LEFT JOIN LATERAL (
+			SELECT (COUNT(*) FILTER (WHERE lower(f.severity) IN ('critical', 'blocking', 'severe')))::int AS c,
+			       (COUNT(*) FILTER (WHERE lower(f.severity) IN ('important', 'major', 'high')))::int AS i,
+			       (COUNT(*) FILTER (WHERE lower(f.severity) NOT IN ('critical', 'blocking', 'severe', 'important', 'major', 'high')))::int AS m
+			FROM findings f
+			WHERE f.change_id = c.id
+		) cim ON true
+		LEFT JOIN LATERAL (
+			SELECT (COUNT(*) FILTER (WHERE s.severity = 'critical'))::int AS c,
+			       (COUNT(*) FILTER (WHERE s.severity = 'important'))::int AS i,
+			       (COUNT(*) FILTER (WHERE s.severity = 'minor'))::int AS m
+			FROM self_review_findings s
+			WHERE s.change = c.name
+		) sr_cim ON true
 		LEFT JOIN session_activity sa ON sa.session_id = COALESCE(open_run.session_id, last_run.session_id)
 		LEFT JOIN LATERAL (
 			SELECT CASE WHEN COUNT(*) = 0 THEN NULL
@@ -301,7 +321,8 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			&row.Cost24h, &row.Cost7d, &row.Cost30d,
 			&row.CurrentStage, &row.CurrentStageStartedAt, &row.LastStage, &row.LastStageEndedAt, &row.DoneTasks, &subs, &row.RepoRoots, &row.SelfReviewRoots, &row.CommittedTasks, &row.SessionSeenAt, &row.OpenStageDispatches,
 			&row.Activity, &row.ActivityDetail, &row.ActivitySince, &row.Command, &reqs,
-			&row.FixRounds, &row.ReviewerRuns, &row.SelfReviewFixRounds, &row.SelfReviewReviewerRuns, &row.PanelRuns, &row.FullPanelRuns); err != nil {
+			&row.FixRounds, &row.ReviewerRuns, &row.SelfReviewFixRounds, &row.SelfReviewReviewerRuns, &row.PanelRuns, &row.FullPanelRuns,
+			&row.Critical, &row.Important, &row.Minor, &row.SelfReviewCritical, &row.SelfReviewImportant, &row.SelfReviewMinor); err != nil {
 			return nil, fmt.Errorf("store: live state board: scan: %w", err)
 		}
 		if err := json.Unmarshal(subs, &row.Subagents); err != nil {

@@ -137,7 +137,7 @@ func TestSelfReviewFindingCLI(t *testing.T) {
 		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
 		return code, stdout.String(), stderr.String()
 	}
-	full := []string{"-change", "demo", "-angle", "myflow-fix", "-disposition", "fixed", "-ref", "abc1234", "-blast-radius", "3", "-note", "guard gap"}
+	full := []string{"-change", "demo", "-angle", "myflow-fix", "-disposition", "fixed", "-ref", "abc1234", "-blast-radius", "3", "-severity", "important", "-note", "guard gap"}
 
 	if code, _, stderr := finding(srv.URL, full...); code != 0 {
 		t.Fatalf("exit = %d, stderr: %s", code, stderr)
@@ -145,7 +145,7 @@ func TestSelfReviewFindingCLI(t *testing.T) {
 	if !strings.HasPrefix(gotPath, "/api/v1/self-review/") || !strings.HasSuffix(gotPath, "/demo/findings") {
 		t.Errorf("request path = %s", gotPath)
 	}
-	for k, want := range map[string]any{"angle": "myflow-fix", "disposition": "fixed", "ref": "abc1234", "blastRadius": float64(3), "note": "guard gap"} {
+	for k, want := range map[string]any{"angle": "myflow-fix", "disposition": "fixed", "ref": "abc1234", "blastRadius": float64(3), "severity": "important", "note": "guard gap"} {
 		if gotBody[k] != want {
 			t.Errorf("posted %s = %v, want %v", k, gotBody[k], want)
 		}

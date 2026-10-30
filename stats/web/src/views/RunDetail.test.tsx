@@ -659,6 +659,12 @@ describe("the reworked run view (kan-1048)", () => {
     selfReviewReviewerRuns: 2,
     panelRuns: 4,
     fullPanelRuns: 3,
+    critical: 1,
+    important: 4,
+    minor: 7,
+    selfReviewCritical: 0,
+    selfReviewImportant: 2,
+    selfReviewMinor: 5,
     costUsd: 6.5,
     wallClockMs: 0,
     errors: 0,
@@ -774,7 +780,8 @@ describe("the reworked run view (kan-1048)", () => {
     const tasks = screen.getByRole("region", { name: "Tasks" });
     // Plans stack in their own column, beside the agents and work panels, right under the KPI strip.
     const work = tasks.closest(".lb-work")!;
-    expect(work.previousElementSibling).toHaveAttribute("aria-label", "Run totals");
+    expect(work.previousElementSibling).toHaveClass("lb-kpi-groups");
+    expect(work.previousElementSibling!.previousElementSibling).toHaveAttribute("aria-label", "Run totals");
     const [left, right] = [...work.children];
     expect([...left.children].map((e) => e.getAttribute("aria-label"))).toEqual(["Agents", "Main", "Self-review"]);
     expect(right).toContainElement(tasks);
@@ -790,10 +797,18 @@ describe("the reworked run view (kan-1048)", () => {
     expect(tasks).toHaveTextContent("● 2. Board card");
     expect(tasks).toHaveTextContent("◻ 3. Run view");
     expect(screen.queryByRole("group", { name: "Failed runs" })).not.toBeInTheDocument();
-    expect(kpi("Fix rounds")).toHaveTextContent("3 · 1");
-    expect(kpi("Reviewer runs")).toHaveTextContent("9 · 2");
-    expect(kpi("Reviewer runs")).toHaveTextContent("main · self-review");
-    expect(kpi("Full panel runs")).toHaveTextContent("3of 4 panel rounds");
+    // Main's and the self-review's totals, each in its own labelled group.
+    const group = (name: string) => within(screen.getByRole("region", { name }));
+    const main = group("Main totals");
+    const sr = group("Self-review totals");
+    expect(main.getByRole("group", { name: "Fix rounds" })).toHaveTextContent("3");
+    expect(main.getByRole("group", { name: "Full panel runs" })).toHaveTextContent("3of 4 panel rounds");
+    expect(main.getByRole("group", { name: "Reviewer runs" })).toHaveTextContent("9");
+    expect(main.getByRole("group", { name: "Findings" })).toHaveTextContent("C 1 · I 4 · M 7");
+    expect(sr.getByRole("group", { name: "Fix rounds" })).toHaveTextContent("1");
+    expect(sr.getByRole("group", { name: "Reviewer runs" })).toHaveTextContent("2");
+    expect(sr.getByRole("group", { name: "Findings" })).toHaveTextContent("C 0 · I 2 · M 5");
+    expect(sr.queryByRole("group", { name: "Full panel runs" })).toBeNull();
     // Cost by stage: summed per stage, largest first, in plain words.
     const rail = screen.getByRole("region", { name: "Cost by stage" });
     expect(within(rail).getAllByText(/^(Implementing tasks|Designing the change|Starting up)$/).map((e) => e.textContent)).toEqual([

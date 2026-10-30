@@ -431,14 +431,16 @@ var (
 // noted.
 // BlastRadius is the finding's file count, nil when none was counted.
 type SelfReviewFinding struct {
-	ID          int64     `json:"id"`
-	Change      string    `json:"change"`
-	Angle       string    `json:"angle"`
-	Note        string    `json:"note"`
-	Disposition string    `json:"disposition"`
-	Ref         string    `json:"ref,omitempty"`
-	BlastRadius *int      `json:"blastRadius,omitempty"`
-	RecordedAt  time.Time `json:"recordedAt"`
+	ID          int64  `json:"id"`
+	Change      string `json:"change"`
+	Angle       string `json:"angle"`
+	Note        string `json:"note"`
+	Disposition string `json:"disposition"`
+	Ref         string `json:"ref,omitempty"`
+	BlastRadius *int   `json:"blastRadius,omitempty"`
+	// Severity is critical, important or minor, empty when none was graded.
+	Severity   string    `json:"severity,omitempty"`
+	RecordedAt time.Time `json:"recordedAt"`
 }
 
 // Hazard is a proactive, per-project warning a dispatch bundle carries
