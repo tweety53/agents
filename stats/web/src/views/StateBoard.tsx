@@ -19,6 +19,7 @@ import { projectLabel } from "../lib/projectLabel";
 import { agentsDone, lastAction, mainAction, runningTask } from "../lib/runningTask";
 import { effectiveActivity, sessionAlive } from "../lib/sessionAlive";
 import { stageLabel } from "../lib/stageLabel";
+import { currentRequest, interactiveWaiting, isInteractive, lastEndedRequest } from "../lib/interactive";
 
 const REFRESH_MS = 5000;
 const EPOCH = new Date(0);
@@ -75,15 +76,17 @@ function isPipelineFix(row: StateBoardRow): boolean {
 }
 
 function needsOperator(row: StateBoardRow): boolean {
+  // An interactive session between requests is at its normal rest, not waiting on the operator.
+  if (isInteractive(row) && interactiveWaiting(row)) return false;
   const activity = effectiveActivity(row);
   return activity !== undefined && activity !== "working" && activity !== "waiting";
 }
 
-/** The change's phase, coloured by its stored state, which the title names. */
-export function StatePill({ row }: { row: Parameters<typeof phase>[0] }) {
+/** The change's phase, coloured by its stored state, which the title names; an unfinished interactive session reads Interactive. */
+export function StatePill({ row }: { row: Parameters<typeof phase>[0] & Pick<StateBoardRow, "command"> }) {
   return (
     <span className={`lb-pill ${row.state}`} title={`state ${row.state}`}>
-      {phase(row)}
+      {isInteractive(row) && row.state !== "FINISHED" ? "Interactive" : phase(row)}
     </span>
   );
 }
@@ -116,9 +119,11 @@ function Chip({ on, onClick, title, children }: { on: boolean; onClick: () => vo
 }
 
 function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
+  if (isInteractive(row) && interactiveWaiting(row)) return <WaitingCard row={row} now={now} />;
   const { done, total } = taskCount(row);
   const review = row.selfReviewTasks;
-  const task = runningTask(row);
+  const request = isInteractive(row) ? currentRequest(row) : undefined;
+  const task = request ? `Request ${request.n}: ${request.title}` : runningTask(row);
   const alive = sessionAlive(row, now);
   // The main session while a stage is open or it works between stages, plus its subagents.
   const subagentCount = (row.subagents ?? []).filter((d) => !d.inline).length;
@@ -174,8 +179,49 @@ function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
       <div className="lb-meta">
         <span title={row.projectKey}>{projectLabel(row.projectKey)}</span>
         <span className="lb-num">
-          tasks {total === undefined ? "—" : `${done}/${total}`}
+          {isInteractive(row) ? "requests" : "tasks"} {total === undefined ? "—" : `${done}/${total}`}
           {review && ` · self-review tasks ${review.filter((t) => t.state === "done").length}/${review.length}`} · {formatUsd(row.costUsd)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** An interactive session between requests: a ring, how long since its last stage ended, and its latest ended request. */
+function WaitingCard({ row, now }: { row: StateBoardRow; now: number }) {
+  const { done, total } = taskCount(row);
+  const last = lastEndedRequest(row);
+  return (
+    <div
+      className="lb-card"
+      data-testid="running-card"
+      role="button"
+      tabIndex={0}
+      aria-label={row.name}
+      onClick={() => openRun(row)}
+      onKeyDown={(e) => e.key === "Enter" && openRun(row)}
+    >
+      <div className="lb-top">
+        <span className="lb-name">{row.name}</span>
+        <StatePill row={row} />
+      </div>
+      <div className="lb-stage">
+        <span className="lb-ring" />
+        <span>Waiting for the next request</span>
+        {row.lastStageEndedAt && <span className="lb-muted">· {formatSpan(now - Date.parse(row.lastStageEndedAt))}</span>}
+      </div>
+      {last && (
+        <div className="lb-task-now lb-muted" data-testid="running-task">
+          Last: Request {last.n} {last.outcome} — {last.title}
+        </div>
+      )}
+      <div className="lb-prog">
+        <span style={{ width: total ? `${(done / total) * 100}%` : "0%" }} />
+      </div>
+      <div className="lb-meta">
+        <span title={row.projectKey}>{projectLabel(row.projectKey)}</span>
+        <span className="lb-num">
+          requests {done}/{total ?? 0} · {formatUsd(row.costUsd)}
         </span>
       </div>
     </div>

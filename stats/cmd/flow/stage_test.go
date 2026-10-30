@@ -2059,3 +2059,97 @@ func TestStageEndRefusesOpenSelfReviewPass(t *testing.T) {
 		})
 	}
 }
+
+// TestStageEndRefusesOpenSelfReviewPassInteractive: the open-pass gate covers
+// a /flow-interactive flow.self-review end too (self-review-gate-interactive).
+func TestStageEndRefusesOpenSelfReviewPassInteractive(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	for _, tc := range []struct {
+		name, record string
+		code         int
+	}{
+		{"open pass", `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"self-review-kan-16-pass","role":"reviewer","model":"opus","sessionToken":"self-review-kan-16","startedAt":"2026-10-29T13:57:00Z"}],"findings":[],"passes":[],"mutations":[]}`, 1},
+		{"ended pass", `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"self-review-kan-16-pass","role":"reviewer","model":"opus","sessionToken":"self-review-kan-16","startedAt":"2026-10-29T13:57:00Z","endedAt":"2026-10-29T14:09:00Z"}],"findings":[],"passes":[],"mutations":[]}`, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				if strings.HasPrefix(r.URL.Path, "/api/v1/records/") {
+					_, _ = w.Write([]byte(tc.record))
+					return
+				}
+				_, _ = w.Write([]byte(`{"stageRunId":42,"attempt":1}`))
+			}))
+			defer srv.Close()
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+					"-command", "/flow-interactive", "-stage", "flow.self-review",
+					"-outcome", "completed", "kan-16"},
+				strings.NewReader(""), &stdout, &stderr)
+			if code != tc.code {
+				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.code, stderr.String())
+			}
+			if tc.code == 1 && !strings.Contains(stderr.String(), "flow record dispatch end -key self-review-kan-16-pass -session-token self-review-kan-16") {
+				t.Errorf("stderr = %q, want the end call that closes the pass row", stderr.String())
+			}
+		})
+	}
+}
+
+// TestStageBeginRequestFlag pins `stage begin -request <n>` (KAN-1061):
+// with -command /flow-interactive it sends "request"; with any other
+// command, or a non-positive value, it exits 2 naming the flag and sends
+// nothing.
+func TestStageBeginRequestFlag(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var bodies [][]byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		b, err := readAll(r)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+		bodies = append(bodies, b)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":7,"attempt":1}`))
+	}))
+	defer srv.Close()
+
+	begin := func(command, request string) (int, string) {
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), []string{
+			"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", command, "-stage", "flow.sdd-tdd", "-request", request,
+			"-harness", "claude-code", "-session-token", "fi-request-flag-20261030T100000Z",
+			"kan-1061",
+		}, strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String()
+	}
+
+	if code, stderr := begin("/flow-interactive", "3"); code != 0 {
+		t.Fatalf("-request 3 on /flow-interactive exit = %d, want 0; stderr:\n%s", code, stderr)
+	}
+	if len(bodies) != 1 {
+		t.Fatalf("daemon got %d requests, want 1", len(bodies))
+	}
+	var got map[string]any
+	if err := json.Unmarshal(bodies[0], &got); err != nil {
+		t.Fatalf("decode %s: %v", bodies[0], err)
+	}
+	if got["request"] != float64(3) {
+		t.Errorf("request = %v, want 3; body %s", got["request"], bodies[0])
+	}
+
+	for _, tc := range []struct{ command, request string }{{"/flow", "3"}, {"/flow-interactive", "-1"}, {"/flow-interactive", "0"}} {
+		code, stderr := begin(tc.command, tc.request)
+		if code != 2 || !strings.Contains(stderr, "-request") {
+			t.Errorf("-command %s -request %s exit = %d, want 2 naming -request; stderr:\n%s", tc.command, tc.request, code, stderr)
+		}
+	}
+	if len(bodies) != 1 {
+		t.Errorf("daemon got %d requests, want only the accepted one", len(bodies))
+	}
+}

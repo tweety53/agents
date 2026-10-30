@@ -147,6 +147,14 @@ type RecordStore interface {
 	RecordTaskCount(ctx context.Context, projectKey, change string, in records.TaskCount) (records.TaskCount, error)
 	ListTaskCounts(ctx context.Context, projectKey, change string) ([]records.TaskCount, error)
 
+	// BeginRequest, EndRequest and ListRequests are KAN-1061's
+	// /flow-interactive request rows, on RecordStore beside the guard-log
+	// writes: a journalled request-begin or request-end replays through
+	// ApplyRequestBegin/ApplyRequestEnd against this interface.
+	BeginRequest(ctx context.Context, projectKey, change string, in records.RequestBegin) (records.Request, error)
+	EndRequest(ctx context.Context, projectKey, change string, in records.RequestEnd) (records.Request, error)
+	ListRequests(ctx context.Context, projectKey, change string) ([]records.Request, error)
+
 	// ProjectRoots is the registered-checkouts read the lessons-resolve
 	// handler calls -- on RecordStore for the reason ChangeSummary states:
 	// the handler is wired with the same store value as the record routes,

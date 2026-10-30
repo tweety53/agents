@@ -2171,3 +2171,65 @@ func TestLiveStateBoardCarriesSelfReviewRoots(t *testing.T) {
 		t.Errorf("RepoRoots = %v, want the project's main checkout last", rows[0].RepoRoots)
 	}
 }
+
+// TestLiveStateBoardCarriesCommandAndRequests pins the board's interactive
+// inputs (KAN-1061): a change whose latest stage run is /flow-interactive
+// reads that Command and its requests in n order, each State derived (an
+// ended one its outcome, one a stage run carries in progress, any other
+// queued); a /flow change reads /flow and no requests.
+func TestLiveStateBoardCarriesCommandAndRequests(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-board-requests-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-int")
+	seedChange(t, st, projectKey, "kan-flow")
+
+	at := time.Date(2026, 8, 13, 9, 0, 0, 0, time.UTC)
+	for n, title := range map[int]string{3: "third", 1: "first", 2: "second"} {
+		if _, err := st.BeginRequest(ctx, projectKey, "kan-int", records.RequestBegin{N: n, Title: title, ReceivedAt: &at}); err != nil {
+			t.Fatalf("BeginRequest %d: %v", n, err)
+		}
+	}
+	if _, err := st.EndRequest(ctx, projectKey, "kan-int", records.RequestEnd{N: 1, Outcome: "landed", CommitSHA: "abc", BaseSHA: "def", EndedAt: &at}); err != nil {
+		t.Fatalf("EndRequest: %v", err)
+	}
+	tagged := baseBeginInput(projectKey, "kan-int", "/flow-interactive", "flow.sdd-tdd")
+	tagged.RequestN = ptr(2)
+	if _, err := st.BeginStage(ctx, tagged); err != nil {
+		t.Fatalf("BeginStage interactive: %v", err)
+	}
+	if _, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-flow", "/flow", "flow.sdd-tdd")); err != nil {
+		t.Fatalf("BeginStage /flow: %v", err)
+	}
+
+	period := store.Period{From: time.Date(2026, 8, 13, 0, 0, 0, 0, time.UTC), To: time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC)}
+	rows, err := st.LiveStateBoard(ctx, period, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("LiveStateBoard: %v", err)
+	}
+	byName := map[string]store.LiveStateRow{}
+	for _, r := range rows {
+		byName[r.Name] = r
+	}
+
+	in := byName["kan-int"]
+	if in.Command == nil || *in.Command != "/flow-interactive" {
+		t.Errorf("kan-int Command = %v, want /flow-interactive", in.Command)
+	}
+	var got []string
+	for _, r := range in.Requests {
+		got = append(got, fmt.Sprintf("%d %s %s %s", r.N, r.Title, r.State, r.CommitSHA))
+	}
+	want := []string{"1 first landed abc", "2 second in progress ", "3 third queued "}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("kan-int requests = %q, want %q", got, want)
+	}
+
+	fl := byName["kan-flow"]
+	if fl.Command == nil || *fl.Command != "/flow" {
+		t.Errorf("kan-flow Command = %v, want /flow", fl.Command)
+	}
+	if len(fl.Requests) != 0 {
+		t.Errorf("kan-flow requests = %+v, want none", fl.Requests)
+	}
+}

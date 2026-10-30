@@ -52,6 +52,13 @@ const (
 // not even parse as JSON. It is the CLI's fallback trigger.
 var ErrUnavailable = errors.New("client: store unavailable")
 
+// ErrDaemonAnswered marks an ErrUnavailable that the genuine daemon itself
+// produced -- a non-200 status or an unparseable body carrying the daemon
+// header. It wraps alongside ErrUnavailable, so callers falling back on
+// ErrUnavailable are unchanged; a caller that may skip a read only when the
+// store cannot be reached (the request-end guard) refuses on it instead.
+var ErrDaemonAnswered = errors.New("client: the store answered")
+
 // ErrRefused means the store was reached and correctly refused the write
 // because it would move the record's state backwards (HTTP 409, mapping
 // store.ErrMonotonicViolation -- see internal/api/changes.go's put doc
@@ -598,6 +605,10 @@ func (c *Client) FindState(ctx context.Context, name string) ([]StateChange, err
 type StageRunRow struct {
 	SessionID *string `json:"sessionId,omitempty"`
 	Outcome   *string `json:"outcome,omitempty"`
+	// Request and StartedAt let a caller pick a request's latest run
+	// (KAN-1061's request-end guard).
+	Request   *int   `json:"request,omitempty"`
+	StartedAt string `json:"startedAt"`
 }
 
 // ListStageRuns reads a change's stage runs of one command and stage
@@ -616,13 +627,13 @@ func (c *Client) ListStageRuns(ctx context.Context, project, change, command, st
 		return nil, fmt.Errorf("%w: response missing %s header -- not trusted as a store answer", ErrUnavailable, daemonHeaderName)
 	}
 	if status != http.StatusOK {
-		return nil, fmt.Errorf("%w: unexpected status %d", ErrUnavailable, status)
+		return nil, fmt.Errorf("%w: %w: unexpected status %d", ErrUnavailable, ErrDaemonAnswered, status)
 	}
 	var wire struct {
 		StageRuns []StageRunRow `json:"stageRuns"`
 	}
 	if err := json.Unmarshal(body, &wire); err != nil {
-		return nil, fmt.Errorf("%w: response body is not valid JSON", ErrUnavailable)
+		return nil, fmt.Errorf("%w: %w: response body is not valid JSON", ErrUnavailable, ErrDaemonAnswered)
 	}
 	return wire.StageRuns, nil
 }
@@ -660,6 +671,9 @@ type BeginStageRequest struct {
 	// JiraKey, with ChangeName empty, records a /flow-plan session that
 	// has no change yet -- accepted for the plan.session stage only.
 	JiraKey string
+	// Request tags the run with the /flow-interactive request it works on
+	// (KAN-1061); nil for every other run.
+	Request *int
 }
 
 // BeginStageResult identifies the stage run the daemon created, so a later
@@ -720,6 +734,7 @@ type beginStageWireRequest struct {
 	Stage            string  `json:"stage"`
 	StartedAt        string  `json:"startedAt"`
 	JiraKey          string  `json:"jiraKey,omitempty"`
+	Request          *int    `json:"request,omitempty"`
 }
 
 type stageRunWireResponse struct {
@@ -828,6 +843,7 @@ func (c *Client) BeginStage(ctx context.Context, in BeginStageRequest) (BeginSta
 		Stage:            in.Stage,
 		StartedAt:        in.StartedAt.UTC().Format(time.RFC3339Nano),
 		JiraKey:          in.JiraKey,
+		Request:          in.Request,
 	}
 	respBody, status, err := c.sendJSON(ctx, http.MethodPost, c.stagesBeginURL(), wire)
 	if err != nil {
@@ -1374,6 +1390,47 @@ func (c *Client) ListIncidents(ctx context.Context, project string) ([]records.I
 		return nil, err
 	}
 	var out []records.Incident
+	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// --- /flow-interactive requests (KAN-1061) ----------------------------------
+
+// BeginRequest records a request's receipt for project/change -- an upsert
+// by its n -- and returns the stored row.
+func (c *Client) BeginRequest(ctx context.Context, project, change string, in records.RequestBegin) (records.Request, error) {
+	var out records.Request
+	if _, err := c.writeRecord(ctx, http.MethodPost, c.recordsURL(project, change)+"/requests", in,
+		map[int]bool{http.StatusOK: true}, &out); err != nil {
+		return records.Request{}, err
+	}
+	return out, nil
+}
+
+// EndRequest records a request's end for project/change and returns the
+// stored row.
+func (c *Client) EndRequest(ctx context.Context, project, change string, in records.RequestEnd) (records.Request, error) {
+	var out records.Request
+	if _, err := c.writeRecord(ctx, http.MethodPost, c.recordsURL(project, change)+"/requests/end", in,
+		map[int]bool{http.StatusOK: true}, &out); err != nil {
+		return records.Request{}, err
+	}
+	return out, nil
+}
+
+// ListRequests reads project/change's requests in n order.
+func (c *Client) ListRequests(ctx context.Context, project, change string) ([]records.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.recordsURL(project, change)+"/requests", nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+	respBody, status, err := c.send(req)
+	if err != nil {
+		return nil, err
+	}
+	var out []records.Request
 	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
 		return nil, err
 	}

@@ -569,6 +569,7 @@ th button {
 .lb-live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--status-ok); display: inline-block; flex-shrink: 0; box-shadow: 0 0 0 0 var(--status-ok); animation: lb-pulse 1.6s infinite; }
 @keyframes lb-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--status-ok) 60%, transparent); } 100% { box-shadow: 0 0 0 8px transparent; } }
 @media (prefers-reduced-motion: reduce) { .lb-live-dot { animation: none; } }
+.lb-ring { width: 8px; height: 8px; border-radius: 50%; border: 2px solid var(--text-muted); display: inline-block; flex-shrink: 0; }
 
 .lb-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
 .lb-tile { background: var(--surface-panel); border: 1px solid var(--border); border-radius: var(--panel-radius); padding: 10px 12px; text-align: left;
@@ -585,7 +586,7 @@ th button {
 .lb-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 10px; }
 .lb-card { min-width: 0; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--panel-radius); padding: 10px 12px;
   display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; cursor: pointer; }
-.lb-card:hover { border-color: var(--st-progress); }
+.lb-card:hover, .lb-card:focus-visible { border-color: var(--st-progress); outline: none; }
 .lb-card > * { min-width: 0; }
 .lb-card.needs { border-color: var(--series-3); }
 .lb-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -708,6 +709,7 @@ th button {
 @keyframes lb-blink { to { visibility: hidden; } }
 @media (prefers-reduced-motion: reduce) { .lb-dot { animation: none; } }
 .lb-task-now { font-size: 12px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-task-now.lb-muted { color: var(--text-muted); }
 .lb-timeline text.lb-lane.upcoming { fill: var(--text-muted); font-style: italic; }
 
 /* Run view phase panels: one header row (name, status chip, steps, active time, cost), fixed
@@ -748,11 +750,16 @@ th button {
 .lb-runs col.c-dur { width: 72px; }
 .lb-runs col.c-tok { width: 80px; }
 .lb-runs col.c-cost { width: 72px; }
+/* An interactive session's table sizes each column to its content, as the prototype's does, so no Stage cell clips. */
+.lb-runs:has(col.c-rq) { min-width: 0; table-layout: auto; }
+.lb-runs:has(col.c-rq) col { width: auto; }
 /* clip, not hidden: a hidden cell is a scroll container, which focusing its expander scrolls sideways by its padding. */
 .lb-runs td { overflow: clip; text-overflow: ellipsis; }
 /* Work panels stacked left, their plans stacked right, each card its own height; one stack in panel, plan order when narrow. */
 .lb-work { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); gap: 10px; align-items: start; }
 .lb-work-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+/* An interactive session's work area: the prototype's `.work` 3fr/2fr columns. */
+.lb-work.lb-work-interactive { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
 .lb-phase-main { min-width: 0; }
 .lb-tasks-panel .lb-tasks li { overflow-wrap: anywhere; }
 .lb-tasks-panel.collapsed > .lb-panel-h { border-bottom: 0; }
@@ -781,6 +788,21 @@ th button {
 .lb-run .lb-phase-sum { padding: 5px 10px 0; }
 .lb-run .lb-roles { padding: 3px 10px 5px; }
 .lb-run .lb-tasks { padding: 4px 10px; }
+/* An interactive session's run view (KAN-1061), from its approved prototype. */
+.lb-reqs { list-style: none; margin: 0; padding: 6px 12px; display: grid; gap: 3px; font-size: 12px; line-height: 1.35; }
+.lb-reqs li { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 6px; align-items: baseline; }
+.lb-reqs .t { overflow-wrap: anywhere; }
+.lb-reqs .landed { color: var(--text-muted); } .lb-reqs .landed .m { color: var(--status-ok); }
+.lb-reqs .answered { color: var(--text-muted); } .lb-reqs .answered .m { color: var(--series-1); }
+.lb-reqs .dropped { color: var(--text-muted); } .lb-reqs .dropped .t { text-decoration: line-through; }
+.lb-reqs .current { font-weight: 600; } .lb-reqs .current .m { color: var(--status-ok); }
+.lb-reqs .queued .m { color: var(--text-muted); }
+.lb-reqs .why { grid-column: 2 / 4; font-size: 11px; color: var(--series-3); font-weight: 400; }
+.lb-steps { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
+.lb-steps li { font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted); }
+.lb-steps li.done { color: var(--status-ok); border-color: var(--status-ok); }
+.lb-steps li.cur { color: var(--st-progress); border-color: var(--st-progress); font-weight: 600; }
+.lb-runs .lb-rq { color: var(--text-secondary); font-family: var(--font-mono); }
 
 /* A long free-text detail (a Bash command line) cut to one line, whole on hover. */
 /* min-width lets a flex item shrink below its text; max-width lets a table cell. */

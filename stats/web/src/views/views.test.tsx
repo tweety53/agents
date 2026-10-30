@@ -963,6 +963,98 @@ describe("views render their fixture response's actual values", () => {
 
 });
 
+describe("interactive session card", () => {
+  const minutesAgo = (m: number) => new Date(BOARD_NOW.getTime() - m * 60000).toISOString();
+  const base = { updatedBy: "flow", nextCommand: "/flow", runCount: 1, cost24h: 0, cost7d: 0, cost30d: 0, wallClockMs: 0, errors: 0, updatedAt: minutesAgo(1) };
+  const running = {
+    ...base,
+    projectKey: "agents",
+    name: "kan-1072-interactive-session-2026-10-30",
+    state: "STARTED",
+    command: "/flow-interactive",
+    costUsd: 4.12,
+    currentStage: "flow.sdd-tdd",
+    currentStageStartedAt: minutesAgo(3),
+    lastStage: "flow.sdd-tdd",
+    activity: "working",
+    activityDetail: "Edit: stats/web/src/lib/phase.ts",
+    tasks: [
+      { n: 1, title: "Why no effort in stage runs?", state: "done", outcome: "landed", commit: "a41c9e2" },
+      { n: 2, title: 'Rename "Running now" to "Active runs"', state: "done", outcome: "landed", commit: "0b7d113" },
+      { n: 3, title: 'What does "Errors" mean?', state: "done", outcome: "answered" },
+      { n: 4, title: "Count cache reads in input tokens", state: "done", outcome: "landed", commit: "9f3c2ab" },
+      { n: 5, title: "Move the cost rail to the left", state: "done", outcome: "dropped" },
+      { n: 6, title: "Show the task list and the running agents", state: "done", outcome: "landed", commit: "c18a6d0", reason: "new store fields and two panels" },
+      { n: 7, title: "Show the stage's model on the Agents row", state: "in progress" },
+      { n: 8, title: "Remove the tool errors column", state: "pending" },
+    ],
+  };
+  const waiting = {
+    ...base,
+    projectKey: "gymie",
+    name: "kan-1073-interactive-session-2026-10-30",
+    state: "STARTED",
+    command: "/flow-interactive",
+    costUsd: 1.87,
+    lastStage: "flow.visual-verify",
+    lastStageEndedAt: minutesAgo(6),
+    activity: "idle",
+    activitySince: minutesAgo(6),
+    tasks: [
+      { n: 1, title: "Show the streak", state: "done", outcome: "landed", commit: "1111111" },
+      { n: 2, title: "Widen the chart", state: "done", outcome: "landed", commit: "2222222" },
+      { n: 3, title: "Hide the empty streak row", state: "done", outcome: "landed", commit: "3333333" },
+    ],
+  };
+  const flow = {
+    ...base,
+    projectKey: "agents",
+    name: "kan-1068-flow-plan-gate-summary",
+    state: "STARTED",
+    command: "/flow",
+    costUsd: 9.4,
+    currentStage: "flow.sdd-tdd",
+    currentStageStartedAt: minutesAgo(12),
+    tasks: [
+      { n: 1, title: "One", state: "done" },
+      { n: 2, title: "Two", state: "done" },
+      { n: 3, title: "Print the gate summary before the decision block", state: "pending" },
+      { n: 4, title: "Four", state: "pending" },
+    ],
+  };
+
+  it("interactive session card reads as the prototype draws it", async () => {
+    fetchStatsViewMock.mockImplementation(() => Promise.resolve(envelope("state-board", [running, waiting, flow])));
+    render(<StateBoard />);
+    const cards = await screen.findAllByTestId("running-card");
+    const card = (name: string) => cards.find((c) => c.getAttribute("aria-label") === name)!;
+
+    const r = card(running.name);
+    expect(within(r).getByText("Interactive")).toHaveClass("lb-pill");
+    expect(within(r).getByTestId("running-task")).toHaveTextContent("Request 7: Show the stage's model on the Agents row");
+    expect(r).toHaveTextContent("Implementing tasks · 3m · Edit: stats/web/src/lib/phase.ts");
+    expect(r).toHaveTextContent("requests 6/8 · $4.12");
+
+    const w = card(waiting.name);
+    expect(within(w).getByText("Interactive")).toHaveClass("lb-pill");
+    // Two spans, as the prototype draws them: the flex gap spaces them.
+    expect(within(w).getByText("Waiting for the next request").nextSibling).toHaveTextContent("· 6m");
+    expect(w.querySelector(".lb-ring")).not.toBeNull();
+    expect(within(w).getByTestId("running-task")).toHaveTextContent("Last: Request 3 landed — Hide the empty streak row");
+    expect(within(w).getByTestId("running-task")).toHaveClass("lb-muted");
+    expect(w).toHaveTextContent("requests 3/3 · $1.87");
+    expect(w).not.toHaveClass("needs");
+    expect(w.querySelector(".lb-act")).toBeNull();
+    expect(within(w).queryByTestId("agent-count")).toBeNull();
+    expect(w).not.toHaveTextContent("Paused after");
+
+    const f = card(flow.name);
+    expect(f).toHaveTextContent("tasks 2/4 · $9.40");
+    expect(within(f).getByText("Implementing")).toHaveClass("lb-pill");
+    expect(f).not.toHaveTextContent("requests");
+  });
+});
+
 describe("absence is rendered distinctly from a recorded zero", () => {
   it("a period before the store held anything is stated, not rendered as an empty measured table", async () => {
     fetchStatsViewMock.mockImplementation((view: StatsViewSlug) =>
@@ -1532,8 +1624,7 @@ describe("Experiments", () => {
     fetchExperimentStatsMock.mockReset().mockResolvedValue(stats(3, [{ name: "tokens", before: null, after: 60000 }]));
     render(<Experiments />);
     const trend = await screen.findByRole("region", { name: "Weekly trend — before vs after start" });
-    const lines = within(trend)
-      .getAllByRole("img")
+    const lines = (await within(trend).findAllByRole("img"))
       .map((c) => c.querySelector("[data-testid=mean-after]"))
       .filter(Boolean);
     expect(lines.length).toBeGreaterThan(0);

@@ -1204,3 +1204,137 @@ describe("the run view stays live", () => {
     expect(screen.getAllByRole("cell", { name: "SDD + TDD per task" }).length).toBeGreaterThan(0);
   });
 });
+
+describe("interactive run view", () => {
+  const NOW = new Date("2026-10-30T11:05:00Z");
+  const at = (m: number) => new Date(NOW.getTime() - m * 60000).toISOString();
+  const run = (id: number, stage: string, request: number, start: number, end?: number): StageRunDTO => ({
+    stageRunId: id, harness: "claude-code", sessionId: "s-1", command: "/flow-interactive", stage, attempt: 1, request,
+    startedAt: at(start), endedAt: end === undefined ? undefined : at(end), outcome: end === undefined ? undefined : "completed", metrics: { cost_usd: 0.1 },
+  });
+  const r6 = [
+    run(1, "flow.load-context", 6, 30, 28), run(2, "flow.sdd-tdd", 6, 28, 21), run(3, "flow.verify", 6, 21, 16),
+    run(4, "flow.landing-routes", 6, 16, 15), run(5, "flow.refresh-main-checkout", 6, 15, 13), run(6, "flow.visual-verify", 6, 13, 11),
+  ];
+  const r7 = [run(7, "flow.load-context", 7, 4, 3), run(8, "flow.sdd-tdd", 7, 3)];
+  const board = {
+    projectKey: PROJECT, name: CHANGE, state: "STARTED", command: "/flow-interactive", updatedAt: at(1), updatedBy: "flow", nextCommand: "/flow",
+    runCount: 8, costUsd: 4.12, wallClockMs: 0, errors: 0, cost24h: 0, cost7d: 0, cost30d: 0,
+    currentStage: "flow.sdd-tdd", currentStageStartedAt: at(3), lastStage: "flow.sdd-tdd", activity: "working", activityDetail: "Edit: stats/web/src/lib/phase.ts",
+    tasks: [
+      { n: 1, title: "Why no effort in stage runs?", state: "done", outcome: "landed", commit: "a41c9e2" },
+      { n: 2, title: 'Rename "Running now" to "Active runs"', state: "done", outcome: "landed", commit: "0b7d113" },
+      { n: 3, title: 'What does "Errors" mean?', state: "done", outcome: "answered" },
+      { n: 4, title: "Count cache reads in input tokens", state: "done", outcome: "landed", commit: "9f3c2ab" },
+      { n: 5, title: "Move the cost rail to the left", state: "done", outcome: "dropped" },
+      { n: 6, title: "Show the task list and the running agents", state: "done", outcome: "landed", commit: "c18a6d0", reason: "new store fields and two panels" },
+      { n: 7, title: "Show the stage's model on the Agents row", state: "in progress" },
+      { n: 8, title: "Remove the tool errors column", state: "pending" },
+    ],
+  };
+  const load = (runs: StageRunDTO[]) => {
+    listStageRunsMock.mockResolvedValue(stageRunsResponse(runs));
+    fetchStatsViewMock.mockImplementation((view: string) => Promise.resolve(view === "state-board" ? { ...aggregateEnvelope([]), view, rows: [board] } : aggregateEnvelope([])));
+  };
+  beforeEach(() => vi.useFakeTimers({ toFake: ["Date"], now: NOW }));
+  afterEach(() => vi.useRealTimers());
+
+  it("interactive run view draws the prototype's pill, Requests and Main panels", async () => {
+    load([...r6, ...r7]);
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const requests = await screen.findByRole("region", { name: "Requests" });
+    expect(screen.queryByRole("region", { name: "Tasks" })).toBeNull();
+    expect(screen.getByRole("heading", { level: 2 }).nextSibling).toHaveTextContent("Interactive");
+    expect(within(requests).getByText("6/8")).toBeInTheDocument();
+    const items = within(requests).getAllByRole("listitem");
+    expect(items.map((li) => li.textContent)).toEqual([
+      "✓1. Why no effort in stage runs?a41c9e2",
+      '✓2. Rename "Running now" to "Active runs"0b7d113',
+      '✓3. What does "Errors" mean?answered',
+      "✓4. Count cache reads in input tokens9f3c2ab",
+      "–5. Move the cost rail to the leftdropped",
+      "✓6. Show the task list and the running agentsc18a6d0brainstormed — new store fields and two panels",
+      "●7. Show the stage's model on the Agents row",
+      "○8. Remove the tool errors columnqueued",
+    ]);
+    expect(items[4]).toHaveClass("dropped");
+    expect(items[6]).toHaveAttribute("aria-current", "step");
+
+    const main = screen.getByRole("region", { name: "Main" });
+    expect(within(main).getByText("Request 7 · 4m")).toBeInTheDocument();
+    const steps = within(main).getAllByRole("listitem");
+    expect(steps.map((s) => `${s.textContent}:${s.className}`)).toEqual([
+      "Loading context:done",
+      "Implementing tasks:cur",
+      "Running lint and tests:",
+      "Landing the change:",
+      "Updating the main checkout:",
+      "Checking the UI:",
+    ]);
+    expect(screen.queryByRole("region", { name: "Self-review" })).toBeNull();
+    expect(screen.getByRole("group", { name: "Now running" })).toHaveTextContent("Request 7: Show the stage's model on the Agents row");
+  });
+
+  it("interactive run view lays Requests and Cost by stage in its right column", async () => {
+    load([...r6, ...r7]);
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const requests = await screen.findByRole("region", { name: "Requests" });
+    const col = (name: string) => screen.getByRole("region", { name }).closest(".lb-work-col");
+    const work = requests.closest(".lb-work");
+    expect(work).toHaveClass("lb-work-interactive");
+    const [left, right] = [...(work?.children ?? [])];
+    expect(col("Requests")).toBe(right);
+    expect(col("Cost by stage")).toBe(right);
+    for (const name of ["Agents", "Main", "Timeline", "Stage runs"]) expect(col(name)).toBe(left);
+    // Flex order, not DOM order, puts each panel where the prototype draws it.
+    const order = (name: string) => screen.getByRole("region", { name }).style.order;
+    expect(["Agents", "Main", "Timeline", "Stage runs"].map(order)).toEqual(["0", "1", "5", "6"]);
+    expect(["Requests", "Cost by stage"].map(order)).toEqual(["2", "7"]);
+  });
+
+  it("interactive run view draws the Agents status as the dot alone", async () => {
+    listStageRunsMock.mockResolvedValue(stageRunsResponse([...r6, ...r7]));
+    const subagents = [{ role: "implementer", taskId: "7", key: "request-7-implementer", model: "opus", startedAt: at(2) }];
+    fetchStatsViewMock.mockImplementation((view: string) =>
+      Promise.resolve(view === "state-board" ? { ...aggregateEnvelope([]), view, rows: [{ ...board, subagents }] } : aggregateEnvelope([])),
+    );
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const agents = await screen.findByRole("region", { name: "Agents" });
+    const rows = [...agents.querySelectorAll("tbody tr")];
+    // Main, waiting on it, and the running dispatch row: each status the dot alone.
+    expect(rows).toHaveLength(2);
+    const dot = (i: number, name: string, cls: string) => {
+      const status = rows[i].children[1] as HTMLElement;
+      expect(status.textContent).toBe("");
+      expect(within(status).getByRole("img", { name })).toHaveClass("lb-dot", cls);
+    };
+    dot(0, "waiting for subagents", "waiting");
+    dot(1, "running", "running");
+  });
+
+  it("interactive run view lists the latest 6 stage runs and no Show all chip", async () => {
+    load([...r6, ...r7]);
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const panel = await screen.findByRole("region", { name: "Stage runs" });
+    await waitFor(() => expect(panel.querySelectorAll("tr.lb-row")).toHaveLength(6));
+    expect(within(panel).queryByRole("button", { name: /Show all/ })).toBeNull();
+  });
+
+  it("interactive run view draws its Stage cells with no session-row indent", async () => {
+    load([...r6, ...r7]);
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const panel = await screen.findByRole("region", { name: "Stage runs" });
+    await waitFor(() => expect(panel.querySelectorAll("tr.lb-row")).toHaveLength(6));
+    const stages = [...panel.querySelectorAll("tr.lb-row td:nth-child(2)")];
+    expect(stages.map((td) => td.textContent)).toContain("Updating the main checkout");
+    for (const td of stages) expect(td.querySelector(".lb-expander")).toBeNull();
+  });
+
+  it("interactive run view adds Designing the change only when the request brainstormed", async () => {
+    load([...r6, run(7, "flow.load-context", 7, 4, 3), run(9, "flow.brainstorm", 7, 3, 2), run(8, "flow.sdd-tdd", 7, 2)]);
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const main = await screen.findByRole("region", { name: "Main" });
+    await waitFor(() => expect(within(main).getAllByRole("listitem").map((s) => s.textContent)).toContain("Designing the change"));
+    expect(within(main).getAllByRole("listitem")[1]).toHaveTextContent("Designing the change");
+  });
+});

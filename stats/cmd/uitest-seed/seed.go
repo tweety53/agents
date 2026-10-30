@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/records"
+	"github.com/tweety53/agents/stats/internal/stages"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -440,6 +442,9 @@ func seedFixture(ctx context.Context, st *store.Store) error {
 	if err := seedExperiments(ctx, st); err != nil {
 		return err
 	}
+	if err := seedInteractive(ctx, st); err != nil {
+		return err
+	}
 
 	for _, g := range guardFires() {
 		if _, err := st.RecordGuardRun(ctx, g.ProjectKey, records.GuardRun{
@@ -689,6 +694,159 @@ func seedExperiments(ctx context.Context, st *store.Store) error {
 			EndedAt: timePtr(x.at.Add(time.Duration(x.minutes) * time.Minute)),
 			Metrics: json.RawMessage(fmt.Sprintf(`{"tokens":{"main":{"input":%d,"output":%d}}}`, x.tokens*9/10, x.tokens/10))}); err != nil {
 			return fmt.Errorf("uitest-seed: record explorer dispatch for %s: %w", x.change, err)
+		}
+	}
+	return nil
+}
+
+// The prototype's two /flow-interactive sessions (KAN-1061,
+// .superpowers/sdd/planner/prototype-board.html), seeded under its change
+// names in uitest-alpha inside every spec's pinned period.
+const (
+	interactiveRunning = "kan-1072-interactive-session-2026-10-30"
+	interactiveWaiting = "kan-1073-interactive-session-2026-10-30"
+)
+
+// interactiveRun is one stage run of a seeded session: its request (0 for
+// none), its start and duration in minutes before fixtureNow (dur < 0 leaves
+// it open), its cost and its input tokens in thousands, 91% of them cache
+// reads -- the prototype's run-view figures.
+type interactiveRun struct {
+	stage      string
+	request    int
+	start, dur int
+	cost       float64
+	ktokens    int
+}
+
+type interactiveRequest struct {
+	title, outcome, commit, reason string
+}
+
+// seedInteractive writes the running session -- eight requests, the seventh
+// in progress on an open flow.sdd-tdd begun three minutes before fixtureNow,
+// 31 stage runs totalling $4.12 -- and the waiting session -- three landed
+// requests, its last stage run ended six minutes before fixtureNow, $1.87.
+func seedInteractive(ctx context.Context, st *store.Store) error {
+	running := []interactiveRun{
+		{"flow.kickoff", 0, 112, 1, 0.02, 550},
+		{"flow.load-context", 1, 105, 1, 0.02, 600}, {"flow.sdd-tdd", 1, 103, 2, 0.30, 3400}, {"flow.verify", 1, 100, 1, 0.15, 1200},
+		{"flow.landing-routes", 1, 98, 1, 0.14, 400}, {"flow.refresh-main-checkout", 1, 97, 1, 0.01, 250},
+		{"flow.load-context", 2, 85, 1, 0.01, 600}, {"flow.sdd-tdd", 2, 83, 2, 0.32, 3600}, {"flow.verify", 2, 79, 1, 0.17, 1200},
+		{"flow.sdd-tdd", 2, 77, 2, 0.28, 3500}, {"flow.verify", 2, 74, 1, 0.16, 1200}, {"flow.landing-routes", 2, 72, 1, 0.15, 400},
+		{"flow.refresh-main-checkout", 2, 71, 1, 0.01, 250}, {"flow.visual-verify", 2, 69, 2, 0.06, 900},
+		{"flow.load-context", 3, 60, 2, 0.01, 600},
+		{"flow.load-context", 4, 55, 1, 0.01, 600}, {"flow.sdd-tdd", 4, 53, 3, 0.31, 3480}, {"flow.sdd-tdd", 4, 48, 2, 0.29, 3550},
+		{"flow.verify", 4, 45, 2, 0.18, 1200}, {"flow.landing-routes", 4, 42, 1, 0.14, 400}, {"flow.refresh-main-checkout", 4, 41, 1, 0.01, 250},
+		{"flow.load-context", 5, 40, 1, 0.01, 600},
+		{"flow.load-context", 6, 32, 1, 0.01, 600}, {"flow.brainstorm", 6, 30, 3, 0.31, 1500}, {"flow.sdd-tdd", 6, 26, 9, 0.34, 3550},
+		{"flow.verify", 6, 16, 5, 0.18, 980}, {"flow.landing-routes", 6, 11, 1, 0.06, 310}, {"flow.refresh-main-checkout", 6, 10, 2, 0.04, 220},
+		{"flow.visual-verify", 6, 8, 2, 0.12, 700},
+		{"flow.load-context", 7, 4, 1, 0.09, 610}, {"flow.sdd-tdd", 7, 3, -1, 0.21, 1200},
+	}
+	runningReqs := []interactiveRequest{
+		{"Why no effort in stage runs?", "landed", "a41c9e2", ""},
+		{`Rename "Running now" to "Active runs"`, "landed", "0b7d113", ""},
+		{`What does "Errors" mean?`, "answered", "", ""},
+		{"Count cache reads in input tokens", "landed", "9f3c2ab", ""},
+		{"Move the cost rail to the left", "dropped", "", ""},
+		{"Show the task list and the running agents", "landed", "c18a6d0", "new store fields and two panels"},
+		{"Show the stage's model on the Agents row", "", "", ""},
+		{"Remove the tool errors column", "", "", ""},
+	}
+	waiting := []interactiveRun{
+		{"flow.kickoff", 0, 60, 1, 0.02, 300},
+		{"flow.load-context", 1, 58, 1, 0.03, 500}, {"flow.sdd-tdd", 1, 56, 6, 0.40, 2400}, {"flow.verify", 1, 49, 2, 0.10, 900},
+		{"flow.landing-routes", 1, 46, 1, 0.05, 300}, {"flow.refresh-main-checkout", 1, 45, 1, 0.02, 200},
+		{"flow.load-context", 2, 42, 1, 0.03, 500}, {"flow.sdd-tdd", 2, 40, 5, 0.38, 2300}, {"flow.verify", 2, 34, 2, 0.10, 900},
+		{"flow.landing-routes", 2, 31, 1, 0.05, 300}, {"flow.refresh-main-checkout", 2, 30, 1, 0.02, 200},
+		{"flow.load-context", 3, 27, 1, 0.03, 500}, {"flow.sdd-tdd", 3, 25, 8, 0.40, 2400}, {"flow.verify", 3, 16, 3, 0.10, 900},
+		{"flow.landing-routes", 3, 12, 1, 0.05, 300}, {"flow.refresh-main-checkout", 3, 9, 3, 0.09, 200},
+	}
+	waitingReqs := []interactiveRequest{
+		{"Show the streak on the profile", "landed", "4d2e9a1", ""},
+		{"Widen the weekly chart", "landed", "7b1f0c3", ""},
+		{"Hide the empty streak row", "landed", "e5a8d27", ""},
+	}
+	if err := seedSession(ctx, st, interactiveRunning, "uitest-session-1072", running, runningReqs); err != nil {
+		return err
+	}
+	if err := st.SetSessionActivity(ctx, "uitest-session-1072", "working", "Edit: stats/web/src/lib/phase.ts"); err != nil {
+		return fmt.Errorf("uitest-seed: set activity for %s: %w", interactiveRunning, err)
+	}
+	if err := seedSession(ctx, st, interactiveWaiting, "uitest-session-1073", waiting, waitingReqs); err != nil {
+		return err
+	}
+	return st.SetSessionActivity(ctx, "uitest-session-1073", "idle", "")
+}
+
+// seedSession writes one interactive session: its change, its requests --
+// each received at its first run's start, an ended one ended at its last
+// run's end -- and its stage runs, each tagged with its request.
+func seedSession(ctx context.Context, st *store.Store, name, sessionID string, runs []interactiveRun, reqs []interactiveRequest) error {
+	const project = "uitest-alpha"
+	if err := st.PutChange(ctx, store.Change{ProjectKey: project, MainCheckoutPath: "/tmp/uitest-dynamics", Name: name,
+		State: store.StateStarted, UpdatedAt: fixtureNow, UpdatedBy: "uitest-seed"}); err != nil {
+		return fmt.Errorf("uitest-seed: put change %s: %w", name, err)
+	}
+	at := func(minutes int) time.Time { return fixtureNow.Add(-time.Duration(minutes) * time.Minute) }
+	token := "fi-" + name[:8] + "-" + at(runs[0].start).Format("20060102T150405Z")
+	for i, rq := range reqs {
+		n := i + 1
+		first, last := time.Time{}, time.Time{}
+		for _, r := range runs {
+			if r.request == n {
+				if first.IsZero() {
+					first = at(r.start)
+				}
+				last = at(r.start - r.dur)
+			}
+		}
+		if first.IsZero() {
+			first = at(1)
+		}
+		if _, err := st.BeginRequest(ctx, project, name, records.RequestBegin{N: n, Title: rq.title, BrainstormReason: rq.reason, ReceivedAt: &first}); err != nil {
+			return fmt.Errorf("uitest-seed: begin request %d of %s: %w", n, name, err)
+		}
+		if rq.outcome == "" {
+			continue
+		}
+		end := records.RequestEnd{N: n, Outcome: rq.outcome, EndedAt: &last}
+		if rq.outcome == "landed" {
+			end.CommitSHA = rq.commit + strings.Repeat("0", 33)
+			end.BaseSHA = strings.Repeat("0", 40)
+		}
+		if _, err := st.EndRequest(ctx, project, name, end); err != nil {
+			return fmt.Errorf("uitest-seed: end request %d of %s: %w", n, name, err)
+		}
+	}
+	for _, r := range runs {
+		var request *int
+		if r.request > 0 {
+			request = &r.request
+		}
+		run, err := st.BeginStage(ctx, store.BeginStageInput{ProjectKey: project, ChangeName: name, Harness: "claude-code",
+			SessionID: strPtr(sessionID), SessionToken: strPtr(token), Command: "/flow-interactive", Stage: r.stage,
+			StartedAt: at(r.start), RequestN: request})
+		if err != nil {
+			return fmt.Errorf("uitest-seed: begin %s of %s: %w", r.stage, name, err)
+		}
+		total := r.ktokens * 1000
+		cached := total * 91 / 100
+		tokens := map[string]any{"main": map[string]any{"input": total - cached, "cache_read": cached}}
+		patch, err := json.Marshal(map[string]any{"cost_usd": r.cost, "effort": "xhigh", "tokens": tokens,
+			"models": map[string]any{"claude-opus-5-5": map[string]any{"cost_usd": r.cost, "tokens": tokens}}})
+		if err != nil {
+			return fmt.Errorf("uitest-seed: marshal metrics for %s of %s: %w", r.stage, name, err)
+		}
+		if err := st.MergeMetrics(ctx, run.ID, patch); err != nil {
+			return fmt.Errorf("uitest-seed: merge metrics for %s of %s: %w", r.stage, name, err)
+		}
+		if r.dur < 0 {
+			continue
+		}
+		if err := st.EndStage(ctx, run.ID, at(r.start-r.dur), stages.OutcomeCompleted); err != nil {
+			return fmt.Errorf("uitest-seed: end %s of %s: %w", r.stage, name, err)
 		}
 	}
 	return nil

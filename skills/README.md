@@ -45,6 +45,7 @@ still apply.
 | `/flow <name>` | `flow` | Single-command pipeline: no state creates the change and writes `STARTED`, then — same invocation — runs brainstorming (fully interactive) and implementation behind the review panel resolved from the settings store, ending at `IN_PROGRESS` — or, unless review-before-landing is set or a question is open, landing straight away in the same invocation. An argument at `IN_PROGRESS` is a fix run; state unchanged, and it lands the same way. Bare at `IN_PROGRESS` asks how to land the branch — open PR (default), merge and push, or manual — and, on merge-and-push, continues in the same invocation through cleanup to `FINISHED`. Publishes no proposal artifact. |
 | *(gate)* | you | Creating run or fix with review-before-landing set: review the staged diff — the stack is running (otherwise, with no question open, it lands straight away). Integrate with open PR or manual: wait for the branch to merge (or finish your manual steps). Merge-and-push: nothing — the state is terminal. |
 | `/flow-fast <name>` | `flow-fast` | Minimal-ceremony `/flow` variant — one invocation from Jira key to landed change: a git worktree for isolation only, implementation and review panel as the plan's class decides, project lint plus the tests the change touches, the project's default landing route, cleanup. Marks every `flow.*` stage `/flow` marks; no spectre artifacts or state file. |
+| `/flow-interactive [key or name]` | `flow-interactive` | Conversational session: one invocation is one change, one Jira issue and one worktree, and a stream of requests the main session works inline — each looked at live, implemented test-first, verified with the project's lint and targeted tests, landed by merge and push, reinstalled and, when it touches `ui paths`, checked on the live page — until an explicit stop runs one self-review pass, cleanup and `FINISHED`. Every request is recorded in flowd; no spectre artifacts or state file |
 | `/flow-status [name]` | `flow-status` | Read-only report of where every open change is |
 | `/flow-plan` | `flow-plan` | Thinking-partner mode — no implementation; a captured session creates the change at `STARTED` for `/flow` to resume |
 | `/flow-settings` | `flow-settings` | Reads/writes the harness-wide reviewer slots every `/flow` run reads from |
@@ -62,6 +63,7 @@ repeated here.
 skills/
 ├── flow/               ← /flow (brainstorm, implement behind the review panel, integrate and clean up)
 ├── flow-fast/          ← /flow-fast (worktree, implement, land, clean up)
+├── flow-interactive/   ← /flow-interactive (a conversational session landing each request)
 ├── flow-status/         ← /flow-status (read-only)
 ├── flow-plan/       ← /flow-plan
 ├── flow-settings/       ← /flow-settings

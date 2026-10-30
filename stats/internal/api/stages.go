@@ -69,6 +69,9 @@ type stageBeginRequest struct {
 	// has no change yet -- accepted for the plan.session stage only
 	// (ApplyBeginStageMark).
 	JiraKey string `json:"jiraKey,omitempty"`
+	// Request tags the run with the /flow-interactive request it works on
+	// (KAN-1061) -- refused with any other command (ApplyBeginStageMark).
+	Request *int `json:"request,omitempty"`
 }
 
 // stageEndRequest is the wire shape POST /api/v1/stages/end accepts. It
@@ -155,6 +158,9 @@ type BeginStageMark struct {
 	// JiraKey, with ChangeName empty, records a /flow-plan session that
 	// has no change yet -- see stageBeginRequest.JiraKey's doc comment.
 	JiraKey string
+	// Request is the /flow-interactive request the run works on -- see
+	// stageBeginRequest.Request's doc comment.
+	Request *int
 }
 
 // EndStageMark is the typed, transport-agnostic shape of an end mark. See
@@ -389,6 +395,7 @@ func (h *stageHandler) begin(w http.ResponseWriter, r *http.Request) {
 		Stage:            req.Stage,
 		StartedAt:        startedAt,
 		JiraKey:          req.JiraKey,
+		Request:          req.Request,
 	})
 	if err != nil {
 		var unknownStage *stages.ErrUnknownStage
@@ -446,6 +453,14 @@ func ApplyBeginStageMark(ctx context.Context, ss StageStore, logger *slog.Logger
 	if mark.JiraKey != "" && mark.ChangeName == "" && mark.Stage != "plan.session" {
 		return StageMarkResult{}, fmt.Errorf("%w: jiraKey without changeName is only valid for plan.session", ErrInvalidMark)
 	}
+	if mark.Request != nil {
+		if mark.Command != string(stages.FlowInteractive) {
+			return StageMarkResult{}, fmt.Errorf("%w: request is only valid for %s, not %s", ErrInvalidMark, stages.FlowInteractive, mark.Command)
+		}
+		if *mark.Request <= 0 {
+			return StageMarkResult{}, fmt.Errorf("%w: request must be a positive integer, got %d", ErrInvalidMark, *mark.Request)
+		}
+	}
 
 	var sessionToken *string
 	if mark.SessionToken != "" {
@@ -463,6 +478,7 @@ func ApplyBeginStageMark(ctx context.Context, ss StageStore, logger *slog.Logger
 		Stage:            mark.Stage,
 		StartedAt:        mark.StartedAt,
 		JiraKey:          mark.JiraKey,
+		RequestN:         mark.Request,
 	}
 
 	run, err := ss.BeginStage(ctx, in)
@@ -493,10 +509,11 @@ func ApplyBeginStageMark(ctx context.Context, ss StageStore, logger *slog.Logger
 	if err != nil {
 		return StageMarkResult{}, err
 	}
-	// /flow-fast keeps no state file, so its change row is the synthetic
-	// STARTED one bootstrapped above; its flow.write-finished mark is the
-	// only signal that the change landed, and moves that row to FINISHED.
-	if mark.Command == string(stages.FlowFast) && mark.Stage == "flow.write-finished" && mark.ChangeName != "" {
+	// /flow-fast and /flow-interactive keep no state file, so their change
+	// row is the synthetic STARTED one bootstrapped above; their
+	// flow.write-finished mark is the only signal that the change landed,
+	// and moves that row to FINISHED.
+	if (mark.Command == string(stages.FlowFast) || mark.Command == string(stages.FlowInteractive)) && mark.Stage == "flow.write-finished" && mark.ChangeName != "" {
 		finished := store.Change{
 			ProjectKey:       mark.ProjectKey,
 			MainCheckoutPath: mark.MainCheckoutPath,

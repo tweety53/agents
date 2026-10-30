@@ -30,7 +30,7 @@ any project.
 | `commands-claude/` | Thin slash-command wrappers for Claude Code and ZCode |
 | `agents/` | Subagent definitions (`flow-low`, `flow-medium`, `flow-high`) |
 | `mods/` | Claude Code plugins. `flow-task-list` draws a band above the prompt in the task-list look: first a `⎿ <model-effort> <marker> main: <label> — <state>` line for the main agent (`in progress` while its turn runs, `waiting` between turns while a subagent runs), labelled with the top-level unit it is on — the latest open unit of its own `rules/be-brief.mdc` status lines naming a task of the running `/flow` change's plan, else the stage of the run's latest `flow stage begin`, else the latest open unit of its own status lines; then, nested under it as `  ⎿ <model-effort> <marker> Task <x>/<n> (<desc>) — <state> · <elapsed>`, one line per running subagent (`<desc>` alone, unnumbered, unless its description's `Task <x>/<n>` prefix names tasks of the running `/flow` change's plan; a group reads `Task 1+2+3/<n>`), its state `in progress`, `review`, `fix` or `re-review` read from its description; then one `◻ Task <x>/<n> (<title>) — pending` line per task of that plan neither ticked nor landed and named by no running line nor the `main` line, read from `<project>-worktrees/<change>/spectre/changes/<change>/tasks.md` beside the main checkout; a failed subagent's `✘ … — blocked` line among the running ones until the next main turn starts; and, only when no task is pending, the last two done subagent lines of the marked `/flow` change — with none marked, of the current main turn — above the running ones, in the room they leave (`✔` done and struck through, a group as its highest task, `Task 3/<n>`). Status lines are never lines of their own. Five lines at most under `main`. It adds the tracker key, `/flow` phase and the plan's done-over-total task count (`19/25`; a task is done when ticked or its `Task-Id:` commit is on the change branch since its base, `branch.<current>.flowBase` else `origin/HEAD`), then ` │ ` and a tally of the subagent rows, to the hint line under it |
-| `hooks/` | `enforce-agent-baseline.py` (denies a dispatch missing the baseline pointer, a pinned verify role on the wrong agent type or model, or a `flow-high` dispatch that is neither a no-progress escalation nor an operator-approved panel dispatch), `enforce-loop-dispatch.py` (admits a fix-loop dispatch only off its pairs row, and records it), `protect-main-checkout.py` (denies edits on a main checkout's default branch), `flow-active-change.py` (turns a plain problem report into a fix run), `flow-stop-guard.py` (refuses a `/flow` turn end mid-phase) |
+| `hooks/` | `enforce-agent-baseline.py` (denies a dispatch missing the baseline pointer, a pinned verify role on the wrong agent type or model, or a `flow-high` dispatch that is neither a no-progress escalation nor an operator-approved panel dispatch), `enforce-loop-dispatch.py` (admits a fix-loop dispatch only off its pairs row, and records it), `protect-main-checkout.py` (denies edits on a main checkout's default branch), `flow-active-change.py` (turns a plain problem report into a fix run, or reminds an unfinished `/flow-interactive` session that a plain message is its next request or its stop), `flow-stop-guard.py` (refuses a `/flow` turn end mid-phase) |
 | `scripts/` | The guards `/flow` runs, each with its `test-*.sh` harness |
 | `stats/` | `flowd` — the PostgreSQL-backed service holding pipeline state and per-stage telemetry, with a web UI. See `stats/README.md` |
 | `spectre/` | This repository's own specs and changes |
@@ -49,6 +49,7 @@ asked. No command takes a flag.
 |---------|--------------|
 | `/flow <name>` | The whole pipeline, one command, re-entrant — see below |
 | `/flow-fast <name>` | Lighter variant: worktree, class-decided implementation and panel, lint + targeted tests, default landing route, cleanup. No spectre artifacts or state file |
+| `/flow-interactive [key or name]` | Conversational session: each request the operator types is implemented inline, verified, landed by merge and push and, for UI, checked on the live page; an explicit stop self-reviews, cleans up and finishes. No spectre artifacts or state file |
 | `/flow-plan` | Thinking-partner mode, no implementation; a captured session creates the change at `STARTED` |
 | `/flow-status [name]` | Read-only report of every open change |
 | `/flow-settings` | Global reviewer slots |
@@ -146,19 +147,19 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 
 | Key | Name | Commands |
 |-----|------|----------|
-| `flow.kickoff` | Kickoff — write `STARTED` | `/flow`, `/flow-fast` |
-| `flow.brainstorm` | Brainstorm ▸ | `/flow`, `/flow-fast` |
+| `flow.kickoff` | Kickoff — write `STARTED` | `/flow`, `/flow-fast`, `/flow-interactive` |
+| `flow.brainstorm` | Brainstorm ▸ | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.design-approval` | Design approval | `/flow` |
 | `flow.create-artifacts` | Create the spectre artifacts | `/flow`, `/flow-fast` |
 | `flow.writing-plans` | Writing-plans ▸ | `/flow`, `/flow-fast` |
 | `flow.decide` | Decide — execution, models, panel | `/flow`, `/flow-fast` |
-| `flow.load-context` | Load context and validate the plan | `/flow`, `/flow-fast` |
+| `flow.load-context` | Load context and validate the plan | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.isolate-workspace` | Isolate the workspace | `/flow`, `/flow-fast` |
 | `flow.document-fix` | Document the fix (re-runs only) | `/flow`, `/flow-fast` |
-| `flow.sdd-tdd` | SDD + TDD per task ▸ | `/flow`, `/flow-fast` |
+| `flow.sdd-tdd` | SDD + TDD per task ▸ | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.review-panel` | The review panel ▸ | `/flow`, `/flow-fast` |
-| `flow.verify` | Verify: workspace isolation, lint and test | `/flow`, `/flow-fast` |
-| `flow.visual-verify` | Visual verification | `/flow` |
+| `flow.verify` | Verify: workspace isolation, lint and test | `/flow`, `/flow-fast`, `/flow-interactive` |
+| `flow.visual-verify` | Visual verification | `/flow`, `/flow-interactive` |
 | `flow.stage-diff` | Stage, excluding the planning paths | `/flow`, `/flow-fast` |
 | `flow.run-instructions` | Resolve the run instructions | `/flow`, `/flow-fast` |
 | `flow.write-in-progress` | Write `IN_PROGRESS` | `/flow`, `/flow-fast` |
@@ -169,14 +170,14 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 | `flow.commit-two` | Two commits, implementation first (run 1) | `/flow`, `/flow-fast` |
 | `flow.sync-archive` | Archive the change on its branch (run 1) | `/flow`, `/flow-fast` |
 | `flow.commit-archive` | Commit the archive (run 1) | `/flow`, `/flow-fast` |
-| `flow.self-review` | Run the self-review pass (run 1) | `/flow`, `/flow-fast` |
+| `flow.self-review` | Run the self-review pass (run 1) | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.pipeline-fix` | Pipeline fix — a fix to the flow tooling a run makes | `/flow`, `/flow-fast` |
-| `flow.landing-routes` | The landing routes, including moving the issue to In Review (run 1) ▸ | `/flow`, `/flow-fast` |
+| `flow.landing-routes` | The landing routes, including moving the issue to In Review (run 1) ▸ | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.verify-merge` | Verify the merge (run 2) | `/flow`, `/flow-fast` |
-| `flow.cleanup` | Cleanup (run 2) ▸ | `/flow`, `/flow-fast` |
+| `flow.cleanup` | Cleanup (run 2) ▸ | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.verify-cleanup` | Verify the cleanup (run 2) | `/flow` |
-| `flow.write-finished` | Write `FINISHED` (run 2) | `/flow`, `/flow-fast` |
-| `flow.refresh-main-checkout` | Bring the main checkout forward (run 2) | `/flow`, `/flow-fast` |
+| `flow.write-finished` | Write `FINISHED` (run 2) | `/flow`, `/flow-fast`, `/flow-interactive` |
+| `flow.refresh-main-checkout` | Bring the main checkout forward (run 2) | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `plan.session` | Plan session — the whole `/flow-plan` invocation | `/flow-plan` |
 
 ▸ marks a stage with substructure; its procedure lives in the phase file under `skills/flow/`.
@@ -204,7 +205,9 @@ return a verdict. Each one has a `test-*.sh` harness in `scripts/`, and
   checkout's default branch. Work happens in a worktree. It also blocks a landing push of a
   `pipeline-fix-*` or `self-review-*` branch that flowd's records do not cover
   (`scripts/check-loop-landing.sh`).
-- `flow-active-change.py`: routes a plain problem report to the session's open change as a fix run.
+- `flow-active-change.py`: routes a plain problem report to the session's open change as a fix run;
+  in an unfinished `/flow-interactive` session it names the session instead, so a plain message is
+  read as its next request or its stop.
 - `flow-stop-guard.py`: refuses a `/flow` turn end mid-phase — an open stage, or every task ticked at `STARTED` — and names the next stage.
 
 **Plan**

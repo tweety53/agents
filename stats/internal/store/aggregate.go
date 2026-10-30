@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/records"
 )
 
 // Period bounds an aggregation by a stage run's start instant:
@@ -90,6 +92,11 @@ type LiveStateRow struct {
 	Activity            *string
 	ActivityDetail      *string
 	ActivitySince       *time.Time
+	// Command is the command of the change's latest stage run, nil without
+	// one; Requests are its /flow-interactive requests in n order, each
+	// State derived by requestState (KAN-1061).
+	Command  *string
+	Requests []records.Request
 }
 
 // ActiveDispatch is one running subagent: its role, the plan task it works
@@ -126,7 +133,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 		       totals.runs, totals.cost, totals.wall_ms, totals.errors,
 		       win.d1, win.d7, win.d30,
 		       open_run.stage, open_run.started_at, last_run.stage, last_run.ended_at, done.tasks, subs.list, roots.list, sr_roots.list, committed.list, seen.at, staged.n,
-		       sa.state, sa.detail, sa.updated_at
+		       sa.state, sa.detail, sa.updated_at, last_run.command, reqs.list
 		FROM changes c
 		LEFT JOIN LATERAL (
 			SELECT t.total_tasks
@@ -173,7 +180,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			LIMIT 1
 		) open_run ON true
 		LEFT JOIN LATERAL (
-			SELECT sr.stage, sr.ended_at, sr.session_id
+			SELECT sr.stage, sr.ended_at, sr.session_id, sr.command
 			FROM stage_runs sr
 			WHERE sr.change_id = c.id
 			ORDER BY sr.started_at DESC, sr.id DESC
@@ -217,6 +224,16 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			FROM dispatches d
 			WHERE d.change_id = c.id AND open_run.started_at IS NOT NULL AND d.started_at >= open_run.started_at
 		) staged ON true
+		LEFT JOIN LATERAL (
+			SELECT COALESCE(jsonb_agg(jsonb_build_object(
+			         'n', requests.n, 'title', requests.title, 'brainstormReason', requests.brainstorm_reason,
+			         'receivedAt', requests.received_at, 'endedAt', requests.ended_at, 'outcome', COALESCE(requests.outcome, ''),
+			         'commitSha', COALESCE(requests.commit_sha, ''), 'baseSha', COALESCE(requests.base_sha, ''),
+			         'started', `+requestStarted+`
+			       ) ORDER BY requests.n), '[]'::jsonb) AS list
+			FROM requests
+			WHERE requests.change_id = c.id
+		) reqs ON true
 		LEFT JOIN session_activity sa ON sa.session_id = COALESCE(open_run.session_id, last_run.session_id)
 		LEFT JOIN LATERAL (
 			SELECT CASE WHEN COUNT(*) = 0 THEN NULL
@@ -241,23 +258,45 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			row   LiveStateRow
 			state string
 			subs  []byte
+			reqs  []byte
 		)
 		if err := rows.Scan(&row.ProjectKey, &row.Name, &state, &row.UpdatedAt, &row.UpdatedBy,
 			&row.PlannedTasks, &row.CurrentTasks,
 			&row.RunCount, &row.CostUsd, &row.WallClockMs, &row.Errors,
 			&row.Cost24h, &row.Cost7d, &row.Cost30d,
 			&row.CurrentStage, &row.CurrentStageStartedAt, &row.LastStage, &row.LastStageEndedAt, &row.DoneTasks, &subs, &row.RepoRoots, &row.SelfReviewRoots, &row.CommittedTasks, &row.SessionSeenAt, &row.OpenStageDispatches,
-			&row.Activity, &row.ActivityDetail, &row.ActivitySince); err != nil {
+			&row.Activity, &row.ActivityDetail, &row.ActivitySince, &row.Command, &reqs); err != nil {
 			return nil, fmt.Errorf("store: live state board: scan: %w", err)
 		}
 		if err := json.Unmarshal(subs, &row.Subagents); err != nil {
 			return nil, fmt.Errorf("store: live state board: subagents: %w", err)
+		}
+		if row.Requests, err = boardRequests(reqs); err != nil {
+			return nil, fmt.Errorf("store: live state board: requests: %w", err)
 		}
 		row.State = State(state)
 		out = append(out, row)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("store: live state board: %w", err)
+	}
+	return out, nil
+}
+
+// boardRequests decodes LiveStateBoard's requests list, each with whether
+// a stage run carries it, into requests whose State requestState derives.
+func boardRequests(list []byte) ([]records.Request, error) {
+	var raw []struct {
+		records.Request
+		Started bool `json:"started"`
+	}
+	if err := json.Unmarshal(list, &raw); err != nil {
+		return nil, err
+	}
+	var out []records.Request
+	for _, r := range raw {
+		r.State = requestState(r.Outcome, r.Started)
+		out = append(out, r.Request)
 	}
 	return out, nil
 }

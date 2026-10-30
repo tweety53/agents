@@ -36,6 +36,10 @@ type selfreviewStore interface {
 	// names loudly when the run holds no dispatch rows (KAN-621).
 	StageCompleted(ctx context.Context, projectKey, change, stage string) (bool, error)
 
+	// ListRequests is a /flow-interactive session's requests (KAN-1061),
+	// the bundle's git-log source for a change that has any.
+	ListRequests(ctx context.Context, projectKey, change string) ([]records.Request, error)
+
 	// RecordSelfReviewFinding and ListSelfReviewFindings back the findings
 	// route: one row per self-review finding and its outcome (KAN-875).
 	RecordSelfReviewFinding(ctx context.Context, projectKey string, in records.SelfReviewFinding) (records.SelfReviewFinding, error)
@@ -123,7 +127,17 @@ func (h *selfreviewHandler) bundle(w http.ResponseWriter, r *http.Request) {
 		er.Deadline = time.Now().Add(selfreview.BundleBudget)
 		git = er
 	}
-	bundle, err := selfreview.Bundle(change, rec, summary, summaryFound, panelRan, h.build, []string{repo}, git)
+	// The requests read degrades rather than fails: a session's requests are
+	// one git-log source among many, and without them the bundle still
+	// serves the change branch's own log.
+	requests, err := h.store.ListRequests(r.Context(), project, change)
+	if err != nil {
+		if h.logger != nil {
+			h.logger.Warn("api: self-review bundle: list requests failed", "project", project, "change", change, "error", err)
+		}
+		requests = nil
+	}
+	bundle, err := selfreview.Bundle(change, rec, summary, summaryFound, panelRan, h.build, []string{repo}, requests, git)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return

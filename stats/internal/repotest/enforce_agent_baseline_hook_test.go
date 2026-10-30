@@ -106,7 +106,9 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			out, _, rc := runHook(t, c.hook, []byte(c.stdin))
+			// An unreachable store keeps the live one's open experiments out of the pair check,
+			// which reads the table alone when `flow experiment overrides` fails.
+			out, _, rc := runHook(t, c.hook, []byte(c.stdin), "FLOW_ADDR=http://127.0.0.1:1")
 			out = strings.TrimRight(out, "\n")
 			if c.deny == nil {
 				if rc != 0 || out != "" {
@@ -479,5 +481,62 @@ func TestEnforceAgentBaselineHookZcodePairForKnownRole(t *testing.T) {
 				t.Fatalf("rc=%d out=%s, want deny carrying %q", rc, out, c.deny)
 			}
 		})
+	}
+}
+
+// anyCommandDeny runs a row-described dispatch, with no open ledger row, in a session whose
+// transcript typed command, against a store answering the session's command row only to a
+// stage-runs query carrying no `command` parameter, and reports whether the hook denied it.
+func anyCommandDeny(t *testing.T, command string) bool {
+	t.Helper()
+	env, _ := openRowFixture(t, `[]`, false)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/stage-runs" || r.URL.Query().Get("session_id") != "s1" {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		runs := []any{}
+		if !r.URL.Query().Has("command") {
+			runs = append(runs, map[string]string{"changeName": "c1", "command": command})
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"stageRuns": runs})
+	}))
+	t.Cleanup(srv.Close)
+	env = append(env, "FLOW_ADDR="+srv.URL)
+
+	payload := openRowPayload(t, "panel-4-primary review", "review")
+	var p struct {
+		TranscriptPath string `json:"transcript_path"`
+	}
+	if err := json.Unmarshal(payload, &p); err != nil {
+		t.Fatal(err)
+	}
+	line := `{"type":"user","message":{"content":"<command-name>` + command + `</command-name>"}}` + "\n"
+	if err := os.WriteFile(p.TranscriptPath, []byte(line), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, _, rc := runHook(t, "enforce-agent-baseline.py", payload, env...)
+	if rc != 0 {
+		t.Fatalf("rc=%d out=%s", rc, out)
+	}
+	return strings.Contains(out, `"permissionDecision": "deny"`)
+}
+
+// TestEnforceAgentBaselineHookReadsAnyCommand pins KAN-1061's session-change-any-command: the
+// begun-row check reads the session's latest stage run of any command, so a /flow-fast
+// session's dispatch with no open row is denied rather than failing open.
+func TestEnforceAgentBaselineHookReadsAnyCommand(t *testing.T) {
+	t.Parallel()
+	if !anyCommandDeny(t, "/flow-fast") {
+		t.Errorf("a /flow-fast session's dispatch with no open row was allowed, want denied")
+	}
+}
+
+// TestEnforceAgentBaselineHookSeesFlowInteractive pins that a typed /flow-interactive is a flow
+// session, its dispatches held to the begun-row check like every flow command's.
+func TestEnforceAgentBaselineHookSeesFlowInteractive(t *testing.T) {
+	t.Parallel()
+	if !anyCommandDeny(t, "/flow-interactive") {
+		t.Errorf("a /flow-interactive session's dispatch with no open row was allowed, want denied")
 	}
 }

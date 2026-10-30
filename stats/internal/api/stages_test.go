@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -66,6 +67,7 @@ func (f *fakeStore) BeginStage(_ context.Context, in store.BeginStageInput) (sto
 		Attempt:        attempt,
 		StartedAt:      in.StartedAt,
 		Metrics:        json.RawMessage(`{}`),
+		RequestN:       in.RequestN,
 		SupersededRuns: f.beginStageSuperseded,
 	}
 	f.stageRuns = append(f.stageRuns, stageRunRecord{run: run, projectKey: in.ProjectKey, changeName: in.ChangeName, jiraKey: in.JiraKey})
@@ -1141,5 +1143,64 @@ func TestApplyBeginStageMarkFinishesAFlowFastChange(t *testing.T) {
 	}
 	if got := fs.changes[changeKey("proj", "chg")].State; got != store.StateFinished {
 		t.Errorf("state = %q, want FINISHED", got)
+	}
+}
+
+// TestApplyBeginStageMarkFinishesAFlowInteractiveChange: /flow-interactive
+// keeps no state file either, so its flow.write-finished begin moves the
+// bootstrapped change row to FINISHED as /flow-fast's does.
+func TestApplyBeginStageMarkFinishesAFlowInteractiveChange(t *testing.T) {
+	fs := newFakeStore()
+	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
+
+	if _, err := api.ApplyBeginStageMark(context.Background(), fs, nil, api.BeginStageMark{
+		ProjectKey: "proj", ChangeName: "chg", Harness: "claude-code",
+		SessionToken: "fi-session-token-finish", Command: "/flow-interactive", Stage: "flow.write-finished",
+		StartedAt: time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("ApplyBeginStageMark: %v", err)
+	}
+	if got := fs.changes[changeKey("proj", "chg")].State; got != store.StateFinished {
+		t.Errorf("state = %q, want FINISHED", got)
+	}
+}
+
+// TestApplyBeginStageMarkRefusesRequestOffInteractive pins KAN-1061's
+// request tag: only a /flow-interactive begin may carry one, and only a
+// positive one; anything else is ErrInvalidMark before the store is
+// touched, and an accepted one reaches BeginStage as RequestN.
+func TestApplyBeginStageMarkRefusesRequestOffInteractive(t *testing.T) {
+	mark := func(command string, request int) api.BeginStageMark {
+		return api.BeginStageMark{
+			ProjectKey: "proj", ChangeName: "chg", Harness: "claude-code",
+			SessionToken: "fi-request-tag-20261030T100000Z", Command: command, Stage: "flow.sdd-tdd",
+			StartedAt: time.Date(2026, 10, 30, 10, 0, 0, 0, time.UTC), Request: &request,
+		}
+	}
+	for name, m := range map[string]api.BeginStageMark{
+		"/flow":                   mark("/flow", 3),
+		"/flow-fast":              mark("/flow-fast", 3),
+		"/flow-interactive zero":  mark("/flow-interactive", 0),
+		"/flow-interactive minus": mark("/flow-interactive", -1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			fs := newFakeStore()
+			fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
+			if _, err := api.ApplyBeginStageMark(context.Background(), fs, nil, m); !errors.Is(err, api.ErrInvalidMark) {
+				t.Errorf("ApplyBeginStageMark error = %v, want ErrInvalidMark", err)
+			}
+			if len(fs.stageRuns) != 0 {
+				t.Errorf("store holds %d stage runs, want none for a refused mark", len(fs.stageRuns))
+			}
+		})
+	}
+
+	fs := newFakeStore()
+	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
+	if _, err := api.ApplyBeginStageMark(context.Background(), fs, nil, mark("/flow-interactive", 3)); err != nil {
+		t.Fatalf("ApplyBeginStageMark /flow-interactive: %v", err)
+	}
+	if len(fs.stageRuns) != 1 || fs.stageRuns[0].run.RequestN == nil || *fs.stageRuns[0].run.RequestN != 3 {
+		t.Fatalf("stage runs = %+v, want one carrying request 3", fs.stageRuns)
 	}
 }

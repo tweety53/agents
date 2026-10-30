@@ -1404,3 +1404,62 @@ func TestReplayWarnsOnceForAStuckEntry(t *testing.T) {
 		t.Fatalf("pending record entries = %d, want 1", n)
 	}
 }
+
+func (nopRecordStore) BeginRequest(context.Context, string, string, records.RequestBegin) (records.Request, error) {
+	return records.Request{}, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) EndRequest(context.Context, string, string, records.RequestEnd) (records.Request, error) {
+	return records.Request{}, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) ListRequests(context.Context, string, string) ([]records.Request, error) {
+	return nil, errRecordStoreNotExercised
+}
+
+// BeginRequest and EndRequest record a replayed request write with the
+// instant it carries (KAN-1061), so a test sees the CLI's stamp survive.
+func (f *fakeRecordStore) BeginRequest(_ context.Context, projectKey, change string, in records.RequestBegin) (records.Request, error) {
+	f.record(fmt.Sprintf("request-begin %s/%s n=%d title=%q at=%s", projectKey, change, in.N, in.Title, in.ReceivedAt.UTC().Format(time.RFC3339)))
+	return records.Request{N: in.N}, nil
+}
+
+func (f *fakeRecordStore) EndRequest(_ context.Context, projectKey, change string, in records.RequestEnd) (records.Request, error) {
+	f.record(fmt.Sprintf("request-end %s/%s n=%d outcome=%s commit=%s base=%s at=%s", projectKey, change, in.N, in.Outcome, in.CommitSHA, in.BaseSHA, in.EndedAt.UTC().Format(time.RFC3339)))
+	return records.Request{N: in.N}, nil
+}
+
+func (f *fakeRecordStore) ListRequests(context.Context, string, string) ([]records.Request, error) {
+	return nil, errRecordStoreNotExercised
+}
+
+// TestReplayRequestEntries pins KAN-1061's two record journal kinds: a
+// request-begin and a request-end journalled while the store was down
+// replay through their own case arms with the instants the CLI stamped,
+// and retire.
+func TestReplayRequestEntries(t *testing.T) {
+	root := t.TempDir()
+	const project, change = "proj-request", "chg-request"
+	received := time.Date(2026, 10, 30, 9, 0, 0, 0, time.UTC)
+	ended := time.Date(2026, 10, 30, 9, 12, 0, 0, time.UTC)
+
+	appendRecordWrite(t, root, project, change, "request-begin", records.RequestBegin{N: 1, Title: "Fix the pill", ReceivedAt: &received})
+	appendRecordWrite(t, root, project, change, "request-end", records.RequestEnd{N: 1, Outcome: "landed", CommitSHA: "abc1234", BaseSHA: "def5678", EndedAt: &ended})
+
+	rs := &fakeRecordStore{}
+	rec := reconcile.New(&fakeStore{}, nopStageStore{}, rs, root, nil)
+	result, err := rec.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if result.Applied != 2 || result.Refused != 0 {
+		t.Fatalf("Run result = %+v, want {Applied:2 Refused:0}", result)
+	}
+	assertAppliedCalls(t, rs.appliedCalls(), []string{
+		`request-begin proj-request/chg-request n=1 title="Fix the pill" at=2026-10-30T09:00:00Z`,
+		"request-end proj-request/chg-request n=1 outcome=landed commit=abc1234 base=def5678 at=2026-10-30T09:12:00Z",
+	})
+	if n := pendingRecordCount(t, root, project, change); n != 0 {
+		t.Fatalf("pending record entries after replay = %d, want 0", n)
+	}
+}

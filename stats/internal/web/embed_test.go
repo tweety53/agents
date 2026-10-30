@@ -538,6 +538,18 @@ func (fakeStore) ListTaskCounts(context.Context, string, string) ([]records.Task
 	return nil, nil
 }
 
+func (fakeStore) BeginRequest(context.Context, string, string, records.RequestBegin) (records.Request, error) {
+	return records.Request{}, nil
+}
+
+func (fakeStore) EndRequest(context.Context, string, string, records.RequestEnd) (records.Request, error) {
+	return records.Request{}, nil
+}
+
+func (fakeStore) ListRequests(context.Context, string, string) ([]records.Request, error) {
+	return nil, nil
+}
+
 func (fakeStore) RecordDecision(context.Context, string, string, records.Decision) (records.Decision, bool, error) {
 	return records.Decision{}, false, nil
 }

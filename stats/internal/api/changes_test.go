@@ -134,6 +134,11 @@ type fakeStore struct {
 	decisions      []decisionRecord
 	nextDecisionID int64
 
+	// --- request bookkeeping (KAN-1061, internal/api/requests_test.go's
+	// fakeStore methods operate on these), keyed by changeKey then n ---
+	requests        map[string]map[int]records.Request
+	listRequestsErr error
+
 	// --- change-summary bookkeeping (internal/api/records_test.go's
 	// fakeStore methods operate on these) ---
 	changeSummaries []summaryRecord

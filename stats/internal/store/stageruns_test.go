@@ -2983,3 +2983,56 @@ func TestClipAbandonedStageRunsBoundsWrittenRows(t *testing.T) {
 		}
 	}
 }
+
+// TestBeginStageStoresRequestN pins stage_runs.request_n (KAN-1061): a
+// begin carrying RequestN stores it and QueryStageRuns and GetStageRun read
+// it back; a begin without it reads back nil.
+func TestBeginStageStoresRequestN(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-request-n-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1061")
+
+	tagged := baseBeginInput(projectKey, "kan-1061", "/flow-interactive", "flow.sdd-tdd")
+	tagged.RequestN = ptr(4)
+	run, err := st.BeginStage(ctx, tagged)
+	if err != nil {
+		t.Fatalf("BeginStage tagged: %v", err)
+	}
+	if run.RequestN == nil || *run.RequestN != 4 {
+		t.Errorf("BeginStage RequestN = %v, want 4", run.RequestN)
+	}
+	got, err := st.GetStageRun(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun: %v", err)
+	}
+	if got.RequestN == nil || *got.RequestN != 4 {
+		t.Errorf("GetStageRun RequestN = %v, want 4", got.RequestN)
+	}
+	if _, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1061", "/flow-interactive", "flow.verify")); err != nil {
+		t.Fatalf("BeginStage untagged: %v", err)
+	}
+
+	runs, _, err := st.QueryStageRuns(ctx, store.Query{
+		Filters: []store.Filter{{Field: "project_key", Op: store.OpEq, Value: projectKey}},
+		Limit:   store.NoLimit,
+	})
+	if err != nil {
+		t.Fatalf("QueryStageRuns: %v", err)
+	}
+	if len(runs) != 2 {
+		t.Fatalf("QueryStageRuns returned %d runs, want 2", len(runs))
+	}
+	for _, r := range runs {
+		switch r.Stage {
+		case "flow.sdd-tdd":
+			if r.RequestN == nil || *r.RequestN != 4 {
+				t.Errorf("tagged run RequestN = %v, want 4", r.RequestN)
+			}
+		default:
+			if r.RequestN != nil {
+				t.Errorf("untagged run RequestN = %d, want nil", *r.RequestN)
+			}
+		}
+	}
+}

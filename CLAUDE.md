@@ -46,8 +46,8 @@ restated here. Stopping the dev stack is an operator action; the commands live i
 ### Reinstall after a change to this repository is fully done
 
 Once a change to this repository has fully landed — on `/flow`, after run 2's cleanup; on
-`/flow-fast`, after its cleanup; on a pipeline-fix or self-review loop, after `pipeline-fix.sh
-land` — run, from the main checkout:
+`/flow-fast`, after its cleanup; on `/flow-interactive`, after each request lands; on a
+pipeline-fix or self-review loop, after `pipeline-fix.sh land` — run, from the main checkout:
 
 ```bash
 ./setup.sh global
@@ -76,6 +76,7 @@ installed. Those two need none — reading a spectre tree, or a contract file, i
 |-----------------|---------|---------|
 | `skills/flow/` | `/flow` | Single-command pipeline: brainstorming behind a design gate, implementation under SDD + TDD behind the review panel resolved from the settings store, and integrate/cleanup across the same three-state pipeline, pausing only at the human gates. Re-run to resume, fix, or integrate. Carries the reviewer prompts + `engineering-principles.md` |
 | `skills/flow-fast/` | `/flow-fast` | Minimal-ceremony `/flow` variant: one invocation from Jira key to landed change. A git worktree for isolation only, implementation and review panel as the plan's class decides, project lint plus targeted tests, the project's default landing route, cleanup. Marks every `flow.*` stage `/flow` marks and keeps the Jira transitions; no spectre artifacts or state file |
+| `skills/flow-interactive/` | `/flow-interactive` | Conversational session: one invocation is one change, one Jira issue and one worktree, and a stream of requests the main session works inline — each looked at live, implemented test-first, verified with the project's lint and targeted tests, landed by merge and push, reinstalled and, when it touches `ui paths`, checked on the live page — until an explicit stop runs one self-review pass, cleanup and `FINISHED`. Every request is recorded in flowd; no spectre artifacts or state file |
 | `skills/flow-status/` | `/flow-status` | Read-only state report for open changes |
 | `skills/flow-plan/` | `/flow-plan` | Thinking-partner mode — explore ideas, investigate, no implementation; a captured session creates the change at `STARTED` for `/flow` to resume |
 | `skills/spectre-planning/` | *(on demand)* | The generic planning prompts — plan mode, brainstorming, the three artifacts and plan writing; `/flow` and `/flow-plan` load it, and spectre vendors it for planning without flow — an edit here is re-copied byte for byte into spectre's vendored copy in the same change, as that copy's UPSTREAM.md says |

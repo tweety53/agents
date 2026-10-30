@@ -367,3 +367,39 @@ func TestSelfReviewFindingsEndpoint(t *testing.T) {
 		t.Errorf("GET = %+v, want the fixed row (blast radius 2) then the filed row", got)
 	}
 }
+
+// TestSelfReviewBundleReadsRequests pins the bundle handler's requests
+// read (KAN-1061): the store's requests reach the bundle as its git-log
+// source, and a failed read leaves them empty -- the bundle still serves.
+func TestSelfReviewBundleReadsRequests(t *testing.T) {
+	repo := bundleGitRepo(t)
+	bundleCommit(t, repo, "a.go", "package main\n", "feat(a): the landed request")
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	if resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/requests", map[string]any{"n": 1, "title": "Ask why"}); resp.StatusCode != http.StatusOK {
+		t.Fatalf("seed POST requests = %d (%s)", resp.StatusCode, body)
+	}
+	if resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/requests/end", map[string]any{"n": 1, "outcome": "answered"}); resp.StatusCode != http.StatusOK {
+		t.Fatalf("seed POST requests/end = %d (%s)", resp.StatusCode, body)
+	}
+
+	get := func() string {
+		t.Helper()
+		resp, err := http.Get(ts.URL + selfReviewPath("proj", "kan-1", repo))
+		if err != nil {
+			t.Fatalf("GET bundle: %v", err)
+		}
+		defer resp.Body.Close()
+		raw, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("GET bundle = %d (%s), want 200", resp.StatusCode, raw)
+		}
+		return string(raw)
+	}
+	if body := get(); !strings.Contains(body, "### Request 1: Ask why — answered") {
+		t.Errorf("bundle lacks the stored request:\n%s", body)
+	}
+	fs.listRequestsErr = errors.New("boom")
+	if body := get(); strings.Contains(body, "### Request") {
+		t.Errorf("a failed requests read still rendered requests:\n%s", body)
+	}
+}

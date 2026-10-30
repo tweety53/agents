@@ -137,6 +137,9 @@ func TestSeedPopulatesFixture(t *testing.T) {
 			t.Fatalf("list changes for %s: %v", project.Key, err)
 		}
 		wantChanges := len(project.Changes)
+		if project.Key == "uitest-alpha" {
+			wantChanges += 2 // seedInteractive's two sessions, seeded beside fixtureData
+		}
 		if len(changes) != wantChanges {
 			t.Fatalf("project %s: got %d changes, want %d", project.Key, len(changes), wantChanges)
 		}
@@ -224,5 +227,56 @@ func TestSeedPopulatesFixture(t *testing.T) {
 	}
 	if found != 2 {
 		t.Fatalf("open experiments carry %d tokens/wallClockMin metrics, want 2", found)
+	}
+}
+
+// TestSeedInteractiveSessions pins seedInteractive (KAN-1061): the
+// prototype's running session lists its eight requests in their seeded
+// states with its open run carrying request 7, and the waiting session its
+// three landed requests.
+func TestSeedInteractiveSessions(t *testing.T) {
+	dsn := newUitestDatabase(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	st, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer st.Close()
+	if err := st.RunMigrations(ctx); err != nil {
+		t.Fatalf("run migrations: %v", err)
+	}
+	if err := seedFixture(ctx, st); err != nil {
+		t.Fatalf("seedFixture: %v", err)
+	}
+
+	states := func(change string) []string {
+		t.Helper()
+		reqs, err := st.ListRequests(ctx, "uitest-alpha", change)
+		if err != nil {
+			t.Fatalf("list requests for %s: %v", change, err)
+		}
+		var out []string
+		for _, r := range reqs {
+			out = append(out, fmt.Sprintf("%d %s", r.N, r.State))
+		}
+		return out
+	}
+	want := []string{"1 landed", "2 landed", "3 answered", "4 landed", "5 dropped", "6 landed", "7 in progress", "8 queued"}
+	if got := states(interactiveRunning); fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("%s requests = %v, want %v", interactiveRunning, got, want)
+	}
+	if got := states(interactiveWaiting); fmt.Sprint(got) != fmt.Sprint([]string{"1 landed", "2 landed", "3 landed"}) {
+		t.Errorf("%s requests = %v, want three landed", interactiveWaiting, got)
+	}
+
+	runs, _, err := st.QueryStageRuns(ctx, store.Query{Filters: []store.Filter{
+		{Field: "project", Op: store.OpEq, Value: "uitest-alpha"}, {Field: "name", Op: store.OpEq, Value: interactiveRunning},
+		{Field: "ended_at", Op: store.OpNull}}, Limit: store.NoLimit})
+	if err != nil {
+		t.Fatalf("query open runs: %v", err)
+	}
+	if len(runs) != 1 || runs[0].RequestN == nil || *runs[0].RequestN != 7 || runs[0].Command != "/flow-interactive" {
+		t.Fatalf("open runs = %+v, want one /flow-interactive run carrying request 7", runs)
 	}
 }

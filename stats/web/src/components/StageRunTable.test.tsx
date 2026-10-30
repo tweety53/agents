@@ -160,3 +160,36 @@ describe("StageRunTable", () => {
     expect(tokens.title).toBe("agents 4k + main session 10k");
   });
 });
+
+describe("StageRunTable request column", () => {
+  const r = (id: number, stage: string, start: string, request?: number): StageRunDTO => ({
+    stageRunId: id, harness: "claude-code", command: "/flow-interactive", stage, attempt: 1, sessionId: `s-${id % 2}`,
+    startedAt: start, endedAt: start, outcome: "completed", request,
+  });
+  const runs = [r(1, "flow.verify", "2026-01-01T10:49:00Z", 6), r(2, "flow.load-context", "2026-01-01T11:01:00Z", 7), r(3, "flow.self-review", "2026-01-01T11:30:00Z")];
+
+  it("request column leads each row with R<n>, newest first and ungrouped, when switched on", () => {
+    const { container } = render(<StageRunTable stageRuns={runs} requests />);
+    expect(screen.getAllByRole("columnheader")[0]).toHaveTextContent("Request");
+    const rows = [...container.querySelectorAll("tbody tr")];
+    expect(rows.map((row) => row.querySelector("td")?.textContent)).toEqual(["", "R7", "R6"]);
+    expect(rows[1]).toHaveTextContent("Loading context");
+    expect(container.querySelector(".lb-group")).toBeNull();
+  });
+  it("request column stays off by default", () => {
+    const { container } = render(<StageRunTable stageRuns={runs} />);
+    expect(screen.getAllByRole("columnheader")[0]).toHaveTextContent("Stage");
+    expect(container.querySelector(".lb-group")).not.toBeNull();
+    expect(container).not.toHaveTextContent("R7");
+  });
+  it("request column starts every Stage cell with its text, an expander trailing it", () => {
+    render(<StageRunTable stageRuns={[run, { ...other, request: 2 }]} records={records} requests />);
+    const cells = screen.getAllByRole("row").slice(1).map((row) => row.querySelectorAll("td")[1]);
+    for (const td of cells) expect(td.firstChild?.nodeType).toBe(Node.TEXT_NODE);
+    expect(screen.getByRole("button", { name: "Show dispatches" }).previousSibling?.nodeType).toBe(Node.TEXT_NODE);
+  });
+  it("request column widens the empty-table row", () => {
+    const { container } = render(<StageRunTable stageRuns={[]} requests />);
+    expect(container.querySelector("tbody td")).toHaveAttribute("colspan", "8");
+  });
+});

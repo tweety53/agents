@@ -334,21 +334,25 @@ func TestNameLooksUpDocumentedKey(t *testing.T) {
 	}
 }
 
-// skillPath locates flow-fast's SKILL.md relative to this package, at the
-// same depth as readmePath above.
-const skillPath = "../../../skills/flow-fast/SKILL.md"
+// skillPath and interactiveSkillPath locate flow-fast's and
+// flow-interactive's SKILL.md relative to this package, at the same depth
+// as readmePath above.
+const (
+	skillPath            = "../../../skills/flow-fast/SKILL.md"
+	interactiveSkillPath = "../../../skills/flow-interactive/SKILL.md"
+)
 
 // stageKeysHeading locates the section the drift guard extracts from.
 const stageKeysHeading = "## Stage keys"
 
-// extractFlowFastSkillKeys reads flow-fast's own Stage keys table and
-// returns every backticked flow.* key it names -- the authoritative
-// statement of which keys /flow-fast marks, so the vocabulary can be
+// extractFlowFastSkillKeys reads a skill's own Stage keys table (flow-fast's,
+// or flow-interactive's) and returns every backticked flow.* key it names --
+// the authoritative statement of which keys the command marks, so the vocabulary can be
 // pinned to the skill rather than to a hand-copied list. The kan-357 run
 // shipped the flow-fast skill with no vocabulary extension at all, and
 // nothing failed until a live run's first mark was rejected; this
 // extraction is what makes that class of drift a test failure instead.
-func extractFlowFastSkillKeys(t *testing.T) map[string]bool {
+func extractFlowFastSkillKeys(t *testing.T, skillPath string) map[string]bool {
 	t.Helper()
 
 	data, err := os.ReadFile(skillPath)
@@ -396,12 +400,26 @@ func extractFlowFastSkillKeys(t *testing.T) map[string]bool {
 // the skill groups its keys by phase file, the vocabulary by README row,
 // so order is not a fact either side states.
 func TestStageKeysMatchFlowFastSkillTable(t *testing.T) {
-	want := extractFlowFastSkillKeys(t)
+	assertSkillTableMatches(t, stages.FlowFast, skillPath)
+}
+
+// TestStageKeysMatchFlowInteractiveSkillTable pins the /flow-interactive
+// vocabulary to flow-interactive's own Stage keys table, both ways, as
+// TestStageKeysMatchFlowFastSkillTable does for /flow-fast (KAN-1061).
+func TestStageKeysMatchFlowInteractiveSkillTable(t *testing.T) {
+	assertSkillTableMatches(t, stages.FlowInteractive, interactiveSkillPath)
+}
+
+// assertSkillTableMatches compares command's keys in stages.Table with the
+// skill at skillPath's Stage keys table, as sets.
+func assertSkillTableMatches(t *testing.T, command stages.Command, skillPath string) {
+	t.Helper()
+	want := extractFlowFastSkillKeys(t, skillPath)
 
 	got := map[string]bool{}
 	for _, s := range stages.Table {
 		for _, c := range s.Commands {
-			if c == stages.FlowFast {
+			if c == command {
 				got[s.Key] = true
 			}
 		}
@@ -420,7 +438,7 @@ func TestStageKeysMatchFlowFastSkillTable(t *testing.T) {
 		}
 	}
 	if len(missing) > 0 || len(extra) > 0 {
-		t.Errorf("/flow-fast vocabulary disagrees with %s\n  missing from vocabulary: %v\n  in vocabulary but not the skill: %v", skillPath, sortedKeys(missing), sortedKeys(extra))
+		t.Errorf("%s vocabulary disagrees with %s\n  missing from vocabulary: %v\n  in vocabulary but not the skill: %v", command, skillPath, sortedKeys(missing), sortedKeys(extra))
 	}
 }
 
@@ -465,5 +483,22 @@ func TestKeysServesTableInOrder(t *testing.T) {
 	got[0] = "mutated.by.a.caller"
 	if again := stages.Keys(); !reflect.DeepEqual(again, want) {
 		t.Errorf("Keys() after a caller mutated a previous result = %v, want the untouched table %v", again, want)
+	}
+}
+
+// TestFlowInteractiveStageKeys pins /flow-interactive to the eleven flow.*
+// keys it reuses (design.md, reuse-flow-stage-keys), in Table order, and
+// to nothing else.
+func TestFlowInteractiveStageKeys(t *testing.T) {
+	want := []string{
+		"flow.kickoff", "flow.brainstorm", "flow.load-context", "flow.sdd-tdd",
+		"flow.verify", "flow.visual-verify", "flow.self-review", "flow.landing-routes",
+		"flow.cleanup", "flow.write-finished", "flow.refresh-main-checkout",
+	}
+	if got := stages.ForCommand(stages.FlowInteractive); !reflect.DeepEqual(got, want) {
+		t.Errorf("ForCommand(/flow-interactive) = %v, want %v", got, want)
+	}
+	if stages.Valid(stages.FlowInteractive, "flow.decide") {
+		t.Error("flow.decide must not be valid for /flow-interactive")
 	}
 }
