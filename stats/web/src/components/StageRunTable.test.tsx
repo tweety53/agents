@@ -100,6 +100,16 @@ describe("StageRunTable", () => {
     expect(screen.getByTestId("run-cost").title).toBe("agents $2.15 + main session $0.85");
   });
 
+  it("shows a tail's model, not the main session's, on a run whose only agent began in an earlier run", () => {
+    const tailOnly: StageRunDTO = {
+      ...run,
+      metrics: { cost_usd: 3, dispatches: { a548eaf33f9b0cb85: { model: "opus", modelVersion: "claude-opus-5-5", cost_usd: 2, description: `${KEY}-fix-2 minor fixes` } } },
+    };
+    render(<StageRunTable stageRuns={[tailOnly]} records={[{ ...records[0], startedAt: "2025-12-31T23:50:00Z" }]} />);
+    expect(screen.getByTestId("run-model")).toHaveTextContent(/^opus 5\.5$/);
+    expect(screen.getByTestId("run-model").querySelector(".lb-muted")).toBeNull();
+  });
+
   it("names a dispatch's exact model from its served models when the bucket records no version", () => {
     const served = { ...run, metrics: { ...(run.metrics as object), dispatches: { aeb9c995f7b6dd74f: { model: "sonnet", cost_usd: 0.15, signals: { served_models: { "claude-sonnet-5-5": 6 } } } } } };
     render(<StageRunTable stageRuns={[served]} records={records} />);

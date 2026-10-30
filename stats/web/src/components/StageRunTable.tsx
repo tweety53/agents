@@ -287,6 +287,9 @@ function StageRunRow({ run, now, records, showStage, requests }: { run: StageRun
         <td data-testid="run-model">
           {own.length > 0 ? (
             <span title={agentModels(own)}>{agentModels(own)}</span>
+          ) : all.length > 0 ? (
+            // Only an earlier run's tail worked here: its model, not the main session's.
+            <span title={agentModels(all)}>{agentModels(all)}</span>
           ) : (
             // No agent: the main session's own model.
             (() => {
