@@ -13,6 +13,7 @@
 #     [--miss] [--continue [--started]]
 #   visual-verify-pass.sh close <canonical-worktree> <name> <key> <motions named> \
 #     --session-token mf-<t>
+#   visual-verify-pass.sh measure <worktree> <name> <key> <spec path> [--prototype]
 #
 # Arguments:
 #   <canonical-worktree>  the change's canonical worktree, where its rows are
@@ -179,6 +180,39 @@
 # <canonical-worktree> -change <name> -key <key> -session-token <t>
 # -outcome <outcome> [-cause <cause>]`; a failed end is exit 2. The parent
 # reads the `## Verdict` alone (decision verdict-only-handback).
+#
+# measure (decision measure-one-call) is the verifier's step 9
+# (skills/flow/visual-verify-verifier.md): its measuring chain in one call,
+# in process, carrying on past every step's non-zero exit. <spec path> is the
+# capture spec, resolved against <worktree>; <changeRoot> is
+# <worktree>/<spec root>/changes/<name>. In order:
+#   1. resolve-visual-screenshots.sh <worktree> <spec's basename>, its output
+#      piped into check-identical-baselines.sh.
+#   2. with the `<spec path>.mockups` sidecar and a declared `mockups` root —
+#      or, under --prototype, <changeRoot>/visual-verification/prototype.mockups
+#      and <changeRoot>/visual-verification/prototype/ — the resolver's output
+#      piped into compose-mockup-frames.sh <sidecar> <mockups root>
+#      <changeRoot>/visual-verification [<mockup frame>] (no fourth argument
+#      under --prototype or without a declared `mockup frame`). Neither: the
+#      manifest carries no pairs.
+#   3. per sidecar line (a pair), with the cropped `<stem>.frame.png` as the
+#      frame when compose wrote one, else the mockup itself:
+#      measure-visual-properties.sh <frame> <capture> --scale 1 --props
+#      bands,seams into <worktree>/.superpowers/sdd/visual-measure-<key>/<frame id>.json,
+#      and --props matrix into <changeRoot>/visual-verification/matrix/<frame id>.json.
+#      A pair compose did not write is recorded with its non-zero compose exit
+#      and not measured; every other pair still is.
+#   4. the manifest <worktree>/.superpowers/sdd/visual-manifest-<key>.json:
+#      `captures`, `identical` (the group lines), `steps` (resolve, identical
+#      and compose, each {exit, stderr}) and `pairs[]` of {frame, capture,
+#      mockup, composite, diff, exits{resolve, identical, compose, bands,
+#      matrix}, stderr, bands_file, matrix_file, bands, seams, over} —
+#      `bands` and `seams` the entries flagged by mvpOverLength and
+#      mvpOverColour (measurevisualproperties.go) or missing/extra, `over`
+#      the matrix's summary.over; an exit is null for a step not run. Prints
+#        MANIFEST: <path>
+#   Exit 0 when every step exited 0, 1 when any did not, 2 on a usage error
+#   or an output directory or file it cannot write.
 #
 # The stage file, <canonical-worktree>/.superpowers/sdd/visual-verify-stage.txt,
 # written once the stage has begun, is the only state a later call reads

@@ -19,7 +19,8 @@ import (
 func init() { Registry["visual-verify-pass"] = visualVerifyPass }
 
 const vvpUsage = "usage: visual-verify-pass.sh prepare <canonical-worktree> <name> <key> --harness <h> --session-token mf-<t> --merge-base <worktree>=<sha>... [--worktree <worktree>]... [--since <worktree>=<sha>]... [--round-base <worktree>=<sha>]... [--app <worktree>:<app-root>=<url>]... [--miss] [--continue [--started]]\n" +
-	"       visual-verify-pass.sh close <canonical-worktree> <name> <key> <motions named> --session-token mf-<t>"
+	"       visual-verify-pass.sh close <canonical-worktree> <name> <key> <motions named> --session-token mf-<t>\n" +
+	"       visual-verify-pass.sh measure <worktree> <name> <key> <spec path> [--prototype]"
 
 // vvpExit unwinds a step to visualVerifyPass with its exit code.
 type vvpExit int
@@ -63,6 +64,8 @@ func visualVerifyPass(args []string, env Env, stdout, stderr io.Writer) (code in
 	case "close":
 		v.parse(args[1:], false)
 		v.close()
+	case "measure":
+		v.measure(args[1:])
 	default:
 		v.usage("unknown subcommand '" + args[0] + "'")
 	}
