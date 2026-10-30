@@ -46,3 +46,11 @@ Prototype re-rendered at 1280x1024, DPR 1, dark scheme, with `.panel{max-width:n
 - Matrix per frame: `visual-verification/matrix/experiments-roles{,-hover,-focus}.json` — 99 elements, 82 paired, 9 missing, 8 extra; every missing/extra is the group-rule/text shift of the single wrap; `#<id>` text per `seed-matches-experiment-4`. No unexplained departure.
 - Rest of the Experiments view (`experiments-open`, `-closed`, `-hover`, `-focus`): renders without new defects. The weekly-trend charts clip their last x-axis tick label at the plot's right edge (`08-1`, `07-2`); present at the merge base (merge-base baseline: f1163fad3e0fbcab24b07fd1dacccd64bdc3dea4:stats/web/tests/visual/experiments.spec.ts-snapshots/experiments-open-darwin.png), not this change's.
 - `experiments-focus` and `experiments-hover` are byte-identical: chart point hover and focus draw the same r=5 point, identical at the merge base too.
+
+## Round: weekly-trend end labels (visual-verify-3)
+
+Round base `c47730cb`; fix `20699081` anchors each weekly-trend chart's first x-axis label `start` and last `end` (`stats/web/src/views/Experiments.tsx`). `verify` exit 0 (75 passed); `capture` of `experiments.spec.ts` and the full app suite's experiments test with `--update-snapshots=all` left every PNG byte-identical to the committed baselines.
+
+- experiments-open — `../../../stats/web/tests/visual/experiments.spec.ts-snapshots/experiments-open-darwin.png`: every end label now renders whole — Review rounds `03-09`…`08-10`, Round-0 Crit+Imp `03-09`…`08-10`, Plan corrections single point `08-10` centred (n=1 keeps `middle`), Tokens `03-09`…`07-20`, Wall-clock `03-09`…`07-20`. Pixel diff against `c47730cb` is confined to x 388–948, y 2221–2394: the two axis-label rows; nothing else on the view moved. Same for experiments-hover and experiments-focus (still identical to each other: point hover and focus draw the same r=5 point, identical at the merge base too).
+- experiments-closed: diff confined to y 2128–2135, the axis-label row; end labels whole.
+- experiments-roles, -roles-hover, -roles-focus: byte-identical to `c47730cb`, so the visual-verify-2 prototype comparison (frame none, native size, `diff=n/a`), bands, seams, matrices and sweeps stand unchanged; expected departures `seed-matches-experiment-4` and `roles-panel-chrome-unchanged` only.
