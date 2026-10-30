@@ -736,12 +736,14 @@ export function RunDetail({ project, change }: RunDetailProps) {
           const mainRun = openRun ?? (betweenStages ? lastRun : undefined);
           // An interactive session with no request in progress and no stage open waits for the operator's next one.
           const waitingNext = interactive && interactiveWaiting(board);
+          // A stage the session just opened carries no harvested metrics yet: main keeps the latest measured run's model and effort.
+          const mainMetrics = [mainRun, ...[...runs].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt))].find((r) => r && readMainModels(r.metrics))?.metrics;
           const mainAgent = mainRun && {
             what: waitingNext ? "waiting for the next request" : inline ? inlineWhat(inline, board?.tasks) : openRun ? `${stageLabel(openRun.stage)}${board && mainAction(board) ? ` · ${mainAction(board)}` : board && agentsDone(board) ? ", wrapping up after its agents" : ""}` : (board?.activity === "working" && board.activityDetail ? board.activityDetail : `between stages, after ${stageLabel(mainRun.stage)}`),
             model: inline
               ? formatModel(inline.modelVersion ?? inline.model)
-              : (readMainModels(mainRun.metrics)?.map(formatModel).join(", ") ?? "—"),
-            effort: readEffort(mainRun.metrics) ?? undefined,
+              : (readMainModels(mainMetrics)?.map(formatModel).join(", ") ?? "—"),
+            effort: readEffort(mainMetrics) ?? undefined,
             since: inline?.startedAt ?? (openRun ? openRun.startedAt : (mainRun.endedAt ?? mainRun.startedAt)),
           };
           const request = interactive ? currentRequest(board) : undefined;

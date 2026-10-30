@@ -6,6 +6,7 @@ import { describeDispatch } from "./describeDispatch";
 describe("describeDispatch", () => {
   it.each([
     ["task-3-implementer", "Implementing task 3"],
+    ["plan-4", "Planning the change"],
     ["task-1+2+3-implementer", "Implementing tasks 1, 2, 3"],
     ["task-3-implementer-fix-2", "Fixing review findings on task 3, round 2"],
     ["task-3+4-reviewer", "Reviewing tasks 3, 4"],

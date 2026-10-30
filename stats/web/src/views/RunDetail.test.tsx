@@ -1135,6 +1135,17 @@ describe("the reworked run view (kan-1048)", () => {
     expect(main.querySelector(".lb-dot.waiting")).not.toBeNull();
   });
 
+  it("run detail gives main the session's last measured model and effort while its open stage has none yet", async () => {
+    const waiting = { ...boardRow, activity: "working", subagents: boardRow.subagents.filter((d) => !d.inline) };
+    listStageRunsMock.mockResolvedValue(stageRunsResponse([...planning, { ...implementation[0], metrics: { effort: "high", models: { "claude-opus-4-7": { tokens: { main: { input: 5 } } } } } }, { ...implementation[1], metrics: {} }]));
+    fetchStatsViewMock.mockImplementation((view: string) =>
+      Promise.resolve(view === "state-board" ? { ...aggregateEnvelope([]), view, rows: [waiting] } : aggregateEnvelope([])),
+    );
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const main = (await screen.findByRole("cell", { name: "Main" })).closest("tr")!;
+    expect(main).toHaveTextContent("opus 4.7 · high");
+  });
+
   it("run detail lists main while it works between stages", async () => {
     const between = {
       ...boardRow,

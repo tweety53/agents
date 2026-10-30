@@ -24,6 +24,7 @@ export function describeDispatch(key: string | undefined, role: string): string 
     return `Checking the UI${m[2] ? " in full" : ""}${after(m[1])}${m[3] ? ` · ${m[3]}` : ""}`;
   if ((m = /^verify(?:-fix-(\d+))?(?:-(.+))?$/.exec(key))) return `Running lint and tests${after(m[1])}${m[2] ? ` · ${m[2]}` : ""}`;
   if (/^explore-\d+$/.test(key)) return "Exploring the code";
+  if (/^plan-\d+$/.test(key)) return "Planning the change";
   return key;
 }
 
