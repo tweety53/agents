@@ -258,11 +258,12 @@ Correction (2026-10-30): the plan named only the two new tests; commit 9ad3fb14 
 - [x] 15. In-run fix 2 — flow.visual-verify: match the interactive run view to the prototype; capture the cards as viewport shots
   - [x] **Step 1: Reproduce.** Read `<project>/.superpowers/sdd/verify-report-visual-verify.md` and the prototype; open `#/run/uitest-alpha/kan-1072-interactive-session-2026-10-30` on the UI-test stack and confirm each departure.
   - [x] **Step 2: Fix.** On the interactive run view only: lay the work area out as the prototype's `minmax(0, 3fr) minmax(0, 2fr)` grid with Requests and Cost by stage in the right column; draw the Agents Status cell as the dot alone (state kept as accessible text); show 6 stage-run rows with no "Show all" chip. `/flow` and `/flow-fast` run views stay unchanged. Change the four card captures in `stats/web/tests/visual/interactive.spec.ts` to viewport captures and update its `.mockups` sidecar; recapture.
-  - [x] **Step 3: Verify.** `npx vitest run`, `npx tsc -b`, and `npm run test:visual` green. Commit.
+  - [x] **Step 3: Verify.** Its **Tests:** selectors and `npx tsc -b` green. Commit.
 
 **Build:** green
-**Files:** `stats/web/src/views/RunDetail.tsx`, `stats/web/src/components/StageRunTable.tsx`, `stats/web/src/styles.css`, `stats/web/tests/visual/interactive.spec.ts`, `stats/web/tests/visual/interactive.spec.ts.mockups`, their tests and snapshots
-**Tests:** RunDetail/StageRunTable unit tests for the interactive layout, row count and dot-only status; the visual spec.
+**Files:** `stats/web/src/views/RunDetail.tsx`, `stats/web/src/views/RunDetail.test.tsx`, `stats/web/src/styles.css`, `stats/web/tests/visual/interactive.spec.ts`, `stats/web/tests/visual/interactive.spec.ts.mockups`, `spectre/changes/kan-1061-flow-add-flow-interactive-fast-conversational/visual-verification.md`
+**Allowed-collateral:** `stats/web/tests/visual/interactive.spec.ts-snapshots/*.png`
+**Tests:** `interactive run view` in `stats/web/src/views/RunDetail.test.tsx`; `tests/visual/interactive.spec.ts`.
 **Regression:** the interactive run view renders Requests narrow, "● running" text and a "Show all" chip after 5 rows.
 **Commit:** fix(web): match the interactive run view to its prototype
-**After:** Task 14
+**After:** Task 7, 8, 9, 14
