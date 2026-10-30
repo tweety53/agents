@@ -7,7 +7,7 @@
 // zero-length, and the header totals come from the server's own
 // cost-per-change aggregate -- never from summing the (possibly partial)
 // page of stage runs the interface holds.
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -1336,12 +1336,15 @@ describe("interactive run view", () => {
     dot(1, "running", "running");
   });
 
-  it("interactive run view lists the latest 6 stage runs and no Show all chip", async () => {
+  it("interactive run view lists the latest 6 stage runs and expands to all", async () => {
     load([...r6, ...r7]);
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const panel = await screen.findByRole("region", { name: "Stage runs" });
     await waitFor(() => expect(panel.querySelectorAll("tr.lb-row")).toHaveLength(6));
-    expect(within(panel).queryByRole("button", { name: /Show all/ })).toBeNull();
+    fireEvent.click(within(panel).getByRole("button", { name: "Show all 8" }));
+    expect(panel.querySelectorAll("tr.lb-row")).toHaveLength(8);
+    fireEvent.click(within(panel).getByRole("button", { name: "Show latest 6" }));
+    expect(panel.querySelectorAll("tr.lb-row")).toHaveLength(6);
   });
 
   it("interactive run view draws its Stage cells with no session-row indent", async () => {

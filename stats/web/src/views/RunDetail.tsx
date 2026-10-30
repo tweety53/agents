@@ -90,7 +90,7 @@ const TOP_STAGES = 10;
 
 /** How many of the latest stage runs the collapsed Stage runs table shows. */
 const LATEST_RUNS = 5;
-/** An interactive session's Stage runs: the prototype's six latest rows, with no "Show all". */
+/** An interactive session's Stage runs: the prototype's six latest rows. */
 const INTERACTIVE_RUNS = 6;
 
 /** The outcomes a dispatch ends on without finishing its work. */
@@ -683,6 +683,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
       {state.status === "ready" &&
         (() => {
           const runs = state.stageRuns;
+          const latestRuns = interactive ? INTERACTIVE_RUNS : LATEST_RUNS;
           const { summary } = state;
           const openRun = runs.filter((r) => !r.endedAt).sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt))[0];
           const t0 = runs.length ? Math.min(...runs.map((r) => Date.parse(r.startedAt))) : now;
@@ -769,18 +770,18 @@ export function RunDetail({ project, change }: RunDetailProps) {
               <span>Stage runs</span>
               <span className="lb-panel-note">
                 click a row for its dispatches
-                {!interactive && runs.length > LATEST_RUNS && (
+                {runs.length > latestRuns && (
                   <>
                     {" · "}
                     <button type="button" className="lb-fchip" onClick={() => setAllRuns(!allRuns)}>
-                      {allRuns ? `Show latest ${LATEST_RUNS}` : `Show all ${runs.length}`}
+                      {allRuns ? `Show latest ${latestRuns}` : `Show all ${runs.length}`}
                     </button>
                   </>
                 )}
               </span>
             </div>
             <StageRunTable
-              stageRuns={allRuns ? runs : [...runs].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt)).slice(-(interactive ? INTERACTIVE_RUNS : LATEST_RUNS))}
+              stageRuns={allRuns ? runs : [...runs].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt)).slice(-latestRuns)}
               truncated={state.truncated}
               totalStageRuns={state.totalStageRuns}
               records={dispatches}
