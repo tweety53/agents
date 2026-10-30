@@ -37,16 +37,16 @@ configuration.
 - Task 3: a report with no `- spec:` line, a wire-contract report and a resolver exit other than 0 are never checked; a composed frame's view needs no capture-scope line; the existing `TestCheckVerifyReport` cases stay green unchanged.
 - Task 4: arguments appended after `<spec>` reach Playwright, never the rebuild script; a failing Playwright run skips the rebuild and fails the row.
 
-- [ ] 1. Scope the mutation slot's own mutant runs by its planned mutant count
-  - [ ] **Step 1: Edit** (decision `sr1-slot-runs-by-mutant-count`) `skills/flow/review-panel.md`: in **The mutation-testing brief**, after the paragraph's last sentence, the one ending `(kan-1039: the slot discarded a whole cached sweep whose survivals were false).`, add this sentence on its own line in the same paragraph:
+- [x] 1. Scope the mutation slot's own mutant runs by its planned mutant count
+  - [x] **Step 1: Edit** (decision `sr1-slot-runs-by-mutant-count`) `skills/flow/review-panel.md`: in **The mutation-testing brief**, after the paragraph's last sentence, the one ending `(kan-1039: the slot discarded a whole cached sweep whose survivals were false).`, add this sentence on its own line in the same paragraph:
 
 ```markdown verified:authored for this change; the anchor sentence read from skills/flow/review-panel.md at branch spectre/group-allowed-pairs-roles
 The slot's own mutant runs are scoped before the first mutation too: it measures one run of the mutated code's whole package, and when that run's seconds times the number of mutants it plans pass half the slot's ceiling, every mutant run filters by the name prefix the mutated code's test family shares (`-run '^TestCheckPanel'`), never a full test name (group-allowed-pairs-roles self-review: the slot ran the whole guard package per mutant and timed out at 15 minutes; the prefix-filtered retry finished in 88 s).
 ```
 
     Change no other text.
-  - [ ] **Step 2: Verify.** `scripts/run-verify-list.sh /Users/tweety53/Projects/agents-worktrees/group-allowed-pairs-roles lint` exits 0.
-  - [ ] **Step 3: Commit** with the subject below.
+  - [x] **Step 2: Verify.** `scripts/run-verify-list.sh /Users/tweety53/Projects/agents-worktrees/group-allowed-pairs-roles lint` exits 0.
+  - [x] **Step 3: Commit** with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/review-panel.md`
@@ -57,14 +57,14 @@ The slot's own mutant runs are scoped before the first mutation too: it measures
 
 **Decision:** sr1-slot-runs-by-mutant-count
 
-- [ ] 2. State the prototype region capture, its width and the frame none reads
-  - [ ] **Step 1: Edit** (decision `sr2-region-capture-exception`) `skills/flow/visual-verify-verifier.md` step 8: after the sentence ending `frame and call the result a fidelity check.`, before `**\`capture\` creates this change's baseline**`, insert:
+- [x] 2. State the prototype region capture, its width and the frame none reads
+  - [x] **Step 1: Edit** (decision `sr2-region-capture-exception`) `skills/flow/visual-verify-verifier.md` step 8: after the sentence ending `frame and call the result a fidelity check.`, before `**\`capture\` creates this change's baseline**`, insert:
 
 ```markdown verified:authored for this change; the anchor read from skills/flow/visual-verify-verifier.md step 8 at branch spectre/group-allowed-pairs-roles
 The one exception is a region an approved prototype draws alone (step 10): its element capture is the frame-bound capture, taken beside the view's own full-page capture, never in place of it (group-allowed-pairs-roles self-review).
 ```
 
-  - [ ] **Step 2: Edit** (decision `sr2-prototype-region-width`) the same file, step 10's **An approved prototype is the frame where no mockup is** paragraph: after the sentence ending `` `<changeRoot>/visual-verification/prototype/<screenshot stem>.png`. ``, before `Then write`, insert:
+  - [x] **Step 2: Edit** (decision `sr2-prototype-region-width`) the same file, step 10's **An approved prototype is the frame where no mockup is** paragraph: after the sentence ending `` `<changeRoot>/visual-verification/prototype/<screenshot stem>.png`. ``, before `Then write`, insert:
 
 ```markdown verified:authored for this change; the anchor read from skills/flow/visual-verify-verifier.md step 10 at branch spectre/group-allowed-pairs-roles
 For a region capture (step 8's exception) the script sizes the prototype's region to the capture's width, injecting CSS that overrides any standalone width cap such as a `max-width`, and `visual-verification.md` records the injected rule under the frame's entry (group-allowed-pairs-roles self-review: a 1100px prototype panel beside a 1232px capture left no band, seam or matrix reading possible).
@@ -76,7 +76,7 @@ For a region capture (step 8's exception) the script sizes the prototype's regio
 Under that `frame none` line the compose step pairs each capture with its frame at native size, prints each pair's `diff=` ratio as n/a and writes no `<stem>.frame.png` — by design, never a defect — so the band, seam and matrix reads run `measure-visual-properties.sh` on the prototype PNG and the capture directly.
 ```
 
-  - [ ] **Step 3: Edit** (decision `sr2-region-capture-exception`) `skills/flow/brainstorm-planner.md`: in the paragraph opening **Write a capture task that baselines against a mockup to measure before it commits.**, after `byte-identical pair (kan-1061 self-review).`, append inside the same `>` quote:
+  - [x] **Step 3: Edit** (decision `sr2-region-capture-exception`) `skills/flow/brainstorm-planner.md`: in the paragraph opening **Write a capture task that baselines against a mockup to measure before it commits.**, after `byte-identical pair (kan-1061 self-review).`, append inside the same `>` quote:
 
 ```markdown verified:authored for this change; the anchor read from skills/flow/brainstorm-planner.md at branch spectre/group-allowed-pairs-roles
 > The one exception is a region an approved prototype draws
@@ -85,8 +85,8 @@ Under that `frame none` line the compose step pairs each capture with its frame 
 ```
 
     Rewrap the paragraph's lines near 100 columns; change no other text in either file.
-  - [ ] **Step 4: Verify.** `scripts/run-verify-list.sh /Users/tweety53/Projects/agents-worktrees/group-allowed-pairs-roles lint` exits 0.
-  - [ ] **Step 5: Commit** with the subject below.
+  - [x] **Step 4: Verify.** `scripts/run-verify-list.sh /Users/tweety53/Projects/agents-worktrees/group-allowed-pairs-roles lint` exits 0.
+  - [x] **Step 5: Commit** with the subject below.
 
 **Build:** green
 **Files:** `skills/flow/visual-verify-verifier.md`, `skills/flow/brainstorm-planner.md`
@@ -97,9 +97,9 @@ Under that `frame none` line the compose step pairs each capture with its frame 
 
 **Decision:** sr2-region-capture-exception, sr2-prototype-region-width
 
-- [ ] 3. Refuse a verify report that leaves a capture unnamed or unswept
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `scripts/check-verify-report.sh /Users/tweety53/Projects/agents-worktrees/group-allowed-pairs-roles/.superpowers/sdd/verify-report-visual-verify-rest.md 0` and record its verdict line: it prints `VERIFY-REPORT-COMPLETE` today although the report names none of `experiments-open`, `-closed`, `-hover` or `-focus-darwin.png`.
-  - [ ] **Step 2: Write the failing test** `TestCheckVerifyReportAccountsForEveryCapture` in `stats/internal/guard/check_verify_report_test.go`. Each case builds a temp root holding `.flow/project.md` with `rvsSection("tests/visual")` (`stats/internal/guard/resolve_visual_screenshots_test.go`), empty PNGs `tests/visual/a.spec.ts-snapshots/a-open-darwin.png` and `tests/visual/a.spec.ts-snapshots/a-roles-darwin.png`, and the report at `<root>/.superpowers/sdd/verify-report-visual-verify.md` whose `## Report` carries the all-done steps line, `- spec: <root>/tests/visual/a.spec.ts`, and:
+- [x] 3. Refuse a verify report that leaves a capture unnamed or unswept
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `scripts/check-verify-report.sh /Users/tweety53/Projects/agents-worktrees/group-allowed-pairs-roles/.superpowers/sdd/verify-report-visual-verify-rest.md 0` and record its verdict line: it prints `VERIFY-REPORT-COMPLETE` today although the report names none of `experiments-open`, `-closed`, `-hover` or `-focus-darwin.png`.
+  - [x] **Step 2: Write the failing test** `TestCheckVerifyReportAccountsForEveryCapture` in `stats/internal/guard/check_verify_report_test.go`. Each case builds a temp root holding `.flow/project.md` with `rvsSection("tests/visual")` (`stats/internal/guard/resolve_visual_screenshots_test.go`), empty PNGs `tests/visual/a.spec.ts-snapshots/a-open-darwin.png` and `tests/visual/a.spec.ts-snapshots/a-roles-darwin.png`, and the report at `<root>/.superpowers/sdd/verify-report-visual-verify.md` whose `## Report` carries the all-done steps line, `- spec: <root>/tests/visual/a.spec.ts`, and:
     - both PNGs on `- a-open: <abs path> — …` and `- a-roles: <abs path> — …` lines, a `- a-roles: <root>/vv/a-roles.png diff=n/a — …` frame line with its `- a-roles matrix:` line, and `- per view, no frame composed: a-open sweeps: text done | …` → exit 0, `VERIFY-REPORT-COMPLETE`;
     - the same with the `a-open` view line removed → exit 1, the verdict naming `a-open-darwin.png`;
     - the same with the `per view, no frame composed: a-open sweeps:` line removed → exit 1, the verdict naming `a-open`;
@@ -108,16 +108,16 @@ Under that `frame none` line the compose step pairs each capture with its frame 
     - the first case with `screenshots` pointing at a directory that does not exist → exit 0 (resolver exit 1, not checked).
 
     Run it: `cd stats && go test ./internal/guard/ -run 'TestCheckVerifyReportAccountsForEveryCapture' -count=1` fails.
-  - [ ] **Step 3: Implement** (decision `sr3-every-capture-accounted`) in `checkVerifyReport` (`stats/internal/guard/verifyreport.go`): read the first `- spec: <path>` line of the `## Report` section; after the line loop, when it is set and no wire contract names a view, call `resolveVisualScreenshots([]string{<worktree three directories above the report>, filepath.Base(<spec>)}, env, &buf, io.Discard)`; on exit 0, for each printed path append to `undone` `<png basename> is on no "- <view>: <path>" line — step 9 states every capture` when no `## Report` line matches `^\s*- (\S+): <quoted path>(\s|$)`, else, when that line's view is not among the `vrFrameLine` frame ids and no line contains `per view, no frame composed: <view> sweeps:`, `<view> has no frame and no "per view, no frame composed: <view> sweeps:" line`. Use `regexp.QuoteMeta` for the path.
-  - [ ] **Step 4: Edit** `scripts/check-verify-report.sh`: append to the header comment, after the paragraph ending `(kan-1016: one matrix line covered nine frames).`, a paragraph stating: given a `## Report` line `- spec: <path>`, the PNGs `resolve-visual-screenshots.sh <worktree> <spec basename>` prints, the worktree three directories above <report file>, each need a `- <view>: <absolute PNG path>` line, and each such view that no `- <view>: <composite> diff=` line names needs a `per view, no frame composed: <view> sweeps:` line; each gap is undone; no `- spec:` line, a wire contract naming an endpoint, or a resolver exit other than 0 skips the check (group-allowed-pairs-roles self-review: two round-1 reports named only the prototype-framed captures).
-  - [ ] **Step 5: Edit** `skills/flow/visual-verify-verifier.md` step 9: after the sentence ending `and state, per view, what was seen.`, before `An unreadable PNG is reported and blocks`, insert:
+  - [x] **Step 3: Implement** (decision `sr3-every-capture-accounted`) in `checkVerifyReport` (`stats/internal/guard/verifyreport.go`): read the first `- spec: <path>` line of the `## Report` section; after the line loop, when it is set and no wire contract names a view, call `resolveVisualScreenshots([]string{<worktree three directories above the report>, filepath.Base(<spec>)}, env, &buf, io.Discard)`; on exit 0, for each printed path append to `undone` `<png basename> is on no "- <view>: <path>" line — step 9 states every capture` when no `## Report` line matches `^\s*- (\S+): <quoted path>(\s|$)`, else, when that line's view is not among the `vrFrameLine` frame ids and no line contains `per view, no frame composed: <view> sweeps:`, `<view> has no frame and no "per view, no frame composed: <view> sweeps:" line`. Use `regexp.QuoteMeta` for the path.
+  - [x] **Step 4: Edit** `scripts/check-verify-report.sh`: append to the header comment, after the paragraph ending `(kan-1016: one matrix line covered nine frames).`, a paragraph stating: given a `## Report` line `- spec: <path>`, the PNGs `resolve-visual-screenshots.sh <worktree> <spec basename>` prints, the worktree three directories above <report file>, each need a `- <view>: <absolute PNG path>` line, and each such view that no `- <view>: <composite> diff=` line names needs a `per view, no frame composed: <view> sweeps:` line; each gap is undone; no `- spec:` line, a wire contract naming an endpoint, or a resolver exit other than 0 skips the check (group-allowed-pairs-roles self-review: two round-1 reports named only the prototype-framed captures).
+  - [x] **Step 5: Edit** `skills/flow/visual-verify-verifier.md` step 9: after the sentence ending `and state, per view, what was seen.`, before `An unreadable PNG is reported and blocks`, insert:
 
 ```markdown verified:authored for this change; the anchor read from skills/flow/visual-verify-verifier.md step 9 and the report template's view and per-view lines at branch spectre/group-allowed-pairs-roles
 Each printed PNG gets its own `- <view>: <absolute PNG path>` line, and each view no frame is composed for its `per view, no frame composed: <view> sweeps:` line — `check-verify-report.sh` refuses a report missing either (group-allowed-pairs-roles self-review: two round-1 verifiers named only the prototype-framed captures, and a clipped chart label on an unnamed full-page capture surfaced a round later).
 ```
 
-  - [ ] **Step 6: Verify.** `cd stats && go test ./internal/guard/ -run 'TestCheckVerifyReport' -count=1` green; Step 1's command now exits 1 naming `experiments-open-darwin.png`; `cd stats && gofmt -l .` and `cd stats && make -s web-dist && go vet ./...` clean; `scripts/run-verify-list.sh /Users/tweety53/Projects/agents-worktrees/group-allowed-pairs-roles lint` exits 0.
-  - [ ] **Step 7: Commit** with the subject below.
+  - [x] **Step 6: Verify.** `cd stats && go test ./internal/guard/ -run 'TestCheckVerifyReport' -count=1` green; Step 1's command now exits 1 naming `experiments-open-darwin.png`; `cd stats && gofmt -l .` and `cd stats && make -s web-dist && go vet ./...` clean; `scripts/run-verify-list.sh /Users/tweety53/Projects/agents-worktrees/group-allowed-pairs-roles lint` exits 0.
+  - [x] **Step 7: Commit** with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/verifyreport.go`, `stats/internal/guard/check_verify_report_test.go`, `scripts/check-verify-report.sh`, `skills/flow/visual-verify-verifier.md`
@@ -131,8 +131,8 @@ Each printed PNG gets its own `- <view>: <absolute PNG path>` line, and each vie
 
 **Decision:** sr3-every-capture-accounted
 
-- [ ] 4. Chain the full-app-suite zip rebuild into the capture row
-  - [ ] **Step 1: Edit** (decision `sr4-capture-chains-zip`) `.flow/project.md`'s `## visual verification` command table: replace the `capture` row with
+- [x] 4. Chain the full-app-suite zip rebuild into the capture row
+  - [x] **Step 1: Edit** (decision `sr4-capture-chains-zip`) `.flow/project.md`'s `## visual verification` command table: replace the `capture` row with
 
 ```markdown verified:spiked 2026-10-30 in stats/web of this worktree — a zsh and a bash function with this shape passed appended args (--update-snapshots=all, -g 'a b') to its first command as separate words, a failing first command failed the row, and the rebuild with these two arguments exited 0 leaving git status clean
 | `capture` | `cd stats/web && { ../../scripts/check-dev-stack-fresh.sh ../.. \|\| make -C .. ui-test-up; } && capture() { npx playwright test "$@" && ../../scripts/rebuild-full-app-suite-zip.sh "$(cd ../.. && pwd)" "$PWD/tests/visual"; } && capture <spec> --update-snapshots` |
@@ -148,14 +148,14 @@ reach Playwright, and on its exit 0 runs `rebuild-full-app-suite-zip.sh` with th
 (group-allowed-pairs-roles self-review).
 ```
 
-  - [ ] **Step 2: Edit** `skills/flow/visual-verify-verifier.md` step 8: after the sentence ending ``(`skills/flow/verify-fix-loop.md`, `skills/flow/sync-onto-base.md`).``, insert:
+  - [x] **Step 2: Edit** `skills/flow/visual-verify-verifier.md` step 8: after the sentence ending ``(`skills/flow/verify-fix-loop.md`, `skills/flow/sync-onto-base.md`).``, insert:
 
 ```markdown verified:authored for this change; the anchor read from skills/flow/visual-verify-verifier.md step 8 and the relative-root refusal from scripts/rebuild-full-app-suite-zip.sh's header at branch spectre/group-allowed-pairs-roles
 Both arguments are absolute — the script refuses a relative root — and a project whose `capture` row chains this rebuild after Playwright has run it with `capture`, a second run rewriting nothing (group-allowed-pairs-roles self-review).
 ```
 
-  - [ ] **Step 3: Verify.** From the worktree root run the new `capture` row with `<spec>` = `tests/visual/experiments.spec.ts` and `--update-snapshots=all` appended last: exit 0, its output ending on the rebuild, and `git status --short stats/web/tests/visual` printing nothing. `scripts/check-visual-verification.sh .` exits 0; `scripts/run-verify-list.sh /Users/tweety53/Projects/agents-worktrees/group-allowed-pairs-roles lint` exits 0.
-  - [ ] **Step 4: Commit** with the subject below.
+  - [x] **Step 3: Verify.** From the worktree root run the new `capture` row with `<spec>` = `tests/visual/experiments.spec.ts` and `--update-snapshots=all` appended last: exit 0, its output ending on the rebuild, and `git status --short stats/web/tests/visual` printing nothing. `scripts/check-visual-verification.sh .` exits 0; `scripts/run-verify-list.sh /Users/tweety53/Projects/agents-worktrees/group-allowed-pairs-roles lint` exits 0.
+  - [x] **Step 4: Commit** with the subject below.
 
 **Build:** green
 **Files:** `.flow/project.md`, `skills/flow/visual-verify-verifier.md`
