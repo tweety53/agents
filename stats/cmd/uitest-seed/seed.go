@@ -663,5 +663,33 @@ func seedExperiments(ctx context.Context, st *store.Store) error {
 		StartedAt: time.Date(2026, 7, 1, 9, 0, 0, 0, time.UTC)}); err != nil {
 		return fmt.Errorf("uitest-seed: open the combined experiment: %w", err)
 	}
+	// Explorer dispatches with tokens and duration on both sides of the open
+	// experiment's start, so its Tokens/change and Wall-clock panels and
+	// charts draw figures, as the prototype does.
+	for _, x := range []struct {
+		project, change, model string
+		at                     time.Time
+		tokens, minutes        int
+	}{
+		{"uitest-dynamics", "kan-300-dynamics-0", "opus", dynamicsFrom.Add(-8*7*24*time.Hour + 9*time.Hour), 52000, 14},
+		{"uitest-dynamics", "kan-302-dynamics-0", "opus", dynamicsFrom.Add(9 * time.Hour), 48000, 12},
+		{"uitest-dynamics", "kan-306-dynamics-0", "opus", dynamicsFrom.Add(4*7*24*time.Hour + 9*time.Hour), 45000, 11},
+		{"uitest-alpha", "kan-103-weekly-fixture", "sonnet", weeklyFixtureAt.Add(-7*24*time.Hour + 30*time.Minute), 61000, 9},
+		{"uitest-alpha", "kan-101-add-widget", "sonnet", weeklyFixtureAt.Add(30 * time.Minute), 58000, 8},
+	} {
+		// Attached to the change's first stage run, so no auto stage run is
+		// opened and no other view's run count moves.
+		runs, _, err := st.QueryStageRuns(ctx, store.Query{Filters: []store.Filter{
+			{Field: "project", Op: store.OpEq, Value: x.project}, {Field: "name", Op: store.OpEq, Value: x.change}}, Limit: store.NoLimit})
+		if err != nil || len(runs) == 0 {
+			return fmt.Errorf("uitest-seed: stage run for %s: %d runs, %v", x.change, len(runs), err)
+		}
+		if _, err := st.RecordDispatch(ctx, x.project, x.change, records.Dispatch{Key: "explore-1", Role: "explorer",
+			StageRunID: &runs[0].ID, Model: x.model, Effort: "low", Outcome: "completed", StartedAt: x.at,
+			EndedAt: timePtr(x.at.Add(time.Duration(x.minutes) * time.Minute)),
+			Metrics: json.RawMessage(fmt.Sprintf(`{"tokens":{"main":{"input":%d,"output":%d}}}`, x.tokens*9/10, x.tokens/10))}); err != nil {
+			return fmt.Errorf("uitest-seed: record explorer dispatch for %s: %w", x.change, err)
+		}
+	}
 	return nil
 }

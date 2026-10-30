@@ -18,10 +18,8 @@ test.describe("experiments", () => {
   test("experiments open experiment", async ({ page }) => {
     await open(page);
     expect(await bodyBackground(page)).toBe(DARK_SURFACE_1);
-    // Newest start first: the closed experiment (07-30) leads the list and
-    // opens selected, so the open one (07-01) is picked.
-    await expect(page.getByRole("button", { name: /implementer sonnet\/flow-low/ })).toHaveClass(/\bon\b/);
-    await page.getByRole("button", { name: /planning on xhigh/ }).click();
+    // Open experiments first: the open one leads the list and opens selected.
+    await expect(page.getByRole("region", { name: "Experiments", exact: true }).getByRole("button").first()).toContainText("planning on xhigh");
     await expect(page.getByRole("button", { name: /planning on xhigh/ })).toHaveClass(/\bon\b/);
     await expect(page.getByText("Loading…")).toHaveCount(0);
     // The prototype's measures: a 320px list column, 12px gaps, a 1.6rem

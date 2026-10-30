@@ -108,7 +108,7 @@ function StatCell({ metric }: { metric: ExperimentMetric }) {
     const d = b === 0 ? a : ((a - b) / b) * 100;
     const pct = b === 0 ? "" : `${Math.abs(d).toFixed(0)}% `;
     delta = (
-      <div className={`d ${d > 0 ? "up" : "down"}`}>
+      <div className={`d ${d > 0 ? "up" : "down"}`} style={{ whiteSpace: "nowrap" }}>
         {`${d > 0 ? "▲" : "▼"} ${pct}vs ${fmt(b)} before`}
       </div>
     );
@@ -286,8 +286,10 @@ export function Experiments() {
   useEffect(() => {
     let live = true;
     Promise.all([fetchRoles(), fetchExperiments()])
-      .then(([r, l]) => {
+      .then(([r, all]) => {
         if (!live) return;
+        // Open experiments first, then newest start first, as the prototype lists them.
+        const l = [...all].sort((a, b) => Number(b.status === "open") - Number(a.status === "open") || b.startedAt.localeCompare(a.startedAt));
         setRoles(r);
         setList(l);
         setSel((cur) => cur ?? l[0]?.id ?? null);

@@ -1460,6 +1460,21 @@ describe("Experiments", () => {
     expect(closed).toHaveTextContent("since 2026-10-01 · closed 2026-10-21");
   });
 
+  it("Experiments lists open experiments before closed ones, whatever order the API returns", async () => {
+    // The closed one started last, so only an open-first sort puts it last.
+    fetchExperimentsMock.mockReset().mockResolvedValue([{ ...experiments[2], startedAt: "2026-10-31T09:00:00Z" }, experiments[1], experiments[0]]);
+    render(<Experiments />);
+    const list = await screen.findByRole("region", { name: "Experiments" });
+    const names = (await within(list).findAllByRole("button")).map((b) => b.firstChild?.textContent);
+    expect(names).toEqual(["plan-designer on xhigh", "main agent opus@medium", "implementer sonnet/flow-low"]);
+  });
+
+  it("Experiments keeps the stat panel's delta line on one line", async () => {
+    render(<Experiments />);
+    const rounds = await screen.findByRole("region", { name: "Review rounds / change" });
+    expect(within(rounds).getByText("▼ 27% vs 2.6 before")).toHaveStyle({ whiteSpace: "nowrap" });
+  });
+
   it("Experiments shows the selected experiment's override, stat panels, charts and summary", async () => {
     render(<Experiments />);
     const override = await screen.findByRole("region", { name: "Override" });
