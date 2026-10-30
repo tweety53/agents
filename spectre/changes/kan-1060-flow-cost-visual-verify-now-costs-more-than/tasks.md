@@ -256,7 +256,7 @@
 
 **Build:** green
 **Files:** `stats/cmd/uitest-seed/seed.go`, `stats/web/tests/visual/views.spec.ts`, `stats/web/tests/visual/views.spec.ts.mockups`
-**Allowed-collateral:** `stats/cmd/uitest-seed/seed_test.go`, `stats/web/tests/visual/*.spec.ts-snapshots/**`, `stats/web/tests/visual/full-app-suite.zip`
+**Allowed-collateral:** `stats/cmd/uitest-seed/seed_test.go`, `stats/web/tests/visual/*.spec.ts-snapshots/**`, `stats/web/tests/visual/full-app-suite.zip`, `stats/web/tests/visual/weekly-costs.spec.ts`, `stats/web/tests/visual/*.spec.ts`, `stats/web/src/**`, `stats/Makefile`
 **Tests:** `views.spec.ts`
 **Regression:** `views.spec.ts` fails — the leaderboard drifted from the approved prototype.
 **Commit:** test(web): capture the Stage leaderboard's main-session columns against the prototype
@@ -264,3 +264,5 @@
 
 **Decision:** sort-indicator-kept
 **Decision:** leaderboard-main-columns
+
+Correction (2026-10-30): the plan declared only the leaderboard specs as collateral. The seeded `claude-sonnet-5` buckets add a sixth `sonnet-5 · medium` series to the Weekly costs chart, so `weekly-costs.spec.ts`'s model·effort assertions move with it (decision taken: keep the plan's served model and widen the collateral). The base was already red under `verify` — baseline, combinations, full-app-suite and interactive specs, and `stats/Makefile`'s `ui-test-up` lacking its `policy-copy` prerequisite — and a red check is fixed in the run, so those fixes ride this task's dispatch as their own `Flow-Key: full-suite-fix-<n>` commits.
