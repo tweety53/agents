@@ -58,7 +58,7 @@ test.describe("stage leaderboard", () => {
     await expect(page).toHaveScreenshot("stage-leaderboard-main-share-sorted.png", { fullPage: true });
   });
 
-  // StageLeaderboard.tsx declares its own eight sortable columns and its own
+  // StageLeaderboard.tsx declares its own nine sortable columns and its own
   // one filterable column (command) on top of the shared DataTable/
   // FilterBar components baseline.spec.ts's StateBoard spec and
   // run-detail.spec.ts's StageRunTable specs already prove correct in
