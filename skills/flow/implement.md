@@ -107,7 +107,11 @@ row its description's first word names, so `hooks/enforce-agent-baseline.py` den
 a dispatch whose description opens any other way (kan-1026: launches described `Round-11 primary
 review` left their rows to time pairing, which stamped two with another dispatch's agent). A first
 word off the **Key shape** column above is another way: kan-1029's `verify-fix-1` and `verify`
-launches recorded no row.
+launches recorded no row. A live `flow record dispatch begin` prints both for its row after its
+`recorded:` line — `description: <opening>`, and `Role: <role id>` wherever the row decides it —
+and the parent pastes that opening into the Agent call's `description` and that line into its
+prompt, never composing either; where no `Role:` line is printed, as for a panel reviewer row, the
+id is the **Role line** column's above.
 
 **Every dispatch is one-shot — a finished child is never resumed.** The parent never sends a
 `SendMessage` to a child that has written its report. Whatever a

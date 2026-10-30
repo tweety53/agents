@@ -1389,7 +1389,57 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		// and not by seq.
 		fmt.Fprintf(stdout, "recorded: dispatch %d\n", out.Seq)
 	}
-	return classifyRecordWrite(callErr, projectKey, f.change, "dispatch", in, stderr)
+	code := classifyRecordWrite(callErr, projectKey, f.change, "dispatch", in, stderr)
+	if code == 0 && *startedAt == "" && *agentID != "inline" {
+		printLaunchLines(stdout, f.dir, f.change, *role, *key)
+	}
+	return code
+}
+
+// launchTaskKey is a gated task row's key: task-<ids>-implementer… or
+// task-<ids>-reviewer…, ids +-joined.
+var launchTaskKey = regexp.MustCompile(`^task-([0-9]+(?:\+[0-9]+)*)-(implementer|reviewer)(.*)$`)
+
+// printLaunchLines prints a live row's Agent-call description opening and,
+// where the row decides it, its prompt's Role line (decision
+// sr3-begin-prints-launch-lines). A task key's opening needs the plan's task
+// count, so an unreadable plan omits it.
+func printLaunchLines(stdout io.Writer, dir, change, role, key string) {
+	roleID := ""
+	if m := launchTaskKey.FindStringSubmatch(key); m != nil {
+		if p, err := planPath(dir, change); err == nil {
+			if plan, err := os.ReadFile(p); err == nil {
+				word := "Task"
+				if strings.Contains(m[1], "+") {
+					word = "Tasks"
+				}
+				fmt.Fprintf(stdout, "description: %s %s/%d\n", word, m[1], countPlanLines(plan, taskLinePattern))
+			}
+		}
+		switch {
+		case m[2] == "implementer":
+			roleID = "implementer"
+		case strings.HasPrefix(m[3], "-fix-"):
+			roleID = "gated-re-reviewer"
+		default:
+			roleID = "gated-reviewer"
+		}
+	} else {
+		fmt.Fprintf(stdout, "description: %s\n", key)
+		switch {
+		case role == "merger":
+			roleID = "panel-merger"
+		case role == "panel-fix":
+			roleID = "panel-fix"
+		case role == "verifier" && strings.HasPrefix(key, "visual-verify"):
+			roleID = "visual-verifier"
+		case role == "planner" && strings.HasPrefix(key, "tooling-analysis-"):
+			roleID = "tooling-analyst"
+		}
+	}
+	if roleID != "" {
+		fmt.Fprintf(stdout, "Role: %s\n", roleID)
+	}
 }
 
 // highestRecordedRound is the highest round over run's passes, findings,

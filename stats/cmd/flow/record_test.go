@@ -89,8 +89,11 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 		if stderr.Len() != 0 {
 			t.Errorf("stderr = %q, want empty on a clean success", stderr.String())
 		}
-		if got := countLines(stdout.String()); got != 1 {
-			t.Errorf("stdout line count = %d, want exactly 1:\n%s", got, stdout.String())
+		// A live begin follows its recorded: line with the launch lines
+		// (decision sr3-begin-prints-launch-lines); this change has no plan,
+		// so only the Role line.
+		if got, want := stdout.String(), "recorded: dispatch 3\nRole: implementer\n"; got != want {
+			t.Errorf("stdout = %q, want %q", got, want)
 		}
 		if !strings.Contains(stdout.String(), "3") {
 			t.Errorf("stdout = %q, want it to name the allocated seq 3", stdout.String())
@@ -7643,6 +7646,58 @@ func TestRecordDispatchBeginRefusesASlotOffItsPanelKey(t *testing.T) {
 	} {
 		if code, stderr := begin(ok[0], ok[1], ok[2]); code != 0 {
 			t.Errorf("-role %s -key %s -slot %s: exit %d, want 0; stderr:\n%s", ok[0], ok[1], ok[2], code, stderr)
+		}
+	}
+}
+
+// TestRecordDispatchBeginPrintsTheLaunchLines pins decision
+// sr3-begin-prints-launch-lines: a live begin prints, after its recorded:
+// line, the row's description opening and, where the row decides it, its
+// Role line; a back-fill and an inline row print only the recorded: line.
+func TestRecordDispatchBeginPrintsTheLaunchLines(t *testing.T) {
+	repo := recordRepo(t, "kan-258", "kan-259")
+	isolatedStateRoot(t)
+	plan := "# plan\n\n- [ ] 1. one\n- [ ] 2. two\n  - [ ] 3. nested step, not a task\n- [ ] 3. three\n"
+	if err := os.WriteFile(filepath.Join(repo, "spectre", "changes", "kan-258", "tasks.md"), []byte(plan), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":1,"seq":7}`))
+	}))
+	defer srv.Close()
+	begin := func(change, role, key string, extra ...string) (int, string, string) {
+		var stdout, stderr bytes.Buffer
+		argv := append([]string{"record", "dispatch", "begin", "-effort", "default", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", change, "-role", role, "-model", "opus", "-key", key,
+			"-session-token", "mf-record-launch-lines"}, extra...)
+		code := run(context.Background(), argv, strings.NewReader(""), &stdout, &stderr)
+		return code, stdout.String(), stderr.String()
+	}
+	for _, c := range []struct {
+		change, role, key string
+		extra             []string
+		want              string
+	}{
+		{"kan-258", "implementer", "task-2-implementer", nil, "recorded: dispatch 7\ndescription: Task 2/3\nRole: implementer\n"},
+		{"kan-258", "reviewer", "task-1+3-reviewer", nil, "recorded: dispatch 7\ndescription: Tasks 1+3/3\nRole: gated-reviewer\n"},
+		{"kan-258", "reviewer", "task-1-reviewer-fix-1", nil, "recorded: dispatch 7\ndescription: Task 1/3\nRole: gated-re-reviewer\n"},
+		{"kan-259", "reviewer", "panel-2-primary", []string{"-slot", "primary"}, "recorded: dispatch 7\ndescription: panel-2-primary\n"},
+		{"kan-258", "merger", "panel-2-merger", nil, "recorded: dispatch 7\ndescription: panel-2-merger\nRole: panel-merger\n"},
+		{"kan-258", "panel-fix", "panel-fix-3", nil, "recorded: dispatch 7\ndescription: panel-fix-3\nRole: panel-fix\n"},
+		{"kan-258", "verifier", "visual-verify-2", []string{"-diff-base", "abc123"}, "recorded: dispatch 7\ndescription: visual-verify-2\nRole: visual-verifier\n"},
+		{"kan-258", "planner", "tooling-analysis-1", nil, "recorded: dispatch 7\ndescription: tooling-analysis-1\nRole: tooling-analyst\n"},
+		{"kan-258", "implementer", "task-1-implementer", []string{"-started-at", "2026-10-30T09:00:00Z"}, "recorded: dispatch 7\n"},
+		{"kan-258", "verifier", "verify", []string{"-agent-id", "inline"}, "recorded: dispatch 7\n"},
+		{"kan-259", "implementer", "task-1-implementer", nil, "recorded: dispatch 7\nRole: implementer\n"},
+	} {
+		code, stdout, stderr := begin(c.change, c.role, c.key, c.extra...)
+		if code != 0 {
+			t.Errorf("-key %s: exit %d, want 0; stderr:\n%s", c.key, code, stderr)
+			continue
+		}
+		if stdout != c.want {
+			t.Errorf("-key %s: stdout = %q, want %q", c.key, stdout, c.want)
 		}
 	}
 }
