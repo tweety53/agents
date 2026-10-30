@@ -1,0 +1,80 @@
+# New run-loaded text this change means: the /flow-experiment-close skill, the main-agent experiment check, the parent model field, the correction-count record and the plan Corrections (KAN-1067).
+\# Close an allowed-pairs experiment
+**An open main-agent experiment is checked, never enforced.
+**For a combined experiment** (more than one cell), say which cells the evidence supports, and state that a combined result cannot attribute an effect to one cell.
+**With fewer than 5 changes in `after`, ask before closing** — options **Wait** (recommended: the after figures are too few to judge) and **Close now**.
+Ask which cells to make permanent — the options are the supported cells, **all supported cells** recommended.
+Compare each metric's `after` against its `before`, and state the verdict with the metrics that decided it:
+It prints JSON: `runs` (`before`, `after` — changes counted in each window), `excluded` (after-window changes a `main` cell left out because their harvested main thread ran another pair), and `metrics`, each with `before` and `after` means (`null` where no counted change carries one) and a weekly `series`.
+Lower is better for every metric.
+Make experiment <id>'s winning cells permanent in the Allowed pairs table: <role>=<pairs>; …
+On **Wait**, stop without closing.
+On `negative` or `inconclusive` the table is left as it is; report the closed experiment and stop.
+On a positive verdict, make the winners permanent
+Once a `Correction:` paragraph is transcribed, the parent runs `flow tasks count -C <worktree> <change>`, which records the plan's correction count beside its task count — the plan-corrections metric experiments compare (KAN-1067).
+Pick the experiment
+Read its figures
+Right after resolving the above, run `flow experiment main-check -model <this session's model> -effort <this session's effort>` and print any line it prints, once; it never blocks the run (decision `main-check-and-tag`, KAN-1067).
+Run `flow experiment stats <id>`.
+The argument is the experiment's id, `/flow-experiment-close <id>`.
+Then invoke `/flow` with the change description:
+This skill judges one from the figures flowd stored, closes it, and — on a positive verdict — starts the change that writes its winning cells into the table, which stays the permanent source (decision `close-skill`).
+Use for /flow-experiment-close.
+With none, run `flow experiment list -open`: one open experiment → that one; several → ask with AskUserQuestion, one option per experiment (its id, name and cells); none → report that no experiment is open and stop.
+Write the summary — at most 8 lines: the verdict, the runs before/after, each decisive metric `before → after`, and the cells recommended — and run:
+`inconclusive` — the figures move both ways, or too little to call.
+`negative` — a decisive metric worsened;
+`positive` — the decisive metrics improved and none worsened materially;
+allowed-tools: Bash(flow:*) license: MIT compatibility: Requires the flow CLI and a reachable flowd.
+flow experiment close <id> -verdict <positive|negative|inconclusive> -summary '<summary>'
+name: flow-experiment-close description: Analyse an open allowed-pairs experiment from its stored before/after stats, close it with a verdict and summary, and on a positive verdict start the /flow change that makes its winning cells permanent.
+The JSON carries: `class`, `classMechanical`, `override`, `inputs` (the four `plan-class.sh` booleans plus `tasks`/`files`/`repos`), `rolls` (`compact`, `experimental`, `bundle`, `effort`), `execution`, `implementer` and `fixer` (each an object `{model, effort, reason}` or one of the two recorded strings above), `panel` (an object — `compact`, `rerun`, `roster: [{slot, experimental, prompt?, description?}, …]`, `grouping` (`static`/`free`), `dispatches` (one to two objects `{slots, model, effort, reason}`, `slots` one to three slot ids in roster order — the one place a pass-1 reviewer's model and effort are recorded), `rerun_dispatch` (an object `{model, effort, reason}`, the rerun pair — the one place a fix-round re-run's model and effort are recorded), `grouping_reason` (`null` on a static grouping) — or the string `default`; an experimental slot skipped for the cap is recorded as the string `"experimental": "skipped — bundle cap"` beside `roster`), `groups` (objects `{bundles, model, effort, reason}`, `bundles` an array of bundle ids, plus sibling `groups_mechanical` (arrays of bundle ids), `groups_override` and `groups_reason` fields, or all four `null` when `execution` is inline), `visual` (an object `{verify, reason}`, `verify` one of `required`, `skipped` or `not configured`), `extra_dispatch` and `extra_dispatch_mutation` (each an object `{slots, model, effort, reason}`, recorded on every class), `parent` (the parent's own model/effort, per **Harness mapping** (`skills/flow-contracts/model-policy.md`): `unknown (agent-defined)` and `default` where the session does not state them), `overrides` (session-instruction overrides to a *result*, each replacing the pair(s) it names for this run; empty unless one was given), `session_cap` (the run-wide model and effort ceiling a session instruction or a saved memory states — `{model, effort, instruction}`, or `null` when none is given; `flow record dispatch begin` refuses a dispatch above it, an unstated `default` effort included).
+\## Run brainstorming and planning directly
+**Fresh subagents through the Agent tool are allowed while planning** — the Explore and Plan agents of **Explore and design agents** (`skills/flow/brainstorm-planner.md`) — and the thinking stays in this session: the questions, convergence, the choice between designs, artifact creation, writing-plans, the guards and Decide all run in this session's own turns.
+**Load `skills/flow/brainstorm.md`** only when the resume point is not `skills/flow/implement.md`: a missing worktree runs its steps 1–4, and a resume at **B** or **D** runs under its **Run brainstorming and planning directly**.
+**No `fork` from kickoff to the plan gate.
+-key explore-<n>|design-<n> -session-token mf-<literal-token>
+A fork copies the whole conversation, so it saves no context and doubles the token spend, and the `/clear` after the gate discards this session's context anyway; on kan-941 one also closed `flow.writing-plans` out of order.
+It runs at the end of every `/flow-plan` capture (**Capturing a new change**, `skills/flow-plan/SKILL.md`) and in `/flow` after the `flow.decide` record sequence (**Run brainstorming and planning directly**, `skills/flow/brainstorm.md`).
+On **Approve**, save the design under `<project>-worktrees/<name>/.superpowers/sdd/` and continue into section **C**.
+Plan mode (**Plan mode**, `skills/spectre-planning/SKILL.md`) is entered right after `flow.brainstorm` begins — `STARTED` and the worktree already exist — and before the Explore phase.
+Read `skills/flow/brainstorm-planner.md`'s sections **B**, **C** and **D** and follow them <!-- refs-guard:allow --> directly — `REVIEWERS` (**Model resolution**, `skills/flow/SKILL.md`) is already in scope from this run's own earlier resolution.
+Sections **B**, **C** and **D** of the brainstorming phase, run by whichever session is executing `/flow`'s brainstorming stage — or, for **C**, **D** and **Decide**, a `/flow-plan` capture (**Capturing a new change**, `skills/flow-plan/SKILL.md`) — no one relays these sections, though the session may dispatch the fresh subagents **Explore and design agents** below allows, and neither does the self-review planner, which runs B, C and D as item 1 of **3. Fix every finding that is not `big`** (`skills/flow-self-review/SKILL.md`) binds them, and the in-run fix planner, which runs them as **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline.md`) binds them.
+`/flow` records each planning dispatch under `flow.brainstorm`, its pair from `plan-agent-pair.sh <name> <n>`, `<n>` counting this run's planning dispatches from 1 — role `explorer` for an Explore agent, `planner` for a Plan agent:
+flow record dispatch begin -change <name> -role explorer|planner -model <m> -effort low \
+flow record dispatch end -change <name> -key explore-<n>|design-<n> -session-token mf-<literal-token> -outcome completed
+\## Experiments
+\## Run brainstorming and planning through the planner role
+**An open experiment overrides whole cells of the table above.
+**Artifacts and plan.
+**Design round.
+**The parent never brainstorms or writes the plan itself; a `planner` dispatch does** (decision `planner-role`, KAN-1067).
+A final planner dispatch runs sections **C** and **D** of <!-- refs-guard:allow --> `skills/flow/brainstorm-planner.md` up to, not including, **Decide**: its `flow.create-artifacts` and `flow.writing-plans` begin marks under the run's session token, `spectre new`, the three artifacts from the approved design, writing-plans, `spectre validate`, `check-plan-shape.sh`, the configured guards and `flow tasks count`.
+An operator message mid-planning is written to the next `answers-<r>.md` and relayed the same way.
+In a `planner` dispatch, every **AskUserQuestion** these sections name is written as a question of the round file instead, and the parent asks it.
+It asks the operator nothing.
+It returns `PLAN-WRITTEN` or the guard output it could not clear, and the parent redispatches a fresh one with that output until `PLAN-WRITTEN`.
+It runs at the end of every `/flow-plan` capture (**Capturing a new change**, `skills/flow-plan/SKILL.md`) and in `/flow` after the `flow.decide` record sequence (**Run brainstorming and planning through the planner role**, `skills/flow/brainstorm.md`).
+No `fork` from kickoff to the plan gate: a fork copies the whole conversation and doubles the token spend (kan-941).
+One experiment may carry several roles; a role is in at most one open experiment.
+Role `main` names the parent session's `<model>@<effort>`: `/flow` warns on a mismatch (**Model resolution**, `skills/flow/SKILL.md`) and only matching runs count in its after figures.
+The parent prints the round's settled prose, asks its questions verbatim in one **AskUserQuestion** call, and writes the answers verbatim to `answers-<r>.md`; it never answers a question itself.
+The parent then closes `flow.writing-plans` and runs **Decide**, the record sequence and the gate, as the rest of this file states.
+The planner runs section **B** of `skills/flow/brainstorm-planner.md` without <!-- refs-guard:allow --> plan mode, reading the ticket and every file under `<abs-worktree>/.superpowers/sdd/planner/`, dispatching its own Explore and Plan agents (it records their rows, `-role explorer|planner`, `-key explore-<n>|design-<n>`, each pair from `plan-agent-pair.sh <name> <n>`), publishing or updating the prototype a visible change needs, and writes `round-<r>.md`: the design draft, the settled prose the convergence confirm shows, then `## Questions` — each question with two to four options, one marked recommended, the convergence confirm last when nothing else is open.
+The table stays the permanent source: `/flow-experiment-close` closes an experiment and, on a positive verdict, starts the change that writes its winning cells here (KAN-1067).
+`<n>` counts this run's planner dispatches from 1:
+`flow experiment open -name <n> -cell '<role>=<pair>[,<pair>…]'…` stores it in flowd; while it is open, every reader of the table (check-dispatch-pair, check-loop-dispatch, plan-agent-pair, plan-class, pipeline-fix) admits the experiment's pairs in place of that role's unmarked row, and a marked row is never overridden.
+flow record dispatch begin -change <name> -role planner -model <m> -effort <e> -key plan-<n> -session-token mf-<literal-token>
+flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal-token> -outcome completed
+flowd unreachable → the table alone.
+| `planner` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — |
+A final planner dispatch runs sections **C** and **D** of <!-- refs-guard:allow --> `skills/flow/brainstorm-planner.md` up to, not including, **Decide**: its `flow.create-artifacts` and `flow.writing-plans` begin marks under the run's session token, `spectre new`, the three artifacts from the approved design — read from every file under `<abs-worktree>/.superpowers/sdd/planner/`, where the approved design lives — writing-plans, `spectre validate`, `check-plan-shape.sh`, the configured guards and `flow tasks count`.
+It returns `PLAN-WRITTEN` or the guard output it could not clear, and the parent redispatches a fresh one with that output until `PLAN-WRITTEN`; a redispatch skips section **C** and the `flow.writing-plans` begin, both already made, and resumes at the guard that failed.
+The planner runs section **B** of `skills/flow/brainstorm-planner.md` without <!-- refs-guard:allow --> plan mode, reading the ticket and every file under `<abs-worktree>/.superpowers/sdd/planner/`, dispatching its own Explore and Plan agents (it records their rows, `-role explorer|planner`, `-key explore-<n>|design-<n>`, each pair from `plan-agent-pair.sh <name> <n>`, `<n>` continuing the run's count across rounds — the parent names the next free `<n>` in each round's prompt, since a reused key restarts the earlier round's row), publishing or updating the prototype a visible change needs, and writes `round-<r>.md`: the design draft, the settled prose the convergence confirm shows, then `## Questions` — each question with two to four options, one marked recommended, the convergence confirm last when nothing else is open.
+`<n>` counts this run's planner dispatches from 1, and the Agent-tool `description` opens with `plan-<n>` — `plan-2 design round` — the row `hooks/enforce-agent-baseline.py` admits:
+It prints JSON: `runs` (`before`, `after` — changes counted in each window), `excluded` (after-window changes a `main` cell left out because their harvested main thread ran another pair or no run of theirs is harvested yet), and `metrics`, each with `before` and `after` means (`null` where no counted change carries one) and a weekly `series`.
+The quoted heredoc passes the summary verbatim, apostrophes included.
+Where the session does not state one, `<parent model>` is `unknown (agent-defined)` and `<parent effort>` the literal `default`, the CLI accepting only `low|medium|high|xhigh|max|default`.
+flow experiment close <id> -verdict <positive|negative|inconclusive> -summary "$(cat <<'SUMMARY'
+In a `planner` dispatch, every **AskUserQuestion** these sections name is written as a question of the round file instead, and the parent asks it, with the silence outcome the naming section states.
+With none, run `flow experiment list -open`: one open experiment → that one; several → ask with AskUserQuestion, one option per experiment (its id, name and cells), and silence closes nothing: the skill stops and reports the open experiments; none → report that no experiment is open and stop.
