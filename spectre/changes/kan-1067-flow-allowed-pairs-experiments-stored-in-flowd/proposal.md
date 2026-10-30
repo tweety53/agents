@@ -20,3 +20,7 @@
 ## In-run fix 1 — flow.verify
 
 - The verify lint group failed `check-plan-shape`, `check-task-records` and `check-ask-silence`: tasks 4, 10 and 13 declared files their commits did not touch or opted out of tests they added, and two new AskUserQuestion sites stated no silence outcome. The plan records are corrected and Task 14 states both silence outcomes.
+
+## In-run fix 2 — flow.visual-verify
+
+- The verifier found the experiment list ordering closed experiments first and the Review rounds delta wrapping onto two lines, against the prototype, and empty Tokens/change and Wall-clock charts because the UI-test seed carried no such metrics. Task 15 fixes the order and the wrap and seeds the metrics. The clipped last x-axis label matches the prototype and is built as drawn.
