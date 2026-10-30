@@ -96,18 +96,27 @@ never an exit code the command did not return.
    Then run `check-spec-reach.sh <worktree>` — the spec
    `capture` just wrote must be reached by a `package.json` script of the `regression checkout`;
    exit 1 (an orphan, named) or 2 (cannot answer) blocks.
-9. **Read every captured PNG — resolve their paths with the guard, not by eye.** Run
+9. **Measure in one call, then read in one turn.** Right after step 8's capture — after step 10's
+   prototype render and any sidecar this stage writes, which come first — run, with the arguments
+   the bundle names:
 
    ```bash
-   resolve-visual-screenshots.sh <worktree> <spec's basename>
+   visual-verify-pass.sh measure <worktree> <name> <key> <spec path> [--prototype]
    ```
 
-   Exit 0 prints one absolute PNG path per line — that is what selects this run's fresh output from
-   the committed baseline PNGs already sitting under the same `screenshots` root, rather than joining
-   `screenshots` with a guessed filename. Exit 1 (zero matches) blocks, indistinguishable from a view
-   that never rendered; exit 2 (cannot answer) blocks the same way. **Read every printed path** — no
+   `--prototype` when step 10's approved prototype is the frame. Its header is canonical for what it
+   runs — `resolve-visual-screenshots.sh`, `check-identical-baselines.sh`, `compose-mockup-frames.sh`
+   and `measure-visual-properties.sh`'s band, seam and matrix reads on every pair — the files it
+   writes and its exits; it carries on past a step's non-zero exit and records each exit and its
+   stderr in the manifest it names, `<abs-worktree>/.superpowers/sdd/visual-manifest-<key>.json`. A
+   sidecar written later, or a recapture, runs it again. Then read the manifest and every image it
+   names — each capture, composite and cropped frame — in one turn of parallel Read calls.
+   The resolver is what selects this run's fresh output from the committed baseline PNGs already
+   sitting under the same `screenshots` root, rather than joining `screenshots` with a guessed
+   filename: its exit 1 (zero matches) in the manifest blocks, indistinguishable from a view that
+   never rendered, and its exit 2 (cannot answer) blocks the same way. **Read every capture** — no
    script can do that — and state, per view, what was seen.
-   Each printed PNG gets its own `- <view>: <absolute PNG path>` line, and each view no frame is
+   Each captured PNG gets its own `- <view>: <absolute PNG path>` line, and each view no frame is
    composed for its `per view, no frame composed: <view> sweeps:` line — `check-verify-report.sh`
    refuses a report missing either (group-allowed-pairs-roles self-review: two round-1 verifiers
    named only the prototype-framed captures, and a clipped chart label on an unnamed full-page
@@ -115,31 +124,19 @@ never an exit code the command did not return.
    An unreadable PNG is reported and blocks
    too.
 
-   Then pipe the same resolver output into `check-identical-baselines.sh`; its header is canonical
-   for what it compares.
-
-   ```bash
-   resolve-visual-screenshots.sh <worktree> <spec's basename> | check-identical-baselines.sh
-   ```
-
-   Exit 1 → each `identical:` line names PNGs of one directory that are
+   The manifest's `identical` groups are `check-identical-baselines.sh`'s, whose header is canonical
+   for what it compares: each names PNGs of one directory that are
    byte-identical, and the report carries one `- identical:` line per group stating why those views
    draw the same pixels, or the defect that made them, which blocks: kan-998's pad-up and pad-down
-   baselines were one image, and only a reviewer saw it. Exit 2 → it cannot answer, and blocks.
+   baselines were one image, and only a reviewer saw it. Its exit 2 → it cannot answer, and blocks.
 10. **Compose captured frames against their mockups, if `mockups` is declared.** With a
-   `<spec>.mockups` sidecar beside the capture spec, run
-
-   ```bash
-   resolve-visual-screenshots.sh <worktree> <spec's basename> | compose-mockup-frames.sh <spec>.mockups <abs-worktree>/<mockups> <changeRoot>/visual-verification '<mockup frame value>'
-   ```
-
-   The fourth argument is this project's resolved `mockup frame` value, quoted; omit it entirely
-   when the row is absent. A sidecar's own first `frame` line overrides it.
-
-   Exit 0 prints one `<composite path> diff=<ratio>` line per pair — **read every one** and state,
+   `<spec>.mockups` sidecar beside the capture spec, step 9's `measure` composed every pair it maps
+   through `compose-mockup-frames.sh`, with this project's resolved `mockup frame` value as its fourth
+   argument — a sidecar's own first `frame` line overrides it — and its manifest lists one
+   `<composite path> diff=<ratio>` per pair: **read every one** and state,
    per pair, what the difference panel's white regions are, the ratio, and where the capture
    departs from the frame. The ratio is information, never a threshold: a pair blocks on a
-   departure you can name, not on a number. Exit 1 (a broken map — a screenshot no capture
+   departure you can name, not on a number. A compose exit 1 (a broken map — a screenshot no capture
    matched, a frame file absent, a malformed line, a capture whose size differs from the cropped
    frame) or 2 (cannot answer — a malformed `mockup frame` value included) blocks.
 
@@ -159,13 +156,13 @@ never an exit code the command did not return.
    band, seam or matrix reading possible).
    Then write
    `<changeRoot>/visual-verification/prototype.mockups`, its first line `frame none` and one
-   `<screenshot name> <screenshot stem>` line per capture, and run the compose command above with
-   that map in place of `<spec>.mockups` and `<changeRoot>/visual-verification/prototype` in place
-   of `<abs-worktree>/<mockups>`.
+   `<screenshot name> <screenshot stem>` line per capture, and run step 9's `measure` with
+   `--prototype`, which composes with that map in place of `<spec>.mockups` and
+   `<changeRoot>/visual-verification/prototype` in place of `<abs-worktree>/<mockups>`.
    Under that `frame none` line the compose step pairs each capture with its frame at native size,
    prints each pair's `diff=` ratio as n/a and writes no `<stem>.frame.png` — by design, never a
-   defect — so the band, seam and matrix reads run `measure-visual-properties.sh` on the prototype
-   PNG and the capture directly.
+   defect — so `measure` reads bands, seams and the matrix on the prototype PNG and the capture
+   directly.
    Every frame-bound reading below then runs on those pairs as on a
    mockup's. A state the prototype draws that no capture test drives is a missing capture, and
    blocks.
@@ -188,16 +185,15 @@ never an exit code the command did not return.
    frame's own annotations alone. A 1px rule the capture omits, a row padding it lacks, a surface fill
    swapped for the page colour, a button border in the wrong colour: each moves the ratio by
    under a hundredth and vanishes in that white. Beside every composite the compose step writes
-   the cropped frame as `<composite stem>.frame.png`, the capture's own size; for every pair, run
-
-   ```bash
-   measure-visual-properties.sh <changeRoot>/visual-verification/<stem>.frame.png <capture PNG> --scale 1 --props bands,seams
-   ```
-
-   and read `delta.bands` (the script's header is canonical for the property): every band the
+   the cropped frame as `<composite stem>.frame.png`, the capture's own size, and for every pair
+   `measure` ran `measure-visual-properties.sh <stem>.frame.png <capture PNG> --scale 1 --props
+   bands,seams`: the manifest lists each pair's flagged bands and seams, and its full output sits in
+   the file the manifest names. Read `delta.bands` (the script's header is canonical for the property): every band the
    frame draws, paired with the capture's in order, a text or data difference never unpairing
-   one. **Every `missing` band, every `extra` band, and every pair whose `since_pair`,
-   `gap_above` or `height` delta exceeds 2px or whose `edge` or `colour` distance exceeds 12 is
+   one. **The length and colour tolerances are `mvpOverLength` and `mvpOverColour`
+   (`<agents repo>/stats/internal/guard/measurevisualproperties.go`)** — `measure` flags by them, and nothing here
+   restates their values. **Every `missing` band, every `extra` band, and every pair whose `since_pair`,
+   `gap_above` or `height` delta exceeds the length tolerance or whose `edge` or `colour` distance exceeds the colour tolerance is
    a departure until a cause is named that a band cannot carry** — a wrapped label (a `height`
    delta on a text band, confirmed by transcription), a frame annotation outside the app's own
    ink; an empty-versus-populated state is precondition 2 below, a spec to fix, never a cause to
@@ -215,11 +211,11 @@ never an exit code the command did not return.
    lists its seams (an outer border's side, a cell divider, a filled cell) paired in order, and
    for every cell between two paired seams its text lines with their `offset` from the cell's
    centre and their `left` and `right` insets. **Every `missing` seam, every `extra` seam, every
-   seam pair whose `since_pair` or `width` delta exceeds 2px or whose `colour` distance exceeds
-   12, every cell whose line `count` differs, and every line whose `offset` delta exceeds 2px
+   seam pair whose `since_pair` or `width` delta exceeds the length tolerance or whose `colour` distance exceeds
+   the colour tolerance, every cell whose line `count` differs, and every line whose `offset` delta exceeds the length tolerance
    is a departure until a cause is named that a seam or a line cannot carry.** Text width never
    moves a seam, so a data difference explains no seam; a line's width is data, so an `offset`
-   delta whose `left` delta is within 2px (or whose `right` is) is a left- (right-) anchored
+   delta whose `left` delta is within the length tolerance (or whose `right` is) is a left- (right-) anchored
    label whose text differs — the cause is then the transcription, and it is named — where an
    `offset` delta with `left` and `right` both moved by the same amount is a label anchored to a
    different edge than the frame's, a departure whatever the text reads. What the seams cannot
@@ -419,14 +415,14 @@ never an exit code the command did not return.
       and its thumb separately, an icon), each row, card or section container, each rule, divider
       and fill band. An element in the capture the frame does not draw is itself a row, marked
       `extra`. A fix run enumerates afresh from the frame — the previous round's departures are
-      cells in the new matrix, never its rows. Seed the enumeration with
-      `measure-visual-properties.sh <frame> <capture> --scale <f> --props elements`: it finds each
-      image's app surface — a sheet's top edge on a scrim frame — and lists every ink run inside it,
-      paired in order with its deltas; every element it merges or misses is added by hand
-      (kan-1015: the band read took each scrim-dimmed frame as one band, and every matrix was
-      measured with a hand-written script). `measure-visual-properties.sh <frame> <capture> --scale <f> --props matrix` then
-      fills every column below for every paired element in one call, each region clipped to its
-      image; a row it does not pair takes the per-element calls. Its output is saved once, to `<changeRoot>/visual-verification/matrix/<frame id>.json`, overwritten every round — never a second copy under another name (kan-1016: each frame's matrix was committed three times under three names).
+      cells in the new matrix, never its rows. Seed the enumeration with the matrix step 9's
+      `measure` wrote to `<changeRoot>/visual-verification/matrix/<frame id>.json` —
+      `measure-visual-properties.sh --props matrix`, which finds each image's app surface — a sheet's
+      top edge on a scrim frame — lists every ink run inside it paired in order, and fills every
+      column below for every paired element, each region clipped to its image; every element it
+      merges or misses is added by hand (kan-1015: the band read took each scrim-dimmed frame as one
+      band, and every matrix was measured with a hand-written script), and a row it does not pair
+      takes the per-element calls. That file is the one copy, overwritten every pass — never a second copy under another name (kan-1016: each frame's matrix was committed three times under three names).
    2. **Fill every column for every row from the script's own output**, one call per element:
 
       | column | text run (`--props ink`, the crop spanning the run's container's full width) | control, row, card (`--props box,radius,border,fill,shadow,content,gap`) | rule, divider, fill band (`--props runs`, the region crossing it) |
@@ -443,6 +439,10 @@ never an exit code the command did not return.
       | radius | — | `radius` per corner | — |
       | shadow | — | `shadow` per side | — |
 
+      The matrix table's header opens with `element` and names the columns above, and each row's
+      `kind` cell opens with the row's class — `text run`; `control`, `row` or `card`; `rule`,
+      `divider` or `fill band` — then its role, so `check-verify-report.sh` can read which columns
+      may be n/a for it.
       Every cell holds the frame's number, the capture's and the `delta` — or n/a — `<why>`
       where the column does not apply to the row's class (the dashes above). **A cell the pixels
       cannot answer is measured from the mockup's source, never left n/a**: where the script
@@ -456,6 +456,19 @@ never an exit code the command did not return.
       eye, is the sweep-name report again. The matrix rides `visual-verification.md` (step 11)
       under the frame's entry, and the report's `matrix:` line counts its rows and its n/a
       cells.
+   3. **Explain every row the matrix's `over` list names.** The manifest carries each composed
+      frame's `over` rows by their 1-based index — every matrix row `missing`, `extra` or
+      `unresolved`, or paired over the length or colour tolerance. The report's `- <frame id>
+      over-tolerance: <n> — #<row>: <cause>; …` line names every one, `<n>` the frame's count, each
+      with one cause from a closed list: `departure`, attributed per **Every departure is attributed
+      at the merge base** above; `annotation` — a frame annotation outside the app's own ink;
+      `transcription` or `text width` — a text difference the transcription names; `decision <ID>` —
+      a recorded decision whose `**ID:**` `design.md` carries, for the deltas it names;
+      `present at the merge base`, with its merge-base evidence beside it; `mockup source` — an
+      `unresolved` row's value measured from the mockup's source per the cell rule above.
+      `check-verify-report.sh` refuses a missing line, a wrong count, an unnamed row or a cause off
+      the list, and reads `over` from this dispatch's manifest, so a pass that skipped `measure`
+      never stands on last round's numbers.
 
    **Never judge a size, alignment, spacing, corner radius, border, fill, shadow, icon size or
    font size by eye from a resized or cropped image; measure it with
@@ -555,7 +568,7 @@ never an exit code the command did not return.
    touched — by filename, by a frame id `design.md` or `tasks.md` cites for this change, or by the
    screen family the touched `ui paths` name. A plausible match exists → **author the
    `<spec>.mockups` sidecar yourself**, one `<screenshot name> <frame id>` line per captured view
-   with a real frame, then run the compose command above — composing against a sidecar this stage
+   with a real frame, then run step 9's `measure` again — composing against a sidecar this stage
    just wrote is not a special case, and it is committed at step 12 along with everything else this
    stage writes. No plausible match anywhere in the directory → report `mockups: no map for
    <spec's basename> — searched <mockups dir>, no frame for <views>`, naming what was searched, and
@@ -639,6 +652,9 @@ frame draws, every cell filled as step 10 states, and every sweep on each `sweep
 sweep` line `done` or `n/a — <why it does not apply>` — a sweep or a cell left for time, context
 or a measurement the pixels could not give is step 10 undone.
 Each composed frame carries its own `- <frame id> matrix:` line, never one line for a range of frames: `check-verify-report.sh` refuses a `done` step 10 while a frame with a `- <frame id>: <composite path> diff=` line has none (kan-1016: one line covered nine frames, and the warm-up sheet's frame had no matrix until round 8).
+It refuses one the same way for a missing `bands:`, `seams:` or `over-tolerance:` line, an empty
+matrix cell, an n/a cell in a column that applies to its row's class and not reading
+`no mockup source`, and a sweep item reading neither `done` nor n/a — `<why it does not apply>`.
 
 **Hand back the `## Verdict` alone.** Write the report file as a `## Verdict` block with the full
 `## Report` under it, and end your turn with the `## Verdict` block alone — the parent reads nothing
@@ -650,7 +666,7 @@ names, each then on a line of its own with its cause or attribution beside it.
 ```text
 ## Verdict
 - Model: <the model named in your own system prompt>
-- exits: setup <n | not declared>, capture <n>, full app suite <n>, spec reach <n>
+- exits: setup <n | not declared>, capture <n>, full app suite <n>, spec reach <n>, measure <n>
 - steps: <the ## Report's steps: line, after `steps: `>
 - cause: environment | test-failure | missing-fixture
 - departures: <n>
@@ -671,10 +687,11 @@ names, each then on a line of its own with its cause or attribution beside it.
 - identical: <the PNG names of one byte-identical group> — <why the views draw the same pixels, or the defect> | none
 - spec: <absolute spec path>
 - <view>: <absolute PNG path> — <what was seen, including any defect>
+- measure: exit <n> — <absolute manifest path>
 - mockups: <not declared | no map for <spec> | exit <n>>
 - <frame id>: <absolute composite path> diff=<ratio> — <match, or the departure seen>
 - <frame id> bands: <paired>/<frame's band count> paired, <missing> missing, <extra> extra — <every missing and extra band by `top` and `height`, and every pair over the tolerance by its delta, each with its named cause, or `departure` attributed per **Every departure is attributed at the merge base** above>
-- <frame id> seams: <paired>/<frame's seam count> paired, <missing> missing, <extra> extra, <lines paired> lines — <every missing and extra seam by its band's `top` and its `left`, every seam pair over the tolerance by its delta, every cell whose line count differs, and every line whose `offset` delta is over 2px with its `left` and `right` deltas, each with its named cause, or `departure` attributed per **Every departure is attributed at the merge base** above>
+- <frame id> seams: <paired>/<frame's seam count> paired, <missing> missing, <extra> extra, <lines paired> lines — <every missing and extra seam by its band's `top` and its `left`, every seam pair over the tolerance by its delta, every cell whose line count differs, and every line whose `offset` delta is over the length tolerance with its `left` and `right` deltas, each with its named cause, or `departure` attributed per **Every departure is attributed at the merge base** above>
 - <frame id> sweeps: text | order | reach | derived | rows | ink — <each `done`, or `n/a — <why it does not apply>`; `rows` names each bounded row and its four gaps per image; `ink` names every non-text run the frame draws and its counterpart in the capture, or the one absent>
 - per view, no frame composed: <view id> sweeps: text | order | reach | derived | rows |
   ink — the same sweep line at capture scope; `order` carries its containment half's
@@ -682,6 +699,7 @@ names, each then on a line of its own with its cause or attribution beside it.
 - per view, no frame composed: <view id> bands | seams | matrix — n/a — no frame
 - added sweep <name> (sweeps-<n>.md): <`done`, or `n/a — <why it does not apply>` — every view and frame it read, and each departure it found>
 - <frame id> matrix: <n> elements × 11 columns, <k> n/a — <each n/a cell as `<element>.<column>: <why>`; the matrix itself is in visual-verification.md>
+- <frame id> over-tolerance: <n> — #<row>: <cause>; … <every row the manifest's `over` list names for the frame, each with one cause from step 10's closed list>
 - frames: <n>/<m> — <m> the change's own declared list, then every declared frame id with no line above and why
 - motion: <named motions recorded>/<named> — <each motion id: its strip directory, frame count, and `clean` or each departing frame's index and what it shows> | n/a — no motions named
   - <a strip recorded beyond the named motions>

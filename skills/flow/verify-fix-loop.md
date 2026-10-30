@@ -66,7 +66,9 @@ One round runs these steps in order:
    (`skills/flow/visual-verify.md`) (kan-1048 self-review, 1-E). Its planning commit and the re-decide run as
    that file states.
    **One round appends one task**, carrying every defect the report names — never a task or a
-   round per defect. Before the append, the stage's failing row is closed with `flow record dispatch
+   round per defect. The task carries `**Opener:** <the dispatch key whose report it transcribes>`,
+   and `check-plan-shape` F24 refuses an `In-run fix` task with none and two naming the same opener
+   (kan-1003: rounds 6–13 transcribed two verifier reports, one task per defect). Before the append, the stage's failing row is closed with `flow record dispatch
    end` at `-outcome blocked -cause test-failure`, so no row of the stage stays open while this
    round's rows open. A failing `flow.visual-verify` also has its stage mark closed beside that row, `flow stage end -command '/flow' -stage flow.visual-verify -outcome stopped <name>`, and a run that re-enters this loop while `flow.write-in-progress` is open closes that mark the same way first, so the round's next `flow stage begin` supersedes no open run (kan-1016: `flow.visual-verify` attempts 1–9 and 11 closed `superseded`).
    On `NEXT: loop`, `visual-verify-pass.sh close` has closed the row, and the stage mark once every surviving worktree's newest row is closed (**The verifier dispatch**, `skills/flow/visual-verify.md`).
@@ -91,8 +93,8 @@ One round runs these steps in order:
    capture spec with its `<spec>.mockups` sidecar, the resolved `mockups` root and `mockup frame`
    value, and the project's `capture` command, and tells it: on every view its fix touched,
    recapture against the stack rebuilt from its fix, as step 4's confirming re-run rebuilds it, and
-   run step 10's measurements on each — `compose-mockup-frames.sh` and the band, seam and matrix
-   reads of `measure-visual-properties.sh` — fixing until they come back clean or each leftover is
+   run step 9's `visual-verify-pass.sh measure` on each under the key `implementer-<k>`, reading its
+   manifest's flagged bands, seams and `over` rows — fixing until they come back clean or each leftover is
    named with its cause, and report every view's measured numbers (KAN-1000: rounds 2–5 each found
    a new 1–3px offset the previous fix had judged by eye, 45–70 minutes a round). It measures each
    pair on the 2× capture and the 2× mockup frame themselves, never on a `compose-mockup-frames.sh`
@@ -160,7 +162,7 @@ One round runs these steps in order:
    base>..HEAD` adds, changes or removes, plus every motion this round's defects name. Its
    `prepare` is passed each such worktree's `--round-base`, which the verifier row records. A worktree
    whose round diff is empty is not dispatched. A worktree with no round base — no verifier of
-   this run has verified it, or the parent no longer holds the sha — runs the stage unscoped. **A round whose diff touches only the mockups root composes instead of verifying.** When `git diff <round base>..HEAD` matches no `ui paths` entry in any worktree and touches nothing outside the mockups root, `prepare` prints `NEXT: compose-only` and no `visual-verify` verifier is dispatched: for each `<spec>.mockups` sidecar with a line naming a changed `<frame id>.png`, the parent runs the compose command and the `measure-visual-properties.sh … --props bands,seams` read of step 10 (`skills/flow/visual-verify-verifier.md`) on every pair; a leftover is a defect that opens the next round, and clean composites close the round with no `-full` run, the last verifier's report standing for every path outside the mockups root; either way the parent ends the stage with the `end` mark of **Steps 3–13** (`skills/flow/visual-verify.md`) — `completed` when clean, `stopped` when a leftover opens the next round (kan-1007: a mockups-only round re-ran the whole suite, 18m28s).
+   this run has verified it, or the parent no longer holds the sha — runs the stage unscoped. **A round whose diff touches only the mockups root composes instead of verifying.** When `git diff <round base>..HEAD` matches no `ui paths` entry in any worktree and touches nothing outside the mockups root, `prepare` prints `NEXT: compose-only` and no `visual-verify` verifier is dispatched: for each capture spec whose `<spec>.mockups` sidecar has a line naming a changed `<frame id>.png`, the parent runs step 9's `visual-verify-pass.sh measure` (`skills/flow/visual-verify-verifier.md`) under the round's key and reads each manifest's flagged bands, seams and `over` rows; a leftover is a defect that opens the next round, and clean composites close the round with no `-full` run, the last verifier's report standing for every path outside the mockups root; either way the parent ends the stage with the `end` mark of **Steps 3–13** (`skills/flow/visual-verify.md`) — `completed` when clean, `stopped` when a leftover opens the next round (kan-1007: a mockups-only round re-ran the whole suite, 18m28s).
    The confirming re-run
    verifies a fresh build, never a stale stack: before this round's re-run reports the fix
    confirmed live, rebuild the stack from the branch HEAD — current source through the project's

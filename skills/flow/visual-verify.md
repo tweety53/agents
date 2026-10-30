@@ -182,7 +182,10 @@ declared, and its `mockup frame` value when declared; the worktree-resolved URL 
 matched; the project's `## run` commands; steps 5 and 6's results, as the report's `stack:` and
 `fingerprint:` lines state them — what step 5 found or started, and step 6's exit or its
 `not declared` reason; the green inline verify row the report's `verify:` line names; `<changeRoot>`;
-the relay contract above, with its report path resolved for this dispatch's `<key>`; and
+the relay contract above, with its report path resolved for this dispatch's `<key>`; the
+`visual-verify-pass.sh measure` call of the verifier's step 9 with its arguments, its manifest key
+this dispatch's key with any `-rest[-<n>]` segment removed, since a remainder completes the pass it
+continues; and
 to read the absolute path of
 `visual-verify-verifier.md` beside this file and run its steps 4 and 8–11 and its motion step as written against the stack steps 5 and 6 left serving the
 worktree's build, starting, stopping and restarting nothing but the merge-base stack step 10's
@@ -329,29 +332,20 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
     alone.
 
 The report's `frames:` line counts against the change's frame list (step 10) and names every declared frame absent from the
-per-frame lines, with its reason; the parent reconciles it against `design.md`'s own frame
-list before applying **Blocking**. The matrix rides `visual-verification.md` (step 11) under the
-frame's entry, and the report's `matrix:` line counts its rows and its n/a cells; the parent
-opens the frame beside the matrix. **What that reconciliation finds missing makes the report
-incomplete — never a departure, and never a gap the handoff leaves for the operator**: a declared
-frame with no line; a composed frame with no `bands:`, `seams:` or `matrix:` line; a visible
-element with no matrix row; an empty cell, or an n/a cell whose reason is neither its column not
-applying nor `no mockup source`; and a sweep its line reads neither `done` nor `n/a — <why it does
-not apply>`. Its remainder is dispatched exactly as a `check-verify-report.sh` exit 1's, under
-**Every report is checked for completeness** above, the reconciliation's list standing in for the
-guard's verdict line.
+per-frame lines, with its reason. The matrix rides `visual-verification.md` (step 11) under the
+frame's entry, and the report's `matrix:` and `over-tolerance:` lines count its rows, its n/a cells
+and the rows `measure` flagged. **The parent reads no image.** `check-verify-report.sh`, which
+`close` runs, refuses a composed frame with no `bands:`, `seams:`, `matrix:` or `over-tolerance:`
+line, an empty matrix cell, an n/a cell in a column that applies to its row's class and not reading
+`no mockup source`, and a sweep its line reads neither `done` nor n/a — `<why it does not apply>`:
+**each makes the report incomplete — never a departure, and never a gap the handoff leaves for the
+operator** — and its remainder is dispatched as `NEXT: rest` above states.
 
-**The frame-list half of that reconciliation is a guard**, run whenever `mockups` is declared,
-before the rest is reconciled by hand:
-
-```bash
-check-frame-list.sh <changeRoot>/design.md <mockups root> <abs-worktree>/.superpowers/sdd/verify-report-<key>.md
-```
-
-Its header is canonical for the declared list it derives and the gaps it names. Exit 1: a `no
-sidecar line` gap is a frame with no sidecar line, which blocks under **Blocking** below, and
-every other gap joins the reconciliation's list above. Exit 2 is a usage error or an unreadable
-input, corrected and the guard run again.
+**The frame list is a guard too**, which `close` runs whenever `mockups` is declared —
+`check-frame-list.sh <changeRoot>/design.md <mockups root> <report>`. Its header is canonical for the
+declared list it derives and the gaps it names. A `no sidecar line` gap is a frame with no sidecar
+line, which blocks under **Blocking** below (`NEXT: judge`), and every other gap joins
+`check-verify-report.sh`'s verdict lines the remainder's bundle carries.
 
 **Blocking.** This stage blocks the `IN_PROGRESS` handoff on: **a workspace pre-flight that failed
 (step 3), which ends the stage before any dispatch**, a failed `setup`,
