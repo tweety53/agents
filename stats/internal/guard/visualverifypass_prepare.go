@@ -387,6 +387,7 @@ func (v *vvp) dispatch(survivors []string, stack string, fingerprints map[string
 	if v.cont {
 		stage = v.readStage()
 	}
+	begun := []string{}
 	for _, r := range rows {
 		bundle := v.bundle(r.key, r.w, stack, fingerprints[r.w], relay, green, stage)
 		heads := []string{}
@@ -403,8 +404,14 @@ func (v *vvp) dispatch(survivors []string, stack string, fingerprints map[string
 			argv = append(argv, "-round-base", rb)
 		}
 		if out, rc := v.flow(argv...); rc != 0 {
+			// End the rows already begun so none is left open in the store.
+			for _, b := range begun {
+				v.flow("record", "dispatch", "end", "-C", v.canon, "-change", v.name, "-key", b,
+					"-session-token", v.token, "-outcome", "aborted")
+			}
 			v.stop("stopped", "row — flow record dispatch begin refused for "+r.key+": "+vvpOneLine(out))
 		}
+		begun = append(begun, r.key)
 		v.appendStage("row " + r.key + " " + r.w)
 		v.say("DISPATCH: %s %s", r.key, bundle)
 	}

@@ -77,8 +77,13 @@ func (v *vvp) usage(why string) {
 	panic(vvpExit(2))
 }
 
+// die prints the error and exits 2, first ending a stage markBegin opened so
+// no exit leaves flow.visual-verify running in the store.
 func (v *vvp) die(format string, a ...any) {
 	fmt.Fprintf(v.stderr, "visual-verify-pass: "+format+"\n", a...)
+	if v.stageOpen {
+		v.markEnd("stopped")
+	}
 	panic(vvpExit(2))
 }
 

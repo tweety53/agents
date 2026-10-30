@@ -159,6 +159,28 @@ func TestVisualVerifyPassCloseRedispatch(t *testing.T) {
 	}
 }
 
+// Any non-zero exit blocks, and a blocked report naming no cause is an
+// environment block.
+func TestVisualVerifyPassCloseBlockedDefaults(t *testing.T) {
+	f := vvcFixture(t, "")
+	f.report("visual-verify", f.wt, vvcVerdict("2", vvcBlocked, ""), "- steps: "+vvcBlocked+"\n")
+	rc, out, calls := f.close("visual-verify")
+	if rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: redispatch visual-verify-2") || !strings.Contains(calls, "-outcome blocked -cause environment\n") {
+		t.Fatalf("exit %d\n%s\n%s", rc, out, calls)
+	}
+}
+
+// A die after the stage opened ends the stage rather than leaving it open.
+func TestVisualVerifyPassCloseDieEndsStage(t *testing.T) {
+	f := vvcFixture(t, "")
+	writeExec(t, filepath.Join(f.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+f.log+"\ncase \"$1 $2 $3\" in \"record dispatch end\") echo store down; exit 1;; esac\n")
+	f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n")
+	rc, out, calls := f.close("visual-verify")
+	if rc != 2 || !strings.Contains(calls, "stage end -C "+f.wt+" -command /flow -stage flow.visual-verify -outcome stopped demo") {
+		t.Fatalf("exit %d\n%s\n%s", rc, out, calls)
+	}
+}
+
 func TestVisualVerifyPassCloseLaterBlocks(t *testing.T) {
 	f := vvcFixture(t, "")
 	f.report("visual-verify", f.wt, vvcVerdict("1", vvcBlocked, "environment"), "- steps: "+vvcBlocked+"\n")

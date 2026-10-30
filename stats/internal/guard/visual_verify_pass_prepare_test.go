@@ -117,6 +117,7 @@ func TestVisualVerifyPassUsage(t *testing.T) {
 		{"a token not mf-", append(append([]string{"prepare"}, base...), "--harness", "claude", "--session-token", "tok", "--merge-base", f.wt+"="+f.mb)},
 		{"no harness", append(append([]string{"prepare"}, base...), "--session-token", "mf-tok", "--merge-base", f.wt+"="+f.mb)},
 		{"a merge base not <wt>=<sha>", append(append([]string{"prepare"}, base...), "--harness", "claude", "--session-token", "mf-tok", "--merge-base", f.mb)},
+		{"--started without --continue", append(append(append([]string{"prepare"}, base...), ok...), "--started")},
 		{"an app not <wt>:<root>=<url>", append(append(append([]string{"prepare"}, base...), ok...), "--app", ".="+f.app.URL)},
 	} {
 		os.Remove(f.log)
@@ -405,6 +406,15 @@ func TestVisualVerifyPassPrepareBeginsRows(t *testing.T) {
 	rc, out, calls = h.prepare()
 	if rc != 1 || !strings.Contains(out, "STOP: row — flow record dispatch begin refused for visual-verify: dirty tree") || !strings.Contains(calls, "-outcome stopped") || strings.Contains(out, "DISPATCH:") {
 		t.Fatalf("a refused begin: exit %d\n%s\n%s", rc, out, calls)
+	}
+
+	// A begin refused for the second row ends the first row it already began.
+	i := vvpFixture(t, "")
+	w, mb = i.sibling("gymie-frontend")
+	writeExec(t, filepath.Join(i.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+i.log+"\ncase \"$*\" in \"record dispatches \"*) cat "+filepath.Join(filepath.Dir(i.log), "rows.json")+";; *\"-key visual-verify-gymie-frontend \"*) echo dirty tree; exit 1;; esac\n")
+	rc, out, calls = i.prepare("--worktree", w, "--merge-base", w+"="+mb, "--app", w+":.="+i.app.URL)
+	if rc != 1 || !strings.Contains(calls, "record dispatch end -C "+i.wt+" -change demo -key visual-verify-demo -session-token mf-tok -outcome aborted\n") || !strings.Contains(calls, "-outcome stopped") {
+		t.Fatalf("a refused second begin: exit %d\n%s\n%s", rc, out, calls)
 	}
 }
 
