@@ -39,3 +39,9 @@ Motions: none named.
 ### Departure B — fixed (Task 17)
 
 A mean-after line whose metric has no before mean is stroked `var(--text-muted)`: on the closed experiment the Findings vs commits, Tokens / change and Wall-clock lines, and on the open experiment the Plan corrections line, are muted, no longer red. The recapture moved the four `experiments.spec.ts` PNGs and `full-experiments-darwin.png` inside those lines only; each was read, and `full-app-suite.zip` was rebuilt.
+
+## In-run fix 4 re-verify (round base 4945d392)
+- Whole suite: 69 passed. Captures re-taken with `--update-snapshots=all` came back byte-identical to the committed baselines; compose re-ran over the four prototype frames, band/seam pairing and matrices unchanged in shape (one page band each; cause as before).
+- Departure B confirmed fixed: on the closed experiment the Findings vs commits and Wall-clock mean-after lines measure `#3a3b45` on the window fill `#23212b` (muted grey at opacity .8, column runs at x=900), no longer red; Tokens / change draws muted at 0.0. On the open experiment Plan corrections' line is muted.
+- Every metric panel and chart of both experiments re-read for before present/absent × after equal/better/worse: open — Review rounds (better, ▼ green, green line), Round-0 Crit+Imp (better, green), Plan corrections (no before, no delta, muted line), Tokens (worse, ▲ red, red line), Wall-clock (better, green); closed — Review rounds and Verify reds (equal, `=` neutral, muted line), Findings vs commits, Tokens, Wall-clock (no before, no delta, muted line). No departure.
+- Not a view defect: the closed experiment's seeded summary text ("review rounds 2.2 → 3.1") disagrees with its seeded metrics (0.0 vs 0.0); summary is free text from the fixture.
