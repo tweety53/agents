@@ -241,6 +241,8 @@ function StageRunRow({ run, now, records, showStage, requests }: { run: StageRun
   const tokenSplit =
     tokensIn !== null && agentTokens !== null ? `agents ${formatKTokens(agentTokens)} + main session ${formatKTokens(Math.max(0, tokensIn - agentTokens))}` : undefined;
   const outcome = outcomeClass(run);
+  // Why the run ended as it did, from its end mark's -reason.
+  const reason = ((r) => (typeof r === "string" ? r : undefined))(asObject(run.metrics)?.reason);
   const last = own.length ? dispatchOutcome(records.get(own[own.length - 1].agentId)) : undefined;
   const word = run.outcome === "failed" ? "failed" : (last ?? run.outcome ?? "completed");
   const expander = expandable && (
@@ -275,6 +277,7 @@ function StageRunRow({ run, now, records, showStage, requests }: { run: StageRun
           ) : (
             <span className={`lb-out ${outcome === "failed" ? "failed" : outcomeLook(word)}`}>{word}</span>
           )}
+          {reason && <div className="lb-out-why">{reason}</div>}
         </td>
         <td className="r lb-num">{formatClock(Date.parse(run.startedAt))}</td>
         <td className="r lb-num">{formatSpan(runEnd(run, now) - Date.parse(run.startedAt))}</td>

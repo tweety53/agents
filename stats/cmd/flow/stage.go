@@ -539,6 +539,7 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 	fixRounds := fset.Int("fix-rounds", -1, "metrics.fix_rounds, if this stage tracked fix rounds")
 	panelRounds := fset.Int("panel-rounds", -1, "metrics.panel_rounds, if this stage ran a review panel")
 	findings := fset.String("findings", "", "metrics.findings_by_severity, as a JSON object")
+	reason := fset.String("reason", "", "metrics.reason, why the stage ended as it did -- one line, for a failed outcome")
 	pos, err := parseInterspersed(fset, args)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -565,7 +566,7 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 		return 2
 	}
 
-	metrics, err := buildEndMetrics(*fixRounds, *panelRounds, *findings)
+	metrics, err := buildEndMetrics(*fixRounds, *panelRounds, *findings, *reason)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, stageUsage)
@@ -794,7 +795,7 @@ func gateVisualVerifyTrailers(ctx context.Context, f stageIdentityFlags, outcome
 // value design.md's own metrics table documents), and
 // findings_by_severity only when -findings was given, validated as JSON
 // before it is ever sent. Returns nil (no metrics call at all) when none
-// of the three were given -- MergeMetrics requires a non-nil patch
+// of its flags were given -- MergeMetrics requires a non-nil patch
 // (store.ErrNilMetricsPatch), and an empty PATCH would be a wasted round
 // trip for a `stage end` that only carries an outcome.
 //
@@ -810,7 +811,7 @@ func gateVisualVerifyTrailers(ctx context.Context, f stageIdentityFlags, outcome
 // `flow stage end --change ... --outcome completed` example never
 // passes -harness at all, so a claude-code run ended without it would
 // have been marked unavailable despite being genuinely measured.
-func buildEndMetrics(fixRounds, panelRounds int, findings string) (json.RawMessage, error) {
+func buildEndMetrics(fixRounds, panelRounds int, findings, reason string) (json.RawMessage, error) {
 	patch := map[string]json.RawMessage{}
 	if fixRounds >= 0 {
 		patch["fix_rounds"] = json.RawMessage(fmt.Sprintf("%d", fixRounds))
@@ -823,6 +824,13 @@ func buildEndMetrics(fixRounds, panelRounds int, findings string) (json.RawMessa
 			return nil, fmt.Errorf("-findings must be valid JSON, got %q", findings)
 		}
 		patch["findings_by_severity"] = json.RawMessage(findings)
+	}
+	if reason != "" {
+		r, err := json.Marshal(reason)
+		if err != nil {
+			return nil, fmt.Errorf("encode reason: %w", err)
+		}
+		patch["reason"] = r
 	}
 	if len(patch) == 0 {
 		return nil, nil

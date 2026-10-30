@@ -49,6 +49,13 @@ describe("StageRunTable", () => {
     expect(cell.closest("tr")).toHaveTextContent(/running/);
   });
 
+  it("says why a run failed under its outcome, from the reason its end mark recorded", () => {
+    const failed: StageRunDTO = { ...other, outcome: "failed", metrics: { reason: "the Findings KPI wraps" } };
+    render(<StageRunTable stageRuns={[failed]} />);
+    const cell = screen.getByText("failed").closest("td")!;
+    expect(cell).toHaveTextContent("failedthe Findings KPI wraps");
+  });
+
   it("leads with the stage when its session runs more than one", () => {
     render(<StageRunTable stageRuns={[run, other]} records={records} />);
     expect(screen.getByRole("button", { name: "Show dispatches" }).closest("td")!).toHaveTextContent(/^Self-review · Fix round 2 → Review round 2$/);

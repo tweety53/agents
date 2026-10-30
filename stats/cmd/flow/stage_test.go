@@ -551,6 +551,7 @@ func TestStageEndRecordsOutcomeAndMetrics(t *testing.T) {
 			"-outcome", "completed",
 			"-fix-rounds", "2", "-panel-rounds", "1",
 			"-findings", `{"critical":0,"major":1}`,
+			"-reason", "the Findings KPI wraps",
 			"kan-16",
 		},
 		strings.NewReader(""), &stdout, &stderr)
@@ -575,6 +576,9 @@ func TestStageEndRecordsOutcomeAndMetrics(t *testing.T) {
 	}
 	if metrics["fix_rounds"] != float64(2) {
 		t.Errorf("metrics.fix_rounds = %v, want 2", metrics["fix_rounds"])
+	}
+	if metrics["reason"] != "the Findings KPI wraps" {
+		t.Errorf("metrics.reason = %v, want the -reason text", metrics["reason"])
 	}
 	if metrics["panel_rounds"] != float64(1) {
 		t.Errorf("metrics.panel_rounds = %v, want 1", metrics["panel_rounds"])

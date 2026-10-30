@@ -173,12 +173,12 @@ flow stage end   -command '/flow-interactive' -stage flow.refresh-main-checkout 
 --name-only <base>..HEAD` on its stdin): open the live page — the link the operator gave, else the
 URL `## run` serves, by the app's own run-view route, keyed by the project key and `<name>`, never a display name —
 `location.reload()`, screenshot, and read the screenshot against the ask. A pass ends the stage
-run `-outcome completed`. A defect ends it `-outcome failed`, and is a fix commit and steps 4–7
+run `-outcome completed`. A defect ends it `-outcome failed` with `-reason` naming the defect, and is a fix commit and steps 4–7
 again inside the same request.
 
 ```bash
 flow stage begin -command '/flow-interactive' -stage flow.visual-verify -request <n> -harness <harness> -session-token fi-<literal-token> <name>
-flow stage end   -command '/flow-interactive' -stage flow.visual-verify -outcome completed|failed <name>
+flow stage end   -command '/flow-interactive' -stage flow.visual-verify -outcome completed|failed [-reason '<the defect, one line>'] <name>
 ```
 
 **8. End.** One of:
