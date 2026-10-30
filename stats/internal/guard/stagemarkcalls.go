@@ -16,7 +16,9 @@ import (
 // header comment is the contract -- every `flow stage begin` carries a
 // literal -session-token, a placeholder -harness, a served -stage key and no
 // guessed change name; every `flow record dispatch` a literal
-// -session-token; exit 0 compliant, 1 violations (coverage included), 2
+// -session-token; an `integrate-change.sh` or `visual-verify-pass.sh prepare`
+// call the begin token and harness rules, a `visual-verify-pass.sh close`
+// call the token rules alone; exit 0 compliant, 1 violations (coverage included), 2
 // cannot answer. The reasoning for each step, moved here from the bash body
 // it replaced (d71a2327), sits beside the code it explains.
 func init() {
@@ -77,10 +79,12 @@ var smcExpectedZero = []struct{ file, reason string }{
 // KAN-856 added skills/flow/brainstorm-planner.md: once brainstorm.md stopped
 // restating its marks, the planner holds the only flow.design-approval,
 // flow.create-artifacts and flow.writing-plans `stage begin` lines.
+// KAN-1060 added skills/flow/visual-verify.md, whose one call is
+// `visual-verify-pass.sh close`.
 var smcCandidates = map[string]bool{
 	"SKILL.md": true, "pipeline.md": true, "brainstorm.md": true, "brainstorm-planner.md": true, "implement.md": true, "document-fix.md": true,
 	"review-panel.md": true, "verify-and-handoff.md": true, "integrate.md": true,
-	"cleanup.md": true, "review.md": true, "finish.md": true,
+	"cleanup.md": true, "review.md": true, "finish.md": true, "visual-verify.md": true,
 }
 
 const (
@@ -92,6 +96,12 @@ const (
 	// a skill writes there is the one the daemon binds, so its call is held
 	// to the same token and harness rules (its stage keys are the script's).
 	smcIntegrate = "integrate-change.sh"
+	// visual-verify-pass.sh prepare begins flow.visual-verify and each
+	// verifier row with the --session-token and --harness it is passed, so it
+	// takes integrate-change.sh's rules; close ends them and records with the
+	// token alone, so it takes `record dispatch`'s. measure marks nothing.
+	smcVVPrepare = "visual-verify-pass.sh prepare"
+	smcVVClose   = "visual-verify-pass.sh close"
 )
 
 // The ERE patterns the bash ran through grep/awk. The value extractions are
@@ -103,6 +113,8 @@ var (
 	smcMarkLine      = regexp.MustCompile(`^[[:space:]]*flow stage mark([[:space:]]|\\|$)`)
 	smcDispatchLine  = regexp.MustCompile(`^[[:space:]]*flow record dispatch([[:space:]]|\\|$)`)
 	smcIntegrateLine = regexp.MustCompile(`^[[:space:]]*integrate-change\.sh([[:space:]]|\\|$)`)
+	smcVVPrepareLine = regexp.MustCompile(`^[[:space:]]*visual-verify-pass\.sh prepare([[:space:]]|\\|$)`)
+	smcVVCloseLine   = regexp.MustCompile(`^[[:space:]]*visual-verify-pass\.sh close([[:space:]]|\\|$)`)
 	smcContinued     = regexp.MustCompile(`\\[[:space:]]*$`)
 	smcHasToken      = regexp.MustCompile(`(^|[[:space:]])-session-token([[:space:]]|=)`)
 	smcHasHarness    = regexp.MustCompile(`(^|[[:space:]])-harness([[:space:]]|=)`)
@@ -195,6 +207,10 @@ func smcAssemble(body string) []smcCall {
 			verb = smcDispatch
 		case smcIntegrateLine.MatchString(line):
 			verb = smcIntegrate
+		case smcVVPrepareLine.MatchString(line):
+			verb = smcVVPrepare
+		case smcVVCloseLine.MatchString(line):
+			verb = smcVVClose
 		}
 		if verb == "" {
 			continue
@@ -216,7 +232,7 @@ func smcAssemble(body string) []smcCall {
 	for i := range calls {
 		calls[i].cmd = strings.Trim(calls[i].cmd, "\t")
 		// The script spells the flags with two dashes; the rules read one.
-		if calls[i].verb == smcIntegrate {
+		if v := calls[i].verb; v == smcIntegrate || v == smcVVPrepare || v == smcVVClose {
 			calls[i].cmd = strings.NewReplacer(" --session-token", " -session-token", " --harness", " -harness").Replace(calls[i].cmd)
 		}
 	}
@@ -385,7 +401,7 @@ func (s *smcScan) checkCall(f string, c smcCall) {
 	// a dispatch row inherits its harness from the stage run it belongs to,
 	// so requiring one here would demand a flag the CLI would reject. The
 	// rule is applied to the verb that takes it, not to every scanned call.
-	if c.verb != smcDispatch {
+	if c.verb != smcDispatch && c.verb != smcVVClose {
 		if !smcHasHarness.MatchString(c.cmd) {
 			s.finding("%s:%d: `%s` carries no -harness -- required so a recorded run states which harness marked it", f, c.line, c.verb)
 		} else if h := smcValue(smcHarnessValue, c.cmd); !smcPlaceholder.MatchString(h) {
@@ -404,7 +420,7 @@ func (s *smcScan) checkCall(f string, c smcCall) {
 		}
 	}
 
-	if c.verb == smcDispatch || c.verb == smcIntegrate {
+	if c.verb == smcDispatch || c.verb == smcIntegrate || c.verb == smcVVPrepare || c.verb == smcVVClose {
 		return
 	}
 	short := strings.TrimPrefix(c.verb, "flow ")
