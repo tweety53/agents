@@ -492,3 +492,15 @@ func vrtMerge(t *testing.T, dir string) {
 	body, _ := json.Marshal(a)
 	writeFile(t, filepath.Join(dir, "visual-manifest-visual-verify.json"), string(body))
 }
+
+// TestVrMatrixCellsMissingSide pins the kan-1060 gated-review Minors: a cell
+// that names one side missing (`— / 14px`) is a measurement, not an n/a, and
+// every bad cell is reported in one run.
+func TestVrMatrixCellsMissingSide(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "visual-verification.md")
+	writeFile(t, p, "| element | kind | content | border |\n|---|---|---|---|\n| save | control | — / 14px | 1px |\n| cancel | control | n/a — x | |\n")
+	bad := vrMatrixCells(p)
+	if len(bad) != 2 || !strings.Contains(bad[0], "cancel.content") || !strings.Contains(bad[1], "cancel.border is empty") {
+		t.Errorf("bad = %q", bad)
+	}
+}

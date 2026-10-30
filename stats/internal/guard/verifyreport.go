@@ -204,16 +204,16 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	if design != "" {
 		designBody, _ = os.ReadFile(design)
 	}
-	if len(badSweeps) > 0 {
-		status["10"] = strings.Join(badSweeps, "; ")
-	}
+	// Every step-10 defect is named in one run, never only the last.
+	step10 := badSweeps
 	if design != "" {
-		if bad := vrMatrixCells(filepath.Join(filepath.Dir(design), "visual-verification.md")); len(bad) > 0 {
-			status["10"] = strings.Join(bad, "; ")
-		}
+		step10 = append(step10, vrMatrixCells(filepath.Join(filepath.Dir(design), "visual-verification.md"))...)
 	}
 	if unevidenced != "" {
-		status["10"] = "pre-existing attribution with no merge-base evidence: " + unevidenced
+		step10 = append(step10, "pre-existing attribution with no merge-base evidence: "+unevidenced)
+	}
+	if len(step10) > 0 {
+		status["10"] = strings.Join(step10, "; ")
 	}
 	for _, id := range vrSteps {
 		s, ok := status[id]
@@ -375,8 +375,9 @@ func vrCauseAdmitted(cause string, row vrOverRow, design string) bool {
 		id = strings.Fields(id + " ")[0]
 		return id != "" && regexp.MustCompile(`(?m)^\*\*ID:\*\*\s*`+regexp.QuoteMeta(id)+`\s*$`).MatchString(design)
 	}
+	// Its merge-base evidence is already required of every pre-existing attribution above.
 	if strings.HasPrefix(cause, "present at the merge base") {
-		return strings.Contains(cause, "merge-base baseline: ") || strings.Contains(cause, "merge-base capture: ")
+		return true
 	}
 	if strings.HasPrefix(cause, "mockup source") {
 		return slices.Contains(strings.Split(row.Keys, ", "), "unresolved")
@@ -435,7 +436,8 @@ func vrMatrixCells(path string) []string {
 			if j < len(c) {
 				v = c[j]
 			}
-			isNA := strings.HasPrefix(v, "n/a") || strings.HasPrefix(v, "—")
+			// `— / 14px` names one side missing: a measurement, not an n/a.
+			isNA := strings.HasPrefix(v, "n/a") || (strings.HasPrefix(v, "—") && !strings.Contains(v, "/"))
 			switch {
 			case v == "":
 				bad = append(bad, fmt.Sprintf("visual-verification.md:%d: %s.%s is empty", i+1, c[0], col))
