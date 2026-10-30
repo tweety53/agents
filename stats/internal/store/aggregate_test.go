@@ -2321,6 +2321,8 @@ func TestLiveStateBoardCountsFixRoundsAndReviewerRuns(t *testing.T) {
 	dispatch(projectKey, name, "verifier", "visual-verify-fix-1-gymie")
 	dispatch(projectKey, name, "verifier", "visual-verify-fix-2")
 	dispatch(projectKey, name, "panel-fix", "full-suite-fix-1")
+	dispatch(projectKey, name, "implementer", "task-4+5-implementer-fix-1")
+	dispatch(projectKey, name, "implementer", "task-11-implementer-fix-2")
 	dispatch(projectKey, name, "reviewer", sub+"-pass")
 	dispatch(projectKey, name, "reviewer", sub+"-review-1")
 	dispatch(projectKey+"-tooling", sub, "implementer", sub+"-fix-3")
@@ -2341,9 +2343,9 @@ func TestLiveStateBoardCountsFixRoundsAndReviewerRuns(t *testing.T) {
 	if r.PanelRuns != 3 || r.FullPanelRuns != 2 {
 		t.Errorf("panel runs %d, full %d; want 3, 2", r.PanelRuns, r.FullPanelRuns)
 	}
-	// panel 2 + verify 1 + visual-verify 2 + full-suite 1.
-	if r.FixRounds != 6 || r.ReviewerRuns != 6 || r.SelfReviewFixRounds != 3 || r.SelfReviewReviewerRuns != 2 {
-		t.Errorf("fix rounds %d/%d, reviewer runs %d/%d; want 6/3, 6/2", r.FixRounds, r.SelfReviewFixRounds, r.ReviewerRuns, r.SelfReviewReviewerRuns)
+	// panel 2 + verify 1 + visual-verify 2 + full-suite 1 + two per-task fix rounds.
+	if r.FixRounds != 8 || r.ReviewerRuns != 6 || r.SelfReviewFixRounds != 3 || r.SelfReviewReviewerRuns != 2 {
+		t.Errorf("fix rounds %d/%d, reviewer runs %d/%d; want 8/3, 6/2", r.FixRounds, r.SelfReviewFixRounds, r.ReviewerRuns, r.SelfReviewReviewerRuns)
 	}
 }
 
