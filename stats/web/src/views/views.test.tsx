@@ -616,6 +616,17 @@ describe("views render their fixture response's actual values", () => {
     expect(fetchStatsViewMock.mock.calls.filter((c) => !isPoll(c[1]))).not.toHaveLength(0);
   });
 
+  it("state board shows a failed finished read", async () => {
+    fetchStatsViewMock.mockImplementation((_v: string, p: { from: Date; to: Date }) =>
+      p.from.getTime() === p.to.getTime() ? Promise.resolve(fixtures["state-board"]) : Promise.reject(new Error("boom")),
+    );
+    const user = userEvent.setup();
+    render(<StateBoard />);
+    const table = within(await screen.findByRole("table"));
+    await user.click(table.getByRole("row", { name: /^▾Finished/ }));
+    expect(await screen.findByText("Could not load the board: boom")).toBeInTheDocument();
+  });
+
   it("state board hides pipeline-fix and self-review changes", async () => {
     const user = userEvent.setup();
     render(<StateBoard />);

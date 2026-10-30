@@ -413,6 +413,11 @@ export function StateBoard() {
   return (
     <section aria-label="Live state board" className="dashboard lb">
       {heading}
+      {fetched.status === "error" && (
+        <p className="lb-sub" role="alert">
+          Could not load the board: {fetched.message}
+        </p>
+      )}
       <div className="lb-fbar" role="toolbar" aria-label="Filters">
         <span className="lb-fgroup" role="group" aria-label="Project">
           <span className="lb-fl">Project</span>
