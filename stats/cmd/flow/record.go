@@ -1127,6 +1127,12 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		fmt.Fprintf(stderr, "flow: -key %q is a review-panel reviewer key: pass -slot <slot|slot+slot+slot> (skills/flow/review-panel.md)\n", *key)
 		return 2
 	}
+	// A panel reviewer row's slot is its key's slot part, so the store
+	// credits a joined key to every role it names (decision sr1-slot-matches-key).
+	if _, ok := records.PanelDispatchRound(records.Dispatch{Key: *key, Role: *role}); ok && !records.PanelKeyNamesSlot(*key, *slot) {
+		fmt.Fprintf(stderr, "flow: -key %q does not name -slot %q: a panel reviewer key is panel-<round>-<slot>[-<suffix>], its slot part the row's -slot (skills/flow/review-panel.md)\n", *key, *slot)
+		return 2
+	}
 	// A panel round reads the whole diff, so every task closes first
 	// (kan-1007); a back-filled row records a round already run.
 	if _, ok := records.PanelDispatchRound(records.Dispatch{Key: *key, Role: *role}); ok && *role == "reviewer" && *startedAt == "" {

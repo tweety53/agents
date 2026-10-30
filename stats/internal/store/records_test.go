@@ -5581,3 +5581,51 @@ func TestDropDispatchMovesTokensToTheKeptRow(t *testing.T) {
 		t.Errorf("other change's row count = %d (%v), want 1", n, err)
 	}
 }
+
+// TestSetDispatchSlot pins kan-1061's self-review repair: a reviewer row's
+// slot is set to one its key names, a slot the key does not name is refused,
+// and an unknown id or a non-reviewer row is ErrDispatchNotFound.
+func TestSetDispatchSlot(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-reslot-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	b := baseDispatch("reviewer", "opus")
+	b.Key = "panel-3-test-sanity+call-efficiency"
+	b.Slot = "test-sanity"
+	b.SessionToken = "mf-reslot"
+	row, err := st.RecordDispatch(ctx, projectKey, "kan-1", b)
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	read := func() string {
+		var s string
+		if err := pool.QueryRow(ctx, `SELECT slot FROM dispatches WHERE id = $1`, row.ID).Scan(&s); err != nil {
+			t.Fatalf("read row: %v", err)
+		}
+		return s
+	}
+	if err := st.SetDispatchSlot(ctx, row.ID, "mutation"); err == nil {
+		t.Fatal("SetDispatchSlot accepted a slot the key does not name")
+	}
+	if err := st.SetDispatchSlot(ctx, row.ID, "test-sanity+call-efficiency"); err != nil {
+		t.Fatalf("SetDispatchSlot: %v", err)
+	}
+	if s := read(); s != "test-sanity+call-efficiency" {
+		t.Fatalf("slot = %q, want test-sanity+call-efficiency", s)
+	}
+	if err := st.SetDispatchSlot(ctx, 1<<62, "primary"); !errors.Is(err, store.ErrDispatchNotFound) {
+		t.Fatalf("unknown id: err = %v, want store.ErrDispatchNotFound", err)
+	}
+	v := baseDispatch("verifier", "opus")
+	v.Key = "verify"
+	v.SessionToken = "mf-reslot"
+	vrow, err := st.RecordDispatch(ctx, projectKey, "kan-1", v)
+	if err != nil {
+		t.Fatalf("RecordDispatch verifier: %v", err)
+	}
+	if err := st.SetDispatchSlot(ctx, vrow.ID, "primary"); !errors.Is(err, store.ErrDispatchNotFound) {
+		t.Fatalf("non-reviewer row: err = %v, want store.ErrDispatchNotFound", err)
+	}
+}

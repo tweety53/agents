@@ -7589,3 +7589,60 @@ func TestRecordDispatchRefusesAFixOrReReviewBeforeItsRoundsMerger(t *testing.T) 
 		}
 	}
 }
+
+// TestRecordDispatchBeginRefusesASlotOffItsPanelKey pins that a panel
+// reviewer row's -slot is its key's slot part (decision
+// sr1-slot-matches-key): a joined key under one of its roles, or a
+// single-slot key under a joined slot, is refused; a suffixed key under its
+// own slot and a non-reviewer panel row are admitted.
+func TestRecordDispatchBeginRefusesASlotOffItsPanelKey(t *testing.T) {
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	contacted := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		contacted = true
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
+	}))
+	defer srv.Close()
+	begin := func(role, key, slot string) (int, string) {
+		var stdout, stderr bytes.Buffer
+		argv := []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", role, "-model", "opus", "-key", key,
+			"-session-token", "mf-record-slot-key"}
+		if slot != "" {
+			argv = append(argv, "-slot", slot)
+		}
+		code := run(context.Background(), argv, strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String()
+	}
+	for _, bad := range [][2]string{
+		{"panel-3-test-sanity+call-efficiency", "test-sanity"},
+		{"panel-4-mutation+failure-modes", "mutation"},
+		{"panel-3-extra", "test-sanity+call-efficiency"},
+	} {
+		contacted = false
+		code, stderr := begin("reviewer", bad[0], bad[1])
+		if code != 2 {
+			t.Errorf("-key %s -slot %s: exit %d, want 2; stderr:\n%s", bad[0], bad[1], code, stderr)
+		}
+		if !strings.Contains(stderr, bad[0]) || !strings.Contains(stderr, "skills/flow/review-panel.md") {
+			t.Errorf("-key %s: stderr does not name the key and review-panel.md:\n%s", bad[0], stderr)
+		}
+		if contacted {
+			t.Errorf("-key %s: a refused row was sent to the daemon", bad[0])
+		}
+	}
+	for _, ok := range [][3]string{
+		{"reviewer", "panel-3-test-sanity+call-efficiency", "test-sanity+call-efficiency"},
+		{"reviewer", "panel-2-primary", "primary"},
+		{"reviewer", "panel-1-primary+principles-cite", "primary+principles"},
+		{"reviewer", "panel-0-primary-retry", "primary"},
+		{"reviewer", "panel-9-primary-agents", "primary"},
+		{"merger", "panel-3-merger", ""},
+	} {
+		if code, stderr := begin(ok[0], ok[1], ok[2]); code != 0 {
+			t.Errorf("-role %s -key %s -slot %s: exit %d, want 0; stderr:\n%s", ok[0], ok[1], ok[2], code, stderr)
+		}
+	}
+}

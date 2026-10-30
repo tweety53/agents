@@ -132,6 +132,14 @@ func main() {
 		return
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == "reslot-dispatch" {
+		if err := reslotDispatch(os.Args[2:]); err != nil {
+			logger.Error("flowd reslot-dispatch failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "rekey-dispatch" {
 		if err := rekeyDispatch(os.Args[2:]); err != nil {
 			logger.Error("flowd rekey-dispatch failed", "error", err)
@@ -988,6 +996,30 @@ func reoutcomeDispatch(args []string) error {
 	}
 	defer st.Close()
 	return st.SetDispatchOutcome(ctx, id, outcome, cause)
+}
+
+// reslotDispatch implements `flowd reslot-dispatch <dispatch-id> <slot>`
+// (store.Store.SetDispatchSlot): the repair for a panel reviewer row recorded
+// under a slot its key does not name (kan-1061's self-review).
+func reslotDispatch(args []string) error {
+	if len(args) != 2 {
+		return fmt.Errorf("usage: flowd reslot-dispatch <dispatch-id> <slot>")
+	}
+	id, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("dispatch id %q: %w", args[0], err)
+	}
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	st, err := store.Open(ctx, cfg.DSN)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	return st.SetDispatchSlot(ctx, id, args[1])
 }
 
 // startupRestampWindow is how far back restampRecentEnds looks: long enough

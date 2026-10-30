@@ -1521,6 +1521,28 @@ func (s *Store) SetDispatchOutcome(ctx context.Context, id int64, outcome, cause
 	return nil
 }
 
+// SetDispatchSlot sets reviewer dispatch id's slot -- the repair for a panel
+// row recorded under one role of its joined key (kan-1061's self-review). A
+// slot the row's key does not name (records.PanelKeyNamesSlot) is refused and
+// changes nothing; an unknown id or a non-reviewer row is ErrDispatchNotFound.
+func (s *Store) SetDispatchSlot(ctx context.Context, id int64, slot string) error {
+	var key string
+	err := s.pool.QueryRow(ctx, `SELECT dispatch_key FROM dispatches WHERE id = $1 AND role = 'reviewer'`, id).Scan(&key)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("%w: %d", ErrDispatchNotFound, id)
+	}
+	if err != nil {
+		return fmt.Errorf("store: reslot dispatch %d: %w", id, err)
+	}
+	if !records.PanelKeyNamesSlot(key, slot) {
+		return fmt.Errorf("store: reslot dispatch %d: key %q does not name slot %q", id, key, slot)
+	}
+	if _, err := s.pool.Exec(ctx, `UPDATE dispatches SET slot = $2 WHERE id = $1 AND role = 'reviewer'`, id, slot); err != nil {
+		return fmt.Errorf("store: reslot dispatch %d: %w", id, err)
+	}
+	return nil
+}
+
 // RekeyDispatch sets dispatch id's dispatch_key outright -- the repair for a
 // row whose key's suffix expanded to nothing (kan-1009's self-review). A key
 // another row of the run holds violates the run's key uniqueness and changes

@@ -332,6 +332,18 @@ func PanelDispatchRound(d Dispatch) (int, bool) {
 	return n, true
 }
 
+// PanelKeyNamesSlot reports whether a panel key's remainder after
+// "panel-<r>-" is slot itself, or slot followed by a "-" suffix (a worktree
+// or attempt suffix such as -retry, -cite, -<repo>). A key that is not a
+// panel key reports false.
+func PanelKeyNamesSlot(key, slot string) bool {
+	if _, ok := PanelDispatchRound(Dispatch{Key: key, Role: "reviewer"}); !ok || slot == "" {
+		return false
+	}
+	_, rest, _ := strings.Cut(strings.TrimPrefix(key, "panel-"), "-")
+	return rest == slot || strings.HasPrefix(rest, slot+"-")
+}
+
 // dispatchMetrics is the part of a dispatch's metrics bag the ledger
 // reads: the token figures internal/harvest's second attribution pass
 // merges in, under the bag's top-level "tokens" key, plus the
