@@ -210,7 +210,7 @@
 
 **Build:** green
 **Files:** `skills/flow/visual-verify.md`, `skills/flow/visual-verify-verifier.md`, `skills/flow/verify-fix-loop.md`, `stats/internal/guard/visual_verify_pass_close_test.go`
-**Tests:** **none** — contract prose; Step 2's guards are the check.
+**Tests:** `TestVerifierExitsTemplateOmitsMeasure` — the contract prose itself is checked by Step 2's guards.
 **Regression:** none — prose.
 **Commit:** docs(flow): measure in one call and explain every over-tolerance element in the report
 **After:** Task 6, 7, 9, 10, 11
