@@ -2260,6 +2260,8 @@ func TestLiveStateBoardCountsFixRoundsAndReviewerRuns(t *testing.T) {
 	dispatch(projectKey, name, "reviewer", "task-1-reviewer")
 	dispatch(projectKey, name, "reviewer", "panel-0-primary")
 	dispatch(projectKey, name, "reviewer", "panel-0-mutation")
+	dispatch(projectKey, name, "reviewer", "panel-1-primary")
+	dispatch(projectKey, name, "reviewer", "panel-2-mutation")
 	dispatch(projectKey, name, "panel-fix", "panel-fix-1")
 	dispatch(projectKey, name, "reviewer", "panel-2-primary")
 	dispatch(projectKey, name, "panel-fix", "verify-fix-1")
@@ -2279,7 +2281,11 @@ func TestLiveStateBoardCountsFixRoundsAndReviewerRuns(t *testing.T) {
 		t.Fatalf("rows = %d, want 1", len(rows))
 	}
 	r := rows[0]
-	if r.FixRounds != 3 || r.ReviewerRuns != 4 || r.SelfReviewFixRounds != 3 || r.SelfReviewReviewerRuns != 2 {
-		t.Errorf("fix rounds %d/%d, reviewer runs %d/%d; want 3/3, 4/2", r.FixRounds, r.SelfReviewFixRounds, r.ReviewerRuns, r.SelfReviewReviewerRuns)
+	// Rounds 0 and 2 ran both slots, round 1 one: two full panel runs of three.
+	if r.PanelRuns != 3 || r.FullPanelRuns != 2 {
+		t.Errorf("panel runs %d, full %d; want 3, 2", r.PanelRuns, r.FullPanelRuns)
+	}
+	if r.FixRounds != 3 || r.ReviewerRuns != 6 || r.SelfReviewFixRounds != 3 || r.SelfReviewReviewerRuns != 2 {
+		t.Errorf("fix rounds %d/%d, reviewer runs %d/%d; want 3/3, 6/2", r.FixRounds, r.SelfReviewFixRounds, r.ReviewerRuns, r.SelfReviewReviewerRuns)
 	}
 }

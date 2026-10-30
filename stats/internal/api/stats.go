@@ -712,6 +712,8 @@ type stateBoardRowDTO struct {
 	ReviewerRuns           int `json:"reviewerRuns"`
 	SelfReviewFixRounds    int `json:"selfReviewFixRounds"`
 	SelfReviewReviewerRuns int `json:"selfReviewReviewerRuns"`
+	PanelRuns              int `json:"panelRuns"`
+	FullPanelRuns          int `json:"fullPanelRuns"`
 }
 
 // nextCommandFor maps a change's current pipeline state to the command that
@@ -885,6 +887,8 @@ func toStateBoardDTOs(rows []store.LiveStateRow, single bool) []stateBoardRowDTO
 			ReviewerRuns:           r.ReviewerRuns,
 			SelfReviewFixRounds:    r.SelfReviewFixRounds,
 			SelfReviewReviewerRuns: r.SelfReviewReviewerRuns,
+			PanelRuns:              r.PanelRuns,
+			FullPanelRuns:          r.FullPanelRuns,
 		}
 	}
 	return out

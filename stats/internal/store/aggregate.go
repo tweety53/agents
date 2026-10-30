@@ -104,6 +104,9 @@ type LiveStateRow struct {
 	// its reviewer dispatches bar the analysis -pass -- each read from the
 	// change and its self-review-<name> sub-run, zero when none ran.
 	FixRounds, ReviewerRuns, SelfReviewFixRounds, SelfReviewReviewerRuns int
+	// PanelRuns counts main's review-panel rounds (panel-<N>), FullPanelRuns
+	// those whose reviewers covered as many slots as its widest round did.
+	PanelRuns, FullPanelRuns int
 }
 
 // ActiveDispatch is one running subagent: its role, the plan task it works
@@ -141,7 +144,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 		       win.d1, win.d7, win.d30,
 		       open_run.stage, open_run.started_at, last_run.stage, last_run.ended_at, done.tasks, subs.list, roots.list, sr_roots.list, committed.list, seen.at, staged.n,
 		       sa.state, sa.detail, sa.updated_at, last_run.command, reqs.list,
-		       rev.fix_rounds, rev.reviewer_runs, rev.sr_fix_rounds, rev.sr_reviewer_runs
+		       rev.fix_rounds, rev.reviewer_runs, rev.sr_fix_rounds, rev.sr_reviewer_runs, panels.runs, panels.full
 		FROM changes c
 		LEFT JOIN LATERAL (
 			SELECT t.total_tasks
@@ -256,6 +259,16 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 				   OR d.change_id IN (SELECT s.id FROM changes s WHERE s.name = 'self-review-' || c.name)
 			) d
 		) rev ON true
+		LEFT JOIN LATERAL (
+			SELECT COUNT(*)::int AS runs, (COUNT(*) FILTER (WHERE p.slots = p.widest))::int AS full
+			FROM (
+				SELECT COUNT(DISTINCT COALESCE(d.slot, regexp_replace(d.dispatch_key, '^panel-\d+-', ''))) AS slots,
+				       MAX(COUNT(DISTINCT COALESCE(d.slot, regexp_replace(d.dispatch_key, '^panel-\d+-', '')))) OVER () AS widest
+				FROM dispatches d
+				WHERE d.change_id = c.id AND d.role = 'reviewer' AND d.dispatch_key ~ '^panel-\d+-'
+				GROUP BY substring(d.dispatch_key FROM '^panel-(\d+)-')
+			) p
+		) panels ON true
 		LEFT JOIN session_activity sa ON sa.session_id = COALESCE(open_run.session_id, last_run.session_id)
 		LEFT JOIN LATERAL (
 			SELECT CASE WHEN COUNT(*) = 0 THEN NULL
@@ -288,7 +301,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			&row.Cost24h, &row.Cost7d, &row.Cost30d,
 			&row.CurrentStage, &row.CurrentStageStartedAt, &row.LastStage, &row.LastStageEndedAt, &row.DoneTasks, &subs, &row.RepoRoots, &row.SelfReviewRoots, &row.CommittedTasks, &row.SessionSeenAt, &row.OpenStageDispatches,
 			&row.Activity, &row.ActivityDetail, &row.ActivitySince, &row.Command, &reqs,
-			&row.FixRounds, &row.ReviewerRuns, &row.SelfReviewFixRounds, &row.SelfReviewReviewerRuns); err != nil {
+			&row.FixRounds, &row.ReviewerRuns, &row.SelfReviewFixRounds, &row.SelfReviewReviewerRuns, &row.PanelRuns, &row.FullPanelRuns); err != nil {
 			return nil, fmt.Errorf("store: live state board: scan: %w", err)
 		}
 		if err := json.Unmarshal(subs, &row.Subagents); err != nil {

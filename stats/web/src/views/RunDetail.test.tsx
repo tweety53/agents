@@ -657,6 +657,8 @@ describe("the reworked run view (kan-1048)", () => {
     reviewerRuns: 9,
     selfReviewFixRounds: 1,
     selfReviewReviewerRuns: 2,
+    panelRuns: 4,
+    fullPanelRuns: 3,
     costUsd: 6.5,
     wallClockMs: 0,
     errors: 0,
@@ -791,6 +793,7 @@ describe("the reworked run view (kan-1048)", () => {
     expect(kpi("Fix rounds")).toHaveTextContent("3 · 1");
     expect(kpi("Reviewer runs")).toHaveTextContent("9 · 2");
     expect(kpi("Reviewer runs")).toHaveTextContent("main · self-review");
+    expect(kpi("Full panel runs")).toHaveTextContent("3of 4 panel rounds");
     // Cost by stage: summed per stage, largest first, in plain words.
     const rail = screen.getByRole("region", { name: "Cost by stage" });
     expect(within(rail).getAllByText(/^(Implementing tasks|Designing the change|Starting up)$/).map((e) => e.textContent)).toEqual([

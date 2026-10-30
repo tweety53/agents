@@ -328,6 +328,9 @@ export interface StateBoardRow {
   reviewerRuns: number;
   selfReviewFixRounds: number;
   selfReviewReviewerRuns: number;
+  /** Main's review-panel rounds, and those that ran every slot its widest round did. */
+  panelRuns: number;
+  fullPanelRuns: number;
 }
 
 /** Mirrors costPerChangeRowDTO. */

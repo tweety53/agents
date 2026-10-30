@@ -909,6 +909,11 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   hint="main · self-review"
                 />
                 <Kpi
+                  label="Full panel runs"
+                  value={<span className="lb-num">{board ? board.fullPanelRuns : "—"}</span>}
+                  hint={board && `of ${board.panelRuns} panel rounds`}
+                />
+                <Kpi
                   label="Reviewer runs"
                   value={<span className="lb-num">{board ? <MainAndSelfReview main={board.reviewerRuns} selfReview={board.selfReviewReviewerRuns} /> : "—"}</span>}
                   hint="main · self-review"
