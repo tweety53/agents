@@ -217,8 +217,8 @@ func TestSeedPopulatesFixture(t *testing.T) {
 				continue
 			}
 			found++
-			if m.Before == nil || m.After == nil {
-				t.Fatalf("open experiment %q: %s before=%v after=%v, want both", e.Name, m.Name, m.Before, m.After)
+			if m.Before == nil || m.After == nil || *m.Before <= 0 || *m.After <= 0 {
+				t.Fatalf("open experiment %q: %s before=%v after=%v, want both positive", e.Name, m.Name, m.Before, m.After)
 			}
 		}
 	}
