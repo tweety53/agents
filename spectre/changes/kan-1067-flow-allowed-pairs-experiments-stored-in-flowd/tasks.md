@@ -275,9 +275,11 @@ Correction (2026-10-30): the snapshot globs named the PNGs the recapture moved â
   - [ ] **Step 3: Recapture and verify.** Capture `tests/visual/experiments.spec.ts` and the full app suite, read each changed PNG, rebuild `full-app-suite.zip`, rewrite `visual-verification.md`'s departure A section. `npx tsc -b`, the vitest file and the capture exit 0. Commit.
 
 **Build:** green
-**Files:** `stats/web/src/views/Experiments.tsx`, `stats/web/src/views/views.test.tsx`, `stats/web/tests/visual/experiments.spec.ts-snapshots/experiments-closed-darwin.png`, `stats/web/tests/visual/full-app-suite.zip`, `spectre/changes/kan-1067-flow-allowed-pairs-experiments-stored-in-flowd/visual-verification.md`
+**Files:** `stats/web/src/views/Experiments.tsx`, `stats/web/src/views/views.test.tsx`, `stats/web/tests/visual/experiments.spec.ts-snapshots/experiments-closed-darwin.png`, `spectre/changes/kan-1067-flow-allowed-pairs-experiments-stored-in-flowd/visual-verification.md`
 **Allowed-collateral:** `stats/web/tests/visual/experiments.spec.ts-snapshots/*.png`, `stats/web/tests/visual/full-app-suite.spec.ts-snapshots/*.png`
 **Tests:** the Step 1 probe in `stats/web/src/views/views.test.tsx`
 **Regression:** the probe fails when an unchanged metric draws an arrow or a delta colour.
 **Commit:** fix(web): draw an unchanged experiment metric as neutral
 **After:** Task 7, 8, 15
+
+Correction (2026-10-30): no full-app-suite capture moved, so the rebuilt `full-app-suite.zip` was unchanged and is not this task's file.
