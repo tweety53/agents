@@ -274,9 +274,9 @@ Correction (2026-10-30): the plan named only the two new tests; commit 9ad3fb14 
   - [ ] **Step 3: Verify.** Its **Tests:** selectors and `npx tsc -b` green. Commit.
 
 **Build:** green
-**Files:** `stats/web/src/views/RunDetail.tsx`, `stats/web/src/views/RunDetail.test.tsx`, `stats/web/tests/visual/interactive.spec.ts`, `stats/web/tests/visual/interactive.spec.ts.mockups`, `spectre/changes/kan-1061-flow-add-flow-interactive-fast-conversational/visual-verification.md`
-**Allowed-collateral:** `stats/web/src/styles.css`, `stats/web/src/components/StageRunTable.tsx`, `stats/web/src/components/StageRunTable.test.tsx`, `stats/web/tests/visual/interactive.spec.ts-snapshots/*.png`, `stats/web/tests/visual/full-app-suite.zip`
-**Tests:** `interactive run view` in `stats/web/src/views/RunDetail.test.tsx`; `tests/visual/interactive.spec.ts`.
+**Files:** `stats/web/src/components/StageRunTable.tsx`, `stats/web/src/styles.css`, `stats/web/src/views/RunDetail.test.tsx`, `stats/web/tests/visual/interactive.spec.ts`, `stats/web/tests/visual/interactive.spec.ts.mockups`, `spectre/changes/kan-1061-flow-add-flow-interactive-fast-conversational/visual-verification.md`
+**Allowed-collateral:** `stats/web/src/views/RunDetail.tsx`, `stats/web/src/components/StageRunTable.test.tsx`, `stats/web/tests/visual/interactive.spec.ts-snapshots/*.png`, `stats/web/tests/visual/full-app-suite.zip`
+**Tests:** `interactive run view` in `stats/web/src/views/RunDetail.test.tsx`; `stats/web/tests/visual/interactive.spec.ts`.
 **Regression:** interactive Stage cells end in an ellipsis; the waiting-card capture equals the running-card one.
 **Commit:** fix(web): unclip interactive stage cells and distinguish the waiting-card capture
 **After:** Task 7, 8, 9, 15
