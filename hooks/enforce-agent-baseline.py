@@ -20,9 +20,9 @@ table, is exempt. On ZCode the Role line must still name a role of the table, an
 the harness mapping's alone.
 
 It denies every fork in a flow session -- one whose transcript records a /flow, /flow-fast,
-/flow-plan or /flow-self-review command, or whose prompt names a flow skill: a flow dispatch is a
-fresh agent whose prompt carries the paths it needs (KAN-1000: a parent forked itself into a
-self-review loop and dragged ~300k tokens of its own context into it).
+/flow-interactive, /flow-plan or /flow-self-review command, or whose prompt names a flow skill: a
+flow dispatch is a fresh agent whose prompt carries the paths it needs (KAN-1000: a parent forked
+itself into a self-review loop and dragged ~300k tokens of its own context into it).
 
 It denies, in a flow session, a dispatch whose `description` does not open with its row: `Task
 <x>/<n>` or `Tasks <a+b>/<n>` for plan tasks, else the row's literal `-key` (**Every dispatch's
@@ -37,11 +37,11 @@ row under the loop's change off that line, so the fix is the line, never a begin
 change (kan-1032's self-review: that begin left a twin row).
 
 It denies, in a flow session, a dispatch whose row was never begun: the session's change is read
-off the store as flow-active-change.py reads it, `flow record dispatches` lists its rows, and a
+off the store as its latest stage run of any command, `flow record dispatches` lists its rows, and a
 dispatch is denied when that list holds no open row (empty `outcome`) whose key is the
 description's first word or, for `Task <ids>/<n>`, starts with `task-<ids>-`. A loop-key dispatch
 -- a `Key:` line, or a description opening with a loop key -- is never checked. An unreachable
-store, no /flow stage-begin for the session, an absent or failing `flow` CLI, or an unparseable
+store, no stage begin for the session, an absent or failing `flow` CLI, or an unparseable
 answer lets the dispatch through.
 
 None of those row checks applies once the session's change is FINISHED in the store: the run is
@@ -75,7 +75,7 @@ EXEMPT_SUBAGENT_TYPES = {"fork"}
 PLANNING_AGENT_TYPES = {"Explore", "Plan"}
 
 # A flow run's slash command as the harness writes it into the session transcript.
-FLOW_COMMAND = re.compile(r"<command-name>/flow(?:-fast|-plan|-self-review)?</command-name>")
+FLOW_COMMAND = re.compile(r"<command-name>/flow(?:-fast|-interactive|-plan|-self-review)?</command-name>")
 
 FORK_REASON = (
     "Dispatch blocked: no flow phase, and no loop a phase or the self-review runs, dispatches "
@@ -207,7 +207,7 @@ def project_key(cwd: str) -> "str | None":
 
 def session_change(session_id: str) -> "tuple[str | None, str | None]":
     addr = os.environ.get("FLOW_ADDR") or "http://127.0.0.1:4173"
-    query = parse.urlencode({"session_id": session_id, "command": "/flow", "sort": "-started_at", "limit": "1"})
+    query = parse.urlencode({"session_id": session_id, "sort": "-started_at", "limit": "1"})
     with request.urlopen(f"{addr}/api/v1/stage-runs?{query}", timeout=bound(2)) as resp:
         runs = json.load(resp).get("stageRuns")
     run = runs[0] if isinstance(runs, list) and runs and isinstance(runs[0], dict) else {}
@@ -264,7 +264,7 @@ def begin_row_reason(payload: dict, tool_input: dict, prompt: str) -> "str | Non
 
 
 def change_finished(payload: dict) -> bool:
-    """Is the session's /flow change already FINISHED in the store? Then the session runs no flow
+    """Is the session's change already FINISHED in the store? Then the session runs no flow
     phase any more, and the row checks have no row to hold a dispatch to. Unanswered: False."""
     session_id, cwd = payload.get("session_id"), payload.get("cwd")
     if not isinstance(session_id, str) or not session_id:
