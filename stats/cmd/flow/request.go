@@ -158,10 +158,11 @@ func runRecordRequestEnd(ctx context.Context, args []string, stdout, stderr io.W
 // the write and before the store is contacted for anything else: the
 // change's checkout (the first linked worktree carrying .superpowers/sdd/<change>/,
 // else the main checkout when it carries it), commit an ancestor of
-// origin/<base> and base an ancestor of commit, and -- when
-// check-visual-trigger matches base..commit's files -- the request's latest
-// /flow-interactive flow.visual-verify run ended completed. A store that
-// cannot be reached skips only that read, with one ⚠ line. 0 passes; 1
+// origin/<base> and base an ancestor of commit, the request's latest
+// /flow-interactive flow.verify run ended completed, and -- when
+// check-visual-trigger matches base..commit's files -- its latest
+// flow.visual-verify run ended completed. A store that cannot be reached
+// skips both stage-run reads, with one ⚠ line. 0 passes; 1
 // refuses with one line naming the failed check.
 func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey string, n int, commit, base string, stderr io.Writer) int {
 	refuse := func(format string, a ...any) int {
@@ -204,6 +205,21 @@ func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey st
 		return refuse("git diff --name-only %s..%s failed in %s: %v", base, commit, wt, err)
 	}
 
+	verify, err := latestRequestRun(ctx, f, projectKey, n, "flow.verify")
+	if errors.Is(err, client.ErrUnavailable) && !errors.Is(err, client.ErrDaemonAnswered) {
+		fmt.Fprintf(stderr, "⚠ flow: store unreachable — skipped request %d's verify and UI check reads; the git checks passed\n", n)
+		return 0
+	}
+	if err != nil {
+		return refuse("read request %d's verify runs: %v", n, err)
+	}
+	switch {
+	case verify == nil:
+		return refuse("request %d has no verify (flow.verify run carrying -request %d)", n, n)
+	case verify.Outcome == nil || *verify.Outcome != stages.OutcomeCompleted:
+		return refuse("request %d's latest verify (flow.verify) is %s, not completed", n, runOutcome(verify))
+	}
+
 	out.Reset()
 	errBuf.Reset()
 	env.Stdin = bytes.NewReader(files)
@@ -216,15 +232,31 @@ func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey st
 		return refuse("check-visual-trigger cannot answer: %s", strings.TrimSpace(errBuf.String()))
 	}
 
-	runs, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]client.StageRunRow, error) {
-		return cl.ListStageRuns(ctx, projectKey, f.change, string(stages.FlowInteractive), "flow.visual-verify")
-	})
+	latest, err := latestRequestRun(ctx, f, projectKey, n, "flow.visual-verify")
 	if errors.Is(err, client.ErrUnavailable) && !errors.Is(err, client.ErrDaemonAnswered) {
-		fmt.Fprintf(stderr, "⚠ flow: store unreachable — skipped request %d's UI check read; the git checks passed\n", n)
+		fmt.Fprintf(stderr, "⚠ flow: store unreachable — skipped request %d's UI check read; the git checks and the verify read passed\n", n)
 		return 0
 	}
 	if err != nil {
 		return refuse("read request %d's UI check runs: %v", n, err)
+	}
+	switch {
+	case latest == nil:
+		return refuse("request %d touched `ui paths` and has no UI check (flow.visual-verify run carrying -request %d)", n, n)
+	case latest.Outcome == nil || *latest.Outcome != stages.OutcomeCompleted:
+		return refuse("request %d's latest UI check (flow.visual-verify) is %s, not completed — fix, re-check and end it completed", n, runOutcome(latest))
+	}
+	return 0
+}
+
+// latestRequestRun reads the change's /flow-interactive runs of stage and
+// returns request n's latest by start, nil when it has none.
+func latestRequestRun(ctx context.Context, f recordIdentityFlags, projectKey string, n int, stage string) (*client.StageRunRow, error) {
+	runs, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]client.StageRunRow, error) {
+		return cl.ListStageRuns(ctx, projectKey, f.change, string(stages.FlowInteractive), stage)
+	})
+	if err != nil {
+		return nil, err
 	}
 	var latest *client.StageRunRow
 	var latestAt time.Time
@@ -234,21 +266,19 @@ func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey st
 		}
 		at, err := time.Parse(time.RFC3339Nano, r.StartedAt)
 		if err != nil {
-			return refuse("request %d's UI check run carries an unreadable startedAt %q", n, r.StartedAt)
+			return nil, fmt.Errorf("a %s run carries an unreadable startedAt %q", stage, r.StartedAt)
 		}
 		if latest == nil || at.After(latestAt) {
 			latest, latestAt = &runs[i], at
 		}
 	}
-	switch {
-	case latest == nil:
-		return refuse("request %d touched `ui paths` and has no UI check (flow.visual-verify run carrying -request %d)", n, n)
-	case latest.Outcome == nil || *latest.Outcome != stages.OutcomeCompleted:
-		got := "open"
-		if latest.Outcome != nil {
-			got = *latest.Outcome
-		}
-		return refuse("request %d's latest UI check (flow.visual-verify) is %s, not completed — fix, re-check and end it completed", n, got)
+	return latest, nil
+}
+
+// runOutcome is a run's outcome, "open" while it has none.
+func runOutcome(r *client.StageRunRow) string {
+	if r.Outcome == nil {
+		return "open"
 	}
-	return 0
+	return *r.Outcome
 }

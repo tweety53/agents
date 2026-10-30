@@ -208,19 +208,20 @@ after the in-flight one ends — never a stop. A turn ends when the queue is emp
    the main checkout when it carries it; none is refused. `<base>` is what the
    `resolve-base-branch` guard prints for it.
 2. `-commit` must be an ancestor of `origin/<base>` — the local ref a successful push updates — and
-   `-base` an ancestor of `-commit`.
+   `-base` an ancestor of `-commit`. The request's latest `/flow-interactive` `flow.verify` stage
+   run carrying `-request <n>`, by start, must have ended `completed`, whatever the diff touches.
 3. `git diff --name-only <base>..<commit>` is fed to the `check-visual-trigger` guard against the
    worktree's checkout of `<project>/.flow/project.md`. A `ui paths` match (exit 0) requires the request's latest
    `/flow-interactive` `flow.visual-verify` stage run, by start, to have ended `completed`. Exit 1,
    or exit 2 with `VISUAL-TRIGGER-NOT-CONFIGURED`, requires nothing. Exit 2 with
    `VISUAL-TRIGGER-CANNOT-ANSWER` refuses, quoting its cause.
-4. With the store unreachable, checks 1–3's git work still runs; the stage-run read is skipped
+4. With the store unreachable, checks 1–3's git work still runs; the stage-run reads are skipped
    with one `⚠` line, and the write is journalled like every record verb.
 
 Exit codes, those of every record verb: 0 written or journalled; 1 refused, one line naming the
 failed check; 2 usage. `-commit` and `-base` are required with `landed` and refused with
 `answered` and `dropped`; an `-outcome` outside the three is a usage error. A refusal is fixed —
-land the commit, run the UI check and end it `completed` — and the end re-run, never worked around.
+land the commit, run the verify and the UI check and end each `completed` — and the end re-run, never worked around.
 
 ## Explicit stop
 

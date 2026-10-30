@@ -18,7 +18,8 @@ import (
 )
 
 // requestDaemon is a fake flowd for the request verb: it records every call
-// it serves and answers a stage-run read with runs.
+// it serves and answers a stage-run read with the rows of runs whose stage
+// is the read's stage query parameter.
 type requestDaemon struct {
 	mu     sync.Mutex
 	calls  []string
@@ -38,7 +39,18 @@ func (d *requestDaemon) handler(t *testing.T) http.HandlerFunc {
 		runs := d.runs
 		d.mu.Unlock()
 		if r.Method == http.MethodGet {
-			_, _ = w.Write([]byte(`{"total":0,"stageRuns":` + runs + `}`))
+			var all []map[string]any
+			if err := json.Unmarshal([]byte(runs), &all); err != nil {
+				t.Errorf("fixture runs: %v", err)
+			}
+			kept := []map[string]any{}
+			for _, row := range all {
+				if row["stage"] == r.URL.Query().Get("stage") {
+					kept = append(kept, row)
+				}
+			}
+			b, _ := json.Marshal(kept)
+			_, _ = w.Write([]byte(`{"total":0,"stageRuns":` + string(b) + `}`))
 			return
 		}
 		_, _ = w.Write([]byte(`{"n":1}`))
@@ -233,7 +245,12 @@ func TestRecordRequestEndLandedGuard(t *testing.T) {
 		}
 	}
 	const vv = `{"stageRunId":%d,"command":"/flow-interactive","stage":"flow.visual-verify","request":%d,"startedAt":%q,"outcome":%q}`
-	runs := func(rows ...string) string { return "[" + strings.Join(rows, ",") + "]" }
+	// runs carries request 3's completed verify run beside rows, so each
+	// case reaches the UI check.
+	runs := func(rows ...string) string {
+		verify := `{"stageRunId":99,"command":"/flow-interactive","stage":"flow.verify","request":3,"startedAt":"2026-10-30T09:00:00Z","outcome":"completed"}`
+		return "[" + strings.Join(append([]string{verify}, rows...), ",") + "]"
+	}
 	row := func(id, request int, started, outcome string) string {
 		return fmt.Sprintf(vv, id, request, started, outcome)
 	}
@@ -247,15 +264,16 @@ func TestRecordRequestEndLandedGuard(t *testing.T) {
 		refused(t, code, stderr, "-base")
 	})
 	t.Run("a range touching no ui path", func(t *testing.T) {
+		d.runs = runs()
 		if code, stderr := end(docs, base); code != 0 {
 			t.Fatalf("exit=%d stderr=%q, want 0", code, stderr)
 		}
-		if n := d.count("GET"); n != 0 {
-			t.Errorf("a non-UI range read %d stage-run list(s), want none", n)
+		if n := d.count("GET"); n != 1 {
+			t.Errorf("a non-UI range read %d stage-run list(s), want the verify read alone", n)
 		}
 	})
 	t.Run("a ui range with no visual-verify run", func(t *testing.T) {
-		d.runs = "[]"
+		d.runs = runs()
 		code, stderr := end(ui, docs)
 		refused(t, code, stderr, "UI check")
 	})
@@ -298,6 +316,25 @@ func TestRecordRequestEndLandedGuard(t *testing.T) {
 			t.Errorf("stderr = %q, want one ⚠ line naming the skipped UI-check read", stderr)
 		}
 	})
+	t.Run("the store lost between the verify and UI check reads", func(t *testing.T) {
+		gets := 0
+		flaky := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet && gets == 0 {
+				gets++
+				_, _ = w.Write([]byte(`{"total":0,"stageRuns":` + runs() + `}`))
+				return
+			}
+			conn, _, err := w.(http.Hijacker).Hijack()
+			if err == nil {
+				_ = conn.Close()
+			}
+		}))
+		defer flaky.Close()
+		code, _, stderr := runRequest(flaky.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", ui, "-base", docs)
+		if code != 0 || !strings.Contains(stderr, "skipped request 3's UI check read") {
+			t.Errorf("exit=%d stderr=%q, want 0 with the ⚠ skip line", code, stderr)
+		}
+	})
 	t.Run("a reachable store failing the UI check read", func(t *testing.T) {
 		for _, answer := range []func(http.ResponseWriter){
 			func(w http.ResponseWriter) { w.WriteHeader(http.StatusInternalServerError) },
@@ -314,7 +351,7 @@ func TestRecordRequestEndLandedGuard(t *testing.T) {
 			}))
 			code, _, stderr := runRequest(bad.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", ui, "-base", docs)
 			bad.Close()
-			if code != 1 || !strings.Contains(stderr, "UI check runs") || writes != 0 {
+			if code != 1 || !strings.Contains(stderr, "verify runs") || writes != 0 {
 				t.Errorf("exit=%d writes=%d stderr=%q, want 1 refusing with no write", code, writes, stderr)
 			}
 		}
@@ -322,7 +359,7 @@ func TestRecordRequestEndLandedGuard(t *testing.T) {
 	t.Run("no visual verification section", func(t *testing.T) {
 		fx.writeProject(t, "## lint\n")
 		defer fx.writeProject(t, "## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/**` |\n")
-		d.runs = "[]"
+		d.runs = runs()
 		if code, stderr := end(ui, docs); code != 0 {
 			t.Errorf("exit=%d stderr=%q, want 0", code, stderr)
 		}
@@ -347,4 +384,57 @@ func mustProjectKey(t *testing.T, dir string) string {
 		t.Fatalf("project key: %v", err)
 	}
 	return key
+}
+
+// TestRecordRequestEndLandedNeedsVerify pins the verify half of the
+// Request-end guard: every landed end, whatever its range touches, needs the
+// request's latest flow.verify run ended completed.
+func TestRecordRequestEndLandedNeedsVerify(t *testing.T) {
+	fx := newRequestFixture(t)
+	base := fx.git("rev-parse", "HEAD")
+	docs := fx.commit(t, "docs/a.md", true)
+	ui := fx.commit(t, "web/x.ts", true)
+
+	d := &requestDaemon{runs: "[]"}
+	srv := httptest.NewServer(d.handler(t))
+	defer srv.Close()
+	end := func(commit, from string) (int, string) {
+		t.Helper()
+		d.reset()
+		code, _, stderr := runRequest(srv.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", commit, "-base", from)
+		return code, stderr
+	}
+	row := func(stage string, id int, started, ended, outcome string) string {
+		return fmt.Sprintf(`{"stageRunId":%d,"command":"/flow-interactive","stage":%q,"request":3,"startedAt":%q,"endedAt":%q,"outcome":%q}`, id, stage, started, ended, outcome)
+	}
+	verify := func(outcome string) string {
+		return row("flow.verify", 1, "2026-10-30T10:00:00Z", "2026-10-30T10:01:00Z", outcome)
+	}
+	refused := func(t *testing.T, runs string) {
+		t.Helper()
+		d.runs = runs
+		code, stderr := end(docs, base)
+		if code != 1 || !strings.Contains(stderr, "flow.verify") {
+			t.Errorf("exit=%d stderr=%q, want 1 naming flow.verify", code, stderr)
+		}
+		if n := d.count("POST"); n != 0 {
+			t.Errorf("a refused end reached the daemon with %d write(s)", n)
+		}
+	}
+	t.Run("a non-ui range with no verify run", func(t *testing.T) { refused(t, "[]") })
+	t.Run("a latest verify failed", func(t *testing.T) {
+		refused(t, "["+verify("completed")+","+row("flow.verify", 2, "2026-10-30T10:05:00Z", "2026-10-30T10:06:00Z", "failed")+"]")
+	})
+	t.Run("a completed verify", func(t *testing.T) {
+		vv := row("flow.visual-verify", 3, "2026-10-30T10:02:00Z", "2026-10-30T10:02:30Z", "completed")
+		d.runs = "[" + verify("completed") + "," + vv + "]"
+		for _, from := range [][2]string{{docs, base}, {ui, docs}} {
+			if code, stderr := end(from[0], from[1]); code != 0 {
+				t.Fatalf("exit=%d stderr=%q, want 0", code, stderr)
+			}
+			if n := d.count("POST"); n != 1 {
+				t.Errorf("writes = %d, want 1", n)
+			}
+		}
+	})
 }
