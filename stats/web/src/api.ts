@@ -262,6 +262,10 @@ export interface PlanTask {
   n: number;
   title: string;
   state: "done" | "in progress" | "pending";
+  /** A /flow-interactive request's outcome, short landed commit and brainstorm reason (KAN-1061); each absent when unset. */
+  outcome?: "landed" | "answered" | "dropped";
+  commit?: string;
+  reason?: string;
 }
 
 /** Mirrors store.ActiveDispatch: a dispatch begun and not yet ended. */
@@ -317,6 +321,8 @@ export interface StateBoardRow {
   activity?: 'working' | 'question' | 'permission' | 'idle';
   activityDetail?: string;
   activitySince?: string;
+  /** The command of the change's latest stage run; tasks are its requests when it is /flow-interactive. */
+  command?: string;
 }
 
 /** Mirrors costPerChangeRowDTO. */
@@ -665,6 +671,8 @@ export interface StageRunDTO {
   metrics?: unknown;
   /** True when the store opened the run for a dispatch begun with no stage open. */
   autoOpened?: boolean;
+  /** The /flow-interactive request the run worked on (KAN-1061). */
+  request?: number;
 }
 
 /** Mirrors internal/api/stats.go's listStageRunsResponse. */

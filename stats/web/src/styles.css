@@ -569,6 +569,7 @@ th button {
 .lb-live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--status-ok); display: inline-block; flex-shrink: 0; box-shadow: 0 0 0 0 var(--status-ok); animation: lb-pulse 1.6s infinite; }
 @keyframes lb-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--status-ok) 60%, transparent); } 100% { box-shadow: 0 0 0 8px transparent; } }
 @media (prefers-reduced-motion: reduce) { .lb-live-dot { animation: none; } }
+.lb-ring { width: 8px; height: 8px; border-radius: 50%; border: 2px solid var(--text-muted); display: inline-block; flex-shrink: 0; }
 
 .lb-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
 .lb-tile { background: var(--surface-panel); border: 1px solid var(--border); border-radius: var(--panel-radius); padding: 10px 12px; text-align: left;
@@ -585,7 +586,7 @@ th button {
 .lb-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 10px; }
 .lb-card { min-width: 0; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--panel-radius); padding: 10px 12px;
   display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; cursor: pointer; }
-.lb-card:hover { border-color: var(--st-progress); }
+.lb-card:hover, .lb-card:focus-visible { border-color: var(--st-progress); outline: none; }
 .lb-card > * { min-width: 0; }
 .lb-card.needs { border-color: var(--series-3); }
 .lb-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -708,6 +709,7 @@ th button {
 @keyframes lb-blink { to { visibility: hidden; } }
 @media (prefers-reduced-motion: reduce) { .lb-dot { animation: none; } }
 .lb-task-now { font-size: 12px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-task-now.lb-muted { color: var(--text-muted); }
 .lb-timeline text.lb-lane.upcoming { fill: var(--text-muted); font-style: italic; }
 
 /* Run view phase panels: one header row (name, status chip, steps, active time, cost), fixed
