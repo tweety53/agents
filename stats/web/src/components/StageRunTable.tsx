@@ -262,7 +262,8 @@ function StageRunRow({ run, now, records, showStage, requests }: { run: StageRun
               <span className="lb-chev" aria-hidden="true" />
             </button>
           ) : (
-            <span className="lb-expander" />
+            // An interactive session's rows are ungrouped, so its Stage cells keep no session-row indent.
+            !requests && <span className="lb-expander" />
           )}
           {name}
         </td>

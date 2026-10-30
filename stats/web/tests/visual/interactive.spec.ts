@@ -35,6 +35,9 @@ test.describe("interactive session", () => {
     const card = page.getByRole("button", { name: WAITING });
     await expect(card).toContainText("Waiting for the next request");
     await expect(card.getByTestId("running-task")).toHaveText("Last: Request 3 landed — Hide the empty streak row");
+    // Hovered, so this capture shows what the running card's resting one does not.
+    await card.hover();
+    await expect(card).toHaveCSS("border-top-color", "rgb(255, 152, 48)");
     await expect(page).toHaveScreenshot("interactive-waiting-card.png");
   });
 
@@ -65,6 +68,10 @@ test.describe("interactive session", () => {
     await expect(page.getByRole("region", { name: "Stage runs" }).getByRole("columnheader").first()).toHaveText("Request");
     await expect(page.getByText("Loading…")).toHaveCount(0);
     expect(await bodyBackground(page)).toBe(DARK_SURFACE_1);
+    // The prototype draws every Stage cell in full: none clips its text.
+    const stages = page.getByRole("region", { name: "Stage runs" }).locator("tr.lb-row td:nth-child(2)");
+    await expect(stages).toHaveCount(6);
+    expect(await stages.evaluateAll((tds) => tds.filter((td) => td.scrollWidth > td.clientWidth).map((td) => td.textContent))).toEqual([]);
     await expect(page).toHaveScreenshot("interactive-run-view.png", { fullPage: true });
   });
 });

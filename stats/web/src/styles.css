@@ -750,13 +750,9 @@ th button {
 .lb-runs col.c-dur { width: 72px; }
 .lb-runs col.c-tok { width: 80px; }
 .lb-runs col.c-cost { width: 72px; }
-.lb-runs:has(col.c-rq) { min-width: 0; }
-.lb-runs col.c-rq { width: 70px; }
-.lb-runs:has(col.c-rq) col.c-model { width: 120px; }
-.lb-runs:has(col.c-rq) col.c-out { width: 104px; }
-.lb-runs:has(col.c-rq) col.c-start { width: 62px; }
-.lb-runs:has(col.c-rq) col.c-tok { width: 76px; }
-.lb-runs:has(col.c-rq) col.c-cost { width: 64px; }
+/* An interactive session's table sizes each column to its content, as the prototype's does, so no Stage cell clips. */
+.lb-runs:has(col.c-rq) { min-width: 0; table-layout: auto; }
+.lb-runs:has(col.c-rq) col { width: auto; }
 /* clip, not hidden: a hidden cell is a scroll container, which focusing its expander scrolls sideways by its padding. */
 .lb-runs td { overflow: clip; text-overflow: ellipsis; }
 /* Work panels stacked left, their plans stacked right, each card its own height; one stack in panel, plan order when narrow. */

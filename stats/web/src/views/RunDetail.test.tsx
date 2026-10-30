@@ -1320,6 +1320,16 @@ describe("interactive run view", () => {
     expect(within(panel).queryByRole("button", { name: /Show all/ })).toBeNull();
   });
 
+  it("interactive run view draws its Stage cells with no session-row indent", async () => {
+    load([...r6, ...r7]);
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const panel = await screen.findByRole("region", { name: "Stage runs" });
+    await waitFor(() => expect(panel.querySelectorAll("tr.lb-row")).toHaveLength(6));
+    const stages = [...panel.querySelectorAll("tr.lb-row td:nth-child(2)")];
+    expect(stages.map((td) => td.textContent)).toContain("Updating the main checkout");
+    for (const td of stages) expect(td.querySelector(".lb-expander")).toBeNull();
+  });
+
   it("interactive run view adds Designing the change only when the request brainstormed", async () => {
     load([...r6, run(7, "flow.load-context", 7, 4, 3), run(9, "flow.brainstorm", 7, 3, 2), run(8, "flow.sdd-tdd", 7, 2)]);
     render(<RunDetail project={PROJECT} change={CHANGE} />);

@@ -2,7 +2,7 @@
 # prototype .superpowers/sdd/planner/prototype-board.html: <frame id>.png is
 # that file rendered at the capture's 1280px viewport, dark, in the same
 # state, captured as that viewport (the run view as its full page) -- the
-# board with the running card, the waiting card, the running card hovered,
+# board with the running card, the waiting card hovered, the running card hovered,
 # then focused from the keyboard, and the run view its click opens -- into
 # .superpowers/sdd/interactive-frames/.
 interactive-running-card.png prototype-running-card
