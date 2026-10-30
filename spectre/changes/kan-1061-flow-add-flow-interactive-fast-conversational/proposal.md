@@ -52,3 +52,7 @@
 ## Fix 1 — in-run verify
 
 - `flow.verify`'s lint list failed `scripts/check-installed-citations.sh`: `skills/flow-interactive/SKILL.md:275: citation `.superpowers/` names no root`. The resume clause added by the task-12 review Minor cites the gitignored directory without a root; it is rooted as `<project>/.superpowers/`.
+
+## Fix 2 — in-run visual verify
+
+- `flow.visual-verify` found the interactive run view departing from the approved prototype (`.superpowers/sdd/planner/prototype-board.html`): the Requests panel sits narrow beside Agents/Main instead of in a right column with Cost by stage (`.work { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) }`); the Agents Status cell prints "running" beside the dot where the prototype draws the dot alone; Stage runs shows 5 rows and a "Show all" chip where the prototype shows 6 rows and no chip. The four card captures in `interactive.spec.ts` are clipped element shots where verification needs viewport captures.
