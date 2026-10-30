@@ -124,7 +124,7 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
 1. **Design round.** The planner runs section **B** of `skills/flow/brainstorm-planner.md` without <!-- refs-guard:allow -->
    plan mode, reading the ticket and every file under `<abs-worktree>/.superpowers/sdd/planner/`,
    dispatching its own Explore and Plan agents (it records their rows, `-role explorer|planner`,
-   `-key explore-<n>|design-<n>`, each pair from `plan-agent-pair.sh <name> <n>`, `<n>` continuing
+   `-key explore-<n>|design-<n>`, each pair from `plan-agent-pair.sh <name> <n> explorer|plan-designer`, `<n>` continuing
    the run's count across rounds — the parent names the next free `<n>` in each round's prompt, since
    a reused key restarts the earlier round's row), publishing or
    updating the prototype a visible change needs, and writes `round-<r>.md`: the design draft, the

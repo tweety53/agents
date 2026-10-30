@@ -31,7 +31,7 @@ get there is scripted. You're a thinking partner helping the user explore.
 `/flow-plan` runs entirely in the current session, on its own model, with any argument shape —
 a Jira key, an existing change's name, a bare topic, or nothing at all. The session may dispatch
 the fresh Explore and Plan agents **Explore and design agents** (`skills/flow/brainstorm-planner.md`)
-allows — its pair from `plan-agent-pair.sh <session-token> <n>`, seeded with this session's
+allows — its pair from `plan-agent-pair.sh <session-token> <n> <role>`, seeded with this session's
 token — never a `fork`; the session itself
 does the thinking: it reads the tree, runs the investigate-then-ask rounds and the convergence check
 below, and creates the change or offers the `design.md` capture directly. Every "you" elsewhere

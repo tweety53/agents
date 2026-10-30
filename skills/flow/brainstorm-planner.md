@@ -81,9 +81,10 @@ the change branch** (`skills/flow-contracts/finish-contract-run1.md`).
 
 ### Explore and design agents
 
-**Every planning dispatch** takes its pair from `plan-agent-pair.sh <seed> <n>` — `<seed>` the
+**Every planning dispatch** takes its pair from `plan-agent-pair.sh <seed> <n> <role>` — `<seed>` the
 change name (in `/flow-plan` before capture, the session token; for the self-review and in-run fix
-planners, their own `Key:`), `<n>` counting the session's planning dispatches from 1 — passing the
+planners, their own `Key:`), `<n>` counting the session's planning dispatches from 1, `<role>` the
+dispatch's own `Role:` line, `explorer` or `plan-designer`, whose row the hook admits it on — passing the
 printed model as the Agent tool's `model` and the effort as its `effort`. Its prompt carries the
 line `Role: explorer` for an Explore agent or `Role: plan-designer` for a Plan agent (**Allowed
 pairs**, `skills/flow-contracts/model-policy.md`), the

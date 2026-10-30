@@ -341,9 +341,9 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    > **PLANNING DELEGATION:** You may dispatch fresh `Explore` and `Plan` subagents through the
    > `Agent` tool while you plan, per **B. Basic Workflow #1 — Brainstorming** (`skills/flow/brainstorm-planner.md`) — never a
    > `fork`, and never an agent that edits files or commits. Each dispatch's model and effort come
-   > from `plan-agent-pair.sh <your Key> <n>`, `<n>` counting your planning dispatches from 1, and
-   > every dispatch prompt carries the line `Role: explorer` (an Explore agent) or
-   > `Role: plan-designer` (a Plan agent) and the two sentences of **Propagate this**
+   > from `plan-agent-pair.sh <your Key> <n> <role>`, `<n>` counting your planning dispatches from
+   > 1 and `<role>` that dispatch's own Role, and every dispatch prompt carries the line
+   > `Role: explorer` (an Explore agent) or `Role: plan-designer` (a Plan agent) and the two sentences of **Propagate this**
    > (`~/.claude/rules/agent-baseline.md`) verbatim. The agents investigate and propose; you
    > decide, and every choice is auto-resolved to its recommended option. Fixing, implementing and
    > reviewing are never delegated.
