@@ -467,3 +467,20 @@ func TestKeysServesTableInOrder(t *testing.T) {
 		t.Errorf("Keys() after a caller mutated a previous result = %v, want the untouched table %v", again, want)
 	}
 }
+
+// TestFlowInteractiveStageKeys pins /flow-interactive to the eleven flow.*
+// keys it reuses (design.md, reuse-flow-stage-keys), in Table order, and
+// to nothing else.
+func TestFlowInteractiveStageKeys(t *testing.T) {
+	want := []string{
+		"flow.kickoff", "flow.brainstorm", "flow.load-context", "flow.sdd-tdd",
+		"flow.verify", "flow.visual-verify", "flow.self-review", "flow.landing-routes",
+		"flow.cleanup", "flow.write-finished", "flow.refresh-main-checkout",
+	}
+	if got := stages.ForCommand(stages.FlowInteractive); !reflect.DeepEqual(got, want) {
+		t.Errorf("ForCommand(/flow-interactive) = %v, want %v", got, want)
+	}
+	if stages.Valid(stages.FlowInteractive, "flow.decide") {
+		t.Error("flow.decide must not be valid for /flow-interactive")
+	}
+}

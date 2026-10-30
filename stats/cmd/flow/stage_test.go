@@ -2059,3 +2059,41 @@ func TestStageEndRefusesOpenSelfReviewPass(t *testing.T) {
 		})
 	}
 }
+
+// TestStageEndRefusesOpenSelfReviewPassInteractive: the open-pass gate covers
+// a /flow-interactive flow.self-review end too (self-review-gate-interactive).
+func TestStageEndRefusesOpenSelfReviewPassInteractive(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	for _, tc := range []struct {
+		name, record string
+		code         int
+	}{
+		{"open pass", `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"self-review-kan-16-pass","role":"reviewer","model":"opus","sessionToken":"self-review-kan-16","startedAt":"2026-10-29T13:57:00Z"}],"findings":[],"passes":[],"mutations":[]}`, 1},
+		{"ended pass", `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"self-review-kan-16-pass","role":"reviewer","model":"opus","sessionToken":"self-review-kan-16","startedAt":"2026-10-29T13:57:00Z","endedAt":"2026-10-29T14:09:00Z"}],"findings":[],"passes":[],"mutations":[]}`, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				if strings.HasPrefix(r.URL.Path, "/api/v1/records/") {
+					_, _ = w.Write([]byte(tc.record))
+					return
+				}
+				_, _ = w.Write([]byte(`{"stageRunId":42,"attempt":1}`))
+			}))
+			defer srv.Close()
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+					"-command", "/flow-interactive", "-stage", "flow.self-review",
+					"-outcome", "completed", "kan-16"},
+				strings.NewReader(""), &stdout, &stderr)
+			if code != tc.code {
+				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.code, stderr.String())
+			}
+			if tc.code == 1 && !strings.Contains(stderr.String(), "flow record dispatch end -key self-review-kan-16-pass -session-token self-review-kan-16") {
+				t.Errorf("stderr = %q, want the end call that closes the pass row", stderr.String())
+			}
+		})
+	}
+}

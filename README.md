@@ -146,19 +146,19 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 
 | Key | Name | Commands |
 |-----|------|----------|
-| `flow.kickoff` | Kickoff — write `STARTED` | `/flow`, `/flow-fast` |
-| `flow.brainstorm` | Brainstorm ▸ | `/flow`, `/flow-fast` |
+| `flow.kickoff` | Kickoff — write `STARTED` | `/flow`, `/flow-fast`, `/flow-interactive` |
+| `flow.brainstorm` | Brainstorm ▸ | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.design-approval` | Design approval | `/flow` |
 | `flow.create-artifacts` | Create the spectre artifacts | `/flow`, `/flow-fast` |
 | `flow.writing-plans` | Writing-plans ▸ | `/flow`, `/flow-fast` |
 | `flow.decide` | Decide — execution, models, panel | `/flow`, `/flow-fast` |
-| `flow.load-context` | Load context and validate the plan | `/flow`, `/flow-fast` |
+| `flow.load-context` | Load context and validate the plan | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.isolate-workspace` | Isolate the workspace | `/flow`, `/flow-fast` |
 | `flow.document-fix` | Document the fix (re-runs only) | `/flow`, `/flow-fast` |
-| `flow.sdd-tdd` | SDD + TDD per task ▸ | `/flow`, `/flow-fast` |
+| `flow.sdd-tdd` | SDD + TDD per task ▸ | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.review-panel` | The review panel ▸ | `/flow`, `/flow-fast` |
-| `flow.verify` | Verify: workspace isolation, lint and test | `/flow`, `/flow-fast` |
-| `flow.visual-verify` | Visual verification | `/flow` |
+| `flow.verify` | Verify: workspace isolation, lint and test | `/flow`, `/flow-fast`, `/flow-interactive` |
+| `flow.visual-verify` | Visual verification | `/flow`, `/flow-interactive` |
 | `flow.stage-diff` | Stage, excluding the planning paths | `/flow`, `/flow-fast` |
 | `flow.run-instructions` | Resolve the run instructions | `/flow`, `/flow-fast` |
 | `flow.write-in-progress` | Write `IN_PROGRESS` | `/flow`, `/flow-fast` |
@@ -169,14 +169,14 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 | `flow.commit-two` | Two commits, implementation first (run 1) | `/flow`, `/flow-fast` |
 | `flow.sync-archive` | Archive the change on its branch (run 1) | `/flow`, `/flow-fast` |
 | `flow.commit-archive` | Commit the archive (run 1) | `/flow`, `/flow-fast` |
-| `flow.self-review` | Run the self-review pass (run 1) | `/flow`, `/flow-fast` |
+| `flow.self-review` | Run the self-review pass (run 1) | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.pipeline-fix` | Pipeline fix — a fix to the flow tooling a run makes | `/flow`, `/flow-fast` |
-| `flow.landing-routes` | The landing routes, including moving the issue to In Review (run 1) ▸ | `/flow`, `/flow-fast` |
+| `flow.landing-routes` | The landing routes, including moving the issue to In Review (run 1) ▸ | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.verify-merge` | Verify the merge (run 2) | `/flow`, `/flow-fast` |
-| `flow.cleanup` | Cleanup (run 2) ▸ | `/flow`, `/flow-fast` |
+| `flow.cleanup` | Cleanup (run 2) ▸ | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.verify-cleanup` | Verify the cleanup (run 2) | `/flow` |
-| `flow.write-finished` | Write `FINISHED` (run 2) | `/flow`, `/flow-fast` |
-| `flow.refresh-main-checkout` | Bring the main checkout forward (run 2) | `/flow`, `/flow-fast` |
+| `flow.write-finished` | Write `FINISHED` (run 2) | `/flow`, `/flow-fast`, `/flow-interactive` |
+| `flow.refresh-main-checkout` | Bring the main checkout forward (run 2) | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `plan.session` | Plan session — the whole `/flow-plan` invocation | `/flow-plan` |
 
 ▸ marks a stage with substructure; its procedure lives in the phase file under `skills/flow/`.

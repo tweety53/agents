@@ -493,10 +493,11 @@ func ApplyBeginStageMark(ctx context.Context, ss StageStore, logger *slog.Logger
 	if err != nil {
 		return StageMarkResult{}, err
 	}
-	// /flow-fast keeps no state file, so its change row is the synthetic
-	// STARTED one bootstrapped above; its flow.write-finished mark is the
-	// only signal that the change landed, and moves that row to FINISHED.
-	if mark.Command == string(stages.FlowFast) && mark.Stage == "flow.write-finished" && mark.ChangeName != "" {
+	// /flow-fast and /flow-interactive keep no state file, so their change
+	// row is the synthetic STARTED one bootstrapped above; their
+	// flow.write-finished mark is the only signal that the change landed,
+	// and moves that row to FINISHED.
+	if (mark.Command == string(stages.FlowFast) || mark.Command == string(stages.FlowInteractive)) && mark.Stage == "flow.write-finished" && mark.ChangeName != "" {
 		finished := store.Change{
 			ProjectKey:       mark.ProjectKey,
 			MainCheckoutPath: mark.MainCheckoutPath,

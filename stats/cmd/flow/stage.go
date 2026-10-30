@@ -634,14 +634,15 @@ func gateLiveVerification(f stageIdentityFlags, outcome string, stderr io.Writer
 // outcome, while a dispatch row of the change has no end: brainstorm hands
 // over to a different session, which can only close the row with a guessed
 // end (kan-1046 self-review, 1e: explore-1 ended 21 minutes after its agent
-// handed back). It refuses a /flow or /flow-fast flow.self-review end the
+// handed back). It refuses a /flow, /flow-fast or /flow-interactive
+// flow.self-review end the
 // same way: the self-review pass's row, which enforce-loop-dispatch.py opens
 // under the change, is closed by this session when the pass hands back, and
 // a stage ended over it would leave it running on the board for good. A
 // failed record read refuses nothing.
 func gateBrainstormDispatchesClosed(ctx context.Context, f stageIdentityFlags, stderr io.Writer) int {
 	brainstorm := f.command == "/flow" && f.stage == "flow.brainstorm"
-	selfReview := (f.command == "/flow" || f.command == "/flow-fast") && f.stage == "flow.self-review"
+	selfReview := (f.command == "/flow" || f.command == "/flow-fast" || f.command == "/flow-interactive") && f.stage == "flow.self-review"
 	if !brainstorm && !selfReview {
 		return 0
 	}
