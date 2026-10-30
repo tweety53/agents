@@ -400,6 +400,8 @@ prescribed course, never accepting the plan while it stands.
 > page or viewport, never an element or a clipped region, and each captures a state no sibling
 > capture shows — steps 8 and 9 of `skills/flow/visual-verify-verifier.md` refuse a clip and a
 > byte-identical pair (kan-1061 self-review).
+> The one exception is a region an approved prototype draws alone, captured as an element beside
+> the view's own full-page capture, per step 8 of `skills/flow/visual-verify-verifier.md`.
 
 > **Write a frame a sibling ticket finishes as this change's parts only.** When sibling tickets
 > share a mockup frame family and a frame on this change's list also draws parts a sibling ticket

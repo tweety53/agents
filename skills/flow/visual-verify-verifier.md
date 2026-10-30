@@ -57,7 +57,11 @@ never an exit code the command did not return.
    for an implementer's own targeted assertion (a fixed piece of text, an icon), but this stage's
    own job — page-wide styling (background, shadow, border, font, spacing) matching the mockup — is
    exactly what a clip is built to hide; step 10 below cannot compose a clip against a full mockup
-   frame and call the result a fidelity check. **`capture` creates this change's baseline**: writing
+   frame and call the result a fidelity check.
+   The one exception is a region an approved prototype draws alone (step 10): its element capture is
+   the frame-bound capture, taken beside the view's own full-page capture, never in place of it
+   (group-allowed-pairs-roles self-review).
+   **`capture` creates this change's baseline**: writing
    a PNG that does not yet exist is its success path, not a failure — `verify` is the regression gate
    over an already-committed baseline, `capture` is not, and only a `capture` failure for some other
    reason blocks (see Blocking in `skills/flow/visual-verify.md`). **A Playwright `capture` runs
@@ -172,11 +176,22 @@ never an exit code the command did not return.
    `<changeRoot>/visual-verification/prototype/` opens `file://<prototype>` at the capture test's
    own viewport, device scale factor and colour scheme, drives the state that test captures —
    every hover, focus or pressed state the prototype draws included — and writes
-   `<changeRoot>/visual-verification/prototype/<screenshot stem>.png`. Then write
+   `<changeRoot>/visual-verification/prototype/<screenshot stem>.png`.
+   For a region capture (step 8's exception) the script sizes the prototype's region to the
+   capture's width, injecting CSS that overrides any standalone width cap such as a `max-width`,
+   and `visual-verification.md` records the injected rule under the frame's entry
+   (group-allowed-pairs-roles self-review: a 1100px prototype panel beside a 1232px capture left no
+   band, seam or matrix reading possible).
+   Then write
    `<changeRoot>/visual-verification/prototype.mockups`, its first line `frame none` and one
    `<screenshot name> <screenshot stem>` line per capture, and run the compose command above with
    that map in place of `<spec>.mockups` and `<changeRoot>/visual-verification/prototype` in place
-   of `<abs-worktree>/<mockups>`. Every frame-bound reading below then runs on those pairs as on a
+   of `<abs-worktree>/<mockups>`.
+   Under that `frame none` line the compose step pairs each capture with its frame at native size,
+   prints each pair's `diff=` ratio as n/a and writes no `<stem>.frame.png` — by design, never a
+   defect — so the band, seam and matrix reads run `measure-visual-properties.sh` on the prototype
+   PNG and the capture directly.
+   Every frame-bound reading below then runs on those pairs as on a
    mockup's. A state the prototype draws that no capture test drives is a missing capture, and
    blocks.
 
