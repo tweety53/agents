@@ -307,6 +307,8 @@ function ChangeRow({ row, now, maxCost }: { row: StateBoardRow; now: number; max
   );
 }
 
+const rowKey = (r: StateBoardRow) => `${r.projectKey}/${r.name}`;
+
 export function StateBoard() {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -320,17 +322,36 @@ export function StateBoard() {
     };
   }, []);
 
-  // The period is half-open, so it ends a day past now: a change updated at
-  // this very instant is still in it. `now` moving is what refetches.
-  // Only the All chip reads finished changes from every time; otherwise the
-  // poll stays inside the widest bounded chip -- the store lists unfinished
-  // changes whenever they were last updated.
+  // Only open changes are polled: an empty period still lists every
+  // unfinished change, which the store adds whatever the period. Finished
+  // ones are read once per Updated chip -- inside the widest bounded chip
+  // unless All is chosen -- and again whenever a polled change drops out of
+  // the open set, which is a change finishing. Each period is half-open, so
+  // it ends a day past its instant: a change updated then is still in it.
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
-  const from = filters.period === "All" ? EPOCH : new Date(now - PERIOD_MINUTES["30d"] * 60000);
-  const fetched = useStatsView<StateBoardRow[]>("state-board", { from, to: new Date(now + DAY_MS), project: undefined });
+  const live = new Date(now + DAY_MS);
+  const polled = useStatsView<StateBoardRow[]>("state-board", { from: live, to: live, project: undefined });
+  const [finishedAt, setFinishedAt] = useState(now);
+  const from = filters.period === "All" ? EPOCH : new Date(finishedAt - PERIOD_MINUTES["30d"] * 60000);
+  const finished = useStatsView<StateBoardRow[]>("state-board", { from, to: new Date(finishedAt + DAY_MS), project: undefined });
   // A refresh keeps showing the last answer while the next one loads.
+  const lastOpen = useRef<StateBoardRow[] | null>(null);
+  const lastFinished = useRef<StateBoardRow[] | null>(null);
+  const openNames = useRef<Set<string>>(new Set());
+  if (polled.status === "ready") lastOpen.current = polled.data.rows;
+  if (finished.status === "ready") lastFinished.current = finished.data.rows;
+  useEffect(() => {
+    if (polled.status !== "ready") return;
+    const names = new Set(polled.data.rows.map(rowKey));
+    if ([...openNames.current].some((n) => !names.has(n))) setFinishedAt(now);
+    openNames.current = names;
+  }, [polled, now]);
   const last = useRef<StateBoardRow[] | null>(null);
-  if (fetched.status === "ready") last.current = fetched.data.rows.filter((r) => !isPipelineFix(r));
+  if (lastOpen.current && lastFinished.current) {
+    const open = new Set(lastOpen.current.map(rowKey));
+    last.current = [...lastOpen.current, ...lastFinished.current.filter((r) => !open.has(rowKey(r)))].filter((r) => !isPipelineFix(r));
+  }
+  const fetched = polled.status === "error" ? polled : finished;
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ FINISHED: true });
 

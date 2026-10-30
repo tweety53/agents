@@ -536,14 +536,39 @@ describe("views render their fixture response's actual values", () => {
     hidden.mockRestore();
   });
 
-  it("state board polls only the widest bounded chip's window until All is chosen", async () => {
-    const user = userEvent.setup();
+  it("state board polls only open changes, reading finished ones once per period chip", async () => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"], now: BOARD_NOW });
     render(<StateBoard />);
-    await screen.findByRole("table");
-    const from = () => (fetchStatsViewMock.mock.calls.at(-1)![1] as { from: Date }).from.getTime();
-    expect(from()).toBe(BOARD_NOW.getTime() - 30 * 24 * 60 * 60 * 1000);
-    await user.click(within(screen.getByRole("group", { name: "Updated" })).getByRole("button", { name: "All" }));
-    expect(from()).toBe(0);
+    await act(async () => {});
+    const periods = () => fetchStatsViewMock.mock.calls.map((c) => [(c[1] as { from: Date }).from.getTime(), (c[1] as { to: Date }).to.getTime()]);
+    const DAY = 24 * 60 * 60 * 1000;
+    // The open poll asks for an empty period -- the store adds every unfinished change -- and finished ones come from the 30d window.
+    expect(periods()).toEqual(expect.arrayContaining([[BOARD_NOW.getTime() + DAY, BOARD_NOW.getTime() + DAY], [BOARD_NOW.getTime() - 30 * DAY, BOARD_NOW.getTime() + DAY]]));
+    const before = periods().length;
+    await act(async () => vi.advanceTimersByTime(5000));
+    expect(periods().slice(before)).toEqual([[BOARD_NOW.getTime() + 5000 + DAY, BOARD_NOW.getTime() + 5000 + DAY]]);
+    fireEvent.click(within(screen.getByRole("group", { name: "Updated" })).getByRole("button", { name: "All" }));
+    await act(async () => {});
+    expect(periods().at(-1)![0]).toBe(0);
+  });
+
+  it("state board rereads finished changes once a polled change leaves the open set", async () => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"], now: BOARD_NOW });
+    const rows = fixtures["state-board"].rows as { name: string; state: string }[];
+    let open = rows.filter((r) => r.state !== "FINISHED");
+    const isPoll = (p: { from: Date; to: Date }) => p.from.getTime() === p.to.getTime();
+    fetchStatsViewMock.mockImplementation((_v: string, p: { from: Date; to: Date }) =>
+      Promise.resolve({ ...fixtures["state-board"], rows: isPoll(p) ? open : rows }),
+    );
+    render(<StateBoard />);
+    await act(async () => {});
+    const reads = () => fetchStatsViewMock.mock.calls.filter((c) => !isPoll(c[1])).length;
+    const first = reads();
+    await act(async () => vi.advanceTimersByTime(5000));
+    expect(reads()).toBe(first);
+    open = open.slice(1);
+    await act(async () => vi.advanceTimersByTime(5000));
+    expect(reads()).toBe(first + 1);
   });
 
   it("state board hides pipeline-fix and self-review changes", async () => {
