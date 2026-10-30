@@ -86,7 +86,9 @@ func runHook(t *testing.T, hook string, payload []byte, env ...string) (stdout, 
 	}
 	cmd := exec.Command("python3", hook)
 	cmd.Stdin = bytes.NewReader(payload)
-	cmd.Env = append(append(append(append(os.Environ(), "HOME="+t.TempDir()), goCacheEnv()...), "FLOW_GUARD_CACHE_DIR="+cache), env...)
+	// FLOW_HOOK_INCIDENT_CMD=true keeps a deny's incident write off the dev store; a caller's
+	// env, appended after it, may point it at a stub.
+	cmd.Env = append(append(append(append(os.Environ(), "HOME="+t.TempDir()), goCacheEnv()...), "FLOW_GUARD_CACHE_DIR="+cache, "FLOW_HOOK_INCIDENT_CMD=true"), env...)
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	err = cmd.Run()
@@ -130,4 +132,44 @@ func TestRunHookSharesOneGuardCache(t *testing.T) {
 	if bins, _ := filepath.Glob(filepath.Join(dir, "*", "flow-guard")); len(bins) == 0 {
 		t.Fatalf("no flow-guard built under %s", dir)
 	}
+}
+
+// incidentStub is an argv-logging FLOW_HOOK_INCIDENT_CMD exiting rc: each call's argv lands in
+// the returned log, one argument per line, calls separated by a "--" line.
+func incidentStub(t *testing.T, rc int) (cmd, log string) {
+	t.Helper()
+	dir := t.TempDir()
+	cmd, log = filepath.Join(dir, "flow"), filepath.Join(dir, "argv")
+	body := fmt.Sprintf("#!/bin/sh\nprintf '%%s\\n' \"$@\" >>%q\necho -- >>%q\necho noise\nexit %d\n", log, log, rc)
+	if err := os.WriteFile(cmd, []byte(body), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return cmd, log
+}
+
+// incidentCalls reads incidentStub's log as one argv per call.
+func incidentCalls(t *testing.T, log string) [][]string {
+	t.Helper()
+	b, err := os.ReadFile(log)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	var calls [][]string
+	for _, c := range strings.Split(strings.TrimSuffix(string(b), "--\n"), "--\n") {
+		calls = append(calls, strings.Split(strings.TrimSuffix(c, "\n"), "\n"))
+	}
+	return calls
+}
+
+// argAfter is the argument following flag in argv, "" when flag is absent.
+func argAfter(argv []string, flag string) string {
+	for i := 0; i+1 < len(argv); i++ {
+		if argv[i] == flag {
+			return argv[i+1]
+		}
+	}
+	return ""
 }

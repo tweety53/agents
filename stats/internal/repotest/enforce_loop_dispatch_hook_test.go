@@ -242,3 +242,32 @@ func TestEnforceLoopDispatchHook(t *testing.T) {
 		})
 	}
 }
+
+// TestEnforceLoopDispatchHookRecordsADenial pins decision sr4-hook-denial-incident for the loop
+// hook: a refused loop dispatch writes one `flow record incident` call; an admitted one none.
+func TestEnforceLoopDispatchHookRecordsADenial(t *testing.T) {
+	t.Parallel()
+	b, err := json.Marshal(map[string]any{"tool_name": "Agent", "tool_input": map[string]string{
+		"prompt":        "Before anything else, read `~/.claude/rules/agent-baseline.md`.\nKey: pipeline-fix-6-fix\nDo it.",
+		"subagent_type": "flow-low", "model": "opus"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		rc    string
+		calls int
+	}{{"1", 1}, {"0", 0}} {
+		cmd, log := incidentStub(t, 0)
+		out, _, rc := runHook(t, "enforce-loop-dispatch.py", b, "LOOP_DISPATCH_CHECK="+newLoopStub(t, c.rc).check, "FLOW_HOOK_INCIDENT_CMD="+cmd)
+		if rc != 0 {
+			t.Fatalf("checker rc %s: hook exit %d", c.rc, rc)
+		}
+		calls := incidentCalls(t, log)
+		if len(calls) != c.calls {
+			t.Fatalf("checker rc %s: incident calls = %v, want %d (out=%s)", c.rc, calls, c.calls, out)
+		}
+		if c.calls == 1 && argAfter(calls[0], "-guard") != "enforce-loop-dispatch" {
+			t.Errorf("argv = %v", calls[0])
+		}
+	}
+}

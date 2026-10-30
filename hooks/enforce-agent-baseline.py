@@ -50,6 +50,9 @@ over, and a later dispatch in the same session is no flow dispatch.
 A planning agent (PLANNING_AGENT_TYPES: Explore, Plan) records no row, so none of those row checks
 applies to it; the baseline-pointer and allowed-pairs checks still do.
 
+Each deny, once written, also records one `flow record incident` row, with the session's change
+where the store names one; that write fails open, leaving the deny as it stands.
+
 Fails open: any unexpected input, parse error, or internal fault exits 0 and lets the
 dispatch through. A guardrail on a convention must never be the reason work stops.
 """
@@ -370,9 +373,42 @@ def deny(reason: str) -> None:
         },
         sys.stdout,
     )
+    sys.stdout.flush()
+    cwd = PAYLOAD.get("cwd")
+    change = None
+    session_id = PAYLOAD.get("session_id")
+    if isinstance(session_id, str) and session_id:
+        try:
+            change, _ = session_change(session_id)
+        except (OSError, ValueError, AttributeError):  # recorded without its change
+            change = None
+    record_incident("enforce-agent-baseline", reason, cwd if isinstance(cwd, str) else None, change)
+
+
+def record_incident(guard, reason, cwd, change=None):
+    """One `flow record incident` row per deny, so a self-review pass can count the denials;
+    FLOW_HOOK_INCIDENT_CMD overrides `flow` for the hook's own harness only. Output is captured
+    and every failure swallowed: the deny already written stands either way."""
+    lines = reason.strip().splitlines()
+    args = [os.environ.get("FLOW_HOOK_INCIDENT_CMD") or "flow", "record", "incident",
+            "-guard", guard, "-symptom", (lines[0] if lines else reason)[:300],
+            "-recovery", "re-sent per the deny reason", "-minutes-lost", "0"]
+    if cwd:
+        args += ["-C", cwd]
+    if change:
+        args += ["-change", change]
+    try:
+        subprocess.run(args, capture_output=True, text=True, timeout=bound(10), check=False)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        pass
+
+
+# The hook's payload, set by main for deny's incident row.
+PAYLOAD: dict = {}
 
 
 def main() -> int:
+    global PAYLOAD
     try:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
@@ -380,6 +416,7 @@ def main() -> int:
 
     if not isinstance(payload, dict):
         return 0
+    PAYLOAD = payload
 
     if payload.get("tool_name") not in DISPATCH_TOOLS:
         return 0

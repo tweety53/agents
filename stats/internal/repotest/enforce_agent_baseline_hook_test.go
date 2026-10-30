@@ -540,3 +540,67 @@ func TestEnforceAgentBaselineHookSeesFlowInteractive(t *testing.T) {
 		t.Errorf("a /flow-interactive session's dispatch with no open row was allowed, want denied")
 	}
 }
+
+// TestEnforceAgentBaselineHookRecordsADenial pins decision sr4-hook-denial-incident: each deny
+// writes one `flow record incident` call, with the session's change where the store names one;
+// an allowed dispatch writes none; a failing write leaves the deny JSON as the whole stdout.
+func TestEnforceAgentBaselineHookRecordsADenial(t *testing.T) {
+	t.Parallel()
+	noPointer, err := json.Marshal(map[string]any{
+		"tool_name":  "Agent",
+		"cwd":        t.TempDir(),
+		"tool_input": map[string]string{"description": "x", "prompt": "do it", "subagent_type": "flow-low", "model": "opus"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Run("missing pointer", func(t *testing.T) {
+		cmd, log := incidentStub(t, 0)
+		out, _, rc := runHook(t, "enforce-agent-baseline.py", noPointer, "FLOW_HOOK_INCIDENT_CMD="+cmd)
+		if rc != 0 || !strings.Contains(out, `"permissionDecision": "deny"`) {
+			t.Fatalf("rc=%d out=%s", rc, out)
+		}
+		calls := incidentCalls(t, log)
+		if len(calls) != 1 {
+			t.Fatalf("incident calls = %d, want 1: %v", len(calls), calls)
+		}
+		c := calls[0]
+		if strings.Join(c[:2], " ") != "record incident" || argAfter(c, "-guard") != "enforce-agent-baseline" || argAfter(c, "-minutes-lost") != "0" {
+			t.Errorf("argv = %v", c)
+		}
+		if sym := argAfter(c, "-symptom"); sym == "" || !strings.Contains(out, sym[:20]) {
+			t.Errorf("-symptom %q does not open the deny reason %s", sym, out)
+		}
+	})
+	t.Run("open row deny carries the change", func(t *testing.T) {
+		cmd, log := incidentStub(t, 0)
+		env, _ := openRowFixture(t, `[]`, false)
+		out, _, rc := runHook(t, "enforce-agent-baseline.py", openRowPayload(t, "panel-4-primary review", "review"), append(env, "FLOW_HOOK_INCIDENT_CMD="+cmd)...)
+		if rc != 0 || !strings.Contains(out, `"permissionDecision": "deny"`) {
+			t.Fatalf("rc=%d out=%s", rc, out)
+		}
+		calls := incidentCalls(t, log)
+		if len(calls) != 1 || argAfter(calls[0], "-change") != "c1" {
+			t.Errorf("calls = %v, want one carrying -change c1", calls)
+		}
+	})
+	t.Run("allowed dispatch", func(t *testing.T) {
+		cmd, log := incidentStub(t, 0)
+		env, _ := openRowFixture(t, `[{"key":"panel-4-primary","outcome":""}]`, false)
+		out, _, rc := runHook(t, "enforce-agent-baseline.py", openRowPayload(t, "panel-4-primary review", "review"), append(env, "FLOW_HOOK_INCIDENT_CMD="+cmd)...)
+		if rc != 0 || out != "" {
+			t.Fatalf("rc=%d out=%s, want an allow", rc, out)
+		}
+		if calls := incidentCalls(t, log); len(calls) != 0 {
+			t.Errorf("an allowed dispatch logged %v", calls)
+		}
+	})
+	t.Run("failing write", func(t *testing.T) {
+		cmd, _ := incidentStub(t, 1)
+		out, _, rc := runHook(t, "enforce-agent-baseline.py", noPointer, "FLOW_HOOK_INCIDENT_CMD="+cmd)
+		var v map[string]any
+		if rc != 0 || json.Unmarshal([]byte(out), &v) != nil || !strings.Contains(out, `"permissionDecision": "deny"`) {
+			t.Errorf("rc=%d stdout=%q, want the deny JSON alone", rc, out)
+		}
+	})
+}

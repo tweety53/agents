@@ -13,7 +13,8 @@ The checker runs in the payload's `cwd`, so a self-review on a change's own bran
 project files its rows in that project's flowd project, not the agents checkout's.
 
 The PreToolUse contract cannot rewrite tool input, so a refusal is a deny whose reason is the
-checker's own lines.
+checker's own lines. Each deny, once written, also records one `flow record incident` row, failing
+open: a write that fails or hangs leaves the deny as it stands.
 
 Fails open for anything that is not a loop dispatch -- unparseable input, another tool, a
 prompt with no loop key and no loop worktree or branch named. Fails CLOSED for a loop dispatch: a checker that cannot answer, or
@@ -60,6 +61,9 @@ REPO = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 # The checker the hook runs; overridable for the hook's own harness only.
 CHECK = os.environ.get("LOOP_DISPATCH_CHECK") or os.path.join(REPO, "scripts", "check-loop-dispatch.sh")
 
+# The payload's cwd, set by main for deny's incident row.
+PAYLOAD_CWD = None
+
 
 def deny(reason):
     json.dump(
@@ -72,7 +76,25 @@ def deny(reason):
         },
         sys.stdout,
     )
+    sys.stdout.flush()
+    record_incident("enforce-loop-dispatch", reason, PAYLOAD_CWD)
     return 0
+
+
+def record_incident(guard, reason, cwd):
+    """One `flow record incident` row per deny, so a self-review pass can count the denials;
+    FLOW_HOOK_INCIDENT_CMD overrides `flow` for the hook's own harness only. Output is captured
+    and every failure swallowed: the deny already written stands either way."""
+    lines = reason.strip().splitlines()
+    args = [os.environ.get("FLOW_HOOK_INCIDENT_CMD") or "flow", "record", "incident",
+            "-guard", guard, "-symptom", (lines[0] if lines else reason)[:300],
+            "-recovery", "re-sent per the deny reason", "-minutes-lost", "0"]
+    if cwd:
+        args += ["-C", cwd]
+    try:
+        subprocess.run(args, capture_output=True, text=True, timeout=10, check=False)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        pass
 
 
 def has_ref(repo, *refs):
@@ -112,6 +134,8 @@ def main():
     prompt = tool_input["prompt"]
     cwd = payload.get("cwd")
     cwd = cwd if isinstance(cwd, str) and os.path.isdir(cwd) else None
+    global PAYLOAD_CWD
+    PAYLOAD_CWD = cwd
     m = KEY_RE.search(prompt)
     if not m:
         # A loop planner's sanctioned read-only sub-dispatch names the loop's worktree, never its key.
