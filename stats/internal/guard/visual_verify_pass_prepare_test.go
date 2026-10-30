@@ -110,22 +110,24 @@ func TestVisualVerifyPassUsage(t *testing.T) {
 	for _, c := range []struct {
 		name string
 		args []string
+		hint string
 	}{
-		{"no subcommand", nil},
-		{"an unknown subcommand", append([]string{"open"}, base...)},
-		{"no session token", append(append([]string{"prepare"}, base...), "--harness", "claude", "--merge-base", f.wt+"="+f.mb)},
-		{"a token not mf-", append(append([]string{"prepare"}, base...), "--harness", "claude", "--session-token", "tok", "--merge-base", f.wt+"="+f.mb)},
-		{"no harness", append(append([]string{"prepare"}, base...), "--session-token", "mf-tok", "--merge-base", f.wt+"="+f.mb)},
-		{"a merge base not <wt>=<sha>", append(append([]string{"prepare"}, base...), "--harness", "claude", "--session-token", "mf-tok", "--merge-base", f.mb)},
-		{"--started without --continue", append(append(append([]string{"prepare"}, base...), ok...), "--started")},
-		{"an app not <wt>:<root>=<url>", append(append(append([]string{"prepare"}, base...), ok...), "--app", ".="+f.app.URL)},
+		{"no subcommand", nil, ""},
+		{"an unknown subcommand", append([]string{"open"}, base...), ""},
+		{"no session token", append(append([]string{"prepare"}, base...), "--harness", "claude", "--merge-base", f.wt+"="+f.mb), ""},
+		{"a token not mf-", append(append([]string{"prepare"}, base...), "--harness", "claude", "--session-token", "tok", "--merge-base", f.wt+"="+f.mb), ""},
+		{"no harness", append(append([]string{"prepare"}, base...), "--session-token", "mf-tok", "--merge-base", f.wt+"="+f.mb), ""},
+		{"a merge base not <wt>=<sha>", append(append([]string{"prepare"}, base...), "--harness", "claude", "--session-token", "mf-tok", "--merge-base", f.mb), ""},
+		{"--started without --continue", append(append(append([]string{"prepare"}, base...), ok...), "--started"), ""},
+		{"an app not <wt>:<root>=<url>", append(append(append([]string{"prepare"}, base...), ok...), "--app", ".="+f.app.URL), "${W}"},
+		{"a zsh-mangled app", append(append(append([]string{"prepare"}, base...), ok...), "--app", "/s/web=h/btp://x"), "${W}"},
 	} {
 		os.Remove(f.log)
 		var out, errb bytes.Buffer
 		env := Env{Getenv: f.getenv, Environ: func() []string { return f.environ }, Dir: f.wt}
 		rc := Registry["visual-verify-pass"](c.args, env, &out, &errb)
 		calls, _ := os.ReadFile(f.log)
-		if rc != 2 || !strings.Contains(errb.String(), "usage: visual-verify-pass.sh") || len(calls) != 0 {
+		if rc != 2 || !strings.Contains(errb.String(), "usage: visual-verify-pass.sh") || len(calls) != 0 || !strings.Contains(errb.String(), c.hint) {
 			t.Errorf("%s: exit %d, calls %q\n%s%s", c.name, rc, calls, out.String(), errb.String())
 		}
 	}

@@ -161,7 +161,7 @@ func (v *vvp) parse(args []string, prepare bool) {
 			w, app, ok := strings.Cut(a, ":")
 			root, url, ok2 := strings.Cut(app, "=")
 			if !ok || !ok2 || w == "" || root == "" || url == "" {
-				v.usage("--app '" + a + "' is not <worktree>:<app-root>=<url>")
+				v.usage("--app '" + a + "' is not <worktree>:<app-root>=<url> — under zsh write \"${W}:<app-root>=<url>\"; \"$W:s…\" applies zsh's :s modifier")
 			}
 			v.apps[v.abs(w)] = append(v.apps[v.abs(w)], root+"="+url)
 			i++
