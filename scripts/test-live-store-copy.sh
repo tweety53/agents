@@ -9,10 +9,11 @@ cd "$(dirname "$0")/.." || exit 1
 rc=0
 fail() { printf 'FAIL: %s\n' "$1"; rc=1; }
 stub=$(mktemp -d)
-name="lsctest$$"
+name="lsc-test$$"
+db="flow_lsc_test$$_live"
 port=$((20000 + $$ % 20000))
 log="$stub/log"
-trap 'rm -rf "$stub" "/tmp/flow-live-$name" "/tmp/flowd-$port.pid"' EXIT
+trap 'rm -rf "$stub" "/tmp/flow-live-lsc_test$$" "/tmp/flowd-$port.pid"' EXIT
 export STUB="$stub" LOG="$log"
 cat >"$stub/docker" <<'S'
 #!/usr/bin/env bash
@@ -37,7 +38,7 @@ chmod +x "$stub"/*
 export PATH="$stub:$PATH"
 lsc() { scripts/live-store-copy.sh "$@" >"$stub/out" 2>&1; }
 
-for bad in "" Flow ../a "a-b;rm"; do
+for bad in "" Flow ../a "a-b;rm" -a; do
   : >"$log"
   lsc up "$bad" "$port"; [ $? -eq 2 ] || fail "up '$bad': not exit 2"
   [ -s "$log" ] && fail "up '$bad': ran $(cat "$log")"
@@ -50,10 +51,10 @@ done
 
 : >"$log"
 lsc up "$name" "$port" || fail "up: exit $? ($(cat "$stub/out"))"
-grep -qx "docker exec -i flow-postgres createdb -U flow flow_${name}_live" "$log" || fail "up: no createdb of flow_${name}_live"
+grep -qx "docker exec -i flow-postgres createdb -U flow $db" "$log" || fail "up: no createdb of $db"
 grep -qx "docker exec -i flow-postgres pg_dump -U flow --no-owner --no-acl flow" "$log" || fail "up: no read-only pg_dump of flow"
-grep -q "psql -q -v ON_ERROR_STOP=1 -U flow -d flow_${name}_live$" "$log" || fail "up: no restore into flow_${name}_live"
-grep -qx "postgres://flow:flow@localhost:5433/flow_${name}_live?sslmode=disable" "$log" || fail "up: flowd not pointed at the copy"
+grep -q "psql -q -v ON_ERROR_STOP=1 -U flow -d $db$" "$log" || fail "up: no restore into $db"
+grep -qx "postgres://flow:flow@localhost:5433/$db?sslmode=disable" "$log" || fail "up: flowd not pointed at the copy"
 grep -qF "http://127.0.0.1:$port" "$stub/out" || fail "up: address not printed"
 pid=$(head -n1 "/tmp/flowd-$port.pid" 2>/dev/null)
 kill -0 "$pid" 2>/dev/null || fail "up: scratch flowd not running"
@@ -62,13 +63,14 @@ lsc up "$name" "$port"; [ $? -eq 2 ] || fail "second up: not exit 2"
 sleep 300 &
 sentinel=$!
 : >"$log"
-lsc down "$name" || fail "down: exit $? ($(cat "$stub/out"))"
+# down by the `_` alias stops the copy `up` started under the `-` name (1-E).
+lsc down "lsc_test$$" || fail "down: exit $? ($(cat "$stub/out"))"
 kill -0 "$pid" 2>/dev/null && fail "down: scratch flowd still running"
 kill -0 "$sentinel" 2>/dev/null || fail "down: killed a process it did not start"
 kill "$sentinel"
-grep -qx "docker exec -i flow-postgres dropdb -U flow --if-exists --force flow_${name}_live" "$log" || fail "down: no dropdb of flow_${name}_live"
+grep -qx "docker exec -i flow-postgres dropdb -U flow --if-exists --force $db" "$log" || fail "down: no dropdb of $db"
 grep -E '(dropdb|createdb).* flow$|-d flow$' "$log" && fail "down: touched the flow database"
-[ -e "/tmp/flow-live-$name" ] && fail "down: state dir left"
+[ -e "/tmp/flow-live-lsc_test$$" ] && fail "down: state dir left"
 lsc down "$name" || fail "second down: exit $?"
 
 [ "$rc" -eq 0 ] && printf 'all cases passed\n'

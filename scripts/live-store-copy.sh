@@ -4,17 +4,20 @@
 # check was hand-built across about 15 calls).
 #
 #   up    copies the dev `flow` database, read-only on the source, into a
-#         scratch database flow_<name>_live (pg_dump | psql inside the
+#         scratch database flow_<name, - as _>_live (pg_dump | psql inside the
 #         flow-postgres container), builds flowd from this checkout and starts
 #         it on <port> (default 4175) against the copy, then prints the address
 #         and the FLOW_ADDR / FLOW_RECORDS_ADDR exports that point a session at it.
+#         A `-` in <name> becomes `_` in the database name and the state
+#         directory alike, so `a-b` and `a_b` name one copy, never two sharing
+#         a database (kan-1067 self-review, 1-E).
 #   down  stops that scratch flowd — only the pid its own pidfile names, and
 #         only when that pidfile names this script's binary — and drops
-#         flow_<name>_live. A second `down` is a no-op.
+#         flow_<name, - as _>_live. A second `down` is a no-op.
 #
 # Never the protected dev stack: port 4173 (the dev flowd) and 4174 (the
 # UI-test stack) are refused, and the only database dropped is
-# flow_<name>_live. State lives in /tmp/flow-live-<name>/; the daemon writes
+# flow_<name, - as _>_live. State lives in /tmp/flow-live-<name, - as _>/; the daemon writes
 # its own pidfile at /tmp/flowd-<port>.pid (TMPDIR pinned, as ui-test-up does).
 #
 # Exit codes: 0 done, 1 a step failed (docker, copy, build, not answering),
@@ -23,9 +26,9 @@ set -euo pipefail
 usage() { echo "usage: live-store-copy.sh up <name> [<port>] | down <name>" >&2; exit 2; }
 [ $# -ge 2 ] || usage
 cmd=$1 name=$2 port=${3:-4175}
-[[ $name =~ ^[a-z0-9][a-z0-9_]*$ ]] || { echo "live-store-copy: name '$name' is not [a-z0-9][a-z0-9_]*" >&2; exit 2; }
-db="flow_${name}_live"
-dir="/tmp/flow-live-$name"
+[[ $name =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { echo "live-store-copy: name '$name' is not [a-z0-9][a-z0-9_-]*" >&2; exit 2; }
+db="flow_${name//-/_}_live"
+dir="/tmp/flow-live-${name//-/_}"
 repo=$(cd "$(dirname "$0")/.." && pwd)
 pg() { docker exec -i flow-postgres "$@"; }
 port_ok() {
