@@ -788,6 +788,7 @@ th button {
 .lb-run .lb-kpi { padding: 6px 12px; }
 .lb-run .lb-kpi-val { font-size: 18px; }
 .lb-run .lb-kpi:first-child .lb-kpi-val { font-size: 14px; padding-top: 2px; }
+.lb-run .lb-kpi-groups .lb-kpi:first-child .lb-kpi-val { font-size: 18px; padding-top: 0; }
 .lb-run .lb-hbar { padding: 1px 0; }
 .lb-run .lb-phase-sum { padding: 5px 10px 0; }
 .lb-run .lb-roles { padding: 3px 10px 5px; }
