@@ -39,10 +39,26 @@ test.describe("stage leaderboard", () => {
     const runsPanel = page.locator('section.panel[aria-label="Total runs"]');
     await expect(runsPanel.getByText("Total runs", { exact: true })).toHaveCount(1);
 
+    await expect(tablePanel.getByRole("button", { name: /^Main session/ })).toBeVisible();
+    await expect(tablePanel.getByRole("button", { name: /^Main share/ })).toBeVisible();
+
     await expect(page).toHaveScreenshot("stage-leaderboard.png", { fullPage: true });
   });
 
-  // StageLeaderboard.tsx declares its own six sortable columns and its own
+  test("stage leaderboard sorted by Main share", async ({ page }) => {
+    await page.goto(`/#/stage-leaderboard?${PINNED_QUERY}`);
+    const tablePanel = page.locator('section.panel[aria-label="Every costed stage"]');
+    await expect(tablePanel.getByRole("cell", { name: "flow.review-panel", exact: true })).toBeVisible();
+
+    const header = tablePanel.getByRole("button", { name: /^Main share/ });
+    await header.click();
+    await expect(header).toHaveText("Main share ▲");
+    await page.mouse.move(0, 0);
+
+    await expect(page).toHaveScreenshot("stage-leaderboard-main-share-sorted.png", { fullPage: true });
+  });
+
+  // StageLeaderboard.tsx declares its own eight sortable columns and its own
   // one filterable column (command) on top of the shared DataTable/
   // FilterBar components baseline.spec.ts's StateBoard spec and
   // run-detail.spec.ts's StageRunTable specs already prove correct in
@@ -59,6 +75,10 @@ test.describe("stage leaderboard", () => {
   // Median cost (flow.kickoff and flow.refresh-main-checkout 0.02), so those
   // assertions read only what the ties leave determined. Order assertions
   // read the Stage column, the one value unique to each row.
+  //
+  // flow.review-panel's one run carries two priced dispatch buckets (0.25
+  // of its 0.41, seed.go), so its Main share reads below 100% while every
+  // other row reads 100% -- the split the Main share sort captures.
   test.describe("sort and filter", () => {
     const tablePanelSelector = 'section.panel[aria-label="Every costed stage"]';
 
