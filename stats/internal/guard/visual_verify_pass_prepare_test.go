@@ -326,7 +326,7 @@ func TestVisualVerifyPassPrepareBundle(t *testing.T) {
 		"**The relay contract.**",
 		filepath.Join(f.wt, ".superpowers/sdd/verify-report-visual-verify.md"),
 		filepath.Join(repo, "skills/flow/visual-verify-verifier.md"),
-		"mockup sources: design/proto.html\n",
+		"mockup sources: " + filepath.Join(f.wt, "design/proto.html") + "\n",
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("bundle lacks %q:\n%s", want, s)
@@ -357,14 +357,19 @@ func TestVisualVerifyPassPrepareDecodesBundledPage(t *testing.T) {
 	manifest := `{"app.css":{"data":"` + base64.StdEncoding.EncodeToString(gz.Bytes()) + `","compressed":true},"a.txt":{"data":"` + base64.StdEncoding.EncodeToString([]byte("plain")) + `","compressed":false}}`
 	page := "<html><script type=\"__bundler/template\">\n\"<p>hi</p>\"\n</script><script type=\"__bundler/manifest\">" + manifest + "</script></html>"
 	writeFile(t, filepath.Join(f.wt, "design/proto.html"), page)
-	writeFile(t, filepath.Join(f.wt, "spectre/changes/demo/design.md"), "Prototype `design/proto.html`.\n")
+	writeFile(t, filepath.Join(f.wt, "design/other.html"), "<html><script type=\"__bundler/template\">\n\"<p>two</p>\"\n</script></html>")
+	writeFile(t, filepath.Join(f.wt, "spectre/changes/demo/design.md"), "Prototype `design/proto.html`, and `design/other.html`.\n")
 	gitRun(t, f.wt, "add", "-A")
 	gitRun(t, f.wt, "commit", "-qm", "cfg")
 	f.green()
 	if rc, out, _ := f.prepare(); rc != 0 {
 		t.Fatalf("exit %d\n%s", rc, out)
 	}
-	dir := filepath.Join(f.wt, ".superpowers/sdd/verify-mockup-visual-verify")
+	// Each bundled page decodes into its own directory (kan-1060 gated review).
+	dir := filepath.Join(f.wt, ".superpowers/sdd/verify-mockup-visual-verify/proto")
+	if b, _ := os.ReadFile(filepath.Join(f.wt, ".superpowers/sdd/verify-mockup-visual-verify/other/index.html")); string(b) != "<p>two</p>" {
+		t.Errorf("the second page's index.html = %q", b)
+	}
 	for name, want := range map[string]string{"index.html": "<p>hi</p>", "app.css": "body{color:red}", "a.txt": "plain"} {
 		if b, _ := os.ReadFile(filepath.Join(dir, name)); string(b) != want {
 			t.Errorf("%s = %q, want %q", name, b, want)

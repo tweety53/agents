@@ -95,10 +95,11 @@
 #      `started by this stage`), `fingerprint:` and `verify: <key>@<short sha>`
 #      — this session's newest green inline verify row whose HEAD resolves in
 #      the worktree, read from `flow record dispatches`; `mockup sources:`,
-#      every HTML or CSS path design.md cites that exists, or `none`, and a
+#      the absolute path of every HTML or CSS file design.md cites that
+#      exists, or `none`, and a
 #      `mockup decoded: <path> → <dir>` line per bundled page (one carrying
 #      `<script type="__bundler/template">`), decoded into
-#      <worktree>/.superpowers/sdd/verify-mockup-<key>/ (index.html plus each
+#      <worktree>/.superpowers/sdd/verify-mockup-<key>/<page basename>/ (index.html plus each
 #      manifest entry, gzip-decompressed when `compressed`); and the
 #      paragraph of skills/flow/visual-verify.md opening `**The relay
 #      contract.**`, its report path resolved to
@@ -159,7 +160,8 @@
 # Every commit is step 12 (decision close-commits-final-reports), never made
 # after `rest`, `redispatch` or `cure-environment`: the report's `- spec:`
 # path, every PNG it names, the full app suite's spec and zip its `- full app
-# suite` lines name, and <changeRoot>/visual-verification/ — each path that
+# suite` lines name and the suite PNGs resolve-visual-screenshots.sh
+# resolves for that spec, and <changeRoot>/visual-verification/ — each path that
 # exists committed in the checkout it lives in (a regression checkout's
 # worktree, or its main checkout, for the captures; the canonical worktree
 # for visual-verification/) by `git add -- <paths>` then `git commit -m
