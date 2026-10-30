@@ -706,6 +706,12 @@ type stateBoardRowDTO struct {
 	// Command is the command of the change's latest stage run (KAN-1061),
 	// omitted without one.
 	Command string `json:"command,omitempty"`
+	// FixRounds, ReviewerRuns and their self-review twins are the change's
+	// review totals (store.LiveStateRow).
+	FixRounds              int `json:"fixRounds"`
+	ReviewerRuns           int `json:"reviewerRuns"`
+	SelfReviewFixRounds    int `json:"selfReviewFixRounds"`
+	SelfReviewReviewerRuns int `json:"selfReviewReviewerRuns"`
 }
 
 // nextCommandFor maps a change's current pipeline state to the command that
@@ -874,6 +880,11 @@ func toStateBoardDTOs(rows []store.LiveStateRow, single bool) []stateBoardRowDTO
 			ActivityDetail:        r.ActivityDetail,
 			ActivitySince:         rfc3339OrNil(r.ActivitySince),
 			Command:               command,
+
+			FixRounds:              r.FixRounds,
+			ReviewerRuns:           r.ReviewerRuns,
+			SelfReviewFixRounds:    r.SelfReviewFixRounds,
+			SelfReviewReviewerRuns: r.SelfReviewReviewerRuns,
 		}
 	}
 	return out

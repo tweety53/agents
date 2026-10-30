@@ -323,6 +323,11 @@ export interface StateBoardRow {
   activitySince?: string;
   /** The command of the change's latest stage run; tasks are its requests when it is /flow-interactive. */
   command?: string;
+  /** Main's highest review-panel round and reviewer dispatches, then the self-review's (store.LiveStateRow). */
+  fixRounds: number;
+  reviewerRuns: number;
+  selfReviewFixRounds: number;
+  selfReviewReviewerRuns: number;
 }
 
 /** Mirrors costPerChangeRowDTO. */

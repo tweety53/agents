@@ -97,6 +97,12 @@ type LiveStateRow struct {
 	// State derived by requestState (KAN-1061).
 	Command  *string
 	Requests []records.Request
+	// FixRounds is main's highest review-panel round (panel-<N>), ReviewerRuns
+	// its reviewer dispatches outside the self-review; SelfReviewFixRounds is
+	// the self-review's highest -review-<N> or -fix-<N>, SelfReviewReviewerRuns
+	// its reviewer dispatches bar the analysis -pass -- each read from the
+	// change and its self-review-<name> sub-run, zero when none ran.
+	FixRounds, ReviewerRuns, SelfReviewFixRounds, SelfReviewReviewerRuns int
 }
 
 // ActiveDispatch is one running subagent: its role, the plan task it works
@@ -133,7 +139,8 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 		       totals.runs, totals.cost, totals.wall_ms, totals.errors,
 		       win.d1, win.d7, win.d30,
 		       open_run.stage, open_run.started_at, last_run.stage, last_run.ended_at, done.tasks, subs.list, roots.list, sr_roots.list, committed.list, seen.at, staged.n,
-		       sa.state, sa.detail, sa.updated_at, last_run.command, reqs.list
+		       sa.state, sa.detail, sa.updated_at, last_run.command, reqs.list,
+		       rev.fix_rounds, rev.reviewer_runs, rev.sr_fix_rounds, rev.sr_reviewer_runs
 		FROM changes c
 		LEFT JOIN LATERAL (
 			SELECT t.total_tasks
@@ -234,6 +241,19 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			FROM requests
 			WHERE requests.change_id = c.id
 		) reqs ON true
+		LEFT JOIN LATERAL (
+			SELECT COALESCE(MAX(substring(d.dispatch_key FROM '^panel-(\d+)-')::int) FILTER (WHERE NOT d.sr), 0) AS fix_rounds,
+			       (COUNT(*) FILTER (WHERE d.role = 'reviewer' AND NOT d.sr))::int AS reviewer_runs,
+			       COALESCE(MAX(substring(d.dispatch_key FROM '-(?:review-|fix-v?)(\d+)$')::int) FILTER (WHERE d.sr), 0) AS sr_fix_rounds,
+			       (COUNT(*) FILTER (WHERE d.role = 'reviewer' AND d.sr AND d.dispatch_key NOT LIKE '%-pass'))::int AS sr_reviewer_runs
+			FROM (
+				SELECT d.role, COALESCE(d.dispatch_key, '') AS dispatch_key,
+				       d.change_id <> c.id OR d.dispatch_key LIKE 'self-review-%' AS sr
+				FROM dispatches d
+				WHERE d.change_id = c.id
+				   OR d.change_id IN (SELECT s.id FROM changes s WHERE s.name = 'self-review-' || c.name)
+			) d
+		) rev ON true
 		LEFT JOIN session_activity sa ON sa.session_id = COALESCE(open_run.session_id, last_run.session_id)
 		LEFT JOIN LATERAL (
 			SELECT CASE WHEN COUNT(*) = 0 THEN NULL
@@ -265,7 +285,8 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			&row.RunCount, &row.CostUsd, &row.WallClockMs, &row.Errors,
 			&row.Cost24h, &row.Cost7d, &row.Cost30d,
 			&row.CurrentStage, &row.CurrentStageStartedAt, &row.LastStage, &row.LastStageEndedAt, &row.DoneTasks, &subs, &row.RepoRoots, &row.SelfReviewRoots, &row.CommittedTasks, &row.SessionSeenAt, &row.OpenStageDispatches,
-			&row.Activity, &row.ActivityDetail, &row.ActivitySince, &row.Command, &reqs); err != nil {
+			&row.Activity, &row.ActivityDetail, &row.ActivitySince, &row.Command, &reqs,
+			&row.FixRounds, &row.ReviewerRuns, &row.SelfReviewFixRounds, &row.SelfReviewReviewerRuns); err != nil {
 			return nil, fmt.Errorf("store: live state board: scan: %w", err)
 		}
 		if err := json.Unmarshal(subs, &row.Subagents); err != nil {

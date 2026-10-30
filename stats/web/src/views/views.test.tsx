@@ -130,6 +130,10 @@ const fixtures: Record<
       plannedTasks: 22,
       currentTasks: 46,
       runCount: 7,
+      fixRounds: 5,
+      reviewerRuns: 14,
+      selfReviewFixRounds: 1,
+      selfReviewReviewerRuns: 2,
       costUsd: 12.5,
       cost24h: 0,
       cost7d: 1,
@@ -481,6 +485,11 @@ describe("views render their fixture response's actual values", () => {
     expect(within(row).getByText("+24")).toBeInTheDocument();
     expect(within(row).getByTitle("2026-01-15T10:00:00.000Z")).toHaveTextContent("2h ago");
     expect(row).toHaveTextContent("$12.50");
+    // Fix rounds and reviewer runs, main · self-review.
+    expect(table.getByRole("columnheader", { name: "Fix rounds" })).toBeInTheDocument();
+    expect(table.getByRole("columnheader", { name: "Reviewer runs" })).toBeInTheDocument();
+    expect(within(row).getByTitle("main 5 · self-review 1")).toHaveTextContent("5 · 1");
+    expect(within(row).getByTitle("main 14 · self-review 2")).toHaveTextContent("14 · 2");
     expect(table.queryByRole("columnheader", { name: /errors/i })).not.toBeInTheDocument();
     // A session that is not working says so beside its stage.
     const asking = table.getByRole("link", { name: "kan-29-never-observed" }).closest("tr")!;

@@ -27,7 +27,7 @@ import { describeDispatch } from "../lib/describeDispatch";
 import { agentsDone, dispatchTasks, mainAction, runningTask } from "../lib/runningTask";
 import { effectiveActivity, sessionAlive } from "../lib/sessionAlive";
 import { stageLabel } from "../lib/stageLabel";
-import { ActivityBadge, StatePill } from "./StateBoard";
+import { ActivityBadge, MainAndSelfReview, StatePill } from "./StateBoard";
 import { taskCount } from "../lib/taskCount";
 import { SR_STEPS, selfReviewNow, srStep, type SrStep } from "../lib/selfReviewNow";
 import { STAGE_PHASE, type Phase } from "../lib/phase";
@@ -527,10 +527,6 @@ function jiraKey(change: string): string | null {
   return m ? m[1].toUpperCase() : null;
 }
 
-/** A failed run counts as retried when a later run of the same stage started after it. */
-function retried(runs: StageRunDTO[], failed: StageRunDTO): boolean {
-  return runs.some((r) => r.stage === failed.stage && Date.parse(r.startedAt) > Date.parse(failed.startedAt));
-}
 
 export function RunDetail({ project, change }: RunDetailProps) {
   const state = useRunDetail(project, change);
@@ -723,7 +719,6 @@ export function RunDetail({ project, change }: RunDetailProps) {
                 : !inline && subagents.length > 0
                   ? "waiting"
                   : "running";
-          const failed = runs.filter((r) => r.outcome === "failed");
           // The self-review sub-run is this change's work, recorded under its own change: Total carries it once.
           const subCost = measuredSum((sub?.runs ?? []).map((r) => readCostUsd(r.metrics)));
           const totalCost = measuredSum([summary.totalCostUsd, subCost]);
@@ -862,9 +857,14 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   hint={input > 0 ? `cache reads ${Math.round((cached / input) * 100)}%` : undefined}
                 />
                 <Kpi
-                  label="Failed runs"
-                  value={<span className={`lb-num${failed.length ? " lb-err" : ""}`}>{failed.length}</span>}
-                  hint={`${failed.filter((f) => retried(runs, f)).length} retried`}
+                  label="Fix rounds"
+                  value={<span className="lb-num">{board ? <MainAndSelfReview main={board.fixRounds} selfReview={board.selfReviewFixRounds} /> : "—"}</span>}
+                  hint="main · self-review"
+                />
+                <Kpi
+                  label="Reviewer runs"
+                  value={<span className="lb-num">{board ? <MainAndSelfReview main={board.reviewerRuns} selfReview={board.selfReviewReviewerRuns} /> : "—"}</span>}
+                  hint="main · self-review"
                 />
               </section>
 

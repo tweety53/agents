@@ -2233,3 +2233,51 @@ func TestLiveStateBoardCarriesCommandAndRequests(t *testing.T) {
 		t.Errorf("kan-flow requests = %+v, want none", fl.Requests)
 	}
 }
+
+// TestLiveStateBoardCountsFixRoundsAndReviewerRuns pins the board's review
+// totals: main's fix rounds are its highest panel-<N>, its reviewer runs every
+// reviewer dispatch outside the self-review; the self-review's fix rounds are
+// its highest -review-<N> or -fix-<N>, its reviewer runs every self-review
+// reviewer bar the analysis -pass -- whether recorded under the change or its
+// self-review-<name> sub-run.
+func TestLiveStateBoardCountsFixRoundsAndReviewerRuns(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-board-review-%d", time.Now().UnixNano())
+	name := fmt.Sprintf("kan-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, name)
+	sub := "self-review-" + name
+	seedChange(t, st, projectKey+"-tooling", sub)
+	dispatch := func(project, change, role, key string) {
+		t.Helper()
+		d := baseDispatch(role, "opus")
+		d.Key = key
+		if _, err := st.RecordDispatch(ctx, project, change, d); err != nil {
+			t.Fatalf("RecordDispatch(%s): %v", key, err)
+		}
+	}
+	dispatch(projectKey, name, "reviewer", "task-1-reviewer")
+	dispatch(projectKey, name, "reviewer", "panel-0-primary")
+	dispatch(projectKey, name, "reviewer", "panel-0-mutation")
+	dispatch(projectKey, name, "panel-fix", "panel-fix-1")
+	dispatch(projectKey, name, "reviewer", "panel-2-primary")
+	dispatch(projectKey, name, "reviewer", sub+"-pass")
+	dispatch(projectKey, name, "reviewer", sub+"-review-1")
+	dispatch(projectKey+"-tooling", sub, "implementer", sub+"-fix-3")
+	dispatch(projectKey+"-tooling", sub, "reviewer", sub+"-review-2")
+
+	rows, err := st.LiveStateBoard(ctx, store.Period{
+		From: time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC),
+	}, &projectKey, &name)
+	if err != nil {
+		t.Fatalf("LiveStateBoard: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("rows = %d, want 1", len(rows))
+	}
+	r := rows[0]
+	if r.FixRounds != 2 || r.ReviewerRuns != 4 || r.SelfReviewFixRounds != 3 || r.SelfReviewReviewerRuns != 2 {
+		t.Errorf("fix rounds %d/%d, reviewer runs %d/%d; want 2/3, 4/2", r.FixRounds, r.SelfReviewFixRounds, r.ReviewerRuns, r.SelfReviewReviewerRuns)
+	}
+}

@@ -241,6 +241,11 @@ function TasksCell({ row }: { row: StateBoardRow }) {
   );
 }
 
+/** A main · self-review pair of counts, each named in its title. */
+export function MainAndSelfReview({ main, selfReview }: { main: number; selfReview: number }) {
+  return <span title={`main ${main} · self-review ${selfReview}`}>{`${main} · ${selfReview}`}</span>;
+}
+
 function ChangeRow({ row, now, maxCost }: { row: StateBoardRow; now: number; maxCost: number }) {
   return (
     <tr className="lb-row" onClick={() => openRun(row)}>
@@ -284,6 +289,12 @@ function ChangeRow({ row, now, maxCost }: { row: StateBoardRow; now: number; max
         {formatRelative(row.updatedAt, now)}
       </td>
       <td className="r lb-num">{formatInt(row.runCount)}</td>
+      <td className="r lb-num">
+        <MainAndSelfReview main={row.fixRounds} selfReview={row.selfReviewFixRounds} />
+      </td>
+      <td className="r lb-num">
+        <MainAndSelfReview main={row.reviewerRuns} selfReview={row.selfReviewReviewerRuns} />
+      </td>
       <td className="r">
         <span className="lb-costcell">
           <span className="lb-num">{formatUsd(row.costUsd)}</span>
@@ -441,13 +452,15 @@ export function StateBoard() {
                 <th className="r">Tasks</th>
                 <th className="r">Updated</th>
                 <th className="r">Runs</th>
+                <th className="r">Fix rounds</th>
+                <th className="r">Reviewer runs</th>
                 <th className="r">Cost</th>
               </tr>
             </thead>
             <tbody>
               {shown.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="lb-muted">
+                  <td colSpan={10} className="lb-muted">
                     No changes match.
                   </td>
                 </tr>
@@ -466,7 +479,7 @@ export function StateBoard() {
                       onClick={toggle}
                       onKeyDown={(e) => e.key === "Enter" && toggle()}
                     >
-                      <td colSpan={8}>
+                      <td colSpan={10}>
                         <span className="lb-caret">▾</span>
                         {STATE_LABEL[s]}
                         <span className="lb-cnt">{group.length}</span>
