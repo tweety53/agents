@@ -203,6 +203,7 @@ func TestSeedPopulatesFixture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list experiments: %v", err)
 	}
+	found := 0
 	for _, e := range list {
 		if e.ClosedAt != nil {
 			continue
@@ -212,9 +213,16 @@ func TestSeedPopulatesFixture(t *testing.T) {
 			t.Fatalf("experiment stats %d: %v", e.ID, err)
 		}
 		for _, m := range stats.Metrics {
-			if (m.Name == "tokens" || m.Name == "wallClockMin") && (m.Before == nil || m.After == nil) {
+			if m.Name != "tokens" && m.Name != "wallClockMin" {
+				continue
+			}
+			found++
+			if m.Before == nil || m.After == nil {
 				t.Fatalf("open experiment %q: %s before=%v after=%v, want both", e.Name, m.Name, m.Before, m.After)
 			}
 		}
+	}
+	if found != 2 {
+		t.Fatalf("open experiments carry %d tokens/wallClockMin metrics, want 2", found)
 	}
 }
