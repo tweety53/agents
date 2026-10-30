@@ -1286,15 +1286,30 @@ describe("interactive run view", () => {
     expect(col("Requests")).toBe(right);
     expect(col("Cost by stage")).toBe(right);
     for (const name of ["Agents", "Main", "Timeline", "Stage runs"]) expect(col(name)).toBe(left);
+    // Flex order, not DOM order, puts each panel where the prototype draws it.
+    const order = (name: string) => screen.getByRole("region", { name }).style.order;
+    expect(["Agents", "Main", "Timeline", "Stage runs"].map(order)).toEqual(["0", "1", "5", "6"]);
+    expect(["Requests", "Cost by stage"].map(order)).toEqual(["2", "7"]);
   });
 
   it("interactive run view draws the Agents status as the dot alone", async () => {
-    load([...r6, ...r7]);
+    listStageRunsMock.mockResolvedValue(stageRunsResponse([...r6, ...r7]));
+    const subagents = [{ role: "implementer", taskId: "7", key: "request-7-implementer", model: "opus", startedAt: at(2) }];
+    fetchStatsViewMock.mockImplementation((view: string) =>
+      Promise.resolve(view === "state-board" ? { ...aggregateEnvelope([]), view, rows: [{ ...board, subagents }] } : aggregateEnvelope([])),
+    );
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const agents = await screen.findByRole("region", { name: "Agents" });
-    const status = within(agents).getAllByRole("row")[1].children[1] as HTMLElement;
-    expect(status.textContent).toBe("");
-    expect(within(status).getByRole("img", { name: "running" })).toHaveClass("lb-dot", "running");
+    const rows = [...agents.querySelectorAll("tbody tr")];
+    // Main, waiting on it, and the running dispatch row: each status the dot alone.
+    expect(rows).toHaveLength(2);
+    const dot = (i: number, name: string, cls: string) => {
+      const status = rows[i].children[1] as HTMLElement;
+      expect(status.textContent).toBe("");
+      expect(within(status).getByRole("img", { name })).toHaveClass("lb-dot", cls);
+    };
+    dot(0, "waiting for subagents", "waiting");
+    dot(1, "running", "running");
   });
 
   it("interactive run view lists the latest 6 stage runs and no Show all chip", async () => {
