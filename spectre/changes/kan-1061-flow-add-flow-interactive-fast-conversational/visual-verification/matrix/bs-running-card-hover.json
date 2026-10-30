@@ -1,0 +1,277 @@
+{
+  "a": {
+    "background": "#111217",
+    "bands": [
+      {
+        "top": 20,
+        "height": 16,
+        "gap_above": 20,
+        "edge": "#191a1f",
+        "colour": "#bdbec0",
+        "share": 0.442
+      },
+      {
+        "top": 46,
+        "height": 11,
+        "gap_above": 10,
+        "edge": "#22242b",
+        "colour": "#191a20",
+        "share": 0.197
+      },
+      {
+        "top": 75,
+        "height": 146,
+        "gap_above": 18,
+        "edge": "#2c3235",
+        "colour": "#181b1f",
+        "share": 0.875
+      }
+    ],
+    "seams": []
+  },
+  "b": {
+    "background": "#181b1f",
+    "bands": [
+      {
+        "top": 0,
+        "height": 1005,
+        "gap_above": 0,
+        "edge": "#111217",
+        "colour": "#111217",
+        "share": 0.77
+      }
+    ],
+    "seams": [
+      {
+        "top": 0,
+        "height": 1005,
+        "gap_above": 0,
+        "edge": "#111217",
+        "colour": "#111217",
+        "share": 0.77,
+        "seams": [
+          {
+            "left": 0,
+            "width": 24,
+            "gap_left": 0,
+            "colour": "#111217"
+          },
+          {
+            "left": 24,
+            "width": 1,
+            "gap_left": 0,
+            "colour": "#2c3235"
+          },
+          {
+            "left": 1255,
+            "width": 1,
+            "gap_left": 1230,
+            "colour": "#2c3235"
+          },
+          {
+            "left": 1256,
+            "width": 24,
+            "gap_left": 0,
+            "colour": "#111217"
+          }
+        ],
+        "cells": [
+          {
+            "left": 25,
+            "width": 1230,
+            "lines": [
+              {
+                "top": 163,
+                "height": 1,
+                "left": 0,
+                "right": 0,
+                "offset": 0.0
+              },
+              {
+                "top": 171,
+                "height": 25,
+                "left": 12,
+                "right": 12,
+                "offset": 0.0
+              },
+              {
+                "top": 203,
+                "height": 1,
+                "left": 0,
+                "right": 0,
+                "offset": 0.0
+              },
+              {
+                "top": 220,
+                "height": 67,
+                "left": 0,
+                "right": 0,
+                "offset": 0.0
+              },
+              {
+                "top": 303,
+                "height": 1,
+                "left": 0,
+                "right": 0,
+                "offset": 0.0
+              },
+              {
+                "top": 314,
+                "height": 11,
+                "left": 12,
+                "right": 12,
+                "offset": 0.0
+              },
+              {
+                "top": 349,
+                "height": 145,
+                "left": 12,
+                "right": 12,
+                "offset": 0.0
+              },
+              {
+                "top": 506,
+                "height": 84,
+                "left": 12,
+                "right": 12,
+                "offset": 0.0
+              },
+              {
+                "top": 593,
+                "height": 33,
+                "left": 12,
+                "right": 12,
+                "offset": 0.0
+              },
+              {
+                "top": 638,
+                "height": 85,
+                "left": 12,
+                "right": 12,
+                "offset": 0.0
+              },
+              {
+                "top": 727,
+                "height": 32,
+                "left": 12,
+                "right": 12,
+                "offset": 0.0
+              },
+              {
+                "top": 771,
+                "height": 84,
+                "left": 12,
+                "right": 12,
+                "offset": 0.0
+              },
+              {
+                "top": 859,
+                "height": 33,
+                "left": 12,
+                "right": 12,
+                "offset": 0.0
+              },
+              {
+                "top": 904,
+                "height": 84,
+                "left": 12,
+                "right": 12,
+                "offset": 0.0
+              },
+              {
+                "top": 992,
+                "height": 13,
+                "left": 12,
+                "right": 12,
+                "offset": 0.0
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "scale": 1.0,
+  "delta": {
+    "bands": [
+      {
+        "status": "extra",
+        "a": null,
+        "b": {
+          "top": 0,
+          "height": 1005,
+          "gap_above": 0,
+          "edge": "#111217",
+          "colour": "#111217",
+          "share": 0.77
+        }
+      },
+      {
+        "status": "missing",
+        "a": {
+          "top": 20,
+          "height": 16,
+          "gap_above": 20,
+          "edge": "#191a1f",
+          "colour": "#bdbec0",
+          "share": 0.442
+        },
+        "b": null
+      },
+      {
+        "status": "missing",
+        "a": {
+          "top": 46,
+          "height": 11,
+          "gap_above": 10,
+          "edge": "#22242b",
+          "colour": "#191a20",
+          "share": 0.197
+        },
+        "b": null
+      },
+      {
+        "status": "missing",
+        "a": {
+          "top": 75,
+          "height": 146,
+          "gap_above": 18,
+          "edge": "#2c3235",
+          "colour": "#181b1f",
+          "share": 0.875
+        },
+        "b": null
+      }
+    ],
+    "bands_summary": {
+      "paired": 0,
+      "missing": 3,
+      "extra": 1
+    },
+    "seams": [
+      {
+        "status": "extra",
+        "a": null,
+        "b": {
+          "top": 0,
+          "height": 1005
+        }
+      }
+    ],
+    "seams_summary": {
+      "paired": 0,
+      "missing": 0,
+      "extra": 0,
+      "bands_unpaired": 1,
+      "lines": {
+        "paired": 0,
+        "unpaired": 0
+      }
+    },
+    "background": {
+      "a": "#111217",
+      "b": "#181b1f",
+      "distance": 13.9
+    }
+  }
+}
