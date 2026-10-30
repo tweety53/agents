@@ -18,7 +18,7 @@ import (
 )
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
-// judges its commits (check-task-commit-fields) can actually read it. Twenty-three
+// judges its commits (check-task-commit-fields) can actually read it. Twenty-four
 // findings, F1-F24 (F1-F6's canonical definitions, decisions and rationale:
 // spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-md-at-plan/
 // design.md -- not restated here; F7-F24's are the rows below).
@@ -194,10 +194,12 @@ import (
 //	    at the field's line, once per entry.
 //	F24 A task titled `In-run fix <k> — …`, any stage, with no **Opener:**
 //	    field, or whose **Opener:** value another such task before it names
-//	    too: one verifier report opens one round, every defect it names one
-//	    task of it (skills/flow/verify-fix-loop.md step 1; decision
-//	    one-report-one-round-opener). Reported at the task's title line --
-//	    for a shared opener, the second task's.
+//	    too, backticks ignored: one verifier report opens one round, and two
+//	    tasks never transcribe one report (skills/flow/verify-fix-loop.md
+//	    step 1; decision one-report-one-round-opener). A ticked task is never
+//	    reported -- it may predate the field -- but its opener still counts
+//	    against a later task's. Reported at the task's title line -- for a
+//	    shared opener, the second task's.
 //
 // A duplicate task id is check-task-build-green's violation, not this
 // guard's: tcfTaskIDs keeps the first occurrence, and every per-task read
@@ -514,14 +516,19 @@ func (p *psPlan) inRunOpeners(ids []string) []string {
 		if !psInRunFixRE.MatchString(p.lines[found.taskLine-1]) {
 			continue
 		}
-		opener := strings.TrimSpace(strings.Join(tcfBodyFields(found.lines)["Opener"], " "))
-		switch first, shared := seen[opener]; {
+		opener := strings.Trim(strings.TrimSpace(strings.Join(tcfBodyFields(found.lines)["Opener"], " ")), "`")
+		first, shared := seen[opener]
+		if opener != "" && !shared {
+			seen[opener] = id
+		}
+		if strings.HasPrefix(strings.TrimSpace(p.lines[found.taskLine-1]), "- [x]") {
+			continue
+		}
+		switch {
 		case opener == "":
 			v = append(v, p.at(found.taskLine, "task "+id+" is an in-run fix with no **Opener:** field — name the verifier report that opened its round (skills/flow/verify-fix-loop.md step 1) (F24)"))
 		case shared:
-			v = append(v, p.at(found.taskLine, "task "+id+"'s **Opener:** "+opener+" is task "+first+"'s too — one report opens one round, every defect it names a task of that round (skills/flow/verify-fix-loop.md step 1) (F24)"))
-		default:
-			seen[opener] = id
+			v = append(v, p.at(found.taskLine, "task "+id+"'s **Opener:** "+opener+" is task "+first+"'s too — one report opens one round, and two tasks never transcribe one report (skills/flow/verify-fix-loop.md step 1) (F24)"))
 		}
 	}
 	return v

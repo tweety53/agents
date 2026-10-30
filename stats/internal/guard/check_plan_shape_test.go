@@ -824,6 +824,16 @@ func TestCheckPlanShapeF24(t *testing.T) {
 	if r.rc != 0 {
 		t.Errorf("distinct openers refused: rc=%d out=%q", r.rc, r.out)
 	}
+	ticked := strings.Replace(task(1, ""), "- [ ]", "- [x]", 1)
+	r = runGuard("check-plan-shape", []string{psFixture(t, ticked)}, env)
+	if r.rc != 0 {
+		t.Errorf("a ticked in-run fix closed before **Opener:** existed refused: rc=%d out=%q", r.rc, r.out)
+	}
+	tickedShared := strings.Replace(task(1, "`visual-verify-2`"), "- [ ]", "- [x]", 1) + task(2, "visual-verify-2")
+	r = runGuard("check-plan-shape", []string{psFixture(t, tickedShared)}, env)
+	if r.rc != 1 || strings.Count(r.out, "(F24)") != 1 || !strings.Contains(r.out, "task 2") {
+		t.Errorf("an open in-run fix sharing a ticked task's opener, bare against backticked: rc=%d out=%q", r.rc, r.out)
+	}
 	if r := psMutant(shared, "F24"); r.rc != 0 {
 		t.Errorf("the mutation disabling F24 still refused: rc=%d out=%s", r.rc, r.out)
 	}
