@@ -40,6 +40,9 @@ func Open(ctx context.Context, dsn string) (*Store, error) {
 	cfg.MinConns = _minConns
 	cfg.MaxConnLifetime = _maxConnLifetime
 	cfg.MaxConnIdleTime = _maxConnIdleTime
+	// JIT compiles every execution afresh: the live state board's query cost
+	// ~1s of compile on every poll against ~0.2s of actual work.
+	cfg.ConnConfig.RuntimeParams["jit"] = "off"
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
