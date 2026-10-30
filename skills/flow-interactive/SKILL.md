@@ -272,7 +272,7 @@ as a request and the session stays open, saying so in one line. Stop:
 
 `/flow-interactive <key or name>` on an open session reuses its worktree — recreated from the
 remote branch, else `origin/<base>`, when gone, with `mkdir -p <changeRoot>` run in it since
-`.superpowers/` is gitignored — marks `flow.kickoff` under a new token, continues
+`<project>/.superpowers/` is gitignored — marks `flow.kickoff` under a new token, continues
 numbering after the highest recorded request,
 and takes an open request from the dead session as the current one: its stages re-run as new
 attempts under the same number.
