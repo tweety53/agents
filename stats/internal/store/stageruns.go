@@ -138,6 +138,9 @@ type StageRun struct {
 	// AutoOpened marks a run the store opened itself: a dispatch began
 	// while the change had no open stage run (openAutoStageRun).
 	AutoOpened bool
+	// RequestN is the /flow-interactive request this run worked on
+	// (0056_requests.sql), nil for a run of no request.
+	RequestN *int
 	// SupersededRuns is set only by BeginStage, naming the still-open runs
 	// its own begin closed as superseded; every read path leaves it nil.
 	// See SupersededRun.
@@ -175,6 +178,10 @@ type BeginStageInput struct {
 	Command      string
 	Stage        string
 	StartedAt    time.Time
+	// RequestN tags the run with the /flow-interactive request it works on
+	// (KAN-1061); nil for every other run. Whether a command may carry one
+	// is an application-layer decision; the store persists what it is given.
+	RequestN *int
 }
 
 // BeginStage records the start of one stage run and allocates its attempt
@@ -369,7 +376,8 @@ func (s *Store) insertStageRunAndSupersede(ctx context.Context, in BeginStageInp
 
 	err = tx.QueryRow(ctx, `
 		INSERT INTO stage_runs (
-			change_id, repo_root, harness, session_id, session_token, command, stage, attempt, started_at, metrics
+			change_id, repo_root, harness, session_id, session_token, command, stage, attempt, started_at, metrics,
+			request_n
 		)
 		SELECT
 			c.id, $3, $4,
@@ -384,15 +392,16 @@ func (s *Store) insertStageRunAndSupersede(ctx context.Context, in BeginStageInp
 				 WHERE sr.change_id = c.id AND sr.command = $7 AND sr.stage = $8),
 				0
 			) + 1,
-			$9, '{}'::jsonb
+			$9, '{}'::jsonb, $10
 		FROM changes c
 		WHERE c.project_key = $1 AND c.name = $2
 		RETURNING id, change_id, repo_root, harness, session_id, session_token, command, stage, attempt,
-		          started_at, ended_at, outcome, metrics
-	`, in.ProjectKey, in.ChangeName, in.RepoRoot, in.Harness, in.SessionID, in.SessionToken, in.Command, in.Stage, in.StartedAt).
+		          started_at, ended_at, outcome, metrics, request_n
+	`, in.ProjectKey, in.ChangeName, in.RepoRoot, in.Harness, in.SessionID, in.SessionToken, in.Command, in.Stage, in.StartedAt,
+		in.RequestN).
 		Scan(
 			&run.ID, &run.ChangeID, &run.RepoRoot, &run.Harness, &sessionID, &sessionToken, &run.Command, &run.Stage,
-			&run.Attempt, &run.StartedAt, &run.EndedAt, &run.Outcome, &metrics,
+			&run.Attempt, &run.StartedAt, &run.EndedAt, &run.Outcome, &metrics, &run.RequestN,
 		)
 	if err != nil {
 		return StageRun{}, err
@@ -644,12 +653,12 @@ func (s *Store) GetStageRun(ctx context.Context, id int64) (StageRun, error) {
 	)
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, COALESCE(change_id, 0), repo_root, harness, session_id, session_token, command, stage, attempt,
-		       started_at, ended_at, outcome, metrics, auto_opened
+		       started_at, ended_at, outcome, metrics, auto_opened, request_n
 		FROM stage_runs
 		WHERE id = $1
 	`, id).Scan(
 		&run.ID, &run.ChangeID, &run.RepoRoot, &run.Harness, &sessionID, &sessionToken, &run.Command, &run.Stage,
-		&run.Attempt, &run.StartedAt, &run.EndedAt, &run.Outcome, &metrics, &run.AutoOpened,
+		&run.Attempt, &run.StartedAt, &run.EndedAt, &run.Outcome, &metrics, &run.AutoOpened, &run.RequestN,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -710,7 +719,7 @@ func (s *Store) QueryStageRuns(ctx context.Context, q Query) ([]StageRun, int, e
 
 	sqlText := fmt.Sprintf(`
 		SELECT sr.id, COALESCE(sr.change_id, 0), sr.repo_root, sr.harness, sr.session_id, sr.session_token, sr.command, sr.stage,
-		       sr.attempt, sr.started_at, sr.ended_at, sr.outcome, sr.metrics, sr.auto_opened,
+		       sr.attempt, sr.started_at, sr.ended_at, sr.outcome, sr.metrics, sr.auto_opened, sr.request_n,
 		       c.name, `+projectKeyExpr+`
 		FROM stage_runs sr
 		LEFT JOIN changes c ON c.id = sr.change_id
@@ -737,7 +746,7 @@ func (s *Store) QueryStageRuns(ctx context.Context, q Query) ([]StageRun, int, e
 		)
 		if err := rows.Scan(
 			&run.ID, &run.ChangeID, &run.RepoRoot, &run.Harness, &sessionID, &sessionToken, &run.Command, &run.Stage,
-			&run.Attempt, &run.StartedAt, &run.EndedAt, &run.Outcome, &metrics, &run.AutoOpened,
+			&run.Attempt, &run.StartedAt, &run.EndedAt, &run.Outcome, &metrics, &run.AutoOpened, &run.RequestN,
 			&changeName, &projectKey,
 		); err != nil {
 			return nil, 0, fmt.Errorf("store: query stage runs: scan: %w", err)

@@ -643,3 +643,44 @@ type GuardRun struct {
 // GuardRunOutcomes is the closed set GuardRun.Outcome accepts -- the same
 // set 0032_guard_runs.sql's CHECK constraint enforces.
 var GuardRunOutcomes = []string{"clear", "fired", "cannot-answer"}
+
+// RequestBegin is the opening half of one /flow-interactive request's
+// record (KAN-1061): `flow record request begin`. It is an upsert by the
+// change and N -- an empty Title or BrainstormReason leaves the stored
+// value, and the stored receipt is kept from the first write. ReceivedAt
+// is the instant the CLI stamped, so a journalled replay keeps it; nil
+// is stamped by the store.
+type RequestBegin struct {
+	N                int        `json:"n"`
+	Title            string     `json:"title,omitempty"`
+	BrainstormReason string     `json:"brainstormReason,omitempty"`
+	ReceivedAt       *time.Time `json:"receivedAt,omitempty"`
+}
+
+// RequestEnd is the closing half of a request's record: `flow record
+// request end`. Outcome is landed, answered or dropped; landed carries both
+// shas -- BaseSHA..CommitSHA is the request's landed range -- and
+// answered and dropped carry neither. EndedAt is stamped as
+// RequestBegin.ReceivedAt is.
+type RequestEnd struct {
+	N         int        `json:"n"`
+	Outcome   string     `json:"outcome"`
+	CommitSHA string     `json:"commitSha,omitempty"`
+	BaseSHA   string     `json:"baseSha,omitempty"`
+	EndedAt   *time.Time `json:"endedAt,omitempty"`
+}
+
+// Request is one stored request as read back. State is derived on read,
+// never stored: an ended request reads its Outcome, one a stage run
+// carries reads `in progress`, any other `queued`.
+type Request struct {
+	N                int        `json:"n"`
+	Title            string     `json:"title"`
+	BrainstormReason string     `json:"brainstormReason"`
+	ReceivedAt       time.Time  `json:"receivedAt"`
+	EndedAt          *time.Time `json:"endedAt"`
+	Outcome          string     `json:"outcome"`
+	CommitSHA        string     `json:"commitSha"`
+	BaseSHA          string     `json:"baseSha"`
+	State            string     `json:"state"`
+}
