@@ -243,29 +243,29 @@ function StageRunRow({ run, now, records, showStage, requests }: { run: StageRun
   const outcome = outcomeClass(run);
   const last = own.length ? dispatchOutcome(records.get(own[own.length - 1].agentId)) : undefined;
   const word = run.outcome === "failed" ? "failed" : (last ?? run.outcome ?? "completed");
+  const expander = expandable && (
+    <button
+      type="button"
+      className="lb-expander"
+      aria-expanded={open}
+      aria-label={`${open ? "Hide" : "Show"} dispatches`}
+      onClick={(e) => {
+        e.stopPropagation();
+        toggle();
+      }}
+    >
+      <span className="lb-chev" aria-hidden="true" />
+    </button>
+  );
   return (
     <>
       <tr className={`lb-row${expandable ? " expandable" : ""}${open ? " open" : ""}`} onClick={() => expandable && toggle()}>
         {requests && <td className="lb-rq">{run.request === undefined ? "" : `R${run.request}`}</td>}
         <td title={name}>
-          {expandable ? (
-            <button
-              type="button"
-              className="lb-expander"
-              aria-expanded={open}
-              aria-label={`${open ? "Hide" : "Show"} dispatches`}
-              onClick={(e) => {
-                e.stopPropagation();
-                toggle();
-              }}
-            >
-              <span className="lb-chev" aria-hidden="true" />
-            </button>
-          ) : (
-            // An interactive session's rows are ungrouped, so its Stage cells keep no session-row indent.
-            !requests && <span className="lb-expander" />
-          )}
+          {/* An interactive session's rows are ungrouped: its Stage text starts flush, the expander trailing it. */}
+          {!requests && (expandable ? expander : <span className="lb-expander" />)}
           {name}
+          {requests && expandable && expander}
         </td>
         <td>
           {outcome === "open" ? (

@@ -182,6 +182,12 @@ describe("StageRunTable request column", () => {
     expect(container.querySelector(".lb-group")).not.toBeNull();
     expect(container).not.toHaveTextContent("R7");
   });
+  it("request column starts every Stage cell with its text, an expander trailing it", () => {
+    render(<StageRunTable stageRuns={[run, { ...other, request: 2 }]} records={records} requests />);
+    const cells = screen.getAllByRole("row").slice(1).map((row) => row.querySelectorAll("td")[1]);
+    for (const td of cells) expect(td.firstChild?.nodeType).toBe(Node.TEXT_NODE);
+    expect(screen.getByRole("button", { name: "Show dispatches" }).previousSibling?.nodeType).toBe(Node.TEXT_NODE);
+  });
   it("request column widens the empty-table row", () => {
     const { container } = render(<StageRunTable stageRuns={[]} requests />);
     expect(container.querySelector("tbody td")).toHaveAttribute("colspan", "8");
