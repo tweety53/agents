@@ -69,6 +69,59 @@
 #        STOP: preflight — <guard>: <evidence>[; <guard>: <evidence>…]   exit 1
 #      No verifier row is begun on any STOP.
 #   7. --miss: NEXT: analyst          exit 0, no row begun
+#   8. step 5 (decision parent-starts-the-stack): a short GET of each
+#      survivor's --app URLs, any answer counting. A survivor nothing answers
+#      for prints `NEXT: start-stack` (exit 0, no row begun): the parent starts
+#      the stack and runs `prepare --continue --started`. Under --started it
+#      ends the stage `stopped` with `STOP: stack — <urls> answers nothing
+#      after the stack was started, for <worktree>`, exit 1.
+#   9. step 6: check-dev-stack-fresh.sh <worktree> per survivor, in process.
+#      Exit 1 prints `NEXT: restart-stack` (the parent restarts the stack and
+#      runs `prepare --continue --started`); under --started it ends the stage
+#      `stopped` with `STOP: fingerprint — <the guard's output>`, exit 1.
+#      Exit 2 continues, the bundle reading `fingerprint: not declared —
+#      <its stderr reason>`.
+#  10. per row, the verifier's bundle
+#      <worktree>/.superpowers/sdd/verify-prompt-<key>.md: the absolute
+#      worktree; `changeRoot:`; the path of skills/flow/visual-verify-verifier.md
+#      under FLOW_GUARD_REPO_ROOT; the `KEY=value` lines prepare-workspace.sh
+#      prints; the resolved `setup`, `capture` and `specs` commands
+#      (`<frontend-root>` the worktree, `<merge-base>` its merge base) and
+#      `screenshots` root (under the regression checkout's worktree when one
+#      is declared); `mockups:` and `mockup frame:` when declared; one `app:`
+#      line per --app URL; the `## run` commands; `stack:` (`found running` or
+#      `started by this stage`), `fingerprint:` and `verify: <key>@<short sha>`
+#      — this session's newest green inline verify row whose HEAD resolves in
+#      the worktree, read from `flow record dispatches`; `mockup sources:`,
+#      every HTML or CSS path design.md cites that exists, or `none`, and a
+#      `mockup decoded: <path> → <dir>` line per bundled page (one carrying
+#      `<script type="__bundler/template">`), decoded into
+#      <worktree>/.superpowers/sdd/verify-mockup-<key>/ (index.html plus each
+#      manifest entry, gzip-decompressed when `compressed`); and the
+#      paragraph of skills/flow/visual-verify.md opening `**The relay
+#      contract.**`, its report path resolved to
+#      <worktree>/.superpowers/sdd/verify-report-<key>.md — exit 2 when that
+#      paragraph is missing. Under --continue a key containing `-rest` adds
+#      `## Incomplete attempt`: the worktree's previous row's report path and
+#      the `verdict <key> <line>` lines the stage file holds for it; a
+#      `visual-verify-<n>` key adds `## Previous attempt`: every earlier
+#      report path of the worktree (decision redispatch-bundle-by-path).
+#  11. one `flow record dispatch begin -C <canonical-worktree> -change <name>
+#      -role verifier -model opus -effort low -key <key> -session-token <t>
+#      -diff-base <HEAD>[,<sibling HEAD>…] [-round-base <sha>]` per survivor
+#      (decision verifier-stays-opus) — a sibling is a worktree whose diff
+#      the survivor's `ui paths` matched under --repo; keys suffixed
+#      `-<repository name>` when the set holds more than one worktree — each
+#      appending `row <key> <worktree>` to the stage file and printing
+#      `DISPATCH: <key> <bundle>`; then `NEXT: dispatch <n>`, exit 0. A
+#      refused begin ends the stage `stopped` with `STOP: row — flow record
+#      dispatch begin refused for <key>: <its output>`, exit 1.
+#
+# --continue (decision prepare-continue-flag) begins no stage and runs no
+# step 1–3 check: it reads the survivors, their merge bases and siblings and
+# the set's size from the stage file, and its own --app and --round-base
+# flags, then runs steps 8–11. A key ending in a survivor's
+# `-<repository name>` runs that worktree alone, its key unchanged.
 #
 # The stage file, <canonical-worktree>/.superpowers/sdd/visual-verify-stage.txt,
 # written once the stage has begun, is the only state a later call reads
@@ -76,7 +129,8 @@
 #   token <session token>
 #   begin <RFC 3339 instant>
 #   set <worktrees in the resolved set>
-#   worktree <path> <repository name> <merge base> <round base or ->
+#   worktree <path> <repository name> <merge base> <round base or ->[ <sibling>,…]
+#   row <key> <worktree>
 #
 # Exit 0 on a NEXT: line; 1 on a STOP: line; 2 a usage error (a missing or
 # unknown subcommand or argument, a token not mf-<t>, no --harness, a

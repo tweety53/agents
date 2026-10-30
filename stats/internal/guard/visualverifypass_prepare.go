@@ -1,10 +1,18 @@
 package guard
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"time"
 )
 
 // prepare is `visual-verify-pass.sh prepare`: the stage's begin mark and
@@ -12,27 +20,35 @@ import (
 // and skills/flow/visual-verify.md, in that order, each failing check
 // ending the stage before any verifier row begins.
 func (v *vvp) prepare() {
-	v.kickoff()
-	v.markBegin()
-	survivors := v.trigger()
-	v.writeStage(survivors)
-	if reason, ok := v.decidedSkip(); ok {
-		for range survivors {
-			v.say("Visual: skipped at Decide — %s", reason)
+	var survivors []string
+	if v.cont {
+		v.stageOpen = true
+		survivors = v.continueSet()
+	} else {
+		v.kickoff()
+		v.markBegin()
+		survivors = v.trigger()
+		v.writeStage(survivors)
+		if reason, ok := v.decidedSkip(); ok {
+			for range survivors {
+				v.say("Visual: skipped at Decide — %s", reason)
+			}
+			v.markEnd("skipped")
+			v.next("skip — skipped at Decide — " + reason)
 		}
-		v.markEnd("skipped")
-		v.next("skip — skipped at Decide — " + reason)
+		if len(survivors) == 0 {
+			v.markEnd("completed")
+			v.next("skip — no worktree's diff matched `ui paths`")
+		}
+		v.roundDiff(survivors)
+		v.preflight(survivors)
+		if v.miss {
+			v.next("analyst")
+		}
 	}
-	if len(survivors) == 0 {
-		v.markEnd("completed")
-		v.next("skip — no worktree's diff matched `ui paths`")
-	}
-	v.roundDiff(survivors)
-	v.preflight(survivors)
-	if v.miss {
-		v.next("analyst")
-	}
-	v.die("prepare's steps 5 and 6 and the verifier rows are not implemented")
+	stack := v.probe(survivors)
+	fingerprints := v.fingerprint(survivors)
+	v.dispatch(survivors, stack, fingerprints)
 }
 
 // realPath is p with symlinks resolved, or cleaned when it cannot be.
@@ -120,6 +136,7 @@ func (v *vvp) changed(w, base, dots string) []string {
 // makes the canonical worktree survive too.
 func (v *vvp) trigger() []string {
 	match := map[string]bool{}
+	v.siblings = map[string][]string{}
 	for _, w := range v.worktrees {
 		base := v.since[w]
 		if base == "" {
@@ -132,6 +149,7 @@ func (v *vvp) trigger() []string {
 		if w != v.canon {
 			if rc, _, _ := v.guard("check-visual-trigger", strings.NewReader(names), "--repo", v.repoName(w), v.canon); rc == 0 {
 				match[v.canon] = true
+				v.siblings[v.canon] = append(v.siblings[v.canon], w)
 			}
 		}
 	}
@@ -241,4 +259,424 @@ func (v *vvp) preflight(survivors []string) {
 	if len(fails) > 0 {
 		v.stop("stopped", "preflight — "+strings.Join(fails, "; "))
 	}
+}
+
+// continueSet is `--continue`: the survivors, their merge bases and siblings
+// and the set's size, read back from the stage file; no stage begin and no
+// step-3 check runs again.
+func (v *vvp) continueSet() []string {
+	v.siblings = map[string][]string{}
+	var survivors []string
+	for _, l := range v.readStage() {
+		switch l[0] {
+		case "set":
+			fmt.Sscan(l[1], &v.setSize)
+		case "worktree":
+			f := strings.Fields(l[1])
+			if len(f) < 4 {
+				v.die("malformed stage file line: worktree %s", l[1])
+			}
+			survivors = append(survivors, f[0])
+			v.mergeBase[f[0]] = f[2]
+			if len(f) > 4 {
+				v.siblings[f[0]] = strings.Split(f[4], ",")
+			}
+		}
+	}
+	if len(survivors) == 0 {
+		v.die("the stage file %s names no surviving worktree", v.stagePath())
+	}
+	return survivors
+}
+
+// probe is step 5: each survivor's --app URLs, a short GET each, any answer
+// counting. A survivor nothing answers for prints `NEXT: start-stack`, or
+// under --started stops the stage. The result is the bundle's `stack:` line.
+func (v *vvp) probe(survivors []string) string {
+	client := http.Client{Timeout: 3 * time.Second}
+	for _, w := range survivors {
+		answered := false
+		var urls []string
+		for _, a := range v.apps[w] {
+			_, u, _ := strings.Cut(a, "=")
+			urls = append(urls, u)
+			if resp, err := client.Get(u); err == nil {
+				resp.Body.Close()
+				answered = true
+				break
+			}
+		}
+		if answered {
+			continue
+		}
+		if v.started {
+			v.stop("stopped", "stack — "+strings.Join(urls, " ")+" answers nothing after the stack was started, for "+w)
+		}
+		v.next("start-stack")
+	}
+	if v.started {
+		return "started by this stage"
+	}
+	return "found running"
+}
+
+// fingerprint is step 6 per survivor through check-dev-stack-fresh: exit 1
+// prints `NEXT: restart-stack`, or under --started stops the stage; exit 2
+// reads `not declared — <its stderr reason>`.
+func (v *vvp) fingerprint(survivors []string) map[string]string {
+	got := map[string]string{}
+	for _, w := range survivors {
+		rc, out, errs := v.guard("check-dev-stack-fresh", nil, w)
+		switch rc {
+		case 0:
+			got[w] = "exit 0 — the served bundle is the worktree's build"
+		case 1:
+			if v.started {
+				v.stop("stopped", "fingerprint — "+vvpOneLine(out+"\n"+errs))
+			}
+			v.next("restart-stack")
+		default:
+			got[w] = "not declared — " + strings.TrimPrefix(vvpLastLine(errs), "check-dev-stack-fresh: ")
+		}
+	}
+	return got
+}
+
+func vvpOneLine(s string) string {
+	return strings.Join(strings.Fields(strings.ReplaceAll(strings.TrimSpace(s), "\n", " | ")), " ")
+}
+
+func vvpLastLine(s string) string {
+	ls := strings.Split(strings.TrimSpace(s), "\n")
+	return ls[len(ls)-1]
+}
+
+// vvpRedispatch is a re-dispatch's key, `visual-verify-<n>[-…]`.
+var vvpRedispatch = regexp.MustCompile(`^visual-verify-[0-9]+(-|$)`)
+
+// dispatch writes each verifier's bundle, begins its row and prints
+// `DISPATCH: <key> <bundle>` per row, then `NEXT: dispatch <n>`. A set of
+// more than one worktree suffixes each key `-<repository name>`; a
+// --continue key already ending in a survivor's suffix runs that worktree
+// alone.
+func (v *vvp) dispatch(survivors []string, stack string, fingerprints map[string]string) {
+	size := v.setSize
+	if !v.cont {
+		size = len(v.worktrees)
+	}
+	type row struct{ key, w string }
+	var rows []row
+	for _, w := range survivors {
+		if size > 1 && strings.HasSuffix(v.key, "-"+v.repoName(w)) {
+			rows = []row{{v.key, w}}
+			break
+		}
+	}
+	if rows == nil {
+		for _, w := range survivors {
+			k := v.key
+			if size > 1 {
+				k += "-" + v.repoName(w)
+			}
+			rows = append(rows, row{k, w})
+		}
+	}
+	relay := v.relayContract()
+	green := v.greenRows()
+	var stage [][2]string
+	if v.cont {
+		stage = v.readStage()
+	}
+	for _, r := range rows {
+		bundle := v.bundle(r.key, r.w, stack, fingerprints[r.w], relay, green, stage)
+		heads := []string{}
+		for _, w := range append([]string{r.w}, v.siblings[r.w]...) {
+			h, ok := v.git("-C", w, "rev-parse", "HEAD")
+			if !ok {
+				v.die("cannot resolve HEAD in %s", w)
+			}
+			heads = append(heads, h)
+		}
+		argv := []string{"record", "dispatch", "begin", "-C", v.canon, "-change", v.name, "-role", "verifier",
+			"-model", "opus", "-effort", "low", "-key", r.key, "-session-token", v.token, "-diff-base", strings.Join(heads, ",")}
+		if rb := v.roundBase[r.w]; rb != "" {
+			argv = append(argv, "-round-base", rb)
+		}
+		if out, rc := v.flow(argv...); rc != 0 {
+			v.stop("stopped", "row — flow record dispatch begin refused for "+r.key+": "+vvpOneLine(out))
+		}
+		v.appendStage("row " + r.key + " " + r.w)
+		v.say("DISPATCH: %s %s", r.key, bundle)
+	}
+	v.next(fmt.Sprintf("dispatch %d", len(rows)))
+}
+
+// relayContract is skills/flow/visual-verify.md's paragraph opening
+// `**The relay contract.**`, read from the checkout this guard runs from.
+func (v *vvp) relayContract() string {
+	root := v.env.Getenv("FLOW_GUARD_REPO_ROOT")
+	b, err := os.ReadFile(filepath.Join(root, "skills", "flow", "visual-verify.md"))
+	if root == "" || err != nil {
+		v.die("cannot read skills/flow/visual-verify.md under FLOW_GUARD_REPO_ROOT '%s' — run scripts/visual-verify-pass.sh, which sets it", root)
+	}
+	var para []string
+	for _, l := range strings.Split(string(b), "\n") {
+		if len(para) == 0 && !strings.HasPrefix(l, "**The relay contract.**") {
+			continue
+		}
+		if strings.TrimSpace(l) == "" {
+			break
+		}
+		para = append(para, l)
+	}
+	if len(para) == 0 {
+		v.die("skills/flow/visual-verify.md carries no paragraph opening **The relay contract.**")
+	}
+	return strings.Join(para, "\n")
+}
+
+// greenRows is this session's completed or skipped inline verify rows with
+// a recorded HEAD, latest last, as `flow record dispatches` returns them.
+func (v *vvp) greenRows() []struct{ Key, DiffBase string } {
+	raw, err := pfdRead(v.env, v.env.Dispatches, "dispatches", v.name, v.canon)
+	var rows []struct{ Key, Role, SessionToken, Outcome, DiffBase string }
+	if err == nil {
+		err = json.Unmarshal(raw, &rows)
+	}
+	if err != nil {
+		v.die("flow record dispatches failed for '%s'", v.name)
+	}
+	var out []struct{ Key, DiffBase string }
+	for _, r := range rows {
+		if r.Role == "verifier" && r.SessionToken == v.token && (r.Key == "verify" || strings.HasPrefix(r.Key, "verify-")) &&
+			(r.Outcome == "completed" || r.Outcome == "skipped") && r.DiffBase != "" {
+			out = append(out, struct{ Key, DiffBase string }{r.Key, r.DiffBase})
+		}
+	}
+	return out
+}
+
+// bundle writes <w>/.superpowers/sdd/verify-prompt-<key>.md, every line of
+// the verifier's prompt a script can resolve (skills/flow/visual-verify.md,
+// **Steps 3–13**), and returns its path.
+func (v *vvp) bundle(key, w, stack, fp, relay string, green []struct{ Key, DiffBase string }, stage [][2]string) string {
+	sdd := filepath.Join(w, ".superpowers", "sdd")
+	report := filepath.Join(sdd, "verify-report-"+key+".md")
+	changeRoot := filepath.Join(v.canon, specRootLeaf(v.canon, io.Discard), "changes", v.name)
+	cells := v.cells(w)
+	var b strings.Builder
+	line := func(format string, a ...any) { fmt.Fprintf(&b, format+"\n", a...) }
+	line("# Visual verifier bundle — %s", key)
+	line("")
+	line("worktree: %s", w)
+	line("changeRoot: %s", changeRoot)
+	line("verifier steps: %s — run its steps 4 and 8–11 and its motion step as written",
+		filepath.Join(v.env.Getenv("FLOW_GUARD_REPO_ROOT"), "skills", "flow", "visual-verify-verifier.md"))
+	line("")
+	line("## Workspace")
+	line("")
+	if rc, kv, errs := v.guard("prepare-workspace", nil, w); rc != 0 {
+		v.die("prepare-workspace %s: %s", w, errs)
+	} else if kv == "" {
+		line("(no `## workspace isolation` value exported)")
+	} else {
+		line("%s", kv)
+	}
+	line("")
+	line("## Commands")
+	line("")
+	for _, c := range []string{"setup", "capture"} {
+		line("%s: %s", c, vvpOr(cells[c]))
+	}
+	specs := strings.NewReplacer("<frontend-root>", w, "<merge-base>", v.mergeBase[w]).Replace(cells["specs"])
+	line("specs: %s", vvpOr(specs))
+	line("screenshots: %s", vvpOr(cellPath(v.captureRoot(w), cells["screenshots"])))
+	if m := cells["mockups"]; m != "" {
+		line("mockups: %s", cellPath(w, m))
+	}
+	if m := cells["mockup frame"]; m != "" {
+		line("mockup frame: %s", m)
+	}
+	line("")
+	line("## Apps")
+	line("")
+	for _, a := range v.apps[w] {
+		_, u, _ := strings.Cut(a, "=")
+		line("app: %s", u)
+	}
+	line("")
+	line("## Run")
+	line("")
+	line("%s", vvpOr(projectSection(filepath.Join(w, ".flow", "project.md"), "run")))
+	line("")
+	line("## Stack")
+	line("")
+	line("stack: %s", stack)
+	line("fingerprint: %s", fp)
+	verify := "none recorded"
+	for _, g := range green {
+		if vvpResolves(v, w, g.DiffBase) {
+			verify = g.Key + "@" + vgShort(g.DiffBase)
+		}
+	}
+	line("verify: %s", verify)
+	line("")
+	line("## Mockup sources")
+	line("")
+	sources, decoded := v.mockupSources(key, w, changeRoot)
+	if len(sources) == 0 {
+		line("mockup sources: none")
+	} else {
+		line("mockup sources: %s", strings.Join(sources, ", "))
+	}
+	for _, d := range decoded {
+		line("mockup decoded: %s", d)
+	}
+	line("")
+	line("## Relay contract")
+	line("")
+	line("%s", strings.ReplaceAll(relay, "<abs-worktree>/.superpowers/sdd/verify-report-<key>.md", report))
+	if v.cont {
+		v.attempts(&b, key, w, stage)
+	}
+	path := filepath.Join(sdd, "verify-prompt-"+key+".md")
+	if err := os.MkdirAll(sdd, 0o755); err != nil {
+		v.die("cannot write %s: %v", path, err)
+	}
+	if err := os.WriteFile(path, []byte(b.String()), 0o644); err != nil {
+		v.die("cannot write %s: %v", path, err)
+	}
+	return path
+}
+
+func vvpOr(s string) string {
+	if strings.TrimSpace(s) == "" {
+		return "not declared"
+	}
+	return s
+}
+
+func vvpResolves(v *vvp, w, sha string) bool {
+	return envGit(v.env)("-C", w, "cat-file", "-e", sha+"^{commit}").Run() == nil
+}
+
+// attempts adds a remainder's `## Incomplete attempt` — the incomplete
+// report's path and the guard verdict lines `close` recorded for it — or a
+// re-dispatch's `## Previous attempt` — every earlier report of w.
+func (v *vvp) attempts(b *strings.Builder, key, w string, stage [][2]string) {
+	var earlier []string
+	for _, l := range stage {
+		if l[0] != "row" {
+			continue
+		}
+		k, rw, _ := strings.Cut(l[1], " ")
+		if rw == w && k != key {
+			earlier = append(earlier, k)
+		}
+	}
+	report := func(k string) string {
+		return filepath.Join(w, ".superpowers", "sdd", "verify-report-"+k+".md")
+	}
+	switch {
+	case strings.Contains(key, "-rest") && len(earlier) > 0:
+		prev := earlier[len(earlier)-1]
+		fmt.Fprintf(b, "\n## Incomplete attempt\n\nreport: %s\n", report(prev))
+		for _, l := range stage {
+			if k, verdict, _ := strings.Cut(l[1], " "); l[0] == "verdict" && k == prev {
+				fmt.Fprintf(b, "%s\n", verdict)
+			}
+		}
+	case vvpRedispatch.MatchString(key) && len(earlier) > 0:
+		b.WriteString("\n## Previous attempt\n\n")
+		for _, k := range earlier {
+			fmt.Fprintf(b, "report: %s\n", report(k))
+		}
+	}
+}
+
+// mockupSources is every HTML or CSS path design.md cites that exists in
+// the canonical worktree, and a `<src> → <dir>` line per bundled page
+// decoded into <w>/.superpowers/sdd/verify-mockup-<key>/.
+func (v *vvp) mockupSources(key, w, changeRoot string) ([]string, []string) {
+	body, err := os.ReadFile(filepath.Join(changeRoot, "design.md"))
+	if err != nil {
+		return nil, nil
+	}
+	var sources, decoded []string
+	seen := map[string]bool{}
+	for _, m := range vrMockupSource.FindAllStringSubmatch(string(body), -1) {
+		p := filepath.Join(v.canon, m[1])
+		if seen[m[1]] || !isFile(p) {
+			continue
+		}
+		seen[m[1]] = true
+		sources = append(sources, m[1])
+		page, err := os.ReadFile(p)
+		if err != nil || !bytes.Contains(page, []byte(`<script type="__bundler/template">`)) {
+			continue
+		}
+		dir := filepath.Join(w, ".superpowers", "sdd", "verify-mockup-"+key)
+		if err := vvpDecode(page, dir); err != nil {
+			v.die("cannot decode the bundled page %s: %v", p, err)
+		}
+		decoded = append(decoded, m[1]+" → "+dir)
+	}
+	return sources, decoded
+}
+
+var vvpBundler = regexp.MustCompile(`(?s)<script type="__bundler/(template|manifest)">\s*(.*?)\s*</script>`)
+
+// vvpDecode writes a bundled page's template as dir/index.html and each
+// manifest entry beside it, gzip-decompressed when `compressed`.
+func vvpDecode(page []byte, dir string) error {
+	parts := map[string][]byte{}
+	for _, m := range vvpBundler.FindAllSubmatch(page, -1) {
+		parts[string(m[1])] = m[2]
+	}
+	var tmpl string
+	if err := json.Unmarshal(parts["template"], &tmpl); err != nil {
+		return fmt.Errorf("template: %w", err)
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte(tmpl), 0o644); err != nil {
+		return err
+	}
+	if parts["manifest"] == nil {
+		return nil
+	}
+	var manifest map[string]struct {
+		Data       string `json:"data"`
+		Compressed bool   `json:"compressed"`
+	}
+	if err := json.Unmarshal(parts["manifest"], &manifest); err != nil {
+		return fmt.Errorf("manifest: %w", err)
+	}
+	for name, e := range manifest {
+		if !filepath.IsLocal(name) {
+			return fmt.Errorf("manifest entry %q leaves the directory", name)
+		}
+		data, err := base64.StdEncoding.DecodeString(e.Data)
+		if err != nil {
+			return fmt.Errorf("%s: %w", name, err)
+		}
+		if e.Compressed {
+			zr, err := gzip.NewReader(bytes.NewReader(data))
+			if err != nil {
+				return fmt.Errorf("%s: %w", name, err)
+			}
+			if data, err = io.ReadAll(zr); err != nil {
+				return fmt.Errorf("%s: %w", name, err)
+			}
+		}
+		out := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(out, data, 0o644); err != nil {
+			return err
+		}
+	}
+	return nil
 }

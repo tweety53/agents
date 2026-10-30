@@ -34,6 +34,8 @@ type vvp struct {
 	mergeBase, since, roundBase      map[string]string // by worktree
 	apps                             map[string][]string
 	miss, cont, started              bool
+	siblings                         map[string][]string // a worktree's siblings whose diff its `ui paths` matched
+	setSize                          int
 
 	stageOpen bool
 }
@@ -232,7 +234,7 @@ func (v *vvp) repoName(w string) string {
 //	token <session token>
 //	begin <RFC 3339 instant>
 //	set <worktrees in the resolved set>
-//	worktree <path> <repository name> <merge base> <round base or ->
+//	worktree <path> <repository name> <merge base> <round base or ->[ <sibling>,…]
 //	row <key> <worktree>
 //	verdict <key> <guard verdict line>
 func (v *vvp) stagePath() string {
@@ -247,7 +249,11 @@ func (v *vvp) writeStage(survivors []string) {
 		if rb == "" {
 			rb = "-"
 		}
-		fmt.Fprintf(&b, "worktree %s %s %s %s\n", w, v.repoName(w), v.mergeBase[w], rb)
+		fmt.Fprintf(&b, "worktree %s %s %s %s", w, v.repoName(w), v.mergeBase[w], rb)
+		if sib := v.siblings[w]; len(sib) > 0 {
+			fmt.Fprintf(&b, " %s", strings.Join(sib, ","))
+		}
+		b.WriteString("\n")
 	}
 	if err := os.MkdirAll(filepath.Dir(v.stagePath()), 0o755); err != nil {
 		v.die("cannot write the stage file: %v", err)
