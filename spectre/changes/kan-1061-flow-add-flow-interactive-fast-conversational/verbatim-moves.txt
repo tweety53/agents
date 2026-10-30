@@ -1,1 +1,158 @@
 # New run-loaded text this change means: the /flow-interactive skill and command file, and its registration in skills/README.md and the Jira and pipeline contracts (KAN-1061). Each task that writes run-loaded prose reports its check-verbatim-moves.sh FAIL lines, exactly as printed after "::", and the parent appends them here before that task closes.
+## Explicit stop
+## One request
+## Request-end guard
+## Session start
+**2. Brainstorm, rarely** — only when the request needs a new table, endpoint or layout, spans more than one module, or two readings lead to materially different work.
+**3. Implement.
+**4. Verify.
+**6. Reinstall.
+**7. UI check**, when `check-visual-trigger.sh <worktree>` matches the request's diff (`git diff --name-only <base>..HEAD` on its stdin): open the live page — the link the operator gave, else the URL `## run` serves, by the app's own run-view route, keyed by the project key and `<name>`, never a display name — `location.reload()`, screenshot, and read the screenshot against the ask.
+**Announce at start:** "Using flow-interactive for change `<name>`."
+**Cleanup**: the tree clean and `git -C <worktree> merge-base --is-ancestor <name> origin/<base>` passing, then `git -C <project> worktree remove <project>-worktrees/<name>` without `--force`, `git -C <project> branch -D <name>` and `git -C <project> push origin --delete <name>`.
+**Hook registrations.
+**Input:** empty, a first request, a Jira key, or the name of an open interactive session, from `$ARGUMENTS` or the conversation — and nothing else.
+**Landing route.
+**When done:** type the next request, or tell the session to stop.
+A **mid-turn message** is recorded as the next request at once and worked, in the same turn, after the in-flight one ends — never a stop.
+A `ui paths` match (exit 0) requires the request's latest `/flow-interactive` `flow.visual-verify` stage run, by start, to have ended `completed`.
+A defect ends it `-outcome failed`, and is a fix commit and steps 4–7 again inside the same request.
+A key or name matching an open `/flow-interactive` change resumes it (**Resume**, below); one matching a finished change ends the run with one line saying so.
+A key or name of an open session resumes it.
+A message that changes the in-flight request's own ask is applied to that request instead.
+A non-fast-forward rejection fetches, rebases, re-runs step 4 and pushes again; any other rejection leaves the request open and the session says why (⛔ blocked).
+A pass ends the stage run `-outcome completed`.
+A refusal is fixed — land the commit, run the UI check and end it `completed` — and the end re-run, never worked around.
+A resumed request whose base was never noted passes the parent of its earliest commit found on `origin/<base>`, or any older ancestor: a wider range can only demand a UI check, never skip one.
+A skipped pull is one line; on a request step 7 would check, the request stays open (⛔ blocked), since the live page cannot show the landed code.
+A turn ends when the queue is empty.
+Absent (exit 1), malformed (exit 3) or any other value ends the run with one line naming `## default landing route` as the section to declare, and so does `project-get.sh <project> handoff --enum required none` resolving `required` — that project asks to test before anything lands.
+Any missing gets one line naming them and `<agents repo>/setup.sh global`, which prints each registration snippet.
+Anything else starts a new session, a non-empty argument being its first request.
+Each request is a row the store keeps (`flow record request`), and every stage run made for it carries its request number (`-request <n>`).
+Each request is looked at live, implemented test-first, verified with the project's lint and targeted tests, landed by merge and push, reinstalled and, when it touches ui paths, checked on the live page; an explicit stop runs one self-review pass, cleanup and FINISHED.
+Every **One request** stage is a `flow stage begin … -request <n>` / `flow stage end` pair; the stop's stages carry no `-request`.
+Every Jira failure is the one `⚠ Jira: skipped — <reason>` line of **Never blocking**.
+Every landed request is already on the base branch; nothing further to merge.
+Every operator message that asks for something is a request — a question included ("why don't I see X") — recorded at once, `<n>` one past the highest recorded:
+Every request is recorded in flowd; no spectre artifacts or state file.
+Every stage `/flow-interactive` marks uses a `flow.
+Exit 1, or exit 2 with `VISUAL-TRIGGER-NOT-CONFIGURED`, requires nothing.
+Exit 2 with `VISUAL-TRIGGER-CANNOT-ANSWER` refuses, quoting its cause.
+Exit codes, those of every record verb: 0 written or journalled; 1 refused, one line naming the failed check; 2 usage.
+Grep the harness's hook config for every identifier `<agents repo>/setup.sh`'s `warn_unregistered_hook` checks for that harness (on Claude Code: `enforce-agent-baseline`, `enforce-loop-dispatch`, `flow-active-change`, `flow-session-activity`, `flow-stop-guard`, `protect-main-checkout` in `~/.claude/settings.json`).
+Its fix commits and its report land on `<name>`, the report through the landing chain:
+Move it to **In Progress** per **Transitions** there.
+Move the change to `FINISHED`:
+Never answer from code alone.
+Never edit that file, ask nothing about it, and continue.
+Never push to a branch other than `<name>` and `<name>:<base>`.
+Never set up workspace isolation.
+Never write `<project>/spectre/`, save those passes' own `self-review-<name>` and `pipeline-fix-<name>-<k>` changes, or a state file.
+No learning note is composed.
+No spectre artifacts and no state file.
+On the request's first landing, note `git -C <worktree> rev-parse origin/<base>` right after this rebase: it is the request's **base**, the parent of its first landed commit.
+One `/flow-interactive` invocation is one **session**: one store change, one Jira issue, one git worktree, and a stream of **requests**, each shipped to the base branch on its own.
+One invocation is one session: one change, one Jira issue and one worktree, and a stream of requests this session works inline, each recorded in flowd, landed on the base branch by merge and push and reinstalled before the next.
+Only a message whose intent is to end the session; anything that could also be a request is kept as a request and the session stays open, saying so in one line.
+Outside a brainstorm, a question carrying a recommended option is taken, never asked (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`).
+Push with `git -C <worktree> push origin <name>:<base>` as its own git-only call.
+Read `<project>/.flow/project.md`'s `## lint`, `## test`, `## visual verification` and `## run` once, with `project-get.sh <project> <key>`.
+Steps 4–6 of **One request** land those commits, their stage runs with no `-request`.
+The base is the branch `origin/HEAD` names; from the worktree's creation on, `<base>` is what `resolve-base-branch.sh <worktree>` prints.
+The full key list, in the order each section below marks them:
+The in-flight request lands (unless the stop drops it); queued requests not started end `dropped` and are listed in the stop report.
+The live state behind what the operator saw first — the rows the page reads, the page itself, the log — then the code.
+The main checkout is never checked out, staged, committed or written.
+The only argument is empty, a first request, a Jira key, or the exact name of an open interactive change; report anything else rather than ignoring it.
+The project's instruction file is already in this session's context; never read it here.
+The request never lands red.
+The session marks existing `flow.
+The stop report carries `**Learning:** NONE — /flow-interactive composes no note` and the `**Prompt tuning:**` line the self-review pass leaves.
+The worktree is the checkout carrying `<changeRoot>` — its first carrying linked worktree, else the main checkout when it carries it; none is refused.
+Then `mkdir -p <changeRoot>`, where `<changeRoot>` is `<project>-worktrees/<name>/.superpowers/sdd/<name>/`: the record verbs find the change's checkout by that directory, and it holds the session's edit scripts.
+Then a short report carrying neither `**Learning:**` nor `**Prompt tuning:**`.
+Then fetch, and `git -C <worktree> merge-base --is-ancestor HEAD origin/<base>` must pass before anything else runs.
+This session does the work inline: no review panel per request, no spectre artifacts, no plan file, no decision roll, no state file, and no workspace isolation beyond the worktree.
+Use for /flow-interactive.
+Use the **flow-interactive** skill — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
+With the store unreachable, checks 1–3's git work still runs; the stage-run read is skipped with one `⚠` line, and the write is journalled like every record verb.
+`-commit` and `-base` are required with `landed` and refused with `answered` and `dropped`; an `-outcome` outside the three is a usage error.
+`-commit` must be an ancestor of `origin/<base>` — the local ref a successful push updates — and `-base` an ancestor of `-commit`.
+`/flow-interactive <key or name>` on an open session reuses its worktree — recreated from the remote branch, else `origin/<base>`, when gone — marks `flow.kickoff` under a new token, continues numbering after the highest recorded request, and takes an open request from the dead session as the current one: its stages re-run as new attempts under the same number.
+`<agents repo>/scripts/run-verify-list.sh <worktree> lint`, the `## test` commands scoped to the packages and files the request touched, and `check-fast-route-record.sh <worktree> <base>` — as section 5 of `/flow-fast` states them.
+`<base>` is what the `resolve-base-branch` guard prints for it.
+`<lowercased key>-<slug>` per **Change naming**; with no issue, `interactive-<YYYYMMDD-HHMM>` (UTC).
+`<n>` is the request's number in the session.
+`flow record request end -outcome landed` checks, in-process and before the write:
+`flow self-review bundle -change <name>` renders the session's requests in number order as its git-log source.
+`git -C <project> pull --ff-only` when the main checkout is on `<base>` and clean, then the reinstall the project's instruction file requires after a landing, each command its own call with its exit code checked; a failed one is re-run once, and a service it restarts must answer before anything reads it.
+`git diff --name-only <base>..<commit>` is fed to the `check-visual-trigger` guard against the worktree's checkout of `<project>/.flow/project.md`.
+`landed` runs the **Request-end guard**, below.
+`project-get.sh <project> "default landing route" --enum "pull request" "merge and push" manual` must resolve `merge and push`.
+flow record request begin -change <name> -n <n> -brainstorm-reason '<why>'
+flow record request begin -change <name> -n <n> -title '<one line>'
+flow record request end -change <name> -n <n> -outcome answered
+flow record request end -change <name> -n <n> -outcome dropped
+flow record request end -change <name> -n <n> -outcome landed -commit <last landed sha> -base <base sha>
+flow stage begin -command '/flow-interactive' -stage flow.brainstorm -request <n> -harness <harness> -session-token fi-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.cleanup -harness <harness> -session-token fi-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.landing-routes -request <n> -harness <harness> -session-token fi-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.load-context -request <n> -harness <harness> -session-token fi-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.refresh-main-checkout -request <n> -harness <harness> -session-token fi-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.sdd-tdd -request <n> -harness <harness> -session-token fi-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.self-review -harness <harness> -session-token fi-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> -harness <harness> -session-token fi-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.visual-verify -request <n> -harness <harness> -session-token fi-<literal-token> <name>
+flow stage end -command '/flow-interactive' -stage flow.brainstorm -outcome completed <name>
+flow stage end -command '/flow-interactive' -stage flow.cleanup -outcome completed <name>
+flow stage end -command '/flow-interactive' -stage flow.landing-routes -outcome completed <name>
+flow stage end -command '/flow-interactive' -stage flow.load-context -outcome completed <name>
+flow stage end -command '/flow-interactive' -stage flow.refresh-main-checkout -outcome completed <name>
+flow stage end -command '/flow-interactive' -stage flow.sdd-tdd -outcome completed <name>
+flow stage end -command '/flow-interactive' -stage flow.self-review -outcome completed <name>
+flow stage end -command '/flow-interactive' -stage flow.verify -outcome completed <name>
+flow stage end -command '/flow-interactive' -stage flow.visual-verify -outcome completed|failed <name>
+flow stage mark -command '/flow-interactive' -stages flow.kickoff -harness <harness> -session-token fi-<literal-token> <name>
+flow stage mark -command '/flow-interactive' -stages flow.write-finished -harness <harness> -session-token fi-<literal-token> <name>
+key — the same keys `/flow` marks.
+model: opus description: Conversational /flow session — each request the operator types is implemented inline, verified, landed by merge and push and, for UI, checked on the live page, until an explicit stop self-reviews, cleans up and finishes
+name: flow-interactive description: Conversational /flow session — one invocation is one change, one Jira issue and one worktree, and a stream of requests worked inline.
+stage keys, so labels, phases, cost by stage and the timeline read as they do for `/flow` and `/flow-fast`.
+| **Explicit stop** | `flow.self-review`, `flow.cleanup`, `flow.write-finished` |
+| **One request** | `flow.load-context`, `flow.brainstorm`, `flow.sdd-tdd`, `flow.verify`, `flow.landing-routes`, `flow.refresh-main-checkout`, `flow.visual-verify` |
+| **Session start** | `flow.kickoff` |
+(deleted or reworded) One command, `/flow`, drives the whole pipeline, plus one read-only command (`/flow-status`), one that creates a change at `STARTED` and stops there (`/flow-plan`), one minimal-ceremony variant that writes no state file (`/flow-fast`) and two standalone, non-pipeline commands (`/flow-settings`, `/flow-self-review`).
+(deleted or reworded) Only a run that creates a change — `/flow`'s creating run, a `/flow-plan` capture or a `/flow-fast` run — resolves a key, and it follows this contract exactly.
+(deleted or reworded) The only argument is the optional change name — see **Change name resolution** — or, on `/flow` and `/flow-fast`, a description or Jira key seeding a new change; on `/flow-plan`, a topic; on `/flow`, fix instructions at `IN_PROGRESS`.
+(deleted or reworded) `/flow`'s creating run and `/flow`'s implement phase are the only commands that write the issue description, and only when **the user added scope during that run** that is not already in the issue.
+(new run-loaded text (paraphrase?)) **A `/flow-interactive` session start with no key in its arguments** files one the same way, unasked, its summary `Interactive session <YYYY-MM-DD>` — unless the argument declines an issue ("no jira"), which resolves `jiraIssue: null` with no ask.
+(new run-loaded text (paraphrase?)) **A `/flow-interactive` stop appends a `## Session summary` section** at the end of the description — one line per request: its number, title, outcome and landed commit — under the pre-write assertion below.
+(new run-loaded text (paraphrase?)) Every request is recorded in flowd; no spectre artifacts or state file |
+(new run-loaded text (paraphrase?)) One command, `/flow`, drives the whole pipeline, plus one read-only command (`/flow-status`), one that creates a change at `STARTED` and stops there (`/flow-plan`), one minimal-ceremony variant that writes no state file (`/flow-fast`), one conversational session that lands each request as it goes and writes no state file (`/flow-interactive`) and two standalone, non-pipeline commands (`/flow-settings`, `/flow-self-review`).
+(new run-loaded text (paraphrase?)) Only a run that creates a change — `/flow`'s creating run, a `/flow-plan` capture, a `/flow-fast` run or a `/flow-interactive` session start — resolves a key, and it follows this contract exactly.
+(new run-loaded text (paraphrase?)) The only argument is the optional change name — see **Change name resolution** — or, on `/flow` and `/flow-fast`, a description or Jira key seeding a new change; on `/flow-interactive`, a first request, a Jira key or an open session's name; on `/flow-plan`, a topic; on `/flow`, fix instructions at `IN_PROGRESS`.
+(new run-loaded text (paraphrase?)) `/flow`'s creating run and `/flow`'s implement phase are the only commands that write the issue description — save a `/flow-interactive` stop's session summary, below — and only when **the user added scope during that run** that is not already in the issue.
+(new run-loaded text (paraphrase?)) | `/flow-interactive [key or name]` | `flow-interactive` | Conversational session: one invocation is one change, one Jira issue and one worktree, and a stream of requests the main session works inline — each looked at live, implemented test-first, verified with the project's lint and targeted tests, landed by merge and push, reinstalled and, when it touches `ui paths`, checked on the live page — until an explicit stop runs one self-review pass, cleanup and `FINISHED`.
+(new run-loaded text (paraphrase?)) | `/flow-interactive` | session start, immediately after the key resolves | **In Progress** |
+(new run-loaded text (paraphrase?)) | `/flow-interactive` | the explicit stop, after cleanup | **Done** |
+(new run-loaded text (paraphrase?)) ├── flow-interactive/ ← /flow-interactive (a conversational session landing each request)
+One command, `/flow`, drives the whole pipeline, plus one read-only command (`/flow-status`), one that creates a change at `STARTED` and stops there (`/flow-plan`), one minimal-ceremony variant that writes no state file (`/flow-fast`) and two standalone, non-pipeline commands (`/flow-settings`, `/flow-self-review`).
+Only a run that creates a change — `/flow`'s creating run, a `/flow-plan` capture or a `/flow-fast` run — resolves a key, and it follows this contract exactly.
+The only argument is the optional change name — see **Change name resolution** — or, on `/flow` and `/flow-fast`, a description or Jira key seeding a new change; on `/flow-plan`, a topic; on `/flow`, fix instructions at `IN_PROGRESS`.
+`/flow`'s creating run and `/flow`'s implement phase are the only commands that write the issue description, and only when **the user added scope during that run** that is not already in the issue.
+\## Explicit stop
+\## One request
+\## Request-end guard
+\## Session start
+**A `/flow-interactive` session start with no key in its arguments** files one the same way, unasked, its summary `Interactive session <YYYY-MM-DD>` — unless the argument declines an issue ("no jira"), which resolves `jiraIssue: null` with no ask.
+**A `/flow-interactive` stop appends a `## Session summary` section** at the end of the description — one line per request: its number, title, outcome and landed commit — under the pre-write assertion below.
+Every request is recorded in flowd; no spectre artifacts or state file |
+One command, `/flow`, drives the whole pipeline, plus one read-only command (`/flow-status`), one that creates a change at `STARTED` and stops there (`/flow-plan`), one minimal-ceremony variant that writes no state file (`/flow-fast`), one conversational session that lands each request as it goes and writes no state file (`/flow-interactive`) and two standalone, non-pipeline commands (`/flow-settings`, `/flow-self-review`).
+Only a run that creates a change — `/flow`'s creating run, a `/flow-plan` capture, a `/flow-fast` run or a `/flow-interactive` session start — resolves a key, and it follows this contract exactly.
+The only argument is the optional change name — see **Change name resolution** — or, on `/flow` and `/flow-fast`, a description or Jira key seeding a new change; on `/flow-interactive`, a first request, a Jira key or an open session's name; on `/flow-plan`, a topic; on `/flow`, fix instructions at `IN_PROGRESS`.
+`/flow`'s creating run and `/flow`'s implement phase are the only commands that write the issue description — save a `/flow-interactive` stop's session summary, below — and only when **the user added scope during that run** that is not already in the issue.
+| `/flow-interactive [key or name]` | `flow-interactive` | Conversational session: one invocation is one change, one Jira issue and one worktree, and a stream of requests the main session works inline — each looked at live, implemented test-first, verified with the project's lint and targeted tests, landed by merge and push, reinstalled and, when it touches `ui paths`, checked on the live page — until an explicit stop runs one self-review pass, cleanup and `FINISHED`.
+| `/flow-interactive` | session start, immediately after the key resolves | **In Progress** |
+| `/flow-interactive` | the explicit stop, after cleanup | **Done** |
+├── flow-interactive/ ← /flow-interactive (a conversational session landing each request)
