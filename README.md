@@ -49,6 +49,7 @@ asked. No command takes a flag.
 |---------|--------------|
 | `/flow <name>` | The whole pipeline, one command, re-entrant — see below |
 | `/flow-fast <name>` | Lighter variant: worktree, class-decided implementation and panel, lint + targeted tests, default landing route, cleanup. No spectre artifacts or state file |
+| `/flow-interactive [key or name]` | Conversational session: each request the operator types is implemented inline, verified, landed by merge and push and, for UI, checked on the live page; an explicit stop self-reviews, cleans up and finishes. No spectre artifacts or state file |
 | `/flow-plan` | Thinking-partner mode, no implementation; a captured session creates the change at `STARTED` |
 | `/flow-status [name]` | Read-only report of every open change |
 | `/flow-settings` | Global reviewer slots |

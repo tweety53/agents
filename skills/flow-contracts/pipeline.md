@@ -55,12 +55,14 @@ finishing — integration is not a stage, it is the first half of finishing.
 
 One command, `/flow`, drives the whole pipeline, plus one read-only command (`/flow-status`),
 one that creates a change at `STARTED` and stops there (`/flow-plan`), one minimal-ceremony
-variant that writes no state file (`/flow-fast`) and two standalone, non-pipeline commands
-(`/flow-settings`, `/flow-self-review`). **No command accepts
+variant that writes no state file (`/flow-fast`), one conversational session that lands each
+request as it goes and writes no state file (`/flow-interactive`) and two standalone,
+non-pipeline commands (`/flow-settings`, `/flow-self-review`). **No command accepts
 a flag**, save one: `--base <branch>` on a run that creates a change — `/flow`, `/flow-plan`,
 `/flow-fast` — names the branch it is cut from and lands on, in place of the one `origin/HEAD`
 points at (`skills/flow/SKILL.md`). The only argument is the optional change name — see **Change name resolution** — or,
-on `/flow` and `/flow-fast`, a description or Jira key seeding a new change; on `/flow-plan`, a
+on `/flow` and `/flow-fast`, a description or Jira key seeding a new change; on
+`/flow-interactive`, a first request, a Jira key or an open session's name; on `/flow-plan`, a
 topic; on `/flow`, fix instructions at `IN_PROGRESS`.
 
 An argument that is none of those is **reported**, not silently ignored.

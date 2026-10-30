@@ -24,8 +24,8 @@ The run that creates a change resolves it; every other command carries it forwar
 
 ### Resolution (how `jiraIssue` is decided)
 
-Only a run that creates a change — `/flow`'s creating run, a `/flow-plan` capture or a `/flow-fast`
-run — resolves a key, and it follows this contract exactly.
+Only a run that creates a change — `/flow`'s creating run, a `/flow-plan` capture, a `/flow-fast`
+run or a `/flow-interactive` session start — resolves a key, and it follows this contract exactly.
 
 - **No Atlassian tooling available** in the session **and** no `## jira` section in
   `<project>/.flow/project.md` → resolve `jiraIssue: null` **silently**, ask nothing, and report exactly one
@@ -51,6 +51,9 @@ discarded too.
   stop: the run continues into the In Progress transition and planning (kan-1040: a run filed the
   issue and ended its turn). A failed create is one `⚠ Jira: skipped — <reason>` line and resolves
   as no hit.
+- **A `/flow-interactive` session start with no key in its arguments** files one the same way,
+  unasked, its summary `Interactive session <YYYY-MM-DD>` — unless the argument declines an issue
+  ("no jira"), which resolves `jiraIssue: null` with no ask.
 - **Every other hit requires explicit confirmation.** A key seen in conversation prose, a pasted log
   line, a code comment, or a remark like "same as we did in PROJ-412" is a candidate only. Fetch it
   (`getJiraIssue`) and **AskUserQuestion** before writing `jiraIssue`, showing the **key, summary,
@@ -92,6 +95,8 @@ placeholder.
 | `/flow`'s creating run | start of the run, immediately after the key resolves | **In Progress** |
 | bare `/flow` | run 1, after the chosen route completes — every route | **In Review** |
 | bare `/flow` | run 2, after the `FINISHED` state write | **Done** |
+| `/flow-interactive` | session start, immediately after the key resolves | **In Progress** |
+| `/flow-interactive` | the explicit stop, after cleanup | **Done** |
 
 No other command transitions the issue.
 
@@ -170,7 +175,7 @@ On success, report it just as briefly, e.g. `Jira: KAN-7 → In Progress` or
 ### Description sync
 
 `/flow`'s creating run and `/flow`'s implement phase are the only commands that write the
-issue description, and only when **the user added scope during that run** that is not already in
+issue description — save a `/flow-interactive` stop's session summary, below — and only when **the user added scope during that run** that is not already in
 the issue. In that case, `editJiraIssue` appends a dated bullet under an
 `## Added during implementation` heading (creating the heading once, at the end of the description,
 if it is absent):
@@ -183,6 +188,10 @@ if it is absent):
 
 **Append only.** Everything preceding that heading is left byte-for-byte unchanged, and earlier
 bullets under it are retained. A run in which the user added no scope writes nothing.
+
+**A `/flow-interactive` stop appends a `## Session summary` section** at the end of the
+description — one line per request: its number, title, outcome and landed commit — under the
+pre-write assertion below.
 
 **Pre-write assertion — mandatory, and the whole mechanism of "append only".** `editJiraIssue`
 **replaces the entire description field**; the append is you re-emitting the prior text plus one
