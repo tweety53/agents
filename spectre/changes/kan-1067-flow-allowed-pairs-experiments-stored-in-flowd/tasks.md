@@ -283,3 +283,16 @@ Correction (2026-10-30): the snapshot globs named the PNGs the recapture moved �
 **After:** Task 7, 8, 15
 
 Correction (2026-10-30): no full-app-suite capture moved, so the rebuilt `full-app-suite.zip` was unchanged and is not this task's file.
+
+- [ ] 17. In-run fix 4 — flow.visual-verify: a mean-after line with no before mean drawn as worse
+  - [ ] **Step 1: Write the probe.** In `stats/web/src/views/views.test.tsx`'s `Experiments` cases: a metric with an after mean and no before mean draws its chart's mean-after line stroked `var(--text-muted)`. Run `cd stats/web && npx vitest run src/views/views.test.tsx -t 'Experiments'` — fails.
+  - [ ] **Step 2: Fix.** `stats/web/src/views/Experiments.tsx` `Chart`: with no before mean the mean-after line takes `var(--text-muted)`, as the stat cell already drops its delta with no before (the prototype draws no missing-before case; the neutral reading is the recommended one).
+  - [ ] **Step 3: Recapture and verify.** Capture `tests/visual/experiments.spec.ts`, read the changed PNG, run `npm run test:visual`, rewrite `visual-verification.md`'s departure B section. `npx tsc -b`, the vitest file and the capture exit 0. Commit.
+
+**Build:** green
+**Files:** `stats/web/src/views/Experiments.tsx`, `stats/web/src/views/views.test.tsx`, `stats/web/tests/visual/experiments.spec.ts-snapshots/experiments-closed-darwin.png`, `spectre/changes/kan-1067-flow-allowed-pairs-experiments-stored-in-flowd/visual-verification.md`
+**Allowed-collateral:** `stats/web/tests/visual/experiments.spec.ts-snapshots/*.png`, `stats/web/tests/visual/full-app-suite.spec.ts-snapshots/*.png`, `stats/web/tests/visual/full-app-suite.zip`
+**Tests:** the Step 1 probe in `stats/web/src/views/views.test.tsx`
+**Regression:** the probe fails when a mean-after line with no before mean takes a delta colour.
+**Commit:** fix(web): draw a mean-after line with no before mean as neutral
+**After:** Task 16

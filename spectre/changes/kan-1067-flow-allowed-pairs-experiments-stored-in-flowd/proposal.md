@@ -28,3 +28,7 @@
 ## In-run fix 3 — flow.visual-verify
 
 - The scoped re-run found an unchanged metric (before = after) drawn as an improvement in its stat panel and as a regression by its mean-after line. Task 16 draws it neutral; the prototype draws no equal case.
+
+## In-run fix 4 — flow.visual-verify
+
+- The scoped re-run found a mean-after line drawn red ("worse") where the metric has no before mean. Task 17 draws it muted, as the stat cell already drops its delta without a before.
