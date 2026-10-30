@@ -896,8 +896,8 @@ the plan did not name — the parent appends a paragraph opening `Correction (YY
 that task's entry in `tasks.md`, at the task-close boundary where the task's other corrections
 are transcribed (before the guard runs on the commit), stating what the plan declared, what
 shipped instead, and why. The disclosure route is the same as any correction's: the implementer
-reports the deviation, the parent transcribes it; inline, the session is both halves. A `Correction:` paragraph is plan prose `check-plan-provenance.sh` reads: run that guard when
-transcribing it, and give each numeric claim its `measured:` comment or word it without a count
+reports the deviation, the parent transcribes it; inline, the session is both halves. A `Correction:` paragraph is plan prose the plan-provenance guard reads.
+Run `check-plan-provenance.sh` when transcribing it, and give each numeric claim its `measured:` comment or word it without a count
 (kan-1020: a bare count in a Correction was refused only at verify). Once a `Correction:`
 paragraph is transcribed, the parent runs `flow tasks count -C <worktree> <change>`, which
 records the plan's correction count beside its task count — the plan-corrections metric

@@ -40,7 +40,9 @@
 #
 # The default root is resolved here. The Python guard took REPO_ROOT from
 # its own file's location; flow-guard runs from a build cache, so this shim
-# resolves the checkout from its own location instead and hands it over in
+# resolves the checkout through flow_guard_root instead — a call through a
+# skill's scripts/ symlink answers the repository, never the skill
+# directory — and hands it over in
 # CHECK_PLAN_PROVENANCE_ROOT, only when that is unset — an explicit value,
 # empty included, reaches the guard untouched.
 set -euo pipefail
@@ -49,7 +51,7 @@ set -euo pipefail
   exit 2
 }
 flow_guard_cwd_checkout "${BASH_SOURCE[0]}" "$@"
-root="$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)" || {
+root="$(flow_guard_root)" || {
   echo "check-plan-provenance: cannot resolve the checkout beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }
