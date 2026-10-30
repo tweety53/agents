@@ -161,7 +161,8 @@ func runRecordRequestEnd(ctx context.Context, args []string, stdout, stderr io.W
 // origin/<base> and base an ancestor of commit, the request's latest
 // /flow-interactive flow.verify run ended completed, and -- when
 // check-visual-trigger matches base..commit's files -- its latest
-// flow.visual-verify run ended completed. A store that cannot be reached
+// flow.visual-verify run ended completed, at least one second after it
+// began. A store that cannot be reached
 // skips both stage-run reads, with one ⚠ line. 0 passes; 1
 // refuses with one line naming the failed check.
 func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey string, n int, commit, base string, stderr io.Writer) int {
@@ -245,6 +246,18 @@ func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey st
 		return refuse("request %d touched `ui paths` and has no UI check (flow.visual-verify run carrying -request %d)", n, n)
 	case latest.Outcome == nil || *latest.Outcome != stages.OutcomeCompleted:
 		return refuse("request %d's latest UI check (flow.visual-verify) is %s, not completed — fix, re-check and end it completed", n, runOutcome(latest))
+	}
+	ended := ""
+	if latest.EndedAt != nil {
+		ended = *latest.EndedAt
+	}
+	endAt, err := time.Parse(time.RFC3339Nano, ended)
+	if err != nil {
+		return refuse("request %d's latest UI check (flow.visual-verify) carries an unreadable endedAt %q", n, ended)
+	}
+	startAt, _ := time.Parse(time.RFC3339Nano, latest.StartedAt) // parsed by latestRequestRun
+	if took := endAt.Sub(startAt); took < time.Second {
+		return refuse("request %d's latest UI check (flow.visual-verify) ended %s after its begin — a chained mark (step 7); end it after the screenshot is read", n, took)
 	}
 	return 0
 }

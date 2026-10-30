@@ -609,6 +609,8 @@ type StageRunRow struct {
 	// (KAN-1061's request-end guard).
 	Request   *int   `json:"request,omitempty"`
 	StartedAt string `json:"startedAt"`
+	// EndedAt lets the request-end guard refuse a chained UI check.
+	EndedAt *string `json:"endedAt,omitempty"`
 }
 
 // ListStageRuns reads a change's stage runs of one command and stage

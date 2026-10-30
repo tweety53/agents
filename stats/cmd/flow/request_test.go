@@ -244,7 +244,7 @@ func TestRecordRequestEndLandedGuard(t *testing.T) {
 			t.Errorf("a refused end reached the daemon with %d write(s)", n)
 		}
 	}
-	const vv = `{"stageRunId":%d,"command":"/flow-interactive","stage":"flow.visual-verify","request":%d,"startedAt":%q,"outcome":%q}`
+	const vv = `{"stageRunId":%d,"command":"/flow-interactive","stage":"flow.visual-verify","request":%d,"startedAt":%q,"endedAt":"2026-10-30T11:00:00Z","outcome":%q}`
 	// runs carries request 3's completed verify run beside rows, so each
 	// case reaches the UI check.
 	runs := func(rows ...string) string {
@@ -437,4 +437,31 @@ func TestRecordRequestEndLandedNeedsVerify(t *testing.T) {
 			}
 		}
 	})
+}
+
+// TestRecordRequestEndRefusesChainedUICheck pins the chained-mark half of
+// the Request-end guard: a completed UI check that ended under one second
+// after it began is refused.
+func TestRecordRequestEndRefusesChainedUICheck(t *testing.T) {
+	fx := newRequestFixture(t)
+	docs := fx.commit(t, "docs/a.md", true)
+	ui := fx.commit(t, "web/x.ts", true)
+
+	d := &requestDaemon{}
+	srv := httptest.NewServer(d.handler(t))
+	defer srv.Close()
+	const verify = `{"stageRunId":1,"command":"/flow-interactive","stage":"flow.verify","request":3,"startedAt":"2026-10-30T10:00:00Z","endedAt":"2026-10-30T10:01:00Z","outcome":"completed"}`
+	end := func(ended string) (int, string) {
+		t.Helper()
+		d.reset()
+		d.runs = "[" + verify + `,{"stageRunId":2,"command":"/flow-interactive","stage":"flow.visual-verify","request":3,"startedAt":"2026-10-30T10:02:00Z","endedAt":"` + ended + `","outcome":"completed"}]`
+		code, _, stderr := runRequest(srv.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", ui, "-base", docs)
+		return code, stderr
+	}
+	if code, stderr := end("2026-10-30T10:02:00.031Z"); code != 1 || !strings.Contains(stderr, "chained mark") || d.count("POST") != 0 {
+		t.Errorf("a 31 ms UI check: exit=%d writes=%d stderr=%q, want 1 naming the chained mark", code, d.count("POST"), stderr)
+	}
+	if code, stderr := end("2026-10-30T10:02:11Z"); code != 0 || d.count("POST") != 1 {
+		t.Errorf("an 11 s UI check: exit=%d writes=%d stderr=%q, want 0 and one write", code, d.count("POST"), stderr)
+	}
 }

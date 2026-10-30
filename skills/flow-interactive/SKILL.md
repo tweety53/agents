@@ -214,7 +214,8 @@ after the in-flight one ends — never a stop. A turn ends when the queue is emp
    worktree's checkout of `<project>/.flow/project.md`. A `ui paths` match (exit 0) requires the request's latest
    `/flow-interactive` `flow.visual-verify` stage run, by start, to have ended `completed`. Exit 1,
    or exit 2 with `VISUAL-TRIGGER-NOT-CONFIGURED`, requires nothing. Exit 2 with
-   `VISUAL-TRIGGER-CANNOT-ANSWER` refuses, quoting its cause.
+   `VISUAL-TRIGGER-CANNOT-ANSWER` refuses, quoting its cause. A `completed` UI check that ended
+   less than one second after it began is a chained mark (step 7) and is refused.
 4. With the store unreachable, checks 1–3's git work still runs; the stage-run reads are skipped
    with one `⚠` line, and the write is journalled like every record verb.
 
