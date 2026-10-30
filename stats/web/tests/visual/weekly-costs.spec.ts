@@ -13,7 +13,9 @@ import { bodyBackground, DARK_SURFACE_1 } from "./support";
 // The fixture's runs fall in the weeks of 2026-07-15 (Overall,
 // Implementation), 2026-07-22 (Overall, Planning, Implementation,
 // Self-review, Visual verify, Other) and 2026-08-12 (Overall, Review and
-// Other).
+// Other); seedInteractive's two /flow-interactive sessions (KAN-1061) add
+// Planning, Implementation and Visual verify to 2026-08-12 and their own
+// opus-5-5 · session line.
 // The first two carry priced dispatches, so the model·effort chart draws
 // lines with deltas across them. withPreviousWeek adds one week,
 // 2026-08-05, to the stack's real phase response: 2026-08-12's Overall then
@@ -111,9 +113,9 @@ test.describe("weekly costs", () => {
     await open(page, AFTER_FIXTURE);
     await showPhases(page);
     const overall = phases(page).locator('[data-testid="time-series-point"][data-series="Overall"]');
-    // The stack's own response: Overall in its three weeks, eleven points in all.
+    // The stack's own response: Overall in its three weeks, fourteen points in all.
     await expect(overall).toHaveCount(3);
-    await expect(phases(page).getByTestId("time-series-point")).toHaveCount(11);
+    await expect(phases(page).getByTestId("time-series-point")).toHaveCount(14);
     await phases(page).getByRole("button", { name: "Overall", exact: true }).click();
     await expect(phases(page).getByRole("button", { name: "Overall", exact: true })).toHaveAttribute(
       "aria-pressed",
@@ -133,8 +135,8 @@ test.describe("weekly costs", () => {
     await phases(page).locator('[data-testid="time-series-point"][data-series="Overall"][data-week="2026-08-12"]').hover();
     const tip = page.getByRole("tooltip");
     await expect(tip).toContainText("Overall");
-    await expect(tip).toContainText("$3.37");
-    await expect(tip).toContainText("▲ 124.5%");
+    await expect(tip).toContainText("$9.36");
+    await expect(tip).toContainText("▲ 523.8%");
     await expect(tip).toContainText("vs prev week");
 
     await expect(page).toHaveScreenshot("weekly-costs-tooltip.png", { fullPage: true });
@@ -143,12 +145,13 @@ test.describe("weekly costs", () => {
   test("draws the model·effort chart with cost labels", async ({ page }) => {
     await open(page, AFTER_FIXTURE);
     await expect(modelEffort(page).getByRole("button")).toHaveText([
+      "opus-5-5 · session",
       "opus-5 · session",
       "sonnet-5 · session",
       "opus-5 · low",
       "opus-5 · medium",
     ]);
-    await expect(modelEffort(page).getByTestId("weekly-line")).toHaveCount(4);
+    await expect(modelEffort(page).getByTestId("weekly-line")).toHaveCount(5);
     const pill = modelEffort(page).locator('[data-testid="delta-label"][data-series="opus-5 · low"][data-week="2026-07-22"]');
     await expect(pill).toHaveText("$0.30 ▲20%");
     await expect(modelEffort(page).getByTestId("delta-label").first()).toContainText("$");

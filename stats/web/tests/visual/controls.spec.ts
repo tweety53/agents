@@ -63,9 +63,11 @@ async function expectOnlyPressed(page: Page, pressedName: string) {
 // assert fixture rows against, since it always spans the fixture's fixed
 // 2026-08-15 data.
 //
-// Leaderboard rows in PINNED_QUERY's window: /flow "SDD + TDD per task",
-// /flow "flow.review-panel" (uitest-alpha) and /flow-fast "integrate"
-// (uitest-beta).
+// Leaderboard rows in PINNED_QUERY's window, its ten costliest: /flow "SDD +
+// TDD per task" and "flow.review-panel" (uitest-alpha) and the eight
+// /flow-interactive stages seedInteractive's sessions ran (KAN-1061) --
+// /flow-fast "integrate" (uitest-beta) is the eleventh and falls off the
+// table unless a filter narrows it.
 const LEADERBOARD = 'section.panel[aria-label="Every costed stage"]';
 
 test.describe("PeriodPicker", () => {
@@ -79,7 +81,7 @@ test.describe("PeriodPicker", () => {
     await expect(allTime).toHaveAttribute("aria-pressed", "true");
 
     await expect(tablePanel.getByRole("cell", { name: "flow.review-panel", exact: true })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "integrate", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "flow.landing-routes", exact: true })).toBeVisible();
   });
 
   test("typing explicit From/To values reloads the table to that window", async ({ page }) => {
@@ -91,7 +93,7 @@ test.describe("PeriodPicker", () => {
     await page.getByLabel("Period end").fill(PINNED_TO_INPUT);
 
     await expect(tablePanel.getByRole("cell", { name: "flow.review-panel", exact: true })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "integrate", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "flow.landing-routes", exact: true })).toBeVisible();
   });
 
   // The remaining four presets, plus the conditional Reset button --
@@ -157,11 +159,11 @@ test.describe("SearchBox", () => {
   test("typing a term narrows the table to matching rows only", async ({ page }) => {
     await page.goto(`/#/stage-leaderboard?${PINNED_QUERY}`);
     const tablePanel = page.locator(LEADERBOARD);
-    await expect(tablePanel.getByRole("cell", { name: "integrate", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "flow.landing-routes", exact: true })).toBeVisible();
 
-    await page.getByLabel("Search").fill("integ");
+    await page.getByLabel("Search").fill("landing");
 
-    await expect(tablePanel.getByRole("cell", { name: "integrate", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "flow.landing-routes", exact: true })).toBeVisible();
     await expect(tablePanel.getByRole("cell", { name: "flow.review-panel", exact: true })).toHaveCount(0);
   });
 });
@@ -185,9 +187,9 @@ test.describe("FilterBar", () => {
     const tablePanel = page.locator(LEADERBOARD);
     await expect(tablePanel.getByRole("cell", { name: "flow.review-panel", exact: true })).toBeVisible();
 
-    await page.getByLabel("Filter by Command").selectOption("/flow-fast");
+    await page.getByLabel("Filter by Command").selectOption("/flow-interactive");
 
-    await expect(tablePanel.getByRole("cell", { name: "integrate", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "flow.landing-routes", exact: true })).toBeVisible();
     await expect(tablePanel.getByRole("cell", { name: "flow.review-panel", exact: true })).toHaveCount(0);
   });
 });
@@ -198,15 +200,19 @@ test.describe("DataTable sort buttons", () => {
     const tablePanel = page.locator(LEADERBOARD);
     const stageHeader = tablePanel.getByRole("button", { name: /^Stage/ });
     const stageCells = tablePanel.locator("tbody tr td:nth-child(2)");
-    await expect(stageCells).toHaveCount(3);
+    await expect(stageCells).toHaveCount(10);
+    const ascending = [
+      "flow.brainstorm", "flow.kickoff", "flow.landing-routes", "flow.load-context", "flow.refresh-main-checkout",
+      "flow.review-panel", "flow.sdd-tdd", "flow.verify", "flow.visual-verify", "SDD + TDD per task",
+    ];
 
     await stageHeader.click();
     await expect(stageHeader).toHaveText("Stage ▲");
-    await expect(stageCells).toHaveText(["flow.review-panel", "integrate", "SDD + TDD per task"]);
+    await expect(stageCells).toHaveText(ascending);
 
     await stageHeader.click();
     await expect(stageHeader).toHaveText("Stage ▼");
-    await expect(stageCells).toHaveText(["SDD + TDD per task", "integrate", "flow.review-panel"]);
+    await expect(stageCells).toHaveText([...ascending].reverse());
   });
 });
 
@@ -238,7 +244,7 @@ test.describe("ModelVariable", () => {
     await page.goto(`/#/stage-leaderboard?${PINNED_QUERY}`);
     const model = page.getByLabel("Model");
     await expect(model).toBeEnabled();
-    await expect(model.locator("option")).toHaveText(["All models", "claude-opus-5", "claude-sonnet-5"]);
+    await expect(model.locator("option")).toHaveText(["All models", "claude-opus-5", "claude-opus-5-5", "claude-sonnet-5"]);
   });
 });
 
