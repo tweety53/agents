@@ -366,6 +366,10 @@ export interface StageLeaderboardRow {
   medianCostUsd: number;
   p90CostUsd: number;
   totalCostUsd: number;
+  /** Mirrors stageLeaderboardRowDTO's main figures: null when no run of the
+   * stage yields one (decision leaderboard-main-columns). */
+  mainCostUsd: number | null;
+  mainSharePct: number | null;
 }
 
 /** Mirrors flowSummaryDTO (internal/api/health.go): the flow-summary

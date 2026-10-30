@@ -9,12 +9,14 @@ import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import type {
   DecisionRow,
   HealthViewSlug,
+  StageLeaderboardRow,
   StatsResponse,
   StatsViewSlug,
   ViewName,
   WeeklyModelEffortViewSlug,
 } from "../api";
 import { App } from "../App";
+import { formatUsd } from "../format";
 import { DynamicsChart } from "../components/DynamicsChart";
 import { Decisions } from "./Decisions";
 import { Experiments } from "./Experiments";
@@ -254,6 +256,8 @@ const fixtures: Record<
       medianCostUsd: 1.2,
       p90CostUsd: 2.9,
       totalCostUsd: 4.5,
+      mainCostUsd: 3.2,
+      mainSharePct: 45.6,
     },
   ]),
   trend: envelope("trend", [{ day: "2026-01-05", runCount: 2, totalCostUsd: 5.25 }]),
@@ -646,6 +650,27 @@ describe("views render their fixture response's actual values", () => {
     expect(screen.getByRole("cell", { name: "$4.50" })).toBeInTheDocument();
     within(screen.getByRole("region", { name: "Stages" })).getByText("1");
     within(screen.getByRole("region", { name: "Total runs" })).getByText("3");
+  });
+
+  it("stage leaderboard main columns", async () => {
+    const [main] = fixtures["stage-leaderboard"].rows as StageLeaderboardRow[];
+    const absent: StageLeaderboardRow = { ...main, stage: "flow.unpriced", mainCostUsd: null, mainSharePct: null };
+    fetchStatsViewMock.mockImplementation((view: keyof typeof fixtures) =>
+      Promise.resolve(view === "stage-leaderboard" ? envelope("stage-leaderboard", [main, absent]) : fixtures[view]),
+    );
+    const user = userEvent.setup();
+    render(<StageLeaderboard period={period} project={undefined} />);
+    const table = within(await screen.findByRole("table"));
+    expect(table.getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
+      "Command", "Stage", "Runs", "Total cost", "Main session", "Main share", "Mean cost", "Median cost", "P90 cost",
+    ]);
+    const mainRow = within(table.getByRole("row", { name: /SDD \+ TDD per task/ }));
+    expect(mainRow.getByRole("cell", { name: formatUsd(3.2) })).toBeInTheDocument();
+    expect(mainRow.getByRole("cell", { name: "46%" })).toBeInTheDocument();
+    const absentRow = within(table.getByRole("row", { name: /flow\.unpriced/ }));
+    expect(absentRow.getAllByRole("cell", { name: "—" })).toHaveLength(2);
+    await user.click(table.getByRole("button", { name: "Main share" }));
+    expect(table.getByRole("columnheader", { name: "Main share ▲" })).toBeInTheDocument();
   });
 
   it("trend shows the day's run count and total cost, its time-series panel, and its own stat panels", async () => {
