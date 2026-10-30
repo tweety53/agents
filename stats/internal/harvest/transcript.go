@@ -608,8 +608,19 @@ func launchKey(description string) string {
 	if m := taskDescriptionRE.FindStringSubmatch(description); m != nil {
 		return "task-" + m[1] + "-"
 	}
+	// A planner's Explore or Plan agent names its own row anywhere in its
+	// description, often behind the planner's plan-<n> prefix (kan-1061).
+	for _, w := range strings.Fields(description) {
+		if planningAgentKeyRE.MatchString(w) {
+			return w
+		}
+	}
 	return firstWord(description)
 }
+
+// planningAgentKeyRE is a planner's Explore or Plan agent row key
+// (skills/flow/brainstorm.md's explore-<n>|design-<n>).
+var planningAgentKeyRE = regexp.MustCompile(`^(?:explore|design)-\d+$`)
 
 // firstWord returns s's first whitespace-delimited word, or "".
 func firstWord(s string) string {
