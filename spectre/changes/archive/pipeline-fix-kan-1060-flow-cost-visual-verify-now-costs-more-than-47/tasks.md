@@ -33,12 +33,12 @@ stops failing under the full `-race` suite.
 - The forced-cause proof fails without the seam and passes with it (`cause-is-the-bound`).
 
 - [x] 1. Lift the loop hook's wall-clock bounds in every hook test
-  - [ ] **Step 1: Force the cause before touching anything.** In
+  - [x] **Step 1: Force the cause before touching anything.** In
     `stats/internal/repotest/helpers_test.go` `incidentStub`, change the script body's start from
     `#!/bin/sh\nprintf` to `#!/bin/sh\nsleep 11\nprintf` (temporary, never committed). From `stats/`
     run `make -s web-dist && go test -count=1 -run TestEnforceLoopDispatchHookRecordsADenial ./internal/repotest/`:
     FAIL with `checker rc 1: incident calls = [], want 1`. Revert the `sleep 11`.
-  - [ ] **Step 2: Implement.** Save the diff below to `/tmp/pf1060.diff` and run
+  - [x] **Step 2: Implement.** Save the diff below to `/tmp/pf1060.diff` and run
     `git apply /tmp/pf1060.diff` from the repository root.
 
 ````diff verified:applied with git apply at b8ee4473; with incidentStub sleeping 11 s the isolated run passes, and fails with incident calls = [] when only the FLOW_HOOK_UNBOUNDED=1 injection is removed; go test -race -count=1 ./internal/repotest/ ok
@@ -105,14 +105,14 @@ index 76d13e2a..702ff5d3 100644
  	err = cmd.Run()
 ````
 
-  - [ ] **Step 3: Prove the seam.** Re-add Step 1's `sleep 11` and rerun Step 1's command: ok.
+  - [x] **Step 3: Prove the seam.** Re-add Step 1's `sleep 11` and rerun Step 1's command: ok.
     Remove only `, "FLOW_HOOK_UNBOUNDED=1"` from `runHook` and rerun: FAIL with
     `incident calls = []`. Restore it and revert the `sleep 11`. Record both runs in the commit
     body: the seam replaces the hooks' 10 s wall-clock bound with no bound under test.
-  - [ ] **Step 4: Verify.** From `stats/`: `make -s web-dist && go vet ./... && gofmt -l .` clean
+  - [x] **Step 4: Verify.** From `stats/`: `make -s web-dist && go vet ./... && gofmt -l .` clean
     and the **Tests:** selector ok; from the repository root every `scripts/check-*.sh`
     guard named in `.flow/project.md`'s `## lint` exits 0.
-  - [ ] **Step 5: Commit** with the subject above.
+  - [x] **Step 5: Commit** with the subject above.
 
 **Build:** green
 **Files:** `hooks/enforce-loop-dispatch.py`, `stats/internal/repotest/helpers_test.go`
