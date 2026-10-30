@@ -60,7 +60,7 @@ func TestAggregateRestrictsByPeriodInSQL(t *testing.T) {
 		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
 		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
 	}
-	rows, err := st.CostPerChange(ctx, period, &projectKey, nil)
+	rows, err := st.CostPerChange(ctx, period, &projectKey, nil, nil)
 	if err != nil {
 		t.Fatalf("CostPerChange: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestAggregateEmptyPeriodReturnsEmptyNotError(t *testing.T) {
 		To:   time.Date(2020, 2, 1, 0, 0, 0, 0, time.UTC),
 	}
 
-	rows, err := st.CostPerChange(ctx, emptyPeriod, &projectKey, nil)
+	rows, err := st.CostPerChange(ctx, emptyPeriod, &projectKey, nil, nil)
 	if err != nil {
 		t.Fatalf("CostPerChange(empty period): %v", err)
 	}
@@ -146,7 +146,7 @@ func TestAggregateExcludesUnavailableTokensFromAverages(t *testing.T) {
 		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
 		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
 	}
-	rows, err := st.CostPerChange(ctx, period, &projectKey, nil)
+	rows, err := st.CostPerChange(ctx, period, &projectKey, nil, nil)
 	if err != nil {
 		t.Fatalf("CostPerChange: %v", err)
 	}
@@ -190,7 +190,7 @@ func TestAggregateSeparatesMainFromSidechain(t *testing.T) {
 		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
 		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
 	}
-	rows, err := st.CostPerChange(ctx, period, &projectKey, nil)
+	rows, err := st.CostPerChange(ctx, period, &projectKey, nil, nil)
 	if err != nil {
 		t.Fatalf("CostPerChange: %v", err)
 	}
@@ -757,7 +757,7 @@ func TestCostPerChangeModelFilterReportsThatModelsOwnNumbers(t *testing.T) {
 
 	const eps = 1e-9
 
-	unfiltered, err := st.CostPerChange(ctx, period, &projectKey, nil)
+	unfiltered, err := st.CostPerChange(ctx, period, &projectKey, nil, nil)
 	if err != nil {
 		t.Fatalf("CostPerChange(unfiltered): %v", err)
 	}
@@ -768,7 +768,7 @@ func TestCostPerChangeModelFilterReportsThatModelsOwnNumbers(t *testing.T) {
 		t.Errorf("unfiltered TotalCostUSD = %v, want 61.10 (the whole run)", *unfiltered[0].TotalCostUSD)
 	}
 
-	filtered, err := st.CostPerChange(ctx, period, &projectKey, ptr("claude-sonnet-5"))
+	filtered, err := st.CostPerChange(ctx, period, &projectKey, ptr("claude-sonnet-5"), nil)
 	if err != nil {
 		t.Fatalf("CostPerChange(model=claude-sonnet-5): %v", err)
 	}
@@ -796,7 +796,7 @@ func TestCostPerChangeModelFilterReportsThatModelsOwnNumbers(t *testing.T) {
 	}
 
 	// A filter matching no run in scope returns empty, never an error.
-	none, err := st.CostPerChange(ctx, period, &projectKey, ptr("claude-haiku-5"))
+	none, err := st.CostPerChange(ctx, period, &projectKey, ptr("claude-haiku-5"), nil)
 	if err != nil {
 		t.Fatalf("CostPerChange(model=claude-haiku-5): %v", err)
 	}
@@ -839,7 +839,7 @@ func TestModelFilterHonouredByEveryAggregation(t *testing.T) {
 		rows func(model *string) (int, error)
 	}{
 		{"CostPerChange", func(m *string) (int, error) {
-			r, err := st.CostPerChange(ctx, period, &projectKey, m)
+			r, err := st.CostPerChange(ctx, period, &projectKey, m, nil)
 			return len(r), err
 		}},
 		{"StageLeaderboard", func(m *string) (int, error) {
@@ -1901,6 +1901,26 @@ func TestLiveStateBoardCarriesWholeLifeRunTotals(t *testing.T) {
 	}
 	if got.Errors != 4 {
 		t.Errorf("Errors = %d, want 4 (tool and API errors, main and sidechain)", got.Errors)
+	}
+}
+
+// TestCostPerChangeScopesToOneChange pins the change filter: it narrows the
+// aggregate in SQL, so one run page never aggregates a whole project.
+func TestCostPerChangeScopesToOneChange(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-cost-change-%d", time.Now().UnixNano())
+	for _, name := range []string{"kan-1", "kan-2"} {
+		seedChange(t, st, projectKey, name)
+		in := baseBeginInput(projectKey, name, "/flow", "flow.sdd-tdd")
+		runStage(t, st, in, json.RawMessage(`{"cost_usd":1}`), in.StartedAt.Add(time.Minute), "completed")
+	}
+	rows, err := st.CostPerChange(ctx, store.Period{From: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), To: time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)}, &projectKey, nil, ptr("kan-2"))
+	if err != nil {
+		t.Fatalf("CostPerChange: %v", err)
+	}
+	if len(rows) != 1 || rows[0].ChangeName != "kan-2" {
+		t.Fatalf("CostPerChange = %+v, want only kan-2", rows)
 	}
 }
 

@@ -39,7 +39,7 @@ func (f *fakeStore) LiveStateBoard(_ context.Context, _ store.Period, project, _
 	f.lastStatsProject = project
 	return f.liveStateBoard, f.liveStateBoardErr
 }
-func (f *fakeStore) CostPerChange(_ context.Context, _ store.Period, project, _ *string) ([]store.CostPerChangeRow, error) {
+func (f *fakeStore) CostPerChange(_ context.Context, _ store.Period, project, _, _ *string) ([]store.CostPerChangeRow, error) {
 	f.lastStatsProject = project
 	return f.costPerChange, f.costPerChangeErr
 }
@@ -175,9 +175,18 @@ func (f *statsFake) LiveStateBoard(_ context.Context, _ store.Period, p, c *stri
 	f.lastProject, f.lastChange = p, c
 	return f.liveStateBoard, f.aggErr
 }
-func (f *statsFake) CostPerChange(_ context.Context, _ store.Period, p, m *string) ([]store.CostPerChangeRow, error) {
+func (f *statsFake) CostPerChange(_ context.Context, _ store.Period, p, m, c *string) ([]store.CostPerChangeRow, error) {
 	f.lastProject, f.lastModel = p, m
-	return f.costPerChange, f.aggErr
+	if c == nil {
+		return f.costPerChange, f.aggErr
+	}
+	var out []store.CostPerChangeRow
+	for _, r := range f.costPerChange {
+		if r.ChangeName == *c {
+			out = append(out, r)
+		}
+	}
+	return out, f.aggErr
 }
 func (f *statsFake) StageLeaderboard(_ context.Context, _ store.Period, p, m *string) ([]store.StageLeaderboardRow, error) {
 	f.lastProject, f.lastModel = p, m
@@ -1364,7 +1373,7 @@ type slowStatsFake struct {
 	statsFake
 }
 
-func (f *slowStatsFake) CostPerChange(ctx context.Context, _ store.Period, _, _ *string) ([]store.CostPerChangeRow, error) {
+func (f *slowStatsFake) CostPerChange(ctx context.Context, _ store.Period, _, _, _ *string) ([]store.CostPerChangeRow, error) {
 	<-ctx.Done()
 	return nil, ctx.Err()
 }

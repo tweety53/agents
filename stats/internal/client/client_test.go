@@ -847,7 +847,7 @@ func (stubStageStore) LiveStateBoard(context.Context, store.Period, *string, *st
 	return nil, errStageStoreNotImplemented
 }
 
-func (stubStageStore) CostPerChange(context.Context, store.Period, *string, *string) ([]store.CostPerChangeRow, error) {
+func (stubStageStore) CostPerChange(context.Context, store.Period, *string, *string, *string) ([]store.CostPerChangeRow, error) {
 	return nil, errStageStoreNotImplemented
 }
 

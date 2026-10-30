@@ -70,7 +70,7 @@ func TestAggregationsReadTheHarvesterSMetricsShape(t *testing.T) {
 	wantSidechain := patch.Tokens.Sidechain.Input + patch.Tokens.Sidechain.Output + patch.Tokens.Sidechain.CacheCreation + patch.Tokens.Sidechain.CacheRead + patch.Tokens.Sidechain.Thinking
 	wantTotalInput := patch.Tokens.Main.Input + patch.Tokens.Sidechain.Input
 
-	costRows, err := st.CostPerChange(ctx, period, &projectKey, nil)
+	costRows, err := st.CostPerChange(ctx, period, &projectKey, nil, nil)
 	if err != nil {
 		t.Fatalf("CostPerChange: %v (must not error against a run whose metrics carry the harvester's real, nested tokens shape)", err)
 	}

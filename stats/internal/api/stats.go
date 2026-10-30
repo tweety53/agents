@@ -52,7 +52,7 @@ type StatsStore interface {
 	// SetSessionActivity backs PUT /api/v1/sessions/{session}/activity
 	// (decision session-activity-hooks); the board reads it back.
 	SetSessionActivity(ctx context.Context, sessionID, state, detail string) error
-	CostPerChange(ctx context.Context, period store.Period, project, model *string) ([]store.CostPerChangeRow, error)
+	CostPerChange(ctx context.Context, period store.Period, project, model, change *string) ([]store.CostPerChangeRow, error)
 	StageLeaderboard(ctx context.Context, period store.Period, project, model *string) ([]store.StageLeaderboardRow, error)
 	TrendOverTime(ctx context.Context, period store.Period, project, model *string) ([]store.TrendPoint, error)
 	WeeklyCosts(ctx context.Context, period store.Period, project, model *string) ([]store.WeeklyCostPoint, error)
@@ -525,22 +525,15 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 		return toStateBoardDTOs(board, change != nil), 0, ""
 
 	case viewCostPerChange:
-		cost, err := h.store.CostPerChange(ctx, period, project, model)
+		// "change" scopes the aggregate to one change in SQL: the run page's header reads one change's totals.
+		var changeName *string
+		if v := firstValue(values, "change"); v != "" {
+			changeName = &v
+		}
+		cost, err := h.store.CostPerChange(ctx, period, project, model, changeName)
 		if err != nil {
 			s, m := mapStoreError(h.logger, "cost per change", err)
 			return nil, s, m
-		}
-		// "change" scopes cost-per-change to one change, server-side --
-		// task 21, step 5. Before this, a caller wanting one change's own
-		// totals (the run-detail header, useRunDetail.ts) had to fetch
-		// every change in the project and filter client-side, which stayed
-		// correct only because this view is unpaged; the moment a limit is
-		// added here that shape silently under-reports. This is a plain Go
-		// slice filter, not a new store method: the result set CostPerChange
-		// already returned is small and bounded by construction, so
-		// re-filtering it here is the smaller surface.
-		if changeName := firstValue(values, "change"); changeName != "" {
-			cost = filterCostPerChangeByName(cost, changeName)
 		}
 		return toCostPerChangeDTOs(cost), 0, ""
 
@@ -1123,29 +1116,6 @@ func toDecisionDTOs(rows []store.DecisionRow) []decisionRowDTO {
 			CostUsd:  r.CostUsd,
 			Critical: r.Critical, Important: r.Important, Minor: r.Minor, FixRounds: r.FixRounds,
 			Fallbacks: r.Fallbacks, TimedOut: r.TimedOut,
-		}
-	}
-	return out
-}
-
-// filterCostPerChangeByName narrows rows to changeName, preserving order.
-// Task 21, step 5's own doc comment (rowsFor's viewCostPerChange case)
-// explains why this is a Go filter over CostPerChange's already-fetched,
-// already-small result rather than a new store-level parameter: unlike
-// project and model, "change" alone does not identify one change across
-// every project (store.PutChange's own contract -- two projects can and do
-// reuse the same change name), so a caller wanting one change's own row
-// server-side is expected to send "project" alongside it, exactly as
-// useRunDetail.ts does; this filter does not itself enforce that pairing,
-// since a caller filtering within one project's own already-scoped result
-// (or accepting the small residual risk of a same-named change elsewhere)
-// is not the shape this step exists to forbid -- only an unbounded,
-// project-blind blend across every same-named change is.
-func filterCostPerChangeByName(rows []store.CostPerChangeRow, changeName string) []store.CostPerChangeRow {
-	out := make([]store.CostPerChangeRow, 0, len(rows))
-	for _, r := range rows {
-		if r.ChangeName == changeName {
-			out = append(out, r)
 		}
 	}
 	return out

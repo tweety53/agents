@@ -360,7 +360,7 @@ func (fakeStore) LiveStateBoard(context.Context, store.Period, *string, *string)
 	return nil, nil
 }
 
-func (fakeStore) CostPerChange(context.Context, store.Period, *string, *string) ([]store.CostPerChangeRow, error) {
+func (fakeStore) CostPerChange(context.Context, store.Period, *string, *string, *string) ([]store.CostPerChangeRow, error) {
 	return nil, nil
 }
 

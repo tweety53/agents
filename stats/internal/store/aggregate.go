@@ -410,7 +410,7 @@ type CostPerChangeRow struct {
 // no model filter, per this task's own absence-is-not-a-match rule
 // (task 21, step 2) -- store.CountRunsWithoutModel answers how many such
 // runs a filtered caller silently excluded.
-func (s *Store) CostPerChange(ctx context.Context, period Period, project, model *string) ([]CostPerChangeRow, error) {
+func (s *Store) CostPerChange(ctx context.Context, period Period, project, model, change *string) ([]CostPerChangeRow, error) {
 	rows, err := s.pool.Query(ctx, `
 		WITH scoped AS (
 			SELECT
@@ -424,6 +424,7 @@ func (s *Store) CostPerChange(ctx context.Context, period Period, project, model
 			WHERE sr.started_at >= $1 AND sr.started_at < $2
 			  AND ($3::text IS NULL OR c.project_key = $3)
 			  AND ($4::text IS NULL OR sr.metrics->'models' ? $4)
+			  AND ($5::text IS NULL OR c.name = $5)
 		)
 		SELECT
 			project_key, name, command, stage,
@@ -468,7 +469,7 @@ func (s *Store) CostPerChange(ctx context.Context, period Period, project, model
 		FROM scoped
 		GROUP BY project_key, name, command, stage
 		ORDER BY project_key, name, command, stage
-	`, period.From, period.To, project, model)
+	`, period.From, period.To, project, model, change)
 	if err != nil {
 		return nil, fmt.Errorf("store: cost per change: %w", err)
 	}
