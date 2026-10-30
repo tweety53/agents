@@ -99,7 +99,8 @@ loses your 5-minute prompt cache when the agent runs longer, and the hand-back t
 whole context. Once your own work is done, call
 `<agents repo>/scripts/await-sub-agents.sh <agent id>...` with the agent ids your launches returned:
 each call returns within two minutes — exit 0 once every agent finished, exit 1 naming those still
-running — so call it again on exit 1, and read each hand-back as it arrives.
+running — so call it again on exit 1, and read each hand-back as it arrives. The
+`await-own-agents` SubagentStop hook refuses your turn end while one runs.
 
 In `/flow` and `/flow-plan` the recommendation goes to the operator as part of the design, its
 alternatives shown only when they help the operator decide. The self-review and in-run fix planners

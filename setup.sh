@@ -626,6 +626,19 @@ SNIPPET
       }
     ]
 SNIPPET
+  warn_unregistered_hook "$settings" await-own-agents await-own-agents \
+    "  ⚠ The await-own-agents hook is installed but NOT registered, so a subagent may still" \
+    "    end its turn while its own agents run and lose its prompt cache waiting on them." \
+    "    Add this to \"hooks\" in $settings:" <<'SNIPPET'
+
+    "SubagentStop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python3 \"$HOME/.claude/hooks/await-own-agents.py\"" }
+        ]
+      }
+    ]
+SNIPPET
   warn_unregistered_hook "$settings" protect-main-checkout protect-main-checkout \
     "  ⚠ The protect-main-checkout hook is installed but NOT registered, so nothing yet stops" \
     "    an agent editing, staging or committing in a main checkout on its default branch." \
