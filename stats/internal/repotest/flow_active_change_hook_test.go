@@ -9,6 +9,7 @@ package repotest
 // are the harness's own case labels.
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -120,7 +121,7 @@ func TestFlowActiveChangeHook(t *testing.T) {
 	}{
 		// Case 1: the store holds the session's /flow mark — the context line names its
 		// change, and the query filters by the session id derived from the rollout
-		// transcript's filename, newest mark first, one row.
+		// transcript's filename, newest mark of any command first, one row.
 		{"case 1: exit 0", func(t *testing.T) { out, rc, _ := case1(t); exit0(t, out, rc) }},
 		{"case 1: context line names fixture-one", func(t *testing.T) {
 			out, _, _ := case1(t)
@@ -130,9 +131,11 @@ func TestFlowActiveChangeHook(t *testing.T) {
 			_, _, s := case1(t)
 			has(t, "query", s.last(), "session_id=abc")
 		}},
-		{"case 1: command=/flow filter in the query", func(t *testing.T) {
+		{"case 1: no command filter in the query", func(t *testing.T) {
 			_, _, s := case1(t)
-			has(t, "query", s.last(), "command=%2Fflow")
+			if q := s.last(); strings.Contains(q, "command=") {
+				t.Errorf("expected no command filter in query=%s", q)
+			}
 		}},
 		{"case 1: newest-mark-first, one row", func(t *testing.T) {
 			_, _, s := case1(t)
@@ -148,9 +151,8 @@ func TestFlowActiveChangeHook(t *testing.T) {
 			out, _ := case2(t)
 			has(t, "out", out, "marked change fixture-two")
 		}},
-		// Case 3: no /flow mark in the store (e.g. only /flow-plan and /flow-fast marks,
-		// which the command filter excludes) — no output, exit 0.
-		{"case 3: no /flow mark -> exit 0, empty output", func(t *testing.T) {
+		// Case 3: no mark of the session in the store — no output, exit 0.
+		{"case 3: no mark -> exit 0, empty output", func(t *testing.T) {
 			s := newStageStore(t, 200, stageBody(0))
 			out, rc := run(t, s.addr, `{"prompt":"any problem here","session_id":"abc"}`)
 			silent(t, out, rc)
@@ -202,6 +204,55 @@ func TestFlowActiveChangeHook(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			c.fn(t)
+		})
+	}
+}
+
+// TestFlowActiveChangeHookInteractive: the hook branches on the command of the
+// session's latest stage run — /flow-interactive before flow.write-finished
+// names the session's change and the request protocol, a finished one and a
+// /flow-fast one inject nothing, and /flow keeps its fix-run line.
+func TestFlowActiveChangeHookInteractive(t *testing.T) {
+	t.Parallel()
+	row := func(command, stage string) string {
+		return `{"stageRunId":7,"command":"` + command + `","stage":"` + stage + `","startedAt":"2026-10-30T09:00:00Z","changeName":"kan-9-chat"}`
+	}
+	const interactiveLine = "flow: this session runs /flow-interactive change `kan-9-chat`. A plain message is its next request" +
+		" — or its stop (**One request**, **Explicit stop**, `skills/flow-interactive/SKILL.md`)."
+	for _, tc := range []struct {
+		name, command, stage, want string
+	}{
+		{"interactive mid-session names the change", "/flow-interactive", "flow.sdd-tdd", interactiveLine},
+		{"interactive finished injects nothing", "/flow-interactive", "flow.write-finished", ""},
+		{"flow-fast injects nothing", "/flow-fast", "flow.sdd-tdd", ""},
+		{"flow keeps its line", "/flow", "flow.kickoff", "marked change kan-9-chat"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			s := newStageStore(t, 200, stageBody(1, row(tc.command, tc.stage)))
+			out, errOut, rc := runHook(t, "flow-active-change.py",
+				[]byte(`{"prompt":"next thing","session_id":"abc"}`), "FLOW_ADDR="+s.addr)
+			out = strings.TrimRight(out+errOut, "\n")
+			if rc != 0 {
+				t.Fatalf("rc=%d out=%s", rc, out)
+			}
+			if tc.want == "" {
+				if out != "" {
+					t.Errorf("expected no output, got %s", out)
+				}
+				return
+			}
+			var got struct {
+				HookSpecificOutput struct {
+					AdditionalContext string `json:"additionalContext"`
+				} `json:"hookSpecificOutput"`
+			}
+			if err := json.Unmarshal([]byte(out), &got); err != nil {
+				t.Fatalf("decode %s: %v", out, err)
+			}
+			if !strings.Contains(got.HookSpecificOutput.AdditionalContext, tc.want) {
+				t.Errorf("expected %q in context=%s", tc.want, got.HookSpecificOutput.AdditionalContext)
+			}
 		})
 	}
 }
