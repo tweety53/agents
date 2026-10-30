@@ -19,7 +19,7 @@ import (
 func init() { Registry["check-verify-report"] = checkVerifyReport }
 
 var (
-	vrSteps     = []string{"4", "7", "8", "9", "10", "11", "motion"}
+	vrSteps     = []string{"4", "8", "9", "10", "11", "motion"}
 	vrStepsLine = regexp.MustCompile(`^\s*- steps:\s*(.*)$`)
 	vrMotion    = regexp.MustCompile(`^\s*- motion:\s*(\d+)/(\d+)\b`)
 	vrCitedExit = regexp.MustCompile(`\bexit [1-9][0-9]*\b`)
@@ -35,10 +35,6 @@ var (
 	// pre-existing from the code path alone and re-baselined over the defect).
 	vrPreExisting    = regexp.MustCompile(`(?i)(?:^|[^-\w])pre-existing|present at (?:the )?merge base`)
 	vrNotPreExisting = regexp.MustCompile(`(?i)\bnot pre-existing`)
-	// A scoped re-run's `- verify:` line names how many specs it ran
-	// (kan-1015: `specs` printed 2 under the round base, the verifier ran 95).
-	vrVerifyLine  = regexp.MustCompile(`^\s*- verify:\s*(.*)$`)
-	vrMappedSpecs = regexp.MustCompile(`\b(\d+) mapped specs\b`)
 	// A `- wire contract:` line naming an endpoint: the dispatch named no
 	// view, so steps 8-10 have nothing to capture (kan-1022's self-review: a
 	// verifier wrote them `done` over a capture it never ran).
@@ -57,7 +53,7 @@ var (
 
 func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-verify-report"
-	const usage = "check-verify-report.sh <report file> <motions named> [<scoped specs>] [--design <design.md>]"
+	const usage = "check-verify-report.sh <report file> <motions named> [--design <design.md>]"
 	design := ""
 	if i := slices.Index(args, "--design"); i >= 0 {
 		if i+1 == len(args) {
@@ -67,7 +63,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		design = args[i+1]
 		args = slices.Delete(slices.Clone(args), i, i+2)
 	}
-	if len(args) != 2 && len(args) != 3 {
+	if len(args) != 2 {
 		fmt.Fprintf(stderr, "%s: usage: %s\n", prog, usage)
 		return 2
 	}
@@ -76,13 +72,6 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "%s: usage: %s — %q is not a count\n", prog, usage, args[1])
 		return 2
 	}
-	scoped := -1
-	if len(args) == 3 {
-		if scoped, err = strconv.Atoi(args[2]); err != nil || scoped < 0 {
-			fmt.Fprintf(stderr, "%s: usage: %s — %q is not a count\n", prog, usage, args[2])
-			return 2
-		}
-	}
 	data, err := os.ReadFile(args[0])
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read %s: %v\n", prog, args[0], err)
@@ -90,26 +79,26 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	status := map[string]string{}
 	motionLine, bareFingerprint := false, false
-	inReport, unevidenced, verify := false, "", ""
+	inReport, unevidenced := false, ""
 	noView := false
 	var frames, framed []string
 	matrix := map[string]bool{}
 	spec := ""
 	var reportLines []string
 	for _, line := range strings.Split(string(data), "\n") {
-		if m := vrVerifyLine.FindStringSubmatch(line); m != nil && verify == "" {
-			verify = strings.TrimSpace(m[1])
-		}
+		// Every line is read from `## Report` to the next `## ` heading alone:
+		// the `## Verdict` block above it is the handback, not the record.
 		if strings.HasPrefix(line, "## ") {
 			inReport = strings.TrimSpace(line) == "## Report"
 		}
-		if inReport {
-			reportLines = append(reportLines, line)
-			if m := vrSpecLine.FindStringSubmatch(line); m != nil && spec == "" {
-				spec = m[1]
-			}
+		if !inReport {
+			continue
 		}
-		if inReport && unevidenced == "" && vrPreExisting.MatchString(line) && !vrNotPreExisting.MatchString(line) &&
+		reportLines = append(reportLines, line)
+		if m := vrSpecLine.FindStringSubmatch(line); m != nil && spec == "" {
+			spec = m[1]
+		}
+		if unevidenced == "" && vrPreExisting.MatchString(line) && !vrNotPreExisting.MatchString(line) &&
 			!strings.Contains(line, "merge-base baseline: ") && !strings.Contains(line, "merge-base capture: ") {
 			unevidenced = strings.TrimSpace(line)
 			if r := []rune(unevidenced); len(r) > 120 {
@@ -152,7 +141,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		wt := filepath.Dir(filepath.Dir(filepath.Dir(args[0])))
 		vv, _ := os.ReadFile(filepath.Join(filepath.Dir(design), "visual-verification.md"))
-		if strings.Contains(string(data), "no mockup source") || strings.Contains(string(vv), "no mockup source") {
+		if strings.Contains(strings.Join(reportLines, "\n"), "no mockup source") || strings.Contains(string(vv), "no mockup source") {
 			for _, m := range vrMockupSource.FindAllStringSubmatch(string(body), -1) {
 				if isFile(filepath.Join(wt, m[1])) {
 					status["10"] = "`no mockup source` while design.md cites " + m[1]
@@ -174,13 +163,6 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if unevidenced != "" {
 		status["10"] = "pre-existing attribution with no merge-base evidence: " + unevidenced
-	}
-	if scoped >= 0 && !(scoped == 0 && strings.HasPrefix(verify, "not run — no spec since the round base")) {
-		if m := vrMappedSpecs.FindStringSubmatch(verify); m == nil {
-			status["7"] = "names no mapped-spec count"
-		} else if m[1] != strconv.Itoa(scoped) {
-			status["7"] = fmt.Sprintf("ran %s mapped specs where specs printed %d", m[1], scoped)
-		}
 	}
 	for _, id := range vrSteps {
 		s, ok := status[id]

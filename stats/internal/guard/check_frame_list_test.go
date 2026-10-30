@@ -82,7 +82,7 @@ func TestCheckFrameList(t *testing.T) {
 			if err := os.WriteFile(designPath, []byte(design), 0o644); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(report, []byte(strings.ReplaceAll(tc.report, "%SPEC%", spec)), 0o644); err != nil {
+			if err := os.WriteFile(report, []byte("## Report\n"+strings.ReplaceAll(tc.report, "%SPEC%", spec)), 0o644); err != nil {
 				t.Fatal(err)
 			}
 			r := runGuard("check-frame-list", []string{designPath, mockups, report}, Env{Getenv: os.Getenv})
@@ -127,7 +127,7 @@ func TestCheckFrameListExpandsRangesAndSkipsConsidered(t *testing.T) {
 		if err := os.WriteFile(d, []byte(design), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(r, []byte(strings.ReplaceAll(report, "%SPEC%", spec)), 0o644); err != nil {
+		if err := os.WriteFile(r, []byte("## Report\n"+strings.ReplaceAll(report, "%SPEC%", spec)), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		return runGuard("check-frame-list", []string{d, mockups, r}, Env{Getenv: os.Getenv})
@@ -155,5 +155,37 @@ func TestCheckFrameListExpandsRangesAndSkipsConsidered(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("huge span: guard still running after 5s")
+	}
+}
+
+// TestCheckFrameListReadsReportAlone pins decision verdict-only-handback: a
+// `## Verdict` departure line `- <frame id>: …` does not stand in for that
+// frame's missing per-frame line under `## Report`.
+func TestCheckFrameListReadsReportAlone(t *testing.T) {
+	dir := t.TempDir()
+	mockups := filepath.Join(dir, "mockups")
+	if err := os.Mkdir(mockups, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{"Q1.png", "Q2.png"} {
+		if err := os.WriteFile(filepath.Join(mockups, f), nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	spec := filepath.Join(dir, "kan-1.spec.ts")
+	if err := os.WriteFile(spec+".mockups", []byte("q1 Q1\nq2 Q2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	design, report := filepath.Join(dir, "design.md"), filepath.Join(dir, "report.md")
+	if err := os.WriteFile(design, []byte("Frames Q1 and Q2.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	body := "## Verdict\n- Q2: fill differs from the mockup\n\n## Report\n- spec: " + spec + "\n- Q1: /c/q1.png diff=0.1 — match\n- frames: 2/2\n"
+	if err := os.WriteFile(report, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r := runGuard("check-frame-list", []string{design, mockups, report}, Env{Getenv: os.Getenv})
+	if r.rc != 1 || !strings.Contains(r.out, "no report line: Q2") {
+		t.Fatalf("rc=%d out=%q; want exit 1 naming no report line: Q2", r.rc, r.out)
 	}
 }

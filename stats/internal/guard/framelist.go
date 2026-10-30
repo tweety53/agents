@@ -88,7 +88,18 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	sort.Strings(declared)
 
-	lines := strings.Split(string(report), "\n")
+	// Every line is read from `## Report` to the next `## ` heading alone: a
+	// `## Verdict` departure line never stands in for a per-frame line.
+	var lines []string
+	inReport := false
+	for _, line := range strings.Split(string(report), "\n") {
+		if strings.HasPrefix(line, "## ") {
+			inReport = strings.TrimSpace(line) == "## Report"
+		}
+		if inReport {
+			lines = append(lines, line)
+		}
+	}
 	sidecar := map[string]bool{}
 	framesLine := []string(nil)
 	for _, line := range lines {

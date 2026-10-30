@@ -23,7 +23,7 @@ func TestCheckVerifyReport(t *testing.T) {
 		{"motions recorded", "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion done\n- motion: 2/2 — swipe: clean; exit: clean\n", "2", 0, "COMPLETE"},
 		// KAN-870: the verifier ran tests and capture and listed 9-11 as not done.
 		{"steps 9-11 not done", "- steps: 4 done | 7 done | 8 done | 9 not done | 10 not done | 11 not done | motion n/a — no motions named\n", "0", 1, "9 not done; 10 not done; 11 not done"},
-		{"no steps line", "## Report\n- verify: exit 0\n", "0", 1, "4 absent; 7 absent; 8 absent; 9 absent; 10 absent; 11 absent; motion absent"},
+		{"no steps line", "## Report\n- verify: exit 0\n", "0", 1, "4 absent; 8 absent; 9 absent; 10 absent; 11 absent; motion absent"},
 		{"a step left out", "- steps: 4 done | 7 done | 8 done | 10 done | 11 done | motion n/a — none\n", "0", 1, "9 absent"},
 		{"n/a on a required step", "- steps: 4 done | 7 done | 8 done | 9 n/a — out of time | 10 done | 11 done | motion n/a — none\n", "0", 1, "9 n/a — out of time"},
 		{"n/a with no reason", "- steps: 4 n/a | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n", "0", 1, "4 n/a"},
@@ -46,7 +46,7 @@ func TestCheckVerifyReport(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "verify-report-visual-verify.md")
 			if tc.report != "" {
-				if err := os.WriteFile(path, []byte(tc.report), 0o644); err != nil {
+				if err := os.WriteFile(path, []byte("## Report\n"+strings.TrimPrefix(tc.report, "## Report\n")), 0o644); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -56,7 +56,7 @@ func TestCheckVerifyReport(t *testing.T) {
 			}
 		})
 	}
-	for _, args := range [][]string{nil, {"x"}, {"x", "-1"}, {"x", "two"}} {
+	for _, args := range [][]string{nil, {"x"}, {"x", "-1"}, {"x", "two"}, {"x", "0", "2"}} {
 		if r := runGuard("check-verify-report", args, Env{Getenv: os.Getenv}); r.rc != 2 || !strings.Contains(r.out, "usage") {
 			t.Fatalf("args %q: rc=%d out=%q; want usage exit 2", args, r.rc, r.out)
 		}
@@ -112,36 +112,6 @@ func TestCheckVerifyReportPreExistingNeedsMergeBaseEvidence(t *testing.T) {
 		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
 		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
 			t.Fatalf("%q: rc=%d out=%q; want rc=%d containing %q", tc.line, r.rc, r.out, tc.rc, tc.want)
-		}
-	}
-}
-
-// TestCheckVerifyReportScopedSpecCount pins kan-1015's self-review: a re-run
-// under round base c75529d2, where `specs` printed 2 paths, ran 95 mapped
-// specs. Given the scoped count, the `- verify:` line must name it.
-func TestCheckVerifyReportScopedSpecCount(t *testing.T) {
-	const steps = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n"
-	const ran95 = "- verify: exit 1 — 95 mapped specs, 443 passed, 2 failed\n"
-	for _, tc := range []struct {
-		verify string
-		args   []string
-		rc     int
-		want   string
-	}{
-		{ran95, []string{"2"}, 1, "7 ran 95 mapped specs where specs printed 2"},
-		{"- verify: exit 0 — 2 mapped specs, 40 passed\n", []string{"2"}, 0, "COMPLETE"},
-		{"- verify: not run — no spec since the round base\n", []string{"0"}, 0, "COMPLETE"},
-		{"- verify: exit 0\n", []string{"2"}, 1, "7 names no mapped-spec count"},
-		{ran95, nil, 0, "COMPLETE"},
-		{ran95, []string{"x"}, 2, "usage"},
-	} {
-		path := filepath.Join(t.TempDir(), "verify-report-visual-verify.md")
-		if err := os.WriteFile(path, []byte("## Report\n"+tc.verify+steps), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		r := runGuard("check-verify-report", append([]string{path, "0"}, tc.args...), Env{Getenv: os.Getenv})
-		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
-			t.Fatalf("%q %q: rc=%d out=%q; want rc=%d containing %q", tc.verify, tc.args, r.rc, r.out, tc.rc, tc.want)
 		}
 	}
 }
@@ -298,5 +268,43 @@ func TestCheckVerifyReportAccountsForEveryCapture(t *testing.T) {
 		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
 			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
 		}
+	}
+}
+
+// TestCheckVerifyReportTakesNoScopedSpecs pins decision verifier-runs-no-verify:
+// the verifier no longer runs `verify`, so the guard takes no scoped-spec count
+// and step 7 is no required step — an item still naming it is ignored.
+func TestCheckVerifyReportTakesNoScopedSpecs(t *testing.T) {
+	const usage = "check-verify-report.sh <report file> <motions named> [--design <design.md>]"
+	path := filepath.Join(t.TempDir(), "verify-report-visual-verify.md")
+	r := runGuard("check-verify-report", []string{path, "0", "2"}, Env{Getenv: os.Getenv})
+	if r.rc != 2 || !strings.Contains(r.out, usage) {
+		t.Fatalf("scoped count: rc=%d out=%q; want exit 2 with %q", r.rc, r.out, usage)
+	}
+	for _, steps := range []string{
+		"- steps: 4 done | 8 done | 9 done | 10 done | 11 done | motion n/a — no motions named\n",
+		"- steps: 4 done | 7 not done | 8 done | 9 done | 10 done | 11 done | motion n/a — no motions named\n",
+	} {
+		if err := os.WriteFile(path, []byte("## Report\n"+steps), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv}); r.rc != 0 || !strings.Contains(r.out, "VERIFY-REPORT-COMPLETE") {
+			t.Fatalf("%q: rc=%d out=%q; want exit 0 COMPLETE", steps, r.rc, r.out)
+		}
+	}
+}
+
+// TestCheckVerifyReportReadsReportAlone pins decision verdict-only-handback:
+// a `## Verdict` block's `- steps:` line never stands in for the `## Report`'s.
+func TestCheckVerifyReportReadsReportAlone(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "verify-report-visual-verify.md")
+	body := "## Verdict\n- verify: exit 0 — clean\n- steps: 4 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n\n" +
+		"## Report\n- verify: exit 1\n- steps: 4 done | 8 done | 9 done | 11 done | motion n/a — none\n"
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
+	if r.rc != 1 || !strings.Contains(r.out, "10 absent") {
+		t.Fatalf("rc=%d out=%q; want exit 1 naming 10 absent", r.rc, r.out)
 	}
 }

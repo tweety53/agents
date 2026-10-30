@@ -4,8 +4,7 @@
 # its prose (KAN-870: two verifiers ran the tests and the capture, listed
 # steps 9-11 under "Not done", and both reports were accepted).
 #
-# Usage: check-verify-report.sh <report file> <motions named> [<scoped specs>]
-#          [--design <design.md>]
+# Usage: check-verify-report.sh <report file> <motions named> [--design <design.md>]
 #
 # Given --design, the report, or the `visual-verification.md` beside
 # <design.md>, reading `no mockup source` while <design.md> cites a
@@ -20,12 +19,16 @@
 # <report file> is the relay contract's
 # <abs-worktree>/.superpowers/sdd/verify-report-<key>.md
 # (skills/flow/visual-verify.md); <motions named> is the count of motions the
-# dispatch prompt named, 0 for `motions: none`; <scoped specs>, given for a
-# re-run under a round base alone, is the count of paths `specs` printed for
-# that round base (skills/flow/verify-fix-loop.md).
+# dispatch prompt named, 0 for `motions: none`.
+#
+# Every line below is read from the report's `## Report` heading to the next
+# `## ` heading alone: the `## Verdict` block above it is the handback, never
+# the record (decision verdict-only-handback). The verifier runs no `verify`
+# (decision verifier-runs-no-verify), so step 7 is no required step and a
+# `7` item on the `- steps:` line is ignored.
 #
 # The report's `- steps:` line carries one `<step> <status>` item per required
-# step, ` | `-separated, for steps 4, 7, 8, 9, 10, 11 and `motion`
+# step, ` | `-separated, for steps 4, 8, 9, 10, 11 and `motion`
 # (skills/flow/visual-verify-verifier.md). A status is admissible when it is
 #   done
 #   n/a — <reason>       steps 4 and 10 only, and `motion` when <motions named> is 0;
@@ -48,12 +51,6 @@
 # `merge-base capture: <path>` leaves step 10 undone (kan-1015: a re-baseline
 # over a defect attributed from the code path alone).
 #
-# Given <scoped specs>, the report's `- verify:` line must read `not run — no
-# spec since the round base` when it is 0, else name `<n> mapped specs` with
-# <n> equal to it; otherwise step 7 is undone as `ran <k> mapped specs where
-# specs printed <n>` or `names no mapped-spec count` (kan-1015: a re-run under
-# a round base where `specs` printed 2 ran 95).
-#
 # With step 10 `done`, every frame id a `- <frame id>: <composite> diff=`
 # line names needs its own `- <frame id> matrix:` line; each that has none is
 # undone as `<frame id> has no matrix: line — step 10 is done only with every
@@ -74,7 +71,7 @@
 #   VERIFY-REPORT-INCOMPLETE: <report file> — <each undone step and its status, `; `-separated>
 #
 # Exit 0 complete, 1 incomplete, 2 cannot answer (a usage error, a count
-# or scoped count that is not a non-negative integer, a report file it
+# that is not a non-negative integer, a report file it
 # cannot read).
 #
 # Go, in flow-guard (stats/internal/guard/verifyreport.go).
