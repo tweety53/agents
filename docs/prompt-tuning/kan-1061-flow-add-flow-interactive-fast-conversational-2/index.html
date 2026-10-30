@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kan-1061-flow-add-flow-interactive-fast-conversational-2</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0 auto;max-width:1100px;padding:16px;line-height:1.45}
+pre{background:#f4f4f4;padding:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.ab{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:700px){.ab{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>kan-1061-flow-add-flow-interactive-fast-conversational-2</h1>
+<h2>Type</h2>
+<p>implementer · scope generic</p>
+<h2>Defect class</h2>
+<p>A degraded path meant for a dependency that cannot be reached is keyed on an error class that also covers the dependency&#39;s own error answers, so a reachable dependency that fails silently skips the check the path was guarding.</p>
+<h2>Finding</h2>
+<pre># Finding
+
+- **Severity:** Important (round 0, slot failure-modes, F1)
+- **Location:** stats/cmd/flow/request.go:222
+- **Reviewer&#39;s sentence:** &#34;The landed-end gate treats every `ErrUnavailable` from `ListStageRuns` as \&#34;store unreachable\&#34; and passes with a ⚠ line. But `ListStageRuns` (stats/internal/client/client.go:623) also wraps a reachable daemon&#39;s non-200 answer in `ErrUnavailable`&#34;
+</pre>
+<pre><code>diff --git a/stats/cmd/flow/request.go b/stats/cmd/flow/request.go
+index 9f767cab..77b3365e 100644
+--- a/stats/cmd/flow/request.go
+&#43;&#43;&#43; b/stats/cmd/flow/request.go
+@@ -219,7 &#43;219,7 @@ func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey st
+ 	runs, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]client.StageRunRow, error) {
+ 		return cl.ListStageRuns(ctx, projectKey, f.change, string(stages.FlowInteractive), &#34;flow.visual-verify&#34;)
+ 	})
+-	if errors.Is(err, client.ErrUnavailable) &amp;&amp; !errors.Is(err, client.ErrDaemonAnswered) {
+&#43;	if errors.Is(err, client.ErrUnavailable) {
+ 		fmt.Fprintf(stderr, &#34;⚠ flow: store unreachable — skipped request %d&#39;s UI check read; the git checks passed\n&#34;, n)
+ 		return 0
+ 	}
+diff --git a/stats/internal/client/client.go b/stats/internal/client/client.go
+index 9a080574..f68593cd 100644
+--- a/stats/internal/client/client.go
+&#43;&#43;&#43; b/stats/internal/client/client.go
+@@ -52,13 &#43;52,6 @@ const (
+ // not even parse as JSON. It is the CLI&#39;s fallback trigger.
+ var ErrUnavailable = errors.New(&#34;client: store unavailable&#34;)
+ 
+-// ErrDaemonAnswered marks an ErrUnavailable that the genuine daemon itself
+-// produced -- a non-200 status or an unparseable body carrying the daemon
+-// header. It wraps alongside ErrUnavailable, so callers falling back on
+-// ErrUnavailable are unchanged; a caller that may skip a read only when the
+-// store cannot be reached (the request-end guard) refuses on it instead.
+-var ErrDaemonAnswered = errors.New(&#34;client: the store answered&#34;)
+-
+ // ErrRefused means the store was reached and correctly refused the write
+ // because it would move the record&#39;s state backwards (HTTP 409, mapping
+ // store.ErrMonotonicViolation -- see internal/api/changes.go&#39;s put doc
+@@ -627,13 &#43;620,13 @@ func (c *Client) ListStageRuns(ctx context.Context, project, change, command, st
+ 		return nil, fmt.Errorf(&#34;%w: response missing %s header -- not trusted as a store answer&#34;, ErrUnavailable, daemonHeaderName)
+ 	}
+ 	if status != http.StatusOK {
+-		return nil, fmt.Errorf(&#34;%w: %w: unexpected status %d&#34;, ErrUnavailable, ErrDaemonAnswered, status)
+&#43;		return nil, fmt.Errorf(&#34;%w: unexpected status %d&#34;, ErrUnavailable, status)
+ 	}
+ 	var wire struct {
+ 		StageRuns []StageRunRow `json:&#34;stageRuns&#34;`
+ 	}
+ 	if err := json.Unmarshal(body, &amp;wire); err != nil {
+-		return nil, fmt.Errorf(&#34;%w: %w: response body is not valid JSON&#34;, ErrUnavailable, ErrDaemonAnswered)
+&#43;		return nil, fmt.Errorf(&#34;%w: response body is not valid JSON&#34;, ErrUnavailable)
+ 	}
+ 	return wire.StageRuns, nil
+ }
+</code></pre>
+<h2>Fix</h2>
+<pre><code>commit a9539509678d4ca3a65ea91060bec1b1d46e95b0
+Author: Yuriy Aleksandrov &lt;yatweety@gmail.com&gt;
+Date:   Fri Oct 30 11:56:13 2026 &#43;0200
+
+    fix(cli): refuse a landed request end when the store answers the UI-check read badly
+    
+    Flow-Key: panel-fix-1
+
+diff --git a/stats/cmd/flow/request.go b/stats/cmd/flow/request.go
+index 77b3365e..9f767cab 100644
+--- a/stats/cmd/flow/request.go
+&#43;&#43;&#43; b/stats/cmd/flow/request.go
+@@ -219,7 &#43;219,7 @@ func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey st
+ 	runs, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]client.StageRunRow, error) {
+ 		return cl.ListStageRuns(ctx, projectKey, f.change, string(stages.FlowInteractive), &#34;flow.visual-verify&#34;)
+ 	})
+-	if errors.Is(err, client.ErrUnavailable) {
+&#43;	if errors.Is(err, client.ErrUnavailable) &amp;&amp; !errors.Is(err, client.ErrDaemonAnswered) {
+ 		fmt.Fprintf(stderr, &#34;⚠ flow: store unreachable — skipped request %d&#39;s UI check read; the git checks passed\n&#34;, n)
+ 		return 0
+ 	}
+diff --git a/stats/internal/client/client.go b/stats/internal/client/client.go
+index f68593cd..9a080574 100644
+--- a/stats/internal/client/client.go
+&#43;&#43;&#43; b/stats/internal/client/client.go
+@@ -52,6 &#43;52,13 @@ const (
+ // not even parse as JSON. It is the CLI&#39;s fallback trigger.
+ var ErrUnavailable = errors.New(&#34;client: store unavailable&#34;)
+ 
+&#43;// ErrDaemonAnswered marks an ErrUnavailable that the genuine daemon itself
+&#43;// produced -- a non-200 status or an unparseable body carrying the daemon
+&#43;// header. It wraps alongside ErrUnavailable, so callers falling back on
+&#43;// ErrUnavailable are unchanged; a caller that may skip a read only when the
+&#43;// store cannot be reached (the request-end guard) refuses on it instead.
+&#43;var ErrDaemonAnswered = errors.New(&#34;client: the store answered&#34;)
+&#43;
+ // ErrRefused means the store was reached and correctly refused the write
+ // because it would move the record&#39;s state backwards (HTTP 409, mapping
+ // store.ErrMonotonicViolation -- see internal/api/changes.go&#39;s put doc
+@@ -620,13 &#43;627,13 @@ func (c *Client) ListStageRuns(ctx context.Context, project, change, command, st
+ 		return nil, fmt.Errorf(&#34;%w: response missing %s header -- not trusted as a store answer&#34;, ErrUnavailable, daemonHeaderName)
+ 	}
+ 	if status != http.StatusOK {
+-		return nil, fmt.Errorf(&#34;%w: unexpected status %d&#34;, ErrUnavailable, status)
+&#43;		return nil, fmt.Errorf(&#34;%w: %w: unexpected status %d&#34;, ErrUnavailable, ErrDaemonAnswered, status)
+ 	}
+ 	var wire struct {
+ 		StageRuns []StageRunRow `json:&#34;stageRuns&#34;`
+ 	}
+ 	if err := json.Unmarshal(body, &amp;wire); err != nil {
+-		return nil, fmt.Errorf(&#34;%w: response body is not valid JSON&#34;, ErrUnavailable)
+&#43;		return nil, fmt.Errorf(&#34;%w: %w: response body is not valid JSON&#34;, ErrUnavailable, ErrDaemonAnswered)
+ 	}
+ 	return wire.StageRuns, nil
+ }
+</code></pre>
+<h2>Why picked</h2>
+<pre>1. Defect class: a fallback taken on &#39;cannot reach it&#39; also fires on &#39;it answered with an error&#39;, turning a refusal into a pass. 2. No rule covers it: the robustness principle reads &#34;Be strict about what you emit and defensive about what you accept, fail fast on programmer error, degrade gracefully on environmental error, and make every failure observable.&#34;, and nothing says to separate unreachable from answered-badly before degrading. The implementer read a non-200 as environmental and skipped the UI-check read with a warning, and the failure-modes slot raised it as an Important that cost a fix round. 3. It generalises: every client error sentinel that callers branch on for an offline or journal fallback has the same shape — here the CLI&#39;s documented fallback trigger wraps non-200 statuses and unparseable bodies across its client methods. The same holds for any cache-or-network fallback, offline mode or fail-open guard in any language. 4. It is a principle, not a patch: degrade only on the condition the fallback was built for, and treat every other failure as a failure.</pre>
+<h2>Prompt update</h2>
+<p>Target: <code>skills/flow/engineering-principles.md</code> at <code>35f477f8d6f697deb4913c2409acddef40979ab7</code></p>
+<div class="ab">
+<div><h3>Before</h3><pre>Be strict about what you emit and defensive about what you accept, fail fast on
+programmer error, degrade gracefully on environmental error, and make every failure
+observable.</pre></div>
+<div><h3>After</h3><pre>Be strict about what you emit and defensive about what you accept, fail fast on
+programmer error, degrade gracefully on environmental error, and make every failure
+observable. Degrade only on the condition the fallback was built for: before taking a path
+meant for a dependency that cannot be reached, tell &#34;could not reach it&#34; apart from &#34;it
+answered with an error&#34;, and treat the second as a failure, never as the first.</pre></div>
+</div>
+</body>
+</html>

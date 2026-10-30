@@ -1,0 +1,55 @@
+commit a9539509678d4ca3a65ea91060bec1b1d46e95b0
+Author: Yuriy Aleksandrov <yatweety@gmail.com>
+Date:   Fri Oct 30 11:56:13 2026 +0200
+
+    fix(cli): refuse a landed request end when the store answers the UI-check read badly
+    
+    Flow-Key: panel-fix-1
+
+diff --git a/stats/cmd/flow/request.go b/stats/cmd/flow/request.go
+index 77b3365e..9f767cab 100644
+--- a/stats/cmd/flow/request.go
++++ b/stats/cmd/flow/request.go
+@@ -219,7 +219,7 @@ func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey st
+ 	runs, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]client.StageRunRow, error) {
+ 		return cl.ListStageRuns(ctx, projectKey, f.change, string(stages.FlowInteractive), "flow.visual-verify")
+ 	})
+-	if errors.Is(err, client.ErrUnavailable) {
++	if errors.Is(err, client.ErrUnavailable) && !errors.Is(err, client.ErrDaemonAnswered) {
+ 		fmt.Fprintf(stderr, "⚠ flow: store unreachable — skipped request %d's UI check read; the git checks passed\n", n)
+ 		return 0
+ 	}
+diff --git a/stats/internal/client/client.go b/stats/internal/client/client.go
+index f68593cd..9a080574 100644
+--- a/stats/internal/client/client.go
++++ b/stats/internal/client/client.go
+@@ -52,6 +52,13 @@ const (
+ // not even parse as JSON. It is the CLI's fallback trigger.
+ var ErrUnavailable = errors.New("client: store unavailable")
+ 
++// ErrDaemonAnswered marks an ErrUnavailable that the genuine daemon itself
++// produced -- a non-200 status or an unparseable body carrying the daemon
++// header. It wraps alongside ErrUnavailable, so callers falling back on
++// ErrUnavailable are unchanged; a caller that may skip a read only when the
++// store cannot be reached (the request-end guard) refuses on it instead.
++var ErrDaemonAnswered = errors.New("client: the store answered")
++
+ // ErrRefused means the store was reached and correctly refused the write
+ // because it would move the record's state backwards (HTTP 409, mapping
+ // store.ErrMonotonicViolation -- see internal/api/changes.go's put doc
+@@ -620,13 +627,13 @@ func (c *Client) ListStageRuns(ctx context.Context, project, change, command, st
+ 		return nil, fmt.Errorf("%w: response missing %s header -- not trusted as a store answer", ErrUnavailable, daemonHeaderName)
+ 	}
+ 	if status != http.StatusOK {
+-		return nil, fmt.Errorf("%w: unexpected status %d", ErrUnavailable, status)
++		return nil, fmt.Errorf("%w: %w: unexpected status %d", ErrUnavailable, ErrDaemonAnswered, status)
+ 	}
+ 	var wire struct {
+ 		StageRuns []StageRunRow `json:"stageRuns"`
+ 	}
+ 	if err := json.Unmarshal(body, &wire); err != nil {
+-		return nil, fmt.Errorf("%w: response body is not valid JSON", ErrUnavailable)
++		return nil, fmt.Errorf("%w: %w: response body is not valid JSON", ErrUnavailable, ErrDaemonAnswered)
+ 	}
+ 	return wire.StageRuns, nil
+ }

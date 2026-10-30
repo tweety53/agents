@@ -1,0 +1,22 @@
+{
+  "id": "kan-1061-flow-add-flow-interactive-fast-conversational-1",
+  "type": "implementer",
+  "scope": "generic",
+  "source": {
+    "project": "agents",
+    "change": "kan-1061-flow-add-flow-interactive-fast-conversational",
+    "jira": "KAN-1061",
+    "repo": "agents",
+    "fix_sha": "ffeaf7eb890fe9f8348749c09ef23011be1b45ff",
+    "finding_ref": "visual-verification.md first report, prototype-run-view: Stage runs 5 rows + \"Show all 31\" chip vs the prototype's 6 rows, no chip",
+    "round": 1,
+    "slot": "visual-verify",
+    "severity": "Important"
+  },
+  "target": "skills/flow/verify-fix-loop.md",
+  "target_sha": "35f477f8d6f697deb4913c2409acddef40979ab7",
+  "defect_class": "An implementer that measures its work against a design specification hands back a departure its own change introduced, and could have closed, as a named leftover instead of fixing it, because the leftover allowance does not say what counts as a cause.",
+  "why_picked": "1. Defect class: a self-measured departure the change itself owns is reported as a leftover rather than fixed. 2. No rule covers it: the measure-before-hand-back rule reads \"A leftover of any size — a 1dp offset included — is closed or named with its cause, never reported clean because it is small\", and nothing defines a cause, so the implementer's hand-back listed \"Stage runs panel shows latest 5 + \\\"Show all 31\\\", prototype 6 rows\" under Prototype leftovers with no cause, and the parent accepted it. The verifier then classed it as this change's defect, and the run paid a verifier pass, an in-run fix task and a panel round for it. 3. It generalises: the same allowance governs every compose-and-measure step — every plan-time capture task baselined against a mockup or prototype (the planner cites this rule for them), and every visual fix round. The verifier already attributes each leftover to the merge base, the fixture or a frame conflict; the implementer side has no matching bar, so any project with design frames can hand back an own departure as a leftover. 4. It is a principle, not a patch: a cause is something outside the change's control, and a departure the change controls is fixed, whatever the view or property.",
+  "before": "A leftover of any size — a 1dp offset included — is closed or named with its cause, never reported clean because it is small",
+  "after": "A leftover of any size — a 1dp offset included — is closed or named with its cause, and a cause is something this change does not control (the same departure at the merge base, fixture data the spec cannot pin, a named conflict between frames), so a departure this change introduced or its own code could close is fixed, never named; none is reported clean because it is small"
+}

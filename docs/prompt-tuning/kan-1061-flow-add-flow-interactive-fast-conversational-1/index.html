@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kan-1061-flow-add-flow-interactive-fast-conversational-1</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0 auto;max-width:1100px;padding:16px;line-height:1.45}
+pre{background:#f4f4f4;padding:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.ab{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:700px){.ab{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>kan-1061-flow-add-flow-interactive-fast-conversational-1</h1>
+<h2>Type</h2>
+<p>implementer · scope generic</p>
+<h2>Defect class</h2>
+<p>An implementer that measures its work against a design specification hands back a departure its own change introduced, and could have closed, as a named leftover instead of fixing it, because the leftover allowance does not say what counts as a cause.</p>
+<h2>Finding</h2>
+<pre># Finding
+
+- **Severity:** Important (visual-verify departure)
+- **Location:** stats/web/src/views/RunDetail.tsx (Stage runs panel)
+- **Verifier&#39;s sentence:** &#34;Stage runs 5 rows &#43; \&#34;Show all 31\&#34; chip vs the prototype&#39;s 6 rows, no chip: this change&#39;s; merge-base capture failed — same reason&#34;
+- **Implementer&#39;s leftover line:** &#34;Stage runs panel shows latest 5 &#43; \&#34;Show all 31\&#34;, prototype 6 rows; SPA dots completed outcomes.&#34;
+</pre>
+<pre><code>diff --git a/stats/web/src/views/RunDetail.tsx b/stats/web/src/views/RunDetail.tsx
+index 02d0e888..f7ec7ed0 100644
+--- a/stats/web/src/views/RunDetail.tsx
+&#43;&#43;&#43; b/stats/web/src/views/RunDetail.tsx
+@@ -90,8 &#43;87,6 @@ const TOP_STAGES = 10;
+ 
+ /** How many of the latest stage runs the collapsed Stage runs table shows. */
+ const LATEST_RUNS = 5;
+-/** An interactive session&#39;s Stage runs: the prototype&#39;s six latest rows, with no &#34;Show all&#34;. */
+-const INTERACTIVE_RUNS = 6;
+ 
+ /** The outcomes a dispatch ends on without finishing its work. */
+ const FAILED_OUTCOMES = new Set([&#34;failed&#34;, &#34;blocked&#34;, &#34;aborted&#34;, &#34;timed-out&#34;, &#34;cancelled&#34;, &#34;stopped&#34;]);
+@@ -736,87 &#43;731,6 @@ export function RunDetail({ project, change }: RunDetailProps) {
+           const restStages = allStageCost.slice(TOP_STAGES);
+           const maxStage = Math.max(0, ...stageCost.map(([, v]) =&gt; v));
+           const sessionOf = (run: StageRunDTO) =&gt; sessions.find((s) =&gt; s.runs.includes(run))?.label ?? &#34;&#34;;
+-          const timelinePanel = (
+-          &lt;section className=&#34;lb-panel&#34; aria-label=&#34;Timeline&#34; style={interactive ? { order: 5 } : undefined}&gt;
+-            &lt;div className=&#34;lb-panel-h&#34;&gt;
+-              &lt;span&gt;Timeline&lt;/span&gt;
+-              &lt;span className=&#34;lb-legend&#34;&gt;
+-                &lt;span&gt;
+-                  &lt;i className=&#34;lb-sw completed&#34; /&gt;
+-                  completed
+-                &lt;/span&gt;
+-                &lt;span&gt;
+-                  &lt;i className=&#34;lb-sw failed&#34; /&gt;
+-                  failed
+-                &lt;/span&gt;
+-                &lt;span&gt;
+-                  &lt;i className=&#34;lb-sw open&#34; /&gt;
+-                  running
+-                &lt;/span&gt;
+-                &lt;button type=&#34;button&#34; className=&#34;lb-fchip&#34; aria-expanded={timelineOpen} onClick={() =&gt; setTimelineOpen(!timelineOpen)}&gt;
+-                  {timelineOpen ? &#34;Hide timeline&#34; : &#34;Show timeline&#34;}
+-                &lt;/button&gt;
+-              &lt;/span&gt;
+-            &lt;/div&gt;
+-            {timelineOpen &amp;&amp; (
+-              &lt;div className=&#34;lb-panel-b lb-scroll&#34;&gt;
+-                &lt;StageTimeline stageRuns={runs} sessionOf={sessionOf} upcoming={upcoming} /&gt;
+-              &lt;/div&gt;
+-            )}
+-          &lt;/section&gt;
+-          );
+-          const stageRunsPanel = (
+-          &lt;section className=&#34;lb-panel&#34; aria-label=&#34;Stage runs&#34; style={interactive ? { order: 6 } : undefined}&gt;
+-            &lt;div className=&#34;lb-panel-h&#34;&gt;
+-              &lt;span&gt;Stage runs&lt;/span&gt;
+-              &lt;span className=&#34;lb-panel-note&#34;&gt;
+-                click a row for its dispatches
+-                {!interactive &amp;&amp; runs.length &gt; LATEST_RUNS &amp;&amp; (
+-                  &lt;&gt;
+-                    {&#34; · &#34;}
+-                    &lt;button type=&#34;button&#34; className=&#34;lb-fchip&#34; onClick={() =&gt; setAllRuns(!allRuns)}&gt;
+-                      {allRuns ? `Show latest ${LATEST_RUNS}` : `Show all ${runs.length}`}
+-                    &lt;/button&gt;
+-                  &lt;/&gt;
+-                )}
+-              &lt;/span&gt;
+-            &lt;/div&gt;
+-            &lt;StageRunTable
+-              stageRuns={allRuns ? runs : [...runs].sort((a, b) =&gt; Date.parse(a.startedAt) - Date.parse(b.startedAt)).slice(-(interactive ? INTERACTIVE_RUNS : LATEST_RUNS))}
+-              truncated={state.truncated}
+-              totalStageRuns={state.totalStageRuns}
+-              records={dispatches}
+-              requests={interactive}
+-            /&gt;
+-          &lt;/section&gt;
+-          );
+-          const costPanel = (
+-          &lt;section className=&#34;lb-panel&#34; aria-label=&#34;Cost by stage&#34; style={interactive ? { order: 7 } : undefined}&gt;
+-            &lt;div className=&#34;lb-panel-h&#34;&gt;
+-              &lt;span&gt;Cost by stage&lt;/span&gt;
+-            &lt;/div&gt;
+-            &lt;div className=&#34;lb-panel-b&#34;&gt;
+-              {stageCost.map(([stage, cost]) =&gt; (
+-                &lt;div key={stage} className=&#34;lb-hbar&#34;&gt;
+-                  &lt;span className=&#34;lb-n&#34; title={stage}&gt;
+-                    &lt;span title={stage}&gt;{stageLabel(stage)}&lt;/span&gt;
+-                  &lt;/span&gt;
+-                  &lt;span className=&#34;lb-t&#34;&gt;
+-                    &lt;span style={{ width: `${maxStage ? (cost / maxStage) * 100 : 0}%` }} /&gt;
+-                  &lt;/span&gt;
+-                  &lt;span className=&#34;r lb-num&#34;&gt;{formatUsd(cost)}&lt;/span&gt;
+-                &lt;/div&gt;
+-              ))}
+-              {restStages.length &gt; 0 &amp;&amp; (
+-                &lt;div className=&#34;lb-hbar lb-muted&#34; data-testid=&#34;stage-cost-rest&#34; title={restStages.map(([s]) =&gt; stageLabel(s)).join(&#34;, &#34;)}&gt;
+-                  &lt;span className=&#34;lb-n&#34;&gt;{restStages.length} more&lt;/span&gt;
+-                  &lt;span /&gt;
+-                  &lt;span className=&#34;r lb-num&#34;&gt;{formatUsd(restStages.reduce((a, [, v]) =&gt; a &#43; v, 0))}&lt;/span&gt;
+-                &lt;/div&gt;
+-              )}
+-            &lt;/div&gt;
+-          &lt;/section&gt;
+-          );
+ 
+           return (
+             &lt;&gt;
+@@ -1006,19 &#43;918,87 @@ export function RunDetail({ project, change }: RunDetailProps) {
+                   {!isSub &amp;&amp; board?.selfReviewTasks &amp;&amp; (
+                     &lt;TasksPanel title=&#34;Self-review tasks&#34; tasks={board.selfReviewTasks} current={[srView.currentTask ?? 0]} open={srPanelOpen} order={4} /&gt;
+                   )}
+-                  {interactive &amp;&amp; costPanel}
+                 &lt;/div&gt;
+               &lt;/div&gt;
+ 
+-              {!interactive &amp;&amp; (
+-                &lt;&gt;
+-                  {timelinePanel}
+-                  &lt;div className=&#34;lb-split&#34;&gt;
+-                    {stageRunsPanel}
+-                    {costPanel}
+&#43;              &lt;section className=&#34;lb-panel&#34; aria-label=&#34;Timeline&#34;&gt;
+&#43;                &lt;div className=&#34;lb-panel-h&#34;&gt;
+&#43;                  &lt;span&gt;Timeline&lt;/span&gt;
+&#43;                  &lt;span className=&#34;lb-legend&#34;&gt;
+&#43;                    &lt;span&gt;
+&#43;                      &lt;i className=&#34;lb-sw completed&#34; /&gt;
+&#43;                      completed
+&#43;                    &lt;/span&gt;
+&#43;                    &lt;span&gt;
+&#43;                      &lt;i className=&#34;lb-sw failed&#34; /&gt;
+&#43;                      failed
+&#43;                    &lt;/span&gt;
+&#43;                    &lt;span&gt;
+&#43;                      &lt;i className=&#34;lb-sw open&#34; /&gt;
+&#43;                      running
+&#43;                    &lt;/span&gt;
+&#43;                    &lt;button type=&#34;button&#34; className=&#34;lb-fchip&#34; aria-expanded={timelineOpen} onClick={() =&gt; setTimelineOpen(!timelineOpen)}&gt;
+&#43;                      {timelineOpen ? &#34;Hide timeline&#34; : &#34;Show timeline&#34;}
+&#43;                    &lt;/button&gt;
+&#43;                  &lt;/span&gt;
+&#43;                &lt;/div&gt;
+&#43;                {timelineOpen &amp;&amp; (
+&#43;                  &lt;div className=&#34;lb-panel-b lb-scroll&#34;&gt;
+&#43;                    &lt;StageTimeline stageRuns={runs} sessionOf={sessionOf} upcoming={upcoming} /&gt;
+                   &lt;/div&gt;
+-                &lt;/&gt;
+-              )}
+&#43;                )}
+&#43;              &lt;/section&gt;
+&#43;
+&#43;              &lt;div className=&#34;lb-split&#34;&gt;
+&#43;                &lt;section className=&#34;lb-panel&#34; aria-label=&#34;Stage runs&#34;&gt;
+&#43;                  &lt;div className=&#34;lb-panel-h&#34;&gt;
+&#43;                    &lt;span&gt;Stage runs&lt;/span&gt;
+&#43;                    &lt;span className=&#34;lb-panel-note&#34;&gt;
+&#43;                      click a row for its dispatches
+&#43;                      {runs.length &gt; LATEST_RUNS &amp;&amp; (
+&#43;                        &lt;&gt;
+&#43;                          {&#34; · &#34;}
+&#43;                          &lt;button type=&#34;button&#34; className=&#34;lb-fchip&#34; onClick={() =&gt; setAllRuns(!allRuns)}&gt;
+&#43;                            {allRuns ? `Show latest ${LATEST_RUNS}` : `Show all ${runs.length}`}
+&#43;                          &lt;/button&gt;
+&#43;                        &lt;/&gt;
+&#43;                      )}
+&#43;                    &lt;/span&gt;
+&#43;                  &lt;/div&gt;
+&#43;                  &lt;StageRunTable
+&#43;                    stageRuns={allRuns ? runs : [...runs].sort((a, b) =&gt; Date.parse(a.startedAt) - Date.parse(b.startedAt)).slice(-LATEST_RUNS)}
+&#43;                    truncated={state.truncated}
+&#43;                    totalStageRuns={state.totalStageRuns}
+&#43;                    records={dispatches}
+&#43;                    requests={interactive}
+&#43;                  /&gt;
+&#43;                &lt;/section&gt;
+&#43;                &lt;section className=&#34;lb-panel&#34; aria-label=&#34;Cost by stage&#34;&gt;
+&#43;                  &lt;div className=&#34;lb-panel-h&#34;&gt;
+&#43;                    &lt;span&gt;Cost by stage&lt;/span&gt;
+&#43;                  &lt;/div&gt;
+&#43;                  &lt;div className=&#34;lb-panel-b&#34;&gt;
+&#43;                    {stageCost.map(([stage, cost]) =&gt; (
+&#43;                      &lt;div key={stage} className=&#34;lb-hbar&#34;&gt;
+&#43;                        &lt;span className=&#34;lb-n&#34; title={stage}&gt;
+&#43;                          &lt;span title={stage}&gt;{stageLabel(stage)}&lt;/span&gt;
+&#43;                        &lt;/span&gt;
+&#43;                        &lt;span className=&#34;lb-t&#34;&gt;
+&#43;                          &lt;span style={{ width: `${maxStage ? (cost / maxStage) * 100 : 0}%` }} /&gt;
+&#43;                        &lt;/span&gt;
+&#43;                        &lt;span className=&#34;r lb-num&#34;&gt;{formatUsd(cost)}&lt;/span&gt;
+&#43;                      &lt;/div&gt;
+&#43;                    ))}
+&#43;                    {restStages.length &gt; 0 &amp;&amp; (
+&#43;                      &lt;div className=&#34;lb-hbar lb-muted&#34; data-testid=&#34;stage-cost-rest&#34; title={restStages.map(([s]) =&gt; stageLabel(s)).join(&#34;, &#34;)}&gt;
+&#43;                        &lt;span className=&#34;lb-n&#34;&gt;{restStages.length} more&lt;/span&gt;
+&#43;                        &lt;span /&gt;
+&#43;                        &lt;span className=&#34;r lb-num&#34;&gt;{formatUsd(restStages.reduce((a, [, v]) =&gt; a &#43; v, 0))}&lt;/span&gt;
+&#43;                      &lt;/div&gt;
+&#43;                    )}
+&#43;                  &lt;/div&gt;
+&#43;                &lt;/section&gt;
+&#43;              &lt;/div&gt;
+             &lt;/&gt;
+           );
+         })()}
+</code></pre>
+<h2>Fix</h2>
+<pre><code>commit ffeaf7eb890fe9f8348749c09ef23011be1b45ff
+Author: Yuriy Aleksandrov &lt;yatweety@gmail.com&gt;
+Date:   Fri Oct 30 12:27:23 2026 &#43;0200
+
+    fix(web): match the interactive run view to its prototype
+    
+    On a /flow-interactive session the run view&#39;s work area is the prototype&#39;s
+    minmax(0, 3fr) minmax(0, 2fr) grid: Agents, Main, the timeline and the latest
+    six stage runs (no Show all chip) on the left, Requests and Cost by stage on
+    the right; each agent&#39;s status is its dot alone, its word kept as the dot&#39;s
+    accessible name. The /flow and /flow-fast run views are unchanged. The four
+    interactive card captures are now viewport captures.
+    
+    Task-Id: 15
+    Flow-Key: task-15
+
+diff --git a/stats/web/src/views/RunDetail.tsx b/stats/web/src/views/RunDetail.tsx
+index f7ec7ed0..02d0e888 100644
+--- a/stats/web/src/views/RunDetail.tsx
+&#43;&#43;&#43; b/stats/web/src/views/RunDetail.tsx
+@@ -87,6 &#43;90,8 @@ const TOP_STAGES = 10;
+ 
+ /** How many of the latest stage runs the collapsed Stage runs table shows. */
+ const LATEST_RUNS = 5;
+&#43;/** An interactive session&#39;s Stage runs: the prototype&#39;s six latest rows, with no &#34;Show all&#34;. */
+&#43;const INTERACTIVE_RUNS = 6;
+ 
+ /** The outcomes a dispatch ends on without finishing its work. */
+ const FAILED_OUTCOMES = new Set([&#34;failed&#34;, &#34;blocked&#34;, &#34;aborted&#34;, &#34;timed-out&#34;, &#34;cancelled&#34;, &#34;stopped&#34;]);
+@@ -731,6 &#43;736,87 @@ export function RunDetail({ project, change }: RunDetailProps) {
+           const restStages = allStageCost.slice(TOP_STAGES);
+           const maxStage = Math.max(0, ...stageCost.map(([, v]) =&gt; v));
+           const sessionOf = (run: StageRunDTO) =&gt; sessions.find((s) =&gt; s.runs.includes(run))?.label ?? &#34;&#34;;
+&#43;          const timelinePanel = (
+&#43;          &lt;section className=&#34;lb-panel&#34; aria-label=&#34;Timeline&#34; style={interactive ? { order: 5 } : undefined}&gt;
+&#43;            &lt;div className=&#34;lb-panel-h&#34;&gt;
+&#43;              &lt;span&gt;Timeline&lt;/span&gt;
+&#43;              &lt;span className=&#34;lb-legend&#34;&gt;
+&#43;                &lt;span&gt;
+&#43;                  &lt;i className=&#34;lb-sw completed&#34; /&gt;
+&#43;                  completed
+&#43;                &lt;/span&gt;
+&#43;                &lt;span&gt;
+&#43;                  &lt;i className=&#34;lb-sw failed&#34; /&gt;
+&#43;                  failed
+&#43;                &lt;/span&gt;
+&#43;                &lt;span&gt;
+&#43;                  &lt;i className=&#34;lb-sw open&#34; /&gt;
+&#43;                  running
+&#43;                &lt;/span&gt;
+&#43;                &lt;button type=&#34;button&#34; className=&#34;lb-fchip&#34; aria-expanded={timelineOpen} onClick={() =&gt; setTimelineOpen(!timelineOpen)}&gt;
+&#43;                  {timelineOpen ? &#34;Hide timeline&#34; : &#34;Show timeline&#34;}
+&#43;                &lt;/button&gt;
+&#43;              &lt;/span&gt;
+&#43;            &lt;/div&gt;
+&#43;            {timelineOpen &amp;&amp; (
+&#43;              &lt;div className=&#34;lb-panel-b lb-scroll&#34;&gt;
+&#43;                &lt;StageTimeline stageRuns={runs} sessionOf={sessionOf} upcoming={upcoming} /&gt;
+&#43;              &lt;/div&gt;
+&#43;            )}
+&#43;          &lt;/section&gt;
+&#43;          );
+&#43;          const stageRunsPanel = (
+&#43;          &lt;section className=&#34;lb-panel&#34; aria-label=&#34;Stage runs&#34; style={interactive ? { order: 6 } : undefined}&gt;
+&#43;            &lt;div className=&#34;lb-panel-h&#34;&gt;
+&#43;              &lt;span&gt;Stage runs&lt;/span&gt;
+&#43;              &lt;span className=&#34;lb-panel-note&#34;&gt;
+&#43;                click a row for its dispatches
+&#43;                {!interactive &amp;&amp; runs.length &gt; LATEST_RUNS &amp;&amp; (
+&#43;                  &lt;&gt;
+&#43;                    {&#34; · &#34;}
+&#43;                    &lt;button type=&#34;button&#34; className=&#34;lb-fchip&#34; onClick={() =&gt; setAllRuns(!allRuns)}&gt;
+&#43;                      {allRuns ? `Show latest ${LATEST_RUNS}` : `Show all ${runs.length}`}
+&#43;                    &lt;/button&gt;
+&#43;                  &lt;/&gt;
+&#43;                )}
+&#43;              &lt;/span&gt;
+&#43;            &lt;/div&gt;
+&#43;            &lt;StageRunTable
+&#43;              stageRuns={allRuns ? runs : [...runs].sort((a, b) =&gt; Date.parse(a.startedAt) - Date.parse(b.startedAt)).slice(-(interactive ? INTERACTIVE_RUNS : LATEST_RUNS))}
+&#43;              truncated={state.truncated}
+&#43;              totalStageRuns={state.totalStageRuns}
+&#43;              records={dispatches}
+&#43;              requests={interactive}
+&#43;            /&gt;
+&#43;          &lt;/section&gt;
+&#43;          );
+&#43;          const costPanel = (
+&#43;          &lt;section className=&#34;lb-panel&#34; aria-label=&#34;Cost by stage&#34; style={interactive ? { order: 7 } : undefined}&gt;
+&#43;            &lt;div className=&#34;lb-panel-h&#34;&gt;
+&#43;              &lt;span&gt;Cost by stage&lt;/span&gt;
+&#43;            &lt;/div&gt;
+&#43;            &lt;div className=&#34;lb-panel-b&#34;&gt;
+&#43;              {stageCost.map(([stage, cost]) =&gt; (
+&#43;                &lt;div key={stage} className=&#34;lb-hbar&#34;&gt;
+&#43;                  &lt;span className=&#34;lb-n&#34; title={stage}&gt;
+&#43;                    &lt;span title={stage}&gt;{stageLabel(stage)}&lt;/span&gt;
+&#43;                  &lt;/span&gt;
+&#43;                  &lt;span className=&#34;lb-t&#34;&gt;
+&#43;                    &lt;span style={{ width: `${maxStage ? (cost / maxStage) * 100 : 0}%` }} /&gt;
+&#43;                  &lt;/span&gt;
+&#43;                  &lt;span className=&#34;r lb-num&#34;&gt;{formatUsd(cost)}&lt;/span&gt;
+&#43;                &lt;/div&gt;
+&#43;              ))}
+&#43;              {restStages.length &gt; 0 &amp;&amp; (
+&#43;                &lt;div className=&#34;lb-hbar lb-muted&#34; data-testid=&#34;stage-cost-rest&#34; title={restStages.map(([s]) =&gt; stageLabel(s)).join(&#34;, &#34;)}&gt;
+&#43;                  &lt;span className=&#34;lb-n&#34;&gt;{restStages.length} more&lt;/span&gt;
+&#43;                  &lt;span /&gt;
+&#43;                  &lt;span className=&#34;r lb-num&#34;&gt;{formatUsd(restStages.reduce((a, [, v]) =&gt; a &#43; v, 0))}&lt;/span&gt;
+&#43;                &lt;/div&gt;
+&#43;              )}
+&#43;            &lt;/div&gt;
+&#43;          &lt;/section&gt;
+&#43;          );
+ 
+           return (
+             &lt;&gt;
+@@ -918,87 &#43;1006,19 @@ export function RunDetail({ project, change }: RunDetailProps) {
+                   {!isSub &amp;&amp; board?.selfReviewTasks &amp;&amp; (
+                     &lt;TasksPanel title=&#34;Self-review tasks&#34; tasks={board.selfReviewTasks} current={[srView.currentTask ?? 0]} open={srPanelOpen} order={4} /&gt;
+                   )}
+&#43;                  {interactive &amp;&amp; costPanel}
+                 &lt;/div&gt;
+               &lt;/div&gt;
+ 
+-              &lt;section className=&#34;lb-panel&#34; aria-label=&#34;Timeline&#34;&gt;
+-                &lt;div className=&#34;lb-panel-h&#34;&gt;
+-                  &lt;span&gt;Timeline&lt;/span&gt;
+-                  &lt;span className=&#34;lb-legend&#34;&gt;
+-                    &lt;span&gt;
+-                      &lt;i className=&#34;lb-sw completed&#34; /&gt;
+-                      completed
+-                    &lt;/span&gt;
+-                    &lt;span&gt;
+-                      &lt;i className=&#34;lb-sw failed&#34; /&gt;
+-                      failed
+-                    &lt;/span&gt;
+-                    &lt;span&gt;
+-                      &lt;i className=&#34;lb-sw open&#34; /&gt;
+-                      running
+-                    &lt;/span&gt;
+-                    &lt;button type=&#34;button&#34; className=&#34;lb-fchip&#34; aria-expanded={timelineOpen} onClick={() =&gt; setTimelineOpen(!timelineOpen)}&gt;
+-                      {timelineOpen ? &#34;Hide timeline&#34; : &#34;Show timeline&#34;}
+-                    &lt;/button&gt;
+-                  &lt;/span&gt;
+-                &lt;/div&gt;
+-                {timelineOpen &amp;&amp; (
+-                  &lt;div className=&#34;lb-panel-b lb-scroll&#34;&gt;
+-                    &lt;StageTimeline stageRuns={runs} sessionOf={sessionOf} upcoming={upcoming} /&gt;
+-                  &lt;/div&gt;
+-                )}
+-              &lt;/section&gt;
+-
+-              &lt;div className=&#34;lb-split&#34;&gt;
+-                &lt;section className=&#34;lb-panel&#34; aria-label=&#34;Stage runs&#34;&gt;
+-                  &lt;div className=&#34;lb-panel-h&#34;&gt;
+-                    &lt;span&gt;Stage runs&lt;/span&gt;
+-                    &lt;span className=&#34;lb-panel-note&#34;&gt;
+-                      click a row for its dispatches
+-                      {runs.length &gt; LATEST_RUNS &amp;&amp; (
+-                        &lt;&gt;
+-                          {&#34; · &#34;}
+-                          &lt;button type=&#34;button&#34; className=&#34;lb-fchip&#34; onClick={() =&gt; setAllRuns(!allRuns)}&gt;
+-                            {allRuns ? `Show latest ${LATEST_RUNS}` : `Show all ${runs.length}`}
+-                          &lt;/button&gt;
+-                        &lt;/&gt;
+-                      )}
+-                    &lt;/span&gt;
+&#43;              {!interactive &amp;&amp; (
+&#43;                &lt;&gt;
+&#43;                  {timelinePanel}
+&#43;                  &lt;div className=&#34;lb-split&#34;&gt;
+&#43;                    {stageRunsPanel}
+&#43;                    {costPanel}
+                   &lt;/div&gt;
+-                  &lt;StageRunTable
+-                    stageRuns={allRuns ? runs : [...runs].sort((a, b) =&gt; Date.parse(a.startedAt) - Date.parse(b.startedAt)).slice(-LATEST_RUNS)}
+-                    truncated={state.truncated}
+-                    totalStageRuns={state.totalStageRuns}
+-                    records={dispatches}
+-                    requests={interactive}
+-                  /&gt;
+-                &lt;/section&gt;
+-                &lt;section className=&#34;lb-panel&#34; aria-label=&#34;Cost by stage&#34;&gt;
+-                  &lt;div className=&#34;lb-panel-h&#34;&gt;
+-                    &lt;span&gt;Cost by stage&lt;/span&gt;
+-                  &lt;/div&gt;
+-                  &lt;div className=&#34;lb-panel-b&#34;&gt;
+-                    {stageCost.map(([stage, cost]) =&gt; (
+-                      &lt;div key={stage} className=&#34;lb-hbar&#34;&gt;
+-                        &lt;span className=&#34;lb-n&#34; title={stage}&gt;
+-                          &lt;span title={stage}&gt;{stageLabel(stage)}&lt;/span&gt;
+-                        &lt;/span&gt;
+-                        &lt;span className=&#34;lb-t&#34;&gt;
+-                          &lt;span style={{ width: `${maxStage ? (cost / maxStage) * 100 : 0}%` }} /&gt;
+-                        &lt;/span&gt;
+-                        &lt;span className=&#34;r lb-num&#34;&gt;{formatUsd(cost)}&lt;/span&gt;
+-                      &lt;/div&gt;
+-                    ))}
+-                    {restStages.length &gt; 0 &amp;&amp; (
+-                      &lt;div className=&#34;lb-hbar lb-muted&#34; data-testid=&#34;stage-cost-rest&#34; title={restStages.map(([s]) =&gt; stageLabel(s)).join(&#34;, &#34;)}&gt;
+-                        &lt;span className=&#34;lb-n&#34;&gt;{restStages.length} more&lt;/span&gt;
+-                        &lt;span /&gt;
+-                        &lt;span className=&#34;r lb-num&#34;&gt;{formatUsd(restStages.reduce((a, [, v]) =&gt; a &#43; v, 0))}&lt;/span&gt;
+-                      &lt;/div&gt;
+-                    )}
+-                  &lt;/div&gt;
+-                &lt;/section&gt;
+-              &lt;/div&gt;
+&#43;                &lt;/&gt;
+&#43;              )}
+             &lt;/&gt;
+           );
+         })()}
+</code></pre>
+<h2>Why picked</h2>
+<pre>1. Defect class: a self-measured departure the change itself owns is reported as a leftover rather than fixed. 2. No rule covers it: the measure-before-hand-back rule reads &#34;A leftover of any size — a 1dp offset included — is closed or named with its cause, never reported clean because it is small&#34;, and nothing defines a cause, so the implementer&#39;s hand-back listed &#34;Stage runs panel shows latest 5 &#43; \&#34;Show all 31\&#34;, prototype 6 rows&#34; under Prototype leftovers with no cause, and the parent accepted it. The verifier then classed it as this change&#39;s defect, and the run paid a verifier pass, an in-run fix task and a panel round for it. 3. It generalises: the same allowance governs every compose-and-measure step — every plan-time capture task baselined against a mockup or prototype (the planner cites this rule for them), and every visual fix round. The verifier already attributes each leftover to the merge base, the fixture or a frame conflict; the implementer side has no matching bar, so any project with design frames can hand back an own departure as a leftover. 4. It is a principle, not a patch: a cause is something outside the change&#39;s control, and a departure the change controls is fixed, whatever the view or property.</pre>
+<h2>Prompt update</h2>
+<p>Target: <code>skills/flow/verify-fix-loop.md</code> at <code>35f477f8d6f697deb4913c2409acddef40979ab7</code></p>
+<div class="ab">
+<div><h3>Before</h3><pre>A leftover of any size — a 1dp offset included — is closed or named with its cause, never reported clean because it is small</pre></div>
+<div><h3>After</h3><pre>A leftover of any size — a 1dp offset included — is closed or named with its cause, and a cause is something this change does not control (the same departure at the merge base, fixture data the spec cannot pin, a named conflict between frames), so a departure this change introduced or its own code could close is fixed, never named; none is reported clean because it is small</pre></div>
+</div>
+</body>
+</html>

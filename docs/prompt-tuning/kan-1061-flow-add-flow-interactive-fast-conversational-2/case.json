@@ -1,0 +1,22 @@
+{
+  "id": "kan-1061-flow-add-flow-interactive-fast-conversational-2",
+  "type": "implementer",
+  "scope": "generic",
+  "source": {
+    "project": "agents",
+    "change": "kan-1061-flow-add-flow-interactive-fast-conversational",
+    "jira": "KAN-1061",
+    "repo": "agents",
+    "fix_sha": "a9539509678d4ca3a65ea91060bec1b1d46e95b0",
+    "finding_ref": "F1",
+    "round": 0,
+    "slot": "failure-modes",
+    "severity": "Important"
+  },
+  "target": "skills/flow/engineering-principles.md",
+  "target_sha": "35f477f8d6f697deb4913c2409acddef40979ab7",
+  "defect_class": "A degraded path meant for a dependency that cannot be reached is keyed on an error class that also covers the dependency's own error answers, so a reachable dependency that fails silently skips the check the path was guarding.",
+  "why_picked": "1. Defect class: a fallback taken on 'cannot reach it' also fires on 'it answered with an error', turning a refusal into a pass. 2. No rule covers it: the robustness principle reads \"Be strict about what you emit and defensive about what you accept, fail fast on programmer error, degrade gracefully on environmental error, and make every failure observable.\", and nothing says to separate unreachable from answered-badly before degrading. The implementer read a non-200 as environmental and skipped the UI-check read with a warning, and the failure-modes slot raised it as an Important that cost a fix round. 3. It generalises: every client error sentinel that callers branch on for an offline or journal fallback has the same shape — here the CLI's documented fallback trigger wraps non-200 statuses and unparseable bodies across its client methods. The same holds for any cache-or-network fallback, offline mode or fail-open guard in any language. 4. It is a principle, not a patch: degrade only on the condition the fallback was built for, and treat every other failure as a failure.",
+  "before": "Be strict about what you emit and defensive about what you accept, fail fast on\nprogrammer error, degrade gracefully on environmental error, and make every failure\nobservable.",
+  "after": "Be strict about what you emit and defensive about what you accept, fail fast on\nprogrammer error, degrade gracefully on environmental error, and make every failure\nobservable. Degrade only on the condition the fallback was built for: before taking a path\nmeant for a dependency that cannot be reached, tell \"could not reach it\" apart from \"it\nanswered with an error\", and treat the second as a failure, never as the first."
+}
