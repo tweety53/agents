@@ -1,0 +1,1 @@
+# New run-loaded text this change means: the /flow-interactive skill and command file, and its registration in skills/README.md and the Jira and pipeline contracts (KAN-1061). Each task that writes run-loaded prose reports its check-verbatim-moves.sh FAIL lines, exactly as printed after "::", and the parent appends them here before that task closes.
