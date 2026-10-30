@@ -1136,9 +1136,11 @@ describe("the reworked run view (kan-1048)", () => {
     await act(async () => {});
     const runs = listStageRunsMock.mock.calls.length;
     const records = runRecordMock.mock.calls.length;
+    const finds = findChangesMock.mock.calls.length;
     await act(async () => vi.advanceTimersByTime(15000));
     expect(listStageRunsMock.mock.calls.length).toBe(runs);
     expect(runRecordMock.mock.calls.length).toBe(records);
+    expect(findChangesMock.mock.calls.length).toBe(finds);
   });
 
   it("run detail shows the latest decision's roles under Cost by stage", async () => {

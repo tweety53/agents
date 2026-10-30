@@ -665,12 +665,13 @@ export function RunDetail({ project, change }: RunDetailProps) {
         })
         .catch(() => live && setSub(null));
     load();
-    const id = setInterval(load, 5000);
+    // A finished change's self-review ran before it finished: read it once.
+    const id = finished ? undefined : setInterval(load, 5000);
     return () => {
       live = false;
       clearInterval(id);
     };
-  }, [change, isSub]);
+  }, [change, isSub, finished]);
   const phaseRuns = useMemo(() => [...runs0, ...(sub?.runs ?? [])], [runs0, sub]);
   const steps = useMemo(
     () => [...phaseSteps(runs0, dispatches), ...phaseSteps(sub?.runs ?? [], sub?.dispatches ?? [])].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt)),
