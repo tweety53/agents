@@ -184,13 +184,17 @@ type roleEntry struct {
 	Role     string        `json:"role"`
 	Pairs    []string      `json:"pairs"`
 	Marker   string        `json:"marker"`
+	Group    string        `json:"group"`
+	Does     string        `json:"does"`
 	Override *roleOverride `json:"override,omitempty"`
 }
 
 // roles serves GET /api/v1/roles: a leading `main` entry (no table row of
 // its own), then the Allowed pairs table one entry per row in
 // table order, each unmarked row -- and main -- carrying the open
-// experiment cell that replaces it. Marked rows (escalations) never do.
+// experiment cell that replaces it. Marked rows (escalations) never do. Each
+// entry carries its group and description from the table, main's from the
+// literals below.
 func (h *experimentsHandler) roles(w http.ResponseWriter, r *http.Request) {
 	rows, err := modelpolicy.Rows(h.table)
 	if err != nil {
@@ -208,9 +212,10 @@ func (h *experimentsHandler) roles(w http.ResponseWriter, r *http.Request) {
 			cell[role] = &roleOverride{Pairs: pairs, ExperimentID: e.ID}
 		}
 	}
-	out := []roleEntry{{Role: "main", Pairs: []string{}, Override: cell["main"]}}
+	out := []roleEntry{{Role: "main", Pairs: []string{}, Group: "Session",
+		Does: "The session you talk to: runs the pipeline and sends out every other role.", Override: cell["main"]}}
 	for _, row := range rows {
-		e := roleEntry{Role: row.Role, Pairs: row.Pairs, Marker: row.Marker}
+		e := roleEntry{Role: row.Role, Pairs: row.Pairs, Marker: row.Marker, Group: row.Group, Does: row.Does}
 		if row.Marker == "" {
 			e.Override = cell[row.Role]
 		}
