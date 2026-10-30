@@ -97,8 +97,9 @@ type LiveStateRow struct {
 	// State derived by requestState (KAN-1061).
 	Command  *string
 	Requests []records.Request
-	// FixRounds is main's highest review-panel round (panel-<N>) plus each fix
-	// dispatch outside the panel (verify-fix-1, full-suite-fix-1), ReviewerRuns
+	// FixRounds is main's highest review-panel round (panel-<N>) plus the
+	// highest verify-fix-<N> and visual-verify-fix-<N> and each other fix
+	// dispatch outside the panel (full-suite-fix-1), ReviewerRuns
 	// its reviewer dispatches outside the self-review; SelfReviewFixRounds is
 	// the self-review's highest -review-<N> or -fix-<N>, SelfReviewReviewerRuns
 	// its reviewer dispatches bar the analysis -pass -- each read from the
@@ -253,7 +254,9 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 		) reqs ON true
 		LEFT JOIN LATERAL (
 			SELECT COALESCE(MAX(substring(d.dispatch_key FROM '^panel-(\d+)-')::int) FILTER (WHERE NOT d.sr), 0)
-			       + (COUNT(*) FILTER (WHERE d.role = 'panel-fix' AND NOT d.sr AND d.dispatch_key NOT LIKE 'panel%'))::int AS fix_rounds,
+			       + COALESCE(MAX(substring(d.dispatch_key FROM '^verify-fix-(\d+)')::int) FILTER (WHERE NOT d.sr), 0)
+			       + COALESCE(MAX(substring(d.dispatch_key FROM '^visual-verify-fix-(\d+)')::int) FILTER (WHERE NOT d.sr), 0)
+			       + (COUNT(*) FILTER (WHERE d.role = 'panel-fix' AND NOT d.sr AND d.dispatch_key NOT LIKE 'panel%' AND d.dispatch_key NOT LIKE '%verify-fix-%'))::int AS fix_rounds,
 			       (COUNT(*) FILTER (WHERE d.role = 'reviewer' AND NOT d.sr))::int AS reviewer_runs,
 			       COALESCE(MAX(substring(d.dispatch_key FROM '-(?:review-|fix-v?)(\d+)$')::int) FILTER (WHERE d.sr), 0) AS sr_fix_rounds,
 			       (COUNT(*) FILTER (WHERE d.role = 'reviewer' AND d.sr AND d.dispatch_key NOT LIKE '%-pass'))::int AS sr_reviewer_runs
@@ -287,7 +290,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			       (COUNT(*) FILTER (WHERE s.severity = 'important'))::int AS i,
 			       (COUNT(*) FILTER (WHERE s.severity = 'minor'))::int AS m
 			FROM self_review_findings s
-			WHERE s.change = c.name
+			WHERE s.change = c.name AND s.project_key = c.project_key
 		) sr_cim ON true
 		LEFT JOIN session_activity sa ON sa.session_id = COALESCE(open_run.session_id, last_run.session_id)
 		LEFT JOIN LATERAL (

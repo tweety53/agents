@@ -2236,7 +2236,8 @@ func TestLiveStateBoardCarriesCommandAndRequests(t *testing.T) {
 
 // TestLiveStateBoardCountsFixRoundsAndReviewerRuns pins the board's review
 // totals: main's fix rounds are its highest panel-<N> plus each fix dispatch
-// outside the panel (verify-fix-1, full-suite-fix-1), its reviewer runs every
+// outside the panel -- each verify and visual-verify loop's highest round,
+// each full-suite fix -- its reviewer runs every
 // reviewer dispatch outside the self-review; the self-review's fix rounds are
 // its highest -review-<N> or -fix-<N>, its reviewer runs every self-review
 // reviewer bar the analysis -pass -- whether recorded under the change or its
@@ -2264,7 +2265,10 @@ func TestLiveStateBoardCountsFixRoundsAndReviewerRuns(t *testing.T) {
 	dispatch(projectKey, name, "reviewer", "panel-2-mutation")
 	dispatch(projectKey, name, "panel-fix", "panel-fix-1")
 	dispatch(projectKey, name, "reviewer", "panel-2-primary")
-	dispatch(projectKey, name, "panel-fix", "verify-fix-1")
+	dispatch(projectKey, name, "verifier", "verify-fix-1")
+	dispatch(projectKey, name, "verifier", "visual-verify-fix-1-gymie")
+	dispatch(projectKey, name, "verifier", "visual-verify-fix-2")
+	dispatch(projectKey, name, "panel-fix", "full-suite-fix-1")
 	dispatch(projectKey, name, "reviewer", sub+"-pass")
 	dispatch(projectKey, name, "reviewer", sub+"-review-1")
 	dispatch(projectKey+"-tooling", sub, "implementer", sub+"-fix-3")
@@ -2285,8 +2289,9 @@ func TestLiveStateBoardCountsFixRoundsAndReviewerRuns(t *testing.T) {
 	if r.PanelRuns != 3 || r.FullPanelRuns != 2 {
 		t.Errorf("panel runs %d, full %d; want 3, 2", r.PanelRuns, r.FullPanelRuns)
 	}
-	if r.FixRounds != 3 || r.ReviewerRuns != 6 || r.SelfReviewFixRounds != 3 || r.SelfReviewReviewerRuns != 2 {
-		t.Errorf("fix rounds %d/%d, reviewer runs %d/%d; want 3/3, 6/2", r.FixRounds, r.SelfReviewFixRounds, r.ReviewerRuns, r.SelfReviewReviewerRuns)
+	// panel 2 + verify 1 + visual-verify 2 + full-suite 1.
+	if r.FixRounds != 6 || r.ReviewerRuns != 6 || r.SelfReviewFixRounds != 3 || r.SelfReviewReviewerRuns != 2 {
+		t.Errorf("fix rounds %d/%d, reviewer runs %d/%d; want 6/3, 6/2", r.FixRounds, r.SelfReviewFixRounds, r.ReviewerRuns, r.SelfReviewReviewerRuns)
 	}
 }
 
@@ -2305,6 +2310,14 @@ func TestLiveStateBoardCountsFindingsBySeverity(t *testing.T) {
 		if _, _, err := st.UpsertFinding(ctx, projectKey, name, f); err != nil {
 			t.Fatalf("UpsertFinding(%s): %v", sev, err)
 		}
+	}
+	// The same change name in another project never counts here.
+	other := projectKey + "-other"
+	seedChange(t, st, other, name)
+	if _, err := st.RecordSelfReviewFinding(ctx, other, records.SelfReviewFinding{
+		Change: name, Angle: "review", Note: "elsewhere", Disposition: "noted", Severity: "critical",
+	}); err != nil {
+		t.Fatalf("RecordSelfReviewFinding(other project): %v", err)
 	}
 	for i, sev := range []string{"important", "minor", ""} {
 		if _, err := st.RecordSelfReviewFinding(ctx, projectKey, records.SelfReviewFinding{

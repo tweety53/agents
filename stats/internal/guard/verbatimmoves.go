@@ -153,7 +153,8 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "check-verbatim-moves: %d violation(s), %d to review, against %s\n", bad, review, label)
 	if bad != 0 {
 		ack := "<spec-root>/changes/<change>/" + vmAckFile
-		if fast := vmFastChangeRoot(root); fast != "" {
+		branch, _ := capture(git("-C", root, "branch", "--show-current"))
+		if fast := vmFastChangeRoot(root, strings.TrimSpace(branch)); fast != "" {
 			ack = fast + "/" + vmAckFile
 		}
 		fmt.Fprintf(stderr, "Restore the sentence, move it verbatim, or — when the change means it — list it in %s.\n", ack)
@@ -171,16 +172,29 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 // them — name the first in sorted order, and the choice stays safe either way:
 // vmAcks reads every home under .superpowers/sdd/, so an acknowledgement
 // written to any change root's file is honoured.
-func vmFastChangeRoot(root string) string {
+func vmFastChangeRoot(root, branch string) string {
 	matches, err := filepath.Glob(filepath.Join(root, ".superpowers", "sdd", "*", "tasks.md"))
 	if err != nil {
 		return ""
 	}
 	sort.Strings(matches)
-	if len(matches) == 0 {
+	if len(matches) > 0 {
+		return filepath.Dir(matches[0])
+	}
+	// A /flow-interactive run writes no plan: its change root is
+	// .superpowers/sdd/<branch>/ with no spectre change of that name, where a
+	// /flow run's root sits beside its spectre change (kan-1068).
+	if branch == "" {
 		return ""
 	}
-	return filepath.Dir(matches[0])
+	d := filepath.Join(root, ".superpowers", "sdd", branch)
+	if fi, err := os.Stat(d); err != nil || !fi.IsDir() {
+		return ""
+	}
+	if _, err := os.Stat(filepath.Join(root, specRootLeaf(root, io.Discard), "changes", branch)); err == nil {
+		return ""
+	}
+	return d
 }
 
 // vmDefaultBase is the merge base of HEAD with the change's base, resolved

@@ -247,6 +247,34 @@ func TestCheckVerbatimMovesFailReplyNamesRunShapePath(t *testing.T) {
 			t.Errorf("stderr names the /flow path beside a flow-fast change root:\n%s", errb)
 		}
 	})
+	t.Run("an interactive change root, no plan and no spectre change, names its own path", func(t *testing.T) {
+		t.Parallel()
+		root := vmRepo(t, vmBase)
+		for rel, body := range edit {
+			writeFile(t, filepath.Join(root, rel), body)
+		}
+		gitRun(t, root, "checkout", "-q", "-b", "demo")
+		if err := os.MkdirAll(filepath.Join(root, ".superpowers/sdd/demo"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		errb := failing(t, root)
+		if want := filepath.Join(root, ".superpowers/sdd/demo") + "/" + vmAckFile; !strings.Contains(errb, want) {
+			t.Errorf("stderr lacks %q:\n%s", want, errb)
+		}
+	})
+	t.Run("a /flow change root beside its spectre change keeps the /flow path", func(t *testing.T) {
+		t.Parallel()
+		root := vmRepo(t, vmBase)
+		for rel, body := range edit {
+			writeFile(t, filepath.Join(root, rel), body)
+		}
+		gitRun(t, root, "checkout", "-q", "-b", "demo")
+		writeFile(t, filepath.Join(root, ".superpowers/sdd/demo/demo-panel.md"), "# panel\n")
+		writeFile(t, filepath.Join(root, "spectre/changes/demo/tasks.md"), "# plan\n")
+		if errb := failing(t, root); !strings.Contains(errb, "<spec-root>/changes/<change>/"+vmAckFile) {
+			t.Errorf("stderr lacks the /flow path:\n%s", errb)
+		}
+	})
 	t.Run("no flow-fast change root keeps the /flow path", func(t *testing.T) {
 		t.Parallel()
 		root := vmRepo(t, vmBase)
