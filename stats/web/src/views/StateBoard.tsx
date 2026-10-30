@@ -322,12 +322,16 @@ export function StateBoard() {
 
   // The period is half-open, so it ends a day past now: a change updated at
   // this very instant is still in it. `now` moving is what refetches.
-  const fetched = useStatsView<StateBoardRow[]>("state-board", { from: EPOCH, to: new Date(now + DAY_MS), project: undefined });
+  // Only the All chip reads finished changes from every time; otherwise the
+  // poll stays inside the widest bounded chip -- the store lists unfinished
+  // changes whenever they were last updated.
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const from = filters.period === "All" ? EPOCH : new Date(now - PERIOD_MINUTES["30d"] * 60000);
+  const fetched = useStatsView<StateBoardRow[]>("state-board", { from, to: new Date(now + DAY_MS), project: undefined });
   // A refresh keeps showing the last answer while the next one loads.
   const last = useRef<StateBoardRow[] | null>(null);
   if (fetched.status === "ready") last.current = fetched.data.rows.filter((r) => !isPipelineFix(r));
 
-  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ FINISHED: true });
 
   const rows = last.current;

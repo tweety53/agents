@@ -404,8 +404,6 @@ describe("views render their fixture response's actual values", () => {
     const tile = (name: RegExp) => screen.getByRole("button", { name });
     const visible = (name: string) => within(table).queryByRole("link", { name }) !== null;
     const clear = () => user.click(screen.getByRole("button", { name: "Clear filters" }));
-    // The board fetches the whole history once and filters here.
-    expect(fetchStatsViewMock.mock.calls[0][1].from.getTime()).toBe(0);
     // ...through past now: a change updated this instant is inside the half-open period.
     expect(fetchStatsViewMock.mock.calls[0][1].to.getTime()).toBeGreaterThan(BOARD_NOW.getTime());
     // Updated defaults to 7d: the fortnight-old change is hidden, and the
@@ -536,6 +534,16 @@ describe("views render their fixture response's actual values", () => {
     expect(removed).toHaveBeenCalledWith("visibilitychange", expect.any(Function));
     removed.mockRestore();
     hidden.mockRestore();
+  });
+
+  it("state board polls only the widest bounded chip's window until All is chosen", async () => {
+    const user = userEvent.setup();
+    render(<StateBoard />);
+    await screen.findByRole("table");
+    const from = () => (fetchStatsViewMock.mock.calls.at(-1)![1] as { from: Date }).from.getTime();
+    expect(from()).toBe(BOARD_NOW.getTime() - 30 * 24 * 60 * 60 * 1000);
+    await user.click(within(screen.getByRole("group", { name: "Updated" })).getByRole("button", { name: "All" }));
+    expect(from()).toBe(0);
   });
 
   it("state board hides pipeline-fix and self-review changes", async () => {

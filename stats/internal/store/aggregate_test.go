@@ -99,8 +99,8 @@ func TestAggregateEmptyPeriodReturnsEmptyNotError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LiveStateBoard(empty period): %v", err)
 	}
-	if len(board) != 0 {
-		t.Errorf("LiveStateBoard(empty period) returned %d rows, want 0", len(board))
+	if len(board) != 1 {
+		t.Errorf("LiveStateBoard(empty period) returned %d rows, want only the unfinished kan-1", len(board))
 	}
 
 	leaderboard, err := st.StageLeaderboard(ctx, emptyPeriod, &projectKey, nil)
@@ -1904,6 +1904,46 @@ func TestLiveStateBoardCarriesWholeLifeRunTotals(t *testing.T) {
 	}
 }
 
+// TestLiveStateBoardKeepsOpenChangesOutsideThePeriod pins that an unfinished
+// change is listed whenever it was last updated, while a finished one stays
+// bound to the period: the board polls a bounded window yet never loses an
+// open change gone quiet.
+func TestLiveStateBoardKeepsOpenChangesOutsideThePeriod(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-board-open-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	done := baseChange(projectKey, "kan-2")
+	done.State = store.StateFinished
+	if err := st.PutChange(ctx, done); err != nil {
+		t.Fatalf("PutChange: %v", err)
+	}
+	rows, err := st.LiveStateBoard(ctx, store.Period{
+		From: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC),
+	}, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("LiveStateBoard: %v", err)
+	}
+	if len(rows) != 1 || rows[0].Name != "kan-1" {
+		t.Fatalf("LiveStateBoard = %+v, want only the open kan-1", rows)
+	}
+	finished := func(to time.Time) bool {
+		t.Helper()
+		rows, err := st.LiveStateBoard(ctx, store.Period{From: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), To: to}, &projectKey, ptr("kan-2"))
+		if err != nil {
+			t.Fatalf("LiveStateBoard: %v", err)
+		}
+		return len(rows) == 1
+	}
+	if finished(done.UpdatedAt) {
+		t.Errorf("a finished change updated exactly at the period's end is on the board; the end is exclusive")
+	}
+	if !finished(done.UpdatedAt.Add(time.Microsecond)) {
+		t.Errorf("a finished change updated just before the period's end is missing")
+	}
+}
+
 // TestLiveStateBoardCarriesOpenStageDoneTasksAndActivity pins the three
 // live facts the board's Running now cards read: the change's open stage
 // run, how many tasks carry a committed implementer dispatch, and what the
@@ -2126,14 +2166,6 @@ func TestLiveStateBoardLiveFieldEdges(t *testing.T) {
 	}
 	if got := since(); !got.After(first) {
 		t.Errorf("ActivitySince after a new state = %v, want after %v", got, first)
-	}
-
-	updated := board(all, nil)["kan-1"].UpdatedAt
-	if _, ok := board(store.Period{From: all.From, To: updated}, nil)["kan-1"]; ok {
-		t.Errorf("a change updated exactly at the period's end is on the board; the end is exclusive")
-	}
-	if _, ok := board(store.Period{From: all.From, To: updated.Add(time.Microsecond)}, nil)["kan-1"]; !ok {
-		t.Errorf("a change updated just before the period's end is missing")
 	}
 
 	one := board(all, ptr("kan-1"))

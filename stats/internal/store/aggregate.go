@@ -139,7 +139,8 @@ const signalErrorsExpr = `(CASE WHEN jsonb_typeof(sr.metrics #> '{signals,main,t
 	+ CASE WHEN jsonb_typeof(sr.metrics #> '{signals,sidechain,tool_errors}') = 'number' THEN (sr.metrics #>> '{signals,sidechain,tool_errors}')::int ELSE 0 END
 	+ CASE WHEN jsonb_typeof(sr.metrics #> '{signals,sidechain,api_errors}') = 'number' THEN (sr.metrics #>> '{signals,sidechain,api_errors}')::int ELSE 0 END)`
 
-// LiveStateBoard lists every change updated within period, optionally
+// LiveStateBoard lists every change updated within period, plus every
+// unfinished change whenever it was last updated, optionally
 // restricted to one project. A period containing no changes returns an
 // empty slice, never an error.
 func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, change *string) ([]LiveStateRow, error) {
@@ -300,7 +301,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			FROM dispatches d
 			WHERE d.change_id = c.id AND d.role = 'implementer'
 		) done ON true
-		WHERE c.updated_at >= $1 AND c.updated_at < $2
+		WHERE ((c.updated_at >= $1 AND c.updated_at < $2) OR c.state <> 'FINISHED')
 		  AND ($3::text IS NULL OR c.project_key = $3)
 		  AND ($4::text IS NULL OR c.name = $4)
 		ORDER BY c.updated_at DESC, c.project_key, c.name
