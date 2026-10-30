@@ -686,8 +686,8 @@ func TestCloseTaskShimExportsTheRebuildsScriptDir(t *testing.T) {
 // TestCloseTaskRunsPlanShapeOnInRunFix pins the kan-1046 self-review fix
 // (1f): closing an in-run visual-verify fix task runs the plan guard first,
 // so one whose **Files:** omits visual-verification.md is refused with F21's
-// line and nothing ticked; with the record listed it closes; a planned task
-// over the same bad plan never runs the guard.
+// line and nothing ticked; with the record listed it closes; and a planned
+// task over the same bad plan is refused too (kan-1067 self-review, 1-B).
 func TestCloseTaskRunsPlanShapeOnInRunFix(t *testing.T) {
 	t.Parallel()
 	fix := func(files string) string {
@@ -702,7 +702,7 @@ func TestCloseTaskRunsPlanShapeOnInRunFix(t *testing.T) {
 		{"an in-run fix omitting the record is refused", fix("¤e.txt¤"), "4", "four", []string{"e.txt", "x\n"}, true},
 		{"an in-run fix listing the record closes", fix("¤e.txt¤, ¤docs/visual-verification.md¤"), "4", "four",
 			[]string{"e.txt", "x\n", "docs/visual-verification.md", "r\n"}, false},
-		{"a planned task never runs the guard", fix("¤e.txt¤"), "2", "two", []string{"b.txt", "x\n"}, false},
+		{"a planned task over the same plan is refused", fix("¤e.txt¤"), "2", "two", []string{"b.txt", "x\n"}, true},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
@@ -729,6 +729,29 @@ func TestCloseTaskRunsPlanShapeOnInRunFix(t *testing.T) {
 				t.Fatalf("exit %d, want 0\n%s\n%s", r.rc, r.out, r.err)
 			}
 		})
+	}
+}
+
+// TestCloseTaskRunsPlanShapeOnAWidenedPlannedTask pins the kan-1067
+// self-review fix, 1-B: a planned task widened to a test path while its
+// **Tests:** stays none is refused at close, nothing ticked.
+func TestCloseTaskRunsPlanShapeOnAWidenedPlannedTask(t *testing.T) {
+	t.Parallel()
+	fx := ctFixture(t, true, "0", "0")
+	plan := strings.Replace(ctPlan, "**Files:** `b.txt`", "**Files:** `b.txt`, `b_test.go`", 1)
+	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", plan)
+	sha := fx.commit(t, fx.wt, "two", "2", "b.txt", "b\n", "b_test.go", "package b\n")
+	r := fx.run(fx.wt, "demo", fx.base, "2:"+sha)
+	if r.rc != 1 {
+		t.Fatalf("exit %d, want 1\n%s\n%s", r.rc, r.out, r.err)
+	}
+	if !strings.Contains(r.out+r.err, "opens with `none` but **Files:** names a test-shaped path") {
+		t.Errorf("no plan-shape line\n%s\n%s", r.out, r.err)
+	}
+	for _, call := range fx.calls(t) {
+		if strings.HasPrefix(call, "flow tasks tick") {
+			t.Errorf("ticked after a refusal: %s", call)
+		}
 	}
 }
 
