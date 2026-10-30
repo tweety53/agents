@@ -11,6 +11,10 @@
 // while looking like it answered "what does a run cost" -- exactly the
 // invented-number outcome this task's own instructions rule out. The
 // table beneath already carries each stage's real mean, median and p90.
+//
+// "Main session" and "Main share", after "Total cost", are the stage's
+// cost outside its dispatched agents and that cost's share of the total
+// (decision leaderboard-main-columns); "—" where no run yields a figure.
 import { DataTable, type Column } from "../components/DataTable";
 import { Panel } from "../components/Panel";
 import { StatPanel } from "../components/StatPanel";
@@ -30,6 +34,20 @@ const columns: Column<StageLeaderboardRow>[] = [
     sortable: true,
     accessor: (r) => r.totalCostUsd,
     render: (r) => formatUsd(r.totalCostUsd),
+  },
+  {
+    key: "mainCostUsd",
+    header: "Main session",
+    sortable: true,
+    accessor: (r) => r.mainCostUsd,
+    render: (r) => (r.mainCostUsd === null ? "—" : formatUsd(r.mainCostUsd)),
+  },
+  {
+    key: "mainSharePct",
+    header: "Main share",
+    sortable: true,
+    accessor: (r) => r.mainSharePct,
+    render: (r) => (r.mainSharePct === null ? "—" : `${Math.round(r.mainSharePct)}%`),
   },
   {
     key: "meanCostUsd",

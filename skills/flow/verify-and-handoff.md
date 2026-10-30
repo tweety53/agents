@@ -94,14 +94,23 @@ one more command in the same list, whose exit 0 line `Spec reach: not configured
 case for a project with no `regression checkout` (its header is canonical for its exit codes). Run
 every command in order and do not stop at the first failure.
 The lint commands with `check-spec-reach.sh` and the test commands run as two groups at once, each
-in the order printed, each started detached and polled to completion as step 7 of the verifier's
-steps (`skills/flow/visual-verify-verifier.md`) runs a `verify` that can outrun the shell tool's
-time limit; the `## Report` lists every command in the order printed. **Nothing runs them later** —
+in the order printed, each started detached and polled to completion as the paragraph below runs a
+`verify` that can outrun the shell tool's time limit; the `## Report` lists every command in the order
+printed. **Nothing runs them later** —
 `/flow`'s integrate phase has no verification gate — so a non-zero exit blocks this handoff.
 While a stack is up for this run, the test commands start only after `check-dev-stack-fresh.sh
 <worktree>` exits 0 or 2; exit 1 restarts the stack first, by the start rule of **Resolve
 the run instructions** below, so no suite runs against a build older than the last commit; a stack
 that will not start ends the turn as a failed command's environment cause does.
+
+**A `verify` that can outrun the shell tool's time limit runs whole, in the background, polled
+to completion** — one Bash call starts it detached,
+`rm -f <exit-file>; nohup sh -c '<verify> > <log> 2>&1; echo $? > <exit-file>' > /dev/null 2>&1 < /dev/null &`
+(`<verify>` sits inside single quotes, so it must contain none), then repeated foreground Bash calls at timeout 600000 each run
+`until [ -f <exit-file> ] || [ $SECONDS -gt 540 ]; do sleep 10; done` until `<exit-file>` exists,
+reading its exit code and output from those two files. Never split its
+`<specs>` into hand-chosen chunks to fit the limit: a hand-made split can drop a spec, and each
+chunk pays the suite's start-up again (kan-932's 78-spec suite, ~14 minutes, ran in two halves).
 
 ```text verified:design.md section 2 of this change
 ## Report
@@ -232,72 +241,62 @@ flow stage end -C <canonical-worktree> -command '/flow' -stage flow.verify -outc
 
 ## Visual verification
 
-```bash
-flow stage begin -command '/flow' \
-  -stage flow.visual-verify \
-  -harness <harness> \
-  -session-token mf-<literal-token> \
-  <name>
-```
-
 Reads the `## visual verification` section, canonical in
 `skills/flow-contracts/project-configuration-visual.md`. This stage owns its procedure — nothing else in
-this pipeline restates it. Resolve once per worktree in this run's resolved set, the same set
-**Verify** above resolved:
+this pipeline restates it. **`visual-verify-pass.sh prepare` runs this stage's `begin` mark and steps 1
+and 2 below in the parent's own Bash call** — never these steps by hand, and never a subagent's:
 
-1. **Resolve the section — with the guard, not by eye.** Run
+```bash
+visual-verify-pass.sh prepare <canonical-worktree> <name> <key> --harness <harness> --session-token mf-<literal-token> \
+  --merge-base <worktree>=<sha> [--worktree <worktree>] [--since <worktree>=<sha>] \
+  [--round-base <worktree>=<sha>] [--app <worktree>:<app-root>=<resolved-url>] [--miss]
+```
 
-   ```bash
-   git -C <worktree> diff --name-only <merge-base>..HEAD | check-visual-trigger.sh <worktree>
-   ```
+Its header (`<agents repo>/scripts/visual-verify-pass.sh`) is canonical for every argument, each step it
+runs and its closing lines. `<key>` is the stage's first dispatch key — `visual-verify`, or the one
+**The loop** (`skills/flow/verify-fix-loop.md`) gives a round's re-run — and `prepare` suffixes it per
+**The verifier dispatch** (`skills/flow/visual-verify.md`). `--worktree` names every other worktree of
+this run's resolved set, the same set **Verify** above resolved. `--merge-base` passes each worktree's
+own merge base from this run's working notes. `--app` passes each app the stage may probe, the
+`<app-root>=<resolved-url>` argument `check-visual-preflight.sh` takes, prefixed with its worktree.
 
-   Exit 2 with a `VISUAL-TRIGGER-NOT-CONFIGURED:` line on stderr → this worktree is skipped for the rest of this stage.
-2. **Match the diff** — the same call's verdict.
-   Exit 0 → at least one changed path matched a declared `ui paths` glob; continue. Exit 1 → this
-   worktree is skipped for the rest of this stage. Exit 2
-   with a `VISUAL-TRIGGER-CANNOT-ANSWER:` line → report its stderr and skip this worktree the same
-   way exit 1 does.
+1. **Resolve the section — with the guard, not by eye.** `prepare` pipes each worktree's diff into
+   `check-visual-trigger.sh <worktree>`; exit 2 with a `VISUAL-TRIGGER-NOT-CONFIGURED:` line on stderr
+   skips that worktree for the rest of this stage.
+2. **Match the diff** — the same call's verdict. Exit 0 → at least one changed path matched a declared
+   `ui paths` glob; continue. Exit 1, or exit 2 with a `VISUAL-TRIGGER-CANNOT-ANSWER:` line, skips the
+   worktree.
    `check-visual-trigger.sh` owns the glob semantics (`**` spanning directories, a leading
    dot-slash prefix, an absolute glob, a glob with a space); nothing here restates them.
 
    In a run whose resolved set holds more than one worktree, every other worktree's diff is also
-   matched against the canonical worktree's `ui paths`, each path prefixed with that worktree's
-   repository name — its main checkout's basename, the name a glob such as `gymie-frontend/**`
-   spells another repository's files with:
-
-   ```bash
-   git -C <worktree> diff --name-only <merge-base>..HEAD | check-visual-trigger.sh --repo <repo-name> <canonical-worktree>
-   ```
-
-   Its exit 0 makes the canonical worktree survive this step as the canonical worktree's own exit 0
+   matched against the canonical worktree's `ui paths` through `check-visual-trigger.sh --repo
+   <repo-name>`, each path prefixed with that worktree's repository name — its main checkout's
+   basename, the name a glob such as `gymie-frontend/**` spells another repository's files with — and
+   its exit 0 makes the canonical worktree survive this step as the canonical worktree's own exit 0
    does.
 
-   `<merge-base>` in both calls is that worktree's own merge base from this run's working notes —
-   never `origin/<base>` or another ref picked by hand, which matches every path the base gained
-   since the worktree was cut as this change's own (KAN-702).
+   Each worktree's diff runs from its `--merge-base` — never `origin/<base>` or another ref picked by
+   hand, which matches every path the base gained since the worktree was cut as this change's own
+   (KAN-702).
 
-   **On a fix run, both calls read the fix run's own diff.** A worktree that has a since-close sha this run — the one **The late-fix reduction** (`skills/flow/review-panel-late-fix.md`) read for it — feeds them `git -C <worktree> diff --name-only <since-close-sha>..HEAD` in place of `<merge-base>..HEAD`, so a fix run whose delta touches no `ui paths` skips this stage at step 2 as exit 1 does.
-   A worktree whose since-close sha is `-` keeps `<merge-base>..HEAD`, and so does every worktree when the change's newest verifier dispatch row (the newest row `flow record dispatches -change <name>` returns with `role` `verifier` and a `key` starting with `visual-verify` — the rows `<agents repo>/scripts/check-visual-verify-dispatched.sh` counts) does not have `outcome` `completed` — an earlier run's UI change that was never verified may lie before the since-close sha.
+   **On a fix run, both calls read the fix run's own diff.** A worktree that has a since-close sha this
+   run — the one **The late-fix reduction** (`skills/flow/review-panel-late-fix.md`) read for it — is
+   passed `--since <worktree>=<that sha>`, so a fix run whose delta touches no `ui paths` skips this
+   stage at step 2 as exit 1 does.
+   A worktree whose since-close sha is `-` is passed no `--since`, and neither is any worktree when the change's newest verifier dispatch row (the newest row `flow record dispatches -change <name>` returns with `role` `verifier` and a `key` starting with `visual-verify` — the rows `<agents repo>/scripts/check-visual-verify-dispatched.sh` counts) does not have `outcome` `completed` — an earlier run's UI change that was never verified may lie before the since-close sha.
 
 **A `skipped` decision ends the stage at step 2.** When this run's decision
 (`<abs-worktree>/.superpowers/sdd/decision.json`) records `visual.verify` `skipped` (step 6 of
-**Decide**, `skills/flow/brainstorm-planner.md`), every worktree surviving step 2 prints
-`Visual: skipped at Decide — <reason>`, nothing is dispatched, and the stage closes:
-
-```bash
-flow stage end -command '/flow' -stage flow.visual-verify -outcome skipped <name>
-```
-
+**Decide**, `skills/flow/brainstorm-planner.md`), `prepare` closes the stage `skipped` and prints
+`NEXT: skip — skipped at Decide — <reason>`, and every worktree surviving step 2 prints
+`Visual: skipped at Decide — <reason>`.
 `required`, `not configured` or no `visual` at all takes the load below, unchanged.
 
-**Load `skills/flow/visual-verify.md`** once at least one worktree survives step 2, and run it
-from step 3 for every surviving worktree — it carries **The verifier dispatch**, steps 3–13, this
-stage's `## Report`, **Blocking**, and this stage's `end` mark. When no worktree survives step 2,
-nothing is dispatched and that file is never loaded; close the stage here:
-
-```bash
-flow stage end -command '/flow' -stage flow.visual-verify -outcome completed <name>
-```
+**`NEXT: skip — <why>` closes the stage and dispatches nothing**, and loads nothing.
+**Load `skills/flow/visual-verify.md`** on any other closing line, and act on that line
+there — it carries **The verifier dispatch**, steps 3–13, this stage's `## Report`, **Blocking**, and
+this stage's `end` mark.
 
 ## Stage, excluding the planning paths
 

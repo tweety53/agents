@@ -7,6 +7,12 @@
 # An `integrate-change.sh` call, which makes /flow's integrate and cleanup
 # marks with the --session-token and --harness it is passed, is held to
 # `stage begin`'s token and harness rules.
+# A `visual-verify-pass.sh prepare` call, which begins flow.visual-verify and
+# each verifier row with the --session-token and --harness it is passed, is
+# held to `integrate-change.sh`'s rules; a `visual-verify-pass.sh close`
+# call, which ends them, to `flow record dispatch`'s token rules alone (it
+# takes no harness). A `visual-verify-pass.sh measure` call marks nothing and
+# is not scanned.
 #
 # Usage: scripts/check-stage-mark-calls.sh [path ...]          # dirs or files
 #

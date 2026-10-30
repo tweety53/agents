@@ -11,7 +11,8 @@
 // RECORDING (kan-1033 self-review: the parent hand-recorded the verify row and
 // back-filled a forgotten begin with a guessed start). Given the five trailing
 // arguments, the list records its own `verifier` row through `flow record
-// dispatch`: `begin` (`-agent-id inline`) before its first command, and `end`
+// dispatch`: `begin` (`-agent-id inline`, `-diff-base` the HEAD of
+// <worktree>, which check-verify-green judges the row by) before its first command, and `end`
 // after its last: `-outcome completed` when the list exited 0, `-outcome
 // blocked -cause test-failure` when a command failed, `-outcome skipped` when
 // every command of a `test` list was skipped. No `flow`
@@ -285,7 +286,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "run-verify-list: no flow binary on PATH")
 			return 2
 		}
-		wt, change := args[0], args[2]
+		wt, change, verified := args[0], args[2], args[0]
 		if len(args) == 8 {
 			wt = args[7]
 		}
@@ -299,6 +300,12 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			argv := []string{"record", "dispatch", verb, "-C", wt, "-change", change}
 			if verb == "begin" {
 				argv = append(argv, "-role", "verifier", "-model", model, "-effort", effort, "-agent-id", "inline")
+				// The verified worktree's HEAD, which check-verify-green judges
+				// the row by (decision verify-row-records-head); a worktree git
+				// cannot resolve records none, and that row is never green.
+				if head, ok := capture(envGit(env)("-C", abs(verified), "rev-parse", "HEAD")); ok && head != "" {
+					flags = append(flags, "-diff-base", head)
+				}
 			}
 			argv = append(argv, "-key", key, "-session-token", token)
 			argv = append(argv, flags...)

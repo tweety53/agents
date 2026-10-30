@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -19,7 +20,7 @@ import (
 func init() { Registry["check-verify-report"] = checkVerifyReport }
 
 var (
-	vrSteps     = []string{"4", "7", "8", "9", "10", "11", "motion"}
+	vrSteps     = []string{"4", "8", "9", "10", "11", "motion"}
 	vrStepsLine = regexp.MustCompile(`^\s*- steps:\s*(.*)$`)
 	vrMotion    = regexp.MustCompile(`^\s*- motion:\s*(\d+)/(\d+)\b`)
 	vrCitedExit = regexp.MustCompile(`\bexit [1-9][0-9]*\b`)
@@ -35,10 +36,6 @@ var (
 	// pre-existing from the code path alone and re-baselined over the defect).
 	vrPreExisting    = regexp.MustCompile(`(?i)(?:^|[^-\w])pre-existing|present at (?:the )?merge base`)
 	vrNotPreExisting = regexp.MustCompile(`(?i)\bnot pre-existing`)
-	// A scoped re-run's `- verify:` line names how many specs it ran
-	// (kan-1015: `specs` printed 2 under the round base, the verifier ran 95).
-	vrVerifyLine  = regexp.MustCompile(`^\s*- verify:\s*(.*)$`)
-	vrMappedSpecs = regexp.MustCompile(`\b(\d+) mapped specs\b`)
 	// A `- wire contract:` line naming an endpoint: the dispatch named no
 	// view, so steps 8-10 have nothing to capture (kan-1022's self-review: a
 	// verifier wrote them `done` over a capture it never ran).
@@ -53,11 +50,28 @@ var (
 	// The capture spec a `## Report` names: every PNG the resolver prints for
 	// it needs its own view line (group-allowed-pairs-roles self-review).
 	vrSpecLine = regexp.MustCompile(`^\s*- spec:\s*(\S+)`)
+	// A composed frame's `bands:`, `seams:` and `over-tolerance:` lines, and
+	// any `sweeps:` line (decisions over-tolerance-line, by-hand-check-automated).
+	vrBandsLine = regexp.MustCompile(`^\s*- (\S+) bands:`)
+	vrSeamsLine = regexp.MustCompile(`^\s*- (\S+) seams:`)
+	vrOverLine  = regexp.MustCompile(`^\s*- (\S+) over-tolerance:\s*(.*)$`)
+	vrSweeps    = regexp.MustCompile(`\bsweeps:\s*(.*)$`)
+	vrOverItem  = regexp.MustCompile(`^#(\d+):\s*(.*)$`)
+	// A `-rest` or `-rest-<n>` segment of a report's key: its manifest is the key's without it.
+	vrRestSegment = regexp.MustCompile(`-rest(-\d+)?\b`)
+	// The n/a columns per row class (decision matrix-kind-opens-with-class).
+	vrNAColumns = map[string][]string{
+		"text run": {"border", "fill", "radius", "shadow"},
+		"control":  {}, "row": {}, "card": {},
+		"rule":      {"content", "alignment", "border", "radius", "shadow"},
+		"divider":   {"content", "alignment", "border", "radius", "shadow"},
+		"fill band": {"content", "alignment", "border", "radius", "shadow"},
+	}
 )
 
 func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-verify-report"
-	const usage = "check-verify-report.sh <report file> <motions named> [<scoped specs>] [--design <design.md>]"
+	const usage = "check-verify-report.sh <report file> <motions named> [--design <design.md>]"
 	design := ""
 	if i := slices.Index(args, "--design"); i >= 0 {
 		if i+1 == len(args) {
@@ -67,7 +81,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		design = args[i+1]
 		args = slices.Delete(slices.Clone(args), i, i+2)
 	}
-	if len(args) != 2 && len(args) != 3 {
+	if len(args) != 2 {
 		fmt.Fprintf(stderr, "%s: usage: %s\n", prog, usage)
 		return 2
 	}
@@ -76,13 +90,6 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "%s: usage: %s — %q is not a count\n", prog, usage, args[1])
 		return 2
 	}
-	scoped := -1
-	if len(args) == 3 {
-		if scoped, err = strconv.Atoi(args[2]); err != nil || scoped < 0 {
-			fmt.Fprintf(stderr, "%s: usage: %s — %q is not a count\n", prog, usage, args[2])
-			return 2
-		}
-	}
 	data, err := os.ReadFile(args[0])
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read %s: %v\n", prog, args[0], err)
@@ -90,26 +97,28 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	status := map[string]string{}
 	motionLine, bareFingerprint := false, false
-	inReport, unevidenced, verify := false, "", ""
+	inReport, unevidenced := false, ""
 	noView := false
 	var frames, framed []string
 	matrix := map[string]bool{}
 	spec := ""
 	var reportLines []string
+	bands, seams, over := map[string]bool{}, map[string]bool{}, map[string]string{}
+	var badSweeps []string
 	for _, line := range strings.Split(string(data), "\n") {
-		if m := vrVerifyLine.FindStringSubmatch(line); m != nil && verify == "" {
-			verify = strings.TrimSpace(m[1])
-		}
+		// Every line is read from `## Report` to the next `## ` heading alone:
+		// the `## Verdict` block above it is the handback, not the record.
 		if strings.HasPrefix(line, "## ") {
 			inReport = strings.TrimSpace(line) == "## Report"
 		}
-		if inReport {
-			reportLines = append(reportLines, line)
-			if m := vrSpecLine.FindStringSubmatch(line); m != nil && spec == "" {
-				spec = m[1]
-			}
+		if !inReport {
+			continue
 		}
-		if inReport && unevidenced == "" && vrPreExisting.MatchString(line) && !vrNotPreExisting.MatchString(line) &&
+		reportLines = append(reportLines, line)
+		if m := vrSpecLine.FindStringSubmatch(line); m != nil && spec == "" {
+			spec = m[1]
+		}
+		if unevidenced == "" && vrPreExisting.MatchString(line) && !vrNotPreExisting.MatchString(line) &&
 			!strings.Contains(line, "merge-base baseline: ") && !strings.Contains(line, "merge-base capture: ") {
 			unevidenced = strings.TrimSpace(line)
 			if r := []rune(unevidenced); len(r) > 120 {
@@ -132,6 +141,25 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		if m := vrMatrixLine.FindStringSubmatch(line); m != nil {
 			matrix[m[1]] = true
 		}
+		if m := vrBandsLine.FindStringSubmatch(line); m != nil {
+			bands[m[1]] = true
+		}
+		if m := vrSeamsLine.FindStringSubmatch(line); m != nil {
+			seams[m[1]] = true
+		}
+		if m := vrOverLine.FindStringSubmatch(line); m != nil {
+			over[m[1]] = m[2]
+		}
+		if m := vrSweeps.FindStringSubmatch(line); m != nil {
+			for _, item := range strings.Split(m[1], " | ") {
+				_, st, _ := strings.Cut(strings.TrimSpace(item), " ")
+				st = strings.TrimSpace(st)
+				why, isNA := strings.CutPrefix(st, "n/a — ")
+				if !(st == "done" || strings.HasPrefix(st, "done ") || isNA && strings.TrimSpace(why) != "") {
+					badSweeps = append(badSweeps, "sweep item `"+strings.TrimSpace(item)+"` reads neither `done` nor `n/a — <why>`")
+				}
+			}
+		}
 		bareFingerprint = bareFingerprint || vrBareFingerprint.MatchString(line)
 		if m := vrWireContract.FindStringSubmatch(line); m != nil && !strings.HasPrefix(strings.TrimSpace(m[1]), "n/a") {
 			noView = true
@@ -152,7 +180,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		wt := filepath.Dir(filepath.Dir(filepath.Dir(args[0])))
 		vv, _ := os.ReadFile(filepath.Join(filepath.Dir(design), "visual-verification.md"))
-		if strings.Contains(string(data), "no mockup source") || strings.Contains(string(vv), "no mockup source") {
+		if strings.Contains(strings.Join(reportLines, "\n"), "no mockup source") || strings.Contains(string(vv), "no mockup source") {
 			for _, m := range vrMockupSource.FindAllStringSubmatch(string(body), -1) {
 				if isFile(filepath.Join(wt, m[1])) {
 					status["10"] = "`no mockup source` while design.md cites " + m[1]
@@ -172,15 +200,20 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 		}
 	}
-	if unevidenced != "" {
-		status["10"] = "pre-existing attribution with no merge-base evidence: " + unevidenced
+	var designBody []byte
+	if design != "" {
+		designBody, _ = os.ReadFile(design)
 	}
-	if scoped >= 0 && !(scoped == 0 && strings.HasPrefix(verify, "not run — no spec since the round base")) {
-		if m := vrMappedSpecs.FindStringSubmatch(verify); m == nil {
-			status["7"] = "names no mapped-spec count"
-		} else if m[1] != strconv.Itoa(scoped) {
-			status["7"] = fmt.Sprintf("ran %s mapped specs where specs printed %d", m[1], scoped)
-		}
+	// Every step-10 defect is named in one run, never only the last.
+	step10 := badSweeps
+	if design != "" {
+		step10 = append(step10, vrMatrixCells(filepath.Join(filepath.Dir(design), "visual-verification.md"))...)
+	}
+	if unevidenced != "" {
+		step10 = append(step10, "pre-existing attribution with no merge-base evidence: "+unevidenced)
+	}
+	if len(step10) > 0 {
+		status["10"] = strings.Join(step10, "; ")
 	}
 	for _, id := range vrSteps {
 		s, ok := status[id]
@@ -211,6 +244,15 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 			if !matrix[f] {
 				undone = append(undone, f+" has no matrix: line — step 10 is done only with every frame's matrix")
 			}
+			if !bands[f] {
+				undone = append(undone, f+" has no bands: line")
+			}
+			if !seams[f] {
+				undone = append(undone, f+" has no seams: line")
+			}
+		}
+		if len(frames) > 0 {
+			undone = append(undone, vrOverTolerance(args[0], frames, over, string(designBody))...)
 		}
 	}
 	if spec != "" && !noView {
@@ -247,4 +289,162 @@ func vrUnaccounted(wt, spec string, env Env, framed, lines []string) []string {
 		}
 	}
 	return gaps
+}
+
+type vrOverRow struct {
+	Row    int    `json:"row"`
+	Status string `json:"status"`
+	Keys   string `json:"keys"`
+}
+
+// vrOverTolerance reconciles each composed frame's `over-tolerance:` line with
+// the `over` rows this dispatch's manifest carries for it — never the
+// committed matrix JSON, so a pass that skipped `measure` cannot stand on last
+// round's numbers. The manifest sits beside the report as
+// visual-manifest-<key>.json, <key> the report's own less any `-rest[-<n>]`.
+func vrOverTolerance(report string, frames []string, lines map[string]string, design string) []string {
+	key := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(report), "verify-report-"), ".md")
+	path := filepath.Join(filepath.Dir(report), "visual-manifest-"+vrRestSegment.ReplaceAllString(key, "")+".json")
+	var m struct {
+		Pairs []struct {
+			Frame string      `json:"frame"`
+			Over  []vrOverRow `json:"over"`
+		} `json:"pairs"`
+	}
+	body, err := os.ReadFile(path)
+	if err == nil {
+		err = json.Unmarshal(body, &m)
+	}
+	if err != nil {
+		return []string{"composed frames and no readable manifest " + path + " — run step 9's measure"}
+	}
+	var undone []string
+	for _, f := range frames {
+		rows, seen := map[int]vrOverRow{}, false
+		for _, p := range m.Pairs {
+			if p.Frame == f {
+				seen = true
+				for _, r := range p.Over {
+					rows[r.Row] = r
+				}
+			}
+		}
+		line, ok := lines[f]
+		switch {
+		case !seen:
+			undone = append(undone, f+" is in no pair of the manifest")
+			continue
+		case !ok:
+			undone = append(undone, f+" has no over-tolerance: line")
+			continue
+		}
+		count, items, _ := strings.Cut(line, " — ")
+		if strings.TrimSpace(count) != strconv.Itoa(len(rows)) {
+			undone = append(undone, fmt.Sprintf("%s over-tolerance: %s, the manifest's over count is %d", f, strings.TrimSpace(count), len(rows)))
+		}
+		named := map[int]bool{}
+		for _, item := range strings.Split(items, "; ") {
+			mm := vrOverItem.FindStringSubmatch(strings.TrimSpace(item))
+			if mm == nil {
+				continue
+			}
+			n, _ := strconv.Atoi(mm[1])
+			named[n] = true
+			if r, ok := rows[n]; ok && !vrCauseAdmitted(mm[2], r, design) {
+				undone = append(undone, fmt.Sprintf("%s over-tolerance #%d: cause %q is off step 10's closed list", f, n, strings.TrimSpace(mm[2])))
+			}
+		}
+		for n := range rows {
+			if !named[n] {
+				undone = append(undone, fmt.Sprintf("%s over-tolerance: row #%d unnamed", f, n))
+			}
+		}
+	}
+	slices.Sort(undone)
+	return undone
+}
+
+// vrCauseAdmitted answers whether cause is on step 10's closed list for row.
+func vrCauseAdmitted(cause string, row vrOverRow, design string) bool {
+	for _, c := range []string{"departure", "annotation", "transcription", "text width"} {
+		if strings.HasPrefix(cause, c) {
+			return true
+		}
+	}
+	if id, ok := strings.CutPrefix(cause, "decision "); ok {
+		id = strings.Fields(id + " ")[0]
+		return id != "" && regexp.MustCompile(`(?m)^\*\*ID:\*\*\s*`+regexp.QuoteMeta(id)+`\s*$`).MatchString(design)
+	}
+	// Its merge-base evidence is already required of every pre-existing attribution above.
+	if strings.HasPrefix(cause, "present at the merge base") {
+		return true
+	}
+	if strings.HasPrefix(cause, "mockup source") {
+		return slices.Contains(strings.Split(row.Keys, ", "), "unresolved")
+	}
+	return false
+}
+
+// vrMatrixCells checks every matrix table in visual-verification.md — a table
+// whose header's first cell opens `element` — cell by cell: an empty cell, or
+// an n/a (or `—`) cell in a column that applies to its row's class, not
+// reading `no mockup source`, is refused by its line. The class is the
+// `kind` cell's opening; an unknown class admits n/a only as `no mockup source`.
+func vrMatrixCells(path string) []string {
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	cells := func(l string) []string {
+		parts := strings.Split(strings.Trim(strings.TrimSpace(l), "|"), "|")
+		for i := range parts {
+			parts[i] = strings.TrimSpace(parts[i])
+		}
+		return parts
+	}
+	var bad, header []string
+	for i, l := range strings.Split(string(body), "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(l), "|") {
+			header = nil
+			continue
+		}
+		c := cells(l)
+		switch {
+		case header == nil:
+			if strings.HasPrefix(c[0], "element") {
+				header = c
+			} else {
+				header = []string{}
+			}
+			continue
+		case len(header) == 0 || strings.Trim(strings.Join(c, ""), "-: ") == "":
+			continue
+		}
+		kind := ""
+		if k := slices.Index(header, "kind"); k >= 0 && k < len(c) {
+			kind = c[k]
+		}
+		var na []string
+		known := false
+		for class, cols := range vrNAColumns {
+			if strings.HasPrefix(kind, class) {
+				na, known = cols, true
+			}
+		}
+		for j, col := range header {
+			v := ""
+			if j < len(c) {
+				v = c[j]
+			}
+			// `— / 14px` names one side missing: a measurement, not an n/a.
+			isNA := strings.HasPrefix(v, "n/a") || (strings.HasPrefix(v, "—") && !strings.Contains(v, "/"))
+			switch {
+			case v == "":
+				bad = append(bad, fmt.Sprintf("visual-verification.md:%d: %s.%s is empty", i+1, c[0], col))
+			case isNA && !strings.Contains(v, "no mockup source") && !(known && slices.Contains(na, col)):
+				bad = append(bad, fmt.Sprintf("visual-verification.md:%d: %s.%s reads %q — the column applies to `%s`", i+1, c[0], col, v, kind))
+			}
+		}
+	}
+	return bad
 }

@@ -949,3 +949,53 @@ func TestRunVerifyListRefusesAnOffContractKey(t *testing.T) {
 	project(other)
 	admitted(other, "verify-"+base)
 }
+
+// TestRunVerifyListRecordsHead pins verify-row-records-head: the recording
+// begin carries `-diff-base` with the HEAD of the verified worktree (the first
+// argument), never the canonical one.
+func TestRunVerifyListRecordsHead(t *testing.T) {
+	repo, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\necho \"flow $*\" >> "+log+"\n")
+	wt, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	canon, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\ntrue\n```\n")
+	gitRun(t, wt, "init", "-q")
+	gitRun(t, wt, "add", "-A")
+	gitRun(t, wt, "commit", "-qm", "a")
+	gitRun(t, canon, "init", "-q")
+	gitRun(t, canon, "commit", "-q", "--allow-empty", "-m", "c")
+	head := func(d string) string {
+		out, err := exec.Command("git", "-C", d, "rev-parse", "HEAD").Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"), "PATH="+dir+":"+os.Getenv("PATH"))
+	getenv := func(k string) string {
+		for i := len(environ) - 1; i >= 0; i-- {
+			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
+				return v
+			}
+		}
+		return ""
+	}
+	var o, e bytes.Buffer
+	rc := runVerifyList([]string{wt, "test", "kan-1", "verify", "mf-k1", "opus", "low", canon}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+	calls, _ := os.ReadFile(log)
+	first := strings.SplitN(string(calls), "\n", 2)[0]
+	if rc != 0 || !strings.HasPrefix(first, "flow record dispatch begin ") || !strings.HasSuffix(first, " -diff-base "+head(wt)) {
+		t.Fatalf("exit %d, begin %q, want -diff-base %s\n%s", rc, first, head(wt), e.String())
+	}
+}

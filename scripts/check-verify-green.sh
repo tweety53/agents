@@ -5,7 +5,10 @@
 # **Verify** (skills/flow/verify-and-handoff.md) has closed green, never
 # beside a verify still running or blocked.
 #
-# Usage: check-verify-green.sh <worktree> <change-name> <session-token>
+# Usage: check-verify-green.sh <worktree> <change-name> <session-token> [<worktree>...]
+#
+# <worktree> is the change's canonical worktree, the one its rows are
+# recorded from; each further <worktree> is another worktree of the set.
 #
 # Reads `flow record dispatches -change <change-name> -C <worktree>` and
 # judges this session token's inline verify rows — role `verifier`, key
@@ -13,12 +16,23 @@
 # `visual-verify…` rows never count. Only the latest such row per worktree is
 # judged: rows group by key with a `-fix-<k>` suffix removed
 # (skills/flow/verify-fix-loop.md step 4), and the last row of each group in
-# record order stands. Prints one verdict line:
-#   VERIFY-GREEN:     <change> — <n> inline verify row(s) green
+# record order stands.
+#
+# The HEAD rule (decisions verify-row-records-head and
+# green-verify-spans-planning-commits): run-verify-list.sh's begin records
+# the verified worktree's HEAD as the row's `diffBase`. A judged row is green
+# only when its outcome is `completed` or `skipped`, its `diffBase` is
+# non-empty, that sha resolves as a commit in one of the <worktree>
+# arguments, and every commit since it there touches only
+# `<spec root>/changes/` (`git log <sha>..HEAD -- . ':(exclude)<leaf>/changes/'`
+# prints nothing) — a planning commit never voids a green verify, a code
+# commit always does. Prints one verdict line:
+#   VERIFY-GREEN:     <change> — <n> inline verify row(s) green: <key>@<short sha>[, …]
 #   VERIFY-NOT-GREEN: <change> — this run recorded no inline verify
-#   VERIFY-NOT-GREEN: <change> — <key> (running|<outcome>)[, …]
-# Exit 0 every judged row carries outcome `completed` or `skipped` and at
-# least one exists — run-verify-list.sh records `skipped` when every test
+#   VERIFY-NOT-GREEN: <change> — <key> (<why>)[, …]
+# where <why> is `running`, the row's outcome, `no HEAD recorded`,
+# `HEAD resolves in no worktree`, or `<commit>[, …] since <short sha>`.
+# Exit 0 every judged row is green and at least one exists — run-verify-list.sh records `skipped` when every test
 # command's `# inputs:` (and `.flow/project.md`) are unchanged since the
 # list's last green run on a clean tree;
 # 1 VERIFY-NOT-GREEN; 2 cannot answer (usage, a missing worktree, a change

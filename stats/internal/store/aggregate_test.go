@@ -328,6 +328,118 @@ func TestStageLeaderboardKeepsTopTenByTotalCost(t *testing.T) {
 	}
 }
 
+// metricsRun begins, merges metrics into and ends one stage run.
+func metricsRun(t *testing.T, st *store.Store, in store.BeginStageInput, metrics map[string]any) {
+	t.Helper()
+	ctx := context.Background()
+	run, err := st.BeginStage(ctx, in)
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	patch, err := json.Marshal(metrics)
+	if err != nil {
+		t.Fatalf("marshal metrics: %v", err)
+	}
+	if err := st.MergeMetrics(ctx, run.ID, patch); err != nil {
+		t.Fatalf("MergeMetrics: %v", err)
+	}
+	if err := st.EndStage(ctx, run.ID, in.StartedAt.Add(time.Minute), "completed"); err != nil {
+		t.Fatalf("EndStage: %v", err)
+	}
+}
+
+func leaderboardJune(t *testing.T, st *store.Store, projectKey string, model *string) []store.StageLeaderboardRow {
+	t.Helper()
+	rows, err := st.StageLeaderboard(context.Background(), store.Period{
+		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+	}, &projectKey, model)
+	if err != nil {
+		t.Fatalf("StageLeaderboard: %v", err)
+	}
+	return rows
+}
+
+func wantFigure(t *testing.T, name string, got *float64, want float64) {
+	t.Helper()
+	if got == nil {
+		t.Errorf("%s = nil, want %.2f", name, want)
+		return
+	}
+	if fmt.Sprintf("%.2f", *got) != fmt.Sprintf("%.2f", want) {
+		t.Errorf("%s = %v, want %.2f", name, *got, want)
+	}
+}
+
+// TestStageLeaderboardMainFigures: main session is a run's cost minus its
+// dispatch buckets, floored at zero; a run with a bucket lacking cost_usd
+// is left out of both main figures (decision leaderboard-main-columns).
+func TestStageLeaderboardMainFigures(t *testing.T) {
+	st := newTestStore(t)
+	projectKey := fmt.Sprintf("proj-leaderboard-main-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	at := time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
+	seed := func(stage string, i int, metrics map[string]any) {
+		in := baseBeginInput(projectKey, "kan-1", "/flow", stage)
+		in.SessionID = ptr(fmt.Sprintf("session-%s-%d", stage, i))
+		in.StartedAt = at.Add(time.Duration(i) * time.Hour)
+		metricsRun(t, st, in, metrics)
+	}
+	seed("mixed", 0, map[string]any{"cost_usd": 10, "dispatches": map[string]any{
+		"a": map[string]any{"cost_usd": 3}, "b": map[string]any{"cost_usd": 2}}})
+	seed("mixed", 1, map[string]any{"cost_usd": 4})
+	seed("mixed", 2, map[string]any{"cost_usd": 6, "dispatches": map[string]any{
+		"a": map[string]any{"cost_usd": 1}, "b": map[string]any{"model": "opus"}}})
+	seed("over", 3, map[string]any{"cost_usd": 2, "dispatches": map[string]any{
+		"a": map[string]any{"cost_usd": 3}}})
+	seed("none", 4, map[string]any{"cost_usd": 1, "dispatches": map[string]any{
+		"a": map[string]any{"model": "opus"}}})
+
+	byStage := map[string]store.StageLeaderboardRow{}
+	for _, r := range leaderboardJune(t, st, projectKey, nil) {
+		byStage[r.Stage] = r
+	}
+	wantFigure(t, "mixed MainCostUSD", byStage["mixed"].MainCostUSD, 9)
+	wantFigure(t, "mixed MainSharePct", byStage["mixed"].MainSharePct, 64.29)
+	wantFigure(t, "over MainCostUSD", byStage["over"].MainCostUSD, 0)
+	wantFigure(t, "over MainSharePct", byStage["over"].MainSharePct, 0)
+	if r := byStage["none"]; r.MainCostUSD != nil || r.MainSharePct != nil {
+		t.Errorf("none: MainCostUSD=%v MainSharePct=%v, want nil both", r.MainCostUSD, r.MainSharePct)
+	}
+}
+
+// TestStageLeaderboardMainFiguresUnderModelFilter: under a model filter a
+// run's main figure is that model's cost minus the buckets it served, a
+// bucket's served model read as dispatchBucket.servedModel reads it.
+func TestStageLeaderboardMainFiguresUnderModelFilter(t *testing.T) {
+	st := newTestStore(t)
+	projectKey := fmt.Sprintf("proj-leaderboard-main-model-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "s")
+	in.SessionID = ptr("session-model")
+	in.StartedAt = time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
+	metricsRun(t, st, in, map[string]any{
+		"cost_usd": 10,
+		"models":   map[string]any{"m-a": map[string]any{"cost_usd": 8}, "m-b": map[string]any{"cost_usd": 2}},
+		"dispatches": map[string]any{
+			// tie on turns, broken by name: m-a
+			"d1": map[string]any{"cost_usd": 3, "model": "opus", "signals": map[string]any{"served_models": map[string]any{"m-b": 5, "m-a": 5}}},
+			// no served_models: its own model
+			"d2": map[string]any{"cost_usd": 1, "model": "m-b"},
+			// most turns wins over the recorded model
+			"d3": map[string]any{"cost_usd": 0.5, "model": "m-a", "signals": map[string]any{"served_models": map[string]any{"m-b": 9, "m-a": 1}}},
+		},
+	})
+	for model, want := range map[string][2]float64{"m-a": {5, 62.5}, "m-b": {0.5, 25}} {
+		rows := leaderboardJune(t, st, projectKey, ptr(model))
+		if len(rows) != 1 {
+			t.Fatalf("%s: rows = %d, want 1", model, len(rows))
+		}
+		wantFigure(t, model+" MainCostUSD", rows[0].MainCostUSD, want[0])
+		wantFigure(t, model+" MainSharePct", rows[0].MainSharePct, want[1])
+	}
+}
+
 // TestTrendOverTimeBucketsByDay seeds three runs on one day and two on the
 // next, and checks that TrendOverTime's per-day bucket, count and total
 // cost match those hand-computed groupings exactly.

@@ -728,3 +728,54 @@ func TestMeasureVisualPropertiesBandsUnderScrim(t *testing.T) {
 		t.Fatalf("paired %v, want 2", got)
 	}
 }
+
+// over-list: `--props matrix`'s summary.over names, by 1-based row, every
+// matrix row missing, extra, unresolved, or paired with a scaled length over
+// mvpOverLength or a colour distance over mvpOverColour.
+func TestMeasureVisualPropertiesMatrixOver(t *testing.T) {
+	t.Parallel()
+	page := func(wider int, extraRule bool) func(x, y int) color.RGBA {
+		return func(x, y int) color.RGBA {
+			switch {
+			case x >= 20 && x < 80 && y >= 20 && y < 30:
+				return color.RGBA{0x22, 0x22, 0x22, 0xff} // heading, unchanged
+			case x >= 20 && x <= 180+wider && y >= 60 && y <= 100:
+				if x == 20 || x == 180+wider || y == 60 || y == 100 {
+					return color.RGBA{0x88, 0x88, 0x88, 0xff}
+				}
+				return color.RGBA{0xf0, 0xf0, 0xf0, 0xff} // fill band, 3px wider in b
+			case x >= 10 && x < 190 && y == 140:
+				return color.RGBA{0xcc, 0xcc, 0xcc, 0xff} // rule, unchanged
+			case extraRule && x >= 10 && x < 190 && y == 220:
+				return color.RGBA{0xcc, 0xcc, 0xcc, 0xff} // a rule only b draws
+			}
+			return color.RGBA{0xff, 0xff, 0xff, 0xff}
+		}
+	}
+	a, b := mvpPNG(t, 200, 300, page(0, false)), mvpPNG(t, 200, 300, page(3, true))
+	d := mvpJSON(t, "", a, b, "--scale", "1", "--props", "matrix")
+	var got []string
+	for _, o := range mvpList(mvpDig(d, "summary", "over")) {
+		got = append(got, mvpSp(mvpDig(o, "row"), mvpDig(o, "status"), mvpDig(o, "keys")))
+	}
+	if want := []string{"2 paired box.right, box.width", "4 extra "}; strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("over:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+
+	// A paired row whose only delta over 2 sits on an unscaled leaf, and one
+	// within both tolerances, are absent; an unresolved row is named.
+	within := pyObj{{"a", 10}, {"a_scaled", 10.0}, {"b", 12}, {"abs", 2.0}, {"pct", 20.0}}
+	rows := []pyObj{
+		{{"kind", "rule"}, {"status", "paired"}, {"gap", within}, {"colour", pyObj{{"a", "#000000"}, {"b", "#0a0000"}, {"distance", 10.0}}},
+			{"measured", pyObj{{"delta", pyObj{{"ink.ratio", pyObj{{"a", 1}, {"a_scaled", 1}, {"b", 9}, {"abs", 8}, {"pct", 800.0}}}}}}}},
+		{{"kind", "rule"}, {"status", "paired"}, {"unresolved", "no box"}},
+		{{"kind", "rule"}, {"status", "paired"}, {"colour", pyObj{{"a", "#000000"}, {"b", "#ffffff"}, {"distance", 441.7}}}},
+	}
+	got = nil
+	for _, o := range mvpOver(rows) {
+		got = append(got, pyDump(o))
+	}
+	if s := strings.Join(got, "|"); strings.Contains(s, `"row": 1`) || !strings.Contains(s, `"row": 2`) || !strings.Contains(s, `"keys": "unresolved"`) || !strings.Contains(s, `"row": 3`) || !strings.Contains(s, `"keys": "colour"`) {
+		t.Fatalf("synthetic rows: %s", s)
+	}
+}

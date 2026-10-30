@@ -510,6 +510,15 @@ type StageLeaderboardRow struct {
 	MedianCostUSD float64
 	P90CostUSD    float64
 	TotalCostUSD  float64
+
+	// MainCostUSD is the summed main-session cost of the stage's runs: each
+	// run's cost minus its own dispatch buckets' cost_usd, floored at zero;
+	// a run with any bucket lacking cost_usd is left out, never priced as
+	// zero. MainSharePct divides it by the total cost of the same runs,
+	// times 100. Both are nil when no run yields a main figure (decision
+	// leaderboard-main-columns).
+	MainCostUSD  *float64
+	MainSharePct *float64
 }
 
 // StageLeaderboard ranks stages by total cost across period, optionally
@@ -518,28 +527,50 @@ type StageLeaderboardRow struct {
 //
 // model, when non-nil, restricts to stage runs whose metrics recorded that
 // model (per CostPerChange's own doc comment) and ranks by that model's own
-// cost_usd bucket, never the run's total.
+// cost_usd bucket, never the run's total; its main figure then subtracts
+// only the dispatch buckets that model served, a bucket's served model read
+// as dispatchBucket.servedModel reads it (pricing.go).
 func (s *Store) StageLeaderboard(ctx context.Context, period Period, project, model *string) ([]StageLeaderboardRow, error) {
 	rows, err := s.pool.Query(ctx, `
 		WITH costed AS (
 			SELECT sr.command, sr.stage,
 				CASE WHEN $4::text IS NULL THEN (sr.metrics->>'cost_usd')::numeric
-				     ELSE (sr.metrics->'models'->$4::text->>'cost_usd')::numeric END AS cost
+				     ELSE (sr.metrics->'models'->$4::text->>'cost_usd')::numeric END AS cost,
+				d.dispatch_sum, d.missing
 			FROM stage_runs sr
 			JOIN changes c ON c.id = sr.change_id
+			CROSS JOIN LATERAL (
+				SELECT COALESCE(SUM((b.value->>'cost_usd')::numeric) FILTER (
+				           WHERE $4::text IS NULL OR COALESCE((
+				               SELECT sm.key FROM jsonb_each_text(
+				                   CASE WHEN jsonb_typeof(b.value->'signals'->'served_models') = 'object'
+				                        THEN b.value->'signals'->'served_models' ELSE '{}'::jsonb END) sm
+				               WHERE sm.value::int > 0
+				               ORDER BY sm.value::int DESC, sm.key LIMIT 1),
+				               b.value->>'model') = $4::text), 0) AS dispatch_sum,
+				       COALESCE(bool_or(NOT b.value ? 'cost_usd'), false) AS missing
+				FROM jsonb_each(CASE WHEN jsonb_typeof(sr.metrics->'dispatches') = 'object'
+				                     THEN sr.metrics->'dispatches' ELSE '{}'::jsonb END) b
+			) d
 			WHERE sr.started_at >= $1 AND sr.started_at < $2
 			  AND ($3::text IS NULL OR c.project_key = $3)
 			  AND ($4::text IS NULL OR sr.metrics->'models' ? $4)
 			  AND (CASE WHEN $4::text IS NULL THEN sr.metrics ? 'cost_usd'
 			            ELSE sr.metrics->'models'->$4::text ? 'cost_usd' END)
+		), mained AS (
+			SELECT command, stage, cost,
+				CASE WHEN missing THEN NULL ELSE GREATEST(cost - dispatch_sum, 0) END AS main
+			FROM costed
 		)
 		SELECT
 			command, stage, COUNT(*),
 			AVG(cost),
 			percentile_cont(0.5) WITHIN GROUP (ORDER BY cost),
 			percentile_cont(0.9) WITHIN GROUP (ORDER BY cost),
-			SUM(cost)
-		FROM costed
+			SUM(cost),
+			SUM(main)::float8,
+			(SUM(main) * 100 / NULLIF(SUM(cost) FILTER (WHERE main IS NOT NULL), 0))::float8
+		FROM mained
 		GROUP BY command, stage
 		ORDER BY SUM(cost) DESC, command, stage
 		LIMIT 10
@@ -552,7 +583,7 @@ func (s *Store) StageLeaderboard(ctx context.Context, period Period, project, mo
 	var out []StageLeaderboardRow
 	for rows.Next() {
 		var row StageLeaderboardRow
-		if err := rows.Scan(&row.Command, &row.Stage, &row.RunCount, &row.MeanCostUSD, &row.MedianCostUSD, &row.P90CostUSD, &row.TotalCostUSD); err != nil {
+		if err := rows.Scan(&row.Command, &row.Stage, &row.RunCount, &row.MeanCostUSD, &row.MedianCostUSD, &row.P90CostUSD, &row.TotalCostUSD, &row.MainCostUSD, &row.MainSharePct); err != nil {
 			return nil, fmt.Errorf("store: stage leaderboard: scan: %w", err)
 		}
 		out = append(out, row)

@@ -472,7 +472,7 @@ func tcfResolvePlan(env Env, stderr io.Writer, label, worktree, name, canonical 
 }
 
 var (
-	tcfFieldRE     = regexp.MustCompile(`^\*\*(Files|Tests|Regression|Baseline|Commit|Allowed-collateral|Build|After|Decision):\*\*[` + tcfWS + `]*(.*)$`)
+	tcfFieldRE     = regexp.MustCompile(`^\*\*(Files|Tests|Regression|Baseline|Commit|Allowed-collateral|Build|After|Decision|Opener):\*\*[` + tcfWS + `]*(.*)$`)
 	tcfBacktickAll = regexp.MustCompile("^`([^`]+)`$")
 	tcfBaselineRE  = regexp.MustCompile(`before=([0-9]+)[` + tcfWS + `]+after=([0-9]+)`)
 	tcfMeasuredRE  = regexp.MustCompile(`<!--[` + tcfWS + `]*measured:[` + tcfWS + `]*(.+?)[` + tcfWS + `]+@[` + tcfWS + `]+(.+?)[` + tcfWS + `]*-->`)

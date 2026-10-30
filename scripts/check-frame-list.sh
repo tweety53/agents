@@ -23,6 +23,10 @@
 # themselves. A design line opening with `**Considered:**` names no frame:
 # its alternatives were rejected.
 #
+# Every report line below is read from the report's `## Report` heading to
+# the next `## ` heading alone: a `## Verdict` departure line never stands in
+# for a per-frame line (decision verdict-only-handback).
+#
 # THE SIDECARS are `<spec>.mockups` beside every spec the report's
 # `- spec: <path>` lines name; a missing sidecar contributes no frame. A
 # sidecar line is `<screenshot name> <frame id>`, `#` comments and blank lines

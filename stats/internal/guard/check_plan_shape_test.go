@@ -712,7 +712,7 @@ func TestCheckPlanShapeVisualVerifyFixNamesTheRecord(t *testing.T) {
 	t.Parallel()
 	env := Env{Getenv: os.Getenv}
 	task := func(title, files string) string {
-		return "- [ ] 1. " + title + "\n\n**Files:** " + files + "\n**Tests:** `scripts/test-1.sh`\n**Commit:** `fix: task 1`\n**After:** none\n\n"
+		return "- [ ] 1. " + title + "\n\n**Files:** " + files + "\n**Tests:** `scripts/test-1.sh`\n**Commit:** `fix: task 1`\n**Opener:** `visual-verify`\n**After:** none\n\n"
 	}
 	r := runGuard("check-plan-shape", []string{psFixture(t, task("In-run fix 1 — visual-verify: x", "`a.kt`"))}, env)
 	if r.rc != 1 || !strings.Contains(r.out, "task 1") || !strings.Contains(r.out, "visual-verification.md") {
@@ -792,5 +792,49 @@ func TestCheckPlanShapeRefusesAPlanningPathEntry(t *testing.T) {
 	}
 	if m := psMutant(collateral, "F23"); m.rc != 0 {
 		t.Errorf("F23 disabled still refuses: rc=%d out=%q", m.rc, m.out)
+	}
+}
+
+// TestCheckPlanShapeF24 pins F24 (decision one-report-one-round-opener): an
+// in-run fix task names the report that opened its round on **Opener:**, and
+// no two in-run fix tasks share one — one report is one round.
+func TestCheckPlanShapeF24(t *testing.T) {
+	t.Parallel()
+	env := Env{Getenv: os.Getenv}
+	task := func(n int, opener string) string {
+		s := fmt.Sprintf("- [ ] %d. In-run fix %d — visual-verify: x\n\n**Files:** `a%d.kt`, `spectre/changes/x/visual-verification.md`\n**Tests:** `test_%d`\n**Commit:** fix %d\n", n, n, n, n, n)
+		if opener != "" {
+			s += "**Opener:** " + opener + "\n"
+		}
+		if n > 1 {
+			return s + fmt.Sprintf("**After:** Task %d\n\n", n-1)
+		}
+		return s + "**After:** none\n\n"
+	}
+	r := runGuard("check-plan-shape", []string{psFixture(t, task(1, ""))}, env)
+	if r.rc != 1 || strings.Count(r.out, "(F24)") != 1 || !strings.Contains(r.out, ":1: ") || !strings.Contains(r.out, "skills/flow/verify-fix-loop.md") {
+		t.Errorf("an in-run fix with no opener: rc=%d out=%q", r.rc, r.out)
+	}
+	shared := psFixture(t, task(1, "`visual-verify-2`")+task(2, "`visual-verify-2`"))
+	r = runGuard("check-plan-shape", []string{shared}, env)
+	if r.rc != 1 || strings.Count(r.out, "(F24)") != 1 || !strings.Contains(r.out, "task 2") {
+		t.Errorf("two in-run fixes sharing an opener: rc=%d out=%q", r.rc, r.out)
+	}
+	r = runGuard("check-plan-shape", []string{psFixture(t, task(1, "`visual-verify`")+task(2, "`visual-verify-2`"))}, env)
+	if r.rc != 0 {
+		t.Errorf("distinct openers refused: rc=%d out=%q", r.rc, r.out)
+	}
+	ticked := strings.Replace(task(1, ""), "- [ ]", "- [x]", 1)
+	r = runGuard("check-plan-shape", []string{psFixture(t, ticked)}, env)
+	if r.rc != 0 {
+		t.Errorf("a ticked in-run fix closed before **Opener:** existed refused: rc=%d out=%q", r.rc, r.out)
+	}
+	tickedShared := strings.Replace(task(1, "`visual-verify-2`"), "- [ ]", "- [x]", 1) + task(2, "visual-verify-2")
+	r = runGuard("check-plan-shape", []string{psFixture(t, tickedShared)}, env)
+	if r.rc != 1 || strings.Count(r.out, "(F24)") != 1 || !strings.Contains(r.out, "task 2") {
+		t.Errorf("an open in-run fix sharing a ticked task's opener, bare against backticked: rc=%d out=%q", r.rc, r.out)
+	}
+	if r := psMutant(shared, "F24"); r.rc != 0 {
+		t.Errorf("the mutation disabling F24 still refused: rc=%d out=%s", r.rc, r.out)
 	}
 }

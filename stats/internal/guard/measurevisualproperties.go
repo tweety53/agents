@@ -1347,7 +1347,65 @@ func mvpMatrix(env Env, a mvpArgs, scale float64) (pyObj, error) {
 		rows = append(rows, append(row, pyKV{"measured", pyObj{{"a", ma.out}, {"b", mb.out}, {"delta", mvpDelta(ma, mb, props, scale)}}}))
 	}
 	paired, missing, extra := mvpCountStatus(pairs)
-	return pyObj{{"scale", scale}, {"matrix", rows}, {"summary", pyObj{{"paired", paired}, {"missing", missing}, {"extra", extra}}}}, nil
+	return pyObj{{"scale", scale}, {"matrix", rows}, {"summary", pyObj{{"paired", paired}, {"missing", missing}, {"extra", extra}, {"over", mvpOver(rows)}}}}, nil
+}
+
+// Step 10's band and seam tolerances (skills/flow/visual-verify-verifier.md
+// cites them): a scaled length delta over mvpOverLength px, or a colour
+// distance over mvpOverColour, puts a paired matrix row on the `over` list.
+const (
+	mvpOverLength = 2
+	mvpOverColour = 12
+)
+
+// mvpOver is summary.over (decision over-list): one {row, status, keys}
+// entry per matrix row, row its 1-based index, that is missing or extra,
+// carries `unresolved`, or is paired with a scaled numeric leaf of its
+// pairing or its measured.delta over mvpOverLength, or a colour distance
+// over mvpOverColour; keys names the leaves over, comma-separated.
+func mvpOver(rows []pyObj) []pyObj {
+	over := []pyObj{}
+	for i, row := range rows {
+		status, keys := "", []string{}
+		judge := func(key string, v any) {
+			d, ok := v.(pyObj)
+			if !ok {
+				return
+			}
+			for _, kv := range d {
+				switch {
+				case kv.k == "distance" && kv.v != nil && mvpF(kv.v) > mvpOverColour:
+					keys = append(keys, key)
+				case kv.k == "abs" && kv.v != nil && math.Abs(mvpF(kv.v)) > mvpOverLength &&
+					!slices.ContainsFunc(strings.Split(key, "."), func(seg string) bool { return slices.Contains(mvpUnscaled, seg) }):
+					keys = append(keys, key)
+				}
+			}
+		}
+		for _, kv := range row {
+			switch kv.k {
+			case "status":
+				status, _ = kv.v.(string)
+			case "kind", "a", "b":
+			case "unresolved":
+				keys = append(keys, "unresolved")
+			case "measured":
+				for _, m := range kv.v.(pyObj) {
+					if m.k == "delta" {
+						for _, dk := range m.v.(pyObj) {
+							judge(dk.k, dk.v)
+						}
+					}
+				}
+			default:
+				judge(kv.k, kv.v)
+			}
+		}
+		if status == "missing" || status == "extra" || len(keys) > 0 {
+			over = append(over, pyObj{{"row", i + 1}, {"status", status}, {"keys", strings.Join(keys, ", ")}})
+		}
+	}
+	return over
 }
 
 func mvpElementRecs(elems []mvpElement) []mvpRec {

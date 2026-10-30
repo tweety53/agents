@@ -214,6 +214,13 @@ func fixtureData() []projectFixture {
 							StartedAt:    fixtureNow.Add(-90 * time.Minute),
 							Outcome:      "completed",
 							SessionToken: "uitest-kan-102",
+							// Two priced dispatches inside the run's cost, so
+							// the Stage leaderboard's flow.review-panel row
+							// reads a Main share below 100% (KAN-1060).
+							Dispatches: map[string]pricedDispatch{
+								"agent-panel-a": {Model: "claude-sonnet-5", Effort: "medium", CostUSD: 0.15},
+								"agent-panel-b": {Model: "claude-sonnet-5", Effort: "medium", CostUSD: 0.1},
+							},
 						},
 						// The Running now strip's card awaiting an answer (kan-1048).
 						{Command: "/flow", Stage: "flow.sdd-tdd", StartedAt: fixtureNow.Add(-20 * time.Minute), Open: true,

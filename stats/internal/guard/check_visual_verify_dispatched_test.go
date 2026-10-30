@@ -764,42 +764,17 @@ func TestCheckVisualVerifyDispatchedScopesTheNewestVerifierPerWorktree(t *testin
 	}
 }
 
-// TestCheckVisualVerifyDispatchedRefusesARerunAcrossHeads pins kan-1022's
-// self-review: a newest verifier whose report re-ran only the failed specs
-// at a -diff-base other than the verifier row before it -- a blocked one
-// included -- is MISSING; the same rerun at that row's own HEAD, and an
-// unscoped run after a HEAD change, pass.
-func TestCheckVisualVerifyDispatchedRefusesARerunAcrossHeads(t *testing.T) {
+// TestCheckVisualVerifyDispatchedIgnoresRerunWording pins decision
+// verifier-runs-no-verify: a completed verifier row at a later HEAD whose
+// report's `- verify:` line names a rerun of failed specs counts as any other.
+func TestCheckVisualVerifyDispatchedIgnoresRerunWording(t *testing.T) {
 	t.Parallel()
-	const rerun = "## Report\n- verify: exit 0 — rerun of 19 failed specs at unchanged HEAD\n"
-	rows := func(prev string) []byte {
-		return []byte(`[` +
-			`{"key":"visual-verify","role":"verifier","outcome":"blocked","diffBase":"` + prev + `","startedAt":"2026-10-24T10:00:00Z"},` +
-			`{"key":"visual-verify-2","role":"verifier","outcome":"completed","diffBase":"@HEAD@","startedAt":"2026-10-24T11:00:00Z"}]`)
-	}
-	// A rerun in one repository with another repository's row between it and
-	// its own previous row (kan-1022 self-review, review 1).
-	interleaved := []byte(`[` +
-		`{"key":"visual-verify-gymie","role":"verifier","outcome":"completed","diffBase":"@HEAD@","startedAt":"2026-10-24T10:00:00Z"},` +
-		`{"key":"visual-verify-gymie-frontend","role":"verifier","outcome":"completed","diffBase":"0123456789abcdef0123456789abcdef01234567","startedAt":"2026-10-24T10:30:00Z"},` +
-		`{"key":"visual-verify-2-gymie","role":"verifier","outcome":"completed","diffBase":"@HEAD@","startedAt":"2026-10-24T11:00:00Z"}]`)
-	r := vvdRun(t, vvdCase{dispatches: interleaved, files: map[string]string{".superpowers/sdd/verify-report-visual-verify-2-gymie.md": rerun}})
+	rows := []byte(`[` +
+		`{"key":"visual-verify","role":"verifier","outcome":"blocked","diffBase":"@BASE@","startedAt":"2026-10-24T10:00:00Z"},` +
+		`{"key":"visual-verify-2","role":"verifier","outcome":"completed","diffBase":"@HEAD@","startedAt":"2026-10-24T11:00:00Z"}]`)
+	r := vvdRun(t, vvdCase{dispatches: rows, files: map[string]string{".superpowers/sdd/verify-report-visual-verify-2.md": "## Report\n- verify: exit 0 — rerun of 2 failed specs\n"}})
 	if r.code != 0 || !strings.HasPrefix(r.out, "VISUAL-VERIFY-OK: UI paths touched") {
-		t.Fatalf("interleaved repositories: got exit %d stdout %q stderr %q, want exit 0 and OK", r.code, r.out, r.err)
-	}
-	for _, c := range []struct {
-		name, prev, report string
-		code               int
-		want               string
-	}{
-		{"a rerun across a HEAD change", "@BASE@", rerun, 1, "VISUAL-VERIFY-MISSING: the newest verifier row 'visual-verify-2' re-ran only failed specs at "},
-		{"a rerun at the same HEAD", "@HEAD@", rerun, 0, "VISUAL-VERIFY-OK: UI paths touched"},
-		{"an unscoped run across a HEAD change", "@BASE@", "## Report\n- verify: exit 0\n", 0, "VISUAL-VERIFY-OK: UI paths touched"},
-	} {
-		r := vvdRun(t, vvdCase{dispatches: rows(c.prev), files: map[string]string{".superpowers/sdd/verify-report-visual-verify-2.md": c.report}})
-		if r.code != c.code || !strings.HasPrefix(r.out, c.want) {
-			t.Fatalf("%s: got exit %d stdout %q stderr %q, want exit %d and %q", c.name, r.code, r.out, r.err, c.code, c.want)
-		}
+		t.Fatalf("got exit %d stdout %q stderr %q, want exit 0 and OK", r.code, r.out, r.err)
 	}
 }
 

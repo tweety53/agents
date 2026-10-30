@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os/exec"
 	"regexp"
 	"strings"
 )
@@ -23,21 +24,24 @@ const vgPrefix = "check-verify-green: "
 var vgFixSuffix = regexp.MustCompile(`^verify-(fix-)?[0-9]+(-|$)`)
 
 func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
-	if len(args) != 3 || args[1] == "" || args[2] == "" {
-		fmt.Fprintf(stderr, "%susage: check-verify-green.sh <worktree> <change-name> <session-token>\n", vgPrefix)
+	if len(args) < 3 || args[1] == "" || args[2] == "" {
+		fmt.Fprintf(stderr, "%susage: check-verify-green.sh <worktree> <change-name> <session-token> [<worktree>...]\n", vgPrefix)
 		return 2
 	}
 	wt, name, token := args[0], args[1], args[2]
-	if !isDir(pcAbs(env, wt)) {
-		fmt.Fprintf(stderr, "%snot a directory: %s\n", vgPrefix, wt)
-		return 2
+	worktrees := append([]string{wt}, args[3:]...)
+	for _, w := range worktrees {
+		if !isDir(pcAbs(env, w)) {
+			fmt.Fprintf(stderr, "%snot a directory: %s\n", vgPrefix, w)
+			return 2
+		}
 	}
 	if !plainChangeName(name) {
 		fmt.Fprintf(stderr, "%schange name '%s' is not a plain change name\n", vgPrefix, name)
 		return 2
 	}
 	raw, err := pfdRead(env, env.Dispatches, "dispatches", name, pcAbs(env, wt))
-	var rows []struct{ Key, Role, SessionToken, Outcome string }
+	var rows []struct{ Key, Role, SessionToken, Outcome, DiffBase string }
 	if err == nil {
 		err = json.Unmarshal(raw, &rows)
 	}
@@ -69,16 +73,24 @@ func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 		latest[g] = i
 	}
 	seen := len(groups)
-	var open []string
+	git := envGit(env)
+	var open, green []string
 	for _, g := range groups {
 		r := rows[latest[g]]
 		switch r.Outcome {
 		case "completed", "skipped":
 		case "":
 			open = append(open, r.Key+" (running)")
+			continue
 		default:
 			open = append(open, r.Key+" ("+r.Outcome+")")
+			continue
 		}
+		if why := vgHeadHolds(env, git, worktrees, r.DiffBase); why != "" {
+			open = append(open, r.Key+" ("+why+")")
+			continue
+		}
+		green = append(green, r.Key+"@"+vgShort(r.DiffBase))
 	}
 	switch {
 	case seen == 0:
@@ -88,6 +100,37 @@ func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "VERIFY-NOT-GREEN: %s — %s\n", name, strings.Join(open, ", "))
 		return 1
 	}
-	fmt.Fprintf(stdout, "VERIFY-GREEN: %s — %d inline verify row(s) green\n", name, seen)
+	fmt.Fprintf(stdout, "VERIFY-GREEN: %s — %d inline verify row(s) green: %s\n", name, seen, strings.Join(green, ", "))
 	return 0
+}
+
+// vgHeadHolds is "" when sha, the HEAD a green row recorded, resolves in one
+// of worktrees and every commit since it there touches only <leaf>/changes/
+// (decision green-verify-spans-planning-commits), else why the row is not green.
+func vgHeadHolds(env Env, git func(...string) *exec.Cmd, worktrees []string, sha string) string {
+	if sha == "" {
+		return "no HEAD recorded"
+	}
+	for _, w := range worktrees {
+		w = pcAbs(env, w)
+		if git("-C", w, "cat-file", "-e", sha+"^{commit}").Run() != nil {
+			continue
+		}
+		out, ok := capture(git("-C", w, "log", "--format=%h", sha+"..HEAD", "--", ".", ":(exclude)"+specRootLeaf(w, io.Discard)+"/changes/"))
+		if !ok {
+			return "git log failed in " + w
+		}
+		if out != "" {
+			return strings.Join(strings.Fields(out), ", ") + " since " + vgShort(sha)
+		}
+		return ""
+	}
+	return "HEAD resolves in no worktree"
+}
+
+func vgShort(sha string) string {
+	if len(sha) > 7 {
+		return sha[:7]
+	}
+	return sha
 }

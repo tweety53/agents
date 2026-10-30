@@ -441,3 +441,45 @@ func TestStageMarkCallsChecksStageMark(t *testing.T) {
 		})
 	}
 }
+
+// TestCheckStageMarkCallsVisualVerifyPass pins that a `visual-verify-pass.sh
+// prepare` line, which begins the visual-verify stage and its verifier rows,
+// takes integrate-change.sh's token and harness rules; a `close` line, which
+// ends them, the token rules alone, as `flow record dispatch`'s; and a
+// `measure` line, which marks nothing, is not a call.
+func TestCheckStageMarkCallsVisualVerifyPass(t *testing.T) {
+	t.Parallel()
+	const (
+		prep = "visual-verify-pass.sh prepare <canonical-worktree> <name> <key> "
+		cls  = "visual-verify-pass.sh close <canonical-worktree> <name> <key> <motions named> "
+	)
+	cases := []struct {
+		name, line string
+		rc         int
+		want       string
+	}{
+		{"prepare compliant", prep + "--harness <harness> --session-token mf-abc123", 0, "clean (1 call site(s) checked)"},
+		{"prepare continued", prep + "\\\n  --harness <harness> --session-token mf-abc123", 0, "clean (1 call site(s) checked)"},
+		{"prepare no token", prep + "--harness <harness>", 1, "`visual-verify-pass.sh prepare` carries no -session-token"},
+		{"prepare substituted token", prep + `--harness <harness> --session-token "mf-$(date +%s)"`, 1, "contains a command substitution"},
+		{"prepare no harness", prep + "--session-token mf-abc123", 1, "`visual-verify-pass.sh prepare` carries no -harness"},
+		{"prepare literal harness", prep + "--harness claude-code --session-token mf-abc123", 1, "-harness claude-code is a hardcoded literal"},
+		{"close compliant", cls + "--session-token mf-abc123", 0, "clean (1 call site(s) checked)"},
+		{"close no token", cls, 1, "`visual-verify-pass.sh close` carries no -session-token"},
+		{"close substituted token", cls + `--session-token "mf-$(date +%s)"`, 1, "contains a command substitution"},
+		// A measure line beside one close: only the close is counted.
+		{"measure is no call", "visual-verify-pass.sh measure <canonical-worktree> <name>\n" + cls + "--session-token mf-abc123", 0, "clean (1 call site(s) checked)"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			writeFile(t, dir+"/visual-verify.md", "```bash\n"+c.line+"\n```\n")
+			var out bytes.Buffer
+			rc := checkStageMarkCalls([]string{dir}, smcEnv(smcRepoRoot, false), &out, &out)
+			if rc != c.rc || !strings.Contains(out.String(), c.want) {
+				t.Fatalf("rc=%d, want %d; output lacks %q:\n%s", rc, c.rc, c.want, out.String())
+			}
+		})
+	}
+}
