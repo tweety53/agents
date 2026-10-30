@@ -209,7 +209,7 @@
   - [x] **Step 2: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.sh`, `scripts/check-guard-symlinks.sh`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-installed-citations.sh`, `scripts/check-ask-silence.sh` and `scripts/check-stage-mark-calls.sh` exit 0; `scripts/check-normative-inventory.sh` prints the inventory saved in Step 1; `scripts/run-verify-list.sh <wt> lint` exits 0. Commit.
 
 **Build:** green
-**Files:** `skills/flow/visual-verify.md`, `skills/flow/visual-verify-verifier.md`, `skills/flow/verify-fix-loop.md`
+**Files:** `skills/flow/visual-verify.md`, `skills/flow/visual-verify-verifier.md`, `skills/flow/verify-fix-loop.md`, `stats/internal/guard/visual_verify_pass_close_test.go`
 **Tests:** **none** — contract prose; Step 2's guards are the check.
 **Regression:** none — prose.
 **Commit:** docs(flow): measure in one call and explain every over-tolerance element in the report
