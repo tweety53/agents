@@ -1,0 +1,14 @@
+import { chromium } from "/Users/tweety53/Projects/agents-worktrees/group-allowed-pairs-roles/stats/web/node_modules/@playwright/test/index.mjs";
+const [proto, out] = process.argv.slice(2);
+const b = await chromium.launch();
+const p = await b.newPage({ viewport: { width: 1280, height: 1024 }, colorScheme: "dark", deviceScaleFactor: 1 });
+await p.goto("file://" + proto);
+const s = p.getByRole("region", { name: "Current roles" });
+await s.screenshot({ path: `${out}/experiments-roles.png` });
+const row = s.locator("tr.role", { hasText: "plan-designer" });
+await row.hover();
+await s.screenshot({ path: `${out}/experiments-roles-hover.png` });
+await p.mouse.move(0, 0);
+await row.getByRole("link").focus();
+await s.screenshot({ path: `${out}/experiments-roles-focus.png` });
+await b.close();
