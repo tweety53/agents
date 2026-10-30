@@ -59,7 +59,7 @@ board's Project chips until finished changes load; stale specs and baselines fol
   - [x] **Step 4: Commit** with the subject below.
 
 **Build:** green
-**Files:** `stats/internal/api/server.go`, `stats/internal/api/*_test.go`, `stats/web/src/views/StateBoard.tsx`, `stats/web/src/views/views.test.tsx`
+**Files:** `stats/internal/api/lessons.go`, `stats/internal/api/projects_test.go`, `stats/internal/api/server.go`, `stats/web/src/api.ts`, `stats/web/src/views/StateBoard.tsx`, `stats/web/src/views/views.test.tsx`
 **Tests:** the projects-route API test; the `views.test.tsx` chip-before-load case
 **Regression:** `controls.spec.ts` "a Project chip narrows the rows and the state tiles" — reverting the commit times it out on the missing `uitest-beta` chip.
 **Baseline:** go before=1938 after=1939; web before=310 after=311
@@ -77,7 +77,7 @@ board's Project chips until finished changes load; stale specs and baselines fol
   - [x] **Step 5: Commit** with the subject below.
 
 **Build:** green
-**Files:** `stats/web/tests/visual/controls.spec.ts`, `stats/web/tests/visual/interactive.spec.ts`, `stats/web/tests/visual/*-snapshots/*.png`
+**Files:** `stats/web/tests/visual/baseline.spec.ts-snapshots/dashboard-darwin.png`, `stats/web/tests/visual/baseline.spec.ts-snapshots/run-detail-darwin.png`, `stats/web/tests/visual/baseline.spec.ts-snapshots/run-detail-hover-darwin.png`, `stats/web/tests/visual/combinations.spec.ts-snapshots/combination-chips-plus-tile-darwin.png`, `stats/web/tests/visual/controls.spec.ts`, `stats/web/tests/visual/full-app-suite.spec.ts-snapshots/full-run-detail-darwin.png`, `stats/web/tests/visual/full-app-suite.spec.ts-snapshots/full-state-board-darwin.png`, `stats/web/tests/visual/interactive.spec.ts`, `stats/web/tests/visual/interactive.spec.ts-snapshots/interactive-run-view-darwin.png`, `stats/web/tests/visual/interactive.spec.ts-snapshots/interactive-running-card-darwin.png`, `stats/web/tests/visual/interactive.spec.ts-snapshots/interactive-running-card-focus-darwin.png`, `stats/web/tests/visual/interactive.spec.ts-snapshots/interactive-running-card-hover-darwin.png`, `stats/web/tests/visual/interactive.spec.ts-snapshots/interactive-waiting-card-darwin.png`
 **Tests:** none — repairs existing tests: `controls.spec.ts` "Updated All widens…", `interactive.spec.ts` "interactive run view", and the re-recorded screenshot tests
 **Regression:** `npx playwright test` against the UI-test stack — reverting the commit fails the tests named in `design.md`'s Context table.
 **Baseline:** go before=1939 after=1939; web before=311 after=311
