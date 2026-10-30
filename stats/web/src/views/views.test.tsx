@@ -1482,10 +1482,17 @@ describe("review dynamics", () => {
 
 describe("Experiments", () => {
   const roles = [
-    { role: "main", pairs: [], marker: "", override: { pairs: ["opus@medium"], experimentId: 2 } },
-    { role: "explorer", pairs: ["opus/Explore@low", "opus/Explore@medium"], marker: "" },
-    { role: "plan-designer", pairs: ["opus/Plan@low", "opus/Plan@medium"], marker: "", override: { pairs: ["opus/Plan@xhigh"], experimentId: 3 } },
-    { role: "implementer", pairs: ["opus/flow-high"], marker: "No-progress escalation" },
+    {
+      role: "main", pairs: [], marker: "", group: "Session", does: "The session you talk to: runs the pipeline and sends out every other role.",
+      override: { pairs: ["opus@medium"], experimentId: 2 },
+    },
+    { role: "explorer", pairs: ["opus/Explore@low", "opus/Explore@medium"], marker: "", group: "Planning", does: "Reads the codebase to answer a planner's question." },
+    {
+      role: "plan-designer", pairs: ["opus/Plan@low", "opus/Plan@medium"], marker: "", group: "Planning",
+      does: "Proposes a design or plan for the planner to choose from.", override: { pairs: ["opus/Plan@xhigh"], experimentId: 3 },
+    },
+    { role: "implementer", pairs: ["opus/flow-low"], marker: "", group: "Implementation", does: "Writes the code for a group of tasks, tests first." },
+    { role: "implementer", pairs: ["opus/flow-high"], marker: "No-progress escalation", group: "Implementation", does: "" },
   ];
   const experiments = [
     { id: 3, name: "plan-designer on xhigh", cells: { "plan-designer": ["opus/Plan@xhigh"] }, startedAt: "2026-10-30T09:00:00Z", summary: "", status: "open" },
@@ -1520,23 +1527,31 @@ describe("Experiments", () => {
     );
   });
 
-  it("Experiments lists every roles row, striking an overridden cell through and linking its experiment", async () => {
+  it("Experiments groups the roles, one row per role, folding escalations and linking overrides", async () => {
     render(<Experiments />);
     const table = await screen.findByRole("region", { name: "Current roles" });
+    expect(within(table).getAllByRole("columnheader").slice(0, 3).map((h) => h.textContent)).toEqual(["Role", "Does", "Allowed pairs"]);
     const rows = within(table).getAllByRole("row");
-    expect(rows.map((r) => within(r).getAllByRole(r.querySelector("th") ? "columnheader" : "cell")[0].textContent)).toEqual([
-      "Role", "main", "explorer", "plan-designer", "implementer",
+    expect(rows.map((r) => r.querySelector("th, td")?.textContent)).toEqual([
+      "Role", "Session", "main", "Planning", "explorer", "plan-designer", "Implementation", "implementer",
     ]);
-    const designer = rows[3];
+    for (const i of [1, 3, 6]) expect(rows[i].querySelector("th")).toHaveAttribute("colspan", "3");
+    const designer = rows[5];
     expect(designer.querySelector("s")).toHaveTextContent("opus/Plan@low, opus/Plan@medium");
     expect(within(designer).getByText("opus/Plan@xhigh")).toHaveClass("exp");
     expect(within(designer).getByRole("link", { name: "#3" })).toBeInTheDocument();
-    expect(rows[1].querySelector("s")).toHaveTextContent("session's own pair");
-    expect(within(rows[2]).queryByRole("link")).toBeNull();
-    expect(rows[2].querySelector("s")).toBeNull();
-    expect(within(rows[4]).getByText("No-progress escalation")).toBeInTheDocument();
+    expect(within(designer).getByText("Proposes a design or plan for the planner to choose from.")).toBeInTheDocument();
+    const implementer = rows[7];
+    expect(within(implementer).getByText("opus/flow-low")).toBeInTheDocument();
+    expect(implementer.querySelector(".esc")).toHaveTextContent("opus/flow-high with No-progress escalation");
+    expect(rows[2].querySelector("s")).toHaveTextContent("session's own pair");
+    expect(within(rows[4]).queryByRole("link")).toBeNull();
+    expect(rows[4].querySelector("s")).toBeNull();
+    expect(within(table).queryByText("Requires marker")).toBeNull();
+    expect(within(table).queryByText("Experiment")).toBeNull();
+    expect(table).not.toHaveTextContent("From skills/flow-contracts/model-policy.md");
 
-    await userEvent.click(within(rows[1]).getByRole("link", { name: "#2" }));
+    await userEvent.click(within(rows[2]).getByRole("link", { name: "#2" }));
     expect(screen.getByRole("button", { name: /main agent opus@medium/ })).toHaveClass("on");
   });
 

@@ -1,11 +1,12 @@
 // Experiments draws the allowed-pairs experiments (KAN-1067, decision
 // experiments-view) exactly as the approved prototype
 // .superpowers/sdd/experiments-prototype.html does: the roles table in
-// force with open overrides struck through, the experiment list, and the
+// force with open overrides struck through -- grouped, one row per role, as
+// .superpowers/sdd/roles-prototype.html draws it -- the experiment list, and the
 // selected experiment's override, per-metric stat panels, weekly charts
 // with the experiment window and before/after means, and its summary.
 // Lower is better for every metric (store.ExperimentStats).
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {
   fetchExperimentStats,
   fetchExperiments,
@@ -46,53 +47,73 @@ function tablePairs(roles: RoleEntry[], role: string): string {
 }
 
 function RolesTable({ roles, onSelect }: { roles: RoleEntry[]; onSelect: (id: number) => void }) {
+  // One row per role, groups and roles in order of first appearance; a
+  // role's marked rows fold into its pairs cell.
+  const groups: { name: string; roles: RoleEntry[][] }[] = [];
+  for (const r of roles) {
+    let g = groups.find((x) => x.name === r.group);
+    if (!g) groups.push((g = { name: r.group, roles: [] }));
+    const rows = g.roles.find((x) => x[0].role === r.role);
+    if (rows) rows.push(r);
+    else g.roles.push([r]);
+  }
   return (
     <table>
-      <tbody>
+      <thead>
         <tr>
           <th>Role</th>
+          <th>Does</th>
           <th>Allowed pairs</th>
-          <th>Requires marker</th>
-          <th>Experiment</th>
         </tr>
-        {roles.map((r, i) => {
-          const pairs = r.role === "main" ? MAIN_PAIR : r.pairs.join(", ");
-          return (
-            <tr key={`${r.role}-${i}`}>
-              <td>
-                <code>{r.role}</code>
-              </td>
-              <td>
-                {r.override ? (
-                  <>
-                    <s>
-                      <code>{pairs}</code>
-                    </s>{" "}
-                    <code className="exp">{r.override.pairs.join(", ")}</code>
-                  </>
-                ) : (
-                  <code>{pairs}</code>
-                )}
-              </td>
-              <td>{r.marker ? <code>{r.marker}</code> : "—"}</td>
-              <td>
-                {r.override ? (
-                  <a
-                    href="#"
-                    onClick={(ev) => {
-                      ev.preventDefault();
-                      onSelect(r.override!.experimentId);
-                    }}
-                  >
-                    #{r.override.experimentId}
-                  </a>
-                ) : (
-                  "—"
-                )}
-              </td>
+      </thead>
+      <tbody>
+        {groups.map((g) => (
+          <Fragment key={g.name}>
+            <tr className="grp">
+              <th colSpan={3}>{g.name}</th>
             </tr>
-          );
-        })}
+            {g.roles.map((rows) => {
+              const r = rows.find((x) => x.marker === "") ?? rows[0];
+              const pairs = r.role === "main" ? MAIN_PAIR : r.pairs.join(", ");
+              return (
+                <tr className="role" key={r.role}>
+                  <td className="role">
+                    <code>{r.role}</code>
+                  </td>
+                  <td className="does">{r.does}</td>
+                  <td className="pairs">
+                    {r.override ? (
+                      <>
+                        <s>
+                          <code>{pairs}</code>
+                        </s>{" "}
+                        <code className="exp">{r.override.pairs.join(", ")}</code>
+                        <a
+                          href="#"
+                          onClick={(ev) => {
+                            ev.preventDefault();
+                            onSelect(r.override!.experimentId);
+                          }}
+                        >
+                          #{r.override.experimentId}
+                        </a>
+                      </>
+                    ) : (
+                      <code>{pairs}</code>
+                    )}
+                    {rows
+                      .filter((x) => x.marker !== "")
+                      .map((x) => (
+                        <span className="esc" key={x.marker}>
+                          <code>{x.pairs.join(", ")}</code> with <code>{x.marker}</code>
+                        </span>
+                      ))}
+                  </td>
+                </tr>
+              );
+            })}
+          </Fragment>
+        ))}
       </tbody>
     </table>
   );
@@ -331,10 +352,6 @@ export function Experiments() {
         <div className="wrap" id="roles">
           <RolesTable roles={roles} onSelect={setSel} />
         </div>
-        <p className="sub">
-          From <code>skills/flow-contracts/model-policy.md</code>; a cell an open experiment overrides shows its experiment pairs, the
-          table's own pairs struck through.
-        </p>
       </section>
       <section className="panel list" aria-label="Experiments">
         <h2 className="ttl">Experiments</h2>
