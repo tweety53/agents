@@ -2235,7 +2235,8 @@ func TestLiveStateBoardCarriesCommandAndRequests(t *testing.T) {
 }
 
 // TestLiveStateBoardCountsFixRoundsAndReviewerRuns pins the board's review
-// totals: main's fix rounds are its highest panel-<N>, its reviewer runs every
+// totals: main's fix rounds are its highest panel-<N> plus each fix dispatch
+// outside the panel (verify-fix-1, full-suite-fix-1), its reviewer runs every
 // reviewer dispatch outside the self-review; the self-review's fix rounds are
 // its highest -review-<N> or -fix-<N>, its reviewer runs every self-review
 // reviewer bar the analysis -pass -- whether recorded under the change or its
@@ -2261,6 +2262,7 @@ func TestLiveStateBoardCountsFixRoundsAndReviewerRuns(t *testing.T) {
 	dispatch(projectKey, name, "reviewer", "panel-0-mutation")
 	dispatch(projectKey, name, "panel-fix", "panel-fix-1")
 	dispatch(projectKey, name, "reviewer", "panel-2-primary")
+	dispatch(projectKey, name, "panel-fix", "verify-fix-1")
 	dispatch(projectKey, name, "reviewer", sub+"-pass")
 	dispatch(projectKey, name, "reviewer", sub+"-review-1")
 	dispatch(projectKey+"-tooling", sub, "implementer", sub+"-fix-3")
@@ -2277,7 +2279,7 @@ func TestLiveStateBoardCountsFixRoundsAndReviewerRuns(t *testing.T) {
 		t.Fatalf("rows = %d, want 1", len(rows))
 	}
 	r := rows[0]
-	if r.FixRounds != 2 || r.ReviewerRuns != 4 || r.SelfReviewFixRounds != 3 || r.SelfReviewReviewerRuns != 2 {
-		t.Errorf("fix rounds %d/%d, reviewer runs %d/%d; want 2/3, 4/2", r.FixRounds, r.SelfReviewFixRounds, r.ReviewerRuns, r.SelfReviewReviewerRuns)
+	if r.FixRounds != 3 || r.ReviewerRuns != 4 || r.SelfReviewFixRounds != 3 || r.SelfReviewReviewerRuns != 2 {
+		t.Errorf("fix rounds %d/%d, reviewer runs %d/%d; want 3/3, 4/2", r.FixRounds, r.SelfReviewFixRounds, r.ReviewerRuns, r.SelfReviewReviewerRuns)
 	}
 }
