@@ -1,0 +1,11 @@
+# Sentences this change adds or rewords on purpose — the kan-1069-interactive-session self-review pass: the request-end guard's verify and chained-mark checks (flow-interactive), gated reviewer findings recorded as rows (implement.md, gated-review-fix.md).
+**A pass whose findings are all Minor is `clean`** — no fix round and no re-review; before ticking the task the parent fixes each such Minor itself, inline, exactly as **Panel re-runs** (`skills/flow/review-panel.md`) fixes a Minor-only round's Minors — one commit at the branch tip, pushed, no dispatch, no dispatch record and no `flow record status` — and only while no implementer dispatch is writing that worktree.
+A Minor no change to the tree can resolve is named, one clause, in the parent's output.
+A refusal is fixed — land the commit, run the UI check and end it `completed` — and the end re-run, never worked around.
+With the store unreachable, checks 1–3's git work still runs; the stage-run read is skipped with one `⚠` line, and the write is journalled like every record verb.
+A Minor no change to the tree can resolve is named, one clause, in the parent's output, and recorded `withdrawn <that clause>`.
+A `completed` UI check that ended less than one second after it began is a chained mark (step 7) and is refused.
+A refusal is fixed — land the commit, run the verify and the UI check and end each `completed` — and the end re-run, never worked around.
+The parent records every finding a pass raises as a findings row in one Bash call, `flow record finding -change <name> -from <abs-worktree>/.superpowers/sdd/findings-gated-<n+n+n>.jsonl`, each row under `-slot gated-reviewer -round 0 -task <n> -dispatch-seq <the bundle's seq> -status open -reproducer 'none — gated per-task review; its report file holds the evidence'`, its ref from `flow record next-ref`, so the run's Findings count holds what the gate caught; the panel's guards and its rendered record skip `gated-reviewer` rows.
+The request's latest `/flow-interactive` `flow.verify` stage run carrying `-request <n>`, by start, must have ended `completed`, whatever the diff touches.
+With the store unreachable, checks 1–3's git work still runs; the stage-run reads are skipped with one `⚠` line, and the write is journalled like every record verb.
