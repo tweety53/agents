@@ -73,7 +73,7 @@ func roleMetrics(role string) []string {
 		return plannerMetrics
 	case "implementer", "panel-fix", "self-review-fix", "pipeline-fix-fix", "late-fix":
 		return fixerMetrics
-	case "panel-reviewer", "panel-extra", "panel-rerun", "gated-reviewer", "gated-re-reviewer",
+	case "panel-reviewer", "panel-sanity-efficiency", "panel-mutation-failure", "panel-rerun", "gated-reviewer", "gated-re-reviewer",
 		"self-review-review-1", "self-review-review-r", "pipeline-fix-review-1", "pipeline-fix-review-r":
 		return reviewerMetrics
 	case "visual-verifier":
@@ -90,27 +90,28 @@ func roleMetrics(role string) []string {
 // if a shape ever stops telling two roles apart. late-fix and
 // self-review-pass have no key shape of their own and select nothing.
 var roleDispatchSQL = map[string]string{
-	"planner":               `d.role = 'planner' AND d.dispatch_key ~ '^plan-[0-9]+$'`,
-	"plan-designer":         `d.role = 'planner' AND d.dispatch_key ~ '^design-[0-9]+'`,
-	"explorer":              `d.role = 'explorer'`,
-	"tooling-analyst":       `d.role = 'planner' AND d.dispatch_key LIKE 'tooling-analysis-%'`,
-	"implementer":           `d.role = 'implementer' AND d.dispatch_key LIKE 'task-%'`,
-	"panel-fix":             `d.role = 'panel-fix'`,
-	"panel-reviewer":        `d.role = 'reviewer' AND d.dispatch_key ~ '^panel-0-' AND d.dispatch_key !~ 'test-sanity\+call-efficiency'`,
-	"panel-extra":           `d.role = 'reviewer' AND d.dispatch_key ~ '^panel-[0-9]+-test-sanity\+call-efficiency'`,
-	"panel-rerun":           `d.role = 'reviewer' AND d.dispatch_key ~ '^panel-[1-9][0-9]*-' AND d.dispatch_key !~ 'test-sanity\+call-efficiency'`,
-	"panel-merger":          `d.role = 'merger'`,
-	"gated-reviewer":        `d.role = 'reviewer' AND d.dispatch_key ~ '^task-[0-9+]+-reviewer(-retry)?$'`,
-	"gated-re-reviewer":     `d.role = 'reviewer' AND d.dispatch_key ~ '^task-[0-9+]+-reviewer-fix-'`,
-	"visual-verifier":       `d.role = 'verifier' AND d.dispatch_key LIKE 'visual-verify%'`,
-	"self-review-plan":      `d.dispatch_key ~ '^self-review-.*-plan(-[0-9]+)?$'`,
-	"self-review-fix":       `d.role = 'implementer' AND d.dispatch_key ~ '^self-review-.*-fix(-[gv]?[0-9]+)?$'`,
-	"self-review-review-1":  `d.dispatch_key ~ '^self-review-.*-review-1$'`,
-	"self-review-review-r":  `d.dispatch_key ~ '^self-review-.*-review-([2-9]|[1-9][0-9]+)$'`,
-	"pipeline-fix-plan":     `d.dispatch_key ~ '^pipeline-fix-[0-9]+-plan'`,
-	"pipeline-fix-fix":      `d.role = 'implementer' AND d.dispatch_key ~ '^pipeline-fix-[0-9]+-fix'`,
-	"pipeline-fix-review-1": `d.dispatch_key ~ '^pipeline-fix-[0-9]+-review-1$'`,
-	"pipeline-fix-review-r": `d.dispatch_key ~ '^pipeline-fix-[0-9]+-review-([2-9]|[1-9][0-9]+)$'`,
+	"planner":                 `d.role = 'planner' AND d.dispatch_key ~ '^plan-[0-9]+$'`,
+	"plan-designer":           `d.role = 'planner' AND d.dispatch_key ~ '^design-[0-9]+'`,
+	"explorer":                `d.role = 'explorer'`,
+	"tooling-analyst":         `d.role = 'planner' AND d.dispatch_key LIKE 'tooling-analysis-%'`,
+	"implementer":             `d.role = 'implementer' AND d.dispatch_key LIKE 'task-%'`,
+	"panel-fix":               `d.role = 'panel-fix'`,
+	"panel-reviewer":          `d.role = 'reviewer' AND d.dispatch_key ~ '^panel-0-' AND d.dispatch_key !~ '^panel-0-(test-sanity\+call-efficiency|mutation\+failure-modes)'`,
+	"panel-sanity-efficiency": `d.role = 'reviewer' AND d.dispatch_key ~ '^panel-0-test-sanity\+call-efficiency'`,
+	"panel-mutation-failure":  `d.role = 'reviewer' AND d.dispatch_key ~ '^panel-0-mutation\+failure-modes'`,
+	"panel-rerun":             `d.role = 'reviewer' AND d.dispatch_key ~ '^panel-[1-9][0-9]*-'`,
+	"panel-merger":            `d.role = 'merger'`,
+	"gated-reviewer":          `d.role = 'reviewer' AND d.dispatch_key ~ '^task-[0-9+]+-reviewer(-retry)?$'`,
+	"gated-re-reviewer":       `d.role = 'reviewer' AND d.dispatch_key ~ '^task-[0-9+]+-reviewer-fix-'`,
+	"visual-verifier":         `d.role = 'verifier' AND d.dispatch_key LIKE 'visual-verify%'`,
+	"self-review-plan":        `d.dispatch_key ~ '^self-review-.*-plan(-[0-9]+)?$'`,
+	"self-review-fix":         `d.role = 'implementer' AND d.dispatch_key ~ '^self-review-.*-fix(-[gv]?[0-9]+)?$'`,
+	"self-review-review-1":    `d.dispatch_key ~ '^self-review-.*-review-1$'`,
+	"self-review-review-r":    `d.dispatch_key ~ '^self-review-.*-review-([2-9]|[1-9][0-9]+)$'`,
+	"pipeline-fix-plan":       `d.dispatch_key ~ '^pipeline-fix-[0-9]+-plan'`,
+	"pipeline-fix-fix":        `d.role = 'implementer' AND d.dispatch_key ~ '^pipeline-fix-[0-9]+-fix'`,
+	"pipeline-fix-review-1":   `d.dispatch_key ~ '^pipeline-fix-[0-9]+-review-1$'`,
+	"pipeline-fix-review-r":   `d.dispatch_key ~ '^pipeline-fix-[0-9]+-review-([2-9]|[1-9][0-9]+)$'`,
 }
 
 // tokensSQL sums a {main, sidechain} token bag's input, output and cache
