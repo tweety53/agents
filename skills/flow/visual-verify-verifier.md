@@ -119,6 +119,9 @@ never an exit code the command did not return.
    Then rebuild the zip from exactly what the suite just produced with
    `rebuild-full-app-suite-zip.sh <worktree> <screenshots root>`, the one script every recapture
    that moves the suite runs too (`skills/flow/verify-fix-loop.md`, `skills/flow/sync-onto-base.md`).
+   Both arguments are absolute — the script refuses a relative root — and a project whose `capture`
+   row chains this rebuild after Playwright has run it with `capture`, a second run rewriting nothing
+   (group-allowed-pairs-roles self-review).
 
    `<screenshots root>` is `screenshots` resolved the way `resolve-visual-screenshots.sh`
    resolves it. Every PNG's mtime is pinned before zipping because the zip stores it: a rebuild over

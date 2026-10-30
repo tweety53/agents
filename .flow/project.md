@@ -361,6 +361,12 @@ reused stack pays the restart.
 
 **`capture` and `verify` check the stack first.** Each opens on `check-dev-stack-fresh.sh`, the declared `fingerprint` run, and restarts the disposable UI-test stack with `make ui-test-up` when it is stale, so an implementer's or fixer's capture never reads a pre-fix build as a failure (kan-1038); `make ui-test-up` touches only that stack, never the `flowd` on 4173.
 
+**`capture` rebuilds `full-app-suite.zip` after Playwright.** The row runs Playwright inside a shell
+function, so the arguments a caller appends — `--update-snapshots=all`, `-g '<titles>'` — still
+reach Playwright, and on its exit 0 runs `rebuild-full-app-suite-zip.sh` with the worktree and the
+`screenshots` root resolved absolute, so no recapture leaves the zip trailing its PNGs
+(group-allowed-pairs-roles self-review).
+
 | Setting | Value |
 |---------|-------|
 | `ui paths` | `stats/web/src/**` |
@@ -370,7 +376,7 @@ reused stack pays the restart.
 |---------|------|
 | `setup` | `cd stats/web && npm install && npx playwright install chromium` |
 | `verify` | `cd stats/web && { ../../scripts/check-dev-stack-fresh.sh ../.. \|\| make -C .. ui-test-up; } && npm run test:visual` |
-| `capture` | `cd stats/web && { ../../scripts/check-dev-stack-fresh.sh ../.. \|\| make -C .. ui-test-up; } && npx playwright test <spec> --update-snapshots` |
+| `capture` | `cd stats/web && { ../../scripts/check-dev-stack-fresh.sh ../.. \|\| make -C .. ui-test-up; } && capture() { npx playwright test "$@" && ../../scripts/rebuild-full-app-suite-zip.sh "$(cd ../.. && pwd)" "$PWD/tests/visual"; } && capture <spec> --update-snapshots` |
 | `fingerprint` | `cd stats/web && npm run build && curl -sf http://127.0.0.1:4174/ \| cmp -s - ../internal/web/dist/index.html` |
 
 ## progress
