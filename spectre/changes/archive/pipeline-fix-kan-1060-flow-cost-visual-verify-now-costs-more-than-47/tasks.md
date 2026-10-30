@@ -32,7 +32,7 @@ stops failing under the full `-race` suite.
   (`lift-bound-via-existing-seam`).
 - The forced-cause proof fails without the seam and passes with it (`cause-is-the-bound`).
 
-- [ ] 1. Lift the loop hook's wall-clock bounds in every hook test
+- [x] 1. Lift the loop hook's wall-clock bounds in every hook test
   - [ ] **Step 1: Force the cause before touching anything.** In
     `stats/internal/repotest/helpers_test.go` `incidentStub`, change the script body's start from
     `#!/bin/sh\nprintf` to `#!/bin/sh\nsleep 11\nprintf` (temporary, never committed). From `stats/`
