@@ -174,7 +174,8 @@ as a request and the session stays open, saying so in one line. Stop:
 ### Resume
 
 `/flow-interactive <key or name>` reuses the worktree (recreated from the remote branch, else
-`origin/<base>`, when gone), marks `flow.kickoff` under a new token, continues numbering after the
+`origin/<base>`, when gone, then `mkdir -p <changeRoot>` in it, since `.superpowers/` is
+gitignored), marks `flow.kickoff` under a new token, continues numbering after the
 highest recorded request, and takes an open request from the dead session as the current one — its
 stages re-run as new attempts under the same number.
 
