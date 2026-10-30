@@ -1,0 +1,9 @@
+# self-review-kan-1067 1-F: the writing-plans sentence Task 6 adds to skills/flow/brainstorm-planner.md
+A task whose `**Files:**` holds a Markdown file under `skills/` or `rules/` is the exception: its verify step runs the whole list, `run-verify-list.sh <worktree> lint`, because the prose guards that list carries are too many to hand-pick and the one a subset leaves out fails only at `flow.verify` (kan-1067 self-review, 1-F).
+# self-review-kan-1067 review 1: the **Recording.** fence in skills/flow/verify-and-handoff.md suffixes the key with -<repository name>, as its prose does
+run-verify-list.sh <worktree> lint <name> verify[-<worktree basename>] mf-<literal-token> <parent model> <parent effort> [<canonical worktree>]
+run-verify-list.sh <worktree> test <name> verify[-<worktree basename>] mf-<literal-token> <parent model> <parent effort> [<canonical worktree>]
+run-verify-list.sh <worktree> lint <name> verify[-<repository name>] mf-<literal-token> <parent model> <parent effort> [<canonical worktree>]
+run-verify-list.sh <worktree> test <name> verify[-<repository name>] mf-<literal-token> <parent model> <parent effort> [<canonical worktree>]
+flow record dispatch end -C <canonical worktree> -change <name> -key verify[-<worktree basename>] \
+flow record dispatch end -C <canonical worktree> -change <name> -key verify[-<repository name>] \
