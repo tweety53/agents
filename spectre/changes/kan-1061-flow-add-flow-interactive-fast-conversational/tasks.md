@@ -243,10 +243,10 @@ Correction (2026-10-30): the plan named only the two new tests; commit 9ad3fb14 
 **Commit:** docs(flow): register /flow-interactive in the indexes and contracts
 **After:** Task 2, 12
 
-- [ ] 14. In-run fix 1 — flow.verify: root the `.superpowers/` citation in the skill's Resume section
-  - [ ] **Step 1: Reproduce.** `scripts/check-installed-citations.sh` exits 1 naming `skills/flow-interactive/SKILL.md:275: citation `.superpowers/` names no root`.
-  - [ ] **Step 2: Fix.** In `skills/flow-interactive/SKILL.md`'s `## Resume`, cite the directory as `<project>/.superpowers/`, and report any `scripts/check-verbatim-moves.sh` FAIL line the reworded sentence raises per **Global constraints**.
-  - [ ] **Step 3: Verify.** `scripts/check-installed-citations.sh`, `scripts/check-references.sh` and `scripts/check-verbatim-moves.sh` exit 0. Commit.
+- [x] 14. In-run fix 1 — flow.verify: root the `.superpowers/` citation in the skill's Resume section
+  - [x] **Step 1: Reproduce.** `scripts/check-installed-citations.sh` exits 1 naming `skills/flow-interactive/SKILL.md:275: citation `.superpowers/` names no root`.
+  - [x] **Step 2: Fix.** In `skills/flow-interactive/SKILL.md`'s `## Resume`, cite the directory as `<project>/.superpowers/`, and report any `scripts/check-verbatim-moves.sh` FAIL line the reworded sentence raises per **Global constraints**.
+  - [x] **Step 3: Verify.** `scripts/check-installed-citations.sh`, `scripts/check-references.sh` and `scripts/check-verbatim-moves.sh` exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow-interactive/SKILL.md`
