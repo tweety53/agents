@@ -3782,8 +3782,8 @@ func resolveRenderKinds(kind string) ([]string, error) {
 // requireChangeCheckout refuses a run-record write -- a dispatch row, a
 // finding, a finding's status, a pass -- for a change no checkout of the
 // repository holding dir carries: none of its worktrees, the main checkout
-// among them, holds spectre/changes/<change>, spectre/changes/archive/<change>
-// or a /flow-fast run's .superpowers/sdd/<change>, and none is on branch
+// among them, holds spectre/changes/<change> or a /flow-fast run's
+// .superpowers/sdd/<change>, and none is on branch
 // spectre/<change> -- a creating /flow run records its brainstorming
 // dispatches before spectre new has made the directory. The project key derives
 // from dir, so a write run from the wrong repository -- the agents checkout,
@@ -3791,7 +3791,9 @@ func resolveRenderKinds(kind string) ([]string, error) {
 // the row under a project the change's own reads never look at. Every
 // worktree is searched, not dir's alone: a /flow parent runs from the main
 // checkout while the change lives only in its worktree until it lands. A
-// change archived on any branch, local or remote-tracking, is accepted too.
+// change whose spectre/changes/<change> any branch's history touched, local
+// or remote-tracking, is accepted too -- a landed change, its directory
+// dropped by run 1, leaves only that trace.
 func requireChangeCheckout(dir, change string, stderr io.Writer) bool {
 	if change == "" || change == "archive" || change == "." || strings.Contains(change, "..") || strings.ContainsAny(change, `/\\`) {
 		fmt.Fprintf(stderr, "flow: %q is not a change name -- refused\n", change)
@@ -3805,20 +3807,19 @@ func requireChangeCheckout(dir, change string, stderr io.Writer) bool {
 	if len(carrying) > 0 {
 		return true
 	}
-	// A change archived only on a branch no checkout has out -- a feature base
-	// the default branch's main checkout has not merged -- is still this
-	// repository's change.
-	if out, err := exec.Command("git", "-C", dir, "rev-list", "--all", "-n1", "--", "spectre/changes/archive/"+change).Output(); err == nil && len(bytes.TrimSpace(out)) > 0 {
+	// A change whose directory only history holds -- dropped by run 1, or on
+	// a branch no checkout has out, a feature base the default branch's main
+	// checkout has not merged -- is still this repository's change.
+	if out, err := exec.Command("git", "-C", dir, "rev-list", "--all", "-n1", "--", "spectre/changes/"+change).Output(); err == nil && len(bytes.TrimSpace(out)) > 0 {
 		return true
 	}
-	fmt.Fprintf(stderr, "flow: no checkout of the repository holding %s carries change %q (spectre/changes/, spectre/changes/archive/, .superpowers/sdd/ or branch spectre/%s) -- refused, so the row is not filed under the wrong project; pass -C <the change's canonical worktree>\n", dir, change, change)
+	fmt.Fprintf(stderr, "flow: no checkout of the repository holding %s carries change %q (spectre/changes/ or its history, .superpowers/sdd/ or branch spectre/%s) -- refused, so the row is not filed under the wrong project; pass -C <the change's canonical worktree>\n", dir, change, change)
 	return false
 }
 
 // changeCheckouts scans dir's repository's worktrees: main is the first
 // `worktree` entry of `git worktree list --porcelain`, carrying every entry
-// holding change under spectre/changes/, spectre/changes/archive/ or
-// .superpowers/sdd/ or checked out on branch refs/heads/spectre/<change>, in
+// holding change under spectre/changes/ or .superpowers/sdd/ or checked out on branch refs/heads/spectre/<change>, in
 // list order, each once.
 func changeCheckouts(dir, change string) (main string, carrying []string, err error) {
 	out, err := exec.Command("git", "-C", dir, "worktree", "list", "--porcelain").Output()
@@ -3840,7 +3841,7 @@ func changeCheckouts(dir, change string) (main string, carrying []string, err er
 		if main == "" {
 			main = wt
 		}
-		for _, root := range []string{"spectre/changes", "spectre/changes/archive", ".superpowers/sdd"} {
+		for _, root := range []string{"spectre/changes", ".superpowers/sdd"} {
 			if fi, err := os.Stat(filepath.Join(wt, root, change)); err == nil && fi.IsDir() {
 				carrying = append(carrying, wt)
 				break

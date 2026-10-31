@@ -1389,58 +1389,64 @@ func TestStateResolveFallbackUnionsChangesDir(t *testing.T) {
 	}
 }
 
-func TestStateResolveFallbackDropsArchived(t *testing.T) {
+// TestStateResolveFallbackDropsLanded pins the fallback's one removal: a
+// FINISHED record no live directory holds is a landed change -- run 1
+// dropped its directory -- and leaves the candidate list.
+func TestStateResolveFallbackDropsLanded(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
 	changesDirFixture(t, repo)
+	seedFallbackRecord(t, repo, "kan-c", "FINISHED")
 
-	var stdout, stderr bytes.Buffer
-	code := run(context.Background(),
-		[]string{"state", "resolve", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
-
-	if code != 0 {
-		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
-	}
-	out := decodeStateResolveOutput(t, stdout.Bytes())
-	names := candidateNames(out)
-	if containsName(names, "kan-b") {
-		t.Errorf("candidates = %v, want kan-b dropped (archived under spectre/changes/archive/kan-b)", names)
+	names := candidateNames(resolveFallback(t, repo))
+	if containsName(names, "kan-c") {
+		t.Errorf("candidates = %v, want kan-c (FINISHED, no live directory) dropped", names)
 	}
 	if !containsName(names, "kan-a") {
-		t.Errorf("candidates = %v, want kan-a (not archived) present", names)
+		t.Errorf("candidates = %v, want kan-a (live directory) present", names)
 	}
 }
 
-// TestStateResolveFallbackKeepsArchivedInProgress pins the one archived
-// name the fallback keeps: integrate's run 1 archives on the change branch,
-// so once that branch merges the main checkout carries the archive while
-// the change still waits, IN_PROGRESS, on run 2's cleanup.
-func TestStateResolveFallbackKeepsArchivedInProgress(t *testing.T) {
+// TestStateResolveFallbackKeepsInProgressWithoutDir pins that a change
+// without a live directory is kept unless FINISHED: once run 1's drop
+// commit merges, the main checkout lacks the directory while the change
+// still waits, IN_PROGRESS, on run 2's cleanup.
+func TestStateResolveFallbackKeepsInProgressWithoutDir(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
 	changesDirFixture(t, repo)
+	seedFallbackRecord(t, repo, "kan-c", "IN_PROGRESS")
 
+	if names := candidateNames(resolveFallback(t, repo)); !containsName(names, "kan-c") {
+		t.Errorf("candidates = %v, want kan-c (IN_PROGRESS, no live directory) present", names)
+	}
+}
+
+// seedFallbackRecord writes change's fallback state record in state.
+func seedFallbackRecord(t *testing.T, repo, change, state string) {
+	t.Helper()
 	projectKey, _, err := fallback.ProjectKey(repo)
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	seeded := []byte(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T09:00:00Z","updatedBy":"/flow"}`)
-	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-b"), seeded); err != nil {
+	seeded := []byte(`{"state":"` + state + `","updatedAt":"2026-08-13T09:00:00Z","updatedBy":"/flow"}`)
+	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, change), seeded); err != nil {
 		t.Fatalf("seed state file: %v", err)
 	}
+}
 
+// resolveFallback runs `flow state resolve` against a dead daemon, so the
+// fallback path answers.
+func resolveFallback(t *testing.T, repo string) stateResolveOutputForTest {
+	t.Helper()
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "resolve", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
 		strings.NewReader(""), &stdout, &stderr)
-
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
-	if names := candidateNames(decodeStateResolveOutput(t, stdout.Bytes())); !containsName(names, "kan-b") {
-		t.Errorf("candidates = %v, want kan-b (archived, IN_PROGRESS record) present", names)
-	}
+	return decodeStateResolveOutput(t, stdout.Bytes())
 }
 
 // TestStateResolveFallbackNamesUnreadable is state resolve's own version
