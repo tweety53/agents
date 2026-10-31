@@ -339,7 +339,9 @@ func pfdPanelFixRows(raw []byte, token string) (keys, foreign []pfdRow, ok bool)
 
 // pfdCheckCommits names each row whose recorded commit carries neither a
 // task's Commit: subject nor a Flow-Key: trailer naming the row's key (its
-// -retry stripped) or that key one round low, looked up in the worktree and
+// -retry stripped), its round's key (a chunk row panel-fix-<r>-<n>'s
+// -<n> stripped -- review-panel-fix-round.md's fix commit names its round,
+// kan-1062 run's panel-fix-1-2) or that key one round low, looked up in the worktree and
 // then in each peer its spec root's peers file names. The one-round-low
 // trailer is the row signal eleven of check-unfinished-work back-fills under
 // the real round's key for a commit keyed a round low (kan-1059 self-review,
@@ -390,11 +392,22 @@ func pfdCheckCommits(env Env, worktree, name string, fixRows []pfdRow, stderr io
 		}
 		base, _ := strings.CutSuffix(r.key, "-retry")
 		low := pfdOneRoundLow(base)
-		if !subjects[meta[0]] && !slices.Contains(meta[1:], base) && !slices.Contains(meta[1:], r.key) && (low == "" || !slices.Contains(meta[1:], low)) {
+		round := pfdRoundKey(base)
+		if !subjects[meta[0]] && !slices.Contains(meta[1:], base) && !slices.Contains(meta[1:], r.key) && !slices.Contains(meta[1:], round) && (low == "" || !slices.Contains(meta[1:], low)) {
 			violations = append(violations, fmt.Sprintf("%s records commit %s (%q), which is no task's Commit: subject and carries no Flow-Key: %s trailer -- -commit is the task commit the fixup was folded into, or the fix commit itself", r.key, r.commit, meta[0], base))
 		}
 	}
 	return violations, true
+}
+
+// pfdRoundKey maps panel-fix-<r>-<n> to panel-fix-<r>; any other key to itself.
+func pfdRoundKey(key string) string {
+	rest, ok := strings.CutPrefix(key, "panel-fix-")
+	if !ok {
+		return key
+	}
+	round, _, _ := strings.Cut(rest, "-")
+	return "panel-fix-" + round
 }
 
 // pfdOneRoundLow maps panel-fix-<r>[-<n>] to panel-fix-<r-1>[-<n>]; "" when

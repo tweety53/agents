@@ -61,7 +61,9 @@
 # and each panel-fix row whose end recorded a -commit must name a commit
 # whose subject is some task's **Commit:** subject in the change's tasks.md
 # (the fold route) or which carries a `Flow-Key: <the row's key>` trailer,
-# -retry stripped (the pushed route's fix commit) -- review-panel.md's
+# -retry stripped, or its round's key `panel-fix-<r>` for a chunk row
+# `panel-fix-<r>-<n>` (the pushed route's fix commit, keyed to its round as
+# review-panel-fix-round.md states) -- review-panel.md's
 # -commit contract (kan-952 self-review: panel-fix-0 recorded the plan
 # commit while its fix landed as its own commit). The commit is looked up
 # in the worktree, then in each peer the spec root's peers file names; a

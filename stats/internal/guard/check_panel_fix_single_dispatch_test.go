@@ -418,6 +418,33 @@ func TestCheckPanelFixSingleDispatchAcceptsATrailerOneRoundLow(t *testing.T) {
 	pfdExpect(t, pfdCase{dispatches: row("panel-fix-5", head("panel-fix-3")), args: args}, 1, "carries no Flow-Key: panel-fix-5 trailer")
 }
 
+// TestCheckPanelFixSingleDispatchAcceptsAChunkRowKeyedToItsRound pins that a
+// chunk row panel-fix-<r>-<n> whose fix commit carries the round's key
+// panel-fix-<r> passes, as review-panel-fix-round.md keys a fix commit to its
+// round; another round's key is still refused (kan-1062 run, panel-fix-1-2).
+func TestCheckPanelFixSingleDispatchAcceptsAChunkRowKeyedToItsRound(t *testing.T) {
+	t.Parallel()
+	wt := t.TempDir()
+	gitRun(t, wt, "init", "-q")
+	writeFile(t, filepath.Join(wt, "spectre/changes/demo/tasks.md"),
+		"# demo\n\n- [ ] 1. Add alpha\n\n**Commit:** feat(alpha): add alpha\n")
+	head := func(trailer string) string {
+		gitRun(t, wt, "commit", "-q", "--allow-empty", "-m", "fix(alpha): review findings", "-m", "Flow-Key: "+trailer)
+		out, err := exec.Command(fixtureGit, "-C", wt, "rev-parse", "HEAD").Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	chunked := func(sha string) []byte {
+		return []byte(`[{"key":"panel-fix-1","role":"panel-fix","sessionToken":"mf-tok","commitSha":"` + head("panel-fix-1") +
+			`"},{"key":"panel-fix-1-2","role":"panel-fix","sessionToken":"mf-tok","commitSha":"` + sha + `"}]`)
+	}
+	args := []string{wt, "demo", "mf-tok"}
+	pfdExpect(t, pfdCase{dispatches: chunked(head("panel-fix-1")), findings: pfdFindings(11, 0), args: args}, 0, "OK")
+	pfdExpect(t, pfdCase{dispatches: chunked(head("panel-fix-2")), findings: pfdFindings(11, 0), args: args}, 1, "carries no Flow-Key: panel-fix-1-2 trailer")
+}
+
 // TestPfdPriorFindingsSkipsGatedReviewerRows pins that a gated per-task
 // reviewer's round-0 rows do not raise a fix round's chunk bound.
 func TestPfdPriorFindingsSkipsGatedReviewerRows(t *testing.T) {
