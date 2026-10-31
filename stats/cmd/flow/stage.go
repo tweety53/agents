@@ -1014,13 +1014,22 @@ func runStageWrap(ctx context.Context, args []string, stdin io.Reader, stdout, s
 	// teardown (F9): a child ignoring SIGTERM is force-killed after
 	// defaultTimeout, the same bound every store call here already
 	// carries, so Run cannot block on a stubborn child indefinitely.
+	// The child leads its own process group and both signals go to the
+	// group: a shell child's background grandchild ignoring SIGTERM would
+	// otherwise outlive the wrap. The group SIGKILL fires only on a
+	// cancelled ctx -- a child exiting normally keeps whatever background
+	// work it deliberately left running.
 	cmd := exec.CommandContext(ctx, childArgs[0], childArgs[1:]...)
-	cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM) }
 	cmd.WaitDelay = defaultTimeout
 	cmd.Stdin = stdin
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	childErr := cmd.Run()
+	if ctx.Err() != nil && cmd.Process != nil {
+		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	}
 	exitCode := 0
 	switch {
 	case childErr == nil:

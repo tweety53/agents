@@ -10,8 +10,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -1222,9 +1224,12 @@ func TestRunStageWrapContextCancelTerminatesChildAndExits143(t *testing.T) {
 // TestRunStageWrapContextCancelForceKillsChildIgnoringTerm pins F9's fix:
 // a child that ignores SIGTERM does not hang the wrapper -- WaitDelay
 // force-kills it after the same bound every store call carries, and the
-// invocation ends with the end mark recorded.
+// invocation ends with the end mark recorded. The child's TERM-ignoring
+// grandchild (a background sleep) dies with it: the kill reaches the whole
+// process group, so no survivor outlives the cancelled wrap.
 func TestRunStageWrapContextCancelForceKillsChildIgnoringTerm(t *testing.T) {
 	repo := gitRepo(t)
+	pidfile := t.TempDir() + "/grandchild.pid"
 	isolatedStateRoot(t)
 
 	endSeen := make(chan struct{})
@@ -1247,11 +1252,27 @@ func TestRunStageWrapContextCancelForceKillsChildIgnoringTerm(t *testing.T) {
 		[]string{"stage", "wrap", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow-fast", "-stage", "flow.verify",
 			"-session-token", "ff-session-token-wrap-stubborn-20261024T000000Z", "kan-323",
-			"--", "sh", "-c", "trap \"\" TERM; sleep 30"},
+			"--", "sh", "-c", "trap \"\" TERM; sleep 30 & echo $! >\"$0\"; wait", pidfile},
 		strings.NewReader(""), &stdout, &stderr)
 
 	if code != 143 {
 		t.Fatalf("exit code = %d, want 143; stderr:\n%s", code, stderr.String())
+	}
+	raw, err := os.ReadFile(pidfile)
+	if err != nil {
+		t.Fatalf("read grandchild pid: %v", err)
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(raw)))
+	if err != nil {
+		t.Fatalf("parse grandchild pid %q: %v", raw, err)
+	}
+	t.Cleanup(func() { _ = syscall.Kill(pid, syscall.SIGKILL) })
+	deadline := time.Now().Add(2 * time.Second)
+	for syscall.Kill(pid, 0) == nil {
+		if time.Now().After(deadline) {
+			t.Fatalf("grandchild %d still alive 2s after the wrap was cancelled", pid)
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
 	select {
 	case <-endSeen:
