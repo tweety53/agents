@@ -13,7 +13,7 @@ Merge base: df1564a94e03d34b84c33daab2695732523faab0. Copy: `FLOW_LIVE_COPY_TRAN
 - kan-1035: $5.745. Every in-span record is attributed: the input tokens (input + cache read + cache creation) of every main and subagent record from its first mark (11:54:19Z) to its last run's end (12:14:21Z) sum to 11,679,508, and the copy's stage runs hold exactly 11,679,508 (measured: jq over the session's transcripts and `GET /api/v1/stage-runs` on 4175). The design's "about $10" was a list-price estimate; the measured in-span spend at the store's pricing is $5.745 — within 10 % of it by construction, since every in-span token is attributed.
 - kan-1072: $66.967 (+4.4 %).
 - `harvest_backfills` holds one row, `stage-gap-cost`.
-- 312 stage runs logged `price stage run failed after backfill, not retried` — no pricing in effect for `claude-opus-5-5` at their start; `flow pricing reprice` prices them.
+- 312 stage runs logged `price stage run failed after backfill, not retried` — their `claude-opus-5-5` rate is in effect, but their buckets record `output_unmeasured`, which the rate cannot charge; the error read "no pricing in effect" until In-run fix 3 (Task 10). `flow pricing reprice` runs the same pricing and does not price them.
 
 ## Idempotence
 
