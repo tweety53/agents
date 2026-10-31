@@ -13,7 +13,8 @@ name="lsc-test$$"
 db="flow_lsc_test$$_live"
 port=$((20000 + $$ % 20000))
 log="$stub/log"
-trap 'rm -rf "$stub" "/tmp/flow-live-lsc_test$$" "/tmp/flowd-$port.pid"' EXIT
+sdd="$PWD/.superpowers/sdd/$name"
+trap 'rm -rf "$stub" "/tmp/flow-live-lsc_test$$" "/tmp/flowd-$port.pid" "$sdd"' EXIT
 export STUB="$stub" LOG="$log"
 cat >"$stub/docker" <<'S'
 #!/usr/bin/env bash
@@ -34,9 +35,20 @@ out=$3
 printf '#!/usr/bin/env bash\nprintf "%%s\\n%%s\\n" $$ "$0" >"$TMPDIR/flowd-$FLOWD_PORT.pid"\necho "$FLOWD_DSN" >>"$LOG"\ntouch "$STUB/up"\nexec sleep 300\n' >"$out"
 chmod +x "$out"
 S
+cat >"$stub/flow" <<'S'
+#!/usr/bin/env bash
+{ echo "flow $*"; echo "FLOW_ADDR=$FLOW_ADDR"; cat; echo; } >>"$LOG"
+S
 chmod +x "$stub"/*
 export PATH="$stub:$PATH"
 lsc() { scripts/live-store-copy.sh "$@" >"$stub/out" 2>&1; }
+
+# (c) a pre-existing scratch change directory is refused before any side effect.
+mkdir -p "$sdd"
+: >"$log"
+lsc up "$name" "$port"; [ $? -eq 2 ] || fail "up over an existing $sdd: not exit 2"
+[ -s "$log" ] && fail "up over an existing $sdd: ran $(cat "$log")"
+rm -rf "$sdd"
 
 for bad in "" Flow ../a "a-b;rm" -a; do
   : >"$log"
@@ -58,6 +70,11 @@ grep -qx "postgres://flow:flow@localhost:5433/$db?sslmode=disable" "$log" || fai
 grep -qF "http://127.0.0.1:$port" "$stub/out" || fail "up: address not printed"
 pid=$(head -n1 "/tmp/flowd-$port.pid" 2>/dev/null)
 kill -0 "$pid" 2>/dev/null || fail "up: scratch flowd not running"
+grep -qx "flow state set -C $PWD $name" "$log" || fail "up: no flow state set for $name"
+grep -qx "FLOW_ADDR=http://127.0.0.1:$port" "$log" || fail "up: state set not pointed at the copy"
+grep -qF '"state":"STARTED"' "$log" || fail "up: state record is not STARTED"
+[ -d "$sdd" ] || fail "up: no scratch change directory $sdd"
+grep -qx "scratch change: $name" "$stub/out" || fail "up: scratch change not printed"
 lsc up "$name" "$port"; [ $? -eq 2 ] || fail "second up: not exit 2"
 
 sleep 300 &
@@ -71,6 +88,7 @@ kill "$sentinel"
 grep -qx "docker exec -i flow-postgres dropdb -U flow --if-exists --force $db" "$log" || fail "down: no dropdb of $db"
 grep -E '(dropdb|createdb).* flow$|-d flow$' "$log" && fail "down: touched the flow database"
 [ -e "/tmp/flow-live-lsc_test$$" ] && fail "down: state dir left"
+[ -e "$sdd" ] && fail "down: scratch change directory left"
 lsc down "$name" || fail "second down: exit $?"
 
 [ "$rc" -eq 0 ] && printf 'all cases passed\n'

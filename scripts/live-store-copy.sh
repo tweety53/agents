@@ -8,12 +8,16 @@
 #         flow-postgres container), builds flowd from this checkout and starts
 #         it on <port> (default 4175) against the copy, then prints the address
 #         and the FLOW_ADDR / FLOW_RECORDS_ADDR exports that point a session at it.
+#         It registers a scratch change <name> in the copy -- a STARTED state
+#         record and .superpowers/sdd/<name>/ in this checkout, refused when
+#         that directory already exists -- so `flow record -change <name>` works.
 #         A `-` in <name> becomes `_` in the database name and the state
 #         directory alike, so `a-b` and `a_b` name one copy, never two sharing
 #         a database (kan-1067 self-review, 1-E).
 #   down  stops that scratch flowd — only the pid its own pidfile names, and
 #         only when that pidfile names this script's binary — and drops
-#         flow_<name, - as _>_live. A second `down` is a no-op.
+#         flow_<name, - as _>_live. A second `down` is a no-op. It removes the
+#         scratch change directory `up` created, and no other.
 #
 # Never the protected dev stack: port 4173 (the dev flowd) and 4174 (the
 # UI-test stack) are refused, and the only database dropped is
@@ -30,6 +34,7 @@ cmd=$1 name=$2 port=${3:-4175}
 db="flow_${name//-/_}_live"
 dir="/tmp/flow-live-${name//-/_}"
 repo=$(cd "$(dirname "$0")/.." && pwd)
+sdd="$repo/.superpowers/sdd/$name"
 pg() { docker exec -i flow-postgres "$@"; }
 port_ok() {
   [[ $1 =~ ^[0-9]+$ ]] && [ "$1" -ge 1024 ] && [ "$1" -le 65535 ] && [ "$1" != 4173 ] && [ "$1" != 4174 ] \
@@ -40,6 +45,7 @@ up)
   [ $# -le 3 ] || usage
   port_ok "$port"
   if [ -e "$dir" ]; then echo "live-store-copy: $dir exists -- run down $name first" >&2; exit 2; fi
+  if [ -e "$sdd" ]; then echo "live-store-copy: $sdd exists -- pick another name" >&2; exit 2; fi
   if curl -sf "http://127.0.0.1:$port/api/v1/changes" >/dev/null 2>&1; then
     echo "live-store-copy: port $port already answers" >&2; exit 2
   fi
@@ -47,6 +53,8 @@ up)
     echo "live-store-copy: database $db exists -- run down $name first" >&2; exit 2
   fi
   mkdir -p "$dir/transcripts" "$dir/state"
+  mkdir -p "$sdd"
+  echo "$sdd" >"$dir/scratch"
   echo "$port" >"$dir/port"
   pg createdb -U flow "$db"
   if ! pg pg_dump -U flow --no-owner --no-acl flow | pg psql -q -v ON_ERROR_STOP=1 -U flow -d "$db" >/dev/null; then
@@ -61,6 +69,12 @@ up)
     if curl -sf "http://127.0.0.1:$port/api/v1/changes" >/dev/null 2>&1; then
       echo "http://127.0.0.1:$port"
       echo "export FLOW_ADDR=http://127.0.0.1:$port FLOW_RECORDS_ADDR=http://127.0.0.1:$port"
+      body=$(printf '{"state":"STARTED","branch":"%s","worktrees":{"%s":"%s"},"artifactUrl":null,"jiraIssue":null,"prUrl":null,"updatedBy":"/flow"}' \
+        "$(git -C "$repo" branch --show-current)" "$repo" "$(git -C "$repo" rev-parse HEAD)")
+      if ! printf '%s' "$body" | FLOW_ADDR="http://127.0.0.1:$port" flow state set -C "$repo" "$name"; then
+        echo "live-store-copy: state record for $name failed" >&2; exit 1
+      fi
+      echo "scratch change: $name"
       exit 0
     fi
     sleep 1
@@ -81,6 +95,7 @@ down)
     fi
   fi
   pg dropdb -U flow --if-exists --force "$db"
+  if [ -f "$dir/scratch" ]; then rm -rf "$(cat "$dir/scratch")"; fi
   rm -rf "$dir"
   ;;
 *) usage ;;
