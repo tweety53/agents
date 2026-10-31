@@ -242,6 +242,8 @@ coverage, placeholder scan, type consistency) before finishing.
 > shortens it — the production value unchanged — in the task that adds the spec, and a suite
 > whose specs are independent runs on the test runner's parallel workers.
 
+> **Write each plan-specified test so the nearest wrong version fails it.** When a task's step spells out a test's fixture or its step order, choose them so the rule under test and the nearest plausible wrong version of it give different results: a sort's fixture holds its items in an order its sort key does not; a test that a step keeps earlier state sets that state before the step, never after it. A fixture the wrong version also passes cannot catch the defect it was written for (kan-1052: a fixture whose key order matched its spend order passed a sort on the wrong key, and a test that clicked a Period chip before choosing any other chip passed a click that reset the others; both cost a review fix round).
+
 > **Open a task that verifies a reported behaviour with the reproduce-first step.** When a task's
 > job is confirming or refuting a report — an operator's defect report, a review or self-review
 > finding, a claimed behaviour — its first step reproduces the report against the untouched tree,
