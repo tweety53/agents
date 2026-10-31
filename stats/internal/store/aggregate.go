@@ -635,52 +635,63 @@ func (s *Store) StageLeaderboardProjects(ctx context.Context, period Period) ([]
 	return out, nil
 }
 
-// TrendPoint is one day's totals within a trend-over-time query.
-type TrendPoint struct {
-	Day          time.Time
-	RunCount     int
-	TotalCostUSD *float64
+// TrendChange is one finished change within a trend query: the Wednesday
+// 00:00 UTC week it finished in, the command of its first stage run, its
+// project and its whole-life cost.
+type TrendChange struct {
+	Week       time.Time
+	Command    string
+	ProjectKey string
+	CostUSD    float64
 }
 
-// TrendOverTime buckets cost by day across period, optionally restricted
-// to one project, so a reader can see whether the pipeline is getting
-// cheaper or more expensive as flow itself changes.
-//
-// model, when non-nil, restricts to stage runs whose metrics recorded that
-// model (per CostPerChange's own doc comment) and sums that model's own
-// cost_usd bucket per day, never the run's total.
-func (s *Store) TrendOverTime(ctx context.Context, period Period, project, model *string) ([]TrendPoint, error) {
+// TrendFinishedChanges returns one row per change finished in period
+// (decision trend-endpoint-per-change-rows), ordered by finish instant, so
+// the view computes every filter and aggregate client-side from one
+// request. Everything derives from existing rows (decision
+// trend-derived-no-column): a finished change is state FINISHED and not
+// withdrawn, finishing at updated_at as FlowSummary defines it; its cost is
+// the sum of stageRunCostExpr over its stage runs, and a change with no
+// costed run is absent, never $0; its week is WeeklyCosts' Wednesday
+// bucket; its command is that of its first stage run by started_at.
+func (s *Store) TrendFinishedChanges(ctx context.Context, period Period) ([]TrendChange, error) {
 	rows, err := s.pool.Query(ctx, `
+		WITH costed AS (
+			SELECT sr.change_id, SUM(`+stageRunCostExpr+`) AS cost
+			FROM stage_runs sr
+			GROUP BY sr.change_id
+			HAVING SUM(`+stageRunCostExpr+`) IS NOT NULL
+		),
+		first_cmd AS (
+			SELECT DISTINCT ON (change_id) change_id, command
+			FROM stage_runs
+			ORDER BY change_id, started_at, id
+		)
 		SELECT
-			date_trunc('day', sr.started_at) AS day,
-			COUNT(*),
-			SUM(
-				CASE WHEN $4::text IS NULL THEN (sr.metrics->>'cost_usd')::numeric
-				     ELSE (sr.metrics->'models'->$4::text->>'cost_usd')::numeric END
-			)
-		FROM stage_runs sr
-		JOIN changes c ON c.id = sr.change_id
-		WHERE sr.started_at >= $1 AND sr.started_at < $2
-		  AND ($3::text IS NULL OR c.project_key = $3)
-		  AND ($4::text IS NULL OR sr.metrics->'models' ? $4)
-		GROUP BY day
-		ORDER BY day
-	`, period.From, period.To, project, model)
+			date_trunc('week', c.updated_at - interval '2 days', 'UTC') + interval '2 days',
+			f.command, c.project_key, k.cost
+		FROM changes c
+		JOIN costed k ON k.change_id = c.id
+		JOIN first_cmd f ON f.change_id = c.id
+		WHERE c.state = 'FINISHED' AND NOT c.withdrawn
+		  AND c.updated_at >= $1 AND c.updated_at < $2
+		ORDER BY c.updated_at, c.id
+	`, period.From, period.To)
 	if err != nil {
-		return nil, fmt.Errorf("store: trend over time: %w", err)
+		return nil, fmt.Errorf("store: trend finished changes: %w", err)
 	}
 	defer rows.Close()
 
-	var out []TrendPoint
+	var out []TrendChange
 	for rows.Next() {
-		var p TrendPoint
-		if err := rows.Scan(&p.Day, &p.RunCount, &p.TotalCostUSD); err != nil {
-			return nil, fmt.Errorf("store: trend over time: scan: %w", err)
+		var r TrendChange
+		if err := rows.Scan(&r.Week, &r.Command, &r.ProjectKey, &r.CostUSD); err != nil {
+			return nil, fmt.Errorf("store: trend finished changes: scan: %w", err)
 		}
-		out = append(out, p)
+		out = append(out, r)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("store: trend over time: %w", err)
+		return nil, fmt.Errorf("store: trend finished changes: %w", err)
 	}
 	return out, nil
 }
@@ -720,7 +731,8 @@ type WeeklyCostPoint struct {
 // is classified first, so its stages never count as planning or
 // implementation; flow.visual-verify is classified after it (decision
 // visual-verify-category); a stage outside every category counts in Other.
-// project and model filter as TrendOverTime's do.
+// project restricts to one project; model, when non-nil, restricts to runs
+// whose metrics recorded that model and sums that model's own cost_usd.
 func (s *Store) WeeklyCosts(ctx context.Context, period Period, project, model *string) ([]WeeklyCostPoint, error) {
 	rows, err := s.pool.Query(ctx, `
 		WITH r AS (
