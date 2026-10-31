@@ -77,7 +77,7 @@ flowchart TD
         impl["<b>Implement</b> in a worktree<br/>SDD + TDD per task → review panel<br/>→ lint + tests → staged diff + run instructions"]
         g2{{"you: review the diff — the stack is running"}}
         land{"/flow (bare)<br/>how to land?"}
-        pr["two commits → drop → self-review bundle<br/>→ push → open PR<br/>issue → In Review"]
+        pr["two commits → push → open PR<br/>issue → In Review"]
         g3{{"you: merge the PR, then /flow"}}
         impl --> g2
         g2 -- "/flow #lt;what to fix#gt;<br/>or just describe it" --> impl
@@ -87,10 +87,10 @@ flowchart TD
     end
 
     subgraph S3 ["FINISHED"]
-        cleanup["<b>Clean up</b><br/>verify merge → remove worktrees and branches<br/>→ issue → Done → fast-forward the main checkout"]
+        cleanup["<b>Clean up</b><br/>verify merge → save to flowd → remove worktrees and branches<br/>→ issue → Done → fast-forward the main checkout"]
     end
 
-    land -- "merge and push:<br/>drop → bundle → push to base" --> cleanup
+    land -- "merge and push:<br/>push to base" --> cleanup
     g3 --> cleanup
 ```
 
@@ -99,8 +99,8 @@ flowchart TD
   same session.
 - **Merge status alone decides** whether a bare `/flow` integrates or cleans up, so a PR merged on
   the forge and one `/flow` merged itself look the same.
-- **Run 2 runs no tests or linters** and commits nothing: the drop commit and the self-review bundle
-  ride the change's own branch, landing with the code.
+- **Run 2 runs no tests or linters** and commits nothing: it saves the change's `tasks.md` and
+  self-review bundle to flowd, then removes the worktrees.
 
 Canonical detail: **State transitions** (`skills/flow-contracts/pipeline.md`), and
 `skills/flow-contracts/finish-contract-run1.md` / `finish-contract-run2.md` for landing and cleanup.

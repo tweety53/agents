@@ -157,6 +157,18 @@ func TestCheckNormativeInventory(t *testing.T) {
 		}
 	})
 
+	t.Run("an absent spectre/specs is an empty scope, not a refusal", func(t *testing.T) {
+		t.Parallel()
+		root := t.TempDir()
+		for _, d := range []string{"skills", "rules", "commands-claude", ".flow"} {
+			mkdir(t, filepath.Join(root, d))
+		}
+		writeFile(t, filepath.Join(root, "skills", "a.md"), "The corpus SHALL be scanned.\n")
+		if rc := niRC(t, root); rc == 2 {
+			t.Errorf("rc=%d, want an answer", rc)
+		}
+	})
+
 	t.Run("a symlinked scope root cannot be answered", func(t *testing.T) {
 		t.Parallel()
 		root := niRoot(t, map[string]string{"rules/b.mdc": "The corpus SHALL be scanned.\n", "real-skills/a.md": "A symlinked scope root SHALL be refused.\n"})

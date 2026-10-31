@@ -118,3 +118,28 @@ func TestStageTaskFilesStagesDeletedPaths(t *testing.T) {
 		t.Errorf("staged:\n%s\nwant:\n%s", got, want)
 	}
 }
+
+// A repository that gitignores spectre/changes/ while still tracking files
+// under it (KAN-1073's agents tip before the parent's untrack commit): the
+// exclude pathspec makes git 2.50.1's add fail on the ignored directory, so
+// the add names the task's paths alone and a later reset unstages any
+// planning path it swept in.
+func TestStageTaskFilesStagesWhenTheChangeDirectoryIsIgnored(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	var g fxGit
+	files := stfRepo(t, &g, dir+"/wt")
+	g.write(dir+"/wt/.gitignore", "spectre/changes/\n")
+	mkdir(t, dir+"/wt/spectre/changes/d")
+	g.write(dir+"/wt/spectre/changes/d/tasks.md", "new")
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	r := runGuard("stage-task-files", append([]string{dir + "/wt", "spectre"}, files...), Env{Dir: dir, Getenv: os.Getenv})
+	if r.rc != 0 {
+		t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
+	}
+	if staged := g.git(dir+"/wt", "diff", "--cached", "--name-only"); staged != strings.Join(files, "\n") {
+		t.Errorf("staged:\n%s\nwant:\n%s", staged, strings.Join(files, "\n"))
+	}
+}
