@@ -57,8 +57,8 @@ run's UI change never verified — stops the landing exactly as above. It is nev
 `noted` finding or an angle item the landing proceeds over.
 
 - **`/flow`'s integrate run 1** stops before step 5's route and continues as
-  `/flow <name> <the defect, one line>` would: the fix run writes its plan above the archive
-  commit and, once it writes its state, continues into integrate as an archived re-run with new
+  `/flow <name> <the defect, one line>` would: the fix run restores the change directory above the drop
+  commit and, once it writes its state, continues into integrate as a dropped re-run with new
   work, which runs the pass again (**Run 1 — the branch is not merged**,
   `skills/flow-contracts/finish-contract-run1.md`).
 - **`/flow-fast`'s verify** stops before `flow.stage-diff` and continues as

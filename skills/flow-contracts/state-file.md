@@ -140,7 +140,7 @@ field is how it gets erased.
   records that a PR was opened, so no separate boolean exists. It is also what tells `/flow`
   that a fix must be committed and pushed rather than merely staged.
 - `withdrawn` — the withdrawal marker: `true` on a record the withdrawal route terminated — a
-  change abandoned before planning, closed `FINISHED` without an archive (**The withdrawal
+  change abandoned before planning, closed `FINISHED` without a drop commit (**The withdrawal
   route**, `skills/flow/withdrawal.md`). Absent or `false` on every record any other route wrote,
   and refused by the store paired with any state other than `FINISHED`
   (`store.ErrInvalidState`). The CLI carries the field byte-transparently — `state set` validates
@@ -208,7 +208,7 @@ The **order** those repositories land in is not recorded here at all: it lives i
 reads to sequence run 1's routes. The run itself is what keeps that record whole: every
 repository of the resolved set, linked or not, is named in it at `flow.isolate-workspace`
 (`skills/flow/implement.md`), so a repository no `spectre link` ever touched still has a
-mechanical landing position instead of one reasoned out from prose mid-archive.
+mechanical landing position instead of one reasoned out from prose mid-landing.
 
 ## Read it, write it
 
@@ -220,4 +220,4 @@ printf '%s' "$RECORD_JSON" | flow state set "$NAME" -C "$DIR"
 `state set` reads the whole object from stdin — always write every field, never a partial merge, per
 **The record** and **Carry the record forward on every write** above. Never write the on-disk
 fallback file or journal directly; they belong to the CLI, are machine-local, and are **never
-committed, never staged, and never archived** — nothing here is part of the change.
+committed and never staged** — nothing here is part of the change.

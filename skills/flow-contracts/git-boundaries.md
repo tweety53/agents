@@ -19,7 +19,7 @@ The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-ra
 | `/flow`'s implement phase | from `STARTED` | Resume the kickoff worktree + **commits each task** (fixups fold in) and the **Planning commits** below, **pushing after each** — no merge or PR |
 | `/flow`'s implement phase | at `IN_PROGRESS`, no `prUrl` | Resume **existing** worktree + **commits fixups** and planning commits the same way, pushing after each — no merge or PR |
 | `/flow`'s implement phase | at `IN_PROGRESS`, `prUrl` recorded | **Commits twice and pushes `--force-with-lease`** to the PR branch — implementation, then whatever planning delta the last planning commit left |
-| bare `/flow` | run 1 | **Reshapes** — folds every commit since the merge base, planning commits included — then **commits twice** — implementation, then the planning delta — then **commits** the archive, each self-review fix and the self-review report, each its own commit, all on `spectre/<name>` in the apply worktree; pushes `--force-with-lease` and opens a PR, or fast-forwards `<base>` to it with one push, by the operator's choice (**The routes**, `skills/flow-contracts/finish-contract-run1.md`) |
+| bare `/flow` | run 1 | **Reshapes** — folds every commit since the merge base, or since the newest `chore(spectre): drop <name>` commit where the branch holds one, planning commits included — then **commits twice** — implementation, then the planning delta — then **commits** the drop (`chore(spectre): drop <name>`), each self-review fix and the self-review report, each its own commit, all on `spectre/<name>` in the apply worktree; pushes `--force-with-lease` and opens a PR, or fast-forwards `<base>` to it with one push, by the operator's choice (**The routes**, `skills/flow-contracts/finish-contract-run1.md`) |
 | bare `/flow` | run 2 | **Commits nothing and pushes no commit**: removes worktrees and the local and remote branch, then fast-forwards the main checkout (step 6 of **Run 2 — the branch is merged**, `skills/flow-contracts/finish-contract-run2.md`) |
 | `/flow-status` | — | None — read-only |
 | `/flow-plan` | change captured | **Commits once** — the planning artifacts, `chore(spectre): plan <name> — captured` — on `spectre/<name>` in the change worktree, and pushes it (**Capturing a new change**, `skills/flow-plan/SKILL.md`); nothing else, ever |
@@ -47,8 +47,9 @@ task-commit check — and is pushed plain (**Branch backup** below):
 | `flow.document-fix` has appended a fix run's tasks, before the first implementer dispatch | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — fix-run tasks` |
 | `flow.write-in-progress` has appended the narrative, before the handoff | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — narrative` |
 
-`<project>/spectre/changes/<name>/` in **Carries** is the change's directory — its archived path
-once integrate's run 1 archived it (**A change's directory**, `skills/flow-contracts/pipeline.md`).
+`<project>/spectre/changes/<name>/` in **Carries** is the change's directory; it has no archived
+path — integrate's run 1 deletes it with the drop commit (**A change's directory**,
+`skills/flow-contracts/pipeline.md`).
 
 ```bash
 check-planning-commit-location.sh <abs-worktree> <name> \
@@ -85,7 +86,7 @@ call that made or verified it. The one deferred push is a visual-verify commit i
 (`skills/flow/visual-verify.md`): integrate's push below carries it. A lost worktree is then rebuilt with `git worktree add <path>
 origin/<branch>`. The one rewrite is integrate's reshape (`reshape-branch.sh`, then
 the two commits), so that run's push is `git push --force-with-lease origin <branch>`, made once the
-archive commit lands and before the self-review pass, so a run that stops before its route still
+drop commit lands and before the self-review pass, so a run that stops before its route still
 leaves the remote on the rewritten branch; every other push is plain, save a branch a base-sync
 rebase rewrote, which pushes `--force-with-lease` (the base-sync step of **1. Load context and
 validate the plan**, `skills/flow/implement.md`).
