@@ -362,17 +362,19 @@ func TestPipelineFixEndClearsOwnBranchEscalation(t *testing.T) {
 	}
 }
 
-// end of the pass closes nothing: check-loop-dispatch admits the pass and
-// records no row, so a flow call would answer 404 (kan-1001's self-review).
-func TestPipelineFixEndPassRecordsNothing(t *testing.T) {
-	const token = "self-review-kan-1-demo"
+// end of the pass closes the row check-loop-dispatch began, under the
+// change <name> its begin used; it takes completed or aborted only.
+func TestPipelineFixEndClosesThePass(t *testing.T) {
 	fx := pfNew(t, "[]")
-	rc, out := fx.pf(t, "end", token+"-pass", "completed")
-	if rc != 0 || !strings.Contains(out, "PIPELINE-FIX-END-NA "+token+"-pass") {
+	rc, out := fx.pf(t, "end", "self-review-kan-1-demo-pass", "completed")
+	if rc != 0 {
 		t.Fatalf("rc %d: %s", rc, out)
 	}
-	if strings.Contains(fx.calls(t), "record dispatch end") {
-		t.Fatalf("end of the pass called flow:\n%s", fx.calls(t))
+	if want := "-change kan-1-demo -key self-review-kan-1-demo-pass -session-token self-review-kan-1-demo -outcome completed"; !strings.Contains(fx.calls(t), "record dispatch end") || !strings.Contains(fx.calls(t), want) {
+		t.Fatalf("end of the pass did not close it with %q:\n%s", want, fx.calls(t))
+	}
+	if rc, out := fx.pf(t, "end", "self-review-kan-1-demo-pass", "done"); rc != 2 {
+		t.Fatalf("outcome done: rc %d, want 2: %s", rc, out)
 	}
 }
 

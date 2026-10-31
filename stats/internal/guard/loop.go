@@ -353,10 +353,7 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 		// fix loop it may start: it runs in the change's session, before any
 		// self-review-<name> change exists, so it is recorded under <name> in
 		// the caller's project -- the row the run view reads it from.
-		change, main := strings.TrimSuffix(strings.TrimPrefix(lp.prefix, "self-review-"), "-"), lp.main
-		if m, ok := lpMain(env, git, env.Dir); env.Dir != "" && ok {
-			main = m
-		}
+		change, main := lpPassTarget(env, git, lp)
 		if out, _, rc := pcFlow(env, true, "record", "dispatch", "begin", "-C", main, "-change", change,
 			"-role", "reviewer", "-model", model, "-effort", lpEffort(typ), "-key", key, "-session-token", lp.token); rc != 0 {
 			fmt.Fprintf(stderr, "%s: flow record dispatch begin failed (exit %d) -- cannot answer:\n%s", self, rc, out)
@@ -390,4 +387,16 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "LOOP-DISPATCH-OK %s\n", key)
 	return 0
+}
+
+// lpPassTarget is the change and checkout the self-review pass is recorded
+// under: change <name>, the checkout the caller's directory belongs to when it
+// resolves, lp.main otherwise. check-loop-dispatch begins the pass here and
+// pipeline-fix.sh end closes it here.
+func lpPassTarget(env Env, git string, lp lpLoop) (change, main string) {
+	change, main = strings.TrimSuffix(strings.TrimPrefix(lp.prefix, "self-review-"), "-"), lp.main
+	if m, ok := lpMain(env, git, env.Dir); env.Dir != "" && ok {
+		main = m
+	}
+	return change, main
 }
