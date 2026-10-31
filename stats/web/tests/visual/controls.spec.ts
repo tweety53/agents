@@ -55,45 +55,45 @@ async function expectOnlyPressed(page: Page, pressedName: string) {
 // header comment and views.spec.ts's for the endpoints queried), not
 // assumed.
 //
-// The stage leaderboard's table is the shared target for the dashboard
-// bar's controls and DataTable's: the live state board carries its own chip
-// filters instead (kan-1048, exercised under "Live state board chips"
-// below). PINNED_QUERY/EMPTY_QUERY give a deterministic "populated" and
-// "empty" starting point; All time is the one PeriodPicker preset safe to
-// assert fixture rows against, since it always spans the fixture's fixed
-// 2026-08-15 data.
+// The Reviewers view's table is the shared target for the dashboard bar's
+// controls and DataTable's: the stage leaderboard and the live state board
+// carry their own chip filters instead (kan-1052, kan-1048 -- the latter
+// exercised under "Live state board chips" below; decision
+// controls-spec-on-reviewers). PINNED_QUERY/EMPTY_QUERY give a
+// deterministic "populated" and "empty" starting point; All time is the one
+// PeriodPicker preset safe to assert fixture rows against, since it always
+// spans the fixture's fixed 2026-08-15 data.
 //
-// Leaderboard rows in PINNED_QUERY's window, its ten costliest: /flow "SDD +
-// TDD per task" and "flow.review-panel" (uitest-alpha) and the eight
-// /flow-interactive stages seedInteractive's sessions ran (KAN-1061) --
-// /flow-fast "integrate" (uitest-beta) is the eleventh and falls off the
-// table unless a filter narrows it.
-const LEADERBOARD = 'section.panel[aria-label="Every costed stage"]';
+// Reviewers rows in PINNED_QUERY's window, read from
+// GET /api/v1/stats/reviewers on the UI-test stack: two uitest-alpha slots,
+// "primary" and "principles"; uitest-beta has none. The Model select's
+// options come from GET /api/v1/models for the same window.
+const REVIEWERS = 'section.panel[aria-label="Every reviewer slot"]';
 
 test.describe("PeriodPicker", () => {
   test("the All time preset broadens the table from empty to the fixture's own rows", async ({ page }) => {
-    await page.goto(`/#/stage-leaderboard?${EMPTY_QUERY}`);
-    const tablePanel = page.locator(LEADERBOARD);
+    await page.goto(`/#/reviewers?${EMPTY_QUERY}`);
+    const tablePanel = page.locator(REVIEWERS);
     await expect(tablePanel.getByTestId("not-recorded")).toBeVisible();
 
     const allTime = page.getByRole("button", { name: "All time" });
     await allTime.click();
     await expect(allTime).toHaveAttribute("aria-pressed", "true");
 
-    await expect(tablePanel.getByRole("cell", { name: "flow.review-panel", exact: true })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "flow.landing-routes", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "principles", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "primary", exact: true })).toBeVisible();
   });
 
   test("typing explicit From/To values reloads the table to that window", async ({ page }) => {
-    await page.goto(`/#/stage-leaderboard?${EMPTY_QUERY}`);
-    const tablePanel = page.locator(LEADERBOARD);
+    await page.goto(`/#/reviewers?${EMPTY_QUERY}`);
+    const tablePanel = page.locator(REVIEWERS);
     await expect(tablePanel.getByTestId("not-recorded")).toBeVisible();
 
     await page.getByLabel("Period start").fill(PINNED_FROM_INPUT);
     await page.getByLabel("Period end").fill(PINNED_TO_INPUT);
 
-    await expect(tablePanel.getByRole("cell", { name: "flow.review-panel", exact: true })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "flow.landing-routes", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "principles", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "primary", exact: true })).toBeVisible();
   });
 
   // The remaining four presets, plus the conditional Reset button --
@@ -105,7 +105,7 @@ test.describe("PeriodPicker", () => {
   // include -- the same reason this file's own header comment gives for
   // why `All time` is the one preset safe to assert fixture rows against.
   test("Today sets the range to midnight through now, and presses only itself", async ({ page }) => {
-    await page.goto(`/#/stage-leaderboard?${EMPTY_QUERY}`);
+    await page.goto(`/#/reviewers?${EMPTY_QUERY}`);
     await page.getByRole("button", { name: "Today", exact: true }).click();
     await expectOnlyPressed(page, "Today");
 
@@ -117,28 +117,28 @@ test.describe("PeriodPicker", () => {
   });
 
   test("7 days sets a seven-day range ending now, and presses only itself", async ({ page }) => {
-    await page.goto(`/#/stage-leaderboard?${EMPTY_QUERY}`);
+    await page.goto(`/#/reviewers?${EMPTY_QUERY}`);
     await page.getByRole("button", { name: "7 days", exact: true }).click();
     await expectOnlyPressed(page, "7 days");
     await expectRangeSpan(page, 7 * DAY_MS);
   });
 
   test("30 days sets the default thirty-day range, and presses only itself", async ({ page }) => {
-    await page.goto(`/#/stage-leaderboard?${EMPTY_QUERY}`);
+    await page.goto(`/#/reviewers?${EMPTY_QUERY}`);
     await page.getByRole("button", { name: "30 days", exact: true }).click();
     await expectOnlyPressed(page, "30 days");
     await expectRangeSpan(page, 30 * DAY_MS);
   });
 
   test("90 days sets a ninety-day range ending now, and presses only itself", async ({ page }) => {
-    await page.goto(`/#/stage-leaderboard?${EMPTY_QUERY}`);
+    await page.goto(`/#/reviewers?${EMPTY_QUERY}`);
     await page.getByRole("button", { name: "90 days", exact: true }).click();
     await expectOnlyPressed(page, "90 days");
     await expectRangeSpan(page, 90 * DAY_MS);
   });
 
   test("Reset to default only renders when the period differs from default, and resets it", async ({ page }) => {
-    await page.goto(`/#/stage-leaderboard?${EMPTY_QUERY}`);
+    await page.goto(`/#/reviewers?${EMPTY_QUERY}`);
     const reset = page.getByRole("button", { name: "Reset to default" });
     // EMPTY_QUERY (2020) is nowhere near the last 30 days, so the button
     // PeriodPicker.tsx only renders when `!sameRange(period,
@@ -157,68 +157,66 @@ test.describe("PeriodPicker", () => {
 
 test.describe("SearchBox", () => {
   test("typing a term narrows the table to matching rows only", async ({ page }) => {
-    await page.goto(`/#/stage-leaderboard?${PINNED_QUERY}`);
-    const tablePanel = page.locator(LEADERBOARD);
-    await expect(tablePanel.getByRole("cell", { name: "flow.landing-routes", exact: true })).toBeVisible();
+    await page.goto(`/#/reviewers?${PINNED_QUERY}`);
+    const tablePanel = page.locator(REVIEWERS);
+    await expect(tablePanel.getByRole("cell", { name: "primary", exact: true })).toBeVisible();
 
-    await page.getByLabel("Search").fill("landing");
+    await page.getByLabel("Search").fill("principles");
 
-    await expect(tablePanel.getByRole("cell", { name: "flow.landing-routes", exact: true })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "flow.review-panel", exact: true })).toHaveCount(0);
+    await expect(tablePanel.getByRole("cell", { name: "principles", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "primary", exact: true })).toHaveCount(0);
   });
 });
 
 test.describe("ProjectFilter", () => {
   test("typing a project scopes the dashboard bar's own project variable", async ({ page }) => {
-    await page.goto(`/#/stage-leaderboard?${PINNED_QUERY}`);
-    const tablePanel = page.locator(LEADERBOARD);
-    await expect(tablePanel.getByRole("cell", { name: "flow.review-panel", exact: true })).toBeVisible();
+    await page.goto(`/#/reviewers?${PINNED_QUERY}`);
+    const tablePanel = page.locator(REVIEWERS);
+    await expect(tablePanel.getByRole("cell", { name: "principles", exact: true })).toBeVisible();
 
     await page.getByLabel("Project filter").fill("uitest-beta");
 
-    await expect(tablePanel.getByRole("cell", { name: "integrate", exact: true })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "flow.review-panel", exact: true })).toHaveCount(0);
+    await expect(tablePanel.getByText("No reviewer dispatches in this period.")).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "principles", exact: true })).toHaveCount(0);
+    await expect(tablePanel.getByRole("cell", { name: "primary", exact: true })).toHaveCount(0);
   });
 });
 
 test.describe("FilterBar", () => {
   test("choosing an exact-match column filter narrows the table to matching rows", async ({ page }) => {
-    await page.goto(`/#/stage-leaderboard?${PINNED_QUERY}`);
-    const tablePanel = page.locator(LEADERBOARD);
-    await expect(tablePanel.getByRole("cell", { name: "flow.review-panel", exact: true })).toBeVisible();
+    await page.goto(`/#/reviewers?${PINNED_QUERY}`);
+    const tablePanel = page.locator(REVIEWERS);
+    await expect(tablePanel.getByRole("cell", { name: "principles", exact: true })).toBeVisible();
 
-    await page.getByLabel("Filter by Command").selectOption("/flow-interactive");
+    await page.getByLabel("Filter by Slot").selectOption("primary");
 
-    await expect(tablePanel.getByRole("cell", { name: "flow.landing-routes", exact: true })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "flow.review-panel", exact: true })).toHaveCount(0);
+    await expect(tablePanel.getByRole("cell", { name: "primary", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "principles", exact: true })).toHaveCount(0);
   });
 });
 
 test.describe("DataTable sort buttons", () => {
   test("clicking a sortable header toggles ascending/descending order and its own arrow", async ({ page }) => {
-    await page.goto(`/#/stage-leaderboard?${PINNED_QUERY}`);
-    const tablePanel = page.locator(LEADERBOARD);
-    const stageHeader = tablePanel.getByRole("button", { name: /^Stage/ });
-    const stageCells = tablePanel.locator("tbody tr td:nth-child(2)");
-    await expect(stageCells).toHaveCount(10);
-    const ascending = [
-      "flow.brainstorm", "flow.kickoff", "flow.landing-routes", "flow.load-context", "flow.refresh-main-checkout",
-      "flow.review-panel", "flow.sdd-tdd", "flow.verify", "flow.visual-verify", "SDD + TDD per task",
-    ];
+    await page.goto(`/#/reviewers?${PINNED_QUERY}`);
+    const tablePanel = page.locator(REVIEWERS);
+    const slotHeader = tablePanel.getByRole("button", { name: /^Slot/ });
+    const slotCells = tablePanel.locator("tbody tr td:nth-child(1)");
+    await expect(slotCells).toHaveCount(2);
+    const ascending = ["primary", "principles"];
 
-    await stageHeader.click();
-    await expect(stageHeader).toHaveText("Stage ▲");
-    await expect(stageCells).toHaveText(ascending);
+    await slotHeader.click();
+    await expect(slotHeader).toHaveText("Slot ▲");
+    await expect(slotCells).toHaveText(ascending);
 
-    await stageHeader.click();
-    await expect(stageHeader).toHaveText("Stage ▼");
-    await expect(stageCells).toHaveText([...ascending].reverse());
+    await slotHeader.click();
+    await expect(slotHeader).toHaveText("Slot ▼");
+    await expect(slotCells).toHaveText([...ascending].reverse());
   });
 });
 
 test.describe("ChangeVariable", () => {
   test("selecting a change navigates to that change's own run-detail page", async ({ page }) => {
-    await page.goto(`/#/stage-leaderboard?${PINNED_QUERY}`);
+    await page.goto(`/#/reviewers?${PINNED_QUERY}`);
 
     await page.getByLabel("Go to change").selectOption({ label: "uitest-beta/kan-201-refactor-thing" });
 
@@ -240,8 +238,8 @@ test.describe("ModelVariable", () => {
     await expect(label.locator(".dashboard-variable-hint")).toBeVisible();
   });
 
-  test("is enabled with real models on the stage leaderboard", async ({ page }) => {
-    await page.goto(`/#/stage-leaderboard?${PINNED_QUERY}`);
+  test("is enabled with real models on reviewers", async ({ page }) => {
+    await page.goto(`/#/reviewers?${PINNED_QUERY}`);
     const model = page.getByLabel("Model");
     await expect(model).toBeEnabled();
     await expect(model.locator("option")).toHaveText(["All models", "claude-opus-5", "claude-opus-5-5", "claude-sonnet-5"]);
