@@ -82,8 +82,10 @@ first, as that section states. Nothing is copied:
 [ "$(git -C <canonical-worktree> branch --show-current)" = "spectre/<name>" ] \
   && for d in <canonical-worktree>/spectre/changes/<name> <canonical-worktree>/spectre/changes/<name>-fix-*; do
        [ -d "$d" ] || continue
+       case "${d#<canonical-worktree>/spectre/changes/<name>}" in -fix-|-fix-*[!0-9]*) continue ;; esac
        git -C <canonical-worktree> rm -r -q --ignore-unmatch -- "${d#<canonical-worktree>/}" && rm -rf -- "$d"
      done \
+  && check-archive-scope.sh <canonical-worktree> "spectre/changes/" \
   && { git -C <canonical-worktree> diff --cached --quiet \
        || git -C <canonical-worktree> commit -m "chore(spectre): drop <name>"; }
 ```

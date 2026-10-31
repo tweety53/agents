@@ -113,10 +113,11 @@ worktree of this change is named at its new path from then on — the script rew
 ### Run 1 — the branch is not merged
 
 **A drop a stopped run 1 left uncommitted is undone first**, in the canonical worktree, before
-anything below: when `<project>/spectre/changes/<name>/` is absent there and the branch holds no
-`chore(spectre): drop <name>` commit — a run 1 that stopped between `commit-archive.sh`'s `git rm`
-and its commit — `git restore --source=HEAD --staged --worktree` puts that directory, and every
-`<project>/spectre/changes/<name>-fix-N/` beside it, back. The change is then not dropped, and this
+anything below: when the index holds staged deletions under `<project>/spectre/changes/<name>/` or
+a `<project>/spectre/changes/<name>-fix-N/` beside it — a run 1 that stopped between
+`commit-archive.sh`'s `git rm` and its commit, a fix run's refused re-drop included, whose branch
+already holds run 1's `chore(spectre): drop <name>` commit — `git restore --source=HEAD --staged
+--worktree` puts each such directory back. The change is then not dropped, and this
 run drops it as a first run 1 does: any fix run's work is gated, reshaped and committed by the
 two-commit chain, and the drop lands after it as its own commit, never riding
 `chore(spectre): plan <name>`.
