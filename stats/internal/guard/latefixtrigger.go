@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -16,7 +18,10 @@ import (
 // `late-fix reduction:` line), 1 full path (one line per failed condition),
 // 2 cannot answer, 3 append scope (the `append scope:` line -- only
 // conditions 3 and/or 4 failed), 4 small append (the `small append:` line --
-// the same, on a countable delta of at most lftSmallAppendLines).
+// the same, on a countable delta of at most lftSmallAppendLines). Condition
+// 4 compares tasks.md with the canonical worktree's
+// .superpowers/sdd/<change>/tasks-at-close.md, the copy the review panel's
+// close step writes (KAN-1073: the plan is gitignored, so no commit holds it).
 func init() {
 	Registry["check-late-fix-trigger"] = checkLateFixTrigger
 }
@@ -30,12 +35,26 @@ const (
 )
 
 var (
-	lftTaskLine = regexp.MustCompile(`^\+- \[[ xX]\] [0-9]+\.`)
+	// lftTaskLine is a plan task line, its task number captured: condition
+	// 4's added task is a number in tasks.md the at-close copy lacks, so a
+	// tick since the close is no growth.
+	lftTaskLine = regexp.MustCompile(`^- \[[ xX]\] ([0-9]+)\.`)
 	// lftMachinery is condition 5's panel machinery, as repository-relative
 	// path.Match patterns.
 	lftMachinery = []string{"skills/flow/review-panel*.md", "scripts/check-panel-*.sh",
 		"skills/flow/*-reviewer-prompt.md", "skills/flow/engineering-principles.md"}
 )
+
+// lftTaskNumbers is the set of task numbers plan's task lines carry.
+func lftTaskNumbers(plan string) map[string]bool {
+	out := map[string]bool{}
+	for _, l := range strings.Split(plan, "\n") {
+		if m := lftTaskLine.FindStringSubmatch(l); m != nil {
+			out[m[1]] = true
+		}
+	}
+	return out
+}
 
 func checkLateFixTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) < 5 || (len(args)-2)%3 != 0 {
@@ -43,6 +62,10 @@ func checkLateFixTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	change, tasks, triples := args[0], args[1], args[2:]
+	if !plainChangeName(change) {
+		fmt.Fprintf(stderr, "check-late-fix-trigger: change name '%s' is not a plain change name\n", change)
+		return 2
+	}
 	gitBin, ok := panelResolveGit(env, "check-late-fix-trigger", stderr)
 	if !ok {
 		return 2
@@ -109,7 +132,7 @@ func checkLateFixTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 
 	// Conditions 3-5 read each worktree's delta since its close.
-	lines, binary, taskLine, untracked := 0, []string{}, false, false
+	lines, binary, taskLine, missingCopy := 0, []string{}, false, ""
 	var machinery []string
 	for i := 0; i < len(triples); i += 3 {
 		wt, since := triples[i], triples[i+1]
@@ -153,16 +176,24 @@ func checkLateFixTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 		}
 		if i == 0 {
-			if panelGit(env, gitBin, wt, "ls-files", "--error-unmatch", "--", tasks).Run() != nil {
-				untracked = true
+			copyPath := filepath.Join(wt, ".superpowers", "sdd", change, "tasks-at-close.md")
+			closed, err := os.ReadFile(copyPath)
+			if err != nil {
+				missingCopy = copyPath
 				continue
 			}
-			diff, ok := gitOut(wt, "diff", "--no-renames", since, "--", tasks)
-			if !ok {
+			tasksPath := tasks
+			if !filepath.IsAbs(tasksPath) {
+				tasksPath = filepath.Join(wt, tasksPath)
+			}
+			cur, err := os.ReadFile(tasksPath)
+			if err != nil {
+				fmt.Fprintf(stderr, "check-late-fix-trigger: cannot read %s: %v\n", tasksPath, err)
 				return 2
 			}
-			for _, l := range strings.Split(diff, "\n") {
-				if lftTaskLine.MatchString(l) {
+			atClose := lftTaskNumbers(string(closed))
+			for n := range lftTaskNumbers(string(cur)) {
+				if !atClose[n] {
 					taskLine = true
 				}
 			}
@@ -175,8 +206,9 @@ func checkLateFixTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 		fail(3, "%d changed lines since the close, over %d", lines, lftMaxLines)
 	}
 	switch {
-	case untracked:
-		fail(4, "%s is not tracked in %s", tasks, canon)
+	case missingCopy != "":
+		fmt.Fprintf(stderr, "check-late-fix-trigger: no at-close copy of the plan at %s -- the review panel's close step writes it\n", missingCopy)
+		fail(4, "no at-close copy of %s at %s", tasks, missingCopy)
 	case taskLine:
 		fail(4, "%s adds a task line since the close", tasks)
 	}
