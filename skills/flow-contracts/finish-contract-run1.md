@@ -208,9 +208,17 @@ task's own commit stays findable afterwards as the one carrying its `Task-Id: <n
 between the recorded merge base and `refs/flow/pre-reshape/<name>`, grouped implementer tasks included. **When the script
 cannot be located**, stop and report it.
 
+**A re-run reshapes from past the work already landed in its fixed form**: `prepare` writes as the
+reshape base the newest commit in the merge base's range that a `fixed` self-review row names (so a
+fix's recorded sha survives, kan-1021), else the newest commit carrying `Flow-Key: flow.commit-two`
+(run 1's implementation commit), else the merge base.
+
 All three routes then commit the work as the implementation commit, subject
 `<type>(<module>): <what the implementation does>` with `<module>` naming the area the reshaped
-diff carries. `<project>/spectre/changes/` is gitignored, so the change directory lands in no
+diff carries. It carries, beside `Flow-Key: flow.commit-two`, the `Task-Id: <n>` trailer of every
+commit the reshape squashed, so a re-run's unfinished-work gate, judged from the merge base, still
+finds each task's commit. An `--outstanding` text no implementation commit carries is printed as
+`OUTSTANDING-UNRECORDED:`, never dropped. `<project>/spectre/changes/` is gitignored, so the change directory lands in no
 commit.
 
 **Nothing under `<abs-worktree>/.superpowers/sdd/` is committed** — not the rendered ledger and
@@ -255,7 +263,7 @@ Over that bundle the session runs steps 2–6 of `/flow-self-review`
 dispatch pairs, where the fixes land, the filing-and-rating prompt, the store rows and step 5's
 mining of the chosen flow-eval candidates — on every route, before cleanup removes the worktrees.
 No report is written: the findings live in flowd. The session then ends the stage with
-`flow stage end -stage flow.self-review -outcome completed`; `land` checks that row
+`flow stage end -command '/flow' -stage flow.self-review -outcome completed <name>`; `land` checks that row
 (`flow stage completed -C <main> -stage flow.self-review <name>`) and stops at
 `STOP: self-review-report` until it holds. The route's landing push carries the fix commits'
 shas per item 5 of step 3 of `/flow-self-review`, and the run's final report names the mined
