@@ -626,15 +626,15 @@ gate is mandatory: no answer, no commit and no implementation. It runs at the en
 after the `flow.decide` record sequence (**Run brainstorming and planning through the planner role**,
 `skills/flow/brainstorm.md`).
 
-Then the question — `/flow-plan`'s wording is **Push artifacts?**, `/flow`'s is **Proceed to
+Then the question — `/flow-plan`'s wording is **Save the plan?**, `/flow`'s is **Proceed to
 implementation?** — with exactly two options: **Yes** *(recommended)* and **No (plan needs
 updates)**.
 
 **`/flow` never asks its gate question: it takes **Yes** at once**, at the operator's instruction
 (2026-10-26). The summary and the `## Decision` block still print, the high-raise question below is
-not asked and takes **No**, and the run continues to the plan-gate commit and the `STARTED`
+not asked and takes **No**, and the run continues to the plan snapshot and the `STARTED`
 handoff. An operator who wants the plan changed says so before running the handoff's `/flow
-<name>` — that message re-plans as **No** below. `/flow-plan`'s **Push artifacts?** is still asked.
+<name>` — that message re-plans as **No** below. `/flow-plan`'s **Save the plan?** is still asked.
 
 **A `panel.dispatches` entry the planner judges worth `high`** — a hard seam the roll's effort may not carry —
 adds one question per such dispatch to the same AskUserQuestion call: **Raise `<dispatch>` to

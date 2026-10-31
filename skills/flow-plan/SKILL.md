@@ -201,7 +201,7 @@ restates none of them, and every `mf-<literal-token>` they show is this session'
    ```
 
 6. **Plan review gate** (`skills/flow/brainstorm-planner.md`) — the prose summary, the
-   `## Decision` block, then **Push artifacts?** with **Yes** / **No (plan needs updates)**.
+   `## Decision` block, then **Save the plan?** with **Yes** / **No (plan needs updates)**.
    Mandatory: **No** revises and re-decides per that section, recording each re-decision through
    the call above, and the snapshot below is taken only on **Yes**.
 
