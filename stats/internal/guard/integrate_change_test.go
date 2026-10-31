@@ -52,6 +52,7 @@ fixture() {
     g init -q --bare -b main "$WORK/$r-origin.git"
     g init -q -b main "$WORK/$r"
     printf 'base\n' >"$WORK/$r/base.txt"
+    printf '.superpowers/\nspectre/changes/\n' >"$WORK/$r/.gitignore"
     if [ "$r" = a ]; then
       mkdir -p "$WORK/a/.flow" "$WORK/a/spectre/changes"
       printf '# project\n\n## default landing route\n\nmerge and push\n' >"$WORK/a/.flow/project.md"
@@ -70,8 +71,6 @@ fixture() {
   mkdir -p "$c"
   printf '# Tasks\n\n- [x] 1. Do the work\n' >"$c/tasks.md"
   printf '# demo\n\n## Parts\n\n` + "`" + `b:demo` + "`" + `\n\n## Branch\n\nmain\n\n## Merge order\n\n1. ` + "`" + `b` + "`" + `\n2. ` + "`" + `.` + "`" + `\n' >"$c/link.md"
-  g -C "$WORK/a-worktrees/demo" add -A
-  g -C "$WORK/a-worktrees/demo" commit -qm "chore(spectre): plan-gate demo"
 
   mkdir -p "$WORK/bin" "$WORK/statedir"
   cat >"$WORK/bin/flow" <<EOF
@@ -114,11 +113,6 @@ to_land() {
   [ "${2:-}" = no-report ] && return 0
   touch "$WORK/sr-completed"
 }
-# drop_demo: a branch from before run 1 stopped dropping the change -- its
-# drop commit, made by hand.
-drop_demo() {
-  g -C "$WORK/a-worktrees/demo" rm -r -q spectre/changes/demo && g -C "$WORK/a-worktrees/demo" commit -qm "chore(spectre): drop demo"
-}
 peer_fix_case() {
   to_land "$1" no-report
   printf 'fix\n' >"$WORK/b-worktrees/demo/fix-b.txt"
@@ -135,8 +129,7 @@ peer_fix_case() {
 ui_a() {
   printf '\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| ` + "`" + `ui paths` + "`" + ` | ` + "`" + `work-a.txt` + "`" + ` |\n' >>"$WORK/a-worktrees/demo/.flow/project.md"
   printf '# Visual verification — demo\n' >"$WORK/a-worktrees/demo/spectre/changes/demo/visual-verification.md"
-  g -C "$WORK/a-worktrees/demo" add spectre/changes/demo/visual-verification.md
-  g -C "$WORK/a-worktrees/demo" commit -qam "chore(spectre): plan-gate demo" --amend
+  g -C "$WORK/a-worktrees/demo" commit -qa --amend --no-edit
 }
 flag() {
   printf '[{"change":"%s","guard":"check-visual-verify-dispatched","worktree":"%s","verdict":"VISUAL-VERIFY-MISSING: no verifier — HEAD %s","falsePositive":true,"falsePositiveReason":"hand-verified","flaggedAt":"2026-01-01T00:00:00Z"}]' \
@@ -273,10 +266,10 @@ touch "$WORK/sr-completed"
 sut land "$WORK/a" demo
 check "land exits 0" '[ "$RC" -eq 0 ]'
 [ "$RC" -eq 0 ] || halt land
-check "a's origin main carries implementation and plan commits, and no drop" \
-  '[ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -2 | tr "\n" "|")" = "chore(spectre): plan demo|feat(a): do the work|" ]'
-check "a's origin main holds no archive" \
-  '[ -z "$(git --git-dir="$WORK/a-origin.git" ls-tree -d main spectre/changes/archive)" ]'
+check "a's origin main carries the implementation commit alone" \
+  '[ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -2 | tr "\n" "|")" = "feat(a): do the work|base|" ]'
+check "a's origin main holds no change directory" \
+  '[ -z "$(git --git-dir="$WORK/a-origin.git" ls-tree -d main spectre/changes)" ]'
 check "b's origin main carries its implementation commit" \
   '[ "$(git --git-dir="$WORK/b-origin.git" log --format=%s main -1)" = "feat(b): do the work" ]'
 check "b was pushed before a (merge order)" \

@@ -134,7 +134,7 @@ func TestCheckLoopDispatch(t *testing.T) {
 		name, rows, key, typ, model string
 		prompt                      string // stdin; the escalated fix carries its marker
 		branches, escalated         []string
-		design                      string // the loop branch's design.md, committed when set
+		design                      string // the loop worktree's design.md, written uncommitted when set
 		rc                          int
 		out, begin                  string // begin "" asserts no begin call
 	}{
@@ -183,11 +183,7 @@ func TestCheckLoopDispatch(t *testing.T) {
 			t.Parallel()
 			fx := lpNew(t, tc.rows, tc.branches...)
 			if tc.design != "" {
-				gitRun(t, fx.repo, "checkout", "-q", lpBranch)
-				writeFile(t, fx.repo+"/spectre/changes/"+lpBranch+"/design.md", tc.design)
-				gitRun(t, fx.repo, "add", "-A")
-				gitRun(t, fx.repo, "commit", "-q", "-m", "plan")
-				gitRun(t, fx.repo, "checkout", "-q", "main")
+				writeFile(t, fx.repo+"-worktrees/"+lpBranch+"/spectre/changes/"+lpBranch+"/design.md", tc.design)
 			}
 			for _, k := range tc.escalated {
 				gitRun(t, fx.repo, "config", "--add", "flow.escalation", k)
@@ -256,7 +252,7 @@ func TestCheckLoopDispatchUnreadableTable(t *testing.T) {
 // self-review-<name> branch in <agents repo> -- files its rows in that
 // project's flowd project: flow runs with -C the caller's main checkout, and
 // review-1's first-review-effort is read from the loop's own plan,
-// spectre/changes/self-review-<name>/, on that project's spectre/<name>.
+// spectre/changes/self-review-<name>/, in that project's <name> worktree.
 // A self-review-<name> loop branch in <agents repo> still files there.
 func TestCheckLoopDispatchOwnBranchInAnotherProject(t *testing.T) {
 	t.Parallel()
@@ -266,11 +262,8 @@ func TestCheckLoopDispatchOwnBranchInAnotherProject(t *testing.T) {
 	gitRun(t, "", "init", "-q", "-b", "develop", proj)
 	gitRun(t, proj, "add", "-A")
 	gitRun(t, proj, "commit", "-q", "-m", "init")
-	gitRun(t, proj, "checkout", "-q", "-b", "spectre/kan-1-demo")
-	writeFile(t, proj+"/spectre/changes/self-review-kan-1-demo/design.md", lpDesignLow)
-	gitRun(t, proj, "add", "-A")
-	gitRun(t, proj, "commit", "-q", "-m", "plan")
-	gitRun(t, proj, "checkout", "-q", "develop")
+	gitRun(t, proj, "branch", "spectre/kan-1-demo")
+	writeFile(t, proj+"-worktrees/kan-1-demo/spectre/changes/self-review-kan-1-demo/design.md", lpDesignLow)
 	fx.env.Dir = proj
 	if rc, out := fx.run(t, "self-review-kan-1-demo-review-1", "flow-low", "opus"); rc != 0 {
 		t.Fatalf("rc %d: %s", rc, out)
@@ -291,11 +284,8 @@ func TestCheckLoopDispatchOwnBranchInAnotherProject(t *testing.T) {
 func TestCheckLoopDispatchOwnFastBranchReadsLoopPlan(t *testing.T) {
 	t.Parallel()
 	fx := lpNew(t, lpRowsJSON("self-review-kan-1-demo-", "self-review-kan-1-demo", "plan completed", "fix completed"))
-	gitRun(t, fx.repo, "checkout", "-q", "-b", "kan-1-demo")
-	writeFile(t, fx.repo+"/spectre/changes/self-review-kan-1-demo/design.md", lpDesignLow)
-	gitRun(t, fx.repo, "add", "-A")
-	gitRun(t, fx.repo, "commit", "-q", "-m", "plan")
-	gitRun(t, fx.repo, "checkout", "-q", "main")
+	gitRun(t, fx.repo, "branch", "kan-1-demo")
+	writeFile(t, fx.repo+"-worktrees/kan-1-demo/spectre/changes/self-review-kan-1-demo/design.md", lpDesignLow)
 	if rc, out := fx.run(t, "self-review-kan-1-demo-review-1", "flow-low", "opus"); rc != 0 {
 		t.Fatalf("rc %d: %s", rc, out)
 	}
@@ -329,7 +319,6 @@ func TestCheckLoopDispatchFirstReviewEffort(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			fx := lpNew(t, lpPlanDone, lpBranch)
-			gitRun(t, fx.repo, "checkout", "-q", lpBranch)
 			h := head
 			if tc.superseded {
 				h = strings.Replace(h, "**Status:** active", "**Status:** superseded", 1)
@@ -337,10 +326,7 @@ func TestCheckLoopDispatchFirstReviewEffort(t *testing.T) {
 			if tc.status != "" {
 				h = strings.Replace(h, "**Status:** active", "**Status:** "+tc.status, 1)
 			}
-			writeFile(t, fx.repo+"/spectre/changes/"+lpBranch+"/design.md", h+tc.chosen)
-			gitRun(t, fx.repo, "add", "-A")
-			gitRun(t, fx.repo, "commit", "-q", "-m", "plan")
-			gitRun(t, fx.repo, "checkout", "-q", "main")
+			writeFile(t, fx.repo+"-worktrees/"+lpBranch+"/spectre/changes/"+lpBranch+"/design.md", h+tc.chosen)
 			if rc, out := fx.run(t, "pipeline-fix-6-review-1", tc.typ, "opus"); rc != tc.rc || !strings.Contains(out, tc.out) {
 				t.Fatalf("rc %d, want %d; output %q, want it to carry %q", rc, tc.rc, out, tc.out)
 			}

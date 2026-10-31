@@ -21,11 +21,7 @@ func (c *ic) commit() {
 		c.die("no worktree in the set holds %s's tasks.md", c.name)
 	}
 	live := c.canon + "/" + c.spec + "/changes/" + c.name
-	// A dropped re-run without new work has no change directory left: its
-	// narrative was checked before the drop commit that removed it.
-	if isDir(live) {
-		c.checkNarrative(live + "/narrative.md")
-	}
+	c.checkNarrative(live + "/narrative.md")
 	c.mergeOrder()
 	reshape := false
 	for i := range c.wt {
@@ -70,6 +66,9 @@ func (c *ic) commit() {
 			}
 			if subj == "" && len(c.implPaths(c.wt[o], rb)) > 0 {
 				c.stop("commit-split", "no implementation subject given for "+c.wt[o]+" — pass "+c.wt[o]+"=<subject>")
+			}
+			if subj != "" && c.outstanding != "" {
+				subj += "\n\nOutstanding: " + c.outstanding
 			}
 			c.run("commit-split", c.wt[o], c.name, subj, c.planMsg)
 			if c.rc != 0 {

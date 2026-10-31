@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -239,9 +240,10 @@ var (
 // lpFirstReviewType is the subagent_type the planner recorded for review-1 in
 // the loop's design.md (its `first-review-effort` decision's **Chosen:**
 // line). The loop's plan is always spectre/changes/<loop branch name>/ --
-// self-review-<name> on the change's own branch too -- read from the loop's
-// branch, or for a self-review on the change's own branch from spectre/<name>
-// (/flow) or <name> (/flow-fast), from the first such entry whose **Status:**
+// self-review-<name> on the change's own branch too -- read from disk in the
+// loop's worktree, <main>-worktrees/<branch name without spectre/>: the loop's
+// branch, or for a self-review on the change's own branch spectre/<name>
+// (/flow) or <name> (/flow-fast). The decision is the first such entry whose **Status:**
 // is active (or absent); flow-medium when it recorded none. ok is
 // false when the decision is recorded but its **Chosen:** line names no
 // effort: a refusal, never a silent flow-medium.
@@ -253,10 +255,11 @@ func lpFirstReviewType(env Env, git, repo string, lp lpLoop) (typ string, ok boo
 		}
 		ref = b
 	}
-	rc, body := kwRun(env, "", git, "-C", repo, "show", "refs/heads/"+ref+":spectre/changes/"+lp.token+"/design.md")
-	if rc != 0 {
+	b, err := os.ReadFile(repo + "-worktrees/" + strings.TrimPrefix(ref, "spectre/") + "/spectre/changes/" + lp.token + "/design.md")
+	if err != nil {
 		return "flow-medium", true
 	}
+	body := string(b)
 	entry, found := "", false
 	for _, loc := range lpFirstReviewID.FindAllStringIndex(body, -1) {
 		entry = body[loc[1]:]

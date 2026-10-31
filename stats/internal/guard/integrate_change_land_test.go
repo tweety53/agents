@@ -112,7 +112,6 @@ peer_fix_case "peer_fix: "`},
 fixture
 printf '# demo\n\n## Parts\n\n` + "`" + `b:demo` + "`" + `\n\n## Branch\n\nmain\n\n## Merge order\n\n1. ` + "`" + `.` + "`" + `\n2. ` + "`" + `b` + "`" + `\n' \
   >"$WORK/a-worktrees/demo/spectre/changes/demo/link.md"
-g -C "$WORK/a-worktrees/demo" commit -qam "chore(spectre): plan-gate demo" --amend
 peer_fix_case "peer_fix_canon_first: "`},
 		{"visual_stop", `# --- visual_stop ---
 fixture
@@ -143,20 +142,6 @@ printf '[{"key":"task-1-implementer","outcome":"completed"},{"key":"verify","rol
   "$(git -C "$A" rev-parse HEAD)" >"$WORK/dispatches.json"
 sut prepare "$WORK/a" demo
 check "visual_stop: a verifier of the HEAD passes the gate" '[ "$RC" -eq 0 ]'`},
-		{"visual_archived", `# --- visual_archived: an archived re-run with no new work runs the gate ---
-fixture
-ui_a
-A="$WORK/a-worktrees/demo"
-flag "$A" "$(git -C "$A" rev-parse HEAD)"
-sut prepare "$WORK/a" demo
-[ "$RC" -eq 0 ] || halt prepare
-printf '\n## integrate run\n\nnarrative\n' >>"$A/spectre/changes/demo/narrative.md"
-sut commit "$WORK/a" demo "$A=feat(a): do the work" "$WORK/b=feat(b): do the work"
-check "visual_archived: commit stops before a's unverified branch push" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
-drop_demo
-sut prepare "$WORK/a" demo
-check "visual_archived: the re-run is archived without new work" 'printf "%s\n" "$OUT" | grep -q "^ARCHIVED: demo — without new work"'
-check "visual_archived: a flag on the pre-archive HEAD does not pass the gate" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'`},
 		{"visual_rebased", `# --- visual_rebased: a base move in prepare re-runs the gate ---
 fixture
 ui_a
@@ -224,7 +209,6 @@ sut prepare "$WORK/a" demo --accept-foreign
 printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
 sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
 [ "$RC" -eq 0 ] || halt commit
-drop_demo
 touch "$WORK/sr-completed"
 sut land "$WORK/a" demo
 check "refresh_on_recorded_base: a's main checkout on its recorded base is refreshed, not refused" \

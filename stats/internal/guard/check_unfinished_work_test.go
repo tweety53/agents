@@ -405,7 +405,7 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		base := tcfGit(t, f.wt, "rev-parse", "HEAD")
 		gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "fix: no trailer")
 		return f.run(t, f.wt, "demo", "", f.wt+"="+base)
-	}, uwVerdict("an appended task already ticked in the plan at a dropped re-run's base needs no new commit", "CLEAR:"))
+	}, uwVerdict("an appended task ticked in the plan at the range's base still needs its own commit: the plan is read from disk, never from history", "OUTSTANDING:"))
 	each(func(t *testing.T) uwResult {
 		f := newUW(t)
 		f.plan(t, "> **Tasks appended:** 1\n\n- [x] 1. done\n- [x] 7. appended by a fix run\n")
