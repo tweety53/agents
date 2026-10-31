@@ -67,9 +67,9 @@ if "2" in which:
 - Task 3: a refused dial with no fresh marker still fails at once; the retry never outlives the request's context; the marker is removed on every exit of the recipe after it is written; the compose and CLI-install steps run before the kill.
 - Task 4: the pass is closed under the same change and checkout its begin used, through one shared helper.
 
-- [ ] 1. Scope the no-escalation sentence to self-review-fix and restore the pipeline-fix escalation
-  - [ ] **Step 1: Prose** — run the Global constraints script with task number `1`.
-  - [ ] **Step 2: Verify** — `git grep -n -F -e 'The `fix` row carries no no-progress escalation' -e "the self-review loop's own escalation rows" -e 'in-run and self-review fix' -- skills` prints nothing; `scripts/run-verify-list.sh /Users/tweety53/Projects/agents-worktrees/kan-1064-flow-self-review-run-the-coordination-around-the lint` is green.
+- [x] 1. Scope the no-escalation sentence to self-review-fix and restore the pipeline-fix escalation
+  - [x] **Step 1: Prose** — run the Global constraints script with task number `1`.
+  - [x] **Step 2: Verify** — `git grep -n -F -e 'The `fix` row carries no no-progress escalation' -e "the self-review loop's own escalation rows" -e 'in-run and self-review fix' -- skills` prints nothing; `scripts/run-verify-list.sh /Users/tweety53/Projects/agents-worktrees/kan-1064-flow-self-review-run-the-coordination-around-the lint` is green.
 
 **Build:** green
 **Files:** `skills/flow-self-review/SKILL.md`, `skills/flow/implement.md`, `skills/flow/SKILL-rationale.md`
@@ -80,9 +80,9 @@ if "2" in which:
 
 **Decision:** escalation-scoped-to-pipeline-fix
 
-- [ ] 2. Make the planner run the lint list on a scratch copy before tagging verified
-  - [ ] **Step 1: Prose** — run the Global constraints script with task number `2`.
-  - [ ] **Step 2: Verify** — `scripts/run-verify-list.sh /Users/tweety53/Projects/agents-worktrees/kan-1064-flow-self-review-run-the-coordination-around-the lint` is green.
+- [x] 2. Make the planner run the lint list on a scratch copy before tagging verified
+  - [x] **Step 1: Prose** — run the Global constraints script with task number `2`.
+  - [x] **Step 2: Verify** — `scripts/run-verify-list.sh /Users/tweety53/Projects/agents-worktrees/kan-1064-flow-self-review-run-the-coordination-around-the lint` is green.
 
 **Build:** green
 **Files:** `skills/flow/brainstorm-planner.md`
@@ -93,18 +93,18 @@ if "2" in which:
 
 **Decision:** scratch-copy-runs-lint
 
-- [ ] 3. Retry a refused dial while make restart swaps flowd
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `stats/internal/client/client_test.go` add three tests, each first calling `t.Setenv("TMPDIR", t.TempDir())`:
+- [x] 3. Retry a refused dial while make restart swaps flowd
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `stats/internal/client/client_test.go` add three tests, each first calling `t.Setenv("TMPDIR", t.TempDir())`:
     - `TestGetChangeRetriesRefusedDialWhileFlowdRestarts` — reserve a port with `net.Listen("tcp", "127.0.0.1:0")` and close it; write the marker `filepath.Join(os.TempDir(), fmt.Sprintf("flowd-%d.restarting", port))`; start a goroutine that after 300ms listens on that same port and serves `genuineDaemon` answering 200 with `{}` (closed in `t.Cleanup`); `GetChange` under a 2s context succeeds.
     - `TestGetChangeFailsFastOnRefusedDialWithoutRestartMarker` — `deadPortURL`, no marker, a 2s context: `GetChange` returns an error wrapping `ErrUnavailable` in under 500ms.
     - `TestGetChangeIgnoresStaleRestartMarker` — `deadPortURL`, its marker written and its mtime set 3 minutes back with `os.Chtimes`, a 2s context: `ErrUnavailable` in under 500ms.
     <!-- predicted: the 300ms, 2s and 500ms figures are test parameters this plan chooses, not measurements -->
 
     Run `cd stats && make -s web-dist && go test ./internal/client/ -run 'TestGetChange' -count=1`: `TestGetChangeRetriesRefusedDialWhileFlowdRestarts` fails before the fix.
-  - [ ] **Step 2: Retry in `do`** (`stats/internal/client/client.go`) per decision `retry-refused-while-restarting`: on an error from `c.httpClient.Do` that `errors.Is(err, syscall.ECONNREFUSED)`, while `restarting(req.URL.Port())` holds — the marker `filepath.Join(os.TempDir(), "flowd-<port>.restarting")` exists and its mtime is under 2 minutes old — and the request's body can be replayed (`req.Body == nil`, or `req.GetBody != nil`, a fresh body taken from it per attempt), wait 100ms or until `req.Context().Done()`, then send again; a done context returns the last error wrapped in `ErrUnavailable` as today. Rewrite the `Client` doc comment's "It never retries" to state this one retry and why it cannot hold up a dead daemon's fallback; name the marker's writer, `stats/Makefile`'s `restart`, in `restarting`'s comment.
+  - [x] **Step 2: Retry in `do`** (`stats/internal/client/client.go`) per decision `retry-refused-while-restarting`: on an error from `c.httpClient.Do` that `errors.Is(err, syscall.ECONNREFUSED)`, while `restarting(req.URL.Port())` holds — the marker `filepath.Join(os.TempDir(), "flowd-<port>.restarting")` exists and its mtime is under 2 minutes old — and the request's body can be replayed (`req.Body == nil`, or `req.GetBody != nil`, a fresh body taken from it per attempt), wait 100ms or until `req.Context().Done()`, then send again; a done context returns the last error wrapped in `ErrUnavailable` as today. Rewrite the `Client` doc comment's "It never retries" to state this one retry and why it cannot hold up a dead daemon's fallback; name the marker's writer, `stats/Makefile`'s `restart`, in `restarting`'s comment.
     <!-- predicted: the 100ms interval and 2-minute staleness are this plan's chosen values (decision retry-refused-while-restarting), not measurements -->
-  - [ ] **Step 3: The restart recipe** (`stats/Makefile`): add `override LIVE_MARKER = $${TMPDIR:-/tmp}/flowd-$(LIVE_PORT).restarting` beside `LIVE_LOG`; in `restart:`, move the `docker compose up -d` line and the CLI install (`mkdir`, `go build -o $(LIVE_CLI)`, its echo), each with its comment, ahead of the kill line; the kill line first runs `touch "$(LIVE_MARKER)"`, polls `kill -0` with `sleep 0.1` for up to 300 rounds (still 30s), and runs `rm -f "$(LIVE_MARKER)"` before its `exit 1`; the readiness loop runs `rm -f "$(LIVE_MARKER)"` before both its `exit 0` and its `exit 1`. Add a comment paragraph above `LIVE_MARKER` naming its reader (`do`, `stats/internal/client/client.go`) and why the compose and CLI steps now run before the kill (the gap is the daemon swap alone).
-  - [ ] **Step 4: Verify** — `gofmt -w` the Go files; `cd stats && make -s web-dist && go test ./internal/client/ -run 'TestGetChange' -count=1` passes; `cd stats && make -s web-dist && go test ./internal/repotest/ -run 'TestMakeBuild' -count=1` passes; `make -n -C stats restart | grep -n -e 'compose up' -e 'go build -o' -e 'kill "' -e restarting` lists `compose up` and `go build -o` before the kill; `cd stats && make -s web-dist && go vet ./internal/client/ && gofmt -l .` is clean.
+  - [x] **Step 3: The restart recipe** (`stats/Makefile`): add `override LIVE_MARKER = $${TMPDIR:-/tmp}/flowd-$(LIVE_PORT).restarting` beside `LIVE_LOG`; in `restart:`, move the `docker compose up -d` line and the CLI install (`mkdir`, `go build -o $(LIVE_CLI)`, its echo), each with its comment, ahead of the kill line; the kill line first runs `touch "$(LIVE_MARKER)"`, polls `kill -0` with `sleep 0.1` for up to 300 rounds (still 30s), and runs `rm -f "$(LIVE_MARKER)"` before its `exit 1`; the readiness loop runs `rm -f "$(LIVE_MARKER)"` before both its `exit 0` and its `exit 1`. Add a comment paragraph above `LIVE_MARKER` naming its reader (`do`, `stats/internal/client/client.go`) and why the compose and CLI steps now run before the kill (the gap is the daemon swap alone).
+  - [x] **Step 4: Verify** — `gofmt -w` the Go files; `cd stats && make -s web-dist && go test ./internal/client/ -run 'TestGetChange' -count=1` passes; `cd stats && make -s web-dist && go test ./internal/repotest/ -run 'TestMakeBuild' -count=1` passes; `make -n -C stats restart | grep -n -e 'compose up' -e 'go build -o' -e 'kill "' -e restarting` lists `compose up` and `go build -o` before the kill; `cd stats && make -s web-dist && go vet ./internal/client/ && gofmt -l .` is clean.
 
 **Build:** green
 **Files:** `stats/internal/client/client.go`, `stats/internal/client/client_test.go`, `stats/Makefile`
@@ -117,10 +117,10 @@ if "2" in which:
 
 **Decision:** retry-refused-while-restarting
 
-- [ ] 4. Close the self-review pass row in pipeline-fix.sh end
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `stats/internal/guard/pipeline_fix_test.go`, replace `TestPipelineFixEndPassRecordsNothing` and its comment with `TestPipelineFixEndClosesThePass`: `fx := pfNew(t, "[]")`; `fx.pf(t, "end", "self-review-kan-1-demo-pass", "completed")` exits 0 and `fx.calls(t)` contains `record dispatch end` with `-change kan-1-demo -key self-review-kan-1-demo-pass -session-token self-review-kan-1-demo -outcome completed`; a second call with outcome `done` exits 2. Run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestPipelineFixEndClosesThePass' -count=1`: it fails before the fix.
-  - [ ] **Step 2: Fix** per decision `end-closes-the-pass`: in `stats/internal/guard/loop.go`, extract the pass begin's target into `lpPassTarget(env Env, git string, lp <its loop type>) (change, main string)` — change `strings.TrimSuffix(strings.TrimPrefix(lp.prefix, "self-review-"), "-")`, main `lpMain(env, git, env.Dir)` when `env.Dir != ""` and it resolves, `lp.main` otherwise — and call it from the begin. In `pfEnd` (`stats/internal/guard/pipelinefix.go`) drop the `PIPELINE-FIX-END-NA` branch; for a `pass` key take `-C` and `-change` from `lpPassTarget(env, pe.git, lp)`, every other key keeping `lp.main` and `lp.change`; the existing `completed`/`aborted` check covers the pass.
-  - [ ] **Step 3: Verify** — `gofmt -w` the Go files; `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestPipelineFix|TestCheckLoopDispatch' -count=1` passes; `cd stats && make -s web-dist && go vet ./internal/guard/ && gofmt -l .` is clean; `git grep -n -F -e 'PIPELINE-FIX-END-NA' -- stats skills scripts` prints nothing.
+- [x] 4. Close the self-review pass row in pipeline-fix.sh end
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `stats/internal/guard/pipeline_fix_test.go`, replace `TestPipelineFixEndPassRecordsNothing` and its comment with `TestPipelineFixEndClosesThePass`: `fx := pfNew(t, "[]")`; `fx.pf(t, "end", "self-review-kan-1-demo-pass", "completed")` exits 0 and `fx.calls(t)` contains `record dispatch end` with `-change kan-1-demo -key self-review-kan-1-demo-pass -session-token self-review-kan-1-demo -outcome completed`; a second call with outcome `done` exits 2. Run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestPipelineFixEndClosesThePass' -count=1`: it fails before the fix.
+  - [x] **Step 2: Fix** per decision `end-closes-the-pass`: in `stats/internal/guard/loop.go`, extract the pass begin's target into `lpPassTarget(env Env, git string, lp <its loop type>) (change, main string)` — change `strings.TrimSuffix(strings.TrimPrefix(lp.prefix, "self-review-"), "-")`, main `lpMain(env, git, env.Dir)` when `env.Dir != ""` and it resolves, `lp.main` otherwise — and call it from the begin. In `pfEnd` (`stats/internal/guard/pipelinefix.go`) drop the `PIPELINE-FIX-END-NA` branch; for a `pass` key take `-C` and `-change` from `lpPassTarget(env, pe.git, lp)`, every other key keeping `lp.main` and `lp.change`; the existing `completed`/`aborted` check covers the pass.
+  - [x] **Step 3: Verify** — `gofmt -w` the Go files; `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestPipelineFix|TestCheckLoopDispatch' -count=1` passes; `cd stats && make -s web-dist && go vet ./internal/guard/ && gofmt -l .` is clean; `git grep -n -F -e 'PIPELINE-FIX-END-NA' -- stats skills scripts` prints nothing.
 
 **Build:** green
 **Files:** `stats/internal/guard/pipelinefix.go`, `stats/internal/guard/loop.go`, `stats/internal/guard/pipeline_fix_test.go`
