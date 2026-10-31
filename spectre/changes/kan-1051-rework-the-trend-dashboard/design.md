@@ -168,9 +168,17 @@ plots are.
 ### The UI-test fixture gains trend changes without moving other baselines
 
 **ID:** trend-seed-isolated
-**Status:** active
+**Status:** superseded by trend-seed-recapture
 **Chosen:** A `seedTrend` function in `stats/cmd/uitest-seed/seed.go` adds finished changes across several weeks before the fixture clock, two commands and an `agents` project, with instants chosen so no other view's committed baseline changes — finish instants before the state board's and Flow health's capture windows, stage runs at one early instant before every other view's window — proved by the project's `verify` row over every spec but the trend's.
 **Considered:** Give the existing `uitest-dynamics` finished changes costed stage runs — no `agents` project, and their weeks fix the shape of the chart. Seed at realistic instants and recapture every baseline that moves — a dozen unrelated captures for visual-verify to re-judge.
+**Superseded because:** Task 5's verify run failed 9 captures: the state board draws a chip per registered project, and Experiments counts the seeded finished changes.
+
+### The trend seed's moved baselines are re-recorded
+
+**ID:** trend-seed-recapture
+**Status:** active
+**Chosen:** Keep `seedTrend` as Task 5 landed it and re-record the 9 baselines it moves — state board, Experiments (2), full-app state board and Experiments, interactive (4) — in an appended task, each capture looked at before it is committed.
+**Considered:** Move the seed out of every other view's reach — impossible for the state board, which gives every registered project a chip whatever its instants, so the `agents` project Flow changes landed needs always moves it.
 
 ### Trend captures move to their own spec
 
