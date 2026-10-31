@@ -29,6 +29,14 @@ func commitSplit(args []string, env Env, stdout, stderr io.Writer) int {
 		cmd.Stdout, cmd.Stderr = stdout, stderr
 		return exitCode(cmd.Run())
 	}
+	// `git add -A` keeps the change directory out only through the ignore
+	// file: a project that does not ignore it would land its plan on the
+	// default branch.
+	changes := specRootLeaf(worktree, stderr) + "/changes/"
+	if exitCode(git("-C", worktree, "check-ignore", "-q", changes).Run()) != 0 {
+		fmt.Fprintf(stderr, "commit-split: %s is not gitignored in %s — add it to .gitignore before integrating\n", changes, worktree)
+		return 2
+	}
 	if rc := run("add", "-A", "--", "."); rc != 0 {
 		return rc
 	}

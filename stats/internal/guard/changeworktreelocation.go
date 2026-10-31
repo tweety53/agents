@@ -7,8 +7,8 @@ import (
 
 // checkChangeWorktreeLocation refuses a worktree a change's branch is
 // rewritten in unless it is a linked worktree on spectre/<name>:
-// PLANNING-COMMIT-MAIN-CHECKOUT and/or PLANNING-COMMIT-WRONG-BRANCH at exit
-// 1, or PLANNING-COMMIT-LOCATION-OK at exit 0; exit 2 with nothing on stdout
+// WORKTREE-LOCATION-MAIN-CHECKOUT and/or WORKTREE-LOCATION-WRONG-BRANCH at exit
+// 1, or WORKTREE-LOCATION-LOCATION-OK at exit 0; exit 2 with nothing on stdout
 // when it cannot answer. reshape-branch and commit-split call it in-process
 // before they move HEAD: a rewrite in the main checkout, or on another
 // change's branch, lands where no step of this change ever sees it.
@@ -54,16 +54,16 @@ func checkChangeWorktreeLocation(args []string, env Env, stdout, stderr io.Write
 
 	violation := false
 	if gitDir == common {
-		fmt.Fprintf(stdout, "PLANNING-COMMIT-MAIN-CHECKOUT: %s\n", wt)
+		fmt.Fprintf(stdout, "WORKTREE-LOCATION-MAIN-CHECKOUT: %s\n", wt)
 		violation = true
 	}
 	if branch != "spectre/"+name {
-		fmt.Fprintf(stdout, "PLANNING-COMMIT-WRONG-BRANCH: %s on %s — expected spectre/%s\n", wt, branch, name)
+		fmt.Fprintf(stdout, "WORKTREE-LOCATION-WRONG-BRANCH: %s on %s — expected spectre/%s\n", wt, branch, name)
 		violation = true
 	}
 	if violation {
 		return 1
 	}
-	fmt.Fprintf(stdout, "PLANNING-COMMIT-LOCATION-OK: %s on spectre/%s\n", wt, name)
+	fmt.Fprintf(stdout, "WORKTREE-LOCATION-LOCATION-OK: %s on spectre/%s\n", wt, name)
 	return 0
 }

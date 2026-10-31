@@ -9,6 +9,8 @@
 # call sites (`/flow`'s PR-exception path in verify-and-handoff and its integrate run) one
 # place to call instead of each spelling the chain out inline.
 #
+# Refuses (exit 2, naming the path) when `<spec root>/changes/` is not
+# gitignored, since `git add -A` would then commit the change directory.
 # Stages everything (`git add -A -- .`) and commits it as the
 # implementation commit — skipped, not failed, if nothing is staged — with
 # `Flow-Key: flow.commit-two` and each <trailer> (a squashed commit's
@@ -23,7 +25,8 @@
 # the chain.
 #
 # Exit codes: 0 when the chain ran (either commit possibly skipped); 2 with a
-# usage line on stderr when fewer than four arguments are given; the location
+# usage line on stderr when fewer than four arguments are given, or when the
+# change directory is not gitignored; the location
 # guard's own code on its refusal; git's own code on a git failure.
 #
 # flow-guard is built from this checkout, never taken from PATH:

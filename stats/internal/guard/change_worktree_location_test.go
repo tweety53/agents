@@ -48,7 +48,7 @@ func TestChangeWorktreeLocationRefusesAMainCheckout(t *testing.T) {
 	sandbox, main := cwlFx(t)
 	t.Run("main checkout on its default branch is refused and is also the wrong branch", func(t *testing.T) {
 		t.Parallel()
-		cwlRun(t, env, 1, "PLANNING-COMMIT-MAIN-CHECKOUT: "+main+"\nPLANNING-COMMIT-WRONG-BRANCH: "+main+" on main — expected spectre/demo\n", main, "demo")
+		cwlRun(t, env, 1, "WORKTREE-LOCATION-MAIN-CHECKOUT: "+main+"\nWORKTREE-LOCATION-WRONG-BRANCH: "+main+" on main — expected spectre/demo\n", main, "demo")
 	})
 	t.Run("main checkout on spectre/<name> is still refused, with only the main-checkout line", func(t *testing.T) {
 		t.Parallel()
@@ -59,15 +59,15 @@ func TestChangeWorktreeLocationRefusesAMainCheckout(t *testing.T) {
 		if g.err != nil {
 			t.Fatal(g.err)
 		}
-		cwlRun(t, env, 1, "PLANNING-COMMIT-MAIN-CHECKOUT: "+main+"\n", main, "demo")
+		cwlRun(t, env, 1, "WORKTREE-LOCATION-MAIN-CHECKOUT: "+main+"\n", main, "demo")
 	})
 	t.Run("linked worktree of another change is refused", func(t *testing.T) {
 		t.Parallel()
-		cwlRun(t, env, 1, "PLANNING-COMMIT-WRONG-BRANCH: "+main+"/.worktrees/other on spectre/other — expected spectre/demo\n", main+"/.worktrees/other", "demo")
+		cwlRun(t, env, 1, "WORKTREE-LOCATION-WRONG-BRANCH: "+main+"/.worktrees/other on spectre/other — expected spectre/demo\n", main+"/.worktrees/other", "demo")
 	})
 	t.Run("detached worktree is refused", func(t *testing.T) {
 		t.Parallel()
-		cwlRun(t, env, 1, "PLANNING-COMMIT-WRONG-BRANCH: "+main+"/.worktrees/detached on detached — expected spectre/demo\n", main+"/.worktrees/detached", "demo")
+		cwlRun(t, env, 1, "WORKTREE-LOCATION-WRONG-BRANCH: "+main+"/.worktrees/detached on detached — expected spectre/demo\n", main+"/.worktrees/detached", "demo")
 	})
 	for _, c := range []struct {
 		name string
@@ -92,14 +92,14 @@ func TestChangeWorktreeLocationAdmitsAChangeWorktree(t *testing.T) {
 	_, main := cwlFx(t)
 	t.Run("linked worktree on spectre/<name> passes", func(t *testing.T) {
 		t.Parallel()
-		cwlRun(t, env, 0, "PLANNING-COMMIT-LOCATION-OK: "+main+"/.worktrees/demo on spectre/demo\n", main+"/.worktrees/demo", "demo")
+		cwlRun(t, env, 0, "WORKTREE-LOCATION-LOCATION-OK: "+main+"/.worktrees/demo on spectre/demo\n", main+"/.worktrees/demo", "demo")
 	})
 	t.Run("a subdirectory of the change worktree passes", func(t *testing.T) {
 		t.Parallel()
-		cwlRun(t, env, 0, "PLANNING-COMMIT-LOCATION-OK: "+main+"/.worktrees/demo/sub on spectre/demo\n", main+"/.worktrees/demo/sub", "demo")
+		cwlRun(t, env, 0, "WORKTREE-LOCATION-LOCATION-OK: "+main+"/.worktrees/demo/sub on spectre/demo\n", main+"/.worktrees/demo/sub", "demo")
 	})
 	t.Run("a relative worktree resolves against the caller's cwd and is printed as given", func(t *testing.T) {
 		t.Parallel()
-		cwlRun(t, Env{Getenv: os.Getenv, Dir: main}, 0, "PLANNING-COMMIT-LOCATION-OK: .worktrees/demo on spectre/demo\n", ".worktrees/demo", "demo")
+		cwlRun(t, Env{Getenv: os.Getenv, Dir: main}, 0, "WORKTREE-LOCATION-LOCATION-OK: .worktrees/demo on spectre/demo\n", ".worktrees/demo", "demo")
 	})
 }
