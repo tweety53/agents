@@ -2020,6 +2020,8 @@ func runRecordFindingFrom(ctx context.Context, path string, rest []string, stdou
 // A file whose every line names its ref is returned as it is, with no
 // store read; a present ref that is not a string is exit 2 naming its line,
 // and any other malformed line is left for runRecordFindingFrom to report.
+// It assumes a single writer per change: the parent runs -from once per
+// round, so two concurrent runs could read the same next free ref.
 func numberRefLessFindings(ctx context.Context, path string, data []byte, rest []string, stderr io.Writer) ([]byte, int) {
 	lines := strings.Split(string(data), "\n")
 	var refLess []int
@@ -2070,11 +2072,37 @@ func numberRefLessFindings(ctx context.Context, path string, data []byte, rest [
 		lines[i] = strings.TrimSuffix(b.String(), "\n")
 	}
 	out := []byte(strings.Join(lines, "\n"))
-	if err := os.WriteFile(path, out, 0o644); err != nil {
+	if err := replaceFile(path, out); err != nil {
 		fmt.Fprintf(stderr, "flow: -from %s: write the numbered refs: %v\n", path, err)
 		return nil, 1
 	}
 	return out, 0
+}
+
+// replaceFile writes data to a temp file beside path and renames it over
+// path, keeping path's mode, so a failed write leaves the original intact
+// and no temp file behind.
+func replaceFile(path string, data []byte) error {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmp.Name(), fi.Mode().Perm()); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), path)
 }
 
 // recordIdentityArgs keeps the -addr, -timeout, -C and -change flags of a

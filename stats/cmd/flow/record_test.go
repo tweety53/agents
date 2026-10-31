@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -6131,6 +6132,47 @@ func TestRecordFindingFromAssignsRefs(t *testing.T) {
 	}
 	if !strings.Contains(gotPath, wantKey) {
 		t.Errorf("(g) run-record read %q, want it to name -C's project %q", gotPath, wantKey)
+	}
+
+	// (h) The rewrite keeps <, > and & literal rather than \u-escaping them.
+	write(`{"task":1,"severity":"Minor","location":"a.go:1","note":"a<b && c>d"}` + "\n")
+	if code, stderr := load(); code != 0 {
+		t.Fatalf("(h) exit %d, want 0; stderr:\n%s", code, stderr)
+	}
+	if data, _ := os.ReadFile(file); !strings.Contains(string(data), `"note":"a<b && c>d"`) {
+		t.Errorf("(h) rewritten file escaped the note:\n%s", data)
+	}
+
+	// (i) A rewrite that cannot write leaves the original bytes and mode,
+	// and no temp file behind.
+	if runtime.GOOS != "windows" && os.Getuid() != 0 {
+		orig := `{"task":1,"severity":"Minor","location":"a.go:1","note":"x"}` + "\n"
+		write(orig)
+		if err := os.Chmod(file, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		dir := filepath.Dir(file)
+		if err := os.Chmod(dir, 0o500); err != nil {
+			t.Fatal(err)
+		}
+		code, _ := load()
+		_ = os.Chmod(dir, 0o700)
+		if code == 0 {
+			t.Errorf("(i) exit 0 with an unwritable directory, want non-zero")
+		}
+		if data, _ := os.ReadFile(file); string(data) != orig {
+			t.Errorf("(i) original changed:\n%s", data)
+		}
+		if entries, _ := os.ReadDir(dir); len(entries) != 1 {
+			t.Errorf("(i) %d entries in the directory, want only the file", len(entries))
+		}
+		// A writable rewrite keeps the file's mode.
+		if code, stderr := load(); code != 0 {
+			t.Fatalf("(i) exit %d, want 0; stderr:\n%s", code, stderr)
+		}
+		if fi, err := os.Stat(file); err != nil || fi.Mode().Perm() != 0o600 {
+			t.Errorf("(i) mode after rewrite = %v (%v), want 0600", fi.Mode().Perm(), err)
+		}
 	}
 }
 
