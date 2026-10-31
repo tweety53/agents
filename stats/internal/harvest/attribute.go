@@ -512,6 +512,33 @@ func NewAttributor(windows WindowSource) *Attributor {
 // pre-first-mark-unattributed: whatever the session did before the run), or
 // that fall after every candidate's change finished are not attributed.
 func (a *Attributor) Attribute(ctx context.Context, records []Record) (map[int64]Delta, error) {
+	return a.attribute(ctx, records, func(windows []Window, ts time.Time) (Window, bool) {
+		if w, ok := bestWindow(windows, ts); ok {
+			return w, true
+		}
+		return fallbackWindow(windows, ts)
+	})
+}
+
+// AttributeGaps is Attribute restricted to the records the pre-fix rule
+// dropped: those bestWindow places nowhere and fallbackWindow places
+// somewhere. Watcher.BackfillStageGaps runs it over bytes already
+// harvested, where every record a window contains was counted already
+// (decision gap-backfill-once-at-startup).
+func (a *Attributor) AttributeGaps(ctx context.Context, records []Record) (map[int64]Delta, error) {
+	return a.attribute(ctx, records, func(windows []Window, ts time.Time) (Window, bool) {
+		if _, ok := bestWindow(windows, ts); ok {
+			return Window{}, false
+		}
+		return fallbackWindow(windows, ts)
+	})
+}
+
+// attribute is the body Attribute and AttributeGaps share: it groups
+// records by session, asks place for each record's window among its
+// session's, and builds one Delta per placed stage run. A record place
+// answers false for is not attributed.
+func (a *Attributor) attribute(ctx context.Context, records []Record, place func([]Window, time.Time) (Window, bool)) (map[int64]Delta, error) {
 	deltas := make(map[int64]Delta)
 	if len(records) == 0 {
 		return deltas, nil
@@ -525,10 +552,7 @@ func (a *Attributor) Attribute(ctx context.Context, records []Record) (map[int64
 			return nil, fmt.Errorf("harvest: windows for session %s: %w", sessionID, err)
 		}
 		for _, r := range bySession[sessionID] {
-			w, ok := bestWindow(windows, r.Timestamp)
-			if !ok {
-				w, ok = fallbackWindow(windows, r.Timestamp)
-			}
+			w, ok := place(windows, r.Timestamp)
 			if !ok {
 				continue
 			}

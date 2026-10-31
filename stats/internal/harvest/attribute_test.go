@@ -2314,3 +2314,27 @@ func TestInlineWindowCarriesTheSessionsEffort(t *testing.T) {
 		t.Errorf("launched delta = %+v, want its model and no effort", d)
 	}
 }
+
+// TestAttributeGapsKeepsOnlyFallbackRecords pins the back-fill's filter
+// (decision gap-backfill-once-at-startup): only a record the old rule placed
+// nowhere and the fallback places somewhere -- the 10:03 one -- yields a
+// delta; the in-window ones were harvested already and the pre-mark one is
+// nobody's.
+func TestAttributeGapsKeepsOnlyFallbackRecords(t *testing.T) {
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{mainSessionID: {
+		gapWindow(t, 1, "10:00:00", "10:01:00", ""), gapWindow(t, 2, "10:05:00", "10:06:00", ""),
+	}}}
+	deltas, err := harvest.NewAttributor(windows).AttributeGaps(context.Background(), []harvest.Record{
+		gapRecord(t, "09:59:00", 1), gapRecord(t, "10:00:30", 10), gapRecord(t, "10:03:00", 100), gapRecord(t, "10:05:30", 1000),
+	})
+	if err != nil {
+		t.Fatalf("AttributeGaps: %v", err)
+	}
+	got := make(map[int64]int64, len(deltas))
+	for id, d := range deltas {
+		got[id] = d.Total.Main.Input
+	}
+	if want := map[int64]int64{1: 100}; !reflect.DeepEqual(got, want) {
+		t.Errorf("main input by run = %v, want %v", got, want)
+	}
+}

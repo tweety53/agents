@@ -270,7 +270,7 @@ const (
 )
 
 // Source is one transcript source: a root to walk for *.jsonl files and the
-// pair of read functions that parse those files' own line shape. The Claude
+// read and parse functions for those files' own line shape. The Claude
 // transcript format and ZCode's rollout format share the offset, attribution
 // and commit machinery but not their line shapes, so the parser rides with
 // the root instead of being hardcoded in the read path -- one Watcher runs
@@ -286,18 +286,22 @@ type Source struct {
 	// ReadAllCommands' contract (transcript.go): no Records, no offset
 	// read or written -- the retried-give-up scan's shape.
 	ReadAllCmds func(path string) ([]CommandRecord, error)
+	// Parse is the Record parse ReadNew runs on a read's complete lines --
+	// the same function, so Watcher.BackfillStageGaps re-reading
+	// already-harvested bytes yields exactly the records the watcher did.
+	Parse func(complete []byte) []Record
 }
 
 // NewClaudeSource builds the source over a Claude Code transcripts root
 // (~/.claude/projects, or FLOW_TRANSCRIPTS_DIR's override).
 func NewClaudeSource(root string) Source {
-	return Source{Root: root, ReadNew: ReadNewRecords, ReadAllCmds: ReadAllCommands}
+	return Source{Root: root, ReadNew: ReadNewRecords, ReadAllCmds: ReadAllCommands, Parse: ParseTranscriptRecords}
 }
 
 // NewRolloutSource builds the source over a ZCode rollout root
 // (~/.zcode/cli/rollout, or FLOW_ZCODE_ROLLOUTS_DIR's override).
 func NewRolloutSource(root string) Source {
-	return Source{Root: root, ReadNew: ReadRolloutNewRecords, ReadAllCmds: ReadRolloutAllCommands}
+	return Source{Root: root, ReadNew: ReadRolloutNewRecords, ReadAllCmds: ReadRolloutAllCommands, Parse: ParseRolloutRecords}
 }
 
 // transcriptSet is one source's discovered file list for a single RunOnce
@@ -2972,6 +2976,155 @@ func encodePatches(deltas map[int64]Delta, meta DispatchMeta, hasMeta bool) (map
 		patches[stageRunID] = patch
 	}
 	return patches, nil
+}
+
+// StageGapBackfill names the one-shot back-fill of the spend the pre-fix
+// attribution rule dropped between two stage windows -- its
+// harvest_backfills row (decision gap-backfill-once-at-startup).
+const StageGapBackfill = "stage-gap-cost"
+
+// BackfillSink is what Watcher.BackfillStageGaps needs from the store: the
+// back-fill marker and the one transaction that commits the deltas with it
+// (decision backfill-one-transaction). *store.Store satisfies it.
+type BackfillSink interface {
+	HarvestBackfillDone(ctx context.Context, name string) (bool, error)
+	CommitHarvestBackfill(ctx context.Context, name string, deltas map[int64]json.RawMessage) (bool, error)
+}
+
+// BackfillStageGaps adds, once, the spend the pre-fix rule dropped from
+// bytes already harvested: for every transcript each Source would read that
+// has a stored offset, it parses [0, offset) with the Source's own Parse,
+// keeps the records AttributeGaps places -- those no window contains and the
+// last-begun-stage fallback does -- and commits every file's patches summed
+// per stage run in one CommitHarvestBackfill, then prices each touched run
+// as RunOnce does after a commit. It returns nil at once when the marker is
+// set. flowd calls it before the watcher's first cycle, so the watcher
+// resumes from the stored offsets and nothing is counted twice.
+//
+// One parse of [0, offset) yields what the watcher's batch-by-batch reads
+// passed to Attribute after dropCarriedMessage: ParseAssistantRecords keeps
+// one Record per message.id at its first line with the largest output any
+// line holds, and dropCarriedMessage's cross-batch carry reaches the same
+// totals. They differ only for a message whose lines straddle a batch
+// boundary: the batch path placed its later output by the later line's
+// timestamp, this parse by the first line's.
+//
+// A transcript gone from disk, or shorter than its stored offset (replaced
+// since), is skipped; any other failure returns before committing anything,
+// leaving the marker unset for the next startup to retry.
+func (w *Watcher) BackfillStageGaps(ctx context.Context, sink BackfillSink) error {
+	done, err := sink.HarvestBackfillDone(ctx, StageGapBackfill)
+	if err != nil || done {
+		return err
+	}
+
+	var total map[string]any
+	for _, source := range w.sources {
+		files, err := discoverTranscripts(source.Root)
+		if err != nil {
+			return err
+		}
+		for _, path := range files {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			offset, found, err := w.sink.GetHarvestOffset(ctx, path)
+			if err != nil {
+				return fmt.Errorf("harvest: backfill %s: get offset: %w", path, err)
+			}
+			if !found || offset == 0 {
+				continue
+			}
+			raw, err := os.ReadFile(path)
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			if err != nil {
+				return fmt.Errorf("harvest: backfill %s: %w", path, err)
+			}
+			if int64(len(raw)) < offset {
+				w.warn("harvest: backfill skips a transcript shorter than its stored offset", "path", path, "offset", offset, "size", len(raw))
+				continue
+			}
+			complete, _ := SplitCompleteLines(raw[:offset])
+			deltas, err := w.attributor.AttributeGaps(ctx, source.Parse(complete))
+			if err != nil {
+				return fmt.Errorf("harvest: backfill %s: %w", path, err)
+			}
+			meta, hasMeta := ReadDispatchMeta(path)
+			patches, err := encodePatches(deltas, meta, hasMeta)
+			if err != nil {
+				return fmt.Errorf("harvest: backfill %s: %w", path, err)
+			}
+			if total, err = addPatches(total, patches); err != nil {
+				return fmt.Errorf("harvest: backfill %s: %w", path, err)
+			}
+		}
+	}
+
+	summed := make(map[int64]json.RawMessage, len(total))
+	for key, patch := range total {
+		id, err := strconv.ParseInt(key, 10, 64)
+		if err != nil {
+			return fmt.Errorf("harvest: backfill: stage run key %q: %w", key, err)
+		}
+		if summed[id], err = json.Marshal(patch); err != nil {
+			return fmt.Errorf("harvest: backfill: encode stage run %d: %w", id, err)
+		}
+	}
+	applied, err := sink.CommitHarvestBackfill(ctx, StageGapBackfill, summed)
+	if err != nil || !applied {
+		return err
+	}
+	for id := range summed {
+		if err := w.deps.Price(ctx, id); err != nil {
+			w.warn("harvest: price stage run failed after backfill, will retry next cycle", "stage_run_id", id, "error", err)
+		}
+	}
+	return nil
+}
+
+// addPatches adds one file's per-stage-run patches into total, keyed by the
+// run id's decimal string, by deepAdd -- the in-memory twin of the
+// jsonb_deep_add the commit applies them with, so summing two files' patches
+// before the commit equals applying each.
+func addPatches(total map[string]any, patches map[int64]json.RawMessage) (map[string]any, error) {
+	if total == nil {
+		total = make(map[string]any)
+	}
+	for id, patch := range patches {
+		var v any
+		if err := json.Unmarshal(patch, &v); err != nil {
+			return nil, fmt.Errorf("decode stage run %d patch: %w", id, err)
+		}
+		key := strconv.FormatInt(id, 10)
+		total[key] = deepAdd(total[key], v)
+	}
+	return total, nil
+}
+
+// deepAdd is jsonb_deep_add (0005_jsonb_deep_add.sql) over decoded JSON:
+// objects merge key by key, numbers add, and otherwise b wins -- a absent
+// (nil) included.
+func deepAdd(a, b any) any {
+	switch av := a.(type) {
+	case map[string]any:
+		if bv, ok := b.(map[string]any); ok {
+			for k, v := range bv {
+				if cur, ok := av[k]; ok {
+					av[k] = deepAdd(cur, v)
+				} else {
+					av[k] = v
+				}
+			}
+			return av
+		}
+	case float64:
+		if bv, ok := b.(float64); ok {
+			return av + bv
+		}
+	}
+	return b
 }
 
 // Run calls RunOnce every interval until ctx is done. A single failed

@@ -368,7 +368,22 @@ func run(logger *slog.Logger) error {
 	// matches it (compile-time check below) -- so, like HarvestSink, no
 	// adapter is needed here.
 	watcher := newTranscriptWatcher(transcriptsRoot, rolloutRoot, st, attributor, logger)
-	go watcher.Run(watchCtx, harvestInterval)
+	// The one-shot stage-gap back-fill runs before the watcher's first
+	// cycle, in the watcher's own goroutine so the listener below is not
+	// held while it reads every transcript on disk: it reads only bytes
+	// already harvested, and the watcher then resumes from the stored
+	// offsets, so nothing is counted twice (decision
+	// gap-backfill-once-at-startup). A failure is logged and harvesting
+	// starts anyway; the marker stays unset and the next startup retries
+	// (decision backfill-one-transaction).
+	go func() {
+		if err := watcher.BackfillStageGaps(watchCtx, st); err != nil {
+			logger.Error("flowd stage-gap back-fill failed, will retry at the next startup", "error", err)
+		} else {
+			logger.Info("flowd stage-gap back-fill done")
+		}
+		watcher.Run(watchCtx, harvestInterval)
+	}()
 
 	// Task 10: close stage runs whose session has gone silent past
 	// sweepSilenceTimeout, with outcome "abandoned" -- design.md's "Stage
@@ -553,6 +568,7 @@ var (
 	_ harvest.HarvestSink  = (*store.Store)(nil)
 	_ harvest.WindowSource = storeWindowSource{}
 	_ harvest.Pricer       = (*store.Store)(nil)
+	_ harvest.BackfillSink = (*store.Store)(nil)
 	// Unlike storeWindowSource above, the dispatch-grain window source
 	// needs no adapter: store.DispatchWindowsForSession already answers in
 	// harvest.DispatchWindow, its own doc comment explaining why the type
