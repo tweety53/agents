@@ -12,10 +12,12 @@
 # already removed: success, its registration pruned. <merge-base> scopes the
 # wave-group copies' disclosed log; `-` discloses their status alone.
 #
-# First the save gate: an apply worktree holding spectre/changes/<name>/tasks.md
-# — gitignored, so the only copy of the plan — is refused, exit 1, with
-# "flow change save <name> has not run" when flowd holds no saved file of the
-# change for that worktree's project (`flow change file`); flowd unreachable is
+# First the save gate: an apply worktree holding a file `flow change save`
+# keeps — the plan, spectre/changes/<name>/tasks.md or
+# .superpowers/sdd/<name>/tasks.md, or .superpowers/sdd/<name>/self-review-context.md,
+# each gitignored and so the only copy — is refused, exit 1, with
+# "flow change save <name> has not run" when flowd holds no saved copy of that
+# file for that worktree's project (`flow change file`); flowd unreachable is
 # exit 2. With the gate passed, check 4 counts spectre/changes/ and
 # .superpowers/ as regeneratable.
 #

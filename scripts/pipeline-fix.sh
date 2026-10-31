@@ -14,9 +14,9 @@
 #       git fetch origin; `git worktree add -b <branch> <repo>-worktrees/<branch>
 #       origin/<default>`, <branch> pipeline-fix-<name>-<k> with <k>, else
 #       self-review-<name>; refuses a <k> that is not one more than the highest
-#       <n> of any pipeline-fix-*-<n> branch (local or remote) or change folder
-#       (live under spectre/changes/, or landed — a chore(spectre): drop or
-#       archive subject in the base's log), so <k> is repo-unique; creates <worktree>/.superpowers/sdd/<branch>/ and the
+#       <n> of any pipeline-fix-*-<n> branch (local or remote), change flowd
+#       records (`flow state list`, which must answer from its store, complete,
+#       else exit 2) or directory under <repo>-worktrees/, so <k> is repo-unique; creates <worktree>/.superpowers/sdd/<branch>/ and the
 #       loop's STARTED state record (flow state set); runs ## worktree setup.
 #       stdout: `worktree: <path>`.
 #   pipeline-fix.sh end <key> <outcome>
