@@ -1,0 +1,2 @@
+# Sentences this change adds or rewords on purpose, one per line, exactly as
+# check-verbatim-moves.sh prints them after "::" (decision verbatim-moves-appended-by-parent).
