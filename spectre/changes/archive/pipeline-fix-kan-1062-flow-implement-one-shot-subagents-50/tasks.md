@@ -26,12 +26,12 @@
 
 - A chunk row whose commit carries another round's key is still refused (`accept-round-key`).
 
-- [ ] 1. Accept a chunk row's fix commit keyed to its round
-  - [ ] **Step 1: Reproduce.** Apply the test hunk alone
+- [x] 1. Accept a chunk row's fix commit keyed to its round
+  - [x] **Step 1: Reproduce.** Apply the test hunk alone
     (`git apply --include='stats/internal/guard/*_test.go' /tmp/pf50-task1.diff`, the diff below saved
     there) and run `cd stats && go test ./internal/guard -run ChunkRowKeyedToItsRound`: FAIL, stderr
     `panel-fix-1-2 records commit … carries no Flow-Key: panel-fix-1-2 trailer`.
-  - [ ] **Step 2: Implement.** Apply the rest
+  - [x] **Step 2: Implement.** Apply the rest
     (`git apply --exclude='stats/internal/guard/*_test.go' /tmp/pf50-task1.diff`):
 
 ````diff verified:applied with git apply to this worktree at 5302fcb2; go test ./internal/guard -run 'TestCheckPanelFixSingleDispatch|TestPfd' passes with it and the new test fails with panelfixsingledispatch.go reverted; gofmt -l, go vet and check-references exit clean
@@ -130,10 +130,10 @@ index 4ed3abe8..86fb1c4e 100644
  // the key is not that shape or r is 0.
  func pfdOneRoundLow(key string) string {
 ````
-  - [ ] **Step 3: Verify.** `cd stats && go test ./internal/guard -run 'TestCheckPanelFixSingleDispatch|TestPfd'`
+  - [x] **Step 3: Verify.** `cd stats && go test ./internal/guard -run 'TestCheckPanelFixSingleDispatch|TestPfd'`
     passes; `cd stats && make -s web-dist && go vet ./... && gofmt -l .` exits clean;
     `scripts/check-references.sh` exits 0.
-  - [ ] **Step 4: Commit** the three files with the subject below.
+  - [x] **Step 4: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `scripts/check-panel-fix-single-dispatch.sh`, `stats/internal/guard/check_panel_fix_single_dispatch_test.go`, `stats/internal/guard/panelfixsingledispatch.go`
