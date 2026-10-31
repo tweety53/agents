@@ -4,7 +4,7 @@
 // references a practice names it once and this package finds where the
 // practice is written down, instead of the caller searching repositories.
 //
-// Everything here is a plain filesystem read over the roots the caller
+// Everything here is a plain filesystem and git-history read over the roots the caller
 // supplies, resolved fresh on every call — the same "the daemon reads the
 // repositories" shape the self-review bundle uses. An index that
 // materialized briefs or narrative mentions would go stale the moment a
@@ -13,10 +13,15 @@
 package lessons
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -69,9 +74,10 @@ type Result struct {
 // lands with the change that promotes it and survives every cleanup.
 const briefsDir = "docs/briefs"
 
-// narrativesGlob is where each run's session narrative is archived,
-// relative to a project root: one narrative.md per archived change.
-const narrativesGlob = "spectre/changes/archive/*/narrative.md"
+// landedSubject matches the commit that removed a landed change's directory
+// from the tip -- a `drop` now, an `archive` move before -- whose history
+// holds the change's narrative.md (landed.File).
+var landedSubject = regexp.MustCompile(`^chore\(spectre\): (?:drop|archive) (\S+)$`)
 
 // matchLineCap bounds one narrative's printed matching lines. A narrative
 // that discusses the topic at length still answers "where is it written",
@@ -122,11 +128,14 @@ func Resolve(roots []Root, topic string) (*Result, error) {
 			}
 		}
 
-		narratives, _ := filepath.Glob(filepath.Join(root.Path, narrativesGlob))
-		for _, path := range narratives {
-			m, matched, err := readNarrative(root, path, needle)
+		cs, err := landedChanges(root.Path)
+		if err != nil {
+			res.Unreadable = append(res.Unreadable, root.Path)
+		}
+		for _, c := range cs {
+			m, matched, err := readNarrative(root, c, needle)
 			if err != nil {
-				res.Unreadable = append(res.Unreadable, path)
+				res.Unreadable = append(res.Unreadable, root.Path+": "+c.name)
 				continue
 			}
 			if matched {
@@ -173,23 +182,80 @@ func readBrief(root Root, path, needle string) (Brief, bool, error) {
 	return b, true, nil
 }
 
-// readNarrative reads one archived narrative and reports whether any of
-// its lines matches the needle. A read or stat failure is an error; no
-// match is a nil error with matched false.
-func readNarrative(root Root, path, needle string) (Mention, bool, error) {
-	content, err := os.ReadFile(path)
+// landedChange is one change whose directory a commit removed from the tip,
+// with that commit's time and the tree-ish path its narrative.md is read at.
+type landedChange struct {
+	name string
+	when time.Time
+	rev  string
+}
+
+// landedChanges lists root's landed changes from one history walk, newest
+// commit per name, a drop subject over a legacy archive one as landed.File
+// prefers it. A root that is not a git repository has none; any other git
+// failure is an error.
+func landedChanges(root string) ([]landedChange, error) {
+	out, err := exec.Command("git", "-C", root, "log", "--all", "--format=%H %ct %s",
+		"--fixed-strings", "--grep", "chore(spectre): ").Output()
 	if err != nil {
-		return Mention{}, false, err
+		var ee *exec.ExitError
+		if errors.As(err, &ee) && bytes.Contains(ee.Stderr, []byte("not a git repository")) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("git log in %s: %w", root, err)
 	}
-	info, err := os.Stat(path)
+	byName := map[string]landedChange{}
+	var names []string
+	for _, line := range strings.Split(string(out), "\n") {
+		f := strings.SplitN(line, " ", 3)
+		if len(f) < 3 {
+			continue
+		}
+		m := landedSubject.FindStringSubmatch(f[2])
+		if m == nil {
+			continue
+		}
+		prev, seen := byName[m[1]]
+		drop := strings.HasPrefix(f[2], "chore(spectre): drop ")
+		if seen && (!drop || !strings.Contains(prev.rev, ":spectre/changes/archive/")) {
+			continue
+		}
+		sec, _ := strconv.ParseInt(f[1], 10, 64)
+		c := landedChange{name: m[1], when: time.Unix(sec, 0)}
+		if drop {
+			c.rev = f[0] + "^:spectre/changes/" + m[1] + "/narrative.md"
+		} else {
+			c.rev = f[0] + ":spectre/changes/archive/" + m[1] + "/narrative.md"
+		}
+		if !seen {
+			names = append(names, m[1])
+		}
+		byName[m[1]] = c
+	}
+	cs := make([]landedChange, 0, len(names))
+	for _, n := range names {
+		cs = append(cs, byName[n])
+	}
+	return cs, nil
+}
+
+// readNarrative reads one landed change's narrative.md from history and
+// reports whether any of its lines matches the needle. A git failure is an
+// error; no narrative or no match is a nil error with matched false.
+func readNarrative(root Root, c landedChange, needle string) (Mention, bool, error) {
+	content, err := exec.Command("git", "-C", root.Path, "show", c.rev).Output()
 	if err != nil {
-		return Mention{}, false, err
+		var ee *exec.ExitError
+		if errors.As(err, &ee) && (bytes.Contains(ee.Stderr, []byte("does not exist")) || bytes.Contains(ee.Stderr, []byte("exists on disk, but not in"))) {
+			return Mention{}, false, nil
+		}
+		return Mention{}, false, fmt.Errorf("git show %s: %w", c.rev, err)
 	}
 	m := Mention{
 		Repo:    root.Path,
-		Change:  filepath.Base(filepath.Dir(path)),
-		Path:    relTo(root.Path, path),
-		ModTime: info.ModTime(),
+		Change:  c.name,
+		Path:    "spectre/changes/" + c.name + "/narrative.md",
+		ModTime: c.when,
 	}
 	for _, line := range strings.Split(string(content), "\n") {
 		if strings.Contains(Normalize(line), needle) {

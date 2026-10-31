@@ -137,7 +137,7 @@ and the handoff shape, and is canonical for them. The finish contract lives in
 `skills/flow-contracts/finish-contract-run1.md` and `skills/flow-contracts/finish-contract-run2.md`,
 canonical for themselves and loaded by `/flow`'s integrate/cleanup phase alone.
 
-`<name>` is **optional** on `/flow` and `/flow-status` — if omitted, the sole active (non-archived)
+`<name>` is **optional** on `/flow` and `/flow-status` — if omitted, the sole active (not yet landed)
 change relevant to that state is used automatically; if there are multiple, you're asked which.
 
 **No command takes a flag.** The only argument is the change name (or, on a creating `/flow` run, a

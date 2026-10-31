@@ -81,4 +81,4 @@ URL would leave it advertised and unrepublishable.
 
 ### Rendered ledger and panel record
 
-`the renders target the canonical worktree only` — (kan-399); `copied into run 1's archive commit` … `spectre/<name>` — (kan-552).
+`the renders target the canonical worktree only` — (kan-399); `copied into run 1's archive commit` … `spectre/<name>` — (kan-552). kan-1072 replaced the kan-552 phrase with `never copied into the change directory or committed`: run 1 drops the change directory instead of archiving it.

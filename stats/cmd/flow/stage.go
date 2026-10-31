@@ -724,8 +724,9 @@ func gatePanelFindingsClosed(f stageIdentityFlags, outcome string, stderr io.Wri
 // before anything is pushed (kan-1016's self-review: one was pushed before
 // integrate's gate saw it). Each worktree is judged from `git merge-base HEAD
 // origin/<base>`, <base> resolve-base-branch's answer, exactly as
-// integrate's unfinished-work gate judges it — past the self-review loop on an
-// archived re-run (guard.ArchivedRerunBase). A guard that cannot answer, a
+// integrate's unfinished-work gate judges it — past the newest drop commit
+// and the self-review loop on a re-run after run 1's drop
+// (guard.ArchivedRerunBase). A guard that cannot answer, a
 // state map that cannot be read among them, refuses.
 func gateVisualVerifyTrailers(ctx context.Context, f stageIdentityFlags, outcome string, stderr io.Writer) int {
 	if f.command != "/flow" || f.stage != "flow.visual-verify" || outcome != "completed" {

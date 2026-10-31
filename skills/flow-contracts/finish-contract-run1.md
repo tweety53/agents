@@ -27,7 +27,7 @@ name `resolve-base-branch.sh` printed — never the bare local name on its own.
 |---------|---------|
 | `RUN1` | integrate — the branch has not reached the base branch |
 | `RUN2` | clean up — merged, and nothing is outstanding |
-| `REFUSE` | stop and ask the operator before anything is archived |
+| `REFUSE` | stop and ask the operator before anything is dropped |
 
 On a `REFUSE`, stop before touching anything, report `HEAD`, the base branch and the uncommitted
 count, and ask the operator explicitly. On a multi-repo change, run the script once per worktree in
@@ -112,50 +112,51 @@ worktree of this change is named at its new path from then on — the script rew
 
 ### Run 1 — the branch is not merged
 
-**An archive a stopped run 1 left uncommitted is undone first**, in the canonical worktree, before
-anything below: when `<project>/spectre/changes/archive/<name>/` exists there and `<merge-base>..HEAD`
-holds no `chore(spectre): archive <name>` commit — a run 1 that stopped between `spectre archive` and
-`commit-archive.sh`, or between the parent's call and a `<name>-fix-N` sibling's — `git mv` that
-directory, and every `<project>/spectre/changes/archive/<name>-fix-N/` beside it, back under
-`<project>/spectre/changes/`. **When `<project>/spectre/changes/<name>/` also exists, stop and ask** — `git mv` would nest the archive inside it, hiding the fix run's tasks from the gate; the operator checks the live copy holds nothing the archived one lacks, removes it, and re-runs. The change is then not archived, and this run archives it as a first
-run 1 does: any fix run's work is gated, reshaped and committed by the two-commit chain, and the
-move lands after it as its own archive commit, never riding `chore(spectre): plan <name>`.
+**A drop a stopped run 1 left uncommitted is undone first**, in the canonical worktree, before
+anything below: when the index holds staged deletions under `<project>/spectre/changes/<name>/` or
+a `<project>/spectre/changes/<name>-fix-N/` beside it — a run 1 that stopped between
+`commit-archive.sh`'s `git rm` and its commit, a fix run's refused re-drop included, whose branch
+already holds run 1's `chore(spectre): drop <name>` commit — `git restore --source=HEAD --staged
+--worktree` puts each such directory back. The change is then not dropped, and this
+run drops it as a first run 1 does: any fix run's work is gated, reshaped and committed by the
+two-commit chain, and the drop lands after it as its own commit, never riding
+`chore(spectre): plan <name>`.
 
-**Whether the change is already archived is decided once per change, in the canonical
-repository, and holds for every worktree in the set.** It is archived when the canonical
-worktree's `<project>/spectre/changes/archive/<name>/` exists and its
-`<project>/spectre/changes/<name>/` does not — an earlier run 1 ran `spectre archive` and stopped
-somewhere after it, and any fix run since wrote into the archived directory (**A change's
-directory**, `skills/flow-contracts/pipeline.md`).
+**Whether the change is already dropped is decided once per change, in the canonical
+repository, and holds for every worktree in the set.** It is dropped when the canonical
+worktree's branch holds a `chore(spectre): drop <name>` commit and its
+`<project>/spectre/changes/<name>/` does not exist — an earlier run 1 made the drop commit and
+stopped somewhere after it. A fix run that starts after the drop restores the directory from the
+drop commit's parent as its fix-run planning commit (`skills/flow/document-fix.md`), so the change
+reads as not dropped until this run's own drop commit.
 
-**An archived re-run's base** is the newest commit of the self-review loop in
+**A re-run's base** is the newest commit of the self-review loop in
 `<merge-base>..HEAD`: its `docs(self-review): <name> self-review report` commit — or, from a run
 before KAN-927, `docs(self-review): <name> self-review context bundle` — its
-`chore(spectre): archive self-review-<name>` commit, or, from its
+`chore(spectre): drop self-review-<name>` commit, or, from its
 `chore(spectre): plan self-review-<name>` commit on, every commit above that plan up to a fix
 run's first `chore(spectre): plan <name>` planning commit, with or without its ` — <stage>`
 suffix, which opens new work. Else it is the
-newest whose subject is `chore(spectre): archive <name>`, else `<merge-base>` itself — a satellite worktree whose run 1
-predates KAN-815 holds neither — `<merge-base>` being the merge base the reshape below would otherwise take. Everything at
-or below it is kept untouched — a reshape from that merge base itself would fold the archive, the
+newest whose subject is `chore(spectre): drop <name>`, else `<merge-base>` itself — a worktree
+whose branch holds no drop commit yet — `<merge-base>` being the merge base the reshape below would otherwise take. Everything at
+or below it is kept untouched — a reshape from that merge base itself would fold the drop, the
 self-review loop's plan and fix commits and the report into the implementation commit. The re-run **carries new work** when a commit sits
 above the canonical worktree's base — every fix run commits its plan there, whichever repositories
 its tasks touched — or any worktree in the set holds an uncommitted tracked change, judged at the
 unfinished-work gate, before this run's own narrative append.
 
-A re-run of an archived change skips the canonical worktree's `spectre archive`. **Without new work** it also skips, before
-it, the unfinished-work gate, the reshape and the two-commit chain — `spectre archive` already
-refused any unchecked task, and nothing above the base needs committing. **With new work** it
-skips none of them: the unfinished-work gate reads the archived `tasks.md`, and the reshape takes
-the archived re-run's base as its `<merge-base>` argument, so the commits above the base fold into
-a new implementation commit and a `chore(spectre): plan <name>` carrying the archived directory's
-planning delta. Everything else runs
+A re-run of a dropped change **without new work** skips the unfinished-work gate, the reshape and
+the two-commit chain — the gate before the drop already refused any unchecked task, and nothing
+above the base needs committing. **With new work** it skips none of them: the unfinished-work gate
+reads the restored `tasks.md`, and the reshape takes the re-run's base as its `<merge-base>`
+argument, so the commits above the base fold into a new implementation commit and a
+`chore(spectre): plan <name>` carrying the restored directory's planning delta. Everything else runs
 either way: the base-moved check and **Sync the branch onto the base**
 (`skills/flow/sync-onto-base.md`), `commit-archive.sh`, which prints
-`ARCHIVE-NOTHING-STAGED` once the archive commit exists and nothing it copies has changed, the
+`ARCHIVE-NOTHING-STAGED` once the directory is already gone, the
 self-review pass, and the route.
 
-**Check for unfinished work first — before the landing question and before any git action but the undo of an uncommitted archive above.**
+**Check for unfinished work first — before the landing question and before any git action but the undo of an uncommitted drop above.**
 `check-unfinished-work.sh <worktree> <change-name> [canonical-worktree] [<worktree>=<merge-base>]...` prints one verdict line and
 exits 0 whenever it reached a verdict. It exits 2 with **no** verdict line when it cannot read the
 worktree. Run it once per worktree in the set found by **Resolving a change's worktrees** below —
@@ -194,7 +195,7 @@ naming something to exercise (**Live check**, `skills/flow/verify-and-handoff.md
 `--accept-outstanding` never passes it.
 
 **Then run `check-untasked-commits.sh <worktree> <base>`**, once per worktree in the same
-resolved set, `<base>` the same fork point — or, where the change is archived, the archived
+resolved set, `<base>` the same fork point — or, where a drop commit is on the branch, the
 re-run's base that fork point yields. An `UNTASKED-OK` line joins `CLEAR`; an `UNTASKED` line and
 the commits it lists are treated exactly as `OUTSTANDING`, and exit 2 is stop-and-ask, the same as
 a missing `check-unfinished-work.sh` verdict line. The guard's header
@@ -283,69 +284,62 @@ call site and the implement phase's PR-exception path.
 ### Archive on the change branch
 
 After the two-commit chain and before any route pushes, in the canonical apply worktree on
-`spectre/<name>` — the planning, archive and self-review commits land on the same branch, and so
-the same pull request, as the code:
+`spectre/<name>` — the planning, drop and self-review commits land on the same branch, and so
+the same pull request, as the code. The section keeps its name, as `commit-archive.sh` and
+`check-archive-scope.sh` keep theirs; nothing is archived:
 
-1. **Archive the change** — `spectre archive <name>` moves it into
-   `<project>/spectre/changes/archive/<name>/`. **The archived leaf carries no date prefix**.
-   **One call per change, parent and sub-change alike.** A `<name>-fix-N` sub-change is a flat
-   sibling under `<project>/spectre/changes/`, never a directory inside its parent — `spectre new`
-   refuses an id that is not a single flat directory name — so the parent's call cannot reach it and
-   each sub-change is archived by its own call in this same step. Never left behind, never archived
-   alone. **There is nothing to sync into
-   `<project>/spectre/specs/` first**.
-2. **Commit the archive on `spectre/<name>`**, as its own commit after the two-commit chain. A
-   finished change never leaves the archive move uncommitted in the working tree.
+1. **Drop the change** — `commit-archive.sh <canonical-worktree> <name>` removes
+   `<project>/spectre/changes/<name>/` and every `<project>/spectre/changes/<name>-fix-N/` from the
+   index and the disk (`git rm -r`, then the untracked rest — self-review patches,
+   `verbatim-moves.txt` and any scratch leave with it) and commits the removal as
+   `chore(spectre): drop <name>` on `spectre/<name>`, its own commit after the two-commit chain.
+   **One call drops parent and sub-changes alike**: a `<name>-fix-N` sub-change is a flat sibling
+   under `<project>/spectre/changes/`, never a directory inside its parent, and the call removes
+   each. Never left behind, never dropped alone. **There is nothing to sync into
+   `<project>/spectre/specs/` first**, and no ledger or panel record is copied anywhere: both are
+   renders of flowd rows, and the self-review bundle renders them from the store. A finished change
+   never leaves the drop uncommitted in the working tree; the change's files stay readable in
+   history at the drop commit's parent.
 
-   **The staging is `git add -A`, and this commit's diff is verified scoped to
-   `<project>/spectre/changes/`
-   before it is made** — `check-archive-scope.sh <canonical-worktree> "spectre/changes/"`, run between
-   the add and the commit. A `SCOPE-VIOLATION` refuses the commit and leaves the change at `IN_PROGRESS`
-   rather than let a stray path land on `spectre/<name>` unremarked. **An exit 2 with
-   nothing on stdout** — a worktree that is not a readable git worktree, or no
-   allowed-prefix given — refuses the commit the same way: the guard's header is
-   explicit that an inability to answer is never reported as a verdict, so an unreadable tree is
-   never read as `SCOPE-OK`.
-
-   **Before the `git add -A`, the rendered ledger and panel record are preserved into this
-   commit.** The canonical apply worktree's `<abs-worktree>/.superpowers/sdd/ledgers/<name>.md`
-   and `<abs-worktree>/.superpowers/sdd/reviews/<name>-panel.md` are copied into
-   `<project>/spectre/changes/archive/<name>/` as `ledger.md` and `panel.md` — each when
-   present, an absent file copying nothing — where they ride the archive commit under the scope
-   the check above verifies.
+   **The drop commit's diff is verified before it is made** — `check-archive-scope.sh
+   <canonical-worktree> <each removed directory>`, run in-process between the removal and the
+   commit, admits only staged deletions under those directories. A `SCOPE-VIOLATION` refuses the
+   commit and leaves the change at `IN_PROGRESS` rather than let a stray path land on
+   `spectre/<name>` unremarked. **An exit 2 with nothing on stdout** — a worktree that is not a
+   readable git worktree, or no allowed-prefix given — refuses the commit the same way: the guard's
+   header is explicit that an inability to answer is never reported as a verdict, so an unreadable
+   tree is never read as `SCOPE-OK`.
 
    **Before any of that, the Done-when cross-check refuses the commit** — `check-done-when-paths`
    runs in-process on the worktree, printing one `DONE-WHEN-PATH: <path> — <file>` line
    per path a `## Done when` section of the worktree's tracked markdown names that the index does
    not track, and its exit 1 refuses the commit exactly as a `SCOPE-VIOLATION` does, leaving the
-   change at `IN_PROGRESS` — the archive's answer to a done criterion satisfied by uncommitted
+   change at `IN_PROGRESS` — the drop's answer to a done criterion satisfied by uncommitted
    files, whose authoring side is the design rule of **The checklist**
    (`skills/flow/brainstorm-planner.md`), and an exit 2 refuses the commit too, never read as a
    pass.
 
-   **Every other worktree of the set archives its own change directory the same way**, after the
+   **Every other worktree of the set drops its own change directory the same way**, after the
    canonical one and in `## Merge order`: where `<project>/spectre/changes/<name>/` — a satellite's
-   `link.md` — still exists there, `spectre archive <name>` runs in that worktree, on an archived
-   re-run too, since the canonical decision says nothing of a satellite a stopped run left behind;
-   then `commit-archive.sh <that worktree> <name>` commits it as that repository's own
-   `chore(spectre): archive <name>` on `spectre/<name>`. Left unarchived, run 2's
-   `check-cleanup-complete.sh` finds it and reports `LEFTOVER` (KAN-815).
-3. **Push every worktree's `spectre/<name>` `--force-with-lease`**, in `## Merge order`, once the
-   archive commit lands — the reshape's push (**Branch backup**, `git-boundaries.md`).
+   `link.md` — still exists there, `commit-archive.sh <that worktree> <name>` drops it as that
+   repository's own `chore(spectre): drop <name>` on `spectre/<name>`, on a dropped re-run too,
+   since the canonical decision says nothing of a satellite a stopped run left behind. Left
+   undropped, run 2's `check-cleanup-complete.sh` finds it and reports `LEFTOVER` (KAN-815).
+2. **Push every worktree's `spectre/<name>` `--force-with-lease`**, in `## Merge order`, once the
+   drop commit lands — the reshape's push (**Branch backup**, `git-boundaries.md`).
 
 ### Run the self-review pass
 
-Then, still on `spectre/<name>` in the canonical apply worktree, after the archive commit and
+Then, still on `spectre/<name>` in the canonical apply worktree, after the drop commit and
 before any route pushes. The session fetches the
 bundle with
 `flow self-review bundle -change <name>`: flowd assembles the whole bundle — the ledger and the
-panel record rendered from the store, or, when the store yields no render for that record, read
-from the copies the archive commit carries, the archived `tasks.md`,
+panel record rendered from the store, the dropped change's `tasks.md`,
 `design.md`, `narrative.md`, `visual-verification.md` and `live-verification.md`
-read out of `spectre/<name>` in the repository the command resolves from its
+read out of history — the parent of the drop commit on `spectre/<name>` — in the repository the command resolves from its
 own location (the main checkout its working directory sits in — the store carries no repository
 roots for the pipeline's changes), and the `git log --stat` of every implementation, planning and
-archive commit of the change, oldest first, followed by each peer the archived `link.md`'s
+drop commit of the change, oldest first, followed by each peer the dropped `link.md`'s
 `## Merge order` names, its `spectre/<name>` commits against its base under a `### <peer>`
 heading — and prints it as one Markdown document. Its `visual-verification.md` keeps every heading and
 drops the table rows under each heading naming a matrix — any level, `matrix` in its text, any
@@ -354,7 +348,7 @@ its level or higher, with one line naming the lines it held, its heading and the
 and its `git log --stat` lines leave out every `*.png` path. A source that is absent is reported
 `skipped: <source> (absent)` inside the bundle, never fatal.
 The session writes that document to `<sr-dir>/bundle.md` (**2. Read the bundle and run the eight angles**, `skills/flow-self-review/SKILL.md`), never printing it, and appends `## Session narrative` there (one paragraph it writes for run 1 itself; the
-archived `narrative.md` is already a bundle section, and a change predating the narrative rule
+dropped change's `narrative.md` is already a bundle section, and a change predating the narrative rule
 has the bundle report it skipped) — it is never written to
 `<project>/docs/self-review/` or committed.
 
@@ -372,7 +366,7 @@ land-self-review-report.sh "<canonical-worktree>" "spectre/<name>" \
 
 The route's landing push carries the fix commits' shas per item 5 of step 3 of `/flow-self-review`, and on merge and push is followed by step 5's mining of the chosen flow-eval candidates, whose cases, branch and shas the run's final report names.
 
-A committed report skips the pass, an archived re-run with new work (**Run 1 — the branch is not
+A committed report skips the pass, a dropped re-run with new work (**Run 1 — the branch is not
 merged** above) included, so no finding is recorded or offered twice. A pass
 covers what the bundle holds and nothing beyond it — the report's `**Deferred:**` line states
 that. A bundle an older run committed as `<project>/docs/self-review/<name>-context.md` is still consumed
@@ -384,8 +378,8 @@ Every route runs from the apply worktree; none touches the main checkout or any 
 
 | Route | Then |
 |-------|------|
-| **Open a pull request** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`); open a PR via `gh` when usable for the host, else print the forge's create-PR URL and ask whether it was opened; record `prUrl`. The PR carries the code, planning, archive, self-review fix and report commits. A `prUrl` the state file already records is that PR: the push updates it, and none is opened |
-| **Merge and push** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`), then `git -C <apply-worktree> push origin HEAD:<base>`, `HEAD` being `spectre/<name>` there — a fast-forward, since the branch already sits on `origin/<base>`: the base had not moved, or **Sync the branch onto the base** rebased it there. A rejected push means the base moved after the sync: re-resolve the base with `resolve-base-branch.sh`, which fetches, re-run **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) — the archive, the self-review fixes and the report, already committed, ride the rebase — and push both once more; a second rejection stops and reports, leaving the change at `IN_PROGRESS`. Run 2 then continues in the same invocation |
+| **Open a pull request** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`); open a PR via `gh` when usable for the host, else print the forge's create-PR URL and ask whether it was opened; record `prUrl`. The PR carries the code, planning, drop, self-review fix and report commits. A `prUrl` the state file already records is that PR: the push updates it, and none is opened |
+| **Merge and push** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`), then `git -C <apply-worktree> push origin HEAD:<base>`, `HEAD` being `spectre/<name>` there — a fast-forward, since the branch already sits on `origin/<base>`: the base had not moved, or **Sync the branch onto the base** rebased it there. A rejected push means the base moved after the sync: re-resolve the base with `resolve-base-branch.sh`, which fetches, re-run **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) — the drop, the self-review fixes and the report, already committed, ride the rebase — and push both once more; a second rejection stops and reports, leaving the change at `IN_PROGRESS`. Run 2 then continues in the same invocation |
 | **Handle it manually** | push the branch `--force-with-lease` only; say plainly what is left to do |
 
 Run 1 ends at `IN_PROGRESS`, and its handoff ends on `/flow <name>`

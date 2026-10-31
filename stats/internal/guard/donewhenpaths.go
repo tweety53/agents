@@ -23,9 +23,9 @@ import (
 // only as good as the committed state it names: kan-743's own Done-when named
 // three gitignored side-output PNGs as the re-baseline, cleanup later removed
 // them as side output, and the change stayed Done while its definition of
-// done no longer held anywhere. This guard makes that state a refusal at the
-// archive commit instead: a Done-when's evidence must sit in the index —
-// tracked, not merely present or ignored — or the archive does not happen.
+// done no longer held anywhere. This guard makes that state a refusal at
+// run 1's drop commit instead: a Done-when's evidence must sit in the index —
+// tracked, not merely present or ignored — or the drop does not happen.
 func init() { Registry["check-done-when-paths"] = checkDoneWhenPaths }
 
 // dwHeading opens a `## Done when` section (the \b keeps `Done whenever`

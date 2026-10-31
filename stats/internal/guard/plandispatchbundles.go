@@ -21,9 +21,8 @@ import (
 // legitimate sweep may also touch, not paths the task owns.
 //
 // Arguments: one tasks.md path computes that file; none scans every live
-// change's tasks.md under <root>/<spec leaf>/changes/*/tasks.md, and that of
-// every archived change the base does not carry yet (unlanded-archives, run
-// in-process), aggregating exit codes -- 2 beats 1 beats 0 -- and printing
+// change's tasks.md under <root>/<spec leaf>/changes/*/tasks.md,
+// aggregating exit codes -- 2 beats 1 beats 0 -- and printing
 // each file's own bundles or violations. <root> is PLAN_DISPATCH_BUNDLES_ROOT
 // when set (a test's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT,
 // which scripts/plan-dispatch-bundles.sh exports as its own REAL parent's

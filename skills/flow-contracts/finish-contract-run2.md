@@ -1,9 +1,9 @@
 # Finish contract — run 2 (the branch is merged)
 
 **This file is canonical for `/flow`'s cleanup run** — run 2's procedure and worktree cleanup.
-Run 1 already archived the change and ran its self-review pass on the change branch
+Run 1 already dropped the change directory and ran its self-review pass on the change branch
 (**Archive on the change branch**, `skills/flow-contracts/finish-contract-run1.md`), so run 2
-archives, commits and pushes nothing: it cleans up once the branch has merged.
+drops, commits and pushes nothing: it cleans up once the branch has merged.
 
 bare `/flow` is the only command that loads this file whole.
 
@@ -175,7 +175,7 @@ asking**. A
 non-empty unclassified bucket → **show that bucket in full** (the regeneratable one named only by
 count), saying of each entry whether it is irreplaceable and whether it was already preserved,
 **and proceed without asking** — by this point the change's own work is committed and step 1
-proved it merged, and the rendered ledger and panel record ride run 1's archive commit. **The one
+proved it merged, and the ledger and panel record ride nothing: both render from the store's rows. **The one
 ask:** an entry that is irreplaceable and *unpreserved* → stop and ask for explicit confirmation
 before removing that worktree.
 

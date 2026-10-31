@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/landed"
 )
 
 func init() {
@@ -80,13 +82,13 @@ type ic struct {
 //	worktree RUN2 -> NEXT is `cleanup`. Otherwise run 1, which first
 //	stops at STOP: base-mismatch when one worktree records a flowBase
 //	another resolves away from while that one's origin carries it: the
-//	uncommitted-archive undo, the archived decision, a design naming
+//	uncommitted-drop undo, the dropped decision, a design naming
 //	a live check needs live-verification.md passing
 //	check-live-verification, else STOP: live-check, which
 //	--accept-outstanding never passes, the unfinished-work
 //	gate (check-unfinished-work, check-visual-verify-dispatched against
 //	`git merge-base HEAD origin/$BASE`, check-untasked-commits from that
-//	base or an archived re-run's), check-base-moved and
+//	base or a dropped re-run's), check-base-moved and
 //	sync-onto-base on MOVED (running each GUARD-TEST it names, then
 //	the rebased worktree's ## lint list — rebase_lint below), and the
 //	default landing route (project-get.sh). Prints per worktree its
@@ -101,7 +103,7 @@ type ic struct {
 //	VISUAL-VERIFY-MISSING is STOP: visual-verify, which
 //	--accept-outstanding never passes — only an operator's
 //	false-positive flag on that worktree's verdict row naming its
-//	current HEAD. The gate runs on an archived re-run with no new
+//	current HEAD. The gate runs on a dropped re-run with no new
 //	work too, and again on each worktree a base move rebased here.
 //	commit and land run the same gate before every push they make,
 //	on every route, and again after land's re-sync.
@@ -113,15 +115,15 @@ type ic struct {
 //	old pin and HEAD; fetched from origin when absent locally; run 2
 //	never deletes it), reshape-branch per
 //	worktree, the ledger render, commit-split per
-//	worktree in `## Merge order`, `spectre archive` (each
-//	<name>-fix-N too) unless already archived, commit-archive,
-//	then in every other worktree whose <spec>/changes/<name>/ still
-//	exists `spectre archive <name>` and commit-archive. A
+//	worktree in `## Merge order`, commit-archive (the drop commit,
+//	`chore(spectre): drop <name>`, removing <spec>/changes/<name>/ and
+//	each <name>-fix-N/), then commit-archive in every other worktree
+//	whose <spec>/changes/<name>/ still exists. A
 //	worktree with nothing on the implementation side takes no
 //	subject; the canonical one whose only implementation path is a
 //	link.md takes `chore(spectre): merge order`; any other without
-//	one stops `commit-split`. An
-//	archived change without new work skips straight to commit-archive.
+//	one stops `commit-split`. A
+//	dropped change without new work skips straight to commit-archive.
 //	Before any of it, a narrative lacking the section of a fix or
 //	integrate run the store marked stops `narrative`
 //	(check-narrative-runs.sh). A `flow-fix` row `flow self-review
@@ -676,21 +678,38 @@ func icHas(list []string, s string) bool {
 	return false
 }
 
-// findCanonical: canon the worktree whose change directory holds tasks.md;
-// spec its tree.
+// findCanonical: canon the worktree whose change directory holds tasks.md
+// -- the live one, or, once run 1's drop commit removed it, the one whose
+// drop commit's parent held it (an uncommitted drop's HEAD included); spec
+// its tree.
 func (c *ic) findCanonical() bool {
 	c.canon, c.spec = "", ""
-	for _, w := range c.wt {
-		if !isDir(w) {
-			continue
-		}
-		s := specRootLeaf(w, io.Discard)
-		if isFile(w+"/"+s+"/changes/"+c.name+"/tasks.md") || isFile(w+"/"+s+"/changes/archive/"+c.name+"/tasks.md") {
-			c.canon, c.spec = w, s
-			return true
+	for _, pass := range []bool{false, true} {
+		for _, w := range c.wt {
+			if !isDir(w) {
+				continue
+			}
+			s := specRootLeaf(w, io.Discard)
+			plan := s + "/changes/" + c.name + "/tasks.md"
+			found := isFile(w + "/" + plan)
+			if pass {
+				_, inHead := c.gitQuiet("-C", w, "cat-file", "-e", "HEAD:"+plan)
+				_, landedPlan, _ := landed.File(w, c.name, "tasks.md")
+				found = inHead || (c.droppedIn(w) && landedPlan)
+			}
+			if found {
+				c.canon, c.spec = w, s
+				return true
+			}
 		}
 	}
 	return false
+}
+
+// droppedIn: worktree w's branch holds run 1's drop commit for this change.
+func (c *ic) droppedIn(w string) bool {
+	log, _ := c.gitQuiet("-C", w, "log", "--format=%s", "--fixed-strings", "--grep", "chore(spectre): drop "+c.name, "HEAD")
+	return icHas(icLines(log), "chore(spectre): drop "+c.name)
 }
 
 func (c *ic) idxOf(w string) int {
@@ -709,11 +728,14 @@ var icMergeItem = regexp.MustCompile("^[0-9]+\\. `")
 // <spec>/peers), every worktree it does not name after them in map order.
 func (c *ic) mergeOrder() {
 	c.order = nil
-	link := c.canon + "/" + c.spec + "/changes/" + c.name + "/link.md"
-	if !isFile(link) {
-		link = c.canon + "/" + c.spec + "/changes/archive/" + c.name + "/link.md"
+	b, err := os.ReadFile(c.canon + "/" + c.spec + "/changes/" + c.name + "/link.md")
+	if err != nil {
+		var ok bool
+		if b, ok, _ = landed.File(c.canon, c.name, "link.md"); ok {
+			err = nil
+		}
 	}
-	if b, err := os.ReadFile(link); err == nil {
+	if err == nil {
 		on := false
 		for _, l := range icLines(string(b)) {
 			if strings.HasPrefix(l, "## ") {
@@ -796,22 +818,19 @@ func (c *ic) baseOf(i int) {
 	}
 }
 
-// archBase: an archived re-run's base — past the self-review loop's
-// commits when it ran, else the archive commit, else mb.
+// archBase: a re-run's base — past the self-review loop's commits when it
+// ran, else the newest drop commit, else mb.
 func (c *ic) archBase(w, mb string) string {
 	log, _ := c.git("-C", w, "log", "--format=%H %s", mb+"..HEAD")
 	return archivedBase(log, c.name, mb)
 }
 
 // ArchivedRerunBase is the base integrate's unfinished-work gate judges
-// worktree w from: archBase's answer when canon holds name archived, else
-// mb. The visual-verify stage end shares it, so it refuses nothing
-// integrate would admit.
-func ArchivedRerunBase(env Env, canon, w, name, mb string) string {
-	s := specRootLeaf(canon, io.Discard)
-	if !isDir(canon+"/"+s+"/changes/archive/"+name) || isDir(canon+"/"+s+"/changes/"+name) {
-		return mb
-	}
+// worktree w from: archBase's answer -- mb until run 1's drop commit is on
+// the branch, a fix run's restored directory included. The visual-verify
+// stage end shares it, so it refuses nothing integrate would admit. canon
+// is no longer read: the drop commit alone decides.
+func ArchivedRerunBase(env Env, _, w, name, mb string) string {
 	log, _ := capture(envGit(env)("-C", w, "log", "--format=%H %s", mb+"..HEAD"))
 	return archivedBase(log, name, mb)
 }
@@ -820,21 +839,21 @@ func archivedBase(log, name, mb string) string {
 	if s := selfReviewBase(log, name); s != "" {
 		return s
 	}
-	if s := icFirstSubject(log, "chore(spectre): archive "+name); s != "" {
+	if s := icFirstSubject(log, "chore(spectre): drop "+name); s != "" {
 		return s
 	}
 	return mb
 }
 
 // selfReviewBase: the newest commit of the self-review loop in log (newest
-// first) — its report or bundle, its archive, or, from its plan commit on,
+// first) — its report or bundle, its drop, or, from its plan commit on,
 // every commit up to a fix run's own planning commit, which opens new work.
 func selfReviewBase(log, name string) string {
 	plan := "chore(spectre): plan " + name
 	marks := []string{
 		"docs(self-review): " + name + " self-review report",
 		"docs(self-review): " + name + " self-review context bundle",
-		"chore(spectre): archive self-review-" + name,
+		"chore(spectre): drop self-review-" + name,
 	}
 	base, loop := "", false
 	l := icLines(log)
@@ -1025,7 +1044,7 @@ func (c *ic) rebaseLint(w, prefix string) {
 // each `Task-Id:` commit and the pre-task tasks.md afterwards. Absent
 // locally, origin's is fetched first (a re-clone). Kept when it already
 // reaches HEAD (a re-run after a stop already reshaped); otherwise advanced
-// to a merge of the old pin and HEAD, so an archived re-run's new tasks
+// to a merge of the old pin and HEAD, so a dropped re-run's new tasks
 // stay reachable beside the earlier ones.
 func (c *ic) pinPreReshape(w string) {
 	r := "refs/flow/pre-reshape/" + c.name

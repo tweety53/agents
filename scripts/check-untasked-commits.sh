@@ -21,7 +21,7 @@
 # non-empty `Task-Id:` trailer (a task's own commit), a non-empty `Flow-Key:`
 # trailer (a commit a run makes outside every task on a sanctioned route —
 # **Commits outside every task**, skills/flow-contracts/git-boundaries.md),
-# has a `chore` subject (the planning, link and archive commits), or touches
+# has a `chore` subject (the planning, link and drop commits), or touches
 # only paths under the worktree's `<spec-root>/changes/` (a plan amendment).
 # A `Flow-Key: pipeline-fix-…` trailer is the exception, listed on any branch
 # but a `pipeline-fix-<name>-<k>` loop's own: an in-run pipeline fix runs its

@@ -38,11 +38,11 @@ func pfNew(t *testing.T, rows string) pfFx {
 	writeFile(t, fx.repo+"/"+mpFile, string(table))
 	writeFile(t, fx.repo+"/.flow/project.md", pfProject)
 	writeFile(t, fx.repo+"/.gitignore", ".setup-ran\n.superpowers/\n")
-	writeFile(t, fx.repo+"/spectre/changes/archive/pipeline-fix-old-5/proposal.md", "old\n")
 	writeExec(t, fx.repo+"/scripts/foo.sh", "#!/usr/bin/env bash\necho foo\n")
 	writeExec(t, fx.repo+"/scripts/test-foo.sh", "#!/usr/bin/env bash\nscripts/foo.sh | grep -q foo\n")
 	gitRun(t, fx.repo, "add", "-A")
 	gitRun(t, fx.repo, "commit", "-q", "-m", "init")
+	gitRun(t, fx.repo, "commit", "-q", "--allow-empty", "-m", "chore(spectre): archive pipeline-fix-old-5")
 	gitRun(t, fx.repo, "push", "-q", "origin", "HEAD:main")
 	gitRun(t, fx.repo, "remote", "set-head", "origin", "main")
 	gitRun(t, "", "clone", "-q", fx.origin, fx.other)
@@ -133,6 +133,41 @@ func TestPipelineFixStartRefusesANonUniqueK(t *testing.T) {
 	gitRun(t, fx.repo, "branch", "pipeline-fix-other-9")
 	if rc, out := fx.pf(t, "start", "kan-1-demo", "10"); rc != 0 {
 		t.Fatalf("one past a live branch: rc %d: %s", rc, out)
+	}
+}
+
+func TestPipelineFixHighestKCountsLandedChanges(t *testing.T) {
+	pfIdentity(t)
+	fx := pfNew(t, "")
+	writeFile(t, fx.repo+"/spectre/changes/pipeline-fix-x-7/proposal.md", "live\n")
+	gitRun(t, fx.repo, "add", "-A")
+	gitRun(t, fx.repo, "commit", "-q", "-m", "chore(spectre): plan pipeline-fix-x-7")
+	gitRun(t, fx.repo, "commit", "-q", "--allow-empty", "-m", "chore(spectre): drop pipeline-fix-x-9")
+	gitRun(t, fx.repo, "commit", "-q", "--allow-empty", "-m", "chore(spectre): archive pipeline-fix-x-8")
+	gitRun(t, fx.repo, "push", "-q", "origin", "HEAD:main")
+	if rc, out := fx.pf(t, "start", "kan-1-demo", "3"); rc != 1 || !strings.Contains(out, "<k> is 10") {
+		t.Fatalf("rc %d, want the next key 10: %s", rc, out)
+	}
+}
+
+func TestPipelineFixLandRefusesUndroppedChange(t *testing.T) {
+	pfIdentity(t)
+	fx := pfNew(t, lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed", "review-1 clean"))
+	if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
+		t.Fatal(out)
+	}
+	wt := fx.wt(lpBranch)
+	writeFile(t, wt+"/spectre/changes/"+lpBranch+"/tasks.md", "- [x] 1\n")
+	gitRun(t, wt, "add", "-A")
+	gitRun(t, wt, "commit", "-q", "-m", "chore(spectre): plan")
+	rc, out := fx.pf(t, "land", wt)
+	want := "git rm -r spectre/changes/" + lpBranch
+	if rc != 1 || !strings.Contains(out, want) || !strings.Contains(out, "chore(spectre): drop "+lpBranch) {
+		t.Fatalf("rc %d, want 1 naming %q and the drop subject: %s", rc, want, out)
+	}
+	_, log := kwRun(fx.env, "", fixtureGit, "--git-dir", fx.origin, "log", "--format=%s", "main")
+	if strings.Contains(log, "chore(spectre): plan") {
+		t.Fatalf("refused landing pushed: %s", log)
 	}
 }
 
@@ -254,7 +289,7 @@ func TestPipelineFixLand(t *testing.T) {
 		name, rows string
 		moved      bool
 		rc         int
-		red, open  bool
+		red        bool
 		lsTreeFail bool
 		refusal    string
 	}{
@@ -262,7 +297,6 @@ func TestPipelineFixLand(t *testing.T) {
 		{name: "a moved base is rebased and verified first", rows: reviewed, moved: true},
 		{name: "an unreviewed loop is refused", rows: lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed"), rc: 1, refusal: "LOOP-LANDING-REFUSED: REVIEW"},
 		{name: "a red branch is refused with no base move", rows: reviewed, red: true, rc: 1, refusal: "red: scripts/test-foo.sh"},
-		{name: "an unarchived change is refused", rows: reviewed, open: true, rc: 1, refusal: "is not archived"},
 		{name: "an ls-tree failure fails closed", rows: reviewed, lsTreeFail: true, rc: 2, refusal: "cannot tell whether"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -277,11 +311,6 @@ func TestPipelineFixLand(t *testing.T) {
 			if tc.red {
 				writeExec(t, wt+"/scripts/foo.sh", "#!/usr/bin/env bash\necho bar\n")
 				gitRun(t, wt, "commit", "-q", "-am", "fix: break foo")
-			}
-			if tc.open {
-				writeFile(t, wt+"/spectre/changes/"+lpBranch+"/tasks.md", "- [x] 1\n")
-				gitRun(t, wt, "add", "-A")
-				gitRun(t, wt, "commit", "-q", "-m", "chore(spectre): plan")
 			}
 			gitRun(t, fx.repo, "config", "--add", "flow.escalation", lpBranch+":pipeline-fix-6-fix-1")
 			if tc.lsTreeFail {

@@ -37,9 +37,9 @@ byte snapshot.
 It also denies a landing push that would leave its change open: `git push <remote> <src>:<default>`
 where `<src>`'s tree still holds `spectre/changes/<branch>/` — `<branch>` being `<src>`, or the
 current branch for `HEAD`, with a `/flow` branch's `spectre/` prefix dropped. A change lands
-archived (`spectre archive <change>`, then commit), never as an open folder on the default branch
-that no later run owns. `/flow`'s run 1 archives before its push, so only a run that skipped it or
-an ad-hoc landing meets this. A landing push of a `pipeline-fix-*` or `self-review-*` branch is
+dropped (`git rm -r spectre/changes/<change>`, then a `chore(spectre): drop <change>` commit),
+never as an open folder on the default branch that no later run owns. `/flow`'s run 1 drops before
+its push, so only a run that skipped it or an ad-hoc landing meets this. A landing push of a `pipeline-fix-*` or `self-review-*` branch is
 denied too unless scripts/check-loop-landing.sh, in the agents checkout this hook is installed
 from, admits it — flowd holding the loop's completed plan, fix and clean last review. That one
 check fails closed: a checker that cannot answer or cannot run denies the push.
@@ -734,7 +734,8 @@ def default_branch(cwd):
 
 def unarchived_landing(args, target):
     """(target, change) when the push args land `<src>:<default>` with
-    spectre/changes/<change>/ still open in <src>'s tree, else None."""
+    spectre/changes/<change>/ still open in <src>'s tree -- never dropped by
+    run 1's `chore(spectre): drop <change>` commit -- else None."""
     if target is None:
         return None
     default = default_branch(target)
@@ -886,7 +887,7 @@ def untasked_push(args, target):
     return None
 
 
-# A Conventional Commits `chore` subject: the pipeline's planning, link and archive commits.
+# A Conventional Commits `chore` subject: the pipeline's planning, link and drop commits.
 CHORE_SUBJECT_RE = re.compile(r"^chore(\([^)]*\))?!?:")
 TRAILER_RE = re.compile(r"^(Task-Id|Flow-Key):[ \t]*\S", re.M)
 # Options that take the message from somewhere the command text does not show.
@@ -1201,9 +1202,9 @@ def deny_reason(top, branch):
 def landing_reason(top, change):
     return (
         f"Blocked: this push lands `spectre/changes/{change}/` on the default branch still open. "
-        "A landed change is archived first, in the same branch:\n\n"
-        f"  spectre archive --force {change}   # --force only when it has no tasks.md\n"
-        f"  git commit -m \"chore(spectre): archive {change}\"\n\n"
+        "A landed change is dropped first, in the same branch:\n\n"
+        f"  git rm -r spectre/changes/{change}\n"
+        f"  git commit -m \"chore(spectre): drop {change}\"\n\n"
         "then push again."
     )
 

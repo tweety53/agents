@@ -1137,3 +1137,19 @@ rule is **Work end to end — stop only to plan or to test by hand** (`rules/wor
   retyped command and nothing else.
 - **Kept as stops:** asks with no recommended option, outward-facing or irreversible actions, and
   causes out of the run's reach.
+
+## The landing drop replaces the archive (KAN-1072)
+
+Run 1 no longer archives a change: it drops the change directory with one
+`chore(spectre): drop <name>` commit, and a fix run after the drop restores the directory from that
+commit's parent (decisions landing-drop-replaces-archive, fix-run-restores-change-dir). An in-run
+reader therefore always finds the live directory, and the archived-change branches went. Moved
+verbatim, the reasoning those branches carried:
+
+From `implement.md`, **1. Load context and validate the plan**: both answer for open
+changes only, and `validate` names an archived one `no such change`; `check-plan-shape.sh` still
+runs on the archived `tasks.md`.
+
+From `document-fix.md`: A `<name>-fix-N` sub-change
+scaffolded live beside a parent whose archive is committed would never be archived — the archived
+re-run of integrate skips `spectre archive`.

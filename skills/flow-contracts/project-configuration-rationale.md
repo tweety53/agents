@@ -202,7 +202,7 @@ caught before it can be used, and never at the point where reporting it would st
 
 ### visual verification
 
-Why the permission this section once granted was dropped, on evidence a panel slot demonstrated, is design.md's `no-automatic-push` decision (`<agents repo>/spectre/changes/archive/kan-171-generic-visual-verification-step/design.md`).
+Why the permission this section once granted was dropped, on evidence a panel slot demonstrated, is design.md's `no-automatic-push` decision (kan-171-generic-visual-verification-step's `design.md`, in the agents repo's history).
 
 ### project-configuration-authoring.md — which rules a script checks
 

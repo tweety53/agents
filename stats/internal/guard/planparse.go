@@ -589,28 +589,21 @@ func tcfPythonFiles(lines []string, t tcfTask) []string {
 }
 
 // tcfScanPlans is the no-argument scan's file list the tasks.md wrappers
-// shared: every live change's tasks.md under root's spec leaf, then that of
-// every archived change the base does not carry yet (unlanded-archives, the
-// one statement of that rule), each spelled root-relative as the wrapper's
-// "$CHANGES_DIR"/... did and kept only while it exists. Empty with true when
-// root has no changes directory; false when unlanded-archives could not
-// answer, its reason already on stderr.
+// shared: every live change's tasks.md under root's spec leaf -- never an
+// archive/ entry, which no change writes since run 1 drops the change
+// directory -- each spelled root-relative as the wrapper's "$CHANGES_DIR"/...
+// did and kept only while it exists. Empty with true when root has no
+// changes directory. The bool stays for the callers' error path; nothing
+// here fails today.
 func tcfScanPlans(env Env, root string, stderr io.Writer) ([]string, bool) {
 	changes := root + "/" + specRootLeaf(psAbs(env, root), stderr) + "/changes"
 	if !isDir(psAbs(env, changes)) {
 		return nil, true
 	}
-	var archived bytes.Buffer
-	if unlandedArchivesCmd([]string{root}, env, &archived, stderr) != 0 {
-		return nil, false
-	}
 	var files []string
 	for _, name := range tcfEntries(psAbs(env, changes)) {
-		files = append(files, changes+"/"+name+"/tasks.md")
-	}
-	for _, name := range strings.Split(archived.String(), "\n") {
-		if name != "" {
-			files = append(files, changes+"/archive/"+name+"/tasks.md")
+		if name != "archive" {
+			files = append(files, changes+"/"+name+"/tasks.md")
 		}
 	}
 	return slices.DeleteFunc(files, func(f string) bool {

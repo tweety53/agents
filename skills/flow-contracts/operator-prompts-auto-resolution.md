@@ -121,7 +121,7 @@ past planning is (**Work end to end — stop only to plan or to test by hand**,
   the run — two guards that contradict, a check that refuses correct work — is fixed in an `agents`
   worktree with a test that fails without the fix, pushed to `main`, and the run continues; that push
   is not asked (kan-1044, `rules/work-end-to-end.mdc`).
-- **Outward-facing or irreversible actions.** Push, merge, opening a PR, archiving, deleting, and
+- **Outward-facing or irreversible actions.** Push, merge, opening a PR, deleting, and
   every Jira write — the follow-up filing and the self-review filing included — and the
   self-review's flow-eval mining.
   The global rules require these confirmed.

@@ -124,7 +124,7 @@ func pfStart(env Env, pe pfEnv, rest []string, stdout, stderr io.Writer) int {
 	if len(rest) == 2 {
 		k, _ := strconv.Atoi(rest[1])
 		if want := pfHighestK(env, pe, base) + 1; k != want {
-			fmt.Fprintf(stderr, "%s: <k> is %d — one more than the highest <n> of any pipeline-fix-*-<n> branch or change folder, live or archived — not %d\n", self, want, k)
+			fmt.Fprintf(stderr, "%s: <k> is %d — one more than the highest <n> of any pipeline-fix-*-<n> branch or change folder, live or landed — not %d\n", self, want, k)
 			return 1
 		}
 	}
@@ -164,8 +164,9 @@ func pfStart(env Env, pe pfEnv, rest []string, stdout, stderr io.Writer) int {
 var pfNumbered = regexp.MustCompile(`^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}-)?pipeline-fix-.+-([0-9]+)$`)
 
 // pfHighestK is the highest <n> of any pipeline-fix-*-<n> local or remote
-// branch, or change folder under spectre/changes/ or its archive/ in base's
-// tree or the main checkout; 0 when there is none. <k> one more than it is
+// branch, change folder under spectre/changes/ in base's tree or the main
+// checkout, or landed change named by a chore(spectre): drop or archive
+// subject in base's log; 0 when there is none. <k> one more than it is
 // unique across the repository, so two loops never share a key prefix.
 func pfHighestK(env Env, pe pfEnv, base string) int {
 	var names []string
@@ -173,14 +174,21 @@ func pfHighestK(env Env, pe pfEnv, base string) int {
 	for _, r := range strings.Fields(refs) {
 		names = append(names, filepath.Base(r))
 	}
-	for _, dir := range []string{"spectre/changes/", "spectre/changes/archive/"} {
-		_, tree := kwRun(env, "", pe.git, "-C", pe.main, "ls-tree", "-d", "--name-only", base, dir)
-		for _, d := range strings.Fields(tree) {
-			names = append(names, filepath.Base(d))
-		}
-		entries, _ := os.ReadDir(filepath.Join(pe.main, dir))
-		for _, e := range entries {
-			names = append(names, e.Name())
+	_, tree := kwRun(env, "", pe.git, "-C", pe.main, "ls-tree", "-d", "--name-only", base, "spectre/changes/")
+	for _, d := range strings.Fields(tree) {
+		names = append(names, filepath.Base(d))
+	}
+	entries, _ := os.ReadDir(filepath.Join(pe.main, "spectre/changes/"))
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	// A landed change's directory leaves the tree; its subject stays in the log.
+	_, subjects := kwRun(env, "", pe.git, "-C", pe.main, "log", "--format=%s", base)
+	for _, s := range strings.Split(subjects, "\n") {
+		for _, p := range []string{"chore(spectre): drop ", "chore(spectre): archive "} {
+			if n, ok := strings.CutPrefix(s, p); ok {
+				names = append(names, n)
+			}
 		}
 	}
 	// A dropped loop's branch is gone; drop recorded its <n> here.
@@ -536,10 +544,10 @@ func pfLand(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	if rc, out := kwRun(env, "", pe.git, "-C", wt, "ls-tree", "-d", "--name-only", "HEAD", "spectre/changes/"+branch); rc != 0 {
-		fmt.Fprintf(stderr, "%s: cannot tell whether spectre/changes/%s/ is archived — nothing pushed\n%s", self, branch, out)
+		fmt.Fprintf(stderr, "%s: cannot tell whether spectre/changes/%s/ is dropped — nothing pushed\n%s", self, branch, out)
 		return 2
 	} else if strings.TrimSpace(out) != "" {
-		fmt.Fprintf(stderr, "%s: spectre/changes/%s/ is not archived — commit chore(spectre): archive %s first\n", self, branch, branch)
+		fmt.Fprintf(stderr, "%s: spectre/changes/%s/ is not dropped — git rm -r spectre/changes/%s and commit chore(spectre): drop %s first\n", self, branch, branch, branch)
 		return 1
 	}
 	rows, ok := lpRows(env, pe.main, lp)

@@ -51,7 +51,7 @@ merged** (`skills/flow-contracts/finish-contract-run2.md`).
 ## Finished
 
 **Change:** <name>
-**Archived:** <project>/spectre/changes/archive/<name>/ as an absolute path (landed on <base> with the change)
+**Dropped:** <project>/spectre/changes/<name>/ as an absolute path (removed by `chore(spectre): drop <name>`, landed on <base> with the change)
 **Worktrees:** removed | left alone — <reason>
 **Remote branch:** deleted | already gone | not deleted — <reason>
 **Cleanup:** verified
@@ -113,4 +113,4 @@ record, so `HELD:` and the guard's exit 2 both stop `/flow`.
 
 ## Guardrails
 
-- **Never** `git add` the state file, and never move it into the archive.
+- **Never** `git add` the state file, and never move it into the change directory.

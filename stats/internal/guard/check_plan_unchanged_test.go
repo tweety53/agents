@@ -251,22 +251,6 @@ func TestCheckPlanUnchanged(t *testing.T) {
 			}),
 			pucRun("verify", 1, "case 13b: verify after the plan tree appears exits 1"),
 		}},
-		// A fix run writes into spectre/changes/archive/<name>/ once
-		// integrate's run 1 archived the change.
-		{steps: []pucStep{
-			pucAct(func(g *fxGit, wt string) {
-				g.git(wt, "mv", "spectre/changes/demo", "spectre/changes/archive-tmp")
-				if err := os.MkdirAll(wt+"/spectre/changes/archive", 0o755); err != nil && g.err == nil {
-					g.err = err
-				}
-				g.git(wt, "mv", "spectre/changes/archive-tmp", "spectre/changes/archive/demo")
-				g.git(wt, "commit", "-q", "-m", "archive")
-				g.appendLine(wt+"/spectre/changes/archive/demo/tasks.md", "plan: appended by a fix run")
-			}),
-			pucRun("snapshot", 0, "case 14a: snapshot of an archived change exits 0"),
-			pucAct(func(g *fxGit, wt string) { g.git(wt, "checkout", "-q", "--", "spectre/changes/archive/demo/tasks.md") }),
-			pucRun("verify", 1, "case 14b: verify after the archived plan edit was destroyed exits 1"),
-		}},
 		// A second untracked file in an already-untracked subdirectory: the
 		// default `normal` mode collapses both into one `sub/` entry, so only
 		// --untracked-files=all sees it.

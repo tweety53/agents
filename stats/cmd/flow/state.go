@@ -168,9 +168,9 @@ state resolve prints the change-name candidate set a caller resolves a
 bare change name against. Source "store": every board row whose state is
 not FINISHED. Source "fallback": the union of every readable fallback
 record's name and every directory directly under
-<main-checkout>/spectre/changes/ other than "archive", minus any name
-archived under spectre/changes/archive/<name>/ whose record is not
-IN_PROGRESS. It carries the same
+<main-checkout>/spectre/changes/ other than "archive", minus any FINISHED
+record no such directory holds -- a landed change, its directory dropped
+by integrate's run 1. It carries the same
 "source"/"complete" fields as state list, plus "candidates" and
 "unreadable" (both always arrays, never null).
 state dir prints the resolved project's state directory as one line --
@@ -937,8 +937,8 @@ type stateResolveOutput struct {
 // (parseStateListFlags, listStateBoard, fallbackStateListRecords) and
 // differs only in what it does with the rows once it has them:
 // resolveCandidates drops FINISHED rows on the store path, and unions the
-// fallback records with spectre/changes/ directory names (minus the
-// archived ones) on the fallback path. Never blocks: a store failure
+// fallback records with spectre/changes/ directory names (minus FINISHED
+// records no directory holds) on the fallback path. Never blocks: a store failure
 // falls back exactly as state list's does, and a changes-directory read
 // error is reported on stderr while the fallback candidates still print,
 // exit 0.
@@ -996,12 +996,11 @@ func runStateResolve(ctx context.Context, args []string, stdout, stderr io.Write
 // set. fromStore selects which rule applies: on the store path a
 // FINISHED row is dropped and changesDir is never consulted; on the
 // fallback path every directory directly under changesDir is unioned in
-// (skipping "archive" itself and any name already seen), then any name
-// archived under changesDir/archive/<name>/ is removed whichever side it
-// came from -- a fallback record for an archived change is as stale as a
-// leftover directory for one -- save an IN_PROGRESS record: integrate's
-// run 1 archives on the change branch, so a merged change carries its
-// archive while it still waits on run 2's cleanup.
+// (skipping "archive" itself and any name already seen), then a FINISHED
+// record no live directory holds is removed: integrate's run 1 drops the
+// change directory, so such a record is a landed change. Any other record
+// without a directory stays -- an IN_PROGRESS change whose drop commit has
+// merged still waits on run 2's cleanup.
 func resolveCandidates(rows []stateListRecord, changesDir string, fromStore bool) (cands []stateListRecord, unreadable []string, err error) {
 	seen := map[string]bool{}
 	for _, r := range rows {
@@ -1026,11 +1025,11 @@ func resolveCandidates(rows []stateListRecord, changesDir string, fromStore bool
 		}
 	}
 	cands = slices.DeleteFunc(cands, func(r stateListRecord) bool {
-		if r.State == "IN_PROGRESS" {
+		if r.State != "FINISHED" {
 			return false
 		}
-		_, statErr := os.Stat(filepath.Join(changesDir, "archive", r.Name))
-		return statErr == nil
+		_, statErr := os.Stat(filepath.Join(changesDir, r.Name))
+		return statErr != nil
 	})
 	return cands, unreadable, err
 }

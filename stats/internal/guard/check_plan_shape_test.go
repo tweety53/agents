@@ -20,6 +20,31 @@ import (
 // output differing from the guard's on a fixture where the finding fires.
 // The harness's three wrapper cases — a missing sibling, the symlinked
 // install path, a flow-guard that cannot be built — exec the real shim.
+// TestPlanParseScansLiveChangesOnly pins the no-argument scan's scope: on a
+// branch whose base lacks spectre/changes/archive/old/, that archived plan's
+// violation is never read -- run 1 drops a change's directory, so nothing
+// under archive/ is in flight -- while the live change is.
+func TestPlanParseScansLiveChangesOnly(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	writeFile(t, root+"/README", "base\n")
+	gitRun(t, root, "init", "-q", "-b", "main")
+	gitRun(t, root, "add", "-A")
+	gitRun(t, root, "commit", "-qm", "base")
+	writeFile(t, root+"/spectre/changes/archive/old/tasks.md", "- [ ] 1. Archived, no Files line\n\n**Tests:** `test-a.sh`\n")
+	writeFile(t, root+"/spectre/changes/live/tasks.md", "- [ ] 1. Live\n\n**Files:** `a.py`\n\n**Tests:** `test-a.sh`\n")
+	gitRun(t, root, "add", "-A")
+	gitRun(t, root, "commit", "-qm", "branch work")
+	r := runGuard("check-plan-shape", nil, Env{Getenv: psGetenv(map[string]string{"CHECK_PLAN_SHAPE_ROOT": root})})
+	if r.rc != 0 || strings.Contains(r.out, "archive/") {
+		t.Fatalf("rc=%d out=%q; want 0 and no archive/ path", r.rc, r.out)
+	}
+	writeFile(t, root+"/spectre/changes/live/tasks.md", "- [ ] 1. Live, no Files line\n\n**Tests:** `test-a.sh`\n")
+	if r := runGuard("check-plan-shape", nil, Env{Getenv: psGetenv(map[string]string{"CHECK_PLAN_SHAPE_ROOT": root})}); r.rc != 1 || !strings.Contains(r.out, "live/tasks.md:") {
+		t.Fatalf("rc=%d out=%q; want the live change's violation", r.rc, r.out)
+	}
+}
+
 func TestCheckPlanShape(t *testing.T) {
 	t.Parallel()
 	type check struct{ label, fail string }
@@ -128,8 +153,8 @@ func TestCheckPlanShape(t *testing.T) {
 	r = one(psFixture(t, "- [ ] 1. Fenced example, not a real duplicate\n\n**Files:** `a.py`\n\n**Tests:** `test-a.sh`\n\nExample of the field grammar:\n\n```\n**Files:** `not-a-real-declaration.py`\n```\n"))
 	want("case 13: a fenced example is not read as a second Files line", r.rc == 0, r)
 
-	// Case 14: the no-argument scan over CHECK_PLAN_SHAPE_ROOT; the fixture
-	// is no git worktree, so its archived change stays out.
+	// Case 14: the no-argument scan over CHECK_PLAN_SHAPE_ROOT; an archived
+	// change is never scanned (TestPlanParseScansLiveChangesOnly).
 	root := t.TempDir()
 	writeFile(t, root+"/spectre/changes/clean-change/tasks.md", "- [ ] 1. Clean\n\n**Files:** `a.py`\n\n**Tests:** `test-a.sh`\n")
 	writeFile(t, root+"/spectre/changes/dirty-change/tasks.md", "- [ ] 1. Dirty\n\n**Tests:** `test-a.sh`\n")
@@ -139,19 +164,6 @@ func TestCheckPlanShape(t *testing.T) {
 	want("case 14: names the dirty file", has(r, "dirty-change/tasks.md:") && has(r, "has no **Files:** line"), r)
 	want("case 14: the clean file reports nothing", !has(r, "clean-change"), r)
 	want("case 14: archived changes are excluded from the no-arg scan", !has(r, "archived-change"), r)
-
-	// Case 14b: an archived change joins the scan only while the base lacks it.
-	root = t.TempDir()
-	dirty := "- [ ] 1. Archived, no Files line\n\n**Tests:** `test-a.sh`\n"
-	writeFile(t, root+"/spectre/changes/archive/landed-change/tasks.md", dirty)
-	gitRun(t, root, "init", "-q", "-b", "main")
-	gitRun(t, root, "add", "-A")
-	gitRun(t, root, "commit", "-qm", "chore(spectre): archive landed-change")
-	writeFile(t, root+"/spectre/changes/archive/new-change/tasks.md", dirty)
-	r = scan(root)
-	want("case 14b: an archived change the base lacks is scanned", r.rc == 1, r)
-	want("case 14b: names the unlanded archived change's violation", has(r, "archive/new-change/tasks.md:") && has(r, "has no **Files:** line"), r)
-	want("case 14b: an archived change the base carries stays out of the scan", !has(r, "landed-change"), r)
 
 	// Cases 15, 16: usage and an unreadable file exit 2.
 	r = runGuard("check-plan-shape", []string{"a", "b"}, env)
@@ -442,7 +454,7 @@ func TestCheckPlanShape(t *testing.T) {
 	r = one(md)
 	want("case 43 (F18): a file an earlier task owns is not reported", r.rc == 0, r)
 
-	// Unlanded archives: a shim copy with no stats/ beside it cannot build
+	// The shim: a copy with no stats/ beside it cannot build
 	// flow-guard; the same copy with no lib/flow-guard.sh cannot load it.
 	u := t.TempDir()
 	mkdir(t, u+"/root/spectre/changes/some-change")
@@ -450,12 +462,12 @@ func TestCheckPlanShape(t *testing.T) {
 	psCopy(t, psScripts+"/lib/flow-guard.sh", u+"/scripts/lib/flow-guard.sh")
 	uenv := []string{"CHECK_PLAN_SHAPE_ROOT=" + u + "/root", "FLOW_GUARD_CACHE_DIR=" + t.TempDir()}
 	r = psExec(t, uenv, u+"/scripts/check-plan-shape.sh")
-	want("unlanded archives: flow-guard that cannot be built exits 2", r.rc == 2 && has(r, "cannot build flow-guard"), r)
+	want("shim: flow-guard that cannot be built exits 2", r.rc == 2 && has(r, "cannot build flow-guard"), r)
 	if err := os.Remove(u + "/scripts/lib/flow-guard.sh"); err != nil {
 		t.Fatal(err)
 	}
 	r = psExec(t, uenv, u+"/scripts/check-plan-shape.sh")
-	want("unlanded archives: a missing lib/flow-guard.sh exits 2", r.rc == 2 && has(r, "cannot load lib/flow-guard.sh beside "+u+"/scripts/check-plan-shape.sh"), r)
+	want("shim: a missing lib/flow-guard.sh exits 2", r.rc == 2 && has(r, "cannot load lib/flow-guard.sh beside "+u+"/scripts/check-plan-shape.sh"), r)
 
 	// Beyond the harness: the outputs it never pinned, as the wrapper
 	// printed them at bbfe685e.

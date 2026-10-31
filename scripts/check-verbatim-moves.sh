@@ -27,9 +27,9 @@
 # `#` lines are comments and a leading `\` is dropped. The FAIL line already
 # prints a sentence opening with `#` or `\` behind one `\`, so a heading is
 # listed as `\## …`, exactly as printed.
-# Only in-flight changes count: an archived change's list is read only while
-# the base does not carry it yet — archived on this branch by integrate's
-# run 1 — never once it has landed.
+# Only in-flight changes count: a live change directory's list is read, never
+# one under the archive/ entry — run 1 drops a change's directory, its list
+# with it, once it has landed.
 #
 # It cannot judge whether a lazily loaded file's "Load X only when Y"
 # condition is right — review each such directive by hand.

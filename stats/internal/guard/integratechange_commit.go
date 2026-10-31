@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -23,47 +22,10 @@ func (c *ic) commit() {
 		c.die("no worktree in the set holds %s's tasks.md", c.name)
 	}
 	live := c.canon + "/" + c.spec + "/changes/" + c.name
-	arch := c.canon + "/" + c.spec + "/changes/archive/" + c.name
-	var named []string // the sha group of every in-format in-run fix line
-	for _, nf := range []string{live + "/narrative.md", arch + "/narrative.md"} {
-		b, err := os.ReadFile(nf)
-		if err != nil || !isFile(nf) {
-			continue
-		}
-		var bad []string
-		for n, l := range icLines(string(b)) {
-			if !icFixLine.MatchString(l) {
-				continue
-			}
-			if m := icFixFormat.FindStringSubmatch(l); m != nil {
-				// Only a `big` fix -- 60 files or more -- is ever deferred
-				// (Pipeline defects found mid-run, pipeline.md).
-				if r, _ := strconv.Atoi(m[2]); m[1] == "deferred" && r < 60 {
-					c.stop("narrative", fmt.Sprintf("%s:%d defers an in-run fix of blast radius %d — only a fix of 60 files or more is deferred; fix and land it in this run, then re-run commit", nf, n+1, r))
-				}
-				named = append(named, m[1])
-			} else {
-				bad = append(bad, fmt.Sprintf("%d:%s", n+1, l))
-			}
-		}
-		if len(bad) > 0 {
-			c.stop("narrative", nf+" holds in-run fix line(s) off the format 'In-run pipeline fix: <agents sha | deferred> — <the defect> (blast radius <N> files)': "+strings.Join(bad, "; ")+" — rewrite each to it, then re-run commit")
-		}
-	}
-	nf := live + "/narrative.md"
-	if !isFile(nf) && isFile(arch+"/narrative.md") {
-		nf = arch + "/narrative.md"
-	}
-	c.requireFixLines(named, nf)
-	// stderr too: its exit-2 message is the stop's cause.
-	runs := c.cmd("/", c.sibling("check-narrative-runs"), c.canon, c.name, nf)
-	var b bytes.Buffer
-	runs.Stdout, runs.Stderr = &b, &b
-	c.rc = rcOf(runs.Run())
-	c.out = strings.TrimRight(b.String(), "\n")
-	if c.rc != 0 {
-		lines := strings.Split(c.out, "\n")
-		c.stop("narrative", lines[len(lines)-1]+" — append each missing run's section (skills/flow/verify-and-handoff.md, Write IN_PROGRESS), then re-run commit")
+	// A dropped re-run without new work has no change directory left: its
+	// narrative was checked before the drop commit that removed it.
+	if isDir(live) {
+		c.checkNarrative(live + "/narrative.md")
 	}
 	c.mergeOrder()
 	reshape := false
@@ -119,15 +81,10 @@ func (c *ic) commit() {
 		c.markEnd("flow.commit-two", "completed")
 	}
 
-	if !isDir(arch) || isDir(live) {
+	// flow.sync-archive keeps its key (decision keep-guard-and-stage-names):
+	// nothing is moved any more, so it marks the live directory's presence.
+	if isDir(live) {
 		c.markBegin("flow.sync-archive")
-		fixes, _ := filepath.Glob(live + "-fix-[0-9]*")
-		for _, d := range append([]string{live}, fixes...) {
-			if !isDir(d) {
-				continue
-			}
-			c.spectreArchive(c.canon, filepath.Base(d), "spectre archive "+filepath.Base(d)+" refused — report it; never --force")
-		}
 		c.markEnd("flow.sync-archive", "completed")
 	}
 	c.markBegin("flow.commit-archive")
@@ -135,15 +92,14 @@ func (c *ic) commit() {
 	if c.rc != 0 {
 		c.stop("commit-archive", fmt.Sprintf("commit-archive exit %d — report its lines", c.rc))
 	}
-	// Every other worktree archives its own change directory -- a
-	// satellite's link.md -- while it is still there, on an archived re-run
-	// too, and commits it on its own branch (KAN-815).
+	// Every other worktree drops its own change directory -- a satellite's
+	// link.md -- while it is still there, on a dropped re-run too, and
+	// commits it on its own branch (KAN-815).
 	for _, o := range c.order {
 		w := c.wt[o]
 		if w == c.canon || !isDir(w+"/"+specRootLeaf(w, io.Discard)+"/changes/"+c.name) {
 			continue
 		}
-		c.spectreArchive(w, c.name, "spectre archive "+c.name+" refused in "+w+" — report it; never --force")
 		c.run("commit-archive", w, c.name)
 		if c.rc != 0 {
 			c.stop("commit-archive", fmt.Sprintf("commit-archive exit %d in %s — report its lines", c.rc, w))
@@ -165,6 +121,46 @@ func (c *ic) commit() {
 		c.say("NEXT: the self-review report is already committed — skip the pass; integrate-change.sh land " + c.main + " " + c.name + " " + c.flags())
 	} else {
 		c.say("NEXT: run the self-review pass over `flow self-review bundle -C " + c.canon + " -change " + c.name + "` and land its report in " + c.canon + ", then integrate-change.sh land " + c.main + " " + c.name + " " + c.flags())
+	}
+}
+
+// checkNarrative stops `narrative` when the change's narrative nf holds an
+// in-run fix line off the format, defers a small fix, lacks a line a fixed
+// flow-fix row needs (requireFixLines) or a section a run the store marked
+// needs (check-narrative-runs).
+func (c *ic) checkNarrative(nf string) {
+	var named []string // the sha group of every in-format in-run fix line
+	if b, err := os.ReadFile(nf); err == nil && isFile(nf) {
+		var bad []string
+		for n, l := range icLines(string(b)) {
+			if !icFixLine.MatchString(l) {
+				continue
+			}
+			if m := icFixFormat.FindStringSubmatch(l); m != nil {
+				// Only a `big` fix -- 60 files or more -- is ever deferred
+				// (Pipeline defects found mid-run, pipeline.md).
+				if r, _ := strconv.Atoi(m[2]); m[1] == "deferred" && r < 60 {
+					c.stop("narrative", fmt.Sprintf("%s:%d defers an in-run fix of blast radius %d — only a fix of 60 files or more is deferred; fix and land it in this run, then re-run commit", nf, n+1, r))
+				}
+				named = append(named, m[1])
+			} else {
+				bad = append(bad, fmt.Sprintf("%d:%s", n+1, l))
+			}
+		}
+		if len(bad) > 0 {
+			c.stop("narrative", nf+" holds in-run fix line(s) off the format 'In-run pipeline fix: <agents sha | deferred> — <the defect> (blast radius <N> files)': "+strings.Join(bad, "; ")+" — rewrite each to it, then re-run commit")
+		}
+	}
+	c.requireFixLines(named, nf)
+	// stderr too: its exit-2 message is the stop's cause.
+	runs := c.cmd("/", c.sibling("check-narrative-runs"), c.canon, c.name, nf)
+	var b bytes.Buffer
+	runs.Stdout, runs.Stderr = &b, &b
+	c.rc = rcOf(runs.Run())
+	c.out = strings.TrimRight(b.String(), "\n")
+	if c.rc != 0 {
+		lines := strings.Split(c.out, "\n")
+		c.stop("narrative", lines[len(lines)-1]+" — append each missing run's section (skills/flow/verify-and-handoff.md, Write IN_PROGRESS), then re-run commit")
 	}
 }
 
@@ -234,16 +230,6 @@ func (c *ic) requireFixLines(named []string, nf string) {
 	}
 	if len(missing) > 0 {
 		c.stop("narrative", "no in-run fix line names the fixed flow-fix row(s) "+strings.Join(missing, ", ")+", and the row carries no one-line note or blast radius to derive it from — append 'In-run pipeline fix: <agents sha> — <the defect> (blast radius <N> files)' for each, then re-run commit")
-	}
-}
-
-// spectreArchive is `(cd <dir> && spectre archive <change>)`, stopping
-// `archive` with text when it is refused.
-func (c *ic) spectreArchive(dir, change, text string) {
-	cmd := c.cmd(dir, "spectre", "archive", change)
-	cmd.Stdout = c.stdout
-	if cmd.Run() != nil {
-		c.stop("archive", text)
 	}
 }
 

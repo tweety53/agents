@@ -205,12 +205,9 @@ func TestProtectMainCheckout(t *testing.T) {
 	f.git("-C", wt2, "add", "spectre")
 	f.git("-C", wt2, "commit", "-q", "-m", "plan")
 	f.bash("42 spectre/<name>:main push with the change open", "deny", "{ROOT}", `git -C {WT2} push origin spectre/flowchg:main`)
-	if err := os.MkdirAll(wt+"/spectre/changes/archive", 0o755); err != nil {
-		t.Fatal(err)
-	}
-	f.git("-C", wt, "mv", "spectre/changes/change", "spectre/changes/archive/change")
-	f.git("-C", wt, "commit", "-q", "-m", "archive")
-	f.bash("40 HEAD:main push with the change archived", "allow", "{ROOT}", `git -C {WT} push origin HEAD:main`)
+	f.git("-C", wt, "rm", "-r", "-q", "spectre/changes/change")
+	f.git("-C", wt, "commit", "-q", "-m", "chore(spectre): drop change")
+	f.bash("40 HEAD:main push with the change dropped", "allow", "{ROOT}", `git -C {WT} push origin HEAD:main`)
 
 	f.write(root+"/outside.txt", "x\n")
 	f.bash("43 BSD sed -i with an empty suffix, file outside", "allow", "{MAIN}", `sed -i '' 's/x/y/' {ROOT}/outside.txt`)
@@ -520,6 +517,42 @@ func TestProtectMainCheckoutDeniesAnUntraileredChangeBranchCommit(t *testing.T) 
 	f.bash("4 message from a file", "allow", "{ROOT}", `git -C {SWT} commit -F msg.txt`)
 	f.bash("5 amend", "allow", "{ROOT}", `git -C {SWT} commit --amend --no-edit`)
 	f.bash("6 another branch", "allow", "{ROOT}", `git -C {FWT} commit -m "fix(x): y"`)
+}
+
+// TestProtectMainCheckoutUndroppedLandingMessage pins the landing refusal's
+// remedy: a push landing spectre/changes/<change>/ open names the drop --
+// `git rm -r spectre/changes/<change>` and a `chore(spectre): drop <change>`
+// commit -- never `spectre archive`; and that drop subject is a chore
+// subject, so committing it on the change branch untrailered is allowed.
+func TestProtectMainCheckoutUndroppedLandingMessage(t *testing.T) {
+	t.Parallel()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &pmFixture{t: t, home: t.TempDir(), vars: map[string]string{"ROOT": root}}
+	main := root + "/main"
+	f.vars["SWT"] = root + "/main-worktrees/c1"
+	f.git("init", "-q", "--bare", root+"/origin.git")
+	f.git("clone", "-q", root+"/origin.git", main)
+	f.write(main+"/f.txt", "a\n")
+	f.git("-C", main, "add", "f.txt")
+	f.git("-C", main, "commit", "-q", "-m", "init")
+	f.git("-C", main, "branch", "-M", "main")
+	f.git("-C", main, "push", "-q", "-u", "origin", "main")
+	f.git("-C", main, "worktree", "add", f.vars["SWT"], "-b", "spectre/c1")
+	f.write(f.vars["SWT"]+"/spectre/changes/c1/tasks.md", "x\n")
+	f.git("-C", f.vars["SWT"], "add", "spectre")
+	f.git("-C", f.vars["SWT"], "commit", "-q", "-m", "plan")
+
+	f.check("1 the refusal names the drop", func(t *testing.T) {
+		out := f.run(t, root, "Bash", map[string]string{"command": f.x(`git -C {SWT} push origin spectre/c1:main`)})
+		if decision(out) != "deny" || !strings.Contains(out, "git rm -r spectre/changes/c1") ||
+			!strings.Contains(out, "chore(spectre): drop c1") || strings.Contains(out, "spectre archive") {
+			t.Errorf("out=%s", out)
+		}
+	})
+	f.bash("2 the drop subject is a chore subject", "allow", "{ROOT}", `git -C {SWT} commit -m "chore(spectre): drop c1"`)
 }
 
 // TestProtectMainCheckoutSkipsAMessageItCannotRead pins kan-1032's

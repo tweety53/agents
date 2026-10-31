@@ -48,3 +48,16 @@ cruft — re-baselining can add text as well as remove it (kan-1032).
   cases in step 4's filing prompt, by the operator's instruction.
 - **Cases ride the pass's fix branch** (decision `cases-ride-fix-branch`) — rejected: a separate
   `prompt-tuning-<name>` branch, because it adds a second landing per run.
+
+## SKILL.md — 3. Fix every finding that is not `big`, item 4 (KAN-1072)
+
+The self-review sub-change is dropped, not archived (decision landing-drop-replaces-archive): its
+directory leaves the tip in one `chore(spectre): drop self-review-<name>` commit. Moved verbatim,
+the archive-era rules that no longer apply once `spectre archive` is not run and the sub-change's
+`tasks.md` leaves with the drop:
+
+`--force` only when a task stays
+   unticked, its finding found `big` or its commit dropped.
+
+a task commit dropped after it has its task unticked
+   in the archive commit by this session (`git commit --amend`).

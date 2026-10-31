@@ -132,8 +132,8 @@ there.
 ### 3. Render the table
 
 Sort by state order per **States** in `skills/flow-contracts/pipeline.md` (`STARTED`,
-`IN_PROGRESS`, `FINISHED`), then by `updatedAt` descending. Omit `FINISHED` changes — they are
-archived, or withdrawn (the record's `withdrawn` field); neither is open.
+`IN_PROGRESS`, `FINISHED`), then by `updatedAt` descending. Omit `FINISHED` changes — they have
+landed, or withdrawn (the record's `withdrawn` field); neither is open.
 
 ```
 ## flow status
@@ -174,7 +174,7 @@ Next-command mapping:
 | `FINISHED` | — |
 
 The `IN_PROGRESS` row splits on merge status because bare `/flow` behaves differently either
-side of it: it integrates — and archives — before the merge and cleans up after. Say which run the operator is
+side of it: it integrates — and drops the change directory — before the merge and cleans up after. Say which run the operator is
 about to get. A branch with no commits of its own is *not
 merged*, and an inconclusive answer takes the not-merged row and says the check could not be
 completed.
@@ -185,10 +185,10 @@ Add below the table:
 
 - Linked Jira issue key, or "none linked"
 - Task progress — `done` of `total` from `spectre list --json`, which counts the change's
-  `tasks.md` checkboxes and is the same count `spectre archive` gates on. A change already
-  archived on its branch is absent from that list: count the column-0 `- [x]` and `- [ ]` task
-  lines of its archived `tasks.md` in the worktree instead (**A change's directory**,
-  `skills/flow-contracts/pipeline.md`)
+  `tasks.md` checkboxes. An open change whose run 1 already dropped its directory (the PR and
+  manual routes end run 1 at `IN_PROGRESS`) has no live `tasks.md`: count the `[x]` and `[ ]`
+  task lines of `git show <newest drop>^:spectre/changes/<name>/tasks.md` instead, `<newest drop>`
+  being `git log -1 --format=%H --fixed-strings --grep="chore(spectre): drop <name>" spectre/<name>`
 - `<name>-fix-N` sub-changes, if any
 - PR number and URL when one exists — not whether it is open, merged or closed, which this report
   does not track; check the forge for that

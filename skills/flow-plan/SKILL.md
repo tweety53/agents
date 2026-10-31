@@ -22,7 +22,6 @@ get there is scripted. You're a thinking partner helping the user explore.
 - **Commit only the planning artifacts, once, at capture** — `<project>/spectre/changes/<name>/`
   on `spectre/<name>` per **Capturing a new change** below; nothing else in this mode produces a
   commit
-- **Don't run `spectre archive`** — that's bare `/flow`'s call, not this mode's
 
 ---
 

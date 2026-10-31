@@ -31,9 +31,10 @@ the design.
   for it. A mockup or ticket that states it still governs.
 - **A reported defect is checked against history before its fix is designed.** For each entry of a
   bug list, a findings file or a ticket naming symptoms, run `git log --since=<the report's date>`
-  over the paths it names on the base, search `<project>/spectre/changes/archive/` for a recorded
-  rejection of the remedy it proposes, and run its cheap reproducer. An entry already fixed is
-  recorded in the design as fixed, with the commit that fixed it, and planned no task; a remedy an
+  over the paths it names on the base, search the landed changes' `design.md` in history
+  (`git log --all --grep 'chore(spectre): '`, read at each drop commit's parent or archive commit)
+  for a recorded rejection of the remedy it proposes, and run its cheap reproducer. An entry
+  already fixed is recorded in the design as fixed, with the commit that fixed it, and planned no task; a remedy an
   archived decision rejected is not designed again unless the design records what that rejection
   missed (kan-970: six entries were already fixed upstream and one remedy had been rejected twice).
 

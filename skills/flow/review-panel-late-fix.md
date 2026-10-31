@@ -24,7 +24,7 @@ none; the `-diff-base` its clean dispatches recorded names the canonical worktre
 peer worktree's since-close sha comes from the panel record's per-worktree sha list.
 **After integrate's reshape** (**3. Commit the staged work**, `skills/flow/integrate.md`) the shas
 the last clean close reviewed are gone from the branch, so the since-close sha is the canonical
-worktree's archive commit and a peer worktree's reshaped branch head.
+worktree's drop commit and a peer worktree's reshaped branch head.
 `<base-verdict>` is that worktree's **Check base movement first** line this round. Exit 0 → the
 reduction fires; exit 1 → the full path, each failed condition on its own line; exit 2 → it cannot
 answer, read as the full path; exit 3 → **The append scope** below — the full path for the
