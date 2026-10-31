@@ -987,7 +987,7 @@ func (c *ic) rebaseLint(w, prefix string) {
 // each `Task-Id:` commit and the pre-task tasks.md afterwards. Absent
 // locally, origin's is fetched first (a re-clone). Kept when it already
 // reaches HEAD (a re-run after a stop already reshaped); otherwise advanced
-// to a merge of the old pin and HEAD, so a dropped re-run's new tasks
+// to a merge of the old pin and HEAD, so a re-run's new tasks
 // stay reachable beside the earlier ones.
 func (c *ic) pinPreReshape(w string) {
 	r := "refs/flow/pre-reshape/" + c.name
