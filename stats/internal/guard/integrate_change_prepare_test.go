@@ -461,6 +461,18 @@ sut prepare "$WORK/a" demo
 check "undo_staged_drop: prepare exits 0" '[ "$RC" -eq 0 ]'
 check "undo_staged_drop: the undo is named" 'printf "%s\n" "$OUT" | grep -qxF "UNARCHIVED: $A/spectre/changes/demo"'
 check "undo_staged_drop: the directory is back, nothing staged" '[ -f "$A/spectre/changes/demo/tasks.md" ] && g -C "$A" diff --cached --quiet'`},
+		{"undo_staged_redrop", `# --- undo_staged_redrop ---
+fixture
+to_land "undo_staged_redrop: " no-report
+A="$WORK/a-worktrees/demo"
+g -C "$A" checkout -q "$(git -C "$A" log --format=%H -1 --grep="^chore(spectre): drop demo$")^" -- spectre/changes/demo
+g -C "$A" commit -qm "chore(spectre): plan demo — fix-run tasks"
+g -C "$A" rm -r -q spectre/changes/demo
+sut prepare "$WORK/a" demo
+check "undo_staged_redrop: prepare exits 0" '[ "$RC" -eq 0 ]'
+check "undo_staged_redrop: the undo is named" 'printf "%s\n" "$OUT" | grep -qxF "UNARCHIVED: $A/spectre/changes/demo"'
+check "undo_staged_redrop: a restored directory is a first pass" '! printf "%s\n" "$OUT" | grep -q "^ARCHIVED: "'
+check "undo_staged_redrop: the directory is back, nothing staged" '[ -f "$A/spectre/changes/demo/tasks.md" ] && g -C "$A" diff --cached --quiet'`},
 	})
 }
 
