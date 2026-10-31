@@ -188,7 +188,8 @@ sentences — 8 in the whole corpus, against hundreds of rules stated with "neve
 reworded rather than moved verbatim, and new run-loaded prose, unless the change lists the sentence
 in its `verbatim-moves.txt`. **A plan whose task edits run-loaded prose names
 `check-verbatim-moves.sh` in that task's verify step and commits the change's `verbatim-moves.txt`,
-listing every sentence its tasks add or reword, with the plan** — a `/flow` implementer never writes
+listing every sentence its tasks add or reword, with the plan**; run 1's drop commit deletes it
+with the rest of the change directory at land — a `/flow` implementer never writes
 `spectre/changes/`, so a verify step naming only the other prose guards lets the FAIL reach the
 review panel (kan-1027's F1 and F8).
 
@@ -275,7 +276,7 @@ Every new script in this repository is written in Go: its logic goes in the `flo
 (`stats/internal/guard/<name>.go`, registered in `guard.Registry`, with its cases in a Go test
 beside it), and `scripts/<name>.sh` is only the `flow_guard_exec` wrapper onto it. New logic in a
 script that is still bash is a port first, never more bash. The bash still standing is tracked by
-KAN-1058; `setup.sh` and the archived patches under `spectre/changes/archive/` stay bash.
+KAN-1058; `setup.sh` and the patches landed changes carried, now readable only in history, stay bash.
 
 ## standards
 

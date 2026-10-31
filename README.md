@@ -77,7 +77,7 @@ flowchart TD
         impl["<b>Implement</b> in a worktree<br/>SDD + TDD per task → review panel<br/>→ lint + tests → staged diff + run instructions"]
         g2{{"you: review the diff — the stack is running"}}
         land{"/flow (bare)<br/>how to land?"}
-        pr["two commits → archive → self-review bundle<br/>→ push → open PR<br/>issue → In Review"]
+        pr["two commits → drop → self-review bundle<br/>→ push → open PR<br/>issue → In Review"]
         g3{{"you: merge the PR, then /flow"}}
         impl --> g2
         g2 -- "/flow #lt;what to fix#gt;<br/>or just describe it" --> impl
@@ -90,7 +90,7 @@ flowchart TD
         cleanup["<b>Clean up</b><br/>verify merge → remove worktrees and branches<br/>→ issue → Done → fast-forward the main checkout"]
     end
 
-    land -- "merge and push:<br/>archive → bundle → push to base" --> cleanup
+    land -- "merge and push:<br/>drop → bundle → push to base" --> cleanup
     g3 --> cleanup
 ```
 
@@ -99,7 +99,7 @@ flowchart TD
   same session.
 - **Merge status alone decides** whether a bare `/flow` integrates or cleans up, so a PR merged on
   the forge and one `/flow` merged itself look the same.
-- **Run 2 runs no tests or linters** and commits nothing: the archive and the self-review bundle
+- **Run 2 runs no tests or linters** and commits nothing: the drop commit and the self-review bundle
   ride the change's own branch, landing with the code.
 
 Canonical detail: **State transitions** (`skills/flow-contracts/pipeline.md`), and
@@ -245,7 +245,7 @@ return a verdict. Each one has a `test-*.sh` harness in `scripts/`, and
 - `check-unfinished-work.sh`: reports unticked tasks or open findings before you are asked how to
   land.
 - `commit-split.sh`: makes the two commits, implementation first and planning second.
-- `check-archive-scope.sh`: blocks an archive commit that reaches outside the archive.
+- `check-archive-scope.sh`: blocks a drop commit whose staged diff holds anything but deletions under the change's own directories.
 - `check-cleanup-complete.sh`: `FINISHED` is written only once every temporary artifact is gone.
 
 **This repository's own lint.** It runs in `/flow`'s verify stage here:

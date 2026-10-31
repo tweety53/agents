@@ -26,7 +26,7 @@ reviewing and testing are one gate. Every invocation is re-entrant, and a fix ne
 
 A bare invocation at `IN_PROGRESS` lands the branch by the project's `## default landing route`, and
 asks only when none is declared: open a PR by default, merge and push, or leave it to you. Choosing merge-and-push continues the same invocation once the branch is
-merged, syncing, archiving, pushing and removing the worktrees; open PR and manual stop and hand off
+merged, syncing, dropping the change directory, pushing and removing the worktrees; open PR and manual stop and hand off
 instead.
 
 ## Load the pipeline before acting
