@@ -45,3 +45,6 @@ This session reads each dispatch's hand-back, never the files it names, save whe
 This session then runs `<agents repo>/scripts/pipeline-fix.sh verify <fix worktree> > <sr-dir>/verify-<v>.log 2>&1`, `<v>` counting verify runs from 1, and reads only its exit code and its `red:` lines.
 Write the bundle's stdout, then `## Session narrative`, to `<sr-dir>/bundle.md`, never printing it; run the pass over it; then commit the report in `<canonical-worktree>`, not pushing here:
 | `self-review-fix` | `opus/flow-medium`, `sonnet/flow-medium` | — | Makes one planned self-review fix.
+Delete `<bundle>`; a pass inside a run has no bundle file and commits the report alone, per its run's own section.
+Before the pass is dispatched, this session empties `<sr-dir>` of every file but `bundle.md`, so a re-run never fills an earlier run's draft or copies its cases.
+Delete `<bundle>` standalone, and `<sr-dir>` in-run and standalone alike once the report lands; a pass inside a run commits the report alone, per its run's own section.
