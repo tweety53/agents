@@ -63,7 +63,7 @@ One round runs these steps in order:
    `<changeRoot>/visual-verification/`, is never named in the task's `**Files:**` or
    `**Allowed-collateral:**` — `check-plan-shape` F23 refuses it and
    `check-task-commit-planning-paths` sweeps it — and rides the stage's own step-12 commit
-   (`skills/flow/visual-verify.md`) (kan-1048 self-review, 1-E). Its planning commit and the re-decide run as
+   (`skills/flow/visual-verify.md`) (kan-1048 self-review, 1-E). The re-decide runs as
    that file states.
    **One round appends one task**, carrying every defect the report names — never a task or a
    round per defect. The task carries `**Opener:** <the dispatch key whose report it transcribes>`,

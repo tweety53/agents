@@ -80,7 +80,7 @@ whose resolved set holds more than one worktree, a worktree is skipped when this
 merge base from this run's working notes:
 
 ```bash
-git -C <worktree> diff --name-only <merge-base>..HEAD ':(exclude)spectre/changes/<name>' ':(exclude)spectre/changes/archive/<name>'
+git -C <worktree> diff --name-only <merge-base>..HEAD ':(exclude)spectre/changes/<name>'
 ```
 
 The `## Report` names a skipped worktree as `- <worktree> — skipped, nothing outside its change
@@ -183,7 +183,7 @@ and costing a 272-second re-run — with the parent's own Bash calls: when the s
 (`skills/flow/implement.md`) does; then exercise what the section names and write each
 before/after figure, beside the failure look the section states, to `live-verification.md` in
 the change's directory (**A change's directory**, `skills/flow-contracts/pipeline.md`), a
-planning path the write-in-progress planning commit carries. **A before figure is measured from a
+gitignored planning path written on disk and nothing else. **A before figure is measured from a
 detached worktree at the merge base** — `git -C <worktree> worktree add --detach
 <project>-worktrees/<name>-before <merge-base>`, the base's stack run from there, then stopped, and the worktree
 removed with `git worktree remove` once the figure is written — never by checking base sources out
@@ -324,10 +324,10 @@ git -C <worktree> log <merge-base>..HEAD --oneline
 
 **Load `skills/flow-contracts/git-boundaries.md`** before committing below.
 
-**The PR-branch split.** Every task, fixup and planning commit already sits on the branch,
+**The PR-branch split.** Every task and fixup commit already sits on the branch,
 pushed as it landed (**Branch backup**, `skills/flow-contracts/git-boundaries.md`). If the state
 file records a `prUrl`, a PR is already open, so this run also commits whatever the operator
-edited at the human gate and whatever planning delta the last planning commit left, and pushes
+edited at the human gate, and pushes
 everything to the PR branch; otherwise this step commits nothing more.
 
 **Load `skills/flow-contracts/git-boundaries-commit-chain.md`** only when the state file records a
@@ -336,7 +336,7 @@ everything to the PR branch; otherwise this step commits nothing more.
 On that path only — and in this order — run
 `flow record render -change <name> -kind all -repo <canonical-worktree>` (the same member the
 ledger render above targets); then `commit-split.sh <worktree>
-<name> "<impl-msg>" "chore(spectre): plan <name>"`; then push the branch
+<name> "<impl-msg>" "chore: the rest of <name>"`; then push the branch
 `--force-with-lease`, since the split reshaped it. `<impl-msg>`
 covers working-tree edits the operator made at the human gate without staging them — derive it the
 same way a fixup commit's subject is derived — `fix(<module>): <what changed since the last task
@@ -463,8 +463,7 @@ reasons are recorded because the diff shows only the winning shape — a deferre
 reads the narrative, and the negative results live nowhere else in the change's record. A
 durable process lesson this run paid for is promoted to the lessons home (**Process lessons**,
 `skills/flow-contracts/lessons.md`) — the brief is repo content, landed with this change's own
-work. The write-in-progress planning commit carries it (**Planning commits**,
-`skills/flow-contracts/git-boundaries.md`), made once the append lands; nothing else stages it.
+work. The narrative itself is gitignored, written on disk and nothing else; nothing stages it.
 
 **Then check the narrative against the runs the store marked:** `check-narrative-runs.sh <abs-worktree> <name> <narrative.md>`. Exit 1 names a fix or integrate run whose `## <YYYY-MM-DD> — fix run` or `— integrate run` section the file lacks: append that run's section from the change's ledger and history, and run the check again. Exit 2 is reported and stops the write.
 

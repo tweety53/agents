@@ -233,7 +233,7 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
    checkout's `setup` (`skills/flow/cross-repo-worktrees.md`) — adds the worktree to the set, and runs
    `prepare` again: kan-983's first verifier was dispatched without it and blocked on the
    missing checkout, ~4.45M tokens spent for nothing. The recipe's merge-order record runs with
-   it, its planning commit included (**Isolate the workspace — additional worktrees**,
+   it (**Isolate the workspace — additional worktrees**,
    `skills/flow/cross-repo-worktrees.md`): a repository the canonical `link.md`'s `## Merge order`
    omits is one run 1 never sequences and the self-review bundle never reads (kan-998). **A change
    whose worktree records a flowBase gets a worktree in every `## apps` repository the set holds

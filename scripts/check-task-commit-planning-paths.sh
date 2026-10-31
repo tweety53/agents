@@ -20,10 +20,7 @@
 # under the spec tree is implementation: a capability spec under
 # `<leaf>/specs/` is exactly what a task commit SHOULD carry, and
 # `docs/superpowers/` is named in full rather than as `docs/` for the same
-# reason. The trailerless planning commits — git-boundaries.md's **Planning
-# commits** and the one bare /flow makes at integrate — carry exactly these
-# paths and stay outside this contract by having no trailer; so does
-# everything at or before <base>. A merge task commit is
+# reason. Everything at or before <base> stays outside this contract. A merge task commit is
 # judged by its combined diff (`-c`): a planning path its result carries
 # that no parent had is what the merge itself introduces and sweeps; content
 # carried over unchanged from a parent stays that parent commit's, judged

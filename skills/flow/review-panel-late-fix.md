@@ -18,13 +18,14 @@ check-late-fix-trigger.sh <change> <changeRoot>/tasks.md <worktree> <since-close
 ```
 
 Its header (`<agents repo>/scripts/check-late-fix-trigger.sh`) is canonical for the five
-conditions. `<since-close-sha>` is the sha this stage's last clean close on this change reviewed
+conditions; its plan-grew condition reads `<project>/.superpowers/sdd/<name>/tasks-at-close.md` in the canonical worktree,
+the copy the review panel's stage close writes (`skills/flow/review-panel.md`). `<since-close-sha>` is the sha this stage's last clean close on this change reviewed
 in that worktree, the pass log or the rendered panel record naming that close — `-` where it has
 none; the `-diff-base` its clean dispatches recorded names the canonical worktree's sha, and a
 peer worktree's since-close sha comes from the panel record's per-worktree sha list.
 **After integrate's reshape** (**3. Commit the staged work**, `skills/flow/integrate.md`) the shas
-the last clean close reviewed are gone from the branch, so the since-close sha is the canonical
-worktree's drop commit and a peer worktree's reshaped branch head.
+the last clean close reviewed are gone from the branch, so the since-close sha is each worktree's
+reshaped branch head.
 `<base-verdict>` is that worktree's **Check base movement first** line this round. Exit 0 → the
 reduction fires; exit 1 → the full path, each failed condition on its own line; exit 2 → it cannot
 answer, read as the full path; exit 3 → **The append scope** below — the full path for the

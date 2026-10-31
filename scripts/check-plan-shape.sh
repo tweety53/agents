@@ -8,9 +8,7 @@
 # is one file per call:
 #
 #   - no arguments: scan every live change's tasks.md under
-#     <spec-root>/changes/*/tasks.md (never the archive/ entry: run 1
-#     drops a change's directory, so nothing in flight sits there),
-#     aggregating exit codes — non-zero if ANY file has a violation,
+#     <spec-root>/changes/*/tasks.md, aggregating exit codes — non-zero if ANY file has a violation,
 #     printing each file's own violations;
 #   - one argument: treat it as an explicit tasks.md path and scan only
 #     that file.

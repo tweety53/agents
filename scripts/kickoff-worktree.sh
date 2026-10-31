@@ -37,7 +37,7 @@
 # existing one whose `## Merge order` lacks a name gets it as the next
 # numbered entry, nothing reordered; one already naming it, or holding no
 # such section, is left as it is. The file is never
-# committed — that planning commit is the caller's.
+# committed.
 #
 #   0. `flow` must be on PATH, checked first: a worktree step 2 could not
 #      persist is never created.

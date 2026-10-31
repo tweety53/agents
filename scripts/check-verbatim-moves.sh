@@ -27,9 +27,7 @@
 # `#` lines are comments and a leading `\` is dropped. The FAIL line already
 # prints a sentence opening with `#` or `\` behind one `\`, so a heading is
 # listed as `\## …`, exactly as printed.
-# Only in-flight changes count: a live change directory's list is read, never
-# one under the archive/ entry — run 1 drops a change's directory, its list
-# with it, once it has landed.
+# Only in-flight changes count: a live change directory's list is read.
 # A change directory the branch itself removed since the base is read from the commit before its removal (kan-1072 self-review).
 #
 # It cannot judge whether a lazily loaded file's "Load X only when Y"

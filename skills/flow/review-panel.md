@@ -23,12 +23,6 @@ more — so a later run never reuses a round an earlier run of the change alread
 
 ## Check base movement first
 
-**The before-review planning commit comes first.** Before the script below runs in any worktree,
-the parent makes the before-review planning commit (**Planning commits**,
-`skills/flow-contracts/git-boundaries.md`): the script's rebase is a bare `git rebase`, which git
-refuses while the change's directory carries uncommitted ticks or notes, and the script reports
-that refusal as exit 2 (kan-1030).
-
 Once per worktree in this run's resolved set (**Resolving a change's worktrees**,
 `skills/flow-contracts/worktree-resolution.md`), on every panel run — creating, resumed, or fix:
 
@@ -468,8 +462,7 @@ it to `<abs-worktree>/.superpowers/sdd/live-before.md` with the merge-base sha i
 tracked path the suite's tree gate reads.
 
 The same plan-tree discipline rides every round, re-run rounds included: before the launches the
-parent makes the reviewer-dispatch planning commit (**Planning commits**,
-`skills/flow-contracts/git-boundaries.md`) and runs
+parent runs
 `check-plan-unchanged.sh snapshot <worktree> <name> <snapshot-file>`, and once every report file
 exists it runs `check-plan-unchanged.sh verify <worktree> <name> <snapshot-file>` before any
 report is read or finding recorded. Exit 1 or 2 stops the round the same way the per-task
@@ -1012,7 +1005,7 @@ reduction read, or the small append, has its own carve-out (`skills/flow/review-
 > created — update those fields too. All of it lands in the worktree's
 > `<changeRoot>/tasks.md` in this same pass — never left for a reviewer to
 > catch next round. Edit them; do not stage or commit them — the plan record is
-> a planning path and is committed later by the pipeline, never in a fixup. A fix that lands as
+> a gitignored planning path, written on disk and nothing else. A fix that lands as
 > its own commit on top, carrying the round's `Flow-Key:` trailer, is outside every task: it
 > edits no task's fields.
 
@@ -1218,6 +1211,11 @@ round cannot close the stage over tags it never checked. Exit 0 proceeds to the 
 below. Exit 1 means the plan still carries a build-green violation: fix the tags as a
 planning-path edit, re-run the guard to exit 0, and only then close — a stage never closes on a
 plan the guard fails. Exit 2 stops the run.
+
+Before the stage ends, the parent copies `<changeRoot>tasks.md` to
+`<project>/.superpowers/sdd/<name>/tasks-at-close.md` in the canonical worktree — the plan as this clean close
+reviewed it, which `check-late-fix-trigger.sh` reads on a later fix run, since no commit holds the
+gitignored plan:
 
 ```bash
 flow stage end -command '/flow' -stage flow.review-panel -outcome completed <name>
