@@ -7,16 +7,19 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 // commitArchive is scripts/commit-archive.sh: that script's header is the
-// contract. It makes run 1's archive commit on the change branch
+// contract. It makes run 1's drop commit on the change branch
 // (skills/flow/integrate.md): asserts spectre/<name>, has
-// check-done-when-paths (in-process)
-// refuse a `## Done when` naming a path the index does not track, preserves
-// the rendered ledger and panel record into the archived change, stages
-// everything, has check-archive-scope (in-process) verify the staged diff
-// stays under spectre/changes/, and commits with the fixed subject.
+// check-done-when-paths (in-process) refuse a `## Done when` naming a path
+// the index does not track, removes spectre/changes/<name>/ and every
+// spectre/changes/<name>-fix-<N>/ from the index and the disk, has
+// check-archive-scope (in-process) verify the staged diff is deletions under
+// those directories alone, and commits `chore(spectre): drop <name>`. The
+// name and the ARCHIVE-* tokens stay (decision keep-guard-and-stage-names);
+// nothing is archived.
 func init() { Registry["commit-archive"] = commitArchive }
 
 func commitArchive(args []string, env Env, stdout, stderr io.Writer) int {
@@ -28,8 +31,8 @@ func commitArchive(args []string, env Env, stdout, stderr io.Writer) int {
 		return refuse("usage: commit-archive.sh <worktree> <name>")
 	}
 	wt, name := pcAbs(env, args[0]), args[1]
-	// The name is spliced into the branch, the archive path and the ledger
-	// paths: plainChangeName carries the rule and its reasoning.
+	// The name is spliced into the branch and the dropped paths:
+	// plainChangeName carries the rule and its reasoning.
 	if !plainChangeName(name) {
 		return refuse("change name %q is not a plain change name", name)
 	}
@@ -66,31 +69,36 @@ func commitArchive(args []string, env Env, stdout, stderr io.Writer) int {
 		return refuse("check-done-when-paths.sh could not answer for %s: exit status %d", wt, code)
 	}
 
-	// Each record when present; an absent one copies nothing. One that is
-	// present and cannot be copied is a stop: the archive would otherwise
-	// land without it, silently.
-	for _, p := range [][2]string{{"ledgers/" + name + ".md", "ledger.md"}, {"reviews/" + name + "-panel.md", "panel.md"}} {
-		src := wt + "/.superpowers/sdd/" + p[0]
-		b, err := os.ReadFile(src)
-		if errors.Is(err, os.ErrNotExist) {
-			continue
-		}
-		dst := wt + "/spectre/changes/archive/" + name + "/" + p[1]
-		if err == nil {
-			err = os.WriteFile(dst, b, 0o644)
-		}
-		if err != nil {
-			return refuse("cannot copy %s to %s: %v", src, dst, err)
+	// The live directory and every fix sub-change's, each from the index and
+	// the disk: what git does not track there (self-review patches, scratch)
+	// leaves with it.
+	var dirs []string
+	if ents, err := os.ReadDir(wt + "/spectre/changes"); err == nil {
+		for _, e := range ents {
+			n := e.Name()
+			if e.IsDir() && (n == name || isFixOf(n, name)) {
+				dirs = append(dirs, "spectre/changes/"+n)
+			}
 		}
 	}
-
-	if git("-C", wt, "add", "-A").Run() != nil {
-		return refuse("git add -A failed in %s", wt)
+	for _, d := range dirs {
+		if git("-C", wt, "rm", "-r", "-q", "--ignore-unmatch", "--", d).Run() != nil {
+			return refuse("git rm -r %s failed in %s", d, wt)
+		}
+		if err := os.RemoveAll(wt + "/" + d); err != nil {
+			return refuse("cannot remove %s/%s: %v", wt, d, err)
+		}
 	}
 	// The scope guard's SCOPE-OK is not relayed: this guard prints one
-	// verdict. Its violation lines are the verdict when it refuses.
+	// verdict. Its violation lines are the verdict when it refuses. With no
+	// directory left to drop (a re-run), the change's own path stays the
+	// one prefix, so anything else staged is still refused.
+	scope := append([]string{wt}, dirs...)
+	if len(dirs) == 0 {
+		scope = append(scope, "spectre/changes/"+name)
+	}
 	var lines bytes.Buffer
-	switch code := checkArchiveScope([]string{wt, "spectre/changes/"}, env, &lines, stderr); code {
+	switch code := checkArchiveScope(scope, env, &lines, stderr); code {
 	case 0:
 	case 1:
 		_, _ = stdout.Write(lines.Bytes())
@@ -108,7 +116,7 @@ func commitArchive(args []string, env Env, stdout, stderr io.Writer) int {
 	case !errors.As(err, &ee) || ee.ExitCode() != 1:
 		return refuse("cannot read the staged diff of %s", wt)
 	}
-	commit := git("-C", wt, "commit", "-q", "-m", "chore(spectre): archive "+name)
+	commit := git("-C", wt, "commit", "-q", "-m", "chore(spectre): drop "+name)
 	commit.Stdout, commit.Stderr = stderr, stderr
 	if commit.Run() != nil {
 		return refuse("git commit failed in %s", wt)
@@ -119,4 +127,10 @@ func commitArchive(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "ARCHIVE-COMMITTED: %s\n", sha)
 	return 0
+}
+
+// isFixOf is whether dir is a fix sub-change of name: <name>-fix-<digits>.
+func isFixOf(dir, name string) bool {
+	n, ok := strings.CutPrefix(dir, name+"-fix-")
+	return ok && n != "" && strings.Trim(n, "0123456789") == ""
 }

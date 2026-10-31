@@ -8,10 +8,10 @@ import (
 	"testing"
 )
 
-// caFx is an apply worktree as run 1's archive step leaves it: on
-// spectre/demo with spectre/changes/demo git-mv'd into the archive and the
-// rename staged, holding the rendered ledger (no panel record) under its
-// gitignored .superpowers/sdd/.
+// caFx is a change worktree as run 1's drop step finds it: on spectre/demo
+// with spectre/changes/demo and its fix sub-change spectre/changes/demo-fix-1
+// committed, holding the rendered ledger (no panel record) under its
+// gitignored .superpowers/sdd/ -- which the drop must not copy anywhere.
 type caFx struct {
 	wt string
 	g  fxGit
@@ -32,8 +32,11 @@ func caNewFx(t *testing.T) *caFx {
 	fx.g.git(fx.wt, "add", "-A")
 	fx.g.git(fx.wt, "commit", "-qm", "base")
 	fx.g.git(fx.wt, "checkout", "-q", "-b", "spectre/demo")
-	mkdir(t, fx.wt+"/spectre/changes/archive")
-	fx.g.git(fx.wt, "mv", "spectre/changes/demo", "spectre/changes/archive/demo")
+	mkdir(t, fx.wt+"/spectre/changes/demo-fix-1")
+	fx.g.write(fx.wt+"/spectre/changes/demo-fix-1/tasks.md", "fix plan")
+	fx.g.write(fx.wt+"/spectre/changes/demo/narrative.md", "narrative")
+	fx.g.git(fx.wt, "add", "-A")
+	fx.g.git(fx.wt, "commit", "-qm", "work")
 	mkdir(t, fx.wt+"/.superpowers/sdd/ledgers")
 	fx.g.write(fx.wt+"/.superpowers/sdd/ledgers/demo.md", "ledger")
 	return fx
@@ -54,6 +57,38 @@ func (fx *caFx) run(t *testing.T, args ...string) (int, string, string) {
 	return code, out.String(), errb.String()
 }
 
+// TestCommitArchiveDropsTheChange pins run 1's landing commit: the live
+// change directory and its fix sub-change leave the tip in one
+// `chore(spectre): drop <name>` commit, nothing lands under
+// spectre/changes/archive/, and no ledger or panel record is written.
+func TestCommitArchiveDropsTheChange(t *testing.T) {
+	t.Parallel()
+	fx := caNewFx(t)
+	fx.g.write(fx.wt+"/spectre/changes/demo/scratch.patch", "untracked")
+	code, out, errb := fx.run(t)
+	head := fx.g.git(fx.wt, "rev-parse", "HEAD")
+	if code != 0 || out != "ARCHIVE-COMMITTED: "+head+"\n" {
+		t.Fatalf("exit %d, stdout %q, stderr %q; want 0 and ARCHIVE-COMMITTED: %s", code, out, errb, head)
+	}
+	if s := fx.g.git(fx.wt, "log", "-1", "--format=%s"); s != "chore(spectre): drop demo" {
+		t.Errorf("subject %q", s)
+	}
+	for _, d := range []string{"spectre/changes/demo", "spectre/changes/demo-fix-1", "spectre/changes/archive"} {
+		if tree := fx.g.git(fx.wt, "ls-tree", "-d", "HEAD", d); tree != "" {
+			t.Errorf("%s still at HEAD: %s", d, tree)
+		}
+		if _, err := os.Stat(fx.wt + "/" + d); err == nil {
+			t.Errorf("%s still on disk", d)
+		}
+	}
+	if st := fx.g.git(fx.wt, "show", "--name-status", "--format=", "HEAD"); strings.Contains(st, "ledger.md") || strings.Contains(st, "panel.md") || strings.Contains(st, "\nA\t") || strings.HasPrefix(st, "A\t") {
+		t.Errorf("the drop commit added something:\n%s", st)
+	}
+	if fx.g.err != nil {
+		t.Fatal(fx.g.err)
+	}
+}
+
 func TestCommitArchive(t *testing.T) {
 	t.Parallel()
 
@@ -65,15 +100,8 @@ func TestCommitArchive(t *testing.T) {
 		if code != 0 || out != "ARCHIVE-COMMITTED: "+head+"\n" {
 			t.Fatalf("exit %d, stdout %q, stderr %q; want 0 and ARCHIVE-COMMITTED: %s", code, out, errb, head)
 		}
-		if s := fx.g.git(fx.wt, "log", "-1", "--format=%s"); s != "chore(spectre): archive demo" {
+		if s := fx.g.git(fx.wt, "log", "-1", "--format=%s"); s != "chore(spectre): drop demo" {
 			t.Errorf("subject %q", s)
-		}
-		files := fx.g.git(fx.wt, "show", "--name-only", "--format=", "HEAD")
-		if !strings.Contains(files, "spectre/changes/archive/demo/ledger.md") {
-			t.Errorf("the ledger did not ride the commit:\n%s", files)
-		}
-		if strings.Contains(files, "panel.md") {
-			t.Errorf("an absent panel record copied something:\n%s", files)
 		}
 	})
 
@@ -105,8 +133,8 @@ func TestCommitArchive(t *testing.T) {
 		if after := fx.g.git(fx.wt, "rev-parse", "HEAD"); after != before {
 			t.Error("the wrong branch was committed on")
 		}
-		if _, err := os.Stat(fx.wt + "/spectre/changes/archive/demo/ledger.md"); err == nil {
-			t.Error("the ledger was copied before the branch was asserted")
+		if !isFile(fx.wt + "/spectre/changes/demo/tasks.md") {
+			t.Error("the change directory was removed before the branch was asserted")
 		}
 	})
 
@@ -125,8 +153,8 @@ func TestCommitArchive(t *testing.T) {
 		if after := fx.g.git(fx.wt, "rev-parse", "HEAD"); after != before {
 			t.Error("a Done-when violation was committed")
 		}
-		if _, err := os.Stat(fx.wt + "/spectre/changes/archive/demo/ledger.md"); err == nil {
-			t.Error("the ledger was copied before the Done-when check refused")
+		if !isFile(fx.wt + "/spectre/changes/demo/tasks.md") {
+			t.Error("the change directory was removed before the Done-when check refused")
 		}
 	})
 
@@ -134,6 +162,7 @@ func TestCommitArchive(t *testing.T) {
 		t.Parallel()
 		fx := caNewFx(t)
 		fx.g.write(fx.wt+"/stray.txt", "stray")
+		fx.g.git(fx.wt, "add", "stray.txt")
 		before := fx.g.git(fx.wt, "rev-parse", "HEAD")
 		code, out, _ := fx.run(t)
 		if code != 1 || !strings.Contains(out, "OUT-OF-SCOPE") || !strings.Contains(out, "stray.txt") ||

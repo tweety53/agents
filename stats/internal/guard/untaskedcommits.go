@@ -15,7 +15,7 @@ func init() { Registry["check-untasked-commits"] = checkUntaskedCommits }
 const ucPrefix = "check-untasked-commits:"
 
 // ucChoreRE is a Conventional Commits `chore` subject: the pipeline's own
-// planning, link and archive commits.
+// planning, link and drop commits.
 var ucChoreRE = regexp.MustCompile(`^chore(\([^)]*\))?!?:`)
 
 // ucPipelineFixBranchRE is the branch a pipeline-fix Flow-Key belongs on.
