@@ -259,7 +259,8 @@ parks a question for a resume. **Each in-run fix runs the loop of 3. Fix every f
 the paragraphs every prompt carries, the no-progress escalation, and each item the steps below
 cite. One loop carries one defect, `<k>` one more than the highest `<n>` of any
 `pipeline-fix-*-<n>` branch, local or remote, folder under `<agents repo>/spectre/changes/`, or
-landed `chore(spectre): drop pipeline-fix-*-<n>` subject in history — whatever change it was for — so `<k>` is unique across
+landed `chore(spectre): drop pipeline-fix-*-<n>` or, for a loop landed before the drop,
+`chore(spectre): archive pipeline-fix-*-<n>` subject in history — whatever change it was for — so `<k>` is unique across
 `<agents repo>` and no two loops, concurrent or later, share a key (`pipeline-fix.sh start`
 refuses any other `<k>`); its name
 `pipeline-fix-<name>-<k>`, `<name>` the running change, stands for `self-review-<name>` there —
