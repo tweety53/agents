@@ -538,6 +538,13 @@ func TestStatsStageLeaderboardProjects(t *testing.T) {
 	if sts.projectsCalled {
 		t.Error("StageLeaderboardProjects ran without projects=1")
 	}
+	status, _, body = getStats(t, ts, periodPath("stage-leaderboard")+"&projects=0")
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	if sts.projectsCalled {
+		t.Error("StageLeaderboardProjects ran with projects=0")
+	}
 
 	status, _, body = getStats(t, ts, periodPath("trend"))
 	if status != http.StatusOK {
