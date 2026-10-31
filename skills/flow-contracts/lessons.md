@@ -26,15 +26,9 @@ searching repositories or narrative files by hand:
 flow lesson resolve -topic <words>
 ```
 
-The daemon scans every registered project's `<project>/docs/briefs/` and every archived change's
-`narrative.md`, ranks briefs before narrative mentions, and prints the answer as one Markdown
-document: each matching brief in full, then each mention's matching lines beside the path that
-holds them. The read carries the findings read's contract: an unreachable store is reported on
+The daemon scans every registered project's `<project>/docs/briefs/` and prints the answer as one
+Markdown document: each matching brief in full. The read carries the findings read's contract: an unreachable store is reported on
 stderr and exits non-zero, never a partial answer on stdout.
-
-A resolve that finds only narrative mentions — no brief — is the system working, not a gap: the
-mention names where the knowledge lives today, and the run that consumes it is the one
-positioned to promote it.
 
 ## Promote at the close
 

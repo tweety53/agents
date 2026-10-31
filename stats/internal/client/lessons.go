@@ -14,8 +14,7 @@ func (c *Client) lessonsResolveURL(topic string) string {
 }
 
 // ResolveLesson fetches the process-lesson answer for topic, assembled
-// server-side by flowd — every registered project's docs/briefs/ and
-// archived narratives scanned, briefs ranked before narrative mentions.
+// server-side by flowd — every registered project's docs/briefs/ scanned.
 // The body arrives already rendered and is returned verbatim — the CLI
 // constructs none of it, the record-render rule.
 //

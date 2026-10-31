@@ -35,7 +35,7 @@ func TestResolveIgnoresANarrativeInHistory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
-	if len(res.Mentions) != 0 || len(res.Unreadable) != 0 {
-		t.Fatalf("mentions = %+v, unreadable = %v; history is not a source", res.Mentions, res.Unreadable)
+	if len(res.Briefs) != 0 || len(res.Unreadable) != 0 {
+		t.Fatalf("briefs = %+v, unreadable = %v; history is not a source", res.Briefs, res.Unreadable)
 	}
 }
