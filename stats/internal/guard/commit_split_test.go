@@ -125,6 +125,19 @@ func TestCommitSplit(t *testing.T) {
 		check(t, isFile(fx.wt+"/spectre/changes/demo/plan.md"), "the change directory stays on disk", "plan.md lost")
 	})
 
+	t.Run("1b an unignored change directory refuses before anything is staged", func(t *testing.T) {
+		t.Parallel()
+		root := t.TempDir()
+		fx := csFx{root + "/main", root + "/wt"}
+		splitRepo(t, fx.main, fx.wt, map[string]string{"README.md": "seed\n", "spectre/specs/seed.md": "seed\n"})
+		writeFile(t, fx.wt+"/src.md", "impl change\n")
+		writeFile(t, fx.wt+"/spectre/changes/demo/plan.md", "plan change\n")
+		rc, out := fx.split(t, fx.wt, "case1b")
+		check(t, rc == 2, "exit 2", "rc=%d out=%s", rc, out)
+		check(t, has(out, "spectre/changes/ is not gitignored"), "the refusal names the path", "%s", out)
+		check(t, fx.subjects(t) == "seed", "no commit made", "%s", fx.subjects(t))
+	})
+
 	t.Run("1c each trailer argument joins the implementation commit's trailer block", func(t *testing.T) {
 		t.Parallel()
 		fx := csNew(t)
@@ -190,7 +203,7 @@ func TestCommitSplit(t *testing.T) {
 		before := splitGit(t, fx.main, nil, "rev-parse", "HEAD")
 		rc, out := fx.split(t, fx.main, "case8")
 		check(t, rc == 1, "main checkout exits 1", "rc=%d out=%s", rc, out)
-		check(t, has(out, "PLANNING-COMMIT-MAIN-CHECKOUT"), "guard's own line surfaces", "got %s", out)
+		check(t, has(out, "WORKTREE-LOCATION-MAIN-CHECKOUT"), "guard's own line surfaces", "got %s", out)
 		check(t, splitGit(t, fx.main, nil, "rev-parse", "HEAD") == before, "no commit made", "a commit landed")
 		check(t, splitGit(t, fx.main, nil, "diff", "--cached", "--name-only") == "", "nothing staged", "index touched")
 	})

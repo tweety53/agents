@@ -115,7 +115,7 @@ func TestReshapeBranch(t *testing.T) {
 		before := splitGit(t, fx.main, nil, "rev-parse", "HEAD")
 		rc, out := fx.reshape(t, fx.main, fx.main, "demo", fx.base)
 		check(t, rc == 1, "main checkout refused with exit 1", "rc=%d out=%s", rc, out)
-		check(t, strings.Contains(out, "PLANNING-COMMIT-MAIN-CHECKOUT"), "guard's own line printed", "out=%s", out)
+		check(t, strings.Contains(out, "WORKTREE-LOCATION-MAIN-CHECKOUT"), "guard's own line printed", "out=%s", out)
 		check(t, splitGit(t, fx.main, nil, "rev-parse", "HEAD") == before, "HEAD untouched", "HEAD moved")
 	})
 
