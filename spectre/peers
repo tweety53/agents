@@ -1,3 +1,5 @@
 spectre ../spectre
 gymie ../gymie
 gymie-playwright ../gymie-playwright
+flow-eval ../flow-eval
+gymie-frontend ../gymie-frontend
