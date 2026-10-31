@@ -15,8 +15,9 @@ import (
 )
 
 // closeTask is scripts/close-task.sh: that script's header is the contract.
-// It runs the task-close sequence of skills/flow/implement.md (**The next
-// implementer overlaps the guard.**, step 2), composing the guards
+// It runs the task-close sequence of skills/flow/implement.md (**A group
+// boundary is one wake, one Bash call and one launch message.**, step 2),
+// composing the guards
 // in-process through Registry.
 func init() { Registry["close-task"] = closeTask }
 

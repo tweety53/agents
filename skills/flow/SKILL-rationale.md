@@ -606,7 +606,7 @@ parent's inline fix drops all four, so a Minor now costs about what writing its
 > operator as a recorded decision because the implementer stopped to report instead of building —
 > so every implementer dispatch also carries:**
 
-### implement.md — The next implementer overlaps the guard
+### implement.md — A group boundary is one wake, one Bash call and one launch message
 
 > the fourth is the empty placeholder that skips the parent-sha — the guard derives
 > the commit's parent itself (KAN-330), so the argument a mistyped merge base once corrupted is

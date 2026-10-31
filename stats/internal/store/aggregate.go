@@ -99,7 +99,8 @@ type LiveStateRow struct {
 	Requests []records.Request
 	// FixRounds is main's highest review-panel round (panel-<N>) plus the
 	// highest verify-fix-<N> and visual-verify-fix-<N> and each other fix
-	// dispatch outside the panel (full-suite-fix-1), ReviewerRuns
+	// dispatch outside the panel (full-suite-fix-1, a panel-fix row inline and
+	// an implementer row under sdd), ReviewerRuns
 	// its reviewer dispatches outside the self-review; SelfReviewFixRounds is
 	// the self-review's highest -review-<N> or -fix-<N>, SelfReviewReviewerRuns
 	// its reviewer dispatches bar the analysis -pass -- each read from the
@@ -259,7 +260,8 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			       + COALESCE(MAX(substring(d.dispatch_key FROM '^verify-fix-(\d+)')::int) FILTER (WHERE NOT d.sr), 0)
 			       + COALESCE(MAX(substring(d.dispatch_key FROM '^visual-verify-fix-(\d+)')::int) FILTER (WHERE NOT d.sr), 0)
 			       + (COUNT(*) FILTER (WHERE d.role = 'panel-fix' AND NOT d.sr AND d.dispatch_key NOT LIKE 'panel%' AND d.dispatch_key NOT LIKE '%verify-fix-%'))::int
-			       + (COUNT(*) FILTER (WHERE NOT d.sr AND d.dispatch_key ~ '^tasks?-[0-9+]+-implementer-fix-[0-9]+$'))::int AS fix_rounds,
+			       + (COUNT(*) FILTER (WHERE NOT d.sr AND d.dispatch_key ~ '^tasks?-[0-9+]+-implementer-fix-[0-9]+$'))::int
+			       + (COUNT(*) FILTER (WHERE d.role = 'implementer' AND NOT d.sr AND d.dispatch_key ~ '^full-suite-fix-[0-9]+$'))::int AS fix_rounds,
 			       (COUNT(*) FILTER (WHERE d.role = 'reviewer' AND NOT d.sr))::int AS reviewer_runs,
 			       COALESCE(MAX(substring(d.dispatch_key FROM '-(?:review-|fix-v?)(\d+)$')::int) FILTER (WHERE d.sr), 0) AS sr_fix_rounds,
 			       (COUNT(*) FILTER (WHERE d.role = 'reviewer' AND d.sr AND d.dispatch_key NOT LIKE '%-pass'))::int AS sr_reviewer_runs

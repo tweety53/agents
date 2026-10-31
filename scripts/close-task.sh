@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # close-task.sh — run the task-close sequence of skills/flow/implement.md
-# (**The next implementer overlaps the guard.**, step 2) for every task a
+# (**A group boundary is one wake, one Bash call and one launch
+# message.**, step 2) for every task a
 # returning implementer committed.
 #
 # Usage: close-task.sh [-end-key <key> -session-token <token> [-end-commit <sha>]]

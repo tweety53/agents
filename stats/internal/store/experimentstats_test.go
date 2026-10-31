@@ -258,6 +258,9 @@ func TestExperimentStatsImplementerFamily(t *testing.T) {
 	fx.change("c1", `{}`, fx.day(-1))
 	fx.dispatch("c1", "implementer", "task-1-implementer", "completed", "", fx.day(-1), 10, "")
 	fx.dispatch("c1", "implementer", "task-2-implementer", "completed", "", fx.day(-1), 10, "")
+	fx.dispatch("c1", "implementer", "task-1-implementer-fix-1", "completed", "", fx.day(-1), 10, "")
+	fx.dispatch("c1", "implementer", "task-2-implementer-recommit-1", "completed", "", fx.day(-1), 10, "")
+	fx.dispatch("c1", "implementer", "task-1+2-implementer-pick-1", "completed", "", fx.day(-1), 10, "")
 	for _, ref := range []string{"F1", "F2", "F3"} {
 		fx.finding("c1", ref, "minor", 0, nil)
 	}

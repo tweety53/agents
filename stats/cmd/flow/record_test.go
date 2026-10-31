@@ -5967,9 +5967,11 @@ func TestRecordFindingFromAssignsRefs(t *testing.T) {
 	isolatedStateRoot(t)
 
 	readStatus := http.StatusOK
+	var gotPath string
 	var posted []records.Finding
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
+			gotPath = r.URL.String()
 			w.WriteHeader(readStatus)
 			_, _ = w.Write([]byte(`{"change":"kan-918","dispatches":[],"findings":[` +
 				`{"ref":"F1","round":0,"slot":"primary","severity":"Minor","note":"n","status":"fixed"},` +
@@ -6078,9 +6080,21 @@ func TestRecordFindingFromAssignsRefs(t *testing.T) {
 
 	// (e) A null line is a malformed line reported by exit, never a panic.
 	readStatus = http.StatusOK
-	write("null\n")
-	if code, _ := load(); code != 2 {
-		t.Errorf("(e) null line exit %d, want 2", code)
+	write(`{"ref":"F1","task":1,"severity":"Minor","location":"a.go:1","note":"x"}` + "\nnull\n")
+	if code, stderr := load(); code != 2 || !strings.Contains(stderr, file+":2: a line must be a JSON object") {
+		t.Errorf("(e) null line exit %d stderr %q, want 2 naming line 2 as not a JSON object", code, stderr)
+	}
+
+	// (e2) A present ref that is not a string is refused naming its line,
+	// never renumbered: the file keeps its bytes and nothing is posted.
+	posted = nil
+	numRef := `{"ref":4,"task":1,"severity":"Minor","location":"a.go:1","note":"x"}` + "\n"
+	write(numRef)
+	if code, stderr := load(); code != 2 || !strings.Contains(stderr, file+":1: \"ref\" must be a string") {
+		t.Errorf("(e2) numeric ref exit %d stderr %q, want 2 naming line 1", code, stderr)
+	}
+	if data, _ := os.ReadFile(file); string(data) != numRef || len(posted) != 0 {
+		t.Errorf("(e2) file %q posted %v, want bytes unchanged and nothing posted", data, refs())
 	}
 
 	// (f) -ref beside -from is refused: each line names its own ref.
@@ -6091,6 +6105,32 @@ func TestRecordFindingFromAssignsRefs(t *testing.T) {
 		strings.NewReader(""), &stdout, &stderrF)
 	if code != 2 || !strings.Contains(stderrF.String(), "-ref") {
 		t.Errorf("(f) -ref with -from exit %d stderr %q, want 2 naming -ref", code, stderrF.String())
+	}
+	for _, form := range []string{"-ref=F7", "--ref=F7"} {
+		stdout.Reset()
+		stderrF.Reset()
+		code = run(context.Background(),
+			[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918",
+				form, "-slot", "gated-reviewer", "-round", "0", "-status", "open", "-reproducer", "none — a gated pass", "-from", file},
+			strings.NewReader(""), &stdout, &stderrF)
+		if code != 2 || !strings.Contains(stderrF.String(), "-ref and -from cannot be combined") {
+			t.Errorf("(f) %s with -from exit %d stderr %q, want 2 refusing the combination", form, code, stderrF.String())
+		}
+	}
+
+	// (g) The run-record read resolves the project from the command line's
+	// -C, not the working directory.
+	wantKey, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotPath = ""
+	write(refless)
+	if code, stderr := load(); code != 0 {
+		t.Fatalf("(g) exit %d, want 0; stderr:\n%s", code, stderr)
+	}
+	if !strings.Contains(gotPath, wantKey) {
+		t.Errorf("(g) run-record read %q, want it to name -C's project %q", gotPath, wantKey)
 	}
 }
 

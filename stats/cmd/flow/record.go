@@ -2018,7 +2018,8 @@ func runRecordFindingFrom(ctx context.Context, path string, rest []string, stdou
 // numberRefLessFindings gives each well-formed -from line with no ref the
 // next free ref and writes the file back, returning the bytes to record.
 // A file whose every line names its ref is returned as it is, with no
-// store read; a malformed line is left for runRecordFindingFrom to report.
+// store read; a present ref that is not a string is exit 2 naming its line,
+// and any other malformed line is left for runRecordFindingFrom to report.
 func numberRefLessFindings(ctx context.Context, path string, data []byte, rest []string, stderr io.Writer) ([]byte, int) {
 	lines := strings.Split(string(data), "\n")
 	var refLess []int
@@ -2034,7 +2035,12 @@ func numberRefLessFindings(ctx context.Context, path string, data []byte, rest [
 		if dec.Decode(&row) != nil || row == nil {
 			continue
 		}
-		if ref, _ := row["ref"].(string); ref != "" {
+		ref, isString := row["ref"].(string)
+		if row["ref"] != nil && !isString {
+			fmt.Fprintf(stderr, "flow: -from %s:%d: \"ref\" must be a string\n", path, i+1)
+			return nil, 2
+		}
+		if ref != "" {
 			if n, err := strconv.Atoi(strings.TrimPrefix(ref, "F")); err == nil {
 				floor = max(floor, n+1)
 			}

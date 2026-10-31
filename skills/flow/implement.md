@@ -465,7 +465,7 @@ Its later `close-task.sh` then runs without the `-end-*` flags.
 
 Both calls are required. `begin` is recorded immediately before the dispatch — when several
 launches go out together in one message, in the one Bash call immediately before that message, one
-call for all (step 3 of **The next implementer overlaps the guard**, below) — carrying no
+call for all (step 2 of **A group boundary is one wake, one Bash call and one launch message**, below) — carrying no
 `-agent-id`: the daemon captures the agent's identifier. A launch whose row is not yet open is
 refused by `hooks/enforce-agent-baseline.py` (kan-1038), and the harvester fills the row's empty
 `agent_id` from the launch result afterwards. `-agent-id` is accepted on both
@@ -570,7 +570,8 @@ DON'T DECIDE — live in that file, which the implementer reads in full first, a
 carries them. The prompt is these lines alone, in this order, each `<…>` filled — `<skill-dir>` the
 directory this file was read from, the `Role:` line the one `flow record dispatch begin` printed for
 the row, and the `Incident:` line present only when an incident rides this dispatch (**An incident
-one dispatch caused rides the next dispatch to the same role**, above):
+one dispatch caused rides the next dispatch to the same role**, above), and the `In-run fix:` line
+present only on the implementer of an in-run fix task (**The in-run fix loop**, `skills/flow/verify-fix-loop.md`):
 
 ```text
 Role: implementer
@@ -584,6 +585,7 @@ Worktree: <abs-worktree>
 CONTEXT BUNDLE: <abs-worktree>/.superpowers/sdd/dispatch-context-group-<g>.md
 Tasks: <the group's task ids, in plan order> of <the plan's task count>
 Incident: <what happened and the exact commands that would have caught it, verbatim — on a repeat, stop and report>
+In-run fix: read the MUTATION PROOF and PIXEL PROBE paragraphs of <skill-dir>/review-panel.md and follow both; report their fix-mutation: lines
 REPORT FILE: <abs-worktree>/.superpowers/sdd/implementer-report-<k>.md
 ```
 
@@ -944,7 +946,9 @@ harness's completion notification wakes it, carrying the child's final message �
 is out and no shorter timer is armed — a slot's ceiling (**No forking, and a wall-clock ceiling on
 every slot**, `skills/flow/review-panel.md`) is one — one background `sleep 3000`, launched with
 `run_in_background: true` beside the launches, wakes the parent before its one-hour prompt cache
-lapses; a wake that finds a child still out re-arms it and ends the turn again. `skills/flow/review-panel.md` and
+lapses; a wake that finds a child still out re-arms it and ends the turn again. Once the last child out
+has returned, the parent stops that timer (`TaskStop` on its background task) before any gate or
+turn end, so no stale wake reaches a later turn. `skills/flow/review-panel.md` and
 `skills/flow/verify-and-handoff.md` state their own batches under this paragraph and restate
 none of it.
 
