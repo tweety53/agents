@@ -34,10 +34,10 @@ Moved verbatim from the contract, where it opened the sentence whose call-site l
 
 ## finish-contract-run1.md — one task, one worktree (2026-10-04)
 
-The operator's rule: one task gets one worktree, and its planning, archive and self-review
-artifacts land on the same pull request as the code, as separate commits. So run 1 archives the
-change and runs its self-review pass on `spectre/<name>`, in the apply worktree, before
-any route pushes, and run 2 only cleans up.
+The operator's rule: one task gets one worktree, and its self-review fixes land on the same pull
+request as the code. So run 1 runs its self-review pass on `spectre/<name>`, in the apply
+worktree, before any route pushes, and run 2 only cleans up. Since KAN-1073 no planning, archive
+or self-review artifact is committed at all.
 
 Rejected, and removed: a second, throwaway landing worktree `<project>-worktrees/_landing-<name>`
 and a second branch `chore/archive-<name>`. Run 1's merge-and-push route positioned that worktree
