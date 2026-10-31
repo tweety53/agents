@@ -95,25 +95,33 @@ func pucRemovePlan(g *fxGit, wt string) {
 	g.git(wt, "commit", "-q", "-m", "plan-removed")
 }
 
+// pucLockPlan makes the plan tree unreadable, so the walk fails; pucUnlockPlan
+// restores it for the temp directory's cleanup.
+func pucLockPlan(g *fxGit, wt string) {
+	if err := os.Chmod(wt+"/spectre/changes/demo", 0o000); err != nil && g.err == nil {
+		g.err = err
+	}
+}
+
+func pucUnlockPlan(g *fxGit, wt string) {
+	if err := os.Chmod(wt+"/spectre/changes/demo", 0o755); err != nil && g.err == nil {
+		g.err = err
+	}
+}
+
 type pucResult struct {
 	code int
 	out  string
 }
 
-func pucExec(root string, steps []pucStep, notRepo bool, snapRel string) ([]pucResult, error) {
+func pucExec(root string, steps []pucStep, snapRel string) ([]pucResult, error) {
 	wt := filepath.Join(root, "wt")
-	if notRepo {
-		if err := os.Mkdir(wt, 0o755); err != nil {
-			return nil, err
-		}
-	} else {
-		src, err := pucRepo()
-		if err != nil {
-			return nil, err
-		}
-		if out, err := exec.Command("cp", "-Rp", src, wt).CombinedOutput(); err != nil {
-			return nil, fmt.Errorf("cp: %v\n%s", err, out)
-		}
+	src, err := pucRepo()
+	if err != nil {
+		return nil, err
+	}
+	if out, err := exec.Command("cp", "-Rp", src, wt).CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("cp: %v\n%s", err, out)
 	}
 	snapDir := filepath.Join(root, "snap")
 	if err := os.Mkdir(snapDir, 0o755); err != nil {
@@ -152,7 +160,6 @@ func TestCheckPlanUnchanged(t *testing.T) {
 	t.Parallel()
 	type pucCase struct {
 		snapRel string
-		notRepo bool
 		steps   []pucStep
 	}
 	cases := []pucCase{
@@ -230,9 +237,11 @@ func TestCheckPlanUnchanged(t *testing.T) {
 		{snapRel: "no-dir/snapshot", steps: []pucStep{
 			pucRun("snapshot", 2, "case 10: snapshot to an unwritable path exits 2"),
 		}},
-		{notRepo: true, steps: []pucStep{
-			pucRun("snapshot", 2, "case 11: a non-repository worktree exits 2"),
+		{steps: []pucStep{
+			pucAct(pucLockPlan),
+			pucRun("snapshot", 2, "case 11: a plan tree that cannot be walked exits 2"),
 			pucSnapAbsent("case 11b: the failed snapshot leaves no partial snapshot file"),
+			pucAct(pucUnlockPlan),
 		}},
 		// A change with no plan tree has nothing to lose.
 		{steps: []pucStep{
@@ -265,15 +274,12 @@ func TestCheckPlanUnchanged(t *testing.T) {
 			pucAct(func(g *fxGit, wt string) { g.write(wt+"/spectre/changes/demo/sub/b.md", "b") }),
 			pucRun("verify", 1, "case 15b: verify after a file planted in the untracked subdirectory exits 1"),
 		}},
-		// git ls-files failing during verify is cannot answer, never changed.
+		// The walk failing during verify is cannot answer, never changed.
 		{steps: []pucStep{
 			pucRun("snapshot", 0, "case 16a: snapshot exits 0"),
-			pucAct(func(g *fxGit, wt string) {
-				if err := os.RemoveAll(wt + "/.git"); err != nil && g.err == nil {
-					g.err = err
-				}
-			}),
-			pucRun("verify", 2, "case 16b: verify where git ls-files fails exits 2"),
+			pucAct(pucLockPlan),
+			pucRun("verify", 2, "case 16b: verify where the plan tree cannot be walked exits 2"),
+			pucAct(pucUnlockPlan),
 		}},
 		// A checkbox tick the parent makes while a reviewer flies is not a
 		// change; a tick beside a prose edit still is.
@@ -302,7 +308,7 @@ func TestCheckPlanUnchanged(t *testing.T) {
 			snapRel = "snapshot"
 		}
 		root := t.TempDir()
-		run := sync.OnceValues(func() ([]pucResult, error) { return pucExec(root, c.steps, c.notRepo, snapRel) })
+		run := sync.OnceValues(func() ([]pucResult, error) { return pucExec(root, c.steps, snapRel) })
 		for i, s := range c.steps {
 			if s.label == "" {
 				continue

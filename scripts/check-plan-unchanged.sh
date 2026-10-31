@@ -2,7 +2,7 @@
 # check-plan-unchanged.sh snapshot|verify <worktree> <change-name> <snapshot-file>
 #
 # The guard KAN-635 asked for: the change's plan tree survives every
-# reviewer dispatch, asserted by git — never by the reviewer's own prose.
+# reviewer dispatch, asserted by this guard — never by the reviewer's own prose.
 # On gymie KAN-579 the gated per-task reviewer ran `git checkout <sha> -- .`
 # mid-review, silently destroyed the never-committed design.md/tasks.md
 # working-tree edits (task commits never carry plan paths, per
@@ -14,8 +14,9 @@
 #
 #   snapshot  run immediately BEFORE the dispatch's Agent call, after the
 #             parent has committed any uncommitted plan edits — writes the
-#             plan tree's content (every tracked or untracked file under it,
-#             each path then its bytes) to <snapshot-file>
+#             plan tree's content (every regular file under it, walked from
+#             disk since the tree is gitignored, each path then its bytes) to
+#             <snapshot-file>
 #   verify    run when the dispatch's report file(s) exist, BEFORE any
 #             verdict is read or acted on — recomputes the same content and
 #             compares it, naming each changed path; a checkbox tick
@@ -29,7 +30,7 @@
 # everything else while the reviewer is in flight — a whole-worktree assert
 # would fire on every normal run, and the incident's own loss was the plan
 # tree ("source code was never at risk", the KAN-635 issue records). The
-# snapshot is the plan tree's content, untracked files included, so a file
+# snapshot is the plan tree's content, every file on disk, so a file
 # planted under the plan tree is a violation too, and so is a prose edit
 # beside a checkbox tick — only a line whose sole change is a tick passes;
 # the plan directory being absent at snapshot and still absent at verify is
@@ -43,19 +44,19 @@
 # holds the plan tree precisely because the parent commits before it
 # snapshots), never by re-running the reviewer.
 #
-# THE CHANGE NAME IS A PATHSPEC COMPONENT here, so the package's one
+# THE CHANGE NAME IS A PATH COMPONENT here, so the package's one
 # change-name allowlist (stats/internal/guard/changename.go's
-# plainChangeName) refuses anything but a plain change name before git ever
-# sees it.
+# plainChangeName) refuses anything but a plain change name before the walk
+# ever sees it.
 #
 # Exit codes:
 #   0  snapshot written, or the plan tree matches its snapshot
 #   1  verify found the plan tree changed since the snapshot — each
 #      difference named on stderr
 #   2  cannot answer at all — missing arguments, a bad mode, a non-directory
-#      worktree, a change name outside the allowlist, the worktree not being
-#      a git repository, a git failure, or (on verify) a missing or
-#      unreadable snapshot file or an unwritable snapshot path (on snapshot)
+#      worktree, a change name outside the allowlist, a plan tree that cannot
+#      be walked, or (on verify) a missing or unreadable snapshot file or an
+#      unwritable snapshot path (on snapshot)
 #
 # The guard itself is Go: stats/internal/guard/planunchanged.go.
 # flow-guard is built from this checkout, never taken from PATH:
