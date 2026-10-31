@@ -397,3 +397,69 @@ Both spec-tree leaf spellings are named because the leaf is the project's — `s
 Never `<project>/spectre/changes/` either — the clearing resets do not licence a second, deliberate add of it.
 Stage for that commit only through the guarded sequence below, in this order — the clearing pass runs first, before any `git add`, so nothing an earlier step staged under a planning path rides the commit:
 `stage-task-files.sh <abs-worktree> <file>…` runs that clearing reset, then the add of the task's non-planning paths, then a second clearing reset, then exits 1 when git left any of this task's paths unstaged: report the lines it printed and commit nothing (kan-1012: `git add` exited 0 with 15 new paths untracked, and the commit failed).
+':(exclude)spectre/changes/<name>' ':(exclude)spectre/changes/<name>-fix-<N>' \
+':(exclude)spectre/changes/<name>'` call exits 128 with `fatal: pathspec … is beyond a symbolic link` and stages **nothing at all**.
+**`/flow`'s integrate run 1** stops before step 5's route and continues as `/flow <name> <the defect, one line>` would: the fix run restores the change directory above the drop commit and, once it writes its state, continues into integrate as a dropped re-run with new work, which runs the pass again (**Run 1 — the branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`).
+**`link.md` is implementation too, carved out by file, not directory.
+**Both commits are guarded, and an empty one is skipped rather than failed.
+**Cleanup**: the tree clean and `git -C <worktree> merge-base --is-ancestor <name> origin/<base>` passing, then `git -C <project> worktree remove <project>-worktrees/<name>` without `--force`, `git -C <project> branch -D <name>` and `git -C <project> push origin --delete <name>`.
+**Only the change's own folders are planning.
+**Plan review gate** (`skills/flow/brainstorm-planner.md`) — the prose summary, the `## Decision` block, then **Push artifacts?
+\# The guarded two-commit chain
+&& { git -C <abs-worktree> add -A -- 'spectre/changes/<name>/link.md' 2>/dev/null || true; } \
+&& git -C <abs-worktree> add -A -- .
+`/flow-plan`'s **Push artifacts?
+| [finish-contract-run1.md](finish-contract-run1.md) | `/flow`'s integrate run: the preflight-signal decision, run 1's procedure — the landing drop and the self-review pass included — base-branch resolution, and resolving a change's worktrees.
+| [git-boundaries-commit-chain.md](git-boundaries-commit-chain.md) | The guarded two-commit chain that enforces the split between implementation and planning artifacts.
+A `:(exclude)` pathspec beats a positive one in the same `add`, so it needs its own `add` after the exclude, guarded so a `link.md`-less change still commits cleanly — `<agents repo>/scripts/commit-split.sh` guards it.
+A resolve that finds only narrative mentions — no brief — is the system working, not a gap: the mention names where the knowledge lives today, and the run that consumes it is the one positioned to promote it.
+Each commit is preceded by a staged-changes test, and the whole sequence is one `&&` chain, run as a single command.
+git -C <abs-worktree> reset -q -- spectre/changes/ \
+It states which repositories a change spans, its branch and merge order — structural, not the `proposal.md`/`design.md`/`tasks.md` planning narrative — and in a satellite repository it is the change's only content, so the directory boundary above would leave that branch with no implementation commit.
+On a `flow.visual-verify` round its `**Files:**` lists the change's `<changeRoot>/visual-verification.md` beside the fix's own paths, and the task rewrites the record's sections its fix changes in the same commit, as DRIFT CHECK (`skills/flow/implement.md`) requires (kan-1038).
+One git command per `git -C` call, and never a compound command led by `cd` — the harness hook denies those by design — a compound chain staying legitimate only when every member is `git -C`-led and pasted whole, as **The guarded two-commit chain** (`skills/flow-contracts/git-boundaries-commit-chain.md`) is.
+Only a run that **completed** the drop and cleanup — or completed a withdrawal (**The withdrawal route**, `skills/flow/withdrawal.md`) — is terminal and names nothing; a run that stopped on a cleanup leftover names itself too, for the same reason: the operator clears what remains and runs it again.
+The daemon scans every registered project's `<project>/docs/briefs/` and every archived change's `narrative.md`, ranks briefs before narrative mentions, and prints the answer as one Markdown document: each matching brief in full, then each mention's matching lines beside the path that holds them.
+The exclude names `<project>/spectre/changes/<name>/` and one `<project>/spectre/changes/<name>-fix-<N>/` per fix sub-change folder the worktree holds; every other path under `<project>/spectre/changes/` — another change's directory, its `link.md`, an archive deletion — lands in the implementation commit (kan-1072 self-review, F1: a tip's archive deletion folded into each repository's plan commit).
+The guard that enforces this contract reads three files per in-flight change — that change's own `tasks.md`, `design.md` and `proposal.md` — under `<project>/spectre/changes/<name>/`; a change the landing drop deleted has no directory and is not scanned.
+The guarded two-commit chain (**The guarded two-commit chain**, `skills/flow-contracts/git-boundaries-commit-chain.md`) is the deliberate exception: its `add -A` is what picks up operator edits and new files at the human gate, which a pathspec-scoped commit would drop.
+The guarded two-commit chain that enforces the split between implementation and planning artifacts is `skills/flow-contracts/git-boundaries-commit-chain.md`.
+The only way to stage past it is a bare `git add -A`, which puts the planning artifacts into the implementation commit — the one outcome this split exists to prevent — so the fix belongs in the repository, by making the path a real directory.
+The sequence itself — the guarded commits, the skipped-empty rule, the failure rule and the symlink case — is the chain **The guarded two-commit chain** (`git-boundaries-commit-chain.md`) gives; `<agents repo>/scripts/commit-split.sh` is what runs it, at both this call site and the implement phase's PR-exception path.
+The summary and the `## Decision` block still print, the high-raise question below is not asked and takes **No**, and the run continues to the plan-gate commit and the `STARTED` handoff.
+Then the question — `/flow-plan`'s wording is **Push artifacts?**, `/flow`'s is **Proceed to implementation?
+**`/flow`'s integrate run 1** stops before step 5's route and continues as `/flow <name> <the defect, one line>` would: the fix run writes in the change directory still on disk and, once it writes its state, continues into integrate as a re-run with new work, which runs the pass again (**Run 1 — the branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`).
+**`link.md` is never committed either.
+**A re-run reshapes from past the work already landed in its fixed form**: `prepare` writes as the reshape base the newest commit in the merge base's range that a `fixed` self-review row names (so a fix's recorded sha survives, kan-1021), else the newest commit carrying `Flow-Key: flow.commit-two` (run 1's implementation commit), else the merge base.
+**Cleanup**: the tree clean and `git -C <worktree> merge-base --is-ancestor <name> origin/<base>` passing, then `flow change save -C <worktree> <name>` (the self-review bundle's only copy; a non-zero exit stops, removing nothing), `git -C <project> worktree remove <project>-worktrees/<name>` without `--force`, `git -C <project> branch -D <name>` and `git -C <project> push origin --delete <name>`.
+**The change directory is left out by the ignore file alone.
+**The commit is guarded, and an empty one is skipped rather than failed.
+\# The guarded commit chain
+`/flow-plan`'s **Save the plan?
+`<project>/spectre/changes/` is gitignored, so `add -A` stages nothing under it; `commit-split.sh` refuses, exit 2 naming the path, a worktree where it is not ignored.
+| [finish-contract-run1.md](finish-contract-run1.md) | `/flow`'s integrate run: the preflight-signal decision, run 1's procedure — the self-review pass included — base-branch resolution, and resolving a change's worktrees.
+| [git-boundaries-commit-chain.md](git-boundaries-commit-chain.md) | The guarded commit chain that commits the implementation and leaves the gitignored change directory out.
+A change's directory is `<project>/spectre/changes/<name>/`, on disk in the worktree, never committed: `<project>/spectre/changes/` is gitignored and there is no archived path.
+A plan snapshot does: on the plan gate's **Yes**, at `/flow-plan`'s capture and after a fix run appends tasks, the run copies `tasks.md`, `proposal.md` and `design.md` of `<project>/spectre/changes/<name>/` in the canonical worktree into the next numbered directory `<abs-worktree>/.superpowers/sdd/<name>/plan-snapshots/<k>/` (`<k>` = 1 + the number of directories already there), never committed, with exactly this command:
+An `--outstanding` text no implementation commit carries is printed as `OUTSTANDING-UNRECORDED:`, never dropped.
+Before the stage ends, the parent copies `<changeRoot>/tasks.md` to `<project>/.superpowers/sdd/<name>/tasks-at-close.md` in the canonical worktree — the plan as this clean close reviewed it, which `check-late-fix-trigger.sh` reads on a later fix run, since no commit holds the gitignored plan:
+call exits 128 with `fatal: pathspec … is beyond a symbolic link` and stages **nothing at all**.
+Each link writes `link.md` on both sides, on disk and nothing else.
+flow change save -C <worktree> <name>
+git -C <abs-worktree> add -A -- .
+It carries, beside `Flow-Key: flow.commit-two`, the `Task-Id: <n>` trailer of every commit the reshape squashed, so a re-run's unfinished-work gate, judged from the merge base, still finds each task's commit.
+It lives in the gitignored `<project>/spectre/changes/<name>/`, on disk in each worktree, like the rest of the change directory.
+Its exit 1 — flowd holding none, or flowd unreachable, its stderr saying which: print `no saved bundle for <name>` or `flowd unreachable` with that line, and stop.
+Only a run that **completed** cleanup — or completed a withdrawal (**The withdrawal route**, `skills/flow/withdrawal.md`) — is terminal and names nothing; a run that stopped on a cleanup leftover names itself too, for the same reason: the operator clears what remains and runs it again.
+Save the plan and the self-review bundle to flowd first — the worktree holds their only copies; a non-zero exit stops the run, removing nothing:
+The commit is preceded by a staged-changes test, and the whole sequence is one `&&` chain, run as a single command.
+The daemon scans every registered project's `<project>/docs/briefs/` and prints the answer as one Markdown document: each matching brief in full.
+The fix belongs in the repository, by making the path a real directory.
+The guard that enforces this contract reads three files per in-flight change — that change's own `tasks.md`, `design.md` and `proposal.md` — under `<project>/spectre/changes/<name>/`; a change whose worktree cleanup removed has no directory and is not scanned.
+The guarded commit chain (**The guarded commit chain**, `skills/flow-contracts/git-boundaries-commit-chain.md`) is the deliberate exception: its `add -A` is what picks up operator edits and new files at the human gate, which a pathspec-scoped commit would drop.
+The guarded commit chain that commits the implementation and leaves the change directory out is `skills/flow-contracts/git-boundaries-commit-chain.md`.
+The sequence itself — the guarded commits, the skipped-empty rule, the failure rule and the symlink case — is the chain **The guarded commit chain** (`git-boundaries-commit-chain.md`) gives; `<agents repo>/scripts/commit-split.sh` is what runs it, at both this call site and the implement phase's PR-exception path.
+The session then ends the stage with `flow stage end -command '/flow' -stage flow.self-review -outcome completed <name>`; `land` checks that row (`flow stage completed -C <main> -stage flow.self-review <name>`) and stops at `STOP: self-review-report` until it holds.
+The summary and the `## Decision` block still print, the high-raise question below is not asked and takes **No**, and the run continues to the plan snapshot and the `STARTED` handoff.
+Then the question — `/flow-plan`'s wording is **Save the plan?**, `/flow`'s is **Proceed to implementation?
+flow stage end -command '/flow' -stage flow.self-review -outcome completed <name>
