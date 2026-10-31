@@ -251,13 +251,14 @@ func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int 
 		note(fmt.Sprintf("SKIPPED: the remote-tracking ref row — git could not read %s in %s, so whether it survives was not established; a failure to look is not an absence", remoteRef, repo))
 	}
 
-	// Row four — the change directory, which run 1 moves into the archive;
-	// then each <name>-fix-N sub-change, archived by its own call and
-	// therefore missable on its own (see the header note).
+	// Row four — the change directory, which run 1's drop commit
+	// (`chore(spectre): drop <name>`) deletes from the tip; then each
+	// <name>-fix-N sub-change, which the same commit deletes and which is
+	// still reported on its own (see the header note).
 	leaf := specRootLeaf(repo, stderr)
 	changes := repo + "/" + leaf + "/changes/"
 	if isDir(changes + name) {
-		add(fmt.Sprintf("%s/changes/%s was never moved into the archive", leaf, name))
+		add(fmt.Sprintf("%s/changes/%s was not dropped — run 1's `chore(spectre): drop %s` commit never removed it", leaf, name, name))
 	}
 	// THE SUFFIX MUST BE `-fix-` FOLLOWED BY DIGITS AND NOTHING ELSE. A change
 	// merely named like a neighbour — `demo-other`, or `demo-fix-the-parser` —
@@ -271,7 +272,7 @@ func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int 
 		if !ok || n == "" || strings.Trim(n, "0123456789") != "" || !isDir(changes+e.Name()) {
 			continue
 		}
-		add(fmt.Sprintf("%s/changes/%s, a sub-change of %s, was never moved into the archive", leaf, e.Name(), name))
+		add(fmt.Sprintf("%s/changes/%s, a sub-change of %s, was not dropped — run 1's `chore(spectre): drop %s` commit never removed it", leaf, e.Name(), name, name))
 	}
 
 	// Row five — the proposal artifact source, whose removal at run 2 is
@@ -296,7 +297,7 @@ func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int 
 		note(rowNote)
 	}
 
-	verdict := fmt.Sprintf("COMPLETE: %s — no worktree, local branch, remote-tracking ref, unarchived change directory or proposal artifact source remains for spectre/%s", repo, name)
+	verdict := fmt.Sprintf("COMPLETE: %s — no worktree, local branch, remote-tracking ref, undropped change directory or proposal artifact source remains for spectre/%s", repo, name)
 	if len(left) > 0 {
 		verdict = fmt.Sprintf("LEFTOVER: %s — %s", repo, strings.Join(left, "; "))
 	}
