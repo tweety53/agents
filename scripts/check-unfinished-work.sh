@@ -108,7 +108,8 @@
 # path outside `<spec root>/changes/`, authored after the newest `startedAt`
 # of the `verifier` rows with outcome `completed` and key `verify` or
 # `verify-…` — or with no such row at all — names its short sha in the
-# breakdown. An archived change's plan is not asked. Like signal three, only
+# breakdown. A re-run after run 1's drop is judged from the newest drop
+# commit on, so only a fix run's own code asks for a newer row. Like signal three, only
 # the worktree holding the plan reads it.
 #
 # SIGNAL EIGHT: A CODE COMMIT WITH NO REVIEW-PANEL PASS IS UNFINISHED (kan-970
@@ -121,7 +122,7 @@
 #
 # SIGNAL NINE: A VERIFY-REPORT FAILURE NO LATER COMMIT ADDRESSED IS UNFINISHED
 # (kan-994 self-review, decision verify-failure-signal). Read in the worktree
-# holding the plan whenever a range exists, archived plan or not: in each
+# holding the plan whenever a range exists: in each
 # `.superpowers/sdd/verify-report-*.md`, a `- verify: exit <n>` item with <n>
 # not 0 and its whitespace-indented continuation lines, up to the next `- `
 # item, name failures — every `<spec>.spec.ts:<line>`, its capture the first

@@ -30,8 +30,9 @@
 #                                       operator's false-positive flag must name
 #
 # A found verifier row counts only with the verifier's record —
-# `<spec root>/changes/<name>/visual-verification.md`, or its `archive/`
-# twin, in the worktree the store is read under, the change root
+# `<spec root>/changes/<name>/visual-verification.md` in the worktree the
+# store is read under — or its copy in the parent of run 1's drop commit
+# once that commit removed the directory — the change root
 # skills/flow/visual-verify-verifier.md step 11 writes; absent, the verdict is
 # VISUAL-VERIFY-MISSING naming that path (kan-970 self-review).
 #
@@ -77,7 +78,7 @@
 #      were recorded in. A canonical worktree that is not a directory, or a
 #      repository git cannot name, is exit 2.
 #   Paths under the worktree's `<spec root>/changes/` — the change's own
-#   records, an archive move of its `link.md` included — are dropped from
+#   records, the drop of its `link.md` included — are dropped from
 #   the diff first, for this question and the freshness check below alike
 #   (kan-970 self-review).
 #
