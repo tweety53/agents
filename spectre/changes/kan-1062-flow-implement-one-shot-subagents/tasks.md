@@ -57,8 +57,8 @@ committed with the plan.
   `close-task.sh`'s exit codes, `check-task-reviewer-single-dispatch`'s key shapes and the one-mutator
   rule.
 
-- [ ] 1. Print `execution sdd` for every plan class but `micro`
-  - [ ] **Step 1: Write the test.** `stats/internal/guard/plan_class_test.go`:
+- [x] 1. Print `execution sdd` for every plan class but `micro`
+  - [x] **Step 1: Write the test.** `stats/internal/guard/plan_class_test.go`:
     `TestPlanClassTreeSddBelowMicro` — `pcTree` for `small`, `regular` and `big`, at a compact,
     bundle and experimental roll on each side of its threshold, opens
     `tree: class <class> · execution sdd · implementer chosen`, and for `micro`
@@ -67,14 +67,14 @@ committed with the plan.
     (the `pinTree` helper and the `tree-192` case) to `execution sdd · implementer chosen`. Run
     `cd stats && go test ./internal/guard -run 'TestPlanClassTree' -count=1` — fails.
     <!-- measured: scripts/plan-class.sh spectre/changes/kan-1062-flow-implement-one-shot-subagents/tasks.md 1 prints "class: regular" and "tree: class regular · execution inline · implementer skipped — inline" @ branch spectre/kan-1062-flow-implement-one-shot-subagents, before Task 1 -->
-  - [ ] **Step 2: Implement.** `stats/internal/guard/planclass.go`, `pcTree`: every class `micro`'s
+  - [x] **Step 2: Implement.** `stats/internal/guard/planclass.go`, `pcTree`: every class `micro`'s
     early return leaves gets `execution sdd · implementer chosen`; its doc comment says `micro` alone
     is `inline`. `scripts/plan-class.sh`'s header: one sentence after the tree line's description —
     the execution is `sdd`, implementer `chosen`, on every class but `micro`, which is `inline`
     (decision `sdd-below-micro`).
-  - [ ] **Step 3: Prove.** `scripts/break-and-prove.sh` restoring the `big`-only condition in
+  - [x] **Step 3: Prove.** `scripts/break-and-prove.sh` restoring the `big`-only condition in
     `pcTree` — `TestPlanClassTreeSddBelowMicro` fails; restored, it passes.
-  - [ ] **Step 4: Verify.** `cd stats && go test ./internal/guard -run 'TestPlanClass' -count=1 | tail -20`
+  - [x] **Step 4: Verify.** `cd stats && go test ./internal/guard -run 'TestPlanClass' -count=1 | tail -20`
     passes; `cd stats && gofmt -l internal/guard` prints nothing; `cd stats && make -s web-dist && go vet ./internal/guard`
     exits 0. Commit.
 
@@ -121,6 +121,8 @@ committed with the plan.
 **After:** none
 
 **Decision:** store-refuses-inline-under-sdd
+
+Correction (2026-10-31): the plan declared only the sdd arm in `record.go`. At the base the `-role implementer` key-shape check (`implementerKey`) refuses `full-suite-fix-<n>`, `task-<n>-implementer-recommit-<k>` and `task-<ids>-implementer-pick-<k>` before any decision is read, so the refusal could never name `execution: sdd` and every fixer key Task 6's contract dispatches would be refused. Shipped instead: a `fixerKey` regexp that widens only the shape check; `implementerTask`/`taskWorkKey` still read `implementerKey` alone.
 
 - [ ] 3. Number a findings file's ref-less lines from the change's next free ref
   - [ ] **Step 1: Write the test.** `stats/cmd/flow/record_test.go`:
