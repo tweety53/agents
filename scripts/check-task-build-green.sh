@@ -8,9 +8,8 @@
 # working.
 #
 #   - no arguments: scan every live change's tasks.md under
-#     spectre/changes/*/tasks.md, and that of every archived change under
-#     spectre/changes/archive/ the base does not carry yet (unlanded-archives,
-#     run in-process), aggregating exit codes — non-zero if ANY file has a
+#     spectre/changes/*/tasks.md (never the archive/ entry: run 1 drops a
+#     change's directory, so nothing in flight sits there), aggregating exit codes — non-zero if ANY file has a
 #     violation, printing each file's own violations;
 #   - one argument: treat it as an explicit tasks.md path and scan only
 #     that file.

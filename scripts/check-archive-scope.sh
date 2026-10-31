@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# check-archive-scope.sh — refuse an archive commit whose staged diff reaches
-# outside the path prefixes that commit is allowed to touch, in a guard
-# instead of trusting `git add -A` to have only picked up the archive move.
+# check-archive-scope.sh — refuse a landing drop commit whose staged diff
+# holds anything but deletions under the path prefixes that commit is allowed
+# to remove, in a guard instead of trusting the index to hold only the drop.
 #
 # Usage: check-archive-scope.sh <worktree> <allowed-prefix> [<allowed-prefix> ...]
 #

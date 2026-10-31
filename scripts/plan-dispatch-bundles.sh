@@ -8,8 +8,8 @@
 # Scope is one file per call:
 #
 #   - no arguments: scan every live change's tasks.md under
-#     <spec-root>/changes/*/tasks.md, and that of every archived change
-#     under <spec-root>/changes/archive/ the base does not carry yet,
+#     <spec-root>/changes/*/tasks.md (never the archive/ entry: run 1
+#     drops a change's directory, so nothing in flight sits there),
 #     aggregating exit codes — non-zero if ANY file reports a violation or
 #     cannot be read, printing each file's own bundles or violations;
 #   - one argument: treat it as an explicit tasks.md path and scan only

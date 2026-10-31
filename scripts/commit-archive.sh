@@ -1,21 +1,22 @@
 #!/usr/bin/env bash
-# commit-archive.sh — make /flow run 1's archive commit on the change
-# branch, in the apply worktree (skills/flow/integrate.md), in one call.
+# commit-archive.sh — make /flow run 1's drop commit on the change
+# branch, in the apply worktree (skills/flow/integrate.md), in one call. The
+# name and the ARCHIVE-* tokens predate the drop and stay.
 #
 # Usage: commit-archive.sh <worktree> <name>
 #
 # In order: asserts <worktree> is on spectre/<name>; runs
 # check-done-when-paths (in-process, the same flow-guard), which refuses a
-# `## Done when` naming a path the index does not track; copies
-# <worktree>/.superpowers/sdd/ledgers/<name>.md and
-# .../reviews/<name>-panel.md into spectre/changes/archive/<name>/ as
-# ledger.md and panel.md, each when present (an absent file copies nothing);
-# stages with `git add -A`; runs check-archive-scope <worktree>
-# "spectre/changes/" (in-process, the same flow-guard); then commits with the fixed subject
-# `chore(spectre): archive <name>` unless nothing is staged.
+# `## Done when` naming a path the index does not track; removes
+# spectre/changes/<name>/ and every spectre/changes/<name>-fix-<N>/ from the
+# index and the disk (`git rm -r`, then the untracked rest); runs
+# check-archive-scope <worktree> <each removed directory> (in-process, the
+# same flow-guard), which admits only staged deletions under them; then
+# commits with the fixed subject `chore(spectre): drop <name>` unless
+# nothing is staged. No ledger or panel record is copied anywhere.
 #
 # Prints ONE verdict line to stdout:
-#   ARCHIVE-COMMITTED: <sha>        the archive commit was made
+#   ARCHIVE-COMMITTED: <sha>        the drop commit was made
 #   ARCHIVE-NOTHING-STAGED          nothing to commit — already committed
 #   ARCHIVE-WRONG-BRANCH: <found>   the worktree is on another branch
 #                                   (or `(detached HEAD)`); nothing written
@@ -25,8 +26,8 @@
 # Exit 0 committed or nothing staged; 1 wrong branch, a scope violation, or
 # a Done-when violation — nothing committed, the change stays at IN_PROGRESS;
 # 2 cannot answer, with NOTHING on stdout: a usage error, a name that is not a
-# plain change name, a path that is not a git worktree, a present
-# record that could not be copied, a git step that failed, or
+# plain change name, a path that is not a git worktree, a directory that
+# could not be removed, a git step that failed, or
 # check-archive-scope.sh / check-done-when-paths unable to answer.
 #
 # The branch is asserted before anything is copied, so a refusal leaves the
