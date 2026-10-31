@@ -146,7 +146,8 @@ pipeline — implementer, gated per-task reviewer, panel slot, panel-fix, verifi
 line the MODEL HANDSHAKE paragraph (section **4** below) demands, and every dispatch prompt in
 this pipeline carries that paragraph verbatim. A child launched in the background hands back one
 reply, its final message, and that message's first line is the one compared — an implementer's or
-fixer's summary head opens with it (`skills/flow/implementer-brief.md`). Compare the line against the model this dispatch
+fixer's summary head opens with it (`skills/flow/implementer-brief.md`), and so does a gated
+reviewer bundle's (`skills/flow/gated-reviewer-brief.md`). Compare the line against the model this dispatch
 requested — the dispatch's recorded pair's model (the literal `opus` where none is recorded), or
 the run's session override, mapped per **Harness mapping** (`skills/flow-contracts/model-policy.md`)
 on harnesses `zcode` and `muse`. Effort is not handshaken; a decision's `session_cap` holds it instead, `flow record dispatch begin` refusing a row above the cap (exit 2). A match proceeds. A **first** mismatch
@@ -655,6 +656,7 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
      [-undeclared <task-id>=<path>[,<path>…]] <canonical-worktree> <name> <merge-base> <task-id>:<task-sha> …
      rc=$?; echo "close-task: $rc"; }
    if [ "${rc:-2}" -eq 0 ] || [ "${rc:-2}" -eq 3 ]; then
+     # on exit 3, first the `flow record dispatch end` line close-task printed (exit 3, below)
      # group N+2's gather (skills/flow/sdd-dispatch.md), then its marker snapshot:
      check-tree-markers.sh snapshot <worktree> <markers-file> <group N+2's snapshot-file>
      # group N+2's `flow record dispatch begin` (above); on `big`, when a gate fired in group N+1,
@@ -843,8 +845,8 @@ sends its Minors to the same fixer. **A mixed-verdict bundle is handled per task
 closes the record, and every `fix` task waits, unticked, for the stage-end fix path on its own
 sha, independently of its bundle-mates.
 
-**Load `skills/flow/gated-review-fix.md` only when**, at the last group's guard pass, a gated pass
-closed `fix` or left a Minor open — it carries the stage-end fix path.
+**Load `skills/flow/gated-review-fix.md` only when**, once the last group's guard has passed and
+every gated bundle has returned, a gated pass closed `fix` or left a Minor open — it carries the stage-end fix path.
 
 **Each pass is a primary pass, scoped to its task.** The bundle's stub names
 `skills/flow/primary-reviewer-prompt.md` once, every placeholder but the three per-task ones

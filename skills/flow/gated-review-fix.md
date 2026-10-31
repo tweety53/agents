@@ -1,8 +1,8 @@
 # The gated per-task reviewer — the stage-end fix
 
 Loaded during `flow.sdd-tdd` by the load directive under the gated per-task reviewer of
-**4. Execute (SDD + TDD)** (`skills/flow/implement.md`), only when, at the last group's guard pass,
-a gated pass closed `fix` or left a Minor open.
+**4. Execute (SDD + TDD)** (`skills/flow/implement.md`), only when, once the last group's guard has
+passed and every gated bundle has returned, a gated pass closed `fix` or left a Minor open.
 
 **One fixer for the whole stage**, never the parent and never a resumed implementer: once the last
 group's guard has passed and every gated bundle has returned, one dispatch carries every `fix`

@@ -51,5 +51,5 @@ and, for each `PASS task-<n>` block of your prompt:
 > findings file, the FINDINGS FILE path your prompt names: one JSON object per line for every
 > finding of every pass, carrying `task` (the pass's task id), `severity`, `location`
 > (`<file>:<line>`) and `note`, and never a `ref` — written empty when no pass raised one, beside
-> the last pass's report. Your final message is one line per pass, in plan order:
+> the last pass's report. Your final message opens with your `Model:` line, then one line per pass, in plan order:
 > `task <n>: clean|fix — Critical <n> Important <n> Minor <n> — <its report path>`.
