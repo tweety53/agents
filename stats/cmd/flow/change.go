@@ -18,23 +18,28 @@ import (
 const changeUsage = `usage: flow change save [-addr url] [-timeout dur] [-C dir] <name>
        flow change file [-addr url] [-timeout dur] [-C dir] <name> <path>
 
-save keeps the two files of a change that outlive its worktree in flowd
-(KAN-1073): <wt>/spectre/changes/<name>/tasks.md and
+save keeps the files of a change that outlive its worktree in flowd
+(KAN-1073): its plan, <wt>/spectre/changes/<name>/tasks.md or else
+/flow-fast's <wt>/.superpowers/sdd/<name>/tasks.md, saved as tasks.md, and
 <wt>/.superpowers/sdd/<name>/self-review-context.md, <wt> the git worktree
--C names (default: cwd). Run 2's cleanup runs it once, before the
-worktrees are removed. A missing file is refused, exit 1, naming each one,
-before anything is written; a second save replaces both bodies.
+-C names (default: cwd). A change with no plan at all (/flow-interactive)
+saves the bundle alone. Every /flow* cleanup runs it once, before the
+worktrees are removed. A missing bundle is refused, exit 1, naming it,
+before anything is written; a second save replaces the bodies.
 
 file prints one saved file's body on stdout; exit 1 when flowd holds none.
 
 Both exit 2 when flowd cannot be reached, and on a usage mistake.
 `
 
-// changeSavedFiles are the files save keeps, each by its saved path and its
-// location under the worktree.
+// changeSavedFiles are the files a change may hold that outlive its
+// worktree, each by its saved path and its location under the worktree:
+// the plan in either of its two places, then the self-review bundle.
+// remove-change-worktrees' save gate mirrors this list.
 func changeSavedFiles(name string) [][2]string {
 	return [][2]string{
 		{"tasks.md", filepath.Join("spectre", "changes", name, "tasks.md")},
+		{"tasks.md", filepath.Join(".superpowers", "sdd", name, "tasks.md")},
 		{"self-review-context.md", filepath.Join(".superpowers", "sdd", name, "self-review-context.md")},
 	}
 }
@@ -106,20 +111,24 @@ func runChange(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		return 1
 	}
 	wt := strings.TrimSpace(string(top))
-	files := changeSavedFiles(name)
-	bodies := make([]string, len(files))
-	missing := false
-	for i, file := range files {
-		b, err := os.ReadFile(filepath.Join(wt, file[1]))
-		if err != nil {
-			fmt.Fprintf(stderr, "flow: change save: cannot read %s: %v\n", filepath.Join(wt, file[1]), err)
-			missing = true
+	// The first plan found is saved, and none is no refusal; the bundle is
+	// required.
+	var files [][2]string
+	var bodies []string
+	for _, file := range changeSavedFiles(name) {
+		if file[0] == "tasks.md" && len(files) > 0 {
 			continue
 		}
-		bodies[i] = string(b)
-	}
-	if missing {
-		return 1
+		b, err := os.ReadFile(filepath.Join(wt, file[1]))
+		if err != nil && file[0] == "tasks.md" {
+			continue
+		}
+		if err != nil {
+			fmt.Fprintf(stderr, "flow: change save: cannot read %s: %v\n", filepath.Join(wt, file[1]), err)
+			return 1
+		}
+		files = append(files, file)
+		bodies = append(bodies, string(b))
 	}
 	for i, file := range files {
 		_, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (struct{}, error) {
