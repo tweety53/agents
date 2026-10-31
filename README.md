@@ -77,7 +77,7 @@ flowchart TD
         impl["<b>Implement</b> in a worktree<br/>SDD + TDD per task → review panel<br/>→ lint + tests → staged diff + run instructions"]
         g2{{"you: review the diff — the stack is running"}}
         land{"/flow (bare)<br/>how to land?"}
-        pr["two commits → push → open PR<br/>issue → In Review"]
+        pr["implementation commit → push → open PR<br/>issue → In Review"]
         g3{{"you: merge the PR, then /flow"}}
         impl --> g2
         g2 -- "/flow #lt;what to fix#gt;<br/>or just describe it" --> impl
@@ -242,7 +242,8 @@ return a verdict. Each one has a `test-*.sh` harness in `scripts/`, and
   refuses and asks.
 - `check-unfinished-work.sh`: reports unticked tasks or open findings before you are asked how to
   land.
-- `commit-split.sh`: makes the two commits, implementation first and planning second.
+- `commit-split.sh`: makes the implementation commit; the change directory is gitignored, so nothing
+  is left for a planning commit.
 - `check-cleanup-complete.sh`: `FINISHED` is written only once every temporary artifact is gone.
 
 **This repository's own lint.** It runs in `/flow`'s verify stage here:
