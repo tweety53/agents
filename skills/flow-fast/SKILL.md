@@ -439,7 +439,11 @@ flow stage end   -command '/flow-fast' -stage flow.verify-merge -outcome complet
 flow stage begin -command '/flow-fast' -stage flow.cleanup -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
+Save the plan and the self-review bundle to flowd first — the worktree holds their only copies;
+a non-zero exit stops the run, removing nothing:
+
 ```bash
+flow change save -C <worktree> <name>
 git -C <project> worktree remove <project>-worktrees/<name>
 git -C <project> branch -D <name>
 git -C <project> push origin --delete <name>
