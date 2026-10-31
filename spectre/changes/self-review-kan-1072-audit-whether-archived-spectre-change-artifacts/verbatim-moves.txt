@@ -1,0 +1,22 @@
+# self-review-kan-1072-audit-whether-archived-spectre-change-artifacts F1 (Task 2): the commit chain's exclude names the change's own folders; the symlink paragraph quotes the new exclude
+&& { git -C <abs-worktree> add -A -- 'spectre/changes/<id>/link.md' 2>/dev/null || true; } \
+':(exclude)spectre/changes/' \
+':(exclude)spectre/changes/'` call exits 128 with `fatal: pathspec … is beyond a symbolic link` and stages **nothing at all**.
+&& { git -C <abs-worktree> add -A -- 'spectre/changes/<name>/link.md' 2>/dev/null || true; } \
+':(exclude)spectre/changes/<name>' ':(exclude)spectre/changes/<name>-fix-<N>' \
+':(exclude)spectre/changes/<name>'` call exits 128 with `fatal: pathspec … is beyond a symbolic link` and stages **nothing at all**.
+**Only the change's own folders are planning.
+The exclude names `<project>/spectre/changes/<name>/` and one `<project>/spectre/changes/<name>-fix-<N>/` per fix sub-change folder the worktree holds; every other path under `<project>/spectre/changes/` — another change's directory, its `link.md`, an archive deletion — lands in the implementation commit (kan-1072 self-review, F1: a tip's archive deletion folded into each repository's plan commit).
+# self-review-kan-1072-audit-whether-archived-spectre-change-artifacts F2 (Task 3): the group implementer's key and -task are the +-joined ids
+-key task-<n>-implementer -session-token mf-<literal-token>
+Key: task-<n>-implementer
+`-key` is this dispatch's own literal label, unique within the run's session token — `task-<n>-implementer`, reused identically in both calls.
+flow record dispatch begin -change <name> -task <n> -role implementer -model <m> -effort <e> \
+flow record dispatch end -change <name> -key task-<n>-implementer \
+| implementer, one per group; under `sdd`, a fixer per fix | `implementer` | `implementer` | `task-<n>-implementer`; a fixer's `task-<ids>-implementer-fix-<k>`, `task-<n>-implementer-recommit-<k>`, `task-<ids>-implementer-pick-<k>` or `full-suite-fix-<n>` | section **4** below, **Every fix is a fresh one-shot** |
+-key task-<ids>-implementer -session-token mf-<literal-token>
+Key: task-<ids>-implementer
+`-key` is this dispatch's own literal label, unique within the run's session token — `task-<ids>-implementer`, reused identically in both calls.
+flow record dispatch begin -change <name> -task <ids> -role implementer -model <m> -effort <e> \
+flow record dispatch end -change <name> -key task-<ids>-implementer \
+| implementer, one per group; under `sdd`, a fixer per fix | `implementer` | `implementer` | `task-<ids>-implementer`, `<ids>` the group's task ids `+`-joined in plan order; a fixer's `task-<ids>-implementer-fix-<k>`, `task-<n>-implementer-recommit-<k>`, `task-<ids>-implementer-pick-<k>` or `full-suite-fix-<n>` | section **4** below, **Every fix is a fresh one-shot** |
