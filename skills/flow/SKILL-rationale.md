@@ -587,8 +587,8 @@ parent's inline fix drops all four, so a Minor now costs about what writing its
 > a plain commit sweeps a pre-staged foreign tree in with the
 > task's work (gymie kan-469's sweep took ~130 files).
 
-> because a `:(exclude)` governs what an `add` adds and cannot retract what an earlier
-> step already staged (gymie kan-468 lost task commits twice to exactly this ordering):
+> so nothing an earlier step staged under a planning path rides the commit (gymie kan-468 lost
+> task commits twice to exactly this ordering):
 
 ### implementer-brief.md — REPORT, DON'T DECIDE
 

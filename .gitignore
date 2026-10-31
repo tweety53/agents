@@ -1,5 +1,6 @@
 .DS_Store
 .superpowers/
+spectre/changes/
 
 # Serena MCP server workspace metadata — tool artifact, not project source
 .serena/
