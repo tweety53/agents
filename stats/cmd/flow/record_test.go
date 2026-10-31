@@ -6459,6 +6459,50 @@ func TestRecordDispatchBeginRefusesSubagentUnderInline(t *testing.T) {
 	}
 }
 
+// TestRecordDispatchBeginRefusesInlineUnderSdd pins the sdd decision's
+// enforcement: an implementer or panel-fix row begun -agent-id inline on a
+// task- or full-suite-fix- key is the parent's own work and is refused,
+// while a self-review or panel fixer, a subagent row, a back-fill and a
+// failed decisions read all begin.
+func TestRecordDispatchBeginRefusesInlineUnderSdd(t *testing.T) {
+	sdd := decisionsBody(`{"execution":"sdd"}`)
+	row := func(agentID, role, key string, extra ...string) []string {
+		return append([]string{"-agent-id", agentID, "-role", role, "-key", key, "-model", "opus", "-effort", "low"}, extra...)
+	}
+	cases := []struct {
+		name, decisions string
+		args            []string
+		code            int
+		want            string
+	}{
+		{"inline task implementer", sdd, row("inline", "implementer", "task-1-implementer"), 2, "execution: sdd"},
+		{"inline full-suite implementer", sdd, row("inline", "implementer", "full-suite-fix-1"), 2, "execution: sdd"},
+		{"inline full-suite panel-fix", sdd, row("inline", "panel-fix", "full-suite-fix-1"), 2, "execution: sdd"},
+		{"inline self-review fixer", sdd, row("inline", "implementer", "self-review-x-fix"), 0, ""},
+		{"inline panel-fix round", sdd, row("inline", "panel-fix", "panel-fix-1"), 0, ""},
+		{"subagent implementer", sdd, row("none", "implementer", "task-1-implementer"), 0, ""},
+		{"back-fill", sdd, row("inline", "implementer", "task-1-implementer", "-started-at", "2026-01-02T03:04:05Z"), 0, ""},
+		{"decisions read fails", "", row("inline", "implementer", "task-1-implementer"), 0, ""},
+		// Every fixer key an sdd parent dispatches is an implementer key
+		// (skills/flow/implement.md, Every fix is a fresh one-shot).
+		{"subagent full-suite fixer", sdd, row("none", "implementer", "full-suite-fix-1"), 0, ""},
+		{"subagent recommit fixer", sdd, row("none", "implementer", "task-2-implementer-recommit-1"), 0, ""},
+		{"subagent pick fixer", sdd, row("none", "implementer", "task-5+6-implementer-pick-1"), 0, ""},
+		{"malformed full-suite key", sdd, row("none", "implementer", "full-suite-fixes"), 2, "is not task-<ids>-implementer"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			code, stderr := beginUnderDecision(t, tc.decisions, tc.args...)
+			if code != tc.code {
+				t.Fatalf("exit %d, want %d; stderr:\n%s", code, tc.code, stderr)
+			}
+			if !strings.Contains(stderr, tc.want) {
+				t.Errorf("stderr %q does not name %q", stderr, tc.want)
+			}
+		})
+	}
+}
+
 // TestRecordDispatchBeginRefusesAboveSessionCap pins the decision's
 // session_cap: a row above the cap's model or effort, an unstated default
 // effort included, is refused; a row at or under it, and a decision with no

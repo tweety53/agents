@@ -1151,8 +1151,8 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		fmt.Fprintf(stderr, "flow: -key %q is a visual-verify verifier row: pass -diff-base <the HEAD it verifies> (skills/flow/visual-verify.md)\n", *key)
 		return 2
 	}
-	if *role == "implementer" && !implementerKey.MatchString(*key) && !strings.HasPrefix(*key, "self-review-") && !strings.HasPrefix(*key, "pipeline-fix-") {
-		fmt.Fprintf(stderr, "flow: -key %q is not task-<ids>-implementer[-fix-<k>][-retry]: ids are +-joined\n", *key)
+	if *role == "implementer" && !implementerKey.MatchString(*key) && !fixerKey.MatchString(*key) && !strings.HasPrefix(*key, "self-review-") && !strings.HasPrefix(*key, "pipeline-fix-") {
+		fmt.Fprintf(stderr, "flow: -key %q is not task-<ids>-implementer[-fix-<k>][-retry], task-<ids>-implementer-recommit-<k>, task-<ids>-implementer-pick-<k> or full-suite-fix-<n>: ids are +-joined\n", *key)
 		return 2
 	}
 	if !slices.Contains(recordEfforts, *effort) {
@@ -1319,9 +1319,13 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 
 	// An inline decision has the parent implement and fix itself, so an
 	// implementer or panel-fix row with a subagent behind it breaches it
-	// (skills/flow/implement.md, Inline -- the parent implements). A
-	// self-review or pipeline fixer is dispatched whatever the decision, and
-	// a decisions read that fails skips the check.
+	// (skills/flow/implement.md, Inline -- the parent implements). The
+	// mirror: an sdd decision has every task and every fix go to a fresh
+	// one-shot, so an implementer or panel-fix row begun -agent-id inline on
+	// a task- or full-suite-fix- key is the parent's own work and breaches it
+	// (skills/flow/implement.md, Every fix is a fresh one-shot). Either way a
+	// self-review or pipeline fixer is exempt, and a decisions read that
+	// fails skips the check.
 	//
 	// A decision's session_cap is the run's model and effort ceiling: a row
 	// above it, an unstated default effort included, is refused (skills/flow/
@@ -1335,6 +1339,12 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 				!strings.HasPrefix(*key, "self-review-") && !strings.HasPrefix(*key, "pipeline-fix-") &&
 				json.Unmarshal(d["execution"], &execution) == nil && execution == "inline" {
 				fmt.Fprintf(stderr, "flow: -role %s -key %s dispatches a subagent, but the change's recorded decision is execution: inline — the parent implements and fixes itself, beginning the row with -agent-id inline (skills/flow/implement.md, Inline — the parent implements)\n", *role, *key)
+				return 2
+			}
+			if (*role == "implementer" || *role == "panel-fix") && *agentID == "inline" &&
+				(strings.HasPrefix(*key, "task-") || strings.HasPrefix(*key, "full-suite-fix-")) &&
+				json.Unmarshal(d["execution"], &execution) == nil && execution == "sdd" {
+				fmt.Fprintf(stderr, "flow: -role %s -key %s -agent-id inline records the parent's own work, but the change's recorded decision is execution: sdd — under sdd every task and every fix is a fresh one-shot dispatch (skills/flow/implement.md, Every fix is a fresh one-shot)\n", *role, *key)
 				return 2
 			}
 			var c *sessionCap
@@ -1466,6 +1476,12 @@ func highestRecordedRound(run records.Run) int {
 // implementerKey is an implementer dispatch key: task-<ids>-implementer[-fix-<k>][-retry],
 // ids +-joined (skills/flow/implement.md's dispatch table).
 var implementerKey = regexp.MustCompile(`^task-[0-9]+(\+[0-9]+)*-implementer(-fix-[0-9]+)?(-retry)?$`)
+
+// fixerKey is an sdd fixer's implementer key that is not a task's own work:
+// a re-commit, a wave pick and a full-suite fix (skills/flow/implement.md,
+// Every fix is a fresh one-shot). It widens the -role implementer shape
+// check only; implementerTask still reads implementerKey alone.
+var fixerKey = regexp.MustCompile(`^(task-[0-9]+(\+[0-9]+)*-implementer-(recommit|pick)-[0-9]+|full-suite-fix-[0-9]+)$`)
 
 // implementerTask returns the "task-<ids>" part of a task implementer key,
 // "" for any other key.
