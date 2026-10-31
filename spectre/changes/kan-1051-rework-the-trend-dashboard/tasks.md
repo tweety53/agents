@@ -4,7 +4,7 @@
 > `check-task-commit-fields.sh` passes on that task's commit.
 > **Relocation:** no
 > **Design shape:** plan-mode
-> **Tasks appended:** 1
+> **Tasks appended:** 2
 
 **Goal:** Rework Trend over time (KAN-1051) to answer "Is a finished change getting cheaper as flow changes?" — whole-life cost per finished change by Wednesday week, with Period, Command and Project chips, three tiles, a median/mean chart with flow-changes-landed bars and a By week table — and fix harvest so spend between two stage windows is attributed, with a once-only back-fill of what the old rule dropped.
 
@@ -196,4 +196,17 @@ Correction (2026-10-31): Step 3's `--grep-invert trend` verify fails on 9 captur
 **Opener:** verify
 
 **Decision:** finish-instant-latest-of-state-and-runs
+
+- [ ] 9. In-run fix 2 — visual-verify: the Trend chart's hover band and its guide and tip paint a frame apart (m1, m2)
+  - [ ] **Step 1: Write the failing test.** `stats/web/tests/visual/trend.spec.ts`: add `trend chart hover paints the band, guide and tip together` — clock pinned to `FIXTURE_NOW`, 1280×1024; hover the latest filled `/flow` week's hit rect, then in one `page.evaluate` read in the same task, before any frame passes, whether the hit rect matches `:hover`, the `line.guide` x1 is on screen (not -10) and `.tr-tip`'s computed `display` is `block` — all three agree; then move the pointer off the chart and read the same three again — all three agree (no band, guide at -10, tip hidden). Run the project's `verify` row with `tests/visual/trend.spec.ts` appended — fails (the guide and tip trail the CSS `:hover` band by one render).
+  - [ ] **Step 2: Fix.** `stats/web/src/views/Trend.tsx`: the hit rect's `onMouseEnter`/`onMouseLeave` set the hover state with `flushSync` from `react-dom`, so the guide line and the tip commit inside the pointer event, in the same frame the browser paints the `.hit:hover` band; the styles stay the prototype's verbatim.
+  - [ ] **Step 3: Verify.** `cd stats && make -s web-dist && cd web && npx tsc -b` exits 0; `cd stats/web && npx vitest run src/views/views.test.tsx -t 'trend'` passes; the `verify` row with `tests/visual/trend.spec.ts` appended passes, every committed trend baseline unchanged. Commit.
+
+**Build:** green
+**Files:** `stats/web/src/views/Trend.tsx`, `stats/web/tests/visual/trend.spec.ts`, `spectre/changes/kan-1051-rework-the-trend-dashboard/visual-verification.md`
+**Tests:** `trend chart hover paints the band, guide and tip together`
+**Regression:** `trend chart hover paints the band, guide and tip together` fails — the guide and tip trail the hover band again on enter or linger after it on leave.
+**Commit:** fix(stats): paint the trend chart's hover guide and tip with its band
+**After:** Task 6, 8
+**Opener:** visual-verify-fix-1-full
 

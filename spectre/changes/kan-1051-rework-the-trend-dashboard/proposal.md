@@ -42,4 +42,4 @@ the approved prototype draws it:
   before it, up to the change's finish, for every command; `flowd` back-fills, once at startup,
   the spend the old rule dropped from transcripts still on disk.
 - In-run fix 1 (verify): a finished change's finish bound is the later of its state write and its last stage run — the live check showed `/flow-fast` changes write FINISHED at kickoff, so the old bound dropped their whole gap spend — and `scripts/live-store-copy.sh` can point its scratch flowd at the real transcripts.
-
+- In-run fix 2 (visual-verify): the Trend chart's guide line and tip are committed inside the pointer event, so they appear and disappear in the same frame as the hover band.
