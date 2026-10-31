@@ -14,6 +14,11 @@
 #         A `-` in <name> becomes `_` in the database name and the state
 #         directory alike, so `a-b` and `a_b` name one copy, never two sharing
 #         a database (kan-1067 self-review, 1-E).
+#         The scratch flowd reads transcripts from FLOW_LIVE_COPY_TRANSCRIPTS
+#         when set (e.g. "$HOME/.claude/projects"), else from an empty scratch
+#         directory: a copy that is to exercise harvest or the back-fill reads
+#         the real transcripts, read-only, while every write stays in the
+#         scratch database.
 #   down  stops that scratch flowd — only the pid its own pidfile names, and
 #         only when that pidfile names this script's binary — and drops
 #         flow_<name, - as _>_live. A second `down` is a no-op. It removes the
@@ -63,7 +68,7 @@ up)
   (cd "$repo/stats" && make -s web-dist && go build -o "$dir/flowd" ./cmd/flowd)
   env -u FLOWD_JIRA_SITE -u FLOWD_JIRA_EMAIL -u FLOWD_JIRA_TOKEN \
     FLOWD_PORT="$port" FLOWD_DSN="postgres://flow:flow@localhost:5433/$db?sslmode=disable" \
-    FLOW_TRANSCRIPTS_DIR="$dir/transcripts" FLOW_STATE_DIR="$dir/state" TMPDIR=/tmp \
+    FLOW_TRANSCRIPTS_DIR="${FLOW_LIVE_COPY_TRANSCRIPTS:-$dir/transcripts}" FLOW_STATE_DIR="$dir/state" TMPDIR=/tmp \
     nohup "$dir/flowd" >"$dir/log" 2>&1 &
   for _ in $(seq 1 60); do
     if curl -sf "http://127.0.0.1:$port/api/v1/changes" >/dev/null 2>&1; then

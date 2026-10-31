@@ -32,7 +32,7 @@ cat >"$stub/go" <<'S'
 #!/usr/bin/env bash
 echo "go $*" >>"$LOG"
 out=$3
-printf '#!/usr/bin/env bash\nprintf "%%s\\n%%s\\n" $$ "$0" >"$TMPDIR/flowd-$FLOWD_PORT.pid"\necho "$FLOWD_DSN" >>"$LOG"\ntouch "$STUB/up"\nexec sleep 300\n' >"$out"
+printf '#!/usr/bin/env bash\nprintf "%%s\\n%%s\\n" $$ "$0" >"$TMPDIR/flowd-$FLOWD_PORT.pid"\necho "$FLOWD_DSN" >>"$LOG"\necho "TRANSCRIPTS=$FLOW_TRANSCRIPTS_DIR" >>"$LOG"\ntouch "$STUB/up"\nexec sleep 300\n' >"$out"
 chmod +x "$out"
 S
 cat >"$stub/flow" <<'S'
@@ -67,6 +67,7 @@ grep -qx "docker exec -i flow-postgres createdb -U flow $db" "$log" || fail "up:
 grep -qx "docker exec -i flow-postgres pg_dump -U flow --no-owner --no-acl flow" "$log" || fail "up: no read-only pg_dump of flow"
 grep -q "psql -q -v ON_ERROR_STOP=1 -U flow -d $db$" "$log" || fail "up: no restore into $db"
 grep -qx "postgres://flow:flow@localhost:5433/$db?sslmode=disable" "$log" || fail "up: flowd not pointed at the copy"
+grep -qx "TRANSCRIPTS=/tmp/flow-live-lsc_test$$/transcripts" "$log" || fail "up: flowd not pointed at the empty scratch transcripts dir"
 grep -qF "http://127.0.0.1:$port" "$stub/out" || fail "up: address not printed"
 pid=$(head -n1 "/tmp/flowd-$port.pid" 2>/dev/null)
 kill -0 "$pid" 2>/dev/null || fail "up: scratch flowd not running"
@@ -90,6 +91,13 @@ grep -E '(dropdb|createdb).* flow$|-d flow$' "$log" && fail "down: touched the f
 [ -e "/tmp/flow-live-lsc_test$$" ] && fail "down: state dir left"
 [ -e "$sdd" ] && fail "down: scratch change directory left"
 lsc down "$name" || fail "second down: exit $?"
+
+# FLOW_LIVE_COPY_TRANSCRIPTS points the scratch flowd at real transcripts.
+rm -f "$stub/up"
+: >"$log"
+FLOW_LIVE_COPY_TRANSCRIPTS="$stub/real" lsc up "$name" "$port" || fail "up with transcripts: exit $? ($(cat "$stub/out"))"
+grep -qx "TRANSCRIPTS=$stub/real" "$log" || fail "up: FLOW_LIVE_COPY_TRANSCRIPTS not passed as FLOW_TRANSCRIPTS_DIR"
+lsc down "$name" || fail "down after up with transcripts: exit $?"
 
 [ "$rc" -eq 0 ] && printf 'all cases passed\n'
 exit "$rc"

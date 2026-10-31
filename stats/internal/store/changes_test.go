@@ -940,3 +940,69 @@ func TestFinishedAtByChange(t *testing.T) {
 		t.Errorf("FinishedAtByChange(nil) = %v, %v, want an empty map", empty, err)
 	}
 }
+
+// TestFinishedAtByChangeIsTheLatestOfStateAndRuns pins decision
+// finish-instant-latest-of-state-and-runs: a change that writes FINISHED
+// before its last marks (/flow-fast writes it at kickoff) is bounded at its
+// last stage run's end, a still-open last run counts its start, and a change
+// whose state write follows every run keeps updated_at.
+func TestFinishedAtByChangeIsTheLatestOfStateAndRuns(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	stateAt := time.Date(2026, 10, 26, 11, 54, 19, 0, time.UTC)
+	put := func(name string) {
+		t.Helper()
+		c := baseChange("agents", name)
+		c.State, c.UpdatedAt = store.StateFinished, stateAt
+		if err := st.PutChange(ctx, c); err != nil {
+			t.Fatalf("PutChange %s: %v", name, err)
+		}
+	}
+	begin := func(name, stage string, at time.Time) store.StageRun {
+		t.Helper()
+		run, err := st.BeginStage(ctx, store.BeginStageInput{
+			ProjectKey: "agents", ChangeName: name, Harness: "claude-code",
+			Command: "/flow-fast", Stage: stage, StartedAt: at,
+		})
+		if err != nil {
+			t.Fatalf("BeginStage %s %s: %v", name, stage, err)
+		}
+		return run
+	}
+
+	// Runs begun after the state write and ended later still.
+	put("kan-late-runs")
+	begin("kan-late-runs", "flow.design", stateAt.Add(-time.Minute))
+	early := begin("kan-late-runs", "flow.implement", stateAt.Add(5*time.Minute))
+	lastEnd := stateAt.Add(20 * time.Minute)
+	if err := st.EndStage(ctx, early.ID, lastEnd, "ok"); err != nil {
+		t.Fatalf("EndStage: %v", err)
+	}
+
+	// Every run ends before the state write.
+	put("kan-state-last")
+	before := begin("kan-state-last", "flow.design", stateAt.Add(-time.Hour))
+	if err := st.EndStage(ctx, before.ID, stateAt.Add(-30*time.Minute), "ok"); err != nil {
+		t.Fatalf("EndStage: %v", err)
+	}
+
+	// The last run is still open and began after the state write.
+	put("kan-open-run")
+	openStart := stateAt.Add(10 * time.Minute)
+	open := begin("kan-open-run", "flow.design", openStart)
+
+	got, err := st.FinishedAtByChange(ctx, []int64{early.ChangeID, before.ChangeID, open.ChangeID})
+	if err != nil {
+		t.Fatalf("FinishedAtByChange: %v", err)
+	}
+	want := map[int64]time.Time{early.ChangeID: lastEnd, before.ChangeID: stateAt, open.ChangeID: openStart}
+	if len(got) != len(want) {
+		t.Fatalf("FinishedAtByChange = %v, want %v", got, want)
+	}
+	for id, w := range want {
+		if !got[id].Equal(w) {
+			t.Errorf("FinishedAtByChange[%d] = %v, want %v", id, got[id], w)
+		}
+	}
+}
