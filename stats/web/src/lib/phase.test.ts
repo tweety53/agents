@@ -22,7 +22,7 @@ describe("phases", () => {
   it("puts every stage the store can record in a phase", () => {
     const go = readFileSync(`${process.cwd()}/../internal/stages/names.go`, "utf8");
     const keys = [...go.matchAll(/\{Key: "([^"]+)"/g)].map((m) => m[1]);
-    expect(keys.length).toBeGreaterThan(30);
+    expect(keys.length).toBeGreaterThan(25);
     expect(keys.filter((k) => !(k in STAGE_PHASE))).toEqual([]);
   });
 });

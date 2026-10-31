@@ -6,9 +6,11 @@
 # Usage: stage-task-files.sh <abs-worktree> <file>...
 #
 # In this order, every git call anchored by `git -C <abs-worktree>`:
-#   1. git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/
+#   1. git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ <file>...
 #      — the clearing pass, before any add, because an exclude governs what
 #      an add adds and cannot retract what an earlier step already staged.
+#      The task's own paths are reset with it, so one already removed with
+#      `git rm` is back in the index and step 2 stages its deletion.
 #   2. git add -- ':(exclude)spectre/changes/' ':(exclude)openspec/changes/'
 #      ':(exclude)docs/superpowers/' <file>... — the excludes lead the
 #      paths: git 2.50.1 given the paths first and an exclude after them

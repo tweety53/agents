@@ -16,7 +16,7 @@ export const PHASES = [
 ] as const;
 export type Phase = (typeof PHASES)[number];
 
-/** Every stage key the store can record (internal/stages/names.go, plus the retired flow.push-archive older runs carry), each in exactly one phase. */
+/** Every stage key the store can record (internal/stages/names.go), each in exactly one phase. */
 export const STAGE_PHASE: Record<string, Phase> = {
   "plan.session": "Planning",
   "flow.kickoff": "Planning",
@@ -41,9 +41,6 @@ export const STAGE_PHASE: Record<string, Phase> = {
   "flow.landing-question": "Integrate",
   "flow.preserve-sessions": "Integrate",
   "flow.commit-two": "Integrate",
-  "flow.sync-archive": "Integrate",
-  "flow.commit-archive": "Integrate",
-  "flow.push-archive": "Integrate",
   "flow.self-review": "Self-review",
   "flow.landing-routes": "Landing",
   "flow.verify-merge": "Landing",

@@ -168,8 +168,6 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 | `flow.landing-question` | The landing question (run 1) | `/flow`, `/flow-fast` |
 | `flow.preserve-sessions` | Preserve the session records (run 1) | `/flow`, `/flow-fast` |
 | `flow.commit-two` | Two commits, implementation first (run 1) | `/flow`, `/flow-fast` |
-| `flow.sync-archive` | Archive the change on its branch (run 1) | `/flow`, `/flow-fast` |
-| `flow.commit-archive` | Commit the archive (run 1) | `/flow`, `/flow-fast` |
 | `flow.self-review` | Run the self-review pass (run 1) | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.pipeline-fix` | Pipeline fix — a fix to the flow tooling a run makes | `/flow`, `/flow-fast` |
 | `flow.landing-routes` | The landing routes, including moving the issue to In Review (run 1) ▸ | `/flow`, `/flow-fast`, `/flow-interactive` |
@@ -245,7 +243,6 @@ return a verdict. Each one has a `test-*.sh` harness in `scripts/`, and
 - `check-unfinished-work.sh`: reports unticked tasks or open findings before you are asked how to
   land.
 - `commit-split.sh`: makes the two commits, implementation first and planning second.
-- `check-archive-scope.sh`: blocks a drop commit whose staged diff holds anything but deletions under the change's own directories.
 - `check-cleanup-complete.sh`: `FINISHED` is written only once every temporary artifact is gone.
 
 **This repository's own lint.** It runs in `/flow`'s verify stage here:

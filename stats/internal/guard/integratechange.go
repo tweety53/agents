@@ -82,7 +82,7 @@ type ic struct {
 //	worktree RUN2 -> NEXT is `cleanup`. Otherwise run 1, which first
 //	stops at STOP: base-mismatch when one worktree records a flowBase
 //	another resolves away from while that one's origin carries it: the
-//	uncommitted-drop undo, the dropped decision, a design naming
+//	the dropped decision, a design naming
 //	a live check needs live-verification.md passing
 //	check-live-verification, else STOP: live-check, which
 //	--accept-outstanding never passes, the unfinished-work
@@ -115,15 +115,13 @@ type ic struct {
 //	old pin and HEAD; fetched from origin when absent locally; run 2
 //	never deletes it), reshape-branch per
 //	worktree, the ledger render, commit-split per
-//	worktree in `## Merge order`, commit-archive (the drop commit,
-//	`chore(spectre): drop <name>`, removing <spec>/changes/<name>/ and
-//	each <name>-fix-N/), then commit-archive in every other worktree
-//	whose <spec>/changes/<name>/ still exists. A
+//	worktree in `## Merge order`, then the push of each reshaped
+//	branch. A
 //	worktree with nothing on the implementation side takes no
 //	subject; the canonical one whose only implementation path is a
 //	link.md takes `chore(spectre): merge order`; any other without
 //	one stops `commit-split`. A
-//	dropped change without new work skips straight to commit-archive.
+//	dropped change without new work skips straight to the push.
 //	Before any of it, a narrative lacking the section of a fix or
 //	integrate run the store marked stops `narrative`
 //	(check-narrative-runs.sh). A `flow-fix` row `flow self-review
@@ -1101,4 +1099,10 @@ func (c *ic) pushBranch(w string) {
 	if !c.gitPass("-C", w, "push", "--force-with-lease", "-u", "origin", "spectre/"+c.name) {
 		c.stop("push", "the branch push from "+w+" was rejected — report git's output; the change stays IN_PROGRESS")
 	}
+}
+
+// isFixOf is whether dir is a fix sub-change of name: <name>-fix-<digits>.
+func isFixOf(dir, name string) bool {
+	n, ok := strings.CutPrefix(dir, name+"-fix-")
+	return ok && n != "" && strings.Trim(n, "0123456789") == ""
 }

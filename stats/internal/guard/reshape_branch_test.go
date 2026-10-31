@@ -119,27 +119,6 @@ func TestReshapeBranch(t *testing.T) {
 			"task work kept staged", "task work lost from the index")
 	})
 
-	// A run 1 that stopped between commit-archive.sh's `git rm` and its
-	// commit left the drop staged; a resumed reshape keeps the index and the
-	// working tree as found — only HEAD moves, onto a base that never held
-	// the change directory, so nothing under spectre/changes/ stays staged.
-	t.Run("2b a staged drop survives the reshape", func(t *testing.T) {
-		t.Parallel()
-		fx := rbNew(t)
-		w := fx.wt
-		writeFile(t, w+"/spectre/changes/demo/tasks.md", "- [x] 1. task\n")
-		fx.commitAs(t, "planner", "chore(spectre): plan demo — plan gate", "spectre/changes/demo")
-		writeFile(t, w+"/src/a.txt", "task\n")
-		fx.commitAs(t, "impl", "feat(src): task\n\nTask-Id: 1", "src")
-		splitGit(t, w, nil, "rm", "-r", "-q", "spectre/changes/demo")
-		want := fx.expectedTree(t)
-		rc, out := fx.reshape(t, w, w, "demo", fx.base)
-		check(t, rc == 0, "reshape exit", "rc=%d out=%s", rc, out)
-		staged := splitGit(t, w, nil, "diff", "--cached", "--name-status", "-M", "--", "spectre/changes/")
-		check(t, staged == "", "the drop leaves nothing staged", "staged under spectre/changes/: %q", staged)
-		check(t, fx.expectedTree(t) == want, "working tree and index as found", "the tree moved")
-	})
-
 	t.Run("3 the guard refuses a main checkout and HEAD does not move", func(t *testing.T) {
 		t.Parallel()
 		fx := rbNew(t)
