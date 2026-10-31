@@ -102,7 +102,9 @@ the tracked files deleted from the working tree, as one trailerless planning com
 **Regression:** reverting the commit brings back the history reads; `TestFindCanonicalIgnoresADropCommit` fails because pass 2 finds the dropped plan.
 **Baseline:** before=0 after=2 <!-- measured: cat stats/internal/guard/plan_on_disk_test.go 2>/dev/null | grep -c '^func Test' @ 50e0a1f7 -->
 **Commit:** refactor(stats): read a change's plan from its worktree in the in-run guards
-**After:** none
+**After:** Task 10
+
+Correction (2026-10-31): the plan declared `**After:** none`; task 5 runs after task 10 instead, because until task 10 deletes commit-archive, integrate's commit step removes the change directory from disk and every land or cleanup test then fails on the on-disk plan read — task 5 cannot be `Build: green` before task 10. Task 10 no longer waits for task 5.
 
 **Decision:** guards-read-disk
 **Decision:** no-backward-compat
@@ -179,7 +181,9 @@ the tracked files deleted from the working tree, as one trailerless planning com
 **Tests:** none — repairs existing tests: `TestReshapeBranch`, `TestCheckGuardSymlinks`, and the vitest case "reads main between steps after the last thing to end"; deletes `TestCommitArchiveDropsTheChange`, `TestCommitArchive`, `TestCheckArchiveScope`, `TestCheckArchiveScopeAdmitsOnlyTheDrop`
 **Regression:** reverting the commit restores the drop at run 1 and the two stage keys.
 **Commit:** refactor(stats): delete the commit-archive and sync-archive stages
-**After:** Task 2, 5, 8
+**After:** Task 2, 8
+
+Correction (2026-10-31): the plan declared `**After:** Task 2, 5, 8`; task 5 now follows task 10 (see task 5's Correction), so task 10 waits for tasks 2 and 8 only.
 
 **Decision:** change-dir-gitignored
 
