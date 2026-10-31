@@ -45,7 +45,12 @@ import (
 //     subject that is ticked must have a commit carrying that subject
 //     reachable from HEAD — a landed plan whose commits are already in the
 //     base reads clean, which is the state every plan left behind by a
-//     merged change sits in. A task that is unticked
+//     merged change sits in. A plan restored by a fix run after run 1's
+//     drop is exempt from that half when HEAD's log holds
+//     `chore(spectre): drop <name>`: integrate's split collapsed its task
+//     commits into one implementation commit before the drop, so a ticked
+//     task whose subject no commit carries is not a violation. A task that
+//     is unticked
 //     must have no commit carrying its subject in `<base-ref>..HEAD` (work
 //     the branch started that the record does not claim); a commit reachable
 //     from HEAD but older than the base is not this branch's business and is
@@ -272,6 +277,11 @@ func trCheck(args []string, env Env) []string {
 				}
 			}
 			if len(shas) == 0 {
+				// A fix run's plan restored after run 1's drop: the split
+				// squashed the commits of the tasks ticked before it.
+				if len(headSubjects["chore(spectre): drop "+filepath.Base(filepath.Dir(p.path))]) > 0 {
+					continue
+				}
 				violations = append(violations, fmt.Sprintf("%s: task %s ticked but no commit with subject '%s' reachable from HEAD", rel, task.id, subject))
 				continue
 			}

@@ -31,6 +31,26 @@ func TestCheckTaskRecordsIgnoresArchiveDir(t *testing.T) {
 	}
 }
 
+// TestCheckTaskRecordsExemptsADroppedPlan pins that a fix run's restored
+// plan reads clean: run 1's split squashed the commits of the tasks ticked
+// before the drop, so with HEAD's log holding `chore(spectre): drop <name>`
+// a ticked task no commit's subject carries is not a violation.
+func TestCheckTaskRecordsExemptsADroppedPlan(t *testing.T) {
+	t.Parallel()
+	fx := trRepo(t)
+	gitRun(t, fx.root, "update-ref", "refs/remotes/origin/main", "HEAD")
+	fx.task(1, "x", "feat(a): one", "green")
+	fx.commitAll("chore(spectre): plan fixture-change")
+	gitRun(t, fx.root, "rm", "-r", "-q", "spectre/changes/fixture-change")
+	gitRun(t, fx.root, "commit", "-qm", "chore(spectre): drop fixture-change")
+	gitRun(t, fx.root, "checkout", "-q", "HEAD^", "--", "spectre/changes/fixture-change")
+	gitRun(t, fx.root, "commit", "-qm", "chore(spectre): plan fixture-change — fix-run tasks")
+	r := runGuard("check-task-records", []string{fx.root}, Env{Getenv: os.Getenv})
+	if r.rc != 0 || r.out != "" {
+		t.Fatalf("rc=%d out=%q; want 0 and nothing: a dropped plan's squashed tasks are exempt", r.rc, r.out)
+	}
+}
+
 func TestCheckTaskRecords(t *testing.T) {
 	t.Parallel()
 	type check struct{ label, fail string }
