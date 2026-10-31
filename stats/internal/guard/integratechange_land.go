@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 )
 
 // refreshFixedRefs: after a re-sync rebased worktree w, one new `fixed`
-// row for each `fixed` row whose sha w holds but HEAD no longer reaches,
-// naming the rebased commit of the same subject, so the store never keeps
+// row for each `fixed` row whose sha w holds but HEAD no longer reaches and
+// no newer row of the same subject already replaced, naming the rebased commit of the same subject, so the store never keeps
 // only a dead sha for a landed fix.
 func (c *ic) refreshFixedRefs(w string) {
 	read := c.cmd("/", "flow", "self-review", "findings", "-C", c.main, "-change", c.name)
@@ -25,15 +26,18 @@ func (c *ic) refreshFixedRefs(w string) {
 		return
 	}
 	log, _ := c.git("-C", w, "log", "--format=%H %s", "HEAD", "--not", "origin/"+c.base)
-	for _, r := range rows {
-		if r.Disposition != "fixed" || len(r.Ref) < 7 {
-			continue
+	subjs := make([]string, len(rows))
+	for i, r := range rows {
+		if r.Disposition == "fixed" && len(r.Ref) >= 7 {
+			subjs[i], _ = c.gitQuiet("-C", w, "log", "-1", "--format=%s", r.Ref)
+		}
+	}
+	for i, r := range rows {
+		subj := subjs[i]
+		if subj == "" || slices.Contains(subjs[i+1:], subj) {
+			continue // a newer row already replaced this one
 		}
 		if _, ok := c.gitQuiet("-C", w, "merge-base", "--is-ancestor", r.Ref, "HEAD"); ok {
-			continue
-		}
-		subj, ok := c.gitQuiet("-C", w, "log", "-1", "--format=%s", r.Ref)
-		if !ok {
 			continue
 		}
 		nw := ""

@@ -128,6 +128,21 @@ fixture
 printf '# demo\n\n## Parts\n\n` + "`" + `b:demo` + "`" + `\n\n## Branch\n\nmain\n\n## Merge order\n\n1. ` + "`" + `.` + "`" + `\n2. ` + "`" + `b` + "`" + `\n' \
   >"$WORK/a-worktrees/demo/spectre/changes/demo/link.md"
 peer_fix_case "peer_fix_canon_first: "`},
+		{"peer_fix_resynced_twice", `# --- peer_fix_resynced_twice ---
+fixture
+to_land "twice: " no-report
+B="$WORK/b-worktrees/demo"
+printf 'fix\n' >"$B/fix-b.txt"
+g -C "$B" add fix-b.txt && g -C "$B" commit -qm "fix(b): the peer fix"
+first="$(git -C "$B" rev-parse HEAD)"
+g -C "$B" commit -q --amend --no-edit --date=2001-01-01T00:00:00
+printf '[{"angle":"code","disposition":"fixed","ref":"%s","note":"the peer fix"},{"angle":"code","disposition":"fixed","ref":"%s","note":"the peer fix"}]' "$first" "$(git -C "$B" rev-parse HEAD)" >"$WORK/sr-findings.json"
+touch "$WORK/sr-completed"
+printf 'moved\n' >"$WORK/b/moved.txt"
+g -C "$WORK/b" add moved.txt && g -C "$WORK/b" commit -qm "base: moved" && g -C "$WORK/b" push -q origin main
+sut land "$WORK/a" demo
+check "twice: land exits 0" '[ "$RC" -eq 0 ]'
+check "twice: an already-replaced dead row is not re-recorded" '[ "$(wc -l <"$WORK/fixed.log" | tr -d " ")" -eq 1 ]'`},
 		{"visual_stop", `# --- visual_stop ---
 fixture
 ui_a
