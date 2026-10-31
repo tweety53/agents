@@ -767,6 +767,22 @@ describe("views render their fixture response's actual values", () => {
     expect(spend.getByText(/vs the previous 30d/)).toHaveTextContent("+$12.00 (+13%) vs the previous 30d");
   });
 
+  it("stage leaderboard reads a sub-cent previous spend as new, writes a thousandfold rise in k, and drops the command note under a Command chip", async () => {
+    answer(
+      leaderboardRows([["/flow", "flow.sdd-tdd", 34, null], ["/flow", "flow.verify", 10, null], ["/flow-fast", "flow.cleanup", 2, null]]),
+      leaderboardRows([["/flow", "flow.sdd-tdd", 0.002], ["/flow", "flow.verify", 0.5]]),
+    );
+    const user = userEvent.setup();
+    render(<StageLeaderboard period={period} project={undefined} />);
+    await screen.findByRole("table");
+    const row = (name: string) => within([...document.querySelectorAll<HTMLElement>("tbody tr")].find((tr) => tr.textContent?.includes(name))!);
+    row("Implementing tasks").getByText("new");
+    row("Running lint and tests").getByText("+$9.50 (+1.9k%)");
+    expect(document.querySelectorAll(".sl-name .sl-cmd").length).toBeGreaterThan(0);
+    await user.click(within(screen.getByRole("group", { name: "Command" })).getByRole("button", { name: /^\/flow\$/ }));
+    expect(document.querySelectorAll(".sl-name .sl-cmd")).toHaveLength(0);
+  });
+
   it("stage leaderboard drops stages and projects under half a cent", async () => {
     const cur = leaderboardRows([...LEADERBOARD_CURRENT, ["/flow", "flow.zero", 0.001, null]]);
     fetchStatsViewMock.mockImplementation((view: keyof typeof fixtures, p: { from: Date; to: Date }) =>
