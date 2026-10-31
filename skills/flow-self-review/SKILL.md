@@ -273,7 +273,7 @@ did not solve — the same finding back on the same evidence — never leaves th
 `opus` at effort `low` or `medium` only: no planner escalates to `flow-planner-high`, and
 `flow-planner-xhigh` is defined for later and no step dispatches it yet. **This session plans,
 changes and reviews nothing itself** (`design.md`, `one-shot-subagent-fix-loop`), save item 4's
-ticks and archive commit and **The base sync** below: each numbered step below that does is a fresh dispatch on the pair it names, never a fork of this session (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), its prompt carrying the MODEL HANDSHAKE
+ticks and drop commit and **The base sync** below: each numbered step below that does is a fresh dispatch on the pair it names, never a fork of this session (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), its prompt carrying the MODEL HANDSHAKE
 paragraph of **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) and the TOOLS, FOREGROUND BUILDS and
 NO DELEGATION paragraphs of `skills/flow/implementer-brief.md` verbatim — a review's READ-ONLY REVIEW
 (`skills/flow/gated-reviewer-brief.md`) too, and the plan's
@@ -386,17 +386,15 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    dropped commit's finding is offered in step 4 as a `big` one is; so is a fix found `big` once
    under way.
 4. **Verify** — once a review comes back clean, or a Minor-only review's fix is committed, this session ticks each task whose commit is on `<fix-branch>`
-   (`flow tasks tick -C <fix worktree> self-review-<name> <n>`), runs
-   `spectre archive self-review-<name>` in the fix worktree — `--force` only when a task stays
-   unticked, its finding found `big` or its commit dropped — and commits both as
-   `chore(spectre): archive self-review-<name>`, on either branch, before any landing push —
-   `<agents repo>`'s push hook refuses an unarchived change on its default branch. That commit
-   alone carries the ticks, and is made once. This session then runs
+   (`flow tasks tick -C <fix worktree> self-review-<name> <n>`), then removes the sub-change's
+   directory `<project>/spectre/changes/self-review-<name>/` in the fix worktree (`git rm -r`) and commits the
+   removal as `chore(spectre): drop self-review-<name>`, on either branch, before any landing push —
+   `<agents repo>`'s push hook refuses an undropped change on its default branch. That commit is
+   made once. This session then runs
    `<agents repo>/scripts/pipeline-fix.sh verify <fix worktree> > <sr-dir>/verify-<v>.log 2>&1`, `<v>` counting verify runs from 1, and reads only its exit code and its `red:` lines. A red line is fixed by a fresh
    dispatch of step 3, key
    `self-review-<name>-fix-v<v>`, its prompt naming the failing command and `<sr-dir>/verify-<v>.log`; then step 2, then this step's lint lines and tests again, `<v>` plus one. The
-   autosquash keeps the archive commit last; a task commit dropped after it has its task unticked
-   in the archive commit by this session (`git commit --amend`). A red branch never lands, and a
+   autosquash keeps the drop commit last. A red branch never lands, and a
    red line is never waived — **Fewest operator actions** governs this loop as it does the review.
 5. **Land once.** On the change's own branch nothing lands here: the fix commits ride the run's
    own route, whose rebase can rewrite their shas, so the committed report is their record and
