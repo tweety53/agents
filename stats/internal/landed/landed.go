@@ -23,21 +23,33 @@ import (
 // neither commit exists or the chosen commit lacks the file; err is any
 // other git failure.
 func File(repo, name, file string) (b []byte, ok bool, err error) {
-	sha, err := newest(repo, "chore(spectre): drop "+name)
+	return Read(func(args ...string) ([]byte, error) {
+		return exec.Command("git", append([]string{"-C", repo}, args...)...).Output()
+	}, name, file)
+}
+
+// Git runs one git command against a repository and returns its stdout, an
+// error its non-zero exit -- the seam a caller with its own bounded git
+// runner (the self-review bundle) reads through.
+type Git func(args ...string) ([]byte, error)
+
+// Read is File through git: the same resolution, every git call made by it.
+func Read(git Git, name, file string) (b []byte, ok bool, err error) {
+	sha, err := newest(git, "chore(spectre): drop "+name)
 	if err != nil {
 		return nil, false, err
 	}
 	rev := sha + "^:spectre/changes/" + name + "/" + file
 	if sha == "" {
-		if sha, err = newest(repo, "chore(spectre): archive "+name); err != nil || sha == "" {
+		if sha, err = newest(git, "chore(spectre): archive "+name); err != nil || sha == "" {
 			return nil, false, err
 		}
 		rev = sha + ":spectre/changes/archive/" + name + "/" + file
 	}
-	if exec.Command("git", "-C", repo, "cat-file", "-e", rev).Run() != nil {
+	if _, err := git("cat-file", "-e", rev); err != nil {
 		return nil, false, nil
 	}
-	if b, err = exec.Command("git", "-C", repo, "show", rev).Output(); err != nil {
+	if b, err = git("show", rev); err != nil {
 		return nil, false, fmt.Errorf("git show %s: %w", rev, err)
 	}
 	return b, true, nil
@@ -46,10 +58,10 @@ func File(repo, name, file string) (b []byte, ok bool, err error) {
 // newest is the sha of the newest commit, over every ref, whose subject is
 // exactly subject; "" when none. The --grep is a prefilter only: it also
 // matches a longer name (kan-10 for kan-1) and the message body.
-func newest(repo, subject string) (string, error) {
-	out, err := exec.Command("git", "-C", repo, "log", "--all", "--format=%H %s", "--fixed-strings", "--grep", subject).Output()
+func newest(git Git, subject string) (string, error) {
+	out, err := git("log", "--all", "--format=%H %s", "--fixed-strings", "--grep", subject)
 	if err != nil {
-		return "", fmt.Errorf("git log in %s: %w", repo, err)
+		return "", fmt.Errorf("git log: %w", err)
 	}
 	for _, line := range strings.Split(string(bytes.TrimSpace(out)), "\n") {
 		if sha, s, found := strings.Cut(line, " "); found && s == subject {

@@ -17,7 +17,7 @@ import (
 // selfreviewStore is the store dependency the self-review bundle endpoint
 // needs, defined here at the consumer per go-interface-design — exactly the
 // two reads the handler calls, so a test needs no database. The repository
-// the archive-derived sources come from is not a store answer:
+// the history-derived sources come from is not a store answer:
 // change_repos carries no roots for the pipeline's real changes, and the
 // caller — running from anywhere inside the repository, the way every flow
 // command does — resolves the main checkout itself and passes it as the
@@ -50,9 +50,10 @@ type selfreviewStore interface {
 // /api/v1/self-review/{project}/{change}/bundle?repo=<abs-path>: the whole
 // self-review context bundle, assembled server-side — the ledger and panel
 // record rendered from the store exactly as the render route renders them,
-// the archived change's tasks.md, design.md, narrative.md, visual-verification.md
-// and live-verification.md read out of the change branch spectre/<name> of the repository the caller named, or
-// its base branch once the change has landed, and
+// the dropped change's tasks.md, design.md, narrative.md, visual-verification.md
+// and live-verification.md read out of history — the parent of run 1's drop
+// commit, found on the change branch spectre/<name> of the repository the
+// caller named, or its base branch once the change has landed — and
 // the git log of the finish-run commits, derived here rather than in any
 // Bash the caller would have to run. The CLI transports the result and
 // constructs none of it, the record-render rule.
@@ -64,8 +65,8 @@ type selfreviewHandler struct {
 }
 
 // bundle answers with text/markdown. repo is required: without it the
-// route could only report the archive-derived sources skipped, which for
-// an archived change reads as a false fact about the change rather than as
+// route could only report the history-derived sources skipped, which for
+// a dropped change reads as a false fact about the change rather than as
 // the caller mistake it is — a 400 says so plainly. A change the store has
 // never heard of is not an error — its ledger and panel sections report
 // skipped and the rest of the bundle still serves, the gather's own "a
@@ -75,7 +76,7 @@ func (h *selfreviewHandler) bundle(w http.ResponseWriter, r *http.Request) {
 	project, change := r.PathValue("project"), r.PathValue("change")
 	repo := r.URL.Query().Get("repo")
 	if repo == "" {
-		writeError(w, http.StatusBadRequest, "repo is required: the absolute path of the repository the change's archive lives in")
+		writeError(w, http.StatusBadRequest, "repo is required: the absolute path of the repository whose history holds the change")
 		return
 	}
 	if !filepath.IsAbs(repo) {

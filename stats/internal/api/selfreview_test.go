@@ -32,14 +32,14 @@ func selfReviewPath(project, change, repo string) string {
 
 // TestSelfReviewBundleHandlerServesAssembledBundle drives the route end to
 // end over a real repository: the ledger renders from the recorded
-// dispatches, and the archived design.md is read out of the change branch
-// spectre/<name> of the repository the request named — no path arrives
+// dispatches, and the dropped design.md is read out of the drop commit's
+// parent on the change branch spectre/<name> of the repository the request named — no path arrives
 // from the store.
 func TestSelfReviewBundleHandlerServesAssembledBundle(t *testing.T) {
 	repo := bundleGitRepo(t)
 	bundleCommit(t, repo, "spectre/changes/kan-1/tasks.md", "- [ ] 1. do it\n",
 		"chore(spectre): plan and session records")
-	bundleArchiveBranch(t, repo, "kan-1", map[string]string{
+	bundleDropBranch(t, repo, "kan-1", map[string]string{
 		"tasks.md":  "- [ ] 1. do it\n",
 		"design.md": "# kan-1 design\n",
 	})
@@ -66,7 +66,7 @@ func TestSelfReviewBundleHandlerServesAssembledBundle(t *testing.T) {
 	for _, want := range []string{
 		"# Self-review context bundle for kan-1",
 		"## .superpowers/sdd/ledgers/kan-1.md",
-		"## spectre/changes/archive/kan-1/design.md",
+		"## spectre/changes/kan-1/design.md",
 		"# kan-1 design",
 		"## git log --stat",
 	} {
@@ -133,10 +133,11 @@ func bundleGitRepo(t *testing.T) string {
 	return dir
 }
 
-func bundleArchiveBranch(t *testing.T, repo, name string, files map[string]string) {
+func bundleDropBranch(t *testing.T, repo, name string, files map[string]string) {
 	t.Helper()
+	bundleRunGit(t, repo, "checkout", "-b", "spectre/"+name)
 	for file, body := range files {
-		path := filepath.Join(repo, "spectre/changes/archive", name, file)
+		path := filepath.Join(repo, "spectre/changes", name, file)
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -144,9 +145,10 @@ func bundleArchiveBranch(t *testing.T, repo, name string, files map[string]strin
 			t.Fatal(err)
 		}
 	}
-	bundleRunGit(t, repo, "checkout", "-b", "spectre/"+name)
 	bundleRunGit(t, repo, "add", "-A")
-	bundleRunGit(t, repo, "commit", "-m", "chore(spectre): archive "+name)
+	bundleRunGit(t, repo, "commit", "--allow-empty", "-m", "test: write "+name+"'s change files")
+	bundleRunGit(t, repo, "rm", "-r", "-q", "spectre/changes/"+name)
+	bundleRunGit(t, repo, "commit", "-m", "chore(spectre): drop "+name)
 	bundleRunGit(t, repo, "checkout", "main")
 }
 
@@ -172,7 +174,7 @@ func bundleRunGit(t *testing.T, repo string, args ...string) {
 }
 
 // TestSelfReviewBundleHandlerRequiresRepo pins repo as mandatory: without
-// it the route could only misreport an archived change's sources as
+// it the route could only misreport a dropped change's sources as
 // absent, so the request is refused before anything is read.
 func TestSelfReviewBundleHandlerRequiresRepo(t *testing.T) {
 	ts, _ := recordTestServer(t, "proj", "kan-1")
