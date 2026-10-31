@@ -22,8 +22,8 @@ Captured again in this pass; byte-identical to the committed baselines. Against 
 
 ## Motions
 
-- m1 (hover Jul 22 hit rect) — `visual-verification/motion/m1/`, 2 frames (000 at −310 ms before, 001 at +8 ms, the first frame after the pointer enters) — clean. Frame 001 shows the CSS `:hover` band, the guide line and the tr-tip together (Task 9's `flushSync` on `onMouseEnter`); a second recording (+10 ms) and a `requestAnimationFrame` DOM read (band, guide, tip all true) agree. Round 1's recording showed frame 001 (+19 ms) with the band but no guide or tip.
-- m2 (pointer leaves) — `visual-verification/motion/m2/`, 2 frames (000 hovered at −299 ms, 001 at +5 ms, the first frame after the pointer leaves) — clean. Frame 001 shows band, guide and tip all cleared (Task 9's `flushSync` on `onMouseLeave`); a second recording (+8 ms) and a `requestAnimationFrame` DOM read (all false) agree. Round 1's recording showed frame 001 (+12 ms) with the band cleared while the guide and tip lingered.
+- m1 (hover Jul 22 hit rect) — `visual-verification/motion/m1/`, 2 frames (000 at −296 ms before, 001 at +13 ms, the first frame after the pointer enters) — clean. Frame 001 shows the CSS `:hover` band, the guide line and the tr-tip together (Task 9's `flushSync` on `onMouseEnter`); a `requestAnimationFrame` DOM read (band, guide, tip all true) agrees; the closing full run (round 3) re-recorded it with the same result. Round 1's recording showed frame 001 (+19 ms) with the band but no guide or tip.
+- m2 (pointer leaves) — `visual-verification/motion/m2/`, 2 frames (000 hovered at −299 ms, 001 at +6 ms, the first frame after the pointer leaves) — clean. Frame 001 shows band, guide and tip all cleared (Task 9's `flushSync` on `onMouseLeave`); a `requestAnimationFrame` DOM read (all false) agrees; the closing full run (round 3) re-recorded it with the same result. Round 1's recording showed frame 001 (+12 ms) with the band cleared while the guide and tip lingered.
 
 ### trend-wide matrix (prototype / capture / delta)
 
