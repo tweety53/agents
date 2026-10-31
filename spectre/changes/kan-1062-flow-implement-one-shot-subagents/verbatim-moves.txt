@@ -171,3 +171,18 @@ rc=$?; echo "close-task: $rc"; }
 # Task 6's gated review fix (F4–F6): the gated bundle's final message opens with Model:, and the boundary block runs the exit-3 dispatch end first.
 \# on exit 3, the `flow record dispatch end` line close-task printed runs next, in a second call before the launch (exit 3, below)
 Your final message opens with your `Model:` line, then one line per pass, in plan order: `task <n>: clean|fix — Critical <n> Important <n> Minor <n> — <its report path>`.
+# Round-0 panel fix (panel-fix-1, F7–F16): stale heading citations, the in-run fix stub line, the gated bundle description, the keep-warm timer stop.
+Change artifacts path only for a section the entry cites that the file lacks, and never
+Judge plan alignment against that task alone, open a
+The implementer's dispatch also carries the MUTATION PROOF and PIXEL PROBE paragraphs (`skills/flow/review-panel.md`), and the round closes only when every reported `fix-mutation:` line is checked against the fix diff the way **The fix round mutation-proves what it changed** (`skills/flow/review-panel-fix-round.md`) walks them — a mutant nothing kills is a new fixable defect this loop takes another round on.
+`begin` is recorded immediately before the dispatch — when several launches go out together in one message, in the one Bash call immediately before that message, one call for all (step 3 of **The next implementer overlaps the guard**, below) — carrying no `-agent-id`: the daemon captures the agent's identifier.
+`proposal.md` sections it cites.
+bundle is that task's context file: its own `tasks.md` entry and the `design.md` and
+Change artifacts path only for a section your task's entry cites that the bundle lacks, and never
+In-run fix: read the MUTATION PROOF and PIXEL PROBE paragraphs of <skill-dir>/review-panel.md and follow both; report their fix-mutation: lines
+Judge plan alignment against your task alone, open a
+Once the last child out has returned, the parent stops that timer (`TaskStop` on its background task) before any gate or turn end, so no stale wake reaches a later turn.
+The prompt is these lines alone, in this order, each `<…>` filled — `<skill-dir>` the directory this file was read from, the `Role:` line the one `flow record dispatch begin` printed for the row, and the `Incident:` line present only when an incident rides this dispatch (**An incident one dispatch caused rides the next dispatch to the same role**, above), and the `In-run fix:` line present only on the implementer of an in-run fix task (**The in-run fix loop**, `skills/flow/verify-fix-loop.md`):
+`begin` is recorded immediately before the dispatch — when several launches go out together in one message, in the one Bash call immediately before that message, one call for all (step 2 of **A group boundary is one wake, one Bash call and one launch message**, below) — carrying no `-agent-id`: the daemon captures the agent's identifier.
+`proposal.md` it carries.
+bundle is your task's group's bundle: every task of the group with the `design.md` and
