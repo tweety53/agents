@@ -8,7 +8,7 @@ import (
 
 // stageTaskFiles is scripts/stage-task-files.sh: that script's header is the
 // contract -- the staging half of a /flow implementer's per-task commit
-// (skills/flow/implement.md, FLOW — COMMIT-PER-TASK), refusing to hand the
+// (skills/flow/implementer-brief.md, FLOW — COMMIT-PER-TASK), refusing to hand the
 // commit a task path git left unstaged.
 func init() { Registry["stage-task-files"] = stageTaskFiles }
 

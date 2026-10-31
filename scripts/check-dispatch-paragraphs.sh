@@ -110,7 +110,15 @@
 # data-loss shape nobody checked — at the gated per-task reviewer dispatch
 # in implement.md alone; the panel slots carry the same rule inside their
 # prompt files' own Read-Only Review sections, which this table does not
-# pin.
+# pin. KAN-1062 moved the implementer dispatch's paragraphs into
+# skills/flow/implementer-brief.md and the gated per-task reviewer's into
+# skills/flow/gated-reviewer-brief.md, each prompt now a stub naming its
+# brief (decision briefs-on-disk): every implementer and gated reviewer
+# site below names the brief that carries the paragraph, and implement.md
+# keeps the parent's own REPRODUCE, DON'T READ (reviewer variant) and
+# FOREGROUND BUILDS restatements and the MODEL HANDSHAKE line of each of its
+# two stubs. Every "implementer dispatch" below is implementer-brief.md and
+# every "gated per-task reviewer dispatch" gated-reviewer-brief.md.
 #
 # Argument-free and self-scoped, exactly like check-guard-symlinks.sh: the
 # scan root is this repository's own root, resolved from this script's own
@@ -135,37 +143,50 @@
 #   moved on to visual-verify-tooling-analysis.md (KAN-858), which loads only
 #   on a fix run with a miss, so each file carries one block of each.
 #
-#   Paragraph                          Site                        Min  Variants
-#   **REPRODUCE, DON'T READ:**         skills/flow/review-panel.md  1   reviewer
-#   **REPRODUCE, DON'T READ:**         skills/flow/implement.md     3   reviewer AND implementer
-#   **VERBATIM REPORT — THE FACT:**    skills/flow/review-panel.md  1   (none)
-#   **FOREGROUND BUILDS:**             skills/flow/implement.md     3   (none)
-#   **FOREGROUND BUILDS:**             skills/flow/review-panel.md  2   (none)
-#   **TARGETED TESTS:**                skills/flow/implement.md     1   (none)
-#   **TARGETED TESTS:**                skills/flow/review-panel.md  1   (none)
-#   **MUTATION PROOF:**                skills/flow/review-panel.md  1   (none)
-#   **PIXEL PROBE:**                   skills/flow/review-panel.md  1   (none)
-#   **TOOLS:**                         skills/flow/implement.md     2   (none)
-#   **TOOLS:**                         skills/flow/review-panel.md  2   (none)
-#   **TOOLS:**                         skills/flow/visual-verify.md 1   (none)
+#   Paragraph                          Site                                       Min  Variants
+#   **REPRODUCE, DON'T READ:**         skills/flow/review-panel.md                 1   reviewer
+#   **REPRODUCE, DON'T READ:**         skills/flow/implement.md                    1   reviewer
+#   **REPRODUCE, DON'T READ:**         skills/flow/implementer-brief.md            1   implementer
+#   **REPRODUCE, DON'T READ:**         skills/flow/gated-reviewer-brief.md         1   reviewer
+#   **VERBATIM REPORT — THE FACT:**    skills/flow/review-panel.md                 1   (none)
+#   **REPRODUCER:**                    skills/flow/review-panel.md                 1   (none)
+#   **FOREGROUND BUILDS:**             skills/flow/implement.md                    1   (none)
+#   **FOREGROUND BUILDS:**             skills/flow/implementer-brief.md            1   (none)
+#   **FOREGROUND BUILDS:**             skills/flow/gated-reviewer-brief.md         1   (none)
+#   **FOREGROUND BUILDS:**             skills/flow/review-panel.md                 2   (none)
+#   **TARGETED TESTS:**                skills/flow/implementer-brief.md            1   (none)
+#   **TARGETED TESTS:**                skills/flow/review-panel.md                 1   (none)
+#   **MUTATION PROOF:**                skills/flow/review-panel.md                 1   (none)
+#   **PIXEL PROBE:**                   skills/flow/review-panel.md                 1   (none)
+#   **TOOLS:**                         skills/flow/implementer-brief.md            1   (none)
+#   **TOOLS:**                         skills/flow/gated-reviewer-brief.md         1   (none)
+#   **TOOLS:**                         skills/flow/review-panel.md                 2   (none)
+#   **TOOLS:**                         skills/flow/visual-verify.md                1   (none)
 #   **TOOLS:**                         skills/flow/visual-verify-tooling-analysis.md 1 (none)
-#   **MODEL HANDSHAKE:**               skills/flow/implement.md     2   (none)
-#   **MODEL HANDSHAKE:**               skills/flow/review-panel.md  2   (none)
-#   **MODEL HANDSHAKE:**               skills/flow/visual-verify.md 1   (none)
+#   **MODEL HANDSHAKE:**               skills/flow/implement.md                    2   (none)
+#   **MODEL HANDSHAKE:**               skills/flow/review-panel.md                 2   (none)
+#   **MODEL HANDSHAKE:**               skills/flow/visual-verify.md                1   (none)
 #   **MODEL HANDSHAKE:**               skills/flow/visual-verify-tooling-analysis.md 1 (none)
-#   **INDEPENDENT PASSES:**            skills/flow/review-panel.md  1   (none)
-#   **NO DELEGATION:**                 skills/flow/implement.md     2   (none)
-#   **NO DELEGATION:**                 skills/flow/review-panel.md  2   (none)
-#   **NO DELEGATION:**                 skills/flow/visual-verify.md 1   (none)
+#   **INDEPENDENT PASSES:**            skills/flow/review-panel.md                 1   (none)
+#   **NO DELEGATION:**                 skills/flow/implementer-brief.md            1   (none)
+#   **NO DELEGATION:**                 skills/flow/gated-reviewer-brief.md         1   (none)
+#   **NO DELEGATION:**                 skills/flow/review-panel.md                 2   (none)
+#   **NO DELEGATION:**                 skills/flow/visual-verify.md                1   (none)
 #   **NO DELEGATION:**                 skills/flow/visual-verify-tooling-analysis.md 1 (none)
-#   **PROVE THE GUARD BITES:**         skills/flow/implement.md     1   (none)
-#   **REPORT, DON'T DECIDE:**          skills/flow/implement.md     1   (none)
-#   **ENTRY CONTEXT:**                 skills/flow/review-panel.md  1   (none)
-#   **FINDINGS ARE INPUT:**            skills/flow/review-panel.md  1   (none)
-#   **CONTEXT BUNDLE FAILURE:**        skills/flow/review-panel.md  1   (none)
-#   **OUTPUT BUDGET:**                 skills/flow/implement.md     1   (none)
-#   **OUTPUT BUDGET:**                 skills/flow/review-panel.md  1   (none)
-#   **READ-ONLY REVIEW:**              skills/flow/implement.md     1   (none)
+#   **PROVE THE GUARD BITES:**         skills/flow/implementer-brief.md            1   (none)
+#   **REPORT, DON'T DECIDE:**          skills/flow/implementer-brief.md            1   (none)
+#   **ENTRY CONTEXT:**                 skills/flow/review-panel.md                 1   (none)
+#   **FINDINGS ARE INPUT:**            skills/flow/review-panel.md                 1   (none)
+#   **CONTEXT BUNDLE FAILURE:**        skills/flow/review-panel.md                 1   (none)
+#   **OUTPUT BUDGET:**                 skills/flow/implementer-brief.md            1   (none)
+#   **OUTPUT BUDGET:**                 skills/flow/review-panel.md                 1   (none)
+#   **READ-ONLY REVIEW:**              skills/flow/gated-reviewer-brief.md         1   (none)
+#   **FIX-ROUND SCOPE:**               skills/flow/review-panel-fix-round.md       1   (none)
+#   **PROOF RUNS:**                    skills/flow/implementer-brief.md            1   (none)
+#   "is allowed only under run-capped.sh" rules/fix-determinism-at-the-source.mdc 1 (none)
+#   "is allowed only under run-capped.sh" skills/flow/verify-fix-loop.md       1   (none)
+#   **REQUIRED SUB-SKILL:**            skills/flow/implementer-brief.md            2   tdd AND debugging
+#   **PLANNING DELEGATION:**           skills/flow-self-review/SKILL.md            1   (none)
 #
 #   REPRODUCE, DON'T READ shared phrases: "crosses a boundary", "the store,
 #   the filesystem, a guard, a real transcript", "exercise the real thing"
@@ -178,23 +199,24 @@
 #
 #   FOREGROUND BUILDS shared phrases (no variants — every block carrying the
 #   label must carry all three): "still executing in the background", "Run
-#   it in the foreground", "poll it to completion". Required three times in
-#   implement.md (implementer dispatch, the gated per-task reviewer dispatch,
-#   the parent's own §4 restatement) and twice in review-panel.md (panel slot
-#   dispatch, panel-fix subagent dispatch).
+#   it in the foreground", "poll it to completion". Required once in each of
+#   implementer-brief.md (implementer dispatch), gated-reviewer-brief.md
+#   (gated per-task reviewer dispatch) and implement.md (the parent's own §4
+#   restatement), and twice in review-panel.md (panel slot dispatch,
+#   panel-fix subagent dispatch).
 #
 #   OUTPUT BUDGET shared phrases (no variants — every block carrying the
 #   label must carry all four): "re-reads your", "by line range", "never
 #   re-read a file already in your context", "Never print a generated
-#   file". Required once in each of implement.md (implementer dispatch) and
-#   review-panel.md (panel-fix subagent dispatch) — the two dispatches whose
+#   file". Required once in each of implementer-brief.md (implementer
+#   dispatch) and review-panel.md (panel-fix subagent dispatch) — the two dispatches whose
 #   tool output grows with the task: every turn re-reads the whole context,
 #   so an uncapped read or log is paid for on every turn after it.
 #
 #   TARGETED TESTS shared phrases (no variants — every block carrying the
 #   label must carry all three): "the build tool's own selector", "once for
 #   RED, once for GREEN", "module or repository suite mid-task". Required
-#   once in each of implement.md (implementer dispatch) and
+#   once in each of implementer-brief.md (implementer dispatch) and
 #   review-panel.md (panel-fix subagent dispatch) — the panel slot dispatch
 #   is not a site: reviewers do not run the task's tests.
 #
@@ -221,14 +243,14 @@
 #   carrying the label must carry all three): "assert on configuration or
 #   file content", "break the property the assertion protects", "against
 #   the broken state". Required once, at the implementer dispatch in
-#   implement.md alone — the gated per-task reviewer dispatch is not a
+#   implementer-brief.md alone — the gated per-task reviewer dispatch is not a
 #   site: reviewers judge a diff, they do not run the task's guards.
 #
 #   REPORT, DON'T DECIDE shared phrases (no variants — every block
 #   carrying the label must carry all four): "only the operator can
 #   settle", "reported, never decided in code", "carry the question in your
 #   REPORT FILE", "report BLOCKED". Required once, at the implementer
-#   dispatch in implement.md alone — the gated per-task reviewer dispatch
+#   dispatch in implementer-brief.md alone — the gated per-task reviewer dispatch
 #   is not a site: reviewers judge a diff, they do not settle operator
 #   questions.
 #
@@ -244,17 +266,17 @@
 #   READ-ONLY REVIEW shared phrases (no variants — every block carrying the
 #   label must carry all three): "never mutate it", "no file edit outside
 #   your own report file", "a claim nobody can check". Required once, at the
-#   gated per-task reviewer dispatch in implement.md alone — the panel slot
+#   gated per-task reviewer dispatch in gated-reviewer-brief.md alone — the panel slot
 #   dispatch is not a site: its slots carry the rule inside their prompt
 #   files' own Read-Only Review sections, not a shared paragraph this table
 #   pins.
 #
 #   TOOLS shared phrases (no variants — every block carrying the label
 #   must carry all three): "in your first turn", "never a wildcard
-#   query", "re-prices your whole context". Required twice in implement.md
-#   (implementer dispatch, gated per-task reviewer dispatch — the
-#   conductor's own copy, and the planner's in
-#   brainstorm.md, were removed with those roles, kan-488), twice in
+#   query", "re-prices your whole context". Required once in each of
+#   implementer-brief.md (implementer dispatch) and gated-reviewer-brief.md
+#   (gated per-task reviewer dispatch — the conductor's own copy, and the
+#   planner's in brainstorm.md, were removed with those roles, kan-488), twice in
 #   review-panel.md (panel slot dispatch, panel-fix subagent dispatch),
 #   and once each in visual-verify.md (verifier dispatch) and
 #   visual-verify-tooling-analysis.md (tooling-analyst dispatch).
@@ -262,13 +284,14 @@
 #   MODEL HANDSHAKE shared phrases (no variants — every block carrying the
 #   label must carry all three): "the first line of your first reply",
 #   "and nothing else on that line", "before any tool call". Required twice
-#   in implement.md (implementer dispatch, gated per-task reviewer
-#   dispatch — the conductor's own copy, and
+#   in implement.md (the implementer stub and the gated per-task reviewer
+#   stub, each on one line — the conductor's own copy, and
 #   the planner's in brainstorm.md, were removed with those roles,
 #   kan-488), twice in review-panel.md (panel slot dispatch, panel-fix
 #   subagent dispatch), and once each in visual-verify.md (verifier
 #   dispatch) and visual-verify-tooling-analysis.md (tooling-analyst
-#   dispatch) — the same sites TOOLS occupies.
+#   dispatch) — the TOOLS sites, with the two stubs in place of the two
+#   briefs (decision stub-carries-handshake).
 #
 #   INDEPENDENT PASSES shared phrases (no variants — every block carrying the
 #   label must carry all three): "starts from `final-review.diff`", "raise it
@@ -279,8 +302,9 @@
 #
 #   NO DELEGATION shared phrases (no variants — every block carrying the
 #   label must carry all three): "Never call the `Agent` tool", "never spawn
-#   a subagent", "the leaf of this run". Required twice in implement.md
-#   (implementer dispatch, gated per-task reviewer dispatch), twice in
+#   a subagent", "the leaf of this run". Required once in each of
+#   implementer-brief.md (implementer dispatch) and gated-reviewer-brief.md
+#   (gated per-task reviewer dispatch), twice in
 #   review-panel.md (panel slot dispatch,
 #   panel-fix subagent dispatch), once each in visual-verify.md (verifier
 #   dispatch) and visual-verify-tooling-analysis.md (tooling-analyst
@@ -308,8 +332,8 @@
 # i.e. the whole paragraph. A block counts toward a required variant only
 # when it carries the label, every shared phrase, AND that variant's own
 # phrase. Two blocks of the same variant do NOT satisfy a two-variant site —
-# implement.md requires one reviewer block and one implementer block, not
-# merely two blocks. An entry with no variants needs no variant match: every
+# implementer-brief.md requires one TDD and one systematic-debugging REQUIRED
+# SUB-SKILL block, not merely two blocks. An entry with no variants needs no variant match: every
 # phrase it lists is simply required of the block.
 #
 # Every failure is reported as `file:line` naming the missing element — the

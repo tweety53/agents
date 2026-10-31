@@ -88,13 +88,15 @@ func roleMetrics(role string) []string {
 // skills/flow/implement.md and the key shapes the skills record.
 // ponytail: derived from key shapes; record the table role on dispatch rows
 // if a shape ever stops telling two roles apart. late-fix and
-// self-review-pass have no key shape of their own and select nothing.
+// self-review-pass have no key shape of their own and select nothing. A
+// task's gated fix, re-commit and wave pick are fixer dispatches, not the
+// implementer cell's.
 var roleDispatchSQL = map[string]string{
 	"planner":                 `d.role = 'planner' AND d.dispatch_key ~ '^plan-[0-9]+$'`,
 	"plan-designer":           `d.role = 'planner' AND d.dispatch_key ~ '^design-[0-9]+'`,
 	"explorer":                `d.role = 'explorer'`,
 	"tooling-analyst":         `d.role = 'planner' AND d.dispatch_key LIKE 'tooling-analysis-%'`,
-	"implementer":             `d.role = 'implementer' AND d.dispatch_key LIKE 'task-%'`,
+	"implementer":             `d.role = 'implementer' AND d.dispatch_key LIKE 'task-%' AND d.dispatch_key !~ '-implementer-(fix|recommit|pick)-'`,
 	"panel-fix":               `d.role = 'panel-fix'`,
 	"panel-reviewer":          `d.role = 'reviewer' AND d.dispatch_key ~ '^panel-0-' AND d.dispatch_key !~ '^panel-0-(test-sanity\+call-efficiency|mutation\+failure-modes)'`,
 	"panel-sanity-efficiency": `d.role = 'reviewer' AND d.dispatch_key ~ '^panel-0-test-sanity\+call-efficiency'`,
@@ -234,7 +236,7 @@ func (s *Store) ExperimentStats(ctx context.Context, id int64) (ExperimentStatsR
 				WHERE f.change_id = co.change_id AND d.dispatch_key LIKE 'visual-verify%'),
 			(SELECT count(*) FROM dispatches d WHERE d.change_id = co.change_id AND d.dispatch_key LIKE 'visual-verify-fix-%'),
 			(SELECT count(*) FROM findings f WHERE f.change_id = co.change_id),
-			(SELECT count(*) FROM dispatches d WHERE d.change_id = co.change_id AND d.role = 'implementer' AND d.dispatch_key LIKE 'task-%'),
+			(SELECT count(*) FROM dispatches d WHERE d.change_id = co.change_id AND `+roleDispatchSQL["implementer"]+`),
 			(SELECT count(*) FROM dispatches d WHERE d.change_id = co.change_id AND (`+or(reviewerSQL)+`)),
 			(SELECT count(*) FROM findings f JOIN dispatches d ON d.id = f.dispatch_id
 				WHERE f.change_id = co.change_id AND (`+or(reviewerSQL)+`)),

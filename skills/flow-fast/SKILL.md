@@ -251,8 +251,8 @@ flow stage begin -command '/flow-fast' -stage flow.sdd-tdd -harness <harness> -s
 Implement in the worktree, in this session — or, on a decided `sdd`, per **Dynamic decisions**'
 `sdd-tdd` step. Test first where a test can express the behaviour
 (**superpowers:test-driven-development**); a defect gets a failing test before its fix. A
-refactor of output-producing code follows the PIN BEFORE REFACTOR rule of **4. Execute (SDD + TDD)**
-(`skills/flow/implement.md`). On a fix run the fix's own condition is mutation-killed before
+refactor of output-producing code follows the PIN BEFORE REFACTOR rule
+(`skills/flow/implementer-brief.md`). On a fix run the fix's own condition is mutation-killed before
 section 5 closes: after the fix commits, mutate each fix's own condition — flip the gate, drop the
 guard, substitute the lagging value — confirm a named test fails, and restore — per the MUTATION
 PROOF paragraph (`skills/flow/review-panel.md`) when the decision's `panel` is an object, per this

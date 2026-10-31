@@ -103,8 +103,8 @@ prompts should handle and would recur. The verifier grades no severity: a visual
 `source.slot` `visual-verify` and `source.severity` `Important`. A finding is a case only when its root cause is a generic
 gap in instructions:
 
-- **`implementer`** — a rule in the implementer instructions (`skills/flow/implement.md`,
-  `skills/flow/sdd-dispatch.md`, `skills/flow/engineering-principles.md`) would have prevented the
+- **`implementer`** — a rule in the implementer instructions (`skills/flow/implementer-brief.md`,
+  `skills/flow/implement.md`, `skills/flow/sdd-dispatch.md`, `skills/flow/engineering-principles.md`) would have prevented the
   bad code.
 - **`reviewer`** — either a **miss**, a defect raised only in a later round or by a later slot that
   a first-round reviewer instruction (`skills/flow/*-reviewer-prompt.md`,
@@ -263,9 +263,10 @@ did not solve — the same finding back on the same evidence — never leaves th
 `opus` at effort `low` or `medium` only: no planner escalates to `flow-planner-high`, and
 `flow-planner-xhigh` is defined for later and no step dispatches it yet. **This session plans,
 changes and reviews nothing itself** (`design.md`, `one-shot-subagent-fix-loop`), save item 4's
-ticks and archive commit and **The base sync** below: each numbered step below that does is a fresh dispatch on the pair it names, never a fork of this session (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), its prompt carrying the MODEL HANDSHAKE,
-TOOLS, FOREGROUND BUILDS and NO DELEGATION paragraphs of **4. Execute (SDD + TDD)**
-(`skills/flow/implement.md`) verbatim — a review's READ-ONLY REVIEW too, and the plan's
+ticks and archive commit and **The base sync** below: each numbered step below that does is a fresh dispatch on the pair it names, never a fork of this session (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), its prompt carrying the MODEL HANDSHAKE
+paragraph of **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) and the TOOLS, FOREGROUND BUILDS and
+NO DELEGATION paragraphs of `skills/flow/implementer-brief.md` verbatim — a review's READ-ONLY REVIEW
+(`skills/flow/gated-reviewer-brief.md`) too, and the plan's
 PLANNING DELEGATION below in place of NO DELEGATION — with **The
 handshake** there applying to each reply. Every dispatch is one-shot: no `SendMessage` to it once
 it returns. The no-progress escalation of **Fewest operator actions**

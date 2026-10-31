@@ -308,7 +308,10 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              [-supersedes F<n>] [-regression-of F<n>]
                              [-pattern name] [-task id]
        flow record finding  [-addr url] [-timeout dur] [-C dir]
-                             -change name -from file
+                             -change name [<finding flags>] -from file
+                             (a line with no ref takes the change's next
+                             free ref, written into the file first;
+                             -ref is refused beside -from)
        flow record status   [-addr url] [-timeout dur] [-C dir]
                              -change name -ref F<n> -status status
                              [-category cat]
@@ -1151,8 +1154,8 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		fmt.Fprintf(stderr, "flow: -key %q is a visual-verify verifier row: pass -diff-base <the HEAD it verifies> (skills/flow/visual-verify.md)\n", *key)
 		return 2
 	}
-	if *role == "implementer" && !implementerKey.MatchString(*key) && !strings.HasPrefix(*key, "self-review-") && !strings.HasPrefix(*key, "pipeline-fix-") {
-		fmt.Fprintf(stderr, "flow: -key %q is not task-<ids>-implementer[-fix-<k>][-retry]: ids are +-joined\n", *key)
+	if *role == "implementer" && !implementerKey.MatchString(*key) && !fixerKey.MatchString(*key) && !strings.HasPrefix(*key, "self-review-") && !strings.HasPrefix(*key, "pipeline-fix-") {
+		fmt.Fprintf(stderr, "flow: -key %q is not task-<ids>-implementer[-fix-<k>][-retry], task-<ids>-implementer-recommit-<k>, task-<ids>-implementer-pick-<k> or full-suite-fix-<n>: ids are +-joined\n", *key)
 		return 2
 	}
 	if !slices.Contains(recordEfforts, *effort) {
@@ -1319,9 +1322,13 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 
 	// An inline decision has the parent implement and fix itself, so an
 	// implementer or panel-fix row with a subagent behind it breaches it
-	// (skills/flow/implement.md, Inline -- the parent implements). A
-	// self-review or pipeline fixer is dispatched whatever the decision, and
-	// a decisions read that fails skips the check.
+	// (skills/flow/implement.md, Inline -- the parent implements). The
+	// mirror: an sdd decision has every task and every fix go to a fresh
+	// one-shot, so an implementer or panel-fix row begun -agent-id inline on
+	// a task- or full-suite-fix- key is the parent's own work and breaches it
+	// (skills/flow/implement.md, Every fix is a fresh one-shot). Either way a
+	// self-review or pipeline fixer is exempt, and a decisions read that
+	// fails skips the check.
 	//
 	// A decision's session_cap is the run's model and effort ceiling: a row
 	// above it, an unstated default effort included, is refused (skills/flow/
@@ -1335,6 +1342,12 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 				!strings.HasPrefix(*key, "self-review-") && !strings.HasPrefix(*key, "pipeline-fix-") &&
 				json.Unmarshal(d["execution"], &execution) == nil && execution == "inline" {
 				fmt.Fprintf(stderr, "flow: -role %s -key %s dispatches a subagent, but the change's recorded decision is execution: inline — the parent implements and fixes itself, beginning the row with -agent-id inline (skills/flow/implement.md, Inline — the parent implements)\n", *role, *key)
+				return 2
+			}
+			if (*role == "implementer" || *role == "panel-fix") && *agentID == "inline" &&
+				(strings.HasPrefix(*key, "task-") || strings.HasPrefix(*key, "full-suite-fix-")) &&
+				json.Unmarshal(d["execution"], &execution) == nil && execution == "sdd" {
+				fmt.Fprintf(stderr, "flow: -role %s -key %s -agent-id inline records the parent's own work, but the change's recorded decision is execution: sdd — under sdd every task and every fix is a fresh one-shot dispatch (skills/flow/implement.md, Every fix is a fresh one-shot)\n", *role, *key)
 				return 2
 			}
 			var c *sessionCap
@@ -1466,6 +1479,12 @@ func highestRecordedRound(run records.Run) int {
 // implementerKey is an implementer dispatch key: task-<ids>-implementer[-fix-<k>][-retry],
 // ids +-joined (skills/flow/implement.md's dispatch table).
 var implementerKey = regexp.MustCompile(`^task-[0-9]+(\+[0-9]+)*-implementer(-fix-[0-9]+)?(-retry)?$`)
+
+// fixerKey is an sdd fixer's implementer key that is not a task's own work:
+// a re-commit, a wave pick and a full-suite fix (skills/flow/implement.md,
+// Every fix is a fresh one-shot). It widens the -role implementer shape
+// check only; implementerTask still reads implementerKey alone.
+var fixerKey = regexp.MustCompile(`^(task-[0-9]+(\+[0-9]+)*-implementer-(recommit|pick)-[0-9]+|full-suite-fix-[0-9]+)$`)
 
 // implementerTask returns the "task-<ids>" part of a task implementer key,
 // "" for any other key.
@@ -1932,11 +1951,30 @@ func splitFromFlag(args []string) (path string, rest []string, ok bool) {
 // first line that fails stops the run, naming its line number; the lines
 // before it stay recorded and each line is a rewrite by ref, so a re-run
 // after the fix is safe.
+//
+// A line carrying no ref is numbered first (decision from-assigns-refs): the
+// change's run record is read once and every ref-less line, in file order,
+// takes the next ref above both the store's highest F<n> and every F<n> the
+// file names; those lines are rewritten in the file before the first is
+// recorded, so a re-run rewrites the same rows and never adds. A failed read
+// exits 1 naming the file, before anything is posted or written. A -ref on
+// the command line is refused (exit 2), since every line names or takes its
+// own, and a line that is not a JSON object (`null`) is exit 2.
 func runRecordFindingFrom(ctx context.Context, path string, rest []string, stdout, stderr io.Writer) int {
+	for _, arg := range rest {
+		if arg == "-ref" || arg == "--ref" || strings.HasPrefix(arg, "-ref=") || strings.HasPrefix(arg, "--ref=") {
+			fmt.Fprintln(stderr, "flow: -ref and -from cannot be combined: each -from line names its own ref, or takes the next free one")
+			return 2
+		}
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: -from: %v\n", err)
 		return 2
+	}
+	data, code := numberRefLessFindings(ctx, path, data, rest, stderr)
+	if code != 0 {
+		return code
 	}
 	for i, line := range strings.Split(string(data), "\n") {
 		if strings.TrimSpace(line) == "" {
@@ -1947,6 +1985,10 @@ func runRecordFindingFrom(ctx context.Context, path string, rest []string, stdou
 		dec.UseNumber()
 		if err := dec.Decode(&row); err != nil {
 			fmt.Fprintf(stderr, "flow: -from %s:%d: %v\n", path, i+1, err)
+			return 2
+		}
+		if row == nil {
+			fmt.Fprintf(stderr, "flow: -from %s:%d: a line must be a JSON object\n", path, i+1)
 			return 2
 		}
 		args := append([]string(nil), rest...)
@@ -1971,6 +2013,115 @@ func runRecordFindingFrom(ctx context.Context, path string, rest []string, stdou
 		}
 	}
 	return 0
+}
+
+// numberRefLessFindings gives each well-formed -from line with no ref the
+// next free ref and writes the file back, returning the bytes to record.
+// A file whose every line names its ref is returned as it is, with no
+// store read; a present ref that is not a string is exit 2 naming its line,
+// and any other malformed line is left for runRecordFindingFrom to report.
+// It assumes a single writer per change: the parent runs -from once per
+// round, so two concurrent runs could read the same next free ref.
+func numberRefLessFindings(ctx context.Context, path string, data []byte, rest []string, stderr io.Writer) ([]byte, int) {
+	lines := strings.Split(string(data), "\n")
+	var refLess []int
+	rows := map[int]map[string]any{}
+	floor := 1
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		var row map[string]any
+		dec := json.NewDecoder(strings.NewReader(line))
+		dec.UseNumber()
+		if dec.Decode(&row) != nil || row == nil {
+			continue
+		}
+		ref, isString := row["ref"].(string)
+		if row["ref"] != nil && !isString {
+			fmt.Fprintf(stderr, "flow: -from %s:%d: \"ref\" must be a string\n", path, i+1)
+			return nil, 2
+		}
+		if ref != "" {
+			if n, err := strconv.Atoi(strings.TrimPrefix(ref, "F")); err == nil {
+				floor = max(floor, n+1)
+			}
+			continue
+		}
+		refLess = append(refLess, i)
+		rows[i] = row
+	}
+	if len(refLess) == 0 {
+		return data, 0
+	}
+	run, code, ok := readNextRecord(ctx, "finding -from "+path, recordIdentityArgs(rest), stderr)
+	if !ok {
+		return nil, code
+	}
+	next := max(floor, nextFindingRef(run))
+	for _, i := range refLess {
+		rows[i]["ref"] = fmt.Sprintf("F%d", next)
+		next++
+		var b bytes.Buffer
+		enc := json.NewEncoder(&b)
+		enc.SetEscapeHTML(false)
+		if err := enc.Encode(rows[i]); err != nil {
+			fmt.Fprintf(stderr, "flow: -from %s:%d: %v\n", path, i+1, err)
+			return nil, 1
+		}
+		lines[i] = strings.TrimSuffix(b.String(), "\n")
+	}
+	out := []byte(strings.Join(lines, "\n"))
+	if err := replaceFile(path, out); err != nil {
+		fmt.Fprintf(stderr, "flow: -from %s: write the numbered refs: %v\n", path, err)
+		return nil, 1
+	}
+	return out, 0
+}
+
+// replaceFile writes data to a temp file beside path and renames it over
+// path, keeping path's mode, so a failed write leaves the original intact
+// and no temp file behind.
+func replaceFile(path string, data []byte) error {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmp.Name(), fi.Mode().Perm()); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), path)
+}
+
+// recordIdentityArgs keeps the -addr, -timeout, -C and -change flags of a
+// record command line, in either the "-flag value" or "-flag=value" form,
+// for a read that registers only those.
+func recordIdentityArgs(args []string) []string {
+	var out []string
+	for i := 0; i < len(args); i++ {
+		name, _, hasValue := strings.Cut(strings.TrimLeft(args[i], "-"), "=")
+		if !strings.HasPrefix(args[i], "-") || !slices.Contains([]string{"addr", "timeout", "C", "change"}, name) {
+			continue
+		}
+		out = append(out, args[i])
+		if !hasValue && i+1 < len(args) {
+			out = append(out, args[i+1])
+			i++
+		}
+	}
+	return out
 }
 
 // runRecordFinding implements `flow record finding`: one call per
@@ -2870,14 +3021,20 @@ func runRecordNextRef(ctx context.Context, args []string, stdout, stderr io.Writ
 		return code
 	}
 
+	fmt.Fprintf(stdout, "F%d\n", nextFindingRef(run))
+	return 0
+}
+
+// nextFindingRef is one more than the highest F<n> any finding row of run
+// carries, or 1 for a run with none.
+func nextFindingRef(run records.Run) int {
 	next := 1
 	for _, f := range run.Findings {
 		if n, err := strconv.Atoi(strings.TrimPrefix(f.Ref, "F")); err == nil {
 			next = max(next, n+1)
 		}
 	}
-	fmt.Fprintf(stdout, "F%d\n", next)
-	return 0
+	return next
 }
 
 // readNextRecord reads the change's run record for next-round and next-ref:

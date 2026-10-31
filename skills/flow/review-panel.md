@@ -597,7 +597,7 @@ resting state — and a finding closes on that target's evidence, never on the t
 exit alone.
 
 **Every slot's dispatch prompt also carries the CONTEXT BUNDLE paragraph** — the same shape <!-- refs-guard:allow -->
-`skills/flow/implement.md`'s implementer dispatch carries; for every worktree in this run's
+`skills/flow/implementer-brief.md` carries for an implementer; for every worktree in this run's
 resolved set, naming that worktree's own whole-plan bundle
 `<abs-worktree>/.superpowers/sdd/dispatch-context.md`, one path each. **For every worktree whose
 `<abs-worktree>/.superpowers/sdd/relocation-comparison.md` exists, every slot's dispatch prompt also

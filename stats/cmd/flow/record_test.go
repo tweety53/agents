@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -5956,6 +5957,225 @@ func TestRecordMutationRefusesAPathNoWorktreeHolds(t *testing.T) {
 	})
 }
 
+// TestRecordFindingFromAssignsRefs pins -from's numbering of a ref-less
+// line (decision from-assigns-refs): each takes the next free ref above both
+// the store's highest and every ref the file names, the refs are written
+// into the file before anything is recorded so a re-run rewrites the same
+// rows, and a failed store read records nothing and leaves the file as it
+// was.
+func TestRecordFindingFromAssignsRefs(t *testing.T) {
+	repo := recordRepo(t, "kan-918")
+	isolatedStateRoot(t)
+
+	readStatus := http.StatusOK
+	var gotPath string
+	var posted []records.Finding
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			gotPath = r.URL.String()
+			w.WriteHeader(readStatus)
+			_, _ = w.Write([]byte(`{"change":"kan-918","dispatches":[],"findings":[` +
+				`{"ref":"F1","round":0,"slot":"primary","severity":"Minor","note":"n","status":"fixed"},` +
+				`{"ref":"F3","round":0,"slot":"primary","severity":"Minor","note":"n","status":"open"},` +
+				`{"ref":"F2","round":0,"slot":"primary","severity":"Minor","note":"n","status":"open"}]}`))
+			return
+		}
+		body, _ := io.ReadAll(r.Body)
+		var f records.Finding
+		if err := json.Unmarshal(body, &f); err != nil {
+			t.Errorf("decode posted finding: %v\n%s", err, body)
+		}
+		posted = append(posted, f)
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	file := filepath.Join(t.TempDir(), "findings-gated-1.jsonl")
+	load := func() (int, string) {
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918",
+				"-slot", "gated-reviewer", "-round", "0", "-status", "open", "-reproducer", "none — a gated pass", "-dispatch-seq", "4", "-from", file},
+			strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String()
+	}
+	write := func(s string) {
+		t.Helper()
+		if err := os.WriteFile(file, []byte(s), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	refs := func() []string {
+		var out []string
+		for _, f := range posted {
+			out = append(out, f.Ref)
+		}
+		return out
+	}
+
+	// (a) Two ref-less lines take F4 then F5, with the command line's own
+	// slot, round and dispatch-seq and each line's own fields, and the file
+	// now names them.
+	write(`{"task":1,"severity":"Minor","location":"a.go:1","note":"x"}` + "\n" +
+		`{"task":2,"severity":"Important","location":"b.go:2","note":"y"}` + "\n")
+	if code, stderr := load(); code != 0 {
+		t.Fatalf("(a) exit %d, want 0; stderr:\n%s", code, stderr)
+	}
+	if got := refs(); !slices.Equal(got, []string{"F4", "F5"}) {
+		t.Fatalf("(a) posted %v, want [F4 F5]", got)
+	}
+	for i, want := range []struct{ task, severity, location, note string }{{"1", "Minor", "a.go:1", "x"}, {"2", "Important", "b.go:2", "y"}} {
+		f := posted[i]
+		if f.Slot != "gated-reviewer" || f.Round != 0 || f.DispatchSeq == nil || *f.DispatchSeq != 4 ||
+			f.TaskID != want.task || f.Severity != want.severity || f.Location != want.location || f.Note != want.note {
+			t.Errorf("(a) posted[%d] = %+v, want slot gated-reviewer, round 0, dispatch-seq 4 and %+v", i, f, want)
+		}
+	}
+	data, _ := os.ReadFile(file)
+	if !strings.Contains(string(data), `"ref":"F4"`) || !strings.Contains(string(data), `"ref":"F5"`) {
+		t.Fatalf("(a) file does not name F4 and F5:\n%s", data)
+	}
+
+	// (b) Loading the rewritten file again rewrites F4 and F5, adding no F6.
+	posted = nil
+	if code, stderr := load(); code != 0 {
+		t.Fatalf("(b) exit %d, want 0; stderr:\n%s", code, stderr)
+	}
+	if got := refs(); !slices.Equal(got, []string{"F4", "F5"}) {
+		t.Fatalf("(b) posted %v, want [F4 F5] again", got)
+	}
+
+	// (c) A ref the file names above the store's highest raises the floor;
+	// the line naming it keeps its bytes.
+	posted = nil
+	first := `{"ref":"F9","task":1,"severity":"Minor","location":"a.go:1","note":"x"}`
+	write(first + "\n" + `{"task":2,"severity":"Minor","location":"b.go:2","note":"y"}` + "\n")
+	if code, stderr := load(); code != 0 {
+		t.Fatalf("(c) exit %d, want 0; stderr:\n%s", code, stderr)
+	}
+	if got := refs(); !slices.Equal(got, []string{"F9", "F10"}) {
+		t.Fatalf("(c) posted %v, want [F9 F10]", got)
+	}
+	data, _ = os.ReadFile(file)
+	if line := strings.SplitN(string(data), "\n", 2)[0]; line != first {
+		t.Errorf("(c) first line rewritten to %q, want its bytes unchanged %q", line, first)
+	}
+
+	// (d) A failed run-record read exits 1 naming the file, posts nothing,
+	// and leaves the file's bytes unchanged.
+	posted = nil
+	readStatus = http.StatusInternalServerError
+	refless := `{"task":1,"severity":"Minor","location":"a.go:1","note":"x"}` + "\n"
+	write(refless)
+	code, stderr := load()
+	if code != 1 || !strings.Contains(stderr, file) {
+		t.Errorf("(d) exit %d stderr %q, want 1 naming %s", code, stderr, file)
+	}
+	if len(posted) != 0 {
+		t.Errorf("(d) posted %v, want nothing", refs())
+	}
+	if data, _ := os.ReadFile(file); string(data) != refless {
+		t.Errorf("(d) file rewritten to %q, want its bytes unchanged", data)
+	}
+
+	// (e) A null line is a malformed line reported by exit, never a panic.
+	readStatus = http.StatusOK
+	write(`{"ref":"F1","task":1,"severity":"Minor","location":"a.go:1","note":"x"}` + "\nnull\n")
+	if code, stderr := load(); code != 2 || !strings.Contains(stderr, file+":2: a line must be a JSON object") {
+		t.Errorf("(e) null line exit %d stderr %q, want 2 naming line 2 as not a JSON object", code, stderr)
+	}
+
+	// (e2) A present ref that is not a string is refused naming its line,
+	// never renumbered: the file keeps its bytes and nothing is posted.
+	posted = nil
+	numRef := `{"ref":4,"task":1,"severity":"Minor","location":"a.go:1","note":"x"}` + "\n"
+	write(numRef)
+	if code, stderr := load(); code != 2 || !strings.Contains(stderr, file+":1: \"ref\" must be a string") {
+		t.Errorf("(e2) numeric ref exit %d stderr %q, want 2 naming line 1", code, stderr)
+	}
+	if data, _ := os.ReadFile(file); string(data) != numRef || len(posted) != 0 {
+		t.Errorf("(e2) file %q posted %v, want bytes unchanged and nothing posted", data, refs())
+	}
+
+	// (f) -ref beside -from is refused: each line names its own ref.
+	var stdout, stderrF bytes.Buffer
+	code = run(context.Background(),
+		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918",
+			"-ref", "F7", "-slot", "gated-reviewer", "-round", "0", "-status", "open", "-reproducer", "none — a gated pass", "-from", file},
+		strings.NewReader(""), &stdout, &stderrF)
+	if code != 2 || !strings.Contains(stderrF.String(), "-ref") {
+		t.Errorf("(f) -ref with -from exit %d stderr %q, want 2 naming -ref", code, stderrF.String())
+	}
+	for _, form := range []string{"-ref=F7", "--ref=F7"} {
+		stdout.Reset()
+		stderrF.Reset()
+		code = run(context.Background(),
+			[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918",
+				form, "-slot", "gated-reviewer", "-round", "0", "-status", "open", "-reproducer", "none — a gated pass", "-from", file},
+			strings.NewReader(""), &stdout, &stderrF)
+		if code != 2 || !strings.Contains(stderrF.String(), "-ref and -from cannot be combined") {
+			t.Errorf("(f) %s with -from exit %d stderr %q, want 2 refusing the combination", form, code, stderrF.String())
+		}
+	}
+
+	// (g) The run-record read resolves the project from the command line's
+	// -C, not the working directory.
+	wantKey, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotPath = ""
+	write(refless)
+	if code, stderr := load(); code != 0 {
+		t.Fatalf("(g) exit %d, want 0; stderr:\n%s", code, stderr)
+	}
+	if !strings.Contains(gotPath, wantKey) {
+		t.Errorf("(g) run-record read %q, want it to name -C's project %q", gotPath, wantKey)
+	}
+
+	// (h) The rewrite keeps <, > and & literal rather than \u-escaping them.
+	write(`{"task":1,"severity":"Minor","location":"a.go:1","note":"a<b && c>d"}` + "\n")
+	if code, stderr := load(); code != 0 {
+		t.Fatalf("(h) exit %d, want 0; stderr:\n%s", code, stderr)
+	}
+	if data, _ := os.ReadFile(file); !strings.Contains(string(data), `"note":"a<b && c>d"`) {
+		t.Errorf("(h) rewritten file escaped the note:\n%s", data)
+	}
+
+	// (i) A rewrite that cannot write leaves the original bytes and mode,
+	// and no temp file behind.
+	if runtime.GOOS != "windows" && os.Getuid() != 0 {
+		orig := `{"task":1,"severity":"Minor","location":"a.go:1","note":"x"}` + "\n"
+		write(orig)
+		if err := os.Chmod(file, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		dir := filepath.Dir(file)
+		if err := os.Chmod(dir, 0o500); err != nil {
+			t.Fatal(err)
+		}
+		code, _ := load()
+		_ = os.Chmod(dir, 0o700)
+		if code == 0 {
+			t.Errorf("(i) exit 0 with an unwritable directory, want non-zero")
+		}
+		if data, _ := os.ReadFile(file); string(data) != orig {
+			t.Errorf("(i) original changed:\n%s", data)
+		}
+		if entries, _ := os.ReadDir(dir); len(entries) != 1 {
+			t.Errorf("(i) %d entries in the directory, want only the file", len(entries))
+		}
+		// A writable rewrite keeps the file's mode.
+		if code, stderr := load(); code != 0 {
+			t.Fatalf("(i) exit %d, want 0; stderr:\n%s", code, stderr)
+		}
+		if fi, err := os.Stat(file); err != nil || fi.Mode().Perm() != 0o600 {
+			t.Errorf("(i) mode after rewrite = %v (%v), want 0600", fi.Mode().Perm(), err)
+		}
+	}
+}
+
 // TestRecordFindingFromFile pins `flow record finding -from <file>`: every
 // non-blank JSON line is one finding, recorded in file order with the
 // command line's own flags, a note carrying a tab, quotes and a `$` arrives
@@ -6454,6 +6674,50 @@ func TestRecordDispatchBeginRefusesSubagentUnderInline(t *testing.T) {
 			}
 			if tc.code == 2 && !strings.Contains(stderr, "execution: inline") {
 				t.Errorf("stderr %q does not name execution: inline", stderr)
+			}
+		})
+	}
+}
+
+// TestRecordDispatchBeginRefusesInlineUnderSdd pins the sdd decision's
+// enforcement: an implementer or panel-fix row begun -agent-id inline on a
+// task- or full-suite-fix- key is the parent's own work and is refused,
+// while a self-review or panel fixer, a subagent row, a back-fill and a
+// failed decisions read all begin.
+func TestRecordDispatchBeginRefusesInlineUnderSdd(t *testing.T) {
+	sdd := decisionsBody(`{"execution":"sdd"}`)
+	row := func(agentID, role, key string, extra ...string) []string {
+		return append([]string{"-agent-id", agentID, "-role", role, "-key", key, "-model", "opus", "-effort", "low"}, extra...)
+	}
+	cases := []struct {
+		name, decisions string
+		args            []string
+		code            int
+		want            string
+	}{
+		{"inline task implementer", sdd, row("inline", "implementer", "task-1-implementer"), 2, "execution: sdd"},
+		{"inline full-suite implementer", sdd, row("inline", "implementer", "full-suite-fix-1"), 2, "execution: sdd"},
+		{"inline full-suite panel-fix", sdd, row("inline", "panel-fix", "full-suite-fix-1"), 2, "execution: sdd"},
+		{"inline self-review fixer", sdd, row("inline", "implementer", "self-review-x-fix"), 0, ""},
+		{"inline panel-fix round", sdd, row("inline", "panel-fix", "panel-fix-1"), 0, ""},
+		{"subagent implementer", sdd, row("none", "implementer", "task-1-implementer"), 0, ""},
+		{"back-fill", sdd, row("inline", "implementer", "task-1-implementer", "-started-at", "2026-01-02T03:04:05Z"), 0, ""},
+		{"decisions read fails", "", row("inline", "implementer", "task-1-implementer"), 0, ""},
+		// Every fixer key an sdd parent dispatches is an implementer key
+		// (skills/flow/implement.md, Every fix is a fresh one-shot).
+		{"subagent full-suite fixer", sdd, row("none", "implementer", "full-suite-fix-1"), 0, ""},
+		{"subagent recommit fixer", sdd, row("none", "implementer", "task-2-implementer-recommit-1"), 0, ""},
+		{"subagent pick fixer", sdd, row("none", "implementer", "task-5+6-implementer-pick-1"), 0, ""},
+		{"malformed full-suite key", sdd, row("none", "implementer", "full-suite-fixes"), 2, "is not task-<ids>-implementer"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			code, stderr := beginUnderDecision(t, tc.decisions, tc.args...)
+			if code != tc.code {
+				t.Fatalf("exit %d, want %d; stderr:\n%s", code, tc.code, stderr)
+			}
+			if !strings.Contains(stderr, tc.want) {
+				t.Errorf("stderr %q does not name %q", stderr, tc.want)
 			}
 		})
 	}

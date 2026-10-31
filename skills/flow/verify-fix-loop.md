@@ -74,8 +74,8 @@ One round runs these steps in order:
    On `NEXT: loop`, `visual-verify-pass.sh close` has closed the row, and the stage mark once every surviving worktree's newest row is closed (**The verifier dispatch**, `skills/flow/visual-verify.md`).
 2. **Implement it.** **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) executes the appended
    task exactly as a plan-time task: the decision's implementer pair, `close-task.sh` with its
-   guard and its review gate. The task closes through `close-task.sh` — an inline-committed one included — before step 3 opens any `panel-<round>-*` dispatch; `flow record dispatch begin` refuses a panel key while `tasks.md` holds an unticked task (kan-1007: panel round 4 began 16 seconds after task 8's inline commit, before its close). The implementer's dispatch also carries the MUTATION PROOF
-   and PIXEL PROBE paragraphs (`skills/flow/review-panel.md`), and the round closes only when every reported
+   guard and its review gate. The task closes through `close-task.sh` — an inline-committed one included — before step 3 opens any `panel-<round>-*` dispatch; `flow record dispatch begin` refuses a panel key while `tasks.md` holds an unticked task (kan-1007: panel round 4 began 16 seconds after task 8's inline commit, before its close). The implementer's dispatch stub also carries its `In-run fix:` line, naming the MUTATION PROOF
+   and PIXEL PROBE paragraphs (`skills/flow/review-panel.md`) by pointer (`skills/flow/implement.md`), and the round closes only when every reported
    `fix-mutation:` line is checked against the fix diff the way **The fix round mutation-proves
    what it changed** (`skills/flow/review-panel-fix-round.md`) walks them — a mutant nothing
    kills is a new fixable defect this loop takes another round on.
@@ -120,11 +120,11 @@ One round runs these steps in order:
    **An observed failure is never closed as "not reproduced".** This rule is canonical for every
    fixer of a test failure a run saw — this loop's, a full-suite fix's, a self-review loop's. The
    fixer traces it from the code and the failing run's saved artifacts (a load reproduction is allowed only under run-capped.sh with a bounded worker count —
-   PROOF RUNS, `skills/flow/implement.md`), and keeps every
+   PROOF RUNS, `skills/flow/implementer-brief.md`), and keeps every
    failing run's result files (the `result files:` and `full output:` paths `run-verify-list.sh`
    prints, or the JUnit XMLs and logs copied out by hand) before the next run overwrites them. A
    failure that reproduces gets its determinism fix, held to the PROOF RUNS paragraph
-   (`skills/flow/implement.md`). A forced cause also shows the test failing with the mechanism
+   (`skills/flow/implementer-brief.md`). A forced cause also shows the test failing with the mechanism
    removed; only one that does not reproduce within the cap waives that run, and it goes straight
    to code. One that does not reproduce within the cap is fixed anyway: every source of nondeterminism the trace names as a candidate — a container
    readiness wait, a shared port, an unpinned clock or order — is fixed at its source, each with a

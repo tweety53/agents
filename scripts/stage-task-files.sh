@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # stage-task-files.sh — stage one /flow task's files for its pathspec-scoped
-# commit (skills/flow/implement.md, FLOW — COMMIT-PER-TASK), and refuse when
+# commit (skills/flow/implementer-brief.md, FLOW — COMMIT-PER-TASK), and refuse when
 # git leaves any of them unstaged.
 #
 # Usage: stage-task-files.sh <abs-worktree> <file>...

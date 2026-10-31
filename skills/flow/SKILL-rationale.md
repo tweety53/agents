@@ -591,7 +591,7 @@ parent's inline fix drops all four, so a Minor now costs about what writing its
 
 > **A guard you could not run is hand-substituted only on the record (KAN-417).**
 
-### implement.md — FLOW — COMMIT-PER-TASK
+### implementer-brief.md — FLOW — COMMIT-PER-TASK
 
 > a plain commit sweeps a pre-staged foreign tree in with the
 > task's work (gymie kan-469's sweep took ~130 files).
@@ -599,14 +599,14 @@ parent's inline fix drops all four, so a Minor now costs about what writing its
 > because a `:(exclude)` governs what an `add` adds and cannot retract what an earlier
 > step already staged (gymie kan-468 lost task commits twice to exactly this ordering):
 
-### implement.md — REPORT, DON'T DECIDE
+### implementer-brief.md — REPORT, DON'T DECIDE
 
 > **The gymie KAN-29 self review credited its implementers for exactly this behaviour — a backdating
 > seam, a declined re-litigation of a recorded rule and an own-card asymmetry each reached the
 > operator as a recorded decision because the implementer stopped to report instead of building —
 > so every implementer dispatch also carries:**
 
-### implement.md — The next implementer overlaps the guard
+### implement.md — A group boundary is one wake, one Bash call and one launch message
 
 > the fourth is the empty placeholder that skips the parent-sha — the guard derives
 > the commit's parent itself (KAN-330), so the argument a mistyped merge base once corrupted is
@@ -649,6 +649,16 @@ parent's inline fix drops all four, so a Minor now costs about what writing its
 
 > gymie kan-579 pivoted two tasks through `tasks.md`
 > alone; its `proposal.md` never caught up, and the panel found the drift.
+
+### implement.md — Every fix is a fresh one-shot (KAN-1062)
+
+Measured over 2026-10-01..31, the inline parent paid 80–93% of a `regular` or `small` run's
+`flow.sdd-tdd` cost on its own context, 150–340K at stage entry and growing, and a `big` parent
+spent 20–35% of its cache reads on its own fix and investigation work. A fresh fixer does the same
+turns at 30–80K. That supersedes KAN-472's `inline-parent-implements-panel-dispatches` for its
+implementer half on every class but `micro`, and KAN-862's `parent-fixes-minors-inline` for the
+gated reviewer's Minors under `sdd`: the gated Minors and `fix` verdicts go to one fixer at the
+stage's end — one dispatch per stage, not the per-boundary fixer KAN-862 rejected.
 
 ### implement.md — The gated per-task reviewer
 
@@ -807,6 +817,12 @@ The markers sit beside the plan-tree guard, never in its place: that guard asser
 ### implement.md — Turn discipline (KAN-857)
 
 The loop is bounded at 240 s rather than the Bash tool's ten-minute cap: a wait long enough to outlast the prompt cache re-prices the whole context on return, while a bounded wait's `still-running` turn reads it at the cache rate and keeps it warm.
+
+*Superseded by KAN-1062.* The loop is gone: a background child's completion notification is the
+wait, and a 3000-second background timer does what the bounded loop did for the cache. The parent
+writes its prompt cache at the one-hour rate, measured on a main transcript, so a wake inside the
+hour re-reads 150–340K of context at the cache rate, where a wake after it rewrites the whole of it
+— and a poll turn every four minutes paid a cache read of that context each time for nothing.
 
 ### implement.md — Read discipline (KAN-857)
 

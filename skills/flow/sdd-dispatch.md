@@ -32,9 +32,11 @@ nothing is dispatched into that copy.
 is picked once every plan-earlier member of its wave is picked. The same
 `close-task.sh` call the task-close step (`skills/flow/implement.md`) runs covers each picked
 commit, its `-end-commit` recording the picked sha. A pick conflict or a
-guard failure is the parent's own to fix — it resolves the conflict or re-commits in the canonical
-worktree itself and re-runs the guard — while sibling members, queued groups and
-already-ready later waves are unaffected. A copy is removed once its group is picked —
+guard failure goes to a fresh fixer (**Every fix is a fresh one-shot**, `skills/flow/implement.md`)
+— a conflict aborted first, `git -C <canonical-worktree> cherry-pick --abort`, then the pick row
+dispatched into the canonical worktree, its `FIX INPUT:` naming the member's commits; a guard
+failure the re-commit row — and the parent re-runs the guard on what it commits, while sibling
+members, queued groups and already-ready later waves are unaffected. A copy is removed once its group is picked —
 `throwaway-worktree.sh remove <worktree> <worktree>-wave-group-<g>`. A member reporting BLOCKED follows the existing BLOCKED handback. The
 one-implementer-per-worktree rule is untouched: each wave member has its own worktree.
 

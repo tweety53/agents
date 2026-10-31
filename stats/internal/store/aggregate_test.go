@@ -2429,7 +2429,7 @@ func TestLiveStateBoardCarriesCommandAndRequests(t *testing.T) {
 // TestLiveStateBoardCountsFixRoundsAndReviewerRuns pins the board's review
 // totals: main's fix rounds are its highest panel-<N> plus each fix dispatch
 // outside the panel -- each verify and visual-verify loop's highest round,
-// each full-suite fix -- its reviewer runs every
+// each full-suite fix, inline (panel-fix) or sdd (implementer) -- its reviewer runs every
 // reviewer dispatch outside the self-review; the self-review's fix rounds are
 // its highest -review-<N> or -fix-<N>, its reviewer runs every self-review
 // reviewer bar the analysis -pass -- whether recorded under the change or its
@@ -2461,6 +2461,7 @@ func TestLiveStateBoardCountsFixRoundsAndReviewerRuns(t *testing.T) {
 	dispatch(projectKey, name, "verifier", "visual-verify-fix-1-gymie")
 	dispatch(projectKey, name, "verifier", "visual-verify-fix-2")
 	dispatch(projectKey, name, "panel-fix", "full-suite-fix-1")
+	dispatch(projectKey, name, "implementer", "full-suite-fix-2")
 	dispatch(projectKey, name, "implementer", "task-4+5-implementer-fix-1")
 	dispatch(projectKey, name, "implementer", "task-11-implementer-fix-2")
 	dispatch(projectKey, name, "reviewer", sub+"-pass")
@@ -2484,8 +2485,8 @@ func TestLiveStateBoardCountsFixRoundsAndReviewerRuns(t *testing.T) {
 		t.Errorf("panel runs %d, full %d; want 3, 2", r.PanelRuns, r.FullPanelRuns)
 	}
 	// panel 2 + verify 1 + visual-verify 2 + full-suite 1 + two per-task fix rounds.
-	if r.FixRounds != 8 || r.ReviewerRuns != 6 || r.SelfReviewFixRounds != 3 || r.SelfReviewReviewerRuns != 2 {
-		t.Errorf("fix rounds %d/%d, reviewer runs %d/%d; want 8/3, 6/2", r.FixRounds, r.SelfReviewFixRounds, r.ReviewerRuns, r.SelfReviewReviewerRuns)
+	if r.FixRounds != 9 || r.ReviewerRuns != 6 || r.SelfReviewFixRounds != 3 || r.SelfReviewReviewerRuns != 2 {
+		t.Errorf("fix rounds %d/%d, reviewer runs %d/%d; want 9/3, 6/2", r.FixRounds, r.SelfReviewFixRounds, r.ReviewerRuns, r.SelfReviewReviewerRuns)
 	}
 }
 
