@@ -461,7 +461,7 @@ carrying `class: micro`.
 
 Decide, in this order — step 2 only when step 1 came out `sdd`:
 
-1. **execution mode** — `inline` (`class` micro, small or regular) or `sdd` (`class` big).
+1. **execution mode** — `inline` (`class` micro) or `sdd` (`class` small, regular or big).
 2. **implementer and fixer model + effort** — only when step 1 came out `sdd`; two pairs, each
    chosen per **Model and effort** below. The implementer pair is every implementer group's
    default (step 5). The fixer pair is the panel-fix subagent's own and is chosen from what a fix

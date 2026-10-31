@@ -46,6 +46,10 @@ and, for each `PASS task-<n>` block of your prompt:
 > the bundle's last one as your **last** act — a `## Verdict` section carrying exactly `clean` or
 > `fix`, and each finding with its file, line and severity — Critical, Important or Minor as
 > `skills/flow/reviewer-calibration.md` defines them. The verdict is `fix`
-> only when a Critical or Important finding stands; Minor-only findings are `clean`. The dispatcher waits on every pass's
-> file (`test -s` on each), and a fix round's re-review writes
-> `reviewer-report-task-<n>-fix-<k>.md`.
+> only when a Critical or Important finding stands; Minor-only findings are `clean`. A fix round's re-review writes
+> `reviewer-report-task-<n>-fix-<k>.md`. Your report files are every pass's report and the bundle's
+> findings file, the FINDINGS FILE path your prompt names: one JSON object per line for every
+> finding of every pass, carrying `task` (the pass's task id), `severity`, `location`
+> (`<file>:<line>`) and `note`, and never a `ref` — written empty when no pass raised one, beside
+> the last pass's report. Your final message is one line per pass, in plan order:
+> `task <n>: clean|fix — Critical <n> Important <n> Minor <n> — <its report path>`.

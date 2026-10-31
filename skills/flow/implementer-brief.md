@@ -168,8 +168,41 @@ own; `check-task-commit-fields.sh` resolves the pair from either id against that
 > **REPORT FILE:** write your report to
 > `<abs-worktree>/.superpowers/sdd/implementer-report-<k>.md` as your **last** act — after your
 > commit and your final test run — carrying each commit's sha, the failing RED output you saw,
-> and anything the plan's `unverified:` tags asked you to establish. The dispatcher waits on that
-> file's presence.
+> and anything the plan's `unverified:` tags asked you to establish. The report opens with this
+> summary head, and your final message is the head alone — the dispatcher reads it from your
+> completion notification and opens the report body only where a judgement needs it:
+>
+> ```text
+> Model: <the model named in your own system prompt>
+> status: DONE | BLOCKED
+> commit: <task-id> <full sha>
+> correction: <task-id> <field> — <corrected value>
+> undeclared: <task-id> <path>[,<path>…] — <one-line reason>
+> fixed: F<n> <full sha>
+> not-fixed: F<n> — <reason>
+> fix-mutation: <path> — <what was mutated> — <the test that failed>
+> question: <the question, verbatim>
+> report: <this report file's absolute path>
+> ```
+>
+> `Model:`, `status:` and `report:` appear once; every other line once per item — a `commit:` per
+> task, its sha a `<worktree>=<sha>[,<worktree>=<sha>…]` map on a change spanning repositories, a
+> `fixed:` or `not-fixed:` per finding a FIX INPUT names — and not at all when there is none.
+
+> **FIX DISPATCH:** a prompt carrying a `FIX INPUT:` line makes you a fixer, not a task's
+> implementer: fix exactly what that line names — reviewer reports and finding refs, a
+> `close-task.sh` refusal's lines, a wave member's commits to re-apply, or a failing suite block —
+> at its root cause, under every other paragraph of this brief save the commit subject and trailer
+> FLOW — COMMIT-PER-TASK names, which this paragraph's take the place of. A finding's fix is one
+> commit per task at the branch tip, carrying that task's `Task-Id:` trailer,
+> `-m "Flow-Key: <your key>"` and a `fix(<module>): …` subject; a re-commit rewrites only the
+> refused, unpushed task commit, without the paths the refusal names, keeping its declared
+> `**Commit:**` subject and `Task-Id:` trailer; a pick re-applies the member's commits onto the
+> branch tip in order, each keeping its subject and trailer; a full-suite fix commits with
+> `-m "Flow-Key: full-suite-fix-<n>"` and no `Task-Id:`. When the line names MUTATION PROOF, follow
+> that paragraph (`skills/flow/review-panel.md`) in its exact words before you end your turn.
+> Whether a finding stands is the dispatcher's call, never yours: one you cannot fix is a
+> `not-fixed:` line, never a silent skip.
 
 > **REPORT, DON'T DECIDE:** A question only the operator can settle — a spec point no recorded
 > decision covers, a recorded decision the plan appears to contradict, a scope the plan does not
