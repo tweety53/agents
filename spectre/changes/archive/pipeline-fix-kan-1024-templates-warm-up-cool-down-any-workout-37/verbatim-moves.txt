@@ -1,1 +1,0 @@
-The `Stop` hook `hooks/flow-stop-guard.py` refuses such a turn end (kan-1024).
