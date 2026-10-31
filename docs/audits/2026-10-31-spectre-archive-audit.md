@@ -83,13 +83,15 @@ on the change branch), before this change's tooling tasks; found with
   - The self-review bundle's `git show` reads (`stats/internal/selfreview/git.go:8-36`).
   - Every "live path, else `archive/<name>`" fallback: `guard.ChangeDir`
     (`stats/internal/guard/changeplan.go:36`), the pipeline-fix key scan
-    (`stats/internal/guard/pipelinefix.go`), plan-unchanged (`stats/internal/guard/planunchanged.go`),
-    the record checkout check (`stats/cmd/flow/record.go:3785-3843`), the visual-verify record's
+    (`stats/internal/guard/pipelinefix.go:167-176`), plan-unchanged
+    (`stats/internal/guard/planunchanged.go:83`), the record checkout check
+    (`stats/cmd/flow/record.go:3785-3843`), the visual-verify record's
     "archive/ twin" (`stats/internal/guard/visualverifydispatched.go:336`), and cleanup's
-    moved-never-deleted check.
+    moved-never-deleted check (`stats/internal/guard/cleanupcomplete.go:260,274`).
 - **No reader after landing.** `visual-verification/` PNGs, `.frame.png`, `matrix/*.json`,
-  `evidence/` (readers are in-run only: `stats/internal/guard/visualverifypass_close.go:274`,
-  `stats/cmd/flow/record.go:1279`); self-review `patches/task-N.diff`; `verbatim-moves.txt`.
+  `evidence/` (readers are in-run only: `stats/internal/guard/visualverifypass_close.go:274`; the verifier
+  writes `evidence/`, which `stats/internal/guard/visualverifydispatched.go:336` names and does not
+  read); self-review `patches/task-N.diff`; `verbatim-moves.txt`.
 - **flowd** holds dispatches, stage runs, findings, panel passes and mutations, self-review findings,
   learning notes, task counts and summaries — no plan text, no PNGs, no report prose.
   `ledger.md`/`panel.md` are renders of its rows (`stats/internal/records/render.go`).
