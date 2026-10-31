@@ -4928,3 +4928,47 @@ func TestStageGapBackfillSkipsATranscriptShorterThanItsOffset(t *testing.T) {
 		t.Errorf("committed = %v, want nothing for a transcript shorter than its offset", backfill.committed)
 	}
 }
+
+// TestBackfillPricingWarningNamesTheCause pins the back-fill's pricing
+// warning: a run the back-fill could not price is not retried, and the
+// warning carries the error as the cause instead of promising that
+// `flow pricing reprice` prices it -- a reprice does not price a run whose
+// failure is still in place (live-verification.md's output_unmeasured runs).
+func TestBackfillPricingWarningNamesTheCause(t *testing.T) {
+	st := newEndToEndStore(t)
+	ctx := context.Background()
+	const sessionID = "session-backfill-price-warning"
+	base := time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)
+	starts := map[string]time.Time{"fast.plan": base, "fast.land": base.Add(time.Minute)}
+	ids := burstChange(t, st, "kan-backfill-warn", sessionID, starts, "fast.plan", "fast.land")
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	writeLines(t, path, usageLine(t, sessionID, base.Add(10*time.Second), 10)) // between the windows
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if applied, err := st.CommitHarvestBatch(ctx, path, 0, false, info.Size(), map[int64]json.RawMessage{}); err != nil || !applied {
+		t.Fatalf("CommitHarvestBatch = %v, %v, want applied", applied, err)
+	}
+
+	var logBuf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logBuf, nil))
+	pricer := &fakePricer{failIDs: map[int64]bool{ids[0]: true}}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, st, harvest.NewAttributor(e2eWindowSource{st}), pricingDeps{p: pricer}, logger)
+	if err := w.BackfillStageGaps(ctx, st); err != nil {
+		t.Fatalf("BackfillStageGaps: %v", err)
+	}
+
+	logged := logBuf.String()
+	if !strings.Contains(logged, "harvest: price stage run failed after backfill, not retried") {
+		t.Errorf("log = %q, want the not-retried pricing warning", logged)
+	}
+	if !strings.Contains(logged, "fake pricer: pricing unavailable") {
+		t.Errorf("log = %q, want the pricing error attached", logged)
+	}
+	if strings.Contains(logged, "flow pricing reprice` prices it") {
+		t.Errorf("log = %q, still promises a reprice prices the run", logged)
+	}
+}

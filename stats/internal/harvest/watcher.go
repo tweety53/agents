@@ -3067,11 +3067,12 @@ func (w *Watcher) BackfillStageGaps(ctx context.Context, sink BackfillSink) erro
 		return err
 	}
 	// The marker is set and these runs are closed, so no later cycle touches
-	// them again: a run left unpriced here stays so until a reprice.
+	// them again: a run left unpriced here is not retried -- the error names
+	// the cause; a reprice retries it once that is fixed.
 	for _, patches := range files {
 		for id := range patches {
 			if err := w.deps.Price(ctx, id); err != nil {
-				w.warn("harvest: price stage run failed after backfill, not retried -- `flow pricing reprice` prices it", "stage_run_id", id, "error", err)
+				w.warn("harvest: price stage run failed after backfill, not retried -- the error names the cause; a reprice retries it once that is fixed", "stage_run_id", id, "error", err)
 			}
 		}
 	}
