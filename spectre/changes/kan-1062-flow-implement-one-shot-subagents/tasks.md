@@ -257,11 +257,11 @@ Correction (2026-10-31): the plan declared only the sdd arm in `record.go`. At t
 **Decision:** stub-carries-handshake
 **Decision:** contract-as-patches
 
-- [ ] 6. Run every `sdd` fix as a fresh one-shot and wait on completion notifications
-  - [ ] **Step 1: Apply.** Save `scripts/check-normative-inventory.sh`'s output to a file in the
+- [x] 6. Run every `sdd` fix as a fresh one-shot and wait on completion notifications
+  - [x] **Step 1: Apply.** Save `scripts/check-normative-inventory.sh`'s output to a file in the
     session scratchpad; then
     `git -C <wt> apply spectre/changes/kan-1062-flow-implement-one-shot-subagents/contract-edits/one-shot-sdd.patch`.
-  - [ ] **Step 2: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`,
+  - [x] **Step 2: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`,
     `scripts/check-markdown-integrity.sh`, `scripts/check-guard-symlinks.sh`,
     `scripts/check-dispatch-paragraphs.sh`, `scripts/check-installed-citations.sh`,
     `scripts/check-ask-silence.sh` and `scripts/check-stage-mark-calls.sh` exit 0;

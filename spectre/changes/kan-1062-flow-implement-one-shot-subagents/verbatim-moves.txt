@@ -169,5 +169,5 @@ rc=$?; echo "close-task: $rc"; }
 | a full-suite failure | `full-suite-fix-<n>` | the decision's `fixer` | each time the list fails (**The parent runs the full suite**, above) |
 | implementer, one per group; under `sdd`, a fixer per fix | `implementer` | `implementer` | `task-<n>-implementer`; a fixer's `task-<ids>-implementer-fix-<k>`, `task-<n>-implementer-recommit-<k>`, `task-<ids>-implementer-pick-<k>` or `full-suite-fix-<n>` | section **4** below, **Every fix is a fresh one-shot** |
 # Task 6's gated review fix (F4–F6): the gated bundle's final message opens with Model:, and the boundary block runs the exit-3 dispatch end first.
-\# on exit 3, first the `flow record dispatch end` line close-task printed (exit 3, below)
+\# on exit 3, the `flow record dispatch end` line close-task printed runs next, in a second call before the launch (exit 3, below)
 Your final message opens with your `Model:` line, then one line per pass, in plan order: `task <n>: clean|fix — Critical <n> Important <n> Minor <n> — <its report path>`.
