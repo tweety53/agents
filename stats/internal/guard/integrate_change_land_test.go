@@ -152,7 +152,8 @@ sut prepare "$WORK/a" demo
 [ "$RC" -eq 0 ] || halt prepare
 printf '\n## integrate run\n\nnarrative\n' >>"$A/spectre/changes/demo/narrative.md"
 sut commit "$WORK/a" demo "$A=feat(a): do the work" "$WORK/b=feat(b): do the work"
-check "visual_archived: commit archives, then stops before a's unverified branch push" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
+check "visual_archived: commit stops before a's unverified branch push" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
+drop_demo
 sut prepare "$WORK/a" demo
 check "visual_archived: the re-run is archived without new work" 'printf "%s\n" "$OUT" | grep -q "^ARCHIVED: demo — without new work"'
 check "visual_archived: a flag on the pre-archive HEAD does not pass the gate" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'`},
@@ -223,6 +224,7 @@ sut prepare "$WORK/a" demo --accept-foreign
 printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
 sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
 [ "$RC" -eq 0 ] || halt commit
+drop_demo
 touch "$WORK/sr-completed"
 sut land "$WORK/a" demo
 check "refresh_on_recorded_base: a's main checkout on its recorded base is refreshed, not refused" \

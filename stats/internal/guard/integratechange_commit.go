@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"regexp"
 	"strconv"
@@ -81,30 +80,6 @@ func (c *ic) commit() {
 		c.markEnd("flow.commit-two", "completed")
 	}
 
-	// flow.sync-archive keeps its key (decision keep-guard-and-stage-names):
-	// nothing is moved any more, so it marks the live directory's presence.
-	if isDir(live) {
-		c.markBegin("flow.sync-archive")
-		c.markEnd("flow.sync-archive", "completed")
-	}
-	c.markBegin("flow.commit-archive")
-	c.run("commit-archive", c.canon, c.name)
-	if c.rc != 0 {
-		c.stop("commit-archive", fmt.Sprintf("commit-archive exit %d — report its lines", c.rc))
-	}
-	// Every other worktree drops its own change directory -- a satellite's
-	// link.md -- while it is still there, on a dropped re-run too, and
-	// commits it on its own branch (KAN-815).
-	for _, o := range c.order {
-		w := c.wt[o]
-		if w == c.canon || !isDir(w+"/"+specRootLeaf(w, io.Discard)+"/changes/"+c.name) {
-			continue
-		}
-		c.run("commit-archive", w, c.name)
-		if c.rc != 0 {
-			c.stop("commit-archive", fmt.Sprintf("commit-archive exit %d in %s — report its lines", c.rc, w))
-		}
-	}
 	// The rewritten branch reaches the remote now, not at land: a run that
 	// stops before land leaves the next plain branch-backup push a fast-forward.
 	for _, o := range c.order {
@@ -115,7 +90,6 @@ func (c *ic) commit() {
 		c.pushBranch(c.wt[o])
 		c.pushPin(c.wt[o])
 	}
-	c.markEnd("flow.commit-archive", "completed")
 	c.markBegin("flow.self-review")
 	if done, _ := c.selfReviewCompleted(); done {
 		c.say("NEXT: flow.self-review has already completed — skip the pass; integrate-change.sh land " + c.main + " " + c.name + " " + c.flags())

@@ -31,8 +31,8 @@ describe("mainNow", () => {
   it("names the open stage when no dispatch runs", () => expect(mainNow([run("flow.verify", 0)], [], tasks, false, T0 + 4 * 60000)).toBe("Running lint and tests · 4m"));
   it("reads Done once the change finished", () => expect(mainNow([run("flow.cleanup", 0, 1)], [], tasks, true, T0 + 60000)).toBe("Done"));
   it("reads main between steps after the last thing to end", () =>
-    expect(mainNow([run("flow.commit-archive", 0, 2)], [d("task-1-implementer", 0, 1, { taskId: "1" })], tasks, false, T0 + 6 * 60000)).toBe(
-      "Main session is between steps (last: Committing the archive, 4m ago)",
+    expect(mainNow([run("flow.cleanup", 0, 2)], [d("task-1-implementer", 0, 1, { taskId: "1" })], tasks, false, T0 + 6 * 60000)).toBe(
+      "Main session is between steps (last: Cleaning up, 4m ago)",
     ));
 });
 

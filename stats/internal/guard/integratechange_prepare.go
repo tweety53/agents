@@ -141,26 +141,6 @@ func (c *ic) prepare() {
 	}
 	ci := c.idxOf(c.canon)
 	live := c.canon + "/" + c.spec + "/changes/" + c.name
-	// A drop staged and never committed -- a run that stopped between
-	// commit-archive's `git rm` and its commit, on a first pass or on a fix
-	// run's re-drop -- is undone, so this pass sees the change as it was
-	// before it. The index decides, not the log: a re-drop's branch already
-	// holds run 1's drop commit.
-	staged, _ := c.git("-C", c.canon, "diff", "--cached", "--no-renames", "--name-only", "--diff-filter=D", "--", c.spec+"/changes/")
-	var dirs []string // git lists paths sorted, so a directory's paths are adjacent
-	for _, p := range icLines(staged) {
-		b, _, _ := strings.Cut(strings.TrimPrefix(p, c.spec+"/changes/"), "/")
-		d := c.spec + "/changes/" + b
-		if (b == c.name || isFixOf(b, c.name)) && (len(dirs) == 0 || dirs[len(dirs)-1] != d) {
-			dirs = append(dirs, d)
-		}
-	}
-	for _, d := range dirs {
-		if !c.gitPass("-C", c.canon, "restore", "--source=HEAD", "--staged", "--worktree", "--", d) {
-			c.stop("archive-undo", "git restore of "+d+" failed")
-		}
-		c.say("UNARCHIVED: " + c.canon + "/" + d)
-	}
 	// A dropped re-run: run 1's drop commit is on the branch and no fix run
 	// restored the directory since. The re-run base -- archBase -- is past
 	// the newest drop commit whenever one exists, restored directory or not.

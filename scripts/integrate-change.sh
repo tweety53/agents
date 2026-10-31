@@ -25,7 +25,7 @@ SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 }
 missing=""
 for g in check-base-moved check-cleanup-complete check-finish-preflight check-foreign-staged check-live-verification \
-  check-main-checkout-drift check-unfinished-work check-untasked-commits check-visual-verify-dispatched commit-archive \
+  check-main-checkout-drift check-unfinished-work check-untasked-commits check-visual-verify-dispatched \
   commit-split migrate-worktrees project-get refresh-main-checkout \
   remove-change-worktrees reshape-branch resolve-base-branch run-verify-list sync-onto-base; do
   [ -x "$SCRIPT_DIR/$g.sh" ] || missing="$missing $g.sh"
@@ -33,7 +33,7 @@ done
 [ -z "$missing" ] || { printf 'integrate-change: %s\n' "missing beside this script:$missing — run the procedure by hand" >&2; exit 2; }
 : "$SCRIPT_DIR/check-base-moved.sh" "$SCRIPT_DIR/check-cleanup-complete.sh" "$SCRIPT_DIR/check-finish-preflight.sh"
 : "$SCRIPT_DIR/check-foreign-staged.sh" "$SCRIPT_DIR/check-main-checkout-drift.sh" "$SCRIPT_DIR/check-unfinished-work.sh"
-: "$SCRIPT_DIR/check-untasked-commits.sh" "$SCRIPT_DIR/check-visual-verify-dispatched.sh" "$SCRIPT_DIR/commit-archive.sh"
+: "$SCRIPT_DIR/check-untasked-commits.sh" "$SCRIPT_DIR/check-visual-verify-dispatched.sh"
 : "$SCRIPT_DIR/commit-split.sh" "$SCRIPT_DIR/migrate-worktrees.sh"
 : "$SCRIPT_DIR/project-get.sh" "$SCRIPT_DIR/refresh-main-checkout.sh" "$SCRIPT_DIR/remove-change-worktrees.sh"
 : "$SCRIPT_DIR/reshape-branch.sh" "$SCRIPT_DIR/resolve-base-branch.sh" "$SCRIPT_DIR/run-verify-list.sh"
