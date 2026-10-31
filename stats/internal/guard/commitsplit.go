@@ -33,7 +33,7 @@ func commitSplit(args []string, env Env, stdout, stderr io.Writer) int {
 	// file: a project that does not ignore it would land its plan on the
 	// default branch.
 	changes := specRootLeaf(worktree, stderr) + "/changes/"
-	if exitCode(git("-C", worktree, "check-ignore", "-q", changes).Run()) != 0 {
+	if exitCode(git("-C", worktree, "check-ignore", "-q", "--no-index", changes).Run()) != 0 {
 		fmt.Fprintf(stderr, "commit-split: %s is not gitignored in %s — add it to .gitignore before integrating\n", changes, worktree)
 		return 2
 	}
