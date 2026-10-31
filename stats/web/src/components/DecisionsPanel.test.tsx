@@ -47,4 +47,8 @@ describe("DecisionsPanel", () => {
     render(<DecisionsPanel decision={{ implementer: { model: "opus", effort: "high", reason: "seam" }, overrides: {} }} />);
     expect(screen.getAllByTestId("decision-row").map((r) => r.textContent)).toEqual(["Implementeropus · high"]);
   });
+  it("ignores an override whose pairs is prose, not a list", () => {
+    render(<DecisionsPanel decision={{ implementer: { model: "opus", effort: "high", reason: "seam" }, overrides: [{ pairs: "planner → opus/flow-planner-xhigh", instruction: "use xhigh planner" }] }} />);
+    expect(screen.getAllByTestId("decision-row").map((r) => r.textContent)).toEqual(["Implementeropus · high"]);
+  });
 });

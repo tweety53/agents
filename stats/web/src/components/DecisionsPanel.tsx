@@ -1,7 +1,8 @@
 // The run's latest recorded decision, one line per role: the model and
 // effort the run gave it, the decision's reason on hover.
 
-type Override = { to?: string; pairs?: string[]; instruction?: string };
+// Older rows hold `pairs` as prose rather than a list; this panel ignores those.
+type Override = { to?: string; pairs?: unknown; instruction?: string };
 
 type Pick = { model?: string; effort?: string; reason?: string; slots?: string[]; bundles?: number[] };
 
@@ -31,7 +32,7 @@ function lines(d: Decision): Line[] {
   const overrides = (Array.isArray(d.overrides) ? (d.overrides as Override[]) : []).flatMap((o) => {
     const [model, agent] = (o.to ?? "").split("/");
     const effort = agent?.split("-").at(-1);
-    return (o.pairs ?? []).map((role) => ({ role: role[0].toUpperCase() + role.slice(1), model: `${model} · ${effort}`, reason: o.instruction }));
+    return (Array.isArray(o.pairs) ? o.pairs : []).map((role) => ({ role: role[0].toUpperCase() + role.slice(1), model: `${model} · ${effort}`, reason: o.instruction }));
   });
   const implementers = d.groups?.length
     ? d.groups.flatMap((g) => pick(`${(g.bundles?.length ?? 0) > 1 ? "Tasks" : "Task"} ${(g.bundles ?? []).join(", ")}`, g))
