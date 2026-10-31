@@ -293,11 +293,7 @@ reconciles the three artifacts together** (section 4 below) — never discovered
 **The change branch is rebased onto its base before task 1 runs**, on every implementation run —
 creating, resumed or fix — once the plan refresh above has named what moved (kan-1032: the base
 moved 13 commits during planning, and the overlap surfaced only at the review panel's base sync,
-after every task). It runs before the collision reconciliation above. **The before-review
-planning commit comes first**, as at the panel's base sync: the parent makes that commit
-(**Planning commits**, `skills/flow-contracts/git-boundaries.md`) before the script runs, since
-its bare `git rebase` is refused over the uncommitted ticks or notes a resumed run carries, and
-that refusal is exit 2. Then, once per worktree in this run's resolved set, with its working-notes
+after every task). It runs before the collision reconciliation above. Then, once per worktree in this run's resolved set, with its working-notes
 merge base:
 
 ```bash
@@ -409,7 +405,7 @@ flow stage end -command '/flow' -stage flow.isolate-workspace -outcome completed
 **Load `skills/flow/document-fix.md` only when** this run is a fix run — state `IN_PROGRESS` with
 fix instructions, or a plain message at `IN_PROGRESS` (`skills/flow/SKILL.md`); it carries the
 `flow.document-fix` and `flow.decide` marks, the re-plan budget, the planning pass, the Jira
-description sync, plan growth and the fix-run planning commit, and a first run marks nothing there.
+description sync and plan growth, and a first run marks nothing there.
 
 ## 4. Execute (SDD + TDD)
 
@@ -657,7 +653,7 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
      # group N+2's gather (skills/flow/sdd-dispatch.md), then its marker snapshot:
      check-tree-markers.sh snapshot <worktree> <markers-file> <group N+2's snapshot-file>
      # group N+2's `flow record dispatch begin` (above); on `big`, when a gate fired in group N+1,
-     # that bundle's diffs, planning commit, snapshots and begin (The gated per-task reviewer, below)
+     # that bundle's diffs, snapshots and begin (The gated per-task reviewer, below)
    fi
    ```
 
@@ -888,10 +884,7 @@ bundle's lines.
 
 **The plan tree survives every reviewer dispatch — asserted by git, never by the reviewer's
 prose.** Before a gated reviewer bundle's Agent call goes out — original, fix re-review, or
-handshake retry alike — the parent makes the reviewer-dispatch planning commit (**Planning
-commits**, `skills/flow-contracts/git-boundaries.md`) over its own transcriptions and ticks
-(task commits never carry plan paths, so uncommitted edits are the only copy — exactly what
-`git checkout <sha> -- .` destroyed on gymie KAN-635), then runs
+handshake retry alike — the parent runs
 `check-plan-unchanged.sh snapshot <worktree> <name> <snapshot-file>`. Once the bundle's completion
 notification arrives, the parent runs `check-plan-unchanged.sh verify <worktree> <name>
 <snapshot-file>` **before any verdict is read or acted on**: exit 0, the reports are read; exit

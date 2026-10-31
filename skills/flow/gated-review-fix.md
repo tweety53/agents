@@ -18,7 +18,7 @@ joins every commit carrying the task's `Task-Id:` trailer — a refusal handled 
 carries its own corrections" (`skills/flow/implement.md`) states — the push, `flow record status
 -change <name> -ref F<n> -status fixed` for each Minor its summary head names `fixed:`, and, when a
 task's pass was `fix`, that task's `task-<n>-fix-<k>.diff` of its fix commit's own range,
-`git diff <fix-commit>^..<fix-commit>`, the reviewer-dispatch planning commit, the snapshots and
+`git diff <fix-commit>^..<fix-commit>`, the snapshots and
 the re-review bundle's `begin`. A `not-fixed:` line is the parent's to judge: withdrawn with its
 one clause, or carried to the next fixer.
 

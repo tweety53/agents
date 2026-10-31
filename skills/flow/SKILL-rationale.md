@@ -129,15 +129,6 @@ worktree lost with the machine, or removed by a stray cleanup, is rebuilt from `
 rather than lost. The cost accepted: one push per commit, and integrate's push after the
 reshape becomes `--force-with-lease`, on a branch only the run writes.
 
-## integrate.md — 2. Ask how the branch should land, the rebase's planning-artifact aside
-
-Incident behind `aside-planning-artifacts.sh`, cited there as a parenthetical: KAN-628.
-
-## integrate.md — Archive on the change branch
-
-Incident behind `check-archive-scope.sh`'s cannot-answer exit, cited there as a parenthetical:
-KAN-601.
-
 ## cleanup.md — Worktree cleanup
 
 Moved verbatim from the section's opening sentence, where it followed "**Worktree cleanup**
@@ -849,7 +840,7 @@ The first line is the file's own answer to the reviewer who reads it as anything
 
 ### review-panel.md — Bundled dispatch (KAN-857)
 
-The same plan-tree discipline rides every round, re-run rounds included: before the launches the parent makes the reviewer-dispatch planning commit (**Planning commits**, `skills/flow-contracts/git-boundaries.md`) and runs `check-plan-unchanged.sh snapshot <worktree> <name> <snapshot-file>`, and once every report file exists it runs `check-plan-unchanged.sh verify <worktree> <name> <snapshot-file>` before any report is read or finding recorded — the slots read those artifacts, and a flight that changed them has invalidated the reviews that flew.
+The same plan-tree discipline rides every round, re-run rounds included: before the launches the parent runs `check-plan-unchanged.sh snapshot <worktree> <name> <snapshot-file>`, and once every report file exists it runs `check-plan-unchanged.sh verify <worktree> <name> <snapshot-file>` before any report is read or finding recorded — the slots read those artifacts, and a flight that changed them has invalidated the reviews that flew.
 
 Exit 1 or 2 stops the round the same way the per-task reviewer's stop works (the plan-tree rule of **4. Execute (SDD + TDD)**, `skills/flow/implement.md`); the slots' own read-only briefs are the first line of defense, this verify is the assertion that a breach cannot slide past as a clean report.
 
@@ -1137,19 +1128,3 @@ rule is **Work end to end — stop only to plan or to test by hand** (`rules/wor
   retyped command and nothing else.
 - **Kept as stops:** asks with no recommended option, outward-facing or irreversible actions, and
   causes out of the run's reach.
-
-## The landing drop replaces the archive (KAN-1072)
-
-Run 1 no longer archives a change: it drops the change directory with one
-`chore(spectre): drop <name>` commit, and a fix run after the drop restores the directory from that
-commit's parent (decisions landing-drop-replaces-archive, fix-run-restores-change-dir). An in-run
-reader therefore always finds the live directory, and the archived-change branches went. Moved
-verbatim, the reasoning those branches carried:
-
-From `implement.md`, **1. Load context and validate the plan**: both answer for open
-changes only, and `validate` names an archived one `no such change`; `check-plan-shape.sh` still
-runs on the archived `tasks.md`.
-
-From `document-fix.md`: A `<name>-fix-N` sub-change
-scaffolded live beside a parent whose archive is committed would never be archived — the archived
-re-run of integrate skips `spectre archive`.
