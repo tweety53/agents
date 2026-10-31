@@ -1018,8 +1018,8 @@ The operator asked, on 2026-10-14, that no Decide step choose `high` for an impl
 implementer group or a fixer: flow-eval's implementation runs showed `opus` at `medium`, and even
 at `low`, good enough for that work. A hard seam that used to take `high` there now takes
 `medium`; reviewers keep `high` only as panel-high-operator-gated (below) allows. The one `high` fix
-left is **Fewest operator actions**' no-progress escalation, as in the in-run and self-review fix
-loops, since a round that made no progress is the case a cheaper pair already lost. `flow record
+left is **Fewest operator actions**' no-progress escalation, as in the in-run fix
+loop, since a round that made no progress is the case a cheaper pair already lost. `flow record
 decision` refuses `high` on those three pairs, so a planner cannot drift back to it unnoticed; the
 escalation is a dispatch record, never a decision pair, and stays valid. The operator will watch
 fix and implementation quality after landing and revisit if it falls.

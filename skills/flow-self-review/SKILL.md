@@ -279,7 +279,7 @@ NO DELEGATION paragraphs of `skills/flow/implementer-brief.md` verbatim — a re
 (`skills/flow/gated-reviewer-brief.md`) too, and the plan's
 PLANNING DELEGATION below in place of NO DELEGATION — with **The
 handshake** there applying to each reply. Every dispatch is one-shot: no `SendMessage` to it once
-it returns. The `fix` row carries no no-progress escalation: a fix that makes no progress is answered by the fresh re-plan above, never by `flow-high`.
+it returns. The `self-review-fix` row carries no no-progress escalation: a self-review fix that makes no progress is answered by the fresh re-plan above, never by `flow-high`. The `pipeline-fix-fix` row keeps it: a pipeline-fix round that made no progress is dispatched again on that row's `opus/flow-high` escalation, admitted only after `<agents repo>/scripts/pipeline-fix.sh escalate <key>` (**Fewest operator actions**, `skills/flow-contracts/pipeline.md`).
 
 **The pairs are the `self-review-*` and `pipeline-fix-*` rows** of **Allowed pairs**
 (`skills/flow-contracts/model-policy.md`), which `check-loop-dispatch.sh` reads and refuses a loop
