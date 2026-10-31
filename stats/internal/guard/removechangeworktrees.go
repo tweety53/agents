@@ -73,6 +73,24 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		}
 	}
 
+	// The save gate (KAN-1073): the change directory is gitignored, so a
+	// worktree holding spectre/changes/<name>/tasks.md holds the only copy of
+	// the plan until `flow change save` keeps it in flowd. Refused before
+	// anything else when flowd holds none for that worktree's project.
+	for _, wt := range wts {
+		if !isFile(wt + "/spectre/changes/" + name + "/tasks.md") {
+			continue
+		}
+		switch _, errOut, rc := pcFlow(env, false, "change", "file", "-C", wt, name, "tasks.md"); rc {
+		case 0:
+		case 1:
+			fmt.Fprintf(stderr, "remove-change-worktrees: flow change save %s has not run — %s holds the only copy of its plan\n", name, wt)
+			return 1
+		default:
+			return refuse("cannot tell whether flow change save %s has run: %s", name, rcwFlat(string(errOut)))
+		}
+	}
+
 	failed := false
 	fail := func(wt string, check int, format string, a ...any) {
 		failed = true
@@ -304,11 +322,13 @@ func rcwRestoreUpstream(git func(...string) *exec.Cmd, repo, branch, remote, mer
 // only under a regeneratable location, test-results among them — a capture
 // loose anywhere else matches no rule below. Python (__pycache__, *.pyc) and
 // TypeScript (*.tsbuildinfo) compiler output is regeneratable wherever it
-// sits, and so is a Finder .DS_Store; everything the list does not name stays
-// unclassified.
+// sits, and so is a Finder .DS_Store. The ignored change directory
+// (spectre/changes/) and .superpowers/ are expected content: the save gate
+// above has already kept what of them outlives the worktree. Everything the
+// list does not name stays unclassified.
 func rcwRegeneratable(p string) bool {
 	parts := strings.Split(p, "/")
-	if parts[len(parts)-1] == ".DS_Store" || strings.HasPrefix(p, ".superpowers/sdd/") || strings.HasPrefix(p, ".dev-stack/") || strings.HasSuffix(p, ".log") || strings.HasSuffix(p, ".pyc") || strings.HasSuffix(p, ".tsbuildinfo") {
+	if parts[len(parts)-1] == ".DS_Store" || strings.HasPrefix(p, ".superpowers/") || strings.HasPrefix(p, "spectre/changes/") || strings.HasPrefix(p, ".dev-stack/") || strings.HasSuffix(p, ".log") || strings.HasSuffix(p, ".pyc") || strings.HasSuffix(p, ".tsbuildinfo") {
 		return true
 	}
 	for _, c := range parts {

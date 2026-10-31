@@ -251,31 +251,7 @@ func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int 
 		note(fmt.Sprintf("SKIPPED: the remote-tracking ref row — git could not read %s in %s, so whether it survives was not established; a failure to look is not an absence", remoteRef, repo))
 	}
 
-	// Row four — the change directory, which run 1's drop commit
-	// (`chore(spectre): drop <name>`) deletes from the tip; then each
-	// <name>-fix-N sub-change, which the same commit deletes and which is
-	// still reported on its own (see the header note).
-	leaf := specRootLeaf(repo, stderr)
-	changes := repo + "/" + leaf + "/changes/"
-	if isDir(changes + name) {
-		add(fmt.Sprintf("%s/changes/%s was not dropped — run 1's `chore(spectre): drop %s` commit never removed it", leaf, name, name))
-	}
-	// THE SUFFIX MUST BE `-fix-` FOLLOWED BY DIGITS AND NOTHING ELSE. A change
-	// merely named like a neighbour — `demo-other`, or `demo-fix-the-parser` —
-	// is a change of its own with its own finish run, and reporting it here
-	// would send the operator hunting for another change's live work: the same
-	// prefix-matching failure every other row above is matched by full name to
-	// avoid.
-	entries, _ := os.ReadDir(changes)
-	for _, e := range entries {
-		n, ok := strings.CutPrefix(e.Name(), name+"-fix-")
-		if !ok || n == "" || strings.Trim(n, "0123456789") != "" || !isDir(changes+e.Name()) {
-			continue
-		}
-		add(fmt.Sprintf("%s/changes/%s, a sub-change of %s, was not dropped — run 1's `chore(spectre): drop %s` commit never removed it", leaf, e.Name(), name, name))
-	}
-
-	// Row five — the proposal artifact source, whose removal at run 2 is
+	// Row four — the proposal artifact source, whose removal at run 2 is
 	// conditional on a preserved copy existing. This guard reports it as
 	// remaining; it does not decide whether keeping it was right, which is the
 	// run's judgment and not a fact about the tree.
@@ -283,7 +259,7 @@ func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int 
 		add("the proposal artifact source is still in the state directory")
 	}
 
-	// Row six — the workspace database and bucket, the one row this guard
+	// Row five — the workspace database and bucket, the one row this guard
 	// cannot look at and must ask about. Everything in ccWorkspaceRow is a
 	// no-op for a project that declares no `## workspace isolation` section,
 	// which is the overwhelmingly common case and includes this repository:
@@ -297,7 +273,7 @@ func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int 
 		note(rowNote)
 	}
 
-	verdict := fmt.Sprintf("COMPLETE: %s — no worktree, local branch, remote-tracking ref, undropped change directory or proposal artifact source remains for spectre/%s", repo, name)
+	verdict := fmt.Sprintf("COMPLETE: %s — no worktree, local branch, remote-tracking ref or proposal artifact source remains for spectre/%s", repo, name)
 	if len(left) > 0 {
 		verdict = fmt.Sprintf("LEFTOVER: %s — %s", repo, strings.Join(left, "; "))
 	}
@@ -317,7 +293,7 @@ func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int 
 
 const ccSpace = " \t\n\v\f\r"
 
-// ccWorkspaceRow answers row six: the survivor lines to report as leftovers,
+// ccWorkspaceRow answers row five: the survivor lines to report as leftovers,
 // and the one note the row contributes (verified empty, or why skipped).
 func ccWorkspaceRow(env Env, repo, name string, stderr io.Writer) ([]string, string) {
 	cfg := repo + "/.flow/project.md"
