@@ -169,6 +169,15 @@ override LIVE_PORT := 4173
 override LIVE_BIN := bin/flowd
 override LIVE_LOG := /tmp/flow-live.log
 
+# `restart` touches $(LIVE_MARKER) before it kills the live daemon and removes
+# it on every exit after that: once the new daemon answers, or when the old
+# one will not exit or the new one never answers. Its reader is `do`
+# (stats/internal/client/client.go), which re-dials a refused connection while
+# the marker is fresh, so a `flow` call made during the swap waits for the new
+# daemon instead of falling back. The compose and CLI-install steps run before
+# the kill so the gap the marker covers is the daemon swap alone.
+override LIVE_MARKER = $${TMPDIR:-/tmp}/flowd-$(LIVE_PORT).restarting
+
 # Where `restart` installs the `flow` CLI. Hardcoded rather than
 # configurable: this is the one path already on the operator's PATH, and a
 # variable here would let a caller install the CLI somewhere that is not the
@@ -177,21 +186,6 @@ override LIVE_LOG := /tmp/flow-live.log
 override LIVE_CLI := $(HOME)/.local/bin/flow
 
 restart: build
-	@pid="$$(lsof -ti tcp:$(LIVE_PORT) -sTCP:LISTEN 2>/dev/null | head -1)"; \
-	if [ -n "$$pid" ]; then \
-		echo "restart: stopping flowd $$pid on :$(LIVE_PORT)"; \
-		kill "$$pid" 2>/dev/null; \
-		for i in $$(seq 1 30); do \
-			kill -0 "$$pid" 2>/dev/null || break; \
-			sleep 1; \
-		done; \
-		if kill -0 "$$pid" 2>/dev/null; then \
-			echo "restart: flowd $$pid did not exit within 30s -- still holding :$(LIVE_PORT)" >&2; \
-			exit 1; \
-		fi; \
-	else \
-		echo "restart: nothing was listening on :$(LIVE_PORT) -- starting a daemon that was not previously running"; \
-	fi
 	# `up -d` alone: it creates or starts the store's container when it is
 	# absent or stopped and leaves a running one untouched. `restart` is
 	# rebuilding flowd and the CLI, never the store -- a `docker compose
@@ -214,15 +208,35 @@ restart: build
 	@mkdir -p $(dir $(LIVE_CLI))
 	go build -o $(LIVE_CLI) ./cmd/flow
 	@echo "restart: installed the flow CLI to $(LIVE_CLI)"
+	@touch "$(LIVE_MARKER)"; \
+	trap 'rm -f "$(LIVE_MARKER)"; exit 130' INT TERM; \
+	pid="$$(lsof -ti tcp:$(LIVE_PORT) -sTCP:LISTEN 2>/dev/null | head -1)"; \
+	if [ -n "$$pid" ]; then \
+		echo "restart: stopping flowd $$pid on :$(LIVE_PORT)"; \
+		kill "$$pid" 2>/dev/null; \
+		for i in $$(seq 1 300); do \
+			kill -0 "$$pid" 2>/dev/null || break; \
+			sleep 0.1; \
+		done; \
+		if kill -0 "$$pid" 2>/dev/null; then \
+			echo "restart: flowd $$pid did not exit within 30s -- still holding :$(LIVE_PORT)" >&2; \
+			rm -f "$(LIVE_MARKER)"; \
+			exit 1; \
+		fi; \
+	else \
+		echo "restart: nothing was listening on :$(LIVE_PORT) -- starting a daemon that was not previously running"; \
+	fi
 	@nohup ./$(LIVE_BIN) >> $(LIVE_LOG) 2>&1 & \
 	echo "restart: started flowd (pid $$!), logging to $(LIVE_LOG)"
 	@echo "restart: waiting for flowd to answer on :$(LIVE_PORT)"
-	@for i in $$(seq 1 60); do \
+	@trap 'rm -f "$(LIVE_MARKER)"; exit 130' INT TERM; \
+	for i in $$(seq 1 60); do \
 		curl -sf http://127.0.0.1:$(LIVE_PORT)/api/v1/changes >/dev/null 2>&1 && \
-			{ echo "restart: ready on http://127.0.0.1:$(LIVE_PORT)"; exit 0; }; \
+			{ echo "restart: ready on http://127.0.0.1:$(LIVE_PORT)"; rm -f "$(LIVE_MARKER)"; exit 0; }; \
 		sleep 1; \
 	done; \
 	echo "restart: flowd did not answer on :$(LIVE_PORT) within 60s -- see $(LIVE_LOG)" >&2; \
+	rm -f "$(LIVE_MARKER)"; \
 	exit 1
 
 # The UI-test stack: a database and a daemon instance separate from the

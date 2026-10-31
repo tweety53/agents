@@ -18,7 +18,10 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/records"
@@ -73,9 +76,14 @@ var ErrRefused = errors.New("client: store refused the write: state would move b
 // wrapped in ErrUnavailable.
 var ErrNotFound = errors.New("client: change not found")
 
-// Client talks to flowd's state API. It never retries: exactly one
-// request per call, bounded by ctx, so the caller controls how long a
-// possibly-unreachable store is allowed to hold up the fallback decision.
+// Client talks to flowd's state API. It retries in one case only: a dial
+// refused while `make restart` is swapping the daemon on that port (see
+// restarting), every 100ms until the daemon answers or ctx is done. Every
+// other outcome is exactly one request per call, bounded by ctx, so the
+// caller controls how long a possibly-unreachable store is allowed to hold
+// up the fallback decision. A dead daemon still fails fast: with no fresh
+// restart marker a refused dial returns at once, and even with one the
+// retry never outlives ctx.
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
@@ -953,6 +961,23 @@ func (c *Client) send(req *http.Request) ([]byte, int, error) {
 	return respBody, status, nil
 }
 
+// retryInterval is how often do re-dials a port restarting reports.
+const retryInterval = 100 * time.Millisecond
+
+// restartMarkerMaxAge bounds how long a restart marker is believed: a
+// marker older than this was left by a restart that died before removing
+// it, and a refused dial then fails at once again.
+const restartMarkerMaxAge = 2 * time.Minute
+
+// restarting reports whether a daemon swap is under way on port: the marker
+// $TMPDIR/flowd-<port>.restarting exists and is fresh. Its writer is
+// stats/Makefile's `restart`, which creates it before killing the old
+// daemon and removes it once the new one answers or the restart fails.
+func restarting(port string) bool {
+	fi, err := os.Stat(filepath.Join(os.TempDir(), "flowd-"+port+".restarting"))
+	return err == nil && time.Since(fi.ModTime()) < restartMarkerMaxAge
+}
+
 // do executes req and returns its body, status and whether the response
 // carried the daemon header, or an error already wrapping ErrUnavailable
 // for every transport-level failure: connection refused, DNS failure, a
@@ -960,6 +985,21 @@ func (c *Client) send(req *http.Request) ([]byte, int, error) {
 // fully read.
 func (c *Client) do(req *http.Request) (body []byte, status int, fromDaemon bool, err error) {
 	resp, err := c.httpClient.Do(req)
+	for err != nil && errors.Is(err, syscall.ECONNREFUSED) && restarting(req.URL.Port()) && (req.Body == nil || req.GetBody != nil) {
+		select {
+		case <-req.Context().Done():
+			return nil, 0, false, fmt.Errorf("%w: %v", ErrUnavailable, err)
+		case <-time.After(retryInterval):
+		}
+		if req.GetBody != nil {
+			body, gerr := req.GetBody()
+			if gerr != nil {
+				return nil, 0, false, fmt.Errorf("%w: %v", ErrUnavailable, err)
+			}
+			req.Body = body
+		}
+		resp, err = c.httpClient.Do(req)
+	}
 	if err != nil {
 		return nil, 0, false, fmt.Errorf("%w: %v", ErrUnavailable, err)
 	}

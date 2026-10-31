@@ -9,6 +9,9 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -1323,5 +1326,81 @@ func TestClientRepricePostsSince(t *testing.T) {
 	if _, err := client.New(bad.URL, bad.Client()).Reprice(context.Background(), "x"); err == nil ||
 		!strings.Contains(err.Error(), "since is not YYYY-MM-DD") {
 		t.Errorf("Reprice on 400: err = %v, want one carrying the body", err)
+	}
+}
+
+// restartMarker writes the marker `make restart` leaves for rawURL's port
+// and returns its path.
+func restartMarker(t *testing.T, rawURL string) string {
+	t.Helper()
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		t.Fatalf("parse %s: %v", rawURL, err)
+	}
+	path := filepath.Join(os.TempDir(), fmt.Sprintf("flowd-%s.restarting", u.Port()))
+	if err := os.WriteFile(path, nil, 0o644); err != nil {
+		t.Fatalf("write marker: %v", err)
+	}
+	return path
+}
+
+func TestGetChangeRetriesRefusedDialWhileFlowdRestarts(t *testing.T) {
+	t.Setenv("TMPDIR", t.TempDir())
+	base := deadPortURL(t)
+	restartMarker(t, base)
+	addr := strings.TrimPrefix(base, "http://")
+	// Closed by the test itself, so a Serve that starts after a failed test
+	// returns at once instead of outliving it.
+	srv := &http.Server{Handler: genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, "{}")
+	})}
+	t.Cleanup(func() { _ = srv.Close() })
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		ln, err := net.Listen("tcp", addr)
+		if err != nil {
+			return
+		}
+		_ = srv.Serve(ln)
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if _, err := client.New(base, http.DefaultClient).GetChange(ctx, "proj", "name"); err != nil {
+		t.Fatalf("GetChange while restarting: %v", err)
+	}
+}
+
+func TestGetChangeFailsFastOnRefusedDialWithoutRestartMarker(t *testing.T) {
+	t.Setenv("TMPDIR", t.TempDir())
+	base := deadPortURL(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	start := time.Now()
+	_, err := client.New(base, http.DefaultClient).GetChange(ctx, "proj", "name")
+	if !errors.Is(err, client.ErrUnavailable) {
+		t.Fatalf("want ErrUnavailable, got %v", err)
+	}
+	if d := time.Since(start); d >= 500*time.Millisecond {
+		t.Fatalf("took %v, want a fast failure", d)
+	}
+}
+
+func TestGetChangeIgnoresStaleRestartMarker(t *testing.T) {
+	t.Setenv("TMPDIR", t.TempDir())
+	base := deadPortURL(t)
+	marker := restartMarker(t, base)
+	old := time.Now().Add(-3 * time.Minute)
+	if err := os.Chtimes(marker, old, old); err != nil {
+		t.Fatalf("chtimes: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	start := time.Now()
+	_, err := client.New(base, http.DefaultClient).GetChange(ctx, "proj", "name")
+	if !errors.Is(err, client.ErrUnavailable) {
+		t.Fatalf("want ErrUnavailable, got %v", err)
+	}
+	if d := time.Since(start); d >= 500*time.Millisecond {
+		t.Fatalf("took %v, want a fast failure", d)
 	}
 }
