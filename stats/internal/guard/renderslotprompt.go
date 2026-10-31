@@ -157,6 +157,9 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		return strings.ReplaceAll(b, "`final-review.diff`", "the **Diff file:** each PASS section names")
 	}
+	// repro is the REPRODUCER block as emitted: its `<round>`/`<id>` name
+	// the file the slot itself fills in, so the unfilled check skips it.
+	var repro string
 	for _, label := range []string{"TOOLS", "FOREGROUND BUILDS", "NO DELEGATION", "REPRODUCE, DON'T READ", "REPRODUCER", "WORKTREES"} {
 		b, ok := block(panel, "review-panel.md", label)
 		if !ok {
@@ -165,12 +168,13 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		// A slot is told its round, not left to guess it: kan-1024's round-0
 		// reproducers took round 1's names and were overwritten.
 		if label == "REPRODUCER" {
-			const phrase = "`R` this round's number"
+			const phrase = "`<round>` this round's number"
 			if !strings.Contains(b, phrase) {
 				fmt.Fprintf(stderr, "render-slot-prompt: review-panel.md's REPRODUCER block no longer carries %q — cannot state the round\n", phrase)
 				return 2
 			}
 			b = strings.Replace(b, phrase, phrase+" — `"+round+"` here", 1)
+			repro = named(b)
 		}
 		if label == "WORKTREES" {
 			b = strings.Replace(b, "`<abs-worktree-1>`, `<abs-worktree-2>`, …", "`"+strings.Join(wts, "`, `")+"`", 1)
@@ -309,7 +313,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 
 	rendered := strings.TrimRight(out.String(), "\n") + "\n"
-	if left := rspUnfilled.FindAllString(rendered, -1); len(left) > 0 {
+	if left := rspUnfilled.FindAllString(strings.Replace(rendered, repro, "", 1), -1); len(left) > 0 {
 		fmt.Fprintf(stderr, "render-slot-prompt: unresolved placeholder(s): %s\n", strings.Join(left, ", "))
 		return 1
 	}

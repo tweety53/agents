@@ -647,7 +647,7 @@ the **AskUserQuestion** it states.
 in the shape a slot authors to, since a slot reads its prompt and not this file:
 
 > **REPRODUCER:** every finding carries a reproducer: a script under the canonical worktree's
-> `<project>/.superpowers/sdd/reproducers/`, named `R-ID-N.sh` — `R` this round's number, `ID` your own resolved reviewer id, `N` your own 1-based finding index — and recorded by its worktree-relative path, or
+> `<project>/.superpowers/sdd/reproducers/`, named `<round>-<id>-<n>.sh` — `<round>` this round's number, `<id>` your own resolved reviewer id, `<n>` your own 1-based finding index, so round 0's first mutation finding is `0-mutation-1.sh` — and recorded by its worktree-relative path, or
 > `none — <reason>` on a Minor finding only. It exits non-zero when the defect is present, and 0
 > only when it is not; a `# mutation-reproducer` follows the mutation brief instead. Within its
 > first 10 lines it declares one `# demonstrates: <path>:<line>:<content>` line per cited location

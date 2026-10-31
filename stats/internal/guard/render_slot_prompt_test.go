@@ -388,7 +388,7 @@ func TestRenderSlotPromptCarriesReproducer(t *testing.T) {
 	if r.rc != 0 {
 		t.Fatalf("exit %d\n%s", r.rc, r.out)
 	}
-	b := strings.Replace(rspTestBlock(t, skill+"/review-panel.md", "REPRODUCER"), "`R` this round's number", "`R` this round's number — `0` here", 1)
+	b := strings.Replace(rspTestBlock(t, skill+"/review-panel.md", "REPRODUCER"), "`<round>` this round's number", "`<round>` this round's number — `0` here", 1)
 	if strings.Count(got, b) != 1 {
 		t.Errorf("the REPRODUCER block is not carried exactly once, verbatim save the round")
 	}
@@ -402,7 +402,13 @@ func TestRenderSlotPromptStatesTheRound(t *testing.T) {
 	if r.rc != 0 {
 		t.Fatalf("exit %d\n%s", r.rc, r.out)
 	}
-	if !strings.Contains(got, "`R` this round's number — `3` here") {
+	if !strings.Contains(got, "`<round>` this round's number — `3` here") {
 		t.Errorf("the REPRODUCER paragraph does not state round 3:\n%s", got)
+	}
+	if !strings.Contains(got, "`<round>-<id>-<n>.sh`") {
+		t.Errorf("the REPRODUCER paragraph does not name `<round>-<id>-<n>.sh`:\n%s", got)
+	}
+	if strings.Contains(got, "R-ID-N") {
+		t.Errorf("the REPRODUCER paragraph still carries R-ID-N:\n%s", got)
 	}
 }
