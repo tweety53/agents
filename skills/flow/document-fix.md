@@ -58,14 +58,6 @@ Under the mode the ask is not made: **Append to `proposal.md` and `tasks.md`** i
 recorded the way the mode records a taken default (**Auto-resolution**,
 `skills/flow-contracts/operator-prompts.md`).
 
-**A change already dropped is never asked**: the append is taken. A fix run that starts after
-run 1's `chore(spectre): drop <name>` commit first restores the change directory from the newest
-such commit's parent, so earlier fix runs' tasks come back with it — `git -C <project> checkout <drop-sha>^ -- <project>/spectre/changes/<name>` — and commits it as its
-fix-run planning commit, so every in-run reader keeps the live path and run 1's next pass drops it
-again with a fresh drop commit (**Run 1 — the branch is not merged**,
-`skills/flow-contracts/finish-contract-run1.md`). The append goes into that restored directory: a
-`<name>-fix-N` sub-change scaffolded beside a dropped parent would be dropped alone.
-
 The parent writes the append, or the sub-change's own proposal and plan. Whichever brief the
 budget answer named, it keeps the counter true: every task its append adds raises the `**Tasks
 appended:**` value by one, creating the line in `tasks.md`'s header when the plan has never
@@ -124,18 +116,16 @@ plan-growth series:
 flow tasks count -C <worktree> <name>
 ```
 
-**The appended plan passes the plan guards before it is committed.** Run
+**The appended plan passes the plan guards before it is snapshotted.** Run
 `check-plan-shape.sh <changeRoot>/tasks.md`, a shipped guard among this skill's scripts, and the
 project's configured plan-provenance guard, at the path the project's `<project>/.flow/project.md` `## lint`
 section names — the project's own script, never one under this skill's scripts — and handle each
 exit as **D. Basic Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`) handles it,
-before the planning commit below.
+before the plan snapshot below.
 
-Then make the fix-run planning commit over the appended plan (**Planning commits**,
-`skills/flow-contracts/git-boundaries.md`), before any implementer is dispatched.
-**Every appended task is committed unticked.** `check-planning-commit-location.sh` refuses a
-planning commit whose `tasks.md` adds a task already ticked (`PLANNING-COMMIT-TICKED-APPEND`, exit
-1); the task is ticked only once its commit passes `check-task-commit-fields.sh` (kan-1010: a fix
+Then take a plan snapshot of the appended plan (**Plan snapshots**, `skills/flow/brainstorm.md`),
+after the plan guards pass and before any implementer is dispatched; the change directory is still
+on disk, since cleanup runs only after the merge. **Every appended task is written unticked**: the task is ticked only once its commit passes `check-task-commit-fields.sh` (kan-1010: a fix
 run appended Task 3 ticked and skipped implement, panel and handoff).
 
 ```bash

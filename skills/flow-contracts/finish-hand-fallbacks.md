@@ -72,37 +72,6 @@ of `[A-Za-z0-9._]` — so a leading `-` a downstream git call would read as an o
 so is a leading `/` — and every character in the name, start to end, is one of `[A-Za-z0-9._/-]`,
 which is what rules out control characters and anything else outside that set.
 
-## `commit-archive.sh` — Run 1, Archive on the change branch
-
-The drop commit, by hand; `<canonical-worktree>` resolves as run 1 resolves it (**Finish
-contract**, `skills/flow-contracts/finish-contract-run1.md`), and the Done-when cross-check runs
-first, as that section states. Nothing is copied:
-
-```bash
-[ "$(git -C <canonical-worktree> branch --show-current)" = "spectre/<name>" ] \
-  && for d in <canonical-worktree>/spectre/changes/<name> <canonical-worktree>/spectre/changes/<name>-fix-*; do
-       [ -d "$d" ] || continue
-       case "${d#<canonical-worktree>/spectre/changes/<name>}" in -fix-|-fix-*[!0-9]*) continue ;; esac
-       git -C <canonical-worktree> rm -r -q --ignore-unmatch -- "${d#<canonical-worktree>/}" && rm -rf -- "$d"
-     done \
-  && check-archive-scope.sh <canonical-worktree> "spectre/changes/" \
-  && { git -C <canonical-worktree> diff --cached --quiet \
-       || git -C <canonical-worktree> commit -m "chore(spectre): drop <name>"; }
-```
-
-A branch mismatch is reported, naming the branch found, and stops the commit, leaving the change
-at `IN_PROGRESS`. The subject is the fixed literal shown, per **Commit scopes name the module**
-(`<agents repo>/rules/commit-scope-is-the-module.mdc`). The self-review bundle (`flow
-self-review bundle`) resolves this commit by matching that subject line whole —
-**reproduce it exactly.**
-
-## `check-archive-scope.sh` — Run 1, Archive on the change branch
-
-**When absent**, run
-`git -C <canonical-worktree> diff --cached --name-status` by hand before the commit and refuse any
-line that is not a deletion (`D`) under one of the removed directories,
-`<project>/spectre/changes/<name>/` and each `<project>/spectre/changes/<name>-fix-N/`.
-
 ## `check-cleanup-complete.sh` — Run 2, step 4
 
 **When the script is absent** — a repository that does not carry it — check the same registry rows
