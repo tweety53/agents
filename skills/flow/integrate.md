@@ -55,8 +55,9 @@ that stopped once the stop is handled.
 already dropped and whether it carries new work, and runs the unfinished-work gate, per **Run 1 —
 the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
 
-- **`STOP: archive-undo`** → ask, per **Run 1 — the branch is not merged**
-  (`skills/flow-contracts/finish-contract-run1.md`).
+- **`STOP: archive-undo`** → the `git restore` undoing a staged drop failed (**Run 1 — the branch
+  is not merged**, `skills/flow-contracts/finish-contract-run1.md`): ask the operator, naming the
+  directory the stop line names.
 - **`STOP: unfinished-work`** → **Load `skills/flow/unfinished-work-gate.md`** — the run
   finishes the unfinished work itself, asks nothing, and re-runs `prepare`, per its
   **Finish it — never a prompt**.
