@@ -172,25 +172,58 @@ without `archive` before spectre drops it.
 their `.gitkeep`.
 **Considered:** delete every `spectre/specs/` — gymie's are live specs planners read.
 
-### flow-eval's miner reads the change's worktree
+### flow-eval's miner reads plan snapshots from the change's worktree
 
-**ID:** flow-eval-miner-reads-worktree
+**ID:** plan-snapshots-for-the-miner
 **Status:** active
-**Chosen:** flow-eval's `case add impl|review` reads the change's plan files from
-`<plan-repo>/spectre/changes/<change>/` and its ledger and panel record from the rendered
-`<plan-repo>/.superpowers/sdd/ledgers/<change>.md` and `.superpowers/sdd/reviews/<change>-panel.md`
-on disk, never from git history; `_archive`, `planAt`, the plan-repo `prereshape` call and every
-`git show`/`git log` on `spectre/changes` are deleted, with no fallback. The repo's `prereshape` and
-`taskCommits` stay: they find the task commits, not the plan. Mining runs in the self-review's
-step 5 inside integrate run 1, on every route, before cleanup removes the worktree — the pinned
-`refs/flow/pre-reshape/<change>` on origin keeps a case's commits reachable without waiting for the
-merge; a run after the worktree is gone refuses with `plan files gone — mine before cleanup`. The
-plan is read as it stands when mined, Corrections written by later fixes included — the accepted
-cost of reading no history (operator answer at the plan gate: "can it just mine it while files
-exist?").
-**Considered:** keep the history reads — they see no change landed after this one; read `tasks.md`
-from `change_files` — `proposal.md`, `design.md`, the ledger and the panel are not saved there, and
-the save happens only at cleanup.
+**Chosen:** where a planning commit used to be made — the plan gate's **Yes**, `/flow-plan`'s
+capture, and a fix run's tasks append (`flow.document-fix`) — the run copies `tasks.md`,
+`proposal.md` and `design.md` of `spectre/changes/<name>/` into the next numbered directory
+`.superpowers/sdd/<name>/plan-snapshots/<k>/` of the canonical worktree, never committed and never
+rewritten (**Plan snapshots**, `skills/flow/brainstorm.md`). flow-eval's `case add impl` reads, for
+task n, the earliest snapshot whose `tasks.md` holds task n — the plan as it stood before task n
+was implemented — and refuses with `no plan snapshot … holds task n` when none does; `case add
+impl|review` reads the ledger and panel record from the rendered
+`.superpowers/sdd/ledgers/<change>.md` and `.superpowers/sdd/reviews/<change>-panel.md`, and refuses
+with `plan files gone — mine before cleanup` once `spectre/changes/<change>/` is gone. `_archive`,
+`planAt`, the plan-repo `prereshape` call and every `git show`/`git log` on `spectre/changes` are
+deleted, with no fallback; the repo's `prereshape` and `taskCommits` stay — they find the task
+commits, not the plan. Mining runs in the self-review's step 5 inside integrate run 1, on every
+route, before cleanup removes the worktree; the pinned `refs/flow/pre-reshape/<change>` on origin
+keeps a case's commits reachable without waiting for the merge.
+
+**Audit — every input a case ships carries only pre-task state** (operator follow-up: a case must
+never carry its solution in any file it ships). A trial receives only `run._inputs` per role;
+`case.json`, `heldout.patch`, `reference.stat` and `labels.json` are the hidden grading answer.
+
+| Input | Reaches the agent | Source | Verdict |
+|-------|-------------------|--------|---------|
+| impl `task.md` | yes | task n's section of the earliest snapshot holding task n | pre-task — was the live plan, whose review-fix Corrections name the fix: the leak this decision closes |
+| impl `context.md` (`proposal.md`, `design.md`) | yes | the same snapshot | pre-task — was the live plan, whose design decisions later fixes rewrite: closed with `task.md` |
+| impl tree | yes | `git archive` of the reference commit's parent, re-initialised as one commit `base` | pre-task: an ancestor of the task; no history, message or trailer of any later commit is reachable; the gitignored plan and `.superpowers/` are not in a tree |
+| review `diff.patch` | yes | `git diff base head`, `spectre/changes` excluded, head the last implementer commit before the first panel-fix | pre-review: no panel-fix change, no commit message |
+| review tree | yes | `git archive` of head, re-initialised | pre-review, as above |
+| visual `mockup.png`, `capture.png` | yes | the mockup and the capture the operator names | the evaluated pair itself; the verdict and defects stay in `labels.json` |
+| narrative, `visual-verification.md` notes | no | not read for an impl or review case | — |
+| ledger | no | picks the reference commit; its rows reach no shipped file | grading only |
+| panel record | no | `labels.json` | grading only (post-task by design) |
+| reference commit, its subject and trailers | no | `heldout.patch`, `reference.stat`, `case.json`'s `notes` | grading only |
+
+`TestMineShipsOnlyPreTaskState` plants `_leak` in every post-task source — the live plan, a later
+snapshot, the ledger, the panel record, the panel-fix commit's code and message — and asserts no
+input a trial receives carries it.
+
+**Considered:** read the live plan as it stands when mined (this decision's previous form, operator
+answer at the plan gate "can it just mine it while files exist?") — rejected by the operator: a
+review fix writes Corrections into `tasks.md` and decisions into `design.md` that name the fix, so
+the case carries its own answer, exactly what flow-eval's `_leak` test guards; keep the history
+reads — they see no change landed after this one, since nothing under `spectre/changes/` is
+committed; reuse `.superpowers/sdd/<name>/tasks-at-close.md` (decision guards-read-disk) — written
+once at the review panel's close, after the review fixes, so it is the leaking plan, and it holds no
+`proposal.md` or `design.md`; read `tasks.md` from `change_files` — saved only at cleanup, after
+every fix, and without `proposal.md` and `design.md`; one snapshot per task at its dispatch — a step
+in every implementer dispatch for what the plan gate's and the fix run's snapshot already give, since
+no task is added anywhere else.
 
 ## Recommended approach
 
@@ -240,7 +273,7 @@ gymie, gymie-frontend, gymie-playwright, flow-eval: `.gitignore`, `docs/self-rev
 `spectre/changes/`, `spectre/specs/.gitkeep` where placeholder-only, gymie `.flow/project.md`.
 
 flow-eval: `internal/mine/mine.go`, `internal/mine/mine_test.go`, `cmd/flow-eval/main.go`,
-`README.md`, `docs/cases.md` — the miner reads the worktree.
+`README.md`, `docs/cases.md` — the miner reads the worktree's plan snapshots.
 
 ## Existing code to reuse
 
