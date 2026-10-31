@@ -445,7 +445,7 @@ func pfVerify(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 	for _, c := range cmds {
 		report(c, wt)
 	}
-	if cmd, specs, dir, ok := rvlVisualVerify(env, wt, false); ok {
+	if cmd, specs, dir, _, ok := rvlVisualVerify(env, wt, false); ok {
 		switch {
 		case cmd == "":
 			red++

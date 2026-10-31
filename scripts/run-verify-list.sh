@@ -3,12 +3,13 @@
 # verify** (skills/flow/verify-and-handoff.md) prescribes, and print its
 # `## Report` lines.
 #
-# Usage: run-verify-list.sh <worktree> lint|test [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]
+# Usage: run-verify-list.sh <worktree> lint|test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]
 #
 # Exit codes:
 #   0  every command exited 0
-#   1  at least one command exited non-zero
-#   2  usage (not `<worktree> lint|test` plus none, all five, or all six recording
+#   1  at least one command exited non-zero, or a `visual` list refused a
+#      `regression checkout` holding no worktree on the branch
+#   2  usage (not `<worktree> lint|test|visual` plus none, all five, or all six recording
 #      arguments, no flow binary on PATH for those, or <worktree> is not a
 #      directory), a list line holding a `<word>` placeholder — its stderr
 #      line names it — or project-get.sh exit 2 — its stderr line says why
@@ -38,6 +39,11 @@
 # put in `<specs>`: no path runs no spec, a non-zero exit or an unresolved
 # base fails the list, and the whole suite never runs in its place. With no
 # `specs` row, `<specs>` is emptied and the suite runs whole.
+#
+# A `visual` list runs that `verify` row alone, as a `test` list's tail would,
+# and never the `## lint` or `## test` commands; when the conditions above
+# skip it, it prints `- visual verify — not run: …` and exits 0 (kan-1052
+# self-review, F2).
 #
 # The mechanism, and its full contract — the list, the green sha, the output
 # — is stats/internal/guard/runverifylist.go; its test is

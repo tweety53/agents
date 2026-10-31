@@ -137,7 +137,7 @@ flow stage end   -command '/flow-interactive' -stage flow.sdd-tdd -outcome compl
 ```
 
 **4. Verify.** `<agents repo>/scripts/run-verify-list.sh <worktree> lint`, the `## test` commands
-scoped to the packages and files the request touched, and `check-fast-route-record.sh <worktree>
+scoped to the packages and files the request touched, `<agents repo>/scripts/run-verify-list.sh <worktree> visual`, and `check-fast-route-record.sh <worktree>
 <base>` — as section 5 of `/flow-fast` states them. The request never lands red.
 
 ```bash

@@ -6,7 +6,7 @@
 // self-review-backlog-flow-6 self-review pass found the parent writing one
 // per run, its stdin detach patched in on a second call).
 //
-// Usage: run-verify-list.sh <worktree> lint|test [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]
+// Usage: run-verify-list.sh <worktree> lint|test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]
 //
 // RECORDING (kan-1033 self-review: the parent hand-recorded the verify row and
 // back-filled a forgotten begin with a guessed start). Given the five trailing
@@ -55,6 +55,15 @@
 // that of HEAD and resolve-base-branch's base (its `origin/` ref when
 // fetched). A base that does not resolve runs it. It reports and fails the
 // list like any other command; a `lint` list never runs it.
+// A `visual` list runs that `verify` row alone, as a `test` list's tail
+// would, and never the `## lint` or `## test` commands; when the conditions
+// above skip it, it prints `- visual verify — not run: …` and exits 0
+// (kan-1052 self-review, F2: /flow-fast and /flow-interactive had no command
+// that ran the row). Unlike a `test` list's tail, it never falls back to a
+// `regression checkout`'s main checkout: one holding no worktree on
+// <worktree>'s branch prints `- visual verify — not run: …` naming it and
+// exits 1 (kan-1052 self-review, R1: the main checkout's build is not the
+// change's).
 // The caller exports the KEY=value lines prepare-workspace.sh printed for
 // <worktree> first; every command inherits them. This script retries
 // nothing — the one inline re-run of a failing command stays the caller's,
@@ -96,8 +105,9 @@
 //
 // Exit codes:
 //   0  every command exited 0
-//   1  at least one command exited non-zero
-//   2  usage (not `<worktree> lint|test` plus none, all five, or all six recording
+//   1  at least one command exited non-zero, or a `visual` list refused a
+//      `regression checkout` holding no worktree on the branch
+//   2  usage (not `<worktree> lint|test|visual` plus none, all five, or all six recording
 //      arguments, no flow binary on PATH for those, or <worktree> is not a
 //      directory), a list line holding a `<word>` placeholder — its stderr
 //      line names it — or project-get.sh exit 2 — its stderr line says why,
@@ -191,15 +201,16 @@ var (
 // runs it: running more is the safe side -- but a `specs` row then has no
 // merge base to scope to, and specs comes back "" with ok true and cmd ""
 // so the caller fails the list rather than run the whole suite
-// (verify-list-runs-targeted).
-func rvlVisualVerify(env Env, wt string, covered bool) (cmd, specs, dir string, ok bool) {
+// (verify-list-runs-targeted). fallback is the `regression checkout` dir
+// fell back to when that checkout holds no worktree on wt's branch, "" otherwise.
+func rvlVisualVerify(env Env, wt string, covered bool) (cmd, specs, dir, fallback string, ok bool) {
 	b, err := os.ReadFile(filepath.Join(wt, ".flow", "project.md"))
 	if err != nil {
-		return "", "", "", false
+		return "", "", "", "", false
 	}
 	cells := vvCells(string(b))
 	if cells["verify"] == "" || covered {
-		return "", "", "", false
+		return "", "", "", "", false
 	}
 	var d struct {
 		Visual struct {
@@ -207,7 +218,7 @@ func rvlVisualVerify(env Env, wt string, covered bool) (cmd, specs, dir string, 
 		} `json:"visual"`
 	}
 	if raw, err := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "decision.json")); err == nil && json.Unmarshal(raw, &d) == nil && d.Visual.Verify == "skipped" {
-		return "", "", "", false
+		return "", "", "", "", false
 	}
 	mb := ""
 	changed := func() ([]string, error) {
@@ -229,7 +240,7 @@ func rvlVisualVerify(env Env, wt string, covered bool) (cmd, specs, dir string, 
 		return strings.Split(names, "\n"), nil
 	}
 	if visualTrigger(env, wt, changed, io.Discard, io.Discard) == 1 {
-		return "", "", "", false
+		return "", "", "", "", false
 	}
 	dir = wt
 	if c := cells["regression checkout"]; c != "" {
@@ -240,19 +251,20 @@ func rvlVisualVerify(env Env, wt string, covered bool) (cmd, specs, dir string, 
 		// The cell names a main checkout; the change's worktree of it, on
 		// wt's branch, is where the change's code and captures live.
 		git := envGit(env)
+		fallback = dir
 		if branch, _ := capture(git("-C", wt, "branch", "--show-current")); branch != "" {
 			if w := rvsWorktreeOn(git("-C", dir, "worktree", "list", "--porcelain"), branch); w != "" {
-				dir = w
+				dir, fallback = w, ""
 			}
 		}
 	}
 	if s := cells["specs"]; s != "" {
 		if mb == "" {
-			return "", "", dir, true
+			return "", "", dir, fallback, true
 		}
-		return cells["verify"], strings.NewReplacer("<frontend-root>", wt, "<merge-base>", mb).Replace(s), dir, true
+		return cells["verify"], strings.NewReplacer("<frontend-root>", wt, "<merge-base>", mb).Replace(s), dir, fallback, true
 	}
-	return strings.ReplaceAll(cells["verify"], "<specs>", ""), "", dir, true
+	return strings.ReplaceAll(cells["verify"], "<specs>", ""), "", dir, fallback, true
 }
 
 func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
@@ -269,8 +281,8 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		return p
 	}
-	const usage = "usage: run-verify-list.sh <worktree> lint|test [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]"
-	if (len(args) != 2 && len(args) != 7 && len(args) != 8) || (args[1] != "lint" && args[1] != "test") {
+	const usage = "usage: run-verify-list.sh <worktree> lint|test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]"
+	if (len(args) != 2 && len(args) != 7 && len(args) != 8) || (args[1] != "lint" && args[1] != "test" && args[1] != "visual") {
 		fmt.Fprintln(stderr, usage)
 		return 2
 	}
@@ -330,15 +342,20 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	wt, list := args[0], args[1]
 	childEnv := icChildEnv(env)
 
-	get := exec.Command(filepath.Join(scriptDir, "project-get.sh"), wt, list)
-	get.Dir, get.Env, get.Stderr = env.Dir, childEnv, stderr
-	body, err := get.Output()
-	switch exitCode(err) {
-	case 0:
-	case 1:
-		return 3
-	default:
-		return 2
+	// A visual list runs the `verify` row alone: no list to read.
+	var body []byte
+	if list != "visual" {
+		get := exec.Command(filepath.Join(scriptDir, "project-get.sh"), wt, list)
+		get.Dir, get.Env, get.Stderr = env.Dir, childEnv, stderr
+		var err error
+		body, err = get.Output()
+		switch exitCode(err) {
+		case 0:
+		case 1:
+			return 3
+		default:
+			return 2
+		}
 	}
 
 	// inputs[i] is the pathspec list the `# inputs:` line above cmds[i] named,
@@ -509,8 +526,16 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 	visualRan := false
-	if list == "test" {
-		if cmd, specs, dir, ok := rvlVisualVerify(env, abs(wt), unchanged("")); ok {
+	if list != "lint" {
+		if cmd, specs, dir, fallback, ok := rvlVisualVerify(env, abs(wt), unchanged("")); !ok && list == "visual" {
+			fmt.Fprintln(stdout, "- visual verify — not run: no `verify` row, `visual.verify` skipped, or no `ui paths` change")
+		} else if ok && list == "visual" && fallback != "" {
+			// /flow-fast and /flow-interactive set up no regression-checkout
+			// worktree; the main checkout holds a build that is not the
+			// change's (kan-1052 self-review, R1).
+			failed = 1
+			fmt.Fprintf(stdout, "- visual verify — not run: `regression checkout` %s holds no worktree on this branch; create it, and start the stack the `verify` row needs from it, then re-run\n", fallback)
+		} else if ok {
 			visualRan = true
 			// A `specs` row scopes the suite to the specs it maps; one that
 			// cannot run, or fails, blocks the list, and one that maps

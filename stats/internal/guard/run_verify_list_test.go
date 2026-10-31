@@ -89,8 +89,9 @@ func TestRunVerifyList(t *testing.T) {
 		var o, e bytes.Buffer
 		grc := Registry["run-verify-list"](gargs, Env{Getenv: getenv, Environ: func() []string { return goEnviron },
 			Dir: gr, Stdin: strings.NewReader("LEAKED-STDIN\n")}, &o, &e)
-		// The recording arguments postdate the bash (kan-1033): its usage line lacks them.
-		g := res{grc, strings.Replace(norm(gr, o.String(), e.String()), " [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]", "", 1)}
+		// The recording arguments (kan-1033) and the visual list (kan-1052
+		// self-review, F2) postdate the bash: its usage line lacks them.
+		g := res{grc, strings.NewReplacer(" [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]", "", "lint|test|visual", "lint|test").Replace(norm(gr, o.String(), e.String()))}
 
 		bargs := make([]string, len(args))
 		for i, a := range args {
@@ -745,12 +746,16 @@ func TestRunVerifyListKeepsSIGPIPEForCommands(t *testing.T) {
 	}
 }
 
-// TestRunVerifyListRunsTheVisualVerify pins verify-list-runs-visual: a `test`
-// list ends with the `## visual verification` `verify` row when the branch's
-// diff from its base touches `ui paths`, unless decision.json records the
-// visual verify skipped; a `lint` list never runs it.
-func TestRunVerifyListRunsTheVisualVerify(t *testing.T) {
-	t.Parallel()
+// rvlVisualRun runs runVerifyList's list on a fresh seed→origin→wt fixture:
+// a project whose `## lint` and `## test` lines `echo LIST-RAN`, with `ui
+// paths` `web/src/**` and the given `verify` and `specs` rows, and a `work`
+// branch committing file. decision, when set, is written to decision.json;
+// noOrigin drops the remote, so the base does not resolve; checkout declares
+// a `regression checkout` whose `work` worktree is appWT, unless noAppWT
+// leaves that checkout with no worktree on the branch. It returns the exit
+// code and stdout+stderr.
+func rvlVisualRun(t *testing.T, list, verify, file, decision, specs string, noOrigin, checkout, noAppWT bool) (rc int, out, appWT string) {
+	t.Helper()
 	repo, _ := filepath.Abs("../../..")
 	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"))
 	getenv := func(k string) string {
@@ -777,6 +782,54 @@ func TestRunVerifyListRunsTheVisualVerify(t *testing.T) {
 		}
 		return "## lint\n\n```bash\necho LIST-RAN\n```\n\n## test\n\n```bash\necho LIST-RAN\n```\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/src/**` |\n| `screenshots` | `web/tests/visual` |\n" + row + "\n| Command | Runs |\n|---------|------|\n| `verify` | `" + verify + "` |\n| `capture` | `true <spec>` |\n" + specsRow
 	}
+	base, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed, wt := filepath.Join(base, "seed"), filepath.Join(base, "wt")
+	app := filepath.Join(base, "app")
+	appWT = filepath.Join(base, "app-wt")
+	checkoutPath := ""
+	if checkout {
+		checkoutPath = app
+		writeFile(t, filepath.Join(app, "a"), "x\n")
+		git(t, base, "init", "-q", "-b", "main", app)
+		git(t, app, "add", "-A")
+		git(t, app, "commit", "-q", "-m", "base")
+		if !noAppWT {
+			git(t, app, "worktree", "add", "-q", "-b", "work", appWT)
+		}
+	}
+	writeFile(t, filepath.Join(seed, ".flow/project.md"), project(verify, checkoutPath, specs))
+	writeFile(t, filepath.Join(seed, ".gitignore"), ".superpowers/\n")
+	git(t, base, "init", "-q", "-b", "main", seed)
+	git(t, seed, "add", "-A")
+	git(t, seed, "commit", "-q", "-m", "base")
+	if noOrigin {
+		git(t, base, "clone", "-q", seed, wt)
+		git(t, wt, "remote", "remove", "origin")
+	} else {
+		git(t, base, "clone", "-q", "--bare", seed, filepath.Join(base, "origin.git"))
+		git(t, base, "clone", "-q", filepath.Join(base, "origin.git"), wt)
+	}
+	git(t, wt, "checkout", "-q", "-b", "work")
+	writeFile(t, filepath.Join(wt, file), "x\n")
+	git(t, wt, "add", "-A")
+	git(t, wt, "commit", "-q", "-m", "change")
+	if decision != "" {
+		writeFile(t, filepath.Join(wt, ".superpowers/sdd/decision.json"), decision)
+	}
+	var o, e bytes.Buffer
+	rc = runVerifyList([]string{wt, list}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+	return rc, o.String() + e.String(), appWT
+}
+
+// TestRunVerifyListRunsTheVisualVerify pins verify-list-runs-visual: a `test`
+// list ends with the `## visual verification` `verify` row when the branch's
+// diff from its base touches `ui paths`, unless decision.json records the
+// visual verify skipped; a `lint` list never runs it.
+func TestRunVerifyListRunsTheVisualVerify(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name, verify, file, decision, list string
 		specs, wantOut                     string
@@ -800,43 +853,7 @@ func TestRunVerifyListRunsTheVisualVerify(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			base, err := filepath.EvalSymlinks(t.TempDir())
-			if err != nil {
-				t.Fatal(err)
-			}
-			seed, wt := filepath.Join(base, "seed"), filepath.Join(base, "wt")
-			app, appWT := filepath.Join(base, "app"), filepath.Join(base, "app-wt")
-			checkout := ""
-			if tc.checkout {
-				checkout = app
-				writeFile(t, filepath.Join(app, "a"), "x\n")
-				git(t, base, "init", "-q", "-b", "main", app)
-				git(t, app, "add", "-A")
-				git(t, app, "commit", "-q", "-m", "base")
-				git(t, app, "worktree", "add", "-q", "-b", "work", appWT)
-			}
-			writeFile(t, filepath.Join(seed, ".flow/project.md"), project(tc.verify, checkout, tc.specs))
-			writeFile(t, filepath.Join(seed, ".gitignore"), ".superpowers/\n")
-			git(t, base, "init", "-q", "-b", "main", seed)
-			git(t, seed, "add", "-A")
-			git(t, seed, "commit", "-q", "-m", "base")
-			if tc.noOrigin {
-				git(t, base, "clone", "-q", seed, wt)
-				git(t, wt, "remote", "remove", "origin")
-			} else {
-				git(t, base, "clone", "-q", "--bare", seed, filepath.Join(base, "origin.git"))
-				git(t, base, "clone", "-q", filepath.Join(base, "origin.git"), wt)
-			}
-			git(t, wt, "checkout", "-q", "-b", "work")
-			writeFile(t, filepath.Join(wt, tc.file), "x\n")
-			git(t, wt, "add", "-A")
-			git(t, wt, "commit", "-q", "-m", "change")
-			if tc.decision != "" {
-				writeFile(t, filepath.Join(wt, ".superpowers/sdd/decision.json"), tc.decision)
-			}
-			var o, e bytes.Buffer
-			rc := runVerifyList([]string{wt, tc.list}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
-			out := o.String() + e.String()
+			rc, out, appWT := rvlVisualRun(t, tc.list, tc.verify, tc.file, tc.decision, tc.specs, tc.noOrigin, tc.checkout, false)
 			if rc != tc.want {
 				t.Fatalf("exit %d, want %d\n%s", rc, tc.want, out)
 			}
@@ -851,6 +868,45 @@ func TestRunVerifyListRunsTheVisualVerify(t *testing.T) {
 			}
 			if tc.ran && strings.Index(out, "VISUAL-RAN") < strings.Index(out, "LIST-RAN") {
 				t.Fatalf("the visual verify ran before the list\n%s", out)
+			}
+		})
+	}
+}
+
+// TestRunVerifyListVisualList pins the kan-1052 self-review fix (F2): a
+// `visual` list runs the `verify` row alone, under the conditions a `test`
+// list's tail applies, never the `## lint` or `## test` commands, and prints a
+// not-run line and exits 0 when those conditions skip it.
+func TestRunVerifyListVisualList(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, verify, file, decision string
+		want                         int
+		ran, notRun, noAppWT         bool
+	}{
+		{"a ui change runs the verify row alone", "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", 0, true, false, false},
+		{"a failing verify row fails the list", "exit 1", "web/src/a.tsx", "", 1, false, false, false},
+		{"a change outside ui paths runs nothing", "echo VISUAL-RAN <specs>", "docs/a.md", "", 0, false, true, false},
+		{"a skipped visual verify runs nothing", "echo VISUAL-RAN <specs>", "web/src/a.tsx", `{"visual":{"verify":"skipped","reason":"r"}}`, 0, false, true, false},
+		// kan-1052 self-review R1: /flow-fast and /flow-interactive create no
+		// regression-checkout worktree; the row must never run from the main
+		// checkout, against a build that is not the change's.
+		{"a regression checkout with no worktree on the branch refuses", "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", 1, false, true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			rc, out, _ := rvlVisualRun(t, "visual", tc.verify, tc.file, tc.decision, "", false, tc.noAppWT, tc.noAppWT)
+			if rc != tc.want {
+				t.Fatalf("exit %d, want %d\n%s", rc, tc.want, out)
+			}
+			if strings.Contains(out, "VISUAL-RAN") != tc.ran {
+				t.Fatalf("VISUAL-RAN printed = %v, want %v\n%s", !tc.ran, tc.ran, out)
+			}
+			if strings.Contains(out, "LIST-RAN") {
+				t.Fatalf("a visual list ran a lint or test command\n%s", out)
+			}
+			if strings.Contains(out, "- visual verify — not run") != tc.notRun {
+				t.Fatalf("not-run line printed = %v, want %v\n%s", !tc.notRun, tc.notRun, out)
 			}
 		})
 	}
