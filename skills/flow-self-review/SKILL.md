@@ -43,6 +43,7 @@ is a file in `<sr-dir>`, `<state-dir>/self-review/<name>/`, `<state-dir>` being 
 state dir` prints — outside every checkout, never committed. This session reads each dispatch's
 hand-back, never the files it names, save where a step below says it reads one; every judgement —
 `big`, filing, landing, and when a step runs again — stays this session's.
+Before the pass is dispatched, this session empties `<sr-dir>` of every file but `bundle.md`, so a re-run never fills an earlier run's draft or copies its cases.
 
 Dispatch the pass, in-run and standalone alike: key `self-review-<name>-pass`, on the `pass` row
 of **Allowed pairs** (`skills/flow-contracts/model-policy.md`), its prompt naming the bundle's path — `<bundle>`
@@ -568,7 +569,7 @@ title:
 An angle-7 candidate is a `noted` line naming its kind and whether the operator chose to mine
 it, its template's fields beneath it as indented sub-bullets.
 
-Delete `<bundle>`; a pass inside a run has no bundle file and commits the report alone, per its
+Delete `<bundle>` standalone, and `<sr-dir>` in-run and standalone alike once the report lands; a pass inside a run commits the report alone, per its
 run's own section. `land-self-review-report.sh` runs `<project>/scripts/check-self-review-report.sh` over the
 report's directory when `<repo>` carries that script, and refuses a violation —
 `LAND-REPORT-INVALID`, exit 5, nothing committed: fix the lines the check names and land again.
