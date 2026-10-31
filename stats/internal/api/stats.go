@@ -839,11 +839,12 @@ func planTasks(r store.LiveStateRow, saved savedFile) []taskDTO {
 // change self-review-<name>, from that sub-run's own worktrees first, then
 // the change's. A task is done when
 // ticked, pending otherwise: a running dispatch's task id does not say which
-// of the two plans it belongs to.
-func selfReviewTasks(r store.LiveStateRow, saved savedFile) []taskDTO {
+// of the two plans it belongs to. Nothing saves that plan, so a finished
+// change shows none.
+func selfReviewTasks(r store.LiveStateRow) []taskDTO {
 	sub := r
 	sub.RepoRoots = append(slices.Clone(r.SelfReviewRoots), r.RepoRoots...)
-	return readPlan(sub, "self-review-"+r.Name, saved, func(string) string { return "pending" })
+	return readPlan(sub, "self-review-"+r.Name, nil, func(string) string { return "pending" })
 }
 
 // readPlan parses change name's tasks.md for row r, nil when no root holds
@@ -940,7 +941,7 @@ func toStateBoardDTOs(rows []store.LiveStateRow, saved savedFile) []stateBoardRo
 			LastStageEndedAt:      rfc3339OrNil(r.LastStageEndedAt),
 			DoneTasks:             r.DoneTasks,
 			Tasks:                 tasks,
-			SelfReviewTasks:       selfReviewTasks(r, saved),
+			SelfReviewTasks:       selfReviewTasks(r),
 			Subagents:             r.Subagents,
 			SessionSeenAt:         rfc3339OrNil(r.SessionSeenAt),
 			OpenStageDispatches:   r.OpenStageDispatches,

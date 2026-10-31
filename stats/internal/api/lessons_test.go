@@ -52,7 +52,7 @@ func TestLessonsResolveServesScannedAnswer(t *testing.T) {
 	body := string(raw)
 	for _, want := range []string{
 		"# Lessons: flake-bisection",
-		"found: 1 briefs, 0 narrative mentions",
+		"found: 1 briefs",
 		"# Flake bisection brief",
 	} {
 		if !strings.Contains(body, want) {

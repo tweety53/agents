@@ -61,7 +61,7 @@ func TestSelfReviewTasks(t *testing.T) {
 		CommittedTasks: []string{"2"},
 		Subagents:      []store.ActiveDispatch{{Role: "implementer", TaskID: &two}},
 	}
-	got := selfReviewTasks(row, nil)
+	got := selfReviewTasks(row)
 	if len(got) != 2 || got[0] != (taskDTO{N: 1, Title: "Fix A", State: "done"}) || got[1] != (taskDTO{N: 2, Title: "Fix B", State: "pending"}) {
 		t.Fatalf("selfReviewTasks = %+v", got)
 	}
@@ -82,7 +82,7 @@ func TestSelfReviewTasksFromSubRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	row := store.LiveStateRow{Name: "kan-1", State: store.StateInProgress, RepoRoots: []string{t.TempDir()}, SelfReviewRoots: []string{sub}}
-	if got := selfReviewTasks(row, nil); len(got) != 1 || got[0] != (taskDTO{N: 1, Title: "Fix A", State: "pending"}) {
+	if got := selfReviewTasks(row); len(got) != 1 || got[0] != (taskDTO{N: 1, Title: "Fix A", State: "pending"}) {
 		t.Fatalf("selfReviewTasks = %+v", got)
 	}
 }
@@ -92,18 +92,15 @@ func TestSelfReviewTasksFromSubRun(t *testing.T) {
 // scoped to that change and never for the whole board.
 func TestFinishedPlanReadOnlyWhenScoped(t *testing.T) {
 	row := store.LiveStateRow{ProjectKey: "p", Name: "kan-1", State: store.StateFinished, RepoRoots: []string{filepath.Join(t.TempDir(), "gone-worktree")}}
-	saved := savedPlans(map[string]string{"kan-1": "- [x] 1. One\n", "self-review-kan-1": "- [x] 1. One\n"})
+	saved := savedPlans(map[string]string{"kan-1": "- [x] 1. One\n"})
 	if got := planTasks(row, saved); len(got) != 1 || got[0] != (taskDTO{N: 1, Title: "One", State: "done"}) {
 		t.Fatalf("scoped planTasks = %+v", got)
 	}
-	if got := selfReviewTasks(row, saved); len(got) != 1 {
-		t.Fatalf("scoped selfReviewTasks = %+v", got)
-	}
-	if planTasks(row, nil) != nil || selfReviewTasks(row, nil) != nil {
+	if planTasks(row, nil) != nil || selfReviewTasks(row) != nil {
 		t.Errorf("the whole board read a finished change's plan")
 	}
 	dtos := toStateBoardDTOs([]store.LiveStateRow{row}, saved)
-	if len(dtos[0].Tasks) != 1 || len(dtos[0].SelfReviewTasks) != 1 {
+	if len(dtos[0].Tasks) != 1 || dtos[0].SelfReviewTasks != nil {
 		t.Errorf("scoped board DTO = %+v", dtos[0])
 	}
 	if dtos := toStateBoardDTOs([]store.LiveStateRow{row}, nil); dtos[0].Tasks != nil {

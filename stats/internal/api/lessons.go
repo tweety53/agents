@@ -20,8 +20,7 @@ type lessonsStore interface {
 
 // lessonsHandler serves GET /api/v1/lessons/resolve?topic=<words>: the
 // process-lesson answer assembled server-side — every registered project's
-// docs/briefs/ and archived narratives scanned for the topic, briefs
-// ranked before narrative mentions, rendered as one Markdown document.
+// docs/briefs/ scanned for the topic, rendered as one Markdown document.
 // The CLI transports the result and constructs none of it, the
 // record-render rule.
 type lessonsHandler struct {

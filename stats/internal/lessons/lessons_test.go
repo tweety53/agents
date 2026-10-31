@@ -58,8 +58,8 @@ func TestResolveAbsentDirsAreNotAnError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
-	if len(res.Briefs) != 0 || len(res.Mentions) != 0 {
-		t.Fatalf("got %d briefs, %d mentions; want none", len(res.Briefs), len(res.Mentions))
+	if len(res.Briefs) != 0 {
+		t.Fatalf("got %d briefs; want none", len(res.Briefs))
 	}
 	if len(res.Unreadable) != 0 {
 		t.Fatalf("unreadable = %v; an empty root is absent, not broken", res.Unreadable)
@@ -104,8 +104,8 @@ func TestResolveUnreadableFileIsReported(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
-	if len(res.Briefs) != 0 || len(res.Mentions) != 0 {
-		t.Fatalf("got %d briefs, %d mentions; an unreadable file is not a match", len(res.Briefs), len(res.Mentions))
+	if len(res.Briefs) != 0 {
+		t.Fatalf("got %d briefs; an unreadable file is not a match", len(res.Briefs))
 	}
 	for _, path := range []string{briefPath} {
 		if !containsPath(res.Unreadable, path) {

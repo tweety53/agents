@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestRenderBriefsThenMentions(t *testing.T) {
+func TestRenderBriefs(t *testing.T) {
 	res := &Result{
 		Topic: "flake-bisection",
 		Briefs: []Brief{{
@@ -15,28 +15,17 @@ func TestRenderBriefsThenMentions(t *testing.T) {
 			Title:   "Flake bisection brief",
 			Content: "# Flake bisection brief\n\nStart small.",
 		}},
-		Mentions: []Mention{{
-			Repo:   "/ws/gymie",
-			Change: "kan-527-fix-the-flake",
-			Path:   "spectre/changes/archive/kan-527-fix-the-flake/narrative.md",
-			Lines:  []string{"- bisected on the smallest pair"},
-		}},
 	}
 	out := Render(res)
 	for _, want := range []string{
 		"# Lessons: flake-bisection",
-		"found: 1 briefs, 1 narrative mentions",
+		"found: 1 briefs\n",
 		"## brief: gymie/docs/briefs/flake-bisection.md",
 		"# Flake bisection brief",
-		"## narrative: gymie/spectre/changes/archive/kan-527-fix-the-flake/narrative.md",
-		"- bisected on the smallest pair",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("render missing %q\n%s", want, out)
 		}
-	}
-	if strings.Index(out, "## brief:") > strings.Index(out, "## narrative:") {
-		t.Errorf("brief must render before any narrative mention\n%s", out)
 	}
 }
 
@@ -45,7 +34,7 @@ func TestRenderUnreadableNoteLeadsAndEmptyAnswerStatesItself(t *testing.T) {
 	if !strings.Contains(out, "note: /gone could not be read") {
 		t.Errorf("render missing the unreadable note\n%s", out)
 	}
-	if !strings.Contains(out, "found: 0 briefs, 0 narrative mentions") {
+	if !strings.Contains(out, "found: 0 briefs\n") {
 		t.Errorf("empty answer must state its own emptiness\n%s", out)
 	}
 	if strings.Contains(out, "## ") {

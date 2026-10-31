@@ -1,6 +1,5 @@
-// Package lessons resolves a process lesson — a durable brief or the
-// archived session narratives mentioning it — across every project the
-// store knows. It is the resolver side of the lessons home: a ticket that
+// Package lessons resolves a process lesson — a durable brief — across
+// every project the store knows. It is the resolver side of the lessons home: a ticket that
 // references a practice names it once and this package finds where the
 // practice is written down, instead of the caller searching repositories.
 //
@@ -8,7 +7,7 @@
 // the caller supplies -- never git history, since a change's directory is
 // never committed (KAN-1073) -- resolved fresh on every call — the same "the daemon reads the
 // repositories" shape the self-review bundle uses. An index that
-// materialized briefs or narrative mentions would go stale the moment a
+// materialized briefs would go stale the moment a
 // brief was edited outside it, which is the exact unreachability this
 // resolver exists to remove, so no lesson state is stored anywhere.
 package lessons
@@ -19,7 +18,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 )
 
 // Root is one project's main checkout the scan reads. It mirrors the
@@ -42,26 +40,13 @@ type Brief struct {
 	Content string
 }
 
-// Mention is one archived narrative whose content matches the topic.
-// Change is the archived change's directory name; Lines are the matching
-// lines, capped per narrative at matchLineCap, in file order.
-type Mention struct {
-	Repo    string
-	Change  string
-	Path    string
-	Lines   []string
-	ModTime time.Time
-}
-
-// Result is one Resolve call's answer: the briefs and narrative mentions
-// matching the topic, ranked — briefs first, then mentions newest-first —
-// plus the roots, or the individual files inside a readable root, that
+// Result is one Resolve call's answer: the briefs matching the topic, plus
+// the roots, or the individual files inside a readable root, that
 // could not be read, which are an environmental failure a caller must see
 // rather than an absence a caller could mistake for "no lesson exists".
 type Result struct {
 	Topic      string
 	Briefs     []Brief
-	Mentions   []Mention
 	Unreadable []string
 }
 
@@ -79,8 +64,7 @@ func Normalize(s string) string {
 	return strings.Join(strings.Fields(strings.ToLower(replacer.Replace(s))), " ")
 }
 
-// Resolve scans every root's docs/briefs/ for briefs matching topic;
-// Mentions stays empty, since no narrative is committed to read. A root that cannot be read at all is reported in Result's
+// Resolve scans every root's docs/briefs/ for briefs matching topic. A root that cannot be read at all is reported in Result's
 // Unreadable, never an error: one broken checkout must not silence the
 // others' answers. A single brief inside a readable root
 // whose read fails is reported there the same way — a permissions edge or
