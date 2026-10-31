@@ -287,11 +287,11 @@ func TestStageLeaderboardComputesMeanMedianP90(t *testing.T) {
 	}
 }
 
-// TestStageLeaderboardKeepsTopTenByTotalCost: the leaderboard ranks stages
-// by total cost and keeps only the ten costliest (design.md's
-// leaderboard-top10-total) -- eleven stages in, the cheapest is gone and
-// the rest arrive total-descending.
-func TestStageLeaderboardKeepsTopTenByTotalCost(t *testing.T) {
+// TestStageLeaderboardReturnsEveryCostedStage: the leaderboard ranks stages
+// by total cost and returns every costed one, uncapped (design.md's
+// leaderboard-transport-uncapped) -- eleven stages in, all eleven arrive
+// total-descending.
+func TestStageLeaderboardReturnsEveryCostedStage(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-leaderboard-top-%d", time.Now().UnixNano())
@@ -315,8 +315,8 @@ func TestStageLeaderboardKeepsTopTenByTotalCost(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StageLeaderboard: %v", err)
 	}
-	if len(rows) != 10 {
-		t.Fatalf("StageLeaderboard returned %d rows, want 10", len(rows))
+	if len(rows) != 11 {
+		t.Fatalf("StageLeaderboard returned %d rows, want 11", len(rows))
 	}
 	for k, row := range rows {
 		if want := fmt.Sprintf("stage-%02d", 10-k); row.Stage != want {
@@ -325,6 +325,58 @@ func TestStageLeaderboardKeepsTopTenByTotalCost(t *testing.T) {
 		if want := float64(11 - k); row.TotalCostUSD != want {
 			t.Errorf("rows[%d].TotalCostUSD = %v, want %v", k, row.TotalCostUSD, want)
 		}
+	}
+}
+
+// TestStageLeaderboardProjects: each project's spend in the window, over
+// the same costed-run filter as StageLeaderboard and with no project
+// restriction (design.md's leaderboard-project-spend-method) -- an
+// out-of-window run and an uncosted run add nothing, and a project with no
+// costed run in the window is absent.
+func TestStageLeaderboardProjects(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	suffix := time.Now().UnixNano()
+	projA := fmt.Sprintf("proj-lbp-a-%d", suffix)
+	projB := fmt.Sprintf("proj-lbp-b-%d", suffix)
+	projC := fmt.Sprintf("proj-lbp-c-%d", suffix)
+	// projD's only run is uncosted, so it is absent too -- not a zero row.
+	projD := fmt.Sprintf("proj-lbp-d-%d", suffix)
+	for _, p := range []string{projA, projB, projC, projD} {
+		seedChange(t, st, p, "kan-1")
+	}
+	at := func(day int) time.Time { return time.Date(2026, 6, day, 10, 0, 0, 0, time.UTC) }
+	run := func(project, session string, day int) store.BeginStageInput {
+		in := baseBeginInput(project, "kan-1", "/flow", "stage")
+		in.SessionID = ptr(session)
+		in.StartedAt = at(day)
+		return in
+	}
+	costRun(t, st, run(projA, "a1", 2), 3)
+	costRun(t, st, run(projA, "a2", 3), 1)
+	costRun(t, st, run(projB, "b1", 4), 2)
+	outside := run(projA, "a3", 2)
+	outside.StartedAt = time.Date(2026, 7, 2, 10, 0, 0, 0, time.UTC)
+	costRun(t, st, outside, 100)
+	metricsRun(t, st, run(projB, "b2", 5), map[string]any{"input_tokens": 10})
+	metricsRun(t, st, run(projD, "d1", 5), map[string]any{"input_tokens": 10})
+
+	got, err := st.StageLeaderboardProjects(ctx, store.Period{
+		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("StageLeaderboardProjects: %v", err)
+	}
+	var mine []store.ProjectSpend
+	for _, p := range got {
+		if p.ProjectKey == projA || p.ProjectKey == projB || p.ProjectKey == projC || p.ProjectKey == projD {
+			mine = append(mine, p)
+		}
+	}
+	want := []store.ProjectSpend{{ProjectKey: projA, TotalCostUSD: 4}, {ProjectKey: projB, TotalCostUSD: 2}}
+	if !slices.Equal(mine, want) {
+		t.Errorf("StageLeaderboardProjects = %+v, want %+v", mine, want)
 	}
 }
 

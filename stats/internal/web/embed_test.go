@@ -368,6 +368,10 @@ func (fakeStore) StageLeaderboard(context.Context, store.Period, *string, *strin
 	return nil, nil
 }
 
+func (fakeStore) StageLeaderboardProjects(context.Context, store.Period) ([]store.ProjectSpend, error) {
+	return nil, nil
+}
+
 func (fakeStore) WeeklyModelEffortCosts(context.Context, store.Period) ([]store.WeeklyModelEffortPoint, error) {
 	return nil, nil
 }

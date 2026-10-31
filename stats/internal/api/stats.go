@@ -54,6 +54,8 @@ type StatsStore interface {
 	SetSessionActivity(ctx context.Context, sessionID, state, detail string) error
 	CostPerChange(ctx context.Context, period store.Period, project, model, change *string) ([]store.CostPerChangeRow, error)
 	StageLeaderboard(ctx context.Context, period store.Period, project, model *string) ([]store.StageLeaderboardRow, error)
+	// StageLeaderboardProjects backs the stage-leaderboard response's projects (decision leaderboard-project-spend-method).
+	StageLeaderboardProjects(ctx context.Context, period store.Period) ([]store.ProjectSpend, error)
 	TrendOverTime(ctx context.Context, period store.Period, project, model *string) ([]store.TrendPoint, error)
 	WeeklyCosts(ctx context.Context, period store.Period, project, model *string) ([]store.WeeklyCostPoint, error)
 	// WeeklyModelEffortCosts backs the "weekly-model-effort-costs" view
@@ -208,6 +210,14 @@ type statsResponse struct {
 	Unmeasured         bool     `json:"unmeasured"`
 	ExcludedNoModel    *int     `json:"excludedNoModel,omitempty"`
 	Rows               any      `json:"rows"`
+	Projects           any      `json:"projects,omitempty"`
+}
+
+// projectSpendDTO is one entry of the stage-leaderboard response's projects:
+// a project's spend in the window, whatever project the rows narrow to.
+type projectSpendDTO struct {
+	ProjectKey   string  `json:"projectKey"`
+	TotalCostUSD float64 `json:"totalCostUsd"`
 }
 
 // parsePeriodAndProject parses the "from", "to" and "project" parameters
@@ -499,6 +509,19 @@ func (h *statsHandler) view(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp.Rows = rows
+	if name == viewStageLeaderboard {
+		spends, err := h.store.StageLeaderboardProjects(r.Context(), period)
+		if err != nil {
+			status, msg := mapStoreError(h.logger, "stage leaderboard projects", err)
+			writeError(w, status, msg)
+			return
+		}
+		projects := make([]projectSpendDTO, len(spends))
+		for i, p := range spends {
+			projects[i] = projectSpendDTO{ProjectKey: p.ProjectKey, TotalCostUSD: p.TotalCostUSD}
+		}
+		resp.Projects = projects
+	}
 	writeJSON(w, http.StatusOK, resp)
 }
 
