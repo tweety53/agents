@@ -158,8 +158,8 @@ committed with the plan.
 
 **Decision:** from-assigns-refs
 
-- [ ] 4. Admit a `full-suite-fix-<n>` key as a dispatch description's row
-  - [ ] **Step 1: Write the test.** `stats/internal/repotest/enforce_agent_baseline_hook_test.go`:
+- [x] 4. Admit a `full-suite-fix-<n>` key as a dispatch description's row
+  - [x] **Step 1: Write the test.** `stats/internal/repotest/enforce_agent_baseline_hook_test.go`:
     `TestEnforceAgentBaselineHookAdmitsFullSuiteFixKey`, on `TestEnforceAgentBaselineHookAdmitsRestKeys`'s
     shape — with an open row keyed `full-suite-fix-1`, a flow dispatch described
     `full-suite-fix-1 fix the failing suite` passes with no output; with an open row keyed
@@ -167,11 +167,11 @@ committed with the plan.
     naming `opens with the row it records`. Run
     `cd stats && go test ./internal/repotest -run 'TestEnforceAgentBaselineHookAdmitsFullSuiteFixKey' -count=1` — fails.
     <!-- measured: python3 -I loading hooks/enforce-agent-baseline.py: ROW_DESCRIPTION.match("full-suite-fix-1 fix the failing suite") is None, while "task-3+4-implementer-fix-1 x", "task-2-implementer-recommit-1 x" and "task-5+6-implementer-pick-1 x" match @ branch spectre/kan-1062-flow-implement-one-shot-subagents, before Task 4 -->
-  - [ ] **Step 2: Implement.** `hooks/enforce-agent-baseline.py`: `ROW_KEY` gains the alternative
+  - [x] **Step 2: Implement.** `hooks/enforce-agent-baseline.py`: `ROW_KEY` gains the alternative
     `full-suite-fix-\d+`, and the comment above it names `full-suite-fix-2` among its examples.
-  - [ ] **Step 3: Prove.** `scripts/break-and-prove.sh` dropping the alternative — the admit case of
+  - [x] **Step 3: Prove.** `scripts/break-and-prove.sh` dropping the alternative — the admit case of
     `TestEnforceAgentBaselineHookAdmitsFullSuiteFixKey` fails; restored, it passes.
-  - [ ] **Step 4: Verify.** `cd stats && go test ./internal/repotest -run 'TestEnforceAgentBaselineHook' -count=1 | tail -20`
+  - [x] **Step 4: Verify.** `cd stats && go test ./internal/repotest -run 'TestEnforceAgentBaselineHook' -count=1 | tail -20`
     passes; `scripts/check-python-suppressions.sh` exits 0. Commit.
 
 **Build:** green
