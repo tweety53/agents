@@ -315,7 +315,8 @@ func dropRepo(g Runner, repos []string, name string) (string, string) {
 }
 
 // dropRev returns the first revision in repo whose history holds the
-// change's drop commit: the change branch spectre/<name>, where run 1 drops
+// change's drop commit -- else, for a change landed before the drop, its
+// archive commit: the change branch spectre/<name>, where run 1 drops
 // it, while that branch exists; then origin/<base> and <base> — the base
 // being what origin/HEAD points at — once the branch has landed and been
 // removed, origin's tip first because the local base may lag it. "" when
@@ -325,11 +326,14 @@ func dropRev(g Runner, repo, name string) string {
 	if remote := trimmedOutput(g.Output(repo, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD")); strings.HasPrefix(remote, "origin/") {
 		revs = append(revs, remote, strings.TrimPrefix(remote, "origin/"))
 	}
-	subject := "chore(spectre): drop " + name
-	for _, rev := range revs {
-		log, err := g.Output(repo, "log", rev, "--format=%s", "--fixed-strings", "--grep="+subject)
-		if err == nil && slices.Contains(strings.Split(strings.TrimSpace(string(log)), "\n"), subject) {
-			return rev
+	// A change landed before the drop carries an archive commit instead;
+	// landed.Read serves its files from the archive.
+	for _, subject := range []string{"chore(spectre): drop " + name, "chore(spectre): archive " + name} {
+		for _, rev := range revs {
+			log, err := g.Output(repo, "log", rev, "--format=%s", "--fixed-strings", "--grep="+subject)
+			if err == nil && slices.Contains(strings.Split(strings.TrimSpace(string(log)), "\n"), subject) {
+				return rev
+			}
 		}
 	}
 	return ""

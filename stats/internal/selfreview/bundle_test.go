@@ -1141,3 +1141,22 @@ func TestBundleServesGatedReviewerFindings(t *testing.T) {
 		t.Errorf("panel section missing or carries the gated F1:\n%s", panel)
 	}
 }
+
+// TestDropRepoFindsPreDropArchive pins decision
+// archive-readers-empty-until-follow-up: a change landed before the drop
+// (an archive commit, no drop commit) still resolves its repository, so
+// landed.Read's archive fallback serves its files.
+func TestDropRepoFindsPreDropArchive(t *testing.T) {
+	repo := gitRepo(t)
+	runGit(t, repo, "checkout", "-b", "spectre/demo")
+	commitAll(t, repo, "spectre/changes/demo/tasks.md", "# demo tasks\n", "test: write demo's change files")
+	if err := os.MkdirAll(filepath.Join(repo, "spectre/changes/archive"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, repo, "mv", "spectre/changes/demo", "spectre/changes/archive/demo")
+	runGit(t, repo, "commit", "-q", "-m", "chore(spectre): archive demo")
+	runGit(t, repo, "checkout", "main")
+	if got, rev := dropRepo(ExecRunner{}, []string{repo}, "demo"); got != repo || rev != "spectre/demo" {
+		t.Fatalf("dropRepo = %q, %q; want %q, spectre/demo", got, rev, repo)
+	}
+}
