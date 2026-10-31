@@ -75,9 +75,8 @@ expanded first, so only names from outside the command count. Scripts are untouc
 sees the typed Bash command, never what a script it calls runs.
 
 Allowed everywhere: reads, `git pull --ff-only`, `git fetch`, `git checkout -b`, `git switch -c`,
-`git worktree add`, `git push`, and the landing scripts (`land-self-review-report.sh`,
-`refresh-main-checkout.sh`) — they are not `git` verbs in the command text, and each owns its own
-main-checkout rules.
+`git worktree add`, `git push`, and the landing script `refresh-main-checkout.sh` — it is not a
+`git` verb in the command text, and owns its own main-checkout rules.
 
 Denies, never rewrites: the PreToolUse contract cannot change tool input, so the deny reason
 names the worktree command to use instead.

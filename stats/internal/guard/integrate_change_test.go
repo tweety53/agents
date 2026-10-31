@@ -82,6 +82,7 @@ case "\$1 \$2" in
   "state dir") echo "$WORK/statedir" ;;
   "state list") echo '{"source":"store","complete":true,"records":[{"name":"demo"}]}' ;;
   "stage begin"|"stage end") echo "\$*" >>"$WORK/stages.log" ;;
+  "stage completed") [ -f "$WORK/sr-unreachable" ] && exit 2; [ -f "$WORK/sr-completed" ] ;;
   "stage sessions") [ -f "$WORK/fail-sessions" ] && exit 1; if [ "\$6" = flow.document-fix ]; then cat "$WORK/fix-sessions" 2>/dev/null || echo 0; else echo 0; fi ;;
   "record findings") [ -f "$WORK/fail-findings" ] && exit 1; echo '[]' ;;
   "self-review findings") cat "$WORK/sr-findings.json" 2>/dev/null || echo '[]' ;;
@@ -111,30 +112,20 @@ to_land() {
   check "${1}commit exits 0" '[ "$RC" -eq 0 ]'
   [ "$RC" -eq 0 ] || halt commit
   [ "${2:-}" = no-report ] && return 0
-  mkdir -p "$WORK/a-worktrees/demo/docs/self-review"
-  printf '# demo self-review\n' >"$WORK/a-worktrees/demo/docs/self-review/demo-self-review.md"
-  g -C "$WORK/a-worktrees/demo" add docs/self-review/demo-self-review.md
-  g -C "$WORK/a-worktrees/demo" commit -qm "docs(self-review): demo self-review report"
+  touch "$WORK/sr-completed"
 }
 peer_fix_case() {
   to_land "$1" no-report
   printf 'fix\n' >"$WORK/b-worktrees/demo/fix-b.txt"
   g -C "$WORK/b-worktrees/demo" add fix-b.txt && g -C "$WORK/b-worktrees/demo" commit -qm "fix(b): the peer fix"
   old="$(git -C "$WORK/b-worktrees/demo" rev-parse --short HEAD)"
-  mkdir -p "$WORK/a-worktrees/demo/docs/self-review"
-  printf '# demo self-review\n\n- **[flow-fix]** the peer fix — fixed: %s\n' "$old" >"$WORK/a-worktrees/demo/docs/self-review/demo-self-review.md"
-  g -C "$WORK/a-worktrees/demo" add docs/self-review/demo-self-review.md
-  g -C "$WORK/a-worktrees/demo" commit -qm "docs(self-review): demo self-review report"
+  touch "$WORK/sr-completed"
   printf 'moved\n' >"$WORK/b/moved.txt"
   g -C "$WORK/b" add moved.txt && g -C "$WORK/b" commit -qm "base: moved" && g -C "$WORK/b" push -q origin main
   sut land "$WORK/a" demo
   new="$(git --git-dir="$WORK/b-origin.git" log --format=%h --grep="^fix(b): the peer fix$" -1 main)"
   check "${1}land exits 0" '[ "$RC" -eq 0 ]'
   check "${1}the re-sync rewrote b's fix sha" '[ -n "$new" ] && [ "$new" != "$old" ]'
-  check "${1}the report on a's origin main names the rewritten sha" \
-    'git --git-dir="$WORK/a-origin.git" show main:docs/self-review/demo-self-review.md | grep -q "fixed: $new$"'
-  check "${1}a fixed row is recorded for b's fix" \
-    'grep -q -- "-disposition fixed -ref $new " "$WORK/fixed.log"'
 }
 ui_a() {
   printf '\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| ` + "`" + `ui paths` + "`" + ` | ` + "`" + `work-a.txt` + "`" + ` |\n' >>"$WORK/a-worktrees/demo/.flow/project.md"
@@ -272,16 +263,13 @@ sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b
 check "commit exits 0" '[ "$RC" -eq 0 ]'
 check "commit ends on NEXT: self-review" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: run the self-review pass"'
 [ "$RC" -eq 0 ] || halt commit
-mkdir -p "$WORK/a-worktrees/demo/docs/self-review"
-printf '# demo self-review\n' >"$WORK/a-worktrees/demo/docs/self-review/demo-self-review.md"
-g -C "$WORK/a-worktrees/demo" add docs/self-review/demo-self-review.md
-g -C "$WORK/a-worktrees/demo" commit -qm "docs(self-review): demo self-review report"
+touch "$WORK/sr-completed"
 
 sut land "$WORK/a" demo
 check "land exits 0" '[ "$RC" -eq 0 ]'
 [ "$RC" -eq 0 ] || halt land
-check "a's origin main carries implementation, plan, drop and report commits" \
-  '[ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -4 | tr "\n" "|")" = "docs(self-review): demo self-review report|chore(spectre): drop demo|chore(spectre): plan demo|feat(a): do the work|" ]'
+check "a's origin main carries implementation, plan and drop commits" \
+  '[ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -3 | tr "\n" "|")" = "chore(spectre): drop demo|chore(spectre): plan demo|feat(a): do the work|" ]'
 check "a's origin main holds neither the change directory nor an archive" \
   '[ -z "$(git --git-dir="$WORK/a-origin.git" ls-tree -d main spectre/changes/demo spectre/changes/archive)" ]'
 check "b's origin main carries its implementation commit" \

@@ -264,7 +264,7 @@ check "case 15d: called from a different repository carrying scripts/check-x.sh,
 #     deriving its root.
 for shim in check-ask-silence check-dispatch-paragraphs check-guard-symlinks \
   check-installed-citations check-plan-provenance check-references \
-  check-self-review-report check-stage-mark-calls check-verbatim-moves; do
+  check-stage-mark-calls check-verbatim-moves; do
   call="$(grep -n -x 'flow_guard_cwd_checkout "${BASH_SOURCE\[0\]}" "\$@"' "$REPO/scripts/$shim.sh" | cut -d: -f1)"
   root="$(grep -n -E '^(FLOW_GUARD_REPO_ROOT|root)=' "$REPO/scripts/$shim.sh" | head -1 | cut -d: -f1)"
   [ -n "$call" ] && [ -n "$root" ] && [ "$call" -lt "$root" ]
