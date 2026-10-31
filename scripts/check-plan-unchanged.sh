@@ -23,8 +23,8 @@
 #             (`- [ ] ` to `- [x] `, the parent's `flow tasks tick` during
 #             the flight) is not a change, any other difference is
 #
-# THE GUARD IS SCOPED TO THE PLAN TREE (`spectre/changes/<name>/`, which a
-# fix run after run 1's drop commit restores before writing), deliberately, and never asserts HEAD or the rest of the worktree: a
+# THE GUARD IS SCOPED TO THE PLAN TREE (`spectre/changes/<name>/`, on disk
+# and gitignored), deliberately, and never asserts HEAD or the rest of the worktree: a
 # gated reviewer bundle flies BESIDE the next implementer group (implement.md's
 # bundled dispatch), whose source edits and commits legitimately move
 # everything else while the reviewer is in flight — a whole-worktree assert

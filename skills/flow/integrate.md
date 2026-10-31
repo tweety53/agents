@@ -133,7 +133,7 @@ subject for it and `commit` asks none. On **Continue** at **1** the implementati
 lists the outstanding work: pass it as `--outstanding <text>`, which `commit` writes into that
 commit's body as `Outstanding: <text>`.
 
-`commit` reshapes, renders the ledger, runs the two-commit chain per worktree in `## Merge order`
+`commit` reshapes, renders the ledger, runs the guarded commit chain per worktree in `## Merge order`
 and pushes each reshaped branch `--force-with-lease` — per **Run 1 — the branch is not merged**
 (`skills/flow-contracts/finish-contract-run1.md`). Every stop there — `reshape`, `commit-split`,
 `push`, `pre-reshape` — is reported with the script's lines and leaves the change at

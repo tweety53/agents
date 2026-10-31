@@ -54,11 +54,11 @@ One round runs these steps in order:
    made at the human gate. The appended task carries the field family the verification-change
    paragraph of **D. Basic Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`)
    states for a found defect, and its title reads `In-run fix <k> — <stage>: <the defects>`, `<k>`
-   this stage's round in this run. On a `flow.visual-verify` round its `**Files:**` lists the
-   change's `<changeRoot>/visual-verification.md` beside the fix's own paths, and the task rewrites
-   the record's sections its fix changes in the same commit, as DRIFT CHECK
-   (`skills/flow/implement.md`) requires (kan-1038). `<changeRoot>/visual-verification.md` is
-   written on disk only — the change directory is gitignored — and `close-task` runs the plan guard on
+   this stage's round in this run. On a `flow.visual-verify` round the task rewrites, beside the
+   fix's own paths, the sections of `<changeRoot>/visual-verification.md` its fix changes, as DRIFT
+   CHECK (`skills/flow/implement.md`) requires (kan-1038); the record is never in its `**Files:**`
+   — it is written on disk only, the change directory gitignored, and stage-task-files.sh refuses
+   an ignored path — and `close-task` runs the plan guard on
    the task before ticking it (kan-1046 self-review, 1f). The round's evidence directory,
    `<changeRoot>/visual-verification/`, is never named in the task's `**Files:**` or
    `**Allowed-collateral:**` — `check-plan-shape` F23 refuses it and
