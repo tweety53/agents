@@ -15,6 +15,22 @@ import (
 // git fixtures copied from one base repository (trBase). The harness's two
 // wrapper cases -- a flow-guard that cannot be built, a missing
 // lib/flow-guard.sh -- exec a copy of the real shim.
+// TestCheckTaskRecordsIgnoresArchiveDir pins that an archive/<n>/tasks.md
+// on the branch -- base lacking it -- is never checked: run 1 drops a
+// change's directory, so no plan in flight sits under archive/.
+func TestCheckTaskRecordsIgnoresArchiveDir(t *testing.T) {
+	t.Parallel()
+	fx := trRepo(t)
+	gitRun(t, fx.root, "update-ref", "refs/remotes/origin/main", "HEAD")
+	fx.archived("new-change", " ", "feat(a): ghost")
+	fx.commitAll("chore(spectre): archive new-change")
+	fx.commitFile("src/f1.go", "feat(a): ghost")
+	r := runGuard("check-task-records", []string{fx.root}, Env{Getenv: os.Getenv})
+	if r.rc != 0 || r.out != "" {
+		t.Fatalf("rc=%d out=%q; want 0 and nothing: an archived plan is never read", r.rc, r.out)
+	}
+}
+
 func TestCheckTaskRecords(t *testing.T) {
 	t.Parallel()
 	type check struct{ label, fail string }
@@ -134,19 +150,6 @@ func TestCheckTaskRecords(t *testing.T) {
 	want("case 15 plan archived at the base ignored", r.rc == 0 && r.out == "", r)
 
 	fx = trRepo(t)
-	fx.archived("new-change", " ", "feat(a): ghost")
-	fx.commitAll("chore(spectre): archive new-change")
-	fx.commitFile("src/f1.go", "feat(a): ghost")
-	r = run(Env{}, fx.root)
-	want("case 15b plan archived on this branch checked", r.rc == 1 && has(r, "spectre/changes/archive/new-change/tasks.md: task 1 not ticked"), r)
-
-	fx = trRepo(t)
-	fx.archived("new-change", "x", "feat(a): collapsed")
-	fx.commitAll("chore(spectre): archive new-change")
-	r = run(Env{}, fx.root)
-	want("case 15c archived ticked task with a collapsed commit reads clean", r.rc == 0 && r.out == "", r)
-
-	fx = trRepo(t)
 	fx.task(1, "x", "feat(a): twelve", "green")
 	fx.commitAll("docs(plan): fixture plan")
 	fx.commitFile("src/f1.go", "feat(a): twelve")
@@ -213,7 +216,7 @@ func TestCheckTaskRecords(t *testing.T) {
 	}, fx.root)
 	want("case 20 peer state read follows FLOW_RECORDS_ADDR", r.rc == 0 && r.out == "", r)
 
-	// Unlanded archives: a shim copy with no stats/ beside it cannot build
+	// The shim: a copy with no stats/ beside it cannot build
 	// flow-guard; the same copy with no lib/flow-guard.sh cannot load it.
 	u := t.TempDir()
 	mkdir(t, u+"/root/spectre/changes/some-change")
@@ -221,12 +224,12 @@ func TestCheckTaskRecords(t *testing.T) {
 	psCopy(t, psScripts+"/lib/flow-guard.sh", u+"/scripts/lib/flow-guard.sh")
 	uenv := []string{"FLOW_GUARD_CACHE_DIR=" + t.TempDir()}
 	r = psExec(t, uenv, u+"/scripts/check-task-records.sh", u+"/root")
-	want("unlanded archives: flow-guard that cannot be built exits 2", r.rc == 2 && has(r, "check-task-records: cannot build flow-guard"), r)
+	want("shim: flow-guard that cannot be built exits 2", r.rc == 2 && has(r, "check-task-records: cannot build flow-guard"), r)
 	if err := os.Remove(u + "/scripts/lib/flow-guard.sh"); err != nil {
 		t.Fatal(err)
 	}
 	r = psExec(t, uenv, u+"/scripts/check-task-records.sh", u+"/root")
-	want("unlanded archives: a missing lib/flow-guard.sh exits 2", r.rc == 2 && r.err == "check-task-records: cannot load lib/flow-guard.sh beside "+u+"/scripts/check-task-records.sh\n", r)
+	want("shim: a missing lib/flow-guard.sh exits 2", r.rc == 2 && r.err == "check-task-records: cannot load lib/flow-guard.sh beside "+u+"/scripts/check-task-records.sh\n", r)
 
 	// Beyond the harness: the outputs it never pinned, as the wrapper and
 	// check-task-records.py printed them at bbfe685e.

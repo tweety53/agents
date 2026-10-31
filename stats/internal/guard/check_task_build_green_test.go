@@ -102,19 +102,6 @@ func TestCheckTaskBuildGreen(t *testing.T) {
 	want("case 14: surfaces change-b's own violation", has(r, "change-b/tasks.md:1: task 1 has no **Build:** tag"), r)
 	want("case 14: archived tasks.md excluded from the scan", !has(r, "archive/"), r)
 
-	// Case 14b: an archived change joins the scan only while the base lacks it.
-	root = t.TempDir()
-	untagged := "- [ ] 1. Archived, untagged\n\nNo tag here.\n"
-	writeFile(t, root+"/spectre/changes/archive/landed-change/tasks.md", untagged)
-	gitRun(t, root, "init", "-q", "-b", "main")
-	gitRun(t, root, "add", "-A")
-	gitRun(t, root, "commit", "-qm", "chore(spectre): archive landed-change")
-	writeFile(t, root+"/spectre/changes/archive/new-change/tasks.md", untagged)
-	r = scan(root)
-	want("case 14b: an archived change the base lacks is scanned", r.rc == 1, r)
-	want("case 14b: names the unlanded archived change's violation", has(r, "archive/new-change/tasks.md:1: task 1 has no **Build:** tag"), r)
-	want("case 14b: an archived change the base carries stays out of the scan", !has(r, "landed-change"), r)
-
 	_, r = run("- [ ] 1. Red task\n\n**Build:** red\n\n**Squash-with:** Task 2\n\n- [ ] 2. Green partner\n\n**Build:** green\n")
 	want("case 15: partner read from Squash-with: passes", r.rc == 0, r)
 	clean("15", r)

@@ -97,18 +97,6 @@ func TestPlanDispatchBundles(t *testing.T) {
 	want("pin: the symlinked shim's violation names the real root's file on stderr", r.stdout == "" &&
 		strings.HasSuffix(r.err, sandbox+"/spectre/changes/some-change/tasks.md:1: task 1 has no **Files:** field\n") && strings.Count(r.err, "\n") == 1, r)
 
-	// Case 11b: an archived change joins the scan only while the base lacks it.
-	root := t.TempDir()
-	writeFile(t, root+"/spectre/changes/archive/landed-change/tasks.md", fieldless)
-	gitRun(t, root, "init", "-q", "-b", "main")
-	gitRun(t, root, "add", "-A")
-	gitRun(t, root, "commit", "-qm", "chore(spectre): archive landed-change")
-	writeFile(t, root+"/spectre/changes/archive/new-change/tasks.md", fieldless)
-	r = scan(map[string]string{"PLAN_DISPATCH_BUNDLES_ROOT": root})
-	want("case 11b: an archived change the base lacks is scanned", r.rc == 1, r)
-	want("case 11b: names the unlanded archived change's violation", has(r, "archive/new-change/tasks.md:1: task 1 has no **Files:** field"), r)
-	want("case 11b: an archived change the base carries stays out of the scan", !has(r, "landed-change"), r)
-
 	_, r = run("- [ ] 1. The only real task\n\n**Files:**\n- Create: `a.txt`\n\n### 2 A heading, not a task\n\nNo Files field here at all.\n")
 	want("case 12: a level-3 heading opens no task", r.rc == 0, r)
 	want("case 12: only the checkbox task bundles", r.out == "bundle 1: 1\nafter 1: none", r)
@@ -205,7 +193,7 @@ func TestPlanDispatchBundles(t *testing.T) {
 	_, r = run("- [ ] 1. A\n\n**Files:** `inline.txt`\n-   Delete:   plain path  \n```\n- `fenced.txt`\n```\n- Create: `x.txt`\n\n" +
 		"- [ ] 2. B\n\n**Files:**\n- plain path\n\n- [ ] 3. C\n\n**Files:**\n- `fenced.txt`\n- `inline.txt`\n\n- [ ] 4. D\n\n**Files:**\n- `x.txt`\n")
 	want("pin: Files bullets parse as the Python's BULLET_RE did", r.rc == 0 && r.out == "bundle 1: 1 2 4\nafter 1: 1 2 3\nbundle 2: 3\nafter 2: 1 2", r)
-	root = t.TempDir()
+	root := t.TempDir()
 	writeFile(t, root+"/spectre/changes/a/tasks.md", tk("1", "a.txt"))
 	writeFile(t, root+"/spectre/changes/b/tasks.md", "- [ ] 1. \xff\n")
 	writeFile(t, root+"/spectre/changes/c/tasks.md", fieldless)

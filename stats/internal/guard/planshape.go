@@ -29,11 +29,9 @@ import (
 // parser identity is structural (one function), never asserted.
 //
 // Arguments: one tasks.md path checks that file; none scans every live
-// change's <spec-root>/changes/*/tasks.md under the repository root, plus
-// that of every archived change under changes/archive/ the base does not
-// carry yet (unlandedArchives) -- an archived change archived on this
-// branch by integrate's run 1, then written into by a fix run, is still
-// this branch's work; every archive the base carries stays out. The root
+// change's <spec-root>/changes/*/tasks.md under the repository root --
+// never the archive/ entry, since run 1 drops a change's directory rather
+// than moving it. The root
 // is CHECK_PLAN_SHAPE_ROOT when set (a harness's sandboxed fixture tree),
 // else FLOW_GUARD_REPO_ROOT, which scripts/check-plan-shape.sh exports from
 // its own real location -- so a run through the shipped

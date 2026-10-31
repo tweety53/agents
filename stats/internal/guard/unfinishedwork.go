@@ -447,12 +447,12 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		// (decision uw-verify-row-after-code): the newest commit outside
 		// `<spec root>/changes/` in any range, authored after the newest
 		// completed `verify`/`verify-…` verifier row, or with none at all —
-		// run 1's reshaped `Flow-Key: flow.commit-two` commit excepted. An
-		// archived change's re-run is not asked: its verification ran before
-		// the archive. A `skipped` row counts as completed: it only ends a test
+		// run 1's reshaped `Flow-Key: flow.commit-two` commit excepted. A
+		// re-run after the drop is judged from the drop commit on, so only
+		// a fix run's own code asks for a newer verify row. A `skipped` row counts as completed: it only ends a test
 		// group whose every command was unchanged since a green clean run
 		// (decision f1-skipped-is-verified, kan-1037).
-		if len(ranges) > 0 && !strings.Contains(planDir+"/", "/changes/archive/") {
+		if len(ranges) > 0 {
 			var lastVerify int64 = -1
 			for _, d := range dispatches {
 				if d.Role == "verifier" && (d.Outcome == "completed" || d.Outcome == "skipped") && (d.Key == "verify" || strings.HasPrefix(d.Key, "verify-")) {
@@ -515,7 +515,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		// back-fills under the real round's key on that commit. HEAD and the
 		// pre-reshape pin are both read, since after the reshape the change's
 		// earlier commits are reachable from the pin alone.
-		if len(ranges) > 0 && !strings.Contains(planDir+"/", "/changes/archive/") {
+		if len(ranges) > 0 {
 			keys := map[string]bool{}
 			for _, d := range dispatches {
 				keys[d.Key] = true
@@ -790,7 +790,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 					for _, id := range ctTaskNumberRE.FindAllString(out, -1) {
 						committed[id] = true
 					}
-					// An archived re-run's range starts at the archive: run 1
+					// A dropped re-run's range starts at the drop commit: run 1
 					// squashed the earlier task commits, trailers and all, and
 					// its gate already judged every task ticked in the plan
 					// as it stood there.

@@ -203,7 +203,7 @@ func ppCasesSyntaxToPass6() []ppCase {
 			ok(t, "an archived change the base carries is not scanned", r.rc == 0, r)
 			ppWrite(t, root, "spectre/changes/archive/new-change/tasks.md", "```bash\necho hi\n```\n")
 			r = ppRun(root)
-			ok(t, "an archived change the base lacks is scanned", r.rc == 1 && has(r.out, "spectre/changes/archive/new-change/tasks.md:1") && !has(r.out, "old-change"), r)
+			ok(t, "an archived change the base lacks is not scanned either", r.rc == 0 && !has(r.out, "archive/"), r)
 		}},
 		{"case 8", func(t *testing.T) {
 			root := ppFixture(t)

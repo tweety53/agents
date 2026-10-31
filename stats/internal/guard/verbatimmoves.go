@@ -51,7 +51,7 @@ var (
 // (`## …`) is listed as `\## …` rather than read as a comment. A sentence
 // in it is a rewording or deletion the change states it meant — the escape
 // a non-trim change needs, recorded in the change's own artifacts so it
-// archives with them and never outlives the change.
+// leaves with them when run 1 drops the change and never outlives it.
 const vmAckFile = "verbatim-moves.txt"
 
 func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
@@ -107,12 +107,7 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "check-verbatim-moves: no sentences under skills/, commands-claude/ or rules/ in %s — refusing to report a clean run\n", root)
 		return 2
 	}
-	archived, err := unlandedArchives(git, root, base)
-	if err != nil {
-		fmt.Fprintf(stderr, "check-verbatim-moves: %v\n", err)
-		return 2
-	}
-	acks, err := vmAcks(root, archived)
+	acks, err := vmAcks(root)
 	if err != nil {
 		fmt.Fprintf(stderr, "check-verbatim-moves: %v\n", err)
 		return 2
@@ -342,12 +337,11 @@ func vmCorpusAt(git func(...string) *exec.Cmd, root, commit string) (vmCorpus, v
 // vmAcks is every sentence listed in an in-flight change's acknowledgement
 // file — under <spec-root>/changes/<change>/, under a flow-fast run's
 // change root <worktree>/.superpowers/sdd/<change>/, which a flow-fast run
-// can write where it never writes <project>/spectre/, and under
-// <spec-root>/changes/archive/<change>/ for each archived change named —
-// the ones unlandedArchives finds absent from the base. A change archived at
-// the base is skipped: its acknowledgements were for a diff that has already
-// landed.
-func vmAcks(root string, archived []string) (map[string]bool, error) {
+// can write where it never writes <project>/spectre/. Nothing in the
+// changes tree's archive directory is read: run 1 drops a landed change's
+// directory, acknowledgements included, and an archive left from before
+// holds acknowledgements for a diff that has already landed.
+func vmAcks(root string) (map[string]bool, error) {
 	acks := map[string]bool{}
 	leaf := specRootLeaf(root, io.Discard)
 	patterns := []string{
@@ -361,9 +355,6 @@ func vmAcks(root string, archived []string) (map[string]bool, error) {
 			return nil, err
 		}
 		files = append(files, matches...)
-	}
-	for _, name := range archived {
-		files = append(files, filepath.Join(root, leaf, "changes", "archive", name, vmAckFile))
 	}
 	for _, m := range files {
 		b, err := os.ReadFile(m)

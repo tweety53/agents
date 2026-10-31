@@ -138,12 +138,6 @@ func TestCheckVerbatimMoves(t *testing.T) {
 				vmPipe: "# Pipeline\n\n" + vmTable + " Every row is a transition.\n\n" + vmWhy + "\n",
 			},
 			rc: 1, want: []string{"FAIL deleted or reworded :: " + vmMark}},
-		{name: "an acknowledgement in a change archived on this branch counts",
-			edit: map[string]string{
-				vmPipe: "# Pipeline\n\n" + vmTable + " Every row is a transition.\n\n" + vmWhy + "\n",
-				"spectre/changes/archive/demo/verbatim-moves.txt": vmMark + "\n",
-			},
-			rc: 0, want: []string{"ok   acknowledged removal", "0 violation(s)"}, reject: []string{"FAIL"}},
 		{name: "a new sentence listed in a flow-fast change's acknowledgement file passes",
 			edit: map[string]string{
 				vmPipe: vmBase[vmPipe] + "\n" + vmAdded + "\n",
@@ -209,6 +203,26 @@ func TestCheckVerbatimMoves(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestCheckVerbatimMovesReadsLiveAcksOnly pins where acknowledgements are
+// read: one sitting only under spectre/changes/archive/<change>/ -- even one
+// the base lacks -- acknowledges nothing, since run 1 drops a change's
+// directory and nothing in flight is written there; the same line in the
+// live change's file does.
+func TestCheckVerbatimMovesReadsLiveAcksOnly(t *testing.T) {
+	t.Parallel()
+	removed := "# Pipeline\n\n" + vmTable + " Every row is a transition.\n\n" + vmWhy + "\n"
+	root := vmRepo(t, vmBase)
+	writeFile(t, filepath.Join(root, vmPipe), removed)
+	writeFile(t, filepath.Join(root, "spectre/changes/archive/demo/verbatim-moves.txt"), vmMark+"\n")
+	if rc, out, errb := vmRun(root); rc != 1 || !strings.Contains(out, "FAIL deleted or reworded :: "+vmMark) {
+		t.Fatalf("archived ack: rc = %d, want 1 and the FAIL line\nstdout:\n%s\nstderr:\n%s", rc, out, errb)
+	}
+	writeFile(t, filepath.Join(root, "spectre/changes/demo/verbatim-moves.txt"), vmMark+"\n")
+	if rc, out, errb := vmRun(root); rc != 0 || !strings.Contains(out, "ok   acknowledged removal") {
+		t.Fatalf("live ack: rc = %d, want 0 and the acknowledgement\nstdout:\n%s\nstderr:\n%s", rc, out, errb)
 	}
 }
 

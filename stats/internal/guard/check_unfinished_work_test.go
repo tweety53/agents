@@ -401,11 +401,11 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		f.setFile(t, "dispatches.json", covered+"\n")
 		gitRun(t, "", "init", "-q", f.wt)
 		gitRun(t, f.wt, "add", "spectre/changes/demo/tasks.md")
-		gitRun(t, f.wt, "commit", "-q", "-m", "chore(spectre): archive demo")
+		gitRun(t, f.wt, "commit", "-q", "-m", "chore(spectre): drop demo")
 		base := tcfGit(t, f.wt, "rev-parse", "HEAD")
 		gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "fix: no trailer")
 		return f.run(t, f.wt, "demo", "", f.wt+"="+base)
-	}, uwVerdict("an appended task already ticked in the plan at an archived re-run's base needs no new commit", "CLEAR:"))
+	}, uwVerdict("an appended task already ticked in the plan at a dropped re-run's base needs no new commit", "CLEAR:"))
 	each(func(t *testing.T) uwResult {
 		f := newUW(t)
 		f.plan(t, "> **Tasks appended:** 1\n\n- [x] 7. appended by a fix run\n")
@@ -478,13 +478,6 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		uwVerdict("run 1's reshaped flow.commit-two commit after the verify row is CLEAR", "CLEAR:"))
 	each(demo(verified("spectre/changes/demo/tasks.md", before)),
 		uwVerdict("planning-only commits after the verify row are CLEAR", "CLEAR:"))
-	each(func(t *testing.T) uwResult {
-		f := newUWBare(t, t.TempDir())
-		f.setFindings(t, "fixed")
-		writeFile(t, f.wt+"/spectre/changes/archive/demo/tasks.md", "- [x] 1. done\n")
-		verified("src/a.go", before)(t, f)
-		return f.run(t, append([]string{f.wt, "demo", ""}, f.ranges...)...)
-	}, uwVerdict("an archived change is not asked for a verify row", "CLEAR:"))
 	uiCommit := func(t *testing.T, f *uwFix) {
 		writeFile(t, f.wt+"/.flow/project.md", "# project\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `src/web/**` |\n")
 		f.setFile(t, "decisions.json", "[]\n")
@@ -514,21 +507,6 @@ func TestCheckUnfinishedWork(t *testing.T) {
 	each(demo(unticked),
 		uwVerdict("an unchecked plan item is OUTSTANDING", "OUTSTANDING:"),
 		uwReason("an unchecked plan item names its signal", "unchecked plan item"))
-	// 3a. A change run 1 archived on its branch, with no live directory left,
-	//     is judged by its archived plan — the one a later fix run appends to.
-	archived := func(body string) func(t *testing.T) uwResult {
-		return func(t *testing.T) uwResult {
-			f := newUWBare(t, t.TempDir())
-			f.setFindings(t, "fixed")
-			writeFile(t, f.wt+"/spectre/changes/archive/demo/tasks.md", body)
-			return f.run(t, f.wt, "demo")
-		}
-	}
-	each(archived("- [x] 1.1 done\n"),
-		uwVerdict("an archived change whose plan is all checked is CLEAR", "CLEAR:"))
-	each(archived("- [x] 1.1 done\n- [ ] 2. appended by a fix run\n"),
-		uwVerdict("an unchecked item in an archived change's plan is OUTSTANDING", "OUTSTANDING:"),
-		uwReason("an archived change's unchecked item names its signal", "1 unchecked plan item(s)"))
 	// 3b. The same signal in a fix sub-change, both layouts.
 	each(demo(file("spectre/changes/demo-fix-1/tasks.md", "- [ ] 1.1 the fix is not done\n")),
 		uwVerdict("an unchecked item in a sibling fix sub-change is OUTSTANDING", "OUTSTANDING:"))

@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 	"syscall"
+
+	"github.com/tweety53/agents/stats/internal/landed"
 )
 
 // checkVisualVerifyDispatched is scripts/check-visual-verify-dispatched.sh:
@@ -141,8 +143,8 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		return exit
 	}
 	// A CHANGE'S OWN RECORDS ARE NOT UI WORK (kan-970 self-review): a
-	// satellite's every path matches a canonical `<repo>/**`, so the archive
-	// commit moving its `<spec root>/changes/<name>/link.md` read as a UI
+	// satellite's every path matches a canonical `<repo>/**`, so run 1's
+	// landing commit touching its `<spec root>/changes/<name>/link.md` read as a UI
 	// change after the verified HEAD and forced a re-verify of nothing.
 	// Paths under `<spec root>/changes/` are dropped before both the trigger
 	// question and the freshness intersection, as unfinishedwork.go's range
@@ -279,13 +281,16 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	// verifier that wrote visual-verification.md outside the change root,
 	// citing session-scratch captures, passed on its dispatch row alone and
 	// left the self-review bundle nothing to read. A found row counts only
-	// with `<spec root>/changes/<name>/visual-verification.md`, or its
-	// archived twin, in the worktree the store is read under -- the change
-	// root the verifier writes (skills/flow/visual-verify-verifier.md step 11).
+	// with `<spec root>/changes/<name>/visual-verification.md` in the
+	// worktree the store is read under -- the change root the verifier
+	// writes (skills/flow/visual-verify-verifier.md step 11) -- or, once run
+	// 1's drop commit removed that directory, in the drop commit's parent
+	// (stats/internal/landed): commit's pushes run this check after the drop.
 	missingRecord := ""
 	if found {
 		changes := anchor + "/" + specRootLeaf(anchor, io.Discard) + "/changes/"
-		if !isFile(changes+name+"/visual-verification.md") && !isFile(changes+"archive/"+name+"/visual-verification.md") {
+		_, inHistory, _ := landed.File(anchor, name, "visual-verification.md")
+		if !isFile(changes+name+"/visual-verification.md") && !inHistory {
 			found, missingRecord = false, changes+name+"/visual-verification.md"
 		}
 	}
@@ -333,7 +338,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	}
 	verdict := "VISUAL-VERIFY-MISSING: this change's diff touched a declared UI path but no completed or ended 'verifier' dispatch (key starting 'visual-verify') is recorded for '" + name + "' — flow.visual-verify's stage marks were written with no verifier ever dispatched, its report was never read to completion, or the dispatch's closing outcome was lost to a session restart"
 	if missingRecord != "" {
-		verdict = "VISUAL-VERIFY-MISSING: a verifier verified this change's HEAD but its record " + missingRecord + " (or its archive/ twin) is absent — the verifier writes it into the change root, every file it cites copied under visual-verification/evidence/ (skills/flow/visual-verify-verifier.md step 11)"
+		verdict = "VISUAL-VERIFY-MISSING: a verifier verified this change's HEAD but its record " + missingRecord + " (or its copy in the drop commit's parent) is absent — the verifier writes it into the change root, every file it cites copied under visual-verification/evidence/ (skills/flow/visual-verify-verifier.md step 11)"
 		lastHead = ""
 	} else if len(verifiers) > 0 {
 		verdict = "VISUAL-VERIFY-MISSING: a verifier dispatch is recorded for '" + name + "' but none verified a HEAD after this change's last UI-path commit — a row counts only with the -diff-base it verified, and only when no UI path this change touches changed since"
