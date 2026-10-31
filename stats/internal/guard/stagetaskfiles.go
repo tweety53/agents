@@ -3,6 +3,8 @@ package guard
 import (
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -37,7 +39,21 @@ func stageTaskFiles(args []string, env Env, stdout, stderr io.Writer) int {
 	// The excludes lead the paths: git 2.50.1 given the task's paths first
 	// and an exclude after them stages tracked paths alone and exits 0
 	// (kan-1012 self-review).
-	for _, step := range [][]string{append([]string{"reset", "-q", "--"}, stfPlanning...), append(add, files...)} {
+	// A path whose deletion is already staged is neither on disk nor in the
+	// index, and git add refuses it as an unmatched pathspec; it needs no add.
+	var addFiles []string
+	for _, f := range files {
+		if _, err := os.Lstat(filepath.Join(smcAbs(env, wt), f)); err == nil {
+			addFiles = append(addFiles, f)
+		} else if out, _ := panelGit(env, gitBin, wt, "ls-files", "--", f).Output(); len(out) > 0 {
+			addFiles = append(addFiles, f)
+		}
+	}
+	steps := [][]string{append([]string{"reset", "-q", "--"}, stfPlanning...)}
+	if len(addFiles) > 0 {
+		steps = append(steps, append(add, addFiles...))
+	}
+	for _, step := range steps {
 		if out, err := panelGit(env, gitBin, wt, step...).CombinedOutput(); err != nil {
 			fmt.Fprintf(stderr, "stage-task-files: git %s failed in %s:\n%s", step[0], wt, out)
 			return 2

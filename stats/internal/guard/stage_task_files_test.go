@@ -90,3 +90,31 @@ func TestStageTaskFilesSkipsAQuotedPlanningPath(t *testing.T) {
 		t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
 	}
 }
+
+// A named path already deleted -- by git rm or a plain rm -- is staged as
+// a deletion, not refused by git add's pathspec check.
+func TestStageTaskFilesStagesDeletedPaths(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	wt := dir + "/wt"
+	var g fxGit
+	g.git("", "init", "-q", "-b", "work", wt)
+	g.write(wt+"/gone-rm.txt", "base")
+	g.write(wt+"/gone-plain.txt", "base")
+	g.git(wt, "add", ".")
+	g.git(wt, "commit", "-qm", "base")
+	g.git(wt, "rm", "-q", "gone-rm.txt")
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	if err := os.Remove(wt + "/gone-plain.txt"); err != nil {
+		t.Fatal(err)
+	}
+	r := runGuard("stage-task-files", []string{wt, "gone-rm.txt", "gone-plain.txt"}, Env{Dir: dir, Getenv: os.Getenv})
+	if r.rc != 0 {
+		t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
+	}
+	if got, want := g.git(wt, "diff", "--cached", "--name-status"), "D\tgone-plain.txt\nD\tgone-rm.txt"; got != want {
+		t.Errorf("staged:\n%s\nwant:\n%s", got, want)
+	}
+}
