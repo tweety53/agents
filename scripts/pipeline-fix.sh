@@ -15,7 +15,8 @@
 #       origin/<default>`, <branch> pipeline-fix-<name>-<k> with <k>, else
 #       self-review-<name>; refuses a <k> that is not one more than the highest
 #       <n> of any pipeline-fix-*-<n> branch (local or remote) or change folder
-#       (spectre/changes/ or its archive/), so <k> is repo-unique; creates <worktree>/.superpowers/sdd/<branch>/ and the
+#       (live under spectre/changes/, or landed — a chore(spectre): drop or
+#       archive subject in the base's log), so <k> is repo-unique; creates <worktree>/.superpowers/sdd/<branch>/ and the
 #       loop's STARTED state record (flow state set); runs ## worktree setup.
 #       stdout: `worktree: <path>`.
 #   pipeline-fix.sh end <key> <outcome>
@@ -53,7 +54,8 @@
 #       route`; git fetch origin; a branch whose base moved is rebased onto
 #       origin/<default> (a stopped rebase is aborted); verify, always, before
 #       anything is pushed; refuses a spectre/changes/<branch>/ still in the
-#       branch's tree (unarchived); check-loop-landing's refusals; `git push
+#       branch's tree (undropped — git rm -r it and commit
+#       chore(spectre): drop <branch>); check-loop-landing's refusals; `git push
 #       origin <branch>:<default>`; the loop's FINISHED state record; `git
 #       pull --ff-only` in the main checkout; removes the worktree and the
 #       branch. stdout: `landed: <sha>`. When that pull succeeded and moved
