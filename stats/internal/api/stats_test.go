@@ -129,6 +129,7 @@ type statsFake struct {
 	// takes no project, so projectsCalled is all a test can observe of it.
 	stageLeaderboardProjects []store.ProjectSpend
 	projectsCalled           bool
+	projectsErr              error
 	// weeklyModelEffortCosts backs the weekly-model-effort-costs view.
 	weeklyModelEffortCosts []store.WeeklyModelEffortPoint
 	decisions              []store.DecisionRow
@@ -201,6 +202,9 @@ func (f *statsFake) StageLeaderboard(_ context.Context, _ store.Period, p, m *st
 }
 func (f *statsFake) StageLeaderboardProjects(context.Context, store.Period) ([]store.ProjectSpend, error) {
 	f.projectsCalled = true
+	if f.projectsErr != nil {
+		return nil, f.projectsErr
+	}
 	return f.stageLeaderboardProjects, f.aggErr
 }
 func (f *statsFake) TrendOverTime(_ context.Context, _ store.Period, p, m *string) ([]store.TrendPoint, error) {
@@ -504,7 +508,7 @@ func TestStatsStageLeaderboardProjects(t *testing.T) {
 	sts := &statsFake{stageLeaderboardProjects: []store.ProjectSpend{{ProjectKey: key, TotalCostUSD: 12.5}}}
 	ts := newStatsTestServer(t, sts)
 
-	status, _, body := getStats(t, ts, periodPath("stage-leaderboard")+"&project="+key)
+	status, _, body := getStats(t, ts, periodPath("stage-leaderboard")+"&project="+key+"&projects=1")
 	if status != http.StatusOK {
 		t.Fatalf("status %d, body %s", status, body)
 	}
@@ -524,6 +528,17 @@ func TestStatsStageLeaderboardProjects(t *testing.T) {
 		t.Errorf("rows project = %v, want %q", sts.lastProject, key)
 	}
 
+	// Without projects=1 (the view's previous-window call) the aggregate
+	// does not run.
+	sts.projectsCalled = false
+	status, _, body = getStats(t, ts, periodPath("stage-leaderboard"))
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	if sts.projectsCalled {
+		t.Error("StageLeaderboardProjects ran without projects=1")
+	}
+
 	status, _, body = getStats(t, ts, periodPath("trend"))
 	if status != http.StatusOK {
 		t.Fatalf("trend status %d, body %s", status, body)
@@ -534,6 +549,16 @@ func TestStatsStageLeaderboardProjects(t *testing.T) {
 	}
 	if _, ok := trend["projects"]; ok {
 		t.Errorf("trend body carries projects: %s", body)
+	}
+}
+
+// TestStatsStageLeaderboardProjectsError: a failing projects aggregate
+// fails the request rather than answering without chips.
+func TestStatsStageLeaderboardProjectsError(t *testing.T) {
+	ts := newStatsTestServer(t, &statsFake{projectsErr: errors.New("boom")})
+	status, _, body := getStats(t, ts, periodPath("stage-leaderboard")+"&projects=1")
+	if status != http.StatusInternalServerError {
+		t.Errorf("status %d, want 500 (body %s)", status, body)
 	}
 }
 

@@ -689,7 +689,7 @@ describe("views render their fixture response's actual values", () => {
     answerLeaderboard();
     const user = userEvent.setup();
     render(<StageLeaderboard period={period} project={undefined} />);
-    const table = within(await screen.findByRole("table"));
+    await screen.findByRole("table");
     const day = 24 * 60 * 60 * 1000;
     expect(calls().map(span)).toEqual([
       [LB_NOW - 30 * day, LB_NOW],
@@ -730,7 +730,90 @@ describe("views render their fixture response's actual values", () => {
       [LB_NOW - 60 * day, LB_NOW - 30 * day, undefined],
     ]));
     expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
-    expect(table).toBeTruthy();
+  });
+
+  it("stage leaderboard asks for projects on its current-window call only", async () => {
+    answerLeaderboard();
+    render(<StageLeaderboard period={period} project={undefined} />);
+    await screen.findByRole("table");
+    expect(calls().map((p) => (p as { projects?: boolean }).projects)).toEqual([true, undefined]);
+  });
+
+  it("stage leaderboard Period chip keeps the Project and Command chips", async () => {
+    answerLeaderboard();
+    const user = userEvent.setup();
+    render(<StageLeaderboard period={period} project={undefined} />);
+    await screen.findByRole("table");
+    const projectGroup = within(screen.getByRole("group", { name: "Project" }));
+    await user.click(projectGroup.getByRole("button", { name: /^gymie/ }));
+    await screen.findByRole("table");
+    const commandGroup = within(screen.getByRole("group", { name: "Command" }));
+    await user.click(commandGroup.getByRole("button", { name: /^\/flow-fast/ }));
+    await user.click(within(screen.getByRole("group", { name: "Period" })).getByRole("button", { name: "90d" }));
+    await screen.findByRole("table");
+    expect(within(screen.getByRole("group", { name: "Project" })).getByRole("button", { name: /^gymie/ })).toHaveAttribute("aria-pressed", "true");
+    expect(within(screen.getByRole("group", { name: "Command" })).getByRole("button", { name: /^\/flow-fast/ })).toHaveAttribute("aria-pressed", "true");
+    expect(calls().at(-1)?.project).toBe("gymie-7c1f238a");
+  });
+
+  it("stage leaderboard Spend tile compares the chosen command's previous spend", async () => {
+    answerLeaderboard();
+    const user = userEvent.setup();
+    render(<StageLeaderboard period={period} project={undefined} />);
+    await screen.findByRole("table");
+    await user.click(within(screen.getByRole("group", { name: "Command" })).getByRole("button", { name: /^\/flow-fast/ }));
+    const spend = tile("sl-t-spend");
+    spend.getByText("$105");
+    expect(spend.getByText(/vs the previous 30d/)).toHaveTextContent("+$12.00 (+13%) vs the previous 30d");
+  });
+
+  it("stage leaderboard drops stages and projects under half a cent", async () => {
+    const cur = leaderboardRows([...LEADERBOARD_CURRENT, ["/flow", "flow.zero", 0.001, null]]);
+    fetchStatsViewMock.mockImplementation((view: keyof typeof fixtures, p: { from: Date; to: Date }) =>
+      Promise.resolve(
+        view !== "stage-leaderboard"
+          ? fixtures[view]
+          : {
+              ...envelope("stage-leaderboard", p.to.getTime() === LB_NOW ? cur : leaderboardRows(LEADERBOARD_PREVIOUS)),
+              projects: [...LEADERBOARD_PROJECTS, { projectKey: "idle-00000000", totalCostUsd: 0.001 }],
+            },
+      ),
+    );
+    render(<StageLeaderboard period={period} project={undefined} />);
+    await screen.findByRole("table");
+    screen.getByText("12 stages ran");
+    const chips = within(screen.getByRole("group", { name: "Project" })).getAllByRole("button");
+    expect(chips.map((c) => c.textContent)).toEqual(["All", "gymie$1,000", "agents$260"]);
+  });
+
+  it("stage leaderboard shows a failed previous-window request", async () => {
+    fetchStatsViewMock.mockImplementation((view: keyof typeof fixtures, p: { from: Date; to: Date }) =>
+      view !== "stage-leaderboard"
+        ? Promise.resolve(fixtures[view])
+        : p.to.getTime() === LB_NOW
+          ? Promise.resolve({ ...envelope("stage-leaderboard", leaderboardRows(LEADERBOARD_CURRENT)), projects: LEADERBOARD_PROJECTS })
+          : Promise.reject(new Error("previous window failed")),
+    );
+    render(<StageLeaderboard period={period} project={undefined} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("previous window failed");
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("stage leaderboard reads not-recorded and unmeasured as Panel does", async () => {
+    fetchStatsViewMock.mockImplementation((view: keyof typeof fixtures) =>
+      Promise.resolve(view !== "stage-leaderboard" ? fixtures[view] : envelope("stage-leaderboard", leaderboardRows(LEADERBOARD_CURRENT), false)),
+    );
+    const { unmount } = render(<StageLeaderboard period={period} project={undefined} />);
+    expect(await screen.findByTestId("not-recorded")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    unmount();
+
+    fetchStatsViewMock.mockImplementation((view: keyof typeof fixtures) =>
+      Promise.resolve(view !== "stage-leaderboard" ? fixtures[view] : envelope("stage-leaderboard", leaderboardRows(LEADERBOARD_CURRENT), true, true)),
+    );
+    render(<StageLeaderboard period={period} project={undefined} />);
+    expect(await screen.findByTestId("unmeasured")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
   it("stage leaderboard project chips name projects with spend", async () => {
