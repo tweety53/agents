@@ -858,6 +858,10 @@ func (stubStageStore) StageLeaderboard(context.Context, store.Period, *string, *
 	return nil, errStageStoreNotImplemented
 }
 
+func (stubStageStore) StageLeaderboardProjects(context.Context, store.Period) ([]store.ProjectSpend, error) {
+	return nil, errStageStoreNotImplemented
+}
+
 func (stubStageStore) WeeklyModelEffortCosts(context.Context, store.Period) ([]store.WeeklyModelEffortPoint, error) {
 	return nil, nil
 }

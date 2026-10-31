@@ -47,6 +47,9 @@ func (f *fakeStore) StageLeaderboard(_ context.Context, _ store.Period, project,
 	f.lastStatsProject = project
 	return f.stageLeaderboard, f.stageLeaderboardErr
 }
+func (f *fakeStore) StageLeaderboardProjects(context.Context, store.Period) ([]store.ProjectSpend, error) {
+	return nil, nil
+}
 func (f *fakeStore) TrendOverTime(_ context.Context, _ store.Period, project, _ *string) ([]store.TrendPoint, error) {
 	f.lastStatsProject = project
 	return f.trendOverTime, f.trendOverTimeErr
@@ -122,6 +125,11 @@ type statsFake struct {
 	trendOverTime    []store.TrendPoint
 	weeklyCosts      []store.WeeklyCostPoint
 	reviewers        []store.ReviewerRow
+	// stageLeaderboardProjects backs StageLeaderboardProjects; the method
+	// takes no project, so projectsCalled is all a test can observe of it.
+	stageLeaderboardProjects []store.ProjectSpend
+	projectsCalled           bool
+	projectsErr              error
 	// weeklyModelEffortCosts backs the weekly-model-effort-costs view.
 	weeklyModelEffortCosts []store.WeeklyModelEffortPoint
 	decisions              []store.DecisionRow
@@ -191,6 +199,13 @@ func (f *statsFake) CostPerChange(_ context.Context, _ store.Period, p, m, c *st
 func (f *statsFake) StageLeaderboard(_ context.Context, _ store.Period, p, m *string) ([]store.StageLeaderboardRow, error) {
 	f.lastProject, f.lastModel = p, m
 	return f.stageLeaderboard, f.aggErr
+}
+func (f *statsFake) StageLeaderboardProjects(context.Context, store.Period) ([]store.ProjectSpend, error) {
+	f.projectsCalled = true
+	if f.projectsErr != nil {
+		return nil, f.projectsErr
+	}
+	return f.stageLeaderboardProjects, f.aggErr
 }
 func (f *statsFake) TrendOverTime(_ context.Context, _ store.Period, p, m *string) ([]store.TrendPoint, error) {
 	f.lastProject, f.lastModel = p, m
@@ -482,6 +497,75 @@ func TestStageLeaderboardMainFields(t *testing.T) {
 		if !ok || v != nil {
 			t.Errorf("row b %s = %v (present %v), want null", k, v, ok)
 		}
+	}
+}
+
+// TestStatsStageLeaderboardProjects: the stage-leaderboard response carries
+// every project's spend in the window, whatever project its rows narrow to
+// (decision leaderboard-project-chips-with-spend); no other view gains it.
+func TestStatsStageLeaderboardProjects(t *testing.T) {
+	const key = "agents-a740d89c"
+	sts := &statsFake{stageLeaderboardProjects: []store.ProjectSpend{{ProjectKey: key, TotalCostUSD: 12.5}}}
+	ts := newStatsTestServer(t, sts)
+
+	status, _, body := getStats(t, ts, periodPath("stage-leaderboard")+"&project="+key+"&projects=1")
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	var got struct {
+		Projects []map[string]any `json:"projects"`
+	}
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("decode: %v (body %s)", err, body)
+	}
+	if len(got.Projects) != 1 || got.Projects[0]["projectKey"] != key || got.Projects[0]["totalCostUsd"] != 12.5 {
+		t.Errorf("projects = %v, want [{projectKey %s totalCostUsd 12.5}]", got.Projects, key)
+	}
+	if !sts.projectsCalled {
+		t.Error("StageLeaderboardProjects was not called")
+	}
+	if sts.lastProject == nil || *sts.lastProject != key {
+		t.Errorf("rows project = %v, want %q", sts.lastProject, key)
+	}
+
+	// Without projects=1 (the view's previous-window call) the aggregate
+	// does not run.
+	sts.projectsCalled = false
+	status, _, body = getStats(t, ts, periodPath("stage-leaderboard"))
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	if sts.projectsCalled {
+		t.Error("StageLeaderboardProjects ran without projects=1")
+	}
+	status, _, body = getStats(t, ts, periodPath("stage-leaderboard")+"&projects=0")
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	if sts.projectsCalled {
+		t.Error("StageLeaderboardProjects ran with projects=0")
+	}
+
+	status, _, body = getStats(t, ts, periodPath("trend"))
+	if status != http.StatusOK {
+		t.Fatalf("trend status %d, body %s", status, body)
+	}
+	var trend map[string]json.RawMessage
+	if err := json.Unmarshal(body, &trend); err != nil {
+		t.Fatalf("decode trend: %v", err)
+	}
+	if _, ok := trend["projects"]; ok {
+		t.Errorf("trend body carries projects: %s", body)
+	}
+}
+
+// TestStatsStageLeaderboardProjectsError: a failing projects aggregate
+// fails the request rather than answering without chips.
+func TestStatsStageLeaderboardProjectsError(t *testing.T) {
+	ts := newStatsTestServer(t, &statsFake{projectsErr: errors.New("boom")})
+	status, _, body := getStats(t, ts, periodPath("stage-leaderboard")+"&projects=1")
+	if status != http.StatusInternalServerError {
+		t.Errorf("status %d, want 500 (body %s)", status, body)
 	}
 }
 

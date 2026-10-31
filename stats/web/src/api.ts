@@ -123,6 +123,8 @@ export interface StatsViewParams {
    * (the stats-views requirement "A model restriction on the live
    * state board"). */
   model?: string;
+  /** Ask stage-leaderboard for its per-project spend (`projects=1`). */
+  projects?: boolean;
   /**
    * The command and stage naming the exact cost-per-change *row* to break
    * down -- required together with breakdown and change, both of them,
@@ -178,7 +180,19 @@ export interface StatsResponse<Row = unknown> {
    * meaningful value here).
    */
   excludedNoModel?: number;
+  /**
+   * Present on `stage-leaderboard` only: each project with costed stage runs
+   * in the window and its spend, ordered by spend, computed ignoring the
+   * `project` parameter (decision leaderboard-project-chips-with-spend).
+   */
+  projects?: ProjectSpend[];
   rows: Row;
+}
+
+/** Mirrors projectSpendDTO (internal/api/stats.go): one project's spend in the window. */
+export interface ProjectSpend {
+  projectKey: string;
+  totalCostUsd: number;
 }
 
 /** Raised for every non-2xx response. `code` is set only for the handful of machine-distinguishable errors the server names (e.g. an undocumented stage). */
@@ -589,6 +603,9 @@ export function buildStatsViewQuery(params: StatsViewParams): URLSearchParams {
   }
   if (params.class) {
     qs.set("class", params.class);
+  }
+  if (params.projects) {
+    qs.set("projects", "1");
   }
   return qs;
 }
