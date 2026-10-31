@@ -228,10 +228,10 @@ diff --git a/skills/flow-self-review/SKILL.md b/skills/flow-self-review/SKILL.md
 
 Correction (2026-10-31): the plan declared `skills/flow-self-review/SKILL.md` alone; the lint list refused it twice — `check-installed-citations.sh` named every `<sr-dir>/…` citation unrooted, and `check-guard-symlinks.sh` read the bare `pipeline-fix.sh end` in step 2 as a skill-local guard. Shipped: `<sr-dir>` joins `cicPlaceholderRoots` (`stats/internal/guard/installedcitations.go`, it resolves under `<state-dir>`, outside every checkout, the criterion that set already admits) with an `sr-dir-rooted` case in `check_installed_citations_test.go`, and that citation now reads `<agents repo>/scripts/pipeline-fix.sh end`, its `verbatim-moves.txt` line updated to match.
 
-- [ ] 3. The in-run bundle goes to `<sr-dir>/bundle.md`, never held in memory
-  - [ ] **Step 1: Apply the diff below to `skills/flow-contracts/finish-contract-run1.md` (**Run the self-review pass**), `skills/flow/integrate.md` (step 4) and `skills/flow-fast/SKILL.md` (the self-review section): each writes the bundle to `<sr-dir>/bundle.md`, never printed, instead of holding it in memory.**
-  - [ ] **Step 2: Absence sweep — `git grep -n -F -e 'holds the whole in memory' -e 'in memory; run the pass' -e 'Assemble the bundle in memory' -e 'holds its bundle in memory' -e 'held in memory in-run' -- skills/flow-contracts/finish-contract-run1.md skills/flow/integrate.md skills/flow-fast/SKILL.md skills/flow-self-review/SKILL.md` prints nothing.**
-  - [ ] **Step 3: Verify: `scripts/check-verbatim-moves.sh` (no FAIL line), then `scripts/run-verify-list.sh <worktree> lint`.**
+- [x] 3. The in-run bundle goes to `<sr-dir>/bundle.md`, never held in memory
+  - [x] **Step 1: Apply the diff below to `skills/flow-contracts/finish-contract-run1.md` (**Run the self-review pass**), `skills/flow/integrate.md` (step 4) and `skills/flow-fast/SKILL.md` (the self-review section): each writes the bundle to `<sr-dir>/bundle.md`, never printed, instead of holding it in memory.**
+  - [x] **Step 2: Absence sweep — `git grep -n -F -e 'holds the whole in memory' -e 'in memory; run the pass' -e 'Assemble the bundle in memory' -e 'holds its bundle in memory' -e 'held in memory in-run' -- skills/flow-contracts/finish-contract-run1.md skills/flow/integrate.md skills/flow-fast/SKILL.md skills/flow-self-review/SKILL.md` prints nothing.**
+  - [x] **Step 3: Verify: `scripts/check-verbatim-moves.sh` (no FAIL line), then `scripts/run-verify-list.sh <worktree> lint`.**
 
 ```diff verified:applied to a scratch copy of this branch's HEAD; check-verbatim-moves.sh against HEAD then 0 violations with this change's verbatim-moves.txt, and the guard tests below ran green
 diff --git a/skills/flow-contracts/finish-contract-run1.md b/skills/flow-contracts/finish-contract-run1.md
