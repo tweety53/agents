@@ -118,6 +118,7 @@ peer_fix_case() {
   printf 'fix\n' >"$WORK/b-worktrees/demo/fix-b.txt"
   g -C "$WORK/b-worktrees/demo" add fix-b.txt && g -C "$WORK/b-worktrees/demo" commit -qm "fix(b): the peer fix"
   old="$(git -C "$WORK/b-worktrees/demo" rev-parse --short HEAD)"
+  printf '[{"angle":"code","disposition":"fixed","ref":"%s","note":"the peer fix"}]' "$(git -C "$WORK/b-worktrees/demo" rev-parse HEAD)" >"$WORK/sr-findings.json"
   touch "$WORK/sr-completed"
   printf 'moved\n' >"$WORK/b/moved.txt"
   g -C "$WORK/b" add moved.txt && g -C "$WORK/b" commit -qm "base: moved" && g -C "$WORK/b" push -q origin main
@@ -125,6 +126,7 @@ peer_fix_case() {
   new="$(git --git-dir="$WORK/b-origin.git" log --format=%h --grep="^fix(b): the peer fix$" -1 main)"
   check "${1}land exits 0" '[ "$RC" -eq 0 ]'
   check "${1}the re-sync rewrote b's fix sha" '[ -n "$new" ] && [ "$new" != "$old" ]'
+  check "${1}a fixed row names the re-synced sha" 'grep -q -- "-disposition fixed -ref $new" "$WORK/fixed.log"'
 }
 ui_a() {
   printf '\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| ` + "`" + `ui paths` + "`" + ` | ` + "`" + `work-a.txt` + "`" + ` |\n' >>"$WORK/a-worktrees/demo/.flow/project.md"

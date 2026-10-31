@@ -2,9 +2,66 @@ package guard
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 )
+
+// refreshFixedRefs: after a re-sync rebased worktree w, one new `fixed`
+// row for each `fixed` row whose sha w holds but HEAD no longer reaches,
+// naming the rebased commit of the same subject, so the store never keeps
+// only a dead sha for a landed fix.
+func (c *ic) refreshFixedRefs(w string) {
+	read := c.cmd("/", "flow", "self-review", "findings", "-C", c.main, "-change", c.name)
+	read.Stderr = nil
+	out, rc := c.capture(read)
+	var rows []struct {
+		Angle, Disposition, Ref, Note, Severity string
+		BlastRadius                             *int `json:"blastRadius"`
+	}
+	if rc != 0 || json.Unmarshal([]byte(out), &rows) != nil {
+		fmt.Fprintln(c.stderr, "integrate-change: warning: flow self-review findings unreadable — fixed shas are not re-read after the re-sync")
+		return
+	}
+	log, _ := c.git("-C", w, "log", "--format=%H %s", "HEAD", "--not", "origin/"+c.base)
+	for _, r := range rows {
+		if r.Disposition != "fixed" || len(r.Ref) < 7 {
+			continue
+		}
+		if _, ok := c.gitQuiet("-C", w, "merge-base", "--is-ancestor", r.Ref, "HEAD"); ok {
+			continue
+		}
+		subj, ok := c.gitQuiet("-C", w, "log", "-1", "--format=%s", r.Ref)
+		if !ok {
+			continue
+		}
+		nw := ""
+		for _, l := range icLines(log) {
+			if h, s, _ := strings.Cut(l, " "); s == subj {
+				nw = h
+				break
+			}
+		}
+		if nw == "" {
+			continue
+		}
+		args := []string{"self-review", "finding", "-C", c.main, "-change", c.name, "-angle", r.Angle, "-disposition", "fixed", "-ref", nw, "-note", r.Note}
+		if r.Severity != "" {
+			args = append(args, "-severity", r.Severity)
+		}
+		if r.BlastRadius != nil {
+			args = append(args, "-blast-radius", strconv.Itoa(*r.BlastRadius))
+		}
+		rec := c.cmd("/", "flow", args...)
+		rec.Stdout = c.stdout
+		if rec.Run() != nil {
+			fmt.Fprintf(c.stderr, "integrate-change: warning: recording the re-synced fixed row for %s failed\n", r.Ref)
+			continue
+		}
+		c.say("FIXED-SHA: " + r.Ref + " -> " + nw)
+	}
+}
 
 // selfReviewCompleted asks flowd whether the change holds a completed
 // flow.self-review stage run -- the self-review pass's land marker, in
@@ -112,6 +169,7 @@ func (c *ic) land() {
 				if !c.visualOK(w, c.base) {
 					c.stop("visual-verify", "re-synced onto origin/"+c.base+" after its push was rejected, so it was not pushed there; already pushed: "+alreadyPushed()+". "+visualStopText(w, "land"))
 				}
+				c.refreshFixedRefs(w)
 				c.pushBranch(w)
 				if !c.gitPass("-C", w, "push", "origin", "HEAD:"+c.base) {
 					c.stop("push", "the second push of "+w+" to origin/"+c.base+" was rejected — report git's output; the change stays IN_PROGRESS")
