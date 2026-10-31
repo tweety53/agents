@@ -1334,7 +1334,7 @@ func TestPriceNamesABucketItsRateCannotCharge(t *testing.T) {
 		t.Fatalf("BeginStage: %v", err)
 	}
 	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{
-		"models": {"claude-opus-5": {"tokens": {"main": {"input": 1000000, "cache_creation_unknown": 500000}}}}
+		"models": {"claude-opus-5": {"tokens": {"main": {"input": 1000000, "cache_creation_unknown": 500000, "output_unmeasured": 0}}}}
 	}`)); err != nil {
 		t.Fatalf("MergeMetrics: %v", err)
 	}
@@ -1356,6 +1356,7 @@ func TestPriceNamesABucketItsRateCannotCharge(t *testing.T) {
 		t.Errorf("Price error = %q, want it no longer to read as no pricing in effect for model alone", err)
 	}
 }
+
 func TestPriceWithoutTokensIsUnavailable(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()
