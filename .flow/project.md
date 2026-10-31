@@ -334,7 +334,7 @@ one database. Neither variable crosses the boundary this section exists to prote
 `stats/web` is the one SPA this repository carries. Its baseline covers the dashboard and
 run-detail views, per `stats/web/tests/visual/baseline.spec.ts`, against the disposable UI-test
 stack on `http://127.0.0.1:4174` — `## run`'s "This is the stack `flow.visual-verify` … starts and
-stops" paragraph is the answer to where that stage gets its stack from, and is not restated here.
+stops" paragraph is the answer to where that stage gets its stack from, and is not restated here. `ui paths` also names `skills/flow-contracts/model-policy.md`, which `stats/Makefile`'s `policy-copy` embeds into flowd for the Experiments view (kan-1052 self-review, F1).
 
 **No `regression checkout` row** — this repository commits its own baselines to the change's own
 branch, per `design.md`'s `agents-has-no-regression-checkout` decision. **No `push to default
@@ -357,7 +357,11 @@ rewrites `index.html` to reference them, so the served `index.html` names the ex
 daemon embeds, and `web.Handler` serves that embedded file byte-for-byte at `/`. The `npm run
 build` in front makes the comparison mean "the worktree's source", not "whatever `dist/` last
 held"; `make ui-test-up` rebuilds too, so a stack this stage started matches first time and only a
-reused stack pays the restart.
+reused stack pays the restart. It then requires `skills/flow-contracts/model-policy.md`'s bytes inside
+`/tmp/flow-uitest-flowd`, the binary `make ui-test-up` built and runs (`UITEST_BIN` in
+`stats/Makefile`): `//go:embed` stores the file verbatim, and no `index.html` byte changes when
+that file does, so without it a reused stack would render the Experiments view from the old
+policy (kan-1052 self-review, R2).
 
 **`capture` and `verify` check the stack first.** Each opens on `check-dev-stack-fresh.sh`, the declared `fingerprint` run, and restarts the disposable UI-test stack with `make ui-test-up` when it is stale, so an implementer's or fixer's capture never reads a pre-fix build as a failure (kan-1038); `make ui-test-up` touches only that stack, never the `flowd` on 4173.
 
@@ -369,7 +373,7 @@ reach Playwright, and on its exit 0 runs `rebuild-full-app-suite-zip.sh` with th
 
 | Setting | Value |
 |---------|-------|
-| `ui paths` | `stats/web/src/**` |
+| `ui paths` | `stats/web/src/**`, `skills/flow-contracts/model-policy.md` |
 | `screenshots` | `stats/web/tests/visual` |
 
 | Command | Runs |
@@ -377,7 +381,7 @@ reach Playwright, and on its exit 0 runs `rebuild-full-app-suite-zip.sh` with th
 | `setup` | `cd stats/web && npm install && npx playwright install chromium` |
 | `verify` | `cd stats/web && { ../../scripts/check-dev-stack-fresh.sh ../.. \|\| make -C .. ui-test-up; } && npm run test:visual` |
 | `capture` | `cd stats/web && { ../../scripts/check-dev-stack-fresh.sh ../.. \|\| make -C .. ui-test-up; } && capture() { npx playwright test "$@" && ../../scripts/rebuild-full-app-suite-zip.sh "$(cd ../.. && pwd)" "$PWD/tests/visual"; } && capture <spec> --update-snapshots` |
-| `fingerprint` | `cd stats/web && npm run build && curl -sf http://127.0.0.1:4174/ \| cmp -s - ../internal/web/dist/index.html` |
+| `fingerprint` | `cd stats/web && npm run build && curl -sf http://127.0.0.1:4174/ \| cmp -s - ../internal/web/dist/index.html && python3 -c 'import sys; sys.exit(open(sys.argv[1], "rb").read() not in open(sys.argv[2], "rb").read())' ../../skills/flow-contracts/model-policy.md /tmp/flow-uitest-flowd` |
 
 ## progress
 

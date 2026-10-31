@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"testing/iotest"
@@ -409,6 +411,43 @@ func TestVisualTriggerRepoPrefix(t *testing.T) {
 	for _, args := range [][]string{{"--repo", "", root}, {"--repo", root}} {
 		if code, out := run(args...); code != 2 || !strings.Contains(out, "usage") {
 			t.Errorf("%q: exit %d output %q; want 2 usage", args, code, out)
+		}
+	}
+}
+
+// TestCheckVisualTriggerCoversEmbeddedSources pins the kan-1052 self-review
+// fix (F1): every source stats/Makefile copies into flowd's embed renders in
+// the SPA, so the real .flow/project.md's `ui paths` must match each one —
+// a future embed copy fails here until `ui paths` names it.
+func TestCheckVisualTriggerCoversEmbeddedSources(t *testing.T) {
+	t.Parallel()
+	mk, err := os.ReadFile("../../Makefile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	srcs := regexp.MustCompile(`cp \.\./(\S+)`).FindAllStringSubmatch(string(mk), -1)
+	if len(srcs) == 0 {
+		t.Fatal("stats/Makefile has no `cp ../<src>` command — the embed sources moved")
+	}
+	root, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := os.ReadFile(filepath.Join(root, ".flow", "project.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fp := vvCells(string(cfg))["fingerprint"]
+	for _, m := range srcs {
+		// kan-1052 self-review R2: a reused stack is restarted only when
+		// `fingerprint` fails, so it must see an embedded source's edit too.
+		if !strings.Contains(fp, m[1]) {
+			t.Errorf("%s: the `fingerprint` row %q never compares it — a reused stack serves the old embed", m[1], fp)
+		}
+		var out, errb bytes.Buffer
+		code := Registry["check-visual-trigger"]([]string{root}, Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: strings.NewReader(m[1] + "\n")}, &out, &errb)
+		if code != 0 || !strings.Contains(out.String(), "MATCH: "+m[1]) {
+			t.Errorf("%s: exit %d stdout %q stderr %q; want 0 with `MATCH: %s` — `ui paths` misses an embedded source", m[1], code, out.String(), errb.String(), m[1])
 		}
 	}
 }
