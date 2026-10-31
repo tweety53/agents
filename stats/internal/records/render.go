@@ -582,7 +582,7 @@ func orElse(s, fallback string) string {
 }
 
 // keyTask is the task-id prefix of implement.md's dispatch key shapes
-// `task-<n>-implementer` and `task-<n+n+n>-reviewer`.
+// `task-<ids>-implementer` and `task-<n+n+n>-reviewer`.
 var keyTask = regexp.MustCompile(`^task-([0-9]+(?:\+[0-9]+)*)-`)
 
 // taskOf is the task a dispatch ran against: its recorded -task, else the

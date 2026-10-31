@@ -1096,7 +1096,7 @@ func TestTokenLineMarksCallerReported(t *testing.T) {
 
 // TestRenderLedgerDerivesTheTaskFromTheKey pins that a dispatch recorded
 // without -task still names its task where its key does: implement.md's
-// key shapes `task-<n>-implementer` and `task-<n+n+n>-reviewer` carry the
+// key shapes `task-<ids>-implementer` and `task-<n+n+n>-reviewer` carry the
 // task ids, and a grouped bundle records no -task at all by contract, so
 // without the derivation the same change's ledger reads `Task: 10` on one
 // row and `Task: no task` on its sibling. An explicit -task still wins, and

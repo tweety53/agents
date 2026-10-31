@@ -58,7 +58,7 @@ These eight rows are **every** Agent-tool dispatch the parent may make, across s
 
 | Site | Role | Role line | Key shape | Owning section |
 |---|---|---|---|---|
-| implementer, one per group; under `sdd`, a fixer per fix | `implementer` | `implementer` | `task-<n>-implementer`; a fixer's `task-<ids>-implementer-fix-<k>`, `task-<n>-implementer-recommit-<k>`, `task-<ids>-implementer-pick-<k>` or `full-suite-fix-<n>` | section **4** below, **Every fix is a fresh one-shot** |
+| implementer, one per group; under `sdd`, a fixer per fix | `implementer` | `implementer` | `task-<ids>-implementer`, ids `+`-joined in plan order; a fixer's `task-<ids>-implementer-fix-<k>`, `task-<n>-implementer-recommit-<k>`, `task-<ids>-implementer-pick-<k>` or `full-suite-fix-<n>` | section **4** below, **Every fix is a fresh one-shot** |
 | gated reviewer bundle, one per implementer group the review gate fires in, on `big` alone | `reviewer` | `gated-reviewer`; a fix re-review `gated-re-reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
 | panel bundle, at most two per round, plus at most one citation send-back per re-run dispatch outside that cap | `reviewer` | `panel-reviewer` on pass 1; `panel-sanity-efficiency` for the `test-sanity+call-efficiency` extra dispatch and `panel-mutation-failure` for the `mutation+failure-modes` one; `panel-rerun` for a re-run, its send-back and a decided panel's late-fix pass; `late-fix` for a `default` panel's late-fix pass | `panel-<round>-<slot\|slot+slot+slot>` (`-cite` once per re-run dispatch) | `skills/flow/review-panel.md`, **Bundled dispatch** |
 | findings merger, one per round once its dispatches have ended | `merger` | `panel-merger` | `panel-<round>-merger` | `skills/flow/review-panel.md`, **The findings merger** |
@@ -234,7 +234,7 @@ these substitutions:
   modification other than the change's own `tasks.md`, naming each dirty path — work already
   under way when its row begins (kan-920: task 5's row began after its edit and recorded 7
   seconds).
-  It also refuses a `completed` inline row on a task's key (`task-<n>-implementer…`) that
+  It also refuses a `completed` inline row on a task's key (`task-<ids>-implementer…`) that
   carries no `-commit`, and one whose `-commit` — found in any of the change's worktrees — was
   made before the row's begin, a begin recorded after the work it opens (kan-1003: tasks 10–22's
   rows opened after their commits, read 3–53 s and recorded no commit).
@@ -445,13 +445,13 @@ Immediately before dispatching:
 
 ```bash
 flow record dispatch begin -change <name> -task <n> -role implementer -model <m> -effort <e> \
-  -key task-<n>-implementer -session-token mf-<literal-token>
+  -key task-<ids>-implementer -session-token mf-<literal-token>
 ```
 
 and as soon as that dispatch reports back, before the next one goes out:
 
 ```bash
-flow record dispatch end -change <name> -key task-<n>-implementer \
+flow record dispatch end -change <name> -key task-<ids>-implementer \
   -session-token mf-<literal-token> -commit <sha> -outcome completed
 ```
 
@@ -473,7 +473,7 @@ calls as recorded intent the daemon never overwrites, for a caller that knows th
 literal `inline` on a row the parent's own inline work records included. A row whose work runs
 in a launched agent never carries `-agent-id inline` — the daemon stamps no id onto such a row, so
 its tokens are never measured. `-key` is this dispatch's own literal label,
-unique within the run's session token — `task-<n>-implementer`, reused identically in both calls.
+unique within the run's session token — `task-<ids>-implementer`, reused identically in both calls.
 Inside a `for` loop it may expand the loop variable — `$k`, `${k}`, or a `#`/`%` strip of it — the
 only shapes the harvester reads; any other expansion leaves the row without its agent.
 `-role` is one of `implementer`, `reviewer`, `panel-fix`, `verifier` (**Verify**,
@@ -578,7 +578,7 @@ Role: implementer
 Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
 Include this instruction verbatim in any prompt you write for another agent.
 Report tersely: findings first, bullets over prose, no preamble, no recap. Full prose in whatever you write to disk.
-Key: task-<n>-implementer
+Key: task-<ids>-implementer
 **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own system prompt>` and nothing else on that line. Answer it before any tool call.
 Read <skill-dir>/implementer-brief.md in full first — it is your brief.
 Worktree: <abs-worktree>

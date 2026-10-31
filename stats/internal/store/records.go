@@ -133,7 +133,7 @@ var ErrTokensOnHarvestedSession = errors.New("store: token report refused on a h
 var harvestedHarnesses = []string{"claude-code", "zcode"}
 
 // ErrInlineCommitMissing is returned by EndDispatch when an inline row on a
-// task's implementer key (`task-<n>-implementer…`) closes completed with no
+// task's implementer key (`task-<ids>-implementer…`) closes completed with no
 // commit sha: kan-1003's tasks 10–22 recorded none, so no row could be tied
 // to the work it measured.
 var ErrInlineCommitMissing = errors.New("store: inline task dispatch closed with no commit")
