@@ -35,6 +35,9 @@ change removes their common cause instead.
   archive-aware code path; its vendored planning skill is re-copied from agents.
 - The guards, scripts, stages (`flow.commit-archive`, `flow.sync-archive`) and contract text that
   existed only for planning commits, the drop and the report are deleted.
+- flow-eval's `case add impl|review` reads the change's plan files, ledger and panel record from
+  its worktree on disk, never from git history, and runs in the self-review inside integrate run 1
+  before cleanup; once the worktree is gone it refuses with `plan files gone — mine before cleanup`.
 - Each repository's tip loses every file still tracked under `spectre/changes/` and
   `docs/self-review/`, and the placeholder `spectre/specs/` where nothing else lives there. History
   keeps every file.
