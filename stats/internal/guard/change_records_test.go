@@ -68,6 +68,21 @@ func TestRemoveChangeWorktreesRefusesBeforeTheSave(t *testing.T) {
 	fx.assertUntouched(t, fx.wt+"/spectre/changes/demo/tasks.md")
 }
 
+// TestRemoveChangeWorktreesRefusesWhenFlowdCannotAnswer: `flow change file`
+// exiting 2 leaves the save unknown, so the gate refuses exit 2 with nothing
+// removed.
+func TestRemoveChangeWorktreesRefusesWhenFlowdCannotAnswer(t *testing.T) {
+	t.Parallel()
+	fx := rcwNewFx(t)
+	writeFile(t, fx.repo+"/.git/info/exclude", "spectre/changes/\n.superpowers/\n")
+	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", "- [x] 1. done\n")
+	code, out, errb := fx.run(t, rcwFlowStub(t, fx, "2"))
+	if code != 2 || !strings.Contains(errb, "cannot tell whether flow change save demo has run") {
+		t.Fatalf("exit %d, want 2 naming the unknown save\nstdout:\n%s\nstderr:\n%s", code, out, errb)
+	}
+	fx.assertUntouched(t, fx.wt+"/spectre/changes/demo/tasks.md")
+}
+
 // TestRemoveChangeWorktreesRefusesAnUnsavedBundle: flowd holding the plan
 // but not the self-review bundle the worktree holds -- a save that failed
 // on its second write -- still refuses, naming the bundle.
