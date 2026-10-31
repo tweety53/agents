@@ -1167,6 +1167,7 @@ describe("interactive session card", () => {
     expect(within(w).getByTestId("running-task")).toHaveClass("lb-muted");
     expect(w).toHaveTextContent("requests 3/3 · $1.87");
     expect(w).not.toHaveClass("needs");
+    expect(w).toHaveClass("awaiting");
     expect(w.querySelector(".lb-act")).toBeNull();
     expect(within(w).queryByTestId("agent-count")).toBeNull();
     expect(w).not.toHaveTextContent("Paused after");
@@ -1183,6 +1184,7 @@ describe("interactive session card", () => {
     const w = await screen.findByTestId("running-card");
     expect(within(w).getByText("Session closed").nextSibling).toHaveTextContent("· 6m");
     expect(w).not.toHaveTextContent("Waiting for the next request");
+    expect(w).not.toHaveClass("awaiting");
   });
 });
 

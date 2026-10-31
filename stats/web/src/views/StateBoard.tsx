@@ -194,7 +194,7 @@ function WaitingCard({ row, now }: { row: StateBoardRow; now: number }) {
   const last = lastEndedRequest(row);
   return (
     <div
-      className="lb-card"
+      className={`lb-card${row.activity === "ended" ? "" : " awaiting"}`}
       data-testid="running-card"
       role="button"
       tabIndex={0}

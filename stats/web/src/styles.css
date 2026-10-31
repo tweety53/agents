@@ -588,6 +588,8 @@ th button {
   display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; cursor: pointer; }
 .lb-card:hover, .lb-card:focus-visible { border-color: var(--st-progress); outline: none; }
 .lb-card > * { min-width: 0; }
+/* An interactive session waiting for its next request: a softer, dashed cue than .needs, in the Interactive pill blue. */
+.lb-card.awaiting { border-style: dashed; border-color: var(--series-1); background: color-mix(in srgb, var(--series-1) 5%, var(--surface-2)); }
 /* A card waiting on the operator: accent border, a left bar and a tint, so it stands out among working cards. */
 .lb-card.needs, .lb-card.needs:hover, .lb-card.needs:focus-visible { border-color: var(--series-3);
   background: color-mix(in srgb, var(--series-3) 9%, var(--surface-2)); box-shadow: inset 4px 0 0 var(--series-3); }
