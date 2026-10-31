@@ -172,19 +172,25 @@ without `archive` before spectre drops it.
 their `.gitkeep`.
 **Considered:** delete every `spectre/specs/` — gymie's are live specs planners read.
 
-## Open questions
+### flow-eval's miner reads the change's worktree
 
-### flow-eval's miner reads plans from history
-
-**ID:** flow-eval-miner-history-reads
-**Status:** open
-**Why it is open:** found while planning, after the design was approved: flow-eval's
-`internal/mine/mine.go` reads plans through `git show <rev>:spectre/changes/<change>/<file>` and
-`git log --all -- spectre/changes/<change>/tasks.md` (and `spectre/changes/archive`), so it keeps
-mining every change already in history and sees no change landed after this one.
-**What it affects:** whether flow-eval needs a reader of `change_files` (it would see `tasks.md`
-only) in a later change. This plan leaves `mine.go` as it is — its history reads keep working for
-every existing case — and changes only flow-eval's ignore line and tip.
+**ID:** flow-eval-miner-reads-worktree
+**Status:** active
+**Chosen:** flow-eval's `case add impl|review` reads the change's plan files from
+`<plan-repo>/spectre/changes/<change>/` and its ledger and panel record from the rendered
+`<plan-repo>/.superpowers/sdd/ledgers/<change>.md` and `.superpowers/sdd/reviews/<change>-panel.md`
+on disk, never from git history; `_archive`, `planAt`, the plan-repo `prereshape` call and every
+`git show`/`git log` on `spectre/changes` are deleted, with no fallback. The repo's `prereshape` and
+`taskCommits` stay: they find the task commits, not the plan. Mining runs in the self-review's
+step 5 inside integrate run 1, on every route, before cleanup removes the worktree — the pinned
+`refs/flow/pre-reshape/<change>` on origin keeps a case's commits reachable without waiting for the
+merge; a run after the worktree is gone refuses with `plan files gone — mine before cleanup`. The
+plan is read as it stands when mined, Corrections written by later fixes included — the accepted
+cost of reading no history (operator answer at the plan gate: "can it just mine it while files
+exist?").
+**Considered:** keep the history reads — they see no change landed after this one; read `tasks.md`
+from `change_files` — `proposal.md`, `design.md`, the ledger and the panel are not saved there, and
+the save happens only at cleanup.
 
 ## Recommended approach
 
@@ -232,6 +238,9 @@ spectre: `cmd/spectre/main.go`, `internal/cmd/{archive,refs,new,list,init}.go`,
 
 gymie, gymie-frontend, gymie-playwright, flow-eval: `.gitignore`, `docs/self-review/`,
 `spectre/changes/`, `spectre/specs/.gitkeep` where placeholder-only, gymie `.flow/project.md`.
+
+flow-eval: `internal/mine/mine.go`, `internal/mine/mine_test.go`, `cmd/flow-eval/main.go`,
+`README.md`, `docs/cases.md` — the miner reads the worktree.
 
 ## Existing code to reuse
 
