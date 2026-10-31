@@ -11,8 +11,19 @@ Jira transition, and prints the handoff. **Load `skills/flow-contracts/finish-co
 only when** a stop below cites one of its sections, and **load
 `skills/flow-contracts/artifacts-registry.md` only when** a `LEFTOVER:` line names a row of it.
 
-Call it with the parent's own shell outside every worktree in the set, per check 6 of **Worktree
-cleanup** (`skills/flow-contracts/finish-contract-run2.md`).
+**Save the change's two lasting files first**, in the canonical worktree, before anything removes
+a worktree:
+
+```bash
+flow change save -C <canonical-worktree> <name>
+```
+
+It keeps `tasks.md` and `self-review-context.md` in flowd. Its exit 1 — a missing `tasks.md` or
+`self-review-context.md`, each named — stops cleanup at `IN_PROGRESS`: report the lines, restore
+the file, and re-run. `remove-change-worktrees` refuses until the save ran.
+
+Then call `cleanup` with the parent's own shell outside every worktree in the set, per check 6 of
+**Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`).
 
 ```bash
 integrate-change.sh cleanup <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
@@ -51,11 +62,9 @@ merged** (`skills/flow-contracts/finish-contract-run2.md`).
 ## Finished
 
 **Change:** <name>
-**Dropped:** <project>/spectre/changes/<name>/ as an absolute path (removed by `chore(spectre): drop <name>`, landed on <base> with the change)
 **Worktrees:** removed | left alone — <reason>
 **Remote branch:** deleted | already gone | not deleted — <reason>
 **Cleanup:** verified
-**Self-review:** <project>/docs/self-review/<name>-self-review.md as an absolute path
 **Main checkout:** fast-forwarded | already current | <the REFRESH-REFUSED line>
 **Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 **Jira:** <KEY> → Done | none linked | ⚠ Jira: skipped — <reason>
