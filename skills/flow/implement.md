@@ -656,7 +656,7 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
      [-undeclared <task-id>=<path>[,<path>…]] <canonical-worktree> <name> <merge-base> <task-id>:<task-sha> …
      rc=$?; echo "close-task: $rc"; }
    if [ "${rc:-2}" -eq 0 ] || [ "${rc:-2}" -eq 3 ]; then
-     # on exit 3, first the `flow record dispatch end` line close-task printed (exit 3, below)
+     # on exit 3, the `flow record dispatch end` line close-task printed runs next, in a second call before the launch (exit 3, below)
      # group N+2's gather (skills/flow/sdd-dispatch.md), then its marker snapshot:
      check-tree-markers.sh snapshot <worktree> <markers-file> <group N+2's snapshot-file>
      # group N+2's `flow record dispatch begin` (above); on `big`, when a gate fired in group N+1,
