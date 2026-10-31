@@ -790,23 +790,6 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 					for _, id := range ctTaskNumberRE.FindAllString(out, -1) {
 						committed[id] = true
 					}
-					// A dropped re-run's range starts at the drop commit: run 1
-					// squashed the earlier task commits, trailers and all, and
-					// its gate already judged every task ticked in the plan
-					// as it stood there -- at its parent when the drop commit
-					// removed the change directory (kan-1051).
-					if rel, err := filepath.Rel(r[0], primary); err == nil && !strings.HasPrefix(rel, "..") {
-						path := ":./" + filepath.ToSlash(rel)
-						old, ok := capture(envGit(env)("-C", r[0], "show", r[1]+path))
-						if !ok {
-							old, ok = capture(envGit(env)("-C", r[0], "show", r[1]+"^"+path))
-						}
-						if ok {
-							for _, id := range uwAppendedIn(old, true) {
-								committed[id] = true
-							}
-						}
-					}
 				}
 				var uncommitted []string
 				for _, id := range appended {

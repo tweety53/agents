@@ -78,36 +78,11 @@ check "untasked: --accept-outstanding passes the gate" '[ "$RC" -eq 0 ]'`},
 fixture
 to_land "archived_rerun: "
 A="$WORK/a-worktrees/demo"
-g -C "$A" checkout -q "$(git -C "$A" log --format=%H -1 --grep="^chore(spectre): drop demo$")^" -- spectre/changes/demo
-g -C "$A" commit -qm "chore(spectre): plan demo — fix-run tasks"
 printf 'more\n' >"$WORK/a-worktrees/demo/more.txt"
 g -C "$WORK/a-worktrees/demo" add more.txt && g -C "$WORK/a-worktrees/demo" commit -qm "feat(a): more" -m "Task-Id: 2"
 sut prepare "$WORK/a" demo
 check "archived_rerun: prepare passes the gate" '[ "$RC" -eq 0 ]'
 check "archived_rerun: b's reshaped commit is not listed" '! printf "%s" "$OUT" | grep -q "feat(b): do the work"'`},
-		{"archived_rerun_self_review", `# --- archived_rerun_self_review: the self-review loop's commits sit below the base ---
-fixture
-to_land "archived_rerun_self_review: " no-report
-drop_demo
-A="$WORK/a-worktrees/demo"
-mkdir -p "$A/spectre/changes/self-review-demo"
-printf '# tasks\n' >"$A/spectre/changes/self-review-demo/tasks.md"
-g -C "$A" add spectre/changes/self-review-demo && g -C "$A" commit -qm "chore(spectre): plan self-review-demo"
-printf 'fix\n' >"$A/sr-fix.txt"
-g -C "$A" add sr-fix.txt && g -C "$A" commit -qm "fix(a): a self-review fix"
-sut prepare "$WORK/a" demo
-check "archived_rerun_self_review: a resumed run 1 holds no new work" 'printf "%s\n" "$OUT" | grep -q "^ARCHIVED: demo — without new work"'
-g -C "$A" commit -q --allow-empty -m "chore(spectre): plan demo — fix-run tasks"
-sut prepare "$WORK/a" demo
-check "archived_rerun_self_review: a fix run's plan commit above the loop is new work" 'printf "%s\n" "$OUT" | grep -q "^ARCHIVED: demo — with new work"'
-g -C "$A" commit -q --allow-empty -m "chore(spectre): drop self-review-demo"
-sut prepare "$WORK/a" demo
-check "archived_rerun_self_review: the loop's drop commit re-covers the plan above it" 'printf "%s\n" "$OUT" | grep -q "^ARCHIVED: demo — without new work"'
-g -C "$A" commit -q --allow-empty -m "chore(spectre): plan self-review-demo"
-g -C "$A" commit -q --allow-empty -m "chore(spectre): plan demo"
-g -C "$A" commit -q --allow-empty -m "fix(a): fix-run work"
-sut prepare "$WORK/a" demo
-check "archived_rerun_self_review: a bare fix-run plan commit closes the loop" 'printf "%s\n" "$OUT" | grep -q "^ARCHIVED: demo — with new work"'`},
 		{"no_verdict", `# --- no_verdict ---
 fixture
 : >"$WORK/fail-findings"
@@ -179,18 +154,18 @@ sut prepare "$WORK/a" demo
 check "rebase_lint_dirty: the rebase ran" 'printf "%s" "$OUT" | grep -q "^REBASED: $WORK/a-worktrees/demo"'
 check "rebase_lint_dirty: the list passed" 'printf "%s" "$OUT" | grep -q "^REBASE-LINT-PASSED: $WORK/a-worktrees/demo"'
 check "rebase_lint_dirty: no rebase-lint stop" '! printf "%s" "$OUT" | grep -q "^STOP: rebase-lint"'
-check "rebase_lint_dirty: the edit is still uncommitted" 'grep -q "^Correction: narrative.$" "$WORK/a-worktrees/demo/spectre/changes/demo/notes.md" && [ -n "$(g -C "$WORK/a-worktrees/demo" status --porcelain -- spectre/changes/demo/notes.md)" ]'`},
+check "rebase_lint_dirty: the edit is still uncommitted" 'grep -q "^Correction: narrative.$" "$WORK/a-worktrees/demo/spectre/changes/demo/notes.md" && [ -n "$(g -C "$WORK/a-worktrees/demo" status --porcelain --ignored -- spectre/changes/demo/notes.md)" ]'`},
 		{"nested_link", `# --- nested_link ---
 # A link.md outside the change's own folder is implementation: b's base
 # carries one; the branch adds a nested one.
 fixture
 mkdir -p "$WORK/b/spectre/changes/old"
 printf 'old\n' >"$WORK/b/spectre/changes/old/link.md"
-g -C "$WORK/b" add -A && g -C "$WORK/b" commit -qm "base: old link" && g -C "$WORK/b" push -q origin main
+g -C "$WORK/b" add -f -A && g -C "$WORK/b" commit -qm "base: old link" && g -C "$WORK/b" push -q origin main
 g -C "$WORK/b-worktrees/demo" reset -q --hard main
 mkdir -p "$WORK/b-worktrees/demo/spectre/changes/archive/y"
 printf 'y\n' >"$WORK/b-worktrees/demo/spectre/changes/archive/y/link.md"
-g -C "$WORK/b-worktrees/demo" add -A && g -C "$WORK/b-worktrees/demo" commit -qm "chore(spectre): nested link"
+g -C "$WORK/b-worktrees/demo" add -f -A && g -C "$WORK/b-worktrees/demo" commit -qm "chore(spectre): nested link"
 sut prepare "$WORK/a" demo
 check "nested_link: prepare's NEXT asks a subject for b" \
   '[ "$RC" -eq 0 ] && printf "%s" "$OUT" | tail -1 | grep -qF "$WORK/b-worktrees/demo=<impl subject>"'
@@ -205,7 +180,7 @@ check "nested_link: b's implementation commit carries the nested link.md" \
 fixture
 mkdir -p "$WORK/b/spectre/changes/archive/old"
 printf 'old\n' >"$WORK/b/spectre/changes/archive/old/tasks.md"
-g -C "$WORK/b" add -A && g -C "$WORK/b" commit -qm "base: old archive" && g -C "$WORK/b" push -q origin main
+g -C "$WORK/b" add -f -A && g -C "$WORK/b" commit -qm "base: old archive" && g -C "$WORK/b" push -q origin main
 g -C "$WORK/b-worktrees/demo" reset -q --hard main
 g -C "$WORK/b-worktrees/demo" rm -q -r spectre/changes/archive && g -C "$WORK/b-worktrees/demo" commit -qm "chore(spectre): remove the change archive"
 sut prepare "$WORK/a" demo
@@ -217,7 +192,7 @@ check "archive_deletion: prepare's NEXT asks a subject for b" \
 fixture
 mkdir -p "$WORK/b/spectre/changes/demo-fix-1"
 printf 'fix\n' >"$WORK/b/spectre/changes/demo-fix-1/tasks.md"
-g -C "$WORK/b" add -A && g -C "$WORK/b" commit -qm "base: fix folder" && g -C "$WORK/b" push -q origin main
+g -C "$WORK/b" add -f -A && g -C "$WORK/b" commit -qm "base: fix folder" && g -C "$WORK/b" push -q origin main
 g -C "$WORK/b-worktrees/demo" reset -q --hard main
 g -C "$WORK/b-worktrees/demo" rm -q -r spectre/changes/demo-fix-1 && g -C "$WORK/b-worktrees/demo" commit -qm "chore(spectre): drop demo-fix-1"
 sut prepare "$WORK/a" demo
@@ -236,7 +211,6 @@ fixture
 g -C "$WORK/b-worktrees/demo" reset -q --hard main
 mkdir -p "$WORK/b-worktrees/demo/spectre/changes/demo"
 printf 'notes\n' >"$WORK/b-worktrees/demo/spectre/changes/demo/notes.md"
-g -C "$WORK/b-worktrees/demo" add -A && g -C "$WORK/b-worktrees/demo" commit -qm "chore(spectre): notes"
 sut prepare "$WORK/a" demo
 check "planning_only: prepare exits 0" '[ "$RC" -eq 0 ]'
 check "planning_only: prepare's NEXT asks a subject for a and none for b" \
@@ -244,8 +218,8 @@ check "planning_only: prepare's NEXT asks a subject for a and none for b" \
 printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
 sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work"
 check "planning_only: commit with no subject for b exits 0" '[ "$RC" -eq 0 ]'
-check "planning_only: b's branch is the base plus its planning commit" \
-  '[ "$(git -C "$WORK/b-worktrees/demo" log --format=%s main..HEAD | tr "\n" "|")" = "chore(spectre): plan demo|" ]'`},
+check "planning_only: b's branch is the base, its change directory uncommitted" \
+  '[ -z "$(git -C "$WORK/b-worktrees/demo" log --format=%s main..HEAD)" ] && [ -f "$WORK/b-worktrees/demo/spectre/changes/demo/notes.md" ]'`},
 		{"link_only_canon", `# --- link_only_canon ---
 fixture
 g -C "$WORK/a-worktrees/demo" reset -q --hard main
@@ -253,7 +227,6 @@ c="$WORK/a-worktrees/demo/spectre/changes/demo"
 mkdir -p "$c"
 printf '# Tasks\n\n- [x] 1. Do the work\n' >"$c/tasks.md"
 printf '# demo\n\n## Merge order\n\n1. ` + "`" + `b` + "`" + `\n2. ` + "`" + `.` + "`" + `\n' >"$c/link.md"
-g -C "$WORK/a-worktrees/demo" add -A && g -C "$WORK/a-worktrees/demo" commit -qm "chore(spectre): merge order"
 sut prepare "$WORK/a" demo
 check "link_only_canon: prepare exits 0" '[ "$RC" -eq 0 ]'
 check "link_only_canon: prepare's NEXT asks a subject for b and none for a" \
@@ -261,8 +234,8 @@ check "link_only_canon: prepare's NEXT asks a subject for b and none for a" \
 printf '\n## integrate run\n\nnarrative\n' >>"$c/narrative.md"
 sut commit "$WORK/a" demo "$WORK/b-worktrees/demo=feat(b): do the work"
 check "link_only_canon: commit with no subject for a exits 0" '[ "$RC" -eq 0 ]'
-check "link_only_canon: a's link.md lands in a commit subjected chore(spectre): merge order" \
-  '[ "$(git -C "$WORK/a-worktrees/demo" log --format=%s --diff-filter=A -1 -- spectre/changes/demo/link.md)" = "chore(spectre): merge order" ]'`},
+check "link_only_canon: a's branch is the base, its change directory uncommitted" \
+  '[ -z "$(git -C "$WORK/a-worktrees/demo" log --format=%s main..HEAD)" ] && [ -f "$c/link.md" ]'`},
 		{"commit_pushes", `# --- commit_pushes ---
 fixture
 for r in a b; do g -C "$WORK/$r-worktrees/demo" push -q -u origin spectre/demo; done
@@ -336,8 +309,8 @@ sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b
 check "outstanding: --plan-message is refused" '[ "$RC" -ne 0 ] && grep -q "unknown argument .--plan-message." "$WORK/stderr"'
 sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work" --outstanding "Task 3 is unticked"
 check "outstanding: commit exits 0" '[ "$RC" -eq 0 ]'
-check "outstanding: the planning commit keeps its own subject and carries the text in its body" \
-  '[ "$(g -C "$WORK/a-worktrees/demo" log --format=%s --grep="^Outstanding: " -1)" = "chore(spectre): plan demo" ] && [ "$(g -C "$WORK/a-worktrees/demo" log --format=%b --grep="^Outstanding: " -1)" = "Outstanding: Task 3 is unticked" ]'`},
+check "outstanding: the implementation commit keeps its own subject and carries the text in its body" \
+  '[ "$(g -C "$WORK/a-worktrees/demo" log --format=%s --grep="^Outstanding: " -1)" = "feat(a): do the work" ] && g -C "$WORK/a-worktrees/demo" log --format=%b --grep="^Outstanding: " -1 | grep -qx "Outstanding: Task 3 is unticked"'`},
 		{"drift_switch", `# --- drift_switch: a clean main checkout left on another branch is switched
 # back to its default branch, the branch keeping its commits ---
 fixture
@@ -392,7 +365,6 @@ check "drift_switch_refused: an ignored file main tracks is never overwritten" \
 fixture
 d="$WORK/a-worktrees/demo/spectre/changes/demo"
 printf '# demo\n\n## Live check\n\nRun prepare twice and compare the two runs.\n\n## Decisions\n' >"$d/design.md"
-g -C "$WORK/a-worktrees/demo" add -A && g -C "$WORK/a-worktrees/demo" commit -q --amend -m "chore(spectre): plan-gate demo"
 sut prepare "$WORK/a" demo
 check "live_check: a named live check with no record stops prepare at STOP: live-check" \
   '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: live-check — "'
@@ -411,7 +383,6 @@ check "live_check: a passing record lets prepare through" '[ "$RC" -eq 0 ]'`},
 		{"live_check_none", `# --- live_check_none ---
 fixture
 printf '# demo\n\n## Live check\n\nNone — the change runs per invocation;\nno service holds its state.\n\n## Decisions\n' >"$WORK/a-worktrees/demo/spectre/changes/demo/design.md"
-g -C "$WORK/a-worktrees/demo" add -A && g -C "$WORK/a-worktrees/demo" commit -q --amend -m "chore(spectre): plan-gate demo"
 sut prepare "$WORK/a" demo
 check "live_check_none: a wrapped no-runtime section needs no record" '[ "$RC" -eq 0 ]'`},
 	})
@@ -436,8 +407,6 @@ const icRerunPinCase = `rerun_pin_case() {
   to_land "${1}"
   [ "${2:-}" = reclone ] && git -C "$WORK/a" update-ref -d refs/flow/pre-reshape/demo
   A="$WORK/a-worktrees/demo"
-  g -C "$A" checkout -q "$(git -C "$A" log --format=%H -1 --grep="^chore(spectre): drop demo$")^" -- spectre/changes/demo
-  g -C "$A" commit -qm "chore(spectre): plan demo — fix-run tasks"
   printf 'more\n' >"$WORK/a-worktrees/demo/more.txt"
   g -C "$WORK/a-worktrees/demo" add more.txt && g -C "$WORK/a-worktrees/demo" commit -qm "feat(a): more" -m "Task-Id: 2"
   sut prepare "$WORK/a" demo
@@ -451,33 +420,24 @@ const icRerunPinCase = `rerun_pin_case() {
 }
 `
 
-// TestIntegrateChangePrepareRerunAfterDrop pins run 1's re-run detection
-// once the change directory is dropped: the drop commit on the branch and no
-// live directory is the already-dropped re-run (its ARCHIVED token kept); a
-// fix run's restored directory is a first pass again.
-func TestIntegrateChangePrepareRerunAfterDrop(t *testing.T) {
+// TestIntegrateChangePrepareRerunReadsThePlanOnDisk: a re-run of prepare
+// after run 1's commit finds the plan in the worktree, never in a commit --
+// the change directory is still on disk, uncommitted, and the re-run is a
+// first pass naming its live narrative.
+func TestIntegrateChangePrepareRerunReadsThePlanOnDisk(t *testing.T) {
 	icRunCases(t, []icCaseDef{
-		{"rerun_after_drop", `# --- rerun_after_drop ---
+		{"rerun_on_disk", `# --- rerun_on_disk ---
 fixture
-to_land "rerun_after_drop: " no-report
-drop_demo
+to_land "rerun_on_disk: " no-report
 A="$WORK/a-worktrees/demo"
+check "rerun_on_disk: the change directory is on disk and untracked" \
+  '[ -f "$A/spectre/changes/demo/tasks.md" ] && [ -z "$(git -C "$A" ls-files spectre/changes)" ]'
 sut prepare "$WORK/a" demo
-check "rerun_after_drop: prepare exits 0" '[ "$RC" -eq 0 ]'
-check "rerun_after_drop: the dropped re-run holds no new work" 'printf "%s\n" "$OUT" | grep -q "^ARCHIVED: demo — without new work"'
-check "rerun_after_drop: its NEXT is commit without a narrative" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: integrate-change.sh commit "'
-g -C "$A" checkout -q "$(git -C "$A" log --format=%H -1 --grep="^chore(spectre): drop demo$")^" -- spectre/changes/demo
-g -C "$A" commit -qm "chore(spectre): plan demo — fix-run tasks"
-sut prepare "$WORK/a" demo
-check "rerun_after_drop: with the directory restored prepare exits 0" '[ "$RC" -eq 0 ]'
-check "rerun_after_drop: a restored directory is a first pass" '! printf "%s\n" "$OUT" | grep -q "^ARCHIVED: "'
-check "rerun_after_drop: its NEXT names the live narrative" 'printf "%s" "$OUT" | tail -1 | grep -qF "append this run'"'"'s narrative to $A/spectre/changes/demo/narrative.md"'
+check "rerun_on_disk: prepare exits 0" '[ "$RC" -eq 0 ]'
+check "rerun_on_disk: its NEXT names the live narrative" 'printf "%s" "$OUT" | tail -1 | grep -qF "append this run'"'"'s narrative to $A/spectre/changes/demo/narrative.md"'
 printf '\n## fix run\n\nfixed\n' >>"$A/spectre/changes/demo/narrative.md"
-sut commit "$WORK/a" demo "$WORK/b=feat(b): do the work"
-check "rerun_after_drop: commit exits 0" '[ "$RC" -eq 0 ]'
-[ "$RC" -eq 0 ] || halt recommit
-check "rerun_after_drop: the restored directory is not dropped again" \
-  '[ -d "$A/spectre/changes/demo" ] && [ "$(git -C "$A" log --format=%s | grep -c "^chore(spectre): drop demo$")" -eq 1 ]'`},
+sut commit "$WORK/a" demo "$A=feat(a): do the work" "$WORK/b=feat(b): do the work"
+check "rerun_on_disk: commit exits 0" '[ "$RC" -eq 0 ]'`},
 	})
 }
 
@@ -494,7 +454,7 @@ printf '\n## integrate run\n\nnarrative' >>"$WORK/a-worktrees/demo/spectre/chang
 sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
 check "fix_line_derived: a row with its note and blast radius passes commit" '[ "$RC" -eq 0 ]'
 check "fix_line_derived: the line is appended to the narrative" \
-  'grep -qxF -- "- In-run pipeline fix: 1a2b3c4 — the renderer could not render an exp- slot (blast radius 2 files)" <(git -C "$WORK/a-worktrees/demo" show HEAD:spectre/changes/demo/narrative.md)'
+  'grep -qxF -- "- In-run pipeline fix: 1a2b3c4 — the renderer could not render an exp- slot (blast radius 2 files)" "$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"'
 check "fix_line_derived: the append is reported" \
   'printf "%s" "$OUT" | grep -q "^narrative: appended "'
 rm -f "$WORK/sr-findings.json"`},

@@ -12,8 +12,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"github.com/tweety53/agents/stats/internal/landed"
 )
 
 func init() {
@@ -33,7 +31,7 @@ type ic struct {
 
 	scriptDir, main, name, harness, token string
 	acceptForeign, acceptOutstanding      bool
-	planMsg, route                        string
+	planMsg, route, outstanding           string
 	prArgs, proceed, subjects             []string
 
 	openStage, stopOutcome string
@@ -88,7 +86,7 @@ type ic struct {
 //	--accept-outstanding never passes, the unfinished-work
 //	gate (check-unfinished-work, check-visual-verify-dispatched against
 //	`git merge-base HEAD origin/$BASE`, check-untasked-commits from that
-//	base or a dropped re-run's), check-base-moved and
+//	base), check-base-moved and
 //	sync-onto-base on MOVED (running each GUARD-TEST it names, then
 //	the rebased worktree's ## lint list — rebase_lint below), and the
 //	default landing route (project-get.sh). Prints per worktree its
@@ -103,8 +101,8 @@ type ic struct {
 //	VISUAL-VERIFY-MISSING is STOP: visual-verify, which
 //	--accept-outstanding never passes — only an operator's
 //	false-positive flag on that worktree's verdict row naming its
-//	current HEAD. The gate runs on a dropped re-run with no new
-//	work too, and again on each worktree a base move rebased here.
+//	current HEAD. The gate runs again on each worktree a base move
+//	rebased here.
 //	commit and land run the same gate before every push they make,
 //	on every route, and again after land's re-sync.
 //
@@ -120,8 +118,7 @@ type ic struct {
 //	worktree with nothing on the implementation side takes no
 //	subject; the canonical one whose only implementation path is a
 //	link.md takes `chore(spectre): merge order`; any other without
-//	one stops `commit-split`. A
-//	dropped change without new work skips straight to the push.
+//	one stops `commit-split`.
 //	Before any of it, a narrative lacking the section of a fix or
 //	integrate run the store marked stops `narrative`
 //	(check-narrative-runs.sh). A `flow-fix` row `flow self-review
@@ -136,8 +133,8 @@ type ic struct {
 //	each followed by a plain push of that worktree's pin, refused
 //	(STOP: pre-reshape) when origin holds one the local pin does
 //	not descend from.
-//	--outstanding <text> puts `Outstanding: <text>` in the planning
-//	commit's body, under this script's own subject.
+//	--outstanding <text> puts `Outstanding: <text>` in each
+//	implementation commit's body, under the subject it was given.
 //	The parent appends its narrative before calling this; an
 //	`In-run pipeline fix:` line in it off the format pipeline.md's
 //	Pipeline defects found mid-run fixes stops first, STOP: narrative.
@@ -287,14 +284,13 @@ func (c *ic) parse(args []string) {
 		case "--accept-outstanding":
 			c.acceptOutstanding = true
 		case "--outstanding":
-			// The planning commit's subject is always this script's own: the
-			// outstanding work rides in its body, so a text with no Conventional
-			// Commits subject never reaches a commit-msg hook as one (it stopped
-			// commit-split after the reshape when it replaced the subject whole).
+			// The outstanding work rides in the implementation commit's body,
+			// never its subject, so a text with no Conventional Commits subject
+			// never reaches a commit-msg hook as one.
 			if next() == "" {
 				c.die("--outstanding takes the outstanding work's text")
 			}
-			c.planMsg = fmt.Sprintf("chore(spectre): plan %s\n\nOutstanding: %s", name, next())
+			c.outstanding = next()
 			i++
 		case "--route":
 			c.route = next()
@@ -677,37 +673,20 @@ func icHas(list []string, s string) bool {
 }
 
 // findCanonical: canon the worktree whose change directory holds tasks.md
-// -- the live one, or, once run 1's drop commit removed it, the one whose
-// drop commit's parent held it (an uncommitted drop's HEAD included); spec
-// its tree.
+// on disk; spec its tree.
 func (c *ic) findCanonical() bool {
 	c.canon, c.spec = "", ""
-	for _, pass := range []bool{false, true} {
-		for _, w := range c.wt {
-			if !isDir(w) {
-				continue
-			}
-			s := specRootLeaf(w, io.Discard)
-			plan := s + "/changes/" + c.name + "/tasks.md"
-			found := isFile(w + "/" + plan)
-			if pass {
-				_, inHead := c.gitQuiet("-C", w, "cat-file", "-e", "HEAD:"+plan)
-				_, landedPlan, _ := landed.File(w, c.name, "tasks.md")
-				found = inHead || (c.droppedIn(w) && landedPlan)
-			}
-			if found {
-				c.canon, c.spec = w, s
-				return true
-			}
+	for _, w := range c.wt {
+		if !isDir(w) {
+			continue
+		}
+		s := specRootLeaf(w, io.Discard)
+		if isFile(w + "/" + s + "/changes/" + c.name + "/tasks.md") {
+			c.canon, c.spec = w, s
+			return true
 		}
 	}
 	return false
-}
-
-// droppedIn: worktree w's branch holds run 1's drop commit for this change.
-func (c *ic) droppedIn(w string) bool {
-	log, _ := c.gitQuiet("-C", w, "log", "--format=%s", "--fixed-strings", "--grep", "chore(spectre): drop "+c.name, "HEAD")
-	return icHas(icLines(log), "chore(spectre): drop "+c.name)
 }
 
 func (c *ic) idxOf(w string) int {
@@ -727,12 +706,6 @@ var icMergeItem = regexp.MustCompile("^[0-9]+\\. `")
 func (c *ic) mergeOrder() {
 	c.order = nil
 	b, err := os.ReadFile(c.canon + "/" + c.spec + "/changes/" + c.name + "/link.md")
-	if err != nil {
-		var ok bool
-		if b, ok, _ = landed.File(c.canon, c.name, "link.md"); ok {
-			err = nil
-		}
-	}
 	if err == nil {
 		on := false
 		for _, l := range icLines(string(b)) {
