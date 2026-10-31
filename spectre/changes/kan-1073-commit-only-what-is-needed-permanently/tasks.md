@@ -39,7 +39,7 @@ the tracked files deleted from the working tree, as one trailerless planning com
   - [x] **Step 5: Verify in the spectre worktree: `gofmt -w . && ! gofmt -l . | grep . && go vet ./... && go test -count=1 -run 'TestFencedTaskExampleDoesNotFoolListOrValidate|TestLinkFindings|TestNew|TestSpecFile|TestChanges' ./...`, then the absence sweep `git grep -n -F -e 'ArchiveDir' -e 'Archived' -e 'RefFindings' -e 'PeerCitationSource' -e '"refs"' -e '"archive"' -- '*.go'` prints nothing.**
 **Build:** green
 **Files:** `cmd/spectre/main.go`, `internal/cmd/archive.go`, `internal/cmd/archive_test.go`, `internal/cmd/refs.go`, `internal/cmd/refs_test.go`, `internal/cmd/fenced_task_test.go`, `internal/cmd/new.go`, `internal/cmd/new_test.go`, `internal/cmd/list.go`, `internal/cmd/list_test.go`, `internal/cmd/init.go`, `internal/check/refs.go`, `internal/check/refs_test.go`, `internal/check/citations.go`, `internal/check/citations_test.go`, `internal/check/check.go`, `internal/check/link.go`, `internal/check/link_test.go`, `internal/check/config_test.go`, `internal/parse/ref.go`, `internal/parse/ref_test.go`, `internal/parse/spec.go`, `internal/parse/spec_test.go`, `internal/parse/link.go`, `internal/model/model.go`, `internal/config/config.go`, `internal/tree/tree.go`, `internal/tree/read.go`, `internal/tree/read_test.go`, `internal/tree/config_test.go`, `internal/testtree/testtree.go`
-**Allowed-collateral:** `internal/cmd/validate.go`, `internal/cmd/validate_test.go`, `internal/cmd/init_test.go`, `plugin_manifest_test.go`
+**Allowed-collateral:** `internal/cmd/validate.go`, `internal/cmd/validate_test.go`, `internal/cmd/init_test.go`, `plugin_manifest_test.go`, `spectre/config.md` — the config-default fix f1d67cf
 **Tests:** `TestFencedTaskExampleDoesNotFoolListOrValidate`
 **Regression:** reverting the commit restores `spectre archive` and `spectre refs`; `TestFencedTaskExampleDoesNotFoolListOrValidate` no longer exists and its list/validate coverage lives only inside the archive test again.
 **Baseline:** before=0 after=1 <!-- measured: cat internal/cmd/fenced_task_test.go 2>/dev/null | grep -c '^func Test' @ f83f5cf -->
@@ -54,6 +54,7 @@ the tracked files deleted from the working tree, as one trailerless planning com
   - [x] **Step 3: Verify in the spectre worktree: `go test -count=1 -run 'TestPluginShips' .` passes (the plugin manifest tests read the skill), then the absence sweep `git grep -n -i -F -e 'spectre archive' -e 'spectre refs' -e 'archive skew' -e 'references.md' -e 'changes/archive' -- README.md docs .claude/skills/spectre` prints nothing.**
 **Build:** green
 **Files:** `docs/references.md`, `README.md`, `docs/example.md`, `docs/terminal.md`, `docs/superpowers-example.md`, `docs/links.md`, `docs/configuration.md`, `docs/spec-format.md`, `.claude/skills/spectre/SKILL.md`
+**Allowed-collateral:** `cmd/spectre/main.go`, `internal/cmd/link.go`, `internal/cmd/link_test.go` — the gated fix 3158740 that dropped link's uncommitted-change refusal and `--force`
 **Tests:** none
 **Regression:** reverting the commit restores docs for commands task 1 removed.
 **Commit:** docs: drop archive, refs and citations from the spectre docs
@@ -309,7 +310,7 @@ Correction (2026-10-31): the plan declared `client.ListStateBoard` and `client.H
 **Tests:** none
 **Regression:** reverting the commit restores the **Planning commits** section and the drop in the shared contracts.
 **Commit:** docs(flow-contracts): the change directory is never committed
-**After:** Task 15, 16
+**After:** Task 9, 15, 16
 
 **Decision:** change-dir-gitignored
 
