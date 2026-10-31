@@ -316,12 +316,14 @@ Correction (2026-10-31): the plan declared `client.ListStateBoard` and `client.H
   - [ ] **Step 2: Add `spectre/changes/` to `.gitignore` next to `.superpowers/`; `git rm -r --quiet docs/self-review spectre/specs/.gitkeep`. The tracked `spectre/changes/` leftovers are the parent's planning commit (header above); this change's own directory stays on disk.**
   - [ ] **Step 3: Verify: `scripts/run-verify-list.sh /Users/tweety53/Projects/agents-worktrees/kan-1073-commit-only-what-is-needed-permanently lint`; `git ls-files docs/self-review spectre/specs` prints nothing; `git check-ignore -q spectre/changes/x`; `test -f spectre/changes/kan-1073-commit-only-what-is-needed-permanently/tasks.md`; then `git grep -n -F -e 'sync-archive' -e 'commit-archive' -e 'drop commit' -- README.md .flow/project.md CLAUDE.md AGENTS.md` prints nothing.**
 **Build:** green
-**Files:** `README.md`, `.flow/project.md`, `.gitignore`
+**Files:** `README.md`, `.flow/project.md`, `.gitignore`, `stats/internal/guard/ownedcorpus.go`, `stats/internal/guard/check_normative_inventory_test.go`, `stats/internal/guard/stagetaskfiles.go`, `stats/internal/guard/stage_task_files_test.go`, `scripts/stage-task-files.sh`, `skills/flow/implementer-brief.md`, `skills/flow/SKILL-rationale.md`
 **Allowed-collateral:** `docs/self-review/**`, `spectre/specs/.gitkeep`, `CLAUDE.md`, `AGENTS.md`
-**Tests:** none
+**Tests:** `TestStageTaskFilesStagesWhenTheChangeDirectoryIsIgnored`
 **Regression:** reverting the commit stops ignoring the change directory and restores 246 reports to the tip. <!-- measured: git ls-files docs/self-review | wc -l @ 50e0a1f7 -->
 **Commit:** chore: never track the change directory or self-review reports
 **After:** Task 2, 10, 17
+
+Correction (2026-10-31): the plan declared `Tests: none` and a gitignore-and-delete commit; it also needed two guard fixes. Deleting `spectre/specs/.gitkeep` removed the normative-inventory scope root, so a missing `spectre/specs` now counts as an empty scope. With files still tracked under a now-ignored `spectre/changes/`, git refused stage-task-files' `:(exclude)` add, so the add now names only the task's non-planning paths. Each fix comes with a test: a new `TestStageTaskFilesStagesWhenTheChangeDirectoryIsIgnored`, and a new subtest of the normative-inventory test.
 
 **Decision:** change-dir-gitignored
 **Decision:** delete-tracked-leftovers-from-tip
