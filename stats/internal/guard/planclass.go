@@ -103,7 +103,8 @@ func pcExtra(bundle string, roll uint64, pairs []string) string {
 // candidates. The roster is primary and principles alone — failure-modes and
 // mutation run on an always-on extra dispatch — so the slot joins the first
 // dispatch of a full regular/big panel and is otherwise skipped for the
-// bundle cap. micro records defaults and consults no roll.
+// bundle cap. Every class but micro executes sdd with an implementer
+// chosen; micro alone is inline, records defaults and consults no roll.
 func pcTree(class string, compact, exp, bundle uint64, cands []pcExp) string {
 	if class == "micro" {
 		return "tree: class micro · execution inline · implementer skipped — inline\n" +
@@ -111,10 +112,7 @@ func pcTree(class string, compact, exp, bundle uint64, cands []pcExp) string {
 			"grouping: not consulted — micro\n" +
 			"experimental: not consulted — micro\n"
 	}
-	execution, implementer := "inline", "skipped — inline"
-	if class == "big" {
-		execution, implementer = "sdd", "chosen"
-	}
+	execution, implementer := "sdd", "chosen"
 	shape, roster, dispatches, room := "compact", "primary; principles", "primary+principles", false
 	if compact >= 90 {
 		shape = "full"

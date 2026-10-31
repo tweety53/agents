@@ -373,6 +373,29 @@ func TestPlanClass(t *testing.T) {
 	}
 }
 
+// TestPlanClassTreeSddBelowMicro pins the execution decision: every class
+// but micro, at every roll on either side of its threshold, is sdd with an
+// implementer chosen; micro alone is inline (decision sdd-below-micro).
+func TestPlanClassTreeSddBelowMicro(t *testing.T) {
+	t.Parallel()
+	for _, class := range []string{"small", "regular", "big"} {
+		for _, compact := range []uint64{89, 90} {
+			for _, bundle := range []uint64{29, 30} {
+				for _, exp := range []uint64{29, 30} {
+					want := "tree: class " + class + " · execution sdd · implementer chosen\n"
+					if got := pcTree(class, compact, exp, bundle, nil); !strings.HasPrefix(got, want) {
+						t.Errorf("%s compact=%d bundle=%d exp=%d: got %q, want prefix %q", class, compact, bundle, exp, got, want)
+					}
+				}
+			}
+		}
+	}
+	want := "tree: class micro · execution inline · implementer skipped — inline\n"
+	if got := pcTree("micro", 0, 0, 0, nil); !strings.HasPrefix(got, want) {
+		t.Errorf("micro: got %q, want prefix %q", got, want)
+	}
+}
+
 // TestPlanClassTree pins the four decision-tree lines plan-class appends
 // under its first three: pcTree across every class × roll side × candidate
 // state, then the whole guard against real experimental directories —
@@ -387,8 +410,8 @@ func TestPlanClassTree(t *testing.T) {
 		class, tree, full string
 		second            bool
 	}{
-		{"small", "tree: class small · execution inline · implementer skipped — inline", "primary; principles", false},
-		{"regular", "tree: class regular · execution inline · implementer skipped — inline", "primary; principles", true},
+		{"small", "tree: class small · execution sdd · implementer chosen", "primary; principles", false},
+		{"regular", "tree: class regular · execution sdd · implementer chosen", "primary; principles", true},
 		{"big", "tree: class big · execution sdd · implementer chosen", "primary; principles", true},
 	}
 	for _, c := range classes {
@@ -458,7 +481,7 @@ func TestPlanClassTree(t *testing.T) {
 		"class: regular\n" +
 		"rolls: compact 71 · experimental 0 · bundle 75 · effort 21\n"
 	pinTree := func(experimental string) string {
-		return "tree: class regular · execution inline · implementer skipped — inline\n" +
+		return "tree: class regular · execution sdd · implementer chosen\n" +
 			"panel: compact · roster primary; principles · rerun delta\n" +
 			"grouping: free · dispatches primary+principles\n" +
 			"experimental: " + experimental + "\n" +
@@ -494,7 +517,7 @@ func TestPlanClassTree(t *testing.T) {
 			"inputs: tasks=9 files=9 repos=1 migration=no spec=no red=no unverified=no\n" +
 				"class: regular\n" +
 				"rolls: compact 91 · experimental 4 · bundle 16 · effort 93\n" +
-				"tree: class regular · execution inline · implementer skipped — inline\n" +
+				"tree: class regular · execution sdd · implementer chosen\n" +
 				"panel: full · roster primary; principles; exp-a · rerun delta\n" +
 				"grouping: static · dispatches primary+principles+exp-a\n" +
 				"experimental: exp-a · skills/flow/experimental/a.md · first probe\n" +
