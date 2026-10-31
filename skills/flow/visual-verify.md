@@ -298,7 +298,7 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
    was never told how to check.
 12. **Commit the spec and its PNGs, and stop there** — `close`'s commit. A declared `regression checkout` receives
     them; with none declared, it commits to the change's own branch instead. **The commit is
-    pathspec-scoped** — `git add --` the spec, its PNGs and `<changeRoot>/visual-verification/`
+    pathspec-scoped** — `git add --` the spec and its PNGs
     first, then `git commit -m "<subject>" -m "Flow-Key: flow.visual-verify" --` those same paths — the add first because the
     stage's outputs are new untracked files, which a pathspec commit cannot pick up — carrying
     only what this stage wrote, never a bare `git commit`: the index of a main checkout
@@ -322,7 +322,8 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
     git -C <regression checkout> push
     ```
 
-    `<changeRoot>/visual-verification/` is committed with the change root.
+    `<changeRoot>/visual-verification/` and the change's visual-verification record are written on
+    disk only — the change directory is gitignored.
     **The full app suite rides the same commit**: `full-app-suite.spec.ts`, its PNGs and
     `full-app-suite.zip` (step 8) join the pathspec above, in the same checkout the capture spec
     lands in. Last, `close` prints `git -C <abs-worktree> rev-parse HEAD` as

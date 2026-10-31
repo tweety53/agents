@@ -152,7 +152,7 @@ flaky paths the duplicate proliferation this feature exists to prevent — and i
 because a created issue looks like a success.
 
 What that costs is one tracker entry, and the cost is bounded because the run's items are already
-recorded durably outside the tracker — the outstanding list in the planning commit's message and the
+recorded durably outside the tracker — the outstanding list in the implementation commit's message and the
 handoff — which is where this pipeline requires the durable record to be; and the integrate run is
 re-entrant, so a later run files or joins once the tracker answers again.
 
@@ -297,7 +297,7 @@ join outcome and this contract adds none, and run 2's only Jira write is the **D
 under **Transitions** (`jira-integration.md`), which reports that transition and nothing about
 a follow-up. Re-emitting the `⚠` is not what closes a partial join past that point — finding the
 issue is, and two records outlive the window. At the integrate run the outstanding items are in
-the planning commit's
+the implementation commit's
 message, per **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`),
 which is the durable copy this pipeline requires and owes nothing to the tracker. The appended
 `## From <KEY>` section carries this change's key, so a description search finds the issue by key
@@ -338,7 +338,7 @@ whose forged section already carries every item still gets a join that writes no
 description, and this contract cannot detect that — closing it needs provenance the tracker does not
 offer, and inventing a marker this pipeline signs would be a trust model neither the tools nor this
 contract has. The residue is bounded by where the durable record actually lives: the run's
-items reach a durable record outside the tracker — the outstanding list in the planning commit's
+items reach a durable record outside the tracker — the outstanding list in the implementation commit's
 message and the handoff, per **Run 1 — the branch is not merged**
 (`skills/flow-contracts/finish-contract-run1.md`) — so what a forged
 section can cost is the tracker copy of work that is recorded either way — never the record

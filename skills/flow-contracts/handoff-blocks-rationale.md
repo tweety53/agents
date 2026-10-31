@@ -77,7 +77,7 @@ per **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contra
 field records which route was taken: a recorded `prUrl` implies the pull-request route, and
 nothing separates the other two. The
 outstanding list is the unfinished-work gate's verdict at the moment run 1 asked; its durable copy
-is the planning commit's message, which is where a later reader looks, and the state file does not
+is the implementation commit's message, which is where a later reader looks, and the state file does not
 carry it.
 
 ### Why `prUrl` never splits the *not merged* row
@@ -158,14 +158,6 @@ definition** at that block. A block sitting in a skill with no citation is a sec
 authored definition however faithfully it happens to match today, and it is exactly how the two
 copies drift: nothing tells the next editor of the skill that this file exists. The citation is what
 turns three copies into one definition and three renderings of it.
-
-Moved verbatim from the `FINISHED` paragraph, describing the terminal block `skills/flow/cleanup.md`
-prints: That block also carries `**Self-review:** deferred —
-docs/self-review/<name>-context.md`, immediately after
-`**Cleanup:** verified`, naming step 9's outcome, and `**Guards:** all present | N missing — those
-checks were performed by hand`, immediately after `Self-review`, naming what that run's own
-start-of-run guard presence check found — both values only run 2 ever has, exactly like the fields
-beside them.
 
 Moved verbatim from the same paragraph, after the interrupted-run report's description: That
 interrupted-run report carries neither the `Self-review` nor the `Guards` field: it is printed

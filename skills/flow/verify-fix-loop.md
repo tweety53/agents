@@ -58,12 +58,12 @@ One round runs these steps in order:
    change's `<changeRoot>/visual-verification.md` beside the fix's own paths, and the task rewrites
    the record's sections its fix changes in the same commit, as DRIFT CHECK
    (`skills/flow/implement.md`) requires (kan-1038). `<changeRoot>/visual-verification.md` is
-   untracked until that task's commit, which `git add`s it, and `close-task` runs the plan guard on
+   written on disk only — the change directory is gitignored — and `close-task` runs the plan guard on
    the task before ticking it (kan-1046 self-review, 1f). The round's evidence directory,
    `<changeRoot>/visual-verification/`, is never named in the task's `**Files:**` or
    `**Allowed-collateral:**` — `check-plan-shape` F23 refuses it and
-   `check-task-commit-planning-paths` sweeps it — and rides the stage's own step-12 commit
-   (`skills/flow/visual-verify.md`) (kan-1048 self-review, 1-E). The re-decide runs as
+   `check-task-commit-planning-paths` sweeps it — and is written on disk only (kan-1048
+   self-review, 1-E). The re-decide runs as
    that file states.
    **One round appends one task**, carrying every defect the report names — never a task or a
    round per defect. The task carries `**Opener:** <the dispatch key whose report it transcribes>`,
