@@ -817,7 +817,7 @@ func selfReviewTasks(r store.LiveStateRow, finished bool) []taskDTO {
 
 // readPlan parses change name's tasks.md for row r, nil when no root holds
 // one, or for a finished change unless finished is true. Each root's live
-// tasks.md is read first; a finished row then reads each root's landed copy
+// tasks.md is read first; with no live copy each root's dropped copy is read
 // from history (landed.File). A ticked task is done; untick names an
 // unticked one's state.
 func readPlan(r store.LiveStateRow, name string, finished bool, untick func(n string) string) []taskDTO {
@@ -839,16 +839,14 @@ func readPlan(r store.LiveStateRow, name string, finished bool, untick func(n st
 	return nil
 }
 
-// readPlanFile is readPlan's tasks.md: the first root's live copy, else, for
-// a finished row, the first root whose history holds the landed copy.
+// readPlanFile is readPlan's tasks.md: the first root's live copy, else the
+// first root whose history holds the dropped copy -- a finished row, or an
+// IN_PROGRESS one whose run 1 already dropped the directory.
 func readPlanFile(r store.LiveStateRow, name string) ([]byte, bool) {
 	for _, root := range r.RepoRoots {
 		if b, err := os.ReadFile(filepath.Join(guard.ChangeDir(filepath.Join(root, "spectre", "changes"), name), "tasks.md")); err == nil {
 			return b, true
 		}
-	}
-	if r.State != store.StateFinished {
-		return nil, false
 	}
 	for _, root := range r.RepoRoots {
 		if b, ok, _ := landed.File(root, name, "tasks.md"); ok {

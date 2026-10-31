@@ -85,6 +85,17 @@ func TestPlanTasksLanded(t *testing.T) {
 	}
 }
 
+// TestPlanTasksDroppedInProgress pins that an IN_PROGRESS change whose run 1
+// dropped its directory (the PR route, before run 2) still reads its plan
+// from history.
+func TestPlanTasksDroppedInProgress(t *testing.T) {
+	root := droppedRepo(t, "- [x] 1. One\n- [ ] 2. Two\n", "kan-1")
+	got := planTasks(store.LiveStateRow{Name: "kan-1", State: store.StateInProgress, RepoRoots: []string{root}}, false)
+	if len(got) != 2 || got[0].State != "done" || got[1].Title != "Two" {
+		t.Fatalf("in-progress dropped planTasks = %+v", got)
+	}
+}
+
 // TestSelfReviewTasks pins the self-review plan's read: self-review-<name>'s
 // tasks.md, done only when ticked.
 func TestSelfReviewTasks(t *testing.T) {
