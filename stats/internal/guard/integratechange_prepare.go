@@ -142,28 +142,27 @@ func (c *ic) prepare() {
 	}
 	ci := c.idxOf(c.canon)
 	live := c.canon + "/" + c.spec + "/changes/" + c.name
-	arch := c.canon + "/" + c.spec + "/changes/archive/" + c.name
-	if isDir(arch) {
-		subjects, _ := c.gitQuiet("-C", c.canon, "log", "--format=%s", c.mb[ci]+"..HEAD")
-		if !icHas(icLines(subjects), "chore(spectre): archive "+c.name) {
-			if isDir(live) {
-				c.stop("archive-undo", "both "+live+" and "+arch+" exist — ask the operator to check the live copy holds nothing the archived one lacks, remove it, and re-run")
+	// A drop staged and never committed -- a run that stopped between
+	// commit-archive's `git rm` and its commit -- is undone, so this pass
+	// sees the change as it was before it.
+	if !isDir(live) && !c.droppedIn(c.canon) {
+		fixes, _ := c.git("-C", c.canon, "ls-tree", "-d", "--name-only", "HEAD", c.spec+"/changes/")
+		for _, d := range icLines(fixes) {
+			if b := filepath.Base(d); b != c.name && !isFixOf(b, c.name) {
+				continue
 			}
-			fixes, _ := filepath.Glob(arch + "-fix-[0-9]*")
-			for _, d := range append([]string{arch}, fixes...) {
-				if !isDir(d) {
-					continue
-				}
-				if !c.gitPass("-C", c.canon, "mv", strings.TrimPrefix(d, c.canon+"/"), c.spec+"/changes/"+filepath.Base(d)) {
-					c.stop("archive-undo", "git mv of "+d+" failed")
-				}
-				c.say("UNARCHIVED: " + d)
+			if !c.gitPass("-C", c.canon, "restore", "--source=HEAD", "--staged", "--worktree", "--", d) {
+				c.stop("archive-undo", "git restore of "+d+" failed")
 			}
+			c.say("UNARCHIVED: " + c.canon + "/" + d)
 		}
 	}
-	archived := isDir(arch) && !isDir(live)
+	// A dropped re-run: run 1's drop commit is on the branch and no fix run
+	// restored the directory since. The re-run base -- archBase -- is past
+	// the newest drop commit whenever one exists, restored directory or not.
+	dropped := !isDir(live) && c.droppedIn(c.canon)
 	newwork := false
-	if archived {
+	if dropped {
 		head, _ := c.git("-C", c.canon, "rev-parse", "HEAD")
 		ab, _ := c.git("-C", c.canon, "rev-parse", c.archBase(c.canon, c.mb[ci]))
 		newwork = head != ab
@@ -179,27 +178,24 @@ func (c *ic) prepare() {
 		}
 	}
 
-	if archived {
-		c.liveCheckGate(arch)
-	} else {
+	// The live check passed before the drop commit removed its record.
+	if !dropped {
 		c.liveCheckGate(live)
 	}
 
-	if archived && !newwork {
-		// No new work still runs the visual gate: the archive is no verifier.
+	if dropped && !newwork {
+		// No new work still runs the visual gate: the drop is no verifier.
 		c.visualGate()
 		c.markEnd("flow.unfinished-work-gate", "completed")
 	} else {
 		ask = false
-		// Every worktree's commit range, for signal four's Task-Id search. An
-		// archived re-run starts at the archive: the guard exempts the tasks
-		// already ticked there, whose commits run 1 squashed.
+		// Every worktree's commit range, for signal four's Task-Id search. A
+		// re-run after a drop -- a fix run's restored directory included --
+		// starts past the newest drop commit (archBase): the guard exempts
+		// the tasks already ticked, whose commits run 1 squashed.
 		rangeBase := func(i int) string {
 			rb, _ := c.git("-C", c.wt[i], "merge-base", "HEAD", "origin/"+c.bases[i])
-			if archived {
-				rb = c.archBase(c.wt[i], rb)
-			}
-			return rb
+			return c.archBase(c.wt[i], rb)
 		}
 		var ranges []string
 		for i := range c.wt {
@@ -288,13 +284,10 @@ func (c *ic) prepare() {
 	for i := range c.wt {
 		f := c.reshapeFile(c.wt[i])
 		os.Remove(f)
-		if archived && !newwork {
+		if dropped && !newwork {
 			continue
 		}
-		rb := c.rb[i]
-		if archived {
-			rb = c.archBase(c.wt[i], rb)
-		}
+		rb := c.archBase(c.wt[i], c.rb[i])
 		if err := os.WriteFile(f, []byte(rb+"\n"), 0o644); err != nil {
 			fmt.Fprintf(c.stderr, "integrate-change: %v\n", err)
 		}
@@ -311,9 +304,6 @@ func (c *ic) prepare() {
 		}
 	}
 	narrative := live + "/narrative.md"
-	if archived {
-		narrative = arch + "/narrative.md"
-	}
 	if reshape {
 		c.markBegin("flow.preserve-sessions")
 		c.say("NEXT: append this run's narrative to " + narrative + ", then integrate-change.sh commit " + c.main + " " + c.name + subjects + " " + c.flags())

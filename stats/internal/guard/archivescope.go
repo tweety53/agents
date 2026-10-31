@@ -7,20 +7,21 @@ import (
 )
 
 // checkArchiveScope is scripts/check-archive-scope.sh: that script's header
-// comment is the contract -- one OUT-OF-SCOPE line per staged path outside
-// every <allowed-prefix>, then one SCOPE-OK/SCOPE-VIOLATION verdict line;
-// exit 0 SCOPE-OK (an empty staged diff included), 1 SCOPE-VIOLATION, 2 with
-// nothing on stdout when it cannot answer.
+// comment is the contract -- one OUT-OF-SCOPE line per staged path that is
+// not a deletion under one of the <allowed-prefix>es, then one
+// SCOPE-OK/SCOPE-VIOLATION verdict line; exit 0 SCOPE-OK (an empty staged
+// diff included), 1 SCOPE-VIOLATION, 2 with nothing on stdout when it
+// cannot answer.
 //
-// WHY THIS GUARD EXISTS (KAN-472 follow-up, self-review finding). The
-// archive commit is staged with `git -C <worktree> add -A` — every path in
-// the worktree, not only the archived change's own move — so whatever else
-// is sitting in that tree is committed right alongside the archive move,
-// silently. This is exactly what happened to kan-474's archive commit
-// (`a574bf4`): it reverted skill-file content another change had shipped
-// minutes earlier, because `add -A` swept it up along with the intended
-// archive move. This guard makes that class of accident a refusal instead
-// of a silent commit.
+// WHY THIS GUARD EXISTS (KAN-472 follow-up, self-review finding). Whatever
+// else sits staged in the worktree is committed right alongside run 1's
+// landing commit, silently: kan-474's archive commit (`a574bf4`) reverted
+// skill-file content another change had shipped minutes earlier, because
+// the archive step's `add -A` swept it up. The landing commit is now the
+// drop -- `git rm` of the change's own directories and nothing else -- so
+// the only staged change it admits is a deletion under one of them; an
+// addition or modification anywhere, or a deletion elsewhere, is a refusal
+// instead of a silent commit.
 func init() { Registry["check-archive-scope"] = checkArchiveScope }
 
 func checkArchiveScope(args []string, env Env, stdout, stderr io.Writer) int {
@@ -39,14 +40,15 @@ func checkArchiveScope(args []string, env Env, stdout, stderr io.Writer) int {
 	if git("-C", root, "rev-parse", "--is-inside-work-tree").Run() != nil {
 		return die("%s is not a git worktree", root)
 	}
-	staged, ok := capture(git("-C", root, "diff", "--no-renames", "--cached", "--name-only"))
+	staged, ok := capture(git("-C", root, "diff", "--no-renames", "--cached", "--name-status"))
 	if !ok {
 		return die("cannot read the staged diff of %s", root)
 	}
 
 	var offenders []string
-	for _, path := range strings.Split(staged, "\n") {
-		if path != "" && !asInScope(path, args[1:]) {
+	for _, line := range strings.Split(staged, "\n") {
+		status, path, _ := strings.Cut(line, "\t")
+		if path != "" && (status != "D" || !asInScope(path, args[1:])) {
 			offenders = append(offenders, path)
 		}
 	}

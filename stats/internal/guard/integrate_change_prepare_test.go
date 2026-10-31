@@ -77,6 +77,9 @@ check "untasked: --accept-outstanding passes the gate" '[ "$RC" -eq 0 ]'`},
 		{"archived_rerun", `# --- archived_rerun ---
 fixture
 to_land "archived_rerun: "
+A="$WORK/a-worktrees/demo"
+g -C "$A" checkout -q "$(git -C "$A" log --format=%H -1 --grep="^chore(spectre): drop demo$")^" -- spectre/changes/demo
+g -C "$A" commit -qm "chore(spectre): plan demo — fix-run tasks"
 printf 'more\n' >"$WORK/a-worktrees/demo/more.txt"
 g -C "$WORK/a-worktrees/demo" add more.txt && g -C "$WORK/a-worktrees/demo" commit -qm "feat(a): more" -m "Task-Id: 2"
 sut prepare "$WORK/a" demo
@@ -96,9 +99,9 @@ check "archived_rerun_self_review: a resumed run 1 holds no new work" 'printf "%
 g -C "$A" commit -q --allow-empty -m "chore(spectre): plan demo — fix-run tasks"
 sut prepare "$WORK/a" demo
 check "archived_rerun_self_review: a fix run's plan commit above the loop is new work" 'printf "%s\n" "$OUT" | grep -q "^ARCHIVED: demo — with new work"'
-g -C "$A" commit -q --allow-empty -m "chore(spectre): archive self-review-demo"
+g -C "$A" commit -q --allow-empty -m "chore(spectre): drop self-review-demo"
 sut prepare "$WORK/a" demo
-check "archived_rerun_self_review: the loop's archive commit re-covers the plan above it" 'printf "%s\n" "$OUT" | grep -q "^ARCHIVED: demo — without new work"'
+check "archived_rerun_self_review: the loop's drop commit re-covers the plan above it" 'printf "%s\n" "$OUT" | grep -q "^ARCHIVED: demo — without new work"'
 g -C "$A" commit -q --allow-empty -m "chore(spectre): plan self-review-demo"
 g -C "$A" commit -q --allow-empty -m "chore(spectre): plan demo"
 g -C "$A" commit -q --allow-empty -m "fix(a): fix-run work"
@@ -216,18 +219,8 @@ check "planning_only: prepare's NEXT asks a subject for a and none for b" \
 printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
 sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work"
 check "planning_only: commit with no subject for b exits 0" '[ "$RC" -eq 0 ]'
-check "planning_only: b's branch is the base plus its planning and archive commits" \
-  '[ "$(git -C "$WORK/b-worktrees/demo" log --format=%s main..HEAD | tr "\n" "|")" = "chore(spectre): archive demo|chore(spectre): plan demo|" ]'`},
-		{"satellite_archive", `# --- satellite_archive ---
-fixture
-mkdir -p "$WORK/b-worktrees/demo/spectre/changes/demo"
-printf '## Part of\n\n` + "`" + `a:demo` + "`" + `\n' >"$WORK/b-worktrees/demo/spectre/changes/demo/link.md"
-g -C "$WORK/b-worktrees/demo" add -A && g -C "$WORK/b-worktrees/demo" commit -qm "chore(spectre): link demo"
-to_land "satellite_archive: " no-report
-check "satellite_archive: b's change directory is archived" \
-  '[ ! -d "$WORK/b-worktrees/demo/spectre/changes/demo" ] && [ -f "$WORK/b-worktrees/demo/spectre/changes/archive/demo/link.md" ]'
-check "satellite_archive: b's branch ends on its own archive commit" \
-  '[ "$(git -C "$WORK/b-worktrees/demo" log -1 --format=%s)" = "chore(spectre): archive demo" ]'`},
+check "planning_only: b's branch is the base plus its planning and drop commits" \
+  '[ "$(git -C "$WORK/b-worktrees/demo" log --format=%s main..HEAD | tr "\n" "|")" = "chore(spectre): drop demo|chore(spectre): plan demo|" ]'`},
 		{"link_only_canon", `# --- link_only_canon ---
 fixture
 g -C "$WORK/a-worktrees/demo" reset -q --hard main
@@ -244,7 +237,7 @@ printf '\n## integrate run\n\nnarrative\n' >>"$c/narrative.md"
 sut commit "$WORK/a" demo "$WORK/b-worktrees/demo=feat(b): do the work"
 check "link_only_canon: commit with no subject for a exits 0" '[ "$RC" -eq 0 ]'
 check "link_only_canon: a's link.md lands in a commit subjected chore(spectre): merge order" \
-  '[ "$(git -C "$WORK/a-worktrees/demo" log --format=%s --diff-filter=A -1 -- spectre/changes/archive/demo/link.md spectre/changes/demo/link.md)" = "chore(spectre): merge order" ]'`},
+  '[ "$(git -C "$WORK/a-worktrees/demo" log --format=%s --diff-filter=A -1 -- spectre/changes/demo/link.md)" = "chore(spectre): merge order" ]'`},
 		{"commit_pushes", `# --- commit_pushes ---
 fixture
 for r in a b; do g -C "$WORK/$r-worktrees/demo" push -q -u origin spectre/demo; done
@@ -417,6 +410,9 @@ const icRerunPinCase = `rerun_pin_case() {
   fixture
   to_land "${1}"
   [ "${2:-}" = reclone ] && git -C "$WORK/a" update-ref -d refs/flow/pre-reshape/demo
+  A="$WORK/a-worktrees/demo"
+  g -C "$A" checkout -q "$(git -C "$A" log --format=%H -1 --grep="^chore(spectre): drop demo$")^" -- spectre/changes/demo
+  g -C "$A" commit -qm "chore(spectre): plan demo — fix-run tasks"
   printf 'more\n' >"$WORK/a-worktrees/demo/more.txt"
   g -C "$WORK/a-worktrees/demo" add more.txt && g -C "$WORK/a-worktrees/demo" commit -qm "feat(a): more" -m "Task-Id: 2"
   sut prepare "$WORK/a" demo
@@ -429,6 +425,44 @@ const icRerunPinCase = `rerun_pin_case() {
     '[ "$(git --git-dir="$WORK/a-origin.git" rev-parse refs/flow/pre-reshape/demo)" = "$(git -C "$WORK/a" rev-parse refs/flow/pre-reshape/demo)" ]'
 }
 `
+
+// TestIntegrateChangePrepareRerunAfterDrop pins run 1's re-run detection
+// once the change directory is dropped: the drop commit on the branch and no
+// live directory is the already-dropped re-run (its ARCHIVED token kept); a
+// fix run's restored directory is a first pass again; a drop staged and
+// never committed is undone.
+func TestIntegrateChangePrepareRerunAfterDrop(t *testing.T) {
+	icRunCases(t, []icCaseDef{
+		{"rerun_after_drop", `# --- rerun_after_drop ---
+fixture
+to_land "rerun_after_drop: " no-report
+A="$WORK/a-worktrees/demo"
+sut prepare "$WORK/a" demo
+check "rerun_after_drop: prepare exits 0" '[ "$RC" -eq 0 ]'
+check "rerun_after_drop: the dropped re-run holds no new work" 'printf "%s\n" "$OUT" | grep -q "^ARCHIVED: demo — without new work"'
+check "rerun_after_drop: its NEXT is commit without a narrative" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: integrate-change.sh commit "'
+g -C "$A" checkout -q "$(git -C "$A" log --format=%H -1 --grep="^chore(spectre): drop demo$")^" -- spectre/changes/demo
+g -C "$A" commit -qm "chore(spectre): plan demo — fix-run tasks"
+sut prepare "$WORK/a" demo
+check "rerun_after_drop: with the directory restored prepare exits 0" '[ "$RC" -eq 0 ]'
+check "rerun_after_drop: a restored directory is a first pass" '! printf "%s\n" "$OUT" | grep -q "^ARCHIVED: "'
+check "rerun_after_drop: its NEXT names the live narrative" 'printf "%s" "$OUT" | tail -1 | grep -qF "append this run'"'"'s narrative to $A/spectre/changes/demo/narrative.md"'
+printf '\n## fix run\n\nfixed\n' >>"$A/spectre/changes/demo/narrative.md"
+sut commit "$WORK/a" demo "$WORK/b=feat(b): do the work"
+check "rerun_after_drop: commit exits 0" '[ "$RC" -eq 0 ]'
+[ "$RC" -eq 0 ] || halt recommit
+check "rerun_after_drop: the restored directory is dropped again" \
+  '[ ! -d "$A/spectre/changes/demo" ] && [ "$(git -C "$A" log -1 --format=%s)" = "chore(spectre): drop demo" ] && [ "$(git -C "$A" log --format=%s | grep -c "^chore(spectre): drop demo$")" -eq 2 ]'`},
+		{"undo_staged_drop", `# --- undo_staged_drop ---
+fixture
+A="$WORK/a-worktrees/demo"
+g -C "$A" rm -r -q spectre/changes/demo
+sut prepare "$WORK/a" demo
+check "undo_staged_drop: prepare exits 0" '[ "$RC" -eq 0 ]'
+check "undo_staged_drop: the undo is named" 'printf "%s\n" "$OUT" | grep -qxF "UNARCHIVED: $A/spectre/changes/demo"'
+check "undo_staged_drop: the directory is back, nothing staged" '[ -f "$A/spectre/changes/demo/tasks.md" ] && g -C "$A" diff --cached --quiet'`},
+	})
+}
 
 // TestIntegrateChangeRequiresInRunFixLine pins kan-1032's self-review: a
 // fixed flow-fix row the store lists needs an in-run fix line naming its sha.
@@ -443,7 +477,7 @@ printf '\n## integrate run\n\nnarrative' >>"$WORK/a-worktrees/demo/spectre/chang
 sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
 check "fix_line_derived: a row with its note and blast radius passes commit" '[ "$RC" -eq 0 ]'
 check "fix_line_derived: the line is appended to the narrative" \
-  'grep -qxF -- "- In-run pipeline fix: 1a2b3c4 — the renderer could not render an exp- slot (blast radius 2 files)" "$WORK/a-worktrees/demo/spectre/changes/archive/demo/narrative.md"'
+  'grep -qxF -- "- In-run pipeline fix: 1a2b3c4 — the renderer could not render an exp- slot (blast radius 2 files)" <(git -C "$WORK/a-worktrees/demo" show HEAD^:spectre/changes/demo/narrative.md)'
 check "fix_line_derived: the append is reported" \
   'printf "%s" "$OUT" | grep -q "^narrative: appended "'
 rm -f "$WORK/sr-findings.json"`},

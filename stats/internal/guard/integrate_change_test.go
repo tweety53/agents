@@ -95,11 +95,8 @@ case "\$1 \$2" in
   *) : ;;
 esac
 EOF
-  cat >"$WORK/bin/spectre" <<'EOF'
-#!/usr/bin/env bash
-[ "$1" = archive ] || exit 1
-mkdir -p spectre/changes/archive && git mv "spectre/changes/$2" "spectre/changes/archive/$2"
-EOF
+  # Run 1 no longer calls spectre: any call fails the run.
+  printf '#!/usr/bin/env bash\nexit 1\n' >"$WORK/bin/spectre"
   chmod +x "$WORK/bin/flow" "$WORK/bin/spectre"
   printf '{"state":"IN_PROGRESS","branch":"spectre/demo","worktrees":{"%s":"%s","%s":"%s"},"jiraIssue":"KAN-1","prUrl":null,"updatedBy":"/flow"}\n' \
     "$WORK/a-worktrees/demo" "$(git -C "$WORK/a" rev-parse main)" \
@@ -283,8 +280,10 @@ g -C "$WORK/a-worktrees/demo" commit -qm "docs(self-review): demo self-review re
 sut land "$WORK/a" demo
 check "land exits 0" '[ "$RC" -eq 0 ]'
 [ "$RC" -eq 0 ] || halt land
-check "a's origin main carries implementation, plan, archive and report commits" \
-  '[ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -4 | tr "\n" "|")" = "docs(self-review): demo self-review report|chore(spectre): archive demo|chore(spectre): plan demo|feat(a): do the work|" ]'
+check "a's origin main carries implementation, plan, drop and report commits" \
+  '[ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -4 | tr "\n" "|")" = "docs(self-review): demo self-review report|chore(spectre): drop demo|chore(spectre): plan demo|feat(a): do the work|" ]'
+check "a's origin main holds neither the change directory nor an archive" \
+  '[ -z "$(git --git-dir="$WORK/a-origin.git" ls-tree -d main spectre/changes/demo spectre/changes/archive)" ]'
 check "b's origin main carries its implementation commit" \
   '[ "$(git --git-dir="$WORK/b-origin.git" log --format=%s main -1)" = "feat(b): do the work" ]'
 check "b was pushed before a (merge order)" \
@@ -300,6 +299,24 @@ check "run 2 keeps a's pre-reshape pin, locally and on origin" \
   'git -C "$WORK/a" rev-parse -q --verify refs/flow/pre-reshape/demo >/dev/null && git --git-dir="$WORK/a-origin.git" rev-parse -q --verify refs/flow/pre-reshape/demo >/dev/null'
 check "land ends on NEXT: Finished handoff" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: print the Finished handoff"'
 check "the NEXT line names the template and its never-omitted lines" 'printf "%s" "$OUT" | tail -1 | grep -qF "(skills/flow/cleanup.md) — its Learning: and Prompt tuning: lines included"'`},
+	})
+}
+
+// TestIntegrateChangeDropsSatelliteLink pins the satellite half of run 1's
+// drop: a worktree holding the change's link.md directory drops it in a
+// drop commit of its own, and nothing is archived.
+func TestIntegrateChangeDropsSatelliteLink(t *testing.T) {
+	icRunCases(t, []icCaseDef{
+		{"satellite_drop", `# --- satellite_drop ---
+fixture
+mkdir -p "$WORK/b-worktrees/demo/spectre/changes/demo"
+printf '## Part of\n\n` + "`" + `a:demo` + "`" + `\n' >"$WORK/b-worktrees/demo/spectre/changes/demo/link.md"
+g -C "$WORK/b-worktrees/demo" add -A && g -C "$WORK/b-worktrees/demo" commit -qm "chore(spectre): link demo"
+to_land "satellite_drop: " no-report
+check "satellite_drop: b's change directory is gone from disk and HEAD" \
+  '[ ! -d "$WORK/b-worktrees/demo/spectre/changes/demo" ] && [ -z "$(git -C "$WORK/b-worktrees/demo" ls-tree -d HEAD spectre/changes/demo spectre/changes/archive)" ]'
+check "satellite_drop: b's branch ends on its own drop commit" \
+  '[ "$(git -C "$WORK/b-worktrees/demo" log -1 --format=%s)" = "chore(spectre): drop demo" ]'`},
 	})
 }
 
