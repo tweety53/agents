@@ -310,7 +310,8 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
        flow record finding  [-addr url] [-timeout dur] [-C dir]
                              -change name [<finding flags>] -from file
                              (a line with no ref takes the change's next
-                             free ref, written into the file first)
+                             free ref, written into the file first;
+                             -ref is refused beside -from)
        flow record status   [-addr url] [-timeout dur] [-C dir]
                              -change name -ref F<n> -status status
                              [-category cat]
@@ -1956,8 +1957,16 @@ func splitFromFlag(args []string) (path string, rest []string, ok bool) {
 // takes the next ref above both the store's highest F<n> and every F<n> the
 // file names; those lines are rewritten in the file before the first is
 // recorded, so a re-run rewrites the same rows and never adds. A failed read
-// exits 1 naming the file, before anything is posted or written.
+// exits 1 naming the file, before anything is posted or written. A -ref on
+// the command line is refused (exit 2), since every line names or takes its
+// own, and a line that is not a JSON object (`null`) is exit 2.
 func runRecordFindingFrom(ctx context.Context, path string, rest []string, stdout, stderr io.Writer) int {
+	for _, arg := range rest {
+		if arg == "-ref" || arg == "--ref" || strings.HasPrefix(arg, "-ref=") || strings.HasPrefix(arg, "--ref=") {
+			fmt.Fprintln(stderr, "flow: -ref and -from cannot be combined: each -from line names its own ref, or takes the next free one")
+			return 2
+		}
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: -from: %v\n", err)
@@ -1976,6 +1985,10 @@ func runRecordFindingFrom(ctx context.Context, path string, rest []string, stdou
 		dec.UseNumber()
 		if err := dec.Decode(&row); err != nil {
 			fmt.Fprintf(stderr, "flow: -from %s:%d: %v\n", path, i+1, err)
+			return 2
+		}
+		if row == nil {
+			fmt.Fprintf(stderr, "flow: -from %s:%d: a line must be a JSON object\n", path, i+1)
 			return 2
 		}
 		args := append([]string(nil), rest...)
@@ -2018,7 +2031,7 @@ func numberRefLessFindings(ctx context.Context, path string, data []byte, rest [
 		var row map[string]any
 		dec := json.NewDecoder(strings.NewReader(line))
 		dec.UseNumber()
-		if dec.Decode(&row) != nil {
+		if dec.Decode(&row) != nil || row == nil {
 			continue
 		}
 		if ref, _ := row["ref"].(string); ref != "" {

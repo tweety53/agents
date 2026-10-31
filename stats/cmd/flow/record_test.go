@@ -6075,6 +6075,23 @@ func TestRecordFindingFromAssignsRefs(t *testing.T) {
 	if data, _ := os.ReadFile(file); string(data) != refless {
 		t.Errorf("(d) file rewritten to %q, want its bytes unchanged", data)
 	}
+
+	// (e) A null line is a malformed line reported by exit, never a panic.
+	readStatus = http.StatusOK
+	write("null\n")
+	if code, _ := load(); code != 2 {
+		t.Errorf("(e) null line exit %d, want 2", code)
+	}
+
+	// (f) -ref beside -from is refused: each line names its own ref.
+	var stdout, stderrF bytes.Buffer
+	code = run(context.Background(),
+		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918",
+			"-ref", "F7", "-slot", "gated-reviewer", "-round", "0", "-status", "open", "-reproducer", "none — a gated pass", "-from", file},
+		strings.NewReader(""), &stdout, &stderrF)
+	if code != 2 || !strings.Contains(stderrF.String(), "-ref") {
+		t.Errorf("(f) -ref with -from exit %d stderr %q, want 2 naming -ref", code, stderrF.String())
+	}
 }
 
 // TestRecordFindingFromFile pins `flow record finding -from <file>`: every
