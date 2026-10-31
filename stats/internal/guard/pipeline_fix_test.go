@@ -401,15 +401,8 @@ func TestPipelineFixOwnBranchInAnotherProject(t *testing.T) {
 		!strings.Contains(fx.calls(t), "record dispatch end -C "+proj+" -change kan-1-demo -key "+token+"-fix-1") {
 		t.Fatalf("end left the caller's project: rc %d: %s\n%s", rc, out, fx.calls(t))
 	}
-	if rc, out := fx.pf(t, "escalate", token+"-fix-2"); rc != 0 {
-		t.Fatalf("escalate: rc %d: %s", rc, out)
-	}
-	if _, out := kwRun(fx.env, "", fixtureGit, "-C", proj, "config", "--get-all", "flow.escalation"); !strings.Contains(out, token+":"+token+"-fix-2") {
-		t.Fatalf("the escalation was not recorded in the caller's project: %q", out)
-	}
-	lp, _, _, msg, ok := lpFromKey(fx.env, fixtureGit, proj, token+"-fix-2")
-	if !ok || !lpEscalated(fx.env, fixtureGit, lp.main, lp, token+"-fix-2") {
-		t.Fatalf("check-loop-dispatch does not read the escalation in the caller's project: %s", msg)
+	if rc, out := fx.pf(t, "escalate", token+"-fix-2"); rc != 1 || !strings.Contains(out, "admits no escalation") {
+		t.Fatalf("escalate of a self-review fix: rc %d, want 1 naming no escalation: %s", rc, out)
 	}
 	if rc, out := fx.pf(t, "verify", proj); rc != 0 || !strings.Contains(out, "green: true") {
 		t.Fatalf("verify against the worktree's own origin/HEAD: rc %d: %s", rc, out)

@@ -34,16 +34,26 @@ The absent case also prints every `origin/<branch>` whose tree holds `<bundle>` 
 checkout on any other branch: print the branch and stop.
 
 **Both refusals bind the standalone command only.** A pass run inside `/flow`'s integrate or
-`/flow-fast`'s verify holds its bundle in memory, runs on the change branch, and starts at step 2.
+`/flow-fast`'s verify has its bundle at `<sr-dir>/bundle.md`, runs on the change branch, and starts at step 2.
 
 ### 2. Read the bundle and run the eight angles
 
+**This session passes file paths, never file contents.** Every handoff between this file's steps
+is a file in `<sr-dir>`, `<state-dir>/self-review/<name>/`, `<state-dir>` being the path `flow
+state dir` prints — outside every checkout, never committed. This session reads each dispatch's
+hand-back, never the files it names, save where a step below says it reads one; every judgement —
+`big`, filing, landing, and when a step runs again — stays this session's.
+Before the pass is dispatched, this session empties `<sr-dir>` of every file but `bundle.md`, so a re-run never fills an earlier run's draft or copies its cases.
+
 Dispatch the pass, in-run and standalone alike: key `self-review-<name>-pass`, on the `pass` row
-of **Allowed pairs** (`skills/flow-contracts/model-policy.md`), its prompt carrying the bundle in full (`<bundle>`
-standalone, the bundle held in memory in-run), this step's rules and step 3's classification, the
-dispatch paragraphs step 3 names and READ-ONLY REVIEW. It returns every finding with its angle, its
-evidence and its classification — `noted` or fixable, in or out of scope, and for a fixable one its
-counted blast radius and whether it is `big`. This session keeps the filing-and-rating prompt, the
+of **Allowed pairs** (`skills/flow-contracts/model-policy.md`), its prompt naming the bundle's path — `<bundle>`
+standalone, `<sr-dir>/bundle.md` in-run — and `<sr-dir>`, and carrying this step's rules and step 3's classification, the
+dispatch paragraphs step 3 names and READ-ONLY REVIEW. It writes `<sr-dir>/findings.md`: every finding under an `F<n>` id, with its angle, its
+evidence, its severity and its classification — `noted` or fixable, in or out of scope, and for a fixable one its
+counted blast radius and whether it is `big` — and a `## Offered` section laying out every `big` finding and every angle-7 candidate in step 4's explanation layout.
+It writes `<sr-dir>/report-draft.md`, step 7's report, each disposition step 3 decides written as a placeholder: `fixed: <F-id>` for a non-`big` finding, `offered: <F-id>` for a `big` one.
+Every file it writes under `<sr-dir>` or `<state-dir>/flow-eval/<name>/` is its own report file under READ-ONLY REVIEW.
+It hands back only its per-angle counts, the non-`big` finding ids, one line per `big` finding, its case ids, and whether it met a product defect. This session keeps the filing-and-rating prompt, the
 store rows and the report. The pass's dispatch row is opened under `<name>` by the hook that admits it;
 when the pass hands back, this session closes it, `flow record dispatch end -change <name> -key
 self-review-<name>-pass -session-token self-review-<name> -outcome completed` — `flow stage end`
@@ -88,7 +98,7 @@ every field present:
   findings; why it is a good candidate.
 
 Every path is absolute. A file that exists only in git history, or only inside a worktree that
-cleanup removes, is extracted by this session before step 4 — `git -C <repo> show <sha>:<path>`
+cleanup removes, is extracted by the pass — `git -C <repo> show <sha>:<path>`
 into `<state-dir>/flow-eval/<name>/`, `<state-dir>` being the path `flow state dir` prints for
 that repository — and cited there. A candidate names no defect: it is recorded `noted`, never fixed or filed — the one `noted`
 item offered, for mining in step 4. Angle 7 reads its candidates from the run's own work in any repository the
@@ -166,7 +176,7 @@ folder:
 - **[flow-prompt-tuning]** <defect class> — <type> — docs/prompt-tuning/<case-id>/ — noted
 ```
 
-The pass returns each case's `case.json` fields (step 2a); it writes nothing.
+The pass writes each case's files, step 2a's table save `index.html`, into `<sr-dir>/cases/<case-id>/`.
 
 An `In-run pipeline fix:` line in the bundle (**Pipeline defects found mid-run**,
 `skills/flow-contracts/pipeline.md`) that names a sha is reported under angle 1 as fixed and
@@ -200,10 +210,10 @@ is:** `land-self-review-report.sh` refuses a report whose case line names no fol
 A pass with no angle-8 case writes nothing here. Otherwise this session, after the pass and before
 step 3, first resolves the worktree of `<fix-branch>` — the branch named at the end of this step —
 creating it with `<agents repo>/scripts/pipeline-fix.sh start <name>` when it is
-`self-review-<name>` and absent; it never writes the agents main checkout. It writes each case into that
+`self-review-<name>` and absent; it never writes the agents main checkout. It copies each `<sr-dir>/cases/<case-id>/` folder the pass wrote into that
 worktree — `<agents repo>-worktrees/<name>/docs/prompt-tuning/<case-id>/` on the change's own branch,
 `<agents repo>-worktrees/self-review-<name>/docs/prompt-tuning/<case-id>/` otherwise, `<case-id>` being
-`<name>-<n>`, `<n>` counting from 1 within the change:
+`<name>-<n>`, `<n>` counting from 1 within the change, each holding the files the pass wrote:
 
 | File | Content |
 |---|---|
@@ -218,7 +228,7 @@ worktree — `<agents repo>-worktrees/<name>/docs/prompt-tuning/<case-id>/` on t
 extraction does. A `reviewer` case whose `target` is `skills/flow/visual-verify-verifier.md` or
 `skills/flow/visual-verify.md` also carries `capture.png`, the capture the verifier judged, and
 `mockup.png`, the mockup frame it judged that capture against, both copied into the case folder.
-Once a case's files are written, run `flow prompt-tuning render <case-dir>`, then
+Once a case's folder is copied, run `flow prompt-tuning render <case-dir>`, then
 `<agents repo>/scripts/check-prompt-tuning-cases.sh` over the new folders. A red line is fixed by
 rewriting the field it names; a case no generic rewrite passes is dropped, and its report line says
 so, disposition `noted`.
@@ -269,8 +279,7 @@ NO DELEGATION paragraphs of `skills/flow/implementer-brief.md` verbatim — a re
 (`skills/flow/gated-reviewer-brief.md`) too, and the plan's
 PLANNING DELEGATION below in place of NO DELEGATION — with **The
 handshake** there applying to each reply. Every dispatch is one-shot: no `SendMessage` to it once
-it returns. The no-progress escalation of **Fewest operator actions**
-(`skills/flow-contracts/pipeline.md`) still runs on `flow-high`.
+it returns. The `fix` row carries no no-progress escalation: a fix that makes no progress is answered by the fresh re-plan above, never by `flow-high`.
 
 **The pairs are the `self-review-*` and `pipeline-fix-*` rows** of **Allowed pairs**
 (`skills/flow-contracts/model-policy.md`), which `check-loop-dispatch.sh` reads and refuses a loop
@@ -280,7 +289,7 @@ every re-review.
 **The planner pair** is the `plan` row — `flow-planner-medium` by default, `flow-planner-low` when
 every finding the plan carries is mechanical, this session recording the one-line reason with the
 dispatch; the `flow-planner-<effort>` definitions are the `flow-<effort>` ones plus `Agent`
-(decision `planner-carries-agent`, kan-1033) — **the fixer pair** the `fix` row and **the review pair**
+(decision `planner-carries-agent`, kan-1033) — **the fixer pair** the `fix` row, `opus` by default and `sonnet` only for a fix that is simple and predictable, this session recording the one-line reason with the dispatch — and **the review pair**
 the two `review` rows: the first review on `flow-medium` or `flow-low` as the planner recorded —
 `flow-medium` when it recorded none — and every re-review after a fix on `flow-low` and `sonnet`.
 
@@ -313,7 +322,7 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
 1. **Plan, then fix** — on `self-review-<name>`, this session creates the worktree with
    `<agents repo>/scripts/pipeline-fix.sh start <name>` — never the main checkout; on the change's
    own branch its worktree is already set up. It then dispatches key `self-review-<name>-plan` on the planner pair, its
-   prompt carrying every non-`big` finding with its evidence and counted blast radius. The planner
+   prompt naming `<sr-dir>/findings.md` and the non-`big` finding ids, whose evidence and counted blast radius that file carries. The planner
    plans them all in full as one spectre change, `self-review-<name>`, in that worktree, per
    `skills/flow/brainstorm-planner.md`: brainstorming (section B), the artifacts (section C —
    `proposal.md`, and `design.md` with `## Context`, `## Decisions` and `## Open questions`) and
@@ -363,8 +372,9 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    commit, judging the code against `tasks.md` and `design.md`'s decisions, and asking each review
    finding graded Critical, Important or Minor, and its report to open with one `Critical: <n>`
    and one `Important: <n>` line counting them.
-3. **Fix the review's findings** — key `self-review-<name>-fix-<r>` on the fixer pair, its prompt carrying the
-   review's report verbatim. Each fix is folded into the commit of the task it fixes
+   Its prompt names `<sr-dir>/review-<r>.md` as its report file: it writes its report there and hands back only those two lines, and this session closes it with `<agents repo>/scripts/pipeline-fix.sh end <key> <sr-dir>/review-<r>.md`.
+3. **Fix the review's findings** — key `self-review-<name>-fix-<r>` on the fixer pair, its prompt naming
+   `<sr-dir>/review-<r>.md`. Each fix is folded into the commit of the task it fixes
    (`git commit --fixup <that commit>`, then `git rebase --autosquash <fix-base>`), so
    every task stays one commit; a commit the review judges not to fix its finding, or to make
    things worse, is dropped from the branch. **A review whose every finding is Minor is closed by
@@ -382,10 +392,9 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    `chore(spectre): archive self-review-<name>`, on either branch, before any landing push —
    `<agents repo>`'s push hook refuses an unarchived change on its default branch. That commit
    alone carries the ticks, and is made once. This session then runs
-   `<agents repo>/scripts/pipeline-fix.sh verify <fix worktree>`. A red line is fixed by a fresh
+   `<agents repo>/scripts/pipeline-fix.sh verify <fix worktree> > <sr-dir>/verify-<v>.log 2>&1`, `<v>` counting verify runs from 1, and reads only its exit code and its `red:` lines. A red line is fixed by a fresh
    dispatch of step 3, key
-   `self-review-<name>-fix-v<v>`, its prompt carrying the failing command and its output
-   verbatim; then step 2, then this step's lint lines and tests again, `<v>` plus one. The
+   `self-review-<name>-fix-v<v>`, its prompt naming the failing command and `<sr-dir>/verify-<v>.log`; then step 2, then this step's lint lines and tests again, `<v>` plus one. The
    autosquash keeps the archive commit last; a task commit dropped after it has its task unticked
    in the archive commit by this session (`git commit --amend`). A red branch never lands, and a
    red line is never waived — **Fewest operator actions** governs this loop as it does the review.
@@ -434,6 +443,8 @@ observed, what breaks, and what the fix would be. Every fixed finding is one lin
 body, naming its landed sha; it is not offered. A prompt's option text cannot carry that
 explanation, so the prompt records the decision only: a filed issue is durable, and an
 explanation arriving afterward describes something the operator did not agree to.
+This session first fills each `fixed: <F-id>` placeholder of `<sr-dir>/report-draft.md` with the sha `git log --format='%h %s'` shows for its task's commit subject, rewriting one whose finding step 3 left unfixed as `offered: <F-id>`.
+It then prints that body from `<sr-dir>/findings.md`'s `## Offered` section and the draft's `fixed:` lines, never composing either.
 
 When an angle-7 candidate is offered, the ask is two calls: the filing questions and the rating
 in one call that follows the explanation in the same turn, and the mining questions in their own
@@ -525,6 +536,9 @@ checkout there: print `⚠ flow-eval: skipped — <reason>` and mine nothing. A 
 
 ### 6. Record every finding in the flow store
 
+First this session fills each `offered: <F-id>` placeholder of `<sr-dir>/report-draft.md` with `filed: <KEY>` from step 5 or `declined`.
+It reads the filled draft once, here, and records the rows from its lines.
+
 One call per finding, every disposition alike, before the report is written — save a `fixed`
 finding on the change's own branch, whose row step 5's landing push records:
 
@@ -541,6 +555,7 @@ A row is stated as recorded only once `flow self-review findings -change <name>`
 
 ### 7. Write the report, delete the bundle, land it
 
+The report is the filled `<sr-dir>/report-draft.md`, copied to its path below; this session never composes the eight angles.
 Write `<project>/docs/self-review/<name>-self-review.md` in the shape
 `<project>/scripts/check-self-review-report.sh` checks — one section per angle, all eight present; each
 finding one line naming its angle's label, the finding, and its disposition (`fixed: <sha>`, `filed: <KEY>`,
@@ -554,7 +569,7 @@ title:
 An angle-7 candidate is a `noted` line naming its kind and whether the operator chose to mine
 it, its template's fields beneath it as indented sub-bullets.
 
-Delete `<bundle>`; a pass inside a run has no bundle file and commits the report alone, per its
+Delete `<bundle>` standalone, and `<sr-dir>` in-run and standalone alike once the report lands; a pass inside a run commits the report alone, per its
 run's own section. `land-self-review-report.sh` runs `<project>/scripts/check-self-review-report.sh` over the
 report's directory when `<repo>` carries that script, and refuses a violation —
 `LAND-REPORT-INVALID`, exit 5, nothing committed: fix the lines the check names and land again.

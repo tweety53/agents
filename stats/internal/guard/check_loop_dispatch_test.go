@@ -280,7 +280,7 @@ func TestCheckLoopDispatchOwnBranchInAnotherProject(t *testing.T) {
 		t.Fatalf("the own-branch loop was not filed in the caller's project:\n%s", calls)
 	}
 	gitRun(t, fx.repo, "branch", "self-review-kan-1-demo")
-	if rc, out := fx.run(t, "self-review-kan-1-demo-fix", "flow-low", "opus"); rc != 0 ||
+	if rc, out := fx.run(t, "self-review-kan-1-demo-fix", "flow-medium", "opus"); rc != 0 ||
 		!strings.Contains(fx.calls(t), "record dispatch begin -C "+fx.repo+" -change self-review-kan-1-demo") {
 		t.Fatalf("a self-review loop branch left <agents repo>: rc %d: %s\n%s", rc, out, fx.calls(t))
 	}
@@ -342,6 +342,38 @@ func TestCheckLoopDispatchFirstReviewEffort(t *testing.T) {
 			gitRun(t, fx.repo, "commit", "-q", "-m", "plan")
 			gitRun(t, fx.repo, "checkout", "-q", "main")
 			if rc, out := fx.run(t, "pipeline-fix-6-review-1", tc.typ, "opus"); rc != tc.rc || !strings.Contains(out, tc.out) {
+				t.Fatalf("rc %d, want %d; output %q, want it to carry %q", rc, tc.rc, out, tc.out)
+			}
+		})
+	}
+}
+
+// TestCheckLoopDispatchSelfReviewFixPairs pins kan-1064's self-review-fix
+// row: the fixer runs on opus or sonnet at flow-medium, flow-low is off its
+// row, and with no marked row an escalated flow-high fix is refused as a
+// pair -- the no-progress answer is a fresh re-plan, never flow-high.
+func TestCheckLoopDispatchSelfReviewFixPairs(t *testing.T) {
+	t.Parallel()
+	const token = "self-review-kan-1-demo"
+	for _, tc := range []struct {
+		name, key, typ, model, prompt string
+		escalated                     bool
+		rc                            int
+		out                           string
+	}{
+		{"opus medium", token + "-fix-1", "flow-medium", "opus", "", false, 0, "LOOP-DISPATCH-OK"},
+		{"sonnet medium", token + "-fix-1", "flow-medium", "sonnet", "", false, 0, "LOOP-DISPATCH-OK"},
+		{"opus low", token + "-fix-1", "flow-low", "opus", "", false, 1, "PAIR —"},
+		{"escalated opus high", token + "-fix-1", "flow-high", "opus", "No-progress escalation\n", true, 1, "PAIR —"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fx := lpNew(t, lpRowsJSON(token+"-", token, "plan completed", "fix completed"), token)
+			if tc.escalated {
+				gitRun(t, fx.repo, "config", "--add", "flow.escalation", token+":"+tc.key)
+			}
+			fx.prompt = tc.prompt
+			if rc, out := fx.run(t, tc.key, tc.typ, tc.model); rc != tc.rc || !strings.Contains(out, tc.out) {
 				t.Fatalf("rc %d, want %d; output %q, want it to carry %q", rc, tc.rc, out, tc.out)
 			}
 		})
