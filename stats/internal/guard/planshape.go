@@ -43,7 +43,9 @@ import (
 // repository does not carry), plan-files-paths (planfilespaths.go: a
 // **Files:** path whose directory exists only with a segment dropped) and
 // plan-task-id-rule (plantaskidrule.go: a
-// /flow plan stating task commits carry no Task-Id: trailer), in-process
+// /flow plan stating task commits carry no Task-Id: trailer) and
+// plan-step-files (planstepfiles.go: a path an edit step names that its
+// task's **Files:**/**Allowed-collateral:** does not cover), in-process
 // and in that order, each printing its own lines.
 //
 // Exit codes, per file and over the scan: 2 if any check cannot answer
@@ -256,7 +258,7 @@ func psAbs(env Env, p string) string {
 // production passes "".
 func psCheckOne(path string, env Env, off string, stdout, stderr io.Writer) int {
 	rc := psShape(path, env, off, stdout, stderr)
-	for _, name := range []string{"plan-suite-steps", "plan-script-paths", "plan-files-paths", "plan-task-id-rule"} {
+	for _, name := range []string{"plan-suite-steps", "plan-script-paths", "plan-files-paths", "plan-task-id-rule", "plan-step-files"} {
 		rc = psWorse(rc, Registry[name]([]string{path}, env, stdout, stderr))
 	}
 	return rc
