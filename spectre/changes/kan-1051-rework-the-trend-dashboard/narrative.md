@@ -30,3 +30,13 @@ In-run pipeline fix: 56afc108 — close-task judged every suite zip of a close r
 - The pass's `findings.md` and `report-draft.md` could not be written by the pass subagent: the harness refused a subagent's Write of a report file. The parent kept them from the hand-back.
 
 In-run pipeline fix: 4a26d5ef — check-unfinished-work read a dropped re-run's plan at the drop commit, where it is gone, and flagged pre-drop appended tasks as uncommitted (blast radius 2 files)
+
+## 2026-11-01 — integrate run
+
+- prepare first stopped on unfinished-work: Tasks 8 and 9, ticked before the drop, were reported as having no Task-Id commit. A false-positive verdict did not pass the stop. The cause was a guard defect: it read the plan at the drop commit, where the change directory is gone. In-run pipeline fix 53 fixed it, and it landed on main.
+- prepare then rebased the branch onto 72fba4f7, the landed fix. Rebase lint passed, and the route is the configured default, merge and push.
+
+## 2026-11-01 — fix run
+
+- The second self-review pass met another product defect (P1): the back-fill's pricing warning promised `flow pricing reprice` prices the run, which is false for the `output_unmeasured` runs. Task 11 (In-run fix 4) rewrote the warning to name the error as the cause; its test reads the warning through the watcher's logger. Panel round 5 ran as the small append, since the fix-run planning commit 97e45598, and came back clean. verify-5 was green.
+- The first append failed check-plan-shape twice and was committed before the check's verdict was read. It was corrected by a follow-up planning commit: `**After:**` Task 2 for the shared watcher.go, and a distinct `**Opener:** self-review-2`.

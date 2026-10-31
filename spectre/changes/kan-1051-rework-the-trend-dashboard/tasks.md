@@ -4,7 +4,7 @@
 > `check-task-commit-fields.sh` passes on that task's commit.
 > **Relocation:** no
 > **Design shape:** plan-mode
-> **Tasks appended:** 3
+> **Tasks appended:** 4
 
 **Goal:** Rework Trend over time (KAN-1051) to answer "Is a finished change getting cheaper as flow changes?" — whole-life cost per finished change by Wednesday week, with Period, Command and Project chips, three tiles, a median/mean chart with flow-changes-landed bars and a By week table — and fix harvest so spend between two stage windows is attributed, with a once-only back-fill of what the old rule dropped.
 
@@ -222,3 +222,16 @@ Correction (2026-10-31): Step 3's `--grep-invert trend` verify fails on 9 captur
 **Commit:** fix(store): name a bucket its rate cannot charge apart from a missing rate
 **After:** Task 9
 **Opener:** self-review
+
+- [x] 11. In-run fix 4 — self-review: the back-fill's pricing warning promises `flow pricing reprice` prices a run it cannot
+  - [x] **Step 1: Write the failing test.** `stats/internal/harvest/watcher_test.go` (or the back-fill's existing test file): add `TestBackfillPricingWarningNamesTheCause` — a back-fill whose `Price` dependency returns an error: the warning logged reads `harvest: price stage run failed after backfill, not retried` with the error attached, and no longer claims `flow pricing reprice` prices it. Run `cd stats && go test -count=1 ./internal/harvest -run 'TestBackfillPricingWarningNamesTheCause'` — fails. measured: live-verification.md's 312 `output_unmeasured` runs are ones `flow pricing reprice` does not price.
+  - [x] **Step 2: Fix.** `stats/internal/harvest/watcher.go` `BackfillStageGaps`: the warning reads `harvest: price stage run failed after backfill, not retried -- the error names the cause; a reprice retries it once that is fixed`, and the comment above the loop says the same.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -w . && gofmt -l . && make -s web-dist && go vet ./...` exits clean; `cd stats && go test -race -count=1 ./internal/harvest -run 'TestBackfill'` passes. Commit.
+
+**Build:** green
+**Files:** `stats/internal/harvest/watcher.go`, `stats/internal/harvest/watcher_test.go`
+**Tests:** `TestBackfillPricingWarningNamesTheCause`
+**Regression:** `TestBackfillPricingWarningNamesTheCause` fails — the back-fill's warning tells the operator a reprice prices a run it cannot again.
+**Commit:** fix(harvest): stop promising a reprice prices a back-filled run it cannot
+**After:** Task 2, 10
+**Opener:** self-review-2
