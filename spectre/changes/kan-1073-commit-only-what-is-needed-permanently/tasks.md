@@ -1,0 +1,379 @@
+# kan-1073-commit-only-what-is-needed-permanently
+
+> **Execution:** `/flow` implements this plan. Mark a task's own checkbox when
+> `check-task-commit-fields.sh` passes on that task's commit.
+> **Relocation:** no
+> **Design shape:** plan-mode
+> **Baseline convention:** every `**Baseline:** before=N after=M` is chain-position absolutes —
+> `before` is the count at this task's commit's parent and `after` at the commit, each task
+> measured at its own position, never a plan-wide pair — split by source set, counted by a
+> word-boundary-safe counter (`@Test` never matches `@Testcontainers`), with any `measured:`
+> command naming no ref of its own.
+
+Worktrees, all on branch `spectre/kan-1073-commit-only-what-is-needed-permanently`:
+
+- agents (canonical): `/Users/tweety53/Projects/agents-worktrees/kan-1073-commit-only-what-is-needed-permanently`
+- spectre: `/Users/tweety53/Projects/spectre-worktrees/kan-1073-commit-only-what-is-needed-permanently`
+- gymie: `/Users/tweety53/Projects/gymie-worktrees/kan-1073-commit-only-what-is-needed-permanently`
+- gymie-frontend: `/Users/tweety53/Projects/gymie-frontend-worktrees/kan-1073-commit-only-what-is-needed-permanently`
+- gymie-playwright: `/Users/tweety53/Projects/gymie-playwright-worktrees/kan-1073-commit-only-what-is-needed-permanently`
+- flow-eval: `/Users/tweety53/Projects/flow-eval-worktrees/kan-1073-commit-only-what-is-needed-permanently`
+
+A task's `**Files:**` are relative to the worktree its Step 1 names; a task naming none runs in the
+agents worktree. Every Go verify step in agents runs from its `stats/` directory.
+
+No task removes the files still tracked under `spectre/changes/`: `check-task-commit-planning-paths.sh`
+refuses a task commit touching that path. Once task 23 closes, the parent untracks them in each
+repository that still carries them — agents, spectre, gymie-frontend, gymie-playwright and
+flow-eval — with `git rm -r --cached --quiet spectre/changes` less this change's own directory,
+the tracked files deleted from the working tree, as one trailerless planning commit
+`chore(spectre): untrack the leftover change files` behind the installed
+`check-planning-commit-location.sh <worktree> kan-1073-commit-only-what-is-needed-permanently`
+(decision leftovers-untracked-by-planning-commit).
+
+- [ ] 1. spectre: remove `archive`, `refs`, citations and every archive-aware path
+  - [ ] **Step 1: In the spectre worktree, delete `internal/cmd/archive.go`, `internal/cmd/refs.go`, `internal/check/refs.go`, `internal/check/citations.go`, `internal/parse/ref.go` and their tests `internal/cmd/refs_test.go`, `internal/check/refs_test.go`, `internal/check/citations_test.go`, `internal/parse/ref_test.go`. Before deleting `internal/cmd/archive_test.go`, move the list/validate assertions of `TestFencedTaskExampleDoesNotFoolListValidateOrArchive` into a new `internal/cmd/fenced_task_test.go` as `TestFencedTaskExampleDoesNotFoolListOrValidate`, dropping only its archive call; then delete `archive_test.go`. Read `internal/parse/link.go` first: if it uses any identifier defined in `ref.go`, move that identifier into `link.go` before deleting `ref.go`, and reword the comment at `link.go:30` to describe the peer-name class without citing `ref.go`.**
+  - [ ] **Step 2: `cmd/spectre/main.go`: delete the `refs` and `archive` help lines (~20-21) and their `case` arms (~42-45). `internal/parse/spec.go`: delete `Refs: p.Refs(...)` (~66). `internal/model/model.go`: delete `Requirement.Refs`, `type Ref`, and `Change.Archived`. `internal/config/config.go:24`: delete `"refs"` from the rule list. `internal/check/check.go`: delete the `RuleOn("refs")` block (~276) and its doc-comment sentence (~258); keep peer resolution only if `check/link.go` still reads it, else delete it and the `validate.go:39` comment that names ref checking. `internal/cmd/init.go:26`: delete `- refs: error` from the config template.**
+  - [ ] **Step 3: Archive-aware code: delete `tree.ArchiveDir` (`internal/tree/tree.go:115-116`); collapse `internal/tree/read.go`'s `changes(archived bool)` into `Changes()` reading `spectre/changes/` only and drop the `"archive"` name skip (~73); delete the reserved-id `archive` check in `internal/cmd/new.go:58-64`; delete `linkProgress`'s `ArchiveDir` fallback in `internal/cmd/list.go:167-178`; in `internal/check/link.go` make `resolveCounterpart` return `(dir, found)`, delete the archive search (~96-115) and the "archive skew" finding (~140-175); drop `testtree.Change`'s `archived` parameter (`internal/testtree/testtree.go:42-50`) and update every caller in `internal/check/link_test.go` and `internal/cmd/list_test.go`.**
+  - [ ] **Step 4: Tests: delete `TestSpecFile`'s Refs assertions and `TestRefsScopes` (`internal/parse/spec_test.go`), `TestRefsRuleOff` (`internal/check/config_test.go`), the `refs` entries of `internal/tree/config_test.go`'s fixtures, `TestChangesArchived` (`internal/tree/read_test.go`), `TestNewRejectsArchiveID` and the archive case of `TestNewRefusesExisting` (`internal/cmd/new_test.go`), `TestLinkFindings`' archive-skew case, the `satArchived`/`canArchived` fields and `TestLinkFindingsQuiet`'s "canonical archived with the part archived too" subtest (`internal/check/link_test.go`). Grep `plugin_manifest_test.go`, `internal/cmd/validate_test.go` and the init tests for `refs`/`archive` strings and remove what asserts the deleted behaviour.**
+  - [ ] **Step 5: Verify in the spectre worktree: `gofmt -w . && ! gofmt -l . | grep . && go vet ./... && go test -count=1 -run 'TestFencedTaskExampleDoesNotFoolListOrValidate|TestLinkFindings|TestNew|TestSpecFile|TestChanges' ./...`, then the absence sweep `git grep -n -F -e 'ArchiveDir' -e 'Archived' -e 'RefFindings' -e 'PeerCitationSource' -e '"refs"' -e '"archive"' -- '*.go'` prints nothing.**
+**Build:** green
+**Files:** `cmd/spectre/main.go`, `internal/cmd/archive.go`, `internal/cmd/archive_test.go`, `internal/cmd/refs.go`, `internal/cmd/refs_test.go`, `internal/cmd/fenced_task_test.go`, `internal/cmd/new.go`, `internal/cmd/new_test.go`, `internal/cmd/list.go`, `internal/cmd/list_test.go`, `internal/cmd/init.go`, `internal/check/refs.go`, `internal/check/refs_test.go`, `internal/check/citations.go`, `internal/check/citations_test.go`, `internal/check/check.go`, `internal/check/link.go`, `internal/check/link_test.go`, `internal/check/config_test.go`, `internal/parse/ref.go`, `internal/parse/ref_test.go`, `internal/parse/spec.go`, `internal/parse/spec_test.go`, `internal/parse/link.go`, `internal/model/model.go`, `internal/config/config.go`, `internal/tree/tree.go`, `internal/tree/read.go`, `internal/tree/read_test.go`, `internal/tree/config_test.go`, `internal/testtree/testtree.go`
+**Allowed-collateral:** `internal/cmd/validate.go`, `internal/cmd/validate_test.go`, `internal/cmd/init_test.go`, `plugin_manifest_test.go`
+**Tests:** `TestFencedTaskExampleDoesNotFoolListOrValidate`
+**Regression:** reverting the commit restores `spectre archive` and `spectre refs`; `TestFencedTaskExampleDoesNotFoolListOrValidate` no longer exists and its list/validate coverage lives only inside the archive test again.
+**Baseline:** before=0 after=1 <!-- measured: cat internal/cmd/fenced_task_test.go 2>/dev/null | grep -c '^func Test' @ f83f5cf -->
+**Commit:** refactor(cmd): remove spectre archive, refs and cross-tree citations
+**After:** none
+
+**Decision:** spectre-archive-refs-removed
+
+- [ ] 2. spectre: docs stop describing archive, refs, citations and a committed change directory
+  - [ ] **Step 1: In the spectre worktree, delete `docs/references.md`. `README.md`: rewrite workflow step 6 (~88-89) to end at landing the change with the directory left uncommitted, drop `changes/archive/<id>/` from the tree diagram (~107), the `refs`/`archive` rows of the command table (~136-137), the `## archive` section (~143-153), the link to `docs/references.md` (~160-161) and "merge-back at archive time" (~169); add one sentence beside the tree diagram that `spectre/changes/` is gitignored and lives on disk in the change's worktree.**
+  - [ ] **Step 2: `docs/example.md`: delete step 9 "Archive" (~290-303) and its `#9-archive-the-finished-change` anchor uses (README, `docs/superpowers-example.md`). `docs/terminal.md`: delete the step 9 transcript (~72-100). `docs/superpowers-example.md`: retitle `## 5. Work and archive` to `## 5. Work` and delete the archive paragraph (~264-269). `docs/links.md`: delete the archive mentions (~5) and the archive-skew finding (~73-75), and the `ref.go` citation (~41). `docs/configuration.md:16`: delete `- refs: error`. `docs/spec-format.md:19`: delete the citations-by-other-trees sentence. `.claude/skills/spectre/SKILL.md`: drop `refs` and `archive` from the description (3) and lines ~25, ~33, ~68.**
+  - [ ] **Step 3: Verify in the spectre worktree: `go test -count=1 -run 'TestPluginShips' .` passes (the plugin manifest tests read the skill), then the absence sweep `git grep -n -i -F -e 'spectre archive' -e 'spectre refs' -e 'archive skew' -e 'references.md' -e 'changes/archive' -- README.md docs .claude/skills/spectre` prints nothing.**
+**Build:** green
+**Files:** `docs/references.md`, `README.md`, `docs/example.md`, `docs/terminal.md`, `docs/superpowers-example.md`, `docs/links.md`, `docs/configuration.md`, `docs/spec-format.md`, `.claude/skills/spectre/SKILL.md`
+**Tests:** none
+**Regression:** reverting the commit restores docs for commands task 1 removed.
+**Commit:** docs: drop archive, refs and citations from the spectre docs
+**After:** Task 1
+
+**Decision:** spectre-archive-refs-removed
+
+- [ ] 3. agents: flowd keeps a change's files — `change_files` and `flow change save|file`
+  - [ ] **Step 1: Add `stats/internal/store/migrations/0059_change_files.sql`: `CREATE TABLE IF NOT EXISTS change_files (id BIGSERIAL PRIMARY KEY, change_id BIGINT NOT NULL REFERENCES changes(id), path TEXT NOT NULL CHECK (path <> ''), body TEXT NOT NULL, saved_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (change_id, path))`, with a header comment naming KAN-1073 and the two files it holds. Add `stats/internal/store/changefiles.go`: `SaveChangeFile(ctx, projectKey, change, path, body string) error` (upsert on `(change_id, path)`, `saved_at = now()`), `GetChangeFile(ctx, projectKey, change, path string) (string, error)` returning `ErrChangeFileNotFound`, and `HasChangeFiles(ctx, projectKey, change string) (bool, error)`; resolve `change_id` with the same `SELECT id FROM changes WHERE project_key=$1 AND name=$2` resolver `store/requests.go` uses, `ErrChangeNotFound` when absent.**
+  - [ ] **Step 2: Add `stats/internal/api/changefiles.go` and register in `stats/internal/api/server.go` beside the changes routes: `PUT /api/v1/changes/{project}/{name}/files/{path...}` (body = raw file text, 204), `GET` of the same path (200 `text/markdown`, 404 when absent), and `GET /api/v1/changes/{project}/{name}/files` returning `{"saved": <bool>}` from `HasChangeFiles`. Follow `internal/api/specs.go`'s handler shape. Add `stats/internal/client/changefiles.go`: `PutChangeFile`, `GetChangeFile`, `HasChangeFiles`, following `internal/client/specs.go` (writes through `c.writeRecord`).**
+  - [ ] **Step 3: Add `stats/cmd/flow/change.go` and a `case "change":` plus help line in `stats/cmd/flow/main.go`: `flow change save [-C <dir>] <name>` resolves the canonical worktree the same way `flow self-review bundle -C` does, reads `<wt>/spectre/changes/<name>/tasks.md` and `<wt>/.superpowers/sdd/<name>/self-review-context.md`, refuses with exit 1 naming each missing file before writing anything, then upserts both through `callRecord`; `flow change file <name> <path>` prints the body, exit 1 when absent. Store unreachable is exit 2 with the client's message.**
+  - [ ] **Step 4: Tests, each in its new file: `stats/internal/store/changefiles_test.go` — `TestSaveChangeFileUpsertsOnPath` (save twice with different bodies, read returns the second, one row), `TestGetChangeFileNotFound`, `TestHasChangeFilesFalseUntilSaved`; `stats/internal/api/changefiles_test.go` — `TestChangeFilePutThenGetServesBody`, `TestChangeFileGetMissingIs404`; `stats/cmd/flow/change_test.go` — `TestChangeSaveUpsertsBothFiles`, `TestChangeSaveRefusesAMissingFileBeforeWriting` (only `tasks.md` present: exit 1 and the fake server saw no PUT), `TestChangeFilePrintsBody`.**
+  - [ ] **Step 5: Verify: `cd stats && gofmt -w . && make -s web-dist && gofmt -l . && go vet ./... && go test -count=1 -run 'TestSaveChangeFileUpsertsOnPath|TestGetChangeFileNotFound|TestHasChangeFilesFalseUntilSaved' ./internal/store/ && go test -count=1 -run 'TestChangeFilePutThenGetServesBody|TestChangeFileGetMissingIs404' ./internal/api/ && go test -count=1 -run 'TestChangeSaveUpsertsBothFiles|TestChangeSaveRefusesAMissingFileBeforeWriting|TestChangeFilePrintsBody' ./cmd/flow/`.**
+**Build:** green
+**Files:** `stats/internal/store/migrations/0059_change_files.sql`, `stats/internal/store/changefiles.go`, `stats/internal/store/changefiles_test.go`, `stats/internal/api/changefiles.go`, `stats/internal/api/changefiles_test.go`, `stats/internal/api/server.go`, `stats/internal/client/changefiles.go`, `stats/cmd/flow/change.go`, `stats/cmd/flow/change_test.go`, `stats/cmd/flow/main.go`
+**Tests:** `TestSaveChangeFileUpsertsOnPath`, `TestGetChangeFileNotFound`, `TestHasChangeFilesFalseUntilSaved`, `TestChangeFilePutThenGetServesBody`, `TestChangeFileGetMissingIs404`, `TestChangeSaveUpsertsBothFiles`, `TestChangeSaveRefusesAMissingFileBeforeWriting`, `TestChangeFilePrintsBody`
+**Regression:** reverting the commit drops the table and the CLI; every named test disappears and `flow change` is an unknown command.
+**Baseline:** before=0 after=3 <!-- measured: cat stats/internal/store/changefiles_test.go 2>/dev/null | grep -c '^func Test' @ 50e0a1f7 -->
+**Commit:** feat(stats): keep a change's plan and self-review bundle in flowd
+**After:** none
+
+**Decision:** change-files-two-rows-at-cleanup
+
+- [ ] 4. agents: flowd answers whether a stage completed for a change
+  - [ ] **Step 1: Add `stats/internal/api/stages_completed.go` and register `GET /api/v1/stages/{project}/{change}/{stage}/completed` in `stats/internal/api/server.go`, answering `{"completed": <bool>}` from the existing `store.StageCompleted`. Add `stats/internal/client/stages_completed.go`: `(*Client).StageCompleted(ctx, project, change, stage) (bool, error)`, returning `ErrUnavailable` when flowd is unreachable.**
+  - [ ] **Step 2: Tests in new `stats/internal/api/stages_completed_test.go`: `TestStageCompletedRouteFalseBeforeEnd` and `TestStageCompletedRouteTrueAfterCompletedEnd` (begin then end `-outcome completed` of `flow.self-review`; a second change's completed stage does not count).**
+  - [ ] **Step 3: Verify: `cd stats && gofmt -w . && make -s web-dist && gofmt -l . && go vet ./... && go test -count=1 -run 'TestStageCompletedRoute' ./internal/api/`.**
+**Build:** green
+**Files:** `stats/internal/api/stages_completed.go`, `stats/internal/api/stages_completed_test.go`, `stats/internal/api/server.go`, `stats/internal/client/stages_completed.go`
+**Tests:** `TestStageCompletedRouteFalseBeforeEnd`, `TestStageCompletedRouteTrueAfterCompletedEnd`
+**Regression:** reverting the commit removes the route; both tests disappear and task 8's land check has nothing to ask.
+**Baseline:** before=0 after=2 <!-- measured: cat stats/internal/api/stages_completed_test.go 2>/dev/null | grep -c '^func Test' @ 50e0a1f7 -->
+**Commit:** feat(stats): serve whether a change's stage completed
+**After:** Task 3
+
+**Decision:** self-review-land-check-stage-row
+
+- [ ] 5. agents: in-run guards read the plan from the worktree, never from history
+  - [ ] **Step 1: `stats/internal/guard/integratechange.go`: in `findCanonical` delete pass 2 (the `cat-file -e HEAD:<plan>` probe ~696, the `landed.File` call ~697 and `droppedIn` ~711), keeping pass 1's on-disk `tasks.md` test; in `mergeOrder` delete the `landed` fallback (~734) after the `os.ReadFile` of `link.md`, so a missing file is the single-repository case. In the dirty-tree check (~903-904) keep the behaviour; only update its comment if it names the plan as tracked.**
+  - [ ] **Step 2: `stats/internal/guard/visualverifydispatched.go:292`: delete the `landed.File` read of `visual-verification.md`; the on-disk `isFile` test (~293) is the only source. `stats/internal/guard/verbatimmoves.go`: delete `vmAcks`' history half (~382-398, the `git log --diff-filter=D` and `git show <sha>^:` / `archive/` reads), keeping the on-disk glob. `stats/internal/guard/unfinishedwork.go:798`: replace the `git show <base>:./<plan>` read with the on-disk plan already read as `primary`, deleting the "plan as it stood at the drop" baseline. `stats/internal/guard/loop.go` `lpFirstReviewType` (~248-262): read `design.md` with `os.ReadFile` from `<loop worktree>/spectre/changes/<lp.token>/design.md` — the loop's worktree is `<main>-worktrees/<branch name without spectre/>` — instead of `git show refs/heads/<branch>:…`.**
+  - [ ] **Step 3: Tests: rewrite fixtures that commit the plan so they write it uncommitted into the worktree — `TestCheckLoopDispatchFirstReviewEffort` (`check_loop_dispatch_test.go`), `TestCheckVisualVerifyDispatchedRequiresTheVerifierRecord` and `…IgnoresAChangeRecordMove` (`check_visual_verify_dispatched_test.go`), `TestIntegrateChangePrepareRerunAfterDrop` (`integrate_change_prepare_test.go`, renamed `TestIntegrateChangePrepareRerunReadsThePlanOnDisk`), `TestIntegrateChangeDropsSatelliteLink` (`integrate_change_test.go`, renamed `TestIntegrateChangeReadsSatelliteLinkOnDisk`); delete `TestCheckVerbatimMovesReadsAcksOfARemovedChange` (`check_verbatim_moves_test.go`). Add new `stats/internal/guard/plan_on_disk_test.go` with `TestFindCanonicalIgnoresADropCommit` (a repo whose log holds `chore(spectre): drop <name>` and no plan on disk: `findCanonical` finds nothing) and `TestMergeOrderMissingLinkIsSingleRepo`.**
+  - [ ] **Step 4: Verify: `cd stats && gofmt -w . && make -s web-dist && gofmt -l . && go vet ./... && go test -count=1 -run 'TestFindCanonicalIgnoresADropCommit|TestMergeOrderMissingLinkIsSingleRepo|TestCheckLoopDispatchFirstReviewEffort|TestCheckVisualVerifyDispatched|TestIntegrateChangePrepareRerunReadsThePlanOnDisk|TestIntegrateChangeReadsSatelliteLinkOnDisk|TestCheckVerbatimMoves|TestCheckUnfinishedWork' ./internal/guard/`, then `git grep -n -F -e 'landed.' -e 'droppedIn' -- stats/internal/guard/integratechange.go stats/internal/guard/visualverifydispatched.go stats/internal/guard/verbatimmoves.go` prints nothing.**
+**Build:** green
+**Files:** `stats/internal/guard/integratechange.go`, `stats/internal/guard/visualverifydispatched.go`, `stats/internal/guard/verbatimmoves.go`, `stats/internal/guard/unfinishedwork.go`, `stats/internal/guard/loop.go`, `stats/internal/guard/check_loop_dispatch_test.go`, `stats/internal/guard/check_visual_verify_dispatched_test.go`, `stats/internal/guard/integrate_change_prepare_test.go`, `stats/internal/guard/integrate_change_test.go`, `stats/internal/guard/check_verbatim_moves_test.go`, `stats/internal/guard/check_unfinished_work_test.go`, `stats/internal/guard/plan_on_disk_test.go`
+**Tests:** `TestFindCanonicalIgnoresADropCommit`, `TestMergeOrderMissingLinkIsSingleRepo`
+**Regression:** reverting the commit brings back the history reads; `TestFindCanonicalIgnoresADropCommit` fails because pass 2 finds the dropped plan.
+**Baseline:** before=0 after=2 <!-- measured: cat stats/internal/guard/plan_on_disk_test.go 2>/dev/null | grep -c '^func Test' @ 50e0a1f7 -->
+**Commit:** refactor(stats): read a change's plan from its worktree in the in-run guards
+**After:** none
+
+**Decision:** guards-read-disk
+**Decision:** no-backward-compat
+
+- [ ] 6. agents: the plan-snapshot guards see an ignored plan
+  - [ ] **Step 1: `stats/internal/guard/planunchanged.go` (~80-90): build the path list with `filepath.WalkDir(<wt>/spectre/changes/<name>)` (regular files, sorted, repository-relative) instead of `git ls-files --cached --others --exclude-standard`; the dump format, the tick normalisation and the exit codes stay.**
+  - [ ] **Step 2: `stats/internal/guard/latefixtrigger.go` (~155-170): replace the tracked check and `git diff <since> -- <tasks>` with a comparison of `<tasks>` against `<canonical worktree>/.superpowers/sdd/<change>/tasks-at-close.md`: a line matching `lftTaskLine` present in `<tasks>` and absent from the copy is an added task (the new-task rule); a missing copy with `since` other than `-` is exit 4, the message naming the missing copy. Update the guard's header comment and `scripts/check-late-fix-trigger.sh`'s header to name the copy and who writes it (the review panel's close step, task 13).**
+  - [ ] **Step 3: Tests in new `stats/internal/guard/plan_snapshot_ignored_test.go`, each fixture with `spectre/changes/` in `.gitignore`: `TestCheckPlanUnchangedSeesAnIgnoredPlanEdit` (snapshot, edit a task's text, verify exits 1 — under `--exclude-standard` it exits 0), `TestCheckLateFixTriggerFindsATaskAddedSinceTheCopy` (exit 3 or the condition's documented code for a new task), `TestCheckLateFixTriggerMissingCopyIsExit4`. Repair `TestCheckPlanUnchanged` and `TestCheckLateFixTrigger` fixtures to the new inputs.**
+  - [ ] **Step 4: Verify: `cd stats && gofmt -w . && make -s web-dist && gofmt -l . && go vet ./... && go test -count=1 -run 'TestCheckPlanUnchanged|TestCheckLateFixTrigger' ./internal/guard/`.**
+**Build:** green
+**Files:** `stats/internal/guard/planunchanged.go`, `stats/internal/guard/latefixtrigger.go`, `stats/internal/guard/plan_snapshot_ignored_test.go`, `stats/internal/guard/check_plan_unchanged_test.go`, `stats/internal/guard/check_late_fix_trigger_test.go`, `scripts/check-late-fix-trigger.sh`
+**Tests:** `TestCheckPlanUnchangedSeesAnIgnoredPlanEdit`, `TestCheckLateFixTriggerFindsATaskAddedSinceTheCopy`, `TestCheckLateFixTriggerMissingCopyIsExit4`
+**Regression:** reverting the commit makes `check-plan-unchanged.sh` pass every edit of an ignored plan and `check-late-fix-trigger.sh` exit 4 on every call; `TestCheckPlanUnchangedSeesAnIgnoredPlanEdit` fails.
+**Baseline:** before=0 after=3 <!-- measured: cat stats/internal/guard/plan_snapshot_ignored_test.go 2>/dev/null | grep -c '^func Test' @ 50e0a1f7 -->
+**Commit:** fix(stats): snapshot an ignored plan from disk in the plan-unchanged and late-fix guards
+**After:** none
+
+**Decision:** guards-read-disk
+
+- [ ] 7. agents: the self-review bundle is built from disk and saved, never read from history
+  - [ ] **Step 1: `stats/internal/selfreview/git.go`: replace `droppedFile`/`droppedFiles`/`dropRev`/`dropRepo` (~296-340, ~573) with reads of `<worktree>/spectre/changes/<name>/<file>` (`tasks.md`, `design.md`, `narrative.md`, `visual-verification.md`, `live-verification.md`, `link.md`), a missing file left out as today; replace `deriveFinishCommits` (~146) with the first-parent `merge-base..HEAD` range of each worktree; delete `reservedShapes`' plan/drop/bundle/report subjects (~187) and `isRealImplCommit`'s report/bundle filter (~252). The `landed` import goes.**
+  - [ ] **Step 2: `flow self-review bundle -C <dir> -change <name>` (`stats/cmd/flow/selfreview.go`, `stats/internal/api/selfreview.go`, `stats/internal/client/selfreview.go`) additionally writes the served bundle to `<canonical worktree>/.superpowers/sdd/<name>/self-review-context.md` when the canonical worktree exists; with no worktree (a deferred run after cleanup) it prints `flow change file <name> self-review-context.md`'s body instead of assembling one, exit 1 when flowd holds none.**
+  - [ ] **Step 3: Tests: delete `TestBundleAssemblyReadsDroppedFilesThroughGit`, `TestBundleServesDroppedVisualVerification`, `TestBundleServesDroppedLiveVerification`, `TestBundleAssemblyDerivesFinishCommits`, every `TestDeriveFinishCommits*`, `TestBundleAssemblyListsEveryCommitOfDroppedRerun`, `TestBundleAssemblyReadsDropFromBaseAfterMerge`, `TestDropRepoFindsPreDropArchive` (`stats/internal/selfreview/bundle_test.go`). Add new `stats/internal/selfreview/bundle_disk_test.go`: `TestBundleReadsChangeFilesFromTheWorktree` (an uncommitted, gitignored `design.md` appears in the bundle), `TestBundleFinishRangeIsMergeBaseToHead`. Add to new `stats/cmd/flow/selfreview_saved_test.go`: `TestSelfReviewBundleWritesTheContextFile`, `TestSelfReviewBundleWithoutWorktreeReadsTheSavedBundle`. Repair `TestSelfReviewBundleHandlerServesAssembledBundle` and `TestRunSelfReviewBundlePrintsBundle` fixtures.**
+  - [ ] **Step 4: Verify: `cd stats && gofmt -w . && make -s web-dist && gofmt -l . && go vet ./... && go test -count=1 ./internal/selfreview/ && go test -count=1 -run 'TestSelfReviewBundle|TestRunSelfReviewBundle' ./internal/api/ ./cmd/flow/`, then `git grep -n -F -e 'droppedFile' -e 'dropRev' -e 'deriveFinishCommits' -e 'landed' -- stats/internal/selfreview` prints nothing.**
+**Build:** green
+**Files:** `stats/internal/selfreview/git.go`, `stats/internal/selfreview/bundle_test.go`, `stats/internal/selfreview/bundle_disk_test.go`, `stats/cmd/flow/selfreview.go`, `stats/cmd/flow/selfreview_test.go`, `stats/cmd/flow/selfreview_saved_test.go`, `stats/internal/api/selfreview.go`, `stats/internal/api/selfreview_test.go`, `stats/internal/client/selfreview.go`
+**Tests:** `TestBundleReadsChangeFilesFromTheWorktree`, `TestBundleFinishRangeIsMergeBaseToHead`, `TestSelfReviewBundleWritesTheContextFile`, `TestSelfReviewBundleWithoutWorktreeReadsTheSavedBundle`
+**Regression:** reverting the commit reads the bundle's files from the drop commit; `TestBundleReadsChangeFilesFromTheWorktree` fails because an uncommitted `design.md` is missing from the bundle.
+**Baseline:** before=0 after=2 <!-- measured: cat stats/internal/selfreview/bundle_disk_test.go 2>/dev/null | grep -c '^func Test' @ 50e0a1f7 -->
+**Commit:** refactor(stats): build the self-review bundle from the worktree and save it
+**After:** Task 3
+
+**Decision:** self-review-bundle-to-flowd
+
+- [ ] 8. agents: the self-review land check reads the stage row; report guards deleted
+  - [ ] **Step 1: `stats/internal/guard/integratechange_commit.go` (~119-123): the "skip the pass" probe asks `client.StageCompleted(project, name, "flow.self-review")` instead of `HEAD:docs/self-review/<name>-self-review.md`. `stats/internal/guard/integratechange_land.go`: delete `report()` (~17), the `land-self-review-report` step (~64) and the `cat-file -e HEAD:docs/self-review/…` check (~153); the land stop `self-review-report` becomes "flow.self-review has not completed" from `StageCompleted`, flowd unreachable an exit 2.**
+  - [ ] **Step 2: Delete `stats/internal/guard/landselfreviewreport.go`, `stats/internal/guard/land_self_review_report_test.go`, `stats/internal/guard/selfreviewreport.go`, `stats/internal/guard/check_self_review_report_test.go`, `scripts/land-self-review-report.sh`, `scripts/check-self-review-report.sh`; remove `check-self-review-report` from `scripts/test-lib-flow-guard.sh`'s list (~267), from `.flow/project.md`'s `## lint` (~158) and from `check_guard_symlinks_test.go` if it names either; drop the two scripts from `scripts/integrate-change.sh`'s header and from `hooks/protect-main-checkout.py`'s comment (~78).**
+  - [ ] **Step 3: Tests: repair `TestIntegrateChangeLandCleanup` (`integrate_change_land_test.go`) to a fake flowd answering the completed route; add new `stats/internal/guard/integrate_change_selfreview_row_test.go` with `TestIntegrateChangeLandStopsWithoutACompletedSelfReview` and `TestIntegrateChangeSkipsThePassWhenTheStageCompleted`.**
+  - [ ] **Step 4: Verify: `cd stats && gofmt -w . && make -s web-dist && gofmt -l . && go vet ./... && go test -count=1 -run 'TestIntegrateChange' ./internal/guard/`, `scripts/check-guard-symlinks.sh`, then `git grep -n -F -e 'land-self-review-report' -e 'check-self-review-report' -e 'docs/self-review/' -- stats/internal/guard/integratechange_commit.go stats/internal/guard/integratechange_land.go stats/internal/guard/integrate_change_land_test.go scripts/test-lib-flow-guard.sh scripts/integrate-change.sh hooks/protect-main-checkout.py .flow/project.md` prints nothing.**
+**Build:** green
+**Files:** `stats/internal/guard/integratechange_commit.go`, `stats/internal/guard/integratechange_land.go`, `stats/internal/guard/landselfreviewreport.go`, `stats/internal/guard/land_self_review_report_test.go`, `stats/internal/guard/selfreviewreport.go`, `stats/internal/guard/check_self_review_report_test.go`, `stats/internal/guard/integrate_change_land_test.go`, `stats/internal/guard/integrate_change_selfreview_row_test.go`, `scripts/land-self-review-report.sh`, `scripts/check-self-review-report.sh`, `scripts/test-lib-flow-guard.sh`, `scripts/integrate-change.sh`, `hooks/protect-main-checkout.py`, `.flow/project.md`
+**Allowed-collateral:** `stats/internal/guard/check_guard_symlinks_test.go`
+**Tests:** `TestIntegrateChangeLandStopsWithoutACompletedSelfReview`, `TestIntegrateChangeSkipsThePassWhenTheStageCompleted`
+**Regression:** reverting the commit requires a committed report again; `TestIntegrateChangeLandStopsWithoutACompletedSelfReview` fails because the land step checks a file instead of the stage row.
+**Baseline:** before=0 after=2 <!-- measured: cat stats/internal/guard/integrate_change_selfreview_row_test.go 2>/dev/null | grep -c '^func Test' @ 50e0a1f7 -->
+**Commit:** refactor(stats): land on the self-review stage row instead of a committed report
+**After:** Task 4, 7
+
+**Decision:** self-review-land-check-stage-row
+**Decision:** self-review-bundle-to-flowd
+
+- [ ] 9. agents: the board reads a finished plan from flowd; `landed` and history lessons deleted
+  - [ ] **Step 1: `stats/internal/api/stats.go` `readPlanFile` (~871-889): keep the on-disk read under `RepoRoots`; replace the `landed.Recent`/`landed.File` fallback with `store.GetChangeFile(project, name, "tasks.md")`, nil when absent. Delete `stats/internal/landed/landed.go` and `stats/internal/landed/landed_test.go`, the comment at `stats/internal/api/records.go:574` that names it, and `stats/internal/lessons/lessons.go`'s narrative-at-drop walk (~194-257, the `git log --all` and `git show <sha>^:spectre/changes/<n>/narrative.md` reads): `flow lesson resolve` reads `docs/briefs/` and `flow_learning_topics` only; update the comment at `lessons.go:79`.**
+  - [ ] **Step 2: Tests: replace `TestPlanTasksLanded` and `TestPlanTasksDroppedInProgress` (`stats/internal/api/plantasks_test.go`) and delete `TestPlanTasksInFlightReadsHEADOnly`; repair `TestFinishedPlanReadOnlyWhenScoped`. Add new `stats/internal/api/plantasks_saved_test.go`: `TestPlanTasksFinishedReadsTheSavedPlan`, `TestPlanTasksPrefersTheWorktreeOverTheSavedPlan`. Delete `TestResolveReadsHistoryInOneWalk` and `TestResolveGitLogFailureIsReported` (`stats/internal/lessons/lessons_test.go`); add new `stats/internal/lessons/lessons_sources_test.go`: `TestResolveIgnoresANarrativeInHistory` (a narrative only in a drop commit's parent is not a source).**
+  - [ ] **Step 3: Verify: `cd stats && gofmt -w . && make -s web-dist && gofmt -l . && go vet ./... && go test -count=1 -run 'TestPlanTasks|TestFinishedPlanReadOnlyWhenScoped' ./internal/api/ && go test -count=1 ./internal/lessons/`, then `git grep -n -F -e 'internal/landed' -e 'landed.File' -e 'landed.Recent' -- stats` prints nothing.**
+**Build:** green
+**Files:** `stats/internal/api/stats.go`, `stats/internal/api/records.go`, `stats/internal/api/plantasks_test.go`, `stats/internal/api/plantasks_saved_test.go`, `stats/internal/landed/landed.go`, `stats/internal/landed/landed_test.go`, `stats/internal/lessons/lessons.go`, `stats/internal/lessons/lessons_test.go`, `stats/internal/lessons/lessons_sources_test.go`
+**Tests:** `TestPlanTasksFinishedReadsTheSavedPlan`, `TestPlanTasksPrefersTheWorktreeOverTheSavedPlan`, `TestResolveIgnoresANarrativeInHistory`
+**Regression:** reverting the commit restores the history fallback; `TestPlanTasksFinishedReadsTheSavedPlan` fails because a finished change's plan is looked up in git, not in `change_files`.
+**Baseline:** before=0 after=2 <!-- measured: cat stats/internal/api/plantasks_saved_test.go 2>/dev/null | grep -c '^func Test' @ 50e0a1f7 -->
+**Commit:** refactor(stats): read a finished change's plan from flowd and delete the landed package
+**After:** Task 3, 5, 7
+
+**Decision:** no-backward-compat
+**Decision:** change-files-two-rows-at-cleanup
+
+- [ ] 10. agents: delete the archive stages and the drop machinery of integrate
+  - [ ] **Step 1: `stats/internal/guard/integratechange_commit.go` (~84-118): delete the `flow.sync-archive` and `flow.commit-archive` stage marks and the `commit-archive` call; `stats/internal/guard/integratechange.go` (~118-126) and `integratechange_prepare.go` (~145): delete the comments and any branch that handles the drop commit. Delete `stats/internal/guard/commitarchive.go`, `stats/internal/guard/commit_archive_test.go`, `stats/internal/guard/archivescope.go`, `stats/internal/guard/check_archive_scope_test.go`, `scripts/commit-archive.sh`, `scripts/check-archive-scope.sh`.**
+  - [ ] **Step 2: Delete `flow.sync-archive` and `flow.commit-archive` from `stats/internal/stages/names.go` (~93-94); from `stats/web/src/lib/phase.ts` (~44-46, with `flow.push-archive`), `stats/web/src/lib/stageLabel.ts` (~29, ~31) and `mods/flow-task-list/hooks/register.tsx` (~255); rewrite `stats/web/src/lib/mainNow.test.ts`'s "reads main between steps after the last thing to end" to use `flow.cleanup` with its existing label. Delete the two stages' rows from `README.md`'s stage table (~171-172) in the same commit, since `TestStagesMatchReadmeLevelOne` compares the two. Repair `reshape_branch_test.go` (~122) and `check_guard_symlinks_test.go` (~1155) where they name either stage or script. `scripts/check-done-when-paths.sh:6`: reword "commit-archive runs this check before its drop" to name its remaining caller.**
+  - [ ] **Step 3: Verify: `cd stats && gofmt -w . && make -s web-dist && gofmt -l . && go vet ./... && go test -count=1 -run 'TestIntegrateChange|TestReshapeBranch|TestCheckGuardSymlinks' ./internal/guard/ && go test -count=1 -run 'TestStagesMatchReadmeLevelOne|TestTableKeysAreUnique' ./internal/stages/ && cd web && npx tsc -b && npx vitest run src/lib/mainNow.test.ts -t 'reads main between steps after the last thing to end'`, then `git grep -n -F -e 'sync-archive' -e 'commit-archive' -e 'push-archive' -e 'check-archive-scope' -- stats/internal/guard/integratechange_commit.go stats/internal/guard/integratechange.go stats/internal/guard/integratechange_prepare.go stats/internal/stages/names.go stats/web/src/lib mods/flow-task-list/hooks/register.tsx scripts/check-done-when-paths.sh README.md` prints nothing.**
+**Build:** green
+**Files:** `stats/internal/guard/integratechange_commit.go`, `stats/internal/guard/integratechange.go`, `stats/internal/guard/integratechange_prepare.go`, `stats/internal/guard/commitarchive.go`, `stats/internal/guard/commit_archive_test.go`, `stats/internal/guard/archivescope.go`, `stats/internal/guard/check_archive_scope_test.go`, `stats/internal/guard/reshape_branch_test.go`, `stats/internal/guard/check_guard_symlinks_test.go`, `scripts/commit-archive.sh`, `scripts/check-archive-scope.sh`, `scripts/check-done-when-paths.sh`, `stats/internal/stages/names.go`, `stats/web/src/lib/phase.ts`, `stats/web/src/lib/stageLabel.ts`, `stats/web/src/lib/mainNow.test.ts`, `mods/flow-task-list/hooks/register.tsx`, `README.md`
+**Allowed-collateral:** `stats/internal/stages/*_test.go`, `stats/internal/guard/integrate_change*_test.go`
+**Tests:** none — repairs existing tests: `TestReshapeBranch`, `TestCheckGuardSymlinks`, and the vitest case "reads main between steps after the last thing to end"; deletes `TestCommitArchiveDropsTheChange`, `TestCommitArchive`, `TestCheckArchiveScope`, `TestCheckArchiveScopeAdmitsOnlyTheDrop`
+**Regression:** reverting the commit restores the drop at run 1 and the two stage keys.
+**Commit:** refactor(stats): delete the commit-archive and sync-archive stages
+**After:** Task 2, 5, 8
+
+**Decision:** change-dir-gitignored
+
+- [ ] 11. agents: delete the planning-commit location shim and the planning-path aside
+  - [ ] **Step 1: Delete `scripts/check-planning-commit-location.sh` and the `Registry["check-planning-commit-location"]` line with `checkPlanningCommit` and its ticked-append and plan-guard half in `stats/internal/guard/planningcommitlocation.go`; keep `checkPlanningCommitLocation`'s worktree-location refusal, renamed `checkChangeWorktreeLocation`, moved with its file to `stats/internal/guard/changeworktreelocation.go`, still called in-process by `reshapebranch.go` and `commitsplit.go`; update their header comments and `scripts/reshape-branch.sh`'s (~14) and `scripts/commit-split.sh`'s (~36). Move `TestCheckPlanningCommitLocation`'s location cases to new `stats/internal/guard/change_worktree_location_test.go` as `TestChangeWorktreeLocationRefusesAMainCheckout` and `TestChangeWorktreeLocationAdmitsAChangeWorktree`, calling the function directly; delete `stats/internal/guard/check_planning_commit_location_test.go`.**
+  - [ ] **Step 2: Delete `stats/internal/guard/asideplanningartifacts.go`, `stats/internal/guard/aside_planning_artifacts_test.go` and `scripts/aside-planning-artifacts.sh`; in `stats/internal/guard/baserebase.go` delete `runAside`/`restoreAside` (~27-104) and their calls — an ignored directory never blocks a rebase; update `scripts/sync-onto-base.sh`'s `MOVED` line (~18) and `scripts/fold-fixup.sh`'s header (~11-13). In `stats/internal/guard/commitsplit.go` (~34-41) delete the planning-path exclude pathspecs and their comment.**
+  - [ ] **Step 3: `hooks/protect-main-checkout.py` (~38-42): delete the refusal of a landing push whose tree still holds `spectre/changes/<name>/`, and its case in `stats/internal/repotest/protect_main_checkout_test.go`.**
+  - [ ] **Step 4: Verify: `cd stats && gofmt -w . && make -s web-dist && gofmt -l . && go vet ./... && go test -count=1 -run 'TestChangeWorktreeLocation|TestReshapeBranch|TestCommitSplit|TestSyncOntoBase|TestBaseRebase' ./internal/guard/ && go test -count=1 -run 'TestProtectMainCheckout' ./internal/repotest/`, `scripts/check-guard-symlinks.sh`, then `git grep -n -F -e 'check-planning-commit-location' -e 'aside-planning-artifacts' -e 'PLANNING-ARTIFACTS' -- stats scripts hooks` prints nothing.**
+**Build:** green
+**Files:** `scripts/check-planning-commit-location.sh`, `stats/internal/guard/planningcommitlocation.go`, `stats/internal/guard/changeworktreelocation.go`, `stats/internal/guard/check_planning_commit_location_test.go`, `stats/internal/guard/change_worktree_location_test.go`, `stats/internal/guard/reshapebranch.go`, `stats/internal/guard/commitsplit.go`, `scripts/reshape-branch.sh`, `scripts/commit-split.sh`, `stats/internal/guard/asideplanningartifacts.go`, `stats/internal/guard/aside_planning_artifacts_test.go`, `scripts/aside-planning-artifacts.sh`, `stats/internal/guard/baserebase.go`, `scripts/sync-onto-base.sh`, `scripts/fold-fixup.sh`, `hooks/protect-main-checkout.py`, `stats/internal/repotest/protect_main_checkout_test.go`
+**Allowed-collateral:** `stats/internal/guard/*_test.go`, `stats/internal/guard/foldfixup.go`, `stats/internal/guard/syncontobase.go`
+**Tests:** `TestChangeWorktreeLocationRefusesAMainCheckout`, `TestChangeWorktreeLocationAdmitsAChangeWorktree`
+**Regression:** reverting the commit restores the planning-commit shim and the aside stash; `TestChangeWorktreeLocationRefusesAMainCheckout` no longer exists.
+**Baseline:** before=0 after=2 <!-- measured: cat stats/internal/guard/change_worktree_location_test.go 2>/dev/null | grep -c '^func Test' @ 50e0a1f7 -->
+**Commit:** refactor(stats): delete the planning-commit shim and the planning-path aside
+**After:** Task 10
+
+**Decision:** change-dir-gitignored
+
+- [ ] 12. agents: drop-aware guards and CLI read flowd and the worktrees; cleanup waits for the save
+  - [ ] **Step 1: `stats/internal/guard/cleanupcomplete.go` (~261, ~275) and `scripts/check-cleanup-complete.sh`: delete the "was not dropped" rows for the change and its sub-changes. `stats/internal/guard/pipelinefix.go`: in `pfHighestK` (~171-210) replace the `ls-tree base spectre/changes/` source, the main-checkout `ReadDir` and the drop/archive subject walk with the names of flowd's change records for the project (`client.ListStateBoard`) and the directory names under `<main>-worktrees/`; keep refs and `flow.loop-k-used`; delete the land refusal "spectre/changes/<branch>/ is not dropped" (~546). `stats/internal/guard/taskrecords.go` (~282): delete the dropped-plan exemption and the `archive` directory skip. `stats/internal/guard/recoverguardincident.go` (~93-103): delete the `spectre/changes` default path and the `stash@{0}^3` untracked restore. <!-- unverified: that ListStateBoard returns FINISHED changes as well; if it returns only open ones, use `client.FindState` per candidate name or add the project-wide name list the board's store query already has -->**
+  - [ ] **Step 2: `stats/internal/guard/removechangeworktrees.go`: before removing anything, refuse (exit 1, "flow change save <name> has not run") when `client.HasChangeFiles` is false; in check 4 (`rcwRegeneratable` ~302) count `spectre/changes/` and `.superpowers/` as expected ignored content once that check passed.**
+  - [ ] **Step 3: `stats/cmd/flow/state.go` (~171, ~940): list changes from flowd's change records plus each `<main>-worktrees/<name>/spectre/changes/<name>/` on disk, never `<main>/spectre/changes/` or a drop commit. `stats/cmd/flow/record.go` `requireChangeCheckout` (~3785-3813, and the history-aware existence at ~4147-4164): accept a checkout holding `spectre/changes/<change>` or `.superpowers/sdd/<change>` or on branch `spectre/<change>`, else a flowd change record (`client.GetChange`); delete the `git rev-list --all -- spectre/changes/<change>` probe.**
+  - [ ] **Step 4: Tests: delete `TestCheckCleanupCompleteNamesAnUndroppedChange`, `TestPipelineFixLandRefusesUndroppedChange`, `TestCheckTaskRecordsIgnoresArchiveDir`, `TestCheckTaskRecordsExemptsADroppedPlan`, `TestPipelineFixHighestKCountsLandedChanges`; repair `TestRequireChangeCheckoutAcceptsALandedChange` to a flowd change record and `TestRecoverGuardIncident`, `TestRemoveChangeWorktrees`, `TestStateDirResolvesWorktreeToMainCheckoutKey`. Add new `stats/internal/guard/change_records_test.go`: `TestPipelineFixHighestKReadsFlowdChanges`, `TestRemoveChangeWorktreesRefusesBeforeTheSave`, `TestRemoveChangeWorktreesTreatsTheIgnoredPlanAsExpected`.**
+  - [ ] **Step 5: Verify: `cd stats && gofmt -w . && make -s web-dist && gofmt -l . && go vet ./... && go test -count=1 -run 'TestCheckCleanupComplete|TestPipelineFix|TestCheckTaskRecords|TestRecoverGuardIncident|TestRemoveChangeWorktrees' ./internal/guard/ && go test -count=1 -run 'TestRequireChangeCheckout|TestRecordWriteRefusesAChangeNoCheckoutCarries|TestStateDir' ./cmd/flow/`, then `git grep -n -F -e 'not dropped' -e 'chore(spectre): drop' -e 'chore(spectre): archive' -e 'stash@{0}^3' -- stats` prints nothing.**
+**Build:** green
+**Files:** `stats/internal/guard/cleanupcomplete.go`, `scripts/check-cleanup-complete.sh`, `stats/internal/guard/pipelinefix.go`, `stats/internal/guard/taskrecords.go`, `stats/internal/guard/recoverguardincident.go`, `stats/internal/guard/removechangeworktrees.go`, `stats/internal/guard/change_records_test.go`, `stats/internal/guard/check_cleanup_complete_test.go`, `stats/internal/guard/pipeline_fix_test.go`, `stats/internal/guard/check_task_records_test.go`, `stats/internal/guard/recover_guard_incident_test.go`, `stats/internal/guard/remove_change_worktrees_test.go`, `stats/cmd/flow/state.go`, `stats/cmd/flow/state_test.go`, `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`
+**Tests:** `TestPipelineFixHighestKReadsFlowdChanges`, `TestRemoveChangeWorktreesRefusesBeforeTheSave`, `TestRemoveChangeWorktreesTreatsTheIgnoredPlanAsExpected`
+**Regression:** reverting the commit lets cleanup remove worktrees before the plan is saved; `TestRemoveChangeWorktreesRefusesBeforeTheSave` fails.
+**Baseline:** before=0 after=3 <!-- measured: cat stats/internal/guard/change_records_test.go 2>/dev/null | grep -c '^func Test' @ 50e0a1f7 -->
+**Commit:** refactor(stats): read changes from flowd and worktrees, and gate cleanup on the save
+**After:** Task 3, 11
+
+**Decision:** change-files-two-rows-at-cleanup
+**Decision:** no-backward-compat
+
+- [ ] 13. agents: planning skills stop committing the plan; the rejection search goes
+  - [ ] **Step 1: `skills/spectre-planning/SKILL.md` (~32-39): in the reported-defect history bullet keep the `git log --since` check and the cheap reproducer; delete the archived-design search (`git log --all --grep 'chore(spectre): '`, `design.md` at the drop's parent or the archive commit) and the "remedy an archived decision rejected" clause; in section C state once that `spectre/changes/` is gitignored and the change root lives only on disk in the worktree.**
+  - [ ] **Step 2: `skills/flow/brainstorm-planner.md` (~77-80): delete the drop-commit sentence of the tracked-path Done-when bullet, leaving the rule that a Done-when names tracked product paths only, enforced by `check-done-when-paths.sh`. `skills/flow/brainstorm.md` (~181-182) and `skills/flow-plan/SKILL.md` (~210-226): delete the planning commit, its `check-planning-commit-location.sh` call and the `chore(spectre): plan <name>` capture commit with their **Planning commits** citations; a capture leaves the change on disk at `STARTED`.**
+  - [ ] **Step 3: Verify: `scripts/run-verify-list.sh /Users/tweety53/Projects/agents-worktrees/kan-1073-commit-only-what-is-needed-permanently lint`, then `git grep -n -F -e "--grep 'chore(spectre)" -e 'chore(spectre): plan' -e 'check-planning-commit-location' -e 'archived decision' -- skills/spectre-planning/SKILL.md skills/flow/brainstorm-planner.md skills/flow/brainstorm.md skills/flow-plan/SKILL.md` prints nothing.**
+**Build:** green
+**Files:** `skills/spectre-planning/SKILL.md`, `skills/flow/brainstorm-planner.md`, `skills/flow/brainstorm.md`, `skills/flow-plan/SKILL.md`
+**Tests:** none
+**Regression:** reverting the commit restores the rejection search and the plan-time planning commit in the planning skills.
+**Commit:** docs(flow): planning never commits the change directory
+**After:** Task 11
+
+**Decision:** drop-rejection-search
+**Decision:** change-dir-gitignored
+
+- [ ] 14. agents: integrate and cleanup contracts lose the drop, restore and report, and gain the save
+  - [ ] **Step 1: `skills/flow-contracts/finish-contract-run1.md`: delete the commit-archive and restore-from-drop passages (~118-155), the drop-commit mention (~198), the planning-commit and merge-order commit passages (~241-266, including the **Planning commits** citations at ~244, ~265), the "Drop the change" section (~288-342) and the `docs/self-review` report and `land-self-review-report` passages (~353-372); the land step states the `flow.self-review` stage-row check (decision self-review-land-check-stage-row). `skills/flow-contracts/finish-hand-fallbacks.md`: delete the `commit-archive.sh` section (~75-99+) and every citation of it in `finish-contract-run1.md`. `skills/flow-contracts/finish-contract-run2.md`: delete any drop/archive step. `skills/flow-contracts/finish-contract-rationale.md` (~60-65, ~221): delete the reasoning for the plan/archive subjects and the drop.**
+  - [ ] **Step 2: `skills/flow/integrate.md` (~58, ~87, ~139-149, ~167-169): delete the restore, the drop commit, the planning commit, `commit-archive` and `land-self-review-report`. `skills/flow/cleanup.md` (~54, ~58): delete the `chore(spectre): drop` and `docs/self-review` lines; before the worktree removal add the step `flow change save <name>` run in the canonical worktree, whose exit 1 (a missing `tasks.md` or `self-review-context.md`) stops cleanup, and state that `remove-change-worktrees` refuses until it ran. `skills/flow/stage-keys.md` (~29): delete `flow.sync-archive` and `flow.commit-archive`. `skills/flow/document-fix.md` (~62-66, ~132-137): delete the restore from the drop commit and the planning commit with its **Planning commits** citation; the directory is still on disk because cleanup runs only after the merge. `skills/flow/withdrawal.md`: delete any drop or planning commit.**
+  - [ ] **Step 3: Verify: `scripts/run-verify-list.sh /Users/tweety53/Projects/agents-worktrees/kan-1073-commit-only-what-is-needed-permanently lint`, then `git grep -n -F -e 'chore(spectre)' -e 'commit-archive' -e 'sync-archive' -e 'land-self-review-report' -e 'docs/self-review' -e 'drop commit' -- skills/flow-contracts/finish-contract-run1.md skills/flow-contracts/finish-contract-run2.md skills/flow-contracts/finish-hand-fallbacks.md skills/flow-contracts/finish-contract-rationale.md skills/flow/integrate.md skills/flow/cleanup.md skills/flow/stage-keys.md skills/flow/document-fix.md skills/flow/withdrawal.md` prints nothing.**
+**Build:** green
+**Files:** `skills/flow-contracts/finish-contract-run1.md`, `skills/flow-contracts/finish-contract-run2.md`, `skills/flow-contracts/finish-hand-fallbacks.md`, `skills/flow-contracts/finish-contract-rationale.md`, `skills/flow/integrate.md`, `skills/flow/cleanup.md`, `skills/flow/stage-keys.md`, `skills/flow/document-fix.md`, `skills/flow/withdrawal.md`
+**Tests:** none
+**Regression:** reverting the commit restores the drop, the restore and the report in the integrate and cleanup contracts, and cleanup no longer saves the plan.
+**Commit:** docs(flow-contracts): integrate drops nothing and cleanup saves the plan
+**After:** Task 12
+
+**Decision:** change-files-two-rows-at-cleanup
+**Decision:** self-review-land-check-stage-row
+**Decision:** no-backward-compat
+
+- [ ] 15. agents: implementation, review and verification contracts lose their planning commits
+  - [ ] **Step 1: Delete every planning commit and its **Planning commits** citation in `skills/flow/implement.md` (~297-298, ~412, ~660, ~891), `skills/flow/review-panel.md` (~26-27, ~471), `skills/flow/review-panel-late-fix.md` (~27, the drop commit), `skills/flow/visual-verify.md` (~236), `skills/flow/verify-fix-loop.md` (~66), `skills/flow/unfinished-work-gate.md` (~61), `skills/flow/verify-and-handoff.md` (~186, ~327-339, ~466), `skills/flow/gated-review-fix.md` (~21) and `skills/flow/cross-repo-worktrees.md` (~10, ~23, ~26, ~66-71): an edit to the change directory is written on disk and nothing else. In `cross-repo-worktrees.md` the merge-order record is written on disk in the worktree holding it; `kickoff-worktree.sh --from` writes it, with no commit by its caller. Leave every **Branch backup** passage, and each "restore" that names a plan-tree or file restore rather than the drop.**
+  - [ ] **Step 2: The review panel's close step, where it committed the plan (`skills/flow/review-panel.md`), copies `<changeRoot>tasks.md` to `<canonical worktree>/.superpowers/sdd/<name>/tasks-at-close.md`; `skills/flow/review-panel-late-fix.md`'s `check-late-fix-trigger.sh` paragraph names that copy (decision guards-read-disk). `skills/flow/SKILL-rationale.md` (~125-138, ~815, ~852, ~1144-1145): delete the reasoning for `aside-planning-artifacts`, `check-archive-scope`, the planning-commit discipline and the restore.**
+  - [ ] **Step 3: Update `scripts/kickoff-worktree.sh`'s header ("The file is never committed — that planning commit is the caller's") to "The file is never committed", and the header comments of `scripts/check-task-commit-planning-paths.sh` (~23), `scripts/check-verbatim-moves.sh` (~31), `scripts/check-plan-shape.sh` (~11) and `scripts/check-task-build-green.sh` (~11) that cite planning commits or "never the archive/ entry".**
+  - [ ] **Step 4: Verify: `scripts/run-verify-list.sh /Users/tweety53/Projects/agents-worktrees/kan-1073-commit-only-what-is-needed-permanently lint`, then `git grep -n -F -e 'planning commit' -e 'chore(spectre)' -e 'aside-planning-artifacts' -e 'check-archive-scope' -- skills/flow/implement.md skills/flow/review-panel.md skills/flow/review-panel-late-fix.md skills/flow/visual-verify.md skills/flow/verify-fix-loop.md skills/flow/unfinished-work-gate.md skills/flow/verify-and-handoff.md skills/flow/gated-review-fix.md skills/flow/cross-repo-worktrees.md skills/flow/SKILL-rationale.md scripts/kickoff-worktree.sh scripts/check-task-commit-planning-paths.sh scripts/check-verbatim-moves.sh scripts/check-plan-shape.sh scripts/check-task-build-green.sh` prints nothing.**
+**Build:** green
+**Files:** `skills/flow/implement.md`, `skills/flow/review-panel.md`, `skills/flow/review-panel-late-fix.md`, `skills/flow/visual-verify.md`, `skills/flow/verify-fix-loop.md`, `skills/flow/unfinished-work-gate.md`, `skills/flow/verify-and-handoff.md`, `skills/flow/gated-review-fix.md`, `skills/flow/cross-repo-worktrees.md`, `skills/flow/SKILL-rationale.md`, `scripts/kickoff-worktree.sh`, `scripts/check-task-commit-planning-paths.sh`, `scripts/check-verbatim-moves.sh`, `scripts/check-plan-shape.sh`, `scripts/check-task-build-green.sh`
+**Allowed-collateral:** `skills/flow/review-panel-fix-round.md`, `skills/flow/SKILL.md`, `stats/internal/guard/kickoffworktree.go`
+**Tests:** none
+**Regression:** reverting the commit restores planning commits in implementation, review and verification.
+**Commit:** docs(flow): implementation and review write the plan on disk only
+**After:** Task 6, 13, 14
+
+**Decision:** change-dir-gitignored
+**Decision:** guards-read-disk
+
+- [ ] 16. agents: the other `/flow*` skills lose the drop and the report
+  - [ ] **Step 1: `skills/flow-fast/SKILL.md`: delete `flow.sync-archive`/`flow.commit-archive` from the stage table (~56) and the `flow stage mark … -stages` line (~451), the `land-self-review-report` and `docs/self-review` passages (~4, ~309, ~331-333) and the drop-commit restore (~257); its cleanup runs `flow change save <name>` before removing the worktree, as `skills/flow/cleanup.md` states. `skills/flow-interactive/SKILL.md` (~4, ~241-243): delete the report landing, and its stop runs `flow change save <name>` before cleanup; leave the request-end `landed` outcome.**
+  - [ ] **Step 2: `skills/flow-self-review/SKILL.md`: delete the `chore(spectre): plan|drop self-review-<name>` commits (~347, ~391), the drop-commit references (~276, ~397), the report write and `land-self-review-report`/`check-self-review-report` (~4, ~29-30, ~207, ~408, ~557-590), and the restore (~190); a deferred run reads its bundle with `flow self-review bundle -change <name>`, which falls back to the saved one (decision self-review-bundle-to-flowd); `skills/flow-self-review/SKILL-rationale.md` (~55): delete the drop reasoning. `skills/flow-status/SKILL.md` (~190-191): list changes from `flow state` only, deleting the `chore(spectre): drop <name>` git command; `skills/flow-status/SKILL-rationale.md` (~52): delete the restore reasoning.**
+  - [ ] **Step 3: Verify: `scripts/run-verify-list.sh /Users/tweety53/Projects/agents-worktrees/kan-1073-commit-only-what-is-needed-permanently lint`, then `git grep -n -F -e 'chore(spectre)' -e 'sync-archive' -e 'commit-archive' -e 'land-self-review-report' -e 'check-self-review-report' -e 'docs/self-review' -- skills/flow-fast skills/flow-interactive skills/flow-self-review skills/flow-status` prints nothing.**
+**Build:** green
+**Files:** `skills/flow-fast/SKILL.md`, `skills/flow-interactive/SKILL.md`, `skills/flow-self-review/SKILL.md`, `skills/flow-self-review/SKILL-rationale.md`, `skills/flow-status/SKILL.md`, `skills/flow-status/SKILL-rationale.md`
+**Tests:** none
+**Regression:** reverting the commit restores the drop and the committed report in the other `/flow*` skills.
+**Commit:** docs(flow): the other flow skills commit no plan and no report
+**After:** Task 14
+
+**Decision:** self-review-bundle-to-flowd
+**Decision:** change-files-two-rows-at-cleanup
+
+- [ ] 17. agents: the shared contracts say the change directory is never committed
+  - [ ] **Step 1: `skills/flow-contracts/git-boundaries.md`: delete the **Planning commits** section (~34-37), the planning-commit table rows (~18-22), the `chore(spectre): plan <name>` subject rule (~25), the rows naming when a planning commit is made (~43-48), the drop commit (~51), `check-planning-commit-location` (~55), the planning-commit passage (~65-69) and "planning reaches the branch through **Planning commits**" (~95-99); state once that `spectre/changes/` is gitignored and nothing under it is staged. Keep **Branch backup**. `skills/flow-contracts/git-boundaries-commit-chain.md` (~21, ~27): delete the planning-commit snippet and subject rule. `skills/flow-contracts/git-boundaries-rationale.md` (~16, ~46-59): delete the planning-commit reasoning.**
+  - [ ] **Step 2: `skills/flow-contracts/pipeline.md`: rewrite § A change's directory (~725-729) to "on disk in the worktree, never committed"; pipeline-fix `<k>` uniqueness (~262-263, ~285) names flowd's change records, worktree names, refs and `flow.loop-k-used`; delete the **Planning commits** citation (~522) and the merged change's drop commit (~698). `skills/flow-contracts/pipeline-rationale.md` (~187), `skills/flow-contracts/state-file.md` (~143), `skills/flow-contracts/SKILL.md` (~42), `skills/flow-contracts/jira-integration-rationale.md` (~104, ~155, ~300, ~341), `skills/flow-contracts/handoff-blocks-rationale.md` (~80, ~164): delete the planning-commit, drop and report sentences. `skills/flow-contracts/artifacts-registry.md`: the change-directory row (~29) reads "gitignored; on disk in the worktree; `tasks.md` saved to flowd at cleanup", the self-review bundle row (~20) names `.superpowers/sdd/<name>/self-review-context.md`, saved to flowd at cleanup.**
+  - [ ] **Step 3: Verify: `scripts/run-verify-list.sh /Users/tweety53/Projects/agents-worktrees/kan-1073-commit-only-what-is-needed-permanently lint`, then `git grep -n -F -e 'Planning commits' -e 'planning commit' -e 'chore(spectre)' -e 'drop commit' -- skills rules` prints nothing.**
+**Build:** green
+**Files:** `skills/flow-contracts/git-boundaries.md`, `skills/flow-contracts/git-boundaries-commit-chain.md`, `skills/flow-contracts/git-boundaries-rationale.md`, `skills/flow-contracts/pipeline.md`, `skills/flow-contracts/pipeline-rationale.md`, `skills/flow-contracts/state-file.md`, `skills/flow-contracts/SKILL.md`, `skills/flow-contracts/jira-integration-rationale.md`, `skills/flow-contracts/handoff-blocks-rationale.md`, `skills/flow-contracts/artifacts-registry.md`
+**Allowed-collateral:** `skills/**/*.md` — any remaining hit of the sweep below, the last over all skills
+**Tests:** none
+**Regression:** reverting the commit restores the **Planning commits** section and the drop in the shared contracts.
+**Commit:** docs(flow-contracts): the change directory is never committed
+**After:** Task 15, 16
+
+**Decision:** change-dir-gitignored
+
+- [ ] 18. agents: README and project text; ignore the change directory and clean the tip
+  - [ ] **Step 1: `README.md`: delete the `flow.sync-archive`/`flow.commit-archive` rows (~171-172), the drop commit (~102, ~248) and the mermaid "drop → bundle → push" steps, replacing them with "save to flowd → remove worktrees". `.flow/project.md` (~197-199): reword the run-1 drop sentence to the gitignored directory. `CLAUDE.md`/`AGENTS.md`: delete any sentence naming the drop or the report (the explorer found none; grep to confirm).**
+  - [ ] **Step 2: Add `spectre/changes/` to `.gitignore` next to `.superpowers/`; `git rm -r --quiet docs/self-review spectre/specs/.gitkeep`. The tracked `spectre/changes/` leftovers are the parent's planning commit (header above); this change's own directory stays on disk.**
+  - [ ] **Step 3: Verify: `scripts/run-verify-list.sh /Users/tweety53/Projects/agents-worktrees/kan-1073-commit-only-what-is-needed-permanently lint`; `git ls-files docs/self-review spectre/specs` prints nothing; `git check-ignore -q spectre/changes/x`; `test -f spectre/changes/kan-1073-commit-only-what-is-needed-permanently/tasks.md`; then `git grep -n -F -e 'sync-archive' -e 'commit-archive' -e 'drop commit' -- README.md .flow/project.md CLAUDE.md AGENTS.md` prints nothing.**
+**Build:** green
+**Files:** `README.md`, `.flow/project.md`, `.gitignore`
+**Allowed-collateral:** `docs/self-review/**`, `spectre/specs/.gitkeep`, `CLAUDE.md`, `AGENTS.md`
+**Tests:** none
+**Regression:** reverting the commit stops ignoring the change directory and restores 246 reports to the tip. <!-- measured: git ls-files docs/self-review | wc -l @ 50e0a1f7 -->
+**Commit:** chore: never track the change directory or self-review reports
+**After:** Task 2, 10, 17
+
+**Decision:** change-dir-gitignored
+**Decision:** delete-tracked-leftovers-from-tip
+
+- [ ] 19. spectre: ignore the change directory, clean the tip, re-vendor the planning skill
+  - [ ] **Step 1: In the spectre worktree, add `spectre/changes/` to `.gitignore` next to `.superpowers/`; `git rm -r --quiet docs/self-review` (2 files). <!-- measured: git ls-files docs/self-review | wc -l @ f83f5cf --> The 4 tracked `spectre/changes/` files are the parent's planning commit (header above).**
+  - [ ] **Step 2: Copy the agents worktree's `skills/spectre-planning/SKILL.md` (as task 13 left it) over `.claude/skills/spectre-planning/SKILL.md` byte for byte; in `.claude/skills/spectre-planning/UPSTREAM.md` update the Source/Landed lines to name `skills/spectre-planning/SKILL.md` on agents main and KAN-1073, never a commit sha of the change branch.**
+  - [ ] **Step 3: Verify in the spectre worktree: `go test -count=1 -run 'TestPluginShipsSpectrePlanning' .`; `diff /Users/tweety53/Projects/agents-worktrees/kan-1073-commit-only-what-is-needed-permanently/skills/spectre-planning/SKILL.md .claude/skills/spectre-planning/SKILL.md` prints nothing; `git ls-files docs/self-review` prints nothing; `git check-ignore -q spectre/changes/x`; `git grep -n -F -e "--grep 'chore(spectre)" -- .claude` prints nothing.**
+**Build:** green
+**Files:** `.gitignore`
+**Allowed-collateral:** `docs/self-review/**`, `.claude/skills/spectre-planning/*.md` — the vendored `SKILL.md` and `UPSTREAM.md` Step 2 rewrites
+**Tests:** none
+**Regression:** reverting the commit stops ignoring the change directory and ships the rejection search in the vendored skill.
+**Commit:** chore: never track the change directory and re-vendor spectre-planning
+**After:** Task 2, 13, 18
+
+**Decision:** change-dir-gitignored
+**Decision:** delete-tracked-leftovers-from-tip
+**Decision:** drop-rejection-search
+
+- [ ] 20. gymie: ignore the change directory, delete tracked reports, drop the archive route text
+  - [ ] **Step 1: In the gymie worktree, add `spectre/changes/` to `.gitignore` next to `.superpowers/` (~47); `git rm -r --quiet docs/self-review` (112 files) <!-- measured: git ls-files docs/self-review | wc -l @ b05ce5b7 -->; keep `spectre/specs/`.**
+  - [ ] **Step 2: `.flow/project.md` (~556-559): delete the "This also settles the archive route…" sentences; leave lines that use "drop" in other senses (~129, ~323, ~330, ~547).**
+  - [ ] **Step 3: Verify in the gymie worktree: `git ls-files docs/self-review` prints nothing; `git check-ignore -q spectre/changes/x`; `git grep -n -F -e 'archive route' -e 'archive branch' -e 'archive PR' -- .flow/project.md` prints nothing.**
+**Build:** green
+**Files:** `.gitignore`, `.flow/project.md`
+**Allowed-collateral:** `docs/self-review/**`
+**Tests:** none
+**Regression:** reverting the commit restores the reports and the archive-route text.
+**Commit:** chore: never track the change directory or self-review reports
+**After:** Task 8, 18, 19
+
+**Decision:** change-dir-gitignored
+**Decision:** delete-tracked-leftovers-from-tip
+**Decision:** gymie-specs-stay
+
+- [ ] 21. gymie-frontend: ignore the change directory and clean the tip
+  - [ ] **Step 1: In the gymie-frontend worktree, add `spectre/changes/` to `.gitignore` next to `.superpowers/` (~48); `git rm -r --quiet docs/self-review spectre/specs/.gitkeep` (5 + 1 files) <!-- measured: git ls-files docs/self-review spectre/specs | wc -l @ 18f067cf -->. The 11 tracked `spectre/changes/` files are the parent's planning commit (header above). <!-- measured: git ls-files spectre/changes | wc -l @ 18f067cf -->**
+  - [ ] **Step 2: Verify in the gymie-frontend worktree: `git ls-files spectre/specs docs/self-review` prints nothing; `git check-ignore -q spectre/changes/x`.**
+**Build:** green
+**Files:** `.gitignore`
+**Allowed-collateral:** `docs/self-review/**`, `spectre/specs/.gitkeep`
+**Tests:** none
+**Regression:** reverting the commit restores the reports and the placeholder.
+**Commit:** chore: never track the change directory or self-review reports
+**After:** Task 18, 19, 20
+
+**Decision:** change-dir-gitignored
+**Decision:** delete-tracked-leftovers-from-tip
+
+- [ ] 22. gymie-playwright: ignore the change directory and clean the tip
+  - [ ] **Step 1: In the gymie-playwright worktree, add `spectre/changes/` to `.gitignore` next to `.superpowers/` (~13); `git rm -r --quiet docs/self-review` (1 file) <!-- measured: git ls-files docs/self-review | wc -l @ 55af5e2 -->; the 9 tracked `spectre/changes/` files are the parent's planning commit (header above) <!-- measured: git ls-files spectre/changes | wc -l @ 55af5e2 -->. Leave the comments in `kan-348-route-f.spec.ts:7` and `fidelity/copy-fallback.spec.ts:43` that cite historical paths.**
+  - [ ] **Step 2: Verify in the gymie-playwright worktree: `git ls-files docs/self-review` prints nothing; `git check-ignore -q spectre/changes/x`.**
+**Build:** green
+**Files:** `.gitignore`
+**Allowed-collateral:** `docs/self-review/**`
+**Tests:** none
+**Regression:** reverting the commit restores the report.
+**Commit:** chore: never track the change directory or self-review reports
+**After:** Task 18, 19, 20, 21
+
+**Decision:** change-dir-gitignored
+**Decision:** delete-tracked-leftovers-from-tip
+
+- [ ] 23. flow-eval: ignore the change directory and clean the tip
+  - [ ] **Step 1: In the flow-eval worktree, add `spectre/changes/` to `.gitignore` next to `.superpowers/` (~1); `git rm -r --quiet docs/self-review spectre/specs/.gitkeep` (5 + 1 files) <!-- measured: git ls-files docs/self-review spectre/specs | wc -l @ a6163fc -->; the 1 tracked `spectre/changes/` file is the parent's planning commit (header above) <!-- measured: git ls-files spectre/changes | wc -l @ a6163fc -->. `internal/mine/mine.go` stays as it is (open question flow-eval-miner-history-reads).**
+  - [ ] **Step 2: Verify in the flow-eval worktree: `git ls-files spectre/specs docs/self-review` prints nothing; `git check-ignore -q spectre/changes/x`; `go test -count=1 -run 'TestMineImplFromLedger|TestMineThroughThePreReshapeRef' ./internal/mine/` still passes (its fixtures build their own repositories).**
+**Build:** green
+**Files:** `.gitignore`
+**Allowed-collateral:** `docs/self-review/**`, `spectre/specs/.gitkeep`
+**Tests:** none
+**Regression:** reverting the commit restores the reports and the placeholder.
+**Commit:** chore: never track the change directory or self-review reports
+**After:** Task 18, 19, 20, 21, 22
+
+**Decision:** change-dir-gitignored
+**Decision:** delete-tracked-leftovers-from-tip
