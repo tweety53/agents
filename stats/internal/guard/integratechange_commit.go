@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -35,6 +36,12 @@ func (c *ic) commit() {
 				continue
 			}
 			rb := icReadTrimmed(f)
+			ids, _ := c.git("-C", c.wt[o], "log", "--no-merges", "--format=%(trailers:key=Task-Id,valueonly)", rb+"..HEAD")
+			for _, id := range icLines(ids) {
+				if t := "Task-Id: " + strings.TrimSpace(id); strings.TrimSpace(id) != "" && !slices.Contains(c.squashed[o], t) {
+					c.squashed[o] = append(c.squashed[o], t)
+				}
+			}
 			c.pinPreReshape(c.wt[o])
 			c.run("reshape-branch", c.wt[o], c.name, rb)
 			if c.rc != 0 {
@@ -48,6 +55,7 @@ func (c *ic) commit() {
 		}
 		c.markEnd("flow.preserve-sessions", "completed")
 		c.markBegin("flow.commit-two")
+		carried := false
 		for _, o := range c.order {
 			f := c.reshapeFile(c.wt[o])
 			if !isFile(f) {
@@ -70,11 +78,18 @@ func (c *ic) commit() {
 			if subj != "" && c.outstanding != "" {
 				subj += "\n\nOutstanding: " + c.outstanding
 			}
-			c.run("commit-split", c.wt[o], c.name, subj, c.planMsg)
+			before, _ := c.git("-C", c.wt[o], "rev-parse", "HEAD")
+			c.run("commit-split", append([]string{c.wt[o], c.name, subj, c.planMsg}, c.squashed[o]...)...)
 			if c.rc != 0 {
 				c.stop("commit-split", fmt.Sprintf("commit-split exit %d in %s — report its lines", c.rc, c.wt[o]))
 			}
+			if after, _ := c.git("-C", c.wt[o], "rev-parse", "HEAD"); subj != "" && c.outstanding != "" && after != before {
+				carried = true
+			}
 			os.Remove(f)
+		}
+		if c.outstanding != "" && !carried {
+			c.say("OUTSTANDING-UNRECORDED: no implementation commit was made to carry it — record it in the narrative instead: " + c.outstanding)
 		}
 		c.markEnd("flow.commit-two", "completed")
 	}

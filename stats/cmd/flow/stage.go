@@ -732,9 +732,7 @@ func gatePanelFindingsClosed(f stageIdentityFlags, outcome string, stderr io.Wri
 // before anything is pushed (kan-1016's self-review: one was pushed before
 // integrate's gate saw it). Each worktree is judged from `git merge-base HEAD
 // origin/<base>`, <base> resolve-base-branch's answer, exactly as
-// integrate's unfinished-work gate judges it — past the newest drop commit
-// and the self-review loop on a re-run after run 1's drop
-// (guard.ArchivedRerunBase). A guard that cannot answer, a
+// integrate's unfinished-work gate judges it. A guard that cannot answer, a
 // state map that cannot be read among them, refuses.
 func gateVisualVerifyTrailers(ctx context.Context, f stageIdentityFlags, outcome string, stderr io.Writer) int {
 	if f.command != "/flow" || f.stage != "flow.visual-verify" || outcome != "completed" {
@@ -788,8 +786,7 @@ func gateVisualVerifyTrailers(ctx context.Context, f stageIdentityFlags, outcome
 			fmt.Fprintf(stderr, "flow: stage end refused: no merge base with origin/%s in %s\n", strings.TrimSpace(base.String()), wt)
 			return 1
 		}
-		from := guard.ArchivedRerunBase(env, dir, wt, f.name, strings.TrimSpace(string(mb)))
-		if code := guard.Registry["check-untasked-commits"]([]string{wt, from}, env, stderr, stderr); code != 0 {
+		if code := guard.Registry["check-untasked-commits"]([]string{wt, strings.TrimSpace(string(mb))}, env, stderr, stderr); code != 0 {
 			fmt.Fprintf(stderr, "flow: stage end refused: commits outside every task lack their Flow-Key: trailer in %s — amend each with -m \"Flow-Key: flow.visual-verify\" before anything is pushed\n", wt)
 			return 1
 		}

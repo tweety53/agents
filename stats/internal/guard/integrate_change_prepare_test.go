@@ -414,7 +414,7 @@ const icRerunPinCase = `rerun_pin_case() {
   sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): more work" "$WORK/b=feat(b): do the work"
   check "${1}the re-run commit exits 0" '[ "$RC" -eq 0 ]'
   check "${1}a's pin reaches both Task-Id commits" \
-    '[ "$(git -C "$WORK/a" log --format=%s --grep="^Task-Id: [12]$" main..refs/flow/pre-reshape/demo | sort | tr "\n" ,)" = "feat(a): more,feat(a): task 1," ]'
+    '[ "$(git -C "$WORK/a" log --format=%s --grep="^Task-Id: [12]$" main..refs/flow/pre-reshape/demo | sort | tr "\n" ,)" = "feat(a): do the work,feat(a): more,feat(a): task 1," ]'
   check "${1}origin holds the advanced pin" \
     '[ "$(git --git-dir="$WORK/a-origin.git" rev-parse refs/flow/pre-reshape/demo)" = "$(git -C "$WORK/a" rev-parse refs/flow/pre-reshape/demo)" ]'
 }
@@ -438,6 +438,31 @@ check "rerun_on_disk: its NEXT names the live narrative" 'printf "%s" "$OUT" | t
 printf '\n## fix run\n\nfixed\n' >>"$A/spectre/changes/demo/narrative.md"
 sut commit "$WORK/a" demo "$A=feat(a): do the work" "$WORK/b=feat(b): do the work"
 check "rerun_on_disk: commit exits 0" '[ "$RC" -eq 0 ]'`},
+		{"rerun_appended_task", `# --- rerun_appended_task ---
+fixture
+A="$WORK/a-worktrees/demo"
+printf '**Tasks appended:** 1\n\n- [x] 1. Do the work\n- [x] 2. The fix\n' >"$A/spectre/changes/demo/tasks.md"
+printf 'fix\n' >"$A/fix-a.txt"
+g -C "$A" add fix-a.txt && g -C "$A" commit -qm "fix(a): the appended task" -m "Task-Id: 2"
+echo '[{"key":"task-1-implementer","outcome":"completed","seq":1},{"key":"task-2-implementer","taskId":"2","outcome":"completed","seq":2},{"key":"panel-0-gated","role":"reviewer","outcome":"completed","seq":3},{"key":"verify","role":"verifier","outcome":"completed","seq":4,"startedAt":"2030-01-02T00:00:00Z"}]' >"$WORK/dispatches.json"
+to_land "rerun_appended_task: " no-report
+T="$(git -C "$A" log -1 --format='%(trailers:key=Task-Id,valueonly,separator=%x2C)' --grep='^feat(a): do the work$')"
+check "rerun_appended_task: the implementation commit keeps the squashed Task-Id trailers" '[ "$T" = "2,1" ]'
+sut prepare "$WORK/a" demo
+check "rerun_appended_task: a re-run of prepare passes the unfinished-work gate" '[ "$RC" -eq 0 ]'`},
+		{"rerun_reshape_base", `# --- rerun_reshape_base ---
+fixture
+A="$WORK/a-worktrees/demo"
+to_land "rerun_reshape_base: " no-report
+split="$(git -C "$A" rev-parse HEAD)"
+sut prepare "$WORK/a" demo
+check "rerun_reshape_base: with no fixed row the reshape base is run 1's implementation commit" 'printf "%s" "$OUT" | grep -qF "WORKTREE: $A — base main, reshape base $split"'
+printf 'fix\n' >"$A/sr-fix.txt"
+g -C "$A" add sr-fix.txt && g -C "$A" commit -qm "fix(a): a self-review fix" -m "Flow-Key: self-review-fix-1"
+fix="$(git -C "$A" rev-parse HEAD)"
+printf '[{"angle":"code","disposition":"fixed","ref":"%s"}]' "$(git -C "$A" rev-parse --short=12 HEAD)" >"$WORK/sr-findings.json"
+sut prepare "$WORK/a" demo
+check "rerun_reshape_base: a fixed row's commit is the reshape base" 'printf "%s" "$OUT" | grep -qF "WORKTREE: $A — base main, reshape base $fix"'`},
 	})
 }
 

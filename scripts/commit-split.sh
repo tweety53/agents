@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# commit-split.sh — the guarded two-commit chain, in one place.
+# commit-split.sh — the guarded commit chain, in one place.
 #
-# Usage: commit-split.sh <worktree> <name> <impl-msg> <plan-msg>
+# Usage: commit-split.sh <worktree> <name> <impl-msg> <plan-msg> [<trailer>…]
 #
 # Wraps the exact guarded chain specified in skills/flow-contracts/pipeline.md's
 # "Git boundaries" section — that section is the canonical spec of this
@@ -10,7 +10,9 @@
 # place to call instead of each spelling the chain out inline.
 #
 # Stages everything (`git add -A -- .`) and commits it as the
-# implementation commit — skipped, not failed, if nothing is staged. Then
+# implementation commit — skipped, not failed, if nothing is staged — with
+# `Flow-Key: flow.commit-two` and each <trailer> (a squashed commit's
+# `Task-Id: <n>`) in its trailer block. Then
 # stages anything left and commits that under <plan-msg>, skipped the same
 # way if empty. `spectre/changes/` is gitignored, so the change directory is
 # in neither commit.
