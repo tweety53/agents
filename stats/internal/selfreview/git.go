@@ -630,7 +630,8 @@ var archivedFiles = []string{"tasks.md", "design.md", "narrative.md", "visual-ve
 // a ref. build names the serving daemon's own build, the note leading the
 // bundle's notes when non-empty: a source reported skipped that the tree
 // holds then reads as a daemon older than the source, never as an absence
-// (KAN-771).
+// (KAN-771). The gated per-task reviewers' findings, which the panel record
+// leaves out, follow the panel as their own source.
 func Bundle(change string, run records.Run, summary string, summaryFound bool, panelRan bool, build string, repos []string, requests []records.Request, g Runner) (string, error) {
 	if !records.ValidChangeName(change) {
 		return "", fmt.Errorf("change name %q is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'", change)
@@ -700,6 +701,8 @@ func Bundle(change string, run records.Run, summary string, summaryFound bool, p
 	} else {
 		add(".superpowers/sdd/reviews/"+change+"-panel.md", "", false)
 	}
+	gated, ok := records.RenderGatedFindings(run)
+	add("gated per-task reviewer findings", gated, ok)
 
 	if repo != "" {
 		for _, file := range archivedFiles {

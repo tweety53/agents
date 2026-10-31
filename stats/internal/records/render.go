@@ -124,6 +124,26 @@ func lineageCell(f Finding) string {
 	return strings.Join(parts, "; ")
 }
 
+// RenderGatedFindings renders the gated per-task reviewers' findings
+// (GatedReviewerSlot) as a table, the rows RenderPanel leaves out; false
+// when the run holds none.
+func RenderGatedFindings(r Run) (string, bool) {
+	var b strings.Builder
+	b.WriteString("| ID | Task | Severity | Location | Note | Status |\n")
+	b.WriteString("|---|---|---|---|---|---|\n")
+	found := false
+	for _, f := range r.Findings {
+		if f.Slot != GatedReviewerSlot {
+			continue
+		}
+		found = true
+		fmt.Fprintf(&b, "| %s | %s | %s | %s | %s | %s |\n",
+			tableCell(f.Ref), tableCell(f.TaskID), tableCell(f.Severity),
+			tableCell(f.Location), tableCell(f.Note), tableCell(f.Status))
+	}
+	return b.String(), found
+}
+
 // RenderPanel renders a change's findings, dispatches, and pass log as the
 // review panel record that `flow record render -kind panel` writes under
 // the worktree's untracked .superpowers/sdd/reviews/.
