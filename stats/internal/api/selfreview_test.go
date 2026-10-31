@@ -37,9 +37,7 @@ func selfReviewPath(project, change, repo string) string {
 // from the store.
 func TestSelfReviewBundleHandlerServesAssembledBundle(t *testing.T) {
 	repo := bundleGitRepo(t)
-	bundleCommit(t, repo, "spectre/changes/kan-1/tasks.md", "- [ ] 1. do it\n",
-		"chore(spectre): plan and session records")
-	bundleDropBranch(t, repo, "kan-1", map[string]string{
+	bundleChangeBranch(t, repo, "kan-1", map[string]string{
 		"tasks.md":  "- [ ] 1. do it\n",
 		"design.md": "# kan-1 design\n",
 	})
@@ -69,6 +67,7 @@ func TestSelfReviewBundleHandlerServesAssembledBundle(t *testing.T) {
 		"## spectre/changes/kan-1/design.md",
 		"# kan-1 design",
 		"## git log --stat",
+		"feat(app): the change's work",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("bundle missing %q:\n%s", want, body)
@@ -133,9 +132,16 @@ func bundleGitRepo(t *testing.T) string {
 	return dir
 }
 
-func bundleDropBranch(t *testing.T, repo, name string, files map[string]string) {
+// bundleChangeBranch is a /flow worktree in miniature: repo checks out
+// spectre/<name> from an origin/main base, commits one implementation, and
+// holds the change's files on disk under spectre/changes/<name>/, ignored
+// and never committed.
+func bundleChangeBranch(t *testing.T, repo, name string, files map[string]string) {
 	t.Helper()
-	bundleRunGit(t, repo, "checkout", "-b", "spectre/"+name)
+	bundleRunGit(t, repo, "update-ref", "refs/remotes/origin/main", "main")
+	bundleRunGit(t, repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
+	bundleRunGit(t, repo, "checkout", "-q", "-b", "spectre/"+name)
+	bundleCommit(t, repo, ".gitignore", "spectre/changes/\n", "feat(app): the change's work")
 	for file, body := range files {
 		path := filepath.Join(repo, "spectre/changes", name, file)
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -145,11 +151,6 @@ func bundleDropBranch(t *testing.T, repo, name string, files map[string]string) 
 			t.Fatal(err)
 		}
 	}
-	bundleRunGit(t, repo, "add", "-A")
-	bundleRunGit(t, repo, "commit", "--allow-empty", "-m", "test: write "+name+"'s change files")
-	bundleRunGit(t, repo, "rm", "-r", "-q", "spectre/changes/"+name)
-	bundleRunGit(t, repo, "commit", "-m", "chore(spectre): drop "+name)
-	bundleRunGit(t, repo, "checkout", "main")
 }
 
 func bundleCommit(t *testing.T, repo, file, body, subject string) {
@@ -174,7 +175,7 @@ func bundleRunGit(t *testing.T, repo string, args ...string) {
 }
 
 // TestSelfReviewBundleHandlerRequiresRepo pins repo as mandatory: without
-// it the route could only misreport a dropped change's sources as
+// it the route could only misreport the change directory's sources as
 // absent, so the request is refused before anything is read.
 func TestSelfReviewBundleHandlerRequiresRepo(t *testing.T) {
 	ts, _ := recordTestServer(t, "proj", "kan-1")

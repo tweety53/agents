@@ -16,11 +16,10 @@ import (
 
 // selfreviewStore is the store dependency the self-review bundle endpoint
 // needs, defined here at the consumer per go-interface-design — exactly the
-// two reads the handler calls, so a test needs no database. The repository
-// the history-derived sources come from is not a store answer:
-// change_repos carries no roots for the pipeline's real changes, and the
-// caller — running from anywhere inside the repository, the way every flow
-// command does — resolves the main checkout itself and passes it as the
+// reads the handler calls, so a test needs no database. The worktree the
+// change-directory sources come from is not a store answer: change_repos
+// carries no roots for the pipeline's real changes, and the caller —
+// running inside the change's worktree — resolves it and passes it as the
 // repo query parameter.
 type selfreviewStore interface {
 	RunRecord(ctx context.Context, projectKey, change string) (records.Run, error)
@@ -50,12 +49,11 @@ type selfreviewStore interface {
 // /api/v1/self-review/{project}/{change}/bundle?repo=<abs-path>: the whole
 // self-review context bundle, assembled server-side — the ledger and panel
 // record rendered from the store exactly as the render route renders them,
-// the dropped change's tasks.md, design.md, narrative.md, visual-verification.md
-// and live-verification.md read out of history — the parent of run 1's drop
-// commit, found on the change branch spectre/<name> of the repository the
-// caller named, or its base branch once the change has landed — and
-// the git log of the finish-run commits, derived here rather than in any
-// Bash the caller would have to run. The CLI transports the result and
+// the change directory's tasks.md, design.md, narrative.md,
+// visual-verification.md and live-verification.md read from disk in the
+// worktree the caller named — gitignored, never committed (KAN-1073) — and
+// the git log of its first-parent merge-base..HEAD range, derived here
+// rather than in any Bash the caller would have to run. The CLI transports the result and
 // constructs none of it, the record-render rule.
 type selfreviewHandler struct {
 	store  selfreviewStore
@@ -65,9 +63,9 @@ type selfreviewHandler struct {
 }
 
 // bundle answers with text/markdown. repo is required: without it the
-// route could only report the history-derived sources skipped, which for
-// a dropped change reads as a false fact about the change rather than as
-// the caller mistake it is — a 400 says so plainly. A change the store has
+// route could only report the change-directory sources skipped, a false
+// fact about the change rather than the caller mistake it is — a 400 says
+// so plainly. A change the store has
 // never heard of is not an error — its ledger and panel sections report
 // skipped and the rest of the bundle still serves, the gather's own "a
 // missing source is never fatal" rule. Only a store read that fails for a
@@ -76,7 +74,7 @@ func (h *selfreviewHandler) bundle(w http.ResponseWriter, r *http.Request) {
 	project, change := r.PathValue("project"), r.PathValue("change")
 	repo := r.URL.Query().Get("repo")
 	if repo == "" {
-		writeError(w, http.StatusBadRequest, "repo is required: the absolute path of the repository whose history holds the change")
+		writeError(w, http.StatusBadRequest, "repo is required: the absolute path of the worktree holding the change")
 		return
 	}
 	if !filepath.IsAbs(repo) {

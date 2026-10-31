@@ -10,10 +10,10 @@ import (
 )
 
 // selfReviewBundleURL is the bundle route's URL for one project/change and
-// the caller-resolved repository root. The repo travels as a query
-// parameter: the history-derived sources are read out of the repository
-// the caller named — the main checkout its own cwd resolves to — never out
-// of a path the store guessed at.
+// the caller-resolved worktree root. The repo travels as a query parameter:
+// the change-directory sources are read from the worktree the caller named
+// — the one its own cwd resolves to — never from a path the store guessed
+// at.
 func (c *Client) selfReviewBundleURL(project, change, repo string) string {
 	u := c.baseURL + "/api/v1/self-review/" + url.PathEscape(project) + "/" + url.PathEscape(change) + "/bundle"
 	if repo != "" {
@@ -23,10 +23,9 @@ func (c *Client) selfReviewBundleURL(project, change, repo string) string {
 }
 
 // GetSelfReviewBundle fetches a change's whole self-review
-// context bundle, assembled server-side by flowd. repo is the repository
-// root the history-derived sources are read from — the caller resolves it
-// from its own location in the repository, the way every flow command
-// resolves its project. The body arrives already rendered and is returned
+// context bundle, assembled server-side by flowd. repo is the worktree root
+// the change-directory sources are read from — the caller resolves it from
+// its own location, the way every flow command resolves its project. The body arrives already rendered and is returned
 // verbatim — the CLI constructs none of it, the record-render rule, so a
 // bundle's shape is decided in the one binary versioned with the store
 // that produces it.
