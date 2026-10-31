@@ -71,12 +71,27 @@ sut cleanup "$WORK/a" demo --proceed "$WORK/a" --proceed "$WORK/b"
 check "disclose: --proceed for both finishes" '[ "$RC" -eq 0 ] && [ ! -d "$WORK/b-worktrees/demo" ] && [ "$(jq -r .state "$WORK/state.json")" = FINISHED ]'`},
 		{"rerun_leftover", `# --- rerun_leftover ---
 fixture
-mkdir -p "$WORK/a/spectre/changes/demo"
 to_land "rerun_leftover: "
+cat >>"$WORK/a/.flow/project.md" <<'EOF'
+
+## workspace isolation
+
+| Resource | Variable | Default | In a workspace |
+|----------|----------|---------|----------------|
+| ` + "`" + `database` + "`" + ` | ` + "`" + `DB_URL` + "`" + ` | ` + "`" + `appdb` + "`" + ` | ` + "`" + `appdb_<id_underscored>` + "`" + ` |
+
+| Command | Runs |
+|---------|------|
+| ` + "`" + `create` + "`" + ` | ` + "`" + `true` + "`" + ` |
+| ` + "`" + `remove` + "`" + ` | ` + "`" + `true` + "`" + ` |
+| ` + "`" + `survivors` + "`" + ` | ` + "`" + `[ -f @WORK@/stray ] && echo appdb_stray || true` + "`" + ` |
+EOF
+sed -i.bak "s|@WORK@|$WORK|" "$WORK/a/.flow/project.md" && rm "$WORK/a/.flow/project.md.bak"
+touch "$WORK/stray"
 sut land "$WORK/a" demo
 check "rerun_leftover: run 2 stops at STOP: leftover" '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: leftover"'
 check "rerun_leftover: both worktrees were removed first" '[ ! -d "$WORK/a-worktrees/demo" ] && [ ! -d "$WORK/b-worktrees/demo" ]'
-rmdir "$WORK/a/spectre/changes/demo"
+rm "$WORK/stray"
 g -C "$WORK/b" push -q origin main:refs/heads/spectre/demo
 sut cleanup "$WORK/a" demo
 check "rerun_leftover: the re-run reaches b and deletes its remote branch" \
