@@ -10,6 +10,7 @@ PUT /api/v1/sessions/<session_id>/activity {"state", "detail"}:
   PreToolUse, PostToolUse        -> working, the tool and its short label
   UserPromptSubmit               -> working
   Stop                           -> idle
+  SessionEnd                     -> ended
 
 Any other event sends nothing. detail is cut to 500 bytes, the most flowd accepts.
 
@@ -54,6 +55,8 @@ def activity(payload: dict) -> Optional[Tuple[str, str]]:
         return "working", ""
     if event == "Stop":
         return "idle", ""
+    if event == "SessionEnd":
+        return "ended", ""
     return None
 
 

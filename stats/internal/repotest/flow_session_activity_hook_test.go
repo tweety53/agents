@@ -79,6 +79,8 @@ func TestFlowSessionActivityHook(t *testing.T) {
 			path + `{"state": "permission", "detail": "Claude needs your permission to use Bash"}`},
 		{"stop", `{"session_id":"s-1","hook_event_name":"Stop"}`,
 			path + `{"state": "idle", "detail": ""}`},
+		{"session end", `{"session_id":"s-1","hook_event_name":"SessionEnd","reason":"prompt_input_exit"}`,
+			path + `{"state": "ended", "detail": ""}`},
 		{"other pre tool use reports working before the call runs", `{"session_id":"s-1","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"sleep 60","description":"Wait for the verifier"}}`,
 			path + `{"state": "working", "detail": "Bash: Wait for the verifier"}`},
 		{"no session id", `{"hook_event_name":"Stop"}`, ""},

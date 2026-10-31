@@ -8,7 +8,7 @@ import (
 // sessionActivityStates is the closed state vocabulary, mirrored by the
 // session_activity table's CHECK constraint -- the API's validation is UX,
 // the store's is the boundary.
-var sessionActivityStates = map[string]bool{"working": true, "question": true, "permission": true, "idle": true}
+var sessionActivityStates = map[string]bool{"working": true, "question": true, "permission": true, "idle": true, "ended": true}
 
 // maxActivityDetailBytes caps detail. hooks/flow-session-activity.py
 // truncates to it, so a longer detail is a caller bug and refused.
@@ -30,7 +30,7 @@ func (h *statsHandler) putSessionActivity(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if !sessionActivityStates[in.State] {
-		writeError(w, http.StatusBadRequest, "state must be one of working, question, permission, idle")
+		writeError(w, http.StatusBadRequest, "state must be one of working, question, permission, idle, ended")
 		return
 	}
 	if len(in.Detail) > maxActivityDetailBytes {

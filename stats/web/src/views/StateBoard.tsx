@@ -32,6 +32,7 @@ export const ACTIVITY_LABEL: Record<string, string> = {
   question: "Awaiting your answer",
   permission: "Awaiting permission",
   idle: "Turn ended",
+  ended: "Session closed",
 };
 
 const PERIOD_MINUTES = { "24h": 1440, "7d": 10080, "30d": 43200, All: Infinity } as const;
@@ -207,7 +208,7 @@ function WaitingCard({ row, now }: { row: StateBoardRow; now: number }) {
       </div>
       <div className="lb-stage">
         <span className="lb-ring" />
-        <span>Waiting for the next request</span>
+        <span>{row.activity === "ended" ? "Session closed" : "Waiting for the next request"}</span>
         {row.lastStageEndedAt && <span className="lb-muted">· {formatSpan(now - Date.parse(row.lastStageEndedAt))}</span>}
       </div>
       {last && (

@@ -319,7 +319,7 @@ export interface StateBoardRow {
   sessionSeenAt?: string;
   /** Dispatches begun since the open stage started, ended or not. */
   openStageDispatches?: number;
-  activity?: 'working' | 'question' | 'permission' | 'idle';
+  activity?: 'working' | 'question' | 'permission' | 'idle' | 'ended';
   activityDetail?: string;
   activitySince?: string;
   /** The command of the change's latest stage run; tasks are its requests when it is /flow-interactive. */

@@ -1176,6 +1176,14 @@ describe("interactive session card", () => {
     expect(within(f).getByText("Implementing")).toHaveClass("lb-pill");
     expect(f).not.toHaveTextContent("requests");
   });
+
+  it("an interactive session whose harness session ended reads closed, not waiting", async () => {
+    fetchStatsViewMock.mockImplementation(() => Promise.resolve(envelope("state-board", [{ ...waiting, activity: "ended" }])));
+    render(<StateBoard />);
+    const w = await screen.findByTestId("running-card");
+    expect(within(w).getByText("Session closed").nextSibling).toHaveTextContent("· 6m");
+    expect(w).not.toHaveTextContent("Waiting for the next request");
+  });
 });
 
 describe("absence is rendered distinctly from a recorded zero", () => {

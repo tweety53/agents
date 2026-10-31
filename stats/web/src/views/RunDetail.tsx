@@ -898,7 +898,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                       </>
                     ) : waitingNext ? (
                       <>
-                        <span className="lb-ring" /> Waiting for the next request
+                        <span className="lb-ring" /> {board?.activity === "ended" ? "Session closed" : "Waiting for the next request"}
                       </>
                     ) : betweenStages ? (
                       <>
