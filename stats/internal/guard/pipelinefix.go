@@ -123,7 +123,12 @@ func pfStart(env Env, pe pfEnv, rest []string, stdout, stderr io.Writer) int {
 	}
 	if len(rest) == 2 {
 		k, _ := strconv.Atoi(rest[1])
-		if want := pfHighestK(env, pe) + 1; k != want {
+		highest, ok := pfHighestK(env, pe)
+		if !ok {
+			fmt.Fprintf(stderr, "%s: flowd's change records could not be read in full (flow state list answered from no store, or incompletely) — <k> cannot be checked\n", self)
+			return 2
+		}
+		if want := highest + 1; k != want {
 			fmt.Fprintf(stderr, "%s: <k> is %d — one more than the highest <n> of any pipeline-fix-*-<n> branch, flowd change record or worktree — not %d\n", self, want, k)
 			return 1
 		}
@@ -167,24 +172,28 @@ var pfNumbered = regexp.MustCompile(`^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}-)?pipeline-f
 // branch, change flowd holds a record of for the project (`flow state
 // list`, FINISHED ones included), or directory under <main>-worktrees/;
 // 0 when there is none. <k> one more than it is unique across the
-// repository, so two loops never share a key prefix.
-func pfHighestK(env Env, pe pfEnv) int {
+// repository, so two loops never share a key prefix. ok false unless flowd
+// answered from its store, complete: the on-disk fallback holds no
+// pipeline-fix record, so it would admit a used <k>.
+func pfHighestK(env Env, pe pfEnv) (int, bool) {
 	var names []string
 	_, refs := kwRun(env, "", pe.git, "-C", pe.main, "for-each-ref", "--format=%(refname:lstrip=2)", "refs/heads/", "refs/remotes/")
 	for _, r := range strings.Fields(refs) {
 		names = append(names, filepath.Base(r))
 	}
-	if out, _, rc := pcFlow(env, false, "state", "list", "-C", pe.main); rc == 0 {
-		var list struct {
-			Records []struct {
-				Name string `json:"name"`
-			} `json:"records"`
-		}
-		if json.Unmarshal(out, &list) == nil {
-			for _, r := range list.Records {
-				names = append(names, r.Name)
-			}
-		}
+	out, _, rc := pcFlow(env, false, "state", "list", "-C", pe.main)
+	var list struct {
+		Source   string `json:"source"`
+		Complete bool   `json:"complete"`
+		Records  []struct {
+			Name string `json:"name"`
+		} `json:"records"`
+	}
+	if rc != 0 || json.Unmarshal(out, &list) != nil || list.Source != "store" || !list.Complete {
+		return 0, false
+	}
+	for _, r := range list.Records {
+		names = append(names, r.Name)
 	}
 	entries, _ := os.ReadDir(pe.main + "-worktrees")
 	for _, e := range entries {
@@ -203,7 +212,7 @@ func pfHighestK(env Env, pe pfEnv) int {
 			}
 		}
 	}
-	return highest
+	return highest, true
 }
 
 // pfLoop resolves key's loop for end and escalate.

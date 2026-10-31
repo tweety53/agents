@@ -73,21 +73,30 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		}
 	}
 
-	// The save gate (KAN-1073): the change directory is gitignored, so a
-	// worktree holding spectre/changes/<name>/tasks.md holds the only copy of
-	// the plan until `flow change save` keeps it in flowd. Refused before
-	// anything else when flowd holds none for that worktree's project.
+	// The save gate (KAN-1073): the change directory and .superpowers/ are
+	// gitignored, so a worktree holding the plan (spectre/changes/<name>/ or
+	// /flow-fast's .superpowers/sdd/<name>/tasks.md) or the self-review
+	// bundle holds its only copy until `flow change save` keeps it in flowd
+	// (cmd/flow/change.go's changeSavedFiles). Refused before anything else
+	// when flowd holds none of a file the worktree holds.
+	saved := []struct{ on, as string }{
+		{"spectre/changes/" + name + "/tasks.md", "tasks.md"},
+		{".superpowers/sdd/" + name + "/tasks.md", "tasks.md"},
+		{".superpowers/sdd/" + name + "/self-review-context.md", "self-review-context.md"},
+	}
 	for _, wt := range wts {
-		if !isFile(wt + "/spectre/changes/" + name + "/tasks.md") {
-			continue
-		}
-		switch _, errOut, rc := pcFlow(env, false, "change", "file", "-C", wt, name, "tasks.md"); rc {
-		case 0:
-		case 1:
-			fmt.Fprintf(stderr, "remove-change-worktrees: flow change save %s has not run — %s holds the only copy of its plan\n", name, wt)
-			return 1
-		default:
-			return refuse("cannot tell whether flow change save %s has run: %s", name, rcwFlat(string(errOut)))
+		for _, f := range saved {
+			if !isFile(wt + "/" + f.on) {
+				continue
+			}
+			switch _, errOut, rc := pcFlow(env, false, "change", "file", "-C", wt, name, f.as); rc {
+			case 0:
+			case 1:
+				fmt.Fprintf(stderr, "remove-change-worktrees: flow change save %s has not run — %s holds the only copy of its %s\n", name, wt, f.on)
+				return 1
+			default:
+				return refuse("cannot tell whether flow change save %s has run: %s", name, rcwFlat(string(errOut)))
+			}
 		}
 	}
 
