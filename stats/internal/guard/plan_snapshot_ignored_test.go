@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -48,6 +49,24 @@ func TestCheckPlanUnchangedSeesAnIgnoredPlanEdit(t *testing.T) {
 	}
 	if !strings.Contains(r.err, "changed: spectre/changes/demo/tasks.md") {
 		t.Errorf("stderr %q, want the changed path named", r.err)
+	}
+}
+
+// TestCheckPlanUnchangedSeesAPlantedSymlink: a symlink planted under the
+// plan tree after the snapshot is a change, as an untracked one was when git
+// listed the tree.
+func TestCheckPlanUnchangedSeesAPlantedSymlink(t *testing.T) {
+	_, wt := psiRepo(t)
+	snap := t.TempDir() + "/snapshot"
+	env := Env{Getenv: func(string) string { return "" }, Dir: wt}
+	if r := runGuard("check-plan-unchanged", []string{"snapshot", wt, "demo", snap}, env); r.rc != 0 {
+		t.Fatalf("snapshot exit %d\n%s", r.rc, r.out)
+	}
+	if err := os.Symlink("tasks.md", wt+"/spectre/changes/demo/alias.md"); err != nil {
+		t.Fatal(err)
+	}
+	if r := runGuard("check-plan-unchanged", []string{"verify", wt, "demo", snap}, env); r.rc != 1 {
+		t.Fatalf("verify exit %d, want 1\n%s%s", r.rc, r.out, r.err)
 	}
 }
 
