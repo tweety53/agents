@@ -53,9 +53,7 @@
 #       the merge-and-push route: refuses any other `## default landing
 #       route`; git fetch origin; a branch whose base moved is rebased onto
 #       origin/<default> (a stopped rebase is aborted); verify, always, before
-#       anything is pushed; refuses a spectre/changes/<branch>/ still in the
-#       branch's tree (undropped — git rm -r it and commit
-#       chore(spectre): drop <branch>); check-loop-landing's refusals; `git push
+#       anything is pushed; check-loop-landing's refusals; `git push
 #       origin <branch>:<default>`; the loop's FINISHED state record; `git
 #       pull --ff-only` in the main checkout; removes the worktree and the
 #       branch. stdout: `landed: <sha>`. When that pull succeeded and moved
