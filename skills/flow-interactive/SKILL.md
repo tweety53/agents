@@ -243,7 +243,8 @@ as a request and the session stays open, saying so in one line. Stop:
 
 3. Steps 4–6 of **One request** land those commits, their stage runs with no `-request`.
 4. **Cleanup**: the tree clean and `git -C <worktree> merge-base --is-ancestor <name>
-   origin/<base>` passing, then `git -C <project> worktree remove <project>-worktrees/<name>`
+   origin/<base>` passing, then `flow change save -C <worktree> <name>` (the self-review bundle's
+   only copy; a non-zero exit stops, removing nothing), `git -C <project> worktree remove <project>-worktrees/<name>`
    without `--force`, `git -C <project> branch -D <name>` and `git -C <project> push origin
    --delete <name>`.
 

@@ -28,8 +28,9 @@ per-change state file, and marks no `flow stage` call.
 
 Read the bundle with `flow self-review bundle -change <name>`, run from the main checkout — outside
 the change's worktree it prints the bundle flowd saved (decision self-review-bundle-to-flowd) —
-writing its stdout to `<sr-dir>/bundle.md`, never printing it. Its exit 1, flowd holding none:
-print `no saved bundle for <name>` and stop.
+writing its stdout to `<sr-dir>/bundle.md`, never printing it. Its exit 1 — flowd holding none,
+or flowd unreachable, its stderr saying which: print `no saved bundle for <name>` or
+`flowd unreachable` with that line, and stop.
 
 `git branch --show-current` must be `<landing-branch>`: `<default-branch>` (the project's own default branch), or a `--base` change's `<base>` — a branch other than the change's own (`spectre/<name>`, `<name>` on `/flow-fast`). A
 checkout on any other branch: print the branch and stop.
@@ -345,6 +346,8 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    its `**Chosen:**` line naming `flow-low` or `flow-medium` — the ID `check-loop-dispatch.sh` parses;
    under any other ID the guard sees no decision and wants `flow-medium`. It commits
    none of the artifacts — `<agents repo>/spectre/changes/` is gitignored — and never merges or pushes.
+   A run-1 re-run never folds the loop's fix commits: the newest commit a `fixed` row names is its
+   reshape base (`skills/flow-contracts/finish-contract-run1.md`).
 
    The plan dispatch carries, in place of NO DELEGATION:
 

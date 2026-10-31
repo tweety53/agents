@@ -62,11 +62,9 @@ daemon running; it is not the record.
 **Rows also make the question answerable across changes, by query** — which model ran a given role,
 over every change the store holds — where a preserved file answered it only for the one change whose
 file you opened. The ledger is authored under `<abs-worktree>/.superpowers/`, which is
-gitignored, in a worktree `/flow`'s cleanup run removes — but run 1 copies the render into
-the archive commit, onto `spectre/<name>` (kan-552), so it stays answerable afterwards: a
-deferred self-review whose rows never reached the store reads that copy rather than losing the
-record with the worktree. An after-the-fact audit of which model
-implemented which task therefore reads the preserved ledger rather than a transcript nobody kept.
+gitignored, in a worktree `/flow`'s cleanup run removes; the rows in the store are what stays
+answerable afterwards. An after-the-fact audit of which model implemented which task therefore
+reads the store rather than a transcript nobody kept.
 
 Every panel slot is a prompt-driven role, with no agent
 definition of its own (**The roster**, `skills/flow/review-panel.md`) — and no
