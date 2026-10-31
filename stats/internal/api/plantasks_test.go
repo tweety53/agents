@@ -162,3 +162,20 @@ func TestFinishedPlanReadOnlyWhenScoped(t *testing.T) {
 		t.Errorf("whole board DTO carries a finished plan: %+v", dtos[0].Tasks)
 	}
 }
+
+// TestPlanTasksInFlightReadsHEADOnly pins the board poll's bound: an in-flight
+// row reads its dropped plan from its root's HEAD alone, never walking every
+// ref, while a finished row still finds a drop on another ref.
+func TestPlanTasksInFlightReadsHEADOnly(t *testing.T) {
+	root := droppedRepo(t, "- [x] 1. One\n", "kan-1")
+	cmd := exec.Command("git", "-C", root, "checkout", "-q", "--orphan", "other")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("checkout: %v\n%s", err, out)
+	}
+	if got := planTasks(store.LiveStateRow{Name: "kan-1", State: store.StateInProgress, RepoRoots: []string{root}}, false); got != nil {
+		t.Errorf("in-flight planTasks walked other refs: %+v", got)
+	}
+	if got := planTasks(store.LiveStateRow{Name: "kan-1", State: store.StateFinished, RepoRoots: []string{root}}, true); len(got) != 1 {
+		t.Errorf("finished planTasks = %+v, want the drop on main", got)
+	}
+}
