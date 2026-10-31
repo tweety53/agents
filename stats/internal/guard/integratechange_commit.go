@@ -117,10 +117,10 @@ func (c *ic) commit() {
 	}
 	c.markEnd("flow.commit-archive", "completed")
 	c.markBegin("flow.self-review")
-	if _, ok := c.gitQuiet("-C", c.canon, "cat-file", "-e", "HEAD:docs/self-review/"+c.name+"-self-review.md"); ok {
-		c.say("NEXT: the self-review report is already committed — skip the pass; integrate-change.sh land " + c.main + " " + c.name + " " + c.flags())
+	if done, _ := c.selfReviewCompleted(); done {
+		c.say("NEXT: flow.self-review has already completed — skip the pass; integrate-change.sh land " + c.main + " " + c.name + " " + c.flags())
 	} else {
-		c.say("NEXT: run the self-review pass over `flow self-review bundle -C " + c.canon + " -change " + c.name + "` and land its report in " + c.canon + ", then integrate-change.sh land " + c.main + " " + c.name + " " + c.flags())
+		c.say("NEXT: run the self-review pass over `flow self-review bundle -C " + c.canon + " -change " + c.name + "` and end flow.self-review completed, then integrate-change.sh land " + c.main + " " + c.name + " " + c.flags())
 	}
 }
 
@@ -184,10 +184,9 @@ func (c *ic) requireFixLines(named []string, nf string) {
 		fmt.Fprintln(c.stderr, "integrate-change: warning: flow self-review findings unreadable — the in-run fix line check is skipped")
 		return
 	}
-	report, _ := os.ReadFile(c.report())
 	var missing []string
 	for _, r := range rows {
-		if r.Angle != "flow-fix" || r.Disposition != "fixed" || r.Ref == "" || bytes.Contains(report, []byte(r.Ref)) {
+		if r.Angle != "flow-fix" || r.Disposition != "fixed" || r.Ref == "" {
 			continue
 		}
 		found := false

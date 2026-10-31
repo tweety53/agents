@@ -51,6 +51,7 @@ const stageUsage = `usage: flow stage begin [-addr url] [-timeout dur] [-C dir] 
                         -command cmd -stages key,key,... -session-token token (<change> | -change name | -jira-key KEY)
        flow stage keys
        flow stage sessions [-addr url] [-timeout dur] [-C dir] -stage key (<change> | -change name)
+       flow stage completed [-addr url] [-timeout dur] [-C dir] -stage key <change>
 
 -stage takes a stage KEY, not its prose name -- one of README.md's Level 1
 -- the stages of each command table's Key column; an undocumented key is
@@ -59,6 +60,11 @@ rejected before it ever reaches the store.
 stage sessions prints how many /flow runs of -stage the store marked for
 <change>: distinct session ids, plus one per row with none. Exit 1 when the
 read fails (decision narrative-runs-from-stage-marks).
+
+stage completed answers whether the store holds a run of -stage for
+<change> that ended completed: exit 0 yes, 1 no, 2 the store cannot be
+reached or a usage mistake (KAN-1073: integrate's land step checks
+flow.self-review this way).
 
 stage keys prints every documented stage key, one per line, from this
 checkout's own internal/stages table -- the vocabulary's one served source;
@@ -107,6 +113,8 @@ func runStage(ctx context.Context, args []string, stdin io.Reader, stdout, stder
 		return runStageKeys(args[1:], stdout, stderr)
 	case "sessions":
 		return runStageSessions(ctx, args[1:], stdout, stderr)
+	case "completed":
+		return runStageCompleted(ctx, args[1:], stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown stage command %q\n", args[0])
 		fmt.Fprint(stderr, stageUsage)
@@ -1234,5 +1242,47 @@ func runStageSessions(ctx context.Context, args []string, stdout, stderr io.Writ
 		}
 	}
 	fmt.Fprintln(stdout, n)
+	return 0
+}
+
+// runStageCompleted is `flow stage completed`: exit 0 when the change holds
+// a completed run of -stage, 1 when it does not, 2 when flowd cannot answer.
+func runStageCompleted(ctx context.Context, args []string, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow stage completed", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var addr string
+	registerRecordsAddrFlag(fset, &addr)
+	timeout := fset.Duration("timeout", defaultTimeout, "store request timeout")
+	dir := fset.String("C", ".", "the change's repository")
+	stage := fset.String("stage", "", "a stage key")
+	pos, err := parseInterspersed(fset, args)
+	if err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		fmt.Fprint(stderr, stageUsage)
+		return 2
+	}
+	if len(pos) != 1 || *stage == "" {
+		fmt.Fprintln(stderr, "flow: stage completed takes -stage and one <change>")
+		fmt.Fprint(stderr, stageUsage)
+		return 2
+	}
+	projectKey, _, err := fallback.ProjectKey(*dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 2
+	}
+	done, err := callRecord(ctx, addr, *timeout, func(ctx context.Context, cl *client.Client) (bool, error) {
+		return cl.StageCompleted(ctx, projectKey, pos[0], *stage)
+	})
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: stage completed: %v\n", err)
+		return 2
+	}
+	if !done {
+		return 1
+	}
 	return 0
 }
