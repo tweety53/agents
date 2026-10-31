@@ -1,0 +1,16 @@
+# kan-1072-audit-whether-archived-spectre-change-artifacts — session narrative
+
+## 2026-10-31 — creating run
+
+- Resumed at implement after the plan gate; decision class `big`, four implementer groups. The group-1 dispatch row was first opened under `task-3-implementer`; the agent-baseline hook keys rows off the description's task list, so it was re-opened as `task-3+4+5+6+8+9+10-implementer` and the first row closed `aborted`. Same for the gated reviewer row, first begun at `low` against its `opus/flow-medium` allowed pair.
+- Groups 2 and 3 ran as a wave in throwaway worktrees and were cherry-picked in plan order. Every group needed `**Files:**` corrections at close (undeclared doc-comment and test files, declared-but-untouched shims); all transcribed with `flow tasks files`.
+- Gated reviews raised 8 Important: the board hid an IN_PROGRESS dropped plan, a refused re-drop stayed staged, `check-task-records` failed on pre-drop ticks (the parent first took "no new exemption until reproduced"; the reviewer reproduced it and the exemption was restored keyed on the drop subject), the hand fallback lost its scope check, the self-review drop refused a ticked `tasks.md`, `/flow-status` had no source for a dropped open change, and pipeline.md dropped the archive-subject clause of the `<k>` scan.
+- Panel round 0: a Critical board-poll cost (history fallback ran `git log --all` per row per 5 s poll), two archive readers left (`spectre-planning` rejection search, `lessons.go`), an untested `--all`, and the full suite red on `TestGitConfigPins` (an unpinned `--no-renames` the task-4 fix added). Round 1's fix moved `lessons` to history and introduced a per-change `git log --all`; round 2 made it one walk. The panel closed after round 2.
+- Abandoned: keeping `lessons`' narrative read on `landed.File` — correct but O(changes) whole-history walks; replaced by one `git log` plus one `git show` per change.
+- `spectre-planning/SKILL.md` changed, so spectre's vendored copy was re-copied in the spectre worktree and its UPSTREAM.md updated.
+- Tip cleanup: peer worktrees for spectre, gymie, gymie-playwright, flow-eval and gymie-frontend via `kickoff-worktree.sh --from`; `spectre/changes/archive` removed at the tip of all six, pushed.
+- Verify: gymie-playwright declares no `## lint`/`## test`; its `test:scripts` ran by hand (recorded as a substitution). The live check's step 1 before figure needed `spectre archive` before the installed `commit-archive.sh`, which commits only a staged move.
+
+## 2026-10-31 — integrate run
+
+- Chained from write-in-progress (no review-before-landing). `prepare` passed the preflight and the unfinished-work gate on all six worktrees; base unmoved since the panel's rebase onto 84e5e25b. This change lands through the installed (pre-change) integrate, so its own directory still archives on its branch.
