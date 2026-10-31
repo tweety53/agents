@@ -197,3 +197,53 @@ func containsPath(paths []string, want string) bool {
 	}
 	return false
 }
+
+// TestResolveReadsHistoryInOneWalk pins the call budget: N landed changes
+// cost one git log plus one git show each, never a log walk per change.
+func TestResolveReadsHistoryInOneWalk(t *testing.T) {
+	root := t.TempDir()
+	for _, c := range []string{"kan-1", "kan-2", "kan-3"} {
+		landNarrative(t, root, c, "- flake bisection\n", time.Now())
+	}
+	real, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bin, calls := t.TempDir(), filepath.Join(t.TempDir(), "calls")
+	shim := "#!/bin/sh\necho \"$*\" >> " + calls + "\nexec " + real + " \"$@\"\n"
+	if err := os.WriteFile(filepath.Join(bin, "git"), []byte(shim), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	res, err := Resolve([]Root{{Path: root}}, "flake bisection")
+	if err != nil || len(res.Mentions) != 3 {
+		t.Fatalf("Resolve = %v, %v; want 3 mentions", res, err)
+	}
+	b, _ := os.ReadFile(calls)
+	if logs := strings.Count(string(b), " log "); logs != 1 {
+		t.Errorf("git log calls = %d, want 1\n%s", logs, b)
+	}
+	if n := strings.Count(string(b), "\n"); n != 4 {
+		t.Errorf("git calls = %d, want 4 (1 log + 3 show)\n%s", n, b)
+	}
+}
+
+// TestResolveGitLogFailureIsReported pins that a broken history is reported
+// in Unreadable, never read as "no landed changes".
+func TestResolveGitLogFailureIsReported(t *testing.T) {
+	root := writeRepo(t, nil, map[string]string{"kan-9": "- flake bisection\n"})
+	if err := os.RemoveAll(filepath.Join(root, ".git", "objects")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, ".git", "objects"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	res, err := Resolve([]Root{{Path: root}}, "flake bisection")
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if !containsPath(res.Unreadable, root) {
+		t.Fatalf("unreadable = %v, want %s reported", res.Unreadable, root)
+	}
+}

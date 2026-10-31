@@ -13,6 +13,8 @@
 package lessons
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -22,8 +24,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/tweety53/agents/stats/internal/landed"
 )
 
 // Root is one project's main checkout the scan reads. It mirrors the
@@ -128,7 +128,11 @@ func Resolve(roots []Root, topic string) (*Result, error) {
 			}
 		}
 
-		for _, c := range landedChanges(root.Path) {
+		cs, err := landedChanges(root.Path)
+		if err != nil {
+			res.Unreadable = append(res.Unreadable, root.Path)
+		}
+		for _, c := range cs {
 			m, matched, err := readNarrative(root, c, needle)
 			if err != nil {
 				res.Unreadable = append(res.Unreadable, root.Path+": "+c.name)
@@ -179,42 +183,73 @@ func readBrief(root Root, path, needle string) (Brief, bool, error) {
 }
 
 // landedChange is one change whose directory a commit removed from the tip,
-// with that commit's time.
+// with that commit's time and the tree-ish path its narrative.md is read at.
 type landedChange struct {
 	name string
 	when time.Time
+	rev  string
 }
 
-// landedChanges lists root's landed changes, newest commit per name, from
-// one history walk. A root that is not a git repository has none.
-func landedChanges(root string) []landedChange {
-	out, err := exec.Command("git", "-C", root, "log", "--all", "--format=%ct %s",
+// landedChanges lists root's landed changes from one history walk, newest
+// commit per name, a drop subject over a legacy archive one as landed.File
+// prefers it. A root that is not a git repository has none; any other git
+// failure is an error.
+func landedChanges(root string) ([]landedChange, error) {
+	out, err := exec.Command("git", "-C", root, "log", "--all", "--format=%H %ct %s",
 		"--fixed-strings", "--grep", "chore(spectre): ").Output()
 	if err != nil {
-		return nil
+		var ee *exec.ExitError
+		if errors.As(err, &ee) && bytes.Contains(ee.Stderr, []byte("not a git repository")) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("git log in %s: %w", root, err)
 	}
-	seen := map[string]bool{}
-	var cs []landedChange
+	byName := map[string]landedChange{}
+	var names []string
 	for _, line := range strings.Split(string(out), "\n") {
-		ct, subject, _ := strings.Cut(line, " ")
-		m := landedSubject.FindStringSubmatch(subject)
-		if m == nil || seen[m[1]] {
+		f := strings.SplitN(line, " ", 3)
+		if len(f) < 3 {
 			continue
 		}
-		seen[m[1]] = true
-		sec, _ := strconv.ParseInt(ct, 10, 64)
-		cs = append(cs, landedChange{m[1], time.Unix(sec, 0)})
+		m := landedSubject.FindStringSubmatch(f[2])
+		if m == nil {
+			continue
+		}
+		prev, seen := byName[m[1]]
+		drop := strings.HasPrefix(f[2], "chore(spectre): drop ")
+		if seen && (!drop || !strings.Contains(prev.rev, ":spectre/changes/archive/")) {
+			continue
+		}
+		sec, _ := strconv.ParseInt(f[1], 10, 64)
+		c := landedChange{name: m[1], when: time.Unix(sec, 0)}
+		if drop {
+			c.rev = f[0] + "^:spectre/changes/" + m[1] + "/narrative.md"
+		} else {
+			c.rev = f[0] + ":spectre/changes/archive/" + m[1] + "/narrative.md"
+		}
+		if !seen {
+			names = append(names, m[1])
+		}
+		byName[m[1]] = c
 	}
-	return cs
+	cs := make([]landedChange, 0, len(names))
+	for _, n := range names {
+		cs = append(cs, byName[n])
+	}
+	return cs, nil
 }
 
 // readNarrative reads one landed change's narrative.md from history and
 // reports whether any of its lines matches the needle. A git failure is an
 // error; no narrative or no match is a nil error with matched false.
 func readNarrative(root Root, c landedChange, needle string) (Mention, bool, error) {
-	content, ok, err := landed.File(root.Path, c.name, "narrative.md")
-	if err != nil || !ok {
-		return Mention{}, false, err
+	content, err := exec.Command("git", "-C", root.Path, "show", c.rev).Output()
+	if err != nil {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) && (bytes.Contains(ee.Stderr, []byte("does not exist")) || bytes.Contains(ee.Stderr, []byte("exists on disk, but not in"))) {
+			return Mention{}, false, nil
+		}
+		return Mention{}, false, fmt.Errorf("git show %s: %w", c.rev, err)
 	}
 	m := Mention{
 		Repo:    root.Path,
