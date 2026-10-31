@@ -17,7 +17,7 @@ import (
 // bundle route for that project and change, and the body is printed
 // verbatim on stdout with exit 0.
 func TestRunSelfReviewBundlePrintsBundle(t *testing.T) {
-	repo := gitRepo(t)
+	repo := linkedWorktree(t, gitRepo(t), "demo")
 	isolatedStateRoot(t)
 
 	var gotPath, gotQuery string
@@ -39,12 +39,11 @@ func TestRunSelfReviewBundlePrintsBundle(t *testing.T) {
 	if !strings.HasSuffix(gotPath, "/demo/bundle") || !strings.Contains(gotPath, "/api/v1/self-review/") {
 		t.Errorf("request path = %s", gotPath)
 	}
-	// The resolved main checkout must ride to the daemon as the repo
-	// parameter, pinned to its VALUE, not just a prefix: the
-	// archive-derived sources are read from the repository the caller's
-	// own location resolves to, and a regression that sends the raw -C
-	// directory — or nothing — would leave every archive source silently
-	// absent.
+	// The resolved worktree must ride to the daemon as the repo
+	// parameter, pinned to its VALUE, not just a prefix: the change
+	// directory's sources are read from the worktree the caller's own
+	// location resolves to, and a regression that sends the main checkout
+	// — or nothing — would leave every one of them silently absent.
 	resolved, err := filepath.EvalSymlinks(repo)
 	if err != nil {
 		t.Fatal(err)
@@ -59,11 +58,11 @@ func TestRunSelfReviewBundlePrintsBundle(t *testing.T) {
 }
 
 // TestRunSelfReviewBundleWaitsPastTheStoreDeadline pins the bundle's own
-// default deadline: the daemon assembles it from git history and it has no
+// default deadline: the daemon assembles it from the worktree and it has no
 // fallback, so a bare call waits past the store-write deadline
 // (kan-1072 self-review, F3).
 func TestRunSelfReviewBundleWaitsPastTheStoreDeadline(t *testing.T) {
-	repo := gitRepo(t)
+	repo := linkedWorktree(t, gitRepo(t), "demo")
 	isolatedStateRoot(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -113,7 +112,7 @@ func TestRunSelfReviewBundleRequiresChange(t *testing.T) {
 // stderr and exits non-zero -- never a partial bundle on stdout a caller
 // could mistake for the change's own.
 func TestRunSelfReviewBundleUnreachableStoreExitsNonZero(t *testing.T) {
-	repo := gitRepo(t)
+	repo := linkedWorktree(t, gitRepo(t), "demo")
 	isolatedStateRoot(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
