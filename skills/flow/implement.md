@@ -251,10 +251,7 @@ check-plan-shape.sh "<changeRoot>/tasks.md"
 Exit `0` from `validate` is the only exit that proceeds. Exit `1` names findings in this change's
 own artifacts — most often a step checkbox left at column 0 — and each is repaired here, before any
 code is touched. Exit `2` is a usage or IO error, and `no such change "<name>"` is the one worth
-naming: nothing has been proposed under that name, so stop and suggest `/flow <name>`. **A change
-already archived skips `spectre validate` and `spectre list --json`** — both answer for open
-changes only, and `validate` names an archived one `no such change`; `check-plan-shape.sh` still
-runs on the archived `tasks.md`.
+naming: nothing has been proposed under that name, so stop and suggest `/flow <name>`.
 
 Exit `0` from `check-plan-shape.sh` proceeds. Exit `1` names a shape defect in this plan's own
 `**Files:**`, `**Tests:**` or other declared fields — repaired here, before any task is dispatched
@@ -321,9 +318,7 @@ Exit 1 is a `CONFLICT`, handled as the **Conflict** bullet of **Check base movem
 run with its output named.
 
 **Whether there is anything left to implement is read off the task checkboxes**, from
-`spectre list --json`'s `{"changes":[{"id","done","total"}]}` for this change. A change already
-archived is absent from that list: `done` is the count of column-0 `- [x]` task lines in its
-archived `tasks.md`, and `total` that count plus the column-0 `- [ ]` ones.
+`spectre list --json`'s `{"changes":[{"id","done","total"}]}` for this change.
 
 - `total == 0` → no plan spectre can read: stop, resume at `skills/flow/resume.md`.
 - `total > 0` and `done == total` → every task is already checked: proceed to
@@ -793,8 +788,7 @@ decision the pivot displaces is superseded by ID per **Decisions**
 <new-id>`, its reasoning retained and its `**Superseded because:**` trigger line appended, a
 fresh entry appended, nothing deleted or rewritten — so the record carries the
 superseded decision beside its replacement. The amended plan is
-re-validated — `spectre validate` and `check-plan-shape.sh` — before the next task dispatches; a
-change already archived runs `check-plan-shape.sh` alone, as section 1 does.
+re-validated — `spectre validate` and `check-plan-shape.sh` — before the next task dispatches.
 
 **A task added after the decision row is re-decided before it runs.** Whenever `tasks.md` gains a
 task once the run's decision is recorded — a pivot, an operator's mid-run request, any append
@@ -987,8 +981,7 @@ stated once here and cited — never restated — from `skills/flow/review-panel
   once, at the start of the stage that needs them; a later need is served by
   `grep -n` for the heading plus `sed -n` for that section, never a second full read.
 - **Change artifacts read once**, `proposal.md`/`design.md`/`tasks.md` at `flow.load-context`;
-  `tasks.md` re-read only through `spectre list --json` — for a change already archived, its
-  checkbox count — and `flow tasks tick` output afterward.
+  `tasks.md` re-read only through `spectre list --json` and `flow tasks tick` output afterward.
 
 The parent's own `## lint`/`## test` runs, reproducer runs and boundary checks are bound by the same two paragraphs:
 

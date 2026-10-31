@@ -22,7 +22,7 @@ full `exp-<name>` id verbatim — never shortened to `experimental` or to `<name
 file is `<abs-worktree>/.superpowers/sdd/panel-report-<round>-exp-<name>.md`, the same
 `panel-report-<round>-<id>` shape every slot's REPORT FILE paragraph already names with `<id>`
 substituted. The rendered panel record's Slot column therefore shows the `exp-` id unchanged, so the
-prefix survives into the archive.
+prefix survives into the record flowd renders.
 
 It is a diff-reading slot like Primary and Principles: **Panel
 re-runs** governs it unchanged. **The docs-only reduction** still narrows a

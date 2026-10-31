@@ -51,8 +51,8 @@ that stopped once the stop is handled.
 
 ## 1. Check for unfinished work
 
-`prepare` undoes an archive a stopped run 1 left uncommitted, decides once whether the change is
-already archived and whether it carries new work, and runs the unfinished-work gate, per **Run 1 —
+`prepare` undoes a drop a stopped run 1 left uncommitted, decides once whether the change is
+already dropped and whether it carries new work, and runs the unfinished-work gate, per **Run 1 —
 the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
 
 - **`STOP: archive-undo`** → ask, per **Run 1 — the branch is not merged**
@@ -83,8 +83,8 @@ the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
   so that row is the newest; `prepare` passes only on a flag on that worktree's own row whose
   verdict names its current HEAD (`— HEAD <sha>`), so a later commit or a rebase needs a new
   verifier or a new flag. A flag made at `prepare` does not carry to `land`: the reshape and the
-  archive move HEAD, so `land` stops again and the operator flags that HEAD anew. The gate runs on
-  an archived re-run with no new work too, again on each worktree a base move rebases in
+  drop commit move HEAD, so `land` stops again and the operator flags that HEAD anew. The gate runs on
+  a dropped re-run with no new work too, again on each worktree a base move rebases in
   `prepare`, before every push `commit` and `land` make on every route — `land`'s stop names the
   worktrees already pushed — and again after a re-sync on a rejected push. So the gate covers
   every push the pipeline makes, and the forge merge of an opened PR is of the verified head; run 2
@@ -137,15 +137,16 @@ for the canonical worktree whose only such path is its `link.md`, whose subject 
 contract** fixes (`skills/flow-contracts/finish-contract-run1.md`). On
 **Continue** at **1** the planning commit also lists the outstanding work: pass it as
 `--outstanding <text>`, which `commit` writes into that commit's body as `Outstanding: <text>` under
-its own `chore(spectre): plan <name>` subject. An archived change without new work takes no subject: its `NEXT:` names
+its own `chore(spectre): plan <name>` subject. A dropped change without new work takes no subject: its `NEXT:` names
 `commit` bare.
 
 `commit` reshapes, renders the ledger, runs the two-commit chain per worktree in `## Merge order`,
-archives the change on its branch, commits the archive and pushes each reshaped branch
+drops the change directory on its branch with the `chore(spectre): drop <name>` commit
+(`commit-archive.sh`) and pushes each reshaped branch
 `--force-with-lease` — per **Archive on the change branch**
 (`skills/flow-contracts/finish-contract-run1.md`). Every stop there — `reshape`, `commit-split`,
-`archive`, `commit-archive`, `push`, `pre-reshape` — is reported with the script's lines and leaves the change at
-`IN_PROGRESS`; **`/flow` never passes `--force`** to `spectre archive`.
+`commit-archive`, `push`, `pre-reshape` — is reported with the script's lines and leaves the change at
+`IN_PROGRESS`.
 
 **`STOP: pre-reshape`** → pinning the worktree's HEAD failed, or origin holds a `refs/flow/pre-reshape/<name>` the local pin does not descend from: report both shas and git's output; never overwrite either pin.
 
@@ -155,7 +156,7 @@ A `flow-fix` row `flow self-review findings -change <name>` lists as `fixed` who
 
 **`STOP: narrative`** also stops on a fix or integrate run whose section `narrative.md` lacks (`check-narrative-runs.sh`, the check `flow.write-in-progress` runs): append the missing section and re-run `commit`.
 
-## 4. Archive and run the self-review pass
+## 4. Drop the change directory and run the self-review pass
 
 Per **Run the self-review pass** (`skills/flow-contracts/finish-contract-run1.md`), canonical for it.
 Write the bundle's stdout, then `## Session narrative`, to `<sr-dir>/bundle.md`, never printing it; run the pass over it; then

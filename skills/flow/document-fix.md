@@ -58,10 +58,13 @@ Under the mode the ask is not made: **Append to `proposal.md` and `tasks.md`** i
 recorded the way the mode records a taken default (**Auto-resolution**,
 `skills/flow-contracts/operator-prompts.md`).
 
-**A change already archived is never asked**: the append is taken, into the archived directory
-(**A change's directory**, `skills/flow-contracts/pipeline.md`). A `<name>-fix-N` sub-change
-scaffolded live beside a parent whose archive is committed would never be archived — the archived
-re-run of integrate skips `spectre archive`.
+**A change already dropped is never asked**: the append is taken. A fix run that starts after
+run 1's `chore(spectre): drop <name>` commit first restores the change directory from that
+commit's parent — `git -C <project> checkout <drop-sha>^ -- <project>/spectre/changes/<name>` — and commits it as its
+fix-run planning commit, so every in-run reader keeps the live path and run 1's next pass drops it
+again with a fresh drop commit (**Run 1 — the branch is not merged**,
+`skills/flow-contracts/finish-contract-run1.md`). The append goes into that restored directory: a
+`<name>-fix-N` sub-change scaffolded beside a dropped parent would be dropped alone.
 
 The parent writes the append, or the sub-change's own proposal and plan. Whichever brief the
 budget answer named, it keeps the counter true: every task its append adds raises the `**Tasks

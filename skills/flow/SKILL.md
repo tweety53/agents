@@ -103,7 +103,7 @@ to report, never a creating run.
   resolution (all `/flow*` commands)**, `skills/flow-contracts/pipeline.md`) — an integrate run. See
   **Deciding which run this is** (`skills/flow/integrate.md`).
 - **Exit 0, `"state": "FINISHED"`** — emit the wrong-state handoff from **Wrong state for this
-  command** (`skills/flow-contracts/pipeline.md`): the change is archived — or withdrawn, when
+  command** (`skills/flow-contracts/pipeline.md`): the change has landed — or withdrawn, when
   the record's `withdrawn` field is true (`skills/flow-contracts/state-file.md`); the handoff
   names which. Proceed only on an
   explicit override.
