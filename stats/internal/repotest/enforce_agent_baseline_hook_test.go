@@ -270,6 +270,38 @@ func TestEnforceAgentBaselineHookAdmitsRestKeys(t *testing.T) {
 	}
 }
 
+// TestEnforceAgentBaselineHookAdmitsFullSuiteFixKey pins the full-suite fixer's key on the closed
+// list: a flow dispatch opening with full-suite-fix-<n>, its row open, passes; one opening with a
+// word off the list is denied for not naming its row.
+func TestEnforceAgentBaselineHookAdmitsFullSuiteFixKey(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		description string
+		deny        bool
+	}{
+		{"full-suite-fix-1 fix the failing suite", false},
+		{"full-suite-fixes fix the failing suite", true},
+	} {
+		t.Run(c.description, func(t *testing.T) {
+			t.Parallel()
+			env, _ := openRowFixture(t, `[{"key":"full-suite-fix-1","outcome":""}]`, false)
+			out, _, rc := runHook(t, "enforce-agent-baseline.py", openRowPayload(t, c.description, "fix"), env...)
+			if rc != 0 {
+				t.Fatalf("rc=%d out=%s", rc, out)
+			}
+			if !c.deny {
+				if out != "" {
+					t.Fatalf("admit: out=%s", out)
+				}
+				return
+			}
+			if !strings.Contains(out, `"permissionDecision": "deny"`) || !strings.Contains(out, "opens with the row it records") {
+				t.Fatalf("deny: out=%s", out)
+			}
+		})
+	}
+}
+
 // TestEnforceAgentBaselineHookAsksForTheLoopKeyLine pins kan-1032's self-review: a flow dispatch
 // whose description opens with a loop key and whose prompt carries no `Key:` line is told to add
 // the line, never to begin a row under the run's change, and the store is never read for it.
