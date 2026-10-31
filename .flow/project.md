@@ -77,13 +77,19 @@ forbids any agent action touching it at all.
 
 ```bash
 # suite: guard-tests
-scripts/unchanged.sh . ':!docs/' ':!spectre/' ':!stats/web/' || scripts/run-guard-tests.sh
+scripts/unchanged.sh . ':!docs/' ':!spectre/' ':!stats/web/' || GOMAXPROCS=$(( ($(getconf _NPROCESSORS_ONLN) + 2) / 3 )) scripts/run-guard-tests.sh
 # suite: stats-go
-scripts/unchanged.sh . ':!docs/' ':!spectre/' ':!stats/web/' || { cd stats && make -s web-dist && go test -race -count=1 $(go list ./... | grep -v '/internal/guard$'); }
+scripts/unchanged.sh . ':!docs/' ':!spectre/' ':!stats/web/' || { cd stats && make -s web-dist && GOMAXPROCS=$(( ($(getconf _NPROCESSORS_ONLN) + 2) / 3 )) go test -race -count=1 $(go list ./... | grep -v '/internal/guard$'); }
 # suite: stats-spa
 # inputs: stats/web/ stats/Makefile
 scripts/unchanged.sh stats/web/ stats/Makefile || { cd stats && make -s web-dist && cd web && npm test; }
 ```
+
+The three suites run at once, so each Go suite runs on a third of the cores, rounded up —
+`GOMAXPROCS` bounds the go command's build parallelism, its default `-p`, and each test binary's
+threads and `-parallel` — beside the SPA's two worker threads (`stats/web/vite.config.ts`), so no
+suite starves another (kan-1052 self-review, F5: a 235 ms vitest test passed its 5 s timeout while
+both `-race` suites took every core).
 
 Each suite runs only when the branch changed, since its merge-base on `origin/main`, a path it
 reads (`scripts/unchanged.sh`): a change to `docs/` or `spectre/` alone runs no suite, and one to

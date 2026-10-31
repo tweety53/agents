@@ -1055,3 +1055,37 @@ func TestRunVerifyListRecordsHead(t *testing.T) {
 		t.Fatalf("exit %d, begin %q, want -diff-base %s\n%s", rc, first, head(wt), e.String())
 	}
 }
+
+// TestProjectTestListRunsGoSuitesOnACoreShare pins the kan-1052 self-review
+// fix (F5): the `## test` list's suites run at once, so each Go suite's
+// command runs under a third of the cores — both `-race` suites taking every
+// core starved the SPA suite until a 235 ms vitest test passed its 5 s
+// timeout.
+func TestProjectTestListRunsGoSuitesOnACoreShare(t *testing.T) {
+	t.Parallel()
+	const share = "GOMAXPROCS=$(( ($(getconf _NPROCESSORS_ONLN) + 2) / 3 ))"
+	b, err := os.ReadFile("../../../.flow/project.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, sec, ok := strings.Cut(string(b), "\n## test\n")
+	if !ok {
+		t.Fatal(".flow/project.md has no `## test` section")
+	}
+	_, fence, ok := strings.Cut(sec, "```bash\n")
+	if !ok {
+		t.Fatal("`## test` has no ```bash fence")
+	}
+	fence, _, _ = strings.Cut(fence, "```")
+	lines := strings.Split(fence, "\n")
+	for _, suite := range []string{"guard-tests", "stats-go"} {
+		i := slices.Index(lines, "# suite: "+suite)
+		if i < 0 || i+1 >= len(lines) {
+			t.Errorf("`## test` has no `# suite: %s` marker with a command beneath it", suite)
+			continue
+		}
+		if !strings.Contains(lines[i+1], share) {
+			t.Errorf("suite %s runs without the core share %q: %s", suite, share, lines[i+1])
+		}
+	}
+}
