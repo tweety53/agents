@@ -76,8 +76,7 @@ never develop" standing, and integrate stopped and asked again).
 
 A Done-when names only committed, tracked paths of the repository it belongs to — never a
 gitignored or otherwise uncommitted side output, whose removal a later cleanup turns into a done
-criterion nothing satisfies — and the drop commit refuses one that does, enforced by **Archive on
-the change branch** (`skills/flow-contracts/finish-contract-run1.md`).
+criterion nothing satisfies — enforced by `check-done-when-paths.sh`.
 
 ### Explore and design agents
 

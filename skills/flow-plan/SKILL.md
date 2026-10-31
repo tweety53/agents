@@ -19,8 +19,8 @@ get there is scripted. You're a thinking partner helping the user explore.
   them at `/flow`'s creating run or `/flow`'s implement phase instead
 - **Never advance past `STARTED`** — a captured session creates the change and stops there;
   implementing it is `/flow <name>`'s run
-- **Commit only the planning artifacts, once, at capture** — `<project>/spectre/changes/<name>/`
-  on `spectre/<name>` per **Capturing a new change** below; nothing else in this mode produces a
+- **Never commit** — a capture leaves `<project>/spectre/changes/<name>/` on disk in the change
+  worktree, gitignored, per **Capturing a new change** below; nothing in this mode produces a
   commit
 
 ---
@@ -157,7 +157,7 @@ When there's no existing change to write into, offer to capture the session as a
 
 **Nothing below runs before that Yes.** The `STARTED` write, the worktree and the artifacts are
 this answer's consequence; **No** is the abandoned path (**Capturing the Outcome**, above). The
-plan review gate at step 6 then gates the commit and push alone — a change that reached it exists
+plan review gate at step 6 then gates the plan snapshot alone — a change that reached it exists
 already, at `STARTED`, and a **No** there revises the plan rather than removing the change.
 
 **The key comes first, because it names the change.** A Jira key is known when it was passed as
@@ -203,35 +203,21 @@ restates none of them, and every `mf-<literal-token>` they show is this session'
 6. **Plan review gate** (`skills/flow/brainstorm-planner.md`) — the prose summary, the
    `## Decision` block, then **Push artifacts?** with **Yes** / **No (plan needs updates)**.
    Mandatory: **No** revises and re-decides per that section, recording each re-decision through
-   the call above, and the commit below happens only on **Yes**.
+   the call above, and the snapshot below is taken only on **Yes**.
 
 Every guard those sections invoke resolves per **Guard resolution**
 (`skills/flow-contracts/pipeline.md`) against this skill's own scripts directory, which carries
-each one those sections run: `check-planning-commit-location.sh <worktree> <name>` (the commit
-below), `kickoff-worktree.sh <project> <name>` with its siblings
+each one those sections run: `kickoff-worktree.sh <project> <name>` with its siblings
 `check-worktree-location.sh <project>` and `project-get.sh <project> <key>` (kickoff), `check-plan-shape.sh <tasks.md>` (D and the gate),
 `plan-class.sh <tasks.md> <repos>`, `plan-dispatch-bundles.sh <tasks.md>` and
 `plan-dispatch-groups.sh <tasks.md>` (Decide).
 
-**On Yes, commit and push the planning artifacts** from the change worktree:
-
-```bash
-check-planning-commit-location.sh <worktree> <name> \
-  && git -C <worktree> add spectre/changes/<name> \
-  && git -C <worktree> commit -m "chore(spectre): plan <name> — captured" \
-  && git -C <worktree> push origin spectre/<name>
-```
-
-The guard's non-zero exit stops the capture before anything is staged — the commit lands only in
-the change worktree on `spectre/<name>` (**Planning commits**,
-`skills/flow-contracts/git-boundaries.md`, canonical for its verdicts and its by-hand fallback).
-Exactly that directory is staged — never `-A`, never anything else in the worktree. A push the
-remote rejects leaves the commit on `spectre/<name>` in the worktree; say so and name the commit,
-the branch and the worktree path. The worktree is kept either way — it is the change's, resumed by
-`/flow <name>` exactly as any `STARTED` change's is (**Resuming at `STARTED`**,
+**On Yes, take the plan snapshot** (**Plan snapshots**, `skills/flow/brainstorm.md`) — nothing is
+staged, committed or pushed: a capture leaves the change on disk at `STARTED` in its worktree,
+resumed by `/flow <name>` exactly as any `STARTED` change's is (**Resuming at `STARTED`**,
 `skills/flow/resume.md`).
 
-End by naming the change, the Jira key, the commit and the worktree's absolute path, and close
+End by naming the change, the Jira key and the worktree's absolute path, and close
 the session's mark:
 
 ```bash
