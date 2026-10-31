@@ -784,7 +784,7 @@ describe("views render their fixture response's actual values", () => {
   });
 
   it("stage leaderboard drops stages and projects under half a cent", async () => {
-    const cur = leaderboardRows([...LEADERBOARD_CURRENT, ["/flow", "flow.zero", 0.001, null]]);
+    const cur = leaderboardRows([...LEADERBOARD_CURRENT, ["/flow", "flow.zero", 0.001, null], ["/flow", "flow.half-cent", 0.005, null], ["/flow", "flow.fifth", 0.2, null]]);
     fetchStatsViewMock.mockImplementation((view: keyof typeof fixtures, p: { from: Date; to: Date }) =>
       Promise.resolve(
         view !== "stage-leaderboard"
@@ -797,7 +797,8 @@ describe("views render their fixture response's actual values", () => {
     );
     render(<StageLeaderboard period={period} project={undefined} />);
     await screen.findByRole("table");
-    screen.getByText("12 stages ran");
+    // 0.001 is dropped; exactly half a cent and 0.2 are kept.
+    screen.getByText("14 stages ran");
     const chips = within(screen.getByRole("group", { name: "Project" })).getAllByRole("button");
     expect(chips.map((c) => c.textContent)).toEqual(["All", "gymie$1,000", "agents$260"]);
   });
