@@ -276,7 +276,7 @@ Rejected alternatives are recorded under each decision's `**Considered:**`.
 
 The change touches `flowd`'s harvest attribution, its startup and the stored metrics of real stage
 runs, so it is exercised against a copy of the real dev store with
-`scripts/live-store-copy.sh up kan-1051` (a `flowd` built from this worktree, default port 4175,
+`FLOW_LIVE_COPY_TRANSCRIPTS="$HOME/.claude/projects" scripts/live-store-copy.sh up kan-1051` (a `flowd` built from this worktree, default port 4175,
 whose startup runs the back-fill over the copy), then `scripts/live-store-copy.sh down kan-1051`.
 
 1. **Before**, on the protected daemon with public read-only GETs (no change, no credentials):
