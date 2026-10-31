@@ -220,7 +220,7 @@ the handoff is the one place the settled plan is guaranteed to be read (kan-941 
 snapshot does: on the plan gate's **Yes**, at `/flow-plan`'s capture and after a fix run appends
 tasks, the run copies `tasks.md`, `proposal.md` and `design.md` of `<project>/spectre/changes/<name>/`
 in the canonical worktree into the next numbered directory
-`<worktree>/.superpowers/sdd/<name>/plan-snapshots/<k>/`
+`<abs-worktree>/.superpowers/sdd/<name>/plan-snapshots/<k>/`
 (`<k>` = 1 + the number of directories already there), never committed, with exactly this command:
 
 ```bash
