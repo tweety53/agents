@@ -132,11 +132,9 @@
 #   find gone
 # registry-row-not-checked: State file — never removed; it is the terminal record
 # registry-row-not-checked: Claimed cache index — this pipeline removes nothing and this guard checks nothing; the index is probed rather than derived, so run 2 has no derivation to repeat. A project that writes its claim where a probe can see it may release it in its own `remove` command and report it through `survivors`; that is the project's tooling and this marker does not claim it
-# registry-row-not-checked: Self-review context bundle — held in run 1's memory,
-#   never written; one a run before KAN-927 committed landed on the base with
-#   the change, and is removed only by
-#   `/flow-self-review`, a separate command run later, not by anything this
-#   guard's cleanup checks derive from
+# registry-row-not-checked: Self-review context bundle — saved to flowd at
+#   cleanup and removed with the worktree
+# registry-row-not-checked: Plan snapshots — removed with the worktree
 #
 # ABSENCE IS THE ANSWER HERE, not a gap in the evidence. The run-1 gate treats
 # a file it cannot find as outstanding, because a missing record proves nothing
