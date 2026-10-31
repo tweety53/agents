@@ -282,3 +282,18 @@ func TestCheckDoneWhenPathsBranchShapedNames(t *testing.T) {
 		t.Fatalf("exit %d, stdout %q, stderr %q; want 1 and %q", code, out, errb, want)
 	}
 }
+
+// TestProjectLintRunsTheDoneWhenGuard pins the guard's only caller: no
+// stage runs it in-process, so this repository's ## lint list must, or a
+// Done-when path nothing tracks reaches the base unseen.
+func TestProjectLintRunsTheDoneWhenGuard(t *testing.T) {
+	b, err := os.ReadFile(ccRepoRoot + "/.flow/project.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, lint, _ := strings.Cut(string(b), "\n## lint\n")
+	lint, _, _ = strings.Cut(lint, "\n## ")
+	if !strings.Contains(lint, "\nscripts/check-done-when-paths.sh .\n") {
+		t.Fatalf(".flow/project.md's ## lint does not run scripts/check-done-when-paths.sh .")
+	}
+}

@@ -3,7 +3,8 @@
 # paths the index does not track (KAN-817, kan-743's self-review): a done
 # criterion is only as good as the committed state it names, and one
 # satisfied by uncommitted, gitignored files is silently erased by cleanup.
-# No step runs this check in-process; this shim is its only form.
+# No step runs this check in-process; this shim is its only form, and this
+# repository's `## lint` runs it.
 #
 # Usage: check-done-when-paths.sh <worktree>
 #
