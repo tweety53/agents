@@ -233,5 +233,5 @@ Correction (2026-10-31): Step 3's `--grep-invert trend` verify fails on 9 captur
 **Tests:** `TestBackfillPricingWarningNamesTheCause`
 **Regression:** `TestBackfillPricingWarningNamesTheCause` fails — the back-fill's warning tells the operator a reprice prices a run it cannot again.
 **Commit:** fix(harvest): stop promising a reprice prices a back-filled run it cannot
-**After:** Task 10
-**Opener:** self-review
+**After:** Task 2, 10
+**Opener:** self-review-2
