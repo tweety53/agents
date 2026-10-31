@@ -523,9 +523,9 @@ type StageLeaderboardRow struct {
 	MainSharePct *float64
 }
 
-// StageLeaderboard ranks stages by total cost across period, optionally
-// restricted to one project, and keeps only the ten costliest (design.md's
-// leaderboard-top10-total); each row also carries mean, median and p90.
+// StageLeaderboard ranks every costed command/stage pair by total cost
+// across period, optionally restricted to one project, uncapped (design.md's
+// leaderboard-transport-uncapped); each row also carries mean, median and p90.
 //
 // model, when non-nil, restricts to stage runs whose metrics recorded that
 // model (per CostPerChange's own doc comment) and ranks by that model's own
@@ -575,7 +575,6 @@ func (s *Store) StageLeaderboard(ctx context.Context, period Period, project, mo
 		FROM mained
 		GROUP BY command, stage
 		ORDER BY SUM(cost) DESC, command, stage
-		LIMIT 10
 	`, period.From, period.To, project, model)
 	if err != nil {
 		return nil, fmt.Errorf("store: stage leaderboard: %w", err)
@@ -592,6 +591,46 @@ func (s *Store) StageLeaderboard(ctx context.Context, period Period, project, mo
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("store: stage leaderboard: %w", err)
+	}
+	return out, nil
+}
+
+// ProjectSpend is one project's summed stage-run cost within a period.
+type ProjectSpend struct {
+	ProjectKey   string
+	TotalCostUSD float64
+}
+
+// StageLeaderboardProjects sums each project's costed stage runs within
+// period, spend descending -- the same window and costed-run filter
+// StageLeaderboard applies with no model, and no project restriction, so a
+// project with no costed run in the window is absent (design.md's
+// leaderboard-project-spend-method).
+func (s *Store) StageLeaderboardProjects(ctx context.Context, period Period) ([]ProjectSpend, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT c.project_key, SUM((sr.metrics->>'cost_usd')::numeric)::float8
+		FROM stage_runs sr
+		JOIN changes c ON c.id = sr.change_id
+		WHERE sr.started_at >= $1 AND sr.started_at < $2
+		  AND sr.metrics ? 'cost_usd'
+		GROUP BY c.project_key
+		ORDER BY 2 DESC, 1
+	`, period.From, period.To)
+	if err != nil {
+		return nil, fmt.Errorf("store: stage leaderboard projects: %w", err)
+	}
+	defer rows.Close()
+
+	var out []ProjectSpend
+	for rows.Next() {
+		var p ProjectSpend
+		if err := rows.Scan(&p.ProjectKey, &p.TotalCostUSD); err != nil {
+			return nil, fmt.Errorf("store: stage leaderboard projects: scan: %w", err)
+		}
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: stage leaderboard projects: %w", err)
 	}
 	return out, nil
 }
