@@ -1,0 +1,41 @@
+# KAN-1073 removes planning commits, the drop and the report; each sentence below is deleted or reworded on purpose by the plan.
+&& git -C <worktree> add spectre/changes/<name> \
+&& git -C <worktree> commit -m "chore(spectre): plan <name> — captured" \
+&& git -C <worktree> push origin spectre/<name>
+**Commit only the planning artifacts, once, at capture** — `<project>/spectre/changes/<name>/` on `spectre/<name>` per **Capturing a new change** below; nothing else in this mode produces a commit
+**On Yes, commit and push the planning artifacts** from the change worktree:
+A Done-when names only committed, tracked paths of the repository it belongs to — never a gitignored or otherwise uncommitted side output, whose removal a later cleanup turns into a done criterion nothing satisfies — and the drop commit refuses one that does, enforced by **Archive on the change branch** (`skills/flow-contracts/finish-contract-run1.md`).
+A push the remote rejects leaves the commit on `spectre/<name>` in the worktree; say so and name the commit, the branch and the worktree path.
+An entry already fixed is recorded in the design as fixed, with the commit that fixed it, and planned no task; a remedy an archived decision rejected is not designed again unless the design records what that rejection missed (kan-970: six entries were already fixed upstream and one remedy had been rejected twice).
+End by naming the change, the Jira key, the commit and the worktree's absolute path, and close the session's mark:
+Every guard those sections invoke resolves per **Guard resolution** (`skills/flow-contracts/pipeline.md`) against this skill's own scripts directory, which carries each one those sections run: `check-planning-commit-location.sh <worktree> <name>` (the commit below), `kickoff-worktree.sh <project> <name>` with its siblings `check-worktree-location.sh <project>` and `project-get.sh <project> <key>` (kickoff), `check-plan-shape.sh <tasks.md>` (D and the gate), `plan-class.sh <tasks.md> <repos>`, `plan-dispatch-bundles.sh <tasks.md>` and `plan-dispatch-groups.sh <tasks.md>` (Decide).
+Exactly that directory is staged — never `-A`, never anything else in the worktree.
+For each entry of a bug list, a findings file or a ticket naming symptoms, run `git log --since=<the report's date>` over the paths it names on the base, search the landed changes' `design.md` in history (`git log --all --grep 'chore(spectre): '`, read at each drop commit's parent or archive commit) for a recorded rejection of the remedy it proposes, and run its cheap reproducer.
+Mandatory: **No** revises and re-decides per that section, recording each re-decision through the call above, and the commit below happens only on **Yes**.
+On **Yes**, make the plan-gate planning commit and push it (**Planning commits**, `skills/flow-contracts/git-boundaries.md`), then **end the run** with the `STARTED` handoff (**The `STARTED` handoff block**, below), `/clear` above `/flow <name>`, on a creating and a resumed run alike; the next run finds the plan ready (**Resuming at `STARTED`**, `skills/flow/resume.md`) and implements on a fresh context.
+The guard's non-zero exit stops the capture before anything is staged — the commit lands only in the change worktree on `spectre/<name>` (**Planning commits**, `skills/flow-contracts/git-boundaries.md`, canonical for its verdicts and its by-hand fallback).
+The plan review gate at step 6 then gates the commit and push alone — a change that reached it exists already, at `STARTED`, and a **No** there revises the plan rather than removing the change.
+The worktree is kept either way — it is the change's, resumed by `/flow <name>` exactly as any `STARTED` change's is (**Resuming at `STARTED`**, `skills/flow/resume.md`).
+check-planning-commit-location.sh <worktree> <name> \
+flow stage mark -command '/flow-fast' -stages flow.sync-archive,flow.commit-archive -harness <harness> -session-token ff-<literal-token> <name>
+| **8. Clean up** | `flow.verify-merge`, `flow.sync-archive`, `flow.commit-archive`, `flow.cleanup`, `flow.write-finished`, `flow.refresh-main-checkout` |
+\## Plan snapshots
+**Never commit** — a capture leaves `<project>/spectre/changes/<name>/` on disk in the change worktree, gitignored, per **Capturing a new change** below; nothing in this mode produces a commit
+**On Yes, take the plan snapshot** (**Plan snapshots**, `skills/flow/brainstorm.md`) — nothing is staged, committed or pushed: a capture leaves the change on disk at `STARTED` in its worktree, resumed by `/flow <name>` exactly as any `STARTED` change's is (**Resuming at `STARTED`**, `skills/flow/resume.md`).
+A Done-when names only committed, tracked paths of the repository it belongs to — never a gitignored or otherwise uncommitted side output, whose removal a later cleanup turns into a done criterion nothing satisfies — enforced by `check-done-when-paths.sh`.
+A non-zero exit stops the run before anything else happens.
+A plan snapshot does: on the plan gate's **Yes**, at `/flow-plan`'s capture and after a fix run appends tasks, the run copies `tasks.md`, `proposal.md` and `design.md` of `<project>/spectre/changes/<name>/` in the canonical worktree into the next numbered directory `<project>/.superpowers/sdd/<name>/plan-snapshots/<k>/` (`<k>` = 1 + the number of directories already there), never committed, with exactly this command:
+An entry already fixed is recorded in the design as fixed, with the commit that fixed it, and planned no task (kan-970: six entries were already fixed upstream).
+End by naming the change, the Jira key and the worktree's absolute path, and close the session's mark:
+For each entry of a bug list, a findings file or a ticket naming symptoms, run `git log --since=<the report's date>` over the paths it names on the base and run its cheap reproducer.
+Mandatory: **No** revises and re-decides per that section, recording each re-decision through the call above, and the snapshot below is taken only on **Yes**.
+No snapshot is ever rewritten.
+On **Yes**, take the plan snapshot (**Plan snapshots**, below), then **end the run** with the `STARTED` handoff (**The `STARTED` handoff block**, below), `/clear` above `/flow <name>`, on a creating and a resumed run alike; the next run finds the plan ready (**Resuming at `STARTED`**, `skills/flow/resume.md`) and implements on a fresh context.
+The plan review gate at step 6 then gates the plan snapshot alone — a change that reached it exists already, at `STARTED`, and a **No** there revises the plan rather than removing the change.
+The snapshots have one reader: flow-eval's `case add impl` reads, for task n, the earliest snapshot holding task n, so a case sees the plan as it stood before any review fix wrote a Correction.
+`<project>/spectre/changes/` is gitignored, so no commit records the plan as it stood at a gate.
+`<project>/spectre/changes/` is gitignored: the change root lives only on disk in the worktree and is never staged or committed.
+d=<worktree>/.superpowers/sdd/<name>/plan-snapshots
+k=$(( $(find "$d" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l) + 1 ))
+mkdir -p "$d/$k" && cp <worktree>/spectre/changes/<name>/{tasks,proposal,design}.md "$d/$k/"
+| **8. Clean up** | `flow.verify-merge`, `flow.cleanup`, `flow.write-finished`, `flow.refresh-main-checkout` |
