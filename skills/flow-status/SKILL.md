@@ -185,7 +185,10 @@ Add below the table:
 
 - Linked Jira issue key, or "none linked"
 - Task progress — `done` of `total` from `spectre list --json`, which counts the change's
-  `tasks.md` checkboxes; an open change always has its live directory
+  `tasks.md` checkboxes. An open change whose run 1 already dropped its directory (the PR and
+  manual routes end run 1 at `IN_PROGRESS`) has no live `tasks.md`: count the `[x]` and `[ ]`
+  task lines of `git show <newest drop>^:spectre/changes/<name>/tasks.md` instead, `<newest drop>`
+  being `git log -1 --format=%H --fixed-strings --grep="chore(spectre): drop <name>" spectre/<name>`
 - `<name>-fix-N` sub-changes, if any
 - PR number and URL when one exists — not whether it is open, merged or closed, which this report
   does not track; check the forge for that

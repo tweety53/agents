@@ -387,7 +387,7 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    under way.
 4. **Verify** — once a review comes back clean, or a Minor-only review's fix is committed, this session ticks each task whose commit is on `<fix-branch>`
    (`flow tasks tick -C <fix worktree> self-review-<name> <n>`), then removes the sub-change's
-   directory `<project>/spectre/changes/self-review-<name>/` in the fix worktree (`git rm -r`) and commits the
+   directory `<project>/spectre/changes/self-review-<name>/` in the fix worktree (`git rm -r -f` — the ticks just written leave `tasks.md` modified, which a plain `git rm -r` refuses) and commits the
    removal as `chore(spectre): drop self-review-<name>`, on either branch, before any landing push —
    `<agents repo>`'s push hook refuses an undropped change on its default branch. That commit is
    made once. This session then runs
