@@ -359,7 +359,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 
 	h := &changeHandler{store: cs, logger: logger}
 	sh := &stageHandler{store: ss, logger: logger}
-	sth := &statsHandler{store: sts, logger: logger, commitBase: so.commitBase}
+	sth := &statsHandler{store: sts, logger: logger, commitBase: so.commitBase, changeFiles: so.changeFiles}
 	rh := &recordHandler{store: rs, logger: logger, agentEnd: so.agentEnd}
 	srb := &selfreviewHandler{store: rs, git: selfreview.ExecRunner{}, build: so.build, logger: logger}
 	lh := &lessonsHandler{store: rs, logger: logger}

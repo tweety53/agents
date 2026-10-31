@@ -4,8 +4,9 @@
 // references a practice names it once and this package finds where the
 // practice is written down, instead of the caller searching repositories.
 //
-// Everything here is a plain filesystem and git-history read over the roots the caller
-// supplies, resolved fresh on every call — the same "the daemon reads the
+// Everything here is a plain filesystem read of docs/briefs/ over the roots
+// the caller supplies -- never git history, since a change's directory is
+// never committed (KAN-1073) -- resolved fresh on every call — the same "the daemon reads the
 // repositories" shape the self-review bundle uses. An index that
 // materialized briefs or narrative mentions would go stale the moment a
 // brief was edited outside it, which is the exact unreachability this
@@ -13,15 +14,10 @@
 package lessons
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -74,17 +70,6 @@ type Result struct {
 // lands with the change that promotes it and survives every cleanup.
 const briefsDir = "docs/briefs"
 
-// landedSubject matches the commit that removed a landed change's directory
-// from the tip -- a `drop` now, an `archive` move before -- whose history
-// holds the change's narrative.md (landed.File).
-var landedSubject = regexp.MustCompile(`^chore\(spectre\): (?:drop|archive) (\S+)$`)
-
-// matchLineCap bounds one narrative's printed matching lines. A narrative
-// that discusses the topic at length still answers "where is it written",
-// not "quote everything"; the caller can read the file, whose path is
-// printed beside the lines.
-const matchLineCap = 5
-
 // Normalize folds the forms a topic and a text may take — case, hyphens,
 // underscores and runs of space — into one comparable shape, so
 // "flake-bisection" resolves the file "flake_bisection.md" and a line
@@ -94,13 +79,13 @@ func Normalize(s string) string {
 	return strings.Join(strings.Fields(strings.ToLower(replacer.Replace(s))), " ")
 }
 
-// Resolve scans every root for briefs and archived narratives matching
-// topic. A root that cannot be read at all is reported in Result's
+// Resolve scans every root's docs/briefs/ for briefs matching topic;
+// Mentions stays empty, since no narrative is committed to read. A root that cannot be read at all is reported in Result's
 // Unreadable, never an error: one broken checkout must not silence the
-// others' answers. A single brief or narrative inside a readable root
+// others' answers. A single brief inside a readable root
 // whose read fails is reported there the same way — a permissions edge or
 // a mid-write file is environmental, not evidence nothing matches. A root
-// without a docs/briefs/ or without an archive simply contributes
+// without a docs/briefs/ simply contributes
 // nothing — legitimate absence, the same rule the self-review bundle's
 // sources follow.
 func Resolve(roots []Root, topic string) (*Result, error) {
@@ -127,21 +112,6 @@ func Resolve(roots []Root, topic string) (*Result, error) {
 				res.Briefs = append(res.Briefs, b)
 			}
 		}
-
-		cs, err := landedChanges(root.Path)
-		if err != nil {
-			res.Unreadable = append(res.Unreadable, root.Path)
-		}
-		for _, c := range cs {
-			m, matched, err := readNarrative(root, c, needle)
-			if err != nil {
-				res.Unreadable = append(res.Unreadable, root.Path+": "+c.name)
-				continue
-			}
-			if matched {
-				res.Mentions = append(res.Mentions, m)
-			}
-		}
 	}
 
 	sort.Slice(res.Briefs, func(i, j int) bool {
@@ -149,12 +119,6 @@ func Resolve(roots []Root, topic string) (*Result, error) {
 			return res.Briefs[i].Repo < res.Briefs[j].Repo
 		}
 		return res.Briefs[i].Slug < res.Briefs[j].Slug
-	})
-	sort.SliceStable(res.Mentions, func(i, j int) bool {
-		if !res.Mentions[i].ModTime.Equal(res.Mentions[j].ModTime) {
-			return res.Mentions[i].ModTime.After(res.Mentions[j].ModTime)
-		}
-		return res.Mentions[i].Change < res.Mentions[j].Change
 	})
 	return res, nil
 }
@@ -180,91 +144,6 @@ func readBrief(root Root, path, needle string) (Brief, bool, error) {
 		return Brief{}, false, nil
 	}
 	return b, true, nil
-}
-
-// landedChange is one change whose directory a commit removed from the tip,
-// with that commit's time and the tree-ish path its narrative.md is read at.
-type landedChange struct {
-	name string
-	when time.Time
-	rev  string
-}
-
-// landedChanges lists root's landed changes from one history walk, newest
-// commit per name, a drop subject over a legacy archive one as landed.File
-// prefers it. A root that is not a git repository has none; any other git
-// failure is an error.
-func landedChanges(root string) ([]landedChange, error) {
-	out, err := exec.Command("git", "-C", root, "log", "--all", "--format=%H %ct %s",
-		"--fixed-strings", "--grep", "chore(spectre): ").Output()
-	if err != nil {
-		var ee *exec.ExitError
-		if errors.As(err, &ee) && bytes.Contains(ee.Stderr, []byte("not a git repository")) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("git log in %s: %w", root, err)
-	}
-	byName := map[string]landedChange{}
-	var names []string
-	for _, line := range strings.Split(string(out), "\n") {
-		f := strings.SplitN(line, " ", 3)
-		if len(f) < 3 {
-			continue
-		}
-		m := landedSubject.FindStringSubmatch(f[2])
-		if m == nil {
-			continue
-		}
-		prev, seen := byName[m[1]]
-		drop := strings.HasPrefix(f[2], "chore(spectre): drop ")
-		if seen && (!drop || !strings.Contains(prev.rev, ":spectre/changes/archive/")) {
-			continue
-		}
-		sec, _ := strconv.ParseInt(f[1], 10, 64)
-		c := landedChange{name: m[1], when: time.Unix(sec, 0)}
-		if drop {
-			c.rev = f[0] + "^:spectre/changes/" + m[1] + "/narrative.md"
-		} else {
-			c.rev = f[0] + ":spectre/changes/archive/" + m[1] + "/narrative.md"
-		}
-		if !seen {
-			names = append(names, m[1])
-		}
-		byName[m[1]] = c
-	}
-	cs := make([]landedChange, 0, len(names))
-	for _, n := range names {
-		cs = append(cs, byName[n])
-	}
-	return cs, nil
-}
-
-// readNarrative reads one landed change's narrative.md from history and
-// reports whether any of its lines matches the needle. A git failure is an
-// error; no narrative or no match is a nil error with matched false.
-func readNarrative(root Root, c landedChange, needle string) (Mention, bool, error) {
-	content, err := exec.Command("git", "-C", root.Path, "show", c.rev).Output()
-	if err != nil {
-		var ee *exec.ExitError
-		if errors.As(err, &ee) && (bytes.Contains(ee.Stderr, []byte("does not exist")) || bytes.Contains(ee.Stderr, []byte("exists on disk, but not in"))) {
-			return Mention{}, false, nil
-		}
-		return Mention{}, false, fmt.Errorf("git show %s: %w", c.rev, err)
-	}
-	m := Mention{
-		Repo:    root.Path,
-		Change:  c.name,
-		Path:    "spectre/changes/" + c.name + "/narrative.md",
-		ModTime: c.when,
-	}
-	for _, line := range strings.Split(string(content), "\n") {
-		if strings.Contains(Normalize(line), needle) {
-			if len(m.Lines) < matchLineCap {
-				m.Lines = append(m.Lines, strings.TrimSpace(line))
-			}
-		}
-	}
-	return m, len(m.Lines) > 0, nil
 }
 
 // firstHeading returns the file's first Markdown heading line with its
