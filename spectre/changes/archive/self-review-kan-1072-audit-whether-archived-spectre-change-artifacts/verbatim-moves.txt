@@ -20,3 +20,4 @@ Key: task-<ids>-implementer
 flow record dispatch begin -change <name> -task <ids> -role implementer -model <m> -effort <e> \
 flow record dispatch end -change <name> -key task-<ids>-implementer \
 | implementer, one per group; under `sdd`, a fixer per fix | `implementer` | `implementer` | `task-<ids>-implementer`, `<ids>` the group's task ids `+`-joined in plan order; a fixer's `task-<ids>-implementer-fix-<k>`, `task-<n>-implementer-recommit-<k>`, `task-<ids>-implementer-pick-<k>` or `full-suite-fix-<n>` | section **4** below, **Every fix is a fresh one-shot** |
+`-task <n>` only on a one-task group, omitted otherwise — `task_id` holds one task id.

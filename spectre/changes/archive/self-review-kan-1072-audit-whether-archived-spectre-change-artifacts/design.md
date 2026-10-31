@@ -110,6 +110,8 @@ rewritten base, and `git rebase --autosquash <fix-base>` would replay the whole 
 record calls, the key sentence after them and the prompt stub. The per-task inline row and the
 `-recommit-<k>` keys stay `<n>`; the Go comments naming `task-<n>-implementer` describe a valid
 one-task key and stay.
+
+Correction (2026-10-31): review-1 (I1) showed `-task <ids>` writes a `+`-joined string into `dispatches.task_id`; the record call keeps `-task <n>`, passed only on a one-task group and omitted otherwise. The key stays `task-<ids>-implementer`.
 **Considered:** teaching the hook to accept a single id for a group — the hook is right; the doc is
 what is wrong.
 
