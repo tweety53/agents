@@ -1,0 +1,152 @@
+commit f219c53c17552dbca0dc1b0bef807404fbba857d
+Author: Yuriy Aleksandrov <yatweety@gmail.com>
+Date:   Sat Oct 31 08:38:26 2026 +0200
+
+    feat(stats): number a findings file's ref-less lines from the change's next free ref
+    
+    Task-Id: 3
+
+diff --git a/stats/cmd/flow/record.go b/stats/cmd/flow/record.go
+index bde8834b..59f4bdce 100644
+--- a/stats/cmd/flow/record.go
++++ b/stats/cmd/flow/record.go
+@@ -308,7 +308,9 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
+                              [-supersedes F<n>] [-regression-of F<n>]
+                              [-pattern name] [-task id]
+        flow record finding  [-addr url] [-timeout dur] [-C dir]
+-                             -change name -from file
++                             -change name [<finding flags>] -from file
++                             (a line with no ref takes the change's next
++                             free ref, written into the file first)
+        flow record status   [-addr url] [-timeout dur] [-C dir]
+                              -change name -ref F<n> -status status
+                              [-category cat]
+@@ -1948,12 +1950,23 @@ func splitFromFlag(args []string) (path string, rest []string, ok bool) {
+ // first line that fails stops the run, naming its line number; the lines
+ // before it stay recorded and each line is a rewrite by ref, so a re-run
+ // after the fix is safe.
++//
++// A line carrying no ref is numbered first (decision from-assigns-refs): the
++// change's run record is read once and every ref-less line, in file order,
++// takes the next ref above both the store's highest F<n> and every F<n> the
++// file names; those lines are rewritten in the file before the first is
++// recorded, so a re-run rewrites the same rows and never adds. A failed read
++// exits 1 naming the file, before anything is posted or written.
+ func runRecordFindingFrom(ctx context.Context, path string, rest []string, stdout, stderr io.Writer) int {
+ 	data, err := os.ReadFile(path)
+ 	if err != nil {
+ 		fmt.Fprintf(stderr, "flow: -from: %v\n", err)
+ 		return 2
+ 	}
++	data, code := numberRefLessFindings(ctx, path, data, rest, stderr)
++	if code != 0 {
++		return code
++	}
+ 	for i, line := range strings.Split(string(data), "\n") {
+ 		if strings.TrimSpace(line) == "" {
+ 			continue
+@@ -1989,6 +2002,81 @@ func runRecordFindingFrom(ctx context.Context, path string, rest []string, stdou
+ 	return 0
+ }
+ 
++// numberRefLessFindings gives each well-formed -from line with no ref the
++// next free ref and writes the file back, returning the bytes to record.
++// A file whose every line names its ref is returned as it is, with no
++// store read; a malformed line is left for runRecordFindingFrom to report.
++func numberRefLessFindings(ctx context.Context, path string, data []byte, rest []string, stderr io.Writer) ([]byte, int) {
++	lines := strings.Split(string(data), "\n")
++	var refLess []int
++	rows := map[int]map[string]any{}
++	floor := 1
++	for i, line := range lines {
++		if strings.TrimSpace(line) == "" {
++			continue
++		}
++		var row map[string]any
++		dec := json.NewDecoder(strings.NewReader(line))
++		dec.UseNumber()
++		if dec.Decode(&row) != nil {
++			continue
++		}
++		if ref, _ := row["ref"].(string); ref != "" {
++			if n, err := strconv.Atoi(strings.TrimPrefix(ref, "F")); err == nil {
++				floor = max(floor, n+1)
++			}
++			continue
++		}
++		refLess = append(refLess, i)
++		rows[i] = row
++	}
++	if len(refLess) == 0 {
++		return data, 0
++	}
++	run, code, ok := readNextRecord(ctx, "finding -from "+path, recordIdentityArgs(rest), stderr)
++	if !ok {
++		return nil, code
++	}
++	next := max(floor, nextFindingRef(run))
++	for _, i := range refLess {
++		rows[i]["ref"] = fmt.Sprintf("F%d", next)
++		next++
++		var b bytes.Buffer
++		enc := json.NewEncoder(&b)
++		enc.SetEscapeHTML(false)
++		if err := enc.Encode(rows[i]); err != nil {
++			fmt.Fprintf(stderr, "flow: -from %s:%d: %v\n", path, i+1, err)
++			return nil, 1
++		}
++		lines[i] = strings.TrimSuffix(b.String(), "\n")
++	}
++	out := []byte(strings.Join(lines, "\n"))
++	if err := os.WriteFile(path, out, 0o644); err != nil {
++		fmt.Fprintf(stderr, "flow: -from %s: write the numbered refs: %v\n", path, err)
++		return nil, 1
++	}
++	return out, 0
++}
++
++// recordIdentityArgs keeps the -addr, -timeout, -C and -change flags of a
++// record command line, in either the "-flag value" or "-flag=value" form,
++// for a read that registers only those.
++func recordIdentityArgs(args []string) []string {
++	var out []string
++	for i := 0; i < len(args); i++ {
++		name, _, hasValue := strings.Cut(strings.TrimLeft(args[i], "-"), "=")
++		if !strings.HasPrefix(args[i], "-") || !slices.Contains([]string{"addr", "timeout", "C", "change"}, name) {
++			continue
++		}
++		out = append(out, args[i])
++		if !hasValue && i+1 < len(args) {
++			out = append(out, args[i+1])
++			i++
++		}
++	}
++	return out
++}
++
+ // runRecordFinding implements `flow record finding`: one call per
+ // finding, as the slot raises it. A ref is unique per change, not per
+ // round, so recording the same ref twice replaces the row rather than
+@@ -2886,14 +2974,20 @@ func runRecordNextRef(ctx context.Context, args []string, stdout, stderr io.Writ
+ 		return code
+ 	}
+ 
++	fmt.Fprintf(stdout, "F%d\n", nextFindingRef(run))
++	return 0
++}
++
++// nextFindingRef is one more than the highest F<n> any finding row of run
++// carries, or 1 for a run with none.
++func nextFindingRef(run records.Run) int {
+ 	next := 1
+ 	for _, f := range run.Findings {
+ 		if n, err := strconv.Atoi(strings.TrimPrefix(f.Ref, "F")); err == nil {
+ 			next = max(next, n+1)
+ 		}
+ 	}
+-	fmt.Fprintf(stdout, "F%d\n", next)
+-	return 0
++	return next
+ }
+ 
+ // readNextRecord reads the change's run record for next-round and next-ref:

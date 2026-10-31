@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kan-1062-flow-implement-one-shot-subagents-1</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0 auto;max-width:1100px;padding:16px;line-height:1.45}
+pre{background:#f4f4f4;padding:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.ab{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:700px){.ab{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>kan-1062-flow-implement-one-shot-subagents-1</h1>
+<h2>Type</h2>
+<p>implementer · scope generic</p>
+<h2>Defect class</h2>
+<p>Code that rewrites a file whose current bytes are the only copy of the data writes the new bytes over it in place, so a crash or kill mid-write leaves a truncated file and the data is lost.</p>
+<h2>Finding</h2>
+<pre>**Severity:** Important
+**Location:** stats/cmd/flow/record.go:2066 (numberRefLessFindings)
+
+&gt; partial write: WriteFile truncates then writes in place, so a kill mid-write leaves a truncated findings file with no copy; the findings are the only source and are lost
+</pre>
+<pre><code>commit f219c53c17552dbca0dc1b0bef807404fbba857d
+Author: Yuriy Aleksandrov &lt;yatweety@gmail.com&gt;
+Date:   Sat Oct 31 08:38:26 2026 &#43;0200
+
+    feat(stats): number a findings file&#39;s ref-less lines from the change&#39;s next free ref
+    
+    Task-Id: 3
+
+diff --git a/stats/cmd/flow/record.go b/stats/cmd/flow/record.go
+index bde8834b..59f4bdce 100644
+--- a/stats/cmd/flow/record.go
+&#43;&#43;&#43; b/stats/cmd/flow/record.go
+@@ -308,7 &#43;308,9 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
+                              [-supersedes F&lt;n&gt;] [-regression-of F&lt;n&gt;]
+                              [-pattern name] [-task id]
+        flow record finding  [-addr url] [-timeout dur] [-C dir]
+-                             -change name -from file
+&#43;                             -change name [&lt;finding flags&gt;] -from file
+&#43;                             (a line with no ref takes the change&#39;s next
+&#43;                             free ref, written into the file first)
+        flow record status   [-addr url] [-timeout dur] [-C dir]
+                              -change name -ref F&lt;n&gt; -status status
+                              [-category cat]
+@@ -1948,12 &#43;1950,23 @@ func splitFromFlag(args []string) (path string, rest []string, ok bool) {
+ // first line that fails stops the run, naming its line number; the lines
+ // before it stay recorded and each line is a rewrite by ref, so a re-run
+ // after the fix is safe.
+&#43;//
+&#43;// A line carrying no ref is numbered first (decision from-assigns-refs): the
+&#43;// change&#39;s run record is read once and every ref-less line, in file order,
+&#43;// takes the next ref above both the store&#39;s highest F&lt;n&gt; and every F&lt;n&gt; the
+&#43;// file names; those lines are rewritten in the file before the first is
+&#43;// recorded, so a re-run rewrites the same rows and never adds. A failed read
+&#43;// exits 1 naming the file, before anything is posted or written.
+ func runRecordFindingFrom(ctx context.Context, path string, rest []string, stdout, stderr io.Writer) int {
+ 	data, err := os.ReadFile(path)
+ 	if err != nil {
+ 		fmt.Fprintf(stderr, &#34;flow: -from: %v\n&#34;, err)
+ 		return 2
+ 	}
+&#43;	data, code := numberRefLessFindings(ctx, path, data, rest, stderr)
+&#43;	if code != 0 {
+&#43;		return code
+&#43;	}
+ 	for i, line := range strings.Split(string(data), &#34;\n&#34;) {
+ 		if strings.TrimSpace(line) == &#34;&#34; {
+ 			continue
+@@ -1989,6 &#43;2002,81 @@ func runRecordFindingFrom(ctx context.Context, path string, rest []string, stdou
+ 	return 0
+ }
+ 
+&#43;// numberRefLessFindings gives each well-formed -from line with no ref the
+&#43;// next free ref and writes the file back, returning the bytes to record.
+&#43;// A file whose every line names its ref is returned as it is, with no
+&#43;// store read; a malformed line is left for runRecordFindingFrom to report.
+&#43;func numberRefLessFindings(ctx context.Context, path string, data []byte, rest []string, stderr io.Writer) ([]byte, int) {
+&#43;	lines := strings.Split(string(data), &#34;\n&#34;)
+&#43;	var refLess []int
+&#43;	rows := map[int]map[string]any{}
+&#43;	floor := 1
+&#43;	for i, line := range lines {
+&#43;		if strings.TrimSpace(line) == &#34;&#34; {
+&#43;			continue
+&#43;		}
+&#43;		var row map[string]any
+&#43;		dec := json.NewDecoder(strings.NewReader(line))
+&#43;		dec.UseNumber()
+&#43;		if dec.Decode(&amp;row) != nil {
+&#43;			continue
+&#43;		}
+&#43;		if ref, _ := row[&#34;ref&#34;].(string); ref != &#34;&#34; {
+&#43;			if n, err := strconv.Atoi(strings.TrimPrefix(ref, &#34;F&#34;)); err == nil {
+&#43;				floor = max(floor, n&#43;1)
+&#43;			}
+&#43;			continue
+&#43;		}
+&#43;		refLess = append(refLess, i)
+&#43;		rows[i] = row
+&#43;	}
+&#43;	if len(refLess) == 0 {
+&#43;		return data, 0
+&#43;	}
+&#43;	run, code, ok := readNextRecord(ctx, &#34;finding -from &#34;&#43;path, recordIdentityArgs(rest), stderr)
+&#43;	if !ok {
+&#43;		return nil, code
+&#43;	}
+&#43;	next := max(floor, nextFindingRef(run))
+&#43;	for _, i := range refLess {
+&#43;		rows[i][&#34;ref&#34;] = fmt.Sprintf(&#34;F%d&#34;, next)
+&#43;		next&#43;&#43;
+&#43;		var b bytes.Buffer
+&#43;		enc := json.NewEncoder(&amp;b)
+&#43;		enc.SetEscapeHTML(false)
+&#43;		if err := enc.Encode(rows[i]); err != nil {
+&#43;			fmt.Fprintf(stderr, &#34;flow: -from %s:%d: %v\n&#34;, path, i&#43;1, err)
+&#43;			return nil, 1
+&#43;		}
+&#43;		lines[i] = strings.TrimSuffix(b.String(), &#34;\n&#34;)
+&#43;	}
+&#43;	out := []byte(strings.Join(lines, &#34;\n&#34;))
+&#43;	if err := os.WriteFile(path, out, 0o644); err != nil {
+&#43;		fmt.Fprintf(stderr, &#34;flow: -from %s: write the numbered refs: %v\n&#34;, path, err)
+&#43;		return nil, 1
+&#43;	}
+&#43;	return out, 0
+&#43;}
+&#43;
+&#43;// recordIdentityArgs keeps the -addr, -timeout, -C and -change flags of a
+&#43;// record command line, in either the &#34;-flag value&#34; or &#34;-flag=value&#34; form,
+&#43;// for a read that registers only those.
+&#43;func recordIdentityArgs(args []string) []string {
+&#43;	var out []string
+&#43;	for i := 0; i &lt; len(args); i&#43;&#43; {
+&#43;		name, _, hasValue := strings.Cut(strings.TrimLeft(args[i], &#34;-&#34;), &#34;=&#34;)
+&#43;		if !strings.HasPrefix(args[i], &#34;-&#34;) || !slices.Contains([]string{&#34;addr&#34;, &#34;timeout&#34;, &#34;C&#34;, &#34;change&#34;}, name) {
+&#43;			continue
+&#43;		}
+&#43;		out = append(out, args[i])
+&#43;		if !hasValue &amp;&amp; i&#43;1 &lt; len(args) {
+&#43;			out = append(out, args[i&#43;1])
+&#43;			i&#43;&#43;
+&#43;		}
+&#43;	}
+&#43;	return out
+&#43;}
+&#43;
+ // runRecordFinding implements `flow record finding`: one call per
+ // finding, as the slot raises it. A ref is unique per change, not per
+ // round, so recording the same ref twice replaces the row rather than
+@@ -2886,14 &#43;2974,20 @@ func runRecordNextRef(ctx context.Context, args []string, stdout, stderr io.Writ
+ 		return code
+ 	}
+ 
+&#43;	fmt.Fprintf(stdout, &#34;F%d\n&#34;, nextFindingRef(run))
+&#43;	return 0
+&#43;}
+&#43;
+&#43;// nextFindingRef is one more than the highest F&lt;n&gt; any finding row of run
+&#43;// carries, or 1 for a run with none.
+&#43;func nextFindingRef(run records.Run) int {
+ 	next := 1
+ 	for _, f := range run.Findings {
+ 		if n, err := strconv.Atoi(strings.TrimPrefix(f.Ref, &#34;F&#34;)); err == nil {
+ 			next = max(next, n&#43;1)
+ 		}
+ 	}
+-	fmt.Fprintf(stdout, &#34;F%d\n&#34;, next)
+-	return 0
+&#43;	return next
+ }
+ 
+ // readNextRecord reads the change&#39;s run record for next-round and next-ref:
+</code></pre>
+<h2>Fix</h2>
+<pre><code>commit 7d3de8536059b219be89a65729b0b33b2a9cd3ba
+Author: Yuriy Aleksandrov &lt;yatweety@gmail.com&gt;
+Date:   Sat Oct 31 09:21:57 2026 &#43;0200
+
+    fix(stats): rewrite -from findings atomically and pin literal HTML characters
+    
+    Flow-Key: panel-fix-1
+
+diff --git a/stats/cmd/flow/record.go b/stats/cmd/flow/record.go
+index 881a4e9f..272f30f8 100644
+--- a/stats/cmd/flow/record.go
+&#43;&#43;&#43; b/stats/cmd/flow/record.go
+@@ -2020,6 &#43;2020,8 @@ func runRecordFindingFrom(ctx context.Context, path string, rest []string, stdou
+ // A file whose every line names its ref is returned as it is, with no
+ // store read; a present ref that is not a string is exit 2 naming its line,
+ // and any other malformed line is left for runRecordFindingFrom to report.
+&#43;// It assumes a single writer per change: the parent runs -from once per
+&#43;// round, so two concurrent runs could read the same next free ref.
+ func numberRefLessFindings(ctx context.Context, path string, data []byte, rest []string, stderr io.Writer) ([]byte, int) {
+ 	lines := strings.Split(string(data), &#34;\n&#34;)
+ 	var refLess []int
+@@ -2070,13 &#43;2072,39 @@ func numberRefLessFindings(ctx context.Context, path string, data []byte, rest [
+ 		lines[i] = strings.TrimSuffix(b.String(), &#34;\n&#34;)
+ 	}
+ 	out := []byte(strings.Join(lines, &#34;\n&#34;))
+-	if err := os.WriteFile(path, out, 0o644); err != nil {
+&#43;	if err := replaceFile(path, out); err != nil {
+ 		fmt.Fprintf(stderr, &#34;flow: -from %s: write the numbered refs: %v\n&#34;, path, err)
+ 		return nil, 1
+ 	}
+ 	return out, 0
+ }
+ 
+&#43;// replaceFile writes data to a temp file beside path and renames it over
+&#43;// path, keeping path&#39;s mode, so a failed write leaves the original intact
+&#43;// and no temp file behind.
+&#43;func replaceFile(path string, data []byte) error {
+&#43;	fi, err := os.Stat(path)
+&#43;	if err != nil {
+&#43;		return err
+&#43;	}
+&#43;	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)&#43;&#34;.tmp-*&#34;)
+&#43;	if err != nil {
+&#43;		return err
+&#43;	}
+&#43;	defer os.Remove(tmp.Name())
+&#43;	if _, err := tmp.Write(data); err != nil {
+&#43;		_ = tmp.Close()
+&#43;		return err
+&#43;	}
+&#43;	if err := tmp.Close(); err != nil {
+&#43;		return err
+&#43;	}
+&#43;	if err := os.Chmod(tmp.Name(), fi.Mode().Perm()); err != nil {
+&#43;		return err
+&#43;	}
+&#43;	return os.Rename(tmp.Name(), path)
+&#43;}
+&#43;
+ // recordIdentityArgs keeps the -addr, -timeout, -C and -change flags of a
+ // record command line, in either the &#34;-flag value&#34; or &#34;-flag=value&#34; form,
+ // for a read that registers only those.
+</code></pre>
+<h2>Why picked</h2>
+<pre>1. Defect class: an in-place truncating rewrite of a sole-copy file, where an interrupted write destroys the data the rewrite meant to update. 2. No rule covers it: the robustness principle&#39;s violation list reads &#34;an empty `catch` block, a swallowed exception logged at debug, an external call with no timeout or bounded retry, a fallback that silently returns empty data, an error message that omits the identifier needed to investigate it, or an invariant the schema could enforce …&#34; and names nothing about how a file is replaced; the implementer wrote `os.WriteFile(path, out, 0o644)` over the findings file it had just read, and the failure-modes slot raised it as an Important that cost a fix chunk. 3. It generalises: kan-1032&#39;s panel raised the same shape on `stats/cmd/flow/prompttuning.go:36` (&#34;os.WriteFile is not atomic; a truncated index.html is possible&#34;), and the same holds for any state file, config file, journal or lockfile a CLI or service rewrites, in every language — the repository&#39;s own renderers already write atomically (render-slot-prompt.sh). 4. It is a principle, not a patch: replace a file whose old bytes are the only copy by writing a temp file beside it and renaming it over, never by truncating it.</pre>
+<h2>Prompt update</h2>
+<p>Target: <code>skills/flow/engineering-principles.md</code> at <code>fc3a0b5c0b03701bb9f05a731a36e463661508ac</code></p>
+<div class="ab">
+<div><h3>Before</h3><pre>**Violation looks like:** an empty `catch` block, a swallowed exception logged at debug,
+an external call with no timeout or bounded retry, a fallback that silently returns empty
+data, an error message that omits the identifier needed to investigate it, or an invariant
+the schema could enforce — an ordered pair, a non-negative amount — held in application code
+alone, with no check constraint to refuse a bad insert where it happens — a test&#39;s own setup
+included — rather than let it surface later as a wrong read or an intermittent failure.</pre></div>
+<div><h3>After</h3><pre>**Violation looks like:** an empty `catch` block, a swallowed exception logged at debug,
+an external call with no timeout or bounded retry, a fallback that silently returns empty
+data, an error message that omits the identifier needed to investigate it, or an invariant
+the schema could enforce — an ordered pair, a non-negative amount — held in application code
+alone, with no check constraint to refuse a bad insert where it happens — a test&#39;s own setup
+included — rather than let it surface later as a wrong read or an intermittent failure; or a
+file whose old bytes are the only copy of its data rewritten in place, where an interrupted
+write leaves it truncated — write a temp file beside it and rename it over instead.</pre></div>
+</div>
+</body>
+</html>

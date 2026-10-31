@@ -1,0 +1,22 @@
+{
+  "id": "kan-1062-flow-implement-one-shot-subagents-1",
+  "type": "implementer",
+  "scope": "generic",
+  "source": {
+    "project": "agents",
+    "change": "kan-1062-flow-implement-one-shot-subagents",
+    "jira": "KAN-1062",
+    "repo": "agents",
+    "fix_sha": "7d3de8536059b219be89a65729b0b33b2a9cd3ba",
+    "finding_ref": "F18",
+    "round": 0,
+    "slot": "failure-modes",
+    "severity": "Important"
+  },
+  "target": "skills/flow/engineering-principles.md",
+  "target_sha": "fc3a0b5c0b03701bb9f05a731a36e463661508ac",
+  "defect_class": "Code that rewrites a file whose current bytes are the only copy of the data writes the new bytes over it in place, so a crash or kill mid-write leaves a truncated file and the data is lost.",
+  "why_picked": "1. Defect class: an in-place truncating rewrite of a sole-copy file, where an interrupted write destroys the data the rewrite meant to update. 2. No rule covers it: the robustness principle's violation list reads \"an empty `catch` block, a swallowed exception logged at debug, an external call with no timeout or bounded retry, a fallback that silently returns empty data, an error message that omits the identifier needed to investigate it, or an invariant the schema could enforce …\" and names nothing about how a file is replaced; the implementer wrote `os.WriteFile(path, out, 0o644)` over the findings file it had just read, and the failure-modes slot raised it as an Important that cost a fix chunk. 3. It generalises: kan-1032's panel raised the same shape on `stats/cmd/flow/prompttuning.go:36` (\"os.WriteFile is not atomic; a truncated index.html is possible\"), and the same holds for any state file, config file, journal or lockfile a CLI or service rewrites, in every language — the repository's own renderers already write atomically (render-slot-prompt.sh). 4. It is a principle, not a patch: replace a file whose old bytes are the only copy by writing a temp file beside it and renaming it over, never by truncating it.",
+  "before": "**Violation looks like:** an empty `catch` block, a swallowed exception logged at debug,\nan external call with no timeout or bounded retry, a fallback that silently returns empty\ndata, an error message that omits the identifier needed to investigate it, or an invariant\nthe schema could enforce — an ordered pair, a non-negative amount — held in application code\nalone, with no check constraint to refuse a bad insert where it happens — a test's own setup\nincluded — rather than let it surface later as a wrong read or an intermittent failure.",
+  "after": "**Violation looks like:** an empty `catch` block, a swallowed exception logged at debug,\nan external call with no timeout or bounded retry, a fallback that silently returns empty\ndata, an error message that omits the identifier needed to investigate it, or an invariant\nthe schema could enforce — an ordered pair, a non-negative amount — held in application code\nalone, with no check constraint to refuse a bad insert where it happens — a test's own setup\nincluded — rather than let it surface later as a wrong read or an intermittent failure; or a\nfile whose old bytes are the only copy of its data rewritten in place, where an interrupted\nwrite leaves it truncated — write a temp file beside it and rename it over instead."
+}
