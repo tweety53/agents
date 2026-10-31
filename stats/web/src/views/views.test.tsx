@@ -1186,6 +1186,16 @@ describe("interactive session card", () => {
     expect(w).not.toHaveTextContent("Waiting for the next request");
     expect(w).not.toHaveClass("awaiting");
   });
+
+  it("a /flow change whose planning ended asks for /clear and the implementing run, and needs the operator", async () => {
+    const planned = { ...flow, currentStage: undefined, currentStageStartedAt: undefined, lastStage: "flow.decide", lastStageEndedAt: minutesAgo(4), activity: "idle", activitySince: minutesAgo(4), sessionSeenAt: minutesAgo(3) };
+    fetchStatsViewMock.mockImplementation(() => Promise.resolve(envelope("state-board", [planned])));
+    render(<StateBoard />);
+    const c = await screen.findByTestId("running-card");
+    expect(c).toHaveTextContent(`Planned — /clear, then /flow ${flow.name}`);
+    expect(c).not.toHaveTextContent("Paused after");
+    expect(c).toHaveClass("needs");
+  });
 });
 
 describe("absence is rendered distinctly from a recorded zero", () => {

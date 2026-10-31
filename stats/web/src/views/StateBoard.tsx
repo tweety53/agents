@@ -76,7 +76,13 @@ function isPipelineFix(row: StateBoardRow): boolean {
   return row.name.startsWith("pipeline-fix-") || row.name.startsWith("self-review-");
 }
 
+/** A /flow change whose planning run ended (flow.decide its last stage, none open): it waits for the operator to /clear and run /flow again. */
+function plannedHandoff(row: StateBoardRow): boolean {
+  return row.command === "/flow" && row.state === "STARTED" && row.currentStage === undefined && row.lastStage === "flow.decide";
+}
+
 function needsOperator(row: StateBoardRow): boolean {
+  if (plannedHandoff(row)) return true;
   // An interactive session between requests is at its normal rest, not waiting on the operator.
   if (isInteractive(row) && interactiveWaiting(row)) return false;
   const activity = effectiveActivity(row);
@@ -151,6 +157,11 @@ function RunningCard({ row, now }: { row: StateBoardRow; now: number }) {
             {row.currentStageStartedAt && <span className="lb-muted"> · {formatSpan(now - Date.parse(row.currentStageStartedAt))}</span>}
             {mainAction(row) ? <span className="lb-muted"> · {mainAction(row)}</span> : agentsDone(row) && <span className="lb-muted"> · agents done, main wrapping up</span>}
           </span>
+        </div>
+      ) : plannedHandoff(row) ? (
+        <div className="lb-stage">
+          <span title={row.lastStage}>Planned — /clear, then /flow {row.name}</span>
+          {row.lastStageEndedAt && <span className="lb-muted">· {formatSpan(now - Date.parse(row.lastStageEndedAt))} ago</span>}
         </div>
       ) : task || alive ? (
         <div className="lb-stage">
