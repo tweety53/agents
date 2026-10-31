@@ -247,6 +247,15 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 block, every numeric claim and every assumption the plan cannot verify at plan time per **Plan
 provenance** (`skills/flow-contracts/plan-provenance.md`).
 
+**A block verified on a scratch copy has passed the lint list there.** When planning verifies a
+fenced block by applying it to a scratch copy of the branch — a diff, or a script that edits the
+tree — it runs `<agents repo>/scripts/run-verify-list.sh <scratch copy> lint` on that copy with
+the block applied before writing the tag, fixes every red line in the block itself, and the
+`verified:` tag names that run. A block the list was not run over is tagged
+`unverified:run-verify-list.sh lint on the applied copy`, never `verified:` (kan-1064
+self-review: task 2's prose diff, tagged `verified:` after a scratch apply, failed
+`check-installed-citations.sh` and `check-guard-symlinks.sh` at implementation).
+
 **A task premise about a guard's behaviour is run at plan time, never assumed.** When a task
 written here rests on what a guard or check currently does — that a ratchet trips or does not,
 an exit code, the figures a guard prints — planning runs that guard before the task is written
