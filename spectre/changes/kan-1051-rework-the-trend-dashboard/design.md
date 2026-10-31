@@ -140,9 +140,17 @@ plots are.
 ### The finish instant comes from a store lookup by change
 
 **ID:** finish-instant-store-lookup
-**Status:** active
+**Status:** superseded by finish-instant-latest-of-state-and-runs
 **Chosen:** A store method `FinishedAtByChange(ctx, changeIDs []int64) (map[int64]time.Time, error)` returns `updated_at` for each listed change whose state is `FINISHED`; `storeWindowSource` (`stats/cmd/flowd/main.go`) and its test twin `e2eWindowSource` (`stats/internal/harvest/endtoend_test.go`) call it once per session after `QueryStageRuns` and fill each window's finish instant from its run's `ChangeID` — one extra query per session, as `WindowsForSession` is already consulted once per session.
 **Considered:** Widen `QueryStageRuns`' row with the change's state and `updated_at` — every caller of the generic query pays for two fields only attribution reads.
+
+**Superseded because:** the live check's back-fill added nothing to kan-1035 — its `updated_at` precedes the end of its last stage run, the same order other finished changes show on the dev store.
+### The finish instant is the later of the state write and the last stage run
+
+**ID:** finish-instant-latest-of-state-and-runs
+**Status:** active
+**Chosen:** `FinishedAtByChange` returns `GREATEST(changes.updated_at, the latest COALESCE(ended_at, started_at) of the change's stage runs)` for a FINISHED change.
+**Considered:** Keep `updated_at` alone — the live check showed it is the kickoff instant for changes whose state was written FINISHED before their last marks (kan-1035: 11:54:19Z against a last run ending 12:14:21Z), so the bound dropped every gap record. Add a `finished_at` column — a migration and a writer for a value the stage runs already carry.
 
 ### Already-dropped spend is back-filled once at flowd startup
 

@@ -4,6 +4,7 @@
 > `check-task-commit-fields.sh` passes on that task's commit.
 > **Relocation:** no
 > **Design shape:** plan-mode
+> **Tasks appended:** 1
 
 **Goal:** Rework Trend over time (KAN-1051) to answer "Is a finished change getting cheaper as flow changes?" — whole-life cost per finished change by Wednesday week, with Period, Command and Project chips, three tiles, a median/mean chart with flow-changes-landed bars and a By week table — and fix harvest so spend between two stage windows is attributed, with a once-only back-fill of what the old rule dropped.
 
@@ -178,4 +179,21 @@ Correction (2026-10-31): Step 3's `--grep-invert trend` verify fails on 9 captur
 **After:** Task 5, 6
 
 **Decision:** trend-seed-recapture
+
+- [ ] 8. In-run fix 1 — verify: the back-fill's finish bound cuts a finished change's whole spend, and the live copy reads no transcripts
+  - [ ] **Step 1: Write the failing tests.** `stats/internal/store/changes_test.go`: add `TestFinishedAtByChangeIsTheLatestOfStateAndRuns` — a FINISHED change whose `updated_at` precedes its last stage run (a run begun after the state write, then ended later still): `FinishedAtByChange` returns that run's `ended_at`; a FINISHED change whose `updated_at` follows every run returns `updated_at`; a still-open last run (no `ended_at`) counts its `started_at`. `scripts/test-live-store-copy.sh`: add a case that `up` with `FLOW_LIVE_COPY_TRANSCRIPTS=<dir>` starts the scratch flowd with `FLOW_TRANSCRIPTS_DIR=<dir>`, and without it with the empty scratch directory. Run `cd stats && go test -count=1 ./internal/store -run 'TestFinishedAtByChange'` and `scripts/test-live-store-copy.sh` — both fail.
+  - [ ] **Step 2: The finish instant.** `stats/internal/store/changes.go` `FinishedAtByChange`: return `GREATEST(c.updated_at, MAX(COALESCE(s.ended_at, s.started_at)))` over the change's stage runs (a `LEFT JOIN stage_runs s ON s.change_id = c.id`, grouped by `c.id`), still only for `state = 'FINISHED'`; update its doc comment and decision `finish-instant-store-lookup`'s reasoning by an appended superseding decision `finish-instant-latest-of-state-and-runs` in design.md. measured: on the dev store (read-only `psql -d flow`), kan-1035's `changes.updated_at` is 2026-10-26 11:54:19Z — its kickoff — while its last stage run ended 12:14:21Z, so the old bound dropped every record of its session; kan-966, kan-995, kan-938, kan-925 and kan-985 show the same order.
+  - [ ] **Step 3: The live copy.** `scripts/live-store-copy.sh up`: `FLOW_TRANSCRIPTS_DIR` is `${FLOW_LIVE_COPY_TRANSCRIPTS:-$dir/transcripts}`; the header names the variable — a copy that is to exercise harvest or the back-fill reads the real transcripts, read-only, while every write stays in the scratch database. `design.md` `## Live check`: the `up` line sets `FLOW_LIVE_COPY_TRANSCRIPTS="$HOME/.claude/projects"`.
+  - [ ] **Step 4: Prove.** `scripts/break-and-prove.sh` with the `GREATEST` replaced by `c.updated_at` — `TestFinishedAtByChangeIsTheLatestOfStateAndRuns` fails; restore.
+  - [ ] **Step 5: Verify.** `cd stats && gofmt -w . && gofmt -l . && make -s web-dist && go vet ./...` exits clean; `cd stats && go test -race -count=1 ./internal/store -run 'TestFinishedAtByChange' && go test -race -count=1 ./internal/harvest -run 'TestStageGap|TestBurstMarkedSession|TestRecord'` and `scripts/test-live-store-copy.sh` pass. Commit.
+
+**Build:** green
+**Files:** `stats/internal/store/changes.go`, `stats/internal/store/changes_test.go`, `scripts/live-store-copy.sh`, `scripts/test-live-store-copy.sh`
+**Tests:** `TestFinishedAtByChangeIsTheLatestOfStateAndRuns`
+**Regression:** `TestFinishedAtByChangeIsTheLatestOfStateAndRuns` fails — a finished change whose state was written before its last marks loses every gap record of its session to the finish bound again.
+**Commit:** fix(store): bound a finished change's spend at its last stage run, not its state write
+**After:** Task 1, 7
+**Opener:** verify
+
+**Decision:** finish-instant-latest-of-state-and-runs
 
