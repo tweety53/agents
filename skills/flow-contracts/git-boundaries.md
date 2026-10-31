@@ -1,7 +1,7 @@
 # Git boundaries
 
-Which git actions each command may take and the branch backup. The guarded two-commit chain
-that enforces the split between implementation and planning artifacts is
+Which git actions each command may take and the branch backup. The guarded commit chain
+that commits the implementation and leaves the change directory out is
 `skills/flow-contracts/git-boundaries-commit-chain.md`.
 
 **Loaded by `/flow`'s creating run and implement phase, bare `/flow`, `/flow-plan` and `/flow-fast`** — at the step that commits or stages.
@@ -64,13 +64,9 @@ requirement. Within the spectre tree the boundary is the
 directory — `<project>/spectre/changes/` is planning and `<project>/spectre/specs/` is not — which is
 why every pathspec below names the change folder rather than the tree.
 
-**`link.md` is implementation too, carved out by file, not directory.** It states which
-repositories a change spans, its branch and merge order — structural, not the
-`proposal.md`/`design.md`/`tasks.md` planning narrative — and in a satellite repository it is the
-change's only content, so the directory boundary above would leave that branch with no
-implementation commit. A `:(exclude)` pathspec beats a positive one in the same `add`, so it needs
-its own `add` after the exclude, guarded so a `link.md`-less change still commits cleanly —
-`<agents repo>/scripts/commit-split.sh` guards it.
+**`link.md` is never committed either.** It lives in the gitignored
+`<project>/spectre/changes/<name>/`, on disk in each worktree, like the rest of the change
+directory.
 
 `git add -A` respects `<project>/.gitignore`. Never force-add.
 
@@ -78,7 +74,7 @@ its own `add` after the exclude, guarded so a `link.md`-less change still commit
 **A commit a run instructs defaults to the pathspec-scoped form.** `git commit -m "<subject>" -- <paths>`:
 the commit carries only the paths it names, whatever else the index holds. A plain commit takes
 the whole staged tree with it, so wherever a run's instructions know the paths a commit should carry,
-the commit names them. The guarded two-commit chain (**The guarded two-commit chain**,
+the commit names them. The guarded commit chain (**The guarded commit chain**,
 `skills/flow-contracts/git-boundaries-commit-chain.md`) is the deliberate exception: its
 `add -A` is what picks up operator edits and new files at the human gate, which a
 pathspec-scoped commit would drop.

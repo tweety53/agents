@@ -499,7 +499,7 @@ Next:
   command's fence stays last.
 - **A bare invocation at `IN_PROGRESS` that opened a PR or handed off manually names itself** as the
   next command, because that is what the operator runs once the branch is merged. Only a run that
-  **completed** the drop and cleanup — or completed a withdrawal (**The withdrawal route**,
+  **completed** cleanup — or completed a withdrawal (**The withdrawal route**,
   `skills/flow/withdrawal.md`) — is terminal and names nothing; a run that stopped on a cleanup
   leftover names itself too, for the same reason: the operator clears what remains and runs it
   again.
@@ -718,7 +718,7 @@ A change linked to a Jira issue is named `<lowercased-key>-<slug>` — see
 ## A change's directory
 
 A change's directory is `<project>/spectre/changes/<name>/`, on disk in the worktree, never
-committed: `spectre/changes/` is gitignored and there is no archived path. Every step that reads or writes a change's planning artifacts resolves the
+committed: `<project>/spectre/changes/` is gitignored and there is no archived path. Every step that reads or writes a change's planning artifacts resolves the
 directory this way; the guards resolve it through `changePlanDir`
 (`<agents repo>/stats/internal/guard/changeplan.go`), whose bash twin KAN-887 deleted, and `flow tasks`
 through the same rule.
