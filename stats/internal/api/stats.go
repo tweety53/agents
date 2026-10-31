@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard"
-	"github.com/tweety53/agents/stats/internal/landed"
 	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
@@ -114,6 +113,9 @@ var _ StatsStore = (*store.Store)(nil)
 type statsHandler struct {
 	store  StatsStore
 	logger *slog.Logger
+	// changeFiles is WithChangeFiles' store: a finished change's saved plan.
+	// Nil reads none.
+	changeFiles ChangeFileStore
 	// commitBase is WithCommitBase's value: the URL a fixed self-review
 	// finding's sha is appended to, or "" for no link.
 	commitBase string
@@ -565,7 +567,11 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 			s, m := mapStoreError(h.logger, "state board", err)
 			return nil, s, m
 		}
-		return toStateBoardDTOs(board, change != nil), 0, ""
+		var saved savedFile
+		if change != nil {
+			saved = h.savedFile(ctx)
+		}
+		return toStateBoardDTOs(board, saved), 0, ""
 
 	case viewCostPerChange:
 		// "change" scopes the aggregate to one change in SQL: the run page's header reads one change's totals.
@@ -827,15 +833,14 @@ func requestTasks(reqs []records.Request) []taskDTO {
 var planTask = regexp.MustCompile(`(?m)^- \[([ x])\] (\d+)\. (.*)$`)
 
 // planTasks reads a change's tasks.md from the first of its roots (its
-// worktrees, then its project's main checkout) that has one -- for a
-// finished change, whose directory integrate's run 1 dropped, the copy in
-// git history (stats/internal/landed). A finished change's
-// plan is read only when finished is true, the board scoped to that one
-// change: the whole board lists every finished change it ever held. A task is done when ticked or committed by an
+// worktrees, then its project's main checkout) that has one, else the copy
+// saved in flowd (readPlanFile). A finished change's plan is read only when
+// saved is set, the board scoped to that one change: the whole board lists
+// every finished change it ever held. A task is done when ticked or committed by an
 // implementer (a gated task's tick waits on its reviewer), in progress when a
 // running subagent works on it, pending otherwise. Nil when no tasks.md is found.
-func planTasks(r store.LiveStateRow, finished bool) []taskDTO {
-	return readPlan(r, r.Name, finished, func(n string) string {
+func planTasks(r store.LiveStateRow, saved savedFile) []taskDTO {
+	return readPlan(r, r.Name, saved, func(n string) string {
 		switch {
 		case slices.Contains(r.CommittedTasks, n):
 			return "done"
@@ -851,22 +856,20 @@ func planTasks(r store.LiveStateRow, finished bool) []taskDTO {
 // the change's. A task is done when
 // ticked, pending otherwise: a running dispatch's task id does not say which
 // of the two plans it belongs to.
-func selfReviewTasks(r store.LiveStateRow, finished bool) []taskDTO {
+func selfReviewTasks(r store.LiveStateRow, saved savedFile) []taskDTO {
 	sub := r
 	sub.RepoRoots = append(slices.Clone(r.SelfReviewRoots), r.RepoRoots...)
-	return readPlan(sub, "self-review-"+r.Name, finished, func(string) string { return "pending" })
+	return readPlan(sub, "self-review-"+r.Name, saved, func(string) string { return "pending" })
 }
 
 // readPlan parses change name's tasks.md for row r, nil when no root holds
-// one, or for a finished change unless finished is true. Each root's live
-// tasks.md is read first; with no live copy each root's dropped copy is read
-// from history (landed.File). A ticked task is done; untick names an
-// unticked one's state.
-func readPlan(r store.LiveStateRow, name string, finished bool, untick func(n string) string) []taskDTO {
-	if r.State == store.StateFinished && !finished {
+// one, or for a finished change unless saved is set (readPlanFile). A
+// ticked task is done; untick names an unticked one's state.
+func readPlan(r store.LiveStateRow, name string, saved savedFile, untick func(n string) string) []taskDTO {
+	if r.State == store.StateFinished && saved == nil {
 		return nil
 	}
-	if b, ok := readPlanFile(r, name); ok {
+	if b, ok := readPlanFile(r, name, saved); ok {
 		var out []taskDTO
 		for _, m := range planTask.FindAllStringSubmatch(string(b), -1) {
 			n, _ := strconv.Atoi(m[2])
@@ -881,37 +884,50 @@ func readPlan(r store.LiveStateRow, name string, finished bool, untick func(n st
 	return nil
 }
 
-// readPlanFile is readPlan's tasks.md: the first root's live copy, else the
-// first root whose history holds the dropped copy -- a finished row, or an
-// IN_PROGRESS one whose run 1 already dropped the directory.
-func readPlanFile(r store.LiveStateRow, name string) ([]byte, bool) {
+// readPlanFile is readPlan's tasks.md: the first root's live copy, else
+// the copy saved in flowd at cleanup (KAN-1073) -- a finished change whose
+// worktrees are gone. saved is nil where no saved copy may be read.
+func readPlanFile(r store.LiveStateRow, name string, saved savedFile) ([]byte, bool) {
 	for _, root := range r.RepoRoots {
 		if b, err := os.ReadFile(filepath.Join(guard.ChangeDir(filepath.Join(root, "spectre", "changes"), name), "tasks.md")); err == nil {
 			return b, true
 		}
 	}
-	// A finished row is read only on a single-change board; an in-flight one
-	// is polled every render, so it reads HEAD's recent commits alone.
-	read := landed.Recent
-	if r.State == store.StateFinished {
-		read = landed.File
+	if saved == nil {
+		return nil, false
 	}
-	for _, root := range r.RepoRoots {
-		if b, ok, _ := read(root, name, "tasks.md"); ok {
-			return b, true
-		}
-	}
-	return nil, false
+	return saved(r.ProjectKey, name, "tasks.md")
 }
 
-// toStateBoardDTOs converts the board's rows; single is a board scoped to one
-// change, the only one whose finished rows read their plans from disk.
-func toStateBoardDTOs(rows []store.LiveStateRow, single bool) []stateBoardRowDTO {
+// savedFile reads one file a change saved in flowd, false when none is.
+type savedFile func(project, change, path string) ([]byte, bool)
+
+// savedFile reads h's change files under ctx. A read failure other than
+// absence is logged and read as absence: the board still renders.
+func (h *statsHandler) savedFile(ctx context.Context) savedFile {
+	return func(project, change, path string) ([]byte, bool) {
+		if h.changeFiles == nil {
+			return nil, false
+		}
+		body, err := h.changeFiles.GetChangeFile(ctx, project, change, path)
+		if err != nil {
+			if !errors.Is(err, store.ErrChangeFileNotFound) && !errors.Is(err, store.ErrChangeNotFound) {
+				h.logger.Warn("read saved change file", "project", project, "change", change, "path", path, "err", err)
+			}
+			return nil, false
+		}
+		return []byte(body), true
+	}
+}
+
+// toStateBoardDTOs converts the board's rows; saved is set on a board scoped
+// to one change, the only one whose finished rows read their plans.
+func toStateBoardDTOs(rows []store.LiveStateRow, saved savedFile) []stateBoardRowDTO {
 	out := make([]stateBoardRowDTO, len(rows))
 	for i, r := range rows {
 		tasks := requestTasks(r.Requests)
 		if tasks == nil {
-			tasks = planTasks(r, single)
+			tasks = planTasks(r, saved)
 		}
 		command := ""
 		if r.Command != nil {
@@ -940,7 +956,7 @@ func toStateBoardDTOs(rows []store.LiveStateRow, single bool) []stateBoardRowDTO
 			LastStageEndedAt:      rfc3339OrNil(r.LastStageEndedAt),
 			DoneTasks:             r.DoneTasks,
 			Tasks:                 tasks,
-			SelfReviewTasks:       selfReviewTasks(r, single),
+			SelfReviewTasks:       selfReviewTasks(r, saved),
 			Subagents:             r.Subagents,
 			SessionSeenAt:         rfc3339OrNil(r.SessionSeenAt),
 			OpenStageDispatches:   r.OpenStageDispatches,

@@ -2,16 +2,12 @@ package lessons
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
-	"time"
 )
 
-// writeRepo lays down one project root's tree: a briefs home with the
-// named files and one landed narrative per change, in git history.
-func writeRepo(t *testing.T, briefs map[string]string, narratives map[string]string) string {
+// writeRepo lays down one project root's briefs home with the named files.
+func writeRepo(t *testing.T, briefs map[string]string) string {
 	t.Helper()
 	root := t.TempDir()
 	for name, content := range briefs {
@@ -23,43 +19,12 @@ func writeRepo(t *testing.T, briefs map[string]string, narratives map[string]str
 			t.Fatalf("write brief: %v", err)
 		}
 	}
-	for change, content := range narratives {
-		landNarrative(t, root, change, content, time.Now())
-	}
 	return root
 }
 
-// landNarrative commits change's narrative.md into root's history and drops
-// it from the tip, as integrate's run 1 does, at commit time when.
-func landNarrative(t *testing.T, root, change, content string, when time.Time) {
-	t.Helper()
-	path := filepath.Join(root, "spectre/changes", change, "narrative.md")
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("mkdir change: %v", err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatalf("write narrative: %v", err)
-	}
-	date := when.Format(time.RFC3339)
-	for _, args := range [][]string{
-		{"init", "-q"},
-		{"add", "spectre"},
-		{"commit", "-q", "-m", "plan " + change},
-		{"rm", "-r", "-q", "spectre/changes/" + change},
-		{"commit", "-q", "-m", "chore(spectre): drop " + change},
-	} {
-		cmd := exec.Command("git", append([]string{"-C", root, "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false"}, args...)...)
-		cmd.Env = append(os.Environ(), "GIT_COMMITTER_DATE="+date, "GIT_AUTHOR_DATE="+date)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("git %v: %v\n%s", args, err, out)
-		}
-	}
-}
-
-func TestResolveBriefOutranksNarrative(t *testing.T) {
+func TestResolveReadsTheBrief(t *testing.T) {
 	root := writeRepo(t,
-		map[string]string{"flake-bisection.md": "# Flake bisection brief\n\nStart from the smallest reproducing subset.\n"},
-		map[string]string{"kan-527-fix-the-flake": "# kan-527 — session narrative\n\n- re-derived the flake-bisection brief from scratch\n"})
+		map[string]string{"flake-bisection.md": "# Flake bisection brief\n\nStart from the smallest reproducing subset.\n"})
 	res, err := Resolve([]Root{{Path: root}}, "flake-bisection")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
@@ -73,18 +38,11 @@ func TestResolveBriefOutranksNarrative(t *testing.T) {
 	if res.Briefs[0].Title != "Flake bisection brief" {
 		t.Errorf("title = %q", res.Briefs[0].Title)
 	}
-	if len(res.Mentions) != 1 {
-		t.Fatalf("mentions = %d, want 1", len(res.Mentions))
-	}
-	if res.Mentions[0].Change != "kan-527-fix-the-flake" {
-		t.Errorf("change = %q", res.Mentions[0].Change)
-	}
 }
 
 func TestResolveMatchesAcrossFolding(t *testing.T) {
 	root := writeRepo(t,
-		map[string]string{"flake_bisection.md": "# Flake Bisection\n\nbody\n"},
-		nil)
+		map[string]string{"flake_bisection.md": "# Flake Bisection\n\nbody\n"})
 	res, err := Resolve([]Root{{Path: root}}, "Flake-Bisection")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
@@ -125,38 +83,6 @@ func TestResolveEmptyTopicIsRefused(t *testing.T) {
 	}
 }
 
-func TestResolveMentionLinesAreCappedAndNewestFirst(t *testing.T) {
-	line := strings.Repeat("- flake bisection mention ", 1) + "%d"
-	old := t.TempDir()
-	landNarrative(t, old, "kan-100-old", strings.Repeat(line+"\n", matchLineCap+3), time.Now().Add(-time.Hour))
-	new := writeRepo(t, nil, map[string]string{"kan-200-new": strings.Repeat(line+"\n", 1)})
-
-	res, err := Resolve([]Root{{Path: old}, {Path: new}}, "flake bisection")
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
-	if len(res.Mentions) != 2 {
-		t.Fatalf("mentions = %d, want 2", len(res.Mentions))
-	}
-	if res.Mentions[0].Change != "kan-200-new" {
-		t.Errorf("first mention = %q, want the newest", res.Mentions[0].Change)
-	}
-	if got := len(res.Mentions[1].Lines); got != matchLineCap {
-		t.Errorf("capped lines = %d, want %d", got, matchLineCap)
-	}
-}
-
-func TestResolveNonMatchingNarrativeIsAbsent(t *testing.T) {
-	root := writeRepo(t, nil, map[string]string{"kan-300": "# narrative\n\n- unrelated work only\n"})
-	res, err := Resolve([]Root{{Path: root}}, "flake bisection")
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
-	if len(res.Mentions) != 0 {
-		t.Fatalf("mentions = %d, want 0", len(res.Mentions))
-	}
-}
-
 // TestResolveUnreadableFileIsReported pins the per-file rule: one brief that
 // cannot be read inside a readable root is an environmental
 // failure reported in Unreadable, never silence a caller could mistake for
@@ -166,8 +92,7 @@ func TestResolveUnreadableFileIsReported(t *testing.T) {
 		t.Skip("root reads a 0o000 file; the permission denial is impossible")
 	}
 	root := writeRepo(t,
-		map[string]string{"flake-bisection.md": "# Flake bisection brief\n\nStart small.\n"},
-		nil)
+		map[string]string{"flake-bisection.md": "# Flake bisection brief\n\nStart small.\n"})
 	briefPath := filepath.Join(root, briefsDir, "flake-bisection.md")
 	for _, path := range []string{briefPath} {
 		if err := os.Chmod(path, 0o000); err != nil {
@@ -196,54 +121,4 @@ func containsPath(paths []string, want string) bool {
 		}
 	}
 	return false
-}
-
-// TestResolveReadsHistoryInOneWalk pins the call budget: N landed changes
-// cost one git log plus one git show each, never a log walk per change.
-func TestResolveReadsHistoryInOneWalk(t *testing.T) {
-	root := t.TempDir()
-	for _, c := range []string{"kan-1", "kan-2", "kan-3"} {
-		landNarrative(t, root, c, "- flake bisection\n", time.Now())
-	}
-	real, err := exec.LookPath("git")
-	if err != nil {
-		t.Fatal(err)
-	}
-	bin, calls := t.TempDir(), filepath.Join(t.TempDir(), "calls")
-	shim := "#!/bin/sh\necho \"$*\" >> " + calls + "\nexec " + real + " \"$@\"\n"
-	if err := os.WriteFile(filepath.Join(bin, "git"), []byte(shim), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
-
-	res, err := Resolve([]Root{{Path: root}}, "flake bisection")
-	if err != nil || len(res.Mentions) != 3 {
-		t.Fatalf("Resolve = %v, %v; want 3 mentions", res, err)
-	}
-	b, _ := os.ReadFile(calls)
-	if logs := strings.Count(string(b), " log "); logs != 1 {
-		t.Errorf("git log calls = %d, want 1\n%s", logs, b)
-	}
-	if n := strings.Count(string(b), "\n"); n != 4 {
-		t.Errorf("git calls = %d, want 4 (1 log + 3 show)\n%s", n, b)
-	}
-}
-
-// TestResolveGitLogFailureIsReported pins that a broken history is reported
-// in Unreadable, never read as "no landed changes".
-func TestResolveGitLogFailureIsReported(t *testing.T) {
-	root := writeRepo(t, nil, map[string]string{"kan-9": "- flake bisection\n"})
-	if err := os.RemoveAll(filepath.Join(root, ".git", "objects")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(root, ".git", "objects"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	res, err := Resolve([]Root{{Path: root}}, "flake bisection")
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
-	if !containsPath(res.Unreadable, root) {
-		t.Fatalf("unreadable = %v, want %s reported", res.Unreadable, root)
-	}
 }

@@ -2,7 +2,6 @@ package api
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -29,7 +28,7 @@ func TestPlanTasks(t *testing.T) {
 		CommittedTasks: []string{"2"},
 		Subagents:      []store.ActiveDispatch{{Role: "implementer", TaskID: &three}},
 	}
-	got := planTasks(row, false)
+	got := planTasks(row, nil)
 	want := []taskDTO{{N: 1, Title: "Ticked", State: "done"}, {N: 2, Title: "Committed", State: "done"}, {N: 3, Title: "Running", State: "in progress"}, {N: 4, Title: "Waiting", State: "pending"}}
 	if len(got) != len(want) {
 		t.Fatalf("planTasks = %+v, want %+v", got, want)
@@ -40,59 +39,8 @@ func TestPlanTasks(t *testing.T) {
 		}
 	}
 	row.State = store.StateFinished
-	if got := planTasks(row, false); got != nil {
+	if got := planTasks(row, nil); got != nil {
 		t.Errorf("finished planTasks = %+v, want nil", got)
-	}
-}
-
-// droppedRepo is a git repository in which each named change committed
-// tasks as its tasks.md and was then dropped by a
-// `chore(spectre): drop <name>` commit, as integrate's run 1 lands it.
-func droppedRepo(t *testing.T, tasks string, names ...string) string {
-	t.Helper()
-	dir := t.TempDir()
-	git := func(args ...string) {
-		t.Helper()
-		cmd := exec.Command("git", append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false"}, args...)...)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("git %v: %v\n%s", args, err, out)
-		}
-	}
-	git("init", "-q", "-b", "main")
-	for _, name := range names {
-		path := filepath.Join(dir, "spectre", "changes", name, "tasks.md")
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(path, []byte(tasks), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		git("add", "-A")
-		git("commit", "-q", "-m", "plan "+name)
-		git("rm", "-r", "-q", "spectre/changes/"+name)
-		git("commit", "-q", "-m", "chore(spectre): drop "+name)
-	}
-	return dir
-}
-
-// TestPlanTasksLanded pins that a finished change's plan, once integrate's
-// run 1 dropped its directory, is read from the drop commit's parent.
-func TestPlanTasksLanded(t *testing.T) {
-	root := droppedRepo(t, "- [x] 1. One\n- [ ] 2. Two\n", "kan-1")
-	got := planTasks(store.LiveStateRow{Name: "kan-1", State: store.StateFinished, RepoRoots: []string{root}}, true)
-	if len(got) != 2 || got[0] != (taskDTO{N: 1, Title: "One", State: "done"}) || got[1] != (taskDTO{N: 2, Title: "Two", State: "pending"}) {
-		t.Fatalf("landed planTasks = %+v", got)
-	}
-}
-
-// TestPlanTasksDroppedInProgress pins that an IN_PROGRESS change whose run 1
-// dropped its directory (the PR route, before run 2) still reads its plan
-// from history.
-func TestPlanTasksDroppedInProgress(t *testing.T) {
-	root := droppedRepo(t, "- [x] 1. One\n- [ ] 2. Two\n", "kan-1")
-	got := planTasks(store.LiveStateRow{Name: "kan-1", State: store.StateInProgress, RepoRoots: []string{root}}, false)
-	if len(got) != 2 || got[0].State != "done" || got[1].Title != "Two" {
-		t.Fatalf("in-progress dropped planTasks = %+v", got)
 	}
 }
 
@@ -113,11 +61,11 @@ func TestSelfReviewTasks(t *testing.T) {
 		CommittedTasks: []string{"2"},
 		Subagents:      []store.ActiveDispatch{{Role: "implementer", TaskID: &two}},
 	}
-	got := selfReviewTasks(row, false)
+	got := selfReviewTasks(row, nil)
 	if len(got) != 2 || got[0] != (taskDTO{N: 1, Title: "Fix A", State: "done"}) || got[1] != (taskDTO{N: 2, Title: "Fix B", State: "pending"}) {
 		t.Fatalf("selfReviewTasks = %+v", got)
 	}
-	if planTasks(row, false) != nil {
+	if planTasks(row, nil) != nil {
 		t.Errorf("planTasks read the self-review plan as the change's own")
 	}
 }
@@ -134,48 +82,39 @@ func TestSelfReviewTasksFromSubRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	row := store.LiveStateRow{Name: "kan-1", State: store.StateInProgress, RepoRoots: []string{t.TempDir()}, SelfReviewRoots: []string{sub}}
-	if got := selfReviewTasks(row, false); len(got) != 1 || got[0] != (taskDTO{N: 1, Title: "Fix A", State: "pending"}) {
+	if got := selfReviewTasks(row, nil); len(got) != 1 || got[0] != (taskDTO{N: 1, Title: "Fix A", State: "pending"}) {
 		t.Fatalf("selfReviewTasks = %+v", got)
 	}
 }
 
 // TestFinishedPlanReadOnlyWhenScoped pins that a finished change's plan --
-// dropped in its main checkout's history once cleanup removed the worktrees --
-// is read for a board scoped to that change and never for the whole board.
+// saved in flowd once cleanup removed the worktrees -- is read for a board
+// scoped to that change and never for the whole board.
 func TestFinishedPlanReadOnlyWhenScoped(t *testing.T) {
-	main := droppedRepo(t, "- [x] 1. One\n", "kan-1", "self-review-kan-1")
-	row := store.LiveStateRow{Name: "kan-1", State: store.StateFinished, RepoRoots: []string{filepath.Join(main, "gone-worktree"), main}}
-	if got := planTasks(row, true); len(got) != 1 || got[0] != (taskDTO{N: 1, Title: "One", State: "done"}) {
+	row := store.LiveStateRow{ProjectKey: "p", Name: "kan-1", State: store.StateFinished, RepoRoots: []string{filepath.Join(t.TempDir(), "gone-worktree")}}
+	saved := savedPlans(map[string]string{"kan-1": "- [x] 1. One\n", "self-review-kan-1": "- [x] 1. One\n"})
+	if got := planTasks(row, saved); len(got) != 1 || got[0] != (taskDTO{N: 1, Title: "One", State: "done"}) {
 		t.Fatalf("scoped planTasks = %+v", got)
 	}
-	if got := selfReviewTasks(row, true); len(got) != 1 {
+	if got := selfReviewTasks(row, saved); len(got) != 1 {
 		t.Fatalf("scoped selfReviewTasks = %+v", got)
 	}
-	if planTasks(row, false) != nil || selfReviewTasks(row, false) != nil {
+	if planTasks(row, nil) != nil || selfReviewTasks(row, nil) != nil {
 		t.Errorf("the whole board read a finished change's plan")
 	}
-	dtos := toStateBoardDTOs([]store.LiveStateRow{row}, true)
+	dtos := toStateBoardDTOs([]store.LiveStateRow{row}, saved)
 	if len(dtos[0].Tasks) != 1 || len(dtos[0].SelfReviewTasks) != 1 {
 		t.Errorf("scoped board DTO = %+v", dtos[0])
 	}
-	if dtos := toStateBoardDTOs([]store.LiveStateRow{row}, false); dtos[0].Tasks != nil {
+	if dtos := toStateBoardDTOs([]store.LiveStateRow{row}, nil); dtos[0].Tasks != nil {
 		t.Errorf("whole board DTO carries a finished plan: %+v", dtos[0].Tasks)
 	}
 }
 
-// TestPlanTasksInFlightReadsHEADOnly pins the board poll's bound: an in-flight
-// row reads its dropped plan from its root's HEAD alone, never walking every
-// ref, while a finished row still finds a drop on another ref.
-func TestPlanTasksInFlightReadsHEADOnly(t *testing.T) {
-	root := droppedRepo(t, "- [x] 1. One\n", "kan-1")
-	cmd := exec.Command("git", "-C", root, "checkout", "-q", "--orphan", "other")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("checkout: %v\n%s", err, out)
-	}
-	if got := planTasks(store.LiveStateRow{Name: "kan-1", State: store.StateInProgress, RepoRoots: []string{root}}, false); got != nil {
-		t.Errorf("in-flight planTasks walked other refs: %+v", got)
-	}
-	if got := planTasks(store.LiveStateRow{Name: "kan-1", State: store.StateFinished, RepoRoots: []string{root}}, true); len(got) != 1 {
-		t.Errorf("finished planTasks = %+v, want the drop on main", got)
+// savedPlans is a savedFile serving tasks.md bodies by change name.
+func savedPlans(bodies map[string]string) savedFile {
+	return func(_, change, path string) ([]byte, bool) {
+		b, ok := bodies[change]
+		return []byte(b), ok && path == "tasks.md"
 	}
 }

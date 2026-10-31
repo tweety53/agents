@@ -263,11 +263,9 @@ func changePlanStoreDir(env Env, stderr io.Writer, key string) (string, int) {
 }
 
 // ChangeDir is a change's own directory under changes (a tree's
-// <spec-root>/changes): always changes/<name>. Integrate's run 1 deletes it
-// with a `chore(spectre): drop <name>` commit, and a fix run after the drop
-// restores it from the drop commit's parent before writing, so no in-run
-// reader needs another location; a reader after landing reads history
-// (stats/internal/landed). The name is the caller's to have allowlisted.
+// <spec-root>/changes): always changes/<name>, on disk only -- it is never
+// committed (KAN-1073); a reader after cleanup reads the plan flowd saved.
+// The name is the caller's to have allowlisted.
 // Every worktree changePlanDir reads -- the judged one, the canonical
 // worktree argument, the store's worktrees -- goes through it; exported for
 // `flow tasks`, which resolves no further than this.
