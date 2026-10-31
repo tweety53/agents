@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard"
+	"github.com/tweety53/agents/stats/internal/landed"
 	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
@@ -784,8 +785,9 @@ func requestTasks(reqs []records.Request) []taskDTO {
 var planTask = regexp.MustCompile(`(?m)^- \[([ x])\] (\d+)\. (.*)$`)
 
 // planTasks reads a change's tasks.md from the first of its roots (its
-// worktrees, then its project's main checkout) that has one -- the archived
-// copy once integrate's run 1 moved it (guard.ChangeDir). A finished change's
+// worktrees, then its project's main checkout) that has one -- for a
+// finished change, whose directory integrate's run 1 dropped, the copy in
+// git history (stats/internal/landed). A finished change's
 // plan is read only when finished is true, the board scoped to that one
 // change: the whole board lists every finished change it ever held. A task is done when ticked or committed by an
 // implementer (a gated task's tick waits on its reviewer), in progress when a
@@ -814,17 +816,15 @@ func selfReviewTasks(r store.LiveStateRow, finished bool) []taskDTO {
 }
 
 // readPlan parses change name's tasks.md for row r, nil when no root holds
-// one, or for a finished change unless finished is true. A ticked task is
-// done; untick names an unticked one's state.
+// one, or for a finished change unless finished is true. Each root's live
+// tasks.md is read first; a finished row then reads each root's landed copy
+// from history (landed.File). A ticked task is done; untick names an
+// unticked one's state.
 func readPlan(r store.LiveStateRow, name string, finished bool, untick func(n string) string) []taskDTO {
 	if r.State == store.StateFinished && !finished {
 		return nil
 	}
-	for _, root := range r.RepoRoots {
-		b, err := os.ReadFile(filepath.Join(guard.ChangeDir(filepath.Join(root, "spectre", "changes"), name), "tasks.md"))
-		if err != nil {
-			continue
-		}
+	if b, ok := readPlanFile(r, name); ok {
 		var out []taskDTO
 		for _, m := range planTask.FindAllStringSubmatch(string(b), -1) {
 			n, _ := strconv.Atoi(m[2])
@@ -837,6 +837,25 @@ func readPlan(r store.LiveStateRow, name string, finished bool, untick func(n st
 		return out
 	}
 	return nil
+}
+
+// readPlanFile is readPlan's tasks.md: the first root's live copy, else, for
+// a finished row, the first root whose history holds the landed copy.
+func readPlanFile(r store.LiveStateRow, name string) ([]byte, bool) {
+	for _, root := range r.RepoRoots {
+		if b, err := os.ReadFile(filepath.Join(guard.ChangeDir(filepath.Join(root, "spectre", "changes"), name), "tasks.md")); err == nil {
+			return b, true
+		}
+	}
+	if r.State != store.StateFinished {
+		return nil, false
+	}
+	for _, root := range r.RepoRoots {
+		if b, ok, _ := landed.File(root, name, "tasks.md"); ok {
+			return b, true
+		}
+	}
+	return nil, false
 }
 
 // toStateBoardDTOs converts the board's rows; single is a board scoped to one

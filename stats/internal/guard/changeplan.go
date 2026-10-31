@@ -31,14 +31,11 @@ import (
 //
 // Resolution order, per design.md's `guards-take-the-canonical-worktree-path`:
 //
-//   1. <worktree>/<spec-root>/changes/<name>/tasks.md exists → that path;
-//      or no <worktree>/<spec-root>/changes/<name>/ directory at all and
-//      <worktree>/<spec-root>/changes/archive/<name>/tasks.md exists → that
-//      path. Integrate's run 1 archives the change on its branch before the
-//      route, and a fix run after it writes into the archived directory, so
-//      the archived plan is this change's plan, not a stale copy. Every
-//      worktree read in the steps below resolves a change's directory the
-//      same way (_change_plan_change_dir).
+//   1. <worktree>/<spec-root>/changes/<name>/tasks.md exists → that path.
+//      A change's directory is only ever the live one: integrate's run 1
+//      deletes it with its drop commit, and a fix run after the drop
+//      restores it before writing (ChangeDir). Every worktree read in the
+//      steps below resolves a change's directory the same way.
 //   2. Otherwise, no local tasks.md and no local link.md for <name> here at
 //      all (the cross-repo shape where the plan lives only in the canonical
 //      repo — the change directory absent entirely, or an empty scaffold a
@@ -87,9 +84,9 @@ import (
 // left for a guard to judge, and a `peers`-relative archive lookup would
 // require duplicating spectre's own two-step search for a case this
 // repository's guards do not reach. Narrower is deliberate here, not an
-// oversight. A worktree is different: integrate's run 1 archives on the
-// change branch in a worktree that stays open until run 2, which is why
-// step 1's archived half applies to every worktree this function reads.
+// oversight. No worktree read falls back to the archive either: integrate's
+// run 1 drops the change directory rather than moving it, so no archive
+// directory of an in-flight change exists to read.
 //
 // CONTAINMENT applies to every name concatenated into a path in this
 // function: the change name (the caller's own argument, from a
@@ -266,18 +263,15 @@ func changePlanStoreDir(env Env, stderr io.Writer, key string) (string, int) {
 }
 
 // ChangeDir is a change's own directory under changes (a tree's
-// <spec-root>/changes): changes/<name> while it exists, else
-// changes/archive/<name> when that holds a tasks.md -- integrate's run 1
-// archives the change on its branch before the route, and a fix run after
-// it writes into the archived directory. The name is the caller's to have
-// allowlisted. Every worktree changePlanDir reads -- the judged one, the
-// canonical worktree argument, the store's worktrees -- goes through it, as
-// _change_plan_change_dir in the bash twin; exported for `flow tasks`, which
-// resolves no further than this.
+// <spec-root>/changes): always changes/<name>. Integrate's run 1 deletes it
+// with a `chore(spectre): drop <name>` commit, and a fix run after the drop
+// restores it from the drop commit's parent before writing, so no in-run
+// reader needs another location; a reader after landing reads history
+// (stats/internal/landed). The name is the caller's to have allowlisted.
+// Every worktree changePlanDir reads -- the judged one, the canonical
+// worktree argument, the store's worktrees -- goes through it; exported for
+// `flow tasks`, which resolves no further than this.
 func ChangeDir(changes, name string) string {
-	if !isDir(changes+"/"+name) && isFile(changes+"/archive/"+name+"/tasks.md") {
-		return changes + "/archive/" + name
-	}
 	return changes + "/" + name
 }
 

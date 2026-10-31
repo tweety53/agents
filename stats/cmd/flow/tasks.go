@@ -31,9 +31,8 @@ const tasksUsage = `usage: flow tasks tick [-C dir] <change> <task-id>
        flow tasks files [-C dir] <change> <task-id> add|remove <path>...
 
 tasks tick flips one task's own checkbox and every step checkbox in its
-body from "[ ]" to "[x]" in <dir>/<spec-root>/changes/<change>/tasks.md
--- <dir>/<spec-root>/changes/archive/<change>/tasks.md once the change
-is archived and no live directory remains -- where <spec-root> is "spectre" when <dir>/spectre/changes exists,
+body from "[ ]" to "[x]" in <dir>/<spec-root>/changes/<change>/tasks.md,
+where <spec-root> is "spectre" when <dir>/spectre/changes exists,
 "openspec" when only <dir>/openspec/changes does, and "spectre"
 otherwise. It refuses (exit 1) rather than silently no-opping when the
 task is already ticked, or when no task with that id exists in the
@@ -109,10 +108,8 @@ func specRootLeaf(dir string) string {
 // "../escape" can never walk planPath outside <dir>/<spec-root>/changes/.
 var changeNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
-// planPath returns <dir>/<spec-root>/changes/<change>/tasks.md -- or, once
-// integrate's run 1 archived the change and no live directory remains,
-// <dir>/<spec-root>/changes/archive/<change>/tasks.md (guard.ChangeDir) --
-// or an error when change fails changeNamePattern. It resolves only the
+// planPath returns <dir>/<spec-root>/changes/<change>/tasks.md
+// (guard.ChangeDir), or an error when change fails changeNamePattern. It resolves only the
 // change's own directory -- no link.md/peer indirection the way
 // stats/internal/guard/changeplan.go's changePlanPath offers guards checking
 // a different worktree's plan from outside it: flow tasks tick only
