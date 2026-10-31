@@ -12,9 +12,12 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// ErrPricingNotFound is returned by Price when no pricing row is in effect,
-// for the stage run's model, at or before its start instant.
-var ErrPricingNotFound = errors.New("store: no pricing in effect for model at stage run start")
+// ErrPricingNotFound is returned by Price when a model cannot be priced at
+// the stage run's start instant: no pricing row is in effect for it at or
+// before that instant, or one is but a component its bucket recorded is
+// one that rate cannot charge -- the error's model list annotates the
+// second case per model.
+var ErrPricingNotFound = errors.New("store: model unpriced at stage run start — no rate in effect, or a component its rate cannot charge")
 
 // ErrTokensUnavailable is returned by Price when a stage run's metrics
 // carry no usable token data to price -- because the harness recorded no
@@ -650,6 +653,8 @@ func priceCandidate(resolveRate func(string) (PricingRate, error), model string,
 	if !ok {
 		if tokens.OutputUnmeasured != nil && *tokens.OutputUnmeasured > 0 {
 			model += " (output not measured)"
+		} else {
+			model += " (a component its rate cannot charge)"
 		}
 		*missing = append(*missing, model)
 		return PricingRate{}, 0, false, nil
