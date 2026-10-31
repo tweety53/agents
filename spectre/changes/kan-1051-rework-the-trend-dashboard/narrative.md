@@ -28,3 +28,5 @@ In-run pipeline fix: 56afc108 — close-task judged every suite zip of a close r
 - The run stopped `flow.self-review`, restored the dropped change directory, and appended Task 10 (In-run fix 3). The task rewrites the sentinel text and annotates every model whose bucket its rate cannot charge. live-verification.md's line was corrected.
 - Panel round 4 ran as the small append, primary plus the always-on extras. The since-close sha was the restore commit edc923af: measured from the drop commit, the byte-identical restored change directory counted as 12,397 lines. Mutation raised one Minor surviving mutant (`> 0` → `>= 0`), fixed inline by giving the test bucket `output_unmeasured: 0`.
 - The pass's `findings.md` and `report-draft.md` could not be written by the pass subagent: the harness refused a subagent's Write of a report file. The parent kept them from the hand-back.
+
+In-run pipeline fix: deferred — check-unfinished-work flags appended tasks ticked before integrate's reshape as missing Task-Id trailers on a fix run after the reshape (blast radius 2 files)
