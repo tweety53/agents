@@ -162,6 +162,7 @@ scripts/check-hand-notes-in-step.sh
 scripts/check-normative-inventory.sh
 scripts/check-verbatim-moves.sh
 scripts/check-ask-silence.sh
+scripts/check-done-when-paths.sh .
 scripts/check-worktree-location.sh "$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')"
 cd stats && gofmt -l .
 cd stats && make -s web-dist && go vet ./...
