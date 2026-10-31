@@ -118,6 +118,7 @@ func TestChangeSaveReadsEitherPlanOrNone(t *testing.T) {
 	}{
 		{"flow-fast plan", ".superpowers/sdd/demo/tasks.md", []string{"tasks.md=fast plan", "self-review-context.md=bundle"}},
 		{"no plan", "", []string{"self-review-context.md=bundle"}},
+		{"both plans", "both", []string{"tasks.md=spectre plan", "self-review-context.md=bundle"}},
 	} {
 		t.Run(tc.label, func(t *testing.T) {
 			repo := gitRepo(t)
@@ -133,7 +134,12 @@ func TestChangeSaveReadsEitherPlanOrNone(t *testing.T) {
 				w.WriteHeader(http.StatusNoContent)
 			}))
 			defer srv.Close()
-			if tc.plan != "" {
+			switch tc.plan {
+			case "":
+			case "both":
+				writeChangeFile(t, repo, "spectre/changes/demo/tasks.md", "spectre plan")
+				writeChangeFile(t, repo, ".superpowers/sdd/demo/tasks.md", "fast plan")
+			default:
 				writeChangeFile(t, repo, tc.plan, "fast plan")
 			}
 			writeChangeFile(t, repo, ".superpowers/sdd/demo/self-review-context.md", "bundle")
