@@ -327,6 +327,39 @@ func (s *Store) GetChange(ctx context.Context, projectKey, name string) (Change,
 	return c, nil
 }
 
+// FinishedAtByChange returns updated_at -- the finish instant -- for each
+// of changeIDs whose change is FINISHED, withdrawn or not; an unfinished or
+// unknown id is absent from the map. Harvest attribution reads it to bound
+// the last-begun-stage fallback at the change's finish (decision
+// finish-instant-store-lookup). An empty list answers an empty map without a
+// query.
+func (s *Store) FinishedAtByChange(ctx context.Context, changeIDs []int64) (map[int64]time.Time, error) {
+	finished := make(map[int64]time.Time)
+	if len(changeIDs) == 0 {
+		return finished, nil
+	}
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, updated_at FROM changes WHERE id = ANY($1) AND state = 'FINISHED'`, changeIDs)
+	if err != nil {
+		return nil, fmt.Errorf("store: finished at by change: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var (
+			id int64
+			at time.Time
+		)
+		if err := rows.Scan(&id, &at); err != nil {
+			return nil, fmt.Errorf("store: finished at by change: %w", err)
+		}
+		finished[id] = at
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: finished at by change: %w", err)
+	}
+	return finished, nil
+}
+
 // ListChanges returns every change recorded for projectKey, in name order,
 // with no filtering, search or paging beyond that project scope -- every
 // matching row, always. It exists only because tasks 2 and 2.1's tests

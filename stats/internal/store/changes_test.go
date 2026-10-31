@@ -897,3 +897,46 @@ func TestFindChangesByNameUnknownIsEmpty(t *testing.T) {
 		t.Fatalf("FindChangesByName(unknown) returned %d changes, want 0", len(got))
 	}
 }
+
+// TestFinishedAtByChange pins decision finish-instant-store-lookup: only a
+// FINISHED change -- withdrawn or not -- has a finish instant, its
+// updated_at, and an id no change has is simply absent.
+func TestFinishedAtByChange(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	finishedAt := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	withdrawnAt := time.Date(2026, 10, 2, 9, 0, 0, 0, time.UTC)
+	changeID := func(name string, state store.State, withdrawn bool, at time.Time) int64 {
+		t.Helper()
+		c := baseChange("agents", name)
+		c.State, c.Withdrawn, c.UpdatedAt = state, withdrawn, at
+		if err := st.PutChange(ctx, c); err != nil {
+			t.Fatalf("PutChange %s: %v", name, err)
+		}
+		run, err := st.BeginStage(ctx, store.BeginStageInput{
+			ProjectKey: "agents", ChangeName: name, Harness: "claude-code",
+			Command: "/flow", Stage: "do.tests", StartedAt: at.Add(-time.Hour),
+		})
+		if err != nil {
+			t.Fatalf("BeginStage %s: %v", name, err)
+		}
+		return run.ChangeID
+	}
+	a := changeID("kan-finished", store.StateFinished, false, finishedAt)
+	b := changeID("kan-open", store.StateInProgress, false, finishedAt)
+	c := changeID("kan-withdrawn", store.StateFinished, true, withdrawnAt)
+
+	got, err := st.FinishedAtByChange(ctx, []int64{a, b, c, 0})
+	if err != nil {
+		t.Fatalf("FinishedAtByChange: %v", err)
+	}
+	if len(got) != 2 || !got[a].Equal(finishedAt) || !got[c].Equal(withdrawnAt) {
+		t.Errorf("FinishedAtByChange = %v, want {%d: %v, %d: %v}", got, a, finishedAt, c, withdrawnAt)
+	}
+
+	empty, err := st.FinishedAtByChange(ctx, nil)
+	if err != nil || len(empty) != 0 {
+		t.Errorf("FinishedAtByChange(nil) = %v, %v, want an empty map", empty, err)
+	}
+}

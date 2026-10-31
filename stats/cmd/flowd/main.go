@@ -504,7 +504,9 @@ func newTranscriptWatcher(transcriptsRoot, rolloutRoot string, st *store.Store, 
 // a store.Query -- QueryStageRuns' session_id filter (added to
 // internal/store/query.go's allowlist by this same task) -- so a stage
 // run's identity never crosses into internal/harvest as anything but the
-// harvest.Window shape attribution actually needs.
+// harvest.Window shape attribution actually needs. Each window's
+// ChangeFinishedAt comes from one FinishedAtByChange lookup per session
+// (decision finish-instant-store-lookup).
 type storeWindowSource struct{ st *store.Store }
 
 func (s storeWindowSource) WindowsForSession(ctx context.Context, sessionID string) ([]harvest.Window, error) {
@@ -515,15 +517,29 @@ func (s storeWindowSource) WindowsForSession(ctx context.Context, sessionID stri
 	if err != nil {
 		return nil, err
 	}
+	changeIDs := make([]int64, 0, len(runs))
+	for _, r := range runs {
+		if r.ChangeID != 0 {
+			changeIDs = append(changeIDs, r.ChangeID)
+		}
+	}
+	finished, err := s.st.FinishedAtByChange(ctx, changeIDs)
+	if err != nil {
+		return nil, err
+	}
 	windows := make([]harvest.Window, 0, len(runs))
 	for _, r := range runs {
-		windows = append(windows, harvest.Window{
+		w := harvest.Window{
 			StageRunID: r.ID,
 			Attempt:    r.Attempt,
 			SessionID:  sessionID,
 			StartedAt:  r.StartedAt,
 			EndedAt:    r.EndedAt,
-		})
+		}
+		if at, ok := finished[r.ChangeID]; ok {
+			w.ChangeFinishedAt = &at
+		}
+		windows = append(windows, w)
 	}
 	return windows, nil
 }
