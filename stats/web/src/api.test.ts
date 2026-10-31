@@ -16,6 +16,11 @@ import { CHANGE_VARIABLE_SORT_FIELD } from "./components/ChangeVariable";
 import { RUN_DETAIL_STAGE_RUN_SORT_FIELD } from "./hooks/useRunDetail";
 
 describe("buildStatsViewQuery", () => {
+  it("sends projects=1 only when projects is asked for", () => {
+    const from = new Date("2026-01-01T00:00:00Z");
+    expect(buildStatsViewQuery({ from, to: from, projects: true }).get("projects")).toBe("1");
+    expect(buildStatsViewQuery({ from, to: from }).has("projects")).toBe(false);
+  });
   it("carries from and to as RFC 3339 instants", () => {
     const qs = buildStatsViewQuery({
       from: new Date("2026-01-01T00:00:00.000Z"),

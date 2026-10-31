@@ -10,6 +10,8 @@
 // (leaderboard-project-chips-with-spend). The Project chip reaches the
 // request; the Command chip filters the returned rows client-side.
 //
+// Rows and projects under half a cent are dropped, as the prototype does.
+//
 // Two requests -- the chosen window and the equal window before it -- are
 // joined on command/stage for each stage's growth
 // (leaderboard-previous-window-call). Their bounds are computed when a Period
@@ -107,14 +109,15 @@ export function StageLeaderboard(_props: ViewProps) {
   const [f, setF] = useState<Filters>(defaults);
   const project = f.project ?? undefined;
   const length = f.to.getTime() - f.from.getTime();
-  const cur = useStatsView<StageLeaderboardRow[]>("stage-leaderboard", { from: f.from, to: f.to, project });
+  const cur = useStatsView<StageLeaderboardRow[]>("stage-leaderboard", { from: f.from, to: f.to, project, projects: true });
   const prev = useStatsView<StageLeaderboardRow[]>("stage-leaderboard", { from: new Date(f.from.getTime() - length), to: f.from, project });
 
   const offDefaults = f.period !== "30d" || f.project !== null || f.command !== null;
   const ready = cur.status === "ready" && prev.status === "ready" && cur.data.recorded && !cur.data.unmeasured;
-  const all = cur.status === "ready" ? cur.data.rows : [];
+  const costed = (r: { totalCostUsd: number }) => r.totalCostUsd >= 0.005;
+  const all = cur.status === "ready" ? cur.data.rows.filter(costed) : [];
   const prevRows = prev.status === "ready" ? prev.data.rows : [];
-  const projects = cur.status === "ready" ? (cur.data.projects ?? []) : [];
+  const projects = cur.status === "ready" ? (cur.data.projects ?? []).filter(costed) : [];
   const byCommand = (r: StageLeaderboardRow) => f.command === null || r.command === f.command;
 
   const cmdSpend = new Map<string, number>();

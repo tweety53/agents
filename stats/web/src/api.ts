@@ -123,6 +123,8 @@ export interface StatsViewParams {
    * (the stats-views requirement "A model restriction on the live
    * state board"). */
   model?: string;
+  /** Ask stage-leaderboard for its per-project spend (`projects=1`). */
+  projects?: boolean;
   /**
    * The command and stage naming the exact cost-per-change *row* to break
    * down -- required together with breakdown and change, both of them,
@@ -601,6 +603,9 @@ export function buildStatsViewQuery(params: StatsViewParams): URLSearchParams {
   }
   if (params.class) {
     qs.set("class", params.class);
+  }
+  if (params.projects) {
+    qs.set("projects", "1");
   }
   return qs;
 }

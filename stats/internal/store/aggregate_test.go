@@ -354,7 +354,8 @@ func TestStageLeaderboardProjects(t *testing.T) {
 	}
 	costRun(t, st, run(projA, "a1", 2), 3)
 	costRun(t, st, run(projA, "a2", 3), 1)
-	costRun(t, st, run(projB, "b1", 4), 2)
+	// projB outspends projA though it sorts after it: spend order, not key order.
+	costRun(t, st, run(projB, "b1", 4), 5)
 	outside := run(projA, "a3", 2)
 	outside.StartedAt = time.Date(2026, 7, 2, 10, 0, 0, 0, time.UTC)
 	costRun(t, st, outside, 100)
@@ -374,7 +375,7 @@ func TestStageLeaderboardProjects(t *testing.T) {
 			mine = append(mine, p)
 		}
 	}
-	want := []store.ProjectSpend{{ProjectKey: projA, TotalCostUSD: 4}, {ProjectKey: projB, TotalCostUSD: 2}}
+	want := []store.ProjectSpend{{ProjectKey: projB, TotalCostUSD: 5}, {ProjectKey: projA, TotalCostUSD: 4}}
 	if !slices.Equal(mine, want) {
 		t.Errorf("StageLeaderboardProjects = %+v, want %+v", mine, want)
 	}

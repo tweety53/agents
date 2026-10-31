@@ -160,6 +160,9 @@ func acceptedViewNames() string {
 // filter/sort surface of its own to delegate that check to.
 var statsQueryParams = map[string]bool{
 	"from": true, "to": true, "project": true, "change": true, "model": true, "class": true,
+	// "projects=1" asks stage-leaderboard for its per-project spend; the
+	// view sends it on its current-window call only.
+	"projects": true,
 }
 
 // planClasses are the values the "class" parameter accepts: plan-class.sh's
@@ -509,7 +512,7 @@ func (h *statsHandler) view(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp.Rows = rows
-	if name == viewStageLeaderboard {
+	if name == viewStageLeaderboard && firstValue(values, "projects") == "1" {
 		spends, err := h.store.StageLeaderboardProjects(r.Context(), period)
 		if err != nil {
 			status, msg := mapStoreError(h.logger, "stage leaderboard projects", err)
