@@ -104,10 +104,10 @@ func (c *ic) commit() {
 		c.pushBranch(c.wt[o])
 		c.pushPin(c.wt[o])
 	}
-	c.markBegin("flow.self-review")
 	if done, _ := c.selfReviewCompleted(); done {
 		c.say("NEXT: flow.self-review has already completed — skip the pass; integrate-change.sh land " + c.main + " " + c.name + " " + c.flags())
 	} else {
+		c.markBegin("flow.self-review")
 		c.say("NEXT: run the self-review pass over `flow self-review bundle -C " + c.canon + " -change " + c.name + "` and end flow.self-review completed, then integrate-change.sh land " + c.main + " " + c.name + " " + c.flags())
 	}
 }
