@@ -47,12 +47,3 @@ On reusing step 2's merge status rather than re-deriving it:
 > branch — and because both blocks end in `/flow <name>`, neither can contradict the other
 > about what to run next.
 
-## SKILL.md — 4. Detail view, task progress (KAN-1072)
-
-Run 1 drops the change directory instead of archiving it, and a fix run after the drop restores it
-(decision landing-drop-replaces-archive), so an open change is always in `spectre list --json`.
-Moved verbatim, the archived-change branch that no longer applies:
-
-A change already
-  archived on its branch is absent from that list: count the column-0 `- [x]` and `- [ ]` task
-  lines of its archived `tasks.md` in the worktree instead.

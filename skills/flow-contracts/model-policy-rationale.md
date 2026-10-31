@@ -67,8 +67,6 @@ the archive commit, onto `spectre/<name>` (kan-552), so it stays answerable afte
 deferred self-review whose rows never reached the store reads that copy rather than losing the
 record with the worktree. An after-the-fact audit of which model
 implemented which task therefore reads the preserved ledger rather than a transcript nobody kept.
-The preservation duty itself is stated once, under
-**Archive on the change branch** (`skills/flow-contracts/finish-contract-run1.md`), step 2.
 
 Every panel slot is a prompt-driven role, with no agent
 definition of its own (**The roster**, `skills/flow/review-panel.md`) — and no
