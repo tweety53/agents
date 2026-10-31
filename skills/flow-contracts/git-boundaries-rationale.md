@@ -12,8 +12,7 @@ IDE, and committing would take that away.
 **Both commits are guarded, and an empty one is skipped rather than failed.** `git commit` exits
 non-zero when nothing is staged, so an unguarded two-commit sequence dead-ends on three ordinary
 cases: a fix touching only the two planning paths leaves the implementation commit empty — which
-is exactly what run 1's unfinished-work **Stop** course invites — a fix touching only implementation
-leaves the planning commit empty, and a re-run after a rejected push finds both commits already
+is exactly what run 1's unfinished-work **Stop** course invites — and a re-run after a rejected push finds both commits already
 made. Each commit is therefore preceded by a staged-changes test, and the whole sequence is one
 `&&` chain:
 
@@ -33,29 +32,3 @@ it" and "so wherever a run's instructions know the paths a commit should carry, 
 them": "— gymie kan-469's visual-verify step swept a ~130-file pre-staged foreign tree into a
 baselines commit in a main checkout, and gymie kan-468 lost task commits to staged planning
 artifacts the same way —".
-
-**Why planning artifacts are committed at the plan gate rather than held uncommitted until
-integrate.** An uncommitted change folder blocked every cross-repo change: `spectre link` refuses
-while the canonical change directory carries uncommitted modifications, so each link needed an
-operator-approved `--force`, and each link rewrote `link.md`, dirtying the folder again for the
-next one. Held uncommitted, the plan was also the one copy a reviewer's `git checkout` could
-destroy. Committing the folder once the operator has approved it — and again at each later
-boundary where the run itself edits it — removes both, while the task-commit check keeps planning
-out of every implementation commit.
-
-**Why integrate folds the planning commits into one on landing.** From 2026-09-24 (commit
-0c406421) to 2026-10-05 integrate kept every planning commit as the separate commit it was made
-as, rebuilding each on the merge base, so the operator was not shown already-approved plan edits
-again as one new commit. Rejected on 2026-10-05 by operator decision: a /flow change landed 30–40
-commits all titled `chore(spectre): plan`, and gymie PR #88 (develop → main) carried about 85 of
-them — identical subjects that say nothing apart and bury the implementation commits in the base's
-history. The commits stay on the branch during the run, where they back the branch up and give
-reviewers the committed plan; landing needs only their sum.
-
-**Why a location guard on planning commits.** `spectre link` must run from a repository's primary
-checkout to resolve its peers file, so the directory a link commit is made from is one `cd` away
-from the landing target. A link commit there lands change-folder content on the base branch, or on
-whatever branch the main checkout holds, where no reshape, review or archive step of the change
-sees it. `check-planning-commit-location.sh` refuses any planning commit outside the change's own
-worktree and branch; `hooks/protect-main-checkout.py` covers only a main checkout on its default
-branch, and only under a harness that registers it.
