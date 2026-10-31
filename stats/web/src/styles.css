@@ -1146,3 +1146,30 @@ td.lb-clip { max-width: 0; width: 100%; }
   padding: 24px;
   text-align: center;
 }
+
+/* Trend (KAN-1051): tr-* rules new to this view; everything else is the app's theme.css + styles.css. */
+.tr .up { color: var(--delta-up); }
+.tr .down { color: var(--delta-down); }
+.tr-tiles { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.tr-tile { cursor: default; }
+.tr-note { color: var(--text-secondary); font-size: 12px; }
+.tr-chart { position: relative; }
+.tr-chart svg { display: block; width: 100%; height: auto; }
+.tr-chart .grid line { stroke: var(--border); }
+.tr-chart .axis text { fill: var(--text-muted); font-size: 11px; font-family: var(--font-mono); }
+.tr-chart .median { fill: none; stroke: var(--series-1); stroke-width: 2; }
+.tr-chart .mean { fill: none; stroke: var(--series-4); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.tr-chart .pt { fill: var(--series-1); }
+.tr-chart .fc { fill: color-mix(in srgb, var(--marker) 55%, transparent); }
+.tr-chart .hit { fill: transparent; cursor: crosshair; }
+.tr-chart .hit:hover { fill: color-mix(in srgb, var(--text-primary) 5%, transparent); }
+.tr-chart .guide { stroke: var(--border-strong); stroke-width: 1; }
+.tr-legend { display: flex; gap: 14px; font-size: 12px; color: var(--text-secondary); padding: 0 0 8px; flex-wrap: wrap; }
+.tr-legend i { display: inline-block; width: 14px; height: 0; border-top: 2px solid var(--series-1); vertical-align: middle; margin-right: 6px; }
+.tr-legend i.mean { border-top: 2px dashed var(--series-4); }
+.tr-legend i.fc { height: 8px; border: 0; background: color-mix(in srgb, var(--marker) 55%, transparent); }
+.tr-tip { position: absolute; pointer-events: none; background: var(--surface-tip); border: 1px solid var(--border-strong); border-radius: var(--panel-radius);
+  padding: 6px 9px; font-size: 12px; white-space: nowrap; display: none; }
+.tr-tip b { display: block; margin-bottom: 2px; }
+.tr .lb-table td.r, .tr .lb-table th.r { text-align: right; font-variant-numeric: tabular-nums; }
+.tr-empty { padding: 18px 12px; color: var(--text-muted); }
