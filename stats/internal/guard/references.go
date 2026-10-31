@@ -98,7 +98,6 @@ var crExpectedZero = []struct {
 			"skills/flow-contracts/SKILL.md",
 			"skills/flow-contracts/lessons.md",
 			"skills/call-efficiency-audit/SKILL.md",
-			"skills/flow-design-audit/SKILL.md",
 		}},
 	{"reviewer-prompt file, deliberately self-contained — most cite no .md/.mdc path anywhere, and the rest never pair a citation with an adjacent bold section name",
 		[]string{

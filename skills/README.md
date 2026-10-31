@@ -52,7 +52,6 @@ still apply.
 | `/flow-self-review <name>` | `flow-self-review` | Runs a change's self-review pass, a one-shot opus dispatch whose non-big findings are planned in full, from the context bundle an older `/flow` or `/flow-fast` run saved; the same pass runs inside `/flow`'s integrate and `/flow-fast`'s verify. Standalone, not a pipeline stage. Fixes and lands every non-big finding; files the big ones. |
 | `/flow-prompt-tuning` | `flow-prompt-tuning` | Applies the generic implementer/reviewer prompt updates the self-review's prompt-tuning angle saved, after an A/B replay proves each; records each case in docs/prompt-tuning/LEDGER.md and removes its folder. Standalone, not a pipeline stage. |
 | `/call-efficiency-audit` | `call-efficiency-audit` | Measures a running dev stack's call efficiency — browser request log, per-endpoint SQL statement counts, cache `MONITOR` — and reports repeated reads, repeated queries within a request and per-item queries. Standalone, not a pipeline stage. |
-| `/flow-design-audit <doc>` | `flow-design-audit` | Audits a Gymie flow doc or review page (frames, catalog, rules, data files) for inconsistency, ambiguity and missing critical dimensions; fixes the first two, presents the third for approval. Standalone, not a pipeline stage. |
 
 Each row says what a command is *for*. Its stages, in order, are stated once under
 **Level 1 — the stages of each command** (`README.md`) and are deliberately not
@@ -71,7 +70,6 @@ skills/
 ├── flow-self-review/   ← /flow-self-review (self-review pass)
 ├── flow-prompt-tuning/ ← /flow-prompt-tuning (replay and apply saved prompt updates)
 ├── call-efficiency-audit/ ← /call-efficiency-audit (measure a dev stack's call efficiency)
-├── flow-design-audit/  ← /flow-design-audit (audit a Gymie flow doc or review page)
 └── flow-contracts/    ← on-demand contracts; `pipeline.md` is canonical for the state machine
 ```
 

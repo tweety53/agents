@@ -896,11 +896,6 @@ func (s *gsScan) coverage(skillNames []string, required []gsRow) (*coverage, err
 			return nil, gsRefusal(fmt.Sprintf("%v\ncheck-guard-symlinks: coverage_declare failed for 'call-efficiency-audit' (see stderr above)\n", err))
 		}
 	}
-	if slices.Contains(skillNames, "flow-design-audit") {
-		if err := cov.declare("flow-design-audit", "invokes no guard — a standalone design-doc audit skill run on a Gymie design artifact, not a pipeline stage"); err != nil {
-			return nil, gsRefusal(fmt.Sprintf("%v\ncheck-guard-symlinks: coverage_declare failed for 'flow-design-audit' (see stderr above)\n", err))
-		}
-	}
 	if slices.Contains(skillNames, "flow-experiment-close") {
 		if err := cov.declare("flow-experiment-close", "invokes no guard — a standalone closing skill that only calls the flow CLI, not a pipeline stage"); err != nil {
 			return nil, gsRefusal(fmt.Sprintf("%v\ncheck-guard-symlinks: coverage_declare failed for 'flow-experiment-close' (see stderr above)\n", err))
