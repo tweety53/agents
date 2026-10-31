@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -112,7 +113,7 @@ func TestCommitSplit(t *testing.T) {
 		t.Parallel()
 		fx := csNew(t)
 		writeFile(t, fx.wt+"/src.md", "impl change\n")
-		writeFile(t, fx.wt+"/spectre/changes/plan.md", "plan change\n")
+		writeFile(t, fx.wt+"/spectre/changes/demo/plan.md", "plan change\n")
 		rc, out := fx.split(t, fx.wt, "case1")
 		check(t, rc == 0, "exit", "rc=%d out=%s", rc, out)
 		s := fx.subjects(t)
@@ -128,7 +129,7 @@ func TestCommitSplit(t *testing.T) {
 	t.Run("2 implementation commit skipped when only planning paths changed", func(t *testing.T) {
 		t.Parallel()
 		fx := csNew(t)
-		writeFile(t, fx.wt+"/spectre/changes/only.md", "plan only\n")
+		writeFile(t, fx.wt+"/spectre/changes/demo/only.md", "plan only\n")
 		rc, out := fx.split(t, fx.wt, "case2")
 		check(t, rc == 0, "exit", "rc=%d out=%s", rc, out)
 		s := fx.subjects(t)
@@ -186,7 +187,7 @@ func TestCommitSplit(t *testing.T) {
 	t.Run("6 link.md is implementation, its siblings planning", func(t *testing.T) {
 		t.Parallel()
 		fx := csNew(t)
-		d := fx.wt + "/spectre/changes/kan-363/"
+		d := fx.wt + "/spectre/changes/demo/"
 		for _, f := range []string{"link", "proposal", "design", "tasks"} {
 			writeFile(t, d+f+".md", f+"\n")
 		}
@@ -196,7 +197,7 @@ func TestCommitSplit(t *testing.T) {
 		check(t, has(s, "impl: case6"), "implementation commit made", "%s", s)
 		check(t, has(s, "plan: case6"), "planning commit made", "%s", s)
 		impl, plan := fx.files(t, fx.shaOf(t, "impl: case6")), fx.files(t, fx.shaOf(t, "plan: case6"))
-		const p = "spectre/changes/kan-363/"
+		const p = "spectre/changes/demo/"
 		check(t, impl[p+"link.md"], "link.md is in the implementation commit", "%v", impl)
 		check(t, !impl[p+"proposal.md"] && !impl[p+"design.md"] && !impl[p+"tasks.md"],
 			"no planning file in the implementation commit", "%v", impl)
@@ -206,16 +207,16 @@ func TestCommitSplit(t *testing.T) {
 		}
 	})
 
-	t.Run("6b link.md under a dot directory is not re-added, as the shell glob skipped it", func(t *testing.T) {
+	t.Run("6b a link.md outside the change's own folder is implementation", func(t *testing.T) {
 		t.Parallel()
 		fx := csNew(t)
 		writeFile(t, fx.wt+"/spectre/changes/.hidden/link.md", "link\n")
 		rc, out := fx.split(t, fx.wt, "case6b")
 		check(t, rc == 0, "exit", "rc=%d out=%s", rc, out)
 		s := fx.subjects(t)
-		check(t, !has(s, "impl: case6b"), "implementation commit skipped", "%s", s)
-		plan := fx.files(t, fx.shaOf(t, "plan: case6b"))
-		check(t, plan["spectre/changes/.hidden/link.md"], "dot-directory link.md lands as planning", "%v", plan)
+		check(t, !has(s, "plan: case6b"), "planning commit skipped", "%s", s)
+		impl := fx.files(t, fx.shaOf(t, "impl: case6b"))
+		check(t, impl["spectre/changes/.hidden/link.md"], "dot-directory link.md lands as implementation", "%v", impl)
 	})
 
 	t.Run("7 docs/research/ is implementation", func(t *testing.T) {
@@ -249,4 +250,56 @@ func TestCommitSplit(t *testing.T) {
 		rc, out := runSplitGuard(t, commitSplit, t.TempDir(), "a", "b", "c")
 		check(t, rc == 2 && out == "usage: commit-split.sh <worktree> <name> <impl-msg> <plan-msg>", "usage", "rc=%d out=%q", rc, out)
 	})
+}
+
+// TestCommitSplitScopesThePlanCommitToTheChangeFolder pins the planning
+// pathspec to the change's own folder and its -fix-<N> sub-change folders:
+// an archive deletion, another change's folder and every link.md but the
+// change's own land in the implementation commit (kan-1072 self-review, F1),
+// and a look-alike folder (`demo-fixer`) is not a fix sub-change.
+func TestCommitSplitScopesThePlanCommitToTheChangeFolder(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	fx := csFx{root + "/main", root + "/wt"}
+	splitRepo(t, fx.main, fx.wt, map[string]string{
+		"README.md":                            "seed\n",
+		"spectre/changes/archive/old/tasks.md": "old\n",
+		"spectre/changes/archive/old/link.md":  "old\n",
+		"spectre/changes/other/proposal.md":    "other\n",
+	})
+	for _, p := range []string{"spectre/changes/archive/old/tasks.md", "spectre/changes/archive/old/link.md"} {
+		if err := os.Remove(fx.wt + "/" + p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for p, body := range map[string]string{
+		"spectre/changes/other/proposal.md":   "other, edited\n",
+		"src/a.go":                            "package a\n",
+		"spectre/changes/demo/tasks.md":       "tasks\n",
+		"spectre/changes/demo/link.md":        "link\n",
+		"spectre/changes/demo-fix-1/tasks.md": "fix tasks\n",
+		"spectre/changes/demo-fixer/tasks.md": "not a fix\n",
+	} {
+		writeFile(t, fx.wt+"/"+p, body)
+	}
+	rc, out := fx.split(t, fx.wt, "scope")
+	if rc != 0 {
+		t.Fatalf("rc=%d out=%s", rc, out)
+	}
+	keys := func(m map[string]bool) string {
+		var ks []string
+		for k := range m {
+			ks = append(ks, k)
+		}
+		sort.Strings(ks)
+		return strings.Join(ks, " ")
+	}
+	wantImpl := "spectre/changes/archive/old/link.md spectre/changes/archive/old/tasks.md spectre/changes/demo-fixer/tasks.md spectre/changes/demo/link.md spectre/changes/other/proposal.md src/a.go"
+	if got := keys(fx.files(t, fx.shaOf(t, "impl: scope"))); got != wantImpl {
+		t.Errorf("implementation commit:\n got %s\nwant %s", got, wantImpl)
+	}
+	wantPlan := "spectre/changes/demo-fix-1/tasks.md spectre/changes/demo/tasks.md"
+	if got := keys(fx.files(t, fx.shaOf(t, "plan: scope"))); got != wantPlan {
+		t.Errorf("planning commit:\n got %s\nwant %s", got, wantPlan)
+	}
 }

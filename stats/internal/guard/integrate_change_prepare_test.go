@@ -180,8 +180,8 @@ check "rebase_lint_dirty: the list passed" 'printf "%s" "$OUT" | grep -q "^REBAS
 check "rebase_lint_dirty: no rebase-lint stop" '! printf "%s" "$OUT" | grep -q "^STOP: rebase-lint"'
 check "rebase_lint_dirty: the edit is still uncommitted" 'grep -q "^Correction: narrative.$" "$WORK/a-worktrees/demo/spectre/changes/demo/tasks.md" && [ -n "$(g -C "$WORK/a-worktrees/demo" status --porcelain --untracked-files=no)" ]'`},
 		{"nested_link", `# --- nested_link ---
-# commit-split adds ` + "`" + `<spec>/changes/*/link.md` + "`" + ` only when a change directory
-# holds a link.md, so b's base carries one; the branch adds a nested one.
+# A link.md outside the change's own folder is implementation: b's base
+# carries one; the branch adds a nested one.
 fixture
 mkdir -p "$WORK/b/spectre/changes/old"
 printf 'old\n' >"$WORK/b/spectre/changes/old/link.md"
@@ -198,6 +198,30 @@ sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b
 check "nested_link: commit exits 0" '[ "$RC" -eq 0 ]'
 check "nested_link: b's implementation commit carries the nested link.md" \
   '[ "$(git -C "$WORK/b-worktrees/demo" log --format=%s --diff-filter=A -1 -- spectre/changes/archive/y/link.md)" = "feat(b): nest a link" ]'`},
+		{"archive_deletion", `# --- archive_deletion ---
+# commit-split plans only the change's own folders, so an archive deletion is
+# implementation and needs a subject (kan-1072 self-review, F1).
+fixture
+mkdir -p "$WORK/b/spectre/changes/archive/old"
+printf 'old\n' >"$WORK/b/spectre/changes/archive/old/tasks.md"
+g -C "$WORK/b" add -A && g -C "$WORK/b" commit -qm "base: old archive" && g -C "$WORK/b" push -q origin main
+g -C "$WORK/b-worktrees/demo" reset -q --hard main
+g -C "$WORK/b-worktrees/demo" rm -q -r spectre/changes/archive && g -C "$WORK/b-worktrees/demo" commit -qm "chore(spectre): remove the change archive"
+sut prepare "$WORK/a" demo
+check "archive_deletion: prepare's NEXT asks a subject for b" \
+  '[ "$RC" -eq 0 ] && printf "%s" "$OUT" | tail -1 | grep -qF "$WORK/b-worktrees/demo=<impl subject>"'`},
+		{"fix_folder_deletion", `# --- fix_folder_deletion ---
+# commit-split excludes only the fix folders on disk, so deleting one is
+# implementation and needs a subject (kan-1072 self-review, M1).
+fixture
+mkdir -p "$WORK/b/spectre/changes/demo-fix-1"
+printf 'fix\n' >"$WORK/b/spectre/changes/demo-fix-1/tasks.md"
+g -C "$WORK/b" add -A && g -C "$WORK/b" commit -qm "base: fix folder" && g -C "$WORK/b" push -q origin main
+g -C "$WORK/b-worktrees/demo" reset -q --hard main
+g -C "$WORK/b-worktrees/demo" rm -q -r spectre/changes/demo-fix-1 && g -C "$WORK/b-worktrees/demo" commit -qm "chore(spectre): drop demo-fix-1"
+sut prepare "$WORK/a" demo
+check "fix_folder_deletion: prepare's NEXT asks a subject for b" \
+  '[ "$RC" -eq 0 ] && printf "%s" "$OUT" | tail -1 | grep -qF "$WORK/b-worktrees/demo=<impl subject>"'`},
 		{"mixed_roots", `# --- mixed_roots ---
 fixture
 mkdir -p "$WORK/b-worktrees/demo/openspec/changes/demo"

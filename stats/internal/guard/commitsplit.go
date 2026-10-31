@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 )
 
 // commitSplit is scripts/commit-split.sh: that script's header is the
@@ -32,22 +31,35 @@ func commitSplit(args []string, env Env, stdout, stderr io.Writer) int {
 		cmd.Stdout, cmd.Stderr = stdout, stderr
 		return exitCode(cmd.Run())
 	}
+	// Planning is the change's own folder and each <name>-fix-<N> sub-change
+	// folder the worktree holds, never the whole changes tree: every other
+	// path under it — an archive deletion, another change's directory or
+	// link.md — is implementation (kan-1072 self-review, F1). The reset
+	// unstages the whole tree, so whatever the exclude-add leaves out is
+	// what the planning commit's final `add -A` picks up.
+	//
 	// A tracked symlink at a planning path makes the exclude-add exit 128
 	// (the header's tracked-symlink paragraph): its code and message are
 	// returned as-is, with no retry or reinterpretation around the call.
 	//
-	// link.md is re-added after the reset, never before, so the reset never
-	// strips it back out; it needs its own add because a `:(exclude)` pathspec
-	// always wins over a positive pathspec in the same call (verified by
-	// running git). `git add -A -- <pathspec>` exits 128 when the pathspec
-	// matches nothing, so the files are looked for first — most commits touch
-	// no link.md, and that must stay a no-op.
-	steps := [][]string{
-		{"reset", "-q", "--", planDir},
-		{"add", "-A", "--", ".", ":(exclude)" + planDir},
+	// The change's link.md is re-added after the reset, never before, so the
+	// reset never strips it back out; it needs its own add because a
+	// `:(exclude)` pathspec always wins over a positive pathspec in the same
+	// call (verified by running git). `git add -A -- <pathspec>` exits 128
+	// when the pathspec matches nothing, so the file is looked for first —
+	// most commits touch no link.md, and that must stay a no-op.
+	abs := pcAbs(env, worktree) + "/" + planDir
+	add := []string{"add", "-A", "--", ".", ":(exclude)" + planDir + name}
+	if entries, err := os.ReadDir(abs); err == nil {
+		for _, e := range entries {
+			if isFixOf(e.Name(), name) {
+				add = append(add, ":(exclude)"+planDir+e.Name())
+			}
+		}
 	}
-	if hasChangeLinkMD(pcAbs(env, worktree) + "/" + planDir) {
-		steps = append(steps, []string{"add", "-A", "--", planDir + "*/link.md"})
+	steps := [][]string{{"reset", "-q", "--", planDir}, add}
+	if _, err := os.Lstat(abs + name + "/link.md"); err == nil {
+		steps = append(steps, []string{"add", "-A", "--", planDir + name + "/link.md"})
 	}
 	for _, s := range steps {
 		if rc := run(s...); rc != 0 {
@@ -72,23 +84,4 @@ func commitSplit(args []string, env Env, stdout, stderr io.Writer) int {
 		return rc
 	}
 	return commit("-m", planMsg)
-}
-
-// hasChangeLinkMD is bash's nullglob `<planDir>*/link.md` having a match:
-// some non-dot entry of planDir holds a link.md (a dangling symlink counts,
-// as a glob's directory read counts it).
-func hasChangeLinkMD(planDir string) bool {
-	entries, err := os.ReadDir(planDir)
-	if err != nil {
-		return false
-	}
-	for _, e := range entries {
-		if strings.HasPrefix(e.Name(), ".") {
-			continue
-		}
-		if _, err := os.Lstat(planDir + e.Name() + "/link.md"); err == nil {
-			return true
-		}
-	}
-	return false
 }

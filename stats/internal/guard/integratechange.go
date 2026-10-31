@@ -892,21 +892,23 @@ func (c *ic) reshapeFile(w string) string {
 
 var icExportable = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=`)
 
-var icLinkUnder = regexp.MustCompile(`/link\.md$`)
-
 // implPaths: the paths commit-split would put in the implementation commit
 // after a reshape to <rev> — every change against <rev>, committed, staged,
-// unstaged or untracked, outside <spec>/changes/ but for a link.md in any
-// directory below it — commit-split's `*/link.md` pathspec, whose `*`
-// crosses `/`. Empty means that commit is skipped, so the worktree needs no
-// implementation subject.
+// unstaged or untracked, outside the change's own <spec>/changes/<name>/ and
+// <name>-fix-<N>/ folders, plus its own link.md: commit-split's pathspecs
+// (kan-1072 self-review, F1). Empty means that commit is skipped, so the
+// worktree needs no implementation subject.
 func (c *ic) implPaths(w, rev string) []string {
 	p := specRootLeaf(w, c.stderr) + "/changes/"
 	diff, _ := c.capture(c.cmd("/", "git", "-C", w, "diff", "--no-renames", "--name-only", rev))
 	others, _ := c.capture(c.cmd("/", "git", "-C", w, "ls-files", "--others", "--exclude-standard"))
 	var out []string
 	for _, l := range append(icLines(diff), icLines(others)...) {
-		if !strings.HasPrefix(l, p) || icLinkUnder.MatchString(l[len(p):]) {
+		dir, _, _ := strings.Cut(strings.TrimPrefix(l, p), "/")
+		// A fix folder counts only while the worktree holds it, as in
+		// commit-split, which lists it from disk.
+		planning := strings.HasPrefix(l, p) && (dir == c.name || isFixOf(dir, c.name) && isDir(w+"/"+p+dir))
+		if !planning || l == p+c.name+"/link.md" {
 			out = append(out, l)
 		}
 	}
