@@ -12,11 +12,10 @@ alloc='import os, time; b = bytearray(os.urandom(128 << 20)); [(b.__setitem__(sl
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 unset RUN_CAPPED_PGID
 
-# (a) capped, fast, CAPPED: line
-start=$(date +%s)
-bash "$rc" -m 64 -- python3 -c "$alloc" 2>"$tmp/err"; s=$?
-el=$(( $(date +%s) - start ))
-[ "$s" = 137 ] && [ "$el" -le 6 ] && grep -q 'CAPPED:' "$tmp/err" || { echo "FAIL (a): status=$s elapsed=$el"; fail=1; }
+# (a) capped before completion, CAPPED: line
+# The marker, written only once the allocator finishes, proves the kill without a wall-clock bound that load breaks (kan-1052 self-review, F4).
+bash "$rc" -m 64 -- python3 -c "$alloc; open('$tmp/done-a', 'w').close()" 2>"$tmp/err"; s=$?
+[ "$s" = 137 ] && [ ! -e "$tmp/done-a" ] && grep -q 'CAPPED:' "$tmp/err" || { echo "FAIL (a): status=$s completed=$([ -e "$tmp/done-a" ] && echo yes || echo no)"; fail=1; }
 
 # (b) grandchild allocator killed too
 bash "$rc" -m 64 -- bash -c "python3 -c '$alloc' & echo \$! >'$tmp/pid'; wait" 2>/dev/null; s=$?
