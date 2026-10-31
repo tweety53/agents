@@ -1,0 +1,9 @@
+# kan-1064-flow-self-review-run-the-coordination-around-the — session narrative
+
+## 2026-10-31 — creating run
+
+Resumed at implementation, executed inline (class small). The base moved 14 commits during planning; the pre-task rebase was clean, and again one commit before the panel. Task 1's recorded test counts were wrong after the rebase (443/444 → 446/447) and were corrected at task close. The plan's diffs claimed to be verified, but task 2 failed two lint guards the plan's check had missed: `check-installed-citations.sh` rejected every `<sr-dir>/…` citation as having no root, and `check-guard-symlinks.sh` read a bare `pipeline-fix.sh end` as a skill-local guard. Fixed by adding `<sr-dir>` to the guard's closed placeholder-root set, with a test, and prefixing the citation; recorded as a Correction. A first inline panel-fix row used key `panel-fix-0` and was refused (fix rounds count from 1), and its edits had to be reversed with `git apply -R` because the inline begin refuses a dirty tree. flowd was briefly unreachable mid-run (another session's restart); a single `flow tasks count` call failed and was re-run. The panel raised one Important (step 7 still said an in-run pass has no bundle file, and nothing deleted `<sr-dir>`) and one Minor (a re-run inherits stale `<sr-dir>` files); one inline fix closed both, and the round-1 re-review was clean. Operator asked mid-run whether a review merger helps the self-review loop: no, it runs one reviewer per round (decision `no-review-merger`).
+
+## 2026-10-31 — integrate run
+
+Chained straight from write-in-progress (no review-before-landing). Preflight clean, the unfinished-work gate CLEAR, the base unmoved since the panel's rebase; route merge and push from the project default, not asked.
