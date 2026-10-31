@@ -87,8 +87,8 @@ committed with the plan.
 
 **Decision:** sdd-below-micro
 
-- [ ] 2. Refuse the parent's own task or full-suite row under an `sdd` decision
-  - [ ] **Step 1: Write the test.** `stats/cmd/flow/record_test.go`:
+- [x] 2. Refuse the parent's own task or full-suite row under an `sdd` decision
+  - [x] **Step 1: Write the test.** `stats/cmd/flow/record_test.go`:
     `TestRecordDispatchBeginRefusesInlineUnderSdd`, a table through `beginUnderDecision` with
     ``decisionsBody(`{"execution":"sdd"}`)``, beside `TestRecordDispatchBeginRefusesSubagentUnderInline`:
     `-agent-id inline -role implementer -key task-1-implementer` exits 2; `-agent-id inline -role
@@ -101,15 +101,15 @@ committed with the plan.
     row carries `-model opus -effort low`. Run
     `cd stats && go test ./cmd/flow -run 'TestRecordDispatchBeginRefuses' -count=1` — fails.
     <!-- measured: a scratch test calling beginUnderDecision with decisionsBody(`{"execution":"sdd"}`) — inline implementer task-1-implementer with and without -started-at, and inline panel-fix full-suite-fix-1 — exits 0 for all three with empty stderr @ 5302fcb2 in a scratchpad clone, go test ./cmd/flow -run TestZZSpike, 2026-10-31 -->
-  - [ ] **Step 2: Implement.** `stats/cmd/flow/record.go`, the `latestDecision` read under
+  - [x] **Step 2: Implement.** `stats/cmd/flow/record.go`, the `latestDecision` read under
     `if *startedAt == ""` that refuses a subagent row under an `inline` decision: for the same roles
     and the same `self-review-`/`pipeline-fix-` exemption, an `-agent-id inline` row whose key opens
     `task-` or `full-suite-fix-` under `execution: sdd` prints
     `flow: -role <role> -key <key> -agent-id inline records the parent's own work, but the change's recorded decision is execution: sdd — under sdd every task and every fix is a fresh one-shot dispatch (skills/flow/implement.md, Every fix is a fresh one-shot)`
     to stderr and exits 2. The comment above the block states both directions.
-  - [ ] **Step 3: Prove.** `scripts/break-and-prove.sh` dropping the new `execution == "sdd"` arm —
+  - [x] **Step 3: Prove.** `scripts/break-and-prove.sh` dropping the new `execution == "sdd"` arm —
     `TestRecordDispatchBeginRefusesInlineUnderSdd` fails; restored, it passes.
-  - [ ] **Step 4: Verify.** `cd stats && go test ./cmd/flow -run 'TestRecordDispatchBegin' -count=1 | tail -20`
+  - [x] **Step 4: Verify.** `cd stats && go test ./cmd/flow -run 'TestRecordDispatchBegin' -count=1 | tail -20`
     passes; `cd stats && gofmt -l cmd/flow` prints nothing; `cd stats && make -s web-dist && go vet ./cmd/flow`
     exits 0. Commit.
 
@@ -124,8 +124,8 @@ committed with the plan.
 
 Correction (2026-10-31): the plan declared only the sdd arm in `record.go`. At the base the `-role implementer` key-shape check (`implementerKey`) refuses `full-suite-fix-<n>`, `task-<n>-implementer-recommit-<k>` and `task-<ids>-implementer-pick-<k>` before any decision is read, so the refusal could never name `execution: sdd` and every fixer key Task 6's contract dispatches would be refused. Shipped instead: a `fixerKey` regexp that widens only the shape check; `implementerTask`/`taskWorkKey` still read `implementerKey` alone.
 
-- [ ] 3. Number a findings file's ref-less lines from the change's next free ref
-  - [ ] **Step 1: Write the test.** `stats/cmd/flow/record_test.go`:
+- [x] 3. Number a findings file's ref-less lines from the change's next free ref
+  - [x] **Step 1: Write the test.** `stats/cmd/flow/record_test.go`:
     `TestRecordFindingFromAssignsRefs`, on `TestRecordFindingFromFile`'s fixture with a fake daemon
     whose run record for the change holds findings `F1`–`F3`. (a) A file of two lines carrying
     `task`, `severity`, `location` and `note` and no `ref`, loaded with
@@ -137,7 +137,7 @@ Correction (2026-10-31): the plan declared only the sdd arm in `record.go`. At t
     answering 500, a ref-less file exits 1, posts nothing, and its bytes are unchanged.
     `TestRecordFindingFromFile` still passes: a file whose every line names its ref reads no run
     record. Run `cd stats && go test ./cmd/flow -run 'TestRecordFindingFrom' -count=1` — fails.
-  - [ ] **Step 2: Implement.** `stats/cmd/flow/record.go`, `runRecordFindingFrom`: when any line
+  - [x] **Step 2: Implement.** `stats/cmd/flow/record.go`, `runRecordFindingFrom`: when any line
     carries no `ref`, read the change's run record once, as `runRecordNextRef` does through
     `readNextRecord`, with the command line's `-addr`, `-timeout`, `-C` and `-change`; number every
     ref-less line in file order from one above the higher of the store's highest `F<n>` and every
@@ -145,9 +145,9 @@ Correction (2026-10-31): the plan declared only the sdd arm in `record.go`. At t
     recorded, leaving every other line's bytes as they were; then record as today. A failed read
     exits 1 naming the file, before anything is posted or written. Its comment and the `-from` usage
     line state the numbering (decision `from-assigns-refs`).
-  - [ ] **Step 3: Prove.** `scripts/break-and-prove.sh` dropping the write-back — case (b) of
+  - [x] **Step 3: Prove.** `scripts/break-and-prove.sh` dropping the write-back — case (b) of
     `TestRecordFindingFromAssignsRefs` fails on an `F6`; restored, it passes.
-  - [ ] **Step 4: Verify.** `cd stats && go test ./cmd/flow -run 'TestRecordFinding|TestRunRecordNextRef' -count=1 | tail -20`
+  - [x] **Step 4: Verify.** `cd stats && go test ./cmd/flow -run 'TestRecordFinding|TestRunRecordNextRef' -count=1 | tail -20`
     passes; `cd stats && gofmt -l cmd/flow` prints nothing; `cd stats && make -s web-dist && go vet ./cmd/flow`
     exits 0. Commit.
 
@@ -185,10 +185,10 @@ Correction (2026-10-31): the plan declared only the sdd arm in `record.go`. At t
 
 **Decision:** fixes-to-fresh-one-shots
 
-- [ ] 5. Move the implementer and gated reviewer briefs out of `implement.md` behind stub prompts
-  - [ ] **Step 1: Save the inventory.** `scripts/check-normative-inventory.sh` into a file in the
+- [x] 5. Move the implementer and gated reviewer briefs out of `implement.md` behind stub prompts
+  - [x] **Step 1: Save the inventory.** `scripts/check-normative-inventory.sh` into a file in the
     session scratchpad.
-  - [ ] **Step 2: Write the tests.** `stats/internal/guard/check_dispatch_paragraphs_test.go`:
+  - [x] **Step 2: Write the tests.** `stats/internal/guard/check_dispatch_paragraphs_test.go`:
     `TestCheckDispatchParagraphsBriefSites` — a fixture tree whose `skills/flow/implement.md`
     carries one FOREGROUND BUILDS block, one REPRODUCE, DON'T READ block of the reviewer variant and
     two MODEL HANDSHAKE blocks, whose `skills/flow/implementer-brief.md` carries every implementer
@@ -207,8 +207,8 @@ Correction (2026-10-31): the plan declared only the sdd arm in `record.go`. At t
     `skills/flow/implementer-brief.md` maps to `{"impl", ""}` and `MappedTargets()` holds 10 paths.
     Run `cd stats && go test ./internal/guard -run 'TestCheckDispatchParagraphs' -count=1` and
     `cd stats && go test ./internal/prompttuning -run 'TestAreaFor' -count=1` — both fail.
-  - [ ] **Step 3: Apply.** `git -C <wt> apply spectre/changes/kan-1062-flow-implement-one-shot-subagents/contract-edits/briefs-on-disk.patch`.
-  - [ ] **Step 4: Implement.** `stats/internal/guard/dispatchparagraphs.go`, `dpSites`: each row
+  - [x] **Step 3: Apply.** `git -C <wt> apply spectre/changes/kan-1062-flow-implement-one-shot-subagents/contract-edits/briefs-on-disk.patch`.
+  - [x] **Step 4: Implement.** `stats/internal/guard/dispatchparagraphs.go`, `dpSites`: each row
     below takes the place of the old `skills/flow/implement.md` row of its entry, in table order;
     the `handshake` row for `implement.md` stays at 2 and every other row is unchanged.
 
@@ -232,12 +232,12 @@ Correction (2026-10-31): the plan declared only the sdd arm in `record.go`. At t
 {"subskill", "skills/flow/implementer-brief.md", 2, []string{"tdd", "debugging"}},
 ```
 
-  - [ ] **Step 5: Implement the rest.** `scripts/check-dispatch-paragraphs.sh`'s header: its site table to these rows, and every
+  - [x] **Step 5: Implement the rest.** `scripts/check-dispatch-paragraphs.sh`'s header: its site table to these rows, and every
     per-paragraph note naming `implement.md`'s block count or its implementer and gated reviewer
     dispatches brought to the file that now carries them. `stats/internal/prompttuning/prompttuning.go`:
     `promptAreas` maps `skills/flow/implementer-brief.md` to `{"impl", ""}` (decision
     `briefs-on-disk`).
-  - [ ] **Step 6: Verify.** `cd stats && go test ./internal/guard -run 'TestCheckDispatchParagraphs' -count=1 | tail -20`
+  - [x] **Step 6: Verify.** `cd stats && go test ./internal/guard -run 'TestCheckDispatchParagraphs' -count=1 | tail -20`
     and `cd stats && go test ./internal/prompttuning ./cmd/flow -run 'TestAreaFor|TestPromptTuning' -count=1 | tail -20`
     pass; `scripts/check-dispatch-paragraphs.sh` prints `43 site(s) validated`;
     `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`,
