@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -103,6 +105,47 @@ func TestChangeSaveRefusesAMissingFileBeforeWriting(t *testing.T) {
 	}
 	if puts != 0 {
 		t.Errorf("flowd saw %d PUT(s), want none before every file is present", puts)
+	}
+}
+
+// TestChangeSaveReadsEitherPlanOrNone pins the plan's two places: a
+// /flow-fast plan under .superpowers/sdd/<name>/ is saved as tasks.md, and a
+// change with no plan at all saves its bundle alone.
+func TestChangeSaveReadsEitherPlanOrNone(t *testing.T) {
+	for _, tc := range []struct {
+		label, plan string
+		want        []string
+	}{
+		{"flow-fast plan", ".superpowers/sdd/demo/tasks.md", []string{"tasks.md=fast plan", "self-review-context.md=bundle"}},
+		{"no plan", "", []string{"self-review-context.md=bundle"}},
+	} {
+		t.Run(tc.label, func(t *testing.T) {
+			repo := gitRepo(t)
+			isolatedStateRoot(t)
+			var puts []string
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodPut {
+					b, _ := io.ReadAll(r.Body)
+					var body struct{ Body string }
+					_ = json.Unmarshal(b, &body)
+					puts = append(puts, filepath.Base(r.URL.Path)+"="+body.Body)
+				}
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			defer srv.Close()
+			if tc.plan != "" {
+				writeChangeFile(t, repo, tc.plan, "fast plan")
+			}
+			writeChangeFile(t, repo, ".superpowers/sdd/demo/self-review-context.md", "bundle")
+			var stdout, stderr strings.Builder
+			if code := run(context.Background(), []string{"change", "save", "-addr", srv.URL, "-C", repo, "demo"},
+				strings.NewReader(""), &stdout, &stderr); code != 0 {
+				t.Fatalf("exit = %d, stderr: %s", code, stderr.String())
+			}
+			if strings.Join(puts, "|") != strings.Join(tc.want, "|") {
+				t.Errorf("PUTs = %v, want %v", puts, tc.want)
+			}
+		})
 	}
 }
 
