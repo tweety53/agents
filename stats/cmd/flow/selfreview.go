@@ -112,13 +112,14 @@ func runSelfReviewBundle(ctx context.Context, args []string, stdout, stderr io.W
 		return code
 	}
 
-	// Inside the change's own linked worktree -- on spectre/<change> -- the
+	// Inside the change's own linked worktree -- on spectre/<change>, or
+	// <change> for /flow-fast and /flow-interactive -- the
 	// daemon assembles the bundle from that worktree and the bundle is kept
 	// beside it for `flow change save`; anywhere else (a deferred run after
 	// cleanup, or another change's worktree) the saved bundle is the input.
 	wt := worktreeRoot(f.dir)
 	branch, _ := exec.Command("git", "-C", f.dir, "rev-parse", "--abbrev-ref", "HEAD").Output()
-	if wt == "" || wt == realPath(mainCheckout) || strings.TrimSpace(string(branch)) != "spectre/"+f.change {
+	if b := strings.TrimSpace(string(branch)); wt == "" || wt == realPath(mainCheckout) || (b != "spectre/"+f.change && b != f.change) {
 		saved, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (string, error) {
 			return cl.GetChangeFile(ctx, projectKey, f.change, "self-review-context.md")
 		})
