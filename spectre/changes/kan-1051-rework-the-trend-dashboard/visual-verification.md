@@ -22,8 +22,8 @@ Captured again in this pass; byte-identical to the committed baselines. Against 
 
 ## Motions
 
-- m1 (hover Jul 22 hit rect) — `visual-verification/motion/m1/`, 3 frames (000 before, 001 the first frame after the pointer enters, 002 at +50 ms). Fixed by Task 9 (`flushSync` on the hit rect's `onMouseEnter`): frame 001 already shows the CSS `:hover` band, the guide line and the tr-tip together, as the prototype's synchronous handler does; 002 is identical. Earlier recordings showed frame 001 (+19 ms, and +21 ms on a second recording) with the band but no guide or tip.
-- m2 (pointer leaves) — `visual-verification/motion/m2/`, 3 frames (000 hovered, 001 the first frame after the pointer leaves, 002 at +50 ms). Fixed by Task 9 (`flushSync` on `onMouseLeave`): frame 001 already shows band, guide and tip all cleared; 002 is identical. Earlier recordings showed frame 001 (+12 ms, and +10 ms on a second recording) with the band cleared while the guide and tip lingered.
+- m1 (hover Jul 22 hit rect) — `visual-verification/motion/m1/`, 2 frames (000 at −310 ms before, 001 at +8 ms, the first frame after the pointer enters) — clean. Frame 001 shows the CSS `:hover` band, the guide line and the tr-tip together (Task 9's `flushSync` on `onMouseEnter`); a second recording (+10 ms) and a `requestAnimationFrame` DOM read (band, guide, tip all true) agree. Round 1's recording showed frame 001 (+19 ms) with the band but no guide or tip.
+- m2 (pointer leaves) — `visual-verification/motion/m2/`, 2 frames (000 hovered at −299 ms, 001 at +5 ms, the first frame after the pointer leaves) — clean. Frame 001 shows band, guide and tip all cleared (Task 9's `flushSync` on `onMouseLeave`); a second recording (+8 ms) and a `requestAnimationFrame` DOM read (all false) agree. Round 1's recording showed frame 001 (+12 ms) with the band cleared while the guide and tip lingered.
 
 ### trend-wide matrix (prototype / capture / delta)
 
