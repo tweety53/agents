@@ -1,10 +1,8 @@
 package guard
 
 import (
-	"bytes"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"strings"
 )
@@ -68,7 +66,7 @@ func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
 		cmd.Stdout, cmd.Stderr = stderr, stderr
 		return cmd.Run() == nil
 	}
-	var parent, aside string
+	var parent string
 	if !finish {
 		paths := args[3:]
 		if !quiet(append([]string{"-C", wt, "add", "--"}, paths...)...) {
@@ -85,16 +83,6 @@ func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
 		if !quiet(append([]string{"-C", wt, "commit", "-q", "--fixup=" + task, "--"}, paths...)...) {
 			return refuse("git commit --fixup=%s refused in %s", task, wt)
 		}
-		var out bytes.Buffer
-		rc := asidePlanningArtifacts([]string{"aside", wt}, env, &out, stderr)
-		fmt.Fprint(stderr, out.String())
-		if rc != 0 {
-			return refuse("the planning paths could not be set aside in %s — the fixup commit stands unfolded", wt)
-		}
-		// PLANNING-ARTIFACTS-ASIDE: <worktree> — <stash sha>; CLEAN set none.
-		if line := strings.TrimSpace(out.String()); strings.HasPrefix(line, "PLANNING-ARTIFACTS-ASIDE:") {
-			aside = line[strings.LastIndex(line, " ")+1:]
-		}
 		// A non-interactive --autosquash is ignored by git; -i with a no-op
 		// sequence editor runs the autosquashed todo as written.
 		cmd := envGit(env, "GIT_SEQUENCE_EDITOR=:", "GIT_EDITOR=true")("-C", wt, "rebase", "-q", "-i", "--autosquash", parent)
@@ -105,9 +93,6 @@ func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
 				return refuse("%v", err)
 			}
 			if !in {
-				if err := ffRestore(env, wt, aside, stderr); err != nil {
-					fmt.Fprintf(stderr, "fold-fixup: %v\n", err)
-				}
 				return refuse("git refused to rebase %s onto %s — the fixup commit stands unfolded", wt, parent)
 			}
 		}
@@ -116,22 +101,6 @@ func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
 		if parent, ok = capture(git("-C", wt, "rev-parse", "--verify", "--end-of-options", task+"^")); !ok {
 			return refuse("%s has no parent in %s", task, wt)
 		}
-		// The aside the conflicted fold recorded: its own stash sha, or none.
-		rec, err := asideRecord(env, wt, "flow-fold-aside")
-		if err != nil {
-			return refuse("%v", err)
-		}
-		b, err := os.ReadFile(rec)
-		if err != nil {
-			return refuse("no record of the conflicted fold's aside in %s — restore the planning paths by hand from git stash list", wt)
-		}
-		if aside = strings.TrimSpace(string(b)); aside == "none" {
-			aside = ""
-		}
-	}
-	rec, err := asideRecord(env, wt, "flow-fold-aside")
-	if err != nil {
-		return refuse("%v", err)
 	}
 
 	dropped, unmerged, err := ffSettle(env, wt, stderr)
@@ -139,22 +108,9 @@ func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
 		return refuse("%v", err)
 	}
 	if unmerged != nil {
-		kept := aside
-		if kept == "" {
-			kept = "none"
-		}
-		if err := os.WriteFile(rec, []byte(kept+"\n"), 0o644); err != nil {
-			return refuse("cannot record the aside in %s: %v — the rebase is left in progress", rec, err)
-		}
 		fmt.Fprintf(stdout, "CONFLICT: %s — unmerged: %s; resolve keeping both sides, `git rebase --continue`, then fold-fixup.sh --finish %s %s %s\n",
 			wt, strings.Join(unmerged, ", "), wt, task, tasksMD)
 		return 3
-	}
-	if err := ffRestore(env, wt, aside, stderr); err != nil {
-		return refuse("%v", err)
-	}
-	if err := os.Remove(rec); err != nil && !os.IsNotExist(err) {
-		return refuse("cannot remove %s: %v", rec, err)
 	}
 	if rc := guard("after", wt, parent, tasksMD); rc != 0 {
 		return rc
@@ -203,13 +159,4 @@ func ffSettle(env Env, wt string, stderr io.Writer) (dropped bool, unmerged []st
 		}
 		dropped = true
 	}
-}
-
-// ffRestore restores the aside this fold set aside (none when aside is ""),
-// and only that stash: the stash list is shared by every worktree.
-func ffRestore(env Env, wt, aside string, stderr io.Writer) error {
-	if aside == "" {
-		return nil
-	}
-	return restoreAside(env, wt, aside, stderr)
 }

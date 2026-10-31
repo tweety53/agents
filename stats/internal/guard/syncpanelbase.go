@@ -59,7 +59,7 @@ func syncPanelBase(args []string, env Env, stdout, stderr io.Writer) int {
 		if n == sobMaxRebases {
 			return refuse("%s moved again after %d rebases of %s — stop and ask", ref, n, wt)
 		}
-		o, err := rebaseOntoTip(env, wt, ref, false, stderr)
+		o, err := rebaseOntoTip(env, wt, ref, stderr)
 		if err != nil {
 			return refuse("%v", err)
 		}

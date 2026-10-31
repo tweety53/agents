@@ -53,7 +53,7 @@ them:
 | **5. Verify** | `flow.review-panel`, `flow.verify`, `flow.pipeline-fix`, `flow.self-review`, `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
 | **6. Preflight** | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two` |
 | **7. Land** | `flow.landing-routes` |
-| **8. Clean up** | `flow.verify-merge`, `flow.sync-archive`, `flow.commit-archive`, `flow.cleanup`, `flow.write-finished`, `flow.refresh-main-checkout` |
+| **8. Clean up** | `flow.verify-merge`, `flow.cleanup`, `flow.write-finished`, `flow.refresh-main-checkout` |
 
 `flow.visual-verify` is deliberately absent: `/flow-fast` never runs it. `flow.self-review` marks
 section 5's in-run self-review pass. `flow.pipeline-fix` is never marked by hand: the store opens it
@@ -448,7 +448,6 @@ nothing.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.verify-merge -outcome completed <name>
-flow stage mark  -command '/flow-fast' -stages flow.sync-archive,flow.commit-archive -harness <harness> -session-token ff-<literal-token> <name>
 flow stage begin -command '/flow-fast' -stage flow.cleanup -harness <harness> -session-token ff-<literal-token> <name>
 ```
 

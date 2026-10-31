@@ -15,10 +15,9 @@
 #
 # The first form runs check-base-moved.sh against <merge-base>:
 #   CLEAR  -> `CLEAN: <worktree> — nothing to rebase`, exit 0.
-#   MOVED  -> the planning paths are set aside (aside-planning-artifacts.sh),
-#             the worktree is rebased onto the base's tip — resolved to a sha
-#             first, so a fetch landing mid-run cannot move it — and the
-#             aside is restored. check-base-moved.sh then re-runs against
+#   MOVED  -> the worktree is rebased onto the base's tip — resolved to a
+#             sha first, so a fetch landing mid-run cannot move it.
+#             check-base-moved.sh then re-runs against
 #             that sha; while it answers MOVED (the base moved during the
 #             rebase) the rebase runs again, at most 3 rebases in all. Then
 #             one line per path any MOVED verdict named under `overlaps:`,
@@ -31,10 +30,8 @@
 #             named test; this guard runs none.
 #   A rebase that stops on a conflict prints
 #             `CONFLICT: <worktree> — onto <sha>; unmerged: <paths>` and exits
-#             1, the worktree left mid-rebase exactly as git left it and the
-#             aside still set aside — resolve in place, then --resume. The
-#             aside's stash sha (or none) is recorded in the worktree's own
-#             git dir (`git rev-parse --git-path flow-sync-aside`). Each
+#             1, the worktree left mid-rebase exactly as git left it —
+#             resolve in place, then --resume. Each
 #             unmerged path that is a PNG under a `*-snapshots/` directory, or
 #             `full-app-suite.zip`, follows as `RECAPTURE: <path>`, in the
 #             CONFLICT line's order — resolved by a targeted recapture
@@ -42,16 +39,13 @@
 #
 # --resume runs once an in-place resolution has finished the rebase: it
 # refuses while a rebase is still in progress and unless <onto> — the sha the
-# CONFLICT line named — is an ancestor of HEAD, restores the recorded aside
-# only while that stash is on top (the stash list is shared by every
-# worktree; another worktree's aside is never popped), and runs
-# the same re-check loop. It prints no GUARD-TEST lines: a resolved rebase
+# CONFLICT line named — is an ancestor of HEAD, and runs the same re-check
+# loop. It prints no GUARD-TEST lines: a resolved rebase
 # runs the project's whole lint and test lists instead.
 #
 # Exit 0 CLEAN or REBASED; 1 CONFLICT; 2 everything else — a REFUSE verdict,
 # a question it cannot answer, a rebase git refused to start (nothing
-# changed, the aside restored), a base still moving after 3 rebases, or an
-# aside it cannot restore (git stash list holds it). Exit 2 means stop and
+# changed), or a base still moving after 3 rebases. Exit 2 means stop and
 # ask.
 #
 # The guard is Go: stats/internal/guard/syncontobase.go, over the shared

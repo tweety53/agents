@@ -169,17 +169,17 @@ g -C "$WORK/b" add .flow/project.md && g -C "$WORK/b" commit -qm "base: lint lis
 sut prepare "$WORK/a" demo
 check "rebase_lint_rewrite: prepare stops with exit 1" '[ "$RC" -eq 1 ]'
 check "rebase_lint_rewrite: the stop names the rewrite" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: rebase-lint — the ## lint list rewrote tracked files on $WORK/b-worktrees/demo"'`},
-		{"rebase_lint_dirty", `# --- rebase_lint_dirty: an uncommitted plan edit the rebase set aside and
-# restored is no rewrite of the list's (kan-1010's self-review) ---
+		{"rebase_lint_dirty", `# --- rebase_lint_dirty: an uncommitted plan file the rebase never touches
+# is no rewrite of the list's (kan-1010's self-review) ---
 fixture
-printf '\nCorrection: narrative.\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/tasks.md"
+printf 'Correction: narrative.\n' >"$WORK/a-worktrees/demo/spectre/changes/demo/notes.md"
 printf '\n## lint\n\n` + "`" + `` + "`" + `` + "`" + `bash\ntrue\n` + "`" + `` + "`" + `` + "`" + `\n' >>"$WORK/a/.flow/project.md"
 g -C "$WORK/a" add .flow/project.md && g -C "$WORK/a" commit -qm "base: lint list" && g -C "$WORK/a" push -q origin main
 sut prepare "$WORK/a" demo
 check "rebase_lint_dirty: the rebase ran" 'printf "%s" "$OUT" | grep -q "^REBASED: $WORK/a-worktrees/demo"'
 check "rebase_lint_dirty: the list passed" 'printf "%s" "$OUT" | grep -q "^REBASE-LINT-PASSED: $WORK/a-worktrees/demo"'
 check "rebase_lint_dirty: no rebase-lint stop" '! printf "%s" "$OUT" | grep -q "^STOP: rebase-lint"'
-check "rebase_lint_dirty: the edit is still uncommitted" 'grep -q "^Correction: narrative.$" "$WORK/a-worktrees/demo/spectre/changes/demo/tasks.md" && [ -n "$(g -C "$WORK/a-worktrees/demo" status --porcelain --untracked-files=no)" ]'`},
+check "rebase_lint_dirty: the edit is still uncommitted" 'grep -q "^Correction: narrative.$" "$WORK/a-worktrees/demo/spectre/changes/demo/notes.md" && [ -n "$(g -C "$WORK/a-worktrees/demo" status --porcelain -- spectre/changes/demo/notes.md)" ]'`},
 		{"nested_link", `# --- nested_link ---
 # A link.md outside the change's own folder is implementation: b's base
 # carries one; the branch adds a nested one.

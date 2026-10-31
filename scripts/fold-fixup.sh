@@ -8,10 +8,9 @@
 #
 # The fold, in order: `git add -- <path>...`; `guard-autosquash.sh targets
 # <worktree> <task-sha>`; `git commit --fixup=<task-sha> -- <path>...`;
-# aside-planning-artifacts aside; `GIT_SEQUENCE_EDITOR=: git rebase -i
-# --autosquash <task-sha>^` (git ignores a non-interactive --autosquash);
-# the empty-fold drop; aside-planning-artifacts restore; `guard-autosquash.sh
-# after <worktree> <task-sha>^ <tasks-md>`. The rebase's upstream is the task
+# `GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash <task-sha>^` (git
+# ignores a non-interactive --autosquash); the empty-fold drop;
+# `guard-autosquash.sh after <worktree> <task-sha>^ <tasks-md>`. The rebase's upstream is the task
 # commit's own parent, never the base branch re-resolved: replaying only the
 # branch's own commits after <task-sha>^ keeps commits that landed on the base
 # mid-panel out of the fold. The `after` check's base is that same upstream.
@@ -20,17 +19,12 @@
 # dropped, never kept as a no-op commit: git stops the rebase at that fixup
 # ("would make it empty"), and the guard drops the emptied commit with
 # `git reset --soft HEAD^` and continues — tip or not, the commits after it
-# replay onto its parent. The drop runs while the planning paths are still
-# set aside, so no reset reaches them.
+# replay onto its parent.
 #
 # A CONFLICT IS LEFT IN PROGRESS, never resolved here: it is between two of
 # the branch's own commits, resolved by hand keeping both sides, then
 # `git rebase --continue`, then `fold-fixup.sh --finish` — which settles any
-# further empty-fold stop, restores the aside and runs the `after` check.
-# The aside is restored by its own stash sha, and only while that stash is
-# on top (the stash list is shared by every worktree): a conflicted fold
-# records the sha, or none, at `git rev-parse --git-path flow-fold-aside`
-# for --finish to read.
+# further empty-fold stop and runs the `after` check.
 #
 # Prints one line on stdout:
 #   FOLDED:   <worktree> — HEAD <sha>
@@ -40,8 +34,8 @@
 # Exit codes:
 #   0  folded, or the emptied commit dropped
 #   1  guard-autosquash.sh refused (its lines on stderr) — the round stops
-#   2  cannot answer — usage, a git refusal, an aside that cannot be set or
-#      restored, or a rebase stop that is neither a conflict nor an empty fold
+#   2  cannot answer — usage, a git refusal, or a rebase stop that is
+#      neither a conflict nor an empty fold
 #   3  a conflict is left in progress (CONFLICT line)
 #
 # flow-guard is built from this checkout, never taken from PATH:

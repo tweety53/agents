@@ -7,19 +7,19 @@ import (
 )
 
 // reshape-branch runs in-process, followed by commit-split exactly as
-// integrate runs them, each calling check-planning-commit-location
-// in-process.
+// integrate runs them, each calling checkChangeWorktreeLocation.
 
 type rbFx struct{ main, wt, base string }
 
-// rbNew is the harness's new_repo: a repo on main with one seed commit and a
-// change worktree at <main>/.worktrees/demo on spectre/demo.
+// rbNew is the harness's new_repo: a repo on main with one seed commit that
+// gitignores spectre/changes/, and a change worktree at
+// <main>/.worktrees/demo on spectre/demo.
 func rbNew(t *testing.T) rbFx {
 	t.Helper()
 	main := t.TempDir() + "/repo"
 	fx := rbFx{main: main, wt: main + "/.worktrees/demo"}
 	splitRepo(t, fx.main, fx.wt, map[string]string{
-		"src/a.txt": "seed\n", "spectre/changes/seed.md": "other change\n",
+		"src/a.txt": "seed\n", ".gitignore": "spectre/changes/\n",
 	}, "-b", "main")
 	fx.base = splitGit(t, fx.main, nil, "rev-parse", "HEAD")
 	mkdir(t, fx.wt+"/spectre/changes/demo")
@@ -63,22 +63,17 @@ func TestReshapeBranch(t *testing.T) {
 		}
 	}
 
-	t.Run("1 every commit folds; the landed branch is one implementation and one planning commit", func(t *testing.T) {
+	t.Run("1 every commit folds; the landed branch is one implementation commit", func(t *testing.T) {
 		t.Parallel()
 		fx := rbNew(t)
 		w := fx.wt
 		writeFile(t, w+"/spectre/changes/demo/proposal.md", "proposal\n")
-		fx.commitAs(t, "planner", "chore(spectre): plan demo — plan gate", "spectre/changes/demo")
 		writeFile(t, w+"/src/a.txt", "task 1\n")
 		fx.commitAs(t, "impl", "feat(src): task 1\n\nTask-Id: 1", "src")
-		writeFile(t, w+"/spectre/changes/demo/link.md", "link\n")
-		fx.commitAs(t, "linker", "chore(spectre): link peer", "spectre/changes/demo/link.md")
 		writeFile(t, w+"/src/b.txt", "task 2\n")
 		fx.commitAs(t, "impl", "feat(src): task 2\n\nTask-Id: 2", "src")
 		writeFile(t, w+"/src/b.txt", "task 2\nfixup\n")
 		fx.commitAs(t, "impl", "fixup! feat(src): task 2", "src")
-		writeFile(t, w+"/spectre/changes/demo/tasks.md", "tasks ticked\n")
-		fx.commitAs(t, "reviewer", "chore(spectre): plan demo — before review", "spectre/changes/demo")
 		writeFile(t, w+"/src/a.txt", "task 1\noperator edit\n")
 		writeFile(t, w+"/spectre/changes/demo/narrative.md", "narrative\n")
 		wantTree := fx.expectedTree(t)
@@ -93,18 +88,13 @@ func TestReshapeBranch(t *testing.T) {
 		}
 
 		subjects := splitGit(t, w, nil, "log", "--reverse", "--format=%s", fx.base+"..HEAD")
-		check(t, subjects == "feat(src): the change\nchore(spectre): plan demo",
-			"one implementation commit, then one planning commit", "subjects:\n%s", subjects)
+		check(t, subjects == "feat(src): the change", "one implementation commit and no planning commit", "subjects:\n%s", subjects)
 		check(t, splitGit(t, w, nil, "rev-parse", "HEAD^{tree}") == wantTree,
 			"final tree equals the pre-reshape branch plus working tree", "tree differs")
-		impl := splitGit(t, w, nil, "show", "--name-only", "--format=", "HEAD~1")
-		// link.md rides the implementation commit by the two-commit chain's own rule.
-		check(t, impl == "spectre/changes/demo/link.md\nsrc/a.txt\nsrc/b.txt", "implementation commit carries src and link.md", "%q", impl)
-		plan := splitGit(t, w, nil, "show", "--name-only", "--format=", "HEAD")
-		check(t, plan == "spectre/changes/demo/narrative.md\nspectre/changes/demo/proposal.md\nspectre/changes/demo/tasks.md",
-			"planning commit carries the whole planning delta", "%q", plan)
-		check(t, strings.Contains(splitGit(t, w, nil, "log", "-1", "--format=%B", "HEAD"), "outstanding: none"),
-			"planning commit carries integrate's message", "message lost")
+		impl := splitGit(t, w, nil, "show", "--name-only", "--format=", "HEAD")
+		check(t, impl == "src/a.txt\nsrc/b.txt", "implementation commit carries src alone", "%q", impl)
+		check(t, isFile(w+"/spectre/changes/demo/proposal.md") && isFile(w+"/spectre/changes/demo/narrative.md"),
+			"the ignored change directory stays on disk", "change directory lost")
 	})
 
 	t.Run("2 no planning commits: HEAD at the base, task work staged", func(t *testing.T) {
