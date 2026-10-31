@@ -154,6 +154,7 @@ func TestCheckInstalledCitations(t *testing.T) {
 		{"second-word-in-backtick-span-is-seen", flow, "# flow fixture\n`see .flow/project.md`\n", true},
 		{"shell-example-second-word-not-path-shaped", flow, "# flow fixture\n`skills/other/SKILL.md verbose`\n", false},
 		{"skill-dir-rooted", flow, "# flow fixture\n`<skill-dir>/scripts/check-references.sh`\n", false},
+		{"sr-dir-rooted", flow, "# flow fixture\n`<sr-dir>/findings.md`\n", false},
 		{"sibling-worktrees-rooted", flow, "# flow fixture\n`<project>-worktrees/<name>/spectre/changes/<name>/`\n", false},
 		{"agents-repo-sibling-worktrees-rooted", flow, "# flow fixture\n`<agents repo>-worktrees/<slug>`\n", false},
 		{"sibling-worktrees-lookalike-is-reported", flow, "# flow fixture\n`<project>-worktrees-old/<name>/x.md`\n", true},

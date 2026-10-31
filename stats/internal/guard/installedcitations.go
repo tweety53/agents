@@ -867,7 +867,7 @@ func cicIsCitation(token string, rootFiles map[string]bool) bool {
 // `<skill-dir>` resolves at runtime to the INSTALLED skills root
 // (`~/.claude/skills/<skill>/`, `~/.zcode/skills/<skill>/`, …) — neither
 // this checkout nor the target project, the same criterion that earned
-// `<abs-worktree>`, `<changeRoot>` and `<state-dir>` their places. It
+// `<abs-worktree>`, `<changeRoot>`, `<state-dir>` and `<sr-dir>` (kan-1064: `<state-dir>/self-review/<name>/`, the self-review handoff dir) their places. It
 // collapses three corpus wordings of the same concept ("the running
 // command's own skill directory" and two variants); pipeline.md's "Guard
 // resolution" section is canonical for what it means.
@@ -878,7 +878,7 @@ func cicIsCitation(token string, rootFiles map[string]bool) bool {
 // criterion again.
 var cicPlaceholderRoots = map[string]bool{
 	"<agents repo>": true, "<project>": true, "<abs-worktree>": true,
-	"<changeRoot>": true, "<state-dir>": true, "<skill-dir>": true,
+	"<changeRoot>": true, "<state-dir>": true, "<sr-dir>": true, "<skill-dir>": true,
 	"<project>-worktrees": true, "<agents repo>-worktrees": true,
 }
 
