@@ -57,6 +57,8 @@ commands:
   hazards              print a project's hazards as a JSON array
   suite record/list    time a command and record its runtime; read recorded suite runtimes (see: flow suite)
   spec record/list     mark a spec file as run; read the per-spec last-run inventory (see: flow spec)
+  change save <name>   keep a change's tasks.md and self-review bundle in flowd (see: flow change)
+  change file <name> <path>  print one saved file of a change
   self-review bundle   print a finished change's self-review context bundle (see: flow self-review)
   lesson resolve       print the process-lesson answer for a topic across every registered project (see: flow lesson)
   jira transition      move an issue to a pipeline position via flowd (see: flow jira)
@@ -115,6 +117,8 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runPricing(ctx, args[1:], stdout, stderr)
 	case "tasks":
 		return runTasks(ctx, args[1:], stdout, stderr)
+	case "change":
+		return runChange(ctx, args[1:], stdout, stderr)
 	case "self-review":
 		return runSelfReview(ctx, args[1:], stdout, stderr)
 	case "lesson":

@@ -310,7 +310,7 @@ func run(logger *slog.Logger) error {
 		return at, found
 	}
 	restampRecentEnds(ctx, st, time.Now(), agentEnd, logger)
-	srv, err := api.New(cfg, st, st, st, st, st, logger, api.WithSPA(spaHandler), api.WithGuardRuns(st), api.WithRepricer(st), api.WithExperiments(st, embedded.Table),
+	srv, err := api.New(cfg, st, st, st, st, st, logger, api.WithSPA(spaHandler), api.WithGuardRuns(st), api.WithChangeFiles(st), api.WithRepricer(st), api.WithExperiments(st, embedded.Table),
 		api.WithCommitBase(commitBaseFromRemote(originRemote())), api.WithBuild(buildIdentity()),
 		api.WithAgentEnds(agentEnd))
 	if err != nil {
