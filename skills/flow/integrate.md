@@ -158,7 +158,7 @@ A `flow-fix` row `flow self-review findings -change <name>` lists as `fixed` who
 ## 4. Archive and run the self-review pass
 
 Per **Run the self-review pass** (`skills/flow-contracts/finish-contract-run1.md`), canonical for it.
-Hold the bundle's stdout, then `## Session narrative`, in memory; run the pass over it; then
+Write the bundle's stdout, then `## Session narrative`, to `<sr-dir>/bundle.md`, never printing it; run the pass over it; then
 commit the report in `<canonical-worktree>`, not pushing here:
 
 ```bash

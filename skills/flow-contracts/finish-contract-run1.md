@@ -353,9 +353,9 @@ case — replaces each section whose heading opens with bands, seams or ink, thr
 its level or higher, with one line naming the lines it held, its heading and the record's path,
 and its `git log --stat` lines leave out every `*.png` path. A source that is absent is reported
 `skipped: <source> (absent)` inside the bundle, never fatal.
-The session appends `## Session narrative` (one paragraph it writes for run 1 itself; the
+The session writes that document to `<sr-dir>/bundle.md` (**2. Read the bundle and run the eight angles**, `skills/flow-self-review/SKILL.md`), never printing it, and appends `## Session narrative` there (one paragraph it writes for run 1 itself; the
 archived `narrative.md` is already a bundle section, and a change predating the narrative rule
-has the bundle report it skipped) and holds the whole in memory — it is never written to
+has the bundle report it skipped) — it is never written to
 `<project>/docs/self-review/` or committed.
 
 Over that bundle the session runs steps 2–6 of `/flow-self-review`

@@ -308,7 +308,7 @@ flow stage begin -command '/flow-fast' -stage flow.self-review -harness <harness
 **Self-review runs here, in this run — this section is canonical for `/flow-fast`'s self-review.**
 A report already committed on `<name>` (`<project>/docs/self-review/<name>-self-review.md`) skips the pass:
 a fix re-run never records its findings twice.
-Assemble the bundle in memory, never written to `<project>/docs/self-review/` or committed, as, in
+Assemble the bundle in `<sr-dir>/bundle.md` (**2. Read the bundle and run the eight angles**, `skills/flow-self-review/SKILL.md`), never printed, never written to `<project>/docs/self-review/` or committed, as, in
 order: the stdout of `flow self-review
 bundle -change <name>` run from the worktree — of the sources `/flow`'s bundle judges a change
 by, a `/flow-fast` run can never have tasks.md, design.md, narrative.md, visual-verification.md and live-verification.md (no spectre
