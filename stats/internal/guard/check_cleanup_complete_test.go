@@ -246,6 +246,23 @@ func ccReadPid(t *testing.T, path string) int {
 	return pid
 }
 
+// TestCheckCleanupCompleteNamesAnUndroppedChange pins row four's wording:
+// a change directory and its fix sub-change left at the tip are LEFTOVER
+// rows saying the directory was not dropped and naming the drop commit, and
+// no line says "archive".
+func TestCheckCleanupCompleteNamesAnUndroppedChange(t *testing.T) {
+	t.Parallel()
+	f := ccNew(t, ccTemplate(t))
+	mkdir(t, f.repo+"/spectre/changes/demo")
+	mkdir(t, f.repo+"/spectre/changes/demo-fix-1")
+	r := f.guard(t, "demo")
+	ccVerdict(t, r, "LEFTOVER:", "an undropped change directory is LEFTOVER")
+	ccHas(t, r, "spectre/changes/demo was not dropped", "the change's row says it was not dropped")
+	ccHas(t, r, "spectre/changes/demo-fix-1, a sub-change of demo, was not dropped", "the sub-change's row says it was not dropped")
+	ccHas(t, r, "chore(spectre): drop demo", "the rows name the drop commit")
+	ccLacks(t, r, "archive", "no line says archive")
+}
+
 func TestCheckCleanupComplete(t *testing.T) {
 	t.Parallel()
 	tmpl := ccTemplate(t)
@@ -355,21 +372,21 @@ func TestCheckCleanupComplete(t *testing.T) {
 		{"5", func(t *testing.T, f *ccFx) {
 			mkdir(t, f.repo+"/spectre/changes/demo")
 			r := f.guard(t, "demo")
-			ccVerdict(t, r, "LEFTOVER:", "an unarchived change directory is LEFTOVER")
-			ccHas(t, r, "spectre/changes/demo", "an unarchived change directory names its row")
+			ccVerdict(t, r, "LEFTOVER:", "an undropped change directory is LEFTOVER")
+			ccHas(t, r, "spectre/changes/demo", "an undropped change directory names its row")
 		}},
 		{"5b", func(t *testing.T, f *ccFx) {
 			mkdir(t, f.repo+"/spectre/changes/demo-fix-1")
 			r := f.guard(t, "demo")
-			ccVerdict(t, r, "LEFTOVER:", "an unarchived demo-fix-1 sub-change is LEFTOVER")
-			ccHas(t, r, "spectre/changes/demo-fix-1", "an unarchived sub-change names its own row")
+			ccVerdict(t, r, "LEFTOVER:", "an undropped demo-fix-1 sub-change is LEFTOVER")
+			ccHas(t, r, "spectre/changes/demo-fix-1", "an undropped sub-change names its own row")
 			ccHas(t, r, "a sub-change of demo", "the sub-change row says whose sub-change it is")
 		}},
 		{"5c", func(t *testing.T, f *ccFx) {
 			mkdir(t, f.repo+"/spectre/changes/archive/demo")
 			mkdir(t, f.repo+"/spectre/changes/demo-fix-2")
 			r := f.guard(t, "demo")
-			ccVerdict(t, r, "LEFTOVER:", "parent archived but sub-change left behind is LEFTOVER")
+			ccVerdict(t, r, "LEFTOVER:", "parent gone but sub-change left behind is LEFTOVER")
 			ccHas(t, r, "spectre/changes/demo-fix-2", "the surviving sub-change is named")
 		}},
 		{"5d", func(t *testing.T, f *ccFx) {
