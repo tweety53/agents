@@ -41,5 +41,6 @@ to_land "skip_on_stage_row: " no-report
 check "skip_on_stage_row: no completed run asks for the pass" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: run the self-review pass .*end flow.self-review completed"'
 touch "$WORK/sr-completed"
 sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
-check "skip_on_stage_row: a completed run skips the pass" '[ "$RC" -eq 0 ] && printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: flow.self-review has already completed — skip the pass"'`}})
+check "skip_on_stage_row: a completed run skips the pass" '[ "$RC" -eq 0 ] && printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: flow.self-review has already completed — skip the pass"'
+check "skip_on_stage_row: the skip opens no flow.self-review run" '[ "$(grep -c "stage begin .*flow.self-review" "$WORK/stages.log")" -eq 1 ]'`}})
 }
