@@ -216,6 +216,24 @@ Moved verbatim (KAN-859), where it followed "otherwise `git merge-base --is-ance
 That fallback must stay reachable on its own — it is the only
    merge evidence available on a non-GitHub forge.
 
+### finish-contract-run1.md — Archive on the change branch, the drop replaces the archive (KAN-1072)
+
+Run 1 no longer archives: the step drops the change directory with one `chore(spectre): drop <name>`
+commit (decision landing-drop-replaces-archive, KAN-1072). Moved verbatim from the replaced
+archive-undo paragraph, the reasoning that no longer applies once nothing is moved:
+
+**When `<project>/spectre/changes/<name>/` also exists, stop and ask** — `git mv` would nest the archive inside it, hiding the fix run's tasks from the gate; the operator checks the live copy holds nothing the archived one lacks, removes it, and re-runs.
+
+And from the replaced archive step, why each sub-change took its own call:
+
+A `<name>-fix-N` sub-change is a flat
+   sibling under `<project>/spectre/changes/`, never a directory inside its parent — `spectre new`
+   refuses an id that is not a single flat directory name — so the parent's call cannot reach it and
+   each sub-change is archived by its own call in this same step.
+
+The ledger and panel copies below are no longer made: the self-review bundle renders both from the
+store, and the sections that follow record why earlier runs archived them.
+
 ### finish-contract-run1.md — Archive on the change branch, the archived leaf (KAN-859)
 
 Moved verbatim (KAN-859); the run-loaded copy keeps the bold claim alone:
