@@ -325,6 +325,29 @@ func TestRenderSlotPromptRendersMutationPass(t *testing.T) {
 	}
 }
 
+// TestRenderSlotPromptMutationPassForbidsSharedNodeModules pins kan-1052's
+// self-review F6: the mutation pass's own prompt tells the slot to npm ci its
+// throwaway copy and never symlink a shared node_modules into it, since
+// npm ci over a symlink empties the shared directory (kan-1037).
+func TestRenderSlotPromptMutationPassForbidsSharedNodeModules(t *testing.T) {
+	t.Parallel()
+	real := rspSkillDir(t)
+	fx := rspNewFx(t)
+	r, _ := fx.run(t, real, real, "0", fx.canon, fx.plan, "mutation", "-diff", "final", "--", fx.canon)
+	if r.rc != 0 {
+		t.Fatalf("mutation alone: exit %d stderr %q", r.rc, r.err)
+	}
+	b, err := os.ReadFile(fx.canon + "/.superpowers/sdd/slot-prompt-0-mutation.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range []string{"Never symlink a shared `node_modules` into your copy", "npm ci"} {
+		if !strings.Contains(string(b), s) {
+			t.Errorf("mutation render lacks %q", s)
+		}
+	}
+}
+
 // TestRenderSlotPromptAlwaysOnRoles pins kan-959: the always-on extra
 // dispatch's bundle renders one PASS section per role from the real
 // templates, each pointed at its own report, and the old exp- id for
