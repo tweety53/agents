@@ -348,3 +348,50 @@ func TestStartupRestampsRecentStampedEnds(t *testing.T) {
 		t.Errorf("whole-table restamp after startup = %d, %v; want 1 (the old row left alone)", n, err)
 	}
 }
+
+// TestStoreWindowSourceMarksAbandonedRuns pins the window source's half of
+// the back-fill's abandoned-run skip: a run the sweep closed carries
+// Abandoned, one ended by its own mark does not.
+func TestStoreWindowSourceMarksAbandonedRuns(t *testing.T) {
+	st := storetest.NewStore(t)
+	ctx := context.Background()
+	start := time.Date(2026, 10, 1, 10, 0, 0, 0, time.UTC)
+	if err := st.PutChange(ctx, store.Change{
+		ProjectKey: "proj-abandoned-window", MainCheckoutPath: "/tmp/proj-abandoned-window",
+		Name: "kan-1", State: store.StateInProgress, UpdatedAt: start, UpdatedBy: "test",
+	}); err != nil {
+		t.Fatalf("PutChange: %v", err)
+	}
+	session := "session-abandoned-window"
+	begin := func(stage string, at time.Time) int64 {
+		t.Helper()
+		run, err := st.BeginStage(ctx, store.BeginStageInput{
+			ProjectKey: "proj-abandoned-window", ChangeName: "kan-1", Harness: "claude-code",
+			SessionID: &session, Command: "/flow", Stage: stage, StartedAt: at,
+		})
+		if err != nil {
+			t.Fatalf("BeginStage %s: %v", stage, err)
+		}
+		return run.ID
+	}
+	swept := begin("flow.implement", start)
+	ended := begin("flow.verify", start.Add(time.Hour))
+	if err := st.EndStage(ctx, ended, start.Add(time.Hour+time.Minute), "ok"); err != nil {
+		t.Fatalf("EndStage: %v", err)
+	}
+	if _, err := st.SweepAbandoned(ctx, start.Add(2*time.Hour)); err != nil {
+		t.Fatalf("SweepAbandoned: %v", err)
+	}
+
+	windows, err := storeWindowSource{st}.WindowsForSession(ctx, session)
+	if err != nil {
+		t.Fatalf("WindowsForSession: %v", err)
+	}
+	got := map[int64]bool{}
+	for _, w := range windows {
+		got[w.StageRunID] = w.Abandoned
+	}
+	if want := map[int64]bool{swept: true, ended: false}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Abandoned by run = %v, want %v", got, want)
+	}
+}

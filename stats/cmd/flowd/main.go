@@ -368,7 +368,22 @@ func run(logger *slog.Logger) error {
 	// matches it (compile-time check below) -- so, like HarvestSink, no
 	// adapter is needed here.
 	watcher := newTranscriptWatcher(transcriptsRoot, rolloutRoot, st, attributor, logger)
-	go watcher.Run(watchCtx, harvestInterval)
+	// The one-shot stage-gap back-fill runs before the watcher's first
+	// cycle, in the watcher's own goroutine so the listener below is not
+	// held while it reads every transcript on disk: it reads only bytes
+	// already harvested, and the watcher then resumes from the stored
+	// offsets, so nothing is counted twice (decision
+	// gap-backfill-once-at-startup). A failure is logged and harvesting
+	// starts anyway; the marker stays unset and the next startup retries
+	// (decision backfill-one-transaction).
+	go func() {
+		if err := watcher.BackfillStageGaps(watchCtx, st); err != nil {
+			logger.Error("flowd stage-gap back-fill failed, will retry at the next startup", "error", err)
+		} else {
+			logger.Info("flowd stage-gap back-fill done")
+		}
+		watcher.Run(watchCtx, harvestInterval)
+	}()
 
 	// Task 10: close stage runs whose session has gone silent past
 	// sweepSilenceTimeout, with outcome "abandoned" -- design.md's "Stage
@@ -504,7 +519,9 @@ func newTranscriptWatcher(transcriptsRoot, rolloutRoot string, st *store.Store, 
 // a store.Query -- QueryStageRuns' session_id filter (added to
 // internal/store/query.go's allowlist by this same task) -- so a stage
 // run's identity never crosses into internal/harvest as anything but the
-// harvest.Window shape attribution actually needs.
+// harvest.Window shape attribution actually needs. Each window's
+// ChangeFinishedAt comes from one FinishedAtByChange lookup per session
+// (decision finish-instant-store-lookup).
 type storeWindowSource struct{ st *store.Store }
 
 func (s storeWindowSource) WindowsForSession(ctx context.Context, sessionID string) ([]harvest.Window, error) {
@@ -515,15 +532,30 @@ func (s storeWindowSource) WindowsForSession(ctx context.Context, sessionID stri
 	if err != nil {
 		return nil, err
 	}
+	changeIDs := make([]int64, 0, len(runs))
+	for _, r := range runs {
+		if r.ChangeID != 0 {
+			changeIDs = append(changeIDs, r.ChangeID)
+		}
+	}
+	finished, err := s.st.FinishedAtByChange(ctx, changeIDs)
+	if err != nil {
+		return nil, err
+	}
 	windows := make([]harvest.Window, 0, len(runs))
 	for _, r := range runs {
-		windows = append(windows, harvest.Window{
+		w := harvest.Window{
 			StageRunID: r.ID,
 			Attempt:    r.Attempt,
 			SessionID:  sessionID,
 			StartedAt:  r.StartedAt,
 			EndedAt:    r.EndedAt,
-		})
+			Abandoned:  r.Outcome != nil && *r.Outcome == "abandoned",
+		}
+		if at, ok := finished[r.ChangeID]; ok {
+			w.ChangeFinishedAt = &at
+		}
+		windows = append(windows, w)
 	}
 	return windows, nil
 }
@@ -537,6 +569,7 @@ var (
 	_ harvest.HarvestSink  = (*store.Store)(nil)
 	_ harvest.WindowSource = storeWindowSource{}
 	_ harvest.Pricer       = (*store.Store)(nil)
+	_ harvest.BackfillSink = (*store.Store)(nil)
 	// Unlike storeWindowSource above, the dispatch-grain window source
 	// needs no adapter: store.DispatchWindowsForSession already answers in
 	// harvest.DispatchWindow, its own doc comment explaining why the type

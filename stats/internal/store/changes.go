@@ -327,6 +327,45 @@ func (s *Store) GetChange(ctx context.Context, projectKey, name string) (Change,
 	return c, nil
 }
 
+// FinishedAtByChange returns the finish instant for each of changeIDs whose
+// change is FINISHED, withdrawn or not: the later of its updated_at and its
+// last stage run's end (a still-open run counts its start), because
+// /flow-fast writes FINISHED at kickoff and marks its stages after it
+// (decision finish-instant-latest-of-state-and-runs, superseding
+// finish-instant-store-lookup's updated_at alone). An unfinished or unknown
+// id is absent from the map. Harvest attribution reads it to bound the
+// last-begun-stage fallback at the change's finish. An empty list answers an
+// empty map without a query.
+func (s *Store) FinishedAtByChange(ctx context.Context, changeIDs []int64) (map[int64]time.Time, error) {
+	finished := make(map[int64]time.Time)
+	if len(changeIDs) == 0 {
+		return finished, nil
+	}
+	rows, err := s.pool.Query(ctx,
+		`SELECT c.id, GREATEST(c.updated_at, MAX(COALESCE(s.ended_at, s.started_at)))
+		   FROM changes c LEFT JOIN stage_runs s ON s.change_id = c.id
+		  WHERE c.id = ANY($1) AND c.state = 'FINISHED'
+		  GROUP BY c.id`, changeIDs)
+	if err != nil {
+		return nil, fmt.Errorf("store: finished at by change: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var (
+			id int64
+			at time.Time
+		)
+		if err := rows.Scan(&id, &at); err != nil {
+			return nil, fmt.Errorf("store: finished at by change: %w", err)
+		}
+		finished[id] = at
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: finished at by change: %w", err)
+	}
+	return finished, nil
+}
+
 // ListChanges returns every change recorded for projectKey, in name order,
 // with no filtering, search or paging beyond that project scope -- every
 // matching row, always. It exists only because tasks 2 and 2.1's tests

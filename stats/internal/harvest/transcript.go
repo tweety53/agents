@@ -759,16 +759,23 @@ func ReadNewRecords(path string, offset int64, openAgentCalls map[string]bool) (
 	}
 
 	complete, _ := SplitCompleteLines(raw)
-	records := append(ParseAssistantRecords(complete), ParseSignalRecords(complete)...)
 	denials, stillOpen := ParseDispatchEvents(complete, openAgentCalls)
 	return Batch{
-		Records:   records,
+		Records:   ParseTranscriptRecords(complete),
 		Commands:  ParseCommandRecords(complete),
 		Launches:  ParseAgentLaunches(complete),
 		Denials:   denials,
 		OpenCalls: stillOpen,
 		NewOffset: offset + int64(len(complete)),
 	}, nil
+}
+
+// ParseTranscriptRecords is every Record a Claude transcript's complete
+// lines yield -- its assistant usage records, then its signal records. It is
+// the one parse ReadNewRecords and the Claude Source's Parse share, so the
+// watcher and Watcher.BackfillStageGaps cannot read the same bytes two ways.
+func ParseTranscriptRecords(complete []byte) []Record {
+	return append(ParseAssistantRecords(complete), ParseSignalRecords(complete)...)
 }
 
 // ReadAllCommands reads path from byte 0 to its current EOF and returns

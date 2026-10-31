@@ -57,7 +57,9 @@ type StatsStore interface {
 	StageLeaderboard(ctx context.Context, period store.Period, project, model *string) ([]store.StageLeaderboardRow, error)
 	// StageLeaderboardProjects backs the stage-leaderboard response's projects (decision leaderboard-project-spend-method).
 	StageLeaderboardProjects(ctx context.Context, period store.Period) ([]store.ProjectSpend, error)
-	TrendOverTime(ctx context.Context, period store.Period, project, model *string) ([]store.TrendPoint, error)
+	// TrendFinishedChanges backs the "trend" view (decision
+	// trend-endpoint-per-change-rows): every project's finished changes.
+	TrendFinishedChanges(ctx context.Context, period store.Period) ([]store.TrendChange, error)
 	WeeklyCosts(ctx context.Context, period store.Period, project, model *string) ([]store.WeeklyCostPoint, error)
 	// WeeklyModelEffortCosts backs the "weekly-model-effort-costs" view
 	// (decision model-effort-view): every project, no model filter.
@@ -433,6 +435,20 @@ func (h *statsHandler) view(w http.ResponseWriter, r *http.Request) {
 			"view %q does not accept a model restriction: its rows are changes, not stage runs", name))
 		return
 	}
+	// The trend view's rows are every project's finished changes, which its
+	// Flow changes landed figure needs, and a whole-life cost has no model:
+	// both restrictions are refused rather than silently ignored (decision
+	// trend-endpoint-refuses-filters).
+	if name == viewTrend && model != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf(
+			"view %q does not accept a model restriction: its rows are whole-life change costs", name))
+		return
+	}
+	if name == viewTrend && project != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf(
+			"view %q does not accept a project restriction: its rows span every project", name))
+		return
+	}
 	// Only review dynamics filters by plan class; anywhere else the
 	// parameter would be silently ignored.
 	if c := firstValue(values, "class"); c != "" {
@@ -573,9 +589,9 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 		return toStageLeaderboardDTOs(board), 0, ""
 
 	case viewTrend:
-		trend, err := h.store.TrendOverTime(ctx, period, project, model)
+		trend, err := h.store.TrendFinishedChanges(ctx, period)
 		if err != nil {
-			s, m := mapStoreError(h.logger, "trend over time", err)
+			s, m := mapStoreError(h.logger, "trend finished changes", err)
 			return nil, s, m
 		}
 		return toTrendDTOs(trend), 0, ""
@@ -1023,19 +1039,23 @@ func toStageLeaderboardDTOs(rows []store.StageLeaderboardRow) []stageLeaderboard
 	return out
 }
 
-type trendPointDTO struct {
-	Day          string   `json:"day"`
-	RunCount     int      `json:"runCount"`
-	TotalCostUSD *float64 `json:"totalCostUsd"`
+// trendChangeDTO is one finished change: its Wednesday week (UTC date),
+// first stage run's command, project and whole-life cost.
+type trendChangeDTO struct {
+	Week       string  `json:"week"`
+	Command    string  `json:"command"`
+	ProjectKey string  `json:"projectKey"`
+	CostUSD    float64 `json:"costUsd"`
 }
 
-func toTrendDTOs(points []store.TrendPoint) []trendPointDTO {
-	out := make([]trendPointDTO, len(points))
-	for i, p := range points {
-		out[i] = trendPointDTO{
-			Day:          p.Day.UTC().Format("2006-01-02"),
-			RunCount:     p.RunCount,
-			TotalCostUSD: p.TotalCostUSD,
+func toTrendDTOs(rows []store.TrendChange) []trendChangeDTO {
+	out := make([]trendChangeDTO, len(rows))
+	for i, r := range rows {
+		out[i] = trendChangeDTO{
+			Week:       r.Week.UTC().Format("2006-01-02"),
+			Command:    r.Command,
+			ProjectKey: r.ProjectKey,
+			CostUSD:    r.CostUSD,
 		}
 	}
 	return out

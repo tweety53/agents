@@ -6,6 +6,7 @@ import (
 	"fmt"
 	dsnutil "github.com/tweety53/agents/stats/internal/dsn"
 	"os"
+	"regexp"
 	"testing"
 	"time"
 
@@ -278,5 +279,83 @@ func TestSeedInteractiveSessions(t *testing.T) {
 	}
 	if len(runs) != 1 || runs[0].RequestN == nil || *runs[0].RequestN != 7 || runs[0].Command != "/flow-interactive" {
 		t.Fatalf("open runs = %+v, want one /flow-interactive run carrying request 7", runs)
+	}
+}
+
+// TestSeedTrendFinishedChanges pins seedTrend (KAN-1051): over the twelve
+// Wednesday weeks ending with fixtureNow's, /flow changes fill at least six
+// weeks with an empty week between two filled ones and one week holds three
+// or more distinct costs; /flow-fast fills at least two weeks; changes land
+// in an agents-<8 hex> project and in one other.
+func TestSeedTrendFinishedChanges(t *testing.T) {
+	dsn := newUitestDatabase(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	st, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer st.Close()
+	if err := st.RunMigrations(ctx); err != nil {
+		t.Fatalf("run migrations: %v", err)
+	}
+	if err := seedFixture(ctx, st); err != nil {
+		t.Fatalf("seedFixture: %v", err)
+	}
+
+	current := time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC) // fixtureNow's Wednesday week
+	from := current.Add(-11 * 7 * 24 * time.Hour)
+	rows, err := st.TrendFinishedChanges(ctx, store.Period{From: from, To: fixtureNow})
+	if err != nil {
+		t.Fatalf("TrendFinishedChanges: %v", err)
+	}
+	flowWeek := map[time.Time]map[float64]bool{}
+	fastWeeks := map[time.Time]bool{}
+	agents, others := false, false
+	agentsKey := regexp.MustCompile(`^agents-[0-9a-f]{8}$`)
+	for _, r := range rows {
+		r.Week = r.Week.UTC() // map keys compare location too
+		switch r.Command {
+		case "/flow":
+			if flowWeek[r.Week] == nil {
+				flowWeek[r.Week] = map[float64]bool{}
+			}
+			flowWeek[r.Week][r.CostUSD] = true
+		case "/flow-fast":
+			fastWeeks[r.Week] = true
+		}
+		if agentsKey.MatchString(r.ProjectKey) {
+			agents = true
+		} else {
+			others = true
+		}
+	}
+	if len(flowWeek) < 6 {
+		t.Errorf("/flow fills %d weeks, want at least 6", len(flowWeek))
+	}
+	if len(fastWeeks) < 2 {
+		t.Errorf("/flow-fast fills %d weeks, want at least 2", len(fastWeeks))
+	}
+	gap, three := false, false
+	for i := 1; i < 11; i++ {
+		w := from.Add(time.Duration(i) * 7 * 24 * time.Hour)
+		prev, next := w.Add(-7*24*time.Hour), w.Add(7*24*time.Hour)
+		if flowWeek[w] == nil && flowWeek[prev] != nil && flowWeek[next] != nil {
+			gap = true
+		}
+	}
+	for _, costs := range flowWeek {
+		if len(costs) >= 3 {
+			three = true
+		}
+	}
+	if !gap {
+		t.Error("no empty /flow week between two filled ones")
+	}
+	if !three {
+		t.Error("no week holds three or more distinct /flow costs")
+	}
+	if !agents || !others {
+		t.Errorf("agents project seen %v, another project seen %v; want both", agents, others)
 	}
 }

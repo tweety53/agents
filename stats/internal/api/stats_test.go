@@ -50,9 +50,8 @@ func (f *fakeStore) StageLeaderboard(_ context.Context, _ store.Period, project,
 func (f *fakeStore) StageLeaderboardProjects(context.Context, store.Period) ([]store.ProjectSpend, error) {
 	return nil, nil
 }
-func (f *fakeStore) TrendOverTime(_ context.Context, _ store.Period, project, _ *string) ([]store.TrendPoint, error) {
-	f.lastStatsProject = project
-	return f.trendOverTime, f.trendOverTimeErr
+func (f *fakeStore) TrendFinishedChanges(context.Context, store.Period) ([]store.TrendChange, error) {
+	return f.trendFinishedChanges, f.trendFinishedChangesErr
 }
 func (f *fakeStore) WeeklyCosts(_ context.Context, _ store.Period, project, _ *string) ([]store.WeeklyCostPoint, error) {
 	f.lastStatsProject = project
@@ -122,7 +121,8 @@ type statsFake struct {
 	lastChange       *string
 	costPerChange    []store.CostPerChangeRow
 	stageLeaderboard []store.StageLeaderboardRow
-	trendOverTime    []store.TrendPoint
+	trendChanges     []store.TrendChange
+	trendCalled      bool
 	weeklyCosts      []store.WeeklyCostPoint
 	reviewers        []store.ReviewerRow
 	// stageLeaderboardProjects backs StageLeaderboardProjects; the method
@@ -207,9 +207,9 @@ func (f *statsFake) StageLeaderboardProjects(context.Context, store.Period) ([]s
 	}
 	return f.stageLeaderboardProjects, f.aggErr
 }
-func (f *statsFake) TrendOverTime(_ context.Context, _ store.Period, p, m *string) ([]store.TrendPoint, error) {
-	f.lastProject, f.lastModel = p, m
-	return f.trendOverTime, f.aggErr
+func (f *statsFake) TrendFinishedChanges(context.Context, store.Period) ([]store.TrendChange, error) {
+	f.trendCalled = true
+	return f.trendChanges, f.aggErr
 }
 func (f *statsFake) WeeklyCosts(_ context.Context, _ store.Period, p, m *string) ([]store.WeeklyCostPoint, error) {
 	f.lastProject, f.lastModel = p, m
@@ -614,26 +614,31 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 	})
 
 	t.Run("trend", func(t *testing.T) {
-		day := time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC)
-		cost := 42.5
-		sts := &statsFake{trendOverTime: []store.TrendPoint{{Day: day, RunCount: 8, TotalCostUSD: &cost}}}
+		week := time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC)
+		sts := &statsFake{trendChanges: []store.TrendChange{
+			{Week: week, Command: "/flow", ProjectKey: "agents-0a1b2c3d", CostUSD: 42.5},
+			{Week: week, Command: "/flow-fast", ProjectKey: "gymie-7c1f238a", CostUSD: 0.25},
+		}}
 		ts := newStatsTestServer(t, sts)
 		status, env, body := getStats(t, ts, periodPath("trend"))
 		if status != http.StatusOK {
 			t.Fatalf("status %d, body %s", status, body)
 		}
 		var rows []struct {
-			Day          string   `json:"day"`
-			RunCount     int      `json:"runCount"`
-			TotalCostUSD *float64 `json:"totalCostUsd"`
+			Week       string  `json:"week"`
+			Command    string  `json:"command"`
+			ProjectKey string  `json:"projectKey"`
+			CostUSD    float64 `json:"costUsd"`
 		}
 		mustDecodeRows(t, env, body, &rows)
-		if len(rows) != 1 {
-			t.Fatalf("rows = %d, want 1", len(rows))
+		if len(rows) != 2 {
+			t.Fatalf("rows = %d, want 2", len(rows))
 		}
-		got := rows[0]
-		if got.Day != "2026-08-12" || got.RunCount != 8 || got.TotalCostUSD == nil || *got.TotalCostUSD != 42.5 {
-			t.Errorf("got %+v, want Day=2026-08-12 RunCount=8 TotalCostUSD=42.5", got)
+		if got := rows[0]; got.Week != "2026-08-12" || got.Command != "/flow" || got.ProjectKey != "agents-0a1b2c3d" || got.CostUSD != 42.5 {
+			t.Errorf("rows[0] = %+v, want Week=2026-08-12 Command=/flow ProjectKey=agents-0a1b2c3d CostUSD=42.5", got)
+		}
+		if got := rows[1]; got.Week != "2026-08-12" || got.Command != "/flow-fast" || got.ProjectKey != "gymie-7c1f238a" || got.CostUSD != 0.25 {
+			t.Errorf("rows[1] = %+v, want Week=2026-08-12 Command=/flow-fast ProjectKey=gymie-7c1f238a CostUSD=0.25", got)
 		}
 	})
 
@@ -807,7 +812,7 @@ func TestEmptyPeriodReturnsEmptyNotError(t *testing.T) {
 // gap this closes: changing StageLeaderboard's boundary from
 // "sr.started_at < $2" to "<= $2" (internal/store/aggregate.go) left the
 // *previous* version of this test green -- it only looped over
-// cost-per-change, so a boundary divergence in stage-leaderboard or trend
+// cost-per-change, so a boundary divergence in stage-leaderboard
 // went completely undetected, even though this test's own
 // name claims to cover "every view".
 //
@@ -820,8 +825,9 @@ func TestEmptyPeriodReturnsEmptyNotError(t *testing.T) {
 // One stage run is seeded exactly on the boundary T, with a metrics bag and
 // an owning change shaped to satisfy every remaining view's own WHERE
 // clause (internal/store/aggregate.go): StageLeaderboard requires
-// "cost_usd" present. CostPerChange and TrendOverTime impose no such extra
-// condition, so the same run and change satisfy all three at once.
+// "cost_usd" present. CostPerChange imposes no such extra condition, so the
+// same run and change satisfy both at once. The trend view buckets changes by
+// their finish instant and refuses a project restriction, so it is not here.
 func TestBoundaryConventionIsConsistentAcrossViews(t *testing.T) {
 	st := newIntegrationStore(t)
 	projectKey := fmt.Sprintf("proj-boundary-%d", time.Now().UnixNano())
@@ -849,7 +855,7 @@ func TestBoundaryConventionIsConsistentAcrossViews(t *testing.T) {
 	// The live state board is not in this loop -- see the doc comment above
 	// for why it is a genuinely different case, not an omission.
 	views := []string{
-		"cost-per-change", "stage-leaderboard", "trend", "weekly-costs",
+		"cost-per-change", "stage-leaderboard", "weekly-costs",
 	}
 	for _, view := range views {
 		t.Run(view, func(t *testing.T) {
@@ -871,6 +877,25 @@ func TestBoundaryConventionIsConsistentAcrossViews(t *testing.T) {
 			_ = json.Unmarshal(env.Rows, &rowsAtAndAfter)
 			if len(rowsAtAndAfter) != 1 {
 				t.Errorf("period [T, T+1h) reported %d rows for a run starting exactly at T, want 1", len(rowsAtAndAfter))
+			}
+		})
+	}
+}
+
+// TestStatsTrendRefusesFilters pins decision trend-endpoint-refuses-filters:
+// the trend rows are every project's whole-life change costs, so a model or
+// a project restriction answers 400 before the store is asked.
+func TestStatsTrendRefusesFilters(t *testing.T) {
+	for _, param := range []string{"&model=claude-opus-5", "&project=agents-0a1b2c3d"} {
+		t.Run(param, func(t *testing.T) {
+			sts := &statsFake{}
+			ts := newStatsTestServer(t, sts)
+			status, _, body := getStats(t, ts, periodPath("trend")+param)
+			if status != http.StatusBadRequest {
+				t.Fatalf("status %d, want 400, body %s", status, body)
+			}
+			if sts.trendCalled {
+				t.Error("TrendFinishedChanges was called; the refusal must come before any store call")
 			}
 		})
 	}
@@ -1703,14 +1728,14 @@ func TestModelRestrictionRejectedOnStateBoard(t *testing.T) {
 }
 
 // TestModelParamAcceptedAndPassedThroughOnEveryStageRunView iterates the
-// three views whose rows are stage runs (every view except state-board,
+// views whose rows are stage runs (every view except state-board and trend,
 // covered separately above) and asserts a "model" query parameter reaches
 // the store call unchanged, for each one -- not spot-checked, per this
 // task's own non-negotiable requirement that the filter be honoured on
 // every one of the three, iterated.
 func TestModelParamAcceptedAndPassedThroughOnEveryStageRunView(t *testing.T) {
 	views := []string{
-		"cost-per-change", "stage-leaderboard", "trend", "weekly-costs",
+		"cost-per-change", "stage-leaderboard", "weekly-costs",
 	}
 	for _, view := range views {
 		t.Run(view, func(t *testing.T) {

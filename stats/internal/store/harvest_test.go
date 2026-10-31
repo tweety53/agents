@@ -816,3 +816,80 @@ func TestBackfillModelVersions(t *testing.T) {
 		t.Errorf("modelVersion by agent = %v, want %v", got, want)
 	}
 }
+
+// TestCommitHarvestBackfillAppliesOnce pins decision backfill-one-transaction:
+// a named back-fill's deltas land with its harvest_backfills row, and a
+// second call under the same name -- a second startup, or a second daemon
+// starting together -- adds nothing.
+func TestCommitHarvestBackfillAppliesOnce(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-backfill-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	var runs [2]int64
+	for i, stage := range []string{"SDD + TDD per task", "review panel"} {
+		run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", stage))
+		if err != nil {
+			t.Fatalf("BeginStage %s: %v", stage, err)
+		}
+		if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{"tokens":{"input":1}}`)); err != nil {
+			t.Fatalf("MergeMetrics: %v", err)
+		}
+		runs[i] = run.ID
+	}
+	inputs := func() [2]float64 {
+		t.Helper()
+		var got [2]float64
+		for i, id := range runs {
+			run, err := st.GetStageRun(ctx, id)
+			if err != nil {
+				t.Fatalf("GetStageRun: %v", err)
+			}
+			var bag struct {
+				Tokens struct {
+					Input float64 `json:"input"`
+				} `json:"tokens"`
+			}
+			if err := json.Unmarshal(run.Metrics, &bag); err != nil {
+				t.Fatalf("unmarshal metrics %s: %v", run.Metrics, err)
+			}
+			got[i] = bag.Tokens.Input
+		}
+		return got
+	}
+	done := func() bool {
+		t.Helper()
+		ok, err := st.HarvestBackfillDone(ctx, "stage-gap-cost")
+		if err != nil {
+			t.Fatalf("HarvestBackfillDone: %v", err)
+		}
+		return ok
+	}
+
+	if done() {
+		t.Fatalf("HarvestBackfillDone before any back-fill = true, want false")
+	}
+	deltas := []map[int64]json.RawMessage{
+		{runs[0]: json.RawMessage(`{"tokens":{"input":2}}`), runs[1]: json.RawMessage(`{"tokens":{"input":5}}`)},
+		{runs[0]: json.RawMessage(`{"tokens":{"input":4}}`)}, // a second transcript adds onto the same run
+	}
+	applied, err := st.CommitHarvestBackfill(ctx, "stage-gap-cost", deltas)
+	if err != nil || !applied {
+		t.Fatalf("CommitHarvestBackfill (first) = %v, %v, want applied", applied, err)
+	}
+	if got := inputs(); got != [2]float64{7, 6} {
+		t.Errorf("inputs after first back-fill = %v, want [7 6]", got)
+	}
+	if !done() {
+		t.Errorf("HarvestBackfillDone after the back-fill = false, want true")
+	}
+
+	applied, err = st.CommitHarvestBackfill(ctx, "stage-gap-cost", deltas)
+	if err != nil || applied {
+		t.Fatalf("CommitHarvestBackfill (second) = %v, %v, want not applied", applied, err)
+	}
+	if got := inputs(); got != [2]float64{7, 6} {
+		t.Errorf("inputs after second back-fill = %v, want [7 6] -- added twice", got)
+	}
+}
