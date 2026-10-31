@@ -74,8 +74,8 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	// The snapshot is the plan tree's content: every regular file under
-	// it, walked from disk -- the tree is gitignored (KAN-1073), so git
+	// The snapshot is the plan tree's content: every regular file and
+	// symlink under it (a symlink read through), walked from disk -- the tree is gitignored (KAN-1073), so git
 	// lists none of it -- sorted by repository-relative path, each as
 	// `== <path>` then its bytes, or `== <path> (missing)` when walked but
 	// unreadable. An absent plan tree is an empty dump.
@@ -89,7 +89,7 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 				}
 				return err
 			}
-			if d.Type().IsRegular() {
+			if d.Type().IsRegular() || d.Type()&fs.ModeSymlink != 0 {
 				rel, err := filepath.Rel(wt, p)
 				if err != nil {
 					return err
