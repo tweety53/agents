@@ -112,7 +112,7 @@ Not a task (decision tip-cleanup-outside-tasks). After the review panel's last r
   - [ ] **Step 4: Verify.** Step 1's command passes; lint. Commit.
 
 **Build:** green
-**Files:** `stats/internal/selfreview/git.go`, `stats/internal/selfreview/bundle_test.go`, `stats/internal/api/selfreview.go`, `stats/internal/client/selfreview.go`
+**Files:** `stats/internal/selfreview/git.go`, `stats/internal/selfreview/bundle_test.go`, `stats/internal/api/selfreview.go`, `stats/internal/client/selfreview.go`, `stats/internal/landed/landed.go`
 **Allowed-collateral:** `stats/internal/api/selfreview_test.go`
 **Tests:** `TestBundleAssemblyReadsDroppedFilesThroughGit`, `TestDeriveFinishCommitsFollowsTheDrop`, `TestBundleAssemblyRendersRecordsFromTheStoreOnly`
 **Regression:** `TestBundleAssemblyReadsDroppedFilesThroughGit` fails — the self-review pass reads an empty bundle for every change once run 1 drops its directory.
@@ -129,7 +129,7 @@ Not a task (decision tip-cleanup-outside-tasks). After the review panel's last r
   - [ ] **Step 4: Verify.** Step 1's command passes; `git grep -n -F -e 'unlandedArchives' -e 'changes/archive' -- stats/internal/guard/planparse.go stats/internal/guard/taskrecords.go stats/internal/guard/planprovenance.go stats/internal/guard/verbatimmoves.go stats/internal/guard/planunchanged.go stats/internal/guard/unfinishedwork.go stats/internal/guard/visualverifydispatched.go stats/internal/guard/specroot.go stats/internal/guard/ownedcorpus.go` prints nothing; lint. Commit.
 
 **Build:** green
-**Files:** `stats/internal/guard/unlandedarchives.go`, `stats/internal/guard/unlanded_archives_test.go`, `stats/internal/guard/planparse.go`, `stats/internal/guard/taskrecords.go`, `stats/internal/guard/planprovenance.go`, `stats/internal/guard/verbatimmoves.go`, `stats/internal/guard/planunchanged.go`, `stats/internal/guard/unfinishedwork.go`, `stats/internal/guard/visualverifydispatched.go`, `stats/internal/guard/specroot.go`, `stats/internal/guard/ownedcorpus.go`, `stats/internal/guard/check_plan_shape_test.go`, `stats/internal/guard/check_verbatim_moves_test.go`, `stats/internal/guard/check_task_records_test.go`
+**Files:** `stats/internal/guard/unlandedarchives.go`, `stats/internal/guard/unlanded_archives_test.go`, `stats/internal/guard/planparse.go`, `stats/internal/guard/taskrecords.go`, `stats/internal/guard/planprovenance.go`, `stats/internal/guard/verbatimmoves.go`, `stats/internal/guard/planunchanged.go`, `stats/internal/guard/unfinishedwork.go`, `stats/internal/guard/visualverifydispatched.go`, `stats/internal/guard/ownedcorpus.go`, `stats/internal/guard/check_plan_shape_test.go`, `stats/internal/guard/check_verbatim_moves_test.go`, `stats/internal/guard/check_task_records_test.go`, `stats/internal/guard/plandispatchbundles.go`, `stats/internal/guard/planshape.go`, `stats/internal/guard/taskbuildgreen.go`
 **Allowed-collateral:** `stats/internal/guard/*_test.go`
 **Tests:** `TestPlanParseScansLiveChangesOnly`, `TestCheckVerbatimMovesReadsLiveAcksOnly`, `TestCheckTaskRecordsIgnoresArchiveDir`
 **Regression:** `TestPlanParseScansLiveChangesOnly` fails — the plan guards read archive directories no change writes any more.
@@ -188,7 +188,7 @@ Not a task (decision tip-cleanup-outside-tasks). After the review panel's last r
   - [ ] **Step 2: Verify.** `git diff -U0 -- scripts/ | grep -E '^[-+][^-+]' | grep -vE '^[-+]#'` prints nothing (comment-only hunks); `bash -n` each file exits 0; `git grep -n -F -e 'spectre archive' -e 'changes/archive' -- scripts/commit-archive.sh scripts/check-archive-scope.sh scripts/integrate-change.sh scripts/check-plan-shape.sh scripts/plan-dispatch-bundles.sh scripts/check-task-build-green.sh scripts/check-task-commit-fields.sh scripts/check-plan-unchanged.sh scripts/check-task-reviewer-single-dispatch.sh scripts/check-visual-verify-dispatched.sh scripts/check-unfinished-work.sh scripts/check-untasked-commits.sh scripts/check-done-when-paths.sh scripts/check-verbatim-moves.sh` prints nothing; `scripts/check-references.sh` exits 0. Commit.
 
 **Build:** green
-**Files:** `scripts/commit-archive.sh`, `scripts/check-archive-scope.sh`, `scripts/integrate-change.sh`, `scripts/check-plan-shape.sh`, `scripts/plan-dispatch-bundles.sh`, `scripts/check-task-build-green.sh`, `scripts/check-task-commit-fields.sh`, `scripts/check-plan-unchanged.sh`, `scripts/check-task-reviewer-single-dispatch.sh`, `scripts/check-visual-verify-dispatched.sh`, `scripts/check-unfinished-work.sh`, `scripts/check-untasked-commits.sh`, `scripts/check-done-when-paths.sh`, `scripts/check-verbatim-moves.sh`
+**Files:** `scripts/commit-archive.sh`, `scripts/check-archive-scope.sh`, `scripts/check-plan-shape.sh`, `scripts/plan-dispatch-bundles.sh`, `scripts/check-task-build-green.sh`, `scripts/check-plan-unchanged.sh`, `scripts/check-task-reviewer-single-dispatch.sh`, `scripts/check-visual-verify-dispatched.sh`, `scripts/check-unfinished-work.sh`, `scripts/check-untasked-commits.sh`, `scripts/check-done-when-paths.sh`, `scripts/check-verbatim-moves.sh`
 **Tests:** **none** — comments.
 **Regression:** none — comments only.
 **Commit:** docs(scripts): describe the landing drop in the shim headers
