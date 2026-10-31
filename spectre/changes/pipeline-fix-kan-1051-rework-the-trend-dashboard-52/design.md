@@ -1,6 +1,8 @@
 # Design: stage-task-files stages a task's deleted paths
 
 **ID:** first-review-effort
+**Status:** active
+**Chosen:** flow-low — a one-function mechanical fix with a reproducing test
 
 ## Decision
 
