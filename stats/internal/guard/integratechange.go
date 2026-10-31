@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -32,6 +33,7 @@ type ic struct {
 	scriptDir, main, name, harness, token string
 	acceptForeign, acceptOutstanding      bool
 	planMsg, route, outstanding           string
+	squashed                              map[int][]string // by order index: the Task-Id trailers each reshape folds
 	prArgs, proceed, subjects             []string
 
 	openStage, stopOutcome string
@@ -185,7 +187,7 @@ type ic struct {
 // subshell `cd`, which keep their own directory.
 func integrateChange(args []string, env Env, stdout, stderr io.Writer) (code int) {
 	c := &ic{env: env, stdout: stdout, stderr: stderr, stopOutcome: "stopped",
-		bases: map[int]string{}, rb: map[int]string{}}
+		bases: map[int]string{}, rb: map[int]string{}, squashed: map[int][]string{}}
 	defer func() {
 		if r := recover(); r != nil {
 			e, ok := r.(icExit)
@@ -789,71 +791,39 @@ func (c *ic) baseOf(i int) {
 	}
 }
 
-// archBase: a re-run's base — past the self-review loop's commits when it
-// ran, else the newest drop commit, else mb.
-func (c *ic) archBase(w, mb string) string {
-	log, _ := c.git("-C", w, "log", "--format=%H %s", mb+"..HEAD")
-	return archivedBase(log, c.name, mb)
-}
-
-// ArchivedRerunBase is the base integrate's unfinished-work gate judges
-// worktree w from: archBase's answer -- mb until run 1's drop commit is on
-// the branch, a fix run's restored directory included. The visual-verify
-// stage end shares it, so it refuses nothing integrate would admit. canon
-// is no longer read: the drop commit alone decides.
-func ArchivedRerunBase(env Env, _, w, name, mb string) string {
-	log, _ := capture(envGit(env)("-C", w, "log", "--format=%H %s", mb+"..HEAD"))
-	return archivedBase(log, name, mb)
-}
-
-func archivedBase(log, name, mb string) string {
-	if s := selfReviewBase(log, name); s != "" {
-		return s
+// reshapeBase: a re-run's reshape base in worktree w — the newest commit
+// in mb..HEAD a `fixed` self-review row names (its fix keeps the sha the
+// row recorded, kan-1021), else the newest `Flow-Key: flow.commit-two`
+// commit (run 1's implementation commit, already reshaped), else mb.
+func (c *ic) reshapeBase(w, mb string) string {
+	log, _ := c.git("-C", w, "log", "--format=%H %(trailers:key=Flow-Key,valueonly,separator=%x20)", mb+"..HEAD")
+	read := c.cmd("/", "flow", "self-review", "findings", "-C", c.main, "-change", c.name)
+	read.Stderr = nil
+	out, _ := c.capture(read)
+	var rows []struct{ Disposition, Ref string }
+	_ = json.Unmarshal([]byte(out), &rows)
+	var fixed []string
+	for _, r := range rows {
+		if r.Disposition == "fixed" && len(r.Ref) >= 7 {
+			fixed = append(fixed, r.Ref)
+		}
 	}
-	if s := icFirstSubject(log, "chore(spectre): drop "+name); s != "" {
-		return s
+	split := ""
+	for _, l := range icLines(log) {
+		h, keys, _ := strings.Cut(l, " ")
+		for _, f := range fixed {
+			if strings.HasPrefix(h, f) {
+				return h
+			}
+		}
+		if split == "" && slices.Contains(strings.Fields(keys), "flow.commit-two") {
+			split = h
+		}
+	}
+	if split != "" {
+		return split
 	}
 	return mb
-}
-
-// selfReviewBase: the newest commit of the self-review loop in log (newest
-// first) — its report or bundle, its drop, or, from its plan commit on,
-// every commit up to a fix run's own planning commit, which opens new work.
-func selfReviewBase(log, name string) string {
-	plan := "chore(spectre): plan " + name
-	marks := []string{
-		"docs(self-review): " + name + " self-review report",
-		"docs(self-review): " + name + " self-review context bundle",
-		"chore(spectre): drop self-review-" + name,
-	}
-	base, loop := "", false
-	l := icLines(log)
-	for i := len(l) - 1; i >= 0; i-- {
-		h, s, _ := strings.Cut(l[i], " ")
-		switch {
-		case s == "chore(spectre): plan self-review-"+name:
-			base, loop = h, true
-		case icHas(marks, s):
-			base, loop = h, false
-		case s == plan || strings.HasPrefix(s, plan+" — "):
-			loop = false
-		case loop:
-			base = h
-		}
-	}
-	return base
-}
-
-// icFirstSubject: the hash of the first `<hash> <subject>` line whose
-// subject is one of subjects.
-func icFirstSubject(log string, subjects ...string) string {
-	for _, l := range icLines(log) {
-		h, s, _ := strings.Cut(l, " ")
-		if icHas(subjects, s) {
-			return h
-		}
-	}
-	return ""
 }
 
 func (c *ic) reshapeFile(w string) string {

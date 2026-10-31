@@ -6,7 +6,7 @@ import (
 )
 
 // commitSplit is scripts/commit-split.sh: that script's header is the
-// contract — the guarded two-commit chain of
+// contract — the guarded commit chain of
 // skills/flow-contracts/pipeline.md's "Git boundaries" section, behind
 // checkChangeWorktreeLocation (in-process). Every git step's own output passes
 // through and its exit code is the guard's, as `set -euo pipefail` made it.
@@ -14,10 +14,10 @@ func init() { Registry["commit-split"] = commitSplit }
 
 func commitSplit(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) < 4 {
-		fmt.Fprintln(stderr, "usage: commit-split.sh <worktree> <name> <impl-msg> <plan-msg>")
+		fmt.Fprintln(stderr, "usage: commit-split.sh <worktree> <name> <impl-msg> <plan-msg> [<trailer>…]")
 		return 2
 	}
-	worktree, name, implMsg, planMsg := args[0], args[1], args[2], args[3]
+	worktree, name, implMsg, planMsg, trailers := args[0], args[1], args[2], args[3], args[4:]
 
 	if rc := checkChangeWorktreeLocation([]string{worktree, name}, env, stdout, stderr); rc != 0 {
 		return rc
@@ -43,7 +43,14 @@ func commitSplit(args []string, env Env, stdout, stderr io.Writer) int {
 	// The implementation commit is outside every task, so it carries the
 	// stage key that runs this chain (git-boundaries.md, "Commits outside
 	// every task") — else run 1's gate lists it on a re-run.
-	if rc := commit("-m", implMsg, "-m", "Flow-Key: flow.commit-two"); rc != 0 {
+	// Each <trailer> — a squashed commit's `Task-Id: <n>` — joins the
+	// Flow-Key in the trailer block, so a re-run's Task-Id search still
+	// finds every task the squash folded in.
+	implArgs := []string{"-m", implMsg, "--trailer", "Flow-Key: flow.commit-two"}
+	for _, t := range trailers {
+		implArgs = append(implArgs, "--trailer", t)
+	}
+	if rc := commit(implArgs...); rc != 0 {
 		return rc
 	}
 	if rc := run("add", "-A"); rc != 0 {

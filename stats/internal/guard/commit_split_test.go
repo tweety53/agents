@@ -125,6 +125,16 @@ func TestCommitSplit(t *testing.T) {
 		check(t, isFile(fx.wt+"/spectre/changes/demo/plan.md"), "the change directory stays on disk", "plan.md lost")
 	})
 
+	t.Run("1c each trailer argument joins the implementation commit's trailer block", func(t *testing.T) {
+		t.Parallel()
+		fx := csNew(t)
+		writeFile(t, fx.wt+"/src.md", "impl change\n")
+		rc, out := runSplitGuard(t, commitSplit, fx.wt, fx.wt, "demo", "impl: case1c", "plan: case1c", "Task-Id: 1", "Task-Id: 2")
+		check(t, rc == 0, "exit", "rc=%d out=%s", rc, out)
+		tr := splitGit(t, fx.wt, nil, "log", "-1", "--format=%(trailers:key=Task-Id,valueonly,separator=%x2C)|%(trailers:key=Flow-Key,valueonly)")
+		check(t, tr == "1,2|flow.commit-two", "trailers", "%q", tr)
+	})
+
 	t.Run("2 nothing is committed when only the change directory changed", func(t *testing.T) {
 		t.Parallel()
 		fx := csNew(t)
@@ -188,6 +198,6 @@ func TestCommitSplit(t *testing.T) {
 	t.Run("usage: fewer than four arguments cannot answer", func(t *testing.T) {
 		t.Parallel()
 		rc, out := runSplitGuard(t, commitSplit, t.TempDir(), "a", "b", "c")
-		check(t, rc == 2 && out == "usage: commit-split.sh <worktree> <name> <impl-msg> <plan-msg>", "usage", "rc=%d out=%q", rc, out)
+		check(t, rc == 2 && out == "usage: commit-split.sh <worktree> <name> <impl-msg> <plan-msg> [<trailer>…]", "usage", "rc=%d out=%q", rc, out)
 	})
 }

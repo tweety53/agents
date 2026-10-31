@@ -143,13 +143,12 @@ func (c *ic) prepare() {
 	c.liveCheckGate(live)
 
 	ask = false
-	// Every worktree's commit range, for signal four's Task-Id search. A
-	// re-run after a drop -- a fix run's restored directory included --
-	// starts past the newest drop commit (archBase): the guard exempts
-	// the tasks already ticked, whose commits run 1 squashed.
+	// Every worktree's commit range, for signal four's Task-Id search: from
+	// the merge base, since run 1's implementation commit carries the
+	// Task-Id trailer of every commit it squashed.
 	rangeBase := func(i int) string {
 		rb, _ := c.git("-C", c.wt[i], "merge-base", "HEAD", "origin/"+c.bases[i])
-		return c.archBase(c.wt[i], rb)
+		return rb
 	}
 	var ranges []string
 	for i := range c.wt {
@@ -236,7 +235,7 @@ func (c *ic) prepare() {
 	for i := range c.wt {
 		f := c.reshapeFile(c.wt[i])
 		os.Remove(f)
-		rb := c.archBase(c.wt[i], c.rb[i])
+		rb := c.reshapeBase(c.wt[i], c.rb[i])
 		if err := os.WriteFile(f, []byte(rb+"\n"), 0o644); err != nil {
 			fmt.Fprintf(c.stderr, "integrate-change: %v\n", err)
 		}
