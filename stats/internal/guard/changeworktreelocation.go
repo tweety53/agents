@@ -8,7 +8,7 @@ import (
 // checkChangeWorktreeLocation refuses a worktree a change's branch is
 // rewritten in unless it is a linked worktree on spectre/<name>:
 // WORKTREE-LOCATION-MAIN-CHECKOUT and/or WORKTREE-LOCATION-WRONG-BRANCH at exit
-// 1, or WORKTREE-LOCATION-LOCATION-OK at exit 0; exit 2 with nothing on stdout
+// 1, or WORKTREE-LOCATION-OK at exit 0; exit 2 with nothing on stdout
 // when it cannot answer. reshape-branch and commit-split call it in-process
 // before they move HEAD: a rewrite in the main checkout, or on another
 // change's branch, lands where no step of this change ever sees it.
@@ -64,6 +64,6 @@ func checkChangeWorktreeLocation(args []string, env Env, stdout, stderr io.Write
 	if violation {
 		return 1
 	}
-	fmt.Fprintf(stdout, "WORKTREE-LOCATION-LOCATION-OK: %s on spectre/%s\n", wt, name)
+	fmt.Fprintf(stdout, "WORKTREE-LOCATION-OK: %s on spectre/%s\n", wt, name)
 	return 0
 }

@@ -92,14 +92,14 @@ func TestChangeWorktreeLocationAdmitsAChangeWorktree(t *testing.T) {
 	_, main := cwlFx(t)
 	t.Run("linked worktree on spectre/<name> passes", func(t *testing.T) {
 		t.Parallel()
-		cwlRun(t, env, 0, "WORKTREE-LOCATION-LOCATION-OK: "+main+"/.worktrees/demo on spectre/demo\n", main+"/.worktrees/demo", "demo")
+		cwlRun(t, env, 0, "WORKTREE-LOCATION-OK: "+main+"/.worktrees/demo on spectre/demo\n", main+"/.worktrees/demo", "demo")
 	})
 	t.Run("a subdirectory of the change worktree passes", func(t *testing.T) {
 		t.Parallel()
-		cwlRun(t, env, 0, "WORKTREE-LOCATION-LOCATION-OK: "+main+"/.worktrees/demo/sub on spectre/demo\n", main+"/.worktrees/demo/sub", "demo")
+		cwlRun(t, env, 0, "WORKTREE-LOCATION-OK: "+main+"/.worktrees/demo/sub on spectre/demo\n", main+"/.worktrees/demo/sub", "demo")
 	})
 	t.Run("a relative worktree resolves against the caller's cwd and is printed as given", func(t *testing.T) {
 		t.Parallel()
-		cwlRun(t, Env{Getenv: os.Getenv, Dir: main}, 0, "WORKTREE-LOCATION-LOCATION-OK: .worktrees/demo on spectre/demo\n", ".worktrees/demo", "demo")
+		cwlRun(t, Env{Getenv: os.Getenv, Dir: main}, 0, "WORKTREE-LOCATION-OK: .worktrees/demo on spectre/demo\n", ".worktrees/demo", "demo")
 	})
 }
