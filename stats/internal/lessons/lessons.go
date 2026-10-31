@@ -4,7 +4,7 @@
 // references a practice names it once and this package finds where the
 // practice is written down, instead of the caller searching repositories.
 //
-// Everything here is a plain filesystem read over the roots the caller
+// Everything here is a plain filesystem and git-history read over the roots the caller
 // supplies, resolved fresh on every call — the same "the daemon reads the
 // repositories" shape the self-review bundle uses. An index that
 // materialized briefs or narrative mentions would go stale the moment a
@@ -15,10 +15,15 @@ package lessons
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/landed"
 )
 
 // Root is one project's main checkout the scan reads. It mirrors the
@@ -69,9 +74,10 @@ type Result struct {
 // lands with the change that promotes it and survives every cleanup.
 const briefsDir = "docs/briefs"
 
-// narrativesGlob is where each run's session narrative is archived,
-// relative to a project root: one narrative.md per archived change.
-const narrativesGlob = "spectre/changes/archive/*/narrative.md"
+// landedSubject matches the commit that removed a landed change's directory
+// from the tip -- a `drop` now, an `archive` move before -- whose history
+// holds the change's narrative.md (landed.File).
+var landedSubject = regexp.MustCompile(`^chore\(spectre\): (?:drop|archive) (\S+)$`)
 
 // matchLineCap bounds one narrative's printed matching lines. A narrative
 // that discusses the topic at length still answers "where is it written",
@@ -122,11 +128,10 @@ func Resolve(roots []Root, topic string) (*Result, error) {
 			}
 		}
 
-		narratives, _ := filepath.Glob(filepath.Join(root.Path, narrativesGlob))
-		for _, path := range narratives {
-			m, matched, err := readNarrative(root, path, needle)
+		for _, c := range landedChanges(root.Path) {
+			m, matched, err := readNarrative(root, c, needle)
 			if err != nil {
-				res.Unreadable = append(res.Unreadable, path)
+				res.Unreadable = append(res.Unreadable, root.Path+": "+c.name)
 				continue
 			}
 			if matched {
@@ -173,23 +178,49 @@ func readBrief(root Root, path, needle string) (Brief, bool, error) {
 	return b, true, nil
 }
 
-// readNarrative reads one archived narrative and reports whether any of
-// its lines matches the needle. A read or stat failure is an error; no
-// match is a nil error with matched false.
-func readNarrative(root Root, path, needle string) (Mention, bool, error) {
-	content, err := os.ReadFile(path)
+// landedChange is one change whose directory a commit removed from the tip,
+// with that commit's time.
+type landedChange struct {
+	name string
+	when time.Time
+}
+
+// landedChanges lists root's landed changes, newest commit per name, from
+// one history walk. A root that is not a git repository has none.
+func landedChanges(root string) []landedChange {
+	out, err := exec.Command("git", "-C", root, "log", "--all", "--format=%ct %s",
+		"--fixed-strings", "--grep", "chore(spectre): ").Output()
 	if err != nil {
-		return Mention{}, false, err
+		return nil
 	}
-	info, err := os.Stat(path)
-	if err != nil {
+	seen := map[string]bool{}
+	var cs []landedChange
+	for _, line := range strings.Split(string(out), "\n") {
+		ct, subject, _ := strings.Cut(line, " ")
+		m := landedSubject.FindStringSubmatch(subject)
+		if m == nil || seen[m[1]] {
+			continue
+		}
+		seen[m[1]] = true
+		sec, _ := strconv.ParseInt(ct, 10, 64)
+		cs = append(cs, landedChange{m[1], time.Unix(sec, 0)})
+	}
+	return cs
+}
+
+// readNarrative reads one landed change's narrative.md from history and
+// reports whether any of its lines matches the needle. A git failure is an
+// error; no narrative or no match is a nil error with matched false.
+func readNarrative(root Root, c landedChange, needle string) (Mention, bool, error) {
+	content, ok, err := landed.File(root.Path, c.name, "narrative.md")
+	if err != nil || !ok {
 		return Mention{}, false, err
 	}
 	m := Mention{
 		Repo:    root.Path,
-		Change:  filepath.Base(filepath.Dir(path)),
-		Path:    relTo(root.Path, path),
-		ModTime: info.ModTime(),
+		Change:  c.name,
+		Path:    "spectre/changes/" + c.name + "/narrative.md",
+		ModTime: c.when,
 	}
 	for _, line := range strings.Split(string(content), "\n") {
 		if strings.Contains(Normalize(line), needle) {

@@ -848,8 +848,14 @@ func readPlanFile(r store.LiveStateRow, name string) ([]byte, bool) {
 			return b, true
 		}
 	}
+	// A finished row is read only on a single-change board; an in-flight one
+	// is polled every render, so it reads HEAD's recent commits alone.
+	read := landed.Recent
+	if r.State == store.StateFinished {
+		read = landed.File
+	}
 	for _, root := range r.RepoRoots {
-		if b, ok, _ := landed.File(root, name, "tasks.md"); ok {
+		if b, ok, _ := read(root, name, "tasks.md"); ok {
 			return b, true
 		}
 	}

@@ -23,9 +23,24 @@ import (
 // neither commit exists or the chosen commit lacks the file; err is any
 // other git failure.
 func File(repo, name, file string) (b []byte, ok bool, err error) {
-	return Read(func(args ...string) ([]byte, error) {
+	return Read(repoGit(repo), name, file)
+}
+
+// Recent is File over the newest recentDepth commits of HEAD alone -- a
+// bounded read for a caller polling an in-flight change, whose run 1 drop
+// sits at the tip of the branch its worktree has checked out.
+func Recent(repo, name, file string) (b []byte, ok bool, err error) {
+	return read(repoGit(repo), name, file, "-n", recentDepth, "HEAD")
+}
+
+// recentDepth bounds Recent's walk: run 1's drop is followed by at most a
+// few fix-run commits before the change finishes.
+const recentDepth = "50"
+
+func repoGit(repo string) Git {
+	return func(args ...string) ([]byte, error) {
 		return exec.Command("git", append([]string{"-C", repo}, args...)...).Output()
-	}, name, file)
+	}
 }
 
 // Git runs one git command against a repository and returns its stdout, an
@@ -35,31 +50,43 @@ type Git func(args ...string) ([]byte, error)
 
 // Read is File through git: the same resolution, every git call made by it.
 func Read(git Git, name, file string) (b []byte, ok bool, err error) {
-	sha, err := newest(git, "chore(spectre): drop "+name)
+	return read(git, name, file, "--all")
+}
+
+// read is Read with the log's revision range given as span.
+func read(git Git, name, file string, span ...string) (b []byte, ok bool, err error) {
+	sha, err := newest(git, span, "chore(spectre): drop "+name)
 	if err != nil {
 		return nil, false, err
 	}
-	rev := sha + "^:spectre/changes/" + name + "/" + file
+	commit, path := sha+"^", "spectre/changes/"+name+"/"+file
 	if sha == "" {
-		if sha, err = newest(git, "chore(spectre): archive "+name); err != nil || sha == "" {
+		if sha, err = newest(git, span, "chore(spectre): archive "+name); err != nil || sha == "" {
 			return nil, false, err
 		}
-		rev = sha + ":spectre/changes/archive/" + name + "/" + file
+		commit, path = sha, "spectre/changes/archive/"+name+"/"+file
 	}
-	if _, err := git("cat-file", "-e", rev); err != nil {
+	// ls-tree prints nothing for an absent path and fails only on a git
+	// fault, which cat-file -e would conflate with absence.
+	listed, err := git("ls-tree", "--name-only", commit, "--", path)
+	if err != nil {
+		return nil, false, fmt.Errorf("git ls-tree %s: %w", commit, err)
+	}
+	if len(bytes.TrimSpace(listed)) == 0 {
 		return nil, false, nil
 	}
+	rev := commit + ":" + path
 	if b, err = git("show", rev); err != nil {
 		return nil, false, fmt.Errorf("git show %s: %w", rev, err)
 	}
 	return b, true, nil
 }
 
-// newest is the sha of the newest commit, over every ref, whose subject is
-// exactly subject; "" when none. The --grep is a prefilter only: it also
+// newest is the sha of the newest commit in span whose subject is exactly
+// subject; "" when none. The --grep is a prefilter only: it also
 // matches a longer name (kan-10 for kan-1) and the message body.
-func newest(git Git, subject string) (string, error) {
-	out, err := git("log", "--all", "--format=%H %s", "--fixed-strings", "--grep", subject)
+func newest(git Git, span []string, subject string) (string, error) {
+	out, err := git(append(append([]string{"log"}, span...), "--format=%H %s", "--fixed-strings", "--grep", subject)...)
 	if err != nil {
 		return "", fmt.Errorf("git log: %w", err)
 	}

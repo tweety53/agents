@@ -146,7 +146,7 @@ func (c *ic) prepare() {
 	// run's re-drop -- is undone, so this pass sees the change as it was
 	// before it. The index decides, not the log: a re-drop's branch already
 	// holds run 1's drop commit.
-	staged, _ := c.git("-C", c.canon, "diff", "--cached", "--name-only", "--diff-filter=D", "--", c.spec+"/changes/")
+	staged, _ := c.git("-C", c.canon, "diff", "--cached", "--no-renames", "--name-only", "--diff-filter=D", "--", c.spec+"/changes/")
 	var dirs []string // git lists paths sorted, so a directory's paths are adjacent
 	for _, p := range icLines(staged) {
 		b, _, _ := strings.Cut(strings.TrimPrefix(p, c.spec+"/changes/"), "/")

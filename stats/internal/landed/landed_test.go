@@ -1,6 +1,7 @@
 package landed
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -92,5 +93,49 @@ func TestFileAbsent(t *testing.T) {
 	r.commit("init")
 	if b, ok, err := File(r.dir, "kan-1", "tasks.md"); ok || err != nil {
 		t.Fatalf("File = %q, %v, %v; want absent", b, ok, err)
+	}
+}
+
+// TestFileReadsADropOnAnotherRef pins that the drop commit is found over every
+// ref: the landing branch need not be the one checked out.
+func TestFileReadsADropOnAnotherRef(t *testing.T) {
+	r := newRepo(t)
+	r.commit("init")
+	r.git("checkout", "-q", "-b", "feature")
+	r.write("spectre/changes/kan-1/tasks.md", "one\n")
+	r.commit("plan kan-1")
+	r.drop("kan-1")
+	r.git("checkout", "-q", "main")
+	mustFile(t, r.dir, "kan-1", "tasks.md", "one\n")
+}
+
+// TestReadReportsAGitFault pins that a failing tree listing is an error, not
+// an absent file.
+func TestReadReportsAGitFault(t *testing.T) {
+	git := func(args ...string) ([]byte, error) {
+		if args[0] == "log" {
+			return []byte("abc chore(spectre): drop kan-1\n"), nil
+		}
+		return nil, errors.New("fault")
+	}
+	if _, ok, err := Read(git, "kan-1", "tasks.md"); ok || err == nil {
+		t.Fatalf("Read = %v, %v; want the git fault", ok, err)
+	}
+}
+
+// TestRecentReadsHEADsTip pins Recent: a drop at HEAD's tip is read, one on
+// another ref is not.
+func TestRecentReadsHEADsTip(t *testing.T) {
+	r := newRepo(t)
+	r.commit("init")
+	r.write("spectre/changes/kan-1/tasks.md", "one\n")
+	r.commit("plan kan-1")
+	r.drop("kan-1")
+	if b, ok, err := Recent(r.dir, "kan-1", "tasks.md"); !ok || err != nil || string(b) != "one\n" {
+		t.Fatalf("Recent = %q, %v, %v", b, ok, err)
+	}
+	r.git("checkout", "-q", "-b", "other", "HEAD~2")
+	if _, ok, _ := Recent(r.dir, "kan-1", "tasks.md"); ok {
+		t.Fatal("Recent read a drop off HEAD")
 	}
 }
