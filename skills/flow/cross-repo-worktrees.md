@@ -18,7 +18,7 @@ below gets its setup from `kickoff-worktree.sh`.
 `spectre link --root <abs-worktree>/spectre <canonical-peer>:<name>` with the working directory at
 that repository's primary checkout.**
 `<canonical-peer>` is the canonical repository's own name in that worktree's
-`<project>/spectre/peers` file. Each link writes `link.md` on both sides, on disk and nothing else — never with `--force`. Record what the command wrote alongside that worktree's merge
+`<project>/spectre/peers` file. Each link writes `link.md` on both sides, on disk and nothing else. Record what the command wrote alongside that worktree's merge
 base in this run's working notes. **A refusal is a hard failure of this stage**: report it and
 stop the run. A change with no linked peers runs
 nothing here.
