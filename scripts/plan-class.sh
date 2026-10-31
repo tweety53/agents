@@ -19,8 +19,8 @@
 # value when given, else class_mechanical — and the rolls: compact when
 # compact < 90, static grouping when bundle < 30, an experimental slot when
 # experimental < 30. The execution is `sdd`, implementer `chosen`, on every
-# class but micro, which is `inline` (decision sdd-below-micro). The slot is sorted(skills/flow/experimental/*.md)
-# [experimental mod count] under FLOW_GUARD_REPO_ROOT, with its line-1
+# class but micro, which is `inline` (decision sdd-below-micro). The slot is
+# sorted(skills/flow/experimental/*.md) [experimental mod count] under FLOW_GUARD_REPO_ROOT, with its line-1
 # `description:` value; an absent directory or no *.md file is `none
 # available`. The slot joins the first dispatch of a full regular/big
 # panel and is otherwise `skipped — bundle cap`. On
