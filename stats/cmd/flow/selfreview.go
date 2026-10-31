@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/fallback"
@@ -80,11 +81,19 @@ func runSelfReview(ctx context.Context, args []string, stdout, stderr io.Writer)
 	}
 }
 
+// selfReviewBundleTimeout is the bundle call's default deadline: the daemon
+// assembles the bundle from git history and the call has no fallback, so the
+// store-write fallback deadline (defaultTimeout) does not apply (kan-1072
+// self-review, F3).
+const selfReviewBundleTimeout = time.Minute
+
 func runSelfReviewBundle(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow self-review bundle", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
 	registerRecordConnFlags(fset, &f)
+	f.timeout = selfReviewBundleTimeout
+	fset.Lookup("timeout").DefValue = selfReviewBundleTimeout.String()
 	fset.StringVar(&f.change, "change", "", "the change whose bundle is served (required)")
 
 	projectKey, mainCheckout, code := parseSelfReviewFlags(fset, &f, args, stderr)

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestRunSelfReviewBundlePrintsBundle drives `flow self-review bundle`
@@ -51,6 +52,35 @@ func TestRunSelfReviewBundlePrintsBundle(t *testing.T) {
 	wantRepo := "repo=" + url.QueryEscape(resolved)
 	if !strings.Contains(gotQuery, wantRepo) {
 		t.Errorf("request query = %q, want %q carried", gotQuery, wantRepo)
+	}
+	if !strings.Contains(stdout.String(), "# Self-review context bundle for demo") {
+		t.Errorf("stdout = %q", stdout.String())
+	}
+}
+
+// TestRunSelfReviewBundleWaitsPastTheStoreDeadline pins the bundle's own
+// default deadline: the daemon assembles it from git history and it has no
+// fallback, so a bare call waits past the store-write deadline
+// (kan-1072 self-review, F3).
+func TestRunSelfReviewBundleWaitsPastTheStoreDeadline(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/bundle") {
+			time.Sleep(defaultTimeout + 500*time.Millisecond)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("# Self-review context bundle for demo\n"))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr strings.Builder
+	code := run(context.Background(),
+		[]string{"self-review", "bundle", "-addr", srv.URL, "-C", repo, "-change", "demo"},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit = %d, stderr: %s", code, stderr.String())
 	}
 	if !strings.Contains(stdout.String(), "# Self-review context bundle for demo") {
 		t.Errorf("stdout = %q", stdout.String())
