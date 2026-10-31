@@ -50,6 +50,11 @@ type Window struct {
 	// fallback (fallbackWindow). Nil while the change is unfinished or the
 	// run belongs to no change, and then the fallback is unbounded.
 	ChangeFinishedAt *time.Time
+	// Abandoned is true for a run SweepAbandoned closed (outcome
+	// 'abandoned'): its EndedAt was set after the fact, possibly back to the
+	// next stage's start, so a record past it may have been counted to it
+	// while it was still open -- AttributeGaps' reason to skip such records.
+	Abandoned bool
 }
 
 // intervalContains reports whether ts falls inside the half-open
@@ -524,10 +529,17 @@ func (a *Attributor) Attribute(ctx context.Context, records []Record) (map[int64
 // dropped: those bestWindow places nowhere and fallbackWindow places
 // somewhere. Watcher.BackfillStageGaps runs it over bytes already
 // harvested, where every record a window contains was counted already
-// (decision gap-backfill-once-at-startup).
+// (decision gap-backfill-once-at-startup). A record past an abandoned window
+// of its session that began at or before it is skipped too: that window was
+// open when the record was harvested, and counted it, before the sweep moved
+// its end mark back -- the back-fill cannot tell it from a dropped one, and
+// would add it twice.
 func (a *Attributor) AttributeGaps(ctx context.Context, records []Record) (map[int64]Delta, error) {
 	return a.attribute(ctx, records, func(windows []Window, ts time.Time) (Window, bool) {
 		if _, ok := bestWindow(windows, ts); ok {
+			return Window{}, false
+		}
+		if _, ok := latestWindow(windows, func(w Window) bool { return w.Abandoned && !w.StartedAt.After(ts) }); ok {
 			return Window{}, false
 		}
 		return fallbackWindow(windows, ts)

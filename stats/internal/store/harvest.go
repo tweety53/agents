@@ -170,7 +170,8 @@ func (s *Store) HarvestBackfillDone(ctx context.Context, name string) (bool, err
 	return done, nil
 }
 
-// CommitHarvestBackfill adds every stage run's delta in deltas through
+// CommitHarvestBackfill adds every stage run's delta in each of patches --
+// one map per transcript, two touching the same run adding up -- through
 // jsonb_deep_add, exactly as CommitHarvestBatch does, in one transaction
 // that first inserts back-fill name's harvest_backfills row (decision
 // backfill-one-transaction). When the row already existed it applies
@@ -180,10 +181,12 @@ func (s *Store) HarvestBackfillDone(ctx context.Context, name string) (bool, err
 // whole back-fill back with ErrStageRunNotFound, the marker included, and a
 // nil patch is refused with ErrNilMetricsPatch, both as CommitHarvestBatch
 // does.
-func (s *Store) CommitHarvestBackfill(ctx context.Context, name string, deltas map[int64]json.RawMessage) (applied bool, err error) {
-	for stageRunID, patch := range deltas {
-		if patch == nil {
-			return false, fmt.Errorf("store: commit harvest backfill %s, stage run %d: %w", name, stageRunID, ErrNilMetricsPatch)
+func (s *Store) CommitHarvestBackfill(ctx context.Context, name string, patches []map[int64]json.RawMessage) (applied bool, err error) {
+	for _, deltas := range patches {
+		for stageRunID, patch := range deltas {
+			if patch == nil {
+				return false, fmt.Errorf("store: commit harvest backfill %s, stage run %d: %w", name, stageRunID, ErrNilMetricsPatch)
+			}
 		}
 	}
 
@@ -206,15 +209,17 @@ func (s *Store) CommitHarvestBackfill(ctx context.Context, name string, deltas m
 		return false, nil
 	}
 
-	for stageRunID, patch := range deltas {
-		tag, err := tx.Exec(ctx, `
-			UPDATE stage_runs SET metrics = jsonb_deep_add(metrics, $2::jsonb) WHERE id = $1
-		`, stageRunID, patch)
-		if err != nil {
-			return false, fmt.Errorf("store: commit harvest backfill %s: add token metrics for stage run %d: %w", name, stageRunID, err)
-		}
-		if tag.RowsAffected() == 0 {
-			return false, fmt.Errorf("store: commit harvest backfill %s: %w: %d", name, ErrStageRunNotFound, stageRunID)
+	for _, deltas := range patches {
+		for stageRunID, patch := range deltas {
+			tag, err := tx.Exec(ctx, `
+				UPDATE stage_runs SET metrics = jsonb_deep_add(metrics, $2::jsonb) WHERE id = $1
+			`, stageRunID, patch)
+			if err != nil {
+				return false, fmt.Errorf("store: commit harvest backfill %s: add token metrics for stage run %d: %w", name, stageRunID, err)
+			}
+			if tag.RowsAffected() == 0 {
+				return false, fmt.Errorf("store: commit harvest backfill %s: %w: %d", name, ErrStageRunNotFound, stageRunID)
+			}
 		}
 	}
 

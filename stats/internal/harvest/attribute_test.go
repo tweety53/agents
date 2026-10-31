@@ -2338,3 +2338,35 @@ func TestAttributeGapsKeepsOnlyFallbackRecords(t *testing.T) {
 		t.Errorf("main input by run = %v, want %v", got, want)
 	}
 }
+
+// TestAttributeGapsSkipsRecordsPastAnAbandonedWindow pins the back-fill's
+// second filter: run 1 was open when the 10:30 record was harvested, so it
+// counted it, before the sweep set its end mark back to run 2's 10:00 start.
+// Run 2 ended at 10:01, so no window contains the record now and the fallback
+// would place it on run 2 -- a second count. A record before the abandoned
+// run began is still nobody's, and one past a run that was never abandoned
+// still back-fills.
+func TestAttributeGapsSkipsRecordsPastAnAbandonedWindow(t *testing.T) {
+	swept := gapWindow(t, 1, "09:00:00", "10:00:00", "")
+	swept.Abandoned = true
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{mainSessionID: {
+		swept, gapWindow(t, 2, "10:00:00", "10:01:00", ""),
+	}}}
+	deltas, err := harvest.NewAttributor(windows).AttributeGaps(context.Background(), []harvest.Record{gapRecord(t, "10:30:00", 100)})
+	if err != nil {
+		t.Fatalf("AttributeGaps: %v", err)
+	}
+	if len(deltas) != 0 {
+		t.Errorf("deltas = %v, want none -- the swept run counted this record already", deltas)
+	}
+
+	swept.Abandoned = false
+	windows.bySession[mainSessionID][0] = swept
+	deltas, err = harvest.NewAttributor(windows).AttributeGaps(context.Background(), []harvest.Record{gapRecord(t, "10:30:00", 100)})
+	if err != nil {
+		t.Fatalf("AttributeGaps: %v", err)
+	}
+	if _, ok := deltas[2]; !ok || len(deltas) != 1 {
+		t.Errorf("deltas = %v, want run 2 alone when no window was abandoned", deltas)
+	}
+}

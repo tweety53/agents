@@ -870,16 +870,16 @@ func TestCommitHarvestBackfillAppliesOnce(t *testing.T) {
 	if done() {
 		t.Fatalf("HarvestBackfillDone before any back-fill = true, want false")
 	}
-	deltas := map[int64]json.RawMessage{
-		runs[0]: json.RawMessage(`{"tokens":{"input":2}}`),
-		runs[1]: json.RawMessage(`{"tokens":{"input":5}}`),
+	deltas := []map[int64]json.RawMessage{
+		{runs[0]: json.RawMessage(`{"tokens":{"input":2}}`), runs[1]: json.RawMessage(`{"tokens":{"input":5}}`)},
+		{runs[0]: json.RawMessage(`{"tokens":{"input":4}}`)}, // a second transcript adds onto the same run
 	}
 	applied, err := st.CommitHarvestBackfill(ctx, "stage-gap-cost", deltas)
 	if err != nil || !applied {
 		t.Fatalf("CommitHarvestBackfill (first) = %v, %v, want applied", applied, err)
 	}
-	if got := inputs(); got != [2]float64{3, 6} {
-		t.Errorf("inputs after first back-fill = %v, want [3 6]", got)
+	if got := inputs(); got != [2]float64{7, 6} {
+		t.Errorf("inputs after first back-fill = %v, want [7 6]", got)
 	}
 	if !done() {
 		t.Errorf("HarvestBackfillDone after the back-fill = false, want true")
@@ -889,7 +889,7 @@ func TestCommitHarvestBackfillAppliesOnce(t *testing.T) {
 	if err != nil || applied {
 		t.Fatalf("CommitHarvestBackfill (second) = %v, %v, want not applied", applied, err)
 	}
-	if got := inputs(); got != [2]float64{3, 6} {
-		t.Errorf("inputs after second back-fill = %v, want [3 6] -- added twice", got)
+	if got := inputs(); got != [2]float64{7, 6} {
+		t.Errorf("inputs after second back-fill = %v, want [7 6] -- added twice", got)
 	}
 }

@@ -4893,3 +4893,38 @@ func TestSettleClosedRowsWaitsOutAStaleEnd(t *testing.T) {
 		t.Errorf("verify restamp = %s (%v), want output 7", p, ok)
 	}
 }
+
+// recordingBackfillSink is a BackfillSink whose marker is never set and
+// which keeps what CommitHarvestBackfill was handed.
+type recordingBackfillSink struct{ committed []map[int64]json.RawMessage }
+
+func (s *recordingBackfillSink) HarvestBackfillDone(context.Context, string) (bool, error) {
+	return false, nil
+}
+
+func (s *recordingBackfillSink) CommitHarvestBackfill(_ context.Context, _ string, patches []map[int64]json.RawMessage) (bool, error) {
+	s.committed = patches
+	return true, nil
+}
+
+// TestStageGapBackfillSkipsATranscriptShorterThanItsOffset pins the
+// back-fill's replaced-transcript skip: a file now shorter than its stored
+// offset is passed over, never sliced past its end, and the back-fill
+// commits nothing for it.
+func TestStageGapBackfillSkipsATranscriptShorterThanItsOffset(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	if err := os.WriteFile(path, []byte("{}\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	sink := newFakeHarvestSink()
+	sink.offsets[path] = 1 << 20
+	backfill := &recordingBackfillSink{}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(&fakeWindowSource{}), harvest.NoDeps{}, nil)
+	if err := w.BackfillStageGaps(context.Background(), backfill); err != nil {
+		t.Fatalf("BackfillStageGaps: %v", err)
+	}
+	if len(backfill.committed) != 0 {
+		t.Errorf("committed = %v, want nothing for a transcript shorter than its offset", backfill.committed)
+	}
+}

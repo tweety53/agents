@@ -2988,16 +2988,16 @@ const StageGapBackfill = "stage-gap-cost"
 // (decision backfill-one-transaction). *store.Store satisfies it.
 type BackfillSink interface {
 	HarvestBackfillDone(ctx context.Context, name string) (bool, error)
-	CommitHarvestBackfill(ctx context.Context, name string, deltas map[int64]json.RawMessage) (bool, error)
+	CommitHarvestBackfill(ctx context.Context, name string, patches []map[int64]json.RawMessage) (bool, error)
 }
 
 // BackfillStageGaps adds, once, the spend the pre-fix rule dropped from
 // bytes already harvested: for every transcript each Source would read that
 // has a stored offset, it parses [0, offset) with the Source's own Parse,
 // keeps the records AttributeGaps places -- those no window contains and the
-// last-begun-stage fallback does -- and commits every file's patches summed
-// per stage run in one CommitHarvestBackfill, then prices each touched run
-// as RunOnce does after a commit. It returns nil at once when the marker is
+// last-begun-stage fallback does -- and commits every file's patches in one
+// CommitHarvestBackfill, which adds them by jsonb_deep_add as RunOnce's
+// commits do, then prices each touched run. It returns nil at once when the marker is
 // set. flowd calls it before the watcher's first cycle, so the watcher
 // resumes from the stored offsets and nothing is counted twice.
 //
@@ -3018,13 +3018,13 @@ func (w *Watcher) BackfillStageGaps(ctx context.Context, sink BackfillSink) erro
 		return err
 	}
 
-	var total map[string]any
+	var files []map[int64]json.RawMessage
 	for _, source := range w.sources {
-		files, err := discoverTranscripts(source.Root)
+		paths, err := discoverTranscripts(source.Root)
 		if err != nil {
 			return err
 		}
-		for _, path := range files {
+		for _, path := range paths {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
@@ -3056,75 +3056,26 @@ func (w *Watcher) BackfillStageGaps(ctx context.Context, sink BackfillSink) erro
 			if err != nil {
 				return fmt.Errorf("harvest: backfill %s: %w", path, err)
 			}
-			if total, err = addPatches(total, patches); err != nil {
-				return fmt.Errorf("harvest: backfill %s: %w", path, err)
+			if len(patches) > 0 {
+				files = append(files, patches)
 			}
 		}
 	}
 
-	summed := make(map[int64]json.RawMessage, len(total))
-	for key, patch := range total {
-		id, err := strconv.ParseInt(key, 10, 64)
-		if err != nil {
-			return fmt.Errorf("harvest: backfill: stage run key %q: %w", key, err)
-		}
-		if summed[id], err = json.Marshal(patch); err != nil {
-			return fmt.Errorf("harvest: backfill: encode stage run %d: %w", id, err)
-		}
-	}
-	applied, err := sink.CommitHarvestBackfill(ctx, StageGapBackfill, summed)
+	applied, err := sink.CommitHarvestBackfill(ctx, StageGapBackfill, files)
 	if err != nil || !applied {
 		return err
 	}
-	for id := range summed {
-		if err := w.deps.Price(ctx, id); err != nil {
-			w.warn("harvest: price stage run failed after backfill, will retry next cycle", "stage_run_id", id, "error", err)
+	// The marker is set and these runs are closed, so no later cycle touches
+	// them again: a run left unpriced here stays so until a reprice.
+	for _, patches := range files {
+		for id := range patches {
+			if err := w.deps.Price(ctx, id); err != nil {
+				w.warn("harvest: price stage run failed after backfill, not retried -- `flow pricing reprice` prices it", "stage_run_id", id, "error", err)
+			}
 		}
 	}
 	return nil
-}
-
-// addPatches adds one file's per-stage-run patches into total, keyed by the
-// run id's decimal string, by deepAdd -- the in-memory twin of the
-// jsonb_deep_add the commit applies them with, so summing two files' patches
-// before the commit equals applying each.
-func addPatches(total map[string]any, patches map[int64]json.RawMessage) (map[string]any, error) {
-	if total == nil {
-		total = make(map[string]any)
-	}
-	for id, patch := range patches {
-		var v any
-		if err := json.Unmarshal(patch, &v); err != nil {
-			return nil, fmt.Errorf("decode stage run %d patch: %w", id, err)
-		}
-		key := strconv.FormatInt(id, 10)
-		total[key] = deepAdd(total[key], v)
-	}
-	return total, nil
-}
-
-// deepAdd is jsonb_deep_add (0005_jsonb_deep_add.sql) over decoded JSON:
-// objects merge key by key, numbers add, and otherwise b wins -- a absent
-// (nil) included.
-func deepAdd(a, b any) any {
-	switch av := a.(type) {
-	case map[string]any:
-		if bv, ok := b.(map[string]any); ok {
-			for k, v := range bv {
-				if cur, ok := av[k]; ok {
-					av[k] = deepAdd(cur, v)
-				} else {
-					av[k] = v
-				}
-			}
-			return av
-		}
-	case float64:
-		if bv, ok := b.(float64); ok {
-			return av + bv
-		}
-	}
-	return b
 }
 
 // Run calls RunOnce every interval until ctx is done. A single failed

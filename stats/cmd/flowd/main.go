@@ -550,6 +550,7 @@ func (s storeWindowSource) WindowsForSession(ctx context.Context, sessionID stri
 			SessionID:  sessionID,
 			StartedAt:  r.StartedAt,
 			EndedAt:    r.EndedAt,
+			Abandoned:  r.Outcome != nil && *r.Outcome == "abandoned",
 		}
 		if at, ok := finished[r.ChangeID]; ok {
 			w.ChangeFinishedAt = &at

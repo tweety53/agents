@@ -91,6 +91,7 @@ func (s e2eWindowSource) WindowsForSession(ctx context.Context, sessionID string
 			SessionID:  sessionID,
 			StartedAt:  r.StartedAt,
 			EndedAt:    r.EndedAt,
+			Abandoned:  r.Outcome != nil && *r.Outcome == "abandoned",
 		}
 		if at, ok := finished[r.ChangeID]; ok {
 			w.ChangeFinishedAt = &at
