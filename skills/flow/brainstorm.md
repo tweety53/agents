@@ -178,8 +178,8 @@ Decide defect, not a store failure: correct that pair in `decision.json` per **M
 decision the store refused.
 
 **The gate comes next**: **Plan review gate** (`skills/flow/brainstorm-planner.md`), recording each
-re-decision through the sequence above. On **Yes**, make the plan-gate planning commit and push
-it (**Planning commits**, `skills/flow-contracts/git-boundaries.md`), then **end the run** with
+re-decision through the sequence above. On **Yes**, take the plan snapshot (**Plan snapshots**,
+below), then **end the run** with
 the `STARTED` handoff (**The `STARTED` handoff block**, below),
 `/clear` above `/flow <name>`, on a creating and a resumed run alike; the next run finds
 the plan ready (**Resuming at `STARTED`**, `skills/flow/resume.md`) and implements on a fresh context.
@@ -213,3 +213,22 @@ the decision sit directly above `Next:` even though the gate already showed them
 beside a question is hidden where the operator sees only a turn's last message (focus mode), so
 the handoff is the one place the settled plan is guaranteed to be read (kan-941 printed only
 `Next:`).
+
+## Plan snapshots
+
+`<project>/spectre/changes/` is gitignored, so no commit records the plan as it stood at a gate. A plan
+snapshot does: on the plan gate's **Yes**, at `/flow-plan`'s capture and after a fix run appends
+tasks, the run copies `tasks.md`, `proposal.md` and `design.md` of `<project>/spectre/changes/<name>/`
+in the canonical worktree into the next numbered directory
+`<project>/.superpowers/sdd/<name>/plan-snapshots/<k>/`
+(`<k>` = 1 + the number of directories already there), never committed, with exactly this command:
+
+```bash
+d=<worktree>/.superpowers/sdd/<name>/plan-snapshots
+k=$(( $(find "$d" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l) + 1 ))
+mkdir -p "$d/$k" && cp <worktree>/spectre/changes/<name>/{tasks,proposal,design}.md "$d/$k/"
+```
+
+A non-zero exit stops the run before anything else happens. The snapshots have one reader:
+flow-eval's `case add impl` reads, for task n, the earliest snapshot holding task n, so a case sees
+the plan as it stood before any review fix wrote a Correction. No snapshot is ever rewritten.
