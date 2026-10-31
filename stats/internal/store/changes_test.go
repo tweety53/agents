@@ -992,11 +992,18 @@ func TestFinishedAtByChangeIsTheLatestOfStateAndRuns(t *testing.T) {
 	openStart := stateAt.Add(10 * time.Minute)
 	open := begin("kan-open-run", "flow.design", openStart)
 
-	got, err := st.FinishedAtByChange(ctx, []int64{early.ChangeID, before.ChangeID, open.ChangeID})
+	// A finished change with no stage run at all keeps its state write.
+	put("kan-no-runs")
+	var noRuns int64
+	if err := store.PoolOf(st).QueryRow(ctx, `SELECT id FROM changes WHERE name = 'kan-no-runs'`).Scan(&noRuns); err != nil {
+		t.Fatalf("lookup kan-no-runs: %v", err)
+	}
+
+	got, err := st.FinishedAtByChange(ctx, []int64{early.ChangeID, before.ChangeID, open.ChangeID, noRuns})
 	if err != nil {
 		t.Fatalf("FinishedAtByChange: %v", err)
 	}
-	want := map[int64]time.Time{early.ChangeID: lastEnd, before.ChangeID: stateAt, open.ChangeID: openStart}
+	want := map[int64]time.Time{early.ChangeID: lastEnd, before.ChangeID: stateAt, open.ChangeID: openStart, noRuns: stateAt}
 	if len(got) != len(want) {
 		t.Fatalf("FinishedAtByChange = %v, want %v", got, want)
 	}
