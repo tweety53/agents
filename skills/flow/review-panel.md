@@ -1214,7 +1214,7 @@ below. Exit 1 means the plan still carries a build-green violation: fix the tags
 planning-path edit, re-run the guard to exit 0, and only then close — a stage never closes on a
 plan the guard fails. Exit 2 stops the run.
 
-Before the stage ends, the parent copies `<changeRoot>tasks.md` to
+Before the stage ends, the parent copies `<changeRoot>/tasks.md` to
 `<project>/.superpowers/sdd/<name>/tasks-at-close.md` in the canonical worktree — the plan as this clean close
 reviewed it, which `check-late-fix-trigger.sh` reads on a later fix run, since no commit holds the
 gitignored plan:
