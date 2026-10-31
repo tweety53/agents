@@ -30,7 +30,7 @@
 # could not be removed, a git step that failed, or
 # check-archive-scope.sh / check-done-when-paths unable to answer.
 #
-# The branch is asserted before anything is copied, so a refusal leaves the
+# The branch is asserted before anything is removed, so a refusal leaves the
 # worktree as it was found. The subject is a fixed literal: `flow
 # self-review bundle` resolves this commit by matching it whole.
 #
