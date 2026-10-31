@@ -57,3 +57,34 @@ test("trend chart hover", async ({ page }) => {
   await expect(page.locator(".tr-tip")).toBeVisible();
   await expect(page).toHaveScreenshot("trend-chart-hover.png", { fullPage: true });
 });
+
+// The hit rect's CSS :hover band and the React-drawn guide and tip must
+// commit in the same task as the pointer event, so no frame paints one
+// without the other. A window listener runs after React's root handler,
+// still inside the event's task, and records what a frame would paint now.
+test("trend chart hover paints the band, guide and tip together", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 1024 });
+  await openAndAssert(page);
+  await page.evaluate(() => {
+    const w = window as unknown as { __probe: unknown[] };
+    w.__probe = [];
+    const read = () => {
+      const hit = document.querySelector('[data-testid="trend-week-2026-07-22"]')!;
+      const guide = document.querySelector("line.guide")!;
+      w.__probe.push({
+        band: hit.matches(":hover"),
+        guide: guide.getAttribute("x1") !== "-10",
+        tip: getComputedStyle(document.querySelector(".tr-tip")!).display === "block",
+      });
+    };
+    window.addEventListener("mouseover", read);
+    window.addEventListener("mouseout", read);
+  });
+  const box = (await page.getByTestId("trend-week-2026-07-22").boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.move(5, 5);
+  const probe = await page.evaluate(() => (window as unknown as { __probe: { band: boolean; guide: boolean; tip: boolean }[] }).__probe);
+  const enter = probe.find((p) => p.band);
+  expect(enter).toEqual({ band: true, guide: true, tip: true });
+  expect(probe.at(-1)).toEqual({ band: false, guide: false, tip: false });
+});

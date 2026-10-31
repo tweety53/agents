@@ -18,6 +18,7 @@
 // chips say (trend-flow-changes-agents-project). A week with no finished
 // change is a gap in both lines and "—" in the table, never $0.
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import type { TrendChange } from "../api";
 import { Chip } from "../components/Chip";
 import { Panel } from "../components/Panel";
@@ -180,8 +181,8 @@ function Chart({ pts }: { pts: Point[] }) {
             y={T}
             width={step}
             height={H - B - T}
-            onMouseEnter={() => setHover(i)}
-            onMouseLeave={() => setHover(null)}
+            onMouseEnter={() => flushSync(() => setHover(i))}
+            onMouseLeave={() => flushSync(() => setHover(null))}
           />
         ))}
       </svg>
