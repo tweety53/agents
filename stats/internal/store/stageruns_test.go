@@ -1319,6 +1319,43 @@ func TestPriceOneUnpriceableBucketOmitsTopLevelTotal(t *testing.T) {
 	}
 }
 
+// TestPriceNamesABucketItsRateCannotCharge pins that a bucket whose model
+// has a rate in effect, but which records a component that rate cannot
+// charge, is named as such -- never reported as a model with no pricing
+// in effect, which sent a live check looking for a rate that existed.
+func TestPriceNamesABucketItsRateCannotCharge(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-price-cannotcharge-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "review panel"))
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{
+		"models": {"claude-opus-5": {"tokens": {"main": {"input": 1000000, "cache_creation_unknown": 500000}}}}
+	}`)); err != nil {
+		t.Fatalf("MergeMetrics: %v", err)
+	}
+	if err := st.PutPricing(ctx, store.PricingRate{
+		Model: "claude-opus-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		InputPerMTok: 3, OutputPerMTok: 15, CacheReadPerMTok: 0.3,
+	}); err != nil {
+		t.Fatalf("PutPricing: %v", err)
+	}
+
+	err = st.Price(ctx, run.ID)
+	if !errors.Is(err, store.ErrPricingNotFound) {
+		t.Fatalf("Price(bucket its rate cannot charge) error = %v, want errors.Is(_, store.ErrPricingNotFound)", err)
+	}
+	if !strings.Contains(err.Error(), "claude-opus-5 (a component its rate cannot charge)") {
+		t.Errorf("Price error = %q, want it to name claude-opus-5 (a component its rate cannot charge)", err)
+	}
+	if strings.Contains(err.Error(), "no pricing in effect for model") {
+		t.Errorf("Price error = %q, want it no longer to read as no pricing in effect for model alone", err)
+	}
+}
 func TestPriceWithoutTokensIsUnavailable(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()
