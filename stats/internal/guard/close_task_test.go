@@ -649,6 +649,74 @@ func TestCloseTaskSuiteZipAgainstTheTaskCommit(t *testing.T) {
 	}
 }
 
+// A close whose later commit re-records the screenshots and rebuilds the zip
+// judges that later commit's zip alone: the earlier one's screenshots root is
+// no longer the worktree's (kan-1051: tasks 6 and 7, exit 2 before). The
+// close's last zip is still judged, so a hand-built one is refused
+// (kan-1016's self-review).
+func TestCloseTaskJudgesTheLastSuiteZipOfAClose(t *testing.T) {
+	t.Parallel()
+	if _, err := exec.LookPath("zip"); err != nil {
+		t.Skip("zip is not on PATH")
+	}
+	repo, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fx := ctFixture(t, true, "0", "0")
+	base := fx.env.Getenv
+	fx.env.Getenv = func(k string) string {
+		switch k {
+		case "FLOW_GUARD_SCRIPT_DIR":
+			return filepath.Join(repo, "scripts")
+		case "FLOW_GUARD_CACHE_DIR":
+			return guardCache(t)
+		}
+		return base(k)
+	}
+	writeFile(t, fx.wt+"/.flow/project.md", "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `screenshots` | `shots` |\n")
+	writeFile(t, fx.wt+"/shots/full-app-suite.spec.ts-snapshots/a.png", "a")
+	gitRun(t, fx.wt, "add", "-f", ".flow", "shots")
+	gitRun(t, fx.wt, "commit", "-q", "-m", "shots")
+	fx.base = tcfGit(t, fx.wt, "rev-parse", "HEAD")
+	plan := strings.Replace(ctPlan, "**Files:** `a.txt`", "**Files:** `a.txt`, `shots/full-app-suite.zip`", 1)
+	plan = strings.Replace(plan, "**Files:** `b.txt`", "**Files:** `b.txt`, `shots/full-app-suite.zip`, `shots/full-app-suite.spec.ts-snapshots/a.png`\n**After:** Task 1", 1)
+	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", plan)
+	rebuild := func() {
+		t.Helper()
+		if rc := Registry["rebuild-full-app-suite-zip"]([]string{fx.wt, fx.wt + "/shots"}, fx.env, io.Discard, os.Stderr); rc != 0 {
+			t.Fatalf("rebuild exit %d", rc)
+		}
+	}
+	// Task 1 writes a script-built zip; task 2 re-records a.png and rebuilds it.
+	rebuild()
+	writeFile(t, fx.wt+"/a.txt", "a\n")
+	gitRun(t, fx.wt, "add", "-f", "a.txt", "shots/full-app-suite.zip")
+	gitRun(t, fx.wt, "commit", "-q", "-m", "one", "-m", "Task-Id: 1")
+	s1 := tcfGit(t, fx.wt, "rev-parse", "HEAD")
+	writeFile(t, fx.wt+"/shots/full-app-suite.spec.ts-snapshots/a.png", "b")
+	rebuild()
+	writeFile(t, fx.wt+"/b.txt", "b\n")
+	gitRun(t, fx.wt, "add", "-f", "b.txt", "shots")
+	gitRun(t, fx.wt, "commit", "-q", "-m", "two", "-m", "Task-Id: 2")
+	s2 := tcfGit(t, fx.wt, "rev-parse", "HEAD")
+	if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1, "2:"+s2); r.rc != 0 {
+		t.Fatalf("superseded script-built zip: exit %d, want 0\n%s", r.rc, r.out)
+	}
+
+	// The close's last zip is still judged: a hand-built one is refused.
+	gitRun(t, fx.wt, "reset", "-q", "--hard", s1)
+	writeFile(t, fx.wt+"/shots/full-app-suite.spec.ts-snapshots/a.png", "b")
+	writeFile(t, fx.wt+"/shots/full-app-suite.zip", "hand-built")
+	writeFile(t, fx.wt+"/b.txt", "b\n")
+	gitRun(t, fx.wt, "add", "-f", "b.txt", "shots")
+	gitRun(t, fx.wt, "commit", "-q", "-m", "two", "-m", "Task-Id: 2")
+	s2 = tcfGit(t, fx.wt, "rev-parse", "HEAD")
+	if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1, "2:"+s2); r.rc != 1 || !strings.Contains(r.out, "close-task: task 2: shots/full-app-suite.zip is not rebuild-full-app-suite-zip.sh's output") {
+		t.Fatalf("hand-built last zip: exit %d, want 1\n%s", r.rc, r.out)
+	}
+}
+
 // scripts/close-task.sh is close-task's only caller, and it runs the zip
 // rebuild in-process: the shim exports FLOW_GUARD_SCRIPT_DIR, which the
 // rebuild needs to find resolve-visual-screenshots.sh (kan-1024 Task 14:

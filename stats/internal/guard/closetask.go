@@ -129,7 +129,13 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	for _, t := range tasks {
 		worst = max(worst, Registry["check-task-commit-fields"]([]string{canonical, t.id, t.commit, "", canonical, name}, env, stdout, stderr))
 		worst = max(worst, ctCheckTrailer(env, stdout, stderr, canonical, name, t.id, t.commit))
-		worst = max(worst, ctCheckSuiteZips(env, stderr, canonical, t.id, t.commit))
+		var others []string
+		for _, o := range tasks {
+			if o.id != t.id {
+				others = append(others, o.commit)
+			}
+		}
+		worst = max(worst, ctCheckSuiteZips(env, stderr, canonical, t.id, t.commit, others))
 	}
 	worst = max(worst, Registry["check-task-commit-planning-paths"]([]string{canonical, mergeBase}, env, stdout, stderr))
 	// The push below sends every commit origin lacks: one outside every task
@@ -420,13 +426,20 @@ func ctUndispatched(env Env, canonical, name string, closed []string) []string {
 // hand-built with archive/zip was committed). The rebuild's <worktree> is the
 // canonical worktree, whose .flow/project.md declares where screenshots live
 // — the zip may sit in another repository, the regression checkout. A commit
-// deleting the zip is not judged. 1 a difference; 2 a screenshots root that
-// differs from the commit's or a rebuild that did not answer 0.
-func ctCheckSuiteZips(env Env, stderr io.Writer, canonical, id, commit string) int {
-	pairs := []string{canonical + "=" + commit}
-	if strings.Contains(commit, "=") {
-		pairs = strings.Split(commit, ",")
+// deleting the zip is not judged, and neither is one a later commit of the
+// same close changes again — others holds the close's other task commits —
+// since the worktree holds only the last one's screenshots root (kan-1051:
+// tasks 6 and 7 both wrote the zip and closed together). 1 a difference; 2 a
+// screenshots root that differs from the commit's or a rebuild that did not
+// answer 0.
+func ctCheckSuiteZips(env Env, stderr io.Writer, canonical, id, commit string, others []string) int {
+	pairsOf := func(c string) []string {
+		if strings.Contains(c, "=") {
+			return strings.Split(c, ",")
+		}
+		return []string{canonical + "=" + c}
 	}
+	pairs := pairsOf(commit)
 	absOf := func(p string) string {
 		if filepath.IsAbs(p) {
 			return p
@@ -435,6 +448,21 @@ func ctCheckSuiteZips(env Env, stderr io.Writer, canonical, id, commit string) i
 	}
 	absCanonical := absOf(canonical)
 	git := envGit(env)
+	// superseded: a later commit of the close, in the same worktree, changes path too.
+	superseded := func(wt, sha, path string) bool {
+		for _, o := range others {
+			for _, op := range pairsOf(o) {
+				owt, osha, _ := strings.Cut(strings.TrimSpace(op), "=")
+				if osha == sha || absOf(owt) != absOf(wt) || git("-C", wt, "merge-base", "--is-ancestor", sha, osha).Run() != nil {
+					continue
+				}
+				if out, _ := capture(git("-C", wt, "diff-tree", "--no-renames", "--no-commit-id", "--name-only", "-r", osha, "--", path)); out != "" {
+					return true
+				}
+			}
+		}
+		return false
+	}
 	worst := 0
 	for _, p := range pairs {
 		wt, sha, _ := strings.Cut(strings.TrimSpace(p), "=")
@@ -443,7 +471,7 @@ func ctCheckSuiteZips(env Env, stderr io.Writer, canonical, id, commit string) i
 			continue // the fields guard already answers for an unreadable commit
 		}
 		for _, path := range strings.Split(out, "\n") {
-			if filepath.Base(path) != "full-app-suite.zip" {
+			if filepath.Base(path) != "full-app-suite.zip" || superseded(wt, sha, path) {
 				continue
 			}
 			abs := filepath.Join(absOf(wt), path)

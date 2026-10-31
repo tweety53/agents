@@ -35,7 +35,9 @@
 #      A commit — any map pair's — whose diff-tree lists a path named
 #      full-app-suite.zip has that zip rebuilt in its worktree by
 #      rebuild-full-app-suite-zip.sh, the zip's directory as <screenshots
-#      root>, and the committed bytes written back: a difference prints
+#      root>, and the committed bytes written back — save a zip a later
+#      commit of the same close, in the same worktree, changes again, which
+#      is that commit's to judge (kan-1051): a difference prints
 #      `close-task: task <id>: <path> is not rebuild-full-app-suite-zip.sh's
 #      output — rebuild it with that script and re-commit` (exit 1); a
 #      screenshots root git status reports dirty, or a rebuild exit other
