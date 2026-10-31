@@ -30,6 +30,7 @@
 # Only in-flight changes count: a live change directory's list is read, never
 # one under the archive/ entry — run 1 drops a change's directory, its list
 # with it, once it has landed.
+# A change directory the branch itself removed since the base is read from the commit before its removal (kan-1072 self-review).
 #
 # It cannot judge whether a lazily loaded file's "Load X only when Y"
 # condition is right — review each such directive by hand.

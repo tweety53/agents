@@ -226,6 +226,69 @@ func TestCheckVerbatimMovesReadsLiveAcksOnly(t *testing.T) {
 	}
 }
 
+// TestCheckVerbatimMovesReadsAcksOfARemovedChange pins the history read: a
+// change directory the branch itself removed since the base -- archived by a
+// `git mv` or dropped by a `git rm` -- still acknowledges its sentences, read
+// from the commit before the removal, so the change's own self-review loop
+// sees its list (kan-1072 self-review). A list the base already held
+// acknowledges a diff that already landed, and its deletion counts for
+// nothing.
+func TestCheckVerbatimMovesReadsAcksOfARemovedChange(t *testing.T) {
+	t.Parallel()
+	removed := "# Pipeline\n\n" + vmTable + " Every row is a transition.\n\n" + vmWhy + "\n"
+	for _, tc := range []struct {
+		name    string
+		remove  []string
+		list    string
+		archive string
+		rc      int
+		want    string
+	}{
+		{"archived", []string{"mv", "spectre/changes/demo", "spectre/changes/archive/demo"}, vmMark + "\n", "", 0, "ok   acknowledged removal"},
+		{"dropped", []string{"rm", "-q", "-r", "spectre/changes/demo"}, vmMark + "\n", "", 0, "ok   acknowledged removal"},
+		// spectre archive commits the list as the working tree held it: a
+		// sentence acknowledged after the last commit lives only in the archived copy.
+		{"archived with the list amended in the move", []string{"mv", "spectre/changes/demo", "spectre/changes/archive/demo"}, "# none yet\n", vmMark + "\n", 0, "ok   acknowledged removal"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			root := vmRepo(t, vmBase)
+			gitRun(t, root, "checkout", "-q", "-b", "spectre/demo")
+			writeFile(t, filepath.Join(root, vmPipe), removed)
+			writeFile(t, filepath.Join(root, "spectre/changes/demo/verbatim-moves.txt"), tc.list)
+			gitRun(t, root, "add", "-A")
+			gitRun(t, root, "commit", "-q", "-m", "change")
+			// git mv needs the archive directory to exist.
+			if err := os.MkdirAll(filepath.Join(root, "spectre/changes/archive"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			gitRun(t, root, tc.remove...)
+			if tc.archive != "" {
+				writeFile(t, filepath.Join(root, "spectre/changes/archive/demo/verbatim-moves.txt"), tc.archive)
+			}
+			gitRun(t, root, "commit", "-q", "-am", "remove the change directory")
+			if rc, out, errb := vmRun(root); rc != tc.rc || !strings.Contains(out, tc.want) {
+				t.Fatalf("rc = %d, want %d and %q\nstdout:\n%s\nstderr:\n%s", rc, tc.rc, tc.want, out, errb)
+			}
+		})
+	}
+	t.Run("held by the base", func(t *testing.T) {
+		t.Parallel()
+		base := map[string]string{"spectre/changes/old/verbatim-moves.txt": vmMark + "\n"}
+		for k, v := range vmBase {
+			base[k] = v
+		}
+		root := vmRepo(t, base)
+		gitRun(t, root, "checkout", "-q", "-b", "spectre/demo")
+		writeFile(t, filepath.Join(root, vmPipe), removed)
+		gitRun(t, root, "rm", "-q", "spectre/changes/old/verbatim-moves.txt")
+		gitRun(t, root, "commit", "-q", "-am", "change")
+		if rc, out, errb := vmRun(root); rc != 1 || !strings.Contains(out, "FAIL deleted or reworded :: "+vmMark) {
+			t.Fatalf("rc = %d, want 1 and the FAIL line\nstdout:\n%s\nstderr:\n%s", rc, out, errb)
+		}
+	})
+}
+
 // TestCheckVerbatimMovesFailReplyNamesRunShapePath pins the FAIL reply's
 // acknowledgement path against the run shape the worktree itself detects: a
 // change root under .superpowers/sdd/ holding tasks.md — the plan only a
