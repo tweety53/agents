@@ -223,10 +223,10 @@ Correction (2026-10-31): Step 3's `--grep-invert trend` verify fails on 9 captur
 **After:** Task 9
 **Opener:** self-review
 
-- [ ] 11. In-run fix 4 — self-review: the back-fill's pricing warning promises `flow pricing reprice` prices a run it cannot
-  - [ ] **Step 1: Write the failing test.** `stats/internal/harvest/watcher_test.go` (or the back-fill's existing test file): add `TestBackfillPricingWarningNamesTheCause` — a back-fill whose `Price` dependency returns an error: the warning logged reads `harvest: price stage run failed after backfill, not retried` with the error attached, and no longer claims `flow pricing reprice` prices it. Run `cd stats && go test -count=1 ./internal/harvest -run 'TestBackfillPricingWarningNamesTheCause'` — fails. measured: live-verification.md's 312 `output_unmeasured` runs are ones `flow pricing reprice` does not price.
-  - [ ] **Step 2: Fix.** `stats/internal/harvest/watcher.go` `BackfillStageGaps`: the warning reads `harvest: price stage run failed after backfill, not retried -- the error names the cause; a reprice retries it once that is fixed`, and the comment above the loop says the same.
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -w . && gofmt -l . && make -s web-dist && go vet ./...` exits clean; `cd stats && go test -race -count=1 ./internal/harvest -run 'TestBackfill'` passes. Commit.
+- [x] 11. In-run fix 4 — self-review: the back-fill's pricing warning promises `flow pricing reprice` prices a run it cannot
+  - [x] **Step 1: Write the failing test.** `stats/internal/harvest/watcher_test.go` (or the back-fill's existing test file): add `TestBackfillPricingWarningNamesTheCause` — a back-fill whose `Price` dependency returns an error: the warning logged reads `harvest: price stage run failed after backfill, not retried` with the error attached, and no longer claims `flow pricing reprice` prices it. Run `cd stats && go test -count=1 ./internal/harvest -run 'TestBackfillPricingWarningNamesTheCause'` — fails. measured: live-verification.md's 312 `output_unmeasured` runs are ones `flow pricing reprice` does not price.
+  - [x] **Step 2: Fix.** `stats/internal/harvest/watcher.go` `BackfillStageGaps`: the warning reads `harvest: price stage run failed after backfill, not retried -- the error names the cause; a reprice retries it once that is fixed`, and the comment above the loop says the same.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -w . && gofmt -l . && make -s web-dist && go vet ./...` exits clean; `cd stats && go test -race -count=1 ./internal/harvest -run 'TestBackfill'` passes. Commit.
 
 **Build:** green
 **Files:** `stats/internal/harvest/watcher.go`, `stats/internal/harvest/watcher_test.go`
