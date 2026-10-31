@@ -141,9 +141,9 @@ func init() { Registry["check-plan-provenance"] = checkPlanProvenance }
 // number names the command that would confirm it.
 //
 // Scope is `spectre/changes/*/{tasks,design,proposal}.md` — the three
-// artifacts named in `SCANNED_FILENAMES` — plus the same three under each
-// `spectre/changes/archive/<name>/` the base does not carry yet
-// (unlandedArchives), and never an archived change that has landed. All
+// artifacts named in `SCANNED_FILENAMES` — of the live change directories
+// only; the archive/ entry is skipped, since run 1 drops a change's
+// directory and nothing in flight is ever written there. All
 // three make claims about the world, and a claim is no more attributable
 // for sitting in the design than in the tasks; scanning only tasks.md left the two artifacts the tasks are
 // derived FROM unchecked.
@@ -3464,21 +3464,6 @@ func checkPlanProvenance(_ []string, env Env, stdout, stderr io.Writer) int {
 			changeDirs = append(changeDirs, e)
 		}
 	}
-	// An archived change the base does not carry yet — archived on this
-	// branch by integrate's run 1, then written into by a fix run — is still
-	// in flight and is scanned like a live one; every archive the base
-	// carries stays out of scope. unlandedArchives is the one statement of
-	// that rule, shared with check-verbatim-moves.
-	archived, err := unlandedArchivesAtDefaultBase(envGit(env, "LC_ALL=C"), g.abs(repoRoot))
-	if err != nil {
-		msg := fmt.Sprintf("%s: cannot list its archived changes (%v) — refusing to report a clean run", g.relpath(ppJoin(changesDir, "archive"), repoRoot), err)
-		fmt.Fprintln(stderr, msg)
-		fileErrors = append(fileErrors, msg)
-	}
-	for _, name := range archived {
-		changeDirs = append(changeDirs, ppJoin("archive", name))
-	}
-
 	// Zero non-archived changes is only the genuine "nothing in flight"
 	// steady state when nothing ALSO failed classification above — an
 	// entry this guard could not classify is not the same state as an
@@ -3557,11 +3542,7 @@ func checkPlanProvenance(_ []string, env Env, stdout, stderr io.Writer) int {
 			// LATER directory from being scanned. `check_file` must not be
 			// called on a `path` that failed containment — that refusal
 			// exists precisely so this guard never opens it.
-			parent := changesDir
-			if strings.HasPrefix(name, "archive/") {
-				parent = ppJoin(changesDir, "archive")
-			}
-			if !g.verifyContainment(candidate, parent, filename) {
+			if !g.verifyContainment(candidate, changesDir, filename) {
 				continue
 			}
 			if msg := g.checkFile(candidate, repoRoot); msg != "" {

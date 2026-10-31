@@ -80,7 +80,7 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 	// disk (a tracked file deleted in the working tree).
 	planStatus := func(out io.Writer) bool {
 		cmd := git("-C", wt, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--",
-			"spectre/changes/"+name, "spectre/changes/archive/"+name)
+			"spectre/changes/"+name)
 		var list bytes.Buffer
 		cmd.Stdout, cmd.Stderr = &list, stderr
 		if cmd.Run() != nil {

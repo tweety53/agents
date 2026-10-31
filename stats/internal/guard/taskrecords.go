@@ -24,9 +24,9 @@ import (
 // happens: a checkbox ticked with no commit behind it, a commit that touched
 // files its task never declared, a Build tag mangled by a later hand edit.
 // This guard is the retroactive, whole-plan pass those findings asked for:
-// every live spectre/changes/*/tasks.md, plus the tasks.md of each archived
-// change the base does not carry yet (unlanded-archives, called in-process)
-// — every task, checked against the branch's commits since the base ref.
+// every live spectre/changes/*/tasks.md — every task, checked against the
+// branch's commits since the base ref. Nothing under the archive/ entry is
+// read: run 1 drops a change's directory rather than moving it.
 // Zero plans in flight is clean — the bare-tree case a lint step runs in.
 //
 // Usage: check-task-records.sh [repo-root] [base-ref]
@@ -44,11 +44,8 @@ import (
 //  1. Tick state vs commit existence. A task declaring a `**Commit:**`
 //     subject that is ticked must have a commit carrying that subject
 //     reachable from HEAD — a landed plan whose commits are already in the
-//     base reads clean, which is the state every unarchived plan left behind
-//     by a merged change sits in. An archived plan is exempt from that half:
-//     integrate's split collapsed its task commits into one implementation
-//     commit before it archived, so a ticked task of an archived plan whose
-//     subject no commit carries is not a violation. A task that is unticked
+//     base reads clean, which is the state every plan left behind by a
+//     merged change sits in. A task that is unticked
 //     must have no commit carrying its subject in `<base-ref>..HEAD` (work
 //     the branch started that the record does not claim); a commit reachable
 //     from HEAD but older than the base is not this branch's business and is
@@ -101,9 +98,9 @@ import (
 //
 //	0  clean, or nothing to check (no plans in flight, no declaring tasks)
 //	1  violations found
-//	2  could not judge — usage, an unreadable plan, unlanded-archives or a
-//	   git call that cannot evaluate its arguments; never a verdict about a
-//	   record. Every exit-2 refusal past usage and unlanded-archives prints
+//	2  could not judge — usage, an unreadable plan or a git call that
+//	   cannot evaluate its arguments; never a verdict about a record. Every
+//	   exit-2 refusal past usage prints
 //	   the stderr opening "check-task-records: COULD NOT JUDGE — not a record
 //	   verdict:" so a caller mistake is never read as the guard refusing a
 //	   record.
@@ -132,14 +129,6 @@ func checkTaskRecords(args []string, env Env, stdout, stderr io.Writer) (rc int)
 		fmt.Fprintln(stderr, "usage: check-task-records.sh [repo-root] [base-ref]")
 		return 2
 	}
-	arg := env.Dir
-	if len(args) > 0 && args[0] != "" {
-		arg = args[0]
-	}
-	var archived bytes.Buffer
-	if unlandedArchivesCmd([]string{arg}, env, &archived, stderr) != 0 {
-		return 2
-	}
 	defer func() {
 		if r := recover(); r != nil {
 			d, ok := r.(trDie)
@@ -150,7 +139,7 @@ func checkTaskRecords(args []string, env Env, stdout, stderr io.Writer) (rc int)
 			rc = 2
 		}
 	}()
-	violations := trCheck(args, env, archived.String())
+	violations := trCheck(args, env)
 	for _, v := range violations {
 		fmt.Fprintln(stdout, v)
 	}
@@ -181,7 +170,7 @@ func trResolvePath(env Env, p string) string {
 	}
 }
 
-func trCheck(args []string, env Env, archivedNames string) []string {
+func trCheck(args []string, env Env) []string {
 	var root string
 	if len(args) > 0 {
 		root = trResolvePath(env, args[0])
@@ -194,24 +183,15 @@ func trCheck(args []string, env Env, archivedNames string) []string {
 	git := envGit(env)
 
 	changesDir := root + "/spectre/changes"
-	archiveDir := changesDir + "/archive"
-	type plan struct {
-		path     string
-		archived bool
-	}
+	type plan struct{ path string }
 	var plans []plan
 	if isDir(changesDir) {
 		entries, _ := os.ReadDir(changesDir) // sorted by name, as sorted(iterdir()) is
 		for _, e := range entries {
 			p := changesDir + "/" + e.Name()
 			if isDir(p) && isFile(p+"/tasks.md") {
-				plans = append(plans, plan{p + "/tasks.md", false})
+				plans = append(plans, plan{p + "/tasks.md"})
 			}
-		}
-	}
-	for _, name := range tcfSplitLines(archivedNames) {
-		if p := archiveDir + "/" + name + "/tasks.md"; name != "" && isFile(p) {
-			plans = append(plans, plan{p, true})
 		}
 	}
 	if len(plans) == 0 {
@@ -280,7 +260,7 @@ func trCheck(args []string, env Env, archivedNames string) []string {
 				continue
 			}
 			repo := root
-			if len(shas) == 0 && !p.archived {
+			if len(shas) == 0 {
 				if !peersRead {
 					peers, peersRead = trPeerHeads(env, git, root, filepath.Dir(p.path)), true
 				}
@@ -292,9 +272,6 @@ func trCheck(args []string, env Env, archivedNames string) []string {
 				}
 			}
 			if len(shas) == 0 {
-				if p.archived {
-					continue
-				}
 				violations = append(violations, fmt.Sprintf("%s: task %s ticked but no commit with subject '%s' reachable from HEAD", rel, task.id, subject))
 				continue
 			}

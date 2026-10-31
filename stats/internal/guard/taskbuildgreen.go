@@ -14,9 +14,8 @@ import (
 // same class of drift planprovenance.go's ported docstring warns against).
 //
 // Arguments: one tasks.md path checks that file; none scans every live
-// change's tasks.md under <root>/<spec leaf>/changes/*/tasks.md, and that of
-// every archived change the base does not carry yet (unlanded-archives, run
-// in-process), aggregating exit codes — 2 beats 1 beats 0 — and printing each
+// change's tasks.md under <root>/<spec leaf>/changes/*/tasks.md,
+// aggregating exit codes — 2 beats 1 beats 0 — and printing each
 // file's own violations. <root> is CHECK_TASK_BUILD_GREEN_ROOT when set (a
 // harness's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT, which
 // scripts/check-task-build-green.sh exports as its own real parent's parent

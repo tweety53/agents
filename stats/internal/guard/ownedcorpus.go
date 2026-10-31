@@ -25,9 +25,9 @@ import (
 //
 // THE EXCLUSIONS are structural — a path component, or a path prefix, never a
 // list of filenames: any component named node_modules or .superpowers, and
-// the prefixes spectre/changes/archive/ and docs/superpowers/. The last three
-// sit outside every scope root today; they are stated anyway so a later
-// widening of the scope roots cannot silently acquire them.
+// the prefix docs/superpowers/. The last two sit outside every scope root
+// today; they are stated anyway so a later widening of the scope roots
+// cannot silently acquire them.
 //
 // SYMLINKS ARE NOT OWNED CONTENT: a .md symlink contributes nothing — its
 // target is inventoried in its own right if this repository owns it. A scope
@@ -213,6 +213,5 @@ func ocExcluded(rel string) bool {
 			return true
 		}
 	}
-	return rel == "spectre/changes/archive" || strings.HasPrefix(rel, "spectre/changes/archive/") ||
-		rel == "docs/superpowers" || strings.HasPrefix(rel, "docs/superpowers/")
+	return rel == "docs/superpowers" || strings.HasPrefix(rel, "docs/superpowers/")
 }
