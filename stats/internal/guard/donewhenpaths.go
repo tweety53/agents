@@ -24,8 +24,8 @@ import (
 // three gitignored side-output PNGs as the re-baseline, cleanup later removed
 // them as side output, and the change stayed Done while its definition of
 // done no longer held anywhere. This guard makes that state a refusal at
-// run 1's drop commit instead: a Done-when's evidence must sit in the index —
-// tracked, not merely present or ignored — or the drop does not happen.
+// run 1 instead: a Done-when's evidence must sit in the index — tracked, not
+// merely present or ignored — or run 1 does not land.
 func init() { Registry["check-done-when-paths"] = checkDoneWhenPaths }
 
 // dwHeading opens a `## Done when` section (the \b keeps `Done whenever`
