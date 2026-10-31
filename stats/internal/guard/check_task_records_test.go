@@ -15,42 +15,6 @@ import (
 // git fixtures copied from one base repository (trBase). The harness's two
 // wrapper cases -- a flow-guard that cannot be built, a missing
 // lib/flow-guard.sh -- exec a copy of the real shim.
-// TestCheckTaskRecordsIgnoresArchiveDir pins that an archive/<n>/tasks.md
-// on the branch -- base lacking it -- is never checked: run 1 drops a
-// change's directory, so no plan in flight sits under archive/.
-func TestCheckTaskRecordsIgnoresArchiveDir(t *testing.T) {
-	t.Parallel()
-	fx := trRepo(t)
-	gitRun(t, fx.root, "update-ref", "refs/remotes/origin/main", "HEAD")
-	fx.archived("new-change", " ", "feat(a): ghost")
-	fx.commitAll("chore(spectre): archive new-change")
-	fx.commitFile("src/f1.go", "feat(a): ghost")
-	r := runGuard("check-task-records", []string{fx.root}, Env{Getenv: os.Getenv})
-	if r.rc != 0 || r.out != "" {
-		t.Fatalf("rc=%d out=%q; want 0 and nothing: an archived plan is never read", r.rc, r.out)
-	}
-}
-
-// TestCheckTaskRecordsExemptsADroppedPlan pins that a fix run's restored
-// plan reads clean: run 1's split squashed the commits of the tasks ticked
-// before the drop, so with HEAD's log holding `chore(spectre): drop <name>`
-// a ticked task no commit's subject carries is not a violation.
-func TestCheckTaskRecordsExemptsADroppedPlan(t *testing.T) {
-	t.Parallel()
-	fx := trRepo(t)
-	gitRun(t, fx.root, "update-ref", "refs/remotes/origin/main", "HEAD")
-	fx.task(1, "x", "feat(a): one", "green")
-	fx.commitAll("chore(spectre): plan fixture-change")
-	gitRun(t, fx.root, "rm", "-r", "-q", "spectre/changes/fixture-change")
-	gitRun(t, fx.root, "commit", "-qm", "chore(spectre): drop fixture-change")
-	gitRun(t, fx.root, "checkout", "-q", "HEAD^", "--", "spectre/changes/fixture-change")
-	gitRun(t, fx.root, "commit", "-qm", "chore(spectre): plan fixture-change — fix-run tasks")
-	r := runGuard("check-task-records", []string{fx.root}, Env{Getenv: os.Getenv})
-	if r.rc != 0 || r.out != "" {
-		t.Fatalf("rc=%d out=%q; want 0 and nothing: a dropped plan's squashed tasks are exempt", r.rc, r.out)
-	}
-}
-
 func TestCheckTaskRecords(t *testing.T) {
 	t.Parallel()
 	type check struct{ label, fail string }
@@ -160,14 +124,6 @@ func TestCheckTaskRecords(t *testing.T) {
 	gitRun(t, fx.root, "update-ref", "refs/remotes/origin/main", "HEAD")
 	r = run(Env{}, fx.root)
 	want("case 14 landed plan past the base reads clean", r.rc == 0 && r.out == "", r)
-
-	fx = trRepo(t)
-	fx.archived("old-change", " ", "feat(a): ghost")
-	fx.commitAll("chore(spectre): archive old-change")
-	gitRun(t, fx.root, "update-ref", "refs/remotes/origin/main", "HEAD")
-	fx.commitFile("src/f1.go", "feat(a): ghost")
-	r = run(Env{}, fx.root)
-	want("case 15 plan archived at the base ignored", r.rc == 0 && r.out == "", r)
 
 	fx = trRepo(t)
 	fx.task(1, "x", "feat(a): twelve", "green")
@@ -381,12 +337,6 @@ func (fx *trFx) task(n int, state, subject, build string, extra ...string) {
 	b.WriteString("**After:** none\n\n")
 	old, _ := os.ReadFile(fx.tasks)
 	writeFile(fx.t, fx.tasks, string(old)+b.String())
-}
-
-// archived writes a one-task plan under spectre/changes/archive/<name>/.
-func (fx *trFx) archived(name, state, subject string) {
-	writeFile(fx.t, fx.root+"/spectre/changes/archive/"+name+"/tasks.md",
-		"- ["+state+"] 1. Task 1\n**Files:** `src/f1.go`\n**Tests:** none\n**Commit:** `"+subject+"`\n**Build:** green\n**After:** none\n")
 }
 
 func (fx *trFx) commitAll(subject string) {

@@ -12,6 +12,13 @@
 # already removed: success, its registration pruned. <merge-base> scopes the
 # wave-group copies' disclosed log; `-` discloses their status alone.
 #
+# First the save gate: an apply worktree holding spectre/changes/<name>/tasks.md
+# — gitignored, so the only copy of the plan — is refused, exit 1, with
+# "flow change save <name> has not run" when flowd holds no saved file of the
+# change for that worktree's project (`flow change file`); flowd unreachable is
+# exit 2. With the gate passed, check 4 counts spectre/changes/ and
+# .superpowers/ as regeneratable.
+#
 # In order, never removing anything before every check has passed:
 #   checks 1-4 on each apply worktree — no uncommitted tracked change; no
 #     untracked, unignored file; no commit that exists only here (the base
@@ -74,10 +81,11 @@
 #
 # Exit 0 every check passed and every removal succeeded (whatever the REMOTE-*
 # line says — it is reported, and check-cleanup-complete.sh verifies it);
-# 1 a check failed — nothing removed — or a removal failed — its entry stays
+# 1 the save gate or a check failed — nothing removed — or a removal failed — its entry stays
 # in the state file's `worktrees`; 2 cannot answer, with NOTHING on stdout: a
 # usage error, a name that is not a plain change name, a <repo> that is not a
-# git repository, or its worktree list unreadable; 3 the disclosure stop —
+# git repository, its worktree list unreadable, or flowd unreachable at the
+# save gate; 3 the disclosure stop —
 # nothing removed, nothing run: relay, judge each unpreserved entry, ask the
 # one ask, then call again with --proceed.
 #

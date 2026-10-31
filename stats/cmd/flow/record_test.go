@@ -5052,7 +5052,11 @@ func TestRecordWriteRefusesAChangeNoCheckoutCarries(t *testing.T) {
 				}
 			}
 			contacted := false
-			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				if strings.HasPrefix(r.URL.Path, "/api/v1/changes/") {
+					w.WriteHeader(http.StatusNotFound) // flowd holds no record of kan-7
+					return
+				}
 				contacted = true
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"verifier","model":"sonnet","endedAt":"2026-01-02T03:44:05Z"}`))
@@ -5093,11 +5097,11 @@ func TestRequireChangeCheckoutRefusesNonChangeNames(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, c := range []string{"archive", "..", "../changes", "real/..", "."} {
-		if requireChangeCheckout(repo, c, io.Discard) {
+		if requireChangeCheckout(context.Background(), deadPortAddr(t), 300*time.Millisecond, repo, c, io.Discard) {
 			t.Errorf("change %q accepted", c)
 		}
 	}
-	if !requireChangeCheckout(repo, "real", io.Discard) {
+	if !requireChangeCheckout(context.Background(), deadPortAddr(t), 300*time.Millisecond, repo, "real", io.Discard) {
 		t.Error("real change refused")
 	}
 }
@@ -6931,35 +6935,23 @@ func TestRecordDispatchBeginRefusesAnUnscopedVisualVerifyAfterAnInRunFix(t *test
 	}
 }
 
-// A landed change -- its directory dropped by run 1, its only trace a drop
-// commit on a branch no checkout has out, a feature base the default
-// branch's main checkout has not merged -- is still this repository's change.
+// A landed change -- its worktree removed by cleanup, no checkout carrying
+// it -- is still this repository's change while flowd holds its record.
 func TestRequireChangeCheckoutAcceptsALandedChange(t *testing.T) {
 	repo := gitRepo(t)
-	git := func(args ...string) {
-		t.Helper()
-		if out, err := exec.Command("git", append([]string{"-C", repo, "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false"}, args...)...).CombinedOutput(); err != nil {
-			t.Fatalf("git %v: %v\n%s", args, err, out)
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/kan-7") {
+			_, _ = w.Write([]byte(`{"state":"FINISHED"}`))
+			return
 		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+	if !requireChangeCheckout(context.Background(), srv.URL, time.Second, repo, "kan-7", io.Discard) {
+		t.Error("a landed change flowd holds a record of refused")
 	}
-	git("checkout", "-q", "-b", "feature/base")
-	dir := filepath.Join(repo, "spectre", "changes", "kan-7")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "proposal.md"), []byte("x\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	git("add", "-A")
-	git("commit", "-q", "-m", "chore(spectre): plan kan-7")
-	git("rm", "-r", "-q", "spectre/changes/kan-7")
-	git("commit", "-q", "-m", "chore(spectre): drop kan-7")
-	git("checkout", "-q", "-")
-	if !requireChangeCheckout(repo, "kan-7", io.Discard) {
-		t.Error("a change landed and dropped on feature/base refused")
-	}
-	if requireChangeCheckout(repo, "kan-8", io.Discard) {
-		t.Error("a change no branch carries accepted")
+	if requireChangeCheckout(context.Background(), srv.URL, time.Second, repo, "kan-8", io.Discard) {
+		t.Error("a change neither a checkout nor flowd carries accepted")
 	}
 }
 
@@ -6976,10 +6968,10 @@ func TestRequireChangeCheckoutAcceptsTheChangeBranch(t *testing.T) {
 			t.Fatalf("git %v: %v\n%s", args, err, out)
 		}
 	}
-	if !requireChangeCheckout(repo, "kan-9", io.Discard) {
+	if !requireChangeCheckout(context.Background(), deadPortAddr(t), 300*time.Millisecond, repo, "kan-9", io.Discard) {
 		t.Error("a worktree on spectre/kan-9 refused")
 	}
-	if requireChangeCheckout(repo, "kan-10", io.Discard) {
+	if requireChangeCheckout(context.Background(), deadPortAddr(t), 300*time.Millisecond, repo, "kan-10", io.Discard) {
 		t.Error("a change no worktree carries accepted")
 	}
 }

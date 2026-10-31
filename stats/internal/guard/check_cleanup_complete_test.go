@@ -246,23 +246,6 @@ func ccReadPid(t *testing.T, path string) int {
 	return pid
 }
 
-// TestCheckCleanupCompleteNamesAnUndroppedChange pins row four's wording:
-// a change directory and its fix sub-change left at the tip are LEFTOVER
-// rows saying the directory was not dropped and naming the drop commit, and
-// no line says "archive".
-func TestCheckCleanupCompleteNamesAnUndroppedChange(t *testing.T) {
-	t.Parallel()
-	f := ccNew(t, ccTemplate(t))
-	mkdir(t, f.repo+"/spectre/changes/demo")
-	mkdir(t, f.repo+"/spectre/changes/demo-fix-1")
-	r := f.guard(t, "demo")
-	ccVerdict(t, r, "LEFTOVER:", "an undropped change directory is LEFTOVER")
-	ccHas(t, r, "spectre/changes/demo was not dropped", "the change's row says it was not dropped")
-	ccHas(t, r, "spectre/changes/demo-fix-1, a sub-change of demo, was not dropped", "the sub-change's row says it was not dropped")
-	ccHas(t, r, "chore(spectre): drop demo", "the rows name the drop commit")
-	ccLacks(t, r, "archive", "no line says archive")
-}
-
 func TestCheckCleanupComplete(t *testing.T) {
 	t.Parallel()
 	tmpl := ccTemplate(t)
@@ -371,45 +354,10 @@ func TestCheckCleanupComplete(t *testing.T) {
 		}},
 		{"5", func(t *testing.T, f *ccFx) {
 			mkdir(t, f.repo+"/spectre/changes/demo")
-			r := f.guard(t, "demo")
-			ccVerdict(t, r, "LEFTOVER:", "an undropped change directory is LEFTOVER")
-			ccHas(t, r, "spectre/changes/demo", "an undropped change directory names its row")
-		}},
-		{"5b", func(t *testing.T, f *ccFx) {
 			mkdir(t, f.repo+"/spectre/changes/demo-fix-1")
 			r := f.guard(t, "demo")
-			ccVerdict(t, r, "LEFTOVER:", "an undropped demo-fix-1 sub-change is LEFTOVER")
-			ccHas(t, r, "spectre/changes/demo-fix-1", "an undropped sub-change names its own row")
-			ccHas(t, r, "a sub-change of demo", "the sub-change row says whose sub-change it is")
-		}},
-		{"5c", func(t *testing.T, f *ccFx) {
-			mkdir(t, f.repo+"/spectre/changes/archive/demo")
-			mkdir(t, f.repo+"/spectre/changes/demo-fix-2")
-			r := f.guard(t, "demo")
-			ccVerdict(t, r, "LEFTOVER:", "parent gone but sub-change left behind is LEFTOVER")
-			ccHas(t, r, "spectre/changes/demo-fix-2", "the surviving sub-change is named")
-		}},
-		{"5d", func(t *testing.T, f *ccFx) {
-			mkdir(t, f.repo+"/spectre/changes/demo-fix-1")
-			mkdir(t, f.repo+"/spectre/changes/demo-fix-2")
-			r := f.guard(t, "demo")
-			ccHas(t, r, "spectre/changes/demo-fix-1", "the first sub-change is named")
-			ccHas(t, r, "spectre/changes/demo-fix-2", "the second sub-change is named")
-		}},
-		{"5e", func(t *testing.T, f *ccFx) {
-			mkdir(t, f.repo+"/spectre/changes/demo-fix-the-parser")
-			mkdir(t, f.repo+"/spectre/changes/demo-fixup")
-			ccVerdict(t, f.guard(t, "demo"), "COMPLETE:", "a differently-named change beginning demo-fix is not a sub-change")
-		}},
-		{"5f", func(t *testing.T, f *ccFx) {
-			writeFile(t, f.repo+"/spectre/changes/demo/link.md", "## Part of\n`spectre:demo`\n")
-			r := f.guard(t, "demo")
-			ccVerdict(t, r, "LEFTOVER:", "a leftover satellite (link.md-only) change directory is LEFTOVER")
-			ccHas(t, r, "spectre/changes/demo", "a leftover satellite directory names its row")
-		}},
-		{"5g", func(t *testing.T, f *ccFx) {
-			writeFile(t, f.repo+"/spectre/changes/archive/demo/link.md", "## Part of\n`spectre:demo`\n")
-			ccVerdict(t, f.guard(t, "demo"), "COMPLETE:", "an archived satellite (link.md-only) change directory is COMPLETE")
+			ccVerdict(t, r, "COMPLETE:", "a gitignored change directory on disk is no leftover row")
+			ccLacks(t, r, "spectre/changes", "no row names the change directory")
 		}},
 		{"6", func(t *testing.T, f *ccFx) {
 			writeFile(t, f.state+"/demo-proposal-artifact.html", "")
@@ -431,7 +379,6 @@ func TestCheckCleanupComplete(t *testing.T) {
 			r := f.guard(t, "demo")
 			ccVerdict(t, r, "LEFTOVER:", "several leftovers still produce exactly one line")
 			ccHas(t, r, "local branch", "the combined breakdown names the branch")
-			ccHas(t, r, "spectre/changes/demo", "the combined breakdown names the change directory")
 			ccHas(t, r, "proposal artifact source", "the combined breakdown names the artifact source")
 		}},
 		{"9", func(t *testing.T, f *ccFx) {
