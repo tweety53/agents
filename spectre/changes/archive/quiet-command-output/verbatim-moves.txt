@@ -1,2 +1,0 @@
-# Sentence quiet-command-output adds on purpose.
-A shell command's routine output that you do not need to read — per-item `updated:` lines, progress, counters — goes to `/dev/null`; errors stay visible.
