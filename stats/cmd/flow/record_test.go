@@ -5956,6 +5956,127 @@ func TestRecordMutationRefusesAPathNoWorktreeHolds(t *testing.T) {
 	})
 }
 
+// TestRecordFindingFromAssignsRefs pins -from's numbering of a ref-less
+// line (decision from-assigns-refs): each takes the next free ref above both
+// the store's highest and every ref the file names, the refs are written
+// into the file before anything is recorded so a re-run rewrites the same
+// rows, and a failed store read records nothing and leaves the file as it
+// was.
+func TestRecordFindingFromAssignsRefs(t *testing.T) {
+	repo := recordRepo(t, "kan-918")
+	isolatedStateRoot(t)
+
+	readStatus := http.StatusOK
+	var posted []records.Finding
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			w.WriteHeader(readStatus)
+			_, _ = w.Write([]byte(`{"change":"kan-918","dispatches":[],"findings":[` +
+				`{"ref":"F1","round":0,"slot":"primary","severity":"Minor","note":"n","status":"fixed"},` +
+				`{"ref":"F3","round":0,"slot":"primary","severity":"Minor","note":"n","status":"open"},` +
+				`{"ref":"F2","round":0,"slot":"primary","severity":"Minor","note":"n","status":"open"}]}`))
+			return
+		}
+		body, _ := io.ReadAll(r.Body)
+		var f records.Finding
+		if err := json.Unmarshal(body, &f); err != nil {
+			t.Errorf("decode posted finding: %v\n%s", err, body)
+		}
+		posted = append(posted, f)
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	file := filepath.Join(t.TempDir(), "findings-gated-1.jsonl")
+	load := func() (int, string) {
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918",
+				"-slot", "gated-reviewer", "-round", "0", "-status", "open", "-reproducer", "none — a gated pass", "-dispatch-seq", "4", "-from", file},
+			strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String()
+	}
+	write := func(s string) {
+		t.Helper()
+		if err := os.WriteFile(file, []byte(s), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	refs := func() []string {
+		var out []string
+		for _, f := range posted {
+			out = append(out, f.Ref)
+		}
+		return out
+	}
+
+	// (a) Two ref-less lines take F4 then F5, with the command line's own
+	// slot, round and dispatch-seq and each line's own fields, and the file
+	// now names them.
+	write(`{"task":1,"severity":"Minor","location":"a.go:1","note":"x"}` + "\n" +
+		`{"task":2,"severity":"Important","location":"b.go:2","note":"y"}` + "\n")
+	if code, stderr := load(); code != 0 {
+		t.Fatalf("(a) exit %d, want 0; stderr:\n%s", code, stderr)
+	}
+	if got := refs(); !slices.Equal(got, []string{"F4", "F5"}) {
+		t.Fatalf("(a) posted %v, want [F4 F5]", got)
+	}
+	for i, want := range []struct{ task, severity, location, note string }{{"1", "Minor", "a.go:1", "x"}, {"2", "Important", "b.go:2", "y"}} {
+		f := posted[i]
+		if f.Slot != "gated-reviewer" || f.Round != 0 || f.DispatchSeq == nil || *f.DispatchSeq != 4 ||
+			f.TaskID != want.task || f.Severity != want.severity || f.Location != want.location || f.Note != want.note {
+			t.Errorf("(a) posted[%d] = %+v, want slot gated-reviewer, round 0, dispatch-seq 4 and %+v", i, f, want)
+		}
+	}
+	data, _ := os.ReadFile(file)
+	if !strings.Contains(string(data), `"ref":"F4"`) || !strings.Contains(string(data), `"ref":"F5"`) {
+		t.Fatalf("(a) file does not name F4 and F5:\n%s", data)
+	}
+
+	// (b) Loading the rewritten file again rewrites F4 and F5, adding no F6.
+	posted = nil
+	if code, stderr := load(); code != 0 {
+		t.Fatalf("(b) exit %d, want 0; stderr:\n%s", code, stderr)
+	}
+	if got := refs(); !slices.Equal(got, []string{"F4", "F5"}) {
+		t.Fatalf("(b) posted %v, want [F4 F5] again", got)
+	}
+
+	// (c) A ref the file names above the store's highest raises the floor;
+	// the line naming it keeps its bytes.
+	posted = nil
+	first := `{"ref":"F9","task":1,"severity":"Minor","location":"a.go:1","note":"x"}`
+	write(first + "\n" + `{"task":2,"severity":"Minor","location":"b.go:2","note":"y"}` + "\n")
+	if code, stderr := load(); code != 0 {
+		t.Fatalf("(c) exit %d, want 0; stderr:\n%s", code, stderr)
+	}
+	if got := refs(); !slices.Equal(got, []string{"F9", "F10"}) {
+		t.Fatalf("(c) posted %v, want [F9 F10]", got)
+	}
+	data, _ = os.ReadFile(file)
+	if line := strings.SplitN(string(data), "\n", 2)[0]; line != first {
+		t.Errorf("(c) first line rewritten to %q, want its bytes unchanged %q", line, first)
+	}
+
+	// (d) A failed run-record read exits 1 naming the file, posts nothing,
+	// and leaves the file's bytes unchanged.
+	posted = nil
+	readStatus = http.StatusInternalServerError
+	refless := `{"task":1,"severity":"Minor","location":"a.go:1","note":"x"}` + "\n"
+	write(refless)
+	code, stderr := load()
+	if code != 1 || !strings.Contains(stderr, file) {
+		t.Errorf("(d) exit %d stderr %q, want 1 naming %s", code, stderr, file)
+	}
+	if len(posted) != 0 {
+		t.Errorf("(d) posted %v, want nothing", refs())
+	}
+	if data, _ := os.ReadFile(file); string(data) != refless {
+		t.Errorf("(d) file rewritten to %q, want its bytes unchanged", data)
+	}
+}
+
 // TestRecordFindingFromFile pins `flow record finding -from <file>`: every
 // non-blank JSON line is one finding, recorded in file order with the
 // command line's own flags, a note carrying a tab, quotes and a `$` arrives
