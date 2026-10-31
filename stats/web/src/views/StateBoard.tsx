@@ -9,8 +9,9 @@
 // and each chip count must reflect the other filters without a request per
 // click. It refetches every five seconds so a session's activity badge
 // follows what the session is doing.
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { fetchProjects, type StateBoardRow } from "../api";
+import { Chip } from "../components/Chip";
 import { useStatsView } from "../hooks/useStatsView";
 import { DAY_MS, formatInt, formatRelative, formatSpan, formatUsd } from "../format";
 import { phase } from "../lib/phase";
@@ -108,14 +109,6 @@ export function ActivityBadge({ row, now }: { row: StateBoardRow; now: number })
         </span>
       )}
     </div>
-  );
-}
-
-function Chip({ on, onClick, title, children }: { on: boolean; onClick: () => void; title?: string; children: ReactNode }) {
-  return (
-    <button type="button" className="lb-fchip" aria-pressed={on} onClick={onClick} title={title}>
-      {children}
-    </button>
   );
 }
 

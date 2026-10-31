@@ -178,7 +178,19 @@ export interface StatsResponse<Row = unknown> {
    * meaningful value here).
    */
   excludedNoModel?: number;
+  /**
+   * Present on `stage-leaderboard` only: each project with costed stage runs
+   * in the window and its spend, ordered by spend, computed ignoring the
+   * `project` parameter (decision leaderboard-project-chips-with-spend).
+   */
+  projects?: ProjectSpend[];
   rows: Row;
+}
+
+/** Mirrors projectSpendDTO (internal/api/stats.go): one project's spend in the window. */
+export interface ProjectSpend {
+  projectKey: string;
+  totalCostUsd: number;
 }
 
 /** Raised for every non-2xx response. `code` is set only for the handful of machine-distinguishable errors the server names (e.g. an undocumented stage). */

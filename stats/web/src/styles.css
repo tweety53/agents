@@ -1041,3 +1041,103 @@ td.lb-clip { max-width: 0; width: 100%; }
   white-space: pre-wrap;
   color: var(--text-secondary);
 }
+
+/* Stage leaderboard (KAN-1052): the approved prototype's sl-* rules, with its
+   .up / .down / tr.other scoped under the view so the Experiments view's own
+   .up / .down are unaffected. Tiles: one column on narrow screens (Spend,
+   Top 3, Biggest riser); from 760px Spend stacked over Biggest riser in a
+   narrower left column, Top 3 spanning both rows in a wider right one, so the
+   two short tiles together match the list's height (decision
+   leaderboard-tile-layout). */
+.sl-tiles {
+  display: grid;
+  gap: 10px;
+  grid-template-areas: "spend" "top" "riser";
+}
+@media (min-width: 760px) {
+  .sl-tiles {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "spend top" "riser top";
+  }
+}
+.sl-t-spend {
+  grid-area: spend;
+}
+.sl-t-top {
+  grid-area: top;
+}
+.sl-t-riser {
+  grid-area: riser;
+}
+.sl-note {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.sl .up {
+  color: var(--delta-up);
+}
+.sl .down {
+  color: var(--delta-down);
+}
+.sl-name {
+  font-weight: 600;
+}
+.sl-id {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+.sl-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+}
+.sl-list li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto auto;
+  gap: 4px 12px;
+  align-items: center;
+  padding: 5px 0;
+  border-top: 1px solid var(--border);
+}
+.sl-list li > div {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sl-rank {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.sl-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.sl-riser {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 2px;
+}
+.sl-cmd {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.sl .lb-table tr.other td {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+.sl-amt {
+  min-width: 56px;
+  text-align: right;
+}
+.sl-empty {
+  color: var(--text-secondary);
+  padding: 24px;
+  text-align: center;
+}

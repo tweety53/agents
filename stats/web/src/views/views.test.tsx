@@ -16,7 +16,6 @@ import type {
   WeeklyModelEffortViewSlug,
 } from "../api";
 import { App } from "../App";
-import { formatUsd } from "../format";
 import { DynamicsChart } from "../components/DynamicsChart";
 import { Decisions } from "./Decisions";
 import { Experiments } from "./Experiments";
@@ -117,6 +116,46 @@ function reviewDynamicsRows() {
     lastPromptChangeAt: "2026-01-13T10:00:00Z",
     projects: ["agents-a740d89c", "gymie-7c1f238a"],
   };
+}
+
+// The stage leaderboard's fixture: twelve costed stages across two commands
+// in the current window (one stage id stageLabel does not map), and a
+// previous window missing flow.brainstorm, carrying flow.cleanup only there,
+// and in which flow.self-review grew most ($20 -> $200).
+const LEADERBOARD_CURRENT: [string, string, number, number | null][] = [
+  ["/flow", "flow.sdd-tdd", 500, 400],
+  ["/flow", "flow.review-panel", 300, 600],
+  ["/flow", "flow.self-review", 200, 20],
+  ["/flow-fast", "SDD + TDD per task", 100, 90],
+  ["/flow", "flow.verify", 50, 40],
+  ["/flow", "flow.brainstorm", 40, null],
+  ["/flow", "flow.writing-plans", 30, 35],
+  ["/flow", "flow.create-artifacts", 20, 25],
+  ["/flow", "flow.kickoff", 10, 12],
+  ["/flow", "flow.load-context", 5, 6],
+  ["/flow-fast", "flow.verify", 3, 2],
+  ["/flow-fast", "flow.cleanup", 2, 1],
+];
+const LEADERBOARD_PREVIOUS: [string, string, number][] = [
+  ...LEADERBOARD_CURRENT.flatMap(([c, s, , prev]): [string, string, number][] => (prev === null ? [] : [[c, s, prev]])),
+  ["/flow", "flow.cleanup", 9],
+];
+const LEADERBOARD_PROJECTS = [
+  { projectKey: "gymie-7c1f238a", totalCostUsd: 1000 },
+  { projectKey: "agents-a740d89c", totalCostUsd: 260 },
+];
+function leaderboardRows(rows: readonly (readonly [string, string, number, ...unknown[]])[]): StageLeaderboardRow[] {
+  return rows.map(([command, stage, total], i) => ({
+    command,
+    stage,
+    runCount: 10 + i,
+    meanCostUsd: total / (10 + i),
+    medianCostUsd: 1.25 + i,
+    p90CostUsd: 3.5 + i,
+    totalCostUsd: total,
+    mainCostUsd: null,
+    mainSharePct: i === 0 ? 45.6 : null,
+  }));
 }
 
 const fixtures: Record<
@@ -247,19 +286,7 @@ const fixtures: Record<
       errors: 0,
     },
   ]),
-  "stage-leaderboard": envelope("stage-leaderboard", [
-    {
-      command: "/flow",
-      stage: "SDD + TDD per task",
-      runCount: 3,
-      meanCostUsd: 1.5,
-      medianCostUsd: 1.2,
-      p90CostUsd: 2.9,
-      totalCostUsd: 4.5,
-      mainCostUsd: 3.2,
-      mainSharePct: 45.6,
-    },
-  ]),
+  "stage-leaderboard": { ...envelope("stage-leaderboard", leaderboardRows(LEADERBOARD_CURRENT)), projects: LEADERBOARD_PROJECTS },
   trend: envelope("trend", [{ day: "2026-01-05", runCount: 2, totalCostUsd: 5.25 }]),
   "weekly-costs": envelope("weekly-costs", [
     { ...noPhase, week: "2026-06-03", overallUsd: 5, implementationUsd: 5 },
@@ -392,6 +419,23 @@ const fixtures: Record<
 // The board filters by Updated relative to now; every case runs at one
 // pinned instant so which fixture rows fall inside 24h/7d is fixed.
 const BOARD_NOW = new Date("2026-01-15T12:00:00Z");
+
+// The stage leaderboard's request log and window-keyed answers.
+const LB_NOW = BOARD_NOW.getTime();
+const calls = () => fetchStatsViewMock.mock.calls.filter((c) => c[0] === "stage-leaderboard").map((c) => c[1] as { from: Date; to: Date; project?: string });
+const span = (p: { from: Date; to: Date }) => [p.from.getTime(), p.to.getTime()];
+// The mock answers by window: the current window ends LB_NOW, the previous one before it.
+const answer = (current: StageLeaderboardRow[], previous: StageLeaderboardRow[]) =>
+  fetchStatsViewMock.mockImplementation((view: keyof typeof fixtures, p: { from: Date; to: Date }) =>
+    Promise.resolve(
+      view !== "stage-leaderboard"
+        ? fixtures[view]
+        : { ...envelope("stage-leaderboard", p.to.getTime() === LB_NOW ? current : previous), projects: LEADERBOARD_PROJECTS },
+    ),
+  );
+const tile = (cls: string) => within(document.querySelector<HTMLElement>(`.${cls}`)!);
+
+const answerLeaderboard = () => answer(leaderboardRows(LEADERBOARD_CURRENT), leaderboardRows(LEADERBOARD_PREVIOUS));
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"], now: BOARD_NOW });
@@ -641,38 +685,138 @@ describe("views render their fixture response's actual values", () => {
     expect(table.queryByRole("link", { name: "self-review-kan-31-replan-fold" })).not.toBeInTheDocument();
   });
 
-  it("stage leaderboard shows total, mean, median and p90 cost, and its own stat panels", async () => {
-    render(<StageLeaderboard period={period} project={undefined} />);
-    expect(await screen.findByText("$1.50")).toBeInTheDocument();
-    expect(screen.getByText("$1.20")).toBeInTheDocument();
-    expect(screen.getByText("$2.90")).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: /Total cost/ })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "$4.50" })).toBeInTheDocument();
-    within(screen.getByRole("region", { name: "Stages" })).getByText("1");
-    within(screen.getByRole("region", { name: "Total runs" })).getByText("3");
-  });
-
-  it("stage leaderboard main columns", async () => {
-    const [main] = fixtures["stage-leaderboard"].rows as StageLeaderboardRow[];
-    const absent: StageLeaderboardRow = { ...main, stage: "flow.unpriced", mainCostUsd: null, mainSharePct: null };
-    fetchStatsViewMock.mockImplementation((view: keyof typeof fixtures) =>
-      Promise.resolve(view === "stage-leaderboard" ? envelope("stage-leaderboard", [main, absent]) : fixtures[view]),
-    );
+  it("stage leaderboard chips drive the request and the client filter", async () => {
+    answerLeaderboard();
     const user = userEvent.setup();
     render(<StageLeaderboard period={period} project={undefined} />);
     const table = within(await screen.findByRole("table"));
-    expect(table.getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
-      "Command", "Stage", "Runs", "Total cost", "Main session", "Main share", "Mean cost", "Median cost", "P90 cost",
+    const day = 24 * 60 * 60 * 1000;
+    expect(calls().map(span)).toEqual([
+      [LB_NOW - 30 * day, LB_NOW],
+      [LB_NOW - 60 * day, LB_NOW - 30 * day],
     ]);
-    const mainRow = within(table.getByRole("row", { name: /SDD \+ TDD per task/ }));
-    expect(mainRow.getByRole("cell", { name: formatUsd(3.2) })).toBeInTheDocument();
-    expect(mainRow.getByRole("cell", { name: "46%" })).toBeInTheDocument();
-    const absentRow = within(table.getByRole("row", { name: /flow\.unpriced/ }));
-    expect(absentRow.getAllByRole("cell", { name: "—" })).toHaveLength(2);
-    await user.click(table.getByRole("button", { name: "Main share" }));
-    expect(table.getByRole("columnheader", { name: "Main share ▲" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Period start")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Model")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Search/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
+
+    const periodGroup = within(screen.getByRole("group", { name: "Period" }));
+    await user.click(periodGroup.getByRole("button", { name: "7d" }));
+    await waitFor(() => expect(calls().slice(-2).map(span)).toEqual([
+      [LB_NOW - 7 * day, LB_NOW],
+      [LB_NOW - 14 * day, LB_NOW - 7 * day],
+    ]));
+    expect(await screen.findByRole("columnheader", { name: "vs previous 7d" })).toBeInTheDocument();
+
+    const projectGroup = within(screen.getByRole("group", { name: "Project" }));
+    await user.click(projectGroup.getByRole("button", { name: /^gymie/ }));
+    await waitFor(() => expect(calls().slice(-2).map((p) => p.project)).toEqual(["gymie-7c1f238a", "gymie-7c1f238a"]));
+
+    await screen.findByRole("table");
+    const before = calls().length;
+    const commandGroup = within(screen.getByRole("group", { name: "Command" }));
+    await user.click(commandGroup.getByRole("button", { name: /^\/flow-fast/ }));
+    const narrowed = within(screen.getByRole("table"));
+    expect(narrowed.getAllByRole("row")).toHaveLength(4);
+    expect(narrowed.getAllByRole("cell", { name: "/flow-fast" })).toHaveLength(3);
+    expect(calls()).toHaveLength(before);
+
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(periodGroup.getByRole("button", { name: "30d" })).toHaveAttribute("aria-pressed", "true");
+    expect(projectGroup.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+    expect(commandGroup.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => expect(calls().slice(-2).map((p) => [...span(p), p.project])).toEqual([
+      [LB_NOW - 30 * day, LB_NOW, undefined],
+      [LB_NOW - 60 * day, LB_NOW - 30 * day, undefined],
+    ]));
+    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
+    expect(table).toBeTruthy();
   });
 
+  it("stage leaderboard project chips name projects with spend", async () => {
+    answerLeaderboard();
+    render(<StageLeaderboard period={period} project={undefined} />);
+    await screen.findByRole("table");
+    const chips = within(screen.getByRole("group", { name: "Project" })).getAllByRole("button");
+    expect(chips.map((c) => c.textContent)).toEqual(["All", "gymie$1,000", "agents$260"]);
+    expect(chips.map((c) => c.getAttribute("title"))).toEqual([null, "gymie-7c1f238a", "agents-a740d89c"]);
+  });
+
+  it("stage leaderboard tiles name stages and the biggest riser", async () => {
+    answerLeaderboard();
+    render(<StageLeaderboard period={period} project={undefined} />);
+    await screen.findByRole("table");
+    const spend = tile("sl-t-spend");
+    spend.getByText("$1,260");
+    expect(spend.getByText(/vs the previous 30d/)).toHaveTextContent("+$20.00 (+2%) vs the previous 30d");
+
+    const top = tile("sl-t-top");
+    top.getByText("79%");
+    const items = top.getAllByRole("listitem");
+    expect(items.map((li) => li.textContent)).toEqual([
+      "1Implementing tasks /flowflow.sdd-tdd$50040%",
+      "2Code review /flowflow.review-panel$30024%",
+      "3Self-review /flowflow.self-review$20016%",
+    ]);
+
+    const riser = tile("sl-t-riser");
+    riser.getByText("+$180");
+    riser.getByText("Self-review");
+    riser.getByText("flow.self-review");
+    riser.getByText("/flow");
+    riser.getByText("$20.00 → $200 vs the previous 30d (+900%)");
+  });
+
+  it("stage leaderboard table ranks the top ten with deltas and an Other row", async () => {
+    answerLeaderboard();
+    render(<StageLeaderboard period={period} project={undefined} />);
+    const table = within(await screen.findByRole("table"));
+    expect(table.getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
+      "#", "Stage", "Command", "Spend", "Share", "vs previous 30d", "Runs", "Median run", "P90 run", "Main share",
+    ]);
+    expect(table.queryAllByRole("button")).toHaveLength(0);
+    screen.getByText("12 stages ran");
+    const rows = table.getAllByRole("row").slice(1);
+    expect(rows).toHaveLength(11);
+    expect(rows.map((r) => within(r).getAllByRole("cell")[0].textContent)).toEqual(["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", ""]);
+
+    const first = within(rows[0]);
+    first.getByText("Implementing tasks");
+    first.getByText("flow.sdd-tdd");
+    expect(first.getByText("+$100 (+25%)")).toHaveClass("up");
+    first.getByRole("cell", { name: "40%" });
+    first.getByRole("cell", { name: "46%" });
+    first.getByRole("cell", { name: "$1.25" });
+    first.getByRole("cell", { name: "$3.50" });
+    expect(within(rows[1]).getByText("−$300 (−50%)")).toHaveClass("down");
+    expect(within(rows[3]).getAllByText("SDD + TDD per task")).toHaveLength(1);
+    within(rows[5]).getByText("new");
+
+    const other = within(rows[10]);
+    expect(rows[10]).toHaveClass("other");
+    other.getByText("Other 2 stages");
+    other.getByText("$5.00");
+    other.getByRole("cell", { name: "0%" });
+    other.getByText("+$2.00 (+67%)");
+    other.getByRole("cell", { name: "41" });
+    expect(other.getAllByRole("cell", { name: "—" })).toHaveLength(3);
+  });
+
+  it("stage leaderboard reports no riser and the empty state", async () => {
+    const cur = leaderboardRows(LEADERBOARD_CURRENT);
+    answer(cur, cur.map((r) => ({ ...r, totalCostUsd: r.totalCostUsd * 2 })));
+    const { unmount } = render(<StageLeaderboard period={period} project={undefined} />);
+    await screen.findByRole("table");
+    const riser = tile("sl-t-riser");
+    riser.getByText("—");
+    riser.getByText("no stage grew vs the previous 30d");
+    unmount();
+
+    answer([], []);
+    render(<StageLeaderboard period={period} project={undefined} />);
+    expect(await screen.findByText("No costed stage runs in this period.")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
   it("trend shows the day's run count and total cost, its time-series panel, and its own stat panels", async () => {
     render(<Trend period={period} project={undefined} />);
     expect(await screen.findByText("2026-01-05")).toBeInTheDocument();
