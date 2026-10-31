@@ -725,7 +725,7 @@ A change linked to a Jira issue is named `<lowercased-key>-<slug>` — see
 
 A change's directory is `<project>/spectre/changes/<name>/`; there is no archived path. Integrate's
 run 1 deletes it on the change branch with one `chore(spectre): drop <name>` commit before the route
-(**Archive on the change branch**, `skills/flow-contracts/finish-contract-run1.md`), so a fix run
+(**Run 1 — the branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`), so a fix run
 after a run 1 that stopped at a pull request or a manual route restores the directory from the drop
 commit's parent as its planning commit (`skills/flow/document-fix.md`), and writes there — its
 appended tasks, its narrative and its planning commits — until the next drop. Every step that reads or writes a change's planning artifacts resolves the
