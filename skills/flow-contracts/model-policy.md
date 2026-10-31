@@ -137,8 +137,7 @@ roles table by them.
 |---|---|---|---|
 | `self-review-pass` | `opus/flow-medium` | — | Reviews a finished change and the run that built it. |
 | `self-review-plan` | `opus/flow-planner-medium`, `opus/flow-planner-low` | — | Plans the fixes for the self-review's findings. |
-| `self-review-fix` | `opus/flow-low` | — | Makes one planned self-review fix. |
-| `self-review-fix` | `opus/flow-high` | `No-progress escalation` | — |
+| `self-review-fix` | `opus/flow-medium`, `sonnet/flow-medium` | — | Makes one planned self-review fix. |
 | `self-review-review-1` | `opus/flow-medium`, `opus/flow-low` | — | First review of a self-review fix. |
 | `self-review-review-r` | `sonnet/flow-low` | — | Re-review once that fix is corrected. |
 
