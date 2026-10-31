@@ -1,7 +1,7 @@
 # Plan amendment
 
 What an implementer does when a measurement contradicts the plan it is implementing. Cited by the
-implementer dispatch in `skills/flow/implement.md`; the tag vocabulary it refers to is
+implementer's brief, `skills/flow/implementer-brief.md`; the tag vocabulary it refers to is
 **Plan provenance** (`skills/flow-contracts/plan-provenance.md`).
 
 ## When a measurement contradicts the plan

@@ -149,6 +149,7 @@ var promptAreas = map[string][2]string{
 	"skills/flow/call-efficiency-reviewer-prompt.md": {"review", "call-efficiency"},
 	"skills/flow/engineering-principles.md":          {"impl", ""},
 	"skills/flow/sdd-dispatch.md":                    {"impl", ""},
+	"skills/flow/implementer-brief.md":               {"impl", ""},
 	"skills/flow/visual-verify-verifier.md":          {"vv", ""},
 	"skills/flow/review-panel-fix-round.md":          {"fix", ""},
 }

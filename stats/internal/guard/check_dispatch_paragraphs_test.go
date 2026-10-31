@@ -57,9 +57,10 @@ const dpCleanPlanning = `1. **Plan, then fix**
 
 // dpFixture is new_root plus the case's files: every root carries a
 // visual-verify.md and a visual-verify-tooling-analysis.md, each with its
-// three required blocks at its one dispatch site, and a
-// review-panel-fix-round.md with its one required block, which a case may
-// overwrite.
+// three required blocks at its one dispatch site, a
+// review-panel-fix-round.md with its one required block, and a clean
+// implement.md, implementer-brief.md and gated-reviewer-brief.md, which a
+// case may overwrite.
 func dpFixture(t *testing.T, files map[string]string) string {
 	t.Helper()
 	root := t.TempDir()
@@ -67,6 +68,9 @@ func dpFixture(t *testing.T, files map[string]string) string {
 	writeFile(t, filepath.Join(flow, "visual-verify.md"), dpCleanVisualVerify+"\n")
 	writeFile(t, filepath.Join(flow, "visual-verify-tooling-analysis.md"), dpCleanVisualVerify+"\n")
 	writeFile(t, filepath.Join(flow, "review-panel-fix-round.md"), dpCleanFixRound+"\n")
+	writeFile(t, filepath.Join(flow, "implement.md"), dpCleanImplementStub+"\n")
+	writeFile(t, filepath.Join(flow, "implementer-brief.md"), dpCleanImplementerBrief+"\n")
+	writeFile(t, filepath.Join(flow, "gated-reviewer-brief.md"), dpCleanGatedReviewerBrief+"\n")
 	writeFile(t, filepath.Join(root, "skills", "flow-self-review", "SKILL.md"), dpCleanPlanning)
 	writeFile(t, filepath.Join(root, "rules", "fix-determinism-at-the-source.mdc"), dpNoLoadRepro+"\n")
 	writeFile(t, filepath.Join(flow, "verify-fix-loop.md"), dpNoLoadRepro+"\n")
@@ -147,8 +151,8 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 	// shim hands over. Each expected text is what the bash guard printed at
 	// d71a2327 on the same fixture.
 	clean := dpCases[0].files
-	noRange := map[string]string{"review-panel.md": dpCleanReviewPanel,
-		"implement.md": dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlockNoRange, dpProofRunsBlock)}
+	noRange := map[string]string{"review-panel.md": dpCleanReviewPanel, "implement.md": dpCleanImplementStub,
+		"implementer-brief.md": dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlockNoRange, dpProofRunsBlock)}
 	extras := []struct {
 		label  string
 		files  map[string]string
@@ -159,14 +163,14 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 		stderr func(root string) string
 	}{
 		{label: "a clean run prints the OK line on stdout alone", files: clean, rc: 0,
-			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 37 site(s) validated\n" }},
+			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 43 site(s) validated\n" }},
 		{label: "a relative root prints its findings and the INVALID line as given, on stdout alone", files: noRange,
 			env: func(root string) Env {
 				return crEnv(filepath.Dir(root), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": filepath.Base(root)})
 			},
 			rc: 1, stdout: func(root string) string {
 				b := filepath.Base(root)
-				return b + `/skills/flow/implement.md:96: block carrying "**OUTPUT BUDGET:**" is missing the required phrase: "by line range"` + "\n" +
+				return b + `/skills/flow/implementer-brief.md:96: block carrying "**OUTPUT BUDGET:**" is missing the required phrase: "by line range"` + "\n" +
 					"DISPATCH-PARAGRAPHS-INVALID: " + b + " — 1 violation(s)\n"
 			}},
 		{label: "a refusal prints file:0 on stderr alone, dropping earlier sites' findings",
@@ -190,17 +194,17 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 					"DISPATCH-PARAGRAPHS-INVALID: " + root + " — 2 violation(s)\n"
 			}},
 		{label: "a block missing a shared phrase never satisfies its variant",
-			files: map[string]string{"review-panel.md": clean["review-panel.md"],
-				"implement.md": strings.Replace(clean["implement.md"], "test you write MUST exercise the real\n> thing", "test you write MUST do the real\n> thing", 1)},
+			files: map[string]string{"review-panel.md": clean["review-panel.md"], "implement.md": clean["implement.md"],
+				"implementer-brief.md": strings.Replace(clean["implementer-brief.md"], "test you write MUST exercise the real\n> thing", "test you write MUST do the real\n> thing", 1)},
 			rc: 1, stdout: func(root string) string {
-				f := root + "/skills/flow/implement.md"
-				return f + `:7: block carrying "**REPRODUCE, DON'T READ:**" is missing the required phrase: "exercise the real thing"` + "\n" +
+				f := root + "/skills/flow/implementer-brief.md"
+				return f + `:1: block carrying "**REPRODUCE, DON'T READ:**" is missing the required phrase: "exercise the real thing"` + "\n" +
 					f + `:0: missing a block that satisfies the implementer variant (the label "**REPRODUCE, DON'T READ:**" plus every shared phrase plus "a fake or a hand-built value")` + "\n" +
 					"DISPATCH-PARAGRAPHS-INVALID: " + root + " — 2 violation(s)\n"
 			}},
 		{label: "with no override the root is FLOW_GUARD_REPO_ROOT", files: clean,
 			env: func(root string) Env { return crEnv(root, map[string]string{"FLOW_GUARD_REPO_ROOT": root}) },
-			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 37 site(s) validated\n" }},
+			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 43 site(s) validated\n" }},
 		{label: "with no override and no FLOW_GUARD_REPO_ROOT it exits 2", files: clean,
 			env: func(root string) Env { return crEnv(root, nil) },
 			rc:  2, stderr: func(string) string {
@@ -252,7 +256,9 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 		root  func(t *testing.T) string
 	}{
 		{"port: an unquoted label line is a one-line block, never continued", func(t *testing.T) string {
-			return dpFixture(t, map[string]string{"review-panel.md": clean["review-panel.md"], "implement.md": clean["implement.md"],
+			// implement.md as the bash at d71a2327 reads it, every paragraph in
+			// one file; dpFixture adds the two briefs the port now requires.
+			return dpFixture(t, map[string]string{"review-panel.md": clean["review-panel.md"], "implement.md": dpCleanImplement,
 				"visual-verify.md": dpDoc(strings.TrimPrefix(dpToolsBlock, "> "), dpCleanVisualVerify)})
 		}},
 		{"port: a root that exists but is not readable exits 2", func(t *testing.T) string {
@@ -313,11 +319,13 @@ func dpInOrder(s string, want []string) bool {
 
 var dpCases = []dpCase{
 	{files: map[string]string{
-		"review-panel.md": dpDoc(dpReviewerBlock, dpReproducerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpMutationBlock, dpPixelProbeBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpIndependentBlock, dpDelegationBlock, dpDelegationBlock, dpEntryContextBlock, dpFindingsInputBlock, dpContextBundleFailureBlock, dpOutputBudgetBlock),
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock, dpOutputBudgetBlock, dpReadonlyBlock, dpProofRunsBlock, dpSubSkillTDDBlock, dpSubSkillDebuggingBlock),
+		"review-panel.md":         dpCleanReviewPanel,
+		"implement.md":            dpCleanImplementStub,
+		"implementer-brief.md":    dpCleanImplementerBrief,
+		"gated-reviewer-brief.md": dpCleanGatedReviewerBrief,
 	},
 		checks: []dpCheck{
-			dpRC("case 1: both sites correct exits 0", 0),
+			dpRC("case 1: every site correct exits 0", 0),
 		}},
 	{files: map[string]string{
 		"review-panel.md": dpDoc("No REPRODUCE, DON'T READ paragraph here at all.", dpVerbatimBlock),
@@ -346,12 +354,12 @@ var dpCases = []dpCase{
 			dpHas("case 4: names the min-blocks violation", "requires at least 2 block(s)"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpDoc(dpReviewerBlock, dpVerbatimBlock),
-		"implement.md":    dpDoc(dpReviewerBlock, dpReviewerBlock),
+		"review-panel.md":      dpDoc(dpReviewerBlock, dpVerbatimBlock),
+		"implementer-brief.md": dpDoc(dpReviewerBlock, dpReviewerBlock),
 	},
 		checks: []dpCheck{
 			dpRC("case 5: two same-variant blocks still exits 1", 1),
-			dpHas("case 5: names implement.md's missing implementer variant", "implement.md", "implementer"),
+			dpHas("case 5: names implementer-brief.md's missing implementer variant", "implementer-brief.md", "implementer"),
 		}},
 	{files: map[string]string{
 		"implement.md": dpDoc(dpReviewerBlock, dpImplementerBlock),
@@ -468,13 +476,14 @@ var dpCases = []dpCase{
 			dpHas("case 19: names the missing phrase", "poll it to completion"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpDoc(dpReviewerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock),
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock),
+		"review-panel.md":      dpDoc(dpReviewerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock),
+		"implement.md":         dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock),
+		"implementer-brief.md": dpDoc(dpReviewerBlock, dpImplementerBlock),
 	},
 		checks: []dpCheck{
 			dpRC("case 20: exits 1", 1),
-			dpHas("case 20: names implement.md", "implement.md"),
-			dpHas("case 20: names the min-blocks violation at its own threshold", "requires at least 3 block(s) carrying the label \"**FOREGROUND BUILDS:**\", found 1"),
+			dpHas("case 20: names implementer-brief.md", "implementer-brief.md"),
+			dpHas("case 20: names the min-blocks violation at its own threshold", "implementer-brief.md:0: requires at least 1 block(s) carrying the label \"**FOREGROUND BUILDS:**\", found 0"),
 		}},
 	{files: map[string]string{
 		"review-panel.md": dpDoc(dpReviewerBlock, dpVerbatimBlock, dpForegroundBlock),
@@ -486,36 +495,36 @@ var dpCases = []dpCase{
 			dpHas("case 21: names the min-blocks violation at its own threshold", "requires at least 2 block(s) carrying the label \"**FOREGROUND BUILDS:**\", found 1"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpDoc(dpReviewerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock),
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock, dpForegroundBlock),
+		"review-panel.md":      dpDoc(dpReviewerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock),
+		"implementer-brief.md": dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock, dpForegroundBlock),
 	},
 		checks: []dpCheck{
 			dpRC("case 22: exits 1", 1),
-			dpHas("case 22: names implement.md and the missing TARGETED TESTS block", "implement.md", "TARGETED TESTS"),
+			dpHas("case 22: names implementer-brief.md and the missing TARGETED TESTS block", "implementer-brief.md", "TARGETED TESTS"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpDoc(dpReviewerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock),
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlockNoSelector),
+		"review-panel.md":      dpDoc(dpReviewerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock),
+		"implementer-brief.md": dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlockNoSelector),
 	},
 		checks: []dpCheck{
 			dpRC("case 23: exits 1", 1),
-			dpHas("case 23: names implement.md and the missing phrase", "implement.md", "the build tool", "own selector"),
+			dpHas("case 23: names implementer-brief.md and the missing phrase", "implementer-brief.md", "the build tool", "own selector"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpDoc(dpReviewerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock),
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlockNoRedGreen),
+		"review-panel.md":      dpDoc(dpReviewerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock),
+		"implementer-brief.md": dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlockNoRedGreen),
 	},
 		checks: []dpCheck{
 			dpRC("case 24: exits 1", 1),
-			dpHas("case 24: names implement.md and the missing phrase", "implement.md", "once for RED, once for GREEN"),
+			dpHas("case 24: names implementer-brief.md and the missing phrase", "implementer-brief.md", "once for RED, once for GREEN"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpDoc(dpReviewerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock),
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlockNoSuite),
+		"review-panel.md":      dpDoc(dpReviewerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock),
+		"implementer-brief.md": dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlockNoSuite),
 	},
 		checks: []dpCheck{
 			dpRC("case 25: exits 1", 1),
-			dpHas("case 25: names implement.md and the missing phrase", "implement.md", "module or repository suite mid-task"),
+			dpHas("case 25: names implementer-brief.md and the missing phrase", "implementer-brief.md", "module or repository suite mid-task"),
 		}},
 	{files: map[string]string{
 		"review-panel.md": dpDoc(dpReviewerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock),
@@ -590,32 +599,32 @@ var dpCases = []dpCase{
 			dpHas("case 91: names the missing phrase", "missing the required phrase: \"`fix-mutation: <path> — <what was mutated> — <the test that failed>`\""),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, "No TOOLS paragraph here at all, just prose.", dpHandshakeBlock, dpDelegationBlock),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, "No TOOLS paragraph here at all, just prose.", dpHandshakeBlock, dpDelegationBlock),
 	},
 		checks: []dpCheck{
 			dpRC("case 31: exits 1", 1),
-			dpHas("case 31: names implement.md and TOOLS", "implement.md", "TOOLS"),
+			dpHas("case 31: names implementer-brief.md and TOOLS", "implementer-brief.md", "TOOLS"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlockNoFirstTurn),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlockNoFirstTurn),
 	},
 		checks: []dpCheck{
 			dpRC("case 32: exits 1", 1),
 			dpHas("case 32: names the dropped phrase", "in your first turn"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlockNoWildcard),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlockNoWildcard),
 	},
 		checks: []dpCheck{
 			dpRC("case 33: exits 1", 1),
 			dpHas("case 33: names the dropped phrase", "never a wildcard query"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlockNoReprices),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlockNoReprices),
 	},
 		checks: []dpCheck{
 			dpRC("case 34: exits 1", 1),
@@ -679,12 +688,12 @@ var dpCases = []dpCase{
 			dpHas("case 45: names review-panel.md and the missing INDEPENDENT PASSES block", "review-panel.md", "INDEPENDENT PASSES"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock),
 	},
 		checks: []dpCheck{
 			dpRC("case 46: exits 1", 1),
-			dpHas("case 46: names implement.md and the missing NO DELEGATION block", "implement.md", "NO DELEGATION"),
+			dpHas("case 46: names implementer-brief.md and the missing NO DELEGATION block", "implementer-brief.md", "NO DELEGATION"),
 		}},
 	{files: map[string]string{
 		"implement.md":    dpCleanImplement,
@@ -739,37 +748,41 @@ var dpCases = []dpCase{
 			dpHas("case 51: names the min-blocks violation at its own threshold", "review-panel.md", "requires at least 2 block(s) carrying the label \"**NO DELEGATION:**\", found 1"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implement.md":         dpDoc(dpReviewerBlock, dpForegroundBlock, dpHandshakeBlock),
+		"implementer-brief.md": dpDoc(dpImplementerBlock, dpGuardBitesBlock, dpDecideBlock, dpForegroundBlock, dpTargetedBlock, dpDelegationBlock, dpOutputBudgetBlock, dpProofRunsBlock, dpSubSkillTDDBlock, dpSubSkillDebuggingBlock),
 	},
 		checks: []dpCheck{
-			dpRC("case 52: exactly one TOOLS and one MODEL HANDSHAKE block in implement.md exits 1", 1),
-			dpHas("case 52: names the TOOLS min-blocks violation at its own threshold", "requires at least 2 block(s) carrying the label \"**TOOLS:**\", found 1"),
-			dpHas("case 52: names the MODEL HANDSHAKE min-blocks violation at its own threshold", "requires at least 2 block(s) carrying the label \"**MODEL HANDSHAKE:**\", found 1"),
+			dpRC("case 52: one MODEL HANDSHAKE block in implement.md and no TOOLS block in implementer-brief.md exits 1", 1),
+			dpHas("case 52: names the TOOLS min-blocks violation at its own threshold", "implementer-brief.md:0: requires at least 1 block(s) carrying the label \"**TOOLS:**\", found 0"),
+			dpHas("case 52: names the MODEL HANDSHAKE min-blocks violation at its own threshold", "implement.md:0: requires at least 2 block(s) carrying the label \"**MODEL HANDSHAKE:**\", found 1"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock),
+		"review-panel.md":         dpCleanReviewPanel,
+		"implement.md":            dpCleanImplementStub,
+		"gated-reviewer-brief.md": dpDoc(dpForegroundBlock, dpToolsBlock, dpDelegationBlock, dpReadonlyBlock),
 	},
 		checks: []dpCheck{
 			dpRC("case 53: exits 1", 1),
-			dpHas("case 53: names the REPRODUCE min-blocks violation at its own threshold", "requires at least 3 block(s) carrying the label \"**REPRODUCE, DON'T READ:**\", found 2"),
+			dpHas("case 53: names the REPRODUCE min-blocks violation at its own threshold", "gated-reviewer-brief.md:0: requires at least 1 block(s) carrying the label \"**REPRODUCE, DON'T READ:**\", found 0"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock),
+		"review-panel.md":         dpCleanReviewPanel,
+		"implement.md":            dpCleanImplementStub,
+		"gated-reviewer-brief.md": dpDoc(dpReviewerBlock, dpToolsBlock, dpDelegationBlock, dpReadonlyBlock),
 	},
 		checks: []dpCheck{
 			dpRC("case 54: exits 1", 1),
-			dpHas("case 54: names the FOREGROUND min-blocks violation at its own threshold", "requires at least 3 block(s) carrying the label \"**FOREGROUND BUILDS:**\", found 2"),
+			dpHas("case 54: names the FOREGROUND min-blocks violation at its own threshold", "gated-reviewer-brief.md:0: requires at least 1 block(s) carrying the label \"**FOREGROUND BUILDS:**\", found 0"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock),
+		"review-panel.md":         dpCleanReviewPanel,
+		"implement.md":            dpCleanImplementStub,
+		"gated-reviewer-brief.md": dpDoc(dpReviewerBlock, dpForegroundBlock, dpToolsBlock, dpReadonlyBlock),
 	},
 		checks: []dpCheck{
 			dpRC("case 55: exits 1", 1),
-			dpHas("case 55: names the NO DELEGATION min-blocks violation at its own threshold", "requires at least 2 block(s) carrying the label \"**NO DELEGATION:**\", found 1"),
+			dpHas("case 55: names the NO DELEGATION min-blocks violation at its own threshold", "gated-reviewer-brief.md:0: requires at least 1 block(s) carrying the label \"**NO DELEGATION:**\", found 0"),
 		}},
 	{files: map[string]string{
 		"implement.md":    dpCleanImplement,
@@ -804,72 +817,72 @@ var dpCases = []dpCase{
 			dpHas("case 59: names the missing phrase", "rejected at the fix step"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpReviewerBlock, dpImplementerBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock),
 	},
 		checks: []dpCheck{
 			dpRC("case 60: exits 1", 1),
-			dpHas("case 60: names implement.md and the missing PROVE THE GUARD BITES block", "implement.md", "PROVE THE GUARD BITES"),
+			dpHas("case 60: names implementer-brief.md and the missing PROVE THE GUARD BITES block", "implementer-brief.md", "PROVE THE GUARD BITES"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlockNoScope, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlockNoScope, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock),
 	},
 		checks: []dpCheck{
 			dpRC("case 61: exits 1", 1),
 			dpHas("case 61: names the missing phrase", "assert on configuration or file content"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlockNoBreak, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlockNoBreak, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock),
 	},
 		checks: []dpCheck{
 			dpRC("case 62: exits 1", 1),
 			dpHas("case 62: names the missing phrase", "break the property the assertion protects"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlockNoBrokenState, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlockNoBrokenState, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock),
 	},
 		checks: []dpCheck{
 			dpRC("case 63: exits 1", 1),
 			dpHas("case 63: names the missing phrase", "against the broken state"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock),
 	},
 		checks: []dpCheck{
 			dpRC("case 64: exits 1", 1),
-			dpHas("case 64: names implement.md and the missing REPORT, DON'T DECIDE block", "implement.md", "REPORT, DON'T DECIDE"),
+			dpHas("case 64: names implementer-brief.md and the missing REPORT, DON'T DECIDE block", "implementer-brief.md", "REPORT, DON'T DECIDE"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlockNoOperator, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlockNoOperator, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock),
 	},
 		checks: []dpCheck{
 			dpRC("case 65: exits 1", 1),
 			dpHas("case 65: names the missing phrase", "only the operator can settle"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlockNoReported, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlockNoReported, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock),
 	},
 		checks: []dpCheck{
 			dpRC("case 66: exits 1", 1),
 			dpHas("case 66: names the missing phrase", "reported, never decided in code"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlockNoCarry, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlockNoCarry, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock),
 	},
 		checks: []dpCheck{
 			dpRC("case 67: exits 1", 1),
 			dpHas("case 67: names the missing phrase", "carry the question in your REPORT FILE"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlockNoBlocked, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlockNoBlocked, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock),
 	},
 		checks: []dpCheck{
 			dpRC("case 68: exits 1", 1),
@@ -996,12 +1009,12 @@ var dpCases = []dpCase{
 			dpHas("case 83: names the missing phrase", "outcome stopped"),
 		}},
 	{files: map[string]string{
-		"implement.md":    dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock),
-		"review-panel.md": dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock),
+		"review-panel.md":      dpCleanReviewPanel,
 	},
 		checks: []dpCheck{
 			dpRC("case 84: exits 1", 1),
-			dpHas("case 84: names implement.md and the missing OUTPUT BUDGET block", "implement.md", "OUTPUT BUDGET"),
+			dpHas("case 84: names implementer-brief.md and the missing OUTPUT BUDGET block", "implementer-brief.md", "OUTPUT BUDGET"),
 		}},
 	{files: map[string]string{
 		"implement.md":    dpCleanImplement,
@@ -1012,40 +1025,40 @@ var dpCases = []dpCase{
 			dpHas("case 85: names review-panel.md and the missing OUTPUT BUDGET block", "review-panel.md", "OUTPUT BUDGET"),
 		}},
 	{files: map[string]string{
-		"implement.md":    dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlockNoRange),
-		"review-panel.md": dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlockNoRange),
+		"review-panel.md":      dpCleanReviewPanel,
 	},
 		checks: []dpCheck{
 			dpRC("case 86: exits 1", 1),
 			dpHas("case 86: names the missing phrase", "by line range"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpCleanImplementNoReadonly,
+		"review-panel.md":         dpCleanReviewPanel,
+		"gated-reviewer-brief.md": dpCleanImplementNoReadonly,
 	},
 		checks: []dpCheck{
 			dpRC("case 87: exits 1", 1),
-			dpHas("case 87: names implement.md and the missing READ-ONLY REVIEW block", "implement.md", "READ-ONLY REVIEW"),
+			dpHas("case 87: names gated-reviewer-brief.md and the missing READ-ONLY REVIEW block", "gated-reviewer-brief.md", "READ-ONLY REVIEW"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlockNoNeverMutate),
+		"review-panel.md":         dpCleanReviewPanel,
+		"gated-reviewer-brief.md": dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlockNoNeverMutate),
 	},
 		checks: []dpCheck{
 			dpRC("case 88: exits 1", 1),
 			dpHas("case 88: names the missing phrase", "never mutate it"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlockNoFileEdit),
+		"review-panel.md":         dpCleanReviewPanel,
+		"gated-reviewer-brief.md": dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlockNoFileEdit),
 	},
 		checks: []dpCheck{
 			dpRC("case 89: exits 1", 1),
 			dpHas("case 89: names the missing phrase", "no file edit outside your own report file"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlockNoClaim),
+		"review-panel.md":         dpCleanReviewPanel,
+		"gated-reviewer-brief.md": dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlockNoClaim),
 	},
 		checks: []dpCheck{
 			dpRC("case 90: exits 1", 1),
@@ -1088,32 +1101,32 @@ var dpCases = []dpCase{
 			dpHas("case 95: names the dropped phrase", "missing the required phrase: \"never the module, repository or live-spec suite\""),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock),
 	},
 		checks: []dpCheck{
-			dpRC("case 96: no PROOF RUNS block in implement.md exits 1", 1),
-			dpHas("case 96: names the PROOF RUNS min-blocks violation at its own threshold", "implement.md", "requires at least 1 block(s) carrying the label \"**PROOF RUNS:**\", found 0"),
+			dpRC("case 96: no PROOF RUNS block in implementer-brief.md exits 1", 1),
+			dpHas("case 96: names the PROOF RUNS min-blocks violation at its own threshold", "implementer-brief.md", "requires at least 1 block(s) carrying the label \"**PROOF RUNS:**\", found 0"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlockNoSingleWorker),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlockNoSingleWorker),
 	},
 		checks: []dpCheck{
 			dpRC("case 97: exits 1", 1),
 			dpHas("case 97: names the dropped phrase", "missing the required phrase: \"bounded worker count\""),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlockNoFixedCount),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlockNoFixedCount),
 	},
 		checks: []dpCheck{
 			dpRC("case 98: exits 1", 1),
 			dpHas("case 98: names the dropped phrase", "missing the required phrase: \"straight to code\""),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlockNoMechanismRemoved),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlockNoMechanismRemoved),
 	},
 		checks: []dpCheck{
 			dpRC("case 99: exits 1", 1),
@@ -1135,40 +1148,40 @@ var dpCases = []dpCase{
 			dpHas("case 101: names the dropped phrase", "missing the required phrase: \"|| true\""),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    strings.Replace(strings.Replace(dpCleanImplement, dpSubSkillTDDBlock+"\n\n", "", 1), dpSubSkillDebuggingBlock+"\n\n", "", 1),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": strings.Replace(strings.Replace(dpCleanImplement, dpSubSkillTDDBlock+"\n\n", "", 1), dpSubSkillDebuggingBlock+"\n\n", "", 1),
 	},
 		checks: []dpCheck{
-			dpRC("case 102: implement.md without the REQUIRED SUB-SKILL blocks exits 1", 1),
+			dpRC("case 102: implementer-brief.md without the REQUIRED SUB-SKILL blocks exits 1", 1),
 			dpHas("case 102: names the missing blocks", "requires at least 2 block(s) carrying the label \"**REQUIRED SUB-SKILL:**\", found 0"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    strings.Replace(dpCleanImplement, "systematic-debugging from its file", "systematic-debugging", 1),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": strings.Replace(dpCleanImplement, "systematic-debugging from its file", "systematic-debugging", 1),
 	},
 		checks: []dpCheck{
 			dpRC("case 103: a debugging block without its file phrase exits 1", 1),
 			dpHas("case 103: names the dropped phrase", "missing the required phrase: \"from its file\""),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    strings.Replace(dpCleanImplement, dpSubSkillDebuggingBlock, dpSubSkillTDDBlock, 1),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": strings.Replace(dpCleanImplement, dpSubSkillDebuggingBlock, dpSubSkillTDDBlock, 1),
 	},
 		checks: []dpCheck{
 			dpRC("case 104: the TDD block twice and no debugging block exits 1", 1),
 			dpHas("case 104: names the unsatisfied variant", "missing a block that satisfies the debugging variant"),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlockLoadRepro),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlockLoadRepro),
 	},
 		checks: []dpCheck{
 			dpRC("case 105: a PROOF RUNS block sizing load-reproduction repeats exits 1", 1),
 			dpHas("case 105: names the dropped phrase", "missing the required phrase: \"run-capped.sh\""),
 		}},
 	{files: map[string]string{
-		"review-panel.md": dpCleanReviewPanel,
-		"implement.md":    dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlockLoop41),
+		"review-panel.md":      dpCleanReviewPanel,
+		"implementer-brief.md": dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlockLoop41),
 	},
 		checks: []dpCheck{
 			dpRC("case 106: loop 41's uncapped PROOF RUNS block exits 1", 1),
@@ -1827,6 +1840,18 @@ var dpCleanReviewPanel = dpDoc(dpReviewerBlock, dpReproducerBlock, dpVerbatimBlo
 var dpCleanImplementNoReadonly = dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock, dpSubSkillTDDBlock, dpSubSkillDebuggingBlock)
 var dpCleanImplement = dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlock)
 
+// dpCleanImplementStub is implement.md once the briefs moved out: the
+// inline parent's REPRODUCE, DON'T READ (reviewer variant) and FOREGROUND
+// BUILDS blocks and the two stubs' MODEL HANDSHAKE blocks. dpCleanImplement,
+// the whole pre-move file, stays a superset any case may still write.
+var dpCleanImplementStub = dpDoc(dpReviewerBlock, dpForegroundBlock, dpHandshakeBlock, dpHandshakeBlock)
+
+// dpCleanImplementerBrief is skills/flow/implementer-brief.md carrying every
+// implementer dispatch paragraph; dpCleanGatedReviewerBrief is
+// skills/flow/gated-reviewer-brief.md carrying the gated reviewer's.
+var dpCleanImplementerBrief = dpDoc(dpImplementerBlock, dpGuardBitesBlock, dpDecideBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpDelegationBlock, dpOutputBudgetBlock, dpProofRunsBlock, dpSubSkillTDDBlock, dpSubSkillDebuggingBlock)
+var dpCleanGatedReviewerBrief = dpDoc(dpReviewerBlock, dpForegroundBlock, dpToolsBlock, dpDelegationBlock, dpReadonlyBlock)
+
 // dpCleanVisualVerify is one visual-verify site file at its one dispatch
 // site -- the verifier in visual-verify.md, the tooling analyst in
 // visual-verify-tooling-analysis.md -- carrying its three blocks.
@@ -1891,5 +1916,46 @@ func TestCheckDispatchParagraphsCappedRepro(t *testing.T) {
 				t.Fatalf("%s %q: rc=%d out:\n%s", rel, tc.body, rc, out)
 			}
 		}
+	}
+}
+
+// TestCheckDispatchParagraphsBriefSites pins the sites the briefs moved to
+// (decision briefs-on-disk): implement.md keeps one REPRODUCE, DON'T READ
+// (reviewer), one FOREGROUND BUILDS and two MODEL HANDSHAKE blocks, and a
+// paragraph that moved is required of the brief that now carries it -- the
+// same block back in implement.md does not satisfy its brief.
+func TestCheckDispatchParagraphsBriefSites(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name      string
+		implement string
+		brief     string
+		gated     string
+		rc        int
+		want      func(root string) string
+	}{
+		{"every brief carries its paragraphs", dpCleanImplementStub, dpCleanImplementerBrief, dpCleanGatedReviewerBrief, 0,
+			func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 43 site(s) validated\n" }},
+		{"TARGETED TESTS back in implement.md", dpDoc(dpCleanImplementStub, dpTargetedBlock),
+			strings.Replace(dpCleanImplementerBrief, dpTargetedBlock+"\n\n", "", 1), dpCleanGatedReviewerBrief, 1,
+			func(root string) string {
+				return root + `/skills/flow/implementer-brief.md:0: requires at least 1 block(s) carrying the label "**TARGETED TESTS:**", found 0` + "\n"
+			}},
+		{"READ-ONLY REVIEW gone from the gated reviewer brief", dpCleanImplementStub, dpCleanImplementerBrief,
+			strings.TrimSuffix(dpCleanGatedReviewerBrief, "\n\n"+dpReadonlyBlock), 1,
+			func(root string) string {
+				return root + `/skills/flow/gated-reviewer-brief.md:0: requires at least 1 block(s) carrying the label "**READ-ONLY REVIEW:**", found 0` + "\n"
+			}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			root := dpFixture(t, map[string]string{"review-panel.md": dpCleanReviewPanel, "implement.md": tc.implement,
+				"implementer-brief.md": tc.brief, "gated-reviewer-brief.md": tc.gated})
+			rc, _, stdout, stderr := dpRun(t, crEnv(t.TempDir(), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": root}))
+			if rc != tc.rc || !strings.HasPrefix(stdout, tc.want(root)) || stderr != "" {
+				t.Fatalf("rc=%d stdout=%q stderr=%q; want rc %d and stdout opening %q", rc, stdout, stderr, tc.rc, tc.want(root))
+			}
+		})
 	}
 }

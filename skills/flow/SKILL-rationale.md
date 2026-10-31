@@ -591,7 +591,7 @@ parent's inline fix drops all four, so a Minor now costs about what writing its
 
 > **A guard you could not run is hand-substituted only on the record (KAN-417).**
 
-### implement.md — FLOW — COMMIT-PER-TASK
+### implementer-brief.md — FLOW — COMMIT-PER-TASK
 
 > a plain commit sweeps a pre-staged foreign tree in with the
 > task's work (gymie kan-469's sweep took ~130 files).
@@ -599,7 +599,7 @@ parent's inline fix drops all four, so a Minor now costs about what writing its
 > because a `:(exclude)` governs what an `add` adds and cannot retract what an earlier
 > step already staged (gymie kan-468 lost task commits twice to exactly this ordering):
 
-### implement.md — REPORT, DON'T DECIDE
+### implementer-brief.md — REPORT, DON'T DECIDE
 
 > **The gymie KAN-29 self review credited its implementers for exactly this behaviour — a backdating
 > seam, a declined re-litigation of a recorded rule and an own-card asymmetry each reached the
