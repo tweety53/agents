@@ -10,9 +10,9 @@
 # this script is what runs it. Only HEAD moves: the index and working tree
 # keep everything they held, operator edits at the human gate included.
 #
-# A reset of a planning commit's branch is a planning-commit rewrite, so it
-# calls check-planning-commit-location.sh first and stops on its verdict,
-# printing the guard's own lines.
+# A reset rewrites the change's branch, so it runs the in-process
+# change-worktree location check first and stops on its verdict, printing
+# its own lines.
 #
 # A merge that brought in commits <merge-base> does not reach stops the
 # reshape before HEAD moves (kan-941: a develop merge folded develop's

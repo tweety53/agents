@@ -72,7 +72,7 @@ func (fx *ffFx) rebasing() bool {
 }
 
 // assertSettled checks the fold left no fixup commit, no rebase in
-// progress, and the planning edit restored with its aside popped.
+// progress, the planning edit untouched and nothing stashed.
 func (fx *ffFx) assertSettled(t *testing.T) {
 	t.Helper()
 	if log := fx.g.git(fx.repo, "log", "--format=%s"); strings.Contains(log, "fixup!") {
@@ -82,10 +82,10 @@ func (fx *ffFx) assertSettled(t *testing.T) {
 		t.Error("a rebase is still in progress")
 	}
 	if got := rbRead(fx.tasksMD); got != "plan edited\n" {
-		t.Errorf("planning file %q, want the aside restored", got)
+		t.Errorf("planning file %q, want the edit untouched", got)
 	}
 	if l := fx.g.git(fx.repo, "stash", "list"); l != "" {
-		t.Errorf("stash list %q, want the aside popped", l)
+		t.Errorf("stash list %q, want nothing stashed", l)
 	}
 }
 
@@ -191,9 +191,6 @@ func TestFoldFixupConflictLeftInProgress(t *testing.T) {
 	if !fx.rebasing() {
 		t.Fatal("no rebase in progress: the conflict was resolved rather than left")
 	}
-	if top := fx.g.git(fx.repo, "stash", "list", "--format=%gs"); !strings.Contains(top, apaMarker) {
-		t.Errorf("stash list %q, want the aside kept", top)
-	}
 
 	// --finish before the resolution still answers conflict.
 	if code, out, errs := fx.runAsIs(t, "--finish", fx.repo, fx.task, fx.tasksMD); code != 3 {
@@ -246,61 +243,4 @@ func TestFoldFixupGuardRefusal(t *testing.T) {
 	if got := fx.g.git(fx.repo, "rev-parse", "HEAD"); got != head {
 		t.Errorf("HEAD moved to %s: a refused fold committed", got)
 	}
-}
-
-// ffForeign pushes a marker stash as another worktree's aside would: the
-// stash list is shared by every worktree of the repository.
-func (fx *ffFx) ffForeign() string {
-	if fx.g.err == nil {
-		fx.g.err = os.MkdirAll(fx.repo+"/spectre/changes/other", 0o755)
-	}
-	fx.g.write(fx.repo+"/spectre/changes/other/tasks.md", "other worktree's plan")
-	fx.g.git(fx.repo, "stash", "push", "--include-untracked", "-m", apaMarker+": planning paths set aside for a rebase", "--", "spectre/changes/other")
-	return fx.g.git(fx.repo, "rev-parse", "stash@{0}")
-}
-
-func TestFoldFixupNeverPopsAnotherAside(t *testing.T) {
-	t.Parallel()
-	t.Run("a clean fold leaves another worktree's aside on top", func(t *testing.T) {
-		t.Parallel()
-		fx := ffNewFx(t)
-		fx.later()
-		other := fx.ffForeign()
-		fx.g.write(fx.repo+"/task.txt", "task fixed")
-		code, out, errs := fx.runAsIs(t, fx.repo, fx.task, fx.tasksMD, "task.txt")
-		if code != 0 {
-			t.Fatalf("exit %d, want 0\nstdout %s\nstderr %s", code, out, errs)
-		}
-		if top := fx.g.git(fx.repo, "rev-parse", "stash@{0}"); top != other {
-			t.Errorf("top stash %s, want the other worktree's %s left in place", top, other)
-		}
-		if _, err := os.Stat(fx.repo + "/spectre/changes/other/tasks.md"); err == nil {
-			t.Errorf("the other worktree's planning file was popped into this one")
-		}
-	})
-	t.Run("--finish refuses when another aside sits on top of its own", func(t *testing.T) {
-		t.Parallel()
-		fx := ffNewFx(t)
-		fx.g.write(fx.repo+"/task.txt", "later")
-		fx.g.git(fx.repo, "commit", "-qam", "later")
-		fx.g.write(fx.repo+"/task.txt", "fixed")
-		if code, out, errs := fx.run(t, fx.repo, fx.task, fx.tasksMD, "task.txt"); code != 3 {
-			t.Fatalf("exit %d, want 3\nstdout %s\nstderr %s", code, out, errs)
-		}
-		for i := 0; fx.rebasing() && i < 4; i++ {
-			fx.g.git(fx.repo, "checkout", "--theirs", "task.txt")
-			fx.g.git(fx.repo, "add", "task.txt")
-			cont := exec.Command(fixtureGit, "-C", fx.repo, "-c", "core.editor=true", "rebase", "--continue")
-			cont.Env = append(os.Environ(), fixtureGitEnv...)
-			_ = cont.Run()
-		}
-		other := fx.ffForeign()
-		code, out, errs := fx.runAsIs(t, "--finish", fx.repo, fx.task, fx.tasksMD)
-		if code != 2 || !strings.Contains(errs, "not the top stash") {
-			t.Fatalf("--finish: exit %d stdout %q stderr %q, want 2 naming its own aside", code, out, errs)
-		}
-		if top := fx.g.git(fx.repo, "rev-parse", "stash@{0}"); top != other {
-			t.Errorf("top stash %s, want the other worktree's %s untouched", top, other)
-		}
-	})
 }
