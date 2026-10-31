@@ -14,10 +14,10 @@ Each task applies its diff exactly as written: every sentence a diff adds or rew
 `spectre/changes/kan-1064-flow-self-review-run-the-coordination-around-the/verbatim-moves.txt`, so a reworded sentence fails `check-verbatim-moves.sh`.
 `<worktree>` is `/Users/tweety53/Projects/agents-worktrees/kan-1064-flow-self-review-run-the-coordination-around-the`.
 
-- [ ] 1. Self-review fixer pair: `opus`/`sonnet` at `flow-medium`, no `flow-high` escalation row
-  - [ ] **Step 1: Write the test first — apply the two test-file hunks of the diff below to `stats/internal/guard/check_loop_dispatch_test.go` (the new `TestCheckLoopDispatchSelfReviewFixPairs`, and `TestCheckLoopDispatchOwnBranchInAnotherProject`'s fix dispatch moved to `flow-medium`) and the `stats/internal/guard/pipeline_fix_test.go` hunk (`TestPipelineFixOwnBranchInAnotherProject`'s self-review `escalate` now refused with `admits no escalation`). Run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckLoopDispatchSelfReviewFixPairs|TestCheckLoopDispatchOwnBranchInAnotherProject|TestPipelineFixOwnBranchInAnotherProject' -count=1` and see all three fail against the old table.**
-  - [ ] **Step 2: Apply the `skills/flow-contracts/model-policy.md` hunk: the `self-review-fix` row becomes `opus/flow-medium`, `sonnet/flow-medium` and its `opus/flow-high` `No-progress escalation` row is deleted. Re-run the Step 1 command: green.**
-  - [ ] **Step 3: Verify: `cd stats && make -s web-dist && go test ./internal/modelpolicy/... -count=1 && go test ./internal/guard/ -run 'TestCheckLoopDispatch|TestPipelineFix|TestLoop' -count=1`, then `scripts/run-verify-list.sh <worktree> lint` (the task's `**Files:**` hold a Markdown file under `skills/`).**
+- [x] 1. Self-review fixer pair: `opus`/`sonnet` at `flow-medium`, no `flow-high` escalation row
+  - [x] **Step 1: Write the test first — apply the two test-file hunks of the diff below to `stats/internal/guard/check_loop_dispatch_test.go` (the new `TestCheckLoopDispatchSelfReviewFixPairs`, and `TestCheckLoopDispatchOwnBranchInAnotherProject`'s fix dispatch moved to `flow-medium`) and the `stats/internal/guard/pipeline_fix_test.go` hunk (`TestPipelineFixOwnBranchInAnotherProject`'s self-review `escalate` now refused with `admits no escalation`). Run `cd stats && make -s web-dist && go test ./internal/guard/ -run 'TestCheckLoopDispatchSelfReviewFixPairs|TestCheckLoopDispatchOwnBranchInAnotherProject|TestPipelineFixOwnBranchInAnotherProject' -count=1` and see all three fail against the old table.**
+  - [x] **Step 2: Apply the `skills/flow-contracts/model-policy.md` hunk: the `self-review-fix` row becomes `opus/flow-medium`, `sonnet/flow-medium` and its `opus/flow-high` `No-progress escalation` row is deleted. Re-run the Step 1 command: green.**
+  - [x] **Step 3: Verify: `cd stats && make -s web-dist && go test ./internal/modelpolicy/... -count=1 && go test ./internal/guard/ -run 'TestCheckLoopDispatch|TestPipelineFix|TestLoop' -count=1`, then `scripts/run-verify-list.sh <worktree> lint` (the task's `**Files:**` hold a Markdown file under `skills/`).**
 
 ```diff verified:applied to a scratch copy of this branch's HEAD; check-verbatim-moves.sh against HEAD then 0 violations with this change's verbatim-moves.txt, and the guard tests below ran green
 diff --git a/skills/flow-contracts/model-policy.md b/skills/flow-contracts/model-policy.md
@@ -94,16 +94,16 @@ diff --git a/stats/internal/guard/pipeline_fix_test.go b/stats/internal/guard/pi
 **Files:** `skills/flow-contracts/model-policy.md`, `stats/internal/guard/check_loop_dispatch_test.go`, `stats/internal/guard/pipeline_fix_test.go`
 **Tests:** `TestCheckLoopDispatchSelfReviewFixPairs`
 **Regression:** reverting the commit restores the `opus/flow-low` row and its `flow-high` escalation row: `TestCheckLoopDispatchSelfReviewFixPairs` fails (both `flow-medium` fixes refused `PAIR —`, the `flow-low` fix and the escalated `flow-high` fix admitted), as do the edited `TestCheckLoopDispatchOwnBranchInAnotherProject` and `TestPipelineFixOwnBranchInAnotherProject`.
-**Baseline:** before=443 after=444
-<!-- measured: cat stats/internal/guard/*_test.go | grep -c '^func Test' @ branch spectre/kan-1064-flow-self-review-run-the-coordination-around-the (443 at the plan's base; 444 in the scratch copy with this diff applied) -->
+**Baseline:** before=446 after=447
+<!-- measured: cat stats/internal/guard/*_test.go | grep -c '^func Test' @ branch spectre/kan-1064-flow-self-review-run-the-coordination-around-the (446 at the rebased base 2fcb29db; 447 at this task's commit) -->
 **Commit:** feat(flow-contracts): run the self-review fixer at flow-medium with no flow-high row
 **After:** none
 
 **Decision:** self-review-fix-pair
 
-- [ ] 2. `/flow-self-review`: main passes file paths, never file contents
-  - [ ] **Step 1: Apply the diff below to `skills/flow-self-review/SKILL.md`: `<sr-dir>` and the paths-not-contents rule open step 2; the pass names the bundle path, writes `findings.md`, `report-draft.md`, `cases/<case-id>/` and angle 7's extractions, and hands back a short summary; step 2a copies the case folders; the plan, review, fix-r and fix-v prompts name files; the `fix` row's pair and its no-escalation sentence; steps 4, 6 and 7 fill and copy the draft.**
-  - [ ] **Step 2: Verify: `scripts/check-verbatim-moves.sh` (no FAIL line), then `scripts/run-verify-list.sh <worktree> lint`.**
+- [x] 2. `/flow-self-review`: main passes file paths, never file contents
+  - [x] **Step 1: Apply the diff below to `skills/flow-self-review/SKILL.md`: `<sr-dir>` and the paths-not-contents rule open step 2; the pass names the bundle path, writes `findings.md`, `report-draft.md`, `cases/<case-id>/` and angle 7's extractions, and hands back a short summary; step 2a copies the case folders; the plan, review, fix-r and fix-v prompts name files; the `fix` row's pair and its no-escalation sentence; steps 4, 6 and 7 fill and copy the draft.**
+  - [x] **Step 2: Verify: `scripts/check-verbatim-moves.sh` (no FAIL line), then `scripts/run-verify-list.sh <worktree> lint`.**
 
 ```diff verified:applied to a scratch copy of this branch's HEAD; check-verbatim-moves.sh against HEAD then 0 violations with this change's verbatim-moves.txt, and the guard tests below ran green
 diff --git a/skills/flow-self-review/SKILL.md b/skills/flow-self-review/SKILL.md
@@ -212,10 +212,11 @@ diff --git a/skills/flow-self-review/SKILL.md b/skills/flow-self-review/SKILL.md
 ```
 
 **Build:** green
-**Files:** `skills/flow-self-review/SKILL.md`
-**Tests:** **none**
-**Regression:** none — the task declares no tests; `check-verbatim-moves.sh` fails on any sentence the implementer words differently from `verbatim-moves.txt`.
-**Baseline:** before=0 after=0
+**Files:** `skills/flow-self-review/SKILL.md`, `stats/internal/guard/installedcitations.go`, `stats/internal/guard/check_installed_citations_test.go`
+**Tests:** `TestCheckInstalledCitations`
+**Regression:** reverting the commit drops `<sr-dir>` from `cicPlaceholderRoots`: `TestCheckInstalledCitations/sr-dir-rooted` fails naming `<sr-dir>/findings.md` unrooted; `check-verbatim-moves.sh` fails on any sentence the implementer words differently from `verbatim-moves.txt`.
+**Baseline:** before=447 after=447
+<!-- measured: cat stats/internal/guard/*_test.go | grep -c '^func Test' @ branch spectre/kan-1064-flow-self-review-run-the-coordination-around-the (447 at task 1's commit and at this task's; the new case is a subtest row) -->
 **Commit:** feat(flow-self-review): pass file paths, never file contents, through the self-review loop
 **After:** Task 1
 
@@ -224,6 +225,8 @@ diff --git a/skills/flow-self-review/SKILL.md b/skills/flow-self-review/SKILL.md
 **Decision:** handoff-dir-state-dir
 
 **Decision:** no-review-merger
+
+Correction (2026-10-31): the plan declared `skills/flow-self-review/SKILL.md` alone; the lint list refused it twice — `check-installed-citations.sh` named every `<sr-dir>/…` citation unrooted, and `check-guard-symlinks.sh` read the bare `pipeline-fix.sh end` in step 2 as a skill-local guard. Shipped: `<sr-dir>` joins `cicPlaceholderRoots` (`stats/internal/guard/installedcitations.go`, it resolves under `<state-dir>`, outside every checkout, the criterion that set already admits) with an `sr-dir-rooted` case in `check_installed_citations_test.go`, and that citation now reads `<agents repo>/scripts/pipeline-fix.sh end`, its `verbatim-moves.txt` line updated to match.
 
 - [ ] 3. The in-run bundle goes to `<sr-dir>/bundle.md`, never held in memory
   - [ ] **Step 1: Apply the diff below to `skills/flow-contracts/finish-contract-run1.md` (**Run the self-review pass**), `skills/flow/integrate.md` (step 4) and `skills/flow-fast/SKILL.md` (the self-review section): each writes the bundle to `<sr-dir>/bundle.md`, never printed, instead of holding it in memory.**

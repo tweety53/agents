@@ -34,7 +34,7 @@ It then dispatches key `self-review-<name>-plan` on the planner pair, its prompt
 It then prints that body from `<sr-dir>/findings.md`'s `## Offered` section and the draft's `fixed:` lines, never composing either.
 It writes `<sr-dir>/findings.md`: every finding under an `F<n>` id, with its angle, its evidence, its severity and its classification — `noted` or fixable, in or out of scope, and for a fixable one its counted blast radius and whether it is `big` — and a `## Offered` section laying out every `big` finding and every angle-7 candidate in step 4's explanation layout.
 It writes `<sr-dir>/report-draft.md`, step 7's report, each disposition step 3 decides written as a placeholder: `fixed: <F-id>` for a non-`big` finding, `offered: <F-id>` for a `big` one.
-Its prompt names `<sr-dir>/review-<r>.md` as its report file: it writes its report there and hands back only those two lines, and this session closes it with `pipeline-fix.sh end <key> <sr-dir>/review-<r>.md`.
+Its prompt names `<sr-dir>/review-<r>.md` as its report file: it writes its report there and hands back only those two lines, and this session closes it with `<agents repo>/scripts/pipeline-fix.sh end <key> <sr-dir>/review-<r>.md`.
 Once a case's folder is copied, run `flow prompt-tuning render <case-dir>`, then `<agents repo>/scripts/check-prompt-tuning-cases.sh` over the new folders.
 The `fix` row carries no no-progress escalation: a fix that makes no progress is answered by the fresh re-plan above, never by `flow-high`.
 The pass writes each case's files, step 2a's table save `index.html`, into `<sr-dir>/cases/<case-id>/`.
