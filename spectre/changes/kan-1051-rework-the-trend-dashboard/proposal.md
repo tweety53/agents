@@ -43,3 +43,4 @@ the approved prototype draws it:
   the spend the old rule dropped from transcripts still on disk.
 - In-run fix 1 (verify): a finished change's finish bound is the later of its state write and its last stage run — the live check showed `/flow-fast` changes write FINISHED at kickoff, so the old bound dropped their whole gap spend — and `scripts/live-store-copy.sh` can point its scratch flowd at the real transcripts.
 - In-run fix 2 (visual-verify): the Trend chart's guide line and tip are committed inside the pointer event, so they appear and disappear in the same frame as the hover band.
+- In-run fix 3 (self-review): a stage run whose model has a rate but whose bucket the rate cannot charge says so, rather than reading "no pricing in effect".

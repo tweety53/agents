@@ -4,7 +4,7 @@
 > `check-task-commit-fields.sh` passes on that task's commit.
 > **Relocation:** no
 > **Design shape:** plan-mode
-> **Tasks appended:** 2
+> **Tasks appended:** 3
 
 **Goal:** Rework Trend over time (KAN-1051) to answer "Is a finished change getting cheaper as flow changes?" — whole-life cost per finished change by Wednesday week, with Period, Command and Project chips, three tiles, a median/mean chart with flow-changes-landed bars and a By week table — and fix harvest so spend between two stage windows is attributed, with a once-only back-fill of what the old rule dropped.
 
@@ -210,3 +210,15 @@ Correction (2026-10-31): Step 3's `--grep-invert trend` verify fails on 9 captur
 **After:** Task 6, 8
 **Opener:** visual-verify-fix-1-full
 
+- [x] 10. In-run fix 3 — self-review: an unpriced bucket whose rate exists reads "no pricing in effect"
+  - [x] **Step 1: Write the failing test.** `stats/internal/store/stageruns_test.go`: add `TestPriceNamesABucketItsRateCannotCharge` — a `claude-opus-5` bucket with `cache_creation_unknown` and a `claude-opus-5` rate in effect: `Price` still returns `errors.Is(_, store.ErrPricingNotFound)`, and the error text names `claude-opus-5 (a component its rate cannot charge)` and no longer reads `no pricing in effect for model` alone. Run `cd stats && go test -count=1 ./internal/store -run 'TestPriceNamesABucketItsRateCannotCharge'` — fails. measured: the dev store's 312 unpriced runs carry `pricing_version claude-opus-5-5@2026-01-01` and `output_unmeasured`, while the error read "no pricing in effect", so the live check misreported them as a missing claude-opus-5-5 rate.
+  - [x] **Step 2: Fix.** `stats/internal/store/pricing.go`: `ErrPricingNotFound`'s text reads `store: model unpriced at stage run start — no rate in effect, or a component its rate cannot charge`; `priceCandidate`'s cannot-charge branch annotates every such model, `(output not measured)` when output is unmeasured, else `(a component its rate cannot charge)`.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -w . && gofmt -l . && make -s web-dist && go vet ./...` exits clean; `cd stats && go test -race -count=1 ./internal/store -run 'TestPrice' && go test -race -count=1 ./internal/api` passes. Commit.
+
+**Build:** green
+**Files:** `stats/internal/store/pricing.go`, `stats/internal/store/stageruns_test.go`
+**Tests:** `TestPriceNamesABucketItsRateCannotCharge`
+**Regression:** `TestPriceNamesABucketItsRateCannotCharge` fails — a bucket its rate cannot charge is reported as a model with no pricing in effect again.
+**Commit:** fix(store): name a bucket its rate cannot charge apart from a missing rate
+**After:** Task 9
+**Opener:** self-review
