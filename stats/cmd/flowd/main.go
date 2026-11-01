@@ -107,6 +107,13 @@ func main() {
 		}
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "restamp-stage" {
+		if err := restampStage(os.Args[2:]); err != nil {
+			logger.Error("flowd restamp-stage failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	if len(os.Args) > 1 && os.Args[1] == "restamp-ends" {
 		if err := restampEnds(os.Args[2:]); err != nil {
@@ -773,6 +780,33 @@ func restampDispatch(args []string) error {
 		return err
 	}
 	return st.RestampDispatch(ctx, id, agentID, patch)
+}
+
+// restampStage implements `flowd restamp-stage <stage-run-id> <outcome>`:
+// the repair for a stage run closed under the wrong outcome. It replaces the
+// closed run's outcome and keeps its ended_at (store.Store.RestampStageOutcome),
+// refusing an open or missing run and an empty outcome. Like
+// restamp-dispatch it talks to the database directly, so it needs no running
+// daemon.
+func restampStage(args []string) error {
+	if len(args) != 2 {
+		return fmt.Errorf("usage: flowd restamp-stage <stage-run-id> <outcome>")
+	}
+	id, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("stage run id %q: %w", args[0], err)
+	}
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	st, err := store.Open(ctx, cfg.DSN)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	return st.RestampStageOutcome(ctx, id, args[1])
 }
 
 // backfillModels implements `flowd backfill-models`: it stamps every

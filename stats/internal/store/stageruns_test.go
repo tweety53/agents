@@ -925,6 +925,60 @@ func TestEndStageRecordsOutcome(t *testing.T) {
 	}
 }
 
+// TestRestampStageOutcome pins the repair for a stage run closed under the
+// wrong outcome: a closed run takes the new outcome and keeps its ended_at;
+// an open run, an unknown id and an empty outcome are each refused.
+func TestRestampStageOutcome(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-restamp-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	closed, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	endedAt := closed.StartedAt.Add(5 * time.Minute)
+	if err := st.EndStage(ctx, closed.ID, endedAt, "completed"); err != nil {
+		t.Fatalf("EndStage: %v", err)
+	}
+	if err := st.RestampStageOutcome(ctx, closed.ID, "blocked"); err != nil {
+		t.Fatalf("RestampStageOutcome(closed): %v", err)
+	}
+	got, err := st.GetStageRun(ctx, closed.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun: %v", err)
+	}
+	if got.Outcome == nil || *got.Outcome != "blocked" {
+		t.Errorf("Outcome = %v, want blocked", got.Outcome)
+	}
+	if got.EndedAt == nil || !got.EndedAt.Equal(endedAt) {
+		t.Errorf("EndedAt = %v, want %v unchanged", got.EndedAt, endedAt)
+	}
+
+	open, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "Verification"))
+	if err != nil {
+		t.Fatalf("BeginStage (open): %v", err)
+	}
+	if err := st.RestampStageOutcome(ctx, open.ID, "completed"); err == nil {
+		t.Errorf("RestampStageOutcome(open run) = nil, want a refusal")
+	}
+	got, err = st.GetStageRun(ctx, open.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun (open): %v", err)
+	}
+	if got.EndedAt != nil || got.Outcome != nil {
+		t.Errorf("open run after refused restamp: ended_at %v, outcome %v; want both unset", got.EndedAt, got.Outcome)
+	}
+
+	if err := st.RestampStageOutcome(ctx, 99999999, "blocked"); !errors.Is(err, store.ErrStageRunNotFound) {
+		t.Errorf("RestampStageOutcome(unknown id) error = %v, want ErrStageRunNotFound", err)
+	}
+	if err := st.RestampStageOutcome(ctx, closed.ID, ""); err == nil {
+		t.Errorf("RestampStageOutcome(empty outcome) = nil, want a refusal")
+	}
+}
+
 func TestEndStageUnknownStageRunIsNotFound(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()

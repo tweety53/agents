@@ -594,6 +594,33 @@ func (s *Store) EndStage(ctx context.Context, stageRunID int64, endedAt time.Tim
 	return nil
 }
 
+// RestampStageOutcome replaces a closed stage run's outcome, leaving its
+// ended_at as it is -- the repair for a stage run closed under the wrong
+// outcome (`flowd restamp-stage`). An empty outcome is refused; an open run
+// is refused and left open, and an unknown id returns ErrStageRunNotFound.
+func (s *Store) RestampStageOutcome(ctx context.Context, stageRunID int64, outcome string) error {
+	if outcome == "" {
+		return fmt.Errorf("store: restamp stage %d: empty outcome", stageRunID)
+	}
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE stage_runs SET outcome = $2 WHERE id = $1 AND ended_at IS NOT NULL
+	`, stageRunID, outcome)
+	if err != nil {
+		return fmt.Errorf("store: restamp stage %d: %w", stageRunID, err)
+	}
+	if tag.RowsAffected() == 0 {
+		var exists bool
+		if err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM stage_runs WHERE id = $1)`, stageRunID).Scan(&exists); err != nil {
+			return fmt.Errorf("store: restamp stage %d: check existence: %w", stageRunID, err)
+		}
+		if exists {
+			return fmt.Errorf("store: restamp stage %d: the run is still open", stageRunID)
+		}
+		return fmt.Errorf("%w: %d", ErrStageRunNotFound, stageRunID)
+	}
+	return nil
+}
+
 // MergeMetrics merges patch into a stage run's metrics bag and never
 // replaces it. The merge is recursive (jsonb_deep_merge, defined in
 // 0003_stage_runs.sql), not a top-level JSONB concatenation: the bag is

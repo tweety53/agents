@@ -1714,6 +1714,81 @@ func TestStageEndFlowVerifyRunsLiveCheck(t *testing.T) {
 	}
 }
 
+// TestStageEndFlowVerifyRefusesOverBlockedVerify pins the verify gate: a
+// completed /flow flow.verify end is refused, exit 1 with no end request,
+// while the change's newest verify dispatch -- `verify` or `verify-<n>`,
+// never `verify-fix-<n>` -- ended blocked. The set's newest dispatch of any
+// key (visual-verify) and its newest verify-prefixed one (verify-fix-1) both
+// completed, so a gate reading either passes wrongly. A newer completed
+// verify-3 ends it, and so does a blocked end over the same set.
+func TestStageEndFlowVerifyRefusesOverBlockedVerify(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	root := filepath.Join(repo, "spectre", "changes", "kan-1")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "design.md"), []byte("## Live check\n\nRun the daemon.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "live-verification.md"), []byte("- Before: 3\n- After: 0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dispatch := func(key, outcome, at string) string {
+		return fmt.Sprintf(`{"key":%q,"outcome":%q,"startedAt":"2026-11-01T%s:00Z","endedAt":"2026-11-01T%s:30Z"}`, key, outcome, at, at)
+	}
+	set := []string{
+		dispatch("verify", "completed", "09:00"),
+		dispatch("verify-2", "blocked", "10:00"),
+		dispatch("verify-fix-1", "completed", "10:30"),
+		dispatch("visual-verify", "completed", "11:00"),
+	}
+	end := func(dispatches []string, outcome string) (int, string, bool) {
+		t.Helper()
+		record := `{"change":"kan-1","dispatches":[` + strings.Join(dispatches, ",") + `]}`
+		reached := false
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet {
+				_, _ = w.Write([]byte(record))
+				return
+			}
+			reached = true
+			_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+		}))
+		defer srv.Close()
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
+				"-command", "/flow", "-stage", "flow.verify", "-outcome", outcome, "kan-1"},
+			strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String(), reached
+	}
+	if code, stderr, reached := end(set, "completed"); code != 1 || reached || !strings.Contains(stderr, "verify-2 ended blocked") {
+		t.Fatalf("blocked verify-2 newest: exit=%d reached=%v, want 1 naming verify-2; stderr:\n%s", code, reached, stderr)
+	}
+	if code, stderr, reached := end(append(set[:len(set):len(set)], dispatch("verify-3", "completed", "10:45")), "completed"); code != 0 || !reached {
+		t.Fatalf("completed verify-3 newest: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
+	}
+	if code, stderr, reached := end(set, "blocked"); code != 0 || !reached {
+		t.Fatalf("blocked end: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
+	}
+	// Multi-worktree: each worktree's verify rows carry a repository suffix.
+	// Worktree a's verify-2-a ended blocked; worktree b's verify-2-b started
+	// later and completed, so the newest row across both reads completed.
+	multi := []string{
+		dispatch("verify-a", "completed", "09:00"),
+		dispatch("verify-b", "completed", "09:05"),
+		dispatch("verify-2-a", "blocked", "10:00"),
+		dispatch("verify-2-b", "completed", "10:05"),
+	}
+	if code, stderr, reached := end(multi, "completed"); code != 1 || reached || !strings.Contains(stderr, "verify-2-a ended blocked") {
+		t.Fatalf("blocked verify-2-a under a newer verify-2-b: exit=%d reached=%v, want 1 naming verify-2-a; stderr:\n%s", code, reached, stderr)
+	}
+	if code, stderr, reached := end(append(multi[:len(multi):len(multi)], dispatch("verify-3-a", "completed", "10:45")), "completed"); code != 0 || !reached {
+		t.Fatalf("completed verify-3-a newest for a: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
+	}
+}
+
 // TestStageBeginRefusesUnstampedSessionToken pins the token's UTC start-time
 // suffix (kan-1029's self-review: `mf-k1029-PLACEHOLDER` opened two stage
 // runs bound to no run). begin and wrap both refuse before any network call.

@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -584,6 +585,9 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 	if code := gateLiveVerification(f, *outcome, stderr); code != 0 {
 		return code
 	}
+	if code := gateVerifyNotBlocked(ctx, f, *outcome, stderr); code != 0 {
+		return code
+	}
 	if code := gateBrainstormDispatchesClosed(ctx, f, stderr); code != 0 {
 		return code
 	}
@@ -656,6 +660,57 @@ func gateLiveVerification(f stageIdentityFlags, outcome string, stderr io.Writer
 		return 1
 	}
 	return 0
+}
+
+// gateVerifyNotBlocked refuses a completed /flow flow.verify end while any
+// worktree's newest verify dispatch by start -- key `verify[-<n>]`, suffixed
+// `-<repository name>` on a multi-worktree run, never `verify-fix-<n>` --
+// ended blocked: the stage would read completed over a verify that did not
+// pass (KAN-1071 self-review: stage run 18938). A failed record read refuses
+// nothing.
+func gateVerifyNotBlocked(ctx context.Context, f stageIdentityFlags, outcome string, stderr io.Writer) int {
+	if f.command != "/flow" || f.stage != "flow.verify" || outcome != "completed" {
+		return 0
+	}
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		return 0
+	}
+	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+		return cl.GetRunRecord(ctx, projectKey, f.name)
+	})
+	if err != nil {
+		return 0
+	}
+	newest := map[string]*records.Dispatch{}
+	for i, d := range run.Dispatches {
+		isVerify := d.Key == "verify" || (strings.HasPrefix(d.Key, "verify-") && !strings.HasPrefix(d.Key, "verify-fix-"))
+		if !isVerify {
+			continue
+		}
+		repo := verifyKeyRepository(d.Key)
+		if n := newest[repo]; n == nil || d.StartedAt.After(n.StartedAt) {
+			newest[repo] = &run.Dispatches[i]
+		}
+	}
+	for _, d := range newest {
+		if d.Outcome == "blocked" {
+			fmt.Fprintf(stderr, "flow: stage end refused: the newest verify dispatch %s ended blocked -- end flow.verify -outcome blocked and verify again in a new attempt\n", d.Key)
+			return 1
+		}
+	}
+	return 0
+}
+
+// verifyKeyRepository returns the `-<repository name>` suffix of a verify
+// dispatch key `verify[-<n>][-<repository name>]`, "" when it has none.
+func verifyKeyRepository(key string) string {
+	rest := strings.TrimPrefix(strings.TrimPrefix(key, "verify"), "-")
+	round, tail, _ := strings.Cut(rest, "-")
+	if _, err := strconv.Atoi(round); err == nil {
+		return tail
+	}
+	return rest
 }
 
 // gateBrainstormDispatchesClosed refuses a /flow flow.brainstorm end, of any
