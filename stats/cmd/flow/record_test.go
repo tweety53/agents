@@ -1457,7 +1457,9 @@ func TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard(t *testing.T) {
 			return
 		}
 		// The guard reads the bundle header for its recorded-summary signal.
-		if strings.HasSuffix(r.URL.Path, "/bundle") {
+		// This repo is not the change's worktree, so `flow self-review
+		// bundle` reads the saved self-review-context.md change file.
+		if strings.HasSuffix(r.URL.Path, "/self-review-context.md") {
 			_, _ = w.Write([]byte("# Self-review context bundle for demo\n\nfound: 1 of 1 sources; skipped: 0 of 1 sources\n\n## change summary\n\nwhat changed\n"))
 			return
 		}
