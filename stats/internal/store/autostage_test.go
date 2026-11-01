@@ -96,7 +96,7 @@ func TestRecordDispatchInsideOpenStageOpensNothing(t *testing.T) {
 
 // A dispatch back-dated to before the end of a recorded stage run opens no
 // auto run: the harvester has committed past that time and would never fill
-// it. One begun after the latest end still opens one.
+// it. One begun at or after the latest end still opens one.
 func TestRecordDispatchBackdatedOpensNoAutoStageRun(t *testing.T) {
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
@@ -104,7 +104,7 @@ func TestRecordDispatchBackdatedOpensNoAutoStageRun(t *testing.T) {
 	for _, tc := range []struct {
 		at   time.Time
 		want int
-	}{{day(9, 30), 0}, {day(10, 30), 1}} {
+	}{{day(9, 30), 0}, {day(10, 0), 1}, {day(10, 30), 1}} {
 		projectKey := fmt.Sprintf("proj-auto-backdated-%d", time.Now().UnixNano())
 		seedChange(t, st, projectKey, "kan-1")
 		if _, err := pool.Exec(ctx, `

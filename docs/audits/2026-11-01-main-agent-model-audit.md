@@ -177,7 +177,7 @@ FROM b WHERE bucket='main' AND model='claude-opus-5-5';  -- cache write = total 
 | flow.write-in-progress | $95 | $10 | 3% | `pipeline.md`, state-file contract |
 | flow.create-artifacts | $93 | $57 | 3% | planning skills |
 | flow.writing-plans | $73 | $39 | 2% | planning skills |
-| flow.landing-routes, load-context, cleanup, unfinished-work-gate | $92 | $26 | 4% | `finish-contract-run1.md` (25 KB), `finish-contract-run2.md` (15 KB) |
+| flow.landing-routes, load-context, cleanup, unfinished-work-gate | $92 | $26 | 3% | `finish-contract-run1.md` (25 KB), `finish-contract-run2.md` (15 KB) |
 
 ```sql
 -- base.sql, then
@@ -192,7 +192,7 @@ cat skills/flow/*.md skills/flow-contracts/*.md | wc -c   # 1,174,603 bytes in a
 ```
 
 The two stages that orchestrate subagents (sdd-tdd, review-panel) carry half of `/flow`'s main
-spend; each re-reads a 80–90 KB contract plus `pipeline.md` (49 KB) on every turn as cache read.
+spend; each re-reads a 80–92 KB contract plus `pipeline.md` (49 KB) on every turn as cache read.
 
 ## Worth verdict
 
@@ -241,6 +241,11 @@ Experiment `5` (`kan-1071-main-sonnet-low`, cell `main=sonnet@low`). The finaliz
 excluded changes (at least five counted after-window changes are required before this section is
 written); and the confounds — different changes in each window, and experiment #4 running over the
 same window.
+
+`selfReviewFindings` counts only graded, reviewed changes: a change with no `flow.self-review` run
+yet, or with a fixed/filed self-review finding carrying no severity, is excluded from that metric
+rather than counted as 0. Severity grading began 2026-10-30, so the before window's coverage is
+thin; report the counted changes per window alongside the means.
 
 Stop rule: any regression on a quality metric is a no-go for the switch.
 

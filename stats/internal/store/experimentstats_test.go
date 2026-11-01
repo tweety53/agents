@@ -386,6 +386,16 @@ func TestExperimentStatsMainSelfReviewFindings(t *testing.T) {
 	run := `{"effort":"medium","models":{"claude-opus-5-5":{"tokens":{"main":{"input":10,"output":90}}}},"tokens":{"main":{"input":10,"output":90}}}`
 	fx.change("s0", run, fx.day(-1))
 	fx.change("s1", run, fx.day(1))
+	fx.change("s2", run, fx.day(1))
+	fx.change("s3", run, fx.day(1)) // never self-reviewed: excluded, not 0
+	for _, c := range []string{"s0", "s1", "s2"} {
+		if _, err := fx.pool.Exec(context.Background(), `
+			INSERT INTO stage_runs (change_id, harness, command, stage, attempt, started_at, ended_at, metrics)
+			SELECT c.id, 'claude-code', 'flow', 'flow.self-review', 1, r.ended_at, r.ended_at, '{}'::jsonb
+			FROM changes c JOIN stage_runs r ON r.change_id = c.id WHERE c.project_key = $1 AND c.name = $2`, fx.project, c); err != nil {
+			t.Fatalf("seed self-review run: %v", err)
+		}
+	}
 	other := fx.project + "-other"
 	seedChange(t, fx.st, other, "s1")
 	for i, r := range []struct {
@@ -396,7 +406,9 @@ func TestExperimentStatsMainSelfReviewFindings(t *testing.T) {
 		{fx.project, "s1", "filed", ptr("important")},
 		{fx.project, "s1", "declined", ptr("important")},
 		{fx.project, "s1", "fixed", ptr("minor")},
-		{fx.project, "s1", "fixed", nil},
+		{fx.project, "s2", "fixed", ptr("critical")},
+		{fx.project, "s2", "fixed", nil},
+		{fx.project, "s3", "fixed", ptr("critical")},
 		{fx.project, "s0", "fixed", ptr("important")},
 		{other, "s1", "fixed", ptr("critical")},
 	} {
