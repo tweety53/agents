@@ -297,6 +297,12 @@ func trCheck(args []string, env Env) []string {
 	fixPlans := map[string][]string{}
 	for _, subject := range order {
 		g := groups[subject]
+		// A self-review or pipeline-fix loop's commits carry no Task-Id:
+		// trailer, so a trailer numbered like a loop task is the change's
+		// own and never joins it (kan-1073 self-review).
+		if loop := filepath.Base(filepath.Dir(g.rel)); strings.HasPrefix(loop, "self-review-") || strings.HasPrefix(loop, "pipeline-fix-") {
+			continue
+		}
 		fixes[subject] = trTaskIDCommits(git, g.repo, base, g.ids, g.sha)
 		for _, fix := range fixes[subject] {
 			fixPlans[fix] = trAppendNew(fixPlans[fix], g.rel)
