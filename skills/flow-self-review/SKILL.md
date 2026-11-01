@@ -391,7 +391,12 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    removal as `chore(spectre): drop self-review-<name>`, on either branch, before any landing push —
    `<agents repo>`'s push hook refuses an undropped change on its default branch. That commit is
    made once. This session then runs
-   `<agents repo>/scripts/pipeline-fix.sh verify <fix worktree> > <sr-dir>/verify-<v>.log 2>&1`, `<v>` counting verify runs from 1, and reads only its exit code and its `red:` lines. A red line is fixed by a fresh
+   `<agents repo>/scripts/pipeline-fix.sh verify <fix worktree> > <sr-dir>/verify-<v>.log 2>&1`, `<v>` counting verify runs from 1, and reads only its exit code and its `red:` lines.
+   On a `self-review-<name>` branch whose route is merge and push, that separate verify is not run:
+   step 5's `<agents repo>/scripts/pipeline-fix.sh land <fix worktree> > <sr-dir>/verify-<v>.log 2>&1` runs the same lint
+   lines and tests on the rebased HEAD before it pushes, and its exit code and `red:` lines are read
+   as this verify's (kan-1051 self-review, F18: the suite ran twice at one HEAD, about 5 min a loop).
+   A red line is fixed by a fresh
    dispatch of step 3, key
    `self-review-<name>-fix-v<v>`, its prompt naming the failing command and `<sr-dir>/verify-<v>.log`; then step 2, then this step's lint lines and tests again, `<v>` plus one. The
    autosquash keeps the drop commit last. A red branch never lands, and a

@@ -288,6 +288,8 @@ the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-
    (`project-get.sh <agents repo> 'default landing route'`), without asking. Merge and push is
    `<agents repo>/scripts/pipeline-fix.sh land <worktree>`, run with a Bash `timeout: 600000` —
    a landing that moved `<agents repo>/stats/` restarts flowd inside the call, and a kill partway leaves it down.
+   On that route the loop runs no separate `pipeline-fix.sh verify`: land runs it on the rebased HEAD,
+   and its `red:` lines feed `pipeline-fix-<k>-fix-v<v>` as a verify's do.
 
 The loop runs in the background while the run's own work continues; the run still never ends a
 turn with one of its children in flight.
