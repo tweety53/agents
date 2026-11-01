@@ -1834,7 +1834,7 @@ const (
 // against.
 // dpReproducerBlock carries the REPRODUCER paragraph's shared phrases.
 var dpReproducerBlock = "> **REPRODUCER:** a reproducer exits non-zero when the defect is present; it declares\n" +
-	"> `# demonstrates: <path>:<line>:<content>`, never a prose description, and counts with `|| true`."
+	"> `# demonstrates: <path>:<line>:<content>`, never a prose description, and counts with `|| true`, with no file under `$PWD` but through `go test -overlay`."
 
 var dpCleanReviewPanel = dpDoc(dpReviewerBlock, dpReproducerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpMutationBlock, dpPixelProbeBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpIndependentBlock, dpDelegationBlock, dpDelegationBlock, dpEntryContextBlock, dpFindingsInputBlock, dpContextBundleFailureBlock, dpOutputBudgetBlock)
 var dpCleanImplementNoReadonly = dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock, dpSubSkillTDDBlock, dpSubSkillDebuggingBlock)
