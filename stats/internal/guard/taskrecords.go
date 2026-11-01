@@ -180,7 +180,6 @@ func trCheck(args []string, env Env) []string {
 		trFail("repo root not found: %s", root)
 	}
 	git := envGit(env)
-
 	changesDir := root + "/spectre/changes"
 	type plan struct{ path string }
 	var plans []plan
@@ -188,7 +187,10 @@ func trCheck(args []string, env Env) []string {
 		entries, _ := os.ReadDir(changesDir) // sorted by name, as sorted(iterdir()) is
 		for _, e := range entries {
 			p := changesDir + "/" + e.Name()
-			if isDir(p) && isFile(p+"/tasks.md") {
+			// A change integrate has reshaped carries a pre-reshape pin: its
+			// task commits are squashed now, and its records were judged at
+			// verify, before the reshape (kan-1073 self-review).
+			if isDir(p) && isFile(p+"/tasks.md") && exitCode(git("-C", root, "rev-parse", "-q", "--verify", "refs/flow/pre-reshape/"+e.Name()).Run()) != 0 {
 				plans = append(plans, plan{p + "/tasks.md"})
 			}
 		}

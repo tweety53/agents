@@ -477,3 +477,25 @@ func TestCheckTaskRecordsLoopPlanJoinsNoTaskIdFixCommit(t *testing.T) {
 		})
 	}
 }
+
+// TestCheckTaskRecordsSkipsAReshapedChange: once integrate pins
+// refs/flow/pre-reshape/<name> and squashes the branch, the change's plan is
+// no longer judged commit by commit (kan-1073 self-review).
+func TestCheckTaskRecordsSkipsAReshapedChange(t *testing.T) {
+	fx := trRepo(t)
+	writeFile(t, fx.tasks, "- [x] 1. Task 1\n**Files:** `src/f1.go`\n**Tests:** none\n**Commit:** `feat(a): one`\n**Build:** green\n**After:** none\n")
+	fx.commitAll("docs(plan): fixture plan")
+	fx.commitFile("src/f9.go", "feat(a): the squashed implementation")
+	r := runGuard("check-task-records", []string{fx.root}, Env{Getenv: os.Getenv})
+	if r.rc != 1 {
+		t.Fatalf("before the pin: rc=%d want 1 out=%q", r.rc, r.out)
+	}
+	name := filepath.Base(filepath.Dir(fx.tasks))
+	if out, err := exec.Command("git", "-C", fx.root, "update-ref", "refs/flow/pre-reshape/"+name, "HEAD").CombinedOutput(); err != nil {
+		t.Fatalf("update-ref: %v %s", err, out)
+	}
+	r = runGuard("check-task-records", []string{fx.root}, Env{Getenv: os.Getenv})
+	if r.rc != 0 || r.out != "" {
+		t.Fatalf("after the pin: rc=%d out=%q, want silent", r.rc, r.out)
+	}
+}
