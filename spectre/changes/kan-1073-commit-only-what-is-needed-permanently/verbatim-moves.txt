@@ -488,3 +488,6 @@ cd <canonical-worktree>/stats && go build -o <scratch>/bin/flow ./cmd/flow
 make -C <agents repo>/stats restart
 refresh-main-checkout.sh <agents repo> <agents-base>
 then re-read this file from the refreshed checkout and continue with the save.
+It hands back the full content of `<sr-dir>/report-draft.md`, step 7's report, each disposition step 3 decides written as a placeholder: `fixed: <F-id>` for a non-`big` finding, `offered: <F-id>` for a `big` one.
+Where a fix run's planning commit restored the change directory after that drop (`skills/flow/document-fix.md`), the canonical worktree's since-close sha is that planning commit instead, since a range from the drop commit counts the whole restored directory (kan-1051 self-review, F4: 12,397 changed lines, where the fix's own delta was small).
+It hands back the full content of `<sr-dir>/report-draft.md`, step 6's input, each disposition step 3 decides written as a placeholder: `fixed: <F-id>` for a non-`big` finding, `offered: <F-id>` for a `big` one.
