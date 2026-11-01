@@ -24,6 +24,7 @@ const METRIC_LABELS: Record<string, string> = {
   tokens: "Tokens / change (k)",
   wallClockMin: "Wall-clock (min)",
   verifyReds: "Verify reds",
+  selfReviewFindings: "Self-review Crit+Imp",
   findingsPerTask: "Findings vs commits",
   findingsPerDispatch: "Findings / dispatch",
   lateRoundFindings: "Late-round findings",

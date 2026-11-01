@@ -377,6 +377,38 @@ func TestExperimentStatsMainCountsMatchingRunsOnly(t *testing.T) {
 	wantMeans(t, got, "wallClockMin", f64(30), f64(30))
 }
 
+// TestExperimentStatsMainSelfReviewFindings pins that a main cell's
+// selfReviewFindings counts, per change, its self-review findings graded
+// critical or important and fixed or filed, joined on project and name.
+func TestExperimentStatsMainSelfReviewFindings(t *testing.T) {
+	fx := newStatsFixture(t)
+	id := fx.open(map[string][]string{"main": {"opus@medium"}})
+	run := `{"effort":"medium","models":{"claude-opus-5-5":{"tokens":{"main":{"input":10,"output":90}}}},"tokens":{"main":{"input":10,"output":90}}}`
+	fx.change("s0", run, fx.day(-1))
+	fx.change("s1", run, fx.day(1))
+	other := fx.project + "-other"
+	seedChange(t, fx.st, other, "s1")
+	for i, r := range []struct {
+		project, change, disposition string
+		severity                     *string
+	}{
+		{fx.project, "s1", "fixed", ptr("critical")},
+		{fx.project, "s1", "filed", ptr("important")},
+		{fx.project, "s1", "declined", ptr("important")},
+		{fx.project, "s1", "fixed", ptr("minor")},
+		{fx.project, "s1", "fixed", nil},
+		{fx.project, "s0", "fixed", ptr("important")},
+		{other, "s1", "fixed", ptr("critical")},
+	} {
+		if _, err := fx.pool.Exec(context.Background(), `
+			INSERT INTO self_review_findings (project_key, change, angle, note, disposition, severity)
+			VALUES ($1, $2, 'principles', $5, $3, $4)`, r.project, r.change, r.disposition, r.severity, fmt.Sprintf("n%d", i)); err != nil {
+			t.Fatalf("seed self-review finding: %v", err)
+		}
+	}
+	wantMeans(t, fx.stats(id), "selfReviewFindings", f64(1), f64(2))
+}
+
 // TestExperimentStatsCombinedUnion pins that a two-role experiment
 // reports the union of both families, each metric once.
 func TestExperimentStatsCombinedUnion(t *testing.T) {
