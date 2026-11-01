@@ -1507,6 +1507,22 @@ func TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard(t *testing.T) {
 		}
 	}
 
+	// The guard's `flow` calls resolve to this build, never an installed
+	// binary: ./cmd/flow is built into its own dir and put first on PATH,
+	// above a stale `flow` stub that answers no route, so a guard that
+	// reached anything but this build would fail here on any machine.
+	stubDir, buildDir := t.TempDir(), t.TempDir()
+	if err := os.WriteFile(filepath.Join(stubDir, "flow"), []byte("#!/usr/bin/env bash\nexit 1\n"), 0o755); err != nil {
+		t.Fatalf("write stale flow stub: %v", err)
+	}
+	build := exec.Command("go", "build", "-o", filepath.Join(buildDir, "flow"), "./cmd/flow")
+	build.Dir = "../.."
+	if buildOut, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("go build ./cmd/flow: %v\n%s", err, buildOut)
+	}
+	sep := string(os.PathListSeparator)
+	t.Setenv("PATH", buildDir+sep+stubDir+sep+os.Getenv("PATH"))
+
 	out, err := exec.Command("bash", guard, repo, "demo").CombinedOutput()
 	if err != nil {
 		t.Fatalf("check-unfinished-work.sh exited non-zero (%v):\n%s", err, out)
