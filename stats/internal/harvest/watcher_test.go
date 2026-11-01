@@ -4972,3 +4972,32 @@ func TestBackfillPricingWarningNamesTheCause(t *testing.T) {
 		t.Errorf("log = %q, still promises a reprice prices the run", logged)
 	}
 }
+
+// TestJudgeInvocationsEndsLoopBodyAtAnyTerminator pins scanLoopBody's
+// terminators: a `for` body ends at `;`, a lone `&` or a newline before
+// `done` -- kan-1051 self-review, F7: verify-5's `( … ) & done` loop was
+// never expanded, so its row stayed unmeasured. `&&` inside a body, and a
+// quoted `& done`, never end it.
+func TestJudgeInvocationsEndsLoopBodyAtAnyTerminator(t *testing.T) {
+	const call = `( set -a; $S/run-verify-list.sh $W $g $N verify-5 mf-x opus default </dev/null > l 2>&1 )`
+	cases := map[string]string{
+		"amp":       `for g in lint test; do ` + call + ` & done`,
+		"semicolon": `for g in lint test; do ` + call + `; done`,
+		"newline":   "for g in lint test; do " + call + "\ndone",
+		"and-and":   `for g in lint test; do a && b && ` + call + `; done`,
+		"quoted":    `for g in lint test; do echo '& done'; ` + call + `; done`,
+	}
+	for name, command := range cases {
+		t.Run(name, func(t *testing.T) {
+			got := harvest.JudgeInvocationsForTest(command, harvest.RunVerifyListBeginFromInvocationForTest)
+			if len(got) != 2 {
+				t.Fatalf("%d events, want 2: %+v", len(got), got)
+			}
+			for _, ev := range got {
+				if ev.Key != "verify-5" || ev.SessionToken != "mf-x" {
+					t.Fatalf("event %+v, want key verify-5 token mf-x", ev)
+				}
+			}
+		})
+	}
+}

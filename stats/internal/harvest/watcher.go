@@ -1821,8 +1821,11 @@ func scanLoopWords(s string, i int) (words []string, end int, ok bool) {
 	}
 }
 
-// scanLoopBody reads the loop body from s[i] to the unquoted `;` opening
-// its closing `done`. ok is false when no such close exists.
+// scanLoopBody reads the loop body from s[i] to the unquoted list
+// terminator opening its closing `done`: a `;`, a newline, or a lone `&`
+// (never one half of `&&`) -- kan-1051 self-review, F7: a backgrounded
+// `( … ) & done` body was never expanded. ok is false when no such close
+// exists.
 func scanLoopBody(s string, i int) (string, int, bool) {
 	j := i
 	for j < len(s) {
@@ -1831,7 +1834,7 @@ func scanLoopBody(s string, i int) (string, int, bool) {
 			j = next
 			continue
 		}
-		if s[j] == ';' {
+		if isListTerminator(s, j) {
 			k := skipSpaces(s, j+1)
 			if hasKeywordAt(s, k, "done") {
 				after := k + len("done")
@@ -1841,6 +1844,13 @@ func scanLoopBody(s string, i int) (string, int, bool) {
 		j++
 	}
 	return "", 0, false
+}
+
+// isListTerminator reports whether s[j] ends a shell list: `;`, a newline
+// or an `&`. An `&` of `&&` never precedes `done` in valid shell, so it
+// needs no case of its own.
+func isListTerminator(s string, j int) bool {
+	return s[j] == ';' || s[j] == '\n' || s[j] == '&'
 }
 
 // substituteLoopVar replaces `$NAME` (at a name boundary) and `${NAME}`
