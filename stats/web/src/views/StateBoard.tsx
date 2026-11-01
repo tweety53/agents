@@ -10,7 +10,7 @@
 // click. It refetches every five seconds so a session's activity badge
 // follows what the session is doing.
 import { Fragment, useEffect, useRef, useState } from "react";
-import { fetchProjects, type StateBoardRow } from "../api";
+import type { StateBoardRow } from "../api";
 import { Chip } from "../components/Chip";
 import { useStatsView } from "../hooks/useStatsView";
 import { DAY_MS, formatInt, formatRelative, formatSpan, formatUsd } from "../format";
@@ -330,26 +330,18 @@ export function StateBoard() {
   // Only open changes are polled: an empty period still lists every
   // unfinished change, or finished one still running a stage, which the
   // store adds whatever the period. Finished
-  // ones load on demand -- the Finished group opened, its tile or a Project chip pressed --
+  // ones load once on open, so the Finished tile counts them at once,
   // then once per Updated chip, inside the widest bounded chip unless All is
   // chosen, and again whenever a polled change drops out of the open set,
   // which is a change finishing. Each period is half-open, so
   // it ends a day past its instant: a change updated then is still in it.
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ FINISHED: true });
-  const wantFinished = useRef(false);
-  if (!(collapsed.FINISHED ?? false) || filters.states.has("FINISHED") || filters.project) wantFinished.current = true;
-  // Every registered project names a chip before the finished changes load,
-  // so one whose changes are all finished is not missing; a failed read leaves the in-period keys.
-  const [registered, setRegistered] = useState<string[]>([]);
-  useEffect(() => {
-    fetchProjects().then(setRegistered, () => {});
-  }, []);
   const live = new Date(now + DAY_MS);
   const polled = useStatsView<StateBoardRow[]>("state-board", { from: live, to: live, project: undefined });
   const [finishedAt, setFinishedAt] = useState(now);
   const from = filters.period === "All" ? EPOCH : new Date(finishedAt - PERIOD_MINUTES["30d"] * 60000);
-  const finished = useStatsView<StateBoardRow[]>("state-board", { from, to: new Date(finishedAt + DAY_MS), project: undefined }, wantFinished.current);
+  const finished = useStatsView<StateBoardRow[]>("state-board", { from, to: new Date(finishedAt + DAY_MS), project: undefined });
   // A refresh keeps showing the last answer while the next one loads.
   const lastOpen = useRef<StateBoardRow[] | null>(null);
   const lastFinished = useRef<StateBoardRow[] | null>(null);
@@ -412,7 +404,7 @@ export function StateBoard() {
     .filter((r) => r.currentStage !== undefined || r.state !== "FINISHED")
     .sort((a, b) => Number(!needsOperator(a)) - Number(!needsOperator(b)));
   const maxCost = Math.max(0, ...rows.map((r) => r.costUsd));
-  const projects = [...new Set((finishedLoaded ? [] : registered).concat(inPeriod.map((r) => r.projectKey), filters.project ?? []))];
+  const projects = [...new Set(inPeriod.map((r) => r.projectKey).concat(filters.project ?? []))];
   const dirty = filters.project || filters.states.size > 0 || filters.period !== "7d" || filters.query;
 
   return (

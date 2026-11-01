@@ -493,10 +493,8 @@ describe("views render their fixture response's actual values", () => {
     await user.click(within(screen.getByRole("group", { name: "Updated" })).getByRole("button", { name: "All" }));
     expect(tile(/^Planning/)).toHaveTextContent("2");
     expect(visible("kan-5-old")).toBe(true);
-    // A Project chip reads "—" until the finished changes load, and narrows rows and tiles.
-    const gymie = within(screen.getByRole("group", { name: "Project" })).getByRole("button", { name: /^gymie/ });
-    expect(gymie).toHaveTextContent("gymie—");
-    await user.click(gymie);
+    // A Project chip narrows rows and tiles.
+    await user.click(within(screen.getByRole("group", { name: "Project" })).getByRole("button", { name: /^gymie/ }));
     expect(tile(/^Planning/)).toHaveTextContent("1");
     expect(tile(/^Integrating & review/)).toHaveTextContent("0");
     expect(visible("kan-16-stats-app")).toBe(false);
@@ -549,12 +547,11 @@ describe("views render their fixture response's actual values", () => {
     render(<StateBoard />);
     const table = within(await screen.findByRole("table"));
     const groups = table.getAllByRole("row").filter((r) => r.classList.contains("lb-group"));
-    // Finished starts collapsed and unloaded; opening it loads its rows.
-    expect(groups.map((g) => g.textContent)).toEqual(["▾Integrating & review1", "▾Planning & implementing1", "▾Finished—"]);
+    // Finished starts collapsed but counted on open; opening it shows its rows.
+    expect(groups.map((g) => g.textContent)).toEqual(["▾Integrating & review1", "▾Planning & implementing1", "▾Finished1"]);
     expect(table.queryByRole("link", { name: "kan-31-replan-fold" })).not.toBeInTheDocument();
     await user.click(groups[2]);
     expect(await table.findByRole("link", { name: "kan-31-replan-fold" })).toBeInTheDocument();
-    expect(table.getAllByRole("row").filter((r) => r.classList.contains("lb-group")).map((g) => g.textContent)[2]).toBe("▾Finished1");
     // A row: state pill, current stage, tasks with growth, relative update
     // with the ISO time as its title, cost; no errors column.
     const row = table.getByRole("link", { name: "kan-16-stats-app" }).closest("tr")!;
@@ -582,9 +579,7 @@ describe("views render their fixture response's actual values", () => {
     await screen.findByRole("table");
     // The prototype's tile sums every change whatever chip, tile or search is set.
     const cost = () => screen.getByText("Cost in period", { selector: ".lb-lbl" }).nextSibling!.textContent;
-    // It waits for the finished changes, which load on demand.
-    expect(cost()).toBe("—");
-    await user.click(screen.getByRole("row", { name: /^▾Finished/ }));
+    // It counts the finished changes, which load on open.
     await waitFor(() => expect(cost()).not.toBe("—"));
     const tile = within(screen.getByRole("group", { name: "Updated" }));
     await user.click(tile.getByRole("button", { name: "All" }));
@@ -626,10 +621,6 @@ describe("views render their fixture response's actual values", () => {
     await act(async () => {});
     const periods = () => fetchStatsViewMock.mock.calls.map((c) => [(c[1] as { from: Date }).from.getTime(), (c[1] as { to: Date }).to.getTime()]);
     const DAY = 24 * 60 * 60 * 1000;
-    // Nothing finished loads until the Finished group opens.
-    expect(periods()).toEqual([[BOARD_NOW.getTime() + DAY, BOARD_NOW.getTime() + DAY]]);
-    fireEvent.click(screen.getByRole("row", { name: /^▾Finished/ }));
-    await act(async () => {});
     // The open poll asks for an empty period -- the store adds every unfinished change -- and finished ones come from the 30d window.
     expect(periods()).toEqual(expect.arrayContaining([[BOARD_NOW.getTime() + DAY, BOARD_NOW.getTime() + DAY], [BOARD_NOW.getTime() - 30 * DAY, BOARD_NOW.getTime() + DAY]]));
     const before = periods().length;
@@ -670,25 +661,14 @@ describe("views render their fixture response's actual values", () => {
     expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
   });
 
-  it("names every project as a chip before finished changes load", async () => {
-    const rows = fixtures["state-board"].rows as { projectKey: string; name: string; state: string }[];
-    const open = rows.filter((r) => r.name === "kan-16-stats-app");
-    const finishedB = { ...rows.find((r) => r.name === "kan-31-replan-fold")!, projectKey: "beta" };
-    const isPoll = (p: { from: Date; to: Date }) => p.from.getTime() === p.to.getTime();
-    fetchStatsViewMock.mockImplementation((_v: string, p: { from: Date; to: Date }) =>
-      Promise.resolve({ ...fixtures["state-board"], rows: isPoll(p) ? open : [...open, finishedB] }),
-    );
-    fetchProjectsMock.mockResolvedValue([open[0].projectKey, "beta"]);
-    const user = userEvent.setup();
+  it("state board counts finished changes on open and names only projects with changes", async () => {
+    fetchProjectsMock.mockResolvedValue(["tmp.junk"]);
     render(<StateBoard />);
     await screen.findByRole("table");
+    const finished = screen.getByRole("button", { name: /^Finished/ });
+    await waitFor(() => expect(finished).toHaveTextContent("Finished1"));
     const group = within(screen.getByRole("group", { name: "Project" }));
-    const beta = await group.findByRole("button", { name: /^beta/ });
-    expect(beta).toHaveTextContent("beta—");
-    expect(fetchStatsViewMock.mock.calls.filter((c) => !isPoll(c[1]))).toHaveLength(0);
-    await user.click(beta);
-    await waitFor(() => expect(group.getByRole("button", { name: /^beta/ })).toHaveTextContent("beta1"));
-    expect(fetchStatsViewMock.mock.calls.filter((c) => !isPoll(c[1]))).not.toHaveLength(0);
+    expect(group.queryByRole("button", { name: /^tmp\.junk/ })).not.toBeInTheDocument();
   });
 
   it("state board shows a failed finished read", async () => {
