@@ -490,6 +490,8 @@ and an implementer row carries `-commit` with its task commit's full sha.
 
 **Record the `**Summary:**` bullets next**, per **Summary and live-stack line, before every handoff** (`skills/flow-contracts/pipeline.md`), since the guard below finds a change with no recorded summary unfinished.
 
+**A hold a decision set names what it waits on.** When a `design.md` decision, not the operator, set `reviewBeforeLanding`, one `**Summary:**` bullet names what the change waits on and the instruction that ends the wait.
+
 **Every run writing `IN_PROGRESS` then runs the unfinished-work guard on itself**, a creating run
 as well as a fix run, once per worktree of the resolved
 set, with the arguments **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) passes it —
