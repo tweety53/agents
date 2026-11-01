@@ -651,6 +651,12 @@ implementer half on every class but `micro`, and KAN-862's `parent-fixes-minors-
 gated reviewer's Minors under `sdd`: the gated Minors and `fix` verdicts go to one fixer at the
 stage's end — one dispatch per stage, not the per-boundary fixer KAN-862 rejected.
 
+One stage-end fixer's cost grows faster than its load: kan-1072's carried 17 findings for 3.6M
+cache read in 444 s, kan-1073's 46 for 35.9M in 2795 s — 2.7x the findings, 9.9x the cache read —
+each tool call re-reading the whole growing context. So the stage-end fix caps a fixer at twenty
+findings, just above the largest load measured cheap, and its groups run in series because they
+share one worktree (kan-1073 self-review, decision stage-end-fix-cap).
+
 ### implement.md — The gated per-task reviewer
 
 > **one dispatch per bundle of gate-fired tasks, never one per task** (gymie KAN-527: nine one-task dispatches on the first twelve tasks of a
