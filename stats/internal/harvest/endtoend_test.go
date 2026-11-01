@@ -73,15 +73,30 @@ func (s e2eWindowSource) WindowsForSession(ctx context.Context, sessionID string
 	if err != nil {
 		return nil, err
 	}
+	changeIDs := make([]int64, 0, len(runs))
+	for _, r := range runs {
+		if r.ChangeID != 0 {
+			changeIDs = append(changeIDs, r.ChangeID)
+		}
+	}
+	finished, err := s.st.FinishedAtByChange(ctx, changeIDs)
+	if err != nil {
+		return nil, err
+	}
 	windows := make([]harvest.Window, 0, len(runs))
 	for _, r := range runs {
-		windows = append(windows, harvest.Window{
+		w := harvest.Window{
 			StageRunID: r.ID,
 			Attempt:    r.Attempt,
 			SessionID:  sessionID,
 			StartedAt:  r.StartedAt,
 			EndedAt:    r.EndedAt,
-		})
+			Abandoned:  r.Outcome != nil && *r.Outcome == "abandoned",
+		}
+		if at, ok := finished[r.ChangeID]; ok {
+			w.ChangeFinishedAt = &at
+		}
+		windows = append(windows, w)
 	}
 	return windows, nil
 }
@@ -608,4 +623,209 @@ func marshalRolloutLine(t *testing.T, l rolloutWireLine) []byte {
 		t.Fatalf("marshal rollout line: %v", err)
 	}
 	return append(b, '\n')
+}
+
+// burstChange puts an in-progress change named name in a fresh project and
+// opens one stage run per stage on sessionID, each closed half a second
+// after its start -- the milliseconds-long windows a /flow-fast run's
+// after-the-work marks leave. It returns the runs' ids in stage order.
+func burstChange(t *testing.T, st *store.Store, name, sessionID string, starts map[string]time.Time, stages ...string) []int64 {
+	t.Helper()
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-e2e-burst-%d", time.Now().UnixNano())
+	if err := st.PutChange(ctx, store.Change{
+		ProjectKey:       projectKey,
+		MainCheckoutPath: "/Users/tweety53/Projects/" + projectKey,
+		Name:             name,
+		State:            store.StateInProgress,
+		UpdatedAt:        time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC),
+		UpdatedBy:        "flow-fast",
+	}); err != nil {
+		t.Fatalf("PutChange: %v", err)
+	}
+	ids := make([]int64, 0, len(stages))
+	for _, stage := range stages {
+		sid := sessionID
+		run, err := st.BeginStage(ctx, store.BeginStageInput{
+			ProjectKey: projectKey,
+			ChangeName: name,
+			Harness:    "claude-code",
+			SessionID:  &sid,
+			Command:    "/flow-fast",
+			Stage:      stage,
+			StartedAt:  starts[stage],
+		})
+		if err != nil {
+			t.Fatalf("BeginStage %s: %v", stage, err)
+		}
+		if err := st.EndStage(ctx, run.ID, starts[stage].Add(500*time.Millisecond), "ok"); err != nil {
+			t.Fatalf("EndStage %s: %v", stage, err)
+		}
+		ids = append(ids, run.ID)
+	}
+	return ids
+}
+
+// usageLine is one main-thread assistant line of sessionID at ts carrying
+// input input tokens and one output token.
+func usageLine(t *testing.T, sessionID string, ts time.Time, input int64) []byte {
+	t.Helper()
+	return marshalLine(t, wireLine{
+		Type:      "assistant",
+		Timestamp: ts.Format(time.RFC3339Nano),
+		SessionID: sessionID,
+		Message:   &wireMessage{Model: "claude-opus-5", Usage: &wireUsage{InputTokens: input, OutputTokens: 1}},
+	})
+}
+
+// mainTokens reads stage run id's metrics.tokens.main input and output.
+func mainTokens(t *testing.T, st *store.Store, id int64) (input, output float64) {
+	t.Helper()
+	run, err := st.GetStageRun(context.Background(), id)
+	if err != nil {
+		t.Fatalf("GetStageRun %d: %v", id, err)
+	}
+	if len(run.Metrics) == 0 {
+		return 0, 0
+	}
+	var bag struct {
+		Tokens struct {
+			Main struct {
+				Input  float64 `json:"input"`
+				Output float64 `json:"output"`
+			} `json:"main"`
+		} `json:"tokens"`
+	}
+	if err := json.Unmarshal(run.Metrics, &bag); err != nil {
+		t.Fatalf("unmarshal metrics %s: %v", run.Metrics, err)
+	}
+	return bag.Tokens.Main.Input, bag.Tokens.Main.Output
+}
+
+// TestBurstMarkedSessionCostsItsWholeSpan is decision
+// gap-spend-to-last-begun-stage end to end: a /flow-fast run marks its three
+// stages in bursts, each window under a second, while its spend falls between
+// them. One RunOnce over a real store records every line from the first mark
+// on against some run, and nothing for the line before it.
+func TestBurstMarkedSessionCostsItsWholeSpan(t *testing.T) {
+	st := newEndToEndStore(t)
+	ctx := context.Background()
+	const sessionID = "session-e2e-burst"
+	base := time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)
+	starts := map[string]time.Time{
+		"fast.plan":      base,
+		"fast.implement": base.Add(time.Minute),
+		"fast.land":      base.Add(2 * time.Minute),
+	}
+	ids := burstChange(t, st, "kan-burst", sessionID, starts, "fast.plan", "fast.implement", "fast.land")
+
+	dir := t.TempDir()
+	writeLines(t, filepath.Join(dir, "session.jsonl"),
+		usageLine(t, sessionID, base.Add(-time.Minute), 1000), // before the first mark: nobody's
+		usageLine(t, sessionID, base.Add(200*time.Millisecond), 1),
+		usageLine(t, sessionID, base.Add(10*time.Second), 10),
+		usageLine(t, sessionID, base.Add(70*time.Second), 100),
+		usageLine(t, sessionID, base.Add(130*time.Second), 300),
+	)
+
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, st, harvest.NewAttributor(e2eWindowSource{st}), st, nil)
+	if _, err := w.RunOnce(ctx); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+
+	var input, output float64
+	for _, id := range ids {
+		in, out := mainTokens(t, st, id)
+		input += in
+		output += out
+	}
+	if input != 1+10+100+300 || output != 4 {
+		t.Errorf("summed main tokens = input %v output %v, want input 411 output 4 -- every line from the first mark on, none before it", input, output)
+	}
+}
+
+// TestStageGapBackfillAddsOnlyDroppedRecordsOnce is decisions
+// gap-backfill-once-at-startup and backfill-one-transaction end to end. Two
+// transcripts were harvested to their full length under the old rule, which
+// kept only the line inside window 1. The back-fill adds exactly the lines
+// between the windows -- one from each file, summed onto run 1 -- and
+// nothing for the in-window or pre-mark line; a second back-fill adds
+// nothing; and the watcher then resumes from the stored offsets, adding an
+// appended line alone.
+func TestStageGapBackfillAddsOnlyDroppedRecordsOnce(t *testing.T) {
+	st := newEndToEndStore(t)
+	ctx := context.Background()
+	const sessionID = "session-e2e-backfill"
+	base := time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)
+	starts := map[string]time.Time{"fast.plan": base, "fast.land": base.Add(time.Minute)}
+	ids := burstChange(t, st, "kan-backfill", sessionID, starts, "fast.plan", "fast.land")
+
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "session.jsonl")
+	otherPath := filepath.Join(dir, "resumed.jsonl")
+	writeLines(t, mainPath,
+		usageLine(t, sessionID, base.Add(-time.Minute), 1000),      // before the first mark
+		usageLine(t, sessionID, base.Add(200*time.Millisecond), 1), // inside window 1: harvested already
+		usageLine(t, sessionID, base.Add(10*time.Second), 10),      // between the windows: dropped
+	)
+	writeLines(t, otherPath, usageLine(t, sessionID, base.Add(20*time.Second), 100)) // between: dropped
+	for path, patch := range map[string]string{
+		mainPath:  `{"tokens":{"main":{"input":1,"output":1}}}`,
+		otherPath: "",
+	} {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatalf("stat %s: %v", path, err)
+		}
+		deltas := map[int64]json.RawMessage{}
+		if patch != "" {
+			deltas[ids[0]] = json.RawMessage(patch)
+		}
+		if applied, err := st.CommitHarvestBatch(ctx, path, 0, false, info.Size(), deltas); err != nil || !applied {
+			t.Fatalf("CommitHarvestBatch %s = %v, %v, want applied -- the pre-fix watcher's state", path, applied, err)
+		}
+	}
+
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, st, harvest.NewAttributor(e2eWindowSource{st}), st, nil)
+	assertInputs := func(when string, want1, want2 float64) {
+		t.Helper()
+		in1, _ := mainTokens(t, st, ids[0])
+		in2, _ := mainTokens(t, st, ids[1])
+		if in1 != want1 || in2 != want2 {
+			t.Errorf("%s: main input = run 1 %v, run 2 %v, want %v and %v", when, in1, in2, want1, want2)
+		}
+	}
+
+	if err := w.BackfillStageGaps(ctx, st); err != nil {
+		t.Fatalf("BackfillStageGaps: %v", err)
+	}
+	assertInputs("after the back-fill", 1+10+100, 0)
+	if run, err := st.GetStageRun(ctx, ids[0]); err != nil || len(run.Metrics) == 0 {
+		t.Fatalf("GetStageRun run 1 = %v, %v", run.Metrics, err)
+	} else {
+		var bag struct {
+			CostUSD float64 `json:"cost_usd"`
+		}
+		if err := json.Unmarshal(run.Metrics, &bag); err != nil || bag.CostUSD <= 0 {
+			t.Errorf("run 1 cost_usd = %v (%v), want a positive price after the back-fill", bag.CostUSD, err)
+		}
+	}
+
+	if err := w.BackfillStageGaps(ctx, st); err != nil {
+		t.Fatalf("BackfillStageGaps (second): %v", err)
+	}
+	assertInputs("after a second back-fill", 1+10+100, 0)
+
+	writeLines(t, mainPath, usageLine(t, sessionID, base.Add(70*time.Second), 300)) // after window 2: run 2's
+	if _, err := w.RunOnce(ctx); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	assertInputs("after the watcher resumes", 1+10+100, 300)
+	info, err := os.Stat(mainPath)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if offset, _, err := st.GetHarvestOffset(ctx, mainPath); err != nil || offset != info.Size() {
+		t.Errorf("stored offset = %d, %v, want %d", offset, err, info.Size())
+	}
 }

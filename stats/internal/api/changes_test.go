@@ -216,18 +216,18 @@ type fakeStore struct {
 
 	// --- statistics bookkeeping (internal/api/stats_test.go's fakeStore
 	// methods operate on these) ---
-	liveStateBoard      []store.LiveStateRow
-	liveStateBoardErr   error
-	costPerChange       []store.CostPerChangeRow
-	costPerChangeErr    error
-	stageLeaderboard    []store.StageLeaderboardRow
-	stageLeaderboardErr error
-	trendOverTime       []store.TrendPoint
-	trendOverTimeErr    error
-	reviewers           []store.ReviewerRow
-	reviewersErr        error
-	decisionRows        []store.DecisionRow
-	decisionRowsErr     error
+	liveStateBoard          []store.LiveStateRow
+	liveStateBoardErr       error
+	costPerChange           []store.CostPerChangeRow
+	costPerChangeErr        error
+	stageLeaderboard        []store.StageLeaderboardRow
+	stageLeaderboardErr     error
+	trendFinishedChanges    []store.TrendChange
+	trendFinishedChangesErr error
+	reviewers               []store.ReviewerRow
+	reviewersErr            error
+	decisionRows            []store.DecisionRow
+	decisionRowsErr         error
 
 	// lastStatsProject records the project pointer passed to whichever
 	// aggregation method a stats test just called, so a test can assert

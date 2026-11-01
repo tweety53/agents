@@ -32,7 +32,7 @@ cat >"$stub/go" <<'S'
 #!/usr/bin/env bash
 echo "go $*" >>"$LOG"
 out=$3
-printf '#!/usr/bin/env bash\nprintf "%%s\\n%%s\\n" $$ "$0" >"$TMPDIR/flowd-$FLOWD_PORT.pid"\necho "$FLOWD_DSN" >>"$LOG"\ntouch "$STUB/up"\nexec sleep 300\n' >"$out"
+printf '#!/usr/bin/env bash\nprintf "%%s\\n%%s\\n" $$ "$0" >"$TMPDIR/flowd-$FLOWD_PORT.pid"\necho "$FLOWD_DSN" >>"$LOG"\necho "TRANSCRIPTS=$FLOW_TRANSCRIPTS_DIR" >>"$LOG"\ntouch "$STUB/up"\nexec sleep 300\n' >"$out"
 chmod +x "$out"
 S
 cat >"$stub/flow" <<'S'
@@ -61,12 +61,18 @@ for p in 4173 4174 80 x; do
   [ -s "$log" ] && fail "up port $p: ran $(cat "$log")"
 done
 
+# restart with no prior up is refused before any side effect.
+: >"$log"
+lsc restart "$name"; [ $? -eq 2 ] || fail "restart with no up: not exit 2"
+[ -s "$log" ] && fail "restart with no up: ran $(cat "$log")"
+
 : >"$log"
 lsc up "$name" "$port" || fail "up: exit $? ($(cat "$stub/out"))"
 grep -qx "docker exec -i flow-postgres createdb -U flow $db" "$log" || fail "up: no createdb of $db"
 grep -qx "docker exec -i flow-postgres pg_dump -U flow --no-owner --no-acl flow" "$log" || fail "up: no read-only pg_dump of flow"
 grep -q "psql -q -v ON_ERROR_STOP=1 -U flow -d $db$" "$log" || fail "up: no restore into $db"
 grep -qx "postgres://flow:flow@localhost:5433/$db?sslmode=disable" "$log" || fail "up: flowd not pointed at the copy"
+grep -qx "TRANSCRIPTS=/tmp/flow-live-lsc_test$$/transcripts" "$log" || fail "up: flowd not pointed at the empty scratch transcripts dir"
 grep -qF "http://127.0.0.1:$port" "$stub/out" || fail "up: address not printed"
 pid=$(head -n1 "/tmp/flowd-$port.pid" 2>/dev/null)
 kill -0 "$pid" 2>/dev/null || fail "up: scratch flowd not running"
@@ -90,6 +96,37 @@ grep -E '(dropdb|createdb).* flow$|-d flow$' "$log" && fail "down: touched the f
 [ -e "/tmp/flow-live-lsc_test$$" ] && fail "down: state dir left"
 [ -e "$sdd" ] && fail "down: scratch change directory left"
 lsc down "$name" || fail "second down: exit $?"
+
+# FLOW_LIVE_COPY_TRANSCRIPTS points the scratch flowd at real transcripts.
+rm -f "$stub/up"
+: >"$log"
+FLOW_LIVE_COPY_TRANSCRIPTS="$stub/real" lsc up "$name" "$port" || fail "up with transcripts: exit $? ($(cat "$stub/out"))"
+grep -qx "TRANSCRIPTS=$stub/real" "$log" || fail "up: FLOW_LIVE_COPY_TRANSCRIPTS not passed as FLOW_TRANSCRIPTS_DIR"
+
+# restart stops only its own flowd and relaunches it -- no copy, build or drop
+# -- on the transcripts directory up recorded (kan-1051 self-review, F17).
+old=$(head -n1 "/tmp/flowd-$port.pid")
+sleep 300 &
+sentinel=$!
+rm -f "$stub/up"
+: >"$log"
+lsc restart "$name" || fail "restart: exit $? ($(cat "$stub/out"))"
+kill -0 "$old" 2>/dev/null && fail "restart: old flowd $old still running"
+new=$(head -n1 "/tmp/flowd-$port.pid" 2>/dev/null)
+[ -n "$new" ] && [ "$new" != "$old" ] && kill -0 "$new" 2>/dev/null || fail "restart: no new flowd running"
+grep -E '^(docker|make|go) |createdb|pg_dump|dropdb' "$log" && fail "restart: copied, built or dropped"
+grep -qx "TRANSCRIPTS=$stub/real" "$log" || fail "restart: recorded transcripts directory not passed"
+grep -qF "export FLOW_ADDR=http://127.0.0.1:$port" "$stub/out" || fail "restart: exports not printed"
+kill -0 "$sentinel" 2>/dev/null || fail "restart: killed a process it did not start"
+kill "$sentinel"
+[ -d "$sdd" ] || fail "restart: scratch change directory removed"
+
+# restart survives a dead previous flowd.
+kill -9 "$new"; wait "$new" 2>/dev/null
+rm -f "$stub/up"
+lsc restart "$name" || fail "restart: dead flowd — exit $? ($(cat "$stub/out"))"
+kill -0 "$(head -n1 "/tmp/flowd-$port.pid")" 2>/dev/null || fail "restart: dead flowd — no flowd running"
+lsc down "$name" || fail "down after up with transcripts: exit $?"
 
 [ "$rc" -eq 0 ] && printf 'all cases passed\n'
 exit "$rc"

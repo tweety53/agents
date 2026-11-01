@@ -146,14 +146,18 @@ func TestMessagesOutsideAnyWindowAreNotAttributed(t *testing.T) {
 
 // TestMessageOutsideItsWindowIntervalIsNotAttributed is the timestamp-side
 // twin of TestMessagesOutsideAnyWindowAreNotAttributed: the session
-// matches, but the window's interval already excludes the message.
+// matches, but every record falls after the window's change finished, so
+// neither the window nor the last-begun-stage fallback can own it. Without
+// the finish instant an ended window of an unfinished change would own
+// them (decision gap-spend-to-last-begun-stage).
 func TestMessageOutsideItsWindowIntervalIsNotAttributed(t *testing.T) {
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
 		mainSessionID: {{
-			StageRunID: 7,
-			SessionID:  mainSessionID,
-			StartedAt:  mustParse(t, "2020-01-01T00:00:00Z"),
-			EndedAt:    ptrTime(mustParse(t, "2020-01-01T00:00:01Z")),
+			StageRunID:       7,
+			SessionID:        mainSessionID,
+			StartedAt:        mustParse(t, "2020-01-01T00:00:00Z"),
+			EndedAt:          ptrTime(mustParse(t, "2020-01-01T00:00:01Z")),
+			ChangeFinishedAt: ptrTime(mustParse(t, "2020-01-01T00:00:02Z")),
 		}},
 	}}
 	a := harvest.NewAttributor(windows)
@@ -169,6 +173,98 @@ func TestMessageOutsideItsWindowIntervalIsNotAttributed(t *testing.T) {
 }
 
 func ptrTime(t time.Time) *time.Time { return &t }
+
+// gapRecord is one main-thread record of mainSessionID at clock (an
+// RFC 3339 time on 2026-01-01) carrying input input tokens -- distinct
+// counts let a test tell which record reached which stage run.
+func gapRecord(t *testing.T, clock string, input int64) harvest.Record {
+	t.Helper()
+	return harvest.Record{
+		Timestamp: mustParse(t, "2026-01-01T"+clock+"Z"),
+		SessionID: mainSessionID,
+		MessageID: "msg-" + clock,
+		Usage:     harvest.Usage{InputTokens: input, OutputTokens: 1},
+	}
+}
+
+// gapWindow is stage run id's window of mainSessionID over [from, to) on
+// 2026-01-01, to "" meaning still open, finished the change's finish
+// instant or "" while the change is unfinished.
+func gapWindow(t *testing.T, id int64, from, to, finished string) harvest.Window {
+	t.Helper()
+	w := harvest.Window{StageRunID: id, Attempt: 1, SessionID: mainSessionID, StartedAt: mustParse(t, "2026-01-01T"+from+"Z")}
+	if to != "" {
+		w.EndedAt = ptrTime(mustParse(t, "2026-01-01T"+to+"Z"))
+	}
+	if finished != "" {
+		w.ChangeFinishedAt = ptrTime(mustParse(t, "2026-01-01T"+finished+"Z"))
+	}
+	return w
+}
+
+// attributeGapCase runs Attribute over records against windows and returns
+// each stage run's main-thread input tokens.
+func attributeGapCase(t *testing.T, windows []harvest.Window, records ...harvest.Record) map[int64]int64 {
+	t.Helper()
+	deltas, err := harvest.NewAttributor(&fakeWindowSource{bySession: map[string][]harvest.Window{mainSessionID: windows}}).
+		Attribute(context.Background(), records)
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	got := make(map[int64]int64, len(deltas))
+	for id, d := range deltas {
+		got[id] = d.Total.Main.Input
+	}
+	return got
+}
+
+// TestRecordBetweenWindowsGoesToTheLastBegunStage pins decision
+// gap-spend-to-last-begun-stage: a record no window contains goes to the
+// window that began last before it. The 10:04 record sits nearer window 2's
+// start than window 1's end, so a nearest-window rule would misplace it.
+func TestRecordBetweenWindowsGoesToTheLastBegunStage(t *testing.T) {
+	got := attributeGapCase(t,
+		[]harvest.Window{gapWindow(t, 1, "10:00:00", "10:01:00", ""), gapWindow(t, 2, "10:05:00", "10:06:00", "")},
+		gapRecord(t, "10:04:00", 3), gapRecord(t, "10:07:00", 5))
+	if want := map[int64]int64{1: 3, 2: 5}; !reflect.DeepEqual(got, want) {
+		t.Errorf("main input by run = %v, want %v", got, want)
+	}
+}
+
+// TestRecordInsideAWindowIgnoresTheFallback: a record some window contains
+// goes where bestWindow sends it, never to a later-started window that
+// ended before it.
+func TestRecordInsideAWindowIgnoresTheFallback(t *testing.T) {
+	got := attributeGapCase(t,
+		[]harvest.Window{gapWindow(t, 1, "10:00:00", "", ""), gapWindow(t, 2, "10:05:00", "10:06:00", "")},
+		gapRecord(t, "10:10:00", 7))
+	if want := map[int64]int64{1: 7}; !reflect.DeepEqual(got, want) {
+		t.Errorf("main input by run = %v, want %v", got, want)
+	}
+}
+
+// TestRecordBeforeTheFirstWindowIsNotAttributed pins decision
+// pre-first-mark-unattributed: what a session did before its first mark is
+// billed to no stage.
+func TestRecordBeforeTheFirstWindowIsNotAttributed(t *testing.T) {
+	got := attributeGapCase(t,
+		[]harvest.Window{gapWindow(t, 1, "10:00:00", "10:01:00", "")},
+		gapRecord(t, "09:59:00", 3))
+	if len(got) != 0 {
+		t.Errorf("main input by run = %v, want no delta", got)
+	}
+}
+
+// TestRecordAfterTheChangeFinishedIsNotAttributed: the fallback never
+// crosses the change's finish instant.
+func TestRecordAfterTheChangeFinishedIsNotAttributed(t *testing.T) {
+	got := attributeGapCase(t,
+		[]harvest.Window{gapWindow(t, 1, "10:00:00", "10:01:00", "10:08:00"), gapWindow(t, 2, "10:05:00", "10:06:00", "10:08:00")},
+		gapRecord(t, "10:07:00", 3), gapRecord(t, "10:09:00", 5))
+	if want := map[int64]int64{2: 3}; !reflect.DeepEqual(got, want) {
+		t.Errorf("main input by run = %v, want %v", got, want)
+	}
+}
 
 // TestAttributeCountsUnmeasuredOutputApart pins kan-920's self-review: a
 // message whose output no transcript line measured adds its input to the
@@ -847,7 +943,9 @@ func TestLatestStartOutranksAHigherAttempt(t *testing.T) {
 // Window.contains itself -- half-open on the end, closed on the start --
 // independent of bestWindow's tie-breaking, so a future change to
 // bestWindow cannot accidentally restore the closed-on-both-ends
-// behaviour without this test noticing.
+// behaviour without this test noticing. The window's change finishes at its
+// end, so the last-begun-stage fallback owns no instant past it and what
+// the window does not contain stays unattributed.
 func TestWindowContainsIsHalfOpen(t *testing.T) {
 	start := mustParse(t, "2026-01-01T00:00:00Z")
 	end := mustParse(t, "2026-01-01T01:00:00Z")
@@ -869,7 +967,7 @@ func TestWindowContainsIsHalfOpen(t *testing.T) {
 			// contains is unexported; exercise it through Attribute
 			// against a single-window fixture instead of a direct call.
 			windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
-				mainSessionID: {{StageRunID: 1, SessionID: mainSessionID, StartedAt: w.StartedAt, EndedAt: w.EndedAt}},
+				mainSessionID: {{StageRunID: 1, SessionID: mainSessionID, StartedAt: w.StartedAt, EndedAt: w.EndedAt, ChangeFinishedAt: w.EndedAt}},
 			}}
 			a := harvest.NewAttributor(windows)
 			rec := harvest.Record{Timestamp: c.ts, SessionID: mainSessionID, Usage: harvest.Usage{InputTokens: 1}}
@@ -2214,5 +2312,61 @@ func TestInlineWindowCarriesTheSessionsEffort(t *testing.T) {
 	}
 	if d := deltas[2]; d.Effort != "" || d.ModelVersion != "claude-sonnet-5-5" {
 		t.Errorf("launched delta = %+v, want its model and no effort", d)
+	}
+}
+
+// TestAttributeGapsKeepsOnlyFallbackRecords pins the back-fill's filter
+// (decision gap-backfill-once-at-startup): only a record the old rule placed
+// nowhere and the fallback places somewhere -- the 10:03 one -- yields a
+// delta; the in-window ones were harvested already and the pre-mark one is
+// nobody's.
+func TestAttributeGapsKeepsOnlyFallbackRecords(t *testing.T) {
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{mainSessionID: {
+		gapWindow(t, 1, "10:00:00", "10:01:00", ""), gapWindow(t, 2, "10:05:00", "10:06:00", ""),
+	}}}
+	deltas, err := harvest.NewAttributor(windows).AttributeGaps(context.Background(), []harvest.Record{
+		gapRecord(t, "09:59:00", 1), gapRecord(t, "10:00:30", 10), gapRecord(t, "10:03:00", 100), gapRecord(t, "10:05:30", 1000),
+	})
+	if err != nil {
+		t.Fatalf("AttributeGaps: %v", err)
+	}
+	got := make(map[int64]int64, len(deltas))
+	for id, d := range deltas {
+		got[id] = d.Total.Main.Input
+	}
+	if want := map[int64]int64{1: 100}; !reflect.DeepEqual(got, want) {
+		t.Errorf("main input by run = %v, want %v", got, want)
+	}
+}
+
+// TestAttributeGapsSkipsRecordsPastAnAbandonedWindow pins the back-fill's
+// second filter: run 1 was open when the 10:30 record was harvested, so it
+// counted it, before the sweep set its end mark back to run 2's 10:00 start.
+// Run 2 ended at 10:01, so no window contains the record now and the fallback
+// would place it on run 2 -- a second count. A record before the abandoned
+// run began is still nobody's, and one past a run that was never abandoned
+// still back-fills.
+func TestAttributeGapsSkipsRecordsPastAnAbandonedWindow(t *testing.T) {
+	swept := gapWindow(t, 1, "09:00:00", "10:00:00", "")
+	swept.Abandoned = true
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{mainSessionID: {
+		swept, gapWindow(t, 2, "10:00:00", "10:01:00", ""),
+	}}}
+	deltas, err := harvest.NewAttributor(windows).AttributeGaps(context.Background(), []harvest.Record{gapRecord(t, "10:30:00", 100)})
+	if err != nil {
+		t.Fatalf("AttributeGaps: %v", err)
+	}
+	if len(deltas) != 0 {
+		t.Errorf("deltas = %v, want none -- the swept run counted this record already", deltas)
+	}
+
+	swept.Abandoned = false
+	windows.bySession[mainSessionID][0] = swept
+	deltas, err = harvest.NewAttributor(windows).AttributeGaps(context.Background(), []harvest.Record{gapRecord(t, "10:30:00", 100)})
+	if err != nil {
+		t.Fatalf("AttributeGaps: %v", err)
+	}
+	if _, ok := deltas[2]; !ok || len(deltas) != 1 {
+		t.Errorf("deltas = %v, want run 2 alone when no window was abandoned", deltas)
 	}
 }

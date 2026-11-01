@@ -157,6 +157,78 @@ func (s *Store) CommitHarvestBatch(ctx context.Context, transcriptPath string, e
 	return true, nil
 }
 
+// HarvestBackfillDone reports whether the one-shot harvest back-fill name
+// has already committed -- its harvest_backfills row exists (decision
+// gap-backfill-once-at-startup).
+func (s *Store) HarvestBackfillDone(ctx context.Context, name string) (bool, error) {
+	var done bool
+	if err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM harvest_backfills WHERE name = $1)`, name,
+	).Scan(&done); err != nil {
+		return false, fmt.Errorf("store: harvest backfill %s done: %w", name, err)
+	}
+	return done, nil
+}
+
+// CommitHarvestBackfill adds every stage run's delta in each of patches --
+// one map per transcript, two touching the same run adding up -- through
+// jsonb_deep_add, exactly as CommitHarvestBatch does, in one transaction
+// that first inserts back-fill name's harvest_backfills row (decision
+// backfill-one-transaction). When the row already existed it applies
+// nothing and returns applied false with a nil error: the back-fill ran
+// before, or a concurrent daemon is committing it, so it lands exactly once
+// whoever starts and wherever one dies. An unknown stage run id rolls the
+// whole back-fill back with ErrStageRunNotFound, the marker included, and a
+// nil patch is refused with ErrNilMetricsPatch, both as CommitHarvestBatch
+// does.
+func (s *Store) CommitHarvestBackfill(ctx context.Context, name string, patches []map[int64]json.RawMessage) (applied bool, err error) {
+	for _, deltas := range patches {
+		for stageRunID, patch := range deltas {
+			if patch == nil {
+				return false, fmt.Errorf("store: commit harvest backfill %s, stage run %d: %w", name, stageRunID, ErrNilMetricsPatch)
+			}
+		}
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("store: commit harvest backfill %s: begin: %w", name, err)
+	}
+	// Rollback after Commit is a no-op; on the already-ran path it discards
+	// nothing but the transaction itself.
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	tag, err := tx.Exec(ctx, `
+		INSERT INTO harvest_backfills (name, ran_at) VALUES ($1, now())
+		ON CONFLICT DO NOTHING
+	`, name)
+	if err != nil {
+		return false, fmt.Errorf("store: commit harvest backfill %s: mark: %w", name, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return false, nil
+	}
+
+	for _, deltas := range patches {
+		for stageRunID, patch := range deltas {
+			tag, err := tx.Exec(ctx, `
+				UPDATE stage_runs SET metrics = jsonb_deep_add(metrics, $2::jsonb) WHERE id = $1
+			`, stageRunID, patch)
+			if err != nil {
+				return false, fmt.Errorf("store: commit harvest backfill %s: add token metrics for stage run %d: %w", name, stageRunID, err)
+			}
+			if tag.RowsAffected() == 0 {
+				return false, fmt.Errorf("store: commit harvest backfill %s: %w: %d", name, ErrStageRunNotFound, stageRunID)
+			}
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("store: commit harvest backfill %s: commit: %w", name, err)
+	}
+	return true, nil
+}
+
 // BackfillModelVersions stamps metrics.modelVersion on every dispatch that
 // carries an agent id and none yet, from lookup(agentID) -- the exact model
 // its agent transcript names (model-version-split). A lookup that finds

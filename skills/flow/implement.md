@@ -1031,7 +1031,7 @@ FIX DISPATCH paragraph (`skills/flow/implementer-brief.md`).
 
 | Fix | Key | Pair | When |
 |---|---|---|---|
-| every `fix` verdict and every Minor the gated passes left open | `task-<ids>-implementer-fix-<k>`, the ids every task it fixes, `+`-joined in plan order | the decision's `fixer` | once, at the stage's end (`skills/flow/gated-review-fix.md`) |
+| every `fix` verdict and every Minor the gated passes left open | `task-<ids>-implementer-fix-<k>`, the ids every task it fixes, `+`-joined in plan order | the decision's `fixer` | at the stage's end, one per group of at most twenty findings, in series (`skills/flow/gated-review-fix.md`) |
 | a `close-task.sh` exit 1 a re-commit repairs — a swept planning path, a missing `Task-Id:` trailer | `task-<n>-implementer-recommit-<k>` | the decision's `fixer` | at once, before the next group launches |
 | a wave member's pick conflict | `task-<ids>-implementer-pick-<k>`, the member's task ids | the group's own pair | at once, the pick aborted first (`skills/flow/sdd-dispatch.md`) |
 | a full-suite failure | `full-suite-fix-<n>` | the decision's `fixer` | each time the list fails (**The parent runs the full suite**, above) |

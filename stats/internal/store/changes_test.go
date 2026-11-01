@@ -897,3 +897,119 @@ func TestFindChangesByNameUnknownIsEmpty(t *testing.T) {
 		t.Fatalf("FindChangesByName(unknown) returned %d changes, want 0", len(got))
 	}
 }
+
+// TestFinishedAtByChange pins decision finish-instant-store-lookup: only a
+// FINISHED change -- withdrawn or not -- has a finish instant, its
+// updated_at, and an id no change has is simply absent.
+func TestFinishedAtByChange(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	finishedAt := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	withdrawnAt := time.Date(2026, 10, 2, 9, 0, 0, 0, time.UTC)
+	changeID := func(name string, state store.State, withdrawn bool, at time.Time) int64 {
+		t.Helper()
+		c := baseChange("agents", name)
+		c.State, c.Withdrawn, c.UpdatedAt = state, withdrawn, at
+		if err := st.PutChange(ctx, c); err != nil {
+			t.Fatalf("PutChange %s: %v", name, err)
+		}
+		run, err := st.BeginStage(ctx, store.BeginStageInput{
+			ProjectKey: "agents", ChangeName: name, Harness: "claude-code",
+			Command: "/flow", Stage: "do.tests", StartedAt: at.Add(-time.Hour),
+		})
+		if err != nil {
+			t.Fatalf("BeginStage %s: %v", name, err)
+		}
+		return run.ChangeID
+	}
+	a := changeID("kan-finished", store.StateFinished, false, finishedAt)
+	b := changeID("kan-open", store.StateInProgress, false, finishedAt)
+	c := changeID("kan-withdrawn", store.StateFinished, true, withdrawnAt)
+
+	got, err := st.FinishedAtByChange(ctx, []int64{a, b, c, 0})
+	if err != nil {
+		t.Fatalf("FinishedAtByChange: %v", err)
+	}
+	if len(got) != 2 || !got[a].Equal(finishedAt) || !got[c].Equal(withdrawnAt) {
+		t.Errorf("FinishedAtByChange = %v, want {%d: %v, %d: %v}", got, a, finishedAt, c, withdrawnAt)
+	}
+
+	empty, err := st.FinishedAtByChange(ctx, nil)
+	if err != nil || len(empty) != 0 {
+		t.Errorf("FinishedAtByChange(nil) = %v, %v, want an empty map", empty, err)
+	}
+}
+
+// TestFinishedAtByChangeIsTheLatestOfStateAndRuns pins decision
+// finish-instant-latest-of-state-and-runs: a change that writes FINISHED
+// before its last marks (/flow-fast writes it at kickoff) is bounded at its
+// last stage run's end, a still-open last run counts its start, and a change
+// whose state write follows every run keeps updated_at.
+func TestFinishedAtByChangeIsTheLatestOfStateAndRuns(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	stateAt := time.Date(2026, 10, 26, 11, 54, 19, 0, time.UTC)
+	put := func(name string) {
+		t.Helper()
+		c := baseChange("agents", name)
+		c.State, c.UpdatedAt = store.StateFinished, stateAt
+		if err := st.PutChange(ctx, c); err != nil {
+			t.Fatalf("PutChange %s: %v", name, err)
+		}
+	}
+	begin := func(name, stage string, at time.Time) store.StageRun {
+		t.Helper()
+		run, err := st.BeginStage(ctx, store.BeginStageInput{
+			ProjectKey: "agents", ChangeName: name, Harness: "claude-code",
+			Command: "/flow-fast", Stage: stage, StartedAt: at,
+		})
+		if err != nil {
+			t.Fatalf("BeginStage %s %s: %v", name, stage, err)
+		}
+		return run
+	}
+
+	// Runs begun after the state write and ended later still.
+	put("kan-late-runs")
+	begin("kan-late-runs", "flow.design", stateAt.Add(-time.Minute))
+	early := begin("kan-late-runs", "flow.implement", stateAt.Add(5*time.Minute))
+	lastEnd := stateAt.Add(20 * time.Minute)
+	if err := st.EndStage(ctx, early.ID, lastEnd, "ok"); err != nil {
+		t.Fatalf("EndStage: %v", err)
+	}
+
+	// Every run ends before the state write.
+	put("kan-state-last")
+	before := begin("kan-state-last", "flow.design", stateAt.Add(-time.Hour))
+	if err := st.EndStage(ctx, before.ID, stateAt.Add(-30*time.Minute), "ok"); err != nil {
+		t.Fatalf("EndStage: %v", err)
+	}
+
+	// The last run is still open and began after the state write.
+	put("kan-open-run")
+	openStart := stateAt.Add(10 * time.Minute)
+	open := begin("kan-open-run", "flow.design", openStart)
+
+	// A finished change with no stage run at all keeps its state write.
+	put("kan-no-runs")
+	var noRuns int64
+	if err := store.PoolOf(st).QueryRow(ctx, `SELECT id FROM changes WHERE name = 'kan-no-runs'`).Scan(&noRuns); err != nil {
+		t.Fatalf("lookup kan-no-runs: %v", err)
+	}
+
+	got, err := st.FinishedAtByChange(ctx, []int64{early.ChangeID, before.ChangeID, open.ChangeID, noRuns})
+	if err != nil {
+		t.Fatalf("FinishedAtByChange: %v", err)
+	}
+	want := map[int64]time.Time{early.ChangeID: lastEnd, before.ChangeID: stateAt, open.ChangeID: openStart, noRuns: stateAt}
+	if len(got) != len(want) {
+		t.Fatalf("FinishedAtByChange = %v, want %v", got, want)
+	}
+	for id, w := range want {
+		if !got[id].Equal(w) {
+			t.Errorf("FinishedAtByChange[%d] = %v, want %v", id, got[id], w)
+		}
+	}
+}

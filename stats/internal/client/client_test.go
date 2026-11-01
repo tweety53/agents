@@ -868,7 +868,7 @@ func (stubStageStore) WeeklyModelEffortCosts(context.Context, store.Period) ([]s
 func (stubStageStore) WeeklyCosts(context.Context, store.Period, *string, *string) ([]store.WeeklyCostPoint, error) {
 	return nil, nil
 }
-func (stubStageStore) TrendOverTime(context.Context, store.Period, *string, *string) ([]store.TrendPoint, error) {
+func (stubStageStore) TrendFinishedChanges(context.Context, store.Period) ([]store.TrendChange, error) {
 	return nil, errStageStoreNotImplemented
 }
 

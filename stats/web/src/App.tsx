@@ -241,12 +241,14 @@ export function App() {
         {/* Weekly costs always covers the last 8 weeks of every project and model (KAN-1038);
             the live state board carries its own chip filters and an opened run none
             (decision hide-dashboard-bar); the stage leaderboard carries its own Period, Project
-            and Command chips (decision leaderboard-chip-filters); Experiments spans each
-            experiment's own window. */}
+            and Command chips (decision leaderboard-chip-filters); the trend view carries its own
+            Period, Command and Project chips (decision trend-drops-daily-views); Experiments spans
+            each experiment's own window. */}
         {route.kind === "view" &&
           route.view !== "weekly-costs" &&
           route.view !== "state-board" &&
           route.view !== "stage-leaderboard" &&
+          route.view !== "trend" &&
           route.view !== "experiments" && (
           <DashboardBar
             period={period}

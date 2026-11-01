@@ -38,7 +38,7 @@ var dpEntries = map[string]dpEntry{
 		[]string{"crosses a boundary", "the store, the filesystem, a guard, a real transcript", "exercise the real thing"},
 		map[string]string{"reviewer": "worth less than one you did", "implementer": "a fake or a hand-built value"}},
 	"reproducer": {"**REPRODUCER:**",
-		[]string{"exits non-zero when the defect is present", "`# demonstrates: <path>:<line>:<content>`", "never a prose description", "|| true"}, nil},
+		[]string{"exits non-zero when the defect is present", "`# demonstrates: <path>:<line>:<content>`", "never a prose description", "|| true", "go test -overlay"}, nil},
 	"verbatim": {"**VERBATIM REPORT — THE FACT:**",
 		[]string{"the reviewer's own report", "never a source of fact", "the report wins"}, nil},
 	"foreground": {"**FOREGROUND BUILDS:**",

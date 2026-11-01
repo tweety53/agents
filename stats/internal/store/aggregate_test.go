@@ -493,63 +493,91 @@ func TestStageLeaderboardMainFiguresUnderModelFilter(t *testing.T) {
 	}
 }
 
-// TestTrendOverTimeBucketsByDay seeds three runs on one day and two on the
-// next, and checks that TrendOverTime's per-day bucket, count and total
-// cost match those hand-computed groupings exactly.
-func TestTrendOverTimeBucketsByDay(t *testing.T) {
+// TestTrendFinishedChanges pins the trend endpoint's rows (decisions
+// trend-endpoint-per-change-rows and trend-derived-no-column): one row per
+// change finished in the period and not withdrawn, with at least one costed
+// stage run, its week the Wednesday 00:00 UTC bucket of its finish instant,
+// its command that of its first stage run, its cost the whole-life sum.
+func TestTrendFinishedChanges(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-trend-%d", time.Now().UnixNano())
-	seedChange(t, st, projectKey, "kan-1")
 
-	day1 := time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
-	day2 := time.Date(2026, 6, 11, 0, 0, 0, 0, time.UTC)
-
-	day1Costs := []float64{10, 20, 30} // total 60
-	for i, cost := range day1Costs {
-		in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
-		in.SessionID = ptr(fmt.Sprintf("day1-%d", i))
-		in.StartedAt = day1.Add(time.Duration(i) * time.Hour)
-		costRun(t, st, in, cost)
+	type seeded struct {
+		name      string
+		state     store.State
+		withdrawn bool
+		at        time.Time
 	}
-	day2Costs := []float64{40, 50} // total 90
-	for i, cost := range day2Costs {
-		in := baseBeginInput(projectKey, "kan-1", "/flow", "review panel")
-		in.SessionID = ptr(fmt.Sprintf("day2-%d", i))
-		in.StartedAt = day2.Add(time.Duration(i) * time.Hour)
-		costRun(t, st, in, cost)
+	// Inserted F, B, E, A, D, C so insertion order is not the answer's.
+	changes := []seeded{
+		{"kan-f", store.StateFinished, false, time.Date(2026, 5, 20, 10, 0, 0, 0, time.UTC)},
+		{"kan-b", store.StateFinished, false, time.Date(2026, 6, 16, 23, 0, 0, 0, time.UTC)},
+		{"kan-e", store.StateInProgress, false, time.Date(2026, 6, 12, 10, 0, 0, 0, time.UTC)},
+		{"kan-a", store.StateFinished, false, time.Date(2026, 6, 11, 10, 0, 0, 0, time.UTC)},
+		{"kan-d", store.StateFinished, true, time.Date(2026, 6, 12, 10, 0, 0, 0, time.UTC)},
+		{"kan-c", store.StateFinished, false, time.Date(2026, 6, 13, 10, 0, 0, 0, time.UTC)},
+	}
+	run := func(change, command string, at time.Time, cost *float64) {
+		t.Helper()
+		in := baseBeginInput(projectKey, change, command, "flow.kickoff")
+		in.SessionID = ptr(change + "-" + command)
+		in.StartedAt = at
+		if cost == nil {
+			if _, err := st.BeginStage(ctx, in); err != nil {
+				t.Fatalf("BeginStage: %v", err)
+			}
+			return
+		}
+		costRun(t, st, in, *cost)
+	}
+	for _, c := range changes {
+		seedChange(t, st, projectKey, c.name)
+		switch c.name {
+		case "kan-a":
+			run("kan-a", "/flow", time.Date(2026, 6, 5, 9, 0, 0, 0, time.UTC), ptr(4.0))
+			run("kan-a", "/flow-plan", time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), ptr(3.0))
+		case "kan-b":
+			run("kan-b", "/flow-fast", time.Date(2026, 6, 16, 20, 0, 0, 0, time.UTC), ptr(0.5))
+		case "kan-c":
+			run("kan-c", "/flow", time.Date(2026, 6, 12, 9, 0, 0, 0, time.UTC), nil)
+		default:
+			run(c.name, "/flow", c.at.Add(-time.Hour), ptr(2.0))
+		}
+		ch := baseChange(projectKey, c.name)
+		ch.State, ch.Withdrawn, ch.UpdatedAt = c.state, c.withdrawn, c.at
+		if err := st.PutChange(ctx, ch); err != nil {
+			t.Fatalf("PutChange %s: %v", c.name, err)
+		}
 	}
 
 	period := store.Period{
-		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
-		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+		From: time.Date(2026, 6, 3, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 6, 24, 0, 0, 0, 0, time.UTC),
 	}
-	points, err := st.TrendOverTime(ctx, period, &projectKey, nil)
+	rows, err := st.TrendFinishedChanges(ctx, period)
 	if err != nil {
-		t.Fatalf("TrendOverTime: %v", err)
+		t.Fatalf("TrendFinishedChanges: %v", err)
 	}
-	if len(points) != 2 {
-		t.Fatalf("TrendOverTime returned %d points, want 2", len(points))
+	var got []store.TrendChange
+	for _, r := range rows {
+		if r.ProjectKey == projectKey {
+			got = append(got, r)
+		}
 	}
-
-	const eps = 1e-9
-	if !points[0].Day.Equal(day1) {
-		t.Errorf("points[0].Day = %v, want %v", points[0].Day, day1)
+	week := time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
+	want := []store.TrendChange{
+		{Week: week, Command: "/flow-plan", ProjectKey: projectKey, CostUSD: 7},
+		{Week: week, Command: "/flow-fast", ProjectKey: projectKey, CostUSD: 0.5},
 	}
-	if points[0].RunCount != 3 {
-		t.Errorf("points[0].RunCount = %d, want 3", points[0].RunCount)
+	if len(got) != len(want) {
+		t.Fatalf("rows = %+v, want %+v", got, want)
 	}
-	if points[0].TotalCostUSD == nil || *points[0].TotalCostUSD < 60-eps || *points[0].TotalCostUSD > 60+eps {
-		t.Errorf("points[0].TotalCostUSD = %v, want 60", points[0].TotalCostUSD)
-	}
-	if !points[1].Day.Equal(day2) {
-		t.Errorf("points[1].Day = %v, want %v", points[1].Day, day2)
-	}
-	if points[1].RunCount != 2 {
-		t.Errorf("points[1].RunCount = %d, want 2", points[1].RunCount)
-	}
-	if points[1].TotalCostUSD == nil || *points[1].TotalCostUSD < 90-eps || *points[1].TotalCostUSD > 90+eps {
-		t.Errorf("points[1].TotalCostUSD = %v, want 90", points[1].TotalCostUSD)
+	for i := range want {
+		if !got[i].Week.Equal(want[i].Week) || got[i].Command != want[i].Command ||
+			got[i].ProjectKey != want[i].ProjectKey || got[i].CostUSD != want[i].CostUSD {
+			t.Errorf("rows[%d] = %+v, want %+v", i, got[i], want[i])
+		}
 	}
 }
 
@@ -635,8 +663,8 @@ func TestWeeklyCostsBucketsByWednesdayAndCategory(t *testing.T) {
 	check("points[1].SelfReviewUSD", points[1].SelfReviewUSD, ptr(43.0))
 }
 
-// TestWeeklyCostsHonoursProjectModelAndPeriod checks the three filters
-// WeeklyCosts shares with TrendOverTime: another project's run, a run
+// TestWeeklyCostsHonoursProjectModelAndPeriod checks WeeklyCosts' three
+// filters: another project's run, a run
 // starting exactly at period.To, and -- with a model -- that model's own
 // cost_usd rather than the run's total, and no run lacking that model.
 func TestWeeklyCostsHonoursProjectModelAndPeriod(t *testing.T) {
@@ -1009,10 +1037,6 @@ func TestModelFilterHonouredByEveryAggregation(t *testing.T) {
 		}},
 		{"StageLeaderboard", func(m *string) (int, error) {
 			r, err := st.StageLeaderboard(ctx, period, &projectKey, m)
-			return len(r), err
-		}},
-		{"TrendOverTime", func(m *string) (int, error) {
-			r, err := st.TrendOverTime(ctx, period, &projectKey, m)
 			return len(r), err
 		}},
 	}

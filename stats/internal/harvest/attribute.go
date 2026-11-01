@@ -14,7 +14,9 @@ import (
 // already recorded or the owning change's other fields. A message
 // belongs to a Window when its SessionID matches and its Timestamp falls
 // in the half-open interval [StartedAt, EndedAt) -- EndedAt nil means
-// "still open", per design.md's "Harvesting" section.
+// "still open", per design.md's "Harvesting" section. A message no window
+// of its session contains belongs to the window that began last before it,
+// up to ChangeFinishedAt -- fallbackWindow's rule.
 //
 // The interval is deliberately half-open, not closed on both ends: a
 // message timestamped exactly at one window's EndedAt, which also equals
@@ -43,6 +45,16 @@ type Window struct {
 	SessionID string
 	StartedAt time.Time
 	EndedAt   *time.Time
+	// ChangeFinishedAt is the owning change's finish instant -- its
+	// updated_at once FINISHED -- which bounds the last-begun-stage
+	// fallback (fallbackWindow). Nil while the change is unfinished or the
+	// run belongs to no change, and then the fallback is unbounded.
+	ChangeFinishedAt *time.Time
+	// Abandoned is true for a run SweepAbandoned closed (outcome
+	// 'abandoned'): its EndedAt was set after the fact, possibly back to the
+	// next stage's start, so a record past it may have been counted to it
+	// while it was still open -- AttributeGaps' reason to skip such records.
+	Abandoned bool
 }
 
 // intervalContains reports whether ts falls inside the half-open
@@ -99,9 +111,11 @@ func (w Window) contains(ts time.Time) bool {
 // session that crashed after doing real, chargeable work loses that
 // spend from the record entirely -- worse than recording it against a
 // stage whose outcome says "abandoned", which is the honest fact anyway.
-// A message arriving after the sweep's own EndedAt is not attributed
-// here or anywhere else, exactly like any other message that misses
-// every window: this rule extends no window past what it already covers.
+// A message arriving after the sweep's own EndedAt goes, like any other
+// message that misses every window, to the window that began last before
+// it, up to the change's finish (fallbackWindow, decision
+// gap-spend-to-last-begun-stage) -- the same rule SweepAbandoned already
+// follows when it ends an abandoned run at the next stage's start.
 //
 // Defined here, at the consumer, per go-interface-design: internal/harvest
 // never imports internal/store, so this package -- and
@@ -477,9 +491,10 @@ func NewAttributor(windows WindowSource) *Attributor {
 	return &Attributor{windows: windows}
 }
 
-// Attribute assigns every record in records to the open window (per
-// bestWindow) matching its session and containing its timestamp, and
-// returns one Delta per touched stage run -- the whole-run total plus
+// Attribute assigns every record in records to the window (per
+// bestWindow) matching its session and containing its timestamp -- or,
+// when none contains it, to the window that began last before it
+// (fallbackWindow) -- and returns one Delta per touched stage run -- the whole-run total plus
 // the same records broken out by model (Delta's own doc comment).
 //
 // Attribute is a pure computation over records and whatever
@@ -494,12 +509,48 @@ func NewAttributor(windows WindowSource) *Attributor {
 // (jsonb_deep_add, 0005_jsonb_deep_add.sql), so Attribute never needs to
 // see more than one batch's worth of records to compute a correct delta.
 //
-// Records whose session matches no window, or whose timestamp falls
-// outside every one of that session's windows, are silently not
-// attributed -- design.md draws no window for them to belong to, and
-// inventing one would be exactly the self-reporting this requirement
-// exists to avoid.
+// A record no window contains is spend between two stage windows -- a
+// burst-marked /flow-fast run leaves most of its spend there -- and goes to
+// the stage that began last before it, never past its change's finish
+// (decision gap-spend-to-last-begun-stage). Records whose session matches
+// no window, that precede the session's first window (decision
+// pre-first-mark-unattributed: whatever the session did before the run), or
+// that fall after every candidate's change finished are not attributed.
 func (a *Attributor) Attribute(ctx context.Context, records []Record) (map[int64]Delta, error) {
+	return a.attribute(ctx, records, func(windows []Window, ts time.Time) (Window, bool) {
+		if w, ok := bestWindow(windows, ts); ok {
+			return w, true
+		}
+		return fallbackWindow(windows, ts)
+	})
+}
+
+// AttributeGaps is Attribute restricted to the records the pre-fix rule
+// dropped: those bestWindow places nowhere and fallbackWindow places
+// somewhere. Watcher.BackfillStageGaps runs it over bytes already
+// harvested, where every record a window contains was counted already
+// (decision gap-backfill-once-at-startup). A record past an abandoned window
+// of its session that began at or before it is skipped too: that window was
+// open when the record was harvested, and counted it, before the sweep moved
+// its end mark back -- the back-fill cannot tell it from a dropped one, and
+// would add it twice.
+func (a *Attributor) AttributeGaps(ctx context.Context, records []Record) (map[int64]Delta, error) {
+	return a.attribute(ctx, records, func(windows []Window, ts time.Time) (Window, bool) {
+		if _, ok := bestWindow(windows, ts); ok {
+			return Window{}, false
+		}
+		if _, ok := latestWindow(windows, func(w Window) bool { return w.Abandoned && !w.StartedAt.After(ts) }); ok {
+			return Window{}, false
+		}
+		return fallbackWindow(windows, ts)
+	})
+}
+
+// attribute is the body Attribute and AttributeGaps share: it groups
+// records by session, asks place for each record's window among its
+// session's, and builds one Delta per placed stage run. A record place
+// answers false for is not attributed.
+func (a *Attributor) attribute(ctx context.Context, records []Record, place func([]Window, time.Time) (Window, bool)) (map[int64]Delta, error) {
 	deltas := make(map[int64]Delta)
 	if len(records) == 0 {
 		return deltas, nil
@@ -513,7 +564,7 @@ func (a *Attributor) Attribute(ctx context.Context, records []Record) (map[int64
 			return nil, fmt.Errorf("harvest: windows for session %s: %w", sessionID, err)
 		}
 		for _, r := range bySession[sessionID] {
-			w, ok := bestWindow(windows, r.Timestamp)
+			w, ok := place(windows, r.Timestamp)
 			if !ok {
 				continue
 			}
@@ -648,13 +699,39 @@ func groupBySession(records []Record, keep func(Record) bool) (map[string][]Reco
 // this tie-break at all, because the half-open interval already resolves
 // which one a boundary message belongs to before bestWindow is asked to
 // choose between candidates.
+//
+// bestWindow decides first: a message some window contains goes there even
+// when a later-started window has already ended before it. Only a message
+// no window contains reaches fallbackWindow.
 func bestWindow(windows []Window, ts time.Time) (Window, bool) {
+	return latestWindow(windows, func(w Window) bool { return w.contains(ts) })
+}
+
+// fallbackWindow returns, for a message no window contains, the window
+// that began last at or before ts, the higher Attempt on a tie -- the stage
+// the session was in, since nothing else had begun -- provided ts is before
+// that window's change finished (decision gap-spend-to-last-begun-stage). A
+// message before every window's start finds none: what a session did
+// before its first mark is not the run's (decision
+// pre-first-mark-unattributed).
+func fallbackWindow(windows []Window, ts time.Time) (Window, bool) {
+	return latestWindow(windows, func(w Window) bool {
+		return !w.StartedAt.After(ts) && (w.ChangeFinishedAt == nil || ts.Before(*w.ChangeFinishedAt))
+	})
+}
+
+// latestWindow returns, among the windows eligible accepts, the one with
+// the latest StartedAt, the higher Attempt on a same-instant tie -- the one
+// ordering bestWindow and fallbackWindow share. A window that is neither
+// later nor higher never replaces the current best, so the result does not
+// depend on input order.
+func latestWindow(windows []Window, eligible func(Window) bool) (Window, bool) {
 	var (
 		best  Window
 		found bool
 	)
 	for _, w := range windows {
-		if !w.contains(ts) {
+		if !eligible(w) {
 			continue
 		}
 		if !found || w.StartedAt.After(best.StartedAt) ||

@@ -650,9 +650,11 @@ in the shape a slot authors to, since a slot reads its prompt and not this file:
 > and asserts each one exists before its real checks run, exiting non-zero with the missing premise
 > on stderr. It starts with a shebang and is made executable with `chmod +x`; a demonstrating
 > command needing a pipe, a quote, a glob or any other shell metacharacter goes in the script,
-> never in the recorded line. Under `set -e` or `pipefail`, take a count that may be zero as
-> `n=$(grep -c <pattern> <file> || true)`: a bare `grep -c` exits 1 on zero matches, and the script
-> then reads as defect demonstrated.
+> never in the recorded line. It adds no file under `$PWD`: a Go test it adds is written under
+> `mktemp -d` and passed to `go test -overlay <json>`, a Go mutation goes through the same overlay,
+> and any other file it writes lives in its own `mktemp -d` directory. Under `set -e` or
+> `pipefail`, take a count that may be zero as `n=$(grep -c <pattern> <file> || true)`: a bare
+> `grep -c` exits 1 on zero matches, and the script then reads as defect demonstrated.
 
 **Every slot's dispatch prompt also carries the REPORT FILE paragraph**, with the round and the
 slot's resolved id substituted:
@@ -821,7 +823,7 @@ reproducers carried no landing check). A mutation no test catches is a
 withdrawn with a reason under the fix round's handback. A surviving mutant's reproducer carries the exact line
 `# mutation-reproducer` within its first 10 lines — the declaration
 `run-reproducer.sh` reads as the mutation convention, since the build succeeding
-with the mutation landed is the bug present, the reverse of the generic exit-code contract. A reproducer never `cd`s — it runs each tool against its directory with `go -C`, `make -C` or `npm --prefix` and names every file as `$PWD/<path>` — and makes its edit through a patch file or a fixed-string replacement, never through shell quoting nested inside another quoted string (kan-1047: an EXIT trap restoring a relative path after `cd stats` left a live mutant, and nested single quotes in a `sed` never applied the edit). Its
+with the mutation landed is the bug present, the reverse of the generic exit-code contract. A reproducer never `cd`s — it runs each tool against its directory with `go -C`, `make -C` or `npm --prefix` and names every file as `$PWD/<path>` — and makes its edit through a patch file or a fixed-string replacement, never through shell quoting nested inside another quoted string (kan-1047: an EXIT trap restoring a relative path after `cd stats` left a live mutant, and nested single quotes in a `sed` never applied the edit). A reproducer adds no file under `$PWD`: a Go test it adds is written under `mktemp -d` and passed to `go test -overlay <json>`, whose `Replace` map names the test's path in the package, a Go mutation goes through the same overlay, its `Replace` map naming the mutated source's path and its mutated copy under `mktemp -d`, and every other file it writes lives in its own `mktemp -d` directory (kan-1051 self-review, F5: a test file a reproducer wrote into `<agents repo>/stats/internal/harvest/` failed a concurrent guard-test run). Its
 tree is `$PWD`, the worktree `run-reproducer.sh` passes — never the slot's throwaway copy it was
 authored in, which is gone once the dispatch closes (kan-1022's F8 pointed at that copy and
 demonstrated nothing). Its test command runs every test of the package, file or module the mutated

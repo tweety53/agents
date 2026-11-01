@@ -11,6 +11,22 @@ Jira transition, and prints the handoff. **Load `skills/flow-contracts/finish-co
 only when** a stop below cites one of its sections, and **load
 `skills/flow-contracts/artifacts-registry.md` only when** a `LEFTOVER:` line names a row of it.
 
+**A self-hosting change refreshes the tooling before the save.** Under the condition of **A change
+to `<agents repo>`'s own tooling integrates with the branch's copy of it**
+(`skills/flow/integrate.md`), once the branch has landed, run from outside every worktree (Bash
+`timeout: 600000`):
+
+```bash
+refresh-main-checkout.sh <agents repo> <agents-base>
+make -C <agents repo>/stats restart
+```
+
+then re-read this file from the refreshed checkout and continue with the save. The installed
+`flow` and flowd predate the change, so the save would exit 2 on a command or table they lack, or
+the old cleanup would remove the worktree with no save. The cleanup's own later refresh then finds
+nothing to move. This is the one stop of flowd `<agents repo>/CLAUDE.md`'s reinstall rule allows,
+brought straight back up.
+
 **Save the change's two lasting files first**, in the canonical worktree, before anything removes
 a worktree:
 

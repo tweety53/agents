@@ -4893,3 +4893,111 @@ func TestSettleClosedRowsWaitsOutAStaleEnd(t *testing.T) {
 		t.Errorf("verify restamp = %s (%v), want output 7", p, ok)
 	}
 }
+
+// recordingBackfillSink is a BackfillSink whose marker is never set and
+// which keeps what CommitHarvestBackfill was handed.
+type recordingBackfillSink struct{ committed []map[int64]json.RawMessage }
+
+func (s *recordingBackfillSink) HarvestBackfillDone(context.Context, string) (bool, error) {
+	return false, nil
+}
+
+func (s *recordingBackfillSink) CommitHarvestBackfill(_ context.Context, _ string, patches []map[int64]json.RawMessage) (bool, error) {
+	s.committed = patches
+	return true, nil
+}
+
+// TestStageGapBackfillSkipsATranscriptShorterThanItsOffset pins the
+// back-fill's replaced-transcript skip: a file now shorter than its stored
+// offset is passed over, never sliced past its end, and the back-fill
+// commits nothing for it.
+func TestStageGapBackfillSkipsATranscriptShorterThanItsOffset(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	if err := os.WriteFile(path, []byte("{}\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	sink := newFakeHarvestSink()
+	sink.offsets[path] = 1 << 20
+	backfill := &recordingBackfillSink{}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(&fakeWindowSource{}), harvest.NoDeps{}, nil)
+	if err := w.BackfillStageGaps(context.Background(), backfill); err != nil {
+		t.Fatalf("BackfillStageGaps: %v", err)
+	}
+	if len(backfill.committed) != 0 {
+		t.Errorf("committed = %v, want nothing for a transcript shorter than its offset", backfill.committed)
+	}
+}
+
+// TestBackfillPricingWarningNamesTheCause pins the back-fill's pricing
+// warning: a run the back-fill could not price is not retried, and the
+// warning carries the error as the cause instead of promising that
+// `flow pricing reprice` prices it -- a reprice does not price a run whose
+// failure is still in place (live-verification.md's output_unmeasured runs).
+func TestBackfillPricingWarningNamesTheCause(t *testing.T) {
+	st := newEndToEndStore(t)
+	ctx := context.Background()
+	const sessionID = "session-backfill-price-warning"
+	base := time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)
+	starts := map[string]time.Time{"fast.plan": base, "fast.land": base.Add(time.Minute)}
+	ids := burstChange(t, st, "kan-backfill-warn", sessionID, starts, "fast.plan", "fast.land")
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	writeLines(t, path, usageLine(t, sessionID, base.Add(10*time.Second), 10)) // between the windows
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if applied, err := st.CommitHarvestBatch(ctx, path, 0, false, info.Size(), map[int64]json.RawMessage{}); err != nil || !applied {
+		t.Fatalf("CommitHarvestBatch = %v, %v, want applied", applied, err)
+	}
+
+	var logBuf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logBuf, nil))
+	pricer := &fakePricer{failIDs: map[int64]bool{ids[0]: true}}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, st, harvest.NewAttributor(e2eWindowSource{st}), pricingDeps{p: pricer}, logger)
+	if err := w.BackfillStageGaps(ctx, st); err != nil {
+		t.Fatalf("BackfillStageGaps: %v", err)
+	}
+
+	logged := logBuf.String()
+	if !strings.Contains(logged, "harvest: price stage run failed after backfill, not retried") {
+		t.Errorf("log = %q, want the not-retried pricing warning", logged)
+	}
+	if !strings.Contains(logged, "fake pricer: pricing unavailable") {
+		t.Errorf("log = %q, want the pricing error attached", logged)
+	}
+	if strings.Contains(logged, "flow pricing reprice` prices it") {
+		t.Errorf("log = %q, still promises a reprice prices the run", logged)
+	}
+}
+
+// TestJudgeInvocationsEndsLoopBodyAtAnyTerminator pins scanLoopBody's
+// terminators: a `for` body ends at `;`, a lone `&` or a newline before
+// `done` -- kan-1051 self-review, F7: verify-5's `( … ) & done` loop was
+// never expanded, so its row stayed unmeasured. `&&` inside a body, and a
+// quoted `& done`, never end it.
+func TestJudgeInvocationsEndsLoopBodyAtAnyTerminator(t *testing.T) {
+	const call = `( set -a; $S/run-verify-list.sh $W $g $N verify-5 mf-x opus default </dev/null > l 2>&1 )`
+	cases := map[string]string{
+		"amp":       `for g in lint test; do ` + call + ` & done`,
+		"semicolon": `for g in lint test; do ` + call + `; done`,
+		"newline":   "for g in lint test; do " + call + "\ndone",
+		"and-and":   `for g in lint test; do a && b && ` + call + `; done`,
+		"quoted":    `for g in lint test; do echo '& done'; ` + call + `; done`,
+	}
+	for name, command := range cases {
+		t.Run(name, func(t *testing.T) {
+			got := harvest.JudgeInvocationsForTest(command, harvest.RunVerifyListBeginFromInvocationForTest)
+			if len(got) != 2 {
+				t.Fatalf("%d events, want 2: %+v", len(got), got)
+			}
+			for _, ev := range got {
+				if ev.Key != "verify-5" || ev.SessionToken != "mf-x" {
+					t.Fatalf("event %+v, want key verify-5 token mf-x", ev)
+				}
+			}
+		})
+	}
+}

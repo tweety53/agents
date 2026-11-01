@@ -416,11 +416,14 @@ export interface SelfReviewRow {
   commitUrl: string;
 }
 
-/** Mirrors trendPointDTO. */
-export interface TrendPoint {
-  day: string;
-  runCount: number;
-  totalCostUsd: number | null;
+/** Mirrors trendChangeDTO: one finished change -- the Wednesday week (UTC
+ * date) it finished in, its first stage run's command, its project and its
+ * whole-life cost. */
+export interface TrendChange {
+  week: string;
+  command: string;
+  projectKey: string;
+  costUsd: number;
 }
 
 /** Mirrors weeklyCostPointDTO: one Wednesday-to-Wednesday week, null

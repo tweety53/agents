@@ -452,6 +452,9 @@ func seedFixture(ctx context.Context, st *store.Store) error {
 	if err := seedInteractive(ctx, st); err != nil {
 		return err
 	}
+	if err := seedTrend(ctx, st); err != nil {
+		return err
+	}
 
 	for _, g := range guardFires() {
 		if _, err := st.RecordGuardRun(ctx, g.ProjectKey, records.GuardRun{
@@ -860,6 +863,75 @@ func seedSession(ctx context.Context, st *store.Store, name, sessionID string, r
 		}
 		if err := st.EndStage(ctx, run.ID, at(r.start-r.dur), stages.OutcomeCompleted); err != nil {
 			return fmt.Errorf("uitest-seed: end %s of %s: %w", r.stage, name, err)
+		}
+	}
+	return nil
+}
+
+// trendRunsAt is every trend change's stage-run start: before every other
+// view's pinned window, so no other baseline moves (decision
+// trend-seed-isolated). The trend view buckets by finish instant, not run
+// start, so its chart is drawn from trendFinishes alone.
+var trendRunsAt = time.Date(2026, 3, 4, 10, 0, 0, 0, time.UTC)
+
+// trendChange is one finished change of the Trend view's fixture: its
+// project, the week it finished in (days after 2026-05-27, a Wednesday),
+// and its stage runs' commands and costs -- the first run's command names
+// the change's command.
+type trendChange struct {
+	project string
+	day     int
+	runs    []trendRun
+}
+
+type trendRun struct {
+	command string
+	cost    float64
+}
+
+// seedTrend writes the Trend view's finished changes (KAN-1051): /flow in
+// six of the seven weeks from 2026-05-27, the week of Jun 17 empty between
+// two filled ones, its costs falling so the line reads and one week holding
+// three distinct costs; /flow-fast under a dollar in two weeks; changes in
+// an agents project and uitest-dynamics, whose chip the state board already
+// draws -- a registered project names a chip whatever its instants. Every finish lands between 2026-05-27
+// and 2026-07-08 and every stage run at trendRunsAt (decision
+// trend-seed-isolated).
+func seedTrend(ctx context.Context, st *store.Store) error {
+	const agents, other = "agents-5eed7a1e", "uitest-dynamics"
+	flow := func(cost float64) []trendRun { return []trendRun{{"/flow", cost * 0.4}, {"/flow", cost * 0.6}} }
+	fast := func(cost float64) []trendRun { return []trendRun{{"/flow-fast", cost}} }
+	changes := []trendChange{
+		{agents, 0, flow(48)}, {other, 1, flow(56)}, {agents, 2, flow(44)},
+		{agents, 7, flow(46)}, {other, 8, flow(40)},
+		{agents, 14, flow(42)}, {agents, 15, flow(36)}, {other, 16, flow(31)}, {agents, 16, fast(0.42)},
+		{agents, 28, flow(30)}, {other, 29, flow(26)}, {agents, 30, fast(0.35)}, {agents, 30, fast(0.28)},
+		{agents, 35, flow(24)}, {agents, 36, flow(19)}, {other, 37, flow(28)}, {agents, 38, flow(21)},
+		{agents, 42, flow(18)},
+	}
+	weekStart := time.Date(2026, 5, 27, 10, 0, 0, 0, time.UTC)
+	for i, c := range changes {
+		name := fmt.Sprintf("kan-5%02d-trend", i)
+		finished := weekStart.Add(time.Duration(c.day) * 24 * time.Hour)
+		if err := st.PutChange(ctx, store.Change{ProjectKey: c.project, MainCheckoutPath: "/tmp/" + c.project,
+			Name: name, State: store.StateFinished, UpdatedAt: finished, UpdatedBy: "uitest-seed"}); err != nil {
+			return fmt.Errorf("uitest-seed: put change %s: %w", name, err)
+		}
+		for j, r := range c.runs {
+			run, err := st.BeginStage(ctx, store.BeginStageInput{ProjectKey: c.project, ChangeName: name, Harness: "claude-code",
+				SessionID: strPtr(fmt.Sprintf("uitest-trend-%d", i)), Command: r.command,
+				Stage: []string{"flow.brainstorm", "flow.sdd-tdd"}[j], StartedAt: trendRunsAt})
+			if err != nil {
+				return fmt.Errorf("uitest-seed: begin stage for %s: %w", name, err)
+			}
+			patch := fmt.Sprintf(`{"cost_usd": %g, "tokens": {"main": {"input": %d, "output": %d}}, "models": {"claude-opus-5": {"cost_usd": %g}}}`,
+				r.cost, int(r.cost*10000), int(r.cost*1000), r.cost)
+			if err := mergeJSON(ctx, st, run.ID, patch); err != nil {
+				return err
+			}
+			if err := st.EndStage(ctx, run.ID, trendRunsAt.Add(10*time.Minute), "completed"); err != nil {
+				return fmt.Errorf("uitest-seed: end stage for %s: %w", name, err)
+			}
 		}
 	}
 	return nil

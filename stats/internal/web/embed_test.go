@@ -378,7 +378,7 @@ func (fakeStore) WeeklyModelEffortCosts(context.Context, store.Period) ([]store.
 func (fakeStore) WeeklyCosts(context.Context, store.Period, *string, *string) ([]store.WeeklyCostPoint, error) {
 	return nil, nil
 }
-func (fakeStore) TrendOverTime(context.Context, store.Period, *string, *string) ([]store.TrendPoint, error) {
+func (fakeStore) TrendFinishedChanges(context.Context, store.Period) ([]store.TrendChange, error) {
 	return nil, nil
 }
 

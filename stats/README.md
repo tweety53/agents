@@ -220,6 +220,15 @@ it was given. To price stage runs harvested before a pricing change again,
 run `flow pricing reprice -since <YYYY-MM-DD>`: it prints how many runs
 priced and how many were skipped for want of tokens or a rate.
 
+A transcript record goes to the stage window of its session that contains
+its timestamp; a record between two stage windows goes to the stage that
+began last before it, up to the change's finish, and a record before the
+session's first mark goes to none. The spend the earlier rule dropped
+between windows is back-filled once, when `flowd` starts, from the
+transcripts still on disk — only the bytes already harvested, before the
+watcher's first cycle — and the `harvest_backfills` row `stage-gap-cost`
+records that it ran, so it never runs again.
+
 ## Checking attribution by hand
 
 KAN-16 shipped a measurement system that could not measure: every stage run

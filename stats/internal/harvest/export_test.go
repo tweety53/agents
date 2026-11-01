@@ -20,3 +20,12 @@ var SplitInt64ForTest = splitInt64
 // black-box tests -- its many-tokens contract is pinned more directly by
 // calling it straight than by driving a binder per token through RunOnce.
 var MatchSessionTokensForTest = (*Watcher).matchSessionTokens
+
+// JudgeInvocationsForTest and RunVerifyListBeginFromInvocationForTest
+// expose the command parser to harvest_test's black-box tests -- its loop
+// terminators are pinned more directly over a command string than through
+// a transcript driven at RunOnce.
+var (
+	JudgeInvocationsForTest                 = judgeInvocations
+	RunVerifyListBeginFromInvocationForTest = runVerifyListBeginFromInvocation
+)

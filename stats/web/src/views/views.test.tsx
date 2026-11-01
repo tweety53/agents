@@ -7,6 +7,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import type {
+  TrendChange,
   DecisionRow,
   HealthViewSlug,
   StageLeaderboardRow,
@@ -158,6 +159,32 @@ function leaderboardRows(rows: readonly (readonly [string, string, number, ...un
   }));
 }
 
+// Trend rows at TREND_NOW (current week Aug 12; 12w opens May 27), listed
+// out of week order. /flow fills Jul 1, Jul 8, Jul 22 and Jul 29 -- Jul 15
+// empty between two filled weeks -- with Jul 22 skewed (median 3, mean 15);
+// /flow-fast has more changes than /flow, so a most-frequent default fails.
+const TREND_NOW = new Date("2026-08-15T09:00:00Z");
+const AG = "agents-0a1b2c3d";
+const GY = "gymie-7c1f238a";
+const trendRow = (week: string, command: string, projectKey: string, costUsd: number): TrendChange => ({ week, command, projectKey, costUsd });
+const TREND_ROWS: TrendChange[] = [
+  trendRow("2026-07-22", "/flow", AG, 40),
+  trendRow("2026-08-12", "/flow-fast", GY, 0.25),
+  trendRow("2026-07-01", "/flow", AG, 10),
+  trendRow("2026-07-29", "/flow", GY, 4),
+  trendRow("2026-08-05", "/flow-fast", AG, 0.25),
+  trendRow("2026-07-22", "/flow", AG, 2),
+  trendRow("2026-08-12", "/flow-fast", GY, 0.25),
+  trendRow("2026-07-08", "/flow", GY, 8),
+  trendRow("2026-08-05", "/flow-fast", AG, 0.25),
+  trendRow("2026-07-01", "/flow", AG, 12),
+  trendRow("2026-08-12", "/flow-fast", AG, 0.25),
+  trendRow("2026-07-22", "/flow", AG, 3),
+  trendRow("2026-08-12", "/flow-fast", AG, 0.25),
+  trendRow("2026-08-12", "/flow-fast", GY, 0.25),
+  trendRow("2026-08-12", "/flow-fast", GY, 0.25),
+];
+
 const fixtures: Record<
   Exclude<ViewName, "flow-health" | "experiments"> | HealthViewSlug | WeeklyModelEffortViewSlug,
   StatsResponse<unknown>
@@ -287,7 +314,7 @@ const fixtures: Record<
     },
   ]),
   "stage-leaderboard": { ...envelope("stage-leaderboard", leaderboardRows(LEADERBOARD_CURRENT)), projects: LEADERBOARD_PROJECTS },
-  trend: envelope("trend", [{ day: "2026-01-05", runCount: 2, totalCostUsd: 5.25 }]),
+  trend: envelope("trend", TREND_ROWS),
   "weekly-costs": envelope("weekly-costs", [
     { ...noPhase, week: "2026-06-03", overallUsd: 5, implementationUsd: 5 },
     {
@@ -917,17 +944,6 @@ describe("views render their fixture response's actual values", () => {
     expect(await screen.findByText("No costed stage runs in this period.")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
-  it("trend shows the day's run count and total cost, its time-series panel, and its own stat panels", async () => {
-    render(<Trend period={period} project={undefined} />);
-    expect(await screen.findByText("2026-01-05")).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "$5.25" })).toBeInTheDocument();
-    // Step 2: the daily points render through TimeSeriesPanel now, not the
-    // view's own bespoke bar chart.
-    expect(screen.getByTestId("time-series-point")).toBeInTheDocument();
-    within(screen.getByRole("region", { name: "Days" })).getByText("1");
-    within(screen.getByRole("region", { name: "Total cost" })).getByText("$5.25");
-  });
-
   // Shows the phase series, which start hidden.
   const showPhases = async () => {
     for (const name of ["Planning", "Implementation", "Review", "Self-review", "Visual verify", "Other"])
@@ -1442,23 +1458,140 @@ describe("interactive session card", () => {
   });
 });
 
+describe("trend", () => {
+  const trendCalls = () => fetchStatsViewMock.mock.calls.filter((c) => c[0] === "trend").map((c) => c[1] as { from: Date; to: Date; project?: string; model?: string });
+  const group = (name: string) => within(screen.getByRole("group", { name }));
+  const pressed = (name: string, chip: string | RegExp) => group(name).getByRole("button", { name: chip });
+  const tileOf = (label: string) => within([...document.querySelectorAll<HTMLElement>(".tr-tile")].find((t) => t.querySelector(".lb-lbl")?.textContent === label)!);
+  const renderTrend = async () => {
+    vi.setSystemTime(TREND_NOW);
+    render(<Trend period={period} project={undefined} />);
+    await screen.findByText("Median per change");
+  };
+
+  it("trend chips drive the window and the client filters", async () => {
+    const user = userEvent.setup();
+    await renderTrend();
+    expect(trendCalls()).toHaveLength(1);
+    const first = trendCalls()[0];
+    expect(first.from).toEqual(new Date("2026-05-27T00:00:00Z"));
+    expect(first.to).toEqual(TREND_NOW);
+    expect(first.project).toBeUndefined();
+    expect(first.model).toBeUndefined();
+    expect(pressed("Period", "12w")).toHaveAttribute("aria-pressed", "true");
+    expect(pressed("Command", /^\/flow7$/)).toHaveAttribute("aria-pressed", "true");
+    expect(pressed("Command", /^\/flow-fast8$/)).toHaveAttribute("aria-pressed", "false");
+    for (const label of ["Period start", "Model", "Project filter"]) expect(screen.queryByLabelText(label)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Clear filters" })).toBeNull();
+
+    await user.click(pressed("Period", "8w"));
+    await waitFor(() => expect(trendCalls()).toHaveLength(2));
+    expect(trendCalls()[1].from).toEqual(new Date("2026-06-24T00:00:00Z"));
+    await screen.findByText("Median per change");
+
+    await user.click(pressed("Project", /^gymie/));
+    expect(trendCalls()).toHaveLength(2);
+    expect(tileOf("Changes finished").getByText("2")).toBeInTheDocument();
+    expect(pressed("Project", /^gymie/)).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(pressed("Command", /^\/flow-fast/));
+    expect(pressed("Project", "All")).toHaveAttribute("aria-pressed", "true");
+    expect(tileOf("Changes finished").getByText("8")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    await waitFor(() => expect(trendCalls()).toHaveLength(3));
+    await screen.findByText("Median per change");
+    expect(pressed("Period", "12w")).toHaveAttribute("aria-pressed", "true");
+    expect(pressed("Command", /^\/flow7$/)).toHaveAttribute("aria-pressed", "true");
+    expect(pressed("Project", "All")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("button", { name: "Clear filters" })).toBeNull();
+  });
+
+  it("trend tiles compare the window's halves and count flow changes", async () => {
+    const user = userEvent.setup();
+    await renderTrend();
+    // Last six weeks' /flow costs [8, 2, 3, 40, 4] against the first six's [10, 12].
+    const med = tileOf("Median per change");
+    med.getByText("$4.00");
+    const delta = med.getByText("−$7.00 (−64%)");
+    expect(delta).toHaveClass("down");
+    expect(med.getByText(/vs the 6 weeks before/)).toHaveTextContent("last 6 weeks · −$7.00 (−64%) vs the 6 weeks before");
+    tileOf("Changes finished").getByText("7");
+    tileOf("Changes finished").getByText("$79.00 spent on them");
+    // Every agents change of every command: five /flow, four /flow-fast.
+    tileOf("Flow changes landed").getByText("9");
+    await user.click(pressed("Project", /^gymie/));
+    tileOf("Flow changes landed").getByText("9");
+    await user.click(pressed("Command", /^\/flow-fast/));
+    tileOf("Flow changes landed").getByText("9");
+  });
+
+  it("trend chart draws median and mean with gaps", async () => {
+    await renderTrend();
+    const median = document.querySelector(".tr-chart path.median")!.getAttribute("d")!;
+    const meanD = document.querySelector(".tr-chart path.mean")!.getAttribute("d")!;
+    // Jul 1 → Jul 8, then a move-to past the empty Jul 15 to Jul 22 → Jul 29.
+    expect(median.match(/M/g)).toHaveLength(2);
+    expect(median.match(/[ML]/g)).toHaveLength(4);
+    expect(document.querySelectorAll(".tr-chart circle.pt")).toHaveLength(4);
+    expect(meanD).not.toEqual(median);
+    expect(document.querySelectorAll(".tr-chart rect.fc")).toHaveLength(12);
+  });
+
+  it("trend chart hover shows the week's tip", async () => {
+    const user = userEvent.setup();
+    await renderTrend();
+    await user.hover(screen.getByTestId("trend-week-2026-07-22"));
+    const tip = document.querySelector<HTMLElement>(".tr-tip")!;
+    expect(tip).toHaveTextContent("Week of Jul 22");
+    expect(tip).toHaveTextContent("3 changes · median $3.00 · mean $15.00");
+    expect(tip).toHaveTextContent("3 flow changes landed");
+    await user.hover(screen.getByTestId("trend-week-2026-07-15"));
+    expect(tip).toHaveTextContent("Week of Jul 15");
+    expect(tip).toHaveTextContent("no finished changes");
+    expect(tip).toHaveTextContent("0 flow changes landed");
+  });
+
+  it("trend table lists weeks newest first with the empty state", async () => {
+    await renderTrend();
+    const table = screen.getByRole("table");
+    expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
+      "Week",
+      "Changes",
+      "Median",
+      "vs previous week",
+      "Mean",
+      "Spend",
+      "Flow changes",
+    ]);
+    const rows = within(table).getAllByRole("row").slice(1);
+    expect(rows).toHaveLength(12);
+    expect(rows[0]).toHaveTextContent(/^Aug 12 so far/);
+    const jul15 = within(rows.find((r) => r.textContent?.startsWith("Jul 15"))!).getAllByRole("cell");
+    expect([jul15[1], jul15[2], jul15[4], jul15[5]].map((c) => c.textContent)).toEqual(["0", "—", "—", "—"]);
+    expect(rows[rows.length - 1]).toHaveTextContent(/^May 27/);
+  });
+
+  it("trend reads no rows for the selection as its empty state", async () => {
+    fetchStatsViewMock.mockImplementation((view: StatsViewSlug) => Promise.resolve(envelope(view, [])));
+    await renderTrend();
+    screen.getByText("No finished changes in this period.");
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+});
+
 describe("absence is rendered distinctly from a recorded zero", () => {
   it("a period before the store held anything is stated, not rendered as an empty measured table", async () => {
     fetchStatsViewMock.mockImplementation((view: StatsViewSlug) =>
       Promise.resolve(envelope(view, [], false)),
     );
     render(<Trend period={period} project={undefined} />);
-    // Every one of Trend's panels shares the same underlying `state`
-    // (task 20's recomposition: one useStatsView call per view, several
-    // Panel instances reading it), so each independently renders the
-    // not-recorded banner rather than one page-level banner -- Panel is
-    // now the sole implementation of that branch (this file's own header
-    // comment, and Panel.tsx's), so seeing it repeated per panel is
-    // exactly what "not duplicated across two files" looks like from one.
+    // Trend's body reads its one request's absence through Panel, the sole
+    // implementation of that branch (Panel.tsx's header comment).
     const banners = await screen.findAllByTestId("not-recorded");
     expect(banners.length).toBeGreaterThan(0);
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("time-series-point")).not.toBeInTheDocument();
+    expect(screen.queryByText("Median per change")).not.toBeInTheDocument();
   });
 
   // Task 5's third arm, exercised end to end through a real view rather
@@ -1478,7 +1611,7 @@ describe("absence is rendered distinctly from a recorded zero", () => {
     }
     expect(screen.queryByTestId("not-recorded")).not.toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("time-series-point")).not.toBeInTheDocument();
+    expect(screen.queryByText("Median per change")).not.toBeInTheDocument();
   });
 });
 

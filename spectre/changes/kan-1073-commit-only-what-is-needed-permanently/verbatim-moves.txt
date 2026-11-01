@@ -463,3 +463,31 @@ The session then ends the stage with `flow stage end -command '/flow' -stage flo
 The summary and the `## Decision` block still print, the high-raise question below is not asked and takes **No**, and the run continues to the plan snapshot and the `STARTED` handoff.
 Then the question — `/flow-plan`'s wording is **Save the plan?**, `/flow`'s is **Proceed to implementation?
 flow stage end -command '/flow' -stage flow.self-review -outcome completed <name>
+**One fixer for the whole stage**, never the parent and never a resumed implementer: once the last group's guard has passed and every gated bundle has returned, one dispatch carries every `fix` report and every Minor a gated pass left open — the gated row of **Every fix is a fresh one-shot** (`skills/flow/implement.md`), keyed `task-<n+n>-implementer-fix-<k>`, the ids every task it fixes `+`-joined in plan order, on the decision's `fixer` pair.
+**One re-review bundle** then carries every task whose pass was `fix`, under `task-<n+n>-reviewer-fix-<k>`, the same convention as the fixer's key, each pass on its own fix diff, its findings file `findings-gated-<n+n>-fix-<k>.jsonl`.
+Every file it writes under `<sr-dir>` or `<state-dir>/flow-eval/<name>/` is its own report file under READ-ONLY REVIEW.
+It hands back only its per-angle counts, the non-`big` finding ids, one line per `big` finding, its case ids, and whether it met a product defect.
+It writes `<sr-dir>/findings.md`: every finding under an `F<n>` id, with its angle, its evidence, its severity and its classification — `noted` or fixable, in or out of scope, and for a fixable one its counted blast radius and whether it is `big` — and a `## Offered` section laying out every `big` finding and every angle-7 candidate in step 4's explanation layout.
+| every `fix` verdict and every Minor the gated passes left open | `task-<ids>-implementer-fix-<k>`, the ids every task it fixes, `+`-joined in plan order | the decision's `fixer` | once, at the stage's end (`skills/flow/gated-review-fix.md`) |
+**A change to `<agents repo>`'s own tooling integrates with the branch's copy of it.
+**A self-hosting change refreshes the tooling before the save.
+**One re-review bundle**, once the last fixer's return has run, carries every task whose pass was `fix`, under `task-<n+n>-reviewer-fix-<k>`, the same convention as the fixer's key, each pass on its own fix diff, its findings file `findings-gated-<n+n>-fix-<k>.jsonl`.
+Beside the two files it hands back only its per-angle counts, the non-`big` finding ids, one line per `big` finding, its case ids, and whether it met a product defect.
+Each file's text sits under one line `=== <file name> ===`.
+Every case file it writes — under `<sr-dir>/cases/` or `<state-dir>/flow-eval/<name>/` — is its own report file under READ-ONLY REVIEW.
+Its hand-back carries the full text of `findings.md`: every finding under an `F<n>` id, with its angle, its evidence, its severity and its classification — `noted` or fixable, in or out of scope, and for a fixable one its counted blast radius and whether it is `big` — and a `## Offered` section laying out every `big` finding and every angle-7 candidate in step 4's explanation layout.
+PATH=<scratch>/bin:<canonical-worktree>/scripts:$PATH integrate-change.sh prepare <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
+The cleanup's own later refresh then finds nothing to move.
+The installed `flow` and flowd predate the change, so the save would exit 2 on a command or table they lack, or the old cleanup would remove the worktree with no save.
+The installed script and CLI predate the change, and the script builds its guards from its own checkout (`<agents repo>/scripts/lib/flow-guard.sh`) while taking `flow` from `PATH` — kan-1073's installed `commit` failed on the branch's planning commit, and its installed `flow` had no `change` command.
+This is the one stop of flowd `<agents repo>/CLAUDE.md`'s reinstall rule allows, brought straight back up.
+This session writes each of the two files to `<sr-dir>` from the hand-back, byte for byte, before step 2a.
+When the canonical repository is `<agents repo>` and `git -C <canonical-worktree> diff --name-only <base>...HEAD` names a path under `scripts/`, `stats/` or `skills/` — the three trees whose installed copies a run executes — every `integrate-change.sh` call this file and `skills/flow/cleanup.md` make resolves to the branch's own copy and runs with a `flow` built from the branch, both first on `PATH`:
+and of `report-draft.md`, step 6's input, each disposition step 3 decides written as a placeholder: `fixed: <F-id>` for a non-`big` finding, `offered: <F-id>` for a `big` one.
+cd <canonical-worktree>/stats && go build -o <scratch>/bin/flow ./cmd/flow
+make -C <agents repo>/stats restart
+refresh-main-checkout.sh <agents repo> <agents-base>
+then re-read this file from the refreshed checkout and continue with the save.
+It hands back the full content of `<sr-dir>/report-draft.md`, step 7's report, each disposition step 3 decides written as a placeholder: `fixed: <F-id>` for a non-`big` finding, `offered: <F-id>` for a `big` one.
+Where a fix run's planning commit restored the change directory after that drop (`skills/flow/document-fix.md`), the canonical worktree's since-close sha is that planning commit instead, since a range from the drop commit counts the whole restored directory (kan-1051 self-review, F4: 12,397 changed lines, where the fix's own delta was small).
+It hands back the full content of `<sr-dir>/report-draft.md`, step 6's input, each disposition step 3 decides written as a placeholder: `fixed: <F-id>` for a non-`big` finding, `offered: <F-id>` for a `big` one.

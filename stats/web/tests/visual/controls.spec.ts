@@ -52,7 +52,7 @@ async function expectOnlyPressed(page: Page, pressedName: string) {
 // attribute flipping, the URL changing), never a screenshot alone: a
 // screenshot proves the page painted, not that the control did what it
 // says. Values are read from the live UI-test stack (see support.ts's own
-// header comment and views.spec.ts's for the endpoints queried), not
+// header comment and stage-leaderboard.spec.ts's and trend.spec.ts's for the endpoints queried), not
 // assumed.
 //
 // The Reviewers view's table is the shared target for the dashboard bar's
