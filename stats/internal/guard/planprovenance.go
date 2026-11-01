@@ -3364,13 +3364,13 @@ func checkPlanProvenance(_ []string, env Env, stdout, stderr io.Writer) int {
 		return g.reportContainmentRefusal(nil)
 	}
 
-	// No spectre/changes directory at all: genuinely cannot determine
-	// anything — the same "cannot know" case as REPO_ROOT not being a
-	// directory above.
+	// No spectre/changes directory at all: spectre/changes/ is gitignored,
+	// so a fresh checkout or worktree has none until a change is planned
+	// in it — nothing in flight, the same steady state as an empty one.
 	notFound := fmt.Sprintf("spectre/changes not found under %s — refusing to report a clean run", repoRoot)
-	if !isDir(g.abs(changesDir)) {
-		fmt.Fprintln(stderr, notFound)
-		return 2
+	if _, err := os.Lstat(g.abs(changesDir)); errors.Is(err, os.ErrNotExist) {
+		fmt.Fprintf(stdout, "check-plan-provenance: no spectre/changes under %s — nothing in flight\n", repoRoot)
+		return 0
 	}
 
 	// Count non-archived change directories FIRST, and treat zero of them

@@ -327,7 +327,7 @@ func ppCasesSyntaxToPass6() []ppCase {
 			root := ppFixture(t)
 			os.RemoveAll(filepath.Join(root, "spectre"))
 			r := ppRun(root)
-			ok(t, "missing spectre/changes/ exits 2 (cannot determine)", r.rc == 2, r)
+			ok(t, "missing spectre/changes/ is nothing in flight: exits 0 (the directory is gitignored)", r.rc == 0, r)
 		}},
 		// SECTION: Containment / security — symlink escapes (exit 3).
 		{"case 19", func(t *testing.T) {
