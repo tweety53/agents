@@ -40,7 +40,7 @@ checkout on any other branch: print the branch and stop.
 
 **This session passes file paths, never file contents.** Every handoff between this file's steps
 is a file in `<sr-dir>`, `<state-dir>/self-review/<name>/`, `<state-dir>` being the path `flow
-state dir` prints — outside every checkout, never committed. This session reads each dispatch's
+state dir` prints — outside every checkout, never committed. The one exception is the pass's own output: the harness refuses a subagent's Write under `<sr-dir>`, so the pass hands back its files' full contents and this session writes them (kan-1051 self-review, F6). This session reads each dispatch's
 hand-back, never the files it names, save where a step below says it reads one; every judgement —
 `big`, filing, landing, and when a step runs again — stays this session's.
 Before the pass is dispatched, this session empties `<sr-dir>` of every file but `bundle.md`, so a re-run never fills an earlier run's draft or copies its cases.
@@ -48,12 +48,12 @@ Before the pass is dispatched, this session empties `<sr-dir>` of every file but
 Dispatch the pass, in-run and standalone alike: key `self-review-<name>-pass`, on the `pass` row
 of **Allowed pairs** (`skills/flow-contracts/model-policy.md`), its prompt naming the bundle's path — `<bundle>`
 standalone, `<sr-dir>/bundle.md` in-run — and `<sr-dir>`, and carrying this step's rules and step 3's classification, the
-dispatch paragraphs step 3 names and READ-ONLY REVIEW. It writes `<sr-dir>/findings.md`: every finding under an `F<n>` id, with its angle, its
+dispatch paragraphs step 3 names and READ-ONLY REVIEW. It hands back the full content of `<sr-dir>/findings.md`: every finding under an `F<n>` id, with its angle, its
 evidence, its severity and its classification — `noted` or fixable, in or out of scope, and for a fixable one its
 counted blast radius and whether it is `big` — and a `## Offered` section laying out every `big` finding and every angle-7 candidate in step 4's explanation layout.
-It writes `<sr-dir>/report-draft.md`, step 7's report, each disposition step 3 decides written as a placeholder: `fixed: <F-id>` for a non-`big` finding, `offered: <F-id>` for a `big` one.
-Every file it writes under `<sr-dir>` or `<state-dir>/flow-eval/<name>/` is its own report file under READ-ONLY REVIEW.
-It hands back only its per-angle counts, the non-`big` finding ids, one line per `big` finding, its case ids, and whether it met a product defect. This session keeps the filing-and-rating prompt, the
+It hands back the full content of `<sr-dir>/report-draft.md`, step 7's report, each disposition step 3 decides written as a placeholder: `fixed: <F-id>` for a non-`big` finding, `offered: <F-id>` for a `big` one.
+It hands back every case file under `<sr-dir>/cases/<case-id>/` and every file for `<state-dir>/flow-eval/<name>/` the same way, each under its target path, and writes no file itself.
+Beside those contents it hands back its per-angle counts, the non-`big` finding ids, one line per `big` finding, its case ids, and whether it met a product defect. Before step 2a, this session writes each returned file to its target path, byte for byte. This session keeps the filing-and-rating prompt, the
 store rows and the report. The pass's dispatch row is opened under `<name>` by the hook that admits it;
 when the pass hands back, this session closes it, `flow record dispatch end -change <name> -key
 self-review-<name>-pass -session-token self-review-<name> -outcome completed` — `flow stage end`
@@ -176,7 +176,7 @@ folder:
 - **[flow-prompt-tuning]** <defect class> — <type> — docs/prompt-tuning/<case-id>/ — noted
 ```
 
-The pass writes each case's files, step 2a's table save `index.html`, into `<sr-dir>/cases/<case-id>/`.
+The pass hands back each case's files, step 2a's table save `index.html`, for `<sr-dir>/cases/<case-id>/`, and this session writes them there.
 
 An `In-run pipeline fix:` line in the bundle (**Pipeline defects found mid-run**,
 `skills/flow-contracts/pipeline.md`) that names a sha is reported under angle 1 as fixed and
