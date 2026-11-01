@@ -16,8 +16,10 @@
 # `Flow-Key: flow.commit-two` and each <trailer> (a squashed commit's
 # `Task-Id: <n>`) in its trailer block. Then
 # stages anything left and commits that under <plan-msg>, skipped the same
-# way if empty. `spectre/changes/` is gitignored, so the change directory is
-# in neither commit.
+# way if empty. `<spec root>/changes/` is gitignored, and
+# `<spec root>/changes/<name>/` is first untracked (`git rm -r --cached`, the
+# files kept on disk), so the change directory is in neither commit even where
+# an older tooling committed it.
 #
 # `<name>` is the change: before anything is staged, the in-process
 # change-worktree location check refuses a <worktree> that is a main

@@ -214,3 +214,38 @@ func TestCommitSplit(t *testing.T) {
 		check(t, rc == 2 && out == "usage: commit-split.sh <worktree> <name> <impl-msg> <plan-msg> [<trailer>…]", "usage", "rc=%d out=%q", rc, out)
 	})
 }
+
+// A change planned under the pre-kan-1073 tooling committed its own
+// directory; reshape-branch's soft reset leaves it staged, and the ignore
+// rule alone never unstages a tracked path.
+func TestCommitSplitUntracksTheChangeDirectory(t *testing.T) {
+	t.Parallel()
+	fx := csNew(t)
+	writeFile(t, fx.wt+"/spectre/changes/demo/plan.md", "plan\n")
+	writeFile(t, fx.wt+"/spectre/changes/other/keep.md", "other\n")
+	splitGit(t, fx.wt, nil, "add", "-f", "spectre/changes")
+	splitGit(t, fx.wt, nil, "commit", "-q", "-m", "old planning commit")
+	writeFile(t, fx.wt+"/spectre/changes/demo/plan.md", "plan, edited after the planning commit\n")
+	splitGit(t, fx.wt, nil, "reset", "-q", "--soft", "HEAD~1")
+	writeFile(t, fx.wt+"/src.md", "impl change\n")
+	rc, out := fx.split(t, fx.wt, "untrack")
+	if rc != 0 {
+		t.Fatalf("exit: rc=%d out=%s", rc, out)
+	}
+	impl := fx.files(t, fx.shaOf(t, "impl: untrack"))
+	if !impl["src.md"] {
+		t.Errorf("src.md missing from the implementation commit: %v", impl)
+	}
+	if impl["spectre/changes/demo/plan.md"] {
+		t.Errorf("the change's own plan.md is in the implementation commit: %v", impl)
+	}
+	if got := splitGit(t, fx.wt, nil, "ls-files", "spectre/changes/demo"); got != "" {
+		t.Errorf("the change directory is still tracked: %q", got)
+	}
+	if !isFile(fx.wt + "/spectre/changes/demo/plan.md") {
+		t.Errorf("plan.md lost from disk")
+	}
+	if !impl["spectre/changes/other/keep.md"] {
+		t.Errorf("another change's tracked file was untracked: %v", impl)
+	}
+}

@@ -37,6 +37,12 @@ func commitSplit(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "commit-split: %s is not gitignored in %s — add it to .gitignore before integrating\n", changes, worktree)
 		return 2
 	}
+	// An ignore rule never removes a path the index already tracks, and a
+	// change planned under the old tooling committed its own directory: it is
+	// untracked here, and stays on disk.
+	if rc := run("rm", "-r", "-q", "-f", "--cached", "--ignore-unmatch", "--", changes+name); rc != 0 {
+		return rc
+	}
 	if rc := run("add", "-A", "--", "."); rc != 0 {
 		return rc
 	}
