@@ -1,1 +1,0 @@
-../../../scripts/check-planning-commit-location.sh

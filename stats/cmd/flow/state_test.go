@@ -1302,18 +1302,22 @@ func containsName(names []string, name string) bool {
 	return false
 }
 
-// changesDirFixture creates <mainCheckout>/spectre/changes/kan-a,
-// spectre/changes/kan-b, and spectre/changes/archive/kan-b (which also
-// creates spectre/changes/archive itself) -- the fixture shape
-// TestStateResolveFallbackUnionsChangesDir and
-// TestStateResolveFallbackDropsArchived both need: an unarchived change,
-// an archived one, and the archive directory itself.
+// changesDirFixture creates the worktrees <mainCheckout>-worktrees/kan-a
+// and kan-b, each holding its own spectre/changes/<name>/, plus
+// <mainCheckout>-worktrees/other holding no change directory and
+// <mainCheckout>/spectre/changes/kan-z, which a gitignored change directory
+// in the main checkout never makes a candidate.
 func changesDirFixture(t *testing.T, mainCheckout string) {
 	t.Helper()
-	dir := filepath.Join(mainCheckout, "spectre", "changes")
-	for _, name := range []string{"kan-a", "kan-b", filepath.Join("archive", "kan-b")} {
-		if err := os.MkdirAll(filepath.Join(dir, name), 0o755); err != nil {
-			t.Fatalf("mkdir %s: %v", name, err)
+	wts := mainCheckout + "-worktrees"
+	for _, dir := range []string{
+		filepath.Join(wts, "kan-a", "spectre", "changes", "kan-a"),
+		filepath.Join(wts, "kan-b", "spectre", "changes", "kan-b"),
+		filepath.Join(wts, "other"),
+		filepath.Join(mainCheckout, "spectre", "changes", "kan-z"),
+	} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", dir, err)
 		}
 	}
 }
@@ -1384,14 +1388,16 @@ func TestStateResolveFallbackUnionsChangesDir(t *testing.T) {
 			t.Errorf("candidates = %v, want %q present", names, want)
 		}
 	}
-	if containsName(names, "archive") {
-		t.Errorf("candidates = %v, want the archive directory itself never listed as a change", names)
+	for _, unwanted := range []string{"other", "kan-z"} {
+		if containsName(names, unwanted) {
+			t.Errorf("candidates = %v, want %q (no change directory in its own worktree) absent", names, unwanted)
+		}
 	}
 }
 
 // TestStateResolveFallbackDropsLanded pins the fallback's one removal: a
-// FINISHED record no live directory holds is a landed change -- run 1
-// dropped its directory -- and leaves the candidate list.
+// FINISHED record no worktree's change directory holds is a landed change
+// -- cleanup removed its worktree -- and leaves the candidate list.
 func TestStateResolveFallbackDropsLanded(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
@@ -1408,9 +1414,8 @@ func TestStateResolveFallbackDropsLanded(t *testing.T) {
 }
 
 // TestStateResolveFallbackKeepsInProgressWithoutDir pins that a change
-// without a live directory is kept unless FINISHED: once run 1's drop
-// commit merges, the main checkout lacks the directory while the change
-// still waits, IN_PROGRESS, on run 2's cleanup.
+// without a change directory is kept unless FINISHED: a change whose
+// worktree is not on this machine still waits, IN_PROGRESS, on its run.
 func TestStateResolveFallbackKeepsInProgressWithoutDir(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
@@ -1525,7 +1530,7 @@ func TestStateListFallbackReportsUnreadableFileByName(t *testing.T) {
 	}
 	out := decodeStateListOutput(t, stdout.Bytes())
 	if len(out.Records) != 1 {
-		t.Fatalf("records = %+v, want exactly one (named, not dropped)", out.Records)
+		t.Fatalf("records = %+v, want exactly one (named, never silently omitted)", out.Records)
 	}
 	if out.Records[0].Name != "kan-corrupt" || !out.Records[0].Unreadable {
 		t.Errorf("records[0] = %+v, want name=kan-corrupt unreadable=true", out.Records[0])

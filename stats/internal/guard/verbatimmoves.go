@@ -107,7 +107,7 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "check-verbatim-moves: no sentences under skills/, commands-claude/ or rules/ in %s — refusing to report a clean run\n", root)
 		return 2
 	}
-	acks, err := vmAcks(git, root, base)
+	acks, err := vmAcks(root)
 	if err != nil {
 		fmt.Fprintf(stderr, "check-verbatim-moves: %v\n", err)
 		return 2
@@ -337,14 +337,9 @@ func vmCorpusAt(git func(...string) *exec.Cmd, root, commit string) (vmCorpus, v
 // vmAcks is every sentence listed in an in-flight change's acknowledgement
 // file — under <spec-root>/changes/<change>/, under a flow-fast run's
 // change root <worktree>/.superpowers/sdd/<change>/, which a flow-fast run
-// can write where it never writes <project>/spectre/. Nothing in the
-// changes tree's archive directory is read from the tree: an archive left
-// from before holds acknowledgements for a diff that has already landed. A
-// change directory this branch itself removed since the base — archived or
-// dropped on the branch — is read from the commit before its removal, and
-// from the archived copy that commit wrote, so the change's own self-review
-// loop still sees its list (kan-1072 self-review).
-func vmAcks(git func(...string) *exec.Cmd, root, base string) (map[string]bool, error) {
+// can write where it never writes <project>/spectre/. Both are read from
+// disk only: the change directory is never committed.
+func vmAcks(root string) (map[string]bool, error) {
 	acks := map[string]bool{}
 	add := func(text string) {
 		for _, l := range strings.Split(text, "\n") {
@@ -377,25 +372,6 @@ func vmAcks(git func(...string) *exec.Cmd, root, base string) (map[string]bool, 
 			return nil, fmt.Errorf("cannot read %s: %v", m, err)
 		}
 		add(string(b))
-	}
-	// A failed log adds nothing: the tree's lists above still count.
-	out, _ := capture(git("-C", root, "log", "--no-renames", "--diff-filter=D", "--format=%H", "--name-only", base+"..HEAD", "--", leaf+"/changes/"))
-	removed := regexp.MustCompile(`^` + regexp.QuoteMeta(leaf) + `/changes/[^/]+/` + regexp.QuoteMeta(vmAckFile) + `$`)
-	sha := ""
-	for _, l := range strings.Split(out, "\n") {
-		switch l = strings.TrimSpace(l); {
-		case l == "":
-		case !strings.Contains(l, "/"):
-			sha = l
-		case removed.MatchString(l) && git("-C", root, "cat-file", "-e", base+":"+l).Run() != nil:
-			if b, ok := capture(git("-C", root, "show", sha+"^:"+l)); ok {
-				add(b)
-			}
-			// An archive commit can carry the list edited in the same move.
-			if b, ok := capture(git("-C", root, "show", sha+":"+strings.Replace(l, leaf+"/changes/", leaf+"/changes/archive/", 1))); ok {
-				add(b)
-			}
-		}
 	}
 	return acks, nil
 }

@@ -1,37 +1,19 @@
 #!/usr/bin/env bash
-# recover-guard-incident.sh — reproduce KAN-423's incident recovery on
-# demand: abort a stuck `git revert`, then restore the untracked planning
-# files the incident stash holds, unstaged, via `git show "stash@{0}^3:<f>" >
-# <f>` redirects.
+# recover-guard-incident.sh — KAN-423's incident recovery, reduced: abort a
+# stuck `git revert`, after printing the reflog diagnosis. It once also
+# restored the untracked planning files the incident stash held; the change
+# directory is gitignored now (KAN-1073), so `git stash -u` never captures
+# it and there is nothing to restore.
 #
-# THE ORDER IS THE POINT. `git checkout stash@{...} -- <path>` stages the
-# restore, and any later `revert --abort` discards it — the incident's first
-# restore attempt was lost exactly that way. Here every abort precedes every
-# restore, and the redirects leave the files unstaged, so nothing after the
-# abort point can discard them.
-#
-# Usage: recover-guard-incident.sh [--apply] [repo-dir] [path...]
+# Usage: recover-guard-incident.sh [--apply] [repo-dir]
 #
 #   --apply    execute; without it, print what would run and change nothing
 #   repo-dir   defaults to the caller's cwd; must be a git repository
-#   path...    planning paths to restore, relative to the repo root;
-#              defaults to `spectre/changes`
 #
-# Exit 0 on a printed dry-run plan or a completed apply; 1 on a failed
-# precondition (cause on stderr, stdout empty); 2 on a usage error — an
-# unknown option, a repo-dir that is not a directory, or a repo-dir that is
-# not a git repository.
-#
-# PRECONDITIONS ARE CHECKED IN ORDER AND THE FIRST FAILURE NAMES ITS CAUSE
-# ON STDERR WITH NOTHING ON STDOUT: no revert in progress (REVERT_HEAD
-# missing); no stash at all; a stash created without
-# `-u` (no untracked third parent — the remedy is re-stashing with -u BEFORE
-# any abort, so the two causes are named differently); a restore target
-# tracked in the index or HEAD, which refuses the whole run at the first
-# offending file.
-# A target already present untracked is restored over, named as an
-# overwrite in the plan — untracked state is never clobbered silently, and
-# tracked state is never clobbered at all.
+# Exit 0 on a printed dry-run plan or a completed apply; 1 when no revert is
+# in progress (REVERT_HEAD missing; cause on stderr, stdout empty); 2 on a
+# usage error — an unknown option, an argument after repo-dir, a repo-dir
+# that is not a directory, or a repo-dir that is not a git repository.
 #
 # THE REFLOG BLOCK PRINTS IN EVERY MODE, dry-run and apply alike — the
 # incident was diagnosed from `git reflog -g HEAD`'s alternating reset

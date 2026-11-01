@@ -95,6 +95,19 @@ type guardResult struct {
 	out, stdout, err string
 }
 
+// lockedWriter serialises writes: a guard's child process has its stdout and
+// stderr copied by two goroutines, and both land in one merged buffer.
+type lockedWriter struct {
+	mu *sync.Mutex
+	w  io.Writer
+}
+
+func (l lockedWriter) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.w.Write(p)
+}
+
 func runGuard(name string, args []string, env Env) guardResult {
 	fn := Registry[name]
 	if fn == nil {
@@ -104,7 +117,7 @@ func runGuard(name string, args []string, env Env) guardResult {
 	var all, o, e bytes.Buffer
 	// A guard that hands both writers to a child process gets two copying
 	// goroutines, so the merged buffer they share takes a lock.
-	rc := fn(args, env, lsrrLocked{&mu, io.MultiWriter(&o, &all)}, lsrrLocked{&mu, io.MultiWriter(&e, &all)})
+	rc := fn(args, env, lockedWriter{&mu, io.MultiWriter(&o, &all)}, lockedWriter{&mu, io.MultiWriter(&e, &all)})
 	return guardResult{rc, strings.TrimRight(all.String(), "\n"), o.String(), e.String()}
 }
 

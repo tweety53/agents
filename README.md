@@ -77,7 +77,7 @@ flowchart TD
         impl["<b>Implement</b> in a worktree<br/>SDD + TDD per task → review panel<br/>→ lint + tests → staged diff + run instructions"]
         g2{{"you: review the diff — the stack is running"}}
         land{"/flow (bare)<br/>how to land?"}
-        pr["two commits → drop → self-review bundle<br/>→ push → open PR<br/>issue → In Review"]
+        pr["implementation commit → push → open PR<br/>issue → In Review"]
         g3{{"you: merge the PR, then /flow"}}
         impl --> g2
         g2 -- "/flow #lt;what to fix#gt;<br/>or just describe it" --> impl
@@ -87,10 +87,10 @@ flowchart TD
     end
 
     subgraph S3 ["FINISHED"]
-        cleanup["<b>Clean up</b><br/>verify merge → remove worktrees and branches<br/>→ issue → Done → fast-forward the main checkout"]
+        cleanup["<b>Clean up</b><br/>verify merge → save to flowd → remove worktrees and branches<br/>→ issue → Done → fast-forward the main checkout"]
     end
 
-    land -- "merge and push:<br/>drop → bundle → push to base" --> cleanup
+    land -- "merge and push:<br/>push to base" --> cleanup
     g3 --> cleanup
 ```
 
@@ -99,8 +99,8 @@ flowchart TD
   same session.
 - **Merge status alone decides** whether a bare `/flow` integrates or cleans up, so a PR merged on
   the forge and one `/flow` merged itself look the same.
-- **Run 2 runs no tests or linters** and commits nothing: the drop commit and the self-review bundle
-  ride the change's own branch, landing with the code.
+- **Run 2 runs no tests or linters** and commits nothing: it saves the change's `tasks.md` and
+  self-review bundle to flowd, then removes the worktrees.
 
 Canonical detail: **State transitions** (`skills/flow-contracts/pipeline.md`), and
 `skills/flow-contracts/finish-contract-run1.md` / `finish-contract-run2.md` for landing and cleanup.
@@ -168,8 +168,6 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 | `flow.landing-question` | The landing question (run 1) | `/flow`, `/flow-fast` |
 | `flow.preserve-sessions` | Preserve the session records (run 1) | `/flow`, `/flow-fast` |
 | `flow.commit-two` | Two commits, implementation first (run 1) | `/flow`, `/flow-fast` |
-| `flow.sync-archive` | Archive the change on its branch (run 1) | `/flow`, `/flow-fast` |
-| `flow.commit-archive` | Commit the archive (run 1) | `/flow`, `/flow-fast` |
 | `flow.self-review` | Run the self-review pass (run 1) | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.pipeline-fix` | Pipeline fix — a fix to the flow tooling a run makes | `/flow`, `/flow-fast` |
 | `flow.landing-routes` | The landing routes, including moving the issue to In Review (run 1) ▸ | `/flow`, `/flow-fast`, `/flow-interactive` |
@@ -244,8 +242,8 @@ return a verdict. Each one has a `test-*.sh` harness in `scripts/`, and
   refuses and asks.
 - `check-unfinished-work.sh`: reports unticked tasks or open findings before you are asked how to
   land.
-- `commit-split.sh`: makes the two commits, implementation first and planning second.
-- `check-archive-scope.sh`: blocks a drop commit whose staged diff holds anything but deletions under the change's own directories.
+- `commit-split.sh`: makes the implementation commit; the change directory is gitignored, so nothing
+  is left for a planning commit.
 - `check-cleanup-complete.sh`: `FINISHED` is written only once every temporary artifact is gone.
 
 **This repository's own lint.** It runs in `/flow`'s verify stage here:

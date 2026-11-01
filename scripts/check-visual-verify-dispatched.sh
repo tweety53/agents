@@ -31,8 +31,7 @@
 #
 # A found verifier row counts only with the verifier's record —
 # `<spec root>/changes/<name>/visual-verification.md` in the worktree the
-# store is read under — or its copy in the parent of run 1's drop commit
-# once that commit removed the directory — the change root
+# store is read under — the change root
 # skills/flow/visual-verify-verifier.md step 11 writes; absent, the verdict is
 # VISUAL-VERIFY-MISSING naming that path (kan-970 self-review).
 #

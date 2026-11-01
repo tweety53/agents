@@ -184,8 +184,7 @@ it on every turn.
   display leaves them in the index, where `git status`, a graphical client and the IDE's
   staged-changes pane show them again. The list is fixed here rather than configured per project; the
   pipeline chooses these paths
-  itself, so no project can differ. The planning commits carry the change folder separately from
-  the implementation, and `/flow`'s integrate run commits whatever remains, so nothing is lost.
+  itself, so no project can differ.
 
 ## Artifact brevity
 

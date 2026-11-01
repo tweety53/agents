@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/client"
@@ -19,10 +22,19 @@ const selfReviewUsage = `usage: flow self-review bundle [-addr url] [-timeout du
                              -change name
 
 Prints a change's whole self-review context bundle on stdout --
-the ledger and panel record rendered from the store, the archived change's
-tasks.md, design.md and narrative.md, and the git log of the finish-run
-commits, assembled by the daemon. The CLI constructs none of it, the
-record-render rule: the bundle's shape is decided where it is produced.
+the ledger and panel record rendered from the store, the change directory's
+tasks.md, design.md, narrative.md, visual-verification.md and
+live-verification.md read from the worktree on disk, and the git log of its
+first-parent merge-base..HEAD range, assembled by the daemon. The CLI
+constructs none of it, the record-render rule: the bundle's shape is decided
+where it is produced.
+
+Run inside the change's worktree (-C, default cwd), it also writes the
+bundle to <worktree>/.superpowers/sdd/<change>/self-review-context.md,
+the file run 2's flow change save keeps. Run anywhere else -- a
+deferred run once cleanup removed the worktree -- it prints the bundle saved
+in flowd (flow change file <change> self-review-context.md)
+instead, exit 1 when flowd holds none.
 
 This is a read, with the findings read's contract: a store that cannot be
 reached is reported to stderr and exits non-zero -- never a partial bundle
@@ -44,8 +56,7 @@ and noted;
 
 This is a write that never blocks: a store that cannot be reached, or
 that fails the write for any reason but a refusal, is one warning line on
-stderr and exit 0, with no journal -- the committed
-self-review report already carries every finding's disposition. A store
+stderr and exit 0, with no journal. A store
 refusal (a disposition outside the closed set, a ref that does not fit it)
 is the caller's mistake and exits 2 with the store's message, as does a
 missing required flag or a negative -blast-radius.
@@ -82,7 +93,7 @@ func runSelfReview(ctx context.Context, args []string, stdout, stderr io.Writer)
 }
 
 // selfReviewBundleTimeout is the bundle call's default deadline: the daemon
-// assembles the bundle from git history and the call has no fallback, so the
+// assembles the bundle from the worktree and git, and the call has no fallback, so the
 // store-write fallback deadline (defaultTimeout) does not apply (kan-1072
 // self-review, F3).
 const selfReviewBundleTimeout = time.Minute
@@ -101,15 +112,60 @@ func runSelfReviewBundle(ctx context.Context, args []string, stdout, stderr io.W
 		return code
 	}
 
+	// Inside the change's own linked worktree -- on spectre/<change>, or
+	// <change> for /flow-fast and /flow-interactive -- the
+	// daemon assembles the bundle from that worktree and the bundle is kept
+	// beside it for `flow change save`; anywhere else (a deferred run after
+	// cleanup, or another change's worktree) the saved bundle is the input.
+	wt := worktreeRoot(f.dir)
+	branch, _ := exec.Command("git", "-C", f.dir, "rev-parse", "--abbrev-ref", "HEAD").Output()
+	if b := strings.TrimSpace(string(branch)); wt == "" || wt == realPath(mainCheckout) || (b != "spectre/"+f.change && b != f.change) {
+		saved, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (string, error) {
+			return cl.GetChangeFile(ctx, projectKey, f.change, "self-review-context.md")
+		})
+		if err != nil {
+			fmt.Fprintf(stderr, "flow: self-review bundle: no worktree for %s and no saved bundle: %v\n", f.change, err)
+			return 1
+		}
+		_, _ = io.WriteString(stdout, saved)
+		return 0
+	}
+
 	bundle, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]byte, error) {
-		return cl.GetSelfReviewBundle(ctx, projectKey, f.change, mainCheckout)
+		return cl.GetSelfReviewBundle(ctx, projectKey, f.change, wt)
 	})
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: self-review bundle: %v\n", err)
 		return 1
 	}
+	out := filepath.Join(wt, ".superpowers", "sdd", f.change, "self-review-context.md")
+	if err := os.MkdirAll(filepath.Dir(out), 0o755); err == nil {
+		err = os.WriteFile(out, bundle, 0o644)
+	}
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: self-review bundle: write %s: %v\n", out, err)
+		return 1
+	}
 	_, _ = stdout.Write(bundle)
 	return 0
+}
+
+// worktreeRoot is dir's git worktree root, symlinks resolved; "" outside
+// any worktree.
+func worktreeRoot(dir string) string {
+	top, err := exec.Command("git", "-C", dir, "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return ""
+	}
+	return realPath(strings.TrimSpace(string(top)))
+}
+
+// realPath is p with symlinks resolved, p itself when that fails.
+func realPath(p string) string {
+	if r, err := filepath.EvalSymlinks(p); err == nil {
+		return r
+	}
+	return p
 }
 
 // parseSelfReviewFlags parses one self-review subcommand's flags, refuses a

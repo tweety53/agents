@@ -33,6 +33,11 @@ unticked task whose subject a commit carries as a violation.
 
 ## SKILL.md — 2. Read the bundle and run the eight angles
 
+The harness refuses a subagent's Write of `findings.md` and `report-draft.md` ("Subagents should
+return findings as text, not write report files" — kan-1051 self-review F6, kan-1073 self-review
+F15), while the pass's case files were written, so the pass returns the two files' text and this
+session writes them (decision pass-hands-back-file-text).
+
 ### Angle 8 — prompt tuning
 
 The angle borrows from `/claude-api prompt-audit` and its eval-hillclimb guide: describe the
@@ -49,15 +54,3 @@ cruft — re-baselining can add text as well as remove it (kan-1032).
 - **Cases ride the pass's fix branch** (decision `cases-ride-fix-branch`) — rejected: a separate
   `prompt-tuning-<name>` branch, because it adds a second landing per run.
 
-## SKILL.md — 3. Fix every finding that is not `big`, item 4 (KAN-1072)
-
-The self-review sub-change is dropped, not archived (decision landing-drop-replaces-archive): its
-directory leaves the tip in one `chore(spectre): drop self-review-<name>` commit. Moved verbatim,
-the archive-era rules that no longer apply once `spectre archive` is not run and the sub-change's
-`tasks.md` leaves with the drop:
-
-`--force` only when a task stays
-   unticked, its finding found `big` or its commit dropped.
-
-a task commit dropped after it has its task unticked
-   in the archive commit by this session (`git commit --amend`).

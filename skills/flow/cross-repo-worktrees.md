@@ -6,8 +6,7 @@ repository holding no worktree for this change, `## visual verification` names a
 `regression checkout`, or the resolved worktree set spans more than one repository.
 
 **Every worktree this stage creates for a linked peer runs its
-repository's `## worktree setup` before anything else touches it**: before its `spectre link`, its
-link or planning commit, and any task. Run `project-get.sh <that worktree> "worktree setup"` and
+repository's `## worktree setup` before anything else touches it**: before its `spectre link` and any task. Run `project-get.sh <that worktree> "worktree setup"` and
 handle it exactly as step 3 of **A. Resolve the change and write `STARTED`**
 (`skills/flow/brainstorm.md`) does for the kickoff worktree — only the fenced command lines, from
 that worktree's root, in order, in the foreground; exit 1 says the key is absent and continues;
@@ -19,12 +18,7 @@ below gets its setup from `kickoff-worktree.sh`.
 `spectre link --root <abs-worktree>/spectre <canonical-peer>:<name>` with the working directory at
 that repository's primary checkout.**
 `<canonical-peer>` is the canonical repository's own name in that worktree's
-`<project>/spectre/peers` file. Each link writes `link.md` on both sides, so each is followed by its
-link commit before the next link runs (**Planning commits**,
-`skills/flow-contracts/git-boundaries.md`) — never by `--force`. Each link commit is made in the
-worktree holding that `link.md`, never the primary checkout the link ran from, behind
-`check-planning-commit-location.sh <abs-worktree> <name>`; a refusal stops the run like a refused
-link. Record what the command wrote alongside that worktree's merge
+`<project>/spectre/peers` file. Each link writes `link.md` on both sides, on disk and nothing else. Record what the command wrote alongside that worktree's merge
 base in this run's working notes. **A refusal is a hard failure of this stage**: report it and
 stop the run. A change with no linked peers runs
 nothing here.
@@ -63,12 +57,11 @@ remaining repositories in `## apps` declaration order. Every entry other than `.
 repository's name in the canonical worktree's `<project>/spectre/peers` file — the name `spectre
 validate` accepts there — never the `## apps` row's label; a resolved repository that file does not
 declare is a hard failure of this stage, reported and stopping the run like a refused link, until the
-project declares it. The write lands as a planning commit in the
-worktree holding the file, behind `check-planning-commit-location.sh <abs-worktree> <name>`
-(**Planning commits**, `skills/flow-contracts/git-boundaries.md`), and what it wrote is recorded
+project declares it. The write lands on disk in the
+worktree holding the file, and what it wrote is recorded
 in the working notes beside the merge bases. `kickoff-worktree.sh --from <canonical worktree>` makes
 this record itself once that worktree holds `<changeRoot>` — writing the `link.md` in the shape
-below, or appending its repository's peers name — and leaves the planning commit to its caller. A change with one repository runs nothing here.
+below, or appending its repository's peers name — with no commit by its caller. A change with one repository runs nothing here.
 
 **Each `## Merge order` entry is a numbered line naming its repository in backticks** — `spectre
 validate` refuses a bare `1. .` — so a change spanning this repository and one peer writes, per

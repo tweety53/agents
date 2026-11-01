@@ -18,9 +18,12 @@
 #   3  the delta is small — `git diff --numstat <since-close-sha>` per
 #      worktree, insertions and deletions summed across the set, is at most
 #      40 changed lines; a binary entry (`-`) cannot be counted and fails;
-#   4  no scope growth — `git diff <since-close-sha> -- <tasks.md>` in the
-#      canonical worktree adds no line matching `^- \[[ xX]\] [0-9]+\.`;
-#      an untracked <tasks.md> fails;
+#   4  no scope growth — <tasks.md> carries no task line
+#      (`^- \[[ xX]\] [0-9]+\.`) whose task number is absent from
+#      <canonical-worktree>/.superpowers/sdd/<change>/tasks-at-close.md, the
+#      copy of the plan the review panel's close step writes at each clean
+#      close (the plan is gitignored, so no commit holds it); a missing copy
+#      fails, naming it on stderr;
 #   5  the panel's own machinery is untouched — no path in
 #      `git diff --name-only <since-close-sha>` matches
 #      skills/flow/review-panel*.md, scripts/check-panel-*.sh,
@@ -35,8 +38,9 @@
 # Exit codes:
 #   0  reduce
 #   1  full path
-#   2  cannot answer — usage, a worktree/sha pair that fails
-#      panel_validate_worktree, a git failure, or check-panel-findings-closed
+#   2  cannot answer — usage, a change name outside the allowlist, a
+#      worktree/sha pair that fails panel_validate_worktree, a git failure,
+#      an unreadable <tasks.md>, or check-panel-findings-closed
 #      exit 2 (its stderr passed through); the caller reads it as full path
 #   3  append scope — conditions 1, 2 and 5 hold and only 3 and/or 4 failed,
 #      and the delta is over 250 counted lines or has a binary entry:

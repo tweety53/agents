@@ -3,8 +3,8 @@
 # paths the index does not track (KAN-817, kan-743's self-review): a done
 # criterion is only as good as the committed state it names, and one
 # satisfied by uncommitted, gitignored files is silently erased by cleanup.
-# commit-archive runs this check before its drop stages anything; this shim is its
-# standalone form.
+# No step runs this check in-process; this shim is its only form, and this
+# repository's `## lint` runs it.
 #
 # Usage: check-done-when-paths.sh <worktree>
 #

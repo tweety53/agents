@@ -31,12 +31,9 @@ the design.
   for it. A mockup or ticket that states it still governs.
 - **A reported defect is checked against history before its fix is designed.** For each entry of a
   bug list, a findings file or a ticket naming symptoms, run `git log --since=<the report's date>`
-  over the paths it names on the base, search the landed changes' `design.md` in history
-  (`git log --all --grep 'chore(spectre): '`, read at each drop commit's parent or archive commit)
-  for a recorded rejection of the remedy it proposes, and run its cheap reproducer. An entry
-  already fixed is recorded in the design as fixed, with the commit that fixed it, and planned no task; a remedy an
-  archived decision rejected is not designed again unless the design records what that rejection
-  missed (kan-970: six entries were already fixed upstream and one remedy had been rejected twice).
+  over the paths it names on the base and run its cheap reproducer. An entry
+  already fixed is recorded in the design as fixed, with the commit that fixed it, and planned no
+  task (kan-970: six entries were already fixed upstream).
 
 - **HARD GATE:** do not run `spectre new` until the user approves the design. Approval is the
   merged confirm's first option under **Convergence** below; no separate approval question is
@@ -146,7 +143,8 @@ see **Stage exit — never the command's own judgment** (`skills/spectre-plannin
 change id` when `<name>` is not a single flat directory name; and exit `1` and `<path> already
 exists` when the change is already there — **the ordinary case when resuming at `STARTED`** per
 above. Revise the artifacts in place and never `--force` past it. That directory is the change
-root — `<changeRoot>` below — by construction.
+root — `<changeRoot>` below — by construction. `<project>/spectre/changes/` is gitignored: the change root
+lives only on disk in the worktree and is never staged or committed.
 
 `spectre new` writes three stubs and nothing else: `proposal.md` (`## Why`, `## What changes`),
 `design.md` (`## Context`, `## Decisions`) and a title-only `tasks.md`. Fill these three artifacts,

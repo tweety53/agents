@@ -20,6 +20,23 @@ one of its sections.
 **Check guard presence** per **Guard presence check** (`skills/flow-contracts/pipeline.md`),
 already run at the top of this invocation.
 
+**A change to `<agents repo>`'s own tooling integrates with the branch's copy of it.** When the
+canonical repository is `<agents repo>` and `git -C <canonical-worktree> diff --name-only
+<base>...HEAD` names a path under `scripts/`, `stats/` or `skills/` — the three trees whose
+installed copies a run executes — every `integrate-change.sh` call this file and
+`skills/flow/cleanup.md` make resolves to the branch's own copy and runs with a `flow` built from
+the branch, both first on `PATH`:
+
+```bash
+cd <canonical-worktree>/stats && go build -o <scratch>/bin/flow ./cmd/flow
+PATH=<scratch>/bin:<canonical-worktree>/scripts:$PATH integrate-change.sh prepare <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
+```
+
+The installed script and CLI predate the change, and the script builds its guards from its own
+checkout (`<agents repo>/scripts/lib/flow-guard.sh`) while taking `flow` from `PATH` — kan-1073's
+installed `commit` failed on the branch's planning commit, and its installed `flow` had no
+`change` command.
+
 ```bash
 integrate-change.sh prepare <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
 ```
@@ -51,13 +68,9 @@ that stopped once the stop is handled.
 
 ## 1. Check for unfinished work
 
-`prepare` undoes a drop a stopped run 1 left uncommitted, decides once whether the change is
-already dropped and whether it carries new work, and runs the unfinished-work gate, per **Run 1 —
+`prepare` runs the unfinished-work gate, per **Run 1 —
 the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
 
-- **`STOP: archive-undo`** → the `git restore` undoing a staged drop failed (**Run 1 — the branch
-  is not merged**, `skills/flow-contracts/finish-contract-run1.md`): ask the operator, naming the
-  directory the stop line names.
 - **`STOP: unfinished-work`** → **Load `skills/flow/unfinished-work-gate.md`** — the run
   finishes the unfinished work itself, asks nothing, and re-runs `prepare`, per its
   **Finish it — never a prompt**.
@@ -83,9 +96,9 @@ the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
   command flags the guard's newest verdict, and `prepare` stops at the first `MISSING` worktree
   so that row is the newest; `prepare` passes only on a flag on that worktree's own row whose
   verdict names its current HEAD (`— HEAD <sha>`), so a later commit or a rebase needs a new
-  verifier or a new flag. A flag made at `prepare` does not carry to `land`: the reshape and the
-  drop commit move HEAD, so `land` stops again and the operator flags that HEAD anew. The gate runs on
-  a dropped re-run with no new work too, again on each worktree a base move rebases in
+  verifier or a new flag. A flag made at `prepare` does not carry to `land`: the reshape moves
+  HEAD, so `land` stops again and the operator flags that HEAD anew. The gate runs
+  again on each worktree a base move rebases in
   `prepare`, before every push `commit` and `land` make on every route — `land`'s stop names the
   worktrees already pushed — and again after a re-sync on a rejected push. So the gate covers
   every push the pipeline makes, and the forge merge of an opened PR is of the verified head; run 2
@@ -132,21 +145,15 @@ integrate-change.sh commit <main-checkout> <name> <worktree>="<type>(<module>): 
 
 `<type>`, `<module>` and `<what the implementation does>` are derived from the reshaped diff — the
 diffstat `prepare` printed under each `WORKTREE:` line, one subject per worktree the `NEXT:` line
-names. A worktree whose reshaped diff holds nothing outside `<project>/spectre/changes/` and no change directory's
-`link.md` has an empty implementation commit, so `NEXT:` names no subject for it and `commit` asks none — nor
-for the canonical worktree whose only such path is its `link.md`, whose subject **Finish
-contract** fixes (`skills/flow-contracts/finish-contract-run1.md`). On
-**Continue** at **1** the planning commit also lists the outstanding work: pass it as
-`--outstanding <text>`, which `commit` writes into that commit's body as `Outstanding: <text>` under
-its own `chore(spectre): plan <name>` subject. A dropped change without new work takes no subject: its `NEXT:` names
-`commit` bare.
+names. A worktree whose reshaped diff is empty has an empty implementation commit, so `NEXT:` names no
+subject for it and `commit` asks none. On **Continue** at **1** the implementation commit also
+lists the outstanding work: pass it as `--outstanding <text>`, which `commit` writes into that
+commit's body as `Outstanding: <text>`.
 
-`commit` reshapes, renders the ledger, runs the two-commit chain per worktree in `## Merge order`,
-drops the change directory on its branch with the `chore(spectre): drop <name>` commit
-(`commit-archive.sh`) and pushes each reshaped branch
-`--force-with-lease` — per **Archive on the change branch**
+`commit` reshapes, renders the ledger, runs the guarded commit chain per worktree in `## Merge order`
+and pushes each reshaped branch `--force-with-lease` — per **Run 1 — the branch is not merged**
 (`skills/flow-contracts/finish-contract-run1.md`). Every stop there — `reshape`, `commit-split`,
-`commit-archive`, `push`, `pre-reshape` — is reported with the script's lines and leaves the change at
+`push`, `pre-reshape` — is reported with the script's lines and leaves the change at
 `IN_PROGRESS`.
 
 **`STOP: pre-reshape`** → pinning the worktree's HEAD failed, or origin holds a `refs/flow/pre-reshape/<name>` the local pin does not descend from: report both shas and git's output; never overwrite either pin.
@@ -157,22 +164,11 @@ A `flow-fix` row `flow self-review findings -change <name>` lists as `fixed` who
 
 **`STOP: narrative`** also stops on a fix or integrate run whose section `narrative.md` lacks (`check-narrative-runs.sh`, the check `flow.write-in-progress` runs): append the missing section and re-run `commit`.
 
-## 4. Drop the change directory and run the self-review pass
+## 4. Run the self-review pass
 
 Per **Run the self-review pass** (`skills/flow-contracts/finish-contract-run1.md`), canonical for it.
-Write the bundle's stdout, then `## Session narrative`, to `<sr-dir>/bundle.md`, never printing it; run the pass over it; then
-commit the report in `<canonical-worktree>`, not pushing here:
-
-```bash
-land-self-review-report.sh "<canonical-worktree>" "spectre/<name>" \
-  "docs(self-review): <name> self-review report" \
-  docs/self-review/<name>-self-review.md
-```
-
-A branch mismatch or a commit that FAILS is reported and stops the run at `IN_PROGRESS`. A staged
-index holding anything beyond the chain's own path refuses the commit the same way
-(`LAND-FOREIGN-STAGED`).
-A `LAND-UNTRACED-FINDING`, `LAND-DEFERRED-FINDING` or `LAND-REPORT-INVALID` refusal is not a stop: resolve it per step 7 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`) and land again.
+Write the bundle's stdout, then `## Session narrative`, to `<sr-dir>/bundle.md`, never printing it,
+and run the pass over it. No report is written or committed.
 
 A product defect the pass met stops it at the end of step 2 of `/flow-self-review`, closes that mark
 `-outcome stopped` instead, and the run continues straight into the fix run **the sweep**
@@ -192,9 +188,17 @@ integrate-change.sh land <main-checkout> <name> [--route "<route>"] --harness <h
 ```
 
 `--route` carries the operator's answer to the landing question; without it `land` takes the
-configured default. `land` closes `flow.self-review`, runs the route of **The routes**
+configured default. Before `land`, the session ends the
+self-review stage itself — `land` no longer ends it:
+
+```bash
+flow stage end -command '/flow' -stage flow.self-review -outcome completed <name>
+```
+
+`land` checks that row with `flow stage completed -C <main-checkout> -stage flow.self-review <name>`
+and stops at `STOP: self-review-report` until it holds; it then runs the route of **The routes**
 (`skills/flow-contracts/finish-contract-run1.md`) per worktree in `## Merge order` — the
-self-review report's sha re-read before each landing push and its `fixed` rows after, per step 5
+self-review's `fixed` rows re-read after each landing push, per step 5
 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`) — and writes `IN_PROGRESS`.
 
 `STOP: landing-route` — no route given or configured — asks the landing question of step 2, then

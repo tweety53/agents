@@ -17,7 +17,7 @@ import (
 // against that library as it stood at libTwinBase.
 //
 // Every .md and .mdc file under the scope roots skills/, rules/,
-// spectre/specs/, commands-claude/ and .flow/, plus the ones sitting directly
+// spectre/specs/ (when present), commands-claude/ and .flow/, plus the ones sitting directly
 // at the repository root. The root is deliberately NOT walked recursively:
 // that would sweep in spectre/changes/, whose session records a /flow* run
 // writes DURING a change, so an inventory captured before a change's first
@@ -56,7 +56,14 @@ func ownedCorpus(root, prefix string, stderr io.Writer) ([]string, int) {
 	if !gsReadableDir(root) {
 		return refuse("not a readable directory: %s", root)
 	}
+	scopes := []string{}
 	for _, dir := range ownedCorpusScopes {
+		// spectre/specs/ is optional: a repository holding no capability
+		// spec has no such directory (KAN-1073 deleted agents' placeholder).
+		if _, err := os.Lstat(filepath.Join(root, dir)); dir == "spectre/specs" && os.IsNotExist(err) {
+			continue
+		}
+		scopes = append(scopes, dir)
 		if lp, err := os.Lstat(filepath.Join(root, dir)); err == nil && lp.Mode()&fs.ModeSymlink != 0 {
 			return refuse("scope root is a symlink: %s", filepath.Join(root, dir))
 		}
@@ -85,7 +92,7 @@ func ownedCorpus(root, prefix string, stderr io.Writer) ([]string, int) {
 	// symlinked directory hides whatever sits behind it. As owned-corpus.sh
 	// did, that is refused — loudly, naming the path — when the target
 	// would reach any .md or .mdc, and skipped when it would not.
-	for _, dir := range ownedCorpusScopes {
+	for _, dir := range scopes {
 		base := filepath.Join(root, dir)
 		err := filepath.WalkDir(base, func(p string, d fs.DirEntry, err error) error {
 			if err != nil {

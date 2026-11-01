@@ -73,6 +73,33 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		}
 	}
 
+	// The save gate (KAN-1073): the change directory and .superpowers/ are
+	// gitignored, so a worktree holding the plan (spectre/changes/<name>/ or
+	// /flow-fast's .superpowers/sdd/<name>/tasks.md) or the self-review
+	// bundle holds its only copy until `flow change save` keeps it in flowd
+	// (cmd/flow/change.go's changeSavedFiles). Refused before anything else
+	// when flowd holds none of a file the worktree holds.
+	saved := []struct{ on, as string }{
+		{"spectre/changes/" + name + "/tasks.md", "tasks.md"},
+		{".superpowers/sdd/" + name + "/tasks.md", "tasks.md"},
+		{".superpowers/sdd/" + name + "/self-review-context.md", "self-review-context.md"},
+	}
+	for _, wt := range wts {
+		for _, f := range saved {
+			if !isFile(wt + "/" + f.on) {
+				continue
+			}
+			switch _, errOut, rc := pcFlow(env, false, "change", "file", "-C", wt, name, f.as); rc {
+			case 0:
+			case 1:
+				fmt.Fprintf(stderr, "remove-change-worktrees: flow change save %s has not run — %s holds the only copy of its %s\n", name, wt, f.on)
+				return 1
+			default:
+				return refuse("cannot tell whether flow change save %s has run: %s", name, rcwFlat(string(errOut)))
+			}
+		}
+	}
+
 	failed := false
 	fail := func(wt string, check int, format string, a ...any) {
 		failed = true
@@ -304,11 +331,13 @@ func rcwRestoreUpstream(git func(...string) *exec.Cmd, repo, branch, remote, mer
 // only under a regeneratable location, test-results among them — a capture
 // loose anywhere else matches no rule below. Python (__pycache__, *.pyc) and
 // TypeScript (*.tsbuildinfo) compiler output is regeneratable wherever it
-// sits, and so is a Finder .DS_Store; everything the list does not name stays
-// unclassified.
+// sits, and so is a Finder .DS_Store. The ignored change directory
+// (spectre/changes/) and .superpowers/ are expected content: the save gate
+// above has already kept what of them outlives the worktree. Everything the
+// list does not name stays unclassified.
 func rcwRegeneratable(p string) bool {
 	parts := strings.Split(p, "/")
-	if parts[len(parts)-1] == ".DS_Store" || strings.HasPrefix(p, ".superpowers/sdd/") || strings.HasPrefix(p, ".dev-stack/") || strings.HasSuffix(p, ".log") || strings.HasSuffix(p, ".pyc") || strings.HasSuffix(p, ".tsbuildinfo") {
+	if parts[len(parts)-1] == ".DS_Store" || strings.HasPrefix(p, ".superpowers/") || strings.HasPrefix(p, "spectre/changes/") || strings.HasPrefix(p, ".dev-stack/") || strings.HasSuffix(p, ".log") || strings.HasSuffix(p, ".pyc") || strings.HasSuffix(p, ".tsbuildinfo") {
 		return true
 	}
 	for _, c := range parts {

@@ -204,6 +204,7 @@ type serverOptions struct {
 	guardRuns   GuardRunStore
 	repricer    Repricer
 	experiments ExperimentStore
+	changeFiles ChangeFileStore
 	rolesTable  []byte
 	commitBase  string
 	build       string
@@ -358,7 +359,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 
 	h := &changeHandler{store: cs, logger: logger}
 	sh := &stageHandler{store: ss, logger: logger}
-	sth := &statsHandler{store: sts, logger: logger, commitBase: so.commitBase}
+	sth := &statsHandler{store: sts, logger: logger, commitBase: so.commitBase, changeFiles: so.changeFiles}
 	rh := &recordHandler{store: rs, logger: logger, agentEnd: so.agentEnd}
 	srb := &selfreviewHandler{store: rs, git: selfreview.ExecRunner{}, build: so.build, logger: logger}
 	lh := &lessonsHandler{store: rs, logger: logger}
@@ -387,6 +388,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("PUT /api/v1/changes/{project}/{name}", h.put)
 	mux.HandleFunc("POST /api/v1/stages/begin", sh.begin)
 	mux.HandleFunc("POST /api/v1/stages/end", sh.end)
+	mux.HandleFunc("GET /api/v1/stages/{project}/{change}/{stage}/completed", rh.stageCompleted)
 	mux.HandleFunc("GET /api/v1/stage-runs", sth.listStageRuns)
 	mux.Handle("GET /api/v1/stats/{view}", http.TimeoutHandler(http.HandlerFunc(sth.view), statsWriteTimeout, statsTimeoutMessage))
 	mux.HandleFunc("GET /api/v1/models", sth.listModels)
@@ -442,6 +444,12 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	if so.guardRuns != nil {
 		grh := &guardRunHandler{store: so.guardRuns, logger: logger}
 		mux.HandleFunc("POST /api/v1/guard-runs/{project}", grh.record)
+	}
+	if so.changeFiles != nil {
+		cfh := &changeFileHandler{store: so.changeFiles, logger: logger}
+		mux.HandleFunc("GET /api/v1/changes/{project}/{name}/files", cfh.saved)
+		mux.HandleFunc("PUT /api/v1/changes/{project}/{name}/files/{path...}", cfh.put)
+		mux.HandleFunc("GET /api/v1/changes/{project}/{name}/files/{path...}", cfh.get)
 	}
 	if so.repricer != nil {
 		ph := &pricingHandler{store: so.repricer, logger: logger}

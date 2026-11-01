@@ -1,21 +1,19 @@
 // Package selfreview assembles the self-review context bundle a change's
 // reasoning pass reads — the sources run 1's bundle step judges a change
-// by, served from the store and the change's own repository instead of
+// by, served from the store and the change's own worktree instead of
 // gathered from files a Bash script had to be pointed at.
 //
-// Everything this package reads is read through git (`git -C <repo>`) or
-// rendered from the run record; no path any caller supplies is resolved
-// against this process's working directory, and the dropped change is
-// read out of history — the parent of run 1's `chore(spectre): drop <name>`
-// commit (stats/internal/landed), found on the change branch `spectre/<name>`
-// while it exists, the base branch once it has landed — rather than out of
-// any worktree's working files, so neither the invocation nor the bundle's
-// own section labels carry a worktree path.
+// The change directory is gitignored and never committed (KAN-1073), so its
+// files are read from disk in the worktree the caller names, and the
+// finish-run commits are that worktree's first-parent merge-base..HEAD
+// range; no path any caller supplies is resolved against this process's
+// working directory, and the bundle's section labels carry no worktree path.
 package selfreview
 
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -23,19 +21,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tweety53/agents/stats/internal/landed"
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
-// changeBranchPrefix names the branch run 1 drops the change directory on,
-// in its apply worktree. The branch lives in the repository's shared ref store, so
-// `git show <branch>:<path>` from the main checkout reads it with no
-// worktree path at all.
+// changeBranchPrefix names a /flow change's branch, spectre/<name>: its
+// recorded base (branch.<branch>.flowBase) bounds the finish range, and a
+// peer's branch of that name carries its share of a cross-repo change.
 const changeBranchPrefix = "spectre/"
 
 // liveDir is the change directories' parent under the repository's spectre
-// tree — the pathspec the planning-commit query searches and the label root
-// of every file the bundle serves from the dropped change. The Bash gather
+// tree — the label root of every file the bundle serves from the change. The Bash gather
 // resolved the spec root leaf per repository (the since-retired
 // scripts/lib/spec-root.sh, twinned in stats/internal/guard/specroot.go);
 // the app pins `spectre`, this repository's leaf — a second spec root would
@@ -105,121 +100,6 @@ func (r ExecRunner) Output(repo string, args ...string) ([]byte, error) {
 	return cmd.Output()
 }
 
-// deriveFinishCommits resolves every implementation, planning and drop
-// commit of change name out of repo, oldest first, under the same rules
-// the retired Bash gather stated for one triple of them. Every query
-// starts from rev — the revision dropRev found the drop commit on —
-// never HEAD: naming it explicitly is what lets the app see the same
-// commits from any checkout of the repository. A change carries more than
-// one implementation-and-planning pair, and more than one drop commit, once
-// a fix run after the drop (skills/flow-contracts/finish-contract-run1.md)
-// committed its own, and self-review covers the whole change, so every
-// pair is listed.
-//
-//   - a drop commit is a commit whose subject is exactly
-//     `chore(spectre): drop <name>`;
-//   - a planning commit is a commit that BOTH carries a plan-commit
-//     subject — a prefix match on `chore(spectre): plan`, which covers the
-//     bare literal of changes landed before 2026-10-05 and the
-//     `chore(spectre): plan <name>[ — <boundary>]` subjects since, or either
-//     pre-rename wording scoped to the change — AND touched the change's
-//     spectre/changes/<name>/ path. Path alone is not commit-specific (the
-//     drop commit itself touches it); subject alone is not change-specific
-//     (the bare literal is identical across changes);
-//   - each planning commit's implementation commit is its first parent,
-//     accepted only when it sits above the change's merge base
-//     (changeMergeBase), is a non-merge commit, matches none of the four
-//     reserved subject shapes, and touches at least one path outside
-//     spectre/changes/, docs/research/ and docs/superpowers/ — anything
-//     else resolves NOTHING rather than a confident wrong answer — and
-//     listed directly before its planning commit. The merge-base gate is
-//     what keeps the oldest planning commit's parent out: before
-//     integrate's reshape the first planning commit sits on the merge
-//     base — and changes landed from 2026-09-24 to 2026-10-05 kept it
-//     there — so that parent is the base tip, a commit of some other change; the bundle
-//     subject is what keeps a re-run's first planning commit's parent out,
-//     the previous run's self-review bundle commit.
-//
-// Every git failure degrades to an empty list, or a pair without its
-// implementation commit, the gather's `|| true` semantics: a missing
-// source is never fatal to the bundle.
-func deriveFinishCommits(g Runner, repo, rev, name string) []string {
-	nameRe := regexp.QuoteMeta(name)
-	shapes := reservedShapes(nameRe)
-	dropRe := regexp.MustCompile(shapes.drop)
-
-	// The pathspec finds run 1's planning commit even after the drop
-	// commit deleted the directory, since `git log -- <path>` filters each
-	// commit by its own historical tree; the drop commit deletes under it,
-	// and a fix run's restoring planning commit adds under it, so the same
-	// pathspec carries both.
-	found := trimmedOutput(g.Output(repo, "log", rev, "--reverse", "-E",
-		"--grep="+shapes.planNew, "--grep="+shapes.planOld, "--grep="+shapes.drop,
-		"--format=%H %s",
-		"--", liveDir+"/"+name))
-
-	bound := changeMergeBase(g, repo, rev, name)
-	var out []string
-	for _, line := range strings.Split(found, "\n") {
-		sha, subject, _ := strings.Cut(line, " ")
-		if sha == "" {
-			continue
-		}
-		if !dropRe.MatchString(subject) {
-			impl := trimmedOutput(g.Output(repo, "rev-parse", sha+"^"))
-			if !atOrBelow(g, repo, impl, bound) && isRealImplCommit(g, repo, impl, nameRe) {
-				out = append(out, impl)
-			}
-		}
-		out = append(out, sha)
-	}
-	return out
-}
-
-// reservedShapes is the one declaration of the five reserved subject
-// shapes — the current plan-commit literal (a prefix match, no `$`, exactly
-// as the gather anchored it), the pre-rename wording scoped to the change,
-// the exact drop subject, the exact self-review bundle subject a run
-// before KAN-927 committed, and the exact self-review report subject run 1
-// commits since. deriveFinishCommits greps with the first three and
-// isRealImplCommit rejects against all five; one declaration is what keeps the gate and the
-// query from drifting apart.
-func reservedShapes(nameRe string) struct{ planNew, planOld, drop, bundle, report string } {
-	return struct{ planNew, planOld, drop, bundle, report string }{
-		planNew: `^chore\(spectre\): plan`,
-		planOld: `^chore\(` + nameRe + `\): plan(, test guide and| and) session records`,
-		drop:    `^chore\(spectre\): drop ` + nameRe + `$`,
-		bundle:  `^docs\(self-review\): ` + nameRe + ` self-review context bundle$`,
-		report:  `^docs\(self-review\): ` + nameRe + ` self-review report$`,
-	}
-}
-
-// changeMergeBase returns the commit the change branch forked from: the
-// merge base of rev and the change's base — origin/<base> for the base
-// recorded on spectre/<name>, else what origin/HEAD points at. "" when rev
-// is not the change branch or is already contained in its base (the change
-// has landed, and the fork point is no longer visible in the topology), or
-// when no base resolves; every parent is then judged by isRealImplCommit
-// alone.
-//
-// ponytail: a landed change's bundle has no merge-base gate; it was saved,
-// gated, at run 1 before landing, so only a hand re-assembly after landing
-// can list the base tip below a reshaped first planning commit.
-func changeMergeBase(g Runner, repo, rev, name string) string {
-	if rev != changeBranchPrefix+name {
-		return ""
-	}
-	base := baseRef(g, repo, rev)
-	if base == "" {
-		return ""
-	}
-	mb := trimmedOutput(g.Output(repo, "merge-base", rev, base))
-	if mb == "" || mb == trimmedOutput(g.Output(repo, "rev-parse", rev)) {
-		return ""
-	}
-	return mb
-}
-
 // baseRef is the remote-tracking ref a branch lands on: origin/<the base
 // recorded as branch.<branch>.flowBase>, as resolve-base-branch.sh reads
 // it, else what origin/HEAD points at; "" when neither resolves.
@@ -230,118 +110,9 @@ func baseRef(g Runner, repo, branch string) string {
 	return trimmedOutput(g.Output(repo, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"))
 }
 
-// atOrBelow reports whether commit is bound or one of its ancestors —
-// outside the change's own range. An empty bound or commit bounds nothing.
-func atOrBelow(g Runner, repo, commit, bound string) bool {
-	if commit == "" || bound == "" {
-		return false
-	}
-	_, err := g.Output(repo, "merge-base", "--is-ancestor", commit, bound)
-	return err == nil
-}
-
-// isRealImplCommit judges plan's first parent by the four conditions the
-// gather named. The merge gate and the plan and drop subject rejections
-// are deliberately dead today — commit-split.sh's commits always carry one
-// parent and a plan-commit subject never sits one commit below another
-// reserved subject — and kept anyway: each guards this function's own git
-// queries against a future edit to commit-split.sh's staging shape, which
-// no test of this function can see. The bundle and report subject
-// rejections are live: a re-run's first planning commit sits on
-// the previous run's bundle or report commit until the re-run's reshape.
-func isRealImplCommit(g Runner, repo, impl, nameRe string) bool {
-	if impl == "" {
-		return false
-	}
-
-	// A second parent resolving at all means a merge commit.
-	if _, err := g.Output(repo, "rev-parse", "--verify", "-q", impl+"^2"); err == nil {
-		return false
-	}
-
-	subject := trimmedOutput(g.Output(repo, "log", "-1", "--format=%s", impl))
-	shapes := reservedShapes(nameRe)
-	for _, re := range []string{shapes.planNew, shapes.planOld, shapes.drop, shapes.bundle, shapes.report} {
-		if matched, err := regexp.MatchString(re, subject); err == nil && matched {
-			return false
-		}
-	}
-
-	// The exclusion pathspec tracks commit-split.sh's planning-tree list
-	// exactly: spectre/changes/, not spectre/ — a capability spec under
-	// spectre/specs/ is implementation, and widening the exclusion would
-	// filter a spec-only implementation commit's only path away.
-	outside, err := g.Output(repo, "diff-tree", "--no-commit-id", "--name-only", "-r", "--root", impl)
-	if err != nil {
-		return false
-	}
-	excl := regexp.MustCompile(`^(` + liveDir + `/|docs/superpowers/|docs/research/)`)
-	for _, line := range strings.Split(strings.TrimSpace(string(outside)), "\n") {
-		if line != "" && !excl.MatchString(line) {
-			return true
-		}
-	}
-	return false
-}
-
-// show reads one path out of rev's committed tree in repo. The caller
-// treats an error as "absent": a missing source is reported skipped inside
-// the bundle, never fatal.
-func show(g Runner, repo, rev, path string) ([]byte, error) {
-	return g.Output(repo, "show", rev+":"+path)
-}
-
-// droppedFile reads file of the dropped change name out of repo's history,
-// through landed.Read on g: the drop commit's parent. ok false when absent.
-func droppedFile(g Runner, repo, name, file string) ([]byte, bool) {
-	b, ok, err := landed.Read(func(args ...string) ([]byte, error) { return g.Output(repo, args...) }, name, file)
-	return b, ok && err == nil
-}
-
-// dropRepo returns the first recorded repository, and the revision in it,
-// carrying this change's drop commit whose parent held its tasks.md — the
-// tasks.md probe is what tells THIS change's drop from a same-named branch
-// with none. Repos are probed in the order the caller listed them; a change
-// with no repository carrying it yields "", "".
-func dropRepo(g Runner, repos []string, name string) (string, string) {
-	for _, repo := range repos {
-		if rev := dropRev(g, repo, name); rev != "" {
-			if _, ok := droppedFile(g, repo, name, "tasks.md"); ok {
-				return repo, rev
-			}
-		}
-	}
-	return "", ""
-}
-
-// dropRev returns the first revision in repo whose history holds the
-// change's drop commit -- else, for a change landed before the drop, its
-// archive commit: the change branch spectre/<name>, where run 1 drops
-// it, while that branch exists; then origin/<base> and <base> — the base
-// being what origin/HEAD points at — once the branch has landed and been
-// removed, origin's tip first because the local base may lag it. "" when
-// none holds it.
-func dropRev(g Runner, repo, name string) string {
-	revs := []string{changeBranchPrefix + name}
-	if remote := trimmedOutput(g.Output(repo, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD")); strings.HasPrefix(remote, "origin/") {
-		revs = append(revs, remote, strings.TrimPrefix(remote, "origin/"))
-	}
-	// A change landed before the drop carries an archive commit instead;
-	// landed.Read serves its files from the archive.
-	for _, subject := range []string{"chore(spectre): drop " + name, "chore(spectre): archive " + name} {
-		for _, rev := range revs {
-			log, err := g.Output(repo, "log", rev, "--format=%s", "--fixed-strings", "--grep="+subject)
-			if err == nil && slices.Contains(strings.Split(strings.TrimSpace(string(log)), "\n"), subject) {
-				return rev
-			}
-		}
-	}
-	return ""
-}
-
 // unreadableRepos names every supplied repository git cannot read at all —
 // the environmental failure class that must never wear the same
-// "skipped (absent)" wording a legitimately never-dropped change wears.
+// "skipped (absent)" wording a change with no directory on disk wears.
 func unreadableRepos(g Runner, repos []string) []string {
 	var broken []string
 	for _, repo := range repos {
@@ -353,9 +124,8 @@ func unreadableRepos(g Runner, repos []string) []string {
 }
 
 // firstReadableRepo returns the first supplied repository git can read at
-// all — for a change no repository drops, this is the main checkout the
-// caller resolved, and the only repository the change-branch fallback
-// reads.
+// all — for a change with no directory on disk, the checkout the caller
+// resolved, and the only repository the change-branch fallback reads.
 func firstReadableRepo(g Runner, repos []string) string {
 	for _, repo := range repos {
 		if _, err := g.Output(repo, "rev-parse", "--git-dir"); err == nil {
@@ -366,16 +136,15 @@ func firstReadableRepo(g Runner, repos []string) string {
 }
 
 // changeBranchLog renders the change branch's own commits against the
-// remote default branch — the git-log source for a change with no drop
-// commit: a /flow-fast change's implementation commits live on the branch
-// named after the change, where deriveFinishCommits's planning-and-drop query
-// has nothing to find. The base is the one recorded on the branch
+// remote default branch — the git-log source for a change with no change
+// directory: a /flow-fast change's implementation commits live on the branch
+// named after the change. The base is the one recorded on the branch
 // (branch.<change>.flowBase, as resolve-base-branch.sh reads it), else what
 // origin/HEAD points at, the same notion the flow-fast run's own Branch log
 // printed; a repository whose
 // origin/HEAD is unset, and a branch that resolves nothing — landed and
-// deleted, or never created — degrade to an empty string, the same "a
-// missing source is never fatal" rule deriveFinishCommits follows.
+// deleted, or never created — degrade to an empty string: a missing source
+// is never fatal.
 func changeBranchLog(g Runner, repo, change string) string {
 	base := baseRef(g, repo, change)
 	if base == "" {
@@ -412,17 +181,22 @@ var mergeOrderEntry = regexp.MustCompile("^[0-9]+\\. `([^`]+)`$")
 
 // peerLogs renders each satellite repository's change-branch log — a
 // cross-repo change's implementation commits outside repo — under a
-// `### <peer>` heading, in the dropped link.md's `## Merge order`. Peers
-// resolve through rev's spectre/peers (`<name> <path>`, a relative path
-// joined to repo). A change with no link.md, a peer the file does not
-// declare and a branch that resolves nothing all contribute nothing: a
-// missing source is never fatal.
-func peerLogs(g Runner, repo, rev, name string) string {
-	link, ok := droppedFile(g, repo, name, "link.md")
+// `### <peer>` heading, in link.md's `## Merge order`. Peers resolve through
+// repo's spectre/peers (`<name> <path>`, a relative path joined to repo's
+// main checkout, the directory the file's paths are written against). A
+// change with no link.md, a peer the file does not declare and a branch
+// that resolves nothing all contribute nothing: a missing source is never
+// fatal.
+func peerLogs(g Runner, repo, name string) string {
+	link, ok := changeFile(repo, name, "link.md")
 	if !ok {
 		return ""
 	}
-	peersFile, _ := show(g, repo, rev, "spectre/peers")
+	peersFile, _ := os.ReadFile(filepath.Join(repo, "spectre", "peers"))
+	main := repo
+	if common := trimmedOutput(g.Output(repo, "rev-parse", "--path-format=absolute", "--git-common-dir")); common != "" {
+		main = filepath.Dir(common)
+	}
 	paths := map[string]string{}
 	for l := range strings.Lines(string(peersFile)) {
 		if f := strings.Fields(l); len(f) == 2 {
@@ -446,7 +220,7 @@ func peerLogs(g Runner, repo, rev, name string) string {
 			continue
 		}
 		if !filepath.IsAbs(p) {
-			p = filepath.Join(repo, p)
+			p = filepath.Join(main, p)
 		}
 		if log := changeBranchLog(g, p, changeBranchPrefix+name); log != "" {
 			fmt.Fprintf(&b, "### %s\n\n%s\n\n", m[1], log)
@@ -455,17 +229,38 @@ func peerLogs(g Runner, repo, rev, name string) string {
 	return b.String()
 }
 
-// gitLogSection renders the git-log source's content: `git log --stat -1`
-// per resolved sha, in deriveFinishCommits's oldest-first order.
-func gitLogSection(g Runner, repo string, shas []string) string {
-	var b strings.Builder
-	for _, sha := range shas {
-		if logStat, err := g.Output(repo, "log", "--stat", "-1", sha); err == nil {
-			b.WriteString(dropPNGStatLines(string(logStat)))
-			b.WriteString("\n")
+// finishLog renders the change's finish-run commits in repo, the worktree on
+// spectre/<name>: the first-parent `git log --stat` of merge-base..HEAD
+// against the branch's base (baseRef). No base, or nothing above it, is "".
+func finishLog(g Runner, repo, name string) string {
+	base := baseRef(g, repo, changeBranchPrefix+name)
+	if base == "" {
+		return ""
+	}
+	mb := trimmedOutput(g.Output(repo, "merge-base", "HEAD", base))
+	if mb == "" {
+		return ""
+	}
+	return dropPNGStatLines(trimmedOutput(g.Output(repo, "log", "--first-parent", "--stat", mb+"..HEAD")))
+}
+
+// changeFile reads file of change name from repo's working tree on disk —
+// spectre/changes/<name>/<file>, gitignored and never committed. ok false
+// when absent.
+func changeFile(repo, name, file string) ([]byte, bool) {
+	b, err := os.ReadFile(filepath.Join(repo, liveDir, name, file))
+	return b, err == nil
+}
+
+// changeRepo returns the first supplied repository whose working tree holds
+// change name's directory, "" when none does.
+func changeRepo(repos []string, name string) string {
+	for _, repo := range repos {
+		if fi, err := os.Stat(filepath.Join(repo, liveDir, name)); err == nil && fi.IsDir() {
+			return repo
 		}
 	}
-	return b.String()
+	return ""
 }
 
 // pngStatLine matches a `git log --stat` file line whose path ends `.png`.
@@ -570,13 +365,13 @@ func trimmedOutput(b []byte, err error) string {
 	return strings.TrimSpace(string(b))
 }
 
-// droppedFiles are the dropped change's files the bundle serves, in
+// changeFiles are the change directory's files the bundle serves, in
 // order. visual-verification.md is the record the flow-eval angle's visual
 // candidates are read from (skills/flow-self-review/SKILL.md, angle 7), and
 // live-verification.md the live check's before/after figures
 // (skills/flow/verify-and-handoff.md); a change with neither reports each
 // skipped like any absent source.
-var droppedFiles = []string{"tasks.md", "design.md", "narrative.md", "visual-verification.md", "live-verification.md"}
+var changeFiles = []string{"tasks.md", "design.md", "narrative.md", "visual-verification.md", "live-verification.md"}
 
 // Bundle assembles the whole self-review context bundle for change as one
 // Markdown document: the header, the found/skipped summary line, one
@@ -590,19 +385,20 @@ var droppedFiles = []string{"tasks.md", "design.md", "narrative.md", "visual-ver
 // run renders the ledger and panel sources —
 // each present only when the run holds rows of its kind, so a change the
 // store has never heard of reports both skipped rather than rendering
-// empty records nobody wrote; no committed copy exists to fall back to, the
-// drop commit carrying none; repos are the candidate repository roots the
-// caller supplied, probed for the change's drop commit in order; panelRan reports whether a
+// empty records nobody wrote; repos are the candidate worktree roots the
+// caller supplied, probed in order for the change's directory on disk;
+// panelRan reports whether a
 // flow.review-panel stage run for the change completed in this store —
 // the one fact separating a records-source loss from a panel that never
 // ran (KAN-621): when it holds while the run carries no dispatch rows,
 // the bundle's notes name the loss loudly, because the plain
 // "skipped (absent)" wording would read as the panel never having
 // existed; g reads everything git has to
-// answer for. A change no supplied repository drops — a /flow-fast
-// change, never dropped by design — still gets its git-log source, read
-// off the change branch in the first readable supplied repository, the
-// main checkout the caller resolved (KAN-583); the droppedFiles sources
+// answer for. The worktree holding the directory serves the changeFiles
+// sources and its finish range (finishLog) as the git-log source. A change
+// no supplied worktree holds a directory for — a /flow-fast change, which
+// has none — still gets its git-log source, read off the change branch in
+// the first readable supplied repository (KAN-583); the changeFiles sources
 // stay skipped for it. requests, when any, are a /flow-interactive
 // session's (KAN-1061): its git-log source is then requestsLog's, read in
 // that same repository, in place of every other git-log derivation. The git-log source also carries each merge-order
@@ -640,11 +436,10 @@ func Bundle(change string, run records.Run, summary string, summaryFound bool, p
 	// reflowed or re-derived from rows.
 	add("change summary", summary, summaryFound)
 
-	// The history-derived sources all come from one repository: the first
-	// supplied one carrying the change's drop commit. No drop anywhere skips
-	// all of them together — the store renders still stand. A repository
-	// git cannot read at all is named in a note rather than folded into
-	// "absent".
+	// The change-directory sources all come from one worktree: the first
+	// supplied one holding the directory on disk. None skips all of them
+	// together — the store renders still stand. A repository git cannot read
+	// at all is named in a note rather than folded into "absent".
 	var notes []string
 	if build != "" {
 		notes = append(notes, "note: served by flowd "+build+" — a source reported skipped that the tree holds means this daemon predates it, not that it is absent")
@@ -656,10 +451,10 @@ func Bundle(change string, run records.Run, summary string, summaryFound bool, p
 	if panelRan && len(run.Dispatches) == 0 {
 		notes = append(notes, "note: RECORDS LOSS — a flow.review-panel stage run completed for "+change+", but the store holds no dispatch rows for it: the run's dispatch and finding records never reached this store, most plausibly written to a per-workspace database later removed at cleanup. The ledger and panel sources below are absent or degraded for that reason, not because no panel ran.")
 	}
-	repo, rev := dropRepo(g, repos, change)
+	repo := changeRepo(repos, change)
 	if repo == "" {
 		for _, broken := range unreadableRepos(g, repos) {
-			notes = append(notes, "note: repository "+broken+" could not be read — its history sources are reported skipped for that reason, not because the change was never dropped")
+			notes = append(notes, "note: repository "+broken+" could not be read — its sources are reported skipped for that reason, not because the change has no directory")
 		}
 	}
 
@@ -674,12 +469,12 @@ func Bundle(change string, run records.Run, summary string, summaryFound bool, p
 	gated, ok := records.RenderGatedFindings(run)
 	add("gated per-task reviewer findings", gated, ok)
 
-	for _, file := range droppedFiles {
+	for _, file := range changeFiles {
 		label := liveDir + "/" + change + "/" + file
 		var content []byte
 		ok := false
 		if repo != "" {
-			content, ok = droppedFile(g, repo, change, file)
+			content, ok = changeFile(repo, change, file)
 		}
 		text := string(content)
 		if file == "visual-verification.md" {
@@ -694,7 +489,7 @@ func Bundle(change string, run records.Run, summary string, summaryFound bool, p
 			gitLog = requestsLog(g, mainRepo, requests)
 		}
 	} else if repo != "" {
-		gitLog = gitLogSection(g, repo, deriveFinishCommits(g, repo, rev, change)) + peerLogs(g, repo, rev, change)
+		gitLog = strings.TrimSpace(finishLog(g, repo, change) + "\n\n" + peerLogs(g, repo, change))
 	} else if mainRepo := firstReadableRepo(g, repos); mainRepo != "" {
 		gitLog = changeBranchLog(g, mainRepo, change)
 	}

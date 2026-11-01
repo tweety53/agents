@@ -14,9 +14,8 @@ import (
 const lessonUsage = `usage: flow lesson resolve [-addr url] [-timeout dur] -topic <words>
 
 Prints the process-lesson answer for one topic on stdout -- every
-registered project's docs/briefs/ briefs and archived narratives matching
-the words, briefs ranked first and rendered in full, assembled by the
-daemon. The CLI constructs none of it, the record-render rule: the
+registered project's docs/briefs/ briefs matching the words, rendered in
+full, assembled by the daemon. The CLI constructs none of it, the record-render rule: the
 answer's shape is decided where it is produced.
 
 The address resolves from FLOW_RECORDS_ADDR when it is set, then FLOW_ADDR,

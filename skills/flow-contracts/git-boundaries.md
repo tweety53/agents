@@ -1,7 +1,7 @@
 # Git boundaries
 
-Which git actions each command may take and the planning commits. The guarded two-commit chain
-that enforces the split between implementation and planning artifacts is
+Which git actions each command may take and the branch backup. The guarded commit chain
+that commits the implementation and leaves the change directory out is
 `skills/flow-contracts/git-boundaries-commit-chain.md`.
 
 **Loaded by `/flow`'s creating run and implement phase, bare `/flow`, `/flow-plan` and `/flow-fast`** — at the step that commits or stages.
@@ -15,14 +15,14 @@ The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-ra
 
 | Command | Condition | Allowed git actions |
 |---------|-----------|---------------------|
-| `/flow`'s creating run | — | **Creates the worktree and pushes its empty branch** at kickoff; makes the plan-gate planning commit once the plan gate answers **Yes** (**Planning commits** below), and nothing else |
-| `/flow`'s implement phase | from `STARTED` | Resume the kickoff worktree + **commits each task** (fixups fold in) and the **Planning commits** below, **pushing after each** — no merge or PR |
-| `/flow`'s implement phase | at `IN_PROGRESS`, no `prUrl` | Resume **existing** worktree + **commits fixups** and planning commits the same way, pushing after each — no merge or PR |
-| `/flow`'s implement phase | at `IN_PROGRESS`, `prUrl` recorded | **Commits twice and pushes `--force-with-lease`** to the PR branch — implementation, then whatever planning delta the last planning commit left |
-| bare `/flow` | run 1 | **Reshapes** — folds every commit since the merge base, or since the newest `chore(spectre): drop <name>` commit where the branch holds one, planning commits included — then **commits twice** — implementation, then the planning delta — then **commits** the drop (`chore(spectre): drop <name>`), each self-review fix and the self-review report, each its own commit, all on `spectre/<name>` in the apply worktree; pushes `--force-with-lease` and opens a PR, or fast-forwards `<base>` to it with one push, by the operator's choice (**The routes**, `skills/flow-contracts/finish-contract-run1.md`) |
+| `/flow`'s creating run | — | **Creates the worktree and pushes its empty branch** at kickoff, and nothing else |
+| `/flow`'s implement phase | from `STARTED` | Resume the kickoff worktree + **commits each task** (fixups fold in), **pushing after each** — no merge or PR |
+| `/flow`'s implement phase | at `IN_PROGRESS`, no `prUrl` | Resume **existing** worktree + **commits fixups** the same way, pushing after each — no merge or PR |
+| `/flow`'s implement phase | at `IN_PROGRESS`, `prUrl` recorded | **Commits the implementation and pushes `--force-with-lease`** to the PR branch |
+| bare `/flow` | run 1 | **Reshapes** — folds every commit since the merge base — then **commits** the implementation, then each self-review fix, each its own commit, all on `spectre/<name>` in the apply worktree; pushes `--force-with-lease` and opens a PR, or fast-forwards `<base>` to it with one push, by the operator's choice (**The routes**, `skills/flow-contracts/finish-contract-run1.md`) |
 | bare `/flow` | run 2 | **Commits nothing and pushes no commit**: removes worktrees and the local and remote branch, then fast-forwards the main checkout (step 6 of **Run 2 — the branch is merged**, `skills/flow-contracts/finish-contract-run2.md`) |
 | `/flow-status` | — | None — read-only |
-| `/flow-plan` | change captured | **Commits once** — the planning artifacts, `chore(spectre): plan <name> — captured` — on `spectre/<name>` in the change worktree, and pushes it (**Capturing a new change**, `skills/flow-plan/SKILL.md`); nothing else, ever |
+| `/flow-plan` | change captured | **Creates the change worktree and pushes its empty branch** through the kickoff (**Capturing a new change**, `skills/flow-plan/SKILL.md`); commits nothing, ever |
 
 **No command writes the main checkout.** `/flow` creates `<project>-worktrees/<name>` inside
 `flow.kickoff`, `/flow-fast` inside its kickoff, `/flow-plan` through that same kickoff at
@@ -31,51 +31,11 @@ commit and push in the table above happens in a worktree. The main checkout is n
 staged, committed or written, whatever branch it sits on — save run 2's fast-forward of it, which
 `refresh-main-checkout.sh` refuses whenever it could lose anything.
 
-## Planning commits
+## The change directory is never committed
 
-**Planning artifacts are committed in their own commits, at fixed boundaries, and never inside a
-task or fixup commit.** Every planning commit is pathspec-scoped to the change folder, carries no
-`Task-Id:` trailer — which is what keeps it outside `check-task-commit-planning-paths.sh`'s
-task-commit check — and is pushed plain (**Branch backup** below):
-
-| Boundary | Carries | Subject |
-|----------|---------|---------|
-| The plan gate answers **Yes** (**Plan review gate**, `skills/flow/brainstorm-planner.md`) | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — plan gate` |
-| After each `spectre link` in `flow.isolate-workspace` (`skills/flow/implement.md`), before the next link | each `<project>/spectre/changes/<name>/link.md` the link wrote — the canonical worktree's and the satellite's — in the worktree holding it | `chore(spectre): link <peer>` |
-| After the merge-order record write in `flow.isolate-workspace` (`skills/flow/implement.md`) | each `<project>/spectre/changes/<name>/link.md` that write created or extended — the canonical worktree's | `chore(spectre): merge order` |
-| Before every reviewer dispatch — a gated per-task reviewer bundle, a panel round, a re-run — before the panel's base sync (**Check base movement first**, `skills/flow/review-panel.md`), and before the base sync before task 1 (**1. Load context and validate the plan**, `skills/flow/implement.md`) | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — before review` |
-| `flow.document-fix` has appended a fix run's tasks, before the first implementer dispatch | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — fix-run tasks` |
-| `flow.write-in-progress` has appended the narrative, before the handoff | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — narrative` |
-
-`<project>/spectre/changes/<name>/` in **Carries** is the change's directory; it has no archived
-path — integrate's run 1 deletes it with the drop commit (**A change's directory**,
+**`<project>/spectre/changes/` is gitignored, and nothing under it is ever staged or committed.** A
+change's directory lives on disk in its worktree only (**A change's directory**,
 `skills/flow-contracts/pipeline.md`).
-
-```bash
-check-planning-commit-location.sh <abs-worktree> <name> \
-  && git -C <abs-worktree> add -A -- <path> \
-  && { git -C <abs-worktree> diff --cached --quiet -- <path> \
-       || git -C <abs-worktree> commit -m "<subject>" -- <path>; } \
-  && git -C <abs-worktree> push origin <branch>
-```
-
-`<path>` is the table's **Carries** cell with its `<project>/` prefix dropped — relative to the worktree root — and an empty delta skips the commit rather than failing
-it, exactly as the two-commit chain (`skills/flow-contracts/git-boundaries-commit-chain.md`) skips. `<peer>` is the peer name the link command was
-given. **`spectre link` is never run with `--force`**: it refuses while the canonical change
-directory carries uncommitted modifications, and the answer to that refusal is the planning commit
-above, never an override.
-
-**A planning commit lands only in the change's own worktree, on `spectre/<name>`.**
-`check-planning-commit-location.sh <abs-worktree> <name>` answers `PLANNING-COMMIT-LOCATION-OK` (exit
-0), or prints `PLANNING-COMMIT-MAIN-CHECKOUT` and/or `PLANNING-COMMIT-WRONG-BRANCH` (exit 1), or
-cannot answer (exit 2); anything but 0 stops the run before anything is staged, reporting the
-guard's lines. It matters most for a link commit: `spectre link` runs from a repository's primary
-checkout, which is where a link commit made from the wrong directory would land.
-`commit-split.sh` and `reshape-branch.sh` run it themselves. **When the guard cannot be located**,
-check by hand before committing: `git -C <abs-worktree> rev-parse --path-format=absolute --git-dir`
-must differ from `git -C <abs-worktree> rev-parse --path-format=absolute --git-common-dir`, and
-`git -C <abs-worktree> branch --show-current` must print `spectre/<name>`; otherwise stop without
-committing.
 
 ## Branch backup
 
@@ -85,8 +45,8 @@ commit, a fixup, a panel fix — is followed by `git push origin <branch>` from 
 call that made or verified it. The one deferred push is a visual-verify commit in a `regression checkout` worktree
 (`skills/flow/visual-verify.md`): integrate's push below carries it. A lost worktree is then rebuilt with `git worktree add <path>
 origin/<branch>`. The one rewrite is integrate's reshape (`reshape-branch.sh`, then
-the two commits), so that run's push is `git push --force-with-lease origin <branch>`, made once the
-drop commit lands and before the self-review pass, so a run that stops before its route still
+the implementation commit), so that run's push is `git push --force-with-lease origin <branch>`, made
+before the self-review pass, so a run that stops before its route still
 leaves the remote on the rewritten branch; every other push is plain, save a branch a base-sync
 rebase rewrote, which pushes `--force-with-lease` (the base-sync step of **1. Load context and
 validate the plan**, `skills/flow/implement.md`).
@@ -95,23 +55,18 @@ validate the plan**, `skills/flow/implement.md`).
 `/flow`'s implement phase clears it from the index and only then stages with it excluded by
 pathspec — an exclusion governs what an
 `add` adds and cannot retract what an earlier step staged, so the clearing pass is what makes the
-rule hold rather than merely assert it. Its staging area therefore carries implementation only;
-planning reaches the branch through **Planning commits** above and nothing else.
+rule hold rather than merely assert it. Its staging area therefore carries implementation only.
 
 **A capability spec is implementation, not planning.** `<project>/spectre/specs/<capability>.md`
 states what the system must do, so changing it changes the product exactly as code does: the
 implementer writes and commits it on the change branch, in the task commit that implements the
-requirement, and it never reaches the planning commit. Within the spectre tree the boundary is the
+requirement. Within the spectre tree the boundary is the
 directory — `<project>/spectre/changes/` is planning and `<project>/spectre/specs/` is not — which is
 why every pathspec below names the change folder rather than the tree.
 
-**`link.md` is implementation too, carved out by file, not directory.** It states which
-repositories a change spans, its branch and merge order — structural, not the
-`proposal.md`/`design.md`/`tasks.md` planning narrative — and in a satellite repository it is the
-change's only content, so the directory boundary above would leave that branch with no
-implementation commit. A `:(exclude)` pathspec beats a positive one in the same `add`, so it needs
-its own `add` after the exclude, guarded so a `link.md`-less change still commits cleanly —
-`<agents repo>/scripts/commit-split.sh` guards it.
+**`link.md` is never committed either.** It lives in the gitignored
+`<project>/spectre/changes/<name>/`, on disk in each worktree, like the rest of the change
+directory.
 
 `git add -A` respects `<project>/.gitignore`. Never force-add.
 
@@ -119,7 +74,7 @@ its own `add` after the exclude, guarded so a `link.md`-less change still commit
 **A commit a run instructs defaults to the pathspec-scoped form.** `git commit -m "<subject>" -- <paths>`:
 the commit carries only the paths it names, whatever else the index holds. A plain commit takes
 the whole staged tree with it, so wherever a run's instructions know the paths a commit should carry,
-the commit names them. The guarded two-commit chain (**The guarded two-commit chain**,
+the commit names them. The guarded commit chain (**The guarded commit chain**,
 `skills/flow-contracts/git-boundaries-commit-chain.md`) is the deliberate exception: its
 `add -A` is what picks up operator edits and new files at the human gate, which a
 pathspec-scoped commit would drop.
@@ -136,7 +91,7 @@ carries `-m "Flow-Key: <key>"`, `<key>` the dispatch key its round is recorded u
 (`full-suite-fix-<n>`, `panel-fix-<round>`, `task-<n+n>-implementer-fix-<k>`) or, where the stage
 records no such row, the stage key (`flow.review-panel`, `flow.visual-verify`, `flow.brainstorm`,
 `flow.commit-two`). A task's own commit
-carries `Task-Id:` instead, and a planning commit neither. A `Flow-Key: pipeline-fix-…` commit
+carries `Task-Id:` instead. A `Flow-Key: pipeline-fix-…` commit
 is the one trailer that never passes: an in-run pipeline fix runs its own loop on its own branch,
 never on a change branch (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`).
 Run 1's unfinished-work gate lists

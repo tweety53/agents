@@ -258,9 +258,8 @@ parks a question for a resume. **Each in-run fix runs the loop of 3. Fix every f
 `big`** (`skills/flow-self-review/SKILL.md`), canonical for its planner, fixer and review pairs,
 the paragraphs every prompt carries, the no-progress escalation, and each item the steps below
 cite. One loop carries one defect, `<k>` one more than the highest `<n>` of any
-`pipeline-fix-*-<n>` branch, local or remote, folder under `<agents repo>/spectre/changes/`, or
-landed `chore(spectre): drop pipeline-fix-*-<n>` or, for a loop landed before the drop,
-`chore(spectre): archive pipeline-fix-*-<n>` subject in history — whatever change it was for — so `<k>` is unique across
+`pipeline-fix-*-<n>` change record in flowd, worktree name, ref, or `flow.loop-k-used` mark —
+whatever change it was for — so `<k>` is unique across
 `<agents repo>` and no two loops, concurrent or later, share a key (`pipeline-fix.sh start`
 refuses any other `<k>`); its name
 `pipeline-fix-<name>-<k>`, `<name>` the running change, stands for `self-review-<name>` there —
@@ -281,8 +280,7 @@ the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-
    **Fewest operator actions** above. A defect whose commit the review drops is re-planned: the
    parent runs `<agents repo>/scripts/pipeline-fix.sh drop <worktree>`, landing nothing, and opens
    a fresh loop on it, its planner carrying the review's objection.
-4. **Land** — once the parent has ticked the plan and dropped its directory in one
-   `chore(spectre): drop pipeline-fix-<name>-<k>` commit and run the lint lines and tests, as
+4. **Land** — once the parent has ticked the plan and run the lint lines and tests, as
    item 4 there states, a red line fixed by `pipeline-fix-<k>-fix-v<v>`, it lands by
    `<agents repo>`'s `## default landing route`
    (`project-get.sh <agents repo> 'default landing route'`), without asking. Merge and push is
@@ -501,7 +499,7 @@ Next:
   command's fence stays last.
 - **A bare invocation at `IN_PROGRESS` that opened a PR or handed off manually names itself** as the
   next command, because that is what the operator runs once the branch is merged. Only a run that
-  **completed** the drop and cleanup — or completed a withdrawal (**The withdrawal route**,
+  **completed** cleanup — or completed a withdrawal (**The withdrawal route**,
   `skills/flow/withdrawal.md`) — is terminal and names nothing; a run that stopped on a cleanup
   leftover names itself too, for the same reason: the operator clears what remains and runs it
   again.
@@ -520,9 +518,7 @@ Next:
 - **Implementation never stages `<project>/spectre/changes/` into its own commits**, and the path
   is fixed here rather than configured per project. `<project>/spectre/specs/`
   and a change directory's `link.md` are deliberately not on it — see **Git boundaries**
-  (`skills/flow-contracts/git-boundaries.md`) for why. The planning artifacts reach the branch
-  through their own commits (**Planning commits**, `skills/flow-contracts/git-boundaries.md`), so
-  nothing is lost. See
+  (`skills/flow-contracts/git-boundaries.md`) for why. See
   **Handoff output** (`skills/flow-contracts/pipeline-rationale.md`) for why leaving them unstaged
   — rather than filtering a display — is what keeps them out of every view of the staging area:
 
@@ -695,9 +691,7 @@ Jira-related step.
 hand-written HTTP call, never a directory listing of your own.** It prints one JSON object:
 `"source"` (`"store"` or `"fallback"`), `"complete"` (`true` only for `"source":"store"`),
 `"candidates"` (each carrying `name`, `state`, `updatedAt`, `updatedBy`) and `"unreadable"` (the
-names of fallback records that could not be read). A `FINISHED` change is never a candidate, and
-neither is one whose `<project>/spectre/changes/<name>/` the landing drop deleted while its record
-is not `IN_PROGRESS` — a merged change's drop commit is on the base while it waits on run 2.
+names of fallback records that could not be read). A `FINISHED` change is never a candidate.
 
 **A record `flow state resolve` marks `"unreadable":true` is reported and skipped from the union — never
 silently dropped.** Name the unreadable file in the resolution's own output; do not fold it into a
@@ -723,12 +717,8 @@ A change linked to a Jira issue is named `<lowercased-key>-<slug>` — see
 
 ## A change's directory
 
-A change's directory is `<project>/spectre/changes/<name>/`; there is no archived path. Integrate's
-run 1 deletes it on the change branch with one `chore(spectre): drop <name>` commit before the route
-(**Archive on the change branch**, `skills/flow-contracts/finish-contract-run1.md`), so a fix run
-after a run 1 that stopped at a pull request or a manual route restores the directory from the drop
-commit's parent as its planning commit (`skills/flow/document-fix.md`), and writes there — its
-appended tasks, its narrative and its planning commits — until the next drop. Every step that reads or writes a change's planning artifacts resolves the
+A change's directory is `<project>/spectre/changes/<name>/`, on disk in the worktree, never
+committed: `<project>/spectre/changes/` is gitignored and there is no archived path. Every step that reads or writes a change's planning artifacts resolves the
 directory this way; the guards resolve it through `changePlanDir`
 (`<agents repo>/stats/internal/guard/changeplan.go`), whose bash twin KAN-887 deleted, and `flow tasks`
 through the same rule.

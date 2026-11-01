@@ -14,7 +14,7 @@ import (
 // commit a task path git left unstaged.
 func init() { Registry["stage-task-files"] = stageTaskFiles }
 
-// stfPlanning is what the clearing reset unstages and the add excludes: both
+// stfPlanning is what the clearing resets unstage and the add never names: both
 // spec-tree leaf spellings and the superpowers notes.
 var stfPlanning = []string{"spectre/changes/", "openspec/changes/", "docs/superpowers/"}
 
@@ -32,28 +32,30 @@ func stageTaskFiles(args []string, env Env, stdout, stderr io.Writer) int {
 	if !ok {
 		return 2
 	}
+	// The add names the task's own non-planning paths and no exclude
+	// pathspec: with spectre/changes/ gitignored and files still tracked
+	// under it, git 2.50.1 fails an add carrying ':(exclude)spectre/changes/'
+	// on the ignored directory (KAN-1073). The second reset unstages any
+	// planning path the add swept in through a named parent directory.
 	add := []string{"add", "--"}
-	for _, p := range stfPlanning {
-		add = append(add, ":(exclude)"+p)
-	}
-	// The excludes lead the paths: git 2.50.1 given the task's paths first
-	// and an exclude after them stages tracked paths alone and exits 0
-	// (kan-1012 self-review).
 	// A path whose deletion is already staged is neither on disk nor in the
 	// index, and git add refuses it as an unmatched pathspec; it needs no add.
-	var addFiles []string
 	for _, f := range files {
+		if stfIsPlanning(f) {
+			continue
+		}
 		if _, err := os.Lstat(filepath.Join(smcAbs(env, wt), f)); err == nil {
-			addFiles = append(addFiles, f)
+			add = append(add, f)
 		} else if out, _ := panelGit(env, gitBin, wt, "ls-files", "--", f).Output(); len(out) > 0 {
-			addFiles = append(addFiles, f)
+			add = append(add, f)
 		}
 	}
-	steps := [][]string{append([]string{"reset", "-q", "--"}, stfPlanning...)}
-	if len(addFiles) > 0 {
-		steps = append(steps, append(add, addFiles...))
+	unstage := append([]string{"reset", "-q", "--"}, stfPlanning...)
+	steps := [][]string{unstage}
+	if len(add) > 2 {
+		steps = append(steps, add)
 	}
-	for _, step := range steps {
+	for _, step := range append(steps, unstage) {
 		if out, err := panelGit(env, gitBin, wt, step...).CombinedOutput(); err != nil {
 			fmt.Fprintf(stderr, "stage-task-files: git %s failed in %s:\n%s", step[0], wt, out)
 			return 2

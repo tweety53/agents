@@ -7,8 +7,9 @@ import (
 	"testing"
 )
 
-// lftFx is one worktree whose since-close sha is the commit carrying a
-// tracked tasks.md, with a one-line change on top of it in the working tree.
+// lftFx is one worktree whose since-close sha is the clean close, its
+// tasks.md copied to .superpowers/sdd/demo/tasks-at-close.md as the panel's
+// close step copies it, with a one-line change on top in the working tree.
 type lftFx struct {
 	wt, tasks, since string
 	g                fxGit
@@ -25,6 +26,8 @@ func lftNewFx(t *testing.T, dir string) *lftFx {
 	fx.g.git(dir, "add", ".")
 	fx.g.git(dir, "commit", "-qm", "closed clean")
 	fx.since = fx.g.git(dir, "rev-parse", "HEAD")
+	mkdir(t, dir+"/.superpowers/sdd/demo")
+	fx.g.write(dir+"/.superpowers/sdd/demo/tasks-at-close.md", "- [x] 1. the first task")
 	fx.g.appendLine(dir+"/a.txt", "the late fix")
 	return fx
 }
@@ -83,10 +86,11 @@ func TestCheckLateFixTrigger(t *testing.T) {
 		{label: "full path — a new task line with a moved base", code: 1, lines: 2, out: "full path: condition 2 — ",
 			setup: func(t *testing.T, fx, _ *lftFx) { fx.g.appendLine(fx.tasks, "- [ ] 2. a second task") },
 			args:  func(fx, _ *lftFx) []string { return []string{"demo", fx.tasks, fx.wt, fx.since, "MOVED:"} }},
-		{label: "small append — an untracked tasks.md", code: 4, out: "small append: ",
-			setup: func(t *testing.T, fx, _ *lftFx) { fx.g.write(fx.wt+"/untracked-tasks.md", "- [ ] 1. x") },
-			args: func(fx, _ *lftFx) []string {
-				return []string{"demo", fx.wt + "/untracked-tasks.md", fx.wt, fx.since, "CLEAR:"}
+		{label: "small append — a missing at-close copy", code: 4, out: "small append: ",
+			setup: func(t *testing.T, fx, _ *lftFx) {
+				if err := os.Remove(fx.wt + "/.superpowers/sdd/demo/tasks-at-close.md"); err != nil {
+					t.Fatal(err)
+				}
 			}},
 		{label: "condition 5 — machinery renamed away", code: 1, out: "full path: condition 5 — ",
 			setup: func(t *testing.T, fx, _ *lftFx) {

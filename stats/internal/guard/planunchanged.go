@@ -2,8 +2,10 @@ package guard
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -50,8 +52,8 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 		return usage()
 	}
 
-	// CONTAINMENT: the name lands in a git pathspec, so `../escape` and a
-	// glob metacharacter are hazards here exactly as they are in a
+	// CONTAINMENT: the name lands in a filesystem path, so `../escape` is a
+	// hazard here exactly as it is in a
 	// state-file-derived change name elsewhere. plainChangeName is the
 	// package's one copy of the allowlist (changename.go is canonical for
 	// why it is enumerated).
@@ -60,7 +62,7 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	// Canonicalise before git runs against it (`cd && pwd -P`), and refuse
+	// Canonicalise before the walk (`cd && pwd -P`), and refuse
 	// rather than proceed if it vanished between the directory check above
 	// and here.
 	wt, err := filepath.EvalSymlinks(smcAbs(env, worktree))
@@ -72,29 +74,37 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	// The bash exported LC_ALL=C for its whole run; git and diff inherit it.
-	git := envGit(env, "LC_ALL=C")
-	// The snapshot is the plan tree's content: every path git lists under
-	// it (tracked or untracked-not-ignored), sorted, each as `== <path>`
-	// then its bytes, or `== <path> (missing)` when listed but gone from
-	// disk (a tracked file deleted in the working tree).
+	// The snapshot is the plan tree's content: every regular file and
+	// symlink under it (a symlink read through), walked from disk -- the tree is gitignored (KAN-1073), so git
+	// lists none of it -- sorted by repository-relative path, each as
+	// `== <path>` then its bytes, or `== <path> (missing)` when walked but
+	// unreadable. An absent plan tree is an empty dump.
 	planStatus := func(out io.Writer) bool {
-		cmd := git("-C", wt, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--",
-			"spectre/changes/"+name)
-		var list bytes.Buffer
-		cmd.Stdout, cmd.Stderr = &list, stderr
-		if cmd.Run() != nil {
+		root := filepath.Join(wt, "spectre", "changes", name)
+		var paths []string
+		err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+			if err != nil {
+				if p == root && errors.Is(err, fs.ErrNotExist) {
+					return fs.SkipAll
+				}
+				return err
+			}
+			if d.Type().IsRegular() || d.Type()&fs.ModeSymlink != 0 {
+				rel, err := filepath.Rel(wt, p)
+				if err != nil {
+					return err
+				}
+				paths = append(paths, filepath.ToSlash(rel))
+			}
+			return nil
+		})
+		if err != nil {
+			fmt.Fprintf(stderr, "check-plan-unchanged: %v\n", err)
 			return false
 		}
-		paths := strings.Split(strings.TrimSuffix(list.String(), "\x00"), "\x00")
 		sort.Strings(paths)
 		var dump bytes.Buffer
-		prev := ""
 		for _, p := range paths {
-			if p == "" || p == prev {
-				continue
-			}
-			prev = p
 			b, err := os.ReadFile(filepath.Join(wt, p))
 			if err != nil {
 				fmt.Fprintf(&dump, "== %s (missing)\n", p)
@@ -106,25 +116,25 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 				dump.WriteByte('\n')
 			}
 		}
-		_, err := out.Write(dump.Bytes())
+		_, err = out.Write(dump.Bytes())
 		return err == nil
 	}
-	gitFailed := func() int {
-		fmt.Fprintf(stderr, "check-plan-unchanged: git ls-files failed in %s, or the plan content "+
-			"could not be written -- cannot answer (is it a git repository?)\n", wt)
+	cannotRead := func() int {
+		fmt.Fprintf(stderr, "check-plan-unchanged: the plan tree under %s could not be read, or its content "+
+			"could not be written -- cannot answer\n", wt)
 		return 2
 	}
 	snapPath := smcAbs(env, snap)
 
 	if mode == "snapshot" {
-		// `plan_status > "$SNAP"`: the file is opened (truncated) before git
-		// runs, so an unwritable path never reaches git, and any failure
+		// `plan_status > "$SNAP"`: the file is opened (truncated) before the
+		// walk, so an unwritable path never reaches it, and any failure
 		// removes the file rather than leave a partial snapshot behind.
 		f, err := os.Create(snapPath)
 		if err != nil {
 			fmt.Fprintf(stderr, "check-plan-unchanged: %s: %v\n", snap, err)
 			_ = os.Remove(snapPath)
-			return gitFailed()
+			return cannotRead()
 		}
 		ok := planStatus(f)
 		if cerr := f.Close(); cerr != nil {
@@ -132,7 +142,7 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		if !ok {
 			_ = os.Remove(snapPath)
-			return gitFailed()
+			return cannotRead()
 		}
 		fmt.Fprintf(stdout, "PLAN-SNAPSHOT-OK: spectre/changes/%s content pinned at %s\n", name, snap)
 		return 0
@@ -147,7 +157,7 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	var got bytes.Buffer
 	if !planStatus(&got) {
-		return gitFailed()
+		return cannotRead()
 	}
 	if bytes.Equal(want, got.Bytes()) {
 		fmt.Fprintf(stdout, "PLAN-UNCHANGED-OK: spectre/changes/%s matches its pre-dispatch snapshot\n", name)

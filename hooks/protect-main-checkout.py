@@ -34,14 +34,8 @@ a path with unstaged edits: the restore reverts it to its index state and an unc
 with it. The reason points at break-and-prove.sh and mutate-and-verify.sh, which restore from a
 byte snapshot.
 
-It also denies a landing push that would leave its change open: `git push <remote> <src>:<default>`
-where `<src>`'s tree still holds `spectre/changes/<branch>/` — `<branch>` being `<src>`, or the
-current branch for `HEAD`, with a `/flow` branch's `spectre/` prefix dropped. A change lands
-dropped (`git rm -r spectre/changes/<change>`, then a `chore(spectre): drop <change>` commit),
-never as an open folder on the default branch that no later run owns. `/flow`'s run 1 drops before
-its push, so only a run that skipped it or an ad-hoc landing meets this. A landing push of a `pipeline-fix-*` or `self-review-*` branch is
-denied too unless scripts/check-loop-landing.sh, in the agents checkout this hook is installed
-from, admits it — flowd holding the loop's completed plan, fix and clean last review. That one
+It also denies a landing push of a `pipeline-fix-*` or `self-review-*` branch unless
+scripts/check-loop-landing.sh, in the agents checkout this hook is installed from, admits it — flowd holding the loop's completed plan, fix and clean last review. That one
 check fails closed: a checker that cannot answer or cannot run denies the push.
 
 It also denies a push of a `/flow` change branch (`spectre/<name>`) whose unpushed commits —
@@ -75,9 +69,8 @@ expanded first, so only names from outside the command count. Scripts are untouc
 sees the typed Bash command, never what a script it calls runs.
 
 Allowed everywhere: reads, `git pull --ff-only`, `git fetch`, `git checkout -b`, `git switch -c`,
-`git worktree add`, `git push`, and the landing scripts (`land-self-review-report.sh`,
-`refresh-main-checkout.sh`) — they are not `git` verbs in the command text, and each owns its own
-main-checkout rules.
+`git worktree add`, `git push`, and the landing script `refresh-main-checkout.sh` — it is not a
+`git` verb in the command text, and owns its own main-checkout rules.
 
 Denies, never rewrites: the PreToolUse contract cannot change tool input, so the deny reason
 names the worktree command to use instead.
@@ -732,27 +725,6 @@ def default_branch(cwd):
     return head.split("/", 1)[1] if head and "/" in head else None
 
 
-def unarchived_landing(args, target):
-    """(target, change) when the push args land `<src>:<default>` with
-    spectre/changes/<change>/ still open in <src>'s tree -- never dropped by
-    run 1's `chore(spectre): drop <change>` commit -- else None."""
-    if target is None:
-        return None
-    default = default_branch(target)
-    for a in args:
-        if ":" not in a or a.startswith("-"):
-            continue
-        src, _, dst = a.lstrip("+").partition(":")
-        dst = dst.removeprefix("refs/heads/")
-        if not src or dst not in ({default} if default else FALLBACK_DEFAULT_BRANCHES):
-            continue
-        change = git(target, "branch", "--show-current") if src == "HEAD" else src
-        change = (change or "").removeprefix("refs/heads/").removeprefix("spectre/")
-        if change and git(target, "ls-tree", "-d", "--name-only", src, f"spectre/changes/{change}"):
-            return target, change
-    return None
-
-
 SEPARATORS = ("&&", "||", ";", "|")
 # Push flags that push every branch, the default branch among them.
 ALL_BRANCH_FLAGS = ("--all", "--mirror", "--branches")
@@ -1110,9 +1082,6 @@ def bash_hits(command, cwd, landings=None):
                     unreadable = unreadable_landing(args, target)
                     if unreadable:
                         landings.append(unreadable)
-                    hit = None if unreadable else unarchived_landing(args, target)
-                    if hit:
-                        landings.append(landing_reason(*hit))
                     loop = None if unreadable else loop_landing(args, target)
                     if loop:
                         landings.append(loop)
@@ -1196,16 +1165,6 @@ def deny_reason(top, branch):
         f"{branch}` or a pull request. To bring this checkout up to date afterwards, "
         f"`git -C {top} pull --ff-only` is allowed. Reads are always allowed. If the user "
         "themselves must act here, hand them the exact command to run with the `!` prefix."
-    )
-
-
-def landing_reason(top, change):
-    return (
-        f"Blocked: this push lands `spectre/changes/{change}/` on the default branch still open. "
-        "A landed change is dropped first, in the same branch:\n\n"
-        f"  git rm -r spectre/changes/{change}\n"
-        f"  git commit -m \"chore(spectre): drop {change}\"\n\n"
-        "then push again."
     )
 
 

@@ -124,9 +124,6 @@ func TestSyncOntoBase(t *testing.T) {
 				if _, err := os.Stat(fx.repo + "/.git/rebase-merge"); err != nil {
 					t.Error("no rebase in progress: the conflict was not left for resolution")
 				}
-				if top := fx.g.git(fx.repo, "stash", "list", "--format=%gs"); !strings.Contains(top, apaMarker) {
-					t.Errorf("stash list %q, want the aside kept", top)
-				}
 			}},
 		{label: "a conflicted snapshot PNG or full app suite zip is named for recapture", fx: func(t *testing.T) *bmFx {
 			fx := rbNewFx(t)
@@ -192,8 +189,7 @@ func TestSyncOntoBaseResume(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
 	writeExec(t, root+"/scripts/test-later.sh", "#!/usr/bin/env bash\n")
-	// conflicted is a sync stopped on a conflict over shared.txt, the aside
-	// held; it returns the tip the sync rebased onto.
+	// conflicted is a sync stopped on a conflict over shared.txt; it returns the tip the sync rebased onto.
 	conflicted := func(t *testing.T) (*bmFx, string) {
 		t.Helper()
 		fx := rbNewFx(t)
@@ -210,7 +206,7 @@ func TestSyncOntoBaseResume(t *testing.T) {
 		return fx, fx.g.git(fx.repo, "rev-parse", "main")
 	}
 
-	t.Run("resolved: restores the aside and re-checks, with no guard-test lines", func(t *testing.T) {
+	t.Run("resolved: re-checks, with no guard-test lines, the plan edit untouched", func(t *testing.T) {
 		t.Parallel()
 		fx, onto := conflicted(t)
 		fx.g.write(fx.repo+"/shared.txt", "resolved")
@@ -234,10 +230,10 @@ func TestSyncOntoBaseResume(t *testing.T) {
 			t.Fatalf("got exit %d stdout %q\nwant 0 %q\nstderr %s", r.rc, r.stdout, want, r.err)
 		}
 		if got := rbRead(fx.repo + "/spectre/changes/demo/tasks.md"); got != "plan edited\n" {
-			t.Errorf("planning file %q, want the aside restored", got)
+			t.Errorf("planning file %q, want the edit untouched", got)
 		}
 		if l := fx.g.git(fx.repo, "stash", "list"); l != "" {
-			t.Errorf("stash list %q, want the aside popped", l)
+			t.Errorf("stash list %q, want nothing stashed", l)
 		}
 	})
 
@@ -247,71 +243,6 @@ func TestSyncOntoBaseResume(t *testing.T) {
 		r := runGuard("sync-onto-base", []string{"--resume", fx.repo, "main", onto}, sobEnv(fx.dir, root, ""))
 		if r.rc != 2 || r.stdout != "" || !strings.Contains(r.err, "still in progress") {
 			t.Fatalf("got exit %d stdout %q stderr %q, want a refusal naming the rebase in progress", r.rc, r.stdout, r.err)
-		}
-		if top := fx.g.git(fx.repo, "stash", "list", "--format=%gs"); !strings.Contains(top, apaMarker) {
-			t.Errorf("stash list %q: the aside was restored mid-rebase", top)
-		}
-	})
-
-	// foreign pushes a marker stash as another worktree's aside would: the
-	// stash list is shared by every worktree of the repository.
-	foreign := func(fx *bmFx) string {
-		if fx.g.err == nil {
-			fx.g.err = os.MkdirAll(fx.repo+"/spectre/changes/other", 0o755)
-		}
-		fx.g.write(fx.repo+"/spectre/changes/other/tasks.md", "other worktree's plan")
-		fx.g.git(fx.repo, "stash", "push", "--include-untracked", "-m", apaMarker+": planning paths set aside for a rebase", "--", "spectre/changes/other")
-		return fx.g.git(fx.repo, "rev-parse", "stash@{0}")
-	}
-
-	t.Run("a clean sync's resume never pops another worktree's aside", func(t *testing.T) {
-		t.Parallel()
-		fx := rbNewFx(t)
-		fx.advanceBase("shared.txt")
-		fx.g.appendLine(fx.repo+"/shared.txt", "demo")
-		fx.g.git(fx.repo, "commit", "-qam", "demo touches shared")
-		other := foreign(fx)
-		if fx.g.err != nil {
-			t.Fatal(fx.g.err)
-		}
-		if r := runGuard("sync-onto-base", []string{fx.repo, "main", fx.recorded}, sobEnv(fx.dir, root, "")); r.rc != 1 {
-			t.Fatalf("setup: sync exit %d, want the conflict's 1\n%s%s", r.rc, r.stdout, r.err)
-		}
-		onto := fx.g.git(fx.repo, "rev-parse", "main")
-		fx.g.write(fx.repo+"/shared.txt", "resolved")
-		fx.g.git(fx.repo, "add", "shared.txt")
-		fx.g.git(fx.repo, "-c", "core.editor=true", "rebase", "--continue")
-		if fx.g.err != nil {
-			t.Fatal(fx.g.err)
-		}
-		r := runGuard("sync-onto-base", []string{"--resume", fx.repo, "main", onto}, sobEnv(fx.dir, root, ""))
-		if r.rc != 0 {
-			t.Fatalf("resume exit %d, want 0\nstdout %q\nstderr %s", r.rc, r.stdout, r.err)
-		}
-		if top := fx.g.git(fx.repo, "rev-parse", "stash@{0}"); top != other {
-			t.Errorf("top stash %s, want the other worktree's %s left in place", top, other)
-		}
-		if _, err := os.Stat(fx.repo + "/spectre/changes/other/tasks.md"); err == nil {
-			t.Errorf("the other worktree's planning file was popped into this one")
-		}
-	})
-
-	t.Run("resume refuses when another aside sits on top of its own", func(t *testing.T) {
-		t.Parallel()
-		fx, onto := conflicted(t)
-		fx.g.write(fx.repo+"/shared.txt", "resolved")
-		fx.g.git(fx.repo, "add", "shared.txt")
-		fx.g.git(fx.repo, "-c", "core.editor=true", "rebase", "--continue")
-		other := foreign(fx)
-		if fx.g.err != nil {
-			t.Fatal(fx.g.err)
-		}
-		r := runGuard("sync-onto-base", []string{"--resume", fx.repo, "main", onto}, sobEnv(fx.dir, root, ""))
-		if r.rc != 2 || !strings.Contains(r.err, "not the top stash") {
-			t.Fatalf("got exit %d stderr %q, want a refusal naming its own aside", r.rc, r.err)
-		}
-		if top := fx.g.git(fx.repo, "rev-parse", "stash@{0}"); top != other {
-			t.Errorf("top stash %s, want the other worktree's %s untouched", top, other)
 		}
 	})
 

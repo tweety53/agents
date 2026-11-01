@@ -32,10 +32,9 @@ import (
 // Resolution order, per design.md's `guards-take-the-canonical-worktree-path`:
 //
 //   1. <worktree>/<spec-root>/changes/<name>/tasks.md exists → that path.
-//      A change's directory is only ever the live one: integrate's run 1
-//      deletes it with its drop commit, and a fix run after the drop
-//      restores it before writing (ChangeDir). Every worktree read in the
-//      steps below resolves a change's directory the same way.
+//      A change's directory is on disk only, never committed (ChangeDir).
+//      Every worktree read in the steps below resolves a change's
+//      directory the same way.
 //   2. Otherwise, no local tasks.md and no local link.md for <name> here at
 //      all (the cross-repo shape where the plan lives only in the canonical
 //      repo — the change directory absent entirely, or an empty scaffold a
@@ -84,8 +83,8 @@ import (
 // left for a guard to judge, and a `peers`-relative archive lookup would
 // require duplicating spectre's own two-step search for a case this
 // repository's guards do not reach. Narrower is deliberate here, not an
-// oversight. No worktree read falls back to the archive either: integrate's
-// run 1 drops the change directory rather than moving it, so no archive
+// oversight. No worktree read falls back to the archive either: a change
+// directory is never committed, let alone archived, so no archive
 // directory of an in-flight change exists to read.
 //
 // CONTAINMENT applies to every name concatenated into a path in this
@@ -263,11 +262,9 @@ func changePlanStoreDir(env Env, stderr io.Writer, key string) (string, int) {
 }
 
 // ChangeDir is a change's own directory under changes (a tree's
-// <spec-root>/changes): always changes/<name>. Integrate's run 1 deletes it
-// with a `chore(spectre): drop <name>` commit, and a fix run after the drop
-// restores it from the drop commit's parent before writing, so no in-run
-// reader needs another location; a reader after landing reads history
-// (stats/internal/landed). The name is the caller's to have allowlisted.
+// <spec-root>/changes): always changes/<name>, on disk only -- it is never
+// committed (KAN-1073); a reader after cleanup reads the plan flowd saved.
+// The name is the caller's to have allowlisted.
 // Every worktree changePlanDir reads -- the judged one, the canonical
 // worktree argument, the store's worktrees -- goes through it; exported for
 // `flow tasks`, which resolves no further than this.

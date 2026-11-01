@@ -1,7 +1,7 @@
 ---
 name: flow-fast
 description: Minimal-ceremony /flow variant — one invocation from Jira key to landed change. A git worktree for isolation and nothing else, implementation and review panel as the plan's class decides, project lint plus targeted tests, then the project's default landing route and cleanup; no spectre artifacts, no state file. Use for /flow-fast.
-allowed-tools: Bash(flow:*), Bash(land-self-review-report.sh:*)
+allowed-tools: Bash(flow:*)
 license: MIT
 ---
 
@@ -53,7 +53,7 @@ them:
 | **5. Verify** | `flow.review-panel`, `flow.verify`, `flow.pipeline-fix`, `flow.self-review`, `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
 | **6. Preflight** | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two` |
 | **7. Land** | `flow.landing-routes` |
-| **8. Clean up** | `flow.verify-merge`, `flow.sync-archive`, `flow.commit-archive`, `flow.cleanup`, `flow.write-finished`, `flow.refresh-main-checkout` |
+| **8. Clean up** | `flow.verify-merge`, `flow.cleanup`, `flow.write-finished`, `flow.refresh-main-checkout` |
 
 `flow.visual-verify` is deliberately absent: `/flow-fast` never runs it. `flow.self-review` marks
 section 5's in-run self-review pass. `flow.pipeline-fix` is never marked by hand: the store opens it
@@ -306,13 +306,13 @@ flow stage begin -command '/flow-fast' -stage flow.self-review -harness <harness
 ```
 
 **Self-review runs here, in this run — this section is canonical for `/flow-fast`'s self-review.**
-A report already committed on `<name>` (`<project>/docs/self-review/<name>-self-review.md`) skips the pass:
-a fix re-run never records its findings twice.
-Assemble the bundle in `<sr-dir>/bundle.md` (**2. Read the bundle and run the eight angles**, `skills/flow-self-review/SKILL.md`), never printed, never written to `<project>/docs/self-review/` or committed, as, in
+A `flow.self-review` stage already completed for `<name>` skips the pass: a fix re-run never
+records its findings twice.
+Assemble the bundle in `<sr-dir>/bundle.md` (**2. Read the bundle and run the eight angles**, `skills/flow-self-review/SKILL.md`), never printed, never committed, as, in
 order: the stdout of `flow self-review
 bundle -change <name>` run from the worktree — of the sources `/flow`'s bundle judges a change
 by, a `/flow-fast` run can never have tasks.md, design.md, narrative.md, visual-verification.md and live-verification.md (no spectre
-artifacts and no archive), so those five report `skipped` by design, never silently;
+artifacts), so those five report `skipped` by design, never silently;
 the git-log source resolves from the main checkout the command resolves, as the change branch's
 commits; the ledger and panel render from the store when the run wrote rows — then
 `## Session narrative`, one paragraph this session writes on what it
@@ -323,22 +323,10 @@ lessons home (**Process lessons**, `skills/flow-contracts/lessons.md`).
 
 Over that bundle run steps 2–6 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`),
 canonical for the eight angles, the fix loop, where the fixes land — on `<name>` itself
-when `<worktree>` is `<agents repo>`'s — the filing-and-rating prompt and the store rows. Write
-the report per that file's step 7, its `**Deferred:**` line naming `the in-run bundle` as the
-bundle path, then commit and push it through the landing chain, asserting the change branch:
+when `<worktree>` is `<agents repo>`'s — the filing-and-rating prompt and the store rows. No report is written: the findings live in flowd.
 
-```bash
-land-self-review-report.sh "<worktree>" "<name>" \
-  "docs(self-review): <name> self-review report" \
-  docs/self-review/<name>-self-review.md \
-  --push "<name>"
-```
-
-The report and the fixes land with the change on every route. **7. Land**'s landing push carries the fix
-commits' shas per item 5 of step 3 of `/flow-self-review`, in whichever invocation makes it. A staged index holding anything
-beyond the chain's own path refuses the commit (`LAND-FOREIGN-STAGED`) — clear the staging or land
-from a clean checkout, never around it.
-A `LAND-UNTRACED-FINDING`, `LAND-DEFERRED-FINDING` or `LAND-REPORT-INVALID` refusal is not a stop: resolve it per step 7 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`) and land again.
+The fixes land with the change on every route. **7. Land**'s landing push carries the fix
+commits' shas per item 5 of step 3 of `/flow-self-review`, in whichever invocation makes it.
 
 A product defect the pass met stops it at the end of step 2 of `/flow-self-review`, closes the mark below
 `-outcome stopped` instead, and continues straight into the fix re-run **the sweep**
@@ -351,8 +339,8 @@ flow stage begin -command '/flow-fast' -stage flow.run-instructions -harness <ha
 ```
 
 Print the change summary: what changed and why, grouped by area, one or two sentences each;
-what was verified and how; anything deliberately left out; the self-review report path and
-its fixed shas when section 5 committed one; and the `**Learning:**` and `**Prompt tuning:**`
+what was verified and how; anything deliberately left out; the self-review's fixed shas when
+section 5 landed any; and the `**Learning:**` and `**Prompt tuning:**`
 lines of the Finished handoff (`skills/flow/cleanup.md`), never omitted. This is the one report the run prints.
 
 **Then the handoff, decided by `## handoff`** (**Project configuration**,
@@ -448,11 +436,14 @@ nothing.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.verify-merge -outcome completed <name>
-flow stage mark  -command '/flow-fast' -stages flow.sync-archive,flow.commit-archive -harness <harness> -session-token ff-<literal-token> <name>
 flow stage begin -command '/flow-fast' -stage flow.cleanup -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
+Save the plan and the self-review bundle to flowd first — the worktree holds their only copies;
+a non-zero exit stops the run, removing nothing:
+
 ```bash
+flow change save -C <worktree> <name>
 git -C <project> worktree remove <project>-worktrees/<name>
 git -C <project> branch -D <name>
 git -C <project> push origin --delete <name>

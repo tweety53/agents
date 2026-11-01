@@ -34,10 +34,10 @@ Moved verbatim from the contract, where it opened the sentence whose call-site l
 
 ## finish-contract-run1.md — one task, one worktree (2026-10-04)
 
-The operator's rule: one task gets one worktree, and its planning, archive and self-review
-artifacts land on the same pull request as the code, as separate commits. So run 1 archives the
-change and runs its self-review pass on `spectre/<name>`, in the apply worktree, before
-any route pushes, and run 2 only cleans up.
+The operator's rule: one task gets one worktree, and its self-review fixes land on the same pull
+request as the code. So run 1 runs its self-review pass on `spectre/<name>`, in the apply
+worktree, before any route pushes, and run 2 only cleans up. Since KAN-1073 no planning, archive
+or self-review artifact is committed at all.
 
 Rejected, and removed: a second, throwaway landing worktree `<project>-worktrees/_landing-<name>`
 and a second branch `chore/archive-<name>`. Run 1's merge-and-push route positioned that worktree
@@ -46,24 +46,6 @@ the main checkout then showed the change reverse-staged until run 2 reset its in
 KAN-875's landing). Run 2 then archived on `chore/archive-<name>` and landed it through a second
 push or pull request — two landings per change, and a window in which the code had landed with its
 change still open.
-
-A re-run of run 1 on an already-archived change without new work skips the reshape because a
-reshape from the merge base would fold the archive and bundle commits into the implementation
-commit. It still runs the bundle step, a no-op once its commit exists, because the
-earlier run may have stopped after the archive commit and before the bundle commit. An archive left
-uncommitted is undone rather than finished: finishing it on top of a fix run's commits would make
-the archive commit the re-run's base and hide that work. Archived-ness is read from the
-canonical repository alone because only it holds the change directory; a satellite worktree has
-nothing to judge it by.
-
-The base runs past the self-review loop's own commits, not only its report, because a run 1
-resumed mid-loop — after `chore(spectre): plan self-review-<name>` and its fix commits, before the
-report — otherwise took `chore(spectre): archive <name>` as its base, folded the loop's fix
-commits into a new implementation commit and lost their shas, and carried the loop's plan files
-under `chore(spectre): plan <name>` (kan-1021). A fix commit carries no marker subject, so the
-loop is every commit from its plan commit on; a fix run's own planning commit,
-`chore(spectre): plan <name>` with or without its ` — <stage>` suffix, ends it, since a fix run
-commits that before its first task and its work is new work.
 
 The merge-and-push route pushes `spectre/<name>` before `<base>`, so `origin/spectre/<name>` never
 stays at its pre-reshape tip. Run 2's `git branch -d` does not depend on it: `remove-change-worktrees.sh`
@@ -92,17 +74,6 @@ carried.
 
 The switch lives in `integrate-change.sh`, not in the drift guard nor a new Go subcommand, for the
 reasons decision `prepare-switch-clean-drift`'s Considered line records.
-
-## finish-contract-run1.md — Archive on the change branch
-
-Step 1, moved verbatim from the contract, where it closed "**There is nothing to sync into
-`<project>/spectre/specs/` first**": , and no sync step is ever to be added back.
-
-Step 2, moved verbatim from the contract, where it followed "rather than let a stray path land on
-`spectre/<name>` unremarked.": This has happened: an archive commit made this way reverted
-skill-file content another change had shipped minutes earlier.
-
-Step 2, the archive-scope guard's cannot-answer exit — incident: KAN-601.
 
 ## finish-contract-run1.md — Run the self-review pass
 
@@ -215,56 +186,6 @@ Moved verbatim (KAN-859), where it followed "otherwise `git merge-base --is-ance
 
 That fallback must stay reachable on its own — it is the only
    merge evidence available on a non-GitHub forge.
-
-### finish-contract-run1.md — Archive on the change branch, the drop replaces the archive (KAN-1072)
-
-Run 1 no longer archives: the step drops the change directory with one `chore(spectre): drop <name>`
-commit (decision landing-drop-replaces-archive, KAN-1072). Moved verbatim from the replaced
-archive-undo paragraph, the reasoning that no longer applies once nothing is moved:
-
-**When `<project>/spectre/changes/<name>/` also exists, stop and ask** — `git mv` would nest the archive inside it, hiding the fix run's tasks from the gate; the operator checks the live copy holds nothing the archived one lacks, removes it, and re-runs.
-
-And from the replaced archive step, why each sub-change took its own call:
-
-A `<name>-fix-N` sub-change is a flat
-   sibling under `<project>/spectre/changes/`, never a directory inside its parent — `spectre new`
-   refuses an id that is not a single flat directory name — so the parent's call cannot reach it and
-   each sub-change is archived by its own call in this same step.
-
-The ledger and panel copies below are no longer made: the self-review bundle renders both from the
-store, and the sections that follow record why earlier runs archived them.
-
-### finish-contract-run1.md — Archive on the change branch, the archived leaf (KAN-859)
-
-Moved verbatim (KAN-859); the run-loaded copy keeps the bold claim alone:
-
-**The archived leaf carries no date prefix**, because
-   `spectre archive` adds none: a prefix re-added here would describe a move the tool does not
-   perform.
-
-### finish-contract-run1.md — Archive on the change branch, no spec sync (KAN-859)
-
-Moved verbatim (KAN-859); the run-loaded copy keeps the bold claim alone:
-
-**There is nothing to sync into
-   `<project>/spectre/specs/` first**: a change edits that
-   tree directly on its own branch, so its spec edits reach the base branch with the same merge.
-
-### finish-contract-run1.md — Archive on the change branch, why the scope check (KAN-859)
-
-Moved (KAN-859), where it followed "run between the add and the commit.":
-
-`add -A` stages the whole worktree, not only the archive move, so it stages and commits whatever
-   else the tree carried right alongside it.
-
-### finish-contract-run1.md — Archive on the change branch, why the renders are preserved (KAN-859)
-
-Moved (KAN-859), where it followed "under the scope the check above verifies.":
-
-The store's rows are the terminal record, but rows that never
-   reached it leave the worktree renders the only copies, and run 2's cleanup destroys those with the
-   worktree; the committed copies are what the bundle serves when the store renders report
-   skipped.
 
 ### finish-contract-run2.md — step 4, the `SKIPPED:` relay (KAN-859)
 

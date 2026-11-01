@@ -12,10 +12,12 @@ import (
 // pfFx is one pipeline-fix fixture: a bare origin, the agents main checkout
 // cloned from it (model-policy.md's **Allowed pairs**, a .flow/project.md, a
 // script and its harness), a second clone that moves origin, and a `flow` stub logging every
-// call, its stdin included, and answering `record dispatches` from rows.
+// call, its stdin included, answering `record dispatches` from rows and
+// `state list` from states — flowd's change records, pipeline-fix-old-5's
+// alone unless a test rewrites it.
 type pfFx struct {
 	lpFx
-	origin, other string
+	origin, other, states string
 }
 
 const pfProject = "# fixture\n\n## worktree setup\n\n```bash\ntouch .setup-ran\n```\n\n" +
@@ -28,7 +30,7 @@ func pfNew(t *testing.T, rows string) pfFx {
 		t.Fatal(err)
 	}
 	fx := pfFx{lpFx: lpFx{repo: tmp + "/agents", log: tmp + "/flow.log", rows: tmp + "/rows.json"},
-		origin: tmp + "/origin.git", other: tmp + "/other"}
+		origin: tmp + "/origin.git", other: tmp + "/other", states: tmp + "/states.json"}
 	table, err := os.ReadFile("../../../" + mpFile)
 	if err != nil {
 		t.Fatal(err)
@@ -42,18 +44,19 @@ func pfNew(t *testing.T, rows string) pfFx {
 	writeExec(t, fx.repo+"/scripts/test-foo.sh", "#!/usr/bin/env bash\nscripts/foo.sh | grep -q foo\n")
 	gitRun(t, fx.repo, "add", "-A")
 	gitRun(t, fx.repo, "commit", "-q", "-m", "init")
-	gitRun(t, fx.repo, "commit", "-q", "--allow-empty", "-m", "chore(spectre): archive pipeline-fix-old-5")
 	gitRun(t, fx.repo, "push", "-q", "origin", "HEAD:main")
 	gitRun(t, fx.repo, "remote", "set-head", "origin", "main")
 	gitRun(t, "", "clone", "-q", fx.origin, fx.other)
 	if rows != "" {
 		writeFile(t, fx.rows, rows)
 	}
+	writeFile(t, fx.states, `{"source":"store","complete":true,"records":[{"name":"pipeline-fix-old-5","state":"FINISHED"}]}`)
 	bin := tmp + "/bin"
 	writeExec(t, bin+"/flow", `#!/usr/bin/env bash
 printf '%s\n' "$*" >>`+fx.log+`
 case "$1 $2" in
   "record dispatches") [ -f `+fx.rows+` ] && exec cat `+fx.rows+`; exit 1 ;;
+  "state list") exec cat `+fx.states+` ;;
   "state set") cat >>`+fx.log+`; echo >>`+fx.log+` ;;
 esac
 `)
@@ -133,41 +136,6 @@ func TestPipelineFixStartRefusesANonUniqueK(t *testing.T) {
 	gitRun(t, fx.repo, "branch", "pipeline-fix-other-9")
 	if rc, out := fx.pf(t, "start", "kan-1-demo", "10"); rc != 0 {
 		t.Fatalf("one past a live branch: rc %d: %s", rc, out)
-	}
-}
-
-func TestPipelineFixHighestKCountsLandedChanges(t *testing.T) {
-	pfIdentity(t)
-	fx := pfNew(t, "")
-	writeFile(t, fx.repo+"/spectre/changes/pipeline-fix-x-7/proposal.md", "live\n")
-	gitRun(t, fx.repo, "add", "-A")
-	gitRun(t, fx.repo, "commit", "-q", "-m", "chore(spectre): plan pipeline-fix-x-7")
-	gitRun(t, fx.repo, "commit", "-q", "--allow-empty", "-m", "chore(spectre): drop pipeline-fix-x-9")
-	gitRun(t, fx.repo, "commit", "-q", "--allow-empty", "-m", "chore(spectre): archive pipeline-fix-x-8")
-	gitRun(t, fx.repo, "push", "-q", "origin", "HEAD:main")
-	if rc, out := fx.pf(t, "start", "kan-1-demo", "3"); rc != 1 || !strings.Contains(out, "<k> is 10") {
-		t.Fatalf("rc %d, want the next key 10: %s", rc, out)
-	}
-}
-
-func TestPipelineFixLandRefusesUndroppedChange(t *testing.T) {
-	pfIdentity(t)
-	fx := pfNew(t, lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed", "review-1 clean"))
-	if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
-		t.Fatal(out)
-	}
-	wt := fx.wt(lpBranch)
-	writeFile(t, wt+"/spectre/changes/"+lpBranch+"/tasks.md", "- [x] 1\n")
-	gitRun(t, wt, "add", "-A")
-	gitRun(t, wt, "commit", "-q", "-m", "chore(spectre): plan")
-	rc, out := fx.pf(t, "land", wt)
-	want := "git rm -r spectre/changes/" + lpBranch
-	if rc != 1 || !strings.Contains(out, want) || !strings.Contains(out, "chore(spectre): drop "+lpBranch) {
-		t.Fatalf("rc %d, want 1 naming %q and the drop subject: %s", rc, want, out)
-	}
-	_, log := kwRun(fx.env, "", fixtureGit, "--git-dir", fx.origin, "log", "--format=%s", "main")
-	if strings.Contains(log, "chore(spectre): plan") {
-		t.Fatalf("refused landing pushed: %s", log)
 	}
 }
 
@@ -290,14 +258,12 @@ func TestPipelineFixLand(t *testing.T) {
 		moved      bool
 		rc         int
 		red        bool
-		lsTreeFail bool
 		refusal    string
 	}{
 		{name: "a reviewed loop lands", rows: reviewed},
 		{name: "a moved base is rebased and verified first", rows: reviewed, moved: true},
 		{name: "an unreviewed loop is refused", rows: lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed"), rc: 1, refusal: "LOOP-LANDING-REFUSED: REVIEW"},
 		{name: "a red branch is refused with no base move", rows: reviewed, red: true, rc: 1, refusal: "red: scripts/test-foo.sh"},
-		{name: "an ls-tree failure fails closed", rows: reviewed, lsTreeFail: true, rc: 2, refusal: "cannot tell whether"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fx := pfNew(t, tc.rows)
@@ -313,11 +279,6 @@ func TestPipelineFixLand(t *testing.T) {
 				gitRun(t, wt, "commit", "-q", "-am", "fix: break foo")
 			}
 			gitRun(t, fx.repo, "config", "--add", "flow.escalation", lpBranch+":pipeline-fix-6-fix-1")
-			if tc.lsTreeFail {
-				writeExec(t, filepath.Dir(fx.repo)+"/bin/git", "#!/usr/bin/env bash\n"+
-					"case \" $* \" in *\" ls-tree \"*\" spectre/changes/"+lpBranch+"\"*) exit 128 ;; esac\n"+
-					"exec "+fixtureGit+" \"$@\"\n")
-			}
 			if tc.moved {
 				writeFile(t, fx.other+"/docs/other.md", "other\n")
 				gitRun(t, fx.other, "add", "docs/other.md")

@@ -38,10 +38,10 @@
 # Reporting a leftover is the whole point: run 2 previously assumed its own
 # removals succeeded.
 #
-# THE SEVEN ROWS, AND WHY THEY ARE THESE SEVEN. The registry in
+# THE SIX ROWS, AND WHY THEY ARE THESE SIX. The registry in
 # skills/flow-contracts/artifacts-registry.md owns the list; the rows whose
 # lifetime ends at run 2 are the worktree, the local branch, the remote branch,
-# the change directory, the proposal artifact source and the workspace database
+# the proposal artifact source and the workspace database
 # and bucket — plus the wave-group throwaway worktree copy, whose lifetime is
 # meant to end inside the implement phase but which a run that died mid-wave
 # leaves for run 2. It is detached, so the branch match that finds the worktree
@@ -132,11 +132,9 @@
 #   find gone
 # registry-row-not-checked: State file — never removed; it is the terminal record
 # registry-row-not-checked: Claimed cache index — this pipeline removes nothing and this guard checks nothing; the index is probed rather than derived, so run 2 has no derivation to repeat. A project that writes its claim where a probe can see it may release it in its own `remove` command and report it through `survivors`; that is the project's tooling and this marker does not claim it
-# registry-row-not-checked: Self-review context bundle — held in run 1's memory,
-#   never written; one a run before KAN-927 committed landed on the base with
-#   the change, and is removed only by
-#   `/flow-self-review`, a separate command run later, not by anything this
-#   guard's cleanup checks derive from
+# registry-row-not-checked: Self-review context bundle — saved to flowd at
+#   cleanup and removed with the worktree
+# registry-row-not-checked: Plan snapshots — removed with the worktree
 #
 # ABSENCE IS THE ANSWER HERE, not a gap in the evidence. The run-1 gate treats
 # a file it cannot find as outstanding, because a missing record proves nothing
@@ -185,18 +183,6 @@
 # **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`)
 # forbids. The skip names the timeout distinctly from a non-zero exit, because
 # "your command is slow" and "your command is broken" have different remedies.
-#
-# A CHANGE DIRECTORY STILL AT THE TIP IS A LEFTOVER. Run 1's drop commit,
-# `chore(spectre): drop <name>`, deletes spectre/changes/<name>/ from the tip
-# (its files stay in history), so one still sitting there was never dropped.
-#
-# A <name>-fix-N SUB-CHANGE COUNTS TOO, and used not to. Under spectre a
-# sub-change is a FLAT SIBLING of its parent under spectre/changes/, never a
-# directory inside it -- `spectre new` refuses an id that is not a single flat
-# directory name -- so removing the parent's directory cannot reach one; the
-# drop commit removes each <name>-fix-N/ by name, and this row still checks
-# each on its own. Before this row the guard reported COMPLETE with the
-# parent gone and the child left behind, and nothing anywhere said so.
 #
 # HOW TO HAND-VERIFY A LEFTOVER VERDICT (KAN-446). Check each row the
 # breakdown names against the filesystem yourself. A worktree kept

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"os"
 	"os/exec"
-	"sort"
 	"strings"
 	"testing"
 )
@@ -13,7 +12,7 @@ import (
 // assertion named after the harness's ok: label. The harness built a
 // sandboxed repository per case and ran the script with stdout and stderr
 // merged; here commit-split runs in-process over the same repositories, with
-// check-planning-commit-location in-process too.
+// checkChangeWorktreeLocation in-process too.
 
 // splitGit runs fixture git in dir under fixtureGitEnv plus extra, failing
 // the test on error, and returns stdout with trailing newlines stripped.
@@ -64,7 +63,7 @@ func csNew(t *testing.T) csFx {
 	root := t.TempDir()
 	fx := csFx{root + "/main", root + "/wt"}
 	splitRepo(t, fx.main, fx.wt, map[string]string{
-		"README.md": "seed\n", "spectre/changes/seed.md": "seed\n", "spectre/specs/seed.md": "seed\n",
+		"README.md": "seed\n", ".gitignore": "spectre/changes/\n", "spectre/specs/seed.md": "seed\n",
 	})
 	return fx
 }
@@ -109,7 +108,7 @@ func TestCommitSplit(t *testing.T) {
 	}
 	has := strings.Contains
 
-	t.Run("1 both commits happen when both staging areas have changes", func(t *testing.T) {
+	t.Run("1 the ignored change directory is in neither commit", func(t *testing.T) {
 		t.Parallel()
 		fx := csNew(t)
 		writeFile(t, fx.wt+"/src.md", "impl change\n")
@@ -118,23 +117,45 @@ func TestCommitSplit(t *testing.T) {
 		check(t, rc == 0, "exit", "rc=%d out=%s", rc, out)
 		s := fx.subjects(t)
 		check(t, has(s, "impl: case1"), "implementation commit made", "%s", s)
-		check(t, has(s, "plan: case1"), "planning commit made", "%s", s)
-		n := len(strings.Split(splitGit(t, fx.wt, nil, "log", "--oneline"), "\n"))
-		check(t, n == 3, "exactly two new commits on top of seed", "got %d commits", n)
-		tr := splitGit(t, fx.wt, nil, "log", "--format=%s|%(trailers:key=Flow-Key,valueonly)", "-2")
+		check(t, !has(s, "plan: case1"), "planning commit skipped", "%s", s)
+		tr := splitGit(t, fx.wt, nil, "log", "--format=%s|%(trailers:key=Flow-Key,valueonly)", "-1")
 		check(t, has(tr, "impl: case1|flow.commit-two"), "implementation commit carries Flow-Key", "%s", tr)
-		check(t, !has(tr, "plan: case1|flow"), "planning commit carries no Flow-Key", "%s", tr)
+		impl := fx.files(t, fx.shaOf(t, "impl: case1"))
+		check(t, !impl["spectre/changes/demo/plan.md"], "no change-directory file in the implementation commit", "%v", impl)
+		check(t, isFile(fx.wt+"/spectre/changes/demo/plan.md"), "the change directory stays on disk", "plan.md lost")
 	})
 
-	t.Run("2 implementation commit skipped when only planning paths changed", func(t *testing.T) {
+	t.Run("1b an unignored change directory refuses before anything is staged", func(t *testing.T) {
+		t.Parallel()
+		root := t.TempDir()
+		fx := csFx{root + "/main", root + "/wt"}
+		splitRepo(t, fx.main, fx.wt, map[string]string{"README.md": "seed\n", "spectre/specs/seed.md": "seed\n"})
+		writeFile(t, fx.wt+"/src.md", "impl change\n")
+		writeFile(t, fx.wt+"/spectre/changes/demo/plan.md", "plan change\n")
+		rc, out := fx.split(t, fx.wt, "case1b")
+		check(t, rc == 2, "exit 2", "rc=%d out=%s", rc, out)
+		check(t, has(out, "spectre/changes/ is not gitignored"), "the refusal names the path", "%s", out)
+		check(t, fx.subjects(t) == "seed", "no commit made", "%s", fx.subjects(t))
+	})
+
+	t.Run("1c each trailer argument joins the implementation commit's trailer block", func(t *testing.T) {
+		t.Parallel()
+		fx := csNew(t)
+		writeFile(t, fx.wt+"/src.md", "impl change\n")
+		rc, out := runSplitGuard(t, commitSplit, fx.wt, fx.wt, "demo", "impl: case1c", "plan: case1c", "Task-Id: 1", "Task-Id: 2")
+		check(t, rc == 0, "exit", "rc=%d out=%s", rc, out)
+		tr := splitGit(t, fx.wt, nil, "log", "-1", "--format=%(trailers:key=Task-Id,valueonly,separator=%x2C)|%(trailers:key=Flow-Key,valueonly)")
+		check(t, tr == "1,2|flow.commit-two", "trailers", "%q", tr)
+	})
+
+	t.Run("2 nothing is committed when only the change directory changed", func(t *testing.T) {
 		t.Parallel()
 		fx := csNew(t)
 		writeFile(t, fx.wt+"/spectre/changes/demo/only.md", "plan only\n")
 		rc, out := fx.split(t, fx.wt, "case2")
 		check(t, rc == 0, "exit", "rc=%d out=%s", rc, out)
 		s := fx.subjects(t)
-		check(t, !has(s, "impl: case2"), "implementation commit skipped", "%s", s)
-		check(t, has(s, "plan: case2"), "planning commit made", "%s", s)
+		check(t, s == "seed", "no commit made", "%s", s)
 	})
 
 	t.Run("3 planning commit skipped when only implementation paths changed", func(t *testing.T) {
@@ -148,25 +169,6 @@ func TestCommitSplit(t *testing.T) {
 		check(t, !has(s, "plan: case3"), "planning commit skipped", "%s", s)
 	})
 
-	t.Run("4 a tracked symlink at spectre/ stops the split with git's exit 128", func(t *testing.T) {
-		t.Parallel()
-		fx := csNew(t)
-		if err := os.RemoveAll(fx.wt + "/spectre"); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Symlink("docs", fx.wt+"/spectre"); err != nil {
-			t.Fatal(err)
-		}
-		splitGit(t, fx.wt, nil, "add", "-A")
-		splitGit(t, fx.wt, nil, "commit", "-q", "-m", "spectre becomes a tracked symlink")
-		before := splitGit(t, fx.wt, nil, "rev-parse", "HEAD")
-		writeFile(t, fx.wt+"/only.md", "impl change\n")
-		rc, out := fx.split(t, fx.wt, "case4")
-		check(t, rc == 128, "exits 128", "rc=%d out=%s", rc, out)
-		check(t, splitGit(t, fx.wt, nil, "rev-parse", "HEAD") == before, "no commit made", "out=%s", out)
-		check(t, has(out, "symbolic"), "git's own message surfaces", "got %s", out)
-	})
-
 	t.Run("5 a capability spec under spectre/specs/ is implementation", func(t *testing.T) {
 		t.Parallel()
 		fx := csNew(t)
@@ -176,47 +178,8 @@ func TestCommitSplit(t *testing.T) {
 		s := fx.subjects(t)
 		check(t, has(s, "impl: case5"), "capability spec committed as implementation", "%s", s)
 		check(t, !has(s, "plan: case5"), "planning commit skipped", "%s", s)
-		// Resolved by SUBJECT, not by HEAD: with the exclusion pathspec
-		// widened back to spectre/ the implementation commit is SKIPPED and
-		// HEAD is the planning commit — which carries the spec too, so a
-		// HEAD-relative assertion would pass for the wrong reason.
 		sha := fx.shaOf(t, "impl: case5")
 		check(t, fx.files(t, sha)["spectre/specs/greeting.md"], "spec file is in the implementation commit", "sha=%q", sha)
-	})
-
-	t.Run("6 link.md is implementation, its siblings planning", func(t *testing.T) {
-		t.Parallel()
-		fx := csNew(t)
-		d := fx.wt + "/spectre/changes/demo/"
-		for _, f := range []string{"link", "proposal", "design", "tasks"} {
-			writeFile(t, d+f+".md", f+"\n")
-		}
-		rc, out := fx.split(t, fx.wt, "case6")
-		check(t, rc == 0, "exit", "rc=%d out=%s", rc, out)
-		s := fx.subjects(t)
-		check(t, has(s, "impl: case6"), "implementation commit made", "%s", s)
-		check(t, has(s, "plan: case6"), "planning commit made", "%s", s)
-		impl, plan := fx.files(t, fx.shaOf(t, "impl: case6")), fx.files(t, fx.shaOf(t, "plan: case6"))
-		const p = "spectre/changes/demo/"
-		check(t, impl[p+"link.md"], "link.md is in the implementation commit", "%v", impl)
-		check(t, !impl[p+"proposal.md"] && !impl[p+"design.md"] && !impl[p+"tasks.md"],
-			"no planning file in the implementation commit", "%v", impl)
-		check(t, !plan[p+"link.md"], "link.md is not in the planning commit", "%v", plan)
-		for _, f := range []string{"proposal", "design", "tasks"} {
-			check(t, plan[p+f+".md"], f+".md is in the planning commit", "%v", plan)
-		}
-	})
-
-	t.Run("6b a link.md outside the change's own folder is implementation", func(t *testing.T) {
-		t.Parallel()
-		fx := csNew(t)
-		writeFile(t, fx.wt+"/spectre/changes/.hidden/link.md", "link\n")
-		rc, out := fx.split(t, fx.wt, "case6b")
-		check(t, rc == 0, "exit", "rc=%d out=%s", rc, out)
-		s := fx.subjects(t)
-		check(t, !has(s, "plan: case6b"), "planning commit skipped", "%s", s)
-		impl := fx.files(t, fx.shaOf(t, "impl: case6b"))
-		check(t, impl["spectre/changes/.hidden/link.md"], "dot-directory link.md lands as implementation", "%v", impl)
 	})
 
 	t.Run("7 docs/research/ is implementation", func(t *testing.T) {
@@ -240,7 +203,7 @@ func TestCommitSplit(t *testing.T) {
 		before := splitGit(t, fx.main, nil, "rev-parse", "HEAD")
 		rc, out := fx.split(t, fx.main, "case8")
 		check(t, rc == 1, "main checkout exits 1", "rc=%d out=%s", rc, out)
-		check(t, has(out, "PLANNING-COMMIT-MAIN-CHECKOUT"), "guard's own line surfaces", "got %s", out)
+		check(t, has(out, "WORKTREE-LOCATION-MAIN-CHECKOUT"), "guard's own line surfaces", "got %s", out)
 		check(t, splitGit(t, fx.main, nil, "rev-parse", "HEAD") == before, "no commit made", "a commit landed")
 		check(t, splitGit(t, fx.main, nil, "diff", "--cached", "--name-only") == "", "nothing staged", "index touched")
 	})
@@ -248,58 +211,41 @@ func TestCommitSplit(t *testing.T) {
 	t.Run("usage: fewer than four arguments cannot answer", func(t *testing.T) {
 		t.Parallel()
 		rc, out := runSplitGuard(t, commitSplit, t.TempDir(), "a", "b", "c")
-		check(t, rc == 2 && out == "usage: commit-split.sh <worktree> <name> <impl-msg> <plan-msg>", "usage", "rc=%d out=%q", rc, out)
+		check(t, rc == 2 && out == "usage: commit-split.sh <worktree> <name> <impl-msg> <plan-msg> [<trailer>…]", "usage", "rc=%d out=%q", rc, out)
 	})
 }
 
-// TestCommitSplitScopesThePlanCommitToTheChangeFolder pins the planning
-// pathspec to the change's own folder and its -fix-<N> sub-change folders:
-// an archive deletion, another change's folder and every link.md but the
-// change's own land in the implementation commit (kan-1072 self-review, F1),
-// and a look-alike folder (`demo-fixer`) is not a fix sub-change.
-func TestCommitSplitScopesThePlanCommitToTheChangeFolder(t *testing.T) {
+// A change planned under the pre-kan-1073 tooling committed its own
+// directory; reshape-branch's soft reset leaves it staged, and the ignore
+// rule alone never unstages a tracked path.
+func TestCommitSplitUntracksTheChangeDirectory(t *testing.T) {
 	t.Parallel()
-	root := t.TempDir()
-	fx := csFx{root + "/main", root + "/wt"}
-	splitRepo(t, fx.main, fx.wt, map[string]string{
-		"README.md":                            "seed\n",
-		"spectre/changes/archive/old/tasks.md": "old\n",
-		"spectre/changes/archive/old/link.md":  "old\n",
-		"spectre/changes/other/proposal.md":    "other\n",
-	})
-	for _, p := range []string{"spectre/changes/archive/old/tasks.md", "spectre/changes/archive/old/link.md"} {
-		if err := os.Remove(fx.wt + "/" + p); err != nil {
-			t.Fatal(err)
-		}
-	}
-	for p, body := range map[string]string{
-		"spectre/changes/other/proposal.md":   "other, edited\n",
-		"src/a.go":                            "package a\n",
-		"spectre/changes/demo/tasks.md":       "tasks\n",
-		"spectre/changes/demo/link.md":        "link\n",
-		"spectre/changes/demo-fix-1/tasks.md": "fix tasks\n",
-		"spectre/changes/demo-fixer/tasks.md": "not a fix\n",
-	} {
-		writeFile(t, fx.wt+"/"+p, body)
-	}
-	rc, out := fx.split(t, fx.wt, "scope")
+	fx := csNew(t)
+	writeFile(t, fx.wt+"/spectre/changes/demo/plan.md", "plan\n")
+	writeFile(t, fx.wt+"/spectre/changes/other/keep.md", "other\n")
+	splitGit(t, fx.wt, nil, "add", "-f", "spectre/changes")
+	splitGit(t, fx.wt, nil, "commit", "-q", "-m", "old planning commit")
+	writeFile(t, fx.wt+"/spectre/changes/demo/plan.md", "plan, edited after the planning commit\n")
+	splitGit(t, fx.wt, nil, "reset", "-q", "--soft", "HEAD~1")
+	writeFile(t, fx.wt+"/src.md", "impl change\n")
+	rc, out := fx.split(t, fx.wt, "untrack")
 	if rc != 0 {
-		t.Fatalf("rc=%d out=%s", rc, out)
+		t.Fatalf("exit: rc=%d out=%s", rc, out)
 	}
-	keys := func(m map[string]bool) string {
-		var ks []string
-		for k := range m {
-			ks = append(ks, k)
-		}
-		sort.Strings(ks)
-		return strings.Join(ks, " ")
+	impl := fx.files(t, fx.shaOf(t, "impl: untrack"))
+	if !impl["src.md"] {
+		t.Errorf("src.md missing from the implementation commit: %v", impl)
 	}
-	wantImpl := "spectre/changes/archive/old/link.md spectre/changes/archive/old/tasks.md spectre/changes/demo-fixer/tasks.md spectre/changes/demo/link.md spectre/changes/other/proposal.md src/a.go"
-	if got := keys(fx.files(t, fx.shaOf(t, "impl: scope"))); got != wantImpl {
-		t.Errorf("implementation commit:\n got %s\nwant %s", got, wantImpl)
+	if impl["spectre/changes/demo/plan.md"] {
+		t.Errorf("the change's own plan.md is in the implementation commit: %v", impl)
 	}
-	wantPlan := "spectre/changes/demo-fix-1/tasks.md spectre/changes/demo/tasks.md"
-	if got := keys(fx.files(t, fx.shaOf(t, "plan: scope"))); got != wantPlan {
-		t.Errorf("planning commit:\n got %s\nwant %s", got, wantPlan)
+	if got := splitGit(t, fx.wt, nil, "ls-files", "spectre/changes/demo"); got != "" {
+		t.Errorf("the change directory is still tracked: %q", got)
+	}
+	if !isFile(fx.wt + "/spectre/changes/demo/plan.md") {
+		t.Errorf("plan.md lost from disk")
+	}
+	if !impl["spectre/changes/other/keep.md"] {
+		t.Errorf("another change's tracked file was untracked: %v", impl)
 	}
 }

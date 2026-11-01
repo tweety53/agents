@@ -3,7 +3,6 @@ package guard
 import (
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -14,7 +13,7 @@ import (
 // check-base-moved line echoed on stdout, then one of CLEAN / REBASED (exit
 // 0, REBASED preceded by a GUARD-TEST or NO-GUARD-TEST line per overlap
 // path) or CONFLICT (exit 1, left mid-rebase); exit 2 on a REFUSE, a
-// question it cannot answer, or an aside it cannot restore.
+// question it cannot answer.
 func init() {
 	Registry["sync-onto-base"] = syncOntoBase
 }
@@ -57,28 +56,10 @@ func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
 		if envGit(env)("-C", wt, "merge-base", "--is-ancestor", "--end-of-options", base, "HEAD").Run() != nil {
 			return refuse("%s is not an ancestor of HEAD in %s — the rebase it resumes did not finish onto it", base, wt)
 		}
-		// The aside the conflicted sync recorded: its own stash sha, or
-		// none -- never whichever marker stash another worktree left on top.
-		rec, err := asideRecord(env, wt, "flow-sync-aside")
-		if err != nil {
-			return refuse("%v", err)
-		}
-		b, err := os.ReadFile(rec)
-		if err != nil {
-			return refuse("no record of the conflicted sync's aside in %s — restore the planning paths by hand from git stash list", wt)
-		}
 		if busy, err := inProgress(env, wt, "rebase-merge", "rebase-apply", "MERGE_HEAD", "CHERRY_PICK_HEAD"); err != nil {
 			return refuse("%v", err)
 		} else if busy {
-			return refuse("restore refused — a rebase/merge/cherry-pick is still in progress in: %s", wt)
-		}
-		if sha := strings.TrimSpace(string(b)); sha != "none" {
-			if err := restoreAside(env, wt, sha, stderr); err != nil {
-				return refuse("%v", err)
-			}
-		}
-		if err := os.Remove(rec); err != nil {
-			return refuse("cannot remove %s: %v", rec, err)
+			return refuse("resume refused — a rebase/merge/cherry-pick is still in progress in: %s", wt)
 		}
 		if v, ok = check(base); !ok {
 			return 2
@@ -106,23 +87,12 @@ func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
 		for _, p := range v.overlap {
 			overlap[p] = true
 		}
-		o, err := rebaseOntoTip(env, wt, v.ref, true, stderr)
+		o, err := rebaseOntoTip(env, wt, v.ref, stderr)
 		if err != nil {
 			return refuse("%v", err)
 		}
 		switch o.kind {
 		case "conflict":
-			rec, err := asideRecord(env, wt, "flow-sync-aside")
-			if err != nil {
-				return refuse("%v", err)
-			}
-			aside := o.aside
-			if aside == "" {
-				aside = "none"
-			}
-			if err := os.WriteFile(rec, []byte(aside+"\n"), 0o644); err != nil {
-				return refuse("cannot record the aside in %s: %v — the rebase is left in progress", rec, err)
-			}
 			fmt.Fprintf(stdout, "CONFLICT: %s — onto %s; unmerged: %s\n", wt, o.sha, strings.Join(o.unmerged, ", "))
 			for _, u := range o.unmerged {
 				if sobRecapture(u) {

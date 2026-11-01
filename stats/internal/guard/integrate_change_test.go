@@ -52,6 +52,7 @@ fixture() {
     g init -q --bare -b main "$WORK/$r-origin.git"
     g init -q -b main "$WORK/$r"
     printf 'base\n' >"$WORK/$r/base.txt"
+    printf '.superpowers/\nspectre/changes/\n' >"$WORK/$r/.gitignore"
     if [ "$r" = a ]; then
       mkdir -p "$WORK/a/.flow" "$WORK/a/spectre/changes"
       printf '# project\n\n## default landing route\n\nmerge and push\n' >"$WORK/a/.flow/project.md"
@@ -70,8 +71,6 @@ fixture() {
   mkdir -p "$c"
   printf '# Tasks\n\n- [x] 1. Do the work\n' >"$c/tasks.md"
   printf '# demo\n\n## Parts\n\n` + "`" + `b:demo` + "`" + `\n\n## Branch\n\nmain\n\n## Merge order\n\n1. ` + "`" + `b` + "`" + `\n2. ` + "`" + `.` + "`" + `\n' >"$c/link.md"
-  g -C "$WORK/a-worktrees/demo" add -A
-  g -C "$WORK/a-worktrees/demo" commit -qm "chore(spectre): plan-gate demo"
 
   mkdir -p "$WORK/bin" "$WORK/statedir"
   cat >"$WORK/bin/flow" <<EOF
@@ -82,6 +81,7 @@ case "\$1 \$2" in
   "state dir") echo "$WORK/statedir" ;;
   "state list") echo '{"source":"store","complete":true,"records":[{"name":"demo"}]}' ;;
   "stage begin"|"stage end") echo "\$*" >>"$WORK/stages.log" ;;
+  "stage completed") [ -f "$WORK/sr-unreachable" ] && exit 2; [ -f "$WORK/sr-completed" ] ;;
   "stage sessions") [ -f "$WORK/fail-sessions" ] && exit 1; if [ "\$6" = flow.document-fix ]; then cat "$WORK/fix-sessions" 2>/dev/null || echo 0; else echo 0; fi ;;
   "record findings") [ -f "$WORK/fail-findings" ] && exit 1; echo '[]' ;;
   "self-review findings") cat "$WORK/sr-findings.json" 2>/dev/null || echo '[]' ;;
@@ -111,36 +111,27 @@ to_land() {
   check "${1}commit exits 0" '[ "$RC" -eq 0 ]'
   [ "$RC" -eq 0 ] || halt commit
   [ "${2:-}" = no-report ] && return 0
-  mkdir -p "$WORK/a-worktrees/demo/docs/self-review"
-  printf '# demo self-review\n' >"$WORK/a-worktrees/demo/docs/self-review/demo-self-review.md"
-  g -C "$WORK/a-worktrees/demo" add docs/self-review/demo-self-review.md
-  g -C "$WORK/a-worktrees/demo" commit -qm "docs(self-review): demo self-review report"
+  touch "$WORK/sr-completed"
 }
 peer_fix_case() {
   to_land "$1" no-report
   printf 'fix\n' >"$WORK/b-worktrees/demo/fix-b.txt"
   g -C "$WORK/b-worktrees/demo" add fix-b.txt && g -C "$WORK/b-worktrees/demo" commit -qm "fix(b): the peer fix"
   old="$(git -C "$WORK/b-worktrees/demo" rev-parse --short HEAD)"
-  mkdir -p "$WORK/a-worktrees/demo/docs/self-review"
-  printf '# demo self-review\n\n- **[flow-fix]** the peer fix — fixed: %s\n' "$old" >"$WORK/a-worktrees/demo/docs/self-review/demo-self-review.md"
-  g -C "$WORK/a-worktrees/demo" add docs/self-review/demo-self-review.md
-  g -C "$WORK/a-worktrees/demo" commit -qm "docs(self-review): demo self-review report"
+  printf '[{"angle":"code","disposition":"fixed","ref":"%s","note":"the peer fix"}]' "$(git -C "$WORK/b-worktrees/demo" rev-parse HEAD)" >"$WORK/sr-findings.json"
+  touch "$WORK/sr-completed"
   printf 'moved\n' >"$WORK/b/moved.txt"
   g -C "$WORK/b" add moved.txt && g -C "$WORK/b" commit -qm "base: moved" && g -C "$WORK/b" push -q origin main
   sut land "$WORK/a" demo
   new="$(git --git-dir="$WORK/b-origin.git" log --format=%h --grep="^fix(b): the peer fix$" -1 main)"
   check "${1}land exits 0" '[ "$RC" -eq 0 ]'
   check "${1}the re-sync rewrote b's fix sha" '[ -n "$new" ] && [ "$new" != "$old" ]'
-  check "${1}the report on a's origin main names the rewritten sha" \
-    'git --git-dir="$WORK/a-origin.git" show main:docs/self-review/demo-self-review.md | grep -q "fixed: $new$"'
-  check "${1}a fixed row is recorded for b's fix" \
-    'grep -q -- "-disposition fixed -ref $new " "$WORK/fixed.log"'
+  check "${1}a fixed row names the re-synced sha" 'grep -q -- "-disposition fixed -ref $new" "$WORK/fixed.log"'
 }
 ui_a() {
   printf '\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| ` + "`" + `ui paths` + "`" + ` | ` + "`" + `work-a.txt` + "`" + ` |\n' >>"$WORK/a-worktrees/demo/.flow/project.md"
   printf '# Visual verification — demo\n' >"$WORK/a-worktrees/demo/spectre/changes/demo/visual-verification.md"
-  g -C "$WORK/a-worktrees/demo" add spectre/changes/demo/visual-verification.md
-  g -C "$WORK/a-worktrees/demo" commit -qam "chore(spectre): plan-gate demo" --amend
+  g -C "$WORK/a-worktrees/demo" commit -qa --amend --no-edit
 }
 flag() {
   printf '[{"change":"%s","guard":"check-visual-verify-dispatched","worktree":"%s","verdict":"VISUAL-VERIFY-MISSING: no verifier — HEAD %s","falsePositive":true,"falsePositiveReason":"hand-verified","flaggedAt":"2026-01-01T00:00:00Z"}]' \
@@ -272,18 +263,15 @@ sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b
 check "commit exits 0" '[ "$RC" -eq 0 ]'
 check "commit ends on NEXT: self-review" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: run the self-review pass"'
 [ "$RC" -eq 0 ] || halt commit
-mkdir -p "$WORK/a-worktrees/demo/docs/self-review"
-printf '# demo self-review\n' >"$WORK/a-worktrees/demo/docs/self-review/demo-self-review.md"
-g -C "$WORK/a-worktrees/demo" add docs/self-review/demo-self-review.md
-g -C "$WORK/a-worktrees/demo" commit -qm "docs(self-review): demo self-review report"
+touch "$WORK/sr-completed"
 
 sut land "$WORK/a" demo
 check "land exits 0" '[ "$RC" -eq 0 ]'
 [ "$RC" -eq 0 ] || halt land
-check "a's origin main carries implementation, plan, drop and report commits" \
-  '[ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -4 | tr "\n" "|")" = "docs(self-review): demo self-review report|chore(spectre): drop demo|chore(spectre): plan demo|feat(a): do the work|" ]'
-check "a's origin main holds neither the change directory nor an archive" \
-  '[ -z "$(git --git-dir="$WORK/a-origin.git" ls-tree -d main spectre/changes/demo spectre/changes/archive)" ]'
+check "a's origin main carries the implementation commit alone" \
+  '[ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -2 | tr "\n" "|")" = "feat(a): do the work|base|" ]'
+check "a's origin main holds no change directory" \
+  '[ -z "$(git --git-dir="$WORK/a-origin.git" ls-tree -d main spectre/changes)" ]'
 check "b's origin main carries its implementation commit" \
   '[ "$(git --git-dir="$WORK/b-origin.git" log --format=%s main -1)" = "feat(b): do the work" ]'
 check "b was pushed before a (merge order)" \
@@ -299,24 +287,6 @@ check "run 2 keeps a's pre-reshape pin, locally and on origin" \
   'git -C "$WORK/a" rev-parse -q --verify refs/flow/pre-reshape/demo >/dev/null && git --git-dir="$WORK/a-origin.git" rev-parse -q --verify refs/flow/pre-reshape/demo >/dev/null'
 check "land ends on NEXT: Finished handoff" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: print the Finished handoff"'
 check "the NEXT line names the template and its never-omitted lines" 'printf "%s" "$OUT" | tail -1 | grep -qF "(skills/flow/cleanup.md) — its Learning: and Prompt tuning: lines included"'`},
-	})
-}
-
-// TestIntegrateChangeDropsSatelliteLink pins the satellite half of run 1's
-// drop: a worktree holding the change's link.md directory drops it in a
-// drop commit of its own, and nothing is archived.
-func TestIntegrateChangeDropsSatelliteLink(t *testing.T) {
-	icRunCases(t, []icCaseDef{
-		{"satellite_drop", `# --- satellite_drop ---
-fixture
-mkdir -p "$WORK/b-worktrees/demo/spectre/changes/demo"
-printf '## Part of\n\n` + "`" + `a:demo` + "`" + `\n' >"$WORK/b-worktrees/demo/spectre/changes/demo/link.md"
-g -C "$WORK/b-worktrees/demo" add -A && g -C "$WORK/b-worktrees/demo" commit -qm "chore(spectre): link demo"
-to_land "satellite_drop: " no-report
-check "satellite_drop: b's change directory is gone from disk and HEAD" \
-  '[ ! -d "$WORK/b-worktrees/demo/spectre/changes/demo" ] && [ -z "$(git -C "$WORK/b-worktrees/demo" ls-tree -d HEAD spectre/changes/demo spectre/changes/archive)" ]'
-check "satellite_drop: b's branch ends on its own drop commit" \
-  '[ "$(git -C "$WORK/b-worktrees/demo" log -1 --format=%s)" = "chore(spectre): drop demo" ]'`},
 	})
 }
 

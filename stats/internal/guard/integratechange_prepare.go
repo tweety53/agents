@@ -139,101 +139,49 @@ func (c *ic) prepare() {
 	if !c.findCanonical() {
 		c.stop("preflight", "no worktree in the set holds "+c.name+"'s tasks.md — ask the operator")
 	}
-	ci := c.idxOf(c.canon)
 	live := c.canon + "/" + c.spec + "/changes/" + c.name
-	// A drop staged and never committed -- a run that stopped between
-	// commit-archive's `git rm` and its commit, on a first pass or on a fix
-	// run's re-drop -- is undone, so this pass sees the change as it was
-	// before it. The index decides, not the log: a re-drop's branch already
-	// holds run 1's drop commit.
-	staged, _ := c.git("-C", c.canon, "diff", "--cached", "--no-renames", "--name-only", "--diff-filter=D", "--", c.spec+"/changes/")
-	var dirs []string // git lists paths sorted, so a directory's paths are adjacent
-	for _, p := range icLines(staged) {
-		b, _, _ := strings.Cut(strings.TrimPrefix(p, c.spec+"/changes/"), "/")
-		d := c.spec + "/changes/" + b
-		if (b == c.name || isFixOf(b, c.name)) && (len(dirs) == 0 || dirs[len(dirs)-1] != d) {
-			dirs = append(dirs, d)
-		}
-	}
-	for _, d := range dirs {
-		if !c.gitPass("-C", c.canon, "restore", "--source=HEAD", "--staged", "--worktree", "--", d) {
-			c.stop("archive-undo", "git restore of "+d+" failed")
-		}
-		c.say("UNARCHIVED: " + c.canon + "/" + d)
-	}
-	// A dropped re-run: run 1's drop commit is on the branch and no fix run
-	// restored the directory since. The re-run base -- archBase -- is past
-	// the newest drop commit whenever one exists, restored directory or not.
-	dropped := !isDir(live) && c.droppedIn(c.canon)
-	newwork := false
-	if dropped {
-		head, _ := c.git("-C", c.canon, "rev-parse", "HEAD")
-		ab, _ := c.git("-C", c.canon, "rev-parse", c.archBase(c.canon, c.mb[ci]))
-		newwork = head != ab
-		for i := range c.wt {
-			if st, _ := c.git("-C", c.wt[i], "status", "--porcelain", "--untracked-files=no"); st != "" {
-				newwork = true
-			}
-		}
-		if newwork {
-			c.say("ARCHIVED: " + c.name + " — with new work")
-		} else {
-			c.say("ARCHIVED: " + c.name + " — without new work")
-		}
-	}
+	c.liveCheckGate(live)
 
-	// The live check passed before the drop commit removed its record.
-	if !dropped {
-		c.liveCheckGate(live)
+	ask = false
+	// Every worktree's commit range, for signal four's Task-Id search: from
+	// the merge base, since run 1's implementation commit carries the
+	// Task-Id trailer of every commit it squashed.
+	rangeBase := func(i int) string {
+		rb, _ := c.git("-C", c.wt[i], "merge-base", "HEAD", "origin/"+c.bases[i])
+		return rb
 	}
-
-	if dropped && !newwork {
-		// No new work still runs the visual gate: the drop is no verifier.
-		c.visualGate()
-		c.markEnd("flow.unfinished-work-gate", "completed")
-	} else {
-		ask = false
-		// Every worktree's commit range, for signal four's Task-Id search. A
-		// re-run after a drop -- a fix run's restored directory included --
-		// starts past the newest drop commit (archBase): the guard exempts
-		// the tasks already ticked, whose commits run 1 squashed.
-		rangeBase := func(i int) string {
-			rb, _ := c.git("-C", c.wt[i], "merge-base", "HEAD", "origin/"+c.bases[i])
-			return c.archBase(c.wt[i], rb)
-		}
-		var ranges []string
-		for i := range c.wt {
-			ranges = append(ranges, c.wt[i]+"="+rangeBase(i))
-		}
-		// A guard that reached no verdict is not OUTSTANDING: its own stop,
-		// which --accept-outstanding never passes.
-		for i := range c.wt {
-			c.run("check-unfinished-work", append([]string{c.wt[i], c.name, c.canon}, ranges...)...)
-			switch v := fmt.Sprintf("%d:%s", c.rc, c.verdict("CLEAR", "OUTSTANDING")); {
-			case strings.HasPrefix(v, "0:CLEAR:"):
-			case strings.HasPrefix(v, "0:OUTSTANDING:"):
-				ask = true
-			default:
-				c.stop("no-verdict", fmt.Sprintf("check-unfinished-work reached no verdict for %s (exit %d) — report its output and ask the operator; --accept-outstanding does not pass this", c.wt[i], c.rc))
-			}
-			c.run("check-untasked-commits", c.wt[i], rangeBase(i))
-			switch v := fmt.Sprintf("%d:%s", c.rc, c.verdict("UNTASKED-OK", "UNTASKED")); {
-			case strings.HasPrefix(v, "0:UNTASKED-OK:"):
-			case strings.HasPrefix(v, "1:UNTASKED:"):
-				ask = true
-			default:
-				c.stop("no-verdict", fmt.Sprintf("check-untasked-commits reached no verdict for %s (exit %d) — report its output and ask the operator; --accept-outstanding does not pass this", c.wt[i], c.rc))
-			}
-		}
-		// A UI no verifier saw at this HEAD is a hard stop (kan-939), never an
-		// OUTSTANDING item: --accept-outstanding does not pass it, only an
-		// operator's false-positive flag on that worktree's row for that HEAD.
-		c.visualGate()
-		if ask && !c.acceptOutstanding {
-			c.stop("unfinished-work", "load skills/flow/unfinished-work-gate.md: finish the unfinished work, asking nothing, then re-run prepare")
-		}
-		c.markEnd("flow.unfinished-work-gate", "completed")
+	var ranges []string
+	for i := range c.wt {
+		ranges = append(ranges, c.wt[i]+"="+rangeBase(i))
 	}
+	// A guard that reached no verdict is not OUTSTANDING: its own stop,
+	// which --accept-outstanding never passes.
+	for i := range c.wt {
+		c.run("check-unfinished-work", append([]string{c.wt[i], c.name, c.canon}, ranges...)...)
+		switch v := fmt.Sprintf("%d:%s", c.rc, c.verdict("CLEAR", "OUTSTANDING")); {
+		case strings.HasPrefix(v, "0:CLEAR:"):
+		case strings.HasPrefix(v, "0:OUTSTANDING:"):
+			ask = true
+		default:
+			c.stop("no-verdict", fmt.Sprintf("check-unfinished-work reached no verdict for %s (exit %d) — report its output and ask the operator; --accept-outstanding does not pass this", c.wt[i], c.rc))
+		}
+		c.run("check-untasked-commits", c.wt[i], rangeBase(i))
+		switch v := fmt.Sprintf("%d:%s", c.rc, c.verdict("UNTASKED-OK", "UNTASKED")); {
+		case strings.HasPrefix(v, "0:UNTASKED-OK:"):
+		case strings.HasPrefix(v, "1:UNTASKED:"):
+			ask = true
+		default:
+			c.stop("no-verdict", fmt.Sprintf("check-untasked-commits reached no verdict for %s (exit %d) — report its output and ask the operator; --accept-outstanding does not pass this", c.wt[i], c.rc))
+		}
+	}
+	// A UI no verifier saw at this HEAD is a hard stop (kan-939), never an
+	// OUTSTANDING item: --accept-outstanding does not pass it, only an
+	// operator's false-positive flag on that worktree's row for that HEAD.
+	c.visualGate()
+	if ask && !c.acceptOutstanding {
+		c.stop("unfinished-work", "load skills/flow/unfinished-work-gate.md: finish the unfinished work, asking nothing, then re-run prepare")
+	}
+	c.markEnd("flow.unfinished-work-gate", "completed")
 
 	c.markBegin("flow.landing-question")
 	var moved []int
@@ -283,19 +231,14 @@ func (c *ic) prepare() {
 	}
 	c.markEnd("flow.landing-question", "completed")
 
-	reshape := false
 	subjects := ""
 	for i := range c.wt {
 		f := c.reshapeFile(c.wt[i])
 		os.Remove(f)
-		if dropped && !newwork {
-			continue
-		}
-		rb := c.archBase(c.wt[i], c.rb[i])
+		rb := c.reshapeBase(c.wt[i], c.rb[i])
 		if err := os.WriteFile(f, []byte(rb+"\n"), 0o644); err != nil {
 			fmt.Fprintf(c.stderr, "integrate-change: %v\n", err)
 		}
-		reshape = true
 		c.say("WORKTREE: " + c.wt[i] + " — base " + c.bases[i] + ", reshape base " + rb)
 		sp := specRootLeaf(c.wt[i], c.stderr)
 		c.gitPass("-C", c.wt[i], "diff", "--no-renames", "--stat", rb, "--", ".", ":(exclude)"+sp+"/changes/")
@@ -307,13 +250,8 @@ func (c *ic) prepare() {
 			subjects += " " + c.wt[i] + "=<impl subject>"
 		}
 	}
-	narrative := live + "/narrative.md"
-	if reshape {
-		c.markBegin("flow.preserve-sessions")
-		c.say("NEXT: append this run's narrative to " + narrative + ", then integrate-change.sh commit " + c.main + " " + c.name + subjects + " " + c.flags())
-	} else {
-		c.say("NEXT: integrate-change.sh commit " + c.main + " " + c.name + " " + c.flags())
-	}
+	c.markBegin("flow.preserve-sessions")
+	c.say("NEXT: append this run's narrative to " + live + "/narrative.md, then integrate-change.sh commit " + c.main + " " + c.name + subjects + " " + c.flags())
 }
 
 // defaultRoute is project-get.sh's `default landing route`, or nothing.

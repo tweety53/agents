@@ -36,7 +36,7 @@ On `OUTSTANDING` — from either guard — the operator is offered **exactly thr
 | Course | What run 1 then does |
 |--------|----------------------|
 | **Stop — I'll finish it first** *(recommended)* | stop, leaving the change at `IN_PROGRESS` with nothing staged, committed or pushed |
-| **Continue — integrate anyway** | proceed to the landing question, carrying the outstanding list into the planning commit's message and the handoff — and, where the operator called the verdict structural, records it as a guard false positive per **A verdict the operator calls structural** (`skills/flow/unfinished-work-gate.md`) |
+| **Continue — integrate anyway** | proceed to the landing question, carrying the outstanding list into the handoff — and, where the operator called the verdict structural, records it as a guard false positive per **A verdict the operator calls structural** (`skills/flow/unfinished-work-gate.md`) |
 | **File or join a Jira follow-up, then continue** | put the outstanding items on a follow-up issue — joining an open one where the operator confirms a candidate, otherwise filing a new one — then proceed |
 
 The breakdown is relayed with the guard's own hand-verification procedure, so the operator can
@@ -58,7 +58,7 @@ degradation every other Jira write in this pipeline has, per
 **Never blocking** (`skills/flow-contracts/jira-integration.md`). Creation can fail for the usual
 reasons (auth, permission, an unknown project key or label) and there may be no tracker configured
 at all. None of them changes the operator's answer, which was *continue*: the outstanding list still
-reaches the planning commit's message and the handoff, which is where this change requires the
+reaches the handoff, which is where this change requires the
 durable record to be. A failed filing is never silently upgraded to **Stop**, and never passes
 unmentioned.
 

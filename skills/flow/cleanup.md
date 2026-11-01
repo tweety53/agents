@@ -11,8 +11,35 @@ Jira transition, and prints the handoff. **Load `skills/flow-contracts/finish-co
 only when** a stop below cites one of its sections, and **load
 `skills/flow-contracts/artifacts-registry.md` only when** a `LEFTOVER:` line names a row of it.
 
-Call it with the parent's own shell outside every worktree in the set, per check 6 of **Worktree
-cleanup** (`skills/flow-contracts/finish-contract-run2.md`).
+**A self-hosting change refreshes the tooling before the save.** Under the condition of **A change
+to `<agents repo>`'s own tooling integrates with the branch's copy of it**
+(`skills/flow/integrate.md`), once the branch has landed, run from outside every worktree (Bash
+`timeout: 600000`):
+
+```bash
+refresh-main-checkout.sh <agents repo> <agents-base>
+make -C <agents repo>/stats restart
+```
+
+then re-read this file from the refreshed checkout and continue with the save. The installed
+`flow` and flowd predate the change, so the save would exit 2 on a command or table they lack, or
+the old cleanup would remove the worktree with no save. The cleanup's own later refresh then finds
+nothing to move. This is the one stop of flowd `<agents repo>/CLAUDE.md`'s reinstall rule allows,
+brought straight back up.
+
+**Save the change's two lasting files first**, in the canonical worktree, before anything removes
+a worktree:
+
+```bash
+flow change save -C <canonical-worktree> <name>
+```
+
+It keeps `tasks.md` and `self-review-context.md` in flowd. Its exit 1 — a missing `tasks.md` or
+`self-review-context.md`, each named — stops cleanup at `IN_PROGRESS`: report the lines, restore
+the file, and re-run. `remove-change-worktrees` refuses until the save ran.
+
+Then call `cleanup` with the parent's own shell outside every worktree in the set, per check 6 of
+**Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`).
 
 ```bash
 integrate-change.sh cleanup <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
@@ -51,11 +78,9 @@ merged** (`skills/flow-contracts/finish-contract-run2.md`).
 ## Finished
 
 **Change:** <name>
-**Dropped:** <project>/spectre/changes/<name>/ as an absolute path (removed by `chore(spectre): drop <name>`, landed on <base> with the change)
 **Worktrees:** removed | left alone — <reason>
 **Remote branch:** deleted | already gone | not deleted — <reason>
 **Cleanup:** verified
-**Self-review:** <project>/docs/self-review/<name>-self-review.md as an absolute path
 **Main checkout:** fast-forwarded | already current | <the REFRESH-REFUSED line>
 **Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 **Jira:** <KEY> → Done | none linked | ⚠ Jira: skipped — <reason>

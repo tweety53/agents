@@ -14,7 +14,7 @@ halves live in the one repo and are covered below.
 | flow sources | `/Users/tweety53/Projects/agents` | Bash + Python + Go + Markdown | — | The skills/commands/rules half. Verification is the guard scripts below plus a sandboxed `setup.sh` run. |
 | flow stats daemon | `/Users/tweety53/Projects/agents/stats` | Go + React/Vite | `http://127.0.0.1:4173` | `flowd`, loopback-only. Backed by a dedicated `flow-postgres` container on host port 5433, independent of any other Postgres stack on this machine. Also the one application `## apps` names that a fix run's reload rule (`skills/flow/verify-and-handoff.md`) never reloads — the same protection, not a separate one. |
 
-**This repository is Bash + Python + Go, not Bash-only.** The remaining `scripts/*.py` tools (`cache-misses.py`, `loaded-files.py`) and the `hooks/*.py` hooks run on Python 3, standard library only — `/usr/bin/python3`, no third-party imports, no pip, no network. The guards ported into `flow-guard` — among them `check-plan-provenance`, `check-installed-citations`, `check-references`, `check-unfinished-work`, `check-panel-reproducers`, `check-panel-findings-closed`, `check-stage-mark-calls`, `check-guard-symlinks`, `check-dispatch-paragraphs`, `mutate-and-verify`, `check-base-moved`, `check-panel-fix-single-dispatch`, `prove-reproducer`, `check-finish-preflight`, `check-workspace-isolation`, `check-task-reviewer-single-dispatch`, `recover-guard-incident`, `plan-class`, `check-installed-rules`, `resolve-base-branch`, `check-visual-verify-dispatched`, `check-task-commit-planning-paths`, `check-panel-citation-trigger`, `check-visual-trigger`, `check-visual-verification`, `check-verify-report`, `check-frame-list`, `check-mockup-citations`, `resolve-visual-screenshots`, `compose-mockup-frames`, `measure-visual-properties`, `commit-split`, `reshape-branch`, `check-foreign-staged`, `check-planning-commit-location`, `check-archive-scope`, `check-main-checkout-drift`, `refresh-main-checkout`, `land-self-review-report`, `check-self-review-report`, `break-and-prove`, `prepare-workspace`, `check-panel-docs-only`, `check-plan-unchanged`, `check-tree-markers`, `guard-autosquash`, `check-panel-diff-size`, `check-worktree-processes`, `check-normative-inventory`, `check-mutation-reproducer-pin`, `check-python-suppressions`, `check-markdown-integrity`, `check-plan-shape`, `check-task-build-green`, `plan-dispatch-bundles`, `plan-dispatch-groups`, `generate-relocation-comparison` and `check-task-records` — are Go (`stats/internal/guard/`), and their `scripts/<name>.sh` is a `flow_guard_exec` shim over the binary built from this checkout.
+**This repository is Bash + Python + Go, not Bash-only.** The remaining `scripts/*.py` tools (`cache-misses.py`, `loaded-files.py`) and the `hooks/*.py` hooks run on Python 3, standard library only — `/usr/bin/python3`, no third-party imports, no pip, no network. The guards ported into `flow-guard` — among them `check-plan-provenance`, `check-installed-citations`, `check-references`, `check-unfinished-work`, `check-panel-reproducers`, `check-panel-findings-closed`, `check-stage-mark-calls`, `check-guard-symlinks`, `check-dispatch-paragraphs`, `mutate-and-verify`, `check-base-moved`, `check-panel-fix-single-dispatch`, `prove-reproducer`, `check-finish-preflight`, `check-workspace-isolation`, `check-task-reviewer-single-dispatch`, `recover-guard-incident`, `plan-class`, `check-installed-rules`, `resolve-base-branch`, `check-visual-verify-dispatched`, `check-task-commit-planning-paths`, `check-panel-citation-trigger`, `check-visual-trigger`, `check-visual-verification`, `check-verify-report`, `check-frame-list`, `check-mockup-citations`, `resolve-visual-screenshots`, `compose-mockup-frames`, `measure-visual-properties`, `commit-split`, `reshape-branch`, `check-foreign-staged`, `check-main-checkout-drift`, `refresh-main-checkout`, `break-and-prove`, `prepare-workspace`, `check-panel-docs-only`, `check-plan-unchanged`, `check-tree-markers`, `guard-autosquash`, `check-panel-diff-size`, `check-worktree-processes`, `check-normative-inventory`, `check-mutation-reproducer-pin`, `check-python-suppressions`, `check-markdown-integrity`, `check-plan-shape`, `check-task-build-green`, `plan-dispatch-bundles`, `plan-dispatch-groups`, `generate-relocation-comparison` and `check-task-records` — are Go (`stats/internal/guard/`), and their `scripts/<name>.sh` is a `flow_guard_exec` shim over the binary built from this checkout.
 
 **Every new guard, and any new logic added to an existing guard, is written in Go in `flow-guard`** — `stats/internal/guard/`, registered in `guard.Registry`, with Go table tests — and its `scripts/<name>.sh` is only a thin `flow_guard_exec` shim onto it. A guard still in bash is ported to Go, byte-for-byte parity, before it is extended; it is never grown in bash. A new `check-*.sh` lands with its `test-check-*.sh` companion in the same change — `run-guard-tests.sh` refuses the suite before anything runs while the companion is missing, a Go test in `stats/internal/guard/<name, - replaced by _>_test.go` standing in for it — `check_dispatch_pair_test.go` for `check-dispatch-pair.sh` (kan-903).
 
@@ -155,7 +155,6 @@ scripts/check-stage-mark-calls.sh
 scripts/check-guard-symlinks.sh
 scripts/check-dispatch-paragraphs.sh
 scripts/check-mutation-reproducer-pin.sh
-scripts/check-self-review-report.sh
 scripts/check-prompt-tuning-cases.sh
 scripts/check-installed-citations.sh
 scripts/check-installed-rules.sh
@@ -163,6 +162,7 @@ scripts/check-hand-notes-in-step.sh
 scripts/check-normative-inventory.sh
 scripts/check-verbatim-moves.sh
 scripts/check-ask-silence.sh
+scripts/check-done-when-paths.sh .
 scripts/check-worktree-location.sh "$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')"
 cd stats && gofmt -l .
 cd stats && make -s web-dist && go vet ./...
@@ -193,9 +193,9 @@ sentences — 8 in the whole corpus, against hundreds of rules stated with "neve
 `check-verbatim-moves.sh` is the guard for that: it fails a run-loaded sentence that was deleted or
 reworded rather than moved verbatim, and new run-loaded prose, unless the change lists the sentence
 in its `verbatim-moves.txt`. **A plan whose task edits run-loaded prose names
-`check-verbatim-moves.sh` in that task's verify step and commits the change's `verbatim-moves.txt`,
-listing every sentence its tasks add or reword, with the plan**; run 1's drop commit deletes it
-with the rest of the change directory at land — a `/flow` implementer never writes
+`check-verbatim-moves.sh` in that task's verify step and writes the change's `verbatim-moves.txt`,
+listing every sentence its tasks add or reword, with the plan**; it lives on disk only, in the
+gitignored change directory — a `/flow` implementer never writes
 `spectre/changes/`, so a verify step naming only the other prose guards lets the FAIL reach the
 review panel (kan-1027's F1 and F8).
 
@@ -315,7 +315,7 @@ recommended
 | `url` | `FLOW_RECORDS_ADDR` | `http://127.0.0.1:4173` | `http://127.0.0.1:4173` |
 
 **The `FLOW_RECORDS_ADDR` row is deliberately not isolated, and its token-free workspace cell is
-the statement of that.** The record family (`flow record`, `flow stage`, `flow state`, `flow settings`, `flow jira`, `flow lesson resolve`, `flow self-review finding`, `flow self-review findings`, `flow self-review bundle`, `flow suite record`, `flow suite list`) resolves
+the statement of that.** The record family (`flow record`, `flow stage`, `flow state`, `flow settings`, `flow jira`, `flow lesson resolve`, `flow self-review finding`, `flow self-review findings`, `flow self-review bundle`, `flow suite record`, `flow suite list`, `flow change save`, `flow change file`) resolves
 its store address from it, so an apply worktree's dispatch, finding and suite-runtime rows land in the
 persistent store the main checkout serves, and a deferred self-review bundle still finds them
 after `scripts/workspace.sh remove` has dropped the `database` row's resource; stage marks, state

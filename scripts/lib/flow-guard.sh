@@ -18,7 +18,7 @@
 # exactly the sources the binary is built from — stats/go.mod, stats/go.sum,
 # and the non-test .go files of stats/cmd/flow-guard/, stats/internal/guard/
 # and stats/internal/records/ (the only packages it imports from this module;
-# selfreviewreport.go imports records) — named relative to stats/, so two
+# unfinishedwork.go imports records) — named relative to stats/, so two
 # checkouts with the same sources share one binary and a _test.go edit never
 # forces a rebuild. A tree without internal/records/ keys without it.
 # The binary lives at

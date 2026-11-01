@@ -14,27 +14,26 @@ implements**, `skills/flow/implement.md`).
 > task's work. **Never weaken or
 > bypass a project's commit validation to fit** — no `--no-verify`. Stage for that commit only
 > through the guarded sequence below, in this order — the clearing pass runs first, before any
-> `git add`, because a `:(exclude)` governs what an `add` adds and cannot retract what an earlier
-> step already staged:
+> `git add`, so nothing an earlier step staged under a planning path rides the commit:
 >
 > ```bash
 > stage-task-files.sh <abs-worktree> <this task's files> \
 >   && git -C <abs-worktree> commit -m "<the task's declared subject>" -m "Task-Id: <n>" -- <this task's files>
 > ```
 >
-> `stage-task-files.sh <abs-worktree> <file>…` runs that clearing reset, then the add with the excludes
-> ahead of the paths, then exits 1 when git left any of this task's paths unstaged: report the lines it printed and
+> `stage-task-files.sh <abs-worktree> <file>…` runs that clearing reset, then the add of the task's
+> non-planning paths, then a second clearing reset, then exits 1 when git left any of this task's paths unstaged: report the lines it printed and
 > commit nothing (kan-1012: `git add` exited 0 with 15 new paths untracked, and the commit failed).
 > Its header (`<agents repo>/scripts/stage-task-files.sh`) is canonical for the sequence.
 > Paths are relative to the worktree root, which `-C <abs-worktree>` anchors whatever directory
 > the shell is in — from a subdirectory of it, an unanchored `git add` reads them
 > against that directory and fails with a pathspec error. Both spec-tree leaf spellings are named because the
 > leaf is the project's — `spectre` or `openspec` — and a path the project does not use is a
-> reset that clears nothing and an exclude that matches nothing. **Never a bare
+> reset that clears nothing. **Never a bare
 > `git add -A`, `git add .`, or `git commit -a`**:
 > any of them sweeps already-staged planning artifacts into the task commit, which
 > `check-task-commit-planning-paths.sh` fails at the boundary. Never
-> `<project>/spectre/changes/` either — the excludes do not licence a second, deliberate add of it.
+> `<project>/spectre/changes/` either — the clearing resets do not licence a second, deliberate add of it.
 > **A capability spec under `<project>/spectre/specs/` is your work, not theirs**: when this task's
 > `**Files:**` names one, edit it and commit it here, in this task's own commit. **A withdrawn
 > task is backed out, not erased**: when work an earlier commit landed is withdrawn, the

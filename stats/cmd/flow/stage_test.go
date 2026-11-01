@@ -1957,26 +1957,6 @@ func TestStageEndVisualVerifyRefusesAnUntaskedCommit(t *testing.T) {
 		t.Fatalf("an unreadable map: exit=%d reached=%v, want 1; stderr:\n%s", code, reached, stderr)
 	}
 	mapStatus = http.StatusOK
-
-	// An archived re-run judges from past the self-review loop, as integrate
-	// does: its trailerless report commit is not refused.
-	if err := os.MkdirAll(filepath.Join(peer, "spectre/changes/archive/kan-1"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(peer, "spectre/changes/archive/kan-1/tasks.md"), []byte("x\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	git(peer, "add", "spectre")
-	git(peer, "commit", "-q", "-m", "chore(spectre): archive kan-1")
-	if err := os.WriteFile(filepath.Join(peer, "report.md"), []byte("r\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	git(peer, "add", "report.md")
-	git(peer, "commit", "-q", "-m", "docs(self-review): kan-1 self-review report")
-	dir = peer
-	if code, stderr, reached := end("completed"); code != 0 || !reached {
-		t.Fatalf("an archived re-run's self-review report: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
-	}
 }
 
 // TestStageResolvesTheRecordsAddress pins flow stage to the record family

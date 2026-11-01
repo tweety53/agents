@@ -447,9 +447,8 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		// (decision uw-verify-row-after-code): the newest commit outside
 		// `<spec root>/changes/` in any range, authored after the newest
 		// completed `verify`/`verify-…` verifier row, or with none at all —
-		// run 1's reshaped `Flow-Key: flow.commit-two` commit excepted. A
-		// re-run after the drop is judged from the drop commit on, so only
-		// a fix run's own code asks for a newer verify row. A `skipped` row counts as completed: it only ends a test
+		// run 1's reshaped `Flow-Key: flow.commit-two` commit excepted. The
+		// range runs from the merge base. A `skipped` row counts as completed: it only ends a test
 		// group whose every command was unchanged since a green clean run
 		// (decision f1-skipped-is-verified, kan-1037).
 		if len(ranges) > 0 {
@@ -789,23 +788,6 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 					}
 					for _, id := range ctTaskNumberRE.FindAllString(out, -1) {
 						committed[id] = true
-					}
-					// A dropped re-run's range starts at the drop commit: run 1
-					// squashed the earlier task commits, trailers and all, and
-					// its gate already judged every task ticked in the plan
-					// as it stood there -- at its parent when the drop commit
-					// removed the change directory (kan-1051).
-					if rel, err := filepath.Rel(r[0], primary); err == nil && !strings.HasPrefix(rel, "..") {
-						path := ":./" + filepath.ToSlash(rel)
-						old, ok := capture(envGit(env)("-C", r[0], "show", r[1]+path))
-						if !ok {
-							old, ok = capture(envGit(env)("-C", r[0], "show", r[1]+"^"+path))
-						}
-						if ok {
-							for _, id := range uwAppendedIn(old, true) {
-								committed[id] = true
-							}
-						}
 					}
 				}
 				var uncommitted []string

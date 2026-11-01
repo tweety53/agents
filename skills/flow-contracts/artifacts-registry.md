@@ -17,7 +17,7 @@ The reasoning behind this file lives in `skills/flow-contracts/artifacts-registr
 | Per-task and review diffs | `/flow`'s implement phase | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Panel slot verbatim reports | `/flow`'s review panel | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Panel record | `/flow`'s implement phase | the store | nothing — the store is the terminal record |
-| Self-review context bundle | run 1, **Run the self-review pass** (`skills/flow-contracts/finish-contract-run1.md`) | held in the session's memory, never written; a bundle an older run committed sits at `<project>/docs/self-review/<name>-context.md` | the pass's end; an older run's file, `/flow-self-review <name>`, in the same commit as the report |
+| Self-review context bundle | run 1, **Run the self-review pass** (`skills/flow-contracts/finish-contract-run1.md`) | `<abs-worktree>/.superpowers/sdd/<name>/self-review-context.md`, never committed | saved to flowd at cleanup; on disk with the worktree, at run 2 |
 | SDD ledger | `/flow`'s implement phase | the store | nothing — the store is the terminal record |
 | Rendered ledger and panel record | `flow record render` | the canonical worktree's `<abs-worktree>/.superpowers/sdd/`, under the change-keyed filename — the renders target the canonical worktree only; never copied into the change directory or committed | with the worktree, at run 2 — the self-review bundle renders them from the store |
 | Brainstorm design document | `/flow`'s creating run | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
@@ -26,7 +26,8 @@ The reasoning behind this file lives in `skills/flow-contracts/artifacts-registr
 | Worktree | `/flow`'s `flow.kickoff` | per the `worktrees` keys | run 2, after its existing checks |
 | Local branch | `/flow`'s implement phase | the repository | run 2, `git branch -d` |
 | Remote branch | finish run 1 | `origin` | run 2, without a further prompt |
-| Change directory | `/flow`'s creating run | `<project>/spectre/changes/<name>/` | deleted by the landing drop (`chore(spectre): drop <name>`); readable in history at the drop commit's parent |
+| Change directory | `/flow`'s creating run | `<project>/spectre/changes/<name>/` — gitignored; on disk in the worktree; `tasks.md` saved to flowd at cleanup | with the worktree, at run 2 |
+| Plan snapshots | `/flow`'s creating run, `/flow-plan`'s capture and a fix run's tasks append, per **Plan snapshots** (`skills/flow/brainstorm.md`) | `<abs-worktree>/.superpowers/sdd/<name>/plan-snapshots/<k>/`, never committed; read by flow-eval's `case add impl` | with the worktree, at run 2 |
 | Workspace database and bucket | the project's `create` command, on first start in a worktree | inside the project's shared data services | run 2, the project's `remove` command |
 | Claimed cache index | `/flow`'s implement phase, by probing, when it exports the workspace's variables | one of the shared cache's fixed indices | nothing in this pipeline — see below |
 | State file | every command | the state directory | never — it is the terminal record |

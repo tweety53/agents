@@ -1,7 +1,7 @@
 ---
 name: flow-interactive
 description: Conversational /flow session — one invocation is one change, one Jira issue and one worktree, and a stream of requests worked inline. Each request is looked at live, implemented test-first, verified with the project's lint and targeted tests, landed by merge and push, reinstalled and, when it touches ui paths, checked on the live page; an explicit stop runs one self-review pass, cleanup and FINISHED. Every request is recorded in flowd; no spectre artifacts or state file. Use for /flow-interactive.
-allowed-tools: Bash(flow:*), Bash(land-self-review-report.sh:*)
+allowed-tools: Bash(flow:*)
 license: MIT
 ---
 
@@ -234,15 +234,7 @@ as a request and the session stays open, saying so in one line. Stop:
 2. **Self-review**: the self-review paragraphs of section 5 of `/flow-fast`
    (`skills/flow-fast/SKILL.md`) as written, with `-command '/flow-interactive'` and the `fi-`
    token. `flow self-review bundle -change <name>` renders the session's requests in number order
-   as its git-log source. Its fix commits and its report land on `<name>`, the report through the
-   landing chain:
-
-   ```bash
-   land-self-review-report.sh "<worktree>" "<name>" \
-     "docs(self-review): <name> self-review report" \
-     docs/self-review/<name>-self-review.md \
-     --push "<name>"
-   ```
+   as its git-log source. Its fix commits land on `<name>`; no report is written.
 
    ```bash
    flow stage begin -command '/flow-interactive' -stage flow.self-review -harness <harness> -session-token fi-<literal-token> <name>
@@ -251,7 +243,8 @@ as a request and the session stays open, saying so in one line. Stop:
 
 3. Steps 4–6 of **One request** land those commits, their stage runs with no `-request`.
 4. **Cleanup**: the tree clean and `git -C <worktree> merge-base --is-ancestor <name>
-   origin/<base>` passing, then `git -C <project> worktree remove <project>-worktrees/<name>`
+   origin/<base>` passing, then `flow change save -C <worktree> <name>` (the self-review bundle's
+   only copy; a non-zero exit stops, removing nothing), `git -C <project> worktree remove <project>-worktrees/<name>`
    without `--force`, `git -C <project> branch -D <name>` and `git -C <project> push origin
    --delete <name>`.
 

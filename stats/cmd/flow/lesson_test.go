@@ -19,7 +19,7 @@ func TestRunLessonResolvePrintsAnswer(t *testing.T) {
 		gotPath = r.URL.Path
 		gotQuery = r.URL.RawQuery
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("# Lessons: flake-bisection\n\nfound: 1 briefs, 0 narrative mentions\n"))
+		_, _ = w.Write([]byte("# Lessons: flake-bisection\n\nfound: 1 briefs\n"))
 	}))
 	defer srv.Close()
 
