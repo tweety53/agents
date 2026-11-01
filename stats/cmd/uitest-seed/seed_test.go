@@ -139,7 +139,7 @@ func TestSeedPopulatesFixture(t *testing.T) {
 		}
 		wantChanges := len(project.Changes)
 		if project.Key == "uitest-alpha" {
-			wantChanges += 2 // seedInteractive's two sessions, seeded beside fixtureData
+			wantChanges += 4 // seedInteractive's two sessions and seedMainExperiment's two changes, seeded beside fixtureData
 		}
 		if len(changes) != wantChanges {
 			t.Fatalf("project %s: got %d changes, want %d", project.Key, len(changes), wantChanges)
@@ -228,6 +228,31 @@ func TestSeedPopulatesFixture(t *testing.T) {
 	}
 	if found != 2 {
 		t.Fatalf("open experiments carry %d tokens/wallClockMin metrics, want 2", found)
+	}
+
+	// The closed main-cell experiment draws selfReviewFindings on both
+	// sides (KAN-1071 visual-verify fix 1): 2 before, 1 after.
+	all, err := st.ListExperiments(ctx, false)
+	if err != nil {
+		t.Fatalf("list experiments: %v", err)
+	}
+	var mainSR *store.ExperimentMetric
+	for _, e := range all {
+		if _, ok := e.Cells["main"]; !ok {
+			continue
+		}
+		stats, err := st.ExperimentStats(ctx, e.ID)
+		if err != nil {
+			t.Fatalf("experiment stats %d: %v", e.ID, err)
+		}
+		for i, m := range stats.Metrics {
+			if m.Name == "selfReviewFindings" {
+				mainSR = &stats.Metrics[i]
+			}
+		}
+	}
+	if mainSR == nil || mainSR.Before == nil || mainSR.After == nil || *mainSR.Before != 2 || *mainSR.After != 1 {
+		t.Fatalf("main-cell experiment selfReviewFindings = %+v, want before 2, after 1", mainSR)
 	}
 }
 
