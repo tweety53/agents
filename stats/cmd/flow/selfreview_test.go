@@ -229,6 +229,50 @@ func TestSelfReviewFindingCLI(t *testing.T) {
 	}
 }
 
+// TestSelfReviewFindingRefusesUngradedFixedOrFiled: a fixed or filed row
+// with no -severity is refused, exit 2, before any request goes out; a
+// declined row still records ungraded.
+func TestSelfReviewFindingRefusesUngradedFixedOrFiled(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	reached := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		reached = true
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	for _, tc := range []struct {
+		disposition, ref string
+		wantCode         int
+	}{
+		{"fixed", "abc1234", 2},
+		{"filed", "KAN-1", 2},
+		{"declined", "", 0},
+	} {
+		reached = false
+		args := []string{"self-review", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "demo", "-angle", "a", "-disposition", tc.disposition, "-note", "n"}
+		if tc.ref != "" {
+			args = append(args, "-ref", tc.ref)
+		}
+		var stdout, stderr strings.Builder
+		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		if code != tc.wantCode {
+			t.Errorf("%s with no -severity: exit %d, want %d (stderr %q)", tc.disposition, code, tc.wantCode, stderr.String())
+		}
+		refused := tc.wantCode == 2
+		if refused && !strings.Contains(stderr.String(), "-severity is required") {
+			t.Errorf("%s with no -severity: stderr %q, want it to name -severity", tc.disposition, stderr.String())
+		}
+		if reached == refused {
+			t.Errorf("%s with no -severity: server reached = %v, want %v", tc.disposition, reached, !refused)
+		}
+	}
+}
+
 // TestSelfReviewFindingsCLI drives `flow self-review findings`: the rows
 // print as a JSON array on stdout, and an unreachable store is non-zero
 // with nothing on stdout -- the read's contract, unlike the write's.

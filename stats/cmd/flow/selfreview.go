@@ -52,7 +52,7 @@ Records one self-review finding and its outcome (KAN-875): -ref is the
 landed sha for fixed, the issue key for filed and omitted for declined
 and noted;
 -blast-radius is the finding's file count, omitted when none was counted;
--severity is the finding's grade, omitted when none was given.
+-severity is the finding's grade, required for fixed and filed and omitted for declined and noted when none was given.
 
 This is a write that never blocks: a store that cannot be reached, or
 that fails the write for any reason but a refusal, is one warning line on
@@ -221,7 +221,7 @@ func runSelfReviewFinding(ctx context.Context, args []string, stderr io.Writer) 
 	fset.StringVar(&in.Note, "note", "", "the finding, one line (required)")
 	fset.StringVar(&in.Ref, "ref", "", "the landed sha for fixed, the issue key for filed")
 	fset.IntVar(&blastRadius, "blast-radius", -1, "the finding's file count (optional)")
-	fset.StringVar(&in.Severity, "severity", "", "critical, important or minor (optional)")
+	fset.StringVar(&in.Severity, "severity", "", "critical, important or minor (required for fixed and filed)")
 
 	projectKey, _, code := parseSelfReviewFlags(fset, &f, args, stderr)
 	if code >= 0 {
@@ -233,6 +233,11 @@ func runSelfReviewFinding(ctx context.Context, args []string, stderr io.Writer) 
 			fmt.Fprint(stderr, selfReviewUsage)
 			return 2
 		}
+	}
+	if (in.Disposition == "fixed" || in.Disposition == "filed") && in.Severity == "" {
+		fmt.Fprintf(stderr, "flow: -severity is required for -disposition %s\n", in.Disposition)
+		fmt.Fprint(stderr, selfReviewUsage)
+		return 2
 	}
 	setByCaller := false
 	fset.Visit(func(fl *flag.Flag) { setByCaller = setByCaller || fl.Name == "blast-radius" })

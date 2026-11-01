@@ -307,8 +307,10 @@ states. A landed fix is also one row in the flow store, recorded once its sha is
 `<agents-base>`:
 
 ```bash
-flow self-review finding -change <name> -angle flow-fix -disposition fixed -ref <sha> -blast-radius <N> -note '<the defect, one line>'
+flow self-review finding -change <name> -angle flow-fix -disposition fixed -ref <sha> -blast-radius <N> -severity <important|minor> -note '<the defect, one line>'
 ```
+
+`-severity` grades the defect: `important` when it blocked a step of the run, `minor` otherwise.
 
 A deferred fix records no row here; the self-review pass records it once it decides it.
 

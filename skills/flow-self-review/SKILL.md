@@ -410,7 +410,7 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    push succeeds, the same invocation records one `fixed` row per `fixed:` line whose sha a
    repository of the change's worktree set carries and `flow self-review findings -change <name>`
    does not list yet, its angle and note
-   read off the line and no blast radius; a rewrite after rows were already recorded adds a
+   read off the line, its `-severity` the grade `<sr-dir>/findings.md` gives that finding, and no blast radius; a rewrite after rows were already recorded adds a
    second row under the new sha. A pull request merged by squash or rebase rewrites the
    shas once more, and no commit then carries a fix's own sha. On `self-review-<name>`,
    land by `<agents repo>`'s `## default landing route`
@@ -547,9 +547,9 @@ flow self-review finding -change <name> -angle <label> -disposition fixed|filed|
 ```
 
 `-ref` is the landed sha for `fixed`, the issue key for `filed`, and omitted for `declined` and `noted`;
-`-blast-radius` is step 3's count; `-severity` is the grade the pass gave the finding, omitted when it gave none. An `In-run pipeline fix:`
+`-blast-radius` is step 3's count; `-severity` is the grade the pass gave the finding, required for `fixed` and `filed`, which `flow self-review finding` refuses without it, and omitted for `declined` or `noted` when the pass gave none. An `In-run pipeline fix:`
 line naming a sha gets no second row when `flow self-review findings -change <name>` already
-lists that sha (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`). A store failure is one
+lists that sha (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`). A row this step records for such a line, which the pass never grades, takes `-severity` by the rule of **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline.md`). A store failure is one
 warning line and the pass continues to the listing below.
 A row is stated as recorded only once `flow self-review findings -change <name>` lists it: read that listing before step 8, record every row it lacks again, and fix a store that still refuses per **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline.md`).
 
