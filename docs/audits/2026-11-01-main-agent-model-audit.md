@@ -4,8 +4,8 @@ Whether the main (orchestrating) session of a flow run should move from Opus 5.5
 low effort (KAN-1071). Every number below sits beside the SQL or command that produced it. §1–§6
 were measured on 2026-11-01 over the 30 days 2026-10-02 00:00 UTC → 2026-11-01 00:00 UTC, on a
 read-only copy of the dev store built from the change branch (`scripts/live-store-copy.sh up
-kan-1071-audit`, database `flow_kan_1071_audit_live`); the finalize run re-measures them with the
-window ending its own date and writes §7–§8.
+kan-1071-audit`, database `flow_kan_1071_audit_live`); a separate `/flow` change re-measures them
+with the window ending its own date and writes §7–§8.
 
 ## Data sources
 
@@ -249,8 +249,9 @@ thin; report the counted changes per window alongside the means.
 
 Stop rule: any regression on a quality metric is a no-go for the switch.
 
-Finalize command:
-`/flow kan-1071-audit-moving-the-main-flow-agent-to-a-cheaper finalize the audit from experiment 5`
+Finalize: start a new `/flow` change that writes §7–§8 from experiment 5. This change,
+`kan-1071-audit-moving-the-main-flow-agent-to-a-cheaper`, is `FINISHED` once it lands, and `/flow`
+on a `FINISHED` change is a wrong-state handoff.
 
 ## Verdict and follow-ups
 
@@ -259,5 +260,4 @@ Finalize command:
 The verdict on experiment `5` follows the stop rule above (any regression on a quality metric is a
 no-go for the switch), read against §5's ceiling and erosion. The finalize run files one ticket per
 offload candidate §6 rates mechanical and, on a positive verdict, one ticket making
-`main=sonnet@low` the default. Finalize command:
-`/flow kan-1071-audit-moving-the-main-flow-agent-to-a-cheaper finalize the audit from experiment 5`
+`main=sonnet@low` the default. Finalize: the new `/flow` change §7 names.
