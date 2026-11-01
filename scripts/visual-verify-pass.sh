@@ -162,10 +162,9 @@
 # after `rest`, `redispatch` or `cure-environment`: the report's `- spec:`
 # path, every PNG it names, the full app suite's spec and zip its `- full app
 # suite` lines name and the suite PNGs resolve-visual-screenshots.sh
-# resolves for that spec, and <changeRoot>/visual-verification/ — each path that
+# resolves for that spec — each path that
 # exists committed in the checkout it lives in (a regression checkout's
-# worktree, or its main checkout, for the captures; the canonical worktree
-# for visual-verification/) by `git add -- <paths>` then `git commit -m
+# worktree, or its main checkout, for the captures) by `git add -- <paths>` then `git commit -m
 # "test: record the <key> visual verification" -m "Flow-Key:
 # flow.visual-verify" -- <paths>`, so a file staged beforehand stays staged
 # and uncommitted. A checkout whose branch is not spectre/<name> prints

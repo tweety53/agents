@@ -10,7 +10,8 @@ import (
 
 // vvcFixture is a prepare fixture whose stage has begun one row, its key
 // `visual-verify`, with a design.md, a capture spec and its PNG, a full app
-// suite and its zip, and a visual-verification/ directory to commit.
+// suite and its zip, and a visual-verification/ directory left uncommitted
+// under a .gitignore holding spectre/changes/, as the real repository has.
 func vvcFixture(t *testing.T, extra string) *vvpFix {
 	t.Helper()
 	f := vvpFixture(t, extra)
@@ -20,7 +21,9 @@ func vvcFixture(t *testing.T, extra string) *vvpFix {
 	if strings.Contains(extra, "`mockups`") {
 		writeFile(t, filepath.Join(f.wt, "design/mockups/f1.png"), "png\n")
 	}
+	writeFile(t, filepath.Join(f.wt, ".gitignore"), "spectre/changes/\n")
 	gitRun(t, f.wt, "add", "-A")
+	gitRun(t, f.wt, "add", "-f", "spectre/changes/demo/design.md")
 	gitRun(t, f.wt, "commit", "-qm", "design")
 	f.green()
 	if rc, out, _ := f.prepare(); rc != 0 {
@@ -243,10 +246,13 @@ func TestVisualVerifyPassCloseCommitsPathspec(t *testing.T) {
 	out, _ := exec.Command("git", "-C", f.wt, "show", "--name-only", "--format=%B", "HEAD").Output()
 	files := string(out)
 	for _, want := range []string{"tests/visual/home.spec.ts\n", "tests/visual/home.spec.ts-home.png\n", "tests/visual/full-app-suite.spec.ts\n", "tests/visual/full-app-suite.zip\n", "tests/visual/full-app-suite.spec.ts-snapshots/home-darwin.png\n",
-		"spectre/changes/demo/visual-verification/visual-verification.md\n", "Flow-Key: flow.visual-verify"} {
+		"Flow-Key: flow.visual-verify"} {
 		if !strings.Contains(files, want) {
 			t.Errorf("commit lacks %q:\n%s", want, files)
 		}
+	}
+	if strings.Contains(files, "visual-verification") {
+		t.Errorf("the commit carries the gitignored visual-verification directory:\n%s", files)
 	}
 	if strings.Contains(files, "foreign.txt") {
 		t.Errorf("the commit carries the pre-staged foreign file:\n%s", files)
@@ -268,8 +274,7 @@ func TestVisualVerifyPassCloseCommitsPathspec(t *testing.T) {
 	}
 
 	// A regression checkout: captures commit where they live — its main
-	// checkout printing PUSH:, its worktree on spectre/demo not — and
-	// visual-verification/ in the canonical worktree.
+	// checkout printing PUSH:, its worktree on spectre/demo not.
 	for _, inWorktree := range []bool{false, true} {
 		h := vvcFixture(t, "")
 		regress := filepath.Join(filepath.Dir(h.wt), "regress")
@@ -287,7 +292,7 @@ func TestVisualVerifyPassCloseCommitsPathspec(t *testing.T) {
 		writeFile(t, filepath.Join(h.wt, ".flow/project.md"), "# project\n\n"+vvpSection+"| `regression checkout` | `"+regress+"` |\n| `regression repo` | `x/regress` |\n")
 		rc, out, _ := h.close("visual-verify")
 		if rc != 0 || vvcLog(t, capture, "%s") != "test: record the visual-verify visual verification" ||
-			vvcLog(t, h.wt, "%s") != "test: record the visual-verify visual verification" || strings.Contains(out, "PUSH:") == inWorktree ||
+			strings.Contains(out, "PUSH:") == inWorktree ||
 			(!inWorktree && !strings.Contains(out, "PUSH: git -C "+regress+" push")) {
 			t.Fatalf("regression checkout (worktree %v): exit %d\n%s", inWorktree, rc, out)
 		}

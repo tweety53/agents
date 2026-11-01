@@ -99,7 +99,7 @@ func (v *vvp) close() {
 			v.next("cure-environment " + nextKey)
 		}
 		v.endRow("blocked", "-cause", cause)
-		v.commit(w, body, changeRoot)
+		v.commit(w, body)
 		v.endStage()
 		v.next("loop")
 	}
@@ -108,11 +108,11 @@ func (v *vvp) close() {
 		if judgeGap != "" {
 			v.say("%s", judgeGap)
 		}
-		v.commit(w, body, changeRoot)
+		v.commit(w, body)
 		v.next("judge")
 	}
 	v.endRow("completed")
-	v.commit(w, body, changeRoot)
+	v.commit(w, body)
 	v.endStage()
 	v.next("done")
 }
@@ -270,13 +270,13 @@ func (v *vvp) endStage() {
 var vvcPath = regexp.MustCompile(`/[^\s,;]+`)
 
 // commit is step 12 (decision close-commits-final-reports): the report's
-// `spec:` path, every PNG, the full app suite's spec, zip and resolved PNGs, and
-// <changeRoot>/visual-verification/ — each in the checkout it lives in,
+// `spec:` path, every PNG, and the full app suite's spec, zip and resolved
+// PNGs — each in the checkout it lives in,
 // pathspec-scoped, under `test: record the <key> visual verification` with
 // trailer `Flow-Key: flow.visual-verify`. A checkout on a branch other than
 // spectre/<name> prints `PUSH: git -C <checkout> push`. Then
 // `ROUND-BASE: <worktree>=<HEAD>`.
-func (v *vvp) commit(w string, report []byte, changeRoot string) {
+func (v *vvp) commit(w string, report []byte) {
 	byTop := map[string][]string{}
 	var tops []string
 	add := func(p string) {
@@ -316,7 +316,6 @@ func (v *vvp) commit(w string, report []byte, changeRoot string) {
 			}
 		}
 	}
-	add(filepath.Join(changeRoot, "visual-verification"))
 	for _, top := range tops {
 		paths := byTop[top]
 		if out, ok := v.gitChild(top, append([]string{"add", "--"}, paths...)...); !ok {
