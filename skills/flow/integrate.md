@@ -20,6 +20,23 @@ one of its sections.
 **Check guard presence** per **Guard presence check** (`skills/flow-contracts/pipeline.md`),
 already run at the top of this invocation.
 
+**A change to `<agents repo>`'s own tooling integrates with the branch's copy of it.** When the
+canonical repository is `<agents repo>` and `git -C <canonical-worktree> diff --name-only
+<base>...HEAD` names a path under `scripts/`, `stats/` or `skills/` — the three trees whose
+installed copies a run executes — every `integrate-change.sh` call this file and
+`skills/flow/cleanup.md` make resolves to the branch's own copy and runs with a `flow` built from
+the branch, both first on `PATH`:
+
+```bash
+cd <canonical-worktree>/stats && go build -o <scratch>/bin/flow ./cmd/flow
+PATH=<scratch>/bin:<canonical-worktree>/scripts:$PATH integrate-change.sh prepare <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
+```
+
+The installed script and CLI predate the change, and the script builds its guards from its own
+checkout (`<agents repo>/scripts/lib/flow-guard.sh`) while taking `flow` from `PATH` — kan-1073's
+installed `commit` failed on the branch's planning commit, and its installed `flow` had no
+`change` command.
+
 ```bash
 integrate-change.sh prepare <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
 ```
