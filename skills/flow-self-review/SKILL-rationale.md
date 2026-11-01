@@ -33,6 +33,11 @@ unticked task whose subject a commit carries as a violation.
 
 ## SKILL.md — 2. Read the bundle and run the eight angles
 
+The harness refuses a subagent's Write of `findings.md` and `report-draft.md` ("Subagents should
+return findings as text, not write report files" — kan-1051 self-review F6, kan-1073 self-review
+F15), while the pass's case files were written, so the pass returns the two files' text and this
+session writes them (decision pass-hands-back-file-text).
+
 ### Angle 8 — prompt tuning
 
 The angle borrows from `/claude-api prompt-audit` and its eval-hillclimb guide: describe the
