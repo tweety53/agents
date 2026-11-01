@@ -753,24 +753,23 @@ func TestCloseTaskShimExportsTheRebuildsScriptDir(t *testing.T) {
 
 // TestCloseTaskRunsPlanShapeOnInRunFix pins the kan-1046 self-review fix
 // (1f): closing an in-run visual-verify fix task runs the plan guard first,
-// so one whose **Files:** omits visual-verification.md is refused with F21's
-// line and nothing ticked; with the record listed it closes; and a planned
+// so one with no **Opener:** is refused with F24's line and nothing ticked;
+// with the Opener named it closes; and a planned
 // task over the same bad plan is refused too (kan-1067 self-review, 1-B).
 func TestCloseTaskRunsPlanShapeOnInRunFix(t *testing.T) {
 	t.Parallel()
-	fix := func(files string) string {
-		return ctPlan + "\n- [ ] 4. In-run fix 1 — visual-verify: x\n\n**Files:** " + files + "\n**Tests:** none\n**Commit:** four\n**Opener:** ¤visual-verify¤\n**Build:** green\n"
+	fix := func(opener string) string {
+		return ctPlan + "\n- [ ] 4. In-run fix 1 — visual-verify: x\n\n**Files:** ¤e.txt¤\n**Tests:** none\n**Commit:** four\n" + opener + "**Build:** green\n"
 	}
-	const f21 = "is an in-run visual-verify fix whose **Files:** omits"
+	const f24 = "is an in-run fix with no **Opener:** field"
 	for _, c := range []struct {
 		name, plan, task, subject string
 		files                     []string
 		refused                   bool
 	}{
-		{"an in-run fix omitting the record is refused", fix("¤e.txt¤"), "4", "four", []string{"e.txt", "x\n"}, true},
-		{"an in-run fix listing the record closes", fix("¤e.txt¤, ¤docs/visual-verification.md¤"), "4", "four",
-			[]string{"e.txt", "x\n", "docs/visual-verification.md", "r\n"}, false},
-		{"a planned task over the same plan is refused", fix("¤e.txt¤"), "2", "two", []string{"b.txt", "x\n"}, true},
+		{"an in-run fix with no Opener is refused", fix(""), "4", "four", []string{"e.txt", "x\n"}, true},
+		{"an in-run fix naming its Opener closes", fix("**Opener:** ¤visual-verify¤\n"), "4", "four", []string{"e.txt", "x\n"}, false},
+		{"a planned task over the same plan is refused", fix(""), "2", "two", []string{"b.txt", "x\n"}, true},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
@@ -779,8 +778,8 @@ func TestCloseTaskRunsPlanShapeOnInRunFix(t *testing.T) {
 			writeFile(t, fx.dispatches, `[{"key":"verify-fix-1","taskId":"4","commitSha":"abc"}]`)
 			sha := fx.commit(t, fx.wt, c.subject, c.task, c.files...)
 			r := fx.run(fx.wt, "demo", fx.base, c.task+":"+sha)
-			if got := strings.Contains(r.out+r.err, f21); got != c.refused {
-				t.Errorf("F21 line present %v, want %v\n%s\n%s", got, c.refused, r.out, r.err)
+			if got := strings.Contains(r.out+r.err, f24); got != c.refused {
+				t.Errorf("F24 line present %v, want %v\n%s\n%s", got, c.refused, r.out, r.err)
 			}
 			if c.refused {
 				if r.rc != 1 {

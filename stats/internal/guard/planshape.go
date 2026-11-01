@@ -173,11 +173,7 @@ import (
 //	    is one such line naming the file. A plan without the line is not
 //	    checked, so changes planned before the four sections existed keep
 //	    passing (kan-1033 design.md §4, decision design-shape-line).
-//	F21 A task titled `In-run fix <k> — visual-verify…` whose **Files:**
-//	    holds no path ending `visual-verification.md`: the fix round's
-//	    record of what it changed is part of its commit (**The loop**,
-//	    skills/flow/verify-fix-loop.md; kan-1024's Task 14). Reported at the
-//	    task's title line.
+//	F21 Retired: an in-run visual-verify fix task's record is on disk only (the change directory is gitignored), so its **Files:** never names it.
 //	F22 A plan whose sibling design.md cites a `.superpowers/sdd/*.html`
 //	    prototype, in a repository whose `.flow/project.md` declares a
 //	    `## visual verification` section with `screenshots` and no
@@ -187,7 +183,7 @@ import (
 //	    (skills/flow/brainstorm-planner.md; kan-1047). Reported at the first
 //	    such task's title line.
 //	F23 A Files or Allowed-collateral entry under the planning paths
-//	    (psPlanning) not ending `visual-verification.md`: such a path rides a
+//	    (psPlanning): such a path rides a
 //	    planning or `Flow-Key: flow.visual-verify` commit, never a task
 //	    commit -- check-task-commit-planning-paths' exemption (kan-1048
 //	    self-review, 1-E). F14 still names the all-planning case. Reported
@@ -534,9 +530,6 @@ func (p *psPlan) inRunOpeners(ids []string) []string {
 	return v
 }
 
-// psVisualFixRE is F21's title: an in-run fix task of the visual-verify loop.
-var psVisualFixRE = regexp.MustCompile(`^\s*- \[.\] \S+\s+In-run fix [0-9]+ — (flow\.)?visual-verify`)
-
 func (p *psPlan) checkTask(found tcfTaskBody) []string {
 	id, body, start := found.id, found.lines, found.taskLine
 	fields := p.parse(id)
@@ -592,9 +585,6 @@ func (p *psPlan) checkTask(found tcfTaskBody) []string {
 	if a := tcfSelectAfter(body); a != nil && !a.gates && p.on("F8") {
 		v = append(v, p.at(start+a.offset+1, "task "+id+" has a malformed **After:** value: "+a.value+" — an **After:** value is `Task <ids>` or `none`"))
 	}
-	if psVisualFixRE.MatchString(p.lines[found.taskLine-1]) && !slices.ContainsFunc(fields.files, func(f string) bool { return strings.HasSuffix(f, "visual-verification.md") }) && p.on("F21") {
-		v = append(v, p.at(found.taskLine, "task "+id+" is an in-run visual-verify fix whose **Files:** omits the change's `visual-verification.md` — the round records what it changed there (**The loop**, skills/flow/verify-fix-loop.md)"))
-	}
 	if len(fields.files) == 0 && p.on("F2") {
 		v = append(v, p.at(found.taskLine, "task "+id+" has no **Files:** line, or one naming no file at all"))
 	}
@@ -615,7 +605,7 @@ func (p *psPlan) checkTask(found tcfTaskBody) []string {
 			v = append(v, p.at(line, "task "+id+"'s **"+name+":** value names no backticked path but carries a comma or whitespace — the commit guard reads it as one path; backtick each path"))
 		}
 		for _, f := range tcfBacktickTokens(value) {
-			if planning(f) && !strings.HasSuffix(f, "visual-verification.md") && p.on("F23") {
+			if planning(f) && p.on("F23") {
 				v = append(v, p.at(psFieldLine(body, start, name), "task "+id+"'s **"+name+":** names the planning path `"+f+"` — it rides a planning or `Flow-Key: flow.visual-verify` commit, never a task commit (check-task-commit-planning-paths); drop it from the task's fields (F23)"))
 			}
 		}
