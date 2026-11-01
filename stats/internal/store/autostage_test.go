@@ -94,6 +94,36 @@ func TestRecordDispatchInsideOpenStageOpensNothing(t *testing.T) {
 	}
 }
 
+// A dispatch back-dated to before the end of a recorded stage run opens no
+// auto run: the harvester has committed past that time and would never fill
+// it. One begun at or after the latest end still opens one.
+func TestRecordDispatchBackdatedOpensNoAutoStageRun(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	day := func(h, m int) time.Time { return time.Date(2026, 8, 22, h, m, 0, 0, time.UTC) }
+	for _, tc := range []struct {
+		at   time.Time
+		want int
+	}{{day(9, 30), 0}, {day(10, 0), 1}, {day(10, 30), 1}} {
+		projectKey := fmt.Sprintf("proj-auto-backdated-%d", time.Now().UnixNano())
+		seedChange(t, st, projectKey, "kan-1")
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO stage_runs (change_id, harness, command, stage, attempt, started_at, ended_at, metrics, auto_opened)
+			SELECT id, 'claude-code', '/flow', 'flow.verify', 1, $2, $3, '{}'::jsonb, false
+			FROM changes WHERE project_key = $1 AND name = 'kan-1'`, projectKey, day(9, 0), day(10, 0)); err != nil {
+			t.Fatalf("seed stage run: %v", err)
+		}
+		got, err := st.RecordDispatch(ctx, projectKey, "kan-1", autoDispatch("mf-auto-1", "task-6-implementer", tc.at))
+		if err != nil {
+			t.Fatalf("RecordDispatch at %s: %v", tc.at, err)
+		}
+		runs := autoRuns(t, st, projectKey)
+		if len(runs) != tc.want || (tc.want == 0) != (got.StageRunID == nil) {
+			t.Errorf("dispatch at %s: auto runs %+v, stage_run_id %v; want %d", tc.at, runs, got.StageRunID, tc.want)
+		}
+	}
+}
+
 // The auto run ends with its last open dispatch, and takes the latest
 // run's command.
 func TestEndDispatchClosesAutoStageRun(t *testing.T) {

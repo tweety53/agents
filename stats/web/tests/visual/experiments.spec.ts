@@ -3,7 +3,8 @@ import { bodyBackground, DARK_SURFACE_1, PINNED_QUERY } from "./support";
 
 // The Experiments view (#/experiments, Experiments.tsx) over
 // cmd/uitest-seed's seedExperiments: the open combined experiment
-// "planning on xhigh" and the closed "implementer sonnet/flow-low". The
+// "planning on xhigh", the closed "implementer sonnet/flow-low" and the
+// closed main-cell "main sonnet@low" (seedMainExperiment). The
 // view reads no period; the query is pinned so the shell's URL is too.
 // experiments.spec.ts.mockups pairs each capture with its frame of the
 // approved prototype, .superpowers/sdd/experiments-prototype.html; the
@@ -38,6 +39,20 @@ test.describe("experiments", () => {
     await expect(page.getByRole("region", { name: "Summary" })).toContainText("Negative. Sonnet implementers cut tokens 22%");
     await expect(page.getByText("Loading…")).toHaveCount(0);
     await expect(page).toHaveScreenshot("experiments-closed.png", { fullPage: true });
+  });
+
+  test("experiments main-cell metric cards", async ({ page }) => {
+    await open(page);
+    await page.getByRole("button", { name: /main sonnet@low/ }).click();
+    await expect(page.getByRole("region", { name: "Summary" })).toContainText("Positive. Sonnet-low main sessions");
+    await expect(page.getByText("Loading…")).toHaveCount(0);
+    const cards = page.locator("section.stat");
+    const selfReview = page.getByRole("region", { name: "Self-review Crit+Imp", exact: true });
+    await expect(selfReview).toBeVisible();
+    // The new card sits right after Verify reds.
+    const titles = await cards.locator("h3.ttl").allTextContents();
+    expect(titles.indexOf("Self-review Crit+Imp")).toBe(titles.indexOf("Verify reds") + 1);
+    await expect(page).toHaveScreenshot("experiments-main.png", { fullPage: true });
   });
 
   test("experiments chart point hover and focus", async ({ page }) => {

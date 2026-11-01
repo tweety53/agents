@@ -61,7 +61,7 @@ var (
 	fixerMetrics    = []string{"reviewRounds", "findingsPerTask", "verifyReds", "tokens", "wallClockMin"}
 	reviewerMetrics = []string{"findingsPerDispatch", "lateRoundFindings", "reviewRounds", "tokens", "wallClockMin"}
 	visualMetrics   = []string{"vvMismatches", "vvReruns", "tokens", "wallClockMin"}
-	mainMetrics     = append(append([]string{}, plannerMetrics...), "verifyReds")
+	mainMetrics     = append(append([]string{}, plannerMetrics...), "verifyReds", "selfReviewFindings")
 	otherMetrics    = []string{"tokens", "wallClockMin"}
 )
 
@@ -143,6 +143,10 @@ const mainTokensSQL = `COALESCE((sr.metrics->'tokens'->'main'->>'input')::numeri
 //     with none recorded (or only pre-0055 NULL rows) is skipped.
 //   - verifyReds: its dispatches keyed verify% ended blocked by
 //     test-failure.
+//   - selfReviewFindings: its self_review_findings rows the decision
+//     self-review-metric-graded-only (KAN-1071) counts — critical or
+//     important, fixed or filed; a change with no flow.self-review run, or
+//     with a fixed/filed row carrying no severity, is skipped.
 //   - lateRoundFindings: its findings of round 2 or later.
 //   - vvMismatches: findings raised by its visual-verify dispatches.
 //   - vvReruns: its visual-verify-fix-* dispatches.
@@ -231,6 +235,11 @@ func (s *Store) ExperimentStats(ctx context.Context, id int64) (ExperimentStatsR
 				AND tc.corrections IS NOT NULL ORDER BY tc.observed_at DESC, tc.id DESC LIMIT 1),
 			(SELECT count(*) FROM dispatches d WHERE d.change_id = co.change_id AND d.dispatch_key LIKE 'verify%'
 				AND d.outcome = 'blocked' AND d.cause = 'test-failure'),
+			(SELECT count(*) FROM self_review_findings srf JOIN changes c ON c.project_key = srf.project_key AND c.name = srf.change
+				WHERE c.id = co.change_id AND srf.severity IN ('critical', 'important') AND srf.disposition IN ('fixed', 'filed')),
+			EXISTS (SELECT 1 FROM stage_runs r WHERE r.change_id = co.change_id AND r.stage = 'flow.self-review')
+				AND NOT EXISTS (SELECT 1 FROM self_review_findings srf JOIN changes c ON c.project_key = srf.project_key AND c.name = srf.change
+					WHERE c.id = co.change_id AND srf.severity IS NULL AND srf.disposition IN ('fixed', 'filed')),
 			(SELECT count(*) FROM findings f WHERE f.change_id = co.change_id AND f.round >= 2),
 			(SELECT count(*) FROM findings f JOIN dispatches d ON d.id = f.dispatch_id
 				WHERE f.change_id = co.change_id AND d.dispatch_key LIKE 'visual-verify%'),
@@ -263,10 +272,10 @@ func (s *Store) ExperimentStats(ctx context.Context, id int64) (ExperimentStatsR
 	`, []any{out.BeforeFrom, end, mainModel, mainEffort}, func(scan func(...any) error) error {
 		var firstAt, week time.Time
 		var corrections *int
-		var rounds, critImp, verifyReds, late, vvMis, vvRe, findings, implN, revN, revF, roleN, stageN int
+		var rounds, critImp, verifyReds, selfReview, late, vvMis, vvRe, findings, implN, revN, revF, roleN, stageN int
 		var roleTok, roleSecs, stageTok, stageSecs float64
-		var matches bool
-		if err := scan(&firstAt, &week, &rounds, &critImp, &corrections, &verifyReds, &late, &vvMis, &vvRe,
+		var matches, graded bool
+		if err := scan(&firstAt, &week, &rounds, &critImp, &corrections, &verifyReds, &selfReview, &graded, &late, &vvMis, &vvRe,
 			&findings, &implN, &revN, &revF, &roleN, &roleTok, &roleSecs, &stageN, &stageTok, &stageSecs, &matches); err != nil {
 			return err
 		}
@@ -290,6 +299,9 @@ func (s *Store) ExperimentStats(ctx context.Context, id int64) (ExperimentStatsR
 			"verifyReds":        {float64(verifyReds), 1},
 			"lateRoundFindings": {float64(late), 1}, "vvMismatches": {float64(vvMis), 1}, "vvReruns": {float64(vvRe), 1},
 			"findingsPerTask": {float64(findings), float64(implN)}, "findingsPerDispatch": {float64(revF), float64(revN)},
+		}
+		if graded {
+			perChange["selfReviewFindings"] = [2]float64{float64(selfReview), 1}
 		}
 		if corrections != nil {
 			perChange["planCorrections"] = [2]float64{float64(*corrections), 1}

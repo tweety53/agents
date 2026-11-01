@@ -65,6 +65,9 @@ dispatch's last sibling.
 `REVIEWERS` resolves per **Model resolution** (`skills/flow/SKILL.md`) before section 2; every
 dispatch's model is the recorded decision's pair, per **Model and effort**
 (`skills/flow/brainstorm-planner.md`).
+
+**An open main-agent experiment is checked, never enforced**, as **Model resolution** (`skills/flow/SKILL.md`) states for `/flow`: run its `flow experiment main-check` line here, before section 2.
+
 Every dispatch's `description` and `Role:` line follow **Dispatch sites — the parent's closed list** (`skills/flow/implement.md`).
 
 `<changeRoot>` is `<abs-worktree>/.superpowers/sdd/<name>/` — its

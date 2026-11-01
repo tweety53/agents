@@ -51,6 +51,8 @@ stop's stages carry no `-request`.
 below); one matching a finished change ends the run with one line saying so. Anything else starts
 a new session, a non-empty argument being its first request.
 
+**Main-agent experiment.** An open main-agent experiment is checked, never enforced, as **Model resolution** (`skills/flow/SKILL.md`) states for `/flow`: run its `flow experiment main-check` line once at session start.
+
 **Jira.** Resolve the issue per **Resolution (how `jiraIssue` is decided)**
 (`skills/flow-contracts/jira-integration.md`): with no key given, file a Task through its creation
 path, summary `Interactive session <YYYY-MM-DD>`, labelled per **Labels on issues the pipeline

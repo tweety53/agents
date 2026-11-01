@@ -506,7 +506,10 @@ func autoStageFor(key string) string {
 // change's latest run (/flow when there is none), and the dispatch's own
 // session token and id so harvesting attributes it as a marked stage.
 // EndDispatch closes it once its last open dispatch ends; an explicit stage
-// begin on the change supersedes it (insertStageRunAndSupersede).
+// begin on the change supersedes it (insertStageRunAndSupersede). A
+// dispatch begun at an instant some recorded stage run already covers to its
+// end opens nothing: the watcher has committed past that time and would never
+// fill the run (KAN-1071; the empty runs 18126, 18225, 18245).
 func openAutoStageRun(ctx context.Context, tx pgx.Tx, projectKey, change string, in records.Dispatch) (*int64, error) {
 	var changeID int64
 	err := tx.QueryRow(ctx, `SELECT id FROM changes WHERE project_key = $1 AND name = $2`, projectKey, change).Scan(&changeID)
@@ -522,8 +525,9 @@ func openAutoStageRun(ctx context.Context, tx pgx.Tx, projectKey, change string,
 	var skip bool
 	if err := tx.QueryRow(ctx, `
 		SELECT EXISTS (SELECT 1 FROM stage_runs WHERE change_id = $1 AND ended_at IS NULL)
-		    OR EXISTS (SELECT 1 FROM dispatches WHERE change_id = $1 AND session_token = $2 AND dispatch_key = $3)`,
-		changeID, nullIfEmpty(in.SessionToken), nullIfEmpty(in.Key)).Scan(&skip); err != nil {
+		    OR EXISTS (SELECT 1 FROM dispatches WHERE change_id = $1 AND session_token = $2 AND dispatch_key = $3)
+		    OR EXISTS (SELECT 1 FROM stage_runs WHERE change_id = $1 AND ended_at > $4)`,
+		changeID, nullIfEmpty(in.SessionToken), nullIfEmpty(in.Key), in.StartedAt).Scan(&skip); err != nil {
 		return nil, err
 	}
 	if skip {

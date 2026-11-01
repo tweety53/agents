@@ -684,6 +684,9 @@ func seedExperiments(ctx context.Context, st *store.Store) error {
 		StartedAt: time.Date(2026, 7, 1, 9, 0, 0, 0, time.UTC)}); err != nil {
 		return fmt.Errorf("uitest-seed: open the combined experiment: %w", err)
 	}
+	if err := seedMainExperiment(ctx, st); err != nil {
+		return err
+	}
 	// Explorer dispatches with tokens and duration on both sides of the open
 	// experiment's start, so its Tokens/change and Wall-clock panels and
 	// charts draw figures, as the prototype does.
@@ -711,6 +714,70 @@ func seedExperiments(ctx context.Context, st *store.Store) error {
 			Metrics: json.RawMessage(fmt.Sprintf(`{"tokens":{"main":{"input":%d,"output":%d}}}`, x.tokens*9/10, x.tokens/10))}); err != nil {
 			return fmt.Errorf("uitest-seed: record explorer dispatch for %s: %w", x.change, err)
 		}
+	}
+	return nil
+}
+
+// seedMainExperiment writes a closed main-cell experiment, main=sonnet@low
+// (KAN-1071), over two changes of its own in January 2025 -- long before
+// every spec's pinned period and every other experiment's windows, so no
+// other capture's figures move: one before the start on opus, one after it
+// on sonnet at low effort, each with a flow.self-review run and graded
+// self-review findings, so the Experiments view draws the
+// selfReviewFindings card ("Self-review Crit+Imp") with a value on both
+// sides.
+func seedMainExperiment(ctx context.Context, st *store.Store) error {
+	const project = "uitest-alpha"
+	start := time.Date(2025, 1, 13, 9, 0, 0, 0, time.UTC)
+	for _, c := range []struct {
+		name, model, effort string
+		at                  time.Time
+		findings            []records.SelfReviewFinding
+	}{
+		{"kan-120-main-before", "claude-opus-5-5", "xhigh", start.Add(-7 * 24 * time.Hour), []records.SelfReviewFinding{
+			{Angle: "correctness", Note: "seeded critical", Disposition: "fixed", Ref: "a1b2c3d", Severity: "critical"},
+			{Angle: "principles", Note: "seeded important", Disposition: "filed", Ref: "KAN-9001", Severity: "important"},
+		}},
+		{"kan-121-main-after", "claude-sonnet-5-5", "low", start.Add(7 * 24 * time.Hour), []records.SelfReviewFinding{
+			{Angle: "correctness", Note: "seeded important", Disposition: "fixed", Ref: "d4e5f6a", Severity: "important"},
+		}},
+	} {
+		if err := st.PutChange(ctx, store.Change{ProjectKey: project, MainCheckoutPath: "/tmp/uitest-dynamics", Name: c.name,
+			State: store.StateFinished, UpdatedAt: c.at.Add(time.Hour), UpdatedBy: "uitest-seed"}); err != nil {
+			return fmt.Errorf("uitest-seed: put change %s: %w", c.name, err)
+		}
+		for i, stage := range []string{"flow.sdd-tdd", "flow.self-review"} {
+			at := c.at.Add(time.Duration(i) * 10 * time.Minute)
+			run, err := st.BeginStage(ctx, store.BeginStageInput{ProjectKey: project, ChangeName: c.name, Harness: "claude-code",
+				Command: "/flow", Stage: stage, StartedAt: at})
+			if err != nil {
+				return fmt.Errorf("uitest-seed: begin stage %s for %s: %w", stage, c.name, err)
+			}
+			patch := fmt.Sprintf(`{"cost_usd": 0.5, "effort": %q, "tokens": {"main": {"input": 40000, "output": 4000}}, "models": {%q: {"cost_usd": 0.5, "tokens": {"main": {"input": 40000, "output": 4000}}}}}`,
+				c.effort, c.model)
+			if err := mergeJSON(ctx, st, run.ID, patch); err != nil {
+				return err
+			}
+			if err := st.EndStage(ctx, run.ID, at.Add(5*time.Minute), "completed"); err != nil {
+				return fmt.Errorf("uitest-seed: end stage %s for %s: %w", stage, c.name, err)
+			}
+		}
+		for _, f := range c.findings {
+			f.Change = c.name
+			if _, err := st.RecordSelfReviewFinding(ctx, project, f); err != nil {
+				return fmt.Errorf("uitest-seed: record self-review finding for %s: %w", c.name, err)
+			}
+		}
+	}
+	e, err := st.OpenExperiment(ctx, store.Experiment{Name: "main sonnet@low",
+		Cells: map[string][]string{"main": {"sonnet@low"}}, StartedAt: start})
+	if err != nil {
+		return fmt.Errorf("uitest-seed: open the main-cell experiment: %w", err)
+	}
+	if err := st.CloseExperimentAt(ctx, e.ID, "positive",
+		"Positive. Sonnet-low main sessions halved self-review Critical and Important findings 2 → 1.",
+		start.Add(14*24*time.Hour)); err != nil {
+		return fmt.Errorf("uitest-seed: close experiment %d: %w", e.ID, err)
 	}
 	return nil
 }
