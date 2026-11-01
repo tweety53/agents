@@ -406,6 +406,7 @@ func TestExperimentStatsMainSelfReviewFindings(t *testing.T) {
 		{fx.project, "s1", "filed", ptr("important")},
 		{fx.project, "s1", "declined", ptr("important")},
 		{fx.project, "s1", "fixed", ptr("minor")},
+		{fx.project, "s1", "declined", nil},
 		{fx.project, "s2", "fixed", ptr("critical")},
 		{fx.project, "s2", "fixed", nil},
 		{fx.project, "s3", "fixed", ptr("critical")},
