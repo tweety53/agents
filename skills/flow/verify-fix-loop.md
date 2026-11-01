@@ -16,7 +16,7 @@ off with it open?" is never asked: the run takes **fix it in-run** under **Auto-
 report names it.
 
 **A defect whose root cause is a shared source — a style, a token, a component other screens draw
-too — is fixed at that source, whatever else the fix moves.** The round's task never patches the
+too, the data every spec renders such as a UI-test seed or fixture — is fixed at that source, whatever else the fix moves.** The round's task never patches the
 changed screen alone to spare the others, and its steps carry two more. Every baseline the fix
 moves is recaptured: every spec `specs` prints for the fix's own diff — none when it prints
 nothing, and the whole suite only when `specs` is not declared — runs through `capture` with `--update-snapshots=all`
