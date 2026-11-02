@@ -236,6 +236,13 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > a tool for the check's stand-in — this repository's `<agents repo>/scripts/live-store-copy.sh` — the section
 > invokes that tool by name and never re-specifies what it does (kan-1046 self-review, 4a). The
 > no-runtime line opens with `None`.
+>
+> **The check's own inputs are checked at plan time.** Every case or fixture id the section names
+> is present, every commit it resolves exists in the checkout it names, and the credential route
+> the project declares yields the credential the check needs — each run while planning and tagged
+> `measured:` per **Plan provenance** (`skills/flow-contracts/plan-provenance.md`), never left
+> `unverified:` for `flow.verify` to find (kan-1075 self-review, F3: three `unverified:` inputs
+> failed one at a time at verify and cost 37 minutes).
 
 > **Write a verification change so its found defects become their own tasks.** When a plan's task
 > exists to exercise a surface and report what it finds — a final-verification pass over a feature

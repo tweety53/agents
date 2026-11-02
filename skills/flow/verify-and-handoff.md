@@ -208,6 +208,11 @@ after this check, not before it: `-outcome blocked -cause test-failure` on a fai
 `-cause environment` on a stack that will not start. The stack stays up for **Visual
 verification** and **Resolve the run instructions**.
 
+**The check runs at the smallest footprint that proves its claim** — the lowest parallelism, the
+fewest inputs that still prove the claim — and widens only once that run
+passes (kan-1075 self-review, F3: `--parallel 2` exhausted the Docker VM's memory and only
+`--parallel 1` ran).
+
 ### Close the stage
 
 **Load `skills/flow-contracts/session-records.md`** before reading the render outcome below.
