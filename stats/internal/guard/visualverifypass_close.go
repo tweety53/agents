@@ -288,6 +288,10 @@ func (v *vvp) commit(w string, report []byte) {
 			return
 		}
 		top = realPath(top)
+		// Ignored artifacts ride the change's archive at cleanup, not this commit.
+		if _, ignored := v.gitChild(top, "check-ignore", "-q", "--", p); ignored {
+			return
+		}
 		if _, seen := byTop[top]; !seen {
 			tops = append(tops, top)
 		}

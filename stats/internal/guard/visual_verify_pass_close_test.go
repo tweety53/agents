@@ -299,6 +299,27 @@ func TestVisualVerifyPassCloseCommitsPathspec(t *testing.T) {
 	}
 }
 
+func TestVisualVerifyPassCloseSkipsIgnoredPaths(t *testing.T) {
+	f := vvcFixture(t, "")
+	png := filepath.Join(f.wt, "spectre/changes/demo/visual-verification/home.png")
+	writeFile(t, png, "png\n")
+	f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n- verifier capture: "+png+"\n")
+	rc, out, _ := f.close("visual-verify")
+	if rc != 0 {
+		t.Fatalf("exit %d\n%s", rc, out)
+	}
+	if !strings.Contains(out, "ROUND-BASE:") {
+		t.Errorf("no ROUND-BASE:\n%s", out)
+	}
+	show, _ := exec.Command("git", "-C", f.wt, "show", "--name-only", "HEAD").Output()
+	if !strings.Contains(string(show), "tests/visual/home.spec.ts-home.png\n") {
+		t.Errorf("commit lacks the tracked capture:\n%s", show)
+	}
+	if strings.Contains(string(show), "visual-verification") {
+		t.Errorf("commit carries the ignored capture:\n%s", show)
+	}
+}
+
 func TestVisualVerifyPassCloseUsage(t *testing.T) {
 	f := vvcFixture(t, "")
 	for _, args := range [][]string{
