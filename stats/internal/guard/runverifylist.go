@@ -119,9 +119,8 @@
 //      auto-detects, as **Inline verify** says
 //   4  the store refused the recording begin (stderr names why): no command ran
 //
-// project-get and check-spec-reach run in this same binary (runSibling);
-// run-capped.sh, not yet a guard, is exec'd from the scripts/ directory of
-// FLOW_GUARD_REPO_ROOT, the checkout flow-guard was built from. The test
+// project-get, check-spec-reach and run-capped run in this same binary
+// (runSibling, selfExe). The test
 // list runs on rgtRun, run-guard-tests' job pool, with one job per command so
 // every one starts at once (decision verify-list-on-rgtrun).
 
@@ -334,11 +333,6 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		args = args[:2]
 	}
-	repoRoot := env.Getenv("FLOW_GUARD_REPO_ROOT")
-	if repoRoot == "" {
-		fmt.Fprintln(stderr, "run-verify-list: FLOW_GUARD_REPO_ROOT is unset — run flow-guard run-verify-list, which sets it")
-		return 2
-	}
 	wt, list := args[0], args[1]
 	childEnv := icChildEnv(env)
 
@@ -485,12 +479,17 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	// Each command runs as `(cd "$WT" && bash -c …)` did: from the worktree,
 	// PWD its logical path, so `pwd` prints the path the caller named.
 	cmdEnv := append(childEnv[:len(childEnv):len(childEnv)], "PWD="+abs(wt))
-	// Every command runs under run-capped.sh, which kills its process tree
+	// Every command runs under run-capped, which kills its process tree
 	// past the project's `## resource cap` (kan-1044).
-	capped := filepath.Join(repoRoot, "scripts", "run-capped.sh")
+	self, err := selfExe()
+	if err != nil {
+		fmt.Fprintf(stderr, "run-verify-list: cannot resolve flow-guard's own executable: %v\n", err)
+		return 2
+	}
+	capped := []string{self, "run-capped", "--", "bash", "-c"}
 	// run runs one command in the foreground.
 	run := func(shown, cmd, key string) {
-		results := rgtRun(context.Background(), [][]string{{capped, "--", "bash", "-c", cmd}}, 1, outDir, abs(wt), cmdEnv)
+		results := rgtRun(context.Background(), [][]string{append(capped[:len(capped):len(capped)], cmd)}, 1, outDir, abs(wt), cmdEnv)
 		report(shown, results[0].rc, results[0].out, key)
 	}
 
@@ -505,9 +504,9 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			skip[i] = true
 		case list == "test":
 			if flow, ok := lookPath(env, "flow"); ok && suites[i] != "" {
-				argvs = append(argvs, []string{flow, "suite", "record", "-C", abs(wt), "-suite", suites[i], "--", capped, "--", "bash", "-c", c})
+				argvs = append(argvs, append([]string{flow, "suite", "record", "-C", abs(wt), "-suite", suites[i], "--"}, append(capped[:len(capped):len(capped)], c)...))
 			} else {
-				argvs = append(argvs, []string{capped, "--", "bash", "-c", c})
+				argvs = append(argvs, append(capped[:len(capped):len(capped)], c))
 			}
 		default:
 			run(c, c, fmt.Sprint(i))
