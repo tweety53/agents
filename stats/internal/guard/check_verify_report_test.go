@@ -102,14 +102,14 @@ func TestCheckVerifyReportPreExistingNeedsMergeBaseEvidence(t *testing.T) {
 		want string
 	}{
 		{"  - kan-466 weight-tab: button fill differs. Attributed as pre-existing from the code path only\n", 1, "10 pre-existing attribution with no merge-base evidence"},
-		{"  - kan-466 weight-tab: pre-existing — merge-base baseline: 4f8f8344:kan-466-weigh-in-history.spec.ts-snapshots/kan466-weight-tab-darwin.png\n", 0, "COMPLETE"},
+		{"  - kan-466 weight-tab: pre-existing — merge-base baseline: <head>:kan-466-weigh-in-history.spec.ts-snapshots/kan466-weight-tab-darwin.png\n", 0, "COMPLETE"},
 		{"  - kan-466 weight-tab: present at merge base — merge-base capture: /tmp/x.png\n", 0, "COMPLETE"},
 		{"  - templates T2: not pre-existing — this change's fill token\n", 0, "COMPLETE"},
 	} {
-		path := filepath.Join(t.TempDir(), "verify-report-visual-verify.md")
-		if err := os.WriteFile(path, []byte("## Report\n"+steps+tc.line), 0o644); err != nil {
-			t.Fatal(err)
-		}
+		// A baseline citation must resolve in the report's worktree (F6).
+		wt, head := vrtBaselineRepo(t)
+		path := filepath.Join(wt, ".superpowers/sdd/verify-report-visual-verify.md")
+		writeFile(t, path, "## Report\n"+steps+strings.ReplaceAll(tc.line, "<head>", head))
 		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
 		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
 			t.Fatalf("%q: rc=%d out=%q; want rc=%d containing %q", tc.line, r.rc, r.out, tc.rc, tc.want)
@@ -502,5 +502,49 @@ func TestVrMatrixCellsMissingSide(t *testing.T) {
 	bad := vrMatrixCells(p)
 	if len(bad) != 2 || !strings.Contains(bad[0], "cancel.content") || !strings.Contains(bad[1], "cancel.border is empty") {
 		t.Errorf("bad = %q", bad)
+	}
+}
+
+// vrtBaselineRepo is a git repository committing tests/visual/a-darwin.png
+// and kan-466-weigh-in-history.spec.ts-snapshots/kan466-weight-tab-darwin.png,
+// and its HEAD sha.
+func vrtBaselineRepo(t *testing.T) (string, string) {
+	t.Helper()
+	wt, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(wt, "tests/visual/a-darwin.png"), "png\n")
+	writeFile(t, filepath.Join(wt, "kan-466-weigh-in-history.spec.ts-snapshots/kan466-weight-tab-darwin.png"), "png\n")
+	gitRun(t, wt, "init", "-q")
+	gitRun(t, wt, "add", "-A")
+	gitRun(t, wt, "commit", "-qm", "a")
+	return wt, vgHead(t, wt)
+}
+
+// TestCheckVerifyReportUnresolvedBaselineCitation pins kan-1057's self-review,
+// F6: a mangled `merge-base baseline:` citation stood as merge-base evidence.
+// Every one must resolve with git cat-file -e in the report's worktree.
+func TestCheckVerifyReportUnresolvedBaselineCitation(t *testing.T) {
+	const steps = "- steps: 4 done | 7 done | 8 done | 9 done | 10 n/a — no mockups declared | 11 done | motion n/a — none\n"
+	for _, tc := range []struct {
+		name, cite, named string
+		rc                int
+	}{
+		{"resolves", "<head>:tests/visual/a-darwin.png", "", 0},
+		{"resolves, sentence end", "<head>:tests/visual/a-darwin.png.", "", 0},
+		{"resolves, closing backtick", "<head>:tests/visual/a-darwin.png`.", "", 0},
+		{"mangled", "7cs/web/fb6353b6c37b37783543ac3b6968845bff3fcests/visual/a-darwin.png", "7cs/web/fb6353b6c37b37783543ac3b6968845bff3fcests/visual/a-darwin.png", 1},
+		{"missing path, trailing ;", "<head>:tests/visual/missing.png;", "<head>:tests/visual/missing.png", 1},
+	} {
+		wt, head := vrtBaselineRepo(t)
+		cite := strings.ReplaceAll(tc.cite, "<head>", head)
+		path := filepath.Join(wt, ".superpowers/sdd/verify-report-k.md")
+		writeFile(t, path, "## Report\n"+steps+"- view: departure present at the merge base, merge-base baseline: "+cite+"\n")
+		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
+		named := strings.ReplaceAll(tc.named, "<head>", head)
+		if r.rc != tc.rc || (named != "" && (strings.Count(r.out, named) != 1 || strings.Contains(r.out, named+";`"))) {
+			t.Errorf("%s: rc=%d out=%q; want rc=%d naming %q once", tc.name, r.rc, r.out, tc.rc, named)
+		}
 	}
 }

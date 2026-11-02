@@ -36,6 +36,9 @@ var (
 	// pre-existing from the code path alone and re-baselined over the defect).
 	vrPreExisting    = regexp.MustCompile(`(?i)(?:^|[^-\w])pre-existing|present at (?:the )?merge base`)
 	vrNotPreExisting = regexp.MustCompile(`(?i)\bnot pre-existing`)
+	// A `merge-base baseline: <sha>:<path>` citation, which must resolve in the
+	// report's worktree (kan-1057 self-review, F6: a mangled one stood as evidence).
+	vrBaselineCite = regexp.MustCompile(`merge-base baseline: (\S+)`)
 	// A `- wire contract:` line naming an endpoint: the dispatch named no
 	// view, so steps 8-10 have nothing to capture (kan-1022's self-review: a
 	// verifier wrote them `done` over a capture it never ran).
@@ -104,7 +107,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	spec := ""
 	var reportLines []string
 	bands, seams, over := map[string]bool{}, map[string]bool{}, map[string]string{}
-	var badSweeps []string
+	var badSweeps, cites []string
 	for _, line := range strings.Split(string(data), "\n") {
 		// Every line is read from `## Report` to the next `## ` heading alone:
 		// the `## Verdict` block above it is the handback, not the record.
@@ -123,6 +126,11 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 			unevidenced = strings.TrimSpace(line)
 			if r := []rune(unevidenced); len(r) > 120 {
 				unevidenced = string(r[:120])
+			}
+		}
+		for _, m := range vrBaselineCite.FindAllStringSubmatch(line, -1) {
+			if c := strings.TrimRight(m[1], ";,).`"); !slices.Contains(cites, c) {
+				cites = append(cites, c)
 			}
 		}
 		if m := vrStepsLine.FindStringSubmatch(line); m != nil {
@@ -211,6 +219,13 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if unevidenced != "" {
 		step10 = append(step10, "pre-existing attribution with no merge-base evidence: "+unevidenced)
+	}
+	wt := filepath.Dir(filepath.Dir(filepath.Dir(args[0])))
+	for _, c := range cites {
+		sha, path, _ := strings.Cut(c, ":")
+		if _, ok := capture(envGit(env)("-C", wt, "cat-file", "-e", c)); sha == "" || path == "" || !ok {
+			step10 = append(step10, "merge-base baseline `"+c+"` does not resolve in "+wt)
+		}
 	}
 	if len(step10) > 0 {
 		status["10"] = strings.Join(step10, "; ")

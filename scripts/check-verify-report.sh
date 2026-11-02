@@ -50,6 +50,9 @@
 # the merge base` that names neither `merge-base baseline: <sha>:<path>` nor
 # `merge-base capture: <path>` leaves step 10 undone (kan-1015: a re-baseline
 # over a defect attributed from the code path alone).
+# Every merge-base baseline: <sha>:<path> must resolve with git cat-file -e in
+# the report's worktree (<report file>'s third parent directory); one that
+# does not leaves step 10 undone (kan-1057 self-review, F6).
 #
 # With step 10 `done`, every frame id a `- <frame id>: <composite> diff=`
 # line names needs its own `- <frame id> matrix:` line; each that has none is
