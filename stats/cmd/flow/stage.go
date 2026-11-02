@@ -426,6 +426,13 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
 	}
+	// On a begin only /flow's flow.decide is gated; the brainstorm and
+	// self-review triggers inside the gate belong to the end path.
+	if f.command == "/flow" && f.stage == "flow.decide" {
+		if code := gateBrainstormDispatchesClosed(ctx, f, stderr); code != 0 {
+			return code
+		}
+	}
 
 	projectKey, mainCheckout, err := fallback.ProjectKey(f.dir)
 	if err != nil {
@@ -724,12 +731,18 @@ func verifyKeyRepository(key string) string {
 // flow.self-review end the
 // same way: the self-review pass's row, which enforce-loop-dispatch.py opens
 // under the change, is closed by this session when the pass hands back, and
-// a stage ended over it would leave it running on the board for good. A
-// failed record read refuses nothing.
+// a stage ended over it would leave it running on the board for good. It
+// refuses a /flow flow.decide begin while a planning dispatch row -- a key
+// opening plan-, explore- or design- -- has no end: decide follows the
+// planners, so a row still open there was left open past its planner's
+// hand-back and would be closed hours late (kan-1057 self-review, F4: plan-3
+// and plan-4 ended at the next session's sweep). A failed record read
+// refuses nothing.
 func gateBrainstormDispatchesClosed(ctx context.Context, f stageIdentityFlags, stderr io.Writer) int {
 	brainstorm := f.command == "/flow" && f.stage == "flow.brainstorm"
 	selfReview := (f.command == "/flow" || f.command == "/flow-fast" || f.command == "/flow-interactive") && f.stage == "flow.self-review"
-	if !brainstorm && !selfReview {
+	decide := f.command == "/flow" && f.stage == "flow.decide"
+	if !brainstorm && !selfReview && !decide {
 		return 0
 	}
 	projectKey, _, err := fallback.ProjectKey(f.dir)
@@ -744,12 +757,17 @@ func gateBrainstormDispatchesClosed(ctx context.Context, f stageIdentityFlags, s
 	}
 	var open []string
 	for _, d := range run.Dispatches {
-		if d.EndedAt == nil {
+		planning := strings.HasPrefix(d.Key, "plan-") || strings.HasPrefix(d.Key, "explore-") || strings.HasPrefix(d.Key, "design-")
+		if d.EndedAt == nil && (!decide || planning) {
 			open = append(open, fmt.Sprintf("%s (session %s: `flow record dispatch end -key %s -session-token %s -outcome completed|aborted`)", d.Key, d.SessionToken, d.Key, d.SessionToken))
 		}
 	}
 	if len(open) == 0 {
 		return 0
+	}
+	if decide {
+		fmt.Fprintf(stderr, "flow: stage begin refused: flow.decide begins with planning dispatch rows still open: %s -- end each when its agent hands back\n", strings.Join(open, "; "))
+		return 1
 	}
 	fmt.Fprintf(stderr, "flow: stage end refused: %s ends with dispatch rows still open: %s -- end each when its agent hands back\n", f.stage, strings.Join(open, "; "))
 	return 1

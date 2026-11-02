@@ -2291,3 +2291,57 @@ func TestStageBeginRequestFlag(t *testing.T) {
 		t.Errorf("daemon got %d requests, want only the accepted one", len(bodies))
 	}
 }
+
+// TestStageBeginDecideRefusesOpenPlanningDispatch pins the kan-1057
+// self-review fix (F4): /flow's flow.decide begin is refused, exit 1 with no
+// begin sent, while a plan-, explore- or design- dispatch row of the change is
+// open, naming its key and session token; an ended planner row, an open row of
+// another role, and another stage over the open planner row all pass.
+func TestStageBeginDecideRefusesOpenPlanningDispatch(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	row := func(key, end string) string {
+		return `{"change":"kan-1","dispatches":[{"key":"` + key + `","agentId":"a1","role":"planner","sessionToken":"tok-9","startedAt":"2026-11-02T12:29:53Z"` + end + `}]}`
+	}
+	const ended = `,"endedAt":"2026-11-02T12:39:40Z"`
+	begin := func(record, command, stage string) (int, string, bool) {
+		t.Helper()
+		reached := false
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet {
+				_, _ = w.Write([]byte(record))
+				return
+			}
+			reached = true
+			_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+		}))
+		defer srv.Close()
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
+				"-command", command, "-stage", stage, "-session-token", "mf-k1-20261102T000000Z", "kan-1"},
+			strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String(), reached
+	}
+	for _, tc := range []struct {
+		name, record, command, stage string
+		code                         int
+	}{
+		{"open plan row", row("plan-3", ""), "/flow", "flow.decide", 1},
+		{"open explore row", row("explore-1", ""), "/flow", "flow.decide", 1},
+		{"ended plan row", row("plan-3", ended), "/flow", "flow.decide", 0},
+		{"open implementer row", row("task-1-implementer", ""), "/flow", "flow.decide", 0},
+		{"another stage", row("plan-3", ""), "/flow", "flow.load-context", 0},
+		{"brainstorm begin", row("plan-3", ""), "/flow", "flow.brainstorm", 0},
+		{"self-review begin", row("task-1-implementer", ""), "/flow-fast", "flow.self-review", 0},
+	} {
+		code, stderr, reached := begin(tc.record, tc.command, tc.stage)
+		if code != tc.code || reached != (tc.code == 0) {
+			t.Errorf("%s: exit=%d reached=%v, want exit %d; stderr:\n%s", tc.name, code, reached, tc.code, stderr)
+			continue
+		}
+		if tc.name == "open plan row" && (!strings.Contains(stderr, "plan-3") || !strings.Contains(stderr, "-session-token tok-9")) {
+			t.Errorf("%s: stderr names neither plan-3 nor its token:\n%s", tc.name, stderr)
+		}
+	}
+}
