@@ -51,8 +51,12 @@ discarded too.
   stop: the run continues into the In Progress transition and planning (kan-1040: a run filed the
   issue and ended its turn). A failed create is one `⚠ Jira: skipped — <reason>` line and resolves
   as no hit.
-- **A `/flow-interactive` session start with no key in its arguments** files one the same way,
-  unasked, its summary `Interactive session <YYYY-MM-DD>` — unless the argument declines an issue
+- **A `/flow-interactive` session start with no key in its arguments** first looks for an existing
+  issue: one in the `## jira` project, assigned to the operator, in **In Progress** and whose
+  summary begins `Interactive session` (`searchJiraIssuesUsingJql`, on the `twg` route `twg jira
+  workitem query`) — the most recently updated is the user-supplied key, unasked, and no
+  In Progress transition is needed. With none, it files one the same way, unasked, its summary
+  `Interactive session <YYYY-MM-DD>` — unless the argument declines an issue
   ("no jira"), which resolves `jiraIssue: null` with no ask.
 - **Every other hit requires explicit confirmation.** A key seen in conversation prose, a pasted log
   line, a code comment, or a remark like "same as we did in PROJ-412" is a candidate only. Fetch it

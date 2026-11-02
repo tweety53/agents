@@ -54,7 +54,7 @@ a new session, a non-empty argument being its first request.
 **Main-agent experiment.** An open main-agent experiment is checked, never enforced, as **Model resolution** (`skills/flow/SKILL.md`) states for `/flow`: run its `flow experiment main-check` line once at session start.
 
 **Jira.** Resolve the issue per **Resolution (how `jiraIssue` is decided)**
-(`skills/flow-contracts/jira-integration.md`): with no key given, file a Task through its creation
+(`skills/flow-contracts/jira-integration.md`): with no key given, reuse the operator's In Progress `Interactive session` issue when one exists, else file a Task through its creation
 path, summary `Interactive session <YYYY-MM-DD>`, labelled per **Labels on issues the pipeline
 creates** (`skills/flow-contracts/jira-integration-finish.md`), unless the argument declines an
 issue ("no jira"). Move it to **In Progress** per **Transitions** there. Every Jira failure is the
