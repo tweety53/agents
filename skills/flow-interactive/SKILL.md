@@ -114,6 +114,16 @@ flow stage begin -command '/flow-interactive' -stage flow.load-context -request 
 flow stage end   -command '/flow-interactive' -stage flow.load-context -outcome completed <name>
 ```
 
+**Big requests.** Once looked at, judge the request's size. It is big when it would not land as
+one small step: it restructures how a module works, spans several modules, adds a stage or a
+schema, or needs a plan of its own to be done well. A big request is put to the operator through
+**AskUserQuestion**, one line saying why it reads as big, with two options and neither recommended
+— **Run it here** or **File a Jira task** — so **Auto-resolution** never takes it. A request whose
+work lands outside this session's repository cannot run here and is filed without the ask. Filed,
+it is one Task, created and labelled as **Session start**'s **Jira** paragraph creates one, its
+description the ask and what the look found; the request ends `answered`, naming the key. Run
+here, it continues at step 2.
+
 **2. Brainstorm, rarely** — only when the request needs a new table, endpoint or layout, spans
 more than one module, or two readings lead to materially different work. Record the reason, then
 ask the operator through **AskUserQuestion**, per **Unanswered mid-run asks**
