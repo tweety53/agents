@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -200,6 +202,38 @@ func validateAgentID(agentID string) error {
 		}
 	}
 	return nil
+}
+
+// ErrPlannerKeyOutOfSequence is a /flow planner begin whose plan-<n> key is
+// not the next number of its run (session token): a mis-keyed row the
+// harvester then credits with another dispatch's tokens (kan-1075
+// self-review, F2). A replayed begin of a recorded key is never refused.
+var ErrPlannerKeyOutOfSequence = errors.New("store: planner key out of sequence")
+
+// plannerKey matches /flow's planner dispatch keys, plan-<n>.
+var plannerKey = regexp.MustCompile(`^plan-([0-9]+)$`)
+
+// checkPlannerKey refuses a planner begin whose plan-<n> key skips the next
+// number of its session token's plan-<n> rows; a key already recorded under
+// the token passes, so a journal replay and a re-begin stay no-ops.
+func checkPlannerKey(ctx context.Context, tx pgx.Tx, projectKey, change string, in records.Dispatch) error {
+	m := plannerKey.FindStringSubmatch(in.Key)
+	if in.Role != "planner" || m == nil {
+		return nil
+	}
+	var next int
+	if err := tx.QueryRow(ctx, `
+		SELECT CASE WHEN bool_or(d.dispatch_key = $4) THEN 0 ELSE count(*) + 1 END
+		FROM dispatches d JOIN changes c ON c.id = d.change_id
+		WHERE c.project_key = $1 AND c.name = $2 AND d.session_token = $3
+		  AND d.dispatch_key ~ '^plan-[0-9]+$'`,
+		projectKey, change, in.SessionToken, in.Key).Scan(&next); err != nil {
+		return err
+	}
+	if next == 0 || m[1] == strconv.Itoa(next) {
+		return nil
+	}
+	return fmt.Errorf("%w: %s/%s key %q under session token %q -- this run's next planner key is plan-%d", ErrPlannerKeyOutOfSequence, projectKey, change, in.Key, in.SessionToken, next)
 }
 
 // ErrTooManyDispatchSeqCollisions is returned by RecordDispatch when it
@@ -464,6 +498,9 @@ func (s *Store) recordDispatchTx(ctx context.Context, projectKey, change string,
 		return records.Dispatch{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	if err := checkPlannerKey(ctx, tx, projectKey, change, in); err != nil {
+		return records.Dispatch{}, err
+	}
 	if in.StageRunID == nil {
 		if in.StageRunID, err = openAutoStageRun(ctx, tx, projectKey, change, in); err != nil {
 			return records.Dispatch{}, err

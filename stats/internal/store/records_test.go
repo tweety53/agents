@@ -5629,3 +5629,41 @@ func TestSetDispatchSlot(t *testing.T) {
 		t.Fatalf("non-reviewer row: err = %v, want store.ErrDispatchNotFound", err)
 	}
 }
+
+// TestRecordDispatchRefusesOutOfSequencePlannerKey pins that a /flow
+// planner begin must take its run's next plan-<n> key (kan-1075
+// self-review, F2): a skipped number is refused naming the expected key,
+// while a replayed key and another session token's plan-1 pass.
+func TestRecordDispatchRefusesOutOfSequencePlannerKey(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-planner-key-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	begin := func(token, key string) error {
+		in := baseDispatch("planner", "opus")
+		in.SessionToken = token
+		in.Key = key
+		_, err := st.RecordDispatch(ctx, projectKey, "kan-1", in)
+		return err
+	}
+	for _, tc := range []struct {
+		token, key string
+		want       string
+	}{
+		{"mf-a", "plan-1", ""},
+		{"mf-a", "plan-4", "plan-2"},
+		{"mf-a", "plan-2", ""},
+		{"mf-a", "plan-1", ""},
+		{"mf-b", "plan-1", ""},
+		{"mf-b", "plan-3", "plan-2"},
+	} {
+		err := begin(tc.token, tc.key)
+		switch {
+		case tc.want == "" && err != nil:
+			t.Errorf("%s %s: %v, want accepted", tc.token, tc.key, err)
+		case tc.want != "" && (!errors.Is(err, store.ErrPlannerKeyOutOfSequence) || !strings.Contains(err.Error(), tc.want)):
+			t.Errorf("%s %s: %v, want ErrPlannerKeyOutOfSequence naming %s", tc.token, tc.key, err, tc.want)
+		}
+	}
+}

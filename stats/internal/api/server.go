@@ -665,7 +665,7 @@ func mapStoreError(logger *slog.Logger, action string, err error) (status int, m
 	case errors.Is(err, store.ErrAgentIDInvalid):
 		return http.StatusBadRequest, err.Error()
 	case errors.Is(err, store.ErrInlineWindowTooShort), errors.Is(err, store.ErrDispatchWindowTooShort), errors.Is(err, store.ErrDispatchEndsBeforeStart), errors.Is(err, store.ErrInlineCommitMissing), errors.Is(err, store.ErrInlineBegunAfterCommit),
-		errors.Is(err, store.ErrTokensOnHarvestedSession):
+		errors.Is(err, store.ErrTokensOnHarvestedSession), errors.Is(err, store.ErrPlannerKeyOutOfSequence):
 		return http.StatusConflict, err.Error()
 	case errors.Is(err, store.ErrDispatchPairInvalid):
 		return http.StatusBadRequest, err.Error()

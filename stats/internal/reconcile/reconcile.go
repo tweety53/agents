@@ -889,7 +889,7 @@ func isDefinitiveRecordOutcome(err error) bool {
 		// behind it forever without ever making progress.
 		return true
 	case errors.Is(err, store.ErrInlineWindowTooShort), errors.Is(err, store.ErrDispatchWindowTooShort), errors.Is(err, store.ErrDispatchEndsBeforeStart), errors.Is(err, store.ErrInlineCommitMissing), errors.Is(err, store.ErrInlineBegunAfterCommit),
-		errors.Is(err, store.ErrTokensOnHarvestedSession):
+		errors.Is(err, store.ErrTokensOnHarvestedSession), errors.Is(err, store.ErrPlannerKeyOutOfSequence):
 		// An inline end closed too soon (or with no commit, or with a
 		// commit made before its begin -- kan-1003) after its begin is refused on the
 		// begin's recorded start and the end's own ended_at, neither of
