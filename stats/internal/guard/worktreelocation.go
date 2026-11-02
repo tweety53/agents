@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"syscall"
 )
@@ -16,6 +17,11 @@ import (
 // is not a readable directory or `git worktree list` fails -- an inability
 // is never reported as a verdict.
 func init() { Registry["check-worktree-location"] = checkWorktreeLocation }
+
+// wlScratchpad matches a path under a Claude Code session scratchpad,
+// …/claude-<uid>/<project slug>/<session id>/scratchpad/…, capturing the
+// session id.
+var wlScratchpad = regexp.MustCompile(`/claude-[0-9]+/[^/]+/([^/]+)/scratchpad(/|$)`)
 
 func checkWorktreeLocation(args []string, env Env, stdout, stderr io.Writer) int {
 	die := func(format string, a ...any) int {
@@ -67,7 +73,13 @@ func checkWorktreeLocation(args []string, env Env, stdout, stderr io.Writer) int
 	// there, and a run cannot remove another session's. Such a worktree is
 	// named on a FOREIGN line and never counted, so it neither stops a
 	// kickoff nor reaches check-finish-preflight's STRAY relay.
+	//
+	// ANOTHER SESSION'S SCRATCHPAD IS NOT THIS RUN'S EITHER (kan-1057
+	// self-review, F7). A worktree under a session scratchpad whose session id
+	// is not $CLAUDE_CODE_SESSION_ID is FOREIGN: this run cannot remove it.
+	// This session's own, or any with the variable unset, stays STRAY.
 	inTree, harness := siblingRoot(root), filepath.Join(root, ".claude", "worktrees")+"/"
+	sid := env.Getenv("CLAUDE_CODE_SESSION_ID")
 	n, count := 0, 0
 	w, b := "", "detached"
 	for _, line := range strings.Split(porcelain+"\n", "\n") {
@@ -84,6 +96,8 @@ func checkWorktreeLocation(args []string, env Env, stdout, stderr io.Writer) int
 			case n <= 1 || w == inTree || strings.HasPrefix(w, inTree+"/"):
 			case strings.HasPrefix(w, harness):
 				fmt.Fprintf(stdout, "FOREIGN: %s (%s)\n", w, b)
+			case otherSessionScratchpad(w, sid):
+				fmt.Fprintf(stdout, "FOREIGN: %s (%s)\n", w, b)
 			default:
 				fmt.Fprintf(stdout, "STRAY: %s (%s)\n", w, b)
 				count++
@@ -98,4 +112,11 @@ func checkWorktreeLocation(args []string, env Env, stdout, stderr io.Writer) int
 	}
 	fmt.Fprintf(stdout, "LOCATION-OK: %s\n", root)
 	return 0
+}
+
+// otherSessionScratchpad reports whether w sits under the scratchpad of a
+// session other than sid; with sid empty no scratchpad is another session's.
+func otherSessionScratchpad(w, sid string) bool {
+	m := wlScratchpad.FindStringSubmatch(w)
+	return m != nil && sid != "" && m[1] != sid
 }

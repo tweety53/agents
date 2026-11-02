@@ -41,6 +41,13 @@
 # counted, so it neither stops a kickoff nor reaches check-finish-preflight's
 # STRAY relay. Every other path outside <project>-worktrees/ is STRAY.
 #
+# ANOTHER SESSION'S SCRATCHPAD IS NOT THIS RUN'S EITHER (kan-1057 self-review,
+# F7). A worktree under a Claude Code session scratchpad,
+# …/claude-<uid>/<project slug>/<session id>/scratchpad/…, whose session id
+# is not $CLAUDE_CODE_SESSION_ID is named on a FOREIGN line, never counted:
+# this run cannot remove it. This session's own, or any with the variable
+# unset, stays STRAY.
+#
 # flow-guard is built from this checkout, never taken from PATH:
 # scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
 # cannot-answer code) with the cause when it cannot.

@@ -190,3 +190,33 @@ func TestCheckWorktreeLocationSiblingLayout(t *testing.T) {
 		t.Fatalf("want exit 1, stdout %q; got %+v", want, r)
 	}
 }
+
+// TestCheckWorktreeLocationOtherSessionScratchpad pins kan-1057 self-review,
+// F7: a worktree under another Claude Code session's scratchpad is named on a
+// FOREIGN line and never counted; this session's own scratchpad, or any
+// scratchpad while CLAUDE_CODE_SESSION_ID is unset, stays STRAY.
+func TestCheckWorktreeLocationOtherSessionScratchpad(t *testing.T) {
+	t.Parallel()
+	repo := newLocationRepo(t)
+	wt := physicalTempDir(t) + "/claude-501/-proj/sess-b/scratchpad/wt"
+	gitRun(t, repo, "worktree", "add", "-q", "--detach", wt)
+	for _, tc := range []struct {
+		name, sid, want string
+		rc              int
+	}{
+		{"another session's scratchpad is FOREIGN", "sess-a", "FOREIGN: " + wt + " (detached)\nLOCATION-OK: " + repo + "\n", 0},
+		{"this session's scratchpad is STRAY", "sess-b", "STRAY: " + wt + " (detached)\nLOCATION-STRAY: " + repo + " — 1\n", 1},
+		{"unset session id is STRAY", "", "STRAY: " + wt + " (detached)\nLOCATION-STRAY: " + repo + " — 1\n", 1},
+	} {
+		env := Env{Getenv: func(k string) string {
+			if k == "CLAUDE_CODE_SESSION_ID" {
+				return tc.sid
+			}
+			return os.Getenv(k)
+		}}
+		r := runGuard("check-worktree-location", []string{repo}, env)
+		if r.rc != tc.rc || r.stdout != tc.want || r.err != "" {
+			t.Errorf("%s: want exit %d, stdout %q; got %+v", tc.name, tc.rc, tc.want, r)
+		}
+	}
+}

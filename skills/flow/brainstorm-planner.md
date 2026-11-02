@@ -287,7 +287,12 @@ the block applied before writing the tag, fixes every red line in the block itse
 `verified:` tag names that run. A block the list was not run over is tagged
 `unverified:run-verify-list.sh lint on the applied copy`, never `verified:` (kan-1064
 self-review: task 2's prose diff, tagged `verified:` after a scratch apply, failed
-`check-installed-citations.sh` and `check-guard-symlinks.sh` at implementation).
+`check-installed-citations.sh` and `check-guard-symlinks.sh` at implementation). The scratch copy is
+a detached worktree in the repository's sibling worktrees directory, `<project>-worktrees/<name>-scratch`
+— `<name>` your `Key:` on a loop planner — made with
+`<agents repo>/scripts/throwaway-worktree.sh create <worktree> <copy>` and removed with its `remove`
+before you hand back, never under a scratchpad or `/tmp`, outside the layout
+`check-worktree-location.sh` holds every worktree to (kan-1057 self-review, F7).
 
 **A `verified:` block for a parser or validator is run on what it must refuse.** Planning runs it
 on one rejecting input per rejection the plan states, beside its accepting ones, and the tag names
