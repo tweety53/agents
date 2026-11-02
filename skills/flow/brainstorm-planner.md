@@ -146,6 +146,16 @@ Under the mode the offer is not asked either: **Yes — run another round** is t
 silence default (**Convergence**, `skills/spectre-planning/SKILL.md`) never fires (**Auto-resolution**,
 `skills/flow-contracts/operator-prompts.md`).
 
+**A fourth option, `/flow`-only.** The convergence confirm (**Convergence**, `skills/spectre-planning/SKILL.md`) carries one more named option, listed right after **Nothing unclear — approve the design and move on**:
+
+> - **Dig deeper — quiz me on this design first** *(never recommended, never the default)*
+
+It loads `skills/flow-learn-quiz/SKILL.md` and runs it over the settled design, the operator's
+understanding being what it checks, until that skill ends. It is a round — it counts toward the
+third-round offer as *Another round* does — and the confirm is then asked again; it never ends the
+stage. Under the `## decisions: recommended` mode the confirm is not asked, so the option never
+shows. Silence still defaults to another round, never to this option.
+
 The explicit **approve the design and move on** answer is at once the convergence exit that closes
 the checklist and the design approval the HARD GATE requires; mark `flow.brainstorm` end, then
 `flow.design-approval` begin and end, around that one answer:
