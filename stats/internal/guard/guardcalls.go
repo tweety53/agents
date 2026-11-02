@@ -37,8 +37,9 @@ import (
 //	   placeholder, a `…*` glob (`flow-guard check-*`) and a `…` elision
 //	   (`flow-guard check-…`) name no guard and are skipped. Only a hyphenated
 //	   word is read as a name, so prose such as `flow-guard not found on PATH`
-//	   is not a call; the two unhyphenated guards, `unchanged` and
-//	   `workspace`, are therefore not checked for typos.
+//	   is not a call. An unhyphenated word is a call only when it is within
+//	   two edits of an unhyphenated guard (`unchanged`, `workspace`) without
+//	   being one — a typo of it.
 //	B. No `<name>.sh` where `<name>` is a registry entry. The per-guard .sh
 //	   shims are gone; a sentence still spelling one names a file that does
 //	   not exist, and an agent running it gets 127. Only registered names
@@ -60,6 +61,7 @@ func init() {
 var (
 	gcCall  = regexp.MustCompile(`flow-guard ([A-Za-z0-9_]+(?:-[A-Za-z0-9_]*)+)(\*|…)?`)
 	gcShell = regexp.MustCompile(`([A-Za-z0-9_-]+)\.sh\b`)
+	gcBare  = regexp.MustCompile(`flow-guard ([A-Za-z0-9_]+)\b(?:[^-]|$)`)
 )
 
 func checkGuardCalls(_ []string, env Env, stdout, stderr io.Writer) int {
@@ -89,6 +91,12 @@ func checkGuardCalls(_ []string, env Env, stdout, stderr io.Writer) int {
 		for line := 1; sc.Scan(); line++ {
 			for _, m := range gcCall.FindAllStringSubmatch(sc.Text(), -1) {
 				if m[2] == "" && Registry[m[1]] == nil {
+					fmt.Fprintf(&out, "%s:%d: flow-guard %s names no registered guard — fix the name or register the guard (rule A)\n", rel, line, m[1])
+					n++
+				}
+			}
+			for _, m := range gcBare.FindAllStringSubmatch(sc.Text(), -1) {
+				if gcTypo(m[1]) {
 					fmt.Fprintf(&out, "%s:%d: flow-guard %s names no registered guard — fix the name or register the guard (rule A)\n", rel, line, m[1])
 					n++
 				}
@@ -166,4 +174,40 @@ func gcFiles(root string) ([]string, error) {
 	}
 	slices.Sort(files)
 	return files, nil
+}
+
+// gcTypo reports whether an unhyphenated word is not a registered guard but
+// lies within two edits of an unhyphenated one -- a typo of that guard,
+// where any farther word is prose such as `flow-guard not found`.
+func gcTypo(w string) bool {
+	if Registry[w] != nil {
+		return false
+	}
+	for name := range Registry {
+		if !strings.Contains(name, "-") && gcDistance(w, name) <= 2 {
+			return true
+		}
+	}
+	return false
+}
+
+// gcDistance is the Levenshtein distance between a and b.
+func gcDistance(a, b string) int {
+	prev := make([]int, len(b)+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= len(a); i++ {
+		cur := make([]int, len(b)+1)
+		cur[0] = i
+		for j := 1; j <= len(b); j++ {
+			cost := 1
+			if a[i-1] == b[j-1] {
+				cost = 0
+			}
+			cur[j] = min(prev[j]+1, cur[j-1]+1, prev[j-1]+cost)
+		}
+		prev = cur
+	}
+	return prev[len(b)]
 }

@@ -44,7 +44,13 @@ func TestCheckGuardCallsUnknownName(t *testing.T) {
 		t.Fatalf("unknown name: code %d, out %q", code, out)
 	}
 	out, code = gcTree(t, map[string]string{
-		"skills/x/SKILL.md": "Run `flow-guard <name>` or every `flow-guard check-*`, then `flow-guard check-plan-shape`; `flow-guard check-…`; flow-guard not found on PATH.\n",
+		"skills/x/SKILL.md": "Run `flow-guard unchangd` and\n`flow-guard worspace port`.\n",
+	})
+	if code != 1 || !strings.Contains(out, "skills/x/SKILL.md:1: flow-guard unchangd") || !strings.Contains(out, "skills/x/SKILL.md:2: flow-guard worspace") {
+		t.Fatalf("typo of an unhyphenated guard: code %d, out %q", code, out)
+	}
+	out, code = gcTree(t, map[string]string{
+		"skills/x/SKILL.md": "Run `flow-guard unchanged`, `flow-guard workspace port`, `flow-guard <name>` or every `flow-guard check-*`, then `flow-guard check-plan-shape`; `flow-guard check-…`; flow-guard not found on PATH.\n",
 	})
 	if code != 0 || !strings.Contains(out, "GUARD-CALLS-OK") {
 		t.Fatalf("placeholder and glob: code %d, out %q", code, out)
