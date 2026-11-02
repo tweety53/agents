@@ -594,6 +594,9 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 	if code := gatePanelFindingsClosed(f, *outcome, stderr); code != 0 {
 		return code
 	}
+	if code := gatePanelMergerRan(ctx, f, *outcome, stderr); code != 0 {
+		return code
+	}
 	if code := gateVisualVerifyTrailers(ctx, f, *outcome, stderr); code != 0 {
 		return code
 	}
@@ -779,6 +782,38 @@ func gatePanelFindingsClosed(f stageIdentityFlags, outcome string, stderr io.Wri
 		return 1
 	}
 	return 0
+}
+
+// gatePanelMergerRan refuses a completed /flow flow.review-panel end while
+// the highest panel round holding a reviewer row holds no completed
+// panel-<r>-merger row: mergerMissing otherwise runs only at the next
+// round's begin, which a round that closes the panel never reaches
+// (kan-1075 self-review, F14). A failed record read refuses nothing.
+func gatePanelMergerRan(ctx context.Context, f stageIdentityFlags, outcome string, stderr io.Writer) int {
+	if f.command != "/flow" || f.stage != "flow.review-panel" || outcome != "completed" {
+		return 0
+	}
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		return 0
+	}
+	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+		return cl.GetRunRecord(ctx, projectKey, f.name)
+	})
+	if err != nil {
+		return 0
+	}
+	top := -1
+	for _, d := range run.Dispatches {
+		if r, ok := records.PanelDispatchRound(d); ok && r > top {
+			top = r
+		}
+	}
+	if top < 0 || !mergerMissing(run, top) {
+		return 0
+	}
+	fmt.Fprintf(stderr, "flow: stage end refused: %s\n", mergerMissingMsg(top))
+	return 1
 }
 
 // gateVisualVerifyTrailers refuses a completed /flow flow.visual-verify end

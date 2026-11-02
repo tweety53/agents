@@ -759,7 +759,8 @@ func TestStageEndNoOpenRunNamesMissingBegin(t *testing.T) {
 	isolatedStateRoot(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/stages/end" {
+		// The merger gate's run-record read is the one other request (F14).
+		if r.URL.Path != "/api/v1/stages/end" && !strings.HasPrefix(r.URL.Path, "/api/v1/records/") {
 			t.Errorf("unexpected request path %q; an end mark alone was sent", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -1866,6 +1867,63 @@ func TestStageEndReviewPanelRunsFindingsClosed(t *testing.T) {
 			}
 			if c.want == 1 && !strings.Contains(stderr.String(), "check-panel-findings-closed") {
 				t.Fatalf("stderr does not name check-panel-findings-closed:\n%s", stderr.String())
+			}
+		})
+	}
+}
+
+// TestStageEndReviewPanelRefusesARoundWithoutItsMerger pins that a
+// completed /flow flow.review-panel end is refused while the highest round
+// holding a reviewer row has no completed panel-<r>-merger row, even when an
+// earlier round's merger ran (kan-1075 self-review, F14), and that a
+// stopped end is never gated.
+func TestStageEndReviewPanelRefusesARoundWithoutItsMerger(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	bin := t.TempDir()
+	script := "#!/usr/bin/env bash\ncase \"$*\" in\n" +
+		"  *\"record dispatches\"*) echo '[]' ;;\n" +
+		"  *\"state get\"*) echo '{\"worktrees\":{}}' ;;\n" +
+		"  *) echo '[]' ;;\nesac\n"
+	if err := os.WriteFile(filepath.Join(bin, "flow"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	row := func(key, role string) string {
+		return `{"key":"` + key + `","role":"` + role + `","outcome":"completed","startedAt":"2026-11-02T15:00:00Z","endedAt":"2026-11-02T15:01:00Z"}`
+	}
+	record := func(rows ...string) string {
+		return `{"change":"kan-1","dispatches":[` + strings.Join(rows, ",") + `]}`
+	}
+	for _, tc := range []struct {
+		name, record, outcome string
+		want                  int
+	}{
+		{"the last round lacks its merger", record(row("panel-0-primary", "reviewer"), row("panel-0-merger", "merger"), row("panel-1-primary", "reviewer")), "completed", 1},
+		{"every round has its merger", record(row("panel-0-primary", "reviewer"), row("panel-0-merger", "merger"), row("panel-1-primary", "reviewer"), row("panel-1-merger", "merger")), "completed", 0},
+		{"a stopped close is not gated", record(row("panel-1-primary", "reviewer")), "stopped", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			reached := false
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodGet {
+					_, _ = w.Write([]byte(tc.record))
+					return
+				}
+				reached = true
+				_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+			}))
+			defer srv.Close()
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
+					"-command", "/flow", "-stage", "flow.review-panel", "-outcome", tc.outcome, "kan-1"},
+				strings.NewReader(""), &stdout, &stderr)
+			if code != tc.want || reached != (tc.want == 0) {
+				t.Fatalf("exit=%d reached=%v, want exit %d; stderr:\n%s", code, reached, tc.want, stderr.String())
+			}
+			if tc.want == 1 && !strings.Contains(stderr.String(), "panel-1-merger") {
+				t.Fatalf("stderr does not name panel-1-merger:\n%s", stderr.String())
 			}
 		})
 	}
