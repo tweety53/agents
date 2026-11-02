@@ -63,6 +63,12 @@ budget answer named, it keeps the counter true: every task its append adds raise
 appended:**` value by one, creating the line in `tasks.md`'s header when the plan has never
 carried one.
 
+**The append covers every call site of what the fix replaces.** Before writing the append, grep
+every call site of the code the fix replaces and every test exercising it; the appended task's
+`**Files:**` covers each, or the task names why one stays (kan-1075 self-review, F18: task 5
+replaced `signal.NotifyContext` in `run` alone, and the panel found `regrade` and
+`TestSIGTERMCancelsARun` still on it).
+
 **The appended task's verification tags are evidence-checked like a seeded note's.** An appended
 task carries a `verified:`/`measured:` tag only when its evidence is in hand; an unverifiable one
 is written `unverified:`/`predicted:` instead, never appended as a verification tag. The append
