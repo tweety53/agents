@@ -5667,3 +5667,37 @@ func TestRecordDispatchRefusesOutOfSequencePlannerKey(t *testing.T) {
 		}
 	}
 }
+
+// TestEndDispatchLaterVerifyGroupExtendsInlineVerifierRow pins that the
+// test group's end moves an inline verifier row's finish past the lint
+// group's (kan-1075 self-review, F4), and that an earlier end never pulls
+// it back.
+func TestEndDispatchLaterVerifyGroupExtendsInlineVerifierRow(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-verify-groups-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	in := baseDispatch("verifier", "sonnet")
+	in.SessionToken = "mf-verify"
+	in.Key = "verify"
+	in.AgentID = "inline"
+	start := in.StartedAt
+	lintEnd, testEnd := start.Add(5*time.Second), start.Add(30*time.Second)
+	for _, step := range []struct{ end, want time.Time }{
+		{lintEnd, lintEnd}, {testEnd, testEnd}, {lintEnd, testEnd},
+	} {
+		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", in); err != nil {
+			t.Fatalf("RecordDispatch: %v", err)
+		}
+		out, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{
+			SessionToken: in.SessionToken, Key: in.Key, Outcome: "completed", EndedAt: step.end,
+		})
+		if err != nil {
+			t.Fatalf("EndDispatch at %s: %v", step.end, err)
+		}
+		if out.EndedAt == nil || !out.EndedAt.Equal(step.want) {
+			t.Errorf("end at %s: ended_at = %v, want %s", step.end, out.EndedAt, step.want)
+		}
+	}
+}

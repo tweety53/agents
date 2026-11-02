@@ -798,9 +798,12 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 			}
 		}
 	}
+	// An inline verifier row's later end extends it: run-verify-list.sh
+	// ends one row per group under one key, and the test group's end is the
+	// stage's finish (kan-1075 self-review, F4). GREATEST skips a NULL.
 	out, err := scanDispatchRow(s.pool.QueryRow(ctx, `
 		UPDATE dispatches d
-		SET commit_sha = $5, outcome = $6, ended_at = CASE WHEN $12 THEN $7 ELSE COALESCE(d.ended_at, $7) END, started_at = COALESCE($13, d.started_at), agent_id = COALESCE($8, d.agent_id),
+		SET commit_sha = $5, outcome = $6, ended_at = CASE WHEN $12 THEN $7 WHEN d.agent_id = 'inline' AND d.role = 'verifier' THEN GREATEST(d.ended_at, $7) ELSE COALESCE(d.ended_at, $7) END, started_at = COALESCE($13, d.started_at), agent_id = COALESCE($8, d.agent_id),
 		    cause = $9, diff_base = COALESCE($11, d.diff_base),
 		    metrics = CASE WHEN $10::text IS NULL THEN d.metrics
 		               ELSE jsonb_set(
