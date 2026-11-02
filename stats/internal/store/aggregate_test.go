@@ -784,6 +784,53 @@ func TestWeeklyCostsCountsVisualVerify(t *testing.T) {
 	check("points[1].OverallUSD", points[1].OverallUSD, ptr(7.0))
 }
 
+// TestWeeklyModelEffortCostsHonoursProject pins model-effort-project-param:
+// a project restricts the rows to its own changes' stage runs; nil sums
+// every project.
+func TestWeeklyModelEffortCostsHonoursProject(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	stamp := time.Now().UnixNano()
+	first := fmt.Sprintf("proj-weekly-me-a-%d", stamp)
+	second := fmt.Sprintf("proj-weekly-me-b-%d", stamp)
+	at := time.Date(2025, 3, 6, 0, 0, 0, 0, time.UTC)
+	for i, p := range []struct {
+		key  string
+		cost int
+	}{{first, 2}, {second, 5}} {
+		seedChange(t, st, p.key, "kan-1")
+		in := baseBeginInput(p.key, "kan-1", "/flow", "flow.sdd-tdd")
+		in.SessionID = ptr(fmt.Sprintf("weekly-me-proj-%d-%d", stamp, i))
+		in.StartedAt = at
+		r, err := st.BeginStage(ctx, in)
+		if err != nil {
+			t.Fatalf("BeginStage: %v", err)
+		}
+		m := fmt.Sprintf(`{"cost_usd": %d, "models": {"claude-opus-5-5": {"cost_usd": %d}}}`, p.cost, p.cost)
+		if err := st.MergeMetrics(ctx, r.ID, json.RawMessage(m)); err != nil {
+			t.Fatalf("MergeMetrics: %v", err)
+		}
+	}
+	period := store.Period{
+		From: time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2025, 4, 1, 0, 0, 0, 0, time.UTC),
+	}
+	week := time.Date(2025, 3, 5, 0, 0, 0, 0, time.UTC)
+	for _, c := range []struct {
+		project *string
+		want    float64
+	}{{&first, 2}, {nil, 7}} {
+		points, err := st.WeeklyModelEffortCosts(ctx, period, c.project)
+		if err != nil {
+			t.Fatalf("WeeklyModelEffortCosts: %v", err)
+		}
+		if len(points) != 1 || !points[0].Week.Equal(week) || points[0].Model != "claude-opus-5-5" ||
+			points[0].Effort != "session" || points[0].CostUSD != c.want {
+			t.Errorf("project %v: rows %+v, want one %s claude-opus-5-5 session %v", c.project, points, week, c.want)
+		}
+	}
+}
+
 // TestWeeklyModelEffortCostsSplitsDispatchAndSession pins
 // dispatch-served-effort and session-line: priced dispatches chart by
 // served model and effort (default when none was served), and each model
@@ -857,7 +904,7 @@ func TestWeeklyModelEffortCostsSplitsDispatchAndSession(t *testing.T) {
 		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
 		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
 	}
-	points, err := st.WeeklyModelEffortCosts(ctx, period)
+	points, err := st.WeeklyModelEffortCosts(ctx, period, nil)
 	if err != nil {
 		t.Fatalf("WeeklyModelEffortCosts: %v", err)
 	}
