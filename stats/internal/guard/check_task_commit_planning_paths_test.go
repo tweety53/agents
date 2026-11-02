@@ -109,6 +109,14 @@ func TestCheckTaskCommitPlanningPaths(t *testing.T) {
 			tcppCommit(t, repo, "feat(app): do the thing", "1", "src/app.go")
 			return []string{repo, base}, result{0, clean(repo, "1"), ""}
 		}},
+		{"reshaped commit carrying several Task-Id trailers: exit 0, clean verdict names 1 checked", func(t *testing.T) ([]string, result) {
+			repo := tcppRepo(t, "spectre")
+			base := tcppSha(t, repo, "HEAD")
+			writeFile(t, repo+"/src/app.go", "app\n")
+			gitRun(t, repo, "add", "-A")
+			gitRun(t, repo, "commit", "-qm", "feat(app): tasks 1-4, squashed", "-m", "Task-Id: 4\nTask-Id: 3\nTask-Id: 2\nTask-Id: 1")
+			return []string{repo, base}, result{0, clean(repo, "1"), ""}
+		}},
 		{"spectre/changes/ sweep: exit 1, commit and path named, swept verdict", func(t *testing.T) ([]string, result) {
 			repo := tcppRepo(t, "spectre")
 			base := tcppSha(t, repo, "HEAD")

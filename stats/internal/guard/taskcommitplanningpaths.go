@@ -60,7 +60,7 @@ func checkTaskCommitPlanningPaths(args []string, env Env, stdout, stderr io.Writ
 	// put that newline at the head of every sha after the first — diff-tree
 	// refused it and the swept commit went unflagged. A commit with no
 	// Task-Id trailer reads as an empty value and is not a task commit.
-	logCmd := git("-C", wt, "log", "--format=%H %(trailers:key=Task-Id,valueonly)", base+"..HEAD")
+	logCmd := git("-C", wt, "log", "--format=%H %(trailers:key=Task-Id,valueonly,separator=%x2C)", base+"..HEAD")
 	logCmd.Stderr = stderr
 	logWalk, ok := capture(logCmd)
 	if !ok {
