@@ -1043,8 +1043,9 @@ td.lb-clip { max-width: 0; width: 100%; }
 .tr-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; min-width: 0; }
 .tr-chartpanel { flex: none; max-width: 100%; overflow-x: auto; }
 .tr-byweek { flex: 1 1 420px; min-width: 0; }
-/* The Trend prototype's By week cells take line-height normal (31px rows in its frame), not .lb's 18.85px. */
-.tr-byweek .lb-table td { line-height: normal; }
+/* The Trend prototype's By week cells and header take line-height normal (31px rows, a 25.5px
+   header row in its frame), not .lb's 1.45. */
+.tr-byweek .lb-table th, .tr-byweek .lb-table td { line-height: normal; }
 .tr-chart .grid line { stroke: var(--border); }
 .tr-chart .axis text { fill: var(--text-muted); font-size: 11px; font-family: var(--font-mono); }
 .tr-chart .median { fill: none; stroke: var(--series-1); stroke-width: 2; }
