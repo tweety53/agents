@@ -41,20 +41,33 @@ states.
 - **A visible change is prototyped before its design is approved** (`plan-visual-prototype`,
   kan-1038). When the change can alter what a user sees — a page, a view, a chart, a dialog — and
   no mockup frame already specifies it, build a clickable prototype of the proposed result with
-  sample data as a single HTML file, publish it with the Artifact tool, and iterate it on the
-  operator's feedback each round until they approve; that approval is the convergence confirm's
-  **approve the design and move on** (**Convergence**, below). The file draws the proposed page
+  sample data as a single HTML file under `<project>-worktrees/<name>/.superpowers/sdd/`, and
+  iterate it on the operator's feedback each round until they approve; that approval is the convergence confirm's
+  **approve the design and move on** (**Convergence**, below). The prototype is
+  built on the app's own shell and styles — the real header and nav, the project's theme,
+  stylesheet tokens and existing component classes, the content width and chart size of the
+  sibling views — never a standalone restyle (kan-1057: a hard-coded dark, centered page did not
+  match the existing pages). The file draws the proposed page
   alone — no caption, note or screenshot beside it — since `flow.visual-verify` renders the whole
   file as the capture's frame; a note to the operator goes in the message (kan-1047: a caption
-  over a JPEG of the live page never paired with a capture). Save the approved file under
-  `<project>-worktrees/<name>/.superpowers/sdd/` and cite it, with its Artifact URL, from
-  `design.md`'s `## Context` as the spec the implementation and `flow.visual-verify` compare
+  over a JPEG of the live page never paired with a capture). **The operator sees the prototype
+  whenever one exists** (kan-1057): a planner dispatch has no Artifact tool, so it only writes the
+  file, and the session that dispatched it publishes it with the Artifact tool after every return
+  that wrote or changed it — a scratchpad copy adapted to the tool's page contract, with no
+  doctype, `html`, `head` or `body` wrappers and the title and viewport meta at its top, while the
+  file under `<project>-worktrees/<name>/.superpowers/sdd/` stays whole — and prints its URL to the operator: `/flow`'s parent
+  in the relay (**Run brainstorming and planning through the planner role**,
+  `skills/flow/brainstorm.md`), the self-review and in-run fix loops' parent in its final report.
+  A session running this section itself publishes it the same way. Only where the harness has no
+  Artifact tool at all does that session print the file's absolute path instead, saying plainly
+  that it could not be published — never silently. Cite the approved file, with its Artifact URL
+  or, where it could not be published, that it was not, from `design.md`'s `## Context` as the
+  spec the implementation and `flow.visual-verify` compare
   against, and every capture test of a view it draws drives each interactive state it shows —
   hover, focus, pressed — so `flow.visual-verify` renders and compares that state too
   (kan-1038). `check-plan-shape.sh` F22 refuses a plan whose design cites the prototype and whose
   tasks touch a `ui paths` glob while no task's `**Files:**` names a file under `screenshots`
-  (kan-1047). A change with nothing visible builds none. On a harness without the Artifact tool,
-  write the file and give the operator its absolute path. Where the confirm is not asked — the
+  (kan-1047). A change with nothing visible builds none. Where the confirm is not asked — the
   `## decisions: recommended` mode, and the self-review and in-run fix planners, which take the
   recommendation (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`)
   — the published prototype is the spec without an approval round. **The approved prototype is
@@ -620,7 +633,7 @@ flow stage end -command '/flow' -stage flow.writing-plans -outcome completed <na
 ### Plan review gate
 
 **The plan is never acted on unread.** Once the Decide step has printed its `## Decision` block,
-print the plan summary (**Plan review gate**, `skills/spectre-planning/SKILL.md`), then ask the gate question in one **AskUserQuestion** call. The
+print the plan summary (**Plan review gate**, `skills/spectre-planning/SKILL.md`) and, whenever `design.md` cites a prototype, the line `**Prototype:**` of **The `STARTED` handoff block** (`skills/flow/brainstorm.md`) under it, then ask the gate question in one **AskUserQuestion** call. The
 gate is mandatory: no answer, no commit and no implementation. It runs at the end of every
 `/flow-plan` capture (**Capturing a new change**, `skills/flow-plan/SKILL.md`) and in `/flow`
 after the `flow.decide` record sequence (**Run brainstorming and planning through the planner role**,

@@ -337,7 +337,9 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    (`skills/flow-contracts/operator-prompts-auto-resolution.md`) and recorded as a decision: it
    never asks the operator. Section B's design file goes under
    `<agents repo>-worktrees/self-review-<name>/.superpowers/sdd/`, or
-   `<agents repo>-worktrees/<name>/.superpowers/sdd/` on the change's own branch. Section D's
+   `<agents repo>-worktrees/<name>/.superpowers/sdd/` on the change's own branch. When it writes
+   or changes a prototype, its report names the file's absolute path, and this session publishes it
+   and prints its URL in its final report (**The checklist**, `skills/flow/brainstorm-planner.md`). Section D's
    guards — `spectre validate "self-review-<name>"`, `check-plan-shape.sh`,
    `check-plan-provenance.sh` and `check-task-build-green.sh` — pass before it hands back. It runs none of what records or gates a pipeline run: no `flow stage` call, no
    `flow tasks count`, no **Decide** — no `decision.json`, no `## Decision` block — and no **Plan

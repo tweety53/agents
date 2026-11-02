@@ -76,6 +76,7 @@ read-only in both forms.
 
 <the `flow decision render` output for the change's latest recorded decision, verbatim>
 
+**Prototype:** <the Artifact URL `design.md`'s `## Context` cites — printed only when it cites a prototype; where none could be published, the file's absolute path and that it was not published>
 **Open questions:** <each still-open entry's ID and question, one line each — printed only when `design.md` records one>
 **Jira:** (run-only) <the skip reason, or the line appended to the description — printed only when a Jira call failed or the run appended>
 

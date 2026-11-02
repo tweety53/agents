@@ -126,14 +126,20 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
    dispatching its own Explore and Plan agents (it records their rows, `-role explorer|planner`,
    `-key explore-<n>|design-<n>`, each pair from `plan-agent-pair.sh <name> <n> explorer|plan-designer`, `<n>` continuing
    the run's count across rounds — the parent names the next free `<n>` in each round's prompt, since
-   a reused key restarts the earlier round's row), publishing or
-   updating the prototype a visible change needs, and writes `round-<r>.md`: the design draft, the
+   a reused key restarts the earlier round's row), writing or
+   updating the prototype file a visible change needs and never publishing it, and writes
+   `round-<r>.md`: the prototype file's absolute path when the round wrote or changed it, the design draft, the
    settled prose the convergence confirm shows, then `## Questions` — each question with two to
    four options, one marked recommended, the convergence confirm last when nothing else is open.
    It asks the operator nothing.
-2. **Relay.** The parent prints the round's settled prose, asks its questions verbatim in one
-   **AskUserQuestion** call, and writes the answers verbatim to `answers-<r>.md`; it never answers
-   a question itself. An explicit approve of the convergence confirm closes brainstorming —
+2. **Relay.** The parent first publishes the prototype
+   (**The checklist**, `skills/flow/brainstorm-planner.md`). The parent prints the round's settled prose, with the
+   prototype's Artifact URL in it whenever a prototype exists, asks its questions verbatim in one
+   **AskUserQuestion** call — the URL appended to the text of the question that depends on the
+   prototype, or else of the convergence confirm, since the question dialog may hide the text
+   above it — and writes the answers verbatim to `answers-<r>.md`; it never answers
+   a question itself. Every later planner dispatch's prompt, the final one included, carries the
+   prototype's latest Artifact URL. An explicit approve of the convergence confirm closes brainstorming —
    `flow.brainstorm` end, `flow.design-approval` begin and end, as **Convergence**
    (`skills/flow/brainstorm-planner.md`) marks them; any other answer dispatches round `<r+1>`. An
    operator message mid-planning is written to the next `answers-<r>.md` and relayed the same way.
@@ -195,6 +201,7 @@ Defined by **The block each state renders** (`skills/flow-contracts/handoff-bloc
 
 <the `flow decision render` output for the change's latest recorded decision, verbatim>
 
+**Prototype:** <the Artifact URL `design.md`'s `## Context` cites — printed only when it cites a prototype; where none could be published, the file's absolute path and that it was not published>
 **Open questions:** <each still-open entry's ID and question, one line each — printed only when `design.md` records one>
 **Jira:** <the skip reason, or the line appended to the description — printed only when a Jira call failed or the run appended>
 
