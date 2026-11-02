@@ -12,6 +12,9 @@ __pycache__/
 # stats/ build output — the Vite SPA build and the compiled daemon/CLI binaries
 stats/bin/
 stats/web/node_modules/
+# Any runner's node_modules (a vitest started at the root writes .vite/ there) and the Playwright MCP's screenshots — tool output, never source.
+node_modules/
+/.playwright-mcp/
 stats/web/dist/
 # The Vite build's actual outDir (stats/web/vite.config.ts): inside
 # internal/web, not stats/web/dist, so //go:embed can reach it without a
