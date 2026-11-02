@@ -17,3 +17,5 @@ to get a sense of where they're at, proactively have them restate their understa
 quiz them with open-ended or multiple choice questions with AskUserQuestion (be sure to change up the order of the correct answer, and to not reveal the answer until after the questions are submitted). show them code or have them use the debugger if necessary!
 
 the session should not end until you've verified that the human has demonstrated that they understood everything on your list.
+
+an AskUserQuestion left unanswered is not answered for the human: no answer is assumed, the question stays open and the session waits (see Unanswered mid-run asks, `skills/flow-contracts/pipeline.md`).
