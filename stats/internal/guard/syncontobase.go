@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"sort"
 	"strings"
 )
 
@@ -32,14 +31,7 @@ import (
 //             flow-guard check-base-moved then re-runs against
 //             that sha; while it answers MOVED (the base moved during the
 //             rebase) the rebase runs again, at most 3 rebases in all. Then
-//             one line per path any MOVED verdict named under `overlaps:`,
-//             sorted:
-//               GUARD-TEST: <path> — <agents repo>/scripts/test-<stem>.sh
-//               NO-GUARD-TEST: <path>
-//             (<stem> is the path's basename without its extension — the
-//             guard test flow-guard run-guard-tests discovers by glob), and
-//             `REBASED: <worktree> — onto <sha>`, exit 0. The caller runs each
-//             named test; this guard runs none.
+//             `REBASED: <worktree> — onto <sha>`, exit 0.
 //   A rebase that stops on a conflict prints
 //             `CONFLICT: <worktree> — onto <sha>; unmerged: <paths>` and exits
 //             1, the worktree left mid-rebase exactly as git left it —
@@ -52,8 +44,7 @@ import (
 // --resume runs once an in-place resolution has finished the rebase: it
 // refuses while a rebase is still in progress and unless <onto> — the sha the
 // CONFLICT line named — is an ancestor of HEAD, and runs the same re-check
-// loop. It prints no GUARD-TEST lines: a resolved rebase
-// runs the project's whole lint and test lists instead.
+// loop.
 //
 // Exit 0 CLEAN or REBASED; 1 CONFLICT; 2 everything else — a REFUSE verdict,
 // a question it cannot answer, a rebase git refused to start (nothing
@@ -62,16 +53,11 @@ import (
 //
 // The guard is Go: stats/internal/guard/syncontobase.go, over the shared
 // baseMoved verdict (basemoved.go) and rebaseOntoTip core (baserebase.go).
-// The binary does not live in this checkout, so this shim exports
-// FLOW_GUARD_REPO_ROOT — the agents repository, derived through lib/'s
-// physical path so a skill's symlink to this shim still answers the
-// repository and never the skill directory — for the GUARD-TEST lookup.
 
-// syncOntoBase is scripts/sync-onto-base.sh: that script's header comment is
-// the contract -- a finishing worktree synced onto its base's tip, every
+// syncOntoBase implements the contract above -- a finishing worktree synced
+// onto its base's tip, every
 // check-base-moved line echoed on stdout, then one of CLEAN / REBASED (exit
-// 0, REBASED preceded by a NO-GUARD-TEST line per overlap
-// path) or CONFLICT (exit 1, left mid-rebase); exit 2 on a REFUSE, a
+// 0) or CONFLICT (exit 1, left mid-rebase); exit 2 on a REFUSE, a
 // question it cannot answer.
 func init() {
 	Registry["sync-onto-base"] = syncOntoBase
@@ -110,7 +96,6 @@ func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
 
 	var v bmVerdict
 	var ok bool
-	root := ""
 	if resume {
 		if envGit(env)("-C", wt, "merge-base", "--is-ancestor", "--end-of-options", base, "HEAD").Run() != nil {
 			return refuse("%s is not an ancestor of HEAD in %s — the rebase it resumes did not finish onto it", base, wt)
@@ -124,9 +109,6 @@ func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
 			return 2
 		}
 	} else {
-		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
-			return refuse("FLOW_GUARD_REPO_ROOT is unset — run flow-guard sync-onto-base, which sets it")
-		}
 		if v, ok = check(base); !ok {
 			return 2
 		}
@@ -137,14 +119,10 @@ func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 
 	// Rebase while the base is MOVED, re-checking against each new tip.
-	overlap := map[string]bool{}
 	onto := base
 	for n := 0; v.kind == "MOVED"; n++ {
 		if n == sobMaxRebases {
 			return refuse("%s moved again after %d rebases of %s — stop and ask", v.ref, n, wt)
-		}
-		for _, p := range v.overlap {
-			overlap[p] = true
 		}
 		o, err := rebaseOntoTip(env, wt, v.ref, stderr)
 		if err != nil {
@@ -168,21 +146,6 @@ func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 
-	// A resumed sync prints no guard-test lines: the resolution it follows
-	// runs the whole lint and test lists instead.
-	if !resume {
-		paths := make([]string, 0, len(overlap))
-		for p := range overlap {
-			paths = append(paths, p)
-		}
-		sort.Strings(paths)
-		// The per-guard bash harnesses (scripts/test-<stem>.sh) this looked
-		// up are gone — every guard's test is Go, run by the guard-tests
-		// suite — so no overlap path has a scoped test to name.
-		for _, p := range paths {
-			fmt.Fprintf(stdout, "NO-GUARD-TEST: %s\n", p)
-		}
-	}
 	fmt.Fprintf(stdout, "REBASED: %s — onto %s\n", wt, onto)
 	return 0
 }

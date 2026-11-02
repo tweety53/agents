@@ -2,7 +2,7 @@
 
 **Loaded by `skills/flow/integrate.md` only when** `flow-guard integrate-change` stops on `sync-conflict` or
 `sync` — in its base-moved sync, or the merge-and-push route's re-sync after a rejected push; the
-script runs the clean sync and its scoped re-verification itself. `/flow-fast` and the review panel's fix round cite its **Conflict** bullet.
+script runs the clean sync itself. `/flow-fast` and the review panel's fix round cite its **Conflict** bullet.
 
 **Runs after the base-moved check and before the landing question, on every route — so what
 lands is what was verified, and neither a merge nor a PR ever meets a conflict.** Once per
@@ -26,7 +26,7 @@ and `flow-guard check-base-moved` performs no fetch of its own.
   rest of **this run** becomes that `<sha>` — `<rebased-merge-base>`, a this-run-only value
   never written to the state file, which every later reader of this worktree's recorded merge
   base in this run means instead — most concretely the reshape in **Run 1 — the branch is not merged**
-  (`skills/flow-contracts/finish-contract-run1.md`). Run **Scoped re-verification** below, then
+  (`skills/flow-contracts/finish-contract-run1.md`). Then
   proceed to the landing question. Between the two, the rebased tree runs the project's whole
   `## lint` list (`flow-guard run-verify-list <worktree> lint`, under the `KEY=value` lines
   `flow-guard prepare-workspace` prints for it): a textually clean rebase can still break the build, as one
@@ -78,11 +78,3 @@ and `flow-guard check-base-moved` performs no fetch of its own.
   baseline, recapture it now — a proof taken against the pre-rebase base is void.
 - **The handoff names every file that conflicted and what its resolution kept.** A rebase that
   changed nothing is reported as such, not omitted.
-
-**Scoped re-verification**: run the test every `GUARD-TEST: <path> — <test>` line names.
-A `NO-GUARD-TEST: <path>` is
-stated in the handoff as having no verification to run, not silently skipped. A non-zero exit from
-any discovered test blocks this stage exactly like any other verify-stage failure: report it, leave
-the change `IN_PROGRESS`, stop before the landing question, and close the mark `stopped`. **Never**
-re-run the project's whole `## test` list here. A clean rebase whose overlap set clears
-this stage proceeds to the landing question and closes the mark `completed`.

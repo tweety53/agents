@@ -106,14 +106,12 @@ the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
 
 ## 2. Ask how the branch should land
 
-`prepare` then runs `flow-guard check-base-moved` and, on `MOVED`, the sync and the scoped
-re-verification of **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`). A
+`prepare` then runs `flow-guard check-base-moved` and, on `MOVED`, the sync of **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`). A
 `REFUSE`, an exit 2 or an empty resolved set is `STOP: base-moved`, handled as `STOP: preflight`
 above. **Load `skills/flow/sync-onto-base.md` only when** the script stops on `sync-conflict` or
-`sync`, the rebase is resolved in place there, and `prepare` is re-run. `STOP: guard-test` is a
-scoped re-verification that failed: report it and stop at `IN_PROGRESS`. `STOP: rebase-lint` is
-the project's `## lint` list failing on, or rewriting tracked files of, the rebased tree, handled
-the same way.
+`sync`, the rebase is resolved in place there, and `prepare` is re-run. `STOP: rebase-lint` is
+the project's `## lint` list failing on, or rewriting tracked files of, the rebased tree: report it and stop at
+`IN_PROGRESS`.
 
 The `ROUTE:` line carries the project's `## default landing route`. **A resolved default skips
 the question entirely** — take that route without asking, and say so in the handoff (`Route:
@@ -211,7 +209,7 @@ stays `IN_PROGRESS`, and the `LOOP-LANDING-REFUSED` lines are relayed — finish
 then re-run `land`. A branch with no loop rows answers `LOOP-LANDING-NA` and passes.
 
 **Every git step here can fail, and none of them may fail silently.** `STOP: push`, `STOP: sync`,
-`STOP: sync-conflict`, `STOP: guard-test`, `STOP: rebase-lint`, `STOP: self-review-report` and `STOP: state` are
+`STOP: sync-conflict`, `STOP: rebase-lint`, `STOP: self-review-report` and `STOP: state` are
 reported with the command's own output, leaving the change at `IN_PROGRESS`; `STOP: base` and
 `STOP: no-remote` are handled as in **Deciding which run this is** above; a conflict on the merge-and-push route's one re-sync is resolved per
 **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) and `land` re-run as the one

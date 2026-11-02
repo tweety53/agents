@@ -68,10 +68,6 @@ the base** (`skills/flow/sync-onto-base.md`).
 
 > , per design.md's `never-auto-abort`
 
-## integrate.md — Scoped re-verification
-
-> , per design.md's `scoped-reverify-not-full-suite`
-
 ## integrate.md — landing routes
 
 > This stage carries three sub-steps under one mark, per this task's own resolution of open question
