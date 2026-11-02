@@ -253,8 +253,7 @@ import (
 // measure-visual-properties: one UI control's visual properties measured from
 // pixels, in one image or two, printed as the Python script's JSON byte for
 // byte (design.md byte-identical-json). The interface, the region layout,
-// every property and the exit codes are scripts/measure-visual-properties.sh's
-// header; the comments here are the algorithm's.
+// every property and the exit codes are the comment above's; the comments here are the algorithm's.
 
 func init() {
 	Registry["measure-visual-properties"] = measureVisualProperties

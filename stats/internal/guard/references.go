@@ -50,13 +50,9 @@ import (
 // is emphasis rather than a section name.
 //
 // Ported to Go (KAN-778): the body's reasoning for every step is in
-// stats/internal/guard/references.go. The binary does not live in this
-// checkout, so this shim exports FLOW_GUARD_REPO_ROOT — this script's parent
-// directory, derived as the bash guard derived its REPO_ROOT — as the root
-// scanned when CHECK_REFERENCES_ROOT is unset.
+// stats/internal/guard/references.go. FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports, is the root scanned when CHECK_REFERENCES_ROOT is unset.
 
-// checkReferences is `flow-guard check-references`: that script's header
-// comment is the contract -- for every backticked .md/.mdc path a line
+// checkReferences is `flow-guard check-references`: the comment above is the contract -- for every backticked .md/.mdc path a line
 // ASSOCIATES a **bold token** with, at least one associated token must match
 // a heading of that file; exit 0 clean, 1 stale references or a coverage
 // violation, 2 cannot answer. The reasoning for each step, moved here from
@@ -181,8 +177,7 @@ func checkReferences(_ []string, env Env, stdout, stderr io.Writer) int {
 	// the guard argument-free and self-scoped from any cwd: running it from
 	// /tmp, or from a subdirectory of the repo, still scans the real repo
 	// instead of silently scanning nothing and reporting a false "clean".
-	// The bash guard derived it from BASH_SOURCE; this binary lives in a
-	// cache, so its shim exports FLOW_GUARD_REPO_ROOT, derived the same way.
+	// The bash guard derived it from BASH_SOURCE; scripts/flow-guard exports FLOW_GUARD_REPO_ROOT, derived the same way.
 	//
 	// CHECK_REFERENCES_ROOT is an explicit, opt-in override honored only when
 	// set. It exists solely so the tests can point the guard at a sandboxed

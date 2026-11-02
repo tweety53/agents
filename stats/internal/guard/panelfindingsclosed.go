@@ -94,8 +94,7 @@ import (
 // Ported to Go: the body's reasoning for every branch is in
 // stats/internal/guard/panelfindingsclosed.go.
 
-// checkPanelFindingsClosed is scripts/check-panel-findings-closed.sh: that
-// script's header comment is the contract -- exit 0 FINDINGS-CLOSED, 1 a
+// checkPanelFindingsClosed is `flow-guard check-panel-findings-closed`: the comment above is the contract -- exit 0 FINDINGS-CLOSED, 1 a
 // violation (each named on stderr), 2 cannot answer. The findings read is
 // Env.Findings when set, else `flow record findings`; the dispatches read is
 // Env.Dispatches when set, else `flow record dispatches`.

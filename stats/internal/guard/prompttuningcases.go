@@ -30,9 +30,7 @@ import (
 // Exit codes: 0 clean, silent; 1 one `<path>: <reason>` line per violation;
 // 2 cannot answer (no git, root outside a git checkout, usage).
 //
-// Go, in flow-guard (stats/internal/guard/prompttuningcases.go). flow-guard is
-// built from this checkout, never taken from PATH: scripts/lib/flow-guard.sh
-// derives it, and exits 2 with the cause when it cannot.
+// Go, in flow-guard (stats/internal/guard/prompttuningcases.go).
 
 // check-prompt-tuning-cases.sh [dir]: is every prompt-tuning case folder
 // complete and generic? Root is dir, else <FLOW_GUARD_REPO_ROOT>/docs/prompt-tuning;

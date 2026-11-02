@@ -67,8 +67,7 @@ import (
 // `merge base now <sha>`: the caller's `<rebased-merge-base>` for that
 // worktree for the rest of the run.
 
-// checkBaseMoved is scripts/check-base-moved.sh: that script's header comment
-// is the contract -- one CLEAR/MOVED/REFUSE verdict line on stdout, exit 0
+// checkBaseMoved is `flow-guard check-base-moved`: the comment above is the contract -- one CLEAR/MOVED/REFUSE verdict line on stdout, exit 0
 // whenever a verdict was reached, exit 2 when the tree cannot be read. The
 // reasoning for each step, moved here from the bash body it replaced
 // (d71a2327), sits beside the code it explains.

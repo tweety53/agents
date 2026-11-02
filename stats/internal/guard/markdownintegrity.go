@@ -51,8 +51,7 @@ import (
 // (stats/internal/guard/check_markdown_integrity_test.go) stands in the
 // test-check-*.sh companion's place.
 
-// checkMarkdownIntegrity is scripts/check-markdown-integrity.sh's guard. The
-// shim's header states the contract — the seven signals, the scope and the
+// checkMarkdownIntegrity is `flow-guard check-markdown-integrity`. The comment above states the contract — the seven signals, the scope and the
 // exit codes; this comment is the mechanism.
 //
 // # The block model
@@ -168,8 +167,7 @@ import (
 // whose failure is reported in Python's own words, os.walk's view of
 // symlinks (a symlinked file is scanned, a symlinked directory is not
 // entered), and paths printed as the root argument spelled them. Two
-// departures: with no argument the root is FLOW_GUARD_REPO_ROOT, which the
-// shim exports (the .py derived it from its own location), and an unreadable
+// departures: with no argument the root is FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports (the .py derived it from its own location), and an unreadable
 // rules/ directory is the cannot-read refusal (exit 2) where the .py died
 // with a traceback (exit 1).
 func init() { Registry["check-markdown-integrity"] = checkMarkdownIntegrity }

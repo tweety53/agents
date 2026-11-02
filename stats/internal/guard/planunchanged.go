@@ -77,8 +77,7 @@ import (
 //
 // The guard itself is Go: stats/internal/guard/planunchanged.go.
 
-// checkPlanUnchanged is scripts/check-plan-unchanged.sh: that script's
-// header comment is the contract -- snapshot writes the plan tree's content
+// checkPlanUnchanged is `flow-guard check-plan-unchanged`: the comment above is the contract -- snapshot writes the plan tree's content
 // to a file, verify recomputes it and compares it, a checkbox tick
 // (`- [ ] ` to `- [x] `) not counting as a change; exit 0 written or
 // unchanged, 1 changed (each difference on stderr), 2 cannot answer. The

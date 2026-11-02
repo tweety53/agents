@@ -24,15 +24,12 @@ import (
 // error (<n> not a positive integer, a role other than the two, or an
 // argument count other than 3) or an unreadable table.
 //
-// The logic is the Go port in stats/internal/guard/planagentpair.go; flow-guard
-// is built from this checkout by scripts/lib/flow-guard.sh, never taken from
-// PATH.
+// The logic is the Go port in stats/internal/guard/planagentpair.go.
 
-// planAgentPair is scripts/plan-agent-pair.sh: the model and effort of a
+// planAgentPair is `flow-guard plan-agent-pair`: the model and effort of a
 // planning session's <n>th Explore or Plan dispatch -- the first pair of the
 // <role> row, explorer or plan-designer, of the allowed-pairs table
-// (skills/flow-contracts/model-policy.md), read from FLOW_GUARD_REPO_ROOT,
-// which the shim sets, with an open experiment's override of that row applied
+// (skills/flow-contracts/model-policy.md), read from FLOW_GUARD_REPO_ROOT, which scripts/flow-guard sets, with an open experiment's override of that row applied
 // (policyTable), as the agent-baseline hook admits it.
 // <seed> is the change name, or the session token in /flow-plan before
 // capture; <n> counts the session's planning dispatches from 1. Exit 0 on the

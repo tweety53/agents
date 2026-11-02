@@ -55,8 +55,7 @@ import (
 // cannot be read, or a tracked `.md` file is missing from the worktree — an
 // inability to answer is never reported as a verdict.
 
-// checkDoneWhenPaths is scripts/check-done-when-paths.sh: that script's
-// header comment is the contract — one DONE-WHEN-PATH line per path a
+// checkDoneWhenPaths is `flow-guard check-done-when-paths`: the comment above is the contract — one DONE-WHEN-PATH line per path a
 // `## Done when` section names that the index does not track (read relative
 // to the root, the naming document's directory or any directory between —
 // dwResolves), then one DONE-WHEN-OK/DONE-WHEN-VIOLATION verdict line, a

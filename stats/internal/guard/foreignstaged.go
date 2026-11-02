@@ -38,8 +38,7 @@ import (
 // intent-to-add entry's ` A <path>` line — those, and only those, are
 // the entries the FOREIGN-STAGED lines name.
 
-// checkForeignStaged is scripts/check-foreign-staged.sh: that script's header
-// comment is the contract -- one FOREIGN-STAGED line per staged or unmerged
+// checkForeignStaged is `flow-guard check-foreign-staged`: the comment above is the contract -- one FOREIGN-STAGED line per staged or unmerged
 // entry, then one STAGED-CLEAN/STAGED-FOREIGN verdict line, exit 0 on either;
 // exit 2 with nothing on stdout when it cannot answer.
 //

@@ -39,8 +39,7 @@ import (
 //
 // Go, in flow-guard (stats/internal/guard/basebehind.go).
 
-// checkBaseBehind is scripts/check-base-behind.sh: that script's header
-// comment is the contract. Each worktree's recorded base is compared with the
+// checkBaseBehind is `flow-guard check-base-behind`: the comment above is the contract. Each worktree's recorded base is compared with the
 // branch origin/HEAD names (kan-1007).
 func init() { Registry["check-base-behind"] = checkBaseBehind }
 

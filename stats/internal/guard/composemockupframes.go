@@ -75,8 +75,7 @@ import (
 //
 // The body is Go: stats/internal/guard/composemockupframes.go.
 
-// composeMockupFrames is scripts/compose-mockup-frames.sh: that script's
-// header comment is the contract -- one composite PNG per map line pairing a
+// composeMockupFrames is `flow-guard compose-mockup-frames`: the comment above is the contract -- one composite PNG per map line pairing a
 // captured screenshot with the mockup frame it was drawn from, exit 0/1/2.
 // It ports compose-mockup-frames.py (3915fbc0), whose algorithm prose and
 // comments sit here beside the code they explain. Its departures from the

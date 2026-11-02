@@ -67,8 +67,7 @@ import (
 // Untracked files are never touched; a fast-forward that would overwrite
 // one fails in git itself, exit 2.
 
-// refreshMainCheckout is scripts/refresh-main-checkout.sh: that script's
-// header comment is the contract -- 0 REFRESH-DONE or REFRESH-CURRENT, 1
+// refreshMainCheckout is `flow-guard refresh-main-checkout`: the comment above is the contract -- 0 REFRESH-DONE or REFRESH-CURRENT, 1
 // REFRESH-REFUSED with nothing touched, 2 usage or cannot answer, every
 // verdict on stdout. A git read that fails outright -- an unborn HEAD -- is
 // exit 2 with git's own message on stderr.

@@ -31,8 +31,7 @@ import (
 //     that file.
 //
 // The no-argument scan's root is CHECK_PLAN_SHAPE_ROOT when set (a test
-// harness's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT — derived by
-// flow_guard_root (scripts/lib/flow-guard.sh) — as the checkout whose changes are
+// harness's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT — exported by scripts/flow-guard — as the checkout whose changes are
 // scanned.
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
@@ -51,9 +50,7 @@ import (
 // never the archive/ entry, since run 1 drops a change's directory rather
 // than moving it. The root
 // is CHECK_PLAN_SHAPE_ROOT when set (a harness's sandboxed fixture tree),
-// else FLOW_GUARD_REPO_ROOT, which scripts/check-plan-shape.sh exports from
-// its own real location -- so a run through the shipped
-// skills/flow/scripts/ symlink judges the repository, never skills/flow.
+// else FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports from its own real location.
 //
 // Per file, the F1-F18 checks run, then plan-suite-steps
 // (plansuitesteps.go: a task step running a module or repository suite),

@@ -43,8 +43,7 @@ import (
 //
 // Go, in flow-guard (stats/internal/guard/mockupcitations.go).
 
-// checkMockupCitations is scripts/check-mockup-citations.sh: that script's
-// header comment is the contract. Every `<mockups root>/<frame id>.png` token
+// checkMockupCitations is `flow-guard check-mockup-citations`: the comment above is the contract. Every `<mockups root>/<frame id>.png` token
 // a plan file carries must name a file under <project root>.
 func init() { Registry["check-mockup-citations"] = checkMockupCitations }
 

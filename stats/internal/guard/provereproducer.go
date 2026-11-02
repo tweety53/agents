@@ -64,8 +64,7 @@ import (
 //      could not verdict (3) or could not answer (4). Never a
 //      verdict on the defect.
 
-// proveReproducer is scripts/prove-reproducer.sh: that script's header
-// comment is the contract -- exit 0 proof held, 1 the proof did not hold,
+// proveReproducer is `flow-guard prove-reproducer`: the comment above is the contract -- exit 0 proof held, 1 the proof did not hold,
 // 2 cannot answer. The reasoning for each branch, moved here from the bash
 // body it replaced (d71a2327), sits beside the code it explains.
 //

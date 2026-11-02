@@ -61,8 +61,7 @@ import (
 // stats/internal/guard/metachars.go. The body's
 // reasoning for every branch is in stats/internal/guard/panelreproducers.go.
 
-// checkPanelReproducers is scripts/check-panel-reproducers.sh: that script's
-// header comment is the contract -- exit 0 every finding the store returned
+// checkPanelReproducers is `flow-guard check-panel-reproducers`: the comment above is the contract -- exit 0 every finding the store returned
 // has exactly one well-formed reproducer, 1 violations (each on stderr), 2
 // cannot answer. The findings read is Env.Findings when set, else `flow
 // record findings`. The reasoning for each branch, moved here from the bash

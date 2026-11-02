@@ -118,7 +118,7 @@ import (
 
 func init() { Registry["check-visual-verification"] = checkVisualVerification }
 
-// checkVisualVerification is scripts/check-visual-verification.sh: validate a
+// checkVisualVerification is `flow-guard check-visual-verification`: validate a
 // project's `## visual verification` declaration against the contract that
 // defines it. The script's header is the contract — arguments, verdict lines
 // and exit codes. What follows are the body's reasons, beside the code they
@@ -191,8 +191,7 @@ func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) i
 
 	// The bash ran the table scan as an awk program and refused when it
 	// printed no `#SUMMARY` sentinel (no awk, a syntax error, a signal); this
-	// scan is in-process code with no such way to stop short, and the shim is
-	// what refuses when flow-guard itself cannot run.
+	// scan is in-process code with no such way to stop short, and scripts/flow-guard is what refuses when flow-guard itself cannot run.
 	v := &vvValidation{cfg: cfg, set: map[string]vvField{}, cmd: map[string]vvField{}}
 	heading := 0
 	for i, l := range vvLines(text) {

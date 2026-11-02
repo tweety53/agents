@@ -55,13 +55,9 @@ import (
 // Ported to Go (KAN-778), replacing this wrapper and
 // the Python guard it ran: classification and the coverage decision
 // (coverage.go) now run in one process, so the
-// sentinel-prefix hand-off between the two files is gone. The binary does
-// not live in this checkout, so this shim exports FLOW_GUARD_REPO_ROOT —
-// this script's physical parent directory, the root the Python derived from
-// its own resolved location.
+// sentinel-prefix hand-off between the two files is gone. FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports, is the root the Python derived from its own resolved location.
 
-// checkInstalledCitations is scripts/check-installed-citations.sh: that
-// script's header comment is the contract -- fail when a path citation in a
+// checkInstalledCitations is `flow-guard check-installed-citations`: the comment above is the contract -- fail when a path citation in a
 // file setup.sh installs names no root. Exit 0 clean (every citation names a
 // root, every scanned member's coverage non-zero or declared), 1 violations
 // (an unrooted citation, or an undeclared zero), 2 cannot answer (the root
@@ -158,8 +154,7 @@ func checkInstalledCitations(_ []string, env Env, stdout, stderr io.Writer) int 
 	// The root is this guard's own checkout by default — the physical
 	// parent of scripts/, which has exactly one home, never symlinked into
 	// a skill's own directory (the farm distributes skills/, not scripts/),
-	// so it never answers a skill directory by accident. The binary lives
-	// in a cache, so its shim exports it as FLOW_GUARD_REPO_ROOT.
+	// so it never answers a skill directory by accident. It is FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports.
 	// CHECK_INSTALLED_CITATIONS_ROOT is an explicit, opt-in override honoured
 	// only when set, solely so the tests can point this guard at a sandboxed
 	// fixture tree without touching this repository — never set it for a

@@ -27,8 +27,7 @@ import (
 //
 // The logic is the Go port in stats/internal/guard/unchanged.go.
 
-// unchanged is scripts/unchanged.sh: that script's header comment is the
-// contract -- exit 0 with one skip line when no path matching the pathspecs
+// unchanged is `flow-guard unchanged`: the comment above is the contract -- exit 0 with one skip line when no path matching the pathspecs
 // changed since HEAD's merge-base on origin/main (committed, staged,
 // unstaged or untracked), 1 when one did, 2 on a usage error or a git call
 // that failed.

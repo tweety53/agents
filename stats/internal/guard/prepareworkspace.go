@@ -94,7 +94,7 @@ var pwHeading = regexp.MustCompile(`^##[ \t\n\v\f\r]+workspace isolation[ \t\n\v
 // guard's `#ROW` line reported it, plus the value this guard derives for it.
 type pwRow struct{ res, variable, def, cell, value string }
 
-// prepareWorkspace is scripts/prepare-workspace.sh's body. Its contract —
+// prepareWorkspace is `flow-guard prepare-workspace`. Its contract —
 // arguments, the KEY=value lines, the cache-index exception and the exit
 // codes — is the script's header; the reasoning behind each step is here.
 func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
@@ -179,7 +179,7 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 	// worktree is created on `spectre/<name>` per skills/flow/implement.md; a
 	// self-review or pipeline-fix loop worktree is its own change, named after
 	// its whole branch — `self-review-<name>`, `pipeline-fix-<name>-<k>` — by
-	// scripts/pipeline-fix.sh (KAN-997). The id is derived from the change name
+	// flow-guard pipeline-fix (KAN-997). The id is derived from the change name
 	// and nothing else, per **The workspace id**
 	// (skills/flow-contracts/workspace-isolation.md).
 	branch, _ := gitExec(env.Dir, nil, io.Discard, "-C", worktree, "symbolic-ref", "--quiet", "--short", "HEAD")

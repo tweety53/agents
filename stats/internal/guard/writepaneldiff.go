@@ -61,8 +61,7 @@ import (
 //      panelValidateWorktree (stats/internal/guard/paneltouchedpaths.go), or a git
 //      failure; nothing is written
 
-// writePanelDiff is scripts/write-panel-diff.sh: that script's header
-// comment is the contract -- one panel diff file and its `.touched` list
+// writePanelDiff is `flow-guard write-panel-diff`: the comment above is the contract -- one panel diff file and its `.touched` list
 // (the `[TOUCHED_FILES]` list), both sectioned per worktree and written
 // atomically into <canonical-wt>/.superpowers/sdd/, both paths printed;
 // exit 0 written, 2 cannot answer with nothing written.

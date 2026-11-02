@@ -21,8 +21,7 @@ import (
 //     that file.
 //
 // The no-argument scan's root is CHECK_TASK_BUILD_GREEN_ROOT when set (a test
-// harness's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT — derived by
-// flow_guard_root (scripts/lib/flow-guard.sh) — so the scan works from any cwd.
+// harness's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT — exported by scripts/flow-guard — so the scan works from any cwd.
 
 // check-task-build-green fails when a tasks.md's tasks carry no **Build:**
 // tag, or a `red` tag whose task has no **Squash-with:** field, an empty one,
@@ -36,9 +35,7 @@ import (
 // change's tasks.md under <root>/<spec leaf>/changes/*/tasks.md,
 // aggregating exit codes — 2 beats 1 beats 0 — and printing each
 // file's own violations. <root> is CHECK_TASK_BUILD_GREEN_ROOT when set (a
-// harness's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT, which
-// scripts/check-task-build-green.sh exports as its own real parent's parent
-// so the scan works from any cwd and through a skill directory's symlink.
+// harness's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports, so the scan works from any cwd.
 //
 // Exit codes:
 //

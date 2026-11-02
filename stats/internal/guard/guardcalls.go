@@ -15,9 +15,7 @@ import (
 )
 
 // checkGuardCalls is `flow-guard check-guard-calls`: it keeps every guard
-// call site spelled the one way a guard runs — `flow-guard <name>`, which
-// resolves on PATH to the shim `setup.sh global` installs over this
-// checkout's scripts/flow-guard.
+// call site spelled the one way a guard runs — `flow-guard <name>`, which resolves on PATH to the `flow-guard` `setup.sh global` installs over this checkout's scripts/flow-guard.
 //
 // Argument-free and self-scoped: the scan root is this repository's own root
 // (FLOW_GUARD_REPO_ROOT), so no call site can narrow it.

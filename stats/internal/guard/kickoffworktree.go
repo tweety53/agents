@@ -92,19 +92,15 @@ import (
 // or a failed push — its lines relayed on stderr, and the worktree already
 // persisted when step 2 got that far; 2 usage, `flow` absent from PATH, no
 // resolvable default branch, the location guard's or project-get's own
-// cannot-answer exit, a project path that no longer resolves after it, or a
-// sibling this shim sets unset.
+// cannot-answer exit, a project path that no longer resolves after it, or a sibling unset.
 //
-// Go, in flow-guard (stats/internal/guard/kickoffworktree.go). flow-guard is
-// built from this checkout, never taken from PATH: scripts/lib/flow-guard.sh
-// derives it, and exits 2 with the cause when it cannot.
+// Go, in flow-guard (stats/internal/guard/kickoffworktree.go).
 
-// kickoffWorktree is scripts/kickoff-worktree.sh: `/flow`'s kickoff steps
+// kickoffWorktree is `flow-guard kickoff-worktree`: `/flow`'s kickoff steps
 // 1–4 (skills/flow/brainstorm.md **A**) in order — the location guard, the
 // worktree add at the sibling <project>-worktrees/ root (design.md:
 // sibling-worktrees-layout) persisted through `flow state add-worktree`, the
-// project's `## worktree setup` commands, the branch push. The shim's header
-// is the contract: 0 all four done (`worktree:` and `merge-base:` on
+// project's `## worktree setup` commands, the branch push. The comment above is the contract: 0 all four done (`worktree:` and `merge-base:` on
 // stdout), 1 a step stopped the run (its lines relayed; the worktree is
 // already persisted when step 2 got that far), 2 usage or it cannot answer.
 func init() {

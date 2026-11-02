@@ -66,8 +66,7 @@ import (
 // fallback. Nothing is moved on
 // exit 2.
 
-// migrateWorktrees is scripts/migrate-worktrees.sh: that script's header is
-// the contract. It moves every registered worktree under <main>/.worktrees/,
+// migrateWorktrees is `flow-guard migrate-worktrees`: the comment above is the contract. It moves every registered worktree under <main>/.worktrees/,
 // the retired in-repo layout, of every <main> named, to
 // <dirname main>/<basename main>-worktrees/
 // (design.md: migrate-all-now, sibling-worktrees-layout) with `git worktree

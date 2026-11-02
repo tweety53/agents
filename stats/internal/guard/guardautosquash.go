@@ -41,12 +41,10 @@ import (
 //      HEAD unresolvable, or <tasks-md> missing, not a regular file, or
 //      unreadable
 
-// guardAutosquash is scripts/guard-autosquash.sh: that script's header
-// comment is the contract -- `targets` checks every fixup target resolves
+// guardAutosquash is `flow-guard guard-autosquash`: the comment above is the contract -- `targets` checks every fixup target resolves
 // as a commit and is an ancestor of HEAD, `after` checks the base and every
 // sha tasks.md records after a rebase; exit 0 every check passed, 1
-// violations (one line each on stderr), 2 cannot answer. fold-fixup execs
-// it through its shim (foldfixup.go), reading those exit codes and stderr
+// violations (one line each on stderr), 2 cannot answer. fold-fixup runs it as a sibling guard (foldfixup.go), reading those exit codes and stderr
 // lines. The reasoning moved here from the bash body it replaced
 // (c9b8fde8).
 func init() {

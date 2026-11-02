@@ -38,8 +38,7 @@ import (
 // the guard's own code on a guard refusal, and git's own code on a git
 // failure.
 
-// reshapeBranch is scripts/reshape-branch.sh: that script's header is the
-// contract — `reset --soft <merge-base>` behind
+// reshapeBranch is `flow-guard reshape-branch`: the comment above is the contract — `reset --soft <merge-base>` behind
 // checkChangeWorktreeLocation (in-process). Every git step's stderr passes
 // through and its exit code is the guard's, as `set -euo pipefail` made it.
 func init() { Registry["reshape-branch"] = reshapeBranch }

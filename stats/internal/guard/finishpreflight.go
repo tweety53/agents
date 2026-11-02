@@ -69,8 +69,7 @@ import (
 // by hand: which of the branch states, the worktree's uncommitted entries, or
 // stray worktrees fired — fix the cause, never the verdict.
 
-// checkFinishPreflight is scripts/check-finish-preflight.sh: that script's
-// header comment is the contract -- one RUN1/RUN2/REFUSE verdict line on
+// checkFinishPreflight is `flow-guard check-finish-preflight`: the comment above is the contract -- one RUN1/RUN2/REFUSE verdict line on
 // stdout, exit 0 whenever a verdict was reached, exit 2 when the tree cannot
 // be read. The reasoning for each step, moved here from the bash body it
 // replaced (d71a2327), sits beside the code it explains.
@@ -172,7 +171,7 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	}
 
 	// (e) The stray-worktree assertion — see "THE STRAY-WORKTREE ASSERTION"
-	//     in the shim's header for the REFUSE grammar below. The main
+	//     in the comment above for the REFUSE grammar below. The main
 	//     checkout's branch and tracked state are not asserted: run 2 only
 	//     fast-forwards it, and refresh-main-checkout.sh refuses by name
 	//     whatever it cannot fast-forward.

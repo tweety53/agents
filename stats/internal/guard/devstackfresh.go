@@ -65,8 +65,7 @@ import (
 // row. The mechanism is stats/internal/guard/devstackfresh.go; its test is
 // stats/internal/guard/check_dev_stack_fresh_test.go.
 
-// checkDevStackFresh is scripts/check-dev-stack-fresh.sh's guard. The shim's
-// header states the contract — the project's declared `fingerprint` row as
+// checkDevStackFresh is `flow-guard check-dev-stack-fresh`. The comment above states the contract — the project's declared `fingerprint` row as
 // the check, and the three exit codes; this file is the mechanism.
 func init() {
 	Registry["check-dev-stack-fresh"] = checkDevStackFresh

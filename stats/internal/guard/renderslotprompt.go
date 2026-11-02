@@ -68,8 +68,7 @@ import (
 //      missing template, block, touched list, standards, principles or
 //      calibration file
 
-// renderSlotPrompt is scripts/render-slot-prompt.sh: that script's header
-// comment is the contract -- one panel dispatch's brief rendered from
+// renderSlotPrompt is `flow-guard render-slot-prompt`: the comment above is the contract -- one panel dispatch's brief rendered from
 // review-panel.md's shared blocks and each slot's template, written to
 // <canonical-wt>/.superpowers/sdd/slot-prompt-<round>-<slots>.md and its
 // path printed; exit 0 written, 1 a placeholder left unfilled (named, and

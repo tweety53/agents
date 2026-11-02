@@ -14,8 +14,7 @@ import (
 
 // close is `visual-verify-pass.sh close`: the report guards, the row's end,
 // step 12's commit and the stage's end, from the report the verifier wrote
-// for <key> and the stage file prepare wrote. Its outcomes are the shim
-// header's.
+// for <key> and the stage file prepare wrote. Its outcomes are the comment above's.
 func (v *vvp) close() {
 	stage := v.readStage()
 	w := ""

@@ -43,8 +43,7 @@ import (
 // change branch is rebased onto the base right after it, by flow-guard sync-panel-base
 // --rebase (skills/flow/implement.md).
 
-// refreshPlanBase is scripts/refresh-plan-base.sh: that script's header
-// comment is the contract -- after resolve-base-branch's fetch, one UNMOVED
+// refreshPlanBase is `flow-guard refresh-plan-base`: the comment above is the contract -- after resolve-base-branch's fetch, one UNMOVED
 // line when origin/<base> gained nothing since the merge base; otherwise a
 // MOVED line, one CHANGED line per path the base changed that the plan's
 // **Files:** names (or `CHANGED: none of …`), and each spec argument printed

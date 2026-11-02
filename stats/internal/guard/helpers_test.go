@@ -83,9 +83,39 @@ func TestMain(m *testing.M) {
 	// Every guard a test runs through scripts/flow-guard builds into, and
 	// finds in, the cache above — never the operator's.
 	os.Setenv("FLOW_GUARD_CACHE_DIR", filepath.Dir(filepath.Dir(bin)))
+	repo, _ := filepath.Abs("../../..")
+	before, watched := treeStatus(repo)
 	code := m.Run()
 	_ = os.RemoveAll(dir)
+	if watched {
+		if leak := treeLeak(repo, before); leak != "" {
+			fmt.Fprint(os.Stderr, leak)
+			code = 1
+		}
+	}
 	os.Exit(code)
+}
+
+// treeStatus is the repository's `git status --porcelain`; false when it
+// cannot be read (no git work tree), which skips the tree gate.
+func treeStatus(repo string) (string, bool) {
+	out, err := exec.Command("git", "-C", repo, "status", "--porcelain", "--untracked-files=normal").Output()
+	return string(out), err == nil
+}
+
+// treeLeak is the tree gate of the deleted run-guard-tests (kan-584,
+// kan-1051 F5): a suite that leaves the repository's status lines changed --
+// a test or a reproducer writing into the checkout -- fails, so the leak is
+// caught by the run that made it, never by the next guard reading the tree.
+// It compares status lines, not content: an edit restored inside the run, or
+// one to a file already modified or untracked, is not caught. It returns the
+// failure message, or "" when the status is unchanged.
+func treeLeak(repo, before string) string {
+	after, ok := treeStatus(repo)
+	if !ok || after == before {
+		return ""
+	}
+	return fmt.Sprintf("guard tests changed the tree of %s:\nbefore:\n%safter:\n%s", repo, before, after)
 }
 
 // The rows below pin the helpers' own outputs: sha256.go (known SHA-256
@@ -711,4 +741,25 @@ func guardShim(t *testing.T, name string) string {
 	p := filepath.Join(t.TempDir(), name)
 	writeExec(t, p, "#!/bin/sh\nexec '"+boot+"' "+name+" \"$@\"\n")
 	return p
+}
+
+func TestTreeLeak(t *testing.T) {
+	t.Parallel()
+	repo := t.TempDir()
+	if out, err := exec.Command("git", "-C", repo, "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	before, ok := treeStatus(repo)
+	if !ok {
+		t.Fatal("cannot read a fresh repository's status")
+	}
+	if leak := treeLeak(repo, before); leak != "" {
+		t.Fatalf("an unchanged tree reported: %s", leak)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "leaked_test.go"), []byte("package x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if leak := treeLeak(repo, before); !strings.Contains(leak, "?? leaked_test.go") {
+		t.Fatalf("a leaked file not reported: %q", leak)
+	}
 }

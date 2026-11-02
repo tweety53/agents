@@ -94,3 +94,16 @@ func TestCheckGuardCallsCompanion(t *testing.T) {
 		t.Fatalf("with companion: %d findings, out %q", n, out.String())
 	}
 }
+
+// TestCheckGuardCallsCompanionWired runs rule C through the registered guard:
+// a root carrying stats/internal/guard/ and no companion tests is a finding
+// per check-* guard.
+func TestCheckGuardCallsCompanionWired(t *testing.T) {
+	t.Parallel()
+	out, code := gcTree(t, map[string]string{
+		"stats/internal/guard/doc.go": "package guard\n",
+	})
+	if code != 1 || !strings.Contains(out, "stats/internal/guard/check_guard_calls_test.go:0: guard check-guard-calls has no Go test") {
+		t.Fatalf("rule C through checkGuardCalls: code %d, out %q", code, out)
+	}
+}

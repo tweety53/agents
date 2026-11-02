@@ -110,15 +110,9 @@ import (
 // `./setup.sh global` from this checkout.
 //
 // The guard runs as the Go port in stats/internal/guard/installedrules.go.
-// The binary does not live in this checkout, so this shim exports
-// FLOW_GUARD_REPO_ROOT — this script's parent directory, derived as the bash
-// guard derived its REPO_ROOT — as the checkout whose rules/ and setup.sh are
-// read. flow-guard is built from this checkout, never taken from PATH:
-// scripts/lib/flow-guard.sh derives it, and exits 1 (this guard's
-// cannot-answer code) with the cause when it cannot.
+// FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports, is the checkout whose rules/ and setup.sh are read.
 
-// checkInstalledRules is scripts/check-installed-rules.sh: that script's
-// header comment is the contract -- fail when this repository's always-on
+// checkInstalledRules is `flow-guard check-installed-rules`: the comment above is the contract -- fail when this repository's always-on
 // rules and what `setup.sh global` last installed have drifted apart. Exit 0
 // on the OK, NONE and WORKTREE verdicts, 1 on the STALE verdict and on every
 // refusal: this guard has no exit 2.
@@ -140,9 +134,7 @@ func checkInstalledRules(_ []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, cirName+": "+format+"\n", a...)
 		return 1
 	}
-	// The rule set is this repository's own rules/, resolved from the
-	// script's own location. The binary lives in a cache, so the shim
-	// exports that location's parent as FLOW_GUARD_REPO_ROOT.
+	// The rule set is this repository's own rules/, under FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports.
 	repoRoot := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	if repoRoot == "" {
 		return refuse("FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-installed-rules, which sets it")

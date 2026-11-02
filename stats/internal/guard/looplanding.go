@@ -34,9 +34,7 @@ import (
 // 1 one LOOP-LANDING-REFUSED line per reason; 2 cannot answer (flowd
 // unreadable, not a git checkout, usage).
 //
-// Go, in flow-guard (stats/internal/guard/looplanding.go). flow-guard is
-// built from this checkout, never taken from PATH: scripts/lib/flow-guard.sh
-// derives it, and exits 2 with the cause when it cannot.
+// Go, in flow-guard (stats/internal/guard/looplanding.go).
 
 // check-loop-landing.sh <repo> <branch>: may a pipeline-fix-* or
 // self-review-* branch land on the default branch? Only once flowd holds,
@@ -45,7 +43,7 @@ import (
 // guard is installed from -- a completed plan, a completed first fix and a
 // review, every row closed, the highest review `clean` -- no Critical or Important -- and
 // no red-line fix (`fix-v<v>`) after it. protect-main-checkout.py runs it on
-// a landing push typed by hand; pipeline-fix.sh land runs it before its own.
+// a landing push typed by hand; flow-guard pipeline-fix land runs it before its own.
 // One admission skips the rows: a self-review-* branch whose diff from
 // origin/HEAD touches only docs/prompt-tuning/ carries prompt-tuning cases and
 // no code, so no loop review had anything to judge (kan-1032 design.md §4).
@@ -117,7 +115,7 @@ func lpLandingRefusals(lp lpLoop, rows []lpDispatch) []string {
 		out = append(out, fmt.Sprintf("FIX — no completed %sfix dispatch", lp.prefix))
 	}
 	for _, k := range open {
-		out = append(out, fmt.Sprintf("OPEN — %s has not been closed: scripts/pipeline-fix.sh end %s <outcome>", k, k))
+		out = append(out, fmt.Sprintf("OPEN — %s has not been closed: flow-guard pipeline-fix end %s <outcome>", k, k))
 	}
 	for _, k := range bad {
 		out = append(out, fmt.Sprintf("REVIEW — %s carries no numeric round: a review key is %sreview-<r>", k, lp.prefix))

@@ -66,8 +66,7 @@ import (
 //
 // Go, in flow-guard (stats/internal/guard/framelist.go).
 
-// checkFrameList is scripts/check-frame-list.sh: that script's header comment
-// is the contract. It derives the frames design.md declares from the mockups
+// checkFrameList is `flow-guard check-frame-list`: the comment above is the contract. It derives the frames design.md declares from the mockups
 // directory and reconciles them against the capture specs' sidecars and the
 // verifier report's per-frame and `- frames:` lines.
 func init() { Registry["check-frame-list"] = checkFrameList }

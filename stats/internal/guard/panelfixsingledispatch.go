@@ -125,8 +125,7 @@ import (
 //      call exits non-zero), rows that are not readable JSON, or a tasks.md
 //      that cannot be read while a row recorded a commit
 
-// checkPanelFixSingleDispatch is scripts/check-panel-fix-single-dispatch.sh:
-// that script's header comment is the contract -- exit 0 every panel-fix row
+// checkPanelFixSingleDispatch is `flow-guard check-panel-fix-single-dispatch`: the comment above is the contract -- exit 0 every panel-fix row
 // of the session token is shape- and count-clean, 1 violations (each on
 // stderr), 2 cannot answer. The dispatch and findings reads are
 // Env.Dispatches and Env.Findings when set, else `flow record dispatches` and

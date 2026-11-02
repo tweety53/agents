@@ -36,8 +36,7 @@ import (
 // The logic is the Go port in stats/internal/guard/paneldocsonly.go; the
 // touched-path collection is stats/internal/guard/paneltouchedpaths.go's.
 
-// checkPanelDocsOnly is scripts/check-panel-docs-only.sh: that script's
-// header comment is the contract -- exit 0 when every path this change
+// checkPanelDocsOnly is `flow-guard check-panel-docs-only`: the comment above is the contract -- exit 0 when every path this change
 // touched ends .md or .mdc or is a change's verbatim-moves.txt under
 // <spec-root>/changes/, 1 with the first path that is neither printed to
 // stdout (an empty touched-path set is 1 with nothing printed), 2 on a usage

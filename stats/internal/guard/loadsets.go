@@ -20,7 +20,7 @@ import (
 // files cited at the point of use and the conditional loads. Tokens are approximated as
 // bytes/4. It excludes the superpowers skills, MEMORY.md and the project's own code.
 //
-// <repo> defaults to FLOW_GUARD_REPO_ROOT, the checkout scripts/load-sets.sh lives in. The
+// <repo> defaults to FLOW_GUARD_REPO_ROOT, the checkout scripts/flow-guard exports. The
 // second argument defaults to ~/.claude/CLAUDE.md, the always-on block setup.sh installs;
 // render a sandboxed one with
 //

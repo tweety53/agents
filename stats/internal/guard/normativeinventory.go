@@ -92,14 +92,12 @@ import (
 // definition check-ask-silence walks too; the mechanism is
 // stats/internal/guard/normativeinventory.go.
 //
-// The repository root is this shim's own parent, exported as
-// FLOW_GUARD_REPO_ROOT — that is what makes the guard argument-free and
+// The repository root is FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports — that is what makes the guard argument-free and
 // self-scoped from any cwd. CHECK_NORMATIVE_INVENTORY_ROOT is an explicit,
 // opt-in override honored only when set, for a sandboxed fixture tree — never
 // set it for a normal invocation; set-but-empty is refused.
 
-// checkNormativeInventory is scripts/check-normative-inventory.sh's guard. The
-// shim's header states the contract — what a normative sentence is, the
+// checkNormativeInventory is `flow-guard check-normative-inventory`. The comment above states the contract — what a normative sentence is, the
 // sentence boundary rule, the abbreviation exemption and the exit codes; this
 // file is the mechanism.
 func init() {
@@ -130,8 +128,7 @@ var niAbbrevs = map[string]bool{"e.g.": true, "i.e.": true, "cf.": true, "vs.": 
 func checkNormativeInventory(_ []string, env Env, stdout, stderr io.Writer) int {
 	// The root is this repository's own root by default -- the parent of
 	// scripts/, derived as the bash guard derived it from its own location;
-	// the binary lives in a cache, so the shim exports it as
-	// FLOW_GUARD_REPO_ROOT. CHECK_NORMATIVE_INVENTORY_ROOT is an explicit,
+	// scripts/flow-guard exports it as FLOW_GUARD_REPO_ROOT. CHECK_NORMATIVE_INVENTORY_ROOT is an explicit,
 	// opt-in override honoured only when set, so the tests can point this
 	// guard at a sandboxed fixture tree -- never set it for a normal
 	// invocation. Set but empty is refused rather than treated as unset:

@@ -47,8 +47,7 @@ import (
 //
 // Go, in flow-guard (stats/internal/guard/liveverification.go).
 
-// checkLiveVerification is scripts/check-live-verification.sh: that script's
-// header comment is the contract. A record passes when some line names a
+// checkLiveVerification is `flow-guard check-live-verification`: the comment above is the contract. A record passes when some line names a
 // before figure and no line states a figure was not measured.
 func init() { Registry["check-live-verification"] = checkLiveVerification }
 

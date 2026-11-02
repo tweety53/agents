@@ -70,8 +70,7 @@ import (
 //      file, an unwritable snapshot path (on snapshot), or a missing or
 //      unreadable snapshot file (on verify)
 
-// checkTreeMarkers is scripts/check-tree-markers.sh: that script's header
-// comment is the contract -- snapshot writes one <path><TAB><marker><TAB>
+// checkTreeMarkers is `flow-guard check-tree-markers`: the comment above is the contract -- snapshot writes one <path><TAB><marker><TAB>
 // <status> line per spec line, verify recomputes them and compares
 // byte-for-byte; exit 0 snapshot written or every marker matches, 1 verify
 // found the markers changed (each difference named on stderr), 2 cannot

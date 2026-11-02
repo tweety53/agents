@@ -181,7 +181,6 @@ type vvdCase struct {
 	fErr       error  // Env.Verdicts fails
 	vErr       error  // Env.Verdict refuses the row
 	flowStub   string // non-empty: every store hook nil, this `flow` on PATH answers them
-	self       string // non-empty: FLOW_GUARD_SELF is this
 	args       func(wt, base string) []string
 	dir        func(t *testing.T) string // non-nil: the working directory
 	relative   bool                      // the worktree passed relative to its parent, the working directory
@@ -253,8 +252,6 @@ func vvdRun(t *testing.T, c vvdCase) vvdResult {
 		switch k {
 		case "PATH":
 			return bin // no real `flow` is ever reachable from a test
-		case "FLOW_GUARD_SELF":
-			return c.self
 		}
 		return os.Getenv(k)
 	}}
@@ -551,10 +548,8 @@ func TestCheckVisualVerifyDispatched(t *testing.T) {
 }
 
 // TestCheckVisualVerifyDispatchedInProcessTrigger: the trigger question is
-// answered in-process, so a shim whose checkout carries no
-// scripts/check-visual-trigger.sh (FLOW_GUARD_SELF pointing into it) still
-// reaches all three trigger outcomes -- fails if the guard execs a sibling
-// again.
+// answered in-process, so it reaches all three trigger outcomes with no
+// sibling to exec.
 func TestCheckVisualVerifyDispatchedInProcessTrigger(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -568,9 +563,7 @@ func TestCheckVisualVerifyDispatchedInProcessTrigger(t *testing.T) {
 	} {
 		t.Run(tc.label, func(t *testing.T) {
 			t.Parallel()
-			checkout := t.TempDir()
-			mkdir(t, checkout+"/scripts")
-			r := vvdRun(t, vvdCase{repo: tc.repo, dispatches: tc.dispatches, self: checkout + "/scripts/check-visual-verify-dispatched.sh"})
+			r := vvdRun(t, vvdCase{repo: tc.repo, dispatches: tc.dispatches})
 			if r.code != 0 || r.out != tc.out || r.err != "" {
 				t.Fatalf("got exit %d stdout %q stderr %q, want 0 %q", r.code, r.out, r.err, tc.out)
 			}

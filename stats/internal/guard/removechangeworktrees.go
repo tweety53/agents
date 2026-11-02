@@ -110,8 +110,7 @@ import (
 // Run it from outside every worktree it removes: check 6 counts the caller's
 // own shell.
 
-// removeChangeWorktrees is scripts/remove-change-worktrees.sh: that script's
-// header is the contract. It runs Worktree cleanup
+// removeChangeWorktrees is `flow-guard remove-change-worktrees`: the comment above is the contract. It runs Worktree cleanup
 // (skills/flow-contracts/finish-contract-run2.md) for one repository: the
 // six checks on every apply worktree of spectre/<name> and checks 5-6 on
 // every wave-group copy, all before anything is removed; then the removals,

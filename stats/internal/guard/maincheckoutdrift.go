@@ -68,8 +68,7 @@ import (
 // mid-rebase or carrying an unrelated staged file is a typical structural
 // cause — fix the cause, never the verdict.
 
-// checkMainCheckoutDrift is scripts/check-main-checkout-drift.sh: that
-// script's header comment is the contract -- DRIFT-BRANCH and DRIFT-DIRTY
+// checkMainCheckoutDrift is `flow-guard check-main-checkout-drift`: the comment above is the contract -- DRIFT-BRANCH and DRIFT-DIRTY
 // findings in that order, DRIFT-CLEAN exactly when neither prints, exit 0 on
 // any verdict; exit 2 with NOTHING on stdout when it cannot answer. Every
 // git read is silenced, as the bash's 2>/dev/null silenced it: the named

@@ -50,7 +50,7 @@ import (
 // reason the original Bash version was, just in a language that can build
 // real structure instead of an allowlist of recognised prefixes.
 
-// checkPlanProvenance is scripts/check-plan-provenance.sh. It was a bash
+// checkPlanProvenance is `flow-guard check-plan-provenance`. It was a bash
 // wrapper around check-plan-provenance.py; KAN-778 ported that Python guard
 // here and deleted it. Its CLI contract is unchanged: argv is ignored,
 // CHECK_PLAN_PROVENANCE_ROOT names the tree, every verdict line, the
@@ -77,8 +77,7 @@ import (
 //     refuses (exit 2) with a line naming flow-guard, apart from the
 //     set-but-empty refusal.
 //   - The interpreter gates (python3 absent, or present and unable to run)
-//     went with the interpreter. The shim's build of flow-guard is the gate
-//     now, and every failure of it exits 2 (scripts/lib/flow-guard.sh).
+//     went with the interpreter. scripts/flow-guard's build of the binary is the gate now.
 //   - The quadratics the history below names were regex-engine and bash-array
 //     shapes. The hand-written matchers keep every scan bounded per position
 //     for the same reasons; cases 37, 40 and 46 time them.

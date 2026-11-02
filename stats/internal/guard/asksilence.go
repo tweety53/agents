@@ -40,15 +40,9 @@ import (
 //   ASK-SILENCE-OK:   <root> — no AskUserQuestion site in the corpus
 //   ASK-SILENCE-FAIL: <root> — N ask section(s) of M state no silence outcome; state the outcome, delegate the ask, or cite Unanswered mid-run asks
 //
-// The guard runs as the Go port in stats/internal/guard/asksilence.go. The
-// binary does not live in this checkout, so this shim exports
-// FLOW_GUARD_REPO_ROOT — this script's parent directory — as the checkout
-// whose corpus is walked. flow-guard is built from this checkout, never
-// taken from PATH: scripts/lib/flow-guard.sh derives it, and exits 2 (this
-// guard's cannot-answer code) with the cause when it cannot.
+// The guard runs as the Go port in stats/internal/guard/asksilence.go. FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports, is the checkout whose corpus is walked.
 
-// checkAskSilence is scripts/check-ask-silence.sh's guard, and this comment
-// is the contract's one home — the shim header defers here. It fails when a
+// checkAskSilence is `flow-guard check-ask-silence`, and the comment above is the contract. It fails when a
 // run-loaded ask site states none of its own silence outcome, a delegation
 // of the ask, or a citation of the pipeline contract's
 // **Unanswered mid-run asks** section (skills/flow-contracts/pipeline.md).

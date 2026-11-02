@@ -47,14 +47,10 @@ import (
 // Exit 2 with no verdict line when it cannot answer: a usage error, a
 // worktree that is not a directory, or a range git cannot read.
 //
-// Go, in flow-guard (stats/internal/guard/untaskedcommits.go). flow-guard is
-// built from this checkout, never taken from PATH: scripts/lib/flow-guard.sh
-// derives it, and exits 2 (this guard's cannot-answer code) with the cause
-// when it cannot.
+// Go, in flow-guard (stats/internal/guard/untaskedcommits.go).
 
 // check-untasked-commits lists the commits of <base>..HEAD that sit outside
-// every task, for /flow's run-1 unfinished-work gate. Its shim's header
-// (scripts/check-untasked-commits.sh) is canonical for the contract.
+// every task, for /flow's run-1 unfinished-work gate. The comment above is canonical for the contract.
 func init() { Registry["check-untasked-commits"] = checkUntaskedCommits }
 
 const ucPrefix = "check-untasked-commits:"

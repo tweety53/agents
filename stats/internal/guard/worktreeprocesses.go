@@ -79,8 +79,7 @@ import (
 // turn every failure into a CLEAR verdict — the inversion this guard exists to
 // prevent, one layer down.
 
-// checkWorktreeProcesses is scripts/check-worktree-processes.sh: that
-// script's header comment is the contract -- one CLEAR/HELD verdict line on
+// checkWorktreeProcesses is `flow-guard check-worktree-processes`: the comment above is the contract -- one CLEAR/HELD verdict line on
 // stdout, exit 0 whenever a verdict was reached, exit 2 with the reason on
 // stderr and nothing on stdout when it cannot answer. The reasoning for each
 // step, moved here from the bash body it replaced (c9b8fde8), sits beside the

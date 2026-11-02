@@ -252,8 +252,7 @@ import (
 // named> that is not a count) or an unreadable input — the cause on stderr,
 // nothing recorded for a usage error.
 
-// visualVerifyPass is scripts/visual-verify-pass.sh: that script's header is
-// the contract for every argument, step and closing line of its subcommands.
+// visualVerifyPass is `flow-guard visual-verify-pass`: the comment above is the contract for every argument, step and closing line of its subcommands.
 // It runs the parent's side of `flow.visual-verify` (decision
 // thin-parent-prepare-close) — the existing guards in process, the `flow`
 // CLI from PATH — and closes on one `NEXT:` (exit 0) or `STOP:` (exit 1)

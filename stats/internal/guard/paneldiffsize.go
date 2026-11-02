@@ -47,8 +47,7 @@ import (
 // report zero for a run whose work sits entirely uncommitted, understating
 // the exact diff the panel is about to be handed.
 
-// checkPanelDiffSize is scripts/check-panel-diff-size.sh: that script's
-// header comment is the contract (and carries why the cap is 5000 and why
+// checkPanelDiffSize is `flow-guard check-panel-diff-size`: the comment above is the contract (and carries why the cap is 5000 and why
 // committed work and the working tree both count) -- two stdout lines, the
 // changed-line count then "under cap" or "over cap"; exit 0 at or under the
 // cap, 1 over it, 2 cannot answer. The reasoning for each step, moved here

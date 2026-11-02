@@ -223,23 +223,6 @@ func wiRepoAbs(t *testing.T) string {
 	return abs
 }
 
-// wiSkillTree is the scratch tree of cases 16 and 17: the script reachable at
-// two depths, its real home (root/scripts/) and a skills/flow/scripts/
-// symlink, mirroring how setup.sh's install carries it. Returns the root and
-// the symlinked path.
-func wiSkillTree(t *testing.T) (string, string) {
-	t.Helper()
-	root := t.TempDir()
-	// FLOW_GUARD_SELF resolution reads only the path, never the file.
-	writeFile(t, root+"/scripts/check-workspace-isolation.sh", "")
-	mkdir(t, root+"/skills/flow/scripts")
-	link := root + "/skills/flow/scripts/check-workspace-isolation.sh"
-	if err := os.Symlink("../../../scripts/check-workspace-isolation.sh", link); err != nil {
-		t.Fatal(err)
-	}
-	return root, link
-}
-
 func TestCheckWorkspaceIsolation(t *testing.T) {
 	t.Parallel()
 	t.Run("port: the output matches the bash at c5379c0a byte for byte", wiParity)
@@ -265,9 +248,9 @@ func TestCheckWorkspaceIsolation(t *testing.T) {
 	wiSilent(t, wiRun(t, nil, repo), "the agents repository's own section validates cleanly")
 
 	// 1d. Invoked with no argument at all, which is how the `## lint` list
-	//     runs it. It resolves its own repository root — from FLOW_GUARD_SELF,
-	//     the path the shim was invoked by — so a lint step is one word long.
-	wiSilent(t, wiRun(t, map[string]string{"FLOW_GUARD_SELF": repo + "/scripts/check-workspace-isolation.sh"}),
+	//     runs it. Its root is FLOW_GUARD_REPO_ROOT, the repository
+	//     scripts/flow-guard exports — so a lint step is one word long.
+	wiSilent(t, wiRun(t, map[string]string{"FLOW_GUARD_REPO_ROOT": repo}),
 		"invoked bare, the guard checks its own repository")
 
 	// 2. Inputs it cannot answer about. Never fail open: a file it cannot
@@ -768,46 +751,18 @@ Prose that is not a second declaration.
 	wiInvalid(t, r, "an accented Resource word is reported")
 	wiReports(t, r, "bücket", "a non-ASCII cell is reported by its real name, not escaped")
 
-	// 16. The no-argument default derives the repository root from the
-	//     script's OWN resolved location, not from a fixed "one level up" —
-	//     which only holds while it lives at <repo>/scripts/. Invoked through
-	//     the skills/flow/scripts/ symlink with no argument, it must find THAT
-	//     tree's own .flow/project.md — never the skill directory's, which has
-	//     none and would silently read as "declares nothing".
-	skillRoot, skillLink := wiSkillTree(t)
-	wiConfig(t, skillRoot, wiIsoBody(wiValidRes, wiValidCmd))
-	r = wiRun(t, map[string]string{"FLOW_GUARD_SELF": skillLink})
-	wiOK(t, r, "case 16: no-arg default resolves through a skill-dir symlink to the real repo root")
-	wiReports(t, r, "resource row(s) and", "case 16: the real .flow/project.md was read and validated")
-	wiNotReported(t, r, "no .flow/project.md", "case 16: did not fall back to the skill directory, which has none")
-
 	// 17. F1/F11 regression: an explicit project-root argument — the shape
-	//     every real caller uses — must never depend on resolving the
-	//     script's OWN location. The harness rigged `readlink` to fail; the
-	//     port's rig is a FLOW_GUARD_SELF no resolution can finish, a symlink
-	//     naming itself.
-	loop := t.TempDir() + "/check-workspace-isolation.sh"
-	if err := os.Symlink(loop, loop); err != nil {
-		t.Fatal(err)
-	}
+	//     every real caller uses — never reads the no-argument root: one
+	//     naming no directory does not abort the run.
 	project := t.TempDir()
 	wiConfig(t, project, wiIsoBody(wiValidRes, wiValidCmd))
-	r = wiRun(t, map[string]string{"FLOW_GUARD_SELF": loop}, project)
-	wiOK(t, r, "case 17 (F11): an explicit project root argument never triggers self-location resolution, so a rigged readlink cannot abort the run")
+	r = wiRun(t, map[string]string{"FLOW_GUARD_REPO_ROOT": t.TempDir() + "/absent"}, project)
+	wiOK(t, r, "case 17 (F11): an explicit project root argument never reads FLOW_GUARD_REPO_ROOT")
 	wiReports(t, r, "resource row(s) and", "case 17 (F11): the given project root was validated, not skipped")
-	wiCheck(t, "case 17 (F11): self-resolution was never attempted", !strings.Contains(r.err, "cannot resolve this script's own location"),
-		"self-resolution was attempted even though an explicit root was given: %s", r.err)
+	wiRefuses(t, wiRun(t, nil), "port: no argument and no FLOW_GUARD_REPO_ROOT")
 
-	// Beyond the harness: the rig bites — the same FLOW_GUARD_SELF with no
-	// argument is refused, so case 17 passing is the explicit root's doing.
-	r = wiRun(t, map[string]string{"FLOW_GUARD_SELF": loop})
-	wiRefuses(t, r, "port: an unresolvable FLOW_GUARD_SELF with no argument")
-	wiCheck(t, "port: the refusal names the self-location failure", strings.Contains(r.err, "cannot resolve this script's own location"),
-		"stderr: %s", r.err)
-	wiRefuses(t, wiRun(t, nil), "port: no argument, no FLOW_GUARD_SELF and no FLOW_GUARD_REPO_ROOT")
-
-	// Called bare as `flow-guard check-workspace-isolation`, no shim sets
-	// FLOW_GUARD_SELF: the root scripts/flow-guard exports is checked.
+	// Called bare as `flow-guard check-workspace-isolation`: the root
+	// scripts/flow-guard exports is checked.
 	r = wiRun(t, map[string]string{"FLOW_GUARD_REPO_ROOT": project})
 	wiOK(t, r, "bare through the bootstrap: FLOW_GUARD_REPO_ROOT is the project root checked")
 	wiReports(t, r, "resource row(s) and", "bare through the bootstrap: the root's .flow/project.md was read and validated")

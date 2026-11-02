@@ -71,8 +71,7 @@ import (
 //      produced no readable `ok:`/`FAIL:` line at all on either run, or
 //      a run timed out on the baseline pass.
 
-// mutateAndVerify is scripts/mutate-and-verify.sh: that script's header
-// comment is the contract — apply a mutation, run each harness before and
+// mutateAndVerify is `flow-guard mutate-and-verify`: the comment above is the contract — apply a mutation, run each harness before and
 // after, report the new-failure set per harness, then unconditionally restore
 // and verify the touched files are clean; exit 0 ran clean, 2 refused before
 // mutating anything or post-restore drift, 3 could not fully restore, 4

@@ -95,8 +95,7 @@ import (
 // stats/internal/guard/check_uitest_overrides_test.go, and the shim exports
 // this repository's root as FLOW_GUARD_REPO_ROOT for the default path.
 
-// checkUitestOverrides is scripts/check-uitest-overrides.sh's guard. The
-// shim's header states the contract — what counts as an assignment, the
+// checkUitestOverrides is `flow-guard check-uitest-overrides`. The comment above states the contract — what counts as an assignment, the
 // define/export/eval forms, include resolution and its stated limit; this
 // file is the mechanism.
 func init() {
@@ -121,8 +120,7 @@ func checkUitestOverrides(args []string, env Env, stdout, stderr io.Writer) int 
 	if len(args) > 0 && args[0] != "" {
 		makefile = args[0]
 	} else {
-		// The repository root is the shim's parent; the binary lives in a
-		// cache, so the shim exports it.
+		// The repository root is FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports.
 		root := env.Getenv("FLOW_GUARD_REPO_ROOT")
 		if root == "" {
 			fmt.Fprintln(stderr, "check-uitest-overrides: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-uitest-overrides, which sets it")

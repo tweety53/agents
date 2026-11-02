@@ -243,8 +243,7 @@ import (
 // false-positive course) rather than trusting it or silently overriding it.
 // Anything else means the verdict was right, and the courses it offers stand.
 
-// checkUnfinishedWork is scripts/check-unfinished-work.sh: that script's
-// header comment is the contract -- one CLEAR/OUTSTANDING verdict line on
+// checkUnfinishedWork is `flow-guard check-unfinished-work`: the comment above is the contract -- one CLEAR/OUTSTANDING verdict line on
 // stdout at exit 0, exit 2 when it cannot answer at all. Plan resolution is
 // changePlanDir (changeplan.go), never a second copy; the findings read is
 // Env.Findings when set, else `flow record findings`; the verdict write and

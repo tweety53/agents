@@ -47,8 +47,7 @@ import (
 //
 // The logic is the Go port in stats/internal/guard/reruncitations.go.
 
-// checkRerunCitations is scripts/check-rerun-citations.sh: that script's
-// header comment is the contract. It judges whether a fix-round re-review
+// checkRerunCitations is `flow-guard check-rerun-citations`: the comment above is the contract. It judges whether a fix-round re-review
 // read the fix it reports on from the report file itself: every named
 // finding needs a `verdict: F<n> — fixed|not fixed — <citation>` line, and a
 // `fixed` verdict's `<path>:<line>` must land inside a hunk of the diff the

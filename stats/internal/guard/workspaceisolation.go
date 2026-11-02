@@ -20,7 +20,7 @@ import (
 //
 // Usage: flow-guard check-workspace-isolation [<project root> ...]
 //
-// With no arguments it checks the repository this script ships in. Each argument
+// With no arguments it checks FLOW_GUARD_REPO_ROOT, the repository scripts/flow-guard exports. Each argument
 // is a PROJECT ROOT — the directory holding `.flow/project.md` — never the
 // configuration file itself, because that is the path every caller already has.
 //
@@ -111,30 +111,6 @@ import (
 // stats/internal/guard/text.go), in the one flow-guard binary both
 // guards run in.
 //
-// `lib/flow-guard.sh` IS SOURCED (in the bash it was `resolve_file`, now
-// resolveFile in stats/internal/guard/resolvefile.go), and that is deliberate
-// rather than accidental. Unlike the containment
-// parser above — which a project can and does copy into its OWN tooling,
-// standalone, with nothing else from this repository — this guard's own
-// distribution is the KAN-73 symlink farm: it is never hand-copied anywhere,
-// only ever reached at `flow-guard check-workspace-isolation` or
-// through a `flow-guard check-workspace-isolation` symlink that
-// KAN-73's install carries, and both directories carry a `lib` symlink
-// beside it as part of that same farm (KAN-73's design.md, "The guard-to-skill
-// map"). "A sourced helper would make a guard present but unrunnable" is
-// exactly the concern that fails to apply here: the helper travels WITH the
-// guard, unconditionally, wherever the guard is reachable at all — never
-// absent, so never a way to be present-but-unrunnable. This is the identical
-// argument KAN-153's review (F7) accepted for flow-guard check-unfinished-work
-// sourcing a library of its own (since folded into the store rewrite): a
-// sourced helper travels WITH its guard, unconditionally, whenever
-// `setup.sh` installs skills rather than `scripts/` on their own — see that
-// review's Disposition section for the full reasoning, carried forward here
-// rather than re-litigated. Left
-// genuinely single-file, out of this change's scope: the since-retired
-// the retired self-review gather (kan-526), which was copied into OTHER projects' own
-// tooling standalone and could not assume any sibling travels with it.
-//
 // A FENCED EXAMPLE INSIDE THE SECTION IS PARSED AS A REAL TABLE, and that is a
 // known limitation rather than an oversight. This guard carries no fence
 // tracker, exactly as the cleanup guard's parser carries none, so a project that
@@ -144,10 +120,7 @@ import (
 // nothing reads it.
 //
 // Ported to Go (KAN-842): the body's reasoning for every step is in
-// stats/internal/guard/workspaceisolation.go, beside the code. Resolving the
-// no-argument root needs the path this script was invoked by, before any
-// symlink is followed, so this shim exports it as FLOW_GUARD_SELF; the guard
-// resolves it only when no project root was given.
+// stats/internal/guard/workspaceisolation.go, beside the code.
 
 func init() { Registry["check-workspace-isolation"] = checkWorkspaceIsolation }
 
@@ -164,8 +137,7 @@ var (
 	wiDelim    = regexp.MustCompile(`^:?-+:?$`)
 )
 
-// checkWorkspaceIsolation is scripts/check-workspace-isolation.sh: that
-// script's header comment carries the contract.
+// checkWorkspaceIsolation is `flow-guard check-workspace-isolation`: the comment above carries the contract.
 //
 // Divergences from the bash, each on input the bash read by accident of its
 // tools rather than by its contract:
@@ -201,40 +173,15 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer) i
 	// prepare-workspace.sh reads the `#ROW` lines.
 	printRows := env.Getenv("CHECK_WORKSPACE_ISOLATION_PRINT_ROWS") == "1"
 
-	// The self-resolution is deferred to exactly here, inside the branch that
-	// is the only reader of its answer. Every OTHER caller passes an explicit
-	// project root — `/flow`'s implement phase against each apply worktree,
-	// and this repository's own `## lint` entry — and resolving
-	// unconditionally meant a failure to resolve this script's own location
-	// could abort a run that never needed the answer at all (F11).
-	//
-	// "One level above the script's directory" is NOT enough to derive the
-	// repository root, because the script is reachable from more than one
-	// directory — its real home at <repo>/scripts/, and a skills/<name>/scripts/
-	// symlink a command skill carries it under. Going up one level from the
-	// SECOND of those lands on the skill directory, which exists, so a
-	// fixed-depth guard would proceed against it and return a confident wrong
-	// answer (silently "declares nothing") rather than an error. The
-	// scripts/check-workspace-isolation.sh shim therefore exports the path it
-	// was invoked by as FLOW_GUARD_SELF, and resolveFile follows its symlinks
-	// first, so the root comes from the script's real physical location
-	// whichever path invoked it. Called as `flow-guard
-	// check-workspace-isolation`, the root is FLOW_GUARD_REPO_ROOT, the
-	// physical checkout root scripts/flow-guard exports.
+	// With no argument the root is FLOW_GUARD_REPO_ROOT, the physical
+	// checkout root scripts/flow-guard exports. Every other caller passes an
+	// explicit project root and never reads it (F11).
 	if len(args) == 0 {
-		self := env.Getenv("FLOW_GUARD_SELF")
-		switch root := env.Getenv("FLOW_GUARD_REPO_ROOT"); {
-		case self != "":
-			real, ok := resolveFile(wiAbs(env, self))
-			if !ok {
-				return refuse("cannot resolve this script's own location")
-			}
-			args = []string{gdcDirname(gdcDirname(real))}
-		case root != "":
-			args = []string{root}
-		default:
+		root := env.Getenv("FLOW_GUARD_REPO_ROOT")
+		if root == "" {
 			return refuse("FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-workspace-isolation, which sets it")
 		}
+		args = []string{root}
 	}
 
 	utf8Locale := smcUTF8(env)
@@ -326,8 +273,7 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer) i
 		// per project. The bash ran its validator as an awk program and
 		// refused when that printed no `#SUMMARY` sentinel (no awk on the
 		// machine, a syntax error, a signal); this validator is in-process
-		// code with no such way to stop short, and the shim is what refuses
-		// when flow-guard itself cannot run.
+		// code with no such way to stop short, and scripts/flow-guard is what refuses when flow-guard itself cannot run.
 		p := wiValidate(cfg, recs, wiSpace(utf8Locale), utf8Locale, printRows)
 		if len(p.viol) > 0 {
 			// Sanitized at the ONE point they reach stdout, rather than at each

@@ -129,8 +129,7 @@ import (
 //      completed or was killed at the bound (kan-1047: a reproducer's mutant
 //      was left in a clean source file).
 
-// runReproducer is scripts/run-reproducer.sh: that script's header comment
-// is the contract -- arguments, verdict lines, the stdout/stderr split and
+// runReproducer is `flow-guard run-reproducer`: the comment above is the contract -- arguments, verdict lines, the stdout/stderr split and
 // the exit codes 0 demonstrated, 1 not demonstrated, 2 refused, 3
 // unverifiable, 4 cannot answer.
 //
@@ -662,8 +661,7 @@ var rrErrexit = regexp.MustCompile(`(?m)^\s*set\s+(-[A-Za-z]*e[A-Za-z]*|-o\s+err
 // the first 10 lines, is prose, not a declaration — the generic convention
 // applies. rrMarker and the headLines
 // call below are the canonical declaration
-// scripts/check-mutation-reproducer-pin.sh pins against review-panel.md and
-// run-reproducer.sh's header.
+// flow-guard check-mutation-reproducer-pin pins against review-panel.md and run-reproducer's header.
 func declaresMutation(path string) bool {
 	for _, l := range headLines(path, 10) {
 		if l == rrMarker {

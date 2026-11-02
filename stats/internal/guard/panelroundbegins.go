@@ -23,11 +23,9 @@ import (
 // Exit codes: 0 every begin recorded; 1 a begin failed (its output relayed,
 // the later slots still recorded); 2 usage, or no flow binary on PATH.
 //
-// Go, in flow-guard (stats/internal/guard/panelroundbegins.go). flow-guard
-// is built from this checkout, never taken from PATH: scripts/lib/flow-guard.sh
-// derives it, and exits 2 with the cause when it cannot.
+// Go, in flow-guard (stats/internal/guard/panelroundbegins.go).
 
-// panel-round-begins (scripts/panel-round-begins.sh) records every slot's
+// panel-round-begins (flow-guard panel-round-begins) records every slot's
 // begin of one review-panel round, each under the literal key
 // panel-<round>-<slot> -- the round's begins block the parent hand-wrote
 // before, where kan-1026's `-key panel-$R-$s` from `R=$(flow record

@@ -63,8 +63,7 @@ import (
 // fenced block this script replaces, and this comment is where its reasoning
 // now lives.
 
-// resolveBaseBranch is scripts/resolve-base-branch.sh: that script's header
-// comment is the contract -- the bare branch name alone on stdout at exit 0;
+// resolveBaseBranch is `flow-guard resolve-base-branch`: the comment above is the contract -- the bare branch name alone on stdout at exit 0;
 // 1 a named refusal, 2 cannot answer, 3 no `origin` remote, each with its
 // reason on stderr and stdout empty. The reasoning for each branch, moved
 // here from the bash body it replaced (c5379c0a), sits beside the code it

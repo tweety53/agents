@@ -53,8 +53,7 @@ import (
 // returns no row of the change at all — <worktree> is not the canonical
 // worktree its rows are recorded from) — the cause on stderr.
 
-// checkVerifyGreen is scripts/check-verify-green.sh: that script's header
-// comment is the contract. The dispatch read is Env.Dispatches when set,
+// checkVerifyGreen is `flow-guard check-verify-green`: the comment above is the contract. The dispatch read is Env.Dispatches when set,
 // else `flow record dispatches`.
 func init() { Registry["check-verify-green"] = checkVerifyGreen }
 

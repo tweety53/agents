@@ -367,13 +367,9 @@ import (
 //
 // Ported to Go (KAN-841): the paragraph table is dpEntries and dpSites, and
 // the body's reasoning for every step is in
-// stats/internal/guard/dispatchparagraphs.go. The binary does not live in
-// this checkout, so this shim exports FLOW_GUARD_REPO_ROOT — this script's
-// parent directory, derived as the bash guard derived its ROOT — as the root
-// scanned when CHECK_DISPATCH_PARAGRAPHS_ROOT is unset.
+// stats/internal/guard/dispatchparagraphs.go. FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports, is the root scanned when CHECK_DISPATCH_PARAGRAPHS_ROOT is unset.
 
-// checkDispatchParagraphs is `flow-guard check-dispatch-paragraphs`: that
-// script's header comment is the contract -- every required dispatch
+// checkDispatchParagraphs is `flow-guard check-dispatch-paragraphs`: the comment above is the contract -- every required dispatch
 // paragraph is present, with every shared phrase and every required variant,
 // at every site the table below names; exit 0 clean, 1 a site missing a
 // block or a phrase, 2 cannot answer. The reasoning for each step, moved here
@@ -513,8 +509,7 @@ var dpSites = []dpSite{
 func checkDispatchParagraphs(_ []string, env Env, stdout, stderr io.Writer) int {
 	// The root is this repository's own root by default -- the parent of
 	// scripts/, derived as the bash guard derived it from its own location;
-	// the binary lives in a cache, so the shim exports it as
-	// FLOW_GUARD_REPO_ROOT. CHECK_DISPATCH_PARAGRAPHS_ROOT is an explicit,
+	// scripts/flow-guard exports it as FLOW_GUARD_REPO_ROOT. CHECK_DISPATCH_PARAGRAPHS_ROOT is an explicit,
 	// opt-in override honoured only when set, so the tests can point this
 	// guard at a sandboxed fixture tree -- never set it for a normal
 	// invocation. Set but empty is a refusal, not the default.

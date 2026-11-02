@@ -59,11 +59,9 @@ import (
 //
 // Go, in flow-guard (stats/internal/guard/verbatimmoves.go), ported from the
 // prototype verbatim_check.py in docs/prompt-audit-2026-09-29/tools.md.
-// The binary does not live in this checkout, so this shim exports
-// FLOW_GUARD_REPO_ROOT — this script's parent directory — as the root.
+// FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports, is the root.
 
-// checkVerbatimMoves is scripts/check-verbatim-moves.sh: that script's header
-// comment is the contract. It proves a prompt trim moved or de-duplicated
+// checkVerbatimMoves is `flow-guard check-verbatim-moves`: the comment above is the contract. It proves a prompt trim moved or de-duplicated
 // text and never reworded it, comparing the sentences of the run-loaded
 // corpus at a base ref against the working tree; exit 0 clean (REVIEW lines
 // included), 1 a violation, 2 cannot answer. It is the Go port of the

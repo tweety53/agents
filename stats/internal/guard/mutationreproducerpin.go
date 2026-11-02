@@ -31,7 +31,7 @@ import (
 //
 // The source of truth is the runner's own canonical declaration — the code
 // that decides the convention at run time. Since KAN-760 the runner is Go
-// (flow-guard run-reproducer is a shim exec'ing flow-guard), so the
+// (flow-guard run-reproducer), so the
 // declaration is two lines of stats/internal/guard/runreproducer.go: the
 // marker constant `rrMarker = "<MARKER>"` and declaresMutation's
 // `range headLines(path, <N>)`. The guard extracts the marker and the
@@ -64,8 +64,7 @@ import (
 // takes.
 //
 // Argument-free and self-scoped exactly like flow-guard check-dispatch-paragraphs:
-// the scan root is this repository's own root, this shim's parent, exported
-// as FLOW_GUARD_REPO_ROOT. CHECK_MUTATION_REPRODUCER_PIN_ROOT is an explicit,
+// the scan root is this repository's own root, FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports. CHECK_MUTATION_REPRODUCER_PIN_ROOT is an explicit,
 // opt-in override honored only when set (mirrors
 // CHECK_DISPATCH_PARAGRAPHS_ROOT), so the Go test
 // (stats/internal/guard/check_mutation_reproducer_pin_test.go) can point this
@@ -81,8 +80,7 @@ import (
 //      ambiguous; the marker or window not extractable; or
 //      CHECK_MUTATION_REPRODUCER_PIN_ROOT set but empty
 
-// checkMutationReproducerPin is scripts/check-mutation-reproducer-pin.sh's
-// guard. The shim's header states the contract — the two canonical
+// checkMutationReproducerPin is `flow-guard check-mutation-reproducer-pin`. The comment above states the contract — the two canonical
 // declaration lines, the presence and near-miss checks, and the exit codes;
 // this file is the mechanism. The pinned sites are the Go source run-reproducer
 // runs (stats/internal/guard/runreproducer.go: the declaration, and its
@@ -112,8 +110,7 @@ type mrpExit2 struct{ path, msg string }
 func checkMutationReproducerPin(_ []string, env Env, stdout, stderr io.Writer) int {
 	// The root is this repository's own root by default -- the parent of
 	// scripts/, derived as the bash guard derived it from its own location;
-	// the binary lives in a cache, so the shim exports it as
-	// FLOW_GUARD_REPO_ROOT. CHECK_MUTATION_REPRODUCER_PIN_ROOT is an explicit,
+	// scripts/flow-guard exports it as FLOW_GUARD_REPO_ROOT. CHECK_MUTATION_REPRODUCER_PIN_ROOT is an explicit,
 	// opt-in override honoured only when set, so the tests can point this
 	// guard at a sandboxed fixture tree -- never set it for a normal
 	// invocation. Set but empty is a refusal, not the default.

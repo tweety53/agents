@@ -83,8 +83,7 @@ import (
 //      the command's own such exit — either way it is not usable as
 //      evidence), or the --clean command itself failed.
 
-// breakAndProve is scripts/break-and-prove.sh: that script's header comment
-// is the contract — mutate <file> by --sed or --patch, run the test command
+// breakAndProve is `flow-guard break-and-prove`: the comment above is the contract — mutate <file> by --sed or --patch, run the test command
 // (after --clean, when given), assert it fails, restore <file> from its
 // pre-mutation bytes, run it again, assert it passes, and print both runs'
 // output; exit 0 proof held, 1 it did not, 2 refused before mutating anything

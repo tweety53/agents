@@ -212,7 +212,7 @@ import (
 // under it (the canonical change id) is allowlist-checked inside
 // changeplan.go itself.
 
-// The port of scripts/gather-dispatch-context.sh, whose header is canonical
+// The port of gather-dispatch-context.sh, whose header (the comment above) is canonical
 // for the contract: arguments, VALIDATION, LEAF VALIDATION, the content
 // directory, the incidents and hazards sections, and SKIP-WHEN-UNCHANGED.
 // The helpers it sourced -- the since-retired lib/resolve-file.sh, twinned in resolvefile.go;

@@ -25,9 +25,9 @@ import (
 //
 // Usage:
 //
-//	scripts/workspace.sh create <id>
-//	scripts/workspace.sh remove <id> [--force]
-//	scripts/workspace.sh survivors <id>
+//	flow-guard workspace create <id>
+//	flow-guard workspace remove <id> [--force]
+//	flow-guard workspace survivors <id>
 //
 // `remove`'s `--force` is opt-in and additive: omitted, `remove` runs exactly
 // as it always has (`dropdb --if-exists`, no --force). Passed, it adds

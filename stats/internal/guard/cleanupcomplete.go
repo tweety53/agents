@@ -207,8 +207,7 @@ import (
 // state-file.md's `worktrees` contract — is the known structural shape; any
 // other row still on the list is really there.
 
-// check-cleanup-complete: scripts/check-cleanup-complete.sh's header is the
-// contract; the reasoning for each branch, moved here from the bash body it
+// check-cleanup-complete: the comment above is the contract; the reasoning for each branch, moved here from the bash body it
 // replaced (0747740), sits beside the code it explains, updated where the port
 // changed the mechanism. Two scans the bash ran as separate grep/awk
 // processes over .flow/project.md -- the heading count and the survivors-row
@@ -265,7 +264,7 @@ const (
 	// the grace costs two seconds, so that argument buys nothing here — and a
 	// knob on the interface every /flow integrate and cleanup run reads has to
 	// be paid for by more than symmetry. (The Go tests shorten it in-process,
-	// through Env.SurvivorsKillGrace, which no caller of the shim can reach.)
+	// through Env.SurvivorsKillGrace, which no caller of flow-guard can reach.)
 	ccDefaultTimeout = 60 * time.Second
 	ccDefaultGrace   = 2 * time.Second
 )
@@ -766,8 +765,7 @@ func ccWorkspaceID(name string) string {
 //     into projects under: a build flag, a separate test build or a sourced
 //     test helper each turned one file into two. The Go port is not
 //     single-file, and its tests do use in-process seams; the variable stays
-//     because reasons 1-3 answer the objection and callers of the shim may
-//     still set it.
+//     because reasons 1-3 answer the objection and callers of flow-guard may still set it.
 //
 // THE SHAPES REJECTED, AND WHY EACH ONE IS. Empty and non-digit are the
 // obvious ones. A leading zero is rejected because the bash's `test` read

@@ -71,8 +71,7 @@ import (
 // appends that came back clean or Minor-only, while its 350- and 537-line
 // late-task appends — real new scope — stay on the decided roster.
 
-// checkLateFixTrigger is scripts/check-late-fix-trigger.sh: that script's
-// header comment is the contract -- the five conditions of the late-fix
+// checkLateFixTrigger is `flow-guard check-late-fix-trigger`: the comment above is the contract -- the five conditions of the late-fix
 // reduction (skills/flow/review-panel-late-fix.md), exit 0 reduce (the
 // `late-fix reduction:` line), 1 full path (one line per failed condition),
 // 2 cannot answer, 3 append scope (the `append scope:` line -- only

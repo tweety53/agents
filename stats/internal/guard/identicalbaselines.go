@@ -39,8 +39,7 @@ import (
 //
 // Go, in flow-guard (stats/internal/guard/identicalbaselines.go).
 
-// checkIdenticalBaselines is scripts/check-identical-baselines.sh: that
-// script's header comment is the contract. PNGs of one directory with the
+// checkIdenticalBaselines is `flow-guard check-identical-baselines`: the comment above is the contract. PNGs of one directory with the
 // same bytes are named, one group per line.
 func init() { Registry["check-identical-baselines"] = checkIdenticalBaselines }
 

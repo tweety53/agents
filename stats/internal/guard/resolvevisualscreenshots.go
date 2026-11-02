@@ -100,8 +100,7 @@ import (
 // The body is Go: stats/internal/guard/resolvevisualscreenshots.go. Matches
 // print in byte order, whatever the caller's locale.
 
-// resolveVisualScreenshots is scripts/resolve-visual-screenshots.sh: that
-// script's header comment is the contract -- one absolute PNG path per line
+// resolveVisualScreenshots is `flow-guard resolve-visual-screenshots`: the comment above is the contract -- one absolute PNG path per line
 // on stdout and exit 0, exit 1 on zero matches, exit 2 when it cannot answer.
 // The reasoning for each step, moved here from the bash body it replaced
 // (3915fbc0), sits beside the code it explains.

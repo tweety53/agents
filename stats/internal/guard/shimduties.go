@@ -68,7 +68,7 @@ func siblingCmd(env Env, override, name string, args ...string) *exec.Cmd {
 }
 
 // selfJudging is every guard that judges its own checkout — the guards whose
-// shim called flow_guard_cwd_checkout before deriving its root.
+// bash shim called flow_guard_cwd_checkout before deriving its root.
 var selfJudging = map[string]bool{
 	"check-ask-silence":             true,
 	"check-dev-stack-fresh":         true,

@@ -99,8 +99,7 @@ import (
 //
 // The guard is Go: stats/internal/guard/visualtrigger.go.
 
-// checkVisualTrigger is scripts/check-visual-trigger.sh: that script's
-// header comment is the contract -- the changed paths on stdin, one MATCH
+// checkVisualTrigger is `flow-guard check-visual-trigger`: the comment above is the contract -- the changed paths on stdin, one MATCH
 // line per (path, glob) pair that matched and one verdict line on stdout,
 // exit 0 matched, 1 configured and unmatched, 2 cannot answer. visualTrigger
 // is the same question with the changed paths already read, for an

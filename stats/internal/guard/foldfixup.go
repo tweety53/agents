@@ -48,8 +48,7 @@ import (
 //      neither a conflict nor an empty fold
 //   3  a conflict is left in progress (CONFLICT line)
 
-// foldFixup is scripts/fold-fixup.sh: that script's header comment is the
-// contract -- a fix folded into the unpushed task commit it targets
+// foldFixup is `flow-guard fold-fixup`: the comment above is the contract -- a fix folded into the unpushed task commit it targets
 // (skills/flow/review-panel-fix-round.md, "Rewrite-based folding is for
 // unpushed history only"), bracketed by guard-autosquash.sh; exit 0 folded
 // (FOLDED) or dropped (DROPPED), 1 a guard-autosquash refusal, 2 cannot

@@ -38,8 +38,7 @@ import (
 //
 // The logic lives in stats/internal/guard/throwawayworktree.go.
 
-// throwawayWorktree is scripts/throwaway-worktree.sh: that script's header
-// comment is the contract. It ports, step for step, the create fence the
+// throwawayWorktree is `flow-guard throwaway-worktree`: the comment above is the contract. It ports, step for step, the create fence the
 // wave-group copy and the slot copy shared and the slot copy's fold-back and
 // remove fence (skills/flow/sdd-dispatch.md and
 // skills/flow/review-panel-optional-slots.md at ae805186). One deliberate

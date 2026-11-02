@@ -23,8 +23,7 @@ import "io"
 //
 // The logic is the Go port in stats/internal/guard/panelcitationtrigger.go.
 
-// checkPanelCitationTrigger is scripts/check-panel-citation-trigger.sh: that
-// script's header comment is the contract -- nothing printed, exit 0 when
+// checkPanelCitationTrigger is `flow-guard check-panel-citation-trigger`: the comment above is the contract -- nothing printed, exit 0 when
 // the change's own paths include one ending .md or .mdc, 1 when none do, 2
 // on a usage error or a git invocation that failed. The change's own paths
 // include the index and the working tree (design.md:

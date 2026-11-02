@@ -143,8 +143,7 @@ import (
 
 // The port of scripts/check-task-commit-fields.sh at 0747740 -- its wrapper
 // body, and the check-task-commit-fields.py it exec'd with the parts of
-// lib/plan_grammar.py that module imports. The shim's header comment is
-// canonical for the calling convention and the plan resolution; the Python
+// lib/plan_grammar.py that module imports. The comment above is canonical for the calling convention and the plan resolution; the Python
 // module's docstring is canonical for the field grammar, the fold rules and
 // every check. Neither is restated here: each function below names the
 // Python or bash function it ports, and reproduces its output byte for byte.

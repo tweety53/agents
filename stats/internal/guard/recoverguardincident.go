@@ -39,8 +39,7 @@ import (
 // Ported to Go (KAN-842): the body's reasoning is in
 // stats/internal/guard/recoverguardincident.go.
 
-// recoverGuardIncident is scripts/recover-guard-incident.sh: that script's
-// header comment is the contract — exit 0 a printed dry-run plan or a
+// recoverGuardIncident is `flow-guard recover-guard-incident`: the comment above is the contract — exit 0 a printed dry-run plan or a
 // completed apply; 1 a failed precondition, cause on stderr, stdout empty; 2 a
 // usage error. It aborts a stuck revert and prints the reflog diagnosis; it
 // restores nothing, since the planning files it once restored from a

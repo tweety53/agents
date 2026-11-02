@@ -19,10 +19,7 @@ import (
 // flow-guard check-task-records — thin wrapper.
 //
 // All parsing and checking logic lives in `flow-guard check-task-records`
-// (stats/internal/guard/taskrecords.go), built from this checkout by
-// lib/flow-guard.sh. This file exists only so .flow/project.md's declared
-// commands and an operator's muscle memory invoking this exact filename keep
-// working, while the record checking underneath reads the shared plan grammar
+// (stats/internal/guard/taskrecords.go), which reads the shared plan grammar
 // (stats/internal/guard/planparse.go) that check-task-commit-fields and
 // check-plan-shape read. taskrecords.go's header is canonical for the three
 // checks (tick state vs commit existence, declared Files vs the commit's real
@@ -37,7 +34,7 @@ import (
 
 // check-task-records — lint one repository's in-flight task records against
 // the commits on its branch (KAN-410). Ported from check-task-records.py at
-// bbfe685e; scripts/check-task-records.sh is its shim.
+// bbfe685e.
 //
 // The per-commit guard, check-task-commit-fields, checks ONE task's fields
 // against ONE real commit at the moment that commit is made. Its findings in

@@ -57,12 +57,9 @@ import (
 // Bash 3.2 is the floor: indexed arrays only, no associative arrays.
 //
 // The guard runs as the Go port in
-// stats/internal/guard/taskcommitplanningpaths.go. flow-guard is built from
-// this checkout, never taken from PATH: scripts/lib/flow-guard.sh derives it,
-// and exits 2 (this guard's cannot-answer code) with the cause when it cannot.
+// stats/internal/guard/taskcommitplanningpaths.go.
 
-// checkTaskCommitPlanningPaths is scripts/check-task-commit-planning-paths.sh:
-// that script's header comment is the contract -- fail any task commit in
+// checkTaskCommitPlanningPaths is `flow-guard check-task-commit-planning-paths`: the comment above is the contract -- fail any task commit in
 // <base>..HEAD that swept the planning paths (the spec tree's changes
 // directory, leaf resolved through specroot.go, and docs/superpowers/).
 // Exit 0 clean, 1 swept, 2 with nothing on stdout when it cannot answer.

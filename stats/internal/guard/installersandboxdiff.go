@@ -25,9 +25,9 @@ import (
 // installer-sandbox-diff runs `setup.sh global` from two trees under two
 // fresh HOME sandboxes and diffs the installed result.
 //
-// Usage: installer-sandbox-diff.sh <old-tree> <new-tree>
+// Usage: flow-guard installer-sandbox-diff <old-tree> <new-tree>
 //
-//	scripts/installer-sandbox-diff.sh ../agents.main ../agents-worktrees/kan-536-…   # refactored installer vs main
+//	flow-guard installer-sandbox-diff ../agents.main ../agents-worktrees/kan-536-…   # refactored installer vs main
 //
 // The installed result is compared as a normalized manifest of everything the
 // installer created under each sandbox HOME, one line per entry, sorted by

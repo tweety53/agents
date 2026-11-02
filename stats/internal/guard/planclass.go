@@ -112,16 +112,9 @@ import (
 // medium-effort-default), each over the first 8 hex digits of the digest read as an integer —
 // hashed by stats/internal/guard/sha256.go's sha256Hex.
 //
-// The logic is the Go port in stats/internal/guard/planclass.go. This shim
-// exports FLOW_GUARD_REPO_ROOT — the checkout lib/ physically sits in, so a
-// skill's scripts/ symlink resolves to the repository, not to the skill — as
-// the root the experimental directory is read under. flow-guard
-// is built from this checkout, never taken from PATH: scripts/lib/flow-guard.sh
-// derives it, and exits 2 (this script's refusal code) with the cause when it
-// cannot.
+// The logic is the Go port in stats/internal/guard/planclass.go. FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports, is the root the experimental directory is read under.
 
-// planClass is scripts/plan-class.sh: that script's header comment is the
-// contract -- the inputs/class/rolls lines and the four tree lines on
+// planClass is `flow-guard plan-class`: the comment above is the contract -- the inputs/class/rolls lines and the four tree lines on
 // stdout, exit 0 on a printed answer, exit 2 on a refusal -- and states
 // every threshold below.
 // The reasoning for each step, moved here from the bash body it replaced

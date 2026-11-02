@@ -58,14 +58,9 @@ import (
 // it once: mirror the diverging hand section across the files it belongs to.
 //
 // The guard runs as the Go port in stats/internal/guard/handnotes.go. The
-// binary does not live in this checkout, so this shim exports
-// FLOW_GUARD_REPO_ROOT — this script's parent directory — as the checkout
-// whose setup.sh is read. flow-guard is built from this checkout, never taken
-// from PATH: scripts/lib/flow-guard.sh derives it, and exits 1 (this guard's
-// cannot-answer code) with the cause when it cannot.
+// FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports, is the checkout whose setup.sh is read.
 
-// checkHandNotesInStep is scripts/check-hand-notes-in-step.sh: that script's
-// header comment is the contract — fail when the hand-maintained content of
+// checkHandNotesInStep is `flow-guard check-hand-notes-in-step`: the comment above is the contract — fail when the hand-maintained content of
 // the installed harness files (everything outside their `<!-- flow:begin -->
 // … <!-- flow:end -->` managed block) has drifted apart. The managed block is
 // re-rendered from one source on every install, so it cannot drift; the hand

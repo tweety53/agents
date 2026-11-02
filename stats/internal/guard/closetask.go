@@ -97,7 +97,7 @@ import (
 // dispatch end never reached the store: run the command the UNRECORDED line
 // prints.
 
-// closeTask is scripts/close-task.sh: that script's header is the contract.
+// closeTask is `flow-guard close-task`: the comment above is the contract.
 // It runs the task-close sequence of skills/flow/implement.md (**A group
 // boundary is one wake, one Bash call and one launch message.**, step 2),
 // composing the guards
@@ -183,7 +183,7 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 		}
 	}
 
-	// SIGNAL FOUR at close time (scripts/check-unfinished-work.sh): an
+	// SIGNAL FOUR at close time (flow-guard check-unfinished-work): an
 	// appended task no dispatch row names is refused here, nothing ticked
 	// or pushed, while its row can still be recorded. A warning was ticked
 	// past (kan-982: Tasks 19-21 closed with none) and surfaced only at

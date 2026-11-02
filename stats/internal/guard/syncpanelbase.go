@@ -46,8 +46,7 @@ import (
 // The guard is Go: stats/internal/guard/syncpanelbase.go, over the shared
 // baseMoved verdict (basemoved.go) and rebaseOntoTip core (baserebase.go).
 
-// syncPanelBase is scripts/sync-panel-base.sh: that script's header comment
-// is the contract -- resolve-base-branch's fetch and a `BASE:` line, every
+// syncPanelBase is `flow-guard sync-panel-base`: the comment above is the contract -- resolve-base-branch's fetch and a `BASE:` line, every
 // check-base-moved line echoed, a bare rebase (no aside) on MOVED without
 // overlap or under --rebase with a `REBASED: … merge base <sha>` line after
 // each, then exit 0 settled, 1 CONFLICT, 3 an overlap waiting on the

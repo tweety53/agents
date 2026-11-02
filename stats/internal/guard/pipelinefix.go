@@ -86,14 +86,11 @@ import (
 // Exit codes: 0 done; 1 refused, red, or a step failed (its output relayed);
 // 2 usage or it cannot answer (no flowd answer, no git, no origin/HEAD).
 //
-// Go, in flow-guard (stats/internal/guard/pipelinefix.go). flow-guard is
-// built from this checkout, never taken from PATH: scripts/lib/flow-guard.sh
-// derives it, and exits 2 with the cause when it cannot.
+// Go, in flow-guard (stats/internal/guard/pipelinefix.go).
 
-// pipeline-fix.sh: the fixed mechanics of a pipeline-fix or self-review fix
+// pipeline-fix: the fixed mechanics of a pipeline-fix or self-review fix
 // loop (skills/flow-contracts/pipeline.md **Pipeline defects found
-// mid-run**), so no step is retyped or skipped. The shim's header is the
-// contract.
+// mid-run**), so no step is retyped or skipped. The comment above is the contract.
 func init() {
 	Registry["pipeline-fix"] = pipelineFix
 }

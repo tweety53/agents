@@ -40,8 +40,7 @@ import (
 // plan, a task it cannot find, a commit git cannot resolve, a usage error),
 // with "check-review-gate: COULD NOT JUDGE —" on stderr and nothing on stdout.
 
-// checkReviewGate is scripts/check-review-gate.sh: that script's header is
-// the contract. It judges the per-task review gate of skills/flow/implement.md
+// checkReviewGate is `flow-guard check-review-gate`: the comment above is the contract. It judges the per-task review gate of skills/flow/implement.md
 // (**The review gate.**) for one task commit the fields guard passed.
 func init() { Registry["check-review-gate"] = checkReviewGate }
 

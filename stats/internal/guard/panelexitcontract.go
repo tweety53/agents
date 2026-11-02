@@ -155,9 +155,7 @@ import (
 //      never reported as a verdict, the same precedence its sibling guard
 //      gives a null reproducer over a clean answer.
 
-// checkPanelReproducerExitContract is
-// scripts/check-panel-reproducer-exit-contract.sh: that script's header
-// comment is the contract -- exit 0 every open finding's runnable reproducer
+// checkPanelReproducerExitContract is `flow-guard check-panel-reproducer-exit-contract`: the comment above is the contract -- exit 0 every open finding's runnable reproducer
 // demonstrated, 1 violations, 2 cannot answer (outranking 1). The runner is
 // runReproducer called in-process, never a second implementation of it; the
 // findings read is Env.Findings when set, else `flow record findings`. The

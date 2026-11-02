@@ -23,8 +23,7 @@ import (
 //     that file.
 //
 // The no-argument scan's root is PLAN_DISPATCH_BUNDLES_ROOT when set (a test
-// harness's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT — derived by
-// flow_guard_root (scripts/lib/flow-guard.sh) — as the checkout whose changes are
+// harness's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT — exported by scripts/flow-guard — as the checkout whose changes are
 // scanned.
 
 // plan-dispatch-bundles groups a tasks.md's unchecked tasks into dispatch
@@ -44,12 +43,7 @@ import (
 // change's tasks.md under <root>/<spec leaf>/changes/*/tasks.md,
 // aggregating exit codes -- 2 beats 1 beats 0 -- and printing
 // each file's own bundles or violations. <root> is PLAN_DISPATCH_BUNDLES_ROOT
-// when set (a test's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT,
-// which scripts/plan-dispatch-bundles.sh exports as its own REAL parent's
-// parent: the shim is reachable from <repo>/scripts/ and from a
-// skills/<name>/scripts/ symlink, and going up from the second lands on the
-// skill directory, which exists -- a scan of it would return a confident
-// empty answer rather than an error.
+// when set (a test's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports from its own real location.
 //
 // Exit codes:
 //

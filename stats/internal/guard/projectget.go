@@ -60,12 +60,9 @@ import (
 // key, and that HEAD won.
 //
 // The logic lives in stats/internal/guard/projectget.go, a byte-for-byte port
-// of this script's bash (ae805186); flow-guard is built from this checkout,
-// never taken from PATH — scripts/lib/flow-guard.sh derives it, and exits 2
-// with the cause when it cannot.
+// of this script's bash (ae805186);
 
-// projectGet is scripts/project-get.sh: that script's header comment is the
-// contract, and TestProjectGetParity pins this port against the bash it
+// projectGet is `flow-guard project-get`: the comment above is the contract, and TestProjectGetParity pins this port against the bash it
 // replaced (ae805186) on stdout, stderr and exit code.
 func init() {
 	Registry["project-get"] = projectGet

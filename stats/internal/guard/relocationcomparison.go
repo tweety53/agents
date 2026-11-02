@@ -36,8 +36,7 @@ import (
 // caller's working directory, as every git call here runs `git -C
 // <worktree>` from it.
 //
-// Every diagnostic opens `generate-relocation-comparison:`, the shim's own
-// name; the Python printed its deleted file's name, `…comparison.py:`.
+// Every diagnostic opens `generate-relocation-comparison:`, the guard's own name; the Python printed its deleted file's name, `…comparison.py:`.
 //
 // Exit codes:
 //

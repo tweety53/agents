@@ -157,13 +157,9 @@ import (
 // read as "no findings").
 //
 // Ported to Go (KAN-841): the body's reasoning for every step is in
-// stats/internal/guard/stagemarkcalls.go. The binary does not live in this
-// checkout, so this shim exports FLOW_GUARD_REPO_ROOT — this script's parent
-// directory, derived as the bash guard derived its REPO_ROOT — as the root
-// whose skills/ is scanned by default and whose stats module serves the keys.
+// stats/internal/guard/stagemarkcalls.go. FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports, is the root whose skills/ is scanned by default and whose stats module serves the keys.
 
-// checkStageMarkCalls is `flow-guard check-stage-mark-calls`: that script's
-// header comment is the contract -- every `flow stage begin` carries a
+// checkStageMarkCalls is `flow-guard check-stage-mark-calls`: the comment above is the contract -- every `flow stage begin` carries a
 // literal -session-token, a placeholder -harness, a served -stage key and no
 // guessed change name; every `flow record dispatch` a literal
 // -session-token; a `flow-guard integrate-change` or `flow-guard visual-verify-pass prepare`
@@ -408,8 +404,7 @@ func checkStageMarkCalls(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	// REPO_ROOT is the guard script's own checkout. The bash derived it from
-	// BASH_SOURCE; this binary lives in a cache, so its shim exports
-	// FLOW_GUARD_REPO_ROOT, derived the same way.
+	// BASH_SOURCE; scripts/flow-guard exports FLOW_GUARD_REPO_ROOT, derived the same way.
 	root := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	if root == "" {
 		return die("FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-stage-mark-calls, which sets it")

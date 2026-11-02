@@ -61,8 +61,7 @@ import (
 // this run cannot remove it. This session's own, or any with the variable
 // unset, stays STRAY.
 
-// checkWorktreeLocation is scripts/check-worktree-location.sh: that script's
-// header comment is the contract -- one STRAY line per registered worktree
+// checkWorktreeLocation is `flow-guard check-worktree-location`: the comment above is the contract -- one STRAY line per registered worktree
 // outside <parent>/<project>-worktrees/ (design.md:
 // sibling-worktrees-layout), then ONE verdict line, LOCATION-OK (exit 0)
 // or LOCATION-STRAY (exit 1); exit 2 with NOTHING on stdout when <project>

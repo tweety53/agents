@@ -107,7 +107,8 @@ open `skills/`, `scripts/` and `setup.sh` through `../../../` — so both always
 
 The `guard-tests` suite is `go test` over `stats/internal/guard/` — every guard's tests, a new one
 picked up with no edit here; the tests that exec a guard build `flow-guard` once per package run
-into a temp `FLOW_GUARD_CACHE_DIR`, never the operator's cache. The `stats-go` line excludes
+into a temp `FLOW_GUARD_CACHE_DIR`, never the operator's cache. The package's `TestMain` fails the run when it leaves the
+repository's `git status` changed — a test or reproducer writing into the checkout (kan-1051 F5). The `stats-go` line excludes
 `internal/guard`, which `guard-tests` runs under `-race`, so the package runs once per verify
 (kan-1038). A new `check-*` guard lands with its Go test in the same change — plans declare it and
 review panels look for it, and `flow-guard check-guard-calls`'s rule C fails `## lint` while it is

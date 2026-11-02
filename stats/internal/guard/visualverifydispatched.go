@@ -196,8 +196,7 @@ import (
 // passed to `flow record dispatches -change`, so `../../../planted` and a
 // glob metacharacter are hazards here exactly as they are there.
 
-// checkVisualVerifyDispatched is scripts/check-visual-verify-dispatched.sh:
-// that script's header comment is the contract -- one verdict line on
+// checkVisualVerifyDispatched is `flow-guard check-visual-verify-dispatched`: the comment above is the contract -- one verdict line on
 // stdout, VISUAL-VERIFY-OK (exit 0) or VISUAL-VERIFY-MISSING (exit 1), or
 // exit 2 when it cannot answer. The trigger question is visualTrigger
 // (visualtrigger.go), evaluated in-process; the dispatch read

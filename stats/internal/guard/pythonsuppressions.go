@@ -54,8 +54,7 @@ import (
 // cannot answer must say so loudly, because a vacuous pass is the failure
 // mode this exit code exists for.
 
-// checkPythonSuppressions is scripts/check-python-suppressions.sh's guard.
-// The shim's header states the contract — the markers, what a green run does
+// checkPythonSuppressions is `flow-guard check-python-suppressions`. The comment above states the contract — the markers, what a green run does
 // not prove, and the exit codes; this file is the mechanism.
 func init() {
 	Registry["check-python-suppressions"] = checkPythonSuppressions
@@ -124,8 +123,7 @@ func psScanSet(args []string, env Env, stderr io.Writer) ([]string, bool) {
 	if len(args) == 0 {
 		// Every tracked *.py from the repository root, paths made absolute
 		// before the scan so the answer never depends on the caller's
-		// working directory. The root is this shim's parent, exported as
-		// FLOW_GUARD_REPO_ROOT.
+		// working directory. The root is FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports.
 		root := env.Getenv("FLOW_GUARD_REPO_ROOT")
 		if root == "" {
 			fmt.Fprintln(stderr, "check-python-suppressions: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-python-suppressions, which sets it")

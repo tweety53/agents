@@ -87,8 +87,7 @@ import (
 // Derives no repository root from its own location (check-guard-symlinks.sh
 // rule 4) — the project root is always the argument.
 
-// checkSpecReach is scripts/check-spec-reach.sh's guard. The shim's header
-// states the contract — which checkout is read, how Playwright decides
+// checkSpecReach is `flow-guard check-spec-reach`. The comment above states the contract — which checkout is read, how Playwright decides
 // reachability, what is enumerated, and the three exit codes; this file is
 // the mechanism.
 func init() {

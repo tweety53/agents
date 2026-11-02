@@ -126,8 +126,7 @@ import (
 //
 // Go, in flow-guard (stats/internal/guard/verifyreport.go).
 
-// checkVerifyReport is scripts/check-verify-report.sh: that script's header
-// comment is the contract. It reads a visual-verify verifier's report file
+// checkVerifyReport is `flow-guard check-verify-report`: the comment above is the contract. It reads a visual-verify verifier's report file
 // and answers whether every required step carries an admissible status on the
 // report's `- steps:` line, so the parent never accepts a partial report by
 // reading its prose.

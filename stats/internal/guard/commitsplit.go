@@ -40,8 +40,7 @@ import (
 // change directory is not gitignored; the location
 // guard's own code on its refusal; git's own code on a git failure.
 
-// commitSplit is scripts/commit-split.sh: that script's header is the
-// contract — the guarded commit chain of
+// commitSplit is `flow-guard commit-split`: the comment above is the contract — the guarded commit chain of
 // skills/flow-contracts/pipeline.md's "Git boundaries" section, behind
 // checkChangeWorktreeLocation (in-process). Every git step's own output passes
 // through and its exit code is the guard's, as `set -euo pipefail` made it.

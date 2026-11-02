@@ -75,10 +75,9 @@ import (
 // line, a declared row with no exported value, an invalid or duplicated
 // section) — the cause on stderr.
 
-// checkVisualPreflight is scripts/check-visual-preflight.sh: the five
+// checkVisualPreflight is `flow-guard check-visual-preflight`: the five
 // workspace checks `flow.visual-verify` step 3 runs before any verifier is
-// dispatched (skills/flow/visual-verify.md). The shim's header carries the
-// contract; design-verify.md § VV-18 records why checks 2 and 3 are the
+// dispatched (skills/flow/visual-verify.md). The comment above carries the contract; design-verify.md § VV-18 records why checks 2 and 3 are the
 // mechanical rules below.
 //
 // Nothing read from the tree is executed: `lsof` and `node` are this guard's

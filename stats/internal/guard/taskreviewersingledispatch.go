@@ -122,9 +122,7 @@ import (
 //      readable JSON, or decision output that is JSON but not an array of
 //      decision rows
 
-// checkTaskReviewerSingleDispatch is
-// scripts/check-task-reviewer-single-dispatch.sh: that script's header
-// comment is the contract -- exit 0 every gated-per-task reviewer row of the
+// checkTaskReviewerSingleDispatch is `flow-guard check-task-reviewer-single-dispatch`: the comment above is the contract -- exit 0 every gated-per-task reviewer row of the
 // session token is shape-clean, retry-clean and bundled per implementer
 // group, 1 violations (each on stderr), 2 cannot answer. The dispatch read is
 // Env.Dispatches when set, else `flow record dispatches`; the decisions read

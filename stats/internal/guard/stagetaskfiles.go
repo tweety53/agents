@@ -44,8 +44,7 @@ import (
 //   2  usage, a worktree that is not a directory, no git, or a git call
 //      failed — git's own output is printed
 
-// stageTaskFiles is scripts/stage-task-files.sh: that script's header is the
-// contract -- the staging half of a /flow implementer's per-task commit
+// stageTaskFiles is `flow-guard stage-task-files`: the comment above is the contract -- the staging half of a /flow implementer's per-task commit
 // (skills/flow/implementer-brief.md, FLOW — COMMIT-PER-TASK), refusing to hand the
 // commit a task path git left unstaged.
 func init() { Registry["stage-task-files"] = stageTaskFiles }

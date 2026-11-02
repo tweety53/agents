@@ -52,8 +52,7 @@ import (
 //
 // Go, in flow-guard (stats/internal/guard/sidecarreach.go).
 
-// checkSidecarReach is scripts/check-sidecar-reach.sh: that script's header
-// comment is the contract. Every `<spec>.mockups` sidecar line under the root
+// checkSidecarReach is `flow-guard check-sidecar-reach`: the comment above is the contract. Every `<spec>.mockups` sidecar line under the root
 // must name a screenshot some string literal in <spec> takes.
 func init() { Registry["check-sidecar-reach"] = checkSidecarReach }
 

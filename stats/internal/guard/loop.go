@@ -50,15 +50,13 @@ import (
 // Exit 2: cannot answer — the table unreadable, flowd unreadable, the begin
 // refused (a loop change no checkout carries: flow-guard pipeline-fix start), usage.
 //
-// Go, in flow-guard (stats/internal/guard/loop.go). flow-guard is built from
-// this checkout, never taken from PATH: scripts/lib/flow-guard.sh derives it,
-// and exits 2 with the cause when it cannot.
+// Go, in flow-guard (stats/internal/guard/loop.go).
 
 // The pipeline-fix and self-review fix loops (skills/flow-contracts/pipeline.md
 // **Pipeline defects found mid-run**, skills/flow-self-review/SKILL.md step 3)
 // as mechanics rather than prose: check-loop-dispatch.sh admits each loop
 // dispatch and records it in flowd, check-loop-landing.sh refuses a landing
-// those records do not cover, and pipeline-fix.sh runs the loop's fixed
+// those records do not cover, and flow-guard pipeline-fix runs the loop's fixed
 // steps. A loop is its own change in <agents repo>'s flowd project, named
 // after its branch -- pipeline-fix-<name>-<k> or self-review-<name> --
 // except a self-review on the change's own branch, which has no branch of its
@@ -161,7 +159,7 @@ func lpFromKey(env Env, git, repo, key string) (lpLoop, string, string, string, 
 			}
 		}
 		if len(hits) != 1 {
-			return lpLoop{}, "", "", fmt.Sprintf("NOT-STARTED — %s: %d branches pipeline-fix-<name>-%s; start the loop with scripts/pipeline-fix.sh start <name> %s", key, len(hits), k, k), false
+			return lpLoop{}, "", "", fmt.Sprintf("NOT-STARTED — %s: %d branches pipeline-fix-<name>-%s; start the loop with flow-guard pipeline-fix start <name> %s", key, len(hits), k, k), false
 		}
 		return lpLoop{change: hits[0], token: hits[0], prefix: "pipeline-fix-" + k + "-", main: repo}, suffix, role, "", true
 	}
@@ -243,7 +241,7 @@ func lpFamily(suffix string) string {
 	return ""
 }
 
-// lpEscalated is whether `scripts/pipeline-fix.sh escalate` recorded key for
+// lpEscalated is whether `flow-guard pipeline-fix escalate` recorded key for
 // this loop: the marker is `<loop branch>:<key>`, so another loop reusing the
 // key never inherits it, and land and drop clear the loop's markers.
 func lpEscalated(env Env, git, repo string, lp lpLoop, key string) bool {
@@ -378,7 +376,7 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 			return refuse("PAIR — " + err.Error())
 		}
 		if !lpEscalated(env, git, lp.main, lp, key) || !lpEarlierRound(lp, suffix, mine) {
-			return refuse(fmt.Sprintf("ESCALATION — %s on %s needs a completed earlier round and its no-progress escalation recorded first: scripts/pipeline-fix.sh escalate %s", key, typ, key))
+			return refuse(fmt.Sprintf("ESCALATION — %s on %s needs a completed earlier round and its no-progress escalation recorded first: flow-guard pipeline-fix escalate %s", key, typ, key))
 		}
 		if err := policyAllows(rows, role, typ, model, "", string(prompt)); err != nil {
 			return refuse("PAIR — " + err.Error())
@@ -412,7 +410,7 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 			return refuse(fmt.Sprintf("KEY-REUSED — %s already ran; the next dispatch takes the next key", key))
 		}
 		if d.EndedAt == nil {
-			return refuse(fmt.Sprintf("OPEN — %s has not been closed: scripts/pipeline-fix.sh end %s <outcome>", d.Key, d.Key))
+			return refuse(fmt.Sprintf("OPEN — %s has not been closed: flow-guard pipeline-fix end %s <outcome>", d.Key, d.Key))
 		}
 		if lpFamily(strings.TrimPrefix(d.Key, lp.prefix)) == "plan" {
 			planDone = d.Outcome == "completed"
@@ -426,7 +424,7 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 		"-role", recordRole, "-model", model, "-effort", lpEffort(typ), "-key", key, "-session-token", lp.token)
 	if rc != 0 {
 		fmt.Fprintf(stderr, "%s: flow record dispatch begin failed (exit %d) -- cannot answer:\n%s", self, rc, out)
-		fmt.Fprintf(stderr, "%s: a loop's rows need its change: scripts/pipeline-fix.sh start creates it\n", self)
+		fmt.Fprintf(stderr, "%s: a loop's rows need its change: flow-guard pipeline-fix start creates it\n", self)
 		return 2
 	}
 	fmt.Fprintf(stdout, "LOOP-DISPATCH-OK %s\n", key)
@@ -436,7 +434,7 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 // lpPassTarget is the change and checkout the self-review pass is recorded
 // under: change <name>, the checkout the caller's directory belongs to when it
 // resolves, lp.main otherwise. check-loop-dispatch begins the pass here and
-// pipeline-fix.sh end closes it here.
+// flow-guard pipeline-fix end closes it here.
 func lpPassTarget(env Env, git string, lp lpLoop) (change, main string) {
 	change, main = strings.TrimSuffix(strings.TrimPrefix(lp.prefix, "self-review-"), "-"), lp.main
 	if m, ok := lpMain(env, git, env.Dir); env.Dir != "" && ok {
