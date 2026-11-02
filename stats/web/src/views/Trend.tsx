@@ -179,7 +179,7 @@ function Chart({ pts }: { pts: Point[] }) {
         {hp && (
           <>
             <b>Week of {wkLabel(hp.w)}</b>
-            {hp.n ? `${hp.n} changes · median ${usd(hp.med!)} · mean ${usd(hp.mean!)}` : "no finished changes"}
+            {hp.n ? `${hp.n} ${hp.n === 1 ? "change" : "changes"} · median ${usd(hp.med!)} · mean ${usd(hp.mean!)}` : "no finished changes"}
             <br />
             {hp.fc} flow changes landed
           </>

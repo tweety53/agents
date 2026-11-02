@@ -1493,6 +1493,15 @@ describe("trend", () => {
     expect(document.querySelectorAll(".tr-chart rect.fc")).toHaveLength(12);
   });
 
+  it("trend tooltip says 1 change, not 1 changes", async () => {
+    const user = userEvent.setup();
+    await renderTrend();
+    await user.hover(screen.getByTestId("trend-week-2026-07-29"));
+    const tip = document.querySelector<HTMLElement>(".tr-tip")!;
+    expect(tip).toHaveTextContent("1 change · median $4.00 · mean $4.00");
+    expect(tip).not.toHaveTextContent("1 changes");
+  });
+
   it("trend chart is drawn at the prototype's fixed 1029 by 300", async () => {
     await renderTrend();
     const svg = screen.getByRole("img", { name: "Cost per finished change by week" });

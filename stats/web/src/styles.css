@@ -1043,6 +1043,8 @@ td.lb-clip { max-width: 0; width: 100%; }
 .tr-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; min-width: 0; }
 .tr-chartpanel { flex: none; max-width: 100%; overflow-x: auto; }
 .tr-byweek { flex: 1 1 420px; min-width: 0; }
+/* The Trend prototype's By week cells take line-height normal (31px rows in its frame), not .lb's 18.85px. */
+.tr-byweek .lb-table td { line-height: normal; }
 .tr-chart .grid line { stroke: var(--border); }
 .tr-chart .axis text { fill: var(--text-muted); font-size: 11px; font-family: var(--font-mono); }
 .tr-chart .median { fill: none; stroke: var(--series-1); stroke-width: 2; }
@@ -1078,7 +1080,8 @@ td.lb-clip { max-width: 0; width: 100%; }
 .wc-sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 .wc-chart { position: relative; }
 .wc-plot { position: relative; }
-.wc-plot svg { display: block; max-width: none; }
+/* Inline, as the prototype's svg in .pt-chart: its baseline gap gives the frame's 381px chart panel. */
+.wc-plot svg { display: inline; max-width: none; }
 .wc-chart svg text { fill: var(--text-muted); font-size: 11px; }
 .wc-chart svg text.wc-total { fill: var(--text-secondary); }
 .wc-chart .grid line { stroke: var(--border); }
