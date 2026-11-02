@@ -24,9 +24,9 @@
 // (leaderboard-columns); every stage named by stageLabel with its id beneath
 // (leaderboard-readable-names); Chip is shared with the state board
 // (leaderboard-shared-chip).
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import type { StageLeaderboardRow } from "../api";
-import { Chip } from "../components/Chip";
+import { Chip, ChipGroup } from "../components/Chip";
 import { Panel } from "../components/Panel";
 import { DAY_MS } from "../format";
 import { useStatsView } from "../hooks/useStatsView";
@@ -96,15 +96,6 @@ function StageCell({ stage, command }: { stage: string; command?: string }) {
   );
 }
 
-function Group({ name, children }: { name: string; children: ReactNode }) {
-  return (
-    <span className="lb-fgroup" role="group" aria-label={name}>
-      <span className="lb-fl">{name}</span>
-      {children}
-    </span>
-  );
-}
-
 export function StageLeaderboard(_props: ViewProps) {
   const [f, setF] = useState<Filters>(defaults);
   const project = f.project ?? undefined;
@@ -153,14 +144,14 @@ export function StageLeaderboard(_props: ViewProps) {
         <p className="lb-sub">Which stages take the most of the spend, and which are growing?</p>
       </div>
       <div className="lb-fbar" role="toolbar" aria-label="Filters">
-        <Group name="Period">
+        <ChipGroup name="Period">
           {(Object.keys(PERIOD_DAYS) as PeriodChip[]).map((p) => (
             <Chip key={p} on={f.period === p} onClick={() => setF({ ...f, ...windowFor(p) })}>
               {p}
             </Chip>
           ))}
-        </Group>
-        <Group name="Project">
+        </ChipGroup>
+        <ChipGroup name="Project">
           <Chip on={f.project === null} onClick={() => setF({ ...f, project: null })}>
             All
           </Chip>
@@ -170,8 +161,8 @@ export function StageLeaderboard(_props: ViewProps) {
               <span className="lb-c">{usd(p.totalCostUsd)}</span>
             </Chip>
           ))}
-        </Group>
-        <Group name="Command">
+        </ChipGroup>
+        <ChipGroup name="Command">
           <Chip on={f.command === null} onClick={() => setF({ ...f, command: null })}>
             All
           </Chip>
@@ -183,7 +174,7 @@ export function StageLeaderboard(_props: ViewProps) {
                 <span className="lb-c">{usd(t)}</span>
               </Chip>
             ))}
-        </Group>
+        </ChipGroup>
         {offDefaults && (
           <button type="button" className="lb-fclear" onClick={() => setF(defaults())}>
             Clear filters

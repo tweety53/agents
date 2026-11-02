@@ -17,19 +17,18 @@
 // changes finished in the `agents` project, whatever the Command and Project
 // chips say (trend-flow-changes-agents-project). A week with no finished
 // change is a gap in both lines and "—" in the table, never $0.
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import type { TrendChange } from "../api";
-import { Chip } from "../components/Chip";
+import { Chip, ChipGroup } from "../components/Chip";
 import { Panel } from "../components/Panel";
-import { DAY_MS } from "../format";
 import { useStatsView } from "../hooks/useStatsView";
 import { projectLabel } from "../lib/projectLabel";
+import { weekWindow } from "../lib/weekWindow";
 import type { ViewProps } from "../viewTypes";
 
 const PERIOD_WEEKS = { "8w": 8, "12w": 12, "26w": 26 } as const;
 type PeriodChip = keyof typeof PERIOD_WEEKS;
-const WEEK_MS = 7 * DAY_MS;
 
 interface Filters {
   period: PeriodChip;
@@ -40,15 +39,9 @@ interface Filters {
   weeks: string[];
 }
 
-// The N Wednesday weeks ending with the current one, from that first
-// Wednesday 00:00 UTC to now; computed only when a Period chip is chosen.
+// Computed only when a Period chip is chosen.
 function windowFor(period: PeriodChip): Pick<Filters, "period" | "from" | "to" | "weeks"> {
-  const to = Date.now();
-  const day = Math.floor(to / DAY_MS) * DAY_MS;
-  const current = day - ((new Date(day).getUTCDay() + 4) % 7) * DAY_MS;
-  const n = PERIOD_WEEKS[period];
-  const weeks = Array.from({ length: n }, (_, i) => new Date(current - (n - 1 - i) * WEEK_MS).toISOString().slice(0, 10));
-  return { period, from: new Date(current - (n - 1) * WEEK_MS), to: new Date(to), weeks };
+  return { period, ...weekWindow(PERIOD_WEEKS[period], Date.now()) };
 }
 
 const defaults = (): Filters => ({ ...windowFor("12w"), command: "/flow", project: null });
@@ -70,15 +63,6 @@ function Delta({ cur, prev }: { cur: number | null; prev: number | null }) {
   const p = Math.round(Math.abs(d / prev) * 100);
   const s = d > 0 ? "+" : "−";
   return <span className={d > 0 ? "up" : "down"}>{`${s}${usd(Math.abs(d))} (${s}${p}%)`}</span>;
-}
-
-function Group({ name, children }: { name: string; children: ReactNode }) {
-  return (
-    <span className="lb-fgroup" role="group" aria-label={name}>
-      <span className="lb-fl">{name}</span>
-      {children}
-    </span>
-  );
 }
 
 interface Point {
@@ -230,22 +214,22 @@ export function Trend(_props: ViewProps) {
         <p className="lb-sub">Is a finished change getting cheaper as flow changes?</p>
       </div>
       <div className="lb-fbar" role="toolbar" aria-label="Filters">
-        <Group name="Period">
+        <ChipGroup name="Period">
           {(Object.keys(PERIOD_WEEKS) as PeriodChip[]).map((p) => (
             <Chip key={p} on={f.period === p} onClick={() => setF({ ...f, ...windowFor(p) })}>
               {p}
             </Chip>
           ))}
-        </Group>
-        <Group name="Command">
+        </ChipGroup>
+        <ChipGroup name="Command">
           {cmds.map((c) => (
             <Chip key={c} on={f.command === c} onClick={() => setF({ ...f, command: c, project: null })}>
               {c}
               <span className="lb-c">{inWin.filter((x) => x.command === c).length}</span>
             </Chip>
           ))}
-        </Group>
-        <Group name="Project">
+        </ChipGroup>
+        <ChipGroup name="Project">
           <Chip on={f.project === null} onClick={() => setF({ ...f, project: null })}>
             All
           </Chip>
@@ -255,7 +239,7 @@ export function Trend(_props: ViewProps) {
               <span className="lb-c">{n}</span>
             </Chip>
           ))}
-        </Group>
+        </ChipGroup>
         {offDefaults && (
           <button type="button" className="lb-fclear" onClick={() => setF(defaults())}>
             Clear filters
