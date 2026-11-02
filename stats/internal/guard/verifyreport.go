@@ -136,7 +136,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		if m := vrFrameLine.FindStringSubmatch(line); m != nil {
 			frames = append(frames, m[1])
-			framed = append(framed, strings.TrimSuffix(filepath.Base(m[2]), ".png"))
+			framed = append(framed, vrPlatformSuffix.ReplaceAllString(strings.TrimSuffix(filepath.Base(m[2]), ".png"), ""))
 		}
 		if m := vrMatrixLine.FindStringSubmatch(line); m != nil {
 			matrix[m[1]] = true

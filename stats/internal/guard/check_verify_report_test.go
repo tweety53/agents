@@ -241,7 +241,7 @@ func TestCheckVerifyReportAccountsForEveryCapture(t *testing.T) {
 		{"every capture accounted", "", "tests/visual", 0, "VERIFY-REPORT-COMPLETE"},
 		{"a capture unnamed", "- a-open: ", "tests/visual", 1, "a-open-darwin.png is on no"},
 		{"no per-view sweeps line", "per view, no frame composed", "tests/visual", 1, "a-open has no frame and no"},
-		{"frame lines removed", "/vv/a-roles.png", "tests/visual", 1, "a-roles has no frame and no"},
+		{"frame lines removed", "/vv/a-roles-darwin.png", "tests/visual", 1, "a-roles has no frame and no"},
 		{"no spec line", "- spec: ", "tests/visual", 0, "VERIFY-REPORT-COMPLETE"},
 		{"resolver finds nothing", "", "nowhere", 0, "VERIFY-REPORT-COMPLETE"},
 	} {
@@ -255,7 +255,7 @@ func TestCheckVerifyReportAccountsForEveryCapture(t *testing.T) {
 			"- spec: <root>/tests/visual/a.spec.ts\n",
 			"- a-open: " + filepath.Join(snaps, "a-open-darwin.png") + " — header and table read\n",
 			"- a-roles: " + filepath.Join(snaps, "a-roles-darwin.png") + " — roles panel read\n",
-			"- mock-frame-03: <root>/vv/a-roles.png diff=n/a — prototype frame\n",
+			"- mock-frame-03: <root>/vv/a-roles-darwin.png diff=n/a — prototype frame\n",
 			"- mock-frame-03 matrix: 4 rows\n- mock-frame-03 bands: 2/2 paired\n- mock-frame-03 seams: 1/1 paired\n- mock-frame-03 over-tolerance: 0\n",
 			"- per view, no frame composed: a-open sweeps: text done | overflow done\n",
 		}
