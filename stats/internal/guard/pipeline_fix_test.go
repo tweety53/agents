@@ -315,6 +315,70 @@ func TestPipelineFixLand(t *testing.T) {
 	}
 }
 
+// TestPipelineFixLandFromItsOwnWorktree pins that land run from inside the
+// loop worktree it removes -- the documented `cd <loop worktree> &&
+// scripts/pipeline-fix.sh land <wt>` -- still deletes the branch and prints
+// landed: (kan-1075 self-review, F13: every git call after the removal ran
+// in the deleted cwd, failed to chdir and exited 1 printing nothing).
+func TestPipelineFixLandFromItsOwnWorktree(t *testing.T) {
+	pfIdentity(t)
+	fx := pfNew(t, lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed", "review-1 clean"))
+	if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
+		t.Fatal(out)
+	}
+	wt := fx.wt(lpBranch)
+	writeFile(t, wt+"/docs/fix.md", "fix\n")
+	gitRun(t, wt, "add", "docs/fix.md")
+	gitRun(t, wt, "commit", "-q", "-m", "docs: fix")
+	fx.env.Dir = wt
+	rc, out := fx.pf(t, "land", wt)
+	if rc != 0 || !strings.Contains(out, "landed: ") {
+		t.Fatalf("rc %d, want 0 and landed: %s", rc, out)
+	}
+	fx.env.Dir = fx.repo // the checks below must not run in the removed worktree
+	if _, err := os.Stat(wt); err == nil || lpBranchExists(fx.env, fixtureGit, fx.repo, lpBranch) {
+		t.Fatalf("worktree or branch left behind: %s", out)
+	}
+}
+
+// TestPipelineFixDropFromItsOwnWorktree pins the same F13 fix for drop: run
+// from inside the loop worktree it removes, it still deletes the worktree
+// and the branch and exits 0.
+func TestPipelineFixDropFromItsOwnWorktree(t *testing.T) {
+	pfIdentity(t)
+	fx := pfNew(t, "")
+	if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
+		t.Fatal(out)
+	}
+	wt := fx.wt(lpBranch)
+	fx.env.Dir = wt
+	rc, out := fx.pf(t, "drop", wt)
+	if rc != 0 || !strings.Contains(out, "dropped: "+lpBranch) {
+		t.Fatalf("rc %d, want 0 and dropped: %s", rc, out)
+	}
+	fx.env.Dir = fx.repo // the checks below must not run in the removed worktree
+	if _, err := os.Stat(wt); err == nil || lpBranchExists(fx.env, fixtureGit, fx.repo, lpBranch) {
+		t.Fatalf("worktree or branch left behind: %s", out)
+	}
+}
+
+// TestPipelineFixRemoveNamesASilentFailure pins that a removal step failing
+// with no output is named on stderr rather than leaving an exit 1 that
+// prints nothing (kan-1075 self-review, F13).
+func TestPipelineFixRemoveNamesASilentFailure(t *testing.T) {
+	pfIdentity(t)
+	fx := pfNew(t, "")
+	if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
+		t.Fatal(out)
+	}
+	git := filepath.Join(t.TempDir(), "git")
+	writeExec(t, git, "#!/usr/bin/env bash\ncase \" $* \" in *\" branch -D \"*) exit 1 ;; esac\nexec "+fixtureGit+" \"$@\"\n")
+	var stderr bytes.Buffer
+	if rc := pfRemove(fx.env, pfEnv{git: git, main: fx.repo}, fx.wt(lpBranch), lpBranch, false, &stderr); rc != 1 || !strings.Contains(stderr.String(), "branch -D "+lpBranch+" exited 1") {
+		t.Fatalf("rc %d, stderr %q: want 1 naming the failed branch -D", rc, stderr.String())
+	}
+}
+
 func TestPipelineFixDrop(t *testing.T) {
 	pfIdentity(t)
 	fx := pfNew(t, "")

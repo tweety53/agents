@@ -509,6 +509,9 @@ func pfRemove(env Env, pe pfEnv, wt, branch string, force bool, stderr io.Writer
 	}
 	for _, a := range [][]string{rm, {"-C", pe.main, "branch", "-D", branch}} {
 		if rc, out := kwRun(env, "", pe.git, a...); rc != 0 {
+			if strings.TrimSpace(out) == "" {
+				out = fmt.Sprintf("git %s exited %d\n", strings.Join(a, " "), rc)
+			}
 			fmt.Fprint(stderr, out)
 			return 1
 		}
@@ -517,6 +520,9 @@ func pfRemove(env Env, pe pfEnv, wt, branch string, force bool, stderr io.Writer
 }
 
 func pfLand(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
+	// wt may be the cwd, and pfRemove deletes it: every command runs from
+	// the main checkout, so none after the removal fails to chdir (F13).
+	env.Dir = pe.main
 	const self = "pipeline-fix land"
 	branch, lp, ok := pfLoopWorktree(env, pe, wt, self, stderr)
 	if !ok {
@@ -623,6 +629,9 @@ func restartFlowdIfStatsMoved(env Env, main, old, new string, stdout, stderr io.
 }
 
 func pfDrop(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
+	// wt may be the cwd, and pfRemove deletes it: every command runs from
+	// the main checkout, so none after the removal fails to chdir (F13).
+	env.Dir = pe.main
 	const self = "pipeline-fix drop"
 	branch, lp, ok := pfLoopWorktree(env, pe, wt, self, stderr)
 	if !ok {
