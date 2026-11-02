@@ -61,8 +61,8 @@ type StatsStore interface {
 	TrendFinishedChanges(ctx context.Context, period store.Period) ([]store.TrendChange, error)
 	WeeklyCosts(ctx context.Context, period store.Period, project, model *string) ([]store.WeeklyCostPoint, error)
 	// WeeklyModelEffortCosts backs the "weekly-model-effort-costs" view
-	// (decision model-effort-view): every project, no model filter.
-	WeeklyModelEffortCosts(ctx context.Context, period store.Period) ([]store.WeeklyModelEffortPoint, error)
+	// (decision model-effort-view): the request's project, no model filter.
+	WeeklyModelEffortCosts(ctx context.Context, period store.Period, project *string) ([]store.WeeklyModelEffortPoint, error)
 	// Reviewers backs the "reviewers" view (design.md's "Stats views ›
 	// reviewers", task 16): one row per review-panel slot's dispatch and
 	// finding record within period.
@@ -165,8 +165,8 @@ func acceptedViewNames() string {
 // filter/sort surface of its own to delegate that check to.
 var statsQueryParams = map[string]bool{
 	"from": true, "to": true, "project": true, "change": true, "model": true, "class": true,
-	// "projects=1" asks stage-leaderboard for its per-project spend; the
-	// view sends it on its current-window call only.
+	// "projects=1" asks stage-leaderboard or weekly-costs for its
+	// per-project spend; each view sends it on its current-window call only.
 	"projects": true,
 }
 
@@ -221,7 +221,8 @@ type statsResponse struct {
 	Projects           any      `json:"projects,omitempty"`
 }
 
-// projectSpendDTO is one entry of the stage-leaderboard response's projects:
+// projectSpendDTO is one entry of the stage-leaderboard or weekly-costs
+// response's projects:
 // a project's spend in the window, whatever project the rows narrow to.
 type projectSpendDTO struct {
 	ProjectKey   string  `json:"projectKey"`
@@ -531,7 +532,7 @@ func (h *statsHandler) view(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp.Rows = rows
-	if name == viewStageLeaderboard && firstValue(values, "projects") == "1" {
+	if (name == viewStageLeaderboard || name == viewWeeklyCosts) && firstValue(values, "projects") == "1" {
 		spends, err := h.store.StageLeaderboardProjects(r.Context(), period)
 		if err != nil {
 			status, msg := mapStoreError(h.logger, "stage leaderboard projects", err)
@@ -611,7 +612,7 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 		return toWeeklyCostDTOs(weekly), 0, ""
 
 	case viewWeeklyModelEffort:
-		points, err := h.store.WeeklyModelEffortCosts(ctx, period)
+		points, err := h.store.WeeklyModelEffortCosts(ctx, period, project)
 		if err != nil {
 			s, m := mapStoreError(h.logger, "weekly model-effort costs", err)
 			return nil, s, m

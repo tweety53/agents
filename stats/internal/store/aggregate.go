@@ -797,7 +797,7 @@ type WeeklyModelEffortPoint struct {
 }
 
 // WeeklyModelEffortCosts buckets cost by week (WeeklyCosts' Wednesday
-// weeks) and model·effort across every project. A priced dispatch counts
+// weeks) and model·effort across every project, or the one project names. A priced dispatch counts
 // under its most-turns served model (dispatch-served-model) and most-turns
 // served effort, else "default" (dispatch-served-effort); each stage run's
 // priced model bucket, less the dispatch costs served by that model and
@@ -805,7 +805,7 @@ type WeeklyModelEffortPoint struct {
 // most-turns break by key name. Rows summing to 0 are dropped; rows are
 // ordered by week, model, effort. Only runs attached to a change count,
 // as in WeeklyCosts.
-func (s *Store) WeeklyModelEffortCosts(ctx context.Context, period Period) ([]WeeklyModelEffortPoint, error) {
+func (s *Store) WeeklyModelEffortCosts(ctx context.Context, period Period, project *string) ([]WeeklyModelEffortPoint, error) {
 	rows, err := s.pool.Query(ctx, `
 		WITH sr AS (
 			SELECT id, started_at,
@@ -815,6 +815,7 @@ func (s *Store) WeeklyModelEffortCosts(ctx context.Context, period Period) ([]We
 			-- Runs attached to a change and carrying a total only, the runs
 			-- WeeklyCosts' Overall sums, so the lines add up to Overall.
 			WHERE started_at >= $1 AND started_at < $2 AND change_id IS NOT NULL AND metrics ? 'cost_usd'
+				AND ($3::text IS NULL OR change_id IN (SELECT id FROM changes WHERE project_key = $3))
 		), d AS (
 			SELECT sr.id, sr.started_at, (b.value->>'cost_usd')::numeric AS cost,
 				COALESCE(
@@ -844,7 +845,7 @@ func (s *Store) WeeklyModelEffortCosts(ctx context.Context, period Period) ([]We
 		GROUP BY week, model, effort
 		HAVING SUM(cost) <> 0
 		ORDER BY week, model, effort
-	`, period.From, period.To)
+	`, period.From, period.To, project)
 	if err != nil {
 		return nil, fmt.Errorf("store: weekly model-effort costs: %w", err)
 	}

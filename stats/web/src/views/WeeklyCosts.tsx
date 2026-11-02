@@ -1,26 +1,59 @@
-// Weekly costs -- where does flow spend go, week by week? Weeks run
-// Wednesday 00:00 UTC to the next Wednesday. Two charts cover the last 8
-// weeks, the current partial week included, over every project and model:
-// the view takes no filter (KAN-1038), so App renders no filter bar for it.
-// The first draws each phase, plus Other, as a toggleable line; the second
-// (KAN-1041) one line per model · effort pair, the parent session per model
-// as its own line. Every point carries a permanent pill with its cost and
-// its change from the same series' previous week. A series with no costed
-// run that week is a gap in its line, never $0, and the week after a gap,
-// like the window's first week, shows its cost alone.
-import { useMemo, useState } from "react";
-import { Panel } from "../components/Panel";
-import { ViewFrame } from "../components/ViewFrame";
+// Weekly costs -- "What did flow spend this week, and what moved it from
+// last week?" (decision weekly-costs-question), built as the approved
+// prototype draws it (.superpowers/sdd/weekly-costs-prototype.html).
+//
+// The view owns a KAN-1048 chip bar (chip-filters-period-split-project):
+// Period 8w / 12w / 26w, whole Wednesday-00:00-UTC weeks ending with the
+// current one; Split by Phase / Model · effort; Project All plus one chip per
+// project with spend in the window, from weekly-costs' projects=1 answer. App
+// renders no DashboardBar for it. The window is computed when a Period chip
+// is chosen and once at mount, never per render: a per-render `new Date()`
+// would refetch forever. The model · effort rows are requested only under
+// their split (fetch-split-on-demand).
+//
+// One stacked-bar chart, a bar per week and a segment per series
+// (one-stacked-bar-chart), at the prototype's fixed size, never scaled
+// (prototype-app-shell-fixed-chart), with the Y axis on tickStep
+// (y-axis-ticks-scale). The window's last week is the partial current one,
+// drawn translucent and dashed as "(so far)"; the one before is the last full
+// week, compared with the week before it by the tiles and the What moved table
+// (headline-last-full-week). Series colours run --series-1.. in split order,
+// model · effort keeping its six costliest pairs and folding the rest into
+// Other models (series-colours-and-other-models). Money is formatUsd
+// (money-format-usd); a rise is red ▲, a fall green ▼ (rise-red-fall-green);
+// a $0 change reads —, a week with no costed run reads "no data", and a series
+// at $0 in both compared weeks is left out of What moved
+// (zero-change-and-no-data).
+import { useState } from "react";
 import type { WeeklyCostPoint, WeeklyModelEffortPoint } from "../api";
-import { useStatsView } from "../hooks/useStatsView";
-import { formatUsd } from "../format";
+import { Chip, ChipGroup } from "../components/Chip";
+import { Panel } from "../components/Panel";
+import { DAY_MS, formatUsd } from "../format";
+import { useStatsView, type StatsViewState } from "../hooks/useStatsView";
+import { projectLabel } from "../lib/projectLabel";
+import { weekWindow } from "../lib/weekWindow";
 import type { ViewProps } from "../viewTypes";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-const WEEKS = 8;
+const PERIOD_WEEKS = { "8w": 8, "12w": 12, "26w": 26 } as const;
+type PeriodChip = keyof typeof PERIOD_WEEKS;
+const SPLITS = ["Phase", "Model · effort"] as const;
+type Split = (typeof SPLITS)[number];
 
-const categories: { key: keyof Omit<WeeklyCostPoint, "week">; name: string }[] = [
-  { key: "overallUsd", name: "Overall" },
+interface Filters {
+  period: PeriodChip;
+  split: Split;
+  project: string | null;
+  from: Date;
+  to: Date;
+  weeks: string[];
+}
+
+// Computed only when a Period chip is chosen.
+function windowFor(period: PeriodChip): Pick<Filters, "period" | "from" | "to" | "weeks"> {
+  return { period, ...weekWindow(PERIOD_WEEKS[period], Date.now()) };
+}
+
+const phases: { key: keyof Omit<WeeklyCostPoint, "week" | "overallUsd">; name: string }[] = [
   { key: "planningUsd", name: "Planning" },
   { key: "implementationUsd", name: "Implementation" },
   { key: "reviewUsd", name: "Review" },
@@ -29,71 +62,44 @@ const categories: { key: keyof Omit<WeeklyCostPoint, "week">; name: string }[] =
   { key: "otherUsd", name: "Other" },
 ];
 
-/** One chart line: a name and its cost per week of the window, null where
- * the week carries none. */
+/** One series: a name, its colour and its cost per week of the window. */
 interface Series {
   name: string;
-  values: (number | null)[];
+  color: string;
+  v: number[];
 }
 
-/** The last 8 Wednesday-to-Wednesday weeks: from this week's UTC
- * Wednesday 00:00 minus 7 weeks, to now. */
-export function lastEightWeeks(now: Date): { from: Date; to: Date } {
-  const midnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-  const sinceWednesday = (now.getUTCDay() + 4) % 7;
-  return { from: new Date(midnight - (sinceWednesday + (WEEKS - 1) * 7) * DAY_MS), to: now };
-}
+const colored = (series: Omit<Series, "color">[]): Series[] => series.map((s, i) => ({ ...s, color: `var(--series-${(i % 7) + 1})` }));
+const sum = (xs: number[]) => xs.reduce((a, x) => a + x, 0);
 
-/** Every week of `from`'s 8-week window, in order, as YYYY-MM-DD. */
-function everyWeek(from: Date): string[] {
-  return Array.from({ length: WEEKS }, (_, i) => new Date(from.getTime() + i * 7 * DAY_MS).toISOString().slice(0, 10));
-}
-
-/** One series per phase category, null in a week the response carries no
- * row for. */
 function phaseSeries(weeks: string[], rows: WeeklyCostPoint[]): Series[] {
   const byWeek = new Map(rows.map((r) => [r.week, r]));
-  return categories.map(({ key, name }) => ({ name, values: weeks.map((w) => byWeek.get(w)?.[key] ?? null) }));
+  return colored(phases.map(({ key, name }) => ({ name, v: weeks.map((w) => byWeek.get(w)?.[key] ?? 0) })));
 }
 
-/** A model · effort line's label: the model id without its "claude-"
+/** A model · effort series' label: the model id without its "claude-"
  * prefix, then the effort or "session" (decision model-label). */
 function modelEffortName(model: string, effort: string): string {
   return `${model.replace(/^claude-/, "")} · ${effort}`;
 }
 
-/** The long model·effort rows pivoted into one series per pair, ordered by
- * total cost, highest first. */
+/** The long rows pivoted into one series per pair, costliest over the window
+ * first, the six costliest kept and every other pair summed into Other models. */
 function modelEffortSeries(weeks: string[], rows: WeeklyModelEffortPoint[]): Series[] {
-  const byName = new Map<string, (number | null)[]>();
+  const byName = new Map<string, number[]>();
   for (const r of rows) {
     const week = weeks.indexOf(r.week);
     if (week < 0) continue;
     const name = modelEffortName(r.model, r.effort);
-    const values = byName.get(name) ?? weeks.map(() => null);
-    values[week] = (values[week] ?? 0) + r.costUsd;
-    byName.set(name, values);
+    const v = byName.get(name) ?? weeks.map(() => 0);
+    v[week] += r.costUsd;
+    byName.set(name, v);
   }
-  const total = (v: (number | null)[]) => v.reduce<number>((sum, c) => sum + (c ?? 0), 0);
-  return [...byName]
-    .map(([name, values]) => ({ name, values }))
-    .sort((a, b) => total(b.values) - total(a.values));
-}
-
-/** The change from `previous` to `value` in percent, or null where either
- * week is unmeasured or the previous week cost nothing. */
-function change(value: number, previous: number | null): number | null {
-  if (previous === null || previous === 0) return null;
-  return ((value - previous) / previous) * 100;
-}
-
-function deltaClass(pct: number): string {
-  return pct > 0 ? "delta-up" : pct < 0 ? "delta-down" : "delta-flat";
-}
-
-function deltaText(pct: number, digits: number, gap: string): string {
-  const size = `${Math.abs(pct).toFixed(digits)}%`;
-  return pct === 0 ? size : `${pct > 0 ? "▲" : "▼"}${gap}${size}`;
+  const ranked = [...byName].map(([name, v]) => ({ name, v })).sort((a, b) => sum(b.v) - sum(a.v));
+  const rest = ranked.slice(6);
+  const kept = ranked.slice(0, 6);
+  if (rest.length) kept.push({ name: "Other models", v: weeks.map((_, w) => sum(rest.map((s) => s.v[w]))) });
+  return colored(kept);
 }
 
 /** The Y axis' tick step: the smallest 1, 2, 2.5 or 5 times a power of ten
@@ -104,249 +110,297 @@ function tickStep(max: number): number {
   return [1, 2, 2.5, 5, 10].find((m) => m * magnitude >= raw)! * magnitude;
 }
 
-const WIDTH = 960;
-const HEIGHT = 460;
-const LEFT = 56;
-const RIGHT = 110;
-const TOP = 16;
-const BOTTOM = 48;
-const PLOT_W = WIDTH - LEFT - RIGHT;
-const PLOT_H = HEIGHT - TOP - BOTTOM;
-const LABEL_GAP = 17;
-
-interface Point {
-  series: number;
-  week: number;
-  value: number;
-  y: number;
-  pct: number | null;
+/** A change from `b` to `a`: ▲ / ▼ with its $ size and, when `b` cost
+ * something, its whole percentage; — when nothing changed. */
+function Delta({ a, b }: { a: number; b: number }) {
+  const d = a - b;
+  if (Math.round(d * 100) === 0) return <span>—</span>;
+  const s = d > 0 ? "+" : "−";
+  const pct = b ? ` (${s}${Math.round(Math.abs((d / b) * 100))}%)` : "";
+  return <span className={d > 0 ? "up" : "down"}>{`${d > 0 ? "▲" : "▼"} ${s}${formatUsd(Math.abs(d))}${pct}`}</span>;
 }
 
-interface Label extends Point {
-  labelY: number;
-}
+const Swatch = ({ color }: { color: string }) => <span className="wc-sw" style={{ background: color }} />;
 
-/** Per week column, the cost labels sorted by y and pushed apart to
- * LABEL_GAP, then shifted up together where the stack overruns the plot. */
-function stackLabels(points: Point[]): Label[] {
-  const out: Label[] = [];
-  for (let week = 0; week < WEEKS; week++) {
-    const column = points.filter((p) => p.week === week).sort((a, b) => a.y - b.y);
-    let last = -Infinity;
-    const stacked = column.map((p) => {
-      last = Math.max(p.y, last + LABEL_GAP);
-      return { ...p, labelY: last };
-    });
-    const over = last - (TOP + PLOT_H);
-    out.push(...stacked.map((l) => (over > 0 ? { ...l, labelY: l.labelY - over } : l)));
-  }
-  return out;
-}
+// Chart geometry, as the prototype draws it.
+const CW = 1140,
+  CH = 300,
+  L = 60,
+  R = 10,
+  T = 10,
+  B = 34,
+  PW = CW - L - R,
+  PH = CH - T - B;
 
-interface ChartProps {
-  weeks: string[];
-  series: Series[];
-  ariaLabel: string;
-  /** Whether every line starts shown; otherwise the first alone does. */
-  allShown?: boolean;
-}
-
-function WeeklyCostChart({ weeks, series: lineSeries, ariaLabel, allShown = false }: ChartProps) {
-  const [shown, setShown] = useState(() => lineSeries.map((_, i) => allShown || i === 0));
-  const [hovered, setHovered] = useState<{ series: number; week: number } | null>(null);
-
-  const visible = lineSeries
-    .flatMap((s, n) => (shown[n] ? s.values : []))
-    .filter((v): v is number => v !== null);
-  const step = tickStep(Math.max(0, ...visible));
-  const x = (week: number) => LEFT + (PLOT_W * week) / (WEEKS - 1);
-  const y = (value: number) => TOP + PLOT_H - (PLOT_H * value) / (step * 5);
-
-  const lines = lineSeries.map(({ values }, series) =>
-    values.map((value, week): Point | null => {
-      if (value === null) return null;
-      return { series, week, value, y: y(value), pct: week ? change(value, values[week - 1]) : null };
-    }),
-  );
-  const drawn = lines.filter((_, n) => shown[n]);
-  const points = drawn.flat().filter((p): p is Point => p !== null);
-  const labels = stackLabels(points);
-  const tip = hovered && points.find((p) => p.series === hovered.series && p.week === hovered.week);
-  const color = (series: number) => `var(--series-${(series % 7) + 1})`;
-  const name = (series: number) => lineSeries[series].name;
+function Chart({ weeks, series, totals }: { weeks: string[]; series: Series[]; totals: number[] }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const cur = weeks.length - 1;
+  const step = tickStep(Math.max(0, ...totals) * 1.08);
+  const y = (v: number) => T + PH - (PH * v) / (step * 5);
+  const bw = PW / weeks.length;
+  const so = (w: number) => (w === cur ? " (so far)" : "");
 
   return (
-    <div className="weekly-chart">
-      <div className="weekly-toggles">
-        {lineSeries.map(({ name }, n) => (
-          <button
-            key={name}
-            type="button"
-            aria-pressed={shown[n]}
-            onClick={() => setShown(shown.map((on, i) => (i === n ? !on : on)))}
-          >
-            <span className="weekly-swatch" style={{ background: color(n) }} />
-            {name}
-          </button>
-        ))}
-      </div>
-      <div className="weekly-plot">
-        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label={ariaLabel}>
-          <g className="weekly-axis">
-            {Array.from({ length: 6 }, (_, k) => (
-              <g key={k}>
-                <line x1={LEFT} x2={WIDTH - RIGHT} y1={y(k * step)} y2={y(k * step)} />
-                <text x={LEFT - 8} y={y(k * step) + 4} textAnchor="end" data-testid="cost-tick">
-                  {formatUsd(k * step)}
-                </text>
-              </g>
-            ))}
-            {weeks.map((week, n) => (
-              <text key={week} x={x(n)} y={HEIGHT - BOTTOM + 18} textAnchor="middle" data-testid="week-tick">
-                {week}
+    <div className="wc-plot">
+      <svg viewBox={`0 0 ${CW} ${CH}`} width={CW} height={CH}>
+        <g className="grid">
+          {Array.from({ length: 6 }, (_, i) => (
+            <g key={i}>
+              <line x1={L} x2={L + PW} y1={y(i * step)} y2={y(i * step)} />
+              <text x={L - 6} y={y(i * step) + 4} textAnchor="end">
+                {formatUsd(i * step)}
               </text>
-            ))}
-            <text x={LEFT + PLOT_W / 2} y={HEIGHT - 6} textAnchor="middle">
-              Week starting (Wed, UTC)
-            </text>
-            <text transform="rotate(-90)" x={-(TOP + PLOT_H / 2)} y={14} textAnchor="middle">
-              Cost (USD)
-            </text>
-          </g>
-          {drawn.map((line, n) => {
-            // A null week lifts the pen, so the line breaks there.
-            const d = line.map((p, week) => (p ? `${week && line[week - 1] ? "L" : "M"}${x(p.week)} ${p.y}` : "")).join("");
-            const first = line.find((p) => p);
-            // A series with no measured week in the window draws no line.
-            if (!first) return null;
-            const series = first.series;
-            return (
-              d && (
-                <path
-                  key={n}
-                  d={d}
-                  fill="none"
-                  className="weekly-line"
-                  style={{ stroke: color(series) }}
-                  data-testid="weekly-line"
-                  data-series={name(series)}
-                />
-              )
-            );
-          })}
-          {labels.map((l) => {
-            const lx = x(l.week) + 8;
-            const cost = formatUsd(l.value);
-            const delta = l.pct === null ? "" : ` ${deltaText(l.pct, 0, "")}`;
-            const width = pillWidth(cost + delta, l.pct !== null);
-            return (
-              <g key={`${l.series}-${l.week}`} className="weekly-delta">
-                {Math.abs(l.labelY - l.y) > 2 && (
-                  <line x1={x(l.week) + 4} y1={l.y} x2={lx} y2={l.labelY} style={{ stroke: color(l.series) }} />
-                )}
-                <rect x={lx} y={l.labelY - 7.5} width={width} height={15} rx={7.5} style={{ stroke: color(l.series) }} />
-                <text
-                  x={lx + 6}
-                  y={l.labelY + 3.5}
-                  data-testid="delta-label"
-                  data-series={name(l.series)}
-                  data-week={weeks[l.week]}
-                >
-                  {cost}
-                  {l.pct !== null && <tspan className={deltaClass(l.pct)}>{delta}</tspan>}
-                </text>
-              </g>
-            );
-          })}
-          {points.map((p) => (
-            <circle
-              key={`${p.series}-${p.week}`}
-              cx={x(p.week)}
-              cy={p.y}
-              r={p === tip ? 7 : 4}
-              className="weekly-point"
-              style={{ fill: color(p.series) }}
-              tabIndex={0}
-              data-testid="time-series-point"
-              data-series={name(p.series)}
-              data-week={weeks[p.week]}
-              aria-label={`${name(p.series)} ${weeks[p.week]}: ${formatUsd(p.value)}`}
-              onMouseEnter={() => setHovered(p)}
-              onMouseLeave={() => setHovered(null)}
-              onFocus={() => setHovered(p)}
-              onBlur={() => setHovered(null)}
-            />
+            </g>
           ))}
-        </svg>
-        {tip && (
-          <div
-            role="tooltip"
-            // The last weeks open the tooltip leftwards, so it stays inside the plot.
-            className={tip.week >= WEEKS - 2 ? "weekly-tooltip weekly-tooltip-left" : "weekly-tooltip"}
-            style={{ left: `${(x(tip.week) / WIDTH) * 100}%`, top: `${(tip.y / HEIGHT) * 100}%` }}
-          >
-            <strong style={{ color: color(tip.series) }}>{name(tip.series)}</strong>
-            <div>Week of {weeks[tip.week]}</div>
-            <strong>{formatUsd(tip.value)}</strong>
-            {tip.pct !== null && (
-              <div>
-                <span className={deltaClass(tip.pct)}>{deltaText(tip.pct, 1, " ")}</span> vs prev week
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+        </g>
+        {weeks.map((wk, w) => {
+          const x = L + w * bw + bw * 0.18;
+          const ww = bw * 0.64;
+          let acc = 0;
+          return (
+            <g key={wk}>
+              {!totals[w] && (
+                <text x={x + ww / 2} y={y(0) - 6} textAnchor="middle">
+                  no data
+                </text>
+              )}
+              {series.map((s) => {
+                const v = s.v[w];
+                if (!v) return null;
+                const top = y(acc + v);
+                const height = y(acc) - top;
+                acc += v;
+                return (
+                  <rect
+                    key={s.name}
+                    className="wc-bar"
+                    tabIndex={0}
+                    data-testid="wc-segment"
+                    data-week={wk}
+                    data-series={s.name}
+                    aria-label={`${s.name}, week of ${wk}${so(w)}: ${formatUsd(v)}`}
+                    x={x}
+                    width={ww}
+                    y={top}
+                    height={height}
+                    fill={s.color}
+                    {...(w === cur ? { fillOpacity: ".45", stroke: s.color, strokeDasharray: "3 2" } : {})}
+                    onMouseEnter={() => setHover(w)}
+                    onMouseLeave={() => setHover(null)}
+                    onFocus={() => setHover(w)}
+                    onBlur={() => setHover(null)}
+                  />
+                );
+              })}
+              {totals[w] > 0 && (
+                <text x={x + ww / 2} y={y(acc) - 5} textAnchor="middle" className="wc-total" data-testid="wc-total" data-week={wk}>
+                  {formatUsd(acc)}
+                </text>
+              )}
+              <text x={x + ww / 2} y={CH - B + 16} textAnchor="middle" data-testid="wc-week">
+                {wk.slice(5) + so(w)}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      {hover !== null && (
+        <div
+          className="wc-tip"
+          role="tooltip"
+          // The last two weeks open the tip leftwards, so it stays inside the plot.
+          style={{ left: L + (hover + 0.85) * bw - (hover >= weeks.length - 2 ? 260 : 0), top: 40 }}
+        >
+          <strong>
+            Week of {weeks[hover]}
+            {so(hover)}
+          </strong>
+          <table>
+            <tbody>
+              {series
+                .filter((s) => s.v[hover])
+                .map((s) => (
+                  <tr key={s.name}>
+                    <td>
+                      <Swatch color={s.color} />
+                      {s.name}
+                    </td>
+                    <td>{formatUsd(s.v[hover])}</td>
+                  </tr>
+                ))}
+              <tr>
+                <td>
+                  <strong>Total</strong>
+                </td>
+                <td>
+                  <strong>{formatUsd(totals[hover])}</strong>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
 
-// The prototype's fixed pill, 40 for a cost alone and 84 with a delta,
-// widened to its text (6px in, about 5.5px a character at 10px) when a real
-// figure would overflow it.
-function pillWidth(text: string, hasDelta: boolean): number {
-  return Math.max(hasDelta ? 84 : 40, Math.ceil(6 + text.length * 5.5));
-}
-
 export function WeeklyCosts(_props: ViewProps) {
-  // Keyed on the UTC day, so a render after midnight moves the window with it.
-  const today = new Date().toISOString().slice(0, 10);
-  const eightWeeks = useMemo(() => lastEightWeeks(new Date()), [today]);
-  const params = { ...eightWeeks, project: undefined, model: undefined };
-  const state = useStatsView<WeeklyCostPoint[]>("weekly-costs", params);
-  const modelEffort = useStatsView<WeeklyModelEffortPoint[]>("weekly-model-effort-costs", params);
-  const weeks = everyWeek(eightWeeks.from);
+  const [f, setF] = useState<Filters>(() => ({ ...windowFor("8w"), split: "Phase", project: null }));
+  const params = { from: f.from, to: f.to, project: f.project ?? undefined };
+  const byModel = f.split === "Model · effort";
+  const state = useStatsView<WeeklyCostPoint[]>("weekly-costs", { ...params, projects: true });
+  const modelState = useStatsView<WeeklyModelEffortPoint[]>("weekly-model-effort-costs", params, byModel);
+  const ok = (s: StatsViewState<unknown>) => s.status === "ready" && s.data.recorded && !s.data.unmeasured;
+  const pending: StatsViewState<unknown> | null = !ok(state) ? state : byModel && !ok(modelState) ? modelState : null;
+  const listed = state.status === "ready" ? (state.data.projects ?? []).map((p) => p.projectKey) : [];
+  // The selected project keeps its chip in a window where it had no spend.
+  const projects = f.project && !listed.includes(f.project) ? [...listed, f.project] : listed;
+  const title = `Spend per week by ${f.split.toLowerCase()}`;
+
+  const weeks = f.weeks;
+  const series =
+    pending || state.status !== "ready"
+      ? []
+      : byModel && modelState.status === "ready"
+        ? modelEffortSeries(weeks, modelState.data.rows)
+        : phaseSeries(weeks, state.data.rows);
+  const totals = weeks.map((_, w) => sum(series.map((s) => s.v[w])));
+  const cur = weeks.length - 1;
+  const last = cur - 1;
+  const prev = cur - 2;
+  const day = Math.floor((f.to.getTime() - Date.parse(weeks[cur] + "T00:00:00Z")) / DAY_MS) + 1;
+  const full = totals.slice(0, cur).filter((t) => t > 0);
+  const moved = series
+    .map((s) => ({ ...s, a: s.v[last], b: s.v[prev] }))
+    .filter((s) => s.a || s.b)
+    .sort((x, y) => Math.abs(y.a - y.b) - Math.abs(x.a - x.b));
+  const big = moved.length && Math.round((moved[0].a - moved[0].b) * 100) !== 0 ? moved[0] : null;
+  const share = (a: number) => (totals[last] ? (a / totals[last]) * 100 : 0);
 
   return (
-    <ViewFrame title="Weekly costs" description="Wednesday-to-Wednesday cost, last 8 weeks.">
-      <Panel title="Cost by phase" description="The phases and Other add up to Overall." state={state}>
-        {(data) => (
-          <WeeklyCostChart
-            weeks={weeks}
-            series={phaseSeries(weeks, data.rows)}
-            ariaLabel="Weekly cost by phase over the last 8 weeks"
-          />
-        )}
-      </Panel>
-      <Panel
-        title="Cost by model · effort"
-        description="Each subagent dispatch by the model and effort that served it, plus the parent session per model."
-        state={modelEffort}
-      >
-        {(data) => {
-          const series = modelEffortSeries(weeks, data.rows);
-          // Keyed on the line names, so a refetch with another set of lines
-          // starts its toggles afresh rather than reusing stale positions.
-          return (
-            <WeeklyCostChart
-              key={series.map((s) => s.name).join("|")}
-              weeks={weeks}
-              series={series}
-              ariaLabel="Weekly cost by model and effort over the last 8 weeks"
-              allShown
-            />
-          );
-        }}
-      </Panel>
-    </ViewFrame>
+    <section aria-label="Weekly costs" className="dashboard lb wc">
+      <div>
+        <h2>Weekly costs</h2>
+        <p className="lb-sub">What did flow spend this week, and what moved it from last week?</p>
+      </div>
+      <div className="lb-fbar" role="toolbar" aria-label="Filters">
+        <ChipGroup name="Period">
+          {(Object.keys(PERIOD_WEEKS) as PeriodChip[]).map((p) => (
+            <Chip key={p} on={f.period === p} onClick={() => setF({ ...f, ...windowFor(p) })}>
+              {p}
+            </Chip>
+          ))}
+        </ChipGroup>
+        <ChipGroup name="Split by">
+          {SPLITS.map((s) => (
+            <Chip key={s} on={f.split === s} onClick={() => setF({ ...f, split: s })}>
+              {s}
+            </Chip>
+          ))}
+        </ChipGroup>
+        <ChipGroup name="Project">
+          <Chip on={f.project === null} onClick={() => setF({ ...f, project: null })}>
+            All
+          </Chip>
+          {projects.map((projectKey) => (
+            <Chip key={projectKey} on={f.project === projectKey} onClick={() => setF({ ...f, project: projectKey })} title={projectKey}>
+              {projectLabel(projectKey)}
+            </Chip>
+          ))}
+        </ChipGroup>
+      </div>
+      {pending ? (
+        // Loading, error, not-recorded and unmeasured read as Panel renders them.
+        <Panel title={title} state={pending}>
+          {() => null}
+        </Panel>
+      ) : (
+        <>
+          <div className="lb-strip">
+            <div className="lb-tile static">
+              <div className="lb-lbl">Last full week · {weeks[last]}</div>
+              <div className="lb-val">{formatUsd(totals[last])}</div>
+              <div className="wc-sub">
+                <Delta a={totals[last]} b={totals[prev]} /> vs week of {weeks[prev]}
+              </div>
+            </div>
+            <div className="lb-tile static">
+              <div className="lb-lbl">This week so far · day {day} of 7</div>
+              <div className="lb-val">{formatUsd(totals[cur])}</div>
+              <div className="wc-sub">on pace for {formatUsd((totals[cur] * 7) / day)}</div>
+            </div>
+            <div className="lb-tile static">
+              <div className="lb-lbl">Weekly average · {f.period}</div>
+              <div className="lb-val">{full.length ? formatUsd(sum(full) / full.length) : "—"}</div>
+              <div className="wc-sub">full weeks only</div>
+            </div>
+            <div className="lb-tile static">
+              <div className="lb-lbl">Biggest mover</div>
+              <div className="lb-val wc-mover">{big ? big.name : "—"}</div>
+              <div className="wc-sub">{big && <Delta a={big.a} b={big.b} />}</div>
+            </div>
+          </div>
+          <div className="wc-row">
+            <div className="lb-panel wc-chartpanel">
+              <div className="lb-panel-h">
+                <span>{title}</span>
+              </div>
+              <div className="lb-panel-b wc-chart">
+                <div className="wc-legend">
+                  {series.map((s) => (
+                    <span key={s.name}>
+                      <Swatch color={s.color} />
+                      {s.name}
+                    </span>
+                  ))}
+                </div>
+                <Chart weeks={weeks} series={series} totals={totals} />
+              </div>
+            </div>
+            <div className="lb-panel wc-moved">
+              <div className="lb-panel-h">
+                <span>
+                  What moved, week of {weeks[last]} vs {weeks[prev]}
+                </span>
+              </div>
+              <div className="lb-scroll">
+                <table className="lb-table">
+                  <thead>
+                    <tr>
+                      <th>{f.split}</th>
+                      <th>{weeks[last]}</th>
+                      <th>{weeks[prev]}</th>
+                      <th>Change</th>
+                      <th>Share of last week</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {moved.map((m) => (
+                      <tr key={m.name}>
+                        <td>
+                          <Swatch color={m.color} />
+                          {m.name}
+                        </td>
+                        <td>{formatUsd(m.a)}</td>
+                        <td>{formatUsd(m.b)}</td>
+                        <td>
+                          <Delta a={m.a} b={m.b} />
+                        </td>
+                        <td>
+                          {totals[last] ? `${share(m.a).toFixed(0)}%` : "—"}
+                          <span className="wc-sharebar">
+                            <span style={{ width: `${share(m.a)}%` }} />
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </section>
   );
 }

@@ -3,7 +3,10 @@ import { FIXTURE_NOW } from "./support";
 
 // Captures of the reworked Trend over time view (KAN-1051, decision
 // trend-capture-spec): the default view at 1280px, the same at 390px, and the
-// chart's week-hover state -- every one full page. The view's Period chips are
+// chart's week-hover state -- every one full page -- plus a 1600px capture. The
+// chart is drawn at the approved Trend prototype's fixed 1029 x 300 and sits in
+// one wrapping row with the By week table (decision trend-chart-beside-by-week):
+// at 1280px By week wraps below the chart, at 1600px it sits to its right. The view's Period chips are
 // a rolling window ending now, so the clock is pinned to the UI-test fixture's
 // FIXTURE_NOW (its timestamps are fixed at seed time).
 //
@@ -87,4 +90,22 @@ test("trend chart hover paints the band, guide and tip together", async ({ page 
   const enter = probe.find((p) => p.band);
   expect(enter).toEqual({ band: true, guide: true, tip: true });
   expect(probe.at(-1)).toEqual({ band: false, guide: false, tip: false });
+});
+
+test("trend at 1600px puts By week beside the chart", async ({ page }) => {
+  const panel = (title: string) => page.locator(".lb-panel").filter({ has: page.locator(".lb-panel-h span", { hasText: new RegExp(`^${title}$`) }) });
+  const chart = panel("Cost per finished change, by week");
+  const byWeek = panel("By week");
+  await page.setViewportSize({ width: 1600, height: 1024 });
+  await openAndAssert(page);
+  let c = (await chart.boundingBox())!;
+  let b = (await byWeek.boundingBox())!;
+  expect(b.x).toBeGreaterThan(c.x + c.width);
+  expect(b.y).toBe(c.y);
+  await expect(page).toHaveScreenshot("trend-xwide.png", { fullPage: true });
+
+  await page.setViewportSize({ width: 1280, height: 1024 });
+  c = (await chart.boundingBox())!;
+  b = (await byWeek.boundingBox())!;
+  expect(b.y).toBeGreaterThan(c.y + c.height);
 });

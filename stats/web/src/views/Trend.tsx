@@ -17,19 +17,18 @@
 // changes finished in the `agents` project, whatever the Command and Project
 // chips say (trend-flow-changes-agents-project). A week with no finished
 // change is a gap in both lines and "—" in the table, never $0.
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import type { TrendChange } from "../api";
-import { Chip } from "../components/Chip";
+import { Chip, ChipGroup } from "../components/Chip";
 import { Panel } from "../components/Panel";
-import { DAY_MS } from "../format";
 import { useStatsView } from "../hooks/useStatsView";
 import { projectLabel } from "../lib/projectLabel";
+import { weekWindow } from "../lib/weekWindow";
 import type { ViewProps } from "../viewTypes";
 
 const PERIOD_WEEKS = { "8w": 8, "12w": 12, "26w": 26 } as const;
 type PeriodChip = keyof typeof PERIOD_WEEKS;
-const WEEK_MS = 7 * DAY_MS;
 
 interface Filters {
   period: PeriodChip;
@@ -40,15 +39,9 @@ interface Filters {
   weeks: string[];
 }
 
-// The N Wednesday weeks ending with the current one, from that first
-// Wednesday 00:00 UTC to now; computed only when a Period chip is chosen.
+// Computed only when a Period chip is chosen.
 function windowFor(period: PeriodChip): Pick<Filters, "period" | "from" | "to" | "weeks"> {
-  const to = Date.now();
-  const day = Math.floor(to / DAY_MS) * DAY_MS;
-  const current = day - ((new Date(day).getUTCDay() + 4) % 7) * DAY_MS;
-  const n = PERIOD_WEEKS[period];
-  const weeks = Array.from({ length: n }, (_, i) => new Date(current - (n - 1 - i) * WEEK_MS).toISOString().slice(0, 10));
-  return { period, from: new Date(current - (n - 1) * WEEK_MS), to: new Date(to), weeks };
+  return { period, ...weekWindow(PERIOD_WEEKS[period], Date.now()) };
 }
 
 const defaults = (): Filters => ({ ...windowFor("12w"), command: "/flow", project: null });
@@ -72,15 +65,6 @@ function Delta({ cur, prev }: { cur: number | null; prev: number | null }) {
   return <span className={d > 0 ? "up" : "down"}>{`${s}${usd(Math.abs(d))} (${s}${p}%)`}</span>;
 }
 
-function Group({ name, children }: { name: string; children: ReactNode }) {
-  return (
-    <span className="lb-fgroup" role="group" aria-label={name}>
-      <span className="lb-fl">{name}</span>
-      {children}
-    </span>
-  );
-}
-
 interface Point {
   w: string;
   n: number;
@@ -98,6 +82,11 @@ const W = 960,
   T = 12,
   B = 34,
   FCH = 46;
+// Rendered at the approved Trend prototype's scale, never with the viewport
+// (decision trend-chart-beside-by-week): the geometry above stays, so no tick
+// or label coordinate moves.
+const SW = 1029,
+  SH = 300;
 const plotB = H - B - FCH - 8;
 
 function Chart({ pts }: { pts: Point[] }) {
@@ -136,15 +125,15 @@ function Chart({ pts }: { pts: Point[] }) {
     const chart = chartRef.current;
     const tip = tipRef.current;
     if (hover == null || !chart || !tip) return;
-    const sx = chart.clientWidth / W;
+    const sx = SW / W;
     const left = x(hover) * sx + 12;
-    tip.style.left = (left + tip.offsetWidth > chart.clientWidth ? x(hover) * sx - tip.offsetWidth - 12 : left) + "px";
+    tip.style.left = (left + tip.offsetWidth > SW ? x(hover) * sx - tip.offsetWidth - 12 : left) + "px";
     tip.style.top = "8px";
   });
 
   return (
     <div className="tr-chart" ref={chartRef}>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Cost per finished change by week">
+      <svg viewBox={`0 0 ${W} ${H}`} width={SW} height={SH} role="img" aria-label="Cost per finished change by week">
         <g className="grid">
           {ticks.map((t) => (
             <line key={t} x1={L} x2={W - R} y1={y(t)} y2={y(t)} />
@@ -190,7 +179,7 @@ function Chart({ pts }: { pts: Point[] }) {
         {hp && (
           <>
             <b>Week of {wkLabel(hp.w)}</b>
-            {hp.n ? `${hp.n} changes · median ${usd(hp.med!)} · mean ${usd(hp.mean!)}` : "no finished changes"}
+            {hp.n ? `${hp.n} ${hp.n === 1 ? "change" : "changes"} · median ${usd(hp.med!)} · mean ${usd(hp.mean!)}` : "no finished changes"}
             <br />
             {hp.fc} flow changes landed
           </>
@@ -230,22 +219,22 @@ export function Trend(_props: ViewProps) {
         <p className="lb-sub">Is a finished change getting cheaper as flow changes?</p>
       </div>
       <div className="lb-fbar" role="toolbar" aria-label="Filters">
-        <Group name="Period">
+        <ChipGroup name="Period">
           {(Object.keys(PERIOD_WEEKS) as PeriodChip[]).map((p) => (
             <Chip key={p} on={f.period === p} onClick={() => setF({ ...f, ...windowFor(p) })}>
               {p}
             </Chip>
           ))}
-        </Group>
-        <Group name="Command">
+        </ChipGroup>
+        <ChipGroup name="Command">
           {cmds.map((c) => (
             <Chip key={c} on={f.command === c} onClick={() => setF({ ...f, command: c, project: null })}>
               {c}
               <span className="lb-c">{inWin.filter((x) => x.command === c).length}</span>
             </Chip>
           ))}
-        </Group>
-        <Group name="Project">
+        </ChipGroup>
+        <ChipGroup name="Project">
           <Chip on={f.project === null} onClick={() => setF({ ...f, project: null })}>
             All
           </Chip>
@@ -255,7 +244,7 @@ export function Trend(_props: ViewProps) {
               <span className="lb-c">{n}</span>
             </Chip>
           ))}
-        </Group>
+        </ChipGroup>
         {offDefaults && (
           <button type="button" className="lb-fclear" onClick={() => setF(defaults())}>
             Clear filters
@@ -288,74 +277,76 @@ export function Trend(_props: ViewProps) {
               <span className="tr-note">changes finished in agents, every command</span>
             </div>
           </div>
-          <div className="lb-panel">
-            <div className="lb-panel-h">
-              <span>Cost per finished change, by week</span>
-              <span className="lb-panel-note">{`${f.command}${f.project ? " · " + projectLabel(f.project) : ""}`}</span>
-            </div>
-            <div className="lb-panel-b">
-              <div className="tr-legend">
-                <span>
-                  <i></i>Median
-                </span>
-                <span>
-                  <i className="mean"></i>Mean
-                </span>
-                <span>
-                  <i className="fc"></i>Flow changes landed
-                </span>
+          <div className="tr-row">
+            <div className="lb-panel tr-chartpanel">
+              <div className="lb-panel-h">
+                <span>Cost per finished change, by week</span>
+                <span className="lb-panel-note">{`${f.command}${f.project ? " · " + projectLabel(f.project) : ""}`}</span>
               </div>
-              <Chart pts={pts} />
+              <div className="lb-panel-b">
+                <div className="tr-legend">
+                  <span>
+                    <i></i>Median
+                  </span>
+                  <span>
+                    <i className="mean"></i>Mean
+                  </span>
+                  <span>
+                    <i className="fc"></i>Flow changes landed
+                  </span>
+                </div>
+                <Chart pts={pts} />
+              </div>
             </div>
-          </div>
-          <div className="lb-panel">
-            <div className="lb-panel-h">
-              <span>By week</span>
-              <span className="lb-panel-note">weeks start Wednesday 00:00 UTC</span>
-            </div>
-            <div className="lb-scroll">
-              {!rows.length ? (
-                <div className="tr-empty">No finished changes in this period.</div>
-              ) : (
-                <table className="lb-table">
-                  <thead>
-                    <tr>
-                      <th>Week</th>
-                      <th className="r">Changes</th>
-                      <th className="r">Median</th>
-                      <th className="r">vs previous week</th>
-                      <th className="r">Mean</th>
-                      <th className="r">Spend</th>
-                      <th className="r">Flow changes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pts
-                      .map((p, i) => (
-                        <tr key={p.w}>
-                          <td>
-                            {wkLabel(p.w)}
-                            {i === pts.length - 1 && (
-                              <>
-                                {" "}
-                                <span className="lb-muted">so far</span>
-                              </>
-                            )}
-                          </td>
-                          <td className="r">{p.n}</td>
-                          <td className="r">{p.med == null ? "—" : usd(p.med)}</td>
-                          <td className="r">
-                            <Delta cur={p.med} prev={i > 0 ? pts[i - 1].med : null} />
-                          </td>
-                          <td className="r">{p.mean == null ? "—" : usd(p.mean)}</td>
-                          <td className="r">{p.n ? usd(p.total) : "—"}</td>
-                          <td className="r">{p.fc}</td>
-                        </tr>
-                      ))
-                      .reverse()}
-                  </tbody>
-                </table>
-              )}
+            <div className="lb-panel tr-byweek">
+              <div className="lb-panel-h">
+                <span>By week</span>
+                <span className="lb-panel-note">weeks start Wednesday 00:00 UTC</span>
+              </div>
+              <div className="lb-scroll">
+                {!rows.length ? (
+                  <div className="tr-empty">No finished changes in this period.</div>
+                ) : (
+                  <table className="lb-table">
+                    <thead>
+                      <tr>
+                        <th>Week</th>
+                        <th className="r">Changes</th>
+                        <th className="r">Median</th>
+                        <th className="r">vs previous week</th>
+                        <th className="r">Mean</th>
+                        <th className="r">Spend</th>
+                        <th className="r">Flow changes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pts
+                        .map((p, i) => (
+                          <tr key={p.w}>
+                            <td>
+                              {wkLabel(p.w)}
+                              {i === pts.length - 1 && (
+                                <>
+                                  {" "}
+                                  <span className="lb-muted">so far</span>
+                                </>
+                              )}
+                            </td>
+                            <td className="r">{p.n}</td>
+                            <td className="r">{p.med == null ? "—" : usd(p.med)}</td>
+                            <td className="r">
+                              <Delta cur={p.med} prev={i > 0 ? pts[i - 1].med : null} />
+                            </td>
+                            <td className="r">{p.mean == null ? "—" : usd(p.mean)}</td>
+                            <td className="r">{p.n ? usd(p.total) : "—"}</td>
+                            <td className="r">{p.fc}</td>
+                          </tr>
+                        ))
+                        .reverse()}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             </div>
           </div>
         </>

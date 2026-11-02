@@ -57,7 +57,7 @@ func (f *fakeStore) WeeklyCosts(_ context.Context, _ store.Period, project, _ *s
 	f.lastStatsProject = project
 	return nil, nil
 }
-func (f *fakeStore) WeeklyModelEffortCosts(_ context.Context, _ store.Period) ([]store.WeeklyModelEffortPoint, error) {
+func (f *fakeStore) WeeklyModelEffortCosts(_ context.Context, _ store.Period, _ *string) ([]store.WeeklyModelEffortPoint, error) {
 	return nil, nil
 }
 func (f *fakeStore) Reviewers(_ context.Context, _ store.Period, project, _ *string) ([]store.ReviewerRow, error) {
@@ -215,7 +215,8 @@ func (f *statsFake) WeeklyCosts(_ context.Context, _ store.Period, p, m *string)
 	f.lastProject, f.lastModel = p, m
 	return f.weeklyCosts, f.aggErr
 }
-func (f *statsFake) WeeklyModelEffortCosts(_ context.Context, _ store.Period) ([]store.WeeklyModelEffortPoint, error) {
+func (f *statsFake) WeeklyModelEffortCosts(_ context.Context, _ store.Period, p *string) ([]store.WeeklyModelEffortPoint, error) {
+	f.lastProject = p
 	return f.weeklyModelEffortCosts, f.aggErr
 }
 func (f *statsFake) Reviewers(_ context.Context, _ store.Period, p, m *string) ([]store.ReviewerRow, error) {
@@ -502,7 +503,8 @@ func TestStageLeaderboardMainFields(t *testing.T) {
 
 // TestStatsStageLeaderboardProjects: the stage-leaderboard response carries
 // every project's spend in the window, whatever project its rows narrow to
-// (decision leaderboard-project-chips-with-spend); no other view gains it.
+// (decision leaderboard-project-chips-with-spend); no view but weekly-costs
+// gains it.
 func TestStatsStageLeaderboardProjects(t *testing.T) {
 	const key = "agents-a740d89c"
 	sts := &statsFake{stageLeaderboardProjects: []store.ProjectSpend{{ProjectKey: key, TotalCostUSD: 12.5}}}
@@ -2046,8 +2048,8 @@ func TestStatsWeeklyCostsCarriesVisualVerify(t *testing.T) {
 }
 
 // TestStatsWeeklyModelEffortCosts pins the weekly-model-effort-costs view
-// (model-effort-view): long rows from WeeklyModelEffortCosts, with project
-// and model query parameters ignored.
+// (model-effort-view): long rows from WeeklyModelEffortCosts, with the
+// model query parameter ignored.
 func TestStatsWeeklyModelEffortCosts(t *testing.T) {
 	week := time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC)
 	sts := &statsFake{weeklyModelEffortCosts: []store.WeeklyModelEffortPoint{
@@ -2074,6 +2076,65 @@ func TestStatsWeeklyModelEffortCosts(t *testing.T) {
 	}
 	if got := rows[1]; got.Effort != "session" || got.CostUSD != 6 {
 		t.Errorf("rows[1] = %+v, want session 6", got)
+	}
+}
+
+// TestStatsWeeklyModelEffortCostsHonoursProject pins
+// model-effort-project-param: the resolved project reaches the store, and
+// nil when the request names none.
+func TestStatsWeeklyModelEffortCostsHonoursProject(t *testing.T) {
+	const key = "agents-a740d89c"
+	sts := &statsFake{}
+	ts := newStatsTestServer(t, sts)
+	status, _, body := getStats(t, ts, periodPath("weekly-model-effort-costs")+"&project="+key)
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	if sts.lastProject == nil || *sts.lastProject != key {
+		t.Errorf("project = %v, want %q", sts.lastProject, key)
+	}
+	status, _, body = getStats(t, ts, periodPath("weekly-model-effort-costs"))
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	if sts.lastProject != nil {
+		t.Errorf("project = %q, want nil", *sts.lastProject)
+	}
+}
+
+// TestStatsWeeklyCostsAnswersProjects pins weekly-costs-answers-projects:
+// with projects=1 the weekly-costs response carries StageLeaderboardProjects'
+// list in its order; without it, no projects key.
+func TestStatsWeeklyCostsAnswersProjects(t *testing.T) {
+	sts := &statsFake{stageLeaderboardProjects: []store.ProjectSpend{
+		{ProjectKey: "proj-a", TotalCostUSD: 12.5},
+		{ProjectKey: "proj-b", TotalCostUSD: 3},
+	}}
+	ts := newStatsTestServer(t, sts)
+	status, _, body := getStats(t, ts, periodPath("weekly-costs")+"&projects=1")
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	var got struct {
+		Projects []map[string]any `json:"projects"`
+	}
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("decode: %v (body %s)", err, body)
+	}
+	if len(got.Projects) != 2 || got.Projects[0]["projectKey"] != "proj-a" || got.Projects[0]["totalCostUsd"] != 12.5 ||
+		got.Projects[1]["projectKey"] != "proj-b" || got.Projects[1]["totalCostUsd"] != 3.0 {
+		t.Errorf("projects = %v, want [proj-a 12.5, proj-b 3]", got.Projects)
+	}
+	status, _, body = getStats(t, ts, periodPath("weekly-costs"))
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(body, &raw); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if _, ok := raw["projects"]; ok {
+		t.Errorf("weekly-costs without projects=1 carries projects: %s", body)
 	}
 }
 

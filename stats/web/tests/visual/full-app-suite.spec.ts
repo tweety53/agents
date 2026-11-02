@@ -38,7 +38,7 @@ test.describe("full app suite", () => {
     });
   }
 
-  // Weekly costs' 8-week table reads the browser clock, so it is pinned
+  // Weekly costs' week window reads the browser clock, so it is pinned
   // the way weekly-costs.spec.ts pins it.
   test("weekly-costs screen", async ({ page }) => {
     await page.clock.install({ time: new Date("2026-08-16T12:00:00Z") });
