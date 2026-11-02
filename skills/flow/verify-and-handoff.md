@@ -213,6 +213,13 @@ fewest inputs that still prove the claim — and widens only once that run
 passes (kan-1075 self-review, F3: `--parallel 2` exhausted the Docker VM's memory and only
 `--parallel 1` ran).
 
+**A check command that outlasts the Bash tool's foreground limit runs with the tool's
+`run_in_background`**, its log and exit status written under the change's directory (**A
+change's directory**, `skills/flow-contracts/pipeline.md`) rather than a fixed `/tmp` path, and
+the parent waits on the tool's completion notice — never a hand-built `nohup` and a polling loop
+(kan-1075 self-review, F7: seven polls of a fixed `/tmp/live.exit` path, each at a 270k-token
+context).
+
 ### Close the stage
 
 **Load `skills/flow-contracts/session-records.md`** before reading the render outcome below.
