@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 )
 
 // TestLiveStoreCopy ports scripts/test-live-store-copy.sh: live-store-copy
@@ -132,6 +133,28 @@ chmod +x "$out"
 	t.Run("restart with no up is refused before any side effect", func(t *testing.T) {
 		resetLog()
 		nothingRan(t, lsc(nil, "restart", name))
+	})
+
+	t.Run("up fails, never hangs, when psql exits before pg_dump is done", func(t *testing.T) {
+		early := t.TempDir()
+		// pg_dump writes far past a pipe buffer; psql reads nothing and fails.
+		writeExec(t, early+"/docker", `#!/usr/bin/env bash
+case "$*" in
+*pg_dump*) head -c 4194304 /dev/zero ;;
+*psql\ -q*) exit 1 ;;
+esac
+`)
+		done := make(chan int, 1)
+		go func() { done <- lsc(map[string]string{"PATH": early + ":" + vars["PATH"]}, "up", name, port) }()
+		select {
+		case rc := <-done:
+			if rc != 1 || !strings.Contains(out, "copy into "+db+" failed") {
+				t.Errorf("exit %d, want 1 with copy failure: %s", rc, out)
+			}
+		case <-time.After(10 * time.Second):
+			t.Fatal("up still running after 10 s with psql gone")
+		}
+		_, _ = os.RemoveAll(dir), os.RemoveAll(sdd)
 	})
 
 	var pid int

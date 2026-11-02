@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -234,21 +235,31 @@ func (l *lsc) step(cmd *exec.Cmd) {
 func (l *lsc) copyStore() bool {
 	dump := l.pg("pg_dump", "-U", "flow", "--no-owner", "--no-acl", "flow")
 	restore := l.pg("psql", "-q", "-v", "ON_ERROR_STOP=1", "-U", "flow", "-d", l.db)
-	pipe, err := dump.StdoutPipe()
+	// An os.Pipe the parent closes once both ends have started, never
+	// StdoutPipe: that keeps a read end open in the guard until dump.Wait, so
+	// a psql that exits early leaves pg_dump blocked on a full pipe forever
+	// instead of dying of SIGPIPE as the bash pipeline's did.
+	r, w, err := os.Pipe()
 	if err != nil {
 		return false
 	}
 	// Both ends write the one stderr, as the bash pipeline's shared fd did;
 	// a writer that is not a file is copied into by a goroutine per end.
 	shared := &lscLockedWriter{w: l.stderr}
-	dump.Stderr, restore.Stdin, restore.Stderr = shared, pipe, shared
-	if err := dump.Start(); err != nil {
-		return false
+	dump.Stdout, dump.Stderr, restore.Stdin, restore.Stderr = w, shared, r, shared
+	dumpStarted, restoreStarted := dump.Start() == nil, restore.Start() == nil
+	_, _ = r.Close(), w.Close()
+	var dumpErr, restoreErr error = errLscNotStarted, errLscNotStarted
+	if dumpStarted {
+		dumpErr = dump.Wait()
 	}
-	restoreErr := restore.Run()
-	dumpErr := dump.Wait()
+	if restoreStarted {
+		restoreErr = restore.Wait()
+	}
 	return restoreErr == nil && dumpErr == nil
 }
+
+var errLscNotStarted = errors.New("not started")
 
 // lscLockedWriter serialises the writes of the processes that share it.
 type lscLockedWriter struct {
