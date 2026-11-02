@@ -183,3 +183,56 @@ func TestVisualVerifyPassMeasureUsage(t *testing.T) {
 		t.Fatalf("unwritable output directory: exit %d, stderr %q, want 2", rc, stderr)
 	}
 }
+
+// Regression (kan-1057 self-review, F2): a per-spec --prototype measure over a
+// map naming another spec's screenshot failed at compose and deleted that
+// spec's matrix and band files.
+func TestVisualVerifyPassMeasurePrototypeKeepsOtherSpec(t *testing.T) {
+	t.Parallel()
+	f := vvmFixture(t, "a.png frame-a\n")
+	writeFile(t, filepath.Join(f.wt, "tests/visual/other.spec.ts"), "// spec\n")
+	vvmPNG(t, filepath.Join(f.wt, "tests/visual/other.spec.ts-snapshots/c-darwin.png"), 0)
+	vvmPNG(t, filepath.Join(f.changeRoot, "visual-verification/prototype/a-darwin.png"), 4)
+	vvmPNG(t, filepath.Join(f.changeRoot, "visual-verification/prototype/c-darwin.png"), 0)
+	sidecar := filepath.Join(f.changeRoot, "visual-verification/prototype.mockups")
+	const body = "frame none\na.png a-darwin\nc.png c-darwin\n"
+	writeFile(t, sidecar, body)
+	kept := []string{
+		filepath.Join(f.changeRoot, "visual-verification/matrix/c-darwin.json"),
+		filepath.Join(f.wt, ".superpowers/sdd/visual-measure-proto/c-darwin.json"),
+	}
+	for _, k := range kept {
+		writeFile(t, k, `{"keep":true}`)
+	}
+	rc, stdout, stderr := f.run(t, f.wt, "demo", "proto", "tests/visual/app.spec.ts", "--prototype")
+	if rc != 0 {
+		t.Fatalf("exit %d, stdout %q, stderr %q", rc, stdout, stderr)
+	}
+	m := f.manifest(t, "proto")
+	if len(m.Pairs) != 1 || m.Pairs[0].Frame != "a-darwin" {
+		t.Fatalf("pairs %+v, want exactly a-darwin", m.Pairs)
+	}
+	if e := m.Pairs[0].Exits["compose"]; e == nil || *e != 0 {
+		t.Fatalf("a-darwin compose exit %v, want 0", e)
+	}
+	for _, k := range kept {
+		if b, err := os.ReadFile(k); err != nil || string(b) != `{"keep":true}` {
+			t.Fatalf("%s: %q %v, want it untouched", k, b, err)
+		}
+	}
+	if b, _ := os.ReadFile(sidecar); string(b) != body {
+		t.Fatalf("prototype.mockups rewritten: %q", b)
+	}
+}
+
+// A --prototype measure with no prototype.mockups still fails: compose runs
+// over the missing map and its exit 2 surfaces (kan-1057 self-review, R2).
+func TestVisualVerifyPassMeasurePrototypeMissingMap(t *testing.T) {
+	t.Parallel()
+	f := vvmFixture(t, "a.png frame-a\n")
+	vvmPNG(t, filepath.Join(f.changeRoot, "visual-verification/prototype/a-darwin.png"), 4)
+	rc, stdout, stderr := f.run(t, f.wt, "demo", "proto", "tests/visual/app.spec.ts", "--prototype")
+	if rc == 0 {
+		t.Fatalf("exit 0 with no prototype.mockups, stdout %q, stderr %q", stdout, stderr)
+	}
+}

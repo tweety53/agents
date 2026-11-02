@@ -189,7 +189,10 @@
 #      piped into check-identical-baselines.sh.
 #   2. with the `<spec path>.mockups` sidecar and a declared `mockups` root —
 #      or, under --prototype, <changeRoot>/visual-verification/prototype.mockups
-#      and <changeRoot>/visual-verification/prototype/ — the resolver's output
+#      and <changeRoot>/visual-verification/prototype/ — under --prototype
+#      only the map's lines whose screenshot this spec resolves, copied to
+#      <worktree>/.superpowers/sdd/visual-measure-<key>/prototype.mockups
+#      (kan-1057 self-review, F2) — the resolver's output
 #      piped into compose-mockup-frames.sh <sidecar> <mockups root>
 #      <changeRoot>/visual-verification [<mockup frame>] (no fourth argument
 #      under --prototype or without a declared `mockup frame`). Neither: the

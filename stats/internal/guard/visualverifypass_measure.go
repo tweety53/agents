@@ -123,17 +123,30 @@ func (v *vvp) measure(args []string) {
 	}
 
 	// Each map line is one pair; a stale cropped frame from an earlier run
-	// must not stand in for one this compose did not write.
-	body, _ := os.ReadFile(sidecar)
+	// must not stand in for one this compose did not write. The prototype map
+	// is shared by every spec: a line whose screenshot this spec does not
+	// resolve belongs to another spec's measure and is left alone (kan-1057
+	// self-review, F2). A map that cannot be read is composed over as it
+	// stands, so compose's own refusal surfaces.
+	body, readErr := os.ReadFile(sidecar)
 	type line struct{ name, frame string }
 	var lines []line
+	own := "frame none\n"
 	for _, raw := range strings.Split(string(body), "\n") {
 		f := strings.Fields(raw)
 		if len(f) != 2 || f[0] == "frame" || strings.HasPrefix(f[0], "#") {
 			continue
 		}
+		if prototype && len(cmfMatchCapture(f[0], m.Captures)) == 0 {
+			continue
+		}
 		lines = append(lines, line{f[0], f[1]})
+		own += f[0] + " " + f[1] + "\n"
 		_ = os.Remove(filepath.Join(vvDir, strings.TrimSuffix(f[0], ".png")+".frame.png"))
+	}
+	if prototype && readErr == nil {
+		sidecar = filepath.Join(bandsDir, "prototype.mockups")
+		v.writeOut(sidecar, own)
 	}
 	composeArgs := []string{sidecar, mockups, vvDir}
 	if frameArg != "" {
