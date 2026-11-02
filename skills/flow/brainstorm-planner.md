@@ -282,6 +282,11 @@ the block applied before writing the tag, fixes every red line in the block itse
 self-review: task 2's prose diff, tagged `verified:` after a scratch apply, failed
 `check-installed-citations.sh` and `check-guard-symlinks.sh` at implementation).
 
+**A `verified:` block for a parser or validator is run on what it must refuse.** Planning runs it
+on one rejecting input per rejection the plan states, beside its accepting ones, and the tag names
+each rejecting input it ran (kan-1075 self-review, F6: a `verified:` regex was run on four accepting
+lines and on none of the empty reason its step promised to refuse).
+
 **A task premise about a guard's behaviour is run at plan time, never assumed.** When a task
 written here rests on what a guard or check currently does — that a ratchet trips or does not,
 an exit code, the figures a guard prints — planning runs that guard before the task is written
@@ -328,6 +333,10 @@ with `**Build:**` per **The build-green tag**
   not** — the recognition ends on a word boundary, and `_` is a word character, so the trailing
   underscore swallows it.
 - `**Regression:**` — per declared test, what fails if this task's commit is reverted.
+  Every `## Decisions` entry whose `**Chosen:**` states runtime behaviour — a deadline, a
+  cancellation path, a retry, a sweep — is pinned by a test some task names in `**Tests:**`
+  (kan-1075 self-review, F6: decisions `judge-on-last-trial` and `judge-deadline` named no test,
+  and the panel found both behaviours untested).
 - `**Baseline:**` — the expected test counts, as `before=<N> after=<N>`, on ONE convention the
   plan states in its own header (`> **Baseline convention:**`, seeded below), so later tasks
   cannot drift between counting methods: **chain-position absolutes against each commit's
