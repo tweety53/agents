@@ -15,38 +15,14 @@
 # cap with one line naming those still running — call again; exit 2 on no
 # argument, an agent id with no meta.json, or a cap
 # ($AWAIT_SUB_AGENTS_SECONDS) above 240.
-set -u
-root=${CLAUDE_PROJECTS_DIR:-$HOME/.claude/projects}
-cap=${AWAIT_SUB_AGENTS_SECONDS:-110}
-if [ $# -eq 0 ]; then
-  echo "usage: await-sub-agents.sh <agent id>..." >&2
+#
+# flow-guard is built from this checkout, never taken from PATH:
+# scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
+# cannot-answer code) with the cause when it cannot.
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+[ -r "$SCRIPT_DIR/lib/flow-guard.sh" ] && . "$SCRIPT_DIR/lib/flow-guard.sh" || {
+  echo "await-sub-agents: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
-fi
-if ! [[ $cap =~ ^[0-9]+$ ]] || [ "$cap" -gt 240 ]; then
-  echo "await-sub-agents: AWAIT_SUB_AGENTS_SECONDS must be 0-240, got $cap" >&2
-  exit 2
-fi
-
-metas=()
-for id in "$@"; do
-  m=$(find "$root" -path "*/subagents/agent-$id.meta.json" -print -quit 2>/dev/null)
-  if [ -z "$m" ]; then
-    echo "await-sub-agents: no meta.json for agent $id under $root" >&2
-    exit 2
-  fi
-  metas+=("$m")
-done
-
-deadline=$(( $(date +%s) + cap ))
-while :; do
-  running=()
-  for i in "${!metas[@]}"; do
-    grep -q '"finished"[[:space:]]*:[[:space:]]*true' "${metas[$i]}" || running+=("${@:i+1:1}")
-  done
-  [ ${#running[@]} -eq 0 ] && exit 0
-  if [ "$(date +%s)" -ge "$deadline" ]; then
-    echo "still running: ${running[*]}"
-    exit 1
-  fi
-  sleep 2
-done
+}
+flow_guard_exec await-sub-agents 2 "await-sub-agents:" "$@"
