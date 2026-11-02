@@ -355,124 +355,6 @@ th button {
   fill: var(--series-1);
 }
 
-/* Weekly costs' own chart (KAN-1038): a pill row of series toggles over
-   one labelled SVG plot, with week-over-week delta pills and a tooltip. */
-.weekly-toggles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
-}
-
-.weekly-toggles button {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  border: var(--panel-border-width) solid var(--border-strong);
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--text-primary);
-  font: inherit;
-  cursor: pointer;
-}
-
-.weekly-toggles button[aria-pressed="false"] {
-  opacity: 0.4;
-}
-
-.weekly-swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-}
-
-.weekly-plot {
-  position: relative;
-}
-
-.weekly-plot svg {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.weekly-axis line {
-  stroke: var(--border);
-}
-
-.weekly-axis text {
-  fill: var(--text-muted);
-  font-size: 11px;
-}
-
-.weekly-line {
-  stroke-width: 2.5;
-}
-
-.weekly-point {
-  stroke: transparent;
-  stroke-width: 10;
-  cursor: pointer;
-}
-
-.weekly-delta {
-  font-size: 10px;
-  font-weight: 600;
-  pointer-events: none;
-}
-
-.weekly-delta rect {
-  fill: var(--surface-panel);
-}
-
-.weekly-delta text {
-  fill: var(--text-primary);
-}
-
-.weekly-delta line {
-  stroke-width: 1;
-}
-
-.weekly-delta .delta-up {
-  fill: var(--delta-up);
-}
-
-.weekly-delta .delta-down {
-  fill: var(--delta-down);
-}
-
-.weekly-delta .delta-flat {
-  fill: var(--text-muted);
-}
-
-.weekly-tooltip {
-  position: absolute;
-  transform: translate(12px, -110%);
-  box-sizing: content-box;
-  width: 150px;
-  padding: 6px 10px;
-  border: var(--panel-border-width) solid var(--border-strong);
-  border-radius: 6px;
-  background: var(--surface-panel);
-  color: var(--text-primary);
-  font-size: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  pointer-events: none;
-}
-
-.weekly-tooltip-left {
-  transform: translate(calc(-100% - 12px), -110%);
-}
-
-.weekly-tooltip .delta-up {
-  color: var(--delta-up);
-}
-
-.weekly-tooltip .delta-down {
-  color: var(--delta-down);
-}
-
 /* Dashboard recomposition (task 20) -- every one of the nine dashboards
    is now ViewFrame's page chrome (title, description) wrapping a row of
    stat panels above a table or chart panel, following the layout
@@ -1173,3 +1055,34 @@ td.lb-clip { max-width: 0; width: 100%; }
 .tr-tip b { display: block; margin-bottom: 2px; }
 .tr .lb-table td.r, .tr .lb-table th.r { text-align: right; font-variant-numeric: tabular-nums; }
 .tr-empty { padding: 18px 12px; color: var(--text-muted); }
+
+/* Weekly costs (KAN-1057): wc-* rules for what the approved prototype draws that the
+   shared lb-* classes do not; everything else is theme.css + the lb-* rules above.
+   The chart panel and What moved sit in one wrapping row, the chart at its fixed
+   1140 x 300 and scrolling sideways where the row is narrower
+   (decision prototype-app-shell-fixed-chart). */
+.wc .up { color: var(--delta-up); }
+.wc .down { color: var(--delta-down); }
+.wc-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+.wc-chartpanel { flex: none; max-width: 100%; overflow-x: auto; }
+.wc-moved { flex: 1 1 380px; }
+.wc-sub { color: var(--text-secondary); }
+.wc-mover { font-size: 18px; padding: 3px 0; }
+.wc-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+.wc-sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.wc-chart { position: relative; }
+.wc-plot { position: relative; }
+.wc-plot svg { display: block; max-width: none; }
+.wc-chart svg text { fill: var(--text-muted); font-size: 11px; }
+.wc-chart svg text.wc-total { fill: var(--text-secondary); }
+.wc-chart .grid line { stroke: var(--border); }
+.wc-bar:hover, .wc-bar:focus { outline: none; filter: brightness(1.25); }
+.wc-tip { position: absolute; pointer-events: none; background: var(--surface-tip); border: 1px solid var(--border-strong); padding: 6px 9px;
+  border-radius: 4px; font-size: 12px; min-width: 200px; }
+.wc-tip table { border-collapse: collapse; width: 100%; }
+.wc-tip td { padding: 1px 0; }
+.wc-tip td + td { text-align: right; padding-left: 12px; font-variant-numeric: tabular-nums; }
+.wc .lb-table th:nth-child(n + 2), .wc .lb-table td:nth-child(n + 2) { text-align: right; font-variant-numeric: tabular-nums; }
+.wc-sharebar { display: inline-block; width: 60px; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;
+  vertical-align: middle; margin-left: 6px; }
+.wc-sharebar > span { display: block; height: 100%; background: var(--series-1); }

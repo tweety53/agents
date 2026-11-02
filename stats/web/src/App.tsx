@@ -238,8 +238,8 @@ export function App() {
             ))}
           </ul>
         </nav>
-        {/* Weekly costs always covers the last 8 weeks of every project and model (KAN-1038);
-            the live state board carries its own chip filters and an opened run none
+        {/* Weekly costs carries its own Period, Split by and Project chips (decision
+            chip-filters-period-split-project); the live state board carries its own chip filters and an opened run none
             (decision hide-dashboard-bar); the stage leaderboard carries its own Period, Project
             and Command chips (decision leaderboard-chip-filters); the trend view carries its own
             Period, Command and Project chips (decision trend-drops-daily-views); Experiments spans

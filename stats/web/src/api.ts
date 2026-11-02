@@ -123,7 +123,7 @@ export interface StatsViewParams {
    * (the stats-views requirement "A model restriction on the live
    * state board"). */
   model?: string;
-  /** Ask stage-leaderboard for its per-project spend (`projects=1`). */
+  /** Ask stage-leaderboard or weekly-costs for its per-project spend (`projects=1`). */
   projects?: boolean;
   /**
    * The command and stage naming the exact cost-per-change *row* to break
@@ -181,7 +181,7 @@ export interface StatsResponse<Row = unknown> {
    */
   excludedNoModel?: number;
   /**
-   * Present on `stage-leaderboard` only: each project with costed stage runs
+   * Present on `stage-leaderboard` and `weekly-costs` only: each project with costed stage runs
    * in the window and its spend, ordered by spend, computed ignoring the
    * `project` parameter (decision leaderboard-project-chips-with-spend).
    */
